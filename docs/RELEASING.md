@@ -4,9 +4,18 @@ Development happens in the private repository. Households get the app from the p
 `jouni-mikkola/omatalous`, which holds one commit per published snapshot. `tools/publish-public.sh` exports the
 committed tree of `HEAD` there and pushes `main`. With `--tag` it also pushes `vX.Y.Z`. The public repository's release
 workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/jouni-mikkola/omatalous`, signs it with cosign
-through GitHub OIDC and verifies the signature. The return page workflow publishes `relay/` to GitHub Pages on the same
-tags and on every push to `main` that changes `relay/`. The release workflow has no approval step. It runs when the
-owner pushes a tag, or by hand with *Run workflow* on `main`, which then creates the tag on that commit itself.
+through GitHub OIDC and verifies the signature with the function installs run (`scripts/lib/release.sh`). The return page
+workflow publishes `relay/` to GitHub Pages on the same tags and on every push to `main` that changes `relay/`. The
+release workflow has no approval step. It runs when a push to `main` brings a version that has no tag yet, when a tag
+is pushed, or by hand with *Run workflow* on `main`. On `main` it creates the tag on that commit itself. A push of a
+version that is released already does nothing.
+
+Installs before 0.5.1 accept only a signature from a run started by a push. 0.4.0 and 0.5.0 were released by hand, so
+those installs could not update to them. Release from a push (a new version on `main`, or a tag) while installs before
+0.5.1 are supported. A run started by hand stops unless its `signed_by_hand` box is ticked, because only 0.5.1 and later
+accept its signature. Retry a failed release with *Re-run failed jobs*, which keeps the push. Installs made from the
+public repository before 0.4.0 accept only a tag (`refs/tags/v…`), so a release from `main` needs one manual update
+there (CHANGELOG 0.5.1).
 
 The release and return page workflows run only in the public repository. The upgrade rehearsal runs only in the private
 one, because its baselines are private commits. CI runs in both. The script leaves out `.claude/`, the upgrade workflow,
@@ -22,20 +31,19 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 2. Write the `CHANGELOG.md` section. Add an Upgrade list when there are new migrations, changed defaults, new `.env` keys or
    something that stops working. The unreleased entries move under the new version heading.
 3. A schema change is a new file in `apps/server/migrations/`, additive, never an edit of an applied one.
-4. Add a frozen database fixture, `apps/server/test/fixtures/db/<version>.sql`.
-5. Add the new tag to `.github/upgrade-from.txt` and keep the oldest supported one. The floor is `90dc8f3` (`0.1.0`).
+4. Add a frozen database fixture, `apps/server/test/fixtures/db/<version>.sql`, when the schema changed.
+5. After the release, add the private commit it was published from to `.github/upgrade-from.txt` and keep the oldest
+   supported one. The floor is `90dc8f3` (`0.1.0`).
 6. `pnpm typecheck`, `pnpm test`, `pnpm build` and `pnpm e2e` are green. The `Upgrade / upgrade` check is green for every
    baseline. It also checks that each baseline's maintenance helper accepts the new `docker-compose.yml`, because installs
    update from the browser through the helper they already run (`tools/ci/compose-compat.sh`).
 7. Merge to `main` in the private repository and rename the `Unreleased` heading to the version. Run
-   `tools/publish-public.sh --tag` from a clean tree. It checks that `version.ts`, the three `package.json` files and
-   the top `CHANGELOG.md` heading agree and that the tag is free in both repositories, then publishes the snapshot and
-   the tag. It also puts the annotated tag `vX.Y.Z` on the private `HEAD` and pushes it to the private origin, so
-   `.github/upgrade-from.txt` can name it. The
-   workflow checks again that the tag equals `v` plus the app version. Use `tools/publish-public.sh` without
-   `--tag` for a snapshot that is not a release. Where pushing a tag is not possible, publish without `--tag` and run
-   the Release workflow by hand on `main` in the public repository. It takes the version from the tree, refuses a
-   version that already has a tag, and creates the tag and the release on the commit it built.
+   `tools/publish-public.sh` from a clean tree. The push of the new version to the public `main` starts the release
+   workflow. It checks that `version.ts`, the three `package.json` files and the top `CHANGELOG.md` heading agree,
+   builds, signs and creates the tag and the release on that commit. A snapshot that keeps the released version
+   publishes nothing. The script runs the version and CHANGELOG checks itself whenever the version has no public tag.
+   `--tag` pushes `main` and the tag in one atomic push from your machine and puts the annotated tag on the private
+   `HEAD`. The run for `main` then finds the tag and leaves the release to the tag's run.
 8. Wait for the release workflow in the public repository. When it finishes, press *Tarkista päivitykset* on a test install, then *Päivitä*.
 9. `TALOUS_CHANNEL=source` keeps an install on the source build. An install made from the `90dc8f3` baseline updates once
    with `git pull && docker compose up -d --build`.

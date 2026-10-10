@@ -2,8 +2,8 @@
 # from the caller, and IMAGE (the local image name, <name>:latest is what docker-compose.yml starts).
 # shellcheck shell=bash disable=SC2154
 
-# What a released image must be signed by: this project's release workflow, run for a version tag or by hand on main.
-# Keep in step with .github/workflows/release.yml (a test compares them).
+# What a released image must be signed by: this project's release workflow, run for a version tag or on main (a push of
+# a new version, or by hand). Keep in step with .github/workflows/release.yml (a test compares them).
 REGISTRY_IMAGE=ghcr.io/jouni-mikkola/omatalous
 SIGN_IDENTITY_REGEXP='^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$'
 SIGN_ISSUER='https://token.actions.githubusercontent.com'
@@ -16,15 +16,23 @@ image_label() { docker image inspect -f "{{index .Config.Labels \"$2\"}}" "$1" 2
 compose_compat() { git show "$1:docker-compose.yml" 2>/dev/null | sed -n 's/^x-talous-compat: *\([0-9][0-9]*\).*/\1/p' | head -1 || true; }
 # Checks the signature of an image by digest against this project's release workflow. cosign from the machine if
 # there is one, else a pinned cosign image. Fails closed.
-verify_signature() { # verify_signature IMAGE_BY_DIGEST COMMIT: also pins the commit the workflow ran on, from a tag push
-  local ref=$1 commit=$2 rc=0
-  local pin=(--certificate-github-workflow-sha "$commit" --certificate-github-workflow-trigger push)
+# The run that signed may have been started by a push or by hand. Installs before 0.5.1 accept only a push, so the
+# release workflow signs from a push while those are supported (docs/RELEASING.md).
+SIGN_TRIGGERS=(push workflow_dispatch)
+verify_signature() { # verify_signature IMAGE_BY_DIGEST COMMIT: also pins the commit the workflow ran on
+  local ref=$1 commit=$2 trigger
+  for trigger in "${SIGN_TRIGGERS[@]}"; do
+    cosign_verify "$ref" --certificate-github-workflow-sha "$commit" --certificate-github-workflow-trigger "$trigger" && return 0
+  done
+  return 1
+}
+cosign_verify() { # cosign_verify REF [extra cosign flags]: the identity and issuer every release must have
+  local ref=$1; shift
   if command -v cosign >/dev/null; then
-    cosign verify --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" --certificate-oidc-issuer "$SIGN_ISSUER" "${pin[@]}" "$ref" >/dev/null 2>&1 || rc=$?
+    cosign verify --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" --certificate-oidc-issuer "$SIGN_ISSUER" "$@" "$ref" >/dev/null 2>&1
   else
-    docker run --rm "$COSIGN_IMAGE" verify --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" --certificate-oidc-issuer "$SIGN_ISSUER" "${pin[@]}" "$ref" >/dev/null 2>&1 || rc=$?
+    docker run --rm "$COSIGN_IMAGE" verify --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" --certificate-oidc-issuer "$SIGN_ISSUER" "$@" "$ref" >/dev/null 2>&1
   fi
-  return "$rc"
 }
 # Pulls the release image, verifies it and tags it as $IMAGE:latest. $1 = tag (vX.Y.Z), $2 = the commit it was built from.
 fetch_release_image() {

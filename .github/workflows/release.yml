@@ -1,15 +1,29 @@
 name: Release
 
-# A tag vX.Y.Z, or "Run workflow" on main, builds the image for amd64 and arm64, pushes it to ghcr.io, signs it by
-# digest (keyless, through GitHub OIDC), verifies the signature with the identity installs pin, and writes the
-# release. Run by hand, it takes the version from the tree and creates the tag vX.Y.Z on that main commit itself.
-# The "release" environment has no required reviewer. Runs only in the public repository.
+# A push to main that brings a version with no tag yet, or a tag vX.Y.Z, builds the image for amd64 and arm64, pushes it
+# to ghcr.io, signs it by digest (keyless, through GitHub OIDC), verifies it with the check installs run and writes the
+# release. On main the version comes from the tree and the release creates the tag vX.Y.Z on that commit; a push to main
+# whose version has a tag already does nothing. Installs before 0.5.1 accept only a signature from a run started by a
+# push, so a run started by hand stops unless told otherwise. Retry a failed release with "Re-run failed jobs", which
+# keeps the push (docs/RELEASING.md). The "release" environment has no required reviewer. Runs only in the public
+# repository.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      signed_by_hand:
+        description: Release anyway. Installs before 0.5.1 refuse a signature from a run started by hand.
+        type: boolean
+        default: false
 
 permissions: {}
+
+# one release at a time: a second push of the same version waits and then finds the tag
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   IMAGE: ghcr.io/jouni-mikkola/omatalous
@@ -18,37 +32,62 @@ env:
   SIGN_ISSUER: https://token.actions.githubusercontent.com
 
 jobs:
-  verify:
-    # the tag, the versions in the tree and the CHANGELOG agree, and the tests pass on the tagged commit
+  plan:
+    # which version this run releases, if any, and that the tree agrees with it
     if: github.repository == 'jouni-mikkola/omatalous'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
+      release: ${{ steps.v.outputs.release }}
       version: ${{ steps.v.outputs.version }}
       tag: ${{ steps.v.outputs.tag }}
+      new_tag: ${{ steps.v.outputs.new_tag }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Tag matches the versions
+      - name: Version and tag
         id: v
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           REF_NAME: ${{ github.ref_name }}
+          SIGNED_BY_HAND: ${{ inputs.signed_by_hand }}
         run: |
           app=$(sed -n 's/^export const APP_VERSION = "\(.*\)";$/\1/p' apps/server/src/version.ts)
-          if [[ $EVENT == workflow_dispatch ]]; then
-            # by hand only from main, and only for a version that has no tag yet
-            [[ $REF == refs/heads/main ]] || { echo "Run it on main, not $REF"; exit 1; }
-            TAG=v$app
-            [[ -z $(git tag --list "$TAG") ]] || { echo "Tag $TAG exists already. Bump the version first."; exit 1; }
+          if [[ $EVENT == workflow_dispatch && $SIGNED_BY_HAND != true ]]; then
+            echo "Installs before 0.5.1 refuse a release started by hand. Push the new version to main or re-run the failed run."
+            exit 1
+          fi
+          if [[ $REF == refs/heads/main ]]; then
+            # on main the version in the tree names the release, which is new only while it has no tag
+            TAG=v$app; new_tag=true
+            if [[ -n $(git tag --list "$TAG") ]]; then
+              [[ $EVENT == push ]] || { echo "Tag $TAG exists already. Bump the version first."; exit 1; }
+              # publish-public.sh --tag pushes main and the tag at once, and the tag's run makes the release
+              echo "$TAG has a tag already, nothing to do on main."
+              echo "release=false" >>"$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif [[ $EVENT == workflow_dispatch ]]; then
+            echo "Run it on main, not $REF"; exit 1
           else
-            TAG=$REF_NAME
+            TAG=$REF_NAME; new_tag=false
           fi
           [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag $TAG is not vX.Y.Z"; exit 1; }
+          # a release that exists already (a tag pushed again, a whole re-run) is not built twice; only a 404 means none
+          if out=$(gh api "repos/$GH_REPO/releases/tags/$TAG" 2>&1); then
+            [[ $EVENT == push ]] || { echo "Release $TAG exists already."; exit 1; }
+            echo "Release $TAG exists already, nothing to do."
+            echo "release=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          elif [[ $out != *"HTTP 404"* ]]; then
+            echo "Could not ask GitHub whether release $TAG exists: $out"; exit 1
+          fi
           version=${TAG#v}
           [[ $app == "$version" ]] || { echo "Tag $TAG but APP_VERSION is $app"; exit 1; }
           for f in apps/server/package.json apps/web/package.json packages/core/package.json; do
@@ -57,16 +96,38 @@ jobs:
           done
           top=$(sed -n 's/^## \([^ ]*\).*/\1/p' CHANGELOG.md | head -1)
           [[ $top == "$version" ]] || { echo "CHANGELOG top heading is $top, tag is $version"; exit 1; }
-          [[ $EVENT == workflow_dispatch || -n $(git tag --list "$TAG") ]] || { echo "tag missing"; exit 1; }
-          echo "version=$version" >>"$GITHUB_OUTPUT"
-          echo "tag=$TAG" >>"$GITHUB_OUTPUT"
-      - name: Tagged commit is on main
+          [[ $new_tag == true || -n $(git tag --list "$TAG") ]] || { echo "tag missing"; exit 1; }
+          # the helper updates to GitHub's latest release, so a new one must be above every earlier release
+          newest=$(git tag --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vx "$TAG" | sort -V | tail -1 || true)
+          if [[ -n $newest && $(printf '%s\n' "$newest" "$TAG" | sort -V | tail -1) != "$TAG" ]]; then
+            echo "$TAG is not above the newest release $newest"; exit 1
+          fi
+          {
+            echo "release=true"
+            echo "version=$version"
+            echo "tag=$TAG"
+            echo "new_tag=$new_tag"
+          } >>"$GITHUB_OUTPUT"
+
+  verify:
+    # the commit is on main, migrations were only added, and the tests pass on it
+    needs: plan
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Commit is on main
         run: |
           git fetch --no-tags origin main
-          git merge-base --is-ancestor HEAD origin/main || { echo "The tagged commit is not on main"; exit 1; }
+          git merge-base --is-ancestor HEAD origin/main || { echo "The commit is not on main"; exit 1; }
       - name: Migrations only added since the previous release
         env:
-          TAG: ${{ steps.v.outputs.tag }}
+          TAG: ${{ needs.plan.outputs.tag }}
         run: |
           prev=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
           if [[ -n $prev ]]; then tools/ci/check-migrations.sh "$prev"; else echo "first release, nothing to compare"; fi
@@ -81,8 +142,8 @@ jobs:
       - run: pnpm build
 
   image:
-    needs: verify
-    if: github.repository == 'jouni-mikkola/omatalous'
+    needs: [plan, verify]
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -115,10 +176,10 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.IMAGE }}:${{ needs.verify.outputs.version }}
+          tags: ${{ env.IMAGE }}:${{ needs.plan.outputs.version }}
           build-args: |
             GIT_COMMIT=${{ github.sha }}
-            APP_VERSION=${{ needs.verify.outputs.version }}
+            APP_VERSION=${{ needs.plan.outputs.version }}
             COMPOSE_COMPAT=${{ steps.compat.outputs.n }}
           provenance: mode=max
           sbom: true
@@ -131,19 +192,26 @@ jobs:
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: cosign sign --yes "$IMAGE@$DIGEST"
-      - name: Verify with the identity installs pin
+      - name: Verify with the check installs run
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          cosign verify \
-            --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" \
-            --certificate-oidc-issuer "$SIGN_ISSUER" \
-            "$IMAGE@$DIGEST" >/dev/null
+          # scripts/lib/release.sh is what update.sh and install.sh run, so a signature they would refuse stops here
+          . scripts/lib/release.sh
+          if ! verify_signature "$IMAGE@$DIGEST" "$GITHUB_SHA"; then
+            echo "The check installs run refuses this signature. cosign says:"
+            cosign verify --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" --certificate-oidc-issuer "$SIGN_ISSUER" \
+              --certificate-github-workflow-sha "$GITHUB_SHA" "$IMAGE@$DIGEST" || true
+            exit 1
+          fi
+          # installs before 0.5.1 also need the run to have been started by a push
+          cosign_verify "$IMAGE@$DIGEST" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger push \
+            || echo "::warning::Started by hand: installs before 0.5.1 refuse this signature and cannot update to it."
           echo "Verified $IMAGE@$DIGEST" >>"$GITHUB_STEP_SUMMARY"
 
   release:
-    needs: [verify, image]
-    if: github.repository == 'jouni-mikkola/omatalous'
+    needs: [plan, image]
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write # the release itself
@@ -153,7 +221,7 @@ jobs:
           persist-credentials: false
       - name: Release notes
         env:
-          VERSION: ${{ needs.verify.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
           DIGEST: ${{ needs.image.outputs.digest }}
         run: |
           awk -v v="$VERSION" '/^## /{p = ($2 == v); next} p' CHANGELOG.md >notes.md
@@ -167,11 +235,11 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.verify.outputs.tag }}
-          EVENT: ${{ github.event_name }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          NEW_TAG: ${{ needs.plan.outputs.new_tag }}
         run: |
-          # by hand the release creates the tag on the commit that was built and signed
-          if [[ $EVENT == workflow_dispatch ]]; then
+          # on main the release creates the tag on the commit that was built and signed
+          if [[ $NEW_TAG == true ]]; then
             gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
           else
             gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md

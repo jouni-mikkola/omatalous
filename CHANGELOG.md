@@ -3,6 +3,27 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.5.1
+
+- Updates from the browser and new installs from a release work again. The images of 0.4.0 and 0.5.0 were signed by a
+  release run started by hand, and the signature check in `update.sh` and `install.sh` accepted only a run started by a
+  push, so it refused them with "Could not verify the image signature". The check now accepts both. From this release on,
+  pushing a new version to `main` in the public repository starts the release, so the signature comes from a push that
+  installs of 0.4.0 and 0.5.0 accept too. A release started by hand stops unless it is asked for explicitly.
+- The release workflow checks each image with the same function installs run. The upgrade rehearsal checks the latest
+  release with this version's copy and with the copy in every older version it tests.
+
+Upgrade
+
+- An install of 0.4.0 or 0.5.0 updates with *Päivitä* in *Asetukset > Ylläpito*, also one that stopped at the signature
+  check.
+- An install made from the public repository on 10 October 2026 before 0.4.0 accepts only a release built from a tag.
+  Update it once in its folder with `git pull --ff-only && ./scripts/update.sh`.
+- A new install whose `install.sh` stopped at the signature check has no running app. Run `git pull --ff-only` and
+  `./scripts/install.sh` again in its folder.
+- An install where `TALOUS_CHANNEL=source` was added to get past the check stays on source builds until the line is
+  removed from `.env`.
+
 ## 0.5.0
 
 Money and reports

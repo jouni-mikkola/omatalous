@@ -144,7 +144,9 @@ EOF
 printf 'cosign %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
 [[ -e $OPS_STUB_DIR/cosignfail ]] && exit 1
 [[ $* == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* && $* == *"release\\.yml@refs/(tags/v"* && $* == *"@sha256:"* ]] || exit 1
-[[ $* == *"--certificate-github-workflow-sha "????????????????????????????????????????" "* && $* == *"--certificate-github-workflow-trigger push"* ]] || exit 1
+# the trigger of the run that signed the stub image: a push unless a test says otherwise
+by=$(cat "$OPS_STUB_DIR/signed-by" 2>/dev/null || echo push)
+[[ $* == *"--certificate-github-workflow-sha "????????????????????????????????????????" "* && $* == *"--certificate-github-workflow-trigger $by "* ]] || exit 1
 exit 0
 EOF
   cat >"$b/curl" <<'EOF'
@@ -264,6 +266,17 @@ t_release_cosign_fails() {
   check "release: unsigned image never tagged or started" test "$(n_calls '^docker (image tag ghcr|compose up)')" = 0
   check "release: old version still running" test "$(cver)" = 0.1.0
   check "release: checkout unchanged" test "$(head_commit)" = "$before"
+}
+t_release_signed_by_hand() {
+  # 0.4.0 and 0.5.0 were signed by runs started by hand, which installs before 0.5.1 refused
+  new_world; release 0.2.0; echo workflow_dispatch >"$S/signed-by"; poll update
+  tick
+  check "release: an image signed by a run started by hand is accepted" reported ok
+  check "release: the push trigger was tried first" bash -c "grep '^cosign verify' '$S/calls.log' | head -1 | grep -q 'trigger push '"
+  new_world; release 0.2.0; echo schedule >"$S/signed-by"; poll update
+  tick
+  check "release: any other trigger is refused" reported failed
+  check "release: refused image not started" test "$(cver)" = 0.1.0
 }
 t_release_bad_image() {
   new_world; release 0.2.0

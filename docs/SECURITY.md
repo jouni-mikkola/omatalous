@@ -149,8 +149,8 @@ the download of a backup need the admin's password again, rollback also a typed 
 - The helper runs six fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
   never reaches a shell. Access and port changes are not among them.
 - A release install takes a version the GitHub Releases API names, only a semver step up from the running one. The image
-  comes from `ghcr.io`, and `update.sh` checks its cosign signature against the release workflow's identity (a run for a version tag, or a run by hand on
-  `main`), plus the
+  comes from `ghcr.io`, and `update.sh` checks its cosign signature against the release workflow's identity (a run for a version tag, or a run on `main`
+  started by a push of a new version or by hand) and the commit the run built, plus the
   image's labels against the compose file. A source install uses the remote and branch pinned in `ops/policy`, moves only
   forward, needs a clean tree, checks the new `docker-compose.yml` against a policy and, when `ops/allowed_signers`
   exists, requires a signed commit. The installer does not create that file, so source updates are unsigned until you add one:
