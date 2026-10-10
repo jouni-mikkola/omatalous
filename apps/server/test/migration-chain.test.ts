@@ -37,6 +37,14 @@ function dump(file: string): Record<string, { columns: string[]; rows: Row[] }> 
   return out;
 }
 
+/** The schema as SQLite stores it, sorted, to compare two databases. */
+function schemaOf(file: string): { type: string; name: string; sql: string }[] {
+  const db = new DatabaseSync(file, { readOnly: true });
+  const rows = db.prepare("SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name").all() as { type: string; name: string; sql: string }[];
+  db.close();
+  return rows;
+}
+
 /** Old columns keep their values: a migration may add columns and tables, never change what exists. */
 function expectAdditive(before: ReturnType<typeof dump>, after: ReturnType<typeof dump>, step: string) {
   for (const [table, old] of Object.entries(before)) {
@@ -63,7 +71,13 @@ describe("migration chain from frozen release databases", () => {
       const db = openNodeSqlite(file);
       try {
         const { pending } = await pendingMigrations(db, all);
-        expect(pending.length).toBeGreaterThan(0);
+        if (pending.length === 0) {
+          // the newest release has nothing to apply (the schema comparison is in the next test)
+          expect((await db.all<{ name: string }>("SELECT name FROM _migrations ORDER BY name")).map((r) => r.name)).toEqual(all.map((m) => m.name));
+          expect(await db.all("PRAGMA integrity_check")).toEqual([{ integrity_check: "ok" }]);
+          expect(await db.all("PRAGMA foreign_key_check")).toEqual([]);
+          return;
+        }
         let state = dump(file);
         for (const m of pending) {
           await applyMigrations(db, [m]);
@@ -85,9 +99,16 @@ describe("migration chain from frozen release databases", () => {
       const before = dump(file);
       const { db, applied, snapshot } = await openDatabase(file);
       db.close();
-      expect(applied.length).toBeGreaterThan(0);
-      expect(snapshot).toMatch(/backups\/pre-/); // an existing database is copied first
-      expectAdditive(before, dump(file), "openDatabase");
+      if (applied.length === 0) {
+        // the newest release opens as it is and equals a fresh database
+        const fresh = join(tmp(), "fresh.db");
+        (await openDatabase(fresh)).db.close();
+        expect(schemaOf(file)).toEqual(schemaOf(fresh));
+        expect(dump(file)).toEqual(before);
+      } else {
+        expect(snapshot).toMatch(/backups\/pre-/); // an existing database is copied first
+        expectAdditive(before, dump(file), "openDatabase");
+      }
     });
 
     it(`${name}: the upgrade tasks keep counts, sums and user-set categories`, async () => {
@@ -127,7 +148,7 @@ describe("version guards", () => {
     cpSync(findMigrationsDir(), dir, { recursive: true });
     writeFileSync(join(dir, "9001_future.sql"), "CREATE TABLE future (id INTEGER PRIMARY KEY);");
     (await openDatabase(file, dir)).db.close();
-    await expect(openDatabase(file)).rejects.toThrow(/uudemmalla sovellusversiolla \(9001_future\.sql\)/);
+    await expect(openDatabase(file)).rejects.toThrow(/upgraded by a newer app version \(9001_future\.sql\)/);
     // the refused start changed nothing
     expect(dump(file).future).toBeDefined();
   });
@@ -145,7 +166,7 @@ describe("version guards", () => {
     const old = new DatabaseSync(file);
     old.exec("CREATE TABLE transactions (id TEXT PRIMARY KEY, amount REAL); INSERT INTO transactions VALUES ('x', 1.5);");
     old.close();
-    await expect(openDatabase(file)).rejects.toThrow(/ennen versiota 0\.1\.0/);
+    await expect(openDatabase(file)).rejects.toThrow(/before version 0\.1\.0/);
     expect(Object.keys(dump(file))).toEqual(["transactions"]); // not even _migrations was added
 
     // the same with a migration history that predates the multi-user layout
@@ -153,7 +174,7 @@ describe("version guards", () => {
     const old2 = new DatabaseSync(file2);
     old2.exec("CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL); INSERT INTO _migrations VALUES ('0001_init.sql', 'x');");
     old2.close();
-    await expect(openDatabase(file2)).rejects.toThrow(/ennen versiota 0\.1\.0/);
+    await expect(openDatabase(file2)).rejects.toThrow(/before version 0\.1\.0/);
   });
 });
 

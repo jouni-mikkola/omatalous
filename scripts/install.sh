@@ -11,13 +11,13 @@
 #     10/8, 172.16/12, 192.168/16), else to 127.0.0.1, and writes .env (mode 600, old one backed up)
 #   • pulls and verifies the signed release image (or builds the source until a release exists, or with
 #     TALOUS_CHANNEL=source in .env) and starts the containers
-#   • installs the maintenance helper (systemd user timer, else cron) for Asetukset > Palvelin > Ylläpito
+#   • installs the maintenance helper (systemd user timer, else cron) for Asetukset > Ylläpito
 #   • prints the address and a setup link with the one-time code filled in
 #
 # Nothing is asked by default. Answers are flags or environment variables; --reconfigure shows the access menu:
 #   --access lan|local|tunnel|domain   TALOUS_ACCESS        how the app is reached (default lan, see above)
-#   --domain talous.oma.fi             TALOUS_DOMAIN        for domain and tunnel
-#   --email you@oma.fi                 TALOUS_EMAIL         for domain (Let's Encrypt)
+#   --domain talous.example.com        TALOUS_DOMAIN        for domain and tunnel
+#   --email you@example.com            TALOUS_EMAIL         for domain (Let's Encrypt)
 #   (no flag, so it stays out of ps)   TALOUS_TUNNEL_TOKEN  for tunnel
 #   --port 8080                        TALOUS_PORT          default: the first free port from 8080
 #   --bind 192.168.1.10                TALOUS_BIND          for lan: the host address to listen on (default: the default route's)
@@ -100,11 +100,11 @@ ask_secret() {
   read -r -s -p "$__q: " __ans || true; echo
   printf -v "$__var" '%s' "$__ans"
 }
-# confirm "Question" default(K/e): returns 0 for yes
+# confirm "Question" default(y/n): returns 0 for yes. The Finnish K (kyllä) and E (ei) are accepted as well.
 confirm() {
-  local __q=$1 __def=${2:-K} __ans=""
-  $YES && { [[ $__def == K ]]; return; }
-  read -r -p "$__q [$( [[ $__def == K ]] && echo K/e || echo k/E )]: " __ans || true
+  local __q=$1 __def=${2:-y} __ans=""
+  $YES && { [[ $__def == y ]]; return; }
+  read -r -p "$__q [$( [[ $__def == y ]] && echo Y/n || echo y/N )]: " __ans || true
   __ans=${__ans:-$__def}
   [[ $__ans =~ ^[KkYy] ]]
 }
@@ -119,12 +119,12 @@ setup_ops_helper() {
   OPS_KIND=none
   # the helper refuses to run as root, so a timer for root would only report "off" forever
   if [[ $(id -u) -eq 0 ]]; then
-    OPS_NOTE="ei käytössä (asennus ajettiin pääkäyttäjänä; aja asennus tavallisella käyttäjällä)"
+    OPS_NOTE="off (the install ran as root; run it as a normal user)"
     return 0
   fi
   # the helper checks the new compose file with jq
   if ! command -v jq >/dev/null 2>&1; then
-    OPS_NOTE="ei käytössä (jq puuttuu; asenna: sudo apt install jq, ja aja ./scripts/install.sh --ops-helper)"
+    OPS_NOTE="off (jq is missing; install it: sudo apt install jq, then run ./scripts/install.sh --ops-helper)"
     return 0
   fi
   umask 077
@@ -142,7 +142,7 @@ setup_ops_helper() {
     [[ $branch =~ ^[A-Za-z0-9_./-]+$ && $branch != HEAD ]] || branch=""
     [[ $dockerbin =~ ^/[A-Za-z0-9_./-]+/docker$ ]] || dockerbin=""
     printf 'REMOTE_URL=%s\nBRANCH=%s\nDOCKER=%s\n' "$url" "$branch" "$dockerbin" >ops/policy.new && chmod 600 ops/policy.new && mv -f ops/policy.new ops/policy
-    [[ -n $url && -n $branch ]] || warn "Gitin etäosoite tai haara puuttuu, joten päivitys selaimesta ei toimi ennen kuin ne on asetettu. Korjaa ja aja: ./scripts/install.sh --ops-helper --ops-policy"
+    [[ -n $url && -n $branch ]] || warn "The git remote or branch is missing, so updating from the browser does not work until they are set. Fix that and run: ./scripts/install.sh --ops-helper --ops-policy"
   fi
   ops_scheduler_install "$INSTANCE" "$ROOT" || true
 }
@@ -218,7 +218,7 @@ load_used() {
       ((skip)) || USED+=("$addr $port")
     done < <(ss -H -ltn 2>/dev/null | awk '{print $4}')
   else
-    warn "ss puuttuu, portit tarkistetaan vain Dockerin kontteja vasten."
+    warn "ss is missing, ports are only checked against Docker containers."
   fi
 }
 # port_taken PORT ADDRESS: is the port in use on that address (wildcards count)
@@ -265,23 +265,23 @@ valid_domain() { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z
 # ── new instance: clone this repository next to this one and install it there ─
 new_instance() {
   local name=$1 target origin branch
-  [[ $name =~ $NAME_RE ]] || die "Nimen pitää olla pieniä kirjaimia, numeroita, - tai _ (alkaa kirjaimella tai numerolla, enintään 41 merkkiä)."
-  command -v git >/dev/null || die "git puuttuu."
+  [[ $name =~ $NAME_RE ]] || die "The name must use lowercase letters, digits, - or _ (start with a letter or digit, at most 41 characters)."
+  command -v git >/dev/null || die "git is missing."
   target="$(dirname "$ROOT")/$name"
-  [[ ! -e $target ]] || die "Kansio $target on jo olemassa."
-  origin=$(git remote get-url origin 2>/dev/null) || die "Tällä kopiolla ei ole etärepositoriota (origin)."
-  branch=$(git symbolic-ref --short HEAD 2>/dev/null) || die "Kopio ei ole millään haaralla (git checkout <haara>)."
+  [[ ! -e $target ]] || die "The folder $target already exists."
+  origin=$(git remote get-url origin 2>/dev/null) || die "This clone has no remote repository (origin)."
+  branch=$(git symbolic-ref --short HEAD 2>/dev/null) || die "The clone is not on any branch (git checkout <branch>)."
   if docker info >/dev/null 2>&1 && [[ -n $(project_volumes "$name")$(project_dirs "$name") ]]; then
-    die "Nimellä $name on jo Docker-projekti tai sen taltioita. Valitse toinen nimi."
+    die "The name $name already has a Docker project or volumes. Pick another name."
   fi
-  step "Kloonataan $branch kansioon $target"
-  say "${dim}Mukaan tulee vain se, mikä on työnnetty etärepositorioon (origin/$branch).${reset}"
+  step "Cloning $branch into $target"
+  say "${dim}Only what has been pushed to the remote repository (origin/$branch) comes along.${reset}"
   git clone -b "$branch" "$origin" "$target"
-  grep -q -- '--name' "$target/scripts/install.sh" || die "Haaran $branch asennusskripti ei vielä tunne tätä toimintoa. Työnnä muutokset (git push) ja yritä uudelleen. Kansio $target jäi paikalleen."
+  grep -q -- '--name' "$target/scripts/install.sh" || die "The install script on branch $branch does not know this feature yet. Push your changes (git push) and try again. The folder $target was left in place."
   exec "$target/scripts/install.sh" --name "$name" --from-clone ${PASS[@]+"${PASS[@]}"}
 }
 
-usage() { die "Käyttö: ./scripts/install.sh [--yes] [--new-instance NIMI] [--access lan|local|tunnel|domain] [--domain D] [--email E] [--port P] [--bind IP] [--name N] [--install-docker] [--reconfigure] [--ops-helper [--ops-policy] | --ops-helper-off | --no-ops-helper]"; }
+usage() { die "Usage: ./scripts/install.sh [--yes] [--new-instance NAME] [--access lan|local|tunnel|domain] [--domain D] [--email E] [--port P] [--bind IP] [--name N] [--install-docker] [--reconfigure] [--ops-helper [--ops-policy] | --ops-helper-off | --no-ops-helper]"; }
 while (($#)); do
   case $1 in
     --yes|-y) YES=true; PASS+=("$1") ;;
@@ -310,7 +310,7 @@ while (($#)); do
 done
 [[ -z $NEW_INSTANCE ]] || new_instance "$NEW_INSTANCE"
 if [[ -n $PRESET_NAME ]]; then
-  [[ $PRESET_NAME =~ $NAME_RE ]] || die "Virheellinen nimi: $PRESET_NAME"
+  [[ $PRESET_NAME =~ $NAME_RE ]] || die "Invalid name: $PRESET_NAME"
 fi
 case ${A_ACCESS,,} in
   "") ;;
@@ -318,15 +318,15 @@ case ${A_ACCESS,,} in
   2|local|localhost) A_ACCESS=2 ;;
   3|tunnel|cloudflare) A_ACCESS=3 ;;
   4|domain|caddy) A_ACCESS=4 ;;
-  *) die "Tuntematon --access: $A_ACCESS (lan, local, tunnel tai domain)." ;;
+  *) die "Unknown --access: $A_ACCESS (lan, local, tunnel or domain)." ;;
 esac
-[[ -z $A_PORT ]] || { [[ $A_PORT =~ ^[1-9][0-9]{3,4}$ ]] && ((A_PORT >= 1024 && A_PORT <= 65535)) || die "Portin pitää olla 1024-65535."; }
+[[ -z $A_PORT ]] || { [[ $A_PORT =~ ^[1-9][0-9]{3,4}$ ]] && ((A_PORT >= 1024 && A_PORT <= 65535)) || die "The port must be 1024-65535."; }
 
 # One run per directory. The lock is on this script file, so update.sh (which takes the same lock) and a
 # second install.sh wait for each other. It goes away with the process, a Ctrl-C leaves nothing behind.
 exec 9<"$ROOT/scripts/install.sh"
 if command -v flock >/dev/null && ! flock -n 9; then
-  die "Toinen asennus tai päivitys on jo käynnissä tässä kansiossa. Odota, että se valmistuu, ja aja tämä sitten uudelleen."
+  die "Another install or update is already running in this folder. Wait until it finishes, then run this again."
 fi
 
 # What the user sees when the run stops half way. Nothing is left in a state a re-run cannot continue from.
@@ -335,39 +335,39 @@ on_exit() {
   [[ -z ${LOG:-} ]] || rm -f "$LOG"
   ((rc == 0)) && return
   if ! $REPORTED; then
-    printf '\n%s✗ Asennus keskeytyi.%s Voit ajaa sen turvallisesti uudelleen: %s/scripts/install.sh\n  Jos sama vika toistuu: %s/scripts/doctor.sh\n' "$red" "$reset" "$ROOT" "$ROOT" >&2
+    printf '\n%s✗ The install stopped.%s It is safe to run again: %s/scripts/install.sh\n  If the same error comes back: %s/scripts/doctor.sh\n' "$red" "$reset" "$ROOT" "$ROOT" >&2
   fi
   # a failure right after the clone leaves the folder behind: say what to do with it
   if $FROM_CLONE && [[ ! -f $ENV_FILE ]]; then
-    printf '%sKansio %s jäi paikalleen. Jatka: %s/scripts/install.sh --name %s   tai poista: rm -rf %s%s\n' "$dim" "$ROOT" "$ROOT" "$PRESET_NAME" "$ROOT" "$reset" >&2
+    printf '%sThe folder %s was left in place. Continue: %s/scripts/install.sh --name %s   or delete it: rm -rf %s%s\n' "$dim" "$ROOT" "$ROOT" "$PRESET_NAME" "$ROOT" "$reset" >&2
   fi
 }
 trap on_exit EXIT
 interrupted() {
   REPORTED=true
-  printf '\n%sKeskeytetty. Mitään ei tarvitse siivota, aja uudelleen: %s/scripts/install.sh%s\n' "$yellow" "$ROOT" "$reset" >&2
+  printf '\n%sInterrupted. Nothing to clean up, run again: %s/scripts/install.sh%s\n' "$yellow" "$ROOT" "$reset" >&2
   exit 130
 }
 trap interrupted INT TERM
 
 # helper only: no Docker needed to set up or remove the timer
 if [[ -n $OPS_ONLY ]]; then
-  [[ -f $ENV_FILE ]] || die "Tässä kansiossa ei ole asennusta (.env puuttuu). Aja ensin ./scripts/install.sh"
+  [[ -f $ENV_FILE ]] || die "There is no install in this folder (.env is missing). Run ./scripts/install.sh first."
   INSTANCE=$(existing INSTANCE_NAME); INSTANCE=${INSTANCE:-$DEFAULT_INSTANCE}
-  [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "INSTANCE_NAME tiedostossa .env on virheellinen: $INSTANCE"
+  [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "INSTANCE_NAME in .env is invalid: $INSTANCE"
   if [[ $OPS_ONLY == off ]]; then
     ops_scheduler_remove "$INSTANCE"
-    ok "Ylläpitoapuri poistettu käytöstä ($INSTANCE). Kansio ops/journal säilyy."
+    ok "Maintenance helper removed ($INSTANCE). The folder ops/journal stays."
   else
     setup_ops_helper
     if [[ $OPS_KIND == none ]]; then warn "$OPS_NOTE"; exit 1; fi
-    ok "Ylläpitoapuri käytössä: $OPS_NOTE"
+    ok "Maintenance helper on: $OPS_NOTE"
   fi
   exit 0
 fi
 
 # ── 0. prerequisites ─────────────────────────────────────────────────────────
-step "Tarkistetaan vaatimukset"
+step "Checking requirements"
 
 # runs a command as root (directly, or through sudo)
 as_root() {
@@ -379,7 +379,7 @@ in_docker_group() { getent group docker 2>/dev/null | cut -d: -f4 | tr , '\n' | 
 # the docker group may be new to this login: run the script again with it (no logout needed)
 reexec_with_group() {
   [[ -z ${TALOUS_REEXEC:-} ]] && command -v sg >/dev/null || return 1
-  say "Avataan uusi istunto docker-ryhmällä ja jatketaan."
+  say "Opening a new session with the docker group and continuing."
   export TALOUS_REEXEC=1
   exec 9<&-   # the new process takes the lock again
   exec sg docker -c "$(printf '%q ' "$ROOT/scripts/install.sh" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
@@ -388,61 +388,70 @@ reexec_with_group() {
 if ! command -v docker >/dev/null; then
   can_install=false
   [[ -r /etc/os-release ]] && command -v curl >/dev/null && { ((EUID == 0)) || command -v sudo >/dev/null; } && can_install=true
-  if $can_install && { $INSTALL_DOCKER || { ! $YES && confirm "Docker puuttuu. Asennetaanko se nyt Dockerin omalla asennusskriptillä (get.docker.com)?" K; }; }; then
-    step "Asennetaan Docker"
+  if $can_install && { $INSTALL_DOCKER || { ! $YES && confirm "Docker is missing. Install it now with Docker's own install script (get.docker.com)?" y; }; }; then
+    step "Installing Docker"
     installer=$(mktemp)
-    curl -fsSL https://get.docker.com -o "$installer" || { rm -f "$installer"; die "Docker-asentajaa ei saatu ladattua. Tarkista verkkoyhteys (curl -I https://get.docker.com) ja aja tämä uudelleen."; }
-    as_root sh "$installer" || { rm -f "$installer"; die "Dockerin asennus epäonnistui. Katso virhe yltä. Asennusohje: docs/INSTALL.md (kohta 3)."; }
+    curl -fsSL https://get.docker.com -o "$installer" || { rm -f "$installer"; die "Could not download the Docker installer. Check the network connection (curl -I https://get.docker.com) and run this again."; }
+    as_root sh "$installer" || { rm -f "$installer"; die "The Docker install failed. See the error above. Install guide: docs/INSTALL.md."; }
     rm -f "$installer"
     as_root systemctl enable --now docker >/dev/null 2>&1 || true
   else
-    die "Docker puuttuu. Asenna se: curl -fsSL https://get.docker.com | sudo sh   (tai aja tämä skripti uudelleen valinnalla --install-docker). Lisätietoja: docs/INSTALL.md (kohta 3)."
+    die "Docker is missing. Install it: curl -fsSL https://get.docker.com | sudo sh   (or run this script again with --install-docker). More: docs/INSTALL.md."
   fi
 fi
-docker compose version >/dev/null 2>&1 || die "Docker Compose v2 puuttuu. Asenna: sudo apt install docker-compose-plugin"
+docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing. Install it: sudo apt install docker-compose-plugin"
 if ! docker info >/dev/null 2>&1; then
   derr=$(docker info 2>&1 >/dev/null | head -3 || true)
   if [[ $derr == *"permission denied"* ]]; then
     if ! in_docker_group; then
-      if ! $YES && ! confirm "Käyttäjälläsi ei ole oikeutta Dockeriin. Lisätäänkö se docker-ryhmään (sudo usermod -aG docker $USER)?" K; then
-        die "Ilman docker-ryhmää asennus ei onnistu. Aja: sudo usermod -aG docker \$USER   ja kirjaudu ulos ja sisään."
+      if ! $YES && ! confirm "Your user has no access to Docker. Add it to the docker group (sudo usermod -aG docker $USER)?" y; then
+        die "The install cannot continue without the docker group. Run: sudo usermod -aG docker \$USER   and log out and in again."
       fi
-      as_root usermod -aG docker "${USER:-$(id -un)}" || die "Ryhmän lisäys ei onnistunut. Aja: sudo usermod -aG docker \$USER   ja kirjaudu ulos ja sisään."
+      as_root usermod -aG docker "${USER:-$(id -un)}" || die "Could not add the group. Run: sudo usermod -aG docker \$USER   and log out and in again."
     fi
     reexec_with_group || true
-    die "Käyttäjälläsi ei ole vielä oikeutta Dockeriin tässä istunnossa. Kirjaudu ulos ja sisään (tai aja: newgrp docker) ja aja tämä uudelleen."
+    die "Your user has no access to Docker in this session yet. Log out and in (or run: newgrp docker) and run this again."
   else
     # the daemon is installed but not running
     if command -v systemctl >/dev/null && as_root systemctl start docker >/dev/null 2>&1; then
       for _ in $(seq 1 20); do docker info >/dev/null 2>&1 && break; sleep 1; done
     fi
-    docker info >/dev/null 2>&1 || die "Docker-palvelu ei käynnisty. Aja: sudo systemctl start docker   ja katso syy: sudo journalctl -u docker -n 30. Aja sitten tämä uudelleen."
+    docker info >/dev/null 2>&1 || die "The Docker service does not start. Run: sudo systemctl start docker   and see why: sudo journalctl -u docker -n 30. Then run this again."
   fi
 fi
 ok "Docker $(docker version --format '{{.Server.Version}}'), Compose $(docker compose version --short)"
 # after a reboot the app returns by itself only if the Docker service starts with the machine
 if command -v systemctl >/dev/null && systemctl cat docker.service >/dev/null 2>&1 && [[ $(systemctl is-enabled docker 2>/dev/null) != enabled ]]; then
-  if as_root systemctl enable docker >/dev/null 2>&1; then ok "Docker käynnistyy nyt koneen mukana."
-  else warn "Docker ei käynnisty koneen mukana, joten sovellus ei palaa itsestään uudelleenkäynnistyksen jälkeen. Aja: sudo systemctl enable docker"; fi
+  if as_root systemctl enable docker >/dev/null 2>&1; then ok "Docker now starts with the machine."
+  else warn "Docker does not start with the machine, so the app does not come back by itself after a reboot. Run: sudo systemctl enable docker"; fi
+fi
+# the maintenance helper needs jq; install it without asking when apt and root rights are there, else the helper note stays
+if $OPS_HELPER && ! command -v jq >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1 && { ((EUID == 0)) || command -v sudo >/dev/null; }; then
+  step "Installing jq"
+  if as_root apt-get install -y jq >/dev/null 2>&1 || { as_root apt-get update >/dev/null 2>&1 && as_root apt-get install -y jq >/dev/null 2>&1; }; then
+    ok "jq installed."
+  else
+    warn "Could not install jq. The maintenance helper needs it: sudo apt install jq"
+  fi
 fi
 # a build needs about 2 GB; stopping half way on a full disk helps nobody
 droot=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || true)
 if [[ -n $droot && -d $droot ]]; then
   free_kb=$(df -Pk "$droot" 2>/dev/null | awk 'NR==2 {print $4}')
   if [[ -n ${free_kb:-} ]]; then
-    ((free_kb >= 1024 * 1024)) || die "Levyllä on vain $((free_kb / 1024)) Mt vapaata ($droot), rakennus tarvitsee noin 2 Gt. Vapauta tilaa (docker image prune -f; docker builder prune -f; df -h) ja aja tämä uudelleen."
-    ((free_kb >= 2048 * 1024)) || warn "Levyllä on vapaata vain $((free_kb / 1024)) Mt. Rakennus voi loppua kesken, jos tila ei riitä."
+    ((free_kb >= 1024 * 1024)) || die "Only $((free_kb / 1024)) MB free on the disk ($droot), the build needs about 2 GB. Free some space (docker image prune -f; docker builder prune -f; df -h) and run this again."
+    ((free_kb >= 2048 * 1024)) || warn "Only $((free_kb / 1024)) MB free on the disk. The build may stop half way if the space runs out."
   fi
 fi
 
 say ""
-say "${bold}Talouden asennus${reset}"
-say "${dim}Mitään ei kysytä. Muut asetukset tehdään selaimessa.${reset}"
+say "${bold}Omatalous install${reset}"
+say "${dim}Nothing is asked. The other settings are made in the browser.${reset}"
 
 # ── 1. name ──────────────────────────────────────────────────────────────────
 # Each instance is a Compose project in its own directory. An install that exists keeps its names
 # (volumes are named after the project, so a new name would make the data look gone).
-step "Asennus"
+step "Install"
 PROJECT=$(project_name)
 EXISTING=false
 if [[ -f $ENV_FILE || $(project_owner "$PROJECT") == mine ]]; then EXISTING=true; fi
@@ -453,22 +462,22 @@ name_problem() {
   local n=$1 cproj
   NAME_MSG=""; NAME_VOLS=""
   if [[ $(project_owner "$n") == other ]]; then
-    NAME_MSG="Nimi $n on jo toisen kansion asennuksella."; return 1
+    NAME_MSG="The name $n is already used by an install in another folder."; return 1
   fi
   if cproj=$(docker container inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$n" 2>/dev/null) && [[ $cproj != "$n" ]]; then
-    NAME_MSG="Kontti nimeltä $n on jo olemassa."; return 1
+    NAME_MSG="A container named $n already exists."; return 1
   fi
   if [[ $n == session ]]; then
-    NAME_MSG="Nimi session on varattu (se on vanhan istuntoevästeen nimi)."; return 1
+    NAME_MSG="The name session is reserved (it is the name of an old session cookie)."; return 1
   fi
   NAME_VOLS=$(project_volumes "$n" | tr '\n' ' ')
   if [[ -n $NAME_VOLS ]]; then
-    NAME_MSG="Nimellä $n on jo taltioita: ${NAME_VOLS% }. Ne voivat olla toisen kansion vanhoja tietoja."; return 2
+    NAME_MSG="The name $n already has volumes: ${NAME_VOLS% }. They may hold old data from another folder."; return 2
   fi
   # no container, project or volumes of this name: an image of that name (any tag, caddy:2 too) is then
   # something else, and update.sh and reset.sh would tag over or remove $n:latest
   if [[ -n $(docker image ls -q "$n" 2>/dev/null) ]]; then
-    NAME_MSG="Nimellä $n on jo Docker-image. Valitse toinen nimi."; return 1
+    NAME_MSG="The name $n already has a Docker image. Pick another name."; return 1
   fi
   return 0
 }
@@ -483,10 +492,10 @@ suggest_name() {
 
 WRITE_INSTANCE=true
 if $EXISTING; then
-  [[ -z $PRESET_NAME || $PRESET_NAME == "$PROJECT" ]] || die "Tässä kansiossa on jo asennus (projekti $PROJECT). Uusi instanssi tehdään toiseen kansioon: ./scripts/install.sh --new-instance NIMI"
+  [[ -z $PRESET_NAME || $PRESET_NAME == "$PROJECT" ]] || die "This folder already has an install (project $PROJECT). Make a new instance in another folder: ./scripts/install.sh --new-instance NAME"
   INSTANCE=$(existing INSTANCE_NAME)
   if [[ -n $INSTANCE ]]; then
-    [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "INSTANCE_NAME tiedostossa .env on virheellinen: $INSTANCE"
+    [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "INSTANCE_NAME in .env is invalid: $INSTANCE"
   else
     # An install from before the key existed: the container and image are banking-app. Writing the
     # key would only be right if they already carry another name.
@@ -500,9 +509,9 @@ if $EXISTING; then
       fi
     fi
   fi
-  say "Olemassa oleva asennus säilyttää nimensä."
-  say "  projekti ${bold}$PROJECT${reset}, kontti ${bold}$INSTANCE${reset}"
-  say "  taltiot ${PROJECT}_banking-data ja ${PROJECT}_banking-secrets"
+  say "An existing install keeps its names."
+  say "  project ${bold}$PROJECT${reset}, container ${bold}$INSTANCE${reset}"
+  say "  volumes ${PROJECT}_banking-data and ${PROJECT}_banking-secrets"
 else
   default_name=${PRESET_NAME:-$(compose_name "$(basename "$ROOT")")}
   [[ $default_name =~ $NAME_RE ]] || default_name=""
@@ -511,46 +520,46 @@ else
   for _try in 1 2 3 4 5; do
     cand=$default_name
     if [[ ! $cand =~ $NAME_RE ]]; then
-      [[ -z $PRESET_NAME ]] || die "Virheellinen nimi: $PRESET_NAME"
-      say "Kansion nimestä ei saa asennuksen nimeä."
-      ask cand "Asennuksen nimi (pieniä kirjaimia, numeroita, - ja _)" "banking-app"
-      [[ $cand =~ $NAME_RE ]] || { warn "Nimi saa sisältää pieniä kirjaimia, numeroita, - ja _ (alkaa kirjaimella tai numerolla, enintään 41 merkkiä)."; $YES && exit 1; default_name=""; continue; }
+      [[ -z $PRESET_NAME ]] || die "Invalid name: $PRESET_NAME"
+      say "The folder name does not give a usable install name."
+      ask cand "Install name (lowercase letters, digits, - and _)" "banking-app"
+      [[ $cand =~ $NAME_RE ]] || { warn "The name may use lowercase letters, digits, - and _ (start with a letter or digit, at most 41 characters)."; $YES && exit 1; default_name=""; continue; }
     fi
     status=0; name_problem "$cand" || status=$?
     if ((status == 1)); then
       sug=$(suggest_name "$cand")
-      [[ -z $PRESET_NAME && -n $sug ]] || die "$NAME_MSG${sug:+ Vapaa nimi: $sug}"
-      warn "$NAME_MSG Käytetään nimeä $sug."
+      [[ -z $PRESET_NAME && -n $sug ]] || die "$NAME_MSG${sug:+ Free name: $sug}"
+      warn "$NAME_MSG Using the name $sug."
       default_name=$sug; continue
     elif ((status == 2)); then
       warn "$NAME_MSG"
-      if [[ -z $PRESET_NAME ]] && ! $YES && confirm "Käytetäänkö nämä taltiot ja niiden tiedot tälle asennukselle?" E; then :
+      if [[ -z $PRESET_NAME ]] && ! $YES && confirm "Use these volumes and their data for this install?" n; then :
       else
-        [[ -z $PRESET_NAME ]] || die "Valitse toinen nimi (--name), tai poista vanhat taltiot jos niitä ei tarvita: docker volume rm ${NAME_VOLS% }"
-        default_name=$(suggest_name "$cand"); [[ -n $default_name ]] || die "Vapaata nimeä ei löytynyt."
-        say "Käytetään nimeä $default_name."; continue
+        [[ -z $PRESET_NAME ]] || die "Pick another name (--name), or delete the old volumes if they are not needed: docker volume rm ${NAME_VOLS% }"
+        default_name=$(suggest_name "$cand"); [[ -n $default_name ]] || die "No free name found."
+        say "Using the name $default_name."; continue
       fi
     fi
     INSTANCE=$cand; break
   done
-  [[ -n $INSTANCE ]] || die "Nimeä ei valittu."
+  [[ -n $INSTANCE ]] || die "No name chosen."
   PROJECT=$INSTANCE
-  say "Asennuksen nimi ${bold}$INSTANCE${reset} (kontti, image ja taltiot ${PROJECT}_banking-data, ${PROJECT}_banking-secrets)."
+  say "Install name ${bold}$INSTANCE${reset} (container, image and volumes ${PROJECT}_banking-data, ${PROJECT}_banking-secrets)."
 fi
 
 # ── 2. how the app is reached ────────────────────────────────────────────────
 # An existing install keeps its answers. A run that stopped half way (no container yet) goes on with
 # them without asking. Otherwise one question offers a change; --reconfigure or an answer flag asks again.
-KEEP_ALL=false
+KEEP_ALL=false; RESUMED=false
 if $EXISTING && [[ -f $ENV_FILE ]] && ! $RECONFIGURE && [[ -z $A_ACCESS$A_DOMAIN$A_EMAIL$A_PORT$A_BIND$A_TOKEN ]]; then
   if [[ -z $($DC ps -a -q banking 2>/dev/null || true) ]]; then
-    say "Edellinen asennus jäi kesken. Jatketaan samoilla asetuksilla."; KEEP_ALL=true
+    say "The previous install did not finish. Continuing with the same settings."; KEEP_ALL=true; RESUMED=true
   else
     KEEP_ALL=true
   fi
 fi
 if $KEEP_ALL; then
-  step "Asetukset"
+  step "Settings"
   current_profile=$(existing COMPOSE_PROFILES); current_bind=$(existing BIND_ADDRESS)
   ACCESS=2
   [[ $current_profile == caddy ]] && ACCESS=4
@@ -561,7 +570,7 @@ if $KEEP_ALL; then
   CADDY_ADDRESS=$(existing CADDY_ADDRESS); CADDY_ADDRESS=${CADDY_ADDRESS#[}; CADDY_ADDRESS=${CADDY_ADDRESS%]}
   BIND_ADDRESS=${current_bind:-127.0.0.1}; HOST_PORT=$(existing HOST_PORT); HOST_PORT=${HOST_PORT:-8080}
   APP_BASE_URL=$(existing APP_BASE_URL); APP_BASE_URL=${APP_BASE_URL:-http://localhost:$HOST_PORT}
-  ok "Osoite: $APP_BASE_URL, portti $BIND_ADDRESS:$HOST_PORT  ${dim}(.env säilyy ennallaan)${reset}"
+  ok "Address: $APP_BASE_URL, port $BIND_ADDRESS:$HOST_PORT  ${dim}(.env stays as it is)${reset}"
 else
 current_profile=$(existing COMPOSE_PROFILES)
 current_bind=$(existing BIND_ADDRESS)
@@ -573,23 +582,23 @@ if [[ -z $A_ACCESS ]] && ! $RECONFIGURE; then
   elif [[ -n $A_BIND ]] || is_private_v4 "$route_addr"; then A_ACCESS=1
   else
     A_ACCESS=2
-    warn "Koneen osoite (${route_addr:-ei tiedossa}) ei ole kotiverkon osoite, joten sovellus kuuntelee vain tätä konetta (127.0.0.1). Palvelimelle sopii Cloudflare Tunnel tai oma domain: ./scripts/install.sh --reconfigure"
+    warn "The machine address (${route_addr:-unknown}) is not a home-network address, so the app listens on this machine only (127.0.0.1). For a server, use a Cloudflare Tunnel or your own domain: ./scripts/install.sh --reconfigure"
   fi
 fi
 if [[ -z $A_ACCESS ]] && ! $YES; then
-step "Miten sovellukseen päästään?"
-say "  1) Kotiverkko                  http://<koneen osoite>:<portti>  salaamaton, vain kotiverkkoon (oletus)"
-say "  2) Vain tältä koneelta         http://localhost:<portti>        kokeiluun tai oman välityspalvelimen taakse"
-say "  3) Cloudflare Tunnel           https://talous.oma.fi            ei avoimia portteja, Cloudflare Access eteen"
-say "  4) Oma domain + Let's Encrypt  https://talous.oma.fi            Caddy, vaatii portit 80/443 auki reitittimessä"
+step "How is the app reached?"
+say "  1) Home network                http://<machine address>:<port>  unencrypted, home network only (default)"
+say "  2) This machine only           http://localhost:<port>          for trying out or behind your own proxy"
+say "  3) Cloudflare Tunnel           https://talous.example.com       no open ports, put Cloudflare Access in front"
+say "  4) Own domain + Let's Encrypt  https://talous.example.com       Caddy, needs ports 80/443 open on the router"
 fi
 default_access=1
 [[ -n $current_profile || ( -n $current_bind && $current_bind == 127.0.0.1 ) ]] && default_access=2
 [[ $current_profile == caddy ]] && default_access=4
 [[ $current_profile == tunnel ]] && default_access=3
 [[ -z $current_profile && -z $current_bind ]] && { is_private_v4 "$route_addr" && default_access=1 || default_access=2; }
-ask ACCESS "Valinta" "$default_access" "$A_ACCESS"
-[[ $ACCESS =~ ^[1-4]$ ]] || die "Tuntematon valinta: $ACCESS"
+ask ACCESS "Choice" "$default_access" "$A_ACCESS"
+[[ $ACCESS =~ ^[1-4]$ ]] || die "Unknown choice: $ACCESS"
 
 PROFILES=""; TRUST_PROXY=false; DOMAIN=""; ACME_EMAIL=""; TUNNEL_TOKEN=""; CADDY_ADDRESS=""
 BIND_ADDRESS=127.0.0.1   # only option 4 listens beyond this machine
@@ -597,29 +606,29 @@ BIND_ADDRESS=127.0.0.1   # only option 4 listens beyond this machine
 pick_host_addr() { # pick_host_addr VAR default
   # not __ans: ask() has a local of that name, which would catch its answer
   local __var=$1 __def=$2 __addrs __i __pick=""
-  command -v ip >/dev/null || die "ip-komento puuttuu, koneen osoitteita ei voi listata (sudo apt install iproute2)."
+  command -v ip >/dev/null || die "The ip command is missing, so the machine addresses cannot be listed (sudo apt install iproute2)."
   mapfile -t __addrs < <(host_addrs)
-  ((${#__addrs[@]})) || die "Koneelta ei löytynyt verkko-osoitteita."
+  ((${#__addrs[@]})) || die "No network addresses found on this machine."
   [[ -n ${3:-} ]] || for __i in "${!__addrs[@]}"; do say "  $((__i + 1))) ${__addrs[$__i]}"; done
-  ask __pick "Osoite (numero tai osoite)" "$__def" "${3:-}"
+  ask __pick "Address (number or address)" "$__def" "${3:-}"
   if [[ $__pick =~ ^[0-9]{1,2}$ ]] && ((__pick >= 1 && __pick <= ${#__addrs[@]})); then __pick=${__addrs[$((__pick - 1))]}; fi
   __pick=${__pick#\[}; __pick=${__pick%\]}
   printf -v "$__var" '%s' "$__pick"
 }
 
 if [[ $ACCESS == 1 ]]; then
-  say "  ${yellow}Liikenne on salaamatonta (http). Käytä vain luotetussa kotiverkossa, älä avaa porttia internetiin.${reset}"
+  say "  ${yellow}Traffic is unencrypted (http). Use it only on a trusted home network and do not open the port to the internet.${reset}"
   pick_def=${current_bind:-}
   [[ $pick_def != 127.0.0.1 ]] || pick_def=""
   # nothing asked on a plain run: the default-route address (the choice above made sure it is a private one)
   if ! $RECONFIGURE && [[ -z $A_BIND && -z $pick_def ]] && is_private_v4 "$route_addr"; then A_BIND=$route_addr; fi
-  [[ -n $A_BIND ]] || say "  Koneen osoitteet (0.0.0.0 = kaikki osoitteet, ei suositella):"
+  [[ -n $A_BIND ]] || say "  Machine addresses (0.0.0.0 = all addresses, not recommended):"
   pick_host_addr BIND_ADDRESS "${pick_def:-${route_addr:-$(host_addrs | head -1)}}" "$A_BIND"
   if [[ $(norm_addr "$BIND_ADDRESS") == "*" ]]; then
-    warn "Kuuntelu kaikissa osoitteissa avaa sovelluksen jokaiseen koneen verkkoon. Docker ohittaa palomuurin (ufw) säännöt, joten valitse mieluummin yksittäinen osoite."
+    warn "Listening on all addresses opens the app to every network of the machine. Docker bypasses the firewall (ufw) rules, so pick a single address instead."
     BIND_ADDRESS=0.0.0.0
   else
-    host_has_addr "$BIND_ADDRESS" || die "Osoite $BIND_ADDRESS ei ole tällä koneella."
+    host_has_addr "$BIND_ADDRESS" || die "The address $BIND_ADDRESS is not on this machine."
   fi
 fi
 
@@ -634,64 +643,64 @@ fi
 # The first free port is right for nearly everyone, so it is not asked. --port picks another.
 HOST_PORT=${A_PORT:-$default_port}
 if port_taken "$HOST_PORT" "$BIND_ADDRESS"; then
-  die "Portti $HOST_PORT on jo käytössä osoitteessa $BIND_ADDRESS (toinen ohjelma tai toinen asennus). Valitse toinen: ./scripts/install.sh --port <numero>   (kuka sen käyttää: ss -ltnp 'sport = :$HOST_PORT')"
+  die "Port $HOST_PORT is already in use on $BIND_ADDRESS (another program or another install). Pick another: ./scripts/install.sh --port <number>   (who uses it: ss -ltnp 'sport = :$HOST_PORT')"
 fi
-say "Portti: ${bold}$HOST_PORT${reset}"
+say "Port: ${bold}$HOST_PORT${reset}"
 
 case $ACCESS in
   2) APP_BASE_URL="http://localhost:$HOST_PORT" ;;
   4)
-    ask DOMAIN "Domain (esim. talous.oma.fi)" "$(existing DOMAIN)" "$A_DOMAIN"
-    [[ -n $DOMAIN ]] || die "Domain puuttuu. Anna se: --domain talous.oma.fi"
-    valid_domain "$DOMAIN" || die "Virheellinen domain: $DOMAIN"
-    ask ACME_EMAIL "Sähköposti Let's Encryptin ilmoituksille" "$(existing ACME_EMAIL)" "$A_EMAIL"
-    [[ -n $ACME_EMAIL ]] || die "Sähköposti puuttuu. Anna se: --email nimi@oma.fi"
-    [[ $ACME_EMAIL =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || die "Virheellinen sähköpostiosoite: $ACME_EMAIL"
+    ask DOMAIN "Domain (for example talous.example.com)" "$(existing DOMAIN)" "$A_DOMAIN"
+    [[ -n $DOMAIN ]] || die "The domain is missing. Give it with: --domain talous.example.com"
+    valid_domain "$DOMAIN" || die "Invalid domain: $DOMAIN"
+    ask ACME_EMAIL "Email for Let's Encrypt notices" "$(existing ACME_EMAIL)" "$A_EMAIL"
+    [[ -n $ACME_EMAIL ]] || die "The email is missing. Give it with: --email you@example.com"
+    [[ $ACME_EMAIL =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || die "Invalid email address: $ACME_EMAIL"
     APP_BASE_URL="https://$DOMAIN"; PROFILES=caddy; TRUST_PROXY=true
     # Caddy needs 80 and 443. Another instance (or program) already on them: bind to an address of its own.
     if port_taken 80 "*" || port_taken 443 "*"; then
-      say "  Portti 80 tai 443 on jo käytössä (toinen Caddy tai ohjelma). Caddy tarvitsee oman IP-osoitteen."
-      say "  Koneen osoitteet:"
+      say "  Port 80 or 443 is already in use (another Caddy or program). Caddy needs an IP address of its own."
+      say "  Machine addresses:"
       pick_host_addr CADDY_ADDRESS "$(existing CADDY_ADDRESS)" "$A_BIND"
-      [[ -n $CADDY_ADDRESS ]] || die "Osoite puuttuu."
-      host_has_addr "$CADDY_ADDRESS" || die "Osoite $CADDY_ADDRESS ei ole tällä koneella."
+      [[ -n $CADDY_ADDRESS ]] || die "The address is missing."
+      host_has_addr "$CADDY_ADDRESS" || die "The address $CADDY_ADDRESS is not on this machine."
       if port_taken 80 "$CADDY_ADDRESS" || port_taken 443 "$CADDY_ADDRESS"; then
         wild=$(wildcard_caddy_owner || true)
         if [[ -n $wild ]]; then
           wild_dir=${wild#*|}; wild=${wild%%|*}
-          die "Asennuksen $wild Caddy kuuntelee portteja 80 ja 443 kaikissa osoitteissa, joten mikään toinen osoite ei kelpaa. Lisää tiedostoon ${wild_dir:-<sen kansio>}/.env rivi CADDY_ADDRESS=<sen oma IP> ja aja siinä kansiossa docker compose up -d. Yritä sitten tätä asennusta uudelleen."
+          die "The Caddy of install $wild listens on ports 80 and 443 on all addresses, so no other address works. Add the line CADDY_ADDRESS=<its own IP> to ${wild_dir:-<its folder>}/.env and run docker compose up -d in that folder. Then try this install again."
         fi
-        die "Portit 80 ja 443 eivät ole vapaina osoitteessa $CADDY_ADDRESS. Käytä toista IP-osoitetta tai valintaa 3 (Cloudflare Tunnel), tai laita oma välityspalvelin sovelluksen portin $HOST_PORT eteen."
+        die "Ports 80 and 443 are not free on $CADDY_ADDRESS. Use another IP address or choice 3 (Cloudflare Tunnel), or put your own proxy in front of the app port $HOST_PORT."
       fi
     fi
     ;;
   3)
-    ask DOMAIN "Tunnelin julkinen osoite (esim. talous.oma.fi)" "$(existing DOMAIN)" "$A_DOMAIN"
-    [[ -n $DOMAIN ]] || die "Domain puuttuu. Anna se: --domain talous.oma.fi"
-    valid_domain "$DOMAIN" || die "Virheellinen domain: $DOMAIN"
-    say "  ${dim}Zero Trust > Networks > Tunnels > Create tunnel, kopioi token (alkaa eyJ…)${reset}"
+    ask DOMAIN "Public address of the tunnel (for example talous.example.com)" "$(existing DOMAIN)" "$A_DOMAIN"
+    [[ -n $DOMAIN ]] || die "The domain is missing. Give it with: --domain talous.example.com"
+    valid_domain "$DOMAIN" || die "Invalid domain: $DOMAIN"
+    say "  ${dim}Zero Trust > Networks > Tunnels > Create tunnel, copy the token (starts with eyJ…)${reset}"
     TUNNEL_TOKEN=$A_TOKEN
-    if [[ -z $TUNNEL_TOKEN ]] && ! $YES; then ask_secret TUNNEL_TOKEN "Tunnel token (piilotettu, Enter = säilytä nykyinen)"; fi
+    if [[ -z $TUNNEL_TOKEN ]] && ! $YES; then ask_secret TUNNEL_TOKEN "Tunnel token (hidden, Enter = keep the current one)"; fi
     TUNNEL_TOKEN=${TUNNEL_TOKEN:-$(existing CLOUDFLARE_TUNNEL_TOKEN)}
-    [[ -n $TUNNEL_TOKEN ]] || die "Tunnel token puuttuu. Anna se ympäristömuuttujassa: TALOUS_TUNNEL_TOKEN=eyJ… ./scripts/install.sh --yes --access tunnel --domain ..."
-    [[ $TUNNEL_TOKEN =~ ^[A-Za-z0-9._=-]+$ ]] || die "Token puuttuu tai on virheellinen."
+    [[ -n $TUNNEL_TOKEN ]] || die "The tunnel token is missing. Give it in the environment: TALOUS_TUNNEL_TOKEN=eyJ… ./scripts/install.sh --yes --access tunnel --domain ..."
+    [[ $TUNNEL_TOKEN =~ ^[A-Za-z0-9._=-]+$ ]] || die "The token is missing or invalid."
     APP_BASE_URL="https://$DOMAIN"; PROFILES=tunnel; TRUST_PROXY=true
     ;;
   1)
     url_addr=$BIND_ADDRESS
     if [[ $BIND_ADDRESS == 0.0.0.0 ]]; then
-      ask url_addr "Osoite, jolla sovellukseen päästään (IP tai nimi)" "$(host_addrs | head -1)"
+      ask url_addr "Address the app is reached by (IP or name)" "$(host_addrs | head -1)"
     fi
-    [[ $url_addr =~ ^[A-Za-z0-9.:-]+$ ]] || die "Virheellinen osoite: $url_addr"
+    [[ $url_addr =~ ^[A-Za-z0-9.:-]+$ ]] || die "Invalid address: $url_addr"
     APP_BASE_URL="http://$(url_host "$url_addr"):$HOST_PORT"
     ;;
-  *) die "Tuntematon valinta: $ACCESS" ;;
+  *) die "Unknown choice: $ACCESS" ;;
 esac
 APP_BASE_URL=${APP_BASE_URL%/}
-ok "Osoite: $APP_BASE_URL  ${dim}(muutettavissa selaimessa)${reset}"
+ok "Address: $APP_BASE_URL  ${dim}(can be changed in the browser)${reset}"
 
 # ── write .env ───────────────────────────────────────────────────────────────
-step "Kirjoitetaan .env"
+step "Writing .env"
 umask 077
 # optional settings the questions above do not cover survive a re-run
 KEEP=()
@@ -701,7 +710,7 @@ for key in TZ SETUP_CODE INDUSTRY_LOOKUP; do
 done
 if [[ -f $ENV_FILE ]]; then
   cp -p "$ENV_FILE" "$ENV_FILE.bak.$(date +%Y%m%d-%H%M%S)"
-  ok "Vanha .env varmuuskopioitu."
+  ok "Old .env backed up."
 fi
 {
   cat <<ENV
@@ -738,13 +747,13 @@ ENV
 } >"$ENV_FILE.new"
 # written whole or not at all: a Ctrl-C here leaves the old .env
 chmod 600 "$ENV_FILE.new"; mv -f "$ENV_FILE.new" "$ENV_FILE"
-ok ".env kirjoitettu (oikeudet 600)."
+ok ".env written (mode 600)."
 fi
 # a COMPOSE_PROJECT_NAME in the shell beats .env and would name the volumes differently
-[[ $(project_name) == "$PROJECT" ]] || die "Compose käyttää projektinimeä $(project_name), odotettiin $PROJECT. Onko COMPOSE_PROJECT_NAME asetettu komentorivillä? (unset COMPOSE_PROJECT_NAME)"
+[[ $(project_name) == "$PROJECT" ]] || die "Compose uses the project name $(project_name), expected $PROJECT. Is COMPOSE_PROJECT_NAME set in the shell? (unset COMPOSE_PROJECT_NAME)"
 
 # ── 4. build, start, setup code ──────────────────────────────────────────────
-step "Rakennetaan ja käynnistetään"
+step "Building and starting"
 # the image remembers which commit it was built from (update.sh and doctor.sh compare it with the checkout)
 GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo unknown); export GIT_COMMIT
 # Channel: the signed release image when this checkout is exactly a release (a tag vX.Y.Z), else the source built here
@@ -756,33 +765,33 @@ if [[ ${TALOUS_CHANNEL:-$(existing TALOUS_CHANNEL)} != source ]]; then
     REL_COMMIT=$(git rev-parse "$REL_TAG^{commit}")
     if [[ $REL_COMMIT == "$(git rev-parse HEAD 2>/dev/null)" ]]; then CHANNEL=release
     elif git merge-base --is-ancestor HEAD "$REL_COMMIT" 2>/dev/null; then
-      warn "Tämä kansio on julkaisua $REL_TAG vanhempi. Rakennetaan kansion koodi. Siirry julkaisuun asennuksen jälkeen: ./scripts/update.sh"
+      warn "This folder is older than release $REL_TAG. Building the code in the folder. Move to the release after the install: ./scripts/update.sh"
     fi
   fi
 fi
 if [[ $CHANNEL == release ]]; then
-  say "Kanava: julkaisu $REL_TAG"
+  say "Channel: release $REL_TAG"
   # shellcheck disable=SC2034
   IMAGE=$INSTANCE
-  docker image inspect "$INSTANCE:latest" >/dev/null 2>&1 || say "${dim}Imagen lataus kestää hetken.${reset}"
+  docker image inspect "$INSTANCE:latest" >/dev/null 2>&1 || say "${dim}Pulling the image takes a moment.${reset}"
   fetch_release_image "$REL_TAG" "$REL_COMMIT"
   UP_FLAGS="--no-build"
 else
-docker image inspect "$INSTANCE:latest" >/dev/null 2>&1 || say "${dim}Ensimmäinen rakennus kestää muutaman minuutin.${reset}"
+docker image inspect "$INSTANCE:latest" >/dev/null 2>&1 || say "${dim}The first build takes a few minutes.${reset}"
 build_rc=0
-run_logged "$LOG" "Rakennetaan" $DC build banking || build_rc=$?
+run_logged "$LOG" "Building" $DC build banking || build_rc=$?
 if ((build_rc != 0)); then
   tail -n 25 "$LOG" | cut -c1-200
   if grep -qiE 'no space left|ENOSPC|disk quota' "$LOG"; then
-    die "Levy täyttyi rakennuksen aikana. Vapauta tilaa (df -h; docker image prune -f; docker builder prune -f) ja aja tämä uudelleen, se jatkaa siitä mihin jäi."
+    die "The disk filled up during the build. Free some space (df -h; docker image prune -f; docker builder prune -f) and run this again, it continues where it stopped."
   elif grep -qiE '429 Too Many|toomanyrequests|rate limit' "$LOG"; then
-    die "Docker Hub rajoittaa latauksia tästä osoitteesta (liian monta pyyntöä). Odota tunti ja aja tämä uudelleen, tai kirjaudu: docker login"
+    die "Docker Hub limits pulls from this address (too many requests). Wait an hour and run this again, or log in: docker login"
   elif grep -qiE 'ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|could not resolve|temporary failure in name|i/o timeout|dial tcp|TLS handshake|failed to fetch|failed to resolve source|network is unreachable|unable to get image|Get "https' "$LOG"; then
-    die "Rakennus ei saanut verkkoyhteyttä (paketit tai pohjaimage ladataan netistä). Tarkista yhteys (curl -I https://registry.npmjs.org, docker pull node:22-alpine) ja aja tämä uudelleen."
+    die "The build had no network connection (packages and the base image are downloaded). Check the connection (curl -I https://registry.npmjs.org, docker pull node:22-alpine) and run this again."
   elif grep -qE 'FAIL|Test Files .*failed|tests? failed' "$LOG"; then
-    die "Rakennuksen testit epäonnistuivat. Koodi ei ole kunnossa tällä haaralla. Yritä toista versiota tai kerro viasta (lokin loppu yllä)."
+    die "The tests of the build failed. The code on this branch is broken. Try another version or report the problem (end of the log above)."
   fi
-  die "Rakennus epäonnistui (lokin loppu yllä). Aja tämä uudelleen. Jos vika toistuu: ./scripts/doctor.sh"
+  die "The build failed (end of the log above). Run this again. If the error comes back: ./scripts/doctor.sh"
 fi
 fi
 
@@ -790,25 +799,25 @@ fi
 # the secrets volume once, so bank keys encrypted with it stay readable.
 if [[ -s $LEGACY_SECRET ]]; then
   if $DC run --rm --no-deps -T --entrypoint sh banking -c 'umask 077; [ -s /secrets/app_secret ] && exit 3; cat > /secrets/app_secret' <"$LEGACY_SECRET"; then
-    ok "Aiemman asennuksen salausavain siirretty taltioon ${PROJECT}_banking-secrets."
+    ok "The app secret of the earlier install was moved to the volume ${PROJECT}_banking-secrets."
   fi
-  warn "Kansio secrets/ ei ole enää käytössä. Poista se, kun sovellus toimii: rm -r secrets"
+  warn "The folder secrets/ is no longer used. Delete it once the app works: rm -r secrets"
 fi
 
 up_rc=0
-run_logged "$LOG" "Käynnistetään" $DC up -d $UP_FLAGS || up_rc=$?
+run_logged "$LOG" "Starting" $DC up -d $UP_FLAGS || up_rc=$?
 if ((up_rc != 0)); then
   tail -n 15 "$LOG" | cut -c1-200
   if grep -qiE 'port is already allocated|address already in use|bind: ' "$LOG"; then
-    die "Portti $HOST_PORT tai 80/443 on jo toisen ohjelman käytössä. Katso kuka: ss -ltnp 'sport = :$HOST_PORT'. Valitse toinen portti: ./scripts/install.sh --reconfigure --port <numero>"
+    die "Port $HOST_PORT or 80/443 is already used by another program. See who: ss -ltnp 'sport = :$HOST_PORT'. Pick another port: ./scripts/install.sh --reconfigure --port <number>"
   elif grep -qiE 'no space left' "$LOG"; then
-    die "Levy täyttyi käynnistettäessä. Vapauta tilaa (df -h; docker image prune -f; docker builder prune -f) ja aja tämä uudelleen."
+    die "The disk filled up while starting. Free some space (df -h; docker image prune -f; docker builder prune -f) and run this again."
   elif grep -qiE 'pull access denied|failed to resolve|i/o timeout|TLS handshake|no such host|Get "https' "$LOG"; then
-    die "Caddyn tai tunnelin imagea ei saatu ladattua. Tarkista verkkoyhteys ja aja tämä uudelleen."
+    die "Could not pull the Caddy or tunnel image. Check the network connection and run this again."
   fi
-  die "Käynnistys epäonnistui (virhe yllä). Aja tämä uudelleen. Jos vika toistuu: ./scripts/doctor.sh"
+  die "Starting failed (error above). Run this again. If the error comes back: ./scripts/doctor.sh"
 fi
-say "Odotetaan sovellusta…"
+say "Waiting for the app…"
 # from inside the container, so the bind address and port do not matter. exec fails while the
 # container restarts, which only means "not yet".
 app_up() { $DC exec -T banking wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1; }
@@ -821,9 +830,24 @@ for _ in $(seq 1 60); do
 done
 if ! app_up; then
   $DC logs --no-color --tail 15 banking 2>&1 | cut -c1-200 || true
-  die "Sovellus ei käynnistynyt (lokin loppu yllä). Aja: ./scripts/doctor.sh   ja tarkemmin: docker compose logs --tail 60 banking. Korjauksen jälkeen aja tämä uudelleen."
+  die "The app did not start (end of the log above). Run: ./scripts/doctor.sh   and for more: docker compose logs --tail 60 banking. After fixing it, run this again."
 fi
-ok "Sovellus käynnissä."
+ok "The app is running."
+
+# The address lives in the database after setup, so a changed access has to be written there too. A plain re-run
+# that keeps .env leaves it alone (the admin may have changed it in the browser), but a resumed install writes it.
+# A new install has nothing stored and uses .env as it is. The command runs in a second process and the server
+# caches the address, so the app restarts, and only when the address really changed.
+if $EXISTING && { ! $KEEP_ALL || $RESUMED; }; then
+  if addr_out=$($DC exec -T banking $NODE address set "$APP_BASE_URL" 2>&1); then
+    ok "$(printf '%s' "$addr_out" | tail -1)"
+    if [[ $addr_out == *" is now "* ]]; then
+      $DC restart banking >/dev/null 2>&1 || true
+      for _ in $(seq 1 30); do app_up && break; sleep 2; done
+      app_up || warn "The app does not respond after the restart. Run: ./scripts/doctor.sh"
+    fi
+  else warn "Could not update the app address ($(printf '%s' "$addr_out" | tail -1)). Set it in the browser: Asetukset > Palvelin."; fi
+fi
 
 # a fresh one-time code (only while no user exists)
 CODE=$($DC exec -T banking $NODE setup-code 2>/dev/null | tail -1 || true)
@@ -831,32 +855,32 @@ CODE=$($DC exec -T banking $NODE setup-code 2>/dev/null | tail -1 || true)
 # the maintenance helper (update, backup and restart from the browser); a problem here never fails the install
 OPS_KIND=none; OPS_NOTE=""
 if $OPS_HELPER; then
-  step "Ylläpitoapuri"
+  step "Maintenance helper"
   setup_ops_helper
-  if [[ $OPS_KIND == none ]]; then warn "$OPS_NOTE"; else ok "Ylläpitoapuri käytössä: $OPS_NOTE"; fi
-  if [[ $OPS_KIND == cron ]]; then say "${dim}Systemd-käyttäjäajastin vaatisi, että palvelut jatkavat kirjautumisen jälkeen (sudo loginctl enable-linger $(id -un)). Cron toimii ilman sitä.${reset}"; fi
+  if [[ $OPS_KIND == none ]]; then warn "$OPS_NOTE"; else ok "Maintenance helper on: $OPS_NOTE"; fi
+  if [[ $OPS_KIND == cron ]]; then say "${dim}A systemd user timer would need user services to keep running after logout (sudo loginctl enable-linger $(id -un)). Cron works without it.${reset}"; fi
 else
-  OPS_NOTE="ei käytössä (--no-ops-helper)"
+  OPS_NOTE="off (--no-ops-helper)"
 fi
 
 # the end: the address, the setup link, what is left to do
 case $OPS_KIND in
-  systemd) OPS_LABEL="käytössä (systemd-ajastin)" ;;
-  cron) OPS_LABEL="käytössä (cron)" ;;
-  *) OPS_LABEL="ei käytössä"; [[ $OPS_NOTE != "ei käytössä"* ]] || OPS_LABEL=$OPS_NOTE ;;
+  systemd) OPS_LABEL="on (systemd timer)" ;;
+  cron) OPS_LABEL="on (cron)" ;;
+  *) OPS_LABEL="off"; [[ $OPS_NOTE != "off"* ]] || OPS_LABEL=$OPS_NOTE ;;
 esac
 IN=""; [[ $INSTANCE == "$DEFAULT_INSTANCE" ]] || IN="cd $ROOT && "
 say ""
-say "${bold}${green}Omatalous on käynnissä:${reset} ${bold}$APP_BASE_URL${reset}   ${dim}(asennus $INSTANCE)${reset}"
+say "${bold}${green}Omatalous is running:${reset} ${bold}$APP_BASE_URL${reset}   ${dim}(instance $INSTANCE)${reset}"
 if [[ $CODE =~ ^[a-z0-9]{4}(-[a-z0-9]{4}){3}$ ]]; then
-  say "Ota käyttöön: ${bold}$APP_BASE_URL/#koodi=$CODE${reset}   ${dim}(kertakäyttöinen koodi on linkissä)${reset}"
+  say "Set up: ${bold}$APP_BASE_URL/#koodi=$CODE${reset}   ${dim}(the one-time code is in the link)${reset}"
 else
-  say "Avaa osoite ja kirjaudu sisään."
+  say "Open the address and sign in."
 fi
 if [[ $ACCESS == 1 ]]; then
-  say "Varaa koneelle kiinteä osoite reitittimestä (DHCP-varaus), niin osoite ei vaihdu. Ylläpitoapuri: $OPS_LABEL."
+  say "Reserve a fixed address for this machine in the router (DHCP reservation) so the address does not change. Maintenance helper: $OPS_LABEL."
 else
-  say "Ylläpitoapuri: $OPS_LABEL. Vianetsintä: ${IN}./scripts/doctor.sh"
+  say "Maintenance helper: $OPS_LABEL. Troubleshooting: ${IN}./scripts/doctor.sh"
 fi
-[[ $ACCESS != 4 ]] || say "${dim}Let's Encrypt: DNS A -tietue julkiseen IP:hen ja portit 80 ja 443 ohjattuna tälle koneelle.${reset}"
-[[ $ACCESS != 3 ]] || say "${dim}Cloudflare: tunnelin Public hostname http://banking:8080 ja Access-sääntö omalle sähköpostille.${reset}"
+[[ $ACCESS != 4 ]] || say "${dim}Let's Encrypt: a DNS A record to the public IP and ports 80 and 443 forwarded to this machine.${reset}"
+[[ $ACCESS != 3 ]] || say "${dim}Cloudflare: the tunnel's Public hostname http://banking:8080 and an Access rule for your own email.${reset}"

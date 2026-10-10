@@ -74,7 +74,7 @@ run_update() {
   cat "$WORK/update.log"
   return "$rc"
 }
-said() { grep -q -- "$1" "$WORK/update.log"; }
+said() { grep -qi -- "$1" "$WORK/update.log"; }
 
 log "baseline $B as a git install"
 git init -q --bare "$REMOTE"
@@ -134,17 +134,17 @@ fi
 log "this checkout's update.sh on the next release"
 printf 'TALOUS_CHANNEL=source\n' >>"$DIR/.env"
 run_update --yes >/dev/null
-said 'jo käytössä\|Päivitetty\|Käynnissä' || fail "no outcome line"
+said 'already current\|Updated\|Running\|jo käytössä\|Päivitetty\|Käynnissä' || fail "no outcome line"
 wait_up
 run_update --yes >/dev/null
-said 'jo käytössä' || fail "a second run on the same version should say it is current"
+said 'already current\|jo käytössä' || fail "a second run on the same version should say it is current"
 HEAD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
 
 push_commit "ci: next release" '
   sed -i "s/^export const APP_VERSION = .*/export const APP_VERSION = \"9999.0.0\";/" apps/server/src/version.ts
   echo "ALTER TABLE accounts ADD COLUMN ci_note TEXT;" >apps/server/migrations/9999_ci_next.sql'
 run_update --yes >/dev/null
-said 'Päivitetty' || fail "update to the next release failed"
+said 'Updated\|Päivitetty' || fail "update to the next release failed"
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "next release is not running"
 expect_equal "the data after the next release" "$GOLD0" "$(golden)"
@@ -156,7 +156,7 @@ wait_up
 expect_equal "the data after the second rollback" "$GOLD0" "$(golden)"
 migrations | grep '^9999_' >/dev/null && fail "the rolled back database still has the next migration"
 run_update --yes >/dev/null
-said 'Päivitetty' || fail "update after rollback failed"
+said 'Updated\|Päivitetty' || fail "update after rollback failed"
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "next release is not running again"
 
@@ -166,10 +166,10 @@ if run_update --yes >/dev/null; then fail "a broken build must not succeed"; fi
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "the old version stopped"
 run_update --yes >/dev/null || true
-if said 'jo käytössä'; then fail "a failed update was reported as current"; fi
+if said 'already current\|jo käytössä'; then fail "a failed update was reported as current"; fi
 push_commit "ci: repair build" 'git revert --no-edit HEAD >/dev/null'
 run_update --yes >/dev/null
-said 'Päivitetty' || fail "update after the repair failed"
+said 'Updated\|Päivitetty' || fail "update after the repair failed"
 wait_up
 
 log "a migration that fails is rolled back by itself"

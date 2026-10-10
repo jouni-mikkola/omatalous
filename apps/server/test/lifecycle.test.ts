@@ -2,7 +2,7 @@ import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
 import { BACKUP_MAX_AGE_DAYS, openDatabase, pruneBackupsByAge } from "../src/db/open.ts";
 import { rotateAppSecret } from "../src/entry/secret-rotate.ts";
@@ -219,6 +219,29 @@ describe("command line: sessions and secret rotation", () => {
     expect((await s.security.list({ kind: "session_revoked", limit: 5 })).length).toBe(1);
   });
 
+  it("address set stores a valid origin and refuses the rest", async () => {
+    const { s } = await setupApp();
+    const out: string[] = [];
+    const log = vi.spyOn(console, "log").mockImplementation((m: string) => void out.push(m));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await runCli(s, ["address", "set", "https://talous.example.fi/"])).toBe(0);
+      expect(out.join("\n")).toContain("https://talous.example.fi");
+      expect((await s.instance.load(true)).appBaseUrl).toBe("https://talous.example.fi");
+      // the same address again is reported as unchanged, so install.sh does not restart the app
+      expect(await runCli(s, ["address", "set", "https://talous.example.fi"])).toBe(0);
+      expect(out.at(-1)).toContain("is already https://talous.example.fi");
+      for (const bad of ["talous.example.fi", "https://talous.example.fi/polku", "ftp://x.fi", ""]) {
+        expect(await runCli(s, ["address", "set", bad])).toBe(1);
+      }
+      expect(await runCli(s, ["address", "set"])).toBe(1);
+      expect((await s.instance.load(true)).appBaseUrl).toBe("https://talous.example.fi");
+    } finally {
+      log.mockRestore();
+      err.mockRestore();
+    }
+  });
+
   async function sealed() {
     const t = await setupApp();
     await t.admin.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem });
@@ -233,7 +256,7 @@ describe("command line: sessions and secret rotation", () => {
     const t = await sealed();
     const beforeUser = (await t.s.users.getBankCredentials(t.adminId))!.privateKeyEnc;
     const lines = await rotateAppSecret(t.s, { secretFile: t.file, snapshot: () => "snap.db" });
-    expect(lines.join("\n")).toContain("1 käyttäjän avainta, 1 yhteistä avainta");
+    expect(lines.join("\n")).toContain("1 user keys, 1 shared keys");
     const newSecret = readFileSync(t.file, "utf8").trim();
     expect(newSecret).not.toBe(t.oldSecret);
     expect(newSecret.length).toBeGreaterThanOrEqual(32);
@@ -256,7 +279,7 @@ describe("command line: sessions and secret rotation", () => {
     const t = await sealed();
     await t.s.db.run("UPDATE bank_credentials SET private_key_enc = ? WHERE user_id = ?", ["v1.AAAA.BBBB", t.adminId]);
     const pendingBefore = await t.s.settings.get("instance_bank_app_pending");
-    await expect(resealAll(t.s, t.oldSecret, "another-secret-that-is-long-enough-0123456789")).rejects.toThrow(/Mitään ei muutettu/);
+    await expect(resealAll(t.s, t.oldSecret, "another-secret-that-is-long-enough-0123456789")).rejects.toThrow(/Nothing was changed/);
     expect(await t.s.settings.get("instance_bank_app_pending")).toBe(pendingBefore);
   });
 
@@ -266,7 +289,7 @@ describe("command line: sessions and secret rotation", () => {
     writeFileSync(`${t.file}.next`, `${next}\n`, { mode: 0o600 });
     await resealAll(t.s, t.oldSecret, next); // step 2 done, step 3 not
     const lines = await rotateAppSecret(t.s, { secretFile: t.file, snapshot: () => "snap.db" });
-    expect(lines.join("\n")).toContain("jatketaan");
+    expect(lines.join("\n")).toContain("continuing from it");
     expect(readFileSync(t.file, "utf8").trim()).toBe(next);
     expect(existsSync(`${t.file}.next`)).toBe(false);
   });

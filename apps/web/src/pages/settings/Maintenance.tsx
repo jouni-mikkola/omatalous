@@ -1,4 +1,4 @@
-/** Asetukset > Palvelin > Ylläpito (admin): update, rollback, backup, restart and doctor through the host helper. */
+/** Asetukset > Ylläpito (admin): update, rollback, backup, restart and doctor through the host helper. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiDownload, ApiError } from "../../api.ts";
 import { BackupList } from "../../components/ops/BackupList.tsx";

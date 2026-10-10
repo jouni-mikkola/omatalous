@@ -36,7 +36,7 @@ set +x
 if [[ ${TALOUS_OPS_CLEAN:-} != 1 ]]; then
   if [[ ${1:-} == --version ]]; then echo "$OPS_HELPER_VERSION"; exit 0; fi
   if [[ $(id -u) -eq 0 ]]; then
-    echo "Ylläpitoapuria ei ajeta pääkäyttäjänä." >&2; exit 1
+    echo "The maintenance helper does not run as root." >&2; exit 1
   fi
   clean=(HOME="${HOME:-/}" PATH=/usr/local/bin:/usr/bin:/bin LANG=C TALOUS_OPS_CLEAN=1)
   # the user's systemd session, for doctor's look at the timer (derived from the uid, not taken from outside)
@@ -60,7 +60,7 @@ umask 077
 case ${1:-} in
   "") ;;
   --version) echo "$OPS_HELPER_VERSION"; exit 0 ;;
-  *) echo "Käyttö: ops-helper.sh" >&2; exit 2 ;;
+  *) echo "Usage: ops-helper.sh" >&2; exit 2 ;;
 esac
 
 SELF=$(readlink -f "${BASH_SOURCE[0]}")
@@ -105,7 +105,7 @@ scrub_out() {
   sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' \
     | tr -d '\000-\011\013-\037\177' \
     | grep -viE 'TOKEN|SECRET|PASSWORD|Authorization|BEGIN .*KEY' \
-    | sed -E 's/[A-Za-z0-9_=-]{40,}/[piilotettu]/g' \
+    | sed -E 's/[A-Za-z0-9_=-]{40,}/[hidden]/g' \
     | tail -n 200 | tail -c 16384
 }
 
@@ -121,7 +121,7 @@ check_permissions() {
   local p
   for p in . .git .git/config scripts "$SELF" scripts/*.sh scripts/lib scripts/lib/*.sh "$OPS" .env "$OPS/policy" "$OPS/journal" "$OPS/run" backups/.last-update; do
     [[ -e $p ]] || continue
-    if unsafe_path "$p"; then log "Tiedoston oikeudet: $p ei ole turvallinen (omistaja tai kirjoitusoikeus). Apuri ei toimi."; return 1; fi
+    if unsafe_path "$p"; then log "File permissions: $p is not safe (owner or write access). The helper does not run."; return 1; fi
   done
   return 0
 }
@@ -133,21 +133,21 @@ env_check() {
   local line key val prof inst
   while IFS= read -r line || [[ -n $line ]]; do
     [[ -z $line || $line == \#* ]] && continue
-    if [[ ! $line =~ ^([A-Z_][A-Z0-9_]*)=([^$'\r']*)$ ]]; then ENV_ERR="rivi ei ole muotoa AVAIN=arvo"; return 1; fi
+    if [[ ! $line =~ ^([A-Z_][A-Z0-9_]*)=([^$'\r']*)$ ]]; then ENV_ERR="a line is not of the form KEY=value"; return 1; fi
     key=${BASH_REMATCH[1]}; val=${BASH_REMATCH[2]}
     case $key in
       COMPOSE_PROJECT_NAME | COMPOSE_PROFILES) ;;
       COMPOSE_* | DOCKER_* | BUILDKIT_* | GIT_* | LD_* | PATH | BASH_ENV | ENV | IFS | SHELL | HOME | USER | TMPDIR | XDG_*)
-        ENV_ERR="avain $key ei ole sallittu"; return 1 ;;
+        ENV_ERR="key $key is not allowed"; return 1 ;;
     esac
-    if [[ $val == *'$'* || $val == *'`'* ]]; then ENV_ERR="arvossa $key on merkki \$ tai \`"; return 1; fi
+    if [[ $val == *'$'* || $val == *'`'* ]]; then ENV_ERR="the value of $key has a \$ or \` character"; return 1; fi
   done <.env
   prof=$(env_get COMPOSE_PROFILES)
-  case $prof in "" | caddy | tunnel | caddy,tunnel | tunnel,caddy) ;; *) ENV_ERR="COMPOSE_PROFILES ei kelpaa"; return 1 ;; esac
+  case $prof in "" | caddy | tunnel | caddy,tunnel | tunnel,caddy) ;; *) ENV_ERR="COMPOSE_PROFILES is invalid"; return 1 ;; esac
   inst=$(env_get INSTANCE_NAME)
-  [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="INSTANCE_NAME ei kelpaa"; return 1; }
+  [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="INSTANCE_NAME is invalid"; return 1; }
   inst=$(env_get COMPOSE_PROJECT_NAME)
-  [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="COMPOSE_PROJECT_NAME ei kelpaa"; return 1; }
+  [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="COMPOSE_PROJECT_NAME is invalid"; return 1; }
   return 0
 }
 
@@ -289,7 +289,7 @@ send_report() {
   [[ -f $OPS/journal/$id.result ]] || return 1
   answer=$(timeout 30 docker compose exec -T banking "${NODE[@]}" dist/node.js ops report --helper "$OPS_HELPER_VERSION" <"$OPS/journal/$id.result" 2>/dev/null | head -c 2000) || true
   if [[ $answer == *'"ok":true'* ]]; then :
-  elif [[ $answer == *'"ok":false'* ]]; then log "ops report hylättiin ($id): ${answer:0:200}"
+  elif [[ $answer == *'"ok":false'* ]]; then log "ops report rejected ($id): ${answer:0:200}"
   else return 1; fi
   journal_write "$id" "$(journal_action "$id")" "$(journal_started "$id")" true
   rm -f "$OPS/run/$id.log"
@@ -384,19 +384,19 @@ check_update() {
   channel=$(env_get TALOUS_CHANNEL)
   CHECK_MODE=source
   if [[ $channel != source ]]; then
-    fetch_release || { say_log "Julkaisutietoja ei saatu (ei verkkoyhteyttä tai GitHub ei vastaa)."; return 1; }
+    fetch_release || { say_log "Could not get release information (no network or GitHub does not answer)."; return 1; }
     [[ $REL_STATUS == ok ]] && CHECK_MODE=release
-    if [[ $channel == release && $CHECK_MODE != release ]]; then say_log "TALOUS_CHANNEL=release, mutta julkaisuja ei ole vielä."; return 1; fi
+    if [[ $channel == release && $CHECK_MODE != release ]]; then say_log "TALOUS_CHANNEL=release but there are no releases yet."; return 1; fi
   fi
   if [[ $CHECK_MODE == release ]]; then
     ver=${REL_TAG#v}
     if [[ -n $cur ]] && semver_gt "$ver" "$cur"; then avail=true; fi
     printf '"update_available":%s,"latest_version":"%s","release_notes":%s,"checked_at":"%s"' "$avail" "$ver" "$(json_str "$REL_NOTES")" "$iso" >"$OPS/check.frag"
-    say_log "Uusin julkaisu: $ver, käytössä: ${cur:-?}."
+    say_log "Latest release: $ver, running: ${cur:-?}."
   else
     git_policy || { say_log "$GIT_MSG."; return 1; }
     branch=$(pol_get BRANCH)
-    timeout -k 5 "$T_CHECK" git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null || { say_log "Lähdekoodin tarkistus ei onnistunut (ei verkkoyhteyttä)."; return 1; }
+    timeout -k 5 "$T_CHECK" git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null || { say_log "Could not check the source (no network)."; return 1; }
     target=$(git rev-parse "origin/$branch^{commit}" 2>/dev/null || true)
     while IFS= read -r line; do
       hash=${line%% *}; subj=${line#* }
@@ -405,7 +405,7 @@ check_update() {
     done < <(git log --format='%h %s' -30 "HEAD..origin/$branch" 2>/dev/null | tr -d '\000-\010\013-\037\177')
     ((n > 0)) && avail=true
     printf '"update_available":%s,"behind_commits":[%s],"checked_at":"%s"' "$avail" "$commits" "$iso" >"$OPS/check.frag"
-    say_log "Lähdekanava: ${n} uutta muutosta."
+    say_log "Source channel: ${n} new changes."
   fi
   UPDATE_AVAILABLE=$avail
   return 0
@@ -425,21 +425,21 @@ fail() { STATUS=failed; RC=${2:-1}; SUMMARY=$1; }
 
 write_recovery() {
   {
-    printf 'Omatalous: päivitys epäonnistui, eikä edellisen version palautus onnistunut (%s).\n\n' "$(now_iso)"
-    printf 'Aja koneella, kansiossa %s:\n' "$ROOT"
+    printf 'Omatalous: the update failed and the previous version could not be restored (%s).\n\n' "$(now_iso)"
+    printf 'Run on the machine, in the folder %s:\n' "$ROOT"
     printf '  ./scripts/update.sh --rollback\n'
     printf '  docker compose logs --tail 60 banking\n'
     printf '  ./scripts/doctor.sh\n\n'
-    printf 'Tietokannan kopiot ovat taltiossa kansiossa /data/backups (pre-update-*.db) ja tämän kansion backups-kansiossa.\n'
+    printf 'Database copies are kept in /data/backups in the app volume (pre-update-*.db) and in the backups folder of this folder.\n'
   } >"$OPS/RECOVERY.txt"
-  log "RECOVERY.txt kirjoitettu: $ROOT/$OPS/RECOVERY.txt"
+  log "RECOVERY.txt written: $ROOT/$OPS/RECOVERY.txt"
 }
 # After a failed or killed update: if the app is not answering, go back to the previous version
 recover() {
   if app_up; then return 0; fi
-  say_log "Sovellus ei vastaa, palautetaan edellinen versio."
+  say_log "The app does not respond, restoring the previous version."
   run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes || true
-  if wait_healthy 15; then rm -f "$OPS/RECOVERY.txt"; say_log "Edellinen versio käynnissä."; return 0; fi
+  if wait_healthy 15; then rm -f "$OPS/RECOVERY.txt"; say_log "The previous version is running."; return 0; fi
   write_recovery
   return 1
 }
@@ -492,10 +492,9 @@ act_update() {
     fi
   else
     RC=$?
-    local why; why=$(last_problem <"$LOGF")
-    if app_up; then fail "Päivitys ei onnistunut, edellinen versio on käynnissä.${why:+ $why}" "$RC"
+    if app_up; then fail "Päivitys ei onnistunut, edellinen versio on käynnissä. Syy on lokissa." "$RC"
     else
-      fail "Päivitys ei onnistunut.${why:+ $why}" "$RC"
+      fail "Päivitys ei onnistunut. Syy on lokissa." "$RC"
       if recover; then SUMMARY="$SUMMARY Edellinen versio palautettiin."; else SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."; fi
     fi
   fi
@@ -508,8 +507,7 @@ act_rollback() {
     else fail "Palautettu sovellus ei vastaa."; write_recovery; fi
   else
     RC=$?
-    local why; why=$(last_problem <"$LOGF")
-    fail "Palautus ei onnistunut.${why:+ $why}" "$RC"
+    fail "Palautus ei onnistunut. Syy on lokissa." "$RC"
     app_up || write_recovery
   fi
 }
@@ -517,7 +515,7 @@ act_backup() {
   local stamp
   echo "STEP: 1/2 Varmuuskopio kansioon backups" >>"$LOGF"
   check_disk || { fail "$DISK_MSG"; return; }
-  if ! run_cap "$T_BACKUP" ./scripts/backup.sh; then RC=$?; fail "Varmuuskopio ei onnistunut. $(last_problem <"$LOGF")" "$RC"; return; fi
+  if ! run_cap "$T_BACKUP" ./scripts/backup.sh; then RC=$?; fail "Varmuuskopio ei onnistunut. Syy on lokissa." "$RC"; return; fi
   # one more copy inside the data volume, where the page can offer it for download
   echo "STEP: 2/2 Kopio sovelluksen omaan kansioon" >>"$LOGF"
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -565,7 +563,7 @@ run_request() { # run_request ID ACTION
   journal_write "$id" "$action" "$started" false   # before anything is done (R20)
   LOGF=$OPS/run/$id.log; : >"$LOGF"; chmod 600 "$LOGF"
   SUMMARY=""; STATUS=ok; RC=0
-  log "pyyntö $id: $action"
+  log "request $id: $action"
   case $action in
     update) act_update ;;
     rollback) act_rollback ;;
@@ -578,7 +576,7 @@ run_request() { # run_request ID ACTION
   [[ -n $SUMMARY ]] || SUMMARY=$([[ $STATUS == ok ]] && echo "Valmis." || echo "Epäonnistui.")
   store_result "$id" "$STATUS" "$RC" "$SUMMARY" "$LOGF"
   LOGF=""
-  send_report "$id" || log "raportti $id jää odottamaan (sovellus ei vastaa)"
+  send_report "$id" || log "report $id is left waiting (the app does not respond)"
 }
 
 # ── a tick ──────────────────────────────────────────────────────────────────
@@ -594,7 +592,7 @@ finish_unfinished() {
     LOGF=$OPS/run/$id.log; [[ -f $LOGF ]] || : >"$LOGF"
     store_result "$id" failed 1 "Apuri keskeytyi kesken toiminnon." "$LOGF"
     LOGF=""; any=0
-    log "keskeytynyt pyyntö $id merkitty epäonnistuneeksi"
+    log "interrupted request $id marked as failed"
   done
   return $any
 }
@@ -631,20 +629,20 @@ heartbeat() {
 poll_once() {
   local out id action
   out=$(timeout 30 docker compose exec -T banking "${NODE[@]}" dist/node.js ops poll --helper "$OPS_HELPER_VERSION" --done "$(done_ids)" 2>/dev/null | head -c 8193) || true
-  if ((${#out} > 8192)); then log "bad poll: vastaus on liian pitkä"; return 0; fi
+  if ((${#out} > 8192)); then log "bad poll: the answer is too long"; return 0; fi
   out=${out%$'\n'}
   [[ -n $out ]] || return 1
   if [[ $out == '{"request":null}' ]]; then return 1; fi
   if [[ $out =~ ^\{\"request\":\{\"id\":\"(op_[0-9a-f]{16})\",\"action\":\"([a-z-]{1,20})\",\"params\":\{\},\"secret\":null\}\}$ ]]; then
     id=${BASH_REMATCH[1]}; action=${BASH_REMATCH[2]}
   else
-    log "bad poll: vastaus ei ole odotetun muotoinen"; return 0
+    log "bad poll: the answer has an unexpected shape"; return 0
   fi
   # the action again, against the fixed list
-  case " $ACTIONS " in *" $action "*) ;; *) log "bad poll: tuntematon toiminto"; return 0 ;; esac
+  case " $ACTIONS " in *" $action "*) ;; *) log "bad poll: unknown action"; return 0 ;; esac
   # a request already in the journal is never run again, whatever the database says
   if [[ -f $OPS/journal/$id.json ]]; then
-    log "pyyntö $id on jo päiväkirjassa, ohitetaan"
+    log "request $id is already in the journal, skipped"
     send_report "$id" || true
     return 0
   fi
@@ -653,20 +651,20 @@ poll_once() {
 }
 
 main() {
-  command -v timeout >/dev/null && command -v flock >/dev/null || { echo "timeout tai flock puuttuu (coreutils, util-linux)." >&2; exit 1; }
+  command -v timeout >/dev/null && command -v flock >/dev/null || { echo "timeout or flock is missing (coreutils, util-linux)." >&2; exit 1; }
   check_permissions || exit 1
   mkdir -p "$OPS/journal" "$OPS/run" && chmod 700 "$OPS" "$OPS/journal" "$OPS/run"
   check_permissions || exit 1
   # one run at a time: an update in progress holds this lock, and the ticks during it do nothing
   exec 8>"$OPS/.lock"
   flock -n 8 || exit 0
-  if ! env_check; then log ".env ei kelpaa: $ENV_ERR. Apuri ei toimi, ennen kuin se on korjattu."; exit 1; fi
-  [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { log "INSTANCE_NAME ei kelpaa"; exit 1; }
+  if ! env_check; then log ".env is invalid: $ENV_ERR. The helper does not run until it is fixed."; exit 1; fi
+  [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { log "INSTANCE_NAME is invalid"; exit 1; }
   now_iso >"$OPS/helper-seen"
   # the docker binary named at install goes first in PATH
   local d; d=$(pol_get DOCKER)
   if [[ -n $d && $d =~ ^/[A-Za-z0-9_./-]+/docker$ && -x $d && ! -w $(dirname "$d") ]]; then PATH=$(dirname "$d"):$PATH; export PATH; fi
-  docker info >/dev/null 2>&1 || { log "Docker ei vastaa"; exit 0; }
+  docker info >/dev/null 2>&1 || { log "Docker does not respond"; exit 0; }
   if ! app_running; then
     # the app is down: a request cut short by a kill is finished as failed and the previous version restored
     if finish_unfinished; then recover || true; fi

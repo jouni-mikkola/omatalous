@@ -75,7 +75,7 @@ function hours(value: string | undefined, fallback: number[]): number[] {
 function validSecret(secret: string): string | null {
   if (!secret) return null;
   if (secret.length < 32) {
-    console.warn("APP_SECRET on alle 32 merkkiä, joten sitä ei käytetä. Pankkiavaimia ei voi tallentaa ennen kuin se korjataan.");
+    console.warn("APP_SECRET is shorter than 32 characters and is not used. Bank keys cannot be stored until it is fixed.");
     return null;
   }
   return secret;

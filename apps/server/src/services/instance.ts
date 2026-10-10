@@ -221,7 +221,7 @@ export function redirectModeOf(state: Pick<InstanceState, "appBaseUrl" | "setupD
 }
 
 /** The return page the project publishes; EB_RELAY_URL points a self-hosted copy of it elsewhere. */
-export const DEFAULT_RELAY_URL = "https://jouni-mikkola.github.io/omatalous/paluu/";
+export const DEFAULT_RELAY_URL = "https://jouni-mikkola.github.io/omatalous/callback/";
 
 /** Where Enable Banking sends the browser back after consent. Production requires https. EB_REDIRECT_URL wins. */
 export function redirectUrlFor(

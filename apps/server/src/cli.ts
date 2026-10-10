@@ -8,10 +8,13 @@
  *   docker compose exec banking node dist/node.js user delete <username>
  *   docker compose exec banking node dist/node.js sessions revoke-all      (signs everyone out)
  *   docker compose exec banking node dist/node.js secret rotate            (new app secret, bank keys re-sealed)
+ *   docker compose exec banking node dist/node.js address set <url>        (the app's own address, install.sh runs it)
  *   docker compose exec -T banking node dist/node.js ops poll|report|state  (the host helper, see cli-ops.ts)
  */
 import { runOpsCli } from "./cli-ops.ts";
+import { UserError } from "./services/errors.ts";
 import type { Services } from "./services/context.ts";
+import { parseBaseUrl } from "./services/instance.ts";
 import { recordEvent } from "./services/security.ts";
 import { createUser, issueSetupCode, removeUser, resetPassword } from "./services/users.ts";
 
@@ -39,7 +42,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
   if (group === "setup-code") {
     const code = await issueSetupCode(s);
     if (!code) {
-      console.log("Ylläpitäjä on jo luotu: kirjaudu sisään selaimessa.");
+      console.log("An admin already exists: sign in with the browser.");
       return 0;
     }
     console.log(code);
@@ -48,19 +51,37 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
   if (group === "sessions" && command === "revoke-all") {
     const n = await s.users.deleteAllSessions();
     await recordEvent(s, { kind: "session_revoked", detail: "kaikki (komentorivi)" });
-    console.log(`Kirjattu ulos ${n} istuntoa. Kaikkien pitää kirjautua uudelleen.`);
+    console.log(`Signed out ${n} sessions. Everyone has to sign in again.`);
     return 0;
+  }
+  if (group === "address" && command === "set") {
+    try {
+      // same parser as the browser field, so the command cannot store anything the settings page would refuse
+      const next = parseBaseUrl(username);
+      // install.sh restarts the app only when the output has " is now ", so keep that wording
+      if ((await s.instance.load(true)).appBaseUrl === next) {
+        console.log(`App address is already ${next}.`);
+        return 0;
+      }
+      const saved = await s.instance.save({ appBaseUrl: next });
+      console.log(`App address is now ${saved.appBaseUrl}.`);
+      return 0;
+    } catch (e) {
+      if (!(e instanceof UserError)) throw e;
+      console.error(e.message);
+      return 1;
+    }
   }
   if (group === "secret" && command === "rotate") {
     if (!ctx.rotateSecret) {
-      console.error("Salausavain tulee ympäristömuuttujasta APP_SECRET. Vaihda se käsin ja salaa pankkiavaimet uudelleen asettamalla avain tiedostoon (APP_SECRET_FILE).");
+      console.error("The app secret comes from the APP_SECRET environment variable. Change it by hand and re-seal the bank keys by moving the secret into a file (APP_SECRET_FILE).");
       return 1;
     }
     for (const line of await ctx.rotateSecret()) console.log(line);
     return 0;
   }
   if (group !== "user" || !command) {
-    console.log("Käyttö: version | setup-code | user create <tunnus> [--admin] [--name \"Nimi\"] | user reset-password <tunnus> | user list | user delete <tunnus> | sessions revoke-all | secret rotate | ops poll|report|state");
+    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user list | user delete <username> | sessions revoke-all | secret rotate | address set <url> | ops poll|report|state");
     return 1;
   }
   if (command === "list") {
@@ -68,7 +89,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (!username) {
-    console.error("Anna käyttäjätunnus.");
+    console.error("Give a username.");
     return 1;
   }
   if (command === "create") {
@@ -77,25 +98,25 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
       displayName: option(args, "--name") ?? username,
       role: args.includes("--admin") ? "admin" : "member",
     });
-    console.log(`Luotu ${user.role === "admin" ? "ylläpitäjä" : "käyttäjä"} ${user.username}.`);
-    console.log(`Väliaikainen salasana: ${temporaryPassword}  (vaihdetaan ensimmäisellä kirjautumisella)`);
+    console.log(`Created ${user.role === "admin" ? "admin" : "user"} ${user.username}.`);
+    console.log(`Temporary password: ${temporaryPassword}  (changed at the first sign-in)`);
     return 0;
   }
   const record = await s.users.findForLogin(username);
   if (!record) {
-    console.error(`Käyttäjää ${username} ei löydy.`);
+    console.error(`User ${username} not found.`);
     return 1;
   }
   if (command === "reset-password") {
-    console.log(`Uusi väliaikainen salasana käyttäjälle ${username}: ${await resetPassword(s, record.id)}`);
+    console.log(`New temporary password for ${username}: ${await resetPassword(s, record.id)}`);
     return 0;
   }
   if (command === "delete") {
     const r = await removeUser(s, record.id, "komentorivi");
-    console.log(`Poistettu ${username} ja kaikki hänen tietonsa.`);
-    if (r.revoked || r.failed) console.log(`Pankkiyhteyksiä päätetty ${r.revoked}${r.failed ? `, ${r.failed} ei onnistunut (ne vanhenevat pankissa itsestään)` : ""}.`);
+    console.log(`Deleted ${username} and all their data.`);
+    if (r.revoked || r.failed) console.log(`Bank connections ended: ${r.revoked}${r.failed ? `, ${r.failed} failed (they expire at the bank on their own)` : ""}.`);
     return 0;
   }
-  console.error(`Tuntematon komento: ${command}`);
+  console.error(`Unknown command: ${command}`);
   return 1;
 }

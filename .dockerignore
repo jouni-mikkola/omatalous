@@ -11,3 +11,4 @@ backups
 secrets
 *.pem
 *.db
+ops

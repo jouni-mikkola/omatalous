@@ -4,11 +4,11 @@
 set -euo pipefail
 base=${1:?usage: check-migrations.sh <base-ref>}
 cd "$(dirname "$0")/../.."
-git rev-parse --verify --quiet "$base^{commit}" >/dev/null || { echo "Tuntematon viite: $base" >&2; exit 1; }
+git rev-parse --verify --quiet "$base^{commit}" >/dev/null || { echo "Unknown ref: $base" >&2; exit 1; }
 bad=$(git diff --name-status "$base" HEAD -- apps/server/migrations | grep -v '^A' || true)
 if [[ -n $bad ]]; then
-  echo "Valmiita migraatioita ei saa muuttaa. Lisää uusi tiedosto:" >&2
+  echo "Applied migrations must not be changed. Add a new file:" >&2
   echo "$bad" >&2
   exit 1
 fi
-echo "Migraatiot ovat $base:n jälkeen vain lisättyjä."
+echo "Migrations since $base are additions only."

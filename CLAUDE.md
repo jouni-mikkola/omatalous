@@ -27,13 +27,13 @@ pnpm seed:demo        # demo user + data in ./data
   `auth/*`, `security/*`, `providers/*` (`prh/` = trade register search), `entry/node.ts`, `entry/secret-rotate.ts`,
   `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `doctor.sh`, `reset.sh`, `ops-helper.sh` (host helper for
-  Asetukset > Palvelin > Ylläpito). `relay/` is the static bank return page, published to GitHub Pages by
+  Asetukset > Ylläpito). `relay/` is the static bank return page, published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image on a `v*` tag.
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
   (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`.
 - Each instance is a clone directory and a Compose project. `INSTANCE_NAME` names the container, image and
-  session cookie, `COMPOSE_PROJECT_NAME` the volumes, `HOST_PORT`/`BIND_ADDRESS` the port. See `docs/INSTALL.md`.
-- `docs/` (English): INSTALL, OPERATIONS, ENABLE_BANKING, MONEY_FLOWS, SECURITY, RELEASING, DEVELOPMENT, ARCHITECTURE.
+  session cookie, `COMPOSE_PROJECT_NAME` the volumes, `HOST_PORT`/`BIND_ADDRESS` the port. See `docs/ADVANCED.md` (second copies).
+- `docs/` (English): INSTALL, ADVANCED, TROUBLESHOOTING, ENABLE_BANKING, MONEY_FLOWS, SECURITY, RELEASING, DEVELOPMENT, ARCHITECTURE.
   `SECURITY.md` at the root is the reporting route.
 
 ## Invariants (do not break)
@@ -80,8 +80,9 @@ pnpm seed:demo        # demo user + data in ./data
 ## Conventions
 
 - Writing (docs, UI text, comments, commits, script output): short and plain. No em dashes, no "not X but Y",
-  no padded lists of three, no bold lead-ins, no filler words or trailing filler phrases. Docs in English,
-  UI and script prompts in Finnish. UI paths are written `Asetukset > Palvelin`.
+  no padded lists of three, no bold lead-ins, no filler words or trailing filler phrases. Docs, script output, logs and
+  CLI output in English. Everything the browser shows in Finnish, including the maintenance helper's report summaries
+  and the `doctor.sh --json` items. UI paths are written `Asetukset > Palvelin`.
 
 - UI text Finnish; code, identifiers and comments English. Comments explain why.
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + section in

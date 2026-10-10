@@ -113,11 +113,11 @@ change the derived data (merchant names, categories, transfers) is computed agai
 
 ## Maintenance from the browser
 
-*Asetukset > Palvelin > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migration 0006). A host
+*Asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migration 0006). A host
 helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of six fixed actions (check-update, update,
 rollback, backup, restart, doctor) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
-[OPERATIONS.md](OPERATIONS.md#the-maintenance-helper).
+[ADVANCED.md](ADVANCED.md#the-maintenance-helper).
 
 ## Money flows
 

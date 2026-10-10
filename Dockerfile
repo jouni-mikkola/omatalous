@@ -41,7 +41,8 @@ LABEL talous.commit=$GIT_COMMIT \
       org.opencontainers.image.title="Omatalous" \
       org.opencontainers.image.source="https://github.com/jouni-mikkola/omatalous" \
       org.opencontainers.image.version=$APP_VERSION \
-      org.opencontainers.image.revision=$GIT_COMMIT
+      org.opencontainers.image.revision=$GIT_COMMIT \
+      org.opencontainers.image.licenses="MIT"
 USER node
 VOLUME ["/data", "/secrets"]
 EXPOSE 8080

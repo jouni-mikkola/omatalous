@@ -59,7 +59,7 @@ describe("schema migrations", () => {
     (await openDatabase(w.db, w.migrations)).db.close();
     const old = workspace(); // the real migrations only
     await expect(openDatabase(w.db, old.migrations)).rejects.toThrow(MigrationError);
-    await expect(openDatabase(w.db, old.migrations)).rejects.toThrow(/uudemmalla sovellusversiolla.*9001_future\.sql.*--rollback/s);
+    await expect(openDatabase(w.db, old.migrations)).rejects.toThrow(/upgraded by a newer app version.*9001_future\.sql.*--rollback/s);
   });
 
   it("refuses an applied migration that was edited, but not one with Windows line endings", async () => {
@@ -71,14 +71,14 @@ describe("schema migrations", () => {
     (await openDatabase(w.db, w.migrations)).db.close();
 
     write(w.migrations, "9001_x.sql", "CREATE TABLE x (id INTEGER PRIMARY KEY, extra TEXT);\nCREATE INDEX idx_x ON x(id);\n");
-    await expect(openDatabase(w.db, w.migrations)).rejects.toThrow(/9001_x\.sql on muuttunut/);
+    await expect(openDatabase(w.db, w.migrations)).rejects.toThrow(/Applied migration 9001_x\.sql has changed/);
   });
 
   it("rolls a failed migration back completely", async () => {
     const w = workspace();
     (await openDatabase(w.db, w.migrations)).db.close();
     write(w.migrations, "9001_broken.sql", "CREATE TABLE half_done (id INTEGER);\nALTER TABLE no_such_table ADD COLUMN y TEXT;");
-    await expect(openDatabase(w.db, w.migrations)).rejects.toThrow(/9001_broken\.sql epäonnistui/);
+    await expect(openDatabase(w.db, w.migrations)).rejects.toThrow(/Migration 9001_broken\.sql failed/);
     expect(migrationNames(w.db)).toEqual(REAL);
     expect(new DatabaseSync(w.db).prepare("SELECT name FROM sqlite_master WHERE name = 'half_done'").get()).toBeUndefined();
   });

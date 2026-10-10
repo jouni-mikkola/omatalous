@@ -1,5 +1,5 @@
 /**
- * Web maintenance (Asetukset > Palvelin > Ylläpito). The app never runs anything. An admin's request becomes a
+ * Web maintenance (Asetukset > Ylläpito). The app never runs anything. An admin's request becomes a
  * row in ops_requests; a helper on the host polls the rows through the `ops` CLI (cli-ops.ts), runs fixed
  * scripts and reports back. Every attempt is written to security_events with an ops_ kind.
  */

@@ -1,5 +1,5 @@
 /**
- * Which addresses the bank return may forward the browser to. The project's static return page (relay/paluu)
+ * Which addresses the bank return may forward the browser to. The project's static return page (relay/callback)
  * receives the bank's redirect on https and sends the browser on to the household's own server, whose address
  * travels in the OAuth `state`. Only private, loopback and local-name origins qualify, so the page cannot be
  * used to send anyone to a public site. The return page carries a hand-written copy of this rule; both run the

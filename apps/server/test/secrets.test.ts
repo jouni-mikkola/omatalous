@@ -104,6 +104,6 @@ describe("setup-code CLI", () => {
     } finally {
       console.log = log;
     }
-    expect(out[0]).toContain("jo luotu");
+    expect(out[0]).toContain("already exists");
   });
 });

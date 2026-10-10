@@ -18,7 +18,7 @@ describe("setup wizard: instance settings", () => {
     const r = await admin.call("GET", "/api/admin/instance");
     expect(r.body.settings).toEqual({ appBaseUrl: "http://localhost:8080", timezone: "Europe/Helsinki", syncHours: [6, 18], historyDays: 730, industryLookup: true, setupDone: false, redirectMode: null });
     expect(r.body.secret.available).toBe(true);
-    expect(r.body.bankApp).toMatchObject({ source: null, canStoreKeys: true, redirectUrl: "https://jouni-mikkola.github.io/omatalous/paluu/", redirectMode: "relay" });
+    expect(r.body.bankApp).toMatchObject({ source: null, canStoreKeys: true, redirectUrl: "https://jouni-mikkola.github.io/omatalous/callback/", redirectMode: "relay" });
   });
 
   it("without APP_BASE_URL the default address is this machine at the port the server listens on", () => {

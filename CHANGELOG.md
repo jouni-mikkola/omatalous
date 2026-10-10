@@ -3,18 +3,28 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
-## Unreleased
+## 0.4.0
 
-- Releases and the return page now come from the public repository `jouni-mikkola/omatalous`: clone URL, image `ghcr.io/jouni-mikkola/omatalous`, signing identity and return page address `https://jouni-mikkola.github.io/omatalous/paluu/`. An existing install moves over by changing its remote, see [OPERATIONS.md](docs/OPERATIONS.md).
+- The code is MIT licensed, see [LICENSE](LICENSE). The bank logos in `apps/web/public/banks/` belong to the banks and are not covered.
+- README, INSTALL, ADVANCED (replaces OPERATIONS), TROUBLESHOOTING and ENABLE_BANKING are rewritten. The basics come
+  first, the rest is sorted by situation.
+- Script, command-line and log output is in English. The web app stays Finnish, and so do the update reports and
+  the system check on the *Ylläpito* page. Prompts take y or n, and the Finnish k still works.
+- The installer installs `jq` by itself where `apt-get` and root rights are available, because the maintenance helper needs it.
+- `install.sh` now saves the app's own address when a run chooses the access or address (`--reconfigure`, `--bind`,
+  `--access`, `--domain`). Before, the address kept its old value after the setup. New command:
+  `node dist/node.js address set <url>`.
+- A release needs no approval step. A tag `vX.Y.Z` on the public repository builds and publishes it.
+- Releases and the return page now come from the public repository `jouni-mikkola/omatalous`: clone URL, image `ghcr.io/jouni-mikkola/omatalous`, signing identity and return page address `https://jouni-mikkola.github.io/omatalous/callback/`. An existing install moves over by changing its remote, see [RELEASING.md](docs/RELEASING.md#moving-an-install-from-the-private-repository).
 - The app is now called Omatalous. Only the visible name changes. Cookie, `TALOUS_*` variables, image labels, backup names, containers and volumes keep their names.
 - The installer asks nothing. It binds the app to the machine's home network address (or `127.0.0.1` when that
   address is not private), builds, starts and prints a setup link with the one-time code in it. The access menu
   (home network, this machine, Cloudflare Tunnel, own domain) shows only with `--reconfigure`. New flags:
   `--ops-helper`, `--ops-helper-off`, `--ops-policy`, `--no-ops-helper`.
-- *Asetukset > Palvelin > Ylläpito* checks for updates, updates, rolls back, takes and downloads a backup, restarts the
+- *Asetukset > Ylläpito* checks for updates, updates, rolls back, takes and downloads a backup, restarts the
   app and runs a system check. A helper on the machine does the work, once a minute, from a fixed list of six actions.
   Update, rollback and the backup download ask for your password again. Access and port changes stay in
-  `./scripts/install.sh --reconfigure`. See [OPERATIONS.md](docs/OPERATIONS.md).
+  `./scripts/install.sh --reconfigure`. See [ADVANCED.md](docs/ADVANCED.md#the-maintenance-helper).
 - Updates follow signed releases. A tag `vX.Y.Z` builds an image for amd64 and arm64, signs it with cosign and
   publishes it to `ghcr.io`. `update.sh` verifies the signature, takes the database copy right before the switch and
   goes back by itself when the new version does not start. `TALOUS_CHANNEL=source` keeps the source build. See
@@ -32,9 +42,15 @@ start, after a copy is taken.
   [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 - Backups: the app's own copies (`auto-*` and `pre-*`) are deleted after 14 days, apart from the newest `pre-*` copy.
   Copies in `backups/` from `backup.sh` are not touched.
-- Upgrade: migrations 0005 (security events) and 0006 (maintenance requests) run on start. A CSV import is limited to 6 MB,
-  so a larger export is refused with a 413. An install saved before the trade register setting existed has the lookup
-  off after the update. Turn it on under *Asetukset > Palvelin*.
+- Upgrade from 0.3.0 or older: migrations 0003 (search text), 0004 (partial indexes), 0005 (security events) and 0006
+  (maintenance requests) run on start, after a copy of the database. Search text and categories are recomputed once.
+  A CSV import is limited to 6 MB, so a larger export is refused with a 413. An install saved before the trade
+  register setting existed has the lookup off after the update. Turn it on under *Asetukset > Palvelin*. `.env` gets no
+  new required keys. `INSTANCE_NAME`, `COMPOSE_PROJECT_NAME`, `HOST_PORT`, `BIND_ADDRESS` and `CADDY_ADDRESS` are
+  optional, and an install without them keeps `banking-app`, its port and its volumes. To get signed updates, point the
+  clone at the public repository, see [RELEASING.md](docs/RELEASING.md#moving-an-install-from-the-private-repository). Linking a bank through the return page needs
+  `https://jouni-mikkola.github.io/omatalous/callback/` as the redirect URL in the Enable Banking application, see
+  [ENABLE_BANKING.md](docs/ENABLE_BANKING.md). The paste step needs nothing new.
 - A CSV imported into a new account after the bank account exists makes a separate account. Import into the bank
   account to avoid counting twice.
 - *3 kk*, *6 kk* and *12 kk* are the last whole months. The running month had its bills but not its
@@ -65,7 +81,7 @@ start, after a copy is taken.
 - The reports page offers a retry when loading fails.
 - Several instances on one machine: `./scripts/install.sh --new-instance NAME` makes another clone with its own
   port, containers and data. Existing installs keep their names. Option 4 in the installer binds to a local
-  network address. See [INSTALL.md](docs/INSTALL.md#several-instances-on-one-machine).
+  network address. See [ADVANCED.md](docs/ADVANCED.md#a-second-copy-on-the-same-machine).
 - The installer no longer sets up Tailscale. An install that already uses it keeps working; its address
   stays under *Asetukset > Palvelin*.
 - The session cookie is named after the instance, so two instances on one host no longer log each other out.
@@ -121,9 +137,9 @@ start, after a copy is taken.
 - Transfers between your own imported accounts are recognised. The account number is read from the CSV file.
 - Failed logins are limited to 10 per user name and 50 per address in 15 minutes.
 - The app copies the database every day to `/data/backups/auto-YYYY-MM-DD.db` in the data volume and keeps
-  7 copies ([INSTALL.md](docs/INSTALL.md#backups)).
+  7 copies ([ADVANCED.md](docs/ADVANCED.md#backups)).
 - `scripts/reset.sh` starts over when nothing else helps
-  ([INSTALL.md](docs/INSTALL.md#when-something-is-stuck)).
+  ([ADVANCED.md](docs/ADVANCED.md#start-over)).
 - Cloudflare Workers support is removed. The app runs in Docker.
 
 ## 0.2.0

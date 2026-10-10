@@ -98,7 +98,7 @@ describe("Enable Banking flow (mocked API)", () => {
 });
 
 describe("bank return modes", () => {
-  const RELAY = "https://jouni-mikkola.github.io/omatalous/paluu/";
+  const RELAY = "https://jouni-mikkola.github.io/omatalous/callback/";
   const decode = (state: string) => originFromRelayState(state);
 
   it("relay mode registers the return page and carries the browser's local address in the state", async () => {

@@ -31,7 +31,7 @@ const env = process.env;
 function readSecret(path: string | undefined, name: string): string | undefined {
   if (!path) return undefined;
   if (!existsSync(path)) {
-    console.warn(`${name}: tiedostoa ${path} ei löydy`);
+    console.warn(`${name}: file ${path} not found`);
     return undefined;
   }
   return readFileSync(path, "utf8").trim();
@@ -48,9 +48,9 @@ if (!env.APP_SECRET) {
   const r = loadOrCreateAppSecret(secretPath);
   if (r.secret === null) {
     // fail loudly: a running app that cannot seal bank keys hides the fault, a crash shows up in logs and doctor.sh
-    console.error(`APP_SECRET: ${r.problem}. Korjaa tiedosto tai sen polku (APP_SECRET_FILE) ja käynnistä uudelleen.`);
+    console.error(`APP_SECRET: ${r.problem}. Fix the file or its path (APP_SECRET_FILE) and restart.`);
     process.exit(1);
-  } else if (r.created) console.log(`Luotiin salausavain ${secretPath} (oikeudet 600). Säilytä siitä kopio muualla, ohje on tiedostossa docs/INSTALL.md.`);
+  } else if (r.created) console.log(`Created the app secret ${secretPath} (mode 600). Keep a copy elsewhere, see docs/ADVANCED.md#backups.`);
   appSecret = r.secret;
 }
 
@@ -73,7 +73,7 @@ try {
   opened = await openDatabase(dbPath, env.MIGRATIONS_DIR || undefined);
 } catch (err) {
   // a clear message instead of a stack trace; the container restarts and update.sh offers a rollback
-  console.error(err instanceof MigrationError ? `Tietokantaa ei voitu avata. ${err.message}` : err);
+  console.error(err instanceof MigrationError ? `Could not open the database. ${err.message}` : err);
   process.exit(1);
 }
 const { db, applied, snapshot } = opened;
@@ -145,8 +145,8 @@ const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }
   }
   const code = await ensureSetupCode(s);
   if (code) {
-    console.log(`\n  Ei käyttäjiä vielä. Avaa ${settings.appBaseUrl} ja luo ylläpitäjä asennuskoodilla:\n\n      ${code}\n`);
-    console.log("  (Uuden koodin saa komennolla docker compose exec banking node dist/node.js setup-code)\n");
+    console.log(`\n  No users yet. Open ${settings.appBaseUrl} and create the admin with this setup code:\n\n      ${code}\n`);
+    console.log("  (Get a new code with: docker compose exec banking node dist/node.js setup-code)\n");
   }
   // after a version change: re-derive merchant names and categories with the new rules
   runUpgradeTasks(s, build.id)

@@ -1,7 +1,8 @@
 {
   "name": "@banking/server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "DATA_DIR=${DATA_DIR:-../../data} tsx watch --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning src/entry/node.ts",

@@ -345,7 +345,7 @@ table.compact td.num { padding: 5px 0 5px 8px; }
 .badge.good { background: var(--good-bg); }
 .badge.bad { background: var(--surface-2); color: var(--bad); }
 
-/* Asetukset > Palvelin > Ylläpito */
+/* Asetukset > Ylläpito */
 .ops-command { background: var(--surface-2); border-radius: 4px; padding: 3px 8px; overflow-wrap: anywhere; user-select: all; }
 .ops-log { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; margin: 8px 0 0; max-height: 320px; overflow: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ops-steps { margin: 6px 0; padding-left: 20px; }

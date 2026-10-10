@@ -1,5 +1,5 @@
-/** Finnish wording of Asetukset > Palvelin > Ylläpito in one place, so it is read through once. */
-export const ENABLE_DOC = "https://github.com/jouni-mikkola/omatalous/blob/main/docs/INSTALL.md#ylläpitoapuri";
+/** Finnish wording of Asetukset > Ylläpito in one place, so it is read through once. */
+export const ENABLE_DOC = "https://github.com/jouni-mikkola/omatalous/blob/main/docs/ADVANCED.md#the-maintenance-helper";
 export const ROLLBACK_HELP = "./scripts/update.sh --rollback";
 
 export const S = {

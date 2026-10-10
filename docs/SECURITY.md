@@ -18,7 +18,7 @@ What the app protects and how. The limits are listed at the end.
   and smart devices on a guest network. Do not forward that port in the router. Docker publishes the port past `ufw`, so
   the firewall does not limit it. Other networks reach the app through Caddy or a Cloudflare Tunnel.
 - Bank linking from an http address goes through the project's return page on GitHub Pages
-  (`https://jouni-mikkola.github.io/omatalous/paluu/`). The bank sends the browser there with the authorisation `code`
+  (`https://jouni-mikkola.github.io/omatalous/callback/`). The bank sends the browser there with the authorisation `code`
   and a `state`. The state carries the app's own address, and the page forwards the browser only to a private, loopback or
   `.local` address with the fixed path `/api/connections/callback`, so it is no open redirect. It is one static file with no
   third-party scripts and no analytics. GitHub, which hosts it, sees the request and your IP address. The code is single
@@ -139,7 +139,7 @@ found gives the category. An unclear match is left alone.
 
 ## Updates and the maintenance helper
 
-*Asetukset > Palvelin > Ylläpito* can update, roll back, back up, restart and check the install. The app does not run
+*Asetukset > Ylläpito* can update, roll back, back up, restart and check the install. The app does not run
 anything itself. It writes a request row, and a helper on the host (`scripts/ops-helper.sh`) takes it. Update, rollback and
 the download of a backup need the admin's password again, rollback also a typed word. Every request is recorded as a security event (`Ylläpito: ...`), and the other admins get a notice.
 

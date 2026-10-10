@@ -40,14 +40,14 @@ ops_scheduler_remove() { # ops_scheduler_remove INSTANCE
   fi
 }
 
-# Sets OPS_KIND to systemd, cron or none and OPS_NOTE to a Finnish line for the user. Returns 1 for none.
+# Sets OPS_KIND to systemd, cron or none and OPS_NOTE to a line for the user. Returns 1 for none.
 ops_scheduler_install() { # ops_scheduler_install INSTANCE ROOT
   local inst=$1 root=$2 unit dir rest
   OPS_KIND=none; OPS_NOTE=""
   unit=$(ops_unit "$inst"); dir=$(ops_unit_dir)
   # the path goes into a unit file and a crontab line: only plain characters
   if [[ ! $root =~ ^/[A-Za-z0-9_./-]+$ ]]; then
-    OPS_NOTE="Kansion polussa on merkkejä, joita ajastus ei salli ($root). Siirrä asennus polulle ilman välilyöntejä ja erikoismerkkejä."
+    OPS_NOTE="The folder path has characters the scheduler does not allow ($root). Move the install to a path without spaces and special characters."
     return 1
   fi
   ops_scheduler_remove "$inst"
@@ -61,7 +61,7 @@ ops_scheduler_install() { # ops_scheduler_install INSTANCE ROOT
       mkdir -p "$dir"
       cat >"$dir/$unit.service" <<UNIT
 [Unit]
-Description=Omatalous ylläpitoapuri ($inst)
+Description=Omatalous maintenance helper ($inst)
 
 [Service]
 Type=oneshot
@@ -75,7 +75,7 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 UNIT
       cat >"$dir/$unit.timer" <<UNIT
 [Unit]
-Description=Omatalous ylläpitoapuri ($inst), joka minuutti
+Description=Omatalous maintenance helper ($inst), every minute
 
 [Timer]
 OnBootSec=1min
@@ -87,7 +87,7 @@ WantedBy=timers.target
 UNIT
       systemctl --user daemon-reload >/dev/null 2>&1 || true
       if systemctl --user enable --now "$unit.timer" >/dev/null 2>&1; then
-        OPS_KIND=systemd; OPS_NOTE="systemd-ajastin $unit.timer"
+        OPS_KIND=systemd; OPS_NOTE="systemd timer $unit.timer"
         return 0
       fi
       rm -f "$dir/$unit.timer" "$dir/$unit.service"
@@ -98,8 +98,8 @@ UNIT
     {
       [[ -z $rest ]] || printf '%s\n' "$rest"
       printf '* * * * * cd %s && ./scripts/ops-helper.sh >/dev/null 2>&1 %s\n' "$root" "$(ops_cron_marker "$inst")"
-    } | crontab - && { OPS_KIND=cron; OPS_NOTE="cron (rivi $(ops_cron_marker "$inst"))"; return 0; }
+    } | crontab - && { OPS_KIND=cron; OPS_NOTE="cron (line $(ops_cron_marker "$inst"))"; return 0; }
   fi
-  OPS_NOTE="Ajastusta ei saatu käyttöön (ei systemd-käyttäjäpalvelua eikä crontabia). Aja apuri itse minuutin välein: cd $root && ./scripts/ops-helper.sh"
+  OPS_NOTE="Could not set up scheduling (no systemd user service and no crontab). Run the helper yourself every minute: cd $root && ./scripts/ops-helper.sh"
   return 1
 }

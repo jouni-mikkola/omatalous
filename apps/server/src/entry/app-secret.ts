@@ -29,9 +29,9 @@ export type AppSecretResult = { secret: string; created: boolean } | { secret: n
 export function loadOrCreateAppSecret(path: string): AppSecretResult {
   try {
     const secret = readFileSync(path, "utf8").trim();
-    if (secret.length < 32) return { secret: null, problem: `${path} on liian lyhyt (vähintään 32 merkkiä)` };
+    if (secret.length < 32) return { secret: null, problem: `${path} is too short (at least 32 characters)` };
     if (process.platform !== "win32" && statSync(path).mode & 0o077) {
-      console.warn(`${path}: tiedosto on muidenkin luettavissa, aseta oikeudeksi 600`);
+      console.warn(`${path}: the file is readable by others, set its mode to 600`);
     }
     return { secret, created: false };
   } catch (err) {
@@ -43,6 +43,6 @@ export function loadOrCreateAppSecret(path: string): AppSecretResult {
     writeFileSync(path, `${secret}\n`, { flag: "wx", mode: 0o600 });
     return { secret, created: true };
   } catch (err) {
-    return { secret: null, problem: `salausavainta ei voitu luoda (${path}): ${(err as Error).message}` };
+    return { secret: null, problem: `could not create the app secret (${path}): ${(err as Error).message}` };
   }
 }

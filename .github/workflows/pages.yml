@@ -1,6 +1,6 @@
 name: Return page
 
-# Publishes relay/ (the bank return page, https://jouni-mikkola.github.io/omatalous/paluu/) to the gh-pages
+# Publishes relay/ (the bank return page, https://jouni-mikkola.github.io/omatalous/callback/) to the gh-pages
 # branch on release tags, on a push to main that touches relay/, and by hand. Runs only in the public repository. The page is one reviewed static file, see relay/README.md. GitHub Pages
 # must be set to serve the gh-pages branch (Settings > Pages), which the owner does once.
 on:
@@ -29,19 +29,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Tagged commit is on main
-        # the release workflow needs the owner's approval, this one does not, so a tag on a side branch must not publish
+        # this workflow has no approval step, so a tag on a side branch must not publish
         if: github.ref_type == 'tag'
         run: |
           git fetch --no-tags origin main
           git merge-base --is-ancestor HEAD origin/main || { echo "The tagged commit is not on main"; exit 1; }
       - name: Check the page
         run: |
-          test -f relay/paluu/index.html
+          test -f relay/callback/index.html
           # a page that loads anything from elsewhere does not ship
-          if grep -Eiq '<script[^>]*src=|<link|<img|<iframe|https?://[a-z]' relay/paluu/index.html; then
-            echo "relay/paluu/index.html references an outside resource"; exit 1
+          if grep -Eiq '<script[^>]*src=|<link|<img|<iframe|https?://[a-z]' relay/callback/index.html; then
+            echo "relay/callback/index.html references an outside resource"; exit 1
           fi
-          grep -q "Content-Security-Policy" relay/paluu/index.html
+          grep -q "Content-Security-Policy" relay/callback/index.html
       - name: Publish to gh-pages
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}

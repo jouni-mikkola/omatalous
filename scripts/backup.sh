@@ -5,7 +5,7 @@
 #   ./scripts/backup.sh                 writes backups/talous-YYYYmmdd-HHMMSS.db.gz
 #
 # Backs up the instance in this clone directory (backups/ is per directory). With several
-# instances, run it in each one, for example from a loop (docs/INSTALL.md).
+# instances, run it in each one, for example from a loop (docs/ADVANCED.md#backups).
 #
 # Takes a consistent snapshot while the app runs (SQLite VACUUM INTO), copies
 # it out of the container, compresses it and keeps the last $KEEP_DAYS days.
@@ -36,13 +36,13 @@ NAME=${INSTANCE_NAME:-}
 NAME=${NAME:-banking-app}
 TAG=""; [[ $NAME == banking-app ]] || TAG=" [$NAME]"
 
-die() { printf '%s varmuuskopio%s epäonnistui: %s\n' "$(date '+%F %T')" "$TAG" "$*" >&2; exit 1; }
+die() { printf '%s backup%s failed: %s\n' "$(date '+%F %T')" "$TAG" "$*" >&2; exit 1; }
 
-command -v docker >/dev/null || die "Docker puuttuu."
-docker compose version >/dev/null 2>&1 || die "Docker Compose v2 puuttuu (docker compose version)."
-[[ -n $(docker compose ps --status running -q banking 2>/dev/null) ]] || die "sovellus ei ole käynnissä (docker compose up -d)."
+command -v docker >/dev/null || die "Docker is missing."
+docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing (docker compose version)."
+[[ -n $(docker compose ps --status running -q banking 2>/dev/null) ]] || die "the app is not running (docker compose up -d)."
 # an unencrypted copy must never replace the encrypted one the user asked for
-if [[ -n ${BACKUP_AGE_RECIPIENT:-} ]]; then command -v age >/dev/null || die "BACKUP_AGE_RECIPIENT on asetettu mutta age puuttuu (sudo apt install age)."; fi
+if [[ -n ${BACKUP_AGE_RECIPIENT:-} ]]; then command -v age >/dev/null || die "BACKUP_AGE_RECIPIENT is set but age is missing (sudo apt install age)."; fi
 
 umask 077
 mkdir -p "$OUT_DIR"
@@ -53,7 +53,7 @@ cleanup() {
   if ((status != 0)); then
     rm -f "$TARGET" "$TARGET.gz" "$TARGET.gz.age" "$SECRET_TARGET"
     docker compose exec -T banking node -e 'require("node:fs").rmSync("/data/backup.db", { force: true })' >/dev/null 2>&1 || true
-    printf '%s varmuuskopio%s epäonnistui (onko levy täynnä?). Keskeneräiset tiedostot poistettiin.\n' "$(date '+%F %T')" "$TAG" >&2
+    printf '%s backup%s failed (is the disk full?). Unfinished files were removed.\n' "$(date '+%F %T')" "$TAG" >&2
   fi
 }
 trap cleanup EXIT
@@ -78,9 +78,9 @@ if [[ -n ${BACKUP_AGE_RECIPIENT:-} ]]; then
   rm -f "$TARGET.gz"
   # the secret goes straight from the container into age, never to disk in plain text
   docker compose exec -T banking cat /secrets/app_secret | age -r "$BACKUP_AGE_RECIPIENT" -o "$SECRET_TARGET"
-  echo "$(date '+%F %T') varmuuskopio$TAG: $TARGET.gz.age ja $SECRET_TARGET (salattu)"
+  echo "$(date '+%F %T') backup$TAG: $TARGET.gz.age and $SECRET_TARGET (encrypted)"
 else
-  echo "$(date '+%F %T') varmuuskopio$TAG: $TARGET.gz (salausavainta ei mukana, säilytä se salasanojen hallinnassa)"
+  echo "$(date '+%F %T') backup$TAG: $TARGET.gz (app secret not included, keep it in a password manager)"
 fi
 
 find "$OUT_DIR" \( -name 'talous-*.db.gz*' -o -name 'talous-*.app_secret.age' \) -mtime +"$KEEP_DAYS" -delete

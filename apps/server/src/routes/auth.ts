@@ -16,7 +16,7 @@ export function authRoutes(s: Services) {
     const setup = await needsSetup(s);
     if (setup) {
       const code = await ensureSetupCode(s);
-      if (code) console.log(`\n  Asennuskoodi ensimmäisen käyttäjän luontiin: ${code}\n`);
+      if (code) console.log(`\n  Setup code for creating the first user: ${code}\n`);
     }
     const user = c.get("user") ?? null;
     return c.json({ needsSetup: setup, user });

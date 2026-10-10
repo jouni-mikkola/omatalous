@@ -1,23 +1,57 @@
 # Omatalous
 
-Omatalous shows a Finnish household's Nordea accounts and cards in one place and sorts the money into spending, savings, debt and income. It runs on a Linux machine at home, and the household uses it in a browser, in Finnish.
+Omatalous gathers a Finnish household's Nordea accounts and credit cards into one view and shows where the money goes.
+It runs on your own Linux machine at home, and you use it in a browser, in Finnish.
 
-![Yleiskatsaus](docs/images/yleiskatsaus.png)
+![Omatalous overview](docs/images/yleiskatsaus.png)
 
-## What it does
+- Fetches new Nordea transactions by itself through Enable Banking, which is free for your own accounts
+- Sorts every purchase, loan payment, saving and income, and finds recurring bills and subscriptions
+- Warns about double charges and late fees
+- Gives each household member a login of their own, with accounts shared read-only when they want
+- Updates from a button in the browser and goes back by itself if an update fails
 
-- Reads Nordea current accounts, savings accounts and credit cards through PSD2 (Enable Banking), or a CSV export
-- Sorts every transaction into spending, debt, savings, income or borrowing, with your own rules and a category per merchant
-- Shows an overview with monthly spending, recurring costs and subscriptions, alerts for double charges and late fees, and reports
-- Gives each household member their own login, with optional read-only sharing of accounts
-- Updates and backups start from a button in the browser, and an update can be rolled back
+## Install
 
-## Kuvia sovelluksesta
+You need Ubuntu Server 26.04 LTS on a machine that stays on at home, with 2 GB of memory and 20 GB of disk.
 
-Kuvat ovat demodatasta.
+```bash
+sudo apt update && sudo apt install -y git jq
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER        # then log out and back in
+
+git clone https://github.com/jouni-mikkola/omatalous.git
+cd omatalous
+./scripts/install.sh
+```
+
+The installer prints a link. Open it on a device in your home network, create the admin user and follow the checklist
+for connecting Nordea. The [install guide](docs/INSTALL.md) has the same steps with a few more words.
+
+## Update
+
+*Asetukset > Ylläpito* tells you when a new version is out. Press *Päivitä*.
+
+## More
+
+| When you want to | Read |
+|---|---|
+| Fix something that does not work | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| Use the app away from home | [Away from home](docs/ADVANCED.md#away-from-home) |
+| Give your parents or another household a copy of their own | [A second copy](docs/ADVANCED.md#a-second-copy-on-the-same-machine) |
+| Back up to a NAS or move to a new machine | [Backups](docs/ADVANCED.md#backups) |
+| Know how the money is counted | [Money flows](docs/MONEY_FLOWS.md) |
+| Know what is stored and who can see it | [Security and privacy](docs/SECURITY.md) |
+
+For developers: [development](docs/DEVELOPMENT.md), [architecture](docs/ARCHITECTURE.md), [releasing](docs/RELEASING.md)
+and the [changes](CHANGELOG.md) in each version. Report a vulnerability as [SECURITY.md](SECURITY.md) says.
+
+## Screenshots
+
+The pictures use demo data.
 
 <details>
-<summary>Näytä kuvat</summary>
+<summary>Show screenshots</summary>
 
 | | |
 | --- | --- |
@@ -29,32 +63,7 @@ Kuvat ovat demodatasta.
 
 </details>
 
-## Install
+## Licence
 
-You need an Ubuntu or Debian machine or VM that stays on and has 2 GB of memory. Run these three commands on it.
-
-```bash
-git clone https://github.com/jouni-mikkola/omatalous.git
-cd omatalous
-./scripts/install.sh
-```
-
-The installer sets up Docker if it is missing, starts Omatalous and prints an address and a setup link. Open the link on any device at home and create your user. The browser then guides you through connecting Nordea.
-
-## Next
-
-- [Installing on an empty machine](docs/INSTALL.md), with the first Nordea data, using the app away from home and what to do when something fails
-- [Connecting Nordea, with screenshots](docs/ENABLE_BANKING.md)
-- [How the money is counted](docs/MONEY_FLOWS.md)
-- [Security and privacy](docs/SECURITY.md), and how to [report a vulnerability](SECURITY.md)
-- [Operations](docs/OPERATIONS.md): several instances, backups, restore, starting over, the command line
-- [Changes](CHANGELOG.md)
-- [Development](docs/DEVELOPMENT.md), [architecture](docs/ARCHITECTURE.md) and [releasing](docs/RELEASING.md)
-
-## Try it without a bank
-
-```bash
-corepack enable && pnpm install && pnpm build
-pnpm seed:demo    # user "demo", password "demo-salasana-123", 14 months of sample data
-pnpm start        # http://localhost:8080
-```
+MIT, see [LICENSE](LICENSE). The bank logos in `apps/web/public/banks/` are the banks' trademarks, and the licence does
+not cover them.

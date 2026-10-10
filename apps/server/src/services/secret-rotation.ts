@@ -49,7 +49,7 @@ export async function resealAll(s: Services, oldSecret: string, newSecret: strin
     try {
       plain = await oldBox.open(item.sealed, context);
     } catch {
-      throw new Error(`Avainta (${item.kind === "user" ? "käyttäjän" : "yhteisen sovelluksen"}) ei voi avata nykyisellä salausavaimella. Mitään ei muutettu.`);
+      throw new Error(`A ${item.kind === "user" ? "user" : "shared app"} key cannot be opened with the current secret. Nothing was changed.`);
     }
     const sealed = await newBox.seal(plain, context);
     if (item.kind === "user") {

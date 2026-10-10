@@ -49,6 +49,6 @@ export async function runOpsCli(s: Services, args: string[], readStdin: () => Pr
     }
     throw err;
   }
-  console.error("Käyttö: ops poll --helper <versio> --done <tunnukset> | ops report | ops state");
+  console.error("Usage: ops poll --helper <version> --done <ids> | ops report | ops state");
   return 1;
 }

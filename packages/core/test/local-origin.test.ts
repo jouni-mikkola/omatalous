@@ -4,7 +4,7 @@ import { createContext, runInContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { originFromRelayState, parseLocalOrigin, relayState } from "../src/local-origin.ts";
 
-const PAGE = readFileSync(new URL("../../../relay/paluu/index.html", import.meta.url), "utf8");
+const PAGE = readFileSync(new URL("../../../relay/callback/index.html", import.meta.url), "utf8");
 const SCRIPT = /<script>([\s\S]*?)<\/script>/.exec(PAGE)![1]!;
 const STYLE = /<style>([\s\S]*?)<\/style>/.exec(PAGE)![1]!;
 

@@ -21,7 +21,7 @@ export interface RotateOptions {
 
 export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise<string[]> {
   const oldSecret = s.config.appSecret;
-  if (!oldSecret) throw new Error("Salausavainta ei ole käytössä.");
+  if (!oldSecret) throw new Error("No app secret is in use.");
   const file = opts.secretFile;
   const next = `${file}.next`;
   const lines: string[] = [];
@@ -29,21 +29,21 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   let newSecret: string;
   if (existsSync(next)) {
     newSecret = readFileSync(next, "utf8").trim();
-    if (newSecret.length < 32) throw new Error(`${next} on liian lyhyt. Poista se ja aja komento uudelleen.`);
-    lines.push("Edellinen ajo jäi kesken, jatketaan siitä.");
+    if (newSecret.length < 32) throw new Error(`${next} is too short. Delete it and run the command again.`);
+    lines.push("The previous run was interrupted, continuing from it.");
   } else {
     newSecret = randomBytes(48).toString("base64url");
     writeFileSync(next, `${newSecret}\n`, { flag: "wx", mode: 0o600 });
   }
 
   if (await databaseOpensWith(s, oldSecret)) {
-    lines.push(`Varmuuskopio: ${opts.snapshot()}`);
+    lines.push(`Backup: ${opts.snapshot()}`);
     const r = await resealAll(s, oldSecret, newSecret);
-    lines.push(`Uudelleensalattu: ${r.userKeys} käyttäjän avainta, ${r.instanceKeys} yhteistä avainta.`);
+    lines.push(`Re-sealed: ${r.userKeys} user keys, ${r.instanceKeys} shared keys.`);
   } else if (await databaseOpensWith(s, newSecret)) {
-    lines.push("Avaimet on jo salattu uudella avaimella.");
+    lines.push("The keys are already sealed with the new secret.");
   } else {
-    throw new Error("Tietokannan avaimet eivät aukea vanhalla eivätkä uudella salausavaimella. Mitään ei muutettu.");
+    throw new Error("The keys in the database open with neither the old nor the new secret. Nothing was changed.");
   }
 
   const prev = `${file}.prev-${s.now().toISOString().slice(0, 19).replace(/[-:]/g, "")}`;
@@ -51,7 +51,7 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   chmodSync(prev, 0o600);
   renameSync(next, file);
   chmodSync(file, 0o600);
-  lines.push(`Uusi salausavain on tiedostossa ${file}. Vanha on tiedostossa ${prev}. Sitä tarvitaan vain vanhojen varmuuskopioiden avaamiseen, joten poista se, kun ne on poistettu (14 pv).`);
-  lines.push("Käynnistä sovellus uudelleen: docker compose restart banking");
+  lines.push(`The new secret is in ${file}. The old one is in ${prev}. It is only needed to open old backups, so delete it once those are gone (14 days).`);
+  lines.push("Restart the app: docker compose restart banking");
   return lines;
 }

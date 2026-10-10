@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
-// Asetukset > Palvelin > Ylläpito. The host helper is played by the app's own `ops` CLI on the same data
+// Asetukset > Ylläpito. The host helper is played by the app's own `ops` CLI on the same data
 // directory, which is how the real helper talks to it (scripts/ops-helper.sh).
 const ADMIN_PASSWORD = "e2e-salasana-123456";
 const DIR = process.env.E2E_DIR ?? ".";

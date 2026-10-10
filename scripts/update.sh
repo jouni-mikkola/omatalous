@@ -49,17 +49,17 @@ export COMPOSE_FILE=docker-compose.yml
 TARGET=${TALOUS_TARGET:-}
 MODE=${TALOUS_MODE:-}
 if [[ -n $TARGET || -n $MODE ]]; then
-  [[ $TARGET =~ ^[0-9a-f]{40}$ && $MODE =~ ^(release|source)$ ]] || { echo "TALOUS_TARGET tai TALOUS_MODE on virheellinen." >&2; exit 1; }
+  [[ $TARGET =~ ^[0-9a-f]{40}$ && $MODE =~ ^(release|source)$ ]] || { echo "TALOUS_TARGET or TALOUS_MODE is invalid." >&2; exit 1; }
 fi
 
 # Release helpers (signature check, image pull, labels), shared with install.sh. Keep SIGN_IDENTITY_REGEXP there in step
 # with .github/workflows/release.yml (a test compares them).
 # shellcheck disable=SC2034
-KEEP_NOTE="Vanha versio on yhä käynnissä."
+KEEP_NOTE="The old version is still running."
 # shellcheck source=lib/release.sh
 . scripts/lib/release.sh
 
-[[ $IMAGE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "INSTANCE_NAME on virheellinen: $IMAGE" >&2; exit 1; }
+[[ $IMAGE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "INSTANCE_NAME is invalid: $IMAGE" >&2; exit 1; }
 
 bold=$'\e[1m'; dim=$'\e[2m'; green=$'\e[32m'; yellow=$'\e[33m'; red=$'\e[31m'; reset=$'\e[0m'
 say()  { printf '%s\n' "$*"; }
@@ -72,8 +72,8 @@ confirm() {
   local __ans
   $YES && return 0
   [[ -t 0 ]] || return 1 # never decide for an unattended run
-  read -r -p "$1 [K/e]: " __ans
-  [[ ${__ans:-K} =~ ^[KkYy] ]]
+  read -r -p "$1 [Y/n]: " __ans
+  [[ ${__ans:-Y} =~ ^[KkYy] ]]   # the Finnish K (kyllä) still works
 }
 
 running() { [[ -n $(docker compose ps --status running -q banking 2>/dev/null) ]]; }
@@ -118,7 +118,7 @@ check_disk() {
   [[ -n $root && -d $root ]] || return 0
   free_kb=$(df -Pk "$root" 2>/dev/null | awk 'NR==2 {print $4}')
   [[ -n ${free_kb:-} ]] || return 0
-  ((free_kb >= 1024 * 1024)) || die "Levyllä on vain $((free_kb / 1024)) Mt vapaata ($root), päivitys tarvitsee noin 2 Gt. Mikään ei muuttunut. Vapauta tilaa (docker image prune -f; docker builder prune -f; df -h) ja aja tämä uudelleen."
+  ((free_kb >= 1024 * 1024)) || die "Only $((free_kb / 1024)) MB of disk is free ($root) and the update needs about 2 GB. Nothing was changed. Free some space (docker image prune -f; docker builder prune -f; df -h) and run this again."
 }
 # builds the image and explains a failure. The running version is untouched by a failed build.
 build_image() {
@@ -128,16 +128,16 @@ build_image() {
   APP_VERSION=${APP_VERSION:-unknown}
   export GIT_COMMIT APP_VERSION
   log=$(mktemp)
-  run_logged "$log" "Rakennetaan" docker compose build banking || rc=$?
+  run_logged "$log" "Building" docker compose build banking || rc=$?
   if ((rc != 0)); then
     tail -n 25 "$log" | cut -c1-200
-    local why="Rakennus epäonnistui (lokin loppu yllä)."
-    if grep -qiE 'no space left|ENOSPC|disk quota' "$log"; then why="Levy täyttyi rakennuksen aikana. Vapauta tilaa (df -h; docker image prune -f; docker builder prune -f)."
-    elif grep -qiE '429 Too Many|toomanyrequests|rate limit' "$log"; then why="Docker Hub rajoittaa latauksia tästä osoitteesta. Odota tunti tai kirjaudu: docker login."
-    elif grep -qiE 'ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|could not resolve|temporary failure in name|i/o timeout|dial tcp|TLS handshake|failed to fetch|failed to resolve source|network is unreachable|unable to get image|Get "https' "$log"; then why="Rakennus ei saanut verkkoyhteyttä. Tarkista yhteys (curl -I https://registry.npmjs.org)."
-    elif grep -qE 'FAIL|Test Files .*failed|tests? failed' "$log"; then why="Uuden version testit epäonnistuivat, joten sitä ei oteta käyttöön."; fi
+    local why="The build failed (end of the log above)."
+    if grep -qiE 'no space left|ENOSPC|disk quota' "$log"; then why="The disk filled up during the build. Free some space (df -h; docker image prune -f; docker builder prune -f)."
+    elif grep -qiE '429 Too Many|toomanyrequests|rate limit' "$log"; then why="Docker Hub is limiting pulls from this address. Wait an hour or log in: docker login."
+    elif grep -qiE 'ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|could not resolve|temporary failure in name|i/o timeout|dial tcp|TLS handshake|failed to fetch|failed to resolve source|network is unreachable|unable to get image|Get "https' "$log"; then why="The build could not reach the network. Check the connection (curl -I https://registry.npmjs.org)."
+    elif grep -qE 'FAIL|Test Files .*failed|tests? failed' "$log"; then why="The tests of the new version failed, so it is not used."; fi
     rm -f "$log"
-    die "$why Vanha versio on yhä käynnissä. Aja ./scripts/update.sh uudelleen, kun syy on poistettu."
+    die "$why The old version is still running. Run ./scripts/update.sh again once the cause is fixed."
   fi
   rm -f "$log"
 }
@@ -172,32 +172,32 @@ take_copy() {
     } catch (err) {
       fs.rmSync(process.argv[1], { force: true });
       throw err;
-    }' "$snapshot" || die "Tietokannan kopiointi ei onnistunut (onko levy täynnä?). Vanha versio on yhä käynnissä."
+    }' "$snapshot" || die "Could not copy the database (is the disk full?). The old version is still running."
   # Only now does the running image become :previous, together with the state file. A failure before this point
   # leaves the older pair as it was.
-  docker image tag "$IMAGE:pending-previous" "$IMAGE:previous" || die "Edellisen imagen tallennus epäonnistui. Vanha versio on yhä käynnissä."
+  docker image tag "$IMAGE:pending-previous" "$IMAGE:previous" || die "Could not save the previous image. The old version is still running."
   (umask 077; printf 'AT=%s\nPREV_COMMIT=%s\nSNAPSHOT=%s\nPREV_VERSION=%s\nINSTANCE=%s\n' "$1" "$prev_commit" "$snapshot" "$before" "$IMAGE" >"$STATE")
   docker image rm "$IMAGE:pending-previous" >/dev/null 2>&1 || true
-  ok "Tietokannan kopio $snapshot ja edellinen image $IMAGE:previous tallessa."
+  ok "Database copy $snapshot and previous image $IMAGE:previous saved."
 }
 
 # ── rollback ────────────────────────────────────────────────────────────────
 rollback() {
-  [[ -f $STATE ]] || die "Ei tietoa edellisestä päivityksestä ($STATE)."
+  [[ -f $STATE ]] || die "No record of a previous update ($STATE)."
   local snapshot prev_commit at saved
   snapshot=$(state SNAPSHOT); prev_commit=$(state PREV_COMMIT); at=$(state AT); saved=$(state INSTANCE)
   # the saved image belongs to the name it was taken under; a state file from before the key has none
-  [[ -z $saved || $saved == "$IMAGE" ]] || die "Asennuksen nimi on muuttunut päivityksen jälkeen ($saved → $IMAGE). Palauta INSTANCE_NAME tiedostoon .env."
-  [[ $snapshot =~ ^/data/backups/pre-update-[0-9TZ]+\.db$ ]] || die "Tilatiedoston varmuuskopiopolku on virheellinen."
+  [[ -z $saved || $saved == "$IMAGE" ]] || die "The install name changed after the update ($saved to $IMAGE). Put the old INSTANCE_NAME back in .env."
+  [[ $snapshot =~ ^/data/backups/pre-update-[0-9TZ]+\.db$ ]] || die "The backup path in the state file is invalid."
   # the state file is data: the commit has to be a full hash that this checkout descends from
-  [[ -z $prev_commit ]] || { [[ $prev_commit =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$prev_commit" HEAD 2>/dev/null; } || die "Tilatiedoston commit ei kelpaa (se ei ole tämän kansion aiempi versio)."
-  docker image inspect "$IMAGE:previous" >/dev/null 2>&1 || die "Edellistä imagea ($IMAGE:previous) ei ole."
+  [[ -z $prev_commit ]] || { [[ $prev_commit =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$prev_commit" HEAD 2>/dev/null; } || die "The commit in the state file is not valid (it is not an earlier version of this folder)."
+  docker image inspect "$IMAGE:previous" >/dev/null 2>&1 || die "The previous image ($IMAGE:previous) does not exist."
   # the saved image has to be the build of the commit the state file names (a failed update must not have moved it)
   # (an image from before the label existed has none and is accepted)
   [[ -z $prev_commit || -z $(image_label "$IMAGE:previous" talous.commit) || $(image_label "$IMAGE:previous" talous.commit) == "$prev_commit" ]] \
-    || die "Edellinen image ($IMAGE:previous) ei vastaa tilatiedoston versiota. Palautusta ei tehdä, jotta tiedot eivät katoa."
+    || die "The previous image ($IMAGE:previous) does not match the version in the state file. The rollback is not done, so no data is lost."
 
-  step "Palautetaan päivitystä ($at) edeltänyt versio"
+  step "Restoring the version from before the update ($at)"
   docker compose stop banking >/dev/null
   # Does the database still have the schema the previous version knows? Compare the migration history.
   # If not, the newest copy with the old schema wins: the app's own copy taken right before the migration is
@@ -217,13 +217,13 @@ rollback() {
     }
     console.log(`restore ${process.argv[1]}`);' "$snapshot" | tail -1)
   if [[ $choice == same ]]; then
-    ok "Tietokanta ennallaan, tiedot säilyvät."
+    ok "The database is unchanged, so the data stays."
   else
     target=${choice#restore }
-    [[ $target =~ ^/data/backups/pre-[A-Za-z0-9_]+-[0-9TZ]+\.db$ ]] || die "Varmuuskopion valinta epäonnistui."
-    warn "Uusi versio muutti tietokantaa. Palautetaan kopio $(basename "$target"). Sen jälkeiset muutokset katoavat."
-    if [[ -t 0 ]] && ! confirm "Jatketaanko?"; then
-      docker compose start banking >/dev/null; die "Peruttu, nykyinen versio käynnistetty uudelleen."
+    [[ $target =~ ^/data/backups/pre-[A-Za-z0-9_]+-[0-9TZ]+\.db$ ]] || die "Could not choose a backup."
+    warn "The new version changed the database. Restoring the copy $(basename "$target"). Changes made after it are lost."
+    if [[ -t 0 ]] && ! confirm "Continue?"; then
+      docker compose start banking >/dev/null; die "Cancelled, the current version was started again."
     fi
     # what the rollback is about to overwrite is kept first, so nothing is lost for good
     docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e '
@@ -233,25 +233,25 @@ rollback() {
       try { new (require("node:sqlite").DatabaseSync)("/data/banking.db").exec(`VACUUM INTO '\''${process.argv[1]}'\''`); }
       catch (err) { fs.rmSync(process.argv[1], { force: true }); throw err; }
       const old = fs.readdirSync("/data/backups").filter((f) => /^pre-rollback-[0-9TZ]+\.db$/.test(f)).sort().reverse().slice(5);
-      for (const f of old) fs.rmSync(`/data/backups/${f}`);' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db" || die "Nykyisen tietokannan kopiointi ei onnistunut, mitään ei palautettu."
-    ok "Nykyinen tietokanta talletettu ennen palautusta (pre-rollback-*.db)."
+      for (const f of old) fs.rmSync(`/data/backups/${f}`);' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db" || die "Could not copy the current database, nothing was restored."
+    ok "The current database was saved before the restore (pre-rollback-*.db)."
     docker compose run --rm --no-deps -T --entrypoint sh banking -c \
       'set -e; cp "$1" /data/banking.db.restore; rm -f /data/banking.db-wal /data/banking.db-shm; mv /data/banking.db.restore /data/banking.db' sh "$target"
-    ok "Tietokanta palautettu: $target"
+    ok "Database restored: $target"
   fi
 
   docker image tag "$IMAGE:previous" "$IMAGE:latest"
   # the source goes back first: docker-compose.yml belongs to the version being restored (--keep refuses to
   # touch files with local changes)
   if [[ -n $prev_commit ]] && git cat-file -e "$prev_commit" 2>/dev/null; then
-    git reset --keep "$prev_commit" >/dev/null && ok "Lähdekoodi palautettu: $(git log -1 --format='%h %s')"
+    git reset --keep "$prev_commit" >/dev/null && ok "Source restored: $(git log -1 --format='%h %s')"
   fi
   # never a build: the previous image is the one just tagged
   docker compose up -d --no-build
-  healthy || die "Edellinenkään versio ei käynnisty. Lokit: docker compose logs banking"
+  healthy || die "The previous version does not start either. Logs: docker compose logs banking"
   rm -f "$STATE" # one rollback per update
-  ok "Käynnissä: $(version)"
-  say "${dim}Seuraava ./scripts/update.sh yrittää päivitystä uudelleen.${reset}"
+  ok "Running: $(version)"
+  say "${dim}The next ./scripts/update.sh tries the update again.${reset}"
 }
 
 # the whole run is one function, so bash has read the entire file before it starts: replacing this
@@ -260,53 +260,53 @@ main() {
   # one run per directory (the lock is on install.sh, which takes the same one)
   exec 9<scripts/install.sh
   if command -v flock >/dev/null && ! flock -n 9; then
-    die "Toinen päivitys tai asennus on jo käynnissä tässä kansiossa. Odota, että se valmistuu."
+    die "Another update or install is already running in this folder. Wait for it to finish."
   fi
   on_exit() {
     local rc=$?
     ((rc == 0)) && return
     [[ $REPORTED == true ]] && return
-    printf '\n%s✗ Päivitys keskeytyi.%s Aja ./scripts/update.sh uudelleen, se jatkaa siitä mihin jäi. Jos vika toistuu: ./scripts/doctor.sh\n' "$red" "$reset" >&2
+    printf '\n%s✗ The update was interrupted.%s Run ./scripts/update.sh again, it continues where it stopped. If the fault repeats: ./scripts/doctor.sh\n' "$red" "$reset" >&2
   }
   trap on_exit EXIT
   interrupted() {
     REPORTED=true
-    printf '\n%sKeskeytetty. Aja ./scripts/update.sh uudelleen, jos päivitys jäi kesken.%s\n' "$yellow" "$reset" >&2
+    printf '\n%sInterrupted. Run ./scripts/update.sh again if the update was left unfinished.%s\n' "$yellow" "$reset" >&2
     exit 130
   }
   trap interrupted INT TERM
 
-  command -v docker >/dev/null || die "Docker puuttuu. Asenna se: curl -fsSL https://get.docker.com | sudo sh   (docs/INSTALL.md, kohta 3)."
-  docker compose version >/dev/null 2>&1 || die "Docker Compose v2 puuttuu. Asenna: sudo apt install docker-compose-plugin"
+  command -v docker >/dev/null || die "Docker is missing. Install it: curl -fsSL https://get.docker.com | sudo sh   (docs/INSTALL.md)."
+  docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing. Install: sudo apt install docker-compose-plugin"
   if ! docker info >/dev/null 2>&1; then
     if [[ $(docker info 2>&1 >/dev/null | head -3) == *"permission denied"* ]]; then
-      die "Käyttäjälläsi ei ole oikeutta Dockeriin. Aja: sudo usermod -aG docker \$USER   ja kirjaudu ulos ja sisään (tai: newgrp docker)."
+      die "Your user has no permission to use Docker. Run: sudo usermod -aG docker \$USER   then log out and in (or: newgrp docker)."
     fi
-    die "Docker-palvelu ei vastaa. Aja: sudo systemctl start docker   ja sitten tämä uudelleen. Syy: sudo journalctl -u docker -n 30"
+    die "The Docker service does not respond. Run: sudo systemctl start docker   then this again. Cause: sudo journalctl -u docker -n 30"
   fi
-  [[ $IMAGE == "$DEFAULT_INSTANCE" ]] || say "Asennus: ${bold}$IMAGE${reset} (kansio $(pwd))"
+  [[ $IMAGE == "$DEFAULT_INSTANCE" ]] || say "Install: ${bold}$IMAGE${reset} (folder $(pwd))"
 
   if [[ ${1:-} == --rollback ]]; then rollback; return 0; fi
-  [[ -z ${1:-} ]] || die "Käyttö: ./scripts/update.sh [--yes] [--rollback]"
+  [[ -z ${1:-} ]] || die "Usage: ./scripts/update.sh [--yes] [--rollback]"
 
   # ── update ──
-  step "Tarkistetaan"
-  git diff --quiet && git diff --cached --quiet || die "Repositoriossa on paikallisia muutoksia (git status). Siivoa ne ensin."
+  step "Checking"
+  git diff --quiet && git diff --cached --quiet || die "The repository has local changes (git status). Clean them up first."
   # An image of this name without a container or volumes here belongs to another directory (a clone with no .env
   # falls back to banking-app). Tagging :previous over it would break that install's rollback.
   if docker image inspect "$IMAGE:latest" >/dev/null 2>&1 \
     && [[ -z $(docker compose ps -a -q banking 2>/dev/null) ]] \
     && [[ -z $(docker volume ls -q --filter "label=com.docker.compose.project=$(project_name)" 2>/dev/null) ]] \
     && ! grep -qx "INSTANCE=$IMAGE" "$STATE" 2>/dev/null; then
-    die "Image $IMAGE:latest on olemassa, mutta se ei kuulu tähän kansioon. Aja ensin ./scripts/install.sh."
+    die "Image $IMAGE:latest exists but does not belong to this folder. Run ./scripts/install.sh first."
   fi
-  [[ -n $TARGET ]] || git fetch --quiet --tags 2>/dev/null || die "Etärepositorioon ei saatu yhteyttä (git fetch epäonnistui). Mikään ei muuttunut, nykyinen versio on käynnissä. Tarkista verkko (git remote -v; git ls-remote origin) ja aja tämä uudelleen."
+  [[ -n $TARGET ]] || git fetch --quiet --tags 2>/dev/null || die "Could not reach the remote repository (git fetch failed). Nothing was changed, the current version is running. Check the network (git remote -v; git ls-remote origin) and run this again."
   prev_commit=$(git rev-parse HEAD)
   local upstream=''
   if [[ -n $TARGET ]]; then
-    git cat-file -e "$TARGET^{commit}" 2>/dev/null || die "Commitia $TARGET ei löydy tästä kansiosta."
+    git cat-file -e "$TARGET^{commit}" 2>/dev/null || die "Commit $TARGET is not in this folder."
   else
-    upstream=$(git rev-parse '@{u}' 2>/dev/null) || die "Haaralla ei ole seurattavaa etähaaraa (git branch -u origin/<haara>)."
+    upstream=$(git rev-parse '@{u}' 2>/dev/null) || die "The branch has no upstream branch (git branch -u origin/<branch>)."
   fi
 
   # A database from before 0.1.0 has another layout; say so now, before anything changes
@@ -318,7 +318,7 @@ main() {
       const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db");
       const t = new Set(d.prepare("SELECT name FROM sqlite_master WHERE type = \x27table\x27").all().map((r) => r.name));
       console.log(t.has("users") || !(t.has("_migrations") || t.has("transactions")) ? "ok" : "old");' | tail -1 || true)
-    [[ $floor != old ]] || die "Tietokanta on tehty ennen versiota 0.1.0 eikä sitä voi päivittää. Mikään ei muuttunut. Asenna uudelleen (docs/INSTALL.md) ja tuo tapahtumat CSV-tiedostoista."
+    [[ $floor != old ]] || die "The database was made before version 0.1.0 and cannot be updated. Nothing was changed. Install again (docs/INSTALL.md) and import the transactions from CSV files."
   fi
 
   # Which channel: releases once one exists and this checkout is not ahead of it, else the source
@@ -327,37 +327,37 @@ main() {
   [[ -z $TARGET ]] && tag=$(latest_release)
   # the web helper names the exact release it checked (the Releases API); a tag has to exist locally
   if [[ -n ${TALOUS_RELEASE:-} ]]; then
-    [[ $TALOUS_RELEASE =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && git rev-parse -q --verify "refs/tags/$TALOUS_RELEASE^{commit}" >/dev/null || die "Julkaisua $TALOUS_RELEASE ei löydy."
+    [[ $TALOUS_RELEASE =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && git rev-parse -q --verify "refs/tags/$TALOUS_RELEASE^{commit}" >/dev/null || die "Release $TALOUS_RELEASE not found."
     tag=$TALOUS_RELEASE
   fi
   setting=$(channel_setting)
   if [[ -n $TARGET ]]; then
     # the helper chose the commit and the channel; the .env setting may only agree
-    [[ -z $setting || $setting == "$MODE" ]] || die "TALOUS_CHANNEL ($setting) ei vastaa ylläpitoapurin valintaa ($MODE). Mikään ei muuttunut."
+    [[ -z $setting || $setting == "$MODE" ]] || die "TALOUS_CHANNEL ($setting) does not match the maintenance helper choice ($MODE). Nothing was changed."
     if [[ $MODE == release ]]; then
-      [[ -n $tag ]] || die "Julkaisua ei annettu."
-      [[ $(git rev-parse "refs/tags/$tag^{commit}" 2>/dev/null) == "$TARGET" ]] || die "Julkaisu $tag ei osoita tarkistettuun committiin."
+      [[ -n $tag ]] || die "No release was given."
+      [[ $(git rev-parse "refs/tags/$tag^{commit}" 2>/dev/null) == "$TARGET" ]] || die "Release $tag does not point at the checked commit."
     fi
     [[ $MODE == source ]] && tag=''
     CHANNEL=$MODE; target=$TARGET
-    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || die "Tarkistettu commit ei jatka tämän kansion historiaa. Mikään ei muuttunut."
-    say "Kanava: $MODE${tag:+ $tag}"
+    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || die "The checked commit does not continue the history of this folder. Nothing was changed."
+    say "Channel: $MODE${tag:+ $tag}"
   else
   case $setting in
     source) ;;
     release)
-      [[ -n $tag ]] || die "TALOUS_CHANNEL=release on asetettu, mutta julkaisuja ei ole vielä."
+      [[ -n $tag ]] || die "TALOUS_CHANNEL=release is set but there are no releases yet."
       CHANNEL=release ;;
     '')
       if [[ -n $tag ]] && git merge-base --is-ancestor HEAD "$tag^{commit}" 2>/dev/null; then CHANNEL=release; fi ;;
-    *) die "TALOUS_CHANNEL on virheellinen ($setting). Sallitut: source, release." ;;
+    *) die "TALOUS_CHANNEL is invalid ($setting). Allowed: source, release." ;;
   esac
   if [[ $CHANNEL == release ]]; then
     target=$(git rev-parse "$tag^{commit}")
     # a tag pushed on a side branch is not a release: its commit has to be on the branch this clone follows
-    git merge-base --is-ancestor "$target" "$upstream" 2>/dev/null || die "Julkaisun $tag koodi ei kuulu seurattavaan päähaaraan. Mikään ei muuttunut."
-    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || die "Tämä kansio on uudempi kuin viimeisin julkaisu ($tag). Käytä lähdekoodikanavaa: lisää tiedostoon .env rivi TALOUS_CHANNEL=source."
-    say "Kanava: julkaisu $tag"
+    git merge-base --is-ancestor "$target" "$upstream" 2>/dev/null || die "The code of release $tag is not on the branch this clone follows. Nothing was changed."
+    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || die "This folder is newer than the latest release ($tag). Use the source channel: add the line TALOUS_CHANNEL=source to .env."
+    say "Channel: release $tag"
   fi
   fi
 
@@ -367,30 +367,30 @@ main() {
     # the running container has to use that image too (a build that finished before a copy failed leaves the
     # old container running on an older image)
     if [[ $built == "$prev_commit" ]] && running && app_up && running_latest; then
-      ok "Uusin versio on jo käytössä ($(git log -1 --format='%h %s'))."
+      ok "Already current ($(git log -1 --format='%h %s'))."
       return 0
     fi
     # the code is current but the image is older or the app is down (say, a failed update): fetch or build and
     # start again, without a new copy, so $IMAGE:previous stays the version that worked
-    if [[ $built == "$prev_commit" ]]; then warn "Uusin versio on haettu, mutta sovellus ei vastaa. Käynnistetään uudelleen."
-    else warn "Koodi on uusin, mutta käynnissä oleva image on rakennettu toisesta versiosta. Haetaan uudelleen."; fi
+    if [[ $built == "$prev_commit" ]]; then warn "The newest version is fetched but the app is not running on it. Starting it again."
+    else warn "The code is current but the running image was built from another version. Fetching it again."; fi
     check_disk
     if [[ $CHANNEL == release ]]; then fetch_release_image "$tag" "$target"; docker compose up -d --no-build
     else build_image; docker compose up -d; fi
-    if healthy; then ok "Käynnissä: $(version)"; return 0; fi
-    warn "Sovellus ei käynnistynyt. Loki:"
+    if healthy; then ok "Running: $(version)"; return 0; fi
+    warn "The app did not start. Log:"
     docker compose logs --tail 30 banking || true
-    if [[ -f $STATE ]] && confirm "Palautetaanko edellinen versio nyt?"; then
+    if [[ -f $STATE ]] && confirm "Roll back to the previous version now?"; then
       rollback
     elif [[ -f $STATE ]]; then
-      say "Palautus: ${bold}./scripts/update.sh --rollback${reset}"
+      say "Rollback: ${bold}./scripts/update.sh --rollback${reset}"
     fi
     REPORTED=true
     return 1
   fi
-  before=$(running && version || echo "ei käynnissä")
-  say "Nykyinen: $before"
-  say "Uudet muutokset:"; git log --oneline -20 "HEAD..$target" | sed 's/^/  /'
+  before=$(running && version || echo "not running")
+  say "Current: $before"
+  say "New changes:"; git log --oneline -20 "HEAD..$target" | sed 's/^/  /'
 
   check_disk
   # owner-only applies to the state file alone: a global umask would also reach the files
@@ -402,31 +402,31 @@ main() {
   # :previous only in take_copy, together with the state file
   if docker image inspect "$IMAGE:latest" >/dev/null 2>&1; then have_old=true; docker image tag "$IMAGE:latest" "$IMAGE:pending-previous"; fi
 
-  step "Haetaan uusi versio"
+  step "Fetching the new version"
   if [[ $CHANNEL == release ]]; then
     fetch_release_image "$tag" "$target"
   else
     if [[ -n $TARGET ]]; then git merge --ff-only --quiet "$TARGET"; else git pull --ff-only --quiet; fi
-    ok "Lähdekoodi: $(git log -1 --format='%h %s')"
+    ok "Source: $(git log -1 --format='%h %s')"
     docker compose pull --ignore-buildable --quiet 2>/dev/null || true # Caddy / cloudflared
     build_image
   fi
 
   # The copy comes last, so a rollback loses only what was written since this moment
-  step "Varmuuskopio ennen vaihtoa"
-  if [[ $have_old == true ]]; then take_copy "$stamp"; else warn "Edellistä imagea ei ole. Varmuuskopiota ei tehdä."; fi
+  step "Backup before the switch"
+  if [[ $have_old == true ]]; then take_copy "$stamp"; else warn "There is no previous image. No backup is made."; fi
   if [[ $CHANNEL == release ]]; then
     git merge --ff-only --quiet "$target"
-    ok "Lähdekoodi: $(git log -1 --format='%h %s')"
+    ok "Source: $(git log -1 --format='%h %s')"
     docker compose pull --ignore-buildable --quiet 2>/dev/null || true # Caddy / cloudflared
     docker compose up -d --no-build
   else
     docker compose up -d
   fi
 
-  step "Käynnistetään…"
+  step "Starting…"
   if healthy; then
-    ok "Päivitetty: $before → $(version)"
+    ok "Updated: $before to $(version)"
     # keep the five newest pre-update copies; the names sort by time
     in_app -e '
       const fs = require("node:fs");
@@ -434,16 +434,16 @@ main() {
       if (!fs.existsSync(dir)) process.exit(0);
       const old = fs.readdirSync(dir).filter((f) => /^pre-update-[0-9TZ]+\.db$/.test(f)).sort().reverse().slice(5);
       for (const f of old) fs.rmSync(`${dir}/${f}`);' || true
-    say "${dim}Jos jokin on vialla: ./scripts/update.sh --rollback${reset}"
+    say "${dim}If something is wrong: ./scripts/update.sh --rollback${reset}"
     return 0
   fi
 
-  warn "Uusi versio ei käynnistynyt. Loki:"
+  warn "The new version did not start. Log:"
   docker compose logs --tail 30 banking || true
-  if [[ -f $STATE ]] && confirm "Palautetaanko edellinen versio nyt?"; then
+  if [[ -f $STATE ]] && confirm "Roll back to the previous version now?"; then
     rollback
   else
-    say "Palautus myöhemmin: ${bold}./scripts/update.sh --rollback${reset}"
+    say "Roll back later: ${bold}./scripts/update.sh --rollback${reset}"
   fi
   REPORTED=true
   return 1

@@ -19,7 +19,7 @@ const MAX_SYNCS = 4;
 const APP_ID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 /** A .pem key is a few kilobytes; the server refuses anything over 16 KB. */
 const MAX_KEY_BYTES = 16 * 1024;
-const DEFAULT_RELAY = "https://jouni-mikkola.github.io/omatalous/paluu/";
+const DEFAULT_RELAY = "https://jouni-mikkola.github.io/omatalous/callback/";
 
 function timeZones(): string[] {
   const all = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["Europe/Helsinki", "Europe/Stockholm", "UTC"];

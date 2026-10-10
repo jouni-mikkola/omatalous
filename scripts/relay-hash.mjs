@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-// Usage: node scripts/relay-hash.mjs  (rewrites the CSP hashes in relay/paluu/index.html after an edit)
-const f = new URL("../relay/paluu/index.html", import.meta.url);
+// Usage: node scripts/relay-hash.mjs  (rewrites the CSP hashes in relay/callback/index.html after an edit)
+const f = new URL("../relay/callback/index.html", import.meta.url);
 let h = readFileSync(f, "utf8");
 const hash = (s) => "sha256-" + createHash("sha256").update(s).digest("base64");
 const script = /<script>([\s\S]*?)<\/script>/.exec(h)[1];

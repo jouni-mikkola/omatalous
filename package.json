@@ -1,6 +1,7 @@
 {
   "name": "banking-app",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.13"

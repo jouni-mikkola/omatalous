@@ -1,6 +1,6 @@
 # Return page
 
-`paluu/index.html` is the page Enable Banking sends the browser to after a bank login when Omatalous runs on plain
+`callback/index.html` is the page Enable Banking sends the browser to after a bank login when Omatalous runs on plain
 http at home. It reads `state`, checks that it names a private, loopback or `.local` address, and forwards the
 browser to `<that address>/api/connections/callback` with only `code` (or `error`) and `state`. It stores and loads
 nothing. The workflow `.github/workflows/pages.yml` publishes it from the public repository, on release tags and on pushes to main that change relay/

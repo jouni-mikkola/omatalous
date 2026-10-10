@@ -54,7 +54,7 @@ async function assertSupportedFloor(db: ExecDb): Promise<void> {
   // an empty database is fresh; old tables without `users` are a pre-0.1 database
   if (tables.has("users") || !(tables.has("_migrations") || tables.has("transactions"))) return;
   throw new MigrationError(
-    "Tietokanta on tehty ennen versiota 0.1.0 eikä sitä voi päivittää. Asenna uudelleen (docs/INSTALL.md) ja tuo tapahtumat CSV-tiedostoista.",
+    "The database was made before version 0.1.0 and cannot be upgraded. Install again (docs/INSTALL.md) and import the transactions from CSV files.",
   );
 }
 
@@ -64,7 +64,7 @@ async function assertSupportedFloor(db: ExecDb): Promise<void> {
  * is newer than the code or an applied file was changed.
  */
 export async function pendingMigrations(db: ExecDb, migrations: readonly Migration[]): Promise<{ pending: Migration[]; applied: number }> {
-  for (const m of migrations) if (!NAME.test(m.name)) throw new MigrationError(`Virheellinen migraation nimi: ${m.name} (muoto 0001_kuvaus.sql)`);
+  for (const m of migrations) if (!NAME.test(m.name)) throw new MigrationError(`Invalid migration name: ${m.name} (format 0001_description.sql)`);
   await assertSupportedFloor(db);
   await ensureTable(db);
   const byName = new Map(migrations.map((m) => [m.name, m]));
@@ -73,8 +73,8 @@ export async function pendingMigrations(db: ExecDb, migrations: readonly Migrati
   const unknown = done.filter((r) => !byName.has(r.name)).map((r) => r.name);
   if (unknown.length) {
     throw new MigrationError(
-      `Tietokanta on päivitetty uudemmalla sovellusversiolla (${unknown.join(", ")}). Tämä versio ei osaa käsitellä sitä. ` +
-        "Käytä uudempaa versiota tai palauta päivitystä edeltävä varmuuskopio (scripts/update.sh --rollback).",
+      `The database was upgraded by a newer app version (${unknown.join(", ")}). This version cannot read it. ` +
+        "Use the newer version or restore the backup from before the upgrade (scripts/update.sh --rollback).",
     );
   }
   for (const r of done) {
@@ -83,7 +83,7 @@ export async function pendingMigrations(db: ExecDb, migrations: readonly Migrati
       // recorded before checksums existed: trust it once and remember
       await db.run("UPDATE _migrations SET checksum = ? WHERE name = ?", [expected, r.name]);
     } else if (r.checksum !== expected) {
-      throw new MigrationError(`Jo ajettu migraatio ${r.name} on muuttunut. Älä muokkaa ajettuja migraatioita, lisää uusi.`);
+      throw new MigrationError(`Applied migration ${r.name} has changed. Do not edit applied migrations, add a new one.`);
     }
   }
   const applied = new Set(done.map((r) => r.name));
@@ -114,7 +114,7 @@ export async function applyMigrations(db: ExecDb, pending: readonly Migration[])
         db.exec("COMMIT");
       } catch (err) {
         db.exec("ROLLBACK");
-        throw new MigrationError(`Migraatio ${m.name} epäonnistui, tietokanta jätettiin ennalleen: ${(err as Error).message}`);
+        throw new MigrationError(`Migration ${m.name} failed, the database was left unchanged: ${(err as Error).message}`);
       }
     } finally {
       if (fkOff) db.exec("PRAGMA foreign_keys = ON");

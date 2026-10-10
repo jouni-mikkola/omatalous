@@ -1,88 +1,87 @@
 # Connecting Nordea (Enable Banking)
 
-Enable Banking is a Finnish PSD2 service. Reading your own accounts is free in its "restricted
-production" mode, where the API returns only the accounts you link yourself. You always log in on Nordea's own
-page, and the app gets read access to transactions and balances for at most 180 days at a time.
+Enable Banking is the service that lets Omatalous read your Nordea accounts. It is free when you read only your own
+accounts. You register one Enable Banking app for the household, which takes about 15 minutes:
 
-You do this once for the household. Each member then connects their own accounts in the app with their
-own Nordea ID.
+1. Create a key in Omatalous and download its certificate.
+2. Register the app at enablebanking.com with that certificate.
+3. Link your Nordea accounts to the app there.
+4. Save the app's Application ID in Omatalous.
+5. Connect the accounts in Omatalous.
 
-## 1. Create the key in the app
+You log in with Nordea ID twice, in step 3 at Enable Banking and in step 5 in Omatalous. That is expected. You always
+log in on Nordea's own page, and Omatalous can only read transactions and balances.
 
-In the setup (or later *Asetukset > Palvelin*), press *Luo avain* and then *Lataa varmenne (.crt)*. The private key
-stays on the server, encrypted. You get only the public certificate `talous-enablebanking.crt`.
+The setup checklist that Omatalous shows after you create your user follows the same steps. Later you find them under
+*Asetukset > Palvelin*. Do steps 1 to 4 on the same computer, so the file you download in step 1 is at hand in step 2.
 
-Copy the redirect URL the app shows. It depends on how the app is reached:
+## 1. Create the key
 
-| | Redirect URL |
-|---|---|
-| Home network address (the default) | `https://jouni-mikkola.github.io/omatalous/paluu/`, the project's return page. It forwards your browser to your own address. |
-| Own https address | `https://<address>/api/connections/callback` |
-| Without the return page | `https://localhost/api/connections/callback`. The bank then shows an error page, and you paste its address into the app. |
+On the checklist press *Luo avain* and then *Lataa varmenne (.crt)*. You get the file `talous-enablebanking.crt`. The
+private key stays in Omatalous, encrypted.
 
-## 2. Register the application
+Copy the redirect URL the app shows next to *Kopioi*. For a normal install it is
+`https://jouni-mikkola.github.io/omatalous/callback/`.
 
-Sign up at <https://enablebanking.com> and open the Control Panel, *API applications*.
+## 2. Register the app
+
+Sign up at <https://enablebanking.com>, open the Control Panel and choose *API applications > Add a new application*.
 
 ![Add a new application](images/eb-1-register.png)
 
-1. Environment: **Production**.
-2. Private key: **Generate outside the browser and import public certificate**, and choose the `.crt` file.
-3. Redirect URLs: the URL from step 1, exactly.
-4. Application name: `Omatalous`. The description `Personal budgeting` is fine. Email, privacy URL and terms URL are not
-   checked in restricted mode; your own address will do.
+1. Environment: *Production*.
+2. Private key: *Generate outside the browser and import public certificate*. Choose the `.crt` file from step 1.
+3. Redirect URLs: the URL you copied in step 1, exactly.
+4. Application name: `Omatalous`. Description: anything, for example `Personal budgeting`. Email, privacy URL and terms
+   URL are not checked. Use your own email address. Any web address works for both URLs, for example
+   `https://github.com/jouni-mikkola/omatalous`.
 
-Press **Register**.
+Press *Register*.
 
 ## 3. Link your accounts
 
-The new application is *Inactive*. Press **Activate by linking accounts**:
+The new app is *Inactive*. Press *Activate by linking accounts*.
 
 ![Activate by linking accounts](images/eb-2-activate.png)
 
-Choose Finland, Nordea and personal, and press **Link**. Log in with Nordea ID.
+Choose Finland, Nordea and Personal, press *Link* and log in with Nordea ID.
 
 ![Link](images/eb-3-link.png)
 
-Nordea lets you pick one account at a time. Pick one and press *Jatka*.
+On Nordea's page you pick one account at a time. Pick one and press *Jatka*.
 
 ![Pick one account](images/eb-4-choose-account.png)
 
-Back in the Control Panel the app is now *Active* and *Restricted*. Press **Link accounts** again for each
-account you want in Omatalous: current and savings accounts and each credit card (cards show up as CPAN).
-The app can read only the accounts listed under *Linked accounts*.
+The app is now *Active*. Press *Link accounts* again for each other account and credit card you want in Omatalous.
+Omatalous can read only the accounts listed under *Linked accounts*. Link all of them here before you go on.
 
 ![Linked accounts](images/eb-5-linked.png)
 
-You don't need *Request unrestriction*. It is for companies.
-
 ## 4. Save the Application ID
 
-Copy the Application ID (the UUID next to the app's name) into the app and press
-*Tallenna ja testaa*. The app signs a test request and tells you right away whether Enable Banking accepts
-the key. A 401 or 403 means the ID belongs to another app, or no account is linked yet.
+The Application ID is the long code next to the app's name in the Control Panel, for example
+`12345678-abcd-...`. Copy it into Omatalous and press *Tallenna ja testaa*. Omatalous tells you right away whether
+Enable Banking accepts the key.
 
-## 5. Connect in the app
+## 5. Connect the accounts in Omatalous
 
-*Asetukset > Pankkiyhteydet > Lisää pankkiyhteys > Nordea*. Log in at Nordea and choose the account. After the
-login the bank sends your browser back through the return page to your own address. Do this on a device in the home
-network. If the page does not open, paste the address of the page the bank shows under *Paluusivu ei auennut?*. Add the
-other accounts and cards with *Lisää seuraava tili*. The first fetch starts in the background
-and asks for up to two years of history.
+Under *Asetukset > Pankkiyhteydet* press *Lisää pankkiyhteys*, choose Nordea, log in and pick an account. Use a phone or
+computer on your home Wi-Fi. After the login the browser shows a page on `github.io` for a moment and comes back to
+Omatalous. Add the other accounts and cards with *Lisää seuraava tili*.
 
 ![Lisää pankkiyhteys](images/lisaa-pankkiyhteys.png)
 
-Check under *Tilit* that the card's type is *Luottokortti*. Then paying the card bill from the current
-account counts as a transfer, because the purchases are already counted on the card.
+The first fetch brings up to two years of history in the background.
+
+Check under *Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
+account is counted as a transfer, because the purchases are already counted on the card.
 
 ## Good to know
 
-- The consent lasts 180 days. The app warns 14 days before; renew it with the same button. History stays.
-- Banks may limit automatic fetches to four a day per account. The default is 6.15 and 18.15.
-- A missing account is almost always a missing link in the Control Panel (step 3).
-- Older history: export a CSV from Nordea's online bank and import it into the same account under
-  *Tuo CSV*. Rows already fetched (same day and amount) are skipped.
-- To let Enable Banking create the key in the browser instead, choose *Generate in the browser* in step 2
-  and upload the downloaded `.pem` under *Muut vaihtoehdot > Minulla on .pem-tiedosto*. Delete the file afterwards.
-- A member can use their own Enable Banking app under *Asetukset > Oma Enable Banking -sovellus*. Usually
-  the shared one is enough.
+- The bank's consent lasts 180 days. Omatalous reminds you 14 days before. Renew it by connecting the account again
+  under *Asetukset > Pankkiyhteydet*. The history stays.
+- An account that does not show up is almost always missing from *Linked accounts* in step 3.
+- For history older than two years, export a CSV from Nordea's online bank and import it under *Asetukset > Tuo CSV*.
+  Rows already fetched are skipped.
+- When something fails, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#connecting-the-bank). Other ways to set Enable
+  Banking up are in [ADVANCED.md](ADVANCED.md#enable-banking-options).

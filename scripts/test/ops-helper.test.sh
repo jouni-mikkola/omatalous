@@ -18,7 +18,7 @@ if [[ $EUID -eq 0 && -z ${OPS_TEST_CHILD:-} ]]; then
   mkdir -p "$base/src"; cp -r "$SRC/scripts" "$SRC/docker-compose.yml" "$base/src/"
   chown -R 65534:65534 "$base"
   out=$(cd "$base/src" && TALOUS_OPS_CLEAN="" ./scripts/ops-helper.sh 2>&1); rc=$?
-  if [[ $rc -ne 0 && $out == *"pääkäyttäjänä"* ]]; then echo "ok   helper refuses to run as root"; rootfail=0
+  if [[ $rc -ne 0 && $out == *"does not run as root"* ]]; then echo "ok   helper refuses to run as root"; rootfail=0
   else echo "FAIL helper refuses to run as root (rc $rc: $out)"; rootfail=1; fi
   setpriv --reuid=65534 --regid=65534 --clear-groups env -u TMPDIR HOME="$base" OPS_TEST_CHILD=1 OPS_TEST_SRC="$base/src" bash "$base/src/scripts/test/ops-helper.test.sh" "$FILTER"
   rc=$?

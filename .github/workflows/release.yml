@@ -2,7 +2,7 @@ name: Release
 
 # A tag vX.Y.Z builds the image for amd64 and arm64, pushes it to ghcr.io, signs it by digest (keyless, through
 # GitHub OIDC), verifies the signature with the identity installs pin, and writes the release notes.
-# The "release" environment needs the owner's approval before anything is pushed. Runs only in the public repository.
+# The "release" environment has no required reviewer, so the run starts when the tag is pushed. Runs only in the public repository.
 on:
   push:
     tags: ["v*"]

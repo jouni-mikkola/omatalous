@@ -31,21 +31,21 @@ fetch_release_image() {
   local version=${1#v} commit=$2 ref digest log rc=0 want have
   ref=$REGISTRY_IMAGE:$version
   log=$(mktemp)
-  run_logged "$log" "Ladataan" docker pull "$ref" || rc=$?
+  run_logged "$log" "Pulling" docker pull "$ref" || rc=$?
   if ((rc != 0)); then
     tail -n 5 "$log" | cut -c1-200; rm -f "$log"
-    die "Version $version imagea ei saatu ladattua. Tarkista verkko (curl -I https://ghcr.io). ${KEEP_NOTE:-}"
+    die "Could not pull the image of version $version. Check the network (curl -I https://ghcr.io). ${KEEP_NOTE:-}"
   fi
   rm -f "$log"
   digest=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$ref" | grep "^$REGISTRY_IMAGE@sha256:" | head -1 || true)
-  [[ -n $digest ]] || die "Imagen tarkistetta ei saatu ($ref). ${KEEP_NOTE:-}"
+  [[ -n $digest ]] || die "Could not read the image digest ($ref). ${KEEP_NOTE:-}"
   # the signature is checked on the digest, and the image is used by the same digest
-  verify_signature "$digest" "$commit" || die "Imagen allekirjoitusta ei voitu vahvistaa ($digest). Sitä ei oteta käyttöön. ${KEEP_NOTE:-}"
-  ok "Allekirjoitus vahvistettu: $digest"
+  verify_signature "$digest" "$commit" || die "Could not verify the image signature ($digest). The image is not used. ${KEEP_NOTE:-}"
+  ok "Signature verified: $digest"
   [[ $(image_label "$digest" talous.commit) == "$commit" && $(image_label "$digest" talous.version) == "$version" ]] \
-    || die "Image ei vastaa julkaisua $1 (versio tai commit ei täsmää). Sitä ei oteta käyttöön."
+    || die "The image does not match release $1 (version or commit differs). The image is not used."
   want=$(compose_compat "$commit"); have=$(image_label "$digest" talous.compose)
   [[ -n $want && $have == "$want" ]] \
-    || die "Image odottaa docker-compose.yml:n asettelua $have, julkaisun tiedostossa on $want. Sitä ei oteta käyttöön."
+    || die "The image expects docker-compose.yml layout $have, the release file has $want. The image is not used."
   docker image tag "$digest" "$IMAGE:latest"
 }
