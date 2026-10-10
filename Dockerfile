@@ -3,7 +3,7 @@
 # The base is pinned to an exact node minor on purpose: node:sqlite is experimental and can change between minors.
 # Bump it by hand (Dependabot proposes it) and let the upgrade workflow run before merging.
 # ── build: install, bundle (the release workflow runs the tests before it builds) ─
-FROM node:22.23-alpine3.24 AS build
+FROM node:26.10-alpine3.24 AS build
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -18,7 +18,7 @@ ARG RUN_TESTS=false
 RUN if [ "$RUN_TESTS" = true ]; then pnpm test; fi && pnpm build && chmod -R a+rX apps/server/dist apps/server/migrations apps/web/dist
 
 # ── runtime: one bundled JS file + static UI, no node_modules ─
-FROM node:22.23-alpine3.24
+FROM node:26.10-alpine3.24
 ENV NODE_ENV=production \
     DATA_DIR=/data \
     PORT=8080 \
