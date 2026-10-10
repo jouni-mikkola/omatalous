@@ -3,6 +3,62 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.6.0
+
+Money and reports
+
+- A card bill is a transfer only for the card that is connected. A Platinum bill no longer disappears when only the Gold card is connected, and neither does another issuer's Gold bill. A bill that names only the issuer, such as Nordea Rahoitus or OP, still counts for the connected card.
+- A person paid twice from a CSV account without account numbers is no longer looked up in the trade register as a shop. In such an account only card text, a merchant code, a card account, a company form or an e-invoice text mark a business.
+
+Fetching and importing
+
+- A bank connection that has expired gets its own notice, also while another connection works. Every connection that ends within 14 days gets a notice too.
+- The same purchases in two Nordea CSV layouts are stored once. Rows already stored twice stay until you remove them.
+- Rows in another currency than EUR from the bank are skipped like in a CSV import, and the fetch message says how many.
+
+Look
+
+- The new-device notice reads: if you did not sign in yourself, change the password and sign out all sessions.
+
+Reliability
+
+- From this release on, rolling back to an older version no longer loses the data written since the update when the update only added something to the database and the older version is new enough to run on it.
+- A database copy (daily, before an update, before a restore) counts only after it has been flushed to disk, so a power cut right after a copy cannot leave an incomplete file under a good name.
+- A new command, `node dist/node.js migrate-check <database file>`, tries the pending migrations on a copy of a database and reports the integrity checks, the row counts and the time it took, without touching the original.
+
+Maintenance
+
+- An update tries the new version's database changes on a copy of your data before the old version stops. If they fail, the old version keeps running with the data untouched, and *Asetukset > Ylläpito* says so.
+- An update that fails or is interrupted before the new version starts keeps the old version as the current one, so a later restart starts the version that was running.
+- The time a start may take follows how long the check on the copy took, so a long database change is not cut short.
+- A rollback checks that its database copy is there and intact before it stops anything. Before, a missing copy left the app stopped.
+- The update's state file and every database copy are flushed to disk before they count, so a power cut during an update cannot block a rollback.
+- The rollback dialog warns when the update changed the database structure, or may have, because a rollback then loses what was written since.
+- The maintenance helper answers at once when it is asked for an action it does not know, instead of blocking other actions for 30 minutes.
+
+For developers
+
+- `pnpm check` runs the CI test job without the build (typecheck, tests, shell lint, shell suites) and prints one line per step, with the failing test names and the first lines of each failure. The maintenance helper scenarios run four at a time, so the shell suites take about 20 seconds instead of 65.
+- `pnpm test:core`, `pnpm test:server` and `pnpm test:sh:fast` run one part. `pnpm --filter @banking/core test` runs the core tests now. It used to run nothing and report success.
+- `tools/ci/shell-lint.sh` holds the shell syntax and shellcheck step. CI calls it, and it fails when shellcheck is missing on CI.
+- `docs/WORKERS.md` explains how to run one test, the test helpers, the files that change together and what done means for a task.
+- Repo rules in `tools/repo-rules` run with `pnpm test` and name the file and line to fix. They cover the purity of core, where SQL and security events are written, `user_id` on every `FinanceRepo` statement, em dashes in text, English in the UI text, the ops action list, the report registry and source file sizes.
+- Folder import boundaries are checked as data. Imports that already break a boundary sit in a baseline that can only shrink: a new violation fails, and so does a baseline entry that no longer occurs.
+- Shared server code (configuration, errors, ids, input validators) lives in `apps/server/src/platform/`.
+- Helpers that existed in two places now exist in one.
+- `UpstreamError` is the base class for failures of outside services: `app.ts` answers 502 for it without naming Enable Banking.
+- Where transactions come from is now a connector (`apps/server/src/connectors/`) with one sync loop, and file formats are import parsers in `packages/core/src/sources/`. A new bank or format is a folder and a registry line.
+- CI runs the shell checks, the JS checks, e2e and docker side by side and ends in one `ci-ok` check. The upgrade rehearsal also runs on `release/**` branches and ends in `upgrade-ok`. `pnpm typecheck` covers `e2e`, `tools` and the root config too.
+- `node tools/release/prepare.mjs X.Y.Z` bumps the version and builds the CHANGELOG section from `changelog.d/`, and `tools/release/ship.sh` moves private `main` and publishes. `docs/RELEASING.md` has the new steps. The GitHub Actions checkout and setup-node pins moved to 7.0.1 and 7.1.0.
+- `FinanceRepo` is split into modules in `apps/server/src/db/finance/` behind the same class, and the `user_id` repo rule checks each module.
+- The web styles are split into `styles/tokens.css`, `base.css` and one file per page area, and each report section is a file in `pages/reports/sections/`.
+- A module can ship switched off: add it to `FEATURES` in `packages/core/src/features.ts`, mount its routes with `gated(s, id, routes)` and give its nav entry in `nav.ts` a `feature`. Unfinished (`dev`) flags are not shown in Asetukset > Palvelin.
+
+Upgrade
+
+- Migration 0009 adds one column on the first start, after the usual copy. A rollback to 0.5.1 puts that copy back.
+- The check on a copy protects the updates after this one: the update to 0.6.0 still runs the update script of the version you have. Later checks need free space on the data volume of about twice the database.
+
 ## 0.5.1
 
 - Updates from the browser and new installs from a release work again. The images of 0.4.0 and 0.5.0 were signed by a

@@ -36,6 +36,8 @@ const toRequest = (r: Row): OpsRequest => ({
   steps: str(r.steps),
 });
 
+const marks = (list: readonly unknown[]): string => list.map(() => "?").join(",");
+
 const SELECT = "SELECT r.*, u.username AS username FROM ops_requests r LEFT JOIN users u ON u.id = r.requested_by";
 
 export interface Finish {
@@ -61,8 +63,9 @@ export class OpsRepo {
     }
   }
 
-  async hasActiveMutating(): Promise<boolean> {
-    return !!(await this.db.first("SELECT 1 AS x FROM ops_requests WHERE status IN ('queued','running') AND action NOT IN ('doctor','check-update','logs') LIMIT 1"));
+  /** `readOnly` is the one list of actions that may run beside another request (READ_ONLY in services/ops-validate.ts). */
+  async hasActiveMutating(readOnly: readonly string[]): Promise<boolean> {
+    return !!(await this.db.first(`SELECT 1 AS x FROM ops_requests WHERE status IN ('queued','running') AND action NOT IN (${marks(readOnly)}) LIMIT 1`, [...readOnly]));
   }
 
   async get(id: string): Promise<OpsRequest | null> {
@@ -74,12 +77,9 @@ export class OpsRepo {
     return (await this.db.all<Row>(`${SELECT} ORDER BY r.requested_at DESC, r.rowid DESC LIMIT ?`, [limit])).map(toRequest);
   }
 
-  /** Requests made since `since`; `mutatingOnly` leaves out the read-only actions. */
-  async countSince(since: string, mutatingOnly: boolean): Promise<number> {
-    const r = await this.db.first<{ c: number }>(
-      `SELECT COUNT(*) AS c FROM ops_requests WHERE requested_at > ?${mutatingOnly ? " AND action NOT IN ('doctor','check-update','logs')" : ""}`,
-      [since],
-    );
+  /** Requests made since `since`, leaving out the actions in `excluding` (the read-only ones, to count mutating requests). */
+  async countSince(since: string, excluding: readonly string[] = []): Promise<number> {
+    const r = await this.db.first<{ c: number }>(`SELECT COUNT(*) AS c FROM ops_requests WHERE requested_at > ?${excluding.length ? ` AND action NOT IN (${marks(excluding)})` : ""}`, [since, ...excluding]);
     return Number(r?.c ?? 0);
   }
 

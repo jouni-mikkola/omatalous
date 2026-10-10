@@ -1,7 +1,8 @@
 import { CATEGORY_GROUPS, getCategory } from "../categories.ts";
 import { type AnalysisContext, historyCovers, inDays } from "../analysis/context.ts";
 import { type DateRange, previousRange, toDayRange } from "../analysis/period.ts";
-import { completeMonths, median, rangeMonthIndexes } from "./shared.ts";
+import { median } from "../stats.ts";
+import { completeMonths, rangeMonthIndexes } from "./shared.ts";
 
 export interface CategoryStat {
   category: string;
@@ -90,7 +91,8 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         count: e.count,
         avgTxCents: Math.round(e.total / e.count),
         monthlyAvgCents: Math.round(averagedAt.reduce((sum, i) => sum + e.monthly[i]!, 0) / averagedAt.length),
-        medianMonthCents: median(averagedAt.map((i) => e.monthly[i]!)),
+        // whole cents: the middle two months may average to half a cent
+        medianMonthCents: Math.round(median(averagedAt.map((i) => e.monthly[i]!))),
         minMonthCents: Math.min(...averagedAt.map((i) => e.monthly[i]!)),
         maxMonthCents: Math.max(...averagedAt.map((i) => e.monthly[i]!)),
         monthsActive: e.monthly.filter((v) => v > 0).length,

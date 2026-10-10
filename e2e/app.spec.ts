@@ -21,7 +21,11 @@ function watch(page: Page): { problems: string[] } {
     if (m.type() === "error" || m.type() === "assert") seen.problems.push(`console ${m.type()}: ${m.text()} (${m.location().url})`);
   });
   page.on("pageerror", (e) => seen.problems.push(`page error: ${e.message}`));
-  page.on("requestfailed", (r) => seen.problems.push(`request failed: ${r.method()} ${r.url()} ${r.failure()?.errorText}`));
+  page.on("requestfailed", (r) => {
+    // The app never aborts a request itself, so an aborted GET is one that a reload or navigation cut off.
+    if (r.method() === "GET" && r.failure()?.errorText === "net::ERR_ABORTED") return;
+    seen.problems.push(`request failed: ${r.method()} ${r.url()} ${r.failure()?.errorText}`);
+  });
   page.on("response", (r) => {
     if (r.status() >= 400) seen.problems.push(`HTTP ${r.status()}: ${r.request().method()} ${r.url()}`);
   });

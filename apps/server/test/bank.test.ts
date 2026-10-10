@@ -2,7 +2,7 @@ import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { originFromRelayState, relayState } from "@banking/core";
 import { pastedParams } from "../src/routes/bank.ts";
-import { syncEveryone } from "../src/services/bank.ts";
+import { syncEveryone } from "../src/connectors/sync.ts";
 import { mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";
 
@@ -154,6 +154,15 @@ describe("bank return modes", () => {
     expect(JSON.stringify(r.body)).toContain(RELAY);
     // the unused state is not left behind
     expect(await s.settings.get(`auth_state:${bank.state}`)).toBeNull();
+  });
+
+  it("answers 502 with a fixed message when the bank API fails, never the API's own text", async () => {
+    const bank = mockBank();
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    bank.authFailure = { status: 500, body: JSON.stringify({ error: "ASPSP_ERROR", message: "Account FI2112345600000785 balance 1234.50" }) };
+    const r = await admin.call("POST", "/api/connections/start", {});
+    expect(r).toMatchObject({ status: 502, body: { error: "Pankkirajapinta vastasi virheellä (500). Yritä myöhemmin uudelleen." } });
+    expect(JSON.stringify(r.body)).not.toContain("FI2112345600000785");
   });
 
   it("the callback redirects relatively and the pasted text can be a URL, a path or a bare query", () => {

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useApi } from "../../hooks.ts";
 import type { InstanceState } from "../../types.ts";
+import { FeatureFlags, SWITCHABLE } from "./Features.tsx";
 import { BankAppSetup, GeneralForm } from "./InstanceForms.tsx";
 
 export function ServerSettings({ focus, onChange }: { focus: boolean; onChange: () => void }) {
@@ -38,6 +39,12 @@ export function ServerSettings({ focus, onChange }: { focus: boolean; onChange: 
             <h3 className="subhead">Enable Banking -sovellus</h3>
             <BankAppSetup state={current} onState={update} compact />
           </div>
+          {SWITCHABLE.length > 0 && (
+            <div>
+              <h3 className="subhead">Kokeiltavat toiminnot</h3>
+              <FeatureFlags state={current} onState={update} />
+            </div>
+          )}
         </div>
       )}
     </div>

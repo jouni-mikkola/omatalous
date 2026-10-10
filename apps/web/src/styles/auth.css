@@ -1,0 +1,8 @@
+/* Setup, login and change password. */
+
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.auth-card { width: 100%; max-width: 420px; }
+.auth-title { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+.auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.auth-form label { display: flex; flex-direction: column; gap: 4px; color: var(--text-2); font-size: 13px; }
+.auth-form input { font-size: 15px; padding: 8px 10px; }

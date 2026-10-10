@@ -1,6 +1,7 @@
 import { generateKeyPairSync, verify } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { importPrivateKey, signJwt } from "../src/providers/enable-banking/jwt.ts";
+import { signJwt } from "../src/connectors/enable-banking/jwt.ts";
+import { importPrivateKey } from "../src/security/rsa-key.ts";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 

@@ -10,6 +10,7 @@
  * prefixes mean the same in both; where they differ there is a table per set.
  */
 import { fold, isPlaceName, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { companyForms, MOBILEPAY_WORDS } from "./wording.ts";
 import type { Account, Transaction } from "./types.ts";
 
 export type IndustryCodeSet = "TOL2008" | "TOL2025";
@@ -155,7 +156,7 @@ export interface IndustryMatch {
   category: string | null;
 }
 
-const COMPANY_FORMS = new Set(["OY", "OYJ", "AB", "ABP", "KY", "AY", "RY", "RF", "TMI", "OSK", "KOY", "AS", "LTD", "SR", "AOY"]);
+const COMPANY_FORMS = companyForms("strip");
 
 /**
  * "Liikuntakeskus Fressi Oy" → "LIIKUNTAKESKUS FRESSI". Accents are stripped
@@ -249,29 +250,48 @@ export function shorterQuery(merchant: string): string | null {
  * Company forms that make a payee a business. The short foreign forms SA, SE
  * and AS are left out: they are too often part of a person's name.
  */
-const COMPANY_MARKERS = new Set(["OY", "OYJ", "AB", "ABP", "KY", "AY", "RY", "TMI", "OSK", "KOY", "LTD", "LIMITED", "INC", "GMBH", "LLC", "PLC", "BV", "ASA"]);
+const COMPANY_MARKERS = companyForms("payee");
 /** Texts banks put on card purchases and e-invoices, never on a transfer to a person. */
 const BUSINESS_PAYMENT =
   /(?<![\p{L}\p{N}])(?:KORTTIOSTO|KORTTIMAKSU|CARD PURCHASE|OSTOPVM|E-LASKU|E-INVOICE|SUORAMAKSU|VERKKOMAKSU)(?![\p{L}\p{N}])|X{2,}\d{2,4}|\*{2,}\d{2,4}/u;
 
 type BusinessRowFields = Pick<Transaction, "mcc" | "accountId" | "counterparty" | "counterpartyIban" | "description">;
 
-const MOBILEPAY = /(?<![\p{L}\p{N}])(?:MOBILEPAY|MOBILE PAY|PIVO|SIIRTO HENKILO(?:LLE|LTA))(?![\p{L}\p{N}])/u;
+const MOBILEPAY = new RegExp(String.raw`(?<![\p{L}\p{N}])(?:${MOBILEPAY_WORDS}|SIIRTO HENKILO(?:LLE|LTA))(?![\p{L}\p{N}])`, "u");
 
 /** A MobilePay or Pivo payment: no payee account, but often a person. */
 export function isMobilePay(t: Pick<Transaction, "counterparty" | "description">): boolean {
   return MOBILEPAY.test(fold([t.counterparty, t.description].filter(Boolean).join(" ")));
 }
 
+/** One account's rows from one source: the unit in which a payee account is or is not delivered. */
+export const ledgerOf = (t: Pick<Transaction, "accountId" | "source">): string => `${t.accountId}\u0000${t.source ?? ""}`;
+
+/**
+ * The ledgers whose outgoing transfers carry payee accounts. Only there does a missing payee account tell a card
+ * purchase from a transfer: a CSV layout without IBANs leaves every payee, a person too, without one. A bank fetch
+ * into the same account says nothing about CSV rows imported before it, so the source is part of the ledger.
+ */
+export function ledgersWithPayeeAccounts(txs: readonly Pick<Transaction, "accountId" | "source" | "amountCents" | "counterpartyIban">[]): Set<string> {
+  const ledgers = new Set<string>();
+  for (const t of txs) if (t.amountCents < 0 && t.counterpartyIban) ledgers.add(ledgerOf(t));
+  return ledgers;
+}
+
 /**
  * Merchants paid at least twice without a payee account and not with
  * MobilePay: card purchases in a CSV export, which carries no card text.
- * A person is paid to an account.
+ * A person is paid to an account, so this counts only rows of a ledger
+ * whose other outgoing transfers do carry one. `payeeLedgers` says which
+ * (ledgersWithPayeeAccounts) when `txs` is a selection of the rows.
  */
-export function businessMerchants(txs: readonly (Pick<Transaction, "amountCents" | "merchant" | "counterpartyIban" | "counterparty" | "description">)[]): Set<string> {
+export function businessMerchants(
+  txs: readonly Pick<Transaction, "accountId" | "source" | "amountCents" | "merchant" | "counterpartyIban" | "counterparty" | "description">[],
+  payeeLedgers: ReadonlySet<string> = ledgersWithPayeeAccounts(txs),
+): Set<string> {
   const counts = new Map<string, number>();
   for (const t of txs) {
-    if (t.amountCents >= 0 || t.counterpartyIban || t.merchant === UNKNOWN_MERCHANT || isMobilePay(t)) continue;
+    if (t.amountCents >= 0 || t.counterpartyIban || t.merchant === UNKNOWN_MERCHANT || !payeeLedgers.has(ledgerOf(t)) || isMobilePay(t)) continue;
     counts.set(t.merchant, (counts.get(t.merchant) ?? 0) + 1);
   }
   return new Set([...counts].filter(([, n]) => n >= 2).map(([merchant]) => merchant));
@@ -318,7 +338,7 @@ export function industryCandidates(
   const totals = new Map<string, number>();
   const people = new Set<string>();
   const uncategorised = txs.filter((t) => t.amountCents < 0 && !t.isTransfer && t.categorySource === "default" && isLookupName(t.merchant));
-  const shops = businessMerchants(uncategorised);
+  const shops = businessMerchants(uncategorised, ledgersWithPayeeAccounts(txs));
   for (const t of uncategorised) {
     if (!isBusinessRow(t, cards, shops)) {
       people.add(t.merchant);

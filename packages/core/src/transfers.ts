@@ -9,8 +9,8 @@ const PAIR_WINDOW_DAYS = 5;
 /** Categories that describe the purpose of a payment rather than a purchase, so they may be one leg of a transfer. */
 const PAIRABLE_CATEGORIES = new Set(["card_bill", "credit_draw", "other", "income", "p2p", "p2p_in"]);
 
-/** Words in card account names that say nothing about the issuer. */
-const GENERIC_CARD_WORDS = new Set(["KORTTI", "LUOTTOKORTTI", "CREDIT", "DEBIT", "CARD", "VISA", "MASTERCARD", "DEMO", "TILI", "ACCOUNT", "LUOTTO"]);
+/** Words in card account names that name neither the issuer nor the product. */
+const GENERIC_CARD_WORDS = new Set(["KORTTI", "LUOTTOKORTTI", "CREDIT", "DEBIT", "CARD", "VISA", "MASTERCARD", "DEMO", "TILI", "ACCOUNT", "LUOTTO", "PANKKI", "BANK"]);
 
 export function normalizeIban(iban: string | null | undefined): string | null {
   const s = iban?.replace(/\s+/g, "").toUpperCase();
@@ -25,10 +25,11 @@ type TransferInput = Pick<
 
 export interface TransferOptions {
   /**
-   * An unpaired card bill whose text names the issuer of a connected card
-   * account (e.g. "NORDEA GOLD LASKU" with "Nordea Gold" connected) is a
-   * transfer. Off for the household view, where the card may be another
-   * member's and my own card is not connected.
+   * An unpaired card bill whose text names a connected card account
+   * ("NORDEA GOLD LASKU" or a bare "NORDEA RAHOITUS" with "Nordea Gold"
+   * connected, not "NORDEA PLATINUM LASKU") is a transfer. Off for the
+   * household view, where the card may be another member's and my own card
+   * is not connected.
    */
   issuerFallback?: boolean;
   /** Rows that are returns of a payment (see matchReturns): never a transfer leg, so a refund on a card is not taken for a card payment. */
@@ -47,12 +48,42 @@ export function pairable(t: TransferInput): boolean {
   return PAIRABLE_CATEGORIES.has(t.category) || kind === "savings" || kind === "debt" || kind === "transfer";
 }
 
-function issuerWords(accounts: readonly Account[]): string[] {
-  const words = accounts
+/**
+ * Words that tell one card of an issuer from another. VISA and MASTERCARD are left out: one card is both a Gold
+ * and a Mastercard.
+ */
+const CARD_PRODUCT_WORDS = ["GOLD", "PLATINUM", "CREDIT"];
+
+/** Whole words, and a hyphenated name such as S-PANKKI also as one word, so its short part still names the bank. */
+const wordsOf = (text: string): string[] =>
+  text.split(/[^A-Z0-9-]+/).flatMap((t) => (/^[A-Z0-9]+(-[A-Z0-9]+)+$/.test(t) ? [t, ...t.split("-")] : t.split("-"))).filter(Boolean);
+
+interface CardName {
+  /** What names the card: the issuer and the product, as whole words (a short issuer name such as OP is a word of its own). */
+  words: Set<string>;
+  /** Every word of the account name, to tell which product it is. */
+  all: Set<string>;
+}
+
+function cardNames(accounts: readonly Account[]): CardName[] {
+  return accounts
     .filter((a) => a.type === "credit_card")
-    .flatMap((a) => fold(a.name).split(/[^A-Z0-9]+/))
-    .filter((w) => w.length >= 4 && !GENERIC_CARD_WORDS.has(w) && !/^\d+$/.test(w));
-  return [...new Set(words)];
+    .map((a) => {
+      const all = wordsOf(fold(a.name));
+      return { all: new Set(all), words: new Set(all.filter((w) => w.length >= 2 && !GENERIC_CARD_WORDS.has(w) && !/^\d+$/.test(w))) };
+    })
+    .filter((c) => c.words.size > 0);
+}
+
+/**
+ * A bill is the card's when its text names the card, and not another product of the issuer: "NORDEA GOLD" and a
+ * bare "NORDEA RAHOITUS SUOMI OY" belong to "Nordea Gold", "NORDEA PLATINUM" does not.
+ */
+function billOfCard(text: ReadonlySet<string>, card: CardName): boolean {
+  // the issuer names the card; a product word alone ("AMERICAN EXPRESS GOLD" next to "Nordea Gold") names any issuer's
+  const issuer = [...card.words].filter((w) => !CARD_PRODUCT_WORDS.includes(w));
+  if (!(issuer.length ? issuer : [...card.words]).some((w) => text.has(w))) return false;
+  return !CARD_PRODUCT_WORDS.some((w) => text.has(w) && !card.all.has(w));
 }
 
 /**
@@ -64,8 +95,8 @@ function issuerWords(accounts: readonly Account[]): string[] {
  * - −X on one own account and +X on another within a few days: savings
  *   transfers, a credit line drawn to checking, the card bill paid from
  *   checking (its purchases are already counted on the card account)
- * - a card bill without a matching card payment, when it names the issuer
- *   of a connected card (see TransferOptions)
+ * - a card bill without a matching card payment, when it names a
+ *   connected card (see TransferOptions)
  *
  * Rows already marked as transfers (category source "transfer", e.g. each
  * member's own pairs in the household view) keep their partner and are not
@@ -160,12 +191,12 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
   }
 
   if (options.issuerFallback !== false) {
-    const issuers = issuerWords(accounts);
-    if (issuers.length) {
+    const cards = cardNames(accounts);
+    if (cards.length) {
       for (const tx of txs) {
         if (tx.category !== "card_bill" || tx.categorySource === "user" || skipped.has(tx.id) || transfers.has(tx.id) || isCard(tx) || tx.amountCents >= 0) continue;
-        const text = fold([tx.merchant, tx.counterparty, tx.description].filter(Boolean).join(" "));
-        if (issuers.some((w) => new RegExp(`(?<![A-Z0-9])${w}(?![A-Z0-9])`).test(text))) transfers.add(tx.id);
+        const text = new Set(wordsOf(fold([tx.merchant, tx.counterparty, tx.description].filter(Boolean).join(" "))));
+        if (cards.some((card) => billOfCard(text, card))) transfers.add(tx.id);
       }
     }
   }

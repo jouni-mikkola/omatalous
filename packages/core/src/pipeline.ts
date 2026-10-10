@@ -1,8 +1,9 @@
 import { getCategory } from "./categories.ts";
 import { categorize, compileRules } from "./categorize.ts";
-import { businessMerchants, isBusinessRow } from "./industry.ts";
+import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
+import { median } from "./stats.ts";
 import { matchReturns, returnClassOf, SHARE_WINDOW_DAYS } from "./returns.ts";
 import { detectTransfers, normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
 import type { Account, CategoryRule, Transaction } from "./types.ts";
@@ -85,10 +86,15 @@ function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<st
 }
 
 /** Rows nothing recognised take their merchant's other purchases' category, or the merchant's industry. After transfer detection, which treats such rows as possible own transfers. */
-function* applyMerchantEvidence(next: readonly Transaction[], accounts: readonly Account[], industries: ReadonlyMap<string, string>): Generator<void, void, void> {
+function* applyMerchantEvidence(
+  next: readonly Transaction[],
+  accounts: readonly Account[],
+  industries: ReadonlyMap<string, string>,
+  payeeLedgers: ReadonlySet<string> = ledgersWithPayeeAccounts(next),
+): Generator<void, void, void> {
   const likeOthers = merchantCategories(next);
   const cards = new Set(accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
-  const shops = businessMerchants(next);
+  const shops = businessMerchants(next, payeeLedgers);
   for (let i = 0; i < next.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = next[i]!;
@@ -198,19 +204,31 @@ export function enrichIsland(input: IslandInput): IslandResult {
     applyCardBills(next, byUserRule);
     return { next, byUserRule, returns: matchReturns(next, ownIbans, byUserRule) };
   };
-  const finish = (staged: ReturnType<typeof run>) => {
+  const finishWith = (staged: ReturnType<typeof run>, payeeLedgers: ReadonlySet<string>) => {
     // no row of the island pairs: the transfer stage adds nothing to it
     const next = staged.next.map((t) => ({ ...t }));
-    const evidence = applyMerchantEvidence(next, accounts, industries);
+    const evidence = applyMerchantEvidence(next, accounts, industries, payeeLedgers);
     while (!evidence.next().done);
     applyReturns(next, staged.returns);
     return next;
+  };
+  // Whether a ledger (an account's rows of one source) carries payee accounts is known from the island's rows as far
+  // as they show one; rows outside may show one too. The industry shops depend on it, so the answer must be the same
+  // with and without them.
+  const seen = ledgersWithPayeeAccounts(rows);
+  const possible = new Set(rows.map(ledgerOf));
+  const finish = (staged: ReturnType<typeof run>) => {
+    const low = finishWith(staged, seen);
+    if (seen.size === possible.size) return low;
+    const high = finishWith(staged, possible);
+    return low.every((t, i) => t.category === high[i]!.category && t.categorySource === high[i]!.categorySource && t.isTransfer === high[i]!.isTransfer) ? low : null;
   };
 
   const was = rows.map((t) => ({ ...t, ...input.before.get(t.id) }));
   const old = run(was, input.oldRules);
   // the old inputs must reproduce what is stored, or the stored state is not what a full run left
   const oldFinal = finish(old);
+  if (!oldFinal) return { ok: false, reason: "industry shops depend on payee accounts outside the merchant" };
   for (let i = 0; i < rows.length; i++) {
     const stored = was[i]!;
     const f = oldFinal[i]!;
@@ -240,6 +258,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
   if (old.returns.size !== now.returns.size || [...old.returns].some(([k, v]) => now.returns.get(k) !== v)) return { ok: false, reason: "returns match differently" };
   // a purchase in the island must not have a matched row outside it: a friend's share carries its category
   const next = finish(now);
+  if (!next) return { ok: false, reason: "industry shops depend on payee accounts outside the merchant" };
   const changed = changedRows(next, rows);
   if (input.outsideMatches.length) {
     for (const [i, t] of next.entries()) {
@@ -305,12 +324,6 @@ function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
     if (median(changes) > 0.1) bills.push(...varying);
   }
   return bills;
-}
-
-function median(xs: readonly number[]): number {
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = s.length >> 1;
-  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 }
 
 /** Categories whose rows say nothing about what a merchant sells. */

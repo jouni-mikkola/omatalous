@@ -74,6 +74,84 @@ describe("credit cards (Nordea Gold)", () => {
   });
 });
 
+describe("a connected card makes only its own bill a transfer", () => {
+  const opVisa: Account = { id: "op", name: "OP Visa", iban: null, currency: "EUR", type: "credit_card" };
+  const platinum: Account = { id: "plat", name: "Nordea Platinum", iban: null, currency: "EUR", type: "credit_card" };
+  const bill = (desc: string, counterparty: string, amount = -120) => row("chk", "2026-09-20", amount, desc, counterparty, { category: "card_bill", categorySource: "rule" });
+
+  /** The money-flow rule: a row is a transfer or lands in exactly one flow. */
+  const landsOnce = (final: Transaction[], flows: Flows[]) =>
+    final.every((t, i) => Object.values(flows[i]!).filter((v) => v !== 0).length === (t.isTransfer ? 0 : 1));
+
+  it("a Platinum bill is spending while only the Gold card is connected", () => {
+    const { final, flows, byDesc, totals } = run(
+      [
+        row("gold", "2026-09-03", -120, "K-MARKET KAMPPI"),
+        row("chk", "2026-09-20", -120, "NORDEA GOLD LASKU", "NORDEA RAHOITUS SUOMI OY"),
+        row("chk", "2026-09-21", -300, "NORDEA PLATINUM LASKU", "NORDEA RAHOITUS SUOMI OY"),
+      ],
+      [checking, gold],
+    );
+    expect(byDesc("NORDEA GOLD LASKU").isTransfer).toBe(true);
+    expect(byDesc("NORDEA PLATINUM LASKU")).toMatchObject({ category: "card_bill", isTransfer: false });
+    // the Gold purchase, and the Platinum card's spending as its bill
+    expect(totals).toMatchObject({ consumptionCents: 12000 + 30000, debtCents: 0 });
+    expect(landsOnce(final, flows)).toBe(true);
+  });
+
+  it("each bill is a transfer when both Nordea cards are connected", () => {
+    const { final, flows, byDesc, totals } = run(
+      [
+        row("gold", "2026-09-03", -120, "K-MARKET KAMPPI"),
+        row("plat", "2026-09-04", -300, "PRISMA ITIS"),
+        row("chk", "2026-09-20", -120, "NORDEA GOLD LASKU", "NORDEA RAHOITUS SUOMI OY"),
+        row("chk", "2026-09-21", -300, "NORDEA PLATINUM LASKU", "NORDEA RAHOITUS SUOMI OY"),
+      ],
+      [checking, gold, platinum],
+    );
+    expect(byDesc("NORDEA GOLD LASKU").isTransfer).toBe(true);
+    expect(byDesc("NORDEA PLATINUM LASKU").isTransfer).toBe(true);
+    expect(totals).toMatchObject({ consumptionCents: 12000 + 30000, debtCents: 0 });
+    expect(landsOnce(final, flows)).toBe(true);
+  });
+
+  it("a bill that names only the issuer is the connected card's bill when no payment row pairs with it", () => {
+    // Nordea Rahoitus e-invoices carry no product word, and the card feed has no payment rows or books them late
+    const bills = [412.3, 655.1, 389, 702.45].map((euros, i) => row("chk", `2026-0${i + 3}-10`, -euros, `E-LASKU ${i + 1}`, "NORDEA RAHOITUS SUOMI OY"));
+    const { final, flows, totals } = run([row("gold", "2026-04-02", -1456.4, "K-CITYMARKET JUMBO"), ...bills], [checking, gold]);
+    expect(final.filter((t) => t.accountId === "chk").every((t) => t.isTransfer)).toBe(true);
+    expect(totals).toMatchObject({ consumptionCents: 145640, debtCents: 0 });
+    expect(landsOnce(final, flows)).toBe(true);
+  });
+
+  it("a bill for another product of the issuer stays spending, also next to a card of that issuer without a product word", () => {
+    const nordea: Account = { id: "nordea", name: "Nordea Visa", iban: null, currency: "EUR", type: "credit_card" };
+    const found = detectTransfers([bill("NORDEA PLATINUM LASKU", "NORDEA RAHOITUS SUOMI OY"), bill("NORDEA GOLD LASKU", "NORDEA RAHOITUS SUOMI OY")], [checking, nordea]);
+    // a Visa card has no Gold or Platinum in its name either
+    expect(found.size).toBe(0);
+    const opGold = bill("OP GOLD LASKU", "OP KORTTI OY");
+    expect(detectTransfers([opGold], [checking, opVisa]).size).toBe(0);
+    expect(detectTransfers([opGold], [checking, opVisa, { ...opVisa, id: "op-gold", name: "OP Gold" }]).size).toBe(1);
+  });
+
+  it("a product word or a bank word alone names no connected card", () => {
+    // another issuer's Gold card is spending, not the Nordea Gold bill
+    expect(detectTransfers([bill("AMERICAN EXPRESS GOLD LASKU", "AMERICAN EXPRESS")], [checking, gold]).size).toBe(0);
+    const sPankki: Account = { id: "s", name: "S-Pankki Visa", iban: null, currency: "EUR", type: "credit_card" };
+    expect(detectTransfers([bill("POP PANKKI LUOTTOKORTTI LASKU", "POP PANKKI")], [checking, sPankki]).size).toBe(0);
+    expect(detectTransfers([bill("LUOTTOKORTTI LASKU", "S-PANKKI OYJ")], [checking, sPankki]).size).toBe(1);
+  });
+
+  it("a short issuer name such as OP is a word of its own", () => {
+    const { final, flows, byDesc } = run([bill("OP KORTTI OY LASKU", "OP KORTTI OY")], [checking, opVisa]);
+    expect(byDesc("OP KORTTI OY LASKU").isTransfer).toBe(true);
+    expect(landsOnce(final, flows)).toBe(true);
+    // OP inside another word names no card
+    const rows = [bill("OPUS KORTTI LASKU", "OPUS KORTTI OY"), bill("TOP KORTTI LASKU", "TOP KORTTI OY")];
+    expect(detectTransfers(rows, [checking, opVisa]).size).toBe(0);
+  });
+});
+
 describe("debt", () => {
   it.each([
     ["NORDEA RAHOITUS SUOMI OY", "OSAMAKSU AUTO 12/48", "loans"],

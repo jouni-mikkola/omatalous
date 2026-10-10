@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBankCsv } from "../src/providers/csv/nordea.ts";
+import { parseBankCsv } from "@banking/core";
 import { NOW, setupApp } from "./helpers.ts";
 
 // modelled on Nordea's netbank export of a checking and a savings account (review data)
@@ -184,5 +184,21 @@ describe("deleting an account", () => {
     await s.finance(adminId).upsertAccount({ id: "eb-1", connectionId: null, provider: "enablebanking", externalId: "x", identity: "x", name: "Nordea", iban: null, currency: "EUR", type: "checking" });
     expect(await admin.call("DELETE", "/api/accounts/eb-1")).toMatchObject({ status: 400, body: { error: "Pankkiyhteyden tiliä ei voi poistaa." } });
     expect(await s.finance(adminId).getAccount("eb-1")).not.toBeNull();
+  });
+});
+
+describe("account type", () => {
+  it("can be set to a known type; an unknown one is refused when editing and replaced by checking when importing", async () => {
+    const { admin } = await setupApp();
+    const typeOf = async (id: string) => (await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === id).type;
+    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    for (const type of ["checking", "savings", "credit_card", "loan", "other"]) {
+      expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { type })).body.type, type).toBe(type);
+    }
+    expect(await admin.call("PATCH", `/api/accounts/${accountId}`, { type: "räjähde" })).toMatchObject({ status: 400, body: { error: "Tuntematon tilityyppi." } });
+    const unknown = (await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: "Toinen", accountType: "räjähde" })).body.accountId;
+    expect(await typeOf(unknown)).toBe("checking");
+    const loan = (await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: "Laina", accountType: "loan" })).body.accountId;
+    expect(await typeOf(loan)).toBe("loan");
   });
 });

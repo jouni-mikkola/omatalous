@@ -1,3 +1,5 @@
+import "../styles/charts.css";
+
 export interface BarItem {
   key: string;
   label: string;

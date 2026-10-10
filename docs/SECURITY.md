@@ -156,6 +156,9 @@ the download of a backup need the admin's password again, rollback also a typed 
   exists, requires a signed commit. The installer does not create that file, so source updates are unsigned until you add one:
   whoever can push to the followed branch can then run code on the host. A release install also requires the tagged commit to be on that branch.
   The helper alone picks the commit and hands it to `update.sh` (`TALOUS_TARGET`), which fetches and chooses nothing.
+- Before the switch, `update.sh` starts the new, verified image twice in one-off containers: once with no network and
+  no volume to see whether it has the migration check, then on the copy taken before the update to run it. Neither
+  reads the app secret. A failed check leaves the old version running.
 - It refuses to run as root or when its files are writable by others, rebuilds its environment from scratch, runs one
   request at a time with timeouts, and keeps a journal in `ops/` that a restored database cannot rewind. Output is scrubbed.
 - The systemd unit leaves out `ProtectSystem`, because the helper has to write the clone and run Docker.

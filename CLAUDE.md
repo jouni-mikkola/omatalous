@@ -8,32 +8,42 @@ optional read-only account sharing). Runs in Docker on Linux.
 
 ```bash
 pnpm install          # pnpm workspaces (npm 10 cannot resolve vitest 4's peers)
-pnpm test             # vitest, all packages, must stay green
-pnpm typecheck        # tsc for core, server, web
+pnpm check            # what a change must pass before handing back: types, tests, shell lint, shell suites
+pnpm test             # vitest, all packages and tools/repo-rules (invariants as tests), must stay green
+pnpm typecheck        # tsc for core, server, web, plus e2e, tools and root config
 pnpm build            # web (Vite) + server bundle (esbuild, apps/server/dist/node.js)
 pnpm dev              # API :8080 + Vite :5173
 pnpm seed:demo        # demo user + data in ./data
 ```
 
+Working on a task: `docs/WORKERS.md` (one test, helpers, files that change together, done). Plans and audits for the
+next releases are in `.claude/plan/` (private repo only).
+
 ## Layout
 
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
-  rules (`categorize.ts`), trade register matching (`industry.ts`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
+  rules (`categorize.ts`), trade register matching (`industry.ts`), import parsers (`sources/*`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
   recurring detection, money flows, analysis context, dashboard, insights, `reports/*` with a registry in
   `reports/index.ts`.
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
-  `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` (all SQL),
-  `auth/*`, `security/*`, `providers/*` (`prh/` = trade register search), `entry/node.ts`, `entry/secret-rotate.ts`,
+  `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` and `db/finance/` (all SQL),
+  `auth/*`, `security/*`, `platform/*` (config, errors, ids, input validators), `connectors/*` (where rows come from: registry,
+  `sync.ts` loop, `enable-banking/`, `csv-import/`), `providers/prh/` (trade register search), `entry/node.ts`, `entry/secret-rotate.ts`,
   `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `doctor.sh`, `reset.sh`, `ops-helper.sh` (host helper for
-  Asetukset > Ylläpito). `tools/` holds what only developers and CI use (`publish-public.sh`, `relay-hash.mjs`,
+  Asetukset > Ylläpito), `lib/` (`release.sh` signatures, `dbcopy.sh` copies, `preflight.sh` the migration check of
+  the new image before the switch; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`publish-public.sh`, `relay-hash.mjs`,
   `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page, published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image when `main` gets a new version, on a `v*` tag or by hand.
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
-  (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`.
+  (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`. `styles/` (tokens.css and base.css
+  first, then one file per page area, imported by its page), `nav.ts` (nav entries, a gated one names its flag),
+  `pages/reports/` (one section file each, found by `registry.ts`).
 - Each instance is a clone directory and a Compose project. `INSTANCE_NAME` names the container, image and
   session cookie, `COMPOSE_PROJECT_NAME` the volumes, `HOST_PORT`/`BIND_ADDRESS` the port. See `docs/ADVANCED.md` (second copies).
+- `contracts/<version>/`: what older installs rely on (schema, helper CLI output), frozen when that version ships and
+  checked by `apps/server/test/contracts.test.ts`.
 - `docs/` (English): INSTALL, ADVANCED, TROUBLESHOOTING, ENABLE_BANKING, MONEY_FLOWS, SECURITY, RELEASING, DEVELOPMENT, ARCHITECTURE.
   `SECURITY.md` at the root is the reporting route.
 
@@ -51,16 +61,16 @@ pnpm seed:demo        # demo user + data in ./data
   `settings.bumpDataVersion()` is for changes that touch everyone. A sync or import that changed no row does neither.
 - `category_source = 'user'` is never overwritten by automation.
 - Every money movement lands in exactly one flow (consumption, debt, saved, income, borrowed) or is a
-  transfer. Card bills are transfers when the card account is connected. See `docs/MONEY_FLOWS.md`.
+  transfer. A card bill is a transfer when that card's account is connected. See `docs/MONEY_FLOWS.md`.
 - The app secret is a file (`APP_SECRET_FILE`, created on first start by `entry/app-secret.ts`, Docker volume
   `banking-secrets`). Bank keys live in the DB AES-GCM sealed: users' with the user id as AAD, the shared app's with
   `instance:enablebanking`. Never log or return secrets, private keys or `raw` bank payloads (only the certificate).
 - Only merchant names of business rows (core `isBusinessRow`) are sent to the trade register; never amounts, dates,
   account numbers or names of people.
 - Admin-editable settings (address, time zone, sync hours, register lookup, shared bank app) live in the DB via
-  `services/instance.ts` and `services/bank-app.ts`; env only seeds defaults. Browser input is validated against
-  allowlists (`strictObject` + `parse*`), never reaches the filesystem or a command; uploaded keys are re-encoded
-  (`security/private-key.ts`). Banks can only be started by id from `services/banks.ts`.
+  `services/instance.ts` and `connectors/enable-banking/app-setup.ts`; env only seeds defaults. Browser input is validated against
+  allowlists (`strictObject` + `parse*` in `platform/validate.ts`), never reaches the filesystem or a command; uploaded keys are re-encoded
+  (`security/private-key.ts`). Banks can only be started by id from `connectors/enable-banking/banks.ts`.
 - Security-relevant events (logins, lockouts, key changes, `ops_*` requests) are written with `recordEvent` in
   `services/security.ts` to `security_events` (90 days, with IP and user agent); never log them elsewhere. Password
   hashes run behind the concurrency gate and the per-key limiters in `security/rate-limit.ts`, and a login attempt is
@@ -71,14 +81,16 @@ pnpm seed:demo        # demo user + data in ./data
   no free parameters. The host helper (`scripts/ops-helper.sh`) never runs text from the DB, picks the commit itself
   and hands update.sh only that commit (`TALOUS_TARGET`).
 - State-changing API calls need `X-Requested-With: fetch` (CSRF); the web client sends it in `api.ts`.
-- `UserError` = safe 400 message; other errors become a generic 500.
+- `UserError` = safe 400 message, `UpstreamError` = 502 for a failing outside service; other errors become a generic 500.
 - Core stays pure (no `Date.now()`, env or I/O) so it runs on Node and in the browser (the web app imports it).
 
 - Schema changes = new `apps/server/migrations/NNNN_name.sql`; never edit an applied one (checksummed, startup
   refuses). Prefer additive changes; table rebuilds start with `-- migrate: foreign_keys=off`. Old code refuses a DB
-  migrated by a newer version (`db/migrate.ts`); `openDatabase` snapshots before migrating; `scripts/update.sh`
+  migrated by a newer version (`db/migrate.ts`) unless each unknown migration stored a compat floor at or below its
+  version (`-- migrate: compat X.Y.Z`, allowed only on additive files); `migrate-check <db>` tries pending migrations on a copy; `openDatabase` snapshots before migrating; `scripts/update.sh`
   has `--rollback`. Derived fields are recomputed after every version change (`services/upgrade.ts`), so rule
-  changes need no migration. Release = bump `src/version.ts` + package.json versions + `CHANGELOG.md`.
+  changes need no migration. Release = `node tools/release/prepare.mjs X.Y.Z` (versions, CHANGELOG from
+  `changelog.d/`), then `tools/release/ship.sh` (docs/RELEASING.md).
 
 ## Conventions
 
@@ -88,9 +100,15 @@ pnpm seed:demo        # demo user + data in ./data
   and the `doctor.sh --json` items. UI paths are written `Asetukset > Palvelin`.
 
 - UI text Finnish; code, identifiers and comments English. Comments explain why.
-- New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + section in
-  `apps/web/src/pages/Reports.tsx` + invariant test in `packages/core/test/reports.test.ts`.
+- New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
+  `apps/web/src/pages/reports/sections/` that names the reports it reads + invariant test in
+  `packages/core/test/reports.test.ts`.
+- New module behind a flag: an entry in `FEATURES` (`packages/core/src/features.ts`), its routes mounted through
+  `gated(s, id, routes)` (`auth/middleware.ts`), and its `nav.ts` entry names the flag. Admins switch flags in
+  Asetukset > Palvelin.
 - New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`.
+- New connector or import format: a folder in `apps/server/src/connectors/` or `packages/core/src/sources/`, listed in
+  its `registry.ts` (recipes in `docs/DEVELOPMENT.md`). A connector id is stored and never renamed.
 - Server tests use `apps/server/test/helpers.ts` (`setupApp()` gives a signed-in admin, `member()` more users).
 - Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
-  fixed category colour order from the server, tokens in `styles.css`, one theme only).
+  fixed category colour order from the server, tokens in `styles/tokens.css`, one theme only).

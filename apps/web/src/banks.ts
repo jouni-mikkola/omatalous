@@ -1,5 +1,5 @@
 /**
- * Logos of the banks the server offers (apps/server/src/services/banks.ts).
+ * Logos of the banks the server offers (apps/server/src/connectors/enable-banking/banks.ts).
  * Official artwork from the bank's brand pages, in public/banks/, shown on a
  * white plate so the brand colours stay as intended in dark mode too.
  */

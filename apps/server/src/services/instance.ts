@@ -8,10 +8,14 @@
  * again when it is read back. Nothing entered here is written to the
  * filesystem, put in a shell command or executed: the values are a URL
  * origin, an IANA time-zone name, small integers and a flag.
+ *
+ * The same row holds the admin's feature flag overrides (`features`, ids from core's FEATURES, on or off).
  */
-import type { InstanceSettings } from "../config.ts";
+import { FEATURE_IDS, type FeatureId, type FeatureOverrides, type FeatureState, resolveFeatures } from "@banking/core";
+import type { InstanceSettings } from "../platform/config.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
-import { UserError } from "./errors.ts";
+import { UserError } from "../platform/errors.ts";
+import { parseBaseUrl, parseBoolean, parseHistoryDays, parseSyncHours, parseTimezone, strictObject } from "../platform/validate.ts";
 
 /**
  * How Enable Banking sends the browser back after consent.
@@ -32,74 +36,6 @@ const KEY = "instance_settings";
 /** Set when an upgrade turned the register lookup off for an existing install; admins see a one-time notice (services/security.ts). */
 export const INDUSTRY_NOTICE_KEY = "notice_industry_lookup_off";
 
-export const HISTORY_DAYS = { min: 30, max: 730 };
-export const MAX_SYNCS_PER_DAY = 4;
-
-// ── validation ───────────────────────────────────────────
-
-const HOST_LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
-const HOSTNAME = new RegExp(`^${HOST_LABEL}(?:\\.${HOST_LABEL})*$`);
-
-/** An http(s) origin only: no credentials, path, query or fragment. */
-export function parseBaseUrl(value: unknown): string {
-  const problem = new UserError("Anna osoite muodossa https://talous.oma.fi (ilman polkua).");
-  if (typeof value !== "string" || value.length > 200 || /[\s\x00-\x1f\x7f\\]/.test(value)) throw problem;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw problem;
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") throw problem;
-  if (url.username || url.password || url.search || url.hash || url.pathname !== "/") throw problem;
-  if (!HOSTNAME.test(url.hostname) && !/^\[[0-9a-f:.]+\]$/.test(url.hostname)) throw problem;
-  return url.origin;
-}
-
-/** An IANA zone name the runtime knows, e.g. Europe/Helsinki. */
-export function parseTimezone(value: unknown): string {
-  const problem = new UserError("Tuntematon aikavyöhyke.");
-  if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9_+-]{0,30}(?:\/[A-Za-z0-9_+-]{1,30}){0,2}$/.test(value)) throw problem;
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: value });
-  } catch {
-    throw problem;
-  }
-  return value;
-}
-
-/** 0–4 distinct whole hours; an empty list means manual fetching only. */
-export function parseSyncHours(value: unknown): number[] {
-  if (!Array.isArray(value) || value.length > MAX_SYNCS_PER_DAY || !value.every((h) => Number.isInteger(h) && h >= 0 && h <= 23)) {
-    throw new UserError(`Valitse enintään ${MAX_SYNCS_PER_DAY} hakuaikaa.`);
-  }
-  return [...new Set(value as number[])].sort((a, b) => a - b);
-}
-
-export function parseHistoryDays(value: unknown): number {
-  if (!Number.isInteger(value) || (value as number) < HISTORY_DAYS.min || (value as number) > HISTORY_DAYS.max) {
-    throw new UserError(`Historian pituus on ${HISTORY_DAYS.min}–${HISTORY_DAYS.max} päivää.`);
-  }
-  return value as number;
-}
-
-export function parseBoolean(value: unknown): boolean {
-  if (typeof value !== "boolean") throw new UserError("Arvon pitää olla päällä tai pois.");
-  return value;
-}
-
-/**
- * A JSON object with only the listed keys. Unknown keys are refused rather
- * than ignored, so a typo or a probe never silently "succeeds".
- */
-export function strictObject<K extends string>(value: unknown, allowed: readonly K[]): Partial<Record<K, unknown>> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new UserError("Pyynnön sisältö on väärän muotoinen.");
-  for (const key of Object.keys(value)) {
-    if (!(allowed as readonly string[]).includes(key)) throw new UserError(`Tuntematon kenttä: ${key.slice(0, 40)}`);
-  }
-  return value as Partial<Record<K, unknown>>;
-}
-
 const FIELDS = ["appBaseUrl", "timezone", "syncHours", "historyDays", "industryLookup"] as const;
 
 /** Validates a partial update on top of the current values. */
@@ -112,6 +48,25 @@ export function parseSettingsUpdate(input: unknown, current: InstanceSettings): 
     historyDays: o.historyDays === undefined ? current.historyDays : parseHistoryDays(o.historyDays),
     industryLookup: o.industryLookup === undefined ? current.industryLookup : parseBoolean(o.industryLookup),
   };
+}
+
+/** A partial map of flag ids to on or off: an id that is not in FEATURES is refused, and so is any other value. */
+export function parseFeatureOverrides(input: unknown): FeatureOverrides {
+  const o = strictObject(input, FEATURE_IDS);
+  const out: Partial<Record<FeatureId, boolean>> = {};
+  for (const id of FEATURE_IDS) if (o[id] !== undefined) out[id] = parseBoolean(o[id]);
+  return out;
+}
+
+/** The stored overrides. A flag that no longer exists or holds another type is dropped: an old row must not stop a start. */
+function storedOverrides(raw: unknown): FeatureOverrides {
+  const out: Partial<Record<FeatureId, boolean>> = {};
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return out;
+  for (const id of FEATURE_IDS) {
+    const v = (raw as Record<string, unknown>)[id];
+    if (typeof v === "boolean") out[id] = v;
+  }
+  return out;
 }
 
 /** Defaults come from the environment, which is trusted, but are checked the same way. */
@@ -137,6 +92,7 @@ function sanitizeDefaults(d: InstanceSettings): InstanceSettings {
 export class InstanceStore {
   private readonly defaults: InstanceSettings;
   private state: InstanceState;
+  private overrides: FeatureOverrides = {};
   private loaded = false;
 
   constructor(
@@ -160,15 +116,15 @@ export class InstanceStore {
   async load(force = false): Promise<InstanceState> {
     if (!force && this.loaded) return this.state;
     const raw = await this.settings.get(KEY);
-    let stored: Partial<InstanceState> = {};
+    let stored: Partial<InstanceState> & { features?: unknown } = {};
     try {
-      stored = raw ? (JSON.parse(raw) as Partial<InstanceState>) : {};
+      stored = raw ? (JSON.parse(raw) as Partial<InstanceState> & { features?: unknown }) : {};
     } catch {
       console.error("instance settings row is not valid JSON, using defaults");
     }
     let values: InstanceSettings;
     try {
-      const { setupDone: _done, redirectMode: _mode, ...rest } = stored;
+      const { setupDone: _done, redirectMode: _mode, features: _features, ...rest } = stored;
       values = parseSettingsUpdate(rest, this.defaults);
     } catch {
       // a row edited by hand into something invalid must not take the app down
@@ -180,6 +136,7 @@ export class InstanceStore {
     const legacy = !!raw && stored !== null && typeof stored === "object" && !Array.isArray(stored) && stored.industryLookup === undefined && values.industryLookup;
     if (legacy) values = { ...values, industryLookup: false };
     this.state = { ...values, setupDone: stored.setupDone === true, redirectMode: stored.redirectMode === "relay" || stored.redirectMode === "paste" ? stored.redirectMode : null };
+    this.overrides = storedOverrides(stored?.features);
     this.loaded = true;
     if (legacy) {
       await this.write(this.state);
@@ -205,8 +162,27 @@ export class InstanceStore {
     return this.write({ ...(await this.load(true)), redirectMode: mode });
   }
 
-  private async write(next: InstanceState): Promise<InstanceState> {
-    await this.settings.set(KEY, JSON.stringify(next));
+  /** Every flag with the admin's choice where there is one, else its default. */
+  features(): FeatureState {
+    return resolveFeatures(this.overrides);
+  }
+
+  enabled(id: FeatureId): boolean {
+    return this.features()[id];
+  }
+
+  /** Switches the named flags and leaves the others as they are. */
+  async setFeatures(input: unknown): Promise<FeatureState> {
+    const patch = parseFeatureOverrides(input);
+    const current = await this.load(true);
+    // memory follows the database: a failed write leaves the flags as they were
+    await this.write(current, { ...this.overrides, ...patch });
+    return this.features();
+  }
+
+  private async write(next: InstanceState, overrides = this.overrides): Promise<InstanceState> {
+    await this.settings.set(KEY, JSON.stringify(Object.keys(overrides).length ? { ...next, features: overrides } : next));
+    this.overrides = overrides;
     this.state = next;
     this.loaded = true;
     return next;

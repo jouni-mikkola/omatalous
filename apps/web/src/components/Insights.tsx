@@ -1,5 +1,6 @@
 import type { Insight } from "@banking/core";
 import { query } from "../api.ts";
+import "../styles/overview.css";
 
 /** The tone shows as the card's left edge; screen readers get it as a word. */
 const TONE: Record<Insight["tone"], string> = { good: "Hyvä", warning: "Huomio", info: "Tiedoksi" };

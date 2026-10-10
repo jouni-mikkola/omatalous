@@ -1,11 +1,13 @@
 /**
  * Maintenance requests: what the browser may ask for, and the scrub applied to everything the host helper
- * sends back. The helper repeats the same rules in bash (scripts/lib/validate.sh); keep them in step.
+ * sends back. The helper repeats the action list and the scrub in bash (`ACTIONS` and `scrub_out` in
+ * scripts/ops-helper.sh); tools/repo-rules/parity.ts fails when the action lists differ.
  *
- * Version 1 knows nine actions and none takes parameters. `access` and `port` are in the table but refused.
+ * None of the nine actions takes parameters. `access` and `port` are in the table but refused. A new action needs
+ * a migration too (the CHECK on ops_requests.action lists them), an entry in ACTION_SINCE and the helper's `case`.
  */
-import { UserError } from "./errors.ts";
-import { strictObject } from "./instance.ts";
+import { UserError } from "../platform/errors.ts";
+import { strictObject } from "../platform/validate.ts";
 
 export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew"] as const;
 export type OpsAction = (typeof OPS_ACTIONS)[number];
@@ -13,7 +15,11 @@ export type OpsAction = (typeof OPS_ACTIONS)[number];
 /** Reserved for a later release. */
 const RESERVED = ["access", "port"];
 
-/** Read-only: they may run beside another request and need no password. */
+/**
+ * Read-only: they may run beside another request and need no password. This is the one list. The queries in
+ * db/ops-repo.ts take it as a parameter, and the unique index idx_ops_one_active (migration 0007) names the same
+ * three; a test compares the index with this list.
+ */
 export const READ_ONLY: readonly OpsAction[] = ["doctor", "check-update", "logs"];
 /** Need the admin's password again. */
 export const NEEDS_PASSWORD: readonly OpsAction[] = ["update", "rollback"];
@@ -113,9 +119,23 @@ export const REQUEST_EXPIRY_MS = 10 * 60_000;
 export const RUNNING_TIMEOUT_MS = 30 * 60_000;
 /** The lowest helper version this server understands; the helper sends its own in `ops poll --helper`. */
 export const HELPER_MIN_VERSION = 1;
-/** The helper version that knows logs, prune and helper-renew. An older one would reject them as unknown. */
-export const HELPER_TOOLS_VERSION = 2;
-export const TOOL_ACTIONS: readonly OpsAction[] = ["logs", "prune", "helper-renew"];
+/**
+ * The helper version that first knows each action (OPS_HELPER_VERSION in scripts/ops-helper.sh when its `case` got the
+ * action). A request is queued only for a helper that has reported at least that version, and a poll from an older
+ * helper does not hand it out: an action a helper does not know would otherwise be left unanswered. A new action
+ * gets the helper version that ships it, so bump OPS_HELPER_VERSION with it.
+ */
+export const ACTION_SINCE: Record<OpsAction, number> = {
+  update: 1,
+  rollback: 1,
+  backup: 1,
+  restart: 1,
+  doctor: 1,
+  "check-update": 1,
+  logs: 2,
+  prune: 2,
+  "helper-renew": 2,
+};
 
 export type HelperStatus = "ok" | "slow" | "off";
 
@@ -128,10 +148,20 @@ export function helperStatus(seenAt: string | null, now: Date): { status: Helper
   return { status: "off", reason: "stale" };
 }
 
-/** True when the helper is new enough for the logs, prune and helper-renew actions. */
+/**
+ * True when a helper of this version knows the action. The oldest version this server serves knows its own actions
+ * even when it never said which version it is.
+ */
+export function helperKnows(version: string | null | undefined, action: OpsAction): boolean {
+  const since = ACTION_SINCE[action];
+  if (since <= HELPER_MIN_VERSION) return true;
+  const n = version == null ? NaN : Number.parseInt(version, 10);
+  return n >= since;
+}
+
+/** The page shows its Huolto panel (logs, prune, helper-renew) when the helper knows all three. */
 export function helperHasTools(version: string | null): boolean {
-  const n = version === null ? NaN : Number.parseInt(version, 10);
-  return n >= HELPER_TOOLS_VERSION;
+  return (["logs", "prune", "helper-renew"] as const).every((a) => helperKnows(version, a));
 }
 
 /** True when the helper's version is older than this server expects. Unreadable versions count as old. */

@@ -1,6 +1,7 @@
 import { Merchants } from "./Merchants.tsx";
 import { Rules } from "./Rules.tsx";
 import type { Meta } from "../types.ts";
+import "../styles/categories.css";
 
 export type CategoriesTab = "merchants" | "rules";
 

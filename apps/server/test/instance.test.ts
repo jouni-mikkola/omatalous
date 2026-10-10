@@ -1,6 +1,6 @@
 import { createPublicKey, createVerify, generateKeyPairSync, randomUUID, X509Certificate } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { loadConfig } from "../src/config.ts";
+import { loadConfig } from "../src/platform/config.ts";
 import { NOW, setupApp } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 

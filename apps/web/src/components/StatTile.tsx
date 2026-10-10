@@ -1,3 +1,5 @@
+import "../styles/overview.css";
+
 export interface Delta {
   text: string;
   /** Direction of the change and whether that direction is good news. */

@@ -11,6 +11,7 @@ import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
 import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
 import { dateTime } from "../../format.ts";
+import "../../styles/ops.css";
 
 /** Polls every 3 s while something runs, every 60 s otherwise. A failing fetch (the app restarts) backs off. */
 function useOpsState() {

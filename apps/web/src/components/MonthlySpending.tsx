@@ -6,6 +6,8 @@ import { Sparkbars } from "../charts/Sparkbars.tsx";
 import { money, monthLong } from "../format.ts";
 import { navigate } from "../hooks.ts";
 import type { DashboardData } from "../types.ts";
+import "../styles/charts.css";
+import "../styles/overview.css";
 
 type Trend = DashboardData["trend"];
 

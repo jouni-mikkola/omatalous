@@ -1,0 +1,45 @@
+/* App.tsx: header, navigation, user menu, skip link. */
+
+.app { max-width: 1240px; margin: 0 auto; padding: 0 16px 48px; }
+.topbar { display: flex; align-items: center; gap: 8px 24px; padding: 14px 0 0; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+
+.nav { display: flex; gap: 0 20px; flex-wrap: wrap; align-self: stretch; }
+.nav a { display: inline-flex; align-items: center; padding: 0 0 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; color: var(--text-2); }
+.nav a:hover { color: var(--text); }
+.nav a[aria-current="page"] { color: var(--text); border-bottom-color: var(--ink); font-weight: 500; }
+.topbar .user-menu, .topbar .sync-status, .topbar .scope-toggle { margin-bottom: 10px; }
+.topbar .spacer { flex: 1; }
+.sync-status { color: var(--muted); font-size: 12px; }
+
+.range-label { color: var(--muted); font-size: 13px; }
+
+.user-menu { position: relative; }
+.user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; }
+.user-menu summary::-webkit-details-marker { display: none; }
+.user-menu summary:hover { background: var(--surface-2); }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16); display: flex; flex-direction: column; }
+.menu button, .menu a { text-align: left; border: none; background: none; padding: 7px 10px; border-radius: 6px; cursor: pointer; text-decoration: none; color: var(--text); }
+.menu button:hover, .menu a:hover { background: var(--surface-2); }
+.menu .muted { padding: 4px 10px 8px; font-size: 12px; }
+
+.scope-toggle { margin-left: 4px; }
+
+/* phones: the tabs stay visible as a grid */
+@media (max-width: 640px) {
+  /* six links fit as two rows of three; a hidden sideways scroll left the last ones unseen */
+  .nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); order: 3; width: 100%; gap: 0; }
+  .nav a { white-space: nowrap; justify-content: center; padding: 9px 0; margin-bottom: 0; border-bottom: none; border-radius: 6px; }
+  .nav a[aria-current="page"] { background: var(--surface-2); }
+  .topbar .spacer { display: none; }
+  .brand { padding-bottom: 6px; }
+  .topbar .user-menu { margin-left: auto; margin-bottom: 4px; }
+}
+
+.skip-link { position: absolute; left: 8px; top: -48px; z-index: 20; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 6px; text-decoration: none; }
+.skip-link:focus { top: 8px; }
+main:focus { outline: none; }
+
+.skip-link { position: absolute; left: -9999px; top: 8px; z-index: 10; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 6px; }
+.skip-link:focus { left: 8px; }
+main:focus { outline: none; }

@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { clientIp } from "../auth/middleware.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { strictObject } from "../services/instance.ts";
+import { strictObject } from "../platform/validate.ts";
 import { backupForDownload, cancelOp, opsAudit, opsState, requestOp } from "../services/ops.ts";
 import { body } from "./shared.ts";
 

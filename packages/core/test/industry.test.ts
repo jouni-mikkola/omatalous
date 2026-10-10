@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryForIndustry, companyKey, industryCandidates, isBusinessRow, matchCompany, type RegistryCompany, shorterQuery } from "../src/industry.ts";
+import { businessMerchants, categoryForIndustry, companyKey, industryCandidates, isBusinessRow, matchCompany, type RegistryCompany, shorterQuery } from "../src/industry.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import type { Account } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -155,20 +155,59 @@ describe("industryCandidates", () => {
     expect(industryCandidates(txs, [checking, card])).toEqual(["Putkityö Lahtinen", "Kahvila Ilo"]);
   });
 
+  // an outgoing transfer that carries a payee account: the export delivers them
+  const rent = (bookingDate: string) =>
+    tx({ accountId: "chk", bookingDate, amountCents: -70000, merchant: "Vuokranantaja", counterparty: "VUOKRANANTAJA", counterpartyIban: "FI4950009420028732", category: "housing", categorySource: "rule" });
+
   it("counts a merchant paid twice without an account or MobilePay as a business (CSV card purchases)", () => {
     const csv = (bookingDate: string, amountCents: number, fields: Partial<Parameters<typeof tx>[0]> = {}) =>
       tx({ accountId: "chk", bookingDate, amountCents, merchant: "Ruskea Lyhty", description: "RUSKEA LYHTY", ...fields });
-    expect(industryCandidates([csv("2026-09-01", -2900), csv("2026-09-15", -3100)], [checking])).toEqual(["Ruskea Lyhty"]);
+    expect(industryCandidates([rent("2026-09-02"), csv("2026-09-01", -2900), csv("2026-09-15", -3100)], [checking])).toEqual(["Ruskea Lyhty"]);
     // one row could be anything
-    expect(industryCandidates([csv("2026-09-01", -2900)], [checking])).toEqual([]);
+    expect(industryCandidates([rent("2026-09-02"), csv("2026-09-01", -2900)], [checking])).toEqual([]);
     // MobilePay rows are often people
     const mobilepay = { merchant: "Liisa Virtanen", counterparty: "LIISA VIRTANEN", description: "MOBILEPAY" };
-    expect(industryCandidates([csv("2026-09-01", -1500, mobilepay), csv("2026-09-08", -1500, mobilepay)], [checking])).toEqual([]);
+    expect(industryCandidates([rent("2026-09-02"), csv("2026-09-01", -1500, mobilepay), csv("2026-09-08", -1500, mobilepay)], [checking])).toEqual([]);
     // a payee account means a transfer, and one transfer to the name rules it out
     const person = { merchant: "Liisa Virtanen", counterparty: "LIISA VIRTANEN", description: "SIIRTO" };
     expect(
       industryCandidates([csv("2026-09-01", -1500, person), csv("2026-09-08", -1500, person), csv("2026-09-09", -1500, { ...person, counterpartyIban: "FI4950009420028731" })], [checking]),
     ).toEqual([]);
+  });
+
+  it("does not send a person paid twice from an account that has no payee accounts at all", () => {
+    // a CSV layout without IBANs: a missing payee account says nothing, so two payments to a name prove no shop
+    const person = (bookingDate: string) =>
+      tx({ accountId: "chk", bookingDate, amountCents: -4000, merchant: "Liisa Virtanen", counterparty: "LIISA VIRTANEN", description: "SIIRTO" });
+    const rows = [person("2026-09-01"), person("2026-09-15")];
+    expect(industryCandidates(rows, [checking])).toEqual([]);
+    const shops = businessMerchants(rows);
+    expect(shops.size).toBe(0);
+    expect(isBusinessRow(rows[0]!, new Set(), shops)).toBe(false);
+    // the same two rows count once another outgoing row of the account carries a payee account
+    expect(industryCandidates([...rows, rent("2026-09-02")], [checking])).toEqual(["Liisa Virtanen"]);
+  });
+
+  it("counts payee accounts within one import source, so older rows without them prove nothing", () => {
+    // a bank fetch gives payee accounts, the CSV imported before it never did: in the CSV rows a person is paid twice
+    const fetched = tx({ accountId: "chk", source: "enablebanking", bookingDate: "2026-10-02", amountCents: -70000, merchant: "Vuokranantaja", counterparty: "VUOKRANANTAJA", counterpartyIban: "FI4950009420028732" });
+    const person = (bookingDate: string, source: string) =>
+      tx({ accountId: "chk", source, bookingDate, amountCents: -4000, merchant: "Liisa Virtanen", counterparty: "LIISA VIRTANEN", description: "SIIRTO" });
+    const oldCsv = [person("2026-09-01", "csv"), person("2026-09-15", "csv")];
+    expect(industryCandidates([fetched, ...oldCsv], [checking])).toEqual([]);
+    expect(businessMerchants([fetched, ...oldCsv]).size).toBe(0);
+    // the same two payments in the fetched rows follow the fetch's own payee accounts
+    expect(industryCandidates([fetched, person("2026-10-03", "enablebanking"), person("2026-10-10", "enablebanking")], [checking])).toEqual(["Liisa Virtanen"]);
+  });
+
+  it("keeps the positive signs in an account without payee accounts", () => {
+    const rows = [
+      tx({ accountId: "chk", bookingDate: "2026-09-01", amountCents: -1200, merchant: "Kahvila Ilo", counterparty: "KAHVILA ILO", mcc: "5814" }),
+      tx({ accountId: "chk", bookingDate: "2026-09-02", amountCents: -1300, merchant: "Pikkupuoti", description: "KORTTIOSTO 02.09" }),
+      tx({ accountId: "chk", bookingDate: "2026-09-03", amountCents: -9000, merchant: "Putkityö Lahtinen", counterparty: "PUTKITYÖ LAHTINEN OY" }),
+      tx({ accountId: "card", bookingDate: "2026-09-04", amountCents: -800, merchant: "Kioski Kulma", description: "KIOSKI KULMA" }),
+    ];
+    expect(industryCandidates(rows, [checking, card]).sort()).toEqual(["Kahvila Ilo", "Kioski Kulma", "Pikkupuoti", "Putkityö Lahtinen"]);
   });
 });
 
@@ -205,14 +244,18 @@ describe("enrichTransactions with merchant memory and industries", () => {
     const rows = [
       tx({ accountId: "chk", bookingDate: "2026-09-01", amountCents: -2900, merchant: "Ruskea Lyhty", description: "RUSKEA LYHTY" }),
       tx({ accountId: "chk", bookingDate: "2026-09-29", amountCents: -3100, merchant: "Ruskea Lyhty", description: "RUSKEA LYHTY" }),
+      // the export carries payee accounts on transfers
+      tx({ accountId: "chk", bookingDate: "2026-09-02", amountCents: -70000, merchant: "Vuokranantaja", counterparty: "VUOKRANANTAJA", counterpartyIban: "FI4950009420028732" }),
     ];
-    const changed = enrichTransactions(rows, [checking], [], industries);
-    expect(changed.map((t) => [t.category, t.categorySource])).toEqual([
+    const lyhty = (changed: ReturnType<typeof enrichTransactions>) => changed.filter((t) => t.merchant === "Ruskea Lyhty").map((t) => [t.category, t.categorySource]);
+    expect(lyhty(enrichTransactions(rows, [checking], [], industries))).toEqual([
       ["restaurants", "industry"],
       ["restaurants", "industry"],
     ]);
     // a single row without any business sign stays uncategorised
-    expect(enrichTransactions(rows.slice(0, 1), [checking], [], industries)).toEqual([]);
+    expect(lyhty(enrichTransactions([rows[0]!, rows[2]!], [checking], [], industries))).toEqual([]);
+    // an export without payee accounts proves nothing about two payments to one name
+    expect(lyhty(enrichTransactions(rows.slice(0, 2), [checking], [], industries))).toEqual([]);
   });
 
   it("does not learn a merchant's category from payments to people, card bills, cash or fees", () => {

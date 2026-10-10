@@ -1,5 +1,5 @@
 import { type AppDeps, createApp } from "../src/app.ts";
-import { loadConfig } from "../src/config.ts";
+import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
 
 export const NOW = new Date("2026-10-09T10:00:00Z");

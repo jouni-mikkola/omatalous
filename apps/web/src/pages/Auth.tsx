@@ -2,6 +2,7 @@
 import { type FormEvent, type ReactNode, useRef, useState } from "react";
 import { api } from "../api.ts";
 import type { User } from "../types.ts";
+import "../styles/auth.css";
 
 function AuthCard({ title, intro, children }: { title: string; intro?: ReactNode; children: ReactNode }) {
   return (

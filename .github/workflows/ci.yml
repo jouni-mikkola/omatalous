@@ -1,5 +1,7 @@
 name: CI
 
+# shell, js, e2e and docker run side by side. ci-ok is the one check that says whether all of them passed, so a job
+# added or renamed here changes nothing outside this file.
 on:
   push:
   pull_request:
@@ -7,44 +9,74 @@ on:
 permissions:
   contents: read
 
+# A newer push to a branch or pull request makes the older run pointless, so it is cancelled. Every push to main runs
+# to the end: the run id in its group name keeps two pushes from queueing behind each other, where GitHub would drop
+# the older one.
+concurrency:
+  group: ci-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  test:
+  shell:
+    # no Node: the checks that need no install run first and fastest
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scripts parse
+        run: tools/ci/shell-lint.sh
+      - name: Shell suites
+        # the maintenance helper scenarios run four at a time. The publish script is private-only, so the public
+        # snapshot has no test for it.
+        if: ${{ !cancelled() }}
+        run: bash tools/check.sh sh
+      - name: Logs of the failed suites
+        if: ${{ failure() }}
+        run: |
+          for rc in "${TMPDIR:-/tmp}"/check.*/sh-*.rc; do
+            [[ -e $rc ]] && [[ $(<"$rc") != 0 ]] || continue
+            echo "::group::${rc%.rc}.log"
+            cat "${rc%.rc}.log"
+            echo "::endgroup::"
+          done
+
+  js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-      - name: Scripts parse
-        run: |
-          # nullglob: the public snapshot has no tools/*.sh, and an unexpanded glob would fail shellcheck
-          shopt -s nullglob
-          files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/test/*.sh tools/ci/*.sh)
-          for f in "${files[@]}"; do bash -n "$f"; done
-          if command -v shellcheck >/dev/null; then shellcheck -S warning "${files[@]}"; fi
-      - name: Maintenance helper tests
-        run: |
-          # the publish script is private-only, so the public snapshot has no test for it
-          for t in tools/test/*.test.sh; do "$t"; done
+      - id: install
+        run: pnpm install --frozen-lockfile
+      # a red step does not hide the ones after it: a type error still shows the failing tests
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm typecheck
+      - name: Tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test
+      - name: Build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm build
 
   e2e:
-    # the built app in a real browser: every page in both themes and at phone width, no console or network errors
+    # the built app in a real browser: every page at desktop and phone width, no console or network errors
     runs-on: ubuntu-latest
-    needs: test
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
@@ -55,9 +87,9 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
-    needs: test
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build image
@@ -118,3 +150,17 @@ jobs:
           curl -fsS -b jar -c jar localhost:8081/api/admin/instance >/dev/null
           INSTANCE_NAME=ci-a COMPOSE_PROJECT_NAME=ci-a HOST_PORT=8081 docker compose down -v
           INSTANCE_NAME=ci-b COMPOSE_PROJECT_NAME=ci-b HOST_PORT=8082 docker compose down -v
+
+  ci-ok:
+    # fails when any job failed, was cancelled or did not run
+    if: ${{ always() }}
+    needs: [shell, js, e2e, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do [[ $r == success ]] || exit 1; done

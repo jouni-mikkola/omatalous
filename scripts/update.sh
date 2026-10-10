@@ -19,6 +19,9 @@
 #   • a consistent copy of the database is written inside the data volume
 #     (/data/backups/pre-update-<time>.db); the app makes another one itself
 #     right before any schema migration
+#   • when the new image has the command `migrate-check` (0.6.0 and later), its migrations are tried on that copy.
+#     A failure stops the update with the old version still running (exit code 3). The time the check took sets how
+#     long the start may take afterwards: three times as long, at least 120 s
 #   • the running image is kept as <name>:previous (banking-app:previous by default)
 # If the new version does not come up healthy, the script shows its log and
 # offers the rollback. The rollback restores the newest database copy with the old schema, and only when the
@@ -60,6 +63,8 @@ KEEP_NOTE="The old version is still running."
 . scripts/lib/release.sh
 # shellcheck source=lib/dbcopy.sh
 . scripts/lib/dbcopy.sh
+# shellcheck source=lib/preflight.sh
+. scripts/lib/preflight.sh
 
 [[ $IMAGE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "INSTANCE_NAME is invalid: $IMAGE" >&2; exit 1; }
 
@@ -69,7 +74,13 @@ step() { printf '\n%s▸ %s%s\n' "$bold" "$*" "$reset"; }
 ok()   { printf '%s✓%s %s\n' "$green" "$reset" "$*"; }
 warn() { printf '%s!%s %s\n' "$yellow" "$reset" "$*"; }
 REPORTED=false
+# CHANNEL and prev_commit are set while the update runs. BEFORE_SWITCH is true from the first change (the new image
+# or checkout) until `docker compose up` starts the new version: an exit in between puts the old version back (on_exit).
+CHANNEL=''; prev_commit=''; BEFORE_SWITCH=false
 die()  { REPORTED=true; printf '%s✗ %s%s\n' "$red" "$*" "$reset" >&2; exit 1; }
+# like die, with an exit code the maintenance helper reads (3 = the migration check failed, 4 = it could not run;
+# nothing was changed in both)
+die_code() { local c=$1; shift; REPORTED=true; printf '%s✗ %s%s\n' "$red" "$*" "$reset" >&2; exit "$c"; }
 confirm() {
   local __ans
   $YES && return 0
@@ -87,17 +98,6 @@ in_app() {
 # asks the app from inside its container, so BIND_ADDRESS and HOST_PORT do not matter. exec fails
 # while the container restarts, which only means "not yet".
 app_up() { docker compose exec -T banking wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1; }
-healthy() {
-  local cid
-  for _ in $(seq 1 60); do
-    app_up && return 0
-    # a container that keeps restarting will not come up by waiting
-    cid=$(docker compose ps -a -q banking 2>/dev/null | head -1 || true)
-    [[ -z $cid ]] || [[ $(docker inspect -f '{{.RestartCount}}' "$cid" 2>/dev/null || echo 0) -lt 3 ]] || return 1
-    sleep 2
-  done
-  return 1
-}
 # runs a command with its output in a log file and a sign of life every 20 s (docker's progress output
 # is unreadable when piped). Returns the command's exit code.
 run_logged() {
@@ -164,12 +164,24 @@ running_latest() {
 # the consistent database copy right before the switch; the state file records it for --rollback
 take_copy() {
   local snapshot="/data/backups/pre-update-$1.db"
+  # shellcheck disable=SC2034 # read by record_schema_change (lib/preflight.sh)
+  COPY_SNAPSHOT=$snapshot
   # a full disk fails here, before the old container is touched
   in_app -e "$DBCOPY_JS" exists "$snapshot" || die "Could not copy the database (is the disk full?). The old version is still running."
+  # the new version's migrations are tried on that copy, so a migration that fails costs no downtime
+  local checked=0
+  preflight_migrations "$snapshot" || checked=$?
+  if ((checked != 0)); then
+    in_app -e 'require("node:fs").rmSync(process.argv[1], { force: true })' "$snapshot" >/dev/null 2>&1 || true
+    ((checked == 2)) || die_code 3 "The database changes of the new version failed on a copy of your data (above). The old version is still running and nothing was changed. Try again with the next release, or see docs/TROUBLESHOOTING.md."
+    die_code 4 "The migration check could not run (above), so the new version was not tried. The old version is still running and nothing was changed. Try the update again, or see docs/TROUBLESHOOTING.md."
+  fi
   # Only now does the running image become :previous, together with the state file. A failure before this point
   # leaves the older pair as it was.
   docker image tag "$IMAGE:pending-previous" "$IMAGE:previous" || die "Could not save the previous image. The old version is still running."
-  (umask 077; printf 'AT=%s\nPREV_COMMIT=%s\nSNAPSHOT=%s\nPREV_VERSION=%s\nINSTANCE=%s\n' "$1" "$prev_commit" "$snapshot" "$before" "$IMAGE" >"$STATE")
+  # replaced as a whole (temp file, flush, rename): a power cut must not leave an empty file that --rollback refuses
+  printf 'AT=%s\nPREV_COMMIT=%s\nSNAPSHOT=%s\nPREV_VERSION=%s\nINSTANCE=%s\n' "$1" "$prev_commit" "$snapshot" "$before" "$IMAGE" | (umask 077; atomic_write "$STATE") \
+    || die "Could not write $STATE. The old version is still running."
   docker image rm "$IMAGE:pending-previous" >/dev/null 2>&1 || true
   ok "Database copy $snapshot and previous image $IMAGE:previous saved."
 }
@@ -192,7 +204,12 @@ rollback() {
   [[ -z $prev_commit || -z $built_from || $built_from == unknown || $built_from == "$prev_commit" ]] \
     || die "The previous image ($IMAGE:previous) does not match the version in the state file. The rollback is not done, so no data is lost."
 
+  # the copy is what a rollback may have to put back: it must exist and be intact before anything is stopped
+  docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e "$DBCHECK_JS" "$snapshot" \
+    || die "The database copy from before the update ($snapshot) is missing or damaged. Nothing was stopped or changed. See docs/TROUBLESHOOTING.md."
+
   step "Restoring the version from before the update ($at)"
+  HEALTH_WAIT=120 # the version being restored has no migration to wait for
   docker compose stop banking >/dev/null
   # Does the database still have the schema the previous version knows? Compare the migration history.
   # If not, the newest copy with the old schema wins: the app's own copy taken right before the migration is
@@ -201,14 +218,15 @@ rollback() {
   choice=$(docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e '
     const fs = require("node:fs");
     const { DatabaseSync } = require("node:sqlite");
-    const names = (f) => new DatabaseSync(f).prepare("SELECT group_concat(name) AS n FROM (SELECT name FROM _migrations ORDER BY name)").get().n;
+    const names = (f, readOnly = true) => new DatabaseSync(f, { readOnly }).prepare("SELECT group_concat(name) AS n FROM (SELECT name FROM _migrations ORDER BY name)").get().n;
+    const intact = (f) => { const d = new DatabaseSync(f, { readOnly: true }); const q = d.prepare("PRAGMA quick_check(1)").all(); d.close(); return q.length === 1 && q[0].quick_check === "ok"; };
     const want = names(process.argv[1]);
-    if (names("/data/banking.db") === want) { console.log("same"); process.exit(0); }
+    if (names("/data/banking.db", false) === want) { console.log("same"); process.exit(0); }
     const dir = "/data/backups";
     const copies = fs.readdirSync(dir).filter((f) => /^pre-[A-Za-z0-9_]+-[0-9TZ]+\.db$/.test(f))
       .map((f) => ({ f, t: fs.statSync(`${dir}/${f}`).mtimeMs })).sort((a, b) => b.t - a.t);
     for (const { f } of copies) {
-      try { if (names(`${dir}/${f}`) === want) { console.log(`restore ${dir}/${f}`); process.exit(0); } } catch { /* unreadable copy, try the next */ }
+      try { if (names(`${dir}/${f}`) === want && intact(`${dir}/${f}`)) { console.log(`restore ${dir}/${f}`); process.exit(0); } } catch { /* unreadable or damaged copy, try the next */ }
     }
     console.log(`restore ${process.argv[1]}`);' "$snapshot" | tail -1)
   if [[ $choice == same ]]; then
@@ -223,8 +241,10 @@ rollback() {
     # what the rollback is about to overwrite is kept first, so nothing is lost for good
     docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" 'exists,keep:^pre-rollback-[0-9TZ]+\.db$' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db" || die "Could not copy the current database, nothing was restored."
     ok "The current database was saved before the restore (pre-rollback-*.db)."
+    # the copy is flushed before it replaces the database (a failure stops before the swap), and /data after (the swap
+    # is done by then, so a failure there only warns)
     docker compose run --rm --no-deps -T --entrypoint sh banking -c \
-      'set -e; cp "$1" /data/banking.db.restore; rm -f /data/banking.db-wal /data/banking.db-shm; mv /data/banking.db.restore /data/banking.db' sh "$target"
+      'set -e; cp "$1" /data/banking.db.restore; sync /data/banking.db.restore; rm -f /data/banking.db-wal /data/banking.db-shm; mv /data/banking.db.restore /data/banking.db; sync /data || echo "warning: could not flush /data" >&2' sh "$target"
     ok "Database restored: $target"
   fi
 
@@ -271,6 +291,8 @@ main() {
   on_exit() {
     local rc=$?
     ((rc == 0)) && return
+    # a die, an interrupt or the helper's timeout before the switch: :latest and the checkout go back to what runs
+    [[ $BEFORE_SWITCH == true ]] && keep_old_running
     [[ $REPORTED == true ]] && return
     printf '\n%s✗ The update was interrupted.%s Run ./scripts/update.sh again, it continues where it stopped. If the fault repeats: ./scripts/doctor.sh\n' "$red" "$reset" >&2
   }
@@ -406,7 +428,11 @@ main() {
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   # The running version is kept as :pending-previous before anything new is tagged :latest, and becomes
   # :previous only in take_copy, together with the state file
-  if docker image inspect "$IMAGE:latest" >/dev/null 2>&1; then have_old=true; docker image tag "$IMAGE:latest" "$IMAGE:pending-previous"; fi
+  # The running container's image is the one to keep: :latest may already be a new image that an earlier run left behind.
+  if docker image inspect "$IMAGE:latest" >/dev/null 2>&1; then
+    have_old=true; BEFORE_SWITCH=true
+    docker image tag "$(running_image || echo "$IMAGE:latest")" "$IMAGE:pending-previous"
+  fi
 
   step "Fetching the new version"
   if [[ $CHANNEL == release ]]; then
@@ -425,14 +451,18 @@ main() {
     git merge --ff-only --quiet "$target"
     ok "Source: $(git log -1 --format='%h %s')"
     docker compose pull --ignore-buildable --quiet 2>/dev/null || true # Caddy / cloudflared
+    BEFORE_SWITCH=false
     docker compose up -d --no-build
   else
+    BEFORE_SWITCH=false
     docker compose up -d
   fi
 
   step "Starting…"
+  ((HEALTH_WAIT <= 120)) || say "The migration check took long, so the new version gets up to $HEALTH_WAIT s to start."
   if healthy; then
     ok "Updated: $before to $(version)"
+    record_schema_change
     # keep the five newest pre-update copies; the names sort by time
     in_app -e '
       const fs = require("node:fs");

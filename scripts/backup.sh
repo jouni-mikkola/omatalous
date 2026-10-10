@@ -85,4 +85,8 @@ else
   echo "$(date '+%F %T') backup$TAG: $TARGET.gz (app secret not included, keep it in a password manager)"
 fi
 
+# the finished files and their folder survive a power cut (fsync_path is in scripts/lib/dbcopy.sh)
+for f in "$TARGET.gz" "$TARGET.gz.age" "$SECRET_TARGET"; do [[ ! -e $f ]] || fsync_path "$f"; done
+fsync_path "$OUT_DIR"
+
 find "$OUT_DIR" \( -name 'talous-*.db.gz*' -o -name 'talous-*.app_secret.age' \) -mtime +"$KEEP_DAYS" -delete

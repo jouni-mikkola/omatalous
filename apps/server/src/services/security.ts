@@ -118,7 +118,7 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   const out: Notice[] = [];
   for (const e of await s.security.unseenNotices(user.id)) {
     if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
-    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos se et ollut sinä, vaihda salasana ja kirjaa kaikki istunnot ulos.` });
+    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.` });
     else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy asiaa kyseiseltä ylläpitäjältä.` });
   }
   const mark = await s.settings.get(failSeenKey(user.id));

@@ -1,4 +1,6 @@
 /** Tiny columns for a table row: the shape of a series, with one month marked. */
+import "../styles/overview.css";
+
 export function Sparkbars({ values, active, color, label }: { values: number[]; active: number; color: string; label: string }) {
   const max = Math.max(...values, 1);
   const bar = 4;

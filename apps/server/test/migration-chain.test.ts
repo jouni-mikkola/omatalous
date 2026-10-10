@@ -123,7 +123,7 @@ describe("migration chain from frozen release databases", () => {
       const before = sums(file);
       const { db } = await openDatabase(file);
       const { createApp } = await import("../src/app.ts");
-      const { loadConfig } = await import("../src/config.ts");
+      const { loadConfig } = await import("../src/platform/config.ts");
       const app = createApp({
         db,
         config: loadConfig({ APP_SECRET: "test-secret-that-is-long-enough-0123456789", INDUSTRY_LOOKUP: "false", APP_BASE_URL: "http://localhost:8080" }),

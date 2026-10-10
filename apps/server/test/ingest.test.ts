@@ -3,10 +3,10 @@
  * a CSV over fetched data, signs and dates, and a fetch that fails halfway.
  */
 import { generateKeyPairSync, randomUUID } from "node:crypto";
-import type { RawTransaction } from "@banking/core";
+import { addDays, parseBankCsv, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { mapTransaction } from "../src/providers/enable-banking/mapper.ts";
-import { syncUser } from "../src/services/bank.ts";
+import { mapTransaction } from "../src/connectors/enable-banking/mapper.ts";
+import { syncUser } from "../src/connectors/sync.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { reprocess } from "../src/services/enrich.ts";
 import { setupApp, waitFor } from "./helpers.ts";
@@ -149,6 +149,60 @@ describe("a CSV over fetched data", () => {
   });
 });
 
+describe("two layouts of the same CSV purchases", () => {
+  // Nordea's current export and the older tab separated one write the same purchases with other columns, so the row ids differ
+  const current = parseBankCsv(
+    [
+      "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta",
+      "2026/09/30;-23,45;FI2112345600000785;;;K-MARKET KAMPPI;;EUR",
+      "2026/09/29;-12,90;FI2112345600000785;;;SPOTIFY;;EUR",
+      "2026/09/29;-3,50;FI2112345600000785;;;ESPRESSO HOUSE;;EUR",
+      "2026/09/29;-3,50;FI2112345600000785;;;ESPRESSO HOUSE;;EUR",
+    ].join("\n"),
+  ).transactions;
+  const olderFile = (...more: string[]) =>
+    parseBankCsv(
+      [
+        "Kirjauspäivä\tArvopäivä\tMaksupäivä\tMäärä\tSaaja/Maksaja\tTilinumero\tBIC\tTapahtuma\tViite\tMaksajan viite\tViesti\tKortinnumero\tKuitti",
+        "30.09.2026\t30.09.2026\t29.09.2026\t-23,45\tK-MARKET KAMPPI\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
+        "29.09.2026\t29.09.2026\t28.09.2026\t-12,90\tSPOTIFY\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
+        "29.09.2026\t29.09.2026\t28.09.2026\t-3,50\tESPRESSO HOUSE\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
+        "29.09.2026\t29.09.2026\t28.09.2026\t-3,50\tESPRESSO HOUSE\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
+        ...more,
+      ].join("\r\n"),
+    ).transactions;
+  const older = olderFile();
+
+  it("store each purchase once, identical purchases included", async () => {
+    const { importCsv, rows } = await withAccount();
+    expect(await importCsv(current)).toMatchObject({ inserted: 4 });
+    expect(await importCsv(older)).toMatchObject({ inserted: 0, skipped: 4 });
+    expect(await rows()).toHaveLength(4);
+    // the same files again are the same rows, not twins
+    expect(await importCsv(older)).toMatchObject({ inserted: 0, skipped: 4 });
+    expect(await importCsv(current)).toMatchObject({ inserted: 0, updated: 4 });
+    expect(await rows()).toHaveLength(4);
+  });
+
+  it("keeps what only the second layout has, and a third identical purchase", async () => {
+    const { importCsv, rows } = await withAccount();
+    await importCsv(current);
+    const more = olderFile(
+      "28.09.2026\t28.09.2026\t27.09.2026\t-9,90\tNETFLIX\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
+      "29.09.2026\t29.09.2026\t28.09.2026\t-3,50\tESPRESSO HOUSE\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
+    );
+    expect(await importCsv(more)).toMatchObject({ inserted: 2, skipped: 4 });
+    expect(await rows()).toHaveLength(6);
+  });
+
+  it("does not take a bank's own rows with different ids for twins of each other", async () => {
+    const { fetchBank, rows } = await withAccount();
+    await fetchBank([raw("2026-10-06", -3.5, "ESPRESSO HOUSE", { externalId: "e1", description: "KORTTIOSTO" })]);
+    await fetchBank([raw("2026-10-06", -3.5, "ESPRESSO HOUSE", { externalId: "e2", description: "KORTTIOSTO" })]);
+    expect(await rows()).toHaveLength(2);
+  });
+});
+
 describe("amounts and dates", () => {
   const eb = (amount: string, indicator: "CRDT" | "DBIT" | undefined, dates: Record<string, string> = { booking_date: "2026-10-08" }) =>
     mapTransaction({ transaction_amount: { currency: "EUR", amount }, credit_debit_indicator: indicator as "CRDT", status: "BOOK", ...dates });
@@ -273,5 +327,51 @@ describe("a fetch that fails or is cut short", () => {
     // the window starts ten days before the newest booked row
     expect(f.feed.fromDates.at(-1)).toBe("2026-09-21");
     await reprocess(f.repo, f.s.settings);
+  });
+});
+
+describe("rows in another currency", () => {
+  const inCurrency = (currency: string, row: ReturnType<typeof ebRow>) => ({ ...row, transaction_amount: { currency, amount: row.transaction_amount.amount } });
+
+  it("a fetch skips them like a CSV import does and says how many", async () => {
+    const f = await connectedFeed();
+    f.feed.rows = [
+      ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A"),
+      inCurrency("SEK", ebRow("b", "2026-10-02", "500.00", "DBIT", "ICA STOCKHOLM")),
+      inCurrency("SEK", ebRow("c", "2026-10-03", "80.00", "DBIT", "SJ AB")),
+      inCurrency("USD", ebRow("d", "2026-10-04", "20.00", "DBIT", "AMAZON")),
+    ];
+    const r = await syncUser(f.s, f.adminId, "manual");
+    expect(r).toMatchObject({ status: "ok", fetched: 1, inserted: 1 });
+    expect(r.messages).toEqual(["Käyttötili: ohitettu 3 riviä, joiden valuutta ei ole EUR (SEK, USD)."]);
+    expect(await f.stored()).toEqual(["2026-10-01 booked -1000 Kauppa A"]);
+    // the same count on the next run, and the rows stay out
+    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual(["Käyttötili: ohitettu 3 riviä, joiden valuutta ei ole EUR (SEK, USD)."]);
+    expect(await f.stored()).toHaveLength(1);
+  });
+
+  it("says nothing when every row is in euros, and names a single row in the singular", async () => {
+    const f = await connectedFeed();
+    f.feed.rows = [ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A")];
+    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);
+    f.feed.rows.push(inCurrency("NOK", ebRow("b", "2026-10-02", "99.00", "DBIT", "KIWI OSLO")));
+    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual(["Käyttötili: ohitettu 1 rivi, joiden valuutta ei ole EUR (NOK)."]);
+  });
+});
+
+describe("an account entirely in another currency", () => {
+  it("is asked for the whole history once, not on every run", async () => {
+    const f = await connectedFeed();
+    const sek = (ref: string, date: string) => ({ ...ebRow(ref, date, "500.00", "DBIT", "ICA STOCKHOLM"), transaction_amount: { currency: "SEK", amount: "500.00" } });
+    // the first fetch, when the bank was linked, asked for the longest history
+    expect(f.feed.fromDates[0]).toBe(addDays(f.s.today(), -f.s.instance.current.historyDays));
+    f.feed.rows = [sek("a", "2026-10-01"), sek("b", "2026-10-02")];
+    for (let run = 0; run < 2; run++) {
+      const r = await syncUser(f.s, f.adminId, "manual");
+      expect(r.messages).toEqual(["Käyttötili: ohitettu 2 riviä, joiden valuutta ei ole EUR (SEK)."]);
+      // no row is stored, so the window comes from the last fetch: ten days before it
+      expect(f.feed.fromDates.at(-1)).toBe(addDays(f.s.today(), -10));
+    }
+    expect(await f.stored()).toEqual([]);
   });
 });

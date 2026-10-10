@@ -14,7 +14,7 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, copyFileSync, existsSync, readFileSync, renameSync } from "node:fs";
 import { dirname } from "node:path";
-import { fsyncDir, fsyncFile, writeNewFileDurable } from "../durable.ts";
+import { fsyncDir, fsyncFile, writeNewFileDurable } from "../platform/durable.ts";
 import type { Services } from "../services/context.ts";
 import { databaseOpensWith, resealAll } from "../services/secret-rotation.ts";
 

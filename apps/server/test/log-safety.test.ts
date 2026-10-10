@@ -1,6 +1,6 @@
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
-import { EnableBankingError } from "../src/providers/enable-banking/client.ts";
+import { EnableBankingError } from "../src/connectors/enable-banking/client.ts";
 
 describe("bank errors in the log", () => {
   const body = JSON.stringify({ code: 422, error: "ASPSP_ERROR", message: "Account FI2112345600000785 balance 1234.50" });

@@ -2,7 +2,8 @@
 export type IsoDate = string;
 
 /** loan: a mortgage or loan account; its own rows are bookkeeping, the payments from checking are the debt service. */
-export type AccountType = "checking" | "savings" | "credit_card" | "loan" | "other";
+export const ACCOUNT_TYPES = ["checking", "savings", "credit_card", "loan", "other"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 export interface Account {
   id: string;
@@ -57,6 +58,8 @@ export interface Transaction {
   category: string;
   categorySource: CategorySource;
   isTransfer: boolean;
+  /** The connector or import the row came from, when the caller has it. Layouts of one source differ, sources differ more. */
+  source?: string;
 }
 
 /** merchant_exact: the whole merchant name, so "Matti Meikäläinen" does not catch "Mobilepay Matti Meikäläinen". */

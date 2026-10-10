@@ -1,0 +1,41 @@
+/* Transactions page: filters, table, uncategorised list. */
+
+/* a select is as wide as its longest option; the cap leaves the room to the merchant */
+.tx-table td select, .tx-table td .select-lite { max-width: 11rem; }
+
+.tx-category-phone { display: none; }
+/* tablets keep four columns: the second line gives up the room the category column needs */
+@media (min-width: 601px) and (max-width: 960px) { .tx-table td .sub { max-width: calc(100vw - 500px); } }
+/* phones: date, merchant and amount take the whole width, so the category moves under the merchant */
+@media (max-width: 600px) {
+  .tx-table .tx-category { display: none; }
+  /* rows are three lines tall now: date and amount line up with the merchant name */
+  .tx-table td { vertical-align: top; }
+  .tx-category-phone { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; }
+  .tx-category-phone .badge { margin-left: 0; }
+  /* nothing in the merchant cell may set its width: the select and the second line fill what is left */
+  .tx-category-phone select { width: 100%; max-width: none; }
+  .tx-category-phone .select-lite { display: flex; width: 0; min-width: 100%; max-width: none; }
+  .tx-table td .sub { width: 0; min-width: 100%; max-width: none; }
+  .tx-table td a { overflow-wrap: anywhere; }
+}
+.amount-in { color: var(--good); }
+
+/* transactions: filters keep their visible labels, also on a phone */
+.date-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
+.filters input[type="search"] { width: 9rem; }
+.uncat-list { list-style: none; margin: 0; padding: 0; }
+.uncat-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 13rem); gap: 4px 14px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.uncat-list li:last-child { border-bottom: none; }
+.uncat-list + .btn { margin-top: 8px; }
+.uncat-list .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.uncat-list .sub { color: var(--muted); font-size: 12px; }
+.uncat-list a { overflow-wrap: anywhere; }
+.uncat-list select, .uncat-list .select-lite { width: 100%; }
+@media (max-width: 600px) {
+  .uncat-list li { grid-template-columns: minmax(0, 1fr) auto; }
+  .uncat-list select { grid-column: 1 / -1; }
+}
+
+.filters input[type="search"] { min-width: 14rem; }
+@media (max-width: 520px) { .filters input[type="search"] { min-width: 0; width: 100%; } .filters form { flex: 1 1 100%; } }

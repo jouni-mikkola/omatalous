@@ -49,6 +49,7 @@ describe("security events", () => {
     const notices = (await admin.call("GET", "/api/security/notices")).body.notices as { kind: string; text: string }[];
     expect(notices.filter((n) => n.kind === "new_device")).toHaveLength(1); // Chrome was new once
     expect(notices.find((n) => n.kind === "new_device")!.text).toContain("Chrome, Windows");
+    expect(notices.find((n) => n.kind === "new_device")!.text).toMatch(/ Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos\.$/);
     await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, FIREFOX_LINUX);
     expect(((await admin.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).filter((n) => n.kind === "new_device")).toHaveLength(2);
   });

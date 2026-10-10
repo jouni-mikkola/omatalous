@@ -1,6 +1,7 @@
 import { money, moneyTick, monthLabel, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { niceTicks, roundedTop } from "./scale.ts";
+import "../styles/charts.css";
 
 const MARGIN = { top: 18, right: 4, bottom: 24, left: 56 };
 

@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { clientIp } from "../auth/middleware.ts";
 import { endSession, startSession } from "../auth/session.ts";
 import { DUMMY_HASH, verifyPassword } from "../security/password.ts";
-import { TooManyAttempts, tooManyMessage, UserError } from "../services/errors.ts";
+import { TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
 import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup } from "../services/users.ts";

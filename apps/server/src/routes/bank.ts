@@ -1,8 +1,12 @@
 /** Bank credentials, consents and synchronisation for the signed-in user. */
 import { Hono } from "hono";
-import { AuthStateExpired, completeConnection, removeConnection, saveCredentials, startConnection, syncUser } from "../services/bank.ts";
-import { UserError } from "../services/errors.ts";
-import { strictObject } from "../services/instance.ts";
+import { removeConnection } from "../connectors/enable-banking/connector.ts";
+import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
+import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
+import { AuthStateExpired } from "../connectors/link-state.ts";
+import { syncUser } from "../connectors/sync.ts";
+import { UserError } from "../platform/errors.ts";
+import { strictObject } from "../platform/validate.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
 

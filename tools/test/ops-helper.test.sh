@@ -47,7 +47,7 @@ write_stubs() {
   cat >"$b/docker" <<'EOF'
 #!/usr/bin/env bash
 S=$OPS_STUB_DIR
-printf 'docker %s\n' "$(printf '%s ' "$@" | tr '\n' ' ' | cut -c1-200)" >>"$S/calls.log"
+printf 'docker %s\n' "$(printf '%s ' "$@" | tr '\n' ' ' | cut -c1-420)" >>"$S/calls.log"
 key() { printf '%s' "$1" | tr '/:@' '___'; }
 ver_of() { [[ -f $S/images/$(key "$1") ]] && cut -d'|' -f1 "$S/images/$(key "$1")"; }
 healthy() { [[ -e $S/running ]] && [[ ! -e $S/bad_$(cat "$S/cver" 2>/dev/null) ]]; }
@@ -62,10 +62,14 @@ case ${1:-} in
     echo "Total reclaimed space: $(cat "$S/prune-cache" 2>/dev/null || echo 0B)"; exit 0 ;;
   inspect)
     case $* in *RestartCount*) echo 0 ;; *.Image*) echo "id-$(cat "$S/cver" 2>/dev/null)" ;; esac; exit 0 ;;
+  run)
+    # update.sh asks the new image whether it has migrate-check: its usage answer is exit code 2, an older image fails otherwise
+    case $* in *migrate-check*) echo "DETECT migrate-check" >>"$S/calls.log"; [[ -e $S/no-migrate-check ]] && exit 1; exit 2 ;; esac
+    exit 0 ;;
   pull)
     [[ -e $S/pullfail ]] && exit 1
     v=${2##*:}; [[ -f $S/registry/$v ]] || exit 1
-    cp "$S/registry/$v" "$S/images/$(key "$2")"; cp "$S/registry/$v" "$S/images/$(key "$REG_IMG@sha256:$(printf %s "$v" | sha256sum | cut -c1-64)")"
+    cp "$S/registry/$v" "$S/byid/$v"; cp "$S/registry/$v" "$S/images/$(key "$2")"; cp "$S/registry/$v" "$S/images/$(key "$REG_IMG@sha256:$(printf %s "$v" | sha256sum | cut -c1-64)")"
     echo pulled; exit 0 ;;
   image)
     case ${2:-} in
@@ -74,7 +78,10 @@ case ${1:-} in
         # a prune that wrongly takes the previous image, for the safety check
         [[ -e $S/prune-eats-previous ]] && rm -f "$S/images/banking-app_previous"
         echo "Deleted Images:"; echo "Total reclaimed space: $(cat "$S/prune-images" 2>/dev/null || echo 0B)"; exit 0 ;;
-      tag) [[ -f $S/images/$(key "$3") ]] || exit 1; cp "$S/images/$(key "$3")" "$S/images/$(key "$4")"; exit 0 ;;
+      tag)
+        # an image ID ("id-<version>", what docker inspect gives for a container) names an image whatever tags it has lost
+        if [[ $3 == id-* ]]; then [[ -f $S/byid/${3#id-} ]] || exit 1; cp "$S/byid/${3#id-}" "$S/images/$(key "$4")"; exit 0; fi
+        [[ -f $S/images/$(key "$3") ]] || exit 1; cp "$S/images/$(key "$3")" "$S/images/$(key "$4")"; exit 0 ;;
       inspect)
         ref=${@: -1}; f=$S/images/$(key "$ref"); [[ -f $f ]] || exit 1
         IFS='|' read -r v c cp <"$f"
@@ -108,15 +115,36 @@ case ${1:-} in
           *"ops report"*) n=$(ls "$S/reports" | wc -l); cat >"$S/reports/$((n + 1)).json"; echo '{"ok":true}'; exit 0 ;;
           *"ops state"*) cat >"$S/state.last"; echo '{"ok":true}'; exit 0 ;;
           *"dist/node.js version"*) echo "$(cat "$S/cver") (test)"; exit 0 ;;
+          # update.sh compares the migration names of the live database with the pre-update copy
+          *group_concat*) [[ -e $S/schema-fail ]] && exit 1; echo "SCHEMA_CHECK $(last_arg "$@")" >>"$S/calls.log"; if [[ -e $S/schema-changed ]]; then echo yes; else echo no; fi; exit 0 ;;
           *" -e "*) [[ -e $S/fail-snapshot ]] && exit 1; echo "SNAPSHOT $(last_arg "$@")" >>"$S/calls.log"; echo same; exit 0 ;;
         esac; exit 0 ;;
       run)
         case $* in
+          *migrate-check*)
+            echo "MIGRATE_CHECK $(last_arg "$@")" >>"$S/calls.log"
+            [[ -e $S/migrate-hang ]] && exec /bin/sleep 1000
+            # the container itself failed (docker error, out of memory): no JSON, a code other than the check's own 1
+            [[ -e $S/migrate-crash ]] && { echo "docker: Error response from daemon: boom" >&2; exit "$(cat "$S/migrate-crash")"; }
+            if [[ -e $S/migrate-fail ]]; then
+              printf '{"ok":false,"file":"%s","elapsed_ms":40,"migrate_ms":10,"from":8,"to":8,"applied":[],"ahead":[],"integrity":"ok","foreign_key_violations":{"before":0,"after":0},"tables":{},"problems":["migration 0010_x.sql failed: boom"]}\n' "$(last_arg "$@")"
+              echo "migrate-check failed: migration 0010_x.sql failed: boom" >&2; exit 1
+            fi
+            printf '{"ok":true,"file":"%s","elapsed_ms":%s,"migrate_ms":10,"from":8,"to":9,"applied":["0009_x.sql"],"ahead":[],"integrity":"ok","foreign_key_violations":{"before":0,"after":0},"tables":{},"problems":[]}\n' "$(last_arg "$@")" "$(cat "$S/migrate-ms" 2>/dev/null || echo 40)"
+            echo "migrate-check: ok, 1 migration applied to a copy in 40 ms (migrating took 10 ms). The file was not changed." >&2
+            exit 0 ;;
+          *"copy unusable"*)
+            # the rollback's check of the copy (DBCHECK_JS)
+            [[ -e $S/snapshot-bad ]] && { echo "database copy unusable: it failed quick_check" >&2; exit 1; }
+            echo "DBCHECK $(last_arg "$@")" >>"$S/calls.log"; exit 0 ;;
+          *group_concat*)
+            # the rollback's choice: the database still has the old schema ("same"), or a copy has to be restored
+            if [[ -e $S/restore-needed ]]; then echo "restore $(last_arg "$@")"; else echo same; fi; exit 0 ;;
           *"--entrypoint node"*) [[ -e $S/fail-snapshot ]] && exit 1; echo "SNAPSHOT $(last_arg "$@")" >>"$S/calls.log"; echo same; exit 0 ;;
         esac; exit 0 ;;
       build)
         [[ -e $S/failbuild ]] && { echo "build failed: boom" >&2; exit 1; }
-        echo "${APP_VERSION:-?}|${GIT_COMMIT:-?}|1" >"$S/images/$(key banking-app:latest)"; exit 0 ;;
+        echo "${APP_VERSION:-?}|${GIT_COMMIT:-?}|1" >"$S/images/$(key banking-app:latest)"; cp "$S/images/$(key banking-app:latest)" "$S/byid/${APP_VERSION:-?}"; exit 0 ;;
       up)
         [[ -e $S/failup ]] && exit 1
         touch "$S/running" "$S/container"; v=$(ver_of banking-app:latest); echo "$v" >"$S/cver"; exit 0 ;;
@@ -178,13 +206,15 @@ exit 0
 EOF
   printf '#!/bin/sh\n[ -e "$OPS_STUB_DIR/systemd" ] && echo yes\nexit 0\n' >"$b/loginctl"
   printf '#!/bin/sh\nexec /bin/sleep 0.01\n' >"$b/sleep"
+  # sync only records what it was asked to flush (and fails when a test says so)
+  printf '#!/bin/sh\necho "sync $*" >>"$OPS_STUB_DIR/calls.log"\n[ -e "$OPS_STUB_DIR/sync-fail" ] && exit 1\n[ -e "$OPS_STUB_DIR/sync-fail-paths" ] && [ $# -gt 0 ] && exit 1\nexit 0\n' >"$b/sync"
   chmod +x "$b"/*
 }
 
 # a world: stub state, a bare remote with one commit (0.1.0), a clone with the helper, a running 0.1.0
 new_world() {
   W=$(mktemp -d "$TMPBASE/w.XXXXXX"); S=$W/stub
-  mkdir -p "$S"/{bin,images,registry,reports,root} "$W/home"
+  mkdir -p "$S"/{bin,images,registry,reports,root,byid} "$W/home"
   write_stubs
   git init -q --bare -b main "$W/origin.git"
   git clone -q "file://$W/origin.git" "$W/seed" 2>/dev/null
@@ -203,7 +233,7 @@ new_world() {
   printf 'REMOTE_URL=file://%s/origin.git\nBRANCH=main\n' "$W" >"$CL/ops/policy"; chmod 600 "$CL/ops/policy"
   : >"$CL/.env"; chmod 600 "$CL/.env"
   # the running version
-  echo "0.1.0|$C1|1" >"$S/images/$(printf %s banking-app:latest | tr '/:@' '___')"
+  echo "0.1.0|$C1|1" >"$S/images/$(printf %s banking-app:latest | tr '/:@' '___')"; cp "$S/images/banking-app_latest" "$S/byid/0.1.0"
   touch "$S/running" "$S/container"; echo 0.1.0 >"$S/cver"; : >"$S/calls.log"
   echo 200 >"$S/release.status"
 }
@@ -299,6 +329,196 @@ t_release_rollback_fails_too() {
   check "release: both failing reports failed" reported failed
   check "release: RECOVERY.txt written" test -s "$CL/ops/RECOVERY.txt"
   check "release: RECOVERY.txt has the exact commands" grep -q './scripts/update.sh --rollback' "$CL/ops/RECOVERY.txt"
+}
+
+# ── the new version's migrations are tried on the copy before the old container stops ───
+line_of() { grep -nE "$1" "$S/calls.log" | head -1 | cut -d: -f1; }
+t_migrate_check_before_switch() {
+  new_world; release 0.2.0; poll update; tick
+  check "migrate-check: update reported ok" reported ok
+  check "migrate-check: the new image is asked whether it has the command, with no volume" grep -qE '^docker run --rm --network none .*migrate-check' "$S/calls.log"
+  check "migrate-check: it ran on the pre-update copy in a one-off container of the new image" bash -c "grep -qE '^MIGRATE_CHECK /data/backups/pre-update-[0-9TZ]+\.db\$' '$S/calls.log' && grep -qE '^docker compose run --rm --no-deps -T --entrypoint node banking .*dist/node.js migrate-check /data/backups/pre-update-' '$S/calls.log'"
+  check "migrate-check: the copy comes first, then the check" test "$(line_of '^SNAPSHOT /data/backups/pre-update-')" -lt "$(line_of '^MIGRATE_CHECK ')"
+  check "migrate-check: the check comes before the old container is replaced" test "$(line_of '^MIGRATE_CHECK ')" -lt "$(line_of '^docker compose up')"
+  check "migrate-check: its result is in the update output" grep -q 'migrate-check: ok, 1 migration' "$S/reports/1.json"
+  check "migrate-check: the previous image is saved only after it passed" test "$(line_of '^MIGRATE_CHECK ')" -lt "$(line_of '^docker image tag banking-app:pending-previous banking-app:previous')"
+}
+t_migrate_check_fails() {
+  new_world; release 0.2.0; touch "$S/migrate-fail"; poll update
+  local before; before=$(head_commit)
+  tick
+  check "migrate-check fails: reported failed, in Finnish, with the cause in the log" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && grep -q 'tietokantamuutokset' '$S/reports/1.json' && grep -q 'migration 0010_x.sql failed: boom' '$S/reports/1.json'"
+  check "migrate-check fails: the old version is still running" test "$(cver)" = 0.1.0
+  check "migrate-check fails: nothing was stopped, started or restarted" test "$(n_calls '^docker compose (up|stop|restart)')" = 0
+  check "migrate-check fails: :latest is the old image again" test "$(cut -d'|' -f1 "$S/images/banking-app_latest")" = 0.1.0
+  check "migrate-check fails: no :previous image and no state file for an update that did not happen" bash -c "[[ ! -e '$S/images/banking-app_previous' && ! -e '$CL/backups/.last-update' ]]"
+  check "migrate-check fails: the copy of the failed attempt is removed" grep -q 'rmSync' "$S/calls.log"
+  check "migrate-check fails: checkout unchanged" test "$(head_commit)" = "$before"
+  rm -f "$S/migrate-fail" "$S/reports"/*; poll update "$ID2"; tick
+  check "migrate-check fails: the next attempt updates" test "$(cver)" = 0.2.0
+  check "migrate-check fails: and :previous is the old version, not the failed new one" test "$(cut -d'|' -f1 "$S/images/banking-app_previous")" = 0.1.0
+}
+t_migrate_check_could_not_run() {
+  # exit codes other than the check's own 1 (125 to 127 docker, 137 out of memory) say nothing about the migrations
+  new_world; release 0.2.0; echo 137 >"$S/migrate-crash"; poll update
+  tick
+  check "migrate-check crashed: reported failed with a summary that does not blame the migrations" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && grep -q 'ei voitu ajaa' '$S/reports/1.json' && ! grep -q 'tietokantamuutokset' '$S/reports/1.json'"
+  check "migrate-check crashed: the log says the check could not run and gives the code" grep -q 'migration check could not run (exit code 137)' "$S/reports/1.json"
+  check "migrate-check crashed: the exit code of update.sh is 4, not the 3 of a failed check" grep -q '"exit_code":4' "$S/reports/1.json"
+  check "migrate-check crashed: the old version is still running on its own image" bash -c "[[ \$(cat '$S/cver') = 0.1.0 && \$(cut -d'|' -f1 '$S/images/banking-app_latest') = 0.1.0 ]]"
+  check "migrate-check crashed: nothing was stopped or started" test "$(n_calls '^docker compose (up|stop|restart)')" = 0
+  rm -f "$S/migrate-crash" "$S/reports"/*; touch "$S/migrate-fail"; poll update "$ID2"; tick
+  check "migrate-check fails (rc 1) is still exit code 3 and blames the migrations" bash -c "grep -q '\"exit_code\":3' '$S/reports/1.json' && grep -q 'tietokantamuutokset' '$S/reports/1.json'"
+}
+t_migrate_check_fails_source() {
+  new_world; setenv TALOUS_CHANNEL=source; src_commit; touch "$S/migrate-fail"; poll update
+  local before; before=$(head_commit)
+  tick
+  check "migrate-check fails (source): reported failed" reported failed
+  check "migrate-check fails (source): the old version is still running" test "$(cver)" = 0.1.0
+  check "migrate-check fails (source): the checkout is back, so the next run starts the whole update again" test "$(head_commit)" = "$before"
+}
+t_interrupted_update_keeps_latest() {
+  # the helper ends an update that hangs in the migration check (its timeout sends TERM)
+  new_world; release 0.2.0; touch "$S/migrate-hang"; poll update
+  local before; before=$(head_commit)
+  tick env OPS_T_UPDATE=5
+  check "interrupted: reported failed, the old version still runs" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 ]]"
+  check "interrupted: :latest is the old image again, not the new one that was never checked" test "$(cut -d'|' -f1 "$S/images/banking-app_latest")" = 0.1.0
+  check "interrupted: nothing was stopped, started or restarted" test "$(n_calls '^docker compose (up|stop|restart)')" = 0
+  check "interrupted: checkout unchanged" test "$(head_commit)" = "$before"
+  rm -f "$S/migrate-hang" "$S/reports"/*; poll update "$ID2"; tick
+  check "interrupted: the next update works" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.2.0 ]]"
+  check "interrupted: and :previous is the version that ran, so a rollback has an image to go back to" test "$(cut -d'|' -f1 "$S/images/banking-app_previous")" = 0.1.0
+}
+t_previous_is_the_running_image() {
+  # an earlier run was killed (SIGKILL, no trap) after :latest moved to a new image; the container still runs 0.1.0
+  new_world; release 0.2.0; release 0.3.0
+  echo "0.2.0|$(git -C "$W/seed" rev-parse v0.2.0)|1" >"$S/images/banking-app_latest"
+  poll update; tick
+  check "previous: the update reached 0.3.0" test "$(cver)" = 0.3.0
+  check "previous: :previous is the image that was running (0.1.0), not the :latest left behind (0.2.0)" test "$(cut -d'|' -f1 "$S/images/banking-app_previous")" = 0.1.0
+  rm -f "$S/reports"/*; poll rollback "$ID2"; tick
+  check "previous: the rollback goes back to 0.1.0" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 ]]"
+}
+t_source_failed_build_keeps_checkout() {
+  new_world; setenv TALOUS_CHANNEL=source; src_commit; touch "$S/failbuild"; poll update
+  local before; before=$(head_commit)
+  tick
+  check "source build fails: reported failed, the old version runs" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 ]]"
+  check "source build fails: the checkout is back on the commit that runs" test "$(head_commit)" = "$before"
+  rm -f "$S/reports"/*; poll check-update op_5555555555555555; tick
+  check "source build fails: the next check still offers the update (the checkout is not ahead)" grep -q '"update_available":true' "$S/reports/1.json"
+  rm -f "$S/failbuild" "$S/reports"/*; poll update "$ID2"; tick
+  check "source build fails: the retry is a whole update, with the copy and the migration check" test "$(n_calls '^MIGRATE_CHECK ')" = 1
+  check "source build fails: and it reaches the new commit" bash -c "[[ \$(git -C '$CL' rev-parse HEAD) = \$(git -C '$W/seed' rev-parse HEAD) ]] && grep -q '\"status\":\"ok\"' '$S/reports/1.json'"
+}
+t_migrate_check_missing_in_old_image() {
+  new_world; release 0.2.0; touch "$S/no-migrate-check"; poll update; tick
+  check "migrate-check missing: the update goes on, reported ok" reported ok
+  check "migrate-check missing: no check was run on the copy" test "$(n_calls '^MIGRATE_CHECK ')" = 0
+  check "migrate-check missing: the output says so" grep -q 'no migration check' "$S/reports/1.json"
+}
+t_health_wait_follows_check() {
+  local p
+  probes() { awk '/^MIGRATE_CHECK /{f=1} f && /wget/{n++} END{print n+0}' "$S/calls.log"; }
+  new_world; release 0.2.0; touch "$S/bad_0.2.0"; poll update; tick
+  p=$(probes)
+  check "health wait: a quick check keeps 120 s (60 probes, $p seen)" test "$p" -ge 60 -a "$p" -le 70
+  new_world; release 0.2.0; touch "$S/bad_0.2.0"; echo 100000 >"$S/migrate-ms"; poll update; tick
+  p=$(probes)
+  check "health wait: a check of 100 s gives 300 s (150 probes, $p seen)" test "$p" -ge 150 -a "$p" -le 160
+  # the helper ends an update after OPS_T_UPDATE seconds and tells update.sh when (TALOUS_DEADLINE); the wait stops 60 s before
+  new_world; release 0.2.0; touch "$S/bad_0.2.0"; echo 100000 >"$S/migrate-ms"; poll update; tick env OPS_T_UPDATE=200
+  p=$(probes)
+  check "health wait: a long wait is cut to the time the helper has left (about 70 probes, $p seen)" test "$p" -ge 60 -a "$p" -le 85
+  # healthy() itself: seconds by the clock, the deadline, and a deadline that is not a number
+  probe_count() { # probe_count WAIT DEADLINE PROBE_SECONDS: how many probes healthy makes
+    HW=$1 DL=$2 PS=$3 SRC_FILE="$SRC/scripts/lib/preflight.sh" bash -c '
+      n=0; HEALTH_WAIT=$HW; TALOUS_DEADLINE=$DL
+      app_up() { n=$((n + 1)); SECONDS=$((SECONDS + PS)); return 1; }
+      docker() { case $* in *"compose ps"*) echo cid ;; *inspect*) echo 0 ;; esac; }
+      sleep() { :; }
+      source <(sed -n "/^healthy()/,/^}/p" "$SRC_FILE")
+      healthy || true
+      echo $n' 2>/dev/null
+  }
+  local now; now=$(date +%s)
+  check "healthy: 120 s of instant probes is 60 probes (each turn counts its 2 s sleep)" test "$(probe_count 120 '' 0)" = 60
+  check "healthy: probes that take 3 s each count as 3 s, so 120 s is 40 probes" test "$(probe_count 120 '' 3)" = 40
+  check "healthy: a deadline far away changes nothing (900 s, 450 probes)" test "$(probe_count 900 $((now + 1200)) 0)" = 450
+  check "healthy: a deadline 200 s away leaves 140 s (70 probes)" bash -c "p=$(probe_count 900 $((now + 200)) 0); [[ \$p -ge 68 && \$p -le 70 ]]"
+  check "healthy: a deadline already past still waits 60 s (30 probes)" test "$(probe_count 900 $((now - 100)) 0)" = 30
+  check "healthy: a deadline that is not a number is ignored" test "$(probe_count 120 'soon; id' 0)" = 60
+  # the bounds, on the function itself (a run at the upper bound is 450 probes)
+  local ms
+  for ms in 40 39999 40000 100000 300000 5000000; do
+    check "health wait: a check of $ms ms" bash -c "
+      MS=$ms; HEALTH_WAIT=120
+      migrate_check_available() { return 0; }
+      run_logged() { printf '%s\n' \"{\\\"ok\\\":true,\\\"file\\\":\\\"/data/x.db\\\",\\\"elapsed_ms\\\":\$MS,\\\"migrate_ms\\\":1}\" 'migrate-check: ok' >\"\$1\"; }
+      ok() { :; }; say() { :; }
+      source <(sed -n '/^preflight_migrations()/,/^}/p' '$SRC/scripts/lib/preflight.sh')
+      preflight_migrations /data/x.db
+      case $ms in 40|39999|40000) want=120 ;; 100000) want=300 ;; 300000) want=900 ;; *) want=900 ;; esac
+      [[ \$HEALTH_WAIT = \$want ]] || { echo \"got \$HEALTH_WAIT want \$want\"; exit 1; }"
+  done
+}
+t_state_file_written_whole() {
+  new_world; release 0.2.0; poll update; tick
+  check "state file: written next to its name and flushed before the rename" grep -qx 'sync backups/.last-update.new' "$S/calls.log"
+  check "state file: its folder is flushed after the rename" test "$(line_of '^sync backups/.last-update.new$')" -lt "$(line_of '^sync backups$')"
+  check "state file: complete, mode 600, no temp file left" bash -c "cd '$CL/backups' && [[ ! -e .last-update.new && \$(stat -c %a .last-update) = 600 ]] && grep -q '^AT=' .last-update && grep -q '^PREV_COMMIT=' .last-update && grep -q '^SNAPSHOT=/data/backups/pre-update-' .last-update && grep -q '^PREV_VERSION=0.1.0' .last-update && grep -q '^INSTANCE=' .last-update"
+  new_world; release 0.2.0; touch "$S/sync-fail-paths"; poll update; tick
+  check "state file: a flush of the file that fails is not papered over by a plain sync (no state file, update stops)" bash -c "[[ ! -e '$CL/backups/.last-update' && ! -e '$CL/backups/.last-update.new' ]] && grep -q '\"status\":\"failed\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 ]]"
+  check "state file: and only the flush of the file was asked for, never a plain sync" test "$(n_calls '^sync $')" = 0
+  new_world; release 0.2.0; touch "$S/sync-fail"; poll update; tick
+  check "state file: if it cannot be flushed the update stops, no state file or temp file is left" bash -c "[[ ! -e '$CL/backups/.last-update' && ! -e '$CL/backups/.last-update.new' ]]"
+  check "state file: and the old version keeps running on its own image" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 && \$(cut -d'|' -f1 '$S/images/banking-app_latest') = 0.1.0 ]]"
+}
+t_rollback_checks_the_copy_first() {
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*
+  touch "$S/snapshot-bad"; poll rollback "$ID2"; tick
+  check "rollback: a missing or damaged copy is reported failed" reported failed
+  check "rollback: nothing was stopped, started or retagged" test "$(n_calls '^docker compose (stop|up|start)|^docker image tag')" = 0
+  check "rollback: the new version is still running" test "$(cver)" = 0.2.0
+  check "rollback: the reason is in the log" grep -q 'database copy unusable' "$S/reports/1.json"
+  check "rollback: the state file stays, so the rollback can be tried again" test -f "$CL/backups/.last-update"
+  rm -f "$S/snapshot-bad" "$S/reports"/*; : >"$S/calls.log"; poll rollback op_aaaaaaaaaaaaaaaa; tick
+  check "rollback: with an intact copy it goes back" test "$(cver)" = 0.1.0
+  check "rollback: the copy named in the state file was checked before the app was stopped" test "$(line_of '^DBCHECK /data/backups/pre-update-')" -lt "$(line_of '^docker compose stop')"
+}
+t_schema_changed_is_reported() {
+  new_world; release 0.2.0; touch "$S/schema-changed"; poll update; tick
+  check "schema_changed: update.sh compared the live database with the pre-update copy after the start" test "$(line_of '^docker compose up')" -lt "$(line_of '^SCHEMA_CHECK /data/backups/pre-update-')"
+  check "schema_changed: the state file records it and keeps its other keys, mode 600" bash -c "cd '$CL/backups' && grep -qx 'SCHEMA_CHANGED=yes' .last-update && grep -q '^SNAPSHOT=/data/backups/pre-update-' .last-update && grep -q '^PREV_VERSION=0.1.0' .last-update && [[ \$(stat -c %a .last-update) = 600 && ! -e .last-update.new ]]"
+  check "schema_changed: the update's report carries schema_changed true" grep -q '"schema_changed":true' "$S/reports/1.json"
+  poll rollback "$ID2"; tick
+  check "schema_changed: after the rollback the state says nothing can be rolled back and no schema change" bash -c "grep -q '\"can_rollback\":false' '$S/reports/2.json' && grep -q '\"schema_changed\":false' '$S/reports/2.json'"
+  new_world; release 0.2.0; poll update; tick
+  check "schema_changed: an update that changed nothing records no" grep -qx 'SCHEMA_CHANGED=no' "$CL/backups/.last-update"
+  check "schema_changed: and the report says false" grep -q '"schema_changed":false' "$S/reports/1.json"
+  # An older update.sh (the 0.5.x one that installs 0.6.0, which adds migration 0009) writes no such line, and a
+  # comparison that failed writes none either. Silence must not hide a change: only "no" is trusted.
+  sed -i '/^SCHEMA_CHANGED=/d' "$CL/backups/.last-update"; rm -f "$S/state.last" "$CL/ops/boot_id"; tick
+  check "schema_changed: a state file without the key is reported as true" grep -q '"schema_changed":true' "$S/state.last"
+  new_world; release 0.2.0; touch "$S/schema-fail"; poll update; tick
+  check "schema_changed: a comparison that failed leaves the key out of the state file" bash -c "! grep -q '^SCHEMA_CHANGED=' '$CL/backups/.last-update'"
+  check "schema_changed: and the report warns (true) all the same" grep -q '"schema_changed":true' "$S/reports/1.json"
+  check "schema_changed: the update itself still succeeded" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json'"
+  # with nothing to roll back there is nothing to warn about
+  rm -f "$CL/backups/.last-update" "$S/state.last" "$CL/ops/boot_id"; tick
+  check "schema_changed: no state file, no warning" grep -q '"schema_changed":false' "$S/state.last"
+}
+t_rollback_restore_is_flushed() {
+  # the update changed the schema, so the rollback restores the pre-update copy
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*; touch "$S/restore-needed"; poll rollback "$ID2"; tick
+  check "rollback restore: reported ok, the old version is back" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 ]]"
+  check "rollback restore: the pre-update copy is restored" grep -q 'Database restored: /data/backups/pre-update-' "$S/reports/1.json"
+  check "rollback restore: what is overwritten is saved first" test "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')" -lt "$(line_of 'entrypoint sh banking -c')"
+  check "rollback restore: the copy is flushed before it replaces the database, /data after" grep -qF 'cp "$1" /data/banking.db.restore; sync /data/banking.db.restore; rm -f /data/banking.db-wal /data/banking.db-shm; mv /data/banking.db.restore /data/banking.db; sync /data || echo "warning: could not flush /data" >&2' "$S/calls.log"
 }
 t_release_rollback_action() {
   new_world; release 0.2.0; poll update; tick
@@ -529,8 +749,6 @@ t_poll_injection() {
     '{"request":{"id":"op_0123456789abcdef","action":"update","params":{},"secret":null,"cmd":"touch PWN"}}'
     '{"request":{"id":"op_0123456789abcdef","action":"update","params":{"a":"$(touch PWN)"},"secret":null}}'
     '{"request":{"id":"op_0123456789abcdef","action":"update","params":{},"secret":"abc"}}'
-    '{"request":{"id":"op_0123456789abcdef","action":"access","params":{},"secret":null}}'
-    '{"request":{"id":"op_0123456789abcdef","action":"port","params":{},"secret":null}}'
     '{"request":{"id":"OP_0123456789ABCDEF","action":"update","params":{},"secret":null}}'
     '{"request":{"id":"op_0123456789abcde","action":"update","params":{},"secret":null}}'
     '{"request":{"id":"op_0123456789abcdef","action":"UPDATE","params":{},"secret":null}}'
@@ -550,6 +768,27 @@ t_poll_injection() {
   check "poll: the drop is logged" grep -q 'bad poll' "$CL/ops/helper.log"
   poll backup; tick
   check "poll: control, a well-formed request in the same world still runs" test "$(n_calls 'backup.sh ran')" = 1
+}
+t_poll_unknown_action() {
+  # a well-formed request for an action this helper does not know: the app marked the row running, so the helper
+  # answers failed at once instead of leaving it for 30 minutes. Nothing is run for it.
+  new_world
+  local a n=0
+  for a in access reindex; do
+    n=$((n + 1)); : >"$S/calls.log"
+    poll "$a" "op_00000000000000a$n"; tick
+    check "unknown action $a: reported failed at once" grep -q '"status":"failed"' <<<"$(report)"
+    check "unknown action $a: the summary says so (Finnish), exit code 1" bash -c "grep -q '\"summary\":\"Tuntematon toiminto\\.\"' '$S/reports/$n.json' && grep -q '\"exit_code\":1' '$S/reports/$n.json'"
+    check "unknown action $a: nothing was run" test "$(n_calls '^docker (compose (build|up|restart|stop|logs)|pull|image (tag|prune|rm)|builder)|^cosign|backup.sh ran')" = 0
+    check "unknown action $a: journal says reported, so a repeat is not run" grep -q '"reported":true' "$CL/ops/journal/op_00000000000000a$n.json"
+  done
+  check "unknown action: the log names it" grep -q 'unknown action "reindex", reported failed' "$CL/ops/helper.log"
+  # the shape is still checked first: an unknown action with anything extra is dropped as before
+  rm -f "$S/reports"/*
+  printf '%s\n' '{"request":{"id":"op_00000000000000b1","action":"reindex","params":{},"secret":null,"x":1}}' >"$S/poll"; tick
+  check "unknown action: a malformed shape is still dropped, not answered" test "$(nreports)" = 0
+  poll backup op_00000000000000c1; tick
+  check "unknown action: a known action in the same world still runs" test "$(n_calls 'backup.sh ran')" = 1
 }
 t_journal_replay() {
   new_world; poll backup; tick

@@ -1,6 +1,6 @@
 {
   "name": "@banking/server",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -8,6 +8,7 @@
     "dev": "DATA_DIR=${DATA_DIR:-../../data} tsx watch --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning src/entry/node.ts",
     "build": "esbuild src/entry/node.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/node.js --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "seed:demo": "DATA_DIR=${DATA_DIR:-../../data} tsx --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning scripts/seed-demo.ts",
+    "test": "vitest run --root ../.. apps/server",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

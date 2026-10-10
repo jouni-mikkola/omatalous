@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { runCli } from "../src/cli.ts";
-import { hourIn, loadConfig } from "../src/config.ts";
+import { hourIn, loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
 import { loadOrCreateAppSecret } from "../src/entry/app-secret.ts";
 import { generateKeyAndCertificate } from "../src/security/x509.ts";

@@ -1,4 +1,5 @@
-import type { Context, MiddlewareHandler } from "hono";
+import type { FeatureId } from "@banking/core";
+import { type Context, Hono, type MiddlewareHandler } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
 import { resolveSession } from "./session.ts";
 
@@ -26,6 +27,22 @@ export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (c.get("user")?.role !== "admin") return c.json({ error: "Vain ylläpitäjälle.", code: "forbidden" }, 403);
   await next();
 };
+
+/** 404 while the module's feature flag is off, with the words of an unknown path so its existence is not shown. */
+function requireFeature(s: Services, id: FeatureId): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    if (!s.instance.enabled(id)) return c.json({ error: "Ei löydy." }, 404);
+    await next();
+  };
+}
+
+/**
+ * A module's routes behind its feature flag, to mount at the module's own prefix. In Hono a handler registered before
+ * `use()` runs without that middleware, so the guard is the first thing of a sub-app the routes join afterwards.
+ */
+export function gated(s: Services, id: FeatureId, routes: Hono<AppEnv>): Hono<AppEnv> {
+  return new Hono<AppEnv>().use("*", requireFeature(s, id)).route("/", routes);
+}
 
 /**
  * CSRF protection for state-changing API calls. Browsers only add a custom

@@ -1,6 +1,6 @@
 {
   "name": "@banking/web",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run --root ../.. --passWithNoTests apps/web",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

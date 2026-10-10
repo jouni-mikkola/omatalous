@@ -12,7 +12,7 @@
  * `app_build:<user id>`, and the hourly tick calls this again while the build differs.
  */
 import { normalizeMerchant } from "@banking/core";
-import { yieldToLoop } from "../yield.ts";
+import { yieldToLoop } from "../platform/yield.ts";
 import type { Services } from "./context.ts";
 import { reprocessLocked, withUserLock } from "./enrich.ts";
 

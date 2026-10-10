@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { date, money, MONTHS_SHORT, WEEKDAYS_SHORT } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { Tooltip } from "./Tooltip.tsx";
+import "../styles/charts.css";
 
 interface Day {
   date: string;

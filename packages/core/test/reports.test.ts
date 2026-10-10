@@ -53,6 +53,17 @@ describe("reports", () => {
     expect(r.categories.groups.find((g) => g.group === "Velanhoito")!.totalCents).toBe(9 * 25000);
   });
 
+  it("median month of a category is whole cents when the middle two months average to half a cent", () => {
+    const two = [
+      tx({ bookingDate: "2026-01-10", amountCents: -10001, category: "home", merchant: "Kodin Terra" }),
+      tx({ bookingDate: "2026-02-10", amountCents: -10002, category: "home", merchant: "Kodin Terra" }),
+    ];
+    const c = buildReports({ ctx: createContext(two, [checking], "2026-03-15"), range: { from: "2026-01-01", to: "2026-02-28" }, balances: [] }).categories;
+    const home = c.groups.flatMap((g) => g.categories).find((x) => x.category === "home")!;
+    expect(home.medianMonthCents).toBe(10002);
+    expect(Number.isInteger(home.medianMonthCents)).toBe(true);
+  });
+
   it("splits consumption into fixed, habits and variable", () => {
     const t = r.fixedVariable.totals;
     expect(t.fixedCents + t.habitCents + t.variableCents).toBe(r.cashflow.totals.consumptionCents);

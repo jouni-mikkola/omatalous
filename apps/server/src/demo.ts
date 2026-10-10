@@ -2,7 +2,7 @@ import { type AccountType, addDays, addMonths, daysInMonth, monthOf, type RawTra
 import type { FinanceRepo } from "./db/finance-repo.ts";
 import type { SettingsRepo } from "./db/settings-repo.ts";
 import { reprocess } from "./services/enrich.ts";
-import { stableId } from "./services/ids.ts";
+import { stableId } from "./platform/ids.ts";
 import { ingestTransactions } from "./services/ingest.ts";
 
 /**

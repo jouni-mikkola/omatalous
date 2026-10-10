@@ -14,6 +14,7 @@ import { type Delta, StatTile } from "../components/StatTile.tsx";
 import { count, date, dayMonth, money, monthLabel, monthLong, percent } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { DashboardData, Meta, Scope } from "../types.ts";
+import "../styles/overview.css";
 
 function pctDelta(current: number, previous: number, upIsGood: boolean, vs = "edellisestä jaksosta"): Delta | undefined {
   if (!previous) return undefined;

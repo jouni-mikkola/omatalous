@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { endSession } from "../auth/session.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { UserError } from "../services/errors.ts";
+import { UserError } from "../platform/errors.ts";
 import { deviceLabel, dismissNotices, EVENT_KINDS, noticesFor, recordEvent, validKind } from "../services/security.ts";
 import { clientIp } from "../auth/middleware.ts";
 import { body, queryInt } from "./shared.ts";

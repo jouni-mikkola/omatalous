@@ -1,17 +1,14 @@
 import { daysBetween, fold, normalizeMerchant, type RawTransaction, UNKNOWN_MERCHANT } from "@banking/core";
-import { bankSignature, type FinanceRepo, type StoredParty } from "../db/finance-repo.ts";
+import { bankSignature, type FinanceRepo, type StoredParty, WRITE_CHUNK } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
-import { yieldToLoop } from "../yield.ts";
-import { stableId } from "./ids.ts";
-
-/** Statements in one write transaction of a big import. */
-const WRITE_CHUNK = 2000;
+import { yieldToLoop } from "../platform/yield.ts";
+import { stableId } from "../platform/ids.ts";
 
 export interface IngestResult {
   fetched: number;
   inserted: number;
   updated: number;
-  /** Already imported from another source (e.g. a CSV covering the same days). */
+  /** Already stored: given by another source (a CSV covering the same days) or by an earlier import of the same kind in another layout. */
   skipped: number;
   /**
    * Rows written or removed. Zero when the rows were all stored already with the same bank fields: nothing was
@@ -78,16 +75,6 @@ export async function ingestTransactions(
   const existing = dates.length ? await repo.transactionKeys(accountId, dates[0]!, dates[dates.length - 1]!) : [];
   const existingSignature = new Map(existing.map((e) => [e.id, e.signature]));
   const existingIds = new Set(existingSignature.keys());
-  // rows another source has given for the same day and amount: a new row is a duplicate only if it is one of them
-  const others = new Map<string, StoredParty[]>();
-  for (const e of existing) {
-    if (e.source === source) continue;
-    const key = `${e.bookingDate}|${e.amountCents}`;
-    const group = others.get(key);
-    if (group) group.push(e);
-    else others.set(key, [e]);
-  }
-  const usedOthers = new Set<string>();
 
   // ids first: the occurrence counter numbers identical rows in the order they came
   const seenBase = new Map<string, number>();
@@ -103,6 +90,23 @@ export async function ingestTransactions(
     const id = stableId(`${accountId}|${r.status}|${base}|${occurrence}`);
     entries.push({ r, id, party: { merchant: normalizeMerchant(r.counterparty, r.description), counterparty: r.counterparty, description: r.description } });
   }
+
+  // Rows stored for the same day and amount that this import does not name: a new row is a duplicate only if it is one
+  // of them. Another source's rows qualify. So do rows of the same source from an earlier import, which the same
+  // purchase reaches under another id when the file has another layout. A row with the bank's own id is never a twin of
+  // a same-source row, because two ids are two payments.
+  const importIds = new Set(entries.map((e) => e.id));
+  const others = new Map<string, StoredParty[]>();
+  const earlier = new Map<string, StoredParty[]>();
+  for (const e of existing) {
+    if (e.source === source && importIds.has(e.id)) continue;
+    const key = `${e.bookingDate}|${e.amountCents}`;
+    const into = e.source === source ? earlier : others;
+    const group = into.get(key);
+    if (group) group.push(e);
+    else into.set(key, [e]);
+  }
+  const usedOthers = new Set<string>();
 
   // pending rows that a booked row replaces: those in this answer, and those already stored
   const stored = await repo.pendingRows(accountId);
@@ -147,7 +151,9 @@ export async function ingestTransactions(
       if (existingIds.has(id)) {
         result.updated++;
       } else {
-        const twin = closest((others.get(`${r.bookingDate}|${r.amountCents}`) ?? []).filter((o) => !usedOthers.has(o.id) && sameParty(o, party)), party);
+        const key = `${r.bookingDate}|${r.amountCents}`;
+        const candidates = [...(others.get(key) ?? []), ...(r.externalId ? [] : (earlier.get(key) ?? []))];
+        const twin = closest(candidates.filter((o) => !usedOthers.has(o.id) && sameParty(o, party)), party);
         if (twin) {
           usedOthers.add(twin.id);
           result.skipped++;

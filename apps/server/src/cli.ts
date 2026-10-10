@@ -8,14 +8,16 @@
  *   docker compose exec banking node dist/node.js user delete <username>
  *   docker compose exec banking node dist/node.js sessions revoke-all      (signs everyone out)
  *   docker compose run --rm --no-deps -T banking node dist/node.js restore <file in /data>   (handled in entry/node.ts, app stopped)
+ *   node dist/node.js migrate-check <database file>   (handled in entry/node.ts, db/migrate-check.ts: tries the migrations on a copy)
  *   docker compose exec banking node dist/node.js secret rotate            (new app secret, bank keys re-sealed)
  *   docker compose exec banking node dist/node.js address set <url>        (the app's own address, install.sh runs it)
  *   docker compose exec -T banking node dist/node.js ops poll|report|state  (the host helper, see cli-ops.ts)
  */
+import { option } from "./cli-args.ts";
 import { runOpsCli } from "./cli-ops.ts";
-import { UserError } from "./services/errors.ts";
+import { UserError } from "./platform/errors.ts";
 import type { Services } from "./services/context.ts";
-import { parseBaseUrl } from "./services/instance.ts";
+import { parseBaseUrl } from "./platform/validate.ts";
 import { recordEvent } from "./services/security.ts";
 import { createUser, issueSetupCode, removeUser, resetPassword } from "./services/users.ts";
 
@@ -26,11 +28,6 @@ export interface CliContext {
   rotateSecret?: () => Promise<string[]>;
   /** All of stdin as text (the ops subcommands read JSON from it). */
   readStdin?: () => Promise<string>;
-}
-
-function option(args: string[], name: string): string | undefined {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : undefined;
 }
 
 export async function runCli(s: Services, args: string[], ctx: CliContext = {}): Promise<number> {
@@ -82,7 +79,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (group !== "user" || !command) {
-    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user list | user delete <username> | sessions revoke-all | restore <file> | secret rotate | address set <url> | ops poll|report|state");
+    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | secret rotate | address set <url> | ops poll|report|state");
     return 1;
   }
   if (command === "list") {

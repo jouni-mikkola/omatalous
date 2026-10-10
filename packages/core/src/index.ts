@@ -6,6 +6,7 @@
  *   recurring                                      subscriptions, bills, habits, income
  *   analysis/*                                     money flows, context, dashboard, alerts, insights
  *   reports/*                                      report registry (one file per report)
+ *   sources/*                                      import parsers (file text to raw rows), one folder each
  */
 export * from "./types.ts";
 export * from "./dates.ts";
@@ -27,3 +28,5 @@ export * from "./analysis/alerts.ts";
 export * from "./analysis/insights.ts";
 export * from "./analysis/dashboard.ts";
 export * from "./reports/index.ts";
+export * from "./sources/index.ts";
+export * from "./features.ts";

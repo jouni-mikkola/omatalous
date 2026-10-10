@@ -3,6 +3,7 @@ import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { niceTicks } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
+import "../styles/charts.css";
 
 export interface LineSeries {
   key: string;

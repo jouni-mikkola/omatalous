@@ -3,12 +3,12 @@ import type { Role, User } from "../db/rows.ts";
 import { USER_DATA_VERSION } from "../db/settings-repo.ts";
 import { sha256, timingSafeEqual, utf8 } from "../security/encoding.ts";
 import { generatePassword, hashPassword, passwordProblem, verifyPassword } from "../security/password.ts";
-import { UserError } from "./errors.ts";
+import { UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
-import { randomToken } from "./ids.ts";
-import { revokeAllConnections } from "./bank.ts";
+import { randomToken } from "../platform/ids.ts";
+import { revokeAllConnections } from "../connectors/registry.ts";
 import { recordEvent } from "./security.ts";
-import { TooManyAttempts, tooManyMessage } from "./errors.ts";
+import { TooManyAttempts, tooManyMessage } from "../platform/errors.ts";
 
 /** Address and browser of the request behind an action, for the security event. */
 export interface RequestInfo {

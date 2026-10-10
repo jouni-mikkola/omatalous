@@ -1,0 +1,66 @@
+/**
+ * What the app asks of a place transactions come from. A connector owns its link flow and its settings; the
+ * generic loop in sync.ts owns the lock, the run record, the overlap window, balances, reprocessing and the
+ * register lookup, and calls the connector only for the data.
+ */
+import type { RawTransaction } from "@banking/core";
+import type { FinanceRepo } from "../db/finance-repo.ts";
+import type { Services } from "../services/context.ts";
+
+export interface ConnectorContext {
+  s: Services;
+  repo: FinanceRepo;
+}
+
+/** One account of an active connection, as the loop hands it to the connector. */
+export interface PullAccount {
+  id: string;
+  /** The source's own id for the account. */
+  externalId: string;
+  name: string;
+}
+
+export interface PullWindow {
+  /** First day to ask for: the latest stored row minus the overlap, or the history limit on a first fetch. */
+  dateFrom: string;
+  /** No row of this source is stored yet, so the connector may ask for the longest history it can get. */
+  initial: boolean;
+}
+
+/**
+ * What the loop does about a failed pull. A failure the connector does not recognise (`null`) is logged and
+ * shown as a generic message.
+ */
+export type SyncProblem =
+  /** The source refused the app's own key or id: the consents are fine, nothing to re-authorise. */
+  | { kind: "app_rejected"; message: string }
+  /** The consent ended: the loop marks the connection expired and asks the user to link again. */
+  | { kind: "consent_expired" }
+  /** The source answered with an error. The message is short and safe to show. */
+  | { kind: "upstream"; message: string };
+
+/** One sync run's access to a source. Created once per run, after the loop knows there is something to fetch. */
+export interface Puller {
+  transactions(account: PullAccount, window: PullWindow): Promise<RawTransaction[]>;
+  /** The balance in cents, or null when the source reports none. */
+  balance(account: PullAccount): Promise<number | null>;
+}
+
+/** Only a connector that fetches by itself has this. A file import does not. */
+export interface SyncSupport {
+  /** Pending rows of an answer replace the stored ones (banks give a booked row a new identity). */
+  readonly replacePending: boolean;
+  /** May throw a UserError: the loop ends the run with its message. */
+  open(c: ConnectorContext): Promise<Puller>;
+  classify(err: unknown): SyncProblem | null;
+}
+
+export interface Connector {
+  /** Stored in accounts.provider, connections.provider and transactions.source. Never renamed. */
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "psd2" | "file";
+  readonly sync?: SyncSupport;
+  /** Ends every active consent of a member who is being removed, best effort. */
+  revokeAll?(s: Services, userId: string): Promise<{ revoked: number; failed: number }>;
+}

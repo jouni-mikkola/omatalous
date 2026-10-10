@@ -7,7 +7,7 @@
  * least 2048 bits. Then it is re-exported as PKCS#8. A script, binary or anything
  * smuggled around the PEM block fails one of these steps.
  */
-import { importPrivateKey } from "../providers/enable-banking/jwt.ts";
+import { importPrivateKey } from "./rsa-key.ts";
 
 /** A 4096-bit PKCS#1 key is about 3.3 KB; anything near this limit is not a key. */
 export const MAX_PEM_BYTES = 16 * 1024;

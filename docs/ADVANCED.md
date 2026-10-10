@@ -291,6 +291,22 @@ copies the database before the new version starts, and goes back by itself if th
 The copy taken before an update is kept for 14 days, and the newest one longer, so a rollback after a longer wait goes
 back to that newest copy.
 
+Before the old version stops, the update tries the new version's database changes on that copy, in a separate
+container (`node dist/node.js migrate-check`, which needs room for about twice the database in the data volume). If the
+check fails, the update stops with exit code 3 and the old version keeps running, with nothing changed. If the check
+could not run at all (a Docker error, no memory), the exit code is 4 and nothing is known about the migrations. The check
+is skipped when the new image does not have the command. How long the check took sets how long the new version may take
+to start: three times that, at least two minutes and at most 15, and never beyond the time the maintenance helper has
+left for the update. The update records whether it changed the database structure, and *Asetukset > Ylläpito* warns
+before a rollback that data written since the update is lost, also when the update did not record an answer.
+
+An update that stops or is interrupted before the new version starts puts the old image back as the current one, and in
+the source channel the checkout back on the commit that runs, so the next run starts again from the beginning.
+
+`./scripts/update.sh --rollback` first checks the copy named in `backups/.last-update` (it exists and passes
+`quick_check`) and stops nothing if it does not. The state file and every database copy are flushed to disk before they
+count.
+
 `TALOUS_CHANNEL` in `.env` chooses where updates come from. Without it, an install follows the signed releases and
 builds from source only when its checkout is newer than the latest release. `release` always follows the releases and
 `source` always builds the newest source on the machine. The next update uses the new value.

@@ -332,6 +332,8 @@ state_json() {
   if [[ -n $v ]]; then sep; printf '"version":"%s"' "$v"; fi
   if [[ $commit =~ ^[0-9a-f]{40}$ ]]; then sep; printf '"commit":"%s","build":"%s"' "$commit" "${commit:0:7}"; fi
   sep; printf '"can_rollback":%s' "$([[ -f backups/.last-update ]] && echo true || echo false)"
+  # update.sh records whether the update changed the schema; only an explicit "no" is believed (older ones write none)
+  sep; printf '"schema_changed":%s' "$([[ -f backups/.last-update ]] && ! grep -qx 'SCHEMA_CHANGED=no' backups/.last-update && echo true || echo false)"
   sep; printf '"mode":"%s"' "$mode"
   if [[ $port =~ ^[0-9]{2,5}$ ]]; then sep; printf '"port":%s' "$port"; fi
   if [[ -n $url && $url =~ ^[A-Za-z0-9:/._\[\]-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
@@ -486,7 +488,8 @@ act_update() {
   # update.sh installs exactly this commit and does not fetch or choose anything itself
   export TALOUS_TARGET=$target TALOUS_MODE=$CHECK_MODE
   echo "STEP: 2/4 Haetaan ja vaihdetaan versio" >>"$LOGF"
-  if run_cap "$T_UPDATE" ./scripts/update.sh --yes; then
+  # TALOUS_DEADLINE: when this run ends the update, so that its wait for the new version stays inside the timeout
+  if TALOUS_DEADLINE=$(($(date +%s) + T_UPDATE)) run_cap "$T_UPDATE" ./scripts/update.sh --yes; then
     echo "STEP: 3/4 Tarkistetaan että sovellus vastaa" >>"$LOGF"
     if wait_healthy 15; then
       echo "STEP: 4/4 Valmis" >>"$LOGF"
@@ -497,7 +500,11 @@ act_update() {
     fi
   else
     RC=$?
-    if app_up; then fail "Päivitys ei onnistunut, edellinen versio on käynnissä. Syy on lokissa." "$RC"
+    # update.sh ends with 3 when the new version's database changes failed on a copy, 4 when that check could not run
+    # (docker, memory); either way before anything was stopped
+    if ((RC == 3)) && app_up; then fail "Uuden version tietokantamuutokset epäonnistuivat kopiolla. Edellinen versio on käynnissä ja tiedot ovat ennallaan. Syy on lokissa." "$RC"
+    elif ((RC == 4)) && app_up; then fail "Tietokantamuutosten tarkistusta ei voitu ajaa. Edellinen versio on käynnissä ja tiedot ovat ennallaan. Syy on lokissa." "$RC"
+    elif app_up; then fail "Päivitys ei onnistunut, edellinen versio on käynnissä. Syy on lokissa." "$RC"
     else
       fail "Päivitys ei onnistunut. Syy on lokissa." "$RC"
       if recover; then SUMMARY="$SUMMARY Edellinen versio palautettiin."; else SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."; fi
@@ -693,8 +700,10 @@ poll_once() {
   else
     log "bad poll: the answer has an unexpected shape"; return 0
   fi
-  # the action again, against the fixed list
-  case " $ACTIONS " in *" $action "*) ;; *) log "bad poll: unknown action"; return 0 ;; esac
+  # An action this helper does not know (a newer server, or an older helper after a rollback) is answered at once:
+  # the app already marked the row running, and silence would hold the one mutating slot for 30 minutes. Nothing is
+  # run for it: run_request refuses it in its case, and the name was checked against [a-z-]{1,20} above.
+  case " $ACTIONS " in *" $action "*) ;; *) log "request $id: unknown action \"$action\", reported failed" ;; esac
   # a request already in the journal is never run again, whatever the database says
   if [[ -f $OPS/journal/$id.json ]]; then
     log "request $id is already in the journal, skipped"

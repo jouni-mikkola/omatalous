@@ -2,7 +2,7 @@ import { type CategoryRule, categoryForIndustry, enrichIsland, enrichTransaction
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
-import { yieldToLoop } from "../yield.ts";
+import { yieldToLoop } from "../platform/yield.ts";
 
 export interface ReprocessResult {
   /** Rows written: a new category, category source or transfer flag. */

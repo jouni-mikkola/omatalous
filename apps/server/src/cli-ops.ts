@@ -6,14 +6,10 @@
  * Each prints one JSON object on stdout and exits 0 unless the database is unreachable. Secrets and
  * results go through stdin and stdout, never argv.
  */
+import { option } from "./cli-args.ts";
 import type { Services } from "./services/context.ts";
-import { UserError } from "./services/errors.ts";
+import { UserError } from "./platform/errors.ts";
 import { pollOps, reportOps, stateOps } from "./services/ops.ts";
-
-function option(args: string[], name: string): string | undefined {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : undefined;
-}
 
 // the logs action sends up to 48 KiB of text, which JSON escaping can grow
 const MAX_STDIN = 160 * 1024;

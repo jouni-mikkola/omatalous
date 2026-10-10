@@ -1,11 +1,25 @@
-import { mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
 import { openDatabase } from "../src/db/open.ts";
-import { helperStatus, LOGS_MAX_BYTES, LOGS_MAX_LINES, normaliseState, parseOpsRequest, parseSteps, sanitiseOutput } from "../src/services/ops-validate.ts";
+import {
+  ACTION_SINCE,
+  HELPER_MIN_VERSION,
+  helperHasTools,
+  helperKnows,
+  helperStatus,
+  LOGS_MAX_BYTES,
+  LOGS_MAX_LINES,
+  normaliseState,
+  OPS_ACTIONS,
+  parseOpsRequest,
+  parseSteps,
+  READ_ONLY,
+  sanitiseOutput,
+} from "../src/services/ops-validate.ts";
 import { NOW, setupApp } from "./helpers.ts";
 
 const PASSWORD = "aino-salasana-123";
@@ -46,6 +60,38 @@ describe("ops: validation", () => {
     for (const bad of [{ action: "logs", params: { service: "banking" } }, { action: "prune", params: { all: true } }, { action: "helper-renew", params: { args: "--ops-policy" } }, { action: "Logs" }, { action: "helper_renew" },{ action: "access" }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
       expect(() => parseOpsRequest(bad), JSON.stringify(bad)).toThrow();
     }
+  });
+
+  it("ACTION_SINCE gives every action the helper version that first knows it, and the helper script is at least that new", () => {
+    expect(Object.keys(ACTION_SINCE).sort()).toEqual([...OPS_ACTIONS].sort());
+    const helperVersion = Number(/^OPS_HELPER_VERSION=(\d+)$/m.exec(readFileSync(new URL("../../../scripts/ops-helper.sh", import.meta.url), "utf8"))![1]);
+    for (const [action, since] of Object.entries(ACTION_SINCE)) {
+      expect(Number.isInteger(since) && since >= HELPER_MIN_VERSION, action).toBe(true);
+      expect(since, `${action} is newer than the helper script (OPS_HELPER_VERSION=${helperVersion})`).toBeLessThanOrEqual(helperVersion);
+    }
+  });
+
+  it("helperKnows: an action needs a helper at least as new as its entry; the oldest version needs no version at all", () => {
+    expect(helperKnows(null, "update")).toBe(true);
+    expect(helperKnows("1", "backup")).toBe(true);
+    expect(helperKnows("garbage", "doctor")).toBe(true);
+    for (const action of ["logs", "prune", "helper-renew"] as const) {
+      expect(helperKnows("1", action), action).toBe(false);
+      expect(helperKnows(null, action), action).toBe(false);
+      expect(helperKnows("garbage", action), action).toBe(false);
+      expect(helperKnows("2", action), action).toBe(true);
+      expect(helperKnows("10", action), action).toBe(true);
+    }
+    expect(helperHasTools("1")).toBe(false);
+    expect(helperHasTools("2")).toBe(true);
+  });
+
+  it("the read-only set is one list: the index that keeps one mutating request active names the same actions", async () => {
+    const { s } = await setupApp();
+    const index = await s.db.first<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_ops_one_active'");
+    const named = [...(/NOT IN \(([^)]*)\)/.exec(index!.sql)![1]!).matchAll(/'([a-z-]+)'/g)].map((m) => m[1]!).sort();
+    expect(named).toEqual([...READ_ONLY].sort());
+    for (const action of READ_ONLY) expect(OPS_ACTIONS).toContain(action);
   });
 
   it("scrubs output: ANSI, control characters, keys, tokens, the app secret, and keeps the tail", () => {
@@ -366,6 +412,37 @@ describe("ops: the helper's CLI", () => {
     expect((await s.ops.get(id))!.status).toBe("running");
     expect(await cli(s, ["poll", "--helper", "1"])).toEqual({ request: null });
     expect(await s.settings.get("ops_helper_version")).toBe("1");
+  });
+
+  it("schema_changed from the helper reaches the page for the rollback dialog, and a later false clears it", async () => {
+    const { admin, s } = await setupApp();
+    await cli(s, ["state", "--helper", "2"], JSON.stringify({ can_rollback: true, schema_changed: true }));
+    expect((await admin.call("GET", "/api/ops/state")).body.state).toMatchObject({ can_rollback: true, schema_changed: true });
+    await cli(s, ["state", "--helper", "2"], JSON.stringify({ can_rollback: false, schema_changed: false }));
+    expect((await admin.call("GET", "/api/ops/state")).body.state).toMatchObject({ can_rollback: false, schema_changed: false });
+    // anything but a boolean is dropped, so the old value stays
+    await cli(s, ["state", "--helper", "2"], JSON.stringify({ schema_changed: "yes" }));
+    expect((await admin.call("GET", "/api/ops/state")).body.state.schema_changed).toBe(false);
+  });
+
+  it("an older helper is not handed an action it does not know, and the row does not hold the slot", async () => {
+    // queued for a version 2 helper, which was then rolled back to a version 1 one (the helper is part of the checkout)
+    const { admin, s } = await setupApp();
+    await helperOn(s, "2");
+    const id = (await admin.call("POST", "/api/ops/request", { action: "prune" })).body.request.id;
+    expect(await cli(s, ["poll", "--helper", "1", "--done", ""])).toEqual({ request: null });
+    const row = (await s.ops.get(id))!;
+    expect(row.status).toBe("failed");
+    expect(row.summary).toBe("Apuri on tähän toimintoon liian vanha.");
+    // the mutating slot is free again (the old row is moved out of the one-a-minute window)
+    await s.db.run("UPDATE ops_requests SET requested_at = '2020-01-01T00:00:00.000Z' WHERE id = ?", [id]);
+    expect((await admin.call("POST", "/api/ops/request", { action: "backup" })).status).toBe(200);
+    // a helper that knows the action still gets it
+    await s.db.run("DELETE FROM ops_requests");
+    await helperOn(s, "2");
+    const r2 = await admin.call("POST", "/api/ops/request", { action: "prune" });
+    const again = r2.body.request.id;
+    expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toEqual({ request: { id: again, action: "prune", params: {}, secret: null } });
   });
 
   it("a restored database does not bring a handled request back to life", async () => {

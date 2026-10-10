@@ -1,0 +1,57 @@
+/* Charts and BarList: legend, SVG chart parts, tooltip, bar lists. */
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.line-key { width: 14px; height: 2px; border-radius: 1px; display: inline-block; flex: none; }
+
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .grid-line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .axis-line { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .hit { fill: transparent; cursor: default; outline: none; }
+.chart .hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
+.chart .hit-pick { cursor: pointer; }
+
+/* monthly totals: one colour, period in full strength, the rest lighter */
+.chart .bar { fill: var(--series-1); }
+.chart .bar-out { fill-opacity: 0.36; }
+.chart .bar-out.bar-active { fill-opacity: 0.7; }
+.chart .bar-partial { fill: url(#month-hatch); }
+.chart .bar-running-bg { fill: var(--series-1); fill-opacity: 0.22; }
+.chart .bar-running-line { stroke: var(--series-1); }
+.chart .bar-value { fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .bar-value.active, .chart .month-active { fill: var(--text); font-weight: 600; }
+.chart .avg-line { stroke: var(--text-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.swatch-in { background: var(--series-1); }
+.swatch-out { background: var(--series-1); opacity: 0.36; }
+.swatch-hatch { background: repeating-linear-gradient(45deg, var(--series-1) 0 2px, transparent 2px 4px); outline: 1px solid var(--series-1); outline-offset: -1px; }
+.avg-key { width: 16px; height: 0; border-top: 2px dashed var(--text-2); display: inline-block; flex: none; }
+
+.tooltip {
+  position: absolute; pointer-events: none; z-index: 5; min-width: 150px; max-width: 260px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); font-size: 12px;
+}
+.tooltip-title { color: var(--text-2); margin-bottom: 4px; }
+.tooltip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tooltip-row .name { color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; }
+.tooltip-row strong { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.barlist { display: flex; flex-direction: column; gap: 10px; }
+.barlist-row { display: grid; grid-template-columns: minmax(0, 13.5rem) minmax(0, 1fr) auto; grid-template-areas: "label bar value"; gap: 10px; align-items: center; background: none; border: none; padding: 0; text-align: left; cursor: pointer; border-radius: 6px; }
+.barlist-label { grid-area: label; }
+.barlist-track { grid-area: bar; }
+.barlist-value { grid-area: value; }
+button.barlist-row:hover .barlist-label, button.barlist-row:focus-visible .barlist-label { color: var(--text); text-decoration: underline; }
+/* a row with nowhere to go (the folded "Muut") does not look like a link */
+.barlist-static { cursor: default; }
+.barlist-label { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.barlist-track { height: 10px; position: relative; }
+.barlist-bar { height: 10px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.barlist-value { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.barlist-value small { color: var(--muted); margin-left: 6px; }
+@media (max-width: 520px) {
+  .barlist-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "bar bar"; row-gap: 4px; }
+}

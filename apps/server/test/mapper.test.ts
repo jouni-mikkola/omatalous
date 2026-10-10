@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountType, mapTransaction, pickBalance } from "../src/providers/enable-banking/mapper.ts";
+import { accountType, mapTransaction, pickBalance } from "../src/connectors/enable-banking/mapper.ts";
 
 describe("Enable Banking mapping", () => {
   it("maps a card purchase", () => {

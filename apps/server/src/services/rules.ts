@@ -1,6 +1,6 @@
 import type { CategoryRule } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
-import { UserError } from "./errors.ts";
+import { UserError } from "../platform/errors.ts";
 
 /** Every rule runs on every transaction at each reprocess; a few hundred is plenty. */
 const MAX_RULES = 300;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { shutdown } from "../src/entry/shutdown.ts";
-import { inflightCount, track, waitForInflight } from "../src/services/inflight.ts";
+import { inflightCount, track, waitForInflight } from "../src/platform/inflight.ts";
 
 describe("stopping", () => {
   const deps = (over: Partial<Parameters<typeof shutdown>[0]> = {}) => {

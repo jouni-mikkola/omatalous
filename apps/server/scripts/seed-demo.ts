@@ -3,7 +3,7 @@
  * Without users it creates "demo" (admin) with a printed password.
  */
 import { join } from "node:path";
-import { loadConfig } from "../src/config.ts";
+import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
 import { loadDemoData } from "../src/demo.ts";
 import { createServices } from "../src/services/context.ts";

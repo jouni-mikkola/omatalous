@@ -12,8 +12,9 @@
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fsyncDir, fsyncFile } from "../durable.ts";
+import { fsyncDir, fsyncFile } from "../platform/durable.ts";
 import { verifyDatabaseFile } from "./backup-check.ts";
+import { unknownBlockers } from "./migrate.ts";
 import { findMigrationsDir, readMigrations } from "./open.ts";
 
 export class RestoreError extends Error {}
@@ -22,7 +23,10 @@ function stamp(at: Date): string {
   return at.toISOString().replace(/[-:]/g, "").replace(/\..*/, "");
 }
 
-/** A copy of what is in banking.db now. A consistent VACUUM INTO when the database opens, else the raw files. */
+/**
+ * A copy of what is in banking.db now. A consistent VACUUM INTO when the database opens, else the raw files.
+ * Either way the copy is flushed to disk before restore goes on and replaces the database.
+ */
 function savePrevious(dbPath: string, dest: string): string {
   mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
   rmSync(dest, { force: true });
@@ -32,6 +36,8 @@ function savePrevious(dbPath: string, dest: string): string {
     db.exec(`VACUUM INTO '${dest.replace(/'/g, "''")}'`);
     db.close();
     db = undefined;
+    fsyncFile(dest);
+    fsyncDir(dirname(dest));
     if (verifyDatabaseFile(dest).ok) return dest;
   } catch {
     // damaged or locked: fall through to the raw copy
@@ -44,11 +50,16 @@ function savePrevious(dbPath: string, dest: string): string {
   }
   rmSync(dest, { force: true });
   copyFileSync(dbPath, dest);
-  if (existsSync(`${dbPath}-wal`)) copyFileSync(`${dbPath}-wal`, `${dest}-wal`);
+  fsyncFile(dest);
+  if (existsSync(`${dbPath}-wal`)) {
+    copyFileSync(`${dbPath}-wal`, `${dest}-wal`);
+    fsyncFile(`${dest}-wal`);
+  }
+  fsyncDir(dirname(dest));
   return dest;
 }
 
-export function restoreDatabase(dbPath: string, input: string, now: Date, migrationsDir?: string): string[] {
+export function restoreDatabase(dbPath: string, input: string, now: Date, migrationsDir?: string, appVersion?: string): string[] {
   const dataDir = resolve(dirname(dbPath));
   const source = resolve(dataDir, input);
   let real: string;
@@ -69,7 +80,10 @@ export function restoreDatabase(dbPath: string, input: string, now: Date, migrat
   const src = new DatabaseSync(real, { readOnly: true });
   let unknown: string[];
   try {
-    unknown = (src.prepare("SELECT name FROM _migrations").all() as { name: string }[]).map((r) => r.name).filter((n) => !known.has(n));
+    // the same rule as at start: a newer migration is fine when it declared a floor this build meets (migrate.ts)
+    const hasFloor = (src.prepare("PRAGMA table_info(_migrations)").all() as { name: string }[]).some((c) => c.name === "compat");
+    const rows = src.prepare(`SELECT name, ${hasFloor ? "compat" : "NULL AS compat"} FROM _migrations`).all() as { name: string; compat: string | null }[];
+    unknown = unknownBlockers(rows, known, appVersion);
   } finally {
     src.close();
   }

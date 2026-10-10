@@ -1,0 +1,23 @@
+/* Reports page: section nav, key figures, pivot and heat tables. */
+
+.report-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.report-nav a { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); text-decoration: none; }
+.report-nav a:hover { color: var(--text); border-color: var(--axis); }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px 0; margin: 4px 0 18px; }
+.kv > div { border-left: 1px solid var(--border); padding: 0 14px; }
+.kv dt, .kv dd { margin: 0; }
+.kv .k { color: var(--muted); font-size: 12px; }
+.kv .v { font-size: 20px; font-weight: 500; margin-top: 2px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.heat-table td.num { font-size: 12px; padding: 5px 6px; }
+.heat-table th { font-size: 11px; padding: 5px 6px; }
+.heat-table td.cell { border-radius: 0; }
+.group-row td { background: var(--surface-2); font-weight: 600; }
+.trend-up { color: var(--bad); }
+.trend-down { color: var(--good); }
+details.group > summary { cursor: pointer; }
+
+/* pivot heat cells: one blue ramp; ink flips where the fill gets dark */
+.heat-l1 { background: var(--heat-1); color: var(--heat-ink-1); }
+.heat-l2 { background: var(--heat-2); color: var(--heat-ink-2); }
+.heat-l3 { background: var(--heat-3); color: var(--heat-ink-3); }
+.heat-l4 { background: var(--heat-4); color: var(--heat-ink-4); }

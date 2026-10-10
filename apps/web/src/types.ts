@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, Category, CategoryRule, DashboardData, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { AccountType, Category, CategoryRule, DashboardData, FeatureState, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, DashboardData, RecurringSeries, ReportsData };
 
@@ -76,6 +76,8 @@ export interface Meta {
   version: { app: string; build: string };
   /** False until an admin has finished or skipped the setup wizard. */
   setupDone: boolean;
+  /** Every feature flag, resolved: the nav hides the entry of a module that is off. */
+  features: FeatureState;
 }
 
 export interface BankOption {
@@ -108,6 +110,8 @@ export interface BankAppStatus {
 
 export interface InstanceState {
   settings: InstanceSettings;
+  /** Every feature flag, resolved. */
+  features: FeatureState;
   bankApp: BankAppStatus;
   secret: { available: boolean };
   /** Outcome of the Enable Banking test after saving or "Testaa yhteys". */

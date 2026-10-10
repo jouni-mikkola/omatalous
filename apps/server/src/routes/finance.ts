@@ -1,19 +1,18 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { type AccountType, buildDashboard, buildReports, CATEGORIES, daysBetween, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
+import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, daysBetween, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
 import type { Connection, StoredTransaction } from "../db/rows.ts";
 import { parseScope, sharedInView } from "../services/analysis.ts";
-import { hasInstanceCredentials } from "../services/bank-app.ts";
-import { BANKS } from "../services/banks.ts";
-import { strictObject } from "../services/instance.ts";
-import { UserError } from "../services/errors.ts";
+import { hasInstanceCredentials } from "../connectors/enable-banking/app-setup.ts";
+import { BANKS } from "../connectors/enable-banking/banks.ts";
+import { strictObject } from "../platform/validate.ts";
+import { UserError } from "../platform/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { reprocess, reprocessMerchantChange } from "../services/enrich.ts";
 import { derivedStateIsCurrent } from "../services/upgrade.ts";
 import { checkRuleRoom, replacesWordRule } from "../services/rules.ts";
 import { body, optionalString, parseRange, queryInt } from "./shared.ts";
 
-const ACCOUNT_TYPES: AccountType[] = ["checking", "savings", "credit_card", "loan", "other"];
 const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "counterparty", "any"];
 
 /** A balance typed in by hand: whole cents, at most a billion euros either way. */
@@ -76,6 +75,8 @@ export function financeRoutes(s: Services) {
       version: { app: s.build.version, build: s.build.id },
       // the wizard is shown to admins until it has been completed or skipped
       setupDone: s.instance.current.setupDone,
+      // the web app hides the nav entry of a module that is off
+      features: s.instance.features(),
     });
   });
 

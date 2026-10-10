@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stableId } from "../src/services/ids.ts";
+import { stableId } from "../src/platform/ids.ts";
 
 /** What stableId returned before it used node:crypto: WebCrypto digest, first 12 bytes as hex. */
 async function previousImplementation(text: string): Promise<string> {

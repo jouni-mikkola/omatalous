@@ -1,0 +1,14 @@
+/* Asetukset > Ylläpito. */
+
+/* Asetukset > Ylläpito */
+.ops-command { background: var(--surface-2); border-radius: 4px; padding: 3px 8px; overflow-wrap: anywhere; user-select: all; }
+.ops-log { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; margin: 8px 0 0; max-height: 320px; overflow: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ops-steps { margin: 6px 0; padding-left: 20px; }
+.ops-commits, .ops-doctor { margin: 6px 0; padding: 0; list-style: none; }
+.ops-commits li { padding: 2px 0; overflow-wrap: anywhere; }
+.ops-doctor li { padding: 6px 0; border-top: 1px solid var(--border); }
+.ops-doctor li:first-child { border-top: 0; }
+.ops-tools { margin: 6px 0 0; padding: 0; list-style: none; }
+.ops-tools li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.ops-tools li:first-child { border-top: 0; }
+@media (max-width: 600px) { .ops-tools li { flex-direction: column; align-items: stretch; } }

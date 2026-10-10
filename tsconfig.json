@@ -1,0 +1,13 @@
+{
+  // The files that no package owns: the browser suite, the repository tools and the root config. `pnpm typecheck`
+  // runs this after the packages. DOM is here because the e2e specs pass functions to page.evaluate, which run in the browser.
+  // A .mjs file is checked only when it starts with // @ts-check.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["e2e", "tools", "vitest.config.ts"]
+}

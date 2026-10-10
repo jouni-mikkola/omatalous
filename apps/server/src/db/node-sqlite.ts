@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import { UserError } from "../services/errors.ts";
+import { UserError } from "../platform/errors.ts";
 import type { Db, SqlValue, Statement } from "./types.ts";
 
 const SQLITE_BUSY = 5;

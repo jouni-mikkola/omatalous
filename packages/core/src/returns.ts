@@ -1,6 +1,7 @@
 import { getCategory } from "./categories.ts";
 import { dayNumber, monthOf } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { median } from "./stats.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Transaction } from "./types.ts";
 
@@ -230,10 +231,8 @@ function regularSenders(rows: readonly ReturnInput[]): Set<string> {
   const out = new Set<string>();
   for (const [key, list] of bySender) {
     if (list.length < 3) continue;
-    const amounts = list.map((t) => t.amountCents).sort((a, b) => a - b);
-    const mid = amounts.length >> 1;
-    const median = amounts.length % 2 ? amounts[mid]! : (amounts[mid - 1]! + amounts[mid]!) / 2;
-    const months = new Set(list.filter((t) => Math.abs(t.amountCents - median) <= median * 0.1).map((t) => monthOf(t.bookingDate)));
+    const typical = median(list.map((t) => t.amountCents));
+    const months = new Set(list.filter((t) => Math.abs(t.amountCents - typical) <= typical * 0.1).map((t) => monthOf(t.bookingDate)));
     if (months.size >= 3) out.add(key);
   }
   return out;

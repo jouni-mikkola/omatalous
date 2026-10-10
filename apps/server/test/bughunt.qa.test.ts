@@ -4,7 +4,7 @@
  */
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { parseAmount, parseBankCsv } from "../src/providers/csv/nordea.ts";
+import { parseAmount, parseBankCsv } from "@banking/core";
 import { hourlyTick } from "../src/services/schedule.ts";
 import { mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";

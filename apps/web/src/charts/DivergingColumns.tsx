@@ -3,6 +3,7 @@ import { money, moneyTick, monthLabel, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { niceTicks, roundedTop } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
+import "../styles/charts.css";
 
 export interface DivergingSeries {
   key: string;

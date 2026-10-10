@@ -3,7 +3,7 @@ import { addDays, addMonths, dayNumber, daysInMonth, fromDayNumber, fromMonthInd
 import { fixedMonthlyCents, projectDates } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
-import { dataQualityReport, type QualitySignal } from "../reports/data-quality.ts";
+import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";

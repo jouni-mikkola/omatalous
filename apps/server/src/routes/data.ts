@@ -1,85 +1,26 @@
 /** CSV import, CSV export and demo data for the signed-in user. */
-import { type AccountType, buildReports, daysBetween, getCategory, normalizeIban } from "@banking/core";
+import { buildReports, getCategory } from "@banking/core";
 import { Hono } from "hono";
+import { importCsv } from "../connectors/csv-import/service.ts";
 import { loadDemoData } from "../demo.ts";
-import { parseBankCsv } from "../providers/csv/nordea.ts";
 import { parseScope, sharedInView } from "../services/analysis.ts";
-import { UserError } from "../services/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { reprocess } from "../services/enrich.ts";
-import { randomToken, stableId } from "../services/ids.ts";
-import { startLookup } from "../services/industry.ts";
-import { ingestTransactions } from "../services/ingest.ts";
-import { yieldToLoop } from "../yield.ts";
+import { yieldToLoop } from "../platform/yield.ts";
 import { body, cents, csv, csvBody, csvResponse, optionalString, parseRange } from "./shared.ts";
 
 /** Largest CSV text accepted (characters); the request body limit leaves room for the JSON escaping. */
 export const CSV_CONTENT_MAX = 5_000_000;
 export const CSV_BODY_MAX = 6 * 1024 * 1024;
 
-const ACCOUNT_TYPES: AccountType[] = ["checking", "savings", "credit_card", "loan", "other"];
-
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
   app.post("/import/csv", async (c) => {
-    const user = c.get("user");
-    const repo = s.finance(user.id);
     const raw = await body<Record<string, unknown>>(c);
     const content = optionalString(raw.content, CSV_CONTENT_MAX) ?? "";
-    const input = { accountId: optionalString(raw.accountId), accountName: optionalString(raw.accountName), accountType: optionalString(raw.accountType) as AccountType | undefined };
-    const parsed = parseBankCsv(content);
-    // rows dated in the future are typos or a wrong date format; they would also confuse the sync window
-    const today = s.today();
-    const future = parsed.transactions.filter((t) => t.bookingDate > today).length;
-    const transactions = parsed.transactions.filter((t) => t.bookingDate <= today);
-    if (future) parsed.errors.unshift(future === 1 ? "Ohitettu 1 tulevaisuuteen päivätty rivi." : `Ohitettu ${future} tulevaisuuteen päivättyä riviä.`);
-    if (!transactions.length) throw new UserError(parsed.errors[0] ?? "Tiedostosta ei löytynyt tapahtumia.");
-
-    const accounts = await repo.listAccounts();
-    // the file's own IBAN lets transfers to another imported account pair up; an IBAN that
-    // another own account already has would make two accounts look like one, so it is left out
-    const ownIban = parsed.ownIban && !accounts.some((a) => normalizeIban(a.iban) === parsed.ownIban) ? parsed.ownIban : null;
-    let accountId = input.accountId;
-    // a new account or an IBAN that was missing changes what transfers can pair with, whatever the rows did
-    let accountChanged = false;
-    if (accountId) {
-      const account = accounts.find((a) => a.id === accountId);
-      if (!account) throw new UserError("Tiliä ei löydy.");
-      if (!account.iban && ownIban) {
-        await repo.setAccountIbanIfMissing(accountId, ownIban);
-        accountChanged = true;
-      }
-    } else {
-      const name = input.accountName?.trim().slice(0, 80) || "Tuotu tili";
-      // a second file under the same name would silently land in the first account
-      const key = name.toLowerCase();
-      if (accounts.some((a) => a.name.trim().toLowerCase() === key)) throw new UserError(`Tili ${name} on jo olemassa. Valitse se listasta tai anna toinen nimi.`);
-      let identity = stableId(`${user.id}|csv|${name}`);
-      // an account imported under this name and renamed since keeps the id; the new one must not take it over
-      if (accounts.some((a) => a.id === `csv-${identity}`)) identity = stableId(`${user.id}|csv|${name}|${randomToken()}`);
-      accountId = `csv-${identity}`;
-      accountChanged = true;
-      await repo.upsertAccount({
-        id: accountId,
-        connectionId: null,
-        provider: "csv",
-        externalId: null,
-        identity,
-        name,
-        iban: ownIban,
-        currency: "EUR",
-        type: input.accountType && ACCOUNT_TYPES.includes(input.accountType) ? input.accountType : "checking",
-      });
-    }
-    const result = await ingestTransactions(repo, accountId, transactions, "csv", { replacePending: false });
-    // the same file again changes nothing: no processing, and nobody's cached analysis is dropped
-    if (result.changed || accountChanged) await reprocess(repo, s.settings);
-    if (result.inserted) startLookup(s);
-    // the file's own dates, so an export that ends long ago is noticed now and not in Reports later
-    const dates = transactions.map((t) => t.bookingDate).sort();
-    const range = dates.length ? { firstDate: dates[0]!, lastDate: dates[dates.length - 1]!, daysOld: daysBetween(dates[dates.length - 1]!, s.today()) } : {};
-    return c.json({ accountId, ...result, ...range, errors: parsed.errors.slice(0, 20) });
+    const input = { content, accountId: optionalString(raw.accountId), accountName: optionalString(raw.accountName), accountType: optionalString(raw.accountType) };
+    return c.json(await importCsv(s, c.get("user").id, input));
   });
 
   /** Same filters as the transaction list, every matching row (paged so a long history is complete). */

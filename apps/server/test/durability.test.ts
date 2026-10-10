@@ -8,7 +8,7 @@ import { quickFileCheck, verifyDatabaseFile } from "../src/db/backup-check.ts";
 import { dailyBackup, EmptyDatabaseError, openDatabase, takeSnapshot } from "../src/db/open.ts";
 import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import { RestoreError, restoreDatabase } from "../src/db/restore.ts";
-import { UserError } from "../src/services/errors.ts";
+import { UserError } from "../src/platform/errors.ts";
 import { backupForDownload, listAppBackups } from "../src/services/ops.ts";
 import { setupApp } from "./helpers.ts";
 
@@ -289,5 +289,70 @@ describe("scripts/lib/dbcopy.sh (the copy that update.sh, backup.sh and the help
     const missing = run(empty, "-", join(empty, "x.db"));
     expect(missing.status).toBe(1);
     expect(missing.stderr).toMatch(/there is no database/);
+  });
+
+  it("DBCHECK_JS (what a rollback checks before it stops anything) accepts an intact copy and refuses a missing, damaged or foreign file", async () => {
+    const dir = tmp();
+    const { db } = await realDb(dir);
+    db.close();
+    const check = (file: string) =>
+      spawnSync("bash", ["-c", '. scripts/lib/dbcopy.sh; node --disable-warning=ExperimentalWarning -e "$DBCHECK_JS" "$0"', file], { cwd: join(import.meta.dirname, "../../.."), encoding: "utf8" });
+    expect(check(join(dir, "banking.db")).status).toBe(0);
+
+    const missing = check(join(dir, "gone.db"));
+    expect(missing.status).toBe(1);
+    expect(missing.stderr).toMatch(/database copy unusable: .*(ENOENT|no such file)/i);
+    // read-only: the missing file is not created
+    expect(existsSync(join(dir, "gone.db"))).toBe(false);
+
+    // overwrite a stretch after the header: the file still opens, its pages do not pass quick_check
+    const damaged = join(dir, "damaged.db");
+    const bytes = readFileSync(join(dir, "banking.db"));
+    bytes.fill(0xff, 4096, Math.min(bytes.length, 4096 * 4));
+    writeFileSync(damaged, bytes);
+    expect(check(damaged).status).toBe(1);
+
+    const garbage = join(dir, "garbage.db");
+    writeFileSync(garbage, "not a database at all");
+    expect(check(garbage).status).toBe(1);
+
+    const foreign = join(dir, "foreign.db");
+    const other = new DatabaseSync(foreign);
+    other.exec("CREATE TABLE t (x TEXT); INSERT INTO t VALUES ('y')");
+    other.close();
+    const r = check(foreign);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/no migration history/);
+  });
+
+  it("flushes the copy to disk and then its folder", async () => {
+    const dir = tmp();
+    const { db } = await realDb(dir);
+    db.close();
+    const backups = join(dir, "backups");
+    // a preload that reports every fsync with the path its descriptor was opened for
+    const preload = join(dir, "spy.cjs");
+    writeFileSync(
+      preload,
+      `const fs = require("node:fs");
+const open = fs.openSync;
+const fds = new Map();
+fs.openSync = function (p, ...a) { const fd = open.call(this, p, ...a); fds.set(fd, String(p)); return fd; };
+const sync = fs.fsyncSync;
+fs.fsyncSync = function (fd) { fs.writeSync(2, "FSYNC " + fds.get(fd) + "\\n"); return sync.call(this, fd); };
+`,
+    );
+    const target = join(backups, "pre-update-20261010T000000Z.db");
+    const r = spawnSync("bash", ["-c", '. scripts/lib/dbcopy.sh; node --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" - "$0"', target], {
+      cwd: join(import.meta.dirname, "../../.."),
+      env: { ...process.env, DBCOPY_DATA: dir, NODE_OPTIONS: `--require=${preload}` },
+      encoding: "utf8",
+    });
+    expect(r.status, r.stderr).toBe(0);
+    const synced = r.stderr.split("\n").filter((l) => l.startsWith("FSYNC ")).map((l) => l.slice(6));
+    expect(synced).toContain(target);
+    expect(synced).toContain(backups);
+    // the file first, the folder after the checks
+    expect(synced.indexOf(target)).toBeLessThan(synced.indexOf(backups));
   });
 });

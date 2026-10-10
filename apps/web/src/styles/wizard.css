@@ -1,0 +1,17 @@
+/* First-run wizard. */
+
+.wizard-wrap { min-height: 100vh; display: grid; place-items: start center; padding: 32px 16px; }
+.wizard { width: 100%; max-width: 760px; }
+.wizard-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.wizard-steps { list-style: none; display: flex; gap: 6px 18px; flex-wrap: wrap; padding: 0; margin: 16px 0 20px; color: var(--muted); font-size: 13px; }
+.wizard-steps li { display: inline-flex; align-items: center; gap: 8px; }
+.wizard-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
+.wizard-steps li.done { color: var(--text-2); }
+.step-no { width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.wizard-steps li[aria-current="step"] .step-no { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.wizard-steps li.done .step-no { background: var(--good-bg); color: var(--good); }
+.wizard-section, .subhead { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+.wizard-nav { margin-top: 20px; }
+.summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0 0 8px; }
+.summary dt { color: var(--muted); }
+.summary dd { margin: 0; overflow-wrap: anywhere; }

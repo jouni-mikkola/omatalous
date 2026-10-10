@@ -1,10 +1,10 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
-import { loadConfig } from "../src/config.ts";
+import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
-import { parseBankCsv } from "../src/providers/csv/nordea.ts";
-import { checkAuthUrl, EnableBankingClient } from "../src/providers/enable-banking/client.ts";
+import { parseBankCsv } from "@banking/core";
+import { checkAuthUrl, EnableBankingClient } from "../src/connectors/enable-banking/client.ts";
 import { csv } from "../src/routes/shared.ts";
 import { mockBank } from "./mock-bank.ts";
 import { NOW, SETUP_CODE, setupApp } from "./helpers.ts";

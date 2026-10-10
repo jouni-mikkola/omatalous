@@ -1,7 +1,7 @@
 /** Household members (admin only). */
 import { Hono } from "hono";
 import type { Role } from "../db/rows.ts";
-import { UserError } from "../services/errors.ts";
+import { UserError } from "../platform/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { clientIp } from "../auth/middleware.ts";
 import { createUser, deleteUser, resetPassword } from "../services/users.ts";

@@ -61,6 +61,9 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 |---|---|
 | The app keeps restarting and the log says "The database was upgraded by a newer app version" | The database is from a newer version than the app. Run `./scripts/update.sh`. |
 | An update and its rollback both failed | Follow the commands in `ops/RECOVERY.txt`. |
+| "The database changes of the new version failed on a copy of your data" (in the browser: "Uuden version tietokantamuutokset epäonnistuivat kopiolla") | The update stopped before anything was changed. The old version is still running and your data is as it was. Try again after the next release. If it repeats, report it with the output of `./scripts/doctor.sh`. |
+| "The migration check could not run" (in the browser: "Tietokantamuutosten tarkistusta ei voitu ajaa") | The check of the new version's database changes did not start or was killed, for example by a Docker error or too little memory or disk. Nothing was changed and the old version is still running. Free memory or disk space (`df -h`, `docker image prune -f`) and run the update again. |
+| "The database copy from before the update ... is missing or damaged" | A rollback checks its copy before it stops anything, so the app is still running. Restore an older copy by hand as in [ADVANCED.md](ADVANCED.md#restore-a-backup). |
 | *Asetukset > Ylläpito* says "Ylläpitoapuri ei ole käytössä" or that the helper is out of date | Run `./scripts/install.sh --ops-helper`. |
 
 ## Away from home and second copies

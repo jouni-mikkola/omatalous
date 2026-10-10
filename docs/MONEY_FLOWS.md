@@ -20,6 +20,7 @@ Savings rate = (income − spending − debt) / income.
 | Purchase with a credit card (e.g. Nordea Gold, Platinum, Mastercard) | spending, on the card account | purchases count where they happen |
 | Card bill paid from the current account, card account connected | transfer | otherwise the purchases would count twice |
 | Same, card account not connected | spending ("Luottokortin lasku") | otherwise the purchases would be missing |
+| Bill of another card of the same issuer (Platinum while only Gold is connected), or of another issuer's Gold | spending | only the connected card's purchases are counted on its account |
 | Bill for a card that is not connected (e.g. Amex) while another card is | spending | only the connected card's bill is a transfer |
 | Payment to a card issuer such as Nordea Rahoitus or Bank Norwegian | card bill if the amount changes every month, debt if the same amount comes again and again | an instalment repeats, a card bill follows the purchases. A text with a loan word (*osamaksu*, *laina*) stays a loan |
 | Money into the card account ("Maksu, kiitos", prepaying) | transfer | money into a card is a payment, not income |

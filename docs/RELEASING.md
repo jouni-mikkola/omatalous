@@ -18,8 +18,9 @@ public repository before 0.4.0 accept only a tag (`refs/tags/v…`), so a releas
 there (CHANGELOG 0.5.1).
 
 The release and return page workflows run only in the public repository. The upgrade rehearsal runs only in the private
-one, because its baselines are private commits. CI runs in both. The script leaves out `.claude/`, the upgrade workflow,
-`.github/upgrade-from.txt` and `.github/dependabot.yml`. Dependency updates happen in the private repository. A commit
+one, because its baselines are private commits. CI runs in both. CI and the rehearsal each end in one summary job, `ci-ok`
+and `upgrade-ok`, so a check has one stable name while jobs and baselines change. The script leaves out what only the private repository uses: `.claude/`, the upgrade and branch workflows,
+`.github/upgrade-from.txt`, `.github/dependabot.yml`, itself and `ship.sh`. Dependency updates happen in the private repository. A commit
 merged in the public one makes the next snapshot refuse to push.
 
 Snapshots are signed when git is set to sign commits. The release channel does not need that, it checks the image
@@ -27,23 +28,34 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 
 ## Release checklist
 
-1. Pick the version. Bump `apps/server/src/version.ts` and the three `package.json` files. A test checks they agree.
-2. Write the `CHANGELOG.md` section. Add an Upgrade list when there are new migrations, changed defaults, new `.env` keys or
-   something that stops working. The unreleased entries move under the new version heading.
-3. A schema change is a new file in `apps/server/migrations/`, additive, never an edit of an applied one.
-4. Add a frozen database fixture, `apps/server/test/fixtures/db/<version>.sql`, when the schema changed.
-5. After the release, add the private commit it was published from to `.github/upgrade-from.txt` and keep the oldest
-   supported one. The floor is `90dc8f3` (`0.1.0`).
-6. `pnpm typecheck`, `pnpm test`, `pnpm build` and `pnpm e2e` are green. The `Upgrade / upgrade` check is green for every
-   baseline. It also checks that each baseline's maintenance helper accepts the new `docker-compose.yml`, because installs
-   update from the browser through the helper they already run (`tools/ci/compose-compat.sh`).
-7. Merge to `main` in the private repository and rename the `Unreleased` heading to the version. Run
-   `tools/publish-public.sh` from a clean tree. The push of the new version to the public `main` starts the release
-   workflow. It checks that `version.ts`, the three `package.json` files and the top `CHANGELOG.md` heading agree,
-   builds, signs and creates the tag and the release on that commit. A snapshot that keeps the released version
-   publishes nothing. The script runs the version and CHANGELOG checks itself whenever the version has no public tag.
-   `--tag` pushes `main` and the tag in one atomic push from your machine and puts the annotated tag on the private
-   `HEAD`. The run for `main` then finds the tag and leaves the release to the tag's run.
+1. The work for the release is merged on the branch you release from. Each task left a fragment in `changelog.d/`
+   ([changelog.d/README.md](../changelog.d/README.md)). Check that a change an installer must know about has an
+   `upgrade:` line: new migrations, changed defaults, new `.env` keys, something that stops working.
+2. A schema change is a new file in `apps/server/migrations/`, additive, never an edit of an applied one. It also needs a
+   frozen database fixture, `apps/server/test/fixtures/db/<version>.sql`, which you write by hand. The folder
+   `contracts/<version>/` freezes with the release: check it is current ([contracts/README.md](../contracts/README.md)).
+3. Pick the version and run `node tools/release/prepare.mjs X.Y.Z` (`pnpm release:prepare X.Y.Z`, `--dry-run` only prints
+   the section). It bumps `apps/server/src/version.ts` and the three `package.json` files, writes the `## X.Y.Z` section
+   of `CHANGELOG.md` from the fragments and removes them. It refuses a version that is not above the newest `v*` tag
+   and the current version, an Unreleased heading, and a release with new migration files and no `upgrade:` line. The
+   private repository has no tags, so the last release is the newest commit in `.github/upgrade-from.txt` (`--since REF`
+   names another). Read the diff and commit it as `Release X.Y.Z`.
+4. Push the commit as the branch `release/X.Y.Z`. CI and the upgrade rehearsal start by themselves and run side by side.
+   `ci-ok` and `upgrade-ok` must both be green. The rehearsal updates every baseline, and it checks that each baseline's
+   maintenance helper accepts the new `docker-compose.yml`, because installs update from the browser through the helper
+   they already run (`tools/ci/compose-compat.sh`). `pnpm e2e` is part of CI.
+5. Run `tools/release/ship.sh --ci-checked` from a clean tree on that commit. It cannot read CI, so the flag says that you
+   did (`--dry-run` runs the checks and pushes nothing). It checks that the versions and the top `CHANGELOG.md`
+   heading agree, moves the private `main` to `HEAD` only forward (`git push origin HEAD:main`), runs
+   `tools/publish-public.sh` and prints the release run to watch and the line for step 7.
+6. The push of the new version to the public `main` starts the release workflow. It checks that `version.ts`, the three
+   `package.json` files and the top `CHANGELOG.md` heading agree, builds, signs and creates the tag and the release on
+   that commit. A snapshot that keeps the released version publishes nothing. `publish-public.sh` runs the version and
+   CHANGELOG checks itself whenever the version has no public tag. Its `--tag` option pushes `main` and the tag in one
+   atomic push from your machine and puts the annotated tag on the private `HEAD`. The run for `main` then finds the
+   tag and leaves the release to the tag's run. `ship.sh` does not use it.
+7. After the release, add the private commit it was published from to `.github/upgrade-from.txt` and keep the oldest
+   supported one. The floor is `90dc8f3` (`0.1.0`). Delete the `release/X.Y.Z` branch.
 8. Wait for the release workflow in the public repository. When it finishes, press *Tarkista päivitykset* on a test install, then *Päivitä*.
 9. `TALOUS_CHANNEL=source` keeps an install on the source build. An install made from the `90dc8f3` baseline updates once
    with `git pull && docker compose up -d --build`.
@@ -57,8 +69,8 @@ This applies to the public repository. The private one only needs CI and the upg
 - [ ] Publish the first snapshot with `tools/publish-public.sh`. It creates `main`, the default branch, and the
   release workflow only accepts a tag on a commit that is on `main`.
 - [ ] Optional hardening, for when someone else gets write access: a ruleset for `main` that blocks force pushes and
-  deletion and requires linear history. Only the owner pushes, from the script, so no pull request is required there. In the private repository, protect its `main` with the checks `test`, `e2e`,
-  `docker` and `Upgrade / upgrade`.
+  deletion and requires linear history. Only the owner pushes, from the script, so no pull request is required there. In the private repository, protect its `main` with the check `ci-ok`. The
+  rehearsal runs on release branches, so read `upgrade-ok` there before `ship.sh`.
 - [ ] Optional hardening: a ruleset for tags `v*` where only the owner creates them, with no updates and no deletion.
 - [ ] Secret scanning with push protection and Dependabot alerts. Leave Dependabot security updates off there and fix
   alerts in the private repository, where version and security updates run.

@@ -12,13 +12,14 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Cron } from "croner";
 import { createApp } from "../app.ts";
 import { runCli } from "../cli.ts";
-import { loadConfig } from "../config.ts";
+import { loadConfig } from "../platform/config.ts";
 import { MigrationError } from "../db/migrate.ts";
+import { runMigrateCheck } from "../db/migrate-check.ts";
 import { optimizeDatabase } from "../db/optimize.ts";
 import { dailyBackup, openDatabase, pruneBackupsByAge, takeSnapshot } from "../db/open.ts";
 import { RestoreError, restoreDatabase } from "../db/restore.ts";
 import { type BuildInfo, createServices } from "../services/context.ts";
-import { track, waitForInflight } from "../services/inflight.ts";
+import { track, waitForInflight } from "../platform/inflight.ts";
 import { logLookup } from "../services/industry.ts";
 import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
 import { hourlyTick } from "../services/schedule.ts";
@@ -60,6 +61,9 @@ if (process.argv[2] === "restore") {
     process.exit(1);
   }
 }
+
+// `migrate-check` works on a copy of the file it is given: it runs before the app secret or the live database is touched
+if (process.argv[2] === "migrate-check") process.exit(await runMigrateCheck(process.argv.slice(3), undefined, { migrationsDir: env.MIGRATIONS_DIR || undefined }));
 
 // The app secret is created on first start (Docker: /secrets/app_secret in its own volume).
 let appSecret: string | undefined;

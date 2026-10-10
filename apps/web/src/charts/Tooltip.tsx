@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "../styles/charts.css";
 
 /** Positioned inside a `.chart` container; flips to the left near the right edge. */
 export function Tooltip({ x, y, containerWidth, children }: { x: number; y: number; containerWidth: number; children: ReactNode }) {

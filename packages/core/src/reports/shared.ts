@@ -35,10 +35,3 @@ export function completeMonths(ctx: MonthContext, range: DateRange, months: read
   const full = fullMonths(ctx, range, months);
   return full.length ? full : months.slice(-1);
 }
-
-export function median(values: readonly number[]): number {
-  if (!values.length) return 0;
-  const s = [...values].sort((a, b) => a - b);
-  const mid = s.length >> 1;
-  return s.length % 2 ? s[mid]! : Math.round((s[mid - 1]! + s[mid]!) / 2);
-}

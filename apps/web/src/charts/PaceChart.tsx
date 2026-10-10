@@ -3,6 +3,7 @@ import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { niceTicks } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
+import "../styles/charts.css";
 
 const MARGIN = { top: 12, right: 64, bottom: 24, left: 56 };
 const CURRENT = "var(--series-1)";

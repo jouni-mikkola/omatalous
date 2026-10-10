@@ -11,7 +11,6 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import { csrfGuard, requireAdmin, requireUser, sessionMiddleware } from "./auth/middleware.ts";
-import { EnableBankingError } from "./providers/enable-banking/client.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { bankCallbackRoute, bankRoutes } from "./routes/bank.ts";
@@ -21,7 +20,7 @@ import { securityRoutes } from "./routes/security.ts";
 import { opsRoutes } from "./routes/ops.ts";
 import { merchantRoutes } from "./routes/merchants.ts";
 import { userRoutes } from "./routes/users.ts";
-import { HttpUserError, TooManyAttempts, UserError } from "./services/errors.ts";
+import { HttpUserError, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
 import { checkHealth } from "./services/health.ts";
 
@@ -36,9 +35,9 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
     if (err instanceof TooManyAttempts) return c.json({ error: err.message }, 429, { "Retry-After": String(err.retryAfter) });
     if (err instanceof HttpUserError) return c.json({ error: err.message }, err.status);
     if (err instanceof UserError) return c.json({ error: err.message }, 400);
-    if (err instanceof EnableBankingError) {
+    if (err instanceof UpstreamError) {
       console.error(err.message);
-      return c.json({ error: `Pankkirajapinta vastasi virheellä (${err.status}). Yritä myöhemmin uudelleen.` }, 502);
+      return c.json({ error: err.userMessage }, 502);
     }
     console.error(err);
     return c.json({ error: "Jokin meni vikaan. Yritä uudelleen." }, 500);

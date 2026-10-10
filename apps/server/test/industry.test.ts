@@ -98,6 +98,25 @@ describe("industry lookup", () => {
     expect(asked).toHaveLength(2);
   });
 
+  it("does not ask about a person paid twice in older imported rows that have no payee accounts", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const t = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "enablebanking", externalId: "u", identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+    // the bank's rows carry payee accounts; the CSV imported before it did not
+    await ingestTransactions(repo, "chk", [raw("2026-10-02", -900, "SAUMAUS NIEMINEN OY", { externalId: "e1", counterpartyIban: "FI4950009420028730" })], "enablebanking", { replacePending: true });
+    await ingestTransactions(
+      repo,
+      "chk",
+      [raw("2026-09-01", -40, "LIISA VIRTANEN", { description: "SIIRTO" }), raw("2026-09-15", -40, "LIISA VIRTANEN", { description: "SIIRTO" })],
+      "csv",
+      { replacePending: false },
+    );
+    await reprocess(repo, t.s.settings);
+    await lookupIndustries(t.s, { pauseMs: 0 });
+    expect(asked).toEqual(["Saumaus Nieminen Oy"]);
+  });
+
   it("a user's own rule still wins over the register", async () => {
     const { fetchMock } = fakeRegister();
     const { s, repo } = await withData(fetchMock);

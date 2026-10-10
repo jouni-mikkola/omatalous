@@ -8,6 +8,7 @@ import { api } from "../../api.ts";
 import { copyText } from "../../clipboard.ts";
 import { dateTime } from "../../format.ts";
 import type { InstanceSettings, InstanceState } from "../../types.ts";
+import "../../styles/settings.css";
 
 const HISTORY_OPTIONS = [
   [90, "3 kuukautta"],

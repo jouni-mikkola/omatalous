@@ -12,6 +12,7 @@ import { Members } from "./settings/Members.tsx";
 import { Security } from "./settings/Security.tsx";
 import { ServerSettings } from "./settings/Server.tsx";
 import { Sharing } from "./settings/Sharing.tsx";
+import "../styles/settings.css";
 
 /** Reads a bank export as UTF-8, falling back to Windows-1252 (older Nordea TXT files). */
 async function readText(file: File): Promise<string> {

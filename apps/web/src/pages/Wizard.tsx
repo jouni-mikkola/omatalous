@@ -12,6 +12,7 @@ import { BankLogo } from "../components/BankLogo.tsx";
 import { useApi } from "../hooks.ts";
 import type { InstanceState, Meta } from "../types.ts";
 import { BankAppSetup, syncHoursLabel } from "./settings/InstanceForms.tsx";
+import "../styles/wizard.css";
 
 const STEPS = ["Enable Banking", "Valmis"] as const;
 const STEP_KEY = "wizard-step";

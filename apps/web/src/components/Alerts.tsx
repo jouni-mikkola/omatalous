@@ -1,5 +1,6 @@
 import { query } from "../api.ts";
 import type { DashboardData } from "../types.ts";
+import "../styles/overview.css";
 
 type Alert = DashboardData["alerts"][number];
 

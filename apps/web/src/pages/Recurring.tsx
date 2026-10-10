@@ -6,6 +6,7 @@ import { query } from "../api.ts";
 import { Loading } from "../components/Loading.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import type { Meta, Recurring as Series, Scope } from "../types.ts";
+import "../styles/overview.css";
 
 interface SectionDef {
   title: string;

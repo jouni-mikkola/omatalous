@@ -3,7 +3,7 @@
  * process. Route modules receive this object; none of them construct
  * repositories or read configuration themselves.
  */
-import { todayIn, type Config } from "../config.ts";
+import { todayIn, type Config } from "../platform/config.ts";
 import { FinanceRepo } from "../db/finance-repo.ts";
 import { HouseholdRepo } from "../db/household-repo.ts";
 import { IndustryRepo } from "../db/industry-repo.ts";

@@ -11,11 +11,12 @@ import type { OpsRequest } from "../db/ops-repo.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
 import type { Services } from "./context.ts";
-import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "./errors.ts";
-import { strictObject } from "./instance.ts";
+import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
+import { strictObject } from "../platform/validate.ts";
 import {
   HELPER_MIN_VERSION,
   helperHasTools,
+  helperKnows,
   helperOutdated,
   helperStatus,
   mergeState,
@@ -35,7 +36,6 @@ import {
   LOGS_MAX_LINES,
   sanitiseOutput,
   scrub,
-  TOOL_ACTIONS,
   validOpsId,
 } from "./ops-validate.ts";
 import { recordEvent } from "./security.ts";
@@ -224,8 +224,8 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req)
     await deny("apuri ei käytössä");
     throw new HttpUserError("Ylläpitoapuri ei ole käytössä.", 409);
   }
-  if (TOOL_ACTIONS.includes(action) && !helperHasTools(await s.settings.get(VERSION_KEY))) {
-    // an older helper rejects these as unknown, and the request would sit claimed until it times out
+  if (!helperKnows(await s.settings.get(VERSION_KEY), action)) {
+    // an older helper would not answer an action it does not know, and the request would sit claimed until it times out
     await deny("apuri vanhentunut");
     throw new HttpUserError(`Ylläpitoapuri on vanhentunut. Aja koneella: ${ENABLE_COMMAND}`, 409);
   }
@@ -243,15 +243,15 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req)
 
   const mutating = !READ_ONLY.includes(action);
   const now = s.now();
-  if (mutating && (await s.ops.hasActiveMutating())) {
+  if (mutating && (await s.ops.hasActiveMutating(READ_ONLY))) {
     await deny("toinen kesken");
     throw new HttpUserError("Toinen toiminto on kesken.", 409);
   }
-  if (mutating && (await s.ops.countSince(new Date(now.getTime() - MUTATING_PER_MINUTE_MS).toISOString(), true)) > 0) {
+  if (mutating && (await s.ops.countSince(new Date(now.getTime() - MUTATING_PER_MINUTE_MS).toISOString(), READ_ONLY)) > 0) {
     await deny("liian tiheään");
     throw new TooManyAttempts("Odota hetki ennen seuraavaa toimintoa.", 60);
   }
-  if ((await s.ops.countSince(new Date(now.getTime() - 3600_000).toISOString(), false)) >= PER_HOUR) {
+  if ((await s.ops.countSince(new Date(now.getTime() - 3600_000).toISOString())) >= PER_HOUR) {
     await deny("tuntiraja");
     throw new TooManyAttempts("Liian monta pyyntöä tunnissa. Yritä myöhemmin.", 3600);
   }
@@ -341,6 +341,12 @@ export async function pollOps(s: Services, opts: { helper?: string; done: string
     // the table also accepts access and port, and a row could be written by anything with file access
     if (!validOpsId(r.id) || !(OPS_ACTIONS as readonly string[]).includes(r.action) || r.params !== "{}") {
       if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Virheellinen pyyntö." })) await resultEvent(s, r, "epäonnistui");
+      continue;
+    }
+    // The polling helper is older than the action: a request queued for a newer helper that was then rolled back. It
+    // would not answer, so the row ends here and the one mutating slot stays free.
+    if (!helperKnows(opts.helper, r.action as OpsAction)) {
+      if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Apuri on tähän toimintoon liian vanha." })) await resultEvent(s, r, "epäonnistui");
       continue;
     }
     if (await s.ops.claim(r.id, s.now().toISOString())) return { id: r.id, action: r.action as OpsAction, params: {}, secret: null };

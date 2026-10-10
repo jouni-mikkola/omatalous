@@ -9,9 +9,12 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 
 | Command | |
 |---|---|
-| `pnpm test` | all tests (Vitest) |
+| `pnpm check` | typecheck, tests, shell lint and shell suites, short output ([WORKERS.md](WORKERS.md)) |
+| `pnpm test` | all tests (Vitest), including `tools/repo-rules`, the invariants of CLAUDE.md as tests |
 | `pnpm test:sh` | the shell suites in `tools/test/` |
-| `pnpm typecheck` | TypeScript for every package |
+| `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
+| `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
+| `pnpm release:ship` | `tools/release/ship.sh`: move private `main`, publish, print the baseline line |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
@@ -28,16 +31,21 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   recurring.ts               subscriptions, bills, habits, income, price changes
   analysis/                  flows, analysis context (cached on the server), dashboard, insights
   reports/                   one file per report, registered in reports/index.ts
+  sources/                   import parsers, one folder each, registered in sources/registry.ts
 
 apps/server/src
   app.ts                     middleware and routes
   routes/                    thin HTTP handlers; admin.ts is the setup wizard API
-  services/                  use cases: bank, bank-app, instance, users, ingest, enrich, analysis, upgrade,
+  connectors/                where rows come from: registry.ts, sync.ts (the generic fetch loop), enable-banking/,
+                             csv-import/ (importCsv)
+  services/                  use cases: instance, users, ingest, enrich, analysis, upgrade,
                              industry (trade register lookup), schedule (the hourly tick)
-  db/finance-repo.ts         financial data, always scoped to one user
-  db/migrate.ts, open.ts     migrations and the pre-migration copy
+  db/finance-repo.ts         FinanceRepo: financial data, always scoped to one user; passes each call on
+  db/finance/                the SQL by concern (accounts, connections, transactions, transaction-list, merchants,
+                             rules, sync-runs) over one { db, userId }
+  db/migrate.ts, open.ts     migrations and the pre-migration copy; migrate-check.ts tries them on a copy
   auth/, security/           sessions, CSRF, password hashing, AES-GCM, X.509, key checks
-  providers/                 Enable Banking (JWT, paging, mapping), CSV and prh (trade register search)
+  providers/                 prh (trade register search)
   entry/node.ts              server entry point: HTTP, static UI, hourly scheduler
   cli.ts, cli-ops.ts         setup-code, version, user management, sessions revoke-all, secret rotate, ops poll/report/state
   services/security.ts       security events (90 days), services/ops.ts maintenance requests
@@ -56,12 +64,15 @@ How a release is made: [RELEASING.md](RELEASING.md).
 
 1. Money is integer cents, negative is money out. Dates are `YYYY-MM-DD` strings.
 2. Core is pure: no database, HTTP, `Date.now()` or environment.
-3. Financial data only through `FinanceRepo`. No SQL on financial tables anywhere else.
+3. Financial data only through `FinanceRepo`. No SQL on financial tables anywhere else. A new query is a method of
+   its module in `db/finance/` (with `user_id` in the statement, which a repo rule checks in every module) and a
+   one-line method in `db/finance-repo.ts`.
 4. After any change to transactions, accounts or rules, call `reprocess(repo, settings)`.
 5. A category the user set (`category_source = 'user'`) is never changed by automation.
 6. Secrets come from files. Values from the browser are checked against an allowlist and never reach a
    file name, a command or the filesystem.
-7. A message the user should see is a `UserError` (400). Anything else becomes a plain 500.
+7. A message the user should see is a `UserError` (400). A failing outside service throws an `UpstreamError` (502).
+   Anything else becomes a plain 500.
 8. UI text in Finnish; code, comments and docs in English. Comments explain why.
 
 ## Recipes
@@ -80,15 +91,37 @@ No migration is needed. After the next update every member's history is categori
 
 1. `packages/core/src/reports/<name>.ts`: a pure function `(ctx, range) => data`.
 2. Register it in `reports/index.ts`. The API and types follow.
-3. A section in `apps/web/src/pages/Reports.tsx`.
+3. A section file in `apps/web/src/pages/reports/sections/` (copy an existing one). `registry.ts` finds it; its
+   `reports` list names the core reports it reads, and a repo rule checks that every report has a section.
 4. A test in `packages/core/test/reports.test.ts` that checks its totals against the other reports.
+
+### Module behind a feature flag
+
+1. An entry in `FEATURES` in `packages/core/src/features.ts`: id, Finnish label, stage and default.
+2. The module's routes in their own `Hono` app, mounted with `gated(s, id, routes)` from `auth/middleware.ts` at the
+   module's prefix. While the flag is off they answer 404 like an unknown path.
+3. Its nav entry in `apps/web/src/nav.ts` names the flag, so it is hidden while the flag is off. `/api/meta` carries
+   the resolved flags; admins switch them in Asetukset > Palvelin.
 
 ### New bank
 
-Add it to `BANKS` in `apps/server/src/services/banks.ts` (with `aspspName` exactly as Enable Banking lists
-it), and its logo to `apps/web/public/banks/` and `apps/web/src/banks.ts`. Only banks on that list can be
-started. A whole new data source is a module in `apps/server/src/providers/` that returns
-`RawTransaction[]` for `ingestTransactions`.
+Add it to `BANKS` in `apps/server/src/connectors/enable-banking/banks.ts` (with `aspspName` exactly as Enable Banking
+lists it), and its logo to `apps/web/public/banks/` and `apps/web/src/banks.ts`. Only banks on that list can be
+started.
+
+### New connector
+
+A new place rows come from is a folder in `apps/server/src/connectors/` with an `index.ts` that exports a `Connector`
+(`connectors/types.ts`), listed in `connectors/registry.ts`. Its `id` is stored in `accounts.provider`,
+`connections.provider` and `transactions.source`, so it never changes. A connector that fetches by itself gives a
+`sync` (open a puller, classify errors) and the loop in `connectors/sync.ts` does the rest. `connectors.test.ts` fails
+when the folder and the registry disagree.
+
+### New import format
+
+A folder in `packages/core/src/sources/` with an `index.ts` that exports an `ImportParser` (`sources/types.ts`),
+listed in `sources/registry.ts`. The parser is pure: text in, `ImportResult` out. `sniff` returns 0 to 1 from the
+start of the file, and `parserFor` takes the best one.
 
 ### Database change
 
@@ -96,12 +129,29 @@ started. A whole new data source is a module in `apps/server/src/providers/` tha
    and a changed file stops the app.
 2. Prefer adding: `ALTER TABLE ... ADD COLUMN` with a default, new tables, new indexes. Old code must still
    work with the new column.
-3. Rebuilding a table (dropping a column, changing a type): start the file with
-   `-- migrate: foreign_keys=off`. Foreign keys are off only for that file and checked before commit.
+3. An additive file starts with `-- migrate: compat <version>`, the oldest app version that may keep running on the
+   schema it leaves. The floor is stored with the applied row. A build that does not know the migration still opens
+   the database when its own version is at or above the floor, so a rollback keeps the data written since the update.
+   Pick the floor by reading the new schema as that old version would: the new column is null or has a default, the
+   new table and index are unused. Without the line no floor is stored and every build that lacks the file refuses the
+   database, so a rollback restores the copy taken before the update. The line goes in the leading comment block.
+   A test allows the header only on a file made of `CREATE TABLE`, non-unique `CREATE INDEX` and `ALTER TABLE ... ADD
+   COLUMN` (nullable or with a default) statements, and requires it on such a file. Releases up to 0.5.x do not read
+   the floor and refuse a database with a migration they do not know.
+4. Rebuilding a table (dropping a column, changing a type): start the file with
+   `-- migrate: foreign_keys=off` and a `-- migrate: breaking <reason>` line, and no compat floor.
+   Foreign keys are off only for that file and checked before commit.
    Otherwise dropping a parent table would delete its child rows.
-4. No `BEGIN` or `COMMIT` in the file. Each file runs as one transaction.
-5. `apps/server/test/upgrade.test.ts` shows how to test a migration on an old database.
-6. Bump the version in `apps/server/src/version.ts` and the `package.json` files, and add a line to
+5. No `BEGIN` or `COMMIT` in the file. Each file runs as one transaction.
+6. `apps/server/test/upgrade.test.ts` shows how to test a migration on an old database,
+   `compat-floor.test.ts` how to test one as an older build would meet it. To try the pending migrations on a copy of
+   a real database file: `node apps/server/dist/node.js migrate-check <file>` (after `pnpm build`). It never writes the
+   file, prints one JSON line with the time and the row counts, and exits 1 when anything fails.
+7. `contracts/<version>/` freezes what older installations read from a release: the schema of a fresh database and the
+   shapes the host helper reads from `ops poll|report|state`. `apps/server/test/contracts.test.ts` fails when the code
+   stops satisfying one. While a version is unreleased its schema dump must equal a fresh database, and the test
+   names the command that regenerates it. Details in `contracts/README.md`.
+8. Bump the version in `apps/server/src/version.ts` and the `package.json` files, and add a line to
    `CHANGELOG.md`.
 
 ### New API route

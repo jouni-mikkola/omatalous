@@ -1,0 +1,28 @@
+/**
+ * The repo rules: invariants of CLAUDE.md and the structure plan that no compiler checks. They read the working
+ * tree (the tracked files, parsed with the TypeScript API that is already a dev dependency), change nothing and run
+ * with `pnpm test` and in CI. Stage a new file before running them: an untracked file is not looked at.
+ *
+ * One test file on purpose: vitest runs each file in its own worker, and every worker would load the compiler
+ * and parse the same sources again. Here they load once and share the parse cache, which keeps all rules together
+ * under 3 seconds. Each rule is its own `it` in one of the modules below, so a failure names the rule, then
+ * `file:line`, then what to do.
+ *
+ *   rule 1   core is pure                                     code-rules.ts
+ *   rule 2   SQL only in db/                                  code-rules.ts
+ *   rule 3   every FinanceRepo statement carries user_id      code-rules.ts
+ *   rule 4   no em dash in text we write                      text-rules.ts
+ *   rule 5   security events written in one place             code-rules.ts
+ *   rule 6   import boundaries and their shrinking baseline   boundaries.ts
+ *   rule 7   the ops action list agrees in three places       parity.ts
+ *   rule 8   reports are registered, shown and documented     parity.ts
+ *   rule 9   file size budget with a shrinking allowlist      size.ts
+ *   rule 10  no English in the UI text                        text-rules.ts
+ *
+ * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
+ */
+import "./code-rules.ts";
+import "./text-rules.ts";
+import "./boundaries.ts";
+import "./parity.ts";
+import "./size.ts";

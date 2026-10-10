@@ -1,0 +1,95 @@
+import { useState } from "react";
+import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
+import { money, monthLong, percent } from "../../../format.ts";
+import { ExportLink, Kv, Section, TableToggle } from "../parts.tsx";
+import type { ReportSection, SectionProps } from "../types.ts";
+
+function Cashflow({ ctx }: SectionProps) {
+  const r = ctx.data.cashflow;
+  const { running } = ctx;
+  const [table, setTable] = useState(false);
+  const t = r.totals;
+  const monthLabelOf = (m: string) => `${monthLong(m)}${m === running ? " (kesken)" : ""}`;
+  // the month in progress has its bills but maybe not its salary: the margin is told from the months that ended
+  const settled = r.running ? r.closed : t;
+  const whole = r.running ? ", valmiit kuukaudet" : "";
+  return (
+    <Section
+      section={section}
+      sub={r.average ? `Kuukaudessa keskimäärin tulot ${money(r.average.incomeCents, false)}, menot ${money(r.average.consumptionCents + r.average.debtCents, false)}` : undefined}
+      actions={
+        <>
+          <TableToggle table={table} onToggle={() => setTable((v) => !v)} />
+          <ExportLink href={ctx.exportHref("cashflow")} />
+        </>
+      }
+    >
+      <Kv
+        items={[
+          ["Tulot", money(t.incomeCents, false)],
+          ["Menot", money(t.expenseCents, false)],
+          ["Säästöön", money(t.savedCents, false)],
+          ...(settled
+            ? ([
+                [`${settled.netCents < 0 ? "Menot ylittivät tulot" : "Tuloja jäi yli"}${whole}`, money(Math.abs(settled.netCents), false)],
+                [`Säästöaste${whole}`, settled.savingsRate === null ? "–" : percent(settled.savingsRate)],
+              ] as [string, string][])
+            : []),
+          ...(t.borrowedCents ? ([["Luotonnostot", money(t.borrowedCents, false)]] as [string, string][]) : []),
+        ]}
+      />
+      {table ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kuukausi</th>
+                <th className="num">Tulot</th>
+                <th className="num">Kulutus</th>
+                <th className="num">Velanhoito</th>
+                <th className="num">Säästöön</th>
+                {t.borrowedCents !== 0 && <th className="num">Luotonnostot</th>}
+                <th className="num">Erotus</th>
+                <th className="num">Säästöaste</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.rows.map((x) => (
+                <tr key={x.month}>
+                  <td>{monthLabelOf(x.month)}</td>
+                  <td className="num">{money(x.incomeCents, false)}</td>
+                  <td className="num">{money(x.consumptionCents, false)}</td>
+                  <td className="num">{money(x.debtCents, false)}</td>
+                  <td className="num">{money(x.savedCents, false)}</td>
+                  {t.borrowedCents !== 0 && <td className="num">{money(x.borrowedCents, false)}</td>}
+                  <td className="num">
+                    <strong>{money(x.netCents, false)}</strong>
+                  </td>
+                  <td className="num">{x.savingsRate === null ? "–" : percent(x.savingsRate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <DivergingColumns
+          months={r.rows.map((x) => x.month)}
+          up={{ key: "income", label: "Tulot", color: "var(--series-1)", values: r.rows.map((x) => x.incomeCents) }}
+          down={[
+            { key: "consumption", label: "Kulutus", color: "var(--series-2)", values: r.rows.map((x) => x.consumptionCents) },
+            { key: "debt", label: "Velanhoito", color: "var(--series-7)", values: r.rows.map((x) => x.debtCents) },
+            { key: "saved", label: "Säästöön", color: "var(--series-3)", values: r.rows.map((x) => Math.max(0, x.savedCents)) },
+          ]}
+        />
+      )}
+    </Section>
+  );
+}
+
+export const section: ReportSection = {
+  id: "kassavirta",
+  title: "Tulot ja menot",
+  order: 20,
+  reports: ["cashflow"],
+  Component: Cashflow,
+};

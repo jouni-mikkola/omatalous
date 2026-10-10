@@ -2,6 +2,7 @@ import { getCategory } from "./categories.ts";
 import { hasCompanyForm } from "./industry.ts";
 import { fold } from "./merchant.ts";
 import type { CategoryRule, CategorySource, RuleField } from "./types.ts";
+import { companyForms, MOBILEPAY_WORDS } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -277,8 +278,8 @@ const FALLBACK_RULES: readonly BuiltinRule[] = [
   { category: "taxes", direction: "out", re: w(String.raw`[A-Z]+N KAUPUNKI|[A-Z]+N KUNTA|KAUPUNGINKANSLIA`) },
   { category: "reimbursements", direction: "in", re: w(String.raw`VAKUUTUSKORVAUS|KORVAUS|KULUKORVAUS|MATKALASKU|HYVITYS|PALAUTUS|REFUND|CHARGEBACK|OIKAISU`) },
   // a company paid or paying with MobilePay is not a person (TIKKURILAN TIIKERIT RY)
-  { category: "p2p_in", direction: "in", re: w(String.raw`MOBILEPAY|MOBILE PAY|PIVO|SIIRTO HENKILOLTA`), when: (_text, input) => !hasCompanyForm(input.counterparty ?? "") },
-  { category: "p2p", direction: "out", re: w(String.raw`MOBILEPAY|MOBILE PAY|PIVO|SIIRTO HENKILOLLE`), when: (_text, input) => !hasCompanyForm(input.counterparty ?? "") },
+  { category: "p2p_in", direction: "in", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLTA`), when: (_text, input) => !hasCompanyForm(input.counterparty ?? "") },
+  { category: "p2p", direction: "out", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLLE`), when: (_text, input) => !hasCompanyForm(input.counterparty ?? "") },
 ];
 
 const BUILTIN_RULES: readonly BuiltinRule[] = [...PURPOSE_RULES, ...MERCHANT_RULES, ...FALLBACK_RULES];
@@ -363,8 +364,8 @@ export function categoryForMcc(mcc: string | null): string | null {
   return null;
 }
 
-const P2P_MARKER = w(String.raw`MOBILEPAY|MOBILE PAY|PIVO|SIIRTO HENKILO(?:LLE|LTA)`);
-const COMPANY_MARKER = w(String.raw`OY|OYJ|AB|KY|AY|RY|TMI|LTD|LIMITED|INC|GMBH|AS|SA|OU|PLC|LLC|BV|NV|SE|ASA|KOY|SR|OSK`);
+const P2P_MARKER = w(`${MOBILEPAY_WORDS}|SIIRTO HENKILO(?:LLE|LTA)`);
+const COMPANY_MARKER = w([...companyForms("person")].join("|"));
 
 /**
  * Whether a merchant rule recognises the name as a business: a trade word

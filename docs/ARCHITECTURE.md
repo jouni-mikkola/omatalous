@@ -50,7 +50,7 @@ flowchart LR
   N[Nordea PSD2] --> EB[Enable Banking API] --> P
   CSV[CSV export] --> P
   subgraph Container["Docker container"]
-    P[providers] --> I[ingest] --> DB[(SQLite)]
+    P[connectors] --> I[ingest] --> DB[(SQLite)]
     DB --> E[core pipeline] --> DB
     DB --> C[analysis cache] --> R[reports] --> API[Hono API]
     S[hourly tick] --> P
@@ -61,7 +61,14 @@ flowchart LR
 ```
 
 - Domain logic in `@banking/core` is pure, so the server and the browser share it and tests need no mocks.
-- All SQL is in `db/*-repo.ts` and goes through a small `Db` interface over node:sqlite.
+- A place transactions come from is a connector (`apps/server/src/connectors/`, listed in `registry.ts`). It owns its
+  link flow and settings and answers a pull with rows and a balance. `connectors/sync.ts` is the one loop around
+  it: the lock, the run record, the ten day overlap, balances, reprocessing and the register lookup. The stored
+  ids `enablebanking` and `csv` are connector ids, `demo` marks the demo data, and none of them ever changes.
+- A file format is an import parser in core (`packages/core/src/sources/`, listed in `registry.ts`). It turns text into
+  raw rows and says with `sniff` how well it recognises a file. `connectors/csv-import/service.ts` stores what it finds.
+- All SQL is in `db/` (`*-repo.ts`, and `db/finance/` for the modules behind `FinanceRepo`) and goes through a small `Db`
+  interface over node:sqlite.
 - Bank data is stored as received. Categories and transfers are derived from it again whenever something
   changes, so a new rule applies to all history at once, and a category set by hand stays.
 - A category comes from the first that applies: the user's rules, built-in rules, the card's merchant code
@@ -81,7 +88,8 @@ flowchart LR
   chosen hours, register lookups, removal of expired sessions and abandoned bank authorisations.
 - The daily copy is `VACUUM INTO` (`dailyBackup` in `db/open.ts`) to `<data>/backups/auto-YYYY-MM-DD.db`.
   The first tick of a local day writes it, a failed one is tried again at the next tick, and the seven
-  newest stay. The copy made before a migration is separate (`pre-*.db`, five kept).
+  newest stay. The copy made before a migration is separate (`pre-*.db`, five kept). Every copy counts only
+  after the file and its folder are flushed to disk (`platform/durable.ts`) and the copy has been opened and checked.
 - The analysis context is built once per user data version; a request only filters and adds up.
 - Alerts (`analysis/alerts.ts`, shown above the insights on the overview) are cost traps found in the
   selected period: double charges, late fees, overlapping services, spending spikes, services to review,
@@ -89,7 +97,7 @@ flowchart LR
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
   the range. The registry has `summary`, `cashflow`, `categories`, `pivot`, `fixedVariable`, `priceChanges`,
-  `highlights`, `dataQuality`, `yearOverYear` and `balances`.
+  `highlights`, `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift` and `buffer`.
 - Merchants (`routes/merchants.ts`): `GET /api/merchants` lists the user's merchants with their category,
   row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
   for one merchant name and `DELETE /api/merchants/rule` removes it, after which the other rules and the
@@ -100,16 +108,27 @@ flowchart LR
 
 Environment variables (`.env`) describe infrastructure only: how the app is reached and whether a proxy
 is in front. Everything else is set in the browser and stored in the database (`services/instance.ts`,
-`services/bank-app.ts`); the environment only gives defaults. The only file the app writes is
+`connectors/enable-banking/app-setup.ts`); the environment only gives defaults. The only file the app writes is
 `app_secret`, created on first start in its own volume.
 
 ## Upgrades
 
 On start the app checks its migrations against the database. Each applied file is checksummed, a
-database from a newer version is refused, and a copy is taken before anything changes. After a version
+database from a newer version is refused unless every migration this build lacks declared a compatibility
+floor (`-- migrate: compat <version>`, stored in `_migrations.compat`) that this build meets, and a copy
+is taken before anything changes. After a version
 change the derived data (merchant names, categories, transfers) is computed again for every member.
 `scripts/update.sh` adds a backup, a health check and a rollback around this. Releases are signed images from
 `ghcr.io` ([RELEASING.md](RELEASING.md)).
+
+`node dist/node.js migrate-check <database file>` (`db/migrate-check.ts`) tries the pending migrations on a copy of
+any database file. It opens the file read-only, copies it with `VACUUM INTO` (so a live WAL is included), applies the
+migrations to the copy, runs `integrity_check` and `foreign_key_check`, compares the row count of every table and
+prints one JSON line with the time it took. A table that loses rows or a failing check gives exit code 1. The
+original is never written. The copy goes into a dot-named folder next to the file (the compose service has only a
+16 MB tmpfs on `/tmp`, and the copy with its WAL needs about twice the database size on that disk). The folder is
+removed on every way out, also on SIGINT and SIGTERM; a run killed with SIGKILL leaves it and the next run removes
+folders older than a day. A script can run it with the new image before it stops the old version.
 
 ## Maintenance from the browser
 
@@ -160,7 +179,7 @@ fetch from the same day. The other accounts go on.
 | `merchant_industry_users` | which merchant names each user's register lookups asked about |
 | `sync_runs` | fetch history per user |
 | `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted) |
-| `_migrations` | applied migrations with checksums |
+| `_migrations` | applied migrations with checksums and compatibility floors |
 
 Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised.
 

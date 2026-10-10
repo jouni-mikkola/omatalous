@@ -1,7 +1,7 @@
 /** Regressions for issues found in code review. */
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { syncUser } from "../src/services/bank.ts";
+import { syncUser } from "../src/connectors/sync.ts";
 import { setupApp, waitFor } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 

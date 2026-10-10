@@ -76,7 +76,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
           </thead>
           <tbody>
             {meta.accounts.map((a) => {
-              // rendered twice: its own column, and under the name on a phone (styles.css)
+              // rendered twice: its own column, and under the name on a phone (settings.css)
               const type = (
                 <>
                   <select value={a.type} aria-label={`Tilin ${a.name} tyyppi`} onChange={(e) => void setType(a, e.target.value)}>

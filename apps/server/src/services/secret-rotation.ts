@@ -3,7 +3,7 @@
  * if any fails nothing is written. The new values are written in one transaction.
  */
 import { SecretBox } from "../security/secretbox.ts";
-import { AAD, ACTIVE, PENDING } from "./bank-app.ts";
+import { AAD, ACTIVE, PENDING } from "../connectors/enable-banking/app-setup.ts";
 import type { Services } from "./context.ts";
 
 export interface ResealResult {

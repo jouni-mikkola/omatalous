@@ -1,0 +1,24 @@
+/* Categories page: merchant table. */
+
+/* categories: merchant table */
+.phone-only { display: none; }
+@media (max-width: 600px) { .phone-only { display: inline; } }
+.merchant-table td select, .merchant-table td .select-lite { max-width: 17rem; }
+.m-category { white-space: nowrap; }
+.m-category .badge { margin-left: 8px; }
+.m-category .btn { margin-left: 6px; }
+.m-name a { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .merchant-table thead { display: none; }
+  .merchant-table, .merchant-table tbody { display: block; }
+  .merchant-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .merchant-table tr:last-child { border-bottom: none; }
+  .merchant-table td { display: block; padding: 0; border: none; }
+  .merchant-table .m-name { grid-column: 1; font-weight: 500; }
+  .merchant-table td.num[data-label="Yhteensä"] { grid-column: 2; grid-row: 1; }
+  .merchant-table .m-category { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; white-space: normal; }
+  .merchant-table .m-category select, .merchant-table .m-category .select-lite { flex: 1 1 100%; max-width: none; }
+  .merchant-table .m-category .badge, .merchant-table .m-category .btn { margin-left: 0; }
+  .merchant-table td.num[data-label="Tapahtumia"] { grid-column: 1; text-align: left; color: var(--muted); font-size: 12px; }
+  .merchant-table .m-last { grid-column: 2; color: var(--muted); font-size: 12px; text-align: right; }
+}

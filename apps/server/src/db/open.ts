@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } fr
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { quickFileCheck, verifyDatabaseFile } from "./backup-check.ts";
-import { applyMigrations, MigrationError, type Migration, pendingMigrations } from "./migrate.ts";
+import { applyMigrations, MigrationError, type Migration, type MigrationOptions, pendingMigrations } from "./migrate.ts";
+import { fsyncDir, fsyncFile } from "../platform/durable.ts";
 import { type OpenOptions, openNodeSqlite } from "./node-sqlite.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,16 +39,17 @@ export function readMigrations(dir: string): Migration[] {
  * migration touches an existing database, a consistent copy is written to
  * <data>/backups/pre-<migration>-<time>.db, so a failed or unwanted upgrade
  * can be undone (scripts/update.sh --rollback). Fresh databases need none.
+ * `ahead` names the migrations the database has and this build does not know but may run on (migrate.ts).
  */
-export async function openDatabase(path: string, migrationsDir = findMigrationsDir(), now = () => new Date(), opts: OpenOptions = {}) {
+export async function openDatabase(path: string, migrationsDir = findMigrationsDir(), now = () => new Date(), opts: OpenOptions & MigrationOptions = {}) {
   const db = openNodeSqlite(path, opts);
   try {
     if (path !== ":memory:") await refuseEmptyOverData(db, path);
-    const { pending, applied: before } = await pendingMigrations(db, readMigrations(migrationsDir));
+    const { pending, applied: before, ahead } = await pendingMigrations(db, readMigrations(migrationsDir), opts);
     let snapshot: string | null = null;
     if (pending.length && before > 0 && path !== ":memory:") snapshot = takeSnapshot(db, path, `pre-${pending[0]!.name.replace(/\.sql$/, "")}`, now());
     const applied = await applyMigrations(db, pending);
-    return { db, applied, snapshot };
+    return { db, applied, snapshot, ahead };
   } catch (err) {
     db.close();
     throw err;
@@ -79,16 +81,20 @@ async function refuseEmptyOverData(db: ReturnType<typeof openNodeSqlite>, path: 
 }
 
 /**
- * VACUUM INTO writes a consistent copy even while another process has the database open. The copy is opened
- * and checked before it counts; a failed or unreadable one is removed, so an empty file never passes as a backup.
+ * VACUUM INTO writes a consistent copy even while another process has the database open. A copy counts only
+ * after the file and its folder are flushed to disk (a power cut right after a copy must not leave an
+ * incomplete file under a good name) and it has been opened and checked. A failed or unreadable one is
+ * removed, so an empty file never passes as a backup.
  */
-function copyDatabase(db: { exec(sql: string): void }, dir: string, name: string): string {
+export function copyDatabase(db: { exec(sql: string): void }, dir: string, name: string): string {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const file = join(dir, name);
   rmSync(file, { force: true });
   try {
     // the name is a label with a date or timestamp; quotes are doubled for SQL anyway
     db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    fsyncFile(file);
+    fsyncDir(dir);
   } catch (err) {
     rmSync(file, { force: true });
     throw err;

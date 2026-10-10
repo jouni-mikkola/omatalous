@@ -121,3 +121,42 @@ describe("enrichIsland on the changes people actually make", () => {
     expect(tally.same / (tally.same + tally["fell back"])).toBeGreaterThan(0.7);
   }, 900_000);
 });
+
+describe("enrichIsland and the trade register's shops", () => {
+  const chk: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" };
+  const lyhty = (bookingDate: string): Transaction => ({
+    id: `l-${bookingDate}`,
+    accountId: "chk",
+    bookingDate,
+    amountCents: -2900,
+    currency: "EUR",
+    status: "booked",
+    counterparty: null,
+    counterpartyIban: null,
+    description: "RUSKEA LYHTY",
+    mcc: null,
+    merchant: "Ruskea Lyhty",
+    category: "other",
+    categorySource: "default",
+    isTransfer: false,
+  });
+
+  it("falls back when two purchases are a shop only if the account carries payee accounts elsewhere", () => {
+    const input = {
+      rows: [lyhty("2026-09-01"), lyhty("2026-09-15")],
+      before: new Map(),
+      accounts: [chk],
+      rules: [],
+      oldRules: [],
+      industries: new Map([["Ruskea Lyhty", "restaurants"]]),
+      outsideMatches: [],
+    };
+    expect(enrichIsland(input)).toEqual({ ok: false, reason: "industry shops depend on payee accounts outside the merchant" });
+    // the merchant's own rows show a payee account in one source of the account, but not in the other
+    const fetched = { ...lyhty("2026-09-20"), id: "l-fetched", source: "enablebanking", counterpartyIban: "FI4950009420028730" };
+    const mixed = { ...input, rows: [{ ...input.rows[0]!, source: "csv" }, { ...input.rows[1]!, source: "csv" }, fetched] };
+    expect(enrichIsland(mixed)).toEqual({ ok: false, reason: "industry shops depend on payee accounts outside the merchant" });
+    // no register answer for the merchant: the shops cannot change anything
+    expect(enrichIsland({ ...input, industries: new Map() })).toEqual({ ok: true, changed: [] });
+  });
+});

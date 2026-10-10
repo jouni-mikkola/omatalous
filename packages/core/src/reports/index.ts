@@ -1,8 +1,8 @@
 /**
  * Report registry. A report is a pure function (context, range) → data.
  * To add one: write `reports/<name>.ts`, register it here, give it a
- * section in apps/web/src/pages/Reports.tsx and an invariant test in
- * packages/core/test/reports.test.ts. The server and its types pick it up.
+ * section file in apps/web/src/pages/reports/sections/ and an invariant
+ * test in packages/core/test/reports.test.ts. The server and its types pick it up.
  */
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
@@ -10,7 +10,7 @@ import { type BalanceInput, balanceReport } from "./balances.ts";
 import { bufferReport } from "./buffer.ts";
 import { cashflowReport } from "./cashflow.ts";
 import { categoryReport } from "./categories.ts";
-import { dataQualityReport } from "./data-quality.ts";
+import { dataQualityReport } from "../analysis/data-quality.ts";
 import { driftReport } from "./drift.ts";
 import { fixedVariableReport } from "./fixed-variable.ts";
 import { highlightsReport } from "./highlights.ts";
@@ -53,7 +53,7 @@ export type { BalanceInput, BalanceReport, BalanceSeries } from "./balances.ts";
 export type { BufferReport } from "./buffer.ts";
 export type { CashflowReport, CashflowRow } from "./cashflow.ts";
 export type { CategoryReport, CategoryStat, GroupStat } from "./categories.ts";
-export type { DataQualityReport, QualitySignal } from "./data-quality.ts";
+export type { DataQualityReport, QualitySignal } from "../analysis/data-quality.ts";
 export type { DriftItem, DriftReport } from "./drift.ts";
 export type { FixedVariableReport, FixedVariableRow } from "./fixed-variable.ts";
 export type { HighlightsReport, LargePurchase, NewMerchant } from "./highlights.ts";

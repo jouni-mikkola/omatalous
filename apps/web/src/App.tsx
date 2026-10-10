@@ -5,8 +5,10 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { api, setUnauthenticatedHandler } from "./api.ts";
+import { consentNoticeText, consentNotices } from "./consent-notices.ts";
 import { date, dateTime } from "./format.ts";
 import { navigate, useApi, useHashRoute } from "./hooks.ts";
+import { visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
 import { Categories } from "./pages/Categories.tsx";
@@ -20,23 +22,7 @@ import { Wizard } from "./pages/Wizard.tsx";
 import { PERIODS, periodRange } from "./period.ts";
 import type { Meta, Scope, User } from "./types.ts";
 
-const NAV = [
-  ["overview", "Yleiskatsaus"],
-  ["reports", "Raportit"],
-  ["transactions", "Tapahtumat"],
-  ["recurring", "Toistuvat"],
-  ["categories", "Kategoriat"],
-  ["settings", "Asetukset"],
-] as const;
-
-const PAGES = new Set<string>(NAV.map(([id]) => id));
-
 type AuthState = { needsSetup: boolean; user: User | null };
-
-/** The connection stays active through its last day, so 0 means today. */
-function expiresIn(daysLeft: number): string {
-  return daysLeft <= 0 ? "tänään" : daysLeft === 1 ? "huomenna" : `${daysLeft} päivän päästä`;
-}
 
 export function App() {
   const [auth, setAuth] = useState<AuthState | null>(null);
@@ -75,8 +61,11 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   // an unknown or old link opens the overview instead of an empty page
   // #/rules is the old address of the rules tab
   const oldRules = route.page === "rules";
-  const page = oldRules ? "categories" : PAGES.has(route.page) ? route.page : "overview";
   const meta = useApi<Meta>("/api/meta");
+  // a module that is switched off has no nav entry, and its address opens the overview
+  const nav = visibleNav(meta.data?.features);
+  const page = oldRules ? "categories" : nav.some((e) => e.id === route.page) ? route.page : "overview";
+  const pageLabel = nav.find((e) => e.id === page)?.label;
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
   const [changingPassword, setChangingPassword] = useState(false);
   const [wizardClosed, setWizardClosed] = useState(false);
@@ -88,9 +77,8 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
 
   // the tab title tells which page is open (history, screen readers, many tabs)
   useEffect(() => {
-    const label = NAV.find(([id]) => id === page)?.[1];
-    document.title = label ? `${label} · Omatalous` : "Omatalous";
-  }, [page]);
+    document.title = pageLabel ? `${pageLabel} · Omatalous` : "Omatalous";
+  }, [pageLabel]);
 
   // a native <details> only closes from its summary; a menu should also close on Escape or a click elsewhere
   useEffect(() => {
@@ -176,8 +164,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const defaultPeriod = page === "reports" ? "12m" : "month";
   const period = params.get("period") ?? defaultPeriod;
   const range = periodRange(period, m.today);
-  const expiring = m.connections.find((c) => c.status === "active" && c.daysLeft !== null && c.daysLeft <= 14);
-  const expired = m.connections.some((c) => c.status === "expired") && !m.connections.some((c) => c.status === "active");
+  const consents = consentNotices(m.connections, m.accounts);
   const initials = user.displayName
     .split(/\s+/)
     .map((w) => w[0])
@@ -210,9 +197,9 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           Omatalous
         </div>
         <nav className="nav" aria-label="Päävalikko">
-          {NAV.map(([id, label]) => (
-            <a key={id} href={`#/${id}`} aria-current={page === id ? "page" : undefined}>
-              {label}
+          {nav.map((e) => (
+            <a key={e.id} href={`#/${e.id}`} aria-current={page === e.id ? "page" : undefined}>
+              {e.label}
             </a>
           ))}
         </nav>
@@ -265,22 +252,17 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           </button>
         </div>
       )}
-      {expiring && (
-        <div className="notice warning">
-          {expiring.institution}-yhteys vanhenee {expiresIn(expiring.daysLeft ?? 0)}. <a href="#/settings">Uusi yhteys</a>
+      {consents.map((n) => (
+        <div key={n.id} className="notice warning">
+          {consentNoticeText(n)} <a href="#/settings">{n.kind === "expired" ? "Yhdistä uudelleen" : "Uusi yhteys"}</a>
         </div>
-      )}
-      {expired && (
-        <div className="notice warning">
-          Pankkiyhteys on vanhentunut. <a href="#/settings">Yhdistä uudelleen</a>
-        </div>
-      )}
+      ))}
       {effectiveScope === "household" && (
         <div className="notice">Mukana jaetut tilit: {[...new Set(m.sharedAccounts.map((a) => a.ownerName))].join(", ")}</div>
       )}
 
       <main id="main" tabIndex={-1}>
-      <h1 className="sr-only">{NAV.find(([id]) => id === page)?.[1]}</h1>
+      <h1 className="sr-only">{pageLabel}</h1>
       {(page === "overview" || page === "reports") && (m.accounts.length > 0 || hasHousehold) && (
         <div className="filters" role="toolbar" aria-label="Aikaväli">
           <div className="segmented">

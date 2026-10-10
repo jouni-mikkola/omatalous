@@ -10,7 +10,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { writeNewFileDurable } from "../durable.ts";
+import { writeNewFileDurable } from "../platform/durable.ts";
 
 /**
  * Not mkdirSync(recursive): on a path under /proc Node's recursive mkdir never returns (100 % CPU, no log, a

@@ -4,9 +4,10 @@
  * new merchants, and cleanup of expired sessions and abandoned bank
  * authorisations.
  */
-import { hourIn, todayIn } from "../config.ts";
+import { hourIn, todayIn } from "../platform/config.ts";
 import { optimizeDatabase } from "../db/optimize.ts";
-import { type SyncSummary, syncEveryone } from "./bank.ts";
+import { LINK_STATE_PREFIX } from "../connectors/link-state.ts";
+import { type SyncSummary, syncEveryone } from "../connectors/sync.ts";
 import type { Services } from "./context.ts";
 import { drainLookups, type LookupResult } from "./industry.ts";
 import { expireStale } from "./ops.ts";
@@ -86,6 +87,6 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
   } catch (err) {
     console.error("pruning backups failed:", err);
   }
-  await s.settings.deleteOlder("auth_state:", new Date(s.now().getTime() - STATE_TTL_MS));
+  await s.settings.deleteOlder(LINK_STATE_PREFIX, new Date(s.now().getTime() - STATE_TTL_MS));
   return { backup, synced, lookup };
 }

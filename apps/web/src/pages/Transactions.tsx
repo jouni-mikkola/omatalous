@@ -4,6 +4,7 @@ import { CategoryPicker, CategorySelect } from "../components/CategorySelect.tsx
 import { CADENCE_LABEL, date, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
+import "../styles/transactions.css";
 
 interface MerchantHistory {
   merchant: string;
@@ -301,7 +302,7 @@ const TxRow = memo(function TxRow({
 }) {
   const detail = [t.counterparty, t.description].filter(Boolean).join(" · ");
   const company = t.industry ? [t.industry.companyName, t.industry.businessId, t.industry.label].filter(Boolean).join(", ") : null;
-  // rendered twice: in its own column, and under the merchant on a phone where that column is hidden (styles.css)
+  // rendered twice: in its own column, and under the merchant on a phone where that column is hidden (transactions.css)
   const category = (
     <>
       {t.own ? (
