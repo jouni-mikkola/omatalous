@@ -9,8 +9,9 @@ tags and on every push to `main` that changes `relay/`. Nothing is pushed to `gh
 `release` environment.
 
 The release and return page workflows run only in the public repository. The upgrade rehearsal runs only in the private
-one, because its baselines are private commits. CI runs in both. The script leaves out `.claude/`, the upgrade workflow
-and `.github/upgrade-from.txt`.
+one, because its baselines are private commits. CI runs in both. The script leaves out `.claude/`, the upgrade workflow,
+`.github/upgrade-from.txt` and `.github/dependabot.yml`. Dependency updates happen in the private repository. A commit
+merged in the public one makes the next snapshot refuse to push.
 
 Snapshots are signed when git is set to sign commits. The release channel does not need that, it checks the image
 signature. An install with `ops/allowed_signers` does, so sign them before such an install updates.
@@ -46,7 +47,8 @@ This applies to the public repository. The private one only needs CI and the upg
   no pull request is required there. In the private repository, protect its `main` with the checks `test`, `e2e`,
   `docker` and `Upgrade / upgrade`.
 - [ ] Ruleset for tags `v*`: only the owner creates them, no updates, no deletion.
-- [ ] Secret scanning with push protection, Dependabot alerts and security updates.
+- [ ] Secret scanning with push protection and Dependabot alerts. Leave Dependabot security updates off there and fix
+  alerts in the private repository, where version and security updates run.
 - [ ] Private vulnerability reporting, which the root [SECURITY.md](../SECURITY.md) points to.
 - [ ] Actions: only GitHub's and the named actions, approval for workflows from outside collaborators, read-only token by
   default. Allow Actions to write packages.
