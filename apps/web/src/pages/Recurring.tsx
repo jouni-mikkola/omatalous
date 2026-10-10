@@ -93,7 +93,7 @@ export function Recurring({ meta, scope }: { meta: Meta; scope: Scope }) {
       {SECTIONS.map((section) => (
         <SeriesSection key={section.title} section={section} rows={data.series.filter(section.filter)} {...sectionProps} />
       ))}
-      {!data.series.length && <div className="card empty">Toistuvia maksuja ei vielä löytynyt.</div>}
+      {!data.series.length && <div className="card empty">Toistuvia maksuja ei vielä löytynyt. Ne tunnistetaan, kun samalta kauppiaalta on useita maksuja eri kuukausina.</div>}
     </div>
   );
 }
@@ -163,7 +163,7 @@ function SeriesSection({ section, rows, label }: { section: SectionDef; rows: Se
               <th className="hide-phone">Tiheys</th>
               <th className="num hide-phone">{section.habit ? "Tyypillinen" : "Summa"}</th>
               <th className="num">/kk</th>
-              <th className="num">Vuodessa</th>
+              <th className="num hide-phone">Vuodessa</th>
               <th className="num hide-phone">Jatkunut</th>
               <th>{section.habit || section.ended ? "Viimeksi" : "Seuraava"}</th>
             </tr>
@@ -187,7 +187,7 @@ function SeriesSection({ section, rows, label }: { section: SectionDef; rows: Se
                 <td className="num">
                   <strong>{money(s.monthlyCents)}</strong>
                 </td>
-                <td className="num">{money(s.yearlyCents, false)}</td>
+                <td className="num hide-phone">{money(s.yearlyCents, false)}</td>
                 <td className="num hide-phone">{s.monthsActive} kk</td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   {section.habit || section.ended ? (

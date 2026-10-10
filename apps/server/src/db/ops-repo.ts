@@ -62,7 +62,7 @@ export class OpsRepo {
   }
 
   async hasActiveMutating(): Promise<boolean> {
-    return !!(await this.db.first("SELECT 1 AS x FROM ops_requests WHERE status IN ('queued','running') AND action NOT IN ('doctor','check-update') LIMIT 1"));
+    return !!(await this.db.first("SELECT 1 AS x FROM ops_requests WHERE status IN ('queued','running') AND action NOT IN ('doctor','check-update','logs') LIMIT 1"));
   }
 
   async get(id: string): Promise<OpsRequest | null> {
@@ -74,10 +74,10 @@ export class OpsRepo {
     return (await this.db.all<Row>(`${SELECT} ORDER BY r.requested_at DESC, r.rowid DESC LIMIT ?`, [limit])).map(toRequest);
   }
 
-  /** Requests made since `since`; `mutatingOnly` leaves out doctor and check-update. */
+  /** Requests made since `since`; `mutatingOnly` leaves out the read-only actions. */
   async countSince(since: string, mutatingOnly: boolean): Promise<number> {
     const r = await this.db.first<{ c: number }>(
-      `SELECT COUNT(*) AS c FROM ops_requests WHERE requested_at > ?${mutatingOnly ? " AND action NOT IN ('doctor','check-update')" : ""}`,
+      `SELECT COUNT(*) AS c FROM ops_requests WHERE requested_at > ?${mutatingOnly ? " AND action NOT IN ('doctor','check-update','logs')" : ""}`,
       [since],
     );
     return Number(r?.c ?? 0);

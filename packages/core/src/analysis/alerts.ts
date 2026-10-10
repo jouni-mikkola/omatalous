@@ -3,7 +3,7 @@ import { addDays, dayNumber, daysBetween, daysInMonth, fromMonthIndex, monthInde
 import { fold, UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
 import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
 
@@ -106,6 +106,8 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
   for (const group of groups) {
     const t = group[group.length - 1]!;
     if (group.length < 2 || t.day < fromDay || t.day > toDay || -t.amountCents < DOUBLE_MIN_CENTS) continue;
+    // the merchant has already paid one of them back
+    if (group.some((x) => x.refunded >= -x.amountCents)) continue;
     if ((routine.get(`${t.accountId}|${t.merchant}`) ?? 0) - 1 >= 2) continue;
     out.push({
       id: `double:${t.id}`,
@@ -421,8 +423,10 @@ function habits(ctx: AnalysisContext, range: DateRange): Alert[] {
 
   const byMerchant = new Map<string, number[]>();
   for (const t of inDays(ctx, { fromDay: dayNumber(from), toDay: dayNumber(to) })) {
-    if (t.flows.consumption <= 0 || t.merchant === UNKNOWN_MERCHANT || NOT_A_HABIT.has(t.category) || ctx.fixedIds.has(t.id)) continue;
-    byMerchant.set(t.merchant, [...(byMerchant.get(t.merchant) ?? []), t.flows.consumption]);
+    if (netPurchase(t) <= 0 || t.merchant === UNKNOWN_MERCHANT || NOT_A_HABIT.has(t.category) || ctx.fixedIds.has(t.id)) continue;
+    const amounts = byMerchant.get(t.merchant);
+    if (amounts) amounts.push(netPurchase(t));
+    else byMerchant.set(t.merchant, [netPurchase(t)]);
   }
   const out: (Alert & { yearly: number })[] = [];
   for (const [merchant, amounts] of byMerchant) {

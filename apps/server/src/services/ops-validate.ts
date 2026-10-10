@@ -2,19 +2,19 @@
  * Maintenance requests: what the browser may ask for, and the scrub applied to everything the host helper
  * sends back. The helper repeats the same rules in bash (scripts/lib/validate.sh); keep them in step.
  *
- * Version 1 knows six actions and none takes parameters. `access` and `port` are in the table but refused.
+ * Version 1 knows nine actions and none takes parameters. `access` and `port` are in the table but refused.
  */
 import { UserError } from "./errors.ts";
 import { strictObject } from "./instance.ts";
 
-export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update"] as const;
+export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew"] as const;
 export type OpsAction = (typeof OPS_ACTIONS)[number];
 
 /** Reserved for a later release. */
 const RESERVED = ["access", "port"];
 
 /** Read-only: they may run beside another request and need no password. */
-export const READ_ONLY: readonly OpsAction[] = ["doctor", "check-update"];
+export const READ_ONLY: readonly OpsAction[] = ["doctor", "check-update", "logs"];
 /** Need the admin's password again. */
 export const NEEDS_PASSWORD: readonly OpsAction[] = ["update", "rollback"];
 
@@ -52,6 +52,9 @@ export function validOpsId(id: unknown): id is string {
 
 export const OUTPUT_MAX_LINES = 200;
 export const OUTPUT_MAX_BYTES = 16 * 1024;
+/** `logs` returns up to 100 lines of each of three services, so it gets a larger window. */
+export const LOGS_MAX_LINES = 320;
+export const LOGS_MAX_BYTES = 48 * 1024;
 const REDACTED = "[piilotettu]";
 
 /**
@@ -66,20 +69,23 @@ export function scrub(text: string, secrets: readonly string[] = []): string {
     .replace(/[\x00-\x09\x0b-\x1f\x7f]/g, "");
   t = t.replace(/-----BEGIN [A-Z ]*KEY-----[\s\S]*?(?:-----END [A-Z ]*KEY-----|$)/g, REDACTED);
   t = t.replace(/^.*\bAuthorization:.*$/gim, REDACTED);
+  // bearer tokens and JWTs (Enable Banking), also when they are short or split by dots
+  t = t.replace(/\bBearer\s+\S+/gi, `Bearer ${REDACTED}`);
+  t = t.replace(/\beyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]*){0,2}/g, REDACTED);
   t = t.replace(/\b[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD)[A-Z0-9_]*=\S*/g, (m) => `${m.slice(0, m.indexOf("=") + 1)}${REDACTED}`);
   for (const s of secrets) if (s.length >= 8) t = t.split(s).join(REDACTED);
   return t.replace(/[A-Za-z0-9_=-]{40,}/g, REDACTED);
 }
 
-/** Scrubbed, then the last 200 lines and 16 KiB. */
-export function sanitiseOutput(text: string, secrets: readonly string[] = []): string {
+/** Scrubbed, then the last 200 lines and 16 KiB (more for the logs action). */
+export function sanitiseOutput(text: string, secrets: readonly string[] = [], limits: { lines: number; bytes: number } = { lines: OUTPUT_MAX_LINES, bytes: OUTPUT_MAX_BYTES }): string {
   let t = scrub(text, secrets);
   const lines = t.split("\n");
-  if (lines.length > OUTPUT_MAX_LINES) t = lines.slice(-OUTPUT_MAX_LINES).join("\n");
+  if (lines.length > limits.lines) t = lines.slice(-limits.lines).join("\n");
   const buf = Buffer.from(t, "utf8");
-  if (buf.length > OUTPUT_MAX_BYTES) {
+  if (buf.length > limits.bytes) {
     // cut at the front so the result stays at the end; drop a half character left at the cut
-    t = buf.subarray(buf.length - OUTPUT_MAX_BYTES).toString("utf8").replace(/^�+/, "");
+    t = buf.subarray(buf.length - limits.bytes).toString("utf8").replace(/^�+/, "");
   }
   return t;
 }
@@ -107,6 +113,9 @@ export const REQUEST_EXPIRY_MS = 10 * 60_000;
 export const RUNNING_TIMEOUT_MS = 30 * 60_000;
 /** The lowest helper version this server understands; the helper sends its own in `ops poll --helper`. */
 export const HELPER_MIN_VERSION = 1;
+/** The helper version that knows logs, prune and helper-renew. An older one would reject them as unknown. */
+export const HELPER_TOOLS_VERSION = 2;
+export const TOOL_ACTIONS: readonly OpsAction[] = ["logs", "prune", "helper-renew"];
 
 export type HelperStatus = "ok" | "slow" | "off";
 
@@ -117,6 +126,12 @@ export function helperStatus(seenAt: string | null, now: Date): { status: Helper
   if (age < HELPER_OK_MS) return { status: "ok", reason: null };
   if (age <= HELPER_STALE_MS) return { status: "slow", reason: null };
   return { status: "off", reason: "stale" };
+}
+
+/** True when the helper is new enough for the logs, prune and helper-renew actions. */
+export function helperHasTools(version: string | null): boolean {
+  const n = version === null ? NaN : Number.parseInt(version, 10);
+  return n >= HELPER_TOOLS_VERSION;
 }
 
 /** True when the helper's version is older than this server expects. Unreadable versions count as old. */

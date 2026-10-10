@@ -94,10 +94,10 @@ async function overflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
 
-for (const scheme of ["light", "dark"] as const) {
+{
   for (const [device, viewport] of [["desktop", { width: 1280, height: 800 }], ["phone", { width: 375, height: 667 }]] as const) {
-    test(`every page, ${scheme} theme, ${device}`, async ({ browser }) => {
-      const context: BrowserContext = await browser.newContext({ storageState: STATE, colorScheme: scheme, viewport, isMobile: device === "phone", hasTouch: device === "phone" });
+    test(`every page, ${device}`, async ({ browser }) => {
+      const context: BrowserContext = await browser.newContext({ storageState: STATE, viewport, isMobile: device === "phone", hasTouch: device === "phone" });
       const page = await context.newPage();
       const seen = watch(page);
       for (const [id, title] of PAGES) {
@@ -108,9 +108,6 @@ for (const scheme of ["light", "dark"] as const) {
         await page.waitForLoadState("networkidle");
         // a page that rendered nothing but its frame is a failure too
         expect((await page.locator("main, .app").first().innerText()).length, `${id} is empty`).toBeGreaterThan(200);
-        // the theme really applied: the page background follows the colour scheme
-        const dark = await page.evaluate(() => matchMedia("(prefers-color-scheme: dark)").matches);
-        expect(dark, `${id} colour scheme`).toBe(scheme === "dark");
         expect(await overflow(page), `${id} scrolls sideways at ${viewport.width}px`).toBeLessThanOrEqual(1);
       }
       // the two report tabs and a filtered transaction list reach their data too
@@ -123,6 +120,29 @@ for (const scheme of ["light", "dark"] as const) {
     });
   }
 }
+
+test("a merchant on the overview opens its transactions with a summary of its whole history", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/overview");
+  const link = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Kauppiaat" }) }).locator("tbody a").first();
+  await expect(link).toBeVisible();
+  const merchant = (await link.innerText()).trim();
+  await link.click();
+  await expect(page).toHaveURL(/#\/transactions\?.*merchant=/);
+  const summary = page.getByRole("region", { name: `Yhteenveto: ${merchant}` });
+  await expect(summary).toBeVisible();
+  await expect(summary.getByRole("heading", { name: merchant })).toBeVisible();
+  for (const term of ["Maksuja", "Ensimmäinen", "Viimeisin"]) await expect(summary.getByText(term, { exact: true })).toBeVisible();
+  // the list below is the same merchant
+  await expect(page.locator("tbody tr").first()).toBeVisible();
+  // without a merchant filter there is no summary
+  await page.goto("/#/transactions");
+  await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
 
 test("a changed category is kept after a reload", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });

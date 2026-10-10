@@ -18,7 +18,7 @@ pnpm seed:demo        # demo user + data in ./data
 ## Layout
 
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
-  rules (`categorize.ts`), trade register matching (`industry.ts`), transfers, enrichment pipeline,
+  rules (`categorize.ts`), trade register matching (`industry.ts`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
   recurring detection, money flows, analysis context, dashboard, insights, `reports/*` with a registry in
   `reports/index.ts`.
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
@@ -27,7 +27,8 @@ pnpm seed:demo        # demo user + data in ./data
   `auth/*`, `security/*`, `providers/*` (`prh/` = trade register search), `entry/node.ts`, `entry/secret-rotate.ts`,
   `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `doctor.sh`, `reset.sh`, `ops-helper.sh` (host helper for
-  Asetukset > Ylläpito). `relay/` is the static bank return page, published to GitHub Pages by
+  Asetukset > Ylläpito). `tools/` holds what only developers and CI use (`publish-public.sh`, `relay-hash.mjs`,
+  `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page, published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image on a `v*` tag or when run by hand on `main`.
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
   (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`.
@@ -44,8 +45,10 @@ pnpm seed:demo        # demo user + data in ./data
 - Money is integer cents, negative = out. Dates are `YYYY-MM-DD` strings.
 - Financial rows are reached only through `FinanceRepo` (always `WHERE user_id = ?`). Cross-user reads only via
   `HouseholdRepo` for explicitly shared accounts, read-only.
-- After any change to transactions/accounts/rules call `reprocess(repo, settings)` (bumps the data version that
-  keys the analysis cache). Sharing changes call `settings.bumpDataVersion()`.
+- After any change to transactions/accounts/rules call `reprocess(repo, settings)` (bumps the user's data version,
+  `data_version:<user id>`, which keys the analysis cache). A change that touches only the account list, such as a
+  balance, calls `settings.bumpUserDataVersion(userId)`, and sharing changes bump the owner and the viewer.
+  `settings.bumpDataVersion()` is for changes that touch everyone. A sync or import that changed no row does neither.
 - `category_source = 'user'` is never overwritten by automation.
 - Every money movement lands in exactly one flow (consumption, debt, saved, income, borrowed) or is a
   transfer. Card bills are transfers when the card account is connected. See `docs/MONEY_FLOWS.md`.
@@ -90,4 +93,4 @@ pnpm seed:demo        # demo user + data in ./data
 - New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`.
 - Server tests use `apps/server/test/helpers.ts` (`setupApp()` gives a signed-in admin, `member()` more users).
 - Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
-  fixed category colour order from the server, tokens in `styles.css` for light/dark).
+  fixed category colour order from the server, tokens in `styles.css`, one theme only).

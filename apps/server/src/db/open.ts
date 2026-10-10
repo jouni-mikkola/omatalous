@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { applyMigrations, type Migration, pendingMigrations } from "./migrate.ts";
-import { openNodeSqlite } from "./node-sqlite.ts";
+import { quickFileCheck, verifyDatabaseFile } from "./backup-check.ts";
+import { applyMigrations, MigrationError, type Migration, pendingMigrations } from "./migrate.ts";
+import { type OpenOptions, openNodeSqlite } from "./node-sqlite.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DAILY_BACKUP = /^auto-\d{4}-\d{2}-\d{2}\.db$/;
@@ -38,9 +39,10 @@ export function readMigrations(dir: string): Migration[] {
  * <data>/backups/pre-<migration>-<time>.db, so a failed or unwanted upgrade
  * can be undone (scripts/update.sh --rollback). Fresh databases need none.
  */
-export async function openDatabase(path: string, migrationsDir = findMigrationsDir(), now = () => new Date()) {
-  const db = openNodeSqlite(path);
+export async function openDatabase(path: string, migrationsDir = findMigrationsDir(), now = () => new Date(), opts: OpenOptions = {}) {
+  const db = openNodeSqlite(path, opts);
   try {
+    if (path !== ":memory:") await refuseEmptyOverData(db, path);
     const { pending, applied: before } = await pendingMigrations(db, readMigrations(migrationsDir));
     let snapshot: string | null = null;
     if (pending.length && before > 0 && path !== ":memory:") snapshot = takeSnapshot(db, path, `pre-${pending[0]!.name.replace(/\.sql$/, "")}`, now());
@@ -52,13 +54,50 @@ export async function openDatabase(path: string, migrationsDir = findMigrationsD
   }
 }
 
-/** VACUUM INTO writes a consistent copy even while another process has the database open. */
+/** Thrown instead of starting as a fresh install over a database that lost its tables. */
+export class EmptyDatabaseError extends MigrationError {}
+
+/**
+ * An empty or table-less database file next to database copies is a damaged install (a failed restore, a
+ * truncated copy), not a new one. Starting would migrate it and create a new setup code while the data sits
+ * in backups/. A migration history without the user table says the same. A fresh install has no copies.
+ */
+async function refuseEmptyOverData(db: ReturnType<typeof openNodeSqlite>, path: string): Promise<void> {
+  const tables = new Set((await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table'")).map((t) => t.name));
+  if (tables.has("users")) return;
+  const hadHistory = tables.has("_migrations") && (await db.first("SELECT 1 FROM _migrations LIMIT 1")) !== null;
+  if (tables.size > 0 && !hadHistory) return;
+  const dir = join(dirname(path), "backups");
+  const copies = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".db") && quickFileCheck(join(dir, f)) === null) : [];
+  if (!copies.length) return;
+  const newest = copies.map((f) => ({ f, t: statSync(join(dir, f)).mtimeMs })).sort((a, b) => b.t - a.t)[0]!.f;
+  throw new EmptyDatabaseError(
+    `${path} has no users table (${tables.size ? "damaged" : "empty"}) but ${dir} holds ${copies.length} database copies, so this is not a new install. Refusing to start with an empty database. ` +
+      `Restore the newest copy: docker compose run --rm --no-deps -T banking node dist/node.js restore backups/${newest}. ` +
+      "To start empty on purpose, move the backups folder away first.",
+  );
+}
+
+/**
+ * VACUUM INTO writes a consistent copy even while another process has the database open. The copy is opened
+ * and checked before it counts; a failed or unreadable one is removed, so an empty file never passes as a backup.
+ */
 function copyDatabase(db: { exec(sql: string): void }, dir: string, name: string): string {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const file = join(dir, name);
   rmSync(file, { force: true });
-  // the name is a label with a date or timestamp; quotes are doubled for SQL anyway
-  db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+  try {
+    // the name is a label with a date or timestamp; quotes are doubled for SQL anyway
+    db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+  } catch (err) {
+    rmSync(file, { force: true });
+    throw err;
+  }
+  const check = verifyDatabaseFile(file);
+  if (!check.ok) {
+    rmSync(file, { force: true });
+    throw new Error(`database copy ${name} failed its check and was removed: ${check.reason}`);
+  }
   return file;
 }
 

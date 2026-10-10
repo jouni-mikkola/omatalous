@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 // Asetukset > Ylläpito. The host helper is played by the app's own `ops` CLI on the same data
 // directory, which is how the real helper talks to it (scripts/ops-helper.sh).
@@ -26,6 +27,16 @@ function helper(args: string[], stdin = ""): Record<string, any> {
   const lines = r.stdout.trim().split("\n");
   expect(lines).toHaveLength(1);
   return JSON.parse(lines[0]!);
+}
+
+/** The per-minute limit on mutating requests would make the test wait; move the earlier requests back in time. */
+function ageRequests() {
+  const db = new DatabaseSync(join(DIR, "data", "banking.db"));
+  try {
+    db.exec("UPDATE ops_requests SET requested_at = '2020-01-01T00:00:00.000Z'");
+  } finally {
+    db.close();
+  }
 }
 
 const problems = (page: Page) => {
@@ -56,6 +67,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await expect(page.getByText("./scripts/install.sh --ops-helper")).toBeVisible();
   await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Tarkista päivitykset" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
 
   // the helper reports in, with a snapshot full of hostile strings
   helper(
@@ -72,6 +84,11 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   );
   await page.reload();
   await expect(page.getByText(/Apuri toimii/)).toBeVisible();
+  // a version 1 helper does not know logs, prune and helper-renew: the page says so and offers the command
+  await expect(page.getByText(/Apuri on vanhentunut, eikä se osaa/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Siivoa levy" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Uusi apuri" })).toBeDisabled();
   await expect(page.getByText("Uusi versio saatavilla")).toBeVisible();
   // shown as text: the tags are on the page as characters, nothing was created from them
   await expect(page.locator(".ops-commits")).toContainText(XSS[0]!);
@@ -93,7 +110,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeDisabled();
 
   // the helper picks it up and reports a result whose log holds hostile text
-  const polled = helper(["poll", "--helper", "1", "--done", ""]);
+  const polled = helper(["poll", "--helper", "2", "--done", ""]);
   expect(polled.request).toMatchObject({ action: "update", params: {}, secret: null });
   helper(
     ["report"],
@@ -121,6 +138,51 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await page.getByRole("dialog").getByRole("button", { name: "Peruuta" }).click();
   // the audit list shows the request and its end
   await expect(page.getByRole("cell", { name: "päivitys" }).first()).toBeVisible();
+
+  // the helper is version 2 now: logs only read, and the log opens by itself
+  await expect(page.getByRole("button", { name: "Lue lokit" })).toBeEnabled({ timeout: 15_000 });
+  await expect(page.getByText(/Apuri on vanhentunut, eikä se osaa/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Lue lokit" }).click();
+  await expect(page.getByText(/Jonossa\./)).toBeVisible();
+  const logsReq = helper(["poll", "--helper", "2", "--done", ""]);
+  expect(logsReq.request).toMatchObject({ action: "logs", params: {}, secret: null });
+  helper(
+    ["report"],
+    JSON.stringify({
+      id: logsReq.request.id,
+      status: "ok",
+      exit_code: 0,
+      summary: "Luettu: banking.",
+      output: `STEP: 1/1 Luetaan palvelujen lokit\n== banking ==\nbanking-1  | ${XSS[0]}\nbanking-1  | call with Bearer abc123tokenvalue and eyJhbGciOiJSUzI1NiJ9.eyJ4IjoxfQ.c2ln\nbanking-1  | ordinary line`,
+    }),
+  );
+  await expect(page.getByText("Luettu: banking.")).toBeVisible({ timeout: 15_000 });
+  const logsBox = page.locator(".ops-log");
+  await expect(logsBox).toContainText("== banking ==");
+  await expect(logsBox).toContainText("ordinary line");
+  await expect(logsBox).toContainText("<script>window.__xss = 1</script>");
+  await expect(logsBox).not.toContainText("abc123tokenvalue");
+  await expect(logsBox).not.toContainText("eyJ");
+  expect(await page.locator(".ops-log script, .ops-log img").count()).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+
+  // prune and helper-renew: one click each, no dialog, the helper's summary is shown
+  ageRequests();
+  await page.getByRole("button", { name: "Siivoa levy" }).click();
+  await expect(page.getByText(/Jonossa\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Uusi apuri" })).toBeDisabled();
+  const pruneReq = helper(["poll", "--helper", "2", "--done", ""]);
+  expect(pruneReq.request).toMatchObject({ action: "prune", params: {}, secret: null });
+  helper(["report"], JSON.stringify({ id: pruneReq.request.id, status: "ok", exit_code: 0, summary: "Vapautettiin tilaa: kuvat 1,2 Gt, välimuisti 300 Mt.", output: "STEP: 1/2 Poistetaan käyttämättömät kuvat" }));
+  await expect(page.getByText("Vapautettiin tilaa: kuvat 1,2 Gt, välimuisti 300 Mt.")).toBeVisible({ timeout: 15_000 });
+  ageRequests();
+  await page.getByRole("button", { name: "Uusi apuri" }).click();
+  const renewReq = helper(["poll", "--helper", "2", "--done", ""]);
+  expect(renewReq.request).toMatchObject({ action: "helper-renew", params: {}, secret: null });
+  helper(["report"], JSON.stringify({ id: renewReq.request.id, status: "ok", exit_code: 0, summary: "Apuri asennettu uudelleen." }));
+  await expect(page.getByText("Apuri asennettu uudelleen.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("cell", { name: "levyn siivous" }).first()).toBeVisible();
+  await expect(page.getByRole("cell", { name: "apurin uusinta" }).first()).toBeVisible();
 
   // no horizontal scroll on a phone
   await page.setViewportSize({ width: 375, height: 667 });

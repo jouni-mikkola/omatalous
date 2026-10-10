@@ -56,6 +56,15 @@ export const S = {
   events: "Tapahtumat",
   noEvents: "Ei tapahtumia.",
   busy: "Toinen toiminto on kesken.",
+  tools: "Huolto",
+  toolsIntro: "Lokit, levytila ja apurin asennus.",
+  logs: "Lue lokit",
+  logsHelp: "Sovelluksen ja sen palvelujen (Caddy, tunneli) viimeiset 100 riviä. Avaimet ja tunnisteet piilotetaan.",
+  prune: "Siivoa levy",
+  pruneHelp: "Poistaa käyttämättömät Docker-kuvat ja rakennusvälimuistin. Käytössä oleva ja edellinen versio jäävät.",
+  renew: "Uusi apuri",
+  renewHelp: "Asentaa apurin ajastuksen ja asetukset uudelleen tästä kansiosta. Tämä tapahtuu myös jokaisen päivityksen jälkeen.",
+  toolsOutdated: "Apuri on vanhentunut, eikä se osaa näitä toimintoja. Aja koneella:",
   helperOffButtons: "Painikkeet ovat pois käytöstä, kunnes apuri on käytössä.",
 };
 

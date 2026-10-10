@@ -1,7 +1,7 @@
 # Releasing
 
 Development happens in the private repository. Households get the app from the public repository
-`jouni-mikkola/omatalous`, which holds one commit per published snapshot. `scripts/publish-public.sh` exports the
+`jouni-mikkola/omatalous`, which holds one commit per published snapshot. `tools/publish-public.sh` exports the
 committed tree of `HEAD` there and pushes `main`. With `--tag` it also pushes `vX.Y.Z`. The public repository's release
 workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/jouni-mikkola/omatalous`, signs it with cosign
 through GitHub OIDC and verifies the signature. The return page workflow publishes `relay/` to GitHub Pages on the same
@@ -25,13 +25,14 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 4. Add a frozen database fixture, `apps/server/test/fixtures/db/<version>.sql`.
 5. Add the new tag to `.github/upgrade-from.txt` and keep the oldest supported one. The floor is `90dc8f3` (`0.1.0`).
 6. `pnpm typecheck`, `pnpm test`, `pnpm build` and `pnpm e2e` are green. The `Upgrade / upgrade` check is green for every
-   baseline.
+   baseline. It also checks that each baseline's maintenance helper accepts the new `docker-compose.yml`, because installs
+   update from the browser through the helper they already run (`tools/ci/compose-compat.sh`).
 7. Merge to `main` in the private repository and rename the `Unreleased` heading to the version. Run
-   `scripts/publish-public.sh --tag` from a clean tree. It checks that `version.ts`, the three `package.json` files and
+   `tools/publish-public.sh --tag` from a clean tree. It checks that `version.ts`, the three `package.json` files and
    the top `CHANGELOG.md` heading agree and that the tag is free in both repositories, then publishes the snapshot and
    the tag. It also puts the annotated tag `vX.Y.Z` on the private `HEAD` and pushes it to the private origin, so
    `.github/upgrade-from.txt` can name it. The
-   workflow checks again that the tag equals `v` plus the app version. Use `scripts/publish-public.sh` without
+   workflow checks again that the tag equals `v` plus the app version. Use `tools/publish-public.sh` without
    `--tag` for a snapshot that is not a release. Where pushing a tag is not possible, publish without `--tag` and run
    the Release workflow by hand on `main` in the public repository. It takes the version from the tree, refuses a
    version that already has a tag, and creates the tag and the release on the commit it built.
@@ -45,7 +46,7 @@ This applies to the public repository. The private one only needs CI and the upg
 
 - [ ] Two-factor authentication with a hardware key, recovery codes stored offline, no SMS. Review authorised apps and
   personal tokens. This account is the root of trust for every install.
-- [ ] Publish the first snapshot with `scripts/publish-public.sh`. It creates `main`, the default branch, and the
+- [ ] Publish the first snapshot with `tools/publish-public.sh`. It creates `main`, the default branch, and the
   release workflow only accepts a tag on a commit that is on `main`.
 - [ ] Optional hardening, for when someone else gets write access: a ruleset for `main` that blocks force pushes and
   deletion and requires linear history. Only the owner pushes, from the script, so no pull request is required there. In the private repository, protect its `main` with the checks `test`, `e2e`,

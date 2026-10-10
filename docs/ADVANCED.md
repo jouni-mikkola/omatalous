@@ -150,30 +150,33 @@ With several copies, add a line for each, with `cd` to the copy's folder and its
 
 You need this when the database is damaged or you want an earlier state back. It replaces all data with the backup.
 
+`restore` checks the file first (size, integrity, this app's tables) and refuses a bad one without changing anything.
+It saves the current database as `backups/pre-restore-<time>.db` in the data volume before it swaps.
+
 From a file downloaded with *Lataa uusin*, after copying it to the machine (for example with `scp`):
 
 ```bash
 docker compose stop banking
-cat auto-2026-10-09.db | docker compose run --rm --no-deps -T --entrypoint sh banking \
-  -c 'cat > /data/restore.db && rm -f /data/banking.db-wal /data/banking.db-shm && mv /data/restore.db /data/banking.db'
+cat auto-2026-10-09.db | docker compose run --rm --no-deps -T --entrypoint sh banking -c 'cat > /data/restore.db'
+docker compose run --rm --no-deps -T banking node --disable-warning=ExperimentalWarning dist/node.js restore /data/restore.db
 docker compose start banking
 ```
 
-From a file made by `backup.sh`, use the same commands with the second line starting
-`gunzip -c backups/talous-20261009-0330.db.gz |`, or with an encrypted one
-`age -d -i ~/omatalous-backup.key backups/talous-20261009-0330.db.gz.age | gunzip -c |`.
+From a file made by `backup.sh`, start the second line with `gunzip -c backups/talous-20261009-0330.db.gz |`, or for an
+encrypted one `age -d -i ~/omatalous-backup.key backups/talous-20261009-0330.db.gz.age | gunzip -c |`.
 
-From one of the app's own daily copies (`docker compose run --rm --no-deps -T --entrypoint ls banking /data/backups`
-lists them):
+From one of the app's own copies (`docker compose run --rm --no-deps -T --entrypoint ls banking /data/backups` lists them):
 
 ```bash
 docker compose stop banking
-docker compose run --rm --no-deps -T --entrypoint sh banking \
-  -c 'cp /data/backups/auto-2026-10-09.db /data/restore.db && rm -f /data/banking.db-wal /data/banking.db-shm && mv /data/restore.db /data/banking.db'
+docker compose run --rm --no-deps -T banking node --disable-warning=ExperimentalWarning dist/node.js restore backups/auto-2026-10-09.db
 docker compose start banking
 ```
 
 It worked when you can log in and the newest transactions are from the day of the backup.
+
+An empty or table-less `banking.db` next to saved copies is never started as a new install. The log says so and names
+the newest copy to restore.
 
 ### Move to a new machine
 
@@ -269,9 +272,13 @@ buttons on that page work through a small helper on the machine, which the insta
 It needs a normal user, never root, and `jq`. It runs once a minute from a systemd user timer, or from cron where a timer
 cannot keep running. `./scripts/install.sh --ops-helper-off` removes it.
 
-The app only writes a request. The helper checks it against a fixed list of six actions (check for updates, update, roll
-back, back up, restart and check the install) and runs one of the project's own scripts. Nothing from the database
-reaches a shell, and the address and port are never changed from the browser. The helper keeps its logs in `ops/`. If an
+The app only writes a request. The helper checks it against a fixed list of nine actions (check for updates, update, roll
+back, back up, restart, check the install, read the logs, free disk space and renew itself) and runs one of the project's
+own scripts. Nothing from the database reaches a shell, and the address and port are never changed from the browser.
+None of them takes a parameter. The logs are the last 100 lines of each running service with keys and tokens hidden. Freeing
+disk space runs `docker image prune -f` and `docker builder prune -f`, which leave the running and the previous version
+alone. Renewing runs `./scripts/install.sh --ops-helper` again, which keeps the saved remote and branch. An update does
+the same after it succeeds, when the helper is on. The helper keeps its logs in `ops/`. If an
 update and its rollback both fail, `ops/RECOVERY.txt` has the exact commands. What it is trusted with is in
 [SECURITY.md](SECURITY.md#updates-and-the-maintenance-helper).
 

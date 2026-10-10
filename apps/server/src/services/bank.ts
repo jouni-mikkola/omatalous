@@ -17,6 +17,7 @@ import { randomToken, stableId } from "./ids.ts";
 import { startLookup } from "./industry.ts";
 import { ingestTransactions } from "./ingest.ts";
 import { UserError } from "./errors.ts";
+import { track } from "./inflight.ts";
 
 /** "2026-09-30" → "30.9.2026" */
 const finnishDate = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
@@ -58,7 +59,7 @@ export async function saveCredentials(s: Services, userId: string, appIdInput: u
 async function clientFor(s: Services, userId: string): Promise<EnableBankingClient> {
   const creds = await resolveCredentials(s, userId);
   if (!creds) throw new UserError("Pankkiyhteydet eivät ole vielä käytössä. Pyydä ylläpitäjää ottamaan ne käyttöön kohdassa Asetukset > Palvelin.");
-  return new EnableBankingClient({ appId: creds.appId, privateKeyPem: creds.privateKeyPem, fetch: s.fetch, authHosts: s.config.bank.authHosts });
+  return new EnableBankingClient({ appId: creds.appId, privateKeyPem: creds.privateKeyPem, fetch: s.fetch, authHosts: s.config.bank.authHosts, timeZone: s.instance.current.timezone });
 }
 
 // ── linking a bank ───────────────────────────────────────
@@ -144,9 +145,9 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
 
   for (const a of session.accounts) {
     // account uids change with every consent; the identification hash / IBAN do not
-    const identity = await stableId(a.identification_hash ?? a.account_id?.iban ?? a.uid);
+    const identity = stableId(a.identification_hash ?? a.account_id?.iban ?? a.uid);
     await repo.upsertAccount({
-      id: `eb-${await stableId(`${repo.userId}|${identity}`)}`,
+      id: `eb-${stableId(`${repo.userId}|${identity}`)}`,
       connectionId: session.session_id,
       provider: "enablebanking",
       externalId: a.uid,
@@ -167,7 +168,7 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
       await repo.setConnectionStatus(c.id, "revoked");
     }
   }
-  await s.settings.bumpDataVersion();
+  await s.settings.bumpUserDataVersion(repo.userId);
   return { connectionId: session.session_id, accounts: session.accounts.length };
 }
 
@@ -189,7 +190,7 @@ export async function foldCsvAccounts(repo: FinanceRepo): Promise<number> {
         const base = `c|${t.bookingDate}|${t.amountCents}|${fold(t.counterparty ?? "")}|${fold(t.description ?? "")}`;
         const n = occurrence.get(base) ?? 0;
         occurrence.set(base, n + 1);
-        newIds.set(t.id, await stableId(`${bank.id}|booked|${base}|${n}`));
+        newIds.set(t.id, stableId(`${bank.id}|booked|${base}|${n}`));
       }
       await repo.mergeAccountInto(csv.id, bank.id, newIds);
       folded++;
@@ -253,7 +254,12 @@ const LOCK_TTL_MS = 15 * 60_000;
  * active consents, then re-runs categorisation. PSD2 lets banks cap
  * unattended fetches at 4 a day per account, so schedule 1–4 runs a day.
  */
-export async function syncUser(s: Services, userId: string, trigger: string): Promise<SyncSummary> {
+export function syncUser(s: Services, userId: string, trigger: string): Promise<SyncSummary> {
+  // a stop signal waits for a fetch in progress (entry/shutdown.ts)
+  return track(fetchForUser(s, userId, trigger));
+}
+
+async function fetchForUser(s: Services, userId: string, trigger: string): Promise<SyncSummary> {
   const lockKey = `sync_lock:${userId}`;
   if (!(await s.settings.tryLock(lockKey, LOCK_TTL_MS))) {
     return { status: "skipped", fetched: 0, inserted: 0, messages: ["Haku on jo käynnissä."] };
@@ -264,6 +270,9 @@ export async function syncUser(s: Services, userId: string, trigger: string): Pr
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
   let failures = 0;
   let attempts = 0;
+  // rows written, or a balance that moved: only then do categories and the cached analyses need work
+  let rowsChanged = 0;
+  let balanceChanged = false;
 
   try {
     const connections = (await repo.listConnections()).filter((c) => c.status === "active" && c.provider === "enablebanking");
@@ -288,9 +297,14 @@ export async function syncUser(s: Services, userId: string, trigger: string): Pr
           const r = await ingestTransactions(repo, account.id, raws, "enablebanking", { replacePending: true });
           summary.fetched += r.fetched;
           summary.inserted += r.inserted;
+          rowsChanged += r.changed;
 
           const balance = pickBalance(await client!.balances(account.externalId!));
-          if (balance) await repo.setAccountBalance(account.id, amountToCents(balance.balance_amount.amount), s.now().toISOString());
+          const cents = balance ? amountToCents(balance.balance_amount.amount) : null;
+          if (cents !== null) {
+            if (account.balanceCents !== cents) balanceChanged = true;
+            await repo.setAccountBalance(account.id, cents, s.now().toISOString());
+          }
           await repo.markAccountSynced(account.id, s.now().toISOString());
         } catch (err) {
           failures++;
@@ -312,7 +326,9 @@ export async function syncUser(s: Services, userId: string, trigger: string): Pr
       await repo.markConnectionSynced(conn.id, s.now().toISOString());
     }
 
-    await reprocess(repo, s.settings);
+    // a fetch that found nothing new leaves the history and everyone's cached analyses alone
+    if (rowsChanged) await reprocess(repo, s.settings);
+    else if (balanceChanged) await s.settings.bumpUserDataVersion(userId);
     // the hourly tick looks up right after its own fetches, for everyone at once
     if (summary.inserted && trigger !== "schedule") startLookup(s);
     summary.status = failures === 0 ? "ok" : failures < attempts ? "partial" : "failed";

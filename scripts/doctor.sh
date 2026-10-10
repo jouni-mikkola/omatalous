@@ -211,29 +211,59 @@ fi
 
 # ── backups ──────────────────────────────────────────────────────────────────
 head_ "Backups" "Varmuuskopiot"
-newest=$(ls -1t backups/talous-*.db.gz backups/talous-*.db.age backups/talous-*.db 2>/dev/null | head -1)
+# a file that is empty, cut short or not a database is no backup (a full disk leaves such files)
+backup_file_ok() { # backup_file_ok FILE
+  local size
+  size=$(stat -c %s "$1" 2>/dev/null) || return 1
+  case $1 in
+    *.gz) ((size >= 1024)) && gzip -t "$1" 2>/dev/null ;;
+    *.age) ((size >= 200)) ;;
+    *) ((size >= 4096)) && [[ $(head -c 15 "$1" 2>/dev/null) == "SQLite format 3" ]] ;;
+  esac
+}
+newest=""; broken=()
+while IFS= read -r f; do
+  [[ -n $f ]] || continue
+  if backup_file_ok "$f"; then [[ -n $newest ]] || newest=$f; else broken+=("$f"); fi
+done < <(ls -1t backups/talous-*.db.gz backups/talous-*.db.gz.age backups/talous-*.db.age backups/talous-*.db 2>/dev/null)
+if ((${#broken[@]})); then
+  warn "$(t "${#broken[@]} file(s) in backups/ are not usable backups (empty, cut short or fail gzip -t): ${broken[*]}" "${#broken[@]} tiedosto(a) kansiossa backups/ ei kelpaa varmuuskopioksi (tyhjä, katkennut tai ei läpäise gzip -t -tarkistusta): ${broken[*]}")" "$(t "rm the files, check the free disk space, run ./scripts/backup.sh again" "poista tiedostot, tarkista levytila ja aja ./scripts/backup.sh uudelleen")"
+fi
 if [[ -n $newest ]]; then
   age=$(( $(date +%s) - $(stat -c %Y "$newest") ))
   if ((age > 3 * 86400)); then warn "$(t "The newest backup is $(span $age) old ($newest)." "Uusin varmuuskopio on $(span $age) vanha ($newest).")" "$(t "./scripts/backup.sh   and schedule it: docs/ADVANCED.md#backups" "./scripts/backup.sh   ja ajasta se: docs/ADVANCED.md#backups")"
   else ok "$(t "The newest backup is $(span $age) old ($newest)" "Uusin varmuuskopio $(span $age) vanha ($newest)")"; fi
 else
-  warn "$(t "The backups/ folder has no backups." "Kansiossa backups/ ei ole varmuuskopioita.")" "$(t "./scripts/backup.sh   and schedule it: docs/ADVANCED.md#backups" "./scripts/backup.sh   ja ajasta se: docs/ADVANCED.md#backups")"
+  warn "$(t "The backups/ folder has no usable backups." "Kansiossa backups/ ei ole käyttökelpoisia varmuuskopioita.")" "$(t "./scripts/backup.sh   and schedule it: docs/ADVANCED.md#backups" "./scripts/backup.sh   ja ajasta se: docs/ADVANCED.md#backups")"
 fi
 if $DOCKER_OK && { $RUNNING || docker image inspect "$APP_IMAGE" >/dev/null 2>&1; }; then
-  auto=$(in_vol node -e '
+  # every copy of the app is opened and checked; a file that fails is listed (the app removes new ones itself)
+  auto=$(in_vol node --disable-warning=ExperimentalWarning -e '
     const fs = require("node:fs");
+    const { DatabaseSync } = require("node:sqlite");
+    const ok = (p) => {
+      try {
+        if (fs.statSync(p).size < 4096) return false;
+        const d = new DatabaseSync(p, { readOnly: true });
+        try { const q = d.prepare("PRAGMA quick_check(1)").all(); return q.length === 1 && q[0].quick_check === "ok" && !!d.prepare("SELECT 1 FROM sqlite_master WHERE name = ?").get("users"); } finally { d.close(); }
+      } catch { return false; }
+    };
     try {
-      const f = fs.readdirSync("/data/backups").filter((n) => /^auto-.*\.db$/.test(n))
-        .map((n) => ({ n, t: fs.statSync("/data/backups/" + n).mtimeMs / 1000 })).sort((a, b) => b.t - a.t);
-      console.log(f.length + " " + Math.floor(f[0]?.t ?? 0));
-    } catch { console.log("0 0"); }' | tail -1)
-  read -r acount atime <<<"${auto:-0 0}"
+      const all = fs.readdirSync("/data/backups").filter((n) => /\.db$/.test(n)).map((n) => ({ n, good: ok("/data/backups/" + n), t: fs.statSync("/data/backups/" + n).mtimeMs / 1000 }));
+      const auto = all.filter((f) => f.good && /^auto-/.test(f.n)).sort((a, b) => b.t - a.t);
+      const bad = all.filter((f) => !f.good).map((f) => f.n);
+      console.log(auto.length + " " + Math.floor(auto[0]?.t ?? 0) + " " + (bad.join(",") || "-"));
+    } catch { console.log("0 0 -"); }' | tail -1)
+  read -r acount atime abroken <<<"${auto:-0 0 -}"
+  if [[ ${abroken:--} != - ]]; then
+    warn "$(t "The volume has database copies that fail their check: ${abroken//,/ }" "Taltiossa on tietokantakopioita, jotka eivät läpäise tarkistusta: ${abroken//,/ }")" "$(t "docker compose exec banking rm /data/backups/<file>   then check the free disk space" "docker compose exec banking rm /data/backups/<tiedosto>   ja tarkista levytila")"
+  fi
   if [[ ${acount:-0} -gt 0 ]]; then
     aage=$(( $(date +%s) - atime ))
     if ((aage > 2 * 86400)); then warn "$(t "The app's own daily copy is $(span $aage) old ($acount in the volume)." "Sovelluksen oma päiväkopio on $(span $aage) vanha ($acount kpl taltiossa).")" "docker compose logs banking | grep -i backup"
     else ok "$(t "The app's own daily copy is $(span $aage) old ($acount in the volume)" "Sovelluksen oma päiväkopio $(span $aage) vanha ($acount kpl taltiossa)")"; fi
   else
-    warn "$(t "The volume has no daily copy by the app yet (it appears within the first day)." "Taltiossa ei ole vielä sovelluksen omaa päiväkopiota (tulee ensimmäisen vuorokauden aikana).")"
+    warn "$(t "The volume has no usable daily copy by the app yet (it appears within the first day)." "Taltiossa ei ole vielä sovelluksen käyttökelpoista päiväkopiota (tulee ensimmäisen vuorokauden aikana).")"
   fi
 fi
 

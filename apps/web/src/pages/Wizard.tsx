@@ -143,7 +143,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
             <div className="form-row wizard-nav">
               <span className="spacer" />
               <button className={current.bankApp.source ? "btn btn-primary" : "btn"} type="button" onClick={() => goTo(1)}>
-                {current.bankApp.source ? "Jatka" : "Ohita"}
+                {current.bankApp.source ? "Jatka" : "Ohita vaihe"}
               </button>
             </div>
           </>

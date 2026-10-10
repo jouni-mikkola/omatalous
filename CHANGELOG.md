@@ -3,6 +3,70 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.5.0
+
+Money and reports
+
+- Money that comes back no longer counts as income. A shop refund (within 120 days), a person sending back what you sent
+  (within 90 days) and friends' shares of a bill you paid cancel the payment they belong to and take its category. They
+  show *palautus* in *Tapahtumat*. Salary, benefits and regular payers stay income. The rules are in
+  [docs/MONEY_FLOWS.md](docs/MONEY_FLOWS.md).
+- A purchase that came back leaves the largest purchases, the merchant lists, the habit alerts and the double-charge alert.
+- New reports: *Tulevat laskut* (bills that are not monthly, due in the next three months), *Nousseet menot* (a category
+  above its own level for three months in a row, not one-off spikes) and fixed costs as a share of income, with the
+  savings buffer in months where the bank gives balances.
+- *Tulot ja menot* no longer calls the running month a loss before its salary arrives. *Uudet kauppiaat* lists shops
+  visited at least twice.
+- Every merchant and biller name opens its transactions. Filtered to one merchant, *Tapahtumat* shows its whole history
+  at the top: totals, number of payments, monthly average, first and last payment, category, and the cadence and next
+  date of a recurring payment.
+
+Fetching and importing
+
+- A pending row is replaced by its booked row, also when the bank lists both or a CSV brings the booked one, and keeps
+  your category. A CSV import skips a row only when the day, amount and merchant agree, so two shops with the same amount
+  on one day are both kept. Amounts are read as exact cents with the bank's sign. A fetch that hits the page limit fails
+  and is retried instead of storing a short list.
+
+Look
+
+- One calm theme instead of light and dark: a soft grey-blue page, no white surfaces, a navy primary colour and a chart
+  palette checked for colour blindness.
+- Empty pages say what to do next, the recurring and accounts tables fit a phone, and "Haku pankista" and "Päiviä ilman
+  kulutusta" replace names that were easy to misread.
+
+Reliability
+
+- `node dist/node.js restore <file>` checks a backup before it replaces the database and keeps the current one as
+  `pre-restore-*.db`. The app refuses to start empty over a database that lost its tables when copies exist.
+- Every database copy (daily, before an update, `backup.sh`) is checked after it is written and removed when it fails.
+- A full disk or a busy database shows a Finnish message instead of a generic error. `/api/health` checks the database.
+- An import, an upgrade or a fetch stopped by a crash is finished at the next start or within the hour. On shutdown the
+  app lets running work finish for up to 8 seconds.
+- Changing one category or merchant rule takes about 0.1 s instead of 2 s on a long history, a fetch that brings nothing
+  new does no work, memory stays flat (the analysis cache has a size limit), and the server answers during long jobs.
+
+Maintenance
+
+- *Asetukset > Ylläpito* has three more actions. *Lue lokit* shows the last 100 lines of the app and of Caddy or the tunnel, with keys, tokens and bearer headers hidden. *Siivoa levy* runs `docker image prune -f` and `docker builder prune -f`, never touches the running or the previous image and says how much it freed. *Uusi apuri* installs the helper's schedule again from the folder (`install.sh --ops-helper`).
+- `update.sh` renews the helper's schedule after a successful update when the helper is on. `install.sh` no longer stops a helper run that is in progress when it replaces the timer.
+- The helper protocol is version 2. A version 1 helper still does the old six actions, and the page offers the new ones only after it has updated. Migration 0007 widens the action list in `ops_requests` and keeps every row.
+- Developer and release files moved from `scripts/` to `tools/` (publish script, return page hash tool, shell tests, CI checks). `scripts/` now holds only what a household uses. `tools/` stays out of the image. New: `pnpm test:sh`.
+- `install.sh` sets `net.ipv4.ip_nonlocal_bind=1` when the app binds to a home network address, so Docker can bind it when the machine gets the address late at boot. The manual step is gone from TROUBLESHOOTING.
+
+For developers
+
+- The upgrade rehearsal includes 0.4.0 and checks that each old version's maintenance helper accepts the new
+  `docker-compose.yml` (`tools/ci/compose-compat.sh`), because installs update through the helper they already run.
+- README shows what connects where.
+
+Upgrade
+
+- Nothing to do by hand. *Päivitä* in *Asetukset > Ylläpito* updates from 0.4.0.
+- Migrations 0007 (the maintenance request table gets the new actions) and 0008 (indexes) run on the first start, after
+  the usual copy. The indexes take a few seconds on a long history.
+- The helper runs from the updated folder, so its new actions show up within a minute after the update.
+
 ## 0.4.0
 
 - A release can be started by hand from the public repository's Actions tab. That run creates the version tag itself.

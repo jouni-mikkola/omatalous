@@ -6,10 +6,15 @@
  *   2. the database is copied (pre-secret-rotate-*.db), then all keys are re-sealed in one transaction
  *   3. the old secret is kept as <file>.prev-<date>, and <file>.next replaces <file> (an atomic rename)
  * A run that stopped after step 1 or 2 is finished by running the command again: it finds <file>.next and
- * checks which secret the database is sealed with.
+ * checks which secret the database is sealed with. A run that stopped between the database commit and the
+ * rename (a crash, a power loss) is finished by the next start (finishInterruptedRotation).
+ * Every file and its folder are flushed to disk before the next step, because the database commit is durable
+ * and a lost .next would leave keys sealed with a secret nobody has.
  */
 import { randomBytes } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, readFileSync, renameSync } from "node:fs";
+import { dirname } from "node:path";
+import { fsyncDir, fsyncFile, writeNewFileDurable } from "../durable.ts";
 import type { Services } from "../services/context.ts";
 import { databaseOpensWith, resealAll } from "../services/secret-rotation.ts";
 
@@ -33,7 +38,7 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
     lines.push("The previous run was interrupted, continuing from it.");
   } else {
     newSecret = randomBytes(48).toString("base64url");
-    writeFileSync(next, `${newSecret}\n`, { flag: "wx", mode: 0o600 });
+    writeNewFileDurable(next, `${newSecret}\n`, 0o600, dirname(file));
   }
 
   if (await databaseOpensWith(s, oldSecret)) {
@@ -46,12 +51,43 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
     throw new Error("The keys in the database open with neither the old nor the new secret. Nothing was changed.");
   }
 
-  const prev = `${file}.prev-${s.now().toISOString().slice(0, 19).replace(/[-:]/g, "")}`;
-  copyFileSync(file, prev);
-  chmodSync(prev, 0o600);
-  renameSync(next, file);
-  chmodSync(file, 0o600);
+  const prev = installNext(file, next, s.now());
   lines.push(`The new secret is in ${file}. The old one is in ${prev}. It is only needed to open old backups, so delete it once those are gone (14 days).`);
   lines.push("Restart the app: docker compose restart banking");
   return lines;
+}
+
+/** Keeps the old secret as <file>.prev-<stamp> and makes <file>.next the secret file; each step is flushed. */
+function installNext(file: string, next: string, at: Date): string {
+  const prev = `${file}.prev-${at.toISOString().slice(0, 19).replace(/[-:]/g, "")}`;
+  copyFileSync(file, prev);
+  chmodSync(prev, 0o600);
+  fsyncFile(prev);
+  fsyncFile(next);
+  renameSync(next, file);
+  chmodSync(file, 0o600);
+  fsyncDir(dirname(file));
+  return prev;
+}
+
+/**
+ * At start: a <file>.next left behind next to a database that is already sealed with it means the rotation
+ * committed but stopped before the rename. The rename is finished here, otherwise the app would start with
+ * the old secret and every stored bank key would fail to open. Returns the secret now in use, or null when
+ * nothing changed.
+ */
+export async function finishInterruptedRotation(s: Services, secretFile: string): Promise<string | null> {
+  const next = `${secretFile}.next`;
+  if (!existsSync(next)) return null;
+  const current = s.config.appSecret;
+  const candidate = readFileSync(next, "utf8").trim();
+  if (!current || candidate.length < 32) return null;
+  if (await databaseOpensWith(s, current)) return null; // not committed: running the command again continues it
+  if (!(await databaseOpensWith(s, candidate))) {
+    console.error(`${next} exists but the stored keys open with neither it nor ${secretFile}. Nothing was changed. See docs/ADVANCED.md.`);
+    return null;
+  }
+  const prev = installNext(secretFile, next, s.now());
+  console.warn(`recovery: an interrupted secret rotation was finished (the stored keys were already sealed with the new secret). The old secret is in ${prev}.`);
+  return candidate;
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Migrations since a base ref (the previous release tag) may only be added, never edited, renamed or removed.
-#   scripts/ci/check-migrations.sh v0.3.0
+#   tools/ci/check-migrations.sh v0.3.0
 set -euo pipefail
 base=${1:?usage: check-migrations.sh <base-ref>}
 cd "$(dirname "$0")/../.."

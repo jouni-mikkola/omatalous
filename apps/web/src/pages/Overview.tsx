@@ -256,7 +256,7 @@ export function Overview({
                 ))}
               </tbody>
             </table>
-            {!data.merchants.length && <div className="empty">Ei ostoksia.</div>}
+            {!data.merchants.length && <div className="empty">Ei arjen ostoksia tällä jaksolla.</div>}
           </div>
         </div>
         <div className="card">
@@ -326,7 +326,7 @@ function WeekdaySummary({ days }: { days: DashboardData["daily"] }) {
   const noSpend = days.filter((d) => d.cents <= 0).length;
   return (
     <p className="small muted" style={{ marginBottom: 0 }}>
-      Eniten kuluu {WEEKDAYS[top]}, keskimäärin {money(avg[top]!, false)}. Nollapäiviä {noSpend}/{days.length}.
+      Eniten kuluu {WEEKDAYS[top]}, keskimäärin {money(avg[top]!, false)}. Päiviä ilman kulutusta {noSpend}/{days.length}.
     </p>
   );
 }

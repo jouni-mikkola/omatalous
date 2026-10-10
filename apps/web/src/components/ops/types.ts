@@ -1,4 +1,4 @@
-export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update";
+export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew";
 
 export interface OpsRequestView {
   id: string;
@@ -50,6 +50,8 @@ export interface HelperInfo {
   seenAt: string | null;
   version: string | null;
   outdated: boolean;
+  /** The helper knows logs, prune and helper-renew. */
+  tools: boolean;
   enableCommand: string;
 }
 

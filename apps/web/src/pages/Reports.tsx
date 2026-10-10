@@ -10,7 +10,7 @@ import { query } from "../api.ts";
 import { DivergingColumns } from "../charts/DivergingColumns.tsx";
 import { LineChart } from "../charts/LineChart.tsx";
 import { StackedColumns } from "../charts/StackedColumns.tsx";
-import { date, money, monthLabel, monthLong, MONTHS_SHORT, percent, signedMoney } from "../format.ts";
+import { CADENCE_LABEL, date, money, monthLabel, monthLong, MONTHS_SHORT, percent, signedMoney } from "../format.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { useApi } from "../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
@@ -30,8 +30,10 @@ export function Reports({ meta, range, scope }: { meta: Meta; range: Range; scop
     ...(data.dataQuality.signals.length ? ([["laatu", "Tietojen laatu"]] as [string, string][]) : []),
     ["kassavirta", "Tulot ja menot"],
     ["kategoriat", "Kategoriat"],
+    ...(data.drift.items.length ? ([["nousseet", "Nousseet menot"]] as [string, string][]) : []),
     ["kuukaudet", "Kuukausitaulukko"],
     ["kiinteat", "Kiinteät ja muuttuvat"],
+    ...(data.upcoming.items.length ? ([["tulevat", "Tulevat laskut"]] as [string, string][]) : []),
     ["hinnat", "Hinnanmuutokset"],
     ["vuodet", "Vuosivertailu"],
     ["ostot", "Suurimmat ostot"],
@@ -58,8 +60,10 @@ export function Reports({ meta, range, scope }: { meta: Meta; range: Range; scop
       <DataQuality r={data.dataQuality} range={range} />
       <Cashflow r={data.cashflow} running={running} exportHref={`/api/export/report.csv${query({ ...range, scope, report: "cashflow" })}`} />
       <Categories r={data.categories} range={range} exportHref={`/api/export/report.csv${query({ ...range, scope, report: "categories" })}`} />
+      <Drift r={data.drift} range={range} label={label} />
       <Pivot r={data.pivot} partialLast={range.to < `${range.to.slice(0, 7)}-${daysInMonth(range.to.slice(0, 7))}`} exportHref={`/api/export/report.csv${query({ ...range, scope, report: "pivot" })}`} />
-      <FixedVariable r={data.fixedVariable} />
+      <FixedVariable r={data.fixedVariable} buffer={data.buffer} />
+      <Upcoming r={data.upcoming} label={label} />
       <PriceChanges r={data.priceChanges} label={label} isDebt={(id) => meta.categories.find((c) => c.id === id)?.kind === "debt"} />
       <YearOverYear r={data.yearOverYear} summary={data.summary} />
       <Purchases r={data.highlights} label={label} />
@@ -141,6 +145,9 @@ function Cashflow({ r, running, exportHref }: { r: R["cashflow"]; running: strin
   const [table, setTable] = useState(false);
   const t = r.totals;
   const monthLabelOf = (m: string) => `${monthLong(m)}${m === running ? " (kesken)" : ""}`;
+  // the month in progress has its bills but maybe not its salary: the margin is told from the months that ended
+  const settled = r.running ? r.closed : t;
+  const whole = r.running ? ", valmiit kuukaudet" : "";
   return (
     <Section
       id="kassavirta"
@@ -158,8 +165,12 @@ function Cashflow({ r, running, exportHref }: { r: R["cashflow"]; running: strin
           ["Tulot", money(t.incomeCents, false)],
           ["Menot", money(t.expenseCents, false)],
           ["Säästöön", money(t.savedCents, false)],
-          [t.netCents < 0 ? "Menot ylittivät tulot" : "Tuloja jäi yli", money(Math.abs(t.netCents), false)],
-          ["Säästöaste", t.savingsRate === null ? "–" : percent(t.savingsRate)],
+          ...(settled
+            ? ([
+                [`${settled.netCents < 0 ? "Menot ylittivät tulot" : "Tuloja jäi yli"}${whole}`, money(Math.abs(settled.netCents), false)],
+                [`Säästöaste${whole}`, settled.savingsRate === null ? "–" : percent(settled.savingsRate)],
+              ] as [string, string][])
+            : []),
           ...(t.borrowedCents ? ([["Luotonnostot", money(t.borrowedCents, false)]] as [string, string][]) : []),
         ]}
       />
@@ -342,12 +353,13 @@ function Pivot({ r, partialLast, exportHref }: { r: R["pivot"]; partialLast: boo
 }
 
 // ── fixed vs variable ─────────────────────────────────────
-function FixedVariable({ r }: { r: R["fixedVariable"] }) {
+function FixedVariable({ r, buffer }: { r: R["fixedVariable"]; buffer: R["buffer"] }) {
   const t = r.totals;
   const consumption = t.fixedCents + t.habitCents + t.variableCents;
   const share = (v: number) => (consumption ? percent(v / consumption) : "–");
   return (
     <Section id="kiinteat" title="Kiinteät ja muuttuvat" sub="Kiinteät ovat tilauksia ja laskuja, arkiostot toistuvia pieniä ostoja, satunnaiset kaikkea muuta">
+      {buffer.advice && <p className="lead">{buffer.advice}</p>}
       <Kv
         items={[
           ["Kiinteät", `${money(t.fixedCents, false)} · ${share(t.fixedCents)}`],
@@ -367,6 +379,84 @@ function FixedVariable({ r }: { r: R["fixedVariable"] }) {
         height={240}
         label="Kiinteät ja muuttuvat menot"
       />
+    </Section>
+  );
+}
+
+/** ["2026-07", "2026-08", "2026-09"] → "heinä–syyskuu 2026" */
+function monthSpan(months: readonly string[]): string {
+  const first = months[0]!;
+  const last = months[months.length - 1]!;
+  const name = (m: string) => MONTHS_SHORT[Number(m.slice(5, 7)) - 1]!;
+  return first.slice(0, 4) === last.slice(0, 4) ? `${name(first)}–${name(last)}kuu ${last.slice(0, 4)}` : `${name(first)}kuu ${first.slice(0, 4)}–${name(last)}kuu ${last.slice(0, 4)}`;
+}
+
+const monthEnd = (month: string) => `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+
+// ── costs that rose and stayed ────────────────────────────
+/** Categories that sat above their own level for three months: told only when there is one. */
+function Drift({ r, range, label }: { r: R["drift"]; range: Range; label: (id: string) => string }) {
+  if (!r.items.length) return null;
+  return (
+    <Section id="nousseet" title="Nousseet menot" sub={`Oman tason yläpuolella kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
+      <p className="lead">{r.advice}</p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kategoria</th>
+              <th className="num">Normaali/kk</th>
+              <th className="num">Nyt/kk</th>
+              <th className="num">Vuodessa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.items.map((i) => (
+              <tr key={i.category}>
+                <td>
+                  <a href={`#/transactions${query({ category: i.category, from: `${i.months[0]}-01`, to: monthEnd(i.months[i.months.length - 1]!) })}`}>{label(i.category)}</a>
+                </td>
+                <td className="num muted">{money(i.usualCents, false)}</td>
+                <td className="num">{money(i.recentCents, false)}</td>
+                <td className="num worse">
+                  <strong>{signedMoney(i.extraYearlyCents)}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+// ── bills that come rarely ────────────────────────────────
+/** Quarterly and yearly bills in the next three months: the ones that slip the mind. */
+function Upcoming({ r, label }: { r: R["upcoming"]; label: (id: string) => string }) {
+  if (!r.items.length) return null;
+  return (
+    <Section id="tulevat" title="Tulevat laskut" sub={`${date(r.from)}–${date(r.to)}`}>
+      <p className="lead">{r.advice}</p>
+      <div className="table-wrap">
+        <table className="compact">
+          <tbody>
+            {r.items.map((i) => (
+              <tr key={`${i.merchant}-${i.date}`}>
+                <td style={{ whiteSpace: "nowrap" }}>{date(i.date)}</td>
+                <td>
+                  <a href={`#/transactions${query({ merchant: i.merchant })}`}>{i.merchant}</a>
+                  <div className="sub">
+                    {label(i.category)} · {CADENCE_LABEL[i.cadence]}
+                  </div>
+                </td>
+                <td className="num">
+                  <strong>{money(i.amountCents, false)}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Section>
   );
 }
@@ -490,7 +580,7 @@ const NEW_SHOWN = 8;
 /** One-off purchases worth remembering, and places the household started using in the period. */
 function Purchases({ r, label }: { r: R["highlights"]; label: (id: string) => string }) {
   return (
-    <Section id="ostot" title="Suurimmat ostot" sub="Ilman laskuja, tilauksia ja ruokakauppaa">
+    <Section id="ostot" title="Suurimmat ostot" sub="Ilman kiinteitä kuluja ja ruokakauppaa">
       <div className="grid two">
         <div className="table-wrap">
           <table>
@@ -499,7 +589,7 @@ function Purchases({ r, label }: { r: R["highlights"]; label: (id: string) => st
                 <tr key={t.id}>
                   <td style={{ whiteSpace: "nowrap" }}>{date(t.date)}</td>
                   <td>
-                    {t.merchant}
+                    <a href={`#/transactions${query({ merchant: t.merchant })}`}>{t.merchant}</a>
                     <div className="sub">{label(t.category)}</div>
                   </td>
                   <td className="num">
@@ -512,13 +602,13 @@ function Purchases({ r, label }: { r: R["highlights"]; label: (id: string) => st
           {!r.largest.length && <div className="empty">Ei ostoksia valitulla jaksolla.</div>}
         </div>
         <div className="table-wrap">
-          <h3 className="small muted">Uudet kauppiaat</h3>
+          <h3 className="small muted">Uudet kauppiaat, vähintään kaksi ostosta</h3>
           <table>
             <tbody>
               {r.newMerchants.slice(0, NEW_SHOWN).map((m) => (
                 <tr key={m.merchant}>
                   <td>
-                    {m.merchant}
+                    <a href={`#/transactions${query({ merchant: m.merchant })}`}>{m.merchant}</a>
                     <div className="sub">
                       {label(m.category)} · ensimmäinen {date(m.firstDate)}
                     </div>

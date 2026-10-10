@@ -25,14 +25,15 @@ jobs:
       - run: pnpm build
       - name: Scripts parse
         run: |
-          for f in scripts/*.sh scripts/lib/*.sh scripts/test/*.sh; do bash -n "$f"; done
-          if command -v shellcheck >/dev/null; then shellcheck -S warning scripts/*.sh scripts/lib/*.sh scripts/test/*.sh; fi
+          # nullglob: the public snapshot has no tools/*.sh, and an unexpanded glob would fail shellcheck
+          shopt -s nullglob
+          files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/test/*.sh tools/ci/*.sh)
+          for f in "${files[@]}"; do bash -n "$f"; done
+          if command -v shellcheck >/dev/null; then shellcheck -S warning "${files[@]}"; fi
       - name: Maintenance helper tests
         run: |
-          scripts/test/ops-helper.test.sh
-          scripts/test/ops-schedule.test.sh
           # the publish script is private-only, so the public snapshot has no test for it
-          if [[ -f scripts/test/publish-public.test.sh ]]; then scripts/test/publish-public.test.sh; fi
+          for t in tools/test/*.test.sh; do "$t"; done
 
   e2e:
     # the built app in a real browser: every page in both themes and at phone width, no console or network errors

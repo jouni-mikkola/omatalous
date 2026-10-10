@@ -10,7 +10,8 @@ import { reprocess } from "../services/enrich.ts";
 import { randomToken, stableId } from "../services/ids.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
-import { body, cents, csv, csvResponse, optionalString, parseRange } from "./shared.ts";
+import { yieldToLoop } from "../yield.ts";
+import { body, cents, csv, csvBody, csvResponse, optionalString, parseRange } from "./shared.ts";
 
 /** Largest CSV text accepted (characters); the request body limit leaves room for the JSON escaping. */
 export const CSV_CONTENT_MAX = 5_000_000;
@@ -40,19 +41,25 @@ export function dataRoutes(s: Services) {
     // another own account already has would make two accounts look like one, so it is left out
     const ownIban = parsed.ownIban && !accounts.some((a) => normalizeIban(a.iban) === parsed.ownIban) ? parsed.ownIban : null;
     let accountId = input.accountId;
+    // a new account or an IBAN that was missing changes what transfers can pair with, whatever the rows did
+    let accountChanged = false;
     if (accountId) {
       const account = accounts.find((a) => a.id === accountId);
       if (!account) throw new UserError("Tiliä ei löydy.");
-      if (!account.iban && ownIban) await repo.setAccountIbanIfMissing(accountId, ownIban);
+      if (!account.iban && ownIban) {
+        await repo.setAccountIbanIfMissing(accountId, ownIban);
+        accountChanged = true;
+      }
     } else {
       const name = input.accountName?.trim().slice(0, 80) || "Tuotu tili";
       // a second file under the same name would silently land in the first account
       const key = name.toLowerCase();
       if (accounts.some((a) => a.name.trim().toLowerCase() === key)) throw new UserError(`Tili ${name} on jo olemassa. Valitse se listasta tai anna toinen nimi.`);
-      let identity = await stableId(`${user.id}|csv|${name}`);
+      let identity = stableId(`${user.id}|csv|${name}`);
       // an account imported under this name and renamed since keeps the id; the new one must not take it over
-      if (accounts.some((a) => a.id === `csv-${identity}`)) identity = await stableId(`${user.id}|csv|${name}|${randomToken()}`);
+      if (accounts.some((a) => a.id === `csv-${identity}`)) identity = stableId(`${user.id}|csv|${name}|${randomToken()}`);
       accountId = `csv-${identity}`;
+      accountChanged = true;
       await repo.upsertAccount({
         id: accountId,
         connectionId: null,
@@ -66,7 +73,8 @@ export function dataRoutes(s: Services) {
       });
     }
     const result = await ingestTransactions(repo, accountId, transactions, "csv", { replacePending: false });
-    await reprocess(repo, s.settings);
+    // the same file again changes nothing: no processing, and nobody's cached analysis is dropped
+    if (result.changed || accountChanged) await reprocess(repo, s.settings);
     if (result.inserted) startLookup(s);
     // the file's own dates, so an export that ends long ago is noticed now and not in Reports later
     const dates = transactions.map((t) => t.bookingDate).sort();
@@ -82,21 +90,30 @@ export function dataRoutes(s: Services) {
     const repo = s.finance(user.id);
     const shared = parseScope(q.scope) === "household" ? await sharedInView(s, user.id) : [];
     const filter = { ...range, accountId: q.accountId, category: q.category, merchant: q.merchant, q: q.q?.slice(0, 100) };
-    const items = [];
-    for (let offset = 0; ; offset += 5000) {
-      const page = await repo.listTransactions({ ...filter, limit: 5000, offset }, shared.length ? shared.map((a) => a.id) : undefined);
-      items.push(...page.items);
-      if (page.items.length < 5000) break;
-    }
     const accounts = new Map([...(await repo.listAccounts()), ...shared].map((a) => [a.id, a.name]));
-    const rows = [
-      ["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Siirto"],
-      ...items.map((t) => {
-        const cat = getCategory(t.category);
-        return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat.label, cat.group, cents(t.amountCents), t.status === "pending" ? "varaus" : "kirjattu", t.isTransfer ? "kyllä" : ""];
-      }),
+    const pieces = [
+      csv([["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Siirto"]]),
     ];
-    return csvResponse(c, `tapahtumat_${range.from}_${range.to}.csv`, csv(rows));
+    // pages by the last row seen (no OFFSET, no count), and the loop gives way between pages so other requests are served
+    const PAGE = 2000;
+    for (let after: { date: string; id: string } | undefined; ; ) {
+      const page = await repo.exportPage(filter, shared.length ? shared.map((a) => a.id) : undefined, PAGE, after);
+      if (page.length) {
+        pieces.push(
+          csvBody(
+            page.map((t) => {
+              const cat = getCategory(t.category);
+              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat.label, cat.group, cents(t.amountCents), t.status === "pending" ? "varaus" : "kirjattu", t.isTransfer ? "kyllä" : ""];
+            }),
+          ),
+        );
+        const last = page[page.length - 1]!;
+        after = { date: last.bookingDate, id: last.id };
+      }
+      if (page.length < PAGE) break;
+      await yieldToLoop();
+    }
+    return csvResponse(c, `tapahtumat_${range.from}_${range.to}.csv`, pieces.join(""));
   });
 
   app.get("/export/report.csv", async (c) => {

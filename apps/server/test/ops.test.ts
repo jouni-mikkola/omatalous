@@ -1,9 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
-import { helperStatus, normaliseState, parseOpsRequest, parseSteps, sanitiseOutput } from "../src/services/ops-validate.ts";
+import { openDatabase } from "../src/db/open.ts";
+import { helperStatus, LOGS_MAX_BYTES, LOGS_MAX_LINES, normaliseState, parseOpsRequest, parseSteps, sanitiseOutput } from "../src/services/ops-validate.ts";
 import { NOW, setupApp } from "./helpers.ts";
 
 const PASSWORD = "aino-salasana-123";
@@ -29,7 +31,7 @@ async function cli(s: Awaited<ReturnType<typeof setupApp>>["s"], args: string[],
   return JSON.parse(lines[0]!);
 }
 
-const helperOn = (s: Awaited<ReturnType<typeof setupApp>>["s"]) => cli(s, ["state", "--helper", "1"], "{}");
+const helperOn = (s: Awaited<ReturnType<typeof setupApp>>["s"], version = "2") => cli(s, ["state", "--helper", version], "{}");
 const ROUTES: [string, string, unknown?][] = [
   ["GET", "/api/ops/state"],
   ["GET", "/api/ops/audit"],
@@ -39,9 +41,9 @@ const ROUTES: [string, string, unknown?][] = [
 ];
 
 describe("ops: validation", () => {
-  it("accepts the six actions and nothing else", () => {
-    for (const action of ["update", "rollback", "backup", "restart", "doctor", "check-update"]) expect(parseOpsRequest({ action }).action).toBe(action);
-    for (const bad of [{ action: "access" }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
+  it("accepts the nine actions and nothing else", () => {
+    for (const action of ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew"]) expect(parseOpsRequest({ action }).action).toBe(action);
+    for (const bad of [{ action: "logs", params: { service: "banking" } }, { action: "prune", params: { all: true } }, { action: "helper-renew", params: { args: "--ops-policy" } }, { action: "Logs" }, { action: "helper_renew" },{ action: "access" }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
       expect(() => parseOpsRequest(bad), JSON.stringify(bad)).toThrow();
     }
   });
@@ -61,6 +63,19 @@ describe("ops: validation", () => {
     expect(cut.split("\n")).toHaveLength(200);
     expect(cut.endsWith("line 499")).toBe(true);
     expect(Buffer.byteLength(sanitiseOutput("ä".repeat(30000)))).toBeLessThanOrEqual(16 * 1024);
+  });
+
+  it("hides bearer tokens and Enable Banking JWTs, also short ones", () => {
+    const jwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJlbmFibGViYW5raW5nLmNvbSJ9.c2ln";
+    const out = sanitiseOutput(`GET /x Bearer abc.def\nsession ${jwt} ok\nid eyJhbGciOiJSUzI1NiJ9 done\nplain line`);
+    expect(out).not.toMatch(/abc\.def|eyJ|c2ln/);
+    expect(out).toContain("plain line");
+  });
+
+  it("the logs action may return more than the 200 lines other actions keep", () => {
+    const text = Array.from({ length: 400 }, (_, i) => `line ${i}`).join("\n");
+    expect(sanitiseOutput(text, [], { lines: LOGS_MAX_LINES, bytes: LOGS_MAX_BYTES }).split("\n")).toHaveLength(LOGS_MAX_LINES);
+    expect(sanitiseOutput(text).split("\n")).toHaveLength(200);
   });
 
   it("reads STEP lines", () => {
@@ -202,6 +217,70 @@ describe("ops: requests", () => {
     expect((await admin.call("POST", "/api/ops/request", { action: "doctor" })).status).toBe(200);
     expect((await admin.call("POST", "/api/ops/request", { action: "check-update" })).status).toBe(200);
     expect((await admin.call("POST", "/api/ops/request", { action: "backup" })).status).toBe(200);
+  });
+
+  it("logs, prune and helper-renew go through the same flow: no password, the helper must be on, one mutating at a time", async () => {
+    const { admin, s } = await setupApp();
+    const off = await admin.call("POST", "/api/ops/request", { action: "logs" });
+    expect(off.status).toBe(409);
+    await helperOn(s);
+    // logs only reads: it runs beside a mutating request and does not take the slot
+    expect((await admin.call("POST", "/api/ops/request", { action: "prune" })).status).toBe(200);
+    expect((await admin.call("POST", "/api/ops/request", { action: "logs" })).status).toBe(200);
+    expect((await admin.call("POST", "/api/ops/request", { action: "helper-renew" })).status).toBe(409);
+    expect((await admin.call("POST", "/api/ops/request", { action: "prune" })).status).toBe(409);
+    const state = (await admin.call("GET", "/api/ops/state")).body;
+    expect(state.requests.map((r: { label: string }) => r.label)).toEqual(["lokien luku", "levyn siivous"]);
+    expect(state.requests.map((r: { action: string }) => r.action)).toEqual(["logs", "prune"]);
+    // the helper gets them in order, with the usual exact shape
+    expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toMatchObject({ request: { action: "prune", params: {}, secret: null } });
+    const audit = (await admin.call("GET", "/api/ops/audit")).body.events as { action: string; outcome: string }[];
+    expect(audit.filter((e) => e.outcome === "jonossa").map((e) => e.action)).toEqual(["lokien luku", "levyn siivous"]);
+  });
+
+  it("a version 1 helper does not know the new actions: refused up front, the old ones still work", async () => {
+    const { admin, s } = await setupApp();
+    await helperOn(s, "1");
+    for (const action of ["logs", "prune", "helper-renew"]) {
+      const r = await admin.call("POST", "/api/ops/request", { action });
+      expect(r.status, action).toBe(409);
+      expect(r.body.error).toContain("./scripts/install.sh --ops-helper");
+    }
+    expect(await s.ops.recent(5)).toEqual([]);
+    expect((await admin.call("GET", "/api/ops/state")).body.helper).toMatchObject({ tools: false, outdated: false });
+    expect((await admin.call("POST", "/api/ops/request", { action: "doctor" })).status).toBe(200);
+    await helperOn(s);
+    expect((await admin.call("GET", "/api/ops/state")).body.helper.tools).toBe(true);
+    expect((await admin.call("POST", "/api/ops/request", { action: "logs" })).status).toBe(200);
+  });
+
+  it("helper-renew follows a finished prune, and a stored row of each new action is accepted by the table", async () => {
+    const { admin, s, adminId } = await setupApp();
+    await helperOn(s);
+    for (const action of ["logs", "prune", "helper-renew"]) {
+      const id = (await admin.call("POST", "/api/ops/request", { action })).body.request.id;
+      await cli(s, ["poll", "--helper", "2"]);
+      await cli(s, ["report"], JSON.stringify({ id, status: "ok", exit_code: 0, summary: "Valmis.", output: "x" }));
+      expect((await s.ops.get(id))!.status).toBe("ok");
+      s.opsLimiter.reset(`ops:${adminId}`);
+      await s.db.run("UPDATE ops_requests SET requested_at = '2020-01-01T00:00:00.000Z' WHERE id = ?", [id]);
+    }
+  });
+
+  it("the logs report keeps 300 lines and hides tokens; other actions keep the last 200", async () => {
+    const { admin, s } = await setupApp();
+    await helperOn(s);
+    const logs = Array.from({ length: 300 }, (_, i) => `banking-1  | line ${i}`).concat(["banking-1  | call with Bearer abc123 and eyJhbGciOiJSUzI1NiJ9.eyJ4IjoxfQ.sig"]).join("\n");
+    const id = (await admin.call("POST", "/api/ops/request", { action: "logs" })).body.request.id;
+    await cli(s, ["poll", "--helper", "2"]);
+    await cli(s, ["report"], JSON.stringify({ id, status: "ok", exit_code: 0, summary: "Lokit luettu.", output: logs }));
+    const row = (await s.ops.get(id))!;
+    expect(row.output!.split("\n")).toHaveLength(301);
+    expect(row.output).not.toMatch(/abc123|eyJ/);
+    const id2 = (await admin.call("POST", "/api/ops/request", { action: "prune" })).body.request.id;
+    await cli(s, ["poll", "--helper", "2"]);
+    await cli(s, ["report"], JSON.stringify({ id: id2, status: "ok", exit_code: 0, summary: "Valmis.", output: logs }));
+    expect((await s.ops.get(id2))!.output!.split("\n")).toHaveLength(200);
   });
 
   it("one mutating request at a time (409); read-only ones run beside it", async () => {
@@ -377,25 +456,40 @@ describe("ops: the helper's CLI", () => {
   });
 });
 
+function names(file: string): string[] {
+  const d = new DatabaseSync(file, { readOnly: true });
+  try {
+    return (d.prepare("SELECT username FROM users").all() as { username: string }[]).map((r) => r.username);
+  } finally {
+    d.close();
+  }
+}
+
 describe("ops: backup download", () => {
   const dirs: string[] = [];
   afterEach(() => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
   });
-  function backups(files: Record<string, { body: string; age: number }>) {
+  /** Real database copies (a download is checked before it leaves); a body that is not a .db name stays text. */
+  async function backups(files: Record<string, { body: string; age: number }>) {
     const dir = mkdtempSync(join(tmpdir(), "talous-ops-"));
     dirs.push(dir);
-    mkdirSync(dir, { recursive: true });
+    const { db } = await openDatabase(join(dir, "template.db"));
     for (const [name, f] of Object.entries(files)) {
-      writeFileSync(join(dir, name), f.body);
+      if (name.endsWith(".db")) {
+        db.exec(`DELETE FROM users; INSERT INTO users (id, username, display_name, password_hash, role, created_at) VALUES ('u', '${f.body}', 'X', 'h', 'admin', '2026-01-01')`);
+        db.exec(`VACUUM INTO '${join(dir, name)}'`);
+      } else writeFileSync(join(dir, name), f.body);
       const t = new Date(NOW.getTime() - f.age);
       utimesSync(join(dir, name), t, t);
     }
+    db.close();
+    for (const f of readdirSync(dir)) if (f.startsWith("template.db")) rmSync(join(dir, f));
     return dir;
   }
 
   it("streams the newest copy to an admin who gives the password, and audits it", async () => {
-    const dir = backups({ "auto-2026-10-08.db": { body: "old", age: 86_400_000 }, "pre-update-20261009T090000.db": { body: "newest-copy", age: 3600_000 }, "notes.txt": { body: "no", age: 0 } });
+    const dir = await backups({ "auto-2026-10-08.db": { body: "old", age: 86_400_000 }, "pre-update-20261009T090000.db": { body: "newest-copy", age: 3600_000 }, "notes.txt": { body: "no", age: 0 } });
     const { admin, member, s } = await setupApp({}, undefined, { backupDir: dir });
     const kaisa = await admin.call("POST", "/api/users", { username: "kaisa", displayName: "Kaisa", role: "admin" });
     expect(kaisa.status).toBe(201);
@@ -405,7 +499,8 @@ describe("ops: backup download", () => {
     expect((await admin.call("POST", "/api/ops/backups/latest", { password: "väärä" })).status).toBe(403);
     const ok = await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD });
     expect(ok.status).toBe(200);
-    expect(ok.body).toBe("newest-copy");
+    expect(Number(ok.res.headers.get("content-length"))).toBe(statSync(join(dir, "pre-update-20261009T090000.db")).size);
+    expect(names(join(dir, "pre-update-20261009T090000.db"))).toEqual(["newest-copy"]);
     expect(ok.res.headers.get("content-disposition")).toBe('attachment; filename="pre-update-20261009T090000.db"');
     expect(ok.res.headers.get("cache-control")).toBe("no-store");
     expect((await admin.call("GET", "/api/ops/audit")).body.events[0]).toMatchObject({ action: "varmuuskopion lataus", outcome: expect.stringContaining("ladattu") });
@@ -416,12 +511,12 @@ describe("ops: backup download", () => {
   });
 
   it("allows five downloads an hour, and says so when there is no copy", async () => {
-    const empty = backups({});
+    const empty = await backups({});
     const a = await setupApp({}, undefined, { backupDir: empty });
     const none = await a.admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD });
     expect(none.status).toBe(400);
     expect(none.body.error).toContain("Varmuuskopiota ei ole");
-    const dir = backups({ "auto-2026-10-09.db": { body: "x", age: 0 } });
+    const dir = await backups({ "auto-2026-10-09.db": { body: "x", age: 0 } });
     const { admin } = await setupApp({}, undefined, { backupDir: dir });
     for (let i = 0; i < 5; i++) expect((await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD })).status).toBe(200);
     expect((await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD })).status).toBe(429);

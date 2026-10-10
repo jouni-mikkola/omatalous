@@ -164,13 +164,13 @@ export async function loadDemoData(repo: FinanceRepo, settings: SettingsRepo, to
   const accounts = generateDemoData(today);
   for (const a of accounts) {
     // ids are per user, so several members can load demo data side by side
-    const id = `demo-${await stableId(`${repo.userId}|${a.id}`)}`;
+    const id = `demo-${stableId(`${repo.userId}|${a.id}`)}`;
     await repo.upsertAccount({
       id,
       connectionId: null,
       provider: "demo",
       externalId: null,
-      identity: await stableId(`${repo.userId}|${a.id}`),
+      identity: stableId(`${repo.userId}|${a.id}`),
       name: a.name,
       iban: a.iban,
       currency: "EUR",

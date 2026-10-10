@@ -51,6 +51,7 @@ export function Rules({ meta }: { meta: Meta }) {
         <div className="card-head">
           <div>
             <h2>Säännöt</h2>
+            <div className="card-sub">Sääntö siirtää kaikki sitä vastaavat tapahtumat valittuun kategoriaan, myös tulevat. Käsin valittu kategoria menee säännön edelle.</div>
           </div>
         </div>
         <form className="form-row" onSubmit={add}>
@@ -97,6 +98,7 @@ export function Rules({ meta }: { meta: Meta }) {
                     <button
                       className="btn btn-small btn-danger"
                       disabled={busy}
+                      aria-label={`Poista sääntö: ${r.pattern}`}
                       onClick={() => void run(() => api(`/api/rules/${r.id}`, { method: "DELETE" }))}
                     >
                       Poista
@@ -106,7 +108,7 @@ export function Rules({ meta }: { meta: Meta }) {
               ))}
             </tbody>
           </table>
-          {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
+          {data && !data.rules.length && <div className="empty">Ei sääntöjä vielä. Lisää yllä sana, jonka kauppiaan nimessä tai viestissä pitää olla. Sääntö syntyy myös, kun vaihdat kategorian Tapahtumat-sivulla.</div>}
         </div>
       </div>
     </div>

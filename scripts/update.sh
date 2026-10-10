@@ -58,6 +58,8 @@ fi
 KEEP_NOTE="The old version is still running."
 # shellcheck source=lib/release.sh
 . scripts/lib/release.sh
+# shellcheck source=lib/dbcopy.sh
+. scripts/lib/dbcopy.sh
 
 [[ $IMAGE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "INSTANCE_NAME is invalid: $IMAGE" >&2; exit 1; }
 
@@ -163,16 +165,7 @@ running_latest() {
 take_copy() {
   local snapshot="/data/backups/pre-update-$1.db"
   # a full disk fails here, before the old container is touched
-  in_app -e '
-    const fs = require("node:fs");
-    if (!fs.existsSync("/data/banking.db")) process.exit(0);
-    fs.mkdirSync("/data/backups", { recursive: true, mode: 0o700 });
-    try {
-      new (require("node:sqlite").DatabaseSync)("/data/banking.db").exec(`VACUUM INTO '\''${process.argv[1]}'\''`);
-    } catch (err) {
-      fs.rmSync(process.argv[1], { force: true });
-      throw err;
-    }' "$snapshot" || die "Could not copy the database (is the disk full?). The old version is still running."
+  in_app -e "$DBCOPY_JS" exists "$snapshot" || die "Could not copy the database (is the disk full?). The old version is still running."
   # Only now does the running image become :previous, together with the state file. A failure before this point
   # leaves the older pair as it was.
   docker image tag "$IMAGE:pending-previous" "$IMAGE:previous" || die "Could not save the previous image. The old version is still running."
@@ -193,8 +186,10 @@ rollback() {
   [[ -z $prev_commit ]] || { [[ $prev_commit =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$prev_commit" HEAD 2>/dev/null; } || die "The commit in the state file is not valid (it is not an earlier version of this folder)."
   docker image inspect "$IMAGE:previous" >/dev/null 2>&1 || die "The previous image ($IMAGE:previous) does not exist."
   # the saved image has to be the build of the commit the state file names (a failed update must not have moved it)
-  # (an image from before the label existed has none and is accepted)
-  [[ -z $prev_commit || -z $(image_label "$IMAGE:previous" talous.commit) || $(image_label "$IMAGE:previous" talous.commit) == "$prev_commit" ]] \
+  # (an image from before the label existed has none, and one built by hand says unknown; both are accepted)
+  local built_from
+  built_from=$(image_label "$IMAGE:previous" talous.commit)
+  [[ -z $prev_commit || -z $built_from || $built_from == unknown || $built_from == "$prev_commit" ]] \
     || die "The previous image ($IMAGE:previous) does not match the version in the state file. The rollback is not done, so no data is lost."
 
   step "Restoring the version from before the update ($at)"
@@ -226,14 +221,7 @@ rollback() {
       docker compose start banking >/dev/null; die "Cancelled, the current version was started again."
     fi
     # what the rollback is about to overwrite is kept first, so nothing is lost for good
-    docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e '
-      const fs = require("node:fs");
-      if (!fs.existsSync("/data/banking.db")) process.exit(0);
-      fs.mkdirSync("/data/backups", { recursive: true, mode: 0o700 });
-      try { new (require("node:sqlite").DatabaseSync)("/data/banking.db").exec(`VACUUM INTO '\''${process.argv[1]}'\''`); }
-      catch (err) { fs.rmSync(process.argv[1], { force: true }); throw err; }
-      const old = fs.readdirSync("/data/backups").filter((f) => /^pre-rollback-[0-9TZ]+\.db$/.test(f)).sort().reverse().slice(5);
-      for (const f of old) fs.rmSync(`/data/backups/${f}`);' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db" || die "Could not copy the current database, nothing was restored."
+    docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" 'exists,keep:^pre-rollback-[0-9TZ]+\.db$' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db" || die "Could not copy the current database, nothing was restored."
     ok "The current database was saved before the restore (pre-rollback-*.db)."
     docker compose run --rm --no-deps -T --entrypoint sh banking -c \
       'set -e; cp "$1" /data/banking.db.restore; rm -f /data/banking.db-wal /data/banking.db-shm; mv /data/banking.db.restore /data/banking.db' sh "$target"
@@ -256,6 +244,24 @@ rollback() {
 
 # the whole run is one function, so bash has read the entire file before it starts: replacing this
 # file while it runs (a copy over it) cannot corrupt the update
+# The helper's script schedule and policy come from this clone, so a new version may change them: renew them
+# after a good update, and only when the helper is on (an install that left it out stays without). A problem
+# here never fails the update.
+renew_helper() {
+  local out
+  # shellcheck source=lib/ops-schedule.sh
+  . scripts/lib/ops-schedule.sh
+  ops_scheduler_present "$IMAGE" || return 0
+  # install.sh takes the same per-folder lock as this script (fd 9), so ours goes first; the update is done
+  exec 9<&-
+  if out=$(./scripts/install.sh --ops-helper 2>&1); then ok "Maintenance helper renewed"
+  else
+    warn "Could not renew the maintenance helper. Run: ./scripts/install.sh --ops-helper"
+    printf '%s\n' "$out" | tail -3
+  fi
+  return 0
+}
+
 main() {
   # one run per directory (the lock is on install.sh, which takes the same one)
   exec 9<scripts/install.sh
@@ -434,6 +440,7 @@ main() {
       if (!fs.existsSync(dir)) process.exit(0);
       const old = fs.readdirSync(dir).filter((f) => /^pre-update-[0-9TZ]+\.db$/.test(f)).sort().reverse().slice(5);
       for (const f of old) fs.rmSync(`${dir}/${f}`);' || true
+    renew_helper
     say "${dim}If something is wrong: ./scripts/update.sh --rollback${reset}"
     return 0
   fi

@@ -473,3 +473,188 @@ describe("Finnish merchants and payment texts seen in household exports", () => 
     expect(totals).toMatchObject({ savedCents: 20000, consumptionCents: 0 });
   });
 });
+
+describe("money that comes back is not income", () => {
+  const shop = (date: string, euros: number, extra: Partial<Transaction> = {}) => row("chk", date, euros, "KORTTIOSTO", "NURKKAKAUPPA OY", extra);
+  const mp = (date: string, euros: number, name: string) => row("chk", date, euros, "MOBILEPAY", name);
+
+  describe("refund from a merchant", () => {
+    it("79 € paid and 79 € back two weeks later cancel out, in the purchase's category", () => {
+      const { final, totals } = run([shop("2026-09-01", -79), shop("2026-09-15", 79)], [checking]);
+      expect(final[1]!.category).toBe(final[0]!.category);
+      expect(final[1]!.categorySource).toBe("match");
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
+    });
+
+    it("a partial refund lowers the purchase by that much", () => {
+      const { totals } = run([shop("2026-09-01", -79), shop("2026-09-15", 30)], [checking]);
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 4900 });
+    });
+
+    it("takes the category the purchase got from a rule or the trade register", () => {
+      const rows = [shop("2026-09-01", -79), shop("2026-09-15", 79)];
+      const changed = new Map(enrichTransactions(rows, [checking], [], new Map([["Nurkkakauppa Oy", "home"]])).map((t) => [t.id, t]));
+      expect(changed.get(rows[0]!.id)!.category).toBe("home");
+      expect(changed.get(rows[1]!.id)).toMatchObject({ category: "home", categorySource: "match" });
+    });
+
+    it("follows a category the user chose for the purchase and leaves a refund the user categorised alone", () => {
+      const bought = shop("2026-09-01", -79, { category: "kids", categorySource: "user" });
+      const back = shop("2026-09-15", 79);
+      const mine = shop("2026-09-16", 20, { category: "sales", categorySource: "user" });
+      const { final } = run([bought, back, mine], [checking]);
+      expect(final[1]!.category).toBe("kids");
+      expect(final[2]).toMatchObject({ category: "sales", categorySource: "user" });
+    });
+
+    it("on a connected card, a refund is not taken for a card payment", () => {
+      const { final, totals } = run(
+        [row("gold", "2026-09-01", -79, "KORTTIOSTO", "NURKKAKAUPPA OY"), row("gold", "2026-09-12", 79, "HYVITYS", "NURKKAKAUPPA OY")],
+        [checking, gold],
+      );
+      expect(final.map((t) => t.isTransfer)).toEqual([false, false]);
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
+    });
+
+    it("cancels one of two identical purchases, and the same refund is not used twice", () => {
+      const { totals } = run([shop("2026-09-01", -79), shop("2026-09-01", -79), shop("2026-09-10", 79), shop("2026-09-11", 79), shop("2026-09-12", 79)], [checking]);
+      expect(totals).toMatchObject({ consumptionCents: 0, incomeCents: 7900 });
+    });
+
+    it("stays income without a purchase to match: other merchant, too late, more than paid, other account", () => {
+      for (const rows of [
+        [shop("2026-09-01", -79), row("chk", "2026-09-15", 79, "KORTTIOSTO", "TOINEN KAUPPA OY")],
+        [shop("2026-05-01", -79), shop("2026-09-15", 79)],
+        [shop("2026-09-01", -79), shop("2026-09-15", 80)],
+        [shop("2026-09-15", 79), shop("2026-09-01", -79, { accountId: "sav" })],
+        [shop("2026-09-15", 79), shop("2026-09-20", -79)],
+      ]) {
+        expect(run(rows, [checking, savingsAcc]).totals.incomeCents).toBeGreaterThan(0);
+      }
+    });
+
+    it("a payout that says claim is income even from a merchant that is also paid", () => {
+      const { totals } = run(
+        [row("chk", "2026-09-01", -54.2, "E-LASKU", "IF VAHINKOVAKUUTUS OY"), row("chk", "2026-09-10", 30, "VAKUUTUSKORVAUS", "IF VAHINKOVAKUUTUS OY")],
+        [checking],
+      );
+      expect(totals).toMatchObject({ incomeCents: 3000 });
+    });
+  });
+
+  describe("a person pays back", () => {
+    it("the same amount from the same person cancels what was sent", () => {
+      const { final, totals } = run([mp("2026-09-01", -50, "ELISA VIRTANEN"), mp("2026-09-12", 50, "ELISA VIRTANEN")], [checking]);
+      expect(final[1]!.category).toBe("p2p");
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
+    });
+
+    it("another amount, another person or a later date is income", () => {
+      for (const rows of [
+        [mp("2026-09-01", -50, "ELISA VIRTANEN"), mp("2026-09-12", 20, "ELISA VIRTANEN")],
+        [mp("2026-09-01", -50, "ELISA VIRTANEN"), mp("2026-09-12", 50, "OTTO HEIKKINEN")],
+        [mp("2026-05-01", -50, "ELISA VIRTANEN"), mp("2026-09-12", 50, "ELISA VIRTANEN")],
+      ]) {
+        const { totals } = run(rows, [checking]);
+        expect(totals.incomeCents).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe("sharing a bill", () => {
+    const dinner = (euros = -66) => row("chk", "2026-09-05", euros, "KORTTIOSTO", "RAVINTOLA SOLMU");
+
+    it("66 € paid, two friends send 22 € each: 22 € is left as spending", () => {
+      const { final, totals } = run([dinner(), mp("2026-09-06", 22, "ELISA VIRTANEN"), mp("2026-09-07", 22, "OTTO HEIKKINEN")], [checking]);
+      expect(final[1]!.category).toBe(final[0]!.category);
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 2200 });
+    });
+
+    it("three friends of four share equally: nothing is left", () => {
+      const { totals } = run([dinner(-88), mp("2026-09-06", 22, "ELISA VIRTANEN"), mp("2026-09-06", 22, "OTTO HEIKKINEN"), mp("2026-09-08", 22, "LAURA KORHONEN")], [checking]);
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 2200 });
+    });
+
+    it("22 € paid and someone sends 22 € right after", () => {
+      const { totals } = run([dinner(-22), mp("2026-09-06", 22, "ELISA VIRTANEN")], [checking]);
+      expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
+    });
+
+    it("a share that does not divide to the cent still matches", () => {
+      const { totals } = run([dinner(-65), mp("2026-09-06", 21.67, "ELISA VIRTANEN"), mp("2026-09-06", 21.67, "OTTO HEIKKINEN")], [checking]);
+      expect(totals.incomeCents).toBe(0);
+    });
+
+    it("stays income when one person sends half, shares differ, the same person sends twice or it comes late", () => {
+      for (const rows of [
+        [dinner(), mp("2026-09-06", 33, "ELISA VIRTANEN")],
+        [dinner(), mp("2026-09-06", 22, "ELISA VIRTANEN"), mp("2026-09-07", 25, "OTTO HEIKKINEN")],
+        [dinner(), mp("2026-09-06", 22, "ELISA VIRTANEN"), mp("2026-09-07", 22, "ELISA VIRTANEN")],
+        [dinner(), mp("2026-09-20", 22, "ELISA VIRTANEN"), mp("2026-09-21", 22, "OTTO HEIKKINEN")],
+        [dinner(), mp("2026-09-04", 22, "ELISA VIRTANEN"), mp("2026-09-04", 22, "OTTO HEIKKINEN")],
+      ]) {
+        expect(run(rows, [checking]).totals.incomeCents).toBeGreaterThan(0);
+      }
+    });
+
+    it("a payment to a person is not a bill to share", () => {
+      const { totals } = run([mp("2026-09-05", -66, "LAURA KORHONEN"), mp("2026-09-06", 22, "ELISA VIRTANEN"), mp("2026-09-07", 22, "OTTO HEIKKINEN")], [checking]);
+      expect(totals.incomeCents).toBe(4400);
+    });
+  });
+
+  describe("regular income stays income", () => {
+    it("rent from a lodger, even when the lodger was once sent the same amount", () => {
+      const rent = ["2026-05-03", "2026-06-03", "2026-07-03", "2026-08-03"].map((d) => mp(d, 450, "ELISA VIRTANEN"));
+      const { totals } = run([mp("2026-07-01", -450, "ELISA VIRTANEN"), ...rent], [checking]);
+      expect(totals).toMatchObject({ incomeCents: 180000, consumptionCents: 45000 });
+    });
+
+    it("an allowance from an unrecognised sender that was also paid the same amount", () => {
+      const allowance = ["2026-06-10", "2026-07-10", "2026-08-10", "2026-09-10"].map((d) => row("chk", d, 100, "TILISIIRTO", "ISOAITI MAIJA"));
+      const { totals } = run([row("chk", "2026-07-08", -100, "TILISIIRTO", "ISOAITI MAIJA"), ...allowance], [checking]);
+      expect(totals).toMatchObject({ incomeCents: 40000, consumptionCents: 10000 });
+    });
+
+    it("salary and benefits are never refunds", () => {
+      const { final, totals } = run(
+        [row("chk", "2026-08-01", -2500, "TILISIIRTO", "ACME OY"), row("chk", "2026-08-15", 2500, "PALKKA 08/2026", "ACME OY"), row("chk", "2026-08-20", -140, "E-LASKU", "KELA"), row("chk", "2026-09-03", 140, "LAPSILISA", "KELA")],
+        [checking],
+      );
+      expect(final[1]!.category).toBe("salary");
+      expect(final[3]!.category).toBe("benefits");
+      expect(totals.incomeCents).toBe(264000);
+    });
+  });
+
+  describe("the same result every time", () => {
+    const rows = () => [
+      row("chk", "2026-09-01", -79, "KORTTIOSTO", "NURKKAKAUPPA OY", { id: "a" }),
+      row("chk", "2026-09-05", -66, "KORTTIOSTO", "RAVINTOLA SOLMU", { id: "b" }),
+      row("chk", "2026-09-06", 22, "MOBILEPAY", "ELISA VIRTANEN", { id: "c" }),
+      row("chk", "2026-09-07", 22, "MOBILEPAY", "OTTO HEIKKINEN", { id: "d" }),
+      row("chk", "2026-09-15", 79, "KORTTIOSTO", "NURKKAKAUPPA OY", { id: "e" }),
+      row("chk", "2026-09-16", -50, "MOBILEPAY", "LAURA KORHONEN", { id: "f" }),
+      row("chk", "2026-09-20", 50, "MOBILEPAY", "LAURA KORHONEN", { id: "g" }),
+    ];
+    const apply = (input: Transaction[]) => {
+      const changed = new Map(enrichTransactions(input, [checking], []).map((t) => [t.id, t]));
+      return input.map((t) => changed.get(t.id) ?? t);
+    };
+
+    it("a second pass changes nothing and the input order does not matter", () => {
+      const once = apply(rows());
+      expect(enrichTransactions(once, [checking], [])).toEqual([]);
+      const shuffled = apply([...rows()].reverse());
+      const key = (list: Transaction[]) => list.map((t) => `${t.id}:${t.category}:${t.categorySource}:${t.isTransfer}`).sort();
+      expect(key(shuffled)).toEqual(key(once));
+      expect(totalsOf(once.map((t) => flowsOf(t, new Set()))).incomeCents).toBe(0);
+    });
+
+    it("changing the purchase's category by hand moves the refund with it, and undoing it moves it back", () => {
+      const first = apply(rows());
+      const edited = first.map((t) => (t.id === "a" ? { ...t, category: "kids", categorySource: "user" as const } : t));
+      expect(apply(edited).find((t) => t.id === "e")!.category).toBe("kids");
+    });
+  });
+});

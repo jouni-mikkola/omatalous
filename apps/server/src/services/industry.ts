@@ -33,7 +33,11 @@ const MAX_FAILURES = 3;
 
 const isCodeSet = (v: string): v is IndustryCodeSet => v === "TOL2008" || v === "TOL2025";
 
-export async function lookupIndustries(s: Services, opts: { limit?: number; pauseMs?: number } = {}): Promise<LookupResult> {
+/**
+ * One batch of names. With `deferred` the users whose rows now have a category are added to the set and not
+ * processed here: a caller that runs several batches processes each user once at the end (drainLookups).
+ */
+export async function lookupIndustries(s: Services, opts: { limit?: number; pauseMs?: number; deferred?: Set<string> } = {}): Promise<LookupResult> {
   const result: LookupResult = { looked: 0, categorised: 0, recategorised: 0 };
   const settings = await s.instance.load(true);
   if (!settings.industryLookup) return { ...result, skipped: "off" };
@@ -101,7 +105,8 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
       const askedFor = await s.industry.requestedBy([...categorised]);
       for (const userId of perUser.keys()) {
         if (askedFor.has(userId) || fresh.get(userId)!.some((n) => alreadyKnown.has(n))) {
-          result.recategorised += await reprocess(s.finance(userId), s.settings);
+          if (opts.deferred) opts.deferred.add(userId);
+          else result.recategorised += await reprocess(s.finance(userId), s.settings);
         }
       }
     }
@@ -122,16 +127,22 @@ export function logLookup(r: LookupResult | null): void {
  */
 export async function drainLookups(s: Services, opts: { maxBatches?: number; pauseMs?: number } = {}): Promise<LookupResult> {
   const total: LookupResult = { looked: 0, categorised: 0, recategorised: 0 };
-  for (let i = 0; i < (opts.maxBatches ?? Infinity); i++) {
-    const r = await lookupIndustries(s, { pauseMs: opts.pauseMs });
-    total.looked += r.looked;
-    total.categorised += r.categorised;
-    total.recategorised += r.recategorised;
-    if (r.skipped) {
-      if (i === 0) total.skipped = r.skipped;
-      break;
+  // a fresh ten-year import takes many batches; the history is processed once per user at the end, not after each
+  const deferred = new Set<string>();
+  try {
+    for (let i = 0; i < (opts.maxBatches ?? Infinity); i++) {
+      const r = await lookupIndustries(s, { pauseMs: opts.pauseMs, deferred });
+      total.looked += r.looked;
+      total.categorised += r.categorised;
+      if (r.skipped) {
+        if (i === 0) total.skipped = r.skipped;
+        break;
+      }
+      if (r.looked < BATCH) break;
     }
-    if (r.looked < BATCH) break;
+  } finally {
+    // also when a batch threw: the answers it stored still apply
+    for (const userId of deferred) total.recategorised += await reprocess(s.finance(userId), s.settings);
   }
   return total;
 }

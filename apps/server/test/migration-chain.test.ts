@@ -199,6 +199,38 @@ describe("release bookkeeping", () => {
   });
 });
 
+describe("0007 widens the ops_requests action list", () => {
+  it("keeps every row, its rowid and both indexes, and accepts the new actions", async () => {
+    const file = fromFixture("0.4.0.sql");
+    const raw = new DatabaseSync(file);
+    const ins = raw.prepare("INSERT INTO ops_requests (id, action, status, requested_by, requested_at, output) VALUES (?, ?, ?, 'u', '2026-10-01T00:00:00.000Z', ?)");
+    const old = ["update", "rollback", "backup", "restart", "doctor", "check-update", "access", "port"];
+    old.forEach((a, i) => ins.run(`op_000000000000000${i}`, a, "ok", `out ${a}`));
+    const before = raw.prepare("SELECT rowid, * FROM ops_requests ORDER BY rowid").all();
+    raw.close();
+    const all = readMigrations(findMigrationsDir()).sort((a, b) => a.name.localeCompare(b.name));
+    const db = openNodeSqlite(file);
+    try {
+      const { pending } = await pendingMigrations(db, all);
+      expect(pending.map((m) => m.name)).toContain("0007_ops_more_actions.sql");
+      await applyMigrations(db, pending);
+      expect(await db.all("SELECT rowid, * FROM ops_requests ORDER BY rowid")).toEqual(before);
+      expect((await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'ops_requests' AND name LIKE 'idx_%' ORDER BY name")).map((i) => i.name)).toEqual(["idx_ops_one_active", "idx_ops_status"]);
+      expect(await db.all("PRAGMA foreign_key_check")).toEqual([]);
+      // the fixture's queued restart holds the slot: logs does not need it, prune does
+      const add = (id: string, action: string) => db.run("INSERT INTO ops_requests (id, action, requested_by, requested_at) VALUES (?, ?, 'u', 'x')", [id, action]);
+      await add("op_aaaaaaaaaaaaaaa1", "logs");
+      await add("op_aaaaaaaaaaaaaaa2", "logs");
+      await expect(add("op_aaaaaaaaaaaaaaa3", "prune")).rejects.toThrow(/UNIQUE/);
+      await expect(add("op_aaaaaaaaaaaaaaa4", "rm -rf")).rejects.toThrow(/CHECK/);
+      await db.run("UPDATE ops_requests SET status = 'ok' WHERE id = 'o-4'");
+      await add("op_aaaaaaaaaaaaaaa5", "helper-renew");
+    } finally {
+      db.close();
+    }
+  });
+});
+
 describe("migration lint", () => {
   const dir = findMigrationsDir();
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();

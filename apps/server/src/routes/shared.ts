@@ -42,7 +42,7 @@ export function queryInt(value: string | undefined): number | undefined {
  * CSV for spreadsheet apps in Finnish locale: semicolon separated, decimal
  * comma, UTF-8 with BOM so Excel detects the encoding.
  */
-export function csv(rows: readonly (readonly (string | number | null | undefined)[])[]): string {
+export function csvBody(rows: readonly (readonly (string | number | null | undefined)[])[]): string {
   const cell = (v: string | number | null | undefined) => {
     if (v === null || v === undefined) return "";
     const s = typeof v === "number" ? String(v).replace(".", ",") : v;
@@ -51,7 +51,12 @@ export function csv(rows: readonly (readonly (string | number | null | undefined
     const safe = typeof v === "string" && /^\s*[=+\-@]|^[\t\r]/.test(s) ? `'${s}` : s;
     return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
   };
-  return `﻿${rows.map((r) => r.map(cell).join(";")).join("\r\n")}\r\n`;
+  return `${rows.map((r) => r.map(cell).join(";")).join("\r\n")}\r\n`;
+}
+
+/** The BOM and the rows. A long file is written in pieces with `csvBody` instead, the BOM only once. */
+export function csv(rows: readonly (readonly (string | number | null | undefined)[])[]): string {
+  return `\ufeff${csvBody(rows)}`;
 }
 
 export function csvResponse(c: Context, filename: string, content: string): Response {

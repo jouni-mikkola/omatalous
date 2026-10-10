@@ -1,6 +1,8 @@
 import { type CategoryKind, getCategory } from "../categories.ts";
 import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
 import { detectRecurring, type RecurringSeries } from "../recurring.ts";
+import { pairedReturns } from "../returns.ts";
+import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
 import { type Flows, flowsOf } from "./flows.ts";
 import type { DayRange } from "./period.ts";
@@ -15,6 +17,13 @@ export interface AnalysisTx extends Transaction {
   flows: Flows;
   /** consumption + debt: what category and trend charts show. */
   spend: number;
+  /** Cents of this purchase that came back later: a shop refund, a person paying back, friends' shares (see pairedReturns). */
+  refunded: number;
+}
+
+/** What a purchase cost in the end: its consumption less what came back, never below zero. */
+export function netPurchase(t: Pick<AnalysisTx, "flows" | "refunded">): number {
+  return Math.max(0, t.flows.consumption - t.refunded);
 }
 
 /**
@@ -54,9 +63,14 @@ export function createContext(transactions: readonly Transaction[], accounts: re
         group: category.group,
         flows,
         spend: flows.consumption + flows.debt,
+        refunded: 0,
       };
     })
     .sort((a, b) => a.day - b.day);
+  // what came back from each purchase, from the same matcher that categorised the returning rows
+  const byId = new Map(txs.map((t) => [t.id, t]));
+  const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
+  for (const [returnId, purchaseId] of pairedReturns(txs, ownIbans)) byId.get(purchaseId)!.refunded += -byId.get(returnId)!.flows.consumption;
 
   const recurring = detectRecurring(txs, today);
   const fixedIds = new Set<string>();
@@ -122,9 +136,9 @@ export function inDays(ctx: AnalysisContext, r: DayRange): AnalysisTx[] {
 
 /**
  * Categories that are costs of living or money handled, not something bought:
- * "largest purchase" skips them (a tax payment or an insurance premium is not a purchase, nor is the weekly food shop).
+ * "largest purchase" skips them (a tax payment, an insurance premium or a yearly subscription is not a purchase, nor is the weekly food shop).
  */
-const NOT_PURCHASES = new Set(["taxes", "card_bill", "p2p", "cash", "fees", "insurance", "housing", "utilities", "telecom", "memberships", "groceries"]);
+const NOT_PURCHASES = new Set(["taxes", "card_bill", "p2p", "cash", "fees", "insurance", "housing", "utilities", "telecom", "memberships", "subscriptions", "groceries"]);
 
 /** A one-off spend on goods or services, for "largest purchases". */
 export function isPurchase(t: Pick<AnalysisTx, "category" | "kind">): boolean {

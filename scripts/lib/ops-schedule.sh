@@ -22,14 +22,23 @@ ops_cron_without() {
   crontab -l 2>/dev/null | awk -v m="$marker" '{ n = length($0) - length(m); if (n >= 0 && substr($0, n + 1) == m) next; print }'
 }
 
+# True when this instance has a timer or a crontab line (the helper is on).
+ops_scheduler_present() { # ops_scheduler_present INSTANCE
+  local unit dir; unit=$(ops_unit "$1"); dir=$(ops_unit_dir)
+  [[ -f $dir/$unit.timer ]] && return 0
+  ops_cron_ok && crontab -l 2>/dev/null | grep -qF "$(ops_cron_marker "$1")"
+}
+
 # Removes this instance's timer and crontab line, and nothing of any other instance. Safe to repeat.
-ops_scheduler_remove() { # ops_scheduler_remove INSTANCE
+# With "keep-running" a tick that is running right now is left alone: the helper renews itself from inside
+# a tick (the helper-renew action), and stopping the service would kill that run before it reports.
+ops_scheduler_remove() { # ops_scheduler_remove INSTANCE [keep-running]
   local inst=$1 unit dir rest
   unit=$(ops_unit "$inst"); dir=$(ops_unit_dir)
   if [[ -f $dir/$unit.timer || -f $dir/$unit.service ]]; then
     if ops_systemd_ok; then
       systemctl --user disable --now "$unit.timer" >/dev/null 2>&1 || true
-      systemctl --user stop "$unit.service" >/dev/null 2>&1 || true
+      [[ ${2:-} == keep-running ]] || systemctl --user stop "$unit.service" >/dev/null 2>&1 || true
     fi
     rm -f "$dir/$unit.timer" "$dir/$unit.service"
     ops_systemd_ok && systemctl --user daemon-reload >/dev/null 2>&1 || true
@@ -50,7 +59,7 @@ ops_scheduler_install() { # ops_scheduler_install INSTANCE ROOT
     OPS_NOTE="The folder path has characters the scheduler does not allow ($root). Move the install to a path without spaces and special characters."
     return 1
   fi
-  ops_scheduler_remove "$inst"
+  ops_scheduler_remove "$inst" keep-running
   if ops_systemd_ok; then
     local linger; linger=$(ops_linger)
     if [[ $linger != yes ]] && command -v loginctl >/dev/null 2>&1; then

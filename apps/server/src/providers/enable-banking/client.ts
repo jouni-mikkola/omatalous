@@ -48,6 +48,8 @@ export interface EnableBankingOptions {
   fetch?: typeof fetch;
   /** Extra hosts (and their subdomains) the consent page may be on. */
   authHosts?: readonly string[];
+  /** The household's time zone, for dates the bank gives with a time. */
+  timeZone?: string;
 }
 
 const MAX_PAGES = 200;
@@ -182,12 +184,13 @@ export class EnableBankingClient {
       if (continuationKey) params.set("continuation_key", continuationKey);
       const r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`);
       for (const t of r.transactions ?? []) {
-        const mapped = mapTransaction(t);
+        const mapped = mapTransaction(t, this.opts.timeZone);
         if (mapped) out.push(mapped);
       }
       continuationKey = r.continuation_key;
-      if (!continuationKey) break;
+      if (!continuationKey) return out;
     }
-    return out;
+    // a short list taken for the whole answer would leave a gap that the next fetch window never covers
+    throw new Error(`the bank's transactions did not end after ${MAX_PAGES} pages`);
   }
 }

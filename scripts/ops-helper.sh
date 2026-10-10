@@ -7,8 +7,8 @@
 # oldest row through `docker compose exec ... ops poll`, checks it against a fixed list, runs one of our own
 # scripts and reports the result back through `ops report`. Nothing from the database reaches a shell: the
 # row is accepted only if the whole poll answer matches one exact shape, and the action is picked by a
-# `case` with a refusing default. Version 1 knows six actions: check-update, update, rollback, backup,
-# restart and doctor. None takes parameters. Access and port changes are not done here.
+# `case` with a refusing default. Version 1 knows nine actions: check-update, update, rollback, backup,
+# restart, doctor, logs, prune and helper-renew. None takes parameters. Access and port changes are not done here.
 #
 # Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what
 # matters. A release install takes only a version the GitHub Releases API names, only if it is a semver step
@@ -28,7 +28,7 @@
 #   ops-helper.sh            one tick (what the timer runs)
 #   ops-helper.sh --version  prints the protocol version
 # ──────────────────────────────────────────────────────────────────────────────
-OPS_HELPER_VERSION=1
+OPS_HELPER_VERSION=2
 set -u -o pipefail
 set +x
 
@@ -48,7 +48,7 @@ if [[ ${TALOUS_OPS_CLEAN:-} != 1 ]]; then
   # test hooks, only when a test asks for them
   if [[ ${OPS_TEST:-} == 1 ]]; then
     clean+=(OPS_TEST=1 PATH="$PATH")
-    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK; do
+    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW; do
       [[ -z ${!v:-} ]] || clean+=("$v=${!v}")
     done
   fi
@@ -70,14 +70,17 @@ REPO=jouni-mikkola/omatalous
 API_URL=https://api.github.com/repos/$REPO/releases/latest
 OPS=ops
 DEFAULT_INSTANCE=banking-app
-ACTIONS="update rollback backup restart doctor check-update"
+ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew"
 NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
 t_for() { local v=OPS_T_$2; if [[ ${OPS_TEST:-} == 1 && -n ${!v:-} ]]; then echo "${!v}"; else echo "$1"; fi; }
 T_UPDATE=$(t_for 1200 UPDATE); T_ROLLBACK=$(t_for 600 ROLLBACK); T_BACKUP=$(t_for 300 BACKUP)
 T_RESTART=$(t_for 180 RESTART); T_DOCTOR=$(t_for 120 DOCTOR); T_CHECK=$(t_for 60 CHECK)
+T_LOGS=$(t_for 60 LOGS); T_PRUNE=$(t_for 300 PRUNE); T_RENEW=$(t_for 120 RENEW)
 LOG_CAP=262144
+# what store_result keeps of a log: the last lines and bytes (the logs action holds up to three services)
+KEEP_LINES=200; KEEP_BYTES=16384
 
 # ── logging ─────────────────────────────────────────────────────────────────
 now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -100,13 +103,15 @@ json_body() { awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); g
 json_str() { printf '"'; printf '%s' "$1" | json_body; printf '"'; }
 
 # Output scrub (spec 1.5, threat model R24): ANSI and control characters out, lines that look like secrets
-# dropped, long token-like runs hidden, then the last 200 lines and 16 KiB. Reads stdin.
+# dropped, bearer tokens and JWTs (Enable Banking) and long token-like runs hidden, then the last KEEP_LINES lines
+# and KEEP_BYTES bytes (200 and 16 KiB, more for logs). Reads stdin.
 scrub_out() {
   sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' \
     | tr -d '\000-\011\013-\037\177' \
-    | grep -viE 'TOKEN|SECRET|PASSWORD|Authorization|BEGIN .*KEY' \
+    | grep -viE 'TOKEN|SECRET|PASSWORD|Authorization|BEGIN .*KEY|api[_-]?key|private[_-]?key' \
+    | sed -E 's/Bearer +[^ ]+/Bearer [hidden]/Ig; s/eyJ[A-Za-z0-9_-]*(\.[A-Za-z0-9_-]*){0,2}/[hidden]/g' \
     | sed -E 's/[A-Za-z0-9_=-]{40,}/[hidden]/g' \
-    | tail -n 200 | tail -c 16384
+    | tail -n "$KEEP_LINES" | tail -c "$KEEP_BYTES"
 }
 
 # ── checks before anything is read or run ───────────────────────────────────
@@ -223,7 +228,7 @@ git_policy() {
 # against a privileged container, a host mount or a secret from the host, not against a hostile Dockerfile.
 COMPOSE_JQ='
   ["banking","caddy","tunnel"] as $names
-  | ["build","cap_drop","command","container_name","depends_on","entrypoint","environment","image","mem_limit","networks","pids_limit","ports","profiles","read_only","restart","security_opt","tmpfs","volumes"] as $keys
+  | ["build","cap_drop","command","container_name","depends_on","entrypoint","environment","image","mem_limit","networks","pids_limit","ports","profiles","read_only","restart","security_opt","stop_grace_period","tmpfs","volumes"] as $keys
   | {"banking":"banking-app:latest","caddy":"caddy:2","tunnel":"cloudflare/cloudflared:latest"} as $images
   | (.volumes // {}) as $named
   | [
@@ -515,24 +520,21 @@ act_backup() {
   local stamp
   echo "STEP: 1/2 Varmuuskopio kansioon backups" >>"$LOGF"
   check_disk || { fail "$DISK_MSG"; return; }
-  if ! run_cap "$T_BACKUP" ./scripts/backup.sh; then RC=$?; fail "Varmuuskopio ei onnistunut. Syy on lokissa." "$RC"; return; fi
+  run_cap "$T_BACKUP" ./scripts/backup.sh || { RC=$?; fail "Varmuuskopio ei onnistunut. Syy on lokissa." "$RC"; return; }
   # one more copy inside the data volume, where the page can offer it for download
   echo "STEP: 2/2 Kopio sovelluksen omaan kansioon" >>"$LOGF"
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
-  if run_cap "$T_BACKUP" docker compose exec -T banking "${NODE[@]}" -e '
-      const fs = require("node:fs");
-      fs.mkdirSync("/data/backups", { recursive: true, mode: 0o700 });
-      try { new (require("node:sqlite").DatabaseSync)("/data/banking.db").exec(`VACUUM INTO '\''${process.argv[1]}'\''`); }
-      catch (err) { fs.rmSync(process.argv[1], { force: true }); throw err; }
-      const old = fs.readdirSync("/data/backups").filter((f) => /^manual-[0-9TZ]+\.db$/.test(f)).sort().reverse().slice(5);
-      for (const f of old) fs.rmSync(`/data/backups/${f}`);' "/data/backups/manual-$stamp.db"; then :
+  # the copy is checked after it is written and removed when it fails (scripts/lib/dbcopy.sh)
+  # shellcheck source=lib/dbcopy.sh
+  . scripts/lib/dbcopy.sh
+  if run_cap "$T_BACKUP" docker compose exec -T banking "${NODE[@]}" -e "$DBCOPY_JS" 'keep:^manual-[0-9TZ]+\.db$' "/data/backups/manual-$stamp.db"; then :
   else fail "Kopio sovelluksen omaan kansioon ei onnistunut."; return; fi
   write_backups_frag
   SUMMARY="Varmuuskopio otettu."
 }
 act_restart() {
   echo "STEP: 1/2 Käynnistetään sovellus uudelleen" >>"$LOGF"
-  if ! run_cap "$T_RESTART" docker compose restart banking; then RC=$?; fail "Uudelleenkäynnistys ei onnistunut." "$RC"; return; fi
+  run_cap "$T_RESTART" docker compose restart banking || { RC=$?; fail "Uudelleenkäynnistys ei onnistunut." "$RC"; return; }
   echo "STEP: 2/2 Odotetaan että sovellus vastaa" >>"$LOGF"
   if wait_healthy 45; then SUMMARY="Sovellus käynnistyi uudelleen."; else fail "Sovellus ei vastaa uudelleenkäynnistyksen jälkeen."; fi
 }
@@ -556,13 +558,63 @@ act_doctor() {
   else fail "Tarkistus ei onnistunut."; fi
 }
 
+# The last 100 lines of each running service of this install. Redaction happens in store_result (scrub_out)
+# and again in the app.
+act_logs() {
+  local svc shown=""
+  echo "STEP: 1/1 Luetaan palvelujen lokit" >>"$LOGF"
+  KEEP_LINES=320; KEEP_BYTES=49152
+  for svc in banking caddy tunnel; do
+    [[ -n $(timeout 20 docker compose ps --status running -q "$svc" 2>/dev/null) ]] || continue
+    printf '== %s ==\n' "$svc" >>"$LOGF"
+    run_cap "$T_LOGS" docker compose logs --no-color --tail 100 "$svc" || { RC=$?; fail "Lokien luku ei onnistunut (palvelu $svc)." "$RC"; return; }
+    shown+="${shown:+, }$svc"
+  done
+  SUMMARY="Luettu: $shown."
+}
+# "Total reclaimed space: 1.2GB" from a prune's output, in Finnish units for the summary
+reclaimed() { # reclaimed TEXT
+  local v
+  v=$(sed -n 's/^Total reclaimed space: *//p' <<<"$1" | tail -1 | tr -cd '0-9.A-Za-z' | head -c 12)
+  [[ $v =~ ^[0-9.]+(B|kB|MB|GB|TB)$ ]] || v=0B
+  v=${v/./,}
+  sed -E 's/([0-9])(TB|GB|MB|kB|B)$/\1 \2/; s/ TB$/ Tt/; s/ GB$/ Gt/; s/ MB$/ Mt/; s/ kB$/ kt/; s/ B$/ t/' <<<"$v"
+}
+# Fixed commands only. docker image prune -f without -a removes images that have no tag at all, and
+# builder prune -f the build cache, so this install's :latest and :previous (which update.sh and rollback
+# need) are never candidates. They are checked before and after anyway.
+image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
+act_prune() {
+  local start imgs cache id_latest id_prev
+  id_latest=$(image_id "$INSTANCE:latest"); id_prev=$(image_id "$INSTANCE:previous")
+  echo "STEP: 1/2 Poistetaan käyttämättömät kuvat" >>"$LOGF"
+  start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
+  run_cap "$T_PRUNE" docker image prune -f || { RC=$?; fail "Kuvien siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
+  imgs=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
+  echo "STEP: 2/2 Tyhjennetään rakennusvälimuisti" >>"$LOGF"
+  start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
+  run_cap "$T_PRUNE" docker builder prune -f || { RC=$?; fail "Välimuistin siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
+  cache=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
+  if [[ $(image_id "$INSTANCE:latest") != "$id_latest" || $(image_id "$INSTANCE:previous") != "$id_prev" ]]; then
+    fail "Siivous poisti version kuvan, jota ei pitäisi."; return
+  fi
+  if [[ $imgs == "0 t" && $cache == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Vapautettiin tilaa: kuvat $imgs, välimuisti $cache."; fi
+}
+# The script schedule and the policy are installed again from this clone, with fixed arguments. Without
+# --ops-policy an existing policy (remote, branch, docker) is kept, so a changed remote is not adopted here.
+act_helper_renew() {
+  echo "STEP: 1/1 Asennetaan apuri uudelleen tästä kansiosta" >>"$LOGF"
+  if run_cap "$T_RENEW" ./scripts/install.sh --ops-helper; then SUMMARY="Apuri asennettu uudelleen."
+  else RC=$?; fail "Apurin uusinta ei onnistunut. Syy on lokissa." "$RC"; fi
+}
+
 # runs one request that passed validation
 run_request() { # run_request ID ACTION
   local id=$1 action=$2 started
   started=$(now_iso)
   journal_write "$id" "$action" "$started" false   # before anything is done (R20)
   LOGF=$OPS/run/$id.log; : >"$LOGF"; chmod 600 "$LOGF"
-  SUMMARY=""; STATUS=ok; RC=0
+  SUMMARY=""; STATUS=ok; RC=0; KEEP_LINES=200; KEEP_BYTES=16384
   log "request $id: $action"
   case $action in
     update) act_update ;;
@@ -571,6 +623,9 @@ run_request() { # run_request ID ACTION
     restart) act_restart ;;
     doctor) act_doctor ;;
     check-update) act_check_update ;;
+    logs) act_logs ;;
+    prune) act_prune ;;
+    helper-renew) act_helper_renew ;;
     *) fail "Tuntematon toiminto." ;;
   esac
   [[ -n $SUMMARY ]] || SUMMARY=$([[ $STATUS == ok ]] && echo "Valmis." || echo "Epäonnistui.")

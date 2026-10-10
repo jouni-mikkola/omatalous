@@ -2,10 +2,10 @@
 # Tests for scripts/lib/ops-schedule.sh (the timer or cron line of the maintenance helper) with stub
 # systemctl, loginctl and crontab. Nothing touches the real user manager or crontab.
 #
-#   scripts/test/ops-schedule.test.sh
+#   tools/test/ops-schedule.test.sh
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
-LIB=$(cd "$HERE/.." && pwd)/lib/ops-schedule.sh
+LIB=$(cd "$HERE/../../scripts" && pwd)/lib/ops-schedule.sh
 PASS=0; FAILED=0
 check() { local n=$1; shift; if "$@"; then PASS=$((PASS + 1)); echo "ok   $n"; else FAILED=$((FAILED + 1)); echo "FAIL $n"; fi; }
 

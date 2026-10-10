@@ -113,7 +113,11 @@ export async function applyMigrations(db: ExecDb, pending: readonly Migration[])
         await db.run("INSERT INTO _migrations (name, applied_at, checksum) VALUES (?, ?, ?)", [m.name, new Date().toISOString(), checksum(m.sql)]);
         db.exec("COMMIT");
       } catch (err) {
-        db.exec("ROLLBACK");
+        try {
+          db.exec("ROLLBACK");
+        } catch {
+          // SQLite already rolled back (full disk): keep the real error below
+        }
         throw new MigrationError(`Migration ${m.name} failed, the database was left unchanged: ${(err as Error).message}`);
       }
     } finally {

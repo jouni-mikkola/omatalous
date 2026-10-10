@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { dateTime } from "../../format.ts";
 import { S } from "./ops-strings.ts";
 import type { OpsRequestView } from "./types.ts";
@@ -10,7 +10,9 @@ const RESULT: Record<string, string> = { ok: S.ok, failed: S.failed, expired: S.
  * log. Everything from the host is shown as text.
  */
 export function OpsProgress({ request, down, downMs, onCancel }: { request: OpsRequestView; down: boolean; downMs: number; onCancel: (id: string) => void }) {
-  const [log, setLog] = useState(false);
+  // the logs action exists to show its log, so that one opens by itself
+  const [log, setLog] = useState(request.action === "logs");
+  useEffect(() => setLog(request.action === "logs"), [request.id, request.action]);
   const live = request.status === "queued" || request.status === "running";
   const tone = request.status === "ok" ? "good" : live ? "" : "warning";
   return (
@@ -47,7 +49,7 @@ export function OpsProgress({ request, down, downMs, onCancel }: { request: OpsR
           </button>
         )}
       </div>
-      {log && <pre className="ops-log">{request.output || S.noLog}</pre>}
+      {log && !live && <pre className="ops-log">{request.output || S.noLog}</pre>}
     </div>
   );
 }

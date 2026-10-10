@@ -3,7 +3,7 @@ import { daysBetween, daysInMonth, fromMonthIndex, monthIndex } from "../dates.t
 import { priceChangeYearlyCents, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { Alert } from "./alerts.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, isPurchase, recurringAt } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, isPurchase, netPurchase, recurringAt } from "./context.ts";
 import type { CategoryTotal } from "./dashboard.ts";
 import type { PeriodTotals } from "./flows.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
@@ -16,6 +16,8 @@ export interface Insight {
   tone: InsightTone;
   title: string;
   detail: string;
+  /** The one merchant the insight is about; the overview links it to that merchant's transactions. */
+  merchant?: string;
 }
 
 const MAX_INSIGHTS = 5;
@@ -179,6 +181,7 @@ export function buildInsights(input: {
     // a loan instalment has no price, it grows or shrinks
     title: getCategory(s.category).kind === "debt" ? `${s.merchant}: maksu ${up ? "kasvoi" : "pieneni"}` : `${s.merchant}: hinta ${up ? "nousi" : "laski"}`,
     detail: `${formatEur(s.priceChange!.fromCents)} → ${formatEur(s.priceChange!.toCents)} (${formatFiDate(s.priceChange!.date)}).`,
+    merchant: s.merchant,
   });
   const yearlyEffect = (s: RecurringSeries) => priceChangeYearlyCents(s)!;
   if (rises.length > 2) {
@@ -202,7 +205,7 @@ export function buildInsights(input: {
     .filter((s) => (s.kind === "subscription" || s.kind === "bill") && s.active && isSpendingSeries(s))
     .filter((s) => daysBetween(s.firstDate, end) <= 75 && daysBetween(dataFrom, s.firstDate) >= 45)
     .slice(0, 2)) {
-    out.push({ id: `new:${s.id}`, tone: "info", title: `Uusi toistuva maksu: ${s.merchant}`, detail: `Noin ${formatEur(s.monthlyCents)}/kk, alkaen ${formatFiDate(s.firstDate)}.` });
+    out.push({ id: `new:${s.id}`, tone: "info", title: `Uusi toistuva maksu: ${s.merchant}`, detail: `Noin ${formatEur(s.monthlyCents)}/kk, alkaen ${formatFiDate(s.firstDate)}.`, merchant: s.merchant });
   }
 
   // 4. borrowing, and debt service only when it is heavy (a mortgage at 15 % of income is ordinary)
@@ -222,19 +225,19 @@ export function buildInsights(input: {
   for (const s of recurring) {
     const since = daysBetween(s.lastDate, end);
     if (s.kind === "subscription" && !s.active && since > 2 * s.intervalDays + 5 && since <= 120 && !summerBreak(s, end)) {
-      out.push({ id: `stopped:${s.id}`, tone: "info", title: `${s.merchant}: maksut loppuneet?`, detail: `Viimeksi ${formatEur(s.lastAmountCents)}, ${formatFiDate(s.lastDate)}.` });
+      out.push({ id: `stopped:${s.id}`, tone: "info", title: `${s.merchant}: maksut loppuneet?`, detail: `Viimeksi ${formatEur(s.lastAmountCents)}, ${formatFiDate(s.lastDate)}.`, merchant: s.merchant });
     }
   }
 
   // 6. the largest one-off purchase in the period (rent and other fixed costs are known already)
   const largest = current.reduce<AnalysisTx | null>(
-    (best, t) => (!ctx.fixedIds.has(t.id) && isPurchase(t) && t.flows.consumption > (best?.flows.consumption ?? 0) ? t : best),
+    (best, t) => (!ctx.fixedIds.has(t.id) && isPurchase(t) && netPurchase(t) > (best ? netPurchase(best) : 0) ? t : best),
     null,
   );
-  if (largest && largest.flows.consumption >= LARGEST_MIN_CENTS) {
+  if (largest && netPurchase(largest) >= LARGEST_MIN_CENTS) {
     return [
       ...out.slice(0, MAX_INSIGHTS - 1),
-      { id: "largest", tone: "info", title: `Suurin ostos: ${formatEur(largest.flows.consumption, false)}`, detail: `${largest.merchant}, ${formatFiDate(largest.bookingDate)}.` },
+      { id: "largest", tone: "info", title: `Suurin ostos: ${formatEur(netPurchase(largest), false)}`, detail: `${largest.merchant}, ${formatFiDate(largest.bookingDate)}.`, merchant: largest.merchant },
     ];
   }
   return out.slice(0, MAX_INSIGHTS);

@@ -699,6 +699,15 @@ esac
 APP_BASE_URL=${APP_BASE_URL%/}
 ok "Address: $APP_BASE_URL  ${dim}(can be changed in the browser)${reset}"
 
+# A home network address can appear after Docker starts at boot. Without this setting Docker cannot bind it then and the app stays down.
+if is_private_v4 "$BIND_ADDRESS" && [[ $(cat /proc/sys/net/ipv4/ip_nonlocal_bind 2>/dev/null) != 1 || ! -f /etc/sysctl.d/90-omatalous.conf ]]; then
+  if echo "net.ipv4.ip_nonlocal_bind=1" | as_root tee /etc/sysctl.d/90-omatalous.conf >/dev/null 2>&1 && as_root sysctl -q -w net.ipv4.ip_nonlocal_bind=1 >/dev/null 2>&1; then
+    ok "Set net.ipv4.ip_nonlocal_bind=1, so Docker can bind the address when it appears late at boot."
+  else
+    warn "Could not set net.ipv4.ip_nonlocal_bind=1. If the app stays down after a reboot, run: echo net.ipv4.ip_nonlocal_bind=1 | sudo tee /etc/sysctl.d/90-omatalous.conf && sudo sysctl --system"
+  fi
+fi
+
 # ── write .env ───────────────────────────────────────────────────────────────
 step "Writing .env"
 umask 077

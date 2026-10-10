@@ -19,7 +19,13 @@ import {
   toSyncRun,
   toTransaction,
 } from "./rows.ts";
+import { bumpUserDataVersionStatement, NEEDS_REPROCESS } from "./settings-repo.ts";
+import { yieldToLoop } from "../yield.ts";
 import type { Db, SqlValue, Statement } from "./types.ts";
+
+/** Rows per read of a whole history, and statements per write transaction of derived data. */
+const HISTORY_PAGE = 5000;
+const WRITE_CHUNK = 2000;
 
 export interface TransactionFilter {
   from?: string;
@@ -32,6 +38,54 @@ export interface TransactionFilter {
   offset?: number;
 }
 
+/** What ingestion compares a stored row on: when, how much, where it came from and who it was with. */
+export interface StoredParty {
+  id: string;
+  bookingDate: string;
+  amountCents: number;
+  source: string;
+  merchant: string;
+  counterparty: string | null;
+  description: string | null;
+  /** The bank-provided fields as `bankSignature` sums them up: equal to a fresh row's when nothing changed. */
+  signature: string;
+}
+
+/**
+ * The bank-provided fields of a transaction that its categories, flows and reports depend on. The raw payload
+ * is left out: nothing derives from it, so a change in it alone is no reason to process the history again.
+ */
+export function bankSignature(t: {
+  bookingDate: string;
+  valueDate: string | null;
+  amountCents: number;
+  status: string;
+  counterparty: string | null;
+  counterpartyIban: string | null;
+  description: string | null;
+  reference: string | null;
+  mcc: string | null;
+  merchant: string;
+}): string {
+  return JSON.stringify([t.bookingDate, t.valueDate, t.amountCents, t.status, t.counterparty, t.counterpartyIban, t.description, t.reference, t.mcc, t.merchant]);
+}
+
+const signatureOf = (r: Row) =>
+  bankSignature({
+    bookingDate: String(r.booking_date),
+    valueDate: str(r.value_date),
+    amountCents: Number(r.amount_cents),
+    status: String(r.status),
+    counterparty: str(r.counterparty),
+    counterpartyIban: str(r.counterparty_iban),
+    description: str(r.description),
+    reference: str(r.reference),
+    mcc: str(r.mcc),
+    merchant: String(r.merchant),
+  });
+
+const partyOf = (r: Row) => ({ merchant: String(r.merchant), counterparty: str(r.counterparty), description: str(r.description) });
+
 export type NewAccount = Omit<StoredAccount, "userId" | "balanceCents" | "balanceAt" | "lastSyncedAt">;
 
 /** A merchant whose spending no rule, code or register answer recognised. */
@@ -41,6 +95,20 @@ export interface UncategorisedMerchant {
   totalCents: number;
   count: number;
   lastDate: string;
+}
+
+/** Everything one merchant's rows add up to, for the summary above a merchant-filtered transaction list. */
+export interface MerchantHistory {
+  count: number;
+  /** Money out and in over the whole history, positive cents. */
+  outCents: number;
+  inCents: number;
+  firstDate: string;
+  lastDate: string;
+  /** Calendar months with at least one row. */
+  months: number;
+  /** The category most of its rows are in. */
+  category: string;
 }
 
 /** One merchant in the category settings. */
@@ -192,8 +260,65 @@ export class FinanceRepo {
   }
 
   // ── transactions ─────────────────────────────────────────
+  /**
+   * The user's whole history, oldest first (date, then id). Read in pages by the last row seen, with the event
+   * loop given back between pages: one query for 45 000 rows held every request for most of a second. A row
+   * that changes between two pages is read in whichever state the page found it; the callers either rebuild
+   * from a version they read first (the analysis cache) or write only what a guard allows (reprocess).
+   */
   async allTransactions(): Promise<StoredTransaction[]> {
-    return (await this.db.all<Row>(`SELECT ${TX_COLUMNS_LIGHT} FROM transactions WHERE user_id = ? ORDER BY booking_date, id`, [this.userId])).map(toTransaction);
+    const out: StoredTransaction[] = [];
+    for await (const page of this.historyPages(HISTORY_PAGE, false)) out.push(...page.map(toTransaction));
+    return out;
+  }
+
+  /** The history for the upgrade tasks: every row with the search text it has now, read once. */
+  async allTransactionsWithSearchText(): Promise<(StoredTransaction & { searchText: string | null })[]> {
+    const out: (StoredTransaction & { searchText: string | null })[] = [];
+    for await (const page of this.historyPages(HISTORY_PAGE, true)) out.push(...page.map((r) => ({ ...toTransaction(r), searchText: str(r.search_text) })));
+    return out;
+  }
+
+  private async *historyPages(size: number, withSearchText: boolean): AsyncGenerator<Row[]> {
+    const columns = withSearchText ? `${TX_COLUMNS_LIGHT}, search_text` : TX_COLUMNS_LIGHT;
+    let after: { date: string; id: string } | null = null;
+    for (;;) {
+      const rows: Row[] = after
+        ? await this.db.all<Row>(
+            `SELECT ${columns} FROM transactions WHERE user_id = ? AND (booking_date > ? OR (booking_date = ? AND id > ?)) ORDER BY booking_date, id LIMIT ?`,
+            [this.userId, after.date, after.date, after.id, size],
+          )
+        : await this.db.all<Row>(`SELECT ${columns} FROM transactions WHERE user_id = ? ORDER BY booking_date, id LIMIT ?`, [this.userId, size]);
+      if (rows.length) yield rows;
+      if (rows.length < size) return;
+      const last = rows[rows.length - 1]!;
+      after = { date: String(last.booking_date), id: String(last.id) };
+      await yieldToLoop();
+    }
+  }
+
+  /** Every row of the given merchants, in the order `allTransactions` gives them. */
+  async transactionsOfMerchants(merchants: readonly string[]): Promise<StoredTransaction[]> {
+    const out: StoredTransaction[] = [];
+    // keeps each statement well under SQLite's bound-parameter limit
+    for (let i = 0; i < merchants.length; i += 500) {
+      const chunk = merchants.slice(i, i + 500);
+      const rows = await this.db.all<Row>(`SELECT ${TX_COLUMNS_LIGHT} FROM transactions WHERE user_id = ? AND merchant IN (${chunk.map(() => "?").join(",")})`, [this.userId, ...chunk]);
+      out.push(...rows.map(toTransaction));
+    }
+    return out.sort((a, b) => (a.bookingDate < b.bookingDate ? -1 : a.bookingDate > b.bookingDate ? 1 : a.id < b.id ? -1 : 1));
+  }
+
+  /** The distinct merchant names of the user's rows. */
+  async merchantNames(): Promise<string[]> {
+    return (await this.db.all<{ merchant: string }>("SELECT merchant FROM transactions WHERE user_id = ? GROUP BY merchant", [this.userId])).map((r) => String(r.merchant));
+  }
+
+  /** Rows that returns matched (a refund, a friend's share) outside the given merchants: where they are, not what they are. */
+  async matchedRowsOutside(merchants: readonly string[]): Promise<Pick<Transaction, "accountId" | "bookingDate" | "amountCents">[]> {
+    const rows = await this.db.all<Row>("SELECT account_id, booking_date, amount_cents, merchant FROM transactions WHERE user_id = ? AND category_source = 'match'", [this.userId]);
+    const inside = new Set(merchants);
+    return rows.filter((r) => !inside.has(String(r.merchant))).map((r) => ({ accountId: String(r.account_id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents) }));
   }
 
   /** Spending rows nothing categorised: the input of the trade register lookup. */
@@ -216,19 +341,20 @@ export class FinanceRepo {
     }));
   }
 
-  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; inCents: number; outCents: number; items: StoredTransaction[] }> {
+  /**
+   * The WHERE parts of a transaction filter for one side of the view: the user's own rows, or (household view)
+   * the shared accounts' rows. The two sides never overlap, because a shared account belongs to another user.
+   * Reading them apart lets each side use its own index and stop at the limit; one OR over both sorted every row.
+   */
+  private filterSide(f: TransactionFilter, side: { own: true } | { shared: readonly string[] }): { where: string[]; params: SqlValue[] } {
     const where: string[] = [];
     const params: SqlValue[] = [];
     const add = (condition: string, ...values: SqlValue[]) => {
       where.push(condition);
       params.push(...values);
     };
-    if (accountIds) {
-      // household view: own rows plus explicitly shared accounts (resolved by HouseholdRepo)
-      add(`(user_id = ? OR account_id IN (${accountIds.map(() => "?").join(",") || "NULL"}))`, this.userId, ...accountIds);
-    } else {
-      add("user_id = ?", this.userId);
-    }
+    if ("own" in side) add("user_id = ?", this.userId);
+    else add(`user_id != ? AND account_id IN (${side.shared.map(() => "?").join(",")})`, this.userId, ...side.shared);
     if (f.from) add("booking_date >= ?", f.from);
     if (f.to) add("booking_date <= ?", f.to);
     if (f.accountId) add("account_id = ?", f.accountId);
@@ -236,18 +362,94 @@ export class FinanceRepo {
     if (f.merchant) add("merchant = ?", f.merchant);
     const q = f.q ? fold(f.q.trim()) : "";
     if (q) add("search_text LIKE ? ESCAPE '\\'", containsPattern(q));
-    const clause = `WHERE ${where.join(" AND ")}`;
-    // money in and out over every matching row, so the list says what the whole filter adds up to
-    const total = await this.db.first<{ c: number; inc: number | null; outc: number | null }>(
-      `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc, -SUM(CASE WHEN amount_cents < 0 THEN amount_cents END) AS outc FROM transactions ${clause}`,
-      params,
+    return { where, params };
+  }
+
+  private filterSides(f: TransactionFilter, accountIds?: readonly string[]) {
+    // household view: own rows plus explicitly shared accounts (resolved by HouseholdRepo)
+    const sides = [this.filterSide(f, { own: true })];
+    if (accountIds?.length) sides.push(this.filterSide(f, { shared: accountIds }));
+    return sides;
+  }
+
+  /** `limit` rows of the sides, newest first (date, then id), starting after `offset` rows or after the keyset row. */
+  private async pageRows(sides: { where: string[]; params: SqlValue[] }[], limit: number, offset: number, after?: { date: string; id: string }): Promise<StoredTransaction[]> {
+    const keyset = after ? " AND booking_date <= ? AND (booking_date < ? OR id > ?)" : "";
+    const keysetParams = after ? [after.date, after.date, after.id] : [];
+    const select = (side: { where: string[] }) => `SELECT ${TX_COLUMNS_LIGHT} FROM transactions WHERE ${side.where.join(" AND ")}${keyset} ORDER BY booking_date DESC, id LIMIT ?`;
+    if (sides.length === 1) {
+      const side = sides[0]!;
+      return (await this.db.all<Row>(`${select(side)} OFFSET ?`, [...side.params, ...keysetParams, limit, offset])).map(toTransaction);
+    }
+    // each side is cut at offset + limit rows before the merge
+    const params = sides.flatMap((side) => [...side.params, ...keysetParams, limit + offset]);
+    const rows = await this.db.all<Row>(
+      `SELECT * FROM (${sides.map((side) => `SELECT * FROM (${select(side)})`).join(" UNION ALL ")}) ORDER BY booking_date DESC, id LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
     );
-    const rows = await this.db.all<Row>(`SELECT ${TX_COLUMNS} FROM transactions ${clause} ORDER BY booking_date DESC, id LIMIT ? OFFSET ?`, [
-      ...params,
-      Math.min(Math.max(f.limit ?? 100, 1), 5000),
-      Math.max(f.offset ?? 0, 0),
-    ]);
-    return { total: Number(total?.c ?? 0), inCents: Number(total?.inc ?? 0), outCents: Number(total?.outc ?? 0), items: rows.map(toTransaction) };
+    return rows.map(toTransaction);
+  }
+
+  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; inCents: number; outCents: number; items: StoredTransaction[] }> {
+    const sides = this.filterSides(f, accountIds);
+    // money in and out over every matching row, so the list says what the whole filter adds up to
+    let total = 0;
+    let inCents = 0;
+    let outCents = 0;
+    for (const side of sides) {
+      const r = await this.db.first<{ c: number; inc: number | null; outc: number | null }>(
+        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc, -SUM(CASE WHEN amount_cents < 0 THEN amount_cents END) AS outc FROM transactions WHERE ${side.where.join(" AND ")}`,
+        side.params,
+      );
+      total += Number(r?.c ?? 0);
+      inCents += Number(r?.inc ?? 0);
+      outCents += Number(r?.outc ?? 0);
+    }
+    const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), 5000), Math.max(f.offset ?? 0, 0));
+    return { total, inCents, outCents, items };
+  }
+
+  /**
+   * One page of the same rows in the same order for the export: no count, and the next page starts after the
+   * last row of this one (`after`), so a long history costs the same at its end as at its start.
+   */
+  async exportPage(f: TransactionFilter, accountIds: readonly string[] | undefined, limit: number, after?: { date: string; id: string }): Promise<StoredTransaction[]> {
+    return this.pageRows(this.filterSides(f, accountIds), limit, 0, after);
+  }
+
+  /**
+   * One merchant's whole history in one grouped read per side (own rows, shared accounts in the household view).
+   * It runs on idx_tx_user_merchant_date, so it reads only that merchant's rows however long the history is.
+   * The same rows as the transaction list filtered to the merchant, so the counts agree.
+   */
+  async merchantHistory(merchant: string, accountIds?: readonly string[]): Promise<MerchantHistory | null> {
+    const months = new Set<string>();
+    const categories = new Map<string, number>();
+    let count = 0;
+    let outCents = 0;
+    let inCents = 0;
+    let firstDate = "";
+    let lastDate = "";
+    for (const side of this.filterSides({ merchant }, accountIds)) {
+      const rows = await this.db.all<{ category: string; m: string; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
+        `SELECT category, substr(booking_date, 1, 7) AS m, COUNT(*) AS n, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 THEN amount_cents END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
+         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY category, m`,
+        side.params,
+      );
+      for (const r of rows) {
+        count += Number(r.n);
+        inCents += Number(r.inc ?? 0);
+        outCents += Number(r.outc ?? 0);
+        months.add(r.m);
+        categories.set(r.category, (categories.get(r.category) ?? 0) + Number(r.n));
+        if (!firstDate || r.first < firstDate) firstDate = r.first;
+        if (r.last > lastDate) lastDate = r.last;
+      }
+    }
+    if (!count) return null;
+    const category = [...categories].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]![0];
+    return { count, outCents, inCents, firstDate, lastDate, months: months.size, category };
   }
 
   /** Money-out rows nothing recognised, per merchant, biggest spending first. */
@@ -315,18 +517,18 @@ export class FinanceRepo {
   }
 
   async getTransaction(id: string): Promise<StoredTransaction | null> {
-    const r = await this.db.first<Row>(`SELECT ${TX_COLUMNS} FROM transactions WHERE id = ? AND user_id = ?`, [id, this.userId]);
+    const r = await this.db.first<Row>(`SELECT ${TX_COLUMNS_LIGHT} FROM transactions WHERE id = ? AND user_id = ?`, [id, this.userId]);
     return r ? toTransaction(r) : null;
   }
 
-  /** Keys of booked transactions in a date range, for duplicate detection. */
-  async transactionKeys(accountId: string, from: string, to: string): Promise<{ id: string; bookingDate: string; amountCents: number; source: string }[]> {
+  /** Booked transactions in a date range, for duplicate detection. */
+  async transactionKeys(accountId: string, from: string, to: string): Promise<StoredParty[]> {
     return (
       await this.db.all<Row>(
-        "SELECT id, booking_date, amount_cents, source FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked' AND booking_date BETWEEN ? AND ?",
+        "SELECT id, booking_date, value_date, amount_cents, status, source, merchant, counterparty, counterparty_iban, description, reference, mcc FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked' AND booking_date BETWEEN ? AND ?",
         [this.userId, accountId, from, to],
       )
-    ).map((r) => ({ id: String(r.id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents), source: String(r.source) }));
+    ).map((r) => ({ id: String(r.id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents), source: String(r.source), ...partyOf(r), signature: signatureOf(r) }));
   }
 
   /** Latest booked date from one source: CSV rows imported into a bank account must not move the bank's sync window. */
@@ -338,19 +540,26 @@ export class FinanceRepo {
     return r?.d ?? null;
   }
 
-  /** Pending rows the user categorised by hand; their choice survives when the row is booked. */
-  async userCategorisedPending(accountId: string): Promise<{ id: string; bookingDate: string; amountCents: number; merchant: string; category: string }[]> {
+  /** The account's pending rows: a booked row replaces one, and a category the user set on it moves along. */
+  async pendingRows(accountId: string): Promise<(StoredParty & { category: string; categorySource: string })[]> {
     const rows = await this.db.all<Row>(
-      "SELECT id, booking_date, amount_cents, merchant, category FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'pending' AND category_source = 'user'",
+      "SELECT id, booking_date, value_date, amount_cents, status, source, merchant, counterparty, counterparty_iban, description, reference, mcc, category, category_source FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'pending'",
       [this.userId, accountId],
     );
     return rows.map((r) => ({
       id: String(r.id),
       bookingDate: String(r.booking_date),
       amountCents: Number(r.amount_cents),
-      merchant: String(r.merchant),
+      source: String(r.source),
+      ...partyOf(r),
+      signature: signatureOf(r),
       category: String(r.category),
+      categorySource: String(r.category_source),
     }));
+  }
+
+  deletePendingByIdStatement(accountId: string, id: string): Statement {
+    return { sql: "DELETE FROM transactions WHERE id = ? AND user_id = ? AND account_id = ? AND status = 'pending'", params: [id, this.userId, accountId] };
   }
 
   /**
@@ -374,6 +583,31 @@ export class FinanceRepo {
     }));
   }
 
+  /**
+   * Part of the batch that stores imported rows: the rows and "these still need categories" land together, so
+   * a process killed before reprocess ran leaves the mark behind. The user's data version moves with the rows too.
+   */
+  unprocessedStatements(at: string): Statement[] {
+    return [
+      {
+        sql: "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        params: [`${NEEDS_REPROCESS}${this.userId}`, crypto.randomUUID(), at],
+      },
+      bumpUserDataVersionStatement(this.userId, at),
+    ];
+  }
+
+  /** The mark's current value (null when nothing waits). */
+  async unprocessedMark(): Promise<string | null> {
+    return (await this.db.first<{ value: string }>("SELECT value FROM settings WHERE key = ?", [`${NEEDS_REPROCESS}${this.userId}`]))?.value ?? null;
+  }
+
+  /** Clears the mark only if it still has the value it had when reprocess began: rows imported meanwhile keep it set. */
+  async clearUnprocessedMark(seen: string | null): Promise<void> {
+    if (seen === null) return;
+    await this.db.run("DELETE FROM settings WHERE key = ? AND value = ?", [`${NEEDS_REPROCESS}${this.userId}`, seen]);
+  }
+
   deletePendingStatement(accountId: string): Statement {
     return { sql: "DELETE FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'pending'", params: [this.userId, accountId] };
   }
@@ -382,8 +616,21 @@ export class FinanceRepo {
     if (statements.length) await this.db.batch(statements);
   }
 
+  /**
+   * Writes derived data (categories, merchant names, search text) in transactions of a couple of thousand
+   * statements, with the event loop given back in between. Each statement is idempotent and the run is repeated
+   * by whoever started it, so a stop halfway costs nothing that the next run does not redo. Rows of an import
+   * go through `batch` instead: those must land together.
+   */
+  async batchInChunks(statements: Statement[]): Promise<void> {
+    for (let i = 0; i < statements.length; i += WRITE_CHUNK) {
+      if (i) await yieldToLoop();
+      await this.db.batch(statements.slice(i, i + WRITE_CHUNK));
+    }
+  }
+
   async updateEnrichment(txs: Pick<Transaction, "id" | "category" | "categorySource" | "isTransfer">[]): Promise<void> {
-    await this.batch(
+    await this.batchInChunks(
       // a hand-set category is never written here, even one set between reprocess's read and this write
       txs.map((t) =>
         t.categorySource === "user"
@@ -398,7 +645,7 @@ export class FinanceRepo {
 
   /** After an upgrade: stored merchant names re-derived with the current normalisation. */
   async updateMerchants(changes: { id: string; merchant: string }[]): Promise<void> {
-    await this.batch(
+    await this.batchInChunks(
       changes.map((c) => ({ sql: "UPDATE transactions SET merchant = ? WHERE id = ? AND user_id = ?", params: [c.merchant, c.id, this.userId] })),
     );
   }
@@ -410,12 +657,19 @@ export class FinanceRepo {
    */
   async refreshSearchText(): Promise<number> {
     const rows = await this.db.all<Row>("SELECT id, merchant, counterparty, description, search_text FROM transactions WHERE user_id = ?", [this.userId]);
+    return this.writeSearchText(
+      rows.map((r) => ({ id: String(r.id), merchant: String(r.merchant), counterparty: str(r.counterparty), description: str(r.description), searchText: str(r.search_text) })),
+    );
+  }
+
+  /** The same for rows a caller has read already (the upgrade tasks read a history once). */
+  async writeSearchText(rows: readonly { id: string; merchant: string; counterparty: string | null; description: string | null; searchText: string | null }[]): Promise<number> {
     const stale: Statement[] = [];
     for (const r of rows) {
-      const text = searchText({ merchant: String(r.merchant), counterparty: str(r.counterparty), description: str(r.description) });
-      if (text !== r.search_text) stale.push({ sql: "UPDATE transactions SET search_text = ? WHERE id = ? AND user_id = ?", params: [text, String(r.id), this.userId] });
+      const text = searchText(r);
+      if (text !== r.searchText) stale.push({ sql: "UPDATE transactions SET search_text = ? WHERE id = ? AND user_id = ?", params: [text, r.id, this.userId] });
     }
-    await this.batch(stale);
+    await this.batchInChunks(stale);
     return stale.length;
   }
 
@@ -561,6 +815,20 @@ export class FinanceRepo {
       id,
       this.userId,
     ]);
+  }
+
+  /** Runs a killed process left as "running" end as failed; the header must not show their start as a success. */
+  async failInterruptedSyncRuns(): Promise<number> {
+    const r = await this.db.run(
+      "UPDATE sync_runs SET status = 'failed', finished_at = ?, message = 'Haku keskeytyi, palvelin käynnistyi uudelleen.' WHERE user_id = ? AND status = 'running'",
+      [new Date().toISOString(), this.userId],
+    );
+    return r.changes;
+  }
+
+  /** Keeps the newest `keep` runs of this user. */
+  async pruneSyncRuns(keep = 200): Promise<void> {
+    await this.db.run("DELETE FROM sync_runs WHERE user_id = ? AND id NOT IN (SELECT id FROM sync_runs WHERE user_id = ? ORDER BY id DESC LIMIT ?)", [this.userId, this.userId, keep]);
   }
 
   async listSyncRuns(limit = 20): Promise<SyncRun[]> {

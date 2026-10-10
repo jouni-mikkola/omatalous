@@ -7,14 +7,17 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { type BalanceInput, balanceReport } from "./balances.ts";
+import { bufferReport } from "./buffer.ts";
 import { cashflowReport } from "./cashflow.ts";
 import { categoryReport } from "./categories.ts";
 import { dataQualityReport } from "./data-quality.ts";
+import { driftReport } from "./drift.ts";
 import { fixedVariableReport } from "./fixed-variable.ts";
 import { highlightsReport } from "./highlights.ts";
 import { pivotReport } from "./pivot.ts";
 import { priceChangesReport } from "./price-changes.ts";
 import { summaryReport } from "./summary.ts";
+import { upcomingReport } from "./upcoming.ts";
 import { yearOverYearReport } from "./year-over-year.ts";
 
 export interface ReportInput {
@@ -34,6 +37,9 @@ export const REPORTS = {
   dataQuality: ({ ctx, range }: ReportInput) => dataQualityReport(ctx, range),
   yearOverYear: ({ ctx, range }: ReportInput) => yearOverYearReport(ctx, range),
   balances: ({ ctx, range, balances }: ReportInput) => balanceReport(ctx, range, balances),
+  upcoming: ({ ctx }: ReportInput) => upcomingReport(ctx),
+  drift: ({ ctx, range }: ReportInput) => driftReport(ctx, range),
+  buffer: ({ ctx, balances }: ReportInput) => bufferReport(ctx, balances),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;
@@ -44,12 +50,15 @@ export function buildReports(input: ReportInput): ReportsData {
 }
 
 export type { BalanceInput, BalanceReport, BalanceSeries } from "./balances.ts";
+export type { BufferReport } from "./buffer.ts";
 export type { CashflowReport, CashflowRow } from "./cashflow.ts";
 export type { CategoryReport, CategoryStat, GroupStat } from "./categories.ts";
 export type { DataQualityReport, QualitySignal } from "./data-quality.ts";
+export type { DriftItem, DriftReport } from "./drift.ts";
 export type { FixedVariableReport, FixedVariableRow } from "./fixed-variable.ts";
 export type { HighlightsReport, LargePurchase, NewMerchant } from "./highlights.ts";
 export type { PivotReport, PivotRow } from "./pivot.ts";
 export type { PriceChangeItem, PriceChangesReport } from "./price-changes.ts";
 export type { SummaryCategory, SummaryChange, SummaryReport } from "./summary.ts";
+export type { UpcomingBill, UpcomingReport } from "./upcoming.ts";
 export type { YearOverYearReport } from "./year-over-year.ts";

@@ -12,3 +12,4 @@ secrets
 *.pem
 *.db
 ops
+tools

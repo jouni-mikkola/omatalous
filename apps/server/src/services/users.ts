@@ -1,5 +1,6 @@
 /** Household members: first-run setup, adding members, passwords. */
 import type { Role, User } from "../db/rows.ts";
+import { USER_DATA_VERSION } from "../db/settings-repo.ts";
 import { sha256, timingSafeEqual, utf8 } from "../security/encoding.ts";
 import { generatePassword, hashPassword, passwordProblem, verifyPassword } from "../security/password.ts";
 import { UserError } from "./errors.ts";
@@ -161,7 +162,9 @@ export async function removeUser(s: Services, userId: string, by: string, req: R
   if (!target) throw new UserError("Käyttäjää ei löydy.");
   const bank = await revokeAllConnections(s, userId);
   await s.users.delete(userId);
+  // the instance version: every member's household view may have held this member's accounts
   await s.settings.bumpDataVersion();
+  await s.settings.delete(`${USER_DATA_VERSION}${userId}`);
   try {
     await s.users.compact();
   } catch (err) {

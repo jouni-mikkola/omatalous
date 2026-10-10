@@ -139,7 +139,7 @@ found gives the category. An unclear match is left alone.
 
 ## Updates and the maintenance helper
 
-*Asetukset > Ylläpito* can update, roll back, back up, restart and check the install. The app does not run
+*Asetukset > Ylläpito* can update, roll back, back up, restart and check the install, read the logs, free disk space and renew the helper itself. The app does not run
 anything itself. It writes a request row, and a helper on the host (`scripts/ops-helper.sh`) takes it. Update, rollback and
 the download of a backup need the admin's password again, rollback also a typed word. Every request is recorded as a security event (`Ylläpito: ...`), and the other admins get a notice.
 

@@ -96,7 +96,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Haku</h2>
+            <h2>Haku pankista</h2>
             <div className="card-sub">
               {!hasConnection
                 ? "Ei pankkiyhteyttä"
@@ -139,7 +139,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
             </tbody>
           </table>
           {runs.error && <div className="error">{runs.error}</div>}
-          {runs.data && !runs.data.runs.length && <div className="empty">Ei hakuja vielä.</div>}
+          {runs.data && !runs.data.runs.length && <div className="empty">Ei hakuja vielä.{hasConnection ? " Paina Hae nyt." : ""}</div>}
         </div>
       </div>
 

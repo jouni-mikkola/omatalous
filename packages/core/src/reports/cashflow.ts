@@ -1,6 +1,7 @@
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
+import { monthIndex } from "../dates.ts";
 import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 export interface CashflowRow {
@@ -19,6 +20,14 @@ export interface CashflowReport {
   totals: PeriodTotals;
   /** Per-month averages over the complete months; null when the range has none. */
   average: Omit<CashflowRow, "month" | "savingsRate"> | null;
+  /** The range holds the month that has not ended: its bills are out but its salary may not be in. */
+  running: boolean;
+  /**
+   * Totals of the months before the running one; null when the range has no
+   * running month or nothing before it. Net and savings rate are told from
+   * these, since a month in progress reads as a loss.
+   */
+  closed: PeriodTotals | null;
 }
 
 /** Money in vs. where it went (consumption, debt, savings), month by month. */
@@ -40,12 +49,17 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
       savingsRate: t.savingsRate,
     };
   });
+  const runningMonth = monthIndex(ctx.today.slice(0, 7));
+  const running = range.from <= ctx.today && ctx.today <= range.to;
+  const closedFlows = running ? all.filter((x) => x.month < runningMonth) : [];
   const averaged = new Set(fullMonths(ctx, range, months));
   const base = rows.filter((_, i) => averaged.has(months[i]!));
   const avg = (key: keyof Omit<CashflowRow, "month" | "savingsRate">) => Math.round(base.reduce((s, r) => s + r[key], 0) / base.length);
   return {
     rows,
     totals: totalsOf(all.map((x) => x.flows)),
+    running,
+    closed: closedFlows.length ? totalsOf(closedFlows.map((x) => x.flows)) : null,
     average: !base.length ? null : {
       incomeCents: avg("incomeCents"),
       consumptionCents: avg("consumptionCents"),

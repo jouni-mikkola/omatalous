@@ -92,7 +92,7 @@ export function Merchants({ meta }: { meta: Meta }) {
           <div className="card-sub">{items ? `${plural(items.length, "kauppias", "kauppiasta")}, summat koko historiasta` : "…"}</div>
         </div>
         <div className="form-row" style={{ margin: 0 }}>
-          <input type="search" placeholder="Hae" value={text} onChange={(e) => setText(e.target.value)} aria-label="Hae kauppiasta" />
+          <input type="search" placeholder="Hae kauppiasta" value={text} onChange={(e) => setText(e.target.value)} aria-label="Hae kauppiasta" />
           <CategorySelect categories={meta.categories} value={category} onChange={setCategory} allowEmpty ariaLabel="Suodata kategorialla" />
         </div>
       </div>
@@ -157,7 +157,7 @@ export function Merchants({ meta }: { meta: Meta }) {
             ))}
           </tbody>
         </table>
-        {items && !items.length && <div className="empty">Ei kauppiaita.</div>}
+        {items && !items.length && <div className="empty">{q || category ? "Ei kauppiaita näillä rajauksilla." : "Kauppiaita ei vielä ole. Ne ilmestyvät, kun tapahtumia on tuotu."}</div>}
         {!items && !loadError && <div className="empty">Ladataan…</div>}
       </div>
       {items && items.length >= LIMIT && <div className="small muted">Näytetään {LIMIT} suurinta. Rajaa hakua.</div>}

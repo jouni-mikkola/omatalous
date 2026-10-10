@@ -58,22 +58,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# VACUUM INTO writes a consistent copy of the live database (the path is an SQL string literal, so single quotes)
-SNAPSHOT_JS=$(cat <<'JS'
-const { DatabaseSync } = require("node:sqlite");
-const fs = require("node:fs");
-fs.rmSync("/data/backup.db", { force: true });
-new DatabaseSync("/data/banking.db").exec("VACUUM INTO '/data/backup.db'");
-JS
-)
-docker compose exec -T banking node --disable-warning=ExperimentalWarning -e "$SNAPSHOT_JS"
+# A consistent copy of the live database (VACUUM INTO), checked inside the container (size, quick_check, tables)
+# and removed there when it fails; the shared code is in scripts/lib/dbcopy.sh. A copy that was cut short on the
+# way out is caught by comparing sizes, and the compressed file by gzip -t.
+# shellcheck source=lib/dbcopy.sh
+. scripts/lib/dbcopy.sh
+docker compose exec -T banking node --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" - /data/backup.db
+want=$(docker compose exec -T banking node -e 'console.log(require("node:fs").statSync("/data/backup.db").size)' | tr -d '\r')
 docker compose cp banking:/data/backup.db "$TARGET" >/dev/null
 chmod 600 "$TARGET" # docker cp keeps the container's 644
 docker compose exec -T banking node -e 'require("node:fs").rmSync("/data/backup.db", { force: true })'
+[[ $(stat -c %s "$TARGET") == "$want" && $want -ge 4096 ]] || die "the copy that came out of the container is $(stat -c %s "$TARGET") bytes, expected $want."
+[[ $(head -c 15 "$TARGET") == "SQLite format 3" ]] || die "the copy is not a SQLite file."
 gzip -9 "$TARGET"
+gzip -t "$TARGET.gz" || die "the compressed copy does not pass gzip -t."
 
 if [[ -n ${BACKUP_AGE_RECIPIENT:-} ]]; then
   age -r "$BACKUP_AGE_RECIPIENT" -o "$TARGET.gz.age" "$TARGET.gz"
+  [[ -s $TARGET.gz.age ]] || die "age wrote an empty file."
   chmod 600 "$TARGET.gz.age"
   rm -f "$TARGET.gz"
   # the secret goes straight from the container into age, never to disk in plain text

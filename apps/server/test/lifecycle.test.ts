@@ -11,7 +11,7 @@ import { AAD } from "../src/services/bank-app.ts";
 import { foldCsvAccounts } from "../src/services/bank.ts";
 import { resealAll } from "../src/services/secret-rotation.ts";
 import { mockBank } from "./mock-bank.ts";
-import { NOW, setupApp } from "./helpers.ts";
+import { NOW, setupApp, waitFor } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const dirs: string[] = [];
@@ -157,6 +157,8 @@ describe("a CSV account and a later bank account with the same IBAN", () => {
     expect(imported.body).toMatchObject({ inserted: 3 });
     await t.admin.call("POST", "/api/connections/start", {});
     await t.admin.call("POST", "/api/connections/complete", callback(bank.state));
+    // the first fetch runs in the background and gives the event loop back while it works
+    await waitFor(async () => (await t.admin.call("GET", "/api/sync/runs")).body.runs.some((r: { status: string }) => r.status !== "running"));
     return { ...t, bank, csvAccountId: imported.body.accountId as string };
   }
 

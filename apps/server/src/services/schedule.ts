@@ -5,10 +5,13 @@
  * authorisations.
  */
 import { hourIn, todayIn } from "../config.ts";
+import { optimizeDatabase } from "../db/optimize.ts";
 import { type SyncSummary, syncEveryone } from "./bank.ts";
 import type { Services } from "./context.ts";
 import { drainLookups, type LookupResult } from "./industry.ts";
 import { expireStale } from "./ops.ts";
+import { finishPendingReprocess } from "./recovery.ts";
+import { upgradeAndLog } from "./upgrade.ts";
 import { pruneEvents } from "./security.ts";
 import { isSyncHour } from "./instance.ts";
 
@@ -37,11 +40,27 @@ async function backupToday(s: Services, day: string): Promise<string | null> {
   }
 }
 
+/**
+ * Work a restart could not finish or a failure left undone: the upgrade tasks of a build that differs from the
+ * stored one, and categorisation of rows that were stored but not processed. Both are idempotent.
+ */
+async function finishLeftovers(s: Services): Promise<void> {
+  await upgradeAndLog(s);
+  await finishPendingReprocess(s);
+  for (const user of await s.users.list()) await s.finance(user.id).pruneSyncRuns();
+}
+
 export async function hourlyTick(s: Services): Promise<TickResult> {
   const settings = await s.instance.load(true);
   const hour = hourIn(settings.timezone, s.now());
   const today = todayIn(settings.timezone, s.now());
   const backup = await backupToday(s, today);
+  await optimizeDatabase(s.db);
+  try {
+    await finishLeftovers(s);
+  } catch (err) {
+    console.error("finishing leftover work failed:", err);
+  }
   let synced: TickResult["synced"] = null;
   // when clocks go forward an hour does not exist: a fetch chosen for it happens in the hour that follows
   const previousHour = hourIn(settings.timezone, new Date(s.now().getTime() - 3600_000));

@@ -6,6 +6,7 @@
 import { randomBytes } from "node:crypto";
 import { createReadStream, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { quickFileCheck, verifyDatabaseFile } from "../db/backup-check.ts";
 import type { OpsRequest } from "../db/ops-repo.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
@@ -14,6 +15,7 @@ import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "./err
 import { strictObject } from "./instance.ts";
 import {
   HELPER_MIN_VERSION,
+  helperHasTools,
   helperOutdated,
   helperStatus,
   mergeState,
@@ -29,8 +31,11 @@ import {
   REQUEST_EXPIRY_MS,
   ROLLBACK_WORD,
   RUNNING_TIMEOUT_MS,
+  LOGS_MAX_BYTES,
+  LOGS_MAX_LINES,
   sanitiseOutput,
   scrub,
+  TOOL_ACTIONS,
   validOpsId,
 } from "./ops-validate.ts";
 import { recordEvent } from "./security.ts";
@@ -46,6 +51,9 @@ export const ACTION_LABEL: Record<OpsAction, string> = {
   restart: "uudelleenkäynnistys",
   doctor: "järjestelmän tarkistus",
   "check-update": "päivitysten tarkistus",
+  logs: "lokien luku",
+  prune: "levyn siivous",
+  "helper-renew": "apurin uusinta",
 };
 
 /** These also reach the other admins as a notice. */
@@ -89,7 +97,7 @@ export async function helperInfo(s: Services) {
   const seenAt = await s.settings.get(SEEN_KEY);
   const version = await s.settings.get(VERSION_KEY);
   const { status, reason } = helperStatus(seenAt, s.now());
-  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
+  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
 }
 
 // ── backups kept by the app ──────────────────────────────
@@ -103,7 +111,10 @@ interface AppBackup {
   kind: "daily" | "pre-update" | "manual";
 }
 
-/** The database copies in <data>/backups, newest first. Regular files only. */
+/**
+ * The database copies in <data>/backups, newest first. Regular files only; an empty, cut-short or
+ * non-database file is left out (the copy code removes those, this covers one left by a killed process).
+ */
 export function listAppBackups(s: Services): AppBackup[] {
   if (!s.backupDir) return [];
   let names: string[];
@@ -118,6 +129,7 @@ export function listAppBackups(s: Services): AppBackup[] {
     try {
       const st = lstatSync(join(s.backupDir, name));
       if (!st.isFile()) continue;
+      if (quickFileCheck(join(s.backupDir, name)) !== null) continue;
       out.push({ name, size: st.size, at: st.mtime.toISOString(), kind: name.startsWith("auto-") ? "daily" : name.startsWith("pre-update-") ? "pre-update" : "manual", t: st.mtimeMs });
     } catch {
       // removed meanwhile
@@ -212,6 +224,11 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req)
     await deny("apuri ei käytössä");
     throw new HttpUserError("Ylläpitoapuri ei ole käytössä.", 409);
   }
+  if (TOOL_ACTIONS.includes(action) && !helperHasTools(await s.settings.get(VERSION_KEY))) {
+    // an older helper rejects these as unknown, and the request would sit claimed until it times out
+    await deny("apuri vanhentunut");
+    throw new HttpUserError(`Ylläpitoapuri on vanhentunut. Aja koneella: ${ENABLE_COMMAND}`, 409);
+  }
   if (action === "rollback") {
     if (input.confirm !== ROLLBACK_WORD) {
       await deny("vahvistus");
@@ -270,8 +287,15 @@ export async function backupForDownload(s: Services, user: User, password: strin
   const attempt = s.opsDownloadLimiter.consume(key);
   if (attempt.wait) throw new TooManyAttempts("Liian monta latausta tunnissa. Yritä myöhemmin.", attempt.wait);
   await checkPassword(s, user, password, req, "varmuuskopion lataus");
-  const newest = listAppBackups(s)[0];
-  if (!newest || !s.backupDir) throw new UserError("Varmuuskopiota ei ole vielä. Ota ensin varmuuskopio.");
+  const copies = listAppBackups(s);
+  if (!copies.length || !s.backupDir) throw new UserError("Varmuuskopiota ei ole vielä. Ota ensin varmuuskopio.");
+  // the full check runs on the file that is about to leave the machine; a broken newest copy is skipped
+  const newest = copies.find((b) => {
+    const check = verifyDatabaseFile(join(s.backupDir!, b.name));
+    if (!check.ok) console.error(`backup download: ${b.name} failed its check and is skipped: ${check.reason}`);
+    return check.ok;
+  });
+  if (!newest) throw new UserError("Yksikään varmuuskopio ei läpäissyt tarkistusta. Ota uusi varmuuskopio.");
   await recordEvent(s, { kind: "ops_download", userId: user.id, ...req, detail: `varmuuskopion lataus: ladattu (${newest.name})`, notify: false });
   await notifyAdmins(s, user, `${user.displayName} latasi tietokannan varmuuskopion`);
   return { stream: createReadStream(join(s.backupDir, newest.name)), name: newest.name, size: newest.size };
@@ -342,7 +366,7 @@ export async function reportOps(s: Services, payload: unknown, helper?: string):
       at: s.now().toISOString(),
       exitCode: (o.exit_code as number | null | undefined) ?? null,
       summary: oneLine((o.summary as string | undefined) || (o.status === "ok" ? "Valmis." : "Epäonnistui."), 200, secrets),
-      output: sanitiseOutput((o.output as string | undefined) ?? "", secrets),
+      output: sanitiseOutput((o.output as string | undefined) ?? "", secrets, row.action === "logs" ? { lines: LOGS_MAX_LINES, bytes: LOGS_MAX_BYTES } : undefined),
       steps: JSON.stringify(steps),
     });
     if (done) await resultEvent(s, row, o.status === "ok" ? "valmis" : "epäonnistui");

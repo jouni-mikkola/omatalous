@@ -8,8 +8,9 @@ import { BANKS } from "../services/banks.ts";
 import { strictObject } from "../services/instance.ts";
 import { UserError } from "../services/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { reprocess, reprocessDetailed } from "../services/enrich.ts";
-import { checkRuleRoom } from "../services/rules.ts";
+import { reprocess, reprocessMerchantChange } from "../services/enrich.ts";
+import { derivedStateIsCurrent } from "../services/upgrade.ts";
+import { checkRuleRoom, replacesWordRule } from "../services/rules.ts";
 import { body, optionalString, parseRange, queryInt } from "./shared.ts";
 
 const ACCOUNT_TYPES: AccountType[] = ["checking", "savings", "credit_card", "loan", "other"];
@@ -137,9 +138,17 @@ export function financeRoutes(s: Services) {
     if (input.category !== null && !isKnownCategory(input.category)) throw new UserError("Tuntematon kategoria.");
     // replacing this merchant's rule keeps the count; a new one must fit under the cap
     if (input.createRule && input.category && !(await repo.hasMerchantRule(tx.merchant))) await checkRuleRoom(repo);
+    const oldRules = await repo.listRules();
     await repo.setUserCategory(id, input.category);
-    if (input.createRule && input.category) await repo.setMerchantRule(tx.merchant, input.category);
-    const { recategorised } = await reprocessDetailed(repo, s.settings);
+    const rule = !!input.createRule && !!input.category;
+    if (rule) await repo.setMerchantRule(tx.merchant, input.category!);
+    const { recategorised } = await reprocessMerchantChange(repo, s.settings, {
+      merchants: [tx.merchant],
+      rule,
+      before: new Map([[id, { category: tx.category, categorySource: tx.categorySource }]]),
+      oldRules,
+      incremental: (await derivedStateIsCurrent(s)) && !(rule && replacesWordRule(oldRules, tx.merchant)),
+    });
     const updated = await repo.getTransaction(id);
     // the row itself was set by hand before the rules ran, so reprocess did not count it
     const self = input.category !== null && input.category !== tx.category ? 1 : 0;
@@ -191,7 +200,7 @@ export function financeRoutes(s: Services) {
     if (balance !== undefined) await repo.setAccountBalance(id, balance, s.now().toISOString());
     // account type and a card's name decide whether a card bill is a transfer
     if (input.name !== undefined || input.type !== undefined) await reprocess(repo, s.settings);
-    else await s.settings.bumpDataVersion();
+    else await s.settings.bumpUserDataVersion(repo.userId);
     return c.json(await repo.getAccount(id));
   });
 
@@ -211,13 +220,14 @@ export function financeRoutes(s: Services) {
   app.put("/accounts/:id/shares/:userId", async (c) => {
     const ok = await s.household.share(c.get("user").id, c.req.param("id"), c.req.param("userId"));
     if (!ok) throw new UserError("Tiliä ei voi jakaa.");
-    await s.settings.bumpDataVersion();
+    // the owner's and the viewer's analyses change, nobody else's
+    await Promise.all([c.get("user").id, c.req.param("userId")].map((id) => s.settings.bumpUserDataVersion(id)));
     return c.json({ ok: true });
   });
 
   app.delete("/accounts/:id/shares/:userId", async (c) => {
     await s.household.unshare(c.get("user").id, c.req.param("id"), c.req.param("userId"));
-    await s.settings.bumpDataVersion();
+    await Promise.all([c.get("user").id, c.req.param("userId")].map((id) => s.settings.bumpUserDataVersion(id)));
     return c.json({ ok: true });
   });
 

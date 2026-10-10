@@ -2,7 +2,7 @@
 # Tests for scripts/ops-helper.sh (and the update path it drives) against a stub docker, a stub cosign and
 # curl, and a local bare git remote. Nothing here touches the network, a real container or a real registry.
 #
-#   scripts/test/ops-helper.test.sh [name-filter]
+#   tools/test/ops-helper.test.sh [name-filter]
 #
 # The helper refuses to run as root, so a root run (a container, say) copies the scripts and runs the
 # tests as an unprivileged user; the refusal itself is checked first.
@@ -15,12 +15,12 @@ FILTER=${1:-}
 # ── root: check the refusal, then run everything as nobody on a copy ────────
 if [[ $EUID -eq 0 && -z ${OPS_TEST_CHILD:-} ]]; then
   base=$(mktemp -d); chmod 755 "$base"
-  mkdir -p "$base/src"; cp -r "$SRC/scripts" "$SRC/docker-compose.yml" "$base/src/"
+  mkdir -p "$base/src/tools"; cp -r "$SRC/scripts" "$SRC/docker-compose.yml" "$base/src/"; cp -r "$SRC/tools/test" "$base/src/tools/"
   chown -R 65534:65534 "$base"
   out=$(cd "$base/src" && TALOUS_OPS_CLEAN="" ./scripts/ops-helper.sh 2>&1); rc=$?
   if [[ $rc -ne 0 && $out == *"does not run as root"* ]]; then echo "ok   helper refuses to run as root"; rootfail=0
   else echo "FAIL helper refuses to run as root (rc $rc: $out)"; rootfail=1; fi
-  setpriv --reuid=65534 --regid=65534 --clear-groups env -u TMPDIR HOME="$base" OPS_TEST_CHILD=1 OPS_TEST_SRC="$base/src" bash "$base/src/scripts/test/ops-helper.test.sh" "$FILTER"
+  setpriv --reuid=65534 --regid=65534 --clear-groups env -u TMPDIR HOME="$base" OPS_TEST_CHILD=1 OPS_TEST_SRC="$base/src" bash "$base/src/tools/test/ops-helper.test.sh" "$FILTER"
   rc=$?
   rm -rf "$base"
   exit $((rc || rootfail))
@@ -56,6 +56,10 @@ case ${1:-} in
   info) [[ $* == *DockerRootDir* ]] && echo "$S/root"; exit 0 ;;
   version) echo 27.0.0; exit 0 ;;
   volume) echo vol; exit 0 ;;
+  builder)
+    [[ ${2:-} == prune ]] || exit 0
+    [[ -e $S/prunefail ]] && { echo "prune failed" >&2; exit 1; }
+    echo "Total reclaimed space: $(cat "$S/prune-cache" 2>/dev/null || echo 0B)"; exit 0 ;;
   inspect)
     case $* in *RestartCount*) echo 0 ;; *.Image*) echo "id-$(cat "$S/cver" 2>/dev/null)" ;; esac; exit 0 ;;
   pull)
@@ -65,6 +69,11 @@ case ${1:-} in
     echo pulled; exit 0 ;;
   image)
     case ${2:-} in
+      prune)
+        [[ -e $S/prunefail ]] && { echo "prune failed" >&2; exit 1; }
+        # a prune that wrongly takes the previous image, for the safety check
+        [[ -e $S/prune-eats-previous ]] && rm -f "$S/images/banking-app_previous"
+        echo "Deleted Images:"; echo "Total reclaimed space: $(cat "$S/prune-images" 2>/dev/null || echo 0B)"; exit 0 ;;
       tag) [[ -f $S/images/$(key "$3") ]] || exit 1; cp "$S/images/$(key "$3")" "$S/images/$(key "$4")"; exit 0 ;;
       inspect)
         ref=${@: -1}; f=$S/images/$(key "$ref"); [[ -f $f ]] || exit 1
@@ -86,7 +95,9 @@ case ${1:-} in
       config) printf '{\n  "name": "clone"\n}\n'; exit 0 ;;
       ps)
         case $* in
-          *"--status running"*) [[ -e $S/running ]] && echo cid1 ;;
+          *"--status running"*)
+            # caddy and tunnel run only when a test says so
+            case $(last_arg "$@") in caddy | tunnel) [[ -e $S/running && -e $S/svc-$(last_arg "$@") ]] && echo cid1 ;; *) [[ -e $S/running ]] && echo cid1 ;; esac ;;
           *) [[ -e $S/container ]] && echo cid1 ;;
         esac; exit 0 ;;
       exec)
@@ -112,7 +123,17 @@ case ${1:-} in
       stop) rm -f "$S/running"; exit 0 ;;
       start) touch "$S/running"; exit 0 ;;
       restart) [[ -e $S/hang-restart ]] && exec /bin/sleep 1000; exit 0 ;;
-      logs|down|pull) exit 0 ;;
+      logs)
+        n=150; [[ $* == *"--tail "* ]] && n=$(sed -E 's/.*--tail ([0-9]+).*/\1/' <<<"$*")
+        svc=$(last_arg "$@")
+        for ((i = 1; i <= n + 50; i++)); do echo "$svc-1  | line $i of $svc"; done | tail -n "$n"
+        echo "$svc-1  | call with Bearer abc123tokenvalue ok"
+        echo "$svc-1  | session eyJhbGciOiJSUzI1NiJ9.eyJ4IjoxfQ.c2ln done"
+        echo "$svc-1  | TUNNEL_TOKEN=abc"
+        echo "$svc-1  | api_key=zzz"
+        echo "$svc-1  | kept log line"
+        exit 0 ;;
+      down|pull) exit 0 ;;
     esac; exit 0 ;;
 esac
 exit 0
@@ -122,7 +143,7 @@ EOF
 #!/usr/bin/env bash
 printf 'cosign %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
 [[ -e $OPS_STUB_DIR/cosignfail ]] && exit 1
-[[ $* == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* && $* == *"release\\.yml@refs/tags/"* && $* == *"@sha256:"* ]] || exit 1
+[[ $* == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* && $* == *"release\\.yml@refs/(tags/v"* && $* == *"@sha256:"* ]] || exit 1
 [[ $* == *"--certificate-github-workflow-sha "????????????????????????????????????????" "* && $* == *"--certificate-github-workflow-trigger push"* ]] || exit 1
 exit 0
 EOF
@@ -140,6 +161,20 @@ EOF
 #!/usr/bin/env bash
 if [[ -e $OPS_STUB_DIR/lowdisk ]]; then printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\nx 100000 90000 10240 90%% /\n'; else exec /bin/df "$@"; fi
 EOF
+  # scheduling: a crontab kept in a file, and systemd only when a test asks for it
+  cat >"$b/crontab" <<'EOF'
+#!/usr/bin/env bash
+f=$OPS_STUB_DIR/crontab
+case ${1:-} in -l) [[ -s $f ]] && cat "$f"; exit 0 ;; -r) rm -f "$f"; exit 0 ;; -) cat >"$f"; exit 0 ;; esac
+exit 1
+EOF
+  cat >"$b/systemctl" <<'EOF'
+#!/usr/bin/env bash
+[[ -e $OPS_STUB_DIR/systemd ]] || exit 1
+printf 'systemctl %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
+exit 0
+EOF
+  printf '#!/bin/sh\n[ -e "$OPS_STUB_DIR/systemd" ] && echo yes\nexit 0\n' >"$b/loginctl"
   printf '#!/bin/sh\nexec /bin/sleep 0.01\n' >"$b/sleep"
   chmod +x "$b"/*
 }
@@ -564,6 +599,61 @@ t_actions() {
   check "doctor: ran and reported the findings" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/2.json' && grep -q '\"doctor\":{\"at\"' '$S/reports/2.json'"
   poll restart op_3333333333333333; tick
   check "restart: restarted and waited for health" bash -c "grep -q '^docker compose restart banking' '$S/calls.log' && grep -q '\"status\":\"ok\"' '$S/reports/3.json'"
+}
+t_logs() {
+  new_world; poll logs; tick
+  check "logs: reported ok" reported ok
+  check "logs: banking only when caddy and tunnel do not run" bash -c "grep -q '== banking ==' '$S/reports/1.json' && ! grep -qE '== (caddy|tunnel) ==' '$S/reports/1.json'"
+  check "logs: asked for exactly 100 lines of banking, no other service" bash -c "[[ \$(grep -c '^docker compose logs --no-color --tail 100 banking' '$S/calls.log') = 1 && \$(grep -c '^docker compose logs' '$S/calls.log') = 1 ]]"
+  check "logs: bearer token, JWT, TOKEN and key lines are gone" bash -c "! grep -qE 'abc123tokenvalue|eyJ|TUNNEL_TOKEN|api_key|c2ln' '$S/reports/1.json'"
+  check "logs: ordinary lines are kept" grep -q 'kept log line' "$S/reports/1.json"
+  check "logs: summary names the service (Finnish)" grep -q '"summary":"Luettu: banking\."' "$S/reports/1.json"
+  touch "$S/svc-caddy" "$S/svc-tunnel"; poll logs "$ID2"; tick
+  check "logs: caddy and tunnel are added when they run" bash -c "grep -q '== banking ==' '$S/reports/2.json' && grep -q '== caddy ==' '$S/reports/2.json' && grep -q '== tunnel ==' '$S/reports/2.json'"
+  check "logs: 3 services of 100 lines are not cut to 200 lines" bash -c "grep -q 'line 51 of banking' '$S/reports/2.json'"
+  check "logs: read-only, nothing else was run" test "$(n_calls '^docker (compose (restart|up|build)|image prune|builder)')" = 0
+}
+t_prune() {
+  new_world; printf '1.2GB' >"$S/prune-images"; printf '300MB' >"$S/prune-cache"
+  cp "$S/images/banking-app_latest" "$S/images/banking-app_previous"
+  poll prune; tick
+  check "prune: reported ok with the freed space in Finnish" grep -q '"summary":"Vapautettiin tilaa: kuvat 1,2 Gt, välimuisti 300 Mt\."' "$S/reports/1.json"
+  check "prune: the two fixed commands ran once each" bash -c "[[ \$(grep -c '^docker image prune -f' '$S/calls.log') = 1 && \$(grep -c '^docker builder prune -f' '$S/calls.log') = 1 ]]"
+  check "prune: nothing broader (no -a, --all, system prune, volumes)" bash -c "! grep -E '^docker .*(prune.*(-a|--all|--volumes)|system prune|volume prune|image rm|rmi)' '$S/calls.log'"
+  check "prune: :latest and :previous are still there" test -f "$S/images/banking-app_latest" -a -f "$S/images/banking-app_previous"
+  : >"$S/calls.log"; rm -f "$S/prune-images" "$S/prune-cache"; poll prune "$ID2"; tick
+  check "prune: nothing to free is said so" grep -q '"summary":"Ei vapautettavaa\."' "$S/reports/2.json"
+  touch "$S/prune-eats-previous"; poll prune op_3333333333333333; tick
+  check "prune: a prune that removed :previous is reported failed" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/3.json' && grep -q 'poisti version' '$S/reports/3.json'"
+  rm -f "$S/prune-eats-previous"; touch "$S/prunefail"; poll prune op_4444444444444444; tick
+  check "prune: a failing command is reported failed" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/4.json'"
+}
+t_helper_renew() {
+  new_world; local policy; policy=$(cat "$CL/ops/policy")
+  poll helper-renew; tick
+  check "renew: reported ok" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json' && grep -q 'Apuri asennettu uudelleen' '$S/reports/1.json'"
+  check "renew: one cron line for this instance, in this clone, with the marker" bash -c "[[ \$(grep -c '# talous-ops:banking-app\$' '$S/crontab') = 1 ]] && grep -q 'cd $CL && ./scripts/ops-helper.sh' '$S/crontab'"
+  check "renew: the policy (remote, branch) is kept, not rewritten from the clone" test "$(cat "$CL/ops/policy")" = "$policy"
+  poll helper-renew "$ID2"; tick
+  check "renew: a second renewal does not duplicate the line" test "$(grep -c '# talous-ops:banking-app$' "$S/crontab")" = 1
+  : >"$S/calls.log"; touch "$S/systemd"; poll helper-renew op_3333333333333333; tick
+  check "renew: with systemd the unit files are written and the timer enabled" bash -c "[[ -f '$W/home/.config/systemd/user/talous-ops-banking-app.timer' ]] && grep -q 'systemctl --user enable --now talous-ops-banking-app.timer' '$S/calls.log'"
+  check "renew: the running service is not stopped (it is this very run)" bash -c "! grep -q 'systemctl --user stop' '$S/calls.log'"
+  check "renew: no cron line left once systemd took over" bash -c "! grep -q 'talous-ops:' '$S/crontab' 2>/dev/null"
+  rm -f "$S/systemd"; printf '0 3 * * * echo mine\n' >"$S/crontab"
+  (cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/bin:/bin" ./scripts/install.sh --ops-helper >/dev/null 2>&1)
+  check "renew: other cron lines of the user are untouched" bash -c "grep -q 'echo mine' '$S/crontab' && grep -q 'talous-ops:banking-app' '$S/crontab'"
+}
+t_update_renews_helper() {
+  new_world; release 0.2.0
+  printf '* * * * * cd %s && ./scripts/ops-helper.sh >/dev/null 2>&1 # talous-ops:banking-app\n' "$CL" >"$S/crontab"
+  poll update; tick
+  check "update: reported ok" reported ok
+  check "update: the helper was renewed after the update" grep -q 'Maintenance helper renewed' "$S/reports/1.json"
+  check "update: still one cron line" test "$(grep -c 'talous-ops:banking-app' "$S/crontab")" = 1
+  new_world; release 0.2.0
+  poll update; tick
+  check "update: an install without the helper schedule is not given one" bash -c "[[ ! -e '$S/crontab' ]] && ! grep -q 'Maintenance helper renewed' '$S/reports/1.json'"
 }
 t_scrub() {
   new_world; poll backup; tick

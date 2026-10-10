@@ -47,6 +47,12 @@ describe("alerts", () => {
       expect(a).toMatchObject({ id: `double:${twice[1]!.id}`, tone: "warning", title: "Sama veloitus kahdesti: K-Citymarket 167,43 €", detail: "16.5.2026", merchant: "K-Citymarket" });
     });
 
+    it("is settled when the merchant paid one of them back", () => {
+      const twice = [tx({ ...shop, bookingDate: "2026-05-16", amountCents: -16743 }), tx({ ...shop, bookingDate: "2026-05-16", amountCents: -16743 })];
+      const back = tx({ ...shop, bookingDate: "2026-05-23", amountCents: 16743 });
+      expect(ofKind(alertsOf([...household(), ...twice, back]), "double_charge")).toEqual([]);
+    });
+
     it("finds a monthly bill paid twice within a week", () => {
       const bill = monthly("2025-11-25", 11, -11900, { merchant: "Puhtaaksi Oy", category: "home" });
       const again = tx({ merchant: "Puhtaaksi Oy", category: "home", bookingDate: "2026-08-29", amountCents: -11900 });

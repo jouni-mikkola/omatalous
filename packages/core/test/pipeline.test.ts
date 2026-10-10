@@ -43,6 +43,60 @@ describe("enrichTransactions", () => {
     expect(changed).toHaveLength(3);
   });
 
+  describe("money back from a shop", () => {
+    // a name no rule knows: the purchase is "other" and the money back would be income
+    const shop = { merchant: "Zxq Tmi", counterparty: "ZXQ TMI", mcc: null };
+    const bought = (extra: Partial<Transaction> = {}) => tx({ ...shop, bookingDate: "2026-09-03", amountCents: -7900, ...extra });
+    const refund = (extra: Partial<Transaction> = {}) => tx({ ...shop, bookingDate: "2026-09-17", amountCents: 7900, ...extra });
+    const run = (txs: Transaction[]) => {
+      const changed = new Map(enrichTransactions(txs, [checking], []).map((t) => [t.id, t]));
+      return txs.map((t) => changed.get(t.id) ?? t);
+    };
+    const sum = (rows: Transaction[], flow: "consumption" | "income") => rows.reduce((s, t) => s + flowsOf(t, new Set())[flow], 0);
+
+    it("79 € paid and 79 € returned two weeks later cancel out instead of counting as income", () => {
+      expect(run([refund()])[0]).toMatchObject({ category: "income", categorySource: "default" });
+      const rows = run([bought(), refund()]);
+      expect(rows[1]).toMatchObject({ category: rows[0]!.category, categorySource: "match" });
+      expect(sum(rows, "consumption")).toBe(0);
+      expect(sum(rows, "income")).toBe(0);
+    });
+
+    it("a partial refund, one the text calls a refund and one that lands in the next month", () => {
+      const rows = run([bought(), refund({ amountCents: 3000, description: "PALAUTUS", bookingDate: "2026-10-02" })]);
+      expect(rows[1]!.category).toBe(rows[0]!.category);
+      expect(sum(rows, "consumption")).toBe(4900);
+    });
+
+    it("a purchase is refunded once: a second refund of the same money stays money in", () => {
+      const rows = run([bought(), refund(), refund({ bookingDate: "2026-09-18" })]);
+      expect(rows[1]!.categorySource).toBe("match");
+      expect(rows[2]).toMatchObject({ category: "income", categorySource: "default" });
+    });
+
+    it("an insurer's claim payout, another shop, an old purchase, a hand-set category and an own transfer are left as they were", () => {
+      const claim = run([bought({ merchant: "If Vahinkovakuutus Oy", counterparty: "IF VAHINKOVAKUUTUS OY" }), refund({ merchant: "If Vahinkovakuutus Oy", counterparty: "IF VAHINKOVAKUUTUS OY", description: "KORVAUS VAHINKO 123" })]);
+      expect(claim[1]!.category).toBe("reimbursements");
+      expect(run([bought(), refund({ merchant: "Jokin Toinen", counterparty: "JOKIN TOINEN" })])[1]!.category).toBe("income");
+      expect(run([bought({ bookingDate: "2026-04-01" }), refund()])[1]!.category).toBe("income");
+      expect(run([bought(), refund({ category: "salary", categorySource: "user" })])[1]).toMatchObject({ category: "salary", categorySource: "user" });
+      // money between own accounts stays a transfer, not a refund
+      const out = bought({ amountCents: -50000, bookingDate: "2026-09-03" });
+      const back = refund({ amountCents: 50000, accountId: "sav", bookingDate: "2026-09-04" });
+      const changed = new Map(enrichTransactions([out, back], [checking, savings], []).map((t) => [t.id, t]));
+      expect([changed.get(out.id)!.category, changed.get(back.id)!.category]).toEqual(["transfer", "transfer"]);
+    });
+
+    it("the purchase leaves the largest purchases and the merchant list once it came back", () => {
+      const rows = run([bought({ amountCents: -30000 }), refund({ amountCents: 30000 }), tx({ merchant: "Verkkokauppa", counterparty: "VERKKOKAUPPA.COM", bookingDate: "2026-09-05", amountCents: -25000 })]);
+      const ctx = createContext(rows, [checking], "2026-10-09");
+      const d = buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" });
+      expect(d.merchants.map((m) => m.merchant)).toEqual(["Verkkokauppa"]);
+      expect(d.insights.find((i) => i.id === "largest")?.detail).toContain("Verkkokauppa");
+      expect(d.totals.consumptionCents).toBe(25000);
+    });
+  });
+
   it("never overrides a category the user chose", () => {
     const t = tx({ bookingDate: "2026-09-01", amountCents: -2000, merchant: "Wolt", category: "restaurants", categorySource: "user" });
     expect(enrichTransactions([t], [checking], [])).toEqual([]);
@@ -273,5 +327,31 @@ describe("previousRange", () => {
     ["2026-09-10", "2026-10-09", "2026-08-11", "2026-09-09"],
   ])("%s…%s → %s…%s", (from, to, pf, pt) => {
     expect(previousRange(from, to)).toEqual([pf, pt]);
+  });
+});
+
+describe("the enrichment with its rule memo and pauses", () => {
+  it("gives the same rows as the plain version on random histories", async () => {
+    const { enrichTransactionsReference } = await import("./pipeline-reference.ts");
+    const { enrichTransactionsPausing } = await import("../src/pipeline.ts");
+    const { randomHistory } = await import("./gen.ts");
+    let changed = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const { txs, accounts, rules } = randomHistory(seed, 700);
+      const industries = new Map([["Qwerty Puoti", "shopping"], ["Aaltonen Konsultointi Oy", "home"]]);
+      const expected = enrichTransactionsReference(txs, accounts, rules, industries);
+      expect(enrichTransactions(txs, accounts, rules, industries)).toEqual(expected);
+      let pauses = 0;
+      const paused = await enrichTransactionsPausing(txs, accounts, rules, industries, async () => void pauses++);
+      expect(paused).toEqual(expected);
+      expect(pauses).toBeGreaterThanOrEqual(4);
+      changed += expected.length;
+    }
+    expect(changed).toBeGreaterThan(1000);
+    // a long history is cut into pieces inside the stages too
+    const long = randomHistory(9, 20000);
+    let pauses = 0;
+    await enrichTransactionsPausing(long.txs, long.accounts, long.rules, new Map(), async () => void pauses++);
+    expect(pauses).toBeGreaterThan(10);
   });
 });

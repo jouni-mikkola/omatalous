@@ -111,12 +111,12 @@ describe("CSV import: account names", () => {
 
 describe("account balance", () => {
   it("can be set by hand on an imported account", async () => {
-    const { admin, s } = await setupApp();
+    const { admin, s, adminId } = await setupApp();
     const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
-    const version = await s.settings.dataVersion();
+    const version = await s.settings.dataVersionOf([adminId]);
     const r = await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 123456 });
     expect(r).toMatchObject({ status: 200, body: { id: accountId, balanceCents: 123456, balanceAt: NOW.toISOString(), name: "Käyttötili" } });
-    expect(await s.settings.dataVersion()).not.toBe(version);
+    expect(await s.settings.dataVersionOf([adminId])).not.toBe(version);
     expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: -100_000_000_000 })).body.balanceCents).toBe(-100_000_000_000);
     expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 0 })).body.balanceCents).toBe(0);
   });
@@ -148,14 +148,14 @@ describe("account balance", () => {
 
 describe("deleting an account", () => {
   it("removes an imported account with its rows and shares, and recounts transfers", async () => {
-    const { admin, s, member, checkingId, savingsId } = await importBoth();
+    const { admin, s, adminId, member, checkingId, savingsId } = await importBoth();
     const eero = await member("eero");
     await admin.call("PUT", `/api/accounts/${checkingId}/shares/${eero.id}`);
     expect((await eero.call("GET", "/api/meta")).body.sharedAccounts).toHaveLength(1);
-    const version = await s.settings.dataVersion();
+    const version = await s.settings.dataVersionOf([adminId]);
 
     expect((await admin.call("DELETE", `/api/accounts/${checkingId}`)).body).toEqual({ ok: true });
-    expect(await s.settings.dataVersion()).not.toBe(version);
+    expect(await s.settings.dataVersionOf([adminId])).not.toBe(version);
     const meta = (await admin.call("GET", "/api/meta")).body;
     expect(meta.accounts.map((a: { id: string }) => a.id)).toEqual([savingsId]);
     expect(meta.shares).toEqual([]);

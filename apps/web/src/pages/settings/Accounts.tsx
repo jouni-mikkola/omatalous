@@ -134,7 +134,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
             })}
           </tbody>
         </table>
-        {!meta.accounts.length && <div className="empty">Ei tilejä vielä.</div>}
+        {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Lisää pankkiyhteys tai tuo CSV alempana.</div>}
       </div>
     </div>
   );

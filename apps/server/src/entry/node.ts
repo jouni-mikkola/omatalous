@@ -14,15 +14,20 @@ import { createApp } from "../app.ts";
 import { runCli } from "../cli.ts";
 import { loadConfig } from "../config.ts";
 import { MigrationError } from "../db/migrate.ts";
+import { optimizeDatabase } from "../db/optimize.ts";
 import { dailyBackup, openDatabase, pruneBackupsByAge, takeSnapshot } from "../db/open.ts";
+import { RestoreError, restoreDatabase } from "../db/restore.ts";
 import { type BuildInfo, createServices } from "../services/context.ts";
+import { track, waitForInflight } from "../services/inflight.ts";
 import { logLookup } from "../services/industry.ts";
+import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
 import { hourlyTick } from "../services/schedule.ts";
-import { runUpgradeTasks } from "../services/upgrade.ts";
+import { upgradeAndLog } from "../services/upgrade.ts";
 import { ensureSetupCode } from "../services/users.ts";
 import { APP_VERSION } from "../version.ts";
 import { loadOrCreateAppSecret } from "./app-secret.ts";
-import { rotateAppSecret } from "./secret-rotate.ts";
+import { finishInterruptedRotation, rotateAppSecret } from "./secret-rotate.ts";
+import { SHUTDOWN_WAIT_MS, shutdown } from "./shutdown.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const env = process.env;
@@ -38,6 +43,23 @@ function readSecret(path: string | undefined, name: string): string | undefined 
 }
 
 const dataDir = env.DATA_DIR ?? "./data";
+const dbPath = env.DB_PATH ?? join(dataDir, "banking.db");
+
+// `restore` runs before anything opens the database: it has to work on an empty or damaged one too
+if (process.argv[2] === "restore") {
+  const file = process.argv[3];
+  if (!file) {
+    console.error("Usage: node dist/node.js restore <file in the data folder>");
+    process.exit(1);
+  }
+  try {
+    for (const line of restoreDatabase(dbPath, file, new Date())) console.log(line);
+    process.exit(0);
+  } catch (err) {
+    console.error(err instanceof RestoreError ? `Restore refused. ${err.message}` : `Restore failed: ${(err as Error).message}`);
+    process.exit(1);
+  }
+}
 
 // The app secret is created on first start (Docker: /secrets/app_secret in its own volume).
 let appSecret: string | undefined;
@@ -54,7 +76,7 @@ if (!env.APP_SECRET) {
   appSecret = r.secret;
 }
 
-const config = loadConfig(env, {
+let config = loadConfig(env, {
   // optional: a shared bank key from a file instead of the browser (advanced)
   privateKeyPem: readSecret(env.EB_PRIVATE_KEY_FILE, "EB_PRIVATE_KEY_FILE"),
   appSecret,
@@ -67,7 +89,6 @@ function buildInfo(): BuildInfo {
 }
 const build = buildInfo();
 
-const dbPath = env.DB_PATH ?? join(dataDir, "banking.db");
 let opened: Awaited<ReturnType<typeof openDatabase>>;
 try {
   opened = await openDatabase(dbPath, env.MIGRATIONS_DIR || undefined);
@@ -77,6 +98,14 @@ try {
   process.exit(1);
 }
 const { db, applied, snapshot } = opened;
+if (secretFile) {
+  // a rotation that stopped after its database commit: finish the rename before anything uses the secret
+  const rotated = await finishInterruptedRotation(createServices({ db, config, build }), secretFile).catch((err) => {
+    console.error("checking for an interrupted secret rotation failed:", err);
+    return null;
+  });
+  if (rotated) config = loadConfig(env, { privateKeyPem: readSecret(env.EB_PRIVATE_KEY_FILE, "EB_PRIVATE_KEY_FILE"), appSecret: rotated });
+}
 // CLI output is read by scripts (ops poll prints one JSON object), so notices go to stderr there
 const note = process.argv.length > 2 ? console.error : console.log;
 if (snapshot) note(`database snapshot before migrating: ${snapshot}`);
@@ -122,7 +151,8 @@ if (staticDir) {
 
 // Ticks every hour; the sync hours and time zone are read from the settings each
 // time, so changes made in the browser apply without a restart.
-const scheduler = new Cron("15 * * * *", { protect: true }, async () => {
+const scheduler = new Cron("15 * * * *", { protect: true }, () => track(tick()));
+async function tick(): Promise<void> {
   try {
     const { synced, lookup, backup } = await hourlyTick(s);
     if (backup) console.log(`backup: ${basename(backup)}`);
@@ -133,7 +163,12 @@ const scheduler = new Cron("15 * * * *", { protect: true }, async () => {
   } catch (err) {
     console.error("hourly tick failed:", err);
   }
-});
+}
+
+// a process that was killed left locks, "running" fetches and unprocessed imports behind: repair them
+// before the first request, so a manual fetch is not refused for 15 minutes
+await recoverAfterCrash(s, new Date()).catch((err) => console.error("recovery at start failed:", err));
+await optimizeDatabase(s.db);
 
 const port = Number(env.PORT ?? 8080);
 const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }, async (info) => {
@@ -149,19 +184,30 @@ const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }
     console.log("  (Get a new code with: docker compose exec banking node dist/node.js setup-code)\n");
   }
   // after a version change: re-derive merchant names and categories with the new rules
-  runUpgradeTasks(s, build.id)
-    .then((r) => r && console.log(`upgrade to ${build.version}: ${r.users} users, ${r.merchantsRenamed} merchant names and ${r.recategorised} categories updated`))
-    .catch((err) => console.error("upgrade tasks failed:", err));
+  track(
+    upgradeAndLog(s)
+      .then(() => finishPendingReprocess(s))
+      .catch((err) => console.error("finishing leftover work failed:", err)),
+  );
   // no register lookup here: the first hourly tick does it, so after an upgrade an admin
   // has time to see the new setting before any merchant name leaves the server
 });
 
+let stopping = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    scheduler.stop();
-    server.close(() => {
-      db.close();
-      process.exit(0);
+    if (stopping) return;
+    stopping = true;
+    console.log(`${signal}: stopping, running work gets ${SHUTDOWN_WAIT_MS / 1000} s`);
+    void shutdown({
+      stopScheduler: () => scheduler.stop(),
+      closeServer: (done) => void server.close(done),
+      closeConnections: () => (server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.(),
+      waitForInflight,
+      closeDb: () => db.close(),
+      exit: (code) => process.exit(code),
+      timeoutMs: SHUTDOWN_WAIT_MS,
+      log: (m) => console.log(m),
     });
   });
 }

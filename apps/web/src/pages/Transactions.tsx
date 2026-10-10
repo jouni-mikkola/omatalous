@@ -1,9 +1,66 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategoryPicker, CategorySelect } from "../components/CategorySelect.tsx";
-import { date, money, plural } from "../format.ts";
+import { CADENCE_LABEL, date, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
+
+interface MerchantHistory {
+  merchant: string;
+  count: number;
+  outCents: number;
+  inCents: number;
+  firstDate: string;
+  lastDate: string;
+  months: number;
+  category: string;
+  recurring: { cadence: string; active: boolean; nextDate: string | null; typicalAmountCents: number } | null;
+}
+
+/**
+ * The whole history of the merchant the list is filtered to, whatever period or account the filters below
+ * pick. It loads on its own, so a slow history never holds the list back.
+ */
+function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant: string; scope: Scope; refresh: number; categoryLabel: (id: string) => string }) {
+  const { data, reload } = useApi<{ summary: MerchantHistory | null }>(`/api/merchants/summary${query({ merchant, scope })}`);
+  // a category changed in the list below moves the category shown here
+  useEffect(() => {
+    if (refresh > 0) reload();
+  }, [refresh, reload]);
+  const s = data?.summary;
+  if (!s || s.merchant !== merchant) return null;
+  const facts: [string, string][] = [];
+  if (s.outCents > 0) facts.push(["Maksettu yhteensä", money(s.outCents)]);
+  if (s.inCents > 0) facts.push(["Saatu yhteensä", money(s.inCents)]);
+  facts.push(["Maksuja", String(s.count)]);
+  if (s.outCents > 0) facts.push(["Keskimäärin kuukaudessa", money(Math.round(s.outCents / s.months))]);
+  facts.push(["Ensimmäinen", date(s.firstDate)], ["Viimeisin", date(s.lastDate)]);
+  if (s.recurring?.active) {
+    facts.push(["Toistuu", CADENCE_LABEL[s.recurring.cadence] ?? s.recurring.cadence]);
+    if (s.recurring.nextDate) facts.push(["Seuraava odotettu", date(s.recurring.nextDate)]);
+  }
+  return (
+    <section className="card" aria-label={`Yhteenveto: ${s.merchant}`}>
+      <div className="card-head">
+        <div>
+          <h2>{s.merchant}</h2>
+          <div className="card-sub">
+            {categoryLabel(s.category)} · koko historia
+            {s.outCents > 0 && ` · keskiarvo ${s.months} kuukaudelta, joina maksuja oli`}
+          </div>
+        </div>
+      </div>
+      <dl className="kv">
+        {facts.map(([k, v]) => (
+          <div key={k}>
+            <dt className="k">{k}</dt>
+            <dd className="v">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
 
 const PAGE = 100;
 const MAX_ROWS = 500;
@@ -80,6 +137,7 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
 
   return (
     <div className="stack">
+      {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} categoryLabel={categoryLabel} />}
       {!filters.merchant && !filters.q && (
         <Uncategorised
           categories={meta.categories}
@@ -182,7 +240,11 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
               ))}
             </tbody>
           </table>
-          {data && !data.items.length && <div className="empty">Ei tapahtumia.</div>}
+          {data && !data.items.length && (
+            <div className="empty">
+              {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla. Muuta hakua tai paina Tyhjennä." : "Tapahtumia ei ole vielä. Yhdistä pankki tai tuo CSV kohdassa Asetukset."}
+            </div>
+          )}
         </div>
         {data && data.total > data.items.length && (
           <div className="form-row">
@@ -217,7 +279,7 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) =
         onSearch(text.trim());
       }}
     >
-      <input type="search" placeholder="Hae kauppiaan nimellä" value={text} onChange={(e) => setText(e.target.value)} aria-label="Hae kauppiasta tai viestiä" />
+      <input type="search" placeholder="Hae kauppiasta tai viestiä" value={text} onChange={(e) => setText(e.target.value)} aria-label="Hae kauppiasta tai viestiä" />
     </form>
   );
 }
@@ -248,6 +310,11 @@ const TxRow = memo(function TxRow({
         <span title="Jaettu tili, vain omistaja voi muuttaa">{categoryLabel}</span>
       )}
       {t.categorySource === "user" && <span className="badge">käsin</span>}
+      {t.categorySource === "match" && (
+        <span className="badge" title="Rahaa takaisin aiemmasta maksusta. Se vähentää sen menoa eikä ole tuloa.">
+          palautus
+        </span>
+      )}
       {company && (
         <span className="badge" title={company}>
           YTJ

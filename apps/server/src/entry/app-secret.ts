@@ -8,8 +8,9 @@
  * never overwritten and a planted symlink is not followed. Node only.
  */
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
+import { writeNewFileDurable } from "../durable.ts";
 
 /**
  * Not mkdirSync(recursive): on a path under /proc Node's recursive mkdir never returns (100 % CPU, no log, a
@@ -40,7 +41,7 @@ export function loadOrCreateAppSecret(path: string): AppSecretResult {
   try {
     ensureDir(dirname(path));
     const secret = randomBytes(48).toString("base64url");
-    writeFileSync(path, `${secret}\n`, { flag: "wx", mode: 0o600 });
+    writeNewFileDurable(path, `${secret}\n`, 0o600, dirname(path));
     return { secret, created: true };
   } catch (err) {
     return { secret: null, problem: `could not create the app secret (${path}): ${(err as Error).message}` };

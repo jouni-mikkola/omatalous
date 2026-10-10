@@ -10,6 +10,7 @@
     "dev": "pnpm --parallel --filter @banking/server --filter @banking/web dev",
     "build": "pnpm --filter @banking/web build && pnpm --filter @banking/server build",
     "test": "vitest run",
+    "test:sh": "for t in tools/test/*.test.sh; do bash \"$t\" || exit 1; done",
     "e2e": "node e2e/run.mjs",
     "typecheck": "pnpm -r typecheck",
     "seed:demo": "pnpm --filter @banking/server seed:demo",

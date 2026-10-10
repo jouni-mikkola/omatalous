@@ -23,6 +23,7 @@ import { merchantRoutes } from "./routes/merchants.ts";
 import { userRoutes } from "./routes/users.ts";
 import { HttpUserError, TooManyAttempts, UserError } from "./services/errors.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
+import { checkHealth } from "./services/health.ts";
 
 export type { AppDeps } from "./services/context.ts";
 
@@ -79,7 +80,10 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.use("/api/*", csrfGuard(s));
 
   // public
-  app.get("/api/health", (c) => c.json({ ok: true }));
+  app.get("/api/health", async (c) => {
+    const health = await checkHealth(s);
+    return c.json(health, health.ok ? 200 : 503);
+  });
   app.route("/api/auth", authRoutes(s));
   app.route("/api", bankCallbackRoute(s));
 

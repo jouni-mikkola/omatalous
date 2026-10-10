@@ -13,7 +13,7 @@ export interface CategorizeInput {
 
 export interface CategorizeResult {
   category: string;
-  source: Exclude<CategorySource, "user" | "transfer" | "merchant" | "industry">;
+  source: Exclude<CategorySource, "user" | "transfer" | "merchant" | "industry" | "match">;
   /** True when one of the user's own rules decided, so later steps leave the category alone. */
   byUser?: boolean;
 }

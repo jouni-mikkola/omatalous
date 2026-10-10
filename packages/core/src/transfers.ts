@@ -31,6 +31,8 @@ export interface TransferOptions {
    * member's and my own card is not connected.
    */
   issuerFallback?: boolean;
+  /** Rows that are returns of a payment (see matchReturns): never a transfer leg, so a refund on a card is not taken for a card payment. */
+  exclude?: ReadonlySet<string>;
 }
 
 /**
@@ -38,7 +40,7 @@ export interface TransferOptions {
  * recognised it as a purchase. Merchant refunds stay out, so a refund that
  * happens to equal a purchase on another account is not swallowed.
  */
-function pairable(t: TransferInput): boolean {
+export function pairable(t: TransferInput): boolean {
   if (t.categorySource === "user") return false;
   if (t.categorySource === "default") return true;
   const kind = getCategory(t.category).kind;
@@ -81,8 +83,10 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
   const onLoan = (t: TransferInput) => accountById.get(t.accountId)?.type === "loan";
   const toLoan = (t: TransferInput) => loanIbans.has(normalizeIban(t.counterpartyIban) ?? "");
 
+  const skipped = options.exclude ?? new Set<string>();
+
   for (const tx of txs) {
-    if (tx.categorySource === "user" || onLoan(tx) || toLoan(tx)) continue;
+    if (tx.categorySource === "user" || skipped.has(tx.id) || onLoan(tx) || toLoan(tx)) continue;
     if (settled(tx)) {
       transfers.add(tx.id);
       continue;
@@ -98,10 +102,21 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
   if (accounts.length > 1) {
     // legs marked above can still be the partner of an unmarked leg (e.g. the card's "MAKSU, KIITOS"
     // pairs with the e-invoice that paid it); legs settled earlier never are
-    const candidates = txs.filter((t) => t.categorySource !== "user" && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || pairable(t)));
-    // partners have the opposite amount, so only legs of that amount are compared
-    const incoming = new Map<number, TransferInput[]>();
-    for (const t of candidates) if (t.amountCents > 0) incoming.set(t.amountCents, [...(incoming.get(t.amountCents) ?? []), t]);
+    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || pairable(t)));
+    // partners have the opposite amount, so only legs of that amount are compared. Per amount the legs are kept
+    // per day in input order, so an outgoing leg looks at the eleven days of its window and not at every leg
+    // of that amount (a fixed sum moved every week made this quadratic)
+    const incoming = new Map<number, Map<number, { t: TransferInput; seq: number }[]>>();
+    let seq = 0;
+    for (const t of candidates) {
+      if (t.amountCents <= 0) continue;
+      let days = incoming.get(t.amountCents);
+      if (!days) incoming.set(t.amountCents, (days = new Map()));
+      const day = dayNumber(t.bookingDate);
+      const list = days.get(day);
+      if (list) list.push({ t, seq: seq++ });
+      else days.set(day, [{ t, seq: seq++ }]);
+    }
     const used = new Set<string>();
 
     /** Whether two opposite legs can be one movement between own accounts. */
@@ -118,18 +133,23 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
       return true;
     };
 
+    /** The first unused leg of a day that can pair with `out`, with its place in the input order. */
+    const firstOn = (days: Map<number, { t: TransferInput; seq: number }[]>, day: number, out: TransferInput) => {
+      for (const leg of days.get(day) ?? []) if (!used.has(leg.t.id) && compatible(out, leg.t)) return leg;
+      return undefined;
+    };
+
     for (const out of candidates) {
       if (out.amountCents >= 0) continue;
+      const days = incoming.get(-out.amountCents);
+      if (!days) continue;
       const day = dayNumber(out.bookingDate);
+      // the nearest day first; on equal distance the leg that came first in the input
       let best: TransferInput | undefined;
-      let bestGap = Number.POSITIVE_INFINITY;
-      for (const inc of incoming.get(-out.amountCents) ?? []) {
-        if (used.has(inc.id) || !compatible(out, inc)) continue;
-        const gap = Math.abs(dayNumber(inc.bookingDate) - day);
-        if (gap <= PAIR_WINDOW_DAYS && gap < bestGap) {
-          best = inc;
-          bestGap = gap;
-        }
+      for (let gap = 0; gap <= PAIR_WINDOW_DAYS && !best; gap++) {
+        const before = firstOn(days, day - gap, out);
+        const after = gap === 0 ? undefined : firstOn(days, day + gap, out);
+        best = (before && after ? (before.seq < after.seq ? before : after) : (before ?? after))?.t;
       }
       if (best) {
         used.add(best.id);
@@ -143,7 +163,7 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
     const issuers = issuerWords(accounts);
     if (issuers.length) {
       for (const tx of txs) {
-        if (tx.category !== "card_bill" || tx.categorySource === "user" || transfers.has(tx.id) || isCard(tx) || tx.amountCents >= 0) continue;
+        if (tx.category !== "card_bill" || tx.categorySource === "user" || skipped.has(tx.id) || transfers.has(tx.id) || isCard(tx) || tx.amountCents >= 0) continue;
         const text = fold([tx.merchant, tx.counterparty, tx.description].filter(Boolean).join(" "));
         if (issuers.some((w) => new RegExp(`(?<![A-Z0-9])${w}(?![A-Z0-9])`).test(text))) transfers.add(tx.id);
       }

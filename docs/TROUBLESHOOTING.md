@@ -41,16 +41,9 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 |---|---|
 | The address does not open on a phone | The phone must be on your home Wi-Fi, not on a guest network. A virtual machine needs a bridged network adapter. |
 | The address stopped working after the machine or the router restarted | The machine got a new address. Run `./scripts/install.sh --bind <new address>`, using the address `hostname -I` prints. The installer saves it in the app too. Then reserve it in the router as [INSTALL.md](INSTALL.md#after-the-install) says. |
-| After a restart the app stays down and `doctor.sh` says the address is missing | The machine got its address only after Docker started. Run the command under this table and restart the machine. |
 | You lost the setup link before creating the first user | Run `./scripts/install.sh` again. It prints a new link. |
 | You forgot your password | Another admin can press *Nollaa salasana* under *Asetukset > Talouden jäsenet*. If you are the only admin, run `docker compose exec banking node dist/node.js user reset-password <username>`. It prints a temporary password. |
 | Login does not stay on an https address | Use the address shown under *Asetukset > Palvelin*. |
-
-The command for the missing address:
-
-```bash
-echo net.ipv4.ip_nonlocal_bind=1 | sudo tee /etc/sysctl.d/90-omatalous.conf
-```
 
 ## Connecting the bank
 

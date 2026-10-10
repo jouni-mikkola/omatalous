@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Upgrade rehearsal in Docker, used by .github/workflows/upgrade.yml and runnable by hand:
 #
-#   scripts/ci/upgrade-run.sh <baseline-ref>
+#   tools/ci/upgrade-run.sh <baseline-ref>
 #
 # Installs the baseline version (a release tag or commit) as a real git clone, loads data through its API,
 # updates it to the current checkout the way a user of that version would, then rehearses what the next release

@@ -5,7 +5,7 @@ import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
 import { dataQualityReport, type QualitySignal } from "../reports/data-quality.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights.ts";
 import { type DateRange, previousRange, rangeLength, rangeMonths, toDayRange } from "./period.ts";
@@ -160,7 +160,7 @@ export function merchantStats(txs: readonly AnalysisTx[], range: DateRange): Mer
   const months = rangeMonths(range);
   const byMerchant = new Map<string, { category: string; count: number; total: number; last: IsoDate }>();
   for (const t of txs) {
-    const c = t.flows.consumption;
+    const c = netPurchase(t);
     if (c <= 0) continue;
     const e = byMerchant.get(t.merchant) ?? { category: t.category, count: 0, total: 0, last: t.bookingDate };
     e.count += 1;
@@ -239,8 +239,8 @@ export function dailySpending(txs: readonly AnalysisTx[], fromDay: number, toDay
   for (let d = fromDay; d <= toDay; d++) out.push({ date: fromDayNumber(d), cents: 0, count: 0 });
   for (const t of txs) {
     const e = out[t.day - fromDay];
-    if (!e || t.flows.consumption <= 0) continue;
-    e.cents += t.flows.consumption;
+    if (!e || netPurchase(t) <= 0) continue;
+    e.cents += netPurchase(t);
     e.count += 1;
   }
   return out;

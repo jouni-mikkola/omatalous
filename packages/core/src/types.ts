@@ -36,10 +36,10 @@ export interface RawTransaction {
 
 /**
  * Where a category came from: the user by hand, a rule, the card's MCC, the
- * same merchant's other rows, the trade register, nothing (default), or
- * transfer detection.
+ * same merchant's other rows, the trade register, nothing (default),
+ * transfer detection, or a payment it cancels (match: a refund, money paid back).
  */
-export type CategorySource = "user" | "rule" | "mcc" | "merchant" | "industry" | "default" | "transfer";
+export type CategorySource = "user" | "rule" | "mcc" | "merchant" | "industry" | "default" | "transfer" | "match";
 
 /** A stored, enriched transaction. */
 export interface Transaction {

@@ -82,7 +82,7 @@ flowchart LR
 - The daily copy is `VACUUM INTO` (`dailyBackup` in `db/open.ts`) to `<data>/backups/auto-YYYY-MM-DD.db`.
   The first tick of a local day writes it, a failed one is tried again at the next tick, and the seven
   newest stay. The copy made before a migration is separate (`pre-*.db`, five kept).
-- The analysis context is built once per data version; a request only filters and adds up.
+- The analysis context is built once per user data version; a request only filters and adds up.
 - Alerts (`analysis/alerts.ts`, shown above the insights on the overview) are cost traps found in the
   selected period: double charges, late fees, overlapping services, spending spikes, services to review,
   bank fees and small habits. At most six are shown, one of each kind first. What the user sees:
@@ -113,9 +113,9 @@ change the derived data (merchant names, categories, transfers) is computed agai
 
 ## Maintenance from the browser
 
-*Asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migration 0006). A host
-helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of six fixed actions (check-update, update,
-rollback, backup, restart, doctor) and reports the result. Requests only name an allowlisted action, and the helper never
+*Asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migrations 0006 and 0007). A host
+helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of nine fixed actions (check-update, update,
+rollback, backup, restart, doctor, logs, prune, helper-renew) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
 [ADVANCED.md](ADVANCED.md#the-maintenance-helper).
 
@@ -123,6 +123,26 @@ runs text from the database. Requests and results are audited as `ops_*` events 
 
 Every transaction is spending, debt, savings, income or borrowing, or a neutral transfer between own
 accounts. Details and cases: [MONEY_FLOWS.md](MONEY_FLOWS.md).
+
+## Fetching and importing
+
+A fetch reads the days since the newest booked bank row, less ten, so late bookings and pending rows that got
+booked are covered. The answer is stored only when it is complete: a failed page, or a list that does not end
+after 200 pages, fails that account's fetch, leaves its stored rows as they were and is retried by the next
+fetch from the same day. The other accounts go on.
+
+- A row with a bank id keeps its id through overlapping fetches. A row without one gets an id from its day,
+  amount and text, plus a number for each identical copy, so two identical purchases on a day stay two rows.
+- Pending rows are replaced on every fetch. A booked row that arrives with another id, text or date takes the
+  place of the pending row it replaces, and the category you set on the pending row. If the bank lists both, or
+  a CSV brings the booked row, the pending row goes. A booked row is matched only to a pending row dated on or
+  up to a week before it, so a new pending purchase is not taken for yesterday's.
+- A CSV row is a duplicate of a bank row when the day and amount are the same and the merchants agree on
+  their first word or one text names the other. Two shops with the same amount on one day are both kept.
+  Each stored row absorbs one new row.
+- Amounts are read from the digits as integer cents. The bank's debit or credit flag gives the sign, and the
+  sign of the amount only when the flag is missing. A date with a time is converted to the household's time
+  zone; a plain date is the bank's own day.
 
 ## Data model
 

@@ -1,4 +1,4 @@
-/** Asetukset > Ylläpito (admin): update, rollback, backup, restart and doctor through the host helper. */
+/** Asetukset > Ylläpito (admin): update, rollback, backup, restart, doctor, logs, prune and helper renewal through the host helper. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiDownload, ApiError } from "../../api.ts";
 import { BackupList } from "../../components/ops/BackupList.tsx";
@@ -6,6 +6,7 @@ import { DoctorList } from "../../components/ops/DoctorList.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
 import { S } from "../../components/ops/ops-strings.ts";
+import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
 import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
@@ -143,6 +144,15 @@ export function Maintenance() {
             onDownload={() => setDialog("download")}
           />
           <DoctorList doctor={data.state.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
+          <ToolsPanel
+            disabled={blocked}
+            readDisabled={helperOff || pending || data.readOnlyActive}
+            supported={data.helper.tools || helperOff}
+            enableCommand={data.helper.enableCommand}
+            onLogs={() => void quick("logs")}
+            onPrune={() => void quick("prune")}
+            onRenew={() => void quick("helper-renew")}
+          />
           <div className="card">
             <div className="card-head">
               <div>

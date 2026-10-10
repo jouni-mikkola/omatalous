@@ -15,7 +15,8 @@ function option(args: string[], name: string): string | undefined {
   return i >= 0 ? args[i + 1] : undefined;
 }
 
-const MAX_STDIN = 64 * 1024;
+// the logs action sends up to 48 KiB of text, which JSON escaping can grow
+const MAX_STDIN = 160 * 1024;
 
 export async function runOpsCli(s: Services, args: string[], readStdin: () => Promise<string>): Promise<number> {
   const print = (v: unknown) => console.log(JSON.stringify(v));

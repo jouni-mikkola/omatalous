@@ -10,6 +10,7 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | Command | |
 |---|---|
 | `pnpm test` | all tests (Vitest) |
+| `pnpm test:sh` | the shell suites in `tools/test/` |
 | `pnpm typecheck` | TypeScript for every package |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
@@ -118,6 +119,25 @@ The analysis context (enriched transactions, recurring series) is built once per
 per user and view (`services/analysis.ts`). A request filters by day number with a binary search and adds
 up. Hot loops use parsed day numbers, not `Date` objects.
 
+The data version is per user (settings key `data_version:<user id>`) plus an instance one. A cached view is keyed by
+the versions of its user and of the owners of the shared accounts in it, so one member's edit does not drop the
+others' views. The cache keeps one entry per user and view with the day inside it, and is capped by the number of
+cached rows (about 200 MB at the default) with least recently used entries going first.
+
+A category set by hand and a merchant rule do not process the whole history. `reprocessMerchantChange`
+(`services/enrich.ts`) reads the rows of that merchant and core `enrichIsland` derives them again. Everything that
+could reach beyond the merchant is checked: transfer pairing, returns (refunds, friends' shares), and that the old
+inputs give the stored rows back. When any check fails, or the upgrade tasks of this build have not finished, or an
+import waits for its categories, the full reprocess runs. The result is the same either way; `core/test/island.test.ts`
+and `server/test/incremental.test.ts` compare both on random histories (more seeds: `ISLAND_SEEDS=200`,
+`INCREMENTAL_SEEDS=40`). A change to the enrichment rules in `pipeline.ts` has to keep `enrichIsland` in step.
+
+A sync or an import compares the bank fields of each row with the stored one and writes only what differs. When
+nothing differs it marks nothing, processes nothing and leaves the version alone.
+
+SQLite needs table statistics to pick the partial indexes (pending and uncategorised rows) over the wide ones:
+`PRAGMA optimize` runs at start and in the hourly tick (`db/optimize.ts`).
+
 ## Tests
 
 - Core: money flow scenarios, recurring detection, reports checked against each other.
@@ -135,8 +155,8 @@ up. Hot loops use parsed day numbers, not `Date` objects.
 
 `pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` copies the build to a temp directory, starts it on a free
 port with an empty database, and runs the Playwright specs in `e2e/` against it. The data directory is deleted
-at the end. The specs create the admin through the setup form, load the demo data, open every page in the
-light and dark theme on a desktop and a phone screen, and change a transaction's category and check that it
+at the end. The specs create the admin through the setup form, load the demo data, open every page on a desktop and a phone
+screen, and change a transaction's category and check that it
 is still there after a reload. A console error, an uncaught error, a failed request or any 4xx or 5xx response
 fails the run, and so does a page that scrolls sideways on the phone.
 

@@ -40,8 +40,8 @@ Savings rate = (income − spending − debt) / income.
 | Insurance payout | income ("Hyvitykset") | premiums are spending ("Vakuutukset") |
 | Back taxes, vehicle tax, fines, municipal fees | spending ("Verot, maksut ja sakot") | |
 | Union or unemployment fund fee | spending ("Jäsenmaksut") | |
-| Rent received from a tenant | income ("Muut tulot") | |
-| Refund from a shop | spending goes down in the same category | a refund cancels a purchase |
+| Rent received from a tenant | income ("Muut tulot") | a sender who pays about the same amount in three or more months is regular income |
+| Refund from a shop | spending goes down in the same category | a refund cancels a purchase, see *Money that comes back* |
 | MobilePay to or from a person | spending / income ("Maksut henkilöille", "Maksut henkilöiltä") | names like Elisa or Helen are people here, not companies |
 | MobilePay to a business (name ends or starts with Oy, Ky, ry and the like) | spending in the business's category | a company form in the payee name rules out a person |
 | Tori.fi, Vinted, Huuto.net | income ("Myyntitulot") | |
@@ -50,6 +50,42 @@ Savings rate = (income − spending − debt) / income.
 | Pending card payment | counted, replaced by the booked row on the next fetch | your own category choice moves with it |
 | Money between members in the *Koko talous* view | transfer | it stays in the household |
 | Joint account connected by both | one copy in the *Koko talous* view | matched by IBAN |
+
+## Money that comes back
+
+Money that returns a payment is not income. Known shops already do this: a refund gets the shop's category,
+so its spending goes down. For the rest, the app looks for the payment that a returning row cancels. The
+returning row takes that payment's category and shows a *palautus* badge in the transaction list. It is
+decided from the rows alone on every reprocess, so changing the payment's category by hand moves the
+refund with it. A category you set on the returning row stays.
+
+Only rows that nothing else recognised can be returns: unrecognised money in, a text with a refund word
+(*hyvitys*, *palautus*), and MobilePay from a person. Salary, benefits, insurance claims and rows with
+a category you chose are never matched.
+
+| Case | Matched when | Result |
+|---|---|---|
+| A shop pays back | same merchant on the same account, the purchase is up to 120 days earlier and at least as large, in full or in part | the purchase's category goes down by the refund |
+| A person pays back | same person on the same account, exactly the amount you sent them, up to 90 days later | *Maksut henkilöille* goes down |
+| Friends send their shares | the bill was paid to a business, and within 10 days one person sends the whole amount, or at least two different people send the same share and the bill divides into 2 to 8 such shares (cent rounding allowed) | the bill's category goes down by the shares |
+
+A wrong match hides real income and a missed one only leaves a refund in the income, so each rule asks for
+more than a shop name or an amount:
+
+- A payment is cancelled once, and never by more than it cost. A returning row cancels one payment.
+- Both rows are on the same account. Moves between own accounts are transfers and are left to transfer
+  detection. A refund on a connected card is not read as a card payment.
+- A person who sends part of what you paid, a share of a bill alone from one person, shares of different
+  sizes, the same person twice and shares after 10 days stay income. Change them by hand.
+- A sender who pays about the same amount (within 10 % of their median) in three or more different months is
+  regular income: rent from a lodger, an allowance. It is never matched, so a loan that is repaid in equal
+  monthly instalments stays income too.
+- A refund after 120 days, one larger than the purchase and one to another account stay income. A shop
+  gets 120 days because that is how long a card dispute runs, and a cancelled trip or a complaint can take
+  as long. A person gets 90, since only an exact amount from the same person is evidence.
+- Reports use the same pairs. A purchase that was paid back leaves the lists of largest purchases, merchants,
+  habits and double charges by the amount that came back, and it also counts when a rule had already
+  given the refund the shop's category.
 
 ## Alerts
 
@@ -84,6 +120,27 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   six months before) and shown only when it is outside all of them; a longer period is compared with the
   previous one. A running month has none. The largest purchase is shown from 200 €, and the weekly food
   shop is not a purchase. Debt service is mentioned when it takes over a third of income.
+
+## Reports
+
+- *Tulot ja menot* tells the margin and the savings rate from the months that have ended when the period
+  holds the running month. The totals above them include it.
+- A purchase that was paid back in full is not a largest purchase, a merchant total or a double
+  charge; a partial refund takes its part off (see *Money that comes back*).
+- *Uudet kauppiaat* lists shops that came into use after the first three months of history and where the
+  household bought at least twice. Bills, subscriptions and payments to people are left out.
+- *Nousseet menot* shows a category that has been over its own level in each of the last three whole
+  months: at least 15 % and 40 € a month above the median of the twelve months before, and above the top
+  quarter of them. The middle of the three months counts, so one dear month does not carry it. It needs at
+  least six earlier months, and a category that was as high in the same months a year ago, mostly bills,
+  or tax and card bill categories are left out. It says what a year at the new level costs.
+- *Tulevat laskut* lists the bills that do not come every month (every second month, quarterly, half
+  yearly, yearly) due in the next three months, from the recurring detection. Pet food, shops and
+  clinics are purchases and are not listed. It is always about today.
+- *Kiinteät ja muuttuvat* starts with the fixed costs as a share of the average income of the last six
+  whole months (three at least). With a savings account balance from the bank it adds how many months of
+  fixed costs the savings cover, against a buffer of three months. A CSV import has no balance, so it
+  says nothing about the buffer.
 
 ## When it gets something wrong
 

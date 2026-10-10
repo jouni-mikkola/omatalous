@@ -156,7 +156,9 @@ function isSemimonthly(occ: readonly Occurrence[]): boolean {
   const perMonth = new Map<number, IsoDate[]>();
   for (const o of occ) {
     const m = monthIndex(o.date);
-    perMonth.set(m, [...(perMonth.get(m) ?? []), o.date]);
+    const dates = perMonth.get(m);
+    if (dates) dates.push(o.date);
+    else perMonth.set(m, [o.date]);
   }
   const first = monthIndex(occ[0]!.date);
   const last = monthIndex(occ[occ.length - 1]!.date);
