@@ -1,18 +1,20 @@
 name: Release
 
-# A tag vX.Y.Z builds the image for amd64 and arm64, pushes it to ghcr.io, signs it by digest (keyless, through
-# GitHub OIDC), verifies the signature with the identity installs pin, and writes the release notes.
-# The "release" environment has no required reviewer, so the run starts when the tag is pushed. Runs only in the public repository.
+# A tag vX.Y.Z, or "Run workflow" on main, builds the image for amd64 and arm64, pushes it to ghcr.io, signs it by
+# digest (keyless, through GitHub OIDC), verifies the signature with the identity installs pin, and writes the
+# release. Run by hand, it takes the version from the tree and creates the tag vX.Y.Z on that main commit itself.
+# The "release" environment has no required reviewer. Runs only in the public repository.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions: {}
 
 env:
   IMAGE: ghcr.io/jouni-mikkola/omatalous
   # What scripts/update.sh pins when it verifies an image. Keep in step with it (a test compares them).
-  SIGN_IDENTITY_REGEXP: ^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$
+  SIGN_IDENTITY_REGEXP: ^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$
   SIGN_ISSUER: https://token.actions.githubusercontent.com
 
 jobs:
@@ -24,6 +26,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -32,11 +35,21 @@ jobs:
       - name: Tag matches the versions
         id: v
         env:
-          TAG: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          app=$(sed -n 's/^export const APP_VERSION = "\(.*\)";$/\1/p' apps/server/src/version.ts)
+          if [[ $EVENT == workflow_dispatch ]]; then
+            # by hand only from main, and only for a version that has no tag yet
+            [[ $REF == refs/heads/main ]] || { echo "Run it on main, not $REF"; exit 1; }
+            TAG=v$app
+            [[ -z $(git tag --list "$TAG") ]] || { echo "Tag $TAG exists already. Bump the version first."; exit 1; }
+          else
+            TAG=$REF_NAME
+          fi
           [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag $TAG is not vX.Y.Z"; exit 1; }
           version=${TAG#v}
-          app=$(sed -n 's/^export const APP_VERSION = "\(.*\)";$/\1/p' apps/server/src/version.ts)
           [[ $app == "$version" ]] || { echo "Tag $TAG but APP_VERSION is $app"; exit 1; }
           for f in apps/server/package.json apps/web/package.json packages/core/package.json; do
             v=$(node -p "require('./$f').version")
@@ -44,15 +57,18 @@ jobs:
           done
           top=$(sed -n 's/^## \([^ ]*\).*/\1/p' CHANGELOG.md | head -1)
           [[ $top == "$version" ]] || { echo "CHANGELOG top heading is $top, tag is $version"; exit 1; }
-          [[ -n $(git tag --list "$TAG") ]] || { echo "tag missing"; exit 1; }
+          [[ $EVENT == workflow_dispatch || -n $(git tag --list "$TAG") ]] || { echo "tag missing"; exit 1; }
           echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "tag=$TAG" >>"$GITHUB_OUTPUT"
       - name: Tagged commit is on main
         run: |
           git fetch --no-tags origin main
           git merge-base --is-ancestor HEAD origin/main || { echo "The tagged commit is not on main"; exit 1; }
       - name: Migrations only added since the previous release
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
         run: |
-          prev=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
+          prev=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
           if [[ -n $prev ]]; then scripts/ci/check-migrations.sh "$prev"; else echo "first release, nothing to compare"; fi
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -151,5 +167,12 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
+          TAG: ${{ needs.verify.outputs.tag }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # by hand the release creates the tag on the commit that was built and signed
+          if [[ $EVENT == workflow_dispatch ]]; then
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
+          fi

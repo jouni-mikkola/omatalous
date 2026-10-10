@@ -28,7 +28,7 @@ pnpm seed:demo        # demo user + data in ./data
   `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `doctor.sh`, `reset.sh`, `ops-helper.sh` (host helper for
   Asetukset > Ylläpito). `relay/` is the static bank return page, published to GitHub Pages by
-  `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image on a `v*` tag.
+  `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image on a `v*` tag or when run by hand on `main`.
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
   (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`.
 - Each instance is a clone directory and a Compose project. `INSTANCE_NAME` names the container, image and

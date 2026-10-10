@@ -2,10 +2,10 @@
 # from the caller, and IMAGE (the local image name, <name>:latest is what docker-compose.yml starts).
 # shellcheck shell=bash disable=SC2154
 
-# What a released image must be signed by: this project's release workflow, run for a version tag.
+# What a released image must be signed by: this project's release workflow, run for a version tag or by hand on main.
 # Keep in step with .github/workflows/release.yml (a test compares them).
 REGISTRY_IMAGE=ghcr.io/jouni-mikkola/omatalous
-SIGN_IDENTITY_REGEXP='^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
+SIGN_IDENTITY_REGEXP='^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$'
 SIGN_ISSUER='https://token.actions.githubusercontent.com'
 # used when cosign is not installed on the machine; pinned by digest
 COSIGN_IMAGE='ghcr.io/sigstore/cosign/cosign:v3.0.6@sha256:de9c65609e6bde17e6b48de485ee788407c9502fa08b8f4459f595b21f56cd00'

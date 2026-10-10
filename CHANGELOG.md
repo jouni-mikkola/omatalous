@@ -5,6 +5,8 @@ start, after a copy is taken.
 
 ## 0.4.0
 
+- A release can be started by hand from the public repository's Actions tab. That run creates the version tag itself.
+  Installs accept images signed by such a run on `main` as well as by a tag run.
 - The code is MIT licensed, see [LICENSE](LICENSE). The bank logos in `apps/web/public/banks/` belong to the banks and are not covered.
 - README, INSTALL, ADVANCED (replaces OPERATIONS), TROUBLESHOOTING and ENABLE_BANKING are rewritten. The basics come
   first, the rest is sorted by situation.

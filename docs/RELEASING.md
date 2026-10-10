@@ -6,7 +6,7 @@ committed tree of `HEAD` there and pushes `main`. With `--tag` it also pushes `v
 workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/jouni-mikkola/omatalous`, signs it with cosign
 through GitHub OIDC and verifies the signature. The return page workflow publishes `relay/` to GitHub Pages on the same
 tags and on every push to `main` that changes `relay/`. The release workflow has no approval step. It runs when the
-owner pushes a tag.
+owner pushes a tag, or by hand with *Run workflow* on `main`, which then creates the tag on that commit itself.
 
 The release and return page workflows run only in the public repository. The upgrade rehearsal runs only in the private
 one, because its baselines are private commits. CI runs in both. The script leaves out `.claude/`, the upgrade workflow,
@@ -32,7 +32,9 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
    the tag. It also puts the annotated tag `vX.Y.Z` on the private `HEAD` and pushes it to the private origin, so
    `.github/upgrade-from.txt` can name it. The
    workflow checks again that the tag equals `v` plus the app version. Use `scripts/publish-public.sh` without
-   `--tag` for a snapshot that is not a release.
+   `--tag` for a snapshot that is not a release. Where pushing a tag is not possible, publish without `--tag` and run
+   the Release workflow by hand on `main` in the public repository. It takes the version from the tree, refuses a
+   version that already has a tag, and creates the tag and the release on the commit it built.
 8. Wait for the release workflow in the public repository. When it finishes, press *Tarkista päivitykset* on a test install, then *Päivitä*.
 9. `TALOUS_CHANNEL=source` keeps an install on the source build. An install made from the `90dc8f3` baseline updates once
    with `git pull && docker compose up -d --build`.
