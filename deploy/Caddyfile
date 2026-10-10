@@ -1,0 +1,17 @@
+# Caddy obtains and renews a Let's Encrypt certificate for {$DOMAIN} automatically.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# the app sets its own security headers; add HSTS preload-safe default
+	header Strict-Transport-Security "max-age=31536000"
+
+	reverse_proxy banking:8080 {
+		header_up X-Forwarded-Proto https
+		# only Cloudflare may set this; through Caddy the app uses X-Forwarded-For
+		header_up -CF-Connecting-IP
+	}
+}

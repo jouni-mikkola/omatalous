@@ -1,0 +1,24 @@
+{
+  "name": "banking-app",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @banking/server --filter @banking/web dev",
+    "build": "pnpm --filter @banking/web build && pnpm --filter @banking/server build",
+    "test": "vitest run",
+    "e2e": "node e2e/run.mjs",
+    "typecheck": "pnpm -r typecheck",
+    "seed:demo": "pnpm --filter @banking/server seed:demo",
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning apps/server/dist/node.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "~1.56.1",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

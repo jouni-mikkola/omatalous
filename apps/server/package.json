@@ -1,0 +1,22 @@
+{
+  "name": "@banking/server",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "DATA_DIR=${DATA_DIR:-../../data} tsx watch --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning src/entry/node.ts",
+    "build": "esbuild src/entry/node.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/node.js --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "seed:demo": "DATA_DIR=${DATA_DIR:-../../data} tsx --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning scripts/seed-demo.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@banking/core": "workspace:*",
+    "@hono/node-server": "^2.1.0",
+    "croner": "^10.0.0",
+    "hono": "^4.13.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "tsx": "^4.23.0"
+  }
+}

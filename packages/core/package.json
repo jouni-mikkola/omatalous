@@ -1,0 +1,13 @@
+{
+  "name": "@banking/core",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  }
+}

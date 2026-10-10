@@ -1,0 +1,443 @@
+import { generateKeyPairSync, randomUUID } from "node:crypto";
+import type { RawTransaction } from "@banking/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { drainLookups, lookupIndustries } from "../src/services/industry.ts";
+import { ingestTransactions } from "../src/services/ingest.ts";
+import { reprocess } from "../src/services/enrich.ts";
+import { hourlyTick } from "../src/services/schedule.ts";
+import { PRH_SEARCH_URL, parseCompany, RegistryError, searchCompanies } from "../src/providers/prh/client.ts";
+import { NOW, setupApp, waitFor } from "./helpers.ts";
+import { mockBank } from "./mock-bank.ts";
+
+afterEach(() => vi.restoreAllMocks());
+
+const company = (businessId: string, names: string[], code: string, codeSet = "TOIMI4") => ({
+  businessId: { value: businessId },
+  names: names.map((name, i) => ({ name, type: i === 0 ? "1" : "3" })),
+  mainBusinessLine: { type: code, typeCodeSet: codeSet, descriptions: [{ languageCode: "1", description: `Toimiala ${code}` }] },
+});
+
+const REGISTER: Record<string, unknown[]> = {
+  "Pikku Ilona": [company("1234567-1", ["Ilona Ravintolat Oy", "Pikku Ilona"], "56300")],
+  "Saumaus Nieminen Oy": [company("2345678-2", ["Saumaus Nieminen Oy"], "43340", "TOIMI3")],
+};
+
+/** A fake register that records every name it was asked about. */
+function fakeRegister(opts: { fail?: boolean; answer?: (name: string) => Response | null | undefined } = {}) {
+  const asked: string[] = [];
+  const fetchMock = (async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    if (!url.href.startsWith(PRH_SEARCH_URL)) throw new Error(`unexpected request ${url.href}`);
+    const name = url.searchParams.get("name")!;
+    asked.push(name);
+    if (opts.fail) return new Response("busy", { status: 503 });
+    const special = opts.answer?.(name);
+    if (special !== undefined) return special;
+    const companies = REGISTER[name] ?? [];
+    return Response.json({ totalResults: companies.length, companies });
+  }) as typeof fetch;
+  return { asked, fetchMock };
+}
+
+const raw = (bookingDate: string, euros: number, counterparty: string, extra: Partial<RawTransaction> = {}): RawTransaction => ({
+  externalId: null,
+  bookingDate,
+  valueDate: null,
+  amountCents: Math.round(euros * 100),
+  currency: "EUR",
+  status: "booked",
+  counterparty,
+  counterpartyIban: null,
+  description: null,
+  reference: null,
+  mcc: null,
+  ...extra,
+});
+
+async function withData(fetchMock: typeof fetch, env: Record<string, string> = {}) {
+  const t = await setupApp({ INDUSTRY_LOOKUP: "true", ...env }, fetchMock);
+  const repo = t.s.finance(t.adminId);
+  await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+  await ingestTransactions(
+    repo,
+    "chk",
+    [
+      raw("2026-09-01", -12, "PIKKU ILONA", { description: "KORTTIOSTO" }),
+      raw("2026-09-02", -90, "SAUMAUS NIEMINEN OY", { counterpartyIban: "FI4950009420028730" }),
+      // people: by account transfer, or a CSV row without an account number. Never sent anywhere.
+      raw("2026-09-03", -50, "LIISA VIRTANEN", { counterpartyIban: "FI4950009420028731" }),
+      raw("2026-09-04", -20, "MAIJA NIEMINEN", { description: "SYNTYMÄPÄIVÄLAHJA" }),
+    ],
+    "csv",
+    { replacePending: false },
+  );
+  await reprocess(repo, t.s.settings);
+  return { ...t, repo };
+}
+
+describe("industry lookup", () => {
+  it("categorises unknown businesses from the register and sends only business names", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { s, repo, admin } = await withData(fetchMock);
+
+    const r = await lookupIndustries(s, { pauseMs: 0 });
+    expect(r).toMatchObject({ looked: 2, categorised: 2 });
+    expect(asked.sort()).toEqual(["Pikku Ilona", "Saumaus Nieminen Oy"]);
+
+    const byMerchant = new Map((await repo.allTransactions()).map((t) => [t.merchant, t]));
+    expect(byMerchant.get("Pikku Ilona")).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    expect(byMerchant.get("Saumaus Nieminen Oy")).toMatchObject({ category: "home", categorySource: "industry" });
+    expect(byMerchant.get("Liisa Virtanen")).toMatchObject({ category: "other", categorySource: "default" });
+
+    // the list says where the category came from
+    const list = await admin.call("GET", "/api/transactions?merchant=Pikku%20Ilona");
+    expect(list.body.items[0].industry).toEqual({ companyName: "Pikku Ilona", businessId: "1234567-1", label: "Toimiala 56300" });
+
+    // answers are kept: the next run asks nothing
+    expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 0 });
+    expect(asked).toHaveLength(2);
+  });
+
+  it("a user's own rule still wins over the register", async () => {
+    const { fetchMock } = fakeRegister();
+    const { s, repo } = await withData(fetchMock);
+    await repo.addRule({ field: "merchant", pattern: "Pikku Ilona", category: "gifts_donations", priority: 10 });
+    await lookupIndustries(s, { pauseMs: 0 });
+    const row = (await repo.allTransactions()).find((t) => t.merchant === "Pikku Ilona");
+    expect(row).toMatchObject({ category: "gifts_donations", categorySource: "rule" });
+  });
+
+  it("does nothing when an admin turned it off", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { s } = await withData(fetchMock, { INDUSTRY_LOOKUP: "false" });
+    expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ skipped: "off", looked: 0 });
+    expect(asked).toHaveLength(0);
+  });
+
+  it("stops after repeated register errors and does not retry the same day", async () => {
+    const { asked, fetchMock } = fakeRegister({ fail: true });
+    const { s, repo } = await withData(fetchMock);
+    expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 0, categorised: 0 });
+    expect(asked).toHaveLength(2);
+    expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 0 });
+    expect(asked).toHaveLength(2);
+    expect((await repo.allTransactions()).every((t) => t.categorySource === "default")).toBe(true);
+  });
+
+  it("records which user asked about which name, people never", async () => {
+    const { fetchMock } = fakeRegister();
+    const { s, adminId } = await withData(fetchMock);
+    await lookupIndustries(s, { pauseMs: 0 });
+    const rows = await s.db.all<{ user_id: string; merchant: string }>("SELECT user_id, merchant FROM merchant_industry_users ORDER BY merchant");
+    expect(rows).toEqual([
+      { user_id: adminId, merchant: "Pikku Ilona" },
+      { user_id: adminId, merchant: "Saumaus Nieminen Oy" },
+    ]);
+  });
+
+  it("another user sees register categories only for names their own lookup asked about", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { s, member } = await withData(fetchMock);
+    await lookupIndustries(s, { pauseMs: 0 });
+    const eero = await member("eero");
+    expect(await s.finance(eero.id).industryCodes()).toEqual(new Map());
+
+    // Eero buys at the same café. The answer is in the shared cache, but not his yet.
+    const repo = s.finance(eero.id);
+    await repo.upsertAccount({ id: "eero-chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Eeron tili", iban: null, currency: "EUR", type: "checking" });
+    await ingestTransactions(repo, "eero-chk", [raw("2026-09-05", -8, "PIKKU ILONA", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+    await reprocess(repo, s.settings);
+    expect((await repo.allTransactions())[0]).toMatchObject({ merchant: "Pikku Ilona", categorySource: "default" });
+    const list = await eero.call("GET", "/api/transactions");
+    expect(list.body.items[0].industry).toBeUndefined();
+
+    // his own lookup run asks about it: the cached answer applies without a new register request
+    const r = await lookupIndustries(s, { pauseMs: 0 });
+    expect(r).toMatchObject({ looked: 0 });
+    expect(asked).toHaveLength(2);
+    expect((await repo.allTransactions())[0]).toMatchObject({ category: "restaurants", categorySource: "industry" });
+  });
+
+  it("trusts only an exact name when the register returned one page of a longer list", async () => {
+    const page = (total: number) => Response.json({ totalResults: total, companies: [company("3456789-3", ["Ruskea Lyhty Kallio Oy"], "56300")] });
+    for (const [total, expected] of [
+      [120, "default"],
+      [1, "industry"],
+    ] as const) {
+      const { fetchMock } = fakeRegister({ answer: (name) => (name === "Ruskea Lyhty" ? page(total) : undefined) });
+      const { s, repo } = await withData(fetchMock);
+      await ingestTransactions(repo, "chk", [raw("2026-09-06", -5, "RUSKEA LYHTY", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+      await reprocess(repo, s.settings);
+      await lookupIndustries(s, { pauseMs: 0 });
+      expect((await repo.allTransactions()).find((t) => t.merchant === "Ruskea Lyhty")?.categorySource).toBe(expected);
+    }
+  });
+
+  it("an unexpected error on one name is logged without the name and the run goes on", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // not a Response at all: fails outside the register client's own checks
+    const { fetchMock } = fakeRegister({ answer: (name) => (name === "Saumaus Nieminen Oy" ? (null as unknown as Response) : undefined) });
+    const { s, repo } = await withData(fetchMock);
+    const r = await lookupIndustries(s, { pauseMs: 0 });
+    expect(r).toMatchObject({ looked: 1, categorised: 1 });
+    const byMerchant = new Map((await repo.allTransactions()).map((t) => [t.merchant, t]));
+    expect(byMerchant.get("Pikku Ilona")).toMatchObject({ categorySource: "industry" });
+    expect(byMerchant.get("Saumaus Nieminen Oy")).toMatchObject({ categorySource: "default" });
+    expect(await s.db.first("SELECT status FROM merchant_industry WHERE merchant = ?", ["Saumaus Nieminen Oy"])).toEqual({ status: "error" });
+    const logged = JSON.stringify([...errors.mock.calls, ...warnings.mock.calls]);
+    expect(errors).toHaveBeenCalled();
+    expect(logged).not.toMatch(/saumaus|nieminen/i);
+  });
+
+  it("applies the answers it got when the run fails late", async () => {
+    const { fetchMock } = fakeRegister();
+    const { s, repo } = await withData(fetchMock);
+    // Saumaus (the larger total) goes first; storing the second answer fails
+    const save = s.industry.save.bind(s.industry);
+    let calls = 0;
+    s.industry.save = async (...args) => {
+      if (++calls === 2) throw new Error("disk full");
+      return save(...args);
+    };
+    await expect(lookupIndustries(s, { pauseMs: 0 })).rejects.toThrow("disk full");
+    const byMerchant = new Map((await repo.allTransactions()).map((t) => [t.merchant, t]));
+    expect(byMerchant.get("Saumaus Nieminen Oy")).toMatchObject({ category: "home", categorySource: "industry" });
+    // the lock is released for the next run
+    s.industry.save = save;
+    expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 1, categorised: 1 });
+  });
+});
+
+describe("lookups that start by themselves", () => {
+  const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
+  const OWN = "FI12 1234 5600 0785 41";
+  const card = (name: string) => `2026/09/01;-12,00;${OWN};;${name};KORTTIOSTO;;EUR`;
+  const csv = (...rows: string[]) => [HEADER, ...rows].join("\n");
+  const categoryOf = async (admin: { call(m: string, p: string): Promise<{ body: any }> }, merchant: string) =>
+    (await admin.call("GET", `/api/transactions?merchant=${encodeURIComponent(merchant)}`)).body.items[0].categorySource;
+  /** Time for a run that should not happen to show itself. */
+  const settle = () => new Promise((r) => setTimeout(r, 100));
+
+  it("a CSV import with new rows is looked up right away", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { admin } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const r = await admin.call("POST", "/api/import/csv", { content: csv(card("PIKKU ILONA")), accountName: "Käyttötili" });
+    expect(r.body.inserted).toBe(1);
+    await waitFor(async () => (await categoryOf(admin, "Pikku Ilona")) === "industry");
+    expect(asked).toEqual(["Pikku Ilona"]);
+  });
+
+  it("an import that brings nothing new, or with the setting off, asks nothing", async () => {
+    const on = fakeRegister();
+    const a = await setupApp({ INDUSTRY_LOOKUP: "true" }, on.fetchMock);
+    const content = csv(card("PIKKU ILONA"));
+    const first = await a.admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    await waitFor(async () => (await categoryOf(a.admin, "Pikku Ilona")) === "industry");
+    // forget the answer, so the name is due again
+    await a.s.db.run("DELETE FROM merchant_industry_users");
+    await a.s.db.run("DELETE FROM merchant_industry");
+    const again = await a.admin.call("POST", "/api/import/csv", { content, accountId: first.body.accountId });
+    expect(again.body.inserted).toBe(0);
+    await settle();
+    expect(on.asked).toEqual(["Pikku Ilona"]);
+
+    const off = fakeRegister();
+    const b = await setupApp({ INDUSTRY_LOOKUP: "false" }, off.fetchMock);
+    await b.admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    await settle();
+    expect(off.asked).toEqual([]);
+  });
+
+  it("keeps going until nothing is due, a batch at a time", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { admin } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const names = Array.from({ length: 31 }, (_, i) => `KAUPPA ${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))} OY`);
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    try {
+      await admin.call("POST", "/api/import/csv", { content: csv(...names.map(card)), accountName: "Käyttötili" });
+      await vi.waitFor(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+        // a name with no hit is also asked in a shorter form; only the full names count here
+        expect(new Set(asked.filter((n) => n.endsWith(" Oy"))).size).toBe(31);
+      }, { timeout: 5000, interval: 5 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("turning the setting on starts one, other changes and staying on do not", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { admin, s, adminId } = await setupApp({ INDUSTRY_LOOKUP: "false" }, fetchMock);
+    const repo = s.finance(adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+    await ingestTransactions(repo, "chk", [raw("2026-09-01", -12, "PIKKU ILONA", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+    await reprocess(repo, s.settings);
+
+    await admin.call("PUT", "/api/admin/instance", { historyDays: 365 });
+    await settle();
+    expect(asked).toEqual([]);
+
+    expect((await admin.call("PUT", "/api/admin/instance", { industryLookup: true })).status).toBe(200);
+    await waitFor(async () => (await categoryOf(admin, "Pikku Ilona")) === "industry");
+    expect(asked).toEqual(["Pikku Ilona"]);
+
+    // already on, so another save changes nothing
+    await ingestTransactions(repo, "chk", [raw("2026-09-02", -9, "SAUMAUS NIEMINEN OY", { counterpartyIban: "FI4950009420028730" })], "csv", { replacePending: false });
+    await admin.call("PUT", "/api/admin/instance", { industryLookup: true });
+    await settle();
+    expect(asked).toEqual(["Pikku Ilona"]);
+  });
+
+  /** A bank whose card has one purchase at a name the register knows, and the register, behind one fetch. */
+  async function withBankAndRegister() {
+    const bank = mockBank();
+    const register = fakeRegister();
+    const purchase = {
+      entry_reference: "k1",
+      transaction_amount: { currency: "EUR", amount: "12.00" },
+      credit_debit_indicator: "DBIT",
+      status: "BOOK",
+      booking_date: "2026-10-05",
+      remittance_information: ["PIKKU ILONA"],
+    };
+    const fetchMock = ((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith(PRH_SEARCH_URL)) return register.fetchMock(input);
+      if (new URL(url).pathname === "/accounts/u-card/transactions") return Promise.resolve(Response.json({ transactions: [purchase] }));
+      return bank.fetchMock(input, init);
+    }) as typeof fetch;
+    const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const t = await setupApp({ INDUSTRY_LOOKUP: "true", EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, fetchMock);
+    return { ...t, bank, asked: register.asked };
+  }
+
+  it("a fetch that brings new rows is followed by a lookup", async () => {
+    const { admin, bank, asked } = await withBankAndRegister();
+    await admin.call("POST", "/api/connections/start", {});
+    await admin.call("POST", "/api/connections/complete", { url: `https://x.example/cb?code=abc&state=${bank.state}` });
+    // the first fetch runs in the background after connecting; the lookup follows it
+    await waitFor(async () => asked.includes("Pikku Ilona"));
+  });
+
+  it("the hourly tick looks up once, after its own fetch", async () => {
+    const { s, adminId, asked } = await withBankAndRegister();
+    const repo = s.finance(adminId);
+    await repo.upsertConnection({ id: "sess-1", provider: "enablebanking", institution: "Nordea", country: "FI", status: "active", validUntil: "2027-04-06T00:00:00Z", createdAt: NOW.toISOString(), lastSyncedAt: null });
+    await repo.upsertAccount({ id: "eb-card", connectionId: "sess-1", provider: "enablebanking", externalId: "u-card", identity: "h-card", name: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" });
+    // 10:00 UTC is 13:00 in Helsinki
+    await s.instance.save({ syncHours: [13] });
+
+    const tick = await hourlyTick(s);
+    expect(tick.synced?.[adminId]).toMatchObject({ status: "ok" });
+    expect(tick.synced?.[adminId]?.inserted).toBeGreaterThan(0);
+    expect(tick.lookup).toMatchObject({ looked: 1 });
+    expect(asked).toEqual(["Pikku Ilona"]);
+  });
+});
+
+describe("drainLookups", () => {
+  async function manyNames(count: number) {
+    const { asked, fetchMock } = fakeRegister();
+    const t = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+    const rows = Array.from({ length: count }, (_, i) => raw("2026-09-01", -10 - i, `KAUPPA ${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))} OY`));
+    await ingestTransactions(repo, "chk", rows, "csv", { replacePending: false });
+    await reprocess(repo, t.s.settings);
+    return { ...t, asked };
+  }
+
+  it("works through every batch and stops at the cap", async () => {
+    const { s } = await manyNames(70);
+    const first = await drainLookups(s, { maxBatches: 2, pauseMs: 0 });
+    expect(first.looked).toBe(60);
+    const rest = await drainLookups(s, { pauseMs: 0 });
+    expect(rest.looked).toBe(10);
+  });
+
+  it("reports a busy lock without looping", async () => {
+    const { s, asked } = await manyNames(3);
+    expect(await s.settings.tryLock("industry_lock", 60_000)).toBe(true);
+    expect(await drainLookups(s, { pauseMs: 0 })).toMatchObject({ skipped: "busy", looked: 0 });
+    expect(asked).toHaveLength(0);
+  });
+});
+
+describe("register answer parsing", () => {
+  it("keeps names in use and a valid industry, drops the rest", () => {
+    expect(
+      parseCompany({
+        businessId: { value: "0112038-9" },
+        names: [{ name: "Old Name Oy", endDate: "2001-01-01" }, { name: "New Name Oy" }, { name: 42 }],
+        mainBusinessLine: { type: "56300", typeCodeSet: "TOIMI4", descriptions: [{ languageCode: "1", description: "Baarit ja kahvilat" }] },
+      }),
+    ).toEqual({ businessId: "0112038-9", names: ["New Name Oy"], industry: { code: "56300", codeSet: "TOL2025", label: "Baarit ja kahvilat" } });
+    expect(parseCompany({ businessId: { value: "x" }, names: [{ name: "A" }] })).toBeNull();
+    expect(parseCompany({ businessId: { value: "0112038-9" }, names: [{ name: "Gone", endDate: "2020-01-01" }] })).toBeNull();
+    expect(parseCompany({ businessId: { value: "0112038-9" }, names: [{ name: "A Oy" }], mainBusinessLine: { type: "<script>", typeCodeSet: "TOIMI4" } })?.industry).toBeNull();
+    expect(parseCompany(null)).toBeNull();
+  });
+
+  it("knows only the two code sets, not object properties", () => {
+    for (const typeCodeSet of ["__proto__", "toString", "constructor", "hasOwnProperty"]) {
+      const c = parseCompany({ businessId: { value: "0112038-9" }, names: [{ name: "A Oy" }], mainBusinessLine: { type: "56300", typeCodeSet } });
+      expect(c?.industry).toBeNull();
+    }
+  });
+});
+
+describe("register client", () => {
+  const ok = (body: unknown) => Response.json(body);
+  const one = { totalResults: 1, companies: [company("0112038-9", ["A Oy"], "56300")] };
+
+  it("refuses redirects instead of following them", async () => {
+    let init: RequestInit | undefined;
+    const fetchMock = (async (_url: string, i?: RequestInit) => {
+      init = i;
+      return new Response(null, { status: 302, headers: { location: "https://elsewhere.example/" } });
+    }) as unknown as typeof fetch;
+    await expect(searchCompanies(fetchMock, "A Oy")).rejects.toThrow(RegistryError);
+    expect(init?.redirect).toBe("manual");
+  });
+
+  it("names the network cause when the register can not be reached, and only a plain code", async () => {
+    const failing = (cause: unknown) => (async () => {
+      throw new TypeError("fetch failed", { cause });
+    }) as unknown as typeof fetch;
+    await expect(searchCompanies(failing({ code: "ENOTFOUND" }), "A Oy")).rejects.toThrow("register not reachable: TypeError ENOTFOUND");
+    await expect(searchCompanies(failing({ code: "Kahvila Ilo" }), "A Oy")).rejects.toThrow(/^register not reachable: TypeError$/);
+  });
+
+  it("says whether the answer holds every hit", async () => {
+    expect(await searchCompanies((async () => ok(one)) as unknown as typeof fetch, "A Oy")).toMatchObject({ complete: true });
+    expect(await searchCompanies((async () => ok({ ...one, totalResults: 75 })) as unknown as typeof fetch, "A Oy")).toMatchObject({ complete: false });
+    expect(await searchCompanies((async () => ok({ companies: one.companies })) as unknown as typeof fetch, "A Oy")).toMatchObject({ complete: false });
+    const many = Array.from({ length: 60 }, (_, i) => company(`${String(1000000 + i)}-1`, [`A ${i} Oy`], "56300"));
+    expect((await searchCompanies((async () => ok({ totalResults: 60, companies: many })) as unknown as typeof fetch, "A")).companies).toHaveLength(60);
+  });
+
+  it("turns a failing or oversized body into a register error", async () => {
+    const broken = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new TypeError("connection reset"));
+      },
+    });
+    await expect(searchCompanies((async () => new Response(broken, { status: 200 })) as unknown as typeof fetch, "A Oy")).rejects.toThrow(RegistryError);
+
+    const declared = new Response("{}", { status: 200, headers: { "content-length": "5000000" } });
+    await expect(searchCompanies((async () => declared) as unknown as typeof fetch, "A Oy")).rejects.toThrow("too large");
+
+    let cancelled = false;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(256 * 1024).fill(32));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    await expect(searchCompanies((async () => new Response(endless, { status: 200 })) as unknown as typeof fetch, "A Oy")).rejects.toThrow("too large");
+    expect(cancelled).toBe(true);
+  });
+});

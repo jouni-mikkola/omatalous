@@ -1,0 +1,110 @@
+# Omatalous, Docker Compose.
+#
+#   docker compose up -d --build            the app, reachable at http://127.0.0.1:8080 (HOST_PORT, BIND_ADDRESS)
+#   COMPOSE_PROFILES=caddy                  + Caddy with automatic Let's Encrypt HTTPS (own domain)
+#   COMPOSE_PROFILES=tunnel                 + Cloudflare Tunnel (no open ports)
+#
+# scripts/install.sh writes .env for you (address, COMPOSE_PROFILES). Everything else is
+# set in the browser on the first visit; the app secret is created automatically.
+#
+# Several instances on one machine: one clone directory each, with its own .env that sets
+# INSTANCE_NAME, COMPOSE_PROJECT_NAME (same value), HOST_PORT and BIND_ADDRESS. The container and
+# image are named after INSTANCE_NAME, the volumes after the Compose project. Without the keys
+# everything keeps the old names (banking-app, banking-app:latest), whatever the directory is called.
+# Do not use ${COMPOSE_PROJECT_NAME} for these. Compose fills it from the directory name.
+#
+# From a release on, the local image <name>:latest is the verified ghcr.io/jouni-mikkola/omatalous image,
+# re-tagged by scripts/update.sh. The names above stay the same. A clone with TALOUS_CHANNEL=source in .env
+# keeps building from the source here.
+
+# Layout number. A released image carries the same number in its talous.compose label, and
+# scripts/update.sh refuses to start an image that expects a newer layout than this file has.
+x-talous-compat: 1
+
+services:
+  banking:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        APP_VERSION: ${APP_VERSION:-unknown}
+    image: ${INSTANCE_NAME:-banking-app}:latest
+    container_name: ${INSTANCE_NAME:-banking-app}
+    restart: unless-stopped
+    # Only what the app needs from .env (Compose reads .env for the ${…} values). Not env_file:
+    # that would hand the app every value in .env, the Cloudflare tunnel token included.
+    environment:
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${HOST_PORT:-8080}}
+      # names the session cookie (talous_<name>), so instances on one host do not log each other out
+      INSTANCE_NAME: ${INSTANCE_NAME:-banking-app}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      TZ: ${TZ:-Europe/Helsinki}
+      SETUP_CODE: ${SETUP_CODE:-}
+      # trade register lookup until an admin changes it in Asetukset > Palvelin; false = off
+      INDUSTRY_LOOKUP: ${INDUSTRY_LOOKUP:-true}
+      DATA_DIR: /data
+      # Encrypts the bank keys stored in the database. Created on first start (mode 600)
+      # in its own volume, never an environment value (that would show in `docker inspect`).
+      APP_SECRET_FILE: /secrets/app_secret
+    volumes:
+      - banking-data:/data          # SQLite database, backed up by scripts/backup.sh
+      - banking-secrets:/secrets    # app secret, kept apart from the database and its backups
+    ports:
+      # Only this machine can connect unless BIND_ADDRESS is set (install.sh option 4, plain HTTP).
+      # Phones etc. go through Caddy or the tunnel. Long syntax keeps IPv6 addresses safe.
+      - target: 8080
+        host_ip: ${BIND_ADDRESS:-127.0.0.1}
+        published: "${HOST_PORT:-8080}"
+        protocol: tcp
+    # hardening: read-only root filesystem, no Linux capabilities, no privilege escalation
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
+
+  # HTTPS with an automatic Let's Encrypt certificate for your own domain.
+  # Needs DOMAIN and ACME_EMAIL in .env, a DNS A record to your public IP and
+  # ports 80 + 443 forwarded to this machine.
+  caddy:
+    image: caddy:2
+    profiles: ["caddy"]
+    restart: unless-stopped
+    depends_on: [banking]
+    environment:
+      DOMAIN: ${DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      # CADDY_ADDRESS pins Caddy to one host address so a second instance can use another one.
+      # Unset = all addresses. The short form is used because an empty host_ip is rejected.
+      - "${CADDY_ADDRESS:+${CADDY_ADDRESS}:}80:80"
+      - "${CADDY_ADDRESS:+${CADDY_ADDRESS}:}443:443"
+      - "${CADDY_ADDRESS:+${CADDY_ADDRESS}:}443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data            # certificates
+      - caddy-config:/config
+    security_opt:
+      - no-new-privileges:true
+
+  # Cloudflare Tunnel: HTTPS from anywhere without opening ports. Pair it with
+  # Cloudflare Access (Zero Trust) so only your e-mail can reach the login page.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on: [banking]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  banking-data:
+  banking-secrets:
+  caddy-data:
+  caddy-config:
