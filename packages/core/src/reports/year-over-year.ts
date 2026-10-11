@@ -2,7 +2,7 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { MIN_COMPARE_MONTHS } from "../analysis/usual.ts";
-import { daysInMonth } from "../dates.ts";
+import { monthEnd } from "../dates.ts";
 
 export interface YearOverYearReport {
   year: number;
@@ -69,13 +69,13 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
       }
     }
   }
-  const monthEnd = `${range.to.slice(0, 7)}-${String(daysInMonth(range.to.slice(0, 7))).padStart(2, "0")}`;
-  const partialMonth = range.to < monthEnd || monthEnd >= ctx.today ? lastMonth : null;
+  const toMonthEnd = monthEnd(range.to.slice(0, 7));
+  const partialMonth = range.to < toMonthEnd || toMonthEnd >= ctx.today ? lastMonth : null;
   // whole months of both years: a month that is not over, or that the range cuts, is left out of the count
   let comparableMonths = 0;
   for (let m = comparableFromMonth ?? 13; m <= lastMonth; m++) {
     const label = `${year}-${String(m).padStart(2, "0")}`;
-    const end = `${label}-${String(daysInMonth(label)).padStart(2, "0")}`;
+    const end = monthEnd(label);
     if (end <= range.to && end < ctx.today) comparableMonths++;
   }
   return {

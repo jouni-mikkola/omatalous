@@ -24,6 +24,8 @@ export interface ChangeViewReport {
   title: string;
   /** "Lokakuu on 640 € tavallista kalliimpi: Ruoka +150 € (kalliimpi ostoskerta), ..." */
   sentence: string;
+  /** The sentence only states the totals: no change stands out from the household's own noise (change-signal.ts). */
+  quiet: boolean;
   periodLabel: string;
   baseLabel: string;
   /** At most five, largest first, `rest` last; they add up to the change. */
@@ -41,13 +43,14 @@ const MAX_BARS = 5;
  * The four categories that moved most with a cause over the gate, then what is left together, so the bars add up to
  * the change. A bar is the category's whole change, as in the table below it, and names its causes over the gate; the
  * pieces under it stay in the bar without a name. A category whose net change is under the gate is left out (a renamed
- * shop is a new and a stopped shop of the same size), and the gap to the usual level is no cause.
+ * shop is a new and a stopped shop of the same size), and so is one whose change does not stand out from its own
+ * month-to-month noise: a busy month of the household's own is no cause.
  */
 function barsOf(c: SpendingChange): ChangeBar[] {
   const top = c.categories
     .flatMap((r) => {
       const named = r.buckets.filter((b) => b.kind !== "spread");
-      return r.kind === "category" && r.category !== null && named.length && Math.abs(r.changeCents) >= c.gateCents ? [{ r, named }] : [];
+      return r.kind === "category" && r.category !== null && named.length && r.standsOut && Math.abs(r.changeCents) >= c.gateCents ? [{ r, named }] : [];
     })
     .sort((a, b) => Math.abs(b.r.changeCents) - Math.abs(a.r.changeCents) || a.r.category!.localeCompare(b.r.category!))
     .slice(0, MAX_BARS - 1);
@@ -57,22 +60,27 @@ function barsOf(c: SpendingChange): ChangeBar[] {
     kind: named[0]!.kind,
     cents: r.changeCents,
     season: r.season,
-    cause: named.map((b) => bucketLabel(b.kind, b.cents).toLowerCase()).join(", "),
+    cause: named.map((b) => bucketLabel(b.kind, b.cents, r.bills).toLowerCase()).join(", "),
   }));
   const rest = c.changeCents - bars.reduce((s, b) => s + b.cents, 0);
   if (rest !== 0) bars.push({ category: null, label: "Muut", kind: "rest", cents: rest, season: false, cause: "" });
   return bars;
 }
 
+/** Whether the sentence calls the period dearer or cheaper: the total passes the gate and stands out from its noise. */
+const callsTotal = (c: SpendingChange) => c.standsOut && Math.abs(c.changeCents) >= c.gateCents;
+
+/** The sentence states the totals only: no total and no category change stands out. */
+const isQuiet = (c: SpendingChange, bars: readonly ChangeBar[]) => !callsTotal(c) && !bars.some((b) => b.kind !== "rest");
+
 function sentenceOf(c: SpendingChange, subject: string, baseLabel: string, bars: readonly ChangeBar[]): string {
   const abs = formatEur(Math.abs(c.changeCents), false);
   const up = c.changeCents > 0;
-  const quiet = Math.abs(c.changeCents) < c.gateCents;
   let lead: string;
-  if (quiet) lead = `${subject}: menot ${formatEur(c.nowCents, false)}, ${c.view === "usual" ? "tavallisesti" : baseLabel} ${formatEur(c.baseCents, false)}`;
+  if (!callsTotal(c)) lead = `${subject}: menot ${formatEur(c.nowCents, false)}, ${c.view === "usual" ? "tavallisesti" : baseLabel} ${formatEur(c.baseCents, false)}`;
   else if (c.view === "usual") lead = `${subject} on ${c.running ? "tähän asti " : ""}${abs} tavallista ${up ? "kalliimpi" : "halvempi"}`;
   else lead = `${subject}: menot ${abs} ${up ? "suuremmat" : "pienemmät"} kuin ${baseLabel}`;
-  if (quiet) return `${lead}.`;
+  if (isQuiet(c, bars)) return `${lead}.`;
   const parts = bars.map((b) => (b.kind === "rest" ? `muut ${signed(b.cents)}` : `${b.label} ${signed(b.cents)}${b.cause ? ` (${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""})` : ""}`));
   return `${lead}: ${parts.join(", ")}.`;
 }
@@ -96,7 +104,8 @@ export function spendingChangeReport(ctx: AnalysisContext, range: DateRange): Sp
     const periodLabel = view === "usual" ? upper(monthName(m)) : upper(spanLabel(change.target.months));
     const baseLabel = view === "usual" ? "tavallisesti" : spanLabel(change.base.months);
     const bars = barsOf(change);
-    views.push({ view, title, sentence: sentenceOf(change, view === "season" ? `${upper(monthName(m))} ${m.slice(0, 4)}` : periodLabel, baseLabel, bars), periodLabel, baseLabel, bars, change });
+    const sentence = sentenceOf(change, view === "season" ? `${upper(monthName(m))} ${m.slice(0, 4)}` : periodLabel, baseLabel, bars);
+    views.push({ view, title, sentence, quiet: isQuiet(change, bars), periodLabel, baseLabel, bars, change });
   }
   return { views };
 }

@@ -1,10 +1,10 @@
 // Decision: cancel or renegotiate a contract that got dearer
 import { getCategory } from "../categories.ts";
+import { addMonthsToDate } from "../dates.ts";
 import { type AnalysisContext, recurringAt } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { priceChangeYearlyCents } from "../recurring.ts";
 import type { IsoDate } from "../types.ts";
-import { yearEarlier } from "./shared.ts";
 
 export interface PriceChangeItem {
   merchant: string;
@@ -31,7 +31,7 @@ export interface PriceChangesReport {
  * range still shows this year's rises).
  */
 export function priceChangesReport(ctx: AnalysisContext, range: DateRange): PriceChangesReport {
-  const yearAgo = yearEarlier(range.to);
+  const yearAgo = addMonthsToDate(range.to, -12);
   const from = range.from < yearAgo ? range.from : yearAgo;
   const items = recurringAt(ctx, range.to)
     .filter((s) => s.active && s.kind === "subscription" && s.priceChange && s.priceChange.date >= from && s.priceChange.date <= range.to)

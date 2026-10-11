@@ -5,6 +5,9 @@
 .account-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; padding: 4px 0; }
 .account-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; max-width: 260px; }
 .acc-type-phone { display: none; }
+/* settings: what an account's last fetch ran into, wrapped (td .sub cuts a line short) */
+.acc-problem { color: var(--warn); font-size: 12px; margin-top: 2px; max-width: 32rem; white-space: normal; }
+.connection-history { margin-top: 12px; }
 @media (max-width: 600px) {
   .accounts-table .acc-type { display: none; }
   .acc-type-phone { display: block; margin-top: 4px; }
@@ -40,6 +43,7 @@
 .setup-steps li > .small.muted { margin-top: 6px; }
 .setup-steps ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .copyable { cursor: copy; overflow-wrap: anywhere; }
+.eb-label { color: var(--muted); }
 .checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.9rem; color: var(--muted); }
 .checklist li::before { content: "○ "; }
 .checklist li.done { color: var(--text); }

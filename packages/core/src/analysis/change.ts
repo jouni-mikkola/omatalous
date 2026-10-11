@@ -17,14 +17,17 @@
  * by a bucket of its own (`spread`). That bucket is the only one that is no cause.
  */
 import { getCategory } from "../categories.ts";
-import { addMonths, daysInMonth, fromMonthIndex, monthIndex, monthOf } from "../dates.ts";
+import { addMonths, monthIndex } from "../dates.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { pairedReturns } from "../returns.ts";
-import { median } from "../stats.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate } from "../types.ts";
+import { type Plan, planOf, rowsComplete, windowOf } from "./change-plan.ts";
+import { floorsOf, monthSeries, type SignalInput, standsOut } from "./change-signal.ts";
+import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, type Merch, MIN_BASE_ROWS, netReturns, purchases, RARE, type Split, spendOf, splitMerchant, sum } from "./change-split.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
-import { completeMonthsBefore, gateFor, isCompleteMonth, MIN_COMPARE_MONTHS, usualCents } from "./usual.ts";
+import { LEVEL, oneOffs } from "./one-offs.ts";
+import { gateFor, isCompleteMonth, usualCents } from "./usual.ts";
 
 export type ChangeView = "usual" | "year" | "season";
 export type BucketKind = "oneoff" | "timing" | "new" | "stopped" | "price" | "volume" | "spread" | "other";
@@ -73,6 +76,10 @@ export interface CategoryChange {
   /** The same month a year ago (usual view, when the history reaches back), and whether it moved as far as this one. */
   yearAgoCents: number | null;
   season: boolean;
+  /** The change stands out from the category's own month-to-month noise (change-signal.ts): only then is it named. */
+  standsOut: boolean;
+  /** Every row that is no one-off is a bill or a subscription: a moved amount is a bigger or smaller bill. */
+  bills: boolean;
   merchants: MerchantChange[];
 }
 
@@ -101,22 +108,16 @@ export interface SpendingChange {
   changeCents: number;
   /** A cause shows on its own at this size or more (10 € and 2 % of the usual monthly spending, for each month of the target). */
   gateCents: number;
+  /** The total's change stands out from the household's month-to-month noise: only then is the period dearer or cheaper. */
+  standsOut: boolean;
   categories: CategoryChange[];
   pieces: ChangePiece[];
 }
 
-const MIN_PRICE_VISITS = 3;
-const MIN_BASE_ROWS = 4;
-const ONE_OFF_MIN_CENTS = 5000;
-const ONE_OFF_TICKET_MULTIPLE = 3;
 const MAX_CATEGORIES = 8;
 const MAX_MERCHANTS = 8;
 /** A move under a euro is rounding. */
 const MIN_ROW_CENTS = 100;
-/** A bill is expected when the base had it in this share of its months. */
-const PRESENCE = 2 / 3;
-/** Bills that come less often than every month: in an ordinary month they are not expected. */
-const RARE = new Set(["quarterly", "semiannual", "yearly"]);
 
 export interface ContextIndex {
   byMonth: Map<number, AnalysisTx[]>;
@@ -154,305 +155,189 @@ export const GAP_HELP = "Tavallisen kuukauden summan ja tavallisten kategorioide
 
 const LABEL: Record<BucketKind, string> = { oneoff: "Kertaosto", timing: "Ajoitus", new: "Uudet kaupat", stopped: "Ostot jääneet pois", price: "Kalliimpi ostoskerta", volume: "Useammin", spread: "Kuukausien vaihtelu", other: "Ei eriteltyä syytä" };
 
-export function bucketLabel(kind: BucketKind, cents: number): string {
+export function bucketLabel(kind: BucketKind, cents: number, bills = false): string {
+  // a contract's moved amount is a bigger bill, never a dearer purchase
+  if (bills && kind === "price") return cents < 0 ? "Pienempi lasku" : "Suurempi lasku";
   if (cents < 0 && kind === "price") return "Halvempi ostoskerta";
   return cents < 0 && kind === "volume" ? "Harvemmin" : LABEL[kind];
 }
 
-interface Plan {
-  view: ChangeView;
-  target: string[];
-  base: string[];
-  /** Rows on later days of the month are left out: a running month is compared on the days it has had. */
-  cap: number;
-  running: boolean;
-  /** The base is the mean of several months (the usual view). Otherwise it is the sum over as many months as the target. */
-  mean: boolean;
-}
-
-const dayOfMonth = (t: Pick<AnalysisTx, "bookingDate">) => Number(t.bookingDate.slice(8, 10));
-const sum = (xs: readonly number[]) => xs.reduce((s, v) => s + v, 0);
-const spendOf = (rows: readonly AnalysisTx[]) => sum(rows.map((t) => t.spend));
-/** What a purchase cost in the end: its spending less what came back. */
-const netSpend = (t: Pick<AnalysisTx, "spend" | "refunded">) => Math.max(0, t.spend - t.refunded);
-const purchases = (rows: readonly AnalysisTx[]) => rows.filter((t) => t.spend > 0);
-
-/**
- * A purchase and the return of it in the same rows count once, at what stays: a bought and returned TV is no cause,
- * and a part that was kept is one purchase of that size. The rows add up as before, so no category total moves.
- */
-function netReturns(rows: AnalysisTx[], returns: ReadonlyMap<string, string>): AnalysisTx[] {
-  const byId = new Map(rows.map((t) => [t.id, t]));
-  const back = new Map<string, number>();
-  const gone = new Set<string>();
-  for (const t of rows) {
-    const p = byId.get(returns.get(t.id) ?? "");
-    if (!p || p.category !== t.category || p.spend <= 0 || t.spend >= 0) continue;
-    back.set(p.id, (back.get(p.id) ?? 0) + t.spend);
-    gone.add(t.id);
-  }
-  if (!gone.size) return rows;
-  return rows.filter((t) => !gone.has(t.id)).map((t) => (back.has(t.id) ? { ...t, spend: t.spend + back.get(t.id)!, refunded: 0 } : t)).filter((t) => t.spend !== 0);
-}
-
-/**
- * The periods of a view for `month`: the month itself (usual and season) or the month the last twelve end in (year).
- * null when the history cannot support the comparison: under three complete months before, no complete month a year
- * earlier, or under three months to compare.
- */
-function planOf(ctx: AnalysisContext, view: ChangeView, month: string): Plan | null {
-  const thisMonth = monthOf(ctx.today);
-  if (month > thisMonth) return null;
-  const running = month === thisMonth;
-  const cap = running ? Number(ctx.today.slice(8, 10)) : 31;
-  if (view === "usual") {
-    const base = completeMonthsBefore(ctx, month);
-    return base.length < MIN_COMPARE_MONTHS ? null : { view, target: [month], base, cap, running, mean: true };
-  }
-  if (view === "season") {
-    const base = addMonths(month, -12);
-    return isCompleteMonth(ctx, base) ? { view, target: [month], base: [base], cap, running, mean: false } : null;
-  }
-  if (!isCompleteMonth(ctx, month) || !ctx.dataFrom) return null;
-  let first = monthIndex(monthOf(ctx.dataFrom));
-  while (!isCompleteMonth(ctx, fromMonthIndex(first)) && first < monthIndex(month)) first++;
-  // a month of the target pairs with the month twelve earlier, which must be complete
-  const k = Math.min(12, monthIndex(month) - 12 - first + 1);
-  if (k < MIN_COMPARE_MONTHS) return null;
-  const target = Array.from({ length: k }, (_, i) => addMonths(month, i - k + 1));
-  return { view, target, base: target.map((m) => addMonths(m, -12)), cap: 31, running: false, mean: false };
-}
-
-/** `totals` (whole cents over n months) as per-month cents that add up to round(total / n), the rest going to the largest remainders. */
-function apportion(totals: readonly number[], n: number): number[] {
-  const floors = totals.map((v) => Math.floor(v / n));
-  let left = Math.round(sum(totals) / n) - sum(floors);
-  const order = totals.map((_, i) => i).sort((a, b) => totals[b]! - floors[b]! * n - (totals[a]! - floors[a]! * n) || a - b);
-  const out = [...floors];
-  for (const i of order) {
-    if (left <= 0) break;
-    out[i]!++;
-    left--;
-  }
-  return out;
-}
-
-interface Facts {
-  category: string;
-  /** The category's change: target − base level. */
-  change: number;
-  /** The largest single base payment in the category. */
-  maxBase: number;
-  restricted: boolean;
-}
-
-interface Merch {
-  name: string;
+interface Rows {
+  plan: Plan;
+  rowsOf: (m: string) => AnalysisTx[];
   target: AnalysisTx[];
-  base: AnalysisTx[];
-  baseCents: number;
-  /** Purchases in the base, per base period. */
-  baseVisits: number;
+  /** Per base month in the usual view, else one entry for the whole base; one-offs struck in the usual view. */
+  baseByMonth: AnalysisTx[][];
+  /** One-offs of the target and the base (the level policy). */
+  struck: ReadonlySet<string>;
+  seriesOf: ReadonlyMap<string, RecurringSeries>;
+  /** Base periods: the months of the usual view, else 1. */
+  n: number;
+  gate: number;
+  signal: SignalInput;
+  yearAgo: Map<string, number> | null;
 }
 
-type Split = Partial<Record<BucketKind, number>>;
-
-function splitMerchant(m: Merch, f: Facts, plan: Plan, n: number, seriesOf: ReadonlyMap<string, RecurringSeries>): Split {
-  const out: Split = {};
-  const add = (kind: BucketKind, cents: number) => {
-    if (cents) out[kind] = (out[kind] ?? 0) + cents;
+function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
+  const { byMonth, seriesOf, returns } = contextIndex(ctx);
+  const rowsOf = (m: string) => (byMonth.get(monthIndex(m)) ?? []).filter((t) => t.spend !== 0 && dayOfMonth(t) <= plan.cap);
+  const target = netReturns(plan.target.flatMap(rowsOf), returns);
+  const struck = oneOffs([...target, ...plan.base.flatMap(rowsOf)], LEVEL, ctx.fixedIds);
+  // the usual level is a median of months with their one-offs struck, so a pair nets inside its month; otherwise the
+  // base is the whole period as it was
+  const baseByMonth = plan.mean ? plan.base.map((m) => netReturns(rowsOf(m), returns).filter((t) => !struck.has(t.id))) : [netReturns(plan.base.flatMap(rowsOf), returns)];
+  const noiseRows = plan.noise.flatMap(rowsOf);
+  const signal: SignalInput = {
+    plan,
+    noise: monthSeries(plan.noise, rowsOf, oneOffs(noiseRows, LEVEL, ctx.fixedIds)),
+    now: monthSeries(plan.target, rowsOf, struck),
+    then: monthSeries(plan.base, rowsOf, struck),
+    // a rare category's floor comes from its purchases: no one-off and no bill
+    floors: floorsOf([...(plan.view === "year" ? [...target, ...plan.base.flatMap(rowsOf)] : noiseRows)].filter((t) => !struck.has(t.id) && !ctx.fixedIds.has(t.id)), plan.view === "year" ? 2 * plan.target.length : plan.noise.length),
   };
-  let rest = m.target;
-  // 1. one-off: with a usual ticket (three base visits) a payment of three times it and 50 €. Without one, half of
-  // the category's rise and above anything the base had (the rule of the month explanation).
-  const tickets = purchases(m.base).map((t) => t.spend);
-  const usualTicket = tickets.length >= MIN_PRICE_VISITS ? median(tickets) : null;
-  if (f.category !== "card_bill") {
-    const isOneOff = (t: AnalysisTx) =>
-      usualTicket !== null ? netSpend(t) > ONE_OFF_TICKET_MULTIPLE * usualTicket && netSpend(t) >= ONE_OFF_MIN_CENTS : f.change > 0 && netSpend(t) * 2 >= f.change && netSpend(t) > f.maxBase;
-    const one = new Set(rest.filter((t) => t.spend > 0 && !seriesOf.has(t.id) && isOneOff(t)));
-    add("oneoff", spendOf([...one]));
-    rest = rest.filter((t) => !one.has(t));
+  // a year ago, for the season mark of the usual view
+  const ago = addMonths(plan.target[0]!, -12);
+  let yearAgo: Map<string, number> | null = null;
+  if (plan.view === "usual" && isCompleteMonth({ dataFrom: rowsComplete(ctx).from, today: ctx.today }, ago)) {
+    yearAgo = new Map();
+    for (const t of rowsOf(ago)) yearAgo.set(t.category, (yearAgo.get(t.category) ?? 0) + t.spend);
   }
-  let now = spendOf(rest);
-  let visits = purchases(rest).length;
-  let base = m.baseCents;
-  let baseVisits = m.baseVisits;
+  return { plan, rowsOf, target, baseByMonth, struck, seriesOf, n: plan.mean ? plan.base.length : 1, signal, yearAgo };
+}
 
-  // 2. timing: a bill that came more often than the period expects, or not at all
-  const groups = new Map<string, { series: RecurringSeries; now: AnalysisTx[]; base: AnalysisTx[] }>();
-  const group = (s: RecurringSeries) => groups.get(s.id) ?? (groups.set(s.id, { series: s, now: [], base: [] }), groups.get(s.id)!);
-  for (const t of purchases(rest)) if (seriesOf.has(t.id)) group(seriesOf.get(t.id)!).now.push(t);
-  for (const t of purchases(m.base)) if (seriesOf.has(t.id)) group(seriesOf.get(t.id)!).base.push(t);
-  for (const g of [...groups.values()].sort((a, b) => a.series.id.localeCompare(b.series.id))) {
-    const rare = RARE.has(g.series.cadence ?? "");
-    if (g.series.cadence !== "monthly" && !rare) continue;
-    const expected = rare ? (plan.mean ? 0 : g.base.length) : plan.target.length;
-    if (g.now.length > expected) {
-      const extra = [...g.now].sort((a, b) => b.spend - a.spend || b.bookingDate.localeCompare(a.bookingDate) || a.id.localeCompare(b.id)).slice(0, g.now.length - expected);
-      add("timing", spendOf(extra));
-      now -= spendOf(extra);
-      visits -= extra.length;
-    } else if (g.now.length < expected && g.series.active && (plan.mean ? g.base.length / n : g.base.length) >= PRESENCE * expected) {
-      const missing = expected - g.now.length;
-      const cents = Math.min(Math.round((missing * spendOf(g.base)) / g.base.length), Math.max(0, base));
-      add("timing", -cents);
-      base -= cents;
-      baseVisits = Math.max(0, baseVisits - missing);
-    }
+/** The merchants of a category with their base, a mean over the months in the usual view (apportioned to whole cents). */
+function merchantsOf(r: Rows, target: AnalysisTx[], flatBase: AnalysisTx[]): Merch[] {
+  const byName = new Map<string, Merch>();
+  const merch = (name: string) => byName.get(name) ?? (byName.set(name, { name, target: [], base: [], baseCents: 0, baseVisits: 0 }), byName.get(name)!);
+  for (const t of target) merch(t.merchant).target.push(t);
+  // a bill of a rare cadence is not part of an ordinary month, so it is not in the mean base
+  for (const t of flatBase) if (!(r.plan.mean && RARE.has(r.seriesOf.get(t.id)?.cadence ?? ""))) merch(t.merchant).base.push(t);
+  const list = [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const shares = r.plan.mean ? apportion(list.map((m) => spendOf(m.base)), r.n) : list.map((m) => spendOf(m.base));
+  list.forEach((m, i) => {
+    m.baseCents = shares[i]!;
+    m.baseVisits = purchases(m.base).length / r.n;
+  });
+  return list;
+}
+
+type Item = MerchantChange & { split: Split };
+
+function merchantRows(items: Item[], gate: number, spread: number): MerchantChange[] {
+  items.sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents) || a.label.localeCompare(b.label));
+  const shown = items.filter((m) => Math.abs(m.changeCents) >= gate).slice(0, MAX_MERCHANTS);
+  const small = items.filter((m) => !shown.includes(m));
+  const merchants: MerchantChange[] = shown.map(({ split: _s, ...m }) => m);
+  if (small.length) {
+    const split: Split = {};
+    for (const m of small) addSplit(split, m.split);
+    const s = (key: "nowCents" | "baseCents" | "visitsNow") => sum(small.map((m) => m[key]));
+    merchants.push({ kind: "smaller", label: restLabel(small.length), nowCents: s("nowCents"), baseCents: s("baseCents"), changeCents: s("nowCents") - s("baseCents"), visitsNow: s("visitsNow"), visitsBase: 0, ticketNowCents: null, ticketBaseCents: null, buckets: bucketList(split) });
   }
-
-  // 3. the rest of the change
-  const tail = now - base;
-  if (f.restricted) add("other", tail);
-  else if (base === 0 && baseVisits === 0) add(visits > 0 ? "new" : "other", tail);
-  else if (visits === 0) add("stopped", tail);
-  else if (visits >= MIN_PRICE_VISITS && purchases(m.base).length >= MIN_PRICE_VISITS && base > 0 && baseVisits > 0) {
-    // price on the visits now, volume on the base ticket: together exactly the change
-    const price = now - Math.round((visits * base) / baseVisits);
-    add("price", price);
-    add("volume", tail - price);
-  } else if (visits === 1 && baseVisits >= 0.5 && baseVisits <= 1.5) add("price", tail); // one charge each period: a bill whose amount moved
-  else add("volume", tail);
-  return out;
+  if (spread) merchants.push({ kind: "spread", label: bucketLabel("spread", spread), nowCents: 0, baseCents: 0, changeCents: spread, visitsNow: 0, visitsBase: 0, ticketNowCents: null, ticketBaseCents: null, buckets: [{ kind: "spread", cents: spread }] });
+  return merchants;
 }
 
-const bucketList = (split: Split): Bucket[] =>
-  (Object.entries(split) as [BucketKind, number][])
-    .filter(([, cents]) => cents !== 0)
-    .map(([kind, cents]) => ({ kind, cents }))
-    .sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || a.kind.localeCompare(b.kind));
-
-function addSplit(into: Split, from: Split): void {
-  for (const [kind, cents] of Object.entries(from) as [BucketKind, number][]) into[kind] = (into[kind] ?? 0) + cents;
+/** One category's change, split into causes; its pieces go to `pieces`. */
+function categoryChange(r: Rows, id: string, pieces: ChangePiece[]): CategoryChange {
+  const target = r.target.filter((t) => t.category === id);
+  const baseMonths = r.baseByMonth.map((rows) => rows.filter((t) => t.category === id));
+  const flatBase = baseMonths.flat();
+  const baseCents = r.plan.mean ? (usualCents(baseMonths.map(spendOf)) ?? 0) : spendOf(flatBase);
+  const nowCents = spendOf(target);
+  const facts: Facts = { category: id, change: nowCents - baseCents, oneOffs: r.struck, restricted: purchases(flatBase).length < MIN_BASE_ROWS || getCategory(id).kind === "debt" };
+  const list = merchantsOf(r, target, flatBase);
+  const total: Split = {};
+  const items = list.map((m): Item => {
+    const split = splitMerchant(m, facts, r.plan, r.n, r.seriesOf);
+    addSplit(total, split);
+    const now = spendOf(m.target);
+    const visitsNow = purchases(m.target).length;
+    const ticketBaseCents = m.baseVisits > 0 ? Math.round(m.baseCents / m.baseVisits) : null;
+    return { kind: "merchant", label: m.name, nowCents: now, baseCents: m.baseCents, changeCents: now - m.baseCents, visitsNow, visitsBase: Math.round(m.baseVisits * 10) / 10, ticketNowCents: visitsNow ? Math.round(now / visitsNow) : null, ticketBaseCents, buckets: bucketList(split), split };
+  });
+  // the merchants' base is a mean, the category's usual level a median: the difference is a bucket, not a cause
+  const spread = sum(list.map((m) => m.baseCents)) - baseCents;
+  addSplit(total, spread ? { spread } : {});
+  const both = items.filter((m) => m.visitsNow > 0 && m.baseCents > 0);
+  const ya = r.yearAgo ? (r.yearAgo.get(id) ?? 0) : null;
+  const change = nowCents - baseCents;
+  const season = ya !== null && Math.sign(ya - baseCents) === Math.sign(change) && Math.abs(ya - baseCents) * 2 >= Math.abs(change) && Math.abs(change) >= r.gate;
+  for (const b of bucketList(total)) pieces.push({ category: id, kind: b.kind, cents: b.cents, season });
+  const counted = [...target, ...flatBase].filter((t) => !r.struck.has(t.id));
+  return {
+    kind: "category",
+    category: id,
+    label: getCategory(id).label,
+    nowCents,
+    baseCents,
+    changeCents: change,
+    ...gated(total, r.gate),
+    visitsNow: purchases(target).length,
+    visitsBase: Math.round((purchases(flatBase).length / r.n) * 10) / 10,
+    sameShopsNowCents: sum(both.map((m) => m.nowCents)),
+    sameShopsBaseCents: sum(both.map((m) => m.baseCents)),
+    sameShopsVisitsNow: sum(both.map((m) => m.visitsNow)),
+    sameShopsVisitsBase: sum(both.map((m) => m.visitsBase)),
+    yearAgoCents: ya,
+    season,
+    standsOut: categoryStandsOut(r, change, target, flatBase, id),
+    bills: counted.length > 0 && counted.every((t) => r.seriesOf.has(t.id)),
+    merchants: merchantRows(items, r.gate, spread),
+  };
 }
 
-/** The causes at or over the gate, and the others together. */
-function gated(split: Split, gate: number): Pick<CategoryChange, "buckets" | "restCents" | "restCount"> {
-  const all = bucketList(split);
-  const small = all.filter((b) => Math.abs(b.cents) < gate);
-  return { buckets: all.filter((b) => Math.abs(b.cents) >= gate), restCents: sum(small.map((b) => b.cents)), restCount: small.length };
+/**
+ * Whether a category's change stands out from its own noise: without the one-offs of either side, or the one-offs of
+ * the target on their own (a television is news, a dear dinner in a month of dear dinners is not).
+ */
+function categoryStandsOut(r: Rows, change: number, target: readonly AnalysisTx[], flatBase: readonly AnalysisTx[], id: string): boolean {
+  const oneOffNow = spendOf(target.filter((t) => r.struck.has(t.id)));
+  // the usual base has its one-offs struck already
+  const oneOffBase = r.plan.mean ? 0 : spendOf(flatBase.filter((t) => r.struck.has(t.id)));
+  return standsOut(r.signal, id, change - oneOffNow + oneOffBase) || (oneOffNow >= r.gate && standsOut(r.signal, id, oneOffNow));
 }
 
-const windowOf = (ctx: AnalysisContext, months: string[], cut: number | null): ChangeWindow => {
-  const last = months[months.length - 1]!;
-  const end = `${last}-${String(cut !== null ? Math.min(cut, daysInMonth(last)) : daysInMonth(last)).padStart(2, "0")}`;
-  return { months, from: `${months[0]}-01`, to: end < ctx.today ? end : ctx.today };
-};
+const KEYS = ["nowCents", "baseCents", "changeCents", "visitsNow", "visitsBase", "sameShopsNowCents", "sameShopsBaseCents", "sameShopsVisitsNow", "sameShopsVisitsBase"] as const;
+
+/** The categories that did not make the list, as one row. */
+function smallerRow(rest: readonly CategoryChange[], pieces: readonly ChangePiece[], gate: number): CategoryChange {
+  const split: Split = {};
+  const ids = new Set(rest.map((c) => c.category));
+  for (const p of pieces) if (p.category !== null && ids.has(p.category)) split[p.kind] = (split[p.kind] ?? 0) + p.cents;
+  const totals = Object.fromEntries(KEYS.map((key) => [key, sum(rest.map((c) => c[key]))])) as Record<(typeof KEYS)[number], number>;
+  return { kind: "smaller", category: null, label: restLabel(rest.length), ...totals, ...gated(split, gate), yearAgoCents: null, season: false, standsOut: false, bills: false, merchants: [] };
+}
+
+/** The total stands out from its noise without its one-offs, or one of its categories does. */
+function totalStandsOut(r: Rows, categories: readonly CategoryChange[], change: number): boolean {
+  const oneOffNow = spendOf(r.target.filter((t) => r.struck.has(t.id)));
+  const oneOffBase = r.plan.mean ? 0 : spendOf(r.baseByMonth.flat().filter((t) => r.struck.has(t.id)));
+  return standsOut(r.signal, null, change - oneOffNow + oneOffBase) || categories.some((c) => c.standsOut && Math.abs(c.changeCents) >= r.gate && Math.sign(c.changeCents) === Math.sign(change));
+}
 
 /**
  * The change of spending (consumption + debt) in a view, split into causes. `month` is the month the view is about:
  * the month itself for "usual" and "season", the last month of the twelve for "year". null when the history does not
- * support the comparison.
+ * support the comparison. The usual level is each category's own (the median of its months with one-offs struck), and
+ * the usual total is their sum, so a deposit, a repayment or a trip in one base month does not move it.
  */
 export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: string): SpendingChange | null {
   const plan = planOf(ctx, view, month);
   if (!plan) return null;
-  const { byMonth, seriesOf, returns } = contextIndex(ctx);
-  const rowsOf = (m: string) => (byMonth.get(monthIndex(m)) ?? []).filter((t) => t.spend !== 0 && dayOfMonth(t) <= plan.cap);
-  const targetRows = netReturns(plan.target.flatMap(rowsOf), returns);
-  // the usual level is a median of months, so a pair nets inside its month; otherwise over the whole base period
-  const baseByMonth = plan.mean ? plan.base.map((m) => netReturns(rowsOf(m), returns)) : [netReturns(plan.base.flatMap(rowsOf), returns)];
-  const n = plan.mean ? plan.base.length : 1;
+  const base = rowsFor(ctx, plan);
+  const ids = [...new Set([...base.target, ...base.baseByMonth.flat()].map((t) => t.category))].sort();
+  const categoryBase = (id: string) => {
+    const months = base.baseByMonth.map((rows) => spendOf(rows.filter((t) => t.category === id)));
+    return plan.mean ? (usualCents(months) ?? 0) : sum(months);
+  };
+  const baseTotal = sum(ids.map(categoryBase));
+  const nowTotal = spendOf(base.target);
   const months = plan.target.length;
-
-  const baseTotal = plan.mean ? (usualCents(baseByMonth.map(spendOf)) ?? 0) : sum(baseByMonth.map(spendOf));
-  const nowTotal = spendOf(targetRows);
   // the gate of a month against the base of a month, so a year's base is divided by its months
-  const gateCents = gateFor(plan.mean ? baseTotal : baseTotal / months) * months;
-
-  // a year ago, for the season mark of the usual view
-  const yearAgo = plan.view === "usual" && isCompleteMonth(ctx, addMonths(month, -12)) ? rowsOf(addMonths(month, -12)) : null;
-  const yearAgoBy = new Map<string, number>();
-  for (const t of yearAgo ?? []) yearAgoBy.set(t.category, (yearAgoBy.get(t.category) ?? 0) + t.spend);
-
-  const ids = new Set([...targetRows, ...baseByMonth.flat()].map((t) => t.category));
-  const categories: CategoryChange[] = [];
+  const r: Rows = { ...base, gate: gateFor(plan.mean ? baseTotal : baseTotal / months) * months };
   const pieces: ChangePiece[] = [];
-  for (const id of [...ids].sort()) {
-    const target = targetRows.filter((t) => t.category === id);
-    const baseMonths = baseByMonth.map((rows) => rows.filter((t) => t.category === id));
-    const flatBase = baseMonths.flat();
-    const baseCents = plan.mean ? (usualCents(baseMonths.map(spendOf)) ?? 0) : spendOf(flatBase);
-    const nowCents = spendOf(target);
-    const facts: Facts = { category: id, change: nowCents - baseCents, maxBase: flatBase.reduce((mx, t) => Math.max(mx, netSpend(t)), 0), restricted: purchases(flatBase).length < MIN_BASE_ROWS || getCategory(id).kind === "debt" };
-
-    const byName = new Map<string, Merch>();
-    const merch = (name: string) => byName.get(name) ?? (byName.set(name, { name, target: [], base: [], baseCents: 0, baseVisits: 0 }), byName.get(name)!);
-    for (const t of target) merch(t.merchant).target.push(t);
-    // a bill of a rare cadence is not part of an ordinary month, so it is not in the mean base
-    for (const t of flatBase) if (!(plan.mean && RARE.has(seriesOf.get(t.id)?.cadence ?? ""))) merch(t.merchant).base.push(t);
-    const list = [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
-    const shares = plan.mean ? apportion(list.map((m) => spendOf(m.base)), n) : list.map((m) => spendOf(m.base));
-    list.forEach((m, i) => {
-      m.baseCents = shares[i]!;
-      m.baseVisits = purchases(m.base).length / n;
-    });
-
-    const total: Split = {};
-    const items = list.map((m): MerchantChange & { split: Split } => {
-      const split = splitMerchant(m, facts, plan, n, seriesOf);
-      addSplit(total, split);
-      const now = spendOf(m.target);
-      const visitsNow = purchases(m.target).length;
-      return {
-        kind: "merchant",
-        label: m.name,
-        nowCents: now,
-        baseCents: m.baseCents,
-        changeCents: now - m.baseCents,
-        visitsNow,
-        visitsBase: Math.round(m.baseVisits * 10) / 10,
-        ticketNowCents: visitsNow ? Math.round(now / visitsNow) : null,
-        ticketBaseCents: m.baseVisits > 0 ? Math.round(m.baseCents / m.baseVisits) : null,
-        buckets: bucketList(split),
-        split,
-      };
-    });
-    // the merchants' base is a mean, the category's usual level a median: the difference is a bucket, not a cause
-    const spread = sum(shares) - baseCents;
-    addSplit(total, spread ? { spread } : {});
-
-    items.sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents) || a.label.localeCompare(b.label));
-    const shown = items.filter((m) => Math.abs(m.changeCents) >= gateCents).slice(0, MAX_MERCHANTS);
-    const small = items.filter((m) => !shown.includes(m));
-    const merchants: MerchantChange[] = shown.map(({ split: _s, ...m }) => m);
-    if (small.length) {
-      const split: Split = {};
-      for (const m of small) addSplit(split, m.split);
-      const s = (key: "nowCents" | "baseCents" | "visitsNow") => sum(small.map((m) => m[key]));
-      merchants.push({ kind: "smaller", label: restLabel(small.length), nowCents: s("nowCents"), baseCents: s("baseCents"), changeCents: s("nowCents") - s("baseCents"), visitsNow: s("visitsNow"), visitsBase: 0, ticketNowCents: null, ticketBaseCents: null, buckets: bucketList(split) });
-    }
-    if (spread) merchants.push({ kind: "spread", label: bucketLabel("spread", spread), nowCents: 0, baseCents: 0, changeCents: spread, visitsNow: 0, visitsBase: 0, ticketNowCents: null, ticketBaseCents: null, buckets: [{ kind: "spread", cents: spread }] });
-
-    const both = items.filter((m) => m.visitsNow > 0 && m.baseCents > 0);
-    const ya = yearAgo ? (yearAgoBy.get(id) ?? 0) : null;
-    const change = nowCents - baseCents;
-    const season = ya !== null && Math.sign(ya - baseCents) === Math.sign(change) && Math.abs(ya - baseCents) * 2 >= Math.abs(change) && Math.abs(change) >= gateCents;
-    for (const b of bucketList(total)) pieces.push({ category: id, kind: b.kind, cents: b.cents, season });
-    categories.push({
-      kind: "category",
-      category: id,
-      label: getCategory(id).label,
-      nowCents,
-      baseCents,
-      changeCents: change,
-      ...gated(total, gateCents),
-      visitsNow: purchases(target).length,
-      visitsBase: Math.round((purchases(flatBase).length / n) * 10) / 10,
-      sameShopsNowCents: sum(both.map((m) => m.nowCents)),
-      sameShopsBaseCents: sum(both.map((m) => m.baseCents)),
-      sameShopsVisitsNow: sum(both.map((m) => m.visitsNow)),
-      sameShopsVisitsBase: sum(both.map((m) => m.visitsBase)),
-      yearAgoCents: ya,
-      season,
-      merchants,
-    });
-  }
-
-  // The medians of the categories do not add up to the median of the total: this gap is a row and a piece of its own
-  const gap = plan.mean ? baseTotal - sum(categories.map((c) => c.baseCents)) : 0;
-  if (gap) pieces.push({ category: null, kind: "spread", cents: -gap, season: false });
+  const categories = ids.map((id) => categoryChange(r, id, pieces));
   pieces.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || (a.category ?? "").localeCompare(b.category ?? "") || a.kind.localeCompare(b.kind));
 
   const ranked = categories
@@ -460,23 +345,7 @@ export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: st
     .sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents) || (a.category ?? "").localeCompare(b.category ?? ""));
   const rows = ranked.filter((c) => Math.abs(c.changeCents) >= MIN_ROW_CENTS).slice(0, MAX_CATEGORIES);
   const rest = ranked.filter((c) => !rows.includes(c));
-  if (rest.length) {
-    const split: Split = {};
-    const ids = new Set(rest.map((c) => c.category));
-    for (const p of pieces) if (p.category !== null && ids.has(p.category)) split[p.kind] = (split[p.kind] ?? 0) + p.cents;
-    const s = (key: "nowCents" | "baseCents" | "changeCents" | "visitsNow" | "visitsBase" | "sameShopsNowCents" | "sameShopsBaseCents" | "sameShopsVisitsNow" | "sameShopsVisitsBase") => sum(rest.map((c) => c[key]));
-    rows.push({ kind: "smaller", category: null, label: restLabel(rest.length), nowCents: s("nowCents"), baseCents: s("baseCents"), changeCents: s("changeCents"), ...gated(split, gateCents), visitsNow: s("visitsNow"), visitsBase: s("visitsBase"), sameShopsNowCents: s("sameShopsNowCents"), sameShopsBaseCents: s("sameShopsBaseCents"), sameShopsVisitsNow: s("sameShopsVisitsNow"), sameShopsVisitsBase: s("sameShopsVisitsBase"), yearAgoCents: null, season: false, merchants: [] });
-  }
-  if (Math.abs(gap) >= MIN_ROW_CENTS || (gap !== 0 && !rows.length)) {
-    rows.push({ kind: "between", category: null, label: GAP_LABEL, nowCents: 0, baseCents: gap, changeCents: -gap, buckets: [{ kind: "spread", cents: -gap }], restCents: 0, restCount: 0, visitsNow: 0, visitsBase: 0, sameShopsNowCents: 0, sameShopsBaseCents: 0, sameShopsVisitsNow: 0, sameShopsVisitsBase: 0, yearAgoCents: null, season: false, merchants: [] });
-  } else if (gap !== 0) {
-    // a gap under a euro is the rounding of the medians and goes into the last row
-    const last = rows[rows.length - 1]!;
-    last.baseCents += gap;
-    last.changeCents -= gap;
-    last.restCents -= gap;
-    last.restCount += 1;
-  }
+  if (rest.length) rows.push(smallerRow(rest, pieces, r.gate));
 
   return {
     view,
@@ -486,7 +355,8 @@ export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: st
     nowCents: nowTotal,
     baseCents: baseTotal,
     changeCents: nowTotal - baseTotal,
-    gateCents,
+    gateCents: r.gate,
+    standsOut: totalStandsOut(r, categories, nowTotal - baseTotal),
     categories: rows,
     pieces,
   };

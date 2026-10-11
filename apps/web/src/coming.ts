@@ -1,4 +1,4 @@
-import { daysInMonth, type ExpectedCharge, expectedCharges, type IsoDate, monthOf } from "@banking/core";
+import { type ExpectedCharge, expectedCharges, type IsoDate, monthEnd, monthOf } from "@banking/core";
 import type { Recurring } from "./types.ts";
 
 /**
@@ -13,7 +13,7 @@ export function comingThisMonth(series: readonly Recurring[], today: IsoDate, ca
   return expectedCharges(
     series.map((s) => ({ ...s, transactionIds: [] })),
     from,
-    `${month}-${String(daysInMonth(month)).padStart(2, "0")}`,
+    monthEnd(month),
     { cancelled },
   );
 }

@@ -4,7 +4,7 @@ import { ACCOUNT_TYPE_LABEL, date, dateTime, plural } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import type { AccountType, Meta, SyncRun } from "../types.ts";
 import { Accounts } from "./settings/Accounts.tsx";
-import { BankConnections, connectedMessage } from "./settings/BankConnections.tsx";
+import { BankConnections, connectedMessage, connectError } from "./settings/BankConnections.tsx";
 import { BankKey } from "./settings/BankKey.tsx";
 import { syncHoursLabel } from "./settings/InstanceForms.tsx";
 import { Maintenance } from "./settings/Maintenance.tsx";
@@ -26,15 +26,6 @@ async function readText(file: File): Promise<string> {
 
 const RUN_STATUS: Record<string, string> = { ok: "onnistui", partial: "osittain", failed: "epäonnistui", running: "käynnissä" };
 
-/** The bank callback sends only these codes (routes/bank.ts); anything else gets the generic text. */
-const CONNECT_ERRORS: Record<string, string> = {
-  session: "Istunto vanheni. Kirjaudu ja yhdistä pankki uudelleen.",
-  cancelled: "Yhdistäminen keskeytyi.",
-  expired: "Yhdistäminen vanheni. Yritä uudelleen.",
-  setup: "Pankkiyhteydet eivät ole käytössä. Pyydä ylläpitäjää tarkistamaan asetukset.",
-  failed: "Yhdistäminen epäonnistui. Yritä uudelleen.",
-};
-
 export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSearchParams; onChange: () => void }) {
   const runs = useApi<{ runs: SyncRun[] }>("/api/sync/runs");
   const [busy, setBusy] = useState<string | null>(null);
@@ -42,8 +33,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
     const connected = params.get("connected");
     if (connected !== null && /^\d+$/.test(connected)) return connectedMessage(Number(connected));
     const error = params.get("error");
-    // hasOwn: the code comes from the address bar, so "constructor" must not find an inherited value
-    if (error) return { tone: "warning", text: Object.hasOwn(CONNECT_ERRORS, error) ? CONNECT_ERRORS[error]! : CONNECT_ERRORS.failed! };
+    if (error) return { tone: "warning", text: connectError(error) };
     return null;
   });
   const [csvAccount, setCsvAccount] = useState("");
@@ -169,7 +159,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
                 });
                 setCsvMessage({ tone: "good", text: [`${plural(r.inserted, "uusi tapahtuma", "uutta tapahtumaa")}, ${r.updated + r.skipped} oli jo tallessa.`,
                     ...(r.firstDate && r.lastDate ? [`Tiedosto kattaa ${date(r.firstDate)}–${date(r.lastDate)}.`] : []),
-                    ...(r.daysOld !== undefined && r.daysOld > 7 ? ["Uusin tapahtuma on yli viikon vanha, joten tuoreimmat päivät puuttuvat. Vie tiedosto uudelleen pankista."] : []),
+                    ...(r.daysOld !== undefined && r.daysOld > 7 ? ["Uusin tapahtuma on yli viikon vanha. Vie uusi tiedosto pankista."] : []),
                     ...r.errors,
                   ].join(" ") });
                 form.reset();
@@ -217,7 +207,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
           <div className="card-head">
             <div>
               <h2>Ylläpito</h2>
-              <div className="card-sub">Päivitys ja varmuuskopiot selaimesta</div>
+              <div className="card-sub">Päivitykset ja varmuuskopiot</div>
             </div>
             <a className="btn" href="#/settings?section=maintenance">
               Avaa ylläpito
@@ -244,7 +234,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
         <div className="card-head">
           <div>
             <h2>Esimerkkitiedot</h2>
-            <div className="card-sub">Keksityt tapahtumat 14 kuukaudelta.</div>
+            <div className="card-sub">Kuvitteelliset tapahtumat 14 kuukaudelta.</div>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
             <button className="btn" disabled={busy !== null} onClick={() => run("demo", async () => { await api("/api/demo", { method: "POST" }); return "Esimerkkitiedot ladattu."; })}>

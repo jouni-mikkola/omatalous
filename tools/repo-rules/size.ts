@@ -22,7 +22,6 @@ const TEST_BUDGET = 800;
  * line is deleted.
  */
 const LARGE_FILES: Record<string, number> = {
-  "apps/web/src/pages/settings/InstanceForms.tsx": 524,
   // the rule table and the recurring detector read top to bottom; split by concern when next touched
   "packages/core/src/categorize.ts": 596,
   "packages/core/src/recurring.ts": 570,

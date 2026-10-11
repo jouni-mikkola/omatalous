@@ -213,7 +213,7 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
         {changed !== null && !saveError && (
           <div className="notice good" role="status">
             {changed.rule && changed.merchant
-              ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}. Uudet saman kauppiaan tapahtumat menevät samaan kategoriaan.`
+              ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}, samoin tulevat.`
               : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
           </div>
         )}
@@ -243,7 +243,7 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
           </table>
           {data && !data.items.length && (
             <div className="empty">
-              {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla. Muuta hakua tai paina Tyhjennä." : "Tapahtumia ei ole vielä. Yhdistä pankki tai tuo CSV kohdassa Asetukset."}
+              {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla." : "Tapahtumia ei ole vielä. Yhdistä pankki tai tuo CSV kohdassa Asetukset."}
             </div>
           )}
         </div>

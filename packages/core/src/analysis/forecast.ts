@@ -2,7 +2,7 @@
  * Where the running month is heading: the pace curve against the usual month and the forecast to the month's end.
  */
 import { cancelledMerchants, expectedCharges, expectedDates } from "../commitments.ts";
-import { dayNumber, daysInMonth, fromMonthIndex, monthIndex, monthOf } from "../dates.ts";
+import { dateIn, dayNumber, daysInMonth, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import { type ExpectedBill, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
@@ -163,10 +163,10 @@ interface ForecastParts {
  */
 function forecastAsOf(ctx: AnalysisContext, asOf: IsoDate, cancelled?: ReadonlySet<string>, typed: readonly ExpectedBill[] = []): ForecastParts {
   const month = monthOf(asOf);
-  const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  const end = monthEnd(month);
   const spent = inDays(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(asOf) }).reduce((s, t) => s + t.spend, 0);
-  const series = expectedCharges(recurringAt(ctx, asOf), asOf, monthEnd, { cancelled }).reduce((s, c) => s + c.amountCents, 0);
-  const due = series + expectedBillRows(ctx, typed, asOf, monthEnd).reduce((s, b) => s + b.amountCents, 0);
+  const series = expectedCharges(recurringAt(ctx, asOf), asOf, end, { cancelled }).reduce((s, c) => s + c.amountCents, 0);
+  const due = series + expectedBillRows(ctx, typed, asOf, end).reduce((s, b) => s + b.amountCents, 0);
   const daysLeft = daysInMonth(month) - Number(asOf.slice(8, 10));
   const usualLeft = Math.max(0, Math.round(everydayPerDay(ctx, month) * daysLeft));
   return { spentCents: spent, billsLeftCents: due, usualLeftCents: usualLeft, forecastCents: spent + due + usualLeft };
@@ -202,7 +202,7 @@ function forecastRange(ctx: AnalysisContext, asOf: IsoDate, forecast: ForecastPa
   for (const m of completeMonthsBefore(ctx, month)) {
     const actual = stats.get(monthIndex(m))?.spend ?? 0;
     if (actual <= 0 || !completeMonthsBefore(ctx, m, 1).length) continue;
-    const predicted = forecastAsOf(ctx, `${m}-${String(Math.max(1, daysInMonth(m) - left)).padStart(2, "0")}`).forecastCents;
+    const predicted = forecastAsOf(ctx, dateIn(m, Math.max(1, daysInMonth(m) - left))).forecastCents;
     errors.push(Math.abs(predicted - actual) / actual);
   }
   const own = errors.length >= MIN_COMPARE_MONTHS;

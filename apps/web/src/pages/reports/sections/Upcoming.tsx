@@ -49,7 +49,7 @@ function Upcoming({ ctx }: SectionProps) {
         <p className="lead">{r.advice}</p>
       ) : (
         <p className="lead muted">
-          Tähän tulevat vakuutukset, verot ja muut harvemmin maksettavat laskut. Lasku tunnistetaan, kun se on maksettu kaksi kertaa, tai lisää se itse alla.
+          Vakuutukset, verot ja muut harvemmin maksettavat laskut. Lasku tunnistetaan, kun se on maksettu kahdesti, tai lisää se itse alla.
         </p>
       )}
 
@@ -77,7 +77,7 @@ function Upcoming({ ctx }: SectionProps) {
               ))}
             </ul>
           ) : (
-            <p className="muted">Seuraavan kolmen kuukauden aikana ei erääny tällaisia laskuja.</p>
+            <p className="muted">Ei laskuja seuraavaan kolmeen kuukauteen.</p>
           )}
 
           <h3 className="bills-head">Seuraavat 12 kuukautta</h3>
@@ -116,7 +116,7 @@ function Upcoming({ ctx }: SectionProps) {
                 <div className="sub">
                   {cadenceLabel(b.cadence)} · {b.nextDate ? `seuraava ${date(b.nextDate)}` : `erääntyi ${date(b.dueDate)}`}
                 </div>
-                {!b.counted && <div className="sub">Lasku on jo tunnistettu tapahtumista, eikä sitä lasketa kahdesti.</div>}
+                {!b.counted && <div className="sub">Tunnistettu jo tapahtumista, lasketaan vain kerran.</div>}
               </li>
             ))}
           </ul>

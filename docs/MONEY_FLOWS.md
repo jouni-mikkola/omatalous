@@ -191,7 +191,7 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   step less certainty. Under six complete months there are no euros, under three only deadlines.
 - Each finding has a low, a mid and a high figure with the assumption behind the range. The page shows the mid.
 - A finding needs a mid of at least 120 € a year. A deadline has no euros.
-- A row over three times its merchant's median is a one-off: listed struck and left out. Transfers never
+- A one-off (`oneOffs` with the level policy, the one every view uses, ADR 0005): a purchase over three times its usual ticket (its merchant's median, else its category's in other months) and at least 50 €, or 150 € with no ticket. Listed struck and left out. Transfers never
   count, and an account whose first row falls inside the window is left out of it.
 - The headline adds the mids of the findings shown, largest first. It leaves out a decided finding, one at matala
   certainty, one decided together with others (a yhtiökokous or two people) and one whose money is mostly counted

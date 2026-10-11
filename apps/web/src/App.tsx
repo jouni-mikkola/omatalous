@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { api, setUnauthenticatedHandler } from "./api.ts";
-import { consentNoticeText, consentNotices } from "./consent-notices.ts";
+import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
 import { date, dateTime } from "./format.ts";
 import { navigate, useApi, useHashRoute } from "./hooks.ts";
 import { visibleNav } from "./nav.ts";
@@ -166,6 +166,8 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const period = params.get("period") ?? defaultPeriod;
   const range = periodRange(period, m.today);
   const consents = consentNotices(m.connections, m.accounts);
+  // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
+  const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
   const initials = user.displayName
     .split(/\s+/)
     .map((w) => w[0])
@@ -255,7 +257,15 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
       )}
       {consents.map((n) => (
         <div key={n.id} className="notice warning">
-          {consentNoticeText(n)} <a href="#/settings">Yhdistä uudelleen</a>
+          {consentNoticeText(n)}{" "}
+          {n.kind === "left_out" && canLinkAccounts && (
+            <>
+              <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
+                Avaa Control Panel
+              </a>{" "}
+            </>
+          )}
+          <a href="#/settings">Yhdistä uudelleen</a>
         </div>
       ))}
       {effectiveScope === "household" && (

@@ -3,7 +3,7 @@ import { getCategory } from "../categories.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays } from "../analysis/context.ts";
 import { totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
-import { yearEarlier } from "./shared.ts";
+import { addMonthsToDate } from "../dates.ts";
 
 export interface SummaryCategory {
   category: string;
@@ -47,11 +47,11 @@ export function summaryReport(ctx: AnalysisContext, range: DateRange): SummaryRe
     .slice(0, 3)
     .map(([category, cents]) => ({ category, label: getCategory(category).label, cents }));
 
-  const from = yearEarlier(range.from);
+  const from = addMonthsToDate(range.from, -12);
   const comparable = historyCovers(ctx, from);
   let changes: SummaryChange[] = [];
   if (comparable) {
-    const before = spendByCategory(inDays(ctx, toDayRange({ from, to: yearEarlier(range.to) })));
+    const before = spendByCategory(inDays(ctx, toDayRange({ from, to: addMonthsToDate(range.to, -12) })));
     // "other" is what nothing recognised: its change says more about the rules than about spending
     changes = [...new Set([...now.keys(), ...before.keys()])]
       .filter((c) => c !== "other")

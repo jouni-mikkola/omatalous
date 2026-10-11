@@ -17,10 +17,6 @@ export const moveNewLandlord: LifeEvent = {
     return out;
   },
   drop: (t, f) => t.description === "VUOKRA 4471" && t.bookingDate >= f.on(f.ago(4), 1),
-  allows: [
-    // Kojamo's rent is 130 € more than SATO's was a year ago
-    /^change change:season:/,
-    // the dearer rent since June and the deposit paid beside the one returned
-    /^change change:year:/,
-  ],
+  // the dearer rent and the deposits stay within the noise the deposits themselves give the rent: no change sentence
+  allows: [],
 };

@@ -11,7 +11,8 @@ import { bankLogo } from "../banks.ts";
 import { BankLogo } from "../components/BankLogo.tsx";
 import { useApi } from "../hooks.ts";
 import type { InstanceState, Meta } from "../types.ts";
-import { BankAppSetup, syncHoursLabel } from "./settings/InstanceForms.tsx";
+import { BankAppSetup } from "./settings/BankAppSetup.tsx";
+import { syncHoursLabel } from "./settings/InstanceForms.tsx";
 import "../styles/wizard.css";
 
 const STEPS = ["Enable Banking", "Valmis"] as const;
@@ -139,7 +140,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
           )
         ) : step === 0 ? (
           <>
-            <p className="small muted">Yksi sovellus riittää koko taloudelle. Omien tilien käyttö on ilmaista.</p>
+            <p className="small muted">Yksi sovellus riittää koko taloudelle. Omien tilien käyttö on maksutonta.</p>
             <BankAppSetup state={current} onState={setState} />
             <div className="form-row wizard-nav">
               <span className="spacer" />
@@ -158,11 +159,19 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
               <dt>Automaattinen haku</dt>
               <dd>{syncHoursLabel(current.settings.syncHours)}</dd>
               <dt>Enable Banking</dt>
-              <dd>{current.bankApp.source ? <span className="badge good">määritetty</span> : <span className="badge warn">ei vielä</span>}</dd>
+              <dd>
+                {!current.bankApp.source ? (
+                  <span className="badge warn">ei vielä</span>
+                ) : current.bankApp.inactiveMessage ? (
+                  <span className="badge warn">ei aktiivinen</span>
+                ) : (
+                  <span className="badge good">määritetty</span>
+                )}
+              </dd>
               <dt>Salausavain</dt>
               <dd>{current.secret.available ? <span className="badge good">kunnossa</span> : <span className="badge warn">puuttuu</span>}</dd>
             </dl>
-            <p className="small muted">Osoitteen, aikavyöhykkeen ja haun voi muuttaa kohdassa Asetukset &gt; Palvelin.</p>
+            {current.bankApp.inactiveMessage && <div className="notice warning">{current.bankApp.inactiveMessage}</div>}
             <div className="form-row wizard-nav">
               <button className="btn" type="button" onClick={() => goTo(0)}>
                 Takaisin
@@ -172,7 +181,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
                 Siirry sovellukseen
               </button>
               {current.bankApp.source && (
-                <button className="btn btn-primary btn-with-logo" type="button" disabled={finishing} onClick={() => void finish("connect")}>
+                <button className="btn btn-primary btn-with-logo" type="button" disabled={finishing || !!current.bankApp.inactiveMessage} onClick={() => void finish("connect")}>
                   <BankLogo src={bankLogo("nordea-fi")} name="Nordea" size="sm" />
                   Lisää pankkiyhteys
                 </button>

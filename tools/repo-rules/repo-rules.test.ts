@@ -25,6 +25,8 @@
  *   rule 15  web does not parse mark subjects                 code-rules.ts
  *   rule 16  no core threshold as a literal in web text       text-rules.ts
  *   rule 17  a series' charges a year only from recurring.ts  code-rules.ts
+ *   rule 18  no local month length or month-end string         code-rules.ts
+ *   rule 19  historyCovers only in usual.ts and context.ts      code-rules.ts
  *   rule 21  keyword lists only in the dialect files          dialect.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.

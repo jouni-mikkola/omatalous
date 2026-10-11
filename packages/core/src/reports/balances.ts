@@ -1,7 +1,7 @@
 // Decision: is the buffer growing and the debt shrinking
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
-import { dayNumber, daysInMonth, fromDayNumber, fromMonthIndex } from "../dates.ts";
+import { dayNumber, fromDayNumber, fromMonthIndex, monthEnd } from "../dates.ts";
 import type { AccountType, BalanceInput, IsoDate } from "../types.ts";
 import { monthLabels, rangeMonthIndexes } from "./shared.ts";
 
@@ -103,7 +103,7 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   const months = rangeMonthIndexes(range);
   const monthEnds = months.map((i) => {
     const m = fromMonthIndex(i);
-    return dayNumber(`${m}-${String(daysInMonth(m)).padStart(2, "0")}`);
+    return dayNumber(monthEnd(m));
   });
   const series = accounts.flatMap((a): BalanceSeries[] => {
     const walk = balanceWalk(ctx, a);

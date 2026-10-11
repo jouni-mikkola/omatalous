@@ -12,6 +12,7 @@ import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
 import type { AnalysisTx } from "./context.ts";
 import { isPensionPayerName } from "../wording.ts";
+import { oneOffs, PAY } from "./one-offs.ts";
 
 export type IncomeType =
   | "salary"
@@ -172,9 +173,6 @@ export const isEarnedIncome = (t: Pick<AnalysisTx, "flows" | "category">) => isI
 /** The payer a series is grouped by: the cleaned merchant name, folded. */
 export const payerKey = (t: Pick<AnalysisTx, "merchant">) => fold(t.merchant);
 
-/** A payment far above the payer's usual is a one-off when the next one is back near the usual. */
-const ONE_OFF_FACTOR = 1.4;
-const BACK_TO_USUAL = 1.2;
 /** A row with a holiday word this close to the usual pay is the regular pay with its text. */
 const NEAR_USUAL = 0.15;
 
@@ -247,13 +245,8 @@ function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): v
     if (out.get(main.id) === "salary") mains.push(main);
   }
   if (multi) return;
-  mains.sort((a, b) => a.day - b.day);
-  for (let i = 3; i < mains.length; i++) {
-    const t = mains[i]!;
-    const base = median(mains.slice(Math.max(0, i - 6), i).map((x) => x.amountCents));
-    const next = mains[i + 1];
-    if (t.amountCents >= base * ONE_OFF_FACTOR && (!next || next.amountCents < base * BACK_TO_USUAL)) out.set(t.id, extraType(t));
-  }
+  const extra = oneOffs(mains, PAY);
+  for (const t of mains) if (extra.has(t.id)) out.set(t.id, extraType(t));
 }
 
 // ── banking days and pay days ──

@@ -85,7 +85,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await page.reload();
   await expect(page.getByText(/Apuri toimii/)).toBeVisible();
   // a version 1 helper does not know logs, prune and helper-renew: the page says so and offers the command
-  await expect(page.getByText(/Apuri on vanhentunut, eikä se osaa/)).toBeVisible();
+  await expect(page.getByText(/Apuri ei tue näitä toimintoja/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Siivoa levy" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Asenna apuri uudelleen" })).toBeDisabled();
@@ -141,7 +141,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
 
   // the helper is version 2 now: logs only read, and the log opens by itself
   await expect(page.getByRole("button", { name: "Lue lokit" })).toBeEnabled({ timeout: 15_000 });
-  await expect(page.getByText(/Apuri on vanhentunut, eikä se osaa/)).toHaveCount(0);
+  await expect(page.getByText(/Apuri ei tue näitä toimintoja/)).toHaveCount(0);
   await page.getByRole("button", { name: "Lue lokit" }).click();
   await expect(page.getByText(/Jonossa\./)).toBeVisible();
   const logsReq = helper(["poll", "--helper", "2", "--done", ""]);

@@ -187,7 +187,7 @@ function NeededRow({ need, areas, today, scope, onChanged }: { need: NeededInput
         <span className="small muted">Alue: {names.join(", ")}</span>
         {need.old && (
           <span className="small stale">
-            Vanha arvo {valueText(found.def, need.old.value)}, annettu {date(need.old.asOf)}. Tieto on vanhentunut eikä sitä käytetä.
+            Vanha arvo {valueText(found.def, need.old.value)}, annettu {date(need.old.asOf)}. Liian vanha, ei käytetä.
           </span>
         )}
       </div>
@@ -242,7 +242,7 @@ export function InputsCard({ needed, given, areas, today, scope, onChanged }: { 
   const kept = given.filter((g) => !waiting.has(g.key) && inputDefOf(g.key));
   if (!needed.length && !kept.length) return null;
   return (
-    <Section id="tiedot" title="Tiedot, joita tarvitaan" sub="Jokainen tieto tarkentaa yhtä vertailua">
+    <Section id="tiedot" title="Tiedot, joita tarvitaan" sub="Kukin tieto tarkentaa yhtä vertailua">
       {needed.length > 0 && (
         <ul className="needed-list">
           {needed.map((n) => (

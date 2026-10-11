@@ -76,6 +76,7 @@ export class FinanceRepo {
   upsertConnection(c: Omit<Connection, "userId">) { return this.connections.upsertConnection(c); }
   setConnectionStatus(id: string, status: Connection["status"]) { return this.connections.setConnectionStatus(id, status); }
   markConnectionSynced(id: string, at: string) { return this.connections.markConnectionSynced(id, at); }
+  deleteConnectionWithoutAccounts(id: string) { return this.connections.deleteConnectionWithoutAccounts(id); }
 
   // ── transactions (finance/transactions.ts) ───────────────
   allTransactions() { return this.transactions.allTransactions(); }

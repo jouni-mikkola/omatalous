@@ -3,7 +3,7 @@
  * here, and a row past its expiry hides its comparison, so the page never compares against an old number. Each row
  * was read from its source page on `verifiedAt`; a figure nobody opened at its source is left out.
  */
-import { addMonthsToDate } from "../common.ts";
+import { addMonthsToDate } from "../../dates.ts";
 import type { IsoDate } from "../../types.ts";
 import { BANK_FACTS } from "./bank.ts";
 import { ELECTRICITY_FACTS } from "./electricity.ts";

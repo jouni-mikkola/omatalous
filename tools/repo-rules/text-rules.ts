@@ -52,8 +52,9 @@ describe("repo rules: text", () => {
     // Text that stays English, and what it is. An entry whose text is gone must be removed (the list only shrinks).
     const ALLOWED: { file: string; text: string }[] = [
       // Enable Banking's own option names, quoted in the instructions for its control panel: what the user sees on enablebanking.com
-      { file: "apps/web/src/pages/settings/InstanceForms.tsx", text: "Generate outside the browser and import public certificate" },
-      { file: "apps/web/src/pages/settings/InstanceForms.tsx", text: "Generate in the browser" },
+      { file: "apps/web/src/pages/settings/BankAppSetup.tsx", text: "Generate outside the browser and import public certificate" },
+      { file: "apps/web/src/pages/settings/BankAppSetup.tsx", text: "Generate in the browser" },
+      { file: "apps/web/src/pages/settings/BankAppSetup.tsx", text: "Email for data protection matters" },
     ];
     // JSX attributes that never hold text for the user: styling, addresses, identity, form wiring and SVG drawing
     const NOT_TEXT = new Set(

@@ -21,7 +21,7 @@ export function translateSqliteError(err: unknown): unknown {
   const code = (err as { errcode?: number } | null)?.errcode;
   if (code === SQLITE_FULL) {
     console.error("database write failed: the disk is full (SQLITE_FULL). Free space on the data volume, nothing was changed.");
-    return new UserError("Levy on täynnä, tietoja ei voitu tallentaa. Ylläpitäjän pitää vapauttaa tilaa.");
+    return new UserError("Levy on täynnä, eikä tietoja voitu tallentaa. Pyydä ylläpitäjää vapauttamaan tilaa.");
   }
   if (code === SQLITE_BUSY) {
     console.error("database write failed: the database stayed locked for the whole wait (SQLITE_BUSY). Another process holds it.");

@@ -4,7 +4,7 @@
  * three months say nothing. The usual spending, the usual income and the gate a cause must pass are defined here once
  * (ADR 0004). See docs/MONEY_FLOWS.md.
  */
-import { daysInMonth, fromMonthIndex, monthIndex } from "../dates.ts";
+import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, historyCovers } from "./context.ts";
 import { isEarnedIncome } from "./income.ts";
@@ -18,7 +18,7 @@ type MonthContext = Pick<AnalysisContext, "dataFrom" | "today">;
 
 /** The month (`2026-09`) has ended and the history covers it from the 1st. */
 export function isCompleteMonth(ctx: MonthContext, month: string): boolean {
-  const end = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  const end = monthEnd(month);
   return end < ctx.today && historyCovers(ctx, `${month}-01`);
 }
 

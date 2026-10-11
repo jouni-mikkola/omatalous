@@ -20,21 +20,29 @@ The setup checklist that Omatalous shows after you create your user follows the 
 On the checklist press *Luo avain* and then *Lataa varmenne (.crt)*. You get the file `talous-enablebanking.crt`. The
 private key stays in Omatalous, encrypted.
 
-Copy the redirect URL the app shows next to *Kopioi*. For a normal install it is
-`https://jouni-mikkola.github.io/omatalous/callback/`.
-
 ## 2. Register the app
 
-Sign up at <https://enablebanking.com>, open the Control Panel and choose *API applications > Add a new application*.
+Press *Avaa Enable Banking* in the checklist, or open <https://enablebanking.com/cp/applications>. If you have no
+account, make one at <https://enablebanking.com/sign-in/>. Enable Banking creates it on the first sign-in. Choose
+*Add a new application*.
 
 ![Add a new application](images/eb-1-register.png)
 
+The checklist lists the form's fields in the form's order. Each value you paste has a *Kopioi* button.
+
 1. Environment: *Production*.
 2. Private key: *Generate outside the browser and import public certificate*. Choose the `.crt` file from step 1.
-3. Redirect URLs: the URL you copied in step 1, exactly.
-4. Application name: `Omatalous`. Description: anything, for example `Personal budgeting`. Email, privacy URL and terms
-   URL are not checked. Use your own email address. Any web address works for both URLs, for example
-   `https://github.com/jouni-mikkola/omatalous`.
+3. Application name: `Omatalous`.
+4. Allowed redirect URLs: the redirect URL the checklist shows. For a normal install it is
+   `https://jouni-mikkola.github.io/omatalous/callback/`.
+5. Application description: `Omatalous: kotitalouden oma taloussovellus`.
+6. Email for data protection matters: your own email address. Omatalous does not store one, so it cannot fill it in.
+7. Privacy URL: `https://jouni-mikkola.github.io/omatalous/privacy/`.
+8. Terms URL: `https://jouni-mikkola.github.io/omatalous/terms/`.
+
+The two pages sit on the same site as the redirect URL. They say that Omatalous runs on your own machine, that bank
+data goes only there and that the developer receives nothing. Enable Banking does not check the email and the two URLs
+for an app you activate by linking your own accounts, but the form asks for them.
 
 Press *Register*.
 
@@ -61,7 +69,8 @@ Omatalous can read only the accounts listed under *Linked accounts*. Link all of
 
 The Application ID is the long code next to the app's name in the Control Panel, for example
 `12345678-abcd-...`. Copy it into Omatalous and press *Tallenna ja testaa*. Omatalous tells you right away whether
-Enable Banking accepts the key.
+Enable Banking accepts the key. It also reads the app's status from Enable Banking. While the app is still *Inactive*
+Omatalous says so and keeps *Lisää pankkiyhteys* off. Link your accounts (step 3), then press *Testaa yhteys*.
 
 ## 5. Connect the accounts in Omatalous
 
@@ -75,6 +84,20 @@ The first fetch brings up to two years of history in the background.
 
 Check under *Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
 account is counted as a transfer, because the purchases are already counted on the card.
+
+## Why accounts are linked twice
+
+Step 3 and step 5 are two different things.
+
+- *Linked accounts* in the Control Panel is the list a restricted app may read. Enable Banking lets you use your own
+  accounts with an app you registered yourself, without a contract, and only in restricted mode: the API returns the
+  linked accounts and strips every other account from the answer.
+- The connection in Omatalous is the consent that Omatalous fetches with. You give it with Nordea ID, it is valid for
+  180 days and you renew it before it ends.
+
+Enable Banking's documentation does not say whether a link in the Control Panel expires. It says only that the app
+stays active in restricted mode until an agreement is signed. If an account does not show up, check *Linked accounts*
+first.
 
 ## Good to know
 

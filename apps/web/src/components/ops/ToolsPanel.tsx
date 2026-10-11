@@ -19,10 +19,7 @@ export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, o
   return (
     <div className="card">
       <div className="card-head">
-        <div>
-          <h2>{S.tools}</h2>
-          <div className="card-sub">{S.toolsIntro}</div>
-        </div>
+        <h2>{S.tools}</h2>
       </div>
       {!supported && (
         <div className="notice warning" role="status">

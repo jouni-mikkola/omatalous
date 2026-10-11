@@ -23,6 +23,15 @@ export class ConnectionsRepo {
     await this.ctx.db.run("UPDATE connections SET status = ? WHERE id = ? AND user_id = ?", [status, id, this.ctx.userId]);
   }
 
+  /** Removes a connection only while no account of this user names it. False when it was not removed. */
+  async deleteConnectionWithoutAccounts(id: string): Promise<boolean> {
+    const r = await this.ctx.db.run(
+      "DELETE FROM connections WHERE id = ? AND user_id = ? AND NOT EXISTS (SELECT 1 FROM accounts WHERE user_id = ? AND connection_id = ?)",
+      [id, this.ctx.userId, this.ctx.userId, id],
+    );
+    return r.changes > 0;
+  }
+
   async markConnectionSynced(id: string, at: string): Promise<void> {
     await this.ctx.db.run("UPDATE connections SET last_synced_at = ? WHERE id = ? AND user_id = ?", [at, id, this.ctx.userId]);
   }

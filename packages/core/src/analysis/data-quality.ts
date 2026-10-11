@@ -86,7 +86,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
         id: "gap",
         tone: "warning",
         title: `Tilin ${account.name} tiedoissa on ${widest.days} päivän tauko`,
-        detail: `${formatFiDate(widest.from)}–${formatFiDate(widest.to)} ei ole yhtään tapahtumaa. Jos tilillä oli tapahtumia, hae tai tuo puuttuva jakso.`,
+        detail: `${formatFiDate(widest.from)}–${formatFiDate(widest.to)} ei ole tapahtumia. Hae tai tuo puuttuva jakso, jos tilillä oli liikettä.`,
       });
     }
     const last = dates[dates.length - 1]!;
@@ -131,7 +131,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       id: "own_unconnected",
       tone: "info",
       title: `${formatEur(saved, false)} säästöjä meni tilille, jonka saldo ei näy`,
-      detail: `Rahat on lähetetty tilille tai rahastoon, jota ei ole yhdistetty${largest.length ? `, suurimpina ${finnishList(largest)}` : ""}. Yhdistä tili tai tuo sen tapahtumat, niin saldo näkyy.`,
+      detail: `${largest.length ? `Suurimmat saajat: ${finnishList(largest)}. ` : ""}Yhdistä tili tai tuo sen tapahtumat.`,
       category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0],
       cents: saved,
     });
@@ -144,7 +144,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       id: "no_balance",
       tone: "info",
       title: unknown.length === 1 ? `Tilin ${unknown[0]!.name} saldoa ei tiedetä` : `${unknown.length} tilin saldoa ei tiedetä: ${finnishList(unknown.map((a) => a.name))}`,
-      detail: "Puskuri ja seuraavat 30 päivää jäävät tyhjiksi ilman saldoa. Lisää saldo kohdassa Asetukset > Tilit.",
+      detail: "Lisää saldo kohdassa Asetukset > Tilit, niin puskuri ja seuraavat 30 päivää näkyvät.",
     });
   }
   return { signals };

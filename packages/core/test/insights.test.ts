@@ -3,7 +3,7 @@ import { createContext, historyCovers, inDays } from "../src/analysis/context.ts
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
 import { buildInsights, type Insight, insightDismissSubject, OVERVIEW_INSIGHTS, rankInsights } from "../src/analysis/insights/index.ts";
-import { lastCompleteMonths, shiftMonth } from "../src/analysis/insights/shared.ts";
+import { lastCompleteMonths } from "../src/analysis/insights/shared.ts";
 import { type DateRange, toDayRange } from "../src/analysis/period.ts";
 import { isCompleteMonth } from "../src/analysis/usual.ts";
 import { addDays, addMonths } from "../src/dates.ts";
@@ -464,7 +464,7 @@ describe("insights on random households", () => {
       // what each source checks before it judges anything
       const twelve = lastCompleteMonths(ctx, judged, 12);
       const series = ctx.recurring;
-      reach("two years of complete months (growth, seasons)", twelve.length === 12 && isCompleteMonth(ctx, shiftMonth(twelve[0]!, -12)));
+      reach("two years of complete months (growth, seasons)", twelve.length === 12 && isCompleteMonth(ctx, addMonths(twelve[0]!, -12)));
       reach("440 days (subscriptions a year ago)", historyCovers(ctx, addDays(judged, -440)));
       reach("a year and a half (fixed costs share)", historyCovers(ctx, addDays(judged, -548)));
       reach("six complete months and a loan series (debt share)", twelve.length >= 6 && series.some((s) => s.active && s.category === "mortgage"));

@@ -84,7 +84,7 @@ function AreaCard({ area, above, today, scope, onChanged }: { area: AreaView; ab
         ))}
       </div>
       {up > 0 && <p className="small muted">{plural(up, "löydös", "löydöstä")} näkyy yllä kohdassa Seuraavat 60 päivää.</p>}
-      {area.more > 0 && <p className="small muted">Lisäksi {plural(area.more, "löydös", "löydöstä")}. Ne näkyvät, kun yllä olevat on käsitelty.</p>}
+      {area.more > 0 && <p className="small muted">Lisäksi {plural(area.more, "löydös", "löydöstä")}, jotka näkyvät, kun yllä olevat on käsitelty.</p>}
       <Summary area={area} />
       {area.checks.length > 0 && (
         <details className="area-checks">

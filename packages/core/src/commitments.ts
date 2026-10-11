@@ -4,7 +4,7 @@
  * recurring page and the reports (docs/MONEY_FLOWS.md).
  */
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
-import { addMonths, daysInMonth, monthIndex, monthOf } from "./dates.ts";
+import { addMonthsToDate, monthIndex } from "./dates.ts";
 import { projectDates, type RecurringSeries } from "./recurring.ts";
 import type { ExpectedBill, IsoDate, UserInputs } from "./types.ts";
 
@@ -61,11 +61,6 @@ export function subscriptionsMonthlyCents(
   return sum;
 }
 
-/** Same day of month `n` months later, clamped to the month's length (31.1. + 1 gives 28.2.). */
-function monthsLater(date: IsoDate, n: number): IsoDate {
-  const month = addMonths(monthOf(date), n);
-  return `${month}-${String(Math.min(Number(date.slice(8, 10)), daysInMonth(month))).padStart(2, "0")}`;
-}
 
 const CADENCE_MONTHS = { quarterly: 3, semiannual: 6, yearly: 12 } as const;
 
@@ -77,7 +72,7 @@ export function expectedDates(bill: Pick<ExpectedBill, "dueDate" | "cadence">, f
   // start at the last due date of the month `from` falls in: a bill typed in years ago must not walk every date since
   const first = Math.max(0, Math.floor((monthIndex(from) - monthIndex(bill.dueDate)) / step));
   for (let k = first; ; k++) {
-    const d = monthsLater(bill.dueDate, k * step);
+    const d = addMonthsToDate(bill.dueDate, k * step);
     if (d > until) break;
     if (d >= from) out.push(d);
   }

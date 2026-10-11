@@ -3,10 +3,10 @@
  * goes stale after a time: a stale input counts as missing, so no euro figure stands on an old number. The server
  * validates every value with `parseInputValue` before it stores it (`optimise_inputs`).
  */
-import { dayNumber, fromDayNumber } from "../dates.ts";
+import { addMonthsToDate, dayNumber, fromDayNumber } from "../dates.ts";
 import { formatFiDate } from "../analysis/format.ts";
 import type { IsoDate } from "../types.ts";
-import { addMonthsToDate, isSubject } from "./common.ts";
+import { isSubject } from "./common.ts";
 import type { AreaId, InputKey, InputValue, InputValueMap, InputValues, StoredInput } from "./types.ts";
 
 export type InputKind = "integer" | "cents" | "date" | "choice" | "loan_rate";

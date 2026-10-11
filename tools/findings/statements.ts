@@ -95,14 +95,14 @@ const MAKERS: Record<SourceId, Maker> = {
     }));
   },
   change: ({ ctx, range }) =>
-    spendingChangeReport(ctx, range).views.map(({ view, sentence, bars, change: c }) => ({
+    spendingChangeReport(ctx, range).views.map(({ view, sentence, quiet, bars, change: c }) => ({
       id: `change:${view}:${c.target.months[0]}..${c.target.months[c.target.months.length - 1]}`,
       kind: view,
       title: sentence,
       figure: `${eur(c.changeCents)} (now ${eur(c.nowCents)}, base ${eur(c.baseCents)}, gate ${eur(c.gateCents)})`,
       calc: bars.map((b) => `${b.label}: ${eur(b.cents)}${b.cause ? ` (${b.cause})` : ""}${b.season ? " season" : ""}`),
       rows: null,
-      loud: Math.abs(c.changeCents) >= c.gateCents,
+      loud: !quiet,
     })),
   outcome: ({ ctx, findings }) => {
     const on = doneOn(ctx.today);

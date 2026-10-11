@@ -1,8 +1,7 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
-import { daysInMonth, fromMonthIndex, monthIndex } from "../dates.ts";
-import type { IsoDate } from "../types.ts";
+import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 
 /** Month indexes covered by a range, capped to the latest `max` months. */
 export function rangeMonthIndexes(range: DateRange, max = 24): number[] {
@@ -28,14 +27,7 @@ export function fullMonths(ctx: MonthContext, range: DateRange, months: readonly
   return months.filter((m) => {
     const label = fromMonthIndex(m);
     const start = `${label}-01`;
-    const end = `${label}-${String(daysInMonth(label)).padStart(2, "0")}`;
+    const end = monthEnd(label);
     return start >= range.from && end <= range.to && isCompleteMonth(ctx, label);
   });
-}
-
-/** The same calendar day a year earlier (29.2. → 28.2.). */
-export function yearEarlier(date: IsoDate): IsoDate {
-  const month = `${Number(date.slice(0, 4)) - 1}-${date.slice(5, 7)}`;
-  const day = Math.min(Number(date.slice(8, 10)), daysInMonth(month));
-  return `${month}-${String(day).padStart(2, "0")}`;
 }

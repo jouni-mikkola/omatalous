@@ -108,7 +108,7 @@ export function Rules({ meta }: { meta: Meta }) {
               ))}
             </tbody>
           </table>
-          {data && !data.rules.length && <div className="empty">Ei sääntöjä vielä. Lisää yllä sana, joka on kauppiaan nimessä tai viestissä, tai vaihda kategoria Tapahtumat-sivulla.</div>}
+          {data && !data.rules.length && <div className="empty">Ei sääntöjä. Lisää sana kauppiaan nimestä tai viestistä, tai vaihda kategoria Tapahtumat-sivulla.</div>}
         </div>
       </div>
     </div>

@@ -240,7 +240,7 @@ describe("isolation between household members", () => {
 });
 
 describe("bank connection status", () => {
-  it("shows a consent past its end date as expired without writing it, days left never negative", async () => {
+  it("shows a consent past its end date as lapsed without writing it, days left only while active", async () => {
     const { admin, s, adminId } = await setupApp();
     const repo = s.finance(adminId);
     const consent = (id: string, validUntil: string) =>
@@ -249,8 +249,8 @@ describe("bank connection status", () => {
     await consent("last-day", "2026-10-09T23:00:00Z");
 
     const byId = new Map((await admin.call("GET", "/api/meta")).body.connections.map((c: { id: string }) => [c.id, c]));
-    expect(byId.get("ended")).toMatchObject({ status: "expired", daysLeft: 0 });
-    expect(byId.get("last-day")).toMatchObject({ status: "active", daysLeft: 0 });
+    expect(byId.get("ended")).toMatchObject({ status: "expired", state: "lapsed", daysLeft: null });
+    expect(byId.get("last-day")).toMatchObject({ status: "active", state: "active", daysLeft: 0 });
     expect((await repo.listConnections()).every((c) => c.status === "active")).toBe(true);
   });
 });

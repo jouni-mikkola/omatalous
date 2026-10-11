@@ -4,19 +4,58 @@
  * a share.
  */
 import { type AccountType, daysBetween } from "@banking/core";
-import type { Connection } from "../db/rows.ts";
+import { type FetchProblem, readFetchProblems } from "../connectors/fetch-problems.ts";
+import type { Connection, StoredAccount } from "../db/rows.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
 
-/** Past its end date a consent shows as expired before the next fetch writes that status. */
-export function connectionView(conn: Connection, today: string) {
+/**
+ * How a consent stands, in one word the table, Tietojen laatu and the notices all read:
+ * - active: in use, through its last day;
+ * - lapsed: its date passed ("vanhentui 9.4.2027"), also before the next fetch writes the status;
+ * - broken: closed before its date by the bank or Enable Banking ("katkesi"); the date ahead means nothing now;
+ * - removed: ended by the user (or replaced by a newer consent, which leaves it without accounts).
+ */
+export type ConnectionState = "active" | "lapsed" | "broken" | "removed";
+
+export function connectionState(conn: Pick<Connection, "status" | "validUntil">, today: string): ConnectionState {
   const end = conn.validUntil?.slice(0, 10) ?? null;
+  if (conn.status === "revoked") return "removed";
+  // an expired status on its last day ended that day; an active one is still in use that day
+  if (end !== null && (conn.status === "active" ? end < today : end <= today)) return "lapsed";
+  return conn.status === "expired" ? "broken" : "active";
+}
+
+/**
+ * A consent as the settings and the notices show it. One that owns no account is history: its accounts moved to a
+ * newer consent, or it never had any. It folds under "Aiemmat yhteydet" and has no notice.
+ *
+ * `replaced`: it is not active and a newer consent of the same bank is. The accounts still on it did not come with the
+ * new consent: a restricted application leaves out of a session every account that is not under Linked accounts, so
+ * connecting again moves them only after they are linked in the Control Panel. They are named one by one instead of
+ * the bank-wide "katkesi".
+ */
+export function connectionView(conn: Connection, today: string, accounts: readonly Pick<StoredAccount, "connectionId">[], connections: readonly Connection[]) {
+  const end = conn.validUntil?.slice(0, 10) ?? null;
+  const state = connectionState(conn, today);
+  const replaced =
+    state !== "active" &&
+    connections.some((o) => o.id !== conn.id && o.provider === conn.provider && o.institution === conn.institution && o.createdAt >= conn.createdAt && connectionState(o, today) === "active");
   return {
     ...conn,
-    status: conn.status === "active" && end !== null && end < today ? ("expired" as const) : conn.status,
-    daysLeft: end === null ? null : Math.max(0, daysBetween(today, end)),
+    status: state === "lapsed" ? ("expired" as const) : conn.status,
+    state,
+    history: !accounts.some((a) => a.connectionId === conn.id),
+    replaced,
+    daysLeft: state !== "active" || end === null ? null : Math.max(0, daysBetween(today, end)),
   };
+}
+
+/** Each account with what its last fetch ran into (fetch-problems.ts), or null. */
+export async function accountsView<A extends Pick<StoredAccount, "id">>(s: Services, userId: string, accounts: readonly A[]): Promise<(A & { problem: FetchProblem | null })[]> {
+  const problems = await readFetchProblems(s, userId);
+  return accounts.map((a) => ({ ...a, problem: Object.hasOwn(problems, a.id) ? problems[a.id]! : null }));
 }
 
 /** What the route checked: a new name, a type from ACCOUNT_TYPES, a balance in whole cents. */

@@ -77,7 +77,9 @@ export function adminRoutes(s: Services) {
   app.post("/bank-app/check", async (c) => c.json(await checkAppId(s, await body(c))));
 
   app.post("/bank-app/test", async (c) => {
-    return c.json({ ...(await state()), result: await testBankApp(s) });
+    // the test first: it records whether the application is active, and the status below reports that
+    const result = await testBankApp(s);
+    return c.json({ ...(await state()), result });
   });
 
   app.delete("/bank-app", async (c) => {

@@ -67,6 +67,9 @@ export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => [
   { txs: bills(frame, { seller: [11500, 11500], network: 5000 }), values: KWH },
   // a move inside the window: the year of bills is not one home's
   { txs: bills(frame), values: { ...KWH, moved_on: { value: "2026-03-01", asOf: "2026-03-05" } } },
+  // electric heating and a new seller from December: the old seller's two bills in the window are no one-offs, the
+  // year is covered and its price is under the band
+  { txs: bills(frame, { seller: [16000, 6000], network: 4000 }).map((t) => (t.merchant === "Oomi Energia" && t.bookingDate >= "2025-12-01" ? { ...t, merchant: "Helen", counterparty: "HELEN" } : t)), values: KWH },
 ];
 
 /** A household without the patterns may have typed its use. */

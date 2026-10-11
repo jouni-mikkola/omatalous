@@ -3,7 +3,7 @@ import { getCategory } from "../categories.ts";
 import { type AnalysisContext, historyCovers } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { formatEur } from "../analysis/format.ts";
-import { daysInMonth, fromMonthIndex, monthIndex } from "../dates.ts";
+import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
 
 /** Months that must all be above the usual level: one month is a spike, three is a new level. */
@@ -67,7 +67,7 @@ function readyFrom(ctx: AnalysisContext): string | null {
  */
 function lastWholeMonth(ctx: AnalysisContext, range: DateRange): number {
   const month = range.to.slice(0, 7);
-  const end = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  const end = monthEnd(month);
   return monthIndex(month) - (range.to >= end && end < ctx.today ? 0 : 1);
 }
 

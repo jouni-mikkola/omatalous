@@ -32,7 +32,7 @@ export function Situation({ data }: { data: OptimiseData }) {
         </span>
       </p>
       {checked.findings > headline.count && (
-        <p className="small muted">Löydöksiä on yhteensä {checked.findings}. Yhteissummassa ei ole päällekkäisiä, matalan varmuuden eikä yhdessä päätettäviä.</p>
+        <p className="small muted">Löydöksiä on yhteensä {checked.findings}. Yhteissummasta puuttuvat päällekkäiset, epävarmat ja yhdessä päätettävät.</p>
       )}
       <dl className="kv optimise-facts">
         {data.situation.map((fact) => {

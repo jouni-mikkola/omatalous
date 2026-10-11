@@ -62,7 +62,15 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   // the wizard starts at Enable Banking: the address and schedule were saved with their defaults
   await expect(page.getByLabel("Vaiheet", { exact: true }).getByText("Osoite ja aikataulu")).toHaveCount(0);
   await expect(page.getByLabel("Vaiheet", { exact: true }).getByRole("listitem")).toHaveCount(2);
-  await expect(page.getByText("Pankki palauttaa selaimen tämän sivun kautta")).toBeVisible();
+  // step 2 lists the fields of Enable Banking's form in its order, each value with its own copy button
+  const fields = page.locator(".setup-steps li li");
+  await expect(fields.locator(".eb-label")).toHaveText(["Environment", "Private key", "Application name", "Allowed redirect URLs", "Application description", "Email for data protection matters", "Privacy URL", "Terms URL"]);
+  await expect(fields.filter({ hasText: "Allowed redirect URLs" }).locator("code.copyable")).toHaveText(/github\.io\/omatalous\/callback\/$/);
+  await expect(fields.filter({ hasText: "Privacy URL" }).locator("code.copyable")).toHaveText(/github\.io\/omatalous\/privacy\/$/);
+  await expect(fields.filter({ hasText: "Terms URL" }).locator("code.copyable")).toHaveText(/github\.io\/omatalous\/terms\/$/);
+  await expect(fields.filter({ hasText: "Email for data protection matters" }).getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Avaa Enable Banking" })).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
+  await expect(page.getByText("Jos sinulla ei ole tiliä, luo se ensin.")).toBeVisible();
   const checklist = page.getByLabel("Enable Banking -sovelluksen vaiheet");
   await expect(checklist.locator("li.done")).toHaveCount(0);
   await page.getByRole("button", { name: "Luo avain" }).click();
@@ -71,8 +79,8 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   await expect(page.getByRole("button", { name: "Minulla on .pem-tiedosto" })).toBeHidden();
   await page.getByText("Muut vaihtoehdot").click();
   await expect(page.getByRole("button", { name: "Minulla on .pem-tiedosto" })).toBeVisible();
-  await page.getByRole("button", { name: "Kopioi", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Kopioitu" })).toBeVisible();
+  await page.getByRole("button", { name: "Kopioi Allowed redirect URLs" }).click();
+  await expect(page.getByRole("button", { name: "Kopioitu Allowed redirect URLs" })).toBeVisible();
   await page.getByRole("button", { name: "Ohita" }).click();
   await expect(page.getByText("Salausavain")).toBeVisible();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();

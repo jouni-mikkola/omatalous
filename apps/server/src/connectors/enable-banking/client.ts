@@ -3,7 +3,7 @@ import { UpstreamError } from "../../platform/errors.ts";
 import { importPrivateKey, type SigningKey } from "../../security/rsa-key.ts";
 import { signJwt } from "./jwt.ts";
 import { mapTransaction } from "./mapper.ts";
-import type { EbAccount, EbAspsp, EbBalance, EbSession, EbTransactionsPage } from "./types.ts";
+import type { EbAccount, EbApplication, EbAspsp, EbBalance, EbSession, EbTransactionsPage } from "./types.ts";
 
 /** The bank's error code (like ASPSP_ERROR) when the body has one; the rest of the body may hold account data and stays out of logs. */
 function errorCode(body: string): string {
@@ -14,6 +14,14 @@ function errorCode(body: string): string {
     return "";
   }
 }
+
+/**
+ * Codes for an account the application may not read. A restricted application (activated by linking own accounts)
+ * reads only the accounts under Linked accounts in the Control Panel. The API reference documents NO_ACCOUNTS_ADDED as
+ * "No allowed accounts added to the application"; no other code is documented for it. Add a code here only when the
+ * docs or a real response confirm it.
+ */
+export const NOT_LINKED_CODES: readonly string[] = ["NO_ACCOUNTS_ADDED"];
 
 export class EnableBankingError extends UpstreamError {
   readonly body!: string;
@@ -28,6 +36,11 @@ export class EnableBankingError extends UpstreamError {
     Object.defineProperty(this, "body", { value: body, enumerable: false });
   }
 
+  /** Enable Banking's error code, like ASPSP_ERROR: a fixed word, safe to show where the status is shown. */
+  get code(): string {
+    return errorCode(this.body);
+  }
+
   /**
    * The bank consent is gone and the user has to authorise again. Only the
    * session/consent error codes count: a 401 for a wrong application key is
@@ -37,9 +50,14 @@ export class EnableBankingError extends UpstreamError {
     return /(?:EXPIRED|CLOSED|REVOKED|INVALID|UNKNOWN)_SESSION|SESSION_(?:EXPIRED|CLOSED|REVOKED|NOT_FOUND|DOES_NOT_EXIST)|(?:EXPIRED|REVOKED)_CONSENT|CONSENT_(?:EXPIRED|REVOKED|INVALID)|ACCESS_EXPIRED/i.test(this.body);
   }
 
+  /** The application may not read this account: it is not linked to a restricted application. */
+  get notLinked(): boolean {
+    return NOT_LINKED_CODES.includes(this.code);
+  }
+
   /** The API refused the application itself (JWT, Application ID or key). */
   get appRejected(): boolean {
-    return (this.status === 401 || this.status === 403) && !this.consentExpired;
+    return (this.status === 401 || this.status === 403) && !this.consentExpired && !this.notLinked;
   }
 }
 
@@ -130,6 +148,11 @@ export class EnableBankingClient {
     const text = await readCapped(res);
     if (!res.ok) throw new EnableBankingError(res.status, text, path);
     return (text ? JSON.parse(text) : {}) as T;
+  }
+
+  /** The application's own details; only `active` is read. */
+  async application(): Promise<EbApplication> {
+    return this.request<EbApplication>("GET", "/application");
   }
 
   async listAspsps(country: string): Promise<EbAspsp[]> {

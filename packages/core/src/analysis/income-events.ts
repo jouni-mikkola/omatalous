@@ -2,7 +2,7 @@
  * Income events that are not a level: a new source, a windfall against last year (holiday pay, other pay, a tax
  * refund) and residual tax paid in instalments. H-insights candidates 3, 4 and 17.
  */
-import { addDays, dayNumber, fromDayNumber } from "../dates.ts";
+import { addDays, DAYS_PER_MONTH, dayNumber, fromDayNumber } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import type { IsoDate } from "../types.ts";
 import { type AnalysisTx, historyCovers } from "./context.ts";
@@ -30,7 +30,7 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>): IncomeChan
     const first = rows[0]!;
     if (skip.has(payerKey(first)) || endDay - first.day > NEW_SOURCE_DAYS || !historyCovers(b.ctx, addDays(first.bookingDate, -182))) continue;
     const total = rows.reduce((s, t) => s + t.amountCents, 0);
-    const months = Math.min(3, Math.max(1, Math.ceil((endDay - first.day + 1) / 30.44)));
+    const months = Math.min(3, Math.max(1, Math.ceil((endDay - first.day + 1) / DAYS_PER_MONTH)));
     const big = b.usualMonthlyCents !== null && total >= b.usualMonthlyCents * 0.1;
     if ((rows.length < 2 && !big) || !passes(b, total / 3)) continue;
     out.push({

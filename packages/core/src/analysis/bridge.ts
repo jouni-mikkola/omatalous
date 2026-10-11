@@ -4,8 +4,7 @@
  * salary, so the split is told from complete months; when the selected period has none yet (the default view, the
  * month so far) the latest complete month stands in and the page names it.
  */
-import { daysInMonth, monthOf, monthRange } from "../dates.ts";
-import type { IsoDate } from "../types.ts";
+import { monthEnd, monthOf, monthRange } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, inDays } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
@@ -32,10 +31,9 @@ export interface Bridge {
   usualSavingsRate: number | null;
 }
 
-const lastDay = (month: string): IsoDate => `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
 
 function monthTotals(ctx: AnalysisContext, month: string): PeriodTotals {
-  return totalsOf(inDays(ctx, toDayRange({ from: `${month}-01`, to: lastDay(month) })).map((t) => t.flows));
+  return totalsOf(inDays(ctx, toDayRange({ from: `${month}-01`, to: monthEnd(month) })).map((t) => t.flows));
 }
 
 function usualOf(ctx: AnalysisContext, month: string): Pick<Bridge, "usualIncomeCents" | "earnedIncomeCents" | "usualSavingsRate"> {
@@ -52,7 +50,7 @@ function usualOf(ctx: AnalysisContext, month: string): Pick<Bridge, "usualIncome
 export function buildBridge(ctx: AnalysisContext, range: DateRange, running: boolean, totals: PeriodTotals, settled: PeriodTotals | null): Bridge {
   const none = { usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null };
   const months = monthRange(monthOf(range.from), monthOf(range.to));
-  const single = months.length === 1 && range.from === `${months[0]}-01` && range.to === lastDay(months[0]!) ? months[0]! : null;
+  const single = months.length === 1 && range.from === `${months[0]}-01` && range.to === monthEnd(months[0]!) ? months[0]! : null;
   if (!running) return { totals, basis: "range", month: single, ...(single ? usualOf(ctx, single) : none) };
 
   // a range from the 15th holds half of that month, so only months it covers from the 1st count

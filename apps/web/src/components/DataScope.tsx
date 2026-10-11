@@ -1,5 +1,5 @@
 // Decision: connect or fetch what is missing before trusting a number
-import { expiresIn } from "../consent-notices.ts";
+import { expiresIn, leftOutText } from "../consent-notices.ts";
 import { date, dateTime, plural } from "../format.ts";
 import type { Account, Connection, Meta, Scope } from "../types.ts";
 import "../styles/quality.css";
@@ -14,14 +14,20 @@ export function lastFetched(account: Pick<Account, "lastSyncedAt" | "balanceAt">
   return account.lastSyncedAt ?? account.balanceAt;
 }
 
-/** What the bank consent behind an account says: when it ends, or that it already has. Null for an account without a bank connection. */
-export function consentText(connection: Connection | undefined): { text: string; urgent: boolean } | null {
+/**
+ * What the bank consent behind an account says, in the words of the connections table: when it ends, or how it
+ * ended. A consent that broke before its date shows no date. Null for an account without a bank connection.
+ */
+export function consentText(connection: Connection | undefined, accountName: string): { text: string; urgent: boolean; reconnect: boolean; linkAccount?: boolean } | null {
   if (!connection) return null;
-  if (connection.status === "revoked") return { text: "Yhteys on peruttu", urgent: true };
-  if (connection.status === "expired") return { text: `Yhteys on vanhentunut${connection.validUntil ? ` ${date(connection.validUntil)}` : ""}`, urgent: true };
-  if (!connection.validUntil) return { text: "Yhteys on voimassa", urgent: false };
+  // a newer consent of the bank is active but did not bring this account: it has to be linked first
+  if (connection.replaced) return { text: leftOutText(accountName), urgent: true, reconnect: true, linkAccount: true };
+  if (connection.state === "removed") return { text: "Yhteys on peruttu", urgent: true, reconnect: false };
+  if (connection.state === "lapsed") return { text: `Yhteys vanhentui${connection.validUntil ? ` ${date(connection.validUntil)}` : ""}.`, urgent: true, reconnect: true };
+  if (connection.state === "broken") return { text: "Yhteys katkesi.", urgent: true, reconnect: true };
+  if (!connection.validUntil) return { text: "Yhteys on voimassa", urgent: false, reconnect: false };
   const left = connection.daysLeft;
-  return { text: `Yhteys päättyy ${date(connection.validUntil)}${left === null ? "" : `, ${expiresIn(left)}`}`, urgent: left !== null && left <= 14 };
+  return { text: `Yhteys päättyy ${date(connection.validUntil)}${left === null ? "" : `, ${expiresIn(left)}`}`, urgent: left !== null && left <= 14, reconnect: false };
 }
 
 /**

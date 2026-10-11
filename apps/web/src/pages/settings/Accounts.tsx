@@ -6,7 +6,8 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { ACCOUNT_TYPE_LABEL, dateTime, money, parseEuros } from "../../format.ts";
-import type { Account, Meta } from "../../types.ts";
+import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
+import type { Account, Connection, Meta } from "../../types.ts";
 
 const PROVIDER_LABEL: Record<string, string> = { enablebanking: "pankkiyhteys", csv: "CSV", demo: "demo" };
 const editable = (a: Account) => a.provider === "csv" || a.provider === "demo";
@@ -19,6 +20,8 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
   const [savedType, setSavedType] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+  // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
+  const canFix = meta.user.role === "admin" || meta.bank.source === "user";
 
   // "Tallennettu." next to a type select is a passing confirmation
   useEffect(() => {
@@ -100,6 +103,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                     <div className="sub">
                       {a.iban ?? "–"} · {PROVIDER_LABEL[a.provider] ?? a.provider}
                     </div>
+                    <FetchProblem account={a} connection={meta.connections.find((c) => c.id === a.connectionId)} canFix={canFix} />
                     <div className="acc-type-phone">{type}</div>
                   </td>
                   <td className="acc-type">{type}</td>
@@ -136,6 +140,34 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
         </table>
         {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Lisää pankkiyhteys tai tuo CSV alempana.</div>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Why the account is not fetched. An account a newer consent of its bank did not bring says so first (its last fetch
+ * problem is older than that); otherwise what its last fetch ran into, in the words of the sync message (connectors/sync.ts).
+ */
+function FetchProblem({ account, connection, canFix }: { account: Account; connection: Connection | undefined; canFix: boolean }) {
+  const problem = account.problem;
+  const leftOut = !!connection?.replaced;
+  if (!leftOut && !problem) return null;
+  const text = leftOut
+    ? leftOutText(account.name)
+    : problem!.kind === "not_linked"
+      ? problem!.message.charAt(0).toUpperCase() + problem!.message.slice(1)
+      : `Viimeisin haku epäonnistui: ${problem!.message}`;
+  return (
+    <div className="acc-problem" role="status">
+      {text}
+      {(leftOut || problem?.kind === "not_linked") && canFix && (
+        <>
+          {" "}
+          <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
+            Avaa Control Panel
+          </a>
+        </>
+      )}
     </div>
   );
 }

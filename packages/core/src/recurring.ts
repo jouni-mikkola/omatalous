@@ -1,5 +1,5 @@
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
-import { addDays, daysBetween, daysInMonth, monthIndex } from "./dates.ts";
+import { addDays, DAYS_PER_MONTH, daysBetween, daysInMonth, monthIndex } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { median, sum } from "./stats.ts";
 import type { IsoDate, Transaction } from "./types.ts";
@@ -109,10 +109,14 @@ const CADENCES: readonly CadenceDef[] = [
   { id: "yearly", days: 365.25, tolerance: 25, minOccurrences: 2, perYear: 1, months: 12 },
 ];
 
+/** The calendar months between two charges of the month-based cadence that an interval of `gapDays` matches, or null. */
+export function cadenceMonths(gapDays: number): number | null {
+  return CADENCES.find((c) => c.months > 0 && Math.abs(gapDays - c.days) <= c.tolerance)?.months ?? null;
+}
+
 /** Two charges a month on fixed days (salary on the 15th and the last day): looks biweekly by gaps alone. */
 const SEMIMONTHLY: CadenceDef = { id: "semimonthly", days: 365.25 / 24, tolerance: 3, minOccurrences: 4, perYear: 24, months: 0 };
 
-const DAYS_PER_MONTH = 30.44;
 const MIN_REGULARITY = 0.7;
 const LOOKBACK_DAYS = 800;
 const OVERDUE_DAYS = 5;

@@ -36,6 +36,8 @@ export type SyncProblem =
   | { kind: "app_rejected"; message: string }
   /** The consent ended: the loop marks the connection expired and asks the user to link again. */
   | { kind: "consent_expired" }
+  /** The source does not let the app read this one account. The message says who fixes it and where. */
+  | { kind: "not_linked"; message: string }
   /** The source answered with an error. The message is short and safe to show. */
   | { kind: "upstream"; message: string };
 

@@ -1,4 +1,4 @@
-import { addDays, addMonths, dayNumber, daysBetween, daysInMonth, monthOf } from "../dates.ts";
+import { addDays, addMonths, DAYS_PER_MONTH, dayNumber, daysBetween, daysInMonth, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
 
 export interface DateRange {
@@ -22,7 +22,7 @@ export function rangeLength(r: DateRange): number {
 
 /** Months the range spans, in fractional months (minimum 1). */
 export function rangeMonths(r: DateRange): number {
-  return Math.max(1, rangeLength(r) / 30.44);
+  return Math.max(1, rangeLength(r) / DAYS_PER_MONTH);
 }
 
 /**

@@ -13,8 +13,6 @@ export const cadenceQuarterlyToMonthly: LifeEvent = {
     return out;
   },
   drop: (t, f) => t.counterparty === "IF VAHINKOVAKUUTUS OY" && t.bookingDate >= f.on(f.ago(6), 1),
-  allows: [
-    // October pays 47,43 € instead of a quarter's 142,30 €, told as an amount without a cause
-    /^change change:season:/,
-  ],
+  // October pays 47,43 € instead of a quarter's 142,30 €: within the noise a quarterly bill gives a month
+  allows: [],
 };

@@ -433,7 +433,7 @@ describe("ops: the helper's CLI", () => {
     expect(await cli(s, ["poll", "--helper", "1", "--done", ""])).toEqual({ request: null });
     const row = (await s.ops.get(id))!;
     expect(row.status).toBe("failed");
-    expect(row.summary).toBe("Apuri on tähän toimintoon liian vanha.");
+    expect(row.summary).toBe("Apuri ei tue tätä toimintoa.");
     // the mutating slot is free again (the old row is moved out of the one-a-minute window)
     await s.db.run("UPDATE ops_requests SET requested_at = '2020-01-01T00:00:00.000Z' WHERE id = ?", [id]);
     expect((await admin.call("POST", "/api/ops/request", { action: "backup" })).status).toBe(200);

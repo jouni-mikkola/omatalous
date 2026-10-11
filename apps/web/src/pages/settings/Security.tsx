@@ -35,9 +35,9 @@ const KIND_LABEL: Record<string, string> = {
   user_deleted: "Jäsen poistettu",
   ops_request: "Ylläpitopyyntö",
   ops_denied: "Ylläpitopyyntö estetty",
-  ops_result: "Ylläpitotoiminnon tulos",
+  ops_result: "Ylläpitopyynnön tulos",
   ops_download: "Varmuuskopion lataus",
-  ops_notice: "Ilmoitus ylläpitotoiminnosta",
+  ops_notice: "Ylläpidon ilmoitus",
 };
 
 const kindLabel = (kind: string) => KIND_LABEL[kind] ?? (kind.startsWith("ops_") ? `Ylläpito: ${kind.slice(4).replace(/_/g, " ")}` : kind);
@@ -75,7 +75,7 @@ export function Security({ me }: { me: User }) {
         <div className="card-head">
           <div>
             <h2>Omat istunnot</h2>
-            <div className="card-sub">Laitteet, joilla olet kirjautuneena. Viimeinen käyttö päivittyy tunnin välein.</div>
+            <div className="card-sub">Laitteet, joilla olet kirjautuneena.</div>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
             <button className="btn" disabled={busy || others === 0} onClick={() => void act(() => api("/api/security/sessions/revoke-all", { method: "POST", body: { keepCurrent: true } }))}>

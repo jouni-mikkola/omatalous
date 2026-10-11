@@ -103,7 +103,7 @@ describe("electricity price per kWh", () => {
   });
 
   it("stays quiet on the near misses, and the check says why", () => {
-    const [sellerOnly, under, moved] = el.nearMiss(FRAME);
+    const [sellerOnly, under, moved, switched] = el.nearMiss(FRAME);
     const a = run([sellerOnly!]);
     expect(allFindings(a).filter((f) => f.kind === "price")).toEqual([]);
     expect(checkOf(a, "electricity:price")).toMatchObject({ status: "no_data", hint: "Verkkoyhtiön laskuja ei löytynyt 12 kuukauden ajalta." });
@@ -113,6 +113,9 @@ describe("electricity price per kWh", () => {
     const c = run([moved!]);
     expect(allFindings(c)).toEqual([]);
     expect(checkOf(c, "electricity:price")).toMatchObject({ status: "no_data", hint: "Muuton jälkeen on alle 12 täyttä kuukautta." });
+    const d = run([switched!]);
+    expect(allFindings(d)).toEqual([]);
+    expect(checkOf(d, "electricity:price")).toMatchObject({ status: "clear" });
   });
 
   it("asks for the kWh only when both bills are there", () => {

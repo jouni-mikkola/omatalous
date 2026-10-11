@@ -5,7 +5,7 @@
  * household's month-to-month noise (ADR 0011), and every account that pays for groceries must have rows in every
  * month compared: a card that stopped syncing is no fewer visits.
  */
-import { daysInMonth, fromMonthIndex, monthIndex } from "../../dates.ts";
+import { fromMonthIndex, monthEnd, monthIndex } from "../../dates.ts";
 import { spendingChange } from "../change.ts";
 import { changeMonths, signed } from "../change-text.ts";
 import type { AnalysisContext, AnalysisTx } from "../context.ts";
@@ -13,7 +13,6 @@ import type { DateRange } from "../period.ts";
 import { meansApart, monthlyNoise } from "../signal.ts";
 import type { Insight, InsightSource } from "./types.ts";
 
-const lastDay = (m: string) => `${m}-${String(daysInMonth(m)).padStart(2, "0")}`;
 
 const GROCERY_MIN_VISITS = 8;
 const GROCERY_MIN_SAME_SHOPS = 0.7;
@@ -79,7 +78,7 @@ export function spendingInsights(ctx: AnalysisContext, range: DateRange): Insigh
           detail: `${Math.round(now / k)} käyntiä kuussa, vuotta aiemmin ${Math.round(base / k)}, samoissa kaupoissa. Ostoskerta ${signed(monthly(priceCents))}, käyntien määrä ${signed(monthly(volumeCents))} kuussa.`,
           yearlyCents: Math.round((Math.abs(changeCents) / k) * 12),
           direction: changeCents < 0 ? -1 : 1,
-          link: { category: "groceries", from: `${c.target.months[0]}-01`, to: lastDay(c.target.months[k - 1]!) },
+          link: { category: "groceries", from: `${c.target.months[0]}-01`, to: monthEnd(c.target.months[k - 1]!) },
         });
       }
     }

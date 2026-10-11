@@ -7,7 +7,7 @@
  * deviation of a month for a series without a change. A step between two months adds one range, so a real change does
  * not count itself as noise, as a window's variance counts a step inside the window.
  */
-import { sum } from "../stats.ts";
+import { mean, sum } from "../stats.ts";
 
 /**
  * A change must stand this many standard errors from nothing. At 2.5 three of the kit's 200 steady households read as
@@ -17,8 +17,6 @@ export const MIN_T = 4;
 
 /** The mean moving range of a normal series is 1.128 standard deviations. */
 const RANGE_PER_SD = 1.128;
-
-const mean = (xs: readonly number[]) => sum(xs) / xs.length;
 
 /** The month-to-month noise of one or more monthly series, as a standard deviation; 0 without two months in a series. */
 export function monthlyNoise(...series: readonly (readonly number[])[]): number {

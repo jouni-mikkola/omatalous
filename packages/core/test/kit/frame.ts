@@ -67,6 +67,8 @@ export interface LifeEvent {
   id: string;
   add: (f: Frame) => Transaction[];
   drop?: (t: Transaction, f: Frame) => boolean;
+  /** A base row as the event leaves it: moved to another account, say. The row itself when nothing changes. */
+  move?: (t: Transaction, f: Frame) => Transaction;
   /**
    * `<source> <statement id>` patterns of what the event may make the product say, each with its reason in a comment:
    * what really happened. Usually none. Never one for a statement the review would call false: that goes to known.ts.

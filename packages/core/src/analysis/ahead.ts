@@ -6,7 +6,7 @@
  */
 import { getCategory } from "../categories.ts";
 import { cancelledMerchants, expectedCharges } from "../commitments.ts";
-import { addDays, daysInMonth, fromMonthIndex, monthIndex, monthOf, weekdayOf } from "../dates.ts";
+import { addDays, dateIn, fromMonthIndex, monthIndex, monthOf, weekdayOf } from "../dates.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
@@ -66,7 +66,7 @@ function payDates(s: RecurringSeries, paidOn: readonly IsoDate[], to: IsoDate): 
   const out: IsoDate[] = [];
   for (let m = monthIndex(monthOf(s.lastDate)) + 1; ; m++) {
     const month = fromMonthIndex(m);
-    const date = `${month}-${String(Math.min(usual, daysInMonth(month))).padStart(2, "0")}`;
+    const date = dateIn(month, usual);
     const weekday = weekdayOf(date);
     // Saturday is 5 and Sunday 6, Friday 4
     const paid = weekday >= 5 ? addDays(date, 4 - weekday) : date;

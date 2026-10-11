@@ -227,7 +227,7 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req)
   if (!helperKnows(await s.settings.get(VERSION_KEY), action)) {
     // an older helper would not answer an action it does not know, and the request would sit claimed until it times out
     await deny("apuri vanhentunut");
-    throw new HttpUserError(`Ylläpitoapuri on vanhentunut. Aja koneella: ${ENABLE_COMMAND}`, 409);
+    throw new HttpUserError(`Ylläpitoapurista on uudempi versio. Päivitä se palvelimella: ${ENABLE_COMMAND}`, 409);
   }
   if (action === "rollback") {
     if (input.confirm !== ROLLBACK_WORD) {
@@ -277,7 +277,7 @@ export async function cancelOp(s: Services, user: User, id: string, req: Req) {
   if (!validOpsId(id)) throw new UserError("Pyyntöä ei löydy.");
   const row = await s.ops.get(id);
   if (!row) throw new UserError("Pyyntöä ei löydy.");
-  if (!(await s.ops.cancelQueued(id, s.now().toISOString()))) throw new UserError("Pyyntö on jo käynnissä tai valmis, sitä ei voi perua.");
+  if (!(await s.ops.cancelQueued(id, s.now().toISOString()))) throw new UserError("Pyyntöä ei voi enää perua.");
   await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${(ACTION_LABEL as Record<string, string>)[row.action] ?? row.action}: peruttu` });
 }
 
@@ -295,7 +295,7 @@ export async function backupForDownload(s: Services, user: User, password: strin
     if (!check.ok) console.error(`backup download: ${b.name} failed its check and is skipped: ${check.reason}`);
     return check.ok;
   });
-  if (!newest) throw new UserError("Yksikään varmuuskopio ei läpäissyt tarkistusta. Ota uusi varmuuskopio.");
+  if (!newest) throw new UserError("Varmuuskopiot eivät läpäisseet tarkistusta. Ota uusi varmuuskopio.");
   await recordEvent(s, { kind: "ops_download", userId: user.id, ...req, detail: `varmuuskopion lataus: ladattu (${newest.name})`, notify: false });
   await notifyAdmins(s, user, `${user.displayName} latasi tietokannan varmuuskopion`);
   return { stream: createReadStream(join(s.backupDir, newest.name)), name: newest.name, size: newest.size };
@@ -346,7 +346,7 @@ export async function pollOps(s: Services, opts: { helper?: string; done: string
     // The polling helper is older than the action: a request queued for a newer helper that was then rolled back. It
     // would not answer, so the row ends here and the one mutating slot stays free.
     if (!helperKnows(opts.helper, r.action as OpsAction)) {
-      if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Apuri on tähän toimintoon liian vanha." })) await resultEvent(s, r, "epäonnistui");
+      if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Apuri ei tue tätä toimintoa." })) await resultEvent(s, r, "epäonnistui");
       continue;
     }
     if (await s.ops.claim(r.id, s.now().toISOString())) return { id: r.id, action: r.action as OpsAction, params: {}, secret: null };

@@ -69,7 +69,7 @@ function Rows({ rows, household }: { rows: EvidenceResponse["rows"]; household: 
     <div className="evidence-part">
       <div className="evidence-head">
         <h4>Tapahtumat</h4>
-        {rows.some((r) => r.struck) && <span className="small muted">Yliviivattu rivi on kertaluonteinen eikä sitä ole laskettu mukaan.</span>}
+        {rows.some((r) => r.struck) && <span className="small muted">Yliviivattu rivi on kertaluonteinen, eikä sitä lasketa.</span>}
       </div>
       <div className="table-wrap">
         <table className="compact evidence-rows">

@@ -56,6 +56,11 @@ export interface EbBalance {
   reference_date?: string | null;
 }
 
+/** GET /application: the application the signing key belongs to. `active` is false until accounts are linked in the Control Panel. */
+export interface EbApplication {
+  active?: boolean;
+}
+
 export interface EbAspsp {
   name: string;
   country: string;

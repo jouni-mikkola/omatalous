@@ -21,7 +21,7 @@ export function Loading() {
         <div className="card skeleton" />
       </div>
       <div className="card skeleton skeleton-tall" aria-hidden="true" />
-      <div className="empty">{stage === 2 ? "Tämä kestää tavallista kauemmin. Odota hetki tai lataa sivu uudelleen." : "Ladataan…"}</div>
+      <div className="empty">{stage === 2 ? "Lataus kestää tavallista kauemmin. Odota tai lataa sivu uudelleen." : "Ladataan…"}</div>
     </div>
   );
 }

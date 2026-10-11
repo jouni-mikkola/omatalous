@@ -6,10 +6,10 @@
  * month-to-month noise, each year by MIN_T / √2 standard errors, so the two together stand MIN_T apart and neither
  * carries it alone (ADR 0011).
  */
-import { daysInMonth } from "../../dates.ts";
+import { addMonths, monthEnd } from "../../dates.ts";
 import { formatEur } from "../format.ts";
 import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../usual.ts";
-import { capitalise, lastCompleteMonths, monthName, monthRows, monthStem, oneOff, shiftMonth } from "./shared.ts";
+import { capitalise, lastCompleteMonths, monthName, monthRows, monthStem, oneOffCents } from "./shared.ts";
 import { MIN_T, monthlyNoise, monthT } from "../signal.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
@@ -23,9 +23,7 @@ const NOISE_MONTHS = 11;
 /** A month's spending with its one-off struck by the month explanation's rule; only a month over its usual level has one. */
 function struckSpend(ctx: InsightArgs["ctx"], month: string): number {
   const spend = monthRows(ctx, month).spend;
-  const usual = usualSpending(ctx, month);
-  const one = usual !== null && spend > usual ? oneOff(ctx, month, spend - usual) : null;
-  return spend - (one ? Math.max(0, one.spend - one.refunded) : 0);
+  return spend - oneOffCents(ctx, month);
 }
 
 /** The month-to-month noise of the complete months before `month`, on the series the excess is measured on. */
@@ -51,7 +49,7 @@ export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<Insight
   if (recent.length < 12) return [];
   const seasons: Season[] = [];
   for (const month of recent) {
-    const years = Array.from({ length: YEARS }, (_, k) => shiftMonth(month, -12 * k));
+    const years = Array.from({ length: YEARS }, (_, k) => addMonths(month, -12 * k));
     const extras: number[] = [];
     for (const m of years) {
       const usual = isCompleteMonth(ctx, m) ? usualSpending(ctx, m) : null;
@@ -73,7 +71,6 @@ export function expensiveMonths(args: InsightArgs): Insight[] {
   const top = [...seasons].sort((a, b) => b.extra - a.extra)[0]!;
   const stems = seasons.map((s) => monthStem(s.month));
   const names = stems.length === 1 ? `${stems[0]}kuun` : `${stems.slice(0, -1).map((s) => `${s}-`).join(", ")} ja ${stems[stems.length - 1]}kuun`;
-  const last = (m: string) => `${m}-${String(daysInMonth(m)).padStart(2, "0")}`;
   return [
     {
       id: `seasons:${seasons.map((s) => s.month.slice(5)).join("-")}`,
@@ -81,7 +78,7 @@ export function expensiveMonths(args: InsightArgs): Insight[] {
       title: `${capitalise(monthName(top.month))} ${formatEur(top.extra, false)} tavallista kalliimpi kahtena vuonna`,
       detail: `${capitalise(names)} lisämenot ${formatEur(yearly, false)} vuodessa, ${formatEur(Math.round(yearly / 12), false)} kuussa; kertaostot eivät ole mukana.`,
       yearlyCents: yearly,
-      link: { from: `${top.month}-01`, to: last(top.month) },
+      link: { from: `${top.month}-01`, to: monthEnd(top.month) },
     },
   ];
 }

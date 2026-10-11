@@ -37,8 +37,8 @@ function forecastRange(f: NonNullable<DashboardData["forecast"]>): string {
 function rangeBasis(f: NonNullable<DashboardData["forecast"]>): string {
   const pct = `vaihteluväli ±${count(f.rangePercent)} %`;
   return f.rangeBasis === "own"
-    ? `${pct}, laskettu ennusteen osumista ${f.rangeMonths} edellisenä kuukautena`
-    : `${pct}, yleinen virhemarginaali, oma historia puuttuu`;
+    ? `${pct}, mitattu ${f.rangeMonths} edellisestä kuukaudesta`
+    : `${pct}, yleinen arvio ilman omaa historiaa`;
 }
 
 const rangeDays = (r: { from: string; to: string }) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 + 1;
@@ -243,7 +243,7 @@ export function Overview({
               ))}
             </tbody>
           </table>
-          {!data.merchants.length && <div className="empty">Ei ostoksia tällä jaksolla. Kauppiaat näkyvät, kun jaksolle tulee ostoksia.</div>}
+          {!data.merchants.length && <div className="empty">Ei ostoksia tällä jaksolla.</div>}
         </div>
       </div>
     </div>

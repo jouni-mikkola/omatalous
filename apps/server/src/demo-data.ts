@@ -1,5 +1,5 @@
 // Pure, so `pnpm findings` and the golden files can load the demo history without the server (tools/findings).
-import { type AccountType, addDays, addMonths, daysInMonth, monthOf, type RawTransaction, weekdayOf } from "@banking/core";
+import { type AccountType, addDays, addMonths, dateIn, daysInMonth, monthOf, type RawTransaction, weekdayOf } from "@banking/core";
 
 /**
  * Deterministic, realistic demo data: a Finnish household with a checking
@@ -69,7 +69,7 @@ export function generateDemoData(today: string, months = 14): DemoAccount[] {
     });
     if (list === card && cents < 0) cardByMonth.set(monthOf(date), (cardByMonth.get(monthOf(date)) ?? 0) - cents);
   };
-  const day = (month: string, d: number) => `${month}-${String(Math.min(d, daysInMonth(month))).padStart(2, "0")}`;
+  const day = (month: string, d: number) => dateIn(month, d);
   const workday = (date: string) => {
     let d = date;
     while (weekdayOf(d) > 4) d = addDays(d, -1);

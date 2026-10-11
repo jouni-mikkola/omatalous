@@ -47,7 +47,7 @@ next releases are in `.claude/plan/` (private repo only).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `doctor.sh`, `reset.sh`, `ops-helper.sh` (host helper for
   Asetukset > Ylläpito), `lib/` (`release.sh` signatures, `dbcopy.sh` copies, `preflight.sh` the migration check of
   the new image before the switch; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`publish-public.sh`, `relay-hash.mjs`,
-  `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page, published to GitHub Pages by
+  `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image when `main` gets a new version, on a `v*` tag or by hand.
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
   (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`. `styles/` (tokens.css and base.css

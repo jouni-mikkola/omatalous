@@ -54,6 +54,9 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 | "Enable Banking hylkäsi avaimen (401)" | The Application ID is not copied in full, or the certificate in Enable Banking is not the one Omatalous made. Check both and press *Tallenna ja testaa* again. |
 | "Enable Banking hylkäsi avaimen (403)" | The app is still *Inactive*, or no account is linked. Do step 3 of [ENABLE_BANKING.md](ENABLE_BANKING.md#3-link-your-accounts). |
 | An account or a card is missing | Link it in the Enable Banking Control Panel with *Link accounts*, then add it in Omatalous with *Lisää seuraava tili*. |
+| "&lt;account&gt;: tiliä ei ole linkitetty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted: it reads only the accounts under *Linked accounts* in the Control Panel. Open *API applications*, your app, *Link accounts*, and link that account or card. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
+| "&lt;account&gt; ei tullut mukaan uuteen yhteyteen" | The new connection did not bring that account, so it stays on the old one and is not fetched. Link it under *Link accounts* in the Control Panel, then press *Yhdistä uudelleen*. |
+| Connecting fails at the start every time | Read the message once before trying again. "Enable Banking ei vielä päästä sovellusta pankkeihin": the app is still *Inactive*, do step 3 of [ENABLE_BANKING.md](ENABLE_BANKING.md#3-link-your-accounts), then press *Testaa yhteys* under *Asetukset > Palvelin*. "Enable Banking ei tunnistanut sovellusta": check the app under *Asetukset > Palvelin > Testaa yhteys*. "Enable Banking hylkäsi yhdistämisen" or "Pankki keskeytti yhdistämisen": the app's request log in the Control Panel has the reason, and the server log has a line `bank link refused` with the status and code. |
 
 ## Updates
 

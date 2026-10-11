@@ -3,7 +3,7 @@ import { getCategory } from "../categories.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { formatEur } from "../analysis/format.ts";
 import { expectedDates } from "../commitments.ts";
-import { addDays, addMonths, daysInMonth, monthIndex, monthOf } from "../dates.ts";
+import { addDays, addMonths, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { type Cadence, projectDates, type RecurringSeries } from "../recurring.ts";
 import { type ExpectedCadence, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
@@ -120,7 +120,7 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
   const firstMonth = monthOf(from);
   const lastMonth = addMonths(firstMonth, YEAR_MONTHS - 1);
   const windowStart = `${firstMonth}-01`;
-  const windowEnd = `${lastMonth}-${daysInMonth(lastMonth)}`;
+  const windowEnd = monthEnd(lastMonth);
 
   const found = rareSeries(ctx);
   const occurrences: Occurrence[] = [];

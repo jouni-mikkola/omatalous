@@ -3,17 +3,18 @@
  * accounts that existed before a window, the level without one-offs, the yearly figure, certainty from weaknesses and
  * the evidence checks behind them.
  */
-import { type AnalysisContext, type AnalysisTx, historyCovers } from "../analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, netSpend } from "../analysis/context.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
 import { formatEur } from "../analysis/format.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
 import type { DateRange } from "../analysis/period.ts";
+import { LEVEL, oneOffs } from "../analysis/one-offs.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
-import { addMonths, dayNumber, daysInMonth, monthOf } from "../dates.ts";
+import { addMonths, dayNumber, monthEnd, monthOf } from "../dates.ts";
 import { priceChangeYearlyCents, type RecurringSeries } from "../recurring.ts";
 import { balanceWalk, type BalanceWalk } from "../reports/balances.ts";
 import { bufferReport } from "../reports/buffer.ts";
-import { median } from "../stats.ts";
+import { mean, median } from "../stats.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 import { AREA_IDS, type AreaId, type AreaInput, type Certainty, type CertaintyLevel, type EvidenceQuality, type Weakness, type WeaknessId } from "./types.ts";
 
@@ -23,17 +24,8 @@ export const GATE_YEARLY_CENTS = 12 * ITEM_GATE_MONTHLY_CENTS;
 /** At most this many evidence rows per finding (rule 4). */
 export const MAX_ROWS = 60;
 
-/** A row over this many times its merchant's median leaves the level (rule 4). */
-const ONE_OFF_FACTOR = 3;
-
 /** Rule 6: what a finding weighs in the order of areas. The euros shown stay mid. */
 export const CERTAINTY_WEIGHT: Readonly<Record<CertaintyLevel, number>> = { korkea: 1, keskitaso: 0.6, matala: 0.25 };
-
-/** The same day `n` months later, clamped to the month's length (31.1. + 1 is 28.2.). */
-export function addMonthsToDate(date: IsoDate, n: number): IsoDate {
-  const month = addMonths(monthOf(date), n);
-  return `${month}-${String(Math.min(Number(date.slice(8, 10)), daysInMonth(month))).padStart(2, "0")}`;
-}
 
 /** `<area>:<kind>` or `<area>:<kind>:<subject>`: stable for the same subject, so a stored state finds it again. */
 export function findingId(area: AreaId, kind: string, subject?: string | null): string {
@@ -84,31 +76,24 @@ export function accountsBefore(ctx: AnalysisContext, from: IsoDate): ReadonlySet
 
 /** What a row cost in the end: consumption and debt service less what came back, never below zero. Transfers cost nothing. */
 export function netCost(t: Pick<AnalysisTx, "spend" | "refunded" | "isTransfer">): number {
-  return t.isTransfer ? 0 : Math.max(0, t.spend - t.refunded);
+  return t.isTransfer ? 0 : netSpend(t);
 }
 
 export interface Level {
   /** Cents per month, aligned with the months given. */
   byMonth: number[];
-  /** Ids of the rows over three times their merchant's median, left out of the level. */
+  /** Ids of the one-offs (`oneOffs`, the level policy), left out of the level. */
   struck: string[];
 }
 
 /**
- * The monthly level of `rows` over `months`, with a row over three times its merchant's median taken out and listed
- * struck. Purchases count `netCost`, so a full refund removes a purchase; transfers never count.
+ * The monthly level of `rows` over `months`, with the one-offs (`oneOffs`, the level policy every view uses) taken out
+ * and listed struck. Purchases count `netCost`, so a full refund removes a purchase; transfers never count.
  */
-export function levelWithoutOneOffs(rows: readonly AnalysisTx[], months: readonly string[]): Level {
+export function levelWithoutOneOffs(rows: readonly AnalysisTx[], months: readonly string[], fixed?: ReadonlySet<string>): Level {
   const inWindow = new Set(months);
   const counted = rows.filter((t) => !t.isTransfer && inWindow.has(monthOf(t.bookingDate)));
-  const amounts = new Map<string, number[]>();
-  for (const t of counted) {
-    const list = amounts.get(t.merchant);
-    if (list) list.push(netCost(t));
-    else amounts.set(t.merchant, [netCost(t)]);
-  }
-  const medians = new Map([...amounts].map(([m, xs]) => [m, median(xs)]));
-  const struck = new Set(counted.filter((t) => medians.get(t.merchant)! > 0 && netCost(t) > ONE_OFF_FACTOR * medians.get(t.merchant)!).map((t) => t.id));
+  const struck = oneOffs(counted, LEVEL, fixed);
   const at = new Map(months.map((m, i) => [m, i]));
   const byMonth = months.map(() => 0);
   for (const t of counted) if (!struck.has(t.id)) byMonth[at.get(monthOf(t.bookingDate))!]! += netCost(t);
@@ -240,7 +225,7 @@ export const YEAR_OVER_YEAR_SIDE = 6;
 /** Overlap keys of eating out. Delivery and a café habit claim them too, so the headline counts that money once. */
 export const EATING_OUT_CLAIMS: readonly string[] = ["category:restaurants", "category:food_delivery"];
 
-export const mean = (xs: readonly number[]): number => (xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : 0);
+export { mean };
 
 /** "8", "8,5": a count a month with at most one decimal. */
 export function formatCount(x: number): string {
@@ -280,7 +265,7 @@ export function ownAccounts(a: AreaInput, type: BalanceInput["type"]): BalanceIn
 
 /** The last day of each window month as a day number. */
 export function monthEndDays(months: readonly string[]): number[] {
-  return months.map((m) => dayNumber(`${m}-${String(daysInMonth(m)).padStart(2, "0")}`));
+  return months.map((m) => dayNumber(monthEnd(m)));
 }
 
 /** The walks of accounts that all have a balance; null when one has none. */

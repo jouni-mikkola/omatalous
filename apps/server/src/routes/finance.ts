@@ -2,11 +2,11 @@
 import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
 import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
-import { hasInstanceCredentials } from "../connectors/enable-banking/app-setup.ts";
+import { hasInstanceCredentials, instanceAppInactive } from "../connectors/enable-banking/app-setup.ts";
 import { BANKS } from "../connectors/enable-banking/banks.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
-import { connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
+import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
 import { body, optionalString, parseRange, queryInt } from "./shared.ts";
@@ -24,7 +24,7 @@ export function financeRoutes(s: Services) {
     const user = c.get("user");
     const repo = repoOf(user.id);
     const accounts = await repo.listAccounts();
-    const [connections, runs, sharedAccounts, members, creds, shared] = await Promise.all([
+    const [connections, runs, sharedAccounts, members, creds, shared, inactive] = await Promise.all([
       repo.listConnections(),
       repo.listSyncRuns(1),
       // the household view's own list: a joint account linked by both partners is shown once
@@ -32,6 +32,7 @@ export function financeRoutes(s: Services) {
       s.users.list(),
       s.users.getBankCredentials(user.id),
       hasInstanceCredentials(s),
+      instanceAppInactive(s),
     ]);
     const today = s.today();
     return c.json({
@@ -39,14 +40,17 @@ export function financeRoutes(s: Services) {
       user,
       categories: CATEGORIES,
       kinds: KIND_LABEL,
-      accounts,
+      accounts: await accountsView(s, user.id, accounts),
       sharedAccounts,
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
-      connections: connections.map((conn) => connectionView(conn, today)),
+      connections: connections.map((conn) => connectionView(conn, today, accounts, connections)),
       lastSync: runs[0] ?? null,
       bank: {
-        configured: !!creds || !!shared,
+        // the household's app counts once Enable Banking says it is active; a member's own key is not checked
+        configured: !!creds || (!!shared && !inactive),
+        // why it is off: the picker says the app is not active yet instead of asking to set it up
+        inactive: !creds && !!shared && inactive,
         source: creds ? "user" : shared ? "instance" : null,
         banks: BANKS.map(({ id, name, country }) => ({ id, name, country })),
         redirectUrl: s.redirectUrl(),

@@ -7,7 +7,7 @@ import type { InstanceState } from "../../types.ts";
 /** A dev flag is not offered: its module does nothing useful yet. Developers switch it through the API. */
 export const SWITCHABLE = FEATURE_IDS.filter((id) => (FEATURES[id] as FeatureDef).stage !== "dev");
 
-const STAGE = { dev: "Kehitysvaiheessa, ei vielä käytettävissä.", preview: "Esikatselu: voi muuttua.", stable: "Valmis." } as const;
+const STAGE = { dev: "Kesken.", preview: "Kokeiluversio, voi vielä muuttua.", stable: "Valmis." } as const;
 
 export function FeatureFlags({ state, onState }: { state: InstanceState; onState: (next: InstanceState) => void }) {
   // the box shows the choice at once while the server saves it, and goes back if the save fails

@@ -185,7 +185,7 @@ function Year({ r }: { r: IncomeReport }) {
       ) : (
         <StackedColumns months={months} series={used} highlight={(m) => past.has(m)} label="Tulot kuukausittain tulolajeittain" />
       )}
-      {r.projection.length > 0 && <p className="income-caption">Himmeät sarakkeet ovat arvio jatkuvista säännöllisistä tuloista.</p>}
+      {r.projection.length > 0 && <p className="income-caption">Himmeät sarakkeet ovat arvio säännöllisistä tuloista.</p>}
       {r.markers.length > 0 && (
         <p className="income-caption">
           Viime vuonna lisäksi {r.markers.map((m) => `${m.label.toLowerCase()} ${money(m.cents, false)} (${monthLong(m.month).split(" ")[0]})`).join(", ")}. {r.markers.length === 1 ? "Se ei ole" : "Ne eivät ole"} arviossa.

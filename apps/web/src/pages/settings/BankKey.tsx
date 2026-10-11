@@ -43,7 +43,7 @@ export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }
         Vain jos et käytä yhteistä sovellusta. Paluuosoite: <code>{meta.bank.redirectUrl}</code>
       </p>
       {!meta.bank.canStoreOwnKeys ? (
-        <p className="notice warning">Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää tarkistamaan palvelimen loki.</p>
+        <p className="notice warning">Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää katsomaan palvelimen lokia.</p>
       ) : (
         <form className="stack" onSubmit={save} style={{ gap: 8 }}>
           <input type="text" placeholder="Application ID (UUID)" value={appId} onChange={(e) => setAppId(e.target.value)} required aria-label="Application ID" />

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useApi } from "../../hooks.ts";
 import type { InstanceState } from "../../types.ts";
 import { FeatureFlags, SWITCHABLE } from "./Features.tsx";
-import { BankAppSetup, GeneralForm } from "./InstanceForms.tsx";
+import { BankAppSetup } from "./BankAppSetup.tsx";
+import { GeneralForm } from "./InstanceForms.tsx";
 
 export function ServerSettings({ focus, onChange }: { focus: boolean; onChange: () => void }) {
   const loaded = useApi<InstanceState>("/api/admin/instance");

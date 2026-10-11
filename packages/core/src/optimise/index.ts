@@ -6,7 +6,7 @@
  */
 import type { AnalysisContext } from "../analysis/context.ts";
 import { completeMonthsBefore } from "../analysis/usual.ts";
-import { addDays, addMonths, daysInMonth, monthOf } from "../dates.ts";
+import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { bank } from "./areas/bank.ts";
 import { car } from "./areas/car.ts";
@@ -73,8 +73,7 @@ export interface OptimiseInput {
 
 /** The last day of the last complete month: the month before today's. */
 export function optimiseEnd(today: IsoDate): IsoDate {
-  const month = addMonths(monthOf(today), -1);
-  return `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  return monthEnd(addMonths(monthOf(today), -1));
 }
 
 /** What every area gets. Exported so an area's own tests can call `assess` directly. */

@@ -78,13 +78,13 @@ export function Members({ me, onChange }: { me: User; onChange: () => void }) {
             void run(async () => {
               const r = await api<{ revoked: number; failed: number }>(`/api/users/${u.id}`, { method: "DELETE" });
               setRemoved(
-                `${u.displayName} poistettiin.${r.revoked ? ` Pankkiyhteyksiä suljettiin ${r.revoked}.` : ""}${r.failed ? ` ${r.failed} pankkiyhteyttä ei saatu suljettua, ne vanhenevat pankissa itsestään.` : ""}`,
+                `${u.displayName} poistettiin.${r.revoked ? ` Pankkiyhteyksiä suljettiin ${r.revoked}.` : ""}${r.failed ? ` ${r.failed} pankkiyhteyttä jäi sulkematta. Ne vanhenevat pankissa itsestään.` : ""}`,
               );
             });
           }}
         >
           <p>Tilit, tapahtumat ja säännöt poistetaan heti. Pankkiyhteydet suljetaan myös pankissa.</p>
-          <p>Varmuuskopioista tiedot poistuvat 14 päivässä. Päivitystä edeltävä kopio voi säilyä pidempään.</p>
+          <p>Varmuuskopioista tiedot poistuvat 14 päivässä, päivitystä edeltävästä kopiosta myöhemmin.</p>
         </ConfirmDialog>
       )}
       <div className="table-wrap">

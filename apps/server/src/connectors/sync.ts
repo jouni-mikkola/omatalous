@@ -9,9 +9,11 @@ import type { Connection } from "../db/rows.ts";
 import { UserError } from "../platform/errors.ts";
 import { track } from "../platform/inflight.ts";
 import type { Services } from "../services/context.ts";
+import { connectionState } from "../services/accounts.ts";
 import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
+import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
 import type { Connector } from "./types.ts";
 
@@ -53,6 +55,9 @@ interface Tally {
   /** Rows written, or a balance that moved: only then do categories and the cached analyses need work. */
   rowsChanged: number;
   balanceChanged: boolean;
+  /** Per account, what its fetch ran into (fetch-problems.ts); a fetch that works takes its entry away. */
+  problems: FetchProblems;
+  problemsChanged: boolean;
 }
 
 /**
@@ -73,14 +78,16 @@ async function fetchForUser(s: Services, userId: string, trigger: string): Promi
   const repo = s.finance(userId);
   const runId = await repo.startSyncRun(trigger);
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
-  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false };
+  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, problems: {}, problemsChanged: false };
 
   try {
+    tally.problems = await readFetchProblems(s, userId);
     const active = (await repo.listConnections()).filter((c) => c.status === "active");
     for (const connector of CONNECTORS) {
       const connections = active.filter((c) => c.provider === connector.id);
       if (connector.sync && connections.length) await pullConnector(s, repo, connector, connections, summary, tally);
     }
+    if (tally.problemsChanged) await writeFetchProblems(s, userId, tally.problems, (await repo.listAccounts()).map((a) => a.id));
 
     // a fetch that found nothing new leaves the history and everyone's cached analyses alone
     if (tally.rowsChanged) await reprocess(repo, s.settings);
@@ -91,7 +98,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string): Promi
   } catch (err) {
     summary.status = "failed";
     if (!(err instanceof UserError)) console.error(`sync ${userId}:`, err);
-    summary.messages.push(err instanceof UserError ? err.message : "Haku epäonnistui. Pyydä ylläpitäjää tarkistamaan palvelimen loki.");
+    summary.messages.push(err instanceof UserError ? err.message : "Haku epäonnistui. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
   } finally {
     await repo.finishSyncRun(runId, {
       status: summary.status === "skipped" ? "ok" : summary.status,
@@ -104,17 +111,48 @@ async function fetchForUser(s: Services, userId: string, trigger: string): Promi
   return summary;
 }
 
-/** Every account of the connector's active connections, one after another. A failure ends only its connection. */
+/**
+ * Why a consent ended, in the words the connections table uses: past its date it "vanhentui" on that date; closed
+ * earlier by the bank or Enable Banking it "katkesi", and its date, still ahead, is not shown.
+ */
+function endedMessage(conn: Connection, today: string): string {
+  // the same date compare as the table, so the message and the Tila column never disagree
+  const lapsed = connectionState({ status: "expired", validUntil: conn.validUntil }, today) === "lapsed";
+  return lapsed
+    ? `${conn.institution}: yhteys vanhentui ${finnishDate(conn.validUntil!.slice(0, 10))}. Yhdistä uudelleen.`
+    : `${conn.institution}: yhteys katkesi. Yhdistä uudelleen.`;
+}
+
+function setProblem(tally: Tally, accountId: string, problem: FetchProblem | null): void {
+  const old = tally.problems[accountId];
+  if (!problem) {
+    if (!old) return;
+    delete tally.problems[accountId];
+  } else {
+    if (old?.kind === problem.kind && old.message === problem.message) return;
+    tally.problems[accountId] = problem;
+  }
+  tally.problemsChanged = true;
+}
+
+/**
+ * Every account of the connector's active connections, one after another. A failing account does not stop the
+ * others; only a consent that ended stops the rest of its own accounts.
+ */
 async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally): Promise<void> {
   const sync = connector.sync!;
   const today = s.today();
   const puller = await sync.open({ s, repo });
   const accounts = await repo.listAccounts();
+  const say = (message: string) => {
+    // a key the source refuses fails every account with the same words: once is enough
+    if (!summary.messages.includes(message)) summary.messages.push(message);
+  };
 
   for (const conn of connections) {
     if (conn.validUntil && conn.validUntil.slice(0, 10) < today) {
       await repo.setConnectionStatus(conn.id, "expired");
-      summary.messages.push(`${conn.institution}: yhteys vanheni ${finnishDate(conn.validUntil.slice(0, 10))}. Yhdistä uudelleen.`);
+      say(endedMessage(conn, today));
       tally.failures++;
       continue;
     }
@@ -140,22 +178,31 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
           await repo.setAccountBalance(account.id, cents, s.now().toISOString());
         }
         await repo.markAccountSynced(account.id, s.now().toISOString());
+        setProblem(tally, account.id, null);
       } catch (err) {
         tally.failures++;
         const problem = sync.classify(err);
         if (problem?.kind === "app_rejected") {
           // the app's key or id is wrong: the consents are fine, nothing to re-authorise
-          summary.messages.push(problem.message);
-          break;
+          say(problem.message);
+          continue;
         }
         if (problem?.kind === "consent_expired") {
           await repo.setConnectionStatus(conn.id, "expired");
-          summary.messages.push(`${conn.institution}: yhteys vanheni. Yhdistä uudelleen.`);
+          say(endedMessage(conn, today));
           break;
+        }
+        if (problem?.kind === "not_linked") {
+          // a known state with its own fix, not a fault for the log
+          setProblem(tally, account.id, { kind: "not_linked", message: problem.message });
+          say(`${account.name}: ${problem.message}`);
+          continue;
         }
         // the details go to the log; the source's response text is not for the user's screen
         console.error(`sync ${account.id}:`, err);
-        summary.messages.push(`${account.name}: ${problem ? problem.message : "haku epäonnistui"}.`);
+        const message = `${problem ? problem.message : "haku epäonnistui"}.`;
+        setProblem(tally, account.id, { kind: "failed", message });
+        say(`${account.name}: ${message}`);
       }
     }
     await repo.markConnectionSynced(conn.id, s.now().toISOString());

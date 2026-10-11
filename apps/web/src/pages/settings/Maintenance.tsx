@@ -109,10 +109,7 @@ export function Maintenance() {
       </p>
       <div className="card">
         <div className="card-head">
-          <div>
-            <h2>{S.title}</h2>
-            <div className="card-sub">{S.intro}</div>
-          </div>
+          <h2>{S.title}</h2>
         </div>
         {!data && !error && <div className="muted">Ladataan…</div>}
         {error && !data && <div className="error">{error}</div>}

@@ -11,6 +11,9 @@
  * left out ("ostot jääneet pois"). It goes to known.ts, and its entry names the wrong cause.
  */
 import type { Household } from "../../../../tools/findings/households.ts";
+import { cardClosed } from "./events/card-closed.ts";
+import { cardConnectedLate } from "./events/card-connected-late.ts";
+import { cardReplaced } from "./events/card-replaced.ts";
 import { cadenceMonthlyToYearly } from "./events/cadence-monthly-to-yearly.ts";
 import { cadenceQuarterlyToMonthly } from "./events/cadence-quarterly-to-monthly.ts";
 import { daycareHours } from "./events/daycare-hours.ts";
@@ -61,12 +64,16 @@ export const EVENTS: readonly LifeEvent[] = [
   holidayAbroad,
   largePurchase,
   refund,
+  cardClosed,
+  cardReplaced,
+  cardConnectedLate,
 ];
 
 /** The kit's base household (`kit:base`), or the base with `event` applied (`kit:<event id>`). */
 export function kitHousehold(event: LifeEvent | null): Household {
   const f = frameOf(KIT_TODAY, HISTORY_MONTHS);
-  const charges = [...steadyRows(KIT_SEED, "poisson", KIT_TODAY), ...(event?.add(f) ?? [])];
+  const steady = steadyRows(KIT_SEED, "poisson", KIT_TODAY).map((t) => event?.move?.(t, f) ?? t);
+  const charges = [...steady, ...(event?.add(f) ?? [])];
   // the event's own rows are never dropped: a new contract may have the old one's text
   const all = withCardBills(charges, KIT_TODAY).filter((t) => !event?.drop || t.id.startsWith(`${event.id}-`) || !event.drop(t, f));
   return householdOf(`kit:${event?.id ?? "base"}`, KIT_TODAY, all);

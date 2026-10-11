@@ -13,6 +13,10 @@ export function mockBank() {
     status: 200,
     /** The card's pending coffee gets booked (new identity at the bank). */
     pendingBooked: false,
+    /** Set to refuse card fetches that start before this day, as Nordea's card API does past 12 months. */
+    cardOldest: null as string | null,
+    /** Answers that replace a route's own (or answer one it has not), keyed like "POST /sessions" or "GET /accounts/u-card/balances". */
+    answers: {} as Record<string, { status: number; body: unknown }>,
     fetchMock: undefined as unknown as typeof fetch,
   };
   bank.fetchMock = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -41,6 +45,8 @@ export function mockBank() {
       remittance_information: [text],
       ...extra,
     });
+    const answer = bank.answers[route];
+    if (answer) return new Response(JSON.stringify(answer.body), { status: answer.status });
     if (route.startsWith("DELETE /sessions/")) return new Response(null, { status: 204 });
     switch (route) {
       case "GET /aspsps":
@@ -62,6 +68,9 @@ export function mockBank() {
           ? json({ transactions: [tx("c2", "300.00", "DBIT", "2026-10-05", "NORDEA GOLD LASKU", { creditor: { name: "NORDEA RAHOITUS SUOMI OY" } })] })
           : json({ transactions: [tx("c1", "3420.00", "CRDT", "2026-09-25", "PALKKA", { debtor: { name: "ACME OY" } })], continuation_key: "page2" });
       case "GET /accounts/u-card/transactions":
+        if (bank.cardOldest && (url.searchParams.get("date_from") ?? "") < bank.cardOldest) {
+          return new Response(JSON.stringify({ error: "ASPSP_ERROR", message: "Bad Request" }), { status: 400 });
+        }
         return json({
           transactions: [
             tx("k1", "300.00", "DBIT", "2026-09-12", "WOLT HELSINKI", { merchant_category_code: "5814" }),

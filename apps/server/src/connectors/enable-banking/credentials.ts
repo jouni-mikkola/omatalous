@@ -17,7 +17,7 @@ export async function resolveCredentials(s: Services, userId: string): Promise<R
   const own = await s.users.getBankCredentials(userId);
   if (own) {
     const box = await s.secretBox();
-    if (!box) throw new UserError("Pankkiavainta ei voi avata. Pyydä ylläpitäjää tarkistamaan palvelimen loki.");
+    if (!box) throw new UserError("Pankkiavainta ei voi avata. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
     return { appId: own.appId, privateKeyPem: await box.open(own.privateKeyEnc, userId), source: "user" };
   }
   const shared = await instanceCredentials(s);
@@ -27,7 +27,7 @@ export async function resolveCredentials(s: Services, userId: string): Promise<R
 /** Validates and stores a member's own Enable Banking app id + private key (encrypted, re-encoded). */
 export async function saveCredentials(s: Services, userId: string, appIdInput: unknown, privateKeyInput: unknown): Promise<void> {
   const box = await s.secretBox();
-  if (!box) throw new UserError("Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää tarkistamaan palvelimen loki.");
+  if (!box) throw new UserError("Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
   const appId = parseAppId(appIdInput);
   let pem: string;
   try {

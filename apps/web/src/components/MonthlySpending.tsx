@@ -136,7 +136,7 @@ export function MonthlySpending({ trend, colorOrder, range }: { trend: Trend; co
             </div>
             {!explanation && (
               <p className="muted small explain-empty">
-                Selitys näyttää, mikä erotti kuukauden tavallisesta. Se näkyy, kun ennen kuukautta on {completeMonths(MIN_COMPARE_MONTHS)}.
+                Selitys näkyy, kun ennen kuukautta on {completeMonths(MIN_COMPARE_MONTHS)}.
               </p>
             )}
             <div className="table-wrap">

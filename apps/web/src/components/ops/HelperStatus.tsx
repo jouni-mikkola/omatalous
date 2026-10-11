@@ -36,7 +36,7 @@ export function HelperStatus({ helper }: { helper: HelperInfo }) {
         <Command text={helper.reason === "stale" ? "systemctl --user list-timers 'talous-ops-*'" : helper.enableCommand} />
         {helper.reason === "stale" && (
           <>
-            <p style={{ margin: "4px 0" }}>Jos ajastin puuttuu, ota apuri uudelleen käyttöön:</p>
+            <p style={{ margin: "4px 0" }}>Jos ajastinta ei ole, asenna apuri uudelleen:</p>
             <Command text={helper.enableCommand} />
           </>
         )}

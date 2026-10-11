@@ -42,6 +42,28 @@ describe("Enable Banking flow (mocked API)", () => {
     expect((await admin.call("GET", "/api/transactions?q=espresso")).body.items[0].status).toBe("pending");
   });
 
+  it("asks for a shorter window when the bank refuses a card's long history, and names the bank's error code", async () => {
+    const bank = mockBank();
+    bank.cardOldest = "2025-10-15"; // 360 days back from NOW is 2025-10-14
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    await admin.call("POST", "/api/connections/start", {});
+    await admin.call("POST", "/api/connections/complete", { url: `https://x.example/cb?code=abc&state=${bank.state}` });
+    await waitFor(async () => (await admin.call("GET", "/api/sync/runs")).body.runs.every((r: { status: string }) => r.status !== "running"));
+
+    const cardCalls = bank.calls.filter((c) => c.startsWith("GET /accounts/u-card/transactions"));
+    expect(cardCalls.map((c) => new URLSearchParams(c.split("?")[1]).get("date_from"))).toEqual(["2024-10-09", "2025-10-14", "2026-07-12"]);
+    expect((await admin.call("GET", "/api/transactions?q=espresso")).body.items).toHaveLength(1);
+    expect((await admin.call("GET", "/api/sync/runs")).body.runs[0].status).toBe("ok");
+
+    // a refusal of a recent window is not retried, and the message names the code
+    bank.cardOldest = "2027-01-01";
+    bank.calls.length = 0;
+    const sync = await admin.call("POST", "/api/sync");
+    expect(sync.body.status).toBe("partial");
+    expect(sync.body.messages).toEqual(["Nordea Gold: pankki vastasi virheellä 400 (ASPSP_ERROR)."]);
+    expect(bank.calls.filter((c) => c.startsWith("GET /accounts/u-card/transactions"))).toHaveLength(1);
+  });
+
   it("a member cannot complete another member's bank authorisation", async () => {
     const bank = mockBank();
     const { admin, member } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);

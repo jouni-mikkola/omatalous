@@ -9,10 +9,11 @@
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
 import { formatEur, formatFiDate, monthInessive } from "../../analysis/format.ts";
 import { expensiveMonthItems, type Season } from "../../analysis/insights/seasons.ts";
-import { capitalise, gateMonthly, lastCompleteMonths, monthName, monthRows, monthStem, oneOff, shiftMonth } from "../../analysis/insights/shared.ts";
-import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../../analysis/usual.ts";
+import { capitalise, gateMonthly, lastCompleteMonths, monthName, monthRows, monthStem } from "../../analysis/insights/shared.ts";
+import { monthOneOffs } from "../../analysis/one-offs.ts";
+import { completeMonthsBefore, isCompleteMonth } from "../../analysis/usual.ts";
 import { getCategory } from "../../categories.ts";
-import { daysBetween } from "../../dates.ts";
+import { addMonths, daysBetween } from "../../dates.ts";
 import { median } from "../../stats.ts";
 import { findingId, GATE_YEARLY_CENTS, netCost } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
@@ -25,7 +26,7 @@ const DRIVER_SHARE = 1 / 3;
 
 const eur = (cents: number) => formatEur(cents, false);
 /** "tammi–helmikuussa" for the two months from `month`. */
-const twoMonthsInessive = (month: string) => `${monthStem(month)}–${monthInessive(shiftMonth(month, 1))}`;
+const twoMonthsInessive = (month: string) => `${monthStem(month)}–${monthInessive(addMonths(month, 1))}`;
 /** "joulukuun" */
 const monthGenitive = (month: string) => `${monthName(month)}n`;
 
@@ -40,8 +41,8 @@ interface CreditCost {
 
 /** Interest and credit drawn around one year's expensive month, or null when a month around it is not complete. */
 function creditAround(ctx: AnalysisContext, month: string): CreditCost | null {
-  const after = [shiftMonth(month, 1), shiftMonth(month, 2)];
-  const before = [shiftMonth(month, -2), shiftMonth(month, -1)];
+  const after = [addMonths(month, 1), addMonths(month, 2)];
+  const before = [addMonths(month, -2), addMonths(month, -1)];
   if (![...after, ...before].every((m) => isCompleteMonth(ctx, m))) return null;
   const sum = (months: readonly string[], pick: (t: AnalysisTx) => number) => months.reduce((s, m) => s + monthRows(ctx, m).txs.reduce((x, t) => x + pick(t), 0), 0);
   const interest = (t: AnalysisTx) => (t.category === "interest" ? netCost(t) : 0);
@@ -53,8 +54,8 @@ function creditAround(ctx: AnalysisContext, month: string): CreditCost | null {
 
 /** The month's biggest purchases and its one-off, the evidence of an expensive month. */
 function monthEvidence(ctx: AnalysisContext, month: string): { rows: AnalysisTx[]; one: AnalysisTx | null } {
-  const usual = usualSpending(ctx, month);
-  const one = usual === null ? null : oneOff(ctx, month, monthRows(ctx, month).spend - usual);
+  // the largest one-off of the month by the level policy, as the insights strike it
+  const one = monthOneOffs(ctx, month, completeMonthsBefore(ctx, month))[0] ?? null;
   const rows = monthRows(ctx, month)
     .txs.filter((t) => netCost(t) > 0 && t.category !== "card_bill" && !ctx.fixedIds.has(t.id) && t.id !== one?.id)
     .sort((x, y) => netCost(y) - netCost(x) || x.id.localeCompare(y.id))
@@ -84,7 +85,7 @@ function driverOf(ctx: AnalysisContext, month: string, one: AnalysisTx | null): 
 function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
   const { ctx, today } = a;
   const mm = s.month.slice(5);
-  const years = [s.month, shiftMonth(s.month, -12)];
+  const years = [s.month, addMonths(s.month, -12)];
   const name = capitalise(monthName(s.month));
   const reserve = Math.ceil(s.extra / 1200) * 100;
   const evidence = years.map((m) => monthEvidence(ctx, m));
@@ -119,17 +120,17 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
     if (midCents >= GATE_YEARLY_CENTS) {
       const creditCalc: CalcLine[] = years.flatMap((m, i) => {
         const c = credit[i]!;
-        const after = shiftMonth(m, 1);
+        const after = addMonths(m, 1);
         const lines: CalcLine[] = [
-          { label: `Korko ${twoMonthsInessive(after)} ${shiftMonth(m, 2).slice(0, 4)}`, value: eur(c.after) },
-          { label: `Korko ${twoMonthsInessive(shiftMonth(m, -2))} ${shiftMonth(m, -1).slice(0, 4)}`, value: eur(c.before) },
+          { label: `Korko ${twoMonthsInessive(after)} ${addMonths(m, 2).slice(0, 4)}`, value: eur(c.after) },
+          { label: `Korko ${twoMonthsInessive(addMonths(m, -2))} ${addMonths(m, -1).slice(0, 4)}`, value: eur(c.before) },
         ];
-        if (c.drawn > 0) lines.push({ label: `Luottoa nostettu ${twoMonthsInessive(after)} ${shiftMonth(m, 2).slice(0, 4)}`, value: eur(c.drawn) });
+        if (c.drawn > 0) lines.push({ label: `Luottoa nostettu ${twoMonthsInessive(after)} ${addMonths(m, 2).slice(0, 4)}`, value: eur(c.drawn) });
         return lines;
       });
       return {
         ...base,
-        title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(twoMonthsInessive(shiftMonth(s.month, 1)))} korkoa maksettiin keskimäärin ${eur(midCents)} enemmän kuin ${twoMonthsInessive(shiftMonth(s.month, -2))}.`,
+        title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(twoMonthsInessive(addMonths(s.month, 1)))} korkoa maksettiin keskimäärin ${eur(midCents)} enemmän kuin ${twoMonthsInessive(addMonths(s.month, -2))}.`,
         action: `Maksa ${monthGenitive(s.month)} menot ilman luottoa: varaa ${eur(reserve)} kuussa.`,
         effort: "tunti",
         euros: { lowCents: Math.min(...extras), midCents, highCents: Math.max(...extras), assumption: `Jos ${monthGenitive(s.month)} lisämenot maksetaan ilman luottoa.` },
@@ -170,7 +171,7 @@ export const seasons: Area = {
   label: "Vuosimenot",
   assess: (a) => {
     const recent = lastCompleteMonths(a.ctx, a.today, 12);
-    const enough = recent.length === 12 && isCompleteMonth(a.ctx, shiftMonth(recent[0]!, -12));
+    const enough = recent.length === 12 && isCompleteMonth(a.ctx, addMonths(recent[0]!, -12));
     const checks: Check[] = [
       { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data", ...(enough ? {} : { hint: "Vertailu tarvitsee kahden vuoden historian." }) },
     ];

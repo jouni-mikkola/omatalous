@@ -31,7 +31,7 @@ function Pivot({ ctx }: SectionProps) {
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.averageCents !== null;
   return (
-    <Section id={section.id} title={section.title} sub="Mitä tummempi solu, sitä kalliimpi kuukausi" actions={<ExportLink href={ctx.exportHref("pivot")} />}>
+    <Section id={section.id} title={section.title} sub="Tummempi solu, kalliimpi kuukausi" actions={<ExportLink href={ctx.exportHref("pivot")} />}>
       <div className="table-wrap pivot-wide">
         <table className="heat-table">
           <thead>
@@ -79,7 +79,7 @@ function Pivot({ ctx }: SectionProps) {
         </table>
       </div>
       <PivotList r={r} />
-      {partial && <p className="small muted">Vajaa kuukausi on kesken tai tiedot eivät kata sitä kokonaan. Se ei ole mukana keskiarvossa eikä värjäyksessä.</p>}
+      {partial && <p className="small muted">Vajaa kuukausi ei ole mukana keskiarvossa eikä värityksessä.</p>}
     </Section>
   );
 }

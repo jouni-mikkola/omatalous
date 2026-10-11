@@ -11,8 +11,9 @@ import { monthIndex, monthOf } from "../dates.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import type { IsoDate } from "../types.ts";
 import { type BucketKind, type ContextIndex, contextIndex, GAP_LABEL, restLabel, spendingChange } from "./change.ts";
-import type { AnalysisContext, AnalysisTx } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, netSpend } from "./context.ts";
 import { formatEur } from "./format.ts";
+import { monthOneOffs } from "./one-offs.ts";
 import { completeMonthsBefore, MIN_COMPARE_MONTHS, usualCents } from "./usual.ts";
 
 /** At most this many categories are named; the rest are one row. */
@@ -73,10 +74,9 @@ const dayOfMonth = (t: Pick<AnalysisTx, "bookingDate">) => Number(t.bookingDate.
 const total = (sums: ReadonlyMap<string, number>) => [...sums.values()].reduce((s, v) => s + v, 0);
 /** "2026-09-30" → "30.9." */
 const shortDate = (iso: IsoDate) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.`;
-/** What a purchase cost in the end: its spending less what came back. */
-const netSpend = (t: Pick<AnalysisTx, "spend" | "refunded">) => Math.max(0, t.spend - t.refunded);
 
 interface Basis {
+  ctx: AnalysisContext;
   index: ContextIndex;
   month: string;
   usualMonths: string[];
@@ -132,17 +132,11 @@ function explain(basis: Basis, category: string, change: number): ExplanationCau
       if (series.firstDate < `${month}-01` || series.intervalDays > NEW_SERIES_MAX_INTERVAL_DAYS || usual.some((c) => c > 0) || !now.length || !explains(cents)) continue;
       return { kind: "new", merchant: series.merchant, date: now[0]!.bookingDate, amountCents: cents, text: `Uusi toistuva maksu: ${series.merchant}, noin ${formatEur(series.monthlyCents, false)} kuussa` };
     }
-    // one payment that is half the move or more and larger than anything in the category in the usual months,
-    // bills of a recurring series included. A card bill pays purchases made earlier: it is never a purchase itself.
-    let biggest: AnalysisTx | null = null;
-    if (category !== "card_bill") for (const t of monthTxs(month)) if (counted(t) && !index.seriesOf.has(t.id) && netSpend(t) > (biggest ? netSpend(biggest) : 0)) biggest = t;
+    // the largest one-off of the category (the level policy, as every view strikes it) when it is half the move or more
+    const biggest = monthOneOffs(basis.ctx, month, usualMonths).find((t) => counted(t) && !index.seriesOf.has(t.id));
     if (biggest && explains(netSpend(biggest))) {
-      let before = 0;
-      for (const m of usualMonths) for (const t of monthTxs(m)) if (t.category === category) before = Math.max(before, netSpend(t));
-      if (netSpend(biggest) > before) {
-        const cents = netSpend(biggest);
-        return { kind: "oneoff", merchant: biggest.merchant, date: biggest.bookingDate, amountCents: cents, text: `Yksi maksu: ${biggest.merchant}, ${shortDate(biggest.bookingDate)}, ${formatEur(cents)}` };
-      }
+      const cents = netSpend(biggest);
+      return { kind: "oneoff", merchant: biggest.merchant, date: biggest.bookingDate, amountCents: cents, text: `Yksi maksu: ${biggest.merchant}, ${shortDate(biggest.bookingDate)}, ${formatEur(cents)}` };
     }
     return null;
   }
@@ -168,7 +162,7 @@ export function explainMonth(ctx: AnalysisContext, month: string): MonthExplanat
   if (usualMonths.length < MIN_COMPARE_MONTHS) return null;
   const index = contextIndex(ctx);
   const running = month === monthOf(ctx.today);
-  const basis: Basis = { index, month, usualMonths, running, cap: running ? Number(ctx.today.slice(8, 10)) : 31 };
+  const basis: Basis = { ctx, index, month, usualMonths, running, cap: running ? Number(ctx.today.slice(8, 10)) : 31 };
   const sums = (m: string) => {
     const out = new Map<string, number>();
     for (const t of index.byMonth.get(monthIndex(m)) ?? []) if (t.spend !== 0 && dayOfMonth(t) <= basis.cap) out.set(t.category, (out.get(t.category) ?? 0) + t.spend);

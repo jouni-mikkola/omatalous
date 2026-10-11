@@ -32,7 +32,7 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
       </div>
       {balance && <BalanceLine ahead={ahead} balance={balance} />}
       {rows.length === 0 ? (
-        <p className="small muted">Laskut ja palkkapäivät näkyvät, kun tileiltä tunnistetaan toistuvia maksuja. Maksu tunnistetaan, kun se on tullut kaksi kertaa.</p>
+        <p className="small muted">Laskut ja palkkapäivät näkyvät, kun sama maksu on tullut kahdesti.</p>
       ) : (
         <table className="compact">
           <tbody>
@@ -61,10 +61,10 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
       )}
       {ahead.missing === "balance" && (
         <p className="small muted ahead-note">
-          Lisää saldo kohdassa <a href="#/settings">Asetukset &gt; Tilit</a>, niin saldo näkyy päivittäin.
+          Lisää saldo kohdassa <a href="#/settings">Asetukset &gt; Tilit</a>, niin näet saldon päivittäin.
         </p>
       )}
-      {ahead.missing === "history" && <p className="small muted ahead-note">Saldon kehitys näkyy, kun historiassa on ensimmäinen valmis kuukausi.</p>}
+      {ahead.missing === "history" && <p className="small muted ahead-note">Saldon kehitys näkyy ensimmäisen kokonaisen kuukauden jälkeen.</p>}
     </>
   );
 }

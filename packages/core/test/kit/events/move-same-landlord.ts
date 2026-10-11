@@ -20,5 +20,7 @@ export const moveSameLandlord: LifeEvent = {
   allows: [
     // October's rent is 240 € more than a year ago, told as an amount without a cause
     /^change change:season:/,
+    // the dearer rent since June, told as a bigger bill
+    /^change change:year:/,
   ],
 };

@@ -6,10 +6,10 @@
  */
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { priceRiseItems } from "../../analysis/insights/prices.ts";
-import { addDays, monthOf } from "../../dates.ts";
+import { addDays, addMonthsToDate, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { IsoDate } from "../../types.ts";
-import { addMonthsToDate, findingId, GATE_YEARLY_CENTS, yearlyAt } from "../common.ts";
+import { findingId, GATE_YEARLY_CENTS, yearlyAt } from "../common.ts";
 import { factOn } from "../facts/index.ts";
 import { inputKey, inputStatus, valueOf } from "../inputs.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";

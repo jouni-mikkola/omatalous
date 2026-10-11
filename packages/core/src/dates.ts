@@ -59,6 +59,22 @@ export function daysInMonth(month: string): number {
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
+/** Day `day` of `month`, clamped to the month's length: ("2026-02", 31) → "2026-02-28". */
+export function dateIn(month: string, day: number): IsoDate {
+  return `${month}-${String(Math.min(day, daysInMonth(month))).padStart(2, "0")}`;
+}
+
+/** The last day of the month: "2026-02" → "2026-02-28". */
+export const monthEnd = (month: string): IsoDate => dateIn(month, 31);
+
+/** The same day `n` months later, clamped to the month's length (31.1. + 1 is 28.2., 29.2. − 12 is 28.2.). */
+export function addMonthsToDate(date: IsoDate, n: number): IsoDate {
+  return dateIn(addMonths(monthOf(date), n), Number(date.slice(8, 10)));
+}
+
+/** The mean month in days: a span of days as months. The one copy of this number. */
+export const DAYS_PER_MONTH = 30.44;
+
 /** 0 = Monday … 6 = Sunday (1970-01-01 was a Thursday). */
 export function weekdayOf(s: IsoDate): number {
   return (dayNumber(s) + 3) % 7;

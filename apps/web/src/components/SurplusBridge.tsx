@@ -30,7 +30,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
             </div>
           </div>
         )}
-        <p className="muted small">Jaksolla ei ole tuloja. Jako näkyy, kun jaksolle tulee palkka tai muuta tuloa.</p>
+        <p className="muted small">Jaksolla ei ole tuloja.</p>
       </div>
     );
   }
@@ -125,7 +125,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
               ))}
           </div>
           {over && <p className="bridge-over">Menoja {money(-left, false)} enemmän kuin tuloja</p>}
-          {saved < 0 && <p className="muted small">Säästöistä nostettiin {money(-saved, false)}. Se kuuluu lukuun Yli jäi.</p>}
+          {saved < 0 && <p className="muted small">Säästöistä nostettiin {money(-saved, false)}, ja se on mukana luvussa Yli jäi.</p>}
         </>
       )}
     </div>

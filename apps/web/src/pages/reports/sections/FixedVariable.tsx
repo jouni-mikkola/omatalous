@@ -15,7 +15,7 @@ function FixedVariable({ ctx }: SectionProps) {
   return (
     <Section id={section.id} title={section.title} sub="Arkiostot ovat toistuvia pieniä ostoja">
       {buffer.advice && <p className="lead">{buffer.advice}</p>}
-      {buffer.cashCents === null && <p className="lead muted">Lisää saldo kohdassa Asetukset &gt; Tilit, niin näet, montako kuukautta tilien rahat riittävät menoihin.</p>}
+      {buffer.cashCents === null && <p className="lead muted">Lisää tilien saldot kohdassa Asetukset &gt; Tilit, niin näet, montako kuukautta rahat riittävät.</p>}
       <Kv
         items={[
           ["Kiinteät", `${money(t.fixedCents, false)} · ${share(t.fixedCents)}`],

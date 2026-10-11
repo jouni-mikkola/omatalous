@@ -157,7 +157,7 @@ export function Merchants({ meta }: { meta: Meta }) {
             ))}
           </tbody>
         </table>
-        {items && !items.length && <div className="empty">{q || category ? "Ei kauppiaita näillä rajauksilla." : "Kauppiaita ei vielä ole. Ne näkyvät, kun tapahtumia on tuotu."}</div>}
+        {items && !items.length && <div className="empty">{q || category ? "Ei kauppiaita näillä rajauksilla." : "Ei vielä kauppiaita."}</div>}
         {!items && !loadError && <div className="empty">Ladataan…</div>}
       </div>
       {items && items.length >= LIMIT && <div className="small muted">Näytetään {LIMIT} suurinta. Rajaa hakua.</div>}

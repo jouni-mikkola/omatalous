@@ -3,6 +3,35 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.3
+
+Money and reports
+
+- The spending change names a category or calls a month dearer or cheaper only when the change stands out from that category's own month-to-month noise, and its usual level leaves out one-offs. A card that has not synced no longer reads as purchases left out.
+
+Fetching and importing
+
+- A bank connection that owns no account any more moves under *Aiemmat yhteydet* in *Asetukset > Pankkiyhteydet*, with *Poista listalta*. Reconnecting moves the accounts, so the old connection and its notice go at once.
+- A connection whose date passed reads "vanhentui 9.4.2027". One the bank or Enable Banking closed before its date reads "katkesi" with *Yhdistä uudelleen* and no date. The table, *Tietojen laatu* and the notice use the same words.
+- An account the Enable Banking app may not read says "tiliä ei ole linkitetty Enable Bankingissa" and where to link it, also on its row under *Asetukset > Tilit*. One failing account no longer stops the others.
+- Connecting with an app that is not active yet stops before the bank with one message, and the bank picker says so. A refusal from Enable Banking or the bank while connecting says who fixes it, and a pasted error address gets the same message.
+- An account that a new connection of the same bank did not bring says "<account> ei tullut mukaan uuteen yhteyteen" and points to *Link accounts*, on its row, in *Tietojen laatu* and in the notice, instead of "katkesi".
+- Step 2 of the Enable Banking setup (the first-run wizard and *Asetukset > Palvelin*) lists the fields of Enable Banking's "Add a new application" form in the form's order. Each value has a *Kopioi* button, and *Avaa Enable Banking* opens the Control Panel.
+- The return page site has a privacy page and a terms page for the form's two URLs. They are shown with the other values.
+- *Tallenna ja testaa* and *Testaa yhteys* also read whether Enable Banking counts the app as active. An inactive app gets the line "Sovellus ei ole vielä aktiivinen" and no bank can be connected until the test finds it active.
+- A Nordea card's first fetch no longer fails with error 400 when the bank refuses two years of history. The fetch asks again for the last 12 months, then 90 days.
+- A failed fetch names the bank's error code next to the status, such as `400 (ASPSP_ERROR)`.
+
+Look
+
+- Asetukset and Asetukset > Ylläpito drop a few help lines that only repeated what the page shows, and the rest read shorter and plainer.
+
+For developers
+
+- `oneOffs(rows, policy)` in `analysis/one-offs.ts` owns one-offs: the level policy for insights, the month explanation, the change report, Optimoi and the spike alert, the pay policy for income (ADR 0005).
+- `monthEnd`, `dateIn`, `addMonthsToDate` and `DAYS_PER_MONTH` live in dates.ts; `shiftMonth` and `yearEarlier` are gone. Rules 18 and 19 guard month ends and usual windows.
+- The change report reads noise per category (`change-signal.ts`) and cuts a comparison at the day a lagging account reaches (`rowsCompleteThrough`).
+
 ## 0.8.2
 
 Money and reports

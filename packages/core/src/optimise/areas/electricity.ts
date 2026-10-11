@@ -8,6 +8,7 @@ import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { addDays, dayNumber, monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
+import { cadenceMonths } from "../../recurring.ts";
 import { median } from "../../stats.ts";
 import type { IsoDate } from "../../types.ts";
 import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS } from "../common.ts";
@@ -82,19 +83,13 @@ function billsOf(ctx: AnalysisContext, a: AreaInput, months: readonly string[], 
   return { bills, credits: rows.filter((t) => t.amountCents > 0 && payees.has(t.merchant)) };
 }
 
-const CADENCES = [
-  { months: 1, days: 30.44, tolerance: 5 },
-  { months: 2, days: 60.88, tolerance: 8 },
-  { months: 3, days: 91.31, tolerance: 12 },
-];
-
 /** Months one bill covers, by the median gap between the payee's bills (monthly, bimonthly, quarterly), or null. */
 function monthsPerBill(ctx: AnalysisContext, merchant: string, industry: ReadonlyMap<string, string>): number | null {
   const days = ctx.txs.filter((t) => t.merchant === merchant && !t.isTransfer && t.spend > 0 && billKind(t, industry)).map((t) => dayNumber(t.bookingDate));
   const gaps = days.slice(1).map((d, i) => d - days[i]!);
   if (!gaps.length) return null;
-  const gap = median(gaps);
-  return CADENCES.find((c) => Math.abs(gap - c.days) <= c.tolerance)?.months ?? null;
+  const months = cadenceMonths(median(gaps));
+  return months !== null && months <= 3 ? months : null;
 }
 
 /**
@@ -130,8 +125,12 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   if (!sellers.length) return { finding: null, check: priceCheck("no_data", "Sähkönmyyjän laskuja ei löytynyt 12 kuukauden ajalta.") };
   // two network companies in one year are two addresses: the typed kWh is for one of them
   if (new Set(networks.map((b) => b.t.merchant)).size > 1) return { finding: null, check: priceCheck("no_data", "Verkkolaskuja on kahdelta yhtiöltä 12 kuukauden ajalta.") };
-  // a row over three times its payee's median (a connection fee, a final bill) leaves the level and the count
-  const struck = new Set(levelWithoutOneOffs(bills.map((b) => b.t), a.months).struck);
+  // a one-off (a connection fee, a final bill) leaves the level and the count. A payee with under three bills has no
+  // usual bill of its own (a seller switched at the window's edge): its winter bill is no one-off against the network's
+  const perPayee = new Map<string, number>();
+  for (const b of bills) perPayee.set(b.t.merchant, (perPayee.get(b.t.merchant) ?? 0) + 1);
+  const merchantOf = new Map(bills.map((b) => [b.t.id, b.t.merchant]));
+  const struck = new Set(levelWithoutOneOffs(bills.map((b) => b.t), a.months).struck.filter((id) => (perPayee.get(merchantOf.get(id)!) ?? 0) >= 3));
   const counted = bills.filter((b) => !struck.has(b.t.id));
   for (const side of [counted.filter((b) => b.kind !== "network"), counted.filter((b) => b.kind !== "seller")]) {
     if (!coversYear(ctx, side.map((b) => b.t), a.industry)) return { finding: null, check: priceCheck("no_data", "12 kuukauden laskut eivät kata täsmälleen yhtä vuotta.") };

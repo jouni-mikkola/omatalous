@@ -185,6 +185,54 @@ describe("repo rules: code", () => {
   });
 });
 
+describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
+  it("rule 18: no local month length (`30.44`) or month-end string outside dates.ts and recurring.ts", () => {
+    const OWNERS = new Set(["packages/core/src/dates.ts", "packages/core/src/recurring.ts"]);
+    const BANNED: [RegExp, string][] = [
+      [/30\.44/, "a local month length: use DAYS_PER_MONTH from dates.ts"],
+      [/daysInMonth\([^)]*\)\)?\.padStart|String\(daysInMonth\(|daysInMonth\([^)]*\)\)\)\.padStart|-\$\{daysInMonth\(/, "a month end built by hand: use monthEnd or dateIn from dates.ts"],
+    ];
+    const found: Finding[] = [];
+    for (const file of sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/")) {
+      if (OWNERS.has(file)) continue;
+      readText(file)
+        .split("\n")
+        .forEach((text, i) => {
+          for (const [re, why] of BANNED) if (re.test(text)) found.push({ file, line: i + 1, why });
+        });
+    }
+    expectNoFindings("one owner for dates", found, "dates.ts owns month arithmetic: monthEnd, dateIn, addMonthsToDate, DAYS_PER_MONTH (ADR 0005).");
+  });
+
+  it("rule 19: `historyCovers(` only in usual.ts and context.ts, or on the shrinking baseline", () => {
+    const OWNERS = new Set(["packages/core/src/analysis/usual.ts", "packages/core/src/analysis/context.ts"]);
+    // today's other callers and how many calls each; a count may only go down
+    const BASELINE: Record<string, number> = {
+      "packages/core/src/analysis/alerts.ts": 2,
+      "packages/core/src/analysis/dashboard.ts": 1,
+      "packages/core/src/analysis/income-changes.ts": 1,
+      "packages/core/src/analysis/income-events.ts": 3,
+      "packages/core/src/analysis/insights/commitments.ts": 1,
+      "packages/core/src/analysis/insights/subscriptions.ts": 1,
+      "packages/core/src/optimise/common.ts": 1,
+      "packages/core/src/reports/categories.ts": 1,
+      "packages/core/src/reports/drift.ts": 4,
+      "packages/core/src/reports/summary.ts": 1,
+    };
+    const SELF = "tools/repo-rules/code-rules.ts";
+    const found: Finding[] = [];
+    const seen = new Map<string, number>();
+    for (const file of sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/")) {
+      if (OWNERS.has(file)) continue;
+      const n = (readText(file).match(/historyCovers\(/g) ?? []).length;
+      if (n) seen.set(file, n);
+      if (n > (BASELINE[file] ?? 0)) found.push({ file, line: lineIn(file, "historyCovers("), why: `${n} calls, baseline ${BASELINE[file] ?? 0}: build a usual base with completeMonthsBefore` });
+    }
+    for (const [file, n] of Object.entries(BASELINE)) if ((seen.get(file) ?? 0) < n) found.push({ file: SELF, line: lineIn(SELF, `"${file}"`), why: `${file} has ${seen.get(file) ?? 0} calls now: lower its baseline to that` });
+    expectNoFindings("usual windows", found, "a usual base is complete months (completeMonthsBefore in analysis/usual.ts, ADR 0005).");
+  });
+});
+
 describe("repo rules: request bodies and marks", () => {
   it("rule 14: every request body in apps/server/src/routes is read inside strictObject() or a parse*() call, never with c.req.json() or parseBody()", () => {
     // Services that check the body they are handed with strictObject themselves. An entry no call uses any more fails.

@@ -1,7 +1,8 @@
-import { fromMonthIndex, monthIndex, monthOf } from "../../dates.ts";
+import { monthIndex, monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
 import type { RecurringSeries } from "../../recurring.ts";
-import type { AnalysisContext, AnalysisTx } from "../context.ts";
+import { type AnalysisContext, type AnalysisTx, netSpend } from "../context.ts";
+import { monthOneOffs } from "../one-offs.ts";
 import { completeMonthsBefore, gateFor, GATE_FLOOR_CENTS, usualSpending } from "../usual.ts";
 import { isLenderName } from "../../wording.ts";
 
@@ -57,30 +58,15 @@ export function monthRows(ctx: AnalysisContext, month: string): MonthRows {
   return byMonth.get(monthIndex(month)) ?? { txs: [], spend: 0, purchases: 0 };
 }
 
-const netSpend = (t: Pick<AnalysisTx, "spend" | "refunded">) => Math.max(0, t.spend - t.refunded);
 
-/**
- * The one-off in a month that is `excess` above its usual level, by the month explanation's rule (explain.ts): one
- * payment outside subscriptions and bills that is half the excess or more and larger than any payment in its category
- * in the months before. Returns the payment, or null.
- */
-export function oneOff(ctx: AnalysisContext, month: string, excess: number): AnalysisTx | null {
-  let biggest: AnalysisTx | null = null;
-  for (const t of monthRows(ctx, month).txs) {
-    if (t.category !== "card_bill" && !ctx.fixedIds.has(t.id) && netSpend(t) > (biggest ? netSpend(biggest) : 0)) biggest = t;
-  }
-  if (!biggest || netSpend(biggest) * 2 < excess) return null;
-  for (const m of completeMonthsBefore(ctx, month)) {
-    for (const t of monthRows(ctx, m).txs) if (t.category === biggest.category && netSpend(t) >= netSpend(biggest)) return null;
-  }
-  return biggest;
+/** What the one-offs of a month (`monthOneOffs`, the level policy) cost in the end. */
+export function oneOffCents(ctx: AnalysisContext, month: string): number {
+  return monthOneOffs(ctx, month, completeMonthsBefore(ctx, month)).reduce((s, t) => s + netSpend(t), 0);
 }
 
-/** The purchases of a month (`MonthRows.purchases`) with its one-off taken out. */
-export function purchasesWithoutOneOff(ctx: AnalysisContext, month: string, usual: number | null): number {
-  const p = monthRows(ctx, month).purchases;
-  const one = usual === null ? null : oneOff(ctx, month, p - usual);
-  return one ? p - netSpend(one) : p;
+/** The purchases of a month (`MonthRows.purchases`) with its one-offs taken out. */
+export function purchasesWithoutOneOff(ctx: AnalysisContext, month: string): number {
+  return monthRows(ctx, month).purchases - oneOffCents(ctx, month);
 }
 
 /**
@@ -123,4 +109,3 @@ export function evenlySpaced(ctx: AnalysisContext, s: Pick<RecurringSeries, "tra
 /** Payment services that sell instalment plans: their charges are instalments (instalments.ts), not subscriptions or prices. */
 export const isLender = (merchant: string) => isLenderName(fold(merchant));
 
-export const shiftMonth = (month: string, n: number) => fromMonthIndex(monthIndex(month) + n);

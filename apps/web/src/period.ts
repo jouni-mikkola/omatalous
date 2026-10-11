@@ -1,4 +1,4 @@
-import { addMonths, daysInMonth } from "@banking/core";
+import { addMonths, monthEnd } from "@banking/core";
 
 export const PERIODS = [
   { id: "month", label: "Tämä kuu" },
@@ -20,7 +20,7 @@ export function periodRange(period: string, today: string): { from: string; to: 
   const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
   const prev = addMonths(month, -1);
-  const lastMonths = (n: number) => ({ from: `${addMonths(month, -n)}-01`, to: `${prev}-${daysInMonth(prev)}` });
+  const lastMonths = (n: number) => ({ from: `${addMonths(month, -n)}-01`, to: monthEnd(prev) });
   switch (period) {
     case "last-month":
       return lastMonths(1);

@@ -222,7 +222,7 @@ describe("node-sqlite errors", () => {
     const rows = Array.from({ length: 200 }, () => ({ sql: "INSERT INTO t VALUES (?)", params: ["x".repeat(1000)] }));
     const err = await db.batch(rows).catch((e: Error) => e);
     expect(err).toBeInstanceOf(UserError);
-    expect((err as Error).message).toBe("Levy on täynnä, tietoja ei voitu tallentaa. Ylläpitäjän pitää vapauttaa tilaa.");
+    expect((err as Error).message).toBe("Levy on täynnä, eikä tietoja voitu tallentaa. Pyydä ylläpitäjää vapauttamaan tilaa.");
     expect(errors.mock.calls.flat().join(" ")).toMatch(/the disk is full \(SQLITE_FULL\)/);
     expect(errors.mock.calls.flat().join(" ")).not.toMatch(/cannot rollback/);
     // nothing was half written and the connection works after space is back

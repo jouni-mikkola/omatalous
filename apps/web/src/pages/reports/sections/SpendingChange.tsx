@@ -15,7 +15,7 @@ const SEASON = "sama kuukausi vuotta aiemmin";
 const dec = (v: number) => String(v).replace(".", ",");
 
 /** The causes of a row in words: "Kalliimpi ostoskerta +150 €; Useammin +40 €". */
-const causes = (c: Pick<Category, "buckets"> | Pick<Merchant, "buckets">) => c.buckets.map((b) => `${bucketLabel(b.kind, b.cents)} ${signedMoney(b.cents)}`).join("; ");
+const causes = (c: Pick<Category, "buckets"> | Pick<Merchant, "buckets">, bills = false) => c.buckets.map((b) => `${bucketLabel(b.kind, b.cents, bills)} ${signedMoney(b.cents)}`).join("; ");
 
 /** The bridge: the largest causes on one axis around zero, so more and less spending read from the same line. */
 function Bridge({ view }: { view: View }) {
@@ -145,7 +145,7 @@ function SpendingChange({ ctx }: SectionProps) {
                     <td className="num">{money(c.baseCents, false)}</td>
                     <td className={`num ${c.changeCents > 0 ? "worse" : c.changeCents < 0 ? "better" : ""}`}>{signedMoney(c.changeCents)}</td>
                     <td className="muted">
-                      {c.kind === "between" ? GAP_HELP : causes(c)}
+                      {c.kind === "between" ? GAP_HELP : causes(c, c.bills)}
                       {c.restCount > 0 && `${c.buckets.length ? "; " : ""}Pienet muutokset ${signedMoney(c.restCents)}`}
                       {c.season && ` (${SEASON})`}
                     </td>

@@ -22,10 +22,14 @@ import { DEFAULT_BANK } from "./banks.ts";
 import type { Services } from "../../services/context.ts";
 import { UserError } from "../../platform/errors.ts";
 import { strictObject } from "../../platform/validate.ts";
-import { type RedirectMode, redirectModeOf } from "../../services/instance.ts";
+import { DEFAULT_RELAY_URL, type RedirectMode, redirectModeOf } from "../../services/instance.ts";
 
 export const ACTIVE = "instance_bank_app";
 export const PENDING = "instance_bank_app_pending";
+/** What the last test of the saved app learned about it (see CheckedApp). */
+export const CHECKED = "instance_bank_app_checked";
+/** Said when Enable Banking reports the application as not active yet; the wizard shows it as it is. */
+export const INACTIVE_MESSAGE = "Sovellus ei ole vielä aktiivinen. Linkitä tilit Enable Bankingissa: Activate by linking accounts.";
 /** Sealing context: a sealed instance key cannot be copied into a user's row, or the other way round. */
 export const AAD = "instance:enablebanking";
 
@@ -41,6 +45,16 @@ interface PendingKey {
   keyEnc: string;
   certificatePem: string;
   createdAt: string;
+}
+
+/**
+ * The `active` flag Enable Banking reported at the last test, for the application with this id. Kept so that
+ * "Lisää pankkiyhteys" can stay off without a call to Enable Banking on every page load.
+ */
+interface CheckedApp {
+  appId: string;
+  active: boolean;
+  checkedAt: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -102,21 +116,53 @@ export interface BankAppStatus {
   redirectUrl: string;
   /** How the browser comes back from the bank; decides what the admin registers and how linking is explained. */
   redirectMode: RedirectMode;
+  /** The project's return page, and the privacy and terms pages beside it that the registration form asks for. */
+  relayUrl: string;
+  privacyUrl: string;
+  termsUrl: string;
+  /** Set when the last test found the application not active yet: the sentence to show, and no bank can be connected. */
+  inactiveMessage: string | null;
+}
+
+/** A page on the relay site: the return page's sibling folder, so the one relay address decides the host. */
+export function relayPageUrl(relayUrl: string, page: "privacy" | "terms"): string {
+  const base = new URL(relayUrl);
+  // without the slash "../" would leave one folder too many: .../talous/callback is the file callback in .../talous/
+  if (!base.pathname.endsWith("/")) base.pathname += "/";
+  return new URL(`../${page}/`, base).toString();
+}
+
+/** True when the last test of the app now in use (same Application ID) said Enable Banking does not count it as active. */
+async function knownInactive(s: Services, appId: string | null): Promise<boolean> {
+  const checked = await read<CheckedApp>(s, CHECKED);
+  return !!appId && checked?.appId === appId && checked.active === false;
+}
+
+/** The shared app is set up, but Enable Banking has said it is not active: no bank can be connected through it yet. */
+export async function instanceAppInactive(s: Services): Promise<boolean> {
+  const stored = await read<StoredApp>(s, ACTIVE);
+  return knownInactive(s, stored?.appId ?? s.config.enableBanking?.appId ?? null);
 }
 
 export async function bankAppStatus(s: Services): Promise<BankAppStatus> {
   const [stored, pending] = await Promise.all([read<StoredApp>(s, ACTIVE), read<PendingKey>(s, PENDING)]);
   const source = stored ? "web" : s.config.enableBanking ? "env" : null;
+  const appId = stored?.appId ?? s.config.enableBanking?.appId ?? null;
+  const relayUrl = s.config.bank.relayUrl ?? DEFAULT_RELAY_URL;
   return {
     source,
     // the env app id is no secret, and only the admin sees this status
-    appId: stored?.appId ?? s.config.enableBanking?.appId ?? null,
+    appId,
     savedAt: stored?.savedAt ?? null,
     pendingSince: pending?.createdAt ?? null,
     hasCertificate: !!(pending?.certificatePem ?? stored?.certificatePem),
     canStoreKeys: !!s.config.appSecret,
     redirectUrl: s.redirectUrl(),
     redirectMode: redirectModeOf(s.instance.current),
+    relayUrl,
+    privacyUrl: relayPageUrl(relayUrl, "privacy"),
+    termsUrl: relayPageUrl(relayUrl, "terms"),
+    inactiveMessage: (await knownInactive(s, appId)) ? INACTIVE_MESSAGE : null,
   };
 }
 
@@ -140,6 +186,8 @@ export async function downloadableCertificate(s: Services): Promise<string | nul
 export interface ActivationResult {
   verified: boolean;
   message: string;
+  /** Enable Banking's own `active` flag of the application, when it could be read. */
+  active?: boolean;
 }
 
 /** Step 3: Application ID + the pending key (or an uploaded .pem) become the active app. */
@@ -176,35 +224,59 @@ function probeProblem(err: unknown, saved: boolean): ActivationResult {
   const kept = saved ? " Asetukset on tallennettu." : "";
   if (err instanceof EnableBankingError) {
     if (err.status === 401) {
-      return { verified: false, message: "Enable Banking ei tunnistanut sovellusta (401). Tarkista, että Application ID on kopioitu kokonaan ja että Enable Bankingiin ladattu varmenne on sama, jonka Omatalous loi." };
+      return { verified: false, message: "Enable Banking ei tunnistanut sovellusta (401). Tarkista Application ID ja että Enable Bankingissa on Omatalouden luoma varmenne." };
     }
     if (err.status === 403) {
-      return { verified: false, message: "Enable Banking tunnisti sovelluksen mutta ei vielä anna sen käyttää pankkeja (403). Sovellus on Inactive tai tilejä ei ole linkitetty. Paina Control Panelissa Activate by linking accounts ja valitse Nordea." };
+      return { verified: false, message: "Enable Banking ei vielä päästä sovellusta pankkeihin (403). Paina Control Panelissa Activate by linking accounts ja valitse Nordea." };
     }
-    return { verified: false, message: `Enable Banking vastasi virheellä ${err.status}.${kept} Kokeile myöhemmin uudelleen.` };
+    return { verified: false, message: `Enable Banking vastasi virheellä ${err.status}.${kept} Yritä myöhemmin uudelleen.` };
   }
-  return { verified: false, message: `Enable Bankingiin ei saatu yhteyttä.${kept} Kokeile myöhemmin uudelleen.` };
+  return { verified: false, message: `Enable Bankingiin ei saatu yhteyttä.${kept} Yritä myöhemmin uudelleen.` };
 }
 
-/** Signs a request with the given credentials and lists banks: proves App ID and key belong together. */
+/**
+ * Enable Banking's `active` flag of the application the key belongs to. A refusal of the key (401, 403) goes on to the
+ * caller, which explains it. Any other failure leaves the flag unknown, and the bank list that follows says what is wrong.
+ */
+async function applicationActive(client: EnableBankingClient): Promise<boolean | undefined> {
+  try {
+    const { active } = await client.application();
+    return typeof active === "boolean" ? active : undefined;
+  } catch (err) {
+    if (err instanceof EnableBankingError && (err.status === 401 || err.status === 403)) throw err;
+    return undefined;
+  }
+}
+
+/** Signs a request with the given credentials and reads the application and the bank list: proves App ID and key belong together. */
 async function probe(s: Services, appId: string, privateKeyPem: string, saved: boolean): Promise<ActivationResult> {
   try {
     const client = new EnableBankingClient({ appId, privateKeyPem, fetch: s.fetch });
+    const active = await applicationActive(client);
+    if (active === false) return { verified: false, active, message: INACTIVE_MESSAGE };
     const banks = await client.listAspsps(DEFAULT_BANK.country);
     const found = banks.some((a) => a.name.toLowerCase() === DEFAULT_BANK.aspspName.toLowerCase());
+    const flag = active === undefined ? {} : { active };
     return found
-      ? { verified: true, message: "Yhteys toimii." }
-      : { verified: false, message: `Yhteys toimii, mutta ${DEFAULT_BANK.name} ei ole sovelluksen pankkilistalla.` };
+      ? { verified: true, ...flag, message: "Yhteys toimii." }
+      : { verified: false, ...flag, message: `Yhteys toimii, mutta ${DEFAULT_BANK.name} ei ole sovelluksen pankkilistalla.` };
   } catch (err) {
     return probeProblem(err, saved);
   }
 }
 
-/** Signs a request with the active credentials and lists banks. */
+/** Signs a request with the active credentials, reads the application and lists banks. */
 export async function testBankApp(s: Services): Promise<ActivationResult> {
   const creds = await instanceCredentials(s);
   if (!creds) return { verified: false, message: "Yhteistä sovellusta ei ole määritetty." };
-  return probe(s, creds.appId, creds.privateKeyPem, true);
+  const result = await probe(s, creds.appId, creds.privateKeyPem, true);
+  if (result.active !== undefined) {
+    await s.settings.set(CHECKED, JSON.stringify({ appId: creds.appId, active: result.active, checkedAt: s.now().toISOString() } satisfies CheckedApp));
+  } else if (result.verified) {
+    // the bank list answered but the flag could not be read: an app that works is not held back by an older answer
+    await s.settings.delete(CHECKED);
+  }
+  return result;
 }
 
 const CHECK_WINDOW_MS = 10 * 60_000;
@@ -242,4 +314,5 @@ export async function checkAppId(s: Services, input: unknown): Promise<Activatio
 export async function removeBankApp(s: Services): Promise<void> {
   await s.settings.delete(ACTIVE);
   await s.settings.delete(PENDING);
+  await s.settings.delete(CHECKED);
 }

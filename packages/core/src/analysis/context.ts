@@ -21,9 +21,17 @@ export interface AnalysisTx extends Transaction {
   refunded: number;
 }
 
-/** What a purchase cost in the end: its consumption less what came back, never below zero. */
+/**
+ * Net of refunds, one helper per base. `netPurchase`: what a purchase cost in the end, its consumption less what came
+ * back, never below zero.
+ */
 export function netPurchase(t: Pick<AnalysisTx, "flows" | "refunded">): number {
   return Math.max(0, t.flows.consumption - t.refunded);
+}
+
+/** What a row of spending (consumption + debt) cost in the end, less what came back, never below zero. */
+export function netSpend(t: Pick<AnalysisTx, "spend" | "refunded">): number {
+  return Math.max(0, t.spend - t.refunded);
 }
 
 /**

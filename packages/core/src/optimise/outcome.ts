@@ -11,7 +11,7 @@ import { formatEur, formatFiDate } from "../analysis/format.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
 import { paysAhead, type Replacement, replacementOf } from "../analysis/insights/stopped.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
-import { addDays, addMonths, daysInMonth, monthOf, monthRange } from "../dates.ts";
+import { addDays, addMonths, monthEnd, monthOf, monthRange } from "../dates.ts";
 import { detectRecurring, parseSeriesId, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
@@ -329,7 +329,7 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
     // a contract: cost per month by cadence on both sides, so a quarterly bill, a yearly one or a new payee's count
     // for what they are; the changeover month counts for the time after
     const start = `${changeover}-01`;
-    const end = `${lastMonth}-${String(daysInMonth(lastMonth)).padStart(2, "0")}`;
+    const end = monthEnd(lastMonth);
     const before = beforeCost(
       paid.filter((t) => t.bookingDate < start && t.bookingDate >= `${addMonths(changeover, -2 * BEFORE_MONTHS)}-01` && t.merchant !== replacement?.merchant),
       start,

@@ -24,6 +24,8 @@ export interface Account {
   balanceCents: number | null;
   balanceAt: string | null;
   lastSyncedAt: string | null;
+  /** What the last fetch of the user's own account ran into; a shared account has none. */
+  problem?: { kind: "not_linked" | "failed"; message: string } | null;
 }
 
 export interface SharedAccount extends Account {
@@ -34,8 +36,16 @@ export interface Connection {
   id: string;
   institution: string;
   status: "active" | "expired" | "revoked";
+  /** active, lapsed (its date passed), broken (closed before its date), removed (services/accounts.ts) */
+  state: "active" | "lapsed" | "broken" | "removed";
+  /** Owns no account: it folds under "Aiemmat yhteydet" and has no notice. */
+  history: boolean;
+  /** Not active, and a newer consent of the same bank is: its accounts did not come with the new consent. */
+  replaced: boolean;
   validUntil: string | null;
+  createdAt: string;
   lastSyncedAt: string | null;
+  /** Days to the end date of an active consent, else null. */
   daysLeft: number | null;
 }
 
@@ -62,7 +72,10 @@ export interface Meta {
   connections: Connection[];
   lastSync: SyncRun | null;
   bank: {
+    /** A bank can be connected: an app is set up and the household's app is not known to be inactive. */
     configured: boolean;
+    /** The household's app is set up but its last test found it not active yet (no member key of one's own). */
+    inactive?: boolean;
     source: "user" | "instance" | null;
     /** Banks that can be connected (server registry); only Nordea for now. */
     banks: BankOption[];
@@ -106,6 +119,11 @@ export interface BankAppStatus {
   canStoreKeys: boolean;
   redirectUrl: string;
   redirectMode: "own" | "relay" | "paste";
+  relayUrl: string;
+  privacyUrl: string;
+  termsUrl: string;
+  /** The sentence to show while the last test found the application not active yet; null otherwise. */
+  inactiveMessage: string | null;
 }
 
 export interface InstanceState {

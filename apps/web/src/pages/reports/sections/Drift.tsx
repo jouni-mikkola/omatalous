@@ -1,5 +1,5 @@
 // Decision: find why a category rose and cap it
-import { addDays, daysInMonth } from "@banking/core";
+import { addDays, monthEnd } from "@banking/core";
 import { query } from "../../../api.ts";
 import { date, money, MONTHS_SHORT, plural, signedMoney } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
@@ -13,18 +13,17 @@ function monthSpan(months: readonly string[]): string {
   return first.slice(0, 4) === last.slice(0, 4) ? `${name(first)}–${name(last)}kuu ${last.slice(0, 4)}` : `${name(first)}kuu ${first.slice(0, 4)}–${name(last)}kuu ${last.slice(0, 4)}`;
 }
 
-const monthEnd = (month: string) => `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
 
 /** Why the check has nothing to show: too little history, a range that ends too early, or nothing rose. */
 function emptyText(r: SectionProps["ctx"]["data"]["drift"], today: string): string {
   if (!r.months.length) {
-    const need = `Tarkistus vertaa kolmea viimeisintä kuukautta tavalliseen ja tarvitsee ${r.neededMonths} valmista kuukautta historiaa.`;
+    const need = `Tarkistus tarvitsee ${r.neededMonths} kokonaista kuukautta historiaa.`;
     if (!r.readyFrom) return `${need} Tapahtumia ei ole vielä.`;
     if (r.readyFrom > today) return `${need} Tarkistus alkaa ${date(r.readyFrom)}.`;
     // readyFrom is the first day judged, so a period ending the day before already has its six months
     return `${need} Valitse jakso, joka päättyy ${date(addDays(r.readyFrom, -1))} tai myöhemmin.`;
   }
-  if (!r.checked) return `Vertailtavia kategorioita ei ole. Mukana ovat kategoriat, joissa menoja on tavallisesti vähintään ${money(r.minLevelCents, false)} kuussa.`;
+  if (!r.checked) return `Ei kategorioita, joissa menoja on tavallisesti vähintään ${money(r.minLevelCents, false)} kuussa.`;
   return `Tarkistettu ${plural(r.checked, "kategoria", "kategoriaa")}, ${monthSpan(r.months)}. Yksikään ei ollut tavallista kalliimpi kolmea kuukautta peräkkäin.`;
 }
 

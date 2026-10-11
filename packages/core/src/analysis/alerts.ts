@@ -1,10 +1,11 @@
 import { getCategory } from "../categories.ts";
-import { addDays, dayNumber, daysBetween, daysInMonth, fromMonthIndex, monthIndex } from "../dates.ts";
+import { addDays, DAYS_PER_MONTH, dayNumber, daysBetween, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import { NO_INPUTS, type UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
+import { LEVEL, oneOffs } from "./one-offs.ts";
 import { isBankFee, isLateFee } from "./fees.ts";
 import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
@@ -318,7 +319,7 @@ function spikeMonth(ctx: AnalysisContext, range: DateRange): number | null {
   if (first === last) return last;
   for (let m = last; m >= first; m--) {
     const label = fromMonthIndex(m);
-    const end = `${label}-${String(daysInMonth(label)).padStart(2, "0")}`;
+    const end = monthEnd(label);
     if (`${label}-01` >= range.from && end <= range.to && end < ctx.today) return m;
   }
   return null;
@@ -335,16 +336,18 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
   const lastYearCovered = historyCovers(ctx, `${fromMonthIndex(lastYear)}-01`);
   const { fromDay, toDay } = toDayRange(range);
 
-  const per = new Map<string, { now: number; count: number; largest: number; fixed: number; months: Map<number, number> }>();
+  // one-offs by the level policy over the months the spike is read from, as every view strikes them
+  const struck = oneOffs(ctx.txs.filter((t) => t.month >= noiseMonths[0]! && t.month <= target), LEVEL, ctx.fixedIds);
+  const per = new Map<string, { now: number; count: number; oneOffs: number; fixed: number; months: Map<number, number> }>();
   for (const t of ctx.txs) {
     if (!t.spend || t.category === "other") continue;
     const inTarget = t.month === target && t.day >= fromDay && t.day <= toDay;
     if (!inTarget && t.month !== lastYear && (t.month < noiseMonths[0]! || t.month >= target)) continue;
-    const e = per.get(t.category) ?? { now: 0, count: 0, largest: 0, fixed: 0, months: new Map<number, number>() };
+    const e = per.get(t.category) ?? { now: 0, count: 0, oneOffs: 0, fixed: 0, months: new Map<number, number>() };
     if (inTarget) {
       e.now += t.spend;
       e.count += 1;
-      e.largest = Math.max(e.largest, t.spend);
+      if (struck.has(t.id)) e.oneOffs += t.spend;
       if (ctx.fixedIds.has(t.id)) e.fixed += t.spend;
     } else if (t.month !== target) {
       e.months.set(t.month, (e.months.get(t.month) ?? 0) + t.spend);
@@ -363,8 +366,8 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
     // bills paid late or early land two in one month: the late fee alert covers that
     if (e.fixed >= 0.8 * e.now) continue;
     // a spike is more of the same, not one big purchase (a doctor's visit, a sofa, a car repair): it
-    // must hold without the largest, and beyond every month before (fuel swings from 60 € to 330 €)
-    const rest = e.now - e.largest;
+    // must hold without its one-offs, and beyond every month before (fuel swings from 60 € to 330 €)
+    const rest = e.now - e.oneOffs;
     if (rest <= SPIKE_RATIO * typical || rest - typical < SPIKE_MIN_CENTS || rest <= Math.max(...baseValues)) continue;
     // the same month a year ago was as high: Christmas or a season fee, not a surprise
     if (lastYearCovered && (e.months.get(lastYear) ?? 0) >= 0.8 * e.now) continue;
@@ -446,7 +449,7 @@ export function habitItems(ctx: AnalysisContext, range: DateRange): HabitItem[] 
   const to = ctx.today < range.to ? ctx.today : range.to;
   const days = daysBetween(from, to) + 1;
   if (days < HABIT_MIN_DAYS) return [];
-  const months = days / 30.44;
+  const months = days / DAYS_PER_MONTH;
 
   const byMerchant = new Map<string, number[]>();
   for (const t of inDays(ctx, { fromDay: dayNumber(from), toDay: dayNumber(to) })) {

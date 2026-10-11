@@ -10,8 +10,43 @@ import type { Services } from "../services/context.ts";
 export const LINK_STATE_PREFIX = "auth_state:";
 const STATE_TTL_MS = 60 * 60_000;
 
+/**
+ * Why linking a bank stopped, one message each. The callback puts only the reason in the address and the web app shows
+ * the same words (BankConnections.tsx CONNECT_ERRORS); the pasted address gets the message itself. A reason that a new
+ * attempt cannot fix says who fixes it, so the user is not sent round the same failure again.
+ */
+export const LINK_FAILURES = {
+  cancelled: "Yhdistäminen keskeytyi.",
+  bank: "Pankki keskeytti yhdistämisen. Syy näkyy Enable Bankingin Control Panelissa sovelluksen pyyntölokissa.",
+  inactive: "Enable Banking ei vielä päästä sovellusta pankkeihin. Ylläpitäjä painaa Control Panelissa Activate by linking accounts.",
+  app: "Enable Banking ei tunnistanut sovellusta. Ylläpitäjä tarkistaa sen kohdassa Asetukset > Palvelin > Testaa yhteys.",
+  refused: "Enable Banking hylkäsi yhdistämisen. Syy näkyy Control Panelissa sovelluksen pyyntölokissa.",
+  expired: "Yhdistäminen vanheni. Yritä uudelleen.",
+} as const;
+
+export type LinkFailureReason = keyof typeof LINK_FAILURES;
+
+export class LinkFailure extends UserError {
+  constructor(readonly reason: LinkFailureReason) {
+    super(LINK_FAILURES[reason]);
+  }
+}
+
 /** The bank's redirect came back with an unknown, used or old state; the callback tells the user to start again. */
-export class AuthStateExpired extends UserError {}
+export class AuthStateExpired extends LinkFailure {
+  constructor() {
+    super("expired");
+  }
+}
+
+/**
+ * The browser came back with `error` instead of a code: the user cancelled at the bank (access_denied, the only value
+ * Enable Banking documents), or the bank or Enable Banking stopped the authorisation. The state is used up either way.
+ */
+export async function returnedWithError(s: Services, userId: string, state: string | null | undefined, error: string): Promise<LinkFailure> {
+  if (state) await consumeLinkState(s, userId, state).catch(() => undefined);
+  return new LinkFailure(error === "access_denied" ? "cancelled" : "bank");
+}
 
 /**
  * The state for the bank. In relay mode it carries the local address the return page forwards to: the one the
@@ -44,11 +79,11 @@ export async function dropLinkState(s: Services, state: string): Promise<void> {
 export async function consumeLinkState(s: Services, userId: string, state: string): Promise<void> {
   const key = `${LINK_STATE_PREFIX}${state}`;
   // a state that names a return address must still name a private one (the page and the server both check)
-  if (state.includes(".") && !originFromRelayState(state)) throw new AuthStateExpired("Yhdistäminen vanheni. Yritä uudelleen.");
+  if (state.includes(".") && !originFromRelayState(state)) throw new AuthStateExpired();
   const raw = await s.settings.get(key);
   if (raw) await s.settings.delete(key);
   const pending = raw ? (JSON.parse(raw) as { userId: string; createdAt: number }) : null;
   if (!pending || pending.userId !== userId || s.now().getTime() - pending.createdAt > STATE_TTL_MS) {
-    throw new AuthStateExpired("Yhdistäminen vanheni. Yritä uudelleen.");
+    throw new AuthStateExpired();
   }
 }

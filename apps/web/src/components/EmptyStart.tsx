@@ -20,11 +20,11 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
   return (
     <div className="card empty-start">
       <h2>Ei vielä tietoja</h2>
-      <p className="muted">Tämä sivu täyttyy, kun tilin tapahtumat on tuotu tiedostosta tai haettu pankista.</p>
+      <p className="muted">Tuo tapahtumat tiedostosta tai yhdistä pankki.</p>
       <div className="empty-options">
         <div>
           <h3>Tuo tiedosto</h3>
-          <p className="small muted">Lataa tapahtumat Nordean verkkopankista CSV-tiedostona ja tuo ne tänne.</p>
+          <p className="small muted">Lataa tapahtumat Nordean verkkopankista CSV-tiedostona.</p>
           <button className="btn btn-primary" type="button" onClick={() => navigate("settings", { section: "csv" })}>
             Tuo CSV
           </button>
@@ -39,7 +39,7 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
         </div>
       </div>
       <p className="small muted">
-        Haluatko vain katsoa, miltä sovellus näyttää?{" "}
+        Haluatko ensin kokeilla?{" "}
         <button className="link-btn" type="button" onClick={() => void loadDemo()} disabled={demo.busy}>
           {demo.busy ? "Ladataan…" : "Lataa esimerkkitiedot"}
         </button>

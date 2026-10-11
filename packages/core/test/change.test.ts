@@ -101,7 +101,7 @@ describe("spendingChange", () => {
     expect(withTiming).toBeGreaterThan(10);
   });
 
-  it("the usual view says what the month explanation says: same totals, same category changes", () => {
+  it("the usual view reads the month the explanation reads: same spending, by category too; its usual is per category with one-offs struck", () => {
     for (let seed = 1; seed <= 15; seed++) {
       const ctx = ctxOf(household(seed));
       for (const month of ["2026-10", "2026-09", "2026-06"]) {
@@ -110,12 +110,14 @@ describe("spendingChange", () => {
         expect(c === null).toBe(e === null);
         if (!c || !e) continue;
         expect(c.nowCents).toBe(e.nowCents);
-        expect(c.baseCents).toBe(e.usualCents);
         expect(c.running).toBe(e.running);
+        // the explanation's usual is the median of the month totals (the dashed line); the report's is the sum of the
+        // categories' own levels, so it has no gap row
+        expect(c.baseCents).toBe(sum(c.categories.map((r) => r.baseCents)));
+        expect(c.categories.some((r) => r.kind === "between")).toBe(false);
         for (const row of e.rows.filter((r) => r.kind === "category")) {
           const mine = c.categories.find((r) => r.category === row.category);
-          // the gap under a euro is folded into the last row by both: only the named rows can differ by it
-          expect(Math.abs((mine?.changeCents ?? 0) - row.changeCents)).toBeLessThan(100);
+          if (mine?.kind === "category") expect(mine.nowCents).toBe(row.nowCents);
         }
       }
     }
@@ -250,6 +252,28 @@ describe("spendingChange", () => {
     const kinds = c.pieces.filter((p) => p.category === "education").map((p) => p.kind);
     expect(kinds.every((k) => k === "other" || k === "oneoff" || k === "timing" || k === "spread")).toBe(true);
     expect(kinds).not.toContain("new");
+  });
+
+  it("a card that stops while the purchases go on elsewhere is closed, no lag; one that stops with them lags; one connected late starts the comparison", () => {
+    const buys = (from: string, to: string, account: (date: string) => string) =>
+      monthRange(from, to).flatMap((m) => Array.from({ length: 28 }, (_, i) => tx({ bookingDate: day(m, 1 + i), amountCents: -3000, merchant: "Prisma", category: "groceries", accountId: account(day(m, 1 + i)) }))).filter((t) => t.bookingDate <= today);
+    const card = (date: string) => (date < "2026-08-15" ? "card" : "acc-1");
+    expect(spendingChange(ctxOf([...pay("2025-09", "2026-10"), ...buys("2025-09", "2026-10", card)]), "usual", "2026-10")).not.toBeNull();
+    // the same card rows simply stop: the household's purchases fell short, so the rows reach mid-August only
+    const lag = [...pay("2025-09", "2026-10"), ...buys("2025-09", "2026-10", () => "card").filter((t) => t.bookingDate < "2026-08-15"), ...buys("2025-09", "2026-10", () => "acc-1").filter((t) => t.bookingDate.endsWith("-01"))];
+    expect(spendingChange(ctxOf(lag), "usual", "2026-10")).toBeNull();
+    // a card connected in May: the months before it are no base
+    const late = [...pay("2025-09", "2026-10"), ...buys("2025-09", "2026-10", () => "acc-1").filter((t) => t.bookingDate.endsWith("-01")), ...buys("2026-05", "2026-10", () => "card")];
+    expect(spendingChange(ctxOf(late), "usual", "2026-10")!.base.months[0]).toBe("2026-05");
+  });
+
+  it("a card connected in June has no year-ago month: fewer deliveries in October get no season mark", () => {
+    const shop = monthRange("2025-09", "2026-10").map((m) => tx({ bookingDate: day(m, 2), amountCents: -2000, merchant: "Prisma", category: "groceries" }));
+    const card = monthRange("2026-06", "2026-10").flatMap((m) => [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27].map((d) => tx({ bookingDate: day(m, d), amountCents: -2500, merchant: "Wolt", category: "food_delivery", accountId: "card" })));
+    const rows = [...pay("2025-09", "2026-10"), ...shop, ...card.filter((t) => t.bookingDate >= "2026-06-15" && t.bookingDate <= "2026-10-03")];
+    const c = spendingChange(ctxOf(rows), "usual", "2026-10")!;
+    expect(c.base.months[0]).toBe("2026-07");
+    expect(c.categories.filter((r) => r.yearAgoCents !== null || r.season)).toEqual([]);
   });
 
   it("a running month is compared on the days it has had", () => {

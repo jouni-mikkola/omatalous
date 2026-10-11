@@ -4,12 +4,12 @@
  * one-off. Income leaves out refunds and payments from people. The months now must stand out from the household's
  * month-to-month noise (`clearlyAbove`). The figure is in euros of each year: no claim about real terms and no cause.
  */
-import { daysInMonth } from "../../dates.ts";
+import { addMonths, monthEnd } from "../../dates.ts";
 import { median } from "../../stats.ts";
 import { formatEur } from "../format.ts";
 import { clearlyAbove } from "../signal.ts";
 import { earnedIncome, isCompleteMonth } from "../usual.ts";
-import { capitalise, lastCompleteMonths, monthRows, monthSpan, purchasesWithoutOneOff, shiftMonth } from "./shared.ts";
+import { capitalise, lastCompleteMonths, monthSpan, purchasesWithoutOneOff } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 /** Purchases must grow this many percentage points more than income. */
@@ -25,17 +25,16 @@ export function signedPercent(share: number): string {
 
 /** Purchases of the window without one-offs, month by month and in total, and its usual monthly income. */
 function window(ctx: InsightArgs["ctx"], months: readonly string[]): { monthly: number[]; purchases: number; income: number } {
-  const usual = median(months.map((m) => monthRows(ctx, m).purchases));
-  const monthly = months.map((m) => purchasesWithoutOneOff(ctx, m, usual));
+  const monthly = months.map((m) => purchasesWithoutOneOff(ctx, m));
   return { monthly, purchases: monthly.reduce((s, v) => s + v, 0), income: median(months.map((m) => earnedIncome(ctx, m))) };
 }
 
 export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
   const twelve = lastCompleteMonths(ctx, end, 12);
-  const long = twelve.length === 12 && isCompleteMonth(ctx, shiftMonth(twelve[0]!, -12));
+  const long = twelve.length === 12 && isCompleteMonth(ctx, addMonths(twelve[0]!, -12));
   const now = long ? twelve : twelve.slice(-6);
-  if (now.length < 6 || !isCompleteMonth(ctx, shiftMonth(now[0]!, -12))) return [];
-  const then = now.map((m) => shiftMonth(m, -12));
+  if (now.length < 6 || !isCompleteMonth(ctx, addMonths(now[0]!, -12))) return [];
+  const then = now.map((m) => addMonths(m, -12));
   const a = window(ctx, now);
   const b = window(ctx, then);
   if (a.purchases <= 0 || b.purchases <= 0 || a.income <= 0 || b.income <= 0) return [];
@@ -56,7 +55,7 @@ export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents }: InsightAr
       title: `Ostokset ${signedPercent(purchasesGrowth)} vuodessa, tulot ${signedPercent(incomeGrowth)}`,
       detail: `${capitalise(monthSpan(first, last))} verrattuna samaan aikaan vuotta aiemmin, ilman laskuja, tilauksia ja kertaostoja; ero ${formatEur(yearly, false)} vuodessa.`,
       yearlyCents: yearly,
-      link: { from: `${first}-01`, to: `${last}-${String(daysInMonth(last)).padStart(2, "0")}` },
+      link: { from: `${first}-01`, to: monthEnd(last) },
     },
   ];
 }

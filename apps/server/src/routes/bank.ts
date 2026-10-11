@@ -1,9 +1,9 @@
 /** Bank credentials, consents and synchronisation for the signed-in user. */
 import { Hono } from "hono";
-import { removeConnection } from "../connectors/enable-banking/connector.ts";
+import { forgetConnection, removeConnection } from "../connectors/enable-banking/connector.ts";
 import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
 import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
-import { AuthStateExpired } from "../connectors/link-state.ts";
+import { LinkFailure, returnedWithError } from "../connectors/link-state.ts";
 import { syncUser } from "../connectors/sync.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -30,14 +30,15 @@ export function bankCallbackRoute(s: Services) {
     // crafted link (or the bank's error_description) cannot put words into the app
     const user = c.get("user");
     if (!user) return back("error=session");
-    if (error || !code || !state) return back("error=cancelled");
+    if (error) return back(`error=${(await returnedWithError(s, user.id, state, error)).reason}`);
+    if (!code || !state) return back("error=cancelled");
     try {
       const r = await completeConnection(s, s.finance(user.id), code, state);
       inBackground(syncUser(s, user.id, "connect"));
       return back(`connected=${r.accounts}`);
     } catch (err) {
-      // expired: start again; setup: bank keys missing or unreadable, an admin has to look; failed: anything else
-      if (err instanceof AuthStateExpired) return back("error=expired");
+      // a reason of the link itself (LINK_FAILURES); setup: bank keys missing or unreadable, an admin has to look; failed: anything else
+      if (err instanceof LinkFailure) return back(`error=${err.reason}`);
       if (err instanceof UserError) return back("error=setup");
       console.error("bank callback failed:", err);
       return back("error=failed");
@@ -88,11 +89,20 @@ export function bankRoutes(s: Services) {
     if (!params) throw new UserError("Liitä koko osoite selaimen osoiteriviltä.");
     const code = params.get("code");
     const state = params.get("state");
-    if (!code || !state) throw new UserError("Osoite on vajaa. Liitä koko osoite.");
     const user = c.get("user");
+    // the bank's error page: pasting it again would only get the same answer, so the message says what happened
+    const error = params.get("error");
+    if (error) throw await returnedWithError(s, user.id, state, error);
+    if (!code || !state) throw new UserError("Osoite on vajaa. Liitä koko osoite.");
     const r = await completeConnection(s, s.finance(user.id), code, state);
     inBackground(syncUser(s, user.id, "connect"));
     return c.json(r);
+  });
+
+  /** "Poista listalta": a connection that owns no account any more. */
+  app.delete("/connections/history/:id", async (c) => {
+    await forgetConnection(s, s.finance(c.get("user").id), c.req.param("id"));
+    return c.json({ ok: true });
   });
 
   app.delete("/connections/:id", async (c) => {
