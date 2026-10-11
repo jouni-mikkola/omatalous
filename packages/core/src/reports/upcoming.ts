@@ -42,6 +42,8 @@ export interface BillMonth {
   cents: number;
   /** Which bills, the dearest first. */
   names: string[];
+  /** The bills of the month already paid, with the day: a bill paid on the 5th is not coming. */
+  paid: { merchant: string; date: IsoDate }[];
 }
 
 /** A bill the user typed in, for the list where it can be removed. */
@@ -90,6 +92,8 @@ interface Occurrence {
   inYear: boolean;
   /** Listed as coming: not paid, not past and not from a series that has stopped on time. */
   ahead: boolean;
+  /** The last charge of a found bill, booked on `date`. */
+  paid: boolean;
 }
 
 /**
@@ -126,10 +130,10 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
   const occurrences: Occurrence[] = [];
   for (const s of found) {
     const base = { merchant: s.merchant, category: s.category, cadence: s.cadence!, amountCents: s.typicalAmountCents, source: "detected" as const };
-    if (s.lastDate >= windowStart) occurrences.push({ ...base, date: s.lastDate, inYear: true, ahead: false });
+    if (s.lastDate >= windowStart) occurrences.push({ ...base, date: s.lastDate, inYear: true, ahead: false, paid: true });
     // a charge a few days late is still ahead of us: it shows as today. An overdue series may have stopped, so it is
     // not listed, but its charges stay in the year. A charge late from last month is no part of this year's twelve.
-    for (const d of projectDates(s, windowEnd)) occurrences.push({ ...base, date: d < from ? from : d, inYear: d >= windowStart, ahead: !s.overdue });
+    for (const d of projectDates(s, windowEnd)) occurrences.push({ ...base, date: d < from ? from : d, inYear: d >= windowStart, ahead: !s.overdue, paid: false });
   }
 
   // a typed-in bill that the history already found is the same bill: the found one is counted
@@ -139,19 +143,20 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
     if (isDuplicate(b.name)) continue;
     const base = { merchant: b.name, category: b.category, cadence: b.cadence, amountCents: b.amountCents, source: "manual" as const };
     // from the start of the month for every cadence, so a one-off due on the 20th counts all month, not until the 20th
-    for (const d of expectedDates(b, windowStart, windowEnd)) occurrences.push({ ...base, date: d, inYear: true, ahead: d >= from });
+    for (const d of expectedDates(b, windowStart, windowEnd)) occurrences.push({ ...base, date: d, inYear: true, ahead: d >= from, paid: false });
   }
 
   const items: UpcomingBill[] = occurrences
     .filter((o) => o.ahead && o.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents || a.merchant.localeCompare(b.merchant))
-    .map(({ inYear: _inYear, ahead: _ahead, ...bill }) => bill);
+    .map(({ inYear: _inYear, ahead: _ahead, paid: _paid, ...bill }) => bill);
   const totalCents = items.reduce((s, i) => s + i.amountCents, 0);
 
   const months: BillMonth[] = Array.from({ length: YEAR_MONTHS }, (_, i) => {
     const month = addMonths(firstMonth, i);
     const here = occurrences.filter((o) => o.inYear && monthOf(o.date) === month).sort((a, b) => b.amountCents - a.amountCents || a.merchant.localeCompare(b.merchant));
-    return { month, cents: here.reduce((s, o) => s + o.amountCents, 0), names: [...new Set(here.map((o) => o.merchant))] };
+    const paid = here.filter((o) => o.paid).map((o) => ({ merchant: o.merchant, date: o.date }));
+    return { month, cents: here.reduce((s, o) => s + o.amountCents, 0), names: [...new Set(here.map((o) => o.merchant))], paid };
   });
   const yearlyCents = months.reduce((s, m) => s + m.cents, 0);
 

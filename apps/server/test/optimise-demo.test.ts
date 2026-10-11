@@ -74,14 +74,15 @@ describe("the demo history on the Optimoi page", () => {
 
   it("brings the overview's insights as Muut havainnot, and Ei koske meitä there is a mark that Peruuta takes away", async () => {
     const { data, call } = await demoPage(NOW);
-    // the new OpenAI charge and the two rises together: Adobe's rise alone would be the finding's to tell
-    expect(data.others.map((i: Insight) => i.id)).toEqual([expect.stringMatching(/^new:out:demo-.+:OpenAI$/), "price-rises"]);
+    // the new OpenAI charge. The two rises together (Adobe and Netflix, 168 €) are not there: Adobe's rise is the first
+    // finding and Netflix is in the second, so every euro of that insight is told already
+    expect(data.others.map((i: Insight) => i.id)).toEqual([expect.stringMatching(/^new:out:demo-.+:OpenAI$/)]);
     expect(data.othersDismissed).toEqual([]);
     const first: Insight = data.others[0];
     const subject = `alert:${first.id}@${first.yearlyCents}`;
     expect((await call("PUT", "/api/marks", { subject, mark: "dismissed" })).status).toBe(200);
     const dismissed = (await call("GET", "/api/optimise")).body.data;
-    expect(dismissed.others.map((i: Insight) => i.id)).toEqual(["price-rises"]);
+    expect(dismissed.others).toEqual([]);
     expect(dismissed.othersDismissed).toMatchObject([{ insight: { id: first.id }, subject }]);
     // the findings and their headline do not move
     expect(dismissed.headline).toEqual(data.headline);

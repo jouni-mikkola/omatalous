@@ -31,6 +31,9 @@
 .finding-range { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .finding-certainty { margin: 8px 0 0; }
 .finding-certainty .badge { margin-left: 0; }
+/* an insight's figure is a cost or a change, not a saving: plain weight, beside its words, and what to do under them */
+.other-figure { font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.finding-main p.other-todo { margin-top: 6px; color: var(--text-2); }
 @media (max-width: 600px) {
   .finding-money { flex-basis: 100%; text-align: left; }
 }
@@ -69,6 +72,7 @@
 .check-status { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 .check-status.found { color: var(--text); font-weight: 600; }
 .area-summary { margin-top: 12px; }
+/* checked without findings in one fold, waiting for a number, data or months in the next */
 .quiet-fold > summary { cursor: pointer; font-weight: 500; }
 .quiet-fold[open] > summary { margin-bottom: 12px; }
 .quiet-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px 24px; }

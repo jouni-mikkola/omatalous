@@ -98,14 +98,14 @@ flowchart LR
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
   the range. The registry has `summary`, `cashflow`, `categories`, `pivot`, `fixedVariable`, `priceChanges`,
   `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift`, `buffer`, `spendingChange`, `income` and `insights`.
-- Optimoi (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
+- Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
   file per area in `areas/` returns findings (title, action, a euro range with its assumption, calc lines, evidence
   rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months
   only (under three only deadlines, under six no euros), the 120 € gate, certainty from weaknesses (`common.ts`), the
   user's states (`state.ts`), three findings per area and a headline that skips overlapping findings. An outside figure
   comes only from a dated row in `optimise/facts/`; an expired row hides its comparison. A typed input (`inputs.ts`)
   goes stale and then counts as missing. The price rise, renewal, fixed-cost share and debt share detectors are
-  exported from the insights, so Optimoi and the overview tell the same numbers. Inputs and decisions are the user's
+  exported from the insights, so Säästövinkit and the overview tell the same numbers. Inputs and decisions are the user's
   own, read per request like marks, and saving one never bumps a data version.
   The follow-up (`outcome.ts`) judges a done decision from complete months after it: medians before and after for
   spending, cost per month at its cadence for a contract, CPI for a season. It proposes a switch the data shows and
@@ -187,18 +187,27 @@ fetch from the same day. The other accounts go on.
 | `sessions` | SHA-256 of the session token, expiry |
 | `bank_credentials` | a member's own Enable Banking app, key encrypted |
 | `connections` | bank consents per user, validity, status |
-| `accounts` | type, IBAN, `identity` (the same real account seen by two users), balance |
+| `accounts` | type, IBAN, `identity` (the same real account seen by two users), balance, the bank's `name`; migration 0013 adds the user's own `custom_name`, the `holder`, a card's last four digits (`card_mask`) and `credit_limit_cents` |
 | `account_shares` | which account is shared with whom (read-only) |
 | `transactions` | bank fields plus `merchant`, `category`, `category_source`, `is_transfer`, `search_text` (folded text for search, migration 0003), raw payload |
 | `category_rules` | users' own rules, including the per-merchant rules from *Tapahtumat > Kauppiaat* |
 | `merchant_industry` | trade register answers per merchant name: business id, company, industry code and label. No user id |
 | `merchant_industry_users` | which merchant names each user's register lookups asked about |
 | `sync_runs` | fetch history per user |
+| `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
+| `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
+| `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
+| `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
+| `optimise_snapshots` | one snapshot of the findings per user and month, for the follow-up |
+| `security_events` | logins, lockouts, new devices, password changes and resets, ended sessions, added and deleted users, `ops_*` requests and results: time, user, IP, user agent. A `notify` event is shown once to its user. Kept 90 days, at most 2,000 |
+| `ops_requests` | maintenance requests from *Asetukset > Ylläpito*: the action, its status, who asked, the helper's summary, output and steps. The newest 200 finished ones are kept |
 | `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted) |
 | `_migrations` | applied migrations with checksums and compatibility floors |
 
-Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised.
+Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised, and 0008 three for the
+transaction list's counts and sums and for one merchant's or one category's rows.
 
-Every user row has `user_id` with `ON DELETE CASCADE`, so deleting a user deletes their data.
+Every user row has `user_id` with `ON DELETE CASCADE`, so deleting a user deletes their data. `ops_requests`
+belongs to the instance and keeps the id of the admin who asked.
 
 Security details: [SECURITY.md](SECURITY.md).

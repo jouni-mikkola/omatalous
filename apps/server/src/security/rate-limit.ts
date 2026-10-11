@@ -1,3 +1,5 @@
+type Entry = { count: number; resetAt: number; announced: boolean };
+
 /**
  * In-memory fixed-window limiter for login attempts. Per process, which is
  * enough to make online password guessing impractical for a household app;
@@ -6,13 +8,21 @@
  * An attempt is counted with consume() before the slow password hash runs,
  * so parallel requests cannot all pass the check before the first failure
  * is recorded. A successful attempt is given back with release() or reset().
+ *
+ * Each limiter holds at most `maxKeys` keys, so rotating keys cannot grow it
+ * without bound. A new key makes room by dropping ended windows, then the
+ * oldest key that is under its limit. A key over its limit is never dropped
+ * early, and when every key held is over its limit a new key is refused, not
+ * waved through.
  */
 export class RateLimiter {
-  private readonly hits = new Map<string, { count: number; resetAt: number; announced: boolean }>();
+  // in the order the windows started (a new window is set at the back), so ended windows are at the front
+  private readonly hits = new Map<string, Entry>();
 
   constructor(
     private readonly limit: number,
     private readonly windowMs: number,
+    private readonly maxKeys = 10_000,
   ) {}
 
   /** Returns seconds to wait, or 0 when the attempt is allowed. Does not count. */
@@ -29,20 +39,23 @@ export class RateLimiter {
    */
   consume(key: string, now = Date.now()): { wait: number; first: boolean } {
     const entry = this.hits.get(key);
-    if (entry && entry.resetAt > now && entry.count >= this.limit) {
-      const first = !entry.announced;
-      entry.announced = true;
-      return { wait: Math.ceil((entry.resetAt - now) / 1000), first };
+    if (entry && entry.resetAt > now) {
+      if (entry.count >= this.limit) {
+        const first = !entry.announced;
+        entry.announced = true;
+        return { wait: Math.ceil((entry.resetAt - now) / 1000), first };
+      }
+      entry.count += 1;
+      return { wait: 0, first: false };
     }
-    this.fail(key, now);
+    if (entry) this.hits.delete(key);
+    else if (!this.makeRoom(now)) {
+      // every key held is over its limit: dropping one would end its lockout early. Not announced, a full
+      // map would otherwise write an event per request.
+      return { wait: this.oldestWait(now), first: false };
+    }
+    this.hits.set(key, { count: 1, resetAt: now + this.windowMs, announced: false });
     return { wait: 0, first: false };
-  }
-
-  fail(key: string, now = Date.now()): void {
-    const entry = this.hits.get(key);
-    if (!entry || entry.resetAt <= now) this.hits.set(key, { count: 1, resetAt: now + this.windowMs, announced: false });
-    else entry.count += 1;
-    if (this.hits.size > 10_000) this.sweep(now);
   }
 
   /** Gives one counted attempt back (a successful login must not use up the address limit). */
@@ -57,9 +70,75 @@ export class RateLimiter {
     this.hits.delete(key);
   }
 
-  private sweep(now: number): void {
-    for (const [k, v] of this.hits) if (v.resetAt <= now) this.hits.delete(k);
+  /** How many keys are held now. */
+  get size(): number {
+    return this.hits.size;
   }
+
+  /** Room for one more key: ended windows go first, then the oldest key under its limit. False when none can go. */
+  private makeRoom(now: number): boolean {
+    if (this.hits.size < this.maxKeys) return true;
+    for (const [k, v] of this.hits) {
+      if (v.resetAt > now) break;
+      this.hits.delete(k);
+    }
+    if (this.hits.size < this.maxKeys) return true;
+    // the scan also catches an ended window that a clock change left behind a live one
+    for (const [k, v] of this.hits) {
+      if (v.count < this.limit || v.resetAt <= now) {
+        this.hits.delete(k);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private oldestWait(now: number): number {
+    let soonest = Number.POSITIVE_INFINITY;
+    for (const v of this.hits.values()) soonest = Math.min(soonest, v.resetAt);
+    return Math.max(1, Math.ceil((soonest - now) / 1000));
+  }
+}
+
+/**
+ * The key a client address is limited under. An IPv6 client gets a whole /64 and can use any address in it, so
+ * IPv6 counts as its /64. An IPv4-mapped IPv6 address (::ffff:192.0.2.1, what a dual-stack socket reports for
+ * IPv4) counts as the IPv4 address. Anything else is kept as it is, cut to the length of the longest address.
+ */
+export function addressKey(address: string): string {
+  let a = address.trim().toLowerCase();
+  if (a.startsWith("[")) a = a.slice(1, a.includes("]") ? a.indexOf("]") : undefined);
+  if (a.includes("%")) a = a.slice(0, a.indexOf("%")); // zone id: fe80::1%eth0
+  const g = a.includes(":") ? ipv6Groups(a) : null;
+  if (!g) return a.slice(0, 45);
+  if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff) return [g[6]! >> 8, g[6]! & 255, g[7]! >> 8, g[7]! & 255].join(".");
+  return `${g.slice(0, 4).map((x) => x.toString(16)).join(":")}::/64`;
+}
+
+/** The eight 16-bit groups of an IPv6 address in any text form (`::`, a dotted IPv4 tail), or null when it is not one. */
+function ipv6Groups(text: string): number[] | null {
+  let s = text;
+  const tail: number[] = [];
+  const v4 = /(?:^|:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
+  if (v4) {
+    const b = v4.slice(1).map(Number);
+    if (b.some((n) => n > 255)) return null;
+    tail.push((b[0]! << 8) | b[1]!, (b[2]! << 8) | b[3]!);
+    // keep a "::" that ends right before the IPv4 part, drop a single ":"
+    s = s.slice(0, s.length - v4[0].length + 1);
+    s = s.endsWith("::") ? s : s.slice(0, -1);
+  }
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  const parts = (h: string) => (h === "" ? [] : h.split(":"));
+  const head = parts(halves[0]!);
+  const rest = halves.length === 2 ? parts(halves[1]!) : [];
+  if (![...head, ...rest].every((p) => /^[0-9a-f]{1,4}$/.test(p))) return null;
+  const known = head.length + rest.length + tail.length;
+  const hex = (l: string[]) => l.map((p) => Number.parseInt(p, 16));
+  if (halves.length === 1) return known === 8 ? [...hex(head), ...tail] : null;
+  if (known > 7) return null;
+  return [...hex(head), ...new Array<number>(8 - known).fill(0), ...hex(rest), ...tail];
 }
 
 /** Caps how many password hashes run at once; the rest are refused at once instead of queueing. */

@@ -1,6 +1,6 @@
 # 0008 The bank dialect is data
 
-Status: accepted (0.9.0, H6)
+Status: accepted (0.9.0)
 
 ## Context
 

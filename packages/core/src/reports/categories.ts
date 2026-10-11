@@ -46,6 +46,11 @@ export interface CategoryReport {
   /** False when the history does not cover the previous period: previous numbers are 0 then. */
   comparable: boolean;
   totalCents: number;
+  /**
+   * Spending of the previous period, the sum of the rows' `previousCents`: a category with spending in either period
+   * is a row, so the changes of the rows add up to `totalCents - previousTotalCents`. 0 when not comparable.
+   */
+  previousTotalCents: number;
   /** Income of the range, the base of `incomeShare`. */
   incomeCents: number;
   groups: GroupStat[];
@@ -53,7 +58,7 @@ export interface CategoryReport {
 
 /** Spending (consumption + debt) per group and category with monthly statistics. */
 export function categoryReport(ctx: AnalysisContext, range: DateRange): CategoryReport {
-  const months = rangeMonthIndexes(range, 120);
+  const months = rangeMonthIndexes(range, 120, ctx);
   const firstMonth = months[0]!;
   const current = inDays(ctx, toDayRange(range));
   // a running period is compared with the same days of the previous one
@@ -92,10 +97,16 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
   for (const e of perCategory.values()) if (e.total > 0) total += e.total;
   const income = totalsOf(current.map((t) => t.flows)).incomeCents;
   const ofIncome = (cents: number) => (income > 0 ? cents / income : null);
+  // a category spent on in the previous period only is a row too, at 0 now, so the changes add up to the total change
+  const spent = new Set([...perCategory].filter(([, e]) => e.total > 0).map(([category]) => category));
+  for (const [category, cents] of prev) if (cents > 0) spent.add(category);
+  const none = { monthly: months.map(() => 0), total: 0, count: 0 };
 
-  const stats: CategoryStat[] = [...perCategory.entries()]
-    .filter(([, e]) => e.total > 0)
-    .map(([category, e]) => {
+  const stats: CategoryStat[] = [...spent]
+    .map((category) => {
+      const cur = perCategory.get(category);
+      // net refunds are no spending: such a category is at 0, as it is left out of the total
+      const e = cur && cur.total > 0 ? cur : none;
       const c = getCategory(category);
       const [recent, before] = trendSums.get(category) ?? [0, 0];
       return {
@@ -107,18 +118,18 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         share: total ? e.total / total : 0,
         incomeShare: ofIncome(e.total),
         count: e.count,
-        avgTxCents: Math.round(e.total / e.count),
+        avgTxCents: e.count ? Math.round(e.total / e.count) : 0,
         monthlyAvgCents: averagedAt.length ? Math.round(averagedAt.reduce((sum, i) => sum + e.monthly[i]!, 0) / averagedAt.length) : null,
         // whole cents: the middle two months may average to half a cent
         medianMonthCents: averagedAt.length ? Math.round(median(averagedAt.map((i) => e.monthly[i]!))) : null,
         minMonthCents: averagedAt.length ? Math.min(...averagedAt.map((i) => e.monthly[i]!)) : null,
         maxMonthCents: averagedAt.length ? Math.max(...averagedAt.map((i) => e.monthly[i]!)) : null,
         monthsActive: e.monthly.filter((v) => v > 0).length,
-        previousCents: prev.get(category) ?? 0,
+        previousCents: Math.max(0, prev.get(category) ?? 0),
         trend: before > 0 ? (recent - before) / before : null,
       };
     })
-    .sort((a, b) => b.totalCents - a.totalCents);
+    .sort((a, b) => b.totalCents - a.totalCents || b.previousCents - a.previousCents || a.category.localeCompare(b.category));
 
   const groups = CATEGORY_GROUPS.map((group) => {
     const categories = stats.filter((s) => s.group === group);
@@ -133,7 +144,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     };
   })
     .filter((g) => g.categories.length)
-    .sort((a, b) => b.totalCents - a.totalCents);
+    .sort((a, b) => b.totalCents - a.totalCents || b.previousCents - a.previousCents);
 
-  return { comparable, totalCents: total, incomeCents: income, groups };
+  return { comparable, totalCents: total, previousTotalCents: stats.reduce((s, c) => s + c.previousCents, 0), incomeCents: income, groups };
 }

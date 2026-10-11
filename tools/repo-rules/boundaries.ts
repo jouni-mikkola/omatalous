@@ -1,7 +1,7 @@
 /**
  * Rule 6 of the repo rules: which folder may import which, as data.
  *
- * The layers are the ones docs/ARCHITECTURE.md and .claude/plan/research/G-structure.md (section 5.5) describe:
+ * The layers are the ones docs/ARCHITECTURE.md describes:
  * core knows nothing outside itself, db sits below services, services below routes, and the web app never reaches
  * into the server. Imports that already break a rule are listed in BASELINE. The list can only shrink:
  *   - a violation that is not in it fails (new coupling),

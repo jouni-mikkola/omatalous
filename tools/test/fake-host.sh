@@ -82,8 +82,11 @@ exec /usr/bin/id "$@"
 EOF
   cat >"$b/stat" <<'EOF'
 #!/usr/bin/env bash
-if [[ ${1:-} == -c && -e $S/foreign ]] && grep -qxF -- "${*: -1}" "$S/foreign"; then exec /usr/bin/stat -c "${2//%u/0}" "${@: -1}"; fi
-exec /usr/bin/stat "$@"
+all=("$@"); L=(); [[ ${1:-} == -L ]] && { L=(-L); shift; }
+# an open file (stat -L /dev/fd/N) is named by the path it was opened by
+p=${*: -1}; [[ $p == /dev/fd/* ]] && p=$(readlink -f -- "$p")
+if [[ ${1:-} == -c && -e $S/foreign ]] && grep -qxF -- "$p" "$S/foreign"; then exec /usr/bin/stat "${L[@]}" -c "${2//%u/0}" "${@: -1}"; fi
+exec /usr/bin/stat "${all[@]}"
 EOF
   printf '#!/bin/sh\nexit 0\n' >"$b/jq"
   printf '#!/bin/sh\nexit 1\n' >"$b/docker"

@@ -231,10 +231,10 @@ if ((${#broken[@]})); then
 fi
 if [[ -n $newest ]]; then
   age=$(( $(date +%s) - $(stat -c %Y "$newest") ))
-  if ((age > 3 * 86400)); then warn "$(t "The newest backup is $(span $age) old ($newest)." "Uusin varmuuskopio on $(span $age) vanha ($newest).")" "$(t "./scripts/backup.sh   and schedule it: docs/ADVANCED.md#backups" "./scripts/backup.sh   ja ajasta se: docs/ADVANCED.md#backups")"
+  if ((age > 3 * 86400)); then warn "$(t "The newest backup is $(span $age) old ($newest)." "Uusin varmuuskopio on $(span $age) vanha ($newest).")" "$(t "./scripts/backup.sh   then ./scripts/backup.sh --schedule for a daily one (docs/ADVANCED.md#backups)" "./scripts/backup.sh   ja sitten ./scripts/backup.sh --schedule päivittäistä varten (docs/ADVANCED.md#backups)")"
   else ok "$(t "The newest backup is $(span $age) old ($newest)" "Uusin varmuuskopio $(span $age) vanha ($newest)")"; fi
 else
-  warn "$(t "The backups/ folder has no usable backups." "Kansiossa backups/ ei ole käyttökelpoisia varmuuskopioita.")" "$(t "./scripts/backup.sh   and schedule it: docs/ADVANCED.md#backups" "./scripts/backup.sh   ja ajasta se: docs/ADVANCED.md#backups")"
+  warn "$(t "The backups/ folder has no usable backups." "Kansiossa backups/ ei ole käyttökelpoisia varmuuskopioita.")" "$(t "./scripts/backup.sh   then ./scripts/backup.sh --schedule for a daily one (docs/ADVANCED.md#backups)" "./scripts/backup.sh   ja sitten ./scripts/backup.sh --schedule päivittäistä varten (docs/ADVANCED.md#backups)")"
 fi
 if $DOCKER_OK && { $RUNNING || docker image inspect "$APP_IMAGE" >/dev/null 2>&1; }; then
   # every copy of the app is opened and checked; a file that fails is listed (the app removes new ones itself)

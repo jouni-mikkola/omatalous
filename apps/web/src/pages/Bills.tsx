@@ -3,16 +3,17 @@
  *
  * Laskut answers what is coming and what the household is tied to. The line on top says what the fixed costs are and
  * how much of them is subscriptions. Below it, in the order of the `order` numbers: Tulossa (the next 30 days, one
- * list), Tilaukset with the marks, the table of price changes under it, Sopimukset ja laskut, the rare bills of the next twelve
- * months, and the series that have ended. Every figure for subscriptions comes from one definition (`isSubscription`,
- * `subscriptionsMonthlyCents`), so the line, the card and its rows agree, and a merchant marked as cancelled is out of
- * the total.
+ * list), Tilaukset with the marks, the table of price changes under it, Sopimukset ja laskut, the savings plans, the rare
+ * bills of the next twelve months, and the series that have ended. Every figure comes from one definition in core
+ * (`isSubscription`, `isContract`, `isSavingsPlan`), so Tilaukset and Sopimukset ja laskut add up to the line on top, and
+ * a merchant marked as cancelled is out of every total.
  */
 import {
   cancelledMerchants,
   fixedSplit,
   inUseQuietsQuestion,
-  isFixedCost,
+  isContract,
+  isSavingsPlan,
   isSubscription,
   NO_INPUTS,
   subscriptionsMonthlyCents,
@@ -33,8 +34,6 @@ import { reportsOf, visibleSections } from "./reports/registry.ts";
 import type { ReportRange } from "./reports/types.ts";
 import "../styles/bills.css";
 
-/** Active subscriptions that are not in a subscription category (a phone plan, insurance, a loan) and the bills. */
-const isContract = (s: Series) => s.active && ((s.kind === "subscription" && !isSubscription(s)) || s.kind === "bill");
 /** What has ended and is not pay or a shop habit: those have no place on a page about bills. */
 const hasEnded = (s: Series) => !s.active && s.kind !== "habit" && s.kind !== "income";
 
@@ -96,7 +95,9 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   const subs = allSubs.filter((s) => !cancelled.has(s.merchant));
   const stopped = allSubs.filter((s) => cancelled.has(s.merchant));
   const subsMonthly = subscriptionsMonthlyCents(series, cancelled);
-  const contracts = series.filter(isContract).sort((a, b) => b.monthlyCents - a.monthlyCents);
+  const byCost = (a: Series, b: Series) => b.monthlyCents - a.monthlyCents;
+  const contracts = series.filter((s) => isContract(s) && !cancelled.has(s.merchant)).sort(byCost);
+  const savings = series.filter((s) => isSavingsPlan(s) && !cancelled.has(s.merchant)).sort(byCost);
   const ended = series.filter(hasEnded);
 
   // a typed-in bill or a mark changes what the reports and the next 30 days hold
@@ -111,6 +112,7 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
     { order: 10, node: <Coming key="coming" ahead={dashboard.data.ahead} today={meta.today} label={label} onAdded={refresh} /> },
     { order: 20, node: <Subscriptions key="subs" subs={subs} stopped={stopped} total={subsMonthly} controls={controls} label={label} /> },
     { order: 40, node: <Contracts key="contracts" rows={contracts} label={label} /> },
+    { order: 45, node: <Savings key="savings" rows={savings} label={label} /> },
     { order: 60, node: <Ended key="ended" rows={ended} label={label} /> },
     ...visibleSections(ctx, "bills").map((s) => ({ order: s.order, node: <s.Component key={s.id} ctx={ctx} /> })),
   ];
@@ -148,6 +150,23 @@ function Contracts({ rows, label }: { rows: Series[]; label: (id: string) => str
         <div>
           <h2>Sopimukset ja laskut</h2>
           <div className="card-sub">Puhelin, vakuutukset, asuminen ja lainat kuuluvat kiinteisiin menoihin.</div>
+        </div>
+        <strong>{money(monthlyOf(rows), false)}/kk</strong>
+      </div>
+      <SeriesTable rows={rows} label={label} />
+    </div>
+  );
+}
+
+/** A monthly fund saving leaves the account like a bill, but the money is kept: apart from the fixed costs. */
+function Savings({ rows, label }: { rows: Series[]; label: (id: string) => string }) {
+  if (!rows.length) return null;
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h2>Säännöllinen säästäminen</h2>
+          <div className="card-sub">Kuukausisäästö ei ole kiinteä meno, joten se ei ole mukana kiinteissä menoissa.</div>
         </div>
         <strong>{money(monthlyOf(rows), false)}/kk</strong>
       </div>

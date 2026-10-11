@@ -81,6 +81,22 @@ function validSecret(secret: string): string | null {
   return secret;
 }
 
+/**
+ * A fixed setup code is all a stranger needs to claim a copy that has no users yet. One shorter than 16 characters
+ * is refused at start, and a generated code (19 characters) is used instead.
+ */
+function validSetupCode(code: string | undefined): string | null {
+  const value = code?.trim();
+  if (!value) return null;
+  if (value.length < 16) {
+    console.error(
+      "SETUP_CODE is shorter than 16 characters and is not used. A generated code works instead: docker compose exec banking node dist/node.js setup-code. To use your own, set one of 16 characters or more in .env.",
+    );
+    return null;
+  }
+  return value;
+}
+
 /** Cookie names allow [a-z0-9_-] here; compose passes INSTANCE_NAME, existing installs have none and are "banking-app". */
 function cookieName(instance: string | undefined): string {
   const name = (instance ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 60);
@@ -106,7 +122,7 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
     sessionDays: int(env.SESSION_DAYS, 30),
     sessionCookie: cookieName(env.INSTANCE_NAME),
     trustProxy: env.TRUST_PROXY === "true" || env.TRUST_PROXY === "1",
-    setupCode: env.SETUP_CODE?.trim() || null,
+    setupCode: validSetupCode(env.SETUP_CODE),
     passwordIterations: int(env.PASSWORD_ITERATIONS, 600_000),
     enableBanking: env.EB_APP_ID && pem ? { appId: env.EB_APP_ID, privateKeyPem: pem } : null,
     bank: {

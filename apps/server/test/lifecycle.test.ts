@@ -245,7 +245,8 @@ describe("command line: sessions and secret rotation", () => {
   });
 
   async function sealed() {
-    const t = await setupApp();
+    // saving a key tries it against Enable Banking, so the fetch is the mock, never the network
+    const t = await setupApp({}, mockBank().fetchMock);
     await t.admin.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem });
     await t.admin.call("POST", "/api/admin/bank-app/key", {});
     const dir = tmp();

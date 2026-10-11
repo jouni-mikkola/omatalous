@@ -293,7 +293,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           onShowHousehold={() => setScope("household")}
         />
       )}
-      {page === "reports" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Reports meta={m} range={range} scope={effectiveScope} />)}
+      {page === "reports" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Reports meta={m} range={range} scope={effectiveScope} anchor={route.anchor} />)}
       {page === "optimise" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Optimise scope={effectiveScope} />)}
       {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} anchor={route.anchor} />)}
       {page === "bills" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Bills meta={m} range={range} scope={effectiveScope} />)}

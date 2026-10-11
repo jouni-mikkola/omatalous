@@ -12,6 +12,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Cron } from "croner";
 import { createApp } from "../app.ts";
 import { runCli } from "../cli.ts";
+import { runCloudflareCli } from "../cli-cloudflare.ts";
 import { loadConfig } from "../platform/config.ts";
 import { MigrationError } from "../db/migrate.ts";
 import { runMigrateCheck } from "../db/migrate-check.ts";
@@ -64,6 +65,14 @@ if (process.argv[2] === "restore") {
 
 // `migrate-check` works on a copy of the file it is given: it runs before the app secret or the live database is touched
 if (process.argv[2] === "migrate-check") process.exit(await runMigrateCheck(process.argv.slice(3), undefined, { migrationsDir: env.MIGRATIONS_DIR || undefined }));
+
+// `cloudflare up|down` talks only to Cloudflare, so it needs no database and no app secret (the installer runs it with `docker run --rm`)
+if (process.argv[2] === "cloudflare") {
+  const code = await runCloudflareCli(process.argv.slice(3), env);
+  // the installer reads both streams; a pipe or socket can take a write in parts and process.exit would drop the rest
+  await Promise.all([process.stdout, process.stderr].map((out) => new Promise<void>((done) => out.write("", () => done()))));
+  process.exit(code);
+}
 
 // The app secret is created on first start (Docker: /secrets/app_secret in its own volume).
 let appSecret: string | undefined;

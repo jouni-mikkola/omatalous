@@ -1,5 +1,5 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.ts";
 import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
@@ -52,6 +52,57 @@ describe("login limits", () => {
     expect(home.status).toBe(200);
   });
 
+  it("counts an IPv6 client by its /64: rotating addresses inside it hits the address limit", async () => {
+    const { client } = await setupApp({ TRUST_PROXY: "true" });
+    const c = client();
+    // junk names are refused before any hashing but still count against the address
+    for (let i = 0; i < 50; i++) {
+      const r = await c.call("POST", "/api/auth/login", { username: `${"x".repeat(65)}${i}`, password: "x" }, { "CF-Connecting-IP": `2001:db8:1:2::${(i + 1).toString(16)}` });
+      expect(r.status).toBe(401);
+    }
+    const sameNet = await c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "CF-Connecting-IP": "2001:0db8:0001:0002:ffff:ffff:ffff:ffff" });
+    expect(sameNet.status).toBe(429);
+    const nextNet = await c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "CF-Connecting-IP": "2001:db8:1:3::1" });
+    expect(nextNet.status).toBe(200);
+  });
+
+  it("guesses at one user name from inside one /64 share its limit of 10", async () => {
+    const { client } = await setupApp({ TRUST_PROXY: "true" });
+    for (let i = 0; i < 10; i++) {
+      const r = await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` }, { "X-Forwarded-For": `2001:db8:5:6:${i}::1` });
+      expect(r.status).toBe(401);
+    }
+    expect((await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "X-Forwarded-For": "2001:db8:5:6::99" })).status).toBe(429);
+  });
+
+  it("guesses at one user name are limited to 30 whatever the addresses, and the name lockout is recorded once", async () => {
+    const { client, s, member } = await setupApp({ TRUST_PROXY: "true" });
+    await member("eero");
+    // three /64s, ten guesses each: no single address is over its limits
+    for (let net = 0; net < 3; net++) {
+      for (let i = 0; i < 10; i++) {
+        const r = await client().call("POST", "/api/auth/login", { username: "Aino", password: `nope-${i}-password` }, { "CF-Connecting-IP": `2001:db8:${net}::${i + 1}` });
+        expect(r.status).toBe(401);
+      }
+    }
+    for (const ip of ["2001:db8:9::1", "198.51.100.7"]) {
+      const r = await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "CF-Connecting-IP": ip });
+      expect(r.status).toBe(429);
+    }
+    const lockouts = await s.db.all<{ detail: string; ip: string }>("SELECT detail, ip FROM security_events WHERE kind = 'lockout'");
+    expect(lockouts).toEqual([{ detail: "aino, kaikista osoitteista", ip: "2001:db8:9::1" }]);
+    // another name is not affected
+    expect((await client().call("POST", "/api/auth/login", { username: "eero", password: "eero-uusi-salasana" }, { "CF-Connecting-IP": "2001:db8:9::1" })).status).toBe(200);
+  });
+
+  it("IPv4 addresses are limited one by one, as before", async () => {
+    const { client } = await setupApp({ TRUST_PROXY: "true" });
+    for (let i = 0; i < 10; i++) await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` }, { "X-Forwarded-For": "203.0.113.9" });
+    // the same address written as IPv4-mapped IPv6 is the same client
+    expect((await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "X-Forwarded-For": "::ffff:203.0.113.9" })).status).toBe(429);
+    expect((await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "X-Forwarded-For": "203.0.113.10" })).status).toBe(200);
+  });
+
   it("a successful login gives its attempt back, so a household behind one address is not used up", async () => {
     const { client, s } = await setupApp();
     for (let i = 0; i < 60; i++) expect((await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" })).status).toBe(200);
@@ -78,6 +129,26 @@ describe("first-run setup", () => {
     expect(statuses.slice(10)).toEqual([429, 429]);
     // the right code is refused too until the window ends
     expect((await call("POST", "/api/auth/setup", { ...bad, code: SETUP_CODE })).status).toBe(429);
+  });
+
+  it("refuses a SETUP_CODE shorter than 16 characters at start and takes a generated code instead", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(loadConfig({ ...ENV, SETUP_CODE: "lyhyt-koodi-123" }).setupCode).toBeNull();
+      expect(errors.mock.calls.flat().join(" ")).toMatch(/SETUP_CODE is shorter than 16 characters and is not used/);
+      expect(loadConfig({ ...ENV, SETUP_CODE: "  pitka-koodi-1234  " }).setupCode).toBe("pitka-koodi-1234");
+      const { call } = await bareApp({ SETUP_CODE: "lyhyt-koodi-123" });
+      const form = { username: "aino", displayName: "Aino", password: "aino-salasana-123" };
+      expect((await call("POST", "/api/auth/setup", { ...form, code: "lyhyt-koodi-123" })).status).toBe(400);
+      await call("GET", "/api/auth/state");
+      const generated = /Setup code for creating the first user: (\S+)/.exec(logs.mock.calls.flat().join(" "))?.[1] ?? "";
+      expect(generated).toHaveLength(19);
+      expect((await call("POST", "/api/auth/setup", { ...form, code: generated })).status).toBe(200);
+    } finally {
+      errors.mockRestore();
+      logs.mockRestore();
+    }
   });
 
   it("two parallel setups create exactly one admin", async () => {

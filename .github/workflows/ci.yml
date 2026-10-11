@@ -4,8 +4,8 @@ name: CI
 # added or renamed here changes nothing outside this file.
 #
 # The public repository runs CI on every push, which is free. The private one pays for its minutes, so a push there
-# skips every job, ci-ok included. It runs CI on a pull request and by hand (workflow_dispatch), which release.sh does
-# for the release commit and the baseline commit. A landing has run the same checks locally already (tools/lead/land.sh).
+# skips every job, ci-ok included. It runs CI on a pull request and by hand (workflow_dispatch), which a release does
+# for the release commit and the baseline commit. A change has passed the same checks locally before it lands.
 # The skipped check runs a push leaves answer nothing: tools/ci/wait.sh ignores them.
 on:
   push:
@@ -26,7 +26,7 @@ concurrency:
 jobs:
   shell:
     # no Node: the checks that need no install run first and fastest
-    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
+    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -51,7 +51,7 @@ jobs:
           done
 
   js:
-    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
+    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -78,7 +78,7 @@ jobs:
 
   e2e:
     # the built app in a real browser: every page at desktop and phone width, no console or network errors
-    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
+    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -96,7 +96,7 @@ jobs:
       - run: pnpm e2e
 
   docker:
-    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
+    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -164,7 +164,7 @@ jobs:
 
   ci-ok:
     # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (a private push).
-    if: ${{ always() && (github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app') }}
+    if: ${{ always() && (github.event_name != 'push' || !github.event.repository.private) }}
     needs: [shell, js, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 15

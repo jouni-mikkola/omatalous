@@ -3,6 +3,75 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.6
+
+Money and reports
+
+- Tapahtumat no longer counts own transfers in the paid and received sums, and a merchant's summary leaves them out of its totals and its category. The page says so.
+- A merchant's figure per month is the same on Laskut, Kauppiaat and the merchant summary: a recurring payment shows its own price, any other merchant the average of its last twelve complete months.
+- Laskut: Sopimukset ja laskut no longer counts a monthly saving, so it and Tilaukset add up to the fixed costs on top. Monthly savings have their own card.
+- Harvinaiset laskut shows a bill paid this month as paid, with its date, and lists only the months that have bills.
+- A search that reads as a euro amount, such as 142,30, also finds the rows of that amount.
+- *Raportit > Kategoriat* lists a category that had spending in the previous period only, at 0 € now, and ends with a *Yhteensä* row. The changes now add up to the change in spending.
+- *Menojen muutos* on *Kuukausi* shows no bars when no category stands out. Before, one *Muut* bar held the whole change while the table's *Muut* row showed a different figure. The rest bar is now called *Muut muutokset*.
+- *Raportit > Tulot* is titled *Tulot, 12 kk*, because it always covers the twelve months up to the last complete one, whatever the period. The figure is *Nettotulot*, the money that reached the accounts. Ansiotulot is the gross figure of taxation, so the old label was wrong. The month count follows the history: Viime vuosi of a history from September reads 4 months.
+- The month rows of *Raportit* (Tulot ja menot, Kuukausitaulukko, Kiinteät ja muuttuvat, Tulot) start where the history starts. Before, the months before the first transaction showed as partial months of 0 €.
+- *Ennuste kuun loppuun* needs one complete month. Until then the card shows what has gone and the bills still due, and says on which day the forecast appears. Before, the "forecast" was only what had been spent.
+- *Tämä kuu* tells last month's income in one line that links to *Viime kuu*, instead of repeating its whole *Mihin tulot menivät* card. On a first run with one partial month, that month's income is shown, marked *vajaa*. Before, the page said there was no income.
+- The *Menot kuukausittain* link and the income link on *Kuukausi* open *Raportit* at that section.
+- *Säästövinkit* tells each euro once: an insight under *Muut havainnot* goes when the tips together already tell most of it, or when what is left of it is under the 120 € gate. On the demo, "Kaksi toistuvaa maksua kallistui, yhteensä 168 €" no longer repeats Adobe's rise and Netflix from the video tip.
+- The headline reads "Säästömahdollisuus noin 288 € vuodessa, 2 vinkkiä". *Tilanne* counts only the checks that ran and says how many wait for data or a longer history.
+- The areas without tips are two folds: the ones checked without findings, and the checks that wait for a number, more data or a longer history, listed apart.
+- *Velanhoito tuloista* says that its 35 % line is the app's own, not an authority's recommendation.
+- *Muut havainnot* show what their figure is ("Maksaa 276 € vuodessa", "Nousu 168 € vuodessa") apart from the tips' euros, with what to do.
+- A tip you asked to be reminded of later keeps its name and euros under *Päätetyt*.
+- A subscription that moves to another card or account is no longer told as a new regular payment.
+
+Fetching and importing
+
+- Connecting the bank takes fewer clicks. The certificate downloads by itself when the key is made, and an Application ID whose test passes is saved without a button press while no app is saved yet.
+- Lisää pankkiyhteys in the first-run setup and the bank tile under Asetukset > Pankkiyhteydet stay on while the app reads Inactive. Starting a connection tests the app again and says what is wrong.
+- Asetukset > Oma Enable Banking -sovellus shows the privacy and terms addresses the Control Panel asks for, with copy buttons. Saving a key pair tests it against Enable Banking, and a pair it refuses is not saved.
+
+Look
+
+- *Asetukset > Talouden jäsenet* has a *Kopioi ohje* button beside a new member's temporary password. It copies the address of the app, the username, the password and a line saying the password must be changed at the first login.
+- The install guide is shorter. `./scripts/install.sh --install-docker` installs Docker and `jq` and gives the user the Docker right, so only `git` is installed by hand.
+
+Reliability
+
+- Login limits hold against a client that keeps changing its address. An IPv6 address counts as its /64, and one user name gets at most 30 failed logins in 15 minutes from all addresses together. Each limit holds at most 10 000 addresses or names in memory.
+- A `SETUP_CODE` shorter than 16 characters is not used. The app says so at start, and a generated code works instead.
+- The Cloudflare Tunnel container runs with a read-only file system and no Linux capabilities.
+
+Maintenance
+
+- `./scripts/backup.sh --schedule [HH:MM]` puts the daily backup in the crontab (03:30 without a time) and `--unschedule` takes it out. A second run replaces the line, and other folders' lines and your own stay. `doctor.sh` names it when there is no recent backup.
+- `backup.sh` reads `BACKUP_AGE_RECIPIENT` from `.env` when the shell has none. The scheduled backup and the *Varmuuskopio* button under *Asetukset > Ylläpito* run with an empty environment, so until now they never encrypted or saved the app secret.
+- `BACKUP_COPY_TO` in `.env` is a folder, for example a mounted NAS share. Each new backup is copied there when the folder is on a mounted drive and writable. Otherwise `backups/backup.log` gets a warning and the local backup stays.
+- `node dist/node.js cloudflare up --name <copy> --hostname <host>` puts a copy behind a Cloudflare Tunnel and Cloudflare Access (Zero Trust Free). Only the email addresses you list can sign in, with a one-time PIN, before the app's own login. It needs no database. The API token and the addresses come from the environment, a second run changes nothing, and `cloudflare down` removes what it made.
+- The installer can make a copy's Cloudflare tunnel, its address and its Cloudflare Access rule by itself. Put an API token, a domain on your account and the default email addresses in `~/.config/omatalous/cloudflare.env` (mode 600) once, then run `./scripts/install.sh --access tunnel`. A copy from `--new-instance NAME --access tunnel` gets the address `NAME.<your domain>`; a first install is asked (`talous.<your domain>` by default) and with `--yes` needs `--domain`. An address another copy with the same file already has is refused.
+- Each copy has its own list of addresses that Access lets in. Give it with `--access-emails a@example.fi,b@example.fi` (or `TALOUS_ACCESS_EMAILS`), or accept the file's list. It is kept in the copy's `.env` as `CLOUDFLARE_ACCESS_EMAILS`. Running `./scripts/install.sh --access-emails ...` in the copy's folder changes the list.
+- `./scripts/install.sh --cloudflare-down` removes the tunnel, the address and the Access rule of the copy in that folder.
+- A tunnel made by hand works as before: no file, or `TALOUS_TUNNEL_TOKEN` given.
+- `./scripts/cloudflare-setup.sh` writes the Cloudflare settings file (`~/.config/omatalous/cloudflare.env`, mode 600) for tunnel access. It asks for the API token without showing it, checks the token with Cloudflare, takes the domain from the token's zones and asks which emails may log in. Run it again to change a value: it offers the saved domain and emails and keeps the token unless you type a new one.
+- `./scripts/restore.sh <file>` restores a backup in one command: a `.db` downloaded with *Lataa uusin*, or a `.db.gz` or `.db.gz.age` made by `backup.sh`. It stops the app, restores the file with the usual check, starts the app again and writes `APP_BASE_URL` from `.env` as the app's address. `--secret <file>` puts the app secret back and keeps the old one as `.prev-<time>`. A file that is not a database is refused before the app stops, and a failed restore starts the app again.
+
+For developers
+
+- `CONTRIBUTING.md` says how to open an issue or a pull request and how to report a vulnerability.
+- `docs/ARCHITECTURE.md` lists every table, and the docs name the Säästövinkit page and *Asetukset > Tilit* as the app does.
+- `recurring.ts` was at its 570-line cap and is now about 370 lines. The cadence table and its fit, the series' cost and the input charges moved to `recurring-cadence.ts`, `recurring-cost.ts` and `recurring-occurrence.ts`. Everything `recurring.ts` exported is still importable from it, and no finding or figure changes.
+- The public repository no longer carries the maintainers' worker guide and worker tools, and a snapshot that still names a file, commit or plan of the private development repository stops before anything is published.
+- `pnpm check` names the three slowest tests over 2 s under the test summary, so one near vitest's 5 s timeout shows before it fails.
+- The tests that load a frozen release database write it without a flush per statement. Their five files take 20 s of test time in a full run instead of 68 s, and `contracts.test.ts` no longer runs a test near the 5 s timeout.
+- `release.sh` writes `contracts/X.Y.Z/` and the frozen database of a release that adds migrations, where the 0.8.5 release stopped for them: the helper files copied from the previous folder, a README worded from what the migrations add and the compat floors they carry, the schema and the fixture. It still stops where the helper files changed since the last release, because a person checks those.
+
+Upgrade
+
+- Two optional `.env` keys, `BACKUP_AGE_RECIPIENT` (an age public key) and `BACKUP_COPY_TO` (a folder). `backup.sh` reads them from `.env` when the shell has none. With a key in `.env` the *Varmuuskopio* button now encrypts.
+- A `SETUP_CODE` in `.env` shorter than 16 characters is no longer accepted. Set a longer one, or remove it and get a code with `docker compose exec banking node dist/node.js setup-code`. It matters only before the first user exists.
+
 ## 0.8.5
 
 Money and reports
@@ -29,13 +98,7 @@ Maintenance
 
 For developers
 
-- `tools/lead/usage.mjs` groups agents by task with the lead turns that name them (`--tasks`), prices what tool output cost to keep in the context (`--carry`), splits the wall-clock time into agents, lead, landings, CI and idle (`--time`), and takes `--until`.
-- `tools/lead/land.sh` starts the revert guard where `tools/worker-start.sh` put the worker's branch, so lines that landed before the worker started no longer count as reverted.
-- `tools/worker-start.sh` refuses a base without the tasks the brief's `After:` line names, and prints its `Owns:` line.
-- In the private repository CI runs on pull requests and when a release asks for it, never on a push. The upgrade rehearsal has no schedule and the branch cleanup runs weekly.
-- `release.sh` has a new `gate` step (`pnpm check`, `pnpm build`, `pnpm e2e`) before it pushes, and its `rehearsal` and `baseline-ci` steps start `ci.yml` themselves.
 - `wait.sh` ignores skipped check runs.
-- `tools/lead/usage.mjs` reads the Windows user's transcripts under `/mnt/c/Users` when it runs in WSL and finds none of its own, and names that user in a first line. `tools/wsl/lx` is the Windows-side wrapper that runs a script in the WSL distro, and `docs/WORKERS.md` has a section "On a Windows host" with the setup steps.
 
 Upgrade
 
@@ -79,9 +142,6 @@ Maintenance
 
 For developers
 
-- `tools/lead/usage.mjs` prints tokens and estimated cost per agent and for the lead from the session transcripts.
-- `tools/lead/land.sh` lands a branch of another session by name, skips commits that landed before, picks in a worktree of its own and reruns tests that timed out under load alone before it refuses.
-- `tools/release/release.sh X.Y.Z` runs a release from the fragments to private `main` and skips what is done, so a failed run continues with the same command.
 - `prepare.mjs --check-docs` also wants `contracts/X.Y.Z` when migrations were added.
 - `GET /api/reports?reports=a,b` builds only the named reports. Kuukausi and Raportit ask for the reports their sections read (`reportsOf` in `pages/reports/registry.ts`).
 - `usualSpending(ctx, month, day)` and `usualSpendingOver` own the usual total of a month, also of its days so far. The pace chart and the change report's usual view read them.
@@ -145,9 +205,8 @@ For developers
 - The life-event kit in `packages/core/test/kit/` adds 17 events reviewers caught false findings with (a move, a second phone line, a sync lag, a cadence change and others) to a steady household. Each event may only add the statements it allows. A noise budget lets a detector that compares two windows fire on at most 1 % of 200 steady households. Today's failures are listed in `known.ts`, which may only shrink.
 - Decision records start in `docs/adr/`.
 - Faster checks while working: `pnpm check --changed` runs types incrementally and only the tests and shell steps a diff can affect. Checks wait for a free slot (two at a time), seeded tests have a 30 s timeout and a timeout is reported as one.
-- New tools: `tools/worker-start.sh`, `tools/commit.sh` (retries a signing 503, never commits unsigned), `pnpm where <symbol>` and `pnpm shots <route>`. Test files over 800 lines are capped by a repo rule.
-- `tools/lead/land.sh <branch>` lands a worker branch in one call. It refuses a conflict, a file outside the lanes and a result that removes lines the current branch added since the worker started, runs check, build and e2e as they apply, and then removes the worker's worktree and branch.
-- `tools/ci/wait.sh <sha> <check>...` waits for named GitHub checks, and `tools/release/ship.sh` uses it to read `ci-ok` and `upgrade-ok` itself. `--ci-checked` stays for a machine where `gh` cannot sign in.
+- New tools: `tools/commit.sh` (retries a signing 503, never commits unsigned), `pnpm where <symbol>` and `pnpm shots <route>`. Test files over 800 lines are capped by a repo rule.
+- `tools/ci/wait.sh <sha> <check>...` waits for named GitHub checks.
 - `pnpm release:fixture X.Y.Z` writes the frozen database fixture of a release from the previous one, the current migrations and seed rows for each new table. `tools/ci/verify-release.sh --pull X.Y.Z` checks that the image pulls without a login for amd64 and arm64.
 - One owner per figure (ADR 0004): `usualIncome`, `usualSpending` and `gateFor` live in `analysis/usual.ts` over one earned-income predicate, `isEarnedIncome` in `analysis/income.ts`. `cancelledMerchants` and `expectedCharges` moved to `commitments.ts`, `SUBSCRIPTION_CATEGORIES` to `categories.ts` and the fee predicates to `analysis/fees.ts`, with no re-export under the old paths.
 - Repo rule 17 keeps `365.25 /` in `recurring.ts`: a series is costed with its own `perMonth`, `monthlyCents` and `yearlyCents`.
@@ -305,7 +364,6 @@ For developers
 - `pnpm check` runs the CI test job without the build (typecheck, tests, shell lint, shell suites) and prints one line per step, with the failing test names and the first lines of each failure. The maintenance helper scenarios run four at a time, so the shell suites take about 20 seconds instead of 65.
 - `pnpm test:core`, `pnpm test:server` and `pnpm test:sh:fast` run one part. `pnpm --filter @banking/core test` runs the core tests now. It used to run nothing and report success.
 - `tools/ci/shell-lint.sh` holds the shell syntax and shellcheck step. CI calls it, and it fails when shellcheck is missing on CI.
-- `docs/WORKERS.md` explains how to run one test, the test helpers, the files that change together and what done means for a task.
 - Repo rules in `tools/repo-rules` run with `pnpm test` and name the file and line to fix. They cover the purity of core, where SQL and security events are written, `user_id` on every `FinanceRepo` statement, em dashes in text, English in the UI text, the ops action list, the report registry and source file sizes.
 - Folder import boundaries are checked as data. Imports that already break a boundary sit in a baseline that can only shrink: a new violation fails, and so does a baseline entry that no longer occurs.
 - Shared server code (configuration, errors, ids, input validators) lives in `apps/server/src/platform/`.
@@ -313,7 +371,7 @@ For developers
 - `UpstreamError` is the base class for failures of outside services: `app.ts` answers 502 for it without naming Enable Banking.
 - Where transactions come from is now a connector (`apps/server/src/connectors/`) with one sync loop, and file formats are import parsers in `packages/core/src/sources/`. A new bank or format is a folder and a registry line.
 - CI runs the shell checks, the JS checks, e2e and docker side by side and ends in one `ci-ok` check. The upgrade rehearsal also runs on `release/**` branches and ends in `upgrade-ok`. `pnpm typecheck` covers `e2e`, `tools` and the root config too.
-- `node tools/release/prepare.mjs X.Y.Z` bumps the version and builds the CHANGELOG section from `changelog.d/`, and `tools/release/ship.sh` moves private `main` and publishes. `docs/RELEASING.md` has the new steps. The GitHub Actions checkout and setup-node pins moved to 7.0.1 and 7.1.0.
+- `node tools/release/prepare.mjs X.Y.Z` bumps the version and builds the CHANGELOG section from `changelog.d/`. `docs/RELEASING.md` has the new steps. The GitHub Actions checkout and setup-node pins moved to 7.0.1 and 7.1.0.
 - `FinanceRepo` is split into modules in `apps/server/src/db/finance/` behind the same class, and the `user_id` repo rule checks each module.
 - The web styles are split into `styles/tokens.css`, `base.css` and one file per page area, and each report section is a file in `pages/reports/sections/`.
 - A module can ship switched off: add it to `FEATURES` in `packages/core/src/features.ts`, mount its routes with `gated(s, id, routes)` and give its nav entry in `nav.ts` a `feature`. Unfinished (`dev`) flags are not shown in Asetukset > Palvelin.

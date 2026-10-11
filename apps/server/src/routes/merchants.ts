@@ -1,5 +1,5 @@
 /** Merchants of the signed-in user and the category each one is always put in. Own rows only. */
-import { isKnownCategory } from "@banking/core";
+import { isKnownCategory, merchantBasis, merchantMonthly } from "@banking/core";
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
@@ -21,17 +21,16 @@ export function merchantRoutes(s: Services) {
 
   /**
    * The merchants of Tapahtumat > Kauppiaat. `from` and `to` narrow the rows the figures add up, `habit=1` keeps the
-   * merchants the recurring detection calls everyday purchases (Arkiostot), and `months` is what `monthlyCents` (Kuussa)
-   * divides by.
+   * merchants the recurring detection calls everyday purchases (Arkiostot), and `months` is the complete months that
+   * `monthlyCents` (Kuussa) of a merchant without an active series divides by.
    */
   app.get("/merchants", async (c) => {
     const user = c.get("user");
     const { q, category, limit, from, to, habit } = c.req.query();
     if (habit && habit !== "1") throw new UserError("Virheellinen suodatin.");
-    // the set is the detection's, not a second definition: the analysis is cached per user and data version
-    const only = habit
-      ? new Set((await s.analysis.get(s, user.id, "own")).ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant))
-      : undefined;
+    // the set and the series figures are the detection's, not a second definition: the analysis is cached per user and data version
+    const { ctx } = await s.analysis.get(s, user.id, "own");
+    const only = habit ? new Set(ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant)) : undefined;
     return c.json(
       await s.finance(user.id).merchantSummaries({
         q: q?.slice(0, 100),
@@ -40,13 +39,15 @@ export function merchantRoutes(s: Services) {
         to: to ? parseIsoDate(to, "Virheellinen aikaväli.") : undefined,
         only,
         limit: Math.min(Math.max(queryInt(limit) ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
+        basis: merchantBasis(ctx),
       }),
     );
   });
 
   /**
    * The summary above Tapahtumat when it is filtered to one merchant: the whole history, not the filtered period.
-   * The name only ever binds as a parameter. A recurring payment adds its cadence and next expected date.
+   * The name only ever binds as a parameter. A recurring payment adds its cadence and next expected date, and the
+   * figure per month is the one Kauppiaat shows (`merchantMonthly`).
    */
   app.get("/merchants/summary", async (c) => {
     const user = c.get("user");
@@ -55,13 +56,17 @@ export function merchantRoutes(s: Services) {
     const shared = scope === "household" ? (await sharedInView(s, user.id)).map((a) => a.id) : undefined;
     const history = await s.finance(user.id).merchantHistory(merchant, shared);
     if (!history) return c.json({ summary: null });
-    // the analysis is cached per user and data version; only a recurring series needs it
+    // the analysis is cached per user and data version: the series and the complete months come from it
     const { ctx } = await s.analysis.get(s, user.id, scope);
     const series = ctx.recurring.filter((r) => r.merchant === merchant).sort((a, b) => Number(b.active) - Number(a.active) || (a.lastDate < b.lastDate ? 1 : -1))[0];
+    const basis = merchantBasis(ctx);
+    const { outByMonth, ...totals } = history;
+    const outInMonths = basis.months.reduce((n, m) => n + (outByMonth[m] ?? 0), 0);
     return c.json({
       summary: {
         merchant,
-        ...history,
+        ...totals,
+        monthly: merchantMonthly(basis, merchant, outInMonths),
         recurring: series?.cadence ? { cadence: series.cadence, active: series.active, nextDate: series.active ? series.nextDate : null, typicalAmountCents: series.typicalAmountCents } : null,
       },
     });

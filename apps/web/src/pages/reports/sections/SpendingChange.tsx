@@ -113,7 +113,8 @@ function SpendingChange({ ctx }: SectionProps) {
         ))}
       </div>
       <p className="change-sentence">{view.sentence}</p>
-      <Bridge view={view} />
+      {/* no category stands out: no bars, the table below totals the change */}
+      {view.bars.length > 0 && <Bridge view={view} />}
       <div className="table-wrap">
         <table className="change-table">
           <thead>

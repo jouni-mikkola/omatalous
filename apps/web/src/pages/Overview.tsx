@@ -18,6 +18,8 @@ import { navigate, useApi } from "../hooks.ts";
 import type { DashboardData, Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
 import { reportsOf, visibleSections } from "./reports/registry.ts";
+import { section as incomeSection } from "./reports/sections/Income.tsx";
+import { section as monthsSection } from "./reports/sections/Pivot.tsx";
 import "../styles/overview.css";
 import { SETTINGS_ANCHOR } from "../routes.ts";
 
@@ -161,7 +163,12 @@ export function Overview({
       )}
 
       <div className="card">
-        <SurplusBridge totals={data.bridge.totals} title="Mihin tulot menivät" heading="h2" sub={bridgeSub(data.bridge, data.range.to.slice(0, 7))} />
+        {/* Tämä kuu tells last month's split in one line: the card itself is Viime kuu's */}
+        {data.running && (data.bridge.basis === "last" || data.bridge.basis === "partial") ? (
+          <BridgeLine b={data.bridge} />
+        ) : (
+          <SurplusBridge totals={data.bridge.totals} title="Mihin tulot menivät" heading="h2" sub={bridgeSub(data.bridge, data.range.to.slice(0, 7))} />
+        )}
         {data.fixedMonthlyCents > 0 && (
           <p className="bridge-fixed">
             Kiinteät menot <strong>{money(data.fixedMonthlyCents, false)}</strong> kuukaudessa · <a href="#/bills">Laskut</a>
@@ -193,10 +200,25 @@ export function Overview({
         <BarList items={barItems} onSelect={goToCategory} />
         <p className="month-links small">
           <a href={`#/transactions${query({ view: "merchants", from: range.from, to: range.to })}`}>Kauppiaat</a>
-          <a href={`#/reports${query({ period: "12m" })}`}>Menot kuukausittain</a>
+          <a href={`#/reports${query({ period: "12m" })}#${monthsSection.id}`}>Menot kuukausittain</a>
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Tämä kuu's line on last month's income: the month, partial while the history has no complete month, its income and
+ * savings rate, and a link to Viime kuu, where the split is.
+ */
+function BridgeLine({ b }: { b: DashboardData["bridge"] }) {
+  const { incomeCents: income, savingsRate } = b.totals;
+  return (
+    <p className="bridge-fixed">
+      {capitalize(monthLong(b.month!).split(" ")[0]!)}
+      {b.basis === "partial" ? " (vajaa)" : ""}: tulot <strong>{money(income, false)}</strong>
+      {savingsRate !== null && `, säästöön ${percent(savingsRate)}`} · <a href={`#/overview${query({ period: "last-month" })}`}>Mihin tulot menivät</a>
+    </p>
   );
 }
 
@@ -207,10 +229,13 @@ export function Overview({
 function bridgeSub(b: DashboardData["bridge"], runningMonth: string): ReactNode {
   const month = b.month ? capitalize(monthLong(b.month)) : null;
   // "last" shows the latest complete month while another one runs, so the clause names the running one
+  const running = monthLong(runningMonth).split(" ")[0];
   const basis =
     b.basis === "last"
-      ? `${month} (${monthLong(runningMonth).split(" ")[0]} on kesken)`
-      : b.basis === "settled"
+      ? `${month} (${running} on kesken)`
+      : b.basis === "partial"
+        ? `${month}, vajaa kuukausi (${running} on kesken)`
+        : b.basis === "settled"
         ? `${month ? `${month}, ilman` : "Ilman"} kesken olevaa kuukautta`
         : b.basis === "running"
           ? "Kuukausi on kesken, palkka voi puuttua"
@@ -224,7 +249,7 @@ function bridgeSub(b: DashboardData["bridge"], runningMonth: string): ReactNode 
       {basis && <div>{basis}</div>}
       {b.month && income > 0 && (
         <div>
-          <a href="#/reports">{named.label}</a> {money(named.cents, false)}
+          <a href={`#/reports#${incomeSection.id}`}>{named.label}</a> {money(named.cents, false)}
           {incomeChange && `, ${incomeChange} tavallisesta`}
           {savingsRate !== null && `, säästöön ${percent(savingsRate)}${b.usualSavingsRate !== null ? ` (tavallisesti ${percent(b.usualSavingsRate)})` : ""}`}
         </div>
@@ -250,8 +275,17 @@ function ForecastCard({ forecast: f, pace }: { forecast: NonNullable<DashboardDa
       </div>
       <div className="forecast-body">
         <div>
-          <div className="tile-value">{forecastRange(f)}</div>
-          <div className="tile-note">{rangeBasis(f)}</div>
+          {/* without a complete month there is no usual everyday spending for the days left: what has gone is no forecast */}
+          {f.pendingUntil ? (
+            <p className="tile-note">
+              Ennuste näkyy {date(f.pendingUntil)}, kun historiassa on {completeMonths(1)}. Siitä saadaan tavallinen arkikulutus kuun loppuun.
+            </p>
+          ) : (
+            <>
+              <div className="tile-value">{forecastRange(f)}</div>
+              <div className="tile-note">{rangeBasis(f)}</div>
+            </>
+          )}
           <dl className="forecast-parts">
             <div>
               <dt>Menot tähän mennessä</dt>
@@ -267,15 +301,17 @@ function ForecastCard({ forecast: f, pace }: { forecast: NonNullable<DashboardDa
               <dt>Tulossa tässä kuussa</dt>
               <dd>{money(f.billsLeftCents, false)}</dd>
             </div>
-            <div>
-              <dt>
-                Tavallisesti kuussa
-                {f.usualMonthCents !== null && <small className="muted"> ({monthSpan(f.usualMonths)})</small>}
-              </dt>
-              <dd>{f.usualMonthCents === null ? "–" : money(f.usualMonthCents, false)}</dd>
-            </div>
+            {!f.pendingUntil && (
+              <div>
+                <dt>
+                  Tavallisesti kuussa
+                  {f.usualMonthCents !== null && <small className="muted"> ({monthSpan(f.usualMonths)})</small>}
+                </dt>
+                <dd>{f.usualMonthCents === null ? "–" : money(f.usualMonthCents, false)}</dd>
+              </div>
+            )}
           </dl>
-          <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : `Vertailu näkyy, kun historiassa on ${completeMonths(MIN_COMPARE_MONTHS)}`}</p>
+          {!f.pendingUntil && <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : `Vertailu näkyy, kun historiassa on ${completeMonths(MIN_COMPARE_MONTHS)}`}</p>}
         </div>
         <div className="forecast-pace">
           <h3>Kuukauden kulku</h3>

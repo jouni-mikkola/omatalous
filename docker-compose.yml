@@ -93,6 +93,8 @@ services:
   # Cloudflare Tunnel: HTTPS from anywhere without opening ports. Pair it with
   # Cloudflare Access (Zero Trust) so only your e-mail can reach the login page.
   tunnel:
+    # Not pinned to a version: the maintenance helper of installed 0.8.x copies accepts only this image name
+    # (COMPOSE_JQ in scripts/ops-helper.sh) and refuses a browser update to a compose file with another one.
     image: cloudflare/cloudflared:latest
     profiles: ["tunnel"]
     restart: unless-stopped
@@ -100,6 +102,10 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    # hardening: cloudflared holds the token and sees the traffic. It runs as an unprivileged user (65532), keeps
+    # the token in memory and writes no files, so it needs no writable root filesystem and no Linux capabilities.
+    read_only: true
+    cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
 

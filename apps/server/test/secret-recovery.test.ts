@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { finishInterruptedRotation } from "../src/entry/secret-rotate.ts";
 import { resealAll } from "../src/services/secret-rotation.ts";
 import { setupApp } from "./helpers.ts";
+import { mockBank } from "./mock-bank.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -16,7 +17,8 @@ afterEach(() => {
 describe("a secret rotation that stopped before the rename", () => {
   const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
   async function sealed() {
-    const t = await setupApp();
+    // saving a key tries it against Enable Banking, so the fetch is the mock, never the network
+    const t = await setupApp({}, mockBank().fetchMock);
     await t.admin.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem });
     const dir = mkdtempSync(join(tmpdir(), "talous-rot-"));
     dirs.push(dir);

@@ -1,4 +1,4 @@
-# 0004 One owner per figure (0.9.0, H3)
+# 0004 One owner per figure (0.9.0)
 
 ## Context
 
@@ -17,7 +17,7 @@ Each figure has one owner. Views compose the owner and never derive the figure a
 | Complete month | `isCompleteMonth`, `completeMonthsBefore` in `analysis/usual.ts` |
 | Usual level | `usualCents` in `analysis/usual.ts`; of spending `usualSpending` there |
 | Usual income | `usualIncome` in `analysis/usual.ts`, over `isEarnedIncome` in `analysis/income.ts` |
-| A series' cost | `perMonth`, `monthlyCents`, `yearlyCents` of `RecurringSeries` (`recurring.ts`) |
+| A series' cost | `perMonth`, `monthlyCents`, `yearlyCents` of `RecurringSeries` (`recurring.ts`, worked out in `recurring-cost.ts`) |
 | Gate | `gateFor`, `GATE_SHARE`, `GATE_FLOOR_CENTS` in `analysis/usual.ts` |
 
 A definition a second caller needs moves to its owner's module (`cancelledMerchants` and `expectedCharges` to
@@ -26,5 +26,5 @@ A definition a second caller needs moves to its owner's module (`cancelledMercha
 ## Consequences
 
 - `packages/core/test/owners.test.ts` asserts one number for each view of usual income and the gate; repo rule 17
-  keeps `365.25 /` in `recurring.ts`. A new figure names its owner in docs/MONEY_FLOWS.md.
+  keeps `365.25 /` in `recurring-cadence.ts`. A new figure names its owner in docs/MONEY_FLOWS.md.
 - One-offs and net of refunds still have several definitions (audit items 4 and 14); H4 gives them owners.

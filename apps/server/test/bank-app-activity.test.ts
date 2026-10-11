@@ -1,8 +1,9 @@
 /**
  * The shared Enable Banking app after it is saved: the test reads the application's own `active` flag, and a bank
- * can be connected only while the flag is not known to be off. Also the privacy and terms addresses of the form.
+ * can be connected only while the flag is not known to be off. Also the privacy and terms addresses of the form, and
+ * the member's own key, which is tried against Enable Banking before it is saved.
  */
-import { randomUUID } from "node:crypto";
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { INACTIVE_MESSAGE, relayPageUrl } from "../src/connectors/enable-banking/app-setup.ts";
 import { setupApp } from "./helpers.ts";
@@ -138,5 +139,74 @@ describe("the shared app must be active before a bank can be connected", () => {
     await admin.call("POST", "/api/admin/bank-app/key");
     app.reply = "no flag";
     expect((await admin.call("PUT", "/api/admin/bank-app", { appId: randomUUID() })).body.bankApp.inactiveMessage).toBeNull();
+  });
+});
+
+describe("a member's own key is tried before it is saved", () => {
+  const pem = () => generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+  async function own(reply: Reply = "active") {
+    const bank = mockBank();
+    const { app, fetchMock } = withApplication(bank);
+    app.reply = reply;
+    const t = await setupApp({}, fetchMock);
+    const eero = await t.member("eero");
+    return { ...t, eero, bank, app };
+  }
+
+  it("saves a pair that works and says so", async () => {
+    const { eero, bank, s } = await own();
+    const appId = randomUUID();
+    const saved = await eero.call("PUT", "/api/bank/credentials", { appId, privateKeyPem: pem() });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toEqual({ ok: true, result: { verified: true, active: true, message: "Avain tallennettu. Yhteys toimii." } });
+    expect(bank.appIds).toEqual(new Set([appId]));
+    expect((await eero.call("GET", "/api/meta")).body.bank).toMatchObject({ configured: true, source: "user" });
+    expect(await s.users.getBankCredentials((await eero.call("GET", "/api/meta")).body.user.id)).not.toBeNull();
+  });
+
+  it("refuses a pair Enable Banking does not know, and keeps the key that was saved before", async () => {
+    const { eero, bank } = await own();
+    const first = randomUUID();
+    await eero.call("PUT", "/api/bank/credentials", { appId: first, privateKeyPem: pem() });
+    bank.status = 401;
+    const wrong = await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem() });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.error).toBe("Enable Banking ei tunnistanut sovellusta (401). Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta. Avainta ei tallennettu.");
+    bank.status = 200;
+    bank.appIds.clear();
+    await eero.call("POST", "/api/connections/start", {});
+    expect(bank.appIds).toEqual(new Set([first]));
+  });
+
+  it("saves the key while the application is inactive, tells so, and leaves the household's app alone", async () => {
+    const { eero, admin } = await own("inactive");
+    const saved = await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem() });
+    expect(saved.status).toBe(200);
+    expect(saved.body.result).toEqual({ verified: false, active: false, message: `Avain tallennettu. ${INACTIVE_MESSAGE}` });
+    expect((await admin.call("GET", "/api/admin/instance")).body.bankApp.inactiveMessage).toBeNull();
+    // a member's own key is not held back by the flag, as before
+    expect((await eero.call("GET", "/api/meta")).body.bank).toMatchObject({ configured: true, source: "user" });
+  });
+
+  it("saves the key when Enable Banking cannot be reached, and says it was not tested", async () => {
+    const { eero, bank } = await own();
+    bank.status = 500;
+    const saved = await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem() });
+    expect(saved.status).toBe(200);
+    expect(saved.body.result).toEqual({ verified: false, message: "Avain tallennettu. Enable Banking vastasi virheellä 500. Yritä myöhemmin uudelleen." });
+  });
+
+  it("a key that is not a key is refused before any call to Enable Banking", async () => {
+    const { eero, bank } = await own();
+    expect((await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: "not a key" })).status).toBe(400);
+    expect((await eero.call("PUT", "/api/bank/credentials", { appId: "not-an-id", privateKeyPem: pem() })).status).toBe(400);
+    expect(bank.calls).toEqual([]);
+  });
+
+  it("the meta carries the privacy and terms addresses beside the redirect URL", async () => {
+    const { eero } = await own();
+    const { bank } = (await eero.call("GET", "/api/meta")).body;
+    expect(bank.privacyUrl).toBe(new URL("../privacy/", bank.redirectUrl).toString());
+    expect(bank.termsUrl).toBe(new URL("../terms/", bank.redirectUrl).toString());
   });
 });

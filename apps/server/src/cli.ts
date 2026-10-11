@@ -9,6 +9,7 @@
  *   docker compose exec banking node dist/node.js sessions revoke-all      (signs everyone out)
  *   docker compose run --rm --no-deps -T banking node dist/node.js restore <file in /data>   (handled in entry/node.ts, app stopped)
  *   node dist/node.js migrate-check <database file>   (handled in entry/node.ts, db/migrate-check.ts: tries the migrations on a copy)
+ *   node dist/node.js cloudflare up|down --name <copy> --hostname <host>   (handled in entry/node.ts, cli-cloudflare.ts: tunnel and Access, no database)
  *   docker compose exec banking node dist/node.js secret rotate            (new app secret, bank keys re-sealed)
  *   docker compose exec banking node dist/node.js address set <url>        (the app's own address, install.sh runs it)
  *   docker compose exec -T banking node dist/node.js ops poll|report|state  (the host helper, see cli-ops.ts)
@@ -79,7 +80,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (group !== "user" || !command) {
-    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | secret rotate | address set <url> | ops poll|report|state");
+    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | address set <url> | ops poll|report|state");
     return 1;
   }
   if (command === "list") {

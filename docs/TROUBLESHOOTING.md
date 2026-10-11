@@ -17,7 +17,7 @@ cd ~/omatalous
 
 If none of that helps, [restore a backup](ADVANCED.md#restore-a-backup) or [start over](ADVANCED.md#start-over).
 
-The tables below list the usual cases. Messages from the scripts and the app are in Finnish.
+The tables below list the usual cases. Messages from the scripts are in English, the app's in Finnish.
 
 ## During the install
 
@@ -25,8 +25,9 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 
 | What you see | What to do |
 |---|---|
-| `git: command not found` or `docker: command not found` | Do [step 1 of the install guide](INSTALL.md#1-install-docker), then run the installer again. |
-| "Your user has no access to Docker" or `permission denied ... docker.sock` | Type `exit`, log in again and run the installer again. Logging in again gives your user the Docker right from [step 1](INSTALL.md#1-install-docker). |
+| `git: command not found` | Run `sudo apt update && sudo apt install -y git`, then continue from [step 1 of the install guide](INSTALL.md#1-get-omatalous). |
+| "Docker is missing" or `docker: command not found` | Run `./scripts/install.sh --install-docker`. It installs Docker and carries on with the install. |
+| "Your user has no access to Docker" or `permission denied ... docker.sock` | Type `exit`, log in again and run `./scripts/install.sh --install-docker` again. The installer gave your user the Docker right, and logging in again makes it take effect. |
 | "Only ... MB free on the disk" or "The disk filled up during the build" | Free disk space with `docker image prune -f && docker builder prune -f`, then run the installer again. |
 | The build stops and the machine has less than 2 GB of memory | Give the machine more memory, then run the installer again. |
 | "The build had no network connection" | The machine cannot reach the internet. Check that `curl -I https://registry.npmjs.org` answers, then run the installer again. |

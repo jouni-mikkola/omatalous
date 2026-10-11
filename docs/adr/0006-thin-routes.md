@@ -1,6 +1,6 @@
 # 0006 Thin routes: parse, call one service, answer
 
-Status: accepted (0.9.0, H5)
+Status: accepted (0.9.0)
 
 ## Context
 

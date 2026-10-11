@@ -68,4 +68,16 @@ describe("the bridge of the overview", () => {
     const none = createContext(household.filter((t) => t.bookingDate >= "2026-10-01"), [checking], today);
     expect(buildDashboard(none, { from: "2026-10-01", to: "2026-10-31" }).bridge).toMatchObject({ basis: "running", month: null });
   });
+
+  it("before any month has ended, the running month without income gives way to the last month with income, marked partial", () => {
+    // the history starts on 2026-09-10: September is not complete, its salary came on the 25th, October's has not
+    const first = createContext(household.filter((t) => t.bookingDate >= "2026-09-10"), [checking], today);
+    const b = buildDashboard(first, { from: "2026-10-01", to: "2026-10-31" }).bridge;
+    expect(b).toMatchObject({ basis: "partial", month: "2026-09", usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null });
+    expect(b.totals.incomeCents).toBe(300000);
+    expect(b.totals.consumptionCents).toBe(50000);
+    // a running month that has its income already is told as it is
+    const paid = createContext([...household.filter((t) => t.bookingDate >= "2026-09-10"), tx({ bookingDate: "2026-10-05", amountCents: 300000, category: "salary", merchant: "Acme Oy" })], [checking], today);
+    expect(buildDashboard(paid, { from: "2026-10-01", to: "2026-10-31" }).bridge).toMatchObject({ basis: "running", month: null });
+  });
 });

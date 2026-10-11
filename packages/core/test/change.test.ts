@@ -151,7 +151,11 @@ describe("spendingChange", () => {
     // clothes, so it was cheaper than a usual month, and the sentence names no category for it
     expect(c.categories.at(-1)).toMatchObject({ kind: "smaller", baseCents: 50000 });
     expect(c.pieces.filter((p) => p.category === null)).toEqual([{ category: null, kind: "spread", cents: -10000, season: false }]);
-    expect(spendingChangeReport(ctx, { from: "2026-09-01", to: "2026-09-30" }).views[0]!.sentence.replace(/\s/g, " ")).toBe("Syyskuu on 100 € tavallista halvempi: muut −100 €.");
+    // no category stands out, so there is no bar: a lone rest bar would be the whole change, while the table's Muut row
+    // (the small categories) has a change of its own
+    const usual = spendingChangeReport(ctx, { from: "2026-09-01", to: "2026-09-30" }).views[0]!;
+    expect(usual.bars).toEqual([]);
+    expect(usual.sentence.replace(/\s/g, " ")).toBe("Syyskuu on 100 € tavallista halvempi.");
   });
 
   it("a dearer basket is price, more visits is volume, a new shop is mix", () => {
@@ -338,7 +342,7 @@ describe("spendingChange", () => {
     expect(report.views.map((v) => v.view)).toEqual(["usual", "year", "season"]);
     for (const v of report.views) {
       expect(v.bars.length).toBeLessThanOrEqual(5);
-      expect(sum(v.bars.map((b) => b.cents))).toBe(v.change.changeCents);
+      if (v.bars.length) expect(sum(v.bars.map((b) => b.cents))).toBe(v.change.changeCents);
     }
     expect(report.views[2]!.sentence).toMatch(/^Lokakuu 2026: menot .* suuremmat kuin lokakuu 2025: Ruokakauppa \+.* \(kalliimpi ostoskerta\)\.$/);
     expect(report.views[1]!.periodLabel).toBe("Lokakuu 2025–syyskuu 2026");
@@ -347,7 +351,12 @@ describe("spendingChange", () => {
     expect(insights[0]!.yearlyCents).toBeGreaterThan(0);
     // fewer than eight visits a month: the insight keeps quiet
     expect(spendingInsights(ctxOf(rows.filter((t) => Number(t.bookingDate.slice(8)) < 12)), range).find((i) => i.id === "spending-groceries")).toBeUndefined();
-    for (let seed = 1; seed <= 10; seed++) for (const v of spendingChangeReport(ctxOf(household(seed)), range).views) expect(sum(v.bars.map((b) => b.cents))).toBe(v.change.changeCents);
+    // bars add up to the change, or there are none: a rest bar never stands alone
+    for (let seed = 1; seed <= 10; seed++)
+      for (const v of spendingChangeReport(ctxOf(household(seed)), range).views) {
+        if (v.bars.length) expect(sum(v.bars.map((b) => b.cents))).toBe(v.change.changeCents);
+        expect(v.bars.length === 0 || v.bars.some((b) => b.kind !== "rest")).toBe(true);
+      }
   });
 
   it("a bar and the sentence give the whole change of a category, the causes under the gate included", () => {
@@ -363,6 +372,20 @@ describe("spendingChange", () => {
     expect(usual.change.categories.find((c) => c.category === "home")).toMatchObject({ changeCents: 40000, restCents: 1000 });
     expect(usual.bars).toEqual([{ category: "home", label: "Koti ja elektroniikka", kind: "other", cents: 40000, season: false, cause: "ei eriteltyä syytä" }]);
     expect(usual.sentence).toBe("Syyskuu on 400 € tavallista kalliimpi: Koti ja elektroniikka +400 € (ei eriteltyä syytä).");
+  });
+
+  it("what the named bars leave is Muut muutokset, not the table's Muut", () => {
+    // the same IKEA September, and 10 € more at Prisma: under the gate, so it is the rest
+    const rows = [
+      ...pay("2026-03", "2026-10"),
+      ...shop("2026-03", "2026-08", "Prisma", "groceries", () => [25000, 25000, 25000, 25000]),
+      ...shop("2026-09", "2026-09", "Prisma", "groceries", () => [25000, 25000, 25000, 26000]),
+      ...shop("2026-04", "2026-04", "IKEA", "home", () => [6000]),
+      ...shop("2026-09", "2026-09", "IKEA", "home", () => [10000, 10000, 10000, 10000]),
+    ];
+    const usual = spendingChangeReport(ctxOf(rows), { from: "2026-09-01", to: "2026-09-30" }).views.find((v) => v.view === "usual")!;
+    expect(usual.bars.map((b) => [b.label, b.cents])).toEqual([["Koti ja elektroniikka", 40000], ["Muut muutokset", 1000]]);
+    expect(usual.sentence.replace(/\s/g, " ")).toBe("Syyskuu on 410 € tavallista kalliimpi: Koti ja elektroniikka +400 € (ei eriteltyä syytä), muut muutokset +10 €.");
   });
 
   it("causes that cancel inside a category are no bars, and the usual-level gap is never a bar", () => {

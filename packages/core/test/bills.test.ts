@@ -64,6 +64,16 @@ describe("upcoming: what to set aside for rare bills", () => {
     expect(paid.months[0]!.cents).toBe(12000);
   });
 
+  it("a bill paid this month is named as paid, with its day, and a coming one is not", () => {
+    const u = report([...quarterly("If", "2026-10-05", 14230), ...quarterly("Lähitapiola", "2026-08-20", 9640)]);
+    expect(u.months[0]!.names).toEqual(["If"]);
+    expect(u.months[0]!.paid).toEqual([{ merchant: "If", date: "2026-10-05" }]);
+    // Lähitapiola is due 20.11., If again 5.1.
+    expect(u.months[1]!.paid).toEqual([]);
+    expect(u.months[3]!.paid).toEqual([]);
+    expect(u.items.map((i) => i.merchant)).toEqual(["Lähitapiola", "If"]);
+  });
+
   it("a bill that is a few days late stays in the year, and only the list of what is coming drops it", () => {
     // 150 € every quarter, last paid 3.7.: due 3.10., which is late on the 6th (3 days) and overdue on the 9th (6 days)
     const rows = quarterly("If", "2026-07-03", 15000);

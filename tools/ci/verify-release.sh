@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # tools/ci/verify-release.sh [vX.Y.Z]
 # Checks that a published release (by default the one the maintenance helper updates to, GitHub's latest) verifies
-# with the signature check installs run: this checkout's scripts/lib/release.sh and the copy in every baseline of
-# .github/upgrade-from.txt that has one, because an install runs the check it already has. Also says which trigger
+# with the signature check installs run: this checkout's scripts/lib/release.sh and the copy in every upgrade
+# baseline that has one, because an install runs the check it already has. Also says which trigger
 # started the run that signed it. Needs cosign, the full git history and the network.
 #
 # tools/ci/verify-release.sh --pull X.Y.Z

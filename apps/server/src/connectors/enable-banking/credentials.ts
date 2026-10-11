@@ -6,7 +6,7 @@ import type { EnableBankingConfig } from "../../platform/config.ts";
 import { UserError } from "../../platform/errors.ts";
 import { canonicalPrivateKey, KeyProblem } from "../../security/private-key.ts";
 import type { Services } from "../../services/context.ts";
-import { instanceCredentials, parseAppId } from "./app-setup.ts";
+import { type ActivationResult, instanceCredentials, parseAppId, testOwnKey } from "./app-setup.ts";
 import { EnableBankingClient } from "./client.ts";
 
 export interface ResolvedCredentials extends EnableBankingConfig {
@@ -24,8 +24,13 @@ export async function resolveCredentials(s: Services, userId: string): Promise<R
   return shared ? { appId: shared.appId, privateKeyPem: shared.privateKeyPem, source: "instance" } : null;
 }
 
-/** Validates and stores a member's own Enable Banking app id + private key (encrypted, re-encoded). */
-export async function saveCredentials(s: Services, userId: string, appIdInput: unknown, privateKeyInput: unknown): Promise<void> {
+/**
+ * Validates and stores a member's own Enable Banking app id + private key (encrypted, re-encoded), after trying the
+ * pair against Enable Banking. A pair it refuses (401) is not saved, so a working key is not replaced by a wrong one.
+ * Any other outcome saves the key and says what the test found: the app may still be inactive, or Enable Banking
+ * out of reach for a moment.
+ */
+export async function saveCredentials(s: Services, userId: string, appIdInput: unknown, privateKeyInput: unknown): Promise<ActivationResult> {
   const box = await s.secretBox();
   if (!box) throw new UserError("Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
   const appId = parseAppId(appIdInput);
@@ -36,7 +41,10 @@ export async function saveCredentials(s: Services, userId: string, appIdInput: u
     if (err instanceof KeyProblem) throw new UserError(err.message);
     throw err;
   }
+  const tested = await testOwnKey(s, appId, pem);
+  if (tested.keyRefused) throw new UserError(`${tested.message} Avainta ei tallennettu.`);
   await s.users.setBankCredentials(userId, appId, await box.seal(pem, userId));
+  return { ...tested, message: `Avain tallennettu. ${tested.message}` };
 }
 
 export async function clientFor(s: Services, userId: string): Promise<EnableBankingClient> {

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { monthSpan } from "../src/db/finance/merchants.ts";
 import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
@@ -18,7 +17,7 @@ const content = file(
   `2026/09/15;-7,00;${CHECKING};;KÄRKKÄINEN TMI;LASKU;;EUR`,
 );
 
-type Item = { merchant: string; category: string; count: number; totalCents: number; inCents: number; monthlyCents: number; lastDate: string; rule: { id: number; category: string } | null };
+type Item = { merchant: string; category: string; count: number; totalCents: number; inCents: number; monthlyCents: number | null; lastDate: string; rule: { id: number; category: string } | null };
 type Client = Awaited<ReturnType<typeof setupApp>>["admin"];
 
 const names = (items: Item[]) => items.map((i) => i.merchant);
@@ -116,32 +115,24 @@ async function withSpread() {
 }
 
 describe("GET /api/merchants for a period", () => {
-  it("adds up only the rows of the period and divides by its calendar months", async () => {
+  it("adds up only the rows of the period, and Kuussa is the complete months whatever the period", async () => {
     const { admin } = await withSpread();
-    // no period: from the first row to the last, May to October
-    expect(await months(admin)).toBe(6);
-    expect(await one(admin, "Lidl")).toMatchObject({ count: 3, totalCents: 18000, monthlyCents: 3000, lastDate: "2026-09-05" });
+    // the history starts on 10.5. and today is in October: June to September are the complete months
+    expect(await months(admin)).toBe(4);
+    // May's 30 € is in a month the history does not cover from the 1st, so Kuussa is 60 + 90 € over four
+    expect(await one(admin, "Lidl")).toMatchObject({ count: 3, totalCents: 18000, monthlyCents: 3750, lastDate: "2026-09-05" });
 
     const q = "?from=2026-07-01&to=2026-09-30";
-    expect(await months(admin, q)).toBe(3);
-    expect((await list(admin, q)).find((i) => i.merchant === "Lidl")).toMatchObject({ count: 2, totalCents: 15000, monthlyCents: 5000 });
+    expect(await months(admin, q)).toBe(4);
+    expect((await list(admin, q)).find((i) => i.merchant === "Lidl")).toMatchObject({ count: 2, totalCents: 15000, monthlyCents: 3750 });
     // a merchant with no row in the period is not listed
     expect(names(await list(admin, "?from=2026-05-01&to=2026-05-31"))).toEqual(["Lidl"]);
   });
 
-  it("lets an open end run to the first or the last row of what is left", async () => {
-    const { admin } = await withSpread();
-    // September to the last row, October 5: two months
-    expect(await months(admin, "?from=2026-09-01")).toBe(2);
-    // the first row, May 10, to the end of July: three months
-    expect(await months(admin, "?to=2026-07-31")).toBe(3);
-    expect(await months(admin, "?from=2026-09-05&to=2026-09-05")).toBe(1);
-  });
-
-  it("answers an empty period with no merchants and one month", async () => {
+  it("answers an empty period with no merchants", async () => {
     const { admin } = await withSpread();
     expect(await list(admin, "?from=2020-01-01&to=2020-12-31")).toEqual([]);
-    expect(await months(admin, "?from=2020-01-01&to=2020-12-31")).toBe(1);
+    expect(await months(admin, "?from=2020-01-01&to=2020-12-31")).toBe(4);
     expect(await list(admin, "?from=2026-09-30&to=2026-09-01")).toEqual([]);
   });
 
@@ -167,11 +158,13 @@ describe("GET /api/merchants?habit=1 (Arkiostot)", () => {
     expect(names(await list(admin))).toEqual(expect.arrayContaining(["Lidl", "R-Kioski"]));
   });
 
-  it("combines with a period, a category and a name, and shows Kuussa of the period", async () => {
+  it("combines with a period, a category and a name, and shows the series' own Kuussa", async () => {
     const { admin } = await withSpread();
     const kiosk = (await list(admin, "?habit=1&from=2026-08-01&to=2026-09-30"))[0]!;
-    // 4,20 + 6,10 + 3,80 + 5,50 + 4,90 over two months
-    expect(kiosk).toMatchObject({ merchant: "R-Kioski", count: 5, totalCents: 2450, monthlyCents: 1225 });
+    const series = ((await admin.call("GET", "/api/recurring")).body.series as { merchant: string; active: boolean; monthlyCents: number }[]).find((r) => r.merchant === "R-Kioski" && r.active)!;
+    // 4,20 + 6,10 + 3,80 + 5,50 + 4,90 in the period; per month what the series costs, as on Laskut
+    expect(kiosk).toMatchObject({ merchant: "R-Kioski", count: 5, totalCents: 2450, monthlyCents: series.monthlyCents });
+    expect(series.monthlyCents).toBeGreaterThan(0);
     expect(await list(admin, "?habit=1&category=no_such_category")).toEqual([]);
     expect(names(await list(admin, "?habit=1&q=kioski"))).toEqual(["R-Kioski"]);
     expect(await list(admin, "?habit=1&q=lidl")).toEqual([]);
@@ -183,20 +176,6 @@ describe("GET /api/merchants?habit=1 (Arkiostot)", () => {
     expect((await admin.call("GET", "/api/merchants?habit=")).status).toBe(200);
     const eero = await member("eero");
     expect(await list(eero, "?habit=1")).toEqual([]);
-  });
-});
-
-describe("monthSpan", () => {
-  it("counts the calendar months from the first date to the last, both included", () => {
-    expect(monthSpan("2026-09-30", "2026-10-01")).toBe(2);
-    expect(monthSpan("2025-11-15", "2026-02-01")).toBe(4);
-    expect(monthSpan("2026-01-01", "2026-12-31")).toBe(12);
-    expect(monthSpan("2026-09-05", "2026-09-05")).toBe(1);
-  });
-
-  it("is at least one, also for an end before the start", () => {
-    expect(monthSpan("2026-09-30", "2026-09-01")).toBe(1);
-    expect(monthSpan("2026-10-01", "2026-03-01")).toBe(1);
   });
 });
 

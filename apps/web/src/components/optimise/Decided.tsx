@@ -57,11 +57,9 @@ const estimate = (state: FindingState, finding: Finding | null) => {
   return mid === null ? null : `arvio ${money(mid, false)} vuodessa`;
 };
 
-function entriesOf(data: OptimiseData, states: readonly FindingState[], outcomes: ReadonlyMap<string, FindingOutcome>, scope: Scope): Entry[] {
+function entriesOf(data: OptimiseData, outcomes: ReadonlyMap<string, FindingOutcome>, scope: Scope): Entry[] {
   const takeState = (id: string) => () => api(`/api/optimise/findings/${encodeURIComponent(id)}${query({ scope })}`, { method: "PUT", body: { status: null } });
   const takeMark = (d: DismissedInsight) => () => api("/api/marks", { method: "PUT", body: { subject: d.subject, mark: null } });
-  // a snoozed finding is hidden from the page, so its reminder is listed here, where it can be taken back
-  const snoozed = states.filter((s) => s.status === "snoozed" && s.until !== null && s.until > data.today);
   return [
     ...data.done.map(({ state, finding }) => ({
       key: state.findingId,
@@ -71,10 +69,11 @@ function entriesOf(data: OptimiseData, states: readonly FindingState[], outcomes
       outcome: outcomes.get(state.findingId),
       take: takeState(state.findingId),
     })),
-    ...snoozed.map((state) => ({
+    // a snoozed finding is hidden from the page, so its reminder is listed here, with its words, where it can be taken back
+    ...data.snoozed.map(({ state, finding }) => ({
       key: state.findingId,
-      title: nameOf(state.findingId, data.areas),
-      note: note(`Muistutus ${date(state.until)}`, estimate(state, null)),
+      title: finding?.title ?? nameOf(state.findingId, data.areas),
+      note: note(`Muistutus ${date(state.until)}`, finding ? null : "ei nyt näy tiedoissa", estimate(state, finding)),
       at: state.decidedAt,
       take: takeState(state.findingId),
     })),
@@ -88,15 +87,16 @@ function entriesOf(data: OptimiseData, states: readonly FindingState[], outcomes
     ...data.othersDismissed.map((d) => ({
       key: d.subject,
       title: d.insight.title,
-      note: note("Ei koske meitä", `${insightFigure(d.insight)} vuodessa`, "palaa, jos summa muuttuu 25 % tai enemmän"),
+      note: note("Ei koske meitä", insightFigure(d.insight), "palaa, jos summa muuttuu 25 % tai enemmän"),
       at: d.markedAt,
       take: takeMark(d),
     })),
   ].sort((a, b) => b.at.localeCompare(a.at) || a.title.localeCompare(b.title));
 }
 
-export function Decided({ data, states, outcomes, scope, onChanged }: { data: OptimiseData; states: readonly FindingState[]; outcomes: ReadonlyMap<string, FindingOutcome>; scope: Scope; onChanged: Changed }) {
-  const entries = entriesOf(data, states, outcomes, scope);
+/** `states` is no longer read: a reminder comes with its finding in `data.snoozed`. The page still passes it. */
+export function Decided({ data, outcomes, scope, onChanged }: { data: OptimiseData; states?: readonly FindingState[]; outcomes: ReadonlyMap<string, FindingOutcome>; scope: Scope; onChanged: Changed }) {
+  const entries = entriesOf(data, outcomes, scope);
   if (!entries.length) return null;
   return (
     <Section id="paatetyt" title="Päätetyt">

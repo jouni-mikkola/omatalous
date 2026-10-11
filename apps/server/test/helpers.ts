@@ -3,7 +3,7 @@ import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
 
 export const NOW = new Date("2026-10-09T10:00:00Z");
-export const SETUP_CODE = "test-setup-code";
+export const SETUP_CODE = "test-setup-code-0001";
 
 export async function waitFor(check: () => Promise<boolean>, timeoutMs = 3000): Promise<void> {
   const until = Date.now() + timeoutMs;

@@ -69,6 +69,22 @@ function Categories({ ctx }: SectionProps) {
               )),
             ])}
           </tbody>
+          {r.groups.length > 0 && (
+            <tfoot>
+              <tr>
+                <td>Yhteensä</td>
+                <td className="num">{money(r.totalCents, false)}</td>
+                <td className="num">{percent(r.totalCents ? 1 : 0)}</td>
+                {hasIncome && <td className="num hide-phone">{percent(r.totalCents / r.incomeCents)}</td>}
+                {hasAverage && <td className="num hide-phone">{money(r.groups.reduce((s, g) => s + g.categories.reduce((t, c) => t + (c.monthlyAvgCents ?? 0), 0), 0), false)}</td>}
+                {r.comparable && (
+                  <td className="num">
+                    <Change now={r.totalCents} before={r.previousTotalCents} />
+                  </td>
+                )}
+              </tr>
+            </tfoot>
+          )}
         </table>
         {!r.groups.length && <div className="empty">Ei menoja valitulla jaksolla.</div>}
       </div>

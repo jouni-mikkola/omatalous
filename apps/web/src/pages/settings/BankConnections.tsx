@@ -92,6 +92,8 @@ export function BankConnections({
   const current = meta.connections.filter((c) => !c.history);
   const history = meta.connections.filter((c) => c.history);
   const isAdmin = meta.user.role === "admin";
+  // an app that reads Inactive is not held back here: starting a connection tests it again and says what is wrong
+  const canStart = meta.bank.configured || !!meta.bank.inactive;
   const accountsOf = (connectionId: string) => meta.accounts.filter((a) => a.connectionId === connectionId);
 
   const run = async (key: string, fn: () => Promise<string | void>) => {
@@ -130,7 +132,7 @@ export function BankConnections({
   // list, or no Enable Banking application yet, opens the picker, which says what is missing.
   const reconnect = (c: Connection) => {
     const bank = bankIdForInstitution(meta.bank.banks, c.institution);
-    if (bank && meta.bank.configured) void connect(bank);
+    if (bank && canStart) void connect(bank);
     else setPicking(true);
   };
   const canReconnect = (c: Connection) =>
@@ -163,7 +165,7 @@ export function BankConnections({
                 key={b.id}
                 type="button"
                 className="bank-tile"
-                disabled={!meta.bank.configured || busy !== null}
+                disabled={!canStart || busy !== null}
                 onClick={() => void connect(b.id)}
                 aria-label={`Yhdistä ${b.name}`}
               >
@@ -182,13 +184,7 @@ export function BankConnections({
             <p className="small muted">Lisää jokainen tili ja luottokortti erikseen.</p>
           ) : meta.bank.inactive ? (
             <div className="notice warning">
-              {CONNECT_ERRORS.inactive}
-              {isAdmin && (
-                <>
-                  {" "}
-                  Paina sen jälkeen Testaa yhteys kohdassa <a href="#/settings?section=server">Palvelin</a>.
-                </>
-              )}
+              {CONNECT_ERRORS.inactive} Kun tilit on linkitetty, pankin valinta testaa yhteyden uudelleen.
             </div>
           ) : isAdmin ? (
             <div className="notice warning">

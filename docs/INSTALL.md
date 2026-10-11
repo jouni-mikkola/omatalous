@@ -4,26 +4,25 @@ You need Ubuntu Server 26.04 LTS on a machine that stays on at home, with 2 GB o
 machine needs a bridged network adapter, so phones and laptops at home can reach it. Omatalous fetches from the bank
 only while the machine is on and catches up the next time.
 
-## 1. Install Docker
+## 1. Get Omatalous
 
 ```bash
-sudo apt update && sudo apt install -y git jq
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
+sudo apt update && sudo apt install -y git
+git clone https://github.com/jouni-mikkola/omatalous.git
+cd omatalous
 ```
-
-Log out and back in, so the `docker` group takes effect. `docker compose version` should then print a version.
 
 ## 2. Install Omatalous
 
 ```bash
-git clone https://github.com/jouni-mikkola/omatalous.git
-cd omatalous
-./scripts/install.sh
+./scripts/install.sh --install-docker
 ```
 
-The installer asks nothing and takes 5 to 10 minutes. It binds the app to the machine's home network address over
-plain http and ends like this:
+The installer takes 5 to 10 minutes. `--install-docker` lets it install Docker with Docker's own script when Docker is
+missing, and it installs `jq`, which the maintenance helper needs. It asks for your password for `sudo`, and once
+whether to add your user to the `docker` group (press Enter). It then carries on in the same run, with no logging out.
+If it still stops with "Your user has no access to Docker", log out and back in and run the same line again. Otherwise
+it asks nothing. It binds the app to the machine's home network address over plain http and ends like this:
 
 ```
 Omatalous is running: http://192.168.1.50:8080   (instance omatalous)

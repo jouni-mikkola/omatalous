@@ -7,6 +7,7 @@ import { applyMigrations, MigrationError, pendingMigrations } from "../src/db/mi
 import { findMigrationsDir, openDatabase, readMigrations } from "../src/db/open.ts";
 import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import { APP_VERSION } from "../src/version.ts";
+import { loadFixture } from "./fixture-db.ts";
 import { setupApp } from "./helpers.ts";
 
 const FIXTURES = new URL("./fixtures/db/", import.meta.url);
@@ -17,9 +18,7 @@ const tmp = () => mkdtempSync(join(tmpdir(), "talous-chain-"));
 function fromFixture(name: string): string {
   const file = join(tmp(), "data", "banking.db");
   mkdirSync(join(file, ".."), { recursive: true });
-  const db = new DatabaseSync(file);
-  db.exec(readFileSync(new URL(name, FIXTURES), "utf8"));
-  db.close();
+  loadFixture(file, name);
   return file;
 }
 

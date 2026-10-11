@@ -19,10 +19,31 @@ const EB_SIGN_IN = "https://enablebanking.com/sign-in/";
 const APP_NAME = "Omatalous";
 const APP_DESCRIPTION = "Omatalous: kotitalouden oma taloussovellus";
 
+const CERTIFICATE_URL = "/api/admin/bank-app/certificate";
+
 type Mode = "generate" | "upload";
 
+/** Starts a download the server sends as an attachment, as if its link was clicked. */
+export function startDownload(url: string, doc: Document = document): void {
+  const link = doc.createElement("a");
+  link.href = url;
+  link.download = "";
+  link.hidden = true;
+  doc.body.append(link);
+  link.click();
+  link.remove();
+}
+
+/**
+ * Whether a test that passed is followed by a save at once: only while no app is saved (a saved one is changed with the
+ * button), and only when the result is for the Application ID and key on screen now, not for an earlier paste.
+ */
+export function autoSaveWanted(saved: boolean, busy: boolean, signature: string, check: { signature: string; result: { verified: boolean } | null }): boolean {
+  return !saved && !busy && signature !== "" && check.signature === signature && check.result?.verified === true;
+}
+
 /** A value to paste into Enable Banking, with a button that copies it. When copying fails the text stays selectable. */
-function CopyValue({ value, label }: { value: string; label: string }) {
+export function CopyValue({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     if (await copyText(value)) {
@@ -63,26 +84,36 @@ export function BankAppSetup({
   const idInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [downloaded, setDownloaded] = useState(false);
-  // the Application ID is tried against Enable Banking as soon as it is pasted (one call per distinct id and key)
-  const [check, setCheck] = useState<{ busy: boolean; result: { verified: boolean; message: string } | null }>({ busy: false, result: null });
+  // the Application ID is tried against Enable Banking as soon as it is pasted (one call per distinct id and key);
+  // the result carries the id and key it is for, so a result of an earlier paste is never taken for the one on screen
+  const [check, setCheck] = useState<{ signature: string; busy: boolean; result: { verified: boolean; message: string } | null }>({ signature: "", busy: false, result: null });
   const checked = useRef("");
+  const autoSaved = useRef("");
 
   const keyReady = mode === "generate" ? app.pendingSince !== null : keyFile !== null;
+  const signature = APP_ID.test(appId) && keyReady ? `${appId}|${mode}|${keyFile?.name ?? ""}|${keyFile?.text.length ?? 0}|${app.pendingSince ?? ""}` : "";
   useEffect(() => {
-    if (!APP_ID.test(appId) || !keyReady) {
+    if (!signature) {
       checked.current = "";
-      setCheck({ busy: false, result: null });
+      autoSaved.current = "";
+      setCheck({ signature: "", busy: false, result: null });
       return;
     }
-    const signature = `${appId}|${mode}|${keyFile?.name ?? ""}|${keyFile?.text.length ?? 0}|${app.pendingSince ?? ""}`;
     if (checked.current === signature) return;
     checked.current = signature;
-    setCheck({ busy: true, result: null });
+    setCheck({ signature, busy: true, result: null });
     const body = mode === "upload" ? { appId, privateKeyPem: keyFile?.text ?? "" } : { appId };
     api<{ verified: boolean; message: string }>("/api/admin/bank-app/check", { method: "POST", body })
-      .then((result) => checked.current === signature && setCheck({ busy: false, result }))
-      .catch((err: Error) => checked.current === signature && setCheck({ busy: false, result: { verified: false, message: err.message } }));
-  }, [appId, mode, keyFile, keyReady, app.pendingSince]);
+      .then((result) => checked.current === signature && setCheck({ signature, busy: false, result }))
+      .catch((err: Error) => checked.current === signature && setCheck({ signature, busy: false, result: { verified: false, message: err.message } }));
+  }, [signature, appId, mode, keyFile]);
+
+  const needsSave = autoSaveWanted(app.source !== null, busy !== null, signature, check);
+  useEffect(() => {
+    if (!needsSave || autoSaved.current === signature) return;
+    autoSaved.current = signature;
+    void save(true);
+  }, [needsSave, signature]);
 
   const run = async (key: string, fn: () => Promise<InstanceState>) => {
     if (busy) return null;
@@ -111,7 +142,20 @@ export function BankAppSetup({
     setKeyFile({ name: file.name, text: await file.text() });
   };
 
-  const activate = async (e: FormEvent) => {
+  /** Saves the Application ID (with the uploaded key) and tests it again; `auto` is the save that follows a passed test. */
+  const save = async (auto: boolean) => {
+    const body = mode === "upload" ? { appId, privateKeyPem: keyFile?.text ?? "" } : { appId };
+    const next = await run("activate", () => api<InstanceState>("/api/admin/bank-app", { method: "PUT", body }));
+    if (next) {
+      setKeyFile(null); // the key does not stay in the page
+      setAppId("");
+      setChanging(false);
+      // nobody pressed a button, so say what happened
+      if (auto && next.result?.verified) setMessage({ ok: true, text: "Application ID tallennettu. Yhteys toimii." });
+    }
+  };
+
+  const activate = (e: FormEvent) => {
     e.preventDefault();
     if (!APP_ID.test(appId)) {
       setIdError(appId ? "Application ID on muotoa 12345678-abcd-…" : "Anna Application ID.");
@@ -123,12 +167,15 @@ export function BankAppSetup({
       fileInput.current?.focus();
       return;
     }
-    const body = mode === "upload" ? { appId, privateKeyPem: keyFile?.text ?? "" } : { appId };
-    const next = await run("activate", () => api<InstanceState>("/api/admin/bank-app", { method: "PUT", body }));
-    if (next) {
-      setKeyFile(null); // the key does not stay in the page
-      setAppId("");
-      setChanging(false);
+    void save(false);
+  };
+
+  /** A new key's certificate downloads by itself, so it is in the downloads folder when Enable Banking asks for it. */
+  const makeKey = async () => {
+    const next = await run("key", () => api<InstanceState>("/api/admin/bank-app/key", { method: "POST" }));
+    if (next?.bankApp.pendingSince) {
+      startDownload(CERTIFICATE_URL);
+      setDownloaded(true);
     }
   };
 
@@ -198,12 +245,12 @@ export function BankAppSetup({
           <ol className="setup-steps">
             {mode === "generate" && (
               <li>
-                Luo avain ja lataa varmenne.
+                Luo avain. Varmenne latautuu itsestään.
                 <div className="form-row">
                   {app.pendingSince ? (
                     <>
                       <span className="badge good">avain luotu {dateTime(app.pendingSince)}</span>
-                      <a className="btn btn-primary" href="/api/admin/bank-app/certificate" download onClick={() => setDownloaded(true)}>
+                      <a className="btn" href={CERTIFICATE_URL} download onClick={() => setDownloaded(true)}>
                         Lataa varmenne (.crt)
                       </a>
                       <button
@@ -213,14 +260,14 @@ export function BankAppSetup({
                         onClick={() => {
                           // the certificate already uploaded to Enable Banking stops matching
                           if (!window.confirm("Uusi avain korvaa nykyisen, ja Enable Bankingiin pitää ladata uusi varmenne. Jatketaanko?")) return;
-                          void run("key", () => api<InstanceState>("/api/admin/bank-app/key", { method: "POST" }));
+                          void makeKey();
                         }}
                       >
                         Luo uusi
                       </button>
                     </>
                   ) : (
-                    <button className="btn btn-primary" type="button" disabled={busy !== null} onClick={() => run("key", () => api<InstanceState>("/api/admin/bank-app/key", { method: "POST" }))}>
+                    <button className="btn btn-primary" type="button" disabled={busy !== null} onClick={() => void makeKey()}>
                       {busy === "key" ? "Luodaan…" : "Luo avain"}
                     </button>
                   )}
@@ -286,7 +333,9 @@ export function BankAppSetup({
               yksi kerrallaan kohdasta <em>Link accounts</em>.
             </li>
             <li>
-              Tallenna Application ID{mode === "upload" ? " ja avaintiedosto." : "."}
+              {configured
+                ? `Tallenna Application ID${mode === "upload" ? " ja avaintiedosto" : ""}.`
+                : `Liitä Application ID${mode === "upload" ? " ja valitse avaintiedosto" : ""}. Se tallentuu itsestään, kun testi onnistuu.`}
               <form className="form-row" onSubmit={activate} noValidate>
                 <input
                   ref={idInput}

@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# lx [dir]: runs the bash script on stdin as root in the Omatalous WSL distro, in dir (default the private repo).
-#   /c/ClaudeGit/lx /root/ClaudeGit/banking-app <<'SH'
-#   pnpm test packages/core/test/flows.test.ts | tail -20
-#   SH
-# Runs in Git Bash on the Windows side. Copy it to C:\ClaudeGit\lx, the path the worker prompts use (docs/WORKERS.md,
-# "On a Windows host"). MSYS_NO_PATHCONV keeps Git Bash from rewriting /root/... into a Windows path.
-export MSYS_NO_PATHCONV=1
-exec wsl.exe -d Omatalous -u root --cd "${1:-/root/ClaudeGit/banking-app}" -- bash -l -s

@@ -90,6 +90,9 @@ export interface Meta {
     /** Banks that can be connected (server registry); only Nordea for now. */
     banks: BankOption[];
     redirectUrl: string;
+    /** The pages beside the return page that Enable Banking's registration form asks for. */
+    privacyUrl: string;
+    termsUrl: string;
     /** own: https callback; relay: the project return page; paste: the user pastes the address of the error page. */
     redirectMode: "own" | "relay" | "paste";
     canStoreOwnKeys: boolean;

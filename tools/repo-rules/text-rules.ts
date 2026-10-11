@@ -23,13 +23,13 @@ describe("repo rules: text", () => {
       { re: new RegExp(escape(`&#${"8212"};`)), name: "numeric entity for the em dash" },
       { re: new RegExp(escape(`&#x${"2014"};`), "i"), name: "hex entity for the em dash" },
     ];
-    // Audit material and its prototypes: tools/style-lint.mjs there names the character on purpose, and the notes are
-    // not part of the product or its docs. Nothing else is excluded.
-    const EXCLUDED = [".claude/plan/research/"];
+    // Audit material and its prototypes, in the research folders under .claude/: tools/style-lint.mjs there names the
+    // character on purpose, and the notes are not part of the product or its docs. Nothing else is excluded.
+    const isResearch = (file: string) => file.startsWith(".claude/") && file.includes("/research/");
     const found: Finding[] = [];
     let scanned = 0;
     for (const file of repoFiles()) {
-      if (EXCLUDED.some((p) => file.startsWith(p))) continue;
+      if (isResearch(file)) continue;
       const buf = readFileSync(resolve(ROOT, file));
       if (buf.subarray(0, 8000).includes(0)) continue; // images and other binary files
       scanned++;
@@ -188,7 +188,7 @@ describe("repo rules: text", () => {
       { re: /\p{L}+tte(ko|kö)(?!\p{L})/iu, name: "te-form verb", fix: "address the reader as sinä or use the passive" },
       { re: /!/, name: "exclamation mark", fix: "write a plain statement" },
       { re: /\bKa\/kk\b|%-yks\./i, name: "banned abbreviation", fix: 'write "keskimäärin kuussa" or "prosenttiyksikköä"' },
-      // the rejected variants of the glossary in .claude/plan/research/I-finnish.md: one term per thing
+      // the rejected variants of the glossary: one term per thing
       { re: /(?<!\p{L})(krt|kpl|esim\.|vs\.)(?!\p{L})|(?<![/\p{L}])kk(?!\p{L})|\d\s?€?\/v(?!\p{L})|\}\/v(?!\p{L})/iu, name: "banned abbreviation", fix: 'write "kertaa", "esimerkiksi", "verrattuna", "kuussa" or "vuodessa"; €/kk only in a value cell' },
       { re: /(?<!\p{L})demodat\p{L}*/iu, name: "rejected term", fix: 'write "esimerkkitiedot"' },
       { re: /(?<!\p{L})arjen (ostok|kulutu|men)\p{L}*/iu, name: "rejected term", fix: 'write "ostokset ilman laskuja ja tilauksia" (arkiostot are the small repeating ones)' },
@@ -232,7 +232,7 @@ describe("repo rules: text", () => {
       });
     }
     expect(strings, "the scan found the UI strings").toBeGreaterThan(300);
-    expectNoFindings("UI text style", found, "see the style sheet in .claude/plan/research/I-finnish.md. The baseline is empty: nothing is allowed.");
+    expectNoFindings("UI text style", found, "the rules and their fixes are in tools/repo-rules/text-rules.ts. The baseline is empty: nothing is allowed.");
   });
 
   it("rule 22: text that a copy pass took out stays out of the browser's text", () => {

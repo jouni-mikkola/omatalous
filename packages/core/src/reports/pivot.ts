@@ -27,7 +27,7 @@ export interface PivotReport {
 
 /** Category × month spending matrix (at most 24 months), largest categories first. */
 export function pivotReport(ctx: AnalysisContext, range: DateRange): PivotReport {
-  const months = rangeMonthIndexes(range);
+  const months = rangeMonthIndexes(range, 24, ctx);
   const first = months[0]!;
   const rows = new Map<string, { values: number[]; total: number }>();
   for (const t of inDays(ctx, toDayRange(range))) {

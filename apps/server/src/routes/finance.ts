@@ -2,7 +2,7 @@
 import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
 import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
-import { hasInstanceCredentials, instanceAppInactive } from "../connectors/enable-banking/app-setup.ts";
+import { hasInstanceCredentials, instanceAppInactive, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { BANKS } from "../connectors/enable-banking/banks.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
@@ -35,6 +35,7 @@ export function financeRoutes(s: Services) {
       instanceAppInactive(s),
     ]);
     const today = s.today();
+    const { privacyUrl, termsUrl } = registrationUrls(s);
     return c.json({
       today,
       user,
@@ -54,6 +55,9 @@ export function financeRoutes(s: Services) {
         source: creds ? "user" : shared ? "instance" : null,
         banks: BANKS.map(({ id, name, country }) => ({ id, name, country })),
         redirectUrl: s.redirectUrl(),
+        // a member making their own app types these into the Control Panel's form
+        privacyUrl,
+        termsUrl,
         redirectMode: s.redirectMode(),
         canStoreOwnKeys: !!s.config.appSecret,
       },

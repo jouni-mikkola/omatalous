@@ -320,6 +320,8 @@ export interface OptimiseData {
   done: { state: FindingState; finding: Finding | null }[];
   /** Päätetyt, Ei koske meitä: dismissed findings that still show in the data. */
   dismissed: { state: FindingState; finding: Finding }[];
+  /** Päätetyt, Muistutus: findings snoozed until a day after today. `finding` is null when the data no longer shows it. */
+  snoozed: { state: FindingState; finding: Finding | null }[];
   /** Muut havainnot: the running month's insights no finding covers, largest yearly figure first (`others.ts`). */
   others: Insight[];
   /** Päätetyt, Ei koske meitä: insights dismissed at a figure within 25 % of today's. */

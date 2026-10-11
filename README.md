@@ -15,17 +15,16 @@ transactions, bank keys and backups stay on your machine. Nothing is sent to the
 You need Ubuntu Server 26.04 LTS on a machine that stays on at home, with 2 GB of memory and 20 GB of disk.
 
 ```bash
-sudo apt update && sudo apt install -y git jq
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER        # then log out and back in
-
+sudo apt update && sudo apt install -y git
 git clone https://github.com/jouni-mikkola/omatalous.git
 cd omatalous
-./scripts/install.sh
+./scripts/install.sh --install-docker
 ```
 
-The installer prints a link. Open it on a device in your home network, create the admin user and follow the setup for
-connecting Nordea. The [install guide](docs/INSTALL.md) has the same steps with a few more words.
+On a new machine the installer installs Docker and `jq` and gives your user the Docker right, asking once. If it says
+your user has no access to Docker, log out and back in and run the last line again. It then prints a link. Open it on a
+device in your home network, create the admin user and follow the setup for connecting Nordea. The
+[install guide](docs/INSTALL.md) has the same steps with a few more words.
 
 ## More
 
@@ -41,7 +40,7 @@ connecting Nordea. The [install guide](docs/INSTALL.md) has the same steps with 
 | Know what is stored, what connects where and who can see it | [Security and privacy](docs/SECURITY.md) |
 
 For developers: [development](docs/DEVELOPMENT.md), [architecture](docs/ARCHITECTURE.md), [releasing](docs/RELEASING.md)
-and the [changes](CHANGELOG.md) in each version. Report a vulnerability as [SECURITY.md](SECURITY.md) says.
+and the [changes](CHANGELOG.md) in each version. Report a vulnerability as [SECURITY.md](SECURITY.md) says. Issues and pull requests: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 

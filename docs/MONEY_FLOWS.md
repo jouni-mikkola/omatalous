@@ -19,18 +19,24 @@ A figure has one definition, in `packages/core`, and the month page, the reports
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
 | *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. A month's usual spending is the median of those months' totals, on the same days for a running month: the forecast, the pace chart and *Menojen muutos* say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
-| *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and Optimoi's Tilanne divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
+| *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
 | *Yli jäi* | Income − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on | `PeriodTotals.leftCents` |
-| *Kuussa*, *vuodessa* (a series) | What a subscription or bill costs: its typical charge times the charges it makes in a year, and a twelfth of that a month. A monthly series with a year of history counts its own charges of the last twelve months (11 for day care that is free in July), and a bill that varies (electricity) is what its last twelve charges came to. Fixed costs, new subscriptions, renewals and price rises read these figures, and so does Optimoi: its 120 € gate for a renewal is the series' own year, and its follow-up counts the series' own charges a year | `RecurringSeries.perMonth`, `monthlyCents`, `yearlyCents` in `recurring.ts` |
+| *Kuussa*, *vuodessa* (a series) | What a subscription or bill costs: its typical charge times the charges it makes in a year, and a twelfth of that a month. A monthly series with a year of history counts its own charges of the last twelve months (11 for day care that is free in July), and a bill that varies (electricity) is what its last twelve charges came to. Fixed costs, new subscriptions, renewals and price rises read these figures, and so does Säästövinkit: its 120 € gate for a renewal is the series' own year, and its follow-up counts the series' own charges a year | `RecurringSeries.perMonth`, `monthlyCents`, `yearlyCents` in `recurring.ts` |
 | *Kiinteät menot* | An active subscription or bill, per month: its spending and its debt service (a loan instalment). The credit card bill is left out, since it pays everyday purchases, and so is a monthly saving | `isFixedCost`, `fixedSplit`, `fixedMonthlyCents` in `commitments.ts` |
 | *Tilaus* | An active fixed-amount series in subscriptions, fitness, entertainment, education, shopping or other. Telecom, insurance, housing, utilities, memberships and loans are contracts: they are fixed costs and are not subscriptions | `isSubscription`, `subscriptionsMonthlyCents` in `commitments.ts` |
+| *Sopimus* | A fixed cost that is not a subscription, spending or debt service only: phone, insurance, housing, utilities, day care, a loan instalment. On Laskut, *Sopimukset ja laskut* and *Tilaukset* add up to *Kiinteät menot* | `isContract` in `commitments.ts` |
+| *Säännöllinen säästäminen* | An active monthly saving, such as a fund saving plan. It leaves the account like a bill, but the money is kept, so it is neither a fixed cost nor a contract. Laskut shows it on a card of its own | `isSavingsPlan` in `commitments.ts` |
+| *Kuussa* (a merchant) | A merchant with an active series shows that series' figures per month and year. Any other merchant: its money out over the last 12 complete months, own transfers left out, divided by their number, and empty without a complete month. Kauppiaat and the merchant summary show this one figure, whatever the period | `merchantBasis`, `merchantMonthly` in `commitments.ts` |
 | *Odotettu lasku* | A bill the household typed in, repeated by its cadence: once, quarterly, half yearly or yearly | `ExpectedBill`, `expectedDates` in `commitments.ts` |
 
 Monthly averages divide by complete months only, so a running month never pulls an average down; a category or pivot
 average without one complete month is empty. A year comparison needs three whole months in both years. Money saved to an
 own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
 names the sum and the largest payees, so a missing connection shows.
+
+Tapahtumat's *maksettu* and *saatu* leave own transfers out, and so do a merchant summary's sums and its category. The
+row count still includes them, and the page says the transfers are not in the sums.
 
 ## Cases
 
@@ -185,14 +191,14 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
   spending of the period. It starts with the fixed costs as a share of *Tavalliset tulot*, the same share the
-  overview's insight and Optimoi's Tilanne give. With a balance on a savings or checking account it says how many
+  overview's insight and *Tilanne* on Säästövinkit give. With a balance on a savings or checking account it says how many
   months of usual spending, groceries included, that money covers against a buffer of three months, and names
   the gap below it. Under three complete months it gives the date the figure appears. Without a balance it says
   where to add one.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
 
-## Optimoi
+## Säästövinkit
 
 - A finding's euros are a year: the last 12 complete months, or 6 to 11 complete months scaled to a year with one
   step less certainty. Under six complete months there are no euros, under three only deadlines.

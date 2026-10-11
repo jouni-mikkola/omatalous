@@ -68,7 +68,7 @@ jobs:
             TAG=v$app; new_tag=true
             if [[ -n $(git tag --list "$TAG") ]]; then
               [[ $EVENT == push ]] || { echo "Tag $TAG exists already. Bump the version first."; exit 1; }
-              # publish-public.sh --tag pushes main and the tag at once, and the tag's run makes the release
+              # a publish with --tag pushes main and the tag at once, and the tag's run makes the release
               echo "$TAG has a tag already, nothing to do on main."
               echo "release=false" >>"$GITHUB_OUTPUT"
               exit 0

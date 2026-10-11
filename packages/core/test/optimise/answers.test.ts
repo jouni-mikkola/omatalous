@@ -50,15 +50,29 @@ describe("Muut havainnot", () => {
     expect(ids(after.others)).not.toContain(ELISA);
   });
 
-  it("counts the payees of one finding at a time: half is not over half", () => {
-    const payee = (row: string) => ({ a: "Adobe", b: "Adobe", c: "Netflix", d: "Netflix", x: "Max" })[row];
-    const own = [new Set(["Adobe"]), new Set(["Netflix", "Max"])];
-    expect(coveredBy({ rows: ["a", "b", "c", "d"] }, payee, own)).toBe(false);
-    expect(coveredBy({ rows: ["c", "d", "x", "a"] }, payee, own)).toBe(true);
-    expect(coveredBy({ rows: ["a", "b", "y"] }, payee, own)).toBe(true);
-    expect(coveredBy({ rows: ["a", "y"] }, payee, own)).toBe(false);
-    expect(coveredBy({ rows: [] }, payee, own)).toBe(false);
-    expect(coveredBy({}, payee, own)).toBe(false);
+  it("counts the payees of every finding together, and leaves out an insight whose untold part is under the gate", () => {
+    const rows: Record<string, { payee: string; cents: number }> = {
+      a: { payee: "Adobe", cents: -7499 },
+      b: { payee: "Adobe", cents: -7499 },
+      c: { payee: "Netflix", cents: -1599 },
+      d: { payee: "Netflix", cents: -1599 },
+      s: { payee: "Spotify", cents: -1199 },
+      k: { payee: "K-Market", cents: -40000 },
+    };
+    const row = (id: string) => rows[id];
+    // Adobe's rise is one finding, Netflix is in the video overlap
+    const told = new Set(["Adobe", "Netflix", "Max"]);
+    // the demo's two rises together, 168 €: every euro of it is a finding's already
+    expect(coveredBy({ rows: ["a", "b", "c", "d"], yearlyCents: 16800 }, row, told)).toBe(true);
+    // half told, and the rest is 1199 / 8698 of 168 €, about 23 €: under the 120 € gate
+    expect(coveredBy({ rows: ["a", "s"], yearlyCents: 16800 }, row, told)).toBe(true);
+    // half told, and the rest is 40000 / 47499 of 600 €, about 505 €: the insight has its own to tell
+    expect(coveredBy({ rows: ["a", "k"], yearlyCents: 60000 }, row, told)).toBe(false);
+    // nothing told: the insight passed its own gate, however small
+    expect(coveredBy({ rows: ["s"], yearlyCents: 2000 }, row, told)).toBe(false);
+    expect(coveredBy({ rows: ["x"], yearlyCents: 2000 }, row, told)).toBe(false);
+    expect(coveredBy({ rows: [], yearlyCents: 2000 }, row, told)).toBe(false);
+    expect(coveredBy({ yearlyCents: 2000 }, row, told)).toBe(false);
   });
 
   it("keeps a dismissed insight in Päätetyt with its mark until its figure moves 25 %", () => {

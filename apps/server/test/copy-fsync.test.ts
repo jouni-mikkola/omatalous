@@ -1,10 +1,10 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dailyBackup, openDatabase, takeSnapshot } from "../src/db/open.ts";
 import { restoreDatabase } from "../src/db/restore.ts";
+import { loadFixture } from "./fixture-db.ts";
 
 // Every flush is recorded with what the file looked like at that moment, then done for real.
 const flushes = vi.hoisted(() => ({
@@ -77,9 +77,7 @@ describe("database copies are flushed before they count", () => {
 
   it("the snapshot openDatabase takes before it migrates", async () => {
     const path = join(tmp(), "banking.db");
-    const old = new DatabaseSync(path);
-    old.exec(readFileSync(new URL("./fixtures/db/0.5.0.sql", import.meta.url), "utf8"));
-    old.close();
+    loadFixture(path, "0.5.0.sql");
     const opened = await openDatabase(path);
     expect(opened.snapshot).toMatch(/pre-0009_migration_compat-/);
     expectFlushedCopy(opened.snapshot!);

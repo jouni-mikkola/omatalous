@@ -1,6 +1,6 @@
 # 0007 Response types are declared in core
 
-Status: accepted (0.9.0, H5)
+Status: accepted (0.9.0)
 
 ## Context
 

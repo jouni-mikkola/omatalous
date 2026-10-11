@@ -1,14 +1,15 @@
 /**
  * New regular charges (the old `new:`) and H-insights 13: how many subscriptions run now against a year ago, and what
  * the new ones cost. A subscription is new when its first charge is less than a year old. A new charge that began
- * after a charge of 2 € or less from the same merchant says so: a trial turned paid. When the year count is shown,
- * its new subscriptions are not told again one by one. Instalment plans (Klarna and the like) are told by
+ * after a charge of 2 € or less from the same merchant says so: a trial turned paid. A series that took over from
+ * the same merchant's series on another account is the same subscription on a new card, not a new one. When the year
+ * count is shown, its new subscriptions are not told again one by one. Instalment plans (Klarna and the like) are told by
  * instalments.ts and are left out here.
  */
 import { getCategory } from "../../categories.ts";
 import { cancelledMerchants, isSubscription } from "../../commitments.ts";
 import { addDays, daysBetween } from "../../dates.ts";
-import type { RecurringSeries } from "../../recurring.ts";
+import { parseSeriesId, type RecurringSeries } from "../../recurring.ts";
 import { historyCovers, netPurchase, recurringAt } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
 import { answeredSubscriptions, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
@@ -18,6 +19,8 @@ import type { Insight, InsightArgs } from "./types.ts";
 const NEW_DAYS = 75;
 /** Near the start of the history everything looks new. */
 const SETTLE_DAYS = 45;
+/** A subscription that moved to another account starts there within this many intervals of its last charge on the old one. */
+const MOVE_GAP = 1.5;
 /** A trial costs this much at most and comes this many days before the first full charge (H-insights 13). */
 const TRIAL_MAX_CENTS = 200;
 const TRIAL_DAYS = 45;
@@ -66,8 +69,22 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     // cause in the spending change (Uudet kaupat)
     return s.kind === "subscription" && s.active && !isLender(s.merchant) && MONTHLY_OR_LONGER.has(s.cadence ?? "") && (kind === "expense" || kind === "debt");
   };
+  // the same merchant's series on another account that stopped at most MOVE_GAP intervals before this one began: the
+  // service moved to a new card and keeps its history, the third charge there only makes the series
+  const movedFrom = (s: RecurringSeries) => {
+    const account = parseSeriesId(s.id)?.accountId;
+    return now.some(
+      (o) =>
+        o.merchant === s.merchant &&
+        o.kind === "subscription" &&
+        MONTHLY_OR_LONGER.has(o.cadence ?? "") &&
+        parseSeriesId(o.id)?.accountId !== account &&
+        o.lastDate < s.firstDate &&
+        daysBetween(o.lastDate, s.firstDate) <= s.intervalDays * MOVE_GAP,
+    );
+  };
   for (const s of now) {
-    if (!isNew(s) || told.has(s.id) || settledBy(answered.get(s.merchant), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS) continue;
+    if (!isNew(s) || told.has(s.id) || settledBy(answered.get(s.merchant), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS || movedFrom(s)) continue;
     if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
     const trial = ctx.txs.find(
       (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,

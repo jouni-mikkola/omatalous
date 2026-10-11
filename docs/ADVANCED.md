@@ -37,23 +37,77 @@ Nothing changes in Omatalous. Linking a bank works over the VPN too.
 
 ### Cloudflare Tunnel
 
-1. In Cloudflare Zero Trust, open *Networks > Tunnels* and create a tunnel of the Cloudflared type. Copy its token. It
-   starts with `eyJ`. Skip the connector install that Cloudflare offers, because Omatalous runs the connector itself.
-2. Give the tunnel a public hostname, for example `talous.example.fi`. As the service, type `http://banking:8080`. That
-   is the app's name inside Omatalous, and it is the same for every install.
-3. In Zero Trust, add an Access application for the same hostname with a policy that lets in only your own email
-   addresses. Then nobody else even sees the login page.
+Cloudflare Zero Trust has a free plan (up to 50 users) that covers the tunnel and the login in front of the app. Cloudflare
+Access emails a one-time PIN to the addresses you allow, and then Omatalous asks for its own login. No port is opened and
+there is no password for Access to keep.
+
+The installer makes the tunnel, the address and the Access rule for you:
+
+1. In the Cloudflare dashboard, turn on Zero Trust (choose the Free plan). The domain you want to use must be on the same
+   Cloudflare account.
+2. Under *My Profile > API Tokens* make a token with these permissions: Account: Cloudflare Tunnel Edit; Account: Access:
+   Apps and Policies Edit; Account: Access: Organizations, Identity Providers, and Groups Edit; Zone: DNS Edit; Zone: Zone
+   Read.
+3. Once per machine, write the file `~/.config/omatalous/cloudflare.env` and make it private:
+
+   ```
+   CLOUDFLARE_API_TOKEN=the token from step 2
+   CLOUDFLARE_BASE_DOMAIN=example.fi
+   CLOUDFLARE_ACCESS_EMAILS=you@example.fi,partner@example.fi
+   ```
+
+   ```bash
+   chmod 600 ~/.config/omatalous/cloudflare.env
+   ```
+
+   The installer refuses a file that others can read or that belongs to someone else, a link, and a file in a folder
+   (`~/.config` or `~/.config/omatalous`) that others can write to. The emails are the default list of each copy, see
+   below.
+4. On the machine run:
+
+   ```bash
+   ./scripts/install.sh --access tunnel
+   ```
+
+   The installer builds the app, asks Cloudflare for the tunnel, the address `talous.example.fi` (it asks, and you can
+   give another with `--domain`; with `--yes`, `--domain` is needed), the DNS record and the Access rule, and puts the
+   tunnel's token in `.env`. An address that another copy (another folder or machine with the same file) already has in
+   Cloudflare is refused and left as it is: give this copy its own address with `--domain`. It ends with
+   the address and the redirect URL to add to your app's Redirect URLs in the Enable Banking Control Panel,
+   `https://talous.example.fi/api/connections/callback`.
+5. Check it: turn Wi-Fi off on the phone and open `https://talous.example.fi`.
+
+Running the command again is safe: Cloudflare is asked again and says when nothing changed. A DNS record with the same
+name that points elsewhere is never replaced. The installer stops and names it.
+
+To change who may open the app, run this in the copy's folder. It saves the list in that copy's `.env` and updates the
+Access rule:
+
+```bash
+./scripts/install.sh --access-emails you@example.fi,partner@example.fi
+```
+
+To remove the tunnel, the address and the Access rule that the installer made for a copy, run `./scripts/install.sh
+--cloudflare-down` in its folder. Nothing else in your Cloudflare account is touched. Afterwards the app cannot be reached
+by that address. Choose another way with `./scripts/install.sh --reconfigure`. The token's reach and how to revoke it are in
+[SECURITY.md](SECURITY.md#keys-and-secrets).
+
+Without the file, or with `TALOUS_TUNNEL_TOKEN` given, you make the tunnel by hand:
+
+1. In Zero Trust, open *Networks > Tunnels* and create a tunnel of the Cloudflared type. Copy its token. It starts with
+   `eyJ`. Skip the connector install that Cloudflare offers, because Omatalous runs the connector itself.
+2. Give the tunnel a public hostname, for example `talous.example.fi`, with the service `http://banking:8080`. That is the
+   app's name inside Omatalous, and it is the same for every install.
+3. Add an Access application for the same hostname with a policy that lets in only your own email addresses.
 4. On the machine run:
 
    ```bash
    TALOUS_TUNNEL_TOKEN=eyJ... ./scripts/install.sh --access tunnel --domain talous.example.fi
    ```
 
-   The installer also saves the new address in the app.
-5. Open `https://talous.example.fi`. The redirect URL under *Asetukset > Palvelin* is now
-   `https://talous.example.fi/api/connections/callback`. Add it to your app's Redirect URLs in the Enable Banking
-   Control Panel.
-6. Check it: turn Wi-Fi off on the phone and open `https://talous.example.fi`.
+5. Open `https://talous.example.fi`, add the redirect URL under *Asetukset > Palvelin*,
+   `https://talous.example.fi/api/connections/callback`, to your app's Redirect URLs in the Enable Banking Control Panel,
+   and check it from the phone with Wi-Fi off.
 
 From now on the household uses the https address at home too. The old `http://` address stops working. Cloudflare sees
 the traffic unencrypted on its way through.
@@ -108,8 +162,10 @@ and backs up only that copy.
 To use the copy away from home:
 
 - A VPN to your home covers every copy.
-- With Cloudflare, give the copy a tunnel and hostname of its own, and run the tunnel command of
-  [Cloudflare Tunnel](#cloudflare-tunnel) in the copy's folder.
+- With the Cloudflare file of [Cloudflare Tunnel](#cloudflare-tunnel), `./scripts/install.sh --new-instance isa --access
+  tunnel` gives the copy a tunnel and the address `isa.example.fi` by itself. The copy lets in the addresses of the file
+  unless you give its own: add `--access-emails mother@example.fi,father@example.fi`. To change that list later, run
+  `./scripts/install.sh --access-emails ...` in the copy's folder.
 - With your own domain, only one copy can have ports 80 and 443 on an address. A second copy needs another IP address of
   the machine or a Cloudflare Tunnel. The installer asks for the address when 80 and 443 are taken.
 
@@ -131,39 +187,54 @@ and then. Set up the daily backup below when you want copies on a NAS without pr
    age-keygen -o ~/omatalous-backup.key    # prints the public key, age1...
    ```
 
-3. Add a line with `crontab -e`, with your own public key:
+3. Put two lines in the copy's `.env`, with your own public key and the folder on the NAS:
 
-   ```cron
-   30 3 * * * cd $HOME/omatalous && BACKUP_AGE_RECIPIENT=age1... ./scripts/backup.sh >> backups/backup.log 2>&1 && rsync -a backups/ /mnt/nas/omatalous/
+   ```
+   BACKUP_AGE_RECIPIENT=age1...
+   BACKUP_COPY_TO=/mnt/nas/omatalous
    ```
 
-4. Check it the next morning: `ls -l backups/` lists `talous-<time>.db.gz.age` and `talous-<time>.app_secret.age`, and
-   the same files are on the NAS.
+   The scheduled run and the *Varmuuskopio* button read them from there. Leave the second line out to keep the copies
+   on the machine only.
+4. Try it once, then schedule it:
+
+   ```bash
+   ./scripts/backup.sh
+   ./scripts/backup.sh --schedule    # every day at 03:30; --schedule 02:15 for another time
+   ```
+
+   It adds one line for this folder to your crontab. Running it again replaces that line, and
+   `./scripts/backup.sh --unschedule` removes it.
+5. Check it the next morning: `ls -l backups/` lists `talous-<time>.db.gz.age` and `talous-<time>.app_secret.age`, and
+   the same files are on the NAS. `backups/backup.log` has the output of each run.
+
+The copy goes to the NAS only while the share is mounted and writable. Otherwise the log says so and the backup stays in
+`backups/`. Nothing is deleted on the NAS.
 
 `backup.sh` keeps 30 days in `backups/`. The `.app_secret.age` file holds the key that opens the saved bank keys, so a
 restore on a new machine keeps the bank connections. Without `BACKUP_AGE_RECIPIENT` the files are not encrypted and the
 app secret is not backed up.
 
-With several copies, add a line for each, with `cd` to the copy's folder and its own folder on the NAS.
+With several copies, run `--schedule` in each copy's folder and give each its own `BACKUP_COPY_TO` folder.
 
 ### Restore a backup
 
 You need this when the database is damaged or you want an earlier state back. It replaces all data with the backup.
 
-`restore` checks the file first (size, integrity, this app's tables) and refuses a bad one without changing anything.
-It saves the current database as `backups/pre-restore-<time>.db` in the data volume before it swaps.
-
-From a file downloaded with *Lataa uusin*, after copying it to the machine (for example with `scp`):
+In the copy's folder, with the file on the machine (copy a file from *Lataa uusin* there, for example with `scp`):
 
 ```bash
-docker compose stop banking
-cat auto-2026-10-09.db | docker compose run --rm --no-deps -T --entrypoint sh banking -c 'cat > /data/restore.db'
-docker compose run --rm --no-deps -T banking node --disable-warning=ExperimentalWarning dist/node.js restore /data/restore.db
-docker compose start banking
+./scripts/restore.sh auto-2026-10-09.db
+./scripts/restore.sh backups/talous-20261009-033000.db.gz
+./scripts/restore.sh backups/talous-20261009-033000.db.gz.age    # key ~/omatalous-backup.key, or --key <file>
 ```
 
-From a file made by `backup.sh`, start the second line with `gunzip -c backups/talous-20261009-0330.db.gz |`, or for an
-encrypted one `age -d -i ~/omatalous-backup.key backups/talous-20261009-0330.db.gz.age | gunzip -c |`.
+It refuses a file that is not a database before it stops the app. Then it stops the app, restores, starts the app and
+sets *Sovelluksen osoite* to `APP_BASE_URL` from `.env`. When something fails after the stop, the app starts again with
+the database it had. The last lines say what was restored and where the previous copy is.
+
+`restore` checks the file first (size, integrity, this app's tables) and refuses a bad one without changing anything.
+It saves the current database as `backups/pre-restore-<time>.db` in the data volume before it swaps.
 
 From one of the app's own copies (`docker compose run --rm --no-deps -T --entrypoint ls banking /data/backups` lists them):
 
@@ -181,17 +252,14 @@ the newest copy to restore.
 ### Move to a new machine
 
 1. Install Omatalous on the new machine as [INSTALL.md](INSTALL.md) says, but do not create a user.
-2. If you have the `.app_secret.age` file from the old machine, put the key back before the restore:
+2. Copy the backup files over and restore with the app secret:
 
    ```bash
-   docker compose stop banking
-   age -d -i ~/omatalous-backup.key talous-20261009-0330.app_secret.age | docker compose run --rm --no-deps -T \
-     --entrypoint sh banking -c 'cat > /secrets/app_secret'
+   ./scripts/restore.sh talous-20261009-033000.db.gz.age --secret talous-20261009-033000.app_secret.age
    ```
 
-3. Restore the backup as above.
-4. Log in at the new address and fix *Sovelluksen osoite* under *Asetukset > Palvelin*, which still has the old
-   machine's address.
+   The new machine's own secret stays in the secrets volume as `app_secret.prev-<time>`.
+3. Log in at the new address. The script set *Sovelluksen osoite* from `.env`.
 
 Without the app secret your users, transactions and settings come back, but the saved bank keys stay locked. Set
 Enable Banking up again under *Asetukset > Palvelin* as [ENABLE_BANKING.md](ENABLE_BANKING.md) says and connect the
@@ -235,14 +303,27 @@ variables. With `--yes` the installer never asks anything.
 | `--domain talous.example.fi` | `TALOUS_DOMAIN` | for `tunnel` and `domain` |
 | `--email you@example.fi` | `TALOUS_EMAIL` | for `domain`, Let's Encrypt notices go there |
 | | `TALOUS_TUNNEL_TOKEN` | for `tunnel`, only as a variable so it stays out of the process list |
+| `--access-emails a@example.fi,b@example.fi` | `TALOUS_ACCESS_EMAILS` | for `tunnel` made from the Cloudflare file, who Cloudflare Access lets in. Kept in the copy's `.env` |
 | `--port 8080` | `TALOUS_PORT` | the port, default the first free one from 8080 |
 | `--name isa` | `TALOUS_NAME` | the copy's name, default the folder name |
 | `--no-ops-helper` | `TALOUS_OPS_HELPER=0` | leave the maintenance helper out |
 | `--reconfigure` | | show the access menu again on an existing install |
+| `--cloudflare-down` | | remove the tunnel, address and Access rule the installer made for this copy, and nothing else |
 
-A token alone means `tunnel`, and `--domain` with `--email` means `domain`. A run on an existing install keeps its
-`.env` unless `--reconfigure` or an answer flag is given. The last lines of the output hold the address and the setup
-link.
+A token alone means `tunnel`, and so does `--access-emails` alone. `--domain` with `--email` means `domain`. A run on an
+existing install keeps its `.env` unless `--reconfigure` or an answer flag is given. The last lines of the output hold
+the address and the setup link.
+
+`scripts/cloudflare-setup.sh` writes the Cloudflare file (`~/.config/omatalous/cloudflare.env`) that `tunnel` reads. It
+asks for the API token, hidden, and checks it with Cloudflare. Make the token under *My Profile > API Tokens* in the
+Cloudflare dashboard, with the permissions in [Cloudflare Tunnel](#cloudflare-tunnel); an account token is refused.
+Without questions, give the token in the environment:
+
+```bash
+CLOUDFLARE_API_TOKEN=... ./scripts/cloudflare-setup.sh --yes --domain example.fi --emails you@example.fi
+```
+
+It needs `curl` and `jq` (`sudo apt install -y jq`).
 
 ## Enable Banking options
 
@@ -331,7 +412,12 @@ builds from source only when its checkout is newer than the latest release. `rel
 | Update | `./scripts/update.sh` |
 | Go back to the previous version | `./scripts/update.sh --rollback` |
 | Back up into `backups/` | `./scripts/backup.sh` |
+| Back up every day (03:30 without a time), or stop it | `./scripts/backup.sh --schedule [HH:MM]`, `./scripts/backup.sh --unschedule` |
+| Restore a backup | `./scripts/restore.sh <file> [--secret <file>] [--key <file>]` |
 | Change how the app is reached | `./scripts/install.sh --reconfigure` |
+| Write the Cloudflare file | `./scripts/cloudflare-setup.sh` |
+| Change who Cloudflare Access lets in | `./scripts/install.sh --access-emails a@example.fi,b@example.fi` |
+| Remove the copy's Cloudflare tunnel, address and Access rule | `./scripts/install.sh --cloudflare-down` |
 | Follow the log | `docker compose logs -f banking` |
 | Show the version | `docker compose exec banking node dist/node.js version` |
 | Get a new setup code, before the first user exists | `docker compose exec banking node dist/node.js setup-code` |
@@ -357,6 +443,9 @@ The installer writes `.env`. You rarely need to change it by hand. After a chang
 | `CADDY_ADDRESS` | the address for Caddy's ports 80 and 443, needed only when two copies use their own domains |
 | `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail) |
 | `TRUST_PROXY` | `true` behind Caddy or a tunnel, so the app sees each visitor's own address. The installer sets it. |
+| `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together |
+| `BACKUP_AGE_RECIPIENT` | the public `age` key that `backup.sh` encrypts to, see [Daily backup to a NAS](#daily-backup-to-a-nas) |
+| `BACKUP_COPY_TO` | a folder on a mounted NAS that `backup.sh` copies each backup to |
 
 Never change `COMPOSE_PROJECT_NAME` of a copy that has data. The data stays in the volumes of the old name and the copy
 starts empty. Changing `INSTANCE_NAME` signs everyone out. An install made before copies existed keeps the old names,

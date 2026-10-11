@@ -124,6 +124,12 @@ export interface BankAppStatus {
   inactiveMessage: string | null;
 }
 
+/** The addresses the registration form asks for besides the redirect URL: the relay's own pages, on one host. */
+export function registrationUrls(s: Services): { relayUrl: string; privacyUrl: string; termsUrl: string } {
+  const relayUrl = s.config.bank.relayUrl ?? DEFAULT_RELAY_URL;
+  return { relayUrl, privacyUrl: relayPageUrl(relayUrl, "privacy"), termsUrl: relayPageUrl(relayUrl, "terms") };
+}
+
 /** A page on the relay site: the return page's sibling folder, so the one relay address decides the host. */
 export function relayPageUrl(relayUrl: string, page: "privacy" | "terms"): string {
   const base = new URL(relayUrl);
@@ -148,7 +154,6 @@ export async function bankAppStatus(s: Services): Promise<BankAppStatus> {
   const [stored, pending] = await Promise.all([read<StoredApp>(s, ACTIVE), read<PendingKey>(s, PENDING)]);
   const source = stored ? "web" : s.config.enableBanking ? "env" : null;
   const appId = stored?.appId ?? s.config.enableBanking?.appId ?? null;
-  const relayUrl = s.config.bank.relayUrl ?? DEFAULT_RELAY_URL;
   return {
     source,
     // the env app id is no secret, and only the admin sees this status
@@ -159,9 +164,7 @@ export async function bankAppStatus(s: Services): Promise<BankAppStatus> {
     canStoreKeys: !!s.config.appSecret,
     redirectUrl: s.redirectUrl(),
     redirectMode: redirectModeOf(s.instance.current),
-    relayUrl,
-    privacyUrl: relayPageUrl(relayUrl, "privacy"),
-    termsUrl: relayPageUrl(relayUrl, "terms"),
+    ...registrationUrls(s),
     inactiveMessage: (await knownInactive(s, appId)) ? INACTIVE_MESSAGE : null,
   };
 }
@@ -188,6 +191,8 @@ export interface ActivationResult {
   message: string;
   /** Enable Banking's own `active` flag of the application, when it could be read. */
   active?: boolean;
+  /** Enable Banking answered 401: the Application ID and the key do not belong together. */
+  keyRefused?: true;
 }
 
 /** Step 3: Application ID + the pending key (or an uploaded .pem) become the active app. */
@@ -219,12 +224,18 @@ export async function activateBankApp(s: Services, input: unknown): Promise<Acti
   return testBankApp(s);
 }
 
-/** What a failed Enable Banking call means for the person setting the app up, in plain words. */
-function probeProblem(err: unknown, saved: boolean): ActivationResult {
+/**
+ * What a failed Enable Banking call means for the person setting the app up, in plain words. A member's own app
+ * (`own`) has no certificate from here: Enable Banking made the key, so the pair is the thing to check.
+ */
+function probeProblem(err: unknown, saved: boolean, own: boolean): ActivationResult {
   const kept = saved ? " Asetukset on tallennettu." : "";
   if (err instanceof EnableBankingError) {
     if (err.status === 401) {
-      return { verified: false, message: "Enable Banking ei tunnistanut sovellusta (401). Tarkista Application ID ja että Enable Bankingissa on Omatalouden luoma varmenne." };
+      const message = own
+        ? "Enable Banking ei tunnistanut sovellusta (401). Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta."
+        : "Enable Banking ei tunnistanut sovellusta (401). Tarkista Application ID ja että Enable Bankingissa on Omatalouden luoma varmenne.";
+      return { verified: false, keyRefused: true, message };
     }
     if (err.status === 403) {
       return { verified: false, message: "Enable Banking ei vielä päästä sovellusta pankkeihin (403). Paina Control Panelissa Activate by linking accounts ja valitse Nordea." };
@@ -249,7 +260,7 @@ async function applicationActive(client: EnableBankingClient): Promise<boolean |
 }
 
 /** Signs a request with the given credentials and reads the application and the bank list: proves App ID and key belong together. */
-async function probe(s: Services, appId: string, privateKeyPem: string, saved: boolean): Promise<ActivationResult> {
+async function probe(s: Services, appId: string, privateKeyPem: string, saved: boolean, own = false): Promise<ActivationResult> {
   try {
     const client = new EnableBankingClient({ appId, privateKeyPem, fetch: s.fetch });
     const active = await applicationActive(client);
@@ -261,8 +272,13 @@ async function probe(s: Services, appId: string, privateKeyPem: string, saved: b
       ? { verified: true, ...flag, message: "Yhteys toimii." }
       : { verified: false, ...flag, message: `Yhteys toimii, mutta ${DEFAULT_BANK.name} ei ole sovelluksen pankkilistalla.` };
   } catch (err) {
-    return probeProblem(err, saved);
+    return probeProblem(err, saved, own);
   }
+}
+
+/** A member's own Application ID and key tried against Enable Banking before they are saved (credentials.ts). */
+export function testOwnKey(s: Services, appId: string, privateKeyPem: string): Promise<ActivationResult> {
+  return probe(s, appId, privateKeyPem, false, true);
 }
 
 /** Signs a request with the active credentials, reads the application and lists banks. */

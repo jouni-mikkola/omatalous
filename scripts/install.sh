@@ -17,6 +17,7 @@
 # Nothing is asked by default. Answers are flags or environment variables; --reconfigure shows the access menu:
 #   --access lan|local|tunnel|domain   TALOUS_ACCESS        how the app is reached (default lan, see above)
 #   --domain talous.example.com        TALOUS_DOMAIN        for domain and tunnel
+#   --access-emails a@x.fi,b@x.fi      TALOUS_ACCESS_EMAILS for tunnel: who Cloudflare Access lets in (see scripts/lib/cloudflare.sh)
 #   --email you@example.com            TALOUS_EMAIL         for domain (Let's Encrypt)
 #   (no flag, so it stays out of ps)   TALOUS_TUNNEL_TOKEN  for tunnel
 #   --port 8080                        TALOUS_PORT          default: the first free port from 8080
@@ -25,6 +26,7 @@
 #   --name NAME                        TALOUS_NAME          instance name (default: directory name)
 #   --install-docker                                        install Docker (apt based systems) if missing
 #   --reconfigure                                           show the access menu on an existing install
+#   --cloudflare-down                                       remove the tunnel, address and Access rule made for this copy
 #
 # Several instances run side by side, one clone directory each. An instance has its own name,
 # port, containers, image and volumes. An existing install always keeps its names.
@@ -49,10 +51,10 @@ DEFAULT_INSTANCE=banking-app
 NAME_RE='^[a-z0-9][a-z0-9_-]{0,40}$'
 PRESET_NAME=${TALOUS_NAME:-}
 ORIG_ARGS=("$@")
-YES=false; RECONFIGURE=false; INSTALL_DOCKER=false; FROM_CLONE=false; NEW_INSTANCE=""
+YES=false; RECONFIGURE=false; INSTALL_DOCKER=false; FROM_CLONE=false; NEW_INSTANCE=""; CF_DOWN=false
 OPS_ONLY=""; OPS_POLICY=false; OPS_HELPER=true; [[ ${TALOUS_OPS_HELPER:-1} != 0 ]] || OPS_HELPER=false
 A_ACCESS=${TALOUS_ACCESS:-}; A_DOMAIN=${TALOUS_DOMAIN:-}; A_EMAIL=${TALOUS_EMAIL:-}
-A_PORT=${TALOUS_PORT:-}; A_BIND=${TALOUS_BIND:-}; A_TOKEN=${TALOUS_TUNNEL_TOKEN:-}
+A_PORT=${TALOUS_PORT:-}; A_BIND=${TALOUS_BIND:-}; A_TOKEN=${TALOUS_TUNNEL_TOKEN:-}; A_ACCESS_EMAILS=${TALOUS_ACCESS_EMAILS:-}
 LOG=""
 PASS=()   # flags handed on to a new instance's install.sh
 REPORTED=false
@@ -84,6 +86,8 @@ run_logged() {
 IMAGE=${INSTANCE_NAME:-$DEFAULT_INSTANCE}
 # shellcheck source=lib/release.sh
 . scripts/lib/release.sh
+# shellcheck source=lib/cloudflare.sh
+. scripts/lib/cloudflare.sh
 
 # ask VAR "Question" "default" [preset]: sets VAR (keeps default on empty answer or end of input).
 # A preset (from a flag) is used without asking, and --yes takes the default.
@@ -283,18 +287,19 @@ new_instance() {
   exec "$target/scripts/install.sh" --name "$name" --from-clone ${PASS[@]+"${PASS[@]}"}
 }
 
-usage() { die "Usage: ./scripts/install.sh [--yes] [--new-instance NAME] [--access lan|local|tunnel|domain] [--domain D] [--email E] [--port P] [--bind IP] [--name N] [--install-docker] [--reconfigure] [--ops-helper [--ops-policy] | --ops-helper-off | --no-ops-helper]"; }
+usage() { die "Usage: ./scripts/install.sh [--yes] [--new-instance NAME] [--access lan|local|tunnel|domain] [--domain D] [--email E] [--access-emails A,B] [--port P] [--bind IP] [--name N] [--install-docker] [--reconfigure] [--cloudflare-down] [--ops-helper [--ops-policy] | --ops-helper-off | --no-ops-helper]"; }
 while (($#)); do
   case $1 in
     --yes|-y) YES=true; PASS+=("$1") ;;
     --reconfigure) RECONFIGURE=true ;;
     --install-docker) INSTALL_DOCKER=true; PASS+=("$1") ;;
     --from-clone) FROM_CLONE=true ;;
+    --cloudflare-down) CF_DOWN=true ;;
     --ops-helper) OPS_ONLY=on ;;
     --ops-policy) OPS_POLICY=true ;;
     --ops-helper-off) OPS_ONLY=off ;;
     --no-ops-helper) OPS_HELPER=false; PASS+=("$1") ;;
-    --new-instance|--name|--access|--domain|--email|--port|--bind)
+    --new-instance|--name|--access|--domain|--email|--access-emails|--port|--bind)
       [[ $# -ge 2 && $2 != --* ]] || { REPORTED=true; usage; }
       case $1 in
         --new-instance) NEW_INSTANCE=$2 ;;
@@ -302,6 +307,7 @@ while (($#)); do
         --access) A_ACCESS=$2; PASS+=("$1" "$2") ;;
         --domain) A_DOMAIN=$2; PASS+=("$1" "$2") ;;
         --email) A_EMAIL=$2; PASS+=("$1" "$2") ;;
+        --access-emails) A_ACCESS_EMAILS=$2; PASS+=("$1" "$2") ;;
         --port) A_PORT=$2; PASS+=("$1" "$2") ;;
         --bind) A_BIND=$2; PASS+=("$1" "$2") ;;
       esac
@@ -367,6 +373,8 @@ if [[ -n $OPS_ONLY ]]; then
   fi
   exit 0
 fi
+
+if $CF_DOWN; then cf_down; fi   # remove the Cloudflare tunnel of the copy in this folder
 
 # ── 0. prerequisites ─────────────────────────────────────────────────────────
 step "Checking requirements"
@@ -553,7 +561,7 @@ fi
 # An existing install keeps its answers. A run that stopped half way (no container yet) goes on with
 # them without asking. Otherwise one question offers a change; --reconfigure or an answer flag asks again.
 KEEP_ALL=false; RESUMED=false
-if $EXISTING && [[ -f $ENV_FILE ]] && ! $RECONFIGURE && [[ -z $A_ACCESS$A_DOMAIN$A_EMAIL$A_PORT$A_BIND$A_TOKEN ]]; then
+if $EXISTING && [[ -f $ENV_FILE ]] && ! $RECONFIGURE && [[ -z $A_ACCESS$A_DOMAIN$A_EMAIL$A_ACCESS_EMAILS$A_PORT$A_BIND$A_TOKEN ]]; then
   if [[ -z $($DC ps -a -q banking 2>/dev/null || true) ]]; then
     say "The previous install did not finish. Continuing with the same settings."; KEEP_ALL=true; RESUMED=true
   else
@@ -579,7 +587,7 @@ current_bind=$(existing BIND_ADDRESS)
 route_addr=$(default_route_addr)
 # no answer given and no --reconfigure: the home network if this machine has a private address, else this machine only
 if [[ -z $A_ACCESS ]] && ! $RECONFIGURE; then
-  if [[ -n $A_TOKEN ]]; then A_ACCESS=3
+  if [[ -n $A_TOKEN || -n $A_ACCESS_EMAILS ]]; then cf_guard_emails; A_ACCESS=3
   elif [[ -n $A_DOMAIN && -n $A_EMAIL ]]; then A_ACCESS=4
   elif [[ -n $A_BIND ]] || is_private_v4 "$route_addr"; then A_ACCESS=1
   else
@@ -677,15 +685,7 @@ case $ACCESS in
     fi
     ;;
   3)
-    ask DOMAIN "Public address of the tunnel (for example talous.example.com)" "$(existing DOMAIN)" "$A_DOMAIN"
-    [[ -n $DOMAIN ]] || die "The domain is missing. Give it with: --domain talous.example.com"
-    valid_domain "$DOMAIN" || die "Invalid domain: $DOMAIN"
-    say "  ${dim}Zero Trust > Networks > Tunnels > Create tunnel, copy the token (starts with eyJ…)${reset}"
-    TUNNEL_TOKEN=$A_TOKEN
-    if [[ -z $TUNNEL_TOKEN ]] && ! $YES; then ask_secret TUNNEL_TOKEN "Tunnel token (hidden, Enter = keep the current one)"; fi
-    TUNNEL_TOKEN=${TUNNEL_TOKEN:-$(existing CLOUDFLARE_TUNNEL_TOKEN)}
-    [[ -n $TUNNEL_TOKEN ]] || die "The tunnel token is missing. Give it in the environment: TALOUS_TUNNEL_TOKEN=eyJ… ./scripts/install.sh --yes --access tunnel --domain ..."
-    [[ $TUNNEL_TOKEN =~ ^[A-Za-z0-9._=-]+$ ]] || die "The token is missing or invalid."
+    cf_tunnel
     APP_BASE_URL="https://$DOMAIN"; PROFILES=tunnel; TRUST_PROXY=true
     ;;
   1)
@@ -752,6 +752,9 @@ DOMAIN=$DOMAIN
 ACME_EMAIL=$ACME_EMAIL
 CLOUDFLARE_TUNNEL_TOKEN=$TUNNEL_TOKEN
 ENV
+  [[ -z $ACCESS_EMAILS ]] || echo "CLOUDFLARE_ACCESS_EMAILS=$ACCESS_EMAILS"
+  # not this copy's in Cloudflare until `cloudflare up --new` made it (scripts/lib/cloudflare.sh, cf_mine)
+  ! $CF_NEW || echo "CLOUDFLARE_NEW_HOST=$DOMAIN"
   if ((${#KEEP[@]})); then
     echo; echo "# Kept from the previous .env"; printf '%s\n' "${KEEP[@]}"
   fi
@@ -815,6 +818,7 @@ if [[ -s $LEGACY_SECRET ]]; then
   warn "The folder secrets/ is no longer used. Delete it once the app works: rm -r secrets"
 fi
 
+cf_up
 up_rc=0
 run_logged "$LOG" "Starting" $DC up -d $UP_FLAGS || up_rc=$?
 if ((up_rc != 0)); then
@@ -893,4 +897,4 @@ else
   say "Maintenance helper: $OPS_LABEL. Troubleshooting: ${IN}./scripts/doctor.sh"
 fi
 [[ $ACCESS != 4 ]] || say "${dim}Let's Encrypt: a DNS A record to the public IP and ports 80 and 443 forwarded to this machine.${reset}"
-[[ $ACCESS != 3 ]] || say "${dim}Cloudflare: the tunnel's Public hostname http://banking:8080 and an Access rule for your own email.${reset}"
+[[ $ACCESS != 3 ]] || cf_final

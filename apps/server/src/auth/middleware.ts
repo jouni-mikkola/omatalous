@@ -77,10 +77,12 @@ function originAllowed(origin: string, requestUrl: string, hostHeader: string | 
 }
 
 /**
- * Client address for rate limiting. Proxy headers count only with
- * TRUST_PROXY, and then only the parts the proxy itself wrote: Cloudflare's
- * CF-Connecting-IP, else the last X-Forwarded-For entry (Caddy and
- * cloudflared append the address they saw; earlier entries come from the client).
+ * Client address, as security events record it. The limiters count it by
+ * addressKey (security/rate-limit.ts), an IPv6 client by its /64. Proxy
+ * headers count only with TRUST_PROXY, and then only the parts the proxy
+ * itself wrote: Cloudflare's CF-Connecting-IP, else the last X-Forwarded-For
+ * entry (Caddy and cloudflared append the address they saw; earlier entries
+ * come from the client).
  */
 export function clientIp(c: Context, s: Services): string {
   if (s.config.trustProxy) {

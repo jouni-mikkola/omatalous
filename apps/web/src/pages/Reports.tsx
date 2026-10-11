@@ -3,6 +3,7 @@
  * with a link in the nav row. A section is one file in `reports/sections/`, from the whole picture to the details:
  * money in and out, where it went, month by month, what is locked in, what changed.
  */
+import { useEffect, useRef } from "react";
 import { query } from "../api.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { useApi } from "../hooks.ts";
@@ -12,10 +13,17 @@ import { reportsOf, visibleSections } from "./reports/registry.ts";
 import type { ReportRange } from "./reports/types.ts";
 import "../styles/reports.css";
 
-export function Reports({ meta, range, scope }: { meta: Meta; range: ReportRange; scope: Scope }) {
+export function Reports({ meta, range, scope, anchor }: { meta: Meta; range: ReportRange; scope: Scope; anchor?: string }) {
   // the reports this page's sections read: the spending change is Kuukausi's
   const q = query({ ...range, scope, reports: reportsOf("reports").join(",") });
   const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${q}`);
+  // an address names a section (#/reports?period=12m#kuukaudet from Kuukausi): scroll to it once the sections are there
+  const scrolledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!anchor || !data || scrolledFor.current === anchor) return;
+    scrolledFor.current = anchor;
+    document.getElementById(anchor)?.scrollIntoView({ block: "start" });
+  }, [anchor, data]);
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
   if (!data) return <div className="empty">Ladataan…</div>;
   const ctx = reportContext(data, meta, range, scope);

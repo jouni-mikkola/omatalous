@@ -78,6 +78,30 @@ describe("transaction search", () => {
     expect(await search(eero, "KARKKAINEN", "&scope=household")).toEqual(["Kärkkäinen Tmi"]);
   });
 
+  it("a query that reads as a euro amount also finds the amount", async () => {
+    const { admin } = await setupApp();
+    const rows = file(
+      `2026/09/05;-142,30;${OWN};;;XYZZY VAKUUTUS;;EUR`,
+      `2026/09/06;142,30;;${OWN};;QWERTY PALAUTUS;;EUR`,
+      `2026/09/07;-142,00;${OWN};;;KÄRKKÄINEN TMI;;EUR`,
+      `2026/09/08;-1250,00;${OWN};;;SÖDERSTRÖMIN KUKKA;;EUR`,
+      `2026/09/09;-14,23;${OWN};;;K-MARKET TIKKURILA;;EUR`,
+    );
+    await admin.call("POST", "/api/import/csv", { content: rows, accountName: "Käyttötili" });
+    const amounts = async (q: string) =>
+      ((await admin.call("GET", `/api/transactions?q=${encodeURIComponent(q)}`)).body.items as { amountCents: number }[]).map((t) => t.amountCents).sort((a, b) => a - b);
+    for (const q of ["142,30", "142.30", "142,3", " 142,30 € "]) expect(await amounts(q), q).toEqual([-14230, 14230]);
+    // a sign picks money out or in; whole euros find every amount of that euro
+    expect(await amounts("-142,30")).toEqual([-14230]);
+    expect(await amounts("+142,30")).toEqual([14230]);
+    expect(await amounts("142")).toEqual([-14230, -14200, 14230]);
+    expect(await amounts("1 250")).toEqual([-125000]);
+    expect(await amounts("1250,00 eur")).toEqual([-125000]);
+    // text still matches as text, and what is no amount stays text
+    expect(await amounts("kukka")).toEqual([-125000]);
+    expect(await amounts("142,301")).toEqual([]);
+  });
+
   it("rows stored before the search text existed are filled in by the upgrade", async () => {
     const { admin, s } = await setupApp();
     await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });

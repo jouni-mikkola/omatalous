@@ -249,4 +249,31 @@ describe("tools/release/fixture.mjs", { timeout: 30_000 }, () => {
     expect(clobber.code).toBe(1);
     expect(clobber.err).toMatch(/exists\. A fixture is frozen/);
   });
+
+  it("--facts says what each migration adds and the floor it carries, and needs no seed, contract or free output file", async () => {
+    const r = await release();
+    writeFileSync(join(r.dir, "migrations/0014_more.sql"), "ALTER TABLE notes ADD COLUMN pinned INTEGER;\nCREATE INDEX idx_notes_body ON notes(body);\n");
+    rmSync(join(r.dir, "contracts"), { recursive: true });
+    writeFileSync(join(r.fixtures, "0.9.0.sql"), "-- already there\n");
+    const done = run("0.9.0", "--facts", "--fixtures", r.fixtures, "--migrations", join(r.dir, "migrations"));
+    expect(done.err).toBe("");
+    expect(done.code).toBe(0);
+    expect(done.out.trim().split("\n")).toHaveLength(1);
+    expect(JSON.parse(done.out)).toEqual({
+      version: "0.9.0",
+      previous: "0.8.0",
+      migrations: [
+        { name: "0013_notes.sql", compat: "0.8.0", tables: ["notes"], columns: [], indexes: ["idx_notes_user"] },
+        // no header, no floor; a column of a table an earlier migration added counts for the migration that adds it
+        { name: "0014_more.sql", compat: null, tables: [], columns: ["notes.pinned"], indexes: ["idx_notes_body"] },
+      ],
+    });
+    expect(readdirSync(r.fixtures).sort()).toEqual(["0.8.0.sql", "0.9.0.sql"]);
+    expect(readFileSync(join(r.fixtures, "0.9.0.sql"), "utf8")).toBe("-- already there\n");
+    // a release whose migrations the previous fixture has already says so
+    const none = run("0.8.1", "--facts", "--fixtures", r.fixtures, "--migrations", shippedMigrations());
+    expect(none.code).toBe(0);
+    expect(JSON.parse(none.out)).toMatchObject({ previous: "0.8.0", migrations: [] });
+    expect(run("0.9.0", "--nope").err).toContain("[--at ISO] [--facts])");
+  });
 });

@@ -26,7 +26,7 @@ export interface FixedVariableReport {
  * bill), judged where it was paid: a subscription that has ended since was still fixed in its months.
  */
 export function fixedVariableReport(ctx: AnalysisContext, range: DateRange): FixedVariableReport {
-  const months = rangeMonthIndexes(range);
+  const months = rangeMonthIndexes(range, 24, ctx);
   const first = months[0]!;
   const rows = monthLabels(months).map((month) => ({ month, fixedCents: 0, habitCents: 0, variableCents: 0, debtCents: 0 }));
   for (const t of inDays(ctx, toDayRange(range))) {

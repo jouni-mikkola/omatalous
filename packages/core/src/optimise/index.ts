@@ -1,9 +1,8 @@
 /**
  * Optimoi: the household's decisions with a price or a deadline. Each area (`areas/*.ts`) returns its findings and what
- * it checked; this frame applies the rules every finding follows (.claude/plan/0.8.0.md): complete months only, the
- * gate, certainty from weaknesses, the user's states, three findings per area, the order of areas and the headline
- * without overlaps. The insights no finding covers come along as Muut havainnot (`others.ts`). Pure: `ctx.today` is
- * the only clock.
+ * it checked; this frame applies the rules every finding follows: complete months only, the gate, certainty from
+ * weaknesses, the user's states, three findings per area, the order of areas and the headline without overlaps. The
+ * insights no finding covers come along as Muut havainnot (`others.ts`). Pure: `ctx.today` is the only clock.
  */
 import type { AnalysisContext } from "../analysis/context.ts";
 import { completeMonthsBefore } from "../analysis/usual.ts";
@@ -171,6 +170,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
   const active: Finding[] = [];
   const done: OptimiseData["done"] = [];
   const dismissed: OptimiseData["dismissed"] = [];
+  const snoozed: OptimiseData["snoozed"] = [];
   const views: (AreaView & { all: Finding[] })[] = [];
   // the rows of every finding the page knows, shown or decided: an insight about the same rows is left to it
   const findingRows: (readonly string[])[] = [];
@@ -179,7 +179,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     const result = area.assess(a);
     const shown: Finding[] = [];
     const dropped = new Map<string, Dropped>();
-    const snoozed = new Set<string>();
+    const snoozedKinds = new Set<string>();
     const seen = new Set<string>();
     for (const draft of result.findings) {
       // an area reports only its own findings, each once
@@ -196,11 +196,13 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
       const place = placeOf(state, settled, today);
       if (place === "done") done.push({ state: state!, finding: settled });
       else if (place === "dismissed") dismissed.push({ state: state!, finding: settled });
-      else if (place === "snoozed") snoozed.add(settled.kind);
-      else shown.push(place === "reopened" ? { ...settled, reopened: true } : settled);
+      else if (place === "snoozed") {
+        snoozedKinds.add(settled.kind);
+        snoozed.push({ state: state!, finding: settled });
+      } else shown.push(place === "reopened" ? { ...settled, reopened: true } : settled);
     }
     // a decided or snoozed finding was still found: its check says so
-    const kinds = new Set([...shown.map((f) => f.kind), ...snoozed]);
+    const kinds = new Set([...shown.map((f) => f.kind), ...snoozedKinds]);
     const decided = new Set([...done, ...dismissed].filter((d) => d.finding?.area === area.id).map((d) => d.finding!.kind));
     const checks: Check[] = result.checks.map((c) => {
       const kind = c.id.slice(c.id.indexOf(":") + 1);
@@ -227,6 +229,9 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
   // a done decision stays in Päätetyt after its finding stops showing in the data: that is what the change was for
   const doneIds = new Set(done.map((d) => d.state.findingId));
   for (const s of input.states ?? []) if (s.status === "done" && !doneIds.has(s.findingId)) done.push({ state: s, finding: null });
+  // a reminder is listed until its day, with its finding while the data still shows it
+  const snoozedIds = new Set(snoozed.map((d) => d.state.findingId));
+  for (const s of input.states ?? []) if (placeOf(s, { euros: null }, today) === "snoozed" && !snoozedIds.has(s.findingId)) snoozed.push({ state: s, finding: null });
 
   views.sort((x, y) => y.weightCents - x.weightCents || Number(!x.findings.length) - Number(!y.findings.length) || order.get(x.id)! - order.get(y.id)!);
   const shownFindings = views.flatMap((v) => v.findings);
@@ -249,6 +254,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     soon,
     done,
     dismissed,
+    snoozed,
     ...othersOf(ctx, a.inputs, findingRows),
     needed: neededOf(views, a.values, today),
     checked: {

@@ -25,13 +25,13 @@ describe("check --changed: scope of a diff", () => {
     expect(scopeOf(["apps/web/src/pages/Wizard.tsx", "apps/web/src/styles/tokens.css"]).tests).toEqual(["apps/web", RULES]);
   });
 
-  it("docs, fragments, the plan folder and the browser suite run only the repo rules", () => {
-    const s = scopeOf(["docs/WORKERS.md", "changelog.d/H2a.md", ".claude/plan/0.9.0/H2a.md", "e2e/app.spec.ts", "README.md"]);
+  it("docs, fragments, the .claude folder and the browser suite run only the repo rules", () => {
+    const s = scopeOf(["docs/INSTALL.md", "changelog.d/H2a.md", ".claude/notes/H2a.md", "e2e/app.spec.ts", "README.md"]);
     expect(s).toMatchObject({ full: false, tests: [RULES], lint: false, sh: false });
   });
 
   it("a shell script, scripts/ and the shell suites turn the lint and the suites on", () => {
-    for (const f of ["tools/check.sh", "tools/test/slots.test.sh", "tools/ci/wait.sh", "tools/release/ship.sh", ".claude/hooks/session-start.sh"]) {
+    for (const f of ["tools/check.sh", "tools/test/slots.test.sh", "tools/ci/wait.sh", "scripts/lib/release.sh", ".claude/hooks/session-start.sh"]) {
       expect(scopeOf([f]), f).toMatchObject({ lint: true, sh: true });
     }
     expect(scopeOf(["scripts/lib/dbcopy.sh"])).toMatchObject({ lint: true, sh: true });
@@ -54,7 +54,7 @@ describe("check --changed: scope of a diff", () => {
   });
 
   it("one unknown path among known ones still runs everything", () => {
-    expect(scopeOf(["docs/WORKERS.md", "apps/server/src/app.ts", "Dockerfile"]).full).toBe(true);
+    expect(scopeOf(["docs/INSTALL.md", "apps/server/src/app.ts", "Dockerfile"]).full).toBe(true);
   });
 
   it("an empty diff runs only the repo rules", () => {

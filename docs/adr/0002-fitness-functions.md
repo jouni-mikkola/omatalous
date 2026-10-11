@@ -13,7 +13,7 @@ writing) or a test (the golden files of what the product says, the life-event ki
 violations on the day it is written, they go into a baseline next to it, and the check fails both on a new violation and
 on a baseline entry that no longer occurs. So the baseline can only shrink, and a fixed violation cannot come back.
 
-Statements about money have three such checks (`docs/WORKERS.md`): `packages/core/test/golden/` shows every change in
+Statements about money have three such checks: `packages/core/test/golden/` shows every change in
 what the product says, `packages/core/test/kit/` runs each source on a household with and without a life event, and the
 noise budget allows a two-window detector to fire on at most 1 % of 200 steady households. Their baseline is
 `packages/core/test/kit/known.ts`.

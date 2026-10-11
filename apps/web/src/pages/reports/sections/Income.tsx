@@ -26,7 +26,7 @@ const rowsHref = (payer: string, r: IncomeReport) => `#/transactions?merchant=${
 
 function Changes({ r }: { r: IncomeReport }) {
   const [all, setAll] = useState(false);
-  if (!r.changes.length) return <p className="muted">Ei muutoksia tavallisiin tuloihin 12 kuukaudessa.</p>;
+  if (!r.changes.length) return <p className="muted">Ei muutoksia tavallisiin tuloihin {r.months.length} kuukaudessa.</p>;
   const shown: IncomeChange[] = all ? r.changes : r.changes.slice(0, 3);
   return (
     <>
@@ -216,13 +216,24 @@ function Stability({ r }: { r: IncomeReport }) {
   );
 }
 
+/**
+ * The report's twelve months from the first one with data: the months before the history starts are empty and
+ * incomplete, and Viime vuosi of a history from September would show eight of them.
+ */
+function fromHistory(months: IncomeReport["months"]): IncomeReport["months"] {
+  const start = months.findIndex((m) => m.complete || m.totalCents !== 0);
+  return start < 0 ? months : months.slice(start);
+}
+
 function Income({ ctx }: SectionProps) {
-  const r = ctx.data.income;
+  const r = { ...ctx.data.income, months: fromHistory(ctx.data.income.months) };
   const first = r.months[0]!.month;
   const last = r.months[r.months.length - 1]!.month;
+  // the card covers the twelve months up to the last complete one whatever the period, so its title says so
+  const title = `Tulot, ${plural(r.months.length, "kuukausi", "kuukautta")}`;
   if (!r.enough) {
     return (
-      <Section id={section.id} title={section.title}>
+      <Section id={section.id} title={title}>
         <div className="empty">
           Tulot jaetaan tulolajeihin, kun historiaa on {completeMonths(r.needs.compositionMonths)}. Vertailu edelliseen vuoteen tarvitsee {plural(r.needs.previousYearMonths, "kuukauden", "kuukautta")}.
         </div>
@@ -231,10 +242,11 @@ function Income({ ctx }: SectionProps) {
   }
   const change = r.earnedChange;
   return (
-    <Section id={section.id} title={section.title} sub={`${span(first, last)}, ansiotulot ilman henkilöiltä saatuja ja hyvityksiä`}>
+    <Section id={section.id} title={title} sub={`${span(first, last)}, nettotulot ilman henkilöiltä saatuja ja hyvityksiä`}>
       <Kv
         items={[
-          ["Ansiotulot 12 kuukaudessa", money(r.earnedCents, false)],
+          // what reached the accounts, after tax: not the gross ansiotulo of taxation
+          [`Nettotulot ${r.months.length} kuukaudessa`, money(r.earnedCents, false)],
           ...(change === null ? [] : ([["Edellisestä 12 kuukaudesta", signedPercent(change)]] as [string, string][])),
           ...(r.notEarnedCents ? ([["Henkilöiltä ja hyvityksinä", money(r.notEarnedCents, false)]] as [string, string][]) : []),
         ]}

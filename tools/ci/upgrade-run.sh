@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upgrade rehearsal in Docker, used by .github/workflows/upgrade.yml and runnable by hand:
+# Upgrade rehearsal in Docker, used by the upgrade workflow and runnable by hand:
 #
 #   tools/ci/upgrade-run.sh <baseline-ref>
 #

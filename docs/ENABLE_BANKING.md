@@ -42,8 +42,11 @@ that was linked afterwards.
 - The privacy URL and the terms URL are pages on the same site as the redirect URL. They say that Omatalous runs on your
   own machine, that bank data goes only there and that the developer receives nothing. The form asks for them,
   though Enable Banking does not check them or the email for an app you activate by linking your own accounts.
-- Omatalous reads the app's status from Enable Banking. While the app is *Inactive* it says so and keeps *Lisää
-  pankkiyhteys* off. Link your accounts, then press *Testaa yhteys*.
+- *Luo avain* and *Luo uusi* download the certificate by themselves. *Lataa varmenne (.crt)* downloads it again.
+- When the test passes and no app is saved yet, the Application ID saves itself and the page says "Application ID
+  tallennettu. Yhteys toimii." A saved app still needs *Tallenna ja testaa* after a change.
+- Omatalous reads the app's status from Enable Banking. While the app is *Inactive* it says so, but the bank buttons
+  stay on: choosing a bank tests the app again and says what is wrong. Link your accounts, then press *Testaa yhteys*.
 
 ## After you connect
 
@@ -51,13 +54,13 @@ that was linked afterwards.
   moment and comes back to Omatalous.
 - The first fetch brings up to two years of history in the background. For older history, export a CSV from Nordea's
   online bank and import it under *Asetukset > Tuo CSV*. Rows already fetched are skipped.
-- Check under *Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
+- Check under *Asetukset > Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
   account counts as a transfer, because the purchases are already counted on the card.
 - Omatalous reads these fields of each account. The bank's `product` (Käyttötili, ASP-tili, Nordea Gold) becomes the account's name, and
   `name`, which holds the holders ("A;B"), a line under it. `cash_account_type` gives the type; Nordea sends `CACC` for every
-  account, so a product with a savings word (säästö, ASP, tuotto, sijoitus) reads as *Säästötili* when the account is first linked (change the type under *Tilit* if it is wrong). A card's masked number
+  account, so a product with a savings word (säästö, ASP, tuotto, sijoitus) reads as *Säästötili* when the account is first linked (change the type under *Asetukset > Tilit* if it is wrong). A card's masked number
   (`CPAN`) shows as its last four digits and `credit_limit` as its limit. You can give any account a name of your own
-  under *Tilit*: a new consent never replaces it. An account linked before these fields were read asks the bank for
+  under *Asetukset > Tilit*: a new consent never replaces it. An account linked before these fields were read asks the bank for
   them once at the next fetch; a refusal is tried again at the one after.
 - The bank's consent lasts 180 days. Omatalous reminds you 14 days before. Renew it by connecting the account again
   under *Asetukset > Pankkiyhteydet*. The history stays.
@@ -89,12 +92,13 @@ The member registers it like the household's app, with their own Enable Banking 
 
 - Omatalous makes no key for a member. Choose *Generate in the browser* for the private key. Enable Banking then
   downloads a `.pem` file.
-- The redirect URL is the one shown under *Asetukset > Oma Enable Banking -sovellus*. An admin can read the privacy URL
-  and the terms URL to you from *Asetukset > Palvelin*.
+- *Asetukset > Oma Enable Banking -sovellus* shows the redirect URL, the privacy URL and the terms URL, each with a copy
+  button.
 - Link the member's accounts in their app as above.
 
-Save the Application ID and the `.pem` file under *Asetukset > Oma Enable Banking -sovellus*, then delete the file from
-the downloads folder. The key is stored encrypted. The form checks only that the ID and the key are well formed, so a
-wrong pair shows up as an error when the member connects. *Poista oma avain* returns the member to the household's app.
+Save the Application ID and the `.pem` file under *Asetukset > Oma Enable Banking -sovellus* with *Tallenna ja testaa*,
+then delete the file from the downloads folder. The save tests the pair with Enable Banking first. A pair Enable Banking
+refuses is not saved, and the key saved before stays. Any other answer, *Inactive* included, saves the key and shows
+what the test said. The key is stored encrypted. *Poista oma avain* returns the member to the household's app.
 
 More about Enable Banking options: [ADVANCED.md](ADVANCED.md#enable-banking-options).

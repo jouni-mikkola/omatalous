@@ -22,26 +22,29 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
     await expect(page.getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Havainnot" })).toHaveCount(0);
 
-    // the demo's two rises together are an insight no finding covers: Adobe's rise alone is a finding
+    // the demo's new OpenAI charge is an insight no finding covers, shown as a cost with what to do; the two rises
+    // together are not, since Adobe's rise and Netflix in the video overlap are the findings' to tell
     await page.goto("/#/optimise");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     const others = page.getByRole("region", { name: "Muut havainnot" });
-    const rises = others.getByRole("article").filter({ hasText: "toistuvaa maksua kallistui" });
-    await expect(rises).toBeVisible();
-    await expect(rises).toContainText(/168\s€ vuodessa/);
-    const title = (await rises.locator(".finding-title").innerText()).trim();
+    await expect(others.getByRole("article").filter({ hasText: "toistuvaa maksua kallistui" })).toHaveCount(0);
+    const charge = others.getByRole("article").filter({ hasText: "Uusi toistuva maksu: OpenAI" });
+    await expect(charge).toBeVisible();
+    await expect(charge).toContainText(/Maksaa 276\s€ vuodessa/);
+    await expect(charge).toContainText("irtisano se ennen seuraavaa veloitusta");
+    const title = (await charge.locator(".finding-title").innerText()).trim();
 
     // Ei koske meitä, the finding's words: the insight moves to Päätetyt with its state, and stays there after a reload
-    await rises.getByRole("button", { name: "Ei koske meitä" }).click();
+    await charge.getByRole("button", { name: "Ei koske meitä" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Havainto siirrettiin kohtaan Päätetyt." })).toBeFocused();
-    await expect(rises).toHaveCount(0);
+    await expect(charge).toHaveCount(0);
     const decided = page.getByRole("region", { name: "Päätetyt" });
     const row = decided.getByRole("listitem").filter({ hasText: title });
-    await expect(row).toContainText("Ei koske meitä · 168");
+    await expect(row).toContainText(/Ei koske meitä · maksaa 276\s€ vuodessa/);
     await expect(row).toContainText("palaa, jos summa muuttuu 25 % tai enemmän");
     await page.reload();
     await expect(row).toBeVisible();
-    await expect(rises).toHaveCount(0);
+    await expect(charge).toHaveCount(0);
 
     // a phone with both lists on the page
     const phone = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -56,7 +59,7 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
 
     // Peruuta brings it back among Muut havainnot
     await page.getByRole("button", { name: `Peruuta päätös: ${title}` }).click();
-    await expect(rises).toBeVisible();
+    await expect(charge).toBeVisible();
     await expect(decided).toHaveCount(0);
 
     // switched off: Kuukausi shows the first insights again and Raportit has Havainnot

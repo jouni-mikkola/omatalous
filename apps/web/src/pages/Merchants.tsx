@@ -16,8 +16,8 @@ interface MerchantItem {
   count: number;
   totalCents: number;
   inCents: number;
-  /** Money out per month of the period (the server divides by `months`). */
-  monthlyCents: number;
+  /** Money out per month whatever the period: an active series' own figure, else the last complete months over their number. */
+  monthlyCents: number | null;
   lastDate: string;
   rule: { id: number; category: string } | null;
   /** Rows in other categories, most rows first. */
@@ -25,6 +25,10 @@ interface MerchantItem {
 }
 
 const LIMIT = 200;
+
+/** What Kuussa of a merchant without an active series is, in words: the complete months it averages. */
+export const monthsBasis = (months: number): string =>
+  months === 0 ? "vasta kun ensimmäinen kuukausi on valmis" : months === 1 ? "viimeisen valmiin kuukauden summa" : `keskiarvo viimeisiltä ${months} valmiilta kuukaudelta`;
 
 /**
  * The Kauppiaat tab of Tapahtumat: every merchant of a period with the category its rows go to, and the rules under
@@ -140,7 +144,9 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
           <div>
             <h2>Kauppiaat</h2>
             <div className="card-sub">
-              {items ? `${plural(items.length, "kauppias", "kauppiasta")}, summat ${period ? "valitulta jaksolta" : "koko historiasta"}. Kuussa: summa jaettuna kuukausien määrällä (${months}).` : "…"}
+              {items
+                ? `${plural(items.length, "kauppias", "kauppiasta")}, summat ${period ? "valitulta jaksolta" : "koko historiasta"}, omat siirrot pois lukien. Kuussa: toistuvan maksun kuukausihinta, muilla ${monthsBasis(months)}.`
+                : "…"}
               {habit && " Arkiostot ovat usein toistuvia pieniä ostoja, jotka jatkuvat yhä."}
             </div>
           </div>
@@ -215,7 +221,7 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
                   <td className="num" data-label="Yhteensä">{m.totalCents || !m.inCents ? money(m.totalCents) : `+${money(m.inCents)}`}</td>
                   {/* money in has no monthly figure here: a salary payer shows a dash */}
                   <td className="num" data-label="Kuussa">
-                    {m.totalCents ? (
+                    {m.monthlyCents ? (
                       <>
                         <span className="hide-phone">{money(m.monthlyCents, false)}</span>
                         <span className="phone-only">{money(m.monthlyCents, false)} kuussa</span>

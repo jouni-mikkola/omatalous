@@ -2,9 +2,10 @@
 /**
  * What the overview's "where the income went" bar is made of. The running month has its bills but often not its
  * salary, so the split is told from complete months; when the selected period has none yet (the default view, the
- * month so far) the latest complete month stands in and the page names it.
+ * month so far) the latest complete month stands in and the page names it. Before any month has ended, the latest month
+ * with income stands in, marked as partial.
  */
-import { monthEnd, monthOf, monthRange } from "../dates.ts";
+import { fromMonthIndex, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, inDays } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
@@ -15,9 +16,11 @@ export interface Bridge {
   totals: PeriodTotals;
   /**
    * "range": the selected period as it is. "settled": the complete months of a running period. "last": a running
-   * period without a complete month, so the latest complete month. "running": nothing complete exists yet.
+   * period without a complete month, so the latest complete month. "partial": no month is complete yet and the
+   * running one has no income, so the latest month with income, which is not complete (the first, partly fetched
+   * month). "running": the running period as it is, with nothing else to tell.
    */
-  basis: "range" | "settled" | "last" | "running";
+  basis: "range" | "settled" | "last" | "partial" | "running";
   /** The one month the totals describe (`2026-09`), or null when they cover a longer period. */
   month: string | null;
   /**
@@ -61,5 +64,14 @@ export function buildBridge(ctx: AnalysisContext, range: DateRange, running: boo
   }
   const last = completeMonthsBefore(ctx, monthOf(ctx.today), 1)[0];
   if (last) return { totals: monthTotals(ctx, last), basis: "last", month: last, ...usualOf(ctx, last) };
+  // no month has ended yet: a running month without its salary would read "no income" while the first, partly
+  // fetched month had one, so that month stands in, marked as partial
+  if (totals.incomeCents <= 0 && ctx.dataFrom) {
+    for (let i = monthIndex(ctx.today) - 1; i >= monthIndex(ctx.dataFrom); i--) {
+      const month = fromMonthIndex(i);
+      const t = monthTotals(ctx, month);
+      if (t.incomeCents > 0) return { totals: t, basis: "partial", month, ...none };
+    }
+  }
   return { totals, basis: "running", month: null, ...none };
 }

@@ -2,14 +2,14 @@
 import { useState } from "react";
 import { api } from "../../../api.ts";
 import { cadenceLabel } from "../../../components/bills/BillForm.tsx";
-import { date, money, monthLong } from "../../../format.ts";
+import { date, dayMonth, money, monthLong } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/bills.css";
 
 /**
- * Rare bills: what to set aside each month, what falls due in each of the next twelve months, and the bills the
- * household typed in, which can be removed here. A bill is found after two charges, so a yearly one is typed in
+ * Rare bills: what to set aside each month, the months of the next twelve that have bills (one paid this month is
+ * named as paid, with its day), and the bills the household typed in, which can be removed here. A bill is found after two charges, so a yearly one is typed in
  * (Tulossa > Lisää lasku) for its first two years. The bills of the next 30 days are in Tulossa, not here.
  */
 function Upcoming({ ctx }: SectionProps) {
@@ -27,6 +27,12 @@ function Upcoming({ ctx }: SectionProps) {
   };
 
   const biggest = Math.max(1, ...r.months.map((m) => m.cents));
+  // a month without bills says nothing; the year still counts all twelve
+  const months = r.months.filter((m) => m.cents > 0);
+  const nameOf = (m: (typeof months)[number], name: string) => {
+    const paid = m.paid.find((p) => p.merchant === name);
+    return paid ? `${name} maksettu ${dayMonth(paid.date)}` : name;
+  };
   return (
     <Section id={section.id} title={section.title}>
       {r.advice && (
@@ -35,18 +41,16 @@ function Upcoming({ ctx }: SectionProps) {
 
           <h3 className="bills-head">Seuraavat 12 kuukautta</h3>
           <ul className="bill-months">
-            {r.months.map((m) => (
+            {months.map((m) => (
               <li key={m.month}>
                 <div className="bill-month-head">
                   <span>{monthLong(m.month)}</span>
-                  <strong>{m.cents ? money(m.cents, false) : "–"}</strong>
+                  <strong>{money(m.cents, false)}</strong>
                 </div>
-                {m.cents > 0 && (
-                  <div className="bill-bar" aria-hidden="true">
-                    <span style={{ width: `${Math.max(2, (m.cents / biggest) * 100)}%` }} />
-                  </div>
-                )}
-                {m.names.length > 0 && <div className="sub">{m.names.join(", ")}</div>}
+                <div className="bill-bar" aria-hidden="true">
+                  <span style={{ width: `${Math.max(2, (m.cents / biggest) * 100)}%` }} />
+                </div>
+                <div className="sub">{m.names.map((n) => nameOf(m, n)).join(", ")}</div>
               </li>
             ))}
           </ul>

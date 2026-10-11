@@ -168,8 +168,8 @@ describe("repo rules: code", () => {
     expectNoFindings("security events", found, "call recordEvent() from services/security.ts. Security events go through one writer so they carry IP, user agent and the 90 day pruning.");
   });
 
-  it("rule 17: a series' charges a year come from recurring.ts only (no `365.25 /` in another source file)", () => {
-    const OWNER = "packages/core/src/recurring.ts";
+  it("rule 17: a series' charges a year come from the cadence table in recurring-cadence.ts only (no `365.25 /` in another source file)", () => {
+    const OWNER = "packages/core/src/recurring-cadence.ts";
     const PER_YEAR = /365\.25\s*\//;
     const files = sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/");
     expect(files.length).toBeGreaterThan(100);
@@ -186,8 +186,8 @@ describe("repo rules: code", () => {
 });
 
 describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
-  it("rule 18: no local month length (`30.44`) or month-end string outside dates.ts and recurring.ts", () => {
-    const OWNERS = new Set(["packages/core/src/dates.ts", "packages/core/src/recurring.ts"]);
+  it("rule 18: no local month length (`30.44`) or month-end string outside dates.ts and recurring-cadence.ts", () => {
+    const OWNERS = new Set(["packages/core/src/dates.ts", "packages/core/src/recurring-cadence.ts"]);
     const BANNED: [RegExp, string][] = [
       [/30\.44/, "a local month length: use DAYS_PER_MONTH from dates.ts"],
       [/daysInMonth\([^)]*\)\)?\.padStart|String\(daysInMonth\(|daysInMonth\([^)]*\)\)\)\.padStart|-\$\{daysInMonth\(/, "a month end built by hand: use monthEnd or dateIn from dates.ts"],

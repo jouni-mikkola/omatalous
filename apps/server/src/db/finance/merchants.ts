@@ -2,7 +2,7 @@
  * The user's rows seen by merchant: the names, the summaries for the category settings, one merchant's history,
  * the spending nothing recognised, and the trade register answers the user's own lookups found.
  */
-import { fold, type IndustryCodeSet, isIndustryCodeSet, type Transaction } from "@banking/core";
+import { fold, type IndustryCodeSet, isIndustryCodeSet, type MerchantBasis, merchantMonthly, monthEnd, type Transaction } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
 import type { RulesRepo } from "./rules.ts";
@@ -17,19 +17,26 @@ export interface UncategorisedMerchant {
   lastDate: string;
 }
 
-/** Everything one merchant's rows add up to, for the summary above a merchant-filtered transaction list. */
+/**
+ * Everything one merchant's rows add up to, for the summary above a merchant-filtered transaction list. An own
+ * transfer is counted as a row but not in the sums: it is money moved, not paid or received.
+ */
 export interface MerchantHistory {
   count: number;
-  /** Money out and in over the whole history, positive cents. */
+  /** Rows that are own transfers. */
+  transfers: number;
+  /** Money out and in over the whole history, positive cents, own transfers left out. */
   outCents: number;
   inCents: number;
   firstDate: string;
   lastDate: string;
-  /** Calendar months with at least one row. */
-  months: number;
-  /** The category most of its rows are in. */
+  /** The category most of its rows other than own transfers are in (that of the transfers when it has nothing else). */
   category: string;
+  /** Money out per calendar month (`YYYY-MM`), own transfers left out: what `merchantMonthly` adds up. */
+  outByMonth: Record<string, number>;
 }
+
+const NO_BASIS: MerchantBasis = { months: [], series: new Map() };
 
 /** One merchant in the category settings. */
 export interface MerchantSummary {
@@ -42,8 +49,11 @@ export interface MerchantSummary {
   /** Money in, positive cents (a salary payer has only this). */
   inCents: number;
   lastDate: string;
-  /** Money out per month of the period, rounded: `totalCents` over `MerchantList.months`. 0 for a merchant that is only paid. */
-  monthlyCents: number;
+  /**
+   * Money out per month by `merchantMonthly`, whatever the period: an active series' own figure, else the last
+   * complete months. 0 for a merchant that is only paid, null without a complete month.
+   */
+  monthlyCents: number | null;
   /** The "all of this merchant" rule, if the user made one. */
   rule: { id: number; category: string } | null;
   /** Rows in other categories than `category` (a bank: loan instalments and fees), most rows first. */
@@ -59,23 +69,19 @@ export interface MerchantFilter {
   /** Only these merchants (the ones with an active everyday-purchase series). */
   only?: ReadonlySet<string>;
   limit: number;
+  /** What `monthlyCents` reads; without it the figure is null. */
+  basis?: MerchantBasis;
 }
 
-/** The merchants of a period and the number of calendar months the period spans, which `monthlyCents` divides by. */
+/** The merchants of a period and the complete months that `monthlyCents` of a merchant without a series divides by. */
 export interface MerchantList {
   items: MerchantSummary[];
   months: number;
 }
 
-const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
-
-/**
- * Calendar months from `from` to `to`, both included, at least one. A part of a month counts as a whole one, so a
- * running month shows what it holds so far instead of a guess about the rest.
- */
-export function monthSpan(from: string, to: string): number {
-  return Math.max(1, monthIndex(to) - monthIndex(from) + 1);
-}
+/** The dates the complete months of a basis run over, null without one. */
+const basisRange = (basis: MerchantBasis): { from: string; to: string } | null =>
+  basis.months.length ? { from: `${basis.months[0]}-01`, to: monthEnd(basis.months[basis.months.length - 1]!) } : null;
 
 export class MerchantsRepo {
   constructor(
@@ -135,33 +141,41 @@ export class MerchantsRepo {
    * The same rows as the transaction list filtered to the merchant, so the counts agree.
    */
   async merchantHistory(merchant: string, accountIds?: readonly string[]): Promise<MerchantHistory | null> {
-    const months = new Set<string>();
-    const categories = new Map<string, number>();
+    // own transfers apart: they are rows of the merchant, but neither paid nor received, and not its category
+    const categories = { paid: new Map<string, number>(), moved: new Map<string, number>() };
+    const outByMonth: Record<string, number> = {};
     let count = 0;
+    let transfers = 0;
     let outCents = 0;
     let inCents = 0;
     let firstDate = "";
     let lastDate = "";
     for (const side of this.list.filterSides({ merchant }, accountIds)) {
-      const rows = await this.ctx.db.all<{ category: string; m: string; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
-        `SELECT category, substr(booking_date, 1, 7) AS m, COUNT(*) AS n, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc,
+      const rows = await this.ctx.db.all<{ category: string; m: string; moved: number; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
+        `SELECT category, substr(booking_date, 1, 7) AS m, is_transfer != 0 AS moved, COUNT(*) AS n, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc,
                 -SUM(CASE WHEN amount_cents < 0 THEN amount_cents END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
-         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY category, m`,
+         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY category, m, moved`,
         side.params,
       );
       for (const r of rows) {
-        count += Number(r.n);
-        inCents += Number(r.inc ?? 0);
-        outCents += Number(r.outc ?? 0);
-        months.add(r.m);
-        categories.set(r.category, (categories.get(r.category) ?? 0) + Number(r.n));
+        const n = Number(r.n);
+        count += n;
+        const kept = Number(r.moved) ? categories.moved : categories.paid;
+        kept.set(r.category, (kept.get(r.category) ?? 0) + n);
         if (!firstDate || r.first < firstDate) firstDate = r.first;
         if (r.last > lastDate) lastDate = r.last;
+        if (Number(r.moved)) {
+          transfers += n;
+          continue;
+        }
+        inCents += Number(r.inc ?? 0);
+        outCents += Number(r.outc ?? 0);
+        outByMonth[r.m] = (outByMonth[r.m] ?? 0) + Number(r.outc ?? 0);
       }
     }
     if (!count) return null;
-    const category = [...categories].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]![0];
-    return { count, outCents, inCents, firstDate, lastDate, months: months.size, category };
+    const ranked = [...(categories.paid.size ? categories.paid : categories.moved)].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    return { count, transfers, outCents, inCents, firstDate, lastDate, category: ranked[0]![0], outByMonth };
   }
 
   /** Money-out rows nothing recognised, per merchant, biggest spending first. */
@@ -179,10 +193,11 @@ export class MerchantsRepo {
    * The user's merchants, biggest spending first, for the category settings and the merchant list on Tapahtumat.
    * Transfers are left out because transfer detection decides those and a rule cannot.
    * `category` and `q` (matched on the folded name) narrow the list, `from` and `to` the rows it adds up, and `only`
-   * the merchants. A period that leaves an end open runs from the first or to the last row it finds, so the months
-   * `monthlyCents` divides by are those with history in them, not the empty ones before an import or after the last row.
+   * the merchants. `monthlyCents` does not follow the period: it is `merchantMonthly` of `basis`, the figure Laskut and
+   * the summary above a merchant's rows show too.
    */
   async merchantSummaries(f: MerchantFilter): Promise<MerchantList> {
+    const basis = f.basis ?? NO_BASIS;
     const range = `${f.from ? " AND booking_date >= ?" : ""}${f.to ? " AND booking_date <= ?" : ""}`;
     const params = [this.ctx.userId, ...(f.from ? [f.from] : []), ...(f.to ? [f.to] : [])];
     // the first row of a merchant is its most common category
@@ -193,8 +208,8 @@ export class MerchantsRepo {
        GROUP BY merchant, category ORDER BY merchant, n DESC, category`,
       params,
     );
-    if (!rows.length) return { items: [], months: 1 };
-    const months = monthSpan(f.from ?? rows.reduce((min, r) => (r.first < min ? r.first : min), rows[0]!.first), f.to ?? rows.reduce((max, r) => (r.last > max ? r.last : max), rows[0]!.last));
+    const months = basis.months.length;
+    if (!rows.length) return { items: [], months };
     // rules come in the order they run, so the first one for a name is the one that applies
     const rules = new Map<string, { id: number; category: string }>();
     for (const r of await this.rules.listRules()) {
@@ -210,7 +225,7 @@ export class MerchantsRepo {
           count: Number(r.n),
           totalCents: Number(r.total),
           inCents: Number(r.income),
-          monthlyCents: 0,
+          monthlyCents: null,
           lastDate: r.last,
           rule: rules.get(r.merchant) ?? null,
           otherCategories: [],
@@ -229,8 +244,20 @@ export class MerchantsRepo {
       .filter((m) => (!f.category || m.category === f.category) && (!f.only || f.only.has(m.merchant)) && (!q || fold(m.merchant).includes(q)))
       .sort((a, b) => b.totalCents - a.totalCents || b.inCents - a.inCents || b.count - a.count || a.merchant.localeCompare(b.merchant))
       .slice(0, f.limit);
-    for (const m of items) m.monthlyCents = Math.round(m.totalCents / months);
+    const out = await this.outInRange(basisRange(basis));
+    for (const m of items) m.monthlyCents = merchantMonthly(basis, m.merchant, out.get(m.merchant) ?? 0).monthlyCents;
     return { items, months };
+  }
+
+  /** Money out per merchant from `range.from` to `range.to`, own transfers left out; empty without a range. */
+  private async outInRange(range: { from: string; to: string } | null): Promise<Map<string, number>> {
+    if (!range) return new Map();
+    const rows = await this.ctx.db.all<{ merchant: string; outc: number }>(
+      `SELECT merchant, -SUM(amount_cents) AS outc FROM transactions
+       WHERE user_id = ? AND is_transfer = 0 AND amount_cents < 0 AND booking_date >= ? AND booking_date <= ? GROUP BY merchant`,
+      [this.ctx.userId, range.from, range.to],
+    );
+    return new Map(rows.map((r) => [String(r.merchant), Number(r.outc)]));
   }
 
   async hasMerchant(merchant: string): Promise<boolean> {

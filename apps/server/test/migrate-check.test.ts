@@ -8,8 +8,8 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { migrateCheck, removeOnSignal, runMigrateCheck } from "../src/db/migrate-check.ts";
 import { findMigrationsDir, openDatabase } from "../src/db/open.ts";
+import { loadFixture } from "./fixture-db.ts";
 
-const FIXTURES = new URL("./fixtures/db/", import.meta.url);
 const ENTRY = fileURLToPath(new URL("../src/entry/node.ts", import.meta.url));
 // the sources are TypeScript with syntax Node cannot strip, so the entry runs under tsx as `pnpm dev` does
 const TSX = fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url));
@@ -32,9 +32,7 @@ const tmp = () => {
 /** A database as a released version left it, in its own folder. */
 function fromFixture(name: string): string {
   const file = join(tmp(), "banking.db");
-  const db = new DatabaseSync(file);
-  db.exec(readFileSync(new URL(name, FIXTURES), "utf8"));
-  db.close();
+  loadFixture(file, name);
   return file;
 }
 

@@ -264,11 +264,18 @@ describe("optimise frame: states", () => {
     expect(shown(small)).toEqual([]);
   });
 
-  it("hides a snoozed finding until its day", () => {
+  it("hides a snoozed finding until its day, and sends it with its finding for Päätetyt", () => {
     const hidden = run(CTX12, at(30000), { states: [state(id, { status: "snoozed", until: addDays(TODAY, 1) })] });
     expect(shown(hidden)).toEqual([]);
     expect(hidden.areas[0]!.checks[0]!.status).toBe("finding");
-    expect(ids(shown(run(CTX12, at(30000), { states: [state(id, { status: "snoozed", until: TODAY })] })))).toEqual([id]);
+    // Päätetyt names it and its euros, as it does a dismissed one
+    expect(hidden.snoozed.map((d) => [d.state.findingId, d.finding?.id, d.finding?.euros?.midCents])).toEqual([[id, id, 30000]]);
+    const back = run(CTX12, at(30000), { states: [state(id, { status: "snoozed", until: TODAY })] });
+    expect(ids(shown(back))).toEqual([id]);
+    expect(back.snoozed).toEqual([]);
+    // a reminder whose finding the data no longer shows stays listed, without the finding, until its day
+    const gone = run(CTX12, at(30000), { states: [state("subscriptions:rise:Vanha", { status: "snoozed", until: addDays(TODAY, 5) })] });
+    expect(gone.snoozed.map((d) => [d.state.findingId, d.finding])).toEqual([["subscriptions:rise:Vanha", null]]);
   });
 
   it("moves a done finding to Jo hoidossa, out of the headline, and keeps it there after the data stops showing it", () => {

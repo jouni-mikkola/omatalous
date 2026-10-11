@@ -37,6 +37,12 @@ flowchart LR
   a private one (10/8, 172.16/12, 192.168/16), and otherwise to `127.0.0.1`. The traffic is plain HTTP, so keep guests
   and smart devices on a guest network. Do not forward that port in the router. Docker publishes the port past `ufw`, so
   the firewall does not limit it. Other networks reach the app through Caddy or a Cloudflare Tunnel.
+- When the app is on the internet, the intended setup is a Cloudflare Tunnel with Cloudflare Access in front. The
+  tunnel opens no port: cloudflared connects out to Cloudflare, and the app's port listens on `127.0.0.1` only. Access
+  lets through only the email addresses you allow, after a one-time PIN, and only then does a visitor see Omatalous's
+  own login. The installer sets `TRUST_PROXY=true`, so the app takes the visitor's address from `CF-Connecting-IP`,
+  which Cloudflare writes, for the login limits and the security events. Access is the outer gate, the login limits and
+  the password the inner one.
 - Bank linking from an http address goes through the project's return page on GitHub Pages
   (`https://jouni-mikkola.github.io/omatalous/callback/`). The bank sends the browser there with the authorisation `code`
   and a `state`. The state carries the app's own address, and the page forwards the browser only to a private, loopback or
@@ -57,9 +63,11 @@ flowchart LR
 - Sessions: a random 256-bit token in an HttpOnly, SameSite=Lax cookie (Secure over https). The database
   stores its SHA-256 only. Sessions expire after 30 days without use.
 - Logins are counted before the password hash runs, so parallel guesses cannot slip past the limit. The limits per 15
-  minutes are 50 attempts per IP address and 10 per user name from one address, so a stranger guessing at a name
-  cannot lock that user out from their own address. Unknown user names take the same time to check as real ones, and
-  only a few hashes run at once.
+  minutes are 50 attempts per address, 10 per user name from one address and 30 per user name from all addresses
+  together. An IPv6 address counts as its /64, because one client can use any address in it. A stranger at one
+  address cannot lock a user out; one who guesses from several networks can, while the guessing goes on. Each limit
+  keeps at most 10 000 addresses or names and never forgets a locked one early. Unknown user names take the same
+  time to check as real ones, and only a few hashes run at once.
 - Failed logins, lockouts, logins from a new device, password changes and resets, signed-out sessions and member
   changes are recorded as security events with the time, IP address and browser of the request. The admin sees them
   under *Asetukset*. Events are kept 90 days, at most 2 000. A member sees a notice after a login from a new device
@@ -67,7 +75,8 @@ flowchart LR
 - Behind a proxy (`TRUST_PROXY=true`) the client address comes from `CF-Connecting-IP` or the last
   `X-Forwarded-For` entry, the parts the proxy wrote itself. Caddy removes a `CF-Connecting-IP` sent by the
   client.
-- The first admin is created in the browser with a one-time setup code that only the server can show.
+- The first admin is created in the browser with a one-time setup code that only the server can show. A fixed
+  `SETUP_CODE` must have at least 16 characters; a shorter one is not used and a generated code works instead.
 - New members get a temporary password that must be changed before anything else.
 
 ## Who sees what
@@ -90,6 +99,14 @@ flowchart LR
 | `.env` | disk, mode 600 | Holds no keys. The Cloudflare tunnel token is here because cloudflared reads it; the app container does not get it. |
 
 Secrets never appear in `docker inspect`, in logs or in API responses. Raw bank payloads stay on the server.
+
+The Cloudflare API token that lets the installer make a tunnel (`~/.config/omatalous/cloudflare.env`, mode 600, outside
+the clone) can create and remove tunnels, change DNS records of your domain and change who Cloudflare Access lets in. It
+cannot read the app's data. The installer refuses the file when others can read it or when it belongs to someone else. It
+reaches the short-lived container of the app image that talks to Cloudflare through the environment, so it is not in the
+process list or in the logs; it is visible to a user of Docker for the few seconds that container runs. Nothing keeps it in
+the app, in `.env` or in a backup. To revoke it, delete or roll the token in the Cloudflare dashboard (*My Profile > API
+Tokens*) and put a new one in the file. Tunnels and Access rules that exist keep working without it.
 
 ## Settings entered in the browser
 
@@ -149,6 +166,8 @@ found gives the category. An unclear match is left alone.
   `no-new-privileges`, memory and process limits.
 - The runtime image holds one JavaScript file, the migrations and the web files. No `node_modules`, no
   compilers.
+- The tunnel container (cloudflared) runs as an unprivileged user with a read-only root filesystem, no Linux
+  capabilities and `no-new-privileges`. Its image is `cloudflare/cloudflared:latest`, pulled again on each update.
 
 ## Data
 
@@ -166,7 +185,7 @@ the download of a backup need the admin's password again, rollback also a typed 
 - The update path is root-equivalent. The helper's user is in the `docker` group, so what the helper installs
   decides who owns the machine. The root of trust is the project's GitHub account and its release workflow. Releases are
   signed there, see [RELEASING.md](RELEASING.md).
-- The helper runs six fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
+- The helper runs nine fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
   never reaches a shell. Access and port changes are not among them.
 - A release install takes a version the GitHub Releases API names, only a semver step up from the running one. The image
   comes from `ghcr.io`, and `update.sh` checks its cosign signature against the release workflow's identity (a run for a version tag, or a run on `main`
@@ -176,6 +195,15 @@ the download of a backup need the admin's password again, rollback also a typed 
   exists, requires a signed commit. The installer does not create that file, so source updates are unsigned until you add one:
   whoever can push to the followed branch can then run code on the host. A release install also requires the tagged commit to be on that branch.
   The helper alone picks the commit and hands it to `update.sh` (`TALOUS_TARGET`), which fetches and chooses nothing.
+- To check a released image by hand, with `cosign` installed (`X.Y.Z` is the version, or use `@sha256:...` for a
+  digest):
+
+  ```bash
+  cosign verify \
+    --certificate-identity-regexp '^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    ghcr.io/jouni-mikkola/omatalous:X.Y.Z
+  ```
 - Before the switch, `update.sh` starts the new, verified image twice in one-off containers: once with no network and
   no volume to see whether it has the migration check, then on the copy taken before the update to run it. Neither
   reads the app secret. A failed check leaves the old version running.
@@ -201,7 +229,7 @@ What remains:
 | The database and its `-wal` file | volume `banking-data` | until reset. Deleted rows can stay in free pages until overwritten. |
 | Daily copy `auto-YYYY-MM-DD.db` | same volume, mode 700 | 7 newest, none older than 14 days |
 | `pre-*` copies before a migration, update, rollback or secret rotation | same | none older than 14 days except the newest one |
-| `backups/talous-*.db.gz` from `backup.sh` | the clone's folder, mode 600 | 30 days. Not touched by the pruning above. Encrypted only with `BACKUP_AGE_RECIPIENT`. |
+| `backups/talous-*.db.gz` from `backup.sh` | the clone's folder, mode 600 | 30 days. Not touched by the pruning above. Encrypted only with `BACKUP_AGE_RECIPIENT`. The copies on a NAS (`BACKUP_COPY_TO`) stay until you delete them. |
 | The file from *Lataa uusin* | the admin's device | until the admin deletes it. Unencrypted. |
 | `app_secret`, and `app_secret.prev-<time>` after a rotation | volume `banking-secrets` | the old one until deleted by hand |
 | `.env` | the clone's folder, mode 600 | holds the tunnel token and the setup code |

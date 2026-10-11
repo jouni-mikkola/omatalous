@@ -81,16 +81,20 @@ describe("dashboard and reports on demo data", () => {
     expect(byMerchant("Acme Oy")[0].kind).toBe("income");
   });
 
-  it("the transaction list sums money in and out over every matching row, not only the page", async () => {
+  it("the transaction list sums money in and out over every matching row, not only the page, own transfers left out", async () => {
     const { admin } = await setupApp();
     await admin.call("POST", "/api/demo");
     const { body: page } = await admin.call("GET", "/api/transactions?from=2026-09-01&to=2026-09-30&limit=5");
     const { body: all } = await admin.call("GET", "/api/transactions?from=2026-09-01&to=2026-09-30&limit=5000");
     expect(page.items).toHaveLength(5);
     expect(all.items).toHaveLength(all.total);
-    type Row = { amountCents: number };
-    expect(page.outCents).toBe(-all.items.filter((t: Row) => t.amountCents < 0).reduce((s: number, t: Row) => s + t.amountCents, 0));
-    expect(page.inCents).toBe(all.items.filter((t: Row) => t.amountCents > 0).reduce((s: number, t: Row) => s + t.amountCents, 0));
+    type Row = { amountCents: number; isTransfer: boolean };
+    // an own transfer leaves one account and lands on another: in both sums it would count the same money twice
+    expect(all.items.some((t: Row) => t.isTransfer)).toBe(true);
+    const paid = all.items.filter((t: Row) => !t.isTransfer);
+    expect(page.outCents).toBe(-paid.filter((t: Row) => t.amountCents < 0).reduce((s: number, t: Row) => s + t.amountCents, 0));
+    expect(page.inCents).toBe(paid.filter((t: Row) => t.amountCents > 0).reduce((s: number, t: Row) => s + t.amountCents, 0));
+    expect(page.total).toBe(all.items.length);
   });
 
   it("lets the user recategorise and remembers it as a rule", async () => {

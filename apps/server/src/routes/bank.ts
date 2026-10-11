@@ -67,8 +67,8 @@ export function bankRoutes(s: Services) {
   // ── the user's own Enable Banking application ──────
   app.put("/bank/credentials", async (c) => {
     const { appId, privateKeyPem } = strictObject(await body(c), ["appId", "privateKeyPem"] as const);
-    await saveCredentials(s, c.get("user").id, appId, privateKeyPem);
-    return c.json({ ok: true });
+    // the test of the pair comes back too: a key can be saved while the application is still inactive
+    return c.json({ ok: true, result: await saveCredentials(s, c.get("user").id, appId, privateKeyPem) });
   });
 
   app.delete("/bank/credentials", async (c) => {

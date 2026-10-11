@@ -263,9 +263,10 @@ test("Viime kuu tells why the month differed (Menojen muutos), Tämä kuu does n
   const change = page.getByRole("region", { name: "Menojen muutos" });
   await expect(change).toBeVisible();
   await expect(change.getByText(/verrattuna tavalliseen kuukauteen/)).toBeVisible();
-  // one usual total: the sentence, the bridge's start and the table's footer say the same figure
+  // one usual total: the sentence, the bridge's start and the table's footer say the same figure; the bridge is left
+  // out when no category stands out (only "Muut muutokset" would be in it)
   const usual = (await change.locator(".change-table tfoot td").nth(2).innerText()).trim();
-  await expect(change.locator(".bridge-title")).toContainText(`${usual} →`);
+  if (await change.locator(".bridge-title").count()) await expect(change.locator(".bridge-title")).toContainText(`${usual} →`);
   const sentence = (await change.locator(".change-sentence").innerText()).replace(/\s/g, " ");
   if (sentence.includes("tavallisesti")) expect(sentence).toContain(`tavallisesti ${usual.replace(/\s/g, " ")}`);
   await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toHaveCount(0);
@@ -441,7 +442,7 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(page.getByText(/^Tiedot \d+\.\d+\.\d{4} asti/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Tietojen laatu" })).toBeVisible();
     const situation = page.getByRole("region", { name: "Tilanne" });
-    await expect(situation).toContainText(/Löydetty vuosivaikutus noin \d[\d\s]*€, 2 löydöstä\./);
+    await expect(situation).toContainText(/Säästömahdollisuus noin \d[\d\s]*€ vuodessa, 2 vinkkiä\./);
     await expect(situation).toContainText(/Tarkistettiin \d+ asiaa/);
     for (const fact of ["Säästöaste", "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista"]) await expect(situation.getByText(fact, { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Alueet", exact: true })).toBeVisible();
@@ -482,7 +483,7 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     // the card the keyboard was on is gone: focus is on the message
     await expect(page.getByRole("status").filter({ hasText: "Löydös siirrettiin kohtaan Päätetyt." })).toBeFocused();
     await expect(overlap).toHaveCount(0);
-    await expect(situation).toContainText(/noin \d[\d\s]*€, 1 löydös\./);
+    await expect(situation).toContainText(/noin \d[\d\s]*€ vuodessa, 1 vinkki\./);
 
     await page.reload();
     await expect(rise).toBeVisible();

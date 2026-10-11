@@ -5,10 +5,11 @@
 # with the maintenance helper's scenarios run CHECK_JOBS (default 4) at a time.
 # --changed [base] is for the loop while working: tsc runs incrementally, vitest only on the packages the diff touches
 # (tools/check/scope.mjs says which) and the shell steps only when it touches shell. The base defaults to the commit that
-# tools/worker-start.sh recorded, else origin/main. CI and a plain `pnpm check` run everything.
+# .git/worker-base holds, else origin/main. CI and a plain `pnpm check` run everything.
 # CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
-# One line per step. A failing step adds the failing names and the first lines of each failure. The full logs of a
-# failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
+# One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
+# names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
+# fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
 set -uo pipefail
 
 SELF=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
@@ -134,48 +135,13 @@ step_tests() {
   pnpm exec vitest run "${SCOPE_TESTS[@]}" --reporter=json --outputFile="$json" >"$log" 2>&1
   rc=$?
   # The JSON result gives test names and messages without the progress output. Line 1 of the output is the
-  # summary, the rest the failures.
-  out=$(node - "$json" <<'JS'
-const fs = require("node:fs");
-let r;
-try { r = JSON.parse(fs.readFileSync(process.argv[2], "utf8")); } catch { process.exit(2); }
-const clean = (s) => String(s).replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
-const cwd = process.cwd() + "/";
-const fails = [];
-for (const f of r.testResults) {
-  const file = f.name.replace(cwd, "");
-  const bad = (f.assertionResults || []).filter((a) => a.status === "failed");
-  // vitest's JSON has no message for a timeout, only the stack of the test's definition, which starts with this line
-  for (const a of bad) fails.push({ file, name: a.fullName || a.title, msg: (a.failureMessages || []).join("\n"), title: a.title, took: a.duration });
-  if (f.status === "failed" && bad.length === 0) fails.push({ file, name: "(file did not run)", msg: f.message || "" });
-}
-const timedOut = (f) => /^Error: STACK_TRACE_ERROR/.test(f.msg);
-const slow = fails.filter(timedOut).length;
-const skipped = r.numPendingTests ? `, ${r.numPendingTests} skipped` : "";
-console.log(fails.length
-  ? `${r.numFailedTests || fails.length} of ${r.numTotalTests} tests failed${slow ? `, ${slow} timed out` : ""}${skipped}`
-  : `${r.numTotalTests} tests in ${r.testResults.length} files${skipped}`);
-for (const f of fails.slice(0, 10)) {
-  console.log(`  FAIL ${f.file} > ${f.name}`);
-  if (timedOut(f)) {
-    console.log(`    timed out under load (ran ${((f.took || 0) / 1000).toFixed(1)} s): run it alone once: pnpm test ${f.file} -t "${(f.title || "").slice(0, 60)}"`);
-    continue;
-  }
-  const lines = clean(f.msg).split("\n").filter((l) => l.trim());
-  lines.filter((l) => !/^\s+at /.test(l)).slice(0, 5).forEach((l) => console.log(`    ${l.slice(0, 160)}`));
-  // the first stack frame outside node_modules says where
-  const at = lines.find((l) => /^\s+at /.test(l) && !l.includes("node_modules"));
-  if (at) console.log(`    ${at.trim().replace(/\((.*)\)$/, "$1").replace(cwd, "").slice(0, 160)}`);
-}
-if (fails.length > 10) console.log(`  ... and ${fails.length - 10} more`);
-if (fails.length) console.log("  rerun one file: pnpm test " + [...new Set(fails.map((f) => f.file))].slice(0, 3).join(" "));
-JS
-  )
+  # summary, the rest the failures and then the slowest tests over 2 s (tools/check/report.mjs).
+  out=$(node tools/check/report.mjs "$json")
   if [[ -z $out ]]; then
     # no result file: vitest did not start (config or import error)
     finish tests 1 "vitest did not produce a result"
     strip <"$log" | tail -n 12 | indent
-  elif ((rc != 0)) && [[ $out != *FAIL* ]]; then
+  elif ((rc != 0)) && ! grep -q "^  FAIL " <<<"$out"; then
     # every test passed but vitest failed, for example on an unhandled error
     finish tests 1 "$(head -n 1 <<<"$out"), run failed"
     strip <"$log" | grep -v '^$' | tail -n 12 | indent

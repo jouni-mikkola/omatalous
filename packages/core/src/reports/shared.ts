@@ -3,10 +3,15 @@ import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 
-/** Month indexes covered by a range, capped to the latest `max` months. */
-export function rangeMonthIndexes(range: DateRange, max = 24): number[] {
+/**
+ * Month indexes covered by a range, capped to the latest `max` months. With a context, the months before the history
+ * starts are left out (Viime vuosi of a history from September has four months, not eight empty ones before them); the
+ * last month stays, so a range wholly before the history still has one.
+ */
+export function rangeMonthIndexes(range: DateRange, max = 24, ctx?: Pick<AnalysisContext, "dataFrom">): number[] {
   const end = monthIndex(range.to);
-  const start = Math.max(monthIndex(range.from), end - max + 1);
+  const first = ctx?.dataFrom ? monthIndex(ctx.dataFrom) : -Infinity;
+  const start = Math.min(end, Math.max(monthIndex(range.from), end - max + 1, first));
   const out: number[] = [];
   for (let i = start; i <= end; i++) out.push(i);
   return out;

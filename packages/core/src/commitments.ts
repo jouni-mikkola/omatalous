@@ -3,8 +3,10 @@
  * bills it typed in, without the merchants it marked as cancelled. One definition each, used by the overview, the
  * recurring page and the reports (docs/MONEY_FLOWS.md).
  */
+import type { AnalysisContext } from "./analysis/context.ts";
+import { completeMonthsBefore } from "./analysis/usual.ts";
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
-import { addMonthsToDate, monthIndex } from "./dates.ts";
+import { addMonthsToDate, monthIndex, monthOf } from "./dates.ts";
 import { projectDates, type RecurringSeries } from "./recurring.ts";
 import type { ExpectedBill, IsoDate, UserInputs } from "./types.ts";
 
@@ -32,9 +34,24 @@ export function fixedSplit(series: readonly FixedInput[], cancelled: ReadonlySet
     const kind = getCategory(s.category).kind;
     if (kind === "expense") out.consumptionCents += s.monthlyCents;
     else if (kind === "debt") out.debtCents += s.monthlyCents;
-    else if (kind === "savings") out.savingsCents += s.monthlyCents;
+    else if (isSavingsPlan(s)) out.savingsCents += s.monthlyCents;
   }
   return out;
+}
+
+/**
+ * A fixed cost that is not a subscription: phone, insurance, housing, utilities, day care, a loan instalment. Spending
+ * or debt service only, so the contracts and the subscriptions add up to `fixedMonthlyCents`.
+ */
+export function isContract(s: Pick<RecurringSeries, "active" | "kind" | "category">): boolean {
+  if (!isFixedCost(s) || isSubscription(s)) return false;
+  const kind = getCategory(s.category).kind;
+  return kind === "expense" || kind === "debt";
+}
+
+/** An active monthly saving (a fund saving plan): it leaves the account like a bill, but the money is kept, so it is not a fixed cost. */
+export function isSavingsPlan(s: Pick<RecurringSeries, "active" | "kind" | "category">): boolean {
+  return isFixedCost(s) && getCategory(s.category).kind === "savings";
 }
 
 /** Fixed costs per month: spending and debt service (what leaves for good), savings not included. */
@@ -61,6 +78,50 @@ export function subscriptionsMonthlyCents(
   return sum;
 }
 
+/** A merchant without an active series is counted over this many complete months at most. */
+export const MERCHANT_MONTHS = 12;
+
+/** What a merchant's figure per month reads: the last complete months, oldest first, and the active spending series. */
+export interface MerchantBasis {
+  /** At most `MERCHANT_MONTHS`; none for a history without a complete month. */
+  months: readonly string[];
+  /** Each merchant's active series, their figures summed: a series owns its cost (ADR 0004). */
+  series: ReadonlyMap<string, { monthlyCents: number; yearlyCents: number }>;
+}
+
+/** The basis of a view (own or household): an income series is money in, and the figure is money out. */
+export function merchantBasis(ctx: Pick<AnalysisContext, "today" | "dataFrom" | "recurring">): MerchantBasis {
+  const series = new Map<string, { monthlyCents: number; yearlyCents: number }>();
+  for (const s of ctx.recurring) {
+    if (!s.active || s.kind === "income") continue;
+    const had = series.get(s.merchant) ?? { monthlyCents: 0, yearlyCents: 0 };
+    series.set(s.merchant, { monthlyCents: had.monthlyCents + s.monthlyCents, yearlyCents: had.yearlyCents + s.yearlyCents });
+  }
+  return { months: completeMonthsBefore(ctx, monthOf(ctx.today), MERCHANT_MONTHS), series };
+}
+
+/** A merchant's figure per month and the year it comes from. */
+export interface MerchantMonthly {
+  /** Positive cents; null without an active series and without a complete month. */
+  monthlyCents: number | null;
+  /** The series' year, or the money out of the months counted. */
+  yearCents: number;
+  /** The complete months counted; 0 when a series gives the figure. */
+  months: number;
+  fromSeries: boolean;
+}
+
+/**
+ * A merchant's figure per month, one definition for Laskut, Kauppiaat and the merchant summary: an active series gives
+ * its own cost; any other merchant the money out of the basis months (`outInMonths`, own transfers left out) over their
+ * number, so the running month and the months before the history began never pull it down.
+ */
+export function merchantMonthly(basis: MerchantBasis, merchant: string, outInMonths: number): MerchantMonthly {
+  const series = basis.series.get(merchant);
+  if (series) return { monthlyCents: series.monthlyCents, yearCents: series.yearlyCents, months: 0, fromSeries: true };
+  const n = basis.months.length;
+  return { monthlyCents: n ? Math.round(outInMonths / n) : null, yearCents: outInMonths, months: n, fromSeries: false };
+}
 
 const CADENCE_MONTHS = { quarterly: 3, semiannual: 6, yearly: 12 } as const;
 

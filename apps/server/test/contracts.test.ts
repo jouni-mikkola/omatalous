@@ -16,6 +16,7 @@ import { runCli } from "../src/cli.ts";
 import { openDatabase } from "../src/db/open.ts";
 import { normaliseState } from "../src/services/ops-validate.ts";
 import { APP_VERSION } from "../src/version.ts";
+import { loadFixture } from "./fixture-db.ts";
 import { setupApp } from "./helpers.ts";
 
 const CONTRACTS = fileURLToPath(new URL("../../../contracts/", import.meta.url));
@@ -159,9 +160,7 @@ async function upgradedDbs(): Promise<[string, DatabaseSync][]> {
   const out: [string, DatabaseSync][] = [];
   for (const name of readdirSync(FIXTURES).filter((f) => f.endsWith(".sql")).sort()) {
     const file = join(tmp(), "banking.db");
-    const old = new DatabaseSync(file);
-    old.exec(readFileSync(new URL(name, FIXTURES), "utf8"));
-    old.close();
+    loadFixture(file, name);
     (await openDatabase(file)).db.close();
     out.push([name, new DatabaseSync(file, { readOnly: true })]);
   }
@@ -214,7 +213,7 @@ describe("contracts: schema", () => {
       head.close();
     });
 
-    // the first version's test upgrades every fixture (about 5 s), the others reuse it
+    // the first version's test upgrades every fixture (about 1 s), the others reuse it
     it(`${v}: every released database, upgraded by this code, satisfies it`, async () => {
       for (const [name, schema] of await upgradedSchemas()) expect(schemaProblems(contract(), schema), name).toEqual([]);
     }, 30_000);

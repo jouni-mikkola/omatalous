@@ -15,7 +15,7 @@ export interface ChangeBar {
   cents: number;
   /** The same month a year ago moved as far: the usual view calls it a season. */
   season: boolean;
-  /** "Kalliimpi ostoskerta", "Muut". */
+  /** "kalliimpi ostoskerta, useammin"; empty for the rest bar, "Muut muutokset". */
   cause: string;
 }
 
@@ -28,7 +28,7 @@ export interface ChangeViewReport {
   quiet: boolean;
   periodLabel: string;
   baseLabel: string;
-  /** At most five, largest first, `rest` last; they add up to the change. */
+  /** At most five, largest first, `rest` last; they add up to the change. None when no category stands out. */
   bars: ChangeBar[];
   change: SpendingChange;
 }
@@ -38,10 +38,12 @@ export interface SpendingChangeReport {
 }
 
 const MAX_BARS = 5;
+/** The rest bar: not "Muut", the table's row of small categories, which has a change of its own. */
+const REST_LABEL = "Muut muutokset";
 
 /**
  * The four categories that moved most with a cause over the gate, then what is left together, so the bars add up to
- * the change. A bar is the category's whole change, as in the table below it, and names its causes over the gate; the
+ * the change. Without such a category there are no bars: the rest alone is the change the table already totals. A bar is the category's whole change, as in the table below it, and names its causes over the gate; the
  * pieces under it stay in the bar without a name. A category whose net change is under the gate is left out (a renamed
  * shop is a new and a stopped shop of the same size), and so is one whose change does not stand out from its own
  * month-to-month noise: a busy month of the household's own is no cause.
@@ -62,8 +64,10 @@ function barsOf(c: SpendingChange): ChangeBar[] {
     season: r.season,
     cause: named.map((b) => bucketLabel(b.kind, b.cents, r.bills).toLowerCase()).join(", "),
   }));
+  // without a named bar the rest would be the whole change under a name the table gives its small categories
+  if (!bars.length) return [];
   const rest = c.changeCents - bars.reduce((s, b) => s + b.cents, 0);
-  if (rest !== 0) bars.push({ category: null, label: "Muut", kind: "rest", cents: rest, season: false, cause: "" });
+  if (rest !== 0) bars.push({ category: null, label: REST_LABEL, kind: "rest", cents: rest, season: false, cause: "" });
   return bars;
 }
 
@@ -80,8 +84,8 @@ function sentenceOf(c: SpendingChange, subject: string, baseLabel: string, bars:
   if (!callsTotal(c)) lead = `${subject}: menot ${formatEur(c.nowCents, false)}, ${c.view === "usual" ? "tavallisesti" : baseLabel} ${formatEur(c.baseCents, false)}`;
   else if (c.view === "usual") lead = `${subject} on ${c.running ? "tähän asti " : ""}${abs} tavallista ${up ? "kalliimpi" : "halvempi"}`;
   else lead = `${subject}: menot ${abs} ${up ? "suuremmat" : "pienemmät"} kuin ${baseLabel}`;
-  if (isQuiet(c, bars)) return `${lead}.`;
-  const parts = bars.map((b) => (b.kind === "rest" ? `muut ${signed(b.cents)}` : `${b.label} ${signed(b.cents)}${b.cause ? ` (${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""})` : ""}`));
+  if (isQuiet(c, bars) || !bars.length) return `${lead}.`;
+  const parts = bars.map((b) => (b.kind === "rest" ? `${REST_LABEL.toLowerCase()} ${signed(b.cents)}` :`${b.label} ${signed(b.cents)}${b.cause ? ` (${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""})` : ""}`));
   return `${lead}: ${parts.join(", ")}.`;
 }
 

@@ -37,7 +37,7 @@ export interface CashflowReport {
 
 /** Money in vs. where it went (consumption, debt, savings), month by month. */
 export function cashflowReport(ctx: AnalysisContext, range: DateRange): CashflowReport {
-  const months = rangeMonthIndexes(range);
+  const months = rangeMonthIndexes(range, 24, ctx);
   // a range longer than the shown months: the rows are the last 24, the totals still cover the whole range
   const all = inDays(ctx, toDayRange(range));
   const txs = all.filter((x) => x.month >= months[0]!);

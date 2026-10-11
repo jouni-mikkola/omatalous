@@ -101,12 +101,16 @@ test("an ended or ending bank connection has Yhdistä uudelleen on its row and i
     daysLeft,
   });
   // one consent that ended and one that ends in nine days, on a server that has its bank application
+  let metaAsked = 0;
+  let metaAnswered = 0;
   await page.route("**/api/meta", async (route) => {
+    metaAsked++;
     const response = await route.fetch();
     const json = await response.json();
     json.connections = [connection("old", "lapsed", null), connection("soon", "active", 9)];
     json.bank = { ...json.bank, configured: true, redirectMode: "own" };
     await route.fulfill({ response, json });
+    metaAnswered++;
   });
   const started: unknown[] = [];
   await page.route("**/api/connections/start", async (route) => {
@@ -128,9 +132,13 @@ test("an ended or ending bank connection has Yhdistä uudelleen on its row and i
   await expect(page.getByRole("button", { name: "Lisää pankkiyhteys" })).toBeVisible();
   const reconnect = page.getByRole("table").getByRole("button", { name: "Yhdistä uudelleen" });
   await expect(reconnect).toHaveCount(2);
+  const readBefore = metaAsked;
   await reconnect.first().click();
   await expect.poll(() => started.length).toBe(1);
   expect(started[0]).toMatchObject({ bank: "nordea-fi" });
+  // The click is not over when the start is answered: the page goes to the address it was given and reads /api/meta
+  // again, a few ms later. Closing the context before that read is answered cuts its route.fetch off (1 run in 100).
+  await expect.poll(() => metaAsked > readBefore && metaAnswered === metaAsked).toBe(true);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

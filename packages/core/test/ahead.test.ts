@@ -119,6 +119,25 @@ describe("forecast range", () => {
   });
 });
 
+describe("no forecast before a complete month", () => {
+  const all = steady("2026-09-15", "2026-11-30");
+
+  it("a first run with one partial month waits for the first complete month and says when it comes", () => {
+    // from 15 September: September is not complete, October will be on 1 November
+    const f = monthForecast(createContext(upTo(all, today), [checking], today));
+    expect(f.pendingUntil).toBe("2026-11-01");
+    expect(f.usualLeftCents).toBe(0);
+    // October is complete on 1 November, so November has a forecast
+    expect(monthForecast(createContext(upTo(all, "2026-11-09"), [checking], "2026-11-09")).pendingUntil).toBeNull();
+  });
+
+  it("a history from the 1st of last month has its forecast now", () => {
+    expect(monthForecast(createContext(upTo(steady("2026-09-01", "2026-10-31"), today), [checking], today)).pendingUntil).toBeNull();
+    // from the 1st of this month: the forecast comes when this month has ended
+    expect(monthForecast(createContext(upTo(steady("2026-10-01", "2026-10-31"), today), [checking], today)).pendingUntil).toBe("2026-11-01");
+  });
+});
+
 describe("cash ahead", () => {
   const all = steady("2025-09-01", "2026-10-31");
   const ctx = createContext(upTo(all, today), [checking], today);

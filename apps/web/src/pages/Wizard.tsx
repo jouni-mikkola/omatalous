@@ -52,6 +52,53 @@ export function addressToSave(configured: string, browserOrigin: string): string
   }
 }
 
+/**
+ * The last step: what was set up, and where to go next. Lisää pankkiyhteys stays on while the app reads Inactive:
+ * starting a connection tests the app again and says what is wrong (`stillInactive` in connectors/enable-banking/link.ts).
+ */
+export function WizardDone({ current, finishing, onBack, onFinish }: { current: InstanceState; finishing: boolean; onBack: () => void; onFinish: (next: "overview" | "connect") => void }) {
+  return (
+    <>
+      <dl className="summary">
+        <dt>Osoite</dt>
+        <dd>{current.settings.appBaseUrl}</dd>
+        <dt>Aikavyöhyke</dt>
+        <dd>{current.settings.timezone}</dd>
+        <dt>Automaattinen haku</dt>
+        <dd>{syncHoursLabel(current.settings.syncHours)}</dd>
+        <dt>Enable Banking</dt>
+        <dd>
+          {!current.bankApp.source ? (
+            <span className="badge warn">ei vielä</span>
+          ) : current.bankApp.inactiveMessage ? (
+            <span className="badge warn">ei aktiivinen</span>
+          ) : (
+            <span className="badge good">määritetty</span>
+          )}
+        </dd>
+        <dt>Salausavain</dt>
+        <dd>{current.secret.available ? <span className="badge good">kunnossa</span> : <span className="badge warn">puuttuu</span>}</dd>
+      </dl>
+      {current.bankApp.inactiveMessage && <div className="notice warning">{current.bankApp.inactiveMessage}</div>}
+      <div className="form-row wizard-nav">
+        <button className="btn" type="button" onClick={onBack}>
+          Takaisin
+        </button>
+        <span className="spacer" />
+        <button className="btn" type="button" disabled={finishing} onClick={() => onFinish("overview")}>
+          Siirry sovellukseen
+        </button>
+        {current.bankApp.source && (
+          <button className="btn btn-primary btn-with-logo" type="button" disabled={finishing} onClick={() => onFinish("connect")}>
+            <BankLogo src={bankLogo("nordea-fi")} name="Nordea" size="sm" />
+            Lisää pankkiyhteys
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => void }) {
   const loaded = useApi<InstanceState>("/api/admin/instance");
   const [state, setState] = useState<InstanceState | null>(null);
@@ -150,44 +197,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
             </div>
           </>
         ) : (
-          <>
-            <dl className="summary">
-              <dt>Osoite</dt>
-              <dd>{current.settings.appBaseUrl}</dd>
-              <dt>Aikavyöhyke</dt>
-              <dd>{current.settings.timezone}</dd>
-              <dt>Automaattinen haku</dt>
-              <dd>{syncHoursLabel(current.settings.syncHours)}</dd>
-              <dt>Enable Banking</dt>
-              <dd>
-                {!current.bankApp.source ? (
-                  <span className="badge warn">ei vielä</span>
-                ) : current.bankApp.inactiveMessage ? (
-                  <span className="badge warn">ei aktiivinen</span>
-                ) : (
-                  <span className="badge good">määritetty</span>
-                )}
-              </dd>
-              <dt>Salausavain</dt>
-              <dd>{current.secret.available ? <span className="badge good">kunnossa</span> : <span className="badge warn">puuttuu</span>}</dd>
-            </dl>
-            {current.bankApp.inactiveMessage && <div className="notice warning">{current.bankApp.inactiveMessage}</div>}
-            <div className="form-row wizard-nav">
-              <button className="btn" type="button" onClick={() => goTo(0)}>
-                Takaisin
-              </button>
-              <span className="spacer" />
-              <button className="btn" type="button" disabled={finishing} onClick={() => void finish("overview")}>
-                Siirry sovellukseen
-              </button>
-              {current.bankApp.source && (
-                <button className="btn btn-primary btn-with-logo" type="button" disabled={finishing || !!current.bankApp.inactiveMessage} onClick={() => void finish("connect")}>
-                  <BankLogo src={bankLogo("nordea-fi")} name="Nordea" size="sm" />
-                  Lisää pankkiyhteys
-                </button>
-              )}
-            </div>
-          </>
+          <WizardDone current={current} finishing={finishing} onBack={() => goTo(0)} onFinish={(next) => void finish(next)} />
         )}
       </div>
     </div>

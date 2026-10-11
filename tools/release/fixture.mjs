@@ -17,6 +17,10 @@
  * Nothing is written when it refuses. It prints the header it wrote: say there what the seed rows cover before you
  * commit the file. A released fixture is never edited, so there is no way to overwrite one.
  *
+ * --facts writes nothing and checks no seed or contract: it migrates the previous fixture one migration at a time and
+ * prints one JSON line, { version, previous, migrations: [{ name, compat, tables, columns, indexes }] }, what each
+ * migration adds and the compat floor it carries (null: none). prepare.mjs writes contracts/X.Y.Z/README.md from it.
+ *
  * Options for the tests: --fixtures DIR, --seeds DIR, --contracts DIR and --migrations DIR replace the repository's
  * folders. Needs Node 22.18 or newer, because it reads db/migrate.ts as it is.
  */
@@ -50,7 +54,7 @@ const compare = (a, b) => {
 
 /** @typedef {import("node:sqlite").DatabaseSync} Sqlite */
 /** @typedef {{ name: string, sql: string }} Migration */
-/** @typedef {{ pendingMigrations(db: unknown, migrations: Migration[]): Promise<{ pending: Migration[], ahead: string[] }>, applyMigrations(db: unknown, pending: Migration[]): Promise<string[]> }} Runner */
+/** @typedef {{ pendingMigrations(db: unknown, migrations: Migration[]): Promise<{ pending: Migration[], ahead: string[] }>, applyMigrations(db: unknown, pending: Migration[]): Promise<string[]>, compatFloor(m: Migration): string | null }} Runner */
 
 const { DatabaseSync } = await import("node:sqlite");
 
@@ -83,6 +87,10 @@ const readMigrations = (dir) =>
 /** @param {Sqlite} db @returns {string[]} the user tables in creation order */
 const tablesOf = (db) =>
   /** @type {{ name: string }[]} */ (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid").all()).map((r) => r.name);
+
+/** @param {Sqlite} db @returns {string[]} the names of the indexes the schema declares */
+const indexesOf = (db) =>
+  /** @type {{ name: string }[]} */ (db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY rowid").all()).map((r) => r.name);
 
 /** @param {Sqlite} db @param {string} table @returns {string[]} */
 const columnsOf = (db, table) => /** @type {{ name: string }[]} */ (db.prepare(`PRAGMA table_info("${table}")`).all()).map((c) => c.name);
@@ -160,11 +168,12 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = /** @type {string} */ (argv[i]);
     if (a === "-h" || a === "--help") opts.help = "1";
+    else if (a === "--facts") opts.facts = "1";
     else if (/^--(out|at|fixtures|seeds|contracts|migrations)$/.test(a)) {
       const v = argv[++i];
       if (v === undefined) throw new Refuse(`${a} needs a value.`);
       opts[a.slice(2)] = v;
-    } else if (a.startsWith("-")) throw new Refuse(`Unknown option: ${a} (usage: fixture.mjs X.Y.Z [--out FILE] [--at ISO])`);
+    } else if (a.startsWith("-")) throw new Refuse(`Unknown option: ${a} (usage: fixture.mjs X.Y.Z [--out FILE] [--at ISO] [--facts])`);
     else rest.push(a);
   }
   return { opts, version: rest[0], extra: rest.slice(1) };
@@ -174,10 +183,11 @@ function parseArgs(argv) {
 async function main(argv) {
   const { opts, version, extra } = parseArgs(argv);
   if (opts.help) {
-    console.log(readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(3, 22).map((l) => l.replace(/^ \* ?/, "")).join("\n"));
+    const lines = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n");
+    console.log(lines.slice(3, lines.indexOf(" */")).map((l) => l.replace(/^ \* ?/, "")).join("\n"));
     return;
   }
-  if (!version || extra.length || !SEMVER.test(version)) throw new Refuse("usage: fixture.mjs X.Y.Z [--out FILE] [--at ISO]");
+  if (!version || extra.length || !SEMVER.test(version)) throw new Refuse("usage: fixture.mjs X.Y.Z [--out FILE] [--at ISO] [--facts]");
   const fixtures = resolve(opts.fixtures ?? join(ROOT, "apps/server/test/fixtures/db"));
   const seedsDir = resolve(opts.seeds ?? join(fixtures, "seeds", version));
   const contractFile = join(resolve(opts.contracts ?? join(ROOT, "contracts")), version, "schema.sql");
@@ -186,14 +196,14 @@ async function main(argv) {
   const at = opts.at ?? `${new Date().toISOString().slice(0, 10)}T08:00:00.000Z`;
   if (!ISO.test(at)) throw new Refuse(`--at must look like 2026-10-12T08:00:00.000Z, not ${at}.`);
 
-  if (existsSync(out)) throw new Refuse(`${out} exists. A fixture is frozen: never edit or overwrite one.`);
+  if (!opts.facts && existsSync(out)) throw new Refuse(`${out} exists. A fixture is frozen: never edit or overwrite one.`);
   const known = readdirSync(fixtures)
     .map((f) => /^(\d+\.\d+\.\d+)\.sql$/.exec(f)?.[1])
     .filter((v) => v !== undefined)
     .sort(compare);
   const prev = [...known].reverse().find((v) => compare(/** @type {string} */ (v), version) < 0);
   if (!prev) throw new Refuse(`no fixture below ${version} in ${fixtures}.`);
-  if (!existsSync(contractFile)) throw new Refuse(`${contractFile} is missing. Write it first: UPDATE_CONTRACT=${version} pnpm test apps/server/test/contracts.test.ts`);
+  if (!opts.facts && !existsSync(contractFile)) throw new Refuse(`${contractFile} is missing. Write it first: UPDATE_CONTRACT=${version} pnpm test apps/server/test/contracts.test.ts`);
 
   const runner = await loadRunner();
   const work = mkdtempSync(join(tmpdir(), "fixture-"));
@@ -208,7 +218,27 @@ async function main(argv) {
 
     const { pending, ahead } = await runner.pendingMigrations(runnerDb(db), migrations);
     if (ahead.length) throw new Refuse(`${prev}.sql has migrations this checkout does not know: ${ahead.join(", ")}.`);
-    const applied = await runner.applyMigrations(runnerDb(db), pending);
+    // one at a time, so that what each adds is known: the runner loops over them the same way
+    /** @type {{ name: string, compat: string | null, tables: string[], columns: string[], indexes: string[] }[]} */
+    const facts = [];
+    /** @type {string[]} */
+    const applied = [];
+    for (const m of pending) {
+      const [tables, indexes] = [tablesOf(db), indexesOf(db)];
+      const cols = Object.fromEntries(tables.map((t) => [t, columnsOf(db, t)]));
+      applied.push(...(await runner.applyMigrations(runnerDb(db), [m])));
+      facts.push({
+        name: m.name,
+        compat: runner.compatFloor(m),
+        tables: tablesOf(db).filter((t) => !tables.includes(t)),
+        columns: tables.flatMap((t) => columnsOf(db, t).filter((c) => !cols[t]?.includes(c)).map((c) => `${t}.${c}`)),
+        indexes: indexesOf(db).filter((i) => !indexes.includes(i)),
+      });
+    }
+    if (opts.facts) {
+      console.log(JSON.stringify({ version, previous: prev, migrations: facts }));
+      return;
+    }
     for (const name of applied) db.prepare("UPDATE _migrations SET applied_at = ? WHERE name = ?").run(at, name);
     const tablesAfter = tablesOf(db);
     const added = tablesAfter.filter((t) => !tablesBefore.includes(t));

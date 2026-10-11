@@ -2,12 +2,12 @@
  * Where the running month is heading: the pace curve against the usual month and the forecast to the month's end.
  */
 import { cancelledMerchants, expectedCharges, expectedDates } from "../commitments.ts";
-import { dateIn, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { addMonths, dateIn, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import { type ExpectedBill, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { type AnalysisContext, inDays, recurringAt } from "./context.ts";
-import { completeMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualSpending, usualSpendingOver } from "./usual.ts";
+import { completeMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualFrom, usualSpending, usualSpendingOver } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -49,6 +49,11 @@ export interface MonthForecast {
   rangeMonths: number;
   /** Half the width of the range, in percent of the forecast, one decimal. */
   rangePercent: number;
+  /**
+   * The day the first forecast comes, while no complete month gives the usual everyday spending for the days left:
+   * without it the forecast would be what has gone and the bills, nothing more. Null once there is a forecast.
+   */
+  pendingUntil: IsoDate | null;
 }
 
 /**
@@ -223,5 +228,16 @@ export function monthForecast(ctx: AnalysisContext, inputs: UserInputs = NO_INPU
     usualMonthCents: usualSpending(ctx, month),
     usualMonths,
     ...forecastRange(ctx, ctx.today, parts),
+    pendingUntil: usualMonths.length ? null : firstForecastDay(ctx, month),
   };
+}
+
+/**
+ * The 1st of the month after the first month the history covers from its 1st: the first complete month has ended
+ * then. A history that starts mid-month waits for the next month to end. `usualFrom` is the same day with three
+ * complete months behind it, so this is two months before it.
+ */
+function firstForecastDay(ctx: AnalysisContext, month: string): IsoDate {
+  const usual = usualFrom(ctx);
+  return `${usual ? addMonths(usual.slice(0, 7), 1 - MIN_COMPARE_MONTHS) : addMonths(month, 1)}-01`;
 }

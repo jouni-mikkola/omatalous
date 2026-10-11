@@ -2,7 +2,7 @@
 
 ## Context
 
-Plans and audits live in `.claude/plan/` in the private repository only, and each release's plan is rewritten for the
+Plans and audits live in the private repository only, and each release's plan is rewritten for the
 next. A worker or reviewer who asks why a rule exists finds the answer spread over research files, hand-backs and commit
 messages, or not at all. The 0.9.0 audits (J and K) found decisions that had been made twice and rules nobody could
 trace.

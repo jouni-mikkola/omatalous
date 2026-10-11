@@ -9,21 +9,19 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 
 | Command | |
 |---|---|
-| `pnpm check` | typecheck, tests, shell lint and shell suites, short output ([WORKERS.md](WORKERS.md)) |
+| `pnpm check` | typecheck, tests, shell lint and shell suites, short output |
 | `pnpm test` | all tests (Vitest), including `tools/repo-rules`, the invariants of CLAUDE.md as tests |
 | `pnpm test:sh` | the shell suites in `tools/test/` |
 | `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
-| `pnpm release X.Y.Z` | `tools/release/release.sh`: the whole release, step by step, resumable ([RELEASING.md](RELEASING.md)) |
-| `pnpm release:ship` | `tools/release/ship.sh`: read CI, move private `main`, publish, print the baseline line |
 | `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
 In the private repository a push runs no CI, because Actions minutes are billed there. `pnpm check`, `pnpm build` and
-`pnpm e2e` are the check: `tools/lead/land.sh` runs them before a landing and `tools/release/release.sh` before it
-pushes a release, and then starts CI and the upgrade rehearsal itself. CI also runs on a pull request and by hand
-(`gh workflow run ci.yml --ref <branch>`). The public repository runs it on every push. The table is in
+`pnpm e2e` are the check: they run before a change lands and before a release is pushed, and the release then starts
+CI and the upgrade rehearsal itself. CI also runs on a pull request and by hand
+(`gh workflow run ci.yml --ref <branch>`). The public repository runs it on every push and pull request. The table is in
 [RELEASING.md](RELEASING.md#when-ci-runs).
 
 ## Layout
@@ -37,6 +35,7 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   industry.ts                trade register match, TOL code to category, which rows are businesses
   pipeline.ts                categorize, transfers, merchant memory, industry; run after every change
   recurring.ts               subscriptions, bills, habits, income, price changes
+  recurring-cadence.ts       the cadence table and fitting; recurring-cost.ts a series' cost
   analysis/                  flows, analysis context (cached on the server), dashboard, insights
   reports/                   one file per report, registered in reports/index.ts
   sources/                   import parsers, one folder each, registered in sources/registry.ts
@@ -162,8 +161,9 @@ start of the file, and `parserFor` takes the best one.
    shapes the host helper reads from `ops poll|report|state`. `apps/server/test/contracts.test.ts` fails when the code
    stops satisfying one. While a version is unreleased its schema dump must equal a fresh database, and the test
    names the command that regenerates it. Details in `contracts/README.md`.
-8. Bump the version in `apps/server/src/version.ts` and the `package.json` files, and add a line to
-   `CHANGELOG.md`.
+8. Add a fragment `changelog.d/<task>.md` with an `upgrade:` line for the migration
+   ([changelog.d/README.md](../changelog.d/README.md)). The release script refuses a release that adds a migration
+   without one. Do not bump versions or edit `CHANGELOG.md`: `pnpm release:prepare` does both at release.
 
 ### New API route
 
@@ -231,7 +231,8 @@ own job after the build.
 Run in Docker, after a change to `docker-compose.yml` or the scripts. An install made
 before `INSTANCE_NAME` existed must keep its names whatever its directory is called.
 
-1. Clone the commit before the change (`39a7685`) into a directory not named `banking-app`, for example
+1. Clone a commit from before `INSTANCE_NAME` existed into a directory not named
+   `banking-app`, for example
    `~/Talous_X.y`, and run `./scripts/install.sh`. Note `docker ps` (container `banking-app`), the image
    `banking-app:latest` and `docker volume ls` (`talous_xy_banking-data`). Create the admin account.
 2. Check out the new commit's branch and run the old `scripts/update.sh` from step 1 (it pulls the new

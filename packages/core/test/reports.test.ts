@@ -4,7 +4,7 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { type Flows, totalsOf } from "../src/analysis/flows.ts";
 import { completeMonthsBefore, isCompleteMonth, USUAL_MONTHS, usualCents } from "../src/analysis/usual.ts";
 import { SUBSCRIPTION_CATEGORIES } from "../src/categories.ts";
-import { expectedDates, fixedMonthlyCents, fixedSplit, isSubscription, subscriptionsMonthlyCents } from "../src/commitments.ts";
+import { expectedDates, fixedMonthlyCents, fixedSplit, isContract, isSavingsPlan, isSubscription, subscriptionsMonthlyCents } from "../src/commitments.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports } from "../src/reports/index.ts";
 import { fullMonths } from "../src/reports/shared.ts";
@@ -177,6 +177,16 @@ describe("averages and partial periods", () => {
     expect(r.cashflow.average?.incomeCents).toBe(300000); // September–December 2025, not /12
   });
 
+  it("the months before the history starts are no rows: last year from September has four", () => {
+    const r = buildReports({ ctx, range: { from: "2025-01-01", to: "2025-12-31" }, balances: [] });
+    expect(r.cashflow.rows.map((x) => x.month)).toEqual(["2025-09", "2025-10", "2025-11", "2025-12"]);
+    expect(r.cashflow.rows.every((x) => x.complete)).toBe(true);
+    expect(r.pivot.months).toEqual(["2025-09", "2025-10", "2025-11", "2025-12"]);
+    expect(r.fixedVariable.rows.map((x) => x.month)).toEqual(["2025-09", "2025-10", "2025-11", "2025-12"]);
+    // a range wholly before the history keeps its last month
+    expect(buildReports({ ctx, range: { from: "2024-01-01", to: "2024-12-31" }, balances: [] }).cashflow.rows.map((x) => x.month)).toEqual(["2024-12"]);
+  });
+
   it("cash flow has no average without a complete month", () => {
     const r = buildReports({ ctx, range: { from: "2026-10-01", to: today }, balances: [] });
     expect(r.cashflow.average).toBeNull();
@@ -195,6 +205,17 @@ describe("averages and partial periods", () => {
     const month = buildReports({ ctx, range: { from: "2026-09-01", to: "2026-09-30" }, balances: [] }).categories;
     expect(month.comparable).toBe(true);
     expect(month.groups.find((g) => g.group === "Asuminen")!.previousCents).toBe(105000);
+  });
+
+  it("the category changes add up to the change in spending, a category spent on before only included", () => {
+    // Finnair in June: April–June has travel, July–September has none
+    const r = buildReports({ ctx, range: { from: "2026-07-01", to: "2026-09-30" }, balances: [] }).categories;
+    const before = buildReports({ ctx, range: { from: "2026-04-01", to: "2026-06-30" }, balances: [] }).cashflow.totals;
+    const rows = r.groups.flatMap((g) => g.categories);
+    expect(rows.find((c) => c.category === "travel")).toMatchObject({ totalCents: 0, previousCents: 38900, count: 0, avgTxCents: 0, share: 0 });
+    expect(r.previousTotalCents).toBe(before.consumptionCents + before.debtCents);
+    expect(rows.reduce((s, c) => s + c.totalCents - c.previousCents, 0)).toBe(r.totalCents - r.previousTotalCents);
+    expect(r.groups.reduce((s, g) => s + g.totalCents - g.previousCents, 0)).toBe(r.totalCents - r.previousTotalCents);
   });
 
   it("this year's total is shown even without last year to compare to", () => {
@@ -548,6 +569,17 @@ describe("one definition", () => {
       expect(subscriptionsMonthlyCents(steadyCtx.recurring, new Set(["Spotify"]))).toBe(0);
       // the review question is asked about the same categories
       expect([...SUBSCRIPTION_CATEGORIES].sort()).toEqual(["education", "entertainment", "fitness", "other", "shopping", "subscriptions"]);
+    });
+
+    it("contracts and subscriptions add up to the fixed costs, and a savings plan is on its own line", () => {
+      const sum = (pick: (s: (typeof steadyCtx.recurring)[number]) => boolean) => steadyCtx.recurring.filter(pick).reduce((n, s) => n + s.monthlyCents, 0);
+      // Laskut once counted the monthly fund saving among the contracts, so they and the subscriptions exceeded the fixed costs
+      expect(steadyCtx.recurring.filter(isContract).map((s) => s.merchant).sort()).toEqual(["Nordea Rahoitus Suomi Oy", "Sato Oyj"]);
+      expect(sum(isContract) + subscriptionsMonthlyCents(steadyCtx.recurring)).toBe(fixedMonthlyCents(steadyCtx.recurring));
+      expect(steadyCtx.recurring.filter(isSavingsPlan).map((s) => s.merchant)).toEqual(["Nordnet"]);
+      expect(sum(isSavingsPlan)).toBe(fixedSplit(steadyCtx.recurring).savingsCents);
+      const card = { active: true, kind: "bill" as const, category: "card_bill" };
+      expect(isContract(card) || isSavingsPlan(card)).toBe(false);
     });
   });
 

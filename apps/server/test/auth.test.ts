@@ -15,11 +15,11 @@ describe("first-run setup", () => {
     const { createApp } = await import("../src/app.ts");
     const { loadConfig } = await import("../src/platform/config.ts");
     const { db } = await openDatabase(":memory:");
-    const app = createApp({ db, config: loadConfig({ SETUP_CODE: "oikea-koodi", PASSWORD_ITERATIONS: "1000" }) });
+    const app = createApp({ db, config: loadConfig({ SETUP_CODE: "oikea-asennuskoodi", PASSWORD_ITERATIONS: "1000" }) });
     const res = await app.request("http://localhost:8080/api/auth/setup", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-      body: JSON.stringify({ code: "vaara-koodi", username: "aino", displayName: "Aino", password: "aino-salasana-123" }),
+      body: JSON.stringify({ code: "vaara-asennuskoodi", username: "aino", displayName: "Aino", password: "aino-salasana-123" }),
     });
     expect(res.status).toBe(400);
     expect(await app.services.users.count()).toBe(0);

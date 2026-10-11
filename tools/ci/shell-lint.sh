@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 # nullglob: the public snapshot has no tools/*.sh from the private repo and no .claude/, and an unexpanded glob
 # would fail shellcheck
 shopt -s nullglob
-files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/test/*.sh tools/ci/*.sh tools/release/*.sh tools/lead/*.sh .claude/hooks/*.sh)
+files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/*/*.sh .claude/hooks/*.sh)
 
 for f in "${files[@]}"; do bash -n "$f"; done
 

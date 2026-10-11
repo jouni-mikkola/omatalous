@@ -21,6 +21,22 @@ export interface TransactionFilter {
 /** A LIKE pattern for text anywhere in a value; `%`, `_` and `\` typed by the user are literal. */
 const containsPattern = (text: string) => `%${text.replace(/[\\%_]/g, "\\$&")}%`;
 
+/**
+ * A search that reads as a euro amount ("142,30", "-142.30", "1 250 €", "142"): the amounts it matches, in cents.
+ * Cents typed match exactly; whole euros match every amount of that euro (142 finds 142,30). A sign picks money out
+ * or in, none matches both. Null for any other text.
+ */
+export function amountQuery(q: string): { sign: -1 | 0 | 1; min: number; max: number } | null {
+  const m = /^([+\-−])?\s*(\d{1,3}(?:[  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(?:€|eur)?$/i.exec(q.trim());
+  if (!m) return null;
+  const euros = Number(m[2]!.replace(/\D/g, ""));
+  if (!Number.isSafeInteger(euros * 100 + 99)) return null;
+  const sign = !m[1] ? 0 : m[1] === "+" ? 1 : -1;
+  if (m[3] === undefined) return { sign, min: euros * 100, max: euros * 100 + 99 };
+  const cents = euros * 100 + Number(m[3].padEnd(2, "0"));
+  return { sign, min: cents, max: cents };
+}
+
 export class TransactionListRepo {
   constructor(private readonly ctx: FinanceContext) {}
 
@@ -44,7 +60,12 @@ export class TransactionListRepo {
     if (f.category) add("category = ?", f.category);
     if (f.merchant) add("merchant = ?", f.merchant);
     const q = f.q ? fold(f.q.trim()) : "";
-    if (q) add("search_text LIKE ? ESCAPE '\\'", containsPattern(q));
+    const amount = f.q ? amountQuery(f.q) : null;
+    if (amount) {
+      const column = amount.sign === 0 ? "ABS(amount_cents)" : "amount_cents";
+      const [min, max] = amount.sign < 0 ? [-amount.max, -amount.min] : [amount.min, amount.max];
+      add(`(search_text LIKE ? ESCAPE '\\' OR ${column} BETWEEN ? AND ?)`, containsPattern(q), min, max);
+    } else if (q) add("search_text LIKE ? ESCAPE '\\'", containsPattern(q));
     return { where, params };
   }
 
@@ -75,13 +96,16 @@ export class TransactionListRepo {
 
   async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; inCents: number; outCents: number; items: StoredTransaction[] }> {
     const sides = this.filterSides(f, accountIds);
-    // money in and out over every matching row, so the list says what the whole filter adds up to
+    // money in and out over every matching row, so the list says what the whole filter adds up to. An own transfer
+    // leaves one account and lands on another: counted, it would add the same money to both sums.
     let total = 0;
     let inCents = 0;
     let outCents = 0;
     for (const side of sides) {
       const r = await this.ctx.db.first<{ c: number; inc: number | null; outc: number | null }>(
-        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc, -SUM(CASE WHEN amount_cents < 0 THEN amount_cents END) AS outc FROM transactions WHERE ${side.where.join(" AND ")}`,
+        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND is_transfer = 0 THEN amount_cents END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 AND is_transfer = 0 THEN amount_cents END) AS outc
+         FROM transactions WHERE ${side.where.join(" AND ")}`,
         side.params,
       );
       total += Number(r?.c ?? 0);

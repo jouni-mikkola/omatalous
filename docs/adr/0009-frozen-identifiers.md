@@ -1,6 +1,6 @@
 # 0009 Stored identifiers are frozen
 
-Status: accepted (0.9.0, H6)
+Status: accepted (0.9.0)
 
 ## Context
 

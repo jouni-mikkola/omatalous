@@ -1,7 +1,7 @@
 /**
  * Insights: observations a household would not have thought to check, each with its number, its basis, its rows and
- * what it is worth over a year (`yearlyCents`). Every source below has its own file, gate and history rule
- * (.claude/plan/research/H-insights.md); this file only ranks them. Säästövinkit shows them as Muut havainnot
+ * what it is worth over a year (`yearlyCents`). Every source below has its own file, gate and history rule;
+ * this file only ranks them. Säästövinkit shows them as Muut havainnot
  * (optimise/others.ts); with that page switched off the overview shows the first three and the Havainnot report all
  * of them. What the alerts say (alerts.ts) and what the spending change says (change.ts) is not repeated.
  */

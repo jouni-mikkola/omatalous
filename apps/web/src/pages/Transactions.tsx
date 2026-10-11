@@ -6,18 +6,21 @@ import { DateFilter, SearchBox } from "../components/FilterInputs.tsx";
 import { CADENCE_LABEL, date, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
-import { Merchants } from "./Merchants.tsx";
+import { Merchants, monthsBasis } from "./Merchants.tsx";
 import "../styles/transactions.css";
 
 interface MerchantHistory {
   merchant: string;
   count: number;
+  /** Rows that are own transfers: counted in `count`, not in the sums or the category. */
+  transfers: number;
   outCents: number;
   inCents: number;
   firstDate: string;
   lastDate: string;
-  months: number;
   category: string;
+  /** The figure Kauppiaat shows: an active series' own, else the last complete months (`months`) and their average. */
+  monthly: { monthlyCents: number | null; yearCents: number; months: number; fromSeries: boolean };
   recurring: { cadence: string; active: boolean; nextDate: string | null; typicalAmountCents: number } | null;
 }
 
@@ -37,7 +40,9 @@ function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant
   if (s.outCents > 0) facts.push(["Maksettu yhteensä", money(s.outCents)]);
   if (s.inCents > 0) facts.push(["Saatu yhteensä", money(s.inCents)]);
   facts.push(["Maksuja", String(s.count)]);
-  if (s.outCents > 0) facts.push(["Keskimäärin kuussa", money(Math.round(s.outCents / s.months))]);
+  const m = s.monthly;
+  if (m.fromSeries) facts.push(["Kuussa", money(m.monthlyCents ?? 0)], ["Vuodessa", money(m.yearCents)]);
+  else if (m.monthlyCents) facts.push([m.months === 1 ? "Viimeinen valmis kuukausi" : `Viimeiset ${m.months} kuukautta`, money(m.yearCents)], ["Kuussa", money(m.monthlyCents)]);
   facts.push(["Ensimmäinen", date(s.firstDate)], ["Viimeisin", date(s.lastDate)]);
   if (s.recurring?.active) {
     facts.push(["Toistuu", CADENCE_LABEL[s.recurring.cadence] ?? s.recurring.cadence]);
@@ -50,7 +55,8 @@ function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant
           <h2>{s.merchant}</h2>
           <div className="card-sub">
             {categoryLabel(s.category)} · koko historia
-            {s.outCents > 0 && ` · keskiarvo ${s.months} kuukaudelta, joina maksuja oli`}
+            {m.fromSeries ? " · kuussa ja vuodessa toistuvan maksun hinta" : m.monthlyCents ? ` · kuussa ${monthsBasis(m.months)}` : ""}
+            {s.transfers > 0 && ` · omat siirrot (${s.transfers}) eivät ole summissa`}
           </div>
         </div>
       </div>
@@ -207,11 +213,13 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             <h2>Tapahtumat</h2>
             <div className="card-sub">
               {data ? plural(data.total, "tapahtuma", "tapahtumaa") : "…"}
-              {/* every matching row, loaded or not: maksettu and saatu apart, a net of both says little */}
+              {/* every matching row, loaded or not: maksettu and saatu apart, a net of both says little; an own
+                  transfer would add the same money to both */}
               {data && data.total > 0 && (
                 <>
                   {data.outCents > 0 && ` · maksettu ${money(data.outCents)}`}
                   {data.inCents > 0 && ` · saatu ${money(data.inCents)}`}
+                  {" · omia siirtoja ei lasketa summiin"}
                 </>
               )}
             </div>

@@ -16,9 +16,6 @@ pnpm dev              # API :8080 + Vite :5173
 pnpm seed:demo        # demo user + data in ./data
 ```
 
-Working on a task: `docs/WORKERS.md` (one test, helpers, files that change together, done). Plans and audits for the
-next releases are in `.claude/plan/` (private repo only).
-
 ## Layout
 
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
@@ -43,11 +40,12 @@ next releases are in `.claude/plan/` (private repo only).
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
   `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` and `db/finance/` (all SQL),
   `auth/*`, `security/*`, `platform/*` (config, errors, ids, input validators), `connectors/*` (where rows come from: registry,
-  `sync.ts` loop, `enable-banking/`, `csv-import/`), `providers/prh/` (trade register search), `entry/node.ts`, `entry/secret-rotate.ts`,
-  `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands).
-- `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `doctor.sh`, `reset.sh`, `ops-helper.sh` (host helper for
-  Asetukset > Ylläpito), `lib/` (`release.sh` signatures, `dbcopy.sh` copies, `preflight.sh` the migration check of
-  the new image before the switch; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`publish-public.sh`, `relay-hash.mjs`,
+  `sync.ts` loop, `enable-banking/`, `csv-import/`), `providers/prh/` (trade register search), `providers/cloudflare/` (Tunnel, DNS and Access client),
+  `entry/node.ts`, `entry/secret-rotate.ts`, `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands),
+  `cli-cloudflare.ts` (`cloudflare up/down`, run by the installer).
+- `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `restore.sh`, `doctor.sh`, `reset.sh`, `cloudflare-setup.sh` (writes
+  `~/.config/omatalous/cloudflare.env`), `ops-helper.sh` (host helper for Asetukset > Ylläpito), `lib/` (`release.sh` signatures, `dbcopy.sh` copies, `preflight.sh` the migration check of
+  the new image before the switch; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`relay-hash.mjs`,
   `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image when `main` gets a new version, on a `v*` tag or by hand.
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
@@ -109,8 +107,7 @@ next releases are in `.claude/plan/` (private repo only).
   migrated by a newer version (`db/migrate.ts`) unless each unknown migration stored a compat floor at or below its
   version (`-- migrate: compat X.Y.Z`, allowed only on additive files); `migrate-check <db>` tries pending migrations on a copy; `openDatabase` snapshots before migrating; `scripts/update.sh`
   has `--rollback`, which keeps the live DB only when the previous image's `migrate-check` reports nothing to apply. Derived fields are recomputed after every version change (`services/upgrade.ts`), so rule
-  changes need no migration. Release = `tools/release/release.sh X.Y.Z`: every step from `prepare.mjs` (versions, CHANGELOG
-  from `changelog.d/`) through `ship.sh` to the baseline and `main`, resumable with `--from <step>` (docs/RELEASING.md).
+  changes need no migration.
 
 ## Conventions
 

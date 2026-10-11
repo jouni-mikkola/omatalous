@@ -4,6 +4,7 @@ import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
 const CHECKING = "FI12 1234 5600 0785 41";
+const SAVINGS = "FI45 1234 5600 0921 77";
 const monthly = Array.from({ length: 6 }, (_, i) => `2026/0${4 + i}/05;-9,99;${CHECKING};;;SPOTIFY;;EUR`);
 const content = [
   HEADER,
@@ -30,10 +31,40 @@ describe("GET /api/merchants/summary", () => {
       inCents: 3500,
       firstDate: "2025-12-24",
       lastDate: "2026-09-20",
-      months: 2,
+      transfers: 0,
       category: "other",
+      // the history starts on 24.12., so January to September are the complete months: 30 + 12 € over nine
+      monthly: { monthlyCents: 467, yearCents: 4200, months: 9, fromSeries: false },
       recurring: null,
     });
+  });
+
+  it("shows the figure per month Kauppiaat shows: a series' own, else the complete months", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const series = ((await admin.call("GET", "/api/recurring")).body.series as { merchant: string; active: boolean; monthlyCents: number; yearlyCents: number }[]).find((r) => r.merchant === "Spotify" && r.active)!;
+    const spotify = (await summary(admin, "Spotify")).body.summary;
+    expect(spotify.monthly).toEqual({ monthlyCents: series.monthlyCents, yearCents: series.yearlyCents, months: 0, fromSeries: true });
+    const listed = (await admin.call("GET", "/api/merchants")).body.items as { merchant: string; monthlyCents: number }[];
+    expect(listed.find((m) => m.merchant === "Spotify")!.monthlyCents).toBe(series.monthlyCents);
+    expect(listed.find((m) => m.merchant === "Xyzzy Tuntematon")!.monthlyCents).toBe((await summary(admin, "Xyzzy Tuntematon")).body.summary.monthly.monthlyCents);
+  });
+
+  it("counts own transfers as rows but not in the sums or the category", async () => {
+    const { admin } = await setupApp();
+    const moved = [`2026/09/16;-300,00;${CHECKING};${SAVINGS};VIRTANEN AINO;OMA SIIRTO;;EUR`, `2026/09/22;-50,00;${CHECKING};;VIRTANEN AINO;LAINA;;EUR`];
+    await admin.call("POST", "/api/import/csv", { content: [HEADER, ...moved].join("\n"), accountName: "Käyttötili" });
+    await admin.call("POST", "/api/import/csv", { content: [HEADER, `2026/09/16;300,00;${CHECKING};${SAVINGS};VIRTANEN AINO;OMA SIIRTO;;EUR`].join("\n"), accountName: "Säästötili" });
+    const rows = (await admin.call("GET", "/api/transactions?limit=50")).body.items as { merchant: string; isTransfer: boolean; amountCents: number; category: string }[];
+    const transfers = rows.filter((t) => t.isTransfer);
+    expect(transfers).toHaveLength(2);
+    const merchant = transfers[0]!.merchant;
+    // the payment to the same person is no transfer
+    expect(rows.filter((t) => t.merchant === merchant && !t.isTransfer).map((t) => t.amountCents)).toEqual([-5000]);
+    const s = (await summary(admin, merchant)).body.summary;
+    expect(s).toMatchObject({ count: 3, transfers: 2, outCents: 5000, inCents: 0 });
+    expect(s.category).toBe(rows.find((t) => t.merchant === merchant && !t.isTransfer)!.category);
+    expect(s.category).not.toBe(transfers[0]!.category);
   });
 
   it("names the cadence and the next date of a recurring payment", async () => {
@@ -77,7 +108,7 @@ describe("GET /api/merchants/summary", () => {
     await optimizeDatabase(s.db);
     const plan = (
       await s.db.all<{ detail: string }>(
-        "EXPLAIN QUERY PLAN SELECT category, substr(booking_date, 1, 7) AS m, COUNT(*) FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE user_id = ? AND merchant = ? GROUP BY category, m",
+        "EXPLAIN QUERY PLAN SELECT category, substr(booking_date, 1, 7) AS m, is_transfer != 0 AS moved, COUNT(*) FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE user_id = ? AND merchant = ? GROUP BY category, m, moved",
         ["u", "Spotify"],
       )
     )

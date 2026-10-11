@@ -1,10 +1,40 @@
 /** Household members (admin): add, reset password, remove. */
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
+import { copyText } from "../../clipboard.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { date } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
-import type { User } from "../../types.ts";
+import type { InstanceState, User } from "../../types.ts";
+import { addressToSave } from "../Wizard.tsx";
+
+/** What a new member needs to log in: the address, the username, the temporary password and that it must change. */
+export function memberInstructions(address: string, username: string, password: string): string {
+  return [
+    `Omatalous: ${address}`,
+    `Käyttäjätunnus: ${username}`,
+    `Väliaikainen salasana: ${password}`,
+    "Salasana pitää vaihtaa ensimmäisellä kirjautumiskerralla.",
+  ].join("\n");
+}
+
+/** The temporary password, shown once, with a button that copies the whole instruction for the member. */
+export function SecretBox({ who, password, address }: { who: string; password: string; address: string }) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const onCopy = async () => {
+    setState((await copyText(memberInstructions(address, who, password))) ? "copied" : "failed");
+    setTimeout(() => setState("idle"), 2000);
+  };
+  return (
+    <div className="secret-box" role="status">
+      Väliaikainen salasana käyttäjälle <strong>{who}</strong>: <code>{password}</code>
+      <div className="small muted">Näytetään vain kerran.</div>
+      <button className="btn btn-small" type="button" onClick={() => void onCopy()}>
+        {state === "copied" ? "Kopioitu" : state === "failed" ? "Kopiointi ei onnistunut" : "Kopioi ohje"}
+      </button>
+    </div>
+  );
+}
 
 export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => void; onLoaded?: () => void }) {
   const { data, error: loadError, reload } = useApi<{ users: User[] }>("/api/users");
@@ -13,6 +43,9 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
   useEffect(() => {
     if (done) onLoaded?.();
   }, [done, onLoaded]);
+  // the address a member types: the one in use here, or the installer's when this is a local or tunnelled view
+  const instance = useApi<InstanceState>("/api/admin/instance");
+  const address = addressToSave(instance.data?.settings.appBaseUrl ?? window.location.origin, window.location.origin);
   const [form, setForm] = useState({ username: "", displayName: "", role: "member" });
   const [secret, setSecret] = useState<{ who: string; password: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +84,7 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
           <h2>Talouden jäsenet</h2>
         </div>
       </div>
-      {secret && (
-        <div className="secret-box" role="status">
-          Väliaikainen salasana käyttäjälle <strong>{secret.who}</strong>: <code>{secret.password}</code>
-          <div className="small muted">Näytetään vain kerran.</div>
-        </div>
-      )}
+      {secret && <SecretBox key={`${secret.who}:${secret.password}`} who={secret.who} password={secret.password} address={address} />}
       <form className="form-row" onSubmit={add}>
         <input type="text" placeholder="Käyttäjätunnus" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required pattern="[A-Za-z0-9._\-]{3,32}" aria-label="Käyttäjätunnus" />
         <input type="text" placeholder="Nimi" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} aria-label="Nimi" />
