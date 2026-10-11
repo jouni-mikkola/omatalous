@@ -5,6 +5,8 @@ import { type AnalysisContext, type AnalysisTx, netSpend } from "../context.ts";
 import { monthOneOffs } from "../one-offs.ts";
 import { completeMonthsBefore, gateFor, GATE_FLOOR_CENTS, usualSpending } from "../usual.ts";
 import { isLenderName } from "../../wording.ts";
+import type { IsoDate, UserInputs } from "../../types.ts";
+import { inUseQuietsQuestion, marksByMerchant } from "../subscription-alerts.ts";
 
 const COUNT_WORDS = ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"];
 
@@ -105,7 +107,35 @@ export function evenlySpaced(ctx: AnalysisContext, s: Pick<RecurringSeries, "tra
   return sorted.every((d, i) => i === 0 || d - sorted[i - 1]! >= s.intervalDays / 2);
 }
 
-
 /** Payment services that sell instalment plans: their charges are instalments (instalments.ts), not subscriptions or prices. */
 export const isLender = (merchant: string) => isLenderName(fold(merchant));
+
+/** What the household said about a merchant's subscription, and on which day. */
+export interface SubscriptionAnswer {
+  mark: "cancelled" | "in_use";
+  day: IsoDate;
+}
+
+/**
+ * The household's answers on subscriptions by merchant (`user_marks`): Lopetettu, or Käytössä within the last 12 months,
+ * the rule that quiets the forgotten-service question. Säästövinkit tells no subscription finding or insight about an
+ * answered merchant again.
+ */
+export function answeredSubscriptions(inputs: UserInputs, today: IsoDate): ReadonlyMap<string, SubscriptionAnswer> {
+  const out = new Map<string, SubscriptionAnswer>();
+  for (const [merchant, m] of marksByMerchant(inputs.marks)) {
+    // the server stores the mark in the instance's time zone, so its date part is the local day
+    if (m.mark === "cancelled" || (m.mark === "in_use" && inUseQuietsQuestion(m, today))) out.set(merchant, { mark: m.mark, day: m.markedAt.slice(0, 10) });
+  }
+  return out;
+}
+
+/**
+ * Whether an answer settles a statement whose news is from `since` (the day a price changed). Lopetettu always does;
+ * Käytössä only when it was given on or after that day, since an earlier answer did not know the new price.
+ */
+export function settledBy(answer: SubscriptionAnswer | undefined, since: IsoDate | null = null): boolean {
+  if (!answer) return false;
+  return answer.mark === "cancelled" || since === null || answer.day >= since;
+}
 

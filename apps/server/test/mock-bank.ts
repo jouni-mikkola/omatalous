@@ -1,5 +1,22 @@
 import { randomUUID } from "node:crypto";
 
+/** The made-up holder and valid test IBAN of the fake bank's checking account. */
+export const HOLDER = "Testi Esimerkki";
+export const HOLDER_IBAN = "FI2112345600000785";
+
+/** As Nordea answers: the holder in `name`, the product apart, CACC for a current account. */
+const CHECKING = { uid: "u-chk", identification_hash: "h-chk", account_id: { iban: HOLDER_IBAN }, name: HOLDER, product: "Käyttötili", currency: "EUR", cash_account_type: "CACC" };
+const CARD = {
+  uid: "u-card",
+  identification_hash: "h-card",
+  account_id: { other: { identification: "5225********1144", scheme_name: "CPAN" } },
+  name: HOLDER,
+  product: "Nordea Gold",
+  currency: "EUR",
+  cash_account_type: "CARD",
+  credit_limit: { currency: "EUR", amount: "2000.00" },
+};
+
 /** A fake Enable Banking API with a checking account and a Nordea Gold card. */
 export function mockBank() {
   const bank = {
@@ -58,11 +75,13 @@ export function mockBank() {
           session_id: `sess-${randomUUID()}`,
           aspsp: { name: "Nordea", country: "FI" },
           access: { valid_until: "2027-04-06T00:00:00Z" },
-          accounts: [
-            { uid: "u-chk", identification_hash: "h-chk", account_id: { iban: "FI2112345600000785" }, name: "Käyttötili", currency: "EUR", cash_account_type: "CACC" },
-            { uid: "u-card", identification_hash: "h-card", name: "Nordea Gold", currency: "EUR", cash_account_type: "CARD" },
-          ],
+          accounts: [CHECKING, CARD],
         });
+      // the account resource, as the session answer gives it (without its uid)
+      case "GET /accounts/u-chk/details":
+        return json({ ...CHECKING, uid: undefined });
+      case "GET /accounts/u-card/details":
+        return json({ ...CARD, uid: undefined });
       case "GET /accounts/u-chk/transactions":
         return url.searchParams.get("continuation_key")
           ? json({ transactions: [tx("c2", "300.00", "DBIT", "2026-10-05", "NORDEA GOLD LASKU", { creditor: { name: "NORDEA RAHOITUS SUOMI OY" } })] })

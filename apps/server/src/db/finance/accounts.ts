@@ -3,7 +3,18 @@ import type { AccountType } from "@banking/core";
 import { type Row, type StoredAccount, type StoredTransaction, toAccount, toTransaction, TX_COLUMNS_LIGHT } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
 
-export type NewAccount = Omit<StoredAccount, "userId" | "balanceCents" | "balanceAt" | "lastSyncedAt">;
+/**
+ * What a link, an import or the demo writes. `name` is the bank's own name for the account (what `bankName` reads
+ * back); the user's name is set apart with `updateAccount` and no link or sync touches it.
+ */
+export type NewAccount = Pick<StoredAccount, "id" | "connectionId" | "provider" | "externalId" | "identity" | "name" | "iban" | "currency" | "type"> &
+  Partial<Pick<StoredAccount, "holder" | "cardMask" | "creditLimitCents">>;
+
+/** `customName`: a name replaces the user's own, null takes it away (the bank's shows again), undefined leaves it. */
+export interface AccountPatch {
+  customName?: string | null;
+  type?: AccountType;
+}
 
 export class AccountsRepo {
   constructor(private readonly ctx: FinanceContext) {}
@@ -20,23 +31,43 @@ export class AccountsRepo {
   async upsertAccount(a: NewAccount): Promise<void> {
     // the WHERE on the update keeps an id collision from ever touching another user's row
     await this.ctx.db.run(
-      `INSERT INTO accounts (id, user_id, connection_id, provider, external_id, identity, name, iban, currency, type, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO accounts (id, user_id, connection_id, provider, external_id, identity, name, holder, card_mask, credit_limit_cents, iban, currency, type, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET connection_id = excluded.connection_id, external_id = excluded.external_id,
          identity = COALESCE(excluded.identity, accounts.identity), name = excluded.name,
+         holder = COALESCE(excluded.holder, accounts.holder), card_mask = COALESCE(excluded.card_mask, accounts.card_mask),
+         credit_limit_cents = COALESCE(excluded.credit_limit_cents, accounts.credit_limit_cents),
          iban = COALESCE(excluded.iban, accounts.iban), currency = excluded.currency
        WHERE accounts.user_id = excluded.user_id`,
-      [a.id, this.ctx.userId, a.connectionId, a.provider, a.externalId, a.identity, a.name, a.iban, a.currency, a.type, new Date().toISOString()],
+      [
+        a.id, this.ctx.userId, a.connectionId, a.provider, a.externalId, a.identity, a.name,
+        a.holder ?? null, a.cardMask ?? null, a.creditLimitCents ?? null, a.iban, a.currency, a.type, new Date().toISOString(),
+      ],
     );
   }
 
-  async updateAccount(id: string, patch: { name?: string; type?: AccountType }): Promise<void> {
-    await this.ctx.db.run("UPDATE accounts SET name = COALESCE(?, name), type = COALESCE(?, type) WHERE id = ? AND user_id = ?", [
-      patch.name ?? null,
+  /** The user's own edits: the name apart from the bank's, and the type (which a link sets only the first time). */
+  async updateAccount(id: string, patch: AccountPatch): Promise<void> {
+    const name = patch.customName !== undefined;
+    await this.ctx.db.run("UPDATE accounts SET custom_name = CASE WHEN ? THEN ? ELSE custom_name END, type = COALESCE(?, type) WHERE id = ? AND user_id = ?", [
+      name ? 1 : 0,
+      patch.customName ?? null,
       patch.type ?? null,
       id,
       this.ctx.userId,
     ]);
+  }
+
+  /**
+   * The bank's side of an account, read again for one linked before these fields were stored. The name moves only when the
+   * bank named the account; the holder is "" when the bank was asked and gave none, which is what stops asking again.
+   * The user's own name and the type are not touched.
+   */
+  async setAccountBankDetails(id: string, d: { name: string | null; holder: string | null; cardMask: string | null; creditLimitCents: number | null }): Promise<void> {
+    await this.ctx.db.run(
+      "UPDATE accounts SET name = COALESCE(?, name), holder = ?, card_mask = COALESCE(?, card_mask), credit_limit_cents = COALESCE(?, credit_limit_cents) WHERE id = ? AND user_id = ?",
+      [d.name, d.holder ?? "", d.cardMask, d.creditLimitCents, id, this.ctx.userId],
+    );
   }
 
   /** Fills a missing IBAN only: an IBAN the bank sent is never replaced. */

@@ -175,7 +175,8 @@ export function Overview({
       {reports.error && !reports.data && <ErrorCard message={reports.error} onRetry={reports.reload} />}
 
       <Alerts alerts={data.alerts.filter((a) => !answered.has(a.id))} range={range} onMark={answer} busy={marking || loading} />
-      <Insights insights={data.insights.filter((i) => !answered.has(i.id)).slice(0, 3)} onDismiss={(id, subject) => answer(id, subject, "dismissed")} busy={marking || loading} />
+      {/* Säästövinkit answers the insights as Muut havainnot; while that page is switched off they stay here */}
+      {!meta.features.optimise && <Insights insights={data.insights.filter((i) => !answered.has(i.id)).slice(0, 3)} onDismiss={(id, subject) => answer(id, subject, "dismissed")} busy={marking || loading} />}
       {markError && (
         <div className="error" role="alert">
           {markError}

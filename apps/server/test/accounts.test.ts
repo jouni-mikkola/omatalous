@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseBankCsv } from "@banking/core";
+import { accountHolder, accountName, accountType, cardMask, creditLimitCents } from "../src/connectors/enable-banking/mapper.ts";
 import { NOW, setupApp } from "./helpers.ts";
 
 // modelled on Nordea's netbank export of a checking and a savings account (review data)
@@ -200,5 +201,81 @@ describe("account type", () => {
     expect(await typeOf(unknown)).toBe("checking");
     const loan = (await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: "Laina", accountType: "loan" })).body.accountId;
     expect(await typeOf(loan)).toBe("loan");
+  });
+});
+
+describe("account name", () => {
+  it("is the user's own, stored apart from the original; an empty one or the original brings it back", async () => {
+    const { admin } = await setupApp();
+    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const account = async () => (await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === accountId);
+    expect(await account()).toMatchObject({ name: "Käyttötili", bankName: "Käyttötili", customName: null });
+
+    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { name: "  Yhteinen tili " })).body).toMatchObject({ name: "Yhteinen tili", bankName: "Käyttötili", customName: "Yhteinen tili" });
+    // a type edit leaves the name alone
+    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { type: "savings" })).body).toMatchObject({ name: "Yhteinen tili", type: "savings" });
+    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { name: "Käyttötili" })).body).toMatchObject({ name: "Käyttötili", customName: null });
+    await admin.call("PATCH", `/api/accounts/${accountId}`, { name: "Toinen" });
+    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { name: "   " })).body).toMatchObject({ name: "Käyttötili", customName: null });
+    expect((await account()).customName).toBeNull();
+  });
+
+  it("is only the owner's to change", async () => {
+    const { admin, member } = await setupApp();
+    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const eero = await member("eero");
+    expect((await eero.call("PATCH", `/api/accounts/${accountId}`, { name: "Minun" })).status).toBe(404);
+    expect((await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === accountId).customName).toBeNull();
+  });
+});
+
+describe("what the bank says about an account (made-up holders and IBANs)", () => {
+  it.each([
+    [{ uid: "1", name: "Testi Esimerkki", product: "Käyttötili" }, "Käyttötili"],
+    [{ uid: "2", name: "Testi Esimerkki;Maija Mallikas", cash_account_type: "CACC" }, "Testi Esimerkki, Maija Mallikas"],
+    [{ uid: "3", name: "Testi Esimerkki", product: " ASP-tili " }, "ASP-tili"],
+    [{ uid: "4", details: "Lomatili", account_id: { iban: "FI7412345600000801" } }, "Lomatili"],
+    [{ uid: "5", account_id: { iban: "FI7412345600000801" } }, "FI7412345600000801"],
+    [{ uid: "6" }, "Tili"],
+  ])("%j is named %s", (account, name) => expect(accountName(account as never)).toBe(name));
+
+  it("keeps the holder or holders apart from the name", () => {
+    expect(accountHolder({ uid: "1", name: "Testi Esimerkki;Maija Mallikas" })).toBe("Testi Esimerkki, Maija Mallikas");
+    expect(accountHolder({ uid: "1", name: " ; " })).toBeNull();
+    expect(accountHolder({ uid: "1" })).toBeNull();
+  });
+
+  it.each([
+    ["Käyttötili", "checking"],
+    ["Nordea Premium", "checking"],
+    ["Säästötili", "savings"],
+    ["Pikasäästö", "savings"],
+    ["ASP-tili", "savings"],
+    ["Tuottotili", "savings"],
+    ["Sijoitustili", "savings"],
+  ])("a CACC account with the product %s reads %s", (product, type) => expect(accountType({ uid: "1", name: "Testi Esimerkki", product, cash_account_type: "CACC" })).toBe(type));
+
+  it("takes a savings word from the product or the description, never from the holder's name", () => {
+    expect(accountType({ uid: "1", name: "Säästäväinen Esimerkki", product: "Käyttötili", cash_account_type: "CACC" })).toBe("checking");
+    expect(accountType({ uid: "1", details: "Lomasäästöt", cash_account_type: "CACC" })).toBe("savings");
+    // the bank's own code still wins over the product text
+    expect(accountType({ uid: "1", product: "Säästötili", cash_account_type: "CARD" })).toBe("credit_card");
+    expect(accountType({ uid: "1", product: "Käyttötili", cash_account_type: "SVGS" })).toBe("savings");
+  });
+
+  it("keeps only the last four digits of a card, wherever the bank puts the number", () => {
+    expect(cardMask({ uid: "1", account_id: { other: { identification: "5225********1144", scheme_name: "CPAN" } } })).toBe("•••• 1144");
+    expect(cardMask({ uid: "1", all_account_ids: [{ identification: "5225********7788", scheme_name: "CPAN" }] })).toBe("•••• 7788");
+    expect(cardMask({ uid: "1", account_id: { other: { identification: "5225123412341144", scheme_name: "CPAN" } } })).toBe("•••• 1144");
+    expect(cardMask({ uid: "1", account_id: { iban: "FI7412345600000801" } })).toBeNull();
+    expect(cardMask({ uid: "1", account_id: { other: { identification: "**", scheme_name: "CPAN" } } })).toBeNull();
+  });
+
+  it("reads a positive credit limit in euros and nothing else", () => {
+    expect(creditLimitCents({ uid: "1", credit_limit: { currency: "EUR", amount: "2000.00" } })).toBe(200000);
+    expect(creditLimitCents({ uid: "1", credit_limit: { currency: "EUR", amount: "0.00" } })).toBeNull();
+    expect(creditLimitCents({ uid: "1", credit_limit: { currency: "SEK", amount: "2000.00" } })).toBeNull();
+    expect(creditLimitCents({ uid: "1", credit_limit: { currency: "EUR", amount: "paljon" } })).toBeNull();
+    expect(creditLimitCents({ uid: "1" })).toBeNull();
   });
 });

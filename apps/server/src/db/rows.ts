@@ -7,8 +7,19 @@ export type Row = Record<string, SqlValue>;
 export const str = (v: SqlValue | undefined) => (v == null ? null : String(v));
 export const num = (v: SqlValue | undefined) => (v == null ? null : Number(v));
 
+/**
+ * `name` is the name the household sees: the user's own when they gave one, else the bank's. The bank's stays in
+ * `bankName` (a link rewrites it, never `customName`).
+ */
 export interface StoredAccount extends Account {
   userId: string;
+  bankName: string;
+  customName: string | null;
+  /** Who holds the account, as the bank gives it ("A, B"). Null: not read yet. "": read, and the bank gave none. */
+  holder: string | null;
+  /** A card's last four digits ("•••• 1234"). */
+  cardMask: string | null;
+  creditLimitCents: number | null;
   connectionId: string | null;
   provider: string;
   externalId: string | null;
@@ -68,7 +79,12 @@ export function toAccount(r: Row): StoredAccount {
     provider: String(r.provider),
     externalId: str(r.external_id),
     identity: str(r.identity),
-    name: String(r.name),
+    name: str(r.custom_name) ?? String(r.name),
+    bankName: String(r.name),
+    customName: str(r.custom_name),
+    holder: str(r.holder),
+    cardMask: str(r.card_mask),
+    creditLimitCents: num(r.credit_limit_cents),
     iban: str(r.iban),
     currency: String(r.currency),
     type: String(r.type) as AccountType,

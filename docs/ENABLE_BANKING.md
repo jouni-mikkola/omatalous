@@ -53,6 +53,12 @@ that was linked afterwards.
   online bank and import it under *Asetukset > Tuo CSV*. Rows already fetched are skipped.
 - Check under *Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
   account counts as a transfer, because the purchases are already counted on the card.
+- Omatalous reads these fields of each account. The bank's `product` (Käyttötili, ASP-tili, Nordea Gold) becomes the account's name, and
+  `name`, which holds the holders ("A;B"), a line under it. `cash_account_type` gives the type; Nordea sends `CACC` for every
+  account, so a product with a savings word (säästö, ASP, tuotto, sijoitus) reads as *Säästötili* when the account is first linked (change the type under *Tilit* if it is wrong). A card's masked number
+  (`CPAN`) shows as its last four digits and `credit_limit` as its limit. You can give any account a name of your own
+  under *Tilit*: a new consent never replaces it. An account linked before these fields were read asks the bank for
+  them once at the next fetch; a refusal is tried again at the one after.
 - The bank's consent lasts 180 days. Omatalous reminds you 14 days before. Renew it by connecting the account again
   under *Asetukset > Pankkiyhteydet*. The history stays.
 

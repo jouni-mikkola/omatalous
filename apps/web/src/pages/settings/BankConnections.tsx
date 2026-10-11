@@ -1,16 +1,16 @@
 /**
  * The member's bank consents: "Lisää pankkiyhteys" opens a bank picker
  * (the banks the server offers, each with its official logo), the list
- * shows each consent's validity, and a fallback finishes a consent whose
- * redirect page did not open.
+ * shows each consent's validity and the accounts it reads (name and IBAN, so two consents of one holder differ),
+ * and a fallback finishes a consent whose redirect page did not open.
  */
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../../banks.ts";
 import { BankLogo } from "../../components/BankLogo.tsx";
 import { WARN_DAYS } from "../../consent-notices.ts";
-import { date, dateTime, plural } from "../../format.ts";
-import type { Connection, Meta } from "../../types.ts";
+import { accountNumber, date, dateTime, plural } from "../../format.ts";
+import type { Account, Connection, Meta } from "../../types.ts";
 
 const COUNTRY: Record<string, string> = { FI: "Suomi" };
 
@@ -41,6 +41,20 @@ export function connectionStateText(c: Pick<Connection, "state" | "validUntil">)
   if (c.state === "broken") return "katkesi";
   if (c.state === "removed") return "poistettu";
   return "käytössä";
+}
+
+/**
+ * The Haettu column: when the accounts of a consent were last fetched, or, while none was, why. A consent that ended
+ * keeps the date of its last run.
+ */
+export function fetchedText(conn: Pick<Connection, "id" | "state" | "lastSyncedAt">, accounts: readonly Pick<Account, "connectionId" | "lastSyncedAt" | "problem">[]): string {
+  const own = accounts.filter((a) => a.connectionId === conn.id);
+  const last = own.reduce<string | null>((late, a) => (a.lastSyncedAt && (!late || a.lastSyncedAt > late) ? a.lastSyncedAt : late), null);
+  if (last) return dateTime(last);
+  if (conn.state !== "active" || !own.length) return dateTime(conn.lastSyncedAt);
+  if (own.some((a) => a.problem?.kind === "not_linked")) return "Ei linkitetty Control Panelissa";
+  if (own.some((a) => a.problem?.kind === "failed")) return "Haku epäonnistui";
+  return "Odottaa ensimmäistä hakua";
 }
 
 /**
@@ -78,11 +92,7 @@ export function BankConnections({
   const current = meta.connections.filter((c) => !c.history);
   const history = meta.connections.filter((c) => c.history);
   const isAdmin = meta.user.role === "admin";
-  const accountNames = (connectionId: string) =>
-    meta.accounts
-      .filter((a) => a.connectionId === connectionId)
-      .map((a) => a.name)
-      .join(", ");
+  const accountsOf = (connectionId: string) => meta.accounts.filter((a) => a.connectionId === connectionId);
 
   const run = async (key: string, fn: () => Promise<string | void>) => {
     setBusy(key);
@@ -210,8 +220,14 @@ export function BankConnections({
                       <BankLogo src={logoForInstitution(c.institution)} name={c.institution} size="sm" />
                       {c.institution}
                     </span>
-                    {/* two consents of one bank are told apart by their accounts */}
-                    <div className="sub muted small">{accountNames(c.id)}</div>
+                    {/* two consents of one bank are told apart by their accounts: the name and the IBAN or card number */}
+                    <div className="conn-accounts">
+                      {accountsOf(c.id).map((a) => (
+                        <div key={a.id} className="sub muted small acc-line">
+                          {[a.name, accountNumber(a)].filter(Boolean).join(" · ")}
+                        </div>
+                      ))}
+                    </div>
                   </td>
                   <td>
                     {connectionStateText(c)}
@@ -221,7 +237,7 @@ export function BankConnections({
                     {c.state === "active" ? date(c.validUntil) : "–"}
                     {c.state === "active" && c.daysLeft !== null && c.daysLeft > 0 && <span className="muted small"> ({c.daysLeft} pv)</span>}
                   </td>
-                  <td>{dateTime(c.lastSyncedAt)}</td>
+                  <td>{fetchedText(c, meta.accounts)}</td>
                   <td className="num">
                     <span className="row-actions">
                       {canReconnect(c) && (

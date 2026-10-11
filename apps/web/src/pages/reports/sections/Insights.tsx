@@ -4,7 +4,10 @@ import { money, signedMoney } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
-/** Every insight that passed its gate, largest yearly figure first: the overview shows the first three. */
+/**
+ * Every insight that passed its gate, largest yearly figure first: the overview shows the first three. Only while
+ * Säästövinkit is switched off: that page shows them as Muut havainnot, where they are answered.
+ */
 function Insights({ ctx }: SectionProps) {
   const r = ctx.data.insights;
   return (
@@ -49,5 +52,6 @@ export const section: ReportSection = {
   order: 15,
   page: "reports",
   reports: ["insights"],
+  visible: (ctx) => !ctx.meta.features?.optimise,
   Component: Insights,
 };

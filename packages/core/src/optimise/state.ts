@@ -1,5 +1,5 @@
 /**
- * The user's decisions on findings: done goes to Jo hoidossa, dismissed to Ei koske meitä, snoozed is hidden until its
+ * The user's decisions on findings, listed under Päätetyt: done and dismissed with their state, snoozed hidden until its
  * day. A dismissed finding comes back only when it grew a lot, so one click is not undone by ordinary movement.
  */
 import type { AnalysisContext } from "../analysis/context.ts";

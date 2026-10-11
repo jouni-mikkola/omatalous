@@ -19,7 +19,7 @@ const VERDICT: Record<Verdict, { text: string; badge: string }> = {
   odottaa: { text: "Odottaa", badge: "" },
 };
 
-/** One done decision's outcome, under its row in Jo hoidossa. Core's reason starts with the monthly effect, so it is said once. */
+/** One done decision's outcome, under its row in Päätetyt. Core's reason starts with the monthly effect, so it is said once. */
 export function Outcome({ outcome }: { outcome: FindingOutcome }) {
   const v = VERDICT[outcome.verdict];
   return (
@@ -48,7 +48,7 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
     setBusy(true);
     setError(null);
     api(`/api/optimise/findings/${encodeURIComponent(proposal.findingId)}${query({ scope })}`, { method: "PUT", body: { status: "done", effectiveDate: proposal.date } })
-      .then(() => onChanged("Löydös siirrettiin kohtaan Jo hoidossa."))
+      .then(() => onChanged("Löydös siirrettiin kohtaan Päätetyt."))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };

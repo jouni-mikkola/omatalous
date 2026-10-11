@@ -177,6 +177,8 @@ export interface OpsState {
   build?: string;
   commit?: string;
   update_available?: boolean;
+  /** Release mode only: the newest release the helper saw. Lets the server tell when update_available is stale. */
+  latest_version?: string;
   behind_commits?: { hash: string; subject: string }[];
   checked_at?: string;
   can_rollback?: boolean;
@@ -188,6 +190,8 @@ export interface OpsState {
   backups?: { name: string; size: number; at: string; kind: string }[];
 }
 
+/** Exactly X.Y.Z: the only shape of a release version the app compares. */
+export const XYZ = /^\d+\.\d+\.\d+$/;
 const isoOrNull = (v: unknown): string | undefined => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$/.test(v) && !Number.isNaN(Date.parse(v)) ? v : undefined);
 const text = (v: unknown, max: number, secrets: readonly string[]): string | undefined => (typeof v === "string" ? oneLine(v, max, secrets) : undefined);
 
@@ -204,6 +208,7 @@ export function normaliseState(input: unknown, secrets: readonly string[] = []):
   if (str("build", 80)) out.build = str("build", 80);
   if (typeof o.commit === "string" && /^[0-9a-f]{4,40}$/.test(o.commit)) out.commit = o.commit;
   if (typeof o.update_available === "boolean") out.update_available = o.update_available;
+  if (typeof o.latest_version === "string" && XYZ.test(o.latest_version)) out.latest_version = o.latest_version;
   if (typeof o.can_rollback === "boolean") out.can_rollback = o.can_rollback;
   if (typeof o.schema_changed === "boolean") out.schema_changed = o.schema_changed;
   if (isoOrNull(o.checked_at)) out.checked_at = isoOrNull(o.checked_at);

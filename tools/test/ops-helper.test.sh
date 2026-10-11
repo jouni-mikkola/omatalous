@@ -291,6 +291,16 @@ t_release_update() {
   check "release: journal written and marked reported" grep -q '"reported":true' "$CL/ops/journal/$ID.json"
   check "release: state file for rollback exists (600)" test "$(stat -c %a "$CL/backups/.last-update")" = 600
 }
+t_offer_after_update_and_rollback() { # the daily check offered the version before the update, and nothing fetches after it
+  new_world; release 0.2.0; tick; poll update; tick
+  check "offer: after a release update the result says no update is available" grep -q '"update_available":false' "$S/reports/1.json"
+  poll rollback "$ID2"; tick
+  check "offer: a rollback drops the saved answer, so its result has none" bash -c "! grep -q update_available '$S/reports/2.json' && [[ ! -e '$CL/ops/check.frag' && ! -e '$CL/ops/last-check' ]]"
+  rm -f "$S/state.last" "$CL/ops/boot_id"; tick
+  check "offer: and the next heartbeat checks again" grep -q '"update_available":true' "$S/state.last"
+  new_world; setenv TALOUS_CHANNEL=source; src_commit; tick; poll update; tick
+  check "offer, source: after the update the result says no update is available" grep -q '"update_available":false' "$S/reports/1.json"
+}
 t_release_not_newer() {
   new_world; release 0.2.0; echo 0.2.0 >"$S/cver"; echo "0.2.0|$(git -C "$W/seed" rev-parse HEAD)|1" >"$S/images/$(printf %s banking-app:latest | tr '/:@' '___')"
   poll update; tick

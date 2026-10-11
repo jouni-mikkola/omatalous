@@ -168,6 +168,17 @@ async function upgradedDbs(): Promise<[string, DatabaseSync][]> {
   return out;
 }
 
+let upgraded: Promise<[string, Schema][]> | undefined;
+/** The schemas of `upgradedDbs`, made once for every version's test. */
+const upgradedSchemas = () =>
+  (upgraded ??= upgradedDbs().then((dbs) =>
+    dbs.map(([name, db]): [string, Schema] => {
+      const schema = describeSchema(db);
+      db.close();
+      return [name, schema];
+    }),
+  ));
+
 if (process.env.UPDATE_CONTRACT) {
   const v = process.env.UPDATE_CONTRACT;
   if (!/^\d+\.\d+\.\d+$/.test(v) || compareVersions(APP_VERSION, v) >= 0) throw new Error(`UPDATE_CONTRACT=${v}: only a version above ${APP_VERSION} (not released yet) may be regenerated`);
@@ -203,12 +214,10 @@ describe("contracts: schema", () => {
       head.close();
     });
 
+    // the first version's test upgrades every fixture (about 5 s), the others reuse it
     it(`${v}: every released database, upgraded by this code, satisfies it`, async () => {
-      for (const [name, db] of await upgradedDbs()) {
-        expect(schemaProblems(contract(), describeSchema(db)), name).toEqual([]);
-        db.close();
-      }
-    });
+      for (const [name, schema] of await upgradedSchemas()) expect(schemaProblems(contract(), schema), name).toEqual([]);
+    }, 30_000);
 
     if (compareVersions(APP_VERSION, v) < 0) {
       it(`${v}: is not released yet, so its dump is exactly the schema of a fresh database`, async () => {

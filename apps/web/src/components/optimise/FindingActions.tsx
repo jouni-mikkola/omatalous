@@ -55,7 +55,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
   };
   const done = (e: FormEvent) => {
     e.preventDefault();
-    send({ status: "done", effectiveDate: day }, "Löydös siirrettiin kohtaan Jo hoidossa.");
+    send({ status: "done", effectiveDate: day }, "Löydös siirrettiin kohtaan Päätetyt.");
   };
   const button = (label: string, on: Panel) => (
     <button className="btn btn-small" type="button" aria-expanded={panel === on} aria-describedby={describedBy} onClick={() => toggle(on)}>
@@ -94,7 +94,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
       {panel === "dismiss" && (
         <div className="decide-form" role="group" aria-label="Syy">
           {DISMISS_REASONS.map((reason) => (
-            <button key={reason} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "dismissed", reason }, "Löydös siirrettiin kohtaan Ei koske meitä.")}>
+            <button key={reason} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "dismissed", reason }, "Löydös siirrettiin kohtaan Päätetyt.")}>
               {REASON_TEXT[reason]}
             </button>
           ))}

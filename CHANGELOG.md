@@ -3,6 +3,44 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.5
+
+Money and reports
+
+- A shop or service paid with MobilePay (MOB.PAY* on the bank row) is the same merchant as when it is paid by card, so a subscription paid either way is one subscription.
+- A new streaming, audiobook or software subscription shows among the fixed costs after its second monthly charge of the same price, a month sooner than before.
+- *Säästövinkit* shows the insights that were on *Kuukausi* and in *Raportit > Havainnot* as *Muut havainnot*, answered with the same *Ei koske meitä* as the findings. An insight that a finding already tells is left out, and a dismissed one returns when its figure moves 25 %.
+- One *Päätetyt* list holds every answer with its state (*Tehty*, *Ei koske meitä*, *Muistutus*) in place of three lists.
+- The areas without findings fold into one line, with what was checked behind it.
+- A subscription marked *Lopetettu*, or *Käytössä* within the past year, has no subscription finding or insight. A price rise still shows when *Käytössä* was marked before the new price.
+- With *Säästövinkit* switched off, the insights stay on *Kuukausi* and in *Raportit > Havainnot*.
+
+Fetching and importing
+
+- Accounts are named by the bank's product (Käyttötili, ASP-tili, Nordea Gold) instead of the holder's name. The holder is a line of its own under the name in *Asetukset > Tilit*, which also shows the IBAN in groups of four, a card's last four digits and its credit limit.
+- Any account can have a name of your own in *Asetukset > Tilit*. A new bank consent or a fetch never replaces it.
+- A current account whose product is a savings product (Säästötili, ASP-tili, Tuottotili, Sijoitustili) is read as a savings account when it is linked. A type you chose stays.
+- *Asetukset > Pankkiyhteydet* lists the accounts each connection reads with their IBAN, so two connections of one holder differ. A connection that has not fetched yet says why: waiting for the first fetch, or the account is not linked in the Control Panel.
+- The product, holder, card number and limit of accounts that are linked already arrive when their bank consent is renewed.
+
+Maintenance
+
+- *Ylläpito* no longer offers the version that was just installed.
+
+For developers
+
+- `tools/lead/usage.mjs` groups agents by task with the lead turns that name them (`--tasks`), prices what tool output cost to keep in the context (`--carry`), splits the wall-clock time into agents, lead, landings, CI and idle (`--time`), and takes `--until`.
+- `tools/lead/land.sh` starts the revert guard where `tools/worker-start.sh` put the worker's branch, so lines that landed before the worker started no longer count as reverted.
+- `tools/worker-start.sh` refuses a base without the tasks the brief's `After:` line names, and prints its `Owns:` line.
+- In the private repository CI runs on pull requests and when a release asks for it, never on a push. The upgrade rehearsal has no schedule and the branch cleanup runs weekly.
+- `release.sh` has a new `gate` step (`pnpm check`, `pnpm build`, `pnpm e2e`) before it pushes, and its `rehearsal` and `baseline-ci` steps start `ci.yml` themselves.
+- `wait.sh` ignores skipped check runs.
+- `tools/lead/usage.mjs` reads the Windows user's transcripts under `/mnt/c/Users` when it runs in WSL and finds none of its own, and names that user in a first line. `tools/wsl/lx` is the Windows-side wrapper that runs a script in the WSL distro, and `docs/WORKERS.md` has a section "On a Windows host" with the setup steps.
+
+Upgrade
+
+- Migration 0013 runs on the first start, after the usual copy. It only adds columns, so a rollback to 0.8.0 or later keeps the data.
+
 ## 0.8.4
 
 Money and reports

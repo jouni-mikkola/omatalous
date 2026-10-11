@@ -3,7 +3,9 @@ import { fixedMonthlyCents, fixedSplit, isFixedCost } from "../src/commitments.t
 import { detectRecurring, projectDates } from "../src/recurring.ts";
 import { series, tx } from "./helpers.ts";
 import { addDays, addMonths } from "../src/dates.ts";
-import type { Transaction } from "../src/types.ts";
+import { normalizeMerchant } from "../src/merchant.ts";
+import { enrichTransactions } from "../src/pipeline.ts";
+import type { Account, Transaction } from "../src/types.ts";
 const today = "2026-10-09";
 
 describe("detectRecurring", () => {
@@ -321,5 +323,91 @@ describe("yearly cost and fixed costs", () => {
     expect(detectRecurring(apple, today)[0]!.review).toBe(false);
     const bigger = series("2025-10-12", 30.44, 12, -699, { merchant: "Apple", category: "subscriptions" });
     expect(detectRecurring(bigger, today)[0]!.review).toBe(true);
+  });
+});
+
+describe("a subscription paid with MobilePay", () => {
+  const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" };
+  const row = (bookingDate: string, cents: number, description: string) =>
+    tx({ accountId: "chk", bookingDate, amountCents: cents, description, merchant: normalizeMerchant(null, description) });
+  /** Bank rows through the enrichment, as the server stores them. */
+  const enriched = (rows: Transaction[]) => {
+    const changed = new Map(enrichTransactions(rows, [checking], []).map((t) => [t.id, t]));
+    return rows.map((t) => changed.get(t.id) ?? t);
+  };
+
+  it("two charges a month apart are a subscription among the fixed costs", () => {
+    const rows = enriched([row("2026-08-12", -2499, "MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI"), row("2026-09-12", -2499, "MOB.PAY*STORYTEL OY 3H8LW2 HELSINKI")]);
+    expect(rows.map((t) => [t.merchant, t.category, t.isTransfer])).toEqual([
+      ["Storytel", "subscriptions", false],
+      ["Storytel", "subscriptions", false],
+    ]);
+    const found = detectRecurring(rows, today);
+    expect(found).toMatchObject([{ merchant: "Storytel", kind: "subscription", cadence: "monthly", nextDate: "2026-10-12", monthlyCents: 2499, active: true }]);
+    expect(found.filter(isFixedCost)).toHaveLength(1);
+  });
+
+  it("two charges a month apart with a refund after the first wait for a third charge", () => {
+    const rows = enriched([
+      row("2026-08-12", -2499, "MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI"),
+      row("2026-09-12", -2499, "MOB.PAY*STORYTEL OY 3H8LW2 HELSINKI"),
+      row("2026-09-14", 2499, "MOB.PAY*STORYTEL OY 3H8LW2 HELSINKI"),
+    ]);
+    expect(detectRecurring(rows, today)).toEqual([]);
+  });
+
+  it("the same service paid by card before is one series with the MobilePay charges", () => {
+    const rows = enriched([
+      row("2026-06-12", -2499, "KORTTIOSTO 4581XXXXXXXX2241 STORYTEL OY HELSINKI"),
+      row("2026-07-12", -2499, "KORTTIOSTO 4581XXXXXXXX2241 STORYTEL OY HELSINKI"),
+      row("2026-08-12", -2499, "MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI"),
+      row("2026-09-12", -2499, "MOB.PAY*STORYTEL OY 3H8LW2 HELSINKI"),
+    ]);
+    expect(detectRecurring(rows, today)).toMatchObject([{ merchant: "Storytel", cadence: "monthly", occurrences: 4 }]);
+  });
+
+  it("a MobilePay payment to a person is never a series", () => {
+    const rows = enriched(
+      ["2026-07-03", "2026-08-03", "2026-09-03"].map((d) => tx({ accountId: "chk", bookingDate: d, amountCents: -3500, counterparty: "EMMA KORHONEN", description: "MOBILEPAY", merchant: normalizeMerchant("EMMA KORHONEN", "MOBILEPAY") })),
+    );
+    expect(rows[0]).toMatchObject({ merchant: "Emma Korhonen", category: "p2p" });
+    expect(detectRecurring(rows, today)).toEqual([]);
+  });
+
+  // a third charge is still asked of everything else: two equal shop visits, school fees or app purchases a month
+  // apart happen by chance, while a service in the subscriptions category bills one price every month
+  it("two charges a month apart are not enough for a shop, a different price or two months apart", () => {
+    const pair = (merchant: string, category: string, first: string, second: string, a: number, b = a) => [
+      tx({ bookingDate: first, amountCents: a, merchant, category }),
+      tx({ bookingDate: second, amountCents: b, merchant, category }),
+    ];
+    const found = detectRecurring(
+      [
+        ...pair("Lindex", "shopping", "2026-08-05", "2026-09-05", -2499),
+        ...pair("Kansalaisopisto", "education", "2026-08-20", "2026-09-20", -4500),
+        ...pair("Apple", "subscriptions", "2026-08-14", "2026-09-14", -499, -1299),
+        ...pair("Nextory", "subscriptions", "2026-06-02", "2026-08-02", -1999),
+        ...pair("Viaplay", "subscriptions", "2026-08-01", "2026-08-15", -1499),
+      ],
+      today,
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("a service that moved from another card waits for its third charge there", () => {
+    const found = detectRecurring(
+      [
+        ...series("2026-03-04", 30.44, 5, -1599, { accountId: "card", merchant: "Netflix", category: "subscriptions" }),
+        ...series("2026-08-04", 30.44, 2, -1599, { accountId: "chk", merchant: "Netflix", category: "subscriptions" }),
+      ],
+      today,
+    );
+    expect(found.map((s) => s.id)).toEqual(["out:card:Netflix"]);
+  });
+
+  it("two charges a month apart long ago are a series that stopped", () => {
+    const found = detectRecurring(series("2025-03-10", 30.44, 2, -1499, { merchant: "Viaplay", category: "subscriptions" }), today);
+    expect(found).toMatchObject([{ merchant: "Viaplay", active: false }]);
+    expect(found.filter(isFixedCost)).toEqual([]);
   });
 });

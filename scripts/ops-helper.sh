@@ -382,40 +382,40 @@ fetch_release() {
   rm -f "$tmp"
   return 0
 }
-CHECK_MODE=""   # release | source
-UPDATE_AVAILABLE=false
-# Writes ops/check.frag. Returns 1 when the answer could not be had (offline), nothing else changes then.
+CHECK_MODE=""; UPDATE_AVAILABLE=false   # CHECK_MODE: release | source
+# Writes ops/check.frag from the answer already held (REL_TAG and REL_NOTES, or the local refs), never fetching, so
+# act_update can rewrite it after the switch. A rollback has no answer to rewrite and deletes the file instead.
+write_check_frag() {
+  local cur avail=false ver commits="" n=0 line hash subj
+  if [[ $CHECK_MODE == release ]]; then
+    ver=${REL_TAG#v}; cur=$(current_version || true); [[ -n $cur ]] && semver_gt "$ver" "$cur" && avail=true
+    printf '"update_available":%s,"latest_version":"%s","release_notes":%s,"checked_at":"%s"' "$avail" "$ver" "$(json_str "$REL_NOTES")" "$(now_iso)" >"$OPS/check.frag"
+    say_log "Latest release: $ver, running: ${cur:-?}."
+  else
+    while IFS= read -r line; do
+      hash=${line%% *}; subj=${line#* }; [[ $hash =~ ^[0-9a-f]{4,40}$ ]] || continue
+      commits+="${commits:+,}{\"hash\":\"$hash\",\"subject\":$(json_str "${subj:0:100}")}"; n=$((n + 1))
+    done < <(git log --format='%h %s' -30 "HEAD..origin/$(pol_get BRANCH)" 2>/dev/null | tr -d '\000-\010\013-\037\177')
+    ((n > 0)) && avail=true
+    printf '"update_available":%s,"behind_commits":[%s],"checked_at":"%s"' "$avail" "$commits" "$(now_iso)" >"$OPS/check.frag"
+    say_log "Source channel: ${n} new changes."
+  fi
+  UPDATE_AVAILABLE=$avail
+}
+# The network part, then write_check_frag. Returns 1 when the answer could not be had (offline), nothing else changes then.
 check_update() {
-  local cur iso channel avail=false ver commits="" n=0 line hash subj target branch
-  iso=$(now_iso); cur=$(current_version || true)
-  channel=$(env_get TALOUS_CHANNEL)
-  CHECK_MODE=source
+  local channel branch
+  channel=$(env_get TALOUS_CHANNEL); CHECK_MODE=source
   if [[ $channel != source ]]; then
     fetch_release || { say_log "Could not get release information (no network or GitHub does not answer)."; return 1; }
     [[ $REL_STATUS == ok ]] && CHECK_MODE=release
     if [[ $channel == release && $CHECK_MODE != release ]]; then say_log "TALOUS_CHANNEL=release but there are no releases yet."; return 1; fi
   fi
-  if [[ $CHECK_MODE == release ]]; then
-    ver=${REL_TAG#v}
-    if [[ -n $cur ]] && semver_gt "$ver" "$cur"; then avail=true; fi
-    printf '"update_available":%s,"latest_version":"%s","release_notes":%s,"checked_at":"%s"' "$avail" "$ver" "$(json_str "$REL_NOTES")" "$iso" >"$OPS/check.frag"
-    say_log "Latest release: $ver, running: ${cur:-?}."
-  else
-    git_policy || { say_log "$GIT_MSG."; return 1; }
-    branch=$(pol_get BRANCH)
+  if [[ $CHECK_MODE != release ]]; then
+    git_policy || { say_log "$GIT_MSG."; return 1; }; branch=$(pol_get BRANCH)
     timeout -k 5 "$T_CHECK" git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null || { say_log "Could not check the source (no network)."; return 1; }
-    target=$(git rev-parse "origin/$branch^{commit}" 2>/dev/null || true)
-    while IFS= read -r line; do
-      hash=${line%% *}; subj=${line#* }
-      [[ $hash =~ ^[0-9a-f]{4,40}$ ]] || continue
-      commits+="${commits:+,}{\"hash\":\"$hash\",\"subject\":$(json_str "${subj:0:100}")}"; n=$((n + 1))
-    done < <(git log --format='%h %s' -30 "HEAD..origin/$branch" 2>/dev/null | tr -d '\000-\010\013-\037\177')
-    ((n > 0)) && avail=true
-    printf '"update_available":%s,"behind_commits":[%s],"checked_at":"%s"' "$avail" "$commits" "$iso" >"$OPS/check.frag"
-    say_log "Source channel: ${n} new changes."
   fi
-  UPDATE_AVAILABLE=$avail
-  return 0
+  write_check_frag
 }
 # a line for the log of the running action (LOGF) or the helper log
 say_log() { if [[ -n ${LOGF:-} ]]; then printf '%s\n' "$*" >>"$LOGF"; else log "$*"; fi; }
@@ -495,6 +495,7 @@ act_update() {
       echo "STEP: 4/4 Valmis" >>"$LOGF"
       after=$(current_version || true)
       SUMMARY="Päivitetty: ${before:-?} → ${after:-?}."
+      write_check_frag   # the answer from before the switch says "available", and nothing fetches again until the daily check
     else
       fail "Päivitetty sovellus ei vastaa."; recover || SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."
     fi
@@ -515,7 +516,7 @@ act_rollback() {
   echo "STEP: 1/2 Palautetaan edellinen versio" >>"$LOGF"
   if run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes; then
     echo "STEP: 2/2 Tarkistetaan että sovellus vastaa" >>"$LOGF"
-    if wait_healthy 15; then SUMMARY="Edellinen versio palautettu: $(current_version || echo '?')."; rm -f "$OPS/RECOVERY.txt"
+    if wait_healthy 15; then SUMMARY="Edellinen versio palautettu: $(current_version || echo '?')."; rm -f "$OPS/RECOVERY.txt" "$OPS/check.frag" "$OPS/last-check"
     else fail "Palautettu sovellus ei vastaa."; write_recovery; fi
   else
     RC=$?

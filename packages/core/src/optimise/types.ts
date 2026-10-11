@@ -5,6 +5,7 @@
  */
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { QualitySignal } from "../analysis/data-quality.ts";
+import type { Insight } from "../analysis/insights/types.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
 import type { FollowUp } from "./outcome.ts";
 import type { FindingChange } from "./snapshot.ts";
@@ -315,12 +316,25 @@ export interface OptimiseData {
   areas: AreaView[];
   /** Active korkea and keskitaso findings with `decideBy` within 60 days, soonest first. */
   soon: Finding[];
-  /** Jo hoidossa. `finding` is null when the condition no longer shows in the data. */
+  /** Päätetyt, done. `finding` is null when the condition no longer shows in the data. */
   done: { state: FindingState; finding: Finding | null }[];
-  /** Ei koske meitä: dismissed findings that still show in the data. */
+  /** Päätetyt, Ei koske meitä: dismissed findings that still show in the data. */
   dismissed: { state: FindingState; finding: Finding }[];
+  /** Muut havainnot: the running month's insights no finding covers, largest yearly figure first (`others.ts`). */
+  others: Insight[];
+  /** Päätetyt, Ei koske meitä: insights dismissed at a figure within 25 % of today's. */
+  othersDismissed: DismissedInsight[];
   needed: NeededInput[];
   checked: { total: number; findings: number; unavailable: number };
+}
+
+/** An insight the household dismissed (Ei koske meitä) that stays hidden until its figure moves 25 %. */
+export interface DismissedInsight {
+  insight: Insight;
+  /** The mark that hides it (`alert:<id>@<yearlyCents>`); Peruuta takes this mark away. */
+  subject: string;
+  /** ISO timestamp of the mark. */
+  markedAt: string;
 }
 
 /** An input as the server stores and returns it: its full key and what the core keeps of it. */

@@ -222,15 +222,24 @@ function isSemimonthly(occ: readonly Occurrence[]): boolean {
   return firsts.length >= 2 && spread(firsts) <= 6 && spread(seconds) <= 6;
 }
 
+/**
+ * A subscriptions-category service bills one price every month, so a new one makes its series on the second charge,
+ * and the household sees it among its fixed costs a month sooner. Other monthly charges wait for a third: two equal
+ * shop visits or course fees a month apart happen by chance, and a service paid from another account before has
+ * moved, so its first two charges here are no new subscription.
+ */
+const secondChargeWillDo = (occ: readonly Occurrence[], cadence: CadenceDef, newService: boolean) =>
+  newService && occ.length === 2 && cadence.id === "monthly" && !amountsDiffer(occ[0]!.cents, occ[1]!.cents);
+
 /** Fits a fixed cadence to the occurrences, or returns null when they are not regular. */
-function fitCadence(occ: readonly Occurrence[]): { cadence: CadenceDef; regularity: number } | null {
+function fitCadence(occ: readonly Occurrence[], newService = false): { cadence: CadenceDef; regularity: number } | null {
   if (occ.length < 2) return null;
   const intervals: number[] = [];
   for (let i = 1; i < occ.length; i++) intervals.push(daysBetween(occ[i - 1]!.date, occ[i]!.date));
   const m = median(intervals);
   let cadence = CADENCES.find((c) => Math.abs(m - c.days) <= c.tolerance);
   if (cadence?.id === "biweekly" && m >= 13 && m <= 17 && isSemimonthly(occ)) cadence = SEMIMONTHLY;
-  if (!cadence || occ.length < cadence.minOccurrences) return null;
+  if (!cadence || (occ.length < cadence.minOccurrences && !secondChargeWillDo(occ, cadence, newService))) return null;
   let score = 0;
   for (const iv of intervals) {
     if (Math.abs(iv - cadence.days) <= cadence.tolerance * 1.5) score += 1;
@@ -431,6 +440,8 @@ function needsReview(s: RecurringSeries, otherPurchases: number): boolean {
  */
 export function detectRecurring(txs: readonly SeriesInput[], today: IsoDate): RecurringSeries[] {
   const groups = new Map<string, { id: string; merchant: string; direction: "in" | "out"; txs: SeriesInput[] }>();
+  // the household's first charge of each merchant on any account: a series that starts after it has moved, not started
+  const firstPaid = new Map<string, IsoDate>();
   for (const t of txs) {
     if (t.isTransfer || t.status !== "booked" || t.amountCents === 0 || t.merchant === UNKNOWN_MERCHANT) continue;
     if (NEVER_RECURRING.has(t.category) || getCategory(t.category).kind === "transfer") continue;
@@ -440,12 +451,15 @@ export function detectRecurring(txs: readonly SeriesInput[], today: IsoDate): Re
     const g = groups.get(key) ?? { id: key, merchant: t.merchant, direction, txs: [] };
     g.txs.push(t);
     groups.set(key, g);
+    const paid = `${direction}:${t.merchant}`;
+    if ((firstPaid.get(paid) ?? t.bookingDate) >= t.bookingDate) firstPaid.set(paid, t.bookingDate);
   }
 
   const result: RecurringSeries[] = [];
   for (const { id, merchant, direction, txs: group } of groups.values()) {
     if (group.length < 2) continue;
-    const found = seriesOfGroup(id, merchant, direction, group, today);
+    const back = direction === "out" ? (groups.get(seriesId({ direction: "in", accountId: group[0]!.accountId, merchant, product: null }))?.txs ?? []) : [];
+    const found = seriesOfGroup(id, merchant, direction, group, today, firstPaid.get(`${direction}:${merchant}`)!, back);
     const covered = new Set(found.flatMap((s) => s.transactionIds));
     const otherPurchases = group.filter((t) => !covered.has(t.id)).length;
     for (const s of found) s.review = needsReview(s, otherPurchases);
@@ -456,17 +470,7 @@ export function detectRecurring(txs: readonly SeriesInput[], today: IsoDate): Re
 
 /** Shops and restaurants are visited, not billed: varying amounts there are purchases, even monthly ones. */
 const SHOPPING_CATEGORIES = new Set([
-  "groceries",
-  "restaurants",
-  "food_delivery",
-  "alcohol",
-  "shopping",
-  "home",
-  "entertainment",
-  "travel",
-  "personal_care",
-  "gifts_donations",
-  "gambling",
+  "groceries", "restaurants", "food_delivery", "alcohol", "shopping", "home", "entertainment", "travel", "personal_care", "gifts_donations", "gambling",
 ]);
 const MIN_BILL_CHARGES = 4;
 /** Shops plus garages and clinics: paid per visit, so two equal charges are weak evidence of a schedule. */
@@ -483,12 +487,14 @@ function isBill(occ: readonly Occurrence[], fit: { cadence: CadenceDef }, catego
   return occ.length >= MIN_BILL_CHARGES && !SHOPPING_CATEGORIES.has(category);
 }
 
-function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", group: readonly SeriesInput[], today: IsoDate): RecurringSeries[] {
+/** `back`: money in from the merchant on the same account; a refund after the first charge leaves two charges unproven. */
+function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", group: readonly SeriesInput[], today: IsoDate, firstPaid: IsoDate, back: readonly SeriesInput[]): RecurringSeries[] {
   const occ = toOccurrences(group);
   const categoryOf = (rows: readonly SeriesInput[]) => mostCommon(rows.map((t) => t.category));
-  const fitted = fitCadence(occ);
-  const fit = fitted && isBill(occ, fitted, categoryOf(group), direction) ? fitted : null;
-  if (fit && isFixedAmount(occ)) return [buildSeries(id, merchant, categoryOf(group), direction, occ, fit, today)];
+  const category = categoryOf(group);
+  const fitted = fitCadence(occ, direction === "out" && category === "subscriptions" && firstPaid >= occ[0]!.date && !back.some((t) => t.bookingDate >= occ[0]!.date));
+  const fit = fitted && isBill(occ, fitted, category, direction) ? fitted : null;
+  if (fit && isFixedAmount(occ)) return [buildSeries(id, merchant, category, direction, occ, fit, today)];
   // Several fixed-price products from one merchant (Apple 0,99 + 12,99)
   // can look like one irregular or alternating series: split by amount.
   const products: RecurringSeries[] = [];
@@ -506,7 +512,7 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
   }
   const covered = sum(products.map((p) => p.transactionIds.length));
   if (products.length && covered >= 0.6 * group.length) return products;
-  if (fit) return [buildSeries(id, merchant, categoryOf(group), direction, occ, fit, today)];
+  if (fit) return [buildSeries(id, merchant, category, direction, occ, fit, today)];
   if (products.length) {
     // a fixed product among everyday purchases: report both
     const inProducts = new Set(products.flatMap((p) => p.transactionIds));

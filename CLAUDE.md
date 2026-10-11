@@ -37,7 +37,8 @@ next releases are in `.claude/plan/` (private repo only).
   `yearlyCents`, and a dismissed insight returns when its figure moves 25 %. `optimise/` is the Optimoi page: `index.ts`
   applies the rules every finding follows (complete months, the 120 € gate, certainty, three per area, a headline
   without overlaps), `areas/` has one file per area, `facts/` dated outside figures that expire, `inputs.ts` what the
-  user types in, `outcome.ts` and `snapshot.ts` the follow-up.
+  user types in, `outcome.ts` and `snapshot.ts` the follow-up, `others.ts` the insights it shows as Muut havainnot (minus
+  any a finding already tells).
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
   `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` and `db/finance/` (all SQL),
@@ -76,7 +77,9 @@ next releases are in `.claude/plan/` (private repo only).
   `/api/expected-bills`) are read per request (`requestInputs`) and are not part of the cached context. So are the
   Optimoi inputs, decisions and snapshots (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never
   reprocesses.
-- `category_source = 'user'` is never overwritten by automation.
+- `category_source = 'user'` is never overwritten by automation. Likewise `accounts.custom_name` (the user's name for an
+  account) is written only by `PATCH /accounts/:id`; `accounts.name` is the bank's and every link rewrites it.
+  `StoredAccount.name` is the display name (the user's, else the bank's); matching reads the bank's (`bankName`).
 - Every money movement lands in exactly one flow (consumption, debt, saved, income, borrowed) or is a
   transfer. A card bill is a transfer when that card's account is connected. See `docs/MONEY_FLOWS.md`.
 - The app secret is a file (`APP_SECRET_FILE`, created on first start by `entry/app-secret.ts`, Docker volume

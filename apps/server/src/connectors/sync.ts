@@ -5,7 +5,7 @@
  */
 import { addDays, type RawTransaction } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
-import type { Connection } from "../db/rows.ts";
+import type { Connection, StoredAccount } from "../db/rows.ts";
 import { UserError } from "../platform/errors.ts";
 import { track } from "../platform/inflight.ts";
 import type { Services } from "../services/context.ts";
@@ -15,7 +15,7 @@ import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
-import type { Connector } from "./types.ts";
+import type { Connector, PullAccount, Puller } from "./types.ts";
 
 /** "2026-09-30" → "30.9.2026" */
 const finnishDate = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
@@ -55,6 +55,8 @@ interface Tally {
   /** Rows written, or a balance that moved: only then do categories and the cached analyses need work. */
   rowsChanged: number;
   balanceChanged: boolean;
+  /** An account's name, holder, card number or limit was read again (the account list changed, no row did). */
+  accountsChanged: boolean;
   /** Per account, what its fetch ran into (fetch-problems.ts); a fetch that works takes its entry away. */
   problems: FetchProblems;
   problemsChanged: boolean;
@@ -78,7 +80,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string): Promi
   const repo = s.finance(userId);
   const runId = await repo.startSyncRun(trigger);
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
-  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, problems: {}, problemsChanged: false };
+  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, accountsChanged: false, problems: {}, problemsChanged: false };
 
   try {
     tally.problems = await readFetchProblems(s, userId);
@@ -91,7 +93,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string): Promi
 
     // a fetch that found nothing new leaves the history and everyone's cached analyses alone
     if (tally.rowsChanged) await reprocess(repo, s.settings);
-    else if (tally.balanceChanged) await s.settings.bumpUserDataVersion(userId);
+    else if (tally.balanceChanged || tally.accountsChanged) await s.settings.bumpUserDataVersion(userId);
     // the hourly tick looks up right after its own fetches, for everyone at once
     if (summary.inserted && trigger !== "schedule") startLookup(s);
     summary.status = tally.failures === 0 ? "ok" : tally.failures < tally.attempts ? "partial" : "failed";
@@ -179,6 +181,7 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         }
         await repo.markAccountSynced(account.id, s.now().toISOString());
         setProblem(tally, account.id, null);
+        await readDetails(repo, puller, account, target, tally);
       } catch (err) {
         tally.failures++;
         const problem = sync.classify(err);
@@ -206,6 +209,24 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
       }
     }
     await repo.markConnectionSynced(conn.id, s.now().toISOString());
+  }
+}
+
+/**
+ * An account linked before the bank's own name, holder, card number and limit were stored asks the bank once, after its
+ * transactions. Best effort: a refusal, a rate limit or a failure leaves the account as it is (the holder stays unread)
+ * and the next fetch asks again, and none of it counts against the fetch.
+ */
+async function readDetails(repo: FinanceRepo, puller: Puller, account: StoredAccount, target: PullAccount, tally: Tally): Promise<void> {
+  if (!puller.details || account.holder !== null) return;
+  try {
+    const d = await puller.details(target);
+    await repo.setAccountBankDetails(account.id, d);
+    // a card is matched to its bills by the bank's name, so a new one means the transfers are worked out again
+    if (account.type === "credit_card" && d.name !== null && d.name !== account.bankName) tally.rowsChanged++;
+    else tally.accountsChanged = true;
+  } catch {
+    // retried at the next fetch
   }
 }
 

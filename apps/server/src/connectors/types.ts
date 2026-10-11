@@ -41,11 +41,22 @@ export type SyncProblem =
   /** The source answered with an error. The message is short and safe to show. */
   | { kind: "upstream"; message: string };
 
+/** What a source says about an account itself, as the link reads it. A field the source does not give is null. */
+export interface AccountDetails {
+  /** The source's own name for the account; null when it names nothing. */
+  name: string | null;
+  holder: string | null;
+  cardMask: string | null;
+  creditLimitCents: number | null;
+}
+
 /** One sync run's access to a source. Created once per run, after the loop knows there is something to fetch. */
 export interface Puller {
   transactions(account: PullAccount, window: PullWindow): Promise<RawTransaction[]>;
   /** The balance in cents, or null when the source reports none. */
   balance(account: PullAccount): Promise<number | null>;
+  /** What the source says about the account, for one linked before these fields were stored. May throw: the loop goes on. */
+  details?(account: PullAccount): Promise<AccountDetails>;
 }
 
 /** Only a connector that fetches by itself has this. A file import does not. */

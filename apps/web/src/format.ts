@@ -119,3 +119,20 @@ export const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   loan: "Laina",
   other: "Muu",
 };
+
+/** An IBAN in groups of four, "FI21 1234 5600 0007 85". A missing one gives "". */
+export function formatIban(iban: string | null | undefined): string {
+  return (iban ?? "").replace(/\s+/g, "").toUpperCase().replace(/(.{4})(?=.)/g, "$1 ");
+}
+
+/** What tells accounts of one holder apart: the IBAN in groups of four, else a card's masked number, else "". */
+export function accountNumber(a: { iban: string | null; cardMask?: string | null }): string {
+  return a.iban ? formatIban(a.iban) : (a.cardMask ?? "");
+}
+
+/** "Luottoraja 2 000 €, käytössä 340 €"; the used part only when the balance is below zero. Null without a limit. */
+export function creditLine(a: { creditLimitCents?: number | null; balanceCents: number | null }): string | null {
+  if (!a.creditLimitCents || a.creditLimitCents <= 0) return null;
+  const used = a.balanceCents !== null && a.balanceCents < 0 ? `, käytössä ${money(-a.balanceCents, false)}` : "";
+  return `Luottoraja ${money(a.creditLimitCents, false)}${used}`;
+}

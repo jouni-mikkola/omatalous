@@ -8,8 +8,8 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { AccountType, CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, MarkKind, Transaction } from "@banking/core";
-import { AccountsRepo, type NewAccount } from "./finance/accounts.ts";
+import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, MarkKind, Transaction } from "@banking/core";
+import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
@@ -62,7 +62,8 @@ export class FinanceRepo {
   listAccounts() { return this.accounts.listAccounts(); }
   getAccount(id: string) { return this.accounts.getAccount(id); }
   upsertAccount(a: NewAccount) { return this.accounts.upsertAccount(a); }
-  updateAccount(id: string, patch: { name?: string; type?: AccountType }) { return this.accounts.updateAccount(id, patch); }
+  updateAccount(id: string, patch: AccountPatch) { return this.accounts.updateAccount(id, patch); }
+  setAccountBankDetails(id: string, d: Parameters<AccountsRepo["setAccountBankDetails"]>[1]) { return this.accounts.setAccountBankDetails(id, d); }
   setAccountIbanIfMissing(id: string, iban: string) { return this.accounts.setAccountIbanIfMissing(id, iban); }
   deleteAccount(id: string) { return this.accounts.deleteAccount(id); }
   transactionsOfAccount(accountId: string) { return this.accounts.transactionsOfAccount(accountId); }

@@ -2,23 +2,31 @@ name: CI
 
 # shell, js, e2e and docker run side by side. ci-ok is the one check that says whether all of them passed, so a job
 # added or renamed here changes nothing outside this file.
+#
+# The public repository runs CI on every push, which is free. The private one pays for its minutes, so a push there
+# skips every job, ci-ok included. It runs CI on a pull request and by hand (workflow_dispatch), which release.sh does
+# for the release commit and the baseline commit. A landing has run the same checks locally already (tools/lead/land.sh).
+# The skipped check runs a push leaves answer nothing: tools/ci/wait.sh ignores them.
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 # A newer push to a branch or pull request makes the older run pointless, so it is cancelled. Every push to main runs
 # to the end: the run id in its group name keeps two pushes from queueing behind each other, where GitHub would drop
-# the older one.
+# the older one. The event is in the name too: in the private repository a push to the branch starts a skipped run that
+# would otherwise cancel the dispatched run of the same branch.
 concurrency:
-  group: ci-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   shell:
     # no Node: the checks that need no install run first and fastest
+    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,6 +51,7 @@ jobs:
           done
 
   js:
+    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -69,6 +78,7 @@ jobs:
 
   e2e:
     # the built app in a real browser: every page at desktop and phone width, no console or network errors
+    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -86,6 +96,7 @@ jobs:
       - run: pnpm e2e
 
   docker:
+    if: ${{ github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -152,8 +163,8 @@ jobs:
           INSTANCE_NAME=ci-b COMPOSE_PROJECT_NAME=ci-b HOST_PORT=8082 docker compose down -v
 
   ci-ok:
-    # fails when any job failed, was cancelled or did not run
-    if: ${{ always() }}
+    # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (a private push).
+    if: ${{ always() && (github.event_name != 'push' || github.repository != 'jouni-mikkola/banking-app') }}
     needs: [shell, js, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 15

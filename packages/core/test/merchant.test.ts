@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isMobilePay } from "../src/industry.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 
 describe("normalizeMerchant", () => {
@@ -25,6 +26,26 @@ describe("normalizeMerchant", () => {
   it("prefers counterparty, falls back to description", () => {
     expect(normalizeMerchant("", "NETFLIX.COM")).toBe("Netflix");
     expect(normalizeMerchant(null, null)).toBe("Tuntematon");
+  });
+});
+
+describe("MobilePay", () => {
+  it("strips the prefix MobilePay puts before a shop, so the shop is the merchant it is when paid by card", () => {
+    expect(normalizeMerchant(null, "MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI")).toBe("Storytel");
+    expect(normalizeMerchant(null, "MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI")).toBe(normalizeMerchant(null, "KORTTIOSTO 4581XXXXXXXX2241 STORYTEL OY HELSINKI"));
+    expect(normalizeMerchant(null, "MOB.PAY*KAHVILA ILO 4F2A9B TAMPERE")).toBe("Kahvila Ilo");
+    expect(normalizeMerchant("MOB.PAY*KAHVILA ILO", null)).toBe("Kahvila Ilo");
+  });
+
+  it("keeps a payment to a person what it was, and a shop paid by MobilePay is no payment to a person", () => {
+    expect(normalizeMerchant("EMMA KORHONEN", "MOBILEPAY")).toBe("Emma Korhonen");
+    expect(isMobilePay({ counterparty: "EMMA KORHONEN", description: "MOBILEPAY" })).toBe(true);
+    expect(isMobilePay({ counterparty: null, description: "MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI" })).toBe(false);
+  });
+
+  it("leaves a name that only starts like the prefix", () => {
+    expect(normalizeMerchant(null, "MOBILIA OY TAMPERE")).toBe("Mobilia Oy");
+    expect(normalizeMerchant(null, "MOBPAYTECH OY")).toBe("Mobpaytech Oy");
   });
 });
 

@@ -65,11 +65,31 @@ check "exit 1 as soon as a named check fails" test $rc -eq 1 -a "$(calls)" -eq 1
 [[ $out == *"FAILED ci-ok: failure https://github.com/o/r/runs/11"* ]] && pass "names the failed check and its address" || fail "names the failed check and its address" "$out"
 [[ $out == *"not finished: upgrade-ok(in_progress)"* ]] && pass "names what was still running" || fail "names what was still running" "$out"
 
+# a push to the private repository leaves a skipped ci-ok; the dispatched run of the same commit is the answer
+reset
+put 1 "$(doc "$(run_json ci-ok completed skipped 11)")"
+out=$(PATH="$STUB:$PATH" bash "$WAIT" --repo o/r --interval 0 --timeout 0 "$SHA" ci-ok 2>&1); rc=$?
+check "a skipped check is no answer: it is pending, never green and never red" test $rc -eq 2
+[[ $out == *"still waiting for: ci-ok(skipped)"* && $out == *"workflow_dispatch"* ]] && pass "says only a skipped run exists and what starts the real one" || fail "says only a skipped run exists and what starts the real one" "$out"
+reset
+put 1 "$(doc "$(run_json ci-ok completed skipped 11)")"
+put 2 "$(doc "$(run_json ci-ok completed skipped 11)" "$(run_json ci-ok queued '' 15)")"
+put 3 "$(doc "$(run_json ci-ok completed skipped 11)" "$(run_json ci-ok completed success 15)")"
+out=$(wait_sh "$SHA" ci-ok); rc=$?
+check "it polls past the skipped run until the dispatched one has completed" test $rc -eq 0 -a "$(calls)" -eq 3
+reset
+put 1 "$(doc "$(run_json ci-ok completed success 11)" "$(run_json ci-ok completed skipped 15)")"
+out=$(wait_sh "$SHA" ci-ok); rc=$?
+check "a skipped run newer than a green one does not take its place" test $rc -eq 0
+reset
+put 1 "$(doc "$(run_json ci-ok completed skipped 11)" "$(run_json ci-ok completed failure 15)")"
+out=$(wait_sh "$SHA" ci-ok); rc=$?
+check "a dispatched run that failed is red beside a skipped one" test $rc -eq 1
 reset
 put 1 "$(doc "$(run_json ci-ok completed cancelled 11)" "$(run_json upgrade-ok completed skipped 12)")"
 out=$(wait_sh "$SHA" ci-ok upgrade-ok); rc=$?
-check "a skipped check is not green, and with a cancelled one the failure wins: exit 1" test $rc -eq 1
-[[ $out == *"CANCELLED ci-ok https://github.com/o/r/runs/11 (superseded by a newer push?)"* && $out == *"FAILED upgrade-ok: skipped"* ]] && pass "names both" || fail "names both" "$out"
+check "a cancelled check beside a skipped one is exit 3" test $rc -eq 3
+[[ $out == *"CANCELLED ci-ok https://github.com/o/r/runs/11 (superseded by a newer run?)"* && $out == *"not finished: upgrade-ok(skipped)"* ]] && pass "names the cancelled check and the skipped one" || fail "names the cancelled check and the skipped one" "$out"
 
 reset
 put 1 "$(doc "$(run_json ci-ok completed cancelled 11)" "$(run_json upgrade-ok completed success 12)")"

@@ -11,7 +11,7 @@ import { addDays, daysBetween } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { historyCovers, netPurchase, recurringAt } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER } from "./shared.ts";
+import { answeredSubscriptions, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 /** A charge that started this many days before the end is new. */
@@ -28,6 +28,8 @@ const price = (cents: number) => formatEur(cents, cents % 100 !== 0);
 
 export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[] {
   const cancelled = cancelledMerchants(inputs);
+  // a new charge the household answered (Lopetettu or Käytössä) is known to them
+  const answered = answeredSubscriptions(inputs, ctx.today);
   const now = recurringAt(ctx, end);
   const out: Insight[] = [];
   const told = new Set<string>();
@@ -65,7 +67,7 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     return s.kind === "subscription" && s.active && !isLender(s.merchant) && MONTHLY_OR_LONGER.has(s.cadence ?? "") && (kind === "expense" || kind === "debt");
   };
   for (const s of now) {
-    if (!isNew(s) || told.has(s.id) || cancelled.has(s.merchant) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS) continue;
+    if (!isNew(s) || told.has(s.id) || settledBy(answered.get(s.merchant), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS) continue;
     if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
     const trial = ctx.txs.find(
       (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,

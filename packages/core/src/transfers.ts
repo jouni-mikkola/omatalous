@@ -69,7 +69,7 @@ function cardNames(accounts: readonly Account[]): CardName[] {
   return accounts
     .filter((a) => a.type === "credit_card")
     .map((a) => {
-      const all = wordsOf(fold(a.name));
+      const all = wordsOf(fold(a.bankName ?? a.name));
       return { all: new Set(all), words: new Set(all.filter((w) => w.length >= 2 && !GENERIC_CARD_WORDS.has(w) && !/^\d+$/.test(w))) };
     })
     .filter((c) => c.words.size > 0);

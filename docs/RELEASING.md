@@ -26,6 +26,25 @@ merged in the public one makes the next snapshot refuse to push.
 Snapshots are signed when git is set to sign commits. The release channel does not need that, it checks the image
 signature. An install with `ops/allowed_signers` does, so sign them before such an install updates.
 
+## When CI runs
+
+The private repository pays for its Actions minutes (2,000 a month), so a push there runs nothing. `ci.yml` skips every
+job, `ci-ok` included, when the event is a push and the repository is the private one. The public repository runs CI on
+every push, which is free.
+
+| Workflow | Private repository | Public repository |
+|---|---|---|
+| `ci.yml` (about 9 billed minutes) | a pull request, or `workflow_dispatch` (`release.sh` starts it for the release commit and the baseline commit) | every push and pull request, and by hand |
+| `upgrade.yml` (about 30 billed minutes) | a pull request that touches migrations, the upgrade code, scripts or the Docker files, or `workflow_dispatch` (`release.sh` starts it for the release commit). No schedule, no push trigger. | not published |
+| `branches.yml` (one billed minute) | every Monday, a push to `main` and by hand | not published |
+
+`tools/lead/land.sh` runs check, build and e2e before a landing, and `release.sh` runs the whole gate before it pushes a
+release. Dependabot pull requests run CI like any other.
+
+A push to the private repository leaves a skipped `ci-ok` on its commit. `tools/ci/wait.sh` ignores skipped check runs,
+so only a run that did the work answers for a commit. The concurrency group of `ci.yml` names the event, so that skipped
+run never cancels a dispatched one.
+
 ## One command
 
 Steps 1 and 2 of the list below stay with you: land the work, and for a schema change write the contract and the
@@ -39,7 +58,7 @@ tools/release/release.sh X.Y.Z --trailer "Co-Authored-By: ..." --trailer "Claude
 runs the checks, prints the plan and changes nothing.
 
 Before it does anything it refuses, with exit 2 and the tree untouched: a dirty tree, a branch that is `main` or
-`release/*` (a push to `release/*` starts the rehearsal twice, and the git proxy cannot delete the branch afterwards),
+`release/*` (the git proxy cannot delete a `release/*` branch afterwards), no `pnpm`,
 no fragments, a version that is not above the current one, a release with new migrations and no `upgrade:` line or no
 `contracts/X.Y.Z/schema.sql` (all of these are `prepare.mjs X.Y.Z --check-docs`), a public clone that is missing or dirty
 and a `gh` that cannot read the private repository. It then runs these steps. Each prints one line when it starts and
@@ -49,24 +68,28 @@ one when it ends, with the time, and keeps its output in a log in the temp folde
 |---|---|---|
 | `prepare` | `node tools/release/prepare.mjs X.Y.Z` | the version files and the CHANGELOG say X.Y.Z |
 | `commit` | `tools/commit.sh -m "Release X.Y.Z"` with the trailers | HEAD holds X.Y.Z |
+| `gate` | `pnpm check`, `pnpm build`, `pnpm e2e` on HEAD, with no `--changed` (e2e needs a Playwright Chromium) | the gate passed for HEAD before |
 | `push` | `git push origin HEAD:refs/heads/<branch>` | origin has HEAD |
-| `rehearsal` | `gh workflow run upgrade.yml --ref <branch>` | a run of `upgrade.yml` exists for HEAD |
+| `rehearsal` | `gh workflow run upgrade.yml --ref <branch>` and `gh workflow run ci.yml --ref <branch>` | each has a run for HEAD that is no push run and not cancelled |
 | `ci` | `tools/ci/wait.sh <HEAD> ci-ok upgrade-ok` | never (it returns at once when green) |
 | `ship` | `tools/release/ship.sh --ci-checked` | the public `main` holds X.Y.Z |
 | `release-run` | `gh run watch --exit-status` on the public `release.yml` run of the pushed commit | the release exists, or that run succeeded |
 | `pull` | `tools/ci/verify-release.sh --pull X.Y.Z` | never |
 | `latest` | `/releases/latest` names vX.Y.Z, or vX.Y.Z is a pre-release | never |
 | `baseline` | the "# X.Y.Z" lines in `.github/upgrade-from.txt`, committed and pushed to the branch | the file has them and origin has the commit |
-| `baseline-ci` | `tools/ci/wait.sh <that commit> ci-ok` | `main` has the commit |
+| `baseline-ci` | `gh workflow run ci.yml --ref <branch>`, then `tools/ci/wait.sh <that commit> ci-ok` | `main` has the commit (the dispatch alone is left out when `ci.yml` has a run for it) |
 | `main` | `git push origin HEAD:main`, forward only | `main` has the commit |
 
-Once the public repo holds X.Y.Z, `push`, `rehearsal` and `ci` are skipped too. The baseline line names the private commit
-that the public snapshot's message names.
+Once the public repo holds X.Y.Z, `gate`, `push`, `rehearsal` and `ci` are skipped too. The baseline line names the
+private commit that the public snapshot's message names.
 
 A failure names the step, the command, the last lines of its output and what to do, and exits 1. Fix it and run the
 same command again: what is done is skipped and it carries on. `--from STEP` starts at STEP and does not look at the
-earlier steps, for a step you did by hand. A red CI is fixed with a new commit on the branch, which the next run pushes
-and rehearses again. A failed public run is repeated on GitHub with *Re-run failed jobs*, and the next run watches it.
+earlier steps, for a step you did by hand. A red gate or a red CI is fixed with a new commit on the branch, which the
+next run gates, pushes and starts in CI again. A cancelled run does not count as a run, so the next run starts it again.
+A dispatch that fails usually means the workflow has no `workflow_dispatch` on that branch or on `main`: start it from
+the Actions tab (*Run workflow*, pick the branch) and run again, which finds that run. A failed public run is repeated
+on GitHub with *Re-run failed jobs*, and the next run watches it.
 
 It never pushes a tag, never deletes a branch and never forces a push, because the git proxy refuses the first two and
 the public workflow makes the tag. It edits no README, CLAUDE.md or docs. Left to you: the docs for the release,
@@ -98,12 +121,12 @@ The same steps one by one, for a step you run yourself or a failure you want to 
    private repository has no tags, so the last release is the newest commit in `.github/upgrade-from.txt` (`--since REF`
    names another). `--check-docs` runs every check and also wants `contracts/X.Y.Z/schema.sql` when migrations were
    added, and writes nothing. Read the diff and commit it as `Release X.Y.Z`.
-4. Push the commit to your session branch and start the rehearsal with
-   `gh workflow run upgrade.yml --ref <branch> -R jouni-mikkola/banking-app`. CI starts by itself on the push and runs
-   beside it. (A push to a `release/X.Y.Z` branch starts both by itself, but the git proxy cannot delete that branch
-   afterwards, so `release.sh` does not use one.) `ci-ok` and `upgrade-ok` must both be green. The rehearsal updates every baseline, and it checks that each baseline's
+4. Run `pnpm check`, `pnpm build` and `pnpm e2e` on the commit, push it to your session branch and start both workflows
+   with `gh workflow run upgrade.yml --ref <branch> -R jouni-mikkola/banking-app` and the same for `ci.yml`. A push
+   starts neither. (`release.sh` does not use a `release/X.Y.Z` branch, because the git proxy cannot delete it
+   afterwards.) `ci-ok` and `upgrade-ok` must both be green. The rehearsal updates every baseline, and it checks that each baseline's
    maintenance helper accepts the new `docker-compose.yml`, because installs update from the browser through the helper
-   they already run (`tools/ci/compose-compat.sh`). `pnpm e2e` is part of CI. `tools/ci/wait.sh <sha> ci-ok upgrade-ok`
+   they already run (`tools/ci/compose-compat.sh`). `pnpm e2e` is part of CI too. `tools/ci/wait.sh <sha> ci-ok upgrade-ok`
    waits for both (exit 0 green, 1 a check failed, 2 CI cannot be read or the time ran out).
 5. Run `tools/release/ship.sh` from a clean tree on that commit. It reads `ci-ok` and `upgrade-ok` itself with
    `wait.sh` and stops on a red or unreadable CI. `--ci-checked` says you read both another way, where `gh` cannot
@@ -118,7 +141,7 @@ The same steps one by one, for a step you run yourself or a failure you want to 
    tag and leaves the release to the tag's run. `ship.sh` does not use it.
 7. After the release, add the private commit it was published from to `.github/upgrade-from.txt` and keep the oldest
    supported one. The floor is `90dc8f3` (`0.1.0`). Delete the `release/X.Y.Z` branch if you used one. Commit the line,
-   push it and wait for its `ci-ok`, then push the commit to `main`.
+   push it, start `ci.yml` on the branch and wait for its `ci-ok`, then push the commit to `main`.
 8. Wait for the release workflow in the public repository. When it finishes, run `tools/ci/verify-release.sh --pull X.Y.Z`
    (an anonymous pull token, a manifest for amd64 and arm64), press *Tarkista päivitykset* on a test install, then *Päivitä*.
 9. `TALOUS_CHANNEL=source` keeps an install on the source build. An install made from the `90dc8f3` baseline updates once
@@ -133,8 +156,8 @@ This applies to the public repository. The private one only needs CI and the upg
 - [ ] Publish the first snapshot with `tools/publish-public.sh`. It creates `main`, the default branch, and the
   release workflow only accepts a tag on a commit that is on `main`.
 - [ ] Optional hardening, for when someone else gets write access: a ruleset for `main` that blocks force pushes and
-  deletion and requires linear history. Only the owner pushes, from the script, so no pull request is required there. In the private repository, protect its `main` with the check `ci-ok`. The
-  rehearsal runs on release branches, so read `upgrade-ok` there before `ship.sh`.
+  deletion and requires linear history. Only the owner pushes, from the script, so no pull request is required there. In the private repository, protect its `main` with the check `ci-ok`. `release.sh`
+  starts CI and the rehearsal on the session branch, so read `ci-ok` and `upgrade-ok` there before `ship.sh`.
 - [ ] Optional hardening: a ruleset for tags `v*` where only the owner creates them, with no updates and no deletion.
 - [ ] Secret scanning with push protection and Dependabot alerts. Leave Dependabot security updates off there and fix
   alerts in the private repository, where version and security updates run.

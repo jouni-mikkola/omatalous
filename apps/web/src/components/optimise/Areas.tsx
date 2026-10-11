@@ -1,9 +1,11 @@
-/** Alueet: up to three findings per area, and for an area with none, the list of what was checked (`quiet`, off while the history is short). */
+/**
+ * Alueet: up to three findings per area. The areas with none fold into one line with what was checked behind it
+ * (`quiet`, off while the history is short).
+ */
 import type { AreaView, Check, IsoDate } from "@banking/core";
 import { plural } from "../../format.ts";
 import type { Scope } from "../../types.ts";
 import { FindingCard } from "./FindingCard.tsx";
-import { Section } from "../Section.tsx";
 import type { Changed } from "./shared.tsx";
 
 const goToInputs = () => document.getElementById("tiedot")?.scrollIntoView({ behavior: "smooth" });
@@ -96,8 +98,11 @@ function AreaCard({ area, above, today, scope, onChanged }: { area: AreaView; ab
   );
 }
 
-/** `above` holds the ids of findings already shown under Seuraavat 60 päivää, so none appears twice. */
-export function Areas({ areas, above, today, scope, onChanged, quiet: listQuiet }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed; quiet: boolean }) {
+/**
+ * `above` holds the ids of findings already shown under Seuraavat 60 päivää, so none appears twice. `checked` is the
+ * count Tilanne says, so the fold line and Tilanne name one figure.
+ */
+export function Areas({ areas, above, today, scope, onChanged, quiet: listQuiet, checked }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed; quiet: boolean; checked: number }) {
   const withFindings = areas.filter((a) => a.findings.length > 0);
   const quiet = listQuiet ? areas.filter((a) => a.findings.length === 0 && (a.checks.length > 0 || a.summary)) : [];
   if (!withFindings.length && !quiet.length) return null;
@@ -108,17 +113,20 @@ export function Areas({ areas, above, today, scope, onChanged, quiet: listQuiet 
         <AreaCard key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} />
       ))}
       {quiet.length > 0 && (
-        <Section id="alueet-hiljaa" title="Alueet ilman löydöksiä">
+        <details className="card quiet-fold" id="alueet-hiljaa">
+          <summary>
+            Tarkistettu {plural(checked, "asia", "asiaa")}, {plural(quiet.length, "alue", "aluetta")} ilman löydöksiä
+          </summary>
           <div className="quiet-areas">
             {quiet.map((a) => (
-              <div key={a.id} className="quiet-area">
-                <h3>{a.label}</h3>
+              <section key={a.id} className="quiet-area" aria-labelledby={`hiljaa-${a.id}-h`}>
+                <h3 id={`hiljaa-${a.id}-h`}>{a.label}</h3>
                 <Checks checks={a.checks} shownKinds={kindsOf(a)} more={a.more} />
                 <Summary area={a} />
-              </div>
+              </section>
             ))}
           </div>
-        </Section>
+        </details>
       )}
     </>
   );

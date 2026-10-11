@@ -7,7 +7,10 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 export interface Account {
   id: string;
+  /** What the household sees: the user's own name for the account when they gave one. */
   name: string;
+  /** The bank's own name for the account. A credit card is matched to its bills by this name, so renaming it changes nothing. */
+  bankName?: string;
   iban: string | null;
   currency: string;
   type: AccountType;

@@ -3,7 +3,9 @@
  * year), Spotify 11,99 € and Tidal 10,99 € a month (dropping Tidal saves 131,88 € a year) and a Storytel yearly
  * subscription of 189 € that renews on 14.11.2026. Near misses: a 4 % rise, a family plan gaining a line (39,80 € →
  * 59,70 €, over 30 %), a phone bill that doubled, one video service, two music services under the gate, a renewal in 61 days, a renewal marked cancelled and a renewal of 119,95 €.
+ * Answered on Laskut: the rise marked Käytössä after the new price, both music services and the renewal marked Käytössä.
  */
+import type { UserInputs } from "../../../src/types.ts";
 import { addMonths, daysInMonth, monthRange } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Transaction } from "../../../src/types.ts";
@@ -50,6 +52,9 @@ export const hit: Part["hit"] = (frame) => {
   return { txs: out };
 };
 
+/** The household's answer on Laskut for each merchant, given on `day`. */
+const inUse = (day: string, ...merchants: string[]): UserInputs => ({ marks: merchants.map((m) => ({ subject: `merchant:${m}`, mark: "in_use", markedAt: `${day}T12:00:00` })), expectedBills: [] });
+
 export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => {
   const rise = rows("sub-rise");
   // 25,00 € → 26,00 €: 1 € but 4 %
@@ -76,6 +81,14 @@ export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => {
   // 119,95 € a year, under the 120 € gate; a twelfth rounded back up to a year would read 120,00 €
   under.add("2024-11-14", -11995, "Storytel", "STORYTEL");
   under.add("2025-11-14", -11995, "Storytel", "STORYTEL");
+  const kept = rows("sub-kept");
+  monthly(kept.add, frame, "2025-03", 12, "Elisa", "ELISA OYJ LASKU", (m) => (m < "2026-03" ? 4490 : 5690));
+  const both = rows("sub-both");
+  monthly(both.add, frame, frame.months[0]!, 8, "Spotify", "SPOTIFY", () => 1199);
+  monthly(both.add, frame, frame.months[0]!, 20, "Tidal", "TIDAL", () => 1099);
+  const renewing = rows("sub-renewing");
+  renewing.add("2024-11-14", -18900, "Storytel", "STORYTEL");
+  renewing.add("2025-11-14", -18900, "Storytel", "STORYTEL");
   return [
     { txs: rise.out },
     { txs: family.out },
@@ -85,6 +98,10 @@ export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => {
     { txs: later.out },
     { txs: cancelled.out, inputs: { marks: [{ subject: "merchant:Storytel", mark: "cancelled", markedAt: "2026-10-01T12:00:00" }], expectedBills: [] } },
     { txs: under.out },
+    // Käytössä a month after the rise: the household keeps the new price
+    { txs: kept.out, inputs: inUse("2026-04-12", "Elisa") },
+    { txs: both.out, inputs: inUse("2026-10-01", "Spotify", "Tidal") },
+    { txs: renewing.out, inputs: inUse("2026-01-10", "Storytel") },
   ];
 };
 

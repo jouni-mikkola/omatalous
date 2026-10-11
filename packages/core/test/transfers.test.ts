@@ -71,3 +71,20 @@ describe("detectTransfers pairing window", () => {
     expect(performance.now() - started).toBeLessThan(1000);
   });
 });
+
+describe("a credit card is matched to its bills by the bank's name", () => {
+  const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" };
+  const bill = tx({ id: "bill", accountId: "chk", bookingDate: "2026-09-20", amountCents: -12000, description: "NORDEA GOLD LASKU", counterparty: "NORDEA RAHOITUS SUOMI OY", category: "card_bill", categorySource: "rule" });
+
+  it("a card the user renamed without its issuer word still matches", () => {
+    const card: Account = { id: "card", name: "Matkakortti", bankName: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" };
+    expect(detectTransfers([bill], [checking, card]).has("bill")).toBe(true);
+    // the same rename without the bank's name known is what broke matching
+    expect(detectTransfers([bill], [checking, { ...card, bankName: undefined }]).has("bill")).toBe(false);
+  });
+
+  it("the user's name does not make a bill match a card of another issuer", () => {
+    const card: Account = { id: "card", name: "Nordea Gold", bankName: "OP Visa", iban: null, currency: "EUR", type: "credit_card" };
+    expect(detectTransfers([bill], [checking, card]).has("bill")).toBe(false);
+  });
+});

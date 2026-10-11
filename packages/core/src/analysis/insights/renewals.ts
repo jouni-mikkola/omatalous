@@ -3,13 +3,13 @@
  * Only the subscription set (`isSubscription`): insurance and memberships are contracts, and the annual costs report
  * lists other yearly bills. A yearly series needs two charges before it has a next date (recurring.ts).
  */
-import { cancelledMerchants, isSubscription } from "../../commitments.ts";
+import { isSubscription } from "../../commitments.ts";
 import { addDays } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { UserInputs } from "../../types.ts";
 import type { AnalysisContext } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { capitalise, countWord, ITEM_GATE_MONTHLY_CENTS } from "./shared.ts";
+import { answeredSubscriptions, capitalise, countWord, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 const RENEW_DAYS = 45;
@@ -19,7 +19,8 @@ const NOUN = { yearly: ["vuositilaus", "vuositilausta"], semiannual: ["puolivuot
 export const isLongSubscription = (s: RecurringSeries) => isSubscription(s) && (s.cadence === "yearly" || s.cadence === "semiannual");
 
 /**
- * Series with a next charge from today to `days` ahead, soonest first, merchants marked cancelled left out. No gate:
+ * Series with a next charge from today to `days` ahead, soonest first, merchants the household answered (Lopetettu,
+ * or Käytössä within a year) left out. No gate:
  * the insight below adds its own and Optimoi its own.
  */
 export function renewalItems(
@@ -28,11 +29,11 @@ export function renewalItems(
   days: number,
   filter: (s: RecurringSeries) => boolean = isLongSubscription,
 ): RecurringSeries[] {
-  const cancelled = cancelledMerchants(inputs);
+  const answered = answeredSubscriptions(inputs, ctx.today);
   const until = addDays(ctx.today, days);
   return ctx.recurring
     .filter((s) => filter(s) && s.nextDate && s.nextDate >= ctx.today && s.nextDate <= until)
-    .filter((s) => !cancelled.has(s.merchant))
+    .filter((s) => !settledBy(answered.get(s.merchant)))
     .sort((a, b) => a.nextDate!.localeCompare(b.nextDate!) || a.merchant.localeCompare(b.merchant));
 }
 

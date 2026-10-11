@@ -288,11 +288,14 @@ test("the merchants of the month are a link to Tapahtumat, and a merchant there 
   await page.goto("/#/overview");
   await page.getByRole("link", { name: "Kauppiaat" }).click();
   await expect(page).toHaveURL(/#\/transactions\?view=merchants&from=\d{4}-\d{2}-01&to=/);
-  const link = page.locator("tbody a[href*='merchant=']").first();
+  // The address changes at the click, a few ms before the page does, and the Overview has merchant links of its own
+  // (an income series, in a table): "tbody a" can still find one of those. Look only in the merchant table.
+  const link = page.locator(".merchant-table tbody a[href*='merchant=']").first();
   await expect(link).toBeVisible();
   const merchant = (await link.innerText()).trim();
   await link.click();
-  await expect(page).toHaveURL(/#\/transactions\?.*merchant=/);
+  // the link that was read is the one that opened
+  await expect(page).toHaveURL((url) => new URLSearchParams(url.hash.split("?")[1]).get("merchant") === merchant);
   const summary = page.getByRole("region", { name: `Yhteenveto: ${merchant}` });
   await expect(summary).toBeVisible();
   await expect(summary.getByRole("heading", { name: merchant })).toBeVisible();
@@ -442,8 +445,12 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(situation).toContainText(/Tarkistettiin \d+ asiaa/);
     for (const fact of ["Säästöaste", "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista"]) await expect(situation.getByText(fact, { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Alueet", exact: true })).toBeVisible();
-    // a quiet area lists what it checked
-    await expect(page.getByRole("region", { name: "Alueet ilman löydöksiä" })).toContainText("Asuntolainan marginaali");
+    // the quiet areas are one line, and what they checked is behind it
+    const quiet = page.locator("details", { has: page.locator("summary", { hasText: "ilman löydöksiä" }) });
+    await expect(quiet.locator("summary")).toHaveText(/^Tarkistettu \d+ asiaa, \d+ aluetta ilman löydöksiä$/);
+    await expect(quiet.getByText("Asuntolainan marginaali")).toBeHidden();
+    await quiet.locator("summary").click();
+    await expect(quiet.getByText("Asuntolainan marginaali")).toBeVisible();
 
     // the demo history has a software price rise and two video services at once
     const cards = page.locator("article.finding");
@@ -465,35 +472,35 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await rise.getByRole("button", { name: "Sulje laskelma" }).click();
     await expect(rise.getByText("Hinta ennen")).toHaveCount(0);
 
-    // Ei koske meitä takes the finding out of its area and the headline, and the choice stays after a reload
+    // Ei koske meitä takes the finding out of its area and the headline to Päätetyt, and the choice stays after a reload
     const title = (await overlap.locator(".finding-title").innerText()).trim();
     await overlap.getByRole("button", { name: "Ei koske meitä" }).click();
     await overlap.getByRole("button", { name: "Tarvitsen tämän" }).click();
-    const dismissed = page.getByRole("region", { name: "Ei koske meitä" });
-    await expect(dismissed).toContainText(title);
-    await expect(dismissed).toContainText("Tarvitsen tämän");
+    const decided = page.getByRole("region", { name: "Päätetyt" });
+    await expect(decided).toContainText(title);
+    await expect(decided).toContainText("Ei koske meitä · Tarvitsen tämän");
     // the card the keyboard was on is gone: focus is on the message
-    await expect(page.getByRole("status").filter({ hasText: "Löydös siirrettiin kohtaan Ei koske meitä." })).toBeFocused();
+    await expect(page.getByRole("status").filter({ hasText: "Löydös siirrettiin kohtaan Päätetyt." })).toBeFocused();
     await expect(overlap).toHaveCount(0);
     await expect(situation).toContainText(/noin \d[\d\s]*€, 1 löydös\./);
 
     await page.reload();
     await expect(rise).toBeVisible();
     await expect(overlap).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Ei koske meitä" })).toContainText(title);
+    await expect(decided).toContainText(title);
 
     // taking the decision back returns the finding
     await page.getByRole("button", { name: `Peruuta päätös: ${title}` }).click();
     await expect(overlap).toBeVisible();
-    await expect(page.getByRole("region", { name: "Ei koske meitä" })).toHaveCount(0);
+    await expect(decided).toHaveCount(0);
 
     // Tein tämän keeps its date, and Muistuta myöhemmin hides the finding until then
     await rise.getByRole("button", { name: "Tein tämän" }).click();
     await rise.getByRole("button", { name: "Tallenna" }).click();
-    await expect(page.getByRole("region", { name: "Jo hoidossa" })).toContainText("Adobe: hinta nousi");
+    await expect(decided).toContainText("Adobe: hinta nousi");
     await expect(rise).toHaveCount(0);
     await page.reload();
-    const done = page.getByRole("region", { name: "Jo hoidossa" });
+    const done = decided.getByRole("listitem").filter({ hasText: "Adobe: hinta nousi" });
     await expect(done).toContainText(/Tehty \d+\.\d+\.\d{4}/);
     // the follow-up judges the change once complete months show it: made today, it waits
     await expect(done.locator(".outcome")).toContainText(/^Seuranta: Odottaa.+\./);
@@ -501,21 +508,21 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(page.getByRole("region", { name: "Seuranta" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Muutokset viime käynnin jälkeen" })).toHaveCount(0);
 
-    // a phone with the decision on the page: Jo hoidossa and its follow-up row fit the screen too
+    // a phone with the decision on the page: Päätetyt and its follow-up row fit the screen too
     const phone = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const small = await phone.newPage();
     const seenSmall = watch(small);
     await small.goto("/#/optimise");
-    await expect(small.getByRole("region", { name: "Jo hoidossa" }).locator(".outcome")).toContainText(/^Seuranta: Odottaa.+\./);
+    await expect(small.getByRole("region", { name: "Päätetyt" }).locator(".outcome")).toContainText(/^Seuranta: Odottaa.+\./);
     await small.waitForLoadState("networkidle");
-    await fitsScreen(small, "Jo hoidossa with its follow-up at 390px");
+    await fitsScreen(small, "Päätetyt with its follow-up at 390px");
 
     await page.getByRole("button", { name: /^Peruuta päätös: Adobe/ }).click();
-    await expect(page.getByRole("region", { name: "Jo hoidossa" })).toHaveCount(0);
+    await expect(decided).toHaveCount(0);
     await overlap.getByRole("button", { name: "Muistuta myöhemmin" }).click();
     await overlap.getByRole("button", { name: "30 päivää" }).click();
     await expect(overlap).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Muistutukset" })).toContainText("Palaa");
+    await expect(decided).toContainText(/Muistutus \d+\.\d+\.\d{4}/);
     await page.getByRole("button", { name: /^Peruuta päätös: / }).click();
     await expect(overlap).toBeVisible();
     await fitsScreen(page, "Säästövinkit at 1366px");

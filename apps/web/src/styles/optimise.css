@@ -15,7 +15,11 @@
 
 /* a finding: the words on the left, the euros on the right, on a phone one under the other */
 .findings { display: flex; flex-direction: column; gap: 12px; }
-.finding { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--surface); min-width: 0; }
+.finding, .other { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--surface); min-width: 0; }
+/* Muut havainnot: an insight's tone is its card's left edge, as it was on the overview */
+.other.good { border-left: 3px solid var(--good); }
+.other.warning { border-left: 3px solid var(--warn); }
+.other.info { border-left: 3px solid var(--accent); }
 .finding-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 20px; }
 .finding-main { flex: 1 1 20rem; min-width: 0; overflow-wrap: anywhere; }
 .finding-main p, .finding-money { margin: 0; }
@@ -56,7 +60,7 @@
 .evidence-check { margin: 0; }
 @media (max-width: 600px) { .calc dd { max-width: 50%; } }
 
-/* an area: its checks behind a fold, and the quiet areas side by side */
+/* an area: its checks behind a fold, and the quiet areas folded into one line, side by side when open */
 .area-checks { margin-top: 12px; }
 .area-checks summary { cursor: pointer; color: var(--text-2); font-size: 13px; }
 .checks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
@@ -65,11 +69,13 @@
 .check-status { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 .check-status.found { color: var(--text); font-weight: 600; }
 .area-summary { margin-top: 12px; }
+.quiet-fold > summary { cursor: pointer; font-weight: 500; }
+.quiet-fold[open] > summary { margin-bottom: 12px; }
 .quiet-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px 24px; }
 .quiet-area { min-width: 0; }
 .quiet-area h3 { margin-bottom: 2px; }
 
-/* Jo hoidossa, Ei koske meitä, Muistutukset and the inputs */
+/* Päätetyt and the inputs */
 .decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .decided, .needed { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; padding-bottom: 10px; border-bottom: 1px solid var(--grid); }
 .decided:last-child, .needed:last-child { border-bottom: none; padding-bottom: 0; }

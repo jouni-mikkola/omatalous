@@ -2,7 +2,8 @@
  * Optimoi: the household's decisions with a price or a deadline. Each area (`areas/*.ts`) returns its findings and what
  * it checked; this frame applies the rules every finding follows (.claude/plan/0.8.0.md): complete months only, the
  * gate, certainty from weaknesses, the user's states, three findings per area, the order of areas and the headline
- * without overlaps. Pure: `ctx.today` is the only clock.
+ * without overlaps. The insights no finding covers come along as Muut havainnot (`others.ts`). Pure: `ctx.today` is
+ * the only clock.
  */
 import type { AnalysisContext } from "../analysis/context.ts";
 import { completeMonthsBefore } from "../analysis/usual.ts";
@@ -35,6 +36,7 @@ import {
 } from "./common.ts";
 import { factOn } from "./facts/index.ts";
 import { inputDefOf, inputStatus } from "./inputs.ts";
+import { othersOf } from "./others.ts";
 import { situationOf } from "./situation.ts";
 import { placeOf } from "./state.ts";
 import type { Area, AreaId, AreaInput, AreaView, Check, Finding, FindingDraft, FindingState, Headline, InputValues, NeededInput, OptimiseData } from "./types.ts";
@@ -42,6 +44,7 @@ import type { Area, AreaId, AreaInput, AreaView, Check, Finding, FindingDraft, F
 export * from "./common.ts";
 export * from "./facts/index.ts";
 export * from "./inputs.ts";
+export * from "./others.ts";
 export * from "./situation.ts";
 export * from "./state.ts";
 export * from "./types.ts";
@@ -169,6 +172,8 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
   const done: OptimiseData["done"] = [];
   const dismissed: OptimiseData["dismissed"] = [];
   const views: (AreaView & { all: Finding[] })[] = [];
+  // the rows of every finding the page knows, shown or decided: an insight about the same rows is left to it
+  const findingRows: (readonly string[])[] = [];
 
   for (const area of areas) {
     const result = area.assess(a);
@@ -186,6 +191,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
         dropped.set(draft.kind, settled === "gate" ? (dropped.get(draft.kind) ?? "gate") : settled);
         continue;
       }
+      findingRows.push(draft.rows);
       const state = states.get(settled.id);
       const place = placeOf(state, settled, today);
       if (place === "done") done.push({ state: state!, finding: settled });
@@ -218,7 +224,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     });
   }
 
-  // a done decision stays in Jo hoidossa after its finding stops showing in the data: that is what the change was for
+  // a done decision stays in Päätetyt after its finding stops showing in the data: that is what the change was for
   const doneIds = new Set(done.map((d) => d.state.findingId));
   for (const s of input.states ?? []) if (s.status === "done" && !doneIds.has(s.findingId)) done.push({ state: s, finding: null });
 
@@ -243,6 +249,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     soon,
     done,
     dismissed,
+    ...othersOf(ctx, a.inputs, findingRows),
     needed: neededOf(views, a.values, today),
     checked: {
       total: checks.length,

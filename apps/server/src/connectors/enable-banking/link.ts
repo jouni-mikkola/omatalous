@@ -10,7 +10,7 @@ import { bankById, DEFAULT_BANK } from "./banks.ts";
 import { type EnableBankingClient, EnableBankingError } from "./client.ts";
 import { enableBanking } from "./connector.ts";
 import { clientFor } from "./credentials.ts";
-import { accountName, accountType } from "./mapper.ts";
+import { accountHolder, accountName, accountType, cardMask, creditLimitCents } from "./mapper.ts";
 import type { EbAspsp } from "./types.ts";
 
 /** Step 1: returns the bank's consent page URL. Only banks in the registry (banks.ts) can be started. */
@@ -113,6 +113,9 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
       externalId: a.uid,
       identity,
       name: accountName(a),
+      holder: accountHolder(a),
+      cardMask: cardMask(a),
+      creditLimitCents: creditLimitCents(a),
       iban: a.account_id?.iban ?? null,
       currency: a.currency ?? "EUR",
       type: accountType(a),

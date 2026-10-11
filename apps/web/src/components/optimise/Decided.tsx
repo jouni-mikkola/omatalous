@@ -1,21 +1,25 @@
-/** Jo hoidossa and Ei koske meitä: the findings the household has decided on, each with a way to take the decision back. */
-import type { Finding, FindingOutcome, FindingState, OptimiseData } from "@banking/core";
+/**
+ * Päätetyt: every finding and insight the household has answered, newest first, each with its state (Tehty, Ei koske
+ * meitä or Muistutus) and a way to take the answer back.
+ */
+import type { DismissedInsight, Finding, FindingOutcome, FindingState, OptimiseData } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../../api.ts";
 import { date, money } from "../../format.ts";
 import type { Scope } from "../../types.ts";
 import { Outcome } from "./FollowUp.tsx";
+import { insightFigure } from "./Others.tsx";
 import { Section } from "../Section.tsx";
 import { type Changed, nameOf, REASON_TEXT } from "./shared.tsx";
 
-/** "Peruuta": the decision is taken back and the finding returns to its area. */
-function Undo({ id, title, scope, onChanged }: { id: string; title: string; scope: Scope; onChanged: Changed }) {
+/** "Peruuta": the answer is taken back and the finding or insight returns to its place. */
+function Undo({ title, take, onChanged }: { title: string; take: () => Promise<unknown>; onChanged: Changed }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const undo = () => {
     setBusy(true);
     setError(null);
-    api(`/api/optimise/findings/${encodeURIComponent(id)}${query({ scope })}`, { method: "PUT", body: { status: null } })
+    take()
       .then(() => onChanged("Päätös peruttiin."))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
@@ -34,72 +38,80 @@ function Undo({ id, title, scope, onChanged }: { id: string; title: string; scop
   );
 }
 
-function Row({ state, finding, title, note, outcome, scope, onChanged }: { state: FindingState; finding: Finding | null; title: string; note: string; outcome?: FindingOutcome | undefined; scope: Scope; onChanged: Changed }) {
+interface Entry {
+  key: string;
+  title: string;
+  /** The state first, then its date or reason and the estimate, said apart with a dot. */
+  note: string;
+  /** ISO timestamp of the answer: the list is newest first. */
+  at: string;
+  outcome?: FindingOutcome | undefined;
+  take: () => Promise<unknown>;
+}
+
+/** The parts of a note that have something to say, said apart with a dot. */
+const note = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ");
+
+const estimate = (state: FindingState, finding: Finding | null) => {
   const mid = state.midCents ?? finding?.euros?.midCents ?? null;
-  return (
-    <li className="decided">
-      <div className="decided-text">
-        <span className="decided-title">{title}</span>
-        <span className="small muted">
-          {note}
-          {mid !== null && `, arvio ${money(mid, false)} vuodessa`}
-        </span>
-        {outcome && <Outcome outcome={outcome} />}
-      </div>
-      <Undo id={state.findingId} title={title} scope={scope} onChanged={onChanged} />
-    </li>
-  );
+  return mid === null ? null : `arvio ${money(mid, false)} vuodessa`;
+};
+
+function entriesOf(data: OptimiseData, states: readonly FindingState[], outcomes: ReadonlyMap<string, FindingOutcome>, scope: Scope): Entry[] {
+  const takeState = (id: string) => () => api(`/api/optimise/findings/${encodeURIComponent(id)}${query({ scope })}`, { method: "PUT", body: { status: null } });
+  const takeMark = (d: DismissedInsight) => () => api("/api/marks", { method: "PUT", body: { subject: d.subject, mark: null } });
+  // a snoozed finding is hidden from the page, so its reminder is listed here, where it can be taken back
+  const snoozed = states.filter((s) => s.status === "snoozed" && s.until !== null && s.until > data.today);
+  return [
+    ...data.done.map(({ state, finding }) => ({
+      key: state.findingId,
+      title: finding?.title ?? nameOf(state.findingId, data.areas),
+      note: note(`Tehty ${date(state.effectiveDate ?? state.decidedAt)}`, finding ? null : "ei enää näy tiedoissa", estimate(state, finding)),
+      at: state.decidedAt,
+      outcome: outcomes.get(state.findingId),
+      take: takeState(state.findingId),
+    })),
+    ...snoozed.map((state) => ({
+      key: state.findingId,
+      title: nameOf(state.findingId, data.areas),
+      note: note(`Muistutus ${date(state.until)}`, estimate(state, null)),
+      at: state.decidedAt,
+      take: takeState(state.findingId),
+    })),
+    ...data.dismissed.map(({ state, finding }) => ({
+      key: state.findingId,
+      title: finding.title,
+      note: note("Ei koske meitä", state.reason ? REASON_TEXT[state.reason] : "ei syytä annettu", estimate(state, finding)),
+      at: state.decidedAt,
+      take: takeState(state.findingId),
+    })),
+    ...data.othersDismissed.map((d) => ({
+      key: d.subject,
+      title: d.insight.title,
+      note: note("Ei koske meitä", `${insightFigure(d.insight)} vuodessa`, "palaa, jos summa muuttuu 25 % tai enemmän"),
+      at: d.markedAt,
+      take: takeMark(d),
+    })),
+  ].sort((a, b) => b.at.localeCompare(a.at) || a.title.localeCompare(b.title));
 }
 
 export function Decided({ data, states, outcomes, scope, onChanged }: { data: OptimiseData; states: readonly FindingState[]; outcomes: ReadonlyMap<string, FindingOutcome>; scope: Scope; onChanged: Changed }) {
-  // a snoozed finding is hidden from the page, so its reminder is listed here, where it can be taken back
-  const snoozed = states.filter((s) => s.status === "snoozed" && s.until !== null && s.until > data.today);
+  const entries = entriesOf(data, states, outcomes, scope);
+  if (!entries.length) return null;
   return (
-    <>
-      {data.done.length > 0 && (
-        <Section id="hoidossa" title="Jo hoidossa">
-          <ul className="decided-list">
-            {data.done.map(({ state, finding }) => (
-              <Row
-                key={state.findingId}
-                state={state}
-                finding={finding}
-                title={finding?.title ?? nameOf(state.findingId, data.areas)}
-                note={`Tehty ${date(state.effectiveDate ?? state.decidedAt)}${finding ? "" : ", ei enää näy tiedoissa"}`}
-                outcome={outcomes.get(state.findingId)}
-                scope={scope}
-                onChanged={onChanged}
-              />
-            ))}
-          </ul>
-        </Section>
-      )}
-      {snoozed.length > 0 && (
-        <Section id="muistutukset" title="Muistutukset">
-          <ul className="decided-list">
-            {snoozed.map((state) => (
-              <Row key={state.findingId} state={state} finding={null} title={nameOf(state.findingId, data.areas)} note={`Palaa ${date(state.until)}`} scope={scope} onChanged={onChanged} />
-            ))}
-          </ul>
-        </Section>
-      )}
-      {data.dismissed.length > 0 && (
-        <Section id="ei-koske" title="Ei koske meitä">
-          <ul className="decided-list">
-            {data.dismissed.map(({ state, finding }) => (
-              <Row
-                key={state.findingId}
-                state={state}
-                finding={finding}
-                title={finding.title}
-                note={state.reason ? REASON_TEXT[state.reason] : "Ei syytä annettu"}
-                scope={scope}
-                onChanged={onChanged}
-              />
-            ))}
-          </ul>
-        </Section>
-      )}
-    </>
+    <Section id="paatetyt" title="Päätetyt">
+      <ul className="decided-list">
+        {entries.map((e) => (
+          <li key={e.key} className="decided">
+            <div className="decided-text">
+              <span className="decided-title">{e.title}</span>
+              <span className="small muted">{e.note}</span>
+              {e.outcome && <Outcome outcome={e.outcome} />}
+            </div>
+            <Undo title={e.title} take={e.take} onChanged={onChanged} />
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }

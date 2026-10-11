@@ -15,7 +15,17 @@ export interface User {
 export interface Account {
   id: string;
   userId: string;
+  /** What the household sees: the user's own name when there is one, else the bank's. */
   name: string;
+  /** The bank's own name for the account (its product name when it gives one). */
+  bankName: string;
+  /** The name the user gave in Asetukset > Tilit; a link or a sync never replaces it. */
+  customName: string | null;
+  /** Who holds the account, as the bank gives it ("A, B"). */
+  holder: string | null;
+  /** A card's last four digits ("•••• 1234"). */
+  cardMask: string | null;
+  creditLimitCents: number | null;
   iban: string | null;
   currency: string;
   type: AccountType;

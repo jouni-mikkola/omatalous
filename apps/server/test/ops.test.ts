@@ -425,6 +425,37 @@ describe("ops: the helper's CLI", () => {
     expect((await admin.call("GET", "/api/ops/state")).body.state.schema_changed).toBe(false);
   });
 
+  it("latest_version is kept only as X.Y.Z", () => {
+    expect(normaliseState({ latest_version: "0.8.5" }).latest_version).toBe("0.8.5");
+    for (const bad of ["v0.8.5", "0.8", "0.8.5-rc1", "0.8.5\n", " 0.8.5", "0.8.5.1", "latest", "", 85, null, ["0.8.5"]]) {
+      expect(normaliseState({ latest_version: bad }), JSON.stringify(bad)).not.toHaveProperty("latest_version");
+    }
+  });
+
+  it("an update answer that is not newer than the running version is served as no update", async () => {
+    // A 0.8.4 helper runs the 0.8.5 update after a check that said "available" and never checks again.
+    const { admin, s } = await setupApp();
+    const [major, minor, patch] = s.build.version.split(".").map(Number) as [number, number, number];
+    const served = async (snapshot: Record<string, unknown>) => {
+      await cli(s, ["state", "--helper", "2"], JSON.stringify(snapshot));
+      return (await admin.call("GET", "/api/ops/state")).body.state;
+    };
+    // nothing to compare: the stored answer stays
+    expect(await served({ update_available: true })).toMatchObject({ update_available: true });
+    expect(await served({ update_available: true, latest_version: "latest" })).toMatchObject({ update_available: true });
+    expect((await served({ update_available: true, latest_version: "latest" })).latest_version).toBeUndefined();
+    // a newer release is still on offer
+    expect(await served({ update_available: true, latest_version: `${major}.${minor}.${patch + 1}` })).toMatchObject({ update_available: true });
+    expect(await served({ update_available: true, latest_version: `${major + 1}.0.0` })).toMatchObject({ update_available: true });
+    // the version that runs, or an older one, is not an update
+    expect(await served({ update_available: true, latest_version: s.build.version })).toMatchObject({ update_available: false, latest_version: s.build.version });
+    expect(await served({ update_available: true, latest_version: "0.0.1" })).toMatchObject({ update_available: false });
+    // only what is served changes: the stored answer is still the helper's
+    expect(JSON.parse((await s.settings.get("ops_state")) ?? "{}")).toMatchObject({ update_available: true, latest_version: "0.0.1" });
+    // a helper that says no stays no, whatever the latest version is
+    expect(await served({ update_available: false, latest_version: `${major + 1}.0.0` })).toMatchObject({ update_available: false });
+  });
+
   it("an older helper is not handed an action it does not know, and the row does not hold the slot", async () => {
     // queued for a version 2 helper, which was then rolled back to a version 1 one (the helper is part of the checkout)
     const { admin, s } = await setupApp();

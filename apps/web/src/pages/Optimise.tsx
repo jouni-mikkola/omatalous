@@ -1,4 +1,5 @@
-// Decision: what to change first: which contract, subscription or habit to renegotiate, cancel or compare, and when
+// Decision: what to change first: which contract, subscription or habit to renegotiate, cancel or compare, and when.
+// Every finding and insight is answered here, with one set of words, and the answers are listed under Päätetyt.
 import { allFindings, MIN_MONTHS_ANY, type OptimiseResponse } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { query } from "../api.ts";
@@ -8,6 +9,7 @@ import { Decided } from "../components/optimise/Decided.tsx";
 import { FindingCard } from "../components/optimise/FindingCard.tsx";
 import { FollowUp } from "../components/optimise/FollowUp.tsx";
 import { InputsCard } from "../components/optimise/Inputs.tsx";
+import { Others } from "../components/optimise/Others.tsx";
 import { Section } from "../components/Section.tsx";
 import { Situation } from "../components/optimise/Situation.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
@@ -77,7 +79,9 @@ export function Optimise({ scope }: { scope: Scope }) {
       {!young && <Situation data={data} />}
       <Changes changes={changes} since={since} areas={data.areas} titles={titles} />
       {/* under three months the areas hold only deadlines, and those are what the notice promises */}
-      <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} quiet={!young} />
+      <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} quiet={!young} checked={data.checked.total} />
+      {/* the insights the overview and Raportit told while this page was off: answered here like the findings */}
+      <Others others={data.others} onChanged={changed} />
       <FollowUp followUp={followUp} areas={data.areas} titles={titles} scope={scope} onChanged={changed} />
       <Decided data={data} states={states} outcomes={outcomes} scope={scope} onChanged={changed} />
       <InputsCard needed={data.needed} given={inputs} areas={data.areas} today={data.today} scope={scope} onChanged={changed} />

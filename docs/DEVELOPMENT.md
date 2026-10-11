@@ -20,6 +20,12 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
+In the private repository a push runs no CI, because Actions minutes are billed there. `pnpm check`, `pnpm build` and
+`pnpm e2e` are the check: `tools/lead/land.sh` runs them before a landing and `tools/release/release.sh` before it
+pushes a release, and then starts CI and the upgrade rehearsal itself. CI also runs on a pull request and by hand
+(`gh workflow run ci.yml --ref <branch>`). The public repository runs it on every push. The table is in
+[RELEASING.md](RELEASING.md#when-ci-runs).
+
 ## Layout
 
 ```

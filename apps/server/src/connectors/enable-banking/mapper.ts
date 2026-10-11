@@ -1,4 +1,5 @@
 import type { AccountType, RawTransaction } from "@banking/core";
+import type { AccountDetails } from "../types.ts";
 import type { EbAccount, EbBalance, EbTransaction } from "./types.ts";
 
 /**
@@ -77,6 +78,9 @@ export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransact
   };
 }
 
+/** What a bank calls a savings account: Säästötili, Pikasäästö, ASP-tili, Tuottotili, Sijoitustili. */
+const SAVINGS_PRODUCT = /säästö|saasto|savings|\basp\b|tuotto|sijoitus/i;
+
 export function accountType(a: EbAccount): AccountType {
   // the bank's own type code wins: a current account's product text can mention a card
   // ("tili ja kortti"), and calling it a card account would turn its income into transfers
@@ -84,7 +88,10 @@ export function accountType(a: EbAccount): AccountType {
   // cards are identified by a masked card number (scheme CPAN) instead of an IBAN
   if (a.cash_account_type === "CARD" || a.account_id?.other?.scheme_name === "CPAN") return "credit_card";
   if (a.cash_account_type === "SVGS") return "savings";
-  if (a.cash_account_type === "CACC" || a.cash_account_type === "TRAN") return "checking";
+  if (a.cash_account_type === "CACC" || a.cash_account_type === "TRAN") {
+    // Nordea sends CACC for every account, so a savings product says what the code does not (never the holder's name)
+    return SAVINGS_PRODUCT.test(`${a.product ?? ""} ${a.details ?? ""}`) ? "savings" : "checking";
+  }
   const text = `${a.name ?? ""} ${a.product ?? ""} ${a.details ?? ""}`;
   // "Asuntolainatili": before the card words, a loan account name may also contain "luotto"
   if (/laina|loan|mortgage|asuntoluotto/i.test(text)) return "loan";
@@ -93,8 +100,46 @@ export function accountType(a: EbAccount): AccountType {
   return "other";
 }
 
+/**
+ * Who holds the account. The bank's `name` is the holder ("A;B" for two), not a name for the account, so it is kept
+ * as a line of its own ("A, B").
+ */
+export function accountHolder(a: EbAccount): string | null {
+  const names = (a.name ?? "")
+    .split(";")
+    .map((n) => n.trim())
+    .filter(Boolean);
+  return names.length ? names.join(", ").slice(0, 120) : null;
+}
+
+/** The bank's product name when it gives one, else what it gave before product names were read: the holder, then the description. */
+function nameOf(a: EbAccount): string | null {
+  return (a.product?.trim() || accountHolder(a) || a.details?.trim() || a.account_id?.iban || null)?.slice(0, 120) ?? null;
+}
+
 export function accountName(a: EbAccount): string {
-  return a.name?.trim() || a.product?.trim() || a.details?.trim() || a.account_id?.iban || "Tili";
+  return nameOf(a) ?? "Tili";
+}
+
+/** A card's last four digits. Whatever else the bank sends of the number is not stored. */
+export function cardMask(a: EbAccount): string | null {
+  const ids = [a.account_id?.other, ...(a.all_account_ids ?? [])];
+  const card = ids.find((id) => id?.scheme_name === "CPAN" && id.identification);
+  const last4 = card?.identification?.replace(/\D/g, "").slice(-4) ?? "";
+  return last4.length === 4 ? `•••• ${last4}` : null;
+}
+
+/** The credit limit in cents, when the bank gives a positive one in euros. */
+export function creditLimitCents(a: EbAccount): number | null {
+  const limit = a.credit_limit;
+  if (!limit || (limit.currency && limit.currency !== "EUR")) return null;
+  const cents = amountToCents(limit.amount);
+  return cents !== null && cents > 0 ? cents : null;
+}
+
+/** What an account resource says about the account itself: the name, the holder, a card's number and a limit. */
+export function accountDetails(a: EbAccount): AccountDetails {
+  return { name: nameOf(a), holder: accountHolder(a), cardMask: cardMask(a), creditLimitCents: creditLimitCents(a) };
 }
 
 /** Prefers booked/closing balance types, falls back to whatever the bank gives. */

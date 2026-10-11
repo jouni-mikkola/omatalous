@@ -74,5 +74,27 @@ out=$(start "$LATER" T1); rc=$?
 check "refuses a diverged branch" test $rc -ne 0
 [[ $out == *diverged* ]] && pass "says diverged" || fail "says diverged" "$out"
 
+# a brief that names the tasks it builds on: they must be in the base
+git -C "$W" checkout -q main
+git -C "$OTHER" pull -q 2>/dev/null
+printf '# U2 page\n\nAfter: U1, S1\nOwns: apps/web/src/pages/Month.tsx e2e/month.spec.ts\n' >"$OTHER/.claude/plan/0.9.0/U2.md"
+git -C "$OTHER" add -A; git -C "$OTHER" commit -q -m "Plan U2"; git -C "$OTHER" push -q origin main 2>/dev/null
+PLAN=$(git -C "$OTHER" rev-parse HEAD)
+BEFORE=$(git -C "$W" rev-parse HEAD)
+out=$(start "$PLAN" U2); rc=$?
+check "refuses a base without the tasks the brief's After: line names" test $rc -ne 0
+[[ $out == *'no commit "U1: ..."'* && $out == *"missing: U1 S1"* ]] && pass "names the missing tasks" || fail "names the missing tasks" "$out"
+check "and leaves HEAD where it was" test "$(git -C "$W" rev-parse HEAD)" = "$BEFORE"
+echo one >"$OTHER/one.txt"; git -C "$OTHER" add -A; git -C "$OTHER" commit -q -m "U1: the first part"
+echo s >"$OTHER/s.txt"; git -C "$OTHER" add -A; git -C "$OTHER" commit -q -m "Plan S1 notes, not S1: itself"
+git -C "$OTHER" push -q origin main 2>/dev/null
+out=$(start "$(git -C "$OTHER" rev-parse HEAD)" U2); rc=$?
+check "a subject that only mentions S1 is not S1 landing" test $rc -ne 0
+echo s >>"$OTHER/s.txt"; git -C "$OTHER" add -A; git -C "$OTHER" commit -q -m "S1: the helper"; git -C "$OTHER" push -q origin main 2>/dev/null
+out=$(start "$(git -C "$OTHER" rev-parse HEAD)" U2); rc=$?
+check "starts once both have landed" test $rc -eq 0
+[[ $out == *"after:   U1 S1 (in the base)"* ]] && pass "prints what it built on" || fail "prints what it built on" "$out"
+[[ $out == *"owns:    apps/web/src/pages/Month.tsx e2e/month.spec.ts"* ]] && pass "prints the files the brief gives it" || fail "prints the files the brief gives it" "$out"
+
 echo "$PASS passed, $FAILED failed"
 ((FAILED == 0))

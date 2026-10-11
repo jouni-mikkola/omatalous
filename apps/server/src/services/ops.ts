@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { createReadStream, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { quickFileCheck, verifyDatabaseFile } from "../db/backup-check.ts";
+import { atOrAbove } from "../db/migrate.ts";
 import type { OpsRequest } from "../db/ops-repo.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
@@ -37,6 +38,7 @@ import {
   sanitiseOutput,
   scrub,
   validOpsId,
+  XYZ,
 } from "./ops-validate.ts";
 import { recordEvent } from "./security.ts";
 
@@ -154,6 +156,17 @@ const view = (r: OpsRequest) => ({
   steps: r.steps ? (JSON.parse(r.steps) as unknown) : [],
 });
 
+/**
+ * A helper that checked before an update and has not checked since still says "available" for the version that now
+ * runs. Its latest_version tells: when that is not newer than the running version there is nothing to offer.
+ * Compared only when both read as X.Y.Z; otherwise the stored answer stands.
+ */
+function withoutStaleOffer(snapshot: OpsState, running: string): OpsState {
+  const latest = snapshot.latest_version;
+  if (latest === undefined || !XYZ.test(latest) || !XYZ.test(running) || !atOrAbove(running, latest)) return snapshot;
+  return { ...snapshot, update_available: false };
+}
+
 export async function opsState(s: Services) {
   await expireStale(s);
   const [helper, snapshot, requests] = await Promise.all([helperInfo(s), loadSnapshot(s), s.ops.recent(8)]);
@@ -161,7 +174,7 @@ export async function opsState(s: Services) {
     version: s.build.version,
     build: s.build.id,
     helper,
-    state: snapshot,
+    state: withoutStaleOffer(snapshot, s.build.version),
     appBackups: listAppBackups(s),
     requests: requests.map(view),
     /** Something is queued or running: the page polls faster and disables the buttons. */

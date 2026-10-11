@@ -68,7 +68,7 @@ export function compatFloor(m: Migration): string | null {
 }
 
 /** Versions are x.y.z. A stored floor that is not one (empty, damaged) is never met, so the database is refused. */
-function atOrAbove(version: string, floor: string | null): boolean {
+export function atOrAbove(version: string, floor: string | null): boolean {
   const a = VERSION.exec(version);
   const b = floor === null ? null : VERSION.exec(floor);
   if (!a || !b) return false;

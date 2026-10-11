@@ -71,4 +71,34 @@ describe("the demo history on the Optimoi page", () => {
     // a dismissed finding leaves the headline too
     expect(after.body.data.headline.midCents).toBe(14_388);
   });
+
+  it("brings the overview's insights as Muut havainnot, and Ei koske meitä there is a mark that Peruuta takes away", async () => {
+    const { data, call } = await demoPage(NOW);
+    // the new OpenAI charge and the two rises together: Adobe's rise alone would be the finding's to tell
+    expect(data.others.map((i: Insight) => i.id)).toEqual([expect.stringMatching(/^new:out:demo-.+:OpenAI$/), "price-rises"]);
+    expect(data.othersDismissed).toEqual([]);
+    const first: Insight = data.others[0];
+    const subject = `alert:${first.id}@${first.yearlyCents}`;
+    expect((await call("PUT", "/api/marks", { subject, mark: "dismissed" })).status).toBe(200);
+    const dismissed = (await call("GET", "/api/optimise")).body.data;
+    expect(dismissed.others.map((i: Insight) => i.id)).toEqual(["price-rises"]);
+    expect(dismissed.othersDismissed).toMatchObject([{ insight: { id: first.id }, subject }]);
+    // the findings and their headline do not move
+    expect(dismissed.headline).toEqual(data.headline);
+    expect((await call("PUT", "/api/marks", { subject, mark: null })).status).toBe(200);
+    expect((await call("GET", "/api/optimise")).body.data.others).toEqual(data.others);
+  });
+
+  it("hides a subscription finding the household marked Käytössä after the rise, as Laskut does", async () => {
+    const { call } = await demoPage(NOW);
+    expect((await call("PUT", "/api/marks", { subject: "merchant:Adobe", mark: "in_use" })).status).toBe(200);
+    const after = (await call("GET", "/api/optimise")).body.data;
+    expect(after.areas.flatMap((a: { findings: Shown[] }) => a.findings).map((f: Shown) => f.kind)).toEqual(["overlap"]);
+    expect(after.headline.midCents).toBe(14_388);
+  });
 });
+
+interface Insight {
+  id: string;
+  yearlyCents: number;
+}

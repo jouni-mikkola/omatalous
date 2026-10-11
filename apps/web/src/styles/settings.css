@@ -8,6 +8,9 @@
 /* settings: what an account's last fetch ran into, wrapped (td .sub cuts a line short) */
 .acc-problem { color: var(--warn); font-size: 12px; margin-top: 2px; max-width: 32rem; white-space: normal; }
 .connection-history { margin-top: 12px; }
+/* settings: the lines under an account's name (IBAN, holder, limit), and the accounts a connection reads, wrap instead of being cut */
+td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-space: normal; overflow: visible; }
+.conn-accounts { margin-top: 2px; }
 @media (max-width: 600px) {
   .accounts-table .acc-type { display: none; }
   .acc-type-phone { display: block; margin-top: 4px; }

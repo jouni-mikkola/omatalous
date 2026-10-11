@@ -3,14 +3,17 @@
 #   tools/ci/wait.sh "$(git rev-parse HEAD)" ci-ok upgrade-ok
 # Polls the check runs of the commit (gh api) until every named check has completed.
 #   exit 0  every named check succeeded
-#   exit 1  a named check failed or was skipped: its name, result and address are printed at once
-#   exit 3  a named check was cancelled and none failed: "CANCELLED <check> (superseded by a newer push?)". Push again
-#           or wait for the newer commit.
+#   exit 1  a named check failed: its name, result and address are printed at once
+#   exit 3  a named check was cancelled and none failed: "CANCELLED <check> (superseded by a newer run?)". Start it
+#           again or wait for the newer run.
 #   exit 2  CI cannot be read (no gh or jq, gh not signed in, the commit is not on GitHub, the network) or the timeout
 #           ran out first. The message says which. Read CI another way then, for example with the GitHub tools.
-# A check that has not appeared yet is pending, never green. When several runs carry one name (a rerun, one commit on two
-# branches) the newest decides. The repository is origin's; --repo or WAIT_REPO names another. WAIT_TIMEOUT (default
-# 1500) and WAIT_INTERVAL (default 15) are seconds. Run it in the background: it prints one line at the end.
+# A check that has not appeared yet is pending, never green. A skipped check run is no answer either and counts as not
+# appeared: a push to the private repository leaves a skipped ci-ok (ci.yml skips itself there), and the run that
+# release.sh dispatches for the same commit comes after it. When several runs carry one name (a rerun, one commit on two
+# branches) the newest of those that ran decides. The repository is origin's; --repo or WAIT_REPO names another.
+# WAIT_TIMEOUT (default 1500) and WAIT_INTERVAL (default 15) are seconds. Run it in the background: it prints one line
+# at the end.
 set -uo pipefail
 
 say() { printf 'wait: %s\n' "$*"; }
@@ -65,8 +68,9 @@ while :; do
     rows=$(jq -rs --argjson names "$names" '
       [.[].check_runs[]?] as $runs
       | $names[] as $n
-      | ([$runs[] | select(.name == $n)] | sort_by(.id) | last) as $r
-      | [$n, ($r.status // "missing"), ($r.conclusion // ""), ($r.html_url // "")] | @tsv' <<<"$answer") || cannot "GitHub's answer was not readable."
+      | ([$runs[] | select(.name == $n and .conclusion != "skipped")] | sort_by(.id) | last) as $r
+      | ($runs | any(.name == $n and .conclusion == "skipped")) as $skipped
+      | [$n, ($r.status // (if $skipped then "skipped" else "missing" end)), ($r.conclusion // ""), ($r.html_url // "")] | @tsv' <<<"$answer") || cannot "GitHub's answer was not readable."
     pending=() bad=() good=() cancelled=()
     while IFS=$'\t' read -r name status conclusion link; do
       if [[ $status != completed ]]; then pending+=("$name($status)")
@@ -76,9 +80,9 @@ while :; do
     done <<<"$rows"
     if ((${#bad[@]} || ${#cancelled[@]})); then
       for b in "${bad[@]}"; do say "FAILED $b"; done
-      for b in "${cancelled[@]}"; do say "CANCELLED $b (superseded by a newer push?)"; done
+      for b in "${cancelled[@]}"; do say "CANCELLED $b (superseded by a newer run?)"; done
       ((${#pending[@]})) && say "not finished: ${pending[*]}"
-      # a failure wins over a cancellation: that run did not end because of a newer push
+      # a failure wins over a cancellation: that run did not end because of a newer run
       ((${#bad[@]})) && exit 1
       exit 3
     fi
@@ -89,6 +93,7 @@ while :; do
   fi
   if ((SECONDS >= timeout)); then
     printf 'wait: timed out after %ss, still waiting for: %s\n' "$timeout" "${pending[*]:-the answer of GitHub}" >&2
+    [[ ${pending[*]:-} != *"(skipped)"* ]] || printf 'wait: (skipped) means only a skipped run exists, for example from a push. Start the workflow with workflow_dispatch on the branch.\n' >&2
     exit 2
   fi
   sleep "$interval"

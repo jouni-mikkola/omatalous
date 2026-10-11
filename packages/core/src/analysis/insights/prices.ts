@@ -4,6 +4,7 @@
  * must pass the gate. Bills of varying amount
  * (spot electricity) are left out: their price swings with the season, not with a decision. A step that changed what
  * is bought is no rise (`notAPrice`): a new plan or line, a new home, a municipal fee that follows income and hours.
+ * A subscription the household answered (`settledBy`) is left out.
  */
 import { addDays } from "../../dates.ts";
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "../../categories.ts";
@@ -13,7 +14,7 @@ import type { IsoDate } from "../../types.ts";
 import { isRent } from "../../wording.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { capitalise, countWord, isLender, ITEM_GATE_MONTHLY_CENTS } from "./shared.ts";
+import { answeredSubscriptions, capitalise, countWord, isLender, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 import { isMunicipality } from "../../wording.ts";
 
@@ -85,10 +86,12 @@ export function priceRiseItems(ctx: AnalysisContext, end: IsoDate, days = 365): 
     .sort((a, b) => b.yearlyCents - a.yearlyCents || a.series.merchant.localeCompare(b.series.merchant));
 }
 
-export function priceRises({ ctx, end }: InsightArgs): Insight[] {
+export function priceRises({ ctx, end, inputs }: InsightArgs): Insight[] {
   const since = addDays(end, -365);
+  const answered = answeredSubscriptions(inputs, ctx.today);
   const rises = priceRiseItems(ctx, end)
-    .filter((r) => !notAPrice(ctx, r.series))
+    // a cancelled one is being dropped, and one marked in use after the change is kept at its new price
+    .filter((r) => !notAPrice(ctx, r.series) && !settledBy(answered.get(r.series.merchant), r.series.priceChange!.date))
     .map((r) => ({ s: r.series, yearly: r.yearlyCents }));
   if (!rises.length || rises.reduce((sum, r) => sum + r.yearly, 0) < 12 * ITEM_GATE_MONTHLY_CENTS) return [];
   const rows = rises.flatMap(({ s }) => s.transactionIds.slice(-2));

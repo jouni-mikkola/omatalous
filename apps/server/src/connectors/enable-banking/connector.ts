@@ -9,7 +9,7 @@ import type { Services } from "../../services/context.ts";
 import type { Connector, ConnectorContext, PullWindow, Puller, SyncProblem } from "../types.ts";
 import { EnableBankingClient, EnableBankingError } from "./client.ts";
 import { clientFor } from "./credentials.ts";
-import { amountToCents, pickBalance } from "./mapper.ts";
+import { accountDetails, amountToCents, pickBalance } from "./mapper.ts";
 
 /**
  * Shorter windows to ask for when the bank refuses the period. Nordea keeps two years of an account's rows but
@@ -51,6 +51,9 @@ async function open({ s, repo }: ConnectorContext): Promise<Puller> {
     async balance(account) {
       const balance = pickBalance(await client.balances(account.externalId));
       return balance ? amountToCents(balance.balance_amount.amount) : null;
+    },
+    async details(account) {
+      return accountDetails(await client.accountDetails(account.externalId));
     },
   };
 }

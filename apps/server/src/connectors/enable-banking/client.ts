@@ -185,10 +185,15 @@ export class EnableBankingClient {
     // Some responses list only account ids; fetch the details for those.
     const accounts = await Promise.all(
       session.accounts.map(async (a) =>
-        typeof a === "string" ? { ...(await this.request<EbAccount>("GET", `/accounts/${encodeURIComponent(a)}/details`)), uid: a } : a,
+        typeof a === "string" ? { ...(await this.accountDetails(a)), uid: a } : a,
       ),
     );
     return { ...session, accounts };
+  }
+
+  /** The account resource (holder, product, card number, limit) of one account of an open session. */
+  async accountDetails(accountUid: string): Promise<EbAccount> {
+    return this.request<EbAccount>("GET", `/accounts/${encodeURIComponent(accountUid)}/details`);
   }
 
   async deleteSession(sessionId: string): Promise<void> {

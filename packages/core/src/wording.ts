@@ -11,6 +11,13 @@
  */
 export const MOBILEPAY_WORDS = "MOBILEPAY|MOBILE PAY|PIVO|VIPPS MOBILEPAY|VIPPS";
 
+/**
+ * What MobilePay puts before a company's name when a shop or a service is paid ("MOB.PAY*STORYTEL OY 7Q2K9X HELSINKI").
+ * merchant.ts strips it like a card processor's prefix, so a service is one merchant however it was paid. Such a
+ * row pays a company, never a person, so the prefix stays out of MOBILEPAY_WORDS.
+ */
+export const MOBILEPAY_SHOP_PREFIX = String.raw`MOB\.? ?PAY`;
+
 /** Landlords that rent homes, as a regex alternation: the housing rule of categorize.ts and `isRent` read it. */
 export const LANDLORD_WORDS =
   "SATO|KOJAMO|LUMO|HEKA|TA-YHTYMA|AVARA|M2-KODIT|Y-SAATIO|ASUNTOSAATIO|HOAS|TOAS|PSOAS|TYS|KOAS|JOENSUUN ELLI|SIVAKKA|LAHDEN TALOT|ESPOON ASUNNOT|VANTAAN ASUNNOT";

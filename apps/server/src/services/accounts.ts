@@ -58,7 +58,10 @@ export async function accountsView<A extends Pick<StoredAccount, "id">>(s: Servi
   return accounts.map((a) => ({ ...a, problem: Object.hasOwn(problems, a.id) ? problems[a.id]! : null }));
 }
 
-/** What the route checked: a new name, a type from ACCOUNT_TYPES, a balance in whole cents. */
+/**
+ * What the route checked: the user's own name ("" takes it away, so the bank's shows again), a type from
+ * ACCOUNT_TYPES, a balance in whole cents.
+ */
 export interface AccountEdit {
   name?: string;
   type?: AccountType;
@@ -72,7 +75,11 @@ export async function updateAccount(s: Services, userId: string, id: string, edi
   // a bank-linked account gets its balance from the bank at every sync
   if (edit.balanceCents !== undefined && account.provider !== "csv") throw new UserError("Saldon voi asettaa vain tuodulle tilille.");
   const renamed = edit.name !== undefined || edit.type !== undefined;
-  if (renamed) await repo.updateAccount(id, { name: edit.name?.trim().slice(0, 80) || undefined, type: edit.type });
+  if (renamed) {
+    // the user's name is stored apart from the bank's: a link rewrites the bank's, never this one
+    const name = edit.name?.trim().slice(0, 80);
+    await repo.updateAccount(id, { customName: name === undefined ? undefined : name && name !== account.bankName ? name : null, type: edit.type });
+  }
   if (edit.balanceCents !== undefined) await repo.setAccountBalance(id, edit.balanceCents, s.now().toISOString());
   // account type and a card's name decide whether a card bill is a transfer; a balance touches only the account list
   if (renamed) await reprocess(repo, s.settings);

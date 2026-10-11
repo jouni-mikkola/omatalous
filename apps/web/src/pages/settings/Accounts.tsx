@@ -1,16 +1,18 @@
 /**
- * Asetukset > Tilit: account type for every account; name, balance and
- * removal for the accounts the user brought in themselves (CSV, demo).
- * A bank account's name and balance come from the bank. Tietojen laatu sits under the table.
+ * Asetukset > Tilit: every account with its name, IBAN or card number, holder and
+ * type (the bank's code is a guess for savings, so the type can be changed); the user's own name for any account;
+ * balance and removal for the accounts the user brought in themselves (CSV, demo). A bank account's balance comes
+ * from the bank. Tietojen laatu sits under the table.
  */
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { ACCOUNT_TYPE_LABEL, dateTime, money, parseEuros } from "../../format.ts";
+import { ACCOUNT_TYPE_LABEL, accountNumber, creditLine, dateTime, money, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 
 const PROVIDER_LABEL: Record<string, string> = { enablebanking: "pankkiyhteys", csv: "CSV", demo: "demo" };
-const editable = (a: Account) => a.provider === "csv" || a.provider === "demo";
+// a bank-linked account comes back at the next link, so only an imported or demo one can be removed
+const removable = (a: Account) => a.provider === "csv" || a.provider === "demo";
 const euros = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type Message = { tone: "good" | "warning"; text: string };
@@ -97,13 +99,19 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                   )}
                 </>
               );
+              // the holder is a line of its own unless the name already says it
+              const holder = a.holder && a.holder !== a.name && a.holder !== a.bankName ? a.holder : null;
+              const credit = creditLine(a);
               return [
                 <tr key={a.id}>
                   <td>
                     {a.name}
-                    <div className="sub">
-                      {a.iban ?? "–"} · {PROVIDER_LABEL[a.provider] ?? a.provider}
+                    <div className="sub acc-line">
+                      {accountNumber(a) || "–"} · {PROVIDER_LABEL[a.provider] ?? a.provider}
                     </div>
+                    {a.customName && <div className="sub acc-line">Pankin nimi: {a.bankName}</div>}
+                    {holder && <div className="sub acc-line">{holder}</div>}
+                    {credit && <div className="sub acc-line">{credit}</div>}
                     <FetchProblem account={a} connection={meta.connections.find((c) => c.id === a.connectionId)} canFix={canFix} />
                     <div className="acc-type-phone">{type}</div>
                   </td>
@@ -111,7 +119,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                   <td className="num">{a.balanceCents === null ? "–" : money(a.balanceCents)}</td>
                   <td className="hide-phone">{dateTime(a.lastSyncedAt ?? a.balanceAt)}</td>
                   <td className="num">
-                    {editable(a) && editing !== a.id && (
+                    {editing !== a.id && (
                       <button className="btn btn-small" type="button" onClick={() => setEditing(a.id)} aria-label={`Muokkaa tiliä ${a.name}`}>
                         Muokkaa
                       </button>
@@ -124,6 +132,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                       <AccountForm
                         account={a}
                         busy={busy}
+                        canRemove={removable(a)}
                         onCancel={() => setEditing(null)}
                         onSaved={() => {
                           setEditing(null);
@@ -174,10 +183,25 @@ function FetchProblem({ account, connection, canFix }: { account: Account; conne
   );
 }
 
-function AccountForm({ account, busy, onCancel, onSaved, onRemove }: { account: Account; busy: boolean; onCancel: () => void; onSaved: () => void; onRemove: () => void }) {
+function AccountForm({
+  account,
+  busy,
+  canRemove,
+  onCancel,
+  onSaved,
+  onRemove,
+}: {
+  account: Account;
+  busy: boolean;
+  canRemove: boolean;
+  onCancel: () => void;
+  onSaved: () => void;
+  onRemove: () => void;
+}) {
   const csv = account.provider === "csv";
   const initialBalance = account.balanceCents === null ? "" : euros.format(account.balanceCents / 100);
-  const [name, setName] = useState(account.name);
+  // empty: the bank's own name shows (for an imported account, the name it was imported under)
+  const [name, setName] = useState(account.customName ?? "");
   const [balance, setBalance] = useState(initialBalance);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +209,7 @@ function AccountForm({ account, busy, onCancel, onSaved, onRemove }: { account: 
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const body: { name?: string; balanceCents?: number } = {};
-    if (name.trim() && name.trim() !== account.name) body.name = name.trim();
+    if (name.trim() !== (account.customName ?? "")) body.name = name.trim();
     if (csv && balance.trim() !== initialBalance.trim()) {
       const cents = parseEuros(balance);
       if (cents === null) return setError("Anna saldo euroina, esimerkiksi 1 234,56.");
@@ -207,8 +231,9 @@ function AccountForm({ account, busy, onCancel, onSaved, onRemove }: { account: 
   return (
     <form className="account-form" onSubmit={save}>
       <label>
-        <span className="field-label">Nimi</span>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
+        <span className="field-label">Oma nimi</span>
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={account.bankName} />
+        <span className="field-help">Tyhjänä näkyy {account.bankName}.</span>
       </label>
       {csv && (
         <label>
@@ -224,9 +249,11 @@ function AccountForm({ account, busy, onCancel, onSaved, onRemove }: { account: 
           Peruuta
         </button>
         <span className="spacer" />
-        <button className="btn btn-danger" type="button" disabled={saving || busy} onClick={onRemove}>
-          Poista tili
-        </button>
+        {canRemove && (
+          <button className="btn btn-danger" type="button" disabled={saving || busy} onClick={onRemove}>
+            Poista tili
+          </button>
+        )}
       </div>
       {error && <div className="error">{error}</div>}
     </form>

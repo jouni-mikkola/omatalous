@@ -18,6 +18,10 @@ Run vitest from the repository root. A package directory has no config of its ow
 
 `pnpm check --changed [base]` is the loop while working (ADR 0003): types incrementally, vitest on the packages the diff touches and their dependents, shell steps only when the diff touches shell. The base defaults to the one `tools/worker-start.sh` recorded. Run the full `pnpm check` before handing back. At most `CHECK_SLOTS` (2) checks run at once per clone, and a waiting check says so. A timeout in the summary means a busy machine: run that test alone once.
 
+A push to the private repository starts no CI on GitHub (the minutes are billed). The checks you run here are the only
+ones before `tools/lead/land.sh` and the release gate, and CI runs when `tools/release/release.sh` or a pull request
+asks for it ([RELEASING.md](RELEASING.md#when-ci-runs)).
+
 Extra arguments to `test:core` and `test:server` add filters. They do not narrow the package, so use `pnpm test <path>`
 for one file. `pnpm check types tests` runs only those steps. `ISLAND_SEEDS` and `INCREMENTAL_SEEDS` raise the number of random histories.
 
@@ -30,7 +34,7 @@ session gets all of this from its session start hook. The dev servers use ports 
 
 | Command | Does |
 |---|---|
-| `tools/worker-start.sh <base> <task>` | first command of a task: fast-forwards to the base, installs when `node_modules` is missing, makes the private scratch folder `/tmp/claude-0/work/<task>/`, prints the brief. Refuses a dirty tree. |
+| `tools/worker-start.sh <base> <task>` | first command of a task: fast-forwards to the base, installs when `node_modules` is missing, makes the private scratch folder `/tmp/claude-0/work/<task>/`, prints the brief and its `Owns:` line. Refuses a dirty tree, and a base without a task the brief's `After:` line names. |
 | `tools/commit.sh -m ...` | `git commit` that retries a signing 503 three times (5, 15, 45 s) and never commits unsigned |
 | `pnpm where <symbol, file or text>` | definition with line, importers (also through the core barrel), test files that mention it. Shell functions and UI strings too. |
 | `pnpm shots <route> [--widths 390,1366] [--demo]` | builds if stale, starts the app on a free port, saves full-page PNGs to `/tmp/claude-0/shots/`, fails on sideways scroll |
@@ -45,9 +49,11 @@ Every tool call re-reads the whole transcript, so a short transcript is a cheap 
 - Use `pnpm check --changed` while working and filter long output (`| tail -40`, `| grep -E 'FAIL|Error'`).
 - Run a command that takes minutes in the background and wait for its notification.
 - Put long notes in the file the brief names, not in the transcript.
-- Never print a whole file with `cat` or a long `sed` range: those were 38 of the 64 USD that agents paid to carry tool
-  output in one session. `grep -n` first, then at most 80 lines.
-- Put independent commands in one call. On Opus a tool call at 300k context costs about 0.06 USD in reads alone.
+- Never print a whole file with `cat` or a long `sed` range: every later request reads it again. In 0.8.3 and 0.8.4
+  those results cost the agents 12 of their 70 USD. `grep -n` first, then at most 80 lines; a whole file only when you
+  change most of it.
+- Put independent reads, commands and edits in one message: several tool calls run in one request. On Opus a request at
+  300k context costs about 0.06 USD in reads alone, and one worker made 64 edits in 64 requests.
 - `pnpm build` and `pnpm e2e` once, before the hand-back; `tools/lead/land.sh` runs both again when it lands.
 
 ## Test helpers
@@ -93,9 +99,24 @@ Every tool call re-reads the whole transcript, so a short transcript is a cheap 
 1. `pnpm check` passes. The repo rules read tracked files only, so `git add` a new file before checking. Also `pnpm build` after a web or server change, and `pnpm e2e` after a change to what the browser shows.
 2. A bug fix starts with a test that fails first. New behaviour has a test.
 3. A fragment `changelog.d/<task>.md`: first line `section: <Money and reports | Fetching and importing | Look | Reliability | Maintenance | For developers>`, then plain lines for users. Add `upgrade: <line>` for anything an installer must know. Do not edit `CHANGELOG.md`.
-4. Edits stay inside the files the brief names. `CLAUDE.md`, `CHANGELOG.md`, `README.md`, `docs/SECURITY.md`, `docs/INSTALL.md` and `pnpm-lock.yaml` belong to the lead: put the change you need in the hand-back instead.
+4. Edits stay inside the files the brief names (`Owns:`). A file other tasks of the wave also touch, such as `nav.ts`, `App.tsx`, `routes.ts` or `e2e/app.spec.ts`, changes only as the brief's `Shared:` line says; new e2e tests go in a spec file of the task's own. `CLAUDE.md`, `CHANGELOG.md`, `README.md`, `docs/SECURITY.md`, `docs/INSTALL.md` and `pnpm-lock.yaml` belong to the lead: put the change you need in the hand-back instead.
 5. Commit on your branch. The commit message ends with the attribution lines the brief gives. Do not push.
 
 ## Hand-back
 
 At most 200 words: what changed, test results, what is not done, docs the lead must update. Longer details go to the file the brief names. Include the branch and the commit hashes.
+
+## On a Windows host
+
+Native Windows fails tests and shell suites (CRLF checkouts, directory fsync, paths), so the repository and its worktrees live in the WSL distro `Omatalous` and every command runs there as root. Copy `tools/wsl/lx` to `C:\ClaudeGit\lx`. Setting up a new machine or a rebuilt distro by hand:
+- In Windows: `wsl --install Ubuntu-24.04 --name Omatalous --no-launch`. In `/etc/wsl.conf` merge `[boot] systemd=true`, `[user] default=root`, `[interop] enabled=true` and `appendWindowsPath=false` (a file overwritten without `systemd=true` loses the Windows interop that git's credential helper needs), then `wsl --terminate Omatalous`. Put `d /tmp 1777 root root 30d` in `/etc/tmpfiles.d/tmp.conf`: Ubuntu empties `/tmp` at every boot and the hand-backs live in `/tmp/claude-0`.
+- apt: git jq shellcheck openssh-client curl ca-certificates xz-utils unzip docker.io docker-compose-v2, then `systemctl disable --now docker.service docker.socket` (the suites only run `docker compose config`), and gh from the cli.github.com apt repository with its keyring.
+- Node from nodejs.org at the Dockerfile's `FROM node:` version (the newest patch, checked against SHASUMS256.txt) into `/usr/local`, then `corepack enable` and pnpm at `packageManager`.
+- git, global: user `Claude` and `noreply@anthropic.com`, the Windows `git-credential-manager.exe` from Git for Windows as `credential.helper`, an SSH signing key (`gpg.format ssh`, `user.signingkey`, `commit.gpgsign true`, `gpg.ssh.allowedSignersFile`). Then clone both repositories under `/root/ClaudeGit`, `pnpm install --frozen-lockfile`, `pnpm exec playwright install --with-deps chromium`, `git fetch --tags` and `gh auth login`.
+
+A worker runs every command through the wrapper, the script on stdin, and batches independent commands into one script. It never runs Windows `git`, `node` or `pnpm` and never touches the old Windows clones (`C:\ClaudeGit\banking-app`, `C:\ClaudeGit\omatalous`). Files are read, edited and written at `\\wsl.localhost\Omatalous\root\wt\<ID>\<path with backslashes>`. Long commands run as background calls.
+```
+/c/ClaudeGit/lx /root/wt/<ID> <<'SH'
+pnpm test packages/core/test/merchant.test.ts 2>&1 | tail -30
+SH
+```

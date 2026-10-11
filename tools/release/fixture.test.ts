@@ -17,6 +17,8 @@ const SCRIPT = join(ROOT, "tools/release/fixture.mjs");
 const FIXTURES = join(ROOT, "apps/server/test/fixtures/db");
 const MIGRATIONS = join(ROOT, "apps/server/migrations");
 const AT = "2026-10-12T08:00:00.000Z";
+/** The migrations 0.8.0 shipped. A later one belongs to a later release, so these tests build on this set only. */
+const SHIPPED = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql") && f < "0013");
 
 const dirs: string[] = [];
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -29,6 +31,13 @@ const scratch = () => {
 function run(...args: string[]) {
   const r = spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
   return { code: r.status, out: r.stdout, err: r.stderr };
+}
+
+/** A folder with the migrations of 0.8.0 only. */
+function shippedMigrations(): string {
+  const dir = scratch();
+  for (const f of SHIPPED) cpSync(join(MIGRATIONS, f), join(dir, f));
+  return dir;
 }
 
 /** A loaded copy of a fixture file, as a database. */
@@ -85,7 +94,8 @@ async function release(over: { seeds?: Record<string, string>; contract?: (c: st
   const migrations = join(dir, "migrations");
   mkdirSync(fixtures);
   cpSync(join(FIXTURES, "0.8.0.sql"), join(fixtures, "0.8.0.sql"));
-  cpSync(MIGRATIONS, migrations, { recursive: true });
+  mkdirSync(migrations);
+  for (const f of SHIPPED) cpSync(join(MIGRATIONS, f), join(migrations, f));
   writeFileSync(join(migrations, "0013_notes.sql"), NOTES);
   mkdirSync(join(dir, "contracts/0.9.0"), { recursive: true });
   const contract = await freshContract("0.9.0", migrations);
@@ -100,7 +110,8 @@ async function release(over: { seeds?: Record<string, string>; contract?: (c: st
   return { dir, out, args, fixtures };
 }
 
-describe("tools/release/fixture.mjs", () => {
+// every test runs fixture.mjs and the migrations in a child process: seconds each, more on a busy machine
+describe("tools/release/fixture.mjs", { timeout: 30_000 }, () => {
   it("re-creates the 0.8.0 fixture from 0.7.0 and the migrations: the same schema and rows, a schema that equals the contract", () => {
     const dir = scratch();
     const seeds = join(dir, "seeds");
@@ -110,7 +121,7 @@ describe("tools/release/fixture.mjs", () => {
       writeFileSync(join(seeds, `${t}.sql`), real.split("\n").filter((l) => l.startsWith(`INSERT INTO ${t} `)).join("\n") + "\n");
     }
     const out = join(dir, "0.8.0.sql");
-    const r = run("0.8.0", "--out", out, "--seeds", seeds, "--at", AT);
+    const r = run("0.8.0", "--out", out, "--seeds", seeds, "--at", AT, "--migrations", shippedMigrations());
     expect(r.err).toBe("");
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/from 0\.7\.0\.sql \(20 tables, .* 1 migrations applied, 3 new tables\)/);
@@ -137,8 +148,9 @@ describe("tools/release/fixture.mjs", () => {
       writeFileSync(join(seeds, `${t}.sql`), (t === "optimise_states" ? "-- every status\n" : "") + real.split("\n").filter((l) => l.startsWith(`INSERT INTO ${t} `)).join("\n") + "\n");
     }
     const [one, two] = [join(dir, "one.sql"), join(dir, "two.sql")];
-    const first = run("0.8.0", "--out", one, "--seeds", seeds, "--at", AT);
-    expect(run("0.8.0", "--out", two, "--seeds", seeds, "--at", AT).code).toBe(0);
+    const migrations = shippedMigrations();
+    const first = run("0.8.0", "--out", one, "--seeds", seeds, "--at", AT, "--migrations", migrations);
+    expect(run("0.8.0", "--out", two, "--seeds", seeds, "--at", AT, "--migrations", migrations).code).toBe(0);
     expect(readFileSync(one, "utf8")).toBe(readFileSync(two, "utf8"));
     expect(readFileSync(one, "utf8")).toContain("-- Rows of optimise_states: every status\n");
     expect(first.out).toContain("-- Frozen database as written by Omatalous 0.8.0.");

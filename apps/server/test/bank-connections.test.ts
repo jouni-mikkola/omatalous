@@ -2,7 +2,7 @@ import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { LINK_FAILURES } from "../src/connectors/link-state.ts";
-import { mockBank } from "./mock-bank.ts";
+import { HOLDER, HOLDER_IBAN, mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
@@ -251,5 +251,126 @@ describe("linking ends in one message (no retry loop)", () => {
     expect((await meta(admin)).connections).toEqual([]);
     expect((await admin.call("GET", "/api/sync/runs")).body.runs).toEqual([]);
     errors.mockRestore();
+  });
+});
+
+describe("accounts you can tell apart", () => {
+  type Listed = { id: string; name: string; bankName: string; customName: string | null; holder: string | null; type: string; iban: string | null; cardMask: string | null; creditLimitCents: number | null };
+  const accounts = async (admin: Admin) => (await meta(admin)).accounts as Listed[];
+  const sessionWith = (list: unknown[], id = "sess-two") => ({
+    status: 200,
+    body: { session_id: id, aspsp: { name: "Nordea", country: "FI" }, access: { valid_until: "2027-04-06T00:00:00Z" }, accounts: list },
+  });
+  const current = { uid: "u-chk", identification_hash: "h-chk", account_id: { iban: HOLDER_IBAN }, name: HOLDER, product: "Käyttötili", currency: "EUR", cash_account_type: "CACC" };
+
+  it("names an account by the bank's product, keeps the holder as its own line and reads a card's number and limit", async () => {
+    const bank = mockBank();
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    await connect(admin, bank);
+    const list = await accounts(admin);
+    expect(list.find((a) => a.iban === HOLDER_IBAN)).toMatchObject({ name: "Käyttötili", bankName: "Käyttötili", customName: null, holder: HOLDER, type: "checking", cardMask: null, creditLimitCents: null });
+    expect(list.find((a) => a.name === "Nordea Gold")).toMatchObject({ bankName: "Nordea Gold", holder: HOLDER, iban: null, cardMask: "•••• 1144", creditLimitCents: 200000, type: "credit_card" });
+  });
+
+  it("the user's own name survives a new consent and a sync, and the bank's name still follows the bank", async () => {
+    const bank = mockBank();
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    await connect(admin, bank);
+    const id = (await accounts(admin)).find((a) => a.iban === HOLDER_IBAN)!.id;
+    expect((await admin.call("PATCH", `/api/accounts/${id}`, { name: "Yhteinen tili" })).body).toMatchObject({ name: "Yhteinen tili", bankName: "Käyttötili" });
+    await admin.call("POST", "/api/sync");
+
+    // the bank renamed the product; the link takes that, and the user's name stays
+    bank.answers["POST /sessions"] = sessionWith([{ ...current, product: "Käyttötili Plus" }]);
+    await connect(admin, bank);
+    const account = (await accounts(admin)).find((a) => a.id === id)!;
+    expect(account).toMatchObject({ name: "Yhteinen tili", customName: "Yhteinen tili", bankName: "Käyttötili Plus", holder: HOLDER });
+
+    expect((await admin.call("PATCH", `/api/accounts/${id}`, { name: "" })).body).toMatchObject({ name: "Käyttötili Plus", customName: null });
+  });
+
+  it("a savings product on a CACC account reads savings, and a type the user chose stays on the next consent", async () => {
+    const bank = mockBank();
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    const savings = { uid: "u-sav", identification_hash: "h-sav", account_id: { iban: "FI9612345600000793" }, name: `${HOLDER};Maija Mallikas`, product: "Pikasäästötili", currency: "EUR", cash_account_type: "CACC" };
+    bank.answers["POST /sessions"] = sessionWith([current, savings]);
+    bank.answers["GET /accounts/u-sav/transactions"] = { status: 200, body: { transactions: [] } };
+    bank.answers["GET /accounts/u-sav/balances"] = { status: 200, body: { balances: [{ balance_amount: { currency: "EUR", amount: "500.00" }, balance_type: "CLBD" }] } };
+    await connect(admin, bank);
+    const sav = (await accounts(admin)).find((a) => a.iban === "FI9612345600000793")!;
+    expect(sav).toMatchObject({ name: "Pikasäästötili", type: "savings", holder: `${HOLDER}, Maija Mallikas` });
+    expect((await accounts(admin)).find((a) => a.iban === HOLDER_IBAN)!.type).toBe("checking");
+
+    await admin.call("PATCH", `/api/accounts/${sav.id}`, { type: "other" });
+    bank.answers["POST /sessions"] = sessionWith([current, savings], "sess-three");
+    await connect(admin, bank);
+    expect((await accounts(admin)).find((a) => a.id === sav.id)!.type).toBe("other");
+  });
+});
+
+describe("accounts linked before the bank's own fields were stored", () => {
+  type Listed = { id: string; name: string; bankName: string; customName: string | null; holder: string | null; type: string; cardMask: string | null; creditLimitCents: number | null };
+  const accounts = async (admin: Admin) => (await meta(admin)).accounts as Listed[];
+  const detailCalls = (bank: Bank) => bank.calls.filter((c) => c.includes("/details"));
+  // a session answer with nothing but the type: what an account linked before these fields were read looks like here
+  const bare = [
+    { uid: "u-chk", identification_hash: "h-chk", currency: "EUR", cash_account_type: "CACC" },
+    { uid: "u-card", identification_hash: "h-card", currency: "EUR", cash_account_type: "CARD" },
+  ];
+  const setup = async () => {
+    const bank = mockBank();
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    bank.answers["POST /sessions"] = {
+      status: 200,
+      body: { session_id: "sess-bare", aspsp: { name: "Nordea", country: "FI" }, access: { valid_until: "2027-04-06T00:00:00Z" }, accounts: bare },
+    };
+    return { bank, admin };
+  };
+
+  it("a sync asks the bank once, after the transactions, and a refusal or a rate limit leaves the marker for the next sync", async () => {
+    const { bank, admin } = await setup();
+    bank.answers["GET /accounts/u-chk/details"] = { status: 429, body: { code: 429, error: "RATE_LIMIT_EXCEEDED", message: "Too many requests" } };
+    bank.answers["GET /accounts/u-card/details"] = { status: 500, body: { code: 500, error: "ASPSP_ERROR", message: "Error interacting with ASPSP" } };
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await connect(admin, bank);
+    const chk = () => accounts(admin).then((list) => list.find((a) => a.type === "checking")!);
+    const card = () => accounts(admin).then((list) => list.find((a) => a.type === "credit_card")!);
+    expect(await chk()).toMatchObject({ name: "Tili", holder: null });
+
+    // refused again: the fetch itself is fine, nothing is reported, the holder stays unread
+    bank.calls.length = 0;
+    const failed = await admin.call("POST", "/api/sync");
+    expect(failed.body).toMatchObject({ status: "ok", messages: [] });
+    expect(detailCalls(bank)).toEqual(["GET /accounts/u-chk/details", "GET /accounts/u-card/details"]);
+    expect(bank.calls.indexOf("GET /accounts/u-chk/transactions")).toBeLessThan(bank.calls.indexOf("GET /accounts/u-chk/details"));
+    expect(await chk()).toMatchObject({ holder: null });
+    expect((await meta(admin)).accounts.every((a: { problem: unknown }) => a.problem === null)).toBe(true);
+    expect(errors).not.toHaveBeenCalled();
+
+    // the bank answers: the product, holder, card number and limit arrive, the user's name and the type stay
+    await admin.call("PATCH", `/api/accounts/${(await chk()).id}`, { name: "Yhteinen tili" });
+    delete bank.answers["GET /accounts/u-chk/details"];
+    delete bank.answers["GET /accounts/u-card/details"];
+    bank.calls.length = 0;
+    expect((await admin.call("POST", "/api/sync")).body.status).toBe("ok");
+    expect(await chk()).toMatchObject({ name: "Yhteinen tili", customName: "Yhteinen tili", bankName: "Käyttötili", holder: HOLDER, type: "checking" });
+    expect(await card()).toMatchObject({ name: "Nordea Gold", holder: HOLDER, cardMask: "•••• 1144", creditLimitCents: 200000, type: "credit_card" });
+
+    // read: not asked again
+    bank.calls.length = 0;
+    expect((await admin.call("POST", "/api/sync")).body.status).toBe("ok");
+    expect(detailCalls(bank)).toEqual([]);
+    errors.mockRestore();
+  });
+
+  it("an answer that names nothing keeps the name and is not asked for again", async () => {
+    const { bank, admin } = await setup();
+    bank.answers["GET /accounts/u-chk/details"] = { status: 200, body: {} };
+    await connect(admin, bank);
+    const chk = await accounts(admin).then((list) => list.find((a) => a.type === "checking")!);
+    expect(chk).toMatchObject({ name: "Tili", holder: "" });
+    bank.calls.length = 0;
+    await admin.call("POST", "/api/sync");
+    expect(detailCalls(bank)).toEqual([]);
   });
 });
