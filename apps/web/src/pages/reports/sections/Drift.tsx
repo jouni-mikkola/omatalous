@@ -2,7 +2,7 @@
 import { addDays, daysInMonth } from "@banking/core";
 import { query } from "../../../api.ts";
 import { date, money, MONTHS_SHORT, plural, signedMoney } from "../../../format.ts";
-import { Section } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** ["2026-07", "2026-08", "2026-09"] → "heinä–syyskuu 2026" */
@@ -33,13 +33,13 @@ function Drift({ ctx }: SectionProps) {
   const r = ctx.data.drift;
   if (!r.items.length) {
     return (
-      <Section section={section}>
+      <Section id={section.id} title={section.title}>
         <div className="empty">{emptyText(r, ctx.meta.today)}</div>
       </Section>
     );
   }
   return (
-    <Section section={section} sub={`Tavallista kalliimpi kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
+    <Section id={section.id} title={section.title} sub={`Tavallista kalliimpi kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
       <p className="lead">{r.advice}</p>
       <div className="table-wrap">
         <table>

@@ -52,6 +52,12 @@ const RULES: Rule[] = [
     deny: new RegExp(`^${CORE}/reports/(?!shared\\.ts$)`),
   },
   {
+    id: "optimise-areas-are-independent",
+    why: "an Optimoi area reads optimise/common.ts, facts, types, inputs and analysis exports; what two areas share goes in optimise/common.ts",
+    from: new RegExp(`^${CORE}/optimise/areas/`),
+    deny: new RegExp(`^${CORE}/optimise/(?!common\\.ts$|facts/|types\\.ts$|inputs\\.ts$)`),
+  },
+  {
     id: "db-is-below-services",
     why: "db/ holds all SQL and sits at the bottom of the server; it must not reach up",
     from: new RegExp(`^${SERVER}/db/`),
@@ -117,14 +123,7 @@ const RULES: Rule[] = [
  * Imports that break a rule today, as `<rule id>  <importing file> -> <imported file>`. Fix one, then delete its line.
  * Do not add to it: a new violation is a design problem to solve in the change that introduces it.
  */
-const BASELINE: string[] = [
-  // yearEarlier (a date helper) is shared between reports; it belongs in reports/shared.ts
-  "reports-are-independent  packages/core/src/reports/price-changes.ts -> packages/core/src/reports/summary.ts",
-  // type-only imports of row and repo types; the services should re-export or return their own types
-  "routes-use-services  apps/server/src/routes/finance.ts -> apps/server/src/db/rows.ts",
-  "routes-use-services  apps/server/src/routes/merchants.ts -> apps/server/src/db/finance-repo.ts",
-  "routes-use-services  apps/server/src/routes/users.ts -> apps/server/src/db/rows.ts",
-];
+const BASELINE: string[] = [];
 
 interface Edge {
   rule: Rule;
@@ -173,6 +172,39 @@ function edges(): { all: Edge[]; matched: Map<string, number> } {
   return { all, matched };
 }
 
+/** The strongly connected groups of more than one file (Tarjan), each as its files in order. */
+function cyclesOf(graph: ReadonlyMap<string, readonly string[]>): string[][] {
+  const index = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const out: string[][] = [];
+  let next = 0;
+  const visit = (v: string) => {
+    index.set(v, next);
+    low.set(v, next++);
+    stack.push(v);
+    onStack.add(v);
+    for (const w of graph.get(v) ?? []) {
+      if (!graph.has(w)) continue;
+      if (!index.has(w)) {
+        visit(w);
+        low.set(v, Math.min(low.get(v)!, low.get(w)!));
+      } else if (onStack.has(w)) low.set(v, Math.min(low.get(v)!, index.get(w)!));
+    }
+    if (low.get(v) !== index.get(v)) return;
+    const group: string[] = [];
+    for (let w = stack.pop()!; ; w = stack.pop()!) {
+      onStack.delete(w);
+      group.push(w);
+      if (w === v) break;
+    }
+    if (group.length > 1) out.push(group.sort());
+  };
+  for (const v of [...graph.keys()].sort()) if (!index.has(v)) visit(v);
+  return out;
+}
+
 const keyOf = (e: Edge) => `${e.rule.id}  ${e.from} -> ${e.to}`;
 
 let scanned: ReturnType<typeof edges> | undefined;
@@ -192,6 +224,28 @@ describe("repo rules: import boundaries (rule 6)", () => {
     const live = new Set(scan().all.map(keyOf));
     const found: Finding[] = BASELINE.filter((b) => !live.has(b)).map((b) => ({ file: SELF, line: lineIn(SELF, b), why: `baseline entry no longer occurs, delete it: ${b}` }));
     expectNoFindings("import boundary baseline", found, "remove the listed lines from BASELINE in tools/repo-rules/boundaries.ts. Good: the violation is gone.");
+  });
+
+  it("rule 6d: no runtime import cycle in core, server or web (type-only imports are erased and do not count)", () => {
+    const known = new Set(repoFiles());
+    const files = sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/");
+    const graph = new Map<string, string[]>();
+    for (const file of files) {
+      // the token scanner first: most files import nothing of ours that could close a loop, and are not parsed
+      const local = specifiersOf(file).filter((spec) => spec.startsWith(".") || spec.startsWith("@banking/core"));
+      if (local.length === 0) {
+        graph.set(file, []);
+        continue;
+      }
+      const to = importsOf(file)
+        .filter((r) => !r.typeOnly)
+        .map((r) => target(file, r.spec, known))
+        .filter((t) => !t.startsWith("ext:") && t !== file);
+      graph.set(file, [...new Set(to)]);
+    }
+    const found: Finding[] = cyclesOf(graph).map((cycle) => ({ file: cycle[0]!, line: 1, why: `import cycle: ${cycle.join(" -> ")}` }));
+    expect(graph.size, "the scan found the sources").toBeGreaterThan(200);
+    expectNoFindings("import cycles", found, "move what both files need into a third file that imports neither (a shared.ts beside them), so the imports point one way.");
   });
 
   it("rule 6c: every boundary rule still applies to at least one file", () => {

@@ -1,9 +1,9 @@
-import { REST_CATEGORY } from "@banking/core";
+import { MIN_COMPARE_MONTHS, REST_CATEGORY } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { MonthColumns } from "../charts/MonthColumns.tsx";
 import { categoryColor } from "../charts/palette.ts";
 import { Sparkbars } from "../charts/Sparkbars.tsx";
-import { money, monthLong, monthSpan } from "../format.ts";
+import { completeMonths, money, monthLong, monthSpan } from "../format.ts";
 import { navigate } from "../hooks.ts";
 import { breakdownRows } from "./month-parts.ts";
 import type { DashboardData } from "../types.ts";
@@ -136,7 +136,7 @@ export function MonthlySpending({ trend, colorOrder, range }: { trend: Trend; co
             </div>
             {!explanation && (
               <p className="muted small explain-empty">
-                Selitys näyttää, mikä erotti kuukauden tavallisesta. Se näkyy, kun ennen kuukautta on kolme valmista kuukautta.
+                Selitys näyttää, mikä erotti kuukauden tavallisesta. Se näkyy, kun ennen kuukautta on {completeMonths(MIN_COMPARE_MONTHS)}.
               </p>
             )}
             <div className="table-wrap">

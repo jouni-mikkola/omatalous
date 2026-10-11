@@ -2,7 +2,7 @@
  * Puhelin ja tilaukset. The hit: Elisa's phone bill rose 44,90 € → 56,90 € on 12.3.2026 after 12 charges (144 € a
  * year), Spotify 11,99 € and Tidal 10,99 € a month (dropping Tidal saves 131,88 € a year) and a Storytel yearly
  * subscription of 189 € that renews on 14.11.2026. Near misses: a 4 % rise, a family plan gaining a line (39,80 € →
- * 59,70 €, over 30 %), a phone bill that doubled, one video service, two music services under the gate, a renewal in 61 days and a renewal marked cancelled.
+ * 59,70 €, over 30 %), a phone bill that doubled, one video service, two music services under the gate, a renewal in 61 days, a renewal marked cancelled and a renewal of 119,95 €.
  */
 import { addMonths, daysInMonth, monthRange } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
@@ -72,6 +72,10 @@ export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => {
   const cancelled = rows("sub-cancelled");
   cancelled.add("2024-11-14", -18900, "Storytel", "STORYTEL");
   cancelled.add("2025-11-14", -18900, "Storytel", "STORYTEL");
+  const under = rows("sub-under");
+  // 119,95 € a year, under the 120 € gate; a twelfth rounded back up to a year would read 120,00 €
+  under.add("2024-11-14", -11995, "Storytel", "STORYTEL");
+  under.add("2025-11-14", -11995, "Storytel", "STORYTEL");
   return [
     { txs: rise.out },
     { txs: family.out },
@@ -80,6 +84,7 @@ export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => {
     { txs: small.out },
     { txs: later.out },
     { txs: cancelled.out, inputs: { marks: [{ subject: "merchant:Storytel", mark: "cancelled", markedAt: "2026-10-01T12:00:00" }], expectedBills: [] } },
+    { txs: under.out },
   ];
 };
 

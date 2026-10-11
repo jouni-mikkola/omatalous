@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { optimizeDatabase } from "../src/db/optimize.ts";
+import { optimizeDatabase } from "../src/db/pragmas.ts";
 import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";

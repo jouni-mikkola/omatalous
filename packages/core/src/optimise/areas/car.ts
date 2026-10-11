@@ -9,24 +9,14 @@ import { monthOf } from "../../dates.ts";
 import { annualise, findingId, levelWithoutOneOffs, MAX_ROWS, netCost } from "../common.ts";
 import { valueOf } from "../inputs.ts";
 import type { Area, AreaInput, AreaResult, AreaSummary, CalcLine, Check, FindingDraft, Weakness } from "../types.ts";
+import { mccKind } from "../../industry.ts";
+import { isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isParkingText, isStreetParkingText, isVehicleTaxText } from "../../wording.ts";
 
 /** Parking under this much a year is not worth asking the permit price for (the brief's input gate). */
 const PARKING_GATE_CENTS = 30_000;
 /** The summary needs this many complete months, as a euro finding does (rule 2). */
 const SUMMARY_MONTHS = 6;
 
-const words = (list: string) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?![A-Z0-9])`);
-const PARKING = words(String.raw`EASYPARK|PARKMAN|MOOVY|AIMO|AIMO PARK|APCOA|EUROPARK|Q-PARK|P-HUB|SCANDINAVIAN PARKING|PYSAKOINTI|PARKKI[A-Z]*`);
-// the parking apps the permit comparison counts: street and zone parking, not a garage bought for one evening
-const STREET_PARKING = words(String.raw`EASYPARK|PARKMAN|MOOVY|AIMO|AIMO PARK`);
-const CHARGING = words(String.raw`K-LATAUS|VIRTA|PLUGIT|RECHARGE|IONITY|SUPERCHARGER|[A-Z]*LATAUS`);
-const INSPECTION = words(String.raw`[A-Z-]*KATSASTUS[A-Z]*`);
-const SERVICE = words(String.raw`RENGAS[A-Z]*|RENKAAT|AUTOHUOLTO|AUTOKORJAAMO|KORJAAMO|AUTOMAALAAMO|AUTOPALVELU|MEKONOMEN|EUROMASTER|VIANOR`);
-const FUEL = words(String.raw`NESTE|ST1|ABC|SHELL|TEBOIL|SEO|GULF`);
-const CAR_INSURANCE = words(String.raw`LIIKENNEVAKUUTUS|AUTOVAKUUTUS|AJONEUVOVAKUUTUS|KASKO[A-Z]*`);
-const VEHICLE_TAX = words(String.raw`AJONEUVOVERO|TRAFICOM`);
-// on a loans row: an instalment or loan that names the car ("OSAMAKSU AUTO SOPIMUS 4471"), or a car financier
-const CAR_FINANCE = words(String.raw`AUTO|AUTON|AUTOLAINA|AUTORAHOITUS|AUTO-OSAMAKSU|AUTOSOPIMUS|SANTANDER|TOYOTA FINANCIAL|VOLKSWAGEN FINANCIAL`);
 
 type Line = "fuel" | "charging" | "parking" | "service" | "inspection" | "insurance" | "tax" | "finance" | "other";
 
@@ -43,26 +33,25 @@ const LABELS: Readonly<Record<Line, string>> = {
 };
 
 const textOf = (t: AnalysisTx) => fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
-const mccOf = (t: AnalysisTx) => (t.mcc ? Number(t.mcc) : Number.NaN);
 
 /** What a car row was for, or null for a row that is not about the car. */
 function lineOf(t: AnalysisTx): Line | null {
   const text = textOf(t);
-  const mcc = mccOf(t);
-  if (t.category === "insurance") return CAR_INSURANCE.test(text) ? "insurance" : null;
-  if (t.category === "taxes") return VEHICLE_TAX.test(text) ? "tax" : null;
-  if (t.category === "loans") return CAR_FINANCE.test(text) ? "finance" : null;
+  const mcc = mccKind(t.mcc);
+  if (t.category === "insurance") return isCarInsuranceText(text) ? "insurance" : null;
+  if (t.category === "taxes") return isVehicleTaxText(text) ? "tax" : null;
+  if (t.category === "loans") return isCarFinanceText(text) ? "finance" : null;
   if (t.category !== "car") return null;
-  if (mcc === 7523 || PARKING.test(text)) return "parking";
-  if (mcc === 5552 || CHARGING.test(text)) return "charging";
-  if (INSPECTION.test(text)) return "inspection";
-  if ((mcc >= 7531 && mcc <= 7549) || SERVICE.test(text)) return "service";
-  if (mcc === 5541 || mcc === 5542 || FUEL.test(text)) return "fuel";
+  if (mcc === "parking" || isParkingText(text)) return "parking";
+  if (mcc === "charging" || isChargingText(text)) return "charging";
+  if (isInspectionText(text)) return "inspection";
+  if (mcc === "car_service" || isCarServiceText(text)) return "service";
+  if (mcc === "fuel" || isFuelText(text)) return "fuel";
   return "other";
 }
 
 /** Parking the resident permit could replace: a car row paid to a parking app or with the parking card code. */
-const isStreetParking = (t: AnalysisTx) => !t.isTransfer && t.category === "car" && (mccOf(t) === 7523 || STREET_PARKING.test(textOf(t)));
+const isStreetParking = (t: AnalysisTx) => !t.isTransfer && t.category === "car" && (mccKind(t.mcc) === "parking" || isStreetParkingText(textOf(t)));
 
 const eur = (cents: number) => formatEur(cents, false);
 

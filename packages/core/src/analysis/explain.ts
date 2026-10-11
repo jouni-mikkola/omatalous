@@ -215,14 +215,3 @@ export function explainMonth(ctx: AnalysisContext, month: string): MonthExplanat
   }
   return { month, running, nowCents, usualCents: usualTotal, changeCents: nowCents - usualTotal, basis: usualMonths, rows };
 }
-
-/**
- * The usual level of a month's total spending: the median of the complete months before it, whole months (the
- * dashed line of the monthly chart). null under three complete months.
- */
-export function usualSpending(ctx: AnalysisContext, month: string): number | null {
-  const months = completeMonthsBefore(ctx, month);
-  if (months.length < MIN_COMPARE_MONTHS) return null;
-  const index = contextIndex(ctx);
-  return usualCents(months.map((m) => (index.byMonth.get(monthIndex(m)) ?? []).reduce((s, t) => s + t.spend, 0)));
-}

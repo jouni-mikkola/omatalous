@@ -1,9 +1,9 @@
 /** Bills the signed-in user typed in. Own rows only. */
 import { addDays, type ExpectedBill, type ExpectedCadence, getCategory, isKnownCategory } from "@banking/core";
 import { Hono } from "hono";
-import { UserError } from "../platform/errors.ts";
+import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
-import { strictObject } from "../platform/validate.ts";
+import { isIsoDate, strictObject } from "../platform/validate.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
 
@@ -17,15 +17,6 @@ const DAYS_AHEAD = 400;
 /** Every request reads them all, so a runaway list stays out. */
 const MAX_BILLS = 100;
 
-/** `YYYY-MM-DD` that exists on the calendar (2026-02-30 does not). */
-function isRealDate(value: string): boolean {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!m) return false;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const t = new Date(Date.UTC(y, mo - 1, d));
-  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
-}
-
 /** The fields of a new bill, checked against allowlists. Throws a UserError with a message safe to show. */
 function parseExpectedBill(raw: unknown, today: string): Omit<ExpectedBill, "id"> {
   const input = strictObject(raw, ["name", "amountCents", "dueDate", "cadence", "category"] as const);
@@ -36,7 +27,7 @@ function parseExpectedBill(raw: unknown, today: string): Omit<ExpectedBill, "id"
     throw new UserError("Summan pitää olla vähintään 0,01 € ja enintään 1 000 000 €.");
   }
   const due = input.dueDate;
-  if (typeof due !== "string" || !isRealDate(due) || due < addDays(today, -DAYS_BACK) || due > addDays(today, DAYS_AHEAD)) {
+  if (!isIsoDate(due) || due < addDays(today, -DAYS_BACK) || due > addDays(today, DAYS_AHEAD)) {
     throw new UserError(`Eräpäivä voi olla enintään ${DAYS_BACK} päivää sitten ja ${DAYS_AHEAD} päivän päässä.`);
   }
   const cadence = input.cadence;
@@ -67,7 +58,7 @@ export function expectedBillRoutes(s: Services) {
 
   app.delete("/expected-bills/:id", async (c) => {
     // another member's bill is not this user's row: the same 404 as an id that never existed
-    if (!(await s.finance(c.get("user").id).deleteExpectedBill(c.req.param("id")))) return c.json({ error: "Laskua ei löydy." }, 404);
+    if (!(await s.finance(c.get("user").id).deleteExpectedBill(c.req.param("id")))) throw new NotFound("Laskua ei löydy.");
     return c.json({ ok: true });
   });
 

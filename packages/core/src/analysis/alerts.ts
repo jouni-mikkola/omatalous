@@ -5,8 +5,10 @@ import type { RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import { NO_INPUTS, type UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
+import { isBankFee, isLateFee } from "./fees.ts";
 import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
+import { monthlyNoise, monthStandsOut } from "./signal.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksByMerchant } from "./subscription-alerts.ts";
 
 export { inUseQuietsQuestion } from "./subscription-alerts.ts";
@@ -167,19 +169,6 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
 
 // ── late payment fees ────────────────────────────────────
 
-const LATE_FEE = /MUISTUTUSMAKSU|VIIVASTYSKORKO|PERINTAKULU|KARHUMAKSU|MAKSUMUISTUTUS/;
-
-/** A reminder fee or late interest: its own alert, and not a bank's price. Optimoi's late fee finding reads the same rows. */
-export const isLateFee = (t: AnalysisTx) => t.amountCents < 0 && !t.isTransfer && LATE_FEE.test(fold(`${t.description ?? ""} ${t.counterparty ?? ""} ${t.merchant}`));
-
-const LATE_FEE_WORDS = new RegExp(LATE_FEE.source, "g");
-
-/**
- * A late fee whose message names nothing but the fee. "LASKU 4471 JA PERINTAKULU" pays the bill too, so its sum is not
- * the fee's; the alert counts it, a figure of what the fees cost does not.
- */
-export const isLateFeeAlone = (t: AnalysisTx) => isLateFee(t) && !/[A-Z0-9]/.test(fold(t.description ?? "").replace(LATE_FEE_WORDS, ""));
-
 function lateFees(current: readonly AnalysisTx[]): Alert[] {
   const rows = current.filter(isLateFee);
   if (!rows.length) return [];
@@ -310,6 +299,8 @@ const SPIKE_RATIO = 1.5;
 const SPIKE_MIN_CENTS = 5000;
 const SPIKE_MIN_TXS = 3;
 const SPIKE_BASE_MONTHS = 6;
+/** Months that show a category's noise: a busy month comes a few times a year, so six months cannot show it (ADR 0011). */
+const SPIKE_NOISE_MONTHS = 24;
 const CHRISTMAS = new Set(["shopping", "home", "kids", "gifts_donations", "groceries", "alcohol"]);
 const SUMMER = new Set(["travel", "entertainment"]);
 /** Months (1–12) when a category is high every year in Finland: Christmas, the summer holiday. */
@@ -336,8 +327,9 @@ function spikeMonth(ctx: AnalysisContext, range: DateRange): number | null {
 function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
   const target = spikeMonth(ctx, range);
   if (target === null) return [];
-  const base: number[] = [];
-  for (let m = target - SPIKE_BASE_MONTHS; m < target; m++) if (historyCovers(ctx, `${fromMonthIndex(m)}-01`)) base.push(m);
+  const noiseMonths: number[] = [];
+  for (let m = target - SPIKE_NOISE_MONTHS; m < target; m++) if (historyCovers(ctx, `${fromMonthIndex(m)}-01`)) noiseMonths.push(m);
+  const base = noiseMonths.filter((m) => m >= target - SPIKE_BASE_MONTHS);
   if (base.length < 3) return [];
   const lastYear = target - 12;
   const lastYearCovered = historyCovers(ctx, `${fromMonthIndex(lastYear)}-01`);
@@ -347,7 +339,7 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
   for (const t of ctx.txs) {
     if (!t.spend || t.category === "other") continue;
     const inTarget = t.month === target && t.day >= fromDay && t.day <= toDay;
-    if (!inTarget && t.month !== lastYear && (t.month < base[0]! || t.month >= target)) continue;
+    if (!inTarget && t.month !== lastYear && (t.month < noiseMonths[0]! || t.month >= target)) continue;
     const e = per.get(t.category) ?? { now: 0, count: 0, largest: 0, fixed: 0, months: new Map<number, number>() };
     if (inTarget) {
       e.now += t.spend;
@@ -366,6 +358,8 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
     const baseValues = base.map((m) => e.months.get(m) ?? 0);
     const typical = median(baseValues);
     if (e.count < SPIKE_MIN_TXS || e.now <= SPIKE_RATIO * typical || e.now - typical < SPIKE_MIN_CENTS) continue;
+    // a busy month of a frequent category, or one more purchase in a rare one, is the household's own noise
+    if (!monthStandsOut(e.now - typical, monthlyNoise(noiseMonths.map((m) => e.months.get(m) ?? 0)), base.length)) continue;
     // bills paid late or early land two in one month: the late fee alert covers that
     if (e.fixed >= 0.8 * e.now) continue;
     // a spike is more of the same, not one big purchase (a doctor's visit, a sofa, a car repair): it
@@ -387,10 +381,7 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
       diff: e.now - typical,
     });
   }
-  return out
-    .sort((a, b) => b.diff - a.diff)
-    .slice(0, 2)
-    .map(({ diff: _diff, ...a }) => a);
+  return out.sort((a, b) => b.diff - a.diff).slice(0, 2).map(({ diff: _diff, ...a }) => a);
 }
 
 // ── bank fees ────────────────────────────────────────────
@@ -398,9 +389,6 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
 const FEES_MIN_YEARLY = 10000;
 const FEES_MIN_MONTHS = 6;
 const FEES_MIN_DAYS = 150;
-
-/** A bank's own price or interest, late fees left out: the rows of the bank fees alert and of Optimoi's bank fee summary. */
-export const isBankFee = (t: AnalysisTx) => (t.category === "fees" || t.category === "interest") && t.spend > 0 && !isLateFee(t);
 
 function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: DateRange): Alert[] {
   if (monthIndex(range.to) - monthIndex(range.from) + 1 < FEES_MIN_MONTHS || !ctx.dataFrom) return [];

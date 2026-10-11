@@ -67,3 +67,10 @@ export async function setupApp(env: Record<string, string> = {}, fetchMock?: typ
 
   return { app, db, s: app.services, admin, adminId: setup.body.user.id as string, client, member };
 }
+
+/** The signed-in user's checking account as /api/meta lists it (the demo data has one). */
+export async function checkingAccount(c: Client): Promise<{ id: string; [field: string]: any }> {
+  const account = (await c.call("GET", "/api/meta")).body.accounts.find((a: { type: string }) => a.type === "checking");
+  if (!account) throw new Error("no checking account in /api/meta");
+  return account;
+}

@@ -85,7 +85,7 @@ describe("Puhelin ja tilaukset", () => {
   });
 
   it("each near miss is one step from a finding and stays quiet", () => {
-    const [rise, family, line, video, small, later, cancelled] = subsPart.nearMiss(FRAME).map((p) => inputOf(p));
+    const [rise, family, line, video, small, later, cancelled, under] = subsPart.nearMiss(FRAME).map((p) => inputOf(p));
     // the 4 % rise is a price change, under the insight's 5 %
     expect(recurringAt(rise!.ctx, "2026-09-30").find((s) => s.merchant === "Elisa")?.priceChange).toMatchObject({ fromCents: 2500, toCents: 2600 });
     // the insight still names a step over 30 % (a line added); Optimoi does not read it as a price
@@ -96,7 +96,9 @@ describe("Puhelin ja tilaukset", () => {
     expect(overlapGroups(small!.ctx.recurring).map((g) => g.type)).toEqual(["music"]);
     expect(renewalItems(later!.ctx, NO_INPUTS, 61).map((s) => s.merchant)).toEqual(["Storytel"]);
     expect(subscriptions.assess(areaInputOf({ ...cancelled!, inputs: NO_INPUTS })).findings.map((f) => f.kind)).toEqual(["renewal"]);
-    for (const input of [rise, family, line, video, small, later, cancelled]) expect(shown(input!)).toEqual([]);
+    // the gate reads the series' own year, 119,95 €
+    expect(renewalItems(under!.ctx, NO_INPUTS, 60).map((s) => s.yearlyCents)).toEqual([11995]);
+    for (const input of [rise, family, line, video, small, later, cancelled, under]) expect(shown(input!)).toEqual([]);
   });
 
   it("leaves out a series nobody recognised, such as one leg of a move between accounts", () => {

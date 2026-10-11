@@ -1,7 +1,8 @@
 // Decision: where to cut
 import { query } from "../../../api.ts";
 import { money, percent, signedMoney } from "../../../format.ts";
-import { ExportLink, Section } from "../parts.tsx";
+import { ExportLink } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function Change({ now, before }: { now: number; before: number }) {
@@ -23,7 +24,7 @@ function Categories({ ctx }: SectionProps) {
   // a share says of what: spending is the base of the first, income of the second
   const hasIncome = r.incomeCents > 0;
   return (
-    <Section section={section} sub={r.comparable ? "Muutos edelliseen jaksoon" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
+    <Section id={section.id} title={section.title} sub={r.comparable ? "Muutos edelliseen jaksoon" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
       <div className="table-wrap">
         <table>
           <thead>

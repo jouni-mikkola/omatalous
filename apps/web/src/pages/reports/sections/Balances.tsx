@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { LineChart } from "../../../charts/LineChart.tsx";
 import { date, money, monthLabel, monthLong } from "../../../format.ts";
-import { Section, TableToggle } from "../parts.tsx";
+import { TableToggle } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 const TOTAL_LABEL = "Yhdistetyt tilit yhteensä, arvio";
@@ -18,7 +19,7 @@ function Balances({ ctx }: SectionProps) {
     ? `Kuukauden lopussa, viimeinen piste tänään${oldest < ctx.meta.today ? `. Vanhin saldo on päivältä ${date(oldest)}` : ""}`
     : "Kuukauden lopussa";
   return (
-    <Section section={section} sub={sub} actions={<TableToggle table={table} onToggle={() => setTable((v) => !v)} />}>
+    <Section id={section.id} title={section.title} sub={sub} actions={<TableToggle table={table} onToggle={() => setTable((v) => !v)} />}>
       {table ? (
         <div className="table-wrap">
           <table>

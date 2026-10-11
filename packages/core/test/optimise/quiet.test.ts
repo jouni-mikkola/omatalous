@@ -36,12 +36,12 @@ describe("optimise on random households", () => {
   it("stays quiet on 50 plain histories", () => {
     const { loud } = judge((seed) => randomHistory(seed, 600));
     expect(loud).toEqual([]);
-  });
+  }, 30_000); // 50 households take 2 to 7 s alone and more when several checks run: a red must mean a bug
 
   it("stays quiet on 50 settled households of 30 months, and Tilanne has its figures", () => {
     const { loud, situation } = judge((seed) => randomHistory(seed, 1500, { months: 30, settled: true }));
     expect(loud).toEqual([]);
     // four facts, two runs, fifty households: the settled ones have pay, balances and a loan
     expect(situation).toBe(4 * 2 * 50);
-  });
+  }, 30_000); // 50 households take 2 to 7 s alone and more when several checks run: a red must mean a bug
 });

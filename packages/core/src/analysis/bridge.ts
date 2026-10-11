@@ -10,7 +10,7 @@ import { median } from "../stats.ts";
 import { type AnalysisContext, inDays } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { type DateRange, toDayRange } from "./period.ts";
-import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS, usualCents } from "./usual.ts";
+import { completeMonthsBefore, earnedIncome, isCompleteMonth, MIN_COMPARE_MONTHS, usualIncome } from "./usual.ts";
 
 export interface Bridge {
   totals: PeriodTotals;
@@ -21,8 +21,13 @@ export interface Bridge {
   basis: "range" | "settled" | "last" | "running";
   /** The one month the totals describe (`2026-09`), or null when they cover a longer period. */
   month: string | null;
-  /** Tavallisesti for that month: the median income of the complete months before it, null under three of them or without a month. */
+  /**
+   * Tavalliset tulot for that month (`usualIncome`): the median earned income of the complete months before it, null
+   * under three of them or without a month.
+   */
   usualIncomeCents: number | null;
+  /** That month's own earned income, what `usualIncomeCents` is compared with; null without a month. */
+  earnedIncomeCents: number | null;
   /** The same for the savings rate (months without income have none and do not count). */
   usualSavingsRate: number | null;
 }
@@ -33,11 +38,11 @@ function monthTotals(ctx: AnalysisContext, month: string): PeriodTotals {
   return totalsOf(inDays(ctx, toDayRange({ from: `${month}-01`, to: lastDay(month) })).map((t) => t.flows));
 }
 
-function usualOf(ctx: AnalysisContext, month: string): Pick<Bridge, "usualIncomeCents" | "usualSavingsRate"> {
-  if (!isCompleteMonth(ctx, month)) return { usualIncomeCents: null, usualSavingsRate: null };
+function usualOf(ctx: AnalysisContext, month: string): Pick<Bridge, "usualIncomeCents" | "earnedIncomeCents" | "usualSavingsRate"> {
+  if (!isCompleteMonth(ctx, month)) return { usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null };
   const before = completeMonthsBefore(ctx, month).map((m) => monthTotals(ctx, m));
   const rates = before.flatMap((t) => (t.savingsRate === null ? [] : [t.savingsRate]));
-  return { usualIncomeCents: usualCents(before.map((t) => t.incomeCents)), usualSavingsRate: rates.length < MIN_COMPARE_MONTHS ? null : median(rates) };
+  return { usualIncomeCents: usualIncome(ctx, month), earnedIncomeCents: earnedIncome(ctx, month), usualSavingsRate: rates.length < MIN_COMPARE_MONTHS ? null : median(rates) };
 }
 
 /**
@@ -45,7 +50,7 @@ function usualOf(ctx: AnalysisContext, month: string): Pick<Bridge, "usualIncome
  * dashboard.ts); `running` says the period reaches today.
  */
 export function buildBridge(ctx: AnalysisContext, range: DateRange, running: boolean, totals: PeriodTotals, settled: PeriodTotals | null): Bridge {
-  const none = { usualIncomeCents: null, usualSavingsRate: null };
+  const none = { usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null };
   const months = monthRange(monthOf(range.from), monthOf(range.to));
   const single = months.length === 1 && range.from === `${months[0]}-01` && range.to === lastDay(months[0]!) ? months[0]! : null;
   if (!running) return { totals, basis: "range", month: single, ...(single ? usualOf(ctx, single) : none) };

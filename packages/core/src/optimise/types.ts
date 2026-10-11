@@ -6,6 +6,8 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { QualitySignal } from "../analysis/data-quality.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
+import type { FollowUp } from "./outcome.ts";
+import type { FindingChange } from "./snapshot.ts";
 
 export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electricity", "housing", "insurance", "food", "habits", "seasons", "tax", "kids", "car"] as const;
 export type AreaId = (typeof AREA_IDS)[number];
@@ -15,7 +17,6 @@ export type Effort = "minuutteja" | "tunti" | "ilta";
 
 /** The verbs an action may start with (rule 5): a sinä imperative the household can carry out. */
 export const ACTION_VERBS = ["kilpailuta", "irtisano", "neuvottele", "vaihda", "hae", "maksa", "siirrä", "varaa", "tarkista"] as const;
-export type ActionVerb = (typeof ACTION_VERBS)[number];
 
 /** Yearly cents, `lowCents <= midCents <= highCents`, positive. `assumption` is one Finnish sentence. */
 export interface EuroRange {
@@ -320,4 +321,36 @@ export interface OptimiseData {
   dismissed: { state: FindingState; finding: Finding }[];
   needed: NeededInput[];
   checked: { total: number; findings: number; unavailable: number };
+}
+
+/** An input as the server stores and returns it: its full key and what the core keeps of it. */
+export interface InputRow extends StoredInput {
+  key: string;
+}
+
+/** `GET /api/optimise` (server services/optimise.ts): the page, the viewer's own inputs and decisions, the changes since last month and the follow-up. */
+export interface OptimiseResponse {
+  data: OptimiseData;
+  inputs: InputRow[];
+  states: FindingState[];
+  changes: FindingChange[];
+  followUp: FollowUp;
+}
+
+export interface EvidenceRow {
+  id: string;
+  date: IsoDate;
+  merchant: string;
+  amountCents: number;
+  accountId: string;
+  account: string;
+  struck: boolean;
+}
+
+/** `GET /api/optimise/evidence`: the finding recomputed, with the rows it stands on and the monthly sums of what it measures. */
+export interface EvidenceResponse {
+  id: string;
+  calc: readonly CalcLine[];
+  rows: EvidenceRow[];
+  sums: Baseline;
 }

@@ -9,6 +9,7 @@ import { type AnalysisTx, historyCovers } from "./context.ts";
 import { formatFiDate } from "./format.ts";
 import { INCOME_TYPES, type IncomeType, payerKey } from "./income.ts";
 import { COUNT_INESSIVE, eur, type IncomeBase, type IncomeChange, inessive, isKela, passes, shortDate } from "./income-series.ts";
+import { isOtherTaxText, isResidualTaxText } from "../wording.ts";
 
 const NEW_SOURCE_DAYS = 92;
 const NEVER_NEW: ReadonlySet<IncomeType> = new Set(["tax_refund", "holiday_pay", "other_pay", "persons", "refunds"]);
@@ -82,10 +83,7 @@ export function windfalls(b: IncomeBase): IncomeChange[] {
   return out;
 }
 
-const RESIDUAL_WORDS = /(?<![A-Z])(?:JAANNOSVERO|OMAVERO)(?![A-Z])/;
 const TAX_OFFICE = /(?<![A-Z])VEROHALLINTO(?![A-Z])/;
-/** Property tax, car tax and prepayments go to the same payee and are not residual tax. */
-const OTHER_TAX = /(?<![A-Z])(?:KIINTEISTOVERO|AUTOVERO|AJONEUVOVERO|ENNAKKOVERO|PERINTOVERO|LAHJAVERO|VARAINSIIRTOVERO)(?![A-Z])/;
 
 /** The tax year whose residual tax a row pays: August to December of the year, or January after it. */
 const taxSeason = (d: IsoDate) => (d.slice(5, 7) >= "08" ? Number(d.slice(0, 4)) : d.slice(5, 7) === "01" ? Number(d.slice(0, 4)) - 1 : null);
@@ -96,14 +94,14 @@ export function residualTax(b: IncomeBase): IncomeChange | null {
     if (t.bookingDate > b.end || t.amountCents >= 0 || t.category !== "taxes") continue;
     const text = fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
     const season = taxSeason(t.bookingDate);
-    if (season === null || OTHER_TAX.test(text) || !(RESIDUAL_WORDS.test(text) || TAX_OFFICE.test(text))) continue;
+    if (season === null || isOtherTaxText(text) || !(isResidualTaxText(text) || TAX_OFFICE.test(text))) continue;
     const list = seasons.get(season);
     if (list) list.push(t);
     else seasons.set(season, [t]);
   }
   const sumOf = (season: number) => {
     const rows = seasons.get(season) ?? [];
-    const worded = rows.filter((t) => RESIDUAL_WORDS.test(fold(`${t.merchant} ${t.description ?? ""}`)));
+    const worded = rows.filter((t) => isResidualTaxText(fold(`${t.merchant} ${t.description ?? ""}`)));
     // with only a reference: two payments to Verohallinto about two months apart
     const paired = rows.filter((t) => rows.some((o) => o !== t && Math.abs(Math.abs(o.day - t.day) - 61) <= 10));
     const used = worded.length ? worded : paired;

@@ -1,8 +1,8 @@
 /** Muutokset viime käynnin jälkeen: findings that appeared, grew or shrank 25 % or more, or left the data since the last month's snapshot. */
 import type { AreaView, ChangeKind, FindingChange } from "@banking/core";
 import { money, monthLong } from "../../format.ts";
-import { nameOf } from "./Decided.tsx";
-import { SectionCard } from "./shared.tsx";
+import { Section } from "../Section.tsx";
+import { nameOf } from "./shared.tsx";
 
 const KIND: Record<ChangeKind, string> = { new: "Uusi", grown: "Kasvoi", shrunk: "Pieneni", resolved: "Poistui" };
 
@@ -22,7 +22,7 @@ const inMonth = (month: string) => monthLong(month).replace(/^(\S+)/, "$1ssa");
 export function Changes({ changes, since, areas, titles }: { changes: readonly FindingChange[]; since: string | null; areas: readonly AreaView[]; titles: ReadonlyMap<string, string> }) {
   if (!changes.length) return null;
   return (
-    <SectionCard id="muutokset" title="Muutokset viime käynnin jälkeen" sub={since ? `Verrattuna tilanteeseen ${inMonth(since)}` : undefined}>
+    <Section id="muutokset" title="Muutokset viime käynnin jälkeen" sub={since ? `Verrattuna tilanteeseen ${inMonth(since)}` : undefined}>
       <ul className="decided-list">
         {changes.map((c) => (
           <li key={c.id} className="decided">
@@ -34,6 +34,6 @@ export function Changes({ changes, since, areas, titles }: { changes: readonly F
           </li>
         ))}
       </ul>
-    </SectionCard>
+    </Section>
   );
 }

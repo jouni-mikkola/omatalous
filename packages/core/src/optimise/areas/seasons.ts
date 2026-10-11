@@ -7,11 +7,10 @@
  * month is a deadline when it starts within 60 days: a monthly reserve, with no euros claimed.
  */
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
-import { usualSpending } from "../../analysis/explain.ts";
 import { formatEur, formatFiDate, monthInessive } from "../../analysis/format.ts";
 import { expensiveMonthItems, type Season } from "../../analysis/insights/seasons.ts";
 import { capitalise, gateMonthly, lastCompleteMonths, monthName, monthRows, monthStem, oneOff, shiftMonth } from "../../analysis/insights/shared.ts";
-import { completeMonthsBefore, isCompleteMonth } from "../../analysis/usual.ts";
+import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../../analysis/usual.ts";
 import { getCategory } from "../../categories.ts";
 import { daysBetween } from "../../dates.ts";
 import { median } from "../../stats.ts";

@@ -3,7 +3,8 @@ import { useState } from "react";
 import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
 import { SurplusBridge } from "../../../components/SurplusBridge.tsx";
 import { money, monthLong, percent } from "../../../format.ts";
-import { ExportLink, Kv, Section, TableToggle } from "../parts.tsx";
+import { ExportLink, Kv, TableToggle } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function Cashflow({ ctx }: SectionProps) {
@@ -17,7 +18,8 @@ function Cashflow({ ctx }: SectionProps) {
   const whole = r.running ? ", valmiit kuukaudet" : "";
   return (
     <Section
-      section={section}
+      id={section.id}
+      title={section.title}
       sub={r.average ? `Kuukaudessa keskimäärin tulot ${money(r.average.incomeCents, false)}, menot ${money(r.average.consumptionCents + r.average.debtCents, false)}` : undefined}
       actions={
         <>

@@ -1,9 +1,9 @@
-import { getCategory } from "./categories.ts";
-import { SUBSCRIPTION_CATEGORIES } from "./commitments.ts";
+import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
 import { addDays, daysBetween, daysInMonth, monthIndex } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { median, sum } from "./stats.ts";
 import type { IsoDate, Transaction } from "./types.ts";
+import { isEssentialService } from "./wording.ts";
 
 export type Cadence = "weekly" | "biweekly" | "semimonthly" | "monthly" | "bimonthly" | "quarterly" | "semiannual" | "yearly";
 
@@ -51,6 +51,42 @@ export interface RecurringSeries {
   confidence: number;
   priceChange: PriceChange | null;
   transactionIds: string[];
+}
+
+/**
+ * The parts of a series id, `<in|out>:<account>:<merchant>` with `#habit` or `#<cents>` after it when one merchant on
+ * one account has several series. Ids are stored (marks, Optimoi decisions and inputs), so the format never changes
+ * (ADR 0009). An account id has no ":" and a merchant name no "#" (cleanDescription drops it), so ids from real rows
+ * never need the escape below.
+ */
+export interface SeriesIdParts {
+  direction: "in" | "out";
+  accountId: string;
+  merchant: string;
+  /** `habit` for the everyday purchases, the typical cents of one of several fixed products, null for the one series. */
+  product: "habit" | number | null;
+}
+
+const PRODUCT = String.raw`#(?:habit|-?[1-9]\d*|0)`;
+/** A merchant that ends like a product suffix, or in "#", gets one more "#" when it has no product. */
+const LOOKS_LIKE_PRODUCT = new RegExp(`(?:${PRODUCT}|#)$`, "u");
+const WITH_PRODUCT = new RegExp(`^(.+?)(${PRODUCT})?$`, "su");
+
+/** The one maker of a series id. */
+export function seriesId(p: SeriesIdParts): string {
+  const tail = p.product !== null ? `#${p.product}` : LOOKS_LIKE_PRODUCT.test(p.merchant) ? "#" : "";
+  return `${p.direction}:${p.accountId}:${p.merchant}${tail}`;
+}
+
+/** The one reader of a series id, or null for any other subject (a merchant name, a code). */
+export function parseSeriesId(id: string): SeriesIdParts | null {
+  const head = /^(in|out):([^:]*):(.+)$/su.exec(id);
+  if (!head) return null;
+  const [, direction, accountId, rest] = head as unknown as [string, "in" | "out", string, string];
+  if (rest.endsWith("#") && LOOKS_LIKE_PRODUCT.test(rest.slice(0, -1))) return { direction, accountId, merchant: rest.slice(0, -1), product: null };
+  const [, merchant, suffix] = WITH_PRODUCT.exec(rest)!;
+  const product = suffix === undefined ? null : suffix === "#habit" ? "habit" : Number(suffix.slice(1));
+  return { direction, accountId, merchant: merchant!, product };
 }
 
 interface CadenceDef {
@@ -340,7 +376,7 @@ function habitSeries(id: string, merchant: string, txs: readonly SeriesInput[], 
   const months = 90 / DAYS_PER_MONTH;
   const monthly = Math.round(recentTotal / months);
   return {
-    id: `${id}#habit`,
+    id: seriesId({ ...parseSeriesId(id)!, product: "habit" }),
     merchant,
     category: mostCommon(txs.map((t) => t.category)),
     kind: "habit",
@@ -365,8 +401,6 @@ function habitSeries(id: string, merchant: string, txs: readonly SeriesInput[], 
   };
 }
 
-/** Storage and security keep the phone and the files working: not asked about. */
-const ESSENTIAL_SERVICES = /ICLOUD|GOOGLE ?ONE|ONEDRIVE|MICROSOFT|OFFICE ?365|DROPBOX|F-?SECURE|NORTON|MCAFEE|1PASSWORD|BITWARDEN|LASTPASS/;
 const REVIEW_MIN_MONTHLY = 300; // tiny storage tiers (0,99 € and 2,99 €) and tips are not worth a question
 const REVIEW_MAX_MONTHLY = 1500;
 const GYM_MAX_MONTHLY = 6000;
@@ -379,7 +413,7 @@ const REVIEW_MIN_MONTHS = 6;
  */
 function needsReview(s: RecurringSeries, otherPurchases: number): boolean {
   if (!s.active || s.kind !== "subscription" || s.monthsActive < REVIEW_MIN_MONTHS) return false;
-  if (!SUBSCRIPTION_CATEGORIES.has(s.category) || ESSENTIAL_SERVICES.test(fold(s.merchant))) return false;
+  if (!SUBSCRIPTION_CATEGORIES.has(s.category) || isEssentialService(fold(s.merchant))) return false;
   if (s.monthlyCents < REVIEW_MIN_MONTHLY) return false;
   if (s.monthlyCents <= REVIEW_MAX_MONTHLY) return true;
   return s.category === "fitness" && otherPurchases === 0 && s.monthlyCents <= GYM_MAX_MONTHLY;
@@ -398,7 +432,7 @@ export function detectRecurring(txs: readonly SeriesInput[], today: IsoDate): Re
     if (NEVER_RECURRING.has(t.category) || getCategory(t.category).kind === "transfer") continue;
     if (t.bookingDate > today || daysBetween(t.bookingDate, today) > LOOKBACK_DAYS) continue;
     const direction = t.amountCents < 0 ? "out" : "in";
-    const key = `${direction}:${t.accountId}:${t.merchant}`;
+    const key = seriesId({ direction, accountId: t.accountId, merchant: t.merchant, product: null });
     const g = groups.get(key) ?? { id: key, merchant: t.merchant, direction, txs: [] };
     g.txs.push(t);
     groups.set(key, g);
@@ -462,7 +496,7 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
       if (cFit && isFixedAmount(cOcc)) {
         const typical = Math.round(median(cOcc.map((o) => o.cents)));
         // the cluster's own rows decide its category: a bank's loan instalment is not its service fee
-        products.push(buildSeries(`${id}#${typical}`, merchant, categoryOf(cluster), direction, cOcc, cFit, today));
+        products.push(buildSeries(seriesId({ ...parseSeriesId(id)!, product: typical }), merchant, categoryOf(cluster), direction, cOcc, cFit, today));
       }
     }
   }

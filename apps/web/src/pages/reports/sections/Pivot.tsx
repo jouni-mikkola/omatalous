@@ -1,6 +1,7 @@
 // Decision: find the month a category jumped
 import { money, monthLabel, monthLong } from "../../../format.ts";
-import { ExportLink, Section } from "../parts.tsx";
+import { ExportLink } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/quality.css";
 
@@ -30,7 +31,7 @@ function Pivot({ ctx }: SectionProps) {
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.averageCents !== null;
   return (
-    <Section section={section} sub="Mitä tummempi solu, sitä kalliimpi kuukausi" actions={<ExportLink href={ctx.exportHref("pivot")} />}>
+    <Section id={section.id} title={section.title} sub="Mitä tummempi solu, sitä kalliimpi kuukausi" actions={<ExportLink href={ctx.exportHref("pivot")} />}>
       <div className="table-wrap pivot-wide">
         <table className="heat-table">
           <thead>

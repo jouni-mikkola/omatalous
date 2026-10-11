@@ -2,9 +2,10 @@
 import type { IncomeChange, IncomeReport, IncomeTypeRow } from "@banking/core";
 import { Fragment, useState } from "react";
 import { type StackSeries, StackedColumns } from "../../../charts/StackedColumns.tsx";
-import { date, money, MONTHS_SHORT, monthLong, percent, plural } from "../../../format.ts";
+import { completeMonths, date, money, MONTHS_SHORT, monthLong, percent, plural } from "../../../format.ts";
 import "../../../styles/income.css";
-import { Kv, Section, TableToggle } from "../parts.tsx";
+import { Kv, TableToggle } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** Chart layers in the fixed order of the core groups; money that is not earned is the neutral gray. */
@@ -196,8 +197,8 @@ function Year({ r }: { r: IncomeReport }) {
 
 function Stability({ r }: { r: IncomeReport }) {
   const s = r.stability;
-  if (!s) return <p className="muted">Tulojen vaihtelu lasketaan, kun historiaa on 12 valmista kuukautta.</p>;
-  if (s.spread < 0.03) return <p>Säännölliset tulot vaihtelivat alle 3 % kuukaudesta toiseen, tavallisesti {money(s.medianCents, false)} kuussa.</p>;
+  if (!s) return <p className="muted">Tulojen vaihtelu lasketaan, kun historiaa on {completeMonths(r.needs.stabilityMonths)}.</p>;
+  if (s.steady) return <p>Säännölliset tulot vaihtelivat alle {percent(r.needs.steadySpread)} kuukaudesta toiseen, tavallisesti {money(s.medianCents, false)} kuussa.</p>;
   const weeks = s.worstRunWeeks.toLocaleString("fi-FI", { maximumFractionDigits: 1 });
   return (
     <>
@@ -221,14 +222,16 @@ function Income({ ctx }: SectionProps) {
   const last = r.months[r.months.length - 1]!.month;
   if (!r.enough) {
     return (
-      <Section section={section}>
-        <div className="empty">Tulot jaetaan tulolajeihin, kun historiaa on kolme valmista kuukautta. Vertailu edelliseen vuoteen tarvitsee 24 kuukautta.</div>
+      <Section id={section.id} title={section.title}>
+        <div className="empty">
+          Tulot jaetaan tulolajeihin, kun historiaa on {completeMonths(r.needs.compositionMonths)}. Vertailu edelliseen vuoteen tarvitsee {plural(r.needs.previousYearMonths, "kuukauden", "kuukautta")}.
+        </div>
       </Section>
     );
   }
-  const change = r.previousEarnedCents ? (r.earnedCents - r.previousEarnedCents) / r.previousEarnedCents : null;
+  const change = r.earnedChange;
   return (
-    <Section section={section} sub={`${span(first, last)}, ansiotulot ilman henkilöiltä saatuja ja hyvityksiä`}>
+    <Section id={section.id} title={section.title} sub={`${span(first, last)}, ansiotulot ilman henkilöiltä saatuja ja hyvityksiä`}>
       <Kv
         items={[
           ["Ansiotulot 12 kuukaudessa", money(r.earnedCents, false)],

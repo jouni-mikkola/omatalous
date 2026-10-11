@@ -7,6 +7,7 @@ import { TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.t
 import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup } from "../services/users.ts";
+import { strictObject } from "../platform/validate.ts";
 import { body, optionalString } from "./shared.ts";
 
 export function authRoutes(s: Services) {
@@ -27,7 +28,7 @@ export function authRoutes(s: Services) {
     const ip = clientIp(c, s);
     const attempt = s.setupLimiter.consume(ip);
     if (attempt.wait) throw new TooManyAttempts(tooManyMessage(attempt.wait), attempt.wait);
-    const raw = await body<Record<string, unknown>>(c);
+    const raw = strictObject(await body(c), ["code", "username", "displayName", "password", "confirm"] as const);
     const input = {
       code: optionalString(raw.code, 100) ?? "",
       username: optionalString(raw.username, 64) ?? "",
@@ -42,7 +43,7 @@ export function authRoutes(s: Services) {
   });
 
   app.post("/login", async (c) => {
-    const input = await body<{ username?: unknown; password?: unknown }>(c);
+    const input = strictObject(await body(c), ["username", "password"] as const);
     const username = typeof input.username === "string" ? input.username : "";
     const password = typeof input.password === "string" ? input.password : "";
     const limits = s.loginLimiter;
@@ -105,7 +106,7 @@ export function authRoutes(s: Services) {
   app.post("/password", async (c) => {
     const user = c.get("user");
     if (!user) return c.json({ error: "Kirjaudu sisään." }, 401);
-    const raw = await body<Record<string, unknown>>(c);
+    const raw = strictObject(await body(c), ["current", "next"] as const);
     const current = optionalString(raw.current, 1024) ?? "";
     const next = optionalString(raw.next, 1024) ?? "";
     if (!next) throw new UserError("Anna uusi salasana.");

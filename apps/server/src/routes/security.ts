@@ -5,6 +5,7 @@ import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { deviceLabel, dismissNotices, EVENT_KINDS, noticesFor, recordEvent, validKind } from "../services/security.ts";
 import { clientIp } from "../auth/middleware.ts";
+import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { body, queryInt } from "./shared.ts";
 
 export function securityRoutes(s: Services) {
@@ -18,8 +19,8 @@ export function securityRoutes(s: Services) {
   /** Ends all sessions. `keepCurrent` leaves this browser signed in. */
   app.post("/sessions/revoke-all", async (c) => {
     const user = c.get("user");
-    const raw = await body<Record<string, unknown>>(c);
-    const keepCurrent = raw.keepCurrent === true;
+    const raw = strictObject(await body(c), ["keepCurrent"] as const);
+    const keepCurrent = parseOptionalBoolean(raw.keepCurrent);
     await s.users.deleteSessionsOf(user.id, keepCurrent ? c.get("sessionId") : undefined);
     await recordEvent(s, { kind: "session_revoked", userId: user.id, ip: clientIp(c, s), userAgent: c.req.header("user-agent"), detail: keepCurrent ? "kaikki muut" : "kaikki" });
     if (!keepCurrent) await endSession(c, s, c.get("sessionId"));

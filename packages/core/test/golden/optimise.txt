@@ -1,0 +1,28 @@
+# optimise: 2 statements on demo, kit:base, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+optimise · demo · subscriptions:overlap:video
+  Kaksi videopalvelua yhteensä 29,98 € kuussa: Netflix ja Max.
+  = 143.88 € / 143.88 € / 143.88 € a year
+  | certainty keskitaso: Tiedoista ei näy, kuka käyttää mitäkin palvelua.
+  | Netflix: 17,99 €/kk
+  | Max: 11,99 €/kk
+  | Yhteensä kuussa: 29,98 €
+  | Halvin palvelu vuodessa: 144 €
+  | Muut kuin kallein vuodessa: 144 €
+  | Arvio vuodessa, vaihteluvälin keskikohta: 144 €
+  | action Irtisano yksi palveluista tai pidä palvelut voimassa vuorotellen.
+  rows 25
+
+optimise · demo · subscriptions:rise:out:card:Adobe
+  Adobe: hinta nousi 62,99 € → 74,99 € 14.4.2026. Nousu on 144 € vuodessa.
+  = 144.00 € / 144.00 € / 144.00 € a year
+  | certainty korkea: Laskettu omista tiedoista.
+  | Maksunsaaja: Adobe
+  | Hinta ennen: 62,99 €
+  | Hinta nyt: 74,99 €
+  | Uusi hinta alkaen: 14.4.2026
+  | Veloituksia ennen nousua: 7
+  | Veloituksia vuodessa: 12
+  | Nousu vuodessa: 144 €
+  | action Neuvottele hinnasta tai irtisano tilaus.
+  rows 13

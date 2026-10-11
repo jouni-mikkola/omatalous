@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { optimizeDatabase } from "../src/db/optimize.ts";
+import { optimizeDatabase } from "../src/db/pragmas.ts";
 import { setupApp } from "./helpers.ts";
 
 /** A history of mostly categorised, booked rows with a few pending and uncategorised ones, as a real one is. */

@@ -308,3 +308,16 @@ it("is pure: the same history gives the same answer", () => {
   expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   expect(addDays("2026-10-20", 0)).toBe("2026-10-20");
 });
+
+describe("income report: what the page prints", () => {
+  it("carries its thresholds, the steady flag and the earned change, so the page names no number of its own", () => {
+    const TODAY = "2026-10-20";
+    const rows = [...monthly("2024-07", 28, (i) => (i < 15 ? 300000 : 330000), salary("Yritys Oy")), ...filler("2024-06-01", TODAY)];
+    const r = incomeReport(ctxOf(rows, TODAY), range(TODAY));
+    expect(r.needs).toEqual({ compositionMonths: 3, stabilityMonths: 12, previousYearMonths: 24, steadySpread: 0.03 });
+    expect(r.previousEarnedCents).not.toBeNull();
+    expect(r.earnedChange).toBeCloseTo((r.earnedCents - r.previousEarnedCents!) / r.previousEarnedCents!, 10);
+    expect(r.earnedChange!).toBeGreaterThan(0);
+    expect(r.stability?.steady).toBe(r.stability!.spread < r.needs.steadySpread);
+  });
+});

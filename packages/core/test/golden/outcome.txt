@@ -1,0 +1,11 @@
+# outcome: 2 statements on demo, kit:base, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+outcome · demo · outcome:subscriptions:overlap:video (quiet)
+  1 € kuussa enemmän: maksut 29 € kuussa muutoksen jälkeen ja 28 € ennen sitä. Netflix: maksuja tulee yhä, viimeksi 7.10.2026.
+  = -1.00 € a month
+  | verdict epäselvä, done on 2026-06-01
+
+outcome · demo · outcome:subscriptions:rise:out:card:Adobe (quiet)
+  ±0 € kuussa: maksut 75 € kuussa muutoksen jälkeen ja 75 € ennen sitä.
+  = 0.00 € a month
+  | verdict epäselvä, done on 2026-06-01

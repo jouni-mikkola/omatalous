@@ -2,15 +2,13 @@
  * Optimoi: the numbers the user typed in, their decisions on findings, and the monthly snapshot of the follow-up. Own
  * rows only. Nothing here touches transactions, categories or rules, so none of it moves a data version.
  */
-import { DISMISS_REASONS, type DismissReason, type FindingState, inputDefOf, type InputValue, type IsoDate, parseFindingId, type StoredInput } from "@banking/core";
+import { DISMISS_REASONS, type DismissReason, type FindingState, inputDefOf, type InputRow, type InputValue, type IsoDate, parseFindingId, parseSeriesId, seriesId } from "@banking/core";
 import type { Row } from "../rows.ts";
 import type { Statement } from "../types.ts";
 import { type FinanceContext, writeBatch } from "./context.ts";
 
-/** An input as stored: its full key (`car_km`, `insurance_quote:<series id>`) and what the core keeps of it. */
-export interface InputRow extends StoredInput {
-  key: string;
-}
+// the row type is declared in core beside the response that carries it
+export type { InputRow } from "@banking/core";
 
 export interface SnapshotRow {
   month: string;
@@ -28,21 +26,15 @@ function parse(text: unknown): unknown {
 }
 
 /**
- * The key or finding id with a renamed merchant. The subject is the merchant itself or a series id,
- * `<direction>:<account>:<merchant>` with `#<product>` or `#habit` after it. Null when the subject names no renamed merchant.
+ * The key or finding id with a renamed merchant. The subject is the merchant itself or a series id (core's
+ * `parseSeriesId` reads it). Null when the subject names no renamed merchant.
  */
 export function renamedSubject(subject: string, renames: ReadonlyMap<string, string>): string | null {
   const direct = renames.get(subject);
   if (direct !== undefined) return direct;
-  const series = /^(in|out):([^:]*):(.+)$/su.exec(subject);
-  if (!series) return null;
-  const [, direction, account, rest] = series;
-  const whole = renames.get(rest!);
-  if (whole !== undefined) return `${direction}:${account}:${whole}`;
-  // only the suffixes recurring.ts writes are cut, so renaming "Foo" leaves a merchant called "Foo#2" alone
-  const suffix = /#(?:habit|-?\d+)$/u.exec(rest!);
-  const to = suffix ? renames.get(rest!.slice(0, suffix.index)) : undefined;
-  return to === undefined ? null : `${direction}:${account}:${to}${suffix![0]}`;
+  const series = parseSeriesId(subject);
+  const to = series ? renames.get(series.merchant) : undefined;
+  return to === undefined ? null : seriesId({ ...series!, merchant: to });
 }
 
 export class OptimiseRepo {

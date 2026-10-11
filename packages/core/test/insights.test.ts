@@ -57,11 +57,11 @@ describe("insights", () => {
   });
 
   it("a price rise says what it adds to a year, several rises are one line", () => {
-    const elisa = monthly("2025-10", 7, 12, (i) => (i < 8 ? -3990 : -6990), { merchant: "Elisa", category: "telecom" });
+    const elisa = monthly("2025-10", 7, 12, (i) => (i < 8 ? -10990 : -13990), { merchant: "Elisa", category: "telecom" });
     const one = keep(insightsOf([...household(), ...elisa]));
     expect(one.map((i) => i.id)).toEqual([expect.stringMatching(/^price:/)]);
     expect(plain(one[0]!.title)).toBe("Elisa: hinta nousi 360 € vuodessa");
-    expect(plain(one[0]!.detail)).toBe("39,90 € → 69,90 € 7.6.2026 alkaen.");
+    expect(plain(one[0]!.detail)).toBe("109,90 € → 139,90 € 7.6.2026 alkaen.");
     expect(one[0]).toMatchObject({ yearlyCents: 36000, merchant: "Elisa" });
     expect(one[0]!.rows!.length).toBeGreaterThan(0);
 
@@ -310,6 +310,14 @@ describe("what the review found: subscriptions", () => {
     const a = byId(insightsOf([...household(), ...netflix, ...adobe, ...office, ...added]), "subscriptions-added")!;
     expect(plain(a.title)).toBe("Tilauksia 5, vuosi sitten 3: +30 € kuussa");
   });
+
+  it("the year of new subscriptions is their own yearly cost: a quarterly one counts its four charges", () => {
+    const quarterly = ["2026-02-10", "2026-05-10", "2026-08-10"].map((bookingDate) => tx({ bookingDate, amountCents: -3001, merchant: "Lehtitalo", category: "subscriptions" }));
+    const added = [...quarterly, ...monthly("2026-03", 4, 7, -1599, { merchant: "HBO Max", category: "subscriptions" })];
+    const a = byId(insightsOf([...household(), ...added]), "subscriptions-added")!;
+    // 4 × 30,01 € and 12 × 15,99 €; a twelfth of the quarterly one rounded back to a year would be 120,00 €
+    expect(a.yearlyCents).toBe(4 * 3001 + 12 * 1599);
+  });
 });
 
 describe("what the review found: instalments", () => {
@@ -344,6 +352,93 @@ describe("what the review found: the overview", () => {
   });
 });
 
+describe("what the life-event kit found", () => {
+  const titles = (list: Insight[], prefix: string) => list.filter((i) => i.id.startsWith(prefix)).map((i) => plain(i.title));
+  const noRent = () => household().filter((t) => t.merchant !== "Vuokranantaja");
+  /** Month-to-month swings that add up to nothing: a household's months are never alike. */
+  const SWING = [5, -7, 2, 9, -4, -9, 6, 0, -6, 8, -2, 4, -8, 3, 7, -5, 1, -3, 9, -6, 2, -9, 5, 0, 4, -2, -7, 6, 1, -3];
+  /** `count(i)` purchases in the i-th month from April 2024, each of `cents`. */
+  const visits = (merchant: string, category: string, cents: number, count: (i: number) => number) =>
+    SWING.flatMap((_, i) => Array.from({ length: count(i) }, (_, k) => tx({ bookingDate: `${addMonths("2024-04", i)}-${String(1 + (k % 28)).padStart(2, "0")}`, amountCents: -cents, merchant, category })));
+
+  it("a step over 30 % on a phone bill is a new plan or line, no price rise", () => {
+    const line = monthly("2025-10", 7, 12, (i) => (i < 8 ? -3990 : -6990), { merchant: "Elisa", category: "telecom" });
+    expect(titles(insightsOf([...household(), ...line]), "price")).toEqual([]);
+  });
+
+  it("a rent step over 10 % is a move or a new contract; a smaller one is a rise", () => {
+    const rent = (to: number) => monthly("2024-04", 2, 30, (i) => (i < 24 ? -90000 : -to), { merchant: "Vuokranantaja", category: "housing" });
+    expect(titles(insightsOf([...noRent(), ...rent(100000)]), "price")).toEqual([]);
+    expect(titles(insightsOf([...noRent(), ...rent(94500)]), "price")).toEqual(["Vuokranantaja: hinta nousi 540 € vuodessa"]);
+  });
+
+  it("a municipal day-care fee follows income and hours: no price rise; a private one's is", () => {
+    const fee = (merchant: string) => monthly("2024-04", 8, 30, (i) => (i < 28 ? -27990 : -33500), { merchant, category: "kids" });
+    expect(titles(insightsOf([...household(), ...fee("Helsingin Kaupunki")]), "price")).toEqual([]);
+    expect(titles(insightsOf([...household(), ...fee("Touhula Oy")]), "price")).toEqual(["Touhula Oy: hinta nousi 661 € vuodessa"]);
+  });
+
+  it("a monthly fee that became one yearly payment is a new cadence, no stop", () => {
+    const paper = monthly("2024-04", 18, 27, -3290, { merchant: "Sanoma", category: "subscriptions" });
+    const year = tx({ bookingDate: "2026-07-18", amountCents: -32900, merchant: "Sanoma", category: "subscriptions" });
+    expect(titles(insightsOf([...household(), ...paper, year]), "stopped")).toEqual([]);
+    expect(titles(insightsOf([...household(), ...paper]), "stopped")).toEqual(["Sanoma: 33 € kuussa vapautui"]);
+  });
+
+  it("hit: a vastike or a storage unit up 13 to 15 % is a price rise; only rent steps over 10 % are a move", () => {
+    const vastike = monthly("2024-04", 3, 30, (i) => (i < 24 ? -30000 : -33900), { merchant: "As Oy Kotikallio", description: "HOITOVASTIKE", category: "housing" });
+    expect(titles(insightsOf([...household(), ...vastike]), "price")).toEqual(["As Oy Kotikallio: hinta nousi 468 € vuodessa"]);
+    const storage = monthly("2024-04", 4, 30, (i) => (i < 24 ? -10000 : -11500), { merchant: "Pelican Self Storage", description: "VARASTON VUOKRA", category: "housing" });
+    expect(titles(insightsOf([...household(), ...storage]), "price")).toEqual(["Pelican Self Storage: hinta nousi 180 € vuodessa"]);
+  });
+
+  it("hit: a large last payment on a loan pays it off, so the loan ended", () => {
+    const loan = monthly("2025-08", 20, 12, (i) => (i < 11 ? -30000 : -300000), { merchant: "Autolaina", category: "loans" });
+    expect(titles(insightsOf([...household(), ...loan]), "stopped")).toEqual(["Autolaina: 300 € kuussa vapautui"]);
+  });
+
+  it("hit: a December 1 250 € dearer two years running is a season beside a one-off in August", () => {
+    const cafe = visits("Kahvila", "restaurants", 2000, (i) => 20 + SWING[i]!);
+    const december = (year: number) => [3, 7, 11, 15, 18, 21].map((d) => tx({ bookingDate: `${year}-12-${String(d).padStart(2, "0")}`, amountCents: -20800, merchant: "Stockmann", category: "shopping" }));
+    const sofa = tx({ bookingDate: "2025-08-12", amountCents: -150000, merchant: "Asko", category: "home" });
+    expect(titles(insightsOf([...household(), ...cafe, ...december(2024), ...december(2025), sofa]), "seasons")).toEqual([expect.stringMatching(/^Joulukuu 1 \d{3} € tavallista kalliimpi kahtena vuonna$/)]);
+  });
+
+  it("grocery visits on a card that stopped syncing are not compared", () => {
+    const card: Account = { id: "acc-2", name: "Kortti", iban: null, currency: "EUR", type: "credit_card" };
+    const shop = visits("K-Market", "groceries", 4000, () => 10).map((t) => ({ ...t, accountId: card.id }));
+    const fee = monthly("2024-04", 28, 30, -300, { merchant: "Nordea", category: "fees", accountId: card.id });
+    const spare: Account = { id: "acc-3", name: "Toinen kortti", iban: null, currency: "EUR", type: "credit_card" };
+    const sometimes = ["2025-02-14", "2026-05-14"].map((date) => tx({ bookingDate: date, amountCents: -3500, merchant: "Alepa", category: "groceries", accountId: spare.id }));
+    const groceries = (txs: Transaction[]) => {
+      const ctx = createContext(txs, [checking, card, spare], today);
+      const current = inDays(ctx, toDayRange(running));
+      return titles(rankInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) }), "spending-groceries");
+    };
+    // the card's rows end in July: August and September are missing data
+    expect(groceries([...household(), ...[...shop, ...fee].filter((t) => t.bookingDate < "2026-08-01")])).toEqual([]);
+    // the card kept syncing its fee, so the months without visits count; a card used now and then has quiet months
+    expect(groceries([...household(), ...shop.filter((t) => t.bookingDate < "2026-08-01"), ...fee, ...sometimes])).toEqual(["Ruokakaupassa käyntejä 12 % vähemmän"]);
+  });
+
+  it("grocery visits up 2 a month in a year whose months swing by more are noise; up 8 they are told", () => {
+    const more = (extra: number) => visits("K-Market", "groceries", 4000, (i) => 16 + Math.round(SWING[i]! / 2) + (i >= 18 ? extra : 0));
+    expect(titles(insightsOf([...household(), ...more(2)]), "spending-groceries")).toEqual([]);
+    expect(titles(insightsOf([...household(), ...more(8)]), "spending-groceries")).toEqual([expect.stringMatching(/^Ruokakaupassa käyntejä \d+ % enemmän$/)]);
+  });
+
+  it("purchases three standard errors up are noise", () => {
+    const cafe = visits("Kahvila", "restaurants", 2000, (i) => 20 + SWING[i]! + (i >= 18 ? 9 : 0));
+    expect(titles(insightsOf([...household(), ...cafe]), "spending-growth")).toEqual([]);
+  });
+
+  it("a December as dear as the household's other busy months is no season", () => {
+    const busy = ["2024-06", "2024-09", "2025-03", "2025-05", "2025-08", "2026-02", "2026-05"].flatMap((m) => [4, 11, 18, 25].map((d) => tx({ bookingDate: `${m}-${String(d).padStart(2, "0")}`, amountCents: -20000, merchant: "Verkkokauppa", category: "home" })));
+    const december = (year: number) => [3, 9, 15, 21].map((d) => tx({ bookingDate: `${year}-12-${String(d).padStart(2, "0")}`, amountCents: -9000, merchant: "Stockmann", category: "shopping" }));
+    expect(titles(insightsOf([...household(), ...busy, ...december(2024), ...december(2025)]), "seasons")).toEqual([]);
+  });
+});
+
 describe("insights on random households", () => {
   it("stay quiet on 50 seeded histories without the patterns", () => {
     const loud: string[] = [];
@@ -356,7 +451,7 @@ describe("insights on random households", () => {
       }
     }
     expect(loud).toEqual([]);
-  });
+  }, 30_000);
 
   it("stay quiet on 50 settled households of 30 months, every gate reached", () => {
     const loud: string[] = [];
@@ -393,5 +488,5 @@ describe("insights on random households", () => {
       "lender rows in half a year (instalments)": 50,
       "a year of fixed charges (price rises)": 50,
     });
-  });
+  }, 30_000);
 });

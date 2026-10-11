@@ -2,8 +2,8 @@ import { fromMonthIndex, monthIndex, monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { AnalysisContext, AnalysisTx } from "../context.ts";
-import { usualSpending } from "../explain.ts";
-import { completeMonthsBefore } from "../usual.ts";
+import { completeMonthsBefore, gateFor, GATE_FLOOR_CENTS, usualSpending } from "../usual.ts";
+import { isLenderName } from "../../wording.ts";
 
 const COUNT_WORDS = ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"];
 
@@ -30,17 +30,12 @@ export function dateSpan(from: string, to: string): string {
   return m1 === m2 ? `${d1}.–${d2}.${m2}.${y2}` : `${d1}.${m1}.–${d2}.${m2}.${y2}`;
 }
 
-/** Money paid back to the household or sent by people: not income it earned (H-insights section 5). */
-const NOT_EARNED = new Set(["p2p_in", "reimbursements"]);
-
 export interface MonthRows {
   txs: AnalysisTx[];
   /** consumption + debt */
   spend: number;
   /** Spending outside subscriptions and bills: "ostokset ilman laskuja ja tilauksia". */
   purchases: number;
-  /** Income without refunds and payments from people. */
-  income: number;
 }
 
 const months = new WeakMap<AnalysisContext, Map<number, MonthRows>>();
@@ -52,15 +47,14 @@ export function monthRows(ctx: AnalysisContext, month: string): MonthRows {
     byMonth = new Map();
     for (const t of ctx.txs) {
       let e = byMonth.get(t.month);
-      if (!e) byMonth.set(t.month, (e = { txs: [], spend: 0, purchases: 0, income: 0 }));
+      if (!e) byMonth.set(t.month, (e = { txs: [], spend: 0, purchases: 0 }));
       e.txs.push(t);
       e.spend += t.spend;
       if (!ctx.fixedIds.has(t.id)) e.purchases += t.spend;
-      if (!NOT_EARNED.has(t.category)) e.income += t.flows.income;
     }
     months.set(ctx, byMonth);
   }
-  return byMonth.get(monthIndex(month)) ?? { txs: [], spend: 0, purchases: 0, income: 0 };
+  return byMonth.get(monthIndex(month)) ?? { txs: [], spend: 0, purchases: 0 };
 }
 
 const netSpend = (t: Pick<AnalysisTx, "spend" | "refunded">) => Math.max(0, t.spend - t.refunded);
@@ -90,12 +84,11 @@ export function purchasesWithoutOneOff(ctx: AnalysisContext, month: string, usua
 }
 
 /**
- * The smallest finding worth a line, per month: 2 % of usual monthly spending or 10 €, whichever is more
- * (H-insights section 1). 10 € without a usual level.
+ * The smallest finding worth a line, per month: `gateFor` the usual monthly spending, 2 % of it or 10 €, whichever is
+ * more (H-insights section 1). 10 € without a usual level.
  */
 export function gateMonthly(ctx: AnalysisContext, end: string): number {
-  const usual = usualSpending(ctx, monthOf(end));
-  return usual === null ? 1000 : Math.max(1000, Math.round(0.02 * usual));
+  return gateFor(usualSpending(ctx, monthOf(end)) ?? 0);
 }
 
 /**
@@ -103,7 +96,7 @@ export function gateMonthly(ctx: AnalysisContext, end: string): number {
  * 10 € a month, as the catalogue sets it. The household-wide gate above would silence a 13 € subscription in a household
  * that spends 3 000 € a month, and that charge is exactly what the household did not think to check.
  */
-export const ITEM_GATE_MONTHLY_CENTS = 1000;
+export const ITEM_GATE_MONTHLY_CENTS = GATE_FLOOR_CENTS;
 
 /** The complete months up to the one before `end`'s month, newest last, at most `n`. */
 export function lastCompleteMonths(ctx: AnalysisContext, end: string, n: number): string[] {
@@ -126,9 +119,8 @@ export function evenlySpaced(ctx: AnalysisContext, s: Pick<RecurringSeries, "tra
   return sorted.every((d, i) => i === 0 || d - sorted[i - 1]! >= s.intervalDays / 2);
 }
 
-const LENDERS = /KLARNA|WALLEY|RIVERTY|AFTERPAY|RESURS|ANYDAY/;
 
 /** Payment services that sell instalment plans: their charges are instalments (instalments.ts), not subscriptions or prices. */
-export const isLender = (merchant: string) => LENDERS.test(fold(merchant));
+export const isLender = (merchant: string) => isLenderName(fold(merchant));
 
 export const shiftMonth = (month: string, n: number) => fromMonthIndex(monthIndex(month) + n);

@@ -93,5 +93,11 @@ export function isKnownCategory(id: string): boolean {
   return BY_ID.has(id);
 }
 
+/**
+ * Where a fixed-amount series is a subscription the household chose and may drop. Telecom, insurance, housing,
+ * utilities, memberships and loans are contracts: they stay in the fixed costs and are not offered for review.
+ */
+export const SUBSCRIPTION_CATEGORIES: ReadonlySet<string> = new Set(["subscriptions", "fitness", "entertainment", "education", "shopping", "other"]);
+
 /** Groups in catalog order, for reports. */
 export const CATEGORY_GROUPS: readonly string[] = [...new Set(CATEGORIES.map((c) => c.group))];

@@ -19,8 +19,10 @@ A figure has one definition, in `packages/core`, and the overview, the reports a
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
 | *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it | `usualCents`, `completeMonthsBefore` in `analysis/usual.ts` |
+| *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and Optimoi's Tilanne divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
 | *Yli jäi* | Income − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on | `PeriodTotals.leftCents` |
+| *Kuussa*, *vuodessa* (a series) | What a subscription or bill costs: its typical charge times the charges it makes in a year, and a twelfth of that a month. A monthly series with a year of history counts its own charges of the last twelve months (11 for day care that is free in July), and a bill that varies (electricity) is what its last twelve charges came to. Fixed costs, new subscriptions, renewals and price rises read these figures, and so does Optimoi: its 120 € gate for a renewal is the series' own year, and its follow-up counts the series' own charges a year | `RecurringSeries.perMonth`, `monthlyCents`, `yearlyCents` in `recurring.ts` |
 | *Kiinteät menot* | An active subscription or bill, per month: its spending and its debt service (a loan instalment). The credit card bill is left out, since it pays everyday purchases, and so is a monthly saving | `isFixedCost`, `fixedSplit`, `fixedMonthlyCents` in `commitments.ts` |
 | *Tilaus* | An active fixed-amount series in subscriptions, fitness, entertainment, education, shopping or other. Telecom, insurance, housing, utilities, memberships and loans are contracts: they are fixed costs and are not subscriptions | `isSubscription`, `subscriptionsMonthlyCents` in `commitments.ts` |
 | *Odotettu lasku* | A bill the household typed in, repeated by its cadence: once, quarterly, half yearly or yearly | `ExpectedBill`, `expectedDates` in `commitments.ts` |
@@ -175,8 +177,8 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   clinics are purchases and are not listed. It is always about today.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
-  spending of the period. It starts with the fixed costs as a share of the usual income (the median of the
-  last complete months, three at least). With a balance on a savings or checking account it says how many
+  spending of the period. It starts with the fixed costs as a share of *Tavalliset tulot*, the same share the
+  overview's insight and Optimoi's Tilanne give. With a balance on a savings or checking account it says how many
   months of usual spending, groceries included, that money covers against a buffer of three months, and names
   the gap below it. Under three complete months it gives the date the figure appears. Without a balance it says
   where to add one.
@@ -199,7 +201,8 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   after the period they describe, price lists and surveys twelve). An expired fact hides its comparison.
 - The follow-up compares the months after a done decision with the months before it and confirms a saving when the
   monthly effect reaches 80 % of the mid's monthly share and every month after is below the level before.
-  Electricity bills are compared with the same months a year earlier and are at most likely, never confirmed, because
+  A contract costs its series' *kuussa* on both sides, so an unchanged fee with a free July reads the same before and
+  after. Electricity bills are compared with the same months a year earlier and are at most likely, never confirmed, because
   the use behind them is a typed figure.
 
 ## When it gets something wrong

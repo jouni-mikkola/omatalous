@@ -15,6 +15,9 @@ import type { Account, Transaction } from "./types.ts";
 
 export type IndustryCodeSet = "TOL2008" | "TOL2025";
 
+/** A code set the register answers in and this file has a table for; a stored one is checked before use. */
+export const isIndustryCodeSet = (v: unknown): v is IndustryCodeSet => v === "TOL2008" || v === "TOL2025";
+
 /** Prefix → category. `null` stops the search: the industry is too broad to say (wholesale, finance). */
 type PrefixTable = Readonly<Record<string, string | null>>;
 
@@ -134,6 +137,35 @@ export function categoryForIndustry(code: string, codeSet: IndustryCodeSet): str
     if (common !== undefined) return common;
   }
   return null;
+}
+
+/** What a TOL code says about an electricity bill: 35.14 trade, 35.13 distribution, "other" for another trade. Null for 35 or another 35.1 code, which say nothing. */
+export function electricityRoleOf(code: string): "seller" | "network" | "other" | null {
+  if (code.startsWith("3514")) return "seller";
+  if (code.startsWith("3513")) return "network";
+  return code === "35" || code.startsWith("351") ? null : "other";
+}
+
+/** Work the household deduction covers, by TOL code: 81.2 cleaning and 81.3 yard work are labour, 43 building trades carry materials too. */
+export function deductibleWorkOf(code: string): "cleaning" | "other" | null {
+  return code.startsWith("812") || code.startsWith("813") ? "cleaning" : code.startsWith("43") ? "other" : null;
+}
+
+/** What a card code says beyond its category, for the views that split one further (Optimoi's car, tax and kids areas). */
+export type MccKind = "parking" | "charging" | "car_service" | "fuel" | "cleaning" | "building" | "child_care";
+const MCC_KINDS: ReadonlyArray<readonly [number, number, MccKind]> = [
+  [7523, 7523, "parking"],
+  [5552, 5552, "charging"],
+  [7531, 7549, "car_service"],
+  [5541, 5542, "fuel"],
+  [7349, 7349, "cleaning"],
+  [780, 780, "cleaning"],
+  [1520, 1799, "building"],
+  [8351, 8351, "child_care"],
+];
+export function mccKind(mcc: string | null): MccKind | null {
+  const code = mcc ? Number(mcc) : Number.NaN;
+  return MCC_KINDS.find(([lo, hi]) => code >= lo && code <= hi)?.[2] ?? null;
 }
 
 // ── matching a merchant to a registry entry ──────────────

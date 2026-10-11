@@ -7,6 +7,7 @@ import { median } from "./stats.ts";
 import { matchReturns, returnClassOf, SHARE_WINDOW_DAYS } from "./returns.ts";
 import { detectTransfers, normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
 import type { Account, CategoryRule, Transaction } from "./types.ts";
+import { isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
  * Re-derives category and transfer flags for every transaction. Categories
@@ -291,10 +292,6 @@ const transferKey = (t: Transaction): string => {
 /** What returns look at in a row's state (the rest of what they read is in the bank's fields, which a change does not touch). */
 const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolean) => returnClassOf(t, ownIbans, locked);
 
-/** Card issuers whose bills come as plain e-invoices that the loans rule takes for a loan. */
-const CARD_ISSUER = /(?<![A-Z0-9])(?:NORDEA RAHOITUS|NORDEA FINANCE|BANK NORWEGIAN|ENTERCARD|RE:?MEMBER|KOMPLETT BANK)(?![A-Z0-9])/;
-/** Texts that name a loan: such a payment stays a loan whatever its amount. */
-const LOAN_TEXT = /(?<![A-Z0-9])(?:OSAMAKSU[A-Z]*|LAINA[A-Z]*|LYHENNYS|LAINANHOITO|RAHOITUSSOPIMUS|SOPIMUS|KULUTUSLUOTTO)(?![A-Z0-9])/;
 
 /**
  * Payments to a card issuer that a rule called "loans" but whose amounts
@@ -307,7 +304,7 @@ function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
   for (const t of txs) {
     if (t.category !== "loans" || t.categorySource !== "rule" || t.amountCents >= 0) continue;
     const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-    if (!CARD_ISSUER.test(text) || LOAN_TEXT.test(text)) continue;
+    if (!isCardIssuerText(text) || isLoanText(text)) continue;
     const key = `${t.accountId}|${t.merchant}`;
     const group = groups.get(key);
     if (group) group.push(t);

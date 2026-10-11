@@ -39,6 +39,19 @@ export function plural(n: number, one: string, many: string): string {
   return `${num0.format(n)} ${n === 1 ? one : many}`;
 }
 
+const NUMBER_WORDS = ["nolla", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän", "kymmenen"];
+const NUMBER_WORDS_GENITIVE = ["nollan", "yhden", "kahden", "kolmen", "neljän", "viiden", "kuuden", "seitsemän", "kahdeksan", "yhdeksän", "kymmenen"];
+
+/**
+ * The history a figure waits for, with the number from core: "kolme valmista kuukautta", or in the genitive "kolmen
+ * valmiin kuukauden". Up to ten in words, more in digits.
+ */
+export function completeMonths(n: number, genitive = false): string {
+  const word = (genitive ? NUMBER_WORDS_GENITIVE : NUMBER_WORDS)[n] ?? num0.format(n);
+  if (genitive) return `${word} valmiin kuukauden`;
+  return `${word} ${n === 1 ? "valmis kuukausi" : "valmista kuukautta"}`;
+}
+
 export function count(n: number): string {
   return num1.format(n);
 }

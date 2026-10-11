@@ -8,7 +8,7 @@ import type { IsoDate } from "../types.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { formatEur, formatFiDate } from "./format.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, isIncomeRow, type PayDay, payDayOf, payerKey, periodOf } from "./income.ts";
-import { completeMonthsBefore, usualCents } from "./usual.ts";
+import { gateFor, usualIncome } from "./usual.ts";
 
 export type IncomeChangeKind =
   | "raise"
@@ -72,7 +72,7 @@ export interface IncomeBase {
   series: IncomeSeries[];
   /** Latest booking day per account: the sync covers dates up to it. */
   lastDay: Map<string, number>;
-  /** Usual earned income of a complete month before `end`, null under three months. */
+  /** Usual earned income of a complete month before `end` (`usualIncome`), null under three months. */
   usualMonthlyCents: number | null;
   /** The pay period (month) of each row of a regular series: pay for the 1st booked on the 31st belongs to the 1st's month. */
   periodMonth: Map<string, string>;
@@ -96,9 +96,7 @@ export function incomeBase(ctx: AnalysisContext, end: IsoDate): IncomeBase {
     else groups.set(key, [t]);
   }
   const series = [...groups.entries()].map(([key, list]) => seriesOf(key, types.get(list[0]!.id)!, list));
-  const monthly = new Map<string, number>();
-  for (const t of rows) if (INCOME_TYPES[types.get(t.id)!].earned) monthly.set(monthOf(t.bookingDate), (monthly.get(monthOf(t.bookingDate)) ?? 0) + t.amountCents);
-  const usualMonthlyCents = usualCents(completeMonthsBefore(ctx, monthOf(end)).map((m) => monthly.get(m) ?? 0));
+  const usualMonthlyCents = usualIncome(ctx, monthOf(end));
   const periodMonth = new Map<string, string>();
   for (const s of series) {
     const period = periodOf(s.rows.map((t) => t.bookingDate));
@@ -161,8 +159,7 @@ export const payDayAdessive = (pd: Pick<PayDay, "day" | "rule">) =>
   pd.day === 1 && pd.rule === "next" ? "kuun ensimmäisenä pankkipäivänä" : pd.day === 31 && pd.rule === "prev" ? "kuun viimeisenä pankkipäivänä" : `${pd.day}. päivänä tai sitä ${pd.rule === "prev" ? "edeltävänä" : "seuraavana"} pankkipäivänä`;
 
 
-/** Stage C gate for income: 2 % of usual monthly income and 30 € a month. */
-const GATE_SHARE = 0.02;
-const GATE_CENTS = 3000;
+/** Stage C gate for income: `gateFor` the usual monthly income, with a floor of 30 € a month. */
+const INCOME_GATE_FLOOR_CENTS = 3000;
 
-export const passes = (b: IncomeBase, monthly: number) => Math.abs(monthly) >= Math.max(GATE_CENTS, (b.usualMonthlyCents ?? 0) * GATE_SHARE);
+export const passes = (b: IncomeBase, monthly: number) => Math.abs(monthly) >= gateFor(b.usualMonthlyCents ?? 0, INCOME_GATE_FLOOR_CENTS);

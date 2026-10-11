@@ -1,33 +1,19 @@
 /** Merchants of the signed-in user and the category each one is always put in. Own rows only. */
-import { type CategoryRule, isKnownCategory } from "@banking/core";
+import { isKnownCategory } from "@banking/core";
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
-import type { FinanceRepo } from "../db/finance-repo.ts";
-import { reprocessMerchantChange } from "../services/enrich.ts";
-import { derivedStateIsCurrent } from "../services/upgrade.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
-import { checkRuleRoom, replacesWordRule } from "../services/rules.ts";
+import { clearMerchantRule, setMerchantCategory } from "../services/rules.ts";
 import { parseScope, sharedInView } from "../services/analysis.ts";
 import { body, queryInt } from "./shared.ts";
 
 const DEFAULT_LIMIT = 200;
 const MAX_LIMIT = 1000;
 
-function merchantName(value: unknown): string {
+function parseMerchantName(value: unknown): string {
   if (typeof value !== "string" || !value || value.length > 200) throw new UserError("Virheellinen kauppiaan nimi.");
   return value;
-}
-
-/** The reprocess after a merchant's rule was set, replaced or removed: only that merchant's rows, unless an older whole-word rule went with it. */
-async function reprocessRule(s: Services, repo: FinanceRepo, merchant: string, oldRules: readonly CategoryRule[]) {
-  return reprocessMerchantChange(repo, s.settings, {
-    merchants: [merchant],
-    rule: true,
-    before: new Map(),
-    oldRules,
-    incremental: (await derivedStateIsCurrent(s)) && !replacesWordRule(oldRules, merchant),
-  });
 }
 
 export function merchantRoutes(s: Services) {
@@ -49,7 +35,7 @@ export function merchantRoutes(s: Services) {
    */
   app.get("/merchants/summary", async (c) => {
     const user = c.get("user");
-    const merchant = merchantName(c.req.query("merchant"));
+    const merchant = parseMerchantName(c.req.query("merchant"));
     const scope = parseScope(c.req.query("scope"));
     const shared = scope === "household" ? (await sharedInView(s, user.id)).map((a) => a.id) : undefined;
     const history = await s.finance(user.id).merchantHistory(merchant, shared);
@@ -71,25 +57,16 @@ export function merchantRoutes(s: Services) {
 
   /** Every row of the merchant, now and later, goes to the category (rows set by hand one by one keep theirs). */
   app.put("/merchants/category", async (c) => {
-    const repo = s.finance(c.get("user").id);
     const input = strictObject(await body(c), ["merchant", "category"] as const);
-    const merchant = merchantName(input.merchant);
+    const merchant = parseMerchantName(input.merchant);
     if (typeof input.category !== "string" || !isKnownCategory(input.category)) throw new UserError("Tuntematon kategoria.");
-    if (!(await repo.hasMerchant(merchant))) throw new UserError("Kauppiasta ei löydy.");
-    // replacing the merchant's own rule keeps the count; a new one must fit under the cap
-    if (!(await repo.hasMerchantRule(merchant))) await checkRuleRoom(repo);
-    const oldRules = await repo.listRules();
-    await repo.setMerchantRule(merchant, input.category);
-    return c.json({ changed: (await reprocessRule(s, repo, merchant, oldRules)).recategorised });
+    return c.json({ changed: await setMerchantCategory(s, c.get("user").id, merchant, input.category) });
   });
 
   /** Back to automatic. The merchant's rule goes and the other rules and the register decide again. */
   app.delete("/merchants/rule", async (c) => {
-    const repo = s.finance(c.get("user").id);
-    const merchant = merchantName(strictObject(await body(c), ["merchant"] as const).merchant);
-    const oldRules = await repo.listRules();
-    if (!(await repo.deleteMerchantRules(merchant))) return c.json({ changed: 0 });
-    return c.json({ changed: (await reprocessRule(s, repo, merchant, oldRules)).recategorised });
+    const merchant = parseMerchantName(strictObject(await body(c), ["merchant"] as const).merchant);
+    return c.json({ changed: await clearMerchantRule(s, c.get("user").id, merchant) });
   });
 
   return app;

@@ -3,6 +3,46 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.2
+
+Money and reports
+
+- Usual income leaves out money from people and refunds everywhere: Kiinteät ja muuttuvat gives the same fixed costs share as the insights and Optimoi's Tilanne, and its "Vapaaksi jää" is that income less the fixed costs.
+- The overview compares a month's earned income with the usual income. A month with money from people or refunds names that figure Ansiotulot.
+- A subscription's cost a year is its own charges a year in the renewal and new subscription insights and in Optimoi's renewal gate, so a yearly price is no longer rounded through a month (200,04 € reads 200,00 €).
+- The follow-up of a done Optimoi decision no longer reads an unchanged fee with a free month, such as day care in July, as dearer.
+- Toistuvat: "Tulossa tässä kuussa" counts every date of a weekly or biweekly payment, so its total matches the overview's forecast.
+- Electricity from Lumme and Nordic Green is sorted as a utility bill, and Loiste and Herrfors bills are read as electricity sellers on Optimoi.
+- Payments from Pensionsskyddscentralen and Elo keskinäinen are sorted as benefits, and a day care name inside a longer word as children.
+- A second phone line, a move to a dearer flat and a day-care fee that follows care hours are no longer told as price rises.
+- A newspaper paid for a year at once is no longer told as a stopped payment that frees money.
+- Grocery visits on a card that stopped syncing are no longer told as fewer visits.
+- The grocery, spending growth and dearer month insights and the category spike alert keep quiet when the change is within the household's own month-to-month swings.
+
+For developers
+
+- `pnpm findings` prints every statement the product makes about money (insights, alerts, Optimoi findings and their follow-up, income changes, spending change sentences) with its figure and calc, for the demo and seeded households. `--event <id>` shows a life event on the kit's household, `--golden` rewrites the golden files.
+- Golden files in `packages/core/test/golden/` hold what each source says, and a test compares them. A changed golden is part of the change to review.
+- The life-event kit in `packages/core/test/kit/` adds 17 events reviewers caught false findings with (a move, a second phone line, a sync lag, a cadence change and others) to a steady household. Each event may only add the statements it allows. A noise budget lets a detector that compares two windows fire on at most 1 % of 200 steady households. Today's failures are listed in `known.ts`, which may only shrink.
+- Decision records start in `docs/adr/`.
+- Faster checks while working: `pnpm check --changed` runs types incrementally and only the tests and shell steps a diff can affect. Checks wait for a free slot (two at a time), seeded tests have a 30 s timeout and a timeout is reported as one.
+- New tools: `tools/worker-start.sh`, `tools/commit.sh` (retries a signing 503, never commits unsigned), `pnpm where <symbol>` and `pnpm shots <route>`. Test files over 800 lines are capped by a repo rule.
+- `tools/lead/land.sh <branch>` lands a worker branch in one call. It refuses a conflict, a file outside the lanes and a result that removes lines the current branch added since the worker started, runs check, build and e2e as they apply, and then removes the worker's worktree and branch.
+- `tools/ci/wait.sh <sha> <check>...` waits for named GitHub checks, and `tools/release/ship.sh` uses it to read `ci-ok` and `upgrade-ok` itself. `--ci-checked` stays for a machine where `gh` cannot sign in.
+- `pnpm release:fixture X.Y.Z` writes the frozen database fixture of a release from the previous one, the current migrations and seed rows for each new table. `tools/ci/verify-release.sh --pull X.Y.Z` checks that the image pulls without a login for amd64 and arm64.
+- One owner per figure (ADR 0004): `usualIncome`, `usualSpending` and `gateFor` live in `analysis/usual.ts` over one earned-income predicate, `isEarnedIncome` in `analysis/income.ts`. `cancelledMerchants` and `expectedCharges` moved to `commitments.ts`, `SUBSCRIPTION_CATEGORIES` to `categories.ts` and the fee predicates to `analysis/fees.ts`, with no re-export under the old paths.
+- Repo rule 17 keeps `365.25 /` in `recurring.ts`: a series is costed with its own `perMonth`, `monthlyCents` and `yearlyCents`.
+- Routes parse, call one service and answer (ADR 0006). `services/optimise.ts`, `services/accounts.ts` and `services/rules.ts` own the writes and the reprocess or version bump. A missing row throws `NotFound`, answered once as 404.
+- Every request body goes through `strictObject` or a `parse*` function (repo rule 14). A body with an unknown field, or `createRule: "false"`, is a 400. Dates use one `parseIsoDate`, which refuses 2026-02-30.
+- The contract test lists every non-GET route as moving the data version, read per request, or not about the analysis.
+- One `Section` card component with a labelled region. Optimoi response types live in core (ADR 0007).
+- Repo rules: no runtime import cycle (6d), no mark subject parsing in the web app (15), no core threshold written into a web sentence about history (16). The import boundary baseline is empty.
+- Payee, keyword, issuer, lender and tax word lists and the card and industry code sets live in `wording.ts` and `industry.ts` behind named predicates, and `categorize.ts` reads the same constants. Repo rule 21 keeps keyword lists in the dialect files, with a baseline that only shrinks (ADR 0008).
+- `seriesId` and `parseSeriesId` in `recurring.ts` are the one maker and reader of a series id; stored ids keep their form (ADR 0009).
+- An Optimoi area imports no other area (rule 6); what areas share is in `optimise/common.ts`. `db/optimize.ts` is now `db/pragmas.ts`.
+- `analysis/signal.ts` holds the one test every two-window statement passes: a change must stand 4 standard errors out of the household's month-to-month noise (the mean moving range of its monthly series). The growth, grocery, seasons and spike detectors and Optimoi's food and habit areas use it (ADR 0011).
+- `notAPrice` in `insights/prices.ts` is the one rule for steps that are no price rise; the price insight and Optimoi's subscription and housing areas read it, and the kids area shares its municipality test. `paysAhead` in `insights/stopped.ts` is shared with the follow-up.
+
 ## 0.8.1
 
 For developers

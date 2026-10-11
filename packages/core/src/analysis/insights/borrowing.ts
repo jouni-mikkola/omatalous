@@ -4,14 +4,14 @@
  * they stand (`fixedSplit`), so an early repayment or a loan paid off at once is not counted as a monthly burden.
  * Usual income is the median of six complete months; with fewer months nothing is judged.
  */
-import { fixedSplit } from "../../commitments.ts";
+import { cancelledMerchants, fixedSplit } from "../../commitments.ts";
 import { getCategory } from "../../categories.ts";
+import { monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
-import { median } from "../../stats.ts";
 import type { IsoDate, UserInputs } from "../../types.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
-import { cancelledMerchants } from "../forecast.ts";
 import { formatEur } from "../format.ts";
+import { usualIncome } from "../usual.ts";
 import { dateSpan, lastCompleteMonths, monthRows, monthSpan } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
@@ -22,7 +22,7 @@ const MONTHS = 6;
 export interface DebtShare {
   /** Loan instalments a month as the series stand. */
   debtCents: number;
-  /** The median income of `months`. */
+  /** Usual income (`usualIncome`): the median earned income of `months`. */
   incomeCents: number;
   /** The six complete months before `end`, oldest first. */
   months: string[];
@@ -37,7 +37,8 @@ export function debtShareOf(ctx: AnalysisContext, end: IsoDate, inputs: UserInpu
   const cancelled = cancelledMerchants(inputs);
   const series = recurringAt(ctx, end).filter((s) => getCategory(s.category).kind === "debt" && !cancelled.has(s.merchant));
   const debtCents = fixedSplit(series, cancelled).debtCents;
-  const incomeCents = Math.round(median(months.map((m) => monthRows(ctx, m).income)));
+  // six months give a usual income, so it is never null here
+  const incomeCents = usualIncome(ctx, monthOf(end))!;
   return { debtCents, incomeCents, months, series };
 }
 

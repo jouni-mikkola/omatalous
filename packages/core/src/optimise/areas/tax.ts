@@ -6,11 +6,12 @@
  */
 import { type AnalysisTx, netPurchase } from "../../analysis/context.ts";
 import { formatEur } from "../../analysis/format.ts";
-import { businessMerchants, isBusinessRow, isMobilePay, ledgersWithPayeeAccounts } from "../../industry.ts";
+import { businessMerchants, deductibleWorkOf, isBusinessRow, isMobilePay, ledgersWithPayeeAccounts, mccKind } from "../../industry.ts";
 import { fold } from "../../merchant.ts";
 import { findingId, MAX_ROWS } from "../common.ts";
 import { type Fact, factOn, proposedFact } from "../facts/index.ts";
 import type { Area, AreaInput, AreaResult, CalcLine, Check, FindingDraft, Weakness } from "../types.ts";
+import { isBuildingWorkText, isCleaningWorkText } from "../../wording.ts";
 
 const KIND = "household_deduction";
 /** Under this much paid in a year the deduction is at most a few euros after the 150 € deductible. */
@@ -18,11 +19,6 @@ const PAID_GATE_CENTS = 30_000;
 /** Work whose labour share is not known lies between these; the middle is the estimate. */
 const OTHER_SHARE = { low: 0.5, mid: 0.75, high: 1 } as const;
 
-const words = (list: string) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?![A-Z0-9])`);
-// cleaning and yard work are almost all labour
-const CLEANING_WORDS = words(String.raw`SIIVOUS|SIIVOUSPALVELU[A-Z]*|SIIVOUSLIIKE|KOTISIIVOUS|SIIVOOJA|IKKUNANPESU[A-Z]*|PIHATYO[A-Z]*|PIHAPALVELU[A-Z]*|PIHANHOITO|LUMITYO[A-Z]*|LUMENAURAUS|PUUNKAATO`);
-// renovation and repair invoices carry materials too
-const OTHER_WORDS = words(String.raw`[A-Z]*REMONTTI(?:PALVELU[A-Z]*|TYO[A-Z]*|URAKOINTI)?|REMONTOINTI|MAALAUSPALVELU[A-Z]*|MAALAUSLIIKE|MAALARI[A-Z]*|SAHKO(?:ASENN|ASENT|TYO|URAKOINTI)[A-Z]*|LVI|PUTKI(?:ASENNUS|TYO|LIIKE)[A-Z]*|KOTITALKKARI|HUOLTOMIES`);
 
 type Work = "cleaning" | "other";
 
@@ -33,15 +29,15 @@ type Work = "cleaning" | "other";
  */
 function workOf(t: AnalysisTx, industry: ReadonlyMap<string, string>): Work | null {
   const tol = (industry.get(t.merchant) ?? "").replace(/\D/g, "");
-  if (tol) return tol.startsWith("812") || tol.startsWith("813") ? "cleaning" : tol.startsWith("43") ? "other" : null;
+  if (tol) return deductibleWorkOf(tol);
   if (t.mcc) {
-    const mcc = Number(t.mcc);
-    return mcc === 7349 || mcc === 780 ? "cleaning" : mcc >= 1520 && mcc <= 1799 ? "other" : null;
+    const kind = mccKind(t.mcc);
+    return kind === "cleaning" ? "cleaning" : kind === "building" ? "other" : null;
   }
   if (t.category !== "home") return null;
   const text = fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
-  if (CLEANING_WORDS.test(text)) return "cleaning";
-  if (OTHER_WORDS.test(text)) return "other";
+  if (isCleaningWorkText(text)) return "cleaning";
+  if (isBuildingWorkText(text)) return "other";
   return null;
 }
 

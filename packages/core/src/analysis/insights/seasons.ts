@@ -2,27 +2,35 @@
  * H-insights 10: calendar months that cost clearly more than usual in each of the last two years, and the monthly sum
  * that covers them. A month is compared with its usual level (the median of the six complete months before it) with
  * its one-off taken out by the month explanation's rule. One year alone cannot tell a season from chance, so a month
- * counts only when both of the last two years were 20 % or more above usual, and by more than three times the usual
- * month-to-month swing.
+ * counts only when both of the last two years were 20 % or more above usual and stood out from the household's
+ * month-to-month noise, each year by MIN_T / √2 standard errors, so the two together stand MIN_T apart and neither
+ * carries it alone (ADR 0011).
  */
 import { daysInMonth } from "../../dates.ts";
-import { usualSpending } from "../explain.ts";
 import { formatEur } from "../format.ts";
-import { median } from "../../stats.ts";
-import { completeMonthsBefore, isCompleteMonth } from "../usual.ts";
+import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../usual.ts";
 import { capitalise, lastCompleteMonths, monthName, monthRows, monthStem, oneOff, shiftMonth } from "./shared.ts";
+import { MIN_T, monthlyNoise, monthT } from "../signal.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 const MIN_SHARE = 0.2;
 const YEARS = 2;
-/** The excess must also be this many times the usual month-to-month swing (MAD of the six months before, as a standard deviation). */
-const MIN_SWINGS = 3;
+/** Each year's share of the test: two independent years at MIN_T / √2 each stand MIN_T apart together. */
+const YEAR_T = MIN_T / Math.sqrt(YEARS);
+/** The noise is read from up to this many months before the month: the same month a year earlier is left out, so a season does not count itself as noise. */
+const NOISE_MONTHS = 11;
 
-/** How much the six complete months before `month` swing around their median, as a standard deviation. */
-function swing(ctx: InsightArgs["ctx"], month: string): number {
-  const values = completeMonthsBefore(ctx, month).map((m) => monthRows(ctx, m).spend);
-  const mid = median(values);
-  return 1.4826 * median(values.map((v) => Math.abs(v - mid)));
+/** A month's spending with its one-off struck by the month explanation's rule; only a month over its usual level has one. */
+function struckSpend(ctx: InsightArgs["ctx"], month: string): number {
+  const spend = monthRows(ctx, month).spend;
+  const usual = usualSpending(ctx, month);
+  const one = usual !== null && spend > usual ? oneOff(ctx, month, spend - usual) : null;
+  return spend - (one ? Math.max(0, one.spend - one.refunded) : 0);
+}
+
+/** The month-to-month noise of the complete months before `month`, on the series the excess is measured on. */
+function noise(ctx: InsightArgs["ctx"], month: string): number {
+  return monthlyNoise(completeMonthsBefore(ctx, month, NOISE_MONTHS).map((m) => struckSpend(ctx, m)));
 }
 
 export interface Season {
@@ -35,8 +43,8 @@ export interface Season {
 }
 
 /**
- * Calendar months of the last 12 complete months that were 20 % and three swings over usual in each of the last two
- * years. The insight sums them; Optimoi takes each month for itself.
+ * Calendar months of the last 12 complete months that were 20 % over usual, clear of the noise, in each of the last
+ * two years. The insight sums them; Optimoi takes each month for itself.
  */
 export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<InsightArgs, "ctx" | "end" | "gateMonthlyCents">): Season[] {
   const recent = lastCompleteMonths(ctx, end, 12);
@@ -48,10 +56,8 @@ export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<Insight
     for (const m of years) {
       const usual = isCompleteMonth(ctx, m) ? usualSpending(ctx, m) : null;
       if (usual === null || usual <= 0) break;
-      const spend = monthRows(ctx, m).spend;
-      const one = oneOff(ctx, m, spend - usual);
-      const excess = spend - (one ? Math.max(0, one.spend - one.refunded) : 0) - usual;
-      if (excess < Math.max(MIN_SHARE * usual, 5 * gateMonthlyCents, MIN_SWINGS * swing(ctx, m))) break;
+      const excess = struckSpend(ctx, m) - usual;
+      if (excess < Math.max(MIN_SHARE * usual, 5 * gateMonthlyCents) || monthT(excess, noise(ctx, m), completeMonthsBefore(ctx, m).length) < YEAR_T) break;
       extras.push(excess);
     }
     if (extras.length === YEARS) seasons.push({ month, extra: Math.round(extras.reduce((s, v) => s + v, 0) / YEARS), extras });

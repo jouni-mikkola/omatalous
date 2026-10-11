@@ -5,7 +5,7 @@
  * authorisations.
  */
 import { hourIn, todayIn } from "../platform/config.ts";
-import { optimizeDatabase } from "../db/optimize.ts";
+import { optimizeDatabase } from "../db/pragmas.ts";
 import { LINK_STATE_PREFIX } from "../connectors/link-state.ts";
 import { type SyncSummary, syncEveryone } from "../connectors/sync.ts";
 import type { Services } from "./context.ts";

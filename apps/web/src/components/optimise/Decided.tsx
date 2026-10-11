@@ -1,23 +1,12 @@
 /** Jo hoidossa and Ei koske meitä: the findings the household has decided on, each with a way to take the decision back. */
-import { type AreaView, type Finding, type FindingOutcome, type FindingState, type OptimiseData, parseFindingId } from "@banking/core";
+import type { Finding, FindingOutcome, FindingState, OptimiseData } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../../api.ts";
 import { date, money } from "../../format.ts";
 import type { Scope } from "../../types.ts";
 import { Outcome } from "./FollowUp.tsx";
-import { type Changed, REASON_TEXT, SectionCard, subjectName } from "./shared.tsx";
-
-/**
- * The words for a decision whose finding is not on the page (done and gone from the data, or snoozed): its area, and the
- * merchant when the id holds a series. Any other subject is a code ("video"), not words, so it is left out.
- */
-export function nameOf(id: string, areas: readonly AreaView[]): string {
-  const parts = parseFindingId(id);
-  if (!parts) return id;
-  const area = areas.find((a) => a.id === parts.area)?.label ?? parts.area;
-  const merchant = parts.subject ? subjectName(parts.subject) : null;
-  return merchant && merchant !== parts.subject ? `${area}: ${merchant}` : area;
-}
+import { Section } from "../Section.tsx";
+import { type Changed, nameOf, REASON_TEXT } from "./shared.tsx";
 
 /** "Peruuta": the decision is taken back and the finding returns to its area. */
 function Undo({ id, title, scope, onChanged }: { id: string; title: string; scope: Scope; onChanged: Changed }) {
@@ -68,7 +57,7 @@ export function Decided({ data, states, outcomes, scope, onChanged }: { data: Op
   return (
     <>
       {data.done.length > 0 && (
-        <SectionCard id="hoidossa" title="Jo hoidossa" sub="Päätökset, jotka olet merkinnyt tehdyiksi">
+        <Section id="hoidossa" title="Jo hoidossa" sub="Päätökset, jotka olet merkinnyt tehdyiksi">
           <ul className="decided-list">
             {data.done.map(({ state, finding }) => (
               <Row
@@ -83,19 +72,19 @@ export function Decided({ data, states, outcomes, scope, onChanged }: { data: Op
               />
             ))}
           </ul>
-        </SectionCard>
+        </Section>
       )}
       {snoozed.length > 0 && (
-        <SectionCard id="muistutukset" title="Muistutukset" sub="Nämä palaavat sivulle myöhemmin">
+        <Section id="muistutukset" title="Muistutukset" sub="Nämä palaavat sivulle myöhemmin">
           <ul className="decided-list">
             {snoozed.map((state) => (
               <Row key={state.findingId} state={state} finding={null} title={nameOf(state.findingId, data.areas)} note={`Palaa ${date(state.until)}`} scope={scope} onChanged={onChanged} />
             ))}
           </ul>
-        </SectionCard>
+        </Section>
       )}
       {data.dismissed.length > 0 && (
-        <SectionCard id="ei-koske" title="Ei koske meitä" sub="Nämä on jätetty pois, kunnes perut päätöksen">
+        <Section id="ei-koske" title="Ei koske meitä" sub="Nämä on jätetty pois, kunnes perut päätöksen">
           <ul className="decided-list">
             {data.dismissed.map(({ state, finding }) => (
               <Row
@@ -109,7 +98,7 @@ export function Decided({ data, states, outcomes, scope, onChanged }: { data: Op
               />
             ))}
           </ul>
-        </SectionCard>
+        </Section>
       )}
     </>
   );

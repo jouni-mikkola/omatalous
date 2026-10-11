@@ -2,8 +2,12 @@
  * API contract: enumerates the routes of the Hono app and checks the rules every route has to follow.
  * A new route is covered without touching this file.
  */
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { setupApp } from "./helpers.ts";
+import { setupApp, waitFor } from "./helpers.ts";
+import { mockBank } from "./mock-bank.ts";
+
+const PEM = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 
 // Reachable without a session on purpose.
 const PUBLIC = new Set(["GET /api/health", "GET /api/auth/state", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/logout", "GET /api/connections/callback"]);
@@ -203,6 +207,113 @@ describe("secrets in responses", () => {
     }
     // the lists really were non-trivial, so the scan means something
     expect(calls.find((c) => c.what.startsWith("GET /api/transactions?limit=1000") && c.who === "admin")!.res.body.items.length).toBeGreaterThan(100);
+  });
+});
+
+describe("data versions", () => {
+  // Moves data_version:<user> when it runs; each is run below with a request that changes something.
+  const MOVES = [
+    "POST /api/demo",
+    "PATCH /api/transactions/:id",
+    "POST /api/rules",
+    "DELETE /api/rules/:id",
+    "PUT /api/merchants/category",
+    "DELETE /api/merchants/rule",
+    "PATCH /api/accounts/:id",
+    "PUT /api/accounts/:id/shares/:userId",
+    "DELETE /api/accounts/:id/shares/:userId",
+    "DELETE /api/accounts/:id",
+    "DELETE /api/demo",
+    // the new accounts are written before the first fetch; run with the mock bank below
+    "POST /api/connections/complete",
+  ];
+  // Moves the instance version (data_version): every member's household view may have shown the removed member's accounts. Run below.
+  const MOVES_EVERYONE = ["DELETE /api/users/:id"];
+  // Moves it only when a row changed (CLAUDE.md: a sync or import that changed nothing does neither): sync.ts and the import service decide.
+  const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync", "POST /api/import/csv"];
+  // Read for each request (requestInputs), never cached: saving them moves no version. optimise.test.ts checks the Optimoi ones.
+  const PER_REQUEST = [
+    "PUT /api/marks",
+    "POST /api/expected-bills",
+    "DELETE /api/expected-bills/:id",
+    "PUT /api/optimise/inputs/:key",
+    "DELETE /api/optimise/inputs/:key",
+    "PUT /api/optimise/findings/:id",
+  ];
+  // Nothing the analysis reads: sign-in, members (removal aside), the instance, maintenance, security events, bank keys, a
+  // consent not yet given, and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
+  // (connector.ts removeConnection), and /api/meta reads the connection list for each request. Run below for the last one.
+  const NO_ANALYSIS =
+    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
+
+  it("every non-GET route is on exactly one named list", async () => {
+    const { routes } = await rig();
+    const lists = [MOVES, MOVES_EVERYONE, MOVES_WHEN_ROWS_CHANGE, PER_REQUEST];
+    for (const r of routes.filter((x) => needsBody(x.method))) {
+      const key = `${r.method} ${r.path}`;
+      const on = lists.filter((l) => l.includes(key)).length + (NO_ANALYSIS.test(key) ? 1 : 0);
+      expect(on, `${key}: put it on MOVES or MOVES_EVERYONE (and run it below), MOVES_WHEN_ROWS_CHANGE, PER_REQUEST or NO_ANALYSIS`).toBe(1);
+    }
+    const keys = new Set(routes.map((r) => `${r.method} ${r.path}`));
+    for (const key of lists.flat()) expect(keys.has(key), `${key} is listed but is no route`).toBe(true);
+  });
+
+  it("each route on MOVES moves the user's version, and the per-request writes do not", async () => {
+    const { admin, adminId, member, s } = await rig();
+    const version = (id: string) => s.settings.get(`data_version:${id}`);
+    const m = await member("ville");
+    const ran = new Set<string>();
+    const step = async (key: string, call: () => Promise<{ status: number; body: any }>, moves: boolean, ids = [adminId]) => {
+      const before = await Promise.all(ids.map(version));
+      const res = await call();
+      expect(res.status, `${key}: ${JSON.stringify(res.body)}`).toBe(200);
+      const after = await Promise.all(ids.map(version));
+      ids.forEach((id, i) => (moves ? expect(after[i], key).not.toBe(before[i]) : expect(after[i], key).toBe(before[i])));
+      ran.add(key);
+      return res;
+    };
+    await step("POST /api/demo", () => admin.call("POST", "/api/demo"), true);
+    const tx = (await admin.call("GET", "/api/transactions?limit=1")).body.items[0];
+    const accountId: string = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
+    await step("PATCH /api/transactions/:id", () => admin.call("PATCH", `/api/transactions/${tx.id}`, { category: "groceries" }), true);
+    await step("POST /api/rules", () => admin.call("POST", "/api/rules", { field: "merchant", pattern: "Testikauppa", category: "groceries" }), true);
+    const ruleId = (await admin.call("GET", "/api/rules")).body.rules[0].id;
+    await step("DELETE /api/rules/:id", () => admin.call("DELETE", `/api/rules/${ruleId}`), true);
+    await step("PUT /api/merchants/category", () => admin.call("PUT", "/api/merchants/category", { merchant: tx.merchant, category: "restaurants" }), true);
+    await step("DELETE /api/merchants/rule", () => admin.call("DELETE", "/api/merchants/rule", { merchant: tx.merchant }), true);
+    await step("PATCH /api/accounts/:id", () => admin.call("PATCH", `/api/accounts/${accountId}`, { name: "Käyttötili" }), true);
+    await step("PUT /api/accounts/:id/shares/:userId", () => admin.call("PUT", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
+    await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
+
+    await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);
+    const bill = await step("POST /api/expected-bills", () => admin.call("POST", "/api/expected-bills", { name: "Vesi", amountCents: 5000, dueDate: "2026-11-20", cadence: "once" }), false);
+    await step("DELETE /api/expected-bills/:id", () => admin.call("DELETE", `/api/expected-bills/${bill.body.bill.id}`), false);
+
+    await step("DELETE /api/accounts/:id", () => admin.call("DELETE", `/api/accounts/${accountId}`), true);
+    await step("DELETE /api/demo", () => admin.call("DELETE", "/api/demo"), true);
+
+    const everyone = await s.settings.get("data_version");
+    expect((await admin.call("DELETE", `/api/users/${m.id}`)).status, "DELETE /api/users/:id").toBe(200);
+    expect(await s.settings.get("data_version"), "DELETE /api/users/:id").not.toBe(everyone);
+    expect(MOVES.filter((k) => !ran.has(k) && k !== "POST /api/connections/complete"), "every route on MOVES ran").toEqual([]);
+  });
+
+  it("completing a bank connection moves the user's version, and removing one does not", async () => {
+    const bank = mockBank();
+    const { admin, adminId, s } = await setupApp({}, bank.fetchMock);
+    const version = () => s.settings.get(`data_version:${adminId}`);
+    expect((await admin.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: PEM })).status).toBe(200);
+    await admin.call("POST", "/api/connections/start", {});
+    const before = await version();
+    const done = await admin.call("POST", "/api/connections/complete", { url: `https://x.example/cb?code=abc&state=${bank.state}` });
+    expect(done.status).toBe(200);
+    expect(await version()).not.toBe(before);
+    // the first fetch runs in the background and may move the version itself: wait until it is over
+    await waitFor(async () => (await admin.call("GET", "/api/sync/runs")).body.runs.some((r: { status: string }) => r.status !== "running"));
+    const connectionId: string = (await admin.call("GET", "/api/meta")).body.connections[0].id;
+    const settled = await version();
+    expect((await admin.call("DELETE", `/api/connections/${connectionId}`)).status).toBe(200);
+    expect(await version()).toBe(settled);
   });
 });
 

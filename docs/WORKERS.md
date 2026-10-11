@@ -16,6 +16,8 @@ Run vitest from the repository root. A package directory has no config of its ow
 | `pnpm test:sh:fast` | all shell suites, helper scenarios four at a time (about 20 s instead of 65 s) |
 | `pnpm check` | the CI test job without the build: typecheck, vitest, shell lint, shell suites. Prints one line per step and the failures only. |
 
+`pnpm check --changed [base]` is the loop while working (ADR 0003): types incrementally, vitest on the packages the diff touches and their dependents, shell steps only when the diff touches shell. The base defaults to the one `tools/worker-start.sh` recorded. Run the full `pnpm check` before handing back. At most `CHECK_SLOTS` (2) checks run at once per clone, and a waiting check says so. A timeout in the summary means a busy machine: run that test alone once.
+
 Extra arguments to `test:core` and `test:server` add filters. They do not narrow the package, so use `pnpm test <path>`
 for one file. `pnpm check types tests` runs only those steps. `ISLAND_SEEDS` and `INCREMENTAL_SEEDS` raise the number of random histories.
 
@@ -23,6 +25,26 @@ The shell steps need `shellcheck` and `ssh-keygen` (package `openssh-client`). `
 `compose-compat.sh` need the full history and tags: `git fetch --unshallow --tags`. In the private repository a cloud
 session gets all of this from its session start hook. The dev servers use ports 8080 and 5173. `pnpm e2e` needs
 `pnpm build` first and a Playwright Chromium (`PLAYWRIGHT_BROWSERS_PATH`).
+
+## Tools for a task
+
+| Command | Does |
+|---|---|
+| `tools/worker-start.sh <base> <task>` | first command of a task: fast-forwards to the base, installs when `node_modules` is missing, makes the private scratch folder `/tmp/claude-0/work/<task>/`, prints the brief. Refuses a dirty tree. |
+| `tools/commit.sh -m ...` | `git commit` that retries a signing 503 three times (5, 15, 45 s) and never commits unsigned |
+| `pnpm where <symbol, file or text>` | definition with line, importers (also through the core barrel), test files that mention it. Shell functions and UI strings too. |
+| `pnpm shots <route> [--widths 390,1366] [--demo]` | builds if stale, starts the app on a free port, saves full-page PNGs to `/tmp/claude-0/shots/`, fails on sideways scroll |
+
+Test files over 800 lines are listed in `tools/repo-rules/size.ts` and may only shrink: split by topic instead of appending.
+
+## Keeping a task cheap
+
+Every tool call re-reads the whole transcript, so a short transcript is a cheap one.
+
+- Find code with `pnpm where` or `grep -n`, then read the lines you need. Do not re-read a file you just edited.
+- Use `pnpm check --changed` while working and filter long output (`| tail -40`, `| grep -E 'FAIL|Error'`).
+- Run a command that takes minutes in the background and wait for its notification.
+- Put long notes in the file the brief names, not in the transcript.
 
 ## Test helpers
 
@@ -33,6 +55,23 @@ session gets all of this from its session start hook. The dev servers use ports 
 - `packages/core/test/pipeline-reference.ts` and `transfers-reference.ts`: frozen copies of the older, simpler algorithms. The differential tests compare the live code with them. A difference is a behaviour change to explain, or a reference to update on purpose.
 - `apps/server/test/fixtures/db/*.sql`: database dumps of released versions. `migration-chain.test.ts` loads them (`fromFixture`) and migrates forward. A release adds one.
 - `contracts/<version>/`: the schema and helper CLI output older installs rely on. A schema change before release regenerates the unreleased folder (`UPDATE_CONTRACT=<version> pnpm test apps/server/test/contracts.test.ts`).
+
+## What the product says: findings, goldens and the kit
+
+- `pnpm findings` prints every statement about money, one block each: source, household, id, title, figure, calc and
+  rows. Households: the demo and seeds 1 to 5, plain and settled. `--source insights|alerts|optimise|income|change|outcome`,
+  `--demo`, `--plain`, `--settled`, `--seeds N`, `--loud` (leave out quiet change sentences and waiting follow-ups), `--json`.
+  `outcome` judges each Optimoi finding as if it was marked done four months ago, with nothing changed since.
+- `packages/core/test/golden/<source>.txt` is that output for the demo, the kit's base and the fixed seeds. After a change
+  to a detector or its wording, run `pnpm findings --golden`, read the diff, commit it with the code and explain each
+  changed statement in the hand-back. `golden.test.ts` fails until you do.
+- `packages/core/test/kit/`: a steady Nordea household (`household.ts`) and one file per life event in `events/`.
+  `metamorphic.test.ts` runs every source on the base and on base plus each event: an event may add only the statements
+  its `allows` names. `pnpm findings --event <id>` (or `all`) prints the base and the event side by side.
+- `noise.test.ts` runs 200 steady households (Poisson and over-dispersed, `noise.ts`): a detector that compares two
+  windows may fire on at most 2 of them.
+- `kit/known.ts` lists today's false findings of both tests. It may only shrink: fixing one means removing its entry.
+  A false finding a review catches becomes an event or a near miss first, then the fix.
 
 ## Pieces that change together
 

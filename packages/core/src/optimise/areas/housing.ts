@@ -7,11 +7,10 @@
  */
 import type { AnalysisContext } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
-import { priceRiseItems } from "../../analysis/insights/prices.ts";
+import { MAX_HOUSING_STEP_TENTHS, priceRiseItems, stepTenths } from "../../analysis/insights/prices.ts";
 import { addDays } from "../../dates.ts";
-import { priceChangeYearlyCents, type RecurringSeries } from "../../recurring.ts";
 import type { IsoDate } from "../../types.ts";
-import { findingId } from "../common.ts";
+import { findingId, yearlyAt } from "../common.ts";
 import { type Fact, factOn } from "../facts/index.ts";
 import { valueOf } from "../inputs.ts";
 import type { Area, AreaInput, Check, FindingDraft, HousingType, Weakness } from "../types.ts";
@@ -20,8 +19,6 @@ import type { Area, AreaInput, Check, FindingDraft, HousingType, Weakness } from
 const RISE_DAYS = 730;
 /** The area's gate: 3 percentage points over the benchmark, in tenths. */
 const GATE_TENTHS = 30;
-/** A single step over 10 %, in tenths: a new home or a loan share, left out. */
-const MAX_STEP_TENTHS = 100;
 /** A new housing payee this close before the rise, or after it, may be a new home: the rise is not compared. */
 const NEW_PAYEE_DAYS = 365;
 
@@ -31,11 +28,6 @@ const pct = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 1, maximumFr
 const pctText = (tenths: number) => `${pct.format(tenths / 10)}\u00a0%`;
 const pointsText = (tenths: number) => `${pct.format(tenths / 10)} prosenttiyksikköä`;
 const tenthsOf = (f: Fact) => Math.round(f.value * 10);
-
-/** What `cents` a charge comes to in a year of the series' own charges, as the price insight counts a rise. */
-export function yearlyAt(s: RecurringSeries, cents: number): number {
-  return priceChangeYearlyCents({ cadence: s.cadence, perMonth: s.perMonth, priceChange: { fromCents: 0, toCents: cents, date: s.lastDate } }) ?? 0;
-}
 
 const quarterOf = (date: IsoDate) => `${date.slice(0, 4)}Q${Math.floor((Number(date.slice(5, 7)) - 1) / 3) + 1}`;
 
@@ -91,12 +83,9 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
     const since = addDays(s.priceChange!.date, -NEW_PAYEE_DAYS);
     return ![...firstSeen].some(([m, d]) => m !== s.merchant && d > since && d <= end);
   });
-  const all = candidates.map((item) => {
-    const { fromCents, toCents } = item.series.priceChange!;
-    return { item, riseT: Math.round(((toCents - fromCents) / fromCents) * 1000) };
-  });
-  // one step over 10 % is a move, a new flat or a loan share, never a rise to act on
-  const rises = all.filter((r) => r.riseT <= MAX_STEP_TENTHS);
+  const all = candidates.map((item) => ({ item, riseT: stepTenths(item.series.priceChange!) }));
+  // one step over 10 % is a move, a new flat or a loan share, never a rise to act on (the price insight's rule too)
+  const rises = all.filter((r) => r.riseT <= MAX_HOUSING_STEP_TENTHS);
   const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? "Nousu on yli 10\u00a0% kerralla, joten sitä ei verrata." : "Jos muutitte, lisää muuttopäivä.", moved ? undefined : "moved_on") : null;
   if (!rises.some((r) => r.riseT >= GATE_TENTHS)) return { findings: [], checks: [step ?? check("clear")] };
   const type = valueOf(a.values, "housing_type", today);

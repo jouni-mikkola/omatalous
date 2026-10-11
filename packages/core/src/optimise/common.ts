@@ -5,13 +5,17 @@
  */
 import { type AnalysisContext, type AnalysisTx, historyCovers } from "../analysis/context.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
+import { formatEur } from "../analysis/format.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
 import type { DateRange } from "../analysis/period.ts";
-import { completeMonthsBefore } from "../analysis/usual.ts";
-import { addMonths, daysInMonth, monthOf } from "../dates.ts";
+import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
+import { addMonths, dayNumber, daysInMonth, monthOf } from "../dates.ts";
+import { priceChangeYearlyCents, type RecurringSeries } from "../recurring.ts";
+import { balanceWalk, type BalanceWalk } from "../reports/balances.ts";
+import { bufferReport } from "../reports/buffer.ts";
 import { median } from "../stats.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
-import { AREA_IDS, type AreaId, type Certainty, type CertaintyLevel, type EvidenceQuality, type Weakness, type WeaknessId } from "./types.ts";
+import { AREA_IDS, type AreaId, type AreaInput, type Certainty, type CertaintyLevel, type EvidenceQuality, type Weakness, type WeaknessId } from "./types.ts";
 
 /** Rule 3: the insights' item gate over a year, 120 €. An area adds its own gate on top. */
 export const GATE_YEARLY_CENTS = 12 * ITEM_GATE_MONTHLY_CENTS;
@@ -84,8 +88,6 @@ export function netCost(t: Pick<AnalysisTx, "spend" | "refunded" | "isTransfer">
 }
 
 export interface Level {
-  /** Mean cents a month over the months, one-offs out. */
-  monthly: number;
   /** Cents per month, aligned with the months given. */
   byMonth: number[];
   /** Ids of the rows over three times their merchant's median, left out of the level. */
@@ -110,8 +112,7 @@ export function levelWithoutOneOffs(rows: readonly AnalysisTx[], months: readonl
   const at = new Map(months.map((m, i) => [m, i]));
   const byMonth = months.map(() => 0);
   for (const t of counted) if (!struck.has(t.id)) byMonth[at.get(monthOf(t.bookingDate))!]! += netCost(t);
-  const monthly = months.length ? Math.round(byMonth.reduce((s, x) => s + x, 0) / months.length) : 0;
-  return { monthly, byMonth, struck: [...struck] };
+  return { byMonth, struck: [...struck] };
 }
 
 /** Rule 7 weakness for a yearly figure from fewer than 12 months. */
@@ -229,4 +230,119 @@ const NUMBER = /\d{1,2}\.\d{1,2}\.(?:\d{4})?|[\u2212-]?\d{1,3}(?:[ \u00a0\u202f]
  */
 export function numbersIn(text: string): string[] {
   return (text.match(NUMBER) ?? []).map((n) => n.replace(/[\u00a0\u202f]/g, " ").replace(/^-/, "\u2212"));
+}
+
+// ── shared by several areas (an area imports no other area) ──
+
+/** Months on each side of a year-over-year comparison: six now, six a year earlier. */
+export const YEAR_OVER_YEAR_SIDE = 6;
+
+/** Overlap keys of eating out. Delivery and a café habit claim them too, so the headline counts that money once. */
+export const EATING_OUT_CLAIMS: readonly string[] = ["category:restaurants", "category:food_delivery"];
+
+export const mean = (xs: readonly number[]): number => (xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : 0);
+
+/** "8", "8,5": a count a month with at most one decimal. */
+export function formatCount(x: number): string {
+  const r = Math.round(x * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
+}
+
+/** The last six complete months, the same six a year earlier and every month between, or null without 18. */
+export function yearOverYear(a: AreaInput): { now: string[]; then: string[]; all: string[] } | null {
+  if (a.months.length < 12) return null;
+  const now = a.months.slice(-YEAR_OVER_YEAR_SIDE);
+  const then = now.map((m) => addMonths(m, -12));
+  if (!then.every((m) => isCompleteMonth(a.ctx, m))) return null;
+  return { now, then, all: [...then, ...a.months.slice(0, 12 - YEAR_OVER_YEAR_SIDE), ...now] };
+}
+
+/** Over this the "interest" cannot be a deposit rate. */
+const MAX_YIELD = 0.05;
+
+/** A savings row this many days from the same sum leaving another own account is the other leg of a move. */
+const MIRROR_DAYS = 3;
+
+/** A withholding tax the bank books as its own row beside the interest. */
+const WITHHOLDING = /L[AÄ]HDEVERO/i;
+
+const pctFormat = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 2 });
+
+/** 0.0153 → "1,53 %". */
+export const pct = (fraction: number) => `${pctFormat.format(fraction * 100)}\u00a0%`;
+
+export const eur = (cents: number) => formatEur(cents, false);
+
+/** The viewer's own accounts of a type: the money the viewer can move. */
+export function ownAccounts(a: AreaInput, type: BalanceInput["type"]): BalanceInput[] {
+  return a.balances.filter((b) => b.type === type && b.ownerName === null);
+}
+
+/** The last day of each window month as a day number. */
+export function monthEndDays(months: readonly string[]): number[] {
+  return months.map((m) => dayNumber(`${m}-${String(daysInMonth(m)).padStart(2, "0")}`));
+}
+
+/** The walks of accounts that all have a balance; null when one has none. */
+export function walksOf(a: AreaInput, accounts: readonly BalanceInput[]): BalanceWalk[] | null {
+  const walks = accounts.map((b) => balanceWalk(a.ctx, b));
+  return walks.every((w): w is BalanceWalk => w !== null) ? walks : null;
+}
+
+export interface SavingsYield {
+  /** Interest paid on the savings accounts in the window, less a withholding tax booked as its own row. */
+  interestCents: number;
+  /** Mean month-end balance of the savings accounts over the window. */
+  meanBalanceCents: number;
+  /** interest / mean balance: 0.015 is 1,5 %. */
+  rate: number;
+  /** The interest rows. */
+  rows: string[];
+  accounts: BalanceInput[];
+  walks: BalanceWalk[];
+}
+
+/**
+ * The household's own savings yield over 12 complete months: interest paid on its savings accounts divided by their
+ * mean month-end balance. Finnish banks pay deposit interest after the withholding tax, so this is already the yield
+ * after tax. A move between own accounts is never interest. Null without 12 complete months (a yearly interest
+ * payment could fall outside a shorter window), without an own savings account, when one has no balance or when one
+ * started inside the window.
+ */
+export function savingsYield(a: AreaInput): SavingsYield | null {
+  if (a.months.length < 12) return null;
+  const accounts = ownAccounts(a, "savings");
+  const from = `${a.months[0]}-01`;
+  const before = accountsBefore(a.ctx, from);
+  if (!accounts.length || accounts.some((b) => !before.has(b.id))) return null;
+  const walks = walksOf(a, accounts);
+  if (!walks) return null;
+  const ends = monthEndDays(a.months);
+  const meanBalanceCents = Math.round(ends.reduce((s, day) => s + walks.reduce((t, w) => t + w.at(day)!, 0), 0) / ends.length);
+  if (meanBalanceCents <= 0) return null;
+  const ids = new Set(accounts.map((b) => b.id));
+  const inWindow = (t: AnalysisTx) => ids.has(t.accountId) && !t.isTransfer && t.bookingDate >= from && t.bookingDate <= a.end;
+  // the savings leg of a move from an own account can keep a text such as KORKO when only the other leg names the
+  // account: the same sum leaving another own account within a few days makes it a move, never interest
+  const own = new Set(a.ctx.accounts.map((acc) => acc.id));
+  const mirrored = (t: AnalysisTx) =>
+    a.ctx.txs.some((o) => o.accountId !== t.accountId && own.has(o.accountId) && o.amountCents === -t.amountCents && Math.abs(o.day - t.day) <= MIRROR_DAYS);
+  const interest = a.ctx.txs.filter((t) => inWindow(t) && t.category === "investment_income" && t.amountCents > 0 && !mirrored(t));
+  const tax = a.ctx.txs.filter((t) => inWindow(t) && t.amountCents < 0 && WITHHOLDING.test(`${t.description ?? ""} ${t.merchant} ${t.counterparty ?? ""}`));
+  const interestCents = interest.reduce((s, t) => s + t.flows.income, 0) + tax.reduce((s, t) => s + t.amountCents, 0);
+  const rate = Math.max(0, interestCents) / meanBalanceCents;
+  // no deposit account pays this much: the rows are something else (a sale, a refund), so there is no yield to use
+  if (rate > MAX_YIELD) return null;
+  return { interestCents, meanBalanceCents, rate, rows: interest.map((t) => t.id), accounts, walks };
+}
+
+/** Spending in a usual month, the buffer's yardstick (median of complete months); null under three. */
+export function usualSpend(a: AreaInput): number | null {
+  const usual = bufferReport(a.ctx, a.balances, a.inputs).usualSpendCents;
+  return usual !== null && usual > 0 ? usual : null;
+}
+
+/** What `cents` a charge comes to in a year of the series' own charges, as the price insight counts a rise. */
+export function yearlyAt(s: RecurringSeries, cents: number): number {
+  return priceChangeYearlyCents({ cadence: s.cadence, perMonth: s.perMonth, priceChange: { fromCents: 0, toCents: cents, date: s.lastDate } }) ?? 0;
 }

@@ -9,11 +9,11 @@ import { addMonths, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { BalanceWalk } from "../../reports/balances.ts";
 import type { BalanceInput } from "../../types.ts";
-import { annualise, findingId, MAX_ROWS, netCost, rowsById } from "../common.ts";
+import { annualise, eur, findingId, MAX_ROWS, monthEndDays, netCost, ownAccounts, pct, rowsById, savingsYield, usualSpend, walksOf } from "../common.ts";
 import { type Fact, factOn, isSampleFact } from "../facts/index.ts";
 import { valueOf } from "../inputs.ts";
 import type { Area, AreaInput, Check, FindingDraft, LoanReference, LoanRateValue } from "../types.ts";
-import { eur, monthEndDays, ownAccounts, pct, savingsYield, usualSpend, walksOf } from "./savings.ts";
+import { isPurchaseInterestText } from "../../wording.ts";
 
 /** The margin finding needs a margin this far over the offers' top: 0,2 percentage points, in hundredths of a percent. */
 const MARGIN_OVER_TOP_BP = 20;
@@ -227,11 +227,9 @@ const CARD_SIGNALS = ["gap", "stale", "own_unconnected"] as const;
  * Purchase interest only: the `interest` category also holds withdrawal fees and late interest, which paying the bill
  * in full does not save (late interest is the late-fee alert's, rule 8).
  */
-const PURCHASE_INTEREST = /KORKO/i;
-const NOT_PURCHASE_INTEREST = /VIIV[AÄ]STYS|PALKKIO|LUOTTOKULU|LUOTTOKUSTANNU|MAKSU/i;
 const isPurchaseInterest = (t: AnalysisTx) => {
   const text = `${t.description ?? ""} ${t.merchant} ${t.counterparty ?? ""}`;
-  return PURCHASE_INTEREST.test(text) && !NOT_PURCHASE_INTEREST.test(text);
+  return isPurchaseInterestText(text);
 };
 
 function cardInterestFinding(a: AreaInput): Outcome {

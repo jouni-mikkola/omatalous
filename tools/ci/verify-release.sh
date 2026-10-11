@@ -4,9 +4,47 @@
 # with the signature check installs run: this checkout's scripts/lib/release.sh and the copy in every baseline of
 # .github/upgrade-from.txt that has one, because an install runs the check it already has. Also says which trigger
 # started the run that signed it. Needs cosign, the full git history and the network.
+#
+# tools/ci/verify-release.sh --pull X.Y.Z
+# Checks that anyone can pull the image: an anonymous token from ghcr, a manifest list for the tag that answers 200 and
+# holds linux/amd64 and linux/arm64. Exit 1 when the package needs a login, the tag is not there or an architecture is
+# missing. Needs only curl and jq, no cosign and no git history.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
+
+if [[ ${1:-} == --pull ]]; then
+  version=${2:-}
+  version=${version#v}
+  [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: verify-release.sh --pull X.Y.Z"; exit 1; }
+  image=$(sed -n 's/^REGISTRY_IMAGE=//p' scripts/lib/release.sh)
+  host=${image%%/*}
+  name=${image#*/}
+  token=$(curl -fsS "https://$host/token?service=$host&scope=repository:$name:pull" | jq -r '.token // empty') || token=
+  [[ -n $token ]] || { echo "$version: $host gave no anonymous token for $name. The package may be private."; exit 1; }
+  body=$(mktemp)
+  trap 'rm -f "$body"' EXIT
+  code=$(curl -sS -o "$body" -w '%{http_code}' -H "Authorization: Bearer $token" \
+    -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+    "https://$host/v2/$name/manifests/$version") || { echo "$version: cannot reach $host"; exit 1; }
+  case $code in
+    200) ;;
+    401 | 403) echo "$version: $host wants a login to pull $name:$version ($code). The package is not public."; exit 1 ;;
+    404) echo "$version: $name:$version is not on $host (404)."; exit 1 ;;
+    *) echo "$version: the manifest of $name:$version answers $code, not 200."; exit 1 ;;
+  esac
+  # attestation manifests carry the platform unknown/unknown and do not count
+  platforms=$(jq -r '[.manifests[]? | select(.platform.os != "unknown") | "\(.platform.os)/\(.platform.architecture)"] | unique | join(" ")' "$body")
+  missing=()
+  for want in linux/amd64 linux/arm64; do [[ " $platforms " == *" $want "* ]] || missing+=("$want"); done
+  if ((${#missing[@]})); then
+    echo "$version: the manifest list of $name:$version lacks ${missing[*]} (has: ${platforms:-no platforms, not a manifest list})."
+    exit 1
+  fi
+  echo "$version: $name:$version pulls without a login and holds $platforms."
+  exit 0
+fi
+
 repo=jouni-mikkola/omatalous
 tag=${1:-$(curl -fsS "https://api.github.com/repos/$repo/releases/latest" | jq -r .tag_name)}
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "No release found in $repo ($tag)"; exit 1; }

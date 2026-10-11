@@ -1,4 +1,4 @@
-import type { MarkKind } from "@banking/core";
+import { type MarkKind, MIN_COMPARE_MONTHS } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { api, query } from "../api.ts";
 import { PaceChart } from "../charts/PaceChart.tsx";
@@ -12,8 +12,9 @@ import { BarList } from "../components/BarList.tsx";
 import { Insights } from "../components/Insights.tsx";
 import { MonthlySpending } from "../components/MonthlySpending.tsx";
 import { NextDays } from "../components/NextDays.tsx";
+import { bridgeIncome } from "../components/month-parts.ts";
 import { SurplusBridge } from "../components/SurplusBridge.tsx";
-import { count, date, dayMonth, money, monthLong, monthSpan, percent, signedMoney } from "../format.ts";
+import { completeMonths, count, date, dayMonth, money, monthLong, monthSpan, percent, signedMoney } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { DashboardData, Meta, Scope } from "../types.ts";
 import "../styles/overview.css";
@@ -194,7 +195,7 @@ export function Overview({
                 {pace.currentTotal <= 0
                   ? "Ei vielä menoja tässä kuussa."
                   : pace.usualAtToday === null
-                    ? `${money(pace.currentTotal, false)} nyt, vertailu näkyy kolmen valmiin kuukauden jälkeen`
+                    ? `${money(pace.currentTotal, false)} nyt, vertailu näkyy ${completeMonths(MIN_COMPARE_MONTHS, true)} jälkeen`
                     : forecast
                       ? `${money(pace.currentTotal, false)} nyt, tavallisesti tähän mennessä ${money(pace.usualAtToday, false)}`
                       : `${money(pace.currentTotal, false)}, tavallisesti koko kuukaudessa ${money(pace.usualMonthTotal ?? 0, false)}`}
@@ -265,13 +266,15 @@ function bridgeSub(b: DashboardData["bridge"], runningMonth: string): ReactNode 
           ? "Kuukausi on kesken, palkka voi puuttua"
           : month;
   const { incomeCents: income, savingsRate } = b.totals;
-  const incomeChange = b.usualIncomeCents ? pctChange(income, b.usualIncomeCents) : null;
+  // the figure the change is told from: earned income, as the usual income is
+  const named = bridgeIncome(b);
+  const incomeChange = named.usualCents ? pctChange(named.cents, named.usualCents) : null;
   return (
     <>
       {basis && <div>{basis}</div>}
       {b.month && income > 0 && (
         <div>
-          <a href="#/reports">Tulot</a> {money(income, false)}
+          <a href="#/reports">{named.label}</a> {money(named.cents, false)}
           {incomeChange && `, ${incomeChange} tavallisesta`}
           {savingsRate !== null && `, säästöön ${percent(savingsRate)}${b.usualSavingsRate !== null ? ` (tavallisesti ${percent(b.usualSavingsRate)})` : ""}`}
         </div>
@@ -313,7 +316,7 @@ function ForecastCard({ forecast: f }: { forecast: NonNullable<DashboardData["fo
           <dd>{f.usualMonthCents === null ? "–" : money(f.usualMonthCents, false)}</dd>
         </div>
       </dl>
-      <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : "Vertailu näkyy, kun historiassa on kolme valmista kuukautta"}</p>
+      <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : `Vertailu näkyy, kun historiassa on ${completeMonths(MIN_COMPARE_MONTHS)}`}</p>
     </div>
   );
 }

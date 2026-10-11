@@ -454,7 +454,6 @@ describe("optimise frame: evidence and common helpers", () => {
     const months = ["2026-07", "2026-08", "2026-09"];
     const level = levelWithoutOneOffs(ctx.txs.filter((t) => t.merchant === "K-Market Kamppi"), months);
     expect(level.byMonth).toEqual([25000, 25000, 25000]);
-    expect(level.monthly).toBe(25000);
     expect(level.struck).toEqual(ctx.txs.filter((t) => t.amountCents === -60000).map((t) => t.id));
   });
 

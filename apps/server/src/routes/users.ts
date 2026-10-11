@@ -1,10 +1,10 @@
 /** Household members (admin only). */
 import { Hono } from "hono";
-import type { Role } from "../db/rows.ts";
 import { UserError } from "../platform/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { clientIp } from "../auth/middleware.ts";
-import { createUser, deleteUser, resetPassword } from "../services/users.ts";
+import { createUser, deleteUser, resetPassword, type Role } from "../services/users.ts";
+import { strictObject } from "../platform/validate.ts";
 import { body, optionalString } from "./shared.ts";
 
 const ROLES: Role[] = ["admin", "member"];
@@ -16,7 +16,7 @@ export function userRoutes(s: Services) {
 
   /** Returns a temporary password to hand over once; it must be changed at first login. */
   app.post("/", async (c) => {
-    const raw = await body<Record<string, unknown>>(c);
+    const raw = strictObject(await body(c), ["username", "displayName", "role"] as const);
     const role = ROLES.includes(raw.role as Role) ? (raw.role as Role) : "member";
     const { user, temporaryPassword } = await createUser(s, {
       username: optionalString(raw.username, 64) ?? "",
@@ -28,7 +28,7 @@ export function userRoutes(s: Services) {
 
   app.patch("/:id", async (c) => {
     const id = c.req.param("id");
-    const raw = await body<Record<string, unknown>>(c);
+    const raw = strictObject(await body(c), ["displayName", "role"] as const);
     const input = { displayName: optionalString(raw.displayName, 80)?.trim() || undefined, role: optionalString(raw.role) as Role | undefined };
     if (input.role && !ROLES.includes(input.role)) throw new UserError("Tuntematon rooli.");
     if (input.role === "member" && id === c.get("user").id && (await s.users.countAdmins()) <= 1) {

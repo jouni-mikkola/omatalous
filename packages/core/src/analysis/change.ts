@@ -24,7 +24,7 @@ import { median } from "../stats.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate } from "../types.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
-import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS, usualCents } from "./usual.ts";
+import { completeMonthsBefore, gateFor, isCompleteMonth, MIN_COMPARE_MONTHS, usualCents } from "./usual.ts";
 
 export type ChangeView = "usual" | "year" | "season";
 export type BucketKind = "oneoff" | "timing" | "new" | "stopped" | "price" | "volume" | "spread" | "other";
@@ -105,8 +105,6 @@ export interface SpendingChange {
   pieces: ChangePiece[];
 }
 
-const GATE_MIN_CENTS = 1000;
-const GATE_SHARE = 0.02;
 const MIN_PRICE_VISITS = 3;
 const MIN_BASE_ROWS = 4;
 const ONE_OFF_MIN_CENTS = 5000;
@@ -360,7 +358,8 @@ export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: st
 
   const baseTotal = plan.mean ? (usualCents(baseByMonth.map(spendOf)) ?? 0) : sum(baseByMonth.map(spendOf));
   const nowTotal = spendOf(targetRows);
-  const gateCents = Math.max(GATE_MIN_CENTS, Math.round((GATE_SHARE * baseTotal) / (plan.mean ? 1 : months))) * months;
+  // the gate of a month against the base of a month, so a year's base is divided by its months
+  const gateCents = gateFor(plan.mean ? baseTotal : baseTotal / months) * months;
 
   // a year ago, for the season mark of the usual view
   const yearAgo = plan.view === "usual" && isCompleteMonth(ctx, addMonths(month, -12)) ? rowsOf(addMonths(month, -12)) : null;

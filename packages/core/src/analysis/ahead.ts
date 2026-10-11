@@ -5,12 +5,13 @@
  * and with a checking balance the balance each day after the usual everyday spending.
  */
 import { getCategory } from "../categories.ts";
+import { cancelledMerchants, expectedCharges } from "../commitments.ts";
 import { addDays, daysInMonth, fromMonthIndex, monthIndex, monthOf, weekdayOf } from "../dates.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
 import type { AnalysisContext } from "./context.ts";
-import { cancelledMerchants, everydayPerDay, expectedBillRows, expectedCharges } from "./forecast.ts";
+import { everydayPerDay, expectedBillRows } from "./forecast.ts";
 import { completeMonthsBefore } from "./usual.ts";
 
 /** How many days after today the list and the balance run. */

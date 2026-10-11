@@ -1,7 +1,8 @@
 /** Tilanne: the euros found, what was checked, and four facts about the household against its own months. No score. */
 import type { OptimiseData, SituationFact } from "@banking/core";
 import { money, plural } from "../../format.ts";
-import { rangeText, SectionCard } from "./shared.tsx";
+import { Section } from "../Section.tsx";
+import { rangeText } from "./shared.tsx";
 
 const num = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 1 });
 
@@ -15,7 +16,7 @@ export function Situation({ data }: { data: OptimiseData }) {
   const { headline, checked } = data;
   const range = rangeText(headline);
   return (
-    <SectionCard id="tilanne" title="Tilanne" sub={`Laskettu ${data.months} valmiin kuukauden tiedoista`}>
+    <Section id="tilanne" title="Tilanne" sub={`Laskettu ${data.months} valmiin kuukauden tiedoista`}>
       <p className="lead optimise-headline">
         {headline.count > 0 ? (
           <>
@@ -46,6 +47,6 @@ export function Situation({ data }: { data: OptimiseData }) {
           );
         })}
       </dl>
-    </SectionCard>
+    </Section>
   );
 }

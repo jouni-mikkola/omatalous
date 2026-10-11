@@ -83,7 +83,7 @@ export function bankRoutes(s: Services) {
 
   /** Fallback when the browser did not come back by itself: the address the bank sent you to, or only its query. */
   app.post("/connections/complete", async (c) => {
-    const { url = "" } = await body<{ url?: string }>(c);
+    const { url = "" } = strictObject(await body(c), ["url"] as const);
     const params = pastedParams(typeof url === "string" ? url : "");
     if (!params) throw new UserError("Liitä koko osoite selaimen osoiteriviltä.");
     const code = params.get("code");

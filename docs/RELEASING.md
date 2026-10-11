@@ -31,9 +31,17 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 1. The work for the release is merged on the branch you release from. Each task left a fragment in `changelog.d/`
    ([changelog.d/README.md](../changelog.d/README.md)). Check that a change an installer must know about has an
    `upgrade:` line: new migrations, changed defaults, new `.env` keys, something that stops working.
+   Land a worker branch with `tools/lead/land.sh <branch> --lane <glob>...`. It picks the commits on a detached HEAD
+   and refuses a conflict (the worker rebases and resolves), a file outside the lanes and a result that removes lines
+   the current branch added since the worker started (`--allow-removed` after you read them). It runs check, build
+   and e2e as they apply, and only then moves the branch and removes the worker's worktree. It never pushes.
 2. A schema change is a new file in `apps/server/migrations/`, additive, never an edit of an applied one. It also needs a
-   frozen database fixture, `apps/server/test/fixtures/db/<version>.sql`, which you write by hand. The folder
-   `contracts/<version>/` freezes with the release: check it is current ([contracts/README.md](../contracts/README.md)).
+   frozen database fixture. Write INSERT statements for each table the release adds in
+   `apps/server/test/fixtures/db/seeds/<version>/<table>.sql` (a leading comment says what the rows cover). Regenerate
+   the contract, `contracts/<version>/schema.sql` ([contracts/README.md](../contracts/README.md)), then run
+   `pnpm release:fixture <version>`. It migrates the previous fixture with the current code, adds the seed rows and
+   writes `<version>.sql`. It refuses a new table without rows, a schema that differs from the contract, a pending
+   migration and a file that does not load back to the same rows. Complete the header it prints.
 3. Pick the version and run `node tools/release/prepare.mjs X.Y.Z` (`pnpm release:prepare X.Y.Z`, `--dry-run` only prints
    the section). It bumps `apps/server/src/version.ts` and the three `package.json` files, writes the `## X.Y.Z` section
    of `CHANGELOG.md` from the fragments and removes them. It refuses a version that is not above the newest `v*` tag
@@ -43,10 +51,12 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 4. Push the commit as the branch `release/X.Y.Z`. CI and the upgrade rehearsal start by themselves and run side by side.
    `ci-ok` and `upgrade-ok` must both be green. The rehearsal updates every baseline, and it checks that each baseline's
    maintenance helper accepts the new `docker-compose.yml`, because installs update from the browser through the helper
-   they already run (`tools/ci/compose-compat.sh`). `pnpm e2e` is part of CI.
-5. Run `tools/release/ship.sh --ci-checked` from a clean tree on that commit. It cannot read CI, so the flag says that you
-   did (`--dry-run` runs the checks and pushes nothing). It checks that the versions and the top `CHANGELOG.md`
-   heading agree, moves the private `main` to `HEAD` only forward (`git push origin HEAD:main`), runs
+   they already run (`tools/ci/compose-compat.sh`). `pnpm e2e` is part of CI. `tools/ci/wait.sh <sha> ci-ok upgrade-ok`
+   waits for both (exit 0 green, 1 a check failed, 2 CI cannot be read or the time ran out).
+5. Run `tools/release/ship.sh` from a clean tree on that commit. It reads `ci-ok` and `upgrade-ok` itself with
+   `wait.sh` and stops on a red or unreadable CI. `--ci-checked` says you read both another way, where `gh` cannot
+   sign in. `--dry-run` runs the checks, reads no CI and pushes nothing. It checks that the versions and the top
+   `CHANGELOG.md` heading agree, moves the private `main` to `HEAD` only forward (`git push origin HEAD:main`), runs
    `tools/publish-public.sh` and prints the release run to watch and the line for step 7.
 6. The push of the new version to the public `main` starts the release workflow. It checks that `version.ts`, the three
    `package.json` files and the top `CHANGELOG.md` heading agree, builds, signs and creates the tag and the release on
@@ -56,7 +66,8 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
    tag and leaves the release to the tag's run. `ship.sh` does not use it.
 7. After the release, add the private commit it was published from to `.github/upgrade-from.txt` and keep the oldest
    supported one. The floor is `90dc8f3` (`0.1.0`). Delete the `release/X.Y.Z` branch.
-8. Wait for the release workflow in the public repository. When it finishes, press *Tarkista päivitykset* on a test install, then *Päivitä*.
+8. Wait for the release workflow in the public repository. When it finishes, run `tools/ci/verify-release.sh --pull X.Y.Z`
+   (an anonymous pull token, a manifest for amd64 and arm64), press *Tarkista päivitykset* on a test install, then *Päivitä*.
 9. `TALOUS_CHANNEL=source` keeps an install on the source build. An install made from the `90dc8f3` baseline updates once
    with `git pull && docker compose up -d --build`.
 

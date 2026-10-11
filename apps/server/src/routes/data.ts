@@ -5,8 +5,9 @@ import { importCsv } from "../connectors/csv-import/service.ts";
 import { loadDemoData } from "../demo.ts";
 import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { reprocess } from "../services/enrich.ts";
+import { removeDemoData } from "../services/accounts.ts";
 import { yieldToLoop } from "../platform/yield.ts";
+import { strictObject } from "../platform/validate.ts";
 import { body, cents, csv, csvBody, csvResponse, optionalString, parseRange } from "./shared.ts";
 
 /** Largest CSV text accepted (characters); the request body limit leaves room for the JSON escaping. */
@@ -20,7 +21,7 @@ export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
   app.post("/import/csv", async (c) => {
-    const raw = await body<Record<string, unknown>>(c);
+    const raw = strictObject(await body(c), ["content", "accountId", "accountName", "accountType"] as const);
     const content = optionalString(raw.content, CSV_CONTENT_MAX) ?? "";
     const input = { content, accountId: optionalString(raw.accountId), accountName: optionalString(raw.accountName), accountType: optionalString(raw.accountType) };
     return c.json(await importCsv(s, c.get("user").id, input));
@@ -98,9 +99,7 @@ export function dataRoutes(s: Services) {
   app.post("/demo", async (c) => c.json(await loadDemoData(s.finance(c.get("user").id), s.settings, s.today())));
 
   app.delete("/demo", async (c) => {
-    const repo = s.finance(c.get("user").id);
-    await repo.deleteProviderData("demo");
-    await reprocess(repo, s.settings);
+    await removeDemoData(s, c.get("user").id);
     return c.json({ ok: true });
   });
 

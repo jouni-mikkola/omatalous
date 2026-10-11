@@ -147,6 +147,38 @@ describe("repo rules: text", () => {
     });
     expectNoFindings("English in UI text", found, "write the text in Finnish (CLAUDE.md: everything the browser shows is Finnish). A name that must stay English goes on ALLOWED in tools/repo-rules/text-rules.ts with a reason.");
   });
+  it("rule 16: no threshold of core as a literal in a web sentence about history (the number comes from core)", () => {
+    const WORD = "(\\d+|yksi|kaksi|kolme|neljä|viisi|kuusi|kymmenen|yhden|kahden|kolmen|neljän|viiden|kuuden|kymmenen)";
+    // "kolme valmista kuukautta", "kolmen valmiin kuukauden", "24 kuukautta" in a sentence that speaks of the history
+    const MONTHS = new RegExp(`(?<!\\p{L})${WORD}\\s+(valmi\\p{L}*\\s+)?kuuka\\p{L}*`, "iu");
+    const ABOUT_HISTORY = /historia|valmi(s|sta|in)\s+kuuka/iu;
+    // "alle 3 %": a rule's limit written into the page
+    const LIMIT = /(?<!\p{L})(alle|yli)\s+\d+\s?%/iu;
+    // Literals that break the rule today, as `<file>  <start of the text>`. The list may only shrink.
+    const BASELINE = [
+      // the 18 and 24 months are the insights' own history rules (analysis/insights); the insights report should return them
+      "apps/web/src/pages/reports/sections/Insights.tsx  Tähän tulevat hinnankorotukset",
+    ];
+    const seen = new Set<string>();
+    const found: Finding[] = [];
+    const check = (file: string, line: number, text: string) => {
+      const flat = text.replace(/\s+/g, " ").trim();
+      const why = ABOUT_HISTORY.test(text) && MONTHS.test(text) ? "months of history as a literal" : LIMIT.test(text) ? "a limit as a literal" : null;
+      if (!why) return;
+      const known = BASELINE.find((b) => b === `${file}  ${flat.slice(0, b.length - file.length - 2)}`);
+      if (known) seen.add(known);
+      else found.push({ file, line, why: `${why}: ${flat.slice(0, 80)}` });
+    };
+    for (const file of sourceFiles("apps/web/src/")) {
+      for (const lit of literals(file)) check(file, lit.line, lit.text);
+      if (!file.endsWith("x")) continue;
+      const sf = parse(file);
+      walk(sf, (n) => void (ts.isJsxText(n) && check(file, sf.getLineAndCharacterOfPosition(n.pos + /^\s*/.exec(n.text)![0].length).line + 1, n.text)));
+    }
+    for (const b of BASELINE) if (!seen.has(b)) found.push({ file: "tools/repo-rules/text-rules.ts", line: lineIn("tools/repo-rules/text-rules.ts", b), why: `baseline entry no longer occurs, delete it: ${b}` });
+    expectNoFindings("thresholds in web text", found, "read the number from core (a report's needs, MIN_COMPARE_MONTHS, MIN_MONTHS_ANY) and print it with completeMonths() or percent() from format.ts.");
+  });
+
   it("rule 12: UI text has no te-form verb, no exclamation mark, no abbreviation the style sheet bans, no rejected glossary term and no hyphen for a minus", () => {
     // Text the browser shows: the web app, and the analysis and report code whose sentences it prints.
     const FORMS: { re: RegExp; name: string; fix: string }[] = [

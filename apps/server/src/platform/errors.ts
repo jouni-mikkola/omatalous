@@ -1,6 +1,12 @@
 /** An error whose message is safe and useful to show to the user (HTTP 400). */
 export class UserError extends Error {}
 
+/**
+ * The row a request names does not exist for this user (HTTP 404). Another member's row looks the same as a missing
+ * one. Not a UserError, so code that catches a refusal does not catch it.
+ */
+export class NotFound extends Error {}
+
 /** A refusal with its own status (403 wrong password, 409 something else is running); the message is safe to show. */
 export class HttpUserError extends UserError {
   constructor(

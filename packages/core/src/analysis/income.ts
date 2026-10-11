@@ -11,6 +11,7 @@ import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
 import type { AnalysisTx } from "./context.ts";
+import { isPensionPayerName } from "../wording.ts";
 
 export type IncomeType =
   | "salary"
@@ -108,8 +109,6 @@ const KELA_BENEFITS: readonly [IncomeType, RegExp][] = [
 ];
 const FUND_WORDS = w(String.raw`[A-Z]*TYOTTOMYYSKASSA[A-Z]*|ERILLISKASSA|YTK|ERTO|JATTK|ARBETSLOSHETSKASSA[A-Z]*|ANSIOPAIVARAHA|ANSIOSIDONNAINEN`);
 const PENSION_WORDS = w(String.raw`[A-Z]*ELAKE[A-Z]*|PENSION`);
-/** Earnings pension companies by the payer's whole name: Elo and Ilmarinen are also surnames, and elo is a month. */
-const PENSION_PAYERS = /^(?:ILMARINEN|VARMA|KEVA|VERITAS|ELAKETURVAKESKUS|PENSIONSSKYDDSCENTRALEN|ELO KESKINAINEN)$/;
 
 export type IncomeRow = Pick<AnalysisTx, "category" | "merchant" | "counterparty" | "description" | "amountCents">;
 
@@ -121,7 +120,7 @@ const payerNames = (t: IncomeRow) => [fold(t.merchant).trim(), fold(t.counterpar
 function isPensionPayer(t: IncomeRow): boolean {
   const [merchant, counterparty] = payerNames(t);
   // a bare "Elo" only as the counterparty: as a merchant name it may be cut from a longer text
-  return counterparty === "ELO" || PENSION_PAYERS.test(merchant) || PENSION_PAYERS.test(counterparty);
+  return counterparty === "ELO" || isPensionPayerName(merchant) || isPensionPayerName(counterparty);
 }
 
 function benefitType(text: string, t: IncomeRow): IncomeType {
@@ -160,6 +159,15 @@ export function incomeTypeOf(t: IncomeRow): IncomeType {
 
 /** Rows that count as income in the money flows: the same rows the cash flow report sums. */
 export const isIncomeRow = (t: Pick<AnalysisTx, "flows">) => t.flows.income !== 0;
+
+/** The categories of money from people and refunds (types `persons` and `refunds`): income in the flows, never earned. */
+const NOT_EARNED: ReadonlySet<string> = new Set(["p2p_in", "reimbursements"]);
+
+/**
+ * Earned income: an income row that is not money from people or a refund. The one predicate behind every "tavalliset
+ * tulot" (`usualIncome` in usual.ts) and the same split as the `earned` flag of `INCOME_TYPES`.
+ */
+export const isEarnedIncome = (t: Pick<AnalysisTx, "flows" | "category">) => isIncomeRow(t) && !NOT_EARNED.has(t.category);
 
 /** The payer a series is grouped by: the cleaned merchant name, folded. */
 export const payerKey = (t: Pick<AnalysisTx, "merchant">) => fold(t.merchant);

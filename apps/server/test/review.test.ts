@@ -2,7 +2,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { syncUser } from "../src/connectors/sync.ts";
-import { setupApp, waitFor } from "./helpers.ts";
+import { checkingAccount, setupApp, waitFor } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
@@ -45,7 +45,7 @@ describe("sync", () => {
 
   it("CSV rows in a bank account do not move the sync window, future dates are skipped", async () => {
     const { bank, admin, s, adminId } = await connected();
-    const checking = (await admin.call("GET", "/api/meta")).body.accounts.find((a: { type: string }) => a.type === "checking");
+    const checking = await checkingAccount(admin);
     const r = await admin.call("POST", "/api/import/csv", {
       accountId: checking.id,
       content: "Kirjauspäivä;Määrä;Saaja/Maksaja;Viesti\n2026-11-01;-10,00;TULEVA;X\n2026-10-01;-5,00;KAHVILA;Y\n",

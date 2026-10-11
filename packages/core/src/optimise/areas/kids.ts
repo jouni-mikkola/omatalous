@@ -9,18 +9,18 @@ import { formatEur } from "../../analysis/format.ts";
 import { fold } from "../../merchant.ts";
 import { FACTS, factFrom, factOn } from "../facts/index.ts";
 import type { Area, AreaInput, AreaResult, Check } from "../types.ts";
+import { mccKind } from "../../industry.ts";
+import { isDaycareText, isMunicipality } from "../../wording.ts";
 
 const KIND = "daycare";
 const FACT = "daycare_max_fee";
 
-const DAYCARE = /(?<![A-Z])(?:[A-Z]*PAIVAKOTI[A-Z]*|[A-Z]*PAIVAHOITO[A-Z]*|VARHAISKASVATUS[A-Z]*)(?![A-Z])/;
-const MUNICIPALITY = /(?<![A-Z])(?:KAUPUNKI|KUNTA|STAD|KOMMUN)(?![A-Z])/;
 
 /** A day-care payment to a municipality: a `kids` row whose payee is a city or municipality. */
 function isMunicipalDaycare(t: AnalysisTx): boolean {
   if (t.isTransfer || t.category !== "kids" || t.amountCents >= 0) return false;
   const payee = fold(`${t.merchant} ${t.counterparty ?? ""}`);
-  return MUNICIPALITY.test(payee) && (t.mcc === "8351" || DAYCARE.test(fold(`${payee} ${t.description ?? ""}`)));
+  return isMunicipality(payee) && (mccKind(t.mcc) === "child_care" || isDaycareText(fold(`${payee} ${t.description ?? ""}`)));
 }
 
 interface Charge {

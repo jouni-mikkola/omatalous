@@ -13,18 +13,26 @@
  *   rule 3   every FinanceRepo statement carries user_id      code-rules.ts
  *   rule 4   no em dash in text we write                      text-rules.ts
  *   rule 5   security events written in one place             code-rules.ts
- *   rule 6   import boundaries and their shrinking baseline   boundaries.ts
+ *   rule 6   import boundaries, baseline, no import cycle     boundaries.ts
  *   rule 7   the ops action list agrees in three places       parity.ts
  *   rule 8   reports are registered, shown and documented     parity.ts
  *   rule 9   file size budget with a shrinking allowlist      size.ts
  *   rule 10  no English in the UI text                        text-rules.ts
  *   rule 11  every report and section has a Decision comment  parity.ts
  *   rule 12  Finnish style: no te-form, "!", banned words      text-rules.ts
+ *   rule 13  seeded tests carry a 30 s timeout                timeouts.ts
+ *   rule 14  request bodies go through strictObject or parse*  code-rules.ts
+ *   rule 15  web does not parse mark subjects                 code-rules.ts
+ *   rule 16  no core threshold as a literal in web text       text-rules.ts
+ *   rule 17  a series' charges a year only from recurring.ts  code-rules.ts
+ *   rule 21  keyword lists only in the dialect files          dialect.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */
 import "./code-rules.ts";
+import "./dialect.ts";
 import "./text-rules.ts";
 import "./boundaries.ts";
 import "./parity.ts";
 import "./size.ts";
+import "./timeouts.ts";

@@ -4,7 +4,7 @@ import { type AnalysisContext, recurringAt } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { priceChangeYearlyCents } from "../recurring.ts";
 import type { IsoDate } from "../types.ts";
-import { yearEarlier } from "./summary.ts";
+import { yearEarlier } from "./shared.ts";
 
 export interface PriceChangeItem {
   merchant: string;

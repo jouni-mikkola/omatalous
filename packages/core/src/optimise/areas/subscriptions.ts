@@ -6,23 +6,15 @@
  */
 import { overlapGroups } from "../../analysis/alerts.ts";
 import type { AnalysisTx } from "../../analysis/context.ts";
-import { cancelledMerchants } from "../../analysis/forecast.ts";
 import { finnishList, formatEur, formatFiDate } from "../../analysis/format.ts";
-import { priceRiseItems } from "../../analysis/insights/prices.ts";
+import { notAPrice, PLAN_CATEGORIES, priceRiseItems } from "../../analysis/insights/prices.ts";
 import { renewalItems } from "../../analysis/insights/renewals.ts";
-import { SUBSCRIPTION_CATEGORIES } from "../../commitments.ts";
+import { cancelledMerchants } from "../../commitments.ts";
 import { addDays } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { findingId, GATE_YEARLY_CENTS, rowsById } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
 
-/** Phone and broadband beside the subscription set: a contract whose price the household can negotiate. */
-const RISE_CATEGORIES: ReadonlySet<string> = new Set([...SUBSCRIPTION_CATEGORIES, "telecom"]);
-/**
- * A step over this share is a plan, tier or line change (a family plan gaining a line, a campaign price ending into
- * another plan); the bill shows no line count, so such a step is never told as a price rise.
- */
-const MAX_PRICE_STEP = 0.3;
 /** Fewer charges than this at the old price leave the old price less certain: one step. */
 const FEW_BEFORE = 6;
 /** The renewal deadline lands in Seuraavat 60 päivää. */
@@ -45,8 +37,9 @@ const recognised = (s: RecurringSeries, byId: ReadonlyMap<string, AnalysisTx>) =
 function rises(a: AreaInput, cancelled: ReadonlySet<string>): FindingDraft[] {
   const byId = rowsById(a.ctx);
   return priceRiseItems(a.ctx, a.end)
-    .filter(({ series: s, yearlyCents }) => RISE_CATEGORIES.has(s.category) && yearlyCents >= GATE_YEARLY_CENTS && !cancelled.has(s.merchant) && recognised(s, byId))
-    .filter(({ series: s }) => s.priceChange!.toCents - s.priceChange!.fromCents <= MAX_PRICE_STEP * s.priceChange!.fromCents)
+    // phone and broadband beside the subscription set: contracts whose price the household can negotiate
+    .filter(({ series: s, yearlyCents }) => PLAN_CATEGORIES.has(s.category) && yearlyCents >= GATE_YEARLY_CENTS && !cancelled.has(s.merchant) && recognised(s, byId))
+    .filter(({ series: s }) => !notAPrice(a.ctx, s))
     .map(({ series: s, yearlyCents }) => {
       const { fromCents, toCents, date } = s.priceChange!;
       const dated = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t);
@@ -134,7 +127,7 @@ function overlaps(a: AreaInput, cancelled: ReadonlySet<string>): FindingDraft[] 
 function renewals(a: AreaInput): FindingDraft[] {
   const byId = rowsById(a.ctx);
   return renewalItems(a.ctx, a.inputs, RENEW_DAYS)
-    .filter((s) => s.monthlyCents * 12 >= GATE_YEARLY_CENTS && addDays(s.nextDate!, -1) >= a.today && recognised(s, byId))
+    .filter((s) => s.yearlyCents >= GATE_YEARLY_CENTS && addDays(s.nextDate!, -1) >= a.today && recognised(s, byId))
     .map((s) => {
       const decideBy = addDays(s.nextDate!, -1);
       const noun = RENEWAL_NOUN[s.cadence ?? ""] ?? "tilaus";

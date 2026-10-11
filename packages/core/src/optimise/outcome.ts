@@ -9,10 +9,10 @@
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { formatEur, formatFiDate } from "../analysis/format.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
-import { type Replacement, replacementOf } from "../analysis/insights/stopped.ts";
+import { paysAhead, type Replacement, replacementOf } from "../analysis/insights/stopped.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
 import { addDays, addMonths, daysInMonth, monthOf, monthRange } from "../dates.ts";
-import { detectRecurring, type RecurringSeries } from "../recurring.ts";
+import { detectRecurring, parseSeriesId, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
 import { netCost, parseFindingId, rowsById } from "./common.ts";
@@ -78,13 +78,8 @@ const MIN_BEFORE_MONTHS = 3;
 const PROPOSAL_DAYS = 365;
 /** A CPI row this many months older than the month still deflates it: the statistic is published with a lag. */
 const CPI_LAG_MONTHS = 3;
-/** A changeover month over this many times the usual month holds a payment for months ahead (rule 4's one-off factor). */
-const PREPAID_FACTOR = 3;
 /** A charge within this share of a series' typical price is a charge of that series at its cadence. */
 const SAME_PRICE = 0.5;
-
-// a series id is `<in|out>:<account>:<merchant>` with `#habit` or `#<amount>` after it (recurring.ts)
-const SERIES_ID = /^(?:in|out):[^:]*:(.+?)(?:#(?:habit|-?\d+))?$/su;
 
 const eur = (cents: number) => formatEur(Math.abs(Math.round(cents)), false);
 
@@ -101,8 +96,9 @@ function measureOf(ctx: AnalysisContext, findingId: string, finding: FollowedFin
   const subject = parseFindingId(findingId)?.subject;
   if (!subject) return null;
   const series = ctx.recurring.find((s) => s.id === subject);
-  if (series) return { kind: "series", keys: [subject], perYear: Math.max(1, Math.round(365.25 / Math.max(1, series.intervalDays))) };
-  const merchant = SERIES_ID.exec(subject)?.[1] ?? subject;
+  // the series' own charges a year: day care that is free in July bills 11 times
+  if (series) return { kind: "series", keys: [subject], perYear: series.perMonth * 12 };
+  const merchant = parseSeriesId(subject)?.merchant ?? subject;
   return ctx.txs.some((t) => t.merchant === merchant) ? { kind: "merchants", keys: [merchant] } : null;
 }
 
@@ -149,9 +145,6 @@ function matcherOf(ctx: AnalysisContext, measure: Measure, replacement: string |
   }
 }
 
-/** Charges a year of a series with a cadence: `intervalDays` is the cadence's length in days. */
-const perYearOf = (s: Pick<RecurringSeries, "intervalDays">) => 365.25 / Math.max(1, s.intervalDays);
-
 /**
  * Cost per month of a contract after the change, from charges on or after the first day of the changeover month,
  * normalised by cadence. A series of the whole history that billed before the change and bills after it keeps its
@@ -175,7 +168,8 @@ function afterCost(ctx: AnalysisContext, rows: readonly AnalysisTx[], start: Iso
     );
     const own = rows.filter((t) => ids.has(t.id) && Math.abs(netCost(t) - old) <= SAME_PRICE * old);
     for (const t of own) covered.add(t.id);
-    if (own.some((t) => monthOf(t.bookingDate) > changeover)) monthly += (median(own.map(netCost)) * perYearOf(s)) / 12;
+    // at the series' own charges a month, the count `beforeCost` uses: an unchanged fee with a free July is no rise
+    if (own.some((t) => monthOf(t.bookingDate) > changeover)) monthly += median(own.map(netCost)) * s.perMonth;
   }
   const fresh = detectRecurring(
     rows.filter((t) => !covered.has(t.id)),
@@ -321,7 +315,7 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
       const b = median(before);
       // a payment that covers months ahead (a yearly fee instead of monthly ones) in the changeover month would leave
       // the months after empty and read as a saving
-      if (sumOf(changeover) > PREPAID_FACTOR * Math.max(b, ITEM_GATE_MONTHLY_CENTS)) return waiting("Uuden maksun laskutusväli ei vielä näy.");
+      if (paysAhead(sumOf(changeover), Math.max(b, ITEM_GATE_MONTHLY_CENTS))) return waiting("Uuden maksun laskutusväli ei vielä näy.");
       const xs = after.slice(-BEFORE_MONTHS).map(sumOf);
       const a = median(xs);
       const effect = Math.round(b - a);

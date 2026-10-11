@@ -1,14 +1,14 @@
 // Decision: what is worth changing first
 import { query } from "../../../api.ts";
 import { money, signedMoney } from "../../../format.ts";
-import { Section } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** Every insight that passed its gate, largest yearly figure first: the overview shows the first three. */
 function Insights({ ctx }: SectionProps) {
   const r = ctx.data.insights;
   return (
-    <Section section={section} sub="Suurin vuosivaikutus ensin">
+    <Section id={section.id} title={section.title} sub="Suurin vuosivaikutus ensin">
       {r.items.length ? (
         <div className="table-wrap">
           <table>

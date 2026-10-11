@@ -1,5 +1,6 @@
 /** Household members: first-run setup, adding members, passwords. */
 import type { Role, User } from "../db/rows.ts";
+export type { Role } from "../db/rows.ts";
 import { USER_DATA_VERSION } from "../db/settings-repo.ts";
 import { sha256, timingSafeEqual, utf8 } from "../security/encoding.ts";
 import { generatePassword, hashPassword, passwordProblem, verifyPassword } from "../security/password.ts";

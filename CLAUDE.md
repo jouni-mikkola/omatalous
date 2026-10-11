@@ -22,10 +22,13 @@ next releases are in `.claude/plan/` (private repo only).
 ## Layout
 
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
-  rules (`categorize.ts`), trade register matching (`industry.ts`), import parsers (`sources/*`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
+  rules (`categorize.ts`), the bank dialect (`wording.ts`: word lists behind named predicates, ADR 0008), trade register
+  matching and TOL and MCC codes (`industry.ts`), import parsers (`sources/*`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
   recurring detection, money flows, analysis context, dashboard, insights, `reports/*` with a registry in
-  `reports/index.ts`. One definition per figure: `analysis/usual.ts` (complete months, the usual level) and
-  `commitments.ts` (fixed costs, subscriptions, expected bill dates); `docs/MONEY_FLOWS.md` says them in prose.
+  `reports/index.ts`. One definition per figure (ADR 0004): `analysis/usual.ts` (complete months, the usual level, usual
+  spending and usual income, the gate `gateFor`) and `commitments.ts` (fixed costs, subscriptions, expected bill dates,
+  expected charges, cancelled merchants); `analysis/fees.ts` (late fees, bank fees); a series' cost is its own
+  `perMonth`, `monthlyCents`, `yearlyCents`; `docs/MONEY_FLOWS.md` says them in prose.
   `analysis/explain.ts` (why a month differs), `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
   `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete months),
   `change.ts` (what moved spending, split into causes that add up; wording in `change-text.ts`), `income.ts` (income by
@@ -121,7 +124,8 @@ next releases are in `.claude/plan/` (private repo only).
 - New module behind a flag: an entry in `FEATURES` (`packages/core/src/features.ts`), its routes mounted through
   `gated(s, id, routes)` (`auth/middleware.ts`), and its `nav.ts` entry names the flag. Admins switch flags in
   Asetukset > Palvelin.
-- New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`.
+- New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`. A payee or
+  payment word list goes in `wording.ts` (repo rule 21), shared with `categorize.ts` through one constant.
 - New Optimoi finding: in its area file, with a hit and near misses in `packages/core/test/optimise/parts/`, quiet on the
   random households (`quiet.test.ts`). An outside figure is a row in `optimise/facts/` only after its primary source
   was opened (`verifiedAt`); it expires and then hides its comparison. Findings never rank providers or advise a

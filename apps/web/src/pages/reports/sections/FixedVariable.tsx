@@ -1,7 +1,8 @@
 // Decision: take on a new commitment or not, build up savings or not
 import { StackedColumns } from "../../../charts/StackedColumns.tsx";
 import { money, percent } from "../../../format.ts";
-import { Kv, Section } from "../parts.tsx";
+import { Kv } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function FixedVariable({ ctx }: SectionProps) {
@@ -12,7 +13,7 @@ function FixedVariable({ ctx }: SectionProps) {
   const spending = t.fixedCents + t.habitCents + t.variableCents + t.debtCents;
   const share = (v: number) => (spending ? percent(v / spending) : "–");
   return (
-    <Section section={section} sub="Arkiostot ovat toistuvia pieniä ostoja">
+    <Section id={section.id} title={section.title} sub="Arkiostot ovat toistuvia pieniä ostoja">
       {buffer.advice && <p className="lead">{buffer.advice}</p>}
       {buffer.cashCents === null && <p className="lead muted">Lisää saldo kohdassa Asetukset &gt; Tilit, niin näet, montako kuukautta tilien rahat riittävät menoihin.</p>}
       <Kv

@@ -1,37 +1,20 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, daysBetween, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
+import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
-import type { Connection, StoredTransaction } from "../db/rows.ts";
 import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
 import { hasInstanceCredentials } from "../connectors/enable-banking/app-setup.ts";
 import { BANKS } from "../connectors/enable-banking/banks.ts";
-import { strictObject } from "../platform/validate.ts";
+import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
+import { connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { reprocess, reprocessMerchantChange } from "../services/enrich.ts";
-import { derivedStateIsCurrent } from "../services/upgrade.ts";
-import { checkRuleRoom, replacesWordRule } from "../services/rules.ts";
+import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
 import { body, optionalString, parseRange, queryInt } from "./shared.ts";
 
 const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "counterparty", "any"];
 
 /** A balance typed in by hand: whole cents, at most a billion euros either way. */
 const MAX_BALANCE_CENTS = 100_000_000_000;
-
-/** Past its end date a consent shows as expired before the next fetch writes that status. */
-function connectionView(conn: Connection, today: string) {
-  const end = conn.validUntil?.slice(0, 10) ?? null;
-  return {
-    ...conn,
-    status: conn.status === "active" && end !== null && end < today ? ("expired" as const) : conn.status,
-    daysLeft: end === null ? null : Math.max(0, daysBetween(today, end)),
-  };
-}
-
-/** Raw bank payloads stay on the server. */
-export function publicTx({ raw: _raw, ...t }: StoredTransaction) {
-  return t;
-}
 
 export function financeRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -107,8 +90,8 @@ export function financeRoutes(s: Services) {
     const shared = inView?.map((a) => a.id);
     const { total, inCents, outCents, items } = await repoOf(user.id).listTransactions(
       {
-        from: q.from,
-        to: q.to,
+        from: q.from ? parseIsoDate(q.from, "Virheellinen aikaväli.") : undefined,
+        to: q.to ? parseIsoDate(q.to, "Virheellinen aikaväli.") : undefined,
         accountId: q.accountId,
         category: q.category,
         merchant: q.merchant,
@@ -133,37 +116,18 @@ export function financeRoutes(s: Services) {
   });
 
   app.patch("/transactions/:id", async (c) => {
-    const repo = repoOf(c.get("user").id);
-    const id = c.req.param("id");
-    const input = await body<{ category: string | null; createRule?: boolean }>(c);
-    const tx = await repo.getTransaction(id);
-    // someone else's (shared) transaction is read-only and looks the same as a missing one
-    if (!tx) return c.json({ error: "Tapahtumaa ei löydy." }, 404);
-    if (input.category !== null && !isKnownCategory(input.category)) throw new UserError("Tuntematon kategoria.");
-    // replacing this merchant's rule keeps the count; a new one must fit under the cap
-    if (input.createRule && input.category && !(await repo.hasMerchantRule(tx.merchant))) await checkRuleRoom(repo);
-    const oldRules = await repo.listRules();
-    await repo.setUserCategory(id, input.category);
-    const rule = !!input.createRule && !!input.category;
-    if (rule) await repo.setMerchantRule(tx.merchant, input.category!);
-    const { recategorised } = await reprocessMerchantChange(repo, s.settings, {
-      merchants: [tx.merchant],
-      rule,
-      before: new Map([[id, { category: tx.category, categorySource: tx.categorySource }]]),
-      oldRules,
-      incremental: (await derivedStateIsCurrent(s)) && !(rule && replacesWordRule(oldRules, tx.merchant)),
-    });
-    const updated = await repo.getTransaction(id);
-    // the row itself was set by hand before the rules ran, so reprocess did not count it
-    const self = input.category !== null && input.category !== tx.category ? 1 : 0;
-    return c.json({ transaction: updated ? publicTx(updated) : null, changed: recategorised + self });
+    const input = strictObject(await body(c), ["category", "createRule"] as const);
+    // required: null takes the category set by hand away, a missing field is a mistake and changes nothing
+    if (input.category === undefined) throw new UserError("Valitse kategoria.");
+    const category = input.category;
+    if (category !== null && (typeof category !== "string" || !isKnownCategory(category))) throw new UserError("Tuntematon kategoria.");
+    return c.json(await setTransactionCategory(s, c.get("user").id, c.req.param("id"), category, parseOptionalBoolean(input.createRule)));
   });
 
   // ── rules ────────────────────────────────────────────
   app.get("/rules", async (c) => c.json({ rules: await repoOf(c.get("user").id).listRules() }));
 
   app.post("/rules", async (c) => {
-    const repo = repoOf(c.get("user").id);
     const input = strictObject(await body(c), ["field", "pattern", "category"] as const);
     const pattern = typeof input.pattern === "string" ? input.pattern.trim() : "";
     const field = input.field as RuleField;
@@ -172,66 +136,35 @@ export function financeRoutes(s: Services) {
     }
     const problem = patternProblem(pattern);
     if (problem) throw new UserError(problem);
-    await checkRuleRoom(repo);
-    await repo.addRule({ field, pattern, category: input.category, priority: 10 });
-    return c.json({ changed: await reprocess(repo, s.settings) });
+    return c.json({ changed: await addRule(s, c.get("user").id, { field, pattern, category: input.category }) });
   });
 
-  app.delete("/rules/:id", async (c) => {
-    const repo = repoOf(c.get("user").id);
-    await repo.deleteRule(Number(c.req.param("id")));
-    return c.json({ changed: await reprocess(repo, s.settings) });
-  });
+  app.delete("/rules/:id", async (c) => c.json({ changed: await deleteRule(s, c.get("user").id, Number(c.req.param("id"))) }));
 
   // ── accounts & sharing ───────────────────────────────
   app.patch("/accounts/:id", async (c) => {
-    const repo = repoOf(c.get("user").id);
-    const id = c.req.param("id");
     const raw = strictObject(await body(c), ["name", "type", "balanceCents"] as const);
-    const input = { name: optionalString(raw.name), type: optionalString(raw.type) as AccountType | undefined, balanceCents: raw.balanceCents };
-    if (input.type && !ACCOUNT_TYPES.includes(input.type)) throw new UserError("Tuntematon tilityyppi.");
-    const balance = input.balanceCents;
+    const type = optionalString(raw.type) as AccountType | undefined;
+    if (type && !ACCOUNT_TYPES.includes(type)) throw new UserError("Tuntematon tilityyppi.");
+    const balance = raw.balanceCents;
     if (balance !== undefined && (typeof balance !== "number" || !Number.isInteger(balance) || Math.abs(balance) > MAX_BALANCE_CENTS)) {
       throw new UserError("Virheellinen saldo.");
     }
-    const account = await repo.getAccount(id);
-    if (!account) return c.json({ error: "Tiliä ei löydy." }, 404);
-    // a bank-linked account gets its balance from the bank at every sync
-    if (balance !== undefined && account.provider !== "csv") throw new UserError("Saldon voi asettaa vain tuodulle tilille.");
-    if (input.name !== undefined || input.type !== undefined) {
-      await repo.updateAccount(id, { name: input.name?.trim().slice(0, 80) || undefined, type: input.type });
-    }
-    if (balance !== undefined) await repo.setAccountBalance(id, balance, s.now().toISOString());
-    // account type and a card's name decide whether a card bill is a transfer
-    if (input.name !== undefined || input.type !== undefined) await reprocess(repo, s.settings);
-    else await s.settings.bumpUserDataVersion(repo.userId);
-    return c.json(await repo.getAccount(id));
+    return c.json(await updateAccount(s, c.get("user").id, c.req.param("id"), { name: optionalString(raw.name), type, balanceCents: balance as number | undefined }));
   });
 
-  /** Imported and demo accounts only: a bank-linked one would come back at the next sync. */
   app.delete("/accounts/:id", async (c) => {
-    const repo = repoOf(c.get("user").id);
-    const account = await repo.getAccount(c.req.param("id"));
-    // another member's account looks the same as a missing one
-    if (!account) return c.json({ error: "Tiliä ei löydy." }, 404);
-    if (account.provider !== "csv" && account.provider !== "demo") throw new UserError("Pankkiyhteyden tiliä ei voi poistaa.");
-    await repo.deleteAccount(account.id);
-    // transfers that paired with the removed rows are counted again
-    await reprocess(repo, s.settings);
+    await deleteAccount(s, c.get("user").id, c.req.param("id"));
     return c.json({ ok: true });
   });
 
   app.put("/accounts/:id/shares/:userId", async (c) => {
-    const ok = await s.household.share(c.get("user").id, c.req.param("id"), c.req.param("userId"));
-    if (!ok) throw new UserError("Tiliä ei voi jakaa.");
-    // the owner's and the viewer's analyses change, nobody else's
-    await Promise.all([c.get("user").id, c.req.param("userId")].map((id) => s.settings.bumpUserDataVersion(id)));
+    await shareAccount(s, c.get("user").id, c.req.param("id"), c.req.param("userId"));
     return c.json({ ok: true });
   });
 
   app.delete("/accounts/:id/shares/:userId", async (c) => {
-    await s.household.unshare(c.get("user").id, c.req.param("id"), c.req.param("userId"));
-    await Promise.all([c.get("user").id, c.req.param("userId")].map((id) => s.settings.bumpUserDataVersion(id)));
+    await unshareAccount(s, c.get("user").id, c.req.param("id"), c.req.param("userId"));
     return c.json({ ok: true });
   });
 

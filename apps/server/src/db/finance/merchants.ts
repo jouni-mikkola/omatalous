@@ -2,7 +2,7 @@
  * The user's rows seen by merchant: the names, the summaries for the category settings, one merchant's history,
  * the spending nothing recognised, and the trade register answers the user's own lookups found.
  */
-import { fold, type IndustryCodeSet, type Transaction } from "@banking/core";
+import { fold, type IndustryCodeSet, isIndustryCodeSet, type Transaction } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
 import type { RulesRepo } from "./rules.ts";
@@ -214,7 +214,7 @@ export class MerchantsRepo {
       owners,
     );
     const out = new Map<string, { code: string; codeSet: IndustryCodeSet }>();
-    for (const r of rows) if (r.code_set === "TOL2008" || r.code_set === "TOL2025") out.set(r.merchant, { code: r.industry_code, codeSet: r.code_set });
+    for (const r of rows) if (isIndustryCodeSet(r.code_set)) out.set(r.merchant, { code: r.industry_code, codeSet: r.code_set });
     return out;
   }
 

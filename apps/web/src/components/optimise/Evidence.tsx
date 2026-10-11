@@ -5,7 +5,7 @@ import { MonthColumns } from "../../charts/MonthColumns.tsx";
 import { date, money, monthLong, plural } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { Scope } from "../../types.ts";
-import type { EvidenceResponse } from "./shared.tsx";
+import type { EvidenceResponse } from "@banking/core";
 
 /** Rows shown before "Näytä kaikki": the newest, which is what a household checks first. */
 const ROWS_SHOWN = 8;

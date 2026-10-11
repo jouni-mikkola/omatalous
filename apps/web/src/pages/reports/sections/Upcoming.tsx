@@ -5,7 +5,7 @@ import { api, query } from "../../../api.ts";
 import { CADENCE_LABEL, date, money, monthLong, parseEuros } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
 import type { ReportsData } from "../../../types.ts";
-import { Section } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/bills.css";
 
@@ -44,7 +44,7 @@ function Upcoming({ ctx }: SectionProps) {
 
   const biggest = Math.max(1, ...r.months.map((m) => m.cents));
   return (
-    <Section section={section} sub="Laskut, joita ei makseta joka kuukausi">
+    <Section id={section.id} title={section.title} sub="Laskut, joita ei makseta joka kuukausi">
       {r.advice ? (
         <p className="lead">{r.advice}</p>
       ) : (

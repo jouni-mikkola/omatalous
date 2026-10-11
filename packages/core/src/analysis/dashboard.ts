@@ -1,21 +1,21 @@
 import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
-import { fixedMonthlyCents } from "../commitments.ts";
+import { cancelledMerchants, fixedMonthlyCents } from "../commitments.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
-import { explainMonth, type MonthExplanation, usualSpending } from "./explain.ts";
+import { explainMonth, type MonthExplanation } from "./explain.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
-import { cancelledMerchants, type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
+import { type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
 import { type DateRange, previousRange, rangeMonths, toDayRange } from "./period.ts";
-import { isCompleteMonth } from "./usual.ts";
+import { isCompleteMonth, usualSpending } from "./usual.ts";
 
 // the pace and forecast code lives in forecast.ts; these keep the names the package index has always exported
-export { type MonthForecast, type MonthPace, monthForecast, monthPace, type ExpectedCharge } from "./forecast.ts";
+export { type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
 
 export interface CategoryTotal {
   category: string;

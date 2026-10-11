@@ -29,6 +29,7 @@ export * from "./analysis/format.ts";
 export * from "./analysis/context.ts";
 export * from "./analysis/usual.ts";
 export * from "./analysis/alerts.ts";
+export * from "./analysis/fees.ts";
 export * from "./analysis/insights/index.ts";
 export { DEBT_SHARE, type DebtShare, debtShareOf } from "./analysis/insights/borrowing.ts";
 export { type CommitmentsShare, commitmentsShareOf, type FixedShare } from "./analysis/insights/commitments.ts";

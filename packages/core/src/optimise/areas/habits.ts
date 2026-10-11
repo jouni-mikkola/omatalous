@@ -11,11 +11,11 @@ import type { AnalysisTx } from "../../analysis/context.ts";
 import { netPurchase } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { capitalise, monthSpan } from "../../analysis/insights/shared.ts";
+import { clearlyAbove } from "../../analysis/signal.ts";
 import { addDays, monthOf } from "../../dates.ts";
 import { median } from "../../stats.ts";
-import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS } from "../common.ts";
+import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, levelWithoutOneOffs, MAX_ROWS, mean, yearOverYear } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
-import { clearlyAbove, EATING_OUT_CLAIMS, formatCount, mean, yearOverYear } from "./food.ts";
 
 /** The alert's window: the habit is judged on the last 90 days of complete months. */
 const HABIT_DAYS = 90;

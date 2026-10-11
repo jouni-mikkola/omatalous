@@ -2,7 +2,8 @@
 import { bucketLabel, GAP_HELP } from "@banking/core";
 import { Fragment, useState } from "react";
 import { money, signedMoney } from "../../../format.ts";
-import { Section, TableToggle } from "../parts.tsx";
+import { TableToggle } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/change.css";
 
@@ -103,7 +104,7 @@ function SpendingChange({ ctx }: SectionProps) {
   const view = views.find((v) => v.view === active) ?? views[0]!;
   const { change } = view;
   return (
-    <Section section={section} sub={`${view.periodLabel} verrattuna ${view.view === "usual" ? "tavalliseen kuukauteen" : "vuotta aiempaan"}`}>
+    <Section id={section.id} title={section.title} sub={`${view.periodLabel} verrattuna ${view.view === "usual" ? "tavalliseen kuukauteen" : "vuotta aiempaan"}`}>
       <div className="change-tabs" role="tablist">
         {views.map((v) => (
           <button key={v.view} className="btn btn-small" role="tab" aria-selected={v.view === view.view} aria-pressed={v.view === view.view} onClick={() => { setActive(v.view); setOpen(null); }}>

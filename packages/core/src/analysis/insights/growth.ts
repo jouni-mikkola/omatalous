@@ -1,13 +1,14 @@
 /**
  * H-insights 6: purchases without bills and subscriptions grew faster than income. The last six complete months are
  * set against the same months a year earlier (12 against 12 with 24 months of history), each month without its
- * one-off. Income leaves out refunds and payments from people. The figure is in euros of each year: no claim about
- * real terms and no cause.
+ * one-off. Income leaves out refunds and payments from people. The months now must stand out from the household's
+ * month-to-month noise (`clearlyAbove`). The figure is in euros of each year: no claim about real terms and no cause.
  */
 import { daysInMonth } from "../../dates.ts";
 import { median } from "../../stats.ts";
 import { formatEur } from "../format.ts";
-import { isCompleteMonth } from "../usual.ts";
+import { clearlyAbove } from "../signal.ts";
+import { earnedIncome, isCompleteMonth } from "../usual.ts";
 import { capitalise, lastCompleteMonths, monthRows, monthSpan, purchasesWithoutOneOff, shiftMonth } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
@@ -15,11 +16,6 @@ import type { Insight, InsightArgs } from "./types.ts";
 const MIN_GAP = 0.05;
 /** Flat purchases are no news, whatever income did. */
 const MIN_GROWTH = 0.05;
-/** The months now must stand apart from the months a year ago by this many standard errors: purchases swing month to month. */
-const MIN_T = 2.5;
-
-const mean = (xs: readonly number[]) => xs.reduce((s, v) => s + v, 0) / xs.length;
-const variance = (xs: readonly number[]) => xs.reduce((s, v) => s + (v - mean(xs)) ** 2, 0) / (xs.length - 1);
 
 /** "+14 %", "−3 %", "±0 %" */
 export function signedPercent(share: number): string {
@@ -31,7 +27,7 @@ export function signedPercent(share: number): string {
 function window(ctx: InsightArgs["ctx"], months: readonly string[]): { monthly: number[]; purchases: number; income: number } {
   const usual = median(months.map((m) => monthRows(ctx, m).purchases));
   const monthly = months.map((m) => purchasesWithoutOneOff(ctx, m, usual));
-  return { monthly, purchases: monthly.reduce((s, v) => s + v, 0), income: median(months.map((m) => monthRows(ctx, m).income)) };
+  return { monthly, purchases: monthly.reduce((s, v) => s + v, 0), income: median(months.map((m) => earnedIncome(ctx, m))) };
 }
 
 export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
@@ -49,8 +45,8 @@ export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents }: InsightAr
   const extra = Math.min(a.purchases - b.purchases, a.purchases - b.purchases * (1 + incomeGrowth));
   const yearly = Math.round((extra * 12) / now.length);
   if (purchasesGrowth < MIN_GROWTH || purchasesGrowth - incomeGrowth < MIN_GAP || yearly < 12 * gateMonthlyCents) return [];
-  const se = Math.sqrt((variance(a.monthly) + variance(b.monthly)) / now.length);
-  if (mean(a.monthly) - mean(b.monthly) < MIN_T * se) return [];
+  // purchases swing month to month: the months now must stand clear of that
+  if (!clearlyAbove(a.monthly, b.monthly)) return [];
   const first = now[0]!;
   const last = now[now.length - 1]!;
   return [

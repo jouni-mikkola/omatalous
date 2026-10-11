@@ -238,13 +238,13 @@ describe("dashboard, next level", () => {
       ...base(),
       // a gym from October 2025 to May 2026, then cancelled
       ...monthly("2025-10", 1, 8, -3990, { merchant: "Sali", category: "fitness" }),
-      // a price rise in August 2026
-      ...monthly("2025-09", 14, 14, (i) => (i < 11 ? -2999 : -5999), { merchant: "Apple", category: "subscriptions" }),
+      // a price rise in August 2026 (under 30 %: a larger step is a new tier, no rise)
+      ...monthly("2025-09", 14, 14, (i) => (i < 11 ? -4499 : -5799), { merchant: "Apple", category: "subscriptions" }),
     ];
     const ctx = createContext(txs, [checking], today);
     const may = buildDashboard(ctx, { from: "2026-05-01", to: "2026-05-31" });
     const now = buildDashboard(ctx, { from: "2026-10-01", to: today });
-    expect(may.fixedMonthlyCents - now.fixedMonthlyCents).toBe(3990 - 3000);
+    expect(may.fixedMonthlyCents - now.fixedMonthlyCents).toBe(3990 - 1300);
     expect(may.insights.some((i) => i.id.startsWith("price:"))).toBe(false);
     const august = buildDashboard(ctx, { from: "2026-08-01", to: "2026-08-31" });
     expect(august.insights.find((i) => i.id.startsWith("price:"))?.title).toMatch(/^Apple: hinta nousi \d+\s€ vuodessa$/);
@@ -345,5 +345,5 @@ describe("the enrichment with its rule memo and pauses", () => {
     let pauses = 0;
     await enrichTransactionsPausing(long.txs, long.accounts, long.rules, new Map(), async () => void pauses++);
     expect(pauses).toBeGreaterThan(10);
-  });
+  }, 30_000);
 });

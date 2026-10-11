@@ -3,7 +3,7 @@
  * as the summary. The rows are the ones the overview's alerts read (`isBankFee`, `isLateFee`). Left out: FX fees (no
  * original-currency field) and other banks' price lists.
  */
-import { isBankFee, isLateFee, isLateFeeAlone } from "../../analysis/alerts.ts";
+import { isBankFee, isLateFee, isLateFeeAlone } from "../../analysis/fees.ts";
 import { type AnalysisTx, netPurchase } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { monthOf } from "../../dates.ts";
@@ -13,6 +13,7 @@ import type { Account } from "../../types.ts";
 import { annualise, findingId, GATE_YEARLY_CENTS, netCost, rowsById } from "../common.ts";
 import { type Fact, factOn } from "../facts/index.ts";
 import type { Area, AreaInput, AreaSummary, CalcLine, Check, FindingDraft } from "../types.ts";
+import { isCardText, isNordeaAccount } from "../../wording.ts";
 
 /** The price list lines in the page's order (`facts/bank.ts`). */
 const PRICE_LINES = ["account", "banking_ids", "debit", "credit", "gold", "platinum"] as const;
@@ -26,13 +27,11 @@ const DEBIT_OR_CREDIT = "Nordea Debit- tai Credit-kortti";
 const MIN_LINE_MONTHS = 2;
 /** A reminder fee or collection cost is tens of euros; a larger row pays something else too. */
 const MAX_LATE_FEE_CENTS = 10000;
-const CARD_TEXT = /KORTTI|CARD|DEBIT|CREDIT|GOLD|PLATINUM/;
 const CARD_LINES: ReadonlySet<string> = new Set(["debit", "credit", "gold", "platinum"]);
 
 const priceFact = (line: string, today: string) => factOn(`nordea_price:${line}`, today);
 
-/** Nordea's bank codes start with 1 or 2; a card account from the Nordea connection has no IBAN. */
-const isNordea = (a: Account | undefined) => !!a && (a.iban === null || /^FI\d{2}[12]/.test(a.iban.replace(/\s/g, "")));
+const isNordea = (a: Account | undefined) => !!a && isNordeaAccount(a);
 
 const listDate = (f: Fact) => formatFiDate(f.validFrom);
 
@@ -199,7 +198,7 @@ function feeSummary(a: AreaInput, w: Window | null): AreaSummary | undefined {
   const labelOf = new Map<string, string>();
   for (const group of groups.values()) {
     if (new Set(group.map((t) => monthOf(t.bookingDate))).size < MIN_LINE_MONTHS) continue;
-    const cardText = group.some((t) => CARD_TEXT.test(fold(t.description ?? "")));
+    const cardText = group.some((t) => isCardText(fold(t.description ?? "")));
     const label = priceLineOf(-group[0]!.amountCents, accounts.get(group[0]!.accountId), cardText, a.today);
     if (label) for (const t of group) labelOf.set(t.id, label);
   }

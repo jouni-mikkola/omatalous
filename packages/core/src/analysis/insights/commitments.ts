@@ -1,19 +1,16 @@
 /**
  * H-insights 11: the share of usual income that fixed costs take, now and a year ago. Fixed costs are
  * `fixedMonthlyCents` of today's series: those active now, and those that ran a year ago at today's amount (so a price
- * rise counts against the rise); usual income is the median of the six complete months
- * before (refunds and payments from people left out). The detail gives both sides, so it shows whether costs or
- * income moved.
+ * rise counts against the rise); usual income is `usualIncome`, the one the buffer report and the overview use. The
+ * detail gives both sides, so it shows whether costs or income moved.
  */
-import { fixedMonthlyCents, isFixedCost } from "../../commitments.ts";
+import { cancelledMerchants, fixedMonthlyCents, isFixedCost } from "../../commitments.ts";
 import { addDays, daysBetween, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { IsoDate, UserInputs } from "../../types.ts";
 import { type AnalysisContext, historyCovers, recurringAt } from "../context.ts";
-import { cancelledMerchants } from "../forecast.ts";
 import { formatEur } from "../format.ts";
-import { completeMonthsBefore, usualCents } from "../usual.ts";
-import { monthRows } from "./shared.ts";
+import { usualIncome } from "../usual.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 /** A change under five percentage points is ordinary movement of pay and small subscriptions (random households reach 3). */
@@ -39,17 +36,16 @@ export interface CommitmentsShare {
 /** Both sides of the insight below, without its gate. Optimoi shows `now` in its Tilanne block. */
 export function commitmentsShareOf(ctx: AnalysisContext, end: IsoDate, inputs: UserInputs): CommitmentsShare {
   const yearAgo = addDays(end, -365);
-  const usualIncome = (day: string) => usualCents(completeMonthsBefore(ctx, monthOf(day)).map((m) => monthRows(ctx, m).income));
   const series = recurringAt(ctx, end);
   const share = (fixedCents: number, incomeCents: number | null): FixedShare | null =>
     incomeCents && incomeCents > 0 ? { fixedCents, incomeCents, pct: Math.round((fixedCents / incomeCents) * 100) } : null;
-  const now = share(fixedMonthlyCents(series, cancelledMerchants(inputs)), usualIncome(end));
+  const now = share(fixedMonthlyCents(series, cancelledMerchants(inputs)), usualIncome(ctx, monthOf(end)));
   // a quarterly bill needs half a year of rows before it shows as a series: without them a year ago looks cheaper
   if (!historyCovers(ctx, addDays(yearAgo, -183))) return { now, then: null, series };
   // a year ago seen from today: a contract that had just started then (a new electricity company, a yearly plan paid
   // once) had no series yet, and leaving it out would read as a rise
   const ranThen = series.filter((s) => (s.kind === "subscription" || s.kind === "bill") && s.firstDate <= yearAgo && daysBetween(s.lastDate, yearAgo) <= s.intervalDays + 5);
-  const then = share(fixedMonthlyCents(ranThen.map((s) => ({ ...s, active: true }))), usualIncome(yearAgo));
+  const then = share(fixedMonthlyCents(ranThen.map((s) => ({ ...s, active: true }))), usualIncome(ctx, monthOf(yearAgo)));
   return { now, then, series };
 }
 

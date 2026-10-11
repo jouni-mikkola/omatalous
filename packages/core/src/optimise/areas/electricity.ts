@@ -14,6 +14,8 @@ import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS } from "../com
 import { type Fact, factOn } from "../facts/index.ts";
 import { inputStatus, valueOf } from "../inputs.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
+import { electricityRoleOf } from "../../industry.ts";
+import { isElectricityCooperative, isElectricitySeller, isHeatWaterOrWaste, isNetworkCompany } from "../../wording.ts";
 
 /** The table's household bands by yearly kWh, dearest per kWh first; the fact id is `electricity_price:<id>`. */
 const BANDS: readonly { id: string; max: number }[] = [
@@ -33,14 +35,6 @@ const CONTRACT_LEAD_DAYS = 14;
 
 export type BillKind = "seller" | "network" | "both";
 
-// heat, water and waste come from the same companies and are no electricity
-const NOT_ELECTRICITY = /LAMPO|VESI|JATE/;
-// network companies (DSOs) bill the network only; checked before the sellers, so "Helen Sähköverkko" is a network
-const NETWORK = /SAHKOVERKKO|VERKKO|VERKOT|SIIRTO|CARUNA|ELENIA|JARVI-SUOMEN ENERGIA|ROVAKAIRA/;
-const SELLER = /FORTUM|VATTENFALL|OOMI|\bVARE\b|HELEN|LUMME|NORDIC GREEN|SAHKO/;
-// a cooperative distributes and sells to its members on one bill
-const BOTH = /SAHKOOSUUSKUNTA/;
-
 /**
  * What an electricity bill pays for: TOL 35.14 (trade) or 35.13 (distribution) from the user's register lookups,
  * else the payee list. Another industry code says the company bills something else. Null for no electricity bill.
@@ -48,15 +42,15 @@ const BOTH = /SAHKOOSUUSKUNTA/;
 export function billKind(t: Pick<AnalysisTx, "merchant" | "counterparty" | "description" | "category">, industry: ReadonlyMap<string, string>): BillKind | null {
   if (t.category !== "utilities") return null;
   const name = fold(t.merchant);
-  if (NOT_ELECTRICITY.test(fold(`${name} ${t.counterparty ?? ""} ${t.description ?? ""}`))) return null;
-  if (BOTH.test(name)) return "both";
+  if (isHeatWaterOrWaste(fold(`${name} ${t.counterparty ?? ""} ${t.description ?? ""}`))) return null;
+  if (isElectricityCooperative(name)) return "both";
   const code = industry.get(t.merchant);
-  if (code?.startsWith("3514")) return "seller";
-  if (code?.startsWith("3513")) return "network";
+  const role = code ? electricityRoleOf(code) : null;
+  if (role === "seller" || role === "network") return role;
   // gas, district heat or another trade: whatever the name says, the bill is for something else
-  if (code && code !== "35" && !code.startsWith("351")) return null;
-  if (NETWORK.test(name)) return "network";
-  return SELLER.test(name) ? "seller" : null;
+  if (role === "other") return null;
+  if (isNetworkCompany(name)) return "network";
+  return isElectricitySeller(name) ? "seller" : null;
 }
 
 const one = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

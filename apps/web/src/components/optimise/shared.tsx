@@ -1,41 +1,6 @@
-/** Types the Optimoi page reads from the server, the Finnish words it shows for a core code, and the card around a section. */
-import type { CalcLine, DismissReason, Effort, EuroRange, FindingChange, FindingState, FollowUp, InputValue, IsoDate, OptimiseData } from "@banking/core";
-import type { ReactNode } from "react";
+/** The Finnish words the Optimoi page shows for a core code, and the names of findings and series. */
+import { type AreaView, type DismissReason, type Effort, type EuroRange, parseFindingId, parseSeriesId } from "@banking/core";
 import { money } from "../../format.ts";
-
-/** An input as the server stores it: its value and the day it was typed in. */
-export interface InputRow {
-  key: string;
-  value: InputValue;
-  asOf: IsoDate;
-}
-
-/** `GET /api/optimise`: the page, the viewer's own inputs and decisions, the changes since last month and the follow-up. */
-export interface OptimiseResponse {
-  data: OptimiseData;
-  inputs: InputRow[];
-  states: FindingState[];
-  changes: FindingChange[];
-  followUp: FollowUp;
-}
-
-export interface EvidenceRow {
-  id: string;
-  date: IsoDate;
-  merchant: string;
-  amountCents: number;
-  accountId: string;
-  account: string;
-  struck: boolean;
-}
-
-/** `GET /api/optimise/evidence`: the finding recomputed, with the rows it stands on. */
-export interface EvidenceResponse {
-  id: string;
-  calc: CalcLine[];
-  rows: EvidenceRow[];
-  sums: { month: string; cents: number }[];
-}
 
 /** Called after something was saved; the page fetches again and says what happened. */
 export type Changed = (message: string) => void;
@@ -59,20 +24,17 @@ export function rangeText(e: Pick<EuroRange, "lowCents" | "highCents">): string 
 
 /** The merchant of a recurring series id (`out:<account>:<merchant>#habit`); any other subject is returned as it is. */
 export function subjectName(subject: string): string {
-  return /^(?:in|out):[^:]*:(.+?)(?:#(?:habit|-?\d+))?$/su.exec(subject)?.[1] ?? subject;
+  return parseSeriesId(subject)?.merchant ?? subject;
 }
 
-/** The card around one section of the page, a named region for screen readers. */
-export function SectionCard({ id, title, sub, children }: { id: string; title: string; sub?: string; children: ReactNode }) {
-  return (
-    <section className="card" id={id} aria-labelledby={`${id}-h`}>
-      <div className="card-head">
-        <div>
-          <h2 id={`${id}-h`}>{title}</h2>
-          {sub && <div className="card-sub">{sub}</div>}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
+/**
+ * The words for a decision whose finding is not on the page (done and gone from the data, or snoozed): its area, and the
+ * merchant when the id holds a series. Any other subject is a code ("video"), not words, so it is left out.
+ */
+export function nameOf(id: string, areas: readonly AreaView[]): string {
+  const parts = parseFindingId(id);
+  if (!parts) return id;
+  const area = areas.find((a) => a.id === parts.area)?.label ?? parts.area;
+  const merchant = parts.subject ? subjectName(parts.subject) : null;
+  return merchant && merchant !== parts.subject ? `${area}: ${merchant}` : area;
 }

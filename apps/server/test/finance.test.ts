@@ -1,6 +1,6 @@
 import { REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { setupApp } from "./helpers.ts";
+import { checkingAccount, setupApp } from "./helpers.ts";
 import { todayIn } from "../src/platform/config.ts";
 import { requestInputs, type ScopeAccount } from "../src/services/analysis.ts";
 
@@ -160,7 +160,7 @@ describe("isolation between household members", () => {
     await admin.call("POST", "/api/demo");
     const eero = await member("eero", "Eero");
     await eero.call("POST", "/api/demo");
-    const checking = (await admin.call("GET", "/api/meta")).body.accounts.find((a: { type: string }) => a.type === "checking");
+    const checking = await checkingAccount(admin);
     expect((await admin.call("PUT", `/api/accounts/${checking.id}/shares/${eero.id}`)).status).toBe(200);
 
     const meta = (await eero.call("GET", "/api/meta")).body;
@@ -194,7 +194,7 @@ describe("isolation between household members", () => {
     await admin.call("POST", "/api/demo");
     const eero = await member("eero", "Eero");
     await eero.call("POST", "/api/demo");
-    const checking = (await admin.call("GET", "/api/meta")).body.accounts.find((a: { type: string }) => a.type === "checking");
+    const checking = await checkingAccount(admin);
     expect(checking.balanceAt).toEqual(expect.any(String));
     await admin.call("PUT", `/api/accounts/${checking.id}/shares/${eero.id}`);
 

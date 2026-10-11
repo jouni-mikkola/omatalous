@@ -1,65 +1,33 @@
 /**
  * Ruoka: eating out and food delivery against the same months a year earlier (F 3.5). Only the household's own months
  * count: the last six complete months against the six a year before, each month's net purchases with one-offs struck,
- * so 18 complete months are needed. A rise must clear 25 % and 30 € a month on the medians and stand 4 standard
- * errors apart on the means (the spending growth insight's test, stricter), so a noisy month or a party never makes it.
+ * so 18 complete months are needed. A rise must clear 25 % and 30 € a month on the medians and stand out from the
+ * household's month-to-month noise on the means (`clearlyAbove`, the insights' test), so a noisy month or a party never
+ * makes it.
  * Payments to people are never food, even when a MobilePay to a friend was filed under restaurants.
  */
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
 import { netPurchase } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
-import { capitalise, monthSpan, shiftMonth } from "../../analysis/insights/shared.ts";
-import { isCompleteMonth } from "../../analysis/usual.ts";
+import { capitalise, monthSpan } from "../../analysis/insights/shared.ts";
+import { clearlyAbove } from "../../analysis/signal.ts";
 import { monthOf } from "../../dates.ts";
 import { hasCompanyForm, isMobilePay } from "../../industry.ts";
 import { UNKNOWN_MERCHANT } from "../../merchant.ts";
 import { median } from "../../stats.ts";
-import { accountsBefore, findingId, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS } from "../common.ts";
+import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS, mean, YEAR_OVER_YEAR_SIDE, yearOverYear } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
 
 const EATING_OUT: ReadonlySet<string> = new Set(["restaurants", "food_delivery"]);
-/** Overlap keys of eating out. Delivery and a café habit claim them too, so the headline counts that money once. */
-export const EATING_OUT_CLAIMS: readonly string[] = ["category:restaurants", "category:food_delivery"];
 
-/** Months on each side of the comparison, and the history it needs: six now, six a year earlier. */
-const SIDE = 6;
 const MIN_RISE_SHARE = 0.25;
 const MIN_RISE_MONTHLY = 3000;
-/**
- * The means must stand this many standard errors apart. The spending growth insight uses 2,5 for an observation; on
- * six months a side that let one random household in 60 through (16 of 900 in a sweep of random histories), 4 none.
- */
-const MIN_T = 4;
 const MIN_EATING_OUT_YEARLY = 30000;
 const MIN_ORDER_RISE_SHARE = 0.5;
 const MIN_ORDER_RISE = 3;
 
-export const mean = (xs: readonly number[]): number => (xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : 0);
-const variance = (xs: readonly number[]): number => (xs.length < 2 ? 0 : xs.reduce((s, v) => s + (v - mean(xs)) ** 2, 0) / (xs.length - 1));
-
-/** Whether the means of `now` stand `MIN_T` standard errors above the means of `then` (equal lengths). */
-export function clearlyAbove(now: readonly number[], then: readonly number[]): boolean {
-  const se = Math.sqrt((variance(now) + variance(then)) / now.length);
-  return mean(now) - mean(then) >= MIN_T * se;
-}
-
-/** "8", "8,5": a count a month with at most one decimal. */
-export function formatCount(x: number): string {
-  const r = Math.round(x * 10) / 10;
-  return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
-}
-
 /** A MobilePay or Pivo payment to a person: never food, whatever category it was given. */
 const paidToPerson = (t: AnalysisTx): boolean => isMobilePay(t) && !t.mcc && !hasCompanyForm(t.counterparty ?? "");
-
-/** The last six complete months, the same six a year earlier and every month between, or null without 18. */
-export function yearOverYear(a: AreaInput): { now: string[]; then: string[]; all: string[] } | null {
-  if (a.months.length < 12) return null;
-  const now = a.months.slice(-SIDE);
-  const then = now.map((m) => shiftMonth(m, -12));
-  if (!then.every((m) => isCompleteMonth(a.ctx, m))) return null;
-  return { now, then, all: [...then, ...a.months.slice(0, 12 - SIDE), ...now] };
-}
 
 /** Eating-out rows of the months on accounts that existed before them, payments to people left out. */
 function eatingOutRows(ctx: AnalysisContext, months: readonly string[]): AnalysisTx[] {
@@ -103,8 +71,8 @@ function eatingOut(a: AreaInput, win: { now: string[]; then: string[]; all: stri
   const recent = a.months.slice(-12).map(at);
   const cheapest = Math.round(mean([...recent].sort((x, y) => x - y).slice(0, 3)));
   const highCents = Math.max(midCents, (nowLevel - cheapest) * 12);
-  const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[SIDE - 1]!));
-  const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[SIDE - 1]!));
+  const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!));
+  const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[YEAR_OVER_YEAR_SIDE - 1]!));
   const struck = new Set(level.struck);
   const shown = rows.filter((t) => win.now.includes(monthOf(t.bookingDate)) || win.then.includes(monthOf(t.bookingDate)));
   const ev = evidence(shown, struck);
@@ -176,8 +144,8 @@ function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: r
     const midCents = Math.round(rise * ticket * 12);
     if (midCents < GATE_YEARLY_CENTS) continue;
     const highCents = Math.max(midCents, Math.round((nowOrders - thenOrders) * ticket * 12));
-    const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[SIDE - 1]!));
-    const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[SIDE - 1]!));
+    const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!));
+    const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[YEAR_OVER_YEAR_SIDE - 1]!));
     const shown = rows.filter((t) => t.merchant === merchant && side.includes(monthOf(t.bookingDate)));
     const ev = evidence(shown, struck);
     const calc: CalcLine[] = [
@@ -191,7 +159,7 @@ function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: r
       area: "food",
       kind: "delivery",
       subject: merchant,
-      title: `${merchant}: ${formatCount(nowOrders)} kertaa kuussa, vuotta aiemmin ${formatCount(thenOrders)}. Keskiostos ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[SIDE - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
+      title: `${merchant}: ${formatCount(nowOrders)} kertaa kuussa, vuotta aiemmin ${formatCount(thenOrders)}. Keskiostos ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
       action: `Tarkista ruoan kotiinkuljetus: vuotta aiemmin ${formatCount(thenOrders)} kertaa kuussa.`,
       effort: "minuutteja",
       euros: { lowCents: Math.round(midCents / 2), midCents, highCents, assumption: "Jos kotiinkuljetuksia on yhtä monta kuin vuotta aiemmin." },

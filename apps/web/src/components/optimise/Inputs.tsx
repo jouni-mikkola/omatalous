@@ -1,10 +1,11 @@
 /** The numbers a household may type in: what each one unlocks, its old value and day, and the form that stores it. */
-import { addMonthsToDate, type AreaView, type InputDef, inputDefOf, type InputValue, type IsoDate, type NeededInput } from "@banking/core";
+import { addMonthsToDate, type AreaView, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate, type NeededInput } from "@banking/core";
 import { type FormEvent, useState } from "react";
 import { api, query } from "../../api.ts";
 import { date, money, parseEuros } from "../../format.ts";
 import type { Scope } from "../../types.ts";
-import { type Changed, type InputRow, SectionCard, subjectName } from "./shared.tsx";
+import { Section } from "../Section.tsx";
+import { type Changed, subjectName } from "./shared.tsx";
 
 const num = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 2 });
 /** A margin is stored in hundredths of a percent: 125 is 1,25 %. */
@@ -241,7 +242,7 @@ export function InputsCard({ needed, given, areas, today, scope, onChanged }: { 
   const kept = given.filter((g) => !waiting.has(g.key) && inputDefOf(g.key));
   if (!needed.length && !kept.length) return null;
   return (
-    <SectionCard id="tiedot" title="Tiedot, joita tarvitaan" sub="Jokainen tieto tarkentaa yhtä vertailua">
+    <Section id="tiedot" title="Tiedot, joita tarvitaan" sub="Jokainen tieto tarkentaa yhtä vertailua">
       {needed.length > 0 && (
         <ul className="needed-list">
           {needed.map((n) => (
@@ -259,6 +260,6 @@ export function InputsCard({ needed, given, areas, today, scope, onChanged }: { 
           </ul>
         </>
       )}
-    </SectionCard>
+    </Section>
   );
 }

@@ -1,7 +1,8 @@
 // Decision: is the household spending more than a year ago
 import { LineChart } from "../../../charts/LineChart.tsx";
 import { money, MONTHS_SHORT, signedMoney } from "../../../format.ts";
-import { Kv, Section } from "../parts.tsx";
+import { Kv } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function YearOverYear({ ctx }: SectionProps) {
@@ -15,7 +16,7 @@ function YearOverYear({ ctx }: SectionProps) {
   const span = from > 1 ? `${MONTHS_SHORT[from - 1]}–${MONTHS_SHORT[lastMonth - 1]}kuu ` : "";
   const changes = summary.comparable ? summary.changes : [];
   return (
-    <Section section={section} sub={from > 1 ? `Molemmilta vuosilta on tiedot ${MONTHS_SHORT[from - 1]}kuusta alkaen.` : undefined}>
+    <Section id={section.id} title={section.title} sub={from > 1 ? `Molemmilta vuosilta on tiedot ${MONTHS_SHORT[from - 1]}kuusta alkaen.` : undefined}>
       <Kv
         items={[
           [`Menot ${span}${r.year}${span ? "" : " tähän asti"}`, money(r.ytdCents, false)],

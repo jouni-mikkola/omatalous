@@ -59,6 +59,26 @@ export function parseBoolean(value: unknown): boolean {
   return value;
 }
 
+/** An optional flag: false when absent, a 400 for anything but a boolean (the string "false" is not one). */
+export function parseOptionalBoolean(value: unknown): boolean {
+  return value === undefined || value === null ? false : parseBoolean(value);
+}
+
+/** `YYYY-MM-DD` that exists on the calendar: 2026-02-30 does not. */
+export function isIsoDate(value: unknown): value is string {
+  const m = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
+/** A calendar date, or a 400 with `message`. */
+export function parseIsoDate(value: unknown, message = "Virheellinen päivämäärä."): string {
+  if (!isIsoDate(value)) throw new UserError(message);
+  return value;
+}
+
 /**
  * A JSON object with only the listed keys. Unknown keys are refused rather
  * than ignored, so a typo or a probe never silently "succeeds".

@@ -4,6 +4,7 @@ import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { median } from "./stats.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Transaction } from "./types.ts";
+import { isRefundText } from "./wording.ts";
 
 /**
  * How long after a purchase the same merchant may pay it back. A shop's return period is a month or two,
@@ -23,7 +24,6 @@ type ReturnInput = Pick<Transaction, "id" | "accountId" | "bookingDate" | "amoun
   Partial<Pick<Transaction, "counterparty" | "description">>;
 
 /** Refund words in a payment text. An insurance claim (KORVAUS) is income, not a refund. */
-const REFUND_TEXT = /(?<![A-Z0-9])(?:HYVITYS|PALAUTUS|REFUND|CHARGEBACK|OIKAISU)[A-Z]*(?![A-Z0-9])/;
 const CLAIM_TEXT = /(?<![A-Z0-9])[A-Z]*KORVAUS[A-Z]*(?![A-Z0-9])/;
 
 /** Purchases that a payment back may cancel: spending on goods, services and people. Card bills and cash are not purchases. */
@@ -192,7 +192,7 @@ function isPlainIncome(t: ReturnInput): boolean {
   if (t.category === "income" && t.categorySource === "default") return true;
   if (t.category !== "reimbursements" || t.categorySource !== "rule") return false;
   const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-  return REFUND_TEXT.test(text) && !CLAIM_TEXT.test(text);
+  return isRefundText(text) && !CLAIM_TEXT.test(text);
 }
 
 /** The better of two purchases for a refund of `cents`: the same amount first, then the latest, then the lower id. */

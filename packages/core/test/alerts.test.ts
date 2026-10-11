@@ -139,6 +139,13 @@ describe("alerts", () => {
       expect(ofKind(alertsOf([...household(), ...other], march), "spike")).toEqual([]);
     });
 
+    it("near miss: the same twelve orders after months that swing from none to seven", () => {
+      const counts: [string, number][] = [["2025-10", 0], ["2025-11", 7], ["2025-12", 1], ["2026-01", 6], ["2026-02", 2]];
+      const swinging = counts.flatMap(([m, n]) => Array.from({ length: n }, (_, i) => wolt(`${m}-${String(2 + i * 4).padStart(2, "0")}`)));
+      const spike = Array.from({ length: 12 }, (_, i) => wolt(`2026-03-${String(i * 2 + 2).padStart(2, "0")}`));
+      expect(ofKind(alertsOf([...household(), ...swinging, ...spike], march), "spike")).toEqual([]);
+    });
+
     it("near miss: a car repair on top of fuel that is as high as some months before", () => {
       const fuel = (m: string, n: number) => Array.from({ length: n }, (_, i) => tx({ merchant: "Neste", category: "car", bookingDate: `${m}-${String(3 + i * 7).padStart(2, "0")}`, amountCents: -6500 }));
       const months = { "2025-12": 1, "2026-01": 4, "2026-02": 2, "2026-03": 2, "2026-04": 5, "2026-05": 2 };

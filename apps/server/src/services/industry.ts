@@ -10,7 +10,7 @@
  * payees with a company form in the name. Admins can turn it off
  * (Asetukset > Palvelin).
  */
-import { categoryForIndustry, type IndustryCodeSet, industryCandidates, type IndustryMatch, matchCompany, shorterQuery } from "@banking/core";
+import { categoryForIndustry, type IndustryCodeSet, industryCandidates, type IndustryMatch, isIndustryCodeSet, matchCompany, shorterQuery } from "@banking/core";
 import { RegistryError, searchCompanies } from "../providers/prh/client.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
@@ -31,7 +31,6 @@ const BATCH = 30;
 /** Stop early when the register keeps failing; the names are retried next hour. */
 const MAX_FAILURES = 3;
 
-const isCodeSet = (v: string): v is IndustryCodeSet => v === "TOL2008" || v === "TOL2025";
 
 /**
  * One batch of names. With `deferred` the users whose rows now have a category are added to the set and not
@@ -62,7 +61,7 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
     const freshNames = [...new Set([...fresh.values()].flat())];
     const alreadyKnown = new Set<string>();
     for (const [merchant, { code, codeSet }] of await s.industry.codes(freshNames)) {
-      if (isCodeSet(codeSet) && categoryForIndustry(code, codeSet)) alreadyKnown.add(merchant);
+      if (isIndustryCodeSet(codeSet) && categoryForIndustry(code, codeSet)) alreadyKnown.add(merchant);
     }
 
     // take turns between users so one big history does not use up every run

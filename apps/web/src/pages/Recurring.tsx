@@ -3,13 +3,25 @@
  * (`isSubscription`, `subscriptionsMonthlyCents`), so the tile, the Tilaukset card and its review rows agree, and a
  * merchant marked as cancelled is out of the total.
  */
-import { fixedSplit, inUseQuietsQuestion, isFixedCost, isSubscription, type MarkKind, subscriptionsMonthlyCents, type UserMark } from "@banking/core";
+import {
+  cancelledMerchants,
+  type ExpectedCharge,
+  fixedSplit,
+  inUseQuietsQuestion,
+  isFixedCost,
+  isSubscription,
+  type MarkKind,
+  NO_INPUTS,
+  subscriptionsMonthlyCents,
+  type UserMark,
+} from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { CADENCE_LABEL, count, date, money, plural } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { api, query } from "../api.ts";
 import { Loading } from "../components/Loading.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
+import { comingThisMonth } from "../coming.ts";
 import type { Meta, Recurring as Series, Scope } from "../types.ts";
 import "../styles/overview.css";
 import "../styles/recurring.css";
@@ -54,12 +66,12 @@ export function Recurring({ meta, scope }: { meta: Meta; scope: Scope }) {
   const kindOf = (id: string) => meta.categories.find((c) => c.id === id)?.kind ?? "expense";
   const spending = (s: Series) => kindOf(s.category) === "expense" || kindOf(s.category) === "debt";
 
-  const marks = new Map<string, UserMark>();
-  for (const m of saved ?? data.marks) if (m.subject.startsWith("merchant:")) marks.set(m.subject.slice("merchant:".length), m);
-  const cancelled = new Set([...marks].filter(([, m]) => m.mark === "cancelled").map(([merchant]) => merchant));
+  const markList = saved ?? data.marks;
+  const marks = new Map(markList.map((m) => [m.subject, m]));
+  const cancelled = cancelledMerchants({ ...NO_INPUTS, marks: markList });
   const controls: MarkControls = {
     markOf: (merchant) => {
-      const m = marks.get(merchant);
+      const m = marks.get(`merchant:${merchant}`);
       return m && (m.mark === "cancelled" || inUseQuietsQuestion(m, meta.today)) ? m : null;
     },
     busy,
@@ -88,15 +100,9 @@ export function Recurring({ meta, scope }: { meta: Meta; scope: Scope }) {
   const subsMonthly = subscriptionsMonthlyCents(data.series, cancelled);
   const toCheck = subs.filter((s) => s.review && !controls.markOf(s.merchant));
   const stoppedMonthly = subscriptionsMonthlyCents(stopped);
-  // charges still to come this month, in date order, like the overview's forecast: a charge a few days
-  // late is still expected, one long overdue is not counted. The card bill is expected too. A subscription
-  // the household marked as cancelled is not expected.
-  const monthEnd = `${meta.today.slice(0, 7)}-31`;
-  const coming = data.series
-    .filter((s) => s.active && !s.overdue && (s.kind === "subscription" || s.kind === "bill") && spending(s) && !cancelled.has(s.merchant))
-    .filter((s) => s.nextDate !== null && s.nextDate.slice(0, 7) <= meta.today.slice(0, 7) && s.nextDate <= monthEnd)
-    .sort((a, b) => (a.nextDate ?? "").localeCompare(b.nextDate ?? ""));
-  const comingTotal = coming.reduce((sum, s) => sum + s.typicalAmountCents, 0);
+  // charges still to come this month by the forecast's own definition, each on its projected date
+  const coming = comingThisMonth(data.series, meta.today, cancelled);
+  const comingTotal = coming.reduce((sum, c) => sum + c.amountCents, 0);
 
   const sectionProps = { label };
   return (
@@ -151,7 +157,7 @@ export function Recurring({ meta, scope }: { meta: Meta; scope: Scope }) {
 
 const COMING_SHOWN = 8;
 
-function Coming({ rows, total, today }: { rows: Series[]; total: number; today: string }) {
+function Coming({ rows, total, today }: { rows: ExpectedCharge[]; total: number; today: string }) {
   const [all, setAll] = useState(false);
   if (!rows.length) return null;
   const shown = all ? rows : rows.slice(0, COMING_SHOWN);
@@ -167,13 +173,13 @@ function Coming({ rows, total, today }: { rows: Series[]; total: number; today: 
       <table className="compact">
         <caption className="sr-only">Maksut, jotka erääntyvät tässä kuussa</caption>
         <tbody>
-          {shown.map((s) => (
-            <tr key={s.id}>
+          {shown.map((c, i) => (
+            <tr key={`${c.merchant}|${c.date}|${i}`}>
               <td>
-                <a href={`#/transactions?merchant=${encodeURIComponent(s.merchant)}`}>{s.merchant}</a>
+                <a href={`#/transactions?merchant=${encodeURIComponent(c.merchant)}`}>{c.merchant}</a>
               </td>
-              <td className="num muted">{s.nextDate! < today ? `${date(s.nextDate!)}, ei vielä näy` : date(s.nextDate!)}</td>
-              <td className="num">{money(s.typicalAmountCents)}</td>
+              <td className="num muted">{c.date < today ? `${date(c.date)}, ei vielä näy` : date(c.date)}</td>
+              <td className="num">{money(c.amountCents)}</td>
             </tr>
           ))}
         </tbody>

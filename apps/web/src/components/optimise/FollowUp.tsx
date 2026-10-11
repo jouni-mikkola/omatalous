@@ -8,8 +8,8 @@ import { api, query } from "../../api.ts";
 import { LineChart } from "../../charts/LineChart.tsx";
 import { date, money, monthLabel, monthLong } from "../../format.ts";
 import type { Scope } from "../../types.ts";
-import { nameOf } from "./Decided.tsx";
-import { type Changed, SectionCard, subjectName } from "./shared.tsx";
+import { Section } from "../Section.tsx";
+import { type Changed, nameOf, subjectName } from "./shared.tsx";
 
 const VERDICT: Record<Verdict, { text: string; badge: string }> = {
   vahvistui: { text: "Vahvistui", badge: "good" },
@@ -140,7 +140,7 @@ export function FollowUp({ followUp, areas, titles, scope, onChanged }: { follow
   const drawn = line.length >= 2;
   if (!proposals.length && !drawn) return null;
   return (
-    <SectionCard id="seuranta" title="Seuranta" sub="Tehtyjen muutosten vaikutus omista tiedoista">
+    <Section id="seuranta" title="Seuranta" sub="Tehtyjen muutosten vaikutus omista tiedoista">
       {proposals.length > 0 && (
         <ul className="decided-list">
           {proposals.map((p) => (
@@ -149,6 +149,6 @@ export function FollowUp({ followUp, areas, titles, scope, onChanged }: { follow
         </ul>
       )}
       {drawn && <Line line={line} />}
-    </SectionCard>
+    </Section>
   );
 }

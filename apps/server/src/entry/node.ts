@@ -15,7 +15,7 @@ import { runCli } from "../cli.ts";
 import { loadConfig } from "../platform/config.ts";
 import { MigrationError } from "../db/migrate.ts";
 import { runMigrateCheck } from "../db/migrate-check.ts";
-import { optimizeDatabase } from "../db/optimize.ts";
+import { optimizeDatabase } from "../db/pragmas.ts";
 import { dailyBackup, openDatabase, pruneBackupsByAge, takeSnapshot } from "../db/open.ts";
 import { RestoreError, restoreDatabase } from "../db/restore.ts";
 import { type BuildInfo, createServices } from "../services/context.ts";

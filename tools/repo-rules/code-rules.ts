@@ -167,6 +167,93 @@ describe("repo rules: code", () => {
     expect(writers, `${ONLY} still holds the insert`).toBeGreaterThan(0);
     expectNoFindings("security events", found, "call recordEvent() from services/security.ts. Security events go through one writer so they carry IP, user agent and the 90 day pruning.");
   });
+
+  it("rule 17: a series' charges a year come from recurring.ts only (no `365.25 /` in another source file)", () => {
+    const OWNER = "packages/core/src/recurring.ts";
+    const PER_YEAR = /365\.25\s*\//;
+    const files = sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/");
+    expect(files.length).toBeGreaterThan(100);
+    expect(PER_YEAR.test(readText(OWNER)), `${OWNER} still holds the cadence table`).toBe(true);
+    const found: Finding[] = [];
+    for (const file of files) {
+      if (file === OWNER || !PER_YEAR.test(readText(file))) continue;
+      readText(file)
+        .split("\n")
+        .forEach((text, i) => PER_YEAR.test(text) && found.push({ file, line: i + 1, why: "counts charges a year from the interval: a second per-year rule beside the series' own" }));
+    }
+    expectNoFindings("one owner per figure", found, "cost a series with its own `perMonth`, `monthlyCents` or `yearlyCents`. recurring.ts counts the charges it saw (11 for day care that is free in July), so a cost from the interval reads an unchanged contract as dearer (ADR 0004).");
+  });
+});
+
+describe("repo rules: request bodies and marks", () => {
+  it("rule 14: every request body in apps/server/src/routes is read inside strictObject() or a parse*() call, never with c.req.json() or parseBody()", () => {
+    // Services that check the body they are handed with strictObject themselves. An entry no call uses any more fails.
+    const DELEGATES = new Map<string, string>([
+      ["apps/server/src/routes/admin.ts s.instance.save", "services/instance.ts checks every field against FIELDS"],
+      ["apps/server/src/routes/admin.ts s.instance.setFeatures", "services/instance.ts checks the flags against FEATURE_IDS"],
+      ["apps/server/src/routes/admin.ts activateBankApp", "app-setup.ts checks appId and privateKeyPem"],
+      ["apps/server/src/routes/admin.ts checkAppId", "app-setup.ts checks appId and privateKeyPem"],
+      ["apps/server/src/routes/ops.ts requestOp", "services/ops-validate.ts checks the action against the allowlist"],
+    ]);
+    const found: Finding[] = [];
+    const used = new Set<string>();
+    let reads = 0;
+    for (const file of sourceFiles("apps/server/src/routes/")) {
+      const sf = parse(file);
+      const isBody = (n: ts.Node): n is ts.CallExpression => ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "body";
+      const covered = new Set<ts.Node>();
+      // the calls that take the body as an argument and check it
+      walk(sf, (n) => {
+        if (!ts.isCallExpression(n)) return;
+        const callee = n.expression.getText(sf);
+        const name = ts.isIdentifier(n.expression) ? n.expression.text : ts.isPropertyAccessExpression(n.expression) ? n.expression.name.text : "";
+        const delegate = `${file} ${callee}`;
+        if (name !== "strictObject" && !name.startsWith("parse") && !DELEGATES.has(delegate)) return;
+        for (const a of n.arguments) {
+          const inner = ts.isAwaitExpression(a) ? a.expression : a;
+          if (!isBody(inner)) continue;
+          covered.add(inner);
+          if (DELEGATES.has(delegate)) used.add(delegate);
+        }
+      });
+      walk(sf, (n) => {
+        // the raw readers: only body() in routes/shared.ts may call them, so every read goes through its JSON check
+        if (ts.isFunctionDeclaration(n) && n.name?.text === "body" && file === "apps/server/src/routes/shared.ts") return false;
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && ["json", "parseBody", "text", "arrayBuffer", "formData", "blob"].includes(n.expression.name.text)) {
+          const target = n.expression.expression;
+          if (ts.isPropertyAccessExpression(target) && target.name.text === "req") found.push({ file, line: lineOf(sf, n), why: `c.req.${n.expression.name.text}() reads the body around body(): use strictObject(await body(c), [...])` });
+        }
+        if (!isBody(n)) return;
+        reads++;
+        if (!covered.has(n)) found.push({ file, line: lineOf(sf, n), why: "request body read outside strictObject() or a parse*() call" });
+      });
+    }
+    expect(reads, "the scan found the request bodies").toBeGreaterThan(15);
+    for (const key of DELEGATES.keys()) if (!used.has(key)) found.push({ file: SELF, line: lineIn(SELF, key), why: `${key} no longer takes a request body: remove it from DELEGATES` });
+    expectNoFindings("request bodies", found, "wrap the body: strictObject(await body(c), [...keys]) or a parse*(await body(c)) function in platform/validate.ts or the route (CLAUDE.md: browser input is validated against allowlists).");
+  });
+
+  it("rule 15: the web app does not parse mark subjects or filter on a next date (core's cancelledMerchants and expectedCharges own them)", () => {
+    const found: Finding[] = [];
+    for (const file of sourceFiles("apps/web/src/")) {
+      const sf = parse(file);
+      walk(sf, (n) => {
+        if (!ts.isCallExpression(n) || !ts.isPropertyAccessExpression(n.expression) || n.expression.name.text !== "startsWith") return;
+        const arg = n.arguments[0] && plainString(n.arguments[0]);
+        if (arg !== undefined && /^(merchant|alert):/.test(arg)) found.push({ file, line: lineOf(sf, n), why: `parses the mark subject "${arg}"` });
+      });
+      // a filter on a series' next date picks the coming charges by hand: one date per series, unlike the forecast
+      walk(sf, (n) => {
+        if (!ts.isCallExpression(n) || !ts.isPropertyAccessExpression(n.expression) || n.expression.name.text !== "filter") return;
+        for (const arg of n.arguments) {
+          walk(arg, (m) => {
+            if (ts.isPropertyAccessExpression(m) && m.name.text === "nextDate") found.push({ file, line: lineOf(sf, m), why: "filters on .nextDate: the coming charges come from expectedCharges() (coming.ts)" });
+          });
+        }
+      });
+    }
+    expectNoFindings("mark subjects and next dates in web", found, "call cancelledMerchants() or expectedCharges() from @banking/core, or look the mark up by its whole subject.");
+  });
 });
 
 /** Tables whose CREATE TABLE in a migration has a `user_id` column: the rows that belong to one member. */

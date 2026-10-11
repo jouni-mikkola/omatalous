@@ -64,7 +64,7 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
           Lisää saldo kohdassa <a href="#/settings">Asetukset &gt; Tilit</a>, niin saldo näkyy päivittäin.
         </p>
       )}
-      {ahead.missing === "history" && <p className="small muted ahead-note">Saldon kehitys näkyy, kun historiassa on yksi valmis kuukausi.</p>}
+      {ahead.missing === "history" && <p className="small muted ahead-note">Saldon kehitys näkyy, kun historiassa on ensimmäinen valmis kuukausi.</p>}
     </>
   );
 }

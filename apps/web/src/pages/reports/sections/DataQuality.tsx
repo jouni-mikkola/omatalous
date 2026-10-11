@@ -2,7 +2,7 @@
 import { query } from "../../../api.ts";
 import { accountsInNumbers, consentText, lastFetched } from "../../../components/DataScope.tsx";
 import { ACCOUNT_TYPE_LABEL, dateTime } from "../../../format.ts";
-import { Section } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/quality.css";
 
@@ -55,7 +55,7 @@ function AccountsInNumbers({ ctx }: SectionProps) {
 function DataQuality({ ctx }: SectionProps) {
   const r = ctx.data.dataQuality;
   return (
-    <Section section={section} sub="Näissä kohdissa luvut voivat poiketa todellisesta.">
+    <Section id={section.id} title={section.title} sub="Näissä kohdissa luvut voivat poiketa todellisesta.">
       <AccountsInNumbers ctx={ctx} />
       {r.signals.length ? (
         <ul className="plain">

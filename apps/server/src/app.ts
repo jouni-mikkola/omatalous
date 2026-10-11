@@ -23,7 +23,7 @@ import { securityRoutes } from "./routes/security.ts";
 import { opsRoutes } from "./routes/ops.ts";
 import { merchantRoutes } from "./routes/merchants.ts";
 import { userRoutes } from "./routes/users.ts";
-import { HttpUserError, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
+import { HttpUserError, NotFound, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
 import { checkHealth } from "./services/health.ts";
 
@@ -35,6 +35,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return err.getResponse();
+    if (err instanceof NotFound) return c.json({ error: err.message }, 404);
     if (err instanceof TooManyAttempts) return c.json({ error: err.message }, 429, { "Retry-After": String(err.retryAfter) });
     if (err instanceof HttpUserError) return c.json({ error: err.message }, err.status);
     if (err instanceof UserError) return c.json({ error: err.message }, 400);

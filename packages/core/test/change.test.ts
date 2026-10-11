@@ -363,10 +363,11 @@ describe("spendingChange", () => {
       // a September ago Prisma 10 × 40 € and Alepa 2 × 30 €, this September Prisma 9 × 45 € and Alepa 1 × 10 €. At those
       // shops 12 visits at 38,33 € became 10 at 41,50 €: ticket 10 × 3,17 € = +32 €, visits −2 × 38,33 € = −77 €. Split
       // shop by shop, Alepa's single visit would put its cheaper ticket into the visits (−90 €) and one visit fewer
-      // would read as 90 €.
+      // would read as 90 €. The months between are as a September ago, so two visits fewer stand out of the noise.
       const buy = (month: string, merchant: string, count: number, cents: number) =>
         Array.from({ length: count }, (_, i) => tx({ bookingDate: day(month, 2 + i * 2), amountCents: -cents, merchant, category: "groceries" }));
-      const rows = [...pay("2025-08", "2026-10"), ...buy("2025-09", "Prisma", 10, 4000), ...buy("2025-09", "Alepa", 2, 3000), ...buy("2026-09", "Prisma", 9, 4500), ...buy("2026-09", "Alepa", 1, 1000)];
+      const before = monthRange("2025-09", "2026-08").flatMap((m) => [...buy(m, "Prisma", 10, 4000), ...buy(m, "Alepa", 2, 3000)]);
+      const rows = [...pay("2025-08", "2026-10"), ...before, ...buy("2026-09", "Prisma", 9, 4500), ...buy("2026-09", "Alepa", 1, 1000)];
       const found = spendingInsights(ctxOf(rows), range).find((i) => i.id === "spending-groceries")!;
       expect(found).toMatchObject({
         title: "Ruokakaupassa käyntejä 17 % vähemmän",

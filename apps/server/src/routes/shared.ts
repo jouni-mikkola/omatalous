@@ -1,13 +1,12 @@
 import type { Context } from "hono";
 import { UserError } from "../platform/errors.ts";
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+import { isIsoDate } from "../platform/validate.ts";
 
 /** `?from=&to=` with the current month as default. */
 export function parseRange(c: Context, today: string): { from: string; to: string } {
   const from = c.req.query("from") ?? `${today.slice(0, 7)}-01`;
   const to = c.req.query("to") ?? today;
-  if (!ISO_DATE.test(from) || !ISO_DATE.test(to) || from > to) throw new UserError("Virheellinen aikaväli.");
+  if (!isIsoDate(from) || !isIsoDate(to) || from > to) throw new UserError("Virheellinen aikaväli.");
   return { from, to };
 }
 

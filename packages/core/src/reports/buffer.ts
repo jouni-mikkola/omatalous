@@ -2,10 +2,8 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import { spanLabel } from "../analysis/change-text.ts";
 import { formatEur, formatFiDate } from "../analysis/format.ts";
-import { cancelledMerchants } from "../analysis/forecast.ts";
-import { completeMonthsBefore, usualCents, usualFrom } from "../analysis/usual.ts";
-import { fixedMonthlyCents } from "../commitments.ts";
-import { monthIndex } from "../dates.ts";
+import { completeMonthsBefore, usualFrom, usualIncome, usualSpending } from "../analysis/usual.ts";
+import { cancelledMerchants, fixedMonthlyCents } from "../commitments.ts";
 import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 
 /** A buffer of three months of spending is the usual advice. */
@@ -16,7 +14,7 @@ const MIN_FIXED_CENTS = 20000;
 export interface BufferReport {
   /** Subscriptions, bills and loan instalments per month, as they are now. */
   fixedMonthlyCents: number;
-  /** Usual monthly income (the median of the last complete months); null under three. */
+  /** Usual monthly income (`usualIncome`: earned income, the median of the last complete months); null under three. */
   incomeMonthlyCents: number | null;
   /** Fixed costs as a share of that income; null without income or without real fixed costs. */
   fixedShare: number | null;
@@ -47,18 +45,10 @@ export function bufferReport(ctx: AnalysisContext, balances: readonly BalanceInp
   const fixed = fixedMonthlyCents(ctx.recurring, cancelledMerchants(inputs));
 
   // the complete months before this one, the same yardstick as every "usually" (analysis/usual.ts)
-  const months = completeMonthsBefore(ctx, ctx.today.slice(0, 7));
-  const at = new Map(months.map((m, i) => [monthIndex(m), i]));
-  const income = months.map(() => 0);
-  const spend = months.map(() => 0);
-  for (const t of ctx.txs) {
-    const i = at.get(t.month);
-    if (i === undefined) continue;
-    income[i]! += t.flows.income;
-    spend[i]! += t.spend;
-  }
-  const incomeMonthly = usualCents(income);
-  const spendUsual = usualCents(spend);
+  const month = ctx.today.slice(0, 7);
+  const months = completeMonthsBefore(ctx, month);
+  const incomeMonthly = usualIncome(ctx, month);
+  const spendUsual = usualSpending(ctx, month);
   const share = fixed >= MIN_FIXED_CENTS && incomeMonthly && incomeMonthly > 0 ? fixed / incomeMonthly : null;
 
   const counted = balances.filter((a) => (a.type === "savings" || a.type === "checking") && a.balanceCents !== null);

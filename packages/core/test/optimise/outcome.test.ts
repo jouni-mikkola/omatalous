@@ -147,6 +147,20 @@ describe("outcomeOf: a monthly item", () => {
     expect(outcomeOf(ctx, done("tax:household_deduction", "2026-05-01", 30000), measured({ kind: "none", keys: [] }))).toMatchObject({ verdict: "epäselvä", monthlyCents: null });
     expect(outcomeOf(ctx, done("tax:household_deduction", "2026-05-01", 30000), null)).toMatchObject({ verdict: "epäselvä", monthlyCents: null });
   });
+
+  it("an unchanged fee with 11 charges a year costs the same on both sides and never reads as huonompi", () => {
+    // day care 300 € a month, free in July: the series bills 11 times a year before the decision and after it
+    const ctx = ctxOf(monthly("Helsingin Kaupunki", "kids", "2024-10", "2026-10", 5, (m) => (m.endsWith("-07") ? 0 : 30000)));
+    const series = ctx.recurring.find((s) => s.merchant === "Helsingin Kaupunki")!;
+    expect(series.perMonth * 12).toBe(11);
+    const id = findingId("kids", "daycare", series.id);
+    // the measure read from the id, and a finding that still counts twelve charges a year
+    for (const finding of [null, measured({ kind: "series", keys: [series.id], perYear: 12 })]) {
+      const o = outcomeOf(ctx, done(id, "2026-06-01", 24000), finding);
+      expect(o).toMatchObject({ verdict: "epäselvä", monthlyCents: 0 });
+      expect(o.reason.replace(/\s/g, " ")).toBe("±0 € kuussa: maksut 275 € kuussa muutoksen jälkeen ja 275 € ennen sitä.");
+    }
+  });
 });
 
 describe("outcomeOf: a switch to a new payee", () => {

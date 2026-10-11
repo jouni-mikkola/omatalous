@@ -1,15 +1,13 @@
 /**
  * Where the running month is heading: the pace curve against the usual month and the forecast to the month's end.
  */
-import { getCategory } from "../categories.ts";
-import { expectedDates } from "../commitments.ts";
+import { cancelledMerchants, expectedCharges, expectedDates } from "../commitments.ts";
 import { dayNumber, daysInMonth, fromMonthIndex, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
-import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import { type ExpectedBill, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { type AnalysisContext, inDays, recurringAt } from "./context.ts";
-import { completeMonthsBefore, MIN_COMPARE_MONTHS, usualCents } from "./usual.ts";
+import { completeMonthsBefore, MIN_COMPARE_MONTHS, usualCents, usualSpending } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -24,15 +22,6 @@ export interface MonthPace {
   currentTotal: number;
   usualAtToday: number | null;
   usualMonthTotal: number | null;
-}
-
-/** A subscription or bill charge the forecast expects on a date. */
-export interface ExpectedCharge {
-  merchant: string;
-  category: string;
-  /** Expected charge, positive. */
-  amountCents: number;
-  date: IsoDate;
 }
 
 /** Running month: spending so far, the forecast to month end and bills still to come. */
@@ -123,34 +112,6 @@ function monthStats(ctx: AnalysisContext): ReadonlyMap<number, { spend: number; 
 export function everydayPerDay(ctx: AnalysisContext, month: string): number {
   const stats = monthStats(ctx);
   return median(completeMonthsBefore(ctx, month).map((m) => (stats.get(monthIndex(m))?.everyday ?? 0) / daysInMonth(m)));
-}
-
-/** The merchants the household marked as cancelled (`merchant:<name>`): the series stays active until its last charge is old. */
-export function cancelledMerchants(inputs: UserInputs): ReadonlySet<string> {
-  const prefix = "merchant:";
-  return new Set(inputs.marks.filter((m) => m.mark === "cancelled" && m.subject.startsWith(prefix)).map((m) => m.subject.slice(prefix.length)));
-}
-
-/**
- * The charges the forecast expects between `from` and `until`: active subscriptions and bills that are not overdue,
- * each at its typical amount on its projected dates. A date before `from` is a charge a few days late, expected on
- * `from`. A merchant in `cancelled` is left out. Savings plans leave the checking account but are not spending, so
- * they come only with `savings`. Date ascending, the larger first.
- */
-export function expectedCharges(
-  series: readonly RecurringSeries[],
-  from: IsoDate,
-  until: IsoDate,
-  opts: { cancelled?: ReadonlySet<string>; savings?: boolean } = {},
-): ExpectedCharge[] {
-  const out: ExpectedCharge[] = [];
-  for (const s of series) {
-    if (!s.active || s.overdue || (s.kind !== "subscription" && s.kind !== "bill") || opts.cancelled?.has(s.merchant)) continue;
-    const kind = getCategory(s.category).kind;
-    if (kind !== "expense" && kind !== "debt" && !(opts.savings && kind === "savings")) continue;
-    for (const d of projectDates(s, until)) out.push({ merchant: s.merchant, category: s.category, amountCents: s.typicalAmountCents, date: d < from ? from : d });
-  }
-  return out.sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents);
 }
 
 /** A date of a bill the household typed in. */
@@ -263,12 +224,11 @@ function forecastRange(ctx: AnalysisContext, asOf: IsoDate, forecast: ForecastPa
 export function monthForecast(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): MonthForecast {
   const month = monthOf(ctx.today);
   const parts = forecastAsOf(ctx, ctx.today, cancelledMerchants(inputs), inputs.expectedBills);
-  const stats = monthStats(ctx);
   const usualMonths = completeMonthsBefore(ctx, month);
   return {
     month,
     ...parts,
-    usualMonthCents: usualCents(usualMonths.map((m) => stats.get(monthIndex(m))?.spend ?? 0)),
+    usualMonthCents: usualSpending(ctx, month),
     usualMonths,
     ...forecastRange(ctx, ctx.today, parts),
   };

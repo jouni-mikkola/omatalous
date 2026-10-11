@@ -1,0 +1,36 @@
+# income: 5 statements on demo, kit:base, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+income · plain:2 · income:windfall:other_pay:2025-09-22
+  Muu palkka 3 270 € tuli 22.9.
+  = 272.48 € a month, 3269.74 € a year
+  | Työnantaja Oy, 1 maksu.
+  | payer Työnantaja Oy
+  rows 1
+
+income · plain:3 · income:variable:salary|TYONANTAJA OY
+  Palkka vaihteli 3 006–6 628 € kuussa
+  = -346.38 € a month, 4156.50 € a year
+  | Työnantaja Oy, 6 kuukautta; pienin kesäkuussa 3 006 €.
+  | payer Työnantaja Oy
+  rows 8
+
+income · plain:3 · income:windfall:other_pay:2025-10-23
+  Muu palkka 6 532 € tuli 23.10.
+  = 544.30 € a month, 6531.55 € a year
+  | Työnantaja Oy, 2 maksua.
+  | payer Työnantaja Oy
+  rows 2
+
+income · plain:4 · income:variable:salary|TYONANTAJA OY
+  Palkka vaihteli 3 161–13 263 € kuussa
+  = -3544.41 € a month, 42532.92 € a year
+  | Työnantaja Oy, 9 kuukautta; pienin toukokuussa 3 161 €.
+  | payer Työnantaja Oy
+  rows 20
+
+income · plain:5 · income:windfall:other_pay:2025-10-18
+  Muu palkka 3 417 € tuli 18.10.
+  = 284.73 € a month, 3416.81 € a year
+  | Työnantaja Oy, 1 maksu.
+  | payer Työnantaja Oy
+  rows 1

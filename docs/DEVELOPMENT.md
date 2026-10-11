@@ -14,7 +14,8 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm test:sh` | the shell suites in `tools/test/` |
 | `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
-| `pnpm release:ship` | `tools/release/ship.sh`: move private `main`, publish, print the baseline line |
+| `pnpm release:ship` | `tools/release/ship.sh`: read CI, move private `main`, publish, print the baseline line |
+| `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
@@ -188,7 +189,7 @@ A sync or an import compares the bank fields of each row with the stored one and
 nothing differs it marks nothing, processes nothing and leaves the version alone.
 
 SQLite needs table statistics to pick the partial indexes (pending and uncategorised rows) over the wide ones:
-`PRAGMA optimize` runs at start and in the hourly tick (`db/optimize.ts`).
+`PRAGMA optimize` runs at start and in the hourly tick (`db/pragmas.ts`).
 
 ## Tests
 

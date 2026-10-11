@@ -3,7 +3,8 @@ import type { AreaView, Check, IsoDate } from "@banking/core";
 import { plural } from "../../format.ts";
 import type { Scope } from "../../types.ts";
 import { FindingCard } from "./FindingCard.tsx";
-import { type Changed, SectionCard } from "./shared.tsx";
+import { Section } from "../Section.tsx";
+import type { Changed } from "./shared.tsx";
 
 const goToInputs = () => document.getElementById("tiedot")?.scrollIntoView({ behavior: "smooth" });
 
@@ -107,7 +108,7 @@ export function Areas({ areas, above, today, scope, onChanged, quiet: listQuiet 
         <AreaCard key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} />
       ))}
       {quiet.length > 0 && (
-        <SectionCard id="alueet-hiljaa" title="Alueet ilman löydöksiä">
+        <Section id="alueet-hiljaa" title="Alueet ilman löydöksiä">
           <div className="quiet-areas">
             {quiet.map((a) => (
               <div key={a.id} className="quiet-area">
@@ -117,7 +118,7 @@ export function Areas({ areas, above, today, scope, onChanged, quiet: listQuiet 
               </div>
             ))}
           </div>
-        </SectionCard>
+        </Section>
       )}
     </>
   );

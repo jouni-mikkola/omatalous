@@ -1,0 +1,205 @@
+# change: 25 statements on demo, kit:base, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+change · demo · change:season:2026-10..2026-10
+  Lokakuu 2026: menot 105 € suuremmat kuin lokakuu 2025: Ruokakauppa +101 € (ei eriteltyä syytä), Ruoan kotiinkuljetus +89 € (ei eriteltyä syytä), Auto, polttoaine ja pysäköinti −75 € (ei eriteltyä syytä), Ravintolat ja kahvilat −67 € (ostot jääneet pois), muut +58 €.
+  = 105.33 € (now 2021.12 €, base 1915.79 €, gate 38.32 €)
+  | Ruokakauppa: 100.81 € (ei eriteltyä syytä)
+  | Ruoan kotiinkuljetus: 88.64 € (ei eriteltyä syytä)
+  | Auto, polttoaine ja pysäköinti: -75.27 € (ei eriteltyä syytä)
+  | Ravintolat ja kahvilat: -66.73 € (ostot jääneet pois)
+  | Muut: 57.88 €
+
+change · demo · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 2 021 €, tavallisesti 2 004 €.
+  = 17.36 € (now 2021.12 €, base 2003.76 €, gate 40.08 €)
+  | Vakuutukset: 142.30 € (ajoitus) season
+  | Muut: -124.94 €
+
+change · kit:base · change:season:2026-10..2026-10 (quiet)
+  Lokakuu 2026: menot 2 577 €, lokakuu 2025 2 582 €.
+  = -5.55 € (now 2576.70 €, base 2582.25 €, gate 51.65 €)
+  | Ruokakauppa: 160.25 € (useammin)
+  | Ruoan kotiinkuljetus: -145.10 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: 66.88 € (kertaosto)
+  | Auto, polttoaine ja pysäköinti: -57.43 € (ei eriteltyä syytä)
+  | Muut: -30.15 €
+
+change · kit:base · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 2 577 €, tavallisesti 2 574 €.
+  = 3.18 € (now 2576.70 €, base 2573.52 €, gate 51.47 €)
+  | Vakuutukset: 142.30 € (ajoitus) season
+  | Auto, polttoaine ja pysäköinti: -77.09 € (ostot jääneet pois)
+  | Ruoan kotiinkuljetus: -64.18 € (ostot jääneet pois)
+  | Ruokakauppa: 63.82 € (useammin)
+  | Muut: -61.67 €
+
+change · kit:base · change:year:2025-10..2026-09 (quiet)
+  Lokakuu 2025–syyskuu 2026: menot 39 188 €, lokakuu 2024–syyskuu 2025 39 146 €.
+  = 41.73 € (now 39187.70 €, base 39145.97 €, gate 782.88 €)
+  | Muut: 41.73 €
+
+change · plain:1 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 906 € tavallista halvempi: Ruokakauppa −162 € (ostot jääneet pois), Muut menot −157 € (ostot jääneet pois), Vaatteet ja ostokset −154 € (ostot jääneet pois), Ravintolat ja kahvilat −106 € (ostot jääneet pois), muut −328 €.
+  = -905.85 € (now 94.96 €, base 1000.81 €, gate 20.02 €)
+  | Ruokakauppa: -162.32 € (ostot jääneet pois)
+  | Muut menot: -156.52 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -153.52 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -105.69 € (ostot jääneet pois)
+  | Muut: -327.80 €
+
+change · plain:2 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 107 € tavallista halvempi: Muut menot −258 € (ostot jääneet pois), Ravintolat ja kahvilat −173 € (ostot jääneet pois), Ruokakauppa −147 € (ostot jääneet pois), Vaatteet ja ostokset −117 € (ostot jääneet pois), muut −413 €.
+  = -1106.76 € (now 91.96 €, base 1198.72 €, gate 23.97 €)
+  | Muut menot: -257.54 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -172.63 € (ostot jääneet pois)
+  | Ruokakauppa: -146.79 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -116.82 € (ostot jääneet pois)
+  | Muut: -412.98 €
+
+change · plain:3 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 647 € tavallista halvempi: Ravintolat ja kahvilat −196 € (ostot jääneet pois), Vaatteet ja ostokset −190 € (ostot jääneet pois), Tilaukset ja suoratoisto +127 € (useammin), Ruokakauppa −76 € (ostot jääneet pois), muut −312 €.
+  = -647.31 € (now 189.96 €, base 837.27 €, gate 16.75 €)
+  | Ravintolat ja kahvilat: -196.11 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -190.09 € (ostot jääneet pois)
+  | Tilaukset ja suoratoisto: 127.49 € (useammin)
+  | Ruokakauppa: -76.42 € (ostot jääneet pois)
+  | Muut: -312.18 €
+
+change · plain:4 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 198 € tavallista halvempi: Asuntolaina −401 € (ei eriteltyä syytä), Vaatteet ja ostokset −203 € (ostot jääneet pois), Ravintolat ja kahvilat −114 € (ostot jääneet pois), Ruokakauppa −75 € (ostot jääneet pois), muut −405 €.
+  = -1198.14 € (now 44.22 €, base 1242.36 €, gate 24.85 €)
+  | Asuntolaina: -400.58 € (ei eriteltyä syytä)
+  | Vaatteet ja ostokset: -203.34 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -113.95 € (ostot jääneet pois)
+  | Ruokakauppa: -75.04 € (ostot jääneet pois)
+  | Muut: -405.23 €
+
+change · plain:5 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 117 € tavallista halvempi: Asuntolaina −400 € (ei eriteltyä syytä), Ravintolat ja kahvilat −178 € (ostot jääneet pois), Vaatteet ja ostokset −132 € (ostot jääneet pois), Ruokakauppa −64 € (ostot jääneet pois), muut −342 €.
+  = -1117.09 € (now 22.98 €, base 1140.07 €, gate 22.80 €)
+  | Asuntolaina: -400.34 € (ei eriteltyä syytä)
+  | Ravintolat ja kahvilat: -177.97 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -132.49 € (ostot jääneet pois)
+  | Ruokakauppa: -64.21 € (ostot jääneet pois)
+  | Muut: -342.08 €
+
+change · settled:1 · change:season:2025-11..2025-11
+  Marraskuu 2025: menot 1 602 € pienemmät kuin marraskuu 2024: Vuokra ja vastike −930 € (ei eriteltyä syytä), Ruokakauppa −208 € (ei eriteltyä syytä), Vaatteet ja ostokset −204 € (ostot jääneet pois), Auto, polttoaine ja pysäköinti −71 € (ei eriteltyä syytä), muut −189 €.
+  = -1602.03 € (now 68.98 €, base 1671.01 €, gate 33.42 €)
+  | Vuokra ja vastike: -930.48 € (ei eriteltyä syytä)
+  | Ruokakauppa: -207.82 € (ei eriteltyä syytä)
+  | Vaatteet ja ostokset: -204.28 € (ostot jääneet pois)
+  | Auto, polttoaine ja pysäköinti: -70.83 € (ei eriteltyä syytä)
+  | Muut: -188.62 €
+
+change · settled:1 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 666 € tavallista halvempi: Vuokra ja vastike −930 € (ostot jääneet pois), Vaatteet ja ostokset −195 € (ostot jääneet pois), Ravintolat ja kahvilat −187 € (ostot jääneet pois, sama kuukausi vuotta aiemmin), Ruokakauppa −67 € (ostot jääneet pois), muut −287 €.
+  = -1666.30 € (now 68.98 €, base 1735.28 €, gate 34.71 €)
+  | Vuokra ja vastike: -930.48 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -194.57 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -187.32 € (ostot jääneet pois) season
+  | Ruokakauppa: -66.78 € (ostot jääneet pois)
+  | Muut: -287.15 €
+
+change · settled:1 · change:year:2024-11..2025-10
+  Marraskuu 2024–lokakuu 2025: menot 3 922 € suuremmat kuin marraskuu 2023–lokakuu 2024: Ravintolat ja kahvilat +1 505 € (useammin, kalliimpi ostoskerta), Vaatteet ja ostokset +1 252 € (kertaosto, halvempi ostoskerta, useammin), Muut menot +625 € (kertaosto), muut +540 €.
+  = 3922.23 € (now 34096.21 €, base 30173.98 €, gate 603.48 €)
+  | Ravintolat ja kahvilat: 1504.91 € (useammin, kalliimpi ostoskerta)
+  | Vaatteet ja ostokset: 1252.00 € (kertaosto, halvempi ostoskerta, useammin)
+  | Muut menot: 624.97 € (kertaosto)
+  | Muut: 540.35 €
+
+change · settled:2 · change:season:2025-11..2025-11
+  Marraskuu 2025: menot 1 887 € pienemmät kuin marraskuu 2024: Vuokra ja vastike −1 036 € (ei eriteltyä syytä), Vaatteet ja ostokset −456 € (ostot jääneet pois), Ravintolat ja kahvilat −146 € (ei eriteltyä syytä), Terveys ja apteekki −85 € (ei eriteltyä syytä), muut −164 €.
+  = -1887.48 € (now 123.98 €, base 2011.46 €, gate 40.23 €)
+  | Vuokra ja vastike: -1036.44 € (ei eriteltyä syytä)
+  | Vaatteet ja ostokset: -455.60 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -146.34 € (ei eriteltyä syytä)
+  | Terveys ja apteekki: -84.99 € (ei eriteltyä syytä)
+  | Muut: -164.11 €
+
+change · settled:2 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 615 € tavallista halvempi: Vuokra ja vastike −1 036 € (ostot jääneet pois), Ravintolat ja kahvilat −177 € (ostot jääneet pois), Ruokakauppa −166 € (ostot jääneet pois, sama kuukausi vuotta aiemmin), Vaatteet ja ostokset −84 € (ostot jääneet pois), muut −152 €.
+  = -1615.17 € (now 123.98 €, base 1739.15 €, gate 34.78 €)
+  | Vuokra ja vastike: -1036.44 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -176.61 € (ostot jääneet pois)
+  | Ruokakauppa: -166.07 € (ostot jääneet pois) season
+  | Vaatteet ja ostokset: -84.05 € (ostot jääneet pois)
+  | Muut: -152.00 €
+
+change · settled:2 · change:year:2024-11..2025-10
+  Marraskuu 2024–lokakuu 2025: menot 1 550 € suuremmat kuin marraskuu 2023–lokakuu 2024: muut +1 550 €.
+  = 1549.85 € (now 34117.07 €, base 32567.22 €, gate 651.36 €)
+  | Muut: 1549.85 €
+
+change · settled:3 · change:season:2025-11..2025-11
+  Marraskuu 2025: menot 1 758 € pienemmät kuin marraskuu 2024: Vuokra ja vastike −862 € (ei eriteltyä syytä), Vaatteet ja ostokset −430 € (ostot jääneet pois), Ravintolat ja kahvilat −157 € (ei eriteltyä syytä), Ruokakauppa −120 € (ei eriteltyä syytä), muut −190 €.
+  = -1758.31 € (now 71.98 €, base 1830.29 €, gate 36.61 €)
+  | Vuokra ja vastike: -861.74 € (ei eriteltyä syytä)
+  | Vaatteet ja ostokset: -430.33 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -156.77 € (ei eriteltyä syytä)
+  | Ruokakauppa: -119.83 € (ei eriteltyä syytä)
+  | Muut: -189.64 €
+
+change · settled:3 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 442 € tavallista halvempi: Vuokra ja vastike −862 € (ostot jääneet pois), Ravintolat ja kahvilat −144 € (ostot jääneet pois), Tilaukset ja suoratoisto −136 € (ostot jääneet pois, harvemmin, sama kuukausi vuotta aiemmin), Ruokakauppa −111 € (ostot jääneet pois), muut −189 €.
+  = -1442.26 € (now 71.98 €, base 1514.24 €, gate 30.28 €)
+  | Vuokra ja vastike: -861.74 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -143.73 € (ostot jääneet pois)
+  | Tilaukset ja suoratoisto: -136.47 € (ostot jääneet pois, harvemmin) season
+  | Ruokakauppa: -110.94 € (ostot jääneet pois)
+  | Muut: -189.38 €
+
+change · settled:3 · change:year:2024-11..2025-10 (quiet)
+  Marraskuu 2024–lokakuu 2025: menot 32 018 €, marraskuu 2023–lokakuu 2024 31 523 €.
+  = 494.99 € (now 32018.10 €, base 31523.11 €, gate 630.48 €)
+  | Vaatteet ja ostokset: -950.16 € (harvemmin, kertaosto, halvempi ostoskerta)
+  | Muut: 1445.15 €
+
+change · settled:4 · change:season:2025-11..2025-11
+  Marraskuu 2025: menot 1 523 € pienemmät kuin marraskuu 2024: Vuokra ja vastike −994 € (ei eriteltyä syytä), Ravintolat ja kahvilat −157 € (ei eriteltyä syytä), Terveys ja apteekki −90 € (ei eriteltyä syytä), Maksut henkilöille −80 € (ei eriteltyä syytä), muut −201 €.
+  = -1522.85 € (now 49.00 €, base 1571.85 €, gate 31.44 €)
+  | Vuokra ja vastike: -993.90 € (ei eriteltyä syytä)
+  | Ravintolat ja kahvilat: -157.48 € (ei eriteltyä syytä)
+  | Terveys ja apteekki: -90.18 € (ei eriteltyä syytä)
+  | Maksut henkilöille: -80.00 € (ei eriteltyä syytä)
+  | Muut: -201.29 €
+
+change · settled:4 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 580 € tavallista halvempi: Vuokra ja vastike −994 € (ostot jääneet pois), Vaatteet ja ostokset −148 € (ostot jääneet pois, sama kuukausi vuotta aiemmin), Tilaukset ja suoratoisto −87 € (ostot jääneet pois, sama kuukausi vuotta aiemmin), Ruokakauppa −81 € (ostot jääneet pois, sama kuukausi vuotta aiemmin), muut −271 €.
+  = -1580.35 € (now 49.00 €, base 1629.35 €, gate 32.59 €)
+  | Vuokra ja vastike: -993.90 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -147.73 € (ostot jääneet pois) season
+  | Tilaukset ja suoratoisto: -86.93 € (ostot jääneet pois) season
+  | Ruokakauppa: -81.21 € (ostot jääneet pois) season
+  | Muut: -270.58 €
+
+change · settled:4 · change:year:2024-11..2025-10 (quiet)
+  Marraskuu 2024–lokakuu 2025: menot 32 790 €, marraskuu 2023–lokakuu 2024 32 828 €.
+  = -38.10 € (now 32790.31 €, base 32828.41 €, gate 656.52 €)
+  | Tilaukset ja suoratoisto: 1103.82 € (useammin)
+  | Muut: -1141.92 €
+
+change · settled:5 · change:season:2025-11..2025-11
+  Marraskuu 2025: menot 1 310 € pienemmät kuin marraskuu 2024: Vuokra ja vastike −792 € (ei eriteltyä syytä), Puhelin ja netti −98 € (ei eriteltyä syytä), Ravintolat ja kahvilat −96 € (ei eriteltyä syytä), Ruokakauppa −74 € (ei eriteltyä syytä), muut −250 €.
+  = -1310.19 € (now 107.99 €, base 1418.18 €, gate 28.36 €)
+  | Vuokra ja vastike: -792.14 € (ei eriteltyä syytä)
+  | Puhelin ja netti: -98.00 € (ei eriteltyä syytä)
+  | Ravintolat ja kahvilat: -96.20 € (ei eriteltyä syytä)
+  | Ruokakauppa: -73.82 € (ei eriteltyä syytä)
+  | Muut: -250.03 €
+
+change · settled:5 · change:usual:2025-11..2025-11
+  Marraskuu on tähän asti 1 424 € tavallista halvempi: Vuokra ja vastike −792 € (ostot jääneet pois), Vaatteet ja ostokset −219 € (ostot jääneet pois, sama kuukausi vuotta aiemmin), Ruokakauppa −122 € (ostot jääneet pois), Ravintolat ja kahvilat −115 € (ostot jääneet pois), muut −176 €.
+  = -1423.70 € (now 107.99 €, base 1531.69 €, gate 30.63 €)
+  | Vuokra ja vastike: -792.14 € (ostot jääneet pois)
+  | Vaatteet ja ostokset: -218.77 € (ostot jääneet pois) season
+  | Ruokakauppa: -121.59 € (ostot jääneet pois)
+  | Ravintolat ja kahvilat: -115.07 € (ostot jääneet pois)
+  | Muut: -176.13 €
+
+change · settled:5 · change:year:2024-11..2025-10 (quiet)
+  Marraskuu 2024–lokakuu 2025: menot 30 702 €, marraskuu 2023–lokakuu 2024 31 075 €.
+  = -372.68 € (now 30702.23 €, base 31074.91 €, gate 621.48 €)
+  | Ravintolat ja kahvilat: -768.40 € (harvemmin)
+  | Muut: 395.72 €

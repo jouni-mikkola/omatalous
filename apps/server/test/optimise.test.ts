@@ -657,8 +657,8 @@ describe("decisions follow a merchant whose name is derived again", () => {
     expect(renamedSubject("out:acc:OLD", renames)).toBe("out:acc:New");
     expect(renamedSubject("in:acc:OLD#habit", renames)).toBe("in:acc:New#habit");
     expect(renamedSubject("out:acc:OLD#1290", renames)).toBe("out:acc:New#1290");
-    // a # inside a name: the whole name first
-    expect(renamedSubject("out:acc:Foo #2", renames)).toBe("out:acc:Foo 2");
+    // a name that ends like a product suffix carries one more "#" (core's seriesId)
+    expect(renamedSubject("out:acc:Foo #2#", renames)).toBe("out:acc:Foo 2");
     expect(renamedSubject("out:acc:Foo #2#habit", renames)).toBe("out:acc:Foo 2#habit");
     expect(renamedSubject("out:acc:OLD EXTRA", renames)).toBeNull();
     // only a suffix recurring.ts writes is cut: a merchant named "OLD#bar" is another merchant

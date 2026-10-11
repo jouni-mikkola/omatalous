@@ -3,8 +3,7 @@ import { getCategory } from "../categories.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays } from "../analysis/context.ts";
 import { totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
-import { daysInMonth } from "../dates.ts";
-import type { IsoDate } from "../types.ts";
+import { yearEarlier } from "./shared.ts";
 
 export interface SummaryCategory {
   category: string;
@@ -29,13 +28,6 @@ export interface SummaryReport {
   topCategories: SummaryCategory[];
   /** The three biggest changes against the same period a year earlier. */
   changes: SummaryChange[];
-}
-
-/** The same calendar day a year earlier (29.2. → 28.2.). */
-export function yearEarlier(date: IsoDate): IsoDate {
-  const month = `${Number(date.slice(0, 4)) - 1}-${date.slice(5, 7)}`;
-  const day = Math.min(Number(date.slice(8, 10)), daysInMonth(month));
-  return `${month}-${String(day).padStart(2, "0")}`;
 }
 
 function spendByCategory(txs: readonly AnalysisTx[]): Map<string, number> {

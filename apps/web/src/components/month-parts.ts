@@ -52,3 +52,22 @@ export function bridgeParts(totals: Totals): BridgePart[] {
     { key: "left", label: "Yli jäi", cents: over ? 0 : totals.leftCents, color: "var(--series-5)" },
   ];
 }
+
+/** The income the bridge's sentence names: the figure its change against the usual income is told from. */
+export interface BridgeIncome {
+  label: "Tulot" | "Ansiotulot";
+  cents: number;
+  /** Tavalliset tulot to compare with; null when the month has none. */
+  usualCents: number | null;
+}
+
+/**
+ * Usual income is earned income (ADR 0004), so the month is told by its earned income too. While that equals the bar's
+ * Tulot the sentence says Tulot; a month with money from people or refunds names the smaller figure Ansiotulot, the
+ * income report's word, so one label never carries two sums on the card.
+ */
+export function bridgeIncome(b: DashboardData["bridge"]): BridgeIncome {
+  const earned = b.earnedIncomeCents;
+  if (earned === null) return { label: "Tulot", cents: b.totals.incomeCents, usualCents: null };
+  return { label: earned === b.totals.incomeCents ? "Tulot" : "Ansiotulot", cents: earned, usualCents: b.usualIncomeCents };
+}

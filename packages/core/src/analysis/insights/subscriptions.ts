@@ -6,11 +6,10 @@
  * instalments.ts and are left out here.
  */
 import { getCategory } from "../../categories.ts";
-import { isSubscription } from "../../commitments.ts";
+import { cancelledMerchants, isSubscription } from "../../commitments.ts";
 import { addDays, daysBetween } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { historyCovers, netPurchase, recurringAt } from "../context.ts";
-import { cancelledMerchants } from "../forecast.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
 import { isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
@@ -43,6 +42,7 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     const added = unseen.filter((s) => s.firstDate > yearAgo).sort((a, b) => b.monthlyCents - a.monthlyCents || a.merchant.localeCompare(b.merchant));
     const then = before.length + unseen.length - added.length;
     const monthly = added.reduce((sum, s) => sum + s.monthlyCents, 0);
+    const yearly = added.reduce((sum, s) => sum + s.yearlyCents, 0);
     // one new subscription is told on its own below, with its trial when it had one
     if (added.length >= 2 && subs.length > then && monthly >= ITEM_GATE_MONTHLY_CENTS) {
       for (const s of added) told.add(s.id);
@@ -50,8 +50,8 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
         id: "subscriptions-added",
         tone: "info",
         title: `Tilauksia ${subs.length}, vuosi sitten ${then}: +${formatEur(monthly, false)} kuussa`,
-        detail: `Uudet: ${finnishList(added.map((s) => s.merchant))}, ${formatEur(monthly * 12, false)} vuodessa.`,
-        yearlyCents: monthly * 12,
+        detail: `Uudet: ${finnishList(added.map((s) => s.merchant))}, ${formatEur(yearly, false)} vuodessa.`,
+        yearlyCents: yearly,
         rows: added.flatMap((s) => s.transactionIds),
       });
     }
@@ -78,7 +78,7 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
       detail: trial
         ? `${price(netPurchase(trial))} kokeilu ${formatFiDate(trial.bookingDate)}, sen jälkeen ${charges} ${formatFiDate(s.firstDate)} alkaen.`
         : `Ensimmäinen veloitus ${formatFiDate(s.firstDate)}, ${charges} tähän mennessä.`,
-      yearlyCents: s.monthlyCents * 12,
+      yearlyCents: s.yearlyCents,
       rows: trial ? [trial.id, ...s.transactionIds] : s.transactionIds,
       link: { merchant: s.merchant },
       merchant: s.merchant,

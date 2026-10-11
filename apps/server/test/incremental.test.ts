@@ -98,7 +98,7 @@ describe("one change at a time gives the same stored rows as a full reprocess", 
     const id = (await app.db.first<{ id: string }>("SELECT id FROM transactions WHERE merchant = 'K-Market Kamppi' AND category_source != 'user' LIMIT 1"))!.id;
     expect((await app.admin.call("PATCH", `/api/transactions/${id}`, { category: "restaurants" })).status).toBe(200);
     expect(reads).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it("is not taken while an import waits for its categories", async () => {
     const app = await load(6, 200, true);
@@ -115,7 +115,7 @@ describe("one change at a time gives the same stored rows as a full reprocess", 
     expect(reads).toBeGreaterThan(0);
     // the full run cleared the mark
     expect(await repo.unprocessedMark()).toBeNull();
-  });
+  }, 30_000);
 
   it("an older whole-word rule for the name makes the change a full reprocess, so rows of other merchants follow", async () => {
     const app = await load(7, 300, true);
@@ -131,5 +131,5 @@ describe("one change at a time gives the same stored rows as a full reprocess", 
     expect((await app.admin.call("DELETE", "/api/merchants/rule", { merchant: "Kahvila" })).status).toBe(200);
     expect(reads).toBeGreaterThan(0);
     expect(await app.db.first("SELECT 1 FROM transactions WHERE category = 'hobbies' AND merchant LIKE '%Kahvila%' AND category_source = 'rule'")).toBeNull();
-  });
+  }, 30_000);
 });

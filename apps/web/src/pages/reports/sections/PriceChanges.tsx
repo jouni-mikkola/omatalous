@@ -1,7 +1,7 @@
 // Decision: cancel or renegotiate a contract that got dearer
 import { query } from "../../../api.ts";
 import { date, money, signedMoney } from "../../../format.ts";
-import { Section } from "../parts.tsx";
+import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** Prices and loan instalments apart: a smaller instalment after a rate cut is not a cheaper price. */
@@ -14,7 +14,7 @@ function PriceChanges({ ctx }: SectionProps) {
   ].filter((s): s is string => s !== null);
   const sub = parts.length ? parts.join(", ") : undefined;
   return (
-    <Section section={section} sub={sub ? `${sub.charAt(0).toUpperCase()}${sub.slice(1)}` : undefined}>
+    <Section id={section.id} title={section.title} sub={sub ? `${sub.charAt(0).toUpperCase()}${sub.slice(1)}` : undefined}>
       {r.items.length ? (
         <div className="table-wrap">
           <table>

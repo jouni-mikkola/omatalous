@@ -3,12 +3,11 @@
  * Only the subscription set (`isSubscription`): insurance and memberships are contracts, and the annual costs report
  * lists other yearly bills. A yearly series needs two charges before it has a next date (recurring.ts).
  */
-import { isSubscription } from "../../commitments.ts";
+import { cancelledMerchants, isSubscription } from "../../commitments.ts";
 import { addDays } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { UserInputs } from "../../types.ts";
 import type { AnalysisContext } from "../context.ts";
-import { cancelledMerchants } from "../forecast.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
 import { capitalise, countWord, ITEM_GATE_MONTHLY_CENTS } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
@@ -41,7 +40,7 @@ export function renewals({ ctx, running, inputs }: InsightArgs): Insight[] {
   if (!running) return [];
   const due = renewalItems(ctx, inputs, RENEW_DAYS);
   const total = due.reduce((sum, s) => sum + s.typicalAmountCents, 0);
-  const yearly = due.reduce((sum, s) => sum + s.monthlyCents * 12, 0);
+  const yearly = due.reduce((sum, s) => sum + s.yearlyCents, 0);
   if (!due.length || yearly < 12 * ITEM_GATE_MONTHLY_CENTS) return [];
   const rows = due.map((s) => s.transactionIds[s.transactionIds.length - 1]!);
   const id = `renewals:${due[0]!.nextDate!.slice(0, 7)}`;

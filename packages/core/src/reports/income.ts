@@ -53,6 +53,8 @@ export interface IncomeStability {
   medianCents: number;
   /** Median month-to-month change over the median. */
   spread: number;
+  /** The spread is under STEADY_SPREAD: the page says the income barely moves. */
+  steady: boolean;
   lowCents: number;
   lowMonth: string;
   /** How far the lowest month is below the median, as a share of it. */
@@ -87,6 +89,10 @@ export interface IncomeReport {
   notEarnedCents: number;
   /** Earned income of the twelve months before, when the history covers them all. */
   previousEarnedCents: number | null;
+  /** Earned income against the twelve months before, as a share of them; null without them. */
+  earnedChange: number | null;
+  /** What the parts wait for, so the page names the same numbers the report uses. */
+  needs: { compositionMonths: number; stabilityMonths: number; previousYearMonths: number; steadySpread: number };
   types: IncomeTypeRow[];
   groups: readonly { id: IncomeGroup; label: string }[];
   /** The next twelve months from regular series, when the view ends today. */
@@ -102,6 +108,10 @@ export interface IncomeReport {
 const zeroGroups = (): Record<IncomeGroup, number> => Object.fromEntries(INCOME_GROUPS.map((g) => [g.id, 0])) as Record<IncomeGroup, number>;
 const MIN_COMPOSITION_MONTHS = 3;
 const STABILITY_MONTHS = 12;
+/** The comparison with the year before needs this year's twelve months and the twelve before them. */
+const PREVIOUS_YEAR_MONTHS = 24;
+/** A median month-to-month change under 3 % reads as steady income. */
+const STEADY_SPREAD = 0.03;
 const WEEKS_PER_MONTH = 52 / 12;
 
 /** A regular series still pays when its last payment is within its usual gap plus ten days. */
@@ -123,6 +133,7 @@ function stabilityOf(values: readonly { month: string; cents: number }[]): Incom
   return {
     medianCents: Math.round(mid),
     spread: median(changes) / mid,
+    steady: median(changes) / mid < STEADY_SPREAD,
     lowCents: low.cents,
     lowMonth: low.month,
     lowShare: (mid - low.cents) / mid,
@@ -264,6 +275,8 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     earnedCents,
     notEarnedCents,
     previousEarnedCents: previousCovered ? previous : null,
+    earnedChange: previousCovered && previous ? (earnedCents - previous) / previous : null,
+    needs: { compositionMonths: MIN_COMPOSITION_MONTHS, stabilityMonths: STABILITY_MONTHS, previousYearMonths: PREVIOUS_YEAR_MONTHS, steadySpread: STEADY_SPREAD },
     types,
     groups: INCOME_GROUPS,
     projection,

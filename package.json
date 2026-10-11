@@ -18,7 +18,11 @@
     "check": "bash tools/check.sh",
     "release:prepare": "node tools/release/prepare.mjs",
     "release:ship": "bash tools/release/ship.sh",
+    "release:fixture": "node tools/release/fixture.mjs",
     "e2e": "node e2e/run.mjs",
+    "where": "node tools/where.mjs",
+    "shots": "node tools/shots.mjs",
+    "findings": "node --experimental-strip-types --disable-warning=ExperimentalWarning tools/findings/cli.ts",
     "typecheck": "pnpm -r typecheck && tsc -p .",
     "seed:demo": "pnpm --filter @banking/server seed:demo",
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning apps/server/dist/node.js"

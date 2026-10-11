@@ -9,11 +9,10 @@ import { priceRiseItems } from "../../analysis/insights/prices.ts";
 import { addDays, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { IsoDate } from "../../types.ts";
-import { addMonthsToDate, findingId, GATE_YEARLY_CENTS } from "../common.ts";
+import { addMonthsToDate, findingId, GATE_YEARLY_CENTS, yearlyAt } from "../common.ts";
 import { factOn } from "../facts/index.ts";
 import { inputKey, inputStatus, valueOf } from "../inputs.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
-import { yearlyAt } from "./housing.ts";
 
 /** The area's gate: the rise 5 percentage points over CPI of the same months, in tenths. */
 const GATE_TENTHS = 50;

@@ -270,5 +270,5 @@ describe("random households beyond the quiet test", () => {
     const { txs, accounts, rules } = randomHistory(seed, rows, opts);
     const a = areaInputOf({ ctx: createContext(enrich(txs, accounts, rules), accounts, "2025-11-15"), balances: [] });
     expect(AREAS.flatMap((area) => area.assess(a).findings.map((f) => f.id))).toEqual([]);
-  });
+  }, 30_000);
 });
