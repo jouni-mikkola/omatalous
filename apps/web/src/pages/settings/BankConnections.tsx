@@ -188,7 +188,7 @@ export function BankConnections({
 
       {meta.bank.configured && (
         <details open={pasteOpen || undefined} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
-          <summary className="small muted">{mode === "paste" ? "Kun pankki on näyttänyt virhesivun" : "Paluusivu ei auennut?"}</summary>
+          <summary className="small muted">{mode === "paste" ? "Kun pankki on näyttänyt virhesivun" : "Jos paluusivu ei aukea"}</summary>
           {mode === "paste" && <p className="small muted">Kun Nordea näyttää virhesivun, kopioi sen osoite tähän.</p>}
           <form
             className="form-row"

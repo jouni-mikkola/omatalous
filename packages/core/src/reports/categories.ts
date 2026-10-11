@@ -1,8 +1,12 @@
+// Decision: where to cut
 import { CATEGORY_GROUPS, getCategory } from "../categories.ts";
 import { type AnalysisContext, historyCovers, inDays } from "../analysis/context.ts";
+import { isCompleteMonth } from "../analysis/usual.ts";
+import { fromMonthIndex } from "../dates.ts";
+import { totalsOf } from "../analysis/flows.ts";
 import { type DateRange, previousRange, toDayRange } from "../analysis/period.ts";
 import { median } from "../stats.ts";
-import { completeMonths, rangeMonthIndexes } from "./shared.ts";
+import { fullMonths, rangeMonthIndexes } from "./shared.ts";
 
 export interface CategoryStat {
   category: string;
@@ -10,13 +14,17 @@ export interface CategoryStat {
   group: string;
   kind: string;
   totalCents: number;
+  /** Of the spending of the range. */
   share: number;
+  /** Of the income of the range; null when there was none. */
+  incomeShare: number | null;
   count: number;
   avgTxCents: number;
-  monthlyAvgCents: number;
-  medianMonthCents: number;
-  minMonthCents: number;
-  maxMonthCents: number;
+  /** The four month figures are null without a complete month in the range: a running month is not a monthly figure. */
+  monthlyAvgCents: number | null;
+  medianMonthCents: number | null;
+  minMonthCents: number | null;
+  maxMonthCents: number | null;
   monthsActive: number;
   previousCents: number;
   /** Last 3 months vs the 3 before them, as a fraction; null when there is no base. */
@@ -26,7 +34,10 @@ export interface CategoryStat {
 export interface GroupStat {
   group: string;
   totalCents: number;
+  /** Of the spending of the range. */
   share: number;
+  /** Of the income of the range; null when there was none. */
+  incomeShare: number | null;
   previousCents: number;
   categories: CategoryStat[];
 }
@@ -35,6 +46,8 @@ export interface CategoryReport {
   /** False when the history does not cover the previous period: previous numbers are 0 then. */
   comparable: boolean;
   totalCents: number;
+  /** Income of the range, the base of `incomeShare`. */
+  incomeCents: number;
   groups: GroupStat[];
 }
 
@@ -61,20 +74,24 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
   }
   const prev = new Map<string, number>();
   for (const t of previous) if (t.spend) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
-  const averaged = completeMonths(ctx, range, months);
+  const averaged = fullMonths(ctx, range, months);
   const averagedAt = averaged.map((m) => m - firstMonth);
-  // trend: the last three complete months against the three before them
-  const trendEnd = averaged[averaged.length - 1]!;
+  // trend: the last three complete months against the three before them, so six complete months or none
+  const trendEnd = averaged.length ? averaged[averaged.length - 1]! : null;
   const trendSums = new Map<string, [number, number]>();
-  for (const t of ctx.txs) {
-    if (!t.spend || t.month > trendEnd || t.month <= trendEnd - 6) continue;
-    const e = trendSums.get(t.category) ?? [0, 0];
-    e[t.month > trendEnd - 3 ? 0 : 1] += t.spend;
-    trendSums.set(t.category, e);
+  if (trendEnd !== null && isCompleteMonth(ctx, fromMonthIndex(trendEnd - 5))) {
+    for (const t of ctx.txs) {
+      if (!t.spend || t.month > trendEnd || t.month <= trendEnd - 6) continue;
+      const e = trendSums.get(t.category) ?? [0, 0];
+      e[t.month > trendEnd - 3 ? 0 : 1] += t.spend;
+      trendSums.set(t.category, e);
+    }
   }
 
   let total = 0;
   for (const e of perCategory.values()) if (e.total > 0) total += e.total;
+  const income = totalsOf(current.map((t) => t.flows)).incomeCents;
+  const ofIncome = (cents: number) => (income > 0 ? cents / income : null);
 
   const stats: CategoryStat[] = [...perCategory.entries()]
     .filter(([, e]) => e.total > 0)
@@ -88,13 +105,14 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         kind: c.kind,
         totalCents: e.total,
         share: total ? e.total / total : 0,
+        incomeShare: ofIncome(e.total),
         count: e.count,
         avgTxCents: Math.round(e.total / e.count),
-        monthlyAvgCents: Math.round(averagedAt.reduce((sum, i) => sum + e.monthly[i]!, 0) / averagedAt.length),
+        monthlyAvgCents: averagedAt.length ? Math.round(averagedAt.reduce((sum, i) => sum + e.monthly[i]!, 0) / averagedAt.length) : null,
         // whole cents: the middle two months may average to half a cent
-        medianMonthCents: Math.round(median(averagedAt.map((i) => e.monthly[i]!))),
-        minMonthCents: Math.min(...averagedAt.map((i) => e.monthly[i]!)),
-        maxMonthCents: Math.max(...averagedAt.map((i) => e.monthly[i]!)),
+        medianMonthCents: averagedAt.length ? Math.round(median(averagedAt.map((i) => e.monthly[i]!))) : null,
+        minMonthCents: averagedAt.length ? Math.min(...averagedAt.map((i) => e.monthly[i]!)) : null,
+        maxMonthCents: averagedAt.length ? Math.max(...averagedAt.map((i) => e.monthly[i]!)) : null,
         monthsActive: e.monthly.filter((v) => v > 0).length,
         previousCents: prev.get(category) ?? 0,
         trend: before > 0 ? (recent - before) / before : null,
@@ -109,6 +127,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
       group,
       totalCents: groupTotal,
       share: total ? groupTotal / total : 0,
+      incomeShare: ofIncome(groupTotal),
       previousCents: categories.reduce((s, c) => s + c.previousCents, 0),
       categories,
     };
@@ -116,5 +135,5 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     .filter((g) => g.categories.length)
     .sort((a, b) => b.totalCents - a.totalCents);
 
-  return { comparable, totalCents: total, groups };
+  return { comparable, totalCents: total, incomeCents: income, groups };
 }

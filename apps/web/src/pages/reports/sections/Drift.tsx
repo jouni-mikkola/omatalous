@@ -1,6 +1,7 @@
-import { daysInMonth } from "@banking/core";
+// Decision: find why a category rose and cap it
+import { addDays, daysInMonth } from "@banking/core";
 import { query } from "../../../api.ts";
-import { money, MONTHS_SHORT, signedMoney } from "../../../format.ts";
+import { date, money, MONTHS_SHORT, plural, signedMoney } from "../../../format.ts";
 import { Section } from "../parts.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -14,19 +15,39 @@ function monthSpan(months: readonly string[]): string {
 
 const monthEnd = (month: string) => `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
 
-/** Categories that sat above their own level for three months: told only when there is one. */
+/** Why the check has nothing to show: too little history, a range that ends too early, or nothing rose. */
+function emptyText(r: SectionProps["ctx"]["data"]["drift"], today: string): string {
+  if (!r.months.length) {
+    const need = `Tarkistus vertaa kolmea viimeisintä kuukautta tavalliseen ja tarvitsee ${r.neededMonths} valmista kuukautta historiaa.`;
+    if (!r.readyFrom) return `${need} Tapahtumia ei ole vielä.`;
+    if (r.readyFrom > today) return `${need} Tarkistus alkaa ${date(r.readyFrom)}.`;
+    // readyFrom is the first day judged, so a period ending the day before already has its six months
+    return `${need} Valitse jakso, joka päättyy ${date(addDays(r.readyFrom, -1))} tai myöhemmin.`;
+  }
+  if (!r.checked) return `Vertailtavia kategorioita ei ole. Mukana ovat kategoriat, joissa menoja on tavallisesti vähintään ${money(r.minLevelCents, false)} kuussa.`;
+  return `Tarkistettu ${plural(r.checked, "kategoria", "kategoriaa")}, ${monthSpan(r.months)}. Yksikään ei ollut tavallista kalliimpi kolmea kuukautta peräkkäin.`;
+}
+
+/** Categories that sat above their own level for three months: always shown, so an empty answer says what was checked. */
 function Drift({ ctx }: SectionProps) {
   const r = ctx.data.drift;
+  if (!r.items.length) {
+    return (
+      <Section section={section}>
+        <div className="empty">{emptyText(r, ctx.meta.today)}</div>
+      </Section>
+    );
+  }
   return (
-    <Section section={section} sub={`Oman tason yläpuolella kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
+    <Section section={section} sub={`Tavallista kalliimpi kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
       <p className="lead">{r.advice}</p>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Kategoria</th>
-              <th className="num">Normaali/kk</th>
-              <th className="num">Nyt/kk</th>
+              <th className="num">Tavallisesti kuussa</th>
+              <th className="num">Nyt kuussa</th>
               <th className="num">Vuodessa</th>
             </tr>
           </thead>
@@ -55,6 +76,5 @@ export const section: ReportSection = {
   title: "Nousseet menot",
   order: 40,
   reports: ["drift"],
-  visible: (ctx) => ctx.data.drift.items.length > 0,
   Component: Drift,
 };

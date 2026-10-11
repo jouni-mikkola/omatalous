@@ -1,0 +1,29 @@
+/* Reports > Tulevat laskut: the twelve months and the form for a typed-in bill. */
+
+.bills-head { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+.bills-head .muted { font-weight: 400; font-size: 12px; margin-left: 6px; }
+
+/* one row a month: name and amount, a bar for the size, the bills below. A list works at any width. */
+.bill-months { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; }
+.bill-months li { padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.bill-month-head { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+.bill-month-head span::first-letter { text-transform: uppercase; }
+.bill-bar { height: 4px; margin-top: 4px; border-radius: 2px; background: var(--surface-2); }
+.bill-bar span { display: block; height: 100%; border-radius: 2px; background: var(--series-1); }
+.bill-months .sub { margin-top: 3px; max-width: none; }
+@media (max-width: 700px) { .bill-months { grid-template-columns: minmax(0, 1fr); } }
+
+/* the bills of the next three months and the typed-in ones: name and amount, the rest below. No table, so a phone needs no side scroll. */
+.bill-list { list-style: none; margin: 0; padding: 0; max-width: 640px; }
+.bill-list li { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+.bill-line { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+.bill-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.bill-line .btn { align-self: center; }
+.bill-list .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+.bill-form { margin-top: 8px; }
+.bill-fields { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bill-fields label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bill-fields .field-label { color: var(--text-2); font-size: 13px; font-weight: 550; }
+.bill-fields input, .bill-fields select { width: 100%; box-sizing: border-box; }
+@media (max-width: 700px) { .bill-fields { grid-template-columns: minmax(0, 1fr); } }

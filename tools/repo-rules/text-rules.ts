@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { type Finding, expectNoFindings, lineIn, lineOf, parse, plainString, repoFiles, ROOT, sourceFiles, walk } from "./lib.ts";
+import { type Finding, expectNoFindings, lineIn, lineOf, literals, parse, plainString, repoFiles, ROOT, sourceFiles, walk } from "./lib.ts";
 
 describe("repo rules: text", () => {
   it("rule 4: no em dash (U+2014, also as an escape or an HTML entity) in any tracked regular text file", () => {
@@ -146,5 +146,56 @@ describe("repo rules: text", () => {
       if (!seenAllowed.has(i)) found.push({ file: "tools/repo-rules/text-rules.ts", line: lineIn("tools/repo-rules/text-rules.ts", a.text), why: `${a.file} no longer has the allowed text "${a.text}": remove the entry from ALLOWED` });
     });
     expectNoFindings("English in UI text", found, "write the text in Finnish (CLAUDE.md: everything the browser shows is Finnish). A name that must stay English goes on ALLOWED in tools/repo-rules/text-rules.ts with a reason.");
+  });
+  it("rule 12: UI text has no te-form verb, no exclamation mark, no abbreviation the style sheet bans, no rejected glossary term and no hyphen for a minus", () => {
+    // Text the browser shows: the web app, and the analysis and report code whose sentences it prints.
+    const FORMS: { re: RegExp; name: string; fix: string }[] = [
+      // \b is ASCII only in JavaScript, so it would not end a word that ends in "ö"
+      { re: /\p{L}+tte(ko|kö)(?!\p{L})/iu, name: "te-form verb", fix: "address the reader as sinä or use the passive" },
+      { re: /!/, name: "exclamation mark", fix: "write a plain statement" },
+      { re: /\bKa\/kk\b|%-yks\./i, name: "banned abbreviation", fix: 'write "keskimäärin kuussa" or "prosenttiyksikköä"' },
+      // the rejected variants of the glossary in .claude/plan/research/I-finnish.md: one term per thing
+      { re: /(?<!\p{L})(krt|kpl|esim\.|vs\.)(?!\p{L})|(?<![/\p{L}])kk(?!\p{L})|\d\s?€?\/v(?!\p{L})|\}\/v(?!\p{L})/iu, name: "banned abbreviation", fix: 'write "kertaa", "esimerkiksi", "verrattuna", "kuussa" or "vuodessa"; €/kk only in a value cell' },
+      { re: /(?<!\p{L})demodat\p{L}*/iu, name: "rejected term", fix: 'write "esimerkkitiedot"' },
+      { re: /(?<!\p{L})arjen (ostok|kulutu|men)\p{L}*/iu, name: "rejected term", fix: 'write "ostokset ilman laskuja ja tilauksia" (arkiostot are the small repeating ones)' },
+      { re: /(?<!\p{L})vakiomaks\p{L}*/iu, name: "rejected term", fix: 'write "sopimus"' },
+      { re: /(?<!\p{L})(normaali\p{L}*|oma(n|an)? taso\p{L}*|oman tasonsa)/iu, name: "rejected term", fix: 'write "tavallisesti" (median of complete months) or "keskimäärin" (mean)' },
+      { re: /(?<!\p{L})(kulut|kuluja|kulujen|kuluihin|kuluista)(?!\p{L})/iu, name: "rejected term", fix: 'write "menot"; kulut only in pankkikulut, luottokulut and myöhästymiskulut' },
+      { re: /(?<!\p{L})(tilitapahtum|kaupparekister)\p{L}*/iu, name: "rejected term", fix: 'write "tapahtuma" or "toimialahaku YTJ:stä"' },
+      { re: /(?<!\p{L})(Selvä|Peru|Uusi yhteys)(?!\p{L})/u, name: "rejected button text", fix: 'write "Kuittaa", "Peruuta" or "Yhdistä uudelleen"' },
+      { re: /(?<!\p{L})(haara|haaran|haaraa|pikakel\p{L}*|(?<![\p{L}./-])commit(ia|in|it|eja)?(?![\p{L}-])|kontti\p{L}*|kontin|docker-kuv\p{L}*)(?!\p{L})/iu, name: "Git or Docker word", fix: 'write "versio", "päivitys", "päivityslähde" or "sovellus"' },
+      { re: /(?<!\p{L})(kannattaa|kannattaisi|riittävä|tarkoituksellis\p{L}*|kyseinen|kyseisen|kyseiseltä|on tärkeää)(?!\p{L})|(^|[.?]\s+)Voit\s/iu, name: "advice or verdict word", fix: "give the number and its basis, or use the imperative" },
+      // a minus is U+2212; a hyphen between two digits or after a word is a separator and stays. A hyphen that starts a
+      // word and is followed by a digit or a substitution ("saldo -50", `-${cents}`) is a minus. The one exception is
+      // a whole literal that is the tail of an ISO date, checked below
+      { re: /(^|\s)-[\d\u0000]/, name: "ASCII hyphen before a digit", fix: "write the minus as U+2212" },
+    ];
+    const found: Finding[] = [];
+    const check = (file: string, line: number, text: string) => {
+      // an SVG or CSS value such as "scale(1 -1)" is drawing, not text; a substitution (\u0000) is not a space
+      if (/^\s*[a-z-]+\(.*\)\s*$/i.test(text)) return;
+      // "-01" or "-01-01": the part of an ISO date that code glues to a month
+      if (/^-\d\d(?:-\d\d)?$/.test(text)) return;
+      // a regular expression built from a string ("(?<![A-Z0-9])(?:…)") is matching code, not text a user reads
+      if (/\(\?(?:<?[!=]|:)/.test(text)) return;
+      const form = FORMS.find((f) => f.re.test(text));
+      if (form) found.push({ file, line, why: `${form.name} (${form.fix}): ${text.replace(/\u0000/g, "…").replace(/\s+/g, " ").trim().slice(0, 80)}` });
+    };
+    let strings = 0;
+    for (const file of sourceFiles("apps/web/src/", "packages/core/src/analysis/", "packages/core/src/reports/")) {
+      for (const lit of literals(file)) {
+        strings++;
+        check(file, lit.line, lit.text);
+      }
+      if (!file.endsWith("x")) continue;
+      const sf = parse(file);
+      walk(sf, (n) => {
+        if (!ts.isJsxText(n)) return;
+        strings++;
+        check(file, sf.getLineAndCharacterOfPosition(n.pos + /^\s*/.exec(n.text)![0].length).line + 1, n.text);
+      });
+    }
+    expect(strings, "the scan found the UI strings").toBeGreaterThan(300);
+    expectNoFindings("UI text style", found, "see the style sheet in .claude/plan/research/I-finnish.md. The baseline is empty: nothing is allowed.");
   });
 });

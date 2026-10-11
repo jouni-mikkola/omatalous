@@ -3,6 +3,12 @@
 .report-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
 .report-nav a { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); text-decoration: none; }
 .report-nav a:hover { color: var(--text); border-color: var(--axis); }
+/* a phone: one row that scrolls sideways instead of nine chips on three rows before any content */
+@media (max-width: 640px) {
+  .report-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
+  .report-nav::-webkit-scrollbar { display: none; }
+  .report-nav a { flex: none; white-space: nowrap; padding: 7px 12px; }
+}
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px 0; margin: 4px 0 18px; }
 .kv > div { border-left: 1px solid var(--border); padding: 0 14px; }
 .kv dt, .kv dd { margin: 0; }
@@ -21,3 +27,24 @@ details.group > summary { cursor: pointer; }
 .heat-l2 { background: var(--heat-2); color: var(--heat-ink-2); }
 .heat-l3 { background: var(--heat-3); color: var(--heat-ink-3); }
 .heat-l4 { background: var(--heat-4); color: var(--heat-ink-4); }
+
+/* the pivot on a phone: a list with the months behind a tap, not twelve columns */
+.pivot-narrow { display: none; }
+@media (max-width: 640px) {
+  .pivot-wide { display: none; }
+  .pivot-narrow { display: block; list-style: none; margin: 0; padding: 0; }
+}
+.pivot-list > li { border-bottom: 1px solid var(--grid); }
+.pivot-list summary, .pivot-sum { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 8px 0; cursor: pointer; list-style: none; }
+.pivot-list summary::-webkit-details-marker { display: none; }
+.pivot-sum { cursor: default; background: var(--surface-2); font-weight: 600; padding-inline: 8px; border-radius: 6px; margin-top: 4px; }
+.pivot-total { text-align: right; font-variant-numeric: tabular-nums; }
+.pivot-avg { grid-column: 1 / -1; font-size: 12px; }
+.pivot-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 0 0 10px; }
+.pivot-months > div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 8px; border-radius: 4px; }
+.pivot-months dt, .pivot-months dd { margin: 0; }
+.pivot-months dd { font-variant-numeric: tabular-nums; }
+.pivot-list summary .pivot-name::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); }
+.pivot-list details[open] summary .pivot-name::before { content: "▾"; }
+/* the merchant's second line wraps on a phone so that the price columns stay inside the card */
+@media (max-width: 600px) { #hinnat td .sub { max-width: none; white-space: normal; overflow: visible; } }

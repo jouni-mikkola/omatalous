@@ -1,3 +1,4 @@
+// Decision: is the household spending more than a year ago
 import { LineChart } from "../../../charts/LineChart.tsx";
 import { money, MONTHS_SHORT, signedMoney } from "../../../format.ts";
 import { Kv, Section } from "../parts.tsx";
@@ -7,22 +8,19 @@ function YearOverYear({ ctx }: SectionProps) {
   const r = ctx.data.yearOverYear;
   const { summary } = ctx.data;
   const diff = r.previousYtdCents ? (r.ytdCents - r.previousYtdCents) / r.previousYtdCents : null;
-  const from = r.comparableFromMonth;
+  // the section is visible with at least three comparable months, so `from` is a month
+  const from = r.comparableFromMonth!;
   const lastMonth = r.current.filter((v) => v !== null).length;
-  // "Menot 2026 tähän asti", or the months both years have: "Menot elo–syys 2026"
-  const span = from && from > 1 ? `${MONTHS_SHORT[from - 1]}–${MONTHS_SHORT[lastMonth - 1]} ` : "";
+  // "Menot 2026 tähän asti", or the months both years have: "Menot elo–syyskuu 2026"
+  const span = from > 1 ? `${MONTHS_SHORT[from - 1]}–${MONTHS_SHORT[lastMonth - 1]}kuu ` : "";
   const changes = summary.comparable ? summary.changes : [];
   return (
-    <Section section={section} sub={from === null ? "Edellisen vuoden tietoja ei ole." : from > 1 ? `Molemmilta vuosilta on tiedot ${MONTHS_SHORT[from - 1]}kuusta alkaen.` : undefined}>
+    <Section section={section} sub={from > 1 ? `Molemmilta vuosilta on tiedot ${MONTHS_SHORT[from - 1]}kuusta alkaen.` : undefined}>
       <Kv
         items={[
           [`Menot ${span}${r.year}${span ? "" : " tähän asti"}`, money(r.ytdCents, false)],
-          ...(from !== null
-            ? ([
-                [`Samaan aikaan ${r.year - 1}`, money(r.previousYtdCents, false)],
-                ["Muutos", diff === null ? "–" : Math.round(diff * 100) === 0 ? "±0 %" : `${diff > 0 ? "+" : "−"}${Math.abs(Math.round(diff * 100))} %`],
-              ] as [string, string][])
-            : []),
+          [`Samaan aikaan ${r.year - 1}`, money(r.previousYtdCents, false)],
+          ["Muutos", diff === null ? "–" : Math.round(diff * 100) === 0 ? "±0 %" : `${diff > 0 ? "+" : "−"}${Math.abs(Math.round(diff * 100))} %`],
           [`Tulot ${span}${r.year}${span ? "" : " tähän asti"}`, money(r.incomeYtdCents, false)],
         ]}
       />
@@ -62,5 +60,7 @@ export const section: ReportSection = {
   order: 90,
   // the biggest changes under the chart come from the summary
   reports: ["yearOverYear", "summary"],
+  // one or two months say nothing: the section waits for three whole months of both years
+  visible: (ctx) => ctx.data.yearOverYear.comparable,
   Component: YearOverYear,
 };

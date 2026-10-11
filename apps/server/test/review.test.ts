@@ -142,6 +142,6 @@ describe("misc", () => {
     const r = await admin.call("GET", "/api/export/transactions.csv?from=2025-01-01&to=2026-10-09&category=food_delivery");
     const lines = String(r.body).trim().split("\r\n").slice(1);
     expect(lines.length).toBeGreaterThan(10);
-    expect(lines.every((l) => l.includes(";Ruokalähetit;"))).toBe(true);
+    expect(lines.every((l) => l.includes(";Ruoan kotiinkuljetus;"))).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+// Decision: where to cut
 import { query } from "../../../api.ts";
 import { money, percent, signedMoney } from "../../../format.ts";
 import { ExportLink, Section } from "../parts.tsx";
@@ -17,6 +18,10 @@ function Change({ now, before }: { now: number; before: number }) {
 function Categories({ ctx }: SectionProps) {
   const r = ctx.data.categories;
   const { range } = ctx;
+  // a running month is no monthly figure: without a complete month in the range the column is left out
+  const hasAverage = r.groups.some((g) => g.categories.some((c) => c.monthlyAvgCents !== null));
+  // a share says of what: spending is the base of the first, income of the second
+  const hasIncome = r.incomeCents > 0;
   return (
     <Section section={section} sub={r.comparable ? "Muutos edelliseen jaksoon" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
       <div className="table-wrap">
@@ -25,8 +30,9 @@ function Categories({ ctx }: SectionProps) {
             <tr>
               <th>Kategoria</th>
               <th className="num">Yhteensä</th>
-              <th className="num">Osuus</th>
-              <th className="num hide-phone">Kuukaudessa</th>
+              <th className="num">Osuus menoista</th>
+              {hasIncome && <th className="num hide-phone">Osuus tuloista</th>}
+              {hasAverage && <th className="num hide-phone">Keskimäärin kuussa</th>}
               {r.comparable && <th className="num">Muutos</th>}
             </tr>
           </thead>
@@ -36,7 +42,8 @@ function Categories({ ctx }: SectionProps) {
                 <td>{g.group}</td>
                 <td className="num">{money(g.totalCents, false)}</td>
                 <td className="num">{percent(g.share)}</td>
-                <td className="num hide-phone">{money(g.categories.reduce((s, c) => s + c.monthlyAvgCents, 0), false)}</td>
+                {hasIncome && <td className="num hide-phone">{percent(g.incomeShare ?? 0)}</td>}
+                {hasAverage && <td className="num hide-phone">{money(g.categories.reduce((s, c) => s + (c.monthlyAvgCents ?? 0), 0), false)}</td>}
                 {r.comparable && (
                   <td className="num">
                     <Change now={g.totalCents} before={g.previousCents} />
@@ -50,7 +57,8 @@ function Categories({ ctx }: SectionProps) {
                   </td>
                   <td className="num">{money(c.totalCents, false)}</td>
                   <td className="num">{percent(c.share)}</td>
-                  <td className="num hide-phone">{money(c.monthlyAvgCents, false)}</td>
+                  {hasIncome && <td className="num hide-phone">{percent(c.incomeShare ?? 0)}</td>}
+                  {hasAverage && <td className="num hide-phone">{c.monthlyAvgCents === null ? "–" : money(c.monthlyAvgCents, false)}</td>}
                   {r.comparable && (
                     <td className="num">
                       <Change now={c.totalCents} before={c.previousCents} />

@@ -123,6 +123,31 @@ export function todayIn(timezone: string, now = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
+/**
+ * The instant as an ISO timestamp in the given time zone, with its offset: `2026-10-12T01:30:00+03:00`. Its first ten
+ * characters are the local day, which a UTC timestamp gets wrong in the first hours of a day.
+ */
+export function isoIn(timezone: string, now = new Date()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  // longOffset says "GMT+03:00", or just "GMT" at zero
+  const offset = (parts.timeZoneName ?? "GMT").replace("GMT", "") || "+00:00";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+}
+
 /** Local hour (0–23) in the given time zone. */
 export function hourIn(timezone: string, now = new Date()): number {
   return Number(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", hourCycle: "h23" }).format(now));

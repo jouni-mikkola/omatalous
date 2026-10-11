@@ -1,16 +1,18 @@
+// Decision: spend less or save more
 import { useState } from "react";
 import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
+import { SurplusBridge } from "../../../components/SurplusBridge.tsx";
 import { money, monthLong, percent } from "../../../format.ts";
 import { ExportLink, Kv, Section, TableToggle } from "../parts.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function Cashflow({ ctx }: SectionProps) {
   const r = ctx.data.cashflow;
-  const { running } = ctx;
   const [table, setTable] = useState(false);
   const t = r.totals;
-  const monthLabelOf = (m: string) => `${monthLong(m)}${m === running ? " (kesken)" : ""}`;
-  // the month in progress has its bills but maybe not its salary: the margin is told from the months that ended
+  // a month that has not ended, or that the history does not cover from the 1st, is partial
+  const monthLabelOf = (x: { month: string; complete: boolean }) => `${monthLong(x.month)}${x.complete ? "" : " (vajaa)"}`;
+  // the month in progress has its bills but maybe not its salary: the margin is told from the complete months
   const settled = r.running ? r.closed : t;
   const whole = r.running ? ", valmiit kuukaudet" : "";
   return (
@@ -31,13 +33,14 @@ function Cashflow({ ctx }: SectionProps) {
           ["Säästöön", money(t.savedCents, false)],
           ...(settled
             ? ([
-                [`${settled.netCents < 0 ? "Menot ylittivät tulot" : "Tuloja jäi yli"}${whole}`, money(Math.abs(settled.netCents), false)],
                 [`Säästöaste${whole}`, settled.savingsRate === null ? "–" : percent(settled.savingsRate)],
+                [`${settled.leftCents < 0 ? "Menot ylittivät tulot" : "Yli jäi"}${whole}`, money(Math.abs(settled.leftCents), false)],
               ] as [string, string][])
             : []),
           ...(t.borrowedCents ? ([["Luotonnostot", money(t.borrowedCents, false)]] as [string, string][]) : []),
         ]}
       />
+      {settled && <SurplusBridge totals={settled} title={`Mihin tulot menivät${whole}`} />}
       {table ? (
         <div className="table-wrap">
           <table>
@@ -49,21 +52,21 @@ function Cashflow({ ctx }: SectionProps) {
                 <th className="num">Velanhoito</th>
                 <th className="num">Säästöön</th>
                 {t.borrowedCents !== 0 && <th className="num">Luotonnostot</th>}
-                <th className="num">Erotus</th>
+                <th className="num">Yli jäi</th>
                 <th className="num">Säästöaste</th>
               </tr>
             </thead>
             <tbody>
               {r.rows.map((x) => (
                 <tr key={x.month}>
-                  <td>{monthLabelOf(x.month)}</td>
+                  <td>{monthLabelOf(x)}</td>
                   <td className="num">{money(x.incomeCents, false)}</td>
                   <td className="num">{money(x.consumptionCents, false)}</td>
                   <td className="num">{money(x.debtCents, false)}</td>
                   <td className="num">{money(x.savedCents, false)}</td>
                   {t.borrowedCents !== 0 && <td className="num">{money(x.borrowedCents, false)}</td>}
                   <td className="num">
-                    <strong>{money(x.netCents, false)}</strong>
+                    <strong>{money(x.leftCents, false)}</strong>
                   </td>
                   <td className="num">{x.savingsRate === null ? "–" : percent(x.savingsRate)}</td>
                 </tr>

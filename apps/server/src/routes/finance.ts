@@ -2,7 +2,7 @@
 import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, daysBetween, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
 import type { Connection, StoredTransaction } from "../db/rows.ts";
-import { parseScope, sharedInView } from "../services/analysis.ts";
+import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
 import { hasInstanceCredentials } from "../connectors/enable-banking/app-setup.ts";
 import { BANKS } from "../connectors/enable-banking/banks.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -81,19 +81,22 @@ export function financeRoutes(s: Services) {
   });
 
   app.get("/dashboard", async (c) => {
-    const { ctx } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
-    return c.json(buildDashboard(ctx, parseRange(c, s.today())));
+    const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
+    const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
+    return c.json(buildDashboard(ctx, parseRange(c, s.today()), balances, inputs));
   });
 
   app.get("/reports", async (c) => {
     const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
-    const balances = accounts.map((a) => ({ id: a.id, name: a.ownerName ? `${a.name} (${a.ownerName})` : a.name, type: a.type, balanceCents: a.balanceCents }));
-    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances }));
+    const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
+    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs }));
   });
 
   app.get("/recurring", async (c) => {
-    const { ctx } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
-    return c.json({ series: ctx.recurring.map(({ transactionIds: _ids, ...rest }) => rest) });
+    const userId = c.get("user").id;
+    const { ctx } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
+    // the household view shows the viewer's own marks, as the dashboard does
+    return c.json({ series: ctx.recurring.map(({ transactionIds: _ids, ...rest }) => rest), marks: await repoOf(userId).listMarks() });
   });
 
   // ── transactions ─────────────────────────────────────

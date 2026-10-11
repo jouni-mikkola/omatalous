@@ -1,5 +1,6 @@
-import { type AnalysisContext, historyCovers } from "../analysis/context.ts";
+import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
+import { isCompleteMonth } from "../analysis/usual.ts";
 import { daysInMonth, fromMonthIndex, monthIndex } from "../dates.ts";
 
 /** Month indexes covered by a range, capped to the latest `max` months. */
@@ -17,21 +18,16 @@ type MonthContext = Pick<AnalysisContext, "dataFrom" | "today">;
 
 /**
  * The months a monthly average should divide by: those the range covers
- * from the 1st to the last day, that have ended and that the history fully
- * reaches. Early in a month, the current month would otherwise pull every
- * average down, and so would months before the first transaction.
+ * from the 1st to the last day and that are complete (`isCompleteMonth`).
+ * Early in a month, the current month would otherwise pull every average
+ * down, and so would months before the first transaction. With none, there is
+ * no average: a running month's spending so far is not a monthly figure.
  */
 export function fullMonths(ctx: MonthContext, range: DateRange, months: readonly number[]): number[] {
   return months.filter((m) => {
     const label = fromMonthIndex(m);
     const start = `${label}-01`;
     const end = `${label}-${String(daysInMonth(label)).padStart(2, "0")}`;
-    return start >= range.from && end <= range.to && end < ctx.today && historyCovers(ctx, start);
+    return start >= range.from && end <= range.to && isCompleteMonth(ctx, label);
   });
-}
-
-/** fullMonths, or the last month when there is none (so per-row averages stay numbers). */
-export function completeMonths(ctx: MonthContext, range: DateRange, months: readonly number[]): number[] {
-  const full = fullMonths(ctx, range, months);
-  return full.length ? full : months.slice(-1);
 }

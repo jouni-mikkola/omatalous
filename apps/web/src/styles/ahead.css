@@ -1,0 +1,8 @@
+/* The next 30 days on the overview (components/NextDays.tsx). */
+.ahead-verdict { margin: 4px 0 8px; font-size: 13px; }
+.ahead-verdict.notice { padding: 8px 12px; margin-bottom: 8px; }
+.ahead-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0; }
+.ahead-table { max-height: 260px; overflow: auto; }
+.ahead-in { color: var(--good); }
+.ahead-more { margin-top: 8px; }
+.ahead-note { margin: 8px 0 0; }

@@ -11,7 +11,24 @@ Every transaction lands in exactly one flow, so nothing is counted twice or left
 | Luotonnostot (borrowing) | credit drawn to an account, loan payouts | cash flow only, never income |
 | Siirto (transfer) | money between your own connected accounts | not counted |
 
-Savings rate = (income − spending − debt) / income.
+## Definitions
+
+A figure has one definition, in `packages/core`, and the overview, the reports and the recurring page all use it.
+
+| Word | Means | In core |
+|---|---|---|
+| *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
+| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it | `usualCents`, `completeMonthsBefore` in `analysis/usual.ts` |
+| *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
+| *Yli jäi* | Income − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on | `PeriodTotals.leftCents` |
+| *Kiinteät menot* | An active subscription or bill, per month: its spending and its debt service (a loan instalment). The credit card bill is left out, since it pays everyday purchases, and so is a monthly saving | `isFixedCost`, `fixedSplit`, `fixedMonthlyCents` in `commitments.ts` |
+| *Tilaus* | An active fixed-amount series in subscriptions, fitness, entertainment, education, shopping or other. Telecom, insurance, housing, utilities, memberships and loans are contracts: they are fixed costs and are not subscriptions | `isSubscription`, `subscriptionsMonthlyCents` in `commitments.ts` |
+| *Odotettu lasku* | A bill the household typed in, repeated by its cadence: once, quarterly, half yearly or yearly | `ExpectedBill`, `expectedDates` in `commitments.ts` |
+
+Monthly averages divide by complete months only, so a running month never pulls an average down; a category or pivot
+average without one complete month is empty. A year comparison needs three whole months in both years. Money saved to an
+own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
+names the sum and the largest payees, so a missing connection shows.
 
 ## Cases
 
@@ -108,15 +125,33 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 ## Periods, fixed costs and insights
 
 - *3 kk*, *6 kk* and *12 kk* are the last whole months. *Tämä kuu* runs to today and is compared with the
-  same days of the previous month. *Tämä vuosi* runs to today; its savings rate counts its whole months,
+  same days of the previous month. *Tämä vuosi* runs to today; its savings rate counts its complete months,
   because the running month has its bills but often not yet its salary.
 - *Kiinteät menot* are the active subscriptions and bills (rent, loans, insurance, day care, phone),
   per month over a year. A monthly fee with a year of history costs what its last twelve charges came
   to, so day care that is free in July counts 11 charges and electricity counts the winter too. The
   credit card bill is not a fixed cost; the month forecast still expects it.
 - The month forecast is what has gone so far, the bills still due this month and the usual everyday
-  spending for the days left (the median day of the last six whole months). On two test households its
-  average error over their past months was 8 % on the 5th of the month and 4 % on the 20th.
+  spending for the days left (the median of the last six complete months, per day). A merchant marked as
+  cancelled is not expected. Bills the household typed in count while they are still to pay this month:
+  one that the history shows as a series is left out, and so is one for which a row of about the same
+  amount (within 5 %) was booked in the month before its date. The overview shows the forecast as a range:
+  the forecast plus and minus the median error the same forecast made on the household's own last six
+  complete months, each taken with the same number of days left and without typed-in bills, and never
+  below what has been spent. A month counts when a complete month comes before it; under three such
+  months the typical errors of two test households apply instead: 8 % on the 5th, 6 % on the 10th, 2,5 %
+  on the 20th and nothing on the last day, interpolated in between. The tile names which of the two it
+  rests on.
+- The pace chart compares the month with *Tavallisesti*: for each day, the median cumulative spending of
+  the last six complete months. Under three complete months there is no line.
+- *Seuraavat 30 päivää* lists the pay days (active income series), the subscriptions and bills the
+  forecast expects (also savings plans, which leave the checking account) and the bills the household
+  typed in, by the same two rules. A monthly salary comes on its usual day of the month (the median of
+  the days it was paid on), on the Friday before when that is a weekend. With a checking balance, own and
+  shared, it adds the balance at the end of each day: the balance now plus the pay days, minus the bills,
+  minus the usual everyday spending per day from tomorrow on. The lowest point and its date say when the
+  balance is thinnest. Transfers between own accounts are not in it, because the recurring detection
+  leaves them out.
 - Insights say what changed in the period. A month is compared with its usual level (the median of the
   six months before) and shown only when it is outside all of them; a longer period is compared with the
   previous one. A running month has none. The largest purchase is shown from 200 €, and the weekly food
@@ -138,10 +173,15 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 - *Tulevat laskut* lists the bills that do not come every month (every second month, quarterly, half
   yearly, yearly) due in the next three months, from the recurring detection. Pet food, shops and
   clinics are purchases and are not listed. It is always about today.
-- *Kiinteät ja muuttuvat* starts with the fixed costs as a share of the average income of the last six
-  whole months (three at least). With a savings account balance from the bank it adds how many months of
-  fixed costs the savings cover, against a buffer of three months. A CSV import has no balance, so it
-  says nothing about the buffer.
+- *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
+  their loan instalments, and shows debt service outside them apart. The columns add up to the
+  spending of the period. It starts with the fixed costs as a share of the usual income (the median of the
+  last complete months, three at least). With a balance on a savings or checking account it says how many
+  months of usual spending, groceries included, that money covers against a buffer of three months, and names
+  the gap below it. Under three complete months it gives the date the figure appears. Without a balance it says
+  where to add one.
+- *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
+  gave its balance (that day in the app's time zone).
 
 ## When it gets something wrong
 

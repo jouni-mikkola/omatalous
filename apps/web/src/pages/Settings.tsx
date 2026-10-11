@@ -168,7 +168,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
                   body: csvTarget ? { content, accountId: csvTarget } : { content, accountName: csvName, accountType: csvType },
                 });
                 setCsvMessage({ tone: "good", text: [`${plural(r.inserted, "uusi tapahtuma", "uutta tapahtumaa")}, ${r.updated + r.skipped} oli jo tallessa.`,
-                    ...(r.firstDate && r.lastDate ? [`Tiedosto kattaa ${date(r.firstDate)} – ${date(r.lastDate)}.`] : []),
+                    ...(r.firstDate && r.lastDate ? [`Tiedosto kattaa ${date(r.firstDate)}–${date(r.lastDate)}.`] : []),
                     ...(r.daysOld !== undefined && r.daysOld > 7 ? ["Uusin tapahtuma on yli viikon vanha, joten tuoreimmat päivät puuttuvat. Vie tiedosto uudelleen pankista."] : []),
                     ...r.errors,
                   ].join(" ") });
@@ -217,7 +217,7 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
           <div className="card-head">
             <div>
               <h2>Ylläpito</h2>
-              <div className="card-sub">Päivitykset, varmuuskopiot, uudelleenkäynnistys ja järjestelmän tarkistus.</div>
+              <div className="card-sub">Päivitys ja varmuuskopiot selaimesta</div>
             </div>
             <a className="btn" href="#/settings?section=maintenance">
               Avaa ylläpito
@@ -243,16 +243,16 @@ export function Settings({ meta, params, onChange }: { meta: Meta; params: URLSe
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Demodata</h2>
+            <h2>Esimerkkitiedot</h2>
             <div className="card-sub">Keksityt tapahtumat 14 kuukaudelta.</div>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <button className="btn" disabled={busy !== null} onClick={() => run("demo", async () => { await api("/api/demo", { method: "POST" }); return "Demodata ladattu."; })}>
-              {hasDemo ? "Lataa uudelleen" : "Lataa demodata"}
+            <button className="btn" disabled={busy !== null} onClick={() => run("demo", async () => { await api("/api/demo", { method: "POST" }); return "Esimerkkitiedot ladattu."; })}>
+              {hasDemo ? "Lataa uudelleen" : "Lataa esimerkkitiedot"}
             </button>
             {hasDemo && (
-              <button className="btn btn-danger" disabled={busy !== null} onClick={() => run("demo-del", async () => { await api("/api/demo", { method: "DELETE" }); return "Demodata poistettu."; })}>
-                Poista demodata
+              <button className="btn btn-danger" disabled={busy !== null} onClick={() => run("demo-del", async () => { await api("/api/demo", { method: "DELETE" }); return "Esimerkkitiedot poistettu."; })}>
+                Poista esimerkkitiedot
               </button>
             )}
           </div>

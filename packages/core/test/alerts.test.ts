@@ -125,7 +125,7 @@ describe("alerts", () => {
     it("a category far above its usual months", () => {
       const spike = Array.from({ length: 12 }, (_, i) => wolt(`2026-03-${String(i * 2 + 2).padStart(2, "0")}`));
       const [a] = ofKind(alertsOf([...household(), ...usual, ...spike], march), "spike");
-      expect(a).toMatchObject({ id: "spike:food_delivery:2026-03", tone: "warning", title: "Ruokalähetit 408 € maaliskuussa", detail: "Tavallisesti noin 102 €/kk", category: "food_delivery" });
+      expect(a).toMatchObject({ id: "spike:food_delivery:2026-03", tone: "warning", title: "Ruoan kotiinkuljetus 408 € maaliskuussa", detail: "Tavallisesti noin 102 €/kk", category: "food_delivery" });
     });
 
     it("near misses: one big order, too few orders, a small rise, uncategorised", () => {
@@ -208,7 +208,7 @@ describe("alerts", () => {
     const max = monthly("2025-11-27", 11, -1099, { merchant: "Max", category: "subscriptions" });
     it("a small service running for months", () => {
       const [a] = ofKind(alertsOf([...household(), ...max]), "forgotten");
-      expect(a).toMatchObject({ tone: "info", title: "Käytätkö vielä: Max?", detail: "10,99 €/kk, 11 kk", merchant: "Max" });
+      expect(a).toMatchObject({ tone: "info", title: "Max 10,99 €/kk, 132 € vuodessa", detail: expect.stringMatching(/^Maksettu \d+ kuukautta\.$/), merchant: "Max" });
     });
 
     it("near misses: a past period, a new service, an expensive one", () => {

@@ -115,7 +115,7 @@ describe("stored instance settings from before industryLookup existed", () => {
     expect(JSON.parse((await t.s.settings.get("instance_settings"))!).industryLookup).toBe(false);
 
     const notices = (await t.admin.call("GET", "/api/security/notices")).body.notices as { kind: string; text: string }[];
-    expect(notices.find((n) => n.kind === "industry_lookup_off")?.text).toContain("Asetukset > Palvelin");
+    expect(notices.find((n) => n.kind === "industry_lookup_off")?.text).toContain("toimialahaku YTJ:stä");
     expect((await t.admin.call("GET", "/api/admin/instance")).body.settings.industryLookup).toBe(false);
 
     await t.admin.call("POST", "/api/security/notices/seen", {});

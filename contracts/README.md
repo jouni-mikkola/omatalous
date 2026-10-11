@@ -12,5 +12,7 @@ version ships and describes interfaces that older code, scripts and helpers read
 `apps/server/test/contracts.test.ts` checks that the current code satisfies every folder here. A change that breaks a
 frozen contract is a breaking change: it needs a migration plan and a new contract folder, never an edit of an old one.
 
-Until 0.6.0 ships, a later task may update the files in `0.6.0/`. Regenerate the schema with
-`UPDATE_CONTRACT=0.6.0 pnpm test apps/server/test/contracts.test.ts` and edit the JSON files by hand.
+Until a version ships, a later task may update the files in its folder (`0.7.0/` now). Regenerate the schema with
+`UPDATE_CONTRACT=0.7.0 pnpm test apps/server/test/contracts.test.ts` and edit the JSON files by hand. A released
+folder (`0.6.0/` and older) is never touched: the test keeps checking that the current code satisfies it. A new
+version starts with a copy of the previous JSON files, changed only where the helper CLI output changed.

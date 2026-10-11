@@ -63,6 +63,17 @@ case ${1:-} in
   inspect)
     case $* in *RestartCount*) echo 0 ;; *.Image*) echo "id-$(cat "$S/cver" 2>/dev/null)" ;; esac; exit 0 ;;
   run)
+    # the rollback asks the previous image whether it opens the live database as it is: its migrate-check on the data volume
+    case $* in *"migrate-check /data/banking.db"*)
+      echo "PREVIOUS_CHECK $*" >>"$S/calls.log"
+      [[ -e $S/previous-hang ]] && exec /bin/sleep 1000
+      code=0; [[ -e $S/previous-check ]] && code=$(cat "$S/previous-check")
+      # an answer of 0 comes with the check's JSON line, and by default with nothing to apply
+      if [[ $code == 0 && ! -e $S/previous-nojson ]]; then
+        printf '{"ok":true,"file":"/data/banking.db","elapsed_ms":5,"migrate_ms":0,"from":10,"to":10,"applied":%s,"ahead":["0010_x.sql"],"integrity":"ok","foreign_key_violations":{"before":0,"after":0},"tables":{},"problems":[]}\n' "$(cat "$S/previous-applied" 2>/dev/null || echo '[]')"
+        echo "migrate-check: ok, nothing to apply in 5 ms (migrating took 0 ms). /data/banking.db was not changed." >&2
+      fi
+      exit "$code" ;; esac
     # update.sh asks the new image whether it has migrate-check: its usage answer is exit code 2, an older image fails otherwise
     case $* in *migrate-check*) echo "DETECT migrate-check" >>"$S/calls.log"; [[ -e $S/no-migrate-check ]] && exit 1; exit 2 ;; esac
     exit 0 ;;
@@ -447,7 +458,8 @@ t_health_wait_follows_check() {
   check "healthy: 120 s of instant probes is 60 probes (each turn counts its 2 s sleep)" test "$(probe_count 120 '' 0)" = 60
   check "healthy: probes that take 3 s each count as 3 s, so 120 s is 40 probes" test "$(probe_count 120 '' 3)" = 40
   check "healthy: a deadline far away changes nothing (900 s, 450 probes)" test "$(probe_count 900 $((now + 1200)) 0)" = 450
-  check "healthy: a deadline 200 s away leaves 140 s (70 probes)" bash -c "p=$(probe_count 900 $((now + 200)) 0); [[ \$p -ge 68 && \$p -le 70 ]]"
+  # the deadline is read when the check starts: a loaded machine may lose a few seconds before healthy() reads the clock
+  check "healthy: a deadline 200 s away leaves 140 s (70 probes)" bash -c "p=$(probe_count 900 $(($(date +%s) + 200)) 0); [[ \$p -ge 66 && \$p -le 70 ]]"
   check "healthy: a deadline already past still waits 60 s (30 probes)" test "$(probe_count 900 $((now - 100)) 0)" = 30
   check "healthy: a deadline that is not a number is ignored" test "$(probe_count 120 'soon; id' 0)" = 60
   # the bounds, on the function itself (a run at the upper bound is 450 probes)
@@ -512,13 +524,97 @@ t_schema_changed_is_reported() {
   check "schema_changed: no state file, no warning" grep -q '"schema_changed":false' "$S/state.last"
 }
 t_rollback_restore_is_flushed() {
-  # the update changed the schema, so the rollback restores the pre-update copy
+  # the update changed the schema and the previous image refuses the database (its check exits 1), so the rollback restores the pre-update copy
   new_world; release 0.2.0; poll update; tick
-  : >"$S/calls.log"; rm -f "$S/reports"/*; touch "$S/restore-needed"; poll rollback "$ID2"; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*; touch "$S/restore-needed"; echo 1 >"$S/previous-check"; poll rollback "$ID2"; tick
   check "rollback restore: reported ok, the old version is back" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.1.0 ]]"
   check "rollback restore: the pre-update copy is restored" grep -q 'Database restored: /data/backups/pre-update-' "$S/reports/1.json"
   check "rollback restore: what is overwritten is saved first" test "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')" -lt "$(line_of 'entrypoint sh banking -c')"
   check "rollback restore: the copy is flushed before it replaces the database, /data after" grep -qF 'cp "$1" /data/banking.db.restore; sync /data/banking.db.restore; rm -f /data/banking.db-wal /data/banking.db-shm; mv /data/banking.db.restore /data/banking.db; sync /data || echo "warning: could not flush /data" >&2' "$S/calls.log"
+}
+# A rollback whose migration history differs from the pre-update copy (the update changed the schema) asks the previous
+# image whether it opens the database as it is. Only then does the data written since the update stay.
+t_rollback_asks_the_previous_image() {
+  # a rollback after a schema change ("restore-needed" makes the stub's comparison differ), the previous image's check ending in CODE
+  roll() { # roll [CODE [APPLIED [STUBFILE]]]: the exit code of the check, what its JSON lists as applied, a stub file to create
+    new_world; release 0.2.0; poll update; tick
+    : >"$S/calls.log"; rm -f "$S/reports"/*
+    touch "$S/restore-needed"; [[ -z ${1:-} ]] || echo "$1" >"$S/previous-check"
+    [[ -z ${2:-} ]] || echo "$2" >"$S/previous-applied"; [[ -z ${3:-} ]] || touch "$S/$3"
+    poll rollback "$ID2"; tick
+  }
+  restored() { grep -q 'Database restored: /data/backups/pre-update-' <<<"$(report)"; }
+  # (a) the previous image accepts the database: it stays, after a copy
+  roll
+  check "rollback keeps: reported ok, the old version is back" bash -c "[[ \$(cat '$S/cver') = 0.1.0 ]] && grep -q '\"status\":\"ok\"' '$S/reports/1.json'"
+  check "rollback keeps: the previous image's own check ran on the live database, no network, the data volume" grep -qE '^PREVIOUS_CHECK run --rm --name banking-app-rollback-check --network none .*-v vol:/data .*--entrypoint node banking-app:previous .*dist/node.js migrate-check /data/banking.db$' "$S/calls.log"
+  check "rollback keeps: the check ran once the app was stopped" test "$(line_of '^docker compose stop')" -lt "$(line_of '^PREVIOUS_CHECK ')"
+  check "rollback keeps: the database is not replaced" test "$(n_calls 'entrypoint sh banking -c')" = 0
+  check "rollback keeps: the one-off container has a name of its own, and nothing is removed by hand after a yes" bash -c "grep -qE '^PREVIOUS_CHECK run .*--name banking-app-rollback-check ' '$S/calls.log' && [[ \$(grep -c '^docker rm' '$S/calls.log') = 0 ]]"
+  check "rollback keeps: the report says the data stays" grep -qF 'The previous version can read the database as it is, so the data written since the update stays.' "$S/reports/1.json"
+  check "rollback keeps: no word of a restore" bash -c "! grep -q 'Database restored' '$S/reports/1.json'"
+  check "rollback keeps: the pre-rollback copy comes after the check" test "$(line_of '^PREVIOUS_CHECK ')" -lt "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')"
+  check "rollback keeps: and before the old version starts" test "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')" -lt "$(line_of '^docker compose up')"
+  check "rollback keeps: the previous image became :latest and the state file is spent" bash -c "grep -q '^docker image tag banking-app:previous banking-app:latest' '$S/calls.log' && [[ ! -e '$CL/backups/.last-update' ]]"
+  # (b) the previous image refuses the database (its check exits 1): the copy is restored as before
+  roll 1
+  check "rollback restores: the check ran once and refused" test "$(n_calls '^PREVIOUS_CHECK ')" = 1
+  check "rollback restores: the check's container is removed by name, before the restore" test "$(line_of '^docker rm -f banking-app-rollback-check')" -lt "$(line_of 'entrypoint sh banking -c')"
+  check "rollback restores: reported ok, the old version is back" bash -c "[[ \$(cat '$S/cver') = 0.1.0 ]] && grep -q '\"status\":\"ok\"' '$S/reports/1.json'"
+  check "rollback restores: the pre-update copy replaces the database" restored
+  check "rollback restores: what is overwritten is saved first" test "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')" -lt "$(line_of 'entrypoint sh banking -c')"
+  check "rollback restores: no word of the data staying" bash -c "! grep -q 'data written since the update stays' '$S/reports/1.json'"
+  # (c) an image without the command, a docker error and a usage answer: the same restore
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*
+  touch "$S/restore-needed" "$S/no-migrate-check"; poll rollback "$ID2"; tick
+  check "rollback, image without migrate-check: only asked whether it has the command, the live database never mounted" bash -c "[[ \$(grep -cE '^docker run .*banking-app:previous .*migrate-check \$' '$S/calls.log') = 1 && \$(grep -c '^PREVIOUS_CHECK ' '$S/calls.log') = 0 ]]"
+  check "rollback, image without migrate-check: the copy is restored" restored
+  roll 125
+  check "rollback, docker error (exit 125): the copy is restored" restored
+  # exit 0 is not enough: the check's JSON has to say that nothing is applied to the database
+  roll 0 '["0009_x.sql"]'
+  check "rollback, exit 0 with a migration to apply: the copy is restored and the message says why" bash -c "grep -q 'Database restored: /data/backups/pre-update-' '$S/reports/1.json' && grep -q 'changes of its own' '$S/reports/1.json'"
+  roll 0 '' previous-nojson
+  check "rollback, exit 0 without the JSON line: the copy is restored" restored
+  # the client was killed (137) or timed out (124): the container is removed by name and the message names the time
+  roll 137
+  check "rollback, a killed check (exit 137): the copy is restored, the container removed, the time named" bash -c "grep -q '^docker rm -f banking-app-rollback-check' '$S/calls.log' && grep -q 'took longer than' '$S/reports/1.json' && ! grep -q 'could not be asked' '$S/reports/1.json'"
+  roll 2
+  check "rollback, a usage answer (exit 2) is no yes: the copy is restored" restored
+  # (d) the same migration history: nothing to ask, the database stays
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*; poll rollback "$ID2"; tick
+  check "rollback, same history: reported ok, the old version is back" bash -c "[[ \$(cat '$S/cver') = 0.1.0 ]] && grep -q '\"status\":\"ok\"' '$S/reports/1.json'"
+  check "rollback, same history: the previous image is not run for a check" test "$(n_calls '^docker run .*banking-app:previous')" = 0
+  check "rollback, same history: the database stays, as it always did" grep -qF 'The database is unchanged, so the data stays.' "$S/reports/1.json"
+  check "rollback, same history: no restore and no pre-rollback copy" test "$(n_calls 'pre-rollback-|entrypoint sh banking -c')" = 0
+  # a copy that cannot be made stops a rollback that would keep the database too: the current version starts again, nothing changed
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*
+  touch "$S/restore-needed" "$S/fail-snapshot"; poll rollback "$ID2"; tick
+  check "rollback keeps, copy fails: reported failed, the new version runs on its own image" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.2.0 && \$(cut -d'|' -f1 '$S/images/banking-app_latest') = 0.2.0 ]]"
+  check "rollback keeps, copy fails: the app was started again and :latest was not moved" bash -c "[[ \$(grep -c '^docker compose start' '$S/calls.log') = 1 && \$(grep -c '^docker image tag banking-app:previous banking-app:latest' '$S/calls.log') = 0 ]]"
+  check "rollback keeps, copy fails: the state file stays, so the rollback can be tried again" test -f "$CL/backups/.last-update"
+  # the same on the restore path: nothing is replaced and the app is not left stopped
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*
+  touch "$S/restore-needed" "$S/fail-snapshot"; echo 1 >"$S/previous-check"; poll rollback "$ID2"; tick
+  check "rollback restores, copy fails: reported failed, the new version runs on its own image" bash -c "grep -q '\"status\":\"failed\"' '$S/reports/1.json' && [[ \$(cat '$S/cver') = 0.2.0 && \$(cut -d'|' -f1 '$S/images/banking-app_latest') = 0.2.0 ]]"
+  check "rollback restores, copy fails: the app was started again, the database not replaced, :latest not moved" bash -c "[[ \$(grep -c '^docker compose start' '$S/calls.log') = 1 && \$(grep -c 'entrypoint sh banking -c' '$S/calls.log') = 0 && \$(grep -c '^docker image tag banking-app:previous banking-app:latest' '$S/calls.log') = 0 ]]"
+  check "rollback restores, copy fails: the state file stays, so the rollback can be tried again" test -f "$CL/backups/.last-update"
+  # (e) a check that hangs is cut off after PREVIOUS_CHECK_WAIT and does not count as a yes
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; touch "$S/previous-hang"
+  local t0=$SECONDS rc=0
+  OPS_STUB_DIR=$S PATH="$S/bin:$PATH" IMAGE=banking-app SRC_FILE="$SRC/scripts/lib/preflight.sh" bash -c '
+    PREVIOUS_CHECK_WAIT=1
+    say() { :; }; project_name() { echo clone; }
+    run_logged() { local log=$1; shift 2; "$@" >"$log" 2>&1; }
+    source <(sed -n "/^migrate_check_available()/,/^}/p; /^data_volume()/,/^}/p; /^previous_reads_database()/,/^}/p" "$SRC_FILE")
+    previous_reads_database' >/dev/null 2>"$W/hang.err" || rc=$?
+  check "rollback, a hanging check: cut off, not accepted" bash -c "[[ $rc -ne 0 && $((SECONDS - t0)) -lt 30 ]] && grep -q '^PREVIOUS_CHECK ' '$S/calls.log'"
+  check "rollback, a hanging check: the container is removed by name and the message names the time" bash -c "grep -q '^docker rm -f banking-app-rollback-check' '$S/calls.log' && grep -q 'took longer than 1 s' '$W/hang.err'"
 }
 t_release_rollback_action() {
   new_world; release 0.2.0; poll update; tick
@@ -574,13 +670,13 @@ t_source_force_push() {
 t_source_url_branch_dirty() {
   new_world; setenv TALOUS_CHANNEL=source; src_commit
   git -C "$CL" remote set-url origin "file://$W/elsewhere.git"; poll update; tick
-  check "source: changed remote URL refused" bash -c "grep -q 'Etäosoite on muuttunut' '$S/reports/1.json'"
+  check "source: changed remote URL refused" bash -c "grep -q 'Päivityslähde on muuttunut' '$S/reports/1.json'"
   git -C "$CL" remote set-url origin "file://$W/origin.git"; rm -f "$S/reports"/*
   git -C "$CL" checkout -q -b other; poll update "$ID2"; tick
-  check "source: changed branch refused" grep -q 'Haara on muuttunut' <<<"$(report)"
+  check "source: changed branch refused" grep -q 'Päivityslähteen versiolinja on muuttunut' <<<"$(report)"
   git -C "$CL" checkout -q main; echo dirty >>"$CL/scripts/doctor.sh"; rm -f "$S/reports"/*
   poll update op_1111111111111111; tick
-  check "source: dirty tree refused" grep -q 'paikallisia muutoksia' <<<"$(report)"
+  check "source: dirty tree refused" grep -q 'muutettu käsin' <<<"$(report)"
   check "source: none of the refusals built anything" test "$(n_calls '^docker compose build')" = 0
 }
 t_source_remote_types() {
@@ -869,7 +965,7 @@ t_prune() {
   new_world; printf '1.2GB' >"$S/prune-images"; printf '300MB' >"$S/prune-cache"
   cp "$S/images/banking-app_latest" "$S/images/banking-app_previous"
   poll prune; tick
-  check "prune: reported ok with the freed space in Finnish" grep -q '"summary":"Vapautettiin tilaa: kuvat 1,2 Gt, välimuisti 300 Mt\."' "$S/reports/1.json"
+  check "prune: reported ok with the freed space in Finnish" grep -q '"summary":"Levyltä vapautui 1,2 Gt vanhoista versioista ja 300 Mt välimuistista\."' "$S/reports/1.json"
   check "prune: the two fixed commands ran once each" bash -c "[[ \$(grep -c '^docker image prune -f' '$S/calls.log') = 1 && \$(grep -c '^docker builder prune -f' '$S/calls.log') = 1 ]]"
   check "prune: nothing broader (no -a, --all, system prune, volumes)" bash -c "! grep -E '^docker .*(prune.*(-a|--all|--volumes)|system prune|volume prune|image rm|rmi)' '$S/calls.log'"
   check "prune: :latest and :previous are still there" test -f "$S/images/banking-app_latest" -a -f "$S/images/banking-app_previous"

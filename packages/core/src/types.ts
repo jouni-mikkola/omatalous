@@ -78,3 +78,55 @@ export interface CategoryRule {
   /** Lower runs first. User rules default to 10, built-in rules use 100+. */
   priority: number;
 }
+
+/** An account and the balance it was last given, as the balance and buffer reports and the overview read it. */
+export interface BalanceInput {
+  id: string;
+  name: string;
+  type: AccountType;
+  balanceCents: number | null;
+  /** The owner's name when the account is shared with the viewer, null for the viewer's own. */
+  ownerName: string | null;
+  /** The local day the balance was given (YYYY-MM-DD, in the app's time zone), null when unknown. */
+  balanceAt: string | null;
+  /** A joint account both partners linked: the household view keeps it once and never splits it to a person. */
+  joint?: boolean;
+}
+
+/** What the user said about a subscription or an alert: still in use, cancelled, or not to be shown again. */
+export type MarkKind = "in_use" | "cancelled" | "dismissed";
+
+/** A mark on a subject: `merchant:<name>` or `alert:<id>`. */
+export interface UserMark {
+  subject: string;
+  mark: MarkKind;
+  /** ISO timestamp. */
+  markedAt: string;
+}
+
+/** How often a bill the user typed in comes back. */
+export type ExpectedCadence = "once" | "quarterly" | "semiannual" | "yearly";
+
+/** A bill the user typed in because the bank history cannot know it yet (insurance, tax, a service). */
+export interface ExpectedBill {
+  id: string;
+  name: string;
+  /** What it costs, positive. */
+  amountCents: number;
+  /** The first due date; later ones follow the cadence. */
+  dueDate: IsoDate;
+  cadence: ExpectedCadence;
+  /** A category id, or null when the user gave none. */
+  category: string | null;
+}
+
+/**
+ * What the user typed in, next to the bank history: marks and expected bills. The server reads them per request and
+ * hands them to core, so they are not part of the cached analysis context and a change needs no data version bump.
+ */
+export interface UserInputs {
+  marks: readonly UserMark[];
+  expectedBills: readonly ExpectedBill[];
+}
+
+export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [] };

@@ -14,6 +14,10 @@ const ENTRY = fileURLToPath(new URL("../src/entry/node.ts", import.meta.url));
 // the sources are TypeScript with syntax Node cannot strip, so the entry runs under tsx as `pnpm dev` does
 const TSX = fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url));
 
+/** The shipped migrations. A 0.4.0 database has the first six, so a release that adds one changes no number here. */
+const SHIPPED = readdirSync(findMigrationsDir()).filter((f) => f.endsWith(".sql")).sort();
+const PENDING_FROM_0_4_0 = SHIPPED.slice(6);
+
 const dirs: string[] = [];
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -59,9 +63,10 @@ describe("migrate-check on a database from an older release", () => {
     const before = fingerprint(file);
     const report = await migrateCheck(file);
     expect(report).toMatchObject({ ok: true, problems: [], integrity: "ok", file });
-    expect(report.applied).toEqual(["0007_ops_more_actions.sql", "0008_list_indexes.sql", "0009_migration_compat.sql"]);
+    expect(report.applied).toEqual(PENDING_FROM_0_4_0);
+    expect(report.applied.slice(0, 3)).toEqual(["0007_ops_more_actions.sql", "0008_list_indexes.sql", "0009_migration_compat.sql"]);
     expect(report.from).toBe(6);
-    expect(report.to).toBe(9);
+    expect(report.to).toBe(SHIPPED.length);
     expect(report.foreignKeyViolations).toEqual({ before: 0, after: 0 });
     expect(Number.isInteger(report.elapsedMs) && report.elapsedMs >= 0).toBe(true);
     expect(report.migrateMs).toBeLessThanOrEqual(report.elapsedMs);
@@ -190,10 +195,10 @@ describe("migrate-check command line", () => {
     expect(r.code).toBe(0);
     expect(r.out).toHaveLength(1);
     const json = JSON.parse(r.out[0]!) as Record<string, unknown>;
-    expect(json).toMatchObject({ ok: true, applied: ["0007_ops_more_actions.sql", "0008_list_indexes.sql", "0009_migration_compat.sql"], integrity: "ok" });
+    expect(json).toMatchObject({ ok: true, applied: PENDING_FROM_0_4_0, integrity: "ok" });
     expect(Object.keys(json)).toEqual(["ok", "file", "elapsed_ms", "migrate_ms", "from", "to", "applied", "ahead", "integrity", "foreign_key_violations", "tables", "problems"]);
     expect(typeof json.elapsed_ms).toBe("number");
-    expect(r.err.join("\n")).toMatch(/^migrate-check: ok, 3 migrations applied to a copy in \d+ ms/);
+    expect(r.err.join("\n")).toMatch(new RegExp(`^migrate-check: ok, ${PENDING_FROM_0_4_0.length} migrations applied to a copy in \\d+ ms`));
   });
 
   it("exits 1 with ok false on a failure, still one JSON line", async () => {
@@ -225,7 +230,7 @@ describe("migrate-check command line", () => {
     });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout.trim().split("\n")).toHaveLength(1);
-    expect(JSON.parse(r.stdout)).toMatchObject({ ok: true, to: 9 });
+    expect(JSON.parse(r.stdout)).toMatchObject({ ok: true, to: SHIPPED.length });
     expect(fingerprint(file)).toEqual(before);
     expect(readdirSync(dataDir)).toEqual([]);
     expect(existsSync(join(dataDir, "..", "secrets", "app_secret"))).toBe(false);

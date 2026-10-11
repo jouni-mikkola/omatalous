@@ -118,8 +118,7 @@ const RULES: Rule[] = [
  * Do not add to it: a new violation is a design problem to solve in the change that introduces it.
  */
 const BASELINE: string[] = [
-  // BalanceInput (a type) and yearEarlier (a date helper) are shared between reports; both belong in reports/shared.ts
-  "reports-are-independent  packages/core/src/reports/buffer.ts -> packages/core/src/reports/balances.ts",
+  // yearEarlier (a date helper) is shared between reports; it belongs in reports/shared.ts
   "reports-are-independent  packages/core/src/reports/price-changes.ts -> packages/core/src/reports/summary.ts",
   // type-only imports of row and repo types; the services should re-export or return their own types
   "routes-use-services  apps/server/src/routes/finance.ts -> apps/server/src/db/rows.ts",

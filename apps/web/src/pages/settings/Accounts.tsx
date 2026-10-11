@@ -154,7 +154,7 @@ function AccountForm({ account, busy, onCancel, onSaved, onRemove }: { account: 
     if (name.trim() && name.trim() !== account.name) body.name = name.trim();
     if (csv && balance.trim() !== initialBalance.trim()) {
       const cents = parseEuros(balance);
-      if (cents === null) return setError("Anna saldo euroina, esim. 1 234,56.");
+      if (cents === null) return setError("Anna saldo euroina, esimerkiksi 1 234,56.");
       body.balanceCents = cents;
     }
     if (!Object.keys(body).length) return onCancel();

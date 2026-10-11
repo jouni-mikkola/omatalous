@@ -1,4 +1,5 @@
 import { getCategory } from "./categories.ts";
+import { SUBSCRIPTION_CATEGORIES } from "./commitments.ts";
 import { addDays, daysBetween, daysInMonth, monthIndex } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { median, sum } from "./stats.ts";
@@ -364,8 +365,6 @@ function habitSeries(id: string, merchant: string, txs: readonly SeriesInput[], 
   };
 }
 
-/** Categories of services people sign up for and forget; housing, insurance, telecom and the like are needs. */
-const REVIEW_CATEGORIES = new Set(["subscriptions", "entertainment", "fitness", "shopping", "education", "other"]);
 /** Storage and security keep the phone and the files working: not asked about. */
 const ESSENTIAL_SERVICES = /ICLOUD|GOOGLE ?ONE|ONEDRIVE|MICROSOFT|OFFICE ?365|DROPBOX|F-?SECURE|NORTON|MCAFEE|1PASSWORD|BITWARDEN|LASTPASS/;
 const REVIEW_MIN_MONTHLY = 300; // tiny storage tiers (0,99 € and 2,99 €) and tips are not worth a question
@@ -380,7 +379,7 @@ const REVIEW_MIN_MONTHS = 6;
  */
 function needsReview(s: RecurringSeries, otherPurchases: number): boolean {
   if (!s.active || s.kind !== "subscription" || s.monthsActive < REVIEW_MIN_MONTHS) return false;
-  if (!REVIEW_CATEGORIES.has(s.category) || ESSENTIAL_SERVICES.test(fold(s.merchant))) return false;
+  if (!SUBSCRIPTION_CATEGORIES.has(s.category) || ESSENTIAL_SERVICES.test(fold(s.merchant))) return false;
   if (s.monthlyCents < REVIEW_MIN_MONTHLY) return false;
   if (s.monthlyCents <= REVIEW_MAX_MONTHLY) return true;
   return s.category === "fitness" && otherPurchases === 0 && s.monthlyCents <= GYM_MAX_MONTHLY;
@@ -524,37 +523,4 @@ export function priceChangeYearlyCents(s: Pick<RecurringSeries, "cadence" | "pri
   const def = s.cadence === "semimonthly" ? SEMIMONTHLY : CADENCES.find((c) => c.id === s.cadence)!;
   // the series' own charges a year: a rise in a day care fee applies to 11 months
   return Math.round((s.priceChange.toCents - s.priceChange.fromCents) * (s.perMonth ? s.perMonth * 12 : def.perYear));
-}
-
-type FixedInput = Pick<RecurringSeries, "active" | "kind" | "category" | "monthlyCents">;
-
-/**
- * An active subscription or bill that is a fixed cost. The credit card bill
- * is regular, but it pays last month's everyday card purchases, so it is
- * left out (the month forecast still expects it).
- */
-export function isFixedCost(s: Pick<RecurringSeries, "active" | "kind" | "category">): boolean {
-  return s.active && (s.kind === "subscription" || s.kind === "bill") && s.category !== "card_bill";
-}
-
-/**
- * Monthly cost of active subscriptions and bills by what they are: spending,
- * debt service (loan instalments) or saving (a monthly fund saving).
- */
-export function fixedSplit(series: readonly FixedInput[]): { consumptionCents: number; debtCents: number; savingsCents: number } {
-  const out = { consumptionCents: 0, debtCents: 0, savingsCents: 0 };
-  for (const s of series) {
-    if (!isFixedCost(s)) continue;
-    const kind = getCategory(s.category).kind;
-    if (kind === "expense") out.consumptionCents += s.monthlyCents;
-    else if (kind === "debt") out.debtCents += s.monthlyCents;
-    else if (kind === "savings") out.savingsCents += s.monthlyCents;
-  }
-  return out;
-}
-
-/** Fixed costs per month: spending and debt service (what leaves for good), savings not included. */
-export function fixedMonthlyCents(series: readonly FixedInput[]): number {
-  const split = fixedSplit(series);
-  return split.consumptionCents + split.debtCents;
 }

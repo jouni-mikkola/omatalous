@@ -254,7 +254,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
       )}
       {consents.map((n) => (
         <div key={n.id} className="notice warning">
-          {consentNoticeText(n)} <a href="#/settings">{n.kind === "expired" ? "Yhdistä uudelleen" : "Uusi yhteys"}</a>
+          {consentNoticeText(n)} <a href="#/settings">Yhdistä uudelleen</a>
         </div>
       ))}
       {effectiveScope === "household" && (

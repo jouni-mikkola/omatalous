@@ -3,6 +3,80 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.7.0
+
+Money and reports
+
+- The savings rate is the money set aside divided by income. It used to be everything left after spending, which counted money that only stayed on the checking account.
+- The cash flow CSV ends with a new column, Yli jäi €: income minus spending minus savings.
+- The fixed column of Kiinteät ja muuttuvat now holds loan instalments too, like the fixed costs on the overview. Other debt service shows apart as Muu velanhoito, and the parts add up to the spending.
+- Rows that say only Vipps are recognised like MobilePay rows: a payment to a person counts as a payment to people, a payment to a company as what it bought.
+- The month table under Menot kuukausittain explains the month. It sets each category against its usual level (the median of the last six complete months), names the five that moved most and says why when the data shows it: one large payment, a bill that came twice or not at all, a new recurring charge. A running month is compared with the same days of the usual months. With fewer than three complete months before it the table says when the explanation will appear.
+- The dashed line in that chart shows the usual level, Tavallisesti, in place of the average. The row for the smaller categories is called Muut.
+- Tulot ja menot has a bar that splits the income into Kulutus, Velanhoito, Säästöön and Yli jäi, with a table view. Its figures give Säästöaste and Yli jäi, the last column of its table is Yli jäi, and a month the history does not fully cover reads vajaa.
+- The margin and savings rate of a period with a running month count complete months only, so a first month that starts late in the history no longer skews them.
+- A single month shows no swing insights and no largest purchase, since the month explanation tells both. A swing in a longer period must move at least 2 % of the period's spending.
+- The Toistuvat page has one Tilaukset total. The tile, the card header and the rows use the same definition: fixed-amount services such as streaming, fitness, education and software, with contracts such as telephone, insurance, housing and loans kept apart under Sopimukset (formerly Vakiomaksut).
+- Each subscription shows what stopping it saves in a year and has the buttons Käytössä and Lopetettu, with Kumoa. A subscription marked as cancelled leaves the total, the Kiinteät menot tile and the list of charges still to come.
+- Käytössä stops the question about a subscription on the overview for twelve months. Lopetettu stops it for good. If the merchant charges again more than three days after you marked it as cancelled, the overview warns about it.
+- The question about a forgotten subscription names the cost per month and per year: "Elixia 59 €/kk, 708 € vuodessa. Käytätkö vielä?".
+- The forecast for the month shows a range, for example 3 000–3 200 €. It is the forecast plus and minus how far the same forecast was off on your own last six complete months. With fewer than three such months it uses the typical error of test households and the tile says so.
+- The line the month is compared with is called Tavallisesti: for each day, the middle value of the last six complete months. It was the average of three. With fewer than three complete months there is no line.
+- The overview lists the next 30 days: pay days, subscriptions and bills, and the bills you typed in. A subscription you marked as cancelled is left out. With a checking account balance it also shows the balance day by day after the usual everyday spending, with its lowest point, so you see when to move money before pay day. Without a balance the tile points to Asetukset > Tilit.
+- Tulevat laskut tells how much to set aside each month for bills that do not come every month, for example "Varaa 47 €/kk, harvinaiset laskut ovat 564 € vuodessa." It also lists what falls due in each of the next twelve months.
+- A bill the bank history cannot know yet, such as a yearly tax or insurance, can be added by hand on Tulevat laskut with a name, an amount, a due date and how often it repeats. It counts with the bills found in the history and is left out once the history finds the same bill.
+- Tulevat laskut is always on the Reports page. Before, it appeared only when the history had found a rare bill.
+- A running month gives no monthly average. Categories and the monthly table show no average until a month in the range is complete, and the CSV files leave those cells empty. The column reads Keskimäärin kuussa.
+- The monthly table names a month that is not whole "vajaa" and leaves it out of the shading. Categories show each group's share of spending and of income.
+- Vuosivertailu appears once three whole months of both years can be compared. One month was enough before and gave a percentage from a single month.
+- Nousseet menot stays on the page. Without enough history it says from which day it works, and with a quiet history it says how many categories it compared.
+- Tietojen laatu is always shown. It lists the accounts in the figures with their last fetch and the end of the bank consent, and it has two new notes: savings sent to an account or fund that is not connected, and checking or savings accounts without a balance. A card counts as quiet after 21 days.
+- The buffer on Kiinteät ja muuttuvat is the money on savings and checking accounts divided by what the household usually spends in a month, food included. It used to divide savings by fixed costs alone, which made a short buffer look sufficient. The text says what it counted, and under three months it says how much is missing.
+- The usual spending and income of the buffer come from the last complete months. The month in progress is left out. A history of under three complete months gives no figure and says so.
+- Without a balance the card says where to add one: Asetukset > Tilit.
+- Saldot draws the total of the connected accounts, labelled as an estimate, with the last point at today. The table view has a column for each account. Balances are counted from the day the bank gave them, so rows imported after that day no longer shift the history.
+- New report Havainnot: every finding that passed its threshold, largest yearly figure first, with its basis and a link to the rows. The overview shows the top three.
+- Findings: price rises, loans and contracts that ended, new subscriptions and trials, yearly subscriptions renewing in 45 days, instalment plans, months that cost more two years running, purchases growing faster than income, and the share of income fixed costs take.
+- A finding is shown only from 2 % of usual monthly spending or 10 € a month, whichever is more. A sync that lags, an account that stopped syncing or a switch to a new provider is not told as money freed.
+- The largest purchase and the single-month category swing are no longer findings: the month explanation tells them.
+- New report Tulot. It splits income by type: Palkka, Lomaraha, Muu palkka, each Kela benefit by name, ansiosidonnainen päiväraha, työeläke, veronpalautus, korot ja osingot, myynti and muut tulot. Money from people and refunds is shown as Henkilöiltä and Hyvitykset and left out of earned income. A Kela payment whose benefit the message does not name is Kela, muu, and a benefit with no known payer is Muut etuudet. A category set by hand decides the type.
+- Each type opens to its payers (payments, usual amount, next pay day) and each payer to its rows.
+- Mikä muuttui lists up to three changes by their monthly effect: a raise or cut per payer, pay that varies, a benefit that ended, started or changed, a new payer, pay that has not come, a new source, holiday pay, a tax refund or residual tax against last year. A net pay step in January is told as a tax card change, never a raise. Pay counts as missing two banking days after its pay day (a weekend or holiday moves it), and only when the account has later rows.
+- The year view stacks the last twelve months by type, with the next twelve dimmed as an estimate from the regular income that still comes. Last year's holiday pay and tax refund are named beside it and left out of the estimate. Pay days, the spread of regular income in weeks of income, and income by member in the household view (a joint account stays whole) follow.
+- Reports has a new section, Menojen muutos. It tells why spending differs from the usual level, from the same months a year earlier or from the same month a year ago. Each category change is split into a one-off payment, bill timing, new shops, shops that stopped, a dearer or cheaper ticket and more or fewer visits, and the parts add up to the cent. A category opens its shops, a shop its transactions.
+- The rows of the month explanation name the largest cause of a move. A season mark says when the same month a year ago moved as far.
+
+Look
+
+- On a phone the tables of the Toistuvat page wrap the name column, so the date of the next charge is no longer cut off.
+- The overview starts with one line that says what the numbers rest on: how many accounts, when they were last fetched and how many data quality notes there are. Below it come the month (the forecast range beside the explanation of the month, stacked on a phone), the next 30 days, where the income went with the fixed costs and a link to Toistuvat, the alerts and insights, the categories and the pace of the month, and the merchants.
+- The four equal tiles with their arrows and sparklines, the calendar heatmap, the weekday sentence and Suurimmat ostot are gone.
+- Alerts and insights have a Kuittaa button. An alert about a forgotten service is answered with Käytössä or Lopetettu, the same answers as on the Toistuvat page.
+- On a phone the monthly table of the reports is a list with the months behind a tap, the price changes table stays inside its card, and the report links are one row.
+- The favicon follows the colour of the logo.
+- In a running month the "Mihin tulot menivät" bar shows the latest complete month and names it, instead of staying empty until the first month ends. A line under it sets that month's income and savings rate against the usual (the median of the six complete months before it, shown from three), and each Tavallisesti on the overview names the months it comes from.
+- The Finnish text is shorter and uses one word for each thing, with no advice that lacks a number and no Git or Docker words in the browser.
+
+Maintenance
+
+- A rollback keeps the data written since the update when the previous version can read the database as it is, which it checks with its own `migrate-check`. It restores the copy from before the update only when it cannot.
+
+For developers
+
+- One definition per figure in core: analysis/usual.ts (usual level, complete month) and commitments.ts (fixed costs, subscriptions, expected bills), described in docs/MONEY_FLOWS.md.
+- buildDashboard and buildReports take the account balances and the user's marks and expected bills (UserInputs) from services/analysis.ts requestInputs. They are read per request and stay out of the cached context.
+- Repo rule 11: every report and every report section starts with a `// Decision:` comment that says what the household decides with it.
+- `PUT /api/marks` with `{ subject, mark }` keeps one mark per user and subject (`merchant:<name>` or `alert:<id>`; `in_use`, `cancelled` or `dismissed`, or null to clear) and answers with the list. `GET /api/recurring` returns the marks too. A dismissed alert id is left out of the overview's alerts.
+- `inUseQuietsQuestion` in `analysis/alerts.ts` is the twelve-month rule of "in use", shared by the alerts and the Toistuvat page.
+- Repo rule 12 keeps the Finnish UI text to the style guide: no te-form verb, no exclamation mark, no "Ka/kk" or "%-yks.", no hyphen minus before a digit.
+- `components/StatTile.tsx` is gone. The `.kpis` and `.tile-*` styles stay for the Toistuvat page.
+
+Upgrade
+
+- Migration 0010 adds the table user_marks (what each user said about subscriptions and alerts). It only adds a table, so rolling back to 0.6.0 keeps working and keeps the rows.
+- Migration 0011 adds the table of expected bills. It only adds a table, so 0.6.0 still opens the database and a rollback keeps the bills typed in since the update.
+- A rollback from 0.7.0 to 0.6.0 keeps marks and expected bills.
+
 ## 0.6.0
 
 Money and reports

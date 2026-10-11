@@ -18,7 +18,8 @@ export function UpdatePanel({ version, build, state, disabled, onCheck, onUpdate
         <div>
           <h2>{S.version}</h2>
           <div className="card-sub">
-            {version} <span className="small">({state.commit ?? build})</span>
+            {/* the build id is for support, so it stays out of sight until asked for */}
+            <span title={state.commit ?? build}>{version}</span>
             {state.mode ? ` · ${state.mode}` : ""}
             {state.address ? ` · ${state.address}` : ""}
           </div>

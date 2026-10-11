@@ -1,3 +1,4 @@
+// Decision: is the household spending more than a year ago
 import { getCategory } from "../categories.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays } from "../analysis/context.ts";
 import { totalsOf } from "../analysis/flows.ts";

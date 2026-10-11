@@ -54,7 +54,9 @@ export interface PeriodTotals {
   borrowedCents: number;
   /** income − expenses: what was left over (part of it may sit in savings). */
   netCents: number;
-  /** Share of income left over, null when there was no income. */
+  /** income − expenses − saved: what stayed on the accounts. Negative when the accounts were drawn on. */
+  leftCents: number;
+  /** saved / income, null when there was no income. Negative when savings were drawn on. */
   savingsRate: number | null;
 }
 
@@ -80,6 +82,7 @@ export function totalsOf(flows: Iterable<Flows>): PeriodTotals {
     savedCents: saved,
     borrowedCents: borrowed,
     netCents: income - expense,
-    savingsRate: income > 0 ? (income - expense) / income : null,
+    leftCents: income - expense - saved,
+    savingsRate: income > 0 ? saved / income : null,
   };
 }

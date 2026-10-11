@@ -88,7 +88,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await expect(page.getByText(/Apuri on vanhentunut, eikä se osaa/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Siivoa levy" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Uusi apuri" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Asenna apuri uudelleen" })).toBeDisabled();
   await expect(page.getByText("Uusi versio saatavilla")).toBeVisible();
   // shown as text: the tags are on the page as characters, nothing was created from them
   await expect(page.locator(".ops-commits")).toContainText(XSS[0]!);
@@ -170,13 +170,13 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   ageRequests();
   await page.getByRole("button", { name: "Siivoa levy" }).click();
   await expect(page.getByText(/Jonossa\./)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Uusi apuri" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Asenna apuri uudelleen" })).toBeDisabled();
   const pruneReq = helper(["poll", "--helper", "2", "--done", ""]);
   expect(pruneReq.request).toMatchObject({ action: "prune", params: {}, secret: null });
-  helper(["report"], JSON.stringify({ id: pruneReq.request.id, status: "ok", exit_code: 0, summary: "Vapautettiin tilaa: kuvat 1,2 Gt, välimuisti 300 Mt.", output: "STEP: 1/2 Poistetaan käyttämättömät kuvat" }));
-  await expect(page.getByText("Vapautettiin tilaa: kuvat 1,2 Gt, välimuisti 300 Mt.")).toBeVisible({ timeout: 15_000 });
+  helper(["report"], JSON.stringify({ id: pruneReq.request.id, status: "ok", exit_code: 0, summary: "Levyltä vapautui 1,2 Gt vanhoista versioista ja 300 Mt välimuistista.", output: "STEP: 1/2 Poistetaan vanhat versiot" }));
+  await expect(page.getByText("Levyltä vapautui 1,2 Gt vanhoista versioista ja 300 Mt välimuistista.")).toBeVisible({ timeout: 15_000 });
   ageRequests();
-  await page.getByRole("button", { name: "Uusi apuri" }).click();
+  await page.getByRole("button", { name: "Asenna apuri uudelleen" }).click();
   const renewReq = helper(["poll", "--helper", "2", "--done", ""]);
   expect(renewReq.request).toMatchObject({ action: "helper-renew", params: {}, secret: null });
   helper(["report"], JSON.stringify({ id: renewReq.request.id, status: "ok", exit_code: 0, summary: "Apuri asennettu uudelleen." }));

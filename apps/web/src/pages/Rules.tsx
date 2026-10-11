@@ -62,7 +62,7 @@ export function Rules({ meta }: { meta: Meta }) {
               </option>
             ))}
           </select>
-          <input type="text" placeholder="esim. Lidl tai Lidl|Prisma" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Hakusana" required />
+          <input type="text" placeholder="esimerkiksi Lidl tai Lidl|Prisma" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Hakusana" required />
           <span className="muted">kategoriaan</span>
           <CategorySelect categories={meta.categories} value={category} onChange={setCategory} />
           <button className="btn btn-primary" type="submit" disabled={busy}>
@@ -89,7 +89,7 @@ export function Rules({ meta }: { meta: Meta }) {
                     {/* older versions accepted regexes; only the simple ones still match */}
                     {!isUsablePattern(r.pattern) && (
                       <span className="badge warn" title="Sääntö ei osu enää mihinkään. Poista se ja lisää tilalle sana tai kauppiaan nimi.">
-                        ei käytössä
+                        ei osumia
                       </span>
                     )}
                   </td>
@@ -108,7 +108,7 @@ export function Rules({ meta }: { meta: Meta }) {
               ))}
             </tbody>
           </table>
-          {data && !data.rules.length && <div className="empty">Ei sääntöjä vielä. Lisää yllä sana, jonka kauppiaan nimessä tai viestissä pitää olla. Sääntö syntyy myös, kun vaihdat kategorian Tapahtumat-sivulla.</div>}
+          {data && !data.rules.length && <div className="empty">Ei sääntöjä vielä. Lisää yllä sana, joka on kauppiaan nimessä tai viestissä, tai vaihda kategoria Tapahtumat-sivulla.</div>}
         </div>
       </div>
     </div>

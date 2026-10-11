@@ -123,7 +123,8 @@ describe("totals", () => {
       expect(d.categories.reduce((s, c) => s + c.cents, 0), `dashboard categories ${label}`).toBe(d.totals.expenseCents);
       expect(rep.cashflow.rows.reduce((s, x) => s + x.incomeCents, 0), label).toBe(d.totals.incomeCents);
       expect(rep.cashflow.rows.reduce((s, x) => s + x.consumptionCents + x.debtCents, 0), label).toBe(d.totals.expenseCents);
-      expect(rep.fixedVariable.totals.fixedCents + rep.fixedVariable.totals.habitCents + rep.fixedVariable.totals.variableCents, `fixed ${label}`).toBe(d.totals.consumptionCents);
+      const fv = rep.fixedVariable.totals;
+      expect(fv.fixedCents + fv.habitCents + fv.variableCents + fv.debtCents, `fixed ${label}`).toBe(d.totals.expenseCents);
       expect(d.totals.netCents).toBe(d.totals.incomeCents - d.totals.expenseCents);
       for (const v of Object.values(d.totals)) if (v !== null) expect(Number.isInteger(v) || typeof v === "number", label).toBe(true);
       for (const v of [d.totals.incomeCents, d.totals.consumptionCents, d.totals.debtCents, d.totals.savedCents, d.totals.borrowedCents]) expect(Number.isInteger(v), label).toBe(true);
@@ -182,7 +183,7 @@ describe("no NaN or Infinity", () => {
       const ctx = createContext(enriched({ accounts, txs }), accounts, today);
       const bad: string[] = [];
       walk(buildDashboard(ctx, range), "dashboard", bad);
-      walk(buildReports({ ctx, range, balances: accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, balanceCents: rows ? 12345 : null })) }), "reports", bad);
+      walk(buildReports({ ctx, range, balances: accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, balanceCents: rows ? 12345 : null, ownerName: null, balanceAt: null })) }), "reports", bad);
       expect(bad, `seed ${seed}`).toEqual([]);
     }
   });

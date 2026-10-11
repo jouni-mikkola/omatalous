@@ -1,7 +1,9 @@
+// Decision: spend less or save more
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
-import { monthIndex } from "../dates.ts";
+import { isCompleteMonth } from "../analysis/usual.ts";
+import { monthIndex, monthOf, monthRange } from "../dates.ts";
 import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 export interface CashflowRow {
@@ -12,20 +14,23 @@ export interface CashflowRow {
   savedCents: number;
   borrowedCents: number;
   netCents: number;
+  /** income − spending − saved: what stayed on the accounts (negative when the accounts were drawn on). */
+  leftCents: number;
   savingsRate: number | null;
+  /** The month has ended and the history covers it from the 1st. A row that is not complete reads "vajaa". */
+  complete: boolean;
 }
 
 export interface CashflowReport {
   rows: CashflowRow[];
   totals: PeriodTotals;
   /** Per-month averages over the complete months; null when the range has none. */
-  average: Omit<CashflowRow, "month" | "savingsRate"> | null;
+  average: Omit<CashflowRow, "month" | "savingsRate" | "complete"> | null;
   /** The range holds the month that has not ended: its bills are out but its salary may not be in. */
   running: boolean;
   /**
-   * Totals of the months before the running one; null when the range has no
-   * running month or nothing before it. Net and savings rate are told from
-   * these, since a month in progress reads as a loss.
+   * Totals of the complete months of a range that holds the running month; null when it has no running month or
+   * no complete one. The margin and savings rate are told from these, since a month in progress reads as a loss.
    */
   closed: PeriodTotals | null;
 }
@@ -46,15 +51,18 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
       savedCents: t.savedCents,
       borrowedCents: t.borrowedCents,
       netCents: t.netCents,
+      leftCents: t.leftCents,
       savingsRate: t.savingsRate,
+      complete: isCompleteMonth(ctx, month),
     };
   });
-  const runningMonth = monthIndex(ctx.today.slice(0, 7));
   const running = range.from <= ctx.today && ctx.today <= range.to;
-  const closedFlows = running ? all.filter((x) => x.month < runningMonth) : [];
+  // the same months as the dashboard's settled totals: complete, and in the range from their 1st
+  const closedMonths = new Set(monthRange(monthOf(range.from), monthOf(range.to)).filter((m) => `${m}-01` >= range.from && isCompleteMonth(ctx, m)).map(monthIndex));
+  const closedFlows = running ? all.filter((x) => closedMonths.has(x.month)) : [];
   const averaged = new Set(fullMonths(ctx, range, months));
   const base = rows.filter((_, i) => averaged.has(months[i]!));
-  const avg = (key: keyof Omit<CashflowRow, "month" | "savingsRate">) => Math.round(base.reduce((s, r) => s + r[key], 0) / base.length);
+  const avg = (key: keyof Omit<CashflowRow, "month" | "savingsRate" | "complete">) => Math.round(base.reduce((s, r) => s + r[key], 0) / base.length);
   return {
     rows,
     totals: totalsOf(all.map((x) => x.flows)),
@@ -67,6 +75,7 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
       savedCents: avg("savedCents"),
       borrowedCents: avg("borrowedCents"),
       netCents: avg("netCents"),
+      leftCents: avg("leftCents"),
     },
   };
 }

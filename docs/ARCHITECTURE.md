@@ -97,7 +97,7 @@ flowchart LR
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
   the range. The registry has `summary`, `cashflow`, `categories`, `pivot`, `fixedVariable`, `priceChanges`,
-  `highlights`, `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift` and `buffer`.
+  `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift`, `buffer`, `spendingChange`, `income` and `insights`.
 - Merchants (`routes/merchants.ts`): `GET /api/merchants` lists the user's merchants with their category,
   row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
   for one merchant name and `DELETE /api/merchants/rule` removes it, after which the other rules and the

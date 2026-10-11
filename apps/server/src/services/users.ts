@@ -64,7 +64,7 @@ export async function createFirstAdmin(s: Services, input: { code: string; usern
   if (!(await needsSetup(s))) throw new UserError("Sovellus on jo otettu käyttöön.");
   if (!(await setupCodeMatches(s, input.code))) throw new UserError("Väärä asennuskoodi. Uuden saa komennolla docker compose exec banking node dist/node.js setup-code");
   const username = input.username.trim();
-  if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa on 3–32 merkkiä (a–z, 0–9, . _ -).");
+  if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa pitää olla 3–32 merkkiä (a–z, 0–9, . _ -).");
   const problem = passwordProblem(input.password);
   if (problem) throw new UserError(problem);
   const id = randomToken();
@@ -86,7 +86,7 @@ export async function createUser(
   input: { username: string; displayName: string; role: Role; password?: string },
 ): Promise<{ user: User; temporaryPassword: string | null }> {
   const username = input.username.trim();
-  if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa on 3–32 merkkiä (a–z, 0–9, . _ -).");
+  if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa pitää olla 3–32 merkkiä (a–z, 0–9, . _ -).");
   if (await s.users.findForLogin(username)) throw new UserError("Käyttäjätunnus on jo käytössä.");
   const temporary = input.password ? null : generatePassword();
   const password = input.password ?? temporary!;

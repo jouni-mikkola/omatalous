@@ -5,6 +5,7 @@ import { flowsOf } from "../src/analysis/flows.ts";
 import { previousRange } from "../src/analysis/period.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { addDays, addMonths } from "../src/dates.ts";
+import { median } from "../src/stats.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -90,9 +91,9 @@ describe("enrichTransactions", () => {
     it("the purchase leaves the largest purchases and the merchant list once it came back", () => {
       const rows = run([bought({ amountCents: -30000 }), refund({ amountCents: 30000 }), tx({ merchant: "Verkkokauppa", counterparty: "VERKKOKAUPPA.COM", bookingDate: "2026-09-05", amountCents: -25000 })]);
       const ctx = createContext(rows, [checking], "2026-10-09");
-      const d = buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" });
+      // two months: a single month leaves its one-offs to the month explanation
+      const d = buildDashboard(ctx, { from: "2026-08-01", to: "2026-09-30" });
       expect(d.merchants.map((m) => m.merchant)).toEqual(["Verkkokauppa"]);
-      expect(d.insights.find((i) => i.id === "largest")?.detail).toContain("Verkkokauppa");
       expect(d.totals.consumptionCents).toBe(25000);
     });
   });
@@ -144,7 +145,7 @@ describe("dashboard, next level", () => {
     ...[3, 10, 17, 24].flatMap((d) => monthly("2025-09", d, 14, (i) => -(7000 + ((i + d) % 4) * 1500), { merchant: "Prisma", category: "groceries" })),
   ];
 
-  it("a month swings only outside its usual months, never uncategorised or a moved bill", () => {
+  it("a single month has no swing and no largest purchase, the month explanation tells what moved it", () => {
     const txs = [
       ...base(),
       // two dinners a month at 40 €, then at 90 € in September
@@ -152,29 +153,26 @@ describe("dashboard, next level", () => {
       // one bill moving from August to September
       tx({ bookingDate: "2026-08-30", amountCents: -20000, merchant: "Vakuutus", category: "insurance" }),
       tx({ bookingDate: "2026-09-01", amountCents: -60000, merchant: "Vakuutus", category: "insurance" }),
-      tx({ bookingDate: "2026-08-06", amountCents: -5000, merchant: "X", category: "other" }),
-      tx({ bookingDate: "2026-08-07", amountCents: -5000, merchant: "Y", category: "other" }),
-      tx({ bookingDate: "2026-09-06", amountCents: -50000, merchant: "X", category: "other" }),
-      tx({ bookingDate: "2026-09-07", amountCents: -50000, merchant: "Y", category: "other" }),
+      tx({ bookingDate: "2026-09-20", amountCents: -90000, merchant: "Ikea", category: "home" }),
     ];
     const ctx = createContext(txs, [checking], today);
     const d = buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" });
-    expect(d.insights.filter((i) => i.id.startsWith("swing:")).map(plain)).toEqual([
-      { id: "swing:restaurants", tone: "warning", title: "Ravintolat ja kahvilat +125 %", detail: "180 €, tavallisesti noin 80 € kuussa." },
-    ]);
-    // groceries vary from week to week, but September is inside the months before it
-    expect(d.insights.some((i) => i.id === "swing:groceries")).toBe(false);
+    expect(d.insights.some((i) => i.id.startsWith("swing:") || i.id === "largest")).toBe(false);
+    const september = d.trend.explanations.at(-1)!;
+    expect(september.rows.find((r) => r.category === "restaurants")).toMatchObject({ nowCents: 18000, usualCents: 8000 });
+    expect(september.rows.find((r) => r.category === "home")?.cause).toMatchObject({ kind: "oneoff", merchant: "Ikea" });
     expect(d.insights.length).toBeLessThanOrEqual(5);
     // the tiles show savings, the insights do not repeat them
     expect(d.insights.some((i) => i.id === "saved" || i.id === "savings-rate")).toBe(false);
-    // a running month is not over: no swings, the pace chart tells how it goes
-    expect(buildDashboard(ctx, { from: "2026-10-01", to: today }).insights.some((i) => i.id.startsWith("swing:"))).toBe(false);
+    // a running month has none either: the pace chart tells how it goes
+    const running = buildDashboard(ctx, { from: "2026-10-01", to: today }).insights;
+    expect(running.some((i) => i.id.startsWith("swing:") || i.id === "largest")).toBe(false);
   });
 
-  it("a longer period swings against the previous one", () => {
+  it("a longer period has no category swing either: the explanation and the reports tell it", () => {
     const txs = [...base(), ...[5, 15].flatMap((d) => monthly("2026-01", d, 9, (i) => (i < 6 ? -4000 : -9000), { merchant: "Ravintola", category: "restaurants" }))];
     const d = buildDashboard(createContext(txs, [checking], today), { from: "2026-07-01", to: "2026-09-30" });
-    expect(plain(d.insights.find((i) => i.id === "swing:restaurants"))).toMatchObject({ title: "Ravintolat ja kahvilat +125 %", detail: "Nyt 540 €, edellisellä jaksolla 240 €." });
+    expect(d.insights.some((i) => i.id.startsWith("swing:"))).toBe(false);
   });
 
   it("forecasts the running month from spending so far, bills to come and the usual days", () => {
@@ -185,10 +183,11 @@ describe("dashboard, next level", () => {
     // rent on 2.10. and groceries on 3.10.
     const spent = ctx.txs.filter((t) => t.bookingDate >= "2026-10-01").reduce((s, t) => s + t.spend, 0);
     expect(f.spentCents).toBe(spent);
-    expect(f.upcoming).toEqual([{ merchant: "Spotify", category: "subscriptions", amountCents: 1199, date: "2026-10-11" }]);
+    expect(d.ahead!.rows.filter((r) => r.source === "recurring" && r.date <= "2026-10-23")).toEqual([{ date: "2026-10-11", name: "Spotify", category: "subscriptions", cents: -1199, source: "recurring" }]);
     expect(f.forecastCents).toBeGreaterThan(spent + 1199);
-    const full = d.trend.expenses.filter((_, i) => d.trend.complete[i]);
-    expect(f.averageMonthCents).toBe(Math.round(full.reduce((s, v) => s + v, 0) / full.length));
+    // the usual month is the median of the six complete months before it (April to September)
+    const months = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) => ctx.txs.filter((t) => t.bookingDate.startsWith(m)).reduce((s, t) => s + t.spend, 0));
+    expect(f.usualMonthCents).toBe(Math.round(median(months)));
     // a past period has no forecast
     expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }).forecast).toBeNull();
   });
@@ -240,30 +239,21 @@ describe("dashboard, next level", () => {
       // a gym from October 2025 to May 2026, then cancelled
       ...monthly("2025-10", 1, 8, -3990, { merchant: "Sali", category: "fitness" }),
       // a price rise in August 2026
-      ...monthly("2025-09", 14, 14, (i) => (i < 11 ? -699 : -899), { merchant: "Apple", category: "subscriptions" }),
+      ...monthly("2025-09", 14, 14, (i) => (i < 11 ? -2999 : -5999), { merchant: "Apple", category: "subscriptions" }),
     ];
     const ctx = createContext(txs, [checking], today);
     const may = buildDashboard(ctx, { from: "2026-05-01", to: "2026-05-31" });
     const now = buildDashboard(ctx, { from: "2026-10-01", to: today });
-    expect(may.fixedMonthlyCents - now.fixedMonthlyCents).toBe(3990 - 200);
+    expect(may.fixedMonthlyCents - now.fixedMonthlyCents).toBe(3990 - 3000);
     expect(may.insights.some((i) => i.id.startsWith("price:"))).toBe(false);
     const august = buildDashboard(ctx, { from: "2026-08-01", to: "2026-08-31" });
-    expect(august.insights.find((i) => i.id.startsWith("price:"))?.title).toBe("Apple: hinta nousi");
+    expect(august.insights.find((i) => i.id.startsWith("price:"))?.title).toMatch(/^Apple: hinta nousi \d+\s€ vuodessa$/);
   });
 
-  it("the heatmap and the merchant list show everyday spending, without rent, subscriptions or payments to people", () => {
+  it("the merchant list shows everyday spending, without rent, subscriptions or payments to people", () => {
     const friend = tx({ bookingDate: "2026-09-12", amountCents: -2500, merchant: "Laura Korhonen", category: "p2p" });
     const d = buildDashboard(createContext([...base(), friend], [checking], today), { from: "2026-09-01", to: "2026-09-30" });
     expect(d.merchants.map((m) => m.merchant)).toEqual(["Prisma"]);
-    // rent on the 2nd is a bill: the day shows no everyday spending
-    expect(d.daily.find((x) => x.date === "2026-09-02")).toMatchObject({ cents: 0, count: 0 });
-    expect(d.daily.find((x) => x.date === "2026-09-03")!.cents).toBeGreaterThan(0);
-  });
-
-  it("the heatmap starts where the history starts", () => {
-    const d = buildDashboard(createContext(base(), [checking], today), { from: "2025-08-01", to: "2025-12-31" });
-    expect(d.daily[0]!.date).toBe("2025-09-02");
-    expect(d.daily.at(-1)!.date).toBe("2025-12-31");
   });
 
   it("insights are about the period: no standing subscription total, habit or ordinary mortgage share", () => {
@@ -284,17 +274,19 @@ describe("dashboard, next level", () => {
       tx({ bookingDate: "2026-09-19", amountCents: -16000, merchant: "Gigantti", category: "home" }),
       tx({ bookingDate: "2026-09-26", amountCents: -24000, merchant: "Prisma", category: "groceries" }),
     ];
-    const d = buildDashboard(createContext(rows, [checking], today), { from: "2026-09-01", to: "2026-09-30" });
+    const quarter = { from: "2026-07-01", to: "2026-09-30" };
+    const d = buildDashboard(createContext(rows, [checking], today), quarter);
     expect(d.insights.some((i) => i.id === "largest")).toBe(false);
+    // the largest purchase is no insight any more: the month explanation names a one-off
     const bigger = [...rows, tx({ bookingDate: "2026-09-27", amountCents: -21000, merchant: "Gigantti", category: "home" })];
-    expect(plain(buildDashboard(createContext(bigger, [checking], today), { from: "2026-09-01", to: "2026-09-30" }).insights.find((i) => i.id === "largest"))).toMatchObject({
-      title: "Suurin ostos: 210 €",
-      detail: "Gigantti, 27.9.2026.",
-    });
+    const ctx = createContext(bigger, [checking], today);
+    expect(buildDashboard(ctx, quarter).insights.some((i) => i.id === "largest")).toBe(false);
+    // one month leaves it to the month explanation
+    expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }).insights.some((i) => i.id === "largest")).toBe(false);
   });
 
   it("a subscription is asked about once two charges are missed, a club's summer break is not", () => {
-    const stream = monthly("2025-09", 15, 10, -1299, { merchant: "Viaplay", category: "subscriptions" }); // last charge 15.6.2026
+    const stream = monthly("2025-09", 15, 10, -2999, { merchant: "Viaplay", category: "subscriptions" }); // last charge 15.6.2026
     const club = monthly("2025-09", 16, 9, -12000, { merchant: "Iltapäiväkerho", category: "kids" }); // last charge 16.5.2026
     const ctx = createContext([...base(), ...stream, ...club], [checking], today);
     const stopped = (to: string) =>
@@ -302,15 +294,15 @@ describe("dashboard, next level", () => {
         .insights.filter((i) => i.id.startsWith("stopped:"))
         .map((i) => i.title);
     expect(stopped("2026-07-31")).toEqual([]);
-    expect(stopped("2026-08-31")).toEqual(["Viaplay: maksut loppuneet?"]);
+    expect(stopped("2026-08-31")).toEqual(["Viaplay: ei maksuja 15.6.2026 jälkeen"]);
   });
 
   it("a rise that is one big purchase is not a swing, the purchase is told on its own", () => {
     const usualHome = [3, 4, 5, 6, 7, 8].map((m) => tx({ bookingDate: `2026-0${m}-12`, amountCents: -5000, merchant: "Tokmanni", category: "home" }));
     const sofa = [tx({ bookingDate: "2026-09-11", amountCents: -169000, merchant: "Asko", category: "home" }), tx({ bookingDate: "2026-09-25", amountCents: -4500, merchant: "Tokmanni", category: "home" })];
-    const d = buildDashboard(createContext([...base(), ...usualHome, ...sofa], [checking], today), { from: "2026-09-01", to: "2026-09-30" });
+    const ctx = createContext([...base(), ...usualHome, ...sofa], [checking], today);
+    const d = buildDashboard(ctx, { from: "2026-08-01", to: "2026-09-30" });
     expect(d.insights.some((i) => i.id === "swing:home")).toBe(false);
-    expect(d.insights.find((i) => i.id === "largest")?.detail).toBe("Asko, 11.9.2026.");
   });
 });
 

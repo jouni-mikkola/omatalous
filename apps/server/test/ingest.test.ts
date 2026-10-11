@@ -355,7 +355,7 @@ describe("rows in another currency", () => {
     f.feed.rows = [ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A")];
     expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);
     f.feed.rows.push(inCurrency("NOK", ebRow("b", "2026-10-02", "99.00", "DBIT", "KIWI OSLO")));
-    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual(["Käyttötili: ohitettu 1 rivi, joiden valuutta ei ole EUR (NOK)."]);
+    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual(["Käyttötili: ohitettu 1 rivi, jonka valuutta ei ole EUR (NOK)."]);
   });
 });
 

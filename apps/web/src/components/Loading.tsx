@@ -16,10 +16,9 @@ export function Loading() {
   }, []);
   return (
     <div className="stack" role="status" aria-live="polite" style={{ visibility: stage ? "visible" : "hidden" }}>
-      <div className="grid kpis" aria-hidden="true">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="card skeleton" />
-        ))}
+      <div className="grid two" aria-hidden="true">
+        <div className="card skeleton" />
+        <div className="card skeleton" />
       </div>
       <div className="card skeleton skeleton-tall" aria-hidden="true" />
       <div className="empty">{stage === 2 ? "Tämä kestää tavallista kauemmin. Odota hetki tai lataa sivu uudelleen." : "Ladataan…"}</div>

@@ -32,7 +32,7 @@ export function SecurityNotices() {
               .catch((e: Error) => setError(e.message));
           }}
         >
-          Selvä
+          Kuittaa
         </button>
         {error && <span className="error">{error}</span>}
       </div>

@@ -1,14 +1,21 @@
 import { getCategory } from "../categories.ts";
-import { addDays, addMonths, dayNumber, daysInMonth, fromDayNumber, fromMonthIndex, monthIndex, monthOf, monthRange } from "../dates.ts";
-import { fixedMonthlyCents, projectDates } from "../recurring.ts";
-import { median } from "../stats.ts";
-import type { IsoDate } from "../types.ts";
+import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
+import { fixedMonthlyCents } from "../commitments.ts";
+import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
+import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
+import { type Bridge, buildBridge } from "./bridge.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
+import { explainMonth, type MonthExplanation, usualSpending } from "./explain.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
-import { buildInsights, type Insight } from "./insights.ts";
-import { type DateRange, previousRange, rangeLength, rangeMonths, toDayRange } from "./period.ts";
+import { buildInsights, type Insight } from "./insights/index.ts";
+import { cancelledMerchants, type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
+import { type DateRange, previousRange, rangeMonths, toDayRange } from "./period.ts";
+import { isCompleteMonth } from "./usual.ts";
+
+// the pace and forecast code lives in forecast.ts; these keep the names the package index has always exported
+export { type MonthForecast, type MonthPace, monthForecast, monthPace, type ExpectedCharge } from "./forecast.ts";
 
 export interface CategoryTotal {
   category: string;
@@ -50,52 +57,12 @@ export interface MonthlyTrend {
    * and the first, partly fetched one are left out of averages.
    */
   complete: boolean[];
+  /** The usual level of each month's spending (`usualCents` over the complete months before it); null under three. */
+  usual: (number | null)[];
+  /** Why each month differs from its usual level (`explainMonth`); null where there is no usual level. */
+  explanations: (MonthExplanation | null)[];
   /** The same 12 months one year earlier, per series category (incl. "other_rest"); zeros without data. */
   lastYear: { expenses: number[]; series: Record<string, number[]> };
-}
-
-export interface DailyTotal {
-  date: IsoDate;
-  cents: number;
-  count: number;
-}
-
-export interface MonthPace {
-  month: string;
-  daysInMonth: number;
-  /** Cumulative spending by day of month; null after today. */
-  current: (number | null)[];
-  /** Average cumulative spending of the three previous months. */
-  average: number[];
-  currentTotal: number;
-  averageAtToday: number;
-  averageMonthTotal: number;
-}
-
-export interface UpcomingCharge {
-  merchant: string;
-  category: string;
-  /** Expected charge, positive. */
-  amountCents: number;
-  date: IsoDate;
-}
-
-/** Running month: spending so far, the forecast to month end and bills still to come. */
-export interface MonthForecast {
-  /** "2026-10" */
-  month: string;
-  /** consumption + debt so far this month */
-  spentCents: number;
-  /** spent + upcoming recurring + typical variable spending for the days left */
-  forecastCents: number;
-  /** Subscriptions and bills still due before the month ends. */
-  billsLeftCents: number;
-  /** Usual everyday spending for the days left. */
-  usualLeftCents: number;
-  /** Average of complete months (the chart's dashed line), 0 when none. */
-  averageMonthCents: number;
-  /** Subscriptions and bills in the next 14 days, date ascending. */
-  upcoming: UpcomingCharge[];
 }
 
 export interface DashboardData {
@@ -108,20 +75,29 @@ export interface DashboardData {
   dataFrom: IsoDate | null;
   totals: PeriodTotals;
   previousTotals: PeriodTotals;
+  /**
+   * The totals of the complete months of a running range. The running month has its bills but often not its salary
+   * yet, so the savings rate is told from these. null when the range does not reach today or holds no complete month.
+   */
+  settled: PeriodTotals | null;
+  /** The split of income the overview shows: the period's complete months, or the latest complete month while it has none. */
+  bridge: Bridge;
   fixedMonthlyCents: number;
   trend: MonthlyTrend;
   categories: CategoryTotal[];
   /** Everyday merchants: subscriptions, bills (rent, insurance), payments to people and cash are left out, the categories carry them. */
   merchants: MerchantStat[];
-  /** Everyday spending per day: subscriptions and bills are left out, or the days bills fall on would hide the pattern. */
-  daily: DailyTotal[];
   pace: MonthPace;
   /** null when the selected period does not include today. */
   forecast: MonthForecast | null;
+  /** The next 30 days: pay days, bills and the balance line. null when the selected period does not include today. */
+  ahead: AheadData | null;
   /** Cost traps and mistakes; the overview shows them before insights. */
   alerts: Alert[];
   /** The first warning from the data quality report, so a user who never opens Reports still sees it. */
   dataNotice: QualitySignal | null;
+  /** How many signals the data quality report holds (warnings and notes), for the line at the top of the overview. */
+  dataSignals: number;
   insights: Insight[];
   /** Category ids that own colour slots 1–7 (slot 8 is "Muut"). */
   colorOrder: string[];
@@ -218,7 +194,7 @@ export function monthlyTrend(ctx: AnalysisContext, months: readonly string[]): M
       label: category === REST_CATEGORY ? "Muut" : getCategory(category).label,
       values: per.get(category)!.map((v) => Math.max(0, v)),
     }));
-  const complete = months.map((m) => historyCovers(ctx, `${m}-01`) && `${m}-${String(daysInMonth(m)).padStart(2, "0")}` < ctx.today);
+  const complete = months.map((m) => isCompleteMonth(ctx, m));
   const lastYearSeries: Record<string, number[]> = {};
   for (const key of new Set([...series.map((x) => x.category), ...lastYearPer.keys()])) {
     lastYearSeries[key] = (lastYearPer.get(key) ?? zeros()).map((v) => Math.max(0, v));
@@ -230,115 +206,27 @@ export function monthlyTrend(ctx: AnalysisContext, months: readonly string[]): M
     expenses,
     saved,
     complete,
+    usual: months.map((m) => usualSpending(ctx, m)),
+    explanations: months.map((m) => explainMonth(ctx, m)),
     lastYear: { expenses: lastYearExpenses, series: lastYearSeries },
   };
 }
 
-export function dailySpending(txs: readonly AnalysisTx[], fromDay: number, toDay: number): DailyTotal[] {
-  const out: DailyTotal[] = [];
-  for (let d = fromDay; d <= toDay; d++) out.push({ date: fromDayNumber(d), cents: 0, count: 0 });
-  for (const t of txs) {
-    const e = out[t.day - fromDay];
-    if (!e || netPurchase(t) <= 0) continue;
-    e.cents += netPurchase(t);
-    e.count += 1;
-  }
-  return out;
-}
-
-/** Is this month's spending running ahead of or behind a normal month? */
-export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): MonthPace {
-  const days = daysInMonth(month);
-  const target = monthIndex(month);
-  const curves = new Map<number, number[]>();
-  for (const t of ctx.txs) {
-    if (t.month < target - 3 || t.month > target || !t.spend) continue;
-    const daily = curves.get(t.month) ?? new Array<number>(days).fill(0);
-    daily[Math.min(days, Number(t.bookingDate.slice(8, 10))) - 1]! += t.spend;
-    curves.set(t.month, daily);
-  }
-  const cumulative = (m: number) => {
-    let acc = 0;
-    return (curves.get(m) ?? new Array<number>(days).fill(0)).map((v) => (acc += v));
-  };
-  const prevCurves = [1, 2, 3].map((n) => cumulative(target - n));
-  const average = Array.from({ length: days }, (_, i) => Math.round(prevCurves.reduce((s, c) => s + c[i]!, 0) / 3));
-  const cur = cumulative(target);
-  const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
-  return {
-    month: fromMonthIndex(target),
-    daysInMonth: days,
-    current: cur.map((v, i) => (i < lastDay ? v : null)),
-    average,
-    currentTotal: lastDay ? cur[lastDay - 1]! : 0,
-    averageAtToday: lastDay ? average[lastDay - 1]! : 0,
-    averageMonthTotal: average[days - 1] ?? 0,
-  };
-}
-
-const isSpendingCategory = (category: string) => {
-  const kind = getCategory(category).kind;
-  return kind === "expense" || kind === "debt";
-};
-
-const FORECAST_HORIZON_DAYS = 14;
-const VARIABLE_BASE_MONTHS = 6;
-
-/**
- * Where this month is heading: what has gone so far, the subscriptions and
- * bills still due, and the usual everyday spending for the days left (the
- * median day of recent complete months, so one sofa does not move it).
- */
-export function monthForecast(ctx: AnalysisContext, trend: Pick<MonthlyTrend, "expenses" | "complete">): MonthForecast {
-  const today = ctx.today;
-  const month = monthOf(today);
-  const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
-  const spent = inDays(ctx, { fromDay: dayNumber(`${month}-01`), toDay: ctx.todayDay }).reduce((s, t) => s + t.spend, 0);
-
-  const horizon = addDays(today, FORECAST_HORIZON_DAYS);
-  const until = horizon > monthEnd ? horizon : monthEnd;
-  const upcoming: UpcomingCharge[] = [];
-  let due = 0;
-  for (const s of ctx.recurring) {
-    if (!s.active || s.overdue || (s.kind !== "subscription" && s.kind !== "bill") || !isSpendingCategory(s.category)) continue;
-    for (const d of projectDates(s, until)) {
-      // a charge a few days late is still coming: expect it now
-      const date = d < today ? today : d;
-      if (date <= monthEnd) due += s.typicalAmountCents;
-      if (date <= horizon) upcoming.push({ merchant: s.merchant, category: s.category, amountCents: s.typicalAmountCents, date });
-    }
-  }
-  upcoming.sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents);
-
-  const current = monthIndex(month);
-  const rates: number[] = [];
-  for (let m = current - 1; m >= current - VARIABLE_BASE_MONTHS; m--) {
-    const label = fromMonthIndex(m);
-    if (!historyCovers(ctx, `${label}-01`)) break;
-    let variable = 0;
-    for (const t of ctx.txs) if (t.month === m && !ctx.fixedIds.has(t.id)) variable += t.spend;
-    rates.push(variable / daysInMonth(label));
-  }
-  const daysLeft = daysInMonth(month) - Number(today.slice(8, 10));
-  const variableLeft = Math.max(0, Math.round(median(rates) * daysLeft));
-
-  const full = trend.expenses.filter((_, i) => trend.complete[i]);
-  return {
-    month,
-    spentCents: spent,
-    forecastCents: spent + due + variableLeft,
-    billsLeftCents: due,
-    usualLeftCents: variableLeft,
-    averageMonthCents: full.length ? Math.round(full.reduce((s, v) => s + v, 0) / full.length) : 0,
-    upcoming: upcoming.filter((u) => u.date <= horizon),
-  };
+/** The totals of the complete months the range covers from their first day; null without one. */
+function settledTotals(ctx: AnalysisContext, range: DateRange, current: readonly AnalysisTx[]): PeriodTotals | null {
+  // a range from the 15th holds half of that month, as fullMonths says
+  const covered = (m: string) => `${m}-01` >= range.from && isCompleteMonth(ctx, m);
+  const months = new Set(monthRange(monthOf(range.from), monthOf(range.to)).filter(covered).map(monthIndex));
+  return months.size ? totalsOf(current.filter((t) => months.has(t.month)).map((t) => t.flows)) : null;
 }
 
 /**
  * Everything the overview page shows. The trend always covers the 12 months
  * ending at `to`, so it stays readable when a single month is selected.
+ * `balances` and `inputs` are what the cached context does not hold: the
+ * account balances and the user's marks and expected bills, read per request.
  */
-export function buildDashboard(ctx: AnalysisContext, range: DateRange): DashboardData {
+export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS): DashboardData {
   // a running period is compared with the same days of the previous one, or the
   // salary on the 15th makes the first nine days look like a loss of income
   const running = range.from <= ctx.today && ctx.today <= range.to;
@@ -350,14 +238,11 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange): Dashboar
   const previousTotals = totalsOf(previous.map((t) => t.flows));
   const categories = categoryTotals(current, previous);
   const toMonth = monthOf(range.to);
-  // heatmap: the selected range, but at least half a year and at most a year;
-  // days before the first transaction are missing data, not days without spending
-  const toDay = toDayRange(range).toDay;
-  const heatDays = Math.min(Math.max(rangeLength(range), 7 * 26), 7 * 53);
-  const heatFrom = Math.min(toDay, Math.max(toDay - heatDays + 1, ctx.dataFrom ? dayNumber(ctx.dataFrom) : -Infinity));
-  const heatTxs = inDays(ctx, { fromDay: heatFrom, toDay });
   const trend = monthlyTrend(ctx, monthRange(addMonths(toMonth, -11), toMonth));
-  const alerts = buildAlerts(ctx, range);
+  const alerts = buildAlerts(ctx, range, inputs);
+  // one report for the notice and the count, so the two cannot disagree
+  const quality = dataQualityReport(ctx, range, balances);
+  const settled = running ? settledTotals(ctx, range, current) : null;
 
   return {
     range: { from: range.from, to: range.to, previousFrom, previousTo },
@@ -366,17 +251,20 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange): Dashboar
     dataFrom: ctx.dataFrom,
     totals,
     previousTotals,
-    // the fixed costs as they were at the end of the period
-    fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to)),
+    settled,
+    bridge: buildBridge(ctx, range, running, totals, settled),
+    // the fixed costs as they were at the end of the period; a subscription the household marked as cancelled has left them
+    fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to), cancelledMerchants(inputs)),
     trend,
     categories,
     merchants: merchantStats(current.filter((t) => !ctx.fixedIds.has(t.id) && !NOT_MERCHANTS.has(t.category)), range).slice(0, 20),
-    daily: dailySpending(heatTxs.filter((t) => !ctx.fixedIds.has(t.id)), heatFrom, toDay),
     pace: monthPace(ctx, toMonth, ctx.today < range.to ? ctx.today : range.to),
-    forecast: range.from <= ctx.today && ctx.today <= range.to ? monthForecast(ctx, trend) : null,
+    forecast: range.from <= ctx.today && ctx.today <= range.to ? monthForecast(ctx, inputs) : null,
+    ahead: running ? cashAhead(ctx, balances, inputs) : null,
     alerts,
-    dataNotice: dataQualityReport(ctx, range).signals.find((x) => x.tone === "warning") ?? null,
-    insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts }),
+    dataNotice: quality.signals.find((x) => x.tone === "warning") ?? null,
+    dataSignals: quality.signals.length,
+    insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
     colorOrder: [...ctx.colorOrder],
   };
 }

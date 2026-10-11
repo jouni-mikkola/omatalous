@@ -326,6 +326,25 @@ describe("people vs merchants", () => {
     },
   );
 
+  // since 2022 the app is Vipps MobilePay, and the bank text says Vipps (or both words) on rows of the new brand
+  it.each(["VIPPS", "VIPPS MOBILEPAY", "Vipps MobilePay Oy"])("a %s payment to or from a person is a payment between people", (description) => {
+    expect(cat("ELISA VIRTANEN", description, -2000)).toBe("p2p");
+    expect(cat("ELISA VIRTANEN", description, 2000)).toBe("p2p_in");
+    expect(cat("ANNA-LIISA SALO", description, -1500)).toBe("p2p");
+  });
+
+  it("a Vipps payment to a payee with a company form is not a payment to a person", () => {
+    expect(cat("ELISA OYJ", "VIPPS", -2990)).toBe("telecom");
+    expect(cat("K-MARKET KAMPPI", "VIPPS MOBILEPAY", -1500)).toBe("groceries");
+    expect(cat("TIKKURILAN TIIKERIT RY", "VIPPS", -1000)).toBe("other");
+    expect(cat("KAHVIPAAHTIMO OY", "VIPPS", 1000)).toBe("income");
+  });
+
+  it("Vipps is a word of its own: a merchant that only contains it is not a payment between people", () => {
+    expect(cat("VIPPSTAD KIOSKI", "KORTTIOSTO", -1000)).not.toBe("p2p");
+    expect(cat("ELISA VIRTANEN", "KORTTIOSTO", -1000)).not.toBe("p2p");
+  });
+
   it("still recognises companies paid with MobilePay", () => {
     expect(cat("ELISA OYJ", "MOBILEPAY", -2990)).toBe("telecom");
     expect(cat("K-MARKET KAMPPI", "MOBILEPAY", -1500)).toBe("groceries");

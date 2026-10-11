@@ -119,7 +119,7 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   for (const e of await s.security.unseenNotices(user.id)) {
     if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.` });
-    else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy asiaa kyseiseltä ylläpitäjältä.` });
+    else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
   }
   const mark = await s.settings.get(failSeenKey(user.id));
   const since = mark && mark > new Date(s.now().getTime() - 86_400_000).toISOString() ? mark : new Date(s.now().getTime() - 86_400_000).toISOString();
@@ -132,7 +132,7 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
       id: "industry",
       kind: "industry_lookup_off",
       at: null,
-      text: "Päivityksen jälkeen kauppiaiden haku kaupparekisteristä on pois päältä, jotta mitään ei lähde palvelimelta ilman päätöstäsi. Voit ottaa sen käyttöön kohdassa Asetukset > Palvelin.",
+      text: "Kauppiaiden toimialahaku YTJ:stä on pois päältä. Ota se käyttöön:",
     });
   }
   return out;

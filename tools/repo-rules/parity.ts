@@ -1,6 +1,6 @@
 /**
- * Rules 7 and 8 of the repo rules: lists that must agree and live in different files or languages. Nothing links them
- * at build time, so a test reads each list and compares.
+ * Rules 7, 8 and 11 of the repo rules: lists that must agree and live in different files or languages, and the
+ * comment every report carries. Nothing links the lists at build time, so a test reads each list and compares.
  */
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -177,5 +177,21 @@ describe("repo rules: parity", () => {
       }
     }
     expectNoFindings("reports registry", found, "register the report in packages/core/src/reports/index.ts (see its header comment for the other places a report goes), give it a section file in apps/web/src/pages/reports/sections/ and list its key in docs/ARCHITECTURE.md.");
+  });
+
+  it("rule 11: every report and every report section says what the household decides with it (a `Decision:` comment)", () => {
+    const CORE = "packages/core/src/reports/";
+    const SECTIONS = "apps/web/src/pages/reports/sections/";
+    // files of the core folder that are not reports
+    const NOT_REPORTS = new Set(["index.ts", "shared.ts"]);
+    // a comment line (`//`, `/**` or a ` * ` line of a block) that holds `Decision:` and then some words
+    const DECISION = /^[ \t]*(?:\/\/|\/\*+|\*)[ \t]*Decision:[ \t]*\S/m;
+    const files = repoFiles().filter((f) => (f.startsWith(CORE) && /^[^/]+\.ts$/.test(f.slice(CORE.length)) && !NOT_REPORTS.has(f.slice(CORE.length))) || (f.startsWith(SECTIONS) && /^[^/]+\.tsx$/.test(f.slice(SECTIONS.length))));
+    expect(files.length, "the reports and their sections are found").toBeGreaterThan(10);
+    const found: Finding[] = [];
+    for (const file of files) {
+      if (!DECISION.test(readText(file))) found.push({ file, line: 1, why: "has no `Decision:` comment" });
+    }
+    expectNoFindings("report decisions", found, "start the file with `// Decision: <what the household decides with this view>`, for example `// Decision: cancel or renegotiate a contract that got dearer`. A view that supports no decision does not belong on the page; one that is going away says `Decision: none, removed in <task>`.");
   });
 });

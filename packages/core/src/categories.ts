@@ -27,7 +27,7 @@ export const CATEGORIES: readonly Category[] = [
   { id: "home", label: "Koti ja elektroniikka", kind: "expense", group: "Asuminen" },
   { id: "groceries", label: "Ruokakauppa", kind: "expense", group: "Ruoka" },
   { id: "restaurants", label: "Ravintolat ja kahvilat", kind: "expense", group: "Ruoka" },
-  { id: "food_delivery", label: "Ruokalähetit", kind: "expense", group: "Ruoka" },
+  { id: "food_delivery", label: "Ruoan kotiinkuljetus", kind: "expense", group: "Ruoka" },
   { id: "alcohol", label: "Alko", kind: "expense", group: "Ruoka" },
   { id: "transport", label: "Joukkoliikenne ja taksit", kind: "expense", group: "Liikkuminen" },
   { id: "car", label: "Auto, polttoaine ja pysäköinti", kind: "expense", group: "Liikkuminen" },
@@ -59,7 +59,7 @@ export const CATEGORIES: readonly Category[] = [
   { id: "interest", label: "Korot ja luottokulut", kind: "debt", group: "Velanhoito" },
   { id: "collection", label: "Perintä", kind: "debt", group: "Velanhoito" },
   // ── savings & investments ──
-  { id: "savings", label: "Säästötilille", kind: "savings", group: "Säästöt ja sijoitukset" },
+  { id: "savings", label: "Tilisäästöt", kind: "savings", group: "Säästöt ja sijoitukset" },
   { id: "investments", label: "Sijoitukset", kind: "savings", group: "Säästöt ja sijoitukset" },
   { id: "pension", label: "Eläkesäästö", kind: "savings", group: "Säästöt ja sijoitukset" },
   // ── income ──

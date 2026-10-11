@@ -1,7 +1,8 @@
+// Decision: find the month a category jumped
 import { getCategory } from "../categories.ts";
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
-import { completeMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
+import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 export interface PivotRow {
   category: string;
@@ -9,16 +10,19 @@ export interface PivotRow {
   group: string;
   values: number[];
   totalCents: number;
-  averageCents: number;
+  /** Over the complete months of the range; null without one (a running month is not a monthly figure). */
+  averageCents: number | null;
 }
 
 export interface PivotReport {
   months: string[];
+  /** Per month: it has ended, the range covers it from the 1st and the history does too. An incomplete month is "vajaa". */
+  complete: boolean[];
   rows: PivotRow[];
   monthTotals: number[];
   totalCents: number;
-  /** Total per month over complete months (Ka/kk of the total row). */
-  averageCents: number;
+  /** Total per month over complete months (the average of the total row); null without a complete month. */
+  averageCents: number | null;
 }
 
 /** Category × month spending matrix (at most 24 months), largest categories first. */
@@ -34,11 +38,12 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange): PivotReport
     e.total += t.spend;
     rows.set(t.category, e);
   }
-  const averaged = completeMonths(ctx, range, months).map((m) => m - first);
+  const full = fullMonths(ctx, range, months);
+  const averaged = full.map((m) => m - first);
   const out = [...rows.entries()]
     .map(([category, { values, total }]) => {
       const c = getCategory(category);
-      const averageCents = Math.round(averaged.reduce((s, i) => s + values[i]!, 0) / averaged.length);
+      const averageCents = averaged.length ? Math.round(averaged.reduce((s, i) => s + values[i]!, 0) / averaged.length) : null;
       return { category, label: c.label, group: c.group, values, totalCents: total, averageCents };
     })
     .filter((r) => r.totalCents > 0)
@@ -47,9 +52,10 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange): PivotReport
   const monthTotals = months.map((_, i) => out.reduce((s, r) => s + r.values[i]!, 0));
   return {
     months: monthLabels(months),
+    complete: months.map((m) => full.includes(m)),
     rows: out,
     monthTotals,
     totalCents: out.reduce((s, r) => s + r.totalCents, 0),
-    averageCents: Math.round(averaged.reduce((s, i) => s + monthTotals[i]!, 0) / averaged.length),
+    averageCents: averaged.length ? Math.round(averaged.reduce((s, i) => s + monthTotals[i]!, 0) / averaged.length) : null,
   };
 }

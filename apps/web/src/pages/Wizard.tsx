@@ -71,7 +71,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
     const { appBaseUrl: _old, setupDone: _done, ...rest } = d.settings;
     api<InstanceState>("/api/admin/instance", { method: "PUT", body: { ...rest, appBaseUrl: address } })
       .then(setState)
-      .catch((err: Error) => setError(`Osoitetta ei voitu tallentaa: ${err.message} Voit muuttaa sen kohdassa Asetukset > Palvelin.`))
+      .catch((err: Error) => setError(`Osoitetta ei voitu tallentaa: ${err.message} Muuta se kohdassa Asetukset > Palvelin.`))
       .finally(() => setPrepared(true));
   }, [loaded.data]);
 

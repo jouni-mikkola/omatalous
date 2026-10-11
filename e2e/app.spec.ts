@@ -113,6 +113,23 @@ async function overflow(page: Page): Promise<number> {
         // a page that rendered nothing but its frame is a failure too
         expect((await page.locator("main, .app").first().innerText()).length, `${id} is empty`).toBeGreaterThan(200);
         expect(await overflow(page), `${id} scrolls sideways at ${viewport.width}px`).toBeLessThanOrEqual(1);
+        // no table is wider than the screen, also one that sits in a card that scrolls
+        const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
+        expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
+        if (id === "overview") {
+          // the month (forecast beside the explanation) comes first, then the next 30 days
+          const month = page.getByRole("region", { name: "Kuukauden menot" });
+          await expect(month.getByRole("heading", { name: "Ennuste kuun loppuun" })).toBeVisible();
+          await expect(month.getByRole("heading", { name: "Menot kuukausittain" })).toBeVisible();
+          const ahead = page.getByRole("heading", { name: "Seuraavat 30 päivää" });
+          await expect(ahead).toBeVisible();
+          const [monthBox, aheadBox] = [await month.boundingBox(), await ahead.boundingBox()];
+          expect(monthBox!.y, "the month is above the next 30 days").toBeLessThan(aheadBox!.y);
+          // on a desktop the forecast and the explanation share a row, on a phone they are stacked
+          const [forecast, explanation] = [await month.getByRole("heading", { name: "Ennuste kuun loppuun" }).boundingBox(), await month.getByRole("heading", { name: "Menot kuukausittain" }).boundingBox()];
+          if (device === "desktop") expect(Math.abs(forecast!.y - explanation!.y), "side by side").toBeLessThan(8);
+          else expect(explanation!.y, "stacked").toBeGreaterThan(forecast!.y + 40);
+        }
       }
       // the two report tabs and a filtered transaction list reach their data too
       await page.goto("/#/transactions?category=groceries");
@@ -167,7 +184,7 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   const select = page.locator("td.tx-category select");
   const target = before === "Lemmikit" ? "Rahapelit" : "Lemmikit";
   await select.selectOption({ label: target });
-  // "Vain tämä yksi tapahtuma muuttui" or "N tapahtumaa siirrettiin" confirms the save
+  // "Tapahtuma siirrettiin" or "N tapahtumaa siirrettiin" confirms the save
   await expect(page.getByText(/siirrettiin kategoriaan/)).toBeVisible();
 
   await page.reload();
@@ -175,6 +192,77 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   await expect(same.first()).toBeVisible();
   // the row has a phone and a desktop copy of its badge, one of them is hidden by CSS
   await expect(same.first().locator(".badge", { hasText: "käsin" }).first()).toBeAttached();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("a subscription marked as in use stays marked after a reload, and the mark can be undone", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/recurring");
+  const total = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset" }) }).locator(".card-head strong");
+  await expect(total).toBeVisible();
+  // the tile and the card header are one figure
+  const tile = page.locator(".card", { has: page.locator(".tile-label", { hasText: /^Tilaukset$/ }) }).locator(".tile-value");
+  await expect(tile).toHaveText((await total.innerText()).trim());
+
+  const answer = page.getByRole("button", { name: /^Käytössä: / }).first();
+  await expect(answer).toBeVisible();
+  const merchant = ((await answer.getAttribute("aria-label")) ?? "").replace(/^Käytössä: /, "");
+  await answer.click();
+  const undo = page.getByRole("button", { name: `Kumoa: ${merchant}` }).first();
+  await expect(undo).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: `Kumoa: ${merchant}` }).first()).toBeVisible();
+  await expect(page.locator("tr", { has: page.getByRole("link", { name: merchant, exact: true }) }).first().locator(".badge", { hasText: "Käytössä" })).toBeVisible();
+
+  await page.getByRole("button", { name: `Kumoa: ${merchant}` }).first().click();
+  await expect(page.getByRole("button", { name: `Käytössä: ${merchant}` }).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: `Käytössä: ${merchant}` }).first()).toBeVisible();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("a dismissed alert stays away after a reload", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/overview");
+  await expect(page.getByRole("heading", { name: "Menot kuukausittain" })).toBeVisible();
+  const alerts = page.getByRole("list", { name: "Huomiot" });
+  // a forgotten service is answered, not only dismissed (the buttons are looked at, not pressed: a mark would change the recurring page)
+  await expect(alerts.getByRole("button", { name: /^Käytössä: / }).first()).toBeVisible();
+  await expect(alerts.getByRole("button", { name: /^Lopetettu: / }).first()).toBeVisible();
+
+  const dismiss = alerts.getByRole("button", { name: /^Kuittaa: / }).first();
+  await expect(dismiss).toBeVisible();
+  const name = (await dismiss.getAttribute("aria-label"))!;
+  await dismiss.click();
+  await expect(alerts.getByRole("button", { name, exact: true })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Menot kuukausittain" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(alerts.getByRole("button", { name, exact: true }), "the dismissed alert is back after a reload").toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("the recurring tables fit a phone: the date of the next charge is inside the card at 390 px", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/recurring");
+  await expect(page.getByRole("heading", { name: "Tilaukset" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  // a table wider than its card scrolls sideways inside the card and clips the last column
+  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
+  expect(clipped, "tables that scroll sideways").toBe(0);
+  const next = page.locator("th", { hasText: "Seuraava" }).first();
+  await expect(next).toBeInViewport({ ratio: 1 });
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -191,4 +279,40 @@ test("sign out and back in", async ({ page }) => {
   await page.getByRole("button", { name: "Kirjaudu" }).click();
   await expect(page.getByRole("navigation").getByText("Yleiskatsaus").first()).toBeVisible();
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
+});
+
+test("an expected bill is added on the reports page, is still there after a reload and can be removed", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/reports");
+  const card = page.locator("#tulevat");
+  await expect(card.getByRole("heading", { name: "Tulevat laskut" })).toBeVisible();
+  const form = card.getByRole("form", { name: "Lisää odotettu lasku" });
+
+  // a missing name is explained next to the form, nothing is sent
+  await form.getByRole("button", { name: "Lisää lasku" }).click();
+  await expect(form.getByText("Anna laskulle nimi.")).toBeVisible();
+
+  const due = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
+  await form.getByLabel("Nimi").fill("E2E-ajoneuvovero");
+  await form.getByLabel("Summa").fill("312,50");
+  await form.getByLabel("Eräpäivä").fill(due);
+  await form.getByLabel("Toistuu").selectOption({ label: "vuosittain" });
+  await form.getByRole("button", { name: "Lisää lasku" }).click();
+
+  const remove = (p: Page) => p.locator("#tulevat").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
+  await expect(remove(page)).toBeVisible();
+  await expect(card.getByText(/^Varaa .* kuussa, harvinaiset laskut ovat .* vuodessa\.$/)).toBeVisible();
+
+  await page.reload();
+  await expect(remove(page)).toBeVisible();
+
+  await remove(page).click();
+  await expect(remove(page)).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("#tulevat").getByRole("form", { name: "Lisää odotettu lasku" })).toBeVisible();
+  await expect(page.locator("#tulevat").getByText("E2E-ajoneuvovero")).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
 });

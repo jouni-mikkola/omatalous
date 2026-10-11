@@ -212,15 +212,15 @@ git_policy() {
   want_url=$(pol_get REMOTE_URL); want_branch=$(pol_get BRANCH)
   [[ -n $want_url && -n $want_branch ]] || { GIT_MSG="Ylläpitoapurin asetukset puuttuvat (aja ./scripts/install.sh --ops-helper)"; return 1; }
   url=$(git remote get-url origin 2>/dev/null || true)
-  [[ $url == "$want_url" ]] || { GIT_MSG="Etäosoite on muuttunut"; return 1; }
+  [[ $url == "$want_url" ]] || { GIT_MSG="Päivityslähde on muuttunut"; return 1; }
   case $url in
     https://* | ssh://* | git@*:*) ;;
-    file://*) [[ ${OPS_TEST:-} == 1 ]] || { GIT_MSG="Etäosoitteen tyyppi ei ole sallittu"; return 1; } ;;
-    *) GIT_MSG="Etäosoitteen tyyppi ei ole sallittu"; return 1 ;;
+    file://*) [[ ${OPS_TEST:-} == 1 ]] || { GIT_MSG="Päivityslähteen osoite ei ole sallittu"; return 1; } ;;
+    *) GIT_MSG="Päivityslähteen osoite ei ole sallittu"; return 1 ;;
   esac
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  [[ $branch == "$want_branch" ]] || { GIT_MSG="Haara on muuttunut"; return 1; }
-  git diff --quiet && git diff --cached --quiet || { GIT_MSG="Kansiossa on paikallisia muutoksia"; return 1; }
+  [[ $branch == "$want_branch" ]] || { GIT_MSG="Päivityslähteen versiolinja on muuttunut"; return 1; }
+  git diff --quiet && git diff --cached --quiet || { GIT_MSG="Asennuskansion tiedostoja on muutettu käsin"; return 1; }
   return 0
 }
 # Policy check of the docker-compose.yml that is about to be used (R13). Compose itself resolves the file (quoted
@@ -257,13 +257,13 @@ compose_policy_ok() { # compose_policy_ok COMMIT: the commit's compose file, as 
   local dir out names rc=0
   command -v jq >/dev/null || { POLICY_MSG="jq puuttuu"; return 1; }
   # other files Compose or .env would read next to it
-  names=$(git ls-tree --name-only "$1" 2>/dev/null) || { POLICY_MSG="commitia ei löydy"; return 1; }
-  if grep -qiE '^(compose\.ya?ml|docker-compose\.yaml|\.env|.*override.*)$' <<<"$names"; then POLICY_MSG="ylimääräinen compose- tai .env-tiedosto"; return 1; fi
+  names=$(git ls-tree --name-only "$1" 2>/dev/null) || { POLICY_MSG="versiota ei löydy"; return 1; }
+  if grep -qiE '^(compose\.ya?ml|docker-compose\.yaml|\.env|.*override.*)$' <<<"$names"; then POLICY_MSG="ylimääräinen asetustiedosto"; return 1; fi
   dir=$(mktemp -d "$OPS/run/policy.XXXXXX") || { POLICY_MSG="väliaikaiskansio puuttuu"; return 1; }
   dir=$(cd "$dir" && pwd -P)
   git show "$1:docker-compose.yml" >"$dir/docker-compose.yml" 2>/dev/null || { rm -rf "$dir"; POLICY_MSG="docker-compose.yml puuttuu"; return 1; }
   out=$(cd "$dir" && timeout 30 env -i PATH="$PATH" HOME="${HOME:-/}" docker compose -f docker-compose.yml --env-file /dev/null --profile '*' config --format json 2>/dev/null) || rc=$?
-  if ((rc != 0)) || [[ -z $out ]]; then rm -rf "$dir"; POLICY_MSG="Compose ei lue tiedostoa"; return 1; fi
+  if ((rc != 0)) || [[ -z $out ]]; then rm -rf "$dir"; POLICY_MSG="asetustiedostoa ei voi lukea"; return 1; fi
   POLICY_MSG=$(jq -r --arg dir "$dir" "$COMPOSE_JQ" <<<"$out" 2>&1 | head -3 | paste -sd';' -)
   rm -rf "$dir"
   [[ -z $POLICY_MSG ]]
@@ -471,20 +471,20 @@ act_update() {
     # only this exact tag, only forward, only a commit that is on the pinned branch, only with a compose file
     # that passes the policy
     git fetch --quiet --no-tags origin "refs/tags/$REL_TAG:refs/tags/$REL_TAG" >>"$LOGF" 2>&1 || { fail "Julkaisun $REL_TAG koodia ei saatu."; return; }
-    git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" >>"$LOGF" 2>&1 || { fail "Haaraa $branch ei saatu. Mikään ei muuttunut."; return; }
+    git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" >>"$LOGF" 2>&1 || { fail "Uutta versiota ei saatu ladattua. Mikään ei muuttunut."; return; }
     target=$(git rev-parse "$REL_TAG^{commit}" 2>/dev/null || true)
-    [[ $target =~ ^[0-9a-f]{40}$ ]] || { fail "Julkaisun $REL_TAG koodia ei löytynyt."; return; }
-    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || { fail "Julkaisu ei jatka tämän kansion historiaa (ei pikakelausta). Mikään ei muuttunut."; return; }
-    git merge-base --is-ancestor "$target" "origin/$branch" 2>/dev/null || { fail "Julkaisun koodi ei kuulu päähaaraan. Mikään ei muuttunut."; return; }
+    [[ $target =~ ^[0-9a-f]{40}$ ]] || { fail "Version $REL_TAG koodia ei löytynyt."; return; }
+    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || { fail "Uusi versio ei jatka asennettua versiota. Mikään ei muuttunut."; return; }
+    git merge-base --is-ancestor "$target" "origin/$branch" 2>/dev/null || { fail "Version koodi ei ole päivityslähteessä. Mikään ei muuttunut."; return; }
     export TALOUS_RELEASE=$REL_TAG
   else
     unset TALOUS_RELEASE
     target=$(git rev-parse "origin/$branch^{commit}" 2>/dev/null || true)
     [[ $target =~ ^[0-9a-f]{40}$ ]] || { fail "Lähdekoodin uusinta versiota ei löytynyt."; return; }
-    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || { fail "Haara on kirjoitettu uudelleen (ei pikakelausta). Mikään ei muuttunut."; return; }
+    git merge-base --is-ancestor HEAD "$target" 2>/dev/null || { fail "Uusi versio ei jatka asennettua versiota. Mikään ei muuttunut."; return; }
   fi
   signers_ok "$target" || { fail "Uutta koodia ei ole allekirjoittanut luotettu avain. Mikään ei muuttunut."; return; }
-  compose_policy_ok "$target" || { fail "Compose-tiedosto ei täytä turvasääntöjä (${POLICY_MSG:-?}). Mikään ei muuttunut."; return; }
+  compose_policy_ok "$target" || { fail "Uuden version asetukset eivät täytä turvasääntöjä (${POLICY_MSG:-?}). Mikään ei muuttunut."; return; }
   # update.sh installs exactly this commit and does not fetch or choose anything itself
   export TALOUS_TARGET=$target TALOUS_MODE=$CHECK_MODE
   echo "STEP: 2/4 Haetaan ja vaihdetaan versio" >>"$LOGF"
@@ -594,18 +594,18 @@ image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
 act_prune() {
   local start imgs cache id_latest id_prev
   id_latest=$(image_id "$INSTANCE:latest"); id_prev=$(image_id "$INSTANCE:previous")
-  echo "STEP: 1/2 Poistetaan käyttämättömät kuvat" >>"$LOGF"
+  echo "STEP: 1/2 Poistetaan vanhat versiot" >>"$LOGF"
   start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
   run_cap "$T_PRUNE" docker image prune -f || { RC=$?; fail "Kuvien siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
   imgs=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
-  echo "STEP: 2/2 Tyhjennetään rakennusvälimuisti" >>"$LOGF"
+  echo "STEP: 2/2 Tyhjennetään välimuisti" >>"$LOGF"
   start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
   run_cap "$T_PRUNE" docker builder prune -f || { RC=$?; fail "Välimuistin siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
   cache=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
   if [[ $(image_id "$INSTANCE:latest") != "$id_latest" || $(image_id "$INSTANCE:previous") != "$id_prev" ]]; then
-    fail "Siivous poisti version kuvan, jota ei pitäisi."; return
+    fail "Siivous poisti version, jonka piti jäädä."; return
   fi
-  if [[ $imgs == "0 t" && $cache == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Vapautettiin tilaa: kuvat $imgs, välimuisti $cache."; fi
+  if [[ $imgs == "0 t" && $cache == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Levyltä vapautui $imgs vanhoista versioista ja $cache välimuistista."; fi
 }
 # The script schedule and the policy are installed again from this clone, with fixed arguments. Without
 # --ops-policy an existing policy (remote, branch, docker) is kept, so a changed remote is not adopted here.

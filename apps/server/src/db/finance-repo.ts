@@ -8,10 +8,12 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { AccountType, CategoryRule, Transaction } from "@banking/core";
+import type { AccountType, CategoryRule, ExpectedBill, MarkKind, Transaction } from "@banking/core";
 import { AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
+import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
+import { MarksRepo } from "./finance/marks.ts";
 import { MerchantsRepo } from "./finance/merchants.ts";
 import { RulesRepo } from "./finance/rules.ts";
 import { SyncRunsRepo } from "./finance/sync-runs.ts";
@@ -33,7 +35,9 @@ export class FinanceRepo {
   private readonly list: TransactionListRepo;
   private readonly merchants: MerchantsRepo;
   private readonly rules: RulesRepo;
+  private readonly marks: MarksRepo;
   private readonly syncRuns: SyncRunsRepo;
+  private readonly expectedBills: ExpectedBillsRepo;
 
   constructor(
     db: Db,
@@ -46,7 +50,9 @@ export class FinanceRepo {
     this.list = new TransactionListRepo(ctx);
     this.rules = new RulesRepo(ctx);
     this.merchants = new MerchantsRepo(ctx, this.rules, this.list);
+    this.marks = new MarksRepo(ctx);
     this.syncRuns = new SyncRunsRepo(ctx);
+    this.expectedBills = new ExpectedBillsRepo(ctx);
   }
 
   // ── accounts (finance/accounts.ts) ───────────────────────
@@ -119,10 +125,21 @@ export class FinanceRepo {
   renameMerchantRules(renames: ReadonlyMap<string, string>) { return this.rules.renameMerchantRules(renames); }
   deleteRule(id: number) { return this.rules.deleteRule(id); }
 
+  // ── marks (finance/marks.ts) ─────────────────────────────
+  listMarks() { return this.marks.listMarks(); }
+  setMark(subject: string, mark: MarkKind, at: string) { return this.marks.setMark(subject, mark, at); }
+  clearMark(subject: string) { return this.marks.clearMark(subject); }
+  renameMerchantMarks(renames: ReadonlyMap<string, string>) { return this.marks.renameMerchantMarks(renames); }
+
   // ── sync runs (finance/sync-runs.ts) ─────────────────────
   startSyncRun(trigger: string) { return this.syncRuns.startSyncRun(trigger); }
   finishSyncRun(id: number, r: Pick<SyncRun, "status" | "fetched" | "inserted" | "message">) { return this.syncRuns.finishSyncRun(id, r); }
   failInterruptedSyncRuns() { return this.syncRuns.failInterruptedSyncRuns(); }
   pruneSyncRuns(keep?: number) { return this.syncRuns.pruneSyncRuns(keep); }
   listSyncRuns(limit?: number) { return this.syncRuns.listSyncRuns(limit); }
+
+  // ── expected bills (finance/expected-bills.ts) ───────────
+  listExpectedBills() { return this.expectedBills.listExpectedBills(); }
+  addExpectedBill(bill: ExpectedBill, createdAt: string) { return this.expectedBills.addExpectedBill(bill, createdAt); }
+  deleteExpectedBill(id: string) { return this.expectedBills.deleteExpectedBill(id); }
 }

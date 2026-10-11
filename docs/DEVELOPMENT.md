@@ -89,7 +89,8 @@ No migration is needed. After the next update every member's history is categori
 
 ### New report
 
-1. `packages/core/src/reports/<name>.ts`: a pure function `(ctx, range) => data`.
+1. `packages/core/src/reports/<name>.ts`: a pure function `(ctx, range) => data`, starting with a `Decision:` comment
+   that names what the household decides with it. A repo rule checks it, also in the section file.
 2. Register it in `reports/index.ts`. The API and types follow.
 3. A section file in `apps/web/src/pages/reports/sections/` (copy an existing one). `registry.ts` finds it; its
    `reports` list names the core reports it reads, and a repo rule checks that every report has a section.
@@ -131,7 +132,8 @@ start of the file, and `parserFor` takes the best one.
    work with the new column.
 3. An additive file starts with `-- migrate: compat <version>`, the oldest app version that may keep running on the
    schema it leaves. The floor is stored with the applied row. A build that does not know the migration still opens
-   the database when its own version is at or above the floor, so a rollback keeps the data written since the update.
+   the database when its own version is at or above the floor, so a rollback keeps the data written since the update
+   (`scripts/update.sh --rollback` asks the previous image to run its own `migrate-check` on the live database).
    Pick the floor by reading the new schema as that old version would: the new column is null or has a default, the
    new table and index are unused. Without the line no floor is stored and every build that lacks the file refuses the
    database, so a rollback restores the copy taken before the update. The line goes in the leading comment block.

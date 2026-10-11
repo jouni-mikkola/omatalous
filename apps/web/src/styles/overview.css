@@ -1,12 +1,22 @@
-/* Overview and Recurring: tiles, insights, alerts, the monthly breakdown, upcoming charges. */
+/* Overview and Recurring: the month row, key figures, insights, alerts, the monthly breakdown, upcoming charges. */
 
 .tile-label { color: var(--text-2); font-size: 13px; }
 .tile-value { font-size: 28px; font-weight: 500; margin: 4px 0 2px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .tile-note { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-.tile-foot { display: flex; align-items: end; justify-content: space-between; gap: 8px; min-height: 28px; }
 .delta { font-size: 12px; color: var(--text-2); }
-.delta .up-good, .delta .down-good { color: var(--good); font-weight: 600; }
-.delta .up-bad, .delta .down-bad { color: var(--bad); font-weight: 600; }
+
+/* the month: the forecast beside the explanation on a desktop, the forecast first on a phone */
+.month-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 1100px) { .month-row.with-forecast { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
+.forecast-parts { margin: 14px 0 0; display: grid; gap: 6px; }
+.forecast-parts > div { display: flex; justify-content: space-between; gap: 12px; }
+.forecast-parts dt { color: var(--text-2); }
+.forecast-parts dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.forecast-parts dt small { display: block; }
+.forecast-usual { margin: 10px 0 0; }
+/* the merchant's second line wraps on a phone: an ellipsis turned "viimeksi 11.10.2026" into "11.1…" */
+@media (max-width: 600px) { .overview-merchants td .sub { max-width: none; white-space: normal; overflow: visible; } }
+.bridge-fixed { margin: 0; }
 
 .breakdown { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
 .breakdown-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
@@ -21,7 +31,7 @@
 
 @media (max-width: 520px) { .breakdown-table .spark-col { display: none; } }
 
-.insights { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
 .insight { border-radius: 6px; padding: 10px 12px 10px 14px; background: var(--surface); border: 1px solid var(--border); }
 .insight.good { border-left: 3px solid var(--good); }
 .insight.warning { border-left: 3px solid var(--warn); }
@@ -31,15 +41,16 @@
 .insight-detail { color: var(--text-2); font-size: 13px; }
 
 /* alerts: cost traps above the insights, one line each, the tone as the left edge */
-.alerts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 8px 10px; }
-.alert { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; min-width: 0; }
+.alerts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 8px 10px; }
+.alert { display: flex; flex-wrap: wrap; align-items: center; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; min-width: 0; }
 .alert.warning { border-left-color: var(--warn); }
-.alert a, .alert-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; padding: 8px 12px; color: inherit; text-decoration: none; }
+.alert a, .alert-body { display: flex; flex: 1 1 16rem; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 0 10px; padding: 8px 12px; color: inherit; text-decoration: none; }
 .alert a { padding-right: 28px; position: relative; }
 .alert a::after { content: "›"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 16px; }
 .alert a:hover .alert-title { text-decoration: underline; }
 .alert-title { font-weight: 600; }
 .alert-detail { color: var(--text-2); font-size: 13px; }
-
-.upcoming-head { margin-top: 14px; }
+/* beside the text on a wide card, under it on a narrow one */
+.alert-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-self: flex-end; padding: 0 12px 8px; }
+.insight-actions { margin-top: 6px; }
 .upcoming-more { margin-top: 8px; }

@@ -1,9 +1,11 @@
 # shellcheck shell=bash
 # What update.sh does around the switch. Before the old container stops it tries the new image's database migrations on
 # the verified copy of the database (`migrate-check`, 0.6.0 and later), and it puts everything back when that fails.
-# After a healthy start it records whether the schema changed, for the rollback dialog.
+# After a healthy start it records whether the schema changed, for the rollback dialog. A rollback whose database has
+# another migration history than the pre-update copy asks the previous image whether it opens the database as it is
+# (previous_reads_database), so a rollback keeps the data written since the update when it can.
 # Sourced by update.sh, which provides IMAGE, CHANNEL, STATE, prev_commit, COPY_SNAPSHOT, in_app, app_up, run_logged,
-# say and ok.
+# project_name, say, ok and die.
 
 # How long the new version may take to answer, in seconds: 120 unless the migration check on the copy took long.
 HEALTH_WAIT=120
@@ -30,13 +32,79 @@ healthy() {
   return 1
 }
 
-# True when the new image has `migrate-check`. The command is asked without a file: an image that has it prints its usage
-# and exits 2, an older one does something else (0.5.x treats it as an unknown command). No volume is mounted for the
-# question, so an older image cannot touch the data.
-migrate_check_available() {
+# True when an image (default: the new one, $IMAGE:latest) has `migrate-check`. The command is asked without a file: an
+# image that has it prints its usage and exits 2, an older one does something else (0.5.x treats it as an unknown
+# command). No volume is mounted for the question, so an older image cannot touch the data.
+migrate_check_available() { # migrate_check_available [IMAGE]
   local rc=0
-  docker run --rm --network none --entrypoint node "$IMAGE:latest" --disable-warning=ExperimentalWarning dist/node.js migrate-check >/dev/null 2>&1 || rc=$?
+  docker run --rm --network none --entrypoint node "${1:-$IMAGE:latest}" --disable-warning=ExperimentalWarning dist/node.js migrate-check >/dev/null 2>&1 || rc=$?
   ((rc == 2))
+}
+# What a rollback is about to overwrite, or to keep and start an older version on, is copied first (the 5 newest
+# pre-rollback-*.db stay), so nothing is lost for good. The app is stopped. Needs DBCOPY_JS (lib/dbcopy.sh). When the copy
+# fails nothing has changed: the app is started again and the rollback ends.
+save_before_rollback() {
+  if ! docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" 'exists,keep:^pre-rollback-[0-9TZ]+\.db$' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db"; then
+    docker compose start banking >/dev/null
+    die "Could not copy the current database (is the disk full?). Nothing was changed and the current version was started again."
+  fi
+  ok "The current database was saved first (pre-rollback-*.db)."
+}
+# How long the previous image may take to look at the live database, in seconds. A check that runs longer is a refusal.
+# It stays well inside the maintenance helper's 10 minutes for a rollback, so the restore still fits after it.
+PREVIOUS_CHECK_WAIT=120
+# The volume behind /data, found by the labels Compose put on it (the project name depends on the folder or .env).
+data_volume() {
+  docker volume ls -q --filter "label=com.docker.compose.project=$(project_name)" --filter 'label=com.docker.compose.volume=banking-data' 2>/dev/null | head -1
+}
+# The rollback's question, asked with the app stopped: does the previous image ($IMAGE:previous, the one the rollback
+# starts) open the live database as it is? Its own `migrate-check` answers it. Exit 0 with a JSON line that lists no
+# applied migration means it opens the file and has nothing to change, so the data written since the update can stay.
+# Every other answer is a no and returns 1: the check refused the file (exit 1), it would apply migrations (the old
+# image would change the live database at start), the image has no such command, docker failed or the time ran out. The image is first
+# asked without a file (migrate_check_available), so one that lacks the command never gets the data volume. The
+# container has no network and the limits of the app service in docker-compose.yml, and runs as the image's user, which
+# is the service's.
+previous_reads_database() {
+  local log volume rc=0 guard=() name="$IMAGE-rollback-check"
+  if ! migrate_check_available "$IMAGE:previous"; then
+    say "The previous version has no migration check, so it is not asked about the database."
+    return 1
+  fi
+  volume=$(data_volume) || true
+  if [[ -z $volume ]]; then
+    say "The data volume was not found, so the previous version is not asked about the database."
+    return 1
+  fi
+  # A plain docker run has no time limit. timeout (and a kill) ends the docker client only, so the container has a name,
+  # per instance, and is removed by name after any failure: it must not run on into the restore and the app start.
+  ! command -v timeout >/dev/null || guard=(timeout -k 10 "$PREVIOUS_CHECK_WAIT")
+  # a leftover of a run that was killed hard would block the name
+  [[ -z $(docker ps -aq --filter "name=^$name\$" 2>/dev/null) ]] || docker rm -f "$name" >/dev/null 2>&1 || true
+  log=$(mktemp)
+  run_logged "$log" "Checking" ${guard[@]+"${guard[@]}"} docker run --rm --name "$name" --network none --read-only --tmpfs /tmp:noexec,nosuid,nodev,size=16m \
+    --cap-drop ALL --security-opt no-new-privileges:true --memory 512m --pids-limit 200 -v "$volume:/data" \
+    --entrypoint node "$IMAGE:previous" --disable-warning=ExperimentalWarning dist/node.js migrate-check /data/banking.db || rc=$?
+  if ((rc != 0)); then
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    if ((rc == 1)); then
+      # the check's own line says why it refused
+      { grep -E '^migrate-check' "$log" || tail -n 3 "$log"; } | cut -c1-400 | sed 's/^/  /' >&2
+    elif ((rc == 124 || rc == 137)); then
+      printf 'The previous version took longer than %s s to look at the database, or was killed.\n' "$PREVIOUS_CHECK_WAIT" >&2
+    else
+      printf 'The previous version could not be asked about the database (exit code %s). End of its output:\n' "$rc" >&2
+      tail -n 3 "$log" | cut -c1-400 | sed 's/^/  /' >&2
+    fi
+  fi
+  # the JSON line is the check's own, e.g. {"ok":true,"file":...,"applied":[],"ahead":[...],...}
+  if ((rc == 0)) && ! grep -E '^\{"ok":true,' "$log" | grep -q '"applied":\[\],'; then
+    printf 'The previous version has changes of its own to make to the database, so it is not kept as it is. End of its output:\n' >&2
+    tail -n 3 "$log" | cut -c1-400 | sed 's/^/  /' >&2
+    rc=1
+  fi
+  rm -f "$log"
+  ((rc == 0))
 }
 # Tries the new image's migrations on the verified copy while the old container still runs. Returns 1 when the check
 # itself failed (migrate-check exits 1: the migrations, the integrity check or the row counts) and 2 when it could not

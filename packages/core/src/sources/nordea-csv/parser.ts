@@ -71,7 +71,7 @@ export function parseDelimitedWithLines(text: string, delimiter: string, stopAft
   let rowLine = 1;
   const endRow = () => {
     row.push(field);
-    if (enforceLimits && row.length > CSV_MAX_COLUMNS) throw new CsvTooLarge(`Tiedostossa on yli ${CSV_MAX_COLUMNS} saraketta. Se ei ole pankin tilioteviedosto.`);
+    if (enforceLimits && row.length > CSV_MAX_COLUMNS) throw new CsvTooLarge(`Tiedostossa on yli ${CSV_MAX_COLUMNS} saraketta. Se ei ole pankin tapahtumatiedosto.`);
     if (row.some((f) => f.trim())) {
       if (enforceLimits && rows.length >= CSV_MAX_ROWS) throw new CsvTooLarge(`Tiedostossa on yli ${CSV_MAX_ROWS} riviä. Tuo tapahtumat pienemmissä osissa.`);
       rows.push(row);
@@ -98,7 +98,7 @@ export function parseDelimitedWithLines(text: string, delimiter: string, stopAft
     } else if (ch === delimiter) {
       row.push(field);
       // checked while reading, not only at the end of the row: one endless row must not fill the memory
-      if (enforceLimits && row.length > CSV_MAX_COLUMNS) throw new CsvTooLarge(`Tiedostossa on yli ${CSV_MAX_COLUMNS} saraketta. Se ei ole pankin tilioteviedosto.`);
+      if (enforceLimits && row.length > CSV_MAX_COLUMNS) throw new CsvTooLarge(`Tiedostossa on yli ${CSV_MAX_COLUMNS} saraketta. Se ei ole pankin tapahtumatiedosto.`);
       field = "";
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") {

@@ -24,7 +24,14 @@ next releases are in `.claude/plan/` (private repo only).
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
   rules (`categorize.ts`), trade register matching (`industry.ts`), import parsers (`sources/*`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
   recurring detection, money flows, analysis context, dashboard, insights, `reports/*` with a registry in
-  `reports/index.ts`.
+  `reports/index.ts`. One definition per figure: `analysis/usual.ts` (complete months, the usual level) and
+  `commitments.ts` (fixed costs, subscriptions, expected bill dates); `docs/MONEY_FLOWS.md` says them in prose.
+  `analysis/explain.ts` (why a month differs), `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
+  `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete months),
+  `change.ts` (what moved spending, split into causes that add up; wording in `change-text.ts`), `income.ts` (income by
+  type, derived on read) with `income-changes.ts`, `income-events.ts`, `income-series.ts`. `analysis/insights/` has one
+  source per file with its own gate and history rule (`shared.ts` holds the shared gates); `index.ts` only ranks them by
+  `yearlyCents`, and a dismissed insight returns when its figure moves 25 %.
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
   `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` and `db/finance/` (all SQL),
@@ -59,6 +66,8 @@ next releases are in `.claude/plan/` (private repo only).
   `data_version:<user id>`, which keys the analysis cache). A change that touches only the account list, such as a
   balance, calls `settings.bumpUserDataVersion(userId)`, and sharing changes bump the owner and the viewer.
   `settings.bumpDataVersion()` is for changes that touch everyone. A sync or import that changed no row does neither.
+  The user's marks (`user_marks`, `db/finance/marks.ts`, `PUT /api/marks`) and expected bills (`expected_bills`,
+  `/api/expected-bills`) are read per request (`requestInputs`) and are not part of the cached context.
 - `category_source = 'user'` is never overwritten by automation.
 - Every money movement lands in exactly one flow (consumption, debt, saved, income, borrowed) or is a
   transfer. A card bill is a transfer when that card's account is connected. See `docs/MONEY_FLOWS.md`.
@@ -88,7 +97,7 @@ next releases are in `.claude/plan/` (private repo only).
   refuses). Prefer additive changes; table rebuilds start with `-- migrate: foreign_keys=off`. Old code refuses a DB
   migrated by a newer version (`db/migrate.ts`) unless each unknown migration stored a compat floor at or below its
   version (`-- migrate: compat X.Y.Z`, allowed only on additive files); `migrate-check <db>` tries pending migrations on a copy; `openDatabase` snapshots before migrating; `scripts/update.sh`
-  has `--rollback`. Derived fields are recomputed after every version change (`services/upgrade.ts`), so rule
+  has `--rollback`, which keeps the live DB only when the previous image's `migrate-check` reports nothing to apply. Derived fields are recomputed after every version change (`services/upgrade.ts`), so rule
   changes need no migration. Release = `node tools/release/prepare.mjs X.Y.Z` (versions, CHANGELOG from
   `changelog.d/`), then `tools/release/ship.sh` (docs/RELEASING.md).
 
@@ -102,7 +111,8 @@ next releases are in `.claude/plan/` (private repo only).
 - UI text Finnish; code, identifiers and comments English. Comments explain why.
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
   `apps/web/src/pages/reports/sections/` that names the reports it reads + invariant test in
-  `packages/core/test/reports.test.ts`.
+  `packages/core/test/reports.test.ts`. Each report and section starts with a `Decision:` comment naming what the
+  household decides with it (repo rule 11); a view with no decision is not built.
 - New module behind a flag: an entry in `FEATURES` (`packages/core/src/features.ts`), its routes mounted through
   `gated(s, id, routes)` (`auth/middleware.ts`), and its `nav.ts` entry names the flag. Admins switch flags in
   Asetukset > Palvelin.

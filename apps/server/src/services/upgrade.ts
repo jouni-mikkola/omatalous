@@ -72,8 +72,10 @@ export async function runUpgradeTasks(s: Services, buildId: string): Promise<Upg
         await repo.updateMerchants(changes);
         // rows from before search_text existed, and the names just re-derived
         await repo.writeSearchText(rows);
-        // a rule for an exact old name follows it only when every row of that name got the same new name
-        await repo.renameMerchantRules(new Map([...names].filter(([from, to]) => to.size === 1 && !to.has(from)).map(([from, to]) => [from, [...to][0]!])));
+        // a rule or a mark for an exact old name follows it only when every row of that name got the same new name
+        const renames = new Map([...names].filter(([from, to]) => to.size === 1 && !to.has(from)).map(([from, to]): [string, string] => [from, [...to][0]!]));
+        await repo.renameMerchantRules(renames);
+        await repo.renameMerchantMarks(renames);
         result.recategorised += (await reprocessLocked(repo, s.settings, rows)).changed;
         result.merchantsRenamed += changes.length;
       });

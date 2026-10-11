@@ -3,10 +3,13 @@
  * series) per user and scope. A cache entry is valid while the data versions
  * it was built from are unchanged (the user's own, the owners' of shared
  * accounts in view, and the instance's), so a dashboard request after the
- * first one only filters and sums.
+ * first one only filters and sums. The cache holds the context only: the dashboard and the reports are built for
+ * each request, with the balances and the user's marks and expected bills from `requestInputs`, so those need no
+ * data version.
  */
-import { type Account, type AnalysisContext, createContext, detectTransfers } from "@banking/core";
+import { type Account, type AnalysisContext, type BalanceInput, createContext, detectTransfers, type UserInputs } from "@banking/core";
 import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
+import { todayIn } from "../platform/config.ts";
 import type { Services } from "./context.ts";
 
 /** own = my accounts; household = mine + accounts other members shared with me. */
@@ -19,6 +22,8 @@ export function parseScope(value: string | undefined): Scope {
 export interface ScopeAccount extends StoredAccount {
   /** Display name of the owner when the account belongs to someone else. */
   ownerName: string | null;
+  /** My own copy of a joint account the partner linked too (household view only). */
+  joint?: boolean;
 }
 
 export interface ScopeData {
@@ -128,11 +133,38 @@ async function loadScope(s: Services, userId: string, scope: Scope, today: strin
   let txs: StoredTransaction[] = await repo.allTransactions();
 
   if (scope === "household" && shared.length) {
-    accounts = [...accounts, ...shared];
+    // a joint account the partner linked too is left out of `shared` (sharedInView): flag my copy, so it is never split to a person
+    const partners = new Set((await s.household.sharedWith(userId)).map((a) => a.identity).filter(Boolean));
+    accounts = [...accounts.map((a) => (a.identity && partners.has(a.identity) ? { ...a, joint: true } : a)), ...shared];
     txs = [...txs, ...(await s.household.transactionsOfAccounts(shared.map((a) => a.id)))];
     txs = neutraliseTransfersBetweenMembers(txs, accounts);
   }
   return { ctx: createContext(txs, accounts, today), accounts };
+}
+
+/**
+ * What a dashboard or report request needs next to the cached context: the balances of the accounts in view and the
+ * user's own marks and expected bills (the household view uses the viewer's). Read for each request, never cached.
+ */
+export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
+  const repo = s.finance(userId);
+  const [marks, expectedBills] = await Promise.all([repo.listMarks(), repo.listExpectedBills()]);
+  // the books count local days: a balance given at 1.30 already holds that morning's rows
+  const timezone = s.instance.current.timezone;
+  const localDay = (at: string | null) => {
+    const when = at ? new Date(at) : null;
+    return when && !Number.isNaN(when.getTime()) ? todayIn(timezone, when) : null;
+  };
+  const balances = accounts.map((a) => ({
+    id: a.id,
+    name: a.ownerName ? `${a.name} (${a.ownerName})` : a.name,
+    type: a.type,
+    balanceCents: a.balanceCents,
+    ownerName: a.ownerName,
+    balanceAt: localDay(a.balanceAt),
+    ...(a.joint ? { joint: true } : {}),
+  }));
+  return { balances, inputs: { marks, expectedBills } };
 }
 
 /**

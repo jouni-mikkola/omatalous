@@ -472,6 +472,28 @@ describe("MobilePay to businesses", () => {
   });
 });
 
+describe("Vipps MobilePay", () => {
+  it("a Vipps payment to a person is a payment to a person, one to a company is what it buys", () => {
+    const { byDesc, totals } = run(
+      [
+        row("chk", "2026-09-04", -20, "VIPPS", "ELISA VIRTANEN"),
+        row("chk", "2026-09-05", 15, "VIPPS MOBILEPAY", "OTTO HEIKKINEN"),
+        row("chk", "2026-09-06", -12.6, "VIPPS APTEEKKI", "LÄHIAPTEEKKI KUNTTU"),
+        row("chk", "2026-09-07", -15, "VIPPS MOBILEPAY KAUPPA", "K-MARKET KAMPPI"),
+        row("chk", "2026-09-08", -10, "VIPPS SEURA", "TIKKURILAN TIIKERIT RY"),
+      ],
+      [checking],
+    );
+    expect(byDesc("VIPPS").category).toBe("p2p");
+    expect(byDesc("VIPPS MOBILEPAY").category).toBe("p2p_in");
+    expect(byDesc("VIPPS APTEEKKI").category).toBe("health");
+    expect(byDesc("VIPPS MOBILEPAY KAUPPA").category).toBe("groceries");
+    expect(byDesc("VIPPS SEURA").category).not.toBe("p2p");
+    // every row lands in one flow: the person's money in is income, the rest is spending
+    expect(totals).toMatchObject({ incomeCents: 1500, consumptionCents: 2000 + 1260 + 1500 + 1000, debtCents: 0 });
+  });
+});
+
 describe("household view", () => {
   it("does not re-pair legs that each member already paired, nor apply the issuer fallback", () => {
     const shared = [

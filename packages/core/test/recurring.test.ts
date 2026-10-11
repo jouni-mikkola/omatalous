@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { detectRecurring, fixedMonthlyCents, fixedSplit, isFixedCost, projectDates } from "../src/recurring.ts";
+import { fixedMonthlyCents, fixedSplit, isFixedCost } from "../src/commitments.ts";
+import { detectRecurring, projectDates } from "../src/recurring.ts";
 import { series, tx } from "./helpers.ts";
 import { addDays, addMonths } from "../src/dates.ts";
 import type { Transaction } from "../src/types.ts";

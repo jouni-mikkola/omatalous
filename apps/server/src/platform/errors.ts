@@ -34,4 +34,4 @@ export class TooManyAttempts extends UserError {
   }
 }
 
-export const tooManyMessage = (waitSeconds: number) => `Liian monta yritystä. Yritä uudelleen ${Math.max(1, Math.ceil(waitSeconds / 60))} min päästä.`;
+export const tooManyMessage = (waitSeconds: number) => `Liian monta yritystä. Yritä uudelleen ${Math.max(1, Math.ceil(waitSeconds / 60))} minuutin päästä.`;

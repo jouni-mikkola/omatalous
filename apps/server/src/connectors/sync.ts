@@ -42,7 +42,7 @@ function euroRows(raws: readonly RawTransaction[], accountName: string): { rows:
     return false;
   });
   const skipped = [...foreign.values()].reduce((a, b) => a + b, 0);
-  const note = skipped ? `${accountName}: ohitettu ${skipped === 1 ? "1 rivi" : `${skipped} riviä`}, joiden valuutta ei ole EUR (${[...foreign.keys()].join(", ")}).` : null;
+  const note = skipped ? `${accountName}: ohitettu ${skipped === 1 ? "1 rivi, jonka" : `${skipped} riviä, joiden`} valuutta ei ole EUR (${[...foreign.keys()].join(", ")}).` : null;
   return { rows, note };
 }
 

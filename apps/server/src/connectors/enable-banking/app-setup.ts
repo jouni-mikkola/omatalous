@@ -220,7 +220,7 @@ export async function checkAppId(s: Services, input: unknown): Promise<Activatio
   const appId = parseAppId(o.appId);
   const now = s.now().getTime();
   const recent = (recentChecks.get(s) ?? []).filter((t) => now - t < CHECK_WINDOW_MS);
-  if (recent.length >= CHECK_MAX) throw new UserError("Liian monta testiä peräkkäin. Odota muutama minuuttia.");
+  if (recent.length >= CHECK_MAX) throw new UserError("Liian monta testiä peräkkäin. Odota muutama minuutti.");
   recentChecks.set(s, [...recent, now]);
 
   let pem: string;

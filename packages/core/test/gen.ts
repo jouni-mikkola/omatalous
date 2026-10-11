@@ -1,4 +1,4 @@
-import { addDays } from "../src/dates.ts";
+import { addDays, addMonths, daysBetween } from "../src/dates.ts";
 import type { Account, CategoryRule, Transaction } from "../src/types.ts";
 
 export function rng(seed: number) {
@@ -23,11 +23,29 @@ const UNKNOWN = ["Xyzzy Tuntematon", "Qwerty Puoti", "Aaltonen Konsultointi Oy",
 const PEOPLE = ["Matti Meikäläinen", "Liisa Virtanen", "Kari Korhonen", "Anna Laine", "Juha Mäkinen"];
 const SUBS = ["Spotify", "Netflix", "HBO Max", "Helen Sähkö", "Elisa"];
 
+/** The last day a generated history can reach. */
+const HISTORY_END = "2025-10-28";
+
+export interface HistoryOptions {
+  /** Months of history up to 28.10.2025. Without it the history runs 1.1.–28.10.2025. */
+  months?: number;
+  /**
+   * What a settled household has beside the noise, in place of pay and loan rows on random days: monthly pay, rent, a
+   * loan instalment, two subscriptions and an electricity bill that run the whole history, yearly subscriptions, a gym
+   * that ended long ago, an electricity company switched in mid-history, pay-later invoices of varying sums and, on
+   * every third seed, a card account that stopped syncing two months before the end.
+   */
+  settled?: boolean;
+}
+
 /** A mixed history with every kind of row the pipeline treats specially: ids are unique, ties are common. */
-export function randomHistory(seed: number, count: number): { txs: Transaction[]; accounts: Account[]; rules: CategoryRule[] } {
+export function randomHistory(seed: number, count: number, opts: HistoryOptions = {}): { txs: Transaction[]; accounts: Account[]; rules: CategoryRule[] } {
   const r = rng(seed);
   const pick = <T,>(xs: readonly T[]) => xs[Math.floor(r() * xs.length)]!;
-  const day = () => addDays("2025-01-01", Math.floor(r() * 300));
+  const start = opts.months ? addDays(HISTORY_END, -Math.round(opts.months * 30.44)) : "2025-01-01";
+  const span = opts.months ? daysBetween(start, HISTORY_END) : 300;
+  const day = () => addDays(start, Math.floor(r() * span));
+  const settled = opts.settled ?? false;
   const txs: Transaction[] = [];
   let n = 0;
   const add = (p: Partial<Transaction> & Pick<Transaction, "bookingDate" | "amountCents" | "merchant">) => {
@@ -85,9 +103,11 @@ export function randomHistory(seed: number, count: number): { txs: Transaction[]
       const s = pick(SUBS);
       for (let m = 0; m < 4 && n < count; m++) add({ bookingDate: addDays(d, m * 30), amountCents: -pick([999, 1299, 4900]), merchant: s, description: s.toUpperCase(), accountId: "chk" });
     } else if (x < 0.84) {
-      add({ bookingDate: d, amountCents: 300000 + Math.floor(r() * 50000), merchant: "Työnantaja Oy", counterparty: "TYÖNANTAJA OY", description: "PALKKA", accountId: "chk" });
+      const amountCents = 300000 + Math.floor(r() * 50000);
+      if (!settled) add({ bookingDate: d, amountCents, merchant: "Työnantaja Oy", counterparty: "TYÖNANTAJA OY", description: "PALKKA", accountId: "chk" });
     } else if (x < 0.88) {
-      add({ bookingDate: d, amountCents: -Math.round(40000 + r() * 100), merchant: "Nordea", description: "LAINANLYHENNYS", accountId: "chk", counterpartyIban: "FI5512345600000123" });
+      const amountCents = -Math.round(40000 + r() * 100);
+      if (!settled) add({ bookingDate: d, amountCents, merchant: "Nordea", description: "LAINANLYHENNYS", accountId: "chk", counterpartyIban: "FI5512345600000123" });
     } else if (x < 0.93) {
       // the user chose these by hand
       const t = pick(["groceries", "restaurants", "other", "transfer", "p2p", "savings"]);
@@ -96,11 +116,54 @@ export function randomHistory(seed: number, count: number): { txs: Transaction[]
       add({ bookingDate: d, amountCents: pick([1, -1]) * Math.round(100 + r() * 30000), merchant: pick(UNKNOWN), accountId: pick(["chk", "sav", "card"]), counterpartyIban: pick([null, null, "FI2112345600000785", "FI1410093000123458", "FI9900000000000009"]) });
     }
   }
+  if (settled) settle(seed, start, add);
+  // a card account that stopped syncing: its rows end two months before the rest
+  const kept = settled && seed % 3 === 0 ? txs.filter((t) => t.accountId !== "card" || t.bookingDate < "2025-09-01") : txs;
   // the order the server reads: date, then id
-  txs.sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || (a.id < b.id ? -1 : 1));
+  kept.sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || (a.id < b.id ? -1 : 1));
   const rules: CategoryRule[] = [
     { id: 1, field: "merchant_exact", pattern: "Xyzzy Tuntematon", category: "shopping", priority: 5 },
     { id: 2, field: "merchant", pattern: "Zorro", category: "hobbies", priority: 10 },
   ];
-  return { txs, accounts: ACCOUNTS, rules };
+  return { txs: kept, accounts: ACCOUNTS, rules };
+}
+
+type Add = (p: Partial<Transaction> & Pick<Transaction, "bookingDate" | "amountCents" | "merchant">) => void;
+
+/** The settled household's regular rows (`HistoryOptions.settled`), from their own generator so the noise stays the same. */
+function settle(seed: number, start: string, add: Add): void {
+  const r = rng(seed * 7919 + 13);
+  const months: string[] = [];
+  for (let m = start.slice(0, 7); `${m}-28` <= HISTORY_END; m = addMonths(m, 1)) months.push(m);
+  const on = (month: string, dayOfMonth: number) => `${month}-${String(dayOfMonth).padStart(2, "0")}`;
+  const inHistory = (date: string) => date >= start && date <= HISTORY_END;
+  const pay = 280000 + Math.round(r() * 100000);
+  const rent = -(70000 + Math.round(r() * 40000));
+  const loan = -(25000 + Math.round(r() * 20000));
+  // the electricity company changes once, between the ninth month and six months before the end
+  const switchAt = 8 + Math.floor(r() * (months.length - 14));
+  const gymEnds = 6 + Math.floor(r() * 6);
+  for (const [i, m] of months.entries()) {
+    // pay day moves a day or two earlier when the 25th is a weekend
+    add({ bookingDate: on(m, 25 - Math.floor(r() * 3)), amountCents: pay + Math.round(r() * 3000), merchant: "Työnantaja Oy", counterparty: "TYÖNANTAJA OY", description: "PALKKA", accountId: "chk" });
+    add({ bookingDate: on(m, 2), amountCents: rent, merchant: "Vuokranantaja Oy", counterparty: "VUOKRANANTAJA OY", description: "VUOKRA", accountId: "chk" });
+    add({ bookingDate: on(m, 20), amountCents: loan, merchant: "Nordea", description: "LAINANLYHENNYS", accountId: "chk", counterpartyIban: "FI5512345600000123" });
+    add({ bookingDate: on(m, 8), amountCents: -1199, merchant: "Spotify", description: "SPOTIFY", accountId: "card" });
+    add({ bookingDate: on(m, 12), amountCents: -1599, merchant: "Netflix", description: "NETFLIX", accountId: "chk" });
+    // a bill that follows the season
+    const winter = [1, 2, 3, 11, 12].includes(Number(m.slice(5)));
+    add({ bookingDate: on(m, 16), amountCents: -Math.round((winter ? 9000 : 4000) + r() * 2500), merchant: i < switchAt ? "Helen Sähkö" : "Oomi Energia", description: "SÄHKÖ", accountId: "chk" });
+    if (i < gymEnds) add({ bookingDate: on(m, 4), amountCents: -3990, merchant: "Elixia", description: "ELIXIA", accountId: "card" });
+    // pay-later invoices: a different sum each time, never a plan
+    if (r() < 0.7) add({ bookingDate: on(m, 1 + Math.floor(r() * 27)), amountCents: -Math.round(1500 + r() * 12000), merchant: r() < 0.5 ? "Klarna" : "Walley", description: "LASKU", accountId: "chk" });
+  }
+  // yearly subscriptions renew in February to July; the first was paid more than a year before the end
+  for (const [k, merchant] of ["Adobe", "Microsoft 365"].entries()) {
+    const month = 2 + Math.floor(r() * 6);
+    const amountCents = -(9900 + Math.round(r() * 3000));
+    for (let year = 2023 + k; year <= 2025; year++) {
+      const date = `${year}-${String(month).padStart(2, "0")}-${String(3 + Math.floor(r() * 20)).padStart(2, "0")}`;
+      if (inHistory(date)) add({ bookingDate: date, amountCents, merchant, description: merchant.toUpperCase(), accountId: "chk" });
+    }
+  }
 }

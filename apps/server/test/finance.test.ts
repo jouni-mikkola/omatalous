@@ -1,6 +1,8 @@
 import { REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { setupApp } from "./helpers.ts";
+import { todayIn } from "../src/platform/config.ts";
+import { requestInputs, type ScopeAccount } from "../src/services/analysis.ts";
 
 describe("dashboard and reports on demo data", () => {
   it("counts every money flow once: Gold bill, financing, savings, investments, credit draw", async () => {
@@ -47,6 +49,17 @@ describe("dashboard and reports on demo data", () => {
     const pivot = await admin.call("GET", "/api/export/report.csv?report=pivot&from=2026-01-01&to=2026-09-30");
     expect(pivot.body).toContain("Yhteensä");
     expect(pivot.body).toMatch(/\d,\d/); // decimal comma
+
+    // the cash flow file follows the one savings rate (saved / income) and ends with what stayed on the accounts
+    const { body: d } = await admin.call("GET", "/api/dashboard?from=2026-09-01&to=2026-09-30");
+    const t = d.totals;
+    const cash = await admin.call("GET", "/api/export/report.csv?report=cashflow&from=2026-09-01&to=2026-09-30");
+    const [head, row] = cash.body.replace(/^﻿/, "").split(/\r?\n/);
+    expect(head).toMatch(/;Säästöaste %;Yli jäi €$/);
+    const cells = row!.split(";");
+    expect(cells[0]).toBe("2026-09");
+    expect(Number(cells[7])).toBe(Math.round((t.savedCents / t.incomeCents) * 100));
+    expect(Number(cells[8]!.replace(",", "."))).toBeCloseTo((t.incomeCents - t.expenseCents - t.savedCents) / 100, 2);
   });
 
   it("finds subscriptions, the price change, the new and the cancelled one", async () => {
@@ -166,6 +179,39 @@ describe("isolation between household members", () => {
     expect((await eero.call("GET", "/api/meta")).body.sharedAccounts).toHaveLength(0);
   });
 
+  it("a balance given at night counts for the local day", async () => {
+    const { s, adminId } = await setupApp();
+    const account = { id: "a", name: "Käyttötili", type: "checking", balanceCents: 1000, ownerName: null } as unknown as ScopeAccount;
+    // 22.30 UTC on the 10th is 1.30 on the 11th in Helsinki: that morning's rows are already in the balance
+    const night = await requestInputs(s, adminId, [{ ...account, balanceAt: "2026-10-10T22:30:00.000Z" }]);
+    expect(night.balances[0]!.balanceAt).toBe("2026-10-11");
+    const none = await requestInputs(s, adminId, [{ ...account, balanceAt: null }]);
+    expect(none.balances[0]!.balanceAt).toBeNull();
+  });
+
+  it("the balances of the household view say whose account each is and when its balance was given", async () => {
+    const { admin, member } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    const eero = await member("eero", "Eero");
+    await eero.call("POST", "/api/demo");
+    const checking = (await admin.call("GET", "/api/meta")).body.accounts.find((a: { type: string }) => a.type === "checking");
+    expect(checking.balanceAt).toEqual(expect.any(String));
+    await admin.call("PUT", `/api/accounts/${checking.id}/shares/${eero.id}`);
+
+    type Series = { accountId: string; name: string; ownerName: string | null; balanceAt: string | null };
+    const household = (await eero.call("GET", "/api/reports?from=2026-01-01&to=2026-09-30&scope=household")).body.balances.accounts as Series[];
+    const shared = household.find((a) => a.accountId === checking.id)!;
+    // the report gets the local date of the balance, as the books count days
+    expect(shared).toMatchObject({ ownerName: "Aino", balanceAt: todayIn("Europe/Helsinki", new Date(checking.balanceAt)) });
+    // the viewer's own accounts carry no owner
+    const own = household.filter((a) => a.accountId !== checking.id);
+    expect(own.length).toBeGreaterThan(0);
+    for (const a of own) expect(a, a.name).toMatchObject({ ownerName: null, balanceAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    // without the household scope the shared account is not in the report
+    const alone = (await eero.call("GET", "/api/reports?from=2026-01-01&to=2026-09-30")).body.balances.accounts as Series[];
+    expect(alone.some((a) => a.accountId === checking.id)).toBe(false);
+  });
+
   it("a joint account linked by both partners is listed once, like the household view counts it", async () => {
     const { admin, s, adminId, member } = await setupApp();
     const eero = await member("eero", "Eero");
@@ -177,6 +223,19 @@ describe("isolation between household members", () => {
 
     const meta = (await eero.call("GET", "/api/meta")).body;
     expect(meta.sharedAccounts.map((a: { id: string }) => a.id)).toEqual(["aino-own"]);
+  });
+
+  it("flags my copy of a joint account the partner linked too, so the income report keeps it whole", async () => {
+    const { admin, s, adminId, member } = await setupApp();
+    const eero = await member("eero", "Eero");
+    const account = (id: string, identity: string) => ({ id, connectionId: null, provider: "csv", externalId: null, identity, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" as const });
+    await s.finance(adminId).upsertAccount(account("aino-joint", "joint"));
+    await s.finance(adminId).upsertAccount(account("aino-own", "aino"));
+    await s.finance(eero.id).upsertAccount(account("eero-joint", "joint"));
+    for (const id of ["aino-joint", "aino-own"]) expect((await admin.call("PUT", `/api/accounts/${id}/shares/${eero.id}`)).status).toBe(200);
+
+    const reports = (await eero.call("GET", "/api/reports?from=2026-01-01&to=2026-09-30&scope=household")).body;
+    expect(reports.income.members.map((m: { label: string }) => m.label)).toEqual(["Yhteinen tili", "Aino"]);
   });
 });
 

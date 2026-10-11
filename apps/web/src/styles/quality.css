@@ -1,0 +1,16 @@
+/* Trust marks of the report tables and the data quality card. */
+
+/* a month that is not whole: named in the header, left out of the shading */
+.partial-tag { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
+.heat-table td.partial-cell { font-style: italic; color: var(--muted); }
+
+/* the accounts the numbers rest on, in the data quality card */
+.scope-table { margin: 0 0 14px; }
+.scope-table .sub { font-size: 12px; }
+.scope-warn { color: var(--warn); }
+
+/* one line on the overview: what the numbers rest on */
+.data-scope { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 12px; color: var(--muted); }
+.data-scope > span + span::before, .data-scope > a::before { content: "·"; margin-right: 14px; color: var(--axis); }
+.data-scope > a { text-decoration: none; }
+.data-scope > a:hover { text-decoration: underline; }

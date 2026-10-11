@@ -34,7 +34,7 @@ function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant
   if (s.outCents > 0) facts.push(["Maksettu yhteensä", money(s.outCents)]);
   if (s.inCents > 0) facts.push(["Saatu yhteensä", money(s.inCents)]);
   facts.push(["Maksuja", String(s.count)]);
-  if (s.outCents > 0) facts.push(["Keskimäärin kuukaudessa", money(Math.round(s.outCents / s.months))]);
+  if (s.outCents > 0) facts.push(["Keskimäärin kuussa", money(Math.round(s.outCents / s.months))]);
   facts.push(["Ensimmäinen", date(s.firstDate)], ["Viimeisin", date(s.lastDate)]);
   if (s.recurring?.active) {
     facts.push(["Toistuu", CADENCE_LABEL[s.recurring.cadence] ?? s.recurring.cadence]);
@@ -180,11 +180,11 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
             <h2>Tapahtumat</h2>
             <div className="card-sub">
               {data ? plural(data.total, "tapahtuma", "tapahtumaa") : "…"}
-              {/* every matching row, loaded or not: ulos and sisään apart, a net of both says little */}
+              {/* every matching row, loaded or not: maksettu and saatu apart, a net of both says little */}
               {data && data.total > 0 && (
                 <>
-                  {data.outCents > 0 && ` · ulos ${money(data.outCents)}`}
-                  {data.inCents > 0 && ` · sisään ${money(data.inCents)}`}
+                  {data.outCents > 0 && ` · maksettu ${money(data.outCents)}`}
+                  {data.inCents > 0 && ` · saatu ${money(data.inCents)}`}
                 </>
               )}
             </div>
@@ -214,7 +214,7 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
           <div className="notice good" role="status">
             {changed.rule && changed.merchant
               ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}. Uudet saman kauppiaan tapahtumat menevät samaan kategoriaan.`
-              : `Tapahtuma siirrettiin kategoriaan ${changed.category}. Vain tämä yksi tapahtuma muuttui.`}
+              : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
           </div>
         )}
         <div className="table-wrap">
@@ -312,7 +312,7 @@ const TxRow = memo(function TxRow({
       )}
       {t.categorySource === "user" && <span className="badge">käsin</span>}
       {t.categorySource === "match" && (
-        <span className="badge" title="Rahaa takaisin aiemmasta maksusta. Se vähentää sen menoa eikä ole tuloa.">
+        <span className="badge" title="Palautus aiemmasta maksusta. Pienentää menoja, ei ole tuloa.">
           palautus
         </span>
       )}

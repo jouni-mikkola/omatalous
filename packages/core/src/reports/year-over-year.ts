@@ -1,5 +1,7 @@
+// Decision: is the household spending more than a year ago
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
+import { MIN_COMPARE_MONTHS } from "../analysis/usual.ts";
 import { daysInMonth } from "../dates.ts";
 
 export interface YearOverYearReport {
@@ -10,6 +12,10 @@ export interface YearOverYearReport {
   previous: (number | null)[];
   /** First month (1–12) both years have data for; the year-to-date figures start here. */
   comparableFromMonth: number | null;
+  /** Months from `comparableFromMonth` that have ended: the ones the year-to-date comparison rests on. */
+  comparableMonths: number;
+  /** At least three comparable months. Below that the change is not told, one month says nothing. */
+  comparable: boolean;
   /** The running month (1–12) when range.to falls in a month that has not ended: the line stops or dashes there. */
   partialMonth: number | null;
   /** Spending from 1 Jan to the same day of the year. */
@@ -22,7 +28,8 @@ export interface YearOverYearReport {
 /**
  * This year against last year, month by month and year to date. When the
  * history starts during last year, only months both years cover are compared
- * (otherwise a partial previous year would show as a huge increase).
+ * (otherwise a partial previous year would show as a huge increase). Under
+ * three such months the report says it is not `comparable`.
  */
 export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): YearOverYearReport {
   const year = Number(range.to.slice(0, 4));
@@ -64,11 +71,20 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
   }
   const monthEnd = `${range.to.slice(0, 7)}-${String(daysInMonth(range.to.slice(0, 7))).padStart(2, "0")}`;
   const partialMonth = range.to < monthEnd || monthEnd >= ctx.today ? lastMonth : null;
+  // whole months of both years: a month that is not over, or that the range cuts, is left out of the count
+  let comparableMonths = 0;
+  for (let m = comparableFromMonth ?? 13; m <= lastMonth; m++) {
+    const label = `${year}-${String(m).padStart(2, "0")}`;
+    const end = `${label}-${String(daysInMonth(label)).padStart(2, "0")}`;
+    if (end <= range.to && end < ctx.today) comparableMonths++;
+  }
   return {
     year,
     current,
     previous,
     comparableFromMonth,
+    comparableMonths,
+    comparable: comparableMonths >= MIN_COMPARE_MONTHS,
     partialMonth,
     ytdCents: ytd,
     previousYtdCents: prevYtd,

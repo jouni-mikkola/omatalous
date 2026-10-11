@@ -3,11 +3,15 @@ import { addDays, dayNumber, daysBetween, daysInMonth, fromMonthIndex, monthInde
 import { fold, UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
+import { NO_INPUTS, type UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
 import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
+import { chargedAfterCancelling, dismissedIds, forgotten, marksByMerchant } from "./subscription-alerts.ts";
 
-export type AlertKind = "double_charge" | "late_fee" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
+export { inUseQuietsQuestion } from "./subscription-alerts.ts";
+
+export type AlertKind = "double_charge" | "late_fee" | "cancelled" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
 
 /** A cost trap or a mistake worth acting on. The overview shows these before insights. */
 export interface Alert {
@@ -27,25 +31,33 @@ const MAX_ALERTS = 6;
 /**
  * Cost traps in the selected period, judged at its end (range.to). Only
  * "forgotten" is about now, so it shows when the period reaches today.
- * Order: double_charge, late_fee, overlap, spike, forgotten, fees, habit.
+ * Order: double_charge, late_fee, cancelled, overlap, spike, forgotten, fees, habit.
+ * `inputs` carries the user's marks: a dismissed alert is left out, a subscription marked in use or cancelled is not
+ * asked about, and a charge after a merchant was marked cancelled is a warning of its own.
  */
-export function buildAlerts(ctx: AnalysisContext, range: DateRange): Alert[] {
+export function buildAlerts(ctx: AnalysisContext, range: DateRange, inputs: UserInputs = NO_INPUTS): Alert[] {
   const current = inDays(ctx, toDayRange(range));
   const recurring = recurringAt(ctx, range.to);
   const overlaps = overlapAlerts(recurring);
-  return pick([
-    ...doubleCharges(ctx, current, recurring, range),
-    ...lateFees(current),
-    ...overlaps.alerts,
-    ...spikes(ctx, range),
-    ...(range.to >= ctx.today ? forgotten(ctx.recurring, overlaps.merchants) : []),
-    ...bankFees(ctx, current, range),
-    ...habits(ctx, range),
-  ]);
+  const merchantMarks = marksByMerchant(inputs.marks);
+  return pick(
+    [
+      ...doubleCharges(ctx, current, recurring, range),
+      ...lateFees(current),
+      ...chargedAfterCancelling(current.filter(isCharge), merchantMarks),
+      ...overlaps.alerts,
+      ...spikes(ctx, range),
+      ...(range.to >= ctx.today ? forgotten(ctx.recurring, overlaps.merchants, merchantMarks, ctx.today) : []),
+      ...bankFees(ctx, current, range),
+      ...habits(ctx, range),
+    ],
+    dismissedIds(inputs.marks),
+  );
 }
 
-/** One of each kind first, then the rest in order, so a long list of one kind cannot hide the others. */
-function pick(all: readonly Alert[]): Alert[] {
+/** One of each kind first, then the rest in order, so a long list of one kind cannot hide the others. Dismissed ids are left out first. */
+function pick(shown: readonly Alert[], dismissed: ReadonlySet<string>): Alert[] {
+  const all = shown.filter((a) => !dismissed.has(a.id));
   const chosen = new Set<Alert>();
   const kinds = new Set<AlertKind>();
   for (const a of all) {
@@ -350,25 +362,6 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
     .sort((a, b) => b.diff - a.diff)
     .slice(0, 2)
     .map(({ diff: _diff, ...a }) => a);
-}
-
-// ── services to review ───────────────────────────────────
-
-const FORGOTTEN_MAX = 2;
-
-function forgotten(recurring: readonly RecurringSeries[], inOverlap: ReadonlySet<string>): Alert[] {
-  return recurring
-    .filter((s) => s.review && !inOverlap.has(s.merchant))
-    .sort((a, b) => b.monthlyCents - a.monthlyCents)
-    .slice(0, FORGOTTEN_MAX)
-    .map((s) => ({
-      id: `forgotten:${s.id}`,
-      kind: "forgotten" as const,
-      tone: "info" as const,
-      title: `Käytätkö vielä: ${s.merchant}?`,
-      detail: `${formatEur(s.monthlyCents)}/kk, ${s.monthsActive} kk`,
-      merchant: s.merchant,
-    }));
 }
 
 // ── bank fees ────────────────────────────────────────────

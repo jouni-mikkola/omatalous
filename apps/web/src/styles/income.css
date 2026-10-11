@@ -1,0 +1,31 @@
+/* Reports > Tulot: what changed, the types with their payers and rows, the year view and the pay days. */
+
+.income-changes { list-style: none; margin: 0 0 8px; padding: 0; }
+.income-changes li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 8px 0 8px 10px; border-left: 3px solid var(--border); margin-bottom: 6px; }
+.income-changes li.up { border-left-color: var(--good); }
+.income-changes li.down { border-left-color: var(--warn); }
+.income-changes li strong { flex-basis: 100%; }
+.income-link { font-size: 13px; }
+
+/* a type opens to its payers, a payer to its rows */
+.link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.link-button[aria-expanded="true"] { font-weight: 600; }
+.income-types tr.not-earned td { color: var(--muted); }
+.income-types tr.income-payer td:first-child { padding-left: 20px; }
+.income-note { display: block; color: var(--muted); font-size: 12px; }
+.income-rows ul { list-style: none; margin: 0 0 6px 20px; padding: 0; max-width: 280px; }
+.income-rows li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.income-rows a { margin-left: 20px; font-size: 13px; }
+
+.income-year { margin-top: 16px; }
+.income-year-head { display: flex; justify-content: space-between; align-items: center; }
+.income-year tr.projected td { color: var(--muted); }
+.income-caption { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+
+.income-paydays { margin: 0; padding-left: 18px; }
+.income-paydays li { margin-bottom: 4px; }
+
+@media (max-width: 600px) {
+  .income-types tr.income-payer td:first-child { padding-left: 10px; }
+  .income-rows ul, .income-rows a { margin-left: 10px; }
+}

@@ -102,11 +102,11 @@ fi
 
 # ── container ────────────────────────────────────────────────────────────────
 CID=""; RUNNING=false; IMAGE_ID=""
-head_ "Container" "Kontti"
+head_ "Container" "Sovellus"
 if $DOCKER_OK; then
   CID=$(docker compose ps -a -q banking 2>/dev/null | head -1)
   if [[ -z $CID ]]; then
-    bad "$(t "There is no container." "Konttia ei ole.")" "./scripts/install.sh"
+    bad "$(t "There is no container." "Sovellusta ei löydy Dockerista.")" "./scripts/install.sh"
   else
     IFS='|' read -r st health restarts started exitcode oom IMAGE_ID < <(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.StartedAt}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.Image}}' "$CID" 2>/dev/null)
     up=$(( $(date +%s) - $(epoch "$started") ))
@@ -114,25 +114,25 @@ if $DOCKER_OK; then
       running)
         RUNNING=true
         if [[ $restarts -ge 3 && $up -lt 600 ]]; then
-          bad "$(t "The container keeps restarting ($restarts times, last $(span $up) ago)." "Kontti käynnistyy yhä uudelleen ($restarts kertaa, viimeksi $(span $up) sitten).")" "docker compose logs --tail 40 banking" "$(t "If the fault began with an update: ./scripts/update.sh --rollback" "Jos vika alkoi päivityksestä: ./scripts/update.sh --rollback")"
+          bad "$(t "The container keeps restarting ($restarts times, last $(span $up) ago)." "Sovellus käynnistyy yhä uudelleen ($restarts kertaa, viimeksi $(span $up) sitten).")" "docker compose logs --tail 40 banking" "$(t "If the fault began with an update: ./scripts/update.sh --rollback" "Jos vika alkoi päivityksestä: ./scripts/update.sh --rollback")"
         elif [[ $health == healthy ]]; then
-          ok "$(t "The container is running and healthy (started $(span $up) ago)" "Kontti käynnissä ja terve (käynnistetty $(span $up) sitten)")"
+          ok "$(t "The container is running and healthy (started $(span $up) ago)" "Sovellus käynnissä ja terve (käynnistetty $(span $up) sitten)")"
         elif [[ $health == starting ]]; then
-          warn "$(t "The container is still starting (health check pending)." "Kontti käynnistyy vielä (terveystarkistus kesken).")" "$(t "Wait a minute and run again. If that does not help: docker compose logs --tail 40 banking" "Odota minuutti ja aja uudelleen. Jos ei auta: docker compose logs --tail 40 banking")"
+          warn "$(t "The container is still starting (health check pending)." "Sovellus käynnistyy vielä (terveystarkistus kesken).")" "$(t "Wait a minute and run again. If that does not help: docker compose logs --tail 40 banking" "Odota minuutti ja aja uudelleen. Jos ei auta: docker compose logs --tail 40 banking")"
         elif [[ $health == unhealthy ]]; then
-          bad "$(t "The container is running but the health check fails." "Kontti käynnissä, mutta terveystarkistus epäonnistuu.")" "docker compose logs --tail 40 banking" "docker compose restart banking"
+          bad "$(t "The container is running but the health check fails." "Sovellus käynnissä, mutta terveystarkistus epäonnistuu.")" "docker compose logs --tail 40 banking" "docker compose restart banking"
         else
-          ok "$(t "The container is running (started $(span $up) ago)" "Kontti käynnissä (käynnistetty $(span $up) sitten)")"
+          ok "$(t "The container is running (started $(span $up) ago)" "Sovellus käynnissä (käynnistetty $(span $up) sitten)")"
         fi
         if [[ $restarts -gt 0 && ! ($restarts -ge 3 && $up -lt 600) ]]; then
-          warn "$(t "The container has restarted $restarts times (the machine or Docker restarted, or the app crashed)." "Kontti on käynnistynyt uudelleen $restarts kertaa (kone tai Docker uudelleenkäynnistyi, tai sovellus kaatui).")" "docker compose logs --tail 60 banking"
+          warn "$(t "The container has restarted $restarts times (the machine or Docker restarted, or the app crashed)." "Sovellus on käynnistynyt uudelleen $restarts kertaa (kone tai Docker käynnistyi uudelleen, tai sovellus kaatui).")" "docker compose logs --tail 60 banking"
         fi
         ;;
       restarting)
-        bad "$(t "The container keeps crashing and restarting ($restarts times)." "Kontti kaatuu ja käynnistyy uudelleen koko ajan ($restarts kertaa).")" "docker compose logs --tail 40 banking" "$(t "If the fault began with an update: ./scripts/update.sh --rollback" "Jos vika alkoi päivityksestä: ./scripts/update.sh --rollback")" ;;
+        bad "$(t "The container keeps crashing and restarting ($restarts times)." "Sovellus kaatuu ja käynnistyy uudelleen koko ajan ($restarts kertaa).")" "docker compose logs --tail 40 banking" "$(t "If the fault began with an update: ./scripts/update.sh --rollback" "Jos vika alkoi päivityksestä: ./scripts/update.sh --rollback")" ;;
       *)
         extra=""; [[ $oom == true ]] && extra="$(t " (out of memory, add memory to the machine)" " (muisti loppui, nosta koneen muistia)")"
-        bad "$(t "The container is not running (state $st, exit code $exitcode$extra)." "Kontti ei ole käynnissä (tila $st, poistumiskoodi $exitcode$extra).")" "docker compose logs --tail 40 banking" "docker compose up -d" ;;
+        bad "$(t "The container is not running (state $st, exit code $exitcode$extra)." "Sovellus ei ole käynnissä (tila $st, poistumiskoodi $exitcode$extra).")" "docker compose logs --tail 40 banking" "docker compose up -d" ;;
     esac
   fi
 else
@@ -151,9 +151,9 @@ http_ok() { # http_ok URL: any answer from the app's health route
 if $DOCKER_OK && [[ -n $CID ]]; then
   bound=$(docker inspect -f '{{range $p,$b := .HostConfig.PortBindings}}{{range $b}}{{.HostIp}}:{{.HostPort}} {{end}}{{end}}' "$CID" 2>/dev/null)
   if [[ $bound == *":$PORT "* ]]; then
-    ok "$(t "Port $PORT is bound to the container ($BIND)" "Portti $PORT on sidottu kontille ($BIND)")"
+    ok "$(t "Port $PORT is bound to the container ($BIND)" "Portti $PORT on sidottu sovellukselle ($BIND)")"
   else
-    bad "$(t "The container port does not match .env ($BIND:$PORT, container has: ${bound:-no port})." "Kontin portti ei vastaa .env:n arvoa $BIND:$PORT (kontilla: ${bound:-ei porttia}).")" "docker compose up -d --force-recreate banking"
+    bad "$(t "The container port does not match .env ($BIND:$PORT, container has: ${bound:-no port})." "Sovelluksen portti ei vastaa .env:n arvoa $BIND:$PORT (nyt: ${bound:-ei porttia}).")" "docker compose up -d --force-recreate banking"
   fi
 fi
 if $RUNNING; then
@@ -227,7 +227,7 @@ while IFS= read -r f; do
   if backup_file_ok "$f"; then [[ -n $newest ]] || newest=$f; else broken+=("$f"); fi
 done < <(ls -1t backups/talous-*.db.gz backups/talous-*.db.gz.age backups/talous-*.db.age backups/talous-*.db 2>/dev/null)
 if ((${#broken[@]})); then
-  warn "$(t "${#broken[@]} file(s) in backups/ are not usable backups (empty, cut short or fail gzip -t): ${broken[*]}" "${#broken[@]} tiedosto(a) kansiossa backups/ ei kelpaa varmuuskopioksi (tyhjä, katkennut tai ei läpäise gzip -t -tarkistusta): ${broken[*]}")" "$(t "rm the files, check the free disk space, run ./scripts/backup.sh again" "poista tiedostot, tarkista levytila ja aja ./scripts/backup.sh uudelleen")"
+  warn "$(t "${#broken[@]} file(s) in backups/ are not usable backups (empty, cut short or fail gzip -t): ${broken[*]}" "Kansiossa backups/ on varmuuskopioksi kelpaamattomia tiedostoja: ${#broken[@]} (tyhjä, katkennut tai ei läpäise gzip -t -tarkistusta): ${broken[*]}")" "$(t "rm the files, check the free disk space, run ./scripts/backup.sh again" "poista tiedostot, tarkista levytila ja aja ./scripts/backup.sh uudelleen")"
 fi
 if [[ -n $newest ]]; then
   age=$(( $(date +%s) - $(stat -c %Y "$newest") ))
@@ -260,8 +260,8 @@ if $DOCKER_OK && { $RUNNING || docker image inspect "$APP_IMAGE" >/dev/null 2>&1
   fi
   if [[ ${acount:-0} -gt 0 ]]; then
     aage=$(( $(date +%s) - atime ))
-    if ((aage > 2 * 86400)); then warn "$(t "The app's own daily copy is $(span $aage) old ($acount in the volume)." "Sovelluksen oma päiväkopio on $(span $aage) vanha ($acount kpl taltiossa).")" "docker compose logs banking | grep -i backup"
-    else ok "$(t "The app's own daily copy is $(span $aage) old ($acount in the volume)" "Sovelluksen oma päiväkopio $(span $aage) vanha ($acount kpl taltiossa)")"; fi
+    if ((aage > 2 * 86400)); then warn "$(t "The app's own daily copy is $(span $aage) old ($acount in the volume)." "Sovelluksen oma päiväkopio on $(span $aage) vanha ($acount taltiossa).")" "docker compose logs banking | grep -i backup"
+    else ok "$(t "The app's own daily copy is $(span $aage) old ($acount in the volume)" "Sovelluksen oma päiväkopio $(span $aage) vanha ($acount taltiossa)")"; fi
   else
     warn "$(t "The volume has no usable daily copy by the app yet (it appears within the first day)." "Taltiossa ei ole vielä sovelluksen käyttökelpoista päiväkopiota (tulee ensimmäisen vuorokauden aikana).")"
   fi
@@ -282,17 +282,17 @@ if command -v git >/dev/null && git rev-parse --git-dir >/dev/null 2>&1; then
   label=""
   [[ -n $IMAGE_ID ]] && label=$(docker image inspect -f '{{index .Config.Labels "talous.commit"}}' "$IMAGE_ID" 2>/dev/null)
   if [[ -z $label || $label == unknown ]]; then
-    $RUNNING && warn "$(t "The build commit of the image is unknown (built without the update script), the code in this folder is $(git rev-parse --short HEAD)." "Imagen koontikohtaa ei tiedetä (rakennettu ilman päivitysskriptiä), kansion koodi on $(git rev-parse --short HEAD).")" "./scripts/update.sh"
+    $RUNNING && warn "$(t "The build commit of the image is unknown (built without the update script), the code in this folder is $(git rev-parse --short HEAD)." "Käynnissä olevan version lähdekoodia ei tiedetä (tehty ilman päivitysskriptiä), kansion koodi on $(git rev-parse --short HEAD).")" "./scripts/update.sh"
   elif [[ $label != "$head_c" ]]; then
-    bad "$(t "The image was built from ${label:0:7}, the folder has ${head_c:0:7}." "Image on rakennettu koodista ${label:0:7}, kansiossa on ${head_c:0:7}.")" "./scripts/update.sh"
-  else ok "$(t "The image matches the code in this folder (${head_c:0:7})" "Image vastaa kansion koodia (${head_c:0:7})")"; fi
+    bad "$(t "The image was built from ${label:0:7}, the folder has ${head_c:0:7}." "Käynnissä oleva versio on tehty koodista ${label:0:7}, kansiossa on ${head_c:0:7}.")" "./scripts/update.sh"
+  else ok "$(t "The image matches the code in this folder (${head_c:0:7})" "Käynnissä oleva versio vastaa kansion koodia (${head_c:0:7})")"; fi
   if [[ -n $(git status --porcelain --untracked-files=no 2>/dev/null) ]]; then
-    warn "$(t "The folder has local changes, update.sh does not run with them." "Kansiossa on paikallisia muutoksia, update.sh ei aja niiden kanssa.")" "git status"
+    warn "$(t "The folder has local changes, update.sh does not run with them." "Asennuskansion tiedostoja on muutettu käsin, joten päivitys ei toimi.")" "git status"
   fi
   upstream=$(git rev-parse '@{u}' 2>/dev/null || true)
   if [[ -n $upstream && $upstream != "$head_c" ]]; then
     n=$(git rev-list --count "HEAD..$upstream" 2>/dev/null || echo "?")
-    [[ $n != 0 ]] && warn "$(t "The remote repository may have $n new changes (going by what was last fetched)." "Etärepositoriossa voi olla $n uutta muutosta (viimeksi haetun tiedon mukaan).")" "./scripts/update.sh"
+    [[ $n != 0 ]] && warn "$(t "The remote repository may have $n new changes (going by what was last fetched)." "Päivityslähteessä voi olla $n uutta muutosta (viimeksi haetun tiedon mukaan).")" "./scripts/update.sh"
   fi
 fi
 
@@ -321,7 +321,7 @@ if [[ -n $URL ]]; then
         https://*) hint="$(t "DNS, forwarding of ports 80 and 443 and the certificate: docker compose logs caddy   (or the tunnel status in Cloudflare)" "DNS, porttien 80 ja 443 ohjaus ja sertifikaatti: docker compose logs caddy   (tai tunnelin tila Cloudflaressa)")" ;;
         *) hint="$(t "whether the address is the machine's own and port $PORT is open in the home network" "onko osoite koneen oma ja portti $PORT auki kotiverkossa")" ;;
       esac
-      warn "$(t "Address $URL does not respond from this machine." "Osoite $URL ei vastaa tältä koneelta.")" "$hint" "$(t "If the address works from elsewhere, the machine may not reach its own public address." "Jos osoite toimii muualta, tämä voi johtua siitä, ettei kone yllä omaan julkiseen osoitteeseensa.")"
+      warn "$(t "Address $URL does not respond from this machine." "Osoite $URL ei vastaa tältä koneelta.")" "$hint" "$(t "If the address works from elsewhere, the machine may not reach its own public address." "Jos osoite toimii muualta, kone ei ehkä yllä omaan julkiseen osoitteeseensa.")"
     fi
   fi
 else
@@ -339,9 +339,9 @@ if [[ -f .env && -n ${BIND:-} && $BIND != 127.0.0.1 && $BIND != localhost && $BI
       warn "$(t "Address $URL differs from the listen address $BIND." "Osoite $URL ei ole sama kuin kuunteluosoite $BIND.")" "$(t "Update the address: Asetukset > Palvelin, or run ./scripts/install.sh --reconfigure" "Päivitä osoite: Asetukset > Palvelin, tai aja ./scripts/install.sh --reconfigure")"
     fi
   else
-    warn "$(t "The machine no longer has the address $BIND (did the router's DHCP give a new one?), so the app may be unreachable." "Koneella ei ole enää osoitetta $BIND (reitittimen DHCP antoi uuden?), joten sovellus ei välttämättä ole tavoitettavissa.")" \
+    warn "$(t "The machine no longer has the address $BIND (did the router's DHCP give a new one?), so the app may be unreachable." "Koneella ei ole enää osoitetta $BIND, joten sovellus ei ehkä ole tavoitettavissa. Reititin on voinut antaa uuden osoitteen.")" \
       "$(t "Reserve a fixed address for the machine in the router and run ./scripts/install.sh --reconfigure" "Varaa koneelle kiinteä osoite reitittimestä ja aja ./scripts/install.sh --reconfigure")" \
-      "$(t "If the container does not start at boot because the address does not exist yet: sudo sysctl -w net.ipv4.ip_nonlocal_bind=1" "Jos kontti ei käynnisty koneen käynnistyessä, kun osoite ei ole vielä olemassa: sudo sysctl -w net.ipv4.ip_nonlocal_bind=1")"
+      "$(t "If the container does not start at boot because the address does not exist yet: sudo sysctl -w net.ipv4.ip_nonlocal_bind=1" "Jos sovellus ei käynnisty koneen käynnistyessä, kun osoite ei ole vielä olemassa: sudo sysctl -w net.ipv4.ip_nonlocal_bind=1")"
   fi
 fi
 
@@ -370,7 +370,7 @@ else
   fi
 fi
 if [[ -n $HELPER_KIND && ! -f ops/allowed_signers ]] && grep -qE '^TALOUS_CHANNEL=source$' .env 2>/dev/null; then
-  warn "$(t "Updates are not signed: the source channel trusts everyone who can write to the main branch." "Päivitykset eivät ole allekirjoitettuja: lähdekanava luottaa jokaiseen, joka voi kirjoittaa päähaaraan.")" "$(t "The release channel checks the signature itself (remove TALOUS_CHANNEL=source from .env), or add keys to ops/allowed_signers (docs/SECURITY.md)" "Julkaisukanava tarkistaa allekirjoituksen itse (poista TALOUS_CHANNEL=source tiedostosta .env), tai lisää avaimet tiedostoon ops/allowed_signers (docs/SECURITY.md)")"
+  warn "$(t "Updates are not signed: the source channel trusts everyone who can write to the main branch." "Päivityksiä ei tarkisteta allekirjoituksella: lähdekanava luottaa jokaiseen, jolla on kirjoitusoikeus päivityslähteeseen.")" "$(t "The release channel checks the signature itself (remove TALOUS_CHANNEL=source from .env), or add keys to ops/allowed_signers (docs/SECURITY.md)" "Julkaisukanava tarkistaa allekirjoituksen itse (poista TALOUS_CHANNEL=source tiedostosta .env), tai lisää avaimet tiedostoon ops/allowed_signers (docs/SECURITY.md)")"
 fi
 if [[ -f ops/RECOVERY.txt ]]; then
   bad "$(t "The update failed and the rollback failed too." "Päivitys epäonnistui eikä palautus onnistunut.")" "cat ops/RECOVERY.txt"

@@ -3,9 +3,9 @@ import { addMonths, daysInMonth } from "@banking/core";
 export const PERIODS = [
   { id: "month", label: "Tämä kuu" },
   { id: "last-month", label: "Viime kuu" },
-  { id: "3m", label: "3 kk" },
-  { id: "6m", label: "6 kk" },
-  { id: "12m", label: "12 kk" },
+  { id: "3m", label: "3 kuukautta" },
+  { id: "6m", label: "6 kuukautta" },
+  { id: "12m", label: "12 kuukautta" },
   { id: "year", label: "Tämä vuosi" },
   { id: "last-year", label: "Viime vuosi" },
 ] as const;

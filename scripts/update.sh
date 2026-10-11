@@ -24,9 +24,12 @@
 #     long the start may take afterwards: three times as long, at least 120 s
 #   • the running image is kept as <name>:previous (banking-app:previous by default)
 # If the new version does not come up healthy, the script shows its log and
-# offers the rollback. The rollback restores the newest database copy with the old schema, and only when the
-# new version changed the schema (otherwise nothing written since is lost),
-# then starts the previous image and returns the source to the previous commit.
+# offers the rollback. With the app stopped, the rollback compares the migration history of the database with the
+# pre-update copy. If it differs, the previous image is asked whether it opens the live database as it is (its own
+# `migrate-check`, no network, 120 s at most). If it does (0.6.0 and later, when every newer migration has a compat
+# floor at or below the previous version), the database stays and what was written since the update is kept. Any other answer restores the newest database copy with the old
+# schema. Both ways the current database is saved first (pre-rollback-*.db). Then the previous image is started and
+# the source goes back to the previous commit.
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -212,8 +215,9 @@ rollback() {
   HEALTH_WAIT=120 # the version being restored has no migration to wait for
   docker compose stop banking >/dev/null
   # Does the database still have the schema the previous version knows? Compare the migration history.
-  # If not, the newest copy with the old schema wins: the app's own copy taken right before the migration is
-  # newer than the update script's, and both hold the old schema.
+  # If not, the previous image is asked whether it opens the database as it is (every newer migration has a compat
+  # floor at or below its version, 0.6.0 and later): then the live database stays. Otherwise the newest copy with the old schema wins: the
+  # app's own copy taken right before the migration is newer than the update script's, and both hold the old schema.
   local choice target
   choice=$(docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e '
     const fs = require("node:fs");
@@ -229,8 +233,15 @@ rollback() {
       try { if (names(`${dir}/${f}`) === want && intact(`${dir}/${f}`)) { console.log(`restore ${dir}/${f}`); process.exit(0); } } catch { /* unreadable or damaged copy, try the next */ }
     }
     console.log(`restore ${process.argv[1]}`);' "$snapshot" | tail -1)
+  if [[ $choice != same ]]; then
+    say "The database has another migration history than the copy from before the update. Asking the previous version whether it can read it as it is."
+    if previous_reads_database; then choice=keep; fi
+  fi
   if [[ $choice == same ]]; then
     ok "The database is unchanged, so the data stays."
+  elif [[ $choice == keep ]]; then
+    save_before_rollback
+    ok "The previous version can read the database as it is, so the data written since the update stays."
   else
     target=${choice#restore }
     [[ $target =~ ^/data/backups/pre-[A-Za-z0-9_]+-[0-9TZ]+\.db$ ]] || die "Could not choose a backup."
@@ -238,9 +249,7 @@ rollback() {
     if [[ -t 0 ]] && ! confirm "Continue?"; then
       docker compose start banking >/dev/null; die "Cancelled, the current version was started again."
     fi
-    # what the rollback is about to overwrite is kept first, so nothing is lost for good
-    docker compose run --rm --no-deps -T --entrypoint node banking --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" 'exists,keep:^pre-rollback-[0-9TZ]+\.db$' "/data/backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).db" || die "Could not copy the current database, nothing was restored."
-    ok "The current database was saved before the restore (pre-rollback-*.db)."
+    save_before_rollback
     # the copy is flushed before it replaces the database (a failure stops before the swap), and /data after (the swap
     # is done by then, so a failure there only warns)
     docker compose run --rm --no-deps -T --entrypoint sh banking -c \

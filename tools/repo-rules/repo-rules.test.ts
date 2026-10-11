@@ -18,6 +18,8 @@
  *   rule 8   reports are registered, shown and documented     parity.ts
  *   rule 9   file size budget with a shrinking allowlist      size.ts
  *   rule 10  no English in the UI text                        text-rules.ts
+ *   rule 11  every report and section has a Decision comment  parity.ts
+ *   rule 12  Finnish style: no te-form, "!", banned words      text-rules.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

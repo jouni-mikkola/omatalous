@@ -5,7 +5,6 @@ const num1 = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 1 });
 
 export const MONTHS_SHORT = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
 export const MONTHS_LONG = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
-export const WEEKDAYS_SHORT = ["ma", "ti", "ke", "to", "pe", "la", "su"];
 
 /** 123456 → "1 234,56 €" */
 export function money(cents: number, decimals = true): string {
@@ -72,6 +71,16 @@ export function monthLabel(month: string, withYear = false): string {
   const [y, m] = month.split("-");
   const name = MONTHS_SHORT[Number(m) - 1] ?? month;
   return withYear ? `${name} ${y}` : name;
+}
+
+/** ["2026-03", …, "2026-08"] → "maalis–elokuu 2026": the months a figure is the median of; across a year change both years show. */
+export function monthSpan(months: readonly string[]): string {
+  const first = months[0];
+  const last = months[months.length - 1];
+  if (!first || !last) return "";
+  if (first === last) return monthLong(first);
+  if (first.slice(0, 4) !== last.slice(0, 4)) return `${monthLong(first)}–${monthLong(last)}`;
+  return `${MONTHS_SHORT[Number(first.slice(5)) - 1]}–${monthLong(last)}`;
 }
 
 export function monthLong(month: string): string {

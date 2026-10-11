@@ -23,7 +23,7 @@ function stateFor(s: Services, returnTo: unknown): string {
   const origin =
     (typeof returnTo === "string" ? parseLocalOrigin(returnTo) : null) ?? parseLocalOrigin(s.instance.current.appBaseUrl);
   if (!origin) {
-    throw new UserError("Avaa Omatalous kotiverkon osoitteella, esimerkiksi http://192.168.1.10:8080, tai ota käyttöön oma https-osoite kohdassa Asetukset > Palvelin.");
+    throw new UserError("Avaa Omatalous kotiverkon osoitteesta, esimerkiksi http://192.168.1.10:8080, tai ota käyttöön oma https-osoite kohdassa Asetukset > Palvelin.");
   }
   return relayState(token, origin);
 }

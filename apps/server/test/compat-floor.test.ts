@@ -240,11 +240,20 @@ describe("code older than the database", () => {
   it("applyMigrations stores the floor of every migration it applies in one run", async () => {
     const db = openNodeSqlite(":memory:");
     try {
-      const { pending } = await pendingMigrations(db, readMigrations(findMigrationsDir()), { appVersion: "0.6.0" });
+      const shipped = readMigrations(findMigrationsDir());
+      // a later release may rebuild a table: that migration is breaking and declares no floor, so no build may assume every migration has one
+      const rebuild = { name: "0099_rebuilt.sql", sql: "-- migrate: foreign_keys=off\n-- migrate: breaking table rebuilt\nCREATE TABLE rebuilt (id INTEGER);" };
+      const { pending } = await pendingMigrations(db, [...shipped, rebuild], { appVersion: "0.6.0" });
       await applyMigrations(db, pending);
       const rows = await db.all<{ name: string; compat: string | null }>("SELECT name, compat FROM _migrations ORDER BY name");
-      expect(rows.at(-1)).toEqual({ name: "0009_migration_compat.sql", compat: "0.6.0" });
+      expect(rows.find((r) => r.name === "0009_migration_compat.sql")).toEqual({ name: "0009_migration_compat.sql", compat: "0.6.0" });
+      expect(rows.at(-1)).toEqual({ name: "0099_rebuilt.sql", compat: null });
       expect(rows.slice(0, 8).every((r) => r.compat === null)).toBe(true);
+      // whatever a file declares is what is stored: a floor for an additive one, none for the others
+      for (const r of rows) {
+        const file = [...shipped, rebuild].find((m) => m.name === r.name)!;
+        expect(r.compat, r.name).toBe(compatFloor(file));
+      }
     } finally {
       db.close();
     }

@@ -122,8 +122,8 @@ export function Security({ me }: { me: User }) {
         <div className="card">
           <div className="card-head">
             <div>
-              <h2>Tapahtumat</h2>
-              <div className="card-sub">Kirjautumiset, estot, salasanojen nollaukset ja ylläpito. Vanhat poistuvat 90 päivässä.</div>
+              <h2>Tapahtumaloki</h2>
+              <div className="card-sub">Merkinnät säilyvät 90 päivää.</div>
             </div>
             <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Tapahtumatyyppi">
               <option value="">Kaikki</option>
@@ -160,7 +160,7 @@ export function Security({ me }: { me: User }) {
                 ))}
               </tbody>
             </table>
-            {events.data && !events.data.events.length && <div className="empty">Ei tapahtumia.</div>}
+            {events.data && !events.data.events.length && <div className="empty">Ei merkintöjä.</div>}
           </div>
         </div>
       )}

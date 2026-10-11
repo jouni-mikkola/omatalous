@@ -7,16 +7,16 @@ import "../styles/charts.css";
 
 const MARGIN = { top: 12, right: 64, bottom: 24, left: 56 };
 const CURRENT = "var(--series-1)";
-const AVERAGE = "var(--series-avg)";
+const USUAL = "var(--series-avg)";
 
-/** Cumulative spending this month (accent) against the average month (gray). */
-export function PaceChart({ current, average, height = 220 }: { current: (number | null)[]; average: number[]; height?: number }) {
+/** Cumulative spending this month (accent) against the usual month (gray), when there are three complete months to say what usual is. */
+export function PaceChart({ current, usual, height = 220 }: { current: (number | null)[]; usual: number[] | null; height?: number }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
-  const days = average.length;
+  const days = current.length;
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
-  const values = [...average, ...current.filter((v): v is number => v !== null)];
+  const values = [...(usual ?? []), ...current.filter((v): v is number => v !== null)];
   const { ticks, max } = niceTicks(Math.max(...values, 0));
   const x = (i: number) => (days > 1 ? (i / (days - 1)) * innerW : 0);
   const y = (v: number) => innerH - (v / max) * innerH;
@@ -39,13 +39,15 @@ export function PaceChart({ current, average, height = 220 }: { current: (number
           <i className="line-key" style={{ background: CURRENT }} />
           Tämä kuukausi
         </span>
-        <span>
-          <i className="line-key" style={{ background: AVERAGE }} />
-          Keskiarvo (3 kk)
-        </span>
+        {usual && (
+          <span>
+            <i className="line-key" style={{ background: USUAL }} />
+            Tavallisesti
+          </span>
+        )}
       </div>
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label="Kuukauden kertyvät menot verrattuna keskiarvoon">
+        <svg width={width} height={height} role="img" aria-label="Kuukauden kertyvät menot verrattuna tavalliseen kuukauteen">
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
             {ticks.map((t) => (
               <g key={t} transform={`translate(0,${y(t)})`}>
@@ -60,7 +62,7 @@ export function PaceChart({ current, average, height = 220 }: { current: (number
                 {d}.
               </text>
             ))}
-            <path d={path(average)} fill="none" stroke={AVERAGE} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            {usual && <path d={path(usual)} fill="none" stroke={USUAL} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
             <path d={path(current)} fill="none" stroke={CURRENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
             {lastVal !== null && (
               <>
@@ -73,7 +75,7 @@ export function PaceChart({ current, average, height = 220 }: { current: (number
             {hover !== null && (
               <g pointerEvents="none">
                 <line className="axis-line" x1={x(hover)} x2={x(hover)} y1={0} y2={innerH} />
-                <circle cx={x(hover)} cy={y(average[hover]!)} r={4} fill={AVERAGE} stroke="var(--surface)" strokeWidth={2} />
+                {usual && <circle cx={x(hover)} cy={y(usual[hover]!)} r={4} fill={USUAL} stroke="var(--surface)" strokeWidth={2} />}
                 {current[hover] != null && <circle cx={x(hover)} cy={y(current[hover]!)} r={4} fill={CURRENT} stroke="var(--surface)" strokeWidth={2} />}
               </g>
             )}
@@ -101,7 +103,7 @@ export function PaceChart({ current, average, height = 220 }: { current: (number
         <Tooltip x={MARGIN.left + x(hover)} y={MARGIN.top + 8} containerWidth={width}>
           <div className="tooltip-title">{hover + 1}. päivä</div>
           {current[hover] != null && <TooltipRow color={CURRENT} name="Tämä kuukausi" value={money(current[hover]!, false)} />}
-          <TooltipRow color={AVERAGE} name="Keskiarvo" value={money(average[hover]!, false)} />
+          {usual && <TooltipRow color={USUAL} name="Tavallisesti" value={money(usual[hover]!, false)} />}
         </Tooltip>
       )}
     </div>

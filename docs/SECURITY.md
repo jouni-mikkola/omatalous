@@ -166,7 +166,9 @@ the download of a backup need the admin's password again, rollback also a typed 
 What remains:
 
 - Someone with the admin password and a session can start an update to a signed version, a rollback or a restart. A
-  rollback can lose data written since the update, and a snapshot is taken before it.
+  rollback loses data written since the update only when the previous version refuses the updated database, and the
+  database is copied first. To ask, the previous image runs its `migrate-check` on the data volume, with no network and
+  no secrets volume.
 - A compromised container can ask for those same fixed actions, nothing more.
 - Whoever controls the GitHub account or the release workflow can ship code to every install. Protect the account with a
   hardware key.

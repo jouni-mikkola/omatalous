@@ -1,3 +1,4 @@
+// Decision: cancel or renegotiate a contract that got dearer
 import { query } from "../../../api.ts";
 import { date, money, signedMoney } from "../../../format.ts";
 import { Section } from "../parts.tsx";

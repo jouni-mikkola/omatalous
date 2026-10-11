@@ -3,7 +3,7 @@ import { buildReports, getCategory } from "@banking/core";
 import { Hono } from "hono";
 import { importCsv } from "../connectors/csv-import/service.ts";
 import { loadDemoData } from "../demo.ts";
-import { parseScope, sharedInView } from "../services/analysis.ts";
+import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { reprocess } from "../services/enrich.ts";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -12,6 +12,9 @@ import { body, cents, csv, csvBody, csvResponse, optionalString, parseRange } fr
 /** Largest CSV text accepted (characters); the request body limit leaves room for the JSON escaping. */
 export const CSV_CONTENT_MAX = 5_000_000;
 export const CSV_BODY_MAX = 6 * 1024 * 1024;
+
+/** An average the report has none of (no complete month in the range) is an empty cell, never a zero. */
+const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
 
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -60,16 +63,17 @@ export function dataRoutes(s: Services) {
   app.get("/export/report.csv", async (c) => {
     const user = c.get("user");
     const range = parseRange(c, s.today());
-    const { ctx } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
-    const reports = buildReports({ ctx, range, balances: [] });
+    const { ctx, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
+    const { balances, inputs } = await requestInputs(s, user.id, accounts);
+    const reports = buildReports({ ctx, range, balances, inputs });
     const kind = c.req.query("report") ?? "pivot";
     if (kind === "categories") {
       const rows = [
-        ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Kpl", "Keskiostos €", "Kk-keskiarvo €", "Mediaani-kk €", "Pienin kk €", "Suurin kk €", "Edellinen jakso €", "Trendi 3 kk %"],
+        ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Ostoja", "Keskiostos €", "Keskimäärin kuussa €", "Tavallisesti kuussa €", "Pienin kuukausi €", "Suurin kuukausi €", "Edellinen jakso €", "Muutos 3 kuukaudessa %"],
         ...reports.categories.groups.flatMap((g) =>
           g.categories.map((x) => [
-            g.group, x.label, cents(x.totalCents), Math.round(x.share * 1000) / 10, x.count, cents(x.avgTxCents), cents(x.monthlyAvgCents),
-            cents(x.medianMonthCents), cents(x.minMonthCents), cents(x.maxMonthCents), cents(x.previousCents), x.trend === null ? null : Math.round(x.trend * 100),
+            g.group, x.label, cents(x.totalCents), Math.round(x.share * 1000) / 10, x.count, cents(x.avgTxCents), centsOrEmpty(x.monthlyAvgCents),
+            centsOrEmpty(x.medianMonthCents), centsOrEmpty(x.minMonthCents), centsOrEmpty(x.maxMonthCents), cents(x.previousCents), x.trend === null ? null : Math.round(x.trend * 100),
           ]),
         ),
       ];
@@ -77,15 +81,15 @@ export function dataRoutes(s: Services) {
     }
     if (kind === "cashflow") {
       const rows = [
-        ["Kuukausi", "Tulot €", "Kulutus €", "Velanhoito €", "Säästöt €", "Luotonnostot €", "Erotus €", "Säästöaste %"],
-        ...reports.cashflow.rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100)]),
+        ["Kuukausi", "Tulot €", "Kulutus €", "Velanhoito €", "Säästöt €", "Luotonnostot €", "Erotus €", "Säästöaste %", "Yli jäi €"],
+        ...reports.cashflow.rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.netCents - r.savedCents)]),
       ];
       return csvResponse(c, `kassavirta_${range.from}_${range.to}.csv`, csv(rows));
     }
     const p = reports.pivot;
     const rows = [
       ["Kategoria", "Ryhmä", ...p.months, "Yhteensä €", "Keskiarvo €"],
-      ...p.rows.map((r) => [r.label, r.group, ...r.values.map(cents), cents(r.totalCents), cents(r.averageCents)]),
+      ...p.rows.map((r) => [r.label, r.group, ...r.values.map(cents), cents(r.totalCents), centsOrEmpty(r.averageCents)]),
       ["Yhteensä", "", ...p.monthTotals.map(cents), cents(p.totalCents), ""],
     ];
     return csvResponse(c, `kuukausitaulukko_${range.from}_${range.to}.csv`, csv(rows));

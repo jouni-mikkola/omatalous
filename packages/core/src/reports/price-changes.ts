@@ -1,3 +1,4 @@
+// Decision: cancel or renegotiate a contract that got dearer
 import { getCategory } from "../categories.ts";
 import { type AnalysisContext, recurringAt } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";

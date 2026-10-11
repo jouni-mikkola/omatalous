@@ -5,10 +5,11 @@
  */
 
 /**
- * The texts that mark a MobilePay or Pivo payment, as a regex alternation. Callers add what they need around it
- * ("SIIRTO HENKILOLLE" for money out, "SIIRTO HENKILOLTA" for money in) and the word boundaries that suit them.
+ * The texts that mark a MobilePay, Pivo or Vipps payment, as a regex alternation. Callers add what they need around
+ * it ("SIIRTO HENKILOLLE" for money out, "SIIRTO HENKILOLTA" for money in) and the word boundaries that suit them.
+ * Vipps and MobilePay are one app since 2022, and a row of the new brand may say only Vipps.
  */
-export const MOBILEPAY_WORDS = "MOBILEPAY|MOBILE PAY|PIVO";
+export const MOBILEPAY_WORDS = "MOBILEPAY|MOBILE PAY|PIVO|VIPPS MOBILEPAY|VIPPS";
 
 /**
  * What a company form is used for. The lists differ on purpose: a short form such as SA, SE or AS is also a
