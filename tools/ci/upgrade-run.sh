@@ -50,13 +50,14 @@ golden() {
     for (const r of d.prepare("SELECT u.username AS u, count(t.id) AS n, coalesce(sum(t.amount_cents),0) AS s FROM users u LEFT JOIN transactions t ON t.user_id = u.id GROUP BY u.id ORDER BY u.username").all()) p("tx", r.u, r.n, r.s);
     p("accounts", d.prepare("SELECT count(*) AS n FROM accounts").get().n);
     p("rules", d.prepare("SELECT count(*) AS n FROM category_rules").get().n);
-    // tables of 0.7.0: a baseline without them counts 0, which is what a new empty table counts too
+    // tables of 0.7.0 and 0.8.0: a baseline without them counts 0, which is what a new empty table counts too
     const has = (t) => d.prepare("SELECT 1 AS x FROM sqlite_master WHERE type = \x27table\x27 AND name = ?").get(t) !== undefined;
-    for (const t of ["user_marks", "expected_bills"]) for (const r of d.prepare("SELECT u.username AS u, " + (has(t) ? "(SELECT count(*) FROM " + t + " x WHERE x.user_id = u.id)" : "0") + " AS n FROM users u ORDER BY u.username").all()) p(t, r.u, r.n);
+    for (const t of ["user_marks", "expected_bills", "optimise_inputs", "optimise_states", "optimise_snapshots"]) for (const r of d.prepare("SELECT u.username AS u, " + (has(t) ? "(SELECT count(*) FROM " + t + " x WHERE x.user_id = u.id)" : "0") + " AS n FROM users u ORDER BY u.username").all()) p(t, r.u, r.n);
     for (const r of d.prepare("SELECT id, category FROM transactions WHERE category_source = \x27user\x27 ORDER BY id").all()) p("user-row", r.id, r.category);
     for (const r of d.prepare("SELECT key, value FROM settings WHERE key = \x27instance_settings\x27").all()) p("setting", r.key, r.value);' | sort
 }
-# marks and expected bills of every user, only where the schema has the tables (a baseline before 0.7.0 does not).
+# marks, expected bills and Optimoi rows of every user, only where the schema has the tables (a baseline before 0.7.0
+# or 0.8.0 does not).
 # The keys are fixed and a row that is there is left alone, so a second call adds nothing.
 seed_choices() {
   dc exec -T banking "${NODE[@]}" -e '
@@ -68,6 +69,11 @@ seed_choices() {
       }
       if (has("expected_bills")) {
         for (const cadence of ["once", "quarterly", "semiannual", "yearly"]) d.prepare("INSERT OR IGNORE INTO expected_bills (id, user_id, name, amount_cents, due_date, cadence, category, created_at) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)").run("ci-" + u.username + "-" + cadence, u.id, "CI " + cadence, 12345, "2027-01-15", cadence, "2026-10-02T09:15:00.000Z");
+      }
+      if (has("optimise_inputs")) {
+        for (const [key, value] of [["car_km", "14000"], ["housing_type", "\"rivitalo\""]]) d.prepare("INSERT OR IGNORE INTO optimise_inputs (user_id, key, value, as_of) VALUES (?, ?, ?, ?)").run(u.id, key, value, "2026-10-12");
+        for (const [id, status, until] of [["food:eating_out", "dismissed", null], ["car:parking", "snoozed", "2027-01-15"]]) d.prepare("INSERT OR IGNORE INTO optimise_states (user_id, finding_id, status, reason, until, decided_at) VALUES (?, ?, ?, ?, ?, ?)").run(u.id, id, status, status === "dismissed" ? "need_it" : null, until, "2026-10-12T09:15:00.000Z");
+        d.prepare("INSERT OR IGNORE INTO optimise_snapshots (user_id, month, data, created_at) VALUES (?, ?, ?, ?)").run(u.id, "2026-09", "[]", "2026-09-01T05:00:00.000Z");
       }
     }'
 }
@@ -153,11 +159,13 @@ fi
 # This checkout has the tables whatever the baseline was. The rollback above put back the database copy from before
 # the first update (update.sh warns that changes made after it are lost), so the rows are written here, after it,
 # and must survive the next release and the rollback of that.
-log "marks and expected bills written at this version"
+log "marks, expected bills and Optimoi rows written at this version"
 seed_choices
 GOLD_HEAD=$(golden)
 [[ $GOLD_HEAD == *"user_marks ci-admin 3"* && $GOLD_HEAD == *"user_marks ci-member 3"* ]] || fail "the marks were not written"
 [[ $GOLD_HEAD == *"expected_bills ci-admin 4"* && $GOLD_HEAD == *"expected_bills ci-member 4"* ]] || fail "the expected bills were not written"
+[[ $GOLD_HEAD == *"optimise_inputs ci-admin 2"* && $GOLD_HEAD == *"optimise_states ci-member 2"* ]] || fail "the Optimoi inputs and states were not written"
+[[ $GOLD_HEAD == *"optimise_snapshots ci-admin 1"* && $GOLD_HEAD == *"optimise_snapshots ci-member 1"* ]] || fail "the Optimoi snapshots were not written"
 
 log "this checkout's update.sh on the next release"
 printf 'TALOUS_CHANNEL=source\n' >>"$DIR/.env"

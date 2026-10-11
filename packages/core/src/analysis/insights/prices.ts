@@ -7,7 +7,8 @@
 import { addDays } from "../../dates.ts";
 import { getCategory } from "../../categories.ts";
 import { priceChangeYearlyCents, type RecurringSeries } from "../../recurring.ts";
-import { recurringAt } from "../context.ts";
+import type { IsoDate } from "../../types.ts";
+import { type AnalysisContext, recurringAt } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
 import { capitalise, countWord, isLender, ITEM_GATE_MONTHLY_CENTS } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
@@ -21,16 +22,32 @@ const isSpending = (s: RecurringSeries) => {
   return (kind === "expense" || kind === "debt") && !isLender(s.merchant);
 };
 
-export function priceRises({ ctx, end }: InsightArgs): Insight[] {
-  const since = addDays(end, -365);
-  const rises = recurringAt(ctx, end)
+/** A fixed-amount charge that got dearer, with what the rise adds to a year of its charges. */
+export interface PriceRiseItem {
+  series: RecurringSeries;
+  /** `priceChangeYearlyCents` of the series, positive. */
+  yearlyCents: number;
+}
+
+/**
+ * Every rise of 1 € and 5 % in the `days` up to `end`, one item per series and no total gate, largest first. The
+ * insight below adds its gate; Optimoi reads the same list, so both pages name the same rises.
+ */
+export function priceRiseItems(ctx: AnalysisContext, end: IsoDate, days = 365): PriceRiseItem[] {
+  const since = addDays(end, -days);
+  return recurringAt(ctx, end)
     .filter((s) => s.active && s.kind === "subscription" && isSpending(s) && s.priceChange && s.priceChange.date > since && s.priceChange.date <= end)
     .filter((s) => {
       const { fromCents, toCents } = s.priceChange!;
       return toCents - fromCents >= MIN_RISE_CENTS && toCents - fromCents >= MIN_RISE_SHARE * fromCents;
     })
-    .map((s) => ({ s, yearly: priceChangeYearlyCents(s)! }))
-    .sort((a, b) => b.yearly - a.yearly || a.s.merchant.localeCompare(b.s.merchant));
+    .map((s) => ({ series: s, yearlyCents: priceChangeYearlyCents(s)! }))
+    .sort((a, b) => b.yearlyCents - a.yearlyCents || a.series.merchant.localeCompare(b.series.merchant));
+}
+
+export function priceRises({ ctx, end }: InsightArgs): Insight[] {
+  const since = addDays(end, -365);
+  const rises = priceRiseItems(ctx, end).map((r) => ({ s: r.series, yearly: r.yearlyCents }));
   if (!rises.length || rises.reduce((sum, r) => sum + r.yearly, 0) < 12 * ITEM_GATE_MONTHLY_CENTS) return [];
   const rows = rises.flatMap(({ s }) => s.transactionIds.slice(-2));
   if (rises.length === 1) {

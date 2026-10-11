@@ -1,3 +1,4 @@
+import { FEATURES, type FeatureState } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { NAV, type NavEntry, visibleNav } from "../src/nav.ts";
 
@@ -16,9 +17,16 @@ describe("visibleNav", () => {
     expect(visibleNav(undefined, GATED).map((e) => e.id)).toEqual(["overview"]);
   });
 
-  it("the shipped nav has no gated entry yet, so every page shows before and after the flags load", () => {
-    expect(NAV.filter((e) => e.feature)).toEqual([]);
-    expect(visibleNav(undefined)).toEqual([...NAV]);
-    expect(visibleNav({ optimise: false }).map((e) => e.id)).toEqual(["overview", "reports", "transactions", "recurring", "categories", "settings"]);
+  it("the shipped nav gates Optimoi on its flag: after Raportit when on, and left out while off or not loaded", () => {
+    expect(NAV.filter((e) => e.feature).map((e) => [e.id, e.feature])).toEqual([["optimise", "optimise"]]);
+    const off = ["overview", "reports", "transactions", "recurring", "categories", "settings"];
+    expect(visibleNav(undefined).map((e) => e.id)).toEqual(off);
+    expect(visibleNav({ optimise: false }).map((e) => e.id)).toEqual(off);
+    expect(visibleNav({ optimise: true }).map((e) => e.id)).toEqual(["overview", "reports", "optimise", "transactions", "recurring", "categories", "settings"]);
+  });
+
+  it("shows Optimoi at the flags' defaults: it ships on, and an admin can switch it off", () => {
+    const defaults = Object.fromEntries(Object.entries(FEATURES).map(([id, f]) => [id, f.default])) as FeatureState;
+    expect(visibleNav(defaults).map((e) => e.id)).toContain("optimise");
   });
 });

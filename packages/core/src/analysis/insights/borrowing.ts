@@ -6,15 +6,40 @@
  */
 import { fixedSplit } from "../../commitments.ts";
 import { getCategory } from "../../categories.ts";
+import type { RecurringSeries } from "../../recurring.ts";
 import { median } from "../../stats.ts";
-import { recurringAt } from "../context.ts";
+import type { IsoDate, UserInputs } from "../../types.ts";
+import { type AnalysisContext, recurringAt } from "../context.ts";
 import { cancelledMerchants } from "../forecast.ts";
 import { formatEur } from "../format.ts";
 import { dateSpan, lastCompleteMonths, monthRows, monthSpan } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
-const DEBT_SHARE = 0.35;
+/** The line the debt insight and Optimoi's Tilanne block draw. */
+export const DEBT_SHARE = 0.35;
 const MONTHS = 6;
+
+export interface DebtShare {
+  /** Loan instalments a month as the series stand. */
+  debtCents: number;
+  /** The median income of `months`. */
+  incomeCents: number;
+  /** The six complete months before `end`, oldest first. */
+  months: string[];
+  /** The debt series on `end`, cancelled merchants left out. */
+  series: readonly RecurringSeries[];
+}
+
+/** Debt service against usual income, without the insight's line. Null under six complete months. */
+export function debtShareOf(ctx: AnalysisContext, end: IsoDate, inputs: UserInputs): DebtShare | null {
+  const months = lastCompleteMonths(ctx, end, MONTHS);
+  if (months.length < MONTHS) return null;
+  const cancelled = cancelledMerchants(inputs);
+  const series = recurringAt(ctx, end).filter((s) => getCategory(s.category).kind === "debt" && !cancelled.has(s.merchant));
+  const debtCents = fixedSplit(series, cancelled).debtCents;
+  const incomeCents = Math.round(median(months.map((m) => monthRows(ctx, m).income)));
+  return { debtCents, incomeCents, months, series };
+}
 
 export function borrowing({ ctx, range, end, current, totals, inputs }: InsightArgs): Insight[] {
   const out: Insight[] = [];
@@ -31,12 +56,9 @@ export function borrowing({ ctx, range, end, current, totals, inputs }: InsightA
       link: { category: "credit_draw", from: range.from, to: end },
     });
   }
-  const months = lastCompleteMonths(ctx, end, MONTHS);
-  if (months.length < MONTHS) return out;
-  const cancelled = cancelledMerchants(inputs);
-  const series = recurringAt(ctx, end).filter((s) => getCategory(s.category).kind === "debt" && !cancelled.has(s.merchant));
-  const debt = fixedSplit(series, cancelled).debtCents;
-  const income = Math.round(median(months.map((m) => monthRows(ctx, m).income)));
+  const share = debtShareOf(ctx, end, inputs);
+  if (!share) return out;
+  const { months, series, debtCents: debt, incomeCents: income } = share;
   if (income > 0 && debt / income > DEBT_SHARE) {
     const first = months[0]!;
     const last = months[months.length - 1]!;

@@ -1,0 +1,90 @@
+/* Optimoi: the situation, the findings with their calculation, the decided ones and the inputs. */
+
+.optimise-group { font-size: 15px; font-weight: 600; margin: 8px 0 -4px; }
+.optimise .card h3 { font-size: 15px; font-weight: 600; margin: 0; }
+.optimise h4 { margin: 0; font-size: 13px; font-weight: 600; }
+
+/* Tilanne: the euros found, then four facts side by side */
+.optimise-headline { max-width: none; margin-bottom: 6px; }
+.optimise-headline strong { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.optimise-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 14px 0; margin: 14px 0 0; }
+.optimise-facts > div { border-left: 1px solid var(--border); padding: 0 14px; min-width: 0; }
+.optimise-facts dt, .optimise-facts dd { margin: 0; }
+.optimise-facts dt { color: var(--muted); font-size: 12px; }
+.optimise-facts dd.v { font-size: 20px; font-weight: 500; margin: 2px 0; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+/* a finding: the words on the left, the euros on the right, on a phone one under the other */
+.findings { display: flex; flex-direction: column; gap: 12px; }
+.finding { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--surface); min-width: 0; }
+.finding-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 20px; }
+.finding-main { flex: 1 1 20rem; min-width: 0; overflow-wrap: anywhere; }
+.finding-main p, .finding-money { margin: 0; }
+.finding-title { font-weight: 600; }
+.finding-title .badge { margin-left: 8px; vertical-align: 1px; }
+.finding-action { color: var(--text-2); }
+.finding-money { flex: 0 1 15rem; display: flex; flex-direction: column; gap: 1px; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.finding-euros { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.finding-range { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.finding-certainty { margin: 8px 0 0; }
+.finding-certainty .badge { margin-left: 0; }
+@media (max-width: 600px) {
+  .finding-money { flex-basis: 100%; text-align: left; }
+}
+
+.finding-actions { margin-top: 10px; }
+.finding-actions .form-row { margin: 0; gap: 6px; }
+/* the form that opens under the buttons: a date, a reason, a delay or a number */
+.decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; padding: 10px; background: var(--surface-2); border-radius: 6px; }
+.decide-form label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.decide-form.refine { align-items: flex-start; }
+.decide-form .input-form { flex: 1 1 100%; }
+
+/* the calculation */
+.evidence { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 16px; min-width: 0; }
+.evidence-part { min-width: 0; }
+.evidence-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
+.calc { margin: 0; }
+.calc > div { display: flex; justify-content: space-between; gap: 4px 16px; padding: 4px 0; border-bottom: 1px solid var(--grid); }
+.calc > div:last-child { border-bottom: none; }
+.calc dt { color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
+.calc dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; max-width: 55%; }
+.calc .struck dt, .calc .struck dd { color: var(--muted); }
+.evidence-rows th:first-child { padding-left: 0; }
+.evidence-rows th.num { padding-right: 0; }
+.evidence-rows td.when { white-space: nowrap; }
+.evidence-rows tr.struck td { color: var(--muted); }
+.evidence-check { margin: 0; }
+@media (max-width: 600px) { .calc dd { max-width: 50%; } }
+
+/* an area: its checks behind a fold, and the quiet areas side by side */
+.area-checks { margin-top: 12px; }
+.area-checks summary { cursor: pointer; color: var(--text-2); font-size: 13px; }
+.checks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.checks li { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 13px; }
+.check-label { font-weight: 500; }
+.check-status { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.check-status.found { color: var(--text); font-weight: 600; }
+.area-summary { margin-top: 12px; }
+.quiet-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px 24px; }
+.quiet-area { min-width: 0; }
+.quiet-area h3 { margin-bottom: 2px; }
+
+/* Jo hoidossa, Ei koske meitä, Muistutukset and the inputs */
+.decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.decided, .needed { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; padding-bottom: 10px; border-bottom: 1px solid var(--grid); }
+.decided:last-child, .needed:last-child { border-bottom: none; padding-bottom: 0; }
+.decided-text, .needed-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 18rem; min-width: 0; overflow-wrap: anywhere; }
+.decided-title { font-weight: 500; }
+.needed > .input-form { flex: 0 1 24rem; min-width: 0; }
+.input-fields { display: flex; flex-direction: column; gap: 4px; }
+.input-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.input-line select { max-width: 100%; }
+.input-form .form-row { margin: 6px 0 0; }
+.stale { color: var(--warn); }
+.optimise-subhead { margin: 16px 0 8px; font-size: 13px; color: var(--text-2); }
+@media (max-width: 600px) { .needed > .input-form { flex-basis: 100%; } }
+
+/* Seuranta: a done decision's verdict, effect and reason under its row */
+.outcome { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 4px 0 0; }
+.outcome .badge { margin-left: 0; }
+#seuranta .decided-list + .evidence-part { margin-top: 16px; }

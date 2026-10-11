@@ -145,6 +145,9 @@ jobs:
     needs: [plan, verify]
     if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true'
     runs-on: ubuntu-latest
+    # A build takes about two minutes. The arm64 half runs under QEMU, which once crashed and then hung for 30 minutes
+    # (0.7.0), so a hung build fails here and Re-run failed jobs retries it with the same push.
+    timeout-minutes: 15
     environment: release
     permissions:
       contents: read

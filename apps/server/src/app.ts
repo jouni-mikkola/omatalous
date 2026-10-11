@@ -10,7 +10,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
-import { csrfGuard, requireAdmin, requireUser, sessionMiddleware } from "./auth/middleware.ts";
+import { csrfGuard, gated, requireAdmin, requireUser, sessionMiddleware } from "./auth/middleware.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { bankCallbackRoute, bankRoutes } from "./routes/bank.ts";
@@ -18,6 +18,7 @@ import { CSV_BODY_MAX, dataRoutes } from "./routes/data.ts";
 import { expectedBillRoutes } from "./routes/expected-bills.ts";
 import { financeRoutes } from "./routes/finance.ts";
 import { marksRoutes } from "./routes/marks.ts";
+import { optimiseRoutes } from "./routes/optimise.ts";
 import { securityRoutes } from "./routes/security.ts";
 import { opsRoutes } from "./routes/ops.ts";
 import { merchantRoutes } from "./routes/merchants.ts";
@@ -102,6 +103,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", financeRoutes(s));
   app.route("/api", marksRoutes(s));
   app.route("/api", expectedBillRoutes(s));
+  // its own prefix: a guard mounted at /api/* would gate every route registered after it
+  app.route("/api/optimise", gated(s, "optimise", optimiseRoutes(s)));
   app.route("/api", merchantRoutes(s));
   app.route("/api", bankRoutes(s));
   app.route("/api", dataRoutes(s));

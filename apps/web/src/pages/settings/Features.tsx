@@ -1,11 +1,11 @@
 /** Asetukset > Palvelin (admin): switches for the modules that are not finished yet (core's FEATURES). */
-import { FEATURES, FEATURE_IDS, type FeatureId } from "@banking/core";
+import { FEATURES, FEATURE_IDS, type FeatureDef, type FeatureId } from "@banking/core";
 import { useState } from "react";
 import { api } from "../../api.ts";
 import type { InstanceState } from "../../types.ts";
 
 /** A dev flag is not offered: its module does nothing useful yet. Developers switch it through the API. */
-export const SWITCHABLE = FEATURE_IDS.filter((id) => FEATURES[id].stage !== "dev");
+export const SWITCHABLE = FEATURE_IDS.filter((id) => (FEATURES[id] as FeatureDef).stage !== "dev");
 
 const STAGE = { dev: "Kehitysvaiheessa, ei vielä käytettävissä.", preview: "Esikatselu: voi muuttua.", stable: "Valmis." } as const;
 

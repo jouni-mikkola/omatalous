@@ -130,7 +130,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     signals.push({
       id: "own_unconnected",
       tone: "info",
-      title: `Säästöiksi on laskettu ${formatEur(saved, false)}, jonka saldoa ei näy`,
+      title: `${formatEur(saved, false)} säästöjä meni tilille, jonka saldo ei näy`,
       detail: `Rahat on lähetetty tilille tai rahastoon, jota ei ole yhdistetty${largest.length ? `, suurimpina ${finnishList(largest)}` : ""}. Yhdistä tili tai tuo sen tapahtumat, niin saldo näkyy.`,
       category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0],
       cents: saved,

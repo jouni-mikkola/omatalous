@@ -8,9 +8,9 @@ describe("feature flags", () => {
     for (const id of FEATURE_IDS) expect(state[id]).toBe(FEATURES[id].default);
   });
 
-  it("the optimise module ships off", () => {
-    expect(FEATURES.optimise.default).toBe(false);
-    expect(resolveFeatures({}).optimise).toBe(false);
+  it("the optimise module ships on as a preview", () => {
+    expect(FEATURES.optimise).toEqual({ label: "Optimointi", stage: "preview", default: true });
+    expect(resolveFeatures({}).optimise).toBe(true);
   });
 
   it("an override wins over the default in both directions", () => {

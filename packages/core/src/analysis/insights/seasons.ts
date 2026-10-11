@@ -25,13 +25,20 @@ function swing(ctx: InsightArgs["ctx"], month: string): number {
   return 1.4826 * median(values.map((v) => Math.abs(v - mid)));
 }
 
-interface Season {
+export interface Season {
+  /** The month of the last year, `2025-12`; the year before is the same month 12 earlier. */
   month: string;
   /** The mean excess over the years, cents. */
   extra: number;
+  /** Each year's excess over its usual level, one-off out, the latest first. */
+  extras: number[];
 }
 
-export function expensiveMonths({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
+/**
+ * Calendar months of the last 12 complete months that were 20 % and three swings over usual in each of the last two
+ * years. The insight sums them; Optimoi takes each month for itself.
+ */
+export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<InsightArgs, "ctx" | "end" | "gateMonthlyCents">): Season[] {
   const recent = lastCompleteMonths(ctx, end, 12);
   if (recent.length < 12) return [];
   const seasons: Season[] = [];
@@ -47,8 +54,14 @@ export function expensiveMonths({ ctx, end, gateMonthlyCents }: InsightArgs): In
       if (excess < Math.max(MIN_SHARE * usual, 5 * gateMonthlyCents, MIN_SWINGS * swing(ctx, m))) break;
       extras.push(excess);
     }
-    if (extras.length === YEARS) seasons.push({ month, extra: Math.round(extras.reduce((s, v) => s + v, 0) / YEARS) });
+    if (extras.length === YEARS) seasons.push({ month, extra: Math.round(extras.reduce((s, v) => s + v, 0) / YEARS), extras });
   }
+  return seasons;
+}
+
+export function expensiveMonths(args: InsightArgs): Insight[] {
+  const { gateMonthlyCents } = args;
+  const seasons = expensiveMonthItems(args);
   const yearly = seasons.reduce((s, x) => s + x.extra, 0);
   if (!seasons.length || yearly < 12 * gateMonthlyCents) return [];
   const top = [...seasons].sort((a, b) => b.extra - a.extra)[0]!;

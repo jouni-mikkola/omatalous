@@ -34,21 +34,34 @@ function accountDays(ctx: AnalysisContext, end: string): { lastBooking: Map<stri
   return { lastBooking, accountOf };
 }
 
+/** The payee that took over a stopped payment, and the day of its first charge in the category. */
+export interface Replacement {
+  merchant: string;
+  firstDate: string;
+}
+
 /**
  * Did another payee take over the payment within REFINANCE_DAYS of `last`? A recurring series in the category that
  * starts then does, and so does a first charge of at least half the old amount (a new contract has billed once and is
- * no series yet). A single small purchase from a new shop in the category is no switch.
+ * no series yet). A single small purchase from a new shop in the category is no switch. Optimoi's follow-up reads the
+ * payee from here, so the insight and the follow-up never disagree on a switch.
  */
-function newPayeeIn(ctx: AnalysisContext, s: RecurringSeries, end: string): boolean {
+export function replacementOf(ctx: AnalysisContext, s: RecurringSeries, end: string): Replacement | null {
   const near = (day: string) => Math.abs(daysBetween(s.lastDate, day)) <= REFINANCE_DAYS;
-  if (ctx.recurring.some((o) => o.category === s.category && o.merchant !== s.merchant && o.firstDate <= end && near(o.firstDate))) return true;
+  const series = ctx.recurring.find((o) => o.category === s.category && o.merchant !== s.merchant && o.firstDate <= end && near(o.firstDate));
+  if (series) return { merchant: series.merchant, firstDate: series.firstDate };
   const first = new Map<string, { day: string; cents: number }>();
   for (const t of ctx.txs) {
     if (t.category !== s.category || t.spend <= 0 || t.bookingDate > end || t.merchant === s.merchant || first.has(t.merchant)) continue;
     first.set(t.merchant, { day: t.bookingDate, cents: t.spend });
   }
-  for (const f of first.values()) if (near(f.day) && f.cents * 2 >= s.lastAmountCents) return true;
-  return false;
+  for (const [merchant, f] of first) if (near(f.day) && f.cents * 2 >= s.lastAmountCents) return { merchant, firstDate: f.day };
+  return null;
+}
+
+/** The switch test of the insight: true when `replacementOf` finds a payee. */
+export function newPayeeIn(ctx: AnalysisContext, s: RecurringSeries, end: string): boolean {
+  return replacementOf(ctx, s, end) !== null;
 }
 
 /** A term fee last paid in May or June and looked at before the autumn term has started billing. */

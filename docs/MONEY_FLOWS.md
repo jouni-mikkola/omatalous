@@ -183,6 +183,25 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
 
+## Optimoi
+
+- A finding's euros are a year: the last 12 complete months, or 6 to 11 complete months scaled to a year with one
+  step less certainty. Under six complete months there are no euros, under three only deadlines.
+- Each finding has a low, a mid and a high figure with the assumption behind the range. The page shows the mid.
+- A finding needs a mid of at least 120 € a year. A deadline has no euros.
+- A row over three times its merchant's median is a one-off: listed struck and left out. Transfers never
+  count, and an account whose first row falls inside the window is left out of it.
+- The headline adds the mids of the findings shown, largest first. It leaves out a decided finding, one at matala
+  certainty, one decided together with others (a yhtiökokous or two people) and one whose money is mostly counted
+  already: over half of what it claims (rows, a series, a merchant, a category or an account) belongs to a finding
+  counted before it.
+- A national figure comes from a dated fact with an expiry date (reference rates, CPI and electricity prices six months
+  after the period they describe, price lists and surveys twelve). An expired fact hides its comparison.
+- The follow-up compares the months after a done decision with the months before it and confirms a saving when the
+  monthly effect reaches 80 % of the mid's monthly share and every month after is below the level before.
+  Electricity bills are compared with the same months a year earlier and are at most likely, never confirmed, because
+  the use behind them is a typed figure.
+
 ## When it gets something wrong
 
 - Change the category in the transaction list. *Vaihda kaikki saman kauppiaan tapahtumat* also creates a

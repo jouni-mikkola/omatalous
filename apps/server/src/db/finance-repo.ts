@@ -8,13 +8,14 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { AccountType, CategoryRule, ExpectedBill, MarkKind, Transaction } from "@banking/core";
+import type { AccountType, CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, MarkKind, Transaction } from "@banking/core";
 import { AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
 import { MarksRepo } from "./finance/marks.ts";
 import { MerchantsRepo } from "./finance/merchants.ts";
+import { OptimiseRepo } from "./finance/optimise.ts";
 import { RulesRepo } from "./finance/rules.ts";
 import { SyncRunsRepo } from "./finance/sync-runs.ts";
 import { type TransactionFilter, TransactionListRepo } from "./finance/transaction-list.ts";
@@ -38,6 +39,7 @@ export class FinanceRepo {
   private readonly marks: MarksRepo;
   private readonly syncRuns: SyncRunsRepo;
   private readonly expectedBills: ExpectedBillsRepo;
+  private readonly optimise: OptimiseRepo;
 
   constructor(
     db: Db,
@@ -53,6 +55,7 @@ export class FinanceRepo {
     this.marks = new MarksRepo(ctx);
     this.syncRuns = new SyncRunsRepo(ctx);
     this.expectedBills = new ExpectedBillsRepo(ctx);
+    this.optimise = new OptimiseRepo(ctx);
   }
 
   // ── accounts (finance/accounts.ts) ───────────────────────
@@ -112,7 +115,7 @@ export class FinanceRepo {
   uncategorisedMerchants(limit?: number) { return this.merchants.uncategorisedMerchants(limit); }
   merchantSummaries(f: { q?: string; category?: string; limit: number }) { return this.merchants.merchantSummaries(f); }
   hasMerchant(merchant: string) { return this.merchants.hasMerchant(merchant); }
-  industryCodes() { return this.merchants.industryCodes(); }
+  industryCodes(sharedOwners?: readonly string[]) { return this.merchants.industryCodes(sharedOwners); }
   industryDetails(merchants: readonly string[], sharedOwners?: readonly string[]) { return this.merchants.industryDetails(merchants, sharedOwners); }
 
   // ── rules (finance/rules.ts) ─────────────────────────────
@@ -142,4 +145,15 @@ export class FinanceRepo {
   listExpectedBills() { return this.expectedBills.listExpectedBills(); }
   addExpectedBill(bill: ExpectedBill, createdAt: string) { return this.expectedBills.addExpectedBill(bill, createdAt); }
   deleteExpectedBill(id: string) { return this.expectedBills.deleteExpectedBill(id); }
+
+  // ── optimise (finance/optimise.ts) ───────────────────────
+  listInputs() { return this.optimise.listInputs(); }
+  setInput(key: string, value: InputValue, asOf: IsoDate) { return this.optimise.setInput(key, value, asOf); }
+  deleteInput(key: string) { return this.optimise.deleteInput(key); }
+  listStates() { return this.optimise.listStates(); }
+  setState(state: FindingState) { return this.optimise.setState(state); }
+  clearState(findingId: string) { return this.optimise.clearState(findingId); }
+  getSnapshot(month: string) { return this.optimise.getSnapshot(month); }
+  putSnapshot(month: string, data: unknown, createdAt: string) { return this.optimise.putSnapshot(month, data, createdAt); }
+  renameMerchantStates(renames: ReadonlyMap<string, string>) { return this.optimise.renameMerchantStates(renames); }
 }

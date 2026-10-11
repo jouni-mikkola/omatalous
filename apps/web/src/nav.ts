@@ -11,6 +11,7 @@ export interface NavEntry {
 export const NAV: readonly NavEntry[] = [
   { id: "overview", label: "Yleiskatsaus" },
   { id: "reports", label: "Raportit" },
+  { id: "optimise", label: "Optimoi", feature: "optimise" },
   { id: "transactions", label: "Tapahtumat" },
   { id: "recurring", label: "Toistuvat" },
   { id: "categories", label: "Kategoriat" },

@@ -5,6 +5,9 @@
  */
 import { isSubscription } from "../../commitments.ts";
 import { addDays } from "../../dates.ts";
+import type { RecurringSeries } from "../../recurring.ts";
+import type { UserInputs } from "../../types.ts";
+import type { AnalysisContext } from "../context.ts";
 import { cancelledMerchants } from "../forecast.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
 import { capitalise, countWord, ITEM_GATE_MONTHLY_CENTS } from "./shared.ts";
@@ -13,14 +16,30 @@ import type { Insight, InsightArgs } from "./types.ts";
 const RENEW_DAYS = 45;
 const NOUN = { yearly: ["vuositilaus", "vuositilausta"], semiannual: ["puolivuotistilaus", "puolivuotistilausta"] } as const;
 
-export function renewals({ ctx, running, inputs }: InsightArgs): Insight[] {
-  if (!running) return [];
+/** A yearly or half-yearly subscription: the insight's set. Optimoi passes its own filter for other contracts. */
+export const isLongSubscription = (s: RecurringSeries) => isSubscription(s) && (s.cadence === "yearly" || s.cadence === "semiannual");
+
+/**
+ * Series with a next charge from today to `days` ahead, soonest first, merchants marked cancelled left out. No gate:
+ * the insight below adds its own and Optimoi its own.
+ */
+export function renewalItems(
+  ctx: AnalysisContext,
+  inputs: UserInputs,
+  days: number,
+  filter: (s: RecurringSeries) => boolean = isLongSubscription,
+): RecurringSeries[] {
   const cancelled = cancelledMerchants(inputs);
-  const until = addDays(ctx.today, RENEW_DAYS);
-  const due = ctx.recurring
-    .filter((s) => isSubscription(s) && (s.cadence === "yearly" || s.cadence === "semiannual") && s.nextDate && s.nextDate >= ctx.today && s.nextDate <= until)
+  const until = addDays(ctx.today, days);
+  return ctx.recurring
+    .filter((s) => filter(s) && s.nextDate && s.nextDate >= ctx.today && s.nextDate <= until)
     .filter((s) => !cancelled.has(s.merchant))
     .sort((a, b) => a.nextDate!.localeCompare(b.nextDate!) || a.merchant.localeCompare(b.merchant));
+}
+
+export function renewals({ ctx, running, inputs }: InsightArgs): Insight[] {
+  if (!running) return [];
+  const due = renewalItems(ctx, inputs, RENEW_DAYS);
   const total = due.reduce((sum, s) => sum + s.typicalAmountCents, 0);
   const yearly = due.reduce((sum, s) => sum + s.monthlyCents * 12, 0);
   if (!due.length || yearly < 12 * ITEM_GATE_MONTHLY_CENTS) return [];

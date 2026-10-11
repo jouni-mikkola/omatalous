@@ -31,7 +31,10 @@ next releases are in `.claude/plan/` (private repo only).
   `change.ts` (what moved spending, split into causes that add up; wording in `change-text.ts`), `income.ts` (income by
   type, derived on read) with `income-changes.ts`, `income-events.ts`, `income-series.ts`. `analysis/insights/` has one
   source per file with its own gate and history rule (`shared.ts` holds the shared gates); `index.ts` only ranks them by
-  `yearlyCents`, and a dismissed insight returns when its figure moves 25 %.
+  `yearlyCents`, and a dismissed insight returns when its figure moves 25 %. `optimise/` is the Optimoi page: `index.ts`
+  applies the rules every finding follows (complete months, the 120 € gate, certainty, three per area, a headline
+  without overlaps), `areas/` has one file per area, `facts/` dated outside figures that expire, `inputs.ts` what the
+  user types in, `outcome.ts` and `snapshot.ts` the follow-up.
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
   `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` and `db/finance/` (all SQL),
@@ -67,7 +70,9 @@ next releases are in `.claude/plan/` (private repo only).
   balance, calls `settings.bumpUserDataVersion(userId)`, and sharing changes bump the owner and the viewer.
   `settings.bumpDataVersion()` is for changes that touch everyone. A sync or import that changed no row does neither.
   The user's marks (`user_marks`, `db/finance/marks.ts`, `PUT /api/marks`) and expected bills (`expected_bills`,
-  `/api/expected-bills`) are read per request (`requestInputs`) and are not part of the cached context.
+  `/api/expected-bills`) are read per request (`requestInputs`) and are not part of the cached context. So are the
+  Optimoi inputs, decisions and snapshots (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never
+  reprocesses.
 - `category_source = 'user'` is never overwritten by automation.
 - Every money movement lands in exactly one flow (consumption, debt, saved, income, borrowed) or is a
   transfer. A card bill is a transfer when that card's account is connected. See `docs/MONEY_FLOWS.md`.
@@ -117,6 +122,10 @@ next releases are in `.claude/plan/` (private repo only).
   `gated(s, id, routes)` (`auth/middleware.ts`), and its `nav.ts` entry names the flag. Admins switch flags in
   Asetukset > Palvelin.
 - New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`.
+- New Optimoi finding: in its area file, with a hit and near misses in `packages/core/test/optimise/parts/`, quiet on the
+  random households (`quiet.test.ts`). An outside figure is a row in `optimise/facts/` only after its primary source
+  was opened (`verifiedAt`); it expires and then hides its comparison. Findings never rank providers or advise a
+  product, and every number in a title is a calc line.
 - New connector or import format: a folder in `apps/server/src/connectors/` or `packages/core/src/sources/`, listed in
   its `registry.ts` (recipes in `docs/DEVELOPMENT.md`). A connector id is stored and never renamed.
 - Server tests use `apps/server/test/helpers.ts` (`setupApp()` gives a signed-in admin, `member()` more users).

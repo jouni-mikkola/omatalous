@@ -13,6 +13,7 @@ import { EmptyStart } from "./components/EmptyStart.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
 import { Categories } from "./pages/Categories.tsx";
 import { ChangePassword, Login, Setup } from "./pages/Auth.tsx";
+import { Optimise } from "./pages/Optimise.tsx";
 import { Overview } from "./pages/Overview.tsx";
 import { Recurring } from "./pages/Recurring.tsx";
 import { Reports } from "./pages/Reports.tsx";
@@ -288,6 +289,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
         />
       )}
       {page === "reports" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Reports meta={m} range={range} scope={effectiveScope} />)}
+      {page === "optimise" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Optimise scope={effectiveScope} />)}
       {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} />)}
       {page === "recurring" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Recurring meta={m} scope={effectiveScope} />)}
       {page === "categories" && noData && !oldRules && params.get("tab") !== "rules" && <EmptyStart onDemo={loadDemo} />}

@@ -8,7 +8,7 @@ import { ingestTransactions } from "./services/ingest.ts";
 /**
  * Deterministic, realistic demo data: a Finnish household with a checking
  * account, a savings account and a Nordea Gold credit card: salary, rent,
- * bills, subscriptions (one price increase, one cancelled, one new),
+ * bills, subscriptions (two price increases, one cancelled, one new, two video services at once),
  * groceries, Wolt habit, car financing from Nordea Rahoitus, the Gold bill
  * paid to Nordea Rahoitus, monthly fund savings at Nordnet, savings
  * transfers, one credit-line draw to checking, MobilePay and refunds.
@@ -112,6 +112,9 @@ export function generateDemoData(today: string, months = 14): DemoAccount[] {
     add(card, day(m, 1), -5900, null, "ELIXIA KAMPPI HELSINKI", { mcc: "7997" });
     add(card, day(m, 12), -1199, null, "PAYPAL *SPOTIFY 35314369001 STOCKHOLM SE");
     add(card, day(m, 7), monthsAgo <= 2 ? -1799 : -1599, null, "NETFLIX.COM LOS GATOS NL", { mcc: "4899" });
+    // Optimoi's demo findings: software that got dearer once (62,99 to 74,99), and a second video service beside Netflix
+    add(card, day(m, 14), monthsAgo <= 6 ? -7499 : -6299, null, "ADOBE *CREATIVE CLOUD DUBLIN IE", { mcc: "5734" });
+    add(card, day(m, 20), -1199, null, "HBO MAX AMSTERDAM NL", { mcc: "4899" });
     add(card, day(m, 3), -99, null, "APPLE.COM/BILL ITUNES.COM IE");
     add(card, day(m, 18), -1299, null, "APPLE.COM/BILL ITUNES.COM IE");
     if (monthsAgo >= 4) add(card, day(m, 22), -999, null, "DISNEY PLUS AMSTERDAM NL");

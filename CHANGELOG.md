@@ -3,6 +3,30 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.0
+
+Money and reports
+
+- Optimoi is a new page after Raportit. It lists what the household could change, each with euros a year computed from its own complete months, or a date to decide by, and how certain the figure is. A finding is shown from 120 € a year, at most three per area, and the total at the top counts each saving once.
+- Its 13 areas check the mortgage margin against sample offers, prepaying the mortgage from savings beyond three months of spending, card interest, money left on the checking account, price rises of phone bills and subscriptions, overlapping services, yearly renewals, the Nordea card tier and late fees, the electricity price per kWh, a vastike or rent rise, an insurance premium rise and its renewal, eating out, delivery and repeat small purchases against a year earlier, months that were dear two years running, the household deduction, the day-care fee and parking against a resident permit.
+- Some checks need a number you type in, such as the loan margin, the yearly kWh or a resident permit price. The page lists what each number unlocks.
+- Outside figures (Euribor, Statistics Finland's electricity prices, the rent index, CPI, Nordea's price list, the household deduction) carry their source and date. An expired figure hides its comparison until a release updates it.
+- Each finding opens its calculation, the rows it stands on and its months. Tein tämän, Ei koske meitä and Muistuta myöhemmin are kept for each member separately.
+- A done change is followed from the months after it: Jo hoidossa says whether the saving shows and how much it is a month, and waits while the data cannot tell yet. When the data shows a switch, the page asks you to confirm it and never marks it done by itself. The page also lists what changed since the last visit.
+- The demo data shows two findings: a software price rise and two video services at once.
+
+For developers
+
+- `packages/core/src/optimise/`: `buildOptimise` applies the rules every finding follows (complete months, the 120 € gate, certainty steps, the user's decisions, three per area, a headline without overlapping claims). `areas/` has one file per area, `facts/` dated outside figures that expire (`factOn`), `inputs.ts` the typed inputs and their validation, `outcome.ts` and `snapshot.ts` the follow-up.
+- The price rise, renewal, fixed-cost share, debt share, late fee, overlap, bank fee, habit and expensive month detectors are exported (`priceRiseItems`, `renewalItems`, `commitmentsShareOf`, `debtShareOf`, `isLateFee`, `isLateFeeAlone`, `overlapGroups`, `isBankFee`, `habitItems`, `expensiveMonthItems`), so Optimoi and the overview read the same numbers. `reports/balances.ts` exports its day walk (`balanceWalk`, `lowestDayBalance`).
+- `GET /api/optimise`, `GET /api/optimise/evidence`, `PUT` and `DELETE /api/optimise/inputs/:key` and `PUT /api/optimise/findings/:id`, behind the `optimise` flag (stage preview, on by default). Inputs, decisions and snapshots are read for each request like marks, so saving one moves no data version. The first request of a month stores a snapshot, and the response carries `changes` and `followUp`.
+- A decision and an insurance quote follow a merchant whose name is derived again on an upgrade, as marks do.
+
+Upgrade
+
+- Migration 0012 adds the tables `optimise_inputs`, `optimise_states` and `optimise_snapshots`. It only adds tables, so 0.7.0 still opens the database after a rollback.
+- Optimoi is on after the update. An admin can switch it off in Asetukset > Palvelin.
+
 ## 0.7.0
 
 Money and reports

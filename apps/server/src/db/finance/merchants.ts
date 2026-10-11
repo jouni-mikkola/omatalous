@@ -201,15 +201,17 @@ export class MerchantsRepo {
 
   /**
    * Register industry codes for the names this user's own lookups asked
-   * about (merchant_industry_users). The register table is shared, but an
-   * answer found for another member does not show up here.
+   * about (merchant_industry_users), or those of `sharedOwners` (owners of
+   * accounts shared with this user that are in view). The register table is
+   * shared, but an answer found for another member does not show up here.
    */
-  async industryCodes(): Promise<Map<string, { code: string; codeSet: IndustryCodeSet }>> {
+  async industryCodes(sharedOwners: readonly string[] = []): Promise<Map<string, { code: string; codeSet: IndustryCodeSet }>> {
+    const owners = [...new Set([this.ctx.userId, ...sharedOwners])];
     const rows = await this.ctx.db.all<{ merchant: string; industry_code: string; code_set: string }>(
       `SELECT m.merchant, m.industry_code, m.code_set FROM merchant_industry m
-       JOIN merchant_industry_users r ON r.merchant = m.merchant AND r.user_id = ?
-       WHERE m.status = 'found' AND m.industry_code IS NOT NULL`,
-      [this.ctx.userId],
+       WHERE m.status = 'found' AND m.industry_code IS NOT NULL
+         AND EXISTS (SELECT 1 FROM merchant_industry_users r WHERE r.merchant = m.merchant AND r.user_id IN (${owners.map(() => "?").join(", ")}))`,
+      owners,
     );
     const out = new Map<string, { code: string; codeSet: IndustryCodeSet }>();
     for (const r of rows) if (r.code_set === "TOL2008" || r.code_set === "TOL2025") out.set(r.merchant, { code: r.industry_code, codeSet: r.code_set });

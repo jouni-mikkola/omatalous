@@ -169,8 +169,16 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
 
 const LATE_FEE = /MUISTUTUSMAKSU|VIIVASTYSKORKO|PERINTAKULU|KARHUMAKSU|MAKSUMUISTUTUS/;
 
-/** A reminder fee or late interest: its own alert, and not a bank's price. */
-const isLateFee = (t: AnalysisTx) => t.amountCents < 0 && !t.isTransfer && LATE_FEE.test(fold(`${t.description ?? ""} ${t.counterparty ?? ""} ${t.merchant}`));
+/** A reminder fee or late interest: its own alert, and not a bank's price. Optimoi's late fee finding reads the same rows. */
+export const isLateFee = (t: AnalysisTx) => t.amountCents < 0 && !t.isTransfer && LATE_FEE.test(fold(`${t.description ?? ""} ${t.counterparty ?? ""} ${t.merchant}`));
+
+const LATE_FEE_WORDS = new RegExp(LATE_FEE.source, "g");
+
+/**
+ * A late fee whose message names nothing but the fee. "LASKU 4471 JA PERINTAKULU" pays the bill too, so its sum is not
+ * the fee's; the alert counts it, a figure of what the fees cost does not.
+ */
+export const isLateFeeAlone = (t: AnalysisTx) => isLateFee(t) && !/[A-Z0-9]/.test(fold(t.description ?? "").replace(LATE_FEE_WORDS, ""));
 
 function lateFees(current: readonly AnalysisTx[]): Alert[] {
   const rows = current.filter(isLateFee);
@@ -193,7 +201,7 @@ function lateFees(current: readonly AnalysisTx[]): Alert[] {
 
 // ── overlapping services ─────────────────────────────────
 
-type ServiceType = "audiobooks" | "music" | "cloud" | "video";
+export type ServiceType = "audiobooks" | "music" | "cloud" | "video";
 
 /** Substitutes first: two audiobook services is plainly one too many, several video services is common. */
 const SERVICES: readonly { type: ServiceType; noun: string; brands: readonly [string, RegExp][] }[] = [
@@ -248,17 +256,38 @@ const SERVICES: readonly { type: ServiceType; noun: string; brands: readonly [st
 
 const COUNT_WORD = ["", "Yksi", "Kaksi", "Kolme", "Neljä", "Viisi", "Kuusi", "Seitsemän", "Kahdeksan", "Yhdeksän"];
 
-function overlapAlerts(recurring: readonly RecurringSeries[]): { alerts: Alert[]; merchants: Set<string> } {
+/** Services of one type from two or more brands, dearest series first. */
+export interface OverlapGroup {
+  type: ServiceType;
+  /** Partitive, after a count word: "musiikkipalvelua". */
+  noun: string;
+  matched: { s: RecurringSeries; brand: string }[];
+  /** Brands among `matched`, at least two. */
+  distinct: number;
+}
+
+/**
+ * Active expense series that substitute for each other, per service type, in the order of `SERVICES`. The overlap
+ * alert and Optimoi's overlap finding read this, so both pages name the same services.
+ */
+export function overlapGroups(recurring: readonly RecurringSeries[]): OverlapGroup[] {
   const subs = recurring.filter((s) => s.active && (s.kind === "subscription" || s.kind === "bill") && getCategory(s.category).kind === "expense");
-  const alerts: Alert[] = [];
-  const merchants = new Set<string>();
+  const out: OverlapGroup[] = [];
   for (const { type, noun, brands } of SERVICES) {
     const matched = subs
       .map((s) => ({ s, brand: brands.find(([, re]) => re.test(fold(s.merchant)))?.[0] }))
       .filter((m): m is { s: RecurringSeries; brand: string } => !!m.brand)
       .sort((a, b) => b.s.monthlyCents - a.s.monthlyCents);
     const distinct = new Set(matched.map((m) => m.brand)).size;
-    if (distinct < 2) continue;
+    if (distinct >= 2) out.push({ type, noun, matched, distinct });
+  }
+  return out;
+}
+
+function overlapAlerts(recurring: readonly RecurringSeries[]): { alerts: Alert[]; merchants: Set<string> } {
+  const alerts: Alert[] = [];
+  const merchants = new Set<string>();
+  for (const { type, noun, matched, distinct } of overlapGroups(recurring)) {
     const names = [...new Set(matched.map((m) => m.s.merchant))];
     const monthly = matched.reduce((sum, m) => sum + m.s.monthlyCents, 0);
     const categories = new Set(matched.map((m) => m.s.category));
@@ -370,6 +399,9 @@ const FEES_MIN_YEARLY = 10000;
 const FEES_MIN_MONTHS = 6;
 const FEES_MIN_DAYS = 150;
 
+/** A bank's own price or interest, late fees left out: the rows of the bank fees alert and of Optimoi's bank fee summary. */
+export const isBankFee = (t: AnalysisTx) => (t.category === "fees" || t.category === "interest") && t.spend > 0 && !isLateFee(t);
+
 function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: DateRange): Alert[] {
   if (monthIndex(range.to) - monthIndex(range.from) + 1 < FEES_MIN_MONTHS || !ctx.dataFrom) return [];
   const from = ctx.dataFrom > range.from ? ctx.dataFrom : range.from;
@@ -378,7 +410,7 @@ function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: D
   if (days < FEES_MIN_DAYS) return [];
   const byMerchant = new Map<string, number>();
   for (const t of current) {
-    if ((t.category !== "fees" && t.category !== "interest") || t.spend <= 0 || isLateFee(t)) continue;
+    if (!isBankFee(t)) continue;
     byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + t.spend);
   }
   const total = [...byMerchant.values()].reduce((s, v) => s + v, 0);
@@ -405,7 +437,21 @@ const HABIT_WINDOW_DAYS = 90;
 const HABIT_MIN_DAYS = 45;
 const NOT_A_HABIT = new Set(["p2p", "cash"]);
 
-function habits(ctx: AnalysisContext, range: DateRange): Alert[] {
+/** A merchant bought from often in small sums (the habit alert), with what it costs. */
+export interface HabitItem {
+  merchant: string;
+  /** Purchases a month over the window, rounded: the title shows a whole number. */
+  perMonth: number;
+  /** Cents a year at the window's pace, rounded to 10 €. */
+  yearly: number;
+}
+
+/**
+ * Merchants bought from at least 8 times a month with a median under 10 € over the last 90 days of `range` (or the
+ * whole range when it is longer): fixed costs, cash, payments to people and unknown payees are left out. The habit
+ * alert shows the two largest; Optimoi reads every one.
+ */
+export function habitItems(ctx: AnalysisContext, range: DateRange): HabitItem[] {
   if (!ctx.dataFrom) return [];
   let from = rangeLength(range) >= HABIT_WINDOW_DAYS ? range.from : addDays(range.to, -(HABIT_WINDOW_DAYS - 1));
   if (ctx.dataFrom > from) from = ctx.dataFrom;
@@ -421,23 +467,27 @@ function habits(ctx: AnalysisContext, range: DateRange): Alert[] {
     if (amounts) amounts.push(netPurchase(t));
     else byMerchant.set(t.merchant, [netPurchase(t)]);
   }
-  const out: (Alert & { yearly: number })[] = [];
+  const out: HabitItem[] = [];
   for (const [merchant, amounts] of byMerchant) {
     // the title shows a whole number, so 7,7 a month reads and counts as 8
     const perMonth = Math.round(amounts.length / months);
     if (perMonth < HABIT_MIN_PER_MONTH || median(amounts) >= HABIT_MAX_MEDIAN) continue;
-    const yearly = roundTo((amounts.reduce((s, v) => s + v, 0) / months) * 12, 1000);
-    out.push({
+    out.push({ merchant, perMonth, yearly: roundTo((amounts.reduce((s, v) => s + v, 0) / months) * 12, 1000) });
+  }
+  return out;
+}
+
+function habits(ctx: AnalysisContext, range: DateRange): Alert[] {
+  return habitItems(ctx, range)
+    .map(({ merchant, perMonth, yearly }) => ({
       id: `habit:${merchant}`,
-      kind: "habit",
-      tone: "info",
+      kind: "habit" as const,
+      tone: "info" as const,
       title: `${merchant} ${perMonth} kertaa kuussa`,
       detail: `Noin ${formatEur(yearly, false)} vuodessa`,
       merchant,
       yearly,
-    });
-  }
-  return out
+    }))
     .sort((a, b) => b.yearly - a.yearly)
     .slice(0, 2)
     .map(({ yearly: _yearly, ...a }) => a);

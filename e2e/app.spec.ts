@@ -8,6 +8,7 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = [
   ["overview", "Yleiskatsaus"],
   ["reports", "Raportit"],
+  ["optimise", "Optimoi"],
   ["transactions", "Tapahtumat"],
   ["recurring", "Toistuvat"],
   ["categories", "Kategoriat"],
@@ -265,6 +266,149 @@ test("the recurring tables fit a phone: the date of the next charge is inside th
   await expect(next).toBeInViewport({ ratio: 1 });
   expect(seen.problems).toEqual([]);
   await context.close();
+});
+
+/** The page is no wider than the screen, and no table sticks out of it or scrolls sideways inside its card. */
+async function fitsScreen(page: Page, what: string): Promise<void> {
+  expect(await overflow(page), `${what} scrolls sideways`).toBeLessThanOrEqual(1);
+  const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
+  expect(wide, `${what} has a table wider than the screen`).toBe(0);
+  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
+  expect(clipped, `${what} has a table that scrolls sideways in its card`).toBe(0);
+}
+
+test("Optimoi at its default flag: a demo finding is listed, decisions survive a reload with their follow-up, and everything fits a phone", async ({ browser }) => {
+  const desktop = await browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 800 } });
+  const page = await desktop.newPage();
+  const seen = watch(page);
+  // the module ships on; an admin can switch it off in Asetukset > Palvelin, and the end of the test does that through the same API
+  const flag = (on: boolean) => desktop.request.put("/api/admin/features", { headers: { "X-Requested-With": "fetch" }, data: { optimise: on } });
+  try {
+    await page.goto("/#/optimise");
+    await expect(page).toHaveTitle(/^Optimoi/);
+    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Optimoi" })).toBeVisible();
+    await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+
+    // the header says what the numbers rest on, and the situation and its checks are there
+    await expect(page.getByText(/^Tiedot \d+\.\d+\.\d{4} asti/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Tietojen laatu" })).toBeVisible();
+    const situation = page.getByRole("region", { name: "Tilanne" });
+    await expect(situation).toContainText(/Löydetty vuosivaikutus noin \d[\d\s]*€, 2 löydöstä\./);
+    await expect(situation).toContainText(/Tarkistettiin \d+ asiaa/);
+    for (const fact of ["Säästöaste", "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista"]) await expect(situation.getByText(fact, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Alueet", exact: true })).toBeVisible();
+    // a quiet area lists what it checked
+    await expect(page.getByRole("region", { name: "Alueet ilman löydöksiä" })).toContainText("Asuntolainan marginaali");
+
+    // the demo history has a software price rise and two video services at once
+    const cards = page.locator("article.finding");
+    const rise = cards.filter({ hasText: "Adobe: hinta nousi" });
+    const overlap = cards.filter({ hasText: "videopalvelua yhteensä" });
+    await expect(rise).toBeVisible();
+    await expect(overlap).toBeVisible();
+    await expect(rise).toContainText(/144\s€ vuodessa/);
+    await expect(rise).toContainText("Varmuus: korkea");
+    await expect(overlap).toContainText("Varmuus: keskitaso");
+
+    // the calculation: its lines, the months as bars with a table view, and a way to check the categories
+    await rise.getByRole("button", { name: "Avaa laskelma" }).click();
+    await expect(rise.getByText("Hinta ennen")).toBeVisible();
+    await expect(rise.getByRole("img", { name: "Menot kuukausittain" })).toBeVisible();
+    await rise.getByRole("button", { name: "Taulukko" }).click();
+    await expect(rise.locator("th", { hasText: "Kuukausi" })).toBeVisible();
+    await expect(rise.getByRole("link", { name: "Adobe", exact: true })).toHaveAttribute("href", /#\/transactions\?merchant=Adobe/);
+    await rise.getByRole("button", { name: "Sulje laskelma" }).click();
+    await expect(rise.getByText("Hinta ennen")).toHaveCount(0);
+
+    // Ei koske meitä takes the finding out of its area and the headline, and the choice stays after a reload
+    const title = (await overlap.locator(".finding-title").innerText()).trim();
+    await overlap.getByRole("button", { name: "Ei koske meitä" }).click();
+    await overlap.getByRole("button", { name: "Tarvitsen tämän" }).click();
+    const dismissed = page.getByRole("region", { name: "Ei koske meitä" });
+    await expect(dismissed).toContainText(title);
+    await expect(dismissed).toContainText("Tarvitsen tämän");
+    // the card the keyboard was on is gone: focus is on the message
+    await expect(page.getByRole("status").filter({ hasText: "Löydös siirrettiin kohtaan Ei koske meitä." })).toBeFocused();
+    await expect(overlap).toHaveCount(0);
+    await expect(situation).toContainText(/noin \d[\d\s]*€, 1 löydös\./);
+
+    await page.reload();
+    await expect(rise).toBeVisible();
+    await expect(overlap).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Ei koske meitä" })).toContainText(title);
+
+    // taking the decision back returns the finding
+    await page.getByRole("button", { name: `Peruuta päätös: ${title}` }).click();
+    await expect(overlap).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ei koske meitä" })).toHaveCount(0);
+
+    // Tein tämän keeps its date, and Muistuta myöhemmin hides the finding until then
+    await rise.getByRole("button", { name: "Tein tämän" }).click();
+    await rise.getByRole("button", { name: "Tallenna" }).click();
+    await expect(page.getByRole("region", { name: "Jo hoidossa" })).toContainText("Adobe: hinta nousi");
+    await expect(rise).toHaveCount(0);
+    await page.reload();
+    const done = page.getByRole("region", { name: "Jo hoidossa" });
+    await expect(done).toContainText(/Tehty \d+\.\d+\.\d{4}/);
+    // the follow-up judges the change once complete months show it: made today, it waits
+    await expect(done.locator(".outcome")).toContainText(/^Seuranta: Odottaa.+\./);
+    // one visit makes one snapshot: no line and no changes yet
+    await expect(page.getByRole("region", { name: "Seuranta" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Muutokset viime käynnin jälkeen" })).toHaveCount(0);
+
+    // a phone with the decision on the page: Jo hoidossa and its follow-up row fit the screen too
+    const phone = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const small = await phone.newPage();
+    const seenSmall = watch(small);
+    await small.goto("/#/optimise");
+    await expect(small.getByRole("region", { name: "Jo hoidossa" }).locator(".outcome")).toContainText(/^Seuranta: Odottaa.+\./);
+    await small.waitForLoadState("networkidle");
+    await fitsScreen(small, "Jo hoidossa with its follow-up at 390px");
+
+    await page.getByRole("button", { name: /^Peruuta päätös: Adobe/ }).click();
+    await expect(page.getByRole("region", { name: "Jo hoidossa" })).toHaveCount(0);
+    await overlap.getByRole("button", { name: "Muistuta myöhemmin" }).click();
+    await overlap.getByRole("button", { name: "30 päivää" }).click();
+    await expect(overlap).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Muistutukset" })).toContainText("Palaa");
+    await page.getByRole("button", { name: /^Peruuta päätös: / }).click();
+    await expect(overlap).toBeVisible();
+    await fitsScreen(page, "Optimoi at 1366px");
+
+    // the phone again, the decision undone: everything stacks, and each form and the calculation fit the screen
+    await small.reload();
+    const smallRise = small.locator("article.finding").filter({ hasText: "Adobe: hinta nousi" });
+    await expect(smallRise).toBeVisible();
+    await small.waitForLoadState("networkidle");
+    await fitsScreen(small, "Optimoi at 390px");
+    await smallRise.getByRole("button", { name: "Avaa laskelma" }).click();
+    await expect(smallRise.getByText("Hinta ennen")).toBeVisible();
+    await expect(smallRise.getByRole("img", { name: "Menot kuukausittain" })).toBeVisible();
+    await fitsScreen(small, "an open calculation at 390px");
+    const more = smallRise.getByRole("button", { name: /^Näytä kaikki / });
+    if (await more.count()) await more.click();
+    await smallRise.getByRole("button", { name: "Taulukko" }).click();
+    await fitsScreen(small, "the rows and the table of months at 390px");
+    for (const panel of ["Tein tämän", "Ei koske meitä", "Muistuta myöhemmin"]) {
+      await smallRise.getByRole("button", { name: panel }).click();
+      await fitsScreen(small, `${panel} at 390px`);
+    }
+    await expect(smallRise.getByRole("button", { name: "Ei koske meitä" })).toBeInViewport();
+    expect(seenSmall.problems).toEqual([]);
+    await phone.close();
+    expect(seen.problems).toEqual([]);
+
+    // switched off, the flags come with the page load: a reload hides the entry, and the address opens the overview
+    expect((await flag(false)).ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Yleiskatsaus" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Optimoi" })).toHaveCount(0);
+    await expect(page).toHaveTitle(/^Yleiskatsaus/);
+  } finally {
+    // the flag is back at its default, so the pages after this test see the app as shipped
+    await flag(true);
+  }
+  await desktop.close();
 });
 
 test("sign out and back in", async ({ page }) => {
