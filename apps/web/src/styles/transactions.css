@@ -39,3 +39,6 @@
 
 .filters input[type="search"] { min-width: 14rem; }
 @media (max-width: 520px) { .filters input[type="search"] { min-width: 0; width: 100%; } .filters form { flex: 1 1 100%; } }
+
+/* the two views of the page sit at their own width, not across the whole row */
+.view-tabs { align-self: flex-start; }

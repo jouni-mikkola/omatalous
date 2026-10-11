@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
 import { useApi } from "../hooks.ts";
+import { RULES_ANCHOR } from "../routes.ts";
 import type { CategoryRule, Meta } from "../types.ts";
 
 const FIELD_LABEL: Record<CategoryRule["field"], string> = {
@@ -47,7 +48,7 @@ export function Rules({ meta }: { meta: Meta }) {
 
   return (
     <div className="stack">
-      <div className="card">
+      <div className="card" id={RULES_ANCHOR}>
         <div className="card-head">
           <div>
             <h2>Säännöt</h2>

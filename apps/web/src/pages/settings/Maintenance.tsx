@@ -1,4 +1,7 @@
-/** Asetukset > Ylläpito (admin): update, rollback, backup, restart, doctor, logs, prune and helper renewal through the host helper. */
+/**
+ * Asetukset > Ylläpito (admin): update, rollback, backup, restart, doctor, logs, prune and helper renewal through the host
+ * helper. Without the helper every one of them is off, so the page shows what the helper is and the version, and folds the rest.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiDownload, ApiError } from "../../api.ts";
 import { BackupList } from "../../components/ops/BackupList.tsx";
@@ -102,10 +105,75 @@ export function Maintenance() {
   const blocked = !data || helperOff || data.active || pending;
   const latest = data?.requests[0];
 
+  const panels = data && (
+    <>
+      <BackupList
+        app={data.appBackups}
+        host={data.state.backups ?? []}
+        disabled={blocked}
+        canDownload={data.appBackups.length > 0}
+        onBackup={() => void quick("backup")}
+        onDownload={() => setDialog("download")}
+      />
+      <DoctorList doctor={data.state.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
+      <ToolsPanel
+        disabled={blocked}
+        readDisabled={helperOff || pending || data.readOnlyActive}
+        supported={data.helper.tools || helperOff}
+        enableCommand={data.helper.enableCommand}
+        onLogs={() => void quick("logs")}
+        onPrune={() => void quick("prune")}
+        onRenew={() => void quick("helper-renew")}
+      />
+      <div className="card">
+        <div className="card-head">
+          <div>
+            <h2>{S.restart}</h2>
+            <div className="card-sub">{S.restartHelp}</div>
+          </div>
+          <button className="btn" type="button" disabled={blocked} onClick={() => void quick("restart")}>
+            {S.restart}
+          </button>
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-head">
+          <h2>{S.events}</h2>
+        </div>
+        {audit.length === 0 ? (
+          <div className="empty">{S.noEvents}</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Aika</th>
+                  <th>Käyttäjä</th>
+                  <th>Toiminto</th>
+                  <th>Tulos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.map((e) => (
+                  <tr key={e.id}>
+                    <td>{dateTime(e.at)}</td>
+                    <td>{e.username ?? ""}</td>
+                    <td>{e.action}</td>
+                    <td className="small">{e.outcome}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="stack">
       <p>
-        <a href="#/settings">← Asetukset</a>
+        <a href="#/settings?tab=talous">← Asetukset</a>
       </p>
       <div className="card">
         <div className="card-head">
@@ -114,7 +182,6 @@ export function Maintenance() {
         {!data && !error && <div className="muted">Ladataan…</div>}
         {error && !data && <div className="error">{error}</div>}
         {data && <HelperStatus helper={data.helper} />}
-        {helperOff && <div className="muted small">{S.helperOffButtons}</div>}
         {message && <div className="notice warning" role="alert">{message}</div>}
         {data && latest && (
           <OpsProgress request={latest} down={downSince !== null && data.active} downMs={downSince ? Date.now() - downSince : 0} onCancel={(id) => void cancel(id)} />
@@ -133,66 +200,14 @@ export function Maintenance() {
             onUpdate={() => setDialog("update")}
             onRollback={() => setDialog("rollback")}
           />
-          <BackupList
-            app={data.appBackups}
-            host={data.state.backups ?? []}
-            disabled={blocked}
-            canDownload={data.appBackups.length > 0}
-            onBackup={() => void quick("backup")}
-            onDownload={() => setDialog("download")}
-          />
-          <DoctorList doctor={data.state.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
-          <ToolsPanel
-            disabled={blocked}
-            readDisabled={helperOff || pending || data.readOnlyActive}
-            supported={data.helper.tools || helperOff}
-            enableCommand={data.helper.enableCommand}
-            onLogs={() => void quick("logs")}
-            onPrune={() => void quick("prune")}
-            onRenew={() => void quick("helper-renew")}
-          />
-          <div className="card">
-            <div className="card-head">
-              <div>
-                <h2>{S.restart}</h2>
-                <div className="card-sub">{S.restartHelp}</div>
-              </div>
-              <button className="btn" type="button" disabled={blocked} onClick={() => void quick("restart")}>
-                {S.restart}
-              </button>
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-head">
-              <h2>{S.events}</h2>
-            </div>
-            {audit.length === 0 ? (
-              <div className="empty">{S.noEvents}</div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Aika</th>
-                      <th>Käyttäjä</th>
-                      <th>Toiminto</th>
-                      <th>Tulos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {audit.map((e) => (
-                      <tr key={e.id}>
-                        <td>{dateTime(e.at)}</td>
-                        <td>{e.username ?? ""}</td>
-                        <td>{e.action}</td>
-                        <td className="small">{e.outcome}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          {helperOff ? (
+            <details className="ops-fold">
+              <summary className="small muted">Muut ylläpitotoiminnot</summary>
+              <div className="stack">{panels}</div>
+            </details>
+          ) : (
+            panels
+          )}
         </>
       )}
 

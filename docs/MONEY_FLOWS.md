@@ -13,12 +13,12 @@ Every transaction lands in exactly one flow, so nothing is counted twice or left
 
 ## Definitions
 
-A figure has one definition, in `packages/core`, and the overview, the reports and the recurring page all use it.
+A figure has one definition, in `packages/core`, and the month page, the reports and Laskut all use it.
 
 | Word | Means | In core |
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
-| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it | `usualCents`, `completeMonthsBefore` in `analysis/usual.ts` |
+| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. A month's usual spending is the median of those months' totals, on the same days for a running month: the forecast, the pace chart and *Menojen muutos* say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
 | *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and Optimoi's Tilanne divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
 | *Yli jäi* | Income − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on | `PeriodTotals.leftCents` |
@@ -144,8 +144,13 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   months the typical errors of two test households apply instead: 8 % on the 5th, 6 % on the 10th, 2,5 %
   on the 20th and nothing on the last day, interpolated in between. The tile names which of the two it
   rests on.
-- The pace chart compares the month with *Tavallisesti*: for each day, the median cumulative spending of
-  the last six complete months. Under three complete months there is no line.
+- The pace chart, in the forecast card, compares the month with *Tavallisesti*: for each day, the median cumulative
+  spending of the last six complete months, so its last day is the usual month and today's point the usual so far.
+  Under three complete months there is no line.
+- *Menojen muutos* (*Kuukausi > Viime kuu*) sets the month against its usual total and splits the change into
+  causes by category. A category's usual level is its own median with its one-offs struck. Medians do not add up,
+  and a level leaves its one-offs out, so the categories' levels add up to more or less than the usual month. The
+  difference is in *Muut* as *Kuukausien vaihtelu*, which is no cause and can make the usual of *Muut* negative.
 - *Seuraavat 30 päivää* lists the pay days (active income series), the subscriptions and bills the
   forecast expects (also savings plans, which leave the checking account) and the bills the household
   typed in, by the same two rules. A monthly salary comes on its usual day of the month (the median of
@@ -153,7 +158,8 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   shared, it adds the balance at the end of each day: the balance now plus the pay days, minus the bills,
   minus the usual everyday spending per day from tomorrow on. The lowest point and its date say when the
   balance is thinnest. Transfers between own accounts are not in it, because the recurring detection
-  leaves them out.
+  leaves them out. Kuukausi shows the totals, the pay days and the balance. The bills of the same rows
+  are listed in *Tulossa* on Laskut, and their sum is the *Menoja* figure of the card.
 - Insights say what changed in the period. A month is compared with its usual level (the median of the
   six months before) and shown only when it is outside all of them; a longer period is compared with the
   previous one. A running month has none. The largest purchase is shown from 200 €, and the weekly food
@@ -172,9 +178,10 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   quarter of them. The middle of the three months counts, so one dear month does not carry it. It needs at
   least six earlier months, and a category that was as high in the same months a year ago, mostly bills,
   or tax and card bill categories are left out. It says what a year at the new level costs.
-- *Tulevat laskut* lists the bills that do not come every month (every second month, quarterly, half
-  yearly, yearly) due in the next three months, from the recurring detection. Pet food, shops and
-  clinics are purchases and are not listed. It is always about today.
+- *Harvinaiset laskut* on Laskut sums the bills that do not come every month (every second month,
+  quarterly, half yearly, yearly) for each of the next twelve months, from the recurring detection, and
+  says how much to set aside a month. Pet food, shops and clinics are purchases and are not listed. It is
+  always about today.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
   spending of the period. It starts with the fixed costs as a share of *Tavalliset tulot*, the same share the
@@ -211,9 +218,9 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   rule for old and new transactions.
 - The category *Omat siirrot* removes a transaction from every total.
 - Fix an account's type under *Asetukset > Tilit*. The type decides how transfers and savings are read.
-- Set one category for a merchant under *Kategoriat > Kauppiaat*. It applies to every row of that
+- Set one category for a merchant under *Tapahtumat > Kauppiaat*. It applies to every row of that
   merchant, old and new, and removing the merchant's rule returns it to the built-in rules and the trade register.
-- Write your own rules on the *Säännöt* page. A rule is plain words, such as a merchant's name, and
+- Write your own rules under the merchant table of *Tapahtumat > Kauppiaat*. A rule is plain words, such as a merchant's name, and
   matches whole words. Case does not matter, and ä and å match a, ö matches o.
 
 A category you set by hand never changes by itself, not even after an update.

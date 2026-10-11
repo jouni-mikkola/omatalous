@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * Prepares the release commit: tools/release/prepare.mjs X.Y.Z [--dry-run] [--since REF]
+ * Prepares the release commit: tools/release/prepare.mjs X.Y.Z [--dry-run] [--check-docs] [--since REF]
  *
  * Bumps apps/server/src/version.ts and the three package.json files, builds the `## X.Y.Z` section of CHANGELOG.md
  * from changelog.d/*.md (README.md excepted) and removes the fragments. Nothing is committed. Run it in the private
@@ -15,6 +15,10 @@
  * release is the newest v* tag. The private repository has none, so then it is the newest commit in
  * .github/upgrade-from.txt. --since REF names another one. The result is checked the way release.yml and
  * publish-public.sh check a release before anything is written.
+ *
+ * --check-docs is the check tools/release/release.sh runs before it starts: every check above, plus that a release
+ * with new migrations has its contracts/X.Y.Z/schema.sql (docs/RELEASING.md step 2). It writes nothing and prints one
+ * line.
  *
  * Node built-ins only, so it runs before `pnpm install`.
  */
@@ -113,19 +117,20 @@ function buildSection(version, fragments) {
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
-  /** @type {{ version?: string, dryRun: boolean, since?: string }} */
-  const opts = { dryRun: false };
+  /** @type {{ version?: string, dryRun: boolean, checkDocs: boolean, since?: string }} */
+  const opts = { dryRun: false, checkDocs: false };
   for (let i = 0; i < argv.length; i++) {
     const a = /** @type {string} */ (argv[i]);
     if (a === "--dry-run") opts.dryRun = true;
+    else if (a === "--check-docs") opts.checkDocs = true;
     else if (a === "--since") {
       opts.since = argv[++i];
       if (!opts.since) throw new Fail("--since needs a commit or tag");
-    } else if (a.startsWith("-")) throw new Fail(`Unknown option ${a}. Usage: prepare.mjs X.Y.Z [--dry-run] [--since REF]`);
+    } else if (a.startsWith("-")) throw new Fail(`Unknown option ${a}. Usage: prepare.mjs X.Y.Z [--dry-run] [--check-docs] [--since REF]`);
     else if (opts.version) throw new Fail("Give one version.");
     else opts.version = a;
   }
-  if (!opts.version) throw new Fail("Usage: prepare.mjs X.Y.Z [--dry-run] [--since REF]");
+  if (!opts.version) throw new Fail("Usage: prepare.mjs X.Y.Z [--dry-run] [--check-docs] [--since REF]");
   if (!SEMVER.test(opts.version)) throw new Fail(`"${opts.version}" is not a version like 0.6.0.`);
   return opts;
 }
@@ -183,6 +188,13 @@ function prepare(argv, cwd = process.cwd()) {
     throw new Fail(`Migrations were added since ${base}: ${added.map((f) => f.split("/").pop()).join(", ")}. Add an "upgrade: <line>" line to a fragment that tells an installer what happens.`);
   }
 
+  if (opts.checkDocs && added.length && !existsSync(join(root, "contracts", version, "schema.sql"))) {
+    throw new Fail(
+      `Migrations were added since ${base}, so contracts/${version}/schema.sql must exist before the release. ` +
+        `Write it with UPDATE_CONTRACT=${version} pnpm test apps/server/test/contracts.test.ts, copy the ops-*.json files of the previous folder (contracts/README.md), then run pnpm release:fixture ${version}.`,
+    );
+  }
+
   // the new files, in memory first
   const changelog = read(CHANGELOG);
   const lines = changelog.split("\n");
@@ -209,6 +221,10 @@ function prepare(argv, cwd = process.cwd()) {
   if (!notes.slice(at + 1, end < 0 ? undefined : end).join("").trim()) problems.push(`${CHANGELOG} has no text for ${version}`);
   if (problems.length) throw new Fail(`The result would fail the release checks: ${problems.join(", ")}.`);
 
+  if (opts.checkDocs && !opts.dryRun) {
+    console.log(`Checks pass for ${current} -> ${version}: ${fileNames.length} fragments${added.length ? `, ${added.length} new migrations, contracts/${version} present` : ""}. Nothing written.`);
+    return;
+  }
   if (opts.dryRun) {
     console.log(section.trimEnd());
     console.log(`\nDry run: ${current} -> ${version}, ${fileNames.length} fragments, nothing written.`);

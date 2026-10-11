@@ -1020,7 +1020,7 @@ t_heartbeat() {
 t_no_dangerous_constructs() {
   check "helper: no eval, source, bash -c or sudo" bash -c "! grep -vE '^[[:space:]]*#' '$SRC/scripts/ops-helper.sh' | grep -nE '(^|[;&|(])[[:space:]]*(eval|source)[[:space:]]|bash -c|sudo '"
   check "helper: actions are a case with a refusing default" grep -q '\*) fail "Tuntematon toiminto."' "$SRC/scripts/ops-helper.sh"
-  check "installer scheduling: no sudo outside printed hints" bash -c "! grep -vE '^[[:space:]]*#' '$SRC/scripts/lib/ops-schedule.sh' | grep -n 'sudo'"
+  check "installer scheduling: no sudo outside printed hints" bash -c "! grep -vE '^[[:space:]]*(#|OPS_[A-Z]+=)' '$SRC/scripts/lib/ops-schedule.sh' | grep -n 'sudo'"
 }
 
 for t in $(declare -F | awk '{print $3}' | grep '^t_'); do

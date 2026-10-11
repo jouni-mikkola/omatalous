@@ -8,19 +8,19 @@ import { api, setUnauthenticatedHandler } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
 import { date, dateTime } from "./format.ts";
 import { navigate, useApi, useHashRoute } from "./hooks.ts";
-import { visibleNav } from "./nav.ts";
+import { SETTINGS, visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
-import { Categories } from "./pages/Categories.tsx";
+import { Bills } from "./pages/Bills.tsx";
 import { ChangePassword, Login, Setup } from "./pages/Auth.tsx";
 import { Optimise } from "./pages/Optimise.tsx";
 import { Overview } from "./pages/Overview.tsx";
-import { Recurring } from "./pages/Recurring.tsx";
 import { Reports } from "./pages/Reports.tsx";
 import { Settings } from "./pages/Settings.tsx";
 import { Transactions } from "./pages/Transactions.tsx";
 import { Wizard } from "./pages/Wizard.tsx";
-import { PERIODS, periodRange } from "./period.ts";
+import { periodFor, periodRange, periodsOf } from "./period.ts";
+import { SETTINGS_ANCHOR } from "./routes.ts";
 import type { Meta, Scope, User } from "./types.ts";
 
 type AuthState = { needsSetup: boolean; user: User | null };
@@ -41,7 +41,7 @@ export function App() {
   if (auth.needsSetup) return <Setup onDone={(user) => setAuth({ needsSetup: false, user })} />;
   if (!auth.user) return <Login onDone={(user) => setAuth({ needsSetup: false, user })} />;
   if (auth.user.mustChangePassword) {
-    return <ChangePassword forced onDone={() => setAuth({ needsSetup: false, user: { ...auth.user!, mustChangePassword: false } })} />;
+    return <ChangePassword onDone={() => setAuth({ needsSetup: false, user: { ...auth.user!, mustChangePassword: false } })} />;
   }
   return <Main user={auth.user} onSignedOut={() => setAuth({ needsSetup: false, user: null })} />;
 }
@@ -57,18 +57,16 @@ function readScope(userId: string): Scope | null {
 }
 
 function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
-  const route = useHashRoute();
+  const route = useHashRoute(user.role);
   const params = route.params;
   // an unknown or old link opens the overview instead of an empty page
-  // #/rules is the old address of the rules tab
-  const oldRules = route.page === "rules";
   const meta = useApi<Meta>("/api/meta");
   // a module that is switched off has no nav entry, and its address opens the overview
   const nav = visibleNav(meta.data?.features);
-  const page = oldRules ? "categories" : nav.some((e) => e.id === route.page) ? route.page : "overview";
-  const pageLabel = nav.find((e) => e.id === page)?.label;
+  const pages = [...nav, SETTINGS];
+  const page = pages.some((e) => e.id === route.page) ? route.page : "overview";
+  const pageLabel = pages.find((e) => e.id === page)?.label;
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
-  const [changingPassword, setChangingPassword] = useState(false);
   const [wizardClosed, setWizardClosed] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   // the server build this page was loaded against; a different one later means an upgrade happened
@@ -123,7 +121,6 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
     }
   };
 
-  if (changingPassword) return <ChangePassword onDone={() => setChangingPassword(false)} onCancel={() => setChangingPassword(false)} />;
   if (!meta.data) {
     return (
       <div className="app">
@@ -162,8 +159,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   };
   // someone with only shared accounts would start on an empty page
   const effectiveScope: Scope = hasHousehold ? (scope ?? (m.accounts.length ? "own" : "household")) : "own";
-  const defaultPeriod = page === "reports" ? "12m" : "month";
-  const period = params.get("period") ?? defaultPeriod;
+  const period = periodFor(page, params.get("period"));
   const range = periodRange(period, m.today);
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
@@ -218,6 +214,9 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           </div>
         )}
         <span className="sync-status">{m.lastSync ? `Haettu ${dateTime(m.lastSync.finishedAt ?? m.lastSync.startedAt)}` : ""}</span>
+        <a className="settings-link" href={`#/${SETTINGS.id}`} aria-current={page === SETTINGS.id ? "page" : undefined}>
+          {SETTINGS.label}
+        </a>
         <details className="user-menu" ref={userMenu}>
           <summary aria-label="Käyttäjävalikko">
             <span className="avatar" aria-hidden="true">
@@ -232,11 +231,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
               <br />
               Omatalous {m.version.app}
             </div>
-            <button type="button" onClick={() => setChangingPassword(true)}>
-              Vaihda salasana
-            </button>
-            <a href="#/settings">Asetukset</a>
-            <a href="#/settings?section=security">Turvallisuus</a>
+            <a href={`#/settings#${SETTINGS_ANCHOR.password}`}>Vaihda salasana</a>
             <button type="button" onClick={signOut}>
               Kirjaudu ulos
             </button>
@@ -265,7 +260,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
               </a>{" "}
             </>
           )}
-          <a href="#/settings">Yhdistä uudelleen</a>
+          <a href="#/settings?add=1">Yhdistä uudelleen</a>
         </div>
       ))}
       {effectiveScope === "household" && (
@@ -274,10 +269,10 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
 
       <main id="main" tabIndex={-1}>
       <h1 className="sr-only">{pageLabel}</h1>
-      {(page === "overview" || page === "reports") && (m.accounts.length > 0 || hasHousehold) && (
+      {periodsOf(page).length > 0 && (m.accounts.length > 0 || hasHousehold) && (
         <div className="filters" role="toolbar" aria-label="Aikaväli">
           <div className="segmented">
-            {PERIODS.map((p) => (
+            {periodsOf(page).map((p) => (
               <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate(page, { period: p.id })}>
                 {p.label}
               </button>
@@ -300,17 +295,9 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
       )}
       {page === "reports" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Reports meta={m} range={range} scope={effectiveScope} />)}
       {page === "optimise" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Optimise scope={effectiveScope} />)}
-      {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} />)}
-      {page === "recurring" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Recurring meta={m} scope={effectiveScope} />)}
-      {page === "categories" && noData && !oldRules && params.get("tab") !== "rules" && <EmptyStart onDemo={loadDemo} />}
-      {page === "categories" && !(noData && !oldRules && params.get("tab") !== "rules") && (
-        <Categories
-          meta={m}
-          tab={oldRules || params.get("tab") === "rules" ? "rules" : "merchants"}
-          onTab={(tab) => navigate("categories", tab === "rules" ? { tab } : {})}
-        />
-      )}
-      {page === "settings" && <Settings meta={m} params={params} onChange={meta.reload} />}
+      {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} anchor={route.anchor} />)}
+      {page === "bills" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Bills meta={m} range={range} scope={effectiveScope} />)}
+      {page === "settings" && <Settings meta={m} params={params} anchor={route.anchor} onChange={meta.reload} />}
       </main>
     </div>
   );

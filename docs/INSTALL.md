@@ -45,8 +45,9 @@ To look around first, press *Lataa esimerkkitiedot* on the empty start page. *As
 
 ## 4. Connect Nordea
 
-The app shows a checklist for registering a free Enable Banking app, once for the whole household. It takes about 15
-minutes. [ENABLE_BANKING.md](ENABLE_BANKING.md) has the steps with screenshots, up to connecting the accounts.
+The app walks you through registering a free Enable Banking app, once for the whole household. It takes about 15
+minutes and gives the values to paste. Later you find the same steps under *Asetukset > Palvelin*.
+[ENABLE_BANKING.md](ENABLE_BANKING.md) says why Nordea is linked twice and what the error messages mean.
 
 The first fetch brings up to two years of history. After that Omatalous fetches at 6.15 and 18.15. Change the hours
 under *Asetukset > Palvelin*.

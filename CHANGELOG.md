@@ -3,6 +3,58 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.4
+
+Money and reports
+
+- A category given to one row without a merchant name changes only that row, no longer every unnamed row. *Kauppiaat* has no category choice for *Tuntematon*, and a rule an older version made for it is removed on the update.
+- *Kuukausi > Viime kuu* tells why the month differed with *Menojen muutos*, in place of the month table. *Raportit* no longer shows it.
+- *Ennuste kuun loppuun* holds the month's pace chart (*Kuukauden kulku*) and says what is usual so far.
+- The month columns and the merchant list left *Kuukausi*. A link leads to *Raportit* for the months side by side and one to *Tapahtumat* for the month's merchants.
+- A month has one usual total. *Menojen muutos* says the same *tavallisesti* as the forecast and the pace chart, the median of the month totals. What a usual month spends beyond the categories' own levels is in *Muut*, so the *Tasauserä* row is gone.
+
+Look
+
+- The first page is called *Kuukausi* and the page of findings *Säästövinkit* (also its switch in *Asetukset > Palvelin*). The addresses stay the same.
+- A period belongs to one page. *Kuukausi* offers *Tämä kuu* and *Viime kuu*. *Raportit* offers *3 kk*, *6 kk*, *12 kk*, *Tämä vuosi* and *Viime vuosi*. An old link with a period the page does not have opens the page that does.
+- Fourteen help lines under headings and figures are gone where they only repeated what the page shows.
+- The two logs are named *Turvallisuusloki* (*Asetukset > Turvallisuus*) and *Ylläpitoloki* (*Asetukset > Ylläpito*).
+- *Tulot ja menot* no longer repeats its figures in a tile row above *Mihin tulot menivät*. *Kiinteät ja muuttuvat* leaves out a part that is 0 €. *Nousseet menot* appears only when a category rose.
+- *Toistuvat* is now *Laskut* (`#/bills`). The old address opens it. A line on top says the fixed costs a month and how much of them is subscriptions.
+- *Tulossa* is one list of the bills of the next 30 days: those the bank history shows, rare ones and those you typed in. *Lisää lasku* opens the form there. Its sum is the *Menoja* figure of *Seuraavat 30 päivää* on *Kuukausi*, which now links to the list and no longer lists the bills itself.
+- *Tulevat laskut* in *Raportit* is *Harvinaiset laskut* on *Laskut*: the next twelve months and the bills you typed in. The list of three months is gone. *Hinnanmuutokset* moved there too and is shown only when a price changed.
+- On *Laskut* the cards *Sopimukset* and *Laskut* are one, *Loppuneet* is folded, and the *Arkiostot* and *Tulot* cards and the four tiles are gone. *Arkiostot* is now a filter in *Tapahtumat > Kauppiaat*.
+- *Kategoriat* is gone from the menu. Its merchants are the tab *Kauppiaat* of *Tapahtumat*, with the rules under the table. The old addresses (`#/categories`, `#/rules`, `?tab=rules`) open it, the rules ones at the rules.
+- *Kauppiaat* adds up a period you choose with *Alkaen* and *Asti*, and has a column *Kuussa*: the money out divided by the months of the period. The filter *Arkiostot* keeps the merchants you buy from often in small amounts. A merchant's link opens its transactions for the same period.
+- *Asetukset* is a link in the header beside the user menu, no longer a menu entry. The menu is *Kuukausi*, *Laskut*, *Tapahtumat*, *Raportit* and *Säästövinkit*, and the five labels fit one row on a phone.
+- *Asetukset* has two tabs. *Omat* holds your bank connections, accounts, CSV import, sharing and *Kirjautuminen*. *Talous* (administrators) holds the members, *Palvelin*, *Turvallisuusloki* and the way to *Ylläpito*. *Oma Enable Banking -sovellus* shows only when the household has no shared application, and *Esimerkkitiedot* only when there are no accounts or demo data is loaded.
+- *Kirjautuminen* has the password form and your signed-in devices. *Vaihda salasana* in the user menu opens it. The old security page (`?section=security`) opens *Kirjautuminen* for a member and *Turvallisuusloki* for an administrator. `?section=server`, `?section=csv` and `?add=1` work as before.
+- *Tietojen laatu* is under *Tilit* in *Asetukset* and no longer a card in *Raportit*. The links from *Kuukausi* and *Säästövinkit* go there. Its table of accounts is gone, because *Tilit* shows the same accounts and fetch times.
+- *Ylläpito* without the helper shows the notice and the version, and folds the controls that cannot work.
+- *Yhdistä uudelleen* is on the row of a bank connection that has ended, broke or ends within two weeks, and starts the same bank again at once. The notice on top links to the bank picker. The button that adds a connection always reads *Lisää pankkiyhteys*.
+
+Maintenance
+
+- The maintenance helper starts on a fresh Ubuntu. The installer takes group and other write away from `.git` as well, which the helper's safety check refuses (Ubuntu's umask 002 makes it group writable).
+- When the user's systemd manager started before the user joined the docker group, a timer cannot reach Docker. The installer then uses cron, or sets the timer and tells you to run `sudo systemctl restart user@<uid>.service` or reboot. Its last line about the helper says which happened.
+- `./scripts/doctor.sh` reports both problems with the command that fixes them, and no longer repeats an old refusal from the helper log after a later run passed the checks.
+
+For developers
+
+- `tools/lead/usage.mjs` prints tokens and estimated cost per agent and for the lead from the session transcripts.
+- `tools/lead/land.sh` lands a branch of another session by name, skips commits that landed before, picks in a worktree of its own and reruns tests that timed out under load alone before it refuses.
+- `tools/release/release.sh X.Y.Z` runs a release from the fragments to private `main` and skips what is done, so a failed run continues with the same command.
+- `prepare.mjs --check-docs` also wants `contracts/X.Y.Z` when migrations were added.
+- `GET /api/reports?reports=a,b` builds only the named reports. Kuukausi and Raportit ask for the reports their sections read (`reportsOf` in `pages/reports/registry.ts`).
+- `usualSpending(ctx, month, day)` and `usualSpendingOver` own the usual total of a month, also of its days so far. The pace chart and the change report's usual view read them.
+- The month explanation (`analysis/explain.ts`) and the dashboard's `trend` and `merchants` are gone.
+- README says what Omatalous is, shows *Kuukausi*, gives the install command and links to `docs/`. The diagram of what connects where moved to [SECURITY.md](docs/SECURITY.md#network).
+- The Enable Banking steps are in the app's setup. [ENABLE_BANKING.md](docs/ENABLE_BANKING.md) keeps why Nordea is linked twice, the error messages and a member's own app. The error rows moved there from `docs/TROUBLESHOOTING.md`.
+
+Upgrade
+
+- If the helper never ran after a fresh install, run `./scripts/install.sh --ops-helper` again.
+
 ## 0.8.3
 
 Money and reports

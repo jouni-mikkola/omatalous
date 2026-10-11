@@ -73,6 +73,7 @@ export const section: ReportSection = {
   id: "saldot",
   title: "Saldot",
   order: 110,
+  page: "reports",
   reports: ["balances"],
   visible: (ctx) => ctx.data.balances.accounts.length > 0,
   Component: Balances,

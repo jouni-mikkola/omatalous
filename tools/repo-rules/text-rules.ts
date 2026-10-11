@@ -1,6 +1,7 @@
 /**
- * Rules 4 and 10 of the repo rules: the writing conventions of CLAUDE.md that can be checked by machine.
- * No em dash anywhere in text we write, and nothing English in what the browser shows.
+ * Rules 4, 10 and 22 of the repo rules: the writing conventions of CLAUDE.md that can be checked by machine.
+ * No em dash anywhere in text we write, nothing English in what the browser shows, and no return of text that was
+ * taken out on purpose.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -209,6 +210,8 @@ describe("repo rules: text", () => {
       if (/^\s*[a-z-]+\(.*\)\s*$/i.test(text)) return;
       // "-01" or "-01-01": the part of an ISO date that code glues to a month
       if (/^-\d\d(?:-\d\d)?$/.test(text)) return;
+      // "3 kk": the label of a period button. The owner chose it for the row of presets (0.8.4); prose still says "kuukautta"
+      if (/^\d+ kk$/.test(text)) return;
       // a regular expression built from a string ("(?<![A-Z0-9])(?:…)") is matching code, not text a user reads
       if (/\(\?(?:<?[!=]|:)/.test(text)) return;
       const form = FORMS.find((f) => f.re.test(text));
@@ -230,5 +233,44 @@ describe("repo rules: text", () => {
     }
     expect(strings, "the scan found the UI strings").toBeGreaterThan(300);
     expectNoFindings("UI text style", found, "see the style sheet in .claude/plan/research/I-finnish.md. The baseline is empty: nothing is allowed.");
+  });
+
+  it("rule 22: text that a copy pass took out stays out of the browser's text", () => {
+    // Static subtitles that repeat what the heading or the content already says (usability audit, section 2), and the
+    // names of the two logs before they were told apart. A line is added here when a pass removes text on purpose.
+    const GONE = [
+      "Palvelut, jotka voit lopettaa.",
+      "Summa on arvio edellisten maksujen mukaan.",
+      "Yhteys on voimassa 180 päivää.",
+      "Laitteet, joilla olet kirjautuneena.",
+      "Päivitykset ja varmuuskopiot",
+      "Ruokakaupat, kahvilat ja muut toistuvat pienet ostot",
+      "Arkiostot ovat toistuvia pieniä ostoja",
+      "Kukin tieto tarkentaa yhtä vertailua",
+      "Suurin vuosivaikutus ensin",
+      "Tummempi solu, kalliimpi kuukausi",
+      "Palaavat sivulle myöhemmin",
+      "Poissa, kunnes perut päätöksen",
+      "Päätökset, jotka olet merkinnyt tehdyiksi",
+      "Painikkeet toimivat, kun apuri on käytössä.",
+      "Laskut, joita ei makseta joka kuukausi",
+      // the security log is Turvallisuusloki and the maintenance log Ylläpitoloki
+      "Tapahtumaloki",
+      // the page was Optimoi until it became Säästövinkit; the route and the feature id keep the old name
+      "Optimoi tarvitsee",
+    ];
+    const found: Finding[] = [];
+    const check = (file: string, line: number, text: string) => {
+      const flat = text.replace(/\s+/g, " ").trim();
+      const hit = GONE.find((g) => flat.includes(g));
+      if (hit) found.push({ file, line, why: `"${hit}" was taken out of the UI text` });
+    };
+    for (const file of sourceFiles("apps/web/src/")) {
+      for (const lit of literals(file)) check(file, lit.line, lit.text);
+      if (!file.endsWith("x")) continue;
+      const sf = parse(file);
+      walk(sf, (n) => void (ts.isJsxText(n) && check(file, sf.getLineAndCharacterOfPosition(n.pos + /^\s*/.exec(n.text)![0].length).line + 1, n.text)));
+    }
+    expectNoFindings("removed UI text", found, "leave the text out. If a page needs a line like it, write a new one that says something the heading and the content do not; if a pass removes more text on purpose, add it to GONE in tools/repo-rules/text-rules.ts.");
   });
 });

@@ -95,8 +95,8 @@ check "unsafe path refused" test "$rc" = 1 -a "$OPS_KIND" = none
 ops_scheduler_install banking '/tmp/x$(id)'; rc=$?
 check "path with shell characters refused" test "$rc" = 1
 
-# the code path has no sudo
-check "no sudo in the scheduling code" bash -c "! grep -vE '^[[:space:]]*#' '$LIB' | grep -q sudo"
+# the code path has no sudo (a message line that tells the user to run it is not code)
+check "no sudo in the scheduling code" bash -c "! grep -vE '^[[:space:]]*(#|OPS_[A-Z]+=)' '$LIB' | grep -q sudo"
 
 echo; echo "$PASS passed, $FAILED failed"
 ((FAILED == 0))

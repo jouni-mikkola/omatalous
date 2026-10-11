@@ -14,6 +14,7 @@ import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Loading } from "../components/Loading.tsx";
 import { completeMonths, date, plural } from "../format.ts";
 import { useApi } from "../hooks.ts";
+import { SETTINGS_ANCHOR } from "../routes.ts";
 import type { Scope } from "../types.ts";
 import "../styles/optimise.css";
 import "../styles/quality.css";
@@ -49,7 +50,7 @@ export function Optimise({ scope }: { scope: Scope }) {
         <span>{data.dataTo ? `Tiedot ${date(data.dataTo)} asti` : "Ei tapahtumia"}</span>
         <span>historiaa {plural(data.historyMonths, "kuukausi", "kuukautta")}</span>
         <span>{plural(data.accounts, "tili", "tiliä")}</span>
-        <a href="#/reports">Tietojen laatu</a>
+        <a href={`#/settings#${SETTINGS_ANCHOR.quality}`}>Tietojen laatu</a>
       </p>
       {said && (
         <div className="notice good" role="status" tabIndex={-1} ref={notice}>
@@ -59,7 +60,7 @@ export function Optimise({ scope }: { scope: Scope }) {
 
       {young && (
         <div className="notice" role="status">
-          Optimoi tarvitsee {completeMonths(MIN_MONTHS_ANY)}. Siihen asti näkyvät vain määräajat.
+          Säästövinkit tarvitsevat {completeMonths(MIN_MONTHS_ANY)}. Siihen asti näkyvät vain määräajat.
         </div>
       )}
 

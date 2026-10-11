@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { monthSpan } from "../src/db/finance/merchants.ts";
 import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
@@ -17,11 +18,12 @@ const content = file(
   `2026/09/15;-7,00;${CHECKING};;KÄRKKÄINEN TMI;LASKU;;EUR`,
 );
 
-type Item = { merchant: string; category: string; count: number; totalCents: number; inCents: number; lastDate: string; rule: { id: number; category: string } | null };
+type Item = { merchant: string; category: string; count: number; totalCents: number; inCents: number; monthlyCents: number; lastDate: string; rule: { id: number; category: string } | null };
 type Client = Awaited<ReturnType<typeof setupApp>>["admin"];
 
 const names = (items: Item[]) => items.map((i) => i.merchant);
 const list = async (c: Client, query = ""): Promise<Item[]> => (await c.call("GET", `/api/merchants${query}`)).body.items;
+const months = async (c: Client, query = ""): Promise<number> => (await c.call("GET", `/api/merchants${query}`)).body.months;
 const one = async (c: Client, merchant: string) => (await list(c)).find((i) => i.merchant === merchant);
 
 async function withData() {
@@ -35,11 +37,12 @@ describe("GET /api/merchants", () => {
   it("lists the user's merchants, biggest spending first", async () => {
     const { admin } = await withData();
     const items = await list(admin);
+    expect(await months(admin)).toBe(1);
     expect(items).toEqual([
-      { merchant: "Lidl", category: "groceries", count: 3, totalCents: 7215, inCents: 0, lastDate: "2026-09-14", rule: null, otherCategories: [] },
-      { merchant: "Qwerty Puoti", category: "other", count: 1, totalCents: 5550, inCents: 0, lastDate: "2026-09-10", rule: null, otherCategories: [] },
-      { merchant: "Xyzzy Tuntematon", category: "other", count: 3, totalCents: 4200, inCents: 3500, lastDate: "2026-09-20", rule: null, otherCategories: [{ category: "income", count: 1, totalCents: 0, inCents: 3500 }] },
-      { merchant: "Kärkkäinen Tmi", category: "other", count: 1, totalCents: 700, inCents: 0, lastDate: "2026-09-15", rule: null, otherCategories: [] },
+      { merchant: "Lidl", category: "groceries", count: 3, totalCents: 7215, inCents: 0, monthlyCents: 7215, lastDate: "2026-09-14", rule: null, otherCategories: [] },
+      { merchant: "Qwerty Puoti", category: "other", count: 1, totalCents: 5550, inCents: 0, monthlyCents: 5550, lastDate: "2026-09-10", rule: null, otherCategories: [] },
+      { merchant: "Xyzzy Tuntematon", category: "other", count: 3, totalCents: 4200, inCents: 3500, monthlyCents: 4200, lastDate: "2026-09-20", rule: null, otherCategories: [{ category: "income", count: 1, totalCents: 0, inCents: 3500 }] },
+      { merchant: "Kärkkäinen Tmi", category: "other", count: 1, totalCents: 700, inCents: 0, monthlyCents: 700, lastDate: "2026-09-15", rule: null, otherCategories: [] },
     ]);
   });
 
@@ -91,6 +94,109 @@ describe("GET /api/merchants", () => {
     expect(await list(eero)).toEqual([]);
     expect(await list(eero, "?scope=household")).toEqual([]);
     expect(await list(admin)).toHaveLength(4);
+  });
+});
+
+// Lidl in May, July and September, a kiosk every second week of the last two months: the first has a period to choose, the second is a habit
+const spread = file(
+  `2026/05/10;-30,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+  `2026/07/12;-60,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+  `2026/09/05;-90,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+  `2026/08/02;-4,20;${CHECKING};;;R-KIOSKI;;EUR`,
+  `2026/08/15;-6,10;${CHECKING};;;R-KIOSKI;;EUR`,
+  `2026/08/29;-3,80;${CHECKING};;;R-KIOSKI;;EUR`,
+  `2026/09/12;-5,50;${CHECKING};;;R-KIOSKI;;EUR`,
+  `2026/09/26;-4,90;${CHECKING};;;R-KIOSKI;;EUR`,
+  `2026/10/05;-6,00;${CHECKING};;;R-KIOSKI;;EUR`,
+);
+async function withSpread() {
+  const app = await setupApp();
+  expect((await app.admin.call("POST", "/api/import/csv", { content: spread, accountName: "Käyttötili" })).status).toBe(200);
+  return app;
+}
+
+describe("GET /api/merchants for a period", () => {
+  it("adds up only the rows of the period and divides by its calendar months", async () => {
+    const { admin } = await withSpread();
+    // no period: from the first row to the last, May to October
+    expect(await months(admin)).toBe(6);
+    expect(await one(admin, "Lidl")).toMatchObject({ count: 3, totalCents: 18000, monthlyCents: 3000, lastDate: "2026-09-05" });
+
+    const q = "?from=2026-07-01&to=2026-09-30";
+    expect(await months(admin, q)).toBe(3);
+    expect((await list(admin, q)).find((i) => i.merchant === "Lidl")).toMatchObject({ count: 2, totalCents: 15000, monthlyCents: 5000 });
+    // a merchant with no row in the period is not listed
+    expect(names(await list(admin, "?from=2026-05-01&to=2026-05-31"))).toEqual(["Lidl"]);
+  });
+
+  it("lets an open end run to the first or the last row of what is left", async () => {
+    const { admin } = await withSpread();
+    // September to the last row, October 5: two months
+    expect(await months(admin, "?from=2026-09-01")).toBe(2);
+    // the first row, May 10, to the end of July: three months
+    expect(await months(admin, "?to=2026-07-31")).toBe(3);
+    expect(await months(admin, "?from=2026-09-05&to=2026-09-05")).toBe(1);
+  });
+
+  it("answers an empty period with no merchants and one month", async () => {
+    const { admin } = await withSpread();
+    expect(await list(admin, "?from=2020-01-01&to=2020-12-31")).toEqual([]);
+    expect(await months(admin, "?from=2020-01-01&to=2020-12-31")).toBe(1);
+    expect(await list(admin, "?from=2026-09-30&to=2026-09-01")).toEqual([]);
+  });
+
+  it("refuses a date that is none", async () => {
+    const { admin } = await withSpread();
+    for (const q of ["?from=yesterday", "?to=2026-02-30", "?from=2026-1-1"]) expect((await admin.call("GET", `/api/merchants${q}`)).status, q).toBe(400);
+  });
+
+  it("keeps a merchant that is only paid at 0 € a month", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/import/csv", { content: file(`2026/09/01;2500,00;;${CHECKING};ACME OY;PALKKA;;EUR`), accountName: "Käyttötili" });
+    expect(await list(admin)).toMatchObject([{ inCents: 250000, totalCents: 0, monthlyCents: 0 }]);
+  });
+});
+
+describe("GET /api/merchants?habit=1 (Arkiostot)", () => {
+  it("keeps the merchants the recurring detection calls everyday purchases", async () => {
+    const { admin } = await withSpread();
+    const recurring = (await admin.call("GET", "/api/recurring")).body.series as { merchant: string; kind: string; active: boolean }[];
+    const habits = recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant);
+    expect(habits).toEqual(["R-Kioski"]);
+    expect(names(await list(admin, "?habit=1"))).toEqual(habits);
+    expect(names(await list(admin))).toEqual(expect.arrayContaining(["Lidl", "R-Kioski"]));
+  });
+
+  it("combines with a period, a category and a name, and shows Kuussa of the period", async () => {
+    const { admin } = await withSpread();
+    const kiosk = (await list(admin, "?habit=1&from=2026-08-01&to=2026-09-30"))[0]!;
+    // 4,20 + 6,10 + 3,80 + 5,50 + 4,90 over two months
+    expect(kiosk).toMatchObject({ merchant: "R-Kioski", count: 5, totalCents: 2450, monthlyCents: 1225 });
+    expect(await list(admin, "?habit=1&category=no_such_category")).toEqual([]);
+    expect(names(await list(admin, "?habit=1&q=kioski"))).toEqual(["R-Kioski"]);
+    expect(await list(admin, "?habit=1&q=lidl")).toEqual([]);
+  });
+
+  it("takes nothing but 1, and reads only the user's own series", async () => {
+    const { admin, member } = await withSpread();
+    expect((await admin.call("GET", "/api/merchants?habit=true")).status).toBe(400);
+    expect((await admin.call("GET", "/api/merchants?habit=")).status).toBe(200);
+    const eero = await member("eero");
+    expect(await list(eero, "?habit=1")).toEqual([]);
+  });
+});
+
+describe("monthSpan", () => {
+  it("counts the calendar months from the first date to the last, both included", () => {
+    expect(monthSpan("2026-09-30", "2026-10-01")).toBe(2);
+    expect(monthSpan("2025-11-15", "2026-02-01")).toBe(4);
+    expect(monthSpan("2026-01-01", "2026-12-31")).toBe(12);
+    expect(monthSpan("2026-09-05", "2026-09-05")).toBe(1);
+  });
+
+  it("is at least one, also for an end before the start", () => {
+    expect(monthSpan("2026-09-30", "2026-09-01")).toBe(1);
+    expect(monthSpan("2026-10-01", "2026-03-01")).toBe(1);
   });
 });
 

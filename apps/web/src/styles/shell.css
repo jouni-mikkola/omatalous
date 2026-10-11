@@ -7,7 +7,11 @@
 .nav a { display: inline-flex; align-items: center; padding: 0 0 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; color: var(--text-2); }
 .nav a:hover { color: var(--text); }
 .nav a[aria-current="page"] { color: var(--text); border-bottom-color: var(--ink); font-weight: 500; }
-.topbar .user-menu, .topbar .sync-status, .topbar .scope-toggle { margin-bottom: 10px; }
+.topbar .user-menu, .topbar .sync-status, .topbar .scope-toggle, .topbar .settings-link { margin-bottom: 10px; }
+/* Asetukset is not one of the five questions: a link beside the user menu */
+.settings-link { padding: 4px 8px; border-radius: 8px; color: var(--text-2); text-decoration: none; }
+.settings-link:hover { background: var(--surface-2); color: var(--text); }
+.settings-link[aria-current="page"] { background: var(--surface-2); color: var(--text); font-weight: 500; }
 .topbar .spacer { flex: 1; }
 .sync-status { color: var(--muted); font-size: 12px; }
 
@@ -25,15 +29,17 @@
 
 .scope-toggle { margin-left: 4px; }
 
-/* phones: the tabs stay visible as a grid */
+/* phones: the tabs stay visible in one row */
 @media (max-width: 640px) {
-  /* six links fit as two rows of three; a hidden sideways scroll left the last ones unseen */
-  .nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); order: 3; width: 100%; gap: 0; }
-  .nav a { white-space: nowrap; justify-content: center; padding: 9px 0; margin-bottom: 0; border-bottom: none; border-radius: 6px; }
+  /* five short labels share one row; they wrap onto a second only on a screen narrower than the labels */
+  .nav { display: flex; justify-content: space-between; order: 3; width: 100%; gap: 0; }
+  .nav a { white-space: nowrap; justify-content: center; padding: 9px 3px; margin-bottom: 0; border-bottom: none; border-radius: 6px; }
   .nav a[aria-current="page"] { background: var(--surface-2); }
   .topbar .spacer { display: none; }
   .brand { padding-bottom: 6px; }
-  .topbar .user-menu { margin-left: auto; margin-bottom: 4px; }
+  .topbar .user-menu { margin-bottom: 4px; }
+  /* the link and the menu share the right end of the first row */
+  .topbar .settings-link { margin-bottom: 4px; margin-left: auto; }
 }
 
 .skip-link { position: absolute; left: 8px; top: -48px; z-index: 20; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 6px; text-decoration: none; }

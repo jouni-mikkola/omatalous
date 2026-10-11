@@ -28,6 +28,7 @@
  *   rule 18  no local month length or month-end string         code-rules.ts
  *   rule 19  historyCovers only in usual.ts and context.ts      code-rules.ts
  *   rule 21  keyword lists only in the dialect files          dialect.ts
+ *   rule 22  text a copy pass removed stays out of the UI      text-rules.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

@@ -347,8 +347,11 @@ fi
 
 # ── maintenance helper ───────────────────────────────────────────────────────
 head_ "Maintenance helper" "Ylläpitoapuri"
+# the helper's safety paths and the user manager's groups: the same code the installer uses
+# shellcheck source=lib/ops-schedule.sh
+. ./scripts/lib/ops-schedule.sh
 UNIT="talous-ops-$INSTANCE"
-HELPER_KIND=""
+HELPER_KIND=""; perm_bad=""
 if command -v systemctl >/dev/null && systemctl --user is-enabled "$UNIT.timer" >/dev/null 2>&1; then HELPER_KIND=systemd
 elif command -v crontab >/dev/null && crontab -l 2>/dev/null | grep -qE " # talous-ops:$INSTANCE\$"; then HELPER_KIND=cron; fi
 if [[ -z $HELPER_KIND ]]; then
@@ -358,6 +361,18 @@ elif [[ $(id -u) -eq 0 ]]; then
   warn "$(t "The maintenance helper is scheduled for root ($HELPER_KIND), and it does not run as root." "Ylläpitoapuri on ajastettu pääkäyttäjälle ($HELPER_KIND), mutta se ei toimi pääkäyttäjänä.")" "$(t "Remove it: ./scripts/install.sh --ops-helper-off   and install it again as a normal user: ./scripts/install.sh --ops-helper" "Poista: ./scripts/install.sh --ops-helper-off   ja asenna uudelleen tavallisella käyttäjällä: ./scripts/install.sh --ops-helper")"
 else
   ok "$(t "The maintenance helper is scheduled ($HELPER_KIND)" "Ylläpitoapuri ajastettu ($HELPER_KIND)")"
+  # the helper refuses to run when someone else owns the clone, .git, scripts or .env, or others can write to them
+  perm_bad=$(ops_unsafe_paths)
+  if [[ -n $perm_bad ]]; then
+    perm_n=$(printf '%s\n' "$perm_bad" | wc -l); perm_first=$(printf '%s\n' "$perm_bad" | head -n 1)
+    perm_fix="./scripts/install.sh --ops-helper"
+    for p in $perm_bad; do [[ $(stat -c %u "$p" 2>/dev/null) == "$(id -u)" ]] || perm_fix="sudo chown -R $(id -un) .   $(t "and then:" "ja sitten:") $perm_fix"; done
+    warn "$(t "The helper does not run: file permissions are not safe ($perm_first$( ((perm_n > 1)) && echo ", and $((perm_n - 1)) more"))." "Apuri ei käynnisty: tiedostojen oikeudet eivät kelpaa ($perm_first$( ((perm_n > 1)) && echo ", ja $((perm_n - 1)) muuta")).")" "$(t "Others can write to them or they belong to someone else. Run: $perm_fix" "Muut voivat kirjoittaa niihin tai ne ovat jonkun muun. Aja: $perm_fix")"
+  fi
+  # a user manager that started before the user joined the docker group runs the timer without Docker
+  if [[ $HELPER_KIND == systemd ]] && ops_manager_lacks_docker; then
+    warn "$(t "The systemd user manager started before this user joined the docker group, so the helper's timer cannot use Docker." "Käyttäjän systemd käynnistyi ennen kuin käyttäjä liitettiin docker-ryhmään, joten apurin ajastin ei pääse käyttämään Dockeria.")" "$(t "sudo systemctl restart user@$(id -u).service   or reboot the machine" "sudo systemctl restart user@$(id -u).service   tai käynnistä kone uudelleen")"
+  fi
   if [[ -f ops/helper-seen ]]; then
     hage=$(( $(date +%s) - $(stat -c %Y ops/helper-seen) ))
     if ((hage < 300)); then ok "$(t "The helper last ran $(span $hage) ago" "Apuri on käynyt $(span $hage) sitten")"
@@ -375,8 +390,12 @@ fi
 if [[ -f ops/RECOVERY.txt ]]; then
   bad "$(t "The update failed and the rollback failed too." "Päivitys epäonnistui eikä palautus onnistunut.")" "cat ops/RECOVERY.txt"
 fi
-if [[ -f ops/helper.log ]] && tail -n 20 ops/helper.log 2>/dev/null | grep -qE 'File permissions|\.env is invalid'; then
-  warn "$(t "The helper refuses to run: $(tail -n 20 ops/helper.log | grep -E 'File permissions|\.env is invalid' | tail -1 | cut -d' ' -f2- | scrub)" "Apuri kieltäytyy toimimasta, syy on lokissa.")" "tail -n 20 ops/helper.log"
+# A refusal in the log counts until a tick passes the checks (the helper then writes ops/helper-seen, a timestamp in the
+# log's own format). The permission refusals are said above when they still hold.
+refusals='File permissions|\.env is invalid'; [[ -z $perm_bad ]] || refusals='\.env is invalid'
+refusal=$(tail -n 20 ops/helper.log 2>/dev/null | grep -E "$refusals" | tail -1)
+if [[ -n $refusal && ${refusal%% *} > $(cat ops/helper-seen 2>/dev/null) ]]; then
+  warn "$(t "The helper refuses to run: $(printf '%s' "$refusal" | cut -d' ' -f2- | scrub)" "Apuri kieltäytyy toimimasta, syy on lokissa.")" "tail -n 20 ops/helper.log"
 fi
 
 # ── JSON ─────────────────────────────────────────────────────────────────────

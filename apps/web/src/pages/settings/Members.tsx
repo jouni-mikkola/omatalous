@@ -1,13 +1,18 @@
 /** Household members (admin): add, reset password, remove. */
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { date } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { User } from "../../types.ts";
 
-export function Members({ me, onChange }: { me: User; onChange: () => void }) {
+export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => void; onLoaded?: () => void }) {
   const { data, error: loadError, reload } = useApi<{ users: User[] }>("/api/users");
+  // the page scrolls to a card below this one only after this one has its height
+  const done = data !== null || loadError !== null;
+  useEffect(() => {
+    if (done) onLoaded?.();
+  }, [done, onLoaded]);
   const [form, setForm] = useState({ username: "", displayName: "", role: "member" });
   const [secret, setSecret] = useState<{ who: string; password: string } | null>(null);
   const [error, setError] = useState<string | null>(null);

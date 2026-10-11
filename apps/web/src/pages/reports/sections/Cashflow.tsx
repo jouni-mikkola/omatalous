@@ -28,20 +28,17 @@ function Cashflow({ ctx }: SectionProps) {
         </>
       }
     >
-      <Kv
-        items={[
-          ["Tulot", money(t.incomeCents, false)],
-          ["Menot", money(t.expenseCents, false)],
-          ["Säästöön", money(t.savedCents, false)],
-          ...(settled
-            ? ([
-                [`Säästöaste${whole}`, settled.savingsRate === null ? "–" : percent(settled.savingsRate)],
-                [`${settled.leftCents < 0 ? "Menot ylittivät tulot" : "Yli jäi"}${whole}`, money(Math.abs(settled.leftCents), false)],
-              ] as [string, string][])
-            : []),
-          ...(t.borrowedCents ? ([["Luotonnostot", money(t.borrowedCents, false)]] as [string, string][]) : []),
-        ]}
-      />
+      {/* the bar holds the figures of the settled months; with none there is no bar, and the totals stand in its place */}
+      {!settled && (
+        <Kv
+          items={[
+            ["Tulot", money(t.incomeCents, false)],
+            ["Menot", money(t.expenseCents, false)],
+            ["Säästöön", money(t.savedCents, false)],
+            ...(t.borrowedCents ? ([["Luotonnostot", money(t.borrowedCents, false)]] as [string, string][]) : []),
+          ]}
+        />
+      )}
       {settled && <SurplusBridge totals={settled} title={`Mihin tulot menivät${whole}`} />}
       {table ? (
         <div className="table-wrap">
@@ -95,6 +92,7 @@ export const section: ReportSection = {
   id: "kassavirta",
   title: "Tulot ja menot",
   order: 20,
+  page: "reports",
   reports: ["cashflow"],
   Component: Cashflow,
 };

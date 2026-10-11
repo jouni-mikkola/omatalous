@@ -295,7 +295,7 @@ describe("repo rules: request bodies and marks", () => {
         if (!ts.isCallExpression(n) || !ts.isPropertyAccessExpression(n.expression) || n.expression.name.text !== "filter") return;
         for (const arg of n.arguments) {
           walk(arg, (m) => {
-            if (ts.isPropertyAccessExpression(m) && m.name.text === "nextDate") found.push({ file, line: lineOf(sf, m), why: "filters on .nextDate: the coming charges come from expectedCharges() (coming.ts)" });
+            if (ts.isPropertyAccessExpression(m) && m.name.text === "nextDate") found.push({ file, line: lineOf(sf, m), why: "filters on .nextDate: the coming charges come from expectedCharges() in core (commitments.ts)" });
           });
         }
       });

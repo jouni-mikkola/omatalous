@@ -1,5 +1,5 @@
 /** The user's category rules, including the "all of this merchant" rules that the category settings write. */
-import type { CategoryRule, RuleField } from "@banking/core";
+import { type CategoryRule, namesUnknownMerchant, type RuleField } from "@banking/core";
 import type { Row } from "../rows.ts";
 import { type FinanceContext, writeBatch } from "./context.ts";
 
@@ -48,6 +48,16 @@ export class RulesRepo {
   /** Back to automatic. Removes the merchant's "all of this merchant" rules and returns how many there were. */
   async deleteMerchantRules(merchant: string): Promise<number> {
     return (await this.ctx.db.run(`DELETE FROM category_rules WHERE user_id = ? AND field IN ${MERCHANT_RULE_FIELDS} AND pattern = ?`, [this.ctx.userId, merchant])).changes;
+  }
+
+  /** Rules a version up to 0.8.3 could store for the placeholder merchant of unnamed rows (core `namesUnknownMerchant`). Returns how many went. */
+  async deleteUnknownMerchantRules(): Promise<number> {
+    const ids = (await this.listRules()).filter(namesUnknownMerchant).map((r) => r.id!);
+    await writeBatch(
+      this.ctx.db,
+      ids.map((id) => ({ sql: "DELETE FROM category_rules WHERE id = ? AND user_id = ?", params: [id, this.ctx.userId] })),
+    );
+    return ids.length;
   }
 
   async addRule(rule: Omit<CategoryRule, "id">): Promise<void> {

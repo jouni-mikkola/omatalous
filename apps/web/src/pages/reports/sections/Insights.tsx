@@ -8,7 +8,7 @@ import type { ReportSection, SectionProps } from "../types.ts";
 function Insights({ ctx }: SectionProps) {
   const r = ctx.data.insights;
   return (
-    <Section id={section.id} title={section.title} sub="Suurin vuosivaikutus ensin">
+    <Section id={section.id} title={section.title}>
       {r.items.length ? (
         <div className="table-wrap">
           <table>
@@ -47,6 +47,7 @@ export const section: ReportSection = {
   id: "havainnot",
   title: "Havainnot",
   order: 15,
+  page: "reports",
   reports: ["insights"],
   Component: Insights,
 };

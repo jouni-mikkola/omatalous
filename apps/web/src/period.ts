@@ -1,14 +1,47 @@
 import { addMonths, monthEnd } from "@banking/core";
 
-export const PERIODS = [
+/** The month page offers the running month and the one before it. */
+export const MONTH_PERIODS = [
   { id: "month", label: "Tämä kuu" },
   { id: "last-month", label: "Viime kuu" },
-  { id: "3m", label: "3 kuukautta" },
-  { id: "6m", label: "6 kuukautta" },
-  { id: "12m", label: "12 kuukautta" },
+] as const;
+
+/** Raportit compares months and years, so none of its presets is a single month. */
+export const REPORT_PERIODS = [
+  { id: "3m", label: "3 kk" },
+  { id: "6m", label: "6 kk" },
+  { id: "12m", label: "12 kk" },
   { id: "year", label: "Tämä vuosi" },
   { id: "last-year", label: "Viime vuosi" },
 ] as const;
+
+export interface PeriodPreset {
+  id: string;
+  label: string;
+}
+
+/** The pages that have a period switch, with the presets each offers and the one it opens on. */
+const PAGES = {
+  overview: { presets: MONTH_PERIODS as readonly PeriodPreset[], fallback: "month" },
+  reports: { presets: REPORT_PERIODS as readonly PeriodPreset[], fallback: "12m" },
+} as const;
+type PeriodPage = keyof typeof PAGES;
+const hasSwitch = (page: string): page is PeriodPage => Object.hasOwn(PAGES, page);
+
+/** The presets a page shows; none for a page without a period switch. */
+export function periodsOf(page: string): readonly PeriodPreset[] {
+  return hasSwitch(page) ? PAGES[page].presets : [];
+}
+
+/** The page a preset belongs to; null for an id no page offers. */
+export function pageOfPeriod(id: string): PeriodPage | null {
+  return (Object.keys(PAGES) as PeriodPage[]).find((page) => PAGES[page].presets.some((p) => p.id === id)) ?? null;
+}
+
+/** The preset a page shows for the address's `period`: that one when the page offers it, else the page's own default. */
+export function periodFor(page: string, param: string | null): string {
+  return periodsOf(page).find((p) => p.id === param)?.id ?? (hasSwitch(page) ? PAGES[page].fallback : "month");
+}
 
 /**
  * Preset id → inclusive date range, relative to the server's "today". 3, 6 and

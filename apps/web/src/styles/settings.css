@@ -50,3 +50,10 @@
 .checklist li.done::before { content: "✓ "; color: var(--good, currentColor); }
 .bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
 .bank-app-status code { overflow-wrap: anywhere; }
+
+/* a connection row with a reconnect and a remove button */
+.row-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+/* the password form of Kirjautuminen: three fields do not need the width of the card */
+#salasana .auth-form { max-width: 420px; }
+/* Asetukset: Omat | Talous */
+.settings-tabs { align-self: flex-start; }

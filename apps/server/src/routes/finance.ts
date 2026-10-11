@@ -9,7 +9,7 @@ import { UserError } from "../platform/errors.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
-import { body, optionalString, parseRange, queryInt } from "./shared.ts";
+import { body, optionalString, parseRange, parseReportIds, queryInt } from "./shared.ts";
 
 const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "counterparty", "any"];
 
@@ -76,7 +76,7 @@ export function financeRoutes(s: Services) {
   app.get("/reports", async (c) => {
     const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
-    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs }));
+    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs }, parseReportIds(c.req.query("reports"))));
   });
 
   app.get("/recurring", async (c) => {

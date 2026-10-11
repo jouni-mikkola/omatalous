@@ -149,6 +149,40 @@ describe("tools/release/prepare.mjs", () => {
     expect(read(dir, "CHANGELOG.md")).toContain("Upgrade\n\n- Migration 0002 runs on the first start.\n");
   });
 
+  it("--check-docs wants contracts/X.Y.Z when a migration was added, and writes nothing", () => {
+    const dir = repo("0.5.1", "v0.5.1");
+    put(dir, "apps/server/migrations/0002_more.sql", "CREATE TABLE b (y INTEGER);\n");
+    fragment(dir, "A1", "section: Reliability\n- A new table.\nupgrade: Migration 0002 runs on the first start.\n");
+    commitAll(dir);
+
+    const refused = run(dir, "0.6.0", "--check-docs");
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain("contracts/0.6.0/schema.sql must exist");
+    // a folder of another version does not count
+    put(dir, "contracts/0.5.1/schema.sql", "-- old\n");
+    commitAll(dir, "old contract");
+    expect(run(dir, "0.6.0", "--check-docs").code).toBe(1);
+
+    put(dir, "contracts/0.6.0/schema.sql", "-- new\n");
+    commitAll(dir, "contract");
+    const ok = run(dir, "0.6.0", "--check-docs");
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain("Checks pass for 0.5.1 -> 0.6.0");
+    expect(ok.out).not.toContain("## 0.6.0");
+    expect(git(dir, "status", "--porcelain")).toBe("");
+    expect(read(dir, "CHANGELOG.md")).not.toContain("0.6.0");
+    expect(existsSync(join(dir, "changelog.d/A1.md"))).toBe(true);
+  });
+
+  it("--check-docs needs no contracts folder without a new migration, and still runs the other checks", () => {
+    const dir = repo("0.5.1", "v0.5.1");
+    expect(run(dir, "0.6.0", "--check-docs").err).toContain("No fragments");
+    fragment(dir, "A1", "section: Look\n- x\n");
+    commitAll(dir);
+    expect(run(dir, "0.6.0", "--check-docs").code).toBe(0);
+    expect(run(dir, "0.5.1", "--check-docs").err).toContain("is not above");
+  });
+
   it("an edited migration is not a new one, and a migration before the tag is not new", () => {
     const dir = repo();
     put(dir, "apps/server/migrations/0002_old.sql", "CREATE TABLE c (z INTEGER);\n");

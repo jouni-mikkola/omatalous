@@ -281,6 +281,7 @@ export const section: ReportSection = {
   id: "tulot",
   title: "Tulot",
   order: 25,
+  page: "reports",
   reports: ["income"],
   Component: Income,
 };

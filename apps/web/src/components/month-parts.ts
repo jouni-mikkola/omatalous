@@ -1,35 +1,7 @@
-// Decision: is this month a reason to worry, and where to move money to savings
-import { GAP_HELP, REST_CATEGORY } from "@banking/core";
+// Decision: where to move money to savings
 import type { DashboardData } from "../types.ts";
 
-type Trend = DashboardData["trend"];
 type Totals = Pick<DashboardData["totals"], "incomeCents" | "consumptionCents" | "debtCents" | "savedCents" | "leftCents">;
-
-/** One line of the month breakdown: what the explanation says, or the plain categories while there is no usual level. */
-export interface BreakdownRow {
-  key: string;
-  /** null for the two rows that are no single category. */
-  category: string | null;
-  label: string;
-  now: number;
-  usual: number | null;
-  change: number | null;
-  cause: string | null;
-}
-
-/**
- * The rows of the table under the monthly chart. The usual column is the explanation's own figures, a negative one
- * included, so the column adds up to the total row.
- */
-export function breakdownRows(trend: Trend, active: number): BreakdownRow[] {
-  const explanation = trend.explanations[active] ?? null;
-  if (explanation) {
-    return explanation.rows.map((r) => ({ key: r.category ?? r.kind, category: r.category, label: r.label, now: r.nowCents, usual: r.usualCents, change: r.changeCents, cause: r.kind === "between" ? GAP_HELP : (r.cause?.text ?? null) }));
-  }
-  return trend.series
-    .filter((s) => (s.values[active] ?? 0) > 0)
-    .map((s) => ({ key: s.category, category: s.category === REST_CATEGORY ? null : s.category, label: s.label, now: s.values[active] ?? 0, usual: null, change: null, cause: null }));
-}
 
 export interface BridgePart {
   key: "consumption" | "debt" | "saved" | "left";

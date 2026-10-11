@@ -16,6 +16,7 @@
     "test:sh:fast": "bash tools/check.sh sh",
     "lint:sh": "bash tools/ci/shell-lint.sh",
     "check": "bash tools/check.sh",
+    "release": "bash tools/release/release.sh",
     "release:prepare": "node tools/release/prepare.mjs",
     "release:ship": "bash tools/release/ship.sh",
     "release:fixture": "node tools/release/fixture.mjs",

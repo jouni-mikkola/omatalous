@@ -1,9 +1,12 @@
+import { UNKNOWN_MERCHANT } from "@banking/core";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategoryPicker, CategorySelect } from "../components/CategorySelect.tsx";
+import { DateFilter, SearchBox } from "../components/FilterInputs.tsx";
 import { CADENCE_LABEL, date, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
+import { Merchants } from "./Merchants.tsx";
 import "../styles/transactions.css";
 
 interface MerchantHistory {
@@ -66,7 +69,29 @@ function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant
 const PAGE = 100;
 const MAX_ROWS = 500;
 
-export function Transactions({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
+/**
+ * Two views of the same rows: the list, and the merchants with the rules under them. The merchant list takes a period
+ * (`from`, `to`) that the list shares, so a merchant's rows open for the period its figures add up.
+ */
+export function Transactions({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
+  const merchants = params.get("view") === "merchants";
+  const period = { from: params.get("from") ?? "", to: params.get("to") ?? "" };
+  return (
+    <div className="stack">
+      <div className="segmented view-tabs" role="group" aria-label="Tapahtumat ja kauppiaat">
+        <button type="button" aria-pressed={!merchants} onClick={() => navigate("transactions", period)}>
+          Tapahtumat
+        </button>
+        <button type="button" aria-pressed={merchants} onClick={() => navigate("transactions", { view: "merchants", ...period })}>
+          Kauppiaat
+        </button>
+      </div>
+      {merchants ? <Merchants meta={meta} params={params} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
+    </div>
+  );
+}
+
+function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
   const accounts = [...meta.accounts, ...(scope === "household" ? meta.sharedAccounts : [])];
   const filters = {
     q: params.get("q") ?? "",
@@ -110,7 +135,9 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
       // an own transfer is neutral; giving it a spending category counts the money twice
       const kind = meta.categories.find((c) => c.id === category)?.kind;
       if (transferIds.current.has(id) && kind !== "transfer" && !window.confirm("Tämä on oma siirto. Muutetaanko silti?")) return;
-      const createRule = rememberRef.current;
+      const merchant = merchantOf.current.get(id) ?? "";
+      // a row without a merchant name changes alone: its placeholder merchant stands for every unnamed row
+      const createRule = rememberRef.current && merchant !== UNKNOWN_MERCHANT;
       setSaving({ id, category });
       setSaveError(null);
       setChanged(null);
@@ -118,7 +145,7 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
         const r = await api<{ changed?: number }>(`/api/transactions/${encodeURIComponent(id)}`, { method: "PATCH", body: { category, createRule } });
         setChanged({
           count: typeof r?.changed === "number" ? r.changed : 1,
-          merchant: merchantOf.current.get(id) ?? "",
+          merchant,
           category: meta.categories.find((c) => c.id === category)?.label ?? category,
           rule: createRule,
         });
@@ -147,7 +174,7 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
         />
       )}
       <div className="filters">
-        <SearchBox value={filters.q} onSearch={(q) => set({ q })} />
+        <SearchBox value={filters.q} onSearch={(q) => set({ q })} label="Hae kauppiasta tai viestiä" />
         <CategorySelect categories={meta.categories} value={filters.category} onChange={(category) => set({ category })} allowEmpty />
         <select value={filters.accountId} onChange={(e) => set({ accountId: e.target.value })} aria-label="Tili">
           <option value="">Kaikki tilit</option>
@@ -260,31 +287,6 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
   );
 }
 
-/**
- * Keeps the typed text to itself, so typing does not re-render the table.
- * The list follows the text after a short pause; Enter searches at once.
- */
-function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  useEffect(() => {
-    if (text.trim() === value.trim()) return;
-    const timer = window.setTimeout(() => onSearch(text.trim()), 350);
-    return () => window.clearTimeout(timer);
-  }, [text, value, onSearch]);
-  return (
-    <form
-      role="search"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSearch(text.trim());
-      }}
-    >
-      <input type="search" placeholder="Hae kauppiasta tai viestiä" value={text} onChange={(e) => setText(e.target.value)} aria-label="Hae kauppiasta tai viestiä" />
-    </form>
-  );
-}
-
 const TxRow = memo(function TxRow({
   t,
   account,
@@ -340,35 +342,6 @@ const TxRow = memo(function TxRow({
     </tr>
   );
 });
-
-/**
- * A date input that changes the filter only once the date is complete.
- * While the year is being typed the browser reports "0002-03-15" and then
- * "", and navigating on each of those would wipe the field.
- */
-function DateFilter({ value, onCommit, label }: { value: string; onCommit: (v: string) => void; label: string }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  const commit = (v: string) => {
-    if (v !== value && (v === "" || (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= "1990-01-01"))) onCommit(v);
-  };
-  return (
-    <label className="date-filter">
-      <span>{label}</span>
-      <input
-        type="date"
-        value={draft}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          // a picked date (or a fully typed one) applies at once
-          if (/^(19|20)\d{2}-\d{2}-\d{2}$/.test(e.target.value)) commit(e.target.value);
-        }}
-        onBlur={() => commit(draft)}
-        onKeyDown={(e) => e.key === "Enter" && commit(draft)}
-      />
-    </label>
-  );
-}
 
 interface UncategorisedItem {
   merchant: string;
@@ -434,7 +407,7 @@ function Uncategorised({
           <a className="btn btn-small" href="#/transactions?category=other">
             Näytä kaikki
           </a>
-          <a className="btn btn-small" href="#/categories">
+          <a className="btn btn-small" href="#/transactions?view=merchants">
             Kaikki kauppiaat
           </a>
         </div>

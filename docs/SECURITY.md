@@ -13,6 +13,26 @@ What the app protects and how. The limits are listed at the end.
 
 ## Network
 
+What connects where, with the default install:
+
+```mermaid
+flowchart LR
+  subgraph home["Your home network"]
+    browser["Browser<br/>phone or computer"]
+    subgraph machine["Your Linux machine, Docker"]
+      app["Omatalous<br/>database, keys, backups"]
+      helper["Maintenance helper"]
+    end
+  end
+  browser -->|"http, home network only"| app
+  app -->|"HTTPS: your transactions and balances"| eb["Enable Banking API"]
+  app -.->|"HTTPS: business names only, can be turned off"| prh["PRH trade register"]
+  helper -.->|"HTTPS: daily version check, update when you press Päivitä"| gh["GitHub and ghcr.io<br/>signed releases"]
+  browser -->|"bank login, every 180 days"| bank["Nordea login<br/>via Enable Banking"]
+  bank -->|"after the login"| relay["Return page<br/>github.io"]
+  relay -->|"forwards to your home address"| browser
+```
+
 - By default the installer binds the port (`HOST_PORT`, default 8080) to the machine's home network address, when that is
   a private one (10/8, 172.16/12, 192.168/16), and otherwise to `127.0.0.1`. The traffic is plain HTTP, so keep guests
   and smart devices on a guest network. Do not forward that port in the router. Docker publishes the port past `ufw`, so

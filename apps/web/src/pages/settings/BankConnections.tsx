@@ -4,10 +4,11 @@
  * shows each consent's validity, and a fallback finishes a consent whose
  * redirect page did not open.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { bankLogo, logoForInstitution } from "../../banks.ts";
+import { bankIdForInstitution, bankLogo, logoForInstitution } from "../../banks.ts";
 import { BankLogo } from "../../components/BankLogo.tsx";
+import { WARN_DAYS } from "../../consent-notices.ts";
 import { date, dateTime, plural } from "../../format.ts";
 import type { Connection, Meta } from "../../types.ts";
 
@@ -65,6 +66,10 @@ export function BankConnections({
   onMessage: (m: { tone: "good" | "warning"; text: string }) => void;
 }) {
   const [picking, setPicking] = useState(pickerOpen);
+  // the banner of an ended consent links here (#/settings?add=1) while the page may already be open
+  useEffect(() => {
+    if (pickerOpen) setPicking(true);
+  }, [pickerOpen]);
   const [busy, setBusy] = useState<string | null>(null);
   const [pasted, setPasted] = useState("");
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -72,7 +77,6 @@ export function BankConnections({
   // a consent that owns no account is history: its accounts moved to a newer one, or it never had any
   const current = meta.connections.filter((c) => !c.history);
   const history = meta.connections.filter((c) => c.history);
-  const hasActive = current.some((c) => c.state === "active");
   const isAdmin = meta.user.role === "admin";
   const accountNames = (connectionId: string) =>
     meta.accounts
@@ -112,6 +116,16 @@ export function BankConnections({
     });
   };
 
+  // a consent that ended or ends soon is renewed with the same bank: one click, no picker. A bank that is not on the
+  // list, or no Enable Banking application yet, opens the picker, which says what is missing.
+  const reconnect = (c: Connection) => {
+    const bank = bankIdForInstitution(meta.bank.banks, c.institution);
+    if (bank && meta.bank.configured) void connect(bank);
+    else setPicking(true);
+  };
+  const canReconnect = (c: Connection) =>
+    c.state === "lapsed" || c.state === "broken" || (c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS);
+
   return (
     <div className="card" id="pankkiyhteydet">
       <div className="card-head">
@@ -120,7 +134,7 @@ export function BankConnections({
         </div>
         {!picking && (
           <button className="btn btn-primary" type="button" onClick={() => setPicking(true)}>
-            {hasActive ? "Lisää seuraava tili" : "Lisää pankkiyhteys"}
+            Lisää pankkiyhteys
           </button>
         )}
       </div>
@@ -201,7 +215,7 @@ export function BankConnections({
                   </td>
                   <td>
                     {connectionStateText(c)}
-                    {c.state === "active" && c.daysLeft !== null && c.daysLeft <= 14 && <span className="badge warn">vanhenee pian</span>}
+                    {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">vanhenee pian</span>}
                   </td>
                   <td>
                     {c.state === "active" ? date(c.validUntil) : "–"}
@@ -209,25 +223,27 @@ export function BankConnections({
                   </td>
                   <td>{dateTime(c.lastSyncedAt)}</td>
                   <td className="num">
-                    {c.state === "active" && (
-                      <button
-                        className="btn btn-small btn-danger"
-                        disabled={busy !== null}
-                        onClick={() =>
-                          run(`del-${c.id}`, async () => {
-                            await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
-                            return "Yhteys poistettu.";
-                          })
-                        }
-                      >
-                        Poista
-                      </button>
-                    )}
-                    {(c.state === "lapsed" || c.state === "broken") && (
-                      <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => setPicking(true)}>
-                        Yhdistä uudelleen
-                      </button>
-                    )}
+                    <span className="row-actions">
+                      {canReconnect(c) && (
+                        <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => reconnect(c)}>
+                          Yhdistä uudelleen
+                        </button>
+                      )}
+                      {c.state === "active" && (
+                        <button
+                          className="btn btn-small btn-danger"
+                          disabled={busy !== null}
+                          onClick={() =>
+                            run(`del-${c.id}`, async () => {
+                              await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
+                              return "Yhteys poistettu.";
+                            })
+                          }
+                        >
+                          Poista
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}

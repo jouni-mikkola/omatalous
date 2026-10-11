@@ -12,3 +12,7 @@
 .ops-tools li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
 .ops-tools li:first-child { border-top: 0; }
 @media (max-width: 600px) { .ops-tools li { flex-direction: column; align-items: stretch; } }
+
+/* the page without a helper: the controls that cannot work yet fold away behind one line */
+.ops-fold > summary { cursor: pointer; }
+.ops-fold > .stack { margin-top: 12px; }

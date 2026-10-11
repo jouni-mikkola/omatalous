@@ -146,6 +146,20 @@ const FOLD_MAP: Record<string, string> = { Ä: "A", Å: "A", Ö: "O", Ü: "U" };
 const FOLD_CHARS = /[ÄÅÖÜ]/;
 const FOLD_CHARS_G = /[ÄÅÖÜ]/g;
 
+/** Whether a merchant name is the placeholder every row without a name shares. */
+export function isUnknownMerchant(name: string): boolean {
+  return fold(name.trim()) === fold(UNKNOWN_MERCHANT);
+}
+
+/**
+ * A merchant rule for the placeholder would take every unnamed row, now and later, so none is made. Versions up to
+ * 0.8.3 could store one (`merchant_exact`, or the older whole-word `merchant`): it never applies, and the upgrade
+ * deletes it.
+ */
+export function namesUnknownMerchant(rule: { field: string; pattern: string }): boolean {
+  return (rule.field === "merchant" || rule.field === "merchant_exact") && isUnknownMerchant(rule.pattern);
+}
+
 /**
  * Upper-cases and strips payment-processor prefixes, card masks, dates,
  * reference numbers and trailing town/country names. Keeps Nordic letters;

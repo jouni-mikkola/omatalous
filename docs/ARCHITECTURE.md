@@ -190,7 +190,7 @@ fetch from the same day. The other accounts go on.
 | `accounts` | type, IBAN, `identity` (the same real account seen by two users), balance |
 | `account_shares` | which account is shared with whom (read-only) |
 | `transactions` | bank fields plus `merchant`, `category`, `category_source`, `is_transfer`, `search_text` (folded text for search, migration 0003), raw payload |
-| `category_rules` | users' own rules, including the per-merchant rules from *Kategoriat > Kauppiaat* |
+| `category_rules` | users' own rules, including the per-merchant rules from *Tapahtumat > Kauppiaat* |
 | `merchant_industry` | trade register answers per merchant name: business id, company, industry code and label. No user id |
 | `merchant_industry_users` | which merchant names each user's register lookups asked about |
 | `sync_runs` | fetch history per user |

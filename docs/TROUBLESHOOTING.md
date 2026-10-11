@@ -34,6 +34,8 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 | "Port 8080 is already in use" | Another program uses the port. Run `./scripts/install.sh --port 8085`. |
 | "Another install or update is already running in this folder" | Another install or update runs in the same folder. Wait until it ends. |
 | "Maintenance helper: off (...)" on the last line | The reason is in the brackets. Fix it, then run `./scripts/install.sh --ops-helper`. If the install ran as root, run it again as your normal user. |
+| "Maintenance helper: not working yet, run: sudo systemctl restart user@...service" on the last line | The systemd user manager started before your user joined the docker group, so the timer cannot reach Docker. Run the command it prints, or reboot. Nothing else is needed. |
+| "Maintenance helper: on (cron, because the systemd user manager does not have the docker group yet)" | It works, and cron keeps running it after a reboot. To move it to the systemd timer, run `./scripts/install.sh --ops-helper` after a reboot; nothing needs it. |
 
 ## Opening the app
 
@@ -50,13 +52,7 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 | What you see | What to do |
 |---|---|
 | The browser stays on the `github.io` page or shows an error after the Nordea login | Use a device on your home Wi-Fi and try again. If it still fails, copy the whole address from the browser's address bar and paste it under *Asetukset > Pankkiyhteydet > Paluusivu ei auennut?*. |
-| "Enable Banking ei hyväksy paluuosoitetta" | Add the address the message names to your app's Redirect URLs in the Enable Banking Control Panel. |
-| "Enable Banking hylkäsi avaimen (401)" | The Application ID is not copied in full, or the certificate in Enable Banking is not the one Omatalous made. Check both and press *Tallenna ja testaa* again. |
-| "Enable Banking hylkäsi avaimen (403)" | The app is still *Inactive*, or no account is linked. Do step 3 of [ENABLE_BANKING.md](ENABLE_BANKING.md#3-link-your-accounts). |
-| An account or a card is missing | Link it in the Enable Banking Control Panel with *Link accounts*, then add it in Omatalous with *Lisää seuraava tili*. |
-| "&lt;account&gt;: tiliä ei ole linkitetty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted: it reads only the accounts under *Linked accounts* in the Control Panel. Open *API applications*, your app, *Link accounts*, and link that account or card. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
-| "&lt;account&gt; ei tullut mukaan uuteen yhteyteen" | The new connection did not bring that account, so it stays on the old one and is not fetched. Link it under *Link accounts* in the Control Panel, then press *Yhdistä uudelleen*. |
-| Connecting fails at the start every time | Read the message once before trying again. "Enable Banking ei vielä päästä sovellusta pankkeihin": the app is still *Inactive*, do step 3 of [ENABLE_BANKING.md](ENABLE_BANKING.md#3-link-your-accounts), then press *Testaa yhteys* under *Asetukset > Palvelin*. "Enable Banking ei tunnistanut sovellusta": check the app under *Asetukset > Palvelin > Testaa yhteys*. "Enable Banking hylkäsi yhdistämisen" or "Pankki keskeytti yhdistämisen": the app's request log in the Control Panel has the reason, and the server log has a line `bank link refused` with the status and code. |
+| A message that names Enable Banking, or an account or a card that is missing | The messages and what they mean are in [Errors](ENABLE_BANKING.md#errors). |
 
 ## Updates
 

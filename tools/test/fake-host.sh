@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# A fake host for install.test.sh and doctor.test.sh. Sourced by them, not a suite of its own (check.sh runs *.test.sh).
+# A clone of this repository's scripts under Ubuntu's umask 002, and stubs for what the maintenance helper's
+# scheduling asks the host: systemctl, loginctl, crontab, getent, id, jq and docker. Nothing touches the real host.
+#
+# The caller sets HERE and SRC, calls `unprivileged SUITE "$@"` first (the installer and the helper refuse root, so a
+# root run copies the scripts and tools/test and runs the suite again as nobody) and `host_init` once.
+#
+# A world is a folder with the clone, a stub folder S and a home. Flags are files in S:
+#   systemd          systemctl --user works                 timer-enabled   the instance's timer is enabled
+#   linger           loginctl says Linger=yes (set by new_host)
+#   cron             a crontab command exists (kept in S/crontab)
+#   docker-gid GID   the group getent knows as docker       shell-gid GID   `id -G` of the shell lists GID too
+#   manager-pid PID  user@UID.service has this MainPID (its groups are the ones of that process)
+#   foreign          lists the paths (as the scripts name them) that stat reports as owned by root
+
+PASS=0; FAILED=0
+pass() { PASS=$((PASS + 1)); echo "ok   $1"; }
+fail() { FAILED=$((FAILED + 1)); echo "FAIL $1"; [[ -z ${2:-} ]] || echo "       $2"; }
+check() { local n=$1; shift; if "$@"; then pass "$n"; else fail "$n"; fi; }
+
+unprivileged() { # unprivileged SUITE ARGS...
+  local suite=$1 base rc; shift
+  [[ $EUID -eq 0 && -z ${OPS_TEST_CHILD:-} ]] || return 0
+  base=$(mktemp -d); chmod 755 "$base"
+  mkdir -p "$base/src/tools"; cp -r "$SRC/scripts" "$base/src/"; cp -r "$SRC/tools/test" "$base/src/tools/"
+  chown -R 65534:65534 "$base"
+  setpriv --reuid=65534 --regid=65534 --clear-groups env -u TMPDIR HOME="$base" OPS_TEST_CHILD=1 OPS_TEST_SRC="$base/src" bash "$base/src/tools/test/$suite" "$@"
+  rc=$?
+  rm -rf "$base"
+  exit "$rc"
+}
+
+host_init() {
+  umask 002
+  TMPBASE=$(mktemp -d)
+  trap 'rm -rf "$TMPBASE"' EXIT
+  export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
+  export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+  # The system tools without the ones a test decides about, so that "no crontab" is a command that does not exist.
+  SYS=$TMPBASE/sys; mkdir -p "$SYS"
+  local f
+  for f in /usr/bin/* /usr/sbin/*; do
+    case ${f##*/} in crontab | systemctl | loginctl | getent | id | jq | docker) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
+  done
+}
+
+write_stubs() {
+  local b=$S/bin
+  cat >"$b/systemctl" <<'EOF'
+#!/usr/bin/env bash
+[[ -e $S/systemd ]] || exit 1
+args=" $* "
+case $args in
+  *" show-environment "*) exit 0 ;;
+  *" is-enabled "*) [[ -e $S/timer-enabled ]]; exit $? ;;
+  *" enable --now "*) touch "$S/timer-enabled"; echo "enable ${*: -1}" >>"$S/calls.log"; exit 0 ;;
+  *" disable --now "*) rm -f "$S/timer-enabled"; exit 0 ;;
+  *" show -p MainPID --value "*) [[ -e $S/manager-pid ]] && cat "$S/manager-pid"; exit 0 ;;
+esac
+exit 0
+EOF
+  cat >"$b/loginctl" <<'EOF'
+#!/usr/bin/env bash
+case $* in
+  *enable-linger*) touch "$S/linger"; exit 0 ;;
+  *show-user*) if [[ -e $S/linger ]]; then echo yes; else echo no; fi ;;
+esac
+EOF
+  cat >"$b/getent" <<'EOF'
+#!/usr/bin/env bash
+if [[ ${1:-} == group && ${2:-} == docker ]]; then
+  [[ -e $S/docker-gid ]] || exit 2
+  echo "docker:x:$(cat "$S/docker-gid"):"; exit 0
+fi
+exec /usr/bin/getent "$@"
+EOF
+  cat >"$b/id" <<'EOF'
+#!/usr/bin/env bash
+if [[ ${1:-} == -G && -e $S/shell-gid ]]; then echo "$(/usr/bin/id -G) $(cat "$S/shell-gid")"; exit 0; fi
+exec /usr/bin/id "$@"
+EOF
+  cat >"$b/stat" <<'EOF'
+#!/usr/bin/env bash
+if [[ ${1:-} == -c && -e $S/foreign ]] && grep -qxF -- "${*: -1}" "$S/foreign"; then exec /usr/bin/stat -c "${2//%u/0}" "${@: -1}"; fi
+exec /usr/bin/stat "$@"
+EOF
+  printf '#!/bin/sh\nexit 0\n' >"$b/jq"
+  printf '#!/bin/sh\nexit 1\n' >"$b/docker"
+  chmod +x "$b"/*
+}
+# cron on or off: a crontab command kept in a file, or none at all
+cron_on() {
+  cat >"$S/bin/crontab" <<'EOF'
+#!/usr/bin/env bash
+f=$S/crontab
+case ${1:-} in -l) [[ -s $f ]] && cat "$f"; exit 0 ;; -r) rm -f "$f"; exit 0 ;; -) cat >"$f"; exit 0 ;; esac
+exit 1
+EOF
+  chmod +x "$S/bin/crontab"
+}
+cron_off() { rm -f "$S/bin/crontab" "$S/crontab"; }
+
+# a world with the clone (checked out under umask 002, so .git and the scripts are group writable) and a .env
+new_host() {
+  W=$(mktemp -d "$TMPBASE/w.XXXXXX"); S=$W/stub; CL=$W/clone
+  mkdir -p "$S/bin" "$W/home" "$W/seed/scripts/lib"
+  write_stubs; touch "$S/linger"
+  cp "$SRC"/scripts/*.sh "$W/seed/scripts/"; cp "$SRC"/scripts/lib/*.sh "$W/seed/scripts/lib/"
+  printf '/ops/\n/backups/\n.env\n' >"$W/seed/.gitignore"
+  git init -q --bare -b main "$W/origin.git"
+  git -C "$W/seed" init -q -b main
+  git -C "$W/seed" add -A; git -C "$W/seed" commit -qm start
+  git -C "$W/seed" push -q "file://$W/origin.git" main 2>/dev/null
+  git clone -q "file://$W/origin.git" "$CL" 2>/dev/null
+  printf 'INSTANCE_NAME=banking-app\n' >"$CL/.env"; chmod 600 "$CL/.env"
+}
+# the group the shell and the user manager share (a normal host), the group the shell has and the manager lacks, a
+# shell without the docker group (rootless Docker)
+gid_shared() { id -g >"$S/docker-gid"; rm -f "$S/shell-gid"; echo $$ >"$S/manager-pid"; }
+gid_manager_lacks() { echo 4242 >"$S/docker-gid"; echo 4242 >"$S/shell-gid"; echo $$ >"$S/manager-pid"; }
+gid_shell_lacks() { echo 4242 >"$S/docker-gid"; rm -f "$S/shell-gid"; echo $$ >"$S/manager-pid"; }
+
+# a command of the clone with the stubs and nothing else on PATH, as the timer or a login would run it
+in_clone() { (cd "$CL" && env S="$S" HOME="$W/home" XDG_CONFIG_HOME="$W/home/.config" PATH="$S/bin:$SYS" "$@"); }
+# group or others can write to a path of the clone: what the helper refuses
+writable_by_others() { (((8#$(stat -c %a "$CL/$1") & 8#022) != 0)); }

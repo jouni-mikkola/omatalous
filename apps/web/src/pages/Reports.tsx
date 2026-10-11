@@ -3,31 +3,23 @@
  * with a link in the nav row. A section is one file in `reports/sections/`, from the whole picture to the details:
  * money in and out, where it went, month by month, what is locked in, what changed.
  */
-import type { ReportId } from "@banking/core";
 import { query } from "../api.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { useApi } from "../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
-import { visibleSections } from "./reports/registry.ts";
-import type { ReportContext, ReportRange } from "./reports/types.ts";
+import { reportContext } from "./reports/context.ts";
+import { reportsOf, visibleSections } from "./reports/registry.ts";
+import type { ReportRange } from "./reports/types.ts";
 import "../styles/reports.css";
 
 export function Reports({ meta, range, scope }: { meta: Meta; range: ReportRange; scope: Scope }) {
-  const q = query({ ...range, scope });
+  // the reports this page's sections read: the spending change is Kuukausi's
+  const q = query({ ...range, scope, reports: reportsOf("reports").join(",") });
   const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${q}`);
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
   if (!data) return <div className="empty">Ladataan…</div>;
-  const ctx: ReportContext = {
-    data,
-    meta,
-    range,
-    scope,
-    // the month that has not ended yet, marked in the tables
-    running: range.to >= meta.today ? meta.today.slice(0, 7) : null,
-    label: (id) => meta.categories.find((c) => c.id === id)?.label ?? id,
-    exportHref: (report: ReportId) => `/api/export/report.csv${query({ ...range, scope, report })}`,
-  };
-  const sections = visibleSections(ctx);
+  const ctx = reportContext(data, meta, range, scope);
+  const sections = visibleSections(ctx, "reports");
 
   return (
     <div className={`stack ${loading ? "loading" : ""}`}>

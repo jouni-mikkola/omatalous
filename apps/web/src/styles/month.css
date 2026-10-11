@@ -1,16 +1,4 @@
-/* The month explanation under "Menot kuukausittain" and the surplus bridge (SurplusBridge). */
-
-.explain-empty { margin: 4px 0 10px; max-width: 62ch; }
-/* the cause sits under the category name, in line with the name past its swatch */
-.explain-cause { display: block; margin: 1px 0 0 18px; }
-.explain-table tfoot td { border-top: 1px solid var(--border); font-weight: 600; }
-.explain-table .worse, .breakdown-head .worse { color: var(--bad); }
-.explain-table .better, .breakdown-head .better { color: var(--good); }
-/* four columns have to fit a phone without a sideways scroll: the change is the one that must stay in view */
-@media (max-width: 520px) {
-  .breakdown-table.explain-table { font-size: 13px; }
-  .breakdown-table.explain-table td, .breakdown-table.explain-table th { padding-left: 4px; padding-right: 4px; }
-}
+/* The surplus bridge (SurplusBridge). */
 
 .bridge { margin: 0 0 18px; }
 .bridge-head { margin-bottom: 8px; }

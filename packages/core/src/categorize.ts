@@ -1,6 +1,6 @@
 import { getCategory } from "./categories.ts";
 import { hasCompanyForm } from "./industry.ts";
-import { fold } from "./merchant.ts";
+import { fold, namesUnknownMerchant } from "./merchant.ts";
 import type { CategoryRule, CategorySource, RuleField } from "./types.ts";
 import { CARD_ISSUER_WORDS, companyForms, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, LANDLORD_WORDS, MOBILEPAY_WORDS, OTHER_TAX_WORDS, PENSION_PAYER_WORDS, REFUND_WORDS, RESIDUAL_TAX_WORDS } from "./wording.ts";
 
@@ -526,7 +526,8 @@ const isIncome = (category: string) => getCategory(category).kind === "income";
 
 /** User rules (low priority number) are placed before the built-in rules. */
 export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[] {
-  const user = [...userRules]
+  const user = userRules
+    .filter((r) => !namesUnknownMerchant(r))
     .sort((a, b) => a.priority - b.priority)
     .map<CompiledRule>((r) => ({
       id: r.id,

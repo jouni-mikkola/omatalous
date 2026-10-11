@@ -1,4 +1,4 @@
-/* Reports > Tulevat laskut: the twelve months and the form for a typed-in bill. */
+/* The Laskut page: the list of what is coming, the subscription marks, the tables, the twelve months and the form for a typed-in bill. */
 
 .bills-head { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
 .bills-head .muted { font-weight: 400; font-size: 12px; margin-left: 6px; }
@@ -27,3 +27,33 @@
 .bill-fields .field-label { color: var(--text-2); font-size: 13px; font-weight: 550; }
 .bill-fields input, .bill-fields select { width: 100%; box-sizing: border-box; }
 @media (max-width: 700px) { .bill-fields { grid-template-columns: minmax(0, 1fr); } }
+
+/* the marks on subscriptions and the tables on a phone */
+
+/* the date of the next charge stays on one line; the name column gives way instead */
+.series-table td.next { white-space: nowrap; }
+
+/* a group inside the subscriptions table: asked about, the rest, marked as cancelled */
+.series-table tr.group-head th { padding-top: 14px; color: var(--text-2); font-size: 13px; font-weight: 600; white-space: normal; }
+.series-table tbody:first-of-type tr.group-head th { padding-top: 6px; }
+.group-sub { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; font-weight: 400; }
+
+/* what to do with a subscription: the saving, then the two answers; a mark replaces them with a badge and an undo */
+.sub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.sub-actions .badge { margin-left: 0; }
+.sub-saving { color: var(--muted); font-size: 12px; }
+
+/* at 390 px the name column wraps so that the date of the next charge fits inside the card */
+@media (max-width: 600px) {
+  .series-table td .sub { max-width: none; white-space: normal; overflow: visible; }
+  .series-table td.next, .series-table th:last-child { padding-left: 4px; }
+}
+
+/* the fixed costs in one line on top of the page */
+.bills-line { margin: 0; font-size: 15px; color: var(--text-2); }
+.bills-line strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Tulossa: the sum and the button that opens the form sit together in the card head */
+.coming-total { display: flex; align-items: center; gap: 12px; }
+.coming-total strong { font-variant-numeric: tabular-nums; }
+.bills-more { margin-top: 8px; }

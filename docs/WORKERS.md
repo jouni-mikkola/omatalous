@@ -45,6 +45,10 @@ Every tool call re-reads the whole transcript, so a short transcript is a cheap 
 - Use `pnpm check --changed` while working and filter long output (`| tail -40`, `| grep -E 'FAIL|Error'`).
 - Run a command that takes minutes in the background and wait for its notification.
 - Put long notes in the file the brief names, not in the transcript.
+- Never print a whole file with `cat` or a long `sed` range: those were 38 of the 64 USD that agents paid to carry tool
+  output in one session. `grep -n` first, then at most 80 lines.
+- Put independent commands in one call. On Opus a tool call at 300k context costs about 0.06 USD in reads alone.
+- `pnpm build` and `pnpm e2e` once, before the hand-back; `tools/lead/land.sh` runs both again when it lands.
 
 ## Test helpers
 

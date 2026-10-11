@@ -113,10 +113,10 @@ confirm() {
 . "$ROOT/scripts/lib/ops-schedule.sh"
 
 # The maintenance helper: ops/ (mode 700), the policy it holds the clone to, and the timer or cron line.
-# Sets OPS_KIND (systemd, cron, none) and OPS_NOTE. Never fails the install.
+# Sets OPS_KIND (systemd, cron, none), OPS_NOTE, OPS_LABEL, OPS_TODO and OPS_WHY (see lib/ops-schedule.sh). Never fails the install.
 setup_ops_helper() {
-  local url branch dockerbin keep=false
-  OPS_KIND=none
+  local url branch dockerbin unsafe keep=false
+  OPS_KIND=none; OPS_LABEL=off; OPS_TODO=""; OPS_WHY=""
   # the helper refuses to run as root, so a timer for root would only report "off" forever
   if [[ $(id -u) -eq 0 ]]; then
     OPS_NOTE="off (the install ran as root; run it as a normal user)"
@@ -129,9 +129,8 @@ setup_ops_helper() {
   fi
   umask 077
   mkdir -p ops/journal ops/run && chmod 700 ops ops/journal ops/run
-  # the helper refuses a clone, scripts folder or script that others can write to (Ubuntu's umask 002 makes 775)
-  chmod go-w . scripts scripts/lib 2>/dev/null || true
-  chmod go-w scripts/*.sh scripts/lib/*.sh 2>/dev/null || true
+  # the helper refuses a clone, .git, scripts folder or script that others can write to (Ubuntu's umask 002 makes 775)
+  ops_fix_permissions
   # remote, branch and docker binary fixed now; the helper refuses an update when the clone no longer matches.
   # Written once, and again with --ops-policy or when the first write found no remote.
   if [[ -f ops/policy && -n $(grep -E '^REMOTE_URL=.' ops/policy 2>/dev/null || true) && $OPS_POLICY != true ]]; then keep=true; fi
@@ -145,6 +144,9 @@ setup_ops_helper() {
     [[ -n $url && -n $branch ]] || warn "The git remote or branch is missing, so updating from the browser does not work until they are set. Fix that and run: ./scripts/install.sh --ops-helper --ops-policy"
   fi
   ops_scheduler_install "$INSTANCE" "$ROOT" || true
+  # a path another user owns cannot be fixed from here, and the helper refuses every tick while it stays
+  unsafe=$(ops_unsafe_paths | head -n 3 | tr '\n' ' ' || true)
+  [[ -z $unsafe ]] || warn "The helper refuses to run while these are owned by someone else or writable by others: ${unsafe% }. Run: sudo chown -R $(id -un) .   and then: ./scripts/install.sh --ops-helper"
 }
 # current value from an existing .env
 existing() { [[ -f $ENV_FILE ]] && grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- || true; }
@@ -361,7 +363,7 @@ if [[ -n $OPS_ONLY ]]; then
   else
     setup_ops_helper
     if [[ $OPS_KIND == none ]]; then warn "$OPS_NOTE"; exit 1; fi
-    ok "Maintenance helper on: $OPS_NOTE"
+    if [[ -n $OPS_TODO ]]; then warn "$OPS_TODO"; else ok "Maintenance helper on: $OPS_NOTE"; fi
   fi
   exit 0
 fi
@@ -862,20 +864,19 @@ fi
 CODE=$($DC exec -T banking $NODE setup-code 2>/dev/null | tail -1 || true)
 
 # the maintenance helper (update, backup and restart from the browser); a problem here never fails the install
-OPS_KIND=none; OPS_NOTE=""
+OPS_KIND=none; OPS_NOTE=""; OPS_LABEL=off; OPS_TODO=""; OPS_WHY=""
 if $OPS_HELPER; then
   step "Maintenance helper"
   setup_ops_helper
-  if [[ $OPS_KIND == none ]]; then warn "$OPS_NOTE"; else ok "Maintenance helper on: $OPS_NOTE"; fi
-  if [[ $OPS_KIND == cron ]]; then say "${dim}A systemd user timer would need user services to keep running after logout (sudo loginctl enable-linger $(id -un)). Cron works without it.${reset}"; fi
+  if [[ $OPS_KIND == none ]]; then warn "$OPS_NOTE"; elif [[ -n $OPS_TODO ]]; then warn "$OPS_TODO"; else ok "Maintenance helper on: $OPS_NOTE"; fi
+  if [[ $OPS_KIND == cron && -z $OPS_WHY ]]; then say "${dim}A systemd user timer would need user services to keep running after logout (sudo loginctl enable-linger $(id -un)). Cron works without it.${reset}"; fi
 else
   OPS_NOTE="off (--no-ops-helper)"
 fi
 
 # the end: the address, the setup link, what is left to do
 case $OPS_KIND in
-  systemd) OPS_LABEL="on (systemd timer)" ;;
-  cron) OPS_LABEL="on (cron)" ;;
+  systemd|cron) ;;  # OPS_LABEL came with the scheduling
   *) OPS_LABEL="off"; [[ $OPS_NOTE != "off"* ]] || OPS_LABEL=$OPS_NOTE ;;
 esac
 IN=""; [[ $INSTANCE == "$DEFAULT_INSTANCE" ]] || IN="cd $ROOT && "

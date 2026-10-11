@@ -14,6 +14,7 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm test:sh` | the shell suites in `tools/test/` |
 | `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
+| `pnpm release X.Y.Z` | `tools/release/release.sh`: the whole release, step by step, resumable ([RELEASING.md](RELEASING.md)) |
 | `pnpm release:ship` | `tools/release/ship.sh`: read CI, move private `main`, publish, print the baseline line |
 | `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
@@ -94,7 +95,8 @@ No migration is needed. After the next update every member's history is categori
    that names what the household decides with it. A repo rule checks it, also in the section file.
 2. Register it in `reports/index.ts`. The API and types follow.
 3. A section file in `apps/web/src/pages/reports/sections/` (copy an existing one). `registry.ts` finds it; its
-   `reports` list names the core reports it reads, and a repo rule checks that every report has a section.
+   `reports` list names the core reports it reads, its `page` names the page that shows it (`reports` for Raportit),
+   and a repo rule checks that every report has a section and every section a page.
 4. A test in `packages/core/test/reports.test.ts` that checks its totals against the other reports.
 
 ### Module behind a feature flag

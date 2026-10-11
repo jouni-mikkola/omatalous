@@ -212,8 +212,8 @@ the copy of the folder it runs in.
 
 ## On your own computer
 
-You need this to try Omatalous on a Linux desktop that is not always on. Use the install lines of the
-[README](../README.md) with one change in the last line:
+You need this to try Omatalous on a Linux desktop that is not always on. Use the install steps in
+[INSTALL.md](INSTALL.md) with one change in the last line:
 
 ```bash
 ./scripts/install.sh --access local
@@ -257,8 +257,9 @@ The redirect URL to register depends on how the app is reached. *Asetukset > Pal
 To let Enable Banking make the key in the browser instead, choose *Generate in the browser* when you register the app and
 upload the downloaded `.pem` file under *Muut vaihtoehdot > Minulla on .pem-tiedosto*. Delete the file afterwards.
 
-A member can use an Enable Banking app of their own under *Asetukset > Oma Enable Banking -sovellus*. Usually the
-shared one is enough.
+A member can use an Enable Banking app of their own under *Asetukset > Oma Enable Banking -sovellus*, see
+[A member's own app](ENABLE_BANKING.md#a-members-own-app). The card shows when the household has no shared app, or
+when the member already uses an own key.
 
 ## The maintenance helper
 

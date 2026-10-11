@@ -1,9 +1,9 @@
 /**
  * Asetukset > Tilit: account type for every account; name, balance and
  * removal for the accounts the user brought in themselves (CSV, demo).
- * A bank account's name and balance come from the bank.
+ * A bank account's name and balance come from the bank. Tietojen laatu sits under the table.
  */
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { ACCOUNT_TYPE_LABEL, dateTime, money, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
@@ -15,7 +15,8 @@ const euros = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 2, maximum
 
 type Message = { tone: "good" | "warning"; text: string };
 
-export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void }) {
+/** `children` are what sits under the table, inside the card: the data quality notes of the accounts. */
+export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: () => void; children?: ReactNode }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [savedType, setSavedType] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -140,6 +141,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
         </table>
         {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Lisää pankkiyhteys tai tuo CSV alempana.</div>}
       </div>
+      {children}
     </div>
   );
 }

@@ -2,7 +2,7 @@
  * Category rules and the categories set by hand. Each write here also decides how much to reprocess: a merchant's own
  * rule redoes that merchant's rows, anything broader redoes everything (both bump the user's data version).
  */
-import type { CategoryRule, RuleField } from "@banking/core";
+import { type CategoryRule, isUnknownMerchant, namesUnknownMerchant, type RuleField } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
@@ -30,8 +30,12 @@ export function publicTx({ raw: _raw, ...t }: StoredTransaction) {
   return t;
 }
 
+/** Rows without a merchant name all share one placeholder, so a rule for it would take every one of them. */
+const UNNAMED_MERCHANT_RULE = "Tuntemattomalle kauppiaalle ei voi asettaa kategoriaa. Vaihda kategoria tapahtumalta.";
+
 /** A rule the route checked; the number of rows whose category changed. */
 export async function addRule(s: Services, userId: string, rule: { field: RuleField; pattern: string; category: string }): Promise<number> {
+  if (namesUnknownMerchant(rule)) throw new UserError(UNNAMED_MERCHANT_RULE);
   const repo = s.finance(userId);
   await checkRuleRoom(repo);
   await repo.addRule({ ...rule, priority: 10 });
@@ -46,14 +50,14 @@ export async function deleteRule(s: Services, userId: string, id: number): Promi
 }
 
 /**
- * One row's category by hand, and with `createRule` the merchant's rule as well. Someone else's (shared) transaction
- * is read-only and looks the same as a missing one.
+ * One row's category by hand, and with `createRule` the merchant's rule as well, except for a row without a merchant
+ * name: that one changes alone. Someone else's (shared) transaction is read-only and looks the same as a missing one.
  */
 export async function setTransactionCategory(s: Services, userId: string, id: string, category: string | null, createRule: boolean) {
   const repo = s.finance(userId);
   const tx = await repo.getTransaction(id);
   if (!tx) throw new NotFound("Tapahtumaa ei löydy.");
-  const rule = createRule && category !== null;
+  const rule = createRule && category !== null && !isUnknownMerchant(tx.merchant);
   // replacing this merchant's rule keeps the count; a new one must fit under the cap
   if (rule && !(await repo.hasMerchantRule(tx.merchant))) await checkRuleRoom(repo);
   const oldRules = await repo.listRules();
@@ -86,6 +90,7 @@ async function reprocessRule(s: Services, repo: FinanceRepo, merchant: string, o
 
 /** Every row of the merchant, now and later, goes to the category (rows set by hand one by one keep theirs). */
 export async function setMerchantCategory(s: Services, userId: string, merchant: string, category: string): Promise<number> {
+  if (isUnknownMerchant(merchant)) throw new UserError(UNNAMED_MERCHANT_RULE);
   const repo = s.finance(userId);
   if (!(await repo.hasMerchant(merchant))) throw new UserError("Kauppiasta ei löydy.");
   // replacing the merchant's own rule keeps the count; a new one must fit under the cap

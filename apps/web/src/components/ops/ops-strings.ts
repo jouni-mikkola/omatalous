@@ -52,7 +52,7 @@ export const S = {
   noDoctor: "Tarkistusta ei ole vielä ajettu.",
   restart: "Käynnistä sovellus uudelleen",
   restartHelp: "Sovellus on hetken pois käytöstä.",
-  events: "Tapahtumaloki",
+  events: "Ylläpitoloki",
   noEvents: "Ei merkintöjä.",
   busy: "Toinen toiminto on kesken.",
   tools: "Huolto",
@@ -63,7 +63,6 @@ export const S = {
   renew: "Asenna apuri uudelleen",
   renewHelp: "Asentaa apurin ajastuksen ja asetukset uudelleen.",
   toolsOutdated: "Apuri ei tue näitä toimintoja. Päivitä se palvelimella:",
-  helperOffButtons: "Painikkeet toimivat, kun apuri on käytössä.",
 };
 
 export const LEVEL: Record<string, string> = { ok: "kunnossa", warn: "varoitus", error: "virhe" };

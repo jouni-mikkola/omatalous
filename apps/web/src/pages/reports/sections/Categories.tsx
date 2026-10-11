@@ -80,6 +80,7 @@ export const section: ReportSection = {
   id: "kategoriat",
   title: "Kategoriat",
   order: 30,
+  page: "reports",
   reports: ["categories"],
   Component: Categories,
 };

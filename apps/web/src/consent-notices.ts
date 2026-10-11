@@ -1,8 +1,8 @@
 import { date } from "./format.ts";
 import type { Account, Connection } from "./types.ts";
 
-/** Notices start this many days before a consent ends. */
-const WARN_DAYS = 14;
+/** Notices start this many days before a consent ends; the connections table offers a reconnect from then on. */
+export const WARN_DAYS = 14;
 
 /** The applications page of the Enable Banking Control Panel, where Link accounts is. */
 export const CONTROL_PANEL = "https://enablebanking.com/cp/applications";

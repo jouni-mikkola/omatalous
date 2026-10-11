@@ -59,6 +59,7 @@ export const section: ReportSection = {
   id: "vuodet",
   title: "Vuosivertailu",
   order: 90,
+  page: "reports",
   // the biggest changes under the chart come from the summary
   reports: ["yearOverYear", "summary"],
   // one or two months say nothing: the section waits for three whole months of both years

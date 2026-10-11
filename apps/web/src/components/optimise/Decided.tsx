@@ -57,7 +57,7 @@ export function Decided({ data, states, outcomes, scope, onChanged }: { data: Op
   return (
     <>
       {data.done.length > 0 && (
-        <Section id="hoidossa" title="Jo hoidossa" sub="Päätökset, jotka olet merkinnyt tehdyiksi">
+        <Section id="hoidossa" title="Jo hoidossa">
           <ul className="decided-list">
             {data.done.map(({ state, finding }) => (
               <Row
@@ -75,7 +75,7 @@ export function Decided({ data, states, outcomes, scope, onChanged }: { data: Op
         </Section>
       )}
       {snoozed.length > 0 && (
-        <Section id="muistutukset" title="Muistutukset" sub="Palaavat sivulle myöhemmin">
+        <Section id="muistutukset" title="Muistutukset">
           <ul className="decided-list">
             {snoozed.map((state) => (
               <Row key={state.findingId} state={state} finding={null} title={nameOf(state.findingId, data.areas)} note={`Palaa ${date(state.until)}`} scope={scope} onChanged={onChanged} />
@@ -84,7 +84,7 @@ export function Decided({ data, states, outcomes, scope, onChanged }: { data: Op
         </Section>
       )}
       {data.dismissed.length > 0 && (
-        <Section id="ei-koske" title="Ei koske meitä" sub="Poissa, kunnes perut päätöksen">
+        <Section id="ei-koske" title="Ei koske meitä">
           <ul className="decided-list">
             {data.dismissed.map(({ state, finding }) => (
               <Row

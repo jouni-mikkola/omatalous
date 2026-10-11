@@ -54,10 +54,16 @@ export const REPORTS = {
 export type ReportId = keyof typeof REPORTS;
 export type ReportsData = { [K in ReportId]: ReturnType<(typeof REPORTS)[K]> };
 
-/** `inputs` may be left out by a caller without marks or bills: every report gets it filled in. */
-export function buildReports(input: Omit<ReportInput, "inputs"> & { inputs?: UserInputs }): ReportsData {
+export const isReportId = (id: string): id is ReportId => Object.hasOwn(REPORTS, id);
+
+/**
+ * `inputs` may be left out by a caller without marks or bills: every report gets it filled in. `only` builds just those
+ * reports, for a page that shows a few sections (Kuukausi reads one); the others are missing from the answer.
+ */
+export function buildReports(input: Omit<ReportInput, "inputs"> & { inputs?: UserInputs }, only?: readonly ReportId[]): ReportsData {
   const full: ReportInput = { ...input, inputs: input.inputs ?? NO_INPUTS };
-  return Object.fromEntries(Object.entries(REPORTS).map(([id, report]) => [id, report(full)])) as ReportsData;
+  const ids = only?.length ? (Object.keys(REPORTS) as ReportId[]).filter((id) => only.includes(id)) : (Object.keys(REPORTS) as ReportId[]);
+  return Object.fromEntries(ids.map((id) => [id, REPORTS[id](full)])) as ReportsData;
 }
 
 export type { BalanceInput, BalanceReport, BalanceSeries } from "./balances.ts";

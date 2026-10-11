@@ -61,7 +61,7 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
   const isNew = (s: RecurringSeries) => {
     const kind = getCategory(s.category).kind;
     // a fixed amount once a month or less often: a weekly fixed sum is a habit, a new bill of varying amount is a
-    // cause in the month explanation
+    // cause in the spending change (Uudet kaupat)
     return s.kind === "subscription" && s.active && !isLender(s.merchant) && MONTHLY_OR_LONGER.has(s.cadence ?? "") && (kind === "expense" || kind === "debt");
   };
   for (const s of now) {

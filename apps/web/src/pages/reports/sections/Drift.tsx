@@ -1,7 +1,7 @@
 // Decision: find why a category rose and cap it
-import { addDays, monthEnd } from "@banking/core";
+import { monthEnd } from "@banking/core";
 import { query } from "../../../api.ts";
-import { date, money, MONTHS_SHORT, plural, signedMoney } from "../../../format.ts";
+import { money, MONTHS_SHORT, signedMoney } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -13,30 +13,9 @@ function monthSpan(months: readonly string[]): string {
   return first.slice(0, 4) === last.slice(0, 4) ? `${name(first)}–${name(last)}kuu ${last.slice(0, 4)}` : `${name(first)}kuu ${first.slice(0, 4)}–${name(last)}kuu ${last.slice(0, 4)}`;
 }
 
-
-/** Why the check has nothing to show: too little history, a range that ends too early, or nothing rose. */
-function emptyText(r: SectionProps["ctx"]["data"]["drift"], today: string): string {
-  if (!r.months.length) {
-    const need = `Tarkistus tarvitsee ${r.neededMonths} kokonaista kuukautta historiaa.`;
-    if (!r.readyFrom) return `${need} Tapahtumia ei ole vielä.`;
-    if (r.readyFrom > today) return `${need} Tarkistus alkaa ${date(r.readyFrom)}.`;
-    // readyFrom is the first day judged, so a period ending the day before already has its six months
-    return `${need} Valitse jakso, joka päättyy ${date(addDays(r.readyFrom, -1))} tai myöhemmin.`;
-  }
-  if (!r.checked) return `Ei kategorioita, joissa menoja on tavallisesti vähintään ${money(r.minLevelCents, false)} kuussa.`;
-  return `Tarkistettu ${plural(r.checked, "kategoria", "kategoriaa")}, ${monthSpan(r.months)}. Yksikään ei ollut tavallista kalliimpi kolmea kuukautta peräkkäin.`;
-}
-
-/** Categories that sat above their own level for three months: always shown, so an empty answer says what was checked. */
+/** Categories that sat above their own level for three months. The card is only shown when there are some (`visible`). */
 function Drift({ ctx }: SectionProps) {
   const r = ctx.data.drift;
-  if (!r.items.length) {
-    return (
-      <Section id={section.id} title={section.title}>
-        <div className="empty">{emptyText(r, ctx.meta.today)}</div>
-      </Section>
-    );
-  }
   return (
     <Section id={section.id} title={section.title} sub={`Tavallista kalliimpi kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
       <p className="lead">{r.advice}</p>
@@ -74,6 +53,9 @@ export const section: ReportSection = {
   id: "nousseet",
   title: "Nousseet menot",
   order: 40,
+  page: "reports",
   reports: ["drift"],
+  // a card that only says nothing rose supports no decision
+  visible: (ctx) => ctx.data.drift.items.length > 0,
   Component: Drift,
 };

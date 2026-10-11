@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorize, categoryForMcc, compileRules, isUsablePattern, patternProblem } from "../src/categorize.ts";
+import { isUnknownMerchant, namesUnknownMerchant, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 
 const rules = compileRules([]);
 const tx = (merchant: string, amountCents: number, extra: { description?: string; mcc?: string } = {}) => ({
@@ -187,6 +188,27 @@ describe("categorize", () => {
     expect(categorize(tx("Wolt", -2000), custom).category).toBe("restaurants");
     const regex = compileRules([{ field: "any", pattern: "/^kahvila\\s/", category: "restaurants", priority: 10 }]);
     expect(categorize(tx("Kahvila Ilo", -450), regex).category).toBe("restaurants");
+  });
+
+  it("never applies a merchant rule for the placeholder of unnamed rows", () => {
+    // what 0.8.3 stored when one unnamed row was given a category "for the merchant"
+    const stale = compileRules([
+      { field: "merchant_exact", pattern: UNKNOWN_MERCHANT, category: "restaurants", priority: 5 },
+      { field: "merchant", pattern: "tuntematon", category: "restaurants", priority: 10 },
+    ]);
+    const unnamed = { ...tx(UNKNOWN_MERCHANT, -500), description: null };
+    expect(categorize(unnamed, stale)).toEqual({ category: "other", source: "default" });
+    expect(categorize(unnamed, rules)).toEqual({ category: "other", source: "default" });
+    // a rule for a named merchant, or on another field, still works
+    const others = compileRules([
+      { field: "merchant_exact", pattern: "Kahvila Ilo", category: "restaurants", priority: 5 },
+      { field: "description", pattern: "Tuntematon", category: "gifts", priority: 10 },
+    ]);
+    expect(categorize(tx("Kahvila Ilo", -450), others).category).toBe("restaurants");
+    expect(categorize(tx(UNKNOWN_MERCHANT, -450), others).category).toBe("gifts");
+    expect(isUnknownMerchant(" TUNTEMATON ")).toBe(true);
+    expect(isUnknownMerchant("Xyzzy Tuntematon")).toBe(false);
+    expect(namesUnknownMerchant({ field: "any", pattern: UNKNOWN_MERCHANT })).toBe(false);
   });
 
   it("maps MCC ranges", () => {

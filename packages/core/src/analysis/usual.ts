@@ -56,13 +56,13 @@ export function usualCents(values: readonly number[]): number | null {
 }
 
 interface MonthSums {
-  /** consumption + debt */
-  spend: number;
+  /** Spending (consumption + debt) on days 1 to d at index d − 1: a running month is set against the same days. */
+  through: number[];
   /** Income without money from people and refunds (`isEarnedIncome`). */
   earned: number;
 }
 
-const ZERO: MonthSums = { spend: 0, earned: 0 };
+const ZERO: MonthSums = { through: new Array<number>(31).fill(0), earned: 0 };
 const sums = new WeakMap<AnalysisContext, Map<number, MonthSums>>();
 
 /** A month's spending and earned income, summed once per context. */
@@ -72,10 +72,11 @@ function monthSums(ctx: AnalysisContext, month: string): MonthSums {
     byMonth = new Map();
     for (const t of ctx.txs) {
       let e = byMonth.get(t.month);
-      if (!e) byMonth.set(t.month, (e = { spend: 0, earned: 0 }));
-      e.spend += t.spend;
+      if (!e) byMonth.set(t.month, (e = { through: new Array<number>(31).fill(0), earned: 0 }));
+      e.through[Number(t.bookingDate.slice(8, 10)) - 1]! += t.spend;
       if (isEarnedIncome(t)) e.earned += t.flows.income;
     }
+    for (const e of byMonth.values()) for (let d = 1; d < 31; d++) e.through[d]! += e.through[d - 1]!;
     sums.set(ctx, byMonth);
   }
   return byMonth.get(monthIndex(month)) ?? ZERO;
@@ -86,12 +87,27 @@ export function earnedIncome(ctx: AnalysisContext, month: string): number {
   return monthSums(ctx, month).earned;
 }
 
+/** A month's spending (consumption + debt) on its days 1 to `day`; 31 is the whole month. */
+export function spendingThrough(ctx: AnalysisContext, month: string, day = 31): number {
+  return monthSums(ctx, month).through[Math.min(31, Math.max(1, day)) - 1]!;
+}
+
 /**
- * The usual level of a month's total spending: the median of the complete months before it, whole months (the
- * dashed line of the monthly chart). null under three complete months.
+ * The usual level of spending over `months`, each counted on its days 1 to `day` (31: whole months): their median,
+ * null under three. Every view that says what a month usually costs reads it, so a month has one usual total
+ * (`usualSpending`); a view that leaves out months the rows do not cover passes its own months.
  */
-export function usualSpending(ctx: AnalysisContext, month: string): number | null {
-  return usualCents(completeMonthsBefore(ctx, month).map((m) => monthSums(ctx, m).spend));
+export function usualSpendingOver(ctx: AnalysisContext, months: readonly string[], day = 31): number | null {
+  return usualCents(months.map((m) => spendingThrough(ctx, m, day)));
+}
+
+/**
+ * The usual level of a month's total spending: the median of the complete months before it, on its days 1 to `day`
+ * (31: whole months, the forecast's "Tavallisesti kuussa"; a running month's day: "tavallisesti tähän mennessä").
+ * null under three complete months.
+ */
+export function usualSpending(ctx: AnalysisContext, month: string, day = 31): number | null {
+  return usualSpendingOver(ctx, completeMonthsBefore(ctx, month), day);
 }
 
 /**

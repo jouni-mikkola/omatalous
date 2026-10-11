@@ -75,6 +75,10 @@ export async function runUpgradeTasks(s: Services, buildId: string): Promise<Upg
         // a rule, a mark or an Optimoi decision for an exact old name follows it only when every row of that name got the same new name
         const renames = new Map([...names].filter(([from, to]) => to.size === 1 && !to.has(from)).map(([from, to]): [string, string] => [from, [...to][0]!]));
         await repo.renameMerchantRules(renames);
+        // 0.8.3 and older let a category for one unnamed row become a rule for every unnamed row. The rule has no effect now
+        // (core `compileRules`); deleting it is what lets the rows it moved return to automatic in the reprocess below,
+        // and it needs no migration, so a rollback keeps working. Rows set by hand are not touched by the reprocess.
+        await repo.deleteUnknownMerchantRules();
         await repo.renameMerchantMarks(renames);
         await repo.renameMerchantStates(renames);
         result.recategorised += (await reprocessLocked(repo, s.settings, rows)).changed;

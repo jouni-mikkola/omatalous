@@ -6,9 +6,9 @@ change · demo · change:season:2026-10..2026-10 (quiet)
   | Muut: 105.33 €
 
 change · demo · change:usual:2026-10..2026-10 (quiet)
-  Lokakuu: menot 2 021 €, tavallisesti 1 789 €.
-  = 232.15 € (now 2021.12 €, base 1788.97 €, gate 35.78 €)
-  | Muut: 232.15 €
+  Lokakuu: menot 2 021 €, tavallisesti 2 004 €.
+  = 17.36 € (now 2021.12 €, base 2003.76 €, gate 40.08 €)
+  | Muut: 17.36 €
 
 change · kit:base · change:season:2026-10..2026-10 (quiet)
   Lokakuu 2026: menot 2 577 €, lokakuu 2025 2 582 €.
@@ -16,9 +16,9 @@ change · kit:base · change:season:2026-10..2026-10 (quiet)
   | Muut: -5.55 €
 
 change · kit:base · change:usual:2026-10..2026-10 (quiet)
-  Lokakuu: menot 2 577 €, tavallisesti 2 558 €.
-  = 18.78 € (now 2576.70 €, base 2557.92 €, gate 51.16 €)
-  | Muut: 18.78 €
+  Lokakuu: menot 2 577 €, tavallisesti 2 574 €.
+  = 3.18 € (now 2576.70 €, base 2573.52 €, gate 51.47 €)
+  | Muut: 3.18 €
 
 change · kit:base · change:year:2025-10..2026-09 (quiet)
   Lokakuu 2025–syyskuu 2026: menot 39 188 €, lokakuu 2024–syyskuu 2025 39 146 €.
@@ -26,6 +26,6 @@ change · kit:base · change:year:2025-10..2026-09 (quiet)
   | Muut: 41.73 €
 
 change · plain:4 · change:usual:2025-11..2025-11 (quiet)
-  Marraskuu: menot 44 €, tavallisesti 994 €.
-  = -949.87 € (now 44.22 €, base 994.09 €, gate 19.88 €)
-  | Muut: -949.87 €
+  Marraskuu: menot 44 €, tavallisesti 1 242 €.
+  = -1198.14 € (now 44.22 €, base 1242.36 €, gate 24.85 €)
+  | Muut: -1198.14 €

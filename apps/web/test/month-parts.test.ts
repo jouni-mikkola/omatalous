@@ -1,55 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { breakdownRows, bridgeIncome, bridgeParts } from "../src/components/month-parts.ts";
+import { bridgeIncome, bridgeParts } from "../src/components/month-parts.ts";
 import type { DashboardData } from "../src/types.ts";
 
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-
-type Trend = DashboardData["trend"];
-
-/** A trend of one month whose explanation has a gap row with a negative usual level. */
-function trendWithNegativeGap(): Trend {
-  const row = (kind: "category" | "smaller" | "between", category: string | null, label: string, nowCents: number, usualCents: number) => ({
-    kind,
-    category,
-    label,
-    nowCents,
-    usualCents,
-    changeCents: nowCents - usualCents,
-    cause: null,
-  });
-  return {
-    months: ["2026-09"],
-    series: [],
-    explanations: [
-      {
-        month: "2026-09",
-        running: false,
-        nowCents: 300000,
-        usualCents: 200000,
-        changeCents: 100000,
-        basis: ["2026-06", "2026-07", "2026-08"],
-        rows: [row("category", "groceries", "Ruokakauppa", 300000, 100000), row("smaller", null, "Muut (2)", 0, 200000), row("between", null, "Tasauserä", 0, -100000)],
-      },
-    ],
-  } as unknown as Trend;
-}
-
-describe("the month breakdown", () => {
-  it("shows a negative usual level as a number, so the column adds up to the total", () => {
-    const rows = breakdownRows(trendWithNegativeGap(), 0);
-    expect(rows.map((r) => r.usual)).toEqual([100000, 200000, -100000]);
-    expect(rows.reduce((s, r) => s + (r.usual ?? 0), 0)).toBe(200000);
-    // two rows that are no category have keys of their own
-    expect(new Set(rows.map((r) => r.key)).size).toBe(3);
-    // the gap row says in one line what it is
-    expect(rows[2]!.cause).toBe("Tavallisen kuukauden summan ja tavallisten kategorioiden summan erotus.");
-  });
-
-  it("does not turn a usual level into a dash in the component either", () => {
-    expect(source("components/MonthlySpending.tsx")).not.toMatch(/usualCents < 0/);
-  });
-});
 
 describe("the surplus bridge", () => {
   const totals = { incomeCents: 400000, consumptionCents: 250000, debtCents: 40000, savedCents: 50000, leftCents: 60000 };

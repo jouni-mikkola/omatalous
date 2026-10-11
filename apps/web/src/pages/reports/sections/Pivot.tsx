@@ -31,7 +31,7 @@ function Pivot({ ctx }: SectionProps) {
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.averageCents !== null;
   return (
-    <Section id={section.id} title={section.title} sub="Tummempi solu, kalliimpi kuukausi" actions={<ExportLink href={ctx.exportHref("pivot")} />}>
+    <Section id={section.id} title={section.title} actions={<ExportLink href={ctx.exportHref("pivot")} />}>
       <div className="table-wrap pivot-wide">
         <table className="heat-table">
           <thead>
@@ -128,6 +128,7 @@ export const section: ReportSection = {
   id: "kuukaudet",
   title: "Kuukausitaulukko",
   order: 50,
+  page: "reports",
   reports: ["pivot"],
   Component: Pivot,
 };

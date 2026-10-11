@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildDashboard, merchantStats } from "../src/analysis/dashboard.ts";
+import { spendingChange } from "../src/analysis/change.ts";
 import { flowsOf } from "../src/analysis/flows.ts";
 import { previousRange } from "../src/analysis/period.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
@@ -91,9 +92,8 @@ describe("enrichTransactions", () => {
     it("the purchase leaves the largest purchases and the merchant list once it came back", () => {
       const rows = run([bought({ amountCents: -30000 }), refund({ amountCents: 30000 }), tx({ merchant: "Verkkokauppa", counterparty: "VERKKOKAUPPA.COM", bookingDate: "2026-09-05", amountCents: -25000 })]);
       const ctx = createContext(rows, [checking], "2026-10-09");
-      // two months: a single month leaves its one-offs to the month explanation
       const d = buildDashboard(ctx, { from: "2026-08-01", to: "2026-09-30" });
-      expect(d.merchants.map((m) => m.merchant)).toEqual(["Verkkokauppa"]);
+      expect(merchantStats(ctx.txs, { from: "2026-08-01", to: "2026-09-30" }).map((m) => m.merchant)).toEqual(["Verkkokauppa"]);
       expect(d.totals.consumptionCents).toBe(25000);
     });
   });
@@ -118,10 +118,6 @@ describe("buildDashboard", () => {
     expect(d.totals).toMatchObject({ incomeCents: 300000, expenseCents: 80000, netCents: 220000 });
     expect(d.previousTotals.expenseCents).toBe(40000);
     expect(d.categories[0]).toMatchObject({ category: "groceries", cents: 60000, previousCents: 40000 });
-    expect(d.trend.months).toHaveLength(12);
-    expect(d.trend.expenses.at(-1)).toBe(80000);
-    // August starts mid-month in the history, September has ended and is fully covered
-    expect(d.trend.complete.slice(-2)).toEqual([false, true]);
     expect(d.pace.currentTotal).toBe(80000);
     // the history starts on 10.8., so August is not a full previous period
     expect(d).toMatchObject({ comparable: false, dataFrom: "2026-08-10" });
@@ -145,7 +141,7 @@ describe("dashboard, next level", () => {
     ...[3, 10, 17, 24].flatMap((d) => monthly("2025-09", d, 14, (i) => -(7000 + ((i + d) % 4) * 1500), { merchant: "Prisma", category: "groceries" })),
   ];
 
-  it("a single month has no swing and no largest purchase, the month explanation tells what moved it", () => {
+  it("a single month has no swing and no largest purchase, the spending change tells what moved it", () => {
     const txs = [
       ...base(),
       // two dinners a month at 40 €, then at 90 € in September
@@ -158,9 +154,9 @@ describe("dashboard, next level", () => {
     const ctx = createContext(txs, [checking], today);
     const d = buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" });
     expect(d.insights.some((i) => i.id.startsWith("swing:") || i.id === "largest")).toBe(false);
-    const september = d.trend.explanations.at(-1)!;
-    expect(september.rows.find((r) => r.category === "restaurants")).toMatchObject({ nowCents: 18000, usualCents: 8000 });
-    expect(september.rows.find((r) => r.category === "home")?.cause).toMatchObject({ kind: "oneoff", merchant: "Ikea" });
+    const september = spendingChange(ctx, "usual", "2026-09")!;
+    expect(september.categories.find((r) => r.category === "restaurants")).toMatchObject({ nowCents: 18000, baseCents: 8000 });
+    expect(september.categories.find((r) => r.category === "home")?.buckets[0]).toMatchObject({ kind: "oneoff", cents: 90000 });
     expect(d.insights.length).toBeLessThanOrEqual(5);
     // the tiles show savings, the insights do not repeat them
     expect(d.insights.some((i) => i.id === "saved" || i.id === "savings-rate")).toBe(false);
@@ -222,17 +218,6 @@ describe("dashboard, next level", () => {
     expect(buildDashboard(ctx, { from: "2026-11-01", to: "2026-11-30" }).running).toBe(false);
   });
 
-  it("the trend carries the same months a year earlier", () => {
-    const d = buildDashboard(createContext(base(), [checking], today), { from: "2026-10-01", to: today });
-    expect(d.trend.months[0]).toBe("2025-11");
-    const sept = d.trend.months.indexOf("2026-09");
-    const lastSept = base().filter((t) => t.bookingDate.startsWith("2025-09")).reduce((s, t) => s + Math.max(0, -t.amountCents), 0);
-    expect(d.trend.lastYear.expenses[sept]).toBe(lastSept);
-    expect(d.trend.lastYear.expenses[0]).toBe(0); // November 2024: no data
-    expect(Object.keys(d.trend.lastYear.series)).toEqual(expect.arrayContaining(d.trend.series.map((s) => s.category)));
-    expect(d.trend.lastYear.series.housing![sept]).toBe(95000);
-  });
-
   it("a past period shows the fixed costs and insights of its own end", () => {
     const txs = [
       ...base(),
@@ -248,12 +233,6 @@ describe("dashboard, next level", () => {
     expect(may.insights.some((i) => i.id.startsWith("price:"))).toBe(false);
     const august = buildDashboard(ctx, { from: "2026-08-01", to: "2026-08-31" });
     expect(august.insights.find((i) => i.id.startsWith("price:"))?.title).toMatch(/^Apple: hinta nousi \d+\s€ vuodessa$/);
-  });
-
-  it("the merchant list shows everyday spending, without rent, subscriptions or payments to people", () => {
-    const friend = tx({ bookingDate: "2026-09-12", amountCents: -2500, merchant: "Laura Korhonen", category: "p2p" });
-    const d = buildDashboard(createContext([...base(), friend], [checking], today), { from: "2026-09-01", to: "2026-09-30" });
-    expect(d.merchants.map((m) => m.merchant)).toEqual(["Prisma"]);
   });
 
   it("insights are about the period: no standing subscription total, habit or ordinary mortgage share", () => {

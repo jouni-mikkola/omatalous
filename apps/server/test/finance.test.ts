@@ -19,7 +19,6 @@ describe("dashboard and reports on demo data", () => {
     expect(categories).not.toContain("transfer");
     expect(categories).not.toContain("card_bill"); // Gold bill to Nordea Rahoitus is a transfer
     expect(categories).toContain("loans");
-    expect(d.trend.series.length).toBeLessThanOrEqual(8);
 
     // the month the Gold credit line was drawn to checking: both legs are transfers, nothing is "borrowed"
     const drawMonth = await admin.call("GET", "/api/dashboard?from=2026-04-01&to=2026-04-30");
@@ -37,6 +36,12 @@ describe("dashboard and reports on demo data", () => {
     expect(r.pivot.totalCents).toBe(r.categories.totalCents);
     expect(r.balances.accounts).toHaveLength(3);
     expect(r.balances.accounts.every((a: { values: unknown[] }) => a.values.length === 12)).toBe(true);
+
+    // a page that shows a few sections asks for their reports only (Kuukausi: the spending change); an unknown name is a 400
+    const month = await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=spendingChange");
+    expect(Object.keys(month.body)).toEqual(["spendingChange"]);
+    expect(month.body.spendingChange.views[0].view).toBe("usual");
+    expect((await admin.call("GET", "/api/reports?reports=spendingChange,nope")).res.status).toBe(400);
   });
 
   it("exports CSV for spreadsheets", async () => {

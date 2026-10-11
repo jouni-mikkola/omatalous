@@ -84,6 +84,31 @@ describe("usual spending has one owner", () => {
     expect(buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }).forecast!.usualMonthCents).toBe(usual);
     expect(gateMonthly(ctx, today)).toBe(gateFor(usual));
   });
+
+  it("Kuukausi says one usual total per month: the forecast, the pace chart and the change report, a running month on its days so far", () => {
+    // a dinner and a coat now and then: each median is nothing, yet most months have one, so the usual month is more
+    // than the sum of the categories' levels
+    const sparse = [
+      ...monthlyOn(18, (i) => (i % 3 === 0 ? -9000 : 0), { category: "restaurants", merchant: "Ravintola" }),
+      ...monthlyOn(7, (i) => (i % 3 === 1 ? -9000 : 0), { category: "shopping", merchant: "Vaatekauppa" }),
+    ];
+    const c = createContext([...household, ...sparse], [checking], today);
+    const september = spendingChange(c, "usual", "2026-09")!;
+    expect(september.baseCents).toBe(usualSpending(c, "2026-09"));
+    const levels = september.categories.filter((r) => r.kind === "category").reduce((s, r) => s + r.baseCents, 0);
+    const smaller = september.categories.find((r) => r.kind === "smaller");
+    expect(levels + (smaller?.baseCents ?? 0)).toBe(september.baseCents);
+    // the case this guards: the categories' own levels leave part of the usual month to Muut
+    expect(september.pieces.some((p) => p.category === null && p.kind === "spread")).toBe(true);
+
+    const d = buildDashboard(c, { from: "2026-10-01", to: today });
+    const october = spendingChange(c, "usual", "2026-10")!;
+    expect(october.running).toBe(true);
+    expect(d.pace.usualAtToday).toBe(usualSpending(c, "2026-10", 9));
+    expect(october.baseCents).toBe(d.pace.usualAtToday);
+    expect(d.pace.usualMonthTotal).toBe(d.forecast!.usualMonthCents);
+    expect(d.forecast!.usualMonthCents).toBe(usualSpending(c, "2026-10"));
+  });
 });
 
 describe("the gate has one owner", () => {

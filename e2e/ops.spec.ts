@@ -57,16 +57,22 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
     void d.dismiss();
   });
 
-  // reachable from Asetukset
-  await page.goto("/#/settings");
+  // reachable from Asetukset > Talous
+  await page.goto("/#/settings?tab=talous");
   await page.getByRole("link", { name: "Avaa ylläpito" }).click();
   await expect(page.getByRole("heading", { name: "Ylläpito" }).first()).toBeVisible();
 
   // no helper yet: a clear state, the command to enable it, and no way to queue anything
   await expect(page.getByText("Ylläpitoapuri ei ole käytössä")).toBeVisible();
   await expect(page.getByText("./scripts/install.sh --ops-helper")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Tarkista päivitykset" })).toBeDisabled();
+  // without the helper the page is the notice and the version; the controls that cannot work are folded away
+  await expect(page.getByRole("heading", { name: "Versio" })).toBeVisible();
+  await expect(page.getByText("Muut ylläpitotoiminnot")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Lue lokit" })).toBeHidden();
+  await page.getByText("Muut ylläpitotoiminnot").click();
+  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
 
   // the helper reports in, with a snapshot full of hostile strings
@@ -84,6 +90,9 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   );
   await page.reload();
   await expect(page.getByText(/Apuri toimii/)).toBeVisible();
+  // a working helper has no fold: the controls are on the page
+  await expect(page.getByText("Muut ylläpitotoiminnot")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeVisible();
   // a version 1 helper does not know logs, prune and helper-renew: the page says so and offers the command
   await expect(page.getByText(/Apuri ei tue näitä toimintoja/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();

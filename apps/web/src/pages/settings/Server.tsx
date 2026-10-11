@@ -6,7 +6,7 @@ import { FeatureFlags, SWITCHABLE } from "./Features.tsx";
 import { BankAppSetup } from "./BankAppSetup.tsx";
 import { GeneralForm } from "./InstanceForms.tsx";
 
-export function ServerSettings({ focus, onChange }: { focus: boolean; onChange: () => void }) {
+export function ServerSettings({ focus, onChange, onLoaded }: { focus: boolean; onChange: () => void; onLoaded?: () => void }) {
   const loaded = useApi<InstanceState>("/api/admin/instance");
   const [state, setState] = useState<InstanceState | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -19,6 +19,12 @@ export function ServerSettings({ focus, onChange }: { focus: boolean; onChange: 
     scrolled.current = true;
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [focus, current]);
+
+  // the page scrolls to a card below this one only after this one has its height
+  const done = current !== null || loaded.error !== null;
+  useEffect(() => {
+    if (done) onLoaded?.();
+  }, [done, onLoaded]);
 
   const update = (next: InstanceState) => {
     setState(next);

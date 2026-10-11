@@ -50,6 +50,7 @@ input[type="text"], input[type="search"], input[type="date"], input[type="url"],
 .card h2 { font-size: 15px; font-weight: 600; margin: 0; }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .card-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.section-nested { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .loading { opacity: 0.55; transition: opacity 0.15s; }
 
 td.worse { color: var(--bad); }

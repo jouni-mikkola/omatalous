@@ -20,13 +20,62 @@ there (CHANGELOG 0.5.1).
 The release and return page workflows run only in the public repository. The upgrade rehearsal runs only in the private
 one, because its baselines are private commits. CI runs in both. CI and the rehearsal each end in one summary job, `ci-ok`
 and `upgrade-ok`, so a check has one stable name while jobs and baselines change. The script leaves out what only the private repository uses: `.claude/`, the upgrade and branch workflows,
-`.github/upgrade-from.txt`, `.github/dependabot.yml`, itself and `ship.sh`. Dependency updates happen in the private repository. A commit
+`.github/upgrade-from.txt`, `.github/dependabot.yml`, itself, `ship.sh` and `release.sh`. Dependency updates happen in the private repository. A commit
 merged in the public one makes the next snapshot refuse to push.
 
 Snapshots are signed when git is set to sign commits. The release channel does not need that, it checks the image
 signature. An install with `ops/allowed_signers` does, so sign them before such an install updates.
 
-## Release checklist
+## One command
+
+Steps 1 and 2 of the list below stay with you: land the work, and for a schema change write the contract and the
+fixture. Then run, from the private repository on your session branch with a clean tree and `gh` signed in:
+
+```bash
+tools/release/release.sh X.Y.Z --trailer "Co-Authored-By: ..." --trailer "Claude-Session: ..."
+```
+
+`--trailer` lines end both commit messages. `--public-dir DIR` names the public clone (default `../omatalous`). `--dry-run`
+runs the checks, prints the plan and changes nothing.
+
+Before it does anything it refuses, with exit 2 and the tree untouched: a dirty tree, a branch that is `main` or
+`release/*` (a push to `release/*` starts the rehearsal twice, and the git proxy cannot delete the branch afterwards),
+no fragments, a version that is not above the current one, a release with new migrations and no `upgrade:` line or no
+`contracts/X.Y.Z/schema.sql` (all of these are `prepare.mjs X.Y.Z --check-docs`), a public clone that is missing or dirty
+and a `gh` that cannot read the private repository. It then runs these steps. Each prints one line when it starts and
+one when it ends, with the time, and keeps its output in a log in the temp folder.
+
+| Step | Runs | Skipped when |
+|---|---|---|
+| `prepare` | `node tools/release/prepare.mjs X.Y.Z` | the version files and the CHANGELOG say X.Y.Z |
+| `commit` | `tools/commit.sh -m "Release X.Y.Z"` with the trailers | HEAD holds X.Y.Z |
+| `push` | `git push origin HEAD:refs/heads/<branch>` | origin has HEAD |
+| `rehearsal` | `gh workflow run upgrade.yml --ref <branch>` | a run of `upgrade.yml` exists for HEAD |
+| `ci` | `tools/ci/wait.sh <HEAD> ci-ok upgrade-ok` | never (it returns at once when green) |
+| `ship` | `tools/release/ship.sh --ci-checked` | the public `main` holds X.Y.Z |
+| `release-run` | `gh run watch --exit-status` on the public `release.yml` run of the pushed commit | the release exists, or that run succeeded |
+| `pull` | `tools/ci/verify-release.sh --pull X.Y.Z` | never |
+| `latest` | `/releases/latest` names vX.Y.Z, or vX.Y.Z is a pre-release | never |
+| `baseline` | the "# X.Y.Z" lines in `.github/upgrade-from.txt`, committed and pushed to the branch | the file has them and origin has the commit |
+| `baseline-ci` | `tools/ci/wait.sh <that commit> ci-ok` | `main` has the commit |
+| `main` | `git push origin HEAD:main`, forward only | `main` has the commit |
+
+Once the public repo holds X.Y.Z, `push`, `rehearsal` and `ci` are skipped too. The baseline line names the private commit
+that the public snapshot's message names.
+
+A failure names the step, the command, the last lines of its output and what to do, and exits 1. Fix it and run the
+same command again: what is done is skipped and it carries on. `--from STEP` starts at STEP and does not look at the
+earlier steps, for a step you did by hand. A red CI is fixed with a new commit on the branch, which the next run pushes
+and rehearses again. A failed public run is repeated on GitHub with *Re-run failed jobs*, and the next run watches it.
+
+It never pushes a tag, never deletes a branch and never forces a push, because the git proxy refuses the first two and
+the public workflow makes the tag. It edits no README, CLAUDE.md or docs. Left to you: the docs for the release,
+trimming the oldest baselines in `.github/upgrade-from.txt` when their support ends, and pressing *Tarkista päivitykset*
+on a test install and then *Päivitä* (step 8 below).
+
+## The steps by hand
+
+The same steps one by one, for a step you run yourself or a failure you want to follow.
 
 1. The work for the release is merged on the branch you release from. Each task left a fragment in `changelog.d/`
    ([changelog.d/README.md](../changelog.d/README.md)). Check that a change an installer must know about has an
@@ -47,9 +96,12 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
    of `CHANGELOG.md` from the fragments and removes them. It refuses a version that is not above the newest `v*` tag
    and the current version, an Unreleased heading, and a release with new migration files and no `upgrade:` line. The
    private repository has no tags, so the last release is the newest commit in `.github/upgrade-from.txt` (`--since REF`
-   names another). Read the diff and commit it as `Release X.Y.Z`.
-4. Push the commit as the branch `release/X.Y.Z`. CI and the upgrade rehearsal start by themselves and run side by side.
-   `ci-ok` and `upgrade-ok` must both be green. The rehearsal updates every baseline, and it checks that each baseline's
+   names another). `--check-docs` runs every check and also wants `contracts/X.Y.Z/schema.sql` when migrations were
+   added, and writes nothing. Read the diff and commit it as `Release X.Y.Z`.
+4. Push the commit to your session branch and start the rehearsal with
+   `gh workflow run upgrade.yml --ref <branch> -R jouni-mikkola/banking-app`. CI starts by itself on the push and runs
+   beside it. (A push to a `release/X.Y.Z` branch starts both by itself, but the git proxy cannot delete that branch
+   afterwards, so `release.sh` does not use one.) `ci-ok` and `upgrade-ok` must both be green. The rehearsal updates every baseline, and it checks that each baseline's
    maintenance helper accepts the new `docker-compose.yml`, because installs update from the browser through the helper
    they already run (`tools/ci/compose-compat.sh`). `pnpm e2e` is part of CI. `tools/ci/wait.sh <sha> ci-ok upgrade-ok`
    waits for both (exit 0 green, 1 a check failed, 2 CI cannot be read or the time ran out).
@@ -65,7 +117,8 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
    atomic push from your machine and puts the annotated tag on the private `HEAD`. The run for `main` then finds the
    tag and leaves the release to the tag's run. `ship.sh` does not use it.
 7. After the release, add the private commit it was published from to `.github/upgrade-from.txt` and keep the oldest
-   supported one. The floor is `90dc8f3` (`0.1.0`). Delete the `release/X.Y.Z` branch.
+   supported one. The floor is `90dc8f3` (`0.1.0`). Delete the `release/X.Y.Z` branch if you used one. Commit the line,
+   push it and wait for its `ci-ok`, then push the commit to `main`.
 8. Wait for the release workflow in the public repository. When it finishes, run `tools/ci/verify-release.sh --pull X.Y.Z`
    (an anonymous pull token, a manifest for amd64 and arm64), press *Tarkista päivitykset* on a test install, then *Päivitä*.
 9. `TALOUS_CHANNEL=source` keeps an install on the source build. An install made from the `90dc8f3` baseline updates once

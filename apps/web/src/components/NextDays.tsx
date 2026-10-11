@@ -2,23 +2,25 @@
 import { useState } from "react";
 import { query } from "../api.ts";
 import { LineChart } from "../charts/LineChart.tsx";
-import { date, dayMonth, money } from "../format.ts";
+import { date, dayMonth, money, plural } from "../format.ts";
 import type { DashboardData } from "../types.ts";
+import { SETTINGS_ANCHOR } from "../routes.ts";
 import "../styles/ahead.css";
 
 type Ahead = NonNullable<DashboardData["ahead"]>;
 type Row = Ahead["rows"][number];
 
-const SHOWN = 6;
-
 const signed = (cents: number) => (cents > 0 ? `+${money(cents)}` : money(cents));
 
-/** What the household has to know before the next pay day: the dated rows, and with a checking balance its line. */
+/**
+ * What the household has to know before the next pay day: the totals, with a checking balance its line, the pay days
+ * and a link to the list of bills (Laskut > Tulossa has the same rows). The bills are not listed here.
+ */
 export function NextDays({ ahead }: { ahead: Ahead }) {
-  const [all, setAll] = useState(false);
   const { rows, balance } = ahead;
-  const shown = all ? rows : rows.slice(0, SHOWN);
-  const incoming = rows.filter((r) => r.cents > 0).reduce((sum, r) => sum + r.cents, 0);
+  const payDays = rows.filter((r) => r.cents > 0);
+  const bills = rows.filter((r) => r.cents < 0).length;
+  const incoming = payDays.reduce((sum, r) => sum + r.cents, 0);
   const outgoing = rows.filter((r) => r.cents < 0).reduce((sum, r) => sum - r.cents, 0);
   const totals = [outgoing ? `Menoja ${money(outgoing, false)}` : null, incoming ? `${outgoing ? "tuloja" : "Tuloja"} ${money(incoming, false)}` : null].filter(Boolean).join(", ");
 
@@ -34,34 +36,31 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
       {rows.length === 0 ? (
         <p className="small muted">Laskut ja palkkapäivät näkyvät, kun sama maksu on tullut kahdesti.</p>
       ) : (
-        <table className="compact">
-          <tbody>
-            {shown.map((r, i) => (
-              <tr key={`${r.date}-${r.name}-${i}`}>
-                <td>
-                  {r.source === "expected" ? (
-                    <>
-                      {r.name} <span className="muted">· lisätty käsin</span>
-                    </>
-                  ) : (
+        payDays.length > 0 && (
+          <table className="compact">
+            <caption className="sr-only">Palkkapäivät seuraavan 30 päivän aikana</caption>
+            <tbody>
+              {payDays.map((r, i) => (
+                <tr key={`${r.date}-${r.name}-${i}`}>
+                  <td>
                     <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
-                  )}
-                </td>
-                <td className="num muted">{dayMonth(r.date)}</td>
-                <td className={r.cents > 0 ? "num ahead-in" : "num"}>{signed(r.cents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                  <td className="num muted">{dayMonth(r.date)}</td>
+                  <td className="num ahead-in">{signed(r.cents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
       )}
-      {rows.length > SHOWN && (
-        <button className="btn btn-small ahead-more" type="button" onClick={() => setAll((v) => !v)} aria-expanded={all}>
-          {all ? "Näytä vähemmän" : `Näytä kaikki (${rows.length})`}
-        </button>
+      {bills > 0 && (
+        <p className="small ahead-more">
+          {plural(bills, "maksu", "maksua")} · <a href="#/bills">Laskut</a>
+        </p>
       )}
       {ahead.missing === "balance" && (
         <p className="small muted ahead-note">
-          Lisää saldo kohdassa <a href="#/settings">Asetukset &gt; Tilit</a>, niin näet saldon päivittäin.
+          Lisää saldo kohdassa <a href={`#/settings#${SETTINGS_ANCHOR.accounts}`}>Asetukset &gt; Tilit</a>, niin näet saldon päivittäin.
         </p>
       )}
       {ahead.missing === "history" && <p className="small muted ahead-note">Saldon kehitys näkyy ensimmäisen kokonaisen kuukauden jälkeen.</p>}

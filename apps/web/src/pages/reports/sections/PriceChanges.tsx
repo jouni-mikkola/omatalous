@@ -15,39 +15,35 @@ function PriceChanges({ ctx }: SectionProps) {
   const sub = parts.length ? parts.join(", ") : undefined;
   return (
     <Section id={section.id} title={section.title} sub={sub ? `${sub.charAt(0).toUpperCase()}${sub.slice(1)}` : undefined}>
-      {r.items.length ? (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Kauppias</th>
-                <th className="num">Ennen → nyt</th>
-                <th className="num">Vuodessa</th>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kauppias</th>
+              <th className="num">Ennen → nyt</th>
+              <th className="num">Vuodessa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.items.map((p) => (
+              <tr key={`${p.merchant}-${p.date}`}>
+                <td>
+                  <a href={`#/transactions${query({ merchant: p.merchant })}`}>{p.merchant}</a>
+                  <div className="sub">
+                    {ctx.label(p.category)} · {date(p.date)}
+                  </div>
+                </td>
+                <td className="num">
+                  {money(p.fromCents)} → {money(p.toCents)}
+                </td>
+                <td className={`num ${p.yearlyEffectCents > 0 ? "worse" : "better"}`}>
+                  <strong>{signedMoney(p.yearlyEffectCents)}</strong>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {r.items.map((p) => (
-                <tr key={`${p.merchant}-${p.date}`}>
-                  <td>
-                    <a href={`#/transactions${query({ merchant: p.merchant })}`}>{p.merchant}</a>
-                    <div className="sub">
-                      {ctx.label(p.category)} · {date(p.date)}
-                    </div>
-                  </td>
-                  <td className="num">
-                    {money(p.fromCents)} → {money(p.toCents)}
-                  </td>
-                  <td className={`num ${p.yearlyEffectCents > 0 ? "worse" : "better"}`}>
-                    <strong>{signedMoney(p.yearlyEffectCents)}</strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="empty">Ei hinnanmuutoksia viimeisen vuoden aikana.</div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Section>
   );
 }
@@ -55,7 +51,11 @@ function PriceChanges({ ctx }: SectionProps) {
 export const section: ReportSection = {
   id: "hinnat",
   title: "Hinnanmuutokset",
-  order: 80,
+  // right under Tilaukset, whose rows carry the price badges (the numbers are shared with the cards of pages/Bills.tsx)
+  order: 30,
+  page: "bills",
   reports: ["priceChanges"],
+  // no price changed in the last year: the card would only say so
+  visible: (ctx) => ctx.data.priceChanges.items.length > 0,
   Component: PriceChanges,
 };

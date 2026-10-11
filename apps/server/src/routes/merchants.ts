@@ -3,7 +3,7 @@ import { isKnownCategory } from "@banking/core";
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
-import { strictObject } from "../platform/validate.ts";
+import { parseIsoDate, strictObject } from "../platform/validate.ts";
 import { clearMerchantRule, setMerchantCategory } from "../services/rules.ts";
 import { parseScope, sharedInView } from "../services/analysis.ts";
 import { body, queryInt } from "./shared.ts";
@@ -19,14 +19,29 @@ function parseMerchantName(value: unknown): string {
 export function merchantRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
+  /**
+   * The merchants of Tapahtumat > Kauppiaat. `from` and `to` narrow the rows the figures add up, `habit=1` keeps the
+   * merchants the recurring detection calls everyday purchases (Arkiostot), and `months` is what `monthlyCents` (Kuussa)
+   * divides by.
+   */
   app.get("/merchants", async (c) => {
-    const { q, category, limit } = c.req.query();
-    const items = await s.finance(c.get("user").id).merchantSummaries({
-      q: q?.slice(0, 100),
-      category: category || undefined,
-      limit: Math.min(Math.max(queryInt(limit) ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
-    });
-    return c.json({ items });
+    const user = c.get("user");
+    const { q, category, limit, from, to, habit } = c.req.query();
+    if (habit && habit !== "1") throw new UserError("Virheellinen suodatin.");
+    // the set is the detection's, not a second definition: the analysis is cached per user and data version
+    const only = habit
+      ? new Set((await s.analysis.get(s, user.id, "own")).ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant))
+      : undefined;
+    return c.json(
+      await s.finance(user.id).merchantSummaries({
+        q: q?.slice(0, 100),
+        category: category || undefined,
+        from: from ? parseIsoDate(from, "Virheellinen aikaväli.") : undefined,
+        to: to ? parseIsoDate(to, "Virheellinen aikaväli.") : undefined,
+        only,
+        limit: Math.min(Math.max(queryInt(limit) ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
+      }),
+    );
   });
 
   /**

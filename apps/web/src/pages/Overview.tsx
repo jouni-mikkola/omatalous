@@ -10,14 +10,16 @@ import { ErrorCard } from "../components/ErrorCard.tsx";
 import { EmptyStart } from "../components/EmptyStart.tsx";
 import { BarList } from "../components/BarList.tsx";
 import { Insights } from "../components/Insights.tsx";
-import { MonthlySpending } from "../components/MonthlySpending.tsx";
 import { NextDays } from "../components/NextDays.tsx";
 import { bridgeIncome } from "../components/month-parts.ts";
 import { SurplusBridge } from "../components/SurplusBridge.tsx";
 import { completeMonths, count, date, dayMonth, money, monthLong, monthSpan, percent, signedMoney } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
-import type { DashboardData, Meta, Scope } from "../types.ts";
+import type { DashboardData, Meta, ReportsData, Scope } from "../types.ts";
+import { reportContext } from "./reports/context.ts";
+import { reportsOf, visibleSections } from "./reports/registry.ts";
 import "../styles/overview.css";
+import { SETTINGS_ANCHOR } from "../routes.ts";
 
 /** "+12 %", "−5 %" or "±0 %": the change from the earlier figure; null when there is nothing to compare with. */
 function pctChange(current: number, previous: number): string | null {
@@ -40,8 +42,6 @@ function rangeBasis(f: NonNullable<DashboardData["forecast"]>): string {
     ? `${pct}, mitattu ${f.rangeMonths} edellisestä kuukaudesta`
     : `${pct}, yleinen arvio ilman omaa historiaa`;
 }
-
-const rangeDays = (r: { from: string; to: string }) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 + 1;
 
 /** "2026-09-01", "2026-09-09" → "1.–9.9."; across months "28.8.–9.9." */
 function dayRange(from: string, to: string): string {
@@ -67,6 +67,10 @@ export function Overview({
   const hasData = meta.accounts.length > 0 || (scope === "household" && meta.sharedAccounts.length > 0);
   // no request while there are no accounts: the first one after demo data or a sync is a fresh fetch
   const { data, error, loading, reload } = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...range, scope })}` : null);
+  // a month that has ended is told by the sections of this page (Menojen muutos); the running one by the forecast
+  const ended = range.to < meta.today;
+  const monthReports = reportsOf("month");
+  const reports = useApi<ReportsData>(hasData && ended && monthReports.length ? `/api/reports${query({ ...range, scope, reports: monthReports.join(",") })}` : null);
 
   // alerts and insights the household has answered: gone at once, the reload below only confirms it
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
@@ -100,7 +104,7 @@ export function Overview({
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
   if (!data) return <Loading />;
 
-  const { totals, previousTotals, trend, colorOrder, comparable, forecast } = data;
+  const { totals, previousTotals, colorOrder, comparable, forecast } = data;
   // a running period is compared with the same days of the previous one
   // the year only when the comparison falls in another year (Tämä vuosi, or January)
   const prevYear = data.range.previousTo.slice(0, 4) === data.range.to.slice(0, 4) ? "" : data.range.previousTo.slice(0, 4);
@@ -129,9 +133,8 @@ export function Overview({
     .filter(Boolean)
     .join(", ");
 
-  const pace = data.pace;
-  // "kertaa kuussa" over ten days or one month repeats the count
-  const longRange = rangeDays(range) > 62;
+  const reportCtx = reports.data ? reportContext(reports.data, meta, range, scope) : null;
+  const monthSections = reportCtx && ended ? visibleSections(reportCtx, "month") : [];
 
   return (
     <div className={`stack ${loading ? "loading" : ""}`}>
@@ -140,7 +143,7 @@ export function Overview({
       {data.dataNotice && (
         <ul className="alerts" aria-label="Tietojen laatu">
           <li className="alert warning">
-            <a href="#/reports">
+            <a href={`#/settings#${SETTINGS_ANCHOR.quality}`}>
               <span className="sr-only">Huomio: </span>
               <span className="alert-title">{data.dataNotice.title}</span>
               <span className="alert-detail">{data.dataNotice.detail}</span>
@@ -149,10 +152,7 @@ export function Overview({
         </ul>
       )}
 
-      <section className={`month-row${forecast ? " with-forecast" : ""}`} aria-label="Kuukauden menot">
-        {forecast && <ForecastCard forecast={forecast} />}
-        <MonthlySpending trend={trend} colorOrder={colorOrder} range={range} />
-      </section>
+      {forecast && <ForecastCard forecast={forecast} pace={data.pace} />}
 
       {data.ahead && (
         <div className="card">
@@ -164,10 +164,15 @@ export function Overview({
         <SurplusBridge totals={data.bridge.totals} title="Mihin tulot menivät" heading="h2" sub={bridgeSub(data.bridge, data.range.to.slice(0, 7))} />
         {data.fixedMonthlyCents > 0 && (
           <p className="bridge-fixed">
-            Kiinteät menot <strong>{money(data.fixedMonthlyCents, false)}</strong> kuukaudessa · <a href="#/recurring">Toistuvat</a>
+            Kiinteät menot <strong>{money(data.fixedMonthlyCents, false)}</strong> kuukaudessa · <a href="#/bills">Laskut</a>
           </p>
         )}
       </div>
+
+      {monthSections.map((sec) => (
+        <sec.Component key={sec.id} ctx={reportCtx!} />
+      ))}
+      {reports.error && !reports.data && <ErrorCard message={reports.error} onRetry={reports.reload} />}
 
       <Alerts alerts={data.alerts.filter((a) => !answered.has(a.id))} range={range} onMark={answer} busy={marking || loading} />
       <Insights insights={data.insights.filter((i) => !answered.has(i.id)).slice(0, 3)} onDismiss={(id, subject) => answer(id, subject, "dismissed")} busy={marking || loading} />
@@ -177,74 +182,18 @@ export function Overview({
         </div>
       )}
 
-      <div className="grid two">
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <h2>Kategoriat</h2>
-              <div className="card-sub">{categoriesSub}</div>
-            </div>
-          </div>
-          <BarList items={barItems} onSelect={goToCategory} />
-        </div>
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <h2>{forecast ? "Kuukauden kulku" : capitalize(monthLong(pace.month))}</h2>
-              <div className="card-sub">
-                {pace.currentTotal <= 0
-                  ? "Ei vielä menoja tässä kuussa."
-                  : pace.usualAtToday === null
-                    ? `${money(pace.currentTotal, false)} nyt, vertailu näkyy ${completeMonths(MIN_COMPARE_MONTHS, true)} jälkeen`
-                    : forecast
-                      ? `${money(pace.currentTotal, false)} nyt, tavallisesti tähän mennessä ${money(pace.usualAtToday, false)}`
-                      : `${money(pace.currentTotal, false)}, tavallisesti koko kuukaudessa ${money(pace.usualMonthTotal ?? 0, false)}`}
-              </div>
-            </div>
-          </div>
-          <PaceChart current={pace.current} usual={pace.usual} />
-        </div>
-      </div>
-
-      <div className="card overview-merchants">
+      <div className="card">
         <div className="card-head">
           <div>
-            <h2>Kauppiaat</h2>
-            <div className="card-sub">Ilman laskuja ja tilauksia</div>
+            <h2>Kategoriat</h2>
+            <div className="card-sub">{categoriesSub}</div>
           </div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Kauppias</th>
-                <th className="num hide-phone">Kertaa</th>
-                {longRange && <th className="num hide-phone">Kertaa kuussa</th>}
-                <th className="num hide-phone">Keskiostos</th>
-                <th className="num">Yhteensä</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.merchants.slice(0, 12).map((m) => (
-                <tr key={m.merchant}>
-                  <td>
-                    <a href={`#/transactions?merchant=${encodeURIComponent(m.merchant)}&from=${range.from}&to=${range.to}`}>{m.merchant}</a>
-                    <div className="sub">
-                      {meta.categories.find((c) => c.id === m.category)?.label ?? m.category} · viimeksi {date(m.lastDate)}
-                    </div>
-                  </td>
-                  <td className="num hide-phone">{m.count}</td>
-                  {longRange && <td className="num hide-phone">{count(m.perMonth)}</td>}
-                  <td className="num hide-phone">{money(m.avgCents)}</td>
-                  <td className="num">
-                    <strong>{money(m.totalCents, false)}</strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!data.merchants.length && <div className="empty">Ei ostoksia tällä jaksolla.</div>}
-        </div>
+        <BarList items={barItems} onSelect={goToCategory} />
+        <p className="month-links small">
+          <a href={`#/transactions${query({ view: "merchants", from: range.from, to: range.to })}`}>Kauppiaat</a>
+          <a href={`#/reports${query({ period: "12m" })}`}>Menot kuukausittain</a>
+        </p>
       </div>
     </div>
   );
@@ -284,40 +233,55 @@ function bridgeSub(b: DashboardData["bridge"], runningMonth: string): ReactNode 
 }
 
 /**
- * Where the running month is heading, with what the range stands on. The month the forecast is for is named, because
- * the period on the page can be longer.
+ * Where the running month is heading, with what the range stands on, and how it has gone so far (Kuukauden kulku).
+ * The month the forecast is for is named, because the period on the page can be longer. Each "tavallisesti" here is
+ * the month's one usual total (`usualSpending`): of the whole month, and of its days so far.
  */
-function ForecastCard({ forecast: f }: { forecast: NonNullable<DashboardData["forecast"]> }) {
+function ForecastCard({ forecast: f, pace }: { forecast: NonNullable<DashboardData["forecast"]>; pace: DashboardData["pace"] }) {
   const change = f.usualMonthCents ? pctChange(f.forecastCents, f.usualMonthCents) : null;
   return (
-    <div className="card forecast-card">
+    <section className="card forecast-card" aria-labelledby="forecast-h">
       <div className="card-head">
         <div>
-          <h2>Ennuste kuun loppuun</h2>
+          <h2 id="forecast-h">Ennuste kuun loppuun</h2>
           <div className="card-sub">{capitalize(monthLong(f.month))}</div>
         </div>
       </div>
-      <div className="tile-value">{forecastRange(f)}</div>
-      <div className="tile-note">{rangeBasis(f)}</div>
-      <dl className="forecast-parts">
+      <div className="forecast-body">
         <div>
-          <dt>Menot tähän mennessä</dt>
-          <dd>{money(f.spentCents, false)}</dd>
+          <div className="tile-value">{forecastRange(f)}</div>
+          <div className="tile-note">{rangeBasis(f)}</div>
+          <dl className="forecast-parts">
+            <div>
+              <dt>Menot tähän mennessä</dt>
+              <dd>{money(f.spentCents, false)}</dd>
+            </div>
+            {pace.usualAtToday !== null && (
+              <div>
+                <dt>Tavallisesti tähän mennessä</dt>
+                <dd>{money(pace.usualAtToday, false)}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Tulossa tässä kuussa</dt>
+              <dd>{money(f.billsLeftCents, false)}</dd>
+            </div>
+            <div>
+              <dt>
+                Tavallisesti kuussa
+                {f.usualMonthCents !== null && <small className="muted"> ({monthSpan(f.usualMonths)})</small>}
+              </dt>
+              <dd>{f.usualMonthCents === null ? "–" : money(f.usualMonthCents, false)}</dd>
+            </div>
+          </dl>
+          <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : `Vertailu näkyy, kun historiassa on ${completeMonths(MIN_COMPARE_MONTHS)}`}</p>
         </div>
-        <div>
-          <dt>Tulossa tässä kuussa</dt>
-          <dd>{money(f.billsLeftCents, false)}</dd>
+        <div className="forecast-pace">
+          <h3>Kuukauden kulku</h3>
+          {pace.currentTotal <= 0 ? <p className="muted small">Ei vielä menoja tässä kuussa.</p> : <PaceChart current={pace.current} usual={pace.usual} />}
         </div>
-        <div>
-          <dt>
-            Tavallisesti kuussa
-            {f.usualMonthCents !== null && <small className="muted"> ({monthSpan(f.usualMonths)})</small>}
-          </dt>
-          <dd>{f.usualMonthCents === null ? "–" : money(f.usualMonthCents, false)}</dd>
-        </div>
-      </dl>
-      <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : `Vertailu näkyy, kun historiassa on ${completeMonths(MIN_COMPARE_MONTHS)}`}</p>
-    </div>
+      </div>
+    </section>
   );
 }
 

@@ -29,7 +29,7 @@ next releases are in `.claude/plan/` (private repo only).
   spending and usual income, the gate `gateFor`) and `commitments.ts` (fixed costs, subscriptions, expected bill dates,
   expected charges, cancelled merchants); `analysis/fees.ts` (late fees, bank fees); a series' cost is its own
   `perMonth`, `monthlyCents`, `yearlyCents`; `docs/MONEY_FLOWS.md` says them in prose.
-  `analysis/explain.ts` (why a month differs), `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
+  `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
   `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete months),
   `change.ts` (what moved spending, split into causes that add up; wording in `change-text.ts`), `income.ts` (income by
   type, derived on read) with `income-changes.ts`, `income-events.ts`, `income-series.ts`. `analysis/insights/` has one
@@ -106,8 +106,8 @@ next releases are in `.claude/plan/` (private repo only).
   migrated by a newer version (`db/migrate.ts`) unless each unknown migration stored a compat floor at or below its
   version (`-- migrate: compat X.Y.Z`, allowed only on additive files); `migrate-check <db>` tries pending migrations on a copy; `openDatabase` snapshots before migrating; `scripts/update.sh`
   has `--rollback`, which keeps the live DB only when the previous image's `migrate-check` reports nothing to apply. Derived fields are recomputed after every version change (`services/upgrade.ts`), so rule
-  changes need no migration. Release = `node tools/release/prepare.mjs X.Y.Z` (versions, CHANGELOG from
-  `changelog.d/`), then `tools/release/ship.sh` (docs/RELEASING.md).
+  changes need no migration. Release = `tools/release/release.sh X.Y.Z`: every step from `prepare.mjs` (versions, CHANGELOG
+  from `changelog.d/`) through `ship.sh` to the baseline and `main`, resumable with `--from <step>` (docs/RELEASING.md).
 
 ## Conventions
 

@@ -1,4 +1,5 @@
-import type { ReportContext, ReportSection } from "./types.ts";
+import type { ReportId } from "@banking/core";
+import type { ReportContext, ReportSection, SectionPage } from "./types.ts";
 
 // Every file in sections/ is a section. Vite reads the folder at build time, so a new report adds a file and
 // edits no shared one. The server bundle never imports this file.
@@ -16,7 +17,12 @@ for (const [i, s] of REPORT_SECTIONS.entries()) {
   if (clash !== i) throw new Error(`two report sections use the id "${s.id}"`);
 }
 
-/** The sections that have something to show for this answer, in page order. The nav and the cards both read this. */
-export function visibleSections(ctx: ReportContext): ReportSection[] {
-  return REPORT_SECTIONS.filter((s) => s.visible?.(ctx) ?? true);
+/** The sections of one page that have something to show for this answer, in page order. The nav and the cards both read this. */
+export function visibleSections(ctx: ReportContext, page: SectionPage): ReportSection[] {
+  return REPORT_SECTIONS.filter((s) => s.page === page && (s.visible?.(ctx) ?? true));
+}
+
+/** The core reports the sections of one page read: a page other than Raportit asks the server for these only. */
+export function reportsOf(page: SectionPage): ReportId[] {
+  return [...new Set(REPORT_SECTIONS.filter((s) => s.page === page).flatMap((s) => s.reports))];
 }

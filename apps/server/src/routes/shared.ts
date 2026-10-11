@@ -1,3 +1,4 @@
+import { isReportId, type ReportId } from "@banking/core";
 import type { Context } from "hono";
 import { UserError } from "../platform/errors.ts";
 import { isIsoDate } from "../platform/validate.ts";
@@ -8,6 +9,14 @@ export function parseRange(c: Context, today: string): { from: string; to: strin
   const to = c.req.query("to") ?? today;
   if (!isIsoDate(from) || !isIsoDate(to) || from > to) throw new UserError("Virheellinen aikaväli.");
   return { from, to };
+}
+
+/** `?reports=a,b`: the core reports a page shows, each a key of the registry; none means every report. */
+export function parseReportIds(value: string | undefined): ReportId[] {
+  if (!value) return [];
+  const ids = value.split(",", 20);
+  if (!ids.every(isReportId)) throw new UserError("Tuntematon raportti.");
+  return [...new Set(ids)];
 }
 
 /** A JSON object body or a 400 with a readable message (never a 500 for bad input). */

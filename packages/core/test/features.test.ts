@@ -9,7 +9,7 @@ describe("feature flags", () => {
   });
 
   it("the optimise module ships on as a preview", () => {
-    expect(FEATURES.optimise).toEqual({ label: "Optimointi", stage: "preview", default: true });
+    expect(FEATURES.optimise).toEqual({ label: "Säästövinkit", stage: "preview", default: true });
     expect(resolveFeatures({}).optimise).toBe(true);
   });
 

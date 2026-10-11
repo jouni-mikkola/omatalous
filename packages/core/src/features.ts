@@ -14,7 +14,7 @@ export interface FeatureDef {
 }
 
 export const FEATURES = {
-  optimise: { label: "Optimointi", stage: "preview", default: true },
+  optimise: { label: "Säästövinkit", stage: "preview", default: true },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureId = keyof typeof FEATURES;

@@ -42,10 +42,39 @@ export interface MerchantSummary {
   /** Money in, positive cents (a salary payer has only this). */
   inCents: number;
   lastDate: string;
+  /** Money out per month of the period, rounded: `totalCents` over `MerchantList.months`. 0 for a merchant that is only paid. */
+  monthlyCents: number;
   /** The "all of this merchant" rule, if the user made one. */
   rule: { id: number; category: string } | null;
   /** Rows in other categories than `category` (a bank: loan instalments and fees), most rows first. */
   otherCategories: { category: string; count: number; totalCents: number; inCents: number }[];
+}
+
+/** What narrows the merchant list. Dates are inclusive, and a missing one leaves that end of the history open. */
+export interface MerchantFilter {
+  q?: string;
+  category?: string;
+  from?: string;
+  to?: string;
+  /** Only these merchants (the ones with an active everyday-purchase series). */
+  only?: ReadonlySet<string>;
+  limit: number;
+}
+
+/** The merchants of a period and the number of calendar months the period spans, which `monthlyCents` divides by. */
+export interface MerchantList {
+  items: MerchantSummary[];
+  months: number;
+}
+
+const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
+
+/**
+ * Calendar months from `from` to `to`, both included, at least one. A part of a month counts as a whole one, so a
+ * running month shows what it holds so far instead of a guess about the rest.
+ */
+export function monthSpan(from: string, to: string): number {
+  return Math.max(1, monthIndex(to) - monthIndex(from) + 1);
 }
 
 export class MerchantsRepo {
@@ -147,19 +176,25 @@ export class MerchantsRepo {
   }
 
   /**
-   * The user's merchants, biggest spending first, for the category settings.
+   * The user's merchants, biggest spending first, for the category settings and the merchant list on Tapahtumat.
    * Transfers are left out because transfer detection decides those and a rule cannot.
-   * `category` and `q` (matched on the folded name) narrow the list.
+   * `category` and `q` (matched on the folded name) narrow the list, `from` and `to` the rows it adds up, and `only`
+   * the merchants. A period that leaves an end open runs from the first or to the last row it finds, so the months
+   * `monthlyCents` divides by are those with history in them, not the empty ones before an import or after the last row.
    */
-  async merchantSummaries(f: { q?: string; category?: string; limit: number }): Promise<MerchantSummary[]> {
+  async merchantSummaries(f: MerchantFilter): Promise<MerchantList> {
+    const range = `${f.from ? " AND booking_date >= ?" : ""}${f.to ? " AND booking_date <= ?" : ""}`;
+    const params = [this.ctx.userId, ...(f.from ? [f.from] : []), ...(f.to ? [f.to] : [])];
     // the first row of a merchant is its most common category
-    const rows = await this.ctx.db.all<{ merchant: string; category: string; n: number; total: number; income: number; last: string }>(
+    const rows = await this.ctx.db.all<{ merchant: string; category: string; n: number; total: number; income: number; first: string; last: string }>(
       `SELECT merchant, category, COUNT(*) AS n, SUM(CASE WHEN amount_cents < 0 THEN -amount_cents ELSE 0 END) AS total,
-              SUM(CASE WHEN amount_cents > 0 THEN amount_cents ELSE 0 END) AS income, MAX(booking_date) AS last
-       FROM transactions WHERE user_id = ? AND is_transfer = 0
+              SUM(CASE WHEN amount_cents > 0 THEN amount_cents ELSE 0 END) AS income, MIN(booking_date) AS first, MAX(booking_date) AS last
+       FROM transactions WHERE user_id = ? AND is_transfer = 0${range}
        GROUP BY merchant, category ORDER BY merchant, n DESC, category`,
-      [this.ctx.userId],
+      params,
     );
+    if (!rows.length) return { items: [], months: 1 };
+    const months = monthSpan(f.from ?? rows.reduce((min, r) => (r.first < min ? r.first : min), rows[0]!.first), f.to ?? rows.reduce((max, r) => (r.last > max ? r.last : max), rows[0]!.last));
     // rules come in the order they run, so the first one for a name is the one that applies
     const rules = new Map<string, { id: number; category: string }>();
     for (const r of await this.rules.listRules()) {
@@ -175,6 +210,7 @@ export class MerchantsRepo {
           count: Number(r.n),
           totalCents: Number(r.total),
           inCents: Number(r.income),
+          monthlyCents: 0,
           lastDate: r.last,
           rule: rules.get(r.merchant) ?? null,
           otherCategories: [],
@@ -189,10 +225,12 @@ export class MerchantsRepo {
       if (r.last > m.lastDate) m.lastDate = r.last;
     }
     const q = f.q ? fold(f.q.trim()) : "";
-    return [...merchants.values()]
-      .filter((m) => (!f.category || m.category === f.category) && (!q || fold(m.merchant).includes(q)))
+    const items = [...merchants.values()]
+      .filter((m) => (!f.category || m.category === f.category) && (!f.only || f.only.has(m.merchant)) && (!q || fold(m.merchant).includes(q)))
       .sort((a, b) => b.totalCents - a.totalCents || b.inCents - a.inCents || b.count - a.count || a.merchant.localeCompare(b.merchant))
       .slice(0, f.limit);
+    for (const m of items) m.monthlyCents = Math.round(m.totalCents / months);
+    return { items, months };
   }
 
   async hasMerchant(merchant: string): Promise<boolean> {

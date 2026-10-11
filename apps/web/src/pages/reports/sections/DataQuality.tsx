@@ -1,80 +1,14 @@
 // Decision: connect or fetch what is missing before trusting a number
+// It sits in Asetukset > Tilit, under the accounts and their last fetch, which it used to repeat in a table of its own.
 import { query } from "../../../api.ts";
-import { CONTROL_PANEL } from "../../../consent-notices.ts";
-import { accountsInNumbers, consentText, lastFetched } from "../../../components/DataScope.tsx";
-import { ACCOUNT_TYPE_LABEL, dateTime } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/quality.css";
 
-const PROVIDER_LABEL: Record<string, string> = { enablebanking: "pankkiyhteys", csv: "CSV", demo: "demo" };
-
-/** Which accounts the numbers are made of, when each was last fetched and when its bank consent ends. */
-function AccountsInNumbers({ ctx }: SectionProps) {
-  const { meta, scope } = ctx;
-  const canLinkAccounts = meta.user.role === "admin" || meta.bank.source === "user";
-  const accounts = accountsInNumbers(meta, scope);
-  if (!accounts.length) {
-    return (
-      <p className="muted">
-        Ei vielä tilejä. Yhdistä pankki tai tuo CSV kohdassa <a href="#/settings">Asetukset</a>.
-      </p>
-    );
-  }
-  return (
-    <div className="table-wrap">
-      <table className="scope-table">
-        <thead>
-          <tr>
-            <th>Luvuissa mukana</th>
-            <th>Haettu viimeksi</th>
-            <th>Pankkiyhteys</th>
-          </tr>
-        </thead>
-        <tbody>
-          {accounts.map((a) => {
-            const consent = consentText(meta.connections.find((c) => c.id === a.connectionId), a.name);
-            return (
-              <tr key={a.id}>
-                <td>
-                  {a.name}
-                  {a.ownerName ? ` (${a.ownerName})` : ""}
-                  <div className="sub muted">
-                    {ACCOUNT_TYPE_LABEL[a.type] ?? a.type} · {PROVIDER_LABEL[a.provider] ?? a.provider}
-                  </div>
-                </td>
-                <td>{dateTime(lastFetched(a))}</td>
-                <td className={consent?.urgent ? "scope-warn" : undefined}>
-                  {consent?.text ?? "–"}
-                  {consent?.linkAccount && canLinkAccounts && (
-                    <>
-                      {" "}
-                      <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
-                        Avaa Control Panel
-                      </a>
-                    </>
-                  )}
-                  {consent?.reconnect && (
-                    <>
-                      {" "}
-                      <a href="#/settings?add=1">Yhdistä uudelleen</a>
-                    </>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function DataQuality({ ctx }: SectionProps) {
   const r = ctx.data.dataQuality;
   return (
-    <Section id={section.id} title={section.title} sub="Näissä kohdissa luvut voivat poiketa todellisesta.">
-      <AccountsInNumbers ctx={ctx} />
+    <Section id={section.id} title={section.title} sub="Näissä kohdissa luvut voivat poiketa todellisesta." nested>
       {r.signals.length ? (
         <ul className="plain">
           {r.signals.map((s) => (
@@ -103,6 +37,9 @@ export const section: ReportSection = {
   id: "laatu",
   title: "Tietojen laatu",
   order: 10,
+  page: "settings",
   reports: ["dataQuality"],
+  // no accounts, nothing to be unsure about: Tilit says what to add
+  visible: (ctx) => ctx.meta.accounts.length > 0,
   Component: DataQuality,
 };

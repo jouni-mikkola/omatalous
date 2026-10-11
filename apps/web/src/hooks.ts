@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
+import { hashOf, parseHash, type Route, redirectRoute } from "./routes.ts";
 
 /**
  * Fetches JSON and keeps the previous data while a new request is in flight,
@@ -47,11 +48,15 @@ export function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
   return [ref, width];
 }
 
-/** Minimal hash router: "#/transactions?category=x" → { page, params }. */
-export function useHashRoute(): { page: string; params: URLSearchParams } {
-  const read = () => {
-    const [path = "", search = ""] = window.location.hash.replace(/^#\/?/, "").split("?");
-    return { page: path || "overview", params: new URLSearchParams(search) };
+/** Minimal hash router: "#/transactions?category=x" → { page, params }. The role decides where the old security address goes. */
+export function useHashRoute(role: "admin" | "member"): Route {
+  const read = (): Route => {
+    const route = parseHash(window.location.hash);
+    const moved = redirectRoute(route, role);
+    if (!moved) return route;
+    // replaceState fires no hashchange and leaves no old entry for Back
+    window.history.replaceState(null, "", hashOf(moved));
+    return moved;
   };
   const [route, setRoute] = useState(read);
   useEffect(() => {

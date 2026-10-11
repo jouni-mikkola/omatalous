@@ -2,12 +2,12 @@
  * Where the running month is heading: the pace curve against the usual month and the forecast to the month's end.
  */
 import { cancelledMerchants, expectedCharges, expectedDates } from "../commitments.ts";
-import { dateIn, dayNumber, daysInMonth, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { dateIn, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import { type ExpectedBill, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { type AnalysisContext, inDays, recurringAt } from "./context.ts";
-import { completeMonthsBefore, MIN_COMPARE_MONTHS, usualCents, usualSpending } from "./usual.ts";
+import { completeMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualSpending, usualSpendingOver } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -51,30 +51,22 @@ export interface MonthForecast {
   rangePercent: number;
 }
 
-/** Is this month's spending running ahead of or behind the usual month? */
+/**
+ * Is this month's spending running ahead of or behind the usual month? Each day of the usual curve is
+ * `usualSpendingOver` on the days up to it, so its last day is the month's usual total and today's point is
+ * "tavallisesti tähän mennessä": the same base as every other usual figure of the month.
+ */
 export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): MonthPace {
   const days = daysInMonth(month);
-  const target = monthIndex(month);
   // a month after the running one has no complete month right before it: count back from the running one
   const before = completeMonthsBefore(ctx, month > monthOf(ctx.today) ? monthOf(ctx.today) : month);
-  const needed = new Set([target, ...before.map(monthIndex)]);
-  const curves = new Map<number, number[]>();
-  for (const t of ctx.txs) {
-    if (!needed.has(t.month) || !t.spend) continue;
-    const daily = curves.get(t.month) ?? new Array<number>(days).fill(0);
-    daily[Math.min(days, Number(t.bookingDate.slice(8, 10))) - 1]! += t.spend;
-    curves.set(t.month, daily);
-  }
-  const cumulative = (m: number) => {
-    let acc = 0;
-    return (curves.get(m) ?? new Array<number>(days).fill(0)).map((v) => (acc += v));
-  };
-  const past = before.map((m) => cumulative(monthIndex(m)));
-  const usual = past.length < MIN_COMPARE_MONTHS ? null : Array.from({ length: days }, (_, i) => usualCents(past.map((c) => c[i]!))!);
-  const cur = cumulative(target);
+  // the last day takes in the 31st of a longer month, so the curve ends at the whole month
+  const through = (i: number) => (i === days - 1 ? 31 : i + 1);
+  const usual = before.length < MIN_COMPARE_MONTHS ? null : Array.from({ length: days }, (_, i) => usualSpendingOver(ctx, before, through(i))!);
+  const cur = Array.from({ length: days }, (_, i) => spendingThrough(ctx, month, through(i)));
   const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
   return {
-    month: fromMonthIndex(target),
+    month,
     daysInMonth: days,
     current: cur.map((v, i) => (i < lastDay ? v : null)),
     usual,

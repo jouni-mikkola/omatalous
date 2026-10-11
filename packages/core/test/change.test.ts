@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { type ChangeView, type SpendingChange, spendingChange } from "../src/analysis/change.ts";
-import { explainMonth } from "../src/analysis/explain.ts";
 import { spendingInsights } from "../src/analysis/insights/spending.ts";
 import { spendingChangeReport } from "../src/reports/spending-change.ts";
+import { completeMonthsBefore, spendingThrough, usualSpending } from "../src/analysis/usual.ts";
 import { addMonths, daysInMonth, monthRange } from "../src/dates.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { rng } from "./gen.ts";
@@ -35,8 +35,7 @@ function expectExact(c: SpendingChange) {
     expect(r.changeCents).toBe(r.nowCents - r.baseCents);
     // the shown causes and the small ones together are the change of the category
     expect(sum(r.buckets.map((b) => b.cents)) + r.restCents).toBe(r.changeCents);
-    // the gap between the category medians is a row of its own and shows whatever its size
-    if (r.kind !== "between") for (const b of r.buckets) expect(Math.abs(b.cents)).toBeGreaterThanOrEqual(c.gateCents);
+    for (const b of r.buckets) expect(Math.abs(b.cents)).toBeGreaterThanOrEqual(c.gateCents);
     if (r.kind === "category") {
       // the merchants, the small ones and the spread are the category
       expect(sum(r.merchants.map((m) => m.changeCents))).toBe(r.changeCents);
@@ -101,26 +100,58 @@ describe("spendingChange", () => {
     expect(withTiming).toBeGreaterThan(10);
   });
 
-  it("the usual view reads the month the explanation reads: same spending, by category too; its usual is per category with one-offs struck", () => {
+  it("the usual view's usual total is the month's usual spending (ADR 0004); the categories keep their own levels and Muut holds the rest", () => {
+    let gaps = 0;
     for (let seed = 1; seed <= 15; seed++) {
       const ctx = ctxOf(household(seed));
       for (const month of ["2026-10", "2026-09", "2026-06"]) {
         const c = spendingChange(ctx, "usual", month);
-        const e = explainMonth(ctx, month);
-        expect(c === null).toBe(e === null);
-        if (!c || !e) continue;
-        expect(c.nowCents).toBe(e.nowCents);
-        expect(c.running).toBe(e.running);
-        // the explanation's usual is the median of the month totals (the dashed line); the report's is the sum of the
-        // categories' own levels, so it has no gap row
-        expect(c.baseCents).toBe(sum(c.categories.map((r) => r.baseCents)));
-        expect(c.categories.some((r) => r.kind === "between")).toBe(false);
-        for (const row of e.rows.filter((r) => r.kind === "category")) {
-          const mine = c.categories.find((r) => r.category === row.category);
-          if (mine?.kind === "category") expect(mine.nowCents).toBe(row.nowCents);
+        const months = completeMonthsBefore(ctx, month);
+        expect(c === null).toBe(months.length < 3);
+        if (!c) continue;
+        const day = c.running ? Number(c.target.to.slice(8, 10)) : 31;
+        // one usual total: the forecast's and the pace chart's figure, on the same days for a running month
+        expect(c.baseCents).toBe(usualSpending(ctx, month, day));
+        expect(c.base.months).toEqual(months);
+        expect(c.nowCents).toBe(spendingThrough(ctx, month, day));
+        // a category's level is its median with one-offs struck; what they leave of the usual month is Muut's spread
+        const named = c.categories.filter((r) => r.kind === "category");
+        const smaller = c.categories.find((r) => r.kind === "smaller");
+        const spread = c.pieces.filter((p) => p.category === null && p.kind === "spread");
+        if (spread.length) {
+          gaps++;
+          expect(smaller).toBeDefined();
+          expect(sum(named.map((r) => r.baseCents)) + smaller!.baseCents).toBe(c.baseCents);
         }
+        expect(spread.length).toBeLessThanOrEqual(1);
       }
     }
+    // medians do not add up, so most months have a gap
+    expect(gaps).toBeGreaterThan(10);
+  });
+
+  it("the usual total is where a usual month is: two categories bought from now and then lift it over the sum of their medians", () => {
+    // groceries 400 € every month; a 100 € dinner in March and April, 100 € of clothes in May and June. Four months of
+    // six cost 500 €, so the usual month is 500 €; each sparse category's median is nothing, so the medians add up to 400 €
+    const outing = (month: string, merchant: string, category: string) => tx({ bookingDate: day(month, 20), amountCents: -10000, merchant, category });
+    const txs = [
+      ...pay("2026-03", "2026-10"),
+      ...shop("2026-03", "2026-09", "K-Market", "groceries", () => [10000, 10000, 10000, 10000]),
+      outing("2026-03", "Ravintola", "restaurants"),
+      outing("2026-04", "Ravintola", "restaurants"),
+      outing("2026-05", "Vaatekauppa", "shopping"),
+      outing("2026-06", "Vaatekauppa", "shopping"),
+    ];
+    const ctx = ctxOf(txs);
+    const c = spendingChange(ctx, "usual", "2026-09")!;
+    expectExact(c);
+    expect(c).toMatchObject({ nowCents: 40000, baseCents: 50000, changeCents: -10000 });
+    expect(c.baseCents).toBe(usualSpending(ctx, "2026-09"));
+    // the 100 € a usual month has beyond the medians is Muut's, a spread and no cause: September had no dinner and no
+    // clothes, so it was cheaper than a usual month, and the sentence names no category for it
+    expect(c.categories.at(-1)).toMatchObject({ kind: "smaller", baseCents: 50000 });
+    expect(c.pieces.filter((p) => p.category === null)).toEqual([{ category: null, kind: "spread", cents: -10000, season: false }]);
+    expect(spendingChangeReport(ctx, { from: "2026-09-01", to: "2026-09-30" }).views[0]!.sentence.replace(/\s/g, " ")).toBe("Syyskuu on 100 € tavallista halvempi: muut −100 €.");
   });
 
   it("a dearer basket is price, more visits is volume, a new shop is mix", () => {
@@ -133,10 +164,6 @@ describe("spendingChange", () => {
     const dearer = run(shop("2026-09", "2026-09", "K-Market", "groceries", () => usual.map((c) => c + 1000)));
     expectExact(dearer);
     expect(pieces(dearer)).toEqual({ price: 4000 });
-
-    // the month explanation names the same cause on its row
-    const row = explainMonth(ctxOf([...pay("2026-03", "2026-10"), ...base("K-Market", usual), ...shop("2026-09", "2026-09", "K-Market", "groceries", () => usual.map((c) => c + 1000))]), "2026-09")!.rows[0]!;
-    expect(row).toMatchObject({ category: "groceries", changeCents: 4000, driver: { kind: "price", cents: 4000 } });
 
     // two more visits at the usual ticket
     const more = run(shop("2026-09", "2026-09", "K-Market", "groceries", () => [...usual, 5000, 5000]));
@@ -179,6 +206,20 @@ describe("spendingChange", () => {
     const none = spendingChange(ctxOf([...pay("2026-03", "2026-10"), ...groceries, ...rent(months.filter((m) => m !== "2026-09"))]), "usual", "2026-09")!;
     expectExact(none);
     expect(none.pieces).toEqual([{ category: "housing", kind: "timing", cents: -95000, season: false }]);
+  });
+
+  it("the total does not stand out on a move against the sentence: one-offs in most base months lift the raw usual, not the struck one", () => {
+    const groceries = shop("2026-03", "2026-09", "Prisma", "groceries", (m) => (m === "2026-09" ? [10200, 10200, 10200, 10200] : [10000, 10000, 10000, 10000]));
+    // one 300 € purchase in each of four base months, each in its own category, so each is struck as a one-off
+    const oneOffs = ([["2026-03", "home"], ["2026-04", "shopping"], ["2026-05", "fitness"], ["2026-06", "entertainment"]] as const).map(([m, category]) =>
+      tx({ bookingDate: day(m, 15), amountCents: -30000, merchant: `Kauppa ${category}`, category }),
+    );
+    const dinner = tx({ bookingDate: "2026-09-18", amountCents: -12000, merchant: "Ravintola Oy", category: "restaurants" });
+    const c = spendingChange(ctxOf([...pay("2026-03", "2026-10"), ...groceries, ...oneOffs, dinner]), "usual", "2026-09")!;
+    expectExact(c);
+    // cheaper than the raw usual month, dearer than the struck one: the two disagree, so the total says nothing
+    expect(c.changeCents).toBeLessThan(0);
+    expect(c.standsOut).toBe(false);
   });
 
   it("a yearly bill in the month is timing, not a new merchant", () => {

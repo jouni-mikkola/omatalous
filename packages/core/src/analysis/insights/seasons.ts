@@ -1,7 +1,7 @@
 /**
  * H-insights 10: calendar months that cost clearly more than usual in each of the last two years, and the monthly sum
  * that covers them. A month is compared with its usual level (the median of the six complete months before it) with
- * its one-off taken out by the month explanation's rule. One year alone cannot tell a season from chance, so a month
+ * its one-offs taken out by the level rule (one-offs.ts). One year alone cannot tell a season from chance, so a month
  * counts only when both of the last two years were 20 % or more above usual and stood out from the household's
  * month-to-month noise, each year by MIN_T / √2 standard errors, so the two together stand MIN_T apart and neither
  * carries it alone (ADR 0011).
@@ -20,7 +20,7 @@ const YEAR_T = MIN_T / Math.sqrt(YEARS);
 /** The noise is read from up to this many months before the month: the same month a year earlier is left out, so a season does not count itself as noise. */
 const NOISE_MONTHS = 11;
 
-/** A month's spending with its one-off struck by the month explanation's rule; only a month over its usual level has one. */
+/** A month's spending with its one-offs struck by the level rule (`oneOffs`, LEVEL). */
 function struckSpend(ctx: InsightArgs["ctx"], month: string): number {
   const spend = monthRows(ctx, month).spend;
   return spend - oneOffCents(ctx, month);

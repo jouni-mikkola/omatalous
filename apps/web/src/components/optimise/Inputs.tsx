@@ -242,7 +242,7 @@ export function InputsCard({ needed, given, areas, today, scope, onChanged }: { 
   const kept = given.filter((g) => !waiting.has(g.key) && inputDefOf(g.key));
   if (!needed.length && !kept.length) return null;
   return (
-    <Section id="tiedot" title="Tiedot, joita tarvitaan" sub="Kukin tieto tarkentaa yhtä vertailua">
+    <Section id="tiedot" title="Tiedot, joita tarvitaan">
       {needed.length > 0 && (
         <ul className="needed-list">
           {needed.map((n) => (

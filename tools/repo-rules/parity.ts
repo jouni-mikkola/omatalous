@@ -121,6 +121,8 @@ describe("repo rules: parity", () => {
     expect(sectionFiles.length, "the web report sections are found").toBeGreaterThan(5);
     const shown = new Set<string>();
     const ids = new Map<string, string>();
+    // The pages a section can be shown on (`SectionPage` in types.ts): every section names one, so a page renders its own
+    const PAGES = stringList("apps/web/src/pages/reports/types.ts", "SectionPage").items;
     for (const file of sectionFiles) {
       const sec = parse(file);
       let init: ts.ObjectLiteralExpression | undefined;
@@ -134,9 +136,13 @@ describe("repo rules: parity", () => {
         }
       });
       if (!init) {
-        found.push({ file, line: 1, why: "does not `export const section = { id, title, order, reports, Component }`, so pages/reports/registry.ts cannot show it" });
+        found.push({ file, line: 1, why: "does not `export const section = { id, title, order, page, reports, Component }`, so pages/reports/registry.ts cannot show it" });
         continue;
       }
+      const pageProp = init.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === "page");
+      const page = pageProp && plainString(pageProp.initializer);
+      if (!pageProp) found.push({ file, line: lineOf(sec, init), why: `has no \`page\`: say which page shows it (${PAGES.join(", ")})` });
+      else if (page === undefined || !PAGES.includes(page)) found.push({ file, line: lineOf(sec, pageProp), why: `names the page ${page === undefined ? "with an expression" : `"${page}"`}, which SectionPage in apps/web/src/pages/reports/types.ts does not have (${PAGES.join(", ")})` });
       for (const p of init.properties) {
         if (!ts.isPropertyAssignment(p) || !ts.isIdentifier(p.name)) continue;
         if (p.name.text === "id") {

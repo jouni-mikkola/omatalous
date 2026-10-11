@@ -14,7 +14,7 @@ import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
 import { MarksRepo } from "./finance/marks.ts";
-import { MerchantsRepo } from "./finance/merchants.ts";
+import { type MerchantFilter, MerchantsRepo } from "./finance/merchants.ts";
 import { OptimiseRepo } from "./finance/optimise.ts";
 import { RulesRepo } from "./finance/rules.ts";
 import { SyncRunsRepo } from "./finance/sync-runs.ts";
@@ -25,7 +25,7 @@ import type { Db, Statement } from "./types.ts";
 
 export { WRITE_CHUNK } from "./finance/context.ts";
 export type { NewAccount } from "./finance/accounts.ts";
-export type { MerchantHistory, MerchantSummary, UncategorisedMerchant } from "./finance/merchants.ts";
+export type { MerchantFilter, MerchantHistory, MerchantList, MerchantSummary, UncategorisedMerchant } from "./finance/merchants.ts";
 export type { TransactionFilter } from "./finance/transaction-list.ts";
 export { bankSignature, type StoredParty, searchText } from "./finance/transactions.ts";
 
@@ -114,7 +114,7 @@ export class FinanceRepo {
   uncategorisedSpending() { return this.merchants.uncategorisedSpending(); }
   merchantHistory(merchant: string, accountIds?: readonly string[]) { return this.merchants.merchantHistory(merchant, accountIds); }
   uncategorisedMerchants(limit?: number) { return this.merchants.uncategorisedMerchants(limit); }
-  merchantSummaries(f: { q?: string; category?: string; limit: number }) { return this.merchants.merchantSummaries(f); }
+  merchantSummaries(f: MerchantFilter) { return this.merchants.merchantSummaries(f); }
   hasMerchant(merchant: string) { return this.merchants.hasMerchant(merchant); }
   industryCodes(sharedOwners?: readonly string[]) { return this.merchants.industryCodes(sharedOwners); }
   industryDetails(merchants: readonly string[], sharedOwners?: readonly string[]) { return this.merchants.industryDetails(merchants, sharedOwners); }
@@ -125,6 +125,7 @@ export class FinanceRepo {
   hasMerchantRule(merchant: string) { return this.rules.hasMerchantRule(merchant); }
   setMerchantRule(merchant: string, category: string) { return this.rules.setMerchantRule(merchant, category); }
   deleteMerchantRules(merchant: string) { return this.rules.deleteMerchantRules(merchant); }
+  deleteUnknownMerchantRules() { return this.rules.deleteUnknownMerchantRules(); }
   addRule(rule: Omit<CategoryRule, "id">) { return this.rules.addRule(rule); }
   renameMerchantRules(renames: ReadonlyMap<string, string>) { return this.rules.renameMerchantRules(renames); }
   deleteRule(id: number) { return this.rules.deleteRule(id); }

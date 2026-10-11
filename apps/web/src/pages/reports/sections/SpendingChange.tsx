@@ -1,5 +1,5 @@
 // Decision: is the change in spending a reason to act, and where
-import { bucketLabel, GAP_HELP } from "@banking/core";
+import { bucketLabel } from "@banking/core";
 import { Fragment, useState } from "react";
 import { money, signedMoney } from "../../../format.ts";
 import { TableToggle } from "../parts.tsx";
@@ -145,7 +145,7 @@ function SpendingChange({ ctx }: SectionProps) {
                     <td className="num">{money(c.baseCents, false)}</td>
                     <td className={`num ${c.changeCents > 0 ? "worse" : c.changeCents < 0 ? "better" : ""}`}>{signedMoney(c.changeCents)}</td>
                     <td className="muted">
-                      {c.kind === "between" ? GAP_HELP : causes(c, c.bills)}
+                      {causes(c, c.bills)}
                       {c.restCount > 0 && `${c.buckets.length ? "; " : ""}Pienet muutokset ${signedMoney(c.restCents)}`}
                       {c.season && ` (${SEASON})`}
                     </td>
@@ -174,6 +174,8 @@ export const section: ReportSection = {
   id: "muutos",
   title: "Menojen muutos",
   order: 25,
+  // why last month differed: Kuukausi > Viime kuu, in place of the month table
+  page: "month",
   reports: ["spendingChange"],
   // a view needs three complete months before the month, or a year of history
   visible: (ctx) => ctx.data.spendingChange.views.length > 0,

@@ -149,7 +149,11 @@ export function Setup({ onDone }: { onDone: (user: User) => void }) {
   );
 }
 
-export function ChangePassword({ forced, onDone, onCancel }: { forced?: boolean; onDone: () => void; onCancel?: () => void }) {
+/**
+ * The three fields of a password change. The forced change after a temporary password shows it on a page of its own;
+ * a member who wants a new one finds it in Asetukset > Kirjautuminen.
+ */
+export function PasswordForm({ forced, onDone, onCancel }: { forced?: boolean; onDone: () => void; onCancel?: () => void }) {
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
   const { error, busy, submit } = useSubmit(async () => {
@@ -157,32 +161,39 @@ export function ChangePassword({ forced, onDone, onCancel }: { forced?: boolean;
     return api("/api/auth/password", { method: "POST", body: { current: form.current, next: form.next } });
   }, onDone);
   return (
-    <AuthCard title="Vaihda salasana" intro={forced ? "Vaihda väliaikainen salasana omaksi." : "Muut laitteet kirjautuvat ulos."}>
-      <form className="auth-form" onSubmit={submit}>
-        <label>
-          {forced ? "Väliaikainen salasana" : "Nykyinen salasana"}
-          <input type="password" autoComplete="current-password" value={form.current} onChange={set("current")} required autoFocus />
-        </label>
-        <label>
-          Uusi salasana (vähintään 12 merkkiä)
-          <input type="password" autoComplete="new-password" value={form.next} onChange={set("next")} required minLength={12} />
-        </label>
-        <label>
-          Uusi salasana uudelleen
-          <input type="password" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} required minLength={12} />
-        </label>
-        {error && <div className="error">{error}</div>}
-        <div className="form-row">
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            Vaihda salasana
+    <form className="auth-form" onSubmit={submit}>
+      <label>
+        {forced ? "Väliaikainen salasana" : "Nykyinen salasana"}
+        <input type="password" autoComplete="current-password" value={form.current} onChange={set("current")} required autoFocus={forced} />
+      </label>
+      <label>
+        Uusi salasana (vähintään 12 merkkiä)
+        <input type="password" autoComplete="new-password" value={form.next} onChange={set("next")} required minLength={12} />
+      </label>
+      <label>
+        Uusi salasana uudelleen
+        <input type="password" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} required minLength={12} />
+      </label>
+      {error && <div className="error">{error}</div>}
+      <div className="form-row">
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          Vaihda salasana
+        </button>
+        {onCancel && (
+          <button className="btn" type="button" onClick={onCancel}>
+            Peruuta
           </button>
-          {onCancel && (
-            <button className="btn" type="button" onClick={onCancel}>
-              Peruuta
-            </button>
-          )}
-        </div>
-      </form>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/** The page of the forced change: a member signs in with a temporary password and must pick their own. */
+export function ChangePassword({ onDone }: { onDone: () => void }) {
+  return (
+    <AuthCard title="Vaihda salasana" intro="Vaihda väliaikainen salasana omaksi.">
+      <PasswordForm forced onDone={onDone} />
     </AuthCard>
   );
 }
