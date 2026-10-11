@@ -3,6 +3,13 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.1
+
+For developers
+
+- The release image builds the app once on the build machine's own platform and copies the result into the amd64 and arm64 images. The arm64 install under QEMU had crashed and hung the 0.7.0 and 0.8.0 release builds.
+- The release workflow stops a build that hangs after 15 minutes, so *Re-run failed jobs* can retry it with the same push.
+
 ## 0.8.0
 
 Money and reports

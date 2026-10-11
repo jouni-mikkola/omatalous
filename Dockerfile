@@ -3,7 +3,9 @@
 # The base is pinned to an exact node minor on purpose: node:sqlite is experimental and can change between minors.
 # Bump it by hand (Dependabot proposes it) and let the upgrade workflow run before merging.
 # ── build: install, bundle (the release workflow runs the tests before it builds) ─
-FROM node:22.23-alpine3.24 AS build
+# The build stage runs on the builder's own platform: its output is plain JS and static files, and an arm64 install under
+# QEMU crashed and hung the 0.7.0 and 0.8.0 release builds.
+FROM --platform=$BUILDPLATFORM node:22.23-alpine3.24 AS build
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
