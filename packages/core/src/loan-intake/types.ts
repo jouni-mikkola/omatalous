@@ -4,7 +4,7 @@
  * (`325` is 3,25 %); dates are `YYYY-MM-DD`. A draft is a proposal: the user confirms every field before it is saved.
  */
 import type { LoanReference } from "../optimise/types.ts";
-import type { IsoDate, LoanRepayment } from "../types.ts";
+import type { IsoDate, LoanKind, LoanRepayment } from "../types.ts";
 
 /** `sure`: the label and the value were read as printed. `check`: anything less, the user looks at the source line. */
 export type DraftConfidence = "sure" | "check";
@@ -72,6 +72,8 @@ export type LoanDraft = { [K in LoanDraftKey]?: LoanDraftField<LoanDraftValues[K
    * for the others) stays as read. The form works neither kind out of the other.
    */
   paymentKind?: LoanDraftPaymentKind;
+  /** The kind of loan the text names in a heading ("Asuntolaina") or by its lender (a mortgage bank). The form preselects it; the household can change it. */
+  kind?: LoanKind;
   warnings: LoanDraftWarning[];
 };
 

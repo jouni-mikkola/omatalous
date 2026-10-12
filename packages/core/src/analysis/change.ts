@@ -26,8 +26,6 @@
 import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex } from "../dates.ts";
 import type { RecurringSeries } from "../recurring.ts";
-import { pairedReturns } from "../returns.ts";
-import { normalizeIban } from "../transfers.ts";
 import type { IsoDate } from "../types.ts";
 import { type Plan, planOf, rowsComplete, windowOf } from "./change-plan.ts";
 import { floorsOf, monthSeries, type SignalInput, standsOut } from "./change-signal.ts";
@@ -168,8 +166,6 @@ export interface ContextIndex {
   byMonth: Map<number, AnalysisTx[]>;
   /** Transactions of subscriptions and bills (the fixed costs) to their series. */
   seriesOf: Map<string, RecurringSeries>;
-  /** A returning row to the purchase it cancels (the pairing that set `refunded`). */
-  returns: Map<string, string>;
 }
 
 const indexes = new WeakMap<AnalysisContext, ContextIndex>();
@@ -186,8 +182,7 @@ export function contextIndex(ctx: AnalysisContext): ContextIndex {
   }
   const seriesOf = new Map<string, RecurringSeries>();
   for (const s of ctx.recurring) if (s.kind === "subscription" || s.kind === "bill") for (const id of s.transactionIds) seriesOf.set(id, s);
-  const ownIbans = new Set(ctx.accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
-  index = { byMonth, seriesOf, returns: pairedReturns(ctx.txs, ownIbans) };
+  index = { byMonth, seriesOf };
   indexes.set(ctx, index);
   return index;
 }
@@ -221,7 +216,9 @@ interface Rows {
 }
 
 function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
-  const { byMonth, seriesOf, returns } = contextIndex(ctx);
+  const { byMonth, seriesOf } = contextIndex(ctx);
+  // a returning row to the payment it takes back: the pairing that set `refunded`
+  const { returns } = ctx;
   const rowsOf = (m: string) => (byMonth.get(monthIndex(m)) ?? []).filter((t) => t.spend !== 0 && dayOfMonth(t) <= plan.cap);
   const target = netReturns(plan.target.flatMap(rowsOf), returns);
   const struck = oneOffs([...target, ...plan.base.flatMap(rowsOf)], LEVEL, ctx.fixedIds);

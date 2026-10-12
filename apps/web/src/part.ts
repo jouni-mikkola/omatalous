@@ -47,8 +47,9 @@ const WHOLE_PAGE = "optimise";
 
 /**
  * The line under the header that says how joint accounts are counted in the view on show, or null when there is
- * nothing to say: a viewer with no account at a part below the whole. Koko talous names the members' accounts that
- * are in view as well.
+ * nothing to say: a viewer with no account at a part below the whole, and the own view of every page but the one that
+ * counts them whole (the rows of the other pages say "osuutesi 50 %" themselves). Koko talous names the members'
+ * accounts that are in view as well.
  */
 export function scopeLine(meta: Pick<Meta, "accounts" | "sharedAccounts">, scope: Scope, page: string): string | null {
   const parts = viewsParts(meta);
@@ -59,5 +60,5 @@ export function scopeLine(meta: Pick<Meta, "accounts" | "sharedAccounts">, scope
     return [shared && (parts ? `${shared}.` : shared), whole].filter(Boolean).join(" ") || null;
   }
   if (!parts) return null;
-  return page === WHOLE_PAGE ? "Yhteiset tilit ovat tässä mukana kokonaan, koska sopimukset ovat koko talouden." : "Yhteisistä tileistä luvuissa on sinun osuutesi.";
+  return page === WHOLE_PAGE ? "Yhteiset tilit ovat tässä mukana kokonaan, koska sopimukset ovat koko talouden." : null;
 }

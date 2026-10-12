@@ -35,7 +35,7 @@ describe("a payment is never more than what is owed with its interest", () => {
     const r = run([paid, zero, ended]).loans;
     for (const row of r.loans) {
       expect(row.balance.cents, row.id).toBe(0);
-      expect(row.payment, row.id).toEqual({ cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, unknown: null });
+      expect(row.payment, row.id).toEqual({ cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, unknown: null, date: null });
     }
     expect(r.loans[0]!.payoff.date).toBe("2026-03-01");
     expect(r.payments).toEqual({ monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 });
@@ -45,7 +45,7 @@ describe("a payment is never more than what is owed with its interest", () => {
     // 150 € at 5 % against 1 000 € a month: a month's interest is 62,5 cents, a half cent up
     const last = annuity({ id: "last", balanceCents: 15000, paymentCents: 100000, reference: "euribor_12" });
     const r = run([last]).loans;
-    expect(r.loans[0]!.payment).toEqual({ cents: 15063, interestCents: 63, amortisationCents: 15000, intervalMonths: 1, unknown: null });
+    expect(r.loans[0]!.payment).toEqual({ cents: 15063, interestCents: 63, amortisationCents: 15000, intervalMonths: 1, unknown: null, date: "2026-11-01" });
     expect(r.payments).toEqual({ monthlyCents: 15063, counted: 1, unknown: 0, bullets: 0 });
     expect(r.loans[0]!.scenarios.map((s) => [s.rateBp, s.paymentCents])).toEqual([[400, 15050], [600, 15075]]);
     // the scenario reads the same payment as the row when nothing moves
@@ -65,7 +65,7 @@ describe("a payment is never more than what is owed with its interest", () => {
 describe("a typed payment without a plan", () => {
   it("an annuity without an interval tells its payment and no interval", () => {
     const r = run([annuity({ id: "no-interval", balanceCents: 300000, paymentCents: 20000, intervalMonths: null })]).loans;
-    expect(r.loans[0]!.payment).toEqual({ cents: 20000, interestCents: null, amortisationCents: null, intervalMonths: null, unknown: "interval" });
+    expect(r.loans[0]!.payment).toEqual({ cents: 20000, interestCents: null, amortisationCents: null, intervalMonths: null, unknown: "interval", date: null });
     // no interval, no share of a month: the sum says the loan is missing
     expect(r.payments).toEqual({ monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 });
   });

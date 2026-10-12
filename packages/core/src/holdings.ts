@@ -2,7 +2,8 @@
  * Decision: what the household has and owes before any analysis: each account, each card with what is used of its
  * limit, each loan with what is left. The first page (Yhteenveto) and the balance report (Saldot) read this one answer.
  *
- * It computes no figure of its own (ADR 0004) beyond the one total of the accounts' known balances. An account's
+ * It computes no figure of its own (ADR 0004) beyond the totals of a group: the accounts' known balances, the cards'
+ * known use and the loans' known balances, each added once. An account's
  * balance is the day walk's (`balanceWalk`), a debt's figures are `householdDebts`' and `loans.ts`', and so is the
  * flag for a debt that may be counted twice (`maybeTwice`). The cards' `usedCents` and the loans' `leftCents` add
  * up to the debt total, to the cent, in a member's own view as in the household's: where the viewer has a part of
@@ -76,6 +77,8 @@ export interface Holdings {
     overCents: number | null;
     balanceAt: string | null;
   })[];
+  /** The known `usedCents` of `cards` added once. Null when no card has a balance: an unknown total is never 0. */
+  cardsCents: number | null;
   /**
    * Every debt of `householdDebts` that is no connected card's: saved loans, loan accounts, a saved loan linked to a
    * loan account. `use` and `part` are those of the account that tells the debt, and for a typed loan those of the
@@ -100,9 +103,17 @@ export interface Holdings {
     /** The debt may be in the totals twice: no link says that a saved loan and a connected account are one (`maybeTwice`). */
     maybeTwice: boolean;
   })[];
+  /** The known `leftCents` of `loans` added once; a loan without a balance is not in it, as it is not in `debtCents`. Null when no loan has one. */
+  loansCents: number | null;
   /** What the household owes in all, the one debt total of `householdDebts`: the cards' `usedCents` and the loans' `leftCents` add up to it, to the cent. 0 without debt. */
   debtCents: number;
 }
+
+/** The known figures added once, in the order given; null when none is known, so that an unknown sum is not read as 0. */
+const sumKnown = (figures: readonly (number | null)[]): number | null => {
+  const known = figures.filter((c): c is number => c !== null);
+  return known.length ? known.reduce((sum, cents) => sum + cents, 0) : null;
+};
 
 /** The last four characters of an account number, null for no number or one shorter than that. */
 const accountMask = (iban: string | null | undefined): string | null => {
@@ -117,10 +128,6 @@ export const cardLimitCents = (cents: number | null | undefined): number | null 
 export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): Holdings {
   const day: IsoDate = ctx.today;
   const debts = householdDebts(balances, inputs, day);
-  const twice = maybeTwice(balances, debts);
-  const twiceLoans = new Set(twice.flatMap((t) => t.loans.map((l) => l.id)));
-  const twiceAccounts = new Set(twice.flatMap((t) => t.accounts.map((a) => a.id)));
-  const accountOf = new Map(balances.map((b) => [b.id, b]));
   // one debt for each account that has one, in `connected`'s order
   const debtOf = new Map(debts.sources.map((s, i) => [s.accountId, debts.connected[i]!]));
 
@@ -130,8 +137,6 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
       ? [{ id: b.id, name: b.name, type: b.type, bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt, mask: accountMask(numberOf.get(b.id)), ...usedOf(b) }]
       : [],
   );
-  const known = accounts.flatMap((a) => (a.balanceCents === null ? [] : [a.balanceCents]));
-  const accountsCents = known.length ? known.reduce((sum, cents) => sum + cents, 0) : null;
 
   const cards = balances.flatMap((b): Holdings["cards"] => {
     if (b.type !== "credit_card") return [];
@@ -155,9 +160,32 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     ];
   });
 
-  const loanRow = (loan: Debt, source: "account" | "typed", account: BalanceInput | undefined, flagged: boolean): Holdings["loans"][number] => {
+  const loans = heldLoans(balances, debts).map((held) => held.row);
+  return {
+    accounts,
+    accountsCents: sumKnown(accounts.map((a) => a.balanceCents)),
+    cards,
+    cardsCents: sumKnown(cards.map((c) => c.usedCents)),
+    loans,
+    loansCents: sumKnown(loans.map((l) => l.leftCents)),
+    debtCents: debts.total.cents,
+  };
+}
+
+/**
+ * The loans of a view with the debt each row is told from, in the order of `householdDebts`: every debt that is no
+ * connected card's. Asuminen reads its home loans here (`housing.ts`), so the two blocks hold the same loans at the
+ * same part.
+ */
+export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<typeof householdDebts>): { row: Holdings["loans"][number]; debt: Debt }[] {
+  const { day } = debts;
+  const twice = maybeTwice(balances, debts);
+  const twiceLoans = new Set(twice.flatMap((t) => t.loans.map((l) => l.id)));
+  const twiceAccounts = new Set(twice.flatMap((t) => t.accounts.map((a) => a.id)));
+  const accountOf = new Map(balances.map((b) => [b.id, b]));
+  const held = (loan: Debt, source: "account" | "typed", account: BalanceInput | undefined, flagged: boolean) => {
     const monthly = debtPaymentsPerMonth([loan], day);
-    return {
+    const row: Holdings["loans"][number] = {
       id: loan.id,
       name: loan.name,
       lender: loan.lender,
@@ -171,15 +199,14 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
       maybeTwice: flagged,
       ...usedOf(account),
     };
+    return { row, debt: loan };
   };
-  const loans = [
-    ...debts.saved.map((loan) => loanRow(loan, "typed", paidFrom(loan, balances), twiceLoans.has(loan.id))),
-    ...debts.connected.flatMap((loan, i): Holdings["loans"] => {
+  return [
+    ...debts.saved.map((loan) => held(loan, "typed", paidFrom(loan, balances), twiceLoans.has(loan.id))),
+    ...debts.connected.flatMap((loan, i) => {
       const accountId = debts.sources[i]!.accountId;
       const account = accountOf.get(accountId);
-      return account?.type === "credit_card" ? [] : [loanRow(loan, "account", account, twiceAccounts.has(accountId))];
+      return account?.type === "credit_card" ? [] : [held(loan, "account", account, twiceAccounts.has(accountId))];
     }),
   ];
-
-  return { accounts, accountsCents, cards, loans, debtCents: debts.total.cents };
 }

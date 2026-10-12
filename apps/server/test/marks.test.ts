@@ -120,6 +120,28 @@ describe("marks on subscriptions and alerts", () => {
     }
   });
 
+  it("takes the answer to the question about a home loan under its one subject, stores it as any mark, and takes no other question", async () => {
+    const { admin } = await setupApp();
+    const bad = ["question:other", "question:", "question", "question:Mortgage", "question:mortgage ", "question:mortgage:2", `question:${"x".repeat(201)}`, "Question:mortgage"];
+    for (const subject of bad) {
+      const res = await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" });
+      expect(res.status, subject).toBe(400);
+      expect(res.body.error, subject).toBe("Virheellinen kohde.");
+    }
+    expect((await admin.call("GET", "/api/recurring")).body.marks).toEqual([]);
+
+    const stored = await admin.call("PUT", "/api/marks", { subject: "question:mortgage", mark: "dismissed" });
+    expect(stored).toMatchObject({ status: 200, body: { marks: [{ subject: "question:mortgage", mark: "dismissed", markedAt: NOW_LOCAL }] } });
+    // it comes back with the marks of the other pages, and the subjects of before still pass beside it
+    for (const subject of ["series:out:acc-1:Helen", "alert:double:abc", "merchant:Elixia", "loan-proposal:out:acc-1:Nordea Bank Abp#60000"]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" })).status, subject).toBe(200);
+    }
+    expect((await admin.call("GET", "/api/recurring")).body.marks.map((m: { subject: string }) => m.subject)).toContain("question:mortgage");
+    // and it is taken back like any other
+    const cleared = await admin.call("PUT", "/api/marks", { subject: "question:mortgage", mark: null });
+    expect(cleared.body.marks.map((m: { subject: string }) => m.subject)).not.toContain("question:mortgage");
+  });
+
   it("needs a signed-in user and the CSRF header", async () => {
     const { app, admin } = await setupApp();
     const anonymous = await app.request("http://localhost:8080/api/marks", {
@@ -202,6 +224,34 @@ describe("marks reach the dashboard", () => {
 
     await admin.call("PUT", "/api/marks", { subject: `alert:${warning!.id}`, mark: "dismissed" });
     expect((await alertsOf(admin)).some((a) => a.kind === "cancelled")).toBe(false);
+  });
+
+  type Housing = { loans: unknown[]; charges: { seriesId: string }[]; ask: boolean } | null;
+  const housingOf = async (client: Parameters<typeof alertsOf>[0]): Promise<Housing> => (await client.call("GET", "/api/dashboard")).body.housing;
+
+  it("the question about a home loan is the member's own: a tenant is not asked, one with nothing of a home is until that member answers, and the other is still asked", async () => {
+    const { admin, member } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    const eero = await member("eero");
+    await eero.call("POST", "/api/demo");
+    // the demo household pays rent and electricity: a tenant has no home loan to add
+    expect(await housingOf(admin)).toMatchObject({ ask: false, charges: [{}, {}] });
+    // each member calls both of their charges cancelled: nothing of a home is left
+    for (const who of [admin, eero]) {
+      const { series } = (await who.call("GET", "/api/recurring")).body as { series: Parameters<typeof seriesMarkSubject>[0][] };
+      for (const charge of (await housingOf(who))!.charges) {
+        await who.call("PUT", "/api/marks", { subject: seriesMarkSubject(series.find((s) => s.id === charge.seriesId)!), mark: "cancelled" });
+      }
+      expect(await housingOf(who)).toMatchObject({ loans: [], charges: [], ask: true });
+    }
+
+    await admin.call("PUT", "/api/marks", { subject: "question:mortgage", mark: "dismissed" });
+    expect(await housingOf(admin), "nothing to show and nothing to ask").toBeNull();
+    expect(await housingOf(eero), "the answer is the member's own").toMatchObject({ ask: true });
+
+    // taken back, the question returns
+    await admin.call("PUT", "/api/marks", { subject: "question:mortgage", mark: null });
+    expect(await housingOf(admin)).toMatchObject({ ask: true });
   });
 });
 

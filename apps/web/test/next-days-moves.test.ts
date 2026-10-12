@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
-import { type Ahead, figures, footnote, isMerchant, rowLabel, rowNote } from "../src/components/next-days.ts";
+import { type Ahead, figures, incoming, payments } from "../src/components/next-days.ts";
 
 type Row = Ahead["rows"][number];
 type Balance = NonNullable<Ahead["balance"]>;
@@ -18,26 +18,15 @@ const ALL: Row[] = [
   row({ date: "2026-10-16", name: "Vuokra Esimerkki", cents: -105_000, source: "expected" }),
   CARD,
   MOVE,
-  row({ date: "2026-10-21", name: "Esimerkki Oy", category: "income", cents: 20_000, source: "income" }),
+  row({ date: "2026-10-21", name: "Pieni Esimerkki Oy", category: "income", cents: 20_000, source: "income" }),
 ];
 
-const balance = (over: Partial<Balance> = {}): Balance => ({
-  startCents: 300_000,
-  counts: "all",
-  accounts: 1,
-  balanceAt: "2026-10-12T06:00:00Z",
-  days: [
-    { date: "2026-10-12", cents: 300_000 },
-    { date: "2026-10-22", cents: 0 },
-  ],
-  last: { date: "2026-10-22", cents: 0 },
-  lowest: { date: "2026-10-22", cents: 0 },
-  ...over,
-});
+const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 300_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", freeCents: 65_500, shortCents: 0, shortOn: null, ...over });
 
-/** A window as core gives it: its totals are the sums of the rows by source, and start + income - payments - everyday ends at the last balance. */
+/** A window as core gives it: its totals are the sums of the rows by source, and what is due is the four kinds of payment. */
 function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
   const sum = (source: Row["source"]) => rows.filter((r) => r.source === source).reduce((s, r) => s + Math.abs(r.cents), 0);
+  const dueCents = sum("recurring") + sum("expected") + sum("card") + sum("transfer");
   return {
     from: "2026-10-12",
     to: "2026-10-22",
@@ -47,8 +36,8 @@ function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
     rows,
     upcoming: rows.filter((r) => r.source === "recurring" || r.source === "expected"),
     everydayPerDayCents: 3_000,
-    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: sum("card"), transferCents: sum("transfer"), everydayCents: 30_000, incomeCents: sum("income") },
-    balance: balance(),
+    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: sum("card"), transferCents: sum("transfer"), dueCents, incomeCents: sum("income") },
+    balance: balance({ freeCents: 300_000 - dueCents }),
     missing: null,
     ...over,
   };
@@ -56,78 +45,99 @@ function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
 
 const html = (a: Ahead) => plain(renderToStaticMarkup(createElement(NextDays, { ahead: a })));
 
-describe("every kind of row has its line", () => {
+describe("every kind of row has its words", () => {
+  // a source core adds has no entry here, and the file no longer compiles: the page cannot get a row without its words
   const SOURCES: Record<Row["source"], Row> = { income: ALL[4]!, recurring: ALL[0]!, expected: ALL[1]!, card: CARD, transfer: MOVE };
+  /** The one line the page makes of a row, in whichever table it lands. */
+  const lineOf = (r: Row) => [...payments(ahead([r])), ...incoming(ahead([r], { reason: "none", payday: null }))][0]!;
 
-  it("a pay, a subscription and a typed bill go by their name, a card's bill and a transfer say what they are", () => {
-    expect(Object.keys(SOURCES).map((s) => rowLabel(SOURCES[s as Row["source"]]))).toEqual(["Esimerkki Oy", "Sähköyhtiö Esimerkki", "Vuokra Esimerkki", "Korttilasku (Esimerkkipankki Gold)", "Siirto tilille (Yhteistili)"]);
+  it("every row goes by its name, whatever it is", () => {
+    expect(Object.values(SOURCES).map((r) => lineOf(r).name)).toEqual(["Pieni Esimerkki Oy", "Sähköyhtiö Esimerkki", "Vuokra Esimerkki", "Esimerkkipankki Gold", "Yhteistili"]);
   });
 
-  it("only a card's bill tells where its sum comes from", () => {
-    expect(rowNote(CARD)).toBe("Käytetty luotto tänään");
-    expect(rowNote({ ...CARD, basis: "usual" })).toBe("Arvio aiemmista laskuista");
+  it("a card's bill and an own transfer say what they are under the name, the rest say nothing", () => {
+    expect(lineOf(CARD).note).toBe("Luottokortin lasku");
+    expect(lineOf({ ...CARD, basis: "usual" }).note).toBe("Luottokortin lasku, arvio aiemmista laskuista");
     // a card row with no basis is the usual bill: the estimate is never left unsaid
-    expect(rowNote({ ...CARD, basis: undefined })).toBe("Arvio aiemmista laskuista");
-    for (const source of ["income", "recurring", "expected", "transfer"] as const) expect(rowNote(SOURCES[source])).toBeNull();
+    expect(lineOf({ ...CARD, basis: undefined }).note).toBe("Luottokortin lasku, arvio aiemmista laskuista");
+    expect(lineOf(MOVE).note).toBe("Oma siirto");
+    for (const source of ["income", "recurring", "expected"] as const) expect(lineOf(SOURCES[source]).note, source).toBeNull();
   });
 
-  it("a card's or an account's name is no merchant of Tapahtumat, any other row's name is", () => {
-    expect(isMerchant(CARD)).toBe(false);
-    expect(isMerchant(MOVE)).toBe(false);
-    for (const source of ["income", "recurring", "expected"] as const) expect(isMerchant(SOURCES[source])).toBe(true);
+  it("the name of a card or of an account is no merchant of Tapahtumat, any other row's name is", () => {
+    expect(lineOf(CARD).merchant).toBeNull();
+    expect(lineOf(MOVE).merchant).toBeNull();
+    for (const source of ["income", "recurring", "expected"] as const) expect(lineOf(SOURCES[source]).merchant, source).toBe(SOURCES[source].name);
+  });
+
+  it("a payment is a row of the payments and pay a row of what is to arrive, each with its sum as a positive figure", () => {
+    expect(payments(ahead()).map((l) => l.cents)).toEqual([4_500, 105_000, 65_000, 60_000]);
+    expect(incoming(ahead()).map((l) => [l.name, l.cents])).toEqual([
+      ["Pieni Esimerkki Oy", 20_000],
+      ["Esimerkki Oy", 300_000],
+    ]);
   });
 });
 
-describe("the figure of the payments is what core totals", () => {
-  it("holds the four kinds, so the start, the pay, the payments and the everyday spending end at the last balance", () => {
-    // 3 000,00 + 200,00 - 2 345,00 - 300,00 = 555,00, the balance core gives for the last day of this window
-    const a = ahead(ALL, { balance: balance({ last: { date: "2026-10-22", cents: 55_500 } }) });
-    const bills = figures(a).find((f) => f.key === "bills")!.cents;
-    expect(bills).toBe(4_500 + 105_000 + 65_000 + 60_000);
-    const { incomeCents, everydayCents } = a.totals;
-    expect(a.balance!.startCents + incomeCents - bills - everydayCents).toBe(a.balance!.last.cents);
-    expect(figures(a).find((f) => f.key === "left")!.cents).toBe(55_500);
+describe("the figure of what is due is what core totals", () => {
+  it("holds the four kinds of payment and no pay, and what is free is core's own figure", () => {
+    const a = ahead();
+    const [, due, free] = figures(a)!;
+    expect(due!.cents).toBe(4_500 + 105_000 + 65_000 + 60_000);
+    // 3 000,00 - 2 345,00 = 655,00: the 200,00 of other pay is in neither figure
+    expect(free!.cents).toBe(65_500);
   });
 
   it("is the sum of the listed payments, a card's bill and a transfer among them", () => {
     const out = html(ahead());
-    const listed = [...out.matchAll(/<td class="num">([\d ]+,\d\d €)<\/td>/g)].map((m) => Number(m[1]!.replace(/[ €]/g, "").replace(",", ".")) * 100);
-    expect(listed.reduce((s, c) => s + c, 0)).toBe(figures(ahead()).find((f) => f.key === "bills")!.cents);
+    const table = out.slice(out.indexOf("<table"), out.indexOf("</table>"));
+    const listed = [...table.matchAll(/<td class="st-num">([\d ]+,\d\d) €<\/td>/g)].map((m) => Math.round(Number(m[1]!.replace(/ /g, "").replace(",", ".")) * 100));
+    expect(listed).toHaveLength(4);
+    expect(listed.reduce((s, c) => s + c, 0)).toBe(figures(ahead())![1]!.cents);
   });
 
-  it("a household with no card's bill and no transfer has the figure it had", () => {
-    const rows = [ALL[0]!, ALL[1]!];
-    expect(figures(ahead(rows)).find((f) => f.key === "bills")!.cents).toBe(4_500 + 105_000);
+  it("a household with no card's bill and no transfer has the figure of its bills", () => {
+    expect(figures(ahead([ALL[0]!, ALL[1]!]))![1]!.cents).toBe(4_500 + 105_000);
   });
 });
 
-describe("the list on the page", () => {
-  it("shows the card's bill and the transfer with their lines and no link to Tapahtumat, a bill with its link", () => {
+describe("the tables on the page", () => {
+  it("show the card's bill and the transfer by name with their lines and no link to Tapahtumat, a bill with its link", () => {
     const out = html(ahead());
-    expect(out).toContain("Korttilasku (Esimerkkipankki Gold)");
-    expect(out).toContain("Siirto tilille (Yhteistili)");
-    expect(out).toContain("Käytetty luotto tänään");
+    expect(out).toContain('<td title="Esimerkkipankki Gold">Esimerkkipankki Gold<div class="st-sub">Luottokortin lasku</div></td>');
+    expect(out).toContain('<td title="Yhteistili">Yhteistili<div class="st-sub">Oma siirto</div></td>');
     expect(out).not.toContain("merchant=Esimerkkipankki");
     expect(out).not.toContain("merchant=Yhteistili");
-    expect(out).toContain('merchant=S%C3%A4hk%C3%B6yhti%C3%B6');
+    expect(out).toContain("merchant=S%C3%A4hk%C3%B6yhti%C3%B6");
+    expect(html(ahead([{ ...CARD, basis: "usual" }]))).toContain("Luottokortin lasku, arvio aiemmista laskuista");
   });
 });
 
-describe("the foot says which accounts the balance counts", () => {
-  it("says nothing of the accounts when every checking account in view is counted", () => {
-    expect(plain(footnote(balance({ counts: "all" })))).toBe("Lähtösaldo 3 000 €, laskettu pankin saldosta 12.10.2026.");
+describe("the line under Saldo says which accounts the balance counts", () => {
+  const notes = (over: Partial<Balance>) => figures(ahead(ALL, { balance: balance(over) }))![0]!.notes;
+
+  it("says nothing of the accounts when the one checking account in view is counted", () => {
+    expect(notes({ counts: "all", accounts: 1 })).toEqual([]);
   });
 
-  it("says the joint accounts are left out when the viewer's own accounts are counted", () => {
-    expect(plain(footnote(balance({ counts: "own" })))).toBe("Lähtösaldo 3 000 €, laskettu pankin saldosta 12.10.2026. Yhteiset tilit eivät ole mukana.");
+  it("says how many when every checking account in view is counted and there are several", () => {
+    expect(notes({ counts: "all", accounts: 2 })).toEqual(["2 käyttötiliä"]);
+    expect(notes({ counts: "all", accounts: 3 })).toEqual(["3 käyttötiliä"]);
   });
 
-  it("says only the viewer's part of a joint account is counted when no account is theirs alone", () => {
-    expect(plain(footnote(balance({ counts: "part", balanceAt: null })))).toBe("Lähtösaldo 3 000 €. Mukana on vain osuutesi yhteisestä tilistä.");
+  it("says the joint account is left out when the viewer's own accounts are counted", () => {
+    expect(notes({ counts: "own" })).toEqual(["Omat käyttötilit, ilman yhteistä tiliä"]);
+    expect(notes({ counts: "own", accounts: 2 })).toEqual(["Omat käyttötilit, ilman yhteistä tiliä"]);
   });
 
-  it("shows the sentence on the page, under the card", () => {
-    expect(html(ahead(ALL, { balance: balance({ counts: "part" }) }))).toContain("Mukana on vain osuutesi yhteisestä tilistä.");
+  it("says only the viewer's part of a joint account is counted when no account is theirs alone, and an old balance says its day after it", () => {
+    expect(notes({ counts: "part" })).toEqual(["Osuutesi yhteisestä tilistä"]);
+    expect(notes({ counts: "part", balanceAt: "2026-10-09T06:00:00Z" })).toEqual(["Osuutesi yhteisestä tilistä", "Saldo päivältä 9.10.2026"]);
+  });
+
+  it("shows the line on the page, in the row of Saldo", () => {
+    expect(html(ahead(ALL, { balance: balance({ counts: "part" }) }))).toContain('<dt class="st-name">Saldo</dt><dd class="st-num">3 000,00 €</dd><dd class="st-sub">Osuutesi yhteisestä tilistä</dd>');
     expect(html(ahead())).not.toContain("osuutesi");
+    expect(html(ahead())).not.toContain("Osuutesi");
   });
 });

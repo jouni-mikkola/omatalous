@@ -33,9 +33,13 @@
 /* the date of the next charge stays on one line; the name column gives way instead */
 .series-table td.next { white-space: nowrap; }
 
-/* a group inside the subscriptions table: asked about, the rest, marked as cancelled */
-.series-table tr.group-head th { padding-top: 14px; color: var(--text-2); font-size: 13px; font-weight: 600; white-space: normal; }
-.series-table tbody:first-of-type tr.group-head th { padding-top: 6px; }
+/* a group inside a table. The subscriptions: asked about, the rest, marked as cancelled. The payments that fall due: to the pay day, after it */
+:is(.series-table, .coming-table) tr.group-head th { padding-top: 14px; color: var(--text-2); font-size: 13px; font-weight: 600; white-space: normal; }
+:is(.series-table, .coming-table) tbody:first-of-type tr.group-head th { padding-top: 6px; }
+/* the group of payments has its sum at the right of its head row, in the column of the amounts and under the same line */
+.coming-table tr.group-head th { padding-left: 0; }
+.coming-table tr.group-head td { padding-top: 14px; font-weight: 600; vertical-align: bottom; }
+.coming-table tbody:first-of-type tr.group-head td { padding-top: 6px; }
 .group-sub { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; font-weight: 400; }
 
 /* what to do with a subscription: the saving, then the two answers; a mark replaces them with a badge and an undo */
@@ -53,7 +57,4 @@
 .bills-line { margin: 0; font-size: 15px; color: var(--text-2); }
 .bills-line strong { color: var(--text); font-variant-numeric: tabular-nums; }
 
-/* Tulossa: the sum and the button that opens the form sit together in the card head */
-.coming-total { display: flex; align-items: center; gap: 12px; }
-.coming-total strong { font-variant-numeric: tabular-nums; }
 .bills-more { margin-top: 8px; }

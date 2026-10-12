@@ -1,6 +1,7 @@
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
-import { addDays, DAYS_PER_MONTH, daysBetween, monthIndex } from "./dates.ts";
+import { addDays, addMonths, dateIn, DAYS_PER_MONTH, daysBetween, monthEnd, monthIndex, monthOf } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { followDay, type PayFollow, payFollowOf } from "./pay-follow.ts";
 import { addMonthsKeepDay, CADENCES, type Cadence, type CadenceDef, fitCadence, nextDateOf, SEMIMONTHLY } from "./recurring-cadence.ts";
 import { chargesPerYear, isFixedAmount, latestPriceChange, yearlyCostOf } from "./recurring-cost.ts";
 import { type Occurrence, type SeriesInput, toOccurrences } from "./recurring-occurrence.ts";
@@ -36,6 +37,8 @@ export interface RecurringSeries {
   firstDate: IsoDate;
   lastDate: IsoDate;
   nextDate: IsoDate | null;
+  /** Set on a series that follows a pay (pay-follow.ts): its dates are the days of that pay, not days of its own. */
+  follows?: PayFollow;
   /** Always positive. Median of the latest charges. */
   typicalAmountCents: number;
   lastAmountCents: number;
@@ -100,6 +103,8 @@ const OVERDUE_DAYS = 5;
 const NEVER_RECURRING = new Set(["p2p", "p2p_in", "cash"]);
 
 const monthsBetween = (first: IsoDate, last: IsoDate) => monthIndex(last) - monthIndex(first) + 1;
+/** Active, and the next charge is more than five days late. */
+const isOverdue = (active: boolean, nextDate: IsoDate, today: IsoDate) => active && daysBetween(nextDate, today) > OVERDUE_DAYS;
 
 function buildSeries(
   id: string,
@@ -147,7 +152,7 @@ function buildSeries(
     perMonth: perYear / 12,
     monthsActive: monthsBetween(first.date, last.date),
     active,
-    overdue: active && daysBetween(nextDate, today) > OVERDUE_DAYS,
+    overdue: isOverdue(active, nextDate, today),
     review: false,
     confidence: Math.round(regularity * Math.min(1, occ.length / (cadence.minOccurrences + 3)) * 100) / 100,
     priceChange,
@@ -261,6 +266,17 @@ export function detectRecurring(txs: readonly SeriesInput[], today: IsoDate): Re
     for (const s of found) s.review = needsReview(s, otherPurchases);
     result.push(...found);
   }
+  // a bill paid when the pay arrives comes with the next pay, not a month from its last charge
+  const bookedOn = new Map<string, IsoDate>();
+  const datesOf = (s: RecurringSeries) => {
+    if (!bookedOn.size) for (const t of txs) bookedOn.set(t.id, t.bookingDate);
+    return [...new Set(s.transactionIds.map((id) => bookedOn.get(id)!))].sort();
+  };
+  for (const [s, follows] of payFollowOf(result, datesOf)) {
+    s.follows = follows;
+    s.nextDate = followDay(s.nextDate!, follows);
+    s.overdue = isOverdue(s.active, s.nextDate, today);
+  }
   return result.sort((a, b) => b.monthlyCents - a.monthlyCents);
 }
 
@@ -329,16 +345,21 @@ function mostCommon(values: readonly string[]): string {
 }
 
 /**
- * Expected charge dates after the last one, up to `until` (inclusive). Empty
- * for habits, which have no schedule.
+ * Expected charge dates after the last one, up to `until` (inclusive): the next date of the series and the steps of
+ * its cadence from there. Empty for habits, which have no schedule.
  */
-export function projectDates(s: Pick<RecurringSeries, "cadence" | "lastDate" | "nextDate">, until: IsoDate): IsoDate[] {
+export function projectDates(s: Pick<RecurringSeries, "cadence" | "lastDate" | "nextDate" | "follows">, until: IsoDate): IsoDate[] {
   if (!s.cadence || !s.nextDate) return [];
   const def = s.cadence === "semimonthly" ? SEMIMONTHLY : CADENCES.find((c) => c.id === s.cadence)!;
   const out: IsoDate[] = [];
   if (def.months) {
-    for (let k = 1; ; k++) {
-      const d = addMonthsKeepDay(s.lastDate, k * def.months);
+    // every step keeps the day of the next date; a next date on the last day of a shorter month stands for the later day of the last charge
+    const month = monthOf(s.nextDate);
+    const [day, lastDay] = [Number(s.nextDate.slice(8, 10)), Number(s.lastDate.slice(8, 10))];
+    const keep = s.nextDate === monthEnd(month) && lastDay > day ? lastDay : day;
+    for (let k = 0; ; k++) {
+      // a series that follows a pay comes with the pay of each of those months
+      const d = k === 0 ? s.nextDate : s.follows ? followDay(addMonthsKeepDay(s.nextDate, k * def.months), s.follows) : dateIn(addMonths(month, k * def.months), keep);
       if (d > until) break;
       out.push(d);
     }

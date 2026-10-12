@@ -3,7 +3,7 @@
  */
 import { billCents } from "../account-use.ts";
 import { expectedDates } from "../commitments.ts";
-import { addDays, addMonths, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { addDays, addMonths, dayNumber, daysInMonth, monthEnd, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
@@ -63,40 +63,31 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
   };
 }
 
-type MonthStats = Map<number, { spend: number; everyday: number }>;
-const statsCache = new WeakMap<AnalysisContext, MonthStats>();
+/** The usual day is read from this many whole weeks at most, the latest ones. */
+const USUAL_WEEKS = 13;
+/** Fewer whole weeks than this say nothing of a usual day. */
+const MIN_USUAL_WEEKS = 8;
 
 /**
- * Spending per month (consumption + debt) and the part of it that is everyday: not in a subscription or bill series.
- * Keyed by month index. With `accounts`, of the rows of those accounts only.
- */
-function statsOf(ctx: AnalysisContext, accounts?: ReadonlySet<string>): MonthStats {
-  const stats: MonthStats = new Map();
-  for (const t of ctx.txs) {
-    if (accounts && !accounts.has(t.accountId)) continue;
-    const e = stats.get(t.month) ?? { spend: 0, everyday: 0 };
-    e.spend += t.spend;
-    if (!ctx.fixedIds.has(t.id)) e.everyday += t.spend;
-    stats.set(t.month, e);
-  }
-  return stats;
-}
-
-/** `statsOf` over every account: one pass per context. */
-function monthStats(ctx: AnalysisContext): MonthStats {
-  let stats = statsCache.get(ctx);
-  if (!stats) statsCache.set(ctx, (stats = statsOf(ctx)));
-  return stats;
-}
-
-/**
- * The usual everyday spending per day for the month: the median of the complete months before it, in cents and
- * fractional. 0 without a complete month. The median keeps one sofa out of it. With `accounts`, what those accounts
- * paid themselves: the payday window passes the accounts whose balance it counts.
+ * The usual everyday spending of a day for the month, in cents and fractional: the median week by seven. Everyday is
+ * what is in no subscription or bill series. The weeks are spans of seven days, the last one ending on the last day of
+ * the last complete month before `month`, thirteen at most, and each wholly inside the history. One large purchase
+ * moves one week of thirteen and leaves the median where it was. 0 under eight such weeks. With `accounts`, what those
+ * accounts paid themselves: the payday window passes the accounts whose balance it counts.
  */
 export function everydayPerDay(ctx: AnalysisContext, month: string, accounts?: ReadonlySet<string>): number {
-  const stats = accounts ? statsOf(ctx, accounts) : monthStats(ctx);
-  return median(completeMonthsBefore(ctx, month).map((m) => (stats.get(monthIndex(m))?.everyday ?? 0) / daysInMonth(m)));
+  const [last] = completeMonthsBefore(ctx, month, 1);
+  if (!last) return 0;
+  const end = dayNumber(monthEnd(last));
+  // a complete month has a first row behind it
+  const whole = Math.min(USUAL_WEEKS, Math.floor((end - dayNumber(ctx.dataFrom!) + 1) / 7));
+  if (whole < MIN_USUAL_WEEKS) return 0;
+  const weeks = new Array<number>(whole).fill(0);
+  for (const t of inDays(ctx, { fromDay: end - 7 * whole + 1, toDay: end })) {
+    if (ctx.fixedIds.has(t.id) || (accounts && !accounts.has(t.accountId))) continue;
+    weeks[Math.floor((end - t.day) / 7)]! += t.spend;
+  }
+  return median(weeks) / 7;
 }
 
 /** A date of a bill the household typed in. */

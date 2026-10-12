@@ -4,7 +4,9 @@ import type { Transaction } from "../types.ts";
 /**
  * What one transaction contributes to each money flow, in positive cents
  * ("more of this"). A refund makes `consumption` negative, money taken out
- * of savings makes `saved` negative.
+ * of savings makes `saved` negative. Which money in on a spending category
+ * is a refund the row alone does not tell: the context asks `moneyIn`, and
+ * what is no refund counts as income (`incomeOf`).
  */
 export interface Flows {
   /** Spending on goods and services. */
@@ -19,6 +21,9 @@ export interface Flows {
 }
 
 const ZERO: Flows = { consumption: 0, debt: 0, saved: 0, income: 0, borrowed: 0 };
+
+/** Money in that is income whatever category the row was put in. */
+export const incomeOf = (cents: number): Flows => ({ ...ZERO, income: cents });
 
 export type FlowInput = Pick<Transaction, "accountId" | "amountCents" | "category" | "isTransfer">;
 
@@ -38,7 +43,7 @@ export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, lo
     case "savings":
       return { ...ZERO, saved: -t.amountCents };
     case "income":
-      return { ...ZERO, income: t.amountCents };
+      return incomeOf(t.amountCents);
     case "transfer":
       return t.category === "credit_draw" ? { ...ZERO, borrowed: t.amountCents } : ZERO;
   }

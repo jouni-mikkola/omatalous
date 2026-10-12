@@ -40,7 +40,7 @@ test("a mark is on one subscription: of a merchant's two, Lopetettu takes one ou
 
     // the dearer one is a small service paid for a year, and the overview asks about it; the 0,99 is too small to ask about
     await page.goto("/#/overview");
-    const alerts = page.getByRole("list", { name: "Huomiot" });
+    const alerts = page.getByRole("list", { name: "Ilmoitukset" });
     await expect(alerts.getByText(/Apple 12,99\s€\/kk/)).toBeVisible();
     await expect(alerts.getByText(/Apple 0,99\s€\/kk/)).toHaveCount(0);
 

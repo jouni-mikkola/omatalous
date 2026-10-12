@@ -1,133 +1,106 @@
-// Decision: do I have enough on the account until the pay comes
-import { useState } from "react";
+// Decision: does the account cover what is due before the next pay
 import { query } from "../api.ts";
-import { LineChart } from "../charts/LineChart.tsx";
-import { completeMonths, dayMonth, money, plural } from "../format.ts";
+import { money } from "../format.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
 import "../styles/ahead.css";
-import { type Ahead, figures, footnote, heading, isMerchant, listCaption, payLine, rowLabel, rowNote, warning } from "./next-days.ts";
+import "../styles/statement.css";
+import { type Ahead, figures, incoming, payments, paymentsCaption, warning, windowLine } from "./next-days.ts";
 
-type Row = Ahead["rows"][number];
-
-const signed = (cents: number) => (cents > 0 ? `+${money(cents)}` : money(cents));
+type Line = ReturnType<typeof payments>[number];
 
 /**
- * What the household has to know before the next pay: the payday, the payments before it, the usual everyday spending,
- * what is left on the last day, and with a checking balance its line. The pay is the last line, apart from the rows.
- * Laskut > Tulossa lists the same payments and lets a bill be added.
+ * What is due before the next pay, as a statement of two groups: at the left the balance, the payments of the window
+ * and what is left, under the line that names the window; at the right the payments one by one and the pay that is to
+ * arrive. Nothing is modelled. Laskut lists the same payments for 30 days and lets a bill be added.
  */
 export function NextDays({ ahead }: { ahead: Ahead }) {
-  const { rows, balance } = ahead;
-  const head = heading(ahead);
-  const low = warning(ahead);
-  const pay = payLine(ahead);
-  const bills = rows.filter((r) => r.cents < 0);
-  // bills first, each in date order; other pay that lands before the payday comes after them
-  const listed = [...bills, ...rows.filter((r) => r.cents > 0)];
+  const three = figures(ahead);
+  const short = warning(ahead);
+  const due = payments(ahead);
+  const coming = incoming(ahead);
 
   return (
-    <>
+    <section className="card st-block" aria-labelledby="ahead-h">
       <div className="card-head">
+        <h2 id="ahead-h">Erääntyvät maksut</h2>
+      </div>
+      {short && <p className="notice warning ahead-warning">{short}</p>}
+      <div className="st-cols st-cols-3">
         <div>
-          <h2>{head.title}</h2>
-          <div className="card-sub">{head.sub}</div>
+          <h3 className="st-cap ahead-window">{windowLine(ahead)}</h3>
+          {three ? (
+            <dl className="st-rows">
+              {three.map((f) => (
+                <div key={f.key} className={f.key === "free" ? "st-row st-total" : "st-row"}>
+                  <dt className="st-name">{f.label}</dt>
+                  <dd className="st-num">{money(f.cents)}</dd>
+                  {f.notes.map((note) => (
+                    <dd key={note} className="st-sub">
+                      {note}
+                    </dd>
+                  ))}
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="ahead-missing">
+              Tilin saldo ei ole tiedossa. <a href={`#/settings#${SETTINGS_ANCHOR.accounts}`}>Lisää saldo</a>
+            </p>
+          )}
+        </div>
+        <div className="st-wide">
+          <Lines caption={paymentsCaption(ahead)} hidden head={["Eräpäivä", "Saaja"]} lines={due} />
+          {due.length > 0 && <p className="st-note">Eräpäivät ja summat ovat arvioita.</p>}
+          {coming.length > 0 && <Lines caption="Saapuvat maksut" head={["Päivä", "Maksaja"]} lines={coming} />}
+          <p className="st-links">
+            <a href="#/bills">Laskut</a>
+            <a href="#/bills">Lisää lasku</a>
+          </p>
         </div>
       </div>
-      {low && <div className="notice warning ahead-verdict">{low}</div>}
-      <dl className="ahead-figures">
-        {figures(ahead).map((f) => (
-          <div key={f.key} className={f.key === "left" ? "ahead-figure ahead-figure-left" : "ahead-figure"}>
-            <dt>
-              {f.label}
-              {f.note && <span className="small muted">{f.note}</span>}
-            </dt>
-            <dd>{money(f.cents, false)}</dd>
-          </div>
-        ))}
-      </dl>
-      {balance && <BalanceChart ahead={ahead} balance={balance} />}
-      {listed.length === 0 && !pay && <p className="small muted">Laskut ja palkkapäivät näkyvät, kun sama maksu on tullut kahdesti.</p>}
-      {listed.length > 0 && (
-        <table className="compact">
-          <caption className="sr-only">{listCaption(ahead)}</caption>
-          <tbody>
-            {listed.map((r, i) => {
-              const note = rowNote(r);
-              return (
-                <tr key={`${r.date}-${r.name}-${i}`}>
-                  <td>
-                    {isMerchant(r) ? <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a> : rowLabel(r)}
-                    {note && <div className="sub">{note}</div>}
-                  </td>
-                  <td className="num muted">{dayMonth(r.date)}</td>
-                  <td className={r.cents > 0 ? "num ahead-in" : "num"}>{r.cents > 0 ? signed(r.cents) : money(-r.cents)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-      {pay && (
-        <div className="ahead-pay">
-          <a href={`#/transactions${query({ merchant: pay.name })}`}>{pay.name}</a>
-          <span className="muted">{pay.when}</span>
-          <span className="num ahead-in">{signed(pay.cents)}</span>
-        </div>
-      )}
-      {bills.length > 0 && (
-        <p className="small ahead-more">
-          {plural(bills.length, "maksu", "maksua")} · <a href="#/bills">Laskut</a>
-        </p>
-      )}
-      {ahead.missing === "balance" && (
-        <p className="small muted ahead-note">
-          Lisää saldo kohdassa <a href={`#/settings#${SETTINGS_ANCHOR.accounts}`}>Asetukset &gt; Tilit</a>, niin näet saldon päivittäin.
-        </p>
-      )}
-      {ahead.missing === "history" && <p className="small muted ahead-note">{`Saldon kehitys näkyy, kun historiassa on ${completeMonths(1)}.`}</p>}
-      {balance && <p className="small muted ahead-note">{footnote(balance)}</p>}
-    </>
+    </section>
   );
 }
 
-/** The balance by day as a line, and the same days as a table. The chart cannot mark a day, so the payday is not drawn on it. */
-function BalanceChart({ ahead, balance }: { ahead: Ahead; balance: NonNullable<Ahead["balance"]> }) {
-  const [table, setTable] = useState(false);
-  const byDay = new Map<string, Row[]>();
-  for (const r of ahead.rows) byDay.set(r.date, [...(byDay.get(r.date) ?? []), r]);
-
+/**
+ * One of the two tables: the day, the name with the line under it, the sum. A caption the block's heading already says
+ * is for a screen reader only. A table with no line says so in its one row.
+ */
+function Lines({ caption, hidden = false, head, lines }: { caption: string; hidden?: boolean; head: [string, string]; lines: Line[] }) {
   return (
-    <div className="ahead-balance">
-      <div className="ahead-chart-head">
-        <span className="small muted">Tilin saldo päivän lopussa</span>
-        <button className="btn btn-small" type="button" onClick={() => setTable((v) => !v)} aria-pressed={table}>
-          {table ? "Kaavio" : "Taulukko"}
-        </button>
-      </div>
-      {table ? (
-        <div className="table-wrap ahead-table">
-          <table className="compact">
-            <thead>
-              <tr>
-                <th>Päivä</th>
-                <th>Maksut</th>
-                <th className="num">Saldo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {balance.days.map((d) => (
-                <tr key={d.date}>
-                  <td className="muted">{dayMonth(d.date)}</td>
-                  <td>{(byDay.get(d.date) ?? []).map((r) => `${rowLabel(r)} ${signed(r.cents)}`).join(", ")}</td>
-                  <td className="num">{money(d.cents, false)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <LineChart labels={balance.days.map((d) => dayMonth(d.date))} series={[{ key: "balance", label: "Saldo", color: "var(--series-1)", values: balance.days.map((d) => d.cents) }]} height={170} />
-      )}
-    </div>
+    <table className="st-table ahead-table">
+      <caption className={hidden ? "sr-only" : "st-cap"}>{caption}</caption>
+      <colgroup>
+        <col className="ahead-day" />
+        <col />
+        <col className="ahead-sum" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th scope="col">{head[0]}</th>
+          <th scope="col">{head[1]}</th>
+          <th scope="col" className="st-num">
+            Summa
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((l, i) => (
+          <tr key={`${l.day}-${l.name}-${i}`}>
+            <td>{l.day}</td>
+            <td title={l.name}>
+              {l.merchant ? <a href={`#/transactions${query({ merchant: l.merchant })}`}>{l.name}</a> : l.name}
+              {l.note && <div className="st-sub">{l.note}</div>}
+            </td>
+            <td className="st-num">{money(l.cents)}</td>
+          </tr>
+        ))}
+        {lines.length === 0 && (
+          <tr>
+            <td colSpan={3}>Ei erääntyviä maksuja.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }

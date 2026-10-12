@@ -51,7 +51,7 @@ test("linking the fake bank brings four accounts: the joint one with both holder
   const balances = await (await context.request.get(`${bank.url}/accounts/fb-chk/balances`, { headers: { Authorization: "Bearer test" } })).json();
   await page.goto("/#/overview");
   const holdings = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varallisuus", exact: true }) });
-  const amount = holdings.locator(".holding-row", { hasText: "Käyttötili" }).locator(".holding-amount");
+  const amount = holdings.locator(".st-row", { hasText: "Käyttötili" }).locator(".st-num");
   await expect(amount).toBeVisible();
   expect(cents(await amount.innerText())).toBe(cents(balances.balances[0].balance_amount.amount.replace(".", ",")));
 

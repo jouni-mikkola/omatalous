@@ -130,7 +130,8 @@ describe("money a user pays into the joint account", () => {
       { category: "sales", categorySource: "user", isTransfer: false, amountCents: 20000 },
       { category: "groceries", isTransfer: false, amountCents: 1500 },
     ]);
-    expect(totals(rows, [joint]).incomeCents).toBe(40000);
+    // the money back on groceries has no payment behind it, so it is income as well: 200,00 + 200,00 + 15,00
+    expect(totals(rows, [joint]).incomeCents).toBe(41500);
   });
 
   it("the joint account pays her own account: his part of it is money to a person", () => {

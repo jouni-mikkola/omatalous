@@ -141,8 +141,8 @@ describe("totals", () => {
     for (const t of ctx.txs) if (t.bookingDate >= range.from && t.spend) net.set(t.category, (net.get(t.category) ?? 0) + t.spend);
     const positive = [...net.values()].filter((v) => v > 0).reduce((a, b) => a + b, 0);
     expect(rep.categories.totalCents).toBe(d.totals.expenseCents);
-    // the dashboard's own category list still leaves such a category out
-    expect(d.categories.reduce((s, c) => s + c.cents, 0)).toBe(positive);
+    // the dashboard's own category list holds such a category too, so its rows add up to the spending
+    expect(d.categories.reduce((s, c) => s + c.cents, 0)).toBe(d.totals.expenseCents);
     expect(positive).toBeGreaterThanOrEqual(d.totals.expenseCents);
     expect(rep.cashflow.totals).toEqual(d.totals);
     expect(rep.summary.spendingCents).toBe(d.totals.expenseCents);

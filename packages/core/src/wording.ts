@@ -48,11 +48,12 @@ export const isPaymentMethodName = (folded: string) => PAYMENT_METHOD_NAME.test(
 export const LANDLORD_WORDS =
   "SATO|KOJAMO|LUMO|HEKA|TA-YHTYMA|AVARA|M2-KODIT|Y-SAATIO|ASUNTOSAATIO|HOAS|TOAS|PSOAS|TYS|KOAS|JOENSUUN ELLI|SIVAKKA|LAHDEN TALOT|ESPOON ASUNNOT|VANTAAN ASUNNOT";
 const RENT = new RegExp(`(?<![A-Z])(?:VUOKRA[A-Z]*|${LANDLORD_WORDS})(?![A-Z])`);
-/** A housing company's vastike, a parking place or a storage unit: no home's rent, even when the text says VUOKRA. */
-const NOT_RENT = /(?<![A-Z])(?:[A-Z]*VASTIKE|AS OY|AS\. OY|ASOY|ASUNTO OY|ASUNTO-OSAKEYHTIO|AUTOPAIK[A-Z]*|AUTOTALLI[A-Z]*|AUTOKATOS[A-Z]*|PARKKI[A-Z]*|PYSAKOINTI[A-Z]*|[A-Z]*VARASTO[A-Z]*|[A-Z]*STORAGE|SHURGARD)(?![A-Z])/;
-
-/** A home's rent in a folded payee or payment text: a landlord or the word for rent. */
-export const isRent = (folded: string): boolean => RENT.test(folded) && !NOT_RENT.test(folded);
+const CAR_PLACE_WORDS = "AUTOPAIK[A-Z]*|AUTOTALLI[A-Z]*|AUTOKATOS[A-Z]*";
+/** A housing company's vastike, a parking place (`CAR_PLACE_WORDS`, a row of its own in Asuminen) or a storage unit: no home's rent, even when the text says VUOKRA. */
+const NOT_RENT = new RegExp(String.raw`(?<![A-Z])(?:[A-Z]*VASTIKE|AS OY|AS\. OY|ASOY|ASUNTO OY|ASUNTO-OSAKEYHTIO|${CAR_PLACE_WORDS}|PARKKI[A-Z]*|PYSAKOINTI[A-Z]*|[A-Z]*VARASTO[A-Z]*|[A-Z]*STORAGE|SHURGARD)(?![A-Z])`);
+const BESIDE_RENT = new RegExp(String.raw`(?<![A-Z])(?:(?:${CAR_PLACE_WORDS}) ?(?:JA|\+|&)|(?:JA|\+|&) ?(?:${CAR_PLACE_WORDS}))(?![A-Z])`);
+/** A home's rent in a folded payee or payment text: a landlord or the word for rent. A car place joined to it ("Vuokra ja autopaikka") is on the rent's bill. */
+export const isRent = (folded: string): boolean => RENT.test(folded) && !NOT_RENT.test(folded.replace(BESIDE_RENT, " "));
 
 /**
  * What a company form is used for. The lists differ on purpose: a short form such as AS or SR is also a word of a
@@ -413,6 +414,49 @@ const HOUSING_COMPANY = words(String.raw`AS OY|AS\. OY|ASOY|ASUNTO OY|ASUNTO-OSA
  * and its series is never a loan to propose (docs/MONEY_FLOWS.md).
  */
 export const isHousingCompanyName = (foldedPayee: string) => HOUSING_COMPANY.test(foldedPayee);
+
+// ── what a home's payment is called (Asuminen on the first page, `housing.ts`) ──
+
+/** A word of the list in a payment's payee or text, with the endings the list gives. A bank glues a number on ("HOITOVASTIKE10"). */
+const says = (list: string) => {
+  const re = words(list, true);
+  return (all: string) => re.test(all);
+};
+const VASTIKE = "VASTIKK?E[A-Z]*";
+/** Water as a word of its own, or in a utility's name and bill: VESIKATTO is a roof. */
+const WATER = says("VESI(?:(?:HUOLTO|LAITOS|OSUUSKUNTA|LASKU|ENNAKKO)[A-Z]*)?");
+const WATER_CHARGE = says("[A-Z]*VESIMAKSU[A-Z]*");
+const ANY_VASTIKE = says(`[A-Z]*${VASTIKE}`);
+/** As the electricity area reads a bill (`billKind`): in its own category only, none that names heat, water or waste, a network before a seller. */
+const power = (all: string, payee: string, utility: boolean): "grid" | "seller" | null =>
+  !utility || isHeatWaterOrWaste(all) ? null : isElectricityCooperative(payee) ? "seller" : isNetworkCompany(payee) ? "grid" : isElectricitySeller(payee) ? "seller" : null;
+/** The names a housing company, a landlord and a utility give a home's payments: the id, the Finnish and what tells it. The first that holds wins. */
+const HOME_CHARGES = [
+  ["financing", "Rahoitusvastike", says(`RAHOITUS${VASTIKE}|LAINAOSUU[A-Z]*|YHTIOLAINA[A-Z]*`)],
+  ["capital", "Pääomavastike", says(`PAAOMA${VASTIKE}`)],
+  ["maintenance", "Hoitovastike", says(`HOITO${VASTIKE}`)],
+  ["occupancy", "Käyttövastike", says(`KAYTTO${VASTIKE}|ASUMISOIKEU[A-Z]*`)],
+  // water billed by the house is a charge of living there, whatever word the payment has for it; it and the car place give way to a bill of rent or vastike
+  ["water_charge", "Vesimaksu", (all, payee) => WATER_CHARGE(all) || (WATER(all) && (isHousingCompanyName(payee) || isRent(payee)))],
+  ["parking", "Autopaikka", says(CAR_PLACE_WORDS)],
+  ["rent", "Vuokra", isRent],
+  ["charge", "Vastike", (all, payee) => ANY_VASTIKE(all) || isHousingCompanyName(payee)],
+  ["grid", "Sähkönsiirto", (...row) => power(...row) === "grid"],
+  ["electricity", "Sähkö", (...row) => power(...row) === "seller"],
+  ["district_heat", "Kaukolämpö", says("KAUKOLAM(?:PO|MO)[A-Z]*")],
+  ["water", "Vesi", WATER],
+] as const satisfies readonly (readonly [string, string, (all: string, payee: string, utility: boolean) => boolean])[];
+
+/**
+ * What a payment for a home is, from its folded payee and its folded text: the id and the Finnish name, or null when
+ * the words name nothing and the payee stands alone. `utility`: the payment is in the category of electricity, water
+ * and heat, where a payee's name tells a seller from a network.
+ */
+export function housingCharge(foldedPayee: string, foldedText: string, utility: boolean): { kind: (typeof HOME_CHARGES)[number][0]; label: string } | null {
+  const billed = ANY_VASTIKE(foldedText) || isRent(foldedText);
+  const found = HOME_CHARGES.find(([kind, , holds]) => !(billed && (kind === "water_charge" || kind === "parking")) && holds(`${foldedPayee} ${foldedText}`, foldedPayee, utility));
+  return found ? { kind: found[0], label: found[1] } : null;
+}
 
 const NAMED_LAINA = /(?<![A-Z])LAINA(?![A-Z])/;
 /** A payee whose folded name has Laina as a word of its own. It is a first name too, so the name tells of no loan. */

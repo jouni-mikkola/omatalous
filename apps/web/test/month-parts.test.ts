@@ -3,10 +3,8 @@ import { totalsOf } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { bridgeDraws, bridgeFigures, bridgeIncome, bridgeParts, bridgeRows, bridgeSources, bridgeText } from "../src/components/month-parts.ts";
+import { bridgeDraws, bridgeFigures, bridgeParts, bridgeRows, bridgeSources, bridgeText } from "../src/components/month-parts.ts";
 import { SurplusBridge } from "../src/components/SurplusBridge.tsx";
-import { BridgeLine } from "../src/pages/Overview.tsx";
-import type { DashboardData } from "../src/types.ts";
 
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
@@ -20,7 +18,7 @@ const said = (t: ReturnType<typeof period>) => {
   const text = bridgeText(t);
   return plain([text.gap, ...text.drawn.flatMap((l) => [l.text, l.stayed])].filter(Boolean).join(" "));
 };
-const html = (t: ReturnType<typeof period>) => plain(renderToStaticMarkup(createElement(SurplusBridge, { totals: t, title: "Mihin tulot menivät" })));
+const html = (t: ReturnType<typeof period>) => plain(renderToStaticMarkup(createElement(SurplusBridge, { totals: t, title: "Tulojen käyttö" })));
 const tiles = (out: string) => [...out.matchAll(/<span class="k">(?:<i[^>]*><\/i>)?([^<]+)<\/span><span class="v">([^<]+)<\/span>/g)].map((m) => `${m[1]} ${m[2]}`);
 
 /** The rows of the table as they read: the label and the sum. */
@@ -50,17 +48,6 @@ describe("the surplus bridge", () => {
     const over = bridgeParts(period({ income: 4000, consumption: 4250, saved: -50 }));
     expect(over.find((p) => p.key === "left")!.cents).toBe(0);
     expect(over.find((p) => p.key === "saved")!.cents).toBe(0);
-  });
-
-  it("the sentence names the income its change is told from, never all income against the usual earned income", () => {
-    const bridge = (incomeCents: number, earnedIncomeCents: number | null, usualIncomeCents: number | null) =>
-      ({ totals: { ...usual, incomeCents }, basis: "range", month: "2026-09", usualIncomeCents, earnedIncomeCents, usualSavingsRate: null }) as unknown as Parameters<typeof bridgeIncome>[0];
-    // settled seed 3: 3 825 € in, of which 3 605 € earned, against a usual income of 3 607 €
-    expect(bridgeIncome(bridge(382541, 360541, 360701))).toEqual({ label: "Ansiotulot", cents: 360541, usualCents: 360701 });
-    expect(bridgeIncome(bridge(300000, 300000, 290000))).toEqual({ label: "Tulot", cents: 300000, usualCents: 290000 });
-    // a month that is not complete has no usual income and keeps the bar's figure
-    expect(bridgeIncome(bridge(300000, null, null))).toEqual({ label: "Tulot", cents: 300000, usualCents: null });
-    expect(source("pages/Overview.tsx")).toContain("bridgeIncome(b)");
   });
 });
 
@@ -268,17 +255,5 @@ describe("the bridge of a period that took more than its income", () => {
     const component = source("components/SurplusBridge.tsx");
     expect(component).not.toMatch(/Cents\s*[-+]\s*[\w(]/);
     expect(component).not.toMatch(/\bleft\b\s*[<>]=?|stayed:\s*null|\.key === "(income|repaid|credit)"/);
-  });
-});
-
-describe("the line of the running month", () => {
-  const line = (t: ReturnType<typeof period>) =>
-    plain(renderToStaticMarkup(createElement(BridgeLine, { b: { totals: t, basis: "last", month: "2026-09", usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null } as unknown as DashboardData["bridge"] }))).replace(/<[^>]+>/g, "");
-
-  it("names the credit drawn beside the savings rate, in the word of the cash-flow table, and says nothing when none was", () => {
-    expect(line(period({ income: 3000, consumption: 2500, saved: 500 }))).toBe("Syyskuu: tulot 3 000 €, säästöön 17 % · Mihin tulot menivät");
-    expect(line(period({ income: 3000, consumption: 2500, saved: 500, borrowed: 400 }))).toBe("Syyskuu: tulot 3 000 €, säästöön 17 %, luotonnostot 400 € · Mihin tulot menivät");
-    // credit paid back is no drawing
-    expect(line(period({ income: 3000, consumption: 2500, saved: 500, borrowed: -400 }))).not.toContain("luotonnostot");
   });
 });

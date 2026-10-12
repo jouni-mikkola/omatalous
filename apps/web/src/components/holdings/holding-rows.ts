@@ -1,26 +1,10 @@
 /**
- * The choices Holdings makes about its rows that are not figures: which accounts fold away, which accounts need their
- * number to be told apart, and what the debt total is called. None of them adds anything up.
+ * The choices Holdings makes about its rows: which accounts and which cards need their number to be told apart, how a
+ * card is named, and when the block has a line of its own for the debts. No sum is made here: every total is core's.
  */
 import type { DashboardData } from "../../types.ts";
 
 type Answer = DashboardData["holdings"];
-
-/** With more accounts than this, the ones with next to nothing in them fold into one line. */
-const FOLD_ABOVE = 4;
-/** A balance closer to zero than this many cents, on either side, is next to nothing. */
-const NEXT_TO_NOTHING = 100;
-
-/**
- * The accounts to list and the ones that fold: with more than `FOLD_ABOVE` accounts, those whose balance is between
- * -1,00 and 1,00 euros (a balance of exactly 1,00 stays, and so does one the bank did not give). Both keep the order
- * they came in, and the folded ones are still in the total.
- */
-export function splitAccounts<A extends Pick<Answer["accounts"][number], "balanceCents">>(accounts: readonly A[]): { shown: A[]; folded: A[] } {
-  if (accounts.length <= FOLD_ABOVE) return { shown: [...accounts], folded: [] };
-  const folds = (a: A) => a.balanceCents !== null && Math.abs(a.balanceCents) < NEXT_TO_NOTHING;
-  return { shown: accounts.filter((a) => !folds(a)), folded: accounts.filter(folds) };
-}
 
 /**
  * The accounts that share their name with another, by the last four characters of their number: account id to mask.
@@ -33,10 +17,32 @@ export function maskedNames(accounts: readonly Pick<Answer["accounts"][number], 
   return new Map(accounts.flatMap((a) => (a.mask && (count.get(key(a.name)) ?? 0) > 1 ? [[a.id, a.mask] as const] : [])));
 }
 
+/** The words a bank puts in brackets after a card's name to tell its type, in the lower case they are compared in. */
+const CARD_TYPES = ["credit", "debit", "credit card", "debit card", "luotto", "luottokortti", "debetti", "kredit"];
+const TYPE_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:${CARD_TYPES.join("|")})\s*\)`, "gi");
+
 /**
- * What the debt total under Lainat is called. `debtCents` holds the loans and, as the cards owe on them, the cards' use
- * as well: it is "Velat yhteensä" as soon as one card has something used, else it is the loans alone.
+ * The bank's name for a card without the type it adds in brackets ("Nordea Gold (credit)" gives "Nordea Gold"). Only a
+ * bracket that holds nothing but a type word goes: the owner's name of a shared card, "(Eero)", stays, and so does a name
+ * that would be left empty.
  */
-export function debtTotalName(cards: readonly Pick<Answer["cards"][number], "usedCents">[]): "Velat yhteensä" | "Lainat yhteensä" {
-  return cards.some((c) => (c.usedCents ?? 0) > 0) ? "Velat yhteensä" : "Lainat yhteensä";
+export function cardName(name: string): string {
+  const plain = name.replace(TYPE_IN_BRACKETS, "").replace(/\s+/g, " ").trim();
+  return plain || name.trim();
+}
+
+/**
+ * The cards that share their name (as `cardName` gives it), by the last four characters of the number the bank gave
+ * ("•••• 1234" gives "1234"): card id to mask, as `maskedNames` makes it for accounts.
+ */
+export function cardMasks(cards: readonly Pick<Answer["cards"][number], "id" | "name" | "mask">[]): Map<string, string> {
+  return maskedNames(cards.map((c) => ({ id: c.id, name: cardName(c.name), mask: c.mask?.slice(-4) ?? null })));
+}
+
+/**
+ * Whether a card has something used. The debts of the whole block (`debtCents`) differ from the loans alone only then,
+ * so only then is there a line for them at the foot of the block.
+ */
+export function cardsOwe(cards: readonly Pick<Answer["cards"][number], "usedCents">[]): boolean {
+  return cards.some((c) => (c.usedCents ?? 0) > 0);
 }

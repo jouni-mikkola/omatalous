@@ -12,7 +12,10 @@ export interface Route {
 export const RULES_ANCHOR = "saannot";
 
 /** The cards of Asetukset that an address can name, as anchors on the page. */
-export const SETTINGS_ANCHOR = { login: "kirjautuminen", password: "salasana", securityLog: "turvallisuusloki", quality: "laatu", accounts: "tilit" } as const;
+export const SETTINGS_ANCHOR = { login: "kirjautuminen", password: "salasana", securityLog: "turvallisuusloki", quality: "laatu", accounts: "tilit", loans: "lainat" } as const;
+
+/** The card of Raportit that tells the loans, as the anchor of its section. */
+export const LOANS_REPORT_ANCHOR = "lainat";
 
 /** `#/page?a=b#anchor` for a route. */
 export function hashOf(route: Route): string {

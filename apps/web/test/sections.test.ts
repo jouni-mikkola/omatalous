@@ -20,7 +20,7 @@ const cashflowData = (over: Record<string, unknown> = {}) => ({ cashflow: { rows
 describe("Raportit: Tulot ja menot", () => {
   it("has no tile row: the bar holds the figures, so Tulot, Säästöön and Yli jäi are printed once", () => {
     const out = html(cashflow, context(cashflowData()));
-    expect(out).toContain("Mihin tulot menivät");
+    expect(out).toContain("Tulojen käyttö");
     expect(out).not.toContain('class="kv"');
     expect(out).not.toContain("Säästöaste");
   });
@@ -34,7 +34,7 @@ describe("Raportit: Tulot ja menot", () => {
 
   it("a running range with no complete month has no bar, so the totals stand in its place", () => {
     const out = html(cashflow, context(cashflowData({ running: true, closed: null })));
-    expect(out).not.toContain("Mihin tulot menivät");
+    expect(out).not.toContain("Tulojen käyttö");
     expect(out).toContain('class="kv"');
     expect(out).toContain("Menot");
   });

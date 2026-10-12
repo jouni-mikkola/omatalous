@@ -53,31 +53,29 @@ describe("cash ahead", () => {
   // the same household without its pay: no payday sets the window, so it is the 30 days (ahead-payday.test.ts has the window)
   const unpaid = createContext(upTo(all.filter((t) => t.merchant !== "Acme Oy"), today), [checking], today);
 
-  it("the last day's balance is the start plus the rows minus the everyday spending", () => {
+  it("what is free is the balance less the rows, and the usual day is taken off nothing", () => {
     const d = cashAhead(unpaid, [balance(200_000)], NO_INPUTS);
     const b = d.balance!;
     expect([d.from, d.to]).toEqual(["2026-10-09", "2026-11-08"]);
-    expect(b.days).toHaveLength(31);
-    // nothing is booked on the day itself and its everyday spending is already in the balance
-    expect(b.days[0]).toEqual({ date: today, cents: 200_000 });
-    expect(b.days[30]!.cents).toBe(200_000 + sum(d.rows) - d.totals.everydayCents);
-    // 30 euros a day plus a purchase of 30 to 70 euros a month
-    expect(d.everydayPerDayCents).toBeGreaterThanOrEqual(3000);
-    expect(d.everydayPerDayCents).toBeLessThan(3300);
+    expect(b.startCents).toBe(200_000);
+    expect(d.totals.dueCents).toBe(-sum(d.rows));
+    expect(b.freeCents).toBe(200_000 - 1199 - 95_000);
+    // 30 euros a day; the purchase of 30 to 70 euros a month is in three weeks of thirteen and leaves the median week where it was
+    expect(d.everydayPerDayCents).toBe(3000);
     expect(d.rows.map((r) => [r.date, r.name, r.cents])).toEqual([
       ["2026-10-11", "Spotify", -1199],
       ["2026-11-02", "Sato", -95_000],
     ]);
   });
 
-  it("a salary lands on its usual day, the Friday before at a weekend, and the lowest point is the day before it", () => {
+  it("a salary lands on its usual day, the Friday before at a weekend, and the window ends the day before it", () => {
     const d = cashAhead(ctx, [balance(200_000)], NO_INPUTS);
     // the 25th of October 2026 is a Sunday
     expect(d.payday).toEqual({ date: "2026-10-23", name: "Acme Oy", cents: 300_000 });
-    const days = d.balance!.days;
     expect(d.to).toBe("2026-10-22");
-    expect(d.balance!.lowest.date).toBe("2026-10-22");
-    expect(d.balance!.lowest.cents).toBe(Math.min(...days.map((x) => x.cents)));
+    // Spotify on the 11th is due before the pay, the rent of 2.11. is not
+    expect(d.rows.map((r) => r.name)).toEqual(["Spotify"]);
+    expect(d.balance).toMatchObject({ startCents: 200_000, freeCents: 200_000 - 1199, shortCents: 0, shortOn: null });
   });
 
   it("a salary follows the usual day of the month, not the day of the last one", () => {
@@ -94,7 +92,7 @@ describe("cash ahead", () => {
     const cancelled = inputs({ marks: [{ subject: "merchant:Spotify", mark: "cancelled", markedAt: "2026-10-08T10:00:00Z" }] });
     const d = cashAhead(unpaid, [balance(200_000)], cancelled);
     expect(d.rows.map((r) => r.name)).toEqual(["Sato"]);
-    expect(d.balance!.days[30]!.cents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.days[30]!.cents + 1199);
+    expect(d.balance!.freeCents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.freeCents + 1199);
     // an in-use mark changes nothing
     expect(cashAhead(unpaid, [balance(200_000)], inputs({ marks: [{ subject: "merchant:Spotify", mark: "in_use", markedAt: "2026-10-08T10:00:00Z" }] })).rows).toHaveLength(2);
   });
@@ -114,7 +112,7 @@ describe("cash ahead", () => {
       ["2026-11-03", "Auton vero", -9500, "taxes"],
     ]);
     const plain = cashAhead(unpaid, [balance(200_000)], NO_INPUTS);
-    expect(d.balance!.days[30]!.cents).toBe(plain.balance!.days[30]!.cents - 41_000 - 9500);
+    expect(d.balance!.freeCents).toBe(plain.balance!.freeCents - 41_000 - 9500);
   });
 
   it("a typed-in bill that was already paid is not listed or subtracted again", () => {
@@ -129,7 +127,7 @@ describe("cash ahead", () => {
     expect(names(paid(50_000, "2026-10-09"))).toContain("Autovakuutus");
     expect(names(paid(64_000, "2026-09-10"))).toContain("Autovakuutus");
     const d = cashAhead(paid(64_000, "2026-10-09"), [balance(200_000)], typed);
-    expect(d.balance!.days[30]!.cents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.days[30]!.cents);
+    expect(d.balance!.freeCents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.freeCents);
   });
 
   it("a standing transfer to an own account is no series; the window has it as a transfer row on its day, after this payday", () => {
@@ -146,7 +144,7 @@ describe("cash ahead", () => {
     expect(cashAhead(later, [balance(200_000)], NO_INPUTS).rows.find((r) => r.source === "transfer")).toMatchObject({ date: "2026-10-26", name: "Säästötili", cents: -30_000 });
   });
 
-  it("without a checking balance there is the list and no balance line", () => {
+  it("without a checking balance the rows are there and the balance has no figures", () => {
     for (const balances of [[], [balance(null)], [balance(80_000, { type: "savings" }), balance(-20_000, { type: "credit_card" })]]) {
       const d = cashAhead(unpaid, balances, NO_INPUTS);
       expect(d).toMatchObject({ balance: null, missing: "balance" });
@@ -164,14 +162,17 @@ describe("cash ahead", () => {
     const given = balance(300_000, { balanceAt: "2026-10-02T06:00:00Z" });
     const d = cashAhead(ctx, [given], NO_INPUTS);
     expect(d.balance!.startCents).toBe(279_000);
-    expect(d.balance!.days[0]).toEqual({ date: today, cents: 279_000 });
     expect(d.balance!.balanceAt).toBe("2026-10-02T06:00:00Z");
     expect(buildHoldings(ctx, [given], NO_INPUTS).accounts[0]!.balanceCents).toBe(d.balance!.startCents);
   });
 
-  it("a history without a complete month has no everyday level, so no balance line", () => {
-    const first = createContext(upTo(steady("2026-10-01", "2026-10-31"), today), [checking], today);
-    expect(cashAhead(first, [balance(200_000)], NO_INPUTS)).toMatchObject({ balance: null, missing: "history", everydayPerDayCents: 0 });
+  it("a history of one day has the three figures, and no usual day", () => {
+    const first = createContext(upTo(steady(today, "2026-10-31"), today), [checking], today);
+    const typed = inputs({ expectedBills: [bill({})] });
+    const d = cashAhead(first, [balance(200_000)], typed);
+    expect(d).toMatchObject({ missing: null, everydayPerDayCents: 0, reason: "none", days: 30 });
+    expect(d.totals.dueCents).toBe(41_000);
+    expect(d.balance).toMatchObject({ startCents: 200_000, freeCents: 159_000, shortCents: 0, shortOn: null });
   });
 
   it("the dashboard has it for a period that reaches today and not for a past one", () => {

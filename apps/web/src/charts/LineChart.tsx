@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { niceTicks } from "./scale.ts";
+import { valueAxis } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
 
@@ -23,19 +23,10 @@ export function LineChart({ labels, series, height = 240, format = (v: number) =
   const [hover, setHover] = useState<number | null>(null);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
-  const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
-  const lo = Math.min(0, ...all);
-  const hi = Math.max(0, ...all);
-  // one step for the whole span: a step taken from the positive side alone becomes tiny when
-  // everything is negative (a credit card only) and the tick loop never ends
-  const step = niceTicks(Math.max(hi - lo, 1), 4).ticks[1]!;
-  const minV = Math.floor(lo / step) * step || 0; // avoid a "−0 €" tick
-  const maxV = Math.max(Math.ceil(hi / step) * step, minV + step);
-  const ticks: number[] = [];
-  for (let v = minV; v <= maxV + step / 2 && ticks.length < 12; v += step) ticks.push(v);
+  const { ticks, at } = valueAxis(series.flatMap((s) => s.values.filter((v): v is number => v !== null)));
   const n = labels.length;
   const x = (i: number) => (n > 1 ? (i / (n - 1)) * innerW : innerW / 2);
-  const y = (v: number) => innerH - ((v - minV) / (maxV - minV || 1)) * innerH;
+  const y = (v: number) => innerH - at(v) * innerH;
   const path = (vals: (number | null)[]) => {
     let d = "";
     let pen = false;

@@ -1,29 +1,22 @@
 import { useState } from "react";
 import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
+import { bannersOf, type SecurityNotice } from "./notices.ts";
 
-interface Notice {
-  id: string;
-  kind: string;
-  text: string;
-}
-
-/** Notices about copies, the disk and the host helper: their text sends the admin to Asetukset > Ylläpito (the server's db-health.ts). */
-const MAINTENANCE = new Set(["copy_missing", "copy_check_failed", "disk_low", "helper_silent"]);
-
-/** Notices from the server: failed logins, a new device, a password reset by an admin, and for admins a changed default. */
+/**
+ * The notice of the server that stays a banner on every page (`BANNER_KINDS`: a damaged database). Every other notice is a
+ * row of Ilmoitukset on Yhteenveto.
+ */
 export function SecurityNotices() {
-  const { data, reload } = useApi<{ notices: Notice[] }>("/api/security/notices");
+  const { data, reload } = useApi<{ notices: SecurityNotice[] }>("/api/security/notices");
   const [error, setError] = useState<string | null>(null);
-  if (!data?.notices.length) return null;
+  const banners = bannersOf(data?.notices ?? []);
+  if (!banners.length) return null;
   return (
     <div role="status">
-      {data.notices.map((n) => (
+      {banners.map((n) => (
         <div key={n.id} className="notice warning">
-          {n.text}{" "}
-          {n.kind === "industry_lookup_off" && <a href="#/settings?section=server">Asetukset &gt; Palvelin</a>}
-          {MAINTENANCE.has(n.kind) && <a href="#/settings?section=maintenance">Avaa ylläpito</a>}
-          {n.kind !== "industry_lookup_off" && !MAINTENANCE.has(n.kind) && <a href="#/settings?section=security">Turvallisuus</a>}
+          {n.text} <a href="#/settings?section=security">Turvallisuus</a>
         </div>
       ))}
       <div className="form-row" style={{ marginTop: -8 }}>

@@ -1,4 +1,3 @@
-import { FIGURE_UNKNOWN } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -16,11 +15,12 @@ const card = (over: Partial<Answer["cards"][number]> = {}): Answer["cards"][numb
 const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][number] => ({
   id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, source: "typed", maybeTwice: false, ...over,
 });
-const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, cards: [], loans: [], debtCents: 0, ...over });
+const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
 const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
-const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
+const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
+const links = (markup: string) => [...markup.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]);
 
 describe("Holdings", () => {
   it("is nothing for a household with no account, card or loan", () => {
@@ -28,7 +28,7 @@ describe("Holdings", () => {
   });
 
   it("is one card headed Varallisuus with a group under it for each of accounts, credit cards and loans, and leaves an empty group out", () => {
-    const all = html(answer({ accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000, cards: [card()], loans: [loan()], debtCents: 12_000_000 }));
+    const all = html(answer({ accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000, cards: [card()], loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }));
     expect(headings(all, "h2")).toEqual(["Varallisuus"]);
     expect(headings(all, "h3")).toEqual(["Tilit", "Luottokortit", "Lainat"]);
     expect(headings(html(answer({ accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000, loans: [loan()] })), "h3")).toEqual(["Tilit", "Lainat"]);
@@ -36,17 +36,20 @@ describe("Holdings", () => {
   });
 
   describe("Tilit", () => {
-    it("opens with the total core gives, before the accounts, and says nothing of a balance that is missing when none is", () => {
+    it("ends with the total core gives, after the accounts, and has no total row before them", () => {
       const markup = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", -2_000)], accountsCents: 118_050 }));
-      expect(text(markup)).toContain("Yhteensä 1 180,50 € Käyttötili 1 200,50 € Säästötili −20,00 €");
-      expect(markup).not.toContain("Ilman");
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili −20,00 € Tilit yhteensä 1 180,50 €");
+      expect(text(markup).startsWith(" Varallisuus Tilit Käyttötili")).toBe(true);
+      expect(text(markup)).not.toContain("Ilman");
+      // the total is the last row of the group, in the form of a total
+      expect(markup).toMatch(/<div class="st-row st-total"><dt class="st-name">Tilit yhteensä<\/dt><dd class="st-num">[^<]*<\/dd><\/div><\/dl><\/section>/);
     });
 
     it("tells how many accounts are left out of the total for want of a balance, and shows a dash for a total with none", () => {
       const one = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", null)], accountsCents: 120_050 }));
-      expect(text(one)).toContain("Yhteensä Ilman 1 tilin saldoa 1 200,50 €");
+      expect(text(one)).toContain("Tilit yhteensä 1 200,50 € Ilman 1 tilin saldoa");
       const two = html(answer({ accounts: [account("a", "Käyttötili", null), account("b", "Säästötili", null)], accountsCents: null }));
-      expect(text(two)).toContain("Yhteensä Ilman 2 tilin saldoa –");
+      expect(text(two)).toContain("Tilit yhteensä – Ilman 2 tilin saldoa");
     });
 
     it("adds the last four characters after the name of accounts that share one, and after no other", () => {
@@ -56,25 +59,21 @@ describe("Holdings", () => {
       expect(markup).not.toContain("9999");
     });
 
-    it("folds the accounts under a euro into one line of five or more accounts, and lists four whole", () => {
-      const accounts = [account("a", "Käyttötili", 120_050), account("b", "Säästötili", 50), account("c", "Vanha tili", 0), account("d", "Toinen tili", -99), account("e", "Rahastotili", 100)];
-      const folded = html(answer({ accounts, accountsCents: 120_101 }));
-      expect(text(folded)).toContain("Muut tilit (3)");
-      const [list, fold] = folded.split("<details");
-      expect(list).toContain("Käyttötili");
-      expect(list).toContain("Rahastotili");
-      expect(list).not.toContain("Vanha tili");
-      expect(fold).toContain("Vanha tili");
-      expect(fold).toContain("Säästötili");
-      expect(html(answer({ accounts: accounts.slice(0, 4), accountsCents: 120_000 }))).not.toContain("<details");
+    it("lists six accounts with next to nothing in them as six rows in core's order, with no fold", () => {
+      const tiny = [account("a", "Käyttötili", 120_050), account("b", "Säästötili", 50), account("c", "Vanha tili", 0), account("d", "Toinen tili", -99), account("e", "Rahastotili", 100), account("f", "Kuudes tili", 1)];
+      const markup = html(answer({ accounts: tiny, accountsCents: 120_102 }));
+      expect(markup).not.toContain("<details");
+      expect(markup).not.toContain("Muut tilit");
+      expect(markup.match(/<li class="st-row">/g)).toHaveLength(6);
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili 0,50 € Vanha tili 0,00 € Toinen tili −0,99 € Rahastotili 1,00 € Kuudes tili 0,01 € Tilit yhteensä 1 201,02 €");
     });
   });
 
   describe("Lainat", () => {
     it("shows each loan with what is left and the instalment, and leaves the instalment out when the answer has none", () => {
-      const markup = html(answer({ loans: [loan(), loan({ id: "l2", name: "Autolaina", lender: null, leftCents: 800_000, monthlyPaymentCents: null })], debtCents: 12_800_000 }));
+      const markup = html(answer({ loans: [loan(), loan({ id: "l2", name: "Autolaina", lender: null, leftCents: 800_000, monthlyPaymentCents: null })], loansCents: 12_800_000, debtCents: 12_800_000 }));
       expect(text(markup)).toContain("Kodin laina Esimerkkirahoitus Oy Lainaa jäljellä 120 000,00 € Kuukausierä 1 000,00 €");
-      expect(text(markup)).toContain("Autolaina Lainaa jäljellä 8 000,00 € Lainat yhteensä");
+      expect(text(markup)).toContain("Autolaina Lainaa jäljellä 8 000,00 € Lainat yhteensä 128 000,00 €");
       expect(text(markup.slice(markup.indexOf("Autolaina")))).not.toContain("Kuukausierä");
     });
 
@@ -82,30 +81,147 @@ describe("Holdings", () => {
       const theirs = loan({ id: "l2", name: "Autolaina", part: { from: 3, to: 5, of: 5 }, typedBy: "Aino" });
       const markup = html(answer({ loans: [loan(), theirs], debtCents: 16_800_000 }));
       expect(text(markup)).toContain("Autolaina Esimerkkirahoitus Oy osuutesi 40 % Lisännyt Aino Lainaa jäljellä");
-      expect(markup).toContain('<div class="holding-sub">Lisännyt Aino</div>');
+      expect(markup).toContain('<span class="st-sub">Lisännyt Aino</span>');
       expect(text(markup.slice(0, markup.indexOf("Autolaina")))).not.toContain("Lisännyt");
-      // the row is told and nothing on it opens the loan
-      expect(markup).not.toContain("<a ");
+      // the row is told and nothing on it changes the loan: the name leads to the report and there is no button
+      expect(links(markup)).toEqual(["#/reports#lainat", "#/reports#lainat"]);
       expect(markup).not.toContain("<button");
     });
 
-    it("says the unknown for a loan that has no figure, and carries the note of a debt that may be there twice", () => {
+    it("shows a dash for a loan that has no figure, and carries the note of a debt that may be there twice", () => {
       const markup = html(answer({ loans: [loan({ leftCents: null, maybeTwice: true })], debtCents: 0 }));
-      expect(text(markup)).toContain(`Lainaa jäljellä ${FIGURE_UNKNOWN}`);
-      expect(markup).toContain("holding-note");
+      expect(text(markup)).toContain("Lainaa jäljellä –");
+      expect(markup).toContain('<p class="st-note">');
     });
 
-    it("calls the total the loans when no card owes anything, and the debts when one does", () => {
-      const loans = answer({ loans: [loan()], debtCents: 12_000_000 });
-      expect(text(html({ ...loans, cards: [card({ usedCents: 0 })] }))).toContain("Lainat yhteensä 120 000,00 €");
-      expect(text(html({ ...loans, cards: [card({ usedCents: null, freeCents: null, overCents: null })] }))).toContain("Lainat yhteensä");
-      const owing = html({ ...loans, cards: [card({ usedCents: 50_000, freeCents: 250_000 })], debtCents: 12_050_000 });
-      expect(text(owing)).toContain("Velat yhteensä 120 500,00 €");
-      expect(owing).not.toContain("Lainat yhteensä");
+    it("ends with the total core gives as the last row, whatever the loans' own figures are, and gives none when core has none", () => {
+      const total = (over: Partial<Answer>) => text(html(answer({ loans: [loan(), loan({ id: "l2", leftCents: null })], debtCents: 0, ...over })));
+      // the sum is core's, so a loan without a balance changes nothing here
+      expect(total({ loansCents: 12_000_000 })).toContain("Lainaa jäljellä – Kuukausierä 1 000,00 € Lainat yhteensä 120 000,00 €");
+      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num">[^<]*<\/dd><\/div><\/dl><\/section>/);
+      expect(total({ loansCents: null })).not.toContain("yhteensä");
     });
 
     it("has no total row for a household that owes nothing", () => {
-      expect(text(html(answer({ loans: [loan({ leftCents: 0 })], debtCents: 0 })))).not.toContain("yhteensä");
+      expect(text(html(answer({ loans: [loan({ leftCents: 0 })], loansCents: 0, debtCents: 0 })))).not.toContain("yhteensä");
+    });
+  });
+
+  describe("Velat yhteensä", () => {
+    const owing = (used: number | null) => card({ usedCents: used, freeCents: used === null ? null : 300_000 - used, overCents: used === null ? null : 0 });
+    /** The block's markup split where the foot starts: what the groups hold, and what stands under all of them. */
+    const foot = (h: Answer) => {
+      const markup = html(h);
+      const at = markup.indexOf('class="st-rows holding-foot"');
+      return { groups: at < 0 ? markup : markup.slice(0, at), foot: at < 0 ? "" : text(markup.slice(at)) };
+    };
+
+    it("is a row of the whole block under the groups when a card has something used and there are loans, and not in the Lainat column", () => {
+      const both = foot(answer({ cards: [owing(50_000)], cardsCents: 50_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_050_000 }));
+      expect(both.foot).toContain("Velat yhteensä 120 500,00 €");
+      expect(both.groups).not.toContain("Velat yhteensä");
+      // the column has its own sum, the loans'
+      expect(text(both.groups)).toContain("Lainat yhteensä 120 000,00 €");
+    });
+
+    it("is not there for a card at zero or without a balance, nor for cards alone, where it would repeat a single row", () => {
+      expect(foot(answer({ cards: [owing(0)], loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
+      expect(foot(answer({ cards: [owing(null)], loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
+      expect(foot(answer({ cards: [owing(50_000)], debtCents: 50_000 })).foot).toBe("");
+      expect(foot(answer({ loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
+    });
+
+    it("is the debt total core gives, also when a loan has no balance and is not in it", () => {
+      const markup = foot(answer({ cards: [owing(50_000)], loans: [loan({ leftCents: null })], debtCents: 50_000 }));
+      expect(markup.foot).toContain("Velat yhteensä 500,00 €");
+      expect(text(markup.groups)).not.toContain("Lainat yhteensä");
+    });
+  });
+
+  describe("the statement look", () => {
+    const three = answer({ accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000, cards: [card()], loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 });
+    const columns = (h: Answer) => /<div class="(st-cols[^"]*)"/.exec(html(h))?.[1];
+
+    it("puts the groups on the three columns of the page's blocks: three are thirds, two are marked so the second takes two thirds, one has the whole width", () => {
+      expect(columns(three)).toBe("st-cols st-cols-3 holding-cols-3");
+      expect(columns({ ...three, cards: [] })).toBe("st-cols st-cols-3 holding-cols-2");
+      expect(columns({ ...three, cards: [], loans: [], debtCents: 0 })).toBe("st-cols st-cols-3 holding-cols-1");
+    });
+
+    it("makes the name of an account and of a card a link to its rows in Tapahtumat and a loan's the report Lainat, and no total a link", () => {
+      const markup = html({ ...three, accounts: [account("a b", "Käyttötili", 100_000)] });
+      expect(links(markup)).toEqual(["#/transactions?accountId=a+b", "#/transactions?accountId=k1", "#/reports#lainat"]);
+      const names = [...markup.matchAll(/<a href="[^"]*">(.*?)<\/a>/g)].map((m) => m[1]);
+      expect(names).toEqual(["Käyttötili", "Esimerkkikortti", "Kodin laina"]);
+    });
+
+  });
+
+  describe("Luottokortit", () => {
+    const withCards = (cards: Answer["cards"], cardsCents: number | null = null) => html(answer({ cards, cardsCents }));
+
+    it("draws no picture of a card: no face, chip, digits on a face, colour of its own or bar", () => {
+      const markup = html({ ...answer({ cards: [card({ bank: "ESIMERKKIPANKKI", mask: "•••• 4321", name: "Esimerkkikortti Gold" })] }) });
+      for (const gone of ["card-face", "card-chip", "card-meter", "card-tier", "<svg", "<img", "--card-"]) expect(markup, gone).not.toContain(gone);
+      expect(markup).not.toContain("4321");
+    });
+
+    it("is the card's name as a link, then its three rows indented under it, as a loan is", () => {
+      const markup = withCards([card({ usedCents: 120_000, freeCents: 180_000 })]);
+      expect(text(markup)).toContain("Esimerkkikortti Käytetty luotto 1 200,00 € Luottoraja 3 000,00 € Käytettävissä 1 800,00 €");
+      expect(markup).toContain('<li class="holding-unit"><div class="st-row holding-unit-head">');
+      expect(markup).toContain('<a href="#/transactions?accountId=k1">Esimerkkikortti</a>');
+      // a loan has the same unit
+      expect(html(answer({ loans: [loan()], loansCents: 12_000_000 }))).toContain('<li class="holding-unit"><div class="st-row holding-unit-head">');
+    });
+
+    it("has one row for a card without a limit, and a dash for one the bank gave no balance", () => {
+      const bare = withCards([card({ limitCents: null, usedCents: 47_987, freeCents: null, overCents: null })]);
+      expect(text(bare)).toContain("Esimerkkikortti Käytetty luotto 479,87 €");
+      expect(bare).not.toContain("Luottoraja");
+      expect(bare.match(/<dt /g)).toHaveLength(1);
+      expect(bare).not.toContain('class="st-sub"');
+      const unknown = text(withCards([card({ usedCents: null, freeCents: null, overCents: null })]));
+      expect(unknown).toContain("Käytetty luotto – Luottoraja 3 000,00 €");
+      expect(unknown).not.toContain("Käytettävissä");
+    });
+
+    it("draws what is used of a card over its limit in the colour of what is wrong, with the amount over, and no other card", () => {
+      const over = withCards([card({ usedCents: 320_000, freeCents: 0, overCents: 20_000 }), card({ id: "k2", name: "Toinen kortti" })]);
+      expect(text(over)).toContain("Käytetty luotto 3 200,00 € Luottoraja 3 000,00 € Luottoraja ylitetty 200,00 €");
+      expect(over).not.toContain("Käytettävissä 0,00");
+      expect(over.match(/holding-bad/g)).toHaveLength(1);
+      expect(over).toMatch(/Käytetty luotto<\/dt><dd class="st-num holding-bad">/);
+      // at the limit is not over: nothing free, nothing wrong
+      const full = withCards([card({ usedCents: 300_000, freeCents: 0, overCents: 0 })]);
+      expect(text(full)).toContain("Käytettävissä 0,00 €");
+      expect(full).not.toContain("holding-bad");
+    });
+
+    it("names the card without the type its bank adds in brackets, and tells the date of an old balance and the part", () => {
+      const markup = withCards([card({ name: "Esimerkkikortti Gold (credit)", balanceAt: "2026-10-09", part: { from: 1, to: 2, of: 2 } })]);
+      expect(markup).toContain(">Esimerkkikortti Gold</a>");
+      expect(markup).not.toContain("(credit)");
+      expect(text(markup)).toContain("Esimerkkikortti Gold osuutesi 50 % Saldo päivältä 9.10.2026 Käytetty luotto");
+      expect(text(withCards([card()]))).not.toContain("Saldo päivältä");
+    });
+
+    it("carries the last four digits of two cards that share a name, and of no other", () => {
+      const twin = (id: string, mask: string, name = "Esimerkkikortti") => card({ id, name, mask });
+      const two = withCards([twin("a", "•••• 1234"), twin("b", "•••• 5678"), twin("c", "•••• 9999", "Toinen kortti")]);
+      expect(text(two)).toContain("Esimerkkikortti ·· 1234");
+      expect(text(two)).toContain("Esimerkkikortti ·· 5678");
+      expect(two).not.toContain("9999");
+      expect(withCards([twin("a", "•••• 1234")])).not.toContain("1234");
+    });
+
+    it("ends with the total core gives, as the last row, with two cards or more, and has none for one", () => {
+      const two = withCards([card({ usedCents: 120_000, freeCents: 180_000 }), card({ id: "k2", usedCents: 30_000, freeCents: 270_000 })], 150_000);
+      expect(text(two)).toContain("Käytetty luotto 300,00 € Luottoraja 3 000,00 € Käytettävissä 2 700,00 € Luottokortit yhteensä 1 500,00 €");
+      expect(two).toMatch(/Luottokortit yhteensä<\/dt><dd class="st-num">[^<]*<\/dd><\/div><\/dl><\/section>/);
+      expect(text(withCards([card()], 0))).not.toContain("yhteensä");
+      // a total core does not know is a dash
+      expect(text(withCards([card({ usedCents: null }), card({ id: "k2", usedCents: null })], null))).toContain("Luottokortit yhteensä –");
     });
   });
 });

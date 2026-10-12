@@ -118,19 +118,19 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the month's spending with its pace comes first, then the days to the payday
-          const month = page.getByRole("region", { name: "Menot", exact: true });
+          // the days to the payday come first, then the month with its pace
+          const month = page.getByRole("region", { name: "Tulot ja menot", exact: true });
           const pace = month.getByRole("heading", { name: "Menojen kertymä" });
           await expect(pace).toBeVisible();
-          await expect(month.getByText(/kuussa \d+\.\d+\. mennessä/)).toBeVisible();
-          const ahead = page.getByRole("heading", { name: /^Palkkapäivä / });
+          await expect(month.getByText(/\d+\.\d+\. mennessä/).first()).toBeVisible();
+          const ahead = page.getByRole("heading", { name: "Erääntyvät maksut", exact: true });
           await expect(ahead).toBeVisible();
           const [monthBox, aheadBox] = [await month.boundingBox(), await ahead.boundingBox()];
-          expect(monthBox!.y, "the month is above the days to the payday").toBeLessThan(aheadBox!.y);
-          // on a desktop the figures and the pace share a row, on a phone the pace comes under them
-          const [figures, chart] = [await month.locator(".tile-value").boundingBox(), await pace.boundingBox()];
-          if (device === "desktop") expect(Math.abs(figures!.y - chart!.y), "side by side").toBeLessThan(24);
-          else expect(chart!.y, "stacked").toBeGreaterThan(figures!.y + 40);
+          expect(aheadBox!.y, "the days to the payday are above the month").toBeLessThan(monthBox!.y);
+          // on a desktop the categories stand beside the figures and the chart, on a phone they come after the chart
+          const [figures, bars] = [await month.getByRole("link", { name: "Menot", exact: true }).boundingBox(), await month.getByRole("heading", { name: "Menot kategorioittain" }).boundingBox()];
+          if (device === "desktop") expect(bars!.x, "side by side").toBeGreaterThan(figures!.x + figures!.width);
+          else expect(bars!.y, "stacked").toBeGreaterThan((await pace.boundingBox())!.y);
           // the month columns and the merchants left the page: a link each
           await expect(page.getByRole("heading", { name: "Menot kuukausittain" })).toHaveCount(0);
           await expect(page.getByRole("link", { name: "Menot kuukausittain" })).toBeVisible();
@@ -154,6 +154,9 @@ test("a period belongs to one page: Yhteenveto offers two months, Raportit five,
   const seen = watch(page);
   const toolbar = page.getByRole("toolbar", { name: "Aikaväli" });
   const pressed = toolbar.locator("button[aria-pressed=true]");
+  // Yhteenveto draws its own switch in the block it changes, Raportit has the shell's toolbar
+  const months = page.getByRole("group", { name: "Kuukausi" });
+  const pressedMonth = months.locator("button[aria-pressed=true]");
   // the two months are named by the server's own day: "Lokakuu 2026" and the one before it
   const { today } = (await (await context.request.get("/api/meta")).json()) as { today: string };
   const monthName = (back: number) => {
@@ -164,8 +167,9 @@ test("a period belongs to one page: Yhteenveto offers two months, Raportit five,
   const [thisMonth, lastMonth] = [monthName(0), monthName(1)];
 
   await page.goto("/#/overview");
-  await expect(toolbar.getByRole("button")).toHaveText([thisMonth, lastMonth]);
-  await expect(pressed).toHaveText(thisMonth);
+  await expect(months.getByRole("button")).toHaveText([thisMonth, lastMonth]);
+  await expect(pressedMonth).toHaveText(thisMonth);
+  await expect(toolbar).toHaveCount(0);
   await page.goto("/#/reports");
   await expect(toolbar.getByRole("button")).toHaveText(["3 kk", "6 kk", "12 kk", "Tämä vuosi", "Viime vuosi"]);
   await expect(pressed).toHaveText("12 kk");
@@ -185,7 +189,7 @@ test("a period belongs to one page: Yhteenveto offers two months, Raportit five,
     await page.goto(`/#/${old}`);
     await expect.poll(() => new URL(page.url()).hash, `${old} is rewritten`).toBe(`#/${now}`);
     await expect(page).toHaveTitle(title);
-    await expect(pressed).toHaveText(label);
+    await expect(title.source.includes("Yhteenveto") ? pressedMonth : pressed).toHaveText(label);
     await page.goBack();
     expect(page.url(), `Back from ${old} skips the old address`).toMatch(/#\/transactions$/);
   }
@@ -289,11 +293,11 @@ test("the last month tells why it differed (Menojen muutos), the running month d
   if (await change.locator(".bridge-title").count()) await expect(change.locator(".bridge-title")).toContainText(`${usual} →`);
   const sentence = (await change.locator(".change-sentence").innerText()).replace(/\s/g, " ");
   if (sentence.includes("tavallisesti")) expect(sentence).toContain(`tavallisesti ${usual.replace(/\s/g, " ")}`);
-  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Menojen kertymä" })).toHaveCount(0);
   await expect(page.getByText("Tasauserä")).toHaveCount(0);
 
-  await page.getByRole("toolbar", { name: "Aikaväli" }).getByRole("button").first().click();
-  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
+  await page.getByRole("group", { name: "Kuukausi" }).getByRole("button").first().click();
+  await expect(page.getByRole("heading", { name: "Menojen kertymä" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Menojen muutos" })).toHaveCount(0);
   await page.goto("/#/reports");
   await expect(page.getByRole("heading", { name: "Tulot ja menot" }).first()).toBeVisible();
@@ -382,7 +386,7 @@ test("a subscription marked as in use stays marked after a reload, and the mark 
 
   await page.reload();
   await expect(page.getByRole("button", { name: `Kumoa: ${merchant}` }).first()).toBeVisible();
-  // the merchant is also a row in Tulossa, so the row is looked for in the Tilaukset card
+  // the merchant is also a row in the list of what falls due, so the row is looked for in the Tilaukset card
   const subs = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset", exact: true }) });
   await expect(subs.locator("tr", { has: page.getByRole("link", { name: merchant, exact: true }) }).first().locator(".badge", { hasText: "Käytössä" })).toBeVisible();
 
@@ -399,8 +403,8 @@ test("a dismissed alert stays away after a reload", async ({ browser }) => {
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/overview");
-  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
-  const alerts = page.getByRole("list", { name: "Huomiot" });
+  await expect(page.getByRole("heading", { name: "Tulot ja menot", exact: true })).toBeVisible();
+  const alerts = page.getByRole("list", { name: "Ilmoitukset" });
   // a forgotten service is answered, not only dismissed (the buttons are looked at, not pressed: a mark would change the Laskut page)
   await expect(alerts.getByRole("button", { name: /^Käytössä: / }).first()).toBeVisible();
   await expect(alerts.getByRole("button", { name: /^Lopetettu: / }).first()).toBeVisible();
@@ -412,7 +416,7 @@ test("a dismissed alert stays away after a reload", async ({ browser }) => {
   await expect(alerts.getByRole("button", { name, exact: true })).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tulot ja menot", exact: true })).toBeVisible();
   await page.waitForLoadState("networkidle");
   await expect(alerts.getByRole("button", { name, exact: true }), "the dismissed alert is back after a reload").toHaveCount(0);
   expect(seen.problems).toEqual([]);
@@ -430,7 +434,7 @@ test("the Laskut tables fit a phone: the date of the next charge is inside the c
   const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
   expect(clipped, "tables that scroll sideways").toBe(0);
   const next = page.locator("th", { hasText: "Seuraava" }).first();
-  // Tulossa comes first, so the table is below the fold: scrolled to, it is whole inside the screen
+  // the list of what falls due comes first, so the table is below the fold: scrolled to, it is whole inside the screen
   await next.scrollIntoViewIfNeeded();
   await expect(next).toBeInViewport({ ratio: 1 });
   expect(seen.problems).toEqual([]);
@@ -598,13 +602,13 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-test("an expected bill is added in Tulossa on Laskut, is still there after a reload and can be removed", async ({ browser }) => {
+test("an expected bill is added in the list of what falls due on Laskut, is still there after a reload and can be removed", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/bills");
   const coming = page.locator("#tulossa");
-  await expect(coming.getByRole("heading", { name: "Tulossa" })).toBeVisible();
+  await expect(coming.getByRole("heading", { name: "Erääntyvät maksut" })).toBeVisible();
   // the form is behind the button
   await expect(coming.getByRole("form", { name: "Lisää lasku" })).toHaveCount(0);
   await coming.getByRole("button", { name: "Lisää lasku" }).click();
@@ -614,7 +618,7 @@ test("an expected bill is added in Tulossa on Laskut, is still there after a rel
   await form.getByRole("button", { name: "Lisää lasku" }).click();
   await expect(form.getByText("Anna laskulle nimi.")).toBeVisible();
 
-  // due within the 30 days of the list, so it is in Tulossa as well as among the bills typed in
+  // due within the 30 days of the list, so it is in the list as well as among the bills typed in
   const due = new Date(Date.now() + 12 * 86_400_000).toISOString().slice(0, 10);
   await form.getByLabel("Nimi").fill("E2E-ajoneuvovero");
   await form.getByLabel("Summa").fill("312,50");
@@ -657,7 +661,7 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await page.goto("/#/recurring");
   await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
   await expect(page).toHaveTitle(/^Laskut/);
-  await expect(page.getByRole("heading", { name: "Tulossa" })).toBeVisible();
+  await expect(page.locator("#tulossa").getByRole("heading", { name: "Erääntyvät maksut" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Laskut" })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("link", { name: "Toistuvat" })).toHaveCount(0);
   await page.goBack();
@@ -666,7 +670,7 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   // what the page holds: the fixed costs line, the one list of what is coming, the cards of subscriptions and contracts
   await page.goto("/#/bills");
   await expect(page.locator(".bills-line")).toContainText("Kiinteät menot");
-  for (const heading of ["Tulossa", "Tilaukset", "Sopimukset ja laskut"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+  for (const heading of ["Erääntyvät maksut", "Tilaukset", "Sopimukset ja laskut"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   // the report sections that moved here, and none of the old tiles or the old second list
   await expect(page.getByRole("heading", { name: "Tulevat laskut" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Tulossa tässä kuussa" })).toHaveCount(0);
@@ -677,15 +681,15 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
 
   // the card of the days to the payday lists the payments and sends on to Laskut
   await page.goto("/#/overview");
-  // the fixed costs under the bridge link to the page itself, not to the old address that is redirected
-  await expect(page.locator(".bridge-fixed").getByRole("link", { name: "Laskut" })).toHaveAttribute("href", "#/bills");
-  const ahead = page.locator(".card", { has: page.getByRole("heading", { name: /^Palkkapäivä / }) });
+  // the fixed costs in the block "Tulot ja menot" link to the page itself, not to the old address that is redirected
+  await expect(page.getByRole("region", { name: "Tulot ja menot", exact: true }).getByRole("link", { name: "Kiinteät menot kuukaudessa", exact: true })).toHaveAttribute("href", "#/bills");
+  const ahead = page.locator(".card", { has: page.getByRole("heading", { name: "Erääntyvät maksut", exact: true }) });
   await expect(ahead).toBeVisible();
-  // the card lists all of them, so it has no Näytä kaikki; Tulossa has the form for a bill
+  // the card lists all of them, so it has no Näytä kaikki; the list on Laskut has the form for a bill
   await expect(ahead.getByRole("button", { name: /^Näytä kaikki/ })).toHaveCount(0);
   await ahead.getByRole("link", { name: "Laskut" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
-  await expect(page.getByRole("heading", { name: "Tulossa" })).toBeVisible();
+  await expect(page.locator("#tulossa").getByRole("heading", { name: "Erääntyvät maksut" })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

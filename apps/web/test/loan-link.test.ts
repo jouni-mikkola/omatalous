@@ -54,7 +54,7 @@ describe("the select of the loan form", () => {
 
 describe("the Lainat report offers the link", () => {
   const row = { id: "home", name: "Kodin laina", lender: null, kind: "card", accountType: null, linkedAccount: null, balance: { cents: 100_000, unknown: null }, balanceDate: day, rateBp: null, reference: null, repayment: null,
-    payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, unknown: null }, interest: { cents: null, unknown: null }, payoff: { date: null, unknown: null, never: false }, scenarios: [] };
+    payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, interest: { cents: null, unknown: null }, payoff: { date: null, unknown: null, never: false }, scenarios: [] };
   const report = (twice: unknown) => ({ day, saved: 1, loans: [row], total: { cents: 100_000, unknown: [] }, interest: { cents: 0, unknown: [] }, interestKnown: true, withoutRate: 0, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 }, maybeTwice: [twice], overdraftTwice: [] }) as unknown as LoansReport;
   const html = (r: LoansReport, own: string[], scope = "own") => {
     const balances = { months: [], total: [], accountsLessDebt: [], accounts: [], debt: { day, cents: 0, savedCents: 0 } };

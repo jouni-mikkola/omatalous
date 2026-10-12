@@ -21,5 +21,5 @@ change · kit:base · change:year:2025-10..2026-09 (quiet)
   = 41.73 € (now 39187.70 €, base 39145.97 €, gate 782.88 €)
 
 change · plain:4 · change:usual:2025-11..2025-11 (quiet)
-  Marraskuu: menot 44 €, tavallisesti 1 242 €.
-  = -1198.14 € (now 44.22 €, base 1242.36 €, gate 24.85 €)
+  Marraskuu: menot 44 €, tavallisesti 1 251 €.
+  = -1206.95 € (now 44.22 €, base 1251.17 €, gate 25.02 €)

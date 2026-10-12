@@ -291,6 +291,22 @@ describe("loans", () => {
     ]);
   });
 
+  it("a fixed rate has no review day: a day sent with one is checked and dropped, and another rate keeps its day", async () => {
+    const { admin } = await setupApp();
+    const fixed = { ...mortgage, reference: "fixed", marginBp: null };
+    const added = await admin.call("POST", "/api/loans", { ...fixed, rateReviewDate: "2027-03-14" });
+    expect(added.status).toBe(200);
+    const id: string = added.body.loan.id;
+    expect(added.body.loan).toEqual({ id, ...fixed });
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([{ id, ...fixed }]);
+    expect((await admin.call("POST", "/api/loans", { ...fixed, rateReviewDate: "2027-02-30" })).status).toBe(400);
+
+    // the same loan on a reference rate keeps the day, and loses it when its rate is made fixed
+    expect((await admin.call("PUT", `/api/loans/${id}`, { ...mortgage, rateReviewDate: "2027-03-14" })).body.loan).toEqual({ id, ...mortgage, rateReviewDate: "2027-03-14" });
+    expect((await admin.call("PUT", `/api/loans/${id}`, { ...fixed, rateReviewDate: "2027-03-14" })).body.loan).toEqual({ id, ...fixed });
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([{ id, ...fixed }]);
+  });
+
   it("keeps the review day of the rate: a real date, also one that has passed, and null clears it", async () => {
     const { admin, db } = await setupApp();
     const day = async (id: string) => (await db.first<{ rate_review_date: string | null }>("SELECT rate_review_date FROM loans WHERE id = ?", [id]))?.rate_review_date;

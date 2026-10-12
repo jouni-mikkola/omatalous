@@ -1,65 +1,33 @@
 /* The first page's holdings: accounts, credit cards and loans (components/holdings/). */
 
-/* A card is an object, not a part of the page: its colours are the same in the light and the dark theme, as a real card's
-   are, so they are fixed here and are not theme tokens. */
-:root {
-  --card-ink: #f2f4f7;
-  --card-navy-from: #243759;
-  --card-navy-to: #111c33;
-  --card-gold-from: #8b6b31;
-  --card-gold-to: #5e4719;
-  --card-platinum-from: #687385;
-  --card-platinum-to: #424b59;
-  --card-chip: #dcbc6e;
-  --card-chip-line: #8a6c2b;
+/* Varallisuus is a block of the statement look (statement.css): its groups run to the edges of the card, and the last
+   part of the block ends on its bottom edge. */
+.holdings > :last-child { margin-bottom: -18px; }
+/* the groups stand on the three columns of the page's blocks from 1040 px (`.st-cols-3`): three groups are thirds, of
+   two the second takes two thirds, so its rule is the rule of the blocks under it, and one group has the whole width */
+@media (min-width: 1040px) {
+  .holdings .holding-cols-2 > :last-child { grid-column: span 2; }
+  .holdings .holding-cols-1 { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* one card; the groups stand side by side on a wide page and under each other on a phone. Each group draws a hairline on
-   its top and left edge, and the row cuts off the ones on its own edges. */
-.holdings .card-head { margin-bottom: 0; }
-.holding-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); margin: 0 -18px -4px; overflow: hidden; }
-.holding-group { min-width: 0; margin: -1px 0 0 -1px; padding: 14px 18px 4px; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
-.holding-group h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+/* a name is a link in its own colour until it is pointed at or focused, so the block does not turn blue; the box has room
+   for the focus ring, which the cut edge of a name would clip */
+.holdings .holding-name { margin: -4px; padding: 4px; }
+.holdings .holding-name a { color: inherit; text-decoration: none; }
+.holdings .holding-name a:hover, .holdings .holding-name a:focus-visible { color: var(--accent-ink); text-decoration: underline; }
+.holdings .holding-name a:focus-visible { outline-offset: 0; box-shadow: none; }
+/* the label of a figure is told whole */
+.holdings .holding-label { overflow: visible; white-space: normal; }
+/* a card over its limit: what is used is in the colour of what is wrong */
+.holdings .holding-bad { color: var(--bad); }
 
-.holding-list { list-style: none; margin: 0; padding: 0; }
-.holding-list > li { padding: 8px 0; border-bottom: 1px solid var(--grid); }
-.holding-list > li:last-child { border-bottom: none; }
-.holding-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-.holding-logo { flex: none; width: 52px; }
-.holding-main { flex: 1 1 0; min-width: 0; }
-.holding-name { font-weight: 500; overflow-wrap: anywhere; }
-.holding-sub { color: var(--muted); font-size: 12px; }
-.holding-amount { margin-left: auto; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.holding-sum .holding-amount { font-size: 20px; letter-spacing: -0.02em; }
-.holding-total .holding-name, .holding-total .holding-amount { font-weight: 600; }
-.holding-note { margin: 4px 0 0; }
-.holding-fold > summary { cursor: pointer; padding: 8px 0; color: var(--text-2); font-size: 13px; }
+/* Luottokortit and Lainat: each card and each loan is one unit, a hairline between */
+.holding-units { list-style: none; margin: 0; padding: 0; }
+.holding-units > li:not(:last-child) { border-bottom: 1px solid var(--grid); }
+/* a unit's name and its lines stand above its figures with no rule between; the figures are set in a little */
+.holdings .holding-unit-head { padding-bottom: 0; border-bottom: 0; }
+.holdings .holding-unit .st-rows { padding-left: 12px; }
+.holding-unit .st-note { margin: 4px 0 7px; }
 
-/* label at the left, figure at the right, the figures under each other */
-.holding-figures { margin: 4px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
-.holding-figures > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 12px; }
-.holding-figures dt { color: var(--muted); }
-.holding-figures dd { margin: 0 0 0 auto; font-weight: 500; text-align: right; }
-.holding-figures dd .muted { font-weight: 400; }
-.holding-figure-warn dt, .holding-figure-warn dd { color: var(--warn); }
-
-/* a credit card: the face at the left, the name and the figures at the right */
-.holding-card { display: flex; align-items: flex-start; gap: 12px; }
-.holding-card-text { flex: 1 1 0; min-width: 0; }
-
-/* 132 by 83 px is a real card's 85.6 by 54 mm; the tier is the look */
-.card-face { flex: none; box-sizing: border-box; width: 132px; height: 83px; padding: 9px 10px; display: grid; grid-template-rows: auto 1fr auto; border-radius: 8px; color: var(--card-ink); background: linear-gradient(135deg, var(--card-navy-from), var(--card-navy-to)); }
-.card-face-gold { background: linear-gradient(135deg, var(--card-gold-from), var(--card-gold-to)); }
-.card-face-platinum { background: linear-gradient(135deg, var(--card-platinum-from), var(--card-platinum-to)); }
-.card-face-top { display: flex; align-items: center; height: 22px; min-width: 0; }
-.card-face-bank { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; font-weight: 600; }
-.card-chip { align-self: center; }
-.card-chip-body { fill: var(--card-chip); }
-.card-chip-lines { fill: none; stroke: var(--card-chip-line); stroke-width: 0.75; }
-.card-face-mask { font-size: 12px; line-height: 16px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
-
-/* the meter under the figures */
-.card-meter { display: block; margin: 6px 0 0; }
-.card-meter-track { fill: var(--surface-2); }
-.card-meter-used { fill: var(--series-1); }
-.card-meter.over .card-meter-used { fill: var(--warn); }
+/* the debts of the whole block: one row under all the groups, under a rule that runs to the card's edges */
+.holdings .holding-foot { margin: 0 -18px -18px; padding: 0 18px 2px; border-top: 1px solid var(--border); }

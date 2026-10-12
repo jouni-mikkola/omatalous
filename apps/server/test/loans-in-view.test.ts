@@ -30,6 +30,10 @@ const mortgage = { name: "Asuntolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "m
 const flex = { name: "Joustoluotto", kind: "credit_line", balanceCents: 50_001, balanceDate: "2026-10-05" };
 /** The key of the payments' series on an account, as a proposal gives it. */
 const keyOn = (accountId: string, cents = 84_001) => `out:${accountId}:${LENDER}#${cents}`;
+const raw = (bookingDate: string, euros: number, counterparty: string, description: string): RawTransaction => ({
+  externalId: null, bookingDate, valueDate: null, amountCents: Math.round(euros * 100), currency: "EUR", status: "booked",
+  counterparty, counterpartyIban: null, description, reference: null, mcc: null,
+});
 /** A loan as a view holds it for another member: who typed it in, and the view's own names for its accounts. */
 const typedBy = (name: string, loan: Loan, seriesKey: string): Loan => ({ ...loan, typedBy: name, seriesKey });
 
@@ -221,10 +225,6 @@ describe("a typed loan paid from a joint account", () => {
 });
 
 describe("a loan proposal beside a loan another user saved", () => {
-  const raw = (bookingDate: string, euros: number, counterparty: string, description: string): RawTransaction => ({
-    externalId: null, bookingDate, valueDate: null, amountCents: Math.round(euros * 100), currency: "EUR", status: "booked",
-    counterparty, counterpartyIban: null, description, reference: null, mcc: null,
-  });
   /** A made-up lender debiting 250 € on the 5th of every month from April to October 2026, and a salary. */
   const rows = [4, 5, 6, 7, 8, 9, 10].flatMap((month) => {
     const m = String(month).padStart(2, "0");
@@ -262,6 +262,7 @@ describe("the household view and a loan another member typed in", () => {
     const listed: { typedBy?: string }[] = reports.body.loans.loans;
     return {
       debtCents: dash.body.holdings.debtCents, left: rows.map((l) => l.leftCents), typedBy: rows.map((l) => l.typedBy ?? null),
+      loansCents: dash.body.holdings.loansCents, cardsCents: dash.body.holdings.cardsCents,
       total: reports.body.loans.total.cents, listedBy: listed.map((l) => l.typedBy ?? null), text: JSON.stringify([dash.body, reports.body]),
     };
   }
@@ -279,6 +280,9 @@ describe("the household view and a loan another member typed in", () => {
     expect(views.map((v) => v.left)).toEqual([[8_999_999], [6_000_000], [14_999_999], [14_999_999]]);
     expect(views.map((v) => v.debtCents)).toEqual([9_008_074, 6_000_000, 15_008_074, 15_008_074]);
     expect(views.map((v) => v.total)).toEqual(views.map((v) => v.debtCents));
+    // the totals of the groups are the same parts: the loans' at the viewer's part, the card in the views that hold it, none for him alone
+    expect(views.map((v) => v.loansCents)).toEqual([8_999_999, 6_000_000, 14_999_999, 14_999_999]);
+    expect(views.map((v) => v.cardsCents)).toEqual([8_075, null, 8_075, 8_075]);
     // his rows say who typed the loan in, hers say nothing (the report lists the card too, after the loan)
     expect(views.map((v) => v.typedBy)).toEqual([[null], ["Aino"], [null], ["Aino"]]);
     expect(views.map((v) => v.listedBy)).toEqual([[null, null], ["Aino"], [null, null], ["Aino", null]]);
@@ -366,5 +370,27 @@ describe("the household view and a loan another member typed in", () => {
     expect(after.loans).toEqual([typedBy("Aino", home, keyOn("eero-joint"))]);
     expect(after.debts.connected.map((d) => [d.id, d.typedBy])).toEqual([[home.id, "Aino"]]);
     expect([after.debts.saved.length, after.debts.total.cents]).toEqual([0, 9_000_001]);
+  });
+});
+
+describe("the block Asuminen beside a loan typed in and paid from a joint account", () => {
+  /** The mortgage's payment on the 5th, the housing company's vastike on the 2nd and a salary, April to October 2026. */
+  const rows = [4, 5, 6, 7, 8, 9, 10].flatMap((month) => {
+    const m = String(month).padStart(2, "0");
+    return [raw(`2026-${m}-05`, -840.01, "ESIMERKKIPANKKI OYJ", "ASUNTOLAINAN LYHENNYS JA KORKO"), raw(`2026-${m}-02`, -333.33, "AS OY ESIMERKKIKATU", "HOITOVASTIKE"), raw(`2026-${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")];
+  });
+
+  it("holds the home loan at each member's part, so own plus own is the household's to the cent", async () => {
+    const { s, aino, eero } = await household();
+    await say(aino, "aino-joint", [[aino, 60_000], [eero, 40_000]]);
+    for (const [member, accountId] of [[aino, "aino-joint"], [eero, "eero-joint"]] as const) {
+      await ingestTransactions(s.finance(member.id), accountId, rows, "csv");
+      await reprocess(s.finance(member.id), s.settings);
+    }
+    await save(aino, { ...mortgage, lender: "ESIMERKKIPANKKI OYJ" });
+    const month = async (member: Member, scope: "own" | "household" = "own") =>
+      ((await member.call("GET", `/api/dashboard?from=2026-09-01&to=2026-09-30&scope=${scope}`)).body.housing.loans as { monthlyCents: number | null }[]).reduce((sum, l) => sum + (l.monthlyCents ?? 0), 0);
+    expect([await month(aino), await month(eero)]).toEqual([50_401, 33_600]);
+    expect(await month(aino, "household")).toBe(84_001);
   });
 });

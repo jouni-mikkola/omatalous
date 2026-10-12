@@ -26,6 +26,7 @@ export * from "./commitments.ts";
 export * from "./loans.ts";
 export * from "./household-debts.ts";
 export { cardLimitCents } from "./holdings.ts";
+export { type HousingCharge, type HousingLoan, MORTGAGE_QUESTION } from "./housing.ts";
 export * from "./loan-detect.ts";
 export * from "./pipeline.ts";
 export * from "./returns.ts";

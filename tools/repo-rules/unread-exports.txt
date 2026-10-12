@@ -159,16 +159,11 @@ packages/core/src/analysis/forecast.ts  ExpectedBillRow
 packages/core/src/analysis/income-changes.ts  IncomeInsight
 packages/core/src/analysis/income.ts  IncomeRow
 packages/core/src/analysis/income.ts  IncomeTypeDef
-packages/core/src/analysis/income.ts  PayRule
 packages/core/src/analysis/income.ts  incomeTypeOf
-packages/core/src/analysis/income.ts  isBankingDay
-packages/core/src/analysis/income.ts  payDate
-packages/core/src/analysis/income.ts  toBankingDay
 packages/core/src/analysis/insights/borrowing.ts  DebtShare
 packages/core/src/analysis/insights/commitments.ts  CommitmentsShare
 packages/core/src/analysis/insights/commitments.ts  FixedShare
 packages/core/src/analysis/insights/index.ts  AnsweredInsight
-packages/core/src/analysis/insights/index.ts  OVERVIEW_INSIGHTS
 packages/core/src/analysis/insights/prices.ts  PriceRiseItem
 packages/core/src/analysis/insights/renewals.ts  isLongSubscription
 packages/core/src/analysis/insights/shared.ts  MonthRows
@@ -233,6 +228,9 @@ packages/core/src/optimise/state.ts  reopens
 packages/core/src/optimise/types.ts  ACTION_VERBS
 packages/core/src/optimise/types.ts  EvidenceRow
 packages/core/src/optimise/types.ts  LoanRateValue
+packages/core/src/pay-day.ts  PayRule
+packages/core/src/pay-day.ts  isBankingDay
+packages/core/src/pay-day.ts  toBankingDay
 packages/core/src/pipeline.ts  IslandInput
 packages/core/src/pipeline.ts  IslandResult
 packages/core/src/reports/balances.ts  BalanceReport
@@ -273,7 +271,6 @@ packages/core/src/reports/upcoming.ts  UpcomingBill
 packages/core/src/reports/upcoming.ts  UpcomingReport
 packages/core/src/reports/year-over-year.ts  YearOverYearReport
 packages/core/src/returns.ts  PAYBACK_WINDOW_DAYS
-packages/core/src/returns.ts  REFUND_WINDOW_DAYS
 packages/core/src/transfers.ts  TransferOptions
 packages/core/src/wording-loan-pages.ts  LOAN_LABELS
 packages/core/src/wording-loan-pages.ts  LOAN_LABELS_UNSURE

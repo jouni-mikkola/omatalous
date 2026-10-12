@@ -14,69 +14,20 @@
  *   the text. A repaired digit, a lost comma, a label over two lines or loose in its letters, words around the value
  *   or a failed cross-check all give `check`.
  * - The same label again starts the next loan, and so does a lender's name on a line of its own.
+ * - A lender's name printed over "Velkoja" and a figure printed over a caption like "Maksamatta" are read from the line
+ *   above when the label's own line holds no value (a lone letter or sign there is a picture), and are `check`.
  */
-import { fold } from "../merchant.ts";
-import type { IsoDate } from "../types.ts";
-import { type LoanLabelField, type LoanLabelHit, isLoanLenderLine, isLoanRateFormula, isLoanTotal, loanIntervalIn, loanLabelsIn, loanReferenceIn, loanRepaymentIn } from "../wording-loan-pages.ts";
+import type { IsoDate, LoanKind } from "../types.ts";
+import { type LoanLabelField, type LoanLabelHit, isLoanLenderLine, isLoanRateFormula, isLoanTotal, loanIntervalIn, loanKindHeading, loanKindOfLender, loanLabelsIn, loanReferenceIn, loanRepaymentIn } from "../wording-loan-pages.ts";
 import { type DraftFields, crossCheck, lower } from "./checks.ts";
+import { type Line, MARKS, brokenLabel, foldLine, isIcon, labelsOf, lenderCaption, toLine, wordCount } from "./labels.ts";
 import type { DraftConfidence, LoanDraft, LoanDraftField, LoanDraftKey, LoanDraftWarning, LoanTextOptions } from "./types.ts";
 import { findPercent, hasText, isValueOnly, readDate, readMoney, readPercent } from "./values.ts";
 
 // ── lines ──
 
-interface Line {
-  /** The line with odd spaces and dashes made plain. Positions in `folded` are positions here. */
-  text: string;
-  folded: string;
-  /** What the user is shown. */
-  shown: string;
-}
-
 const LINE_BREAK = /\r\n?|\n|\f|\p{Zl}|\p{Zp}/u;
 const MAX_LINES = 5000;
-const MAX_TEXT = 500;
-const MAX_SHOWN = 200;
-/** Soft hyphens and zero-width characters: a copied page has them inside words. */
-const UNSEEN = /\p{Cf}/gu;
-/** Every space that is not the plain one: no-break, thin and narrow spaces stand between a number's thousands. */
-const ODD_SPACE = /(?! )\p{Zs}/gu;
-/** Every dash and the minus sign: one hyphen-minus after this. */
-const ODD_DASH = /[\p{Pd}−]/gu;
-
-/** `fold` one character at a time, so the folded line keeps the length of the text ("ß" would grow). */
-const foldLine = (text: string) =>
-  Array.from(text, (c) => {
-    const f = fold(c);
-    return f.length === c.length ? f : c;
-  }).join("");
-
-function toLine(raw: string): Line {
-  // a label and its value fit in MAX_TEXT; a page pasted as one endless line is cut there, so no reader runs long
-  const text = raw.slice(0, MAX_TEXT).replace(UNSEEN, "").replace(ODD_SPACE, " ").replace(ODD_DASH, "-");
-  const shown = text.replace(/\s+/g, " ").trim();
-  return { text, folded: foldLine(text), shown: shown.length > MAX_SHOWN ? `${shown.slice(0, MAX_SHOWN - 1)}…` : shown };
-}
-
-const wordCount = (line: Line) => line.shown.split(" ").length;
-
-/** What may stand before a label: a bullet, a frame character, a row number. */
-const BEFORE_LABEL = /^[^\p{L}\p{N}]*(?:\d{1,2}(?:\.\d{1,2})*[.)]? +)?/u;
-
-/** The labels of a line that starts with one. A label further in, after other words, is part of a sentence. */
-function labelsOf(line: Line): LoanLabelHit[] {
-  const hits = loanLabelsIn(line.folded);
-  return hits.length > 0 && hits[0]!.start === BEFORE_LABEL.exec(line.folded)![0].length ? hits : [];
-}
-
-/** A label that OCR or a narrow column broke over two lines ("Viimeinen" / "eräpäivä 31.12.2031"), as one line. */
-function brokenLabel(line: Line, next: Line | undefined): { line: Line; labels: LoanLabelHit[] } | null {
-  if (!next || /\d/.test(line.text) || wordCount(line) > 3) return null;
-  const head = line.text.trimEnd();
-  const joined = toLine(`${head} ${next.text.trimStart()}`);
-  const labels = labelsOf(joined);
-  const first = labels[0];
-  return first && first.start < head.length && first.end > head.length + 1 ? { line: joined, labels } : null;
-}
 
 // ── one value ──
 
@@ -89,6 +40,10 @@ interface Got {
   date?: IsoDate;
   /** The reference rate's own value, for the cross-check. */
   referenceBp?: number;
+  /** The value stood on the line above its label. */
+  above?: true;
+  /** A rate with no percent sign under a word that can name an amount of interest. */
+  bare?: true;
 }
 
 function readReference(text: string, folded: string): Got | null {
@@ -100,13 +55,14 @@ function readReference(text: string, folded: string): Got | null {
 }
 
 function readLender(text: string): Got | null {
-  const name = text.replace(/^[\s:=-]+|[\s.,;:]+$/g, "").replace(/\s+/g, " ");
-  if (!/\p{L}/u.test(name) || name.length > 80) return null;
+  const name = text.replace(MARKS, "").replace(/^[\s:=-]+|[\s.,;:]+$/g, "").replace(/\s+/g, " ");
+  // a lone letter is the picture beside the label, not a name
+  if (!/\p{L}/u.test(name) || isIcon(name) || name.length > 80) return null;
   // a long text or one with numbers holds more than the name (an address, a business id)
   return { value: name, clean: true, doubt: /\d/.test(name) || name.split(" ").length > 6 };
 }
 
-function read(field: LoanLabelField, text: string, folded: string): Got | null {
+function read(field: LoanLabelField, text: string, folded: string, certain = true): Got | null {
   switch (field) {
     case "grantedCents":
     case "paymentCents":
@@ -119,8 +75,10 @@ function read(field: LoanLabelField, text: string, folded: string): Got | null {
     case "marginBp": {
       if (field === "rateBp" && isLoanRateFormula(folded)) return null;
       const percent = readPercent(text);
+      // under a word that can name an amount of interest ("Korko 19,40") a number with no percent sign is the weakest reading of a rate
+      const bare = percent !== null && !certain && !findPercent(text);
       // a rate or a margin below zero is not a loan's: the minus is a dash, and the user looks
-      return percent && { value: percent.value, clean: percent.clean, doubt: percent.doubt || percent.negative };
+      return percent && { value: percent.value, clean: percent.clean, doubt: percent.doubt || percent.negative, ...(bare ? { bare: true as const } : {}) };
     }
     case "endDate":
     case "balanceDate":
@@ -148,7 +106,7 @@ const isProse = (line: Line) => wordCount(line) >= 5 && !/\d/.test(line.text);
 
 /** What follows a label on its line when no value was read there. */
 function tailOf(text: string): "none" | "words" | "closed" {
-  if (text.replace(/[\s:]/g, "") === "") return "none";
+  if (isIcon(text)) return "none";
   // a number that could not be read, or a dash for "no value": the value is not below
   return /\d/.test(text) || !/\p{L}/u.test(text) ? "closed" : "words";
 }
@@ -178,6 +136,13 @@ function below(field: LoanLabelField, lines: readonly Line[], at: number): { got
     prose++;
   }
   return null;
+}
+
+/** The value of a label alone on its line that stands on the line above: a lender's name over "Velkoja", a figure over "Maksamatta". */
+function valueAbove(hit: LoanLabelHit, above: Line | undefined): Got | null {
+  if (!above || (hit.field !== "lender" && !hit.figureAbove)) return null;
+  const got = wholeLine(hit.field, above);
+  return got && { ...got, above: true };
 }
 
 /** A caption the label lists do not know: a few words, no label among them and no figure. */
@@ -246,16 +211,21 @@ interface Open {
   seen: Map<string, string>;
   /** Fields whose value came from a label that can name another figure (LOAN_LABELS_UNSURE). */
   unsure: Set<string>;
+  /** Fields whose value is such a bare rate: any other reading stands over it. */
+  bare: Set<string>;
   /** Fields and markers in reading order. */
   order: string[];
   referenceBp?: number;
   /** The lender came from a line of its own, not from a label. */
   headed: boolean;
+  kind?: LoanKind;
+  /** Lyhennys of a loan paid another way: the amortisation alone, in place of a payment the text does not give. */
+  alone?: LoanDraftField<number>;
   /** What repeated when this draft was closed. */
   repeat?: string;
   warnings: LoanDraftWarning[];
 }
-const open = (): Open => ({ fields: {}, seen: new Map(), unsure: new Set(), order: [], headed: false, warnings: [] });
+const open = (): Open => ({ fields: {}, seen: new Map(), unsure: new Set(), bare: new Set(), order: [], headed: false, warnings: [] });
 const hasFigures = (d: Open) => Object.keys(d.fields).some((k) => k !== "lender");
 
 class Drafts {
@@ -283,8 +253,17 @@ class Drafts {
     if (line.shown.split(" ").filter((word) => /^\P{L}*\p{Ll}/u.test(word)).length > 1) return;
     if (hasFigures(this.cur)) this.split();
     else if (this.cur.fields.lender && !this.cur.headed) return;
-    this.cur.fields.lender = { value: line.shown, line: line.shown, confidence: "check" };
+    this.cur.fields.lender = { value: line.shown.replace(MARKS, "").trim(), line: line.shown, confidence: "check" };
     this.cur.headed = true;
+  }
+
+  /** A heading that names the kind of the loan, or a lender that only lends against homes. A heading for another kind after figures starts the next loan. */
+  kind(line: Line): void {
+    const heading = loanKindHeading(line.folded);
+    const kind = heading ?? loanKindOfLender(line.folded);
+    if (!kind) return;
+    if (heading && this.cur.kind && this.cur.kind !== heading && hasFigures(this.cur)) this.split();
+    this.cur.kind ??= kind;
   }
 
   marker(label: string): void {
@@ -300,17 +279,23 @@ class Drafts {
     if (key === "lender") {
       // the register and the SECCI form name the lender first; after the figures its place is not known
       const late = hasFigures(this.cur) && !this.cur.fields.lender;
-      if (hasFigures(this.cur)) this.split();
+      // a name printed over its label, in the middle of a loan's lines, is that loan's lender
+      if (hasFigures(this.cur) && !(got.above && late)) this.split();
       this.cur.fields.lender = field(got.value, late ? "check" : confidence);
       this.cur.headed = false;
       return;
     }
     const before = this.cur.fields[key];
-    const again = this.cur.seen.get(key) === hit.label;
-    const differs = !again && before !== undefined && got.value !== before.value;
+    // a bare rate competes with no reading that is already there
+    if (got.bare && before) return;
+    const sameWord = this.cur.seen.get(key) === hit.label;
+    // the reading in place is a bare one and this is not: it replaces that, also under the same word, which would otherwise start the next loan
+    const weak = this.cur.bare.has(key) && !got.bare;
+    const again = sameWord && !weak;
+    const differs = !sameWord && before !== undefined && got.value !== before.value;
     // The first value came from a word that can name another figure ("Korko" may be the reference rate) and this label
     // is the register's own ("Kokonaiskorko"): this one's value is the field's.
-    const wins = !again && before !== undefined && got.value !== undefined && hit.certain && this.cur.unsure.has(key);
+    const wins = !again && before !== undefined && got.value !== undefined && ((hit.certain && this.cur.unsure.has(key)) || weak);
     // two labels of one field with two values: one value stays, and the user looks
     const doubt = () => {
       if (key === "amortisationCents") this.cur.fields[key]!.confidence = "check";
@@ -318,8 +303,8 @@ class Drafts {
     };
     if (again) this.split(key);
     else if (before && !wins) {
-      // another label of the same field ("Korko" after "Kokonaiskorko"): the first stays
-      if (got.value !== undefined && differs) doubt();
+      // another label of the same field ("Korko" after "Kokonaiskorko"): the first stays; a fallback label never doubts it
+      if (got.value !== undefined && differs && !hit.fallback) doubt();
       return;
     }
     if (!wins) {
@@ -331,6 +316,8 @@ class Drafts {
       (this.cur.fields as Record<string, LoanDraftField<unknown>>)[key] = field(got.value, confidence);
       if (hit.certain) this.cur.unsure.delete(key);
       else this.cur.unsure.add(key);
+      if (got.bare) this.cur.bare.add(key);
+      else this.cur.bare.delete(key);
       if (wins && differs) doubt();
     }
     if (got.referenceBp !== undefined) this.cur.referenceBp = got.referenceBp;
@@ -349,7 +336,11 @@ class Drafts {
   private static settlePayment(d: Open): void {
     const { amortisationCents, repayment } = d.fields;
     delete d.fields.amortisationCents;
-    if (repayment?.value !== "equal_principal") return;
+    if (repayment?.value !== "equal_principal") {
+      // the form tells the household that only the amortisation was read; with less read than this, nothing is made of it
+      if (amortisationCents && repayment && d.fields.balanceCents && !d.fields.paymentCents) d.alone = amortisationCents;
+      return;
+    }
     if (!amortisationCents) {
       if (d.fields.paymentCents) lower(d.fields, d.warnings, "payment_whole", ["paymentCents"]);
       return;
@@ -381,9 +372,11 @@ class Drafts {
         if (loose.length > 0) lower(d.fields, d.warnings, "mixed_loans", [...new Set(loose)]);
       }
       crossCheck(d.fields, d.warnings, { referenceBp: d.referenceBp, amortisationOnly: d.amortisationOnly }, options);
+      // no check knows what the amortisation of an annuity should be, so it joins the draft after them
+      if (d.alone) d.fields.paymentCents = { ...d.alone, confidence: "check" };
       if (options.source === "ocr") for (const f of Object.values(d.fields)) f.confidence = "check";
-      const paymentKind = d.amortisationOnly ? "amortisation" : "whole";
-      drafts.push({ ...d.fields, ...(d.fields.paymentCents ? { paymentKind } : {}), warnings: d.warnings });
+      const paymentKind = d.amortisationOnly || d.alone ? "amortisation" : "whole";
+      drafts.push({ ...d.fields, ...(d.fields.paymentCents ? { paymentKind } : {}), ...(d.kind ? { kind: d.kind } : {}), warnings: d.warnings });
     });
     return drafts;
   }
@@ -416,7 +409,9 @@ export function parseLoanText(text: string, options: LoanTextOptions = {}): Loan
     if (labels.length === 0) {
       const joined = brokenLabel(line, lines[i + 1]);
       if (!joined) {
-        drafts.heading(line);
+        // the lender's name over its own label is no heading
+        if (!lenderCaption(lines[i + 1])) drafts.heading(line);
+        drafts.kind(line);
         stacked = false;
         continue;
       }
@@ -436,7 +431,7 @@ export function parseLoanText(text: string, options: LoanTextOptions = {}): Loan
         if (!own) break;
         continue;
       }
-      let got = read(hit.field, line.text.slice(hit.end, end), line.folded.slice(hit.end, end));
+      let got = read(hit.field, line.text.slice(hit.end, end), line.folded.slice(hit.end, end), hit.certain);
       let shown = line.shown;
       let near = true;
       if (!got && labels.length === 1) {
@@ -454,7 +449,15 @@ export function parseLoanText(text: string, options: LoanTextOptions = {}): Loan
           near = proven && under.near && tail === "none" && !underLabel;
           i = under.index;
           taken.add(i);
-        } else stacked = tail === "none";
+        } else {
+          const over = tail === "none" && !aboveTaken ? valueAbove(hit, above) : null;
+          stacked = tail === "none" && !over;
+          if (over) {
+            got = over;
+            shown = `${above!.shown} ${line.shown}`;
+            near = false;
+          }
+        }
       }
       // the next label is not known to be a label of its own, so this value may run on through it: neither is read.
       // A name can hold a label's word ("Laina ja Korko Oy"), so a lender is never cut at one.

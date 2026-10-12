@@ -6,7 +6,8 @@
  * Earned income is everything but money from people and refunds, which are shown and left out of growth and stability.
  * A type the rows cannot tell apart stays at its broader type ("Kela, muu", "Muut etuudet").
  */
-import { addDays, daysInMonth, monthOf, weekdayOf } from "../dates.ts";
+import { getCategory } from "../categories.ts";
+import { addDays, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
@@ -137,6 +138,8 @@ function benefitType(text: string, t: IncomeRow): IncomeType {
 /**
  * The type one row says by itself, from its category and words. Salary rows get their final type from the pattern of
  * their payer (`incomeTypes`): an extra payment in a month, or one far above the usual, is holiday pay or other pay.
+ * Money in on a spending category that was no refund (`moneyIn`) is income too: from a person on Maksut henkilöille,
+ * a compensation or refund on any other.
  */
 export function incomeTypeOf(t: IncomeRow): IncomeType {
   const text = textOf(t);
@@ -150,11 +153,12 @@ export function incomeTypeOf(t: IncomeRow): IncomeType {
     case "sales":
       return "sales";
     case "p2p_in":
+    case "p2p":
       return "persons";
     case "reimbursements":
       return "refunds";
     default:
-      return "other_income";
+      return getCategory(t.category).kind === "income" ? "other_income" : "refunds";
   }
 }
 
@@ -165,10 +169,11 @@ export const isIncomeRow = (t: Pick<AnalysisTx, "flows">) => t.flows.income !== 
 const NOT_EARNED: ReadonlySet<string> = new Set(["p2p_in", "reimbursements"]);
 
 /**
- * Earned income: an income row that is not money from people or a refund. The one predicate behind every "tavalliset
- * tulot" (`usualIncome` in usual.ts) and the same split as the `earned` flag of `INCOME_TYPES`.
+ * Earned income: an income row that is not money from people or a refund, whether its category says so or it is money
+ * in on a spending category (`moneyIn`). The one predicate behind every "tavalliset tulot" (`usualIncome` in usual.ts)
+ * and the same split as the `earned` flag of `INCOME_TYPES`.
  */
-export const isEarnedIncome = (t: Pick<AnalysisTx, "flows" | "category">) => isIncomeRow(t) && !NOT_EARNED.has(t.category);
+export const isEarnedIncome = (t: Pick<AnalysisTx, "flows" | "category">) => isIncomeRow(t) && getCategory(t.category).kind === "income" && !NOT_EARNED.has(t.category);
 
 /** The payer a series is grouped by: the cleaned merchant name, folded. */
 export const payerKey = (t: Pick<AnalysisTx, "merchant">) => fold(t.merchant);
@@ -259,117 +264,5 @@ function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): v
   for (const t of mains) if (extra.has(t.id)) out.set(t.id, extraType(t));
 }
 
-// ── banking days and pay days ──
-
-/** Easter Sunday (anonymous Gregorian algorithm). */
-function easter(year: number): IsoDate {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-const holidayCache = new Map<number, Set<IsoDate>>();
-
-/** Days Finnish banks do not settle payments, besides weekends. */
-function bankHolidays(year: number): Set<IsoDate> {
-  let set = holidayCache.get(year);
-  if (set) return set;
-  const e = easter(year);
-  const fixed = ["01-01", "01-06", "05-01", "12-06", "12-24", "12-25", "12-26"].map((md) => `${year}-${md}`);
-  // midsummer eve is the Friday between 19 and 25 June
-  const midsummerEve = [19, 20, 21, 22, 23, 24, 25].map((d) => `${year}-06-${d}`).find((d) => weekdayOf(d) === 4)!;
-  set = new Set([...fixed, addDays(e, -2), addDays(e, 1), addDays(e, 39), midsummerEve]);
-  holidayCache.set(year, set);
-  return set;
-}
-
-export function isBankingDay(d: IsoDate): boolean {
-  return weekdayOf(d) < 5 && !bankHolidays(Number(d.slice(0, 4))).has(d);
-}
-
-/** The date moved to a banking day: back for `prev`, forward for `next`. */
-export function toBankingDay(d: IsoDate, rule: PayRule): IsoDate {
-  let x = d;
-  while (!isBankingDay(x)) x = addDays(x, rule === "prev" ? -1 : 1);
-  return x;
-}
-
-/** `n` banking days after `d`. */
-export function addBankingDays(d: IsoDate, n: number): IsoDate {
-  let x = d;
-  for (let i = 0; i < n; i++) x = toBankingDay(addDays(x, 1), "next");
-  return x;
-}
-
-/** prev: a closed day moves the payment to the banking day before (salaries, pensions); next: to the one after (Kela housing allowance). */
-export type PayRule = "prev" | "next";
-
-export interface PayDay {
-  /** Day of month, 1 to 31; a day past the month's end is its last day. */
-  day: number;
-  rule: PayRule;
-  /** Payments that fell on the date the rule gives, of the last ones checked. */
-  hits: number;
-  of: number;
-}
-
-export function payDate(month: string, pd: Pick<PayDay, "day" | "rule">): IsoDate {
-  const day = Math.min(pd.day, daysInMonth(month));
-  return toBankingDay(`${month}-${String(day).padStart(2, "0")}`, pd.rule);
-}
-
-/** At most this many latest payments decide the pay day. */
-const PAY_DAY_SAMPLE = 12;
-
-/**
- * The pay day that explains most of the payment dates: a nominal day and how a closed day moves it. Null when fewer
- * than three dates or no rule explains at least two thirds of them (a payer without a fixed day).
- */
-export function payDayOf(dates: readonly IsoDate[]): PayDay | null {
-  const sample = [...dates].sort().slice(-PAY_DAY_SAMPLE);
-  if (sample.length < 3) return null;
-  const candidates = new Map<string, Pick<PayDay, "day" | "rule">>();
-  for (const d of sample) {
-    const day = Number(d.slice(8, 10));
-    for (let k = 0; k <= 4; k++) {
-      if (day + k <= 31) candidates.set(`${day + k}p`, { day: day + k, rule: "prev" });
-      if (day - k >= 1) candidates.set(`${day - k}n`, { day: day - k, rule: "next" });
-    }
-    if (day >= 25) candidates.set("31p", { day: 31, rule: "prev" });
-  }
-  let best: PayDay | null = null;
-  for (const c of candidates.values()) {
-    let hits = 0;
-    for (const d of sample) {
-      const m = monthOf(d);
-      // a pay day on the 1st moved back lands in the month before
-      if (payDate(m, c) === d || payDate(monthOf(addDays(`${m}-01`, 32)), c) === d) hits++;
-    }
-    const better = !best || hits > best.hits || (hits === best.hits && c.rule === "prev" && best.rule === "next") || (hits === best.hits && c.rule === best.rule && c.day < best.day);
-    if (better) best = { ...c, hits, of: sample.length };
-  }
-  return best && best.hits * 3 >= best.of * 2 ? best : null;
-}
-
-/** The first pay date after `after`, by the pay day rule. */
-export function nextPayDate(after: IsoDate, pd: Pick<PayDay, "day" | "rule">): IsoDate {
-  let month = monthOf(after);
-  for (let i = 0; i < 3; i++) {
-    const d = payDate(month, pd);
-    if (d > after) return d;
-    month = monthOf(addDays(`${month}-01`, 32));
-  }
-  return payDate(month, pd);
-}
+// banking days and pay days moved to pay-day.ts: what was importable from here still is
+export { addBankingDays, isBankingDay, nextPayDate, type PayDay, payDate, payDayOf, type PayRule, toBankingDay } from "../pay-day.ts";

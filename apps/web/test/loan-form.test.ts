@@ -256,6 +256,21 @@ describe("the payment and the way of paying back", () => {
     form = setValue(form, "repayment", "equal_principal");
     expect(form.values.paymentCents).toBe("500,00");
   });
+
+  it("an amortisation alone read for an annuity is left empty from the start, and the form says what the text gave", () => {
+    const text = ["Pääomaa maksamatta 90 000,00", "Lyhennystyyppi Annuiteetti", "Lyhennys 301,77"].join("\n");
+    let form = draftOf(text);
+    expect(form.paymentKind).toBe("amortisation");
+    expect(form.values.paymentCents).toBe("");
+    expect(form.source?.payment).toBe("301,77");
+    expect(markOf(form, "paymentCents")).toBe("missing");
+    // under Tasalyhennys the read amortisation is the payment
+    form = setValue(form, "repayment", "equal_principal");
+    expect(form.values.paymentCents).toBe("301,77");
+    // the kind the text names is the form's, and none is left unchosen
+    expect(draftOf(["Asuntolaina", text].join("\n")).kind).toBe("mortgage");
+    expect(draftOf(text).kind).toBe("");
+  });
 });
 
 describe("the text layer of a PDF as lines", () => {

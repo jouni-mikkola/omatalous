@@ -7,6 +7,7 @@ import {
   debtTotalOn,
   loanBalanceOn,
   loanInterestNext12Months,
+  loanNextPayment,
   loanPayoffDate,
   loanPeriodInterest,
   loansOf,
@@ -421,5 +422,17 @@ describe("loans in the user's inputs", () => {
     const l = loan();
     expect(loansOf({ ...NO_INPUTS, loans: [l] })).toEqual([l]);
     expect([...LOAN_REFERENCES]).toEqual(INPUT_DEFS.loan_rate.choices!.map((c) => c.id));
+  });
+});
+
+describe("the due date of the next payment", () => {
+  it("is the plan's own, and null where no plan places the payment", () => {
+    const plan = loan({ rateBp: 600, repayment: "annuity", intervalMonths: 1, paymentCents: 5_000 });
+    expect(loanNextPayment(plan, "2026-02-01")).toEqual({ cents: 5_000, interestCents: 500, amortisationCents: 4_500, intervalMonths: 1, unknown: null, date: "2026-02-15" });
+    expect(loanNextPayment(plan, "2026-03-01").date).toBe("2026-03-15");
+    // a bullet loan has no payment before its end, a payment typed with no interval has no day, and a loan that tells nothing has neither
+    expect(loanNextPayment(loan({ rateBp: 600, repayment: "bullet", endDate: "2030-01-15" }), "2026-02-01").date).toBeNull();
+    expect(loanNextPayment(loan({ paymentCents: 5_000 }), "2026-02-01")).toMatchObject({ cents: 5_000, date: null });
+    expect(loanNextPayment(loan(), "2026-02-01")).toMatchObject({ cents: null, date: null });
   });
 });

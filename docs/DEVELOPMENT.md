@@ -363,13 +363,15 @@ source. They are output and never edited by hand. `golden.test.ts` fails when th
 ### The contrast test
 
 `apps/web/test/contrast.test.ts` reads `apps/web/src/styles/tokens.css` as text and measures every `#rrggbb` token with
-the WCAG 2 formulas: text tokens at 4.5 to 1 on the page and both surfaces, text on the three tints, series colours and
-the two darkest heat steps at 3 to 1 on the surface, the border at 1.3 to 1, the grid at 1.2 and the axis at 3, and
-neighbouring series at 1.2 to 1 in luminance or 60 degrees of hue apart. It also keeps the page between 0.70 and 0.76 in
-luminance and the surface 0.06 above it. A failure names the pair and its figure (`muted on surface-2: 4.31 < 4.5`).
-When a new token fails, move the colour, not the test: darken or lighten it in linear light by the smallest step that
-passes, plus a little margin, so its hue stays. A new text or series token goes on its list in the test. The test
-also holds the theme colour in `apps/web/index.html` equal to the page colour, so the two move together.
+the WCAG 2 formulas: text tokens at 4.5 to 1 on the page and both surfaces and on the three tints, text and second text
+at 7 to 1, muted at 6 to 1 on the surface, the status colours at 4.5 on it, the text of the header band (`--on-ink`
+and `--on-ink-2` on `--ink`) at 7 to 1, series colours and the two darkest heat steps at 3 to 1 on the surface, the
+border at 1.5 to 1, the grid at 1.3 and the axis at 3, and neighbouring series at 1.2 to 1 in luminance or 60 degrees of
+hue apart. It also keeps the surface at least 1.10 to 1 brighter than the page, so a card stands out. A failure names
+the pair and its figure (`muted on surface-2: 4.31 < 4.5`). When a new token fails, move the colour, not the test:
+darken or lighten it in linear light by the smallest step that passes, plus a little margin, so its hue stays. A new
+text or series token goes on its list in the test. The test also holds the theme colour in `apps/web/index.html` equal
+to the colour of the header band (`--ink`), so the two move together.
 
 ### End-to-end tests
 

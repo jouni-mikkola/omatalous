@@ -48,16 +48,18 @@ describe("the spending of a period is one figure on Raportit", () => {
 });
 
 describe("a category with more refunds than spending", () => {
-  // Dec and Jan: shopping nets -5 000; Feb and Mar: it nets -4 000 (spent 8 000, got 12 000 back)
+  // A refund comes a month or two after its payment. Dec and Jan: shopping nets -5 000 (spent 4 000, and the 9 000 of
+  // November came back); Feb and Mar: it nets -1 000 (spent 8 000, got back the 4 000 of January and 5 000 of February)
   const rows = [
     row("2025-11-20", -1000, "groceries", "K-Market"),
+    row("2025-11-25", -9000, "shopping", "Zara"),
     row("2025-12-10", -20000, "groceries", "K-Market"),
     row("2026-01-05", -4000, "shopping", "Zara"),
     row("2026-01-12", -18000, "groceries", "K-Market"),
     row("2026-01-20", 9000, "shopping", "Zara"),
     row("2026-02-03", -21000, "groceries", "K-Market"),
     row("2026-02-10", -5000, "shopping", "Zara"),
-    row("2026-02-20", 12000, "shopping", "Zara"),
+    row("2026-02-20", 9000, "shopping", "Zara"),
     row("2026-03-03", -3000, "shopping", "Zara"),
     row("2026-03-17", -19000, "groceries", "K-Market"),
   ];
@@ -68,10 +70,10 @@ describe("a category with more refunds than spending", () => {
     const pivot = pivotReport(ctx, range);
     expect(pivot.rows.map((r) => [r.category, r.values, r.totalCents])).toEqual([
       ["groceries", [21000, 19000], 40000],
-      ["shopping", [-7000, 3000], -4000],
+      ["shopping", [-4000, 3000], -1000],
     ]);
-    expect(pivot.monthTotals).toEqual([14000, 22000]);
-    expect(pivot.totalCents).toBe(36000);
+    expect(pivot.monthTotals).toEqual([17000, 22000]);
+    expect(pivot.totalCents).toBe(39000);
     expect(pivot.totalCents).toBe(expenseOf(ctx, range));
   });
 
@@ -80,11 +82,11 @@ describe("a category with more refunds than spending", () => {
     const all = report.groups.flatMap((g) => g.categories);
     expect(all.map((c) => [c.category, c.totalCents, c.previousCents])).toEqual([
       ["groceries", 40000, 38000],
-      ["shopping", -4000, -5000],
+      ["shopping", -1000, -5000],
     ]);
     expect(report.comparable).toBe(true);
-    expect(report.totalCents).toBe(36000);
-    expect(report.groups.at(-1)!.totalCents).toBe(-4000);
+    expect(report.totalCents).toBe(39000);
+    expect(report.groups.at(-1)!.totalCents).toBe(-1000);
     expect(report.groups.reduce((s, g) => s + g.totalCents, 0)).toBe(report.totalCents);
     expect(report.previousTotalCents).toBe(33000);
     expect(report.previousTotalCents).toBe(expenseOf(ctx, { from: previousRange(range.from, range.to)[0], to: previousRange(range.from, range.to)[1] }));

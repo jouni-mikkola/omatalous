@@ -6,7 +6,7 @@ import { intervalLabel, KIND_LABEL } from "../../../components/loans/labels.ts";
 import { Section } from "../../../components/Section.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, percent } from "../../../format.ts";
 import { partText, typedByText } from "../../../part.ts";
-import { hashOf } from "../../../routes.ts";
+import { hashOf, LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR } from "../../../routes.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 
@@ -110,7 +110,7 @@ function offers(t: MaybeTwice, own: ReadonlySet<string>, typists: ReadonlyMap<st
     .flatMap((l) =>
       t.accounts
         .filter((a) => own.has(a.id))
-        .map((a) => ({ label: `Liitä ${l.name} tiliin ${a.name}`, href: hashOf({ page: "settings", params: new URLSearchParams({ [LOAN_LINK_PARAM.loan]: l.id, [LOAN_LINK_PARAM.account]: a.id }), anchor: "lainat" }) })),
+        .map((a) => ({ label: `Liitä ${l.name} tiliin ${a.name}`, href: hashOf({ page: "settings", params: new URLSearchParams({ [LOAN_LINK_PARAM.loan]: l.id, [LOAN_LINK_PARAM.account]: a.id }), anchor: SETTINGS_ANCHOR.loans }) })),
     );
 }
 
@@ -221,7 +221,7 @@ function Loans({ ctx }: SectionProps) {
 }
 
 export const section: ReportSection = {
-  id: "lainat",
+  id: LOANS_REPORT_ANCHOR,
   title: "Lainat",
   // right under Saldot: what is owed after what is held
   order: 115,

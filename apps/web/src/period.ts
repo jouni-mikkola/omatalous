@@ -39,6 +39,14 @@ export function periodsOf(page: string, today: string): readonly PeriodPreset[] 
   return page === "reports" ? REPORT_PERIODS : [];
 }
 
+/** The pages that draw their own switch, in the block it changes: the shell draws none above them. */
+const OWN_SWITCH: readonly string[] = ["overview"];
+
+/** The presets the shell draws above a page: those of `periodsOf`, none for a page that draws its own switch. */
+export function shellPeriodsOf(page: string, today: string): readonly PeriodPreset[] {
+  return OWN_SWITCH.includes(page) ? [] : periodsOf(page, today);
+}
+
 /** The page a preset belongs to; null for an id no page offers. */
 export function pageOfPeriod(id: string): PeriodPage | null {
   return (Object.keys(PAGES) as PeriodPage[]).find((page) => PAGES[page].ids.includes(id)) ?? null;

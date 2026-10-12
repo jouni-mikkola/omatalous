@@ -1,11 +1,12 @@
 /**
- * Decision: do I have enough on the account until the pay comes, and when to move money to it.
+ * Decision: does the account cover what is due before the next pay.
  *
- * The days up to the next payday as the forecast expects them: pay days, subscriptions and bills, the bills the household
- * typed in, the bill of a connected card and regular transfers to other accounts, and with a checking balance the
- * balance each day after the usual everyday spending. The window follows the accounts whose balance it counts
- * (`countedAccounts`): a charge is a row when one of them pays it. The window ends the day before the payday of the
- * largest regular income; without one it is the next 30 days.
+ * The days up to the next payday as the bank's rows and the household's own bills give them: pay days, subscriptions and
+ * bills, the bills the household typed in, the bill of a connected card and regular transfers to other accounts, and
+ * with a checking balance what is left of it after those payments. Nothing else is taken off: the usual spending of a
+ * day is told beside the figures and is in none of them. The window follows the accounts whose balance it counts
+ * (`countedAccounts`): a charge is a row when one of them pays it. The window ends the day before the nearest payday of
+ * the pays to wait for; without one it is the next 30 days.
  */
 import { getCategory } from "../categories.ts";
 import { cancelledSubjects, type ExpectedCharge, expectedCharges } from "../commitments.ts";
@@ -17,14 +18,15 @@ import { balanceWalk } from "./balance-walk.ts";
 import type { AnalysisContext } from "./context.ts";
 import { everydayPerDay, expectedBillRows } from "./forecast.ts";
 import { nextPayDate, payDayOf } from "./income.ts";
-import { completeMonthsBefore } from "./usual.ts";
 
-/** How many days after today the list and the balance run when no payday sets the window. */
+/** How many days after today the window runs when no payday sets it. */
 const AHEAD_DAYS = 30;
 /** A payday farther away than this many days is not waited for: the window is `AHEAD_DAYS` instead. */
 const MAX_PAYDAY_DAYS = 45;
 /** A monthly pay is expected at least this many days after the last one: a nearer day is the last pay itself, early or late. */
 const MIN_PAY_GAP_DAYS = 15;
+/** A regular income of at least this share of the largest one is a pay to wait for: the smaller of two salaries is, a child benefit is not. */
+const MAJOR_PAY_SHARE = 0.5;
 
 export interface AheadRow {
   date: IsoDate;
@@ -41,6 +43,16 @@ export interface AheadRow {
   source: "income" | "recurring" | "expected" | "card" | "transfer";
   /** On a card's bill only: "balance" when the sum is what the card owes today, "usual" when it is the median of its paid bills. */
   basis?: "balance" | "usual";
+  /**
+   * In `upcoming` only, on a payment dated today whose series follows the pay that is expected today and is not booked
+   * yet: it is paid from that pay, so it is no row of the window and Laskut lists it after the payday.
+   */
+  withPay?: boolean;
+  /**
+   * In `upcoming` only: the series is charged to a credit card, so no account pays it. It is in the card's bill, and
+   * Laskut lists it in a group of its own, outside the sums of what the accounts pay.
+   */
+  onCard?: boolean;
 }
 
 export interface AheadBalance {
@@ -51,12 +63,16 @@ export interface AheadBalance {
   /** How many checking accounts it adds up, and the oldest time one of the balances it walks from was given (ISO), null when unknown. */
   accounts: number;
   balanceAt: string | null;
-  /** The balance at the end of each day from today to the last day, after the rows and the usual everyday spending. */
-  days: { date: IsoDate; cents: number }[];
-  /** The balance on the last day of the window, the day before the payday when there is one. */
-  last: { date: IsoDate; cents: number };
-  /** The lowest end-of-day balance and its first day. */
-  lowest: { date: IsoDate; cents: number };
+  /** `startCents` less `totals.dueCents`. Nothing else is taken off and no pay is added, so it is below zero when the payments exceed the balance. */
+  freeCents: number;
+  /**
+   * The most the account lacks at a payment of the window, the pay dated before the payment's day counted: `-freeCents`
+   * when no pay comes before a payment and that is below zero. What a balance below zero lacks before any payment
+   * counts too. Else 0.
+   */
+  shortCents: number;
+  /** The day of the first payment, in the order of `rows`, that `startCents` and the pay dated before its day do not cover. Null when none is. */
+  shortOn: IsoDate | null;
 }
 
 /** The pay the window waits for. */
@@ -64,17 +80,20 @@ interface Payday {
   /** The coming pay day. For a late pay the day it was expected, which has gone by. */
   date: IsoDate;
   /**
-   * The day the pay was expected, when that day has gone by and the pay is not late yet: `date` is today then, since
-   * the window and its balance count from today. Left out when `date` is the expected day itself.
+   * The day the pay was expected, when that day has gone by and the pay is not late yet: `date` is today then, and
+   * the window runs on to the next pay to wait for, since a pay that has not come ends none. Left out when `date` is
+   * the expected day itself.
    */
   expected?: IsoDate;
+  /** With `expected`: the day of the pay that ends the window, the nearest one to wait for whose day is to come. Left out when none is within the days looked at: the window is the 30 days then. */
+  next?: IsoDate;
   /** The payer. */
   name: string;
   /** The usual amount of the series. */
   cents: number;
 }
 
-/** What the window holds, each in positive cents, so that start + income - recurring - typed - card - transfer - everyday is the balance of the last day. */
+/** What the window holds, each in positive cents. */
 interface AheadTotals {
   /** Subscriptions and bills the history shows. */
   recurringCents: number;
@@ -84,8 +103,8 @@ interface AheadTotals {
   cardCents: number;
   /** Regular transfers to accounts the balance does not count. */
   transferCents: number;
-  /** The usual everyday spending for the days after today that the balance line subtracts. */
-  everydayCents: number;
+  /** Everything that leaves the counted accounts in the window: the four above added up. */
+  dueCents: number;
   /** Other pay that lands inside the window; the payday itself is no part of it. */
   incomeCents: number;
 }
@@ -97,9 +116,10 @@ export interface AheadData {
   /** How many days after today the window runs: `to` less `from`. */
   days: number;
   /**
-   * "payday": the window ends the day before the next pay of the largest regular income (today alone when it is today or
-   * tomorrow). "none": no regular income, or its next pay is more than 45 days away, so 30 days. "late": that pay is
-   * late, so 30 days.
+   * "payday": a pay to wait for is coming, or one is behind its day and not late yet. "late": the largest regular
+   * income is late. In both the window ends the day before the nearest pay to wait for whose day is still to come
+   * (today alone when that is today or tomorrow), and is 30 days without one. "none": no regular income, or no pay to
+   * wait for within 45 days, so 30 days.
    */
   reason: "payday" | "none" | "late";
   /** Set for "payday" and "late", null for "none". */
@@ -108,16 +128,17 @@ export interface AheadData {
   rows: AheadRow[];
   /**
    * The bills, subscriptions and typed-in bills of the next 30 days, in the same order, whatever the window is and
-   * whatever account pays them: Laskut lists a subscription a card pays too. No pay, no card's bill and no transfer.
+   * whatever account pays them: Laskut lists a subscription a card pays too, marked `onCard`. No pay, no card's bill
+   * and no transfer.
    */
   upcoming: AheadRow[];
-  /** The usual everyday spending of the counted accounts a day, in whole cents. 0 without a complete month. */
+  /** The usual everyday spending of the counted accounts a day, in whole cents (`everydayPerDay`): told beside the figures and taken off none. 0 under eight whole weeks of history. */
   everydayPerDayCents: number;
   totals: AheadTotals;
-  /** null without a checking balance or without a complete month to say what everyday spending is. */
+  /** null unless every counted checking account has a balance. */
   balance: AheadBalance | null;
-  /** Why there is no balance line: "balance" for no checking balance given, "history" for no complete month. */
-  missing: "balance" | "history" | null;
+  /** Why the balance has no figures: "balance" when a counted checking account has no balance given. */
+  missing: "balance" | null;
 }
 
 /**
@@ -143,18 +164,25 @@ const byDay = (a: AheadRow, b: AheadRow) => a.date.localeCompare(b.date) || Math
 const chargeRow = (c: ExpectedCharge): AheadRow => ({ date: c.date, name: c.merchant, category: c.category, cents: -c.amountCents, source: "recurring" });
 
 /**
- * What is coming until the next payday and, with a checking balance, how the balance moves. The payday is the first
- * coming pay of the regular income with the largest usual amount; the window runs from today to the day before it, at
- * most 45 days. Without such an income, or when its next pay is farther away, it is 30 days, and when that income is
- * late it is 30 days too, since a late pay is not a day to wait for. When the payday is today or tomorrow the window is
- * today alone: today's balance is the last one before the pay. `balances` are the accounts in view (own and shared with
- * the viewer); `inputs` are the household's marks and typed-in bills. Not part of the cached context: both are read per
- * request.
+ * What is due until the next payday and, with a checking balance, what is left of it after that. The pays to wait for
+ * are the regular incomes that are not late and whose usual amount is at least half of the largest one; the payday is
+ * the nearest coming pay among them, and the window runs from today to the day before it, at most 45 days. Without
+ * such a pay within those days it is 30 days. When the payday is today or tomorrow the window is today alone; on the
+ * payday itself, until the pay is booked, a bill that follows the pay is paid from it and is no row of the window. A pay
+ * that is late, or behind its day and not late yet, has not come and ends no window: it is told as the payday, and the
+ * window still ends before the nearest pay to wait for whose day is to come, so no such pay is ever inside a window.
+ * `balances` are the accounts in view (own and shared with the viewer); `inputs` are the household's marks and
+ * typed-in bills. Not part of the cached context: both are read per request.
+ *
+ * What is due and what is free hold the payments and nothing else: what is free is the balance less what is due. The
+ * day the balance runs short is the day of the first payment that the balance and the pay dated before that day do
+ * not cover: other pay of the window is a row, and it is money only for what is due after it. The figures need the
+ * balance of every counted account, since the rows are those of all of them.
  *
  * The payday is that of the whole view, whatever account the pay lands on. Everything else follows the counted
  * accounts: other pay is a row when one of them gets it, a charge when one of them pays it (a series is one account's,
- * the account in its id), and the everyday spending is their own, so a card's purchases are in the card's bill and not
- * in the rate. A typed-in bill names no account and always counts.
+ * the account in its id), and the usual day is their own, so a card's purchases are in the card's bill and not in it.
+ * A typed-in bill names no account and always counts.
  */
 export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): AheadData {
   const from = ctx.today;
@@ -174,24 +202,30 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   const pays = coming.map((s) => {
     const past = s.transactionIds.map((id) => dayOf.get(id)).filter((d): d is IsoDate => !!d);
     const expected = payDates(s, past, reach);
-    // a pay expected on a day gone by and not late yet is waited for today
-    return { s, expected, dates: expected.map((d) => (d < from ? from : d)) };
+    // a pay expected on a day gone by and not late yet is a row of today
+    return { s, past, expected, dates: expected.map((d) => (d < from ? from : d)) };
   });
+
+  // the pays to wait for; of two on one day the larger comes first
+  const major = (top ? pays.filter((p) => p.s.typicalAmountCents >= top.typicalAmountCents * MAJOR_PAY_SHARE) : []).sort((a, b) => b.s.typicalAmountCents - a.s.typicalAmountCents);
+  // the nearest pay among them whose day is still to come: it ends the window, whatever else is late or behind
+  const [next] = major.flatMap((p) => p.expected.filter((d) => d >= from).slice(0, 1).map((day) => ({ s: p.s, past: p.past, day }))).sort((a, b) => a.day.localeCompare(b.day));
+  // one whose day has gone by and that is not late yet: it has not come, so it ends no window
+  const behind = major.find((p) => p.expected.length > 0 && p.expected[0]! < from);
 
   let reason: AheadData["reason"] = "none";
   let payday: Payday | null = null;
   if (top?.overdue) {
     reason = "late";
     payday = { date: top.nextDate ?? top.lastDate, name: top.merchant, cents: top.typicalAmountCents };
-  } else if (top) {
-    const pay = pays.find((p) => p.s === top)!;
-    const [next, expected] = [pay.dates[0], pay.expected[0]];
-    if (next) {
-      reason = "payday";
-      payday = { date: next, name: top.merchant, cents: top.typicalAmountCents, ...(expected && expected < next ? { expected } : {}) };
-    }
+  } else if (behind) {
+    reason = "payday";
+    payday = { date: from, expected: behind.expected[0]!, ...(next ? { next: next.day } : {}), name: behind.s.merchant, cents: behind.s.typicalAmountCents };
+  } else if (next) {
+    reason = "payday";
+    payday = { date: next.day, name: next.s.merchant, cents: next.s.typicalAmountCents };
   }
-  const to = reason !== "payday" ? addDays(from, AHEAD_DAYS) : payday!.date > from ? addDays(payday!.date, -1) : from;
+  const to = !next ? addDays(from, AHEAD_DAYS) : next.day > from ? addDays(next.day, -1) : from;
   const days = daysBetween(from, to);
 
   // what the counted accounts get and pay, found once: income to the end of the window, payments as far as the window
@@ -199,23 +233,40 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   const thirty = addDays(from, AHEAD_DAYS);
   const reachPayments = to > thirty ? to : thirty;
   const all: AheadRow[] = [];
-  for (const { s, dates } of pays) {
-    // the pay the window waits for lands after it
-    if ((reason === "payday" && s === top) || !onCounted(s)) continue;
-    for (const d of dates) if (d <= to) all.push({ date: d, name: s.merchant, category: s.category, cents: s.typicalAmountCents, source: "income" });
+  const waited = new Set(major.map((p) => p.s));
+  for (const { s, expected: due, dates } of pays) {
+    if (!onCounted(s)) continue;
+    dates.forEach((d, i) => {
+      // the pay that ends the window lands after it, and a pay to wait for whose day has gone by has not come
+      if (d > to || (s === next?.s && d === next.day) || (waited.has(s) && due[i]! < from)) return;
+      all.push({ date: d, name: s.merchant, category: s.category, cents: s.typicalAmountCents, source: "income" });
+    });
   }
   const expected = { cancelled: cancelledSubjects(inputs), savings: true };
-  for (const c of expectedCharges(ctx.recurring.filter(onCounted), from, reachPayments, expected)) all.push(chargeRow(c));
+  // The payday itself, the pay not booked yet: a bill that follows this pay (`follows`, the pay's own day and rule) is
+  // paid from it. It is no row of today's window, so the balance is not said to be short of it; any other payment dated
+  // today is a row, a follower that is late from an earlier pay included.
+  const awaited = next?.day === from ? payDayOf(next.past) : null;
+  const withPay = (s: RecurringSeries) => !!awaited && s.follows?.day === awaited.day && s.follows.rule === awaited.rule && s.nextDate === from;
+  const paying = ctx.recurring.filter(onCounted);
+  for (const c of expectedCharges(paying.filter((s) => !withPay(s)), from, reachPayments, expected)) all.push(chargeRow(c));
+  for (const c of expectedCharges(paying.filter(withPay), from, reachPayments, expected)) all.push(c.date === from ? { ...chargeRow(c), withPay: true } : chargeRow(c));
   for (const b of expectedBillRows(ctx, inputs.expectedBills, from, reachPayments)) {
     all.push({ date: b.date, name: b.name, category: b.category, cents: -b.amountCents, source: "expected" });
   }
-  // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window
-  const elsewhere = expectedCharges(ctx.recurring.filter((s) => !onCounted(s)), from, thirty, expected).map(chargeRow);
+  // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window; a card's is marked
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  const onCard = (s: RecurringSeries) => cards.has(parseSeriesId(s.id)?.accountId ?? "");
+  const outside = ctx.recurring.filter((s) => !onCounted(s));
+  const elsewhere = [
+    ...expectedCharges(outside.filter((s) => !onCard(s)), from, thirty, expected).map(chargeRow),
+    ...expectedCharges(outside.filter(onCard), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), onCard: true })),
+  ];
   const upcoming = [...all.filter((r) => r.source !== "income" && r.date <= thirty), ...elsewhere].sort(byDay);
   for (const m of counted ? expectedMoves(ctx, counted.ids, balances, from, to) : []) {
     all.push({ date: m.date, name: m.name, category: "transfer", cents: -m.amountCents, source: m.source, ...(m.basis ? { basis: m.basis } : {}) });
   }
-  const rows = all.filter((r) => r.date <= to).sort(byDay);
+  const rows = all.filter((r) => r.date <= to && !r.withPay).sort(byDay);
 
   const rate = everydayPerDay(ctx, monthOf(from), counted?.ids);
   // today's balance is the day walk's, the same as on the first page and in Saldot: the bank's balance with the rows booked since it was given
@@ -223,30 +274,25 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
     const cents = balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null;
     return cents === null ? [] : [{ cents, balanceAt: b.balanceAt }];
   });
-  const hasHistory = completeMonthsBefore(ctx, monthOf(from), 1).length > 0;
-  const totals: AheadTotals = {
-    recurringCents: sumOf(rows, "recurring"),
-    typedCents: sumOf(rows, "expected"),
-    cardCents: sumOf(rows, "card"),
-    transferCents: sumOf(rows, "transfer"),
-    everydayCents: Math.round(rate * days),
-    incomeCents: sumOf(rows, "income"),
-  };
+  const [recurringCents, typedCents, cardCents, transferCents] = [sumOf(rows, "recurring"), sumOf(rows, "expected"), sumOf(rows, "card"), sumOf(rows, "transfer")];
+  const totals: AheadTotals = { recurringCents, typedCents, cardCents, transferCents, dueCents: recurringCents + typedCents + cardCents + transferCents, incomeCents: sumOf(rows, "income") };
   const base = { from, to, days, reason, payday, rows, upcoming, everydayPerDayCents: Math.round(rate), totals };
-  if (!checking.length) return { ...base, balance: null, missing: "balance" };
-  if (!hasHistory) return { ...base, balance: null, missing: "history" };
+  // the rows are those of every counted account, so the figures need the balance of every one of them
+  if (!checking.length || checking.length < counted!.accounts.length) return { ...base, balance: null, missing: "balance" };
 
-  const start = checking.reduce((sum, b) => sum + b.cents, 0);
+  const startCents = checking.reduce((sum, b) => sum + b.cents, 0);
   const stamps = checking.map((b) => b.balanceAt).filter((x): x is string => !!x).sort();
-  const walk: AheadBalance["days"] = [];
-  let next = 0;
-  let inOut = 0;
-  for (let i = 0; i <= days; i++) {
-    const date = addDays(from, i);
-    while (next < rows.length && rows[next]!.date <= date) inOut += rows[next++]!.cents;
-    // everyday spending starts tomorrow: today's balance already holds what was spent today
-    walk.push({ date, cents: start + inOut - Math.round(rate * i) });
+  // the payments in the rows' order, each against the balance with the pay dated before its day: the first one it does
+  // not reach, and the most it lacks
+  let [paid, lowest] = [0, startCents];
+  let shortOn: IsoDate | null = null;
+  for (const r of rows) {
+    if (r.source === "income") continue;
+    paid += Math.abs(r.cents);
+    const left = startCents + rows.reduce((sum, p) => (p.source === "income" && p.date < r.date ? sum + p.cents : sum), 0) - paid;
+    if (left < 0) shortOn ??= r.date;
+    lowest = Math.min(lowest, left);
   }
-  const lowest = walk.reduce((low, d) => (d.cents < low.cents ? d : low), walk[0]!);
-  return { ...base, balance: { startCents: start, counts: counted!.counts, accounts: checking.length, balanceAt: stamps[0] ?? null, days: walk, last: { ...walk.at(-1)! }, lowest: { ...lowest } }, missing: null };
+  const balance: AheadBalance = { startCents, counts: counted!.counts, accounts: checking.length, balanceAt: stamps[0] ?? null, freeCents: startCents - totals.dueCents, shortCents: Math.max(0, -lowest), shortOn };
+  return { ...base, balance, missing: null };
 }

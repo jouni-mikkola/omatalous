@@ -102,8 +102,8 @@ interface Kept {
   missing: LoanUnknown | null;
 }
 
-/** The last due date when it can end the loan. One on or before the balance date says nothing about the days after it. */
-const endOf = (loan: Loan): IsoDate | null => (loan.endDate !== null && loan.endDate > loan.balanceDate ? loan.endDate : null);
+/** The last due date when it can end the loan; one on or before the balance date says nothing of the days after it. With none the plan counts from the balance date, not the bank's days. */
+export const endOf = (loan: Loan): IsoDate | null => (loan.endDate !== null && loan.endDate > loan.balanceDate ? loan.endDate : null);
 
 /** The months between a loan's payments when it names a whole number of them, else null. */
 export const intervalOf = (loan: Loan): number | null =>
@@ -331,6 +331,8 @@ export interface NextPayment {
   amortisationCents: number | null;
   /** Months between payments. Null when the loan does not say. */
   intervalMonths: number | null;
+  /** The due date of the payment, the plan's own. Null where no plan places it: nothing is due, or a field is missing. */
+  date: IsoDate | null;
   unknown: LoanUnknown | null;
 }
 
@@ -339,7 +341,7 @@ export interface NextPayment {
  * interest, and a loan that owes nothing has none. Equal principal pays its interval's interest on top of the typed
  * amortisation. A loan without a plan (a card, a credit line, a loan that lacks its interval or its rate) keeps its
  * balance: a payment typed for it is told as typed, at most what is owed with the interest that can be counted, and
- * its split is not known. A bullet has no payment before its last due date.
+ * neither its split nor its due date is known. A bullet has no payment before its last due date.
  */
 export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   const cut = partly(loan);
@@ -352,7 +354,7 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
     return { ...whole, cents, interestCents, amortisationCents };
   }
   const intervalMonths = intervalOf(loan);
-  const none = (unknown: LoanUnknown | null): NextPayment => ({ cents: null, interestCents: null, amortisationCents: null, intervalMonths, unknown });
+  const none = (unknown: LoanUnknown | null): NextPayment => ({ cents: null, interestCents: null, amortisationCents: null, intervalMonths, date: null, unknown });
   if (day < loan.balanceDate) return none("before_balance_date");
   if (loan.repayment === "bullet") return none(null);
   const plan = planOf(loan);
@@ -360,7 +362,7 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
     for (const p of payments(loan, plan)) {
       if (p.date <= day) continue;
       const cents = p.interestCents === null ? null : p.interestCents + p.amortisationCents;
-      return { cents, interestCents: p.interestCents, amortisationCents: p.amortisationCents, intervalMonths, unknown: cents === null ? "rate" : null };
+      return { cents, interestCents: p.interestCents, amortisationCents: p.amortisationCents, intervalMonths, date: p.date, unknown: cents === null ? "rate" : null };
     }
     return none(null);
   }

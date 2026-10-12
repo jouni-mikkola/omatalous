@@ -77,22 +77,22 @@ export function cardCosts(ctx: AnalysisContext, end: IsoDate): CardCosts {
   for (const t of inDays(ctx, toDayRange({ from: `${months[0]}-01`, to: monthEnd(months[months.length - 1]!) }))) {
     const card = cards.get(t.accountId);
     if (!card) continue;
-    // Interest the bank takes back is money into the card under the charge's own word. `netSpend` cannot see it: a
-    // return is paired with a purchase only, and interest is no purchase.
+    // Interest the bank takes back is money into the card under the charge's own word, counted in the month it came.
+    // So a charge counts whole: `netSpend` would take the same money off the charge a second time.
     if (t.amountCents > 0 && isPurchaseInterestText(wordingOf(t))) {
       interestIn(card, monthOf(t.bookingDate), -t.amountCents);
       continue;
     }
     if (!isBankFee(t)) continue;
+    if (isPurchaseInterestText(wordingOf(t))) {
+      interestIn(card, monthOf(t.bookingDate), t.spend);
+      card.interestRows.push(t.id);
+      continue;
+    }
     const cents = netSpend(t);
     if (cents <= 0) continue;
-    if (isPurchaseInterestText(wordingOf(t))) {
-      interestIn(card, monthOf(t.bookingDate), cents);
-      card.interestRows.push(t.id);
-    } else {
-      card.feeCents += cents;
-      card.feeRows.push(t.id);
-    }
+    card.feeCents += cents;
+    card.feeRows.push(t.id);
   }
   for (const card of cards.values()) {
     card.interestCents = Math.max(0, card.interestCents);

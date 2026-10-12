@@ -101,7 +101,7 @@ sentences under it and nothing told as a share of the income.
 | Back taxes, vehicle tax, fines, municipal fees | spending ("Verot, maksut ja sakot") | |
 | Union or unemployment fund fee | spending ("Jäsenmaksut") | |
 | Rent received from a tenant | income ("Muut tulot") | a sender who pays about the same amount in three or more months is regular income |
-| Refund from a shop | spending goes down in the same category | a refund cancels a purchase, see *Money that comes back* |
+| Refund from a shop | spending goes down in the category of the purchase when the shop was paid in the 120 days before and the refund is not larger than what is left of those payments; otherwise it is income ("Hyvitykset") | a refund cancels a purchase, see *Money that comes back* |
 | MobilePay to or from a person | spending / income ("Maksut henkilöille", "Maksut henkilöiltä") | names like Elisa or Helen are people here, not companies |
 | Transfer to a person's account with no payment reference | spending ("Maksut henkilöille") | a gift or a share, not a sole trader's invoice. Money in is not read this way. See *People* |
 | Money from another holder of your account (a partner), also when the bank calls it an own transfer | income that is not earned ("Maksut henkilöiltä") | it is her money, not your pay and not your saving. See *People* |
@@ -309,8 +309,9 @@ Pay is found as a series of payments from a regular payer (`income-series.ts`, `
 
 ## Money that comes back
 
-Money that returns a payment is not income. Known shops already do this: a refund gets the shop's category,
-so its spending goes down. For the rest, the app looks for the payment that a returning row cancels. The
+Money that returns a payment is not income. A refund from a known shop gets the shop's category when the row is
+categorised, and the reports decide whether it lowers spending (*In the reports* below). For the rest, the app looks
+for the payment that a returning row cancels. The
 returning row takes that payment's category and shows a *palautus* badge in the transaction list. It is
 decided from the rows alone on every reprocess, so changing the payment's category by hand moves the
 refund with it. A category you set on the returning row stays.
@@ -336,12 +337,18 @@ more than a shop name or an amount:
 - A sender who pays about the same amount (within 10 % of their median) in three or more different months is
   regular income: rent from a lodger, an allowance. It is never matched, so a loan that is repaid in equal
   monthly instalments stays income too.
-- A refund after 120 days, one larger than the purchase and one to another account stay income. A shop
-  gets 120 days because that is how long a card dispute runs, and a cancelled trip or a complaint can take
-  as long. A person gets 90, since only an exact amount from the same person is evidence.
-- Reports use the same pairs. A purchase that was paid back leaves the lists of merchants,
-  habits and double charges by the amount that came back, and it also counts when a rule had already
-  given the refund the shop's category.
+- A refund after 120 days and one larger than the purchase stay income, and one to another account is not paired
+  here. A shop gets 120 days because that is how long a card dispute runs, and a cancelled trip or a complaint can
+  take as long. A person gets 90, since only an exact amount from the same person is evidence.
+- **In the reports** money in on a spending category lowers spending only as a refund (`moneyIn` in
+  `analysis/money-in.ts`, applied once in `createContext`, so every sum follows it). The pair of a person who paid
+  back and the friends' shares of a bill stay as they were paired above. A shop's refund is decided from the rows of
+  the view: the same payee was paid in the 120 days before (`REFUND_WINDOW_DAYS`, the window of the table above), from
+  any account of the view and in any category, and the row is not larger than what is left of those payments. It
+  lowers the category of those payments, in the month it arrives. A row whose category you set by hand lowers that
+  category, whatever the payee and the days. Any other money in on a spending category is income: *Hyvitykset*, or
+  *Maksut henkilöiltä* from a person. A purchase that was paid back leaves the lists of merchants, habits and double
+  charges by the amount that came back.
 
 ## Alerts
 
@@ -370,40 +377,44 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   total and splits the change into causes by category. A category's usual level is its own median with its one-offs struck. Medians do not add up,
   and a level leaves its one-offs out, so the categories' levels add up to more or less than the usual month. The
   difference is in *Muut* as *Kuukausien vaihtelu*, which is no cause and can make the usual of *Muut* negative.
-- The card of the days to the payday on Yhteenveto counts to the next payday (*The days to the payday* below). *Tulossa* on Laskut keeps
-  its 30 days: it lists the subscriptions and bills of the next 30 days from the same series as the card, whatever the
-  card's window is and whichever account pays them. It has no pay, no card bill and no transfer.
+- The block *Erääntyvät maksut* on Yhteenveto counts to the next payday (*The days to the payday* below). The list of
+  the same name on Laskut keeps its 30 days: it lists the subscriptions and bills of the next 30 days from the same
+  series as the block, whatever the block's window is and whichever account pays them. Its groups are what the accounts
+  pay to the payday, what they pay after it, and last what a credit card is charged (*Kortilta veloitettavat*,
+  `onCard`), so the first group's sum is the block's figure without a card's bill and an own transfer. It has no pay,
+  no card bill and no transfer.
 - Insights say what changed in the period. A month is compared with its usual level (the median of the
   six months before) and shown only when it is outside all of them. A longer period is compared with the
   previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.
 
 ## The first page
 
-Yhteenveto opens with the card *Varallisuus*, then *Menot* when the running month is shown, then the card of the days
+Yhteenveto opens with the card *Varallisuus*, then *Menot* when the running month is shown, then the block *Erääntyvät maksut*
 to the payday. The figures on the first two are core's and the page shows them as given.
 
 **Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out. In a member's own view a joint account, a card
 or a loan that other members use is counted at the member's part, and its row says so (*osuutesi 60 %*, see *Joint
 accounts*).
 
-- **Tilit.** Checking, savings and other accounts, each with its balance from the day walk. *Yhteensä* is
-  `accountsCents`: the known balances of the accounts added together. An account the bank gave no balance is left out of
-  the sum and counted in the small line under it (*Ilman 2 tilin saldoa*), and with no known balance at all the total is
-  empty, never 0. With more than four accounts, those with less than a euro in them, either side of zero, fold into
-  *Muut tilit* and stay in the total.
-- **Luottokortit.** Each connected credit card. *Käytetty luotto* is what is owed on it as `householdDebts` counts it
-  (`usedCents`: 0 for a card in credit, *Ei tiedossa* when the bank gave no balance). *Luottoraja* is the limit the bank
-  gave, when it is above zero, and *Käytettävissä* is the limit less what is used, 0 over the limit (`freeCents`). A card
-  over its limit shows *Luottoraja ylitetty* and what is owed above it (`overCents`) in place of *Käytettävissä*. A card
-  with no limit shows what is used alone.
+- **Tilit.** Checking, savings and other accounts, each with its balance from the day walk and every account its own row,
+  in the order core gives. The last row is *Tilit yhteensä*, `accountsCents`: the known balances of the accounts added
+  together. An account the bank gave no balance shows a dash and is left out of the sum, which says so in the small line
+  under it (*Ilman 2 tilin saldoa*); with no known balance at all the total is a dash, never 0.
+- **Luottokortit.** Each connected credit card, drawn as a loan is: its name, then its rows. *Käytetty luotto* is what is
+  owed on it as `householdDebts` counts it (`usedCents`: 0 for a card in credit, a dash when the bank gave no balance) and
+  is shown in the colour of what is wrong when the card is over its limit. *Luottoraja* is the limit the bank gave, when it
+  is above zero, and *Käytettävissä* is the limit less what is used, 0 over the limit (`freeCents`). A card over its limit
+  shows *Luottoraja ylitetty* and what is owed above it (`overCents`) in place of *Käytettävissä*. A card with no limit shows
+  what is used alone. The last four digits of the number follow a card's name only when another card has the same name.
+  With two cards or more the last row is *Luottokortit yhteensä*, `cardsCents`: the cards' known use added together.
 - **Lainat.** Every debt of `householdDebts` that is no connected card's: a saved loan, a loan account, and a saved loan
   linked to its account once. *Lainaa jäljellä* is what is left on the day (`leftCents`), and a loan whose balance is not
-  known says so and is left out of the debt total. *Kuukausierä* is the next payment spread over a month, and only a
-  loan that has one shows it.
-- **The debt row.** Under the loans, when the household owes anything, stands `debtCents`: the one debt total of
-  `householdDebts`, in which the cards' use and the loans' balance add up to the cent. It is called *Velat yhteensä*
-  when a card has something used and *Lainat yhteensä* when the loans alone make it (`debtTotalName` in
-  `components/holdings/holding-rows.ts`).
+  known shows a dash and is left out of the debt total. *Kuukausierä* is the next payment spread over a month, and only a
+  loan that has one shows it. The last row is *Lainat yhteensä*, `loansCents`: the loans' known balances added together.
+- **The sums of the groups and of the debts.** A group's sum comes from core (`accountsCents`, `cardsCents`, `loansCents`:
+  each null when no figure is known, never 0), and the page adds nothing up. When a card has something used and there are
+  loans, a row under all three groups gives `debtCents`: *Velat yhteensä*, the one debt total of `householdDebts`, in which
+  the cards' use and the loans' balance add up to the cent.
 
 **Menot** is `monthPace` in `analysis/forecast.ts`. Spending is what the totals count, consumption and debt service.
 Nothing is forecast: both months are sums of real rows. The card shows the running month only; the month before is told
@@ -420,25 +431,31 @@ by *Menojen muutos*.
 
 ## The days to the payday
 
-The card on Yhteenveto that counts the days to the payday answers one question: is there enough on the account until the pay comes. `cashAhead` in
-`analysis/ahead.ts` owns its figures, and the card (`components/next-days.ts`) only words them.
+The block *Erääntyvät maksut* on Yhteenveto answers one question: does the account cover what is due before the pay
+comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`components/next-days.ts`) only words them.
 
-- **The payday** is the next pay of the regular income with the largest usual amount. A monthly salary comes on its pay
+- **The payday** is the nearest coming pay among the regular incomes whose usual amount is at least half the largest
+  one (`MAJOR_PAY_SHARE`); of two on one day, the larger. A pay is late by the largest income alone. A monthly salary
+  comes on its pay
   day as the income code finds it from the dates it was paid on (`payDayOf` and `nextPayDate` in `analysis/income.ts`,
   the rule the income report prints the next pay by): the usual day of the month, moved to the banking day before when
   it falls on a weekend or a bank holiday, or to the one after for a payer such as Kela. Other cadences, and a payer
   with no fixed day, follow the series' own dates. The window runs from today to the day before the payday.
-- **Three states** (`reason`). *payday*: the window ends the day before the payday, and the card is titled with the day
-  (*Palkkapäivä* and the day). When the payday is today or tomorrow the window is today alone, and today's balance is the
-  last one before the pay. A pay that was expected on a day gone by and is not late yet is waited for today: the window
-  is today alone, and the title keeps the day it was expected, under it *Palkka ei ole vielä tullut* (`Payday.expected`).
-  *none*: there is no regular income, or its next pay is more than 45 days away
-  (`MAX_PAYDAY_DAYS`), so the window is the next 30 days (*Seuraavat 30 päivää*). *late*: that pay is more than five days
-  late (`OVERDUE_DAYS`), so the window is 30 days and the card says since when the pay was expected.
-- **Which accounts it counts** (`countedAccounts` in `analysis/ahead-moves.ts`, `counts` on the balance line). *all*:
+- **Three states** (`reason`). *payday*: the window ends the day before the payday. The block is titled *Erääntyvät
+  maksut*, and the line under the title names the payday: *Palkkapäivään asti, pe 23.10.* When the payday is today or
+  tomorrow the window is today alone. On the payday itself, until the pay is booked, a bill that follows that pay
+  (`RecurringSeries.follows`) is paid from it and is no row of the window; any other payment of the day is a row. A
+  pay that is late, or behind its day and not late yet, ends no window: the window ends the day before the nearest pay
+  to wait for whose day is still to come, and is 30 days without one. A pay behind its day is told in the line, after
+  the window's real end (`Payday.next`), with the day it was expected (`Payday.expected`): *Palkkapäivään asti,
+  to 22.10. Palkka ei ole vielä tullut, sen piti tulla ma 5.10.* *none*: there is no regular income, or its next pay
+  is more than 45 days away (`MAX_PAYDAY_DAYS`), so the window is the next 30 days (*Seuraavat 30 päivää*). *late*:
+  the largest regular income is more than five days late (`OVERDUE_DAYS`); the line says since when the pay was
+  expected, and the days it counts are those to the next other salary, or 30 without one.
+- **Which accounts it counts** (`countedAccounts` in `analysis/ahead-moves.ts`, `counts` on the balance, said under *Saldo*). *all*:
   every checking account in view, which is Koko talous and an own view with no joint account. *own*: the checking
   accounts the member uses alone, while a joint account in view is left out. *part*: no checking account is the
-  member's alone, so the joint ones, at the member's part. The foot of the card says which when it is not *all*. The
+  member's alone, so the joint ones, at the member's part. The line under *Saldo* says which when it is not *all*. The
   payday is that of the whole view, whatever account the pay lands on. Everything else follows the counted accounts: a
   charge is a row when one of them pays it, other pay when one of them gets it, and the usual everyday spending is what
   they paid themselves. A bill the household typed in names no account and always counts.
@@ -447,16 +464,20 @@ The card on Yhteenveto that counts the days to the payday answers one question: 
   pay (one that the history shows as a series is left out, and so is one for which a row of about the same amount,
   within 5 %, was booked from 31 days before its date up to today: `expectedBillRows` in `analysis/forecast.ts`), other
   pay that lands inside it, the bill of a connected card and a regular transfer to an account the window does not
-  count. The payday itself is no row. With a checking balance, own and shared, and one complete month, it gives the
-  balance at the end of each day. It starts from today's balance as Saldot has it (the bank's balance with the rows
-  booked since), adds other pay, takes off the bills, the card bills and the transfers, and takes off the usual
-  everyday spending per day from tomorrow on (the median of the last six complete months, without fixed costs). Start
-  balance plus pay less bills, card bills and transfers less everyday spending is the last day's balance, to the cent
-  (`AheadTotals`). The lowest day is named when it is below zero or below a day of everyday spending.
+  count. The payday itself is no row. With a checking balance it gives three figures: the balance today
+  (`startCents`, as Saldot has it: the bank's balance with the rows booked since), the payments due in the window
+  (`totals.dueCents`: bills, typed bills, card bills and own transfers) and the balance less them (`freeCents`). No
+  day's balance is modelled and pay in the window is in no figure. The figures need the balance of every counted
+  account. `shortOn` is the day of the first payment that the balance and the pay dated before that day do not cover,
+  and `shortCents` the most the account lacks at a payment. The usual spending of a day (`everydayPerDayCents`) is the
+  median of the last 13 whole weeks before the running month, without fixed costs, divided by seven, and 0 under
+  eight whole weeks; it is in the answer, on no page and taken off no figure.
 - **A card's bill** is a row on the median day of the month of its last three bills (`expectedMoves` in
   `analysis/ahead-moves.ts`). Its sum is what the card owes today when the last bill was paid in full, that is when it
-  is not late and covered what the card owed after the bill before it, and the page says *Käytetty luotto tänään*.
-  Otherwise it is the usual bill, the median of the last six, and the page says *Arvio aiemmista laskuista*. A bill up
+  is not late and covered what the card owed after the bill before it; the row is the card's name with the line
+  *Luottokortin lasku*.
+  Otherwise it is the usual bill, the median of the last six, and the line is *Luottokortin lasku, arvio aiemmista
+  laskuista*. A bill up
   to five days late sits on the first day. With fewer than three paid bills, or no bill for 62 days, there is no row.
   The card's purchases are in its bill and not in the everyday spending.
 - **A regular transfer** to an account the window does not count (savings, a joint account, an account whose other leg
@@ -479,8 +500,8 @@ The card on Yhteenveto that counts the days to the payday answers one question: 
 - A category whose refunds were greater than its spending in the range stays in *Kategoriat* and *Kuukausitaulukko* as a
   row with its minus, last in the order. Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
-  first page's own list of categories (*Kategoriat*) adds only categories above zero, so it can differ from the month's total by the
-  refunds of such a category.
+  first page's list *Menot kategorioittain* has such a category as a row with its minus too, and the categories after
+  the ninth are one row, *Muut*, whenever their sum is not zero, so its rows add up to *Menot*.
 - *Luokittelematta* on Tapahtumat lists the 50 merchants with the most money out that nothing recognised. Its heading
   counts all of them and their money out, which the server adds up in SQL, so the list can be shorter than the count.
 - *Nousseet menot* shows a category that has been over its own level in each of the last three whole
@@ -558,7 +579,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   (`overdraftTwice` in `household-debts.ts`). Lainat and Saldot say so where they show that figure, and that the right
   figure is then larger by the saved loan. They advise no step: removing the saved loan would take the debt out of the
   debt total, which holds it once.
-- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä* when no card owes anything), the accounts less the debts and
+- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä*, the loans' balances added, is the same figure when no card owes anything), the accounts less the debts and
   the Velat lines of the Säästövinkit loan area all read `householdDebts` (`owners.test.ts` and
   `balances-holdings.test.ts` in `packages/core/test` hold them together).
 - The accounts less the debts ("Tilit miinus velat", `accountsLessDebt` of `balanceReport`) are the connected
@@ -733,8 +754,8 @@ Known limits of the joint account:
   linked and shared) is still spending in the other partner's own view.
 - In a payday window whose parts of the card and of the paying account differ, the card's row is the member's part of the
   card's use, while the paying account falls by the member's part of the bill.
-- With a checking account of their own and the pay on the joint account, the payday card of a member waits for their part
-  of a pay, which the balance line never gets.
+- With a checking account of their own and the pay on the joint account, the block *Erääntyvät maksut* of a member waits for their part
+  of a pay, which the balance never gets.
 - A saved loan linked to one person's account and paid from a joint one counts whole in its typist's own view and at a
   part in the others', so the own views add up to more than the loan.
 - Two members with one display name are one line in the income report's split in Koko talous.

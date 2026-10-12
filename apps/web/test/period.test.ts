@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageOfPeriod, periodFor, periodRange, periodsOf, REPORT_PERIODS } from "../src/period.ts";
+import { pageOfPeriod, periodFor, periodRange, periodsOf, REPORT_PERIODS, shellPeriodsOf } from "../src/period.ts";
 
 const TODAY = "2026-10-11";
 const labels = (page: string, today: string) => periodsOf(page, today).map((p) => p.label);
@@ -33,6 +33,13 @@ describe("periods belong to one page", () => {
 
   it("a page without a period switch has no presets", () => {
     for (const page of ["transactions", "optimise", "bills", "settings", "nonsense"]) expect(periodsOf(page, TODAY)).toEqual([]);
+  });
+
+  it("the shell draws the switch of Raportit and none for Yhteenveto, which draws its own two months in the block they change", () => {
+    expect(shellPeriodsOf("overview", TODAY)).toEqual([]);
+    expect(periodsOf("overview", TODAY)).toHaveLength(2);
+    expect(shellPeriodsOf("reports", TODAY)).toEqual(REPORT_PERIODS);
+    expect(shellPeriodsOf("bills", TODAY)).toEqual([]);
   });
 
   it("names the page that offers a period", () => {

@@ -1,4 +1,4 @@
-/* Charts and BarList: legend, SVG chart parts, tooltip, bar lists. */
+/* Charts: legend, SVG chart parts, tooltip. */
 
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -32,26 +32,9 @@
 .tooltip {
   position: absolute; pointer-events: none; z-index: 5; min-width: 150px; max-width: 260px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); font-size: 12px;
+  box-shadow: var(--pop-shadow); font-size: 12px;
 }
 .tooltip-title { color: var(--text-2); margin-bottom: 4px; }
 .tooltip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .tooltip-row .name { color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; }
 .tooltip-row strong { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-
-.barlist { display: flex; flex-direction: column; gap: 10px; }
-.barlist-row { display: grid; grid-template-columns: minmax(0, 13.5rem) minmax(0, 1fr) auto; grid-template-areas: "label bar value"; gap: 10px; align-items: center; background: none; border: none; padding: 0; text-align: left; cursor: pointer; border-radius: 6px; }
-.barlist-label { grid-area: label; }
-.barlist-track { grid-area: bar; }
-.barlist-value { grid-area: value; }
-button.barlist-row:hover .barlist-label, button.barlist-row:focus-visible .barlist-label { color: var(--text); text-decoration: underline; }
-/* a row with nowhere to go (the folded "Muut") does not look like a link */
-.barlist-static { cursor: default; }
-.barlist-label { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
-.barlist-track { height: 10px; position: relative; }
-.barlist-bar { height: 10px; border-radius: 0 4px 4px 0; min-width: 2px; }
-.barlist-value { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.barlist-value small { color: var(--muted); margin-left: 6px; }
-@media (max-width: 520px) {
-  .barlist-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "bar bar"; row-gap: 4px; }
-}

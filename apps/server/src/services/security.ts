@@ -121,6 +121,8 @@ export interface Notice {
   kind: string;
   at: string | null;
   text: string;
+  /** The device of a sign-in from a new one ("Chrome, Windows"), for the first page's row; left out on every other notice. */
+  detail?: string;
 }
 
 /**
@@ -152,7 +154,7 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   const out: Notice[] = [];
   for (const e of await s.security.unseenNotices(user.id)) {
     if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
-    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.` });
+    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, detail: e.detail ?? "tuntematon" });
     else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "watchdog_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
     else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Tietokanta palautettiin varmuuskopiosta"}. Sen jälkeen tehdyt muutokset menetettiin. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.` });

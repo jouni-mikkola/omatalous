@@ -183,8 +183,8 @@ pnpm findings --golden  # writes the golden files again after a change of a dete
 - Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
   fixed category colour order from the server, tokens in `styles/tokens.css`, one theme only).
 - `apps/web/test/contrast.test.ts` measures the `#rrggbb` tokens of `styles/tokens.css` against the page and the
-  surfaces and holds the theme colour in `index.html` equal to the page colour. A token that fails is moved, never the
-  test.
+  surfaces and holds the theme colour in `index.html` equal to the colour of the header band (`--ink`). A token that
+  fails is moved, never the test.
 - Repo rules (`tools/repo-rules`, listed in the header of `repo-rules.test.ts`; they read tracked files and untracked
   files git does not ignore, so a new file meets them before `git add`): rule 6 also refuses an import from a `test` or
   `fixtures` folder in `src`; rule 12 reads the sentences the server sends too (SQL skipped); rule 23 refuses a

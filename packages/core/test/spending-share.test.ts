@@ -12,8 +12,9 @@ const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, curre
 const today = "2026-10-09";
 
 describe("a share when another category nets below zero", () => {
-  // groceries 600,00; shopping 100,00 spent and 250,00 refunded, so it nets -150,00 and the net total is 450,00
+  // groceries 600,00; shopping 100,00 spent and the 250,00 of September refunded, so it nets -150,00 and the net total is 450,00
   const rows = (big: "groceries" | "other") => [
+    tx({ bookingDate: "2026-09-20", amountCents: -25_000, category: "shopping", merchant: "Vaatekauppa Oy" }),
     tx({ bookingDate: "2026-10-02", amountCents: -60_000, category: big, merchant: "Ruokakauppa Oy" }),
     tx({ bookingDate: "2026-10-03", amountCents: -10_000, category: "shopping", merchant: "Vaatekauppa Oy" }),
     tx({ bookingDate: "2026-10-05", amountCents: 25_000, category: "shopping", merchant: "Vaatekauppa Oy" }),

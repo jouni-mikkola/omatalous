@@ -65,8 +65,9 @@ export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<
 }
 
 /**
- * The same pairing on finished rows, for the reports: returning row id → the
- * purchase it cancels. Every positive row in a spending category counts, a
+ * The same pairing on finished rows: returning row id → the purchase it
+ * cancels. The reports read it through `moneyIn`, which keeps the pairs a
+ * person made and tells a shop's refund by its own rule. Every positive row in a spending category counts, a
  * refund that a rule recognised as well as one matchReturns categorised, so a
  * purchase that came back can leave the lists of largest purchases and
  * merchants. It finds the pairs matchReturns made, because a returned row
@@ -118,7 +119,7 @@ const sortedRows = (txs: readonly ReturnInput[]) => [...txs].sort((a, b) => a.bo
 /** The key of a payer or payee: the account and the merchant. */
 export const partyKey = (t: Pick<Transaction, "accountId" | "merchant">) => `${t.accountId}|${t.merchant}`;
 /** A named payer or payee that is not one of the user's own accounts. */
-const isNamed = (t: ReturnInput, ownIbans: ReadonlySet<string>) => t.merchant !== UNKNOWN_MERCHANT && !ownIbans.has(normalizeIban(t.counterpartyIban) ?? "");
+export const isNamed = (t: Pick<Transaction, "merchant" | "counterpartyIban">, ownIbans: ReadonlySet<string>) => t.merchant !== UNKNOWN_MERCHANT && !ownIbans.has(normalizeIban(t.counterpartyIban) ?? "");
 
 /** Finds the payment each incoming row cancels. `rows` are sorted by date and id. */
 function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIbans: ReadonlySet<string>): Map<string, string> {

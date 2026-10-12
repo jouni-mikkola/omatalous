@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { niceTicks } from "./scale.ts";
+import { valueAxis } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
 
@@ -30,10 +30,10 @@ export function PaceChart({
   const days = Math.max(current.length, previous?.length ?? 0);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
-  const values = [...(previous ?? []), ...current.filter((v): v is number => v !== null)];
-  const { ticks, max } = niceTicks(Math.max(...values, 0));
+  // the axis holds the lowest point too: a month that starts with a refund runs below zero, inside the frame
+  const { ticks, at } = valueAxis([...(previous ?? []), ...current.filter((v): v is number => v !== null)]);
   const x = (i: number) => (days > 1 ? (i / (days - 1)) * innerW : 0);
-  const y = (v: number) => innerH - (v / max) * innerH;
+  const y = (v: number) => innerH - at(v) * innerH;
   const path = (vals: (number | null)[]) =>
     vals.reduce((d, v, i) => (v === null ? d : `${d}${d ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`), "");
   const lastIdx = current.reduce<number>((last, v, i) => (v !== null ? i : last), -1);

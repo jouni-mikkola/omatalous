@@ -8,7 +8,7 @@ import { LoanEditor, LoanLinks } from "../../components/loans/LoanEditor.tsx";
 import { Proposals } from "../../components/loans/Proposals.tsx";
 import { date, money, percent } from "../../format.ts";
 import { useApi, useHashRoute } from "../../hooks.ts";
-import { hashOf } from "../../routes.ts";
+import { hashOf, SETTINGS_ANCHOR } from "../../routes.ts";
 import type { LoanProposalRow, Meta } from "../../types.ts";
 import { LoanIntake } from "./LoanIntake.tsx";
 import "../../styles/loans.css";
@@ -102,7 +102,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   };
 
   const card = (
-    <div className="card" id="lainat">
+    <div className="card" id={SETTINGS_ANCHOR.loans}>
       <div className="card-head">
         <div>
           <h2>Lainat</h2>

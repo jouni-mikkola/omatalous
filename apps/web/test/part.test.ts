@@ -60,9 +60,8 @@ describe("whether the viewer has a part below the whole", () => {
 describe("the line under the header", () => {
   const joint = meta([account("a", ONE, WHOLE), account("j", TWO, HALF)]);
 
-  it("tells in Oma talous that the joint accounts are counted by the viewer's part", () => {
-    expect(scopeLine(joint, "own", "overview")).toBe("Yhteisistä tileistä luvuissa on sinun osuutesi.");
-    expect(scopeLine(joint, "own", "transactions")).toBe("Yhteisistä tileistä luvuissa on sinun osuutesi.");
+  it("says nothing in the own view of a page whose rows say the part themselves, whatever the page", () => {
+    for (const page of ["overview", "transactions", "bills", "reports", "settings"]) expect(scopeLine(joint, "own", page), page).toBeNull();
   });
 
   it("tells on Säästövinkit that the accounts are counted whole, since a contract is the household's", () => {

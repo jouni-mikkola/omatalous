@@ -41,6 +41,10 @@ const BIG: Payer = { name: "Esimerkki Oy", cents: 300_000, day: 15 };
 const SMALL: Payer = { name: "Pieni Esimerkki Oy", cents: 80_000, day: 12 };
 
 const run = (rows: Transaction[], today: IsoDate, inputs: UserInputs = NO_INPUTS, start = 200_000) => cashAhead(createContext(rows.filter((t) => t.bookingDate <= today), [checking], today), [balance(start)], inputs);
+/** The same with the balance given on the day itself, so that `start` is what the account holds whatever day it is. */
+const runOn = (rows: Transaction[], today: IsoDate, inputs: UserInputs, start: number) =>
+  cashAhead(createContext(rows.filter((t) => t.bookingDate <= today), [checking], today), [{ ...balance(start), balanceAt: `${today}T06:00:00Z` }], inputs);
+const typed = (name: string, amountCents: number, dueDate: IsoDate): UserInputs => ({ ...NO_INPUTS, expectedBills: [{ id: name, name, amountCents, dueDate, cadence: "once", category: "insurance" }] });
 
 describe("the window to the next payday", () => {
   const history = [...living("2026-03-01", "2026-10-31"), ...pays(BIG, "2026-03", "2026-09")];
@@ -52,9 +56,8 @@ describe("the window to the next payday", () => {
     expect([d.from, d.to, d.days]).toEqual(["2026-10-03", "2026-10-14", 11]);
     expect(d.rows.some((r) => r.source === "income")).toBe(false);
     expect(d.totals.incomeCents).toBe(0);
-    expect(d.balance!.days).toHaveLength(12);
-    expect(d.balance!.last).toEqual(d.balance!.days.at(-1));
-    expect(d.balance!.last.date).toBe("2026-10-14");
+    // the rent of 2.10. is paid and the next one comes after the pay: nothing is due, so the whole balance is free
+    expect(d.balance).toMatchObject({ startCents: 200_000, freeCents: 200_000, shortCents: 0, shortOn: null });
   });
 
   it("the 15th is a Sunday: the payday is the Friday before, and the window ends on the Thursday", () => {
@@ -78,7 +81,9 @@ describe("the window to the next payday", () => {
   it("no regular payer: 30 days, reason none", () => {
     const d = run(living("2026-03-01", "2026-10-31"), "2026-10-03");
     expect(d).toMatchObject({ reason: "none", payday: null, to: "2026-11-02", days: 30 });
-    expect(d.balance!.days).toHaveLength(31);
+    // the rent of 2.11. is the last day's
+    expect(d.rows.map((r) => [r.date, r.cents])).toEqual([["2026-11-02", -90_000]]);
+    expect(d.balance).toMatchObject({ startCents: 200_000, freeCents: 110_000 });
   });
 
   it("a pay that is late today: 30 days, reason late, with the day it was expected", () => {
@@ -91,13 +96,13 @@ describe("the window to the next payday", () => {
     expect(d.rows.some((r) => r.source === "income")).toBe(false);
   });
 
-  it("a pay expected yesterday and not late yet: the window is today alone, and the payday keeps the day it was expected", () => {
+  it("a pay expected yesterday and not late yet ends no window: it runs to the day before the next pay, and the payday keeps the day it was expected", () => {
+    // the pay of Thursday 15.10. has not come; the next one is that of Friday 13.11., since the 15th is a Sunday
     const d = run(history, "2026-10-16");
-    expect(d).toMatchObject({ reason: "payday", days: 0, from: "2026-10-16", to: "2026-10-16" });
-    expect(d.payday).toEqual({ date: "2026-10-16", expected: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
-    // the balance counts from today, as it does when the payday is today
-    expect(d.balance!.days.map((x) => x.date)).toEqual(["2026-10-16"]);
-    expect(d.rows.some((r) => r.source === "income")).toBe(false);
+    expect(d).toMatchObject({ reason: "payday", days: 27, from: "2026-10-16", to: "2026-11-12" });
+    expect(d.payday).toEqual({ date: "2026-10-16", expected: "2026-10-15", next: "2026-11-13", name: "Esimerkki Oy", cents: 300_000 });
+    // the pay that has not come is no row, and the rent of 2.11. is due
+    expect(d.rows.map((r) => [r.date, r.source, r.cents])).toEqual([["2026-11-02", "recurring", -90_000]]);
     // near misses: on the day itself and the day before nothing has gone by, so there is no second day to tell
     expect(run(history, "2026-10-15").payday).toEqual({ date: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
     expect(run(history, "2026-10-14").payday).toEqual({ date: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
@@ -116,6 +121,12 @@ describe("the window to the next payday", () => {
     expect(near.payday!.date).toBe("2026-10-10");
   });
 
+  it("that payer's pay two days behind, the one after it 59 days away: the payday names no next pay, and the window is the 30 days", () => {
+    const d = run([...living("2026-01-01", "2026-12-31"), ...everyOtherMonth], "2026-10-12");
+    expect(d.payday).toEqual({ date: "2026-10-12", expected: "2026-10-10", name: "Kausi Esimerkki Oy", cents: 150_000 });
+    expect(d).toMatchObject({ reason: "payday", days: 30, to: "2026-11-11" });
+  });
+
   it("the payday today with the pay not yet in: the window is today alone, and tomorrow's payday gives the same window", () => {
     // Rule: a pay that is due today and not late is the payday. The window runs from today to the day before it, which
     // is empty, so it is today alone: the balance of today is the last one before the pay.
@@ -123,28 +134,19 @@ describe("the window to the next payday", () => {
     expect(today).toMatchObject({ reason: "payday", days: 0, from: "2026-10-15", to: "2026-10-15" });
     expect(today.payday!.date).toBe("2026-10-15");
     expect(today.rows.some((r) => r.source === "income")).toBe(false);
-    // the balance given on 3.10. less the twelve days of purchases booked since
-    expect(today.balance!.days).toEqual([{ date: "2026-10-15", cents: 176_000 }]);
-    expect(today.totals.everydayCents).toBe(0);
+    // the balance given on 3.10. less the twelve days of purchases booked since, and nothing is due today
+    expect(today.balance).toMatchObject({ startCents: 176_000, freeCents: 176_000 });
     const tomorrow = run(history, "2026-10-14");
     expect(tomorrow).toMatchObject({ reason: "payday", days: 0, to: "2026-10-14" });
     expect(tomorrow.payday!.date).toBe("2026-10-15");
-  });
-
-  it("names the last day and the lowest day once, as the walk has them", () => {
-    const d = run(history, "2026-10-03", NO_INPUTS, 10_000);
-    const days = d.balance!.days;
-    expect(d.balance!.last).toEqual(days.at(-1));
-    expect(d.balance!.lowest).toEqual(days.reduce((low, x) => (x.cents < low.cents ? x : low), days[0]!));
-    // 20 euros a day from 100 euros: the account runs out before the pay
-    expect(d.balance!.lowest.cents).toBeLessThan(0);
   });
 
   it("a typed-in bill on the payday itself is outside the window, one the day before is in it", () => {
     const bill = (id: string, dueDate: IsoDate): ExpectedBill => ({ id, name: `Lasku ${id}`, amountCents: 10_000, dueDate, cadence: "once", category: "insurance" });
     const d = run(history, "2026-10-03", { ...NO_INPUTS, expectedBills: [bill("a", "2026-10-14"), bill("b", "2026-10-15")] });
     expect(d.rows.map((r) => r.name)).toEqual(["Lasku a"]);
-    expect(d.totals.typedCents).toBe(10_000);
+    expect(d.totals).toMatchObject({ typedCents: 10_000, dueCents: 10_000 });
+    expect(d.balance!.freeCents).toBe(190_000);
   });
 
   it("a bill due after the payday is in the 30-day list and not in the window, which it leaves as it was", () => {
@@ -154,7 +156,7 @@ describe("the window to the next payday", () => {
     expect(d.upcoming.map((r) => [r.date, r.name, r.cents])).toContainEqual(["2026-10-20", "Lasku c", -25_000]);
     expect(d.rows.map((r) => r.name)).not.toContain("Lasku c");
     expect(d.totals).toEqual(plain.totals);
-    expect(d.balance!.last).toEqual(plain.balance!.last);
+    expect(d.balance).toEqual(plain.balance);
     // the payments of the window are the first part of the list: the rent on the 2nd is the last day of the 30
     expect(plain.upcoming.map((r) => r.date)).toEqual(["2026-11-02"]);
     expect(d.upcoming.map((r) => r.name)).toEqual(["Lasku c", "Sato"]);
@@ -172,6 +174,168 @@ describe("the window to the next payday", () => {
     expect(d.days).toBe(44);
     expect(d.rows.filter((r) => r.source === "recurring").map((r) => r.date)).toEqual(["2026-09-02", "2026-10-02"]);
     expect(d.upcoming.map((r) => r.date)).toEqual(["2026-09-02"]);
+  });
+});
+
+describe("the pays to wait for", () => {
+  const FIRST: Payer = { name: "Esimerkki Oy", cents: 278_000, day: 23 };
+  const SECOND: Payer = { name: "Toinen Esimerkki Oy", cents: 210_000, day: 5 };
+  const home = living("2026-03-01", "2026-12-31");
+
+  it("two salaries of 2 780 and 2 100 euros on the 23rd and the 5th: the window ends before the nearer one, whichever it is", () => {
+    const rows = [...home, ...pays(FIRST, "2026-03", "2026-10"), ...pays(SECOND, "2026-03", "2026-10")];
+    // on 9.10. the pay of the 5th has come: the 23rd is next, and the smaller salary of 5.11. is far behind it
+    const d = run(rows, "2026-10-09");
+    expect(d.payday).toEqual({ date: "2026-10-23", name: "Esimerkki Oy", cents: 278_000 });
+    expect([d.reason, d.to]).toEqual(["payday", "2026-10-22"]);
+    // on 26.10. the larger pay has come: the smaller salary of 5.11. ends the window, and it is named
+    const later = run(rows, "2026-10-26");
+    expect(later.payday).toEqual({ date: "2026-11-05", name: "Toinen Esimerkki Oy", cents: 210_000 });
+    expect([later.reason, later.to, later.days]).toEqual(["payday", "2026-11-04", 9]);
+    // neither pay is a row: one ends the window, the other comes after it
+    expect([...d.rows, ...later.rows].some((r) => r.source === "income")).toBe(false);
+  });
+
+  it("a child benefit of 95 euros does not end the window: it is a row of it", () => {
+    const benefit = pays({ name: "Kela", cents: 9500, day: 12 }, "2026-03", "2026-09").map((t) => ({ ...t, category: "benefits" }));
+    const d = run([...home, ...pays(FIRST, "2026-03", "2026-09"), ...benefit], "2026-10-09");
+    expect(d.payday).toMatchObject({ date: "2026-10-23", name: "Esimerkki Oy" });
+    expect(d.rows.filter((r) => r.source === "income").map((r) => [r.date, r.name, r.cents])).toEqual([["2026-10-12", "Kela", 9500]]);
+  });
+
+  it("a salary of 49 % of the largest does not end the window, one of 50 % does", () => {
+    const other = (cents: number) => pays({ name: "Pieni Esimerkki Oy", cents, day: 12 }, "2026-03", "2026-09");
+    const under = run([...home, ...pays(BIG, "2026-03", "2026-09"), ...other(147_000)], "2026-10-03");
+    expect(under.payday).toMatchObject({ date: "2026-10-15", name: "Esimerkki Oy" });
+    expect(under.rows.filter((r) => r.source === "income").map((r) => [r.date, r.cents])).toEqual([["2026-10-12", 147_000]]);
+    const half = run([...home, ...pays(BIG, "2026-03", "2026-09"), ...other(150_000)], "2026-10-03");
+    expect(half.payday).toEqual({ date: "2026-10-12", name: "Pieni Esimerkki Oy", cents: 150_000 });
+    expect(half.to).toBe("2026-10-11");
+    expect(half.rows.some((r) => r.source === "income")).toBe(false);
+  });
+
+  it("of two pays to wait for on one day the larger one is named, and the other is no row of a window that ends before it", () => {
+    const same = run([...home, ...pays(BIG, "2026-03", "2026-09"), ...pays({ name: "Pieni Esimerkki Oy", cents: 150_000, day: 15 }, "2026-03", "2026-09")], "2026-10-03");
+    expect(same.payday).toEqual({ date: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
+    expect(same.rows.some((r) => r.source === "income")).toBe(false);
+  });
+
+  it("the largest pay late: the late pay is told, and the window still ends the day before the other salary, so no salary is inside it", () => {
+    // the larger salary came last on Friday 21.8.; on 29.9. the pay of 23.9. is six days late. The other one comes on 5.10.
+    const rows = [...home, ...pays(FIRST, "2026-03", "2026-08"), ...pays(SECOND, "2026-03", "2026-10")];
+    const d = runOn(rows, "2026-09-29", typed("Autovakuutus", 80_000, "2026-10-20"), 150_000);
+    expect(d).toMatchObject({ reason: "late", days: 5, to: "2026-10-04" });
+    expect(d.payday).toMatchObject({ name: "Esimerkki Oy", cents: 278_000 });
+    expect(d.payday!.date < d.from).toBe(true);
+    // the rent of 2.10. is the window's one row; the bill of the 20th comes after the salary and is in the 30 days of Laskut
+    expect(d.rows.map((r) => [r.date, r.source, r.cents])).toEqual([["2026-10-02", "recurring", -90_000]]);
+    expect(d.upcoming.map((r) => r.date)).toEqual(["2026-10-02", "2026-10-20"]);
+    // 1 500 euros cover the 900: nothing says the account is short of the 800 the salary of the 5th comes before
+    expect(d.balance).toMatchObject({ startCents: 150_000, freeCents: 60_000, shortCents: 0, shortOn: null });
+  });
+
+  it("a salary two days behind ends no window: tomorrow's bill is due, and the pay keeps the day it was expected", () => {
+    // Wednesday 7.10.: the pay of Monday 5.10. has not come and is not late yet; the next pay to wait for is that of the 23rd
+    const rows = [...home, ...pays(FIRST, "2026-03", "2026-09"), ...pays(SECOND, "2026-03", "2026-09")];
+    const d = runOn(rows, "2026-10-07", typed("Autovakuutus", 90_000, "2026-10-08"), 40_000);
+    expect(d.payday).toEqual({ date: "2026-10-07", expected: "2026-10-05", next: "2026-10-23", name: "Toinen Esimerkki Oy", cents: 210_000 });
+    expect([d.reason, d.to, d.days]).toEqual(["payday", "2026-10-22", 15]);
+    // the pay that has not come is no row and covers nothing: 400 euros do not reach the 900 of tomorrow
+    expect(d.rows.map((r) => [r.date, r.source, r.cents])).toEqual([["2026-10-08", "expected", -90_000]]);
+    expect(d.balance).toMatchObject({ freeCents: -50_000, shortCents: 50_000, shortOn: "2026-10-08" });
+    // near miss: on the day itself nothing has gone by, the pay ends the window and the bill of the 8th is after it
+    const onDay = runOn(rows, "2026-10-05", typed("Autovakuutus", 90_000, "2026-10-08"), 40_000);
+    expect(onDay.payday).toEqual({ date: "2026-10-05", name: "Toinen Esimerkki Oy", cents: 210_000 });
+    expect([onDay.to, onDay.rows.length]).toEqual(["2026-10-05", 0]);
+  });
+
+  it("the smaller salary late: the payday of the larger one ends the window, and the late pay is no row", () => {
+    // the smaller salary came last on 5.8.; on 14.9. the pay of Friday 4.9. is ten days late
+    const rows = [...home, ...pays(FIRST, "2026-03", "2026-08"), ...pays(SECOND, "2026-03", "2026-08")];
+    const d = run(rows, "2026-09-14");
+    expect(d.payday).toEqual({ date: "2026-09-23", name: "Esimerkki Oy", cents: 278_000 });
+    expect([d.reason, d.to]).toEqual(["payday", "2026-09-22"]);
+    expect(d.rows.some((r) => r.source === "income")).toBe(false);
+  });
+
+  it("money a shop pays back every month is no pay, however large", () => {
+    const refunds = pays({ name: "Verkkokauppa", cents: 350_000, day: 10 }, "2026-03", "2026-09").map((t) => ({ ...t, category: "shopping" }));
+    const d = run([...home, ...pays(BIG, "2026-03", "2026-09"), ...refunds], "2026-10-03");
+    expect(d.payday).toEqual({ date: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
+    expect(d.rows.map((r) => r.name)).not.toContain("Verkkokauppa");
+    expect(d.totals.incomeCents).toBe(0);
+    // alone it gives no payday at all
+    expect(run([...home, ...refunds], "2026-10-03")).toMatchObject({ reason: "none", payday: null });
+  });
+});
+
+describe("the three figures: the balance, what is due and what is free", () => {
+  const history = [...living("2026-03-01", "2026-10-31"), ...pays(BIG, "2026-03", "2026-09")];
+  const bill = (id: string, dueDate: IsoDate, amountCents: number): ExpectedBill => ({ id, name: `Lasku ${id}`, amountCents, dueDate, cadence: "once", category: "insurance" });
+  // 100 euros on the 6th, 60 and 50 on the 8th, 30 on the 12th: 240 euros before the pay of the 15th
+  const BILLS = [bill("a", "2026-10-06", 10_000), bill("b", "2026-10-08", 5000), bill("c", "2026-10-08", 6000), bill("d", "2026-10-12", 3000)];
+  const on = (start: number, rows: Transaction[] = history, bills: ExpectedBill[] = BILLS) => run(rows, "2026-10-03", { ...NO_INPUTS, expectedBills: bills }, start);
+
+  it("what is free is the balance less what is due, and nothing is short while the balance covers the payments", () => {
+    const d = on(100_000);
+    expect(d.totals).toMatchObject({ typedCents: 24_000, dueCents: 24_000, incomeCents: 0 });
+    expect(d.balance).toMatchObject({ startCents: 100_000, freeCents: 76_000, shortCents: 0, shortOn: null });
+    // the usual day is told and taken off nothing: 20 euros a day for eleven days would be 220 euros more
+    expect(d.everydayPerDayCents).toBe(2000);
+  });
+
+  it("the day it runs short is the day of the payment that takes the payments over the balance, the larger of a day first", () => {
+    // 200 euros: 100 on the 6th and 60 on the 8th are covered, the 50 of the 8th is not
+    expect(on(20_000).balance).toMatchObject({ freeCents: -4000, shortCents: 4000, shortOn: "2026-10-08" });
+    // 150 euros: the first payment of the 8th already goes over
+    expect(on(15_000).balance).toMatchObject({ freeCents: -9000, shortCents: 9000, shortOn: "2026-10-08" });
+    expect(on(9999).balance).toMatchObject({ shortCents: 14_001, shortOn: "2026-10-06" });
+  });
+
+  it("the last cent covers: 240,00 is not short, 239,99 is short by a cent on the day of the last payment", () => {
+    expect(on(24_000).balance).toMatchObject({ freeCents: 0, shortCents: 0, shortOn: null });
+    expect(on(23_999).balance).toMatchObject({ freeCents: -1, shortCents: 1, shortOn: "2026-10-12" });
+  });
+
+  it("a pay that lands in the window is a row and changes none of the three", () => {
+    const withPay = on(20_000, [...history, ...pays(SMALL, "2026-03", "2026-09")]);
+    expect(withPay.rows.filter((r) => r.source === "income").map((r) => [r.date, r.cents])).toEqual([["2026-10-12", 80_000]]);
+    expect(withPay.totals.incomeCents).toBe(80_000);
+    expect(withPay.totals.dueCents).toBe(24_000);
+    // 800 euros come on the 12th, and the balance is still short on the 8th
+    expect(withPay.balance).toEqual(on(20_000).balance);
+  });
+
+  it("pay dated before a payment counts for it, pay of the same day does not, and what is short is the most the account lacks", () => {
+    // a part-time pay of 1 300 euros on Monday 12.10., under half of the salary: a row of the window to the 15th
+    const withPay = [...history, ...pays({ name: "Pieni Esimerkki Oy", cents: 130_000, day: 12 }, "2026-03", "2026-09")];
+    // 200 euros and a bill of 300 on the 13th: the pay of the 12th has come, so nothing is short, and what is free stays the balance less the payments
+    expect(on(20_000, withPay, [bill("e", "2026-10-13", 30_000)]).balance).toMatchObject({ freeCents: -10_000, shortCents: 0, shortOn: null });
+    // the same bill on the 12th itself: the pay of that day is not there yet
+    expect(on(20_000, withPay, [bill("e", "2026-10-12", 30_000)]).balance).toMatchObject({ freeCents: -10_000, shortCents: 10_000, shortOn: "2026-10-12" });
+    // 300 on the 10th and 300 on the 13th: short by 100 on the 10th, and the pay covers the rest
+    expect(on(20_000, withPay, [bill("e", "2026-10-10", 30_000), bill("f", "2026-10-13", 30_000)]).balance).toMatchObject({ freeCents: -40_000, shortCents: 10_000, shortOn: "2026-10-10" });
+  });
+
+  it("a counted account without a balance leaves no figures: its payments are not taken off the balance of another", () => {
+    const joint: Account = { id: "joint", name: "Yhteinen tili", iban: "FI14 1009 3000 1234 58", currency: "EUR", type: "checking" };
+    const today = "2026-10-09";
+    // the joint account pays the rent of 900 on the 2nd; the other account holds 500 euros and pays nothing
+    const ctx = createContext(living("2026-03-01", today).map((t) => ({ ...t, accountId: "joint" })), [checking, joint], today);
+    const given = (balanceCents: number | null): BalanceInput => ({ id: "joint", name: "Yhteinen tili", type: "checking", balanceCents, ownerName: null, balanceAt: `${today}T06:00:00Z` });
+    const d = cashAhead(ctx, [balance(50_000), given(null)], NO_INPUTS);
+    expect(d.rows.map((r) => [r.date, r.name, r.cents])).toEqual([["2026-11-02", "Sato", -90_000]]);
+    expect([d.balance, d.missing, d.totals.dueCents]).toEqual([null, "balance", 90_000]);
+    // near miss: with the balance of both the figures are there, the two added up
+    const both = cashAhead(ctx, [balance(50_000), given(60_000)], NO_INPUTS);
+    expect(both.balance).toMatchObject({ startCents: 110_000, accounts: 2, freeCents: 20_000, shortCents: 0, shortOn: null });
+    expect(both.missing).toBeNull();
+  });
+
+  it("an account below zero with nothing due is short by what it is below, on no day", () => {
+    expect(on(-5000, history, []).balance).toMatchObject({ startCents: -5000, freeCents: -5000, shortCents: 5000, shortOn: null });
+    // with a payment the first one is the day
+    expect(on(-5000, history, [BILLS[3]!]).balance).toMatchObject({ freeCents: -8000, shortCents: 8000, shortOn: "2026-10-12" });
   });
 });
 
@@ -209,30 +373,47 @@ describe("the next pay after one that came early or late", () => {
   });
 });
 
-describe("the totals add up to the walk", () => {
+describe("what is free is the balance less the payments of the window", () => {
   const bills: ExpectedBill[] = [{ id: "b1", name: "Autovakuutus", amountCents: 41_000, dueDate: "2025-11-12", cadence: "once", category: "insurance" }];
-  const sumOfWalk = (d: ReturnType<typeof cashAhead>, start: number) =>
-    start + d.totals.incomeCents - d.totals.recurringCents - d.totals.typedCents - d.totals.cardCents - d.totals.transferCents - d.totals.everydayCents;
 
-  it("start plus income less bills, card bills, transfers and everyday spending is the last day's balance, to the cent, in every seeded household", () => {
+  it("to the cent in every seeded household, and the day it runs short is the first payment the balance does not reach", () => {
     let paydays = 0;
+    let short = 0;
+    let rows = 0;
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
       for (const settled of [true, false]) {
         const { txs, accounts } = randomHistory(seed, 1500, { months: 14, settled });
         for (const offset of [1, 6, 11, 16, 21, 26]) {
           const today = addDays("2025-10-28", offset);
           const ctx = createContext(txs.filter((t) => t.bookingDate <= today), accounts, today);
-          const start = 150_000 + seed * 1000;
-          const d = cashAhead(ctx, [balance(start)], { ...NO_INPUTS, expectedBills: bills });
+          // the checking account of the seeded household, with a balance that covers the payments of some windows and not of others
+          const chk: BalanceInput = { id: "chk", name: "Käyttötili", type: "checking", balanceCents: seed * 25_000, ownerName: null, balanceAt: `${today}T06:00:00Z` };
+          const d = cashAhead(ctx, [chk], { ...NO_INPUTS, expectedBills: bills });
+          rows += d.rows.length;
           const label = `seed ${seed}, settled ${settled}, ${today}`;
-          if (d.balance) {
-            expect(d.balance.last.cents, label).toBe(sumOfWalk(d, start));
-            expect(d.balance.last.date, label).toBe(d.to);
+          const payments = d.rows.filter((r) => r.cents < 0);
+          const b = d.balance!;
+          expect(d.totals.dueCents, label).toBe(payments.reduce((s, r) => s - r.cents, 0));
+          expect(d.totals.dueCents, label).toBe(d.totals.recurringCents + d.totals.typedCents + d.totals.cardCents + d.totals.transferCents);
+          expect(b.freeCents, label).toBe(b.startCents - d.totals.dueCents);
+          // walked by hand: the payments in the order of the rows, each against the balance and the pay dated before its day
+          let [paid, lowest] = [0, b.startCents];
+          let crossing: IsoDate | null = null;
+          for (const r of payments) {
+            paid -= r.cents;
+            const left = b.startCents + d.rows.filter((p) => p.cents > 0 && p.date < r.date).reduce((s, p) => s + p.cents, 0) - paid;
+            if (left < 0) crossing ??= r.date;
+            lowest = Math.min(lowest, left);
           }
+          expect(b.shortOn, label).toBe(crossing);
+          expect(b.shortCents, label).toBe(Math.max(0, -lowest));
+          // with no pay in the window that is what the payments exceed the balance by
+          if (d.totals.incomeCents === 0) expect(b.shortCents, label).toBe(Math.max(0, -b.freeCents));
+          if (b.shortOn) short++;
           expect(d.totals.recurringCents, label).toBe(d.rows.filter((r) => r.source === "recurring").reduce((s, r) => s - r.cents, 0));
           expect(d.rows.every((r) => r.date >= d.from && r.date <= d.to), label).toBe(true);
-          // the 30 days of payments hold the window's own bills, the same rows in the same order, and the bills an
-          // account outside the balance pays; a card's bill and a transfer are rows of the window only
+          // the 30 days of payments hold the bills of the window, the same rows in the same order, and the bills an
+          // account outside the balance pays; the bill of a card and a transfer are rows of the window only
           expect(d.upcoming.every((r) => r.cents < 0 && r.date >= d.from && r.date <= addDays(d.from, 30)), label).toBe(true);
           const to30 = (d.to < addDays(d.from, 30) ? d.to : addDays(d.from, 30));
           const ownBills = d.rows.filter((r) => (r.source === "recurring" || r.source === "expected") && r.date <= to30);
@@ -241,15 +422,25 @@ describe("the totals add up to the walk", () => {
           if (d.reason === "payday") {
             paydays++;
             expect(d.days, label).toBeLessThanOrEqual(44);
-            // the window ends the day before the pay, or is today alone when the pay is today or tomorrow
-            expect(d.payday!.date === addDays(d.to, 1) || (d.days === 0 && d.payday!.date <= addDays(d.from, 1)), label).toBe(true);
+            // the window ends the day before the pay, or is today alone when the pay is today or tomorrow; a pay whose
+            // day has gone by is named for today and ends no window
+            if (d.payday!.expected) expect([d.payday!.date, d.payday!.expected < d.from], label).toEqual([d.from, true]);
+            else expect(d.payday!.date === addDays(d.to, 1) || (d.days === 0 && d.payday!.date <= addDays(d.from, 1)), label).toBe(true);
+          } else if (d.reason === "late") {
+            // 30 days, or to the day before another pay to wait for
+            expect(d.days, label).toBeLessThanOrEqual(44);
           } else {
             expect(d.days, label).toBe(30);
           }
+          // no pay to wait for is inside a window: a row of pay is under half of the largest, so smaller than the pay it names
+          if (d.reason === "payday") for (const r of d.rows) if (r.cents > 0) expect(r.cents, label).toBeLessThan(d.payday!.cents);
         }
       }
     }
-    // the check is no check if no household had a payday
+    // the check is no check if no household had a payday or a row, or if none ran short and none was covered
     expect(paydays).toBeGreaterThan(10);
+    expect(rows).toBeGreaterThan(96);
+    expect(short).toBeGreaterThan(5);
+    expect(short).toBeLessThan(90);
   }, 30_000);
 });

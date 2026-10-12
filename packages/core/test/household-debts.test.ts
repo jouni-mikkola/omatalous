@@ -207,7 +207,7 @@ describe("the Lainat report and Saldot with a link", () => {
     const row = r.loans[1]!;
     expect(row).toMatchObject({ name: "Kodin laina", kind: "mortgage", accountType: null, linkedAccount: { id: "loan-acc", name: "Asuntolaina" }, balance: { cents: 14_912_345, unknown: null }, balanceDate: "2026-10-01", rateBp: 360, reference: "euribor_12", repayment: "annuity" });
     // a month of 3,6 % on the bank's balance: 14 912 345 × 0,003 = 44 737,035
-    expect(row.payment).toEqual({ cents: 90_000, interestCents: 44_737, amortisationCents: 45_263, intervalMonths: 1, unknown: null });
+    expect(row.payment).toEqual({ cents: 90_000, interestCents: 44_737, amortisationCents: 45_263, intervalMonths: 1, unknown: null, date: "2026-11-01" });
     expect(row.interest).toEqual(loanInterestNext12Months({ ...home, balanceCents: 14_912_345 }, today));
     expect(row.payoff).toMatchObject({ unknown: null, never: false });
     // the loan is paid on the 1st, its own due day, whatever day the report is read

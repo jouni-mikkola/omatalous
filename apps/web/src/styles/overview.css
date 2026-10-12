@@ -1,38 +1,33 @@
-/* Yhteenveto and Recurring: the month's spending, key figures, insights, alerts, upcoming charges. */
+/* Yhteenveto and Recurring: the block "Tulot ja menot", upcoming charges. */
 
-.tile-label { color: var(--text-2); font-size: 13px; }
-.tile-value { font-size: 28px; font-weight: 500; margin: 4px 0 2px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.tile-note { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-.delta { font-size: 12px; color: var(--text-2); }
+/* Tulot ja menot: the switch in the head; the tables, the rows and the columns are the shared statement classes (statement.css) */
+.st-block .segmented button[aria-pressed="true"], .st-block .btn { font-weight: 400; }
+.st-wait { margin: 0; }
+/* on a phone the switch is under the heading, two equal buttons the width of the card */
+@media (max-width: 600px) {
+  .st-block .card-head .segmented { flex: 1 0 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .st-block .segmented button { padding: 7px 10px; }
+}
 
-/* the month's spending: its figure beside the month's pace on a desktop, above it on a phone */
-.spending-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (min-width: 900px) { .spending-body { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
-.spending-pace h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
-.bridge-fixed { margin: 0; }
-/* what left the month page: the months side by side and the merchants, one link each */
-.month-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }
+/* the months' table: the day the month before is counted to stays whole, on the head's second line where the column is narrow */
+.month-table .month-by { display: inline-block; white-space: nowrap; }
+.month-table thead th { white-space: normal; }
+/* the two rows under the rule that ends the table; a label is told whole */
+.month-more { border-top: 1px solid var(--axis); }
+.month-more .st-name { overflow: visible; white-space: normal; }
+.month-chart { margin-top: 20px; }
 
-.insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
-.insight { border-radius: 6px; padding: 10px 12px 10px 14px; background: var(--surface); border: 1px solid var(--border); }
-.insight.good { border-left: 3px solid var(--good); }
-.insight.warning { border-left: 3px solid var(--warn); }
-.insight.info { border-left: 3px solid var(--accent); }
+/* Menot kategorioittain: the name and the sums take what they need, the bar takes the rest; one colour, the length is the sum */
+.category-table { table-layout: fixed; }
+.category-table th:first-child { width: 12rem; }
+.category-table .st-num { width: 6.5rem; }
+.category-table td.category-bar { vertical-align: middle; }
+.category-bar span { display: block; height: 8px; min-width: 2px; background: var(--accent); }
+/* where the card is narrow the bar goes and the name takes its room */
+@media (max-width: 600px) {
+  .category-table .category-bar { display: none; }
+  .category-table th:first-child { width: auto; }
+  .category-table .st-num { width: 5.5rem; }
+}
 
-.insight-title { font-weight: 600; }
-.insight-detail { color: var(--text-2); font-size: 13px; }
-
-/* alerts: cost traps above the insights, one line each, the tone as the left edge */
-.alerts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 8px 10px; }
-.alert { display: flex; flex-wrap: wrap; align-items: center; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; min-width: 0; }
-.alert.warning { border-left-color: var(--warn); }
-.alert a, .alert-body { display: flex; flex: 1 1 16rem; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 0 10px; padding: 8px 12px; color: inherit; text-decoration: none; }
-.alert a { padding-right: 28px; position: relative; }
-.alert a::after { content: "›"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 16px; }
-.alert a:hover .alert-title { text-decoration: underline; }
-.alert-title { font-weight: 600; }
-.alert-detail { color: var(--text-2); font-size: 13px; }
-/* beside the text on a wide card, under it on a narrow one */
-.alert-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-self: flex-end; padding: 0 12px 8px; }
-.insight-actions { margin-top: 6px; }
 .upcoming-more { margin-top: 8px; }

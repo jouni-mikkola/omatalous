@@ -162,7 +162,7 @@ describe("pnpm strings on this repository", () => {
     "Kauppias (tarkka)", // pages/Rules.tsx
     "Seuraavat 30 päivää", // components/NextDays.tsx
     "Palkkapäivä ei ole tiedossa.",
-    "Saldon kehitys näkyy, kun historiassa on",
+    "Tilin saldo ei ole tiedossa.",
     "Käyttötilin saldo on yli 7 päivää vanha.", // core optimise
     "Lisää käyttötilin saldo kohdassa Asetukset > Tilit.",
     "Väärä käyttäjätunnus tai salasana.", // server

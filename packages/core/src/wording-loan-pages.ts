@@ -3,7 +3,7 @@
  * (ADR 0008) that loan-intake/ reads. The words of bank rows are in wording.ts.
  */
 import type { LoanReference } from "./optimise/types.ts";
-import { type LoanRepayment, MAX_LOAN_INTERVAL_MONTHS } from "./types.ts";
+import { type LoanKind, type LoanRepayment, MAX_LOAN_INTERVAL_MONTHS } from "./types.ts";
 import { words } from "./wording.ts";
 
 // A label is a plain phrase with no regex syntax, because it is also matched with the letters OCR mixes up collapsed.
@@ -32,17 +32,17 @@ export type LoanLabelField =
 /** The labels of each field, as alternations. The first ones are the register's and the SECCI form's own words. */
 export const LOAN_LABELS: Readonly<Record<LoanLabelField, string>> = {
   lender: "LUOTONANTAJA|LUOTONANTAJAN NIMI|LAINANANTAJA|VELKOJA",
-  grantedCents: "MYONNETTY MAARA|LUOTON KOKONAISMAARA|LAINAN ALKUPERAINEN MAARA|ALKUPERAINEN LAINAMAARA",
-  balanceCents: "LUOTON SALDO|LAINAN SALDO|JALJELLA OLEVA PAAOMA|JALJELLA OLEVA LAINAMAARA|JALJELLA OLEVA LAINAPAAOMA|LAINAA JALJELLA",
+  grantedCents: "MYONNETTY MAARA|MYONNETTY|LUOTON KOKONAISMAARA|LAINAN ALKUPERAINEN MAARA|ALKUPERAINEN LAINAMAARA",
+  balanceCents: "LUOTON SALDO|LAINAN SALDO|JALJELLA OLEVA PAAOMA|JALJELLA OLEVA LAINAMAARA|JALJELLA OLEVA LAINAPAAOMA|LAINAA JALJELLA|PAAOMAA MAKSAMATTA",
   balanceDate: "SALDON PAIVAMAARA|SALDOPAIVA",
   rateBp: "KOKONAISKORKO|LAINAKORKO|LAINAN KORKO|NIMELLISKORKO",
   reference: "VIITEKORKO",
   marginBp: "MARGINAALI|KORKOMARGINAALI|LAINAN MARGINAALI",
-  repayment: "LYHENNYSTAPA",
+  repayment: "LYHENNYSTAPA|LYHENNYSTYYPPI",
   intervalMonths: "LYHENNYSVALI",
-  paymentCents: "KUUKAUSIERA|KUUKAUSIERAN SUURUUS|MAKSUERA|MAKSUERAN SUURUUS",
+  paymentCents: "KUUKAUSIERA|KUUKAUSIERAN SUURUUS|MAKSUERA|MAKSUERAN SUURUUS|SEURAAVA MAKSU",
   amortisationCents: "LYHENNYS|LYHENNYKSEN MAARA|LYHENNYKSEN SUURUUS|KUUKAUSILYHENNYS",
-  endDate: "VIIMEINEN ERAPAIVA|VIIMEINEN MAKSUPAIVA|LAINA-AIKA PAATTYY",
+  endDate: "VIIMEINEN ERAPAIVA|VIIMEINEN MAKSUPAIVA|VIIMEINEN LYHENNYS|LAINA-AIKA PAATTYY",
   limitCents: "LUOTTORAJA",
   marker: "LUOTTOTYYPPI|LUOTON TYYPPI|LAINATYYPPI|LAINAN TYYPPI|LAINANUMERO|LAINAN NUMERO|LUOTON NUMERO|SOPIMUSNUMERO",
 };
@@ -56,6 +56,16 @@ export const LOAN_LABELS_UNSURE: Readonly<Partial<Record<LoanLabelField, string>
   rateBp: "KORKO",
 };
 
+/** Labels that fill their field only when no other label of it did: the drawn total of a credit says the granted sum, a loan's own "Myönnetty" says it better. */
+const LOAN_LABELS_FALLBACK: Readonly<Partial<Record<LoanLabelField, string>>> = {
+  grantedCents: "NOSTETTU YHTEENSA",
+};
+
+/** Captions a page prints under their figure: "171 240,55" over "Maksamatta". A word that can name more, so read and never sure. */
+const LOAN_CAPTIONS_UNDER_FIGURE: Readonly<Partial<Record<LoanLabelField, string>>> = {
+  balanceCents: "MAKSAMATTA",
+};
+
 /** A label found in a folded line. */
 export interface LoanLabelHit {
   field: LoanLabelField;
@@ -67,13 +77,22 @@ export interface LoanLabelHit {
   exact: boolean;
   /** False for a phrase of LOAN_LABELS_UNSURE. */
   certain: boolean;
+  /** Set for a phrase of LOAN_LABELS_FALLBACK. */
+  fallback?: true;
+  /** Set for a phrase of LOAN_CAPTIONS_UNDER_FIGURE: its figure may stand on the line above. */
+  figureAbove?: true;
 }
 
 /** OCR reads l, I and 1 as one another, and O as 0. Both sides of a loose comparison go through this; the length stays. */
 const lookAlike = (folded: string) => folded.replace(/[1L|]/g, "I").replace(/0/g, "O");
-const labelRows = (lists: Partial<Record<LoanLabelField, string>>, certain: boolean) =>
-  (Object.entries(lists) as [LoanLabelField, string][]).flatMap(([field, list]) => list.split("|").map((label) => ({ field, label, certain })));
-const LOAN_LABEL_TABLE = [...labelRows(LOAN_LABELS, true), ...labelRows(LOAN_LABELS_UNSURE, false)];
+const labelRows = (lists: Partial<Record<LoanLabelField, string>>, certain: boolean, flag: Pick<LoanLabelHit, "fallback" | "figureAbove"> = {}) =>
+  (Object.entries(lists) as [LoanLabelField, string][]).flatMap(([field, list]) => list.split("|").map((label) => ({ field, label, certain, ...flag })));
+const LOAN_LABEL_TABLE = [
+  ...labelRows(LOAN_LABELS, true),
+  ...labelRows(LOAN_LABELS_UNSURE, false),
+  ...labelRows(LOAN_LABELS_FALLBACK, false, { fallback: true }),
+  ...labelRows(LOAN_CAPTIONS_UNDER_FIGURE, false, { figureAbove: true }),
+];
 const LOAN_LABEL_EXACT = new Map(LOAN_LABEL_TABLE.map((e) => [e.label, e]));
 const LOAN_LABEL_LOOSE = new Map(LOAN_LABEL_TABLE.map((e) => [lookAlike(e.label), e]));
 /** Longest phrase first, so LAINAN KORKO wins over KORKO; any run of spaces between the words of a phrase. */
@@ -177,3 +196,14 @@ const NOT_LENDER_LINE = words(String.raw`VERKKOPANKKI|MOBIILIPANKKI|[A-Z]*PANKKI
  * their registered names). A housing company (the collateral) or an insurer on a loan page is none.
  */
 export const isLoanLenderLine = (folded: string) => LOAN_LENDER_LINE.test(folded) && !NOT_LENDER_LINE.test(folded);
+
+// A page names the kind of the loan in its heading, and a lender that only lends against homes names it too.
+const LOAN_KIND_HEADING: readonly (readonly [LoanKind, RegExp])[] = [
+  ["mortgage", /^[^A-Z0-9]*ASUNTOLAINA[^A-Z0-9]*$/],
+  ["credit_line", /^[^A-Z0-9]*JOUSTOLUOTTO[^A-Z0-9]*$/],
+];
+const HOME_LENDER = words("[A-Z]*KIINNITYSLUOTTOPANKKI[A-Z]*");
+/** The kind a heading line names ("Asuntolaina", "Joustoluotto"), or null. The line holds nothing else. */
+export const loanKindHeading = (folded: string): LoanKind | null => LOAN_KIND_HEADING.find(([, re]) => re.test(folded))?.[0] ?? null;
+/** "mortgage" for a line that names a mortgage bank ("... Kiinnitysluottopankki"), or null. */
+export const loanKindOfLender = (folded: string): LoanKind | null => (HOME_LENDER.test(folded) ? "mortgage" : null);

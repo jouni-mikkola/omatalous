@@ -105,6 +105,36 @@ function kindOf(category: string, text: string): LoanKind {
   return isCarFinanceText(text) ? "car" : "consumer";
 }
 
+/**
+ * Whether a series is spoken for, asked of the series and its charges: a saved loan is linked to it (`Loan.seriesKey`),
+ * or the household said "Ei laina" of it. A key holds the payment as it was in the view that saved it, so the part
+ * and the bank's amount of every charge are asked. The proposals and the home loans of the first page read the one
+ * answer (`housing.ts`).
+ */
+export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: Charges) => boolean {
+  const keys = [...loansOf(inputs).map((loan) => loan.seriesKey), ...inputs.marks.filter((m) => m.mark === "dismissed").map((m) => notLoanKey(m.subject))].filter((key): key is string => !!key);
+  return (s, charges) => {
+    if (!keys.length) return false;
+    const amounts = amountsOf(s, charges);
+    return keys.some((key) => names(key, s, amounts));
+  };
+}
+
+type Charges = readonly Pick<AnalysisTx, "amountCents" | "wholeCents">[];
+
+/** The payments a key is asked against: the usual one and every charge, as the bank charged it and as the view holds it. */
+const amountsOf = (s: RecurringSeries, charges: Charges): number[] => [s.typicalAmountCents, ...charges.flatMap((t) => [-t.amountCents, -billCents(t)])];
+
+/**
+ * Whether a payment typed for a loan that no series is linked to fits a series: asked as a stored key is (`names`), of
+ * the series' own payee and account with the typed payment as its price, so `covers` owns how far apart the two may be.
+ * The payment is the bank's, whole, also in a view that holds a part of the series.
+ */
+export function fitsPayment(paymentCents: number, s: RecurringSeries, charges: Charges): boolean {
+  const own = parseSeriesId(s.id);
+  return own !== null && names(seriesId({ ...own, product: paymentCents }), s, amountsOf(s, charges));
+}
+
 /** The mark that says a proposal is no loan: the series stays out of `loanProposals` until the mark is taken away. */
 export function notLoanMark(proposal: Pick<LoanProposal, "key">): Pick<UserMark, "subject" | "mark"> {
   return { subject: NOT_LOAN_SUBJECT + proposal.key, mark: "dismissed" };
@@ -118,7 +148,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring">, i
   const candidates = ctx.recurring.filter((s) => s.active && s.cadence === "monthly" && (s.kind === "bill" || s.kind === "subscription") && LOAN_CATEGORIES.has(s.category));
   if (!candidates.length) return [];
   const byId = new Map(ctx.txs.map((t) => [t.id, t]));
-  const taken = [...loansOf(inputs).map((loan) => loan.seriesKey), ...inputs.marks.filter((m) => m.mark === "dismissed").map((m) => notLoanKey(m.subject))].filter((key): key is string => !!key);
+  const taken = takenSeries(inputs);
   const cancelled = cancelledSubjects(inputs);
 
   const out: LoanProposal[] = [];
@@ -142,9 +172,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring">, i
     // Laina is a first name too: a person so named is a lender only when the payment text names the loan
     if (isNamedLaina(payee) && !hasPayeeForm(payee) && !isLoanText(fold(last.description ?? ""))) continue;
     if (isCancelled(cancelled, s)) continue;
-    // a key holds the payment as it was in the view that saved it: the part and the bank's amount are both asked
-    const amounts = [s.typicalAmountCents, paymentCents, ...charges.flatMap((t) => [-t.amountCents, -billCents(t)])];
-    if (taken.some((key) => names(key, s, amounts))) continue;
+    if (taken(s, charges)) continue;
     // one of a lender's several series has its payment in the series id, and on rows cut to a part that is the part
     const cut = charges.some((t) => t.wholeCents !== undefined);
     out.push({

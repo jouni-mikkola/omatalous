@@ -1,17 +1,16 @@
-/* The days until the next pay on the overview (components/NextDays.tsx). */
-.ahead-verdict { margin: 4px 0 8px; font-size: 13px; }
-.ahead-verdict.notice { padding: 8px 12px; margin-bottom: 8px; }
-.ahead-figures { margin: 0 0 12px; }
-.ahead-figure { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; }
-.ahead-figure dt, .ahead-figure dd { margin: 0; }
-/* what the figure is made of sits under its label, so a phone does not break it in the middle */
-.ahead-figure dt .small { display: block; }
-.ahead-figure dd { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ahead-figure-left { font-weight: 600; }
-.ahead-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0; }
-.ahead-table { max-height: 260px; overflow: auto; }
-.ahead-in { color: var(--good); }
-.ahead-pay { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 13px; }
-.ahead-pay .num { font-variant-numeric: tabular-nums; }
-.ahead-more { margin-top: 8px; }
-.ahead-note { margin: 8px 0 0; }
+/* Erääntyvät maksut on the overview (components/NextDays.tsx): what the shared statement classes do not have. */
+/* the one warning of the block, above its two groups */
+.ahead-warning { margin: 0 0 12px; font-size: 14px; }
+/* the line that names the window is the head of the figures: as tall as the head row of the table beside it, so the rows of the two groups stand on the same lines */
+.ahead-window { margin-bottom: 7px; }
+.ahead-missing { margin: 0; font-size: 14px; line-height: 18px; }
+
+/* the two tables: three columns at every width, a name is cut and a sum never wraps */
+.ahead-table { table-layout: fixed; }
+.st-note + .ahead-table, .ahead-table + .ahead-table { margin-top: 20px; }
+.ahead-table caption { text-align: left; }
+.ahead-table .ahead-day { width: 3.5rem; }
+.ahead-table .ahead-sum { width: 7rem; }
+.ahead-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the line under a name says what the sum is, so on a narrow screen it wraps and is not cut */
+.ahead-table .st-sub { white-space: normal; }

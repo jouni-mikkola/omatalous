@@ -79,8 +79,10 @@ export function formOfDraft(draft: LoanDraft, today: string): LoanForm {
     lines[key] = field.line;
   }
   const payment = values.paymentCents;
+  // the text gave the amortisation alone of a loan whose payment holds the interest: the household types the whole payment
+  if (draft.paymentKind === "amortisation" && values.repayment !== "equal_principal") values.paymentCents = "";
   if (!values.balanceDate) values.balanceDate = today;
-  return { id: null, seriesKey: null, name: "", kind: "", values, source: { marks, lines, warnings: draft.warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null, accountId: "" };
+  return { id: null, seriesKey: null, name: "", kind: draft.kind ?? "", values, source: { marks, lines, warnings: draft.warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null, accountId: "" };
 }
 
 /**

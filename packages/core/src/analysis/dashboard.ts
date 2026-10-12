@@ -2,6 +2,7 @@ import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
+import { buildHousing, type Housing } from "../housing.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { dataQualityReport, type QualitySignal, spendingBase } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
@@ -52,7 +53,7 @@ export interface DashboardData {
    * reaches today (the period can be longer than the month), else the month the range ends in.
    */
   pace: MonthPace;
-  /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the balance line. null when the selected period does not include today. */
+  /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the three figures. null when the selected period does not include today. */
   ahead: AheadData | null;
   /** Cost traps and mistakes; the overview shows them before insights. */
   alerts: Alert[];
@@ -63,14 +64,17 @@ export interface DashboardData {
   insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
+  /** What the home costs a month and the terms of its loan, today whatever the range. null when the view has no home loan, no charge of a home and nothing to ask. */
+  housing: Housing | null;
   /** Category ids that own colour slots 1–7 (slot 8 is "Muut"). */
   colorOrder: string[];
 }
 
-/** The colour key of the categories that have no colour slot of their own ("Muut"). */
-export const REST_CATEGORY = "other_rest";
-
-/** Spending (consumption + debt) per category, with the previous period alongside. */
+/**
+ * Spending (consumption + debt) per category, with the previous period alongside. The rows add up to the spending of
+ * `current`: a category that nets below zero (a refund that came a month after its payment, or money in the user put
+ * on it by hand) is a row with its minus.
+ */
 export function categoryTotals(current: readonly AnalysisTx[], previous: readonly AnalysisTx[] = []): CategoryTotal[] {
   const totals = new Map<string, { cents: number; count: number }>();
   for (const t of current) {
@@ -84,7 +88,7 @@ export function categoryTotals(current: readonly AnalysisTx[], previous: readonl
   for (const t of previous) if (t.spend) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
   const all = spendingBase(current);
   return [...totals.entries()]
-    .filter(([, e]) => e.cents > 0)
+    .filter(([, e]) => e.cents !== 0)
     .map(([category, e]) => {
       const c = getCategory(category);
       return { category, label: c.label, group: c.group, kind: c.kind, cents: e.cents, count: e.count, share: all ? e.cents / all : 0, previousCents: prev.get(category) ?? 0 };
@@ -140,6 +144,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     dataSignals: quality.signals.length,
     insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
     holdings: buildHoldings(ctx, balances, inputs),
+    housing: buildHousing(ctx, balances, inputs),
     colorOrder: [...ctx.colorOrder],
   };
 }

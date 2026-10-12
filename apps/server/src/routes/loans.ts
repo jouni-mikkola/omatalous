@@ -153,6 +153,8 @@ async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Pr
   };
   // a day that has passed is kept: the rate has been reviewed since. A loan with no day has no field, as with the link.
   if (!absent(input.rateReviewDate)) loan.rateReviewDate = date(input.rateReviewDate, oldest, latest, `Koron tarkistuspäivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`);
+  // a fixed rate is not set again: a day sent with one is checked and dropped, as the form leaves it out
+  if (loan.reference === "fixed") delete loan.rateReviewDate;
   // a card or a credit line is drawn and paid as its holder likes: it has a limit and no plan
   if (isRevolving(loan.kind) && loan.repayment !== null) {
     throw new UserError("Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.");

@@ -1,0 +1,71 @@
+/* Yhteenveto: the block Asuminen (components/housing/). The tables, the rows and the columns are the shared statement classes (statement.css); this file holds what only this block needs. */
+
+/* the table Lainat: a name may wrap, a figure and a day never do; the long cell of the reference rate wraps where the window is narrow */
+.housing-loans .housing-name { min-width: 8rem; }
+.housing-loans .housing-due, .housing-loans .housing-review, .housing-loans .housing-link { white-space: nowrap; }
+.housing-loans .housing-link { text-align: right; }
+/* the group head stands over its three columns, on the rule that holds them together */
+.housing-loans thead th[colspan] { border-bottom-color: var(--axis); }
+/* a head of two words may stand on two lines, so a column is as wide as its values; the second row of the head keeps the gap between two columns */
+.housing-loans thead th { white-space: normal; }
+.housing-loans thead tr + tr > :first-child { padding-left: 16px; }
+
+/* from 1040 px the heads of the table name the columns */
+@media (min-width: 1040px) {
+  .housing-loans .housing-label, .housing-loans .housing-group { display: none; }
+}
+
+/*
+ * Below 1040 px a loan is a grid of labels and values: its name and its link on the first line, then the terms at the
+ * left and the next payment at the right, two pairs a row. A pair is a row of the statement: label left, value right.
+ */
+@media (max-width: 1039px) {
+  .housing-loans, .housing-loans tbody { display: block; }
+  .housing-loans thead { display: none; }
+  .housing-loans tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px;
+    grid-template-areas: "name link" "rate group" "reference due" "review amortisation" "month interest";
+  }
+  .housing-loans tr + tr { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .housing-loans tbody :is(th, td) { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 12px; padding: 7px 0; text-align: left; white-space: normal; }
+  .housing-loans tbody tr > :is(th, td) { border-bottom: 1px solid var(--grid); }
+  .housing-loans tbody tr > :is(.housing-month, .housing-interest) { border-bottom: 0; }
+  .housing-loans td > span:last-child { margin-left: auto; text-align: right; }
+  .housing-loans .housing-name { grid-area: name; display: block; font-weight: 600; }
+  .housing-loans .housing-name .st-sub { font-weight: 400; }
+  .housing-loans .housing-link { grid-area: link; justify-content: flex-end; }
+  .housing-loans .housing-group { grid-area: group; font-weight: 600; }
+  .housing-loans .housing-rate { grid-area: rate; }
+  .housing-loans .housing-reference { grid-area: reference; }
+  .housing-loans .housing-review { grid-area: review; }
+  .housing-loans .housing-due { grid-area: due; }
+  .housing-loans .housing-amortisation { grid-area: amortisation; }
+  .housing-loans .housing-interest { grid-area: interest; }
+  .housing-loans .housing-month { grid-area: month; }
+}
+/* on a phone one pair a row: the terms, then the next payment under its head */
+@media (max-width: 599px) {
+  .housing-loans tr {
+    grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px;
+    grid-template-areas: "name link" "rate rate" "reference reference" "review review" "month month" "group group" "due due" "amortisation amortisation" "interest interest";
+  }
+  .housing-loans tbody tr > .housing-month { border-bottom: 1px solid var(--grid); }
+}
+
+/* Asumiskulut: the kind and the sum take what they need, the payee takes the rest and is cut */
+.housing-charges { table-layout: fixed; }
+.housing-charges th:first-child { width: 9rem; }
+.housing-charges th:last-child { width: 7rem; }
+@media (max-width: 599px) {
+  .housing-charges th:first-child { width: 7rem; }
+  .housing-charges th:last-child { width: 5.75rem; }
+}
+
+/* the sums stand at the foot of their column, the total on the line of the last charge; a label is told whole */
+.housing-total { display: flex; flex-direction: column; justify-content: flex-end; }
+.housing-sums .st-name { overflow: visible; white-space: normal; }
+
+/* the question: its name at the left, the two buttons at the right; where the card is narrow the buttons go under the name together */
+.housing-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; line-height: 18px; }
+.housing-ask .st-name { flex: 1 0 auto; }
+.housing-answers { display: flex; flex-wrap: wrap; gap: 8px; }

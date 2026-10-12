@@ -15,9 +15,9 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
   try {
     // with Säästövinkit on, Yhteenveto and Raportit leave the insights to it
     await page.goto("/#/overview");
-    await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tulot ja menot", exact: true })).toBeVisible();
     await page.waitForLoadState("networkidle");
-    await expect(page.locator(".insights")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Ilmoitukset" }).getByText("Uusi toistuva maksu: OpenAI")).toHaveCount(0);
     await page.goto("/#/reports");
     await expect(page.getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Havainnot" })).toHaveCount(0);
@@ -66,8 +66,8 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
     expect((await flag(false)).ok()).toBe(true);
     await page.goto("/#/overview");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
-    await expect(page.locator(".insights").getByText(title)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tulot ja menot", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ilmoitukset" }).getByText(title)).toBeVisible();
     await page.goto("/#/reports");
     await expect(page.getByRole("heading", { name: "Havainnot" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Havainnot" })).toContainText(title);

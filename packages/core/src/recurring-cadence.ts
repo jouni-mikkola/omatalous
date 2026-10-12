@@ -1,5 +1,5 @@
 /** The cadences a series can have, and the fit of a run of charges to one: the cadence table (ADR 0004) and its dates. */
-import { addDays, daysBetween, daysInMonth, monthIndex } from "./dates.ts";
+import { addDays, addMonths, dateIn, daysBetween, daysInMonth, monthIndex } from "./dates.ts";
 import { amountsDiffer, type Occurrence } from "./recurring-occurrence.ts";
 import { median } from "./stats.ts";
 import type { IsoDate } from "./types.ts";
@@ -119,13 +119,52 @@ export function addMonthsKeepDay(date: IsoDate, n: number): IsoDate {
   return `${month}-${String(day).padStart(2, "0")}`;
 }
 
+/** A series' usual day, and whether it follows a pay, are read from this many of its latest charges. */
+export const DAY_SAMPLE = 6;
+/** Under this many charges a series has no usual day yet. */
+export const MIN_DAY_SAMPLE = 3;
+
+/** A charge within this many days of the usual day is on it: a weekend or a holiday moves a payment that far. */
+const USUAL_DAY_SLACK = 3;
+
 /**
- * Month-based cadences land on the day of month of the last charge (rent on
- * the 1st → the 1st), semimonthly on the day of the charge before it.
+ * The usual day of the month of the latest charges: the median of their days, a half rounded up. A series that comes at
+ * the turn of the month (the 30th, the 1st, the 31st) has its late days counted back from the turn, so its usual day is
+ * the 1st and not the 16th; a usual day before the 1st is that many days before the end of the month. Null under three
+ * charges, and null when more than one of them is off the day: a charge every four weeks drifts through the month and
+ * has no day of its own.
+ */
+function usualDay(occ: readonly Occurrence[]): number | null {
+  const dates = occ.slice(-DAY_SAMPLE).map((o) => o.date);
+  if (dates.length < MIN_DAY_SAMPLE) return null;
+  const plain = dates.map(dayOfMonth);
+  const atTurn = plain.some((d) => d <= 7) && plain.some((d) => d >= 24) && plain.every((d) => d <= 7 || d >= 24);
+  const days = atTurn ? dates.map((d, i) => (plain[i]! >= 24 ? plain[i]! - daysInMonth(d.slice(0, 7)) : plain[i]!)) : plain;
+  const day = Math.round(median(days));
+  if (days.filter((d) => Math.abs(d - day) > USUAL_DAY_SLACK).length > 1) return null;
+  return day < 1 ? day + 31 : day;
+}
+
+/** Day `day` of the month of `date` or of the month beside it, whichever is nearest to `date`; a shorter month gives its last day. */
+function onDayNear(date: IsoDate, day: number): IsoDate {
+  const month = date.slice(0, 7);
+  const far = (d: IsoDate) => Math.abs(daysBetween(d, date));
+  // of two as near, the month of `date` itself
+  return [0, -1, 1].map((k) => dateIn(addMonths(month, k), day)).reduce((best, d) => (far(d) < far(best) ? d : best));
+}
+
+/**
+ * Month-based cadences land on the series' usual day of the month (`usualDay`), the one nearest to a cadence step from
+ * the last charge: rent paid on the 1st comes on the 1st, and one early or late payment does not move the next day.
+ * With under three charges it is the day of the last one. Semimonthly lands on the day of the charge before the last.
  */
 export function nextDateOf(occ: readonly Occurrence[], cadence: CadenceDef): IsoDate {
   const last = occ[occ.length - 1]!.date;
-  if (cadence.months) return addMonthsKeepDay(last, cadence.months);
+  if (cadence.months) {
+    const step = addMonthsKeepDay(last, cadence.months);
+    const day = usualDay(occ);
+    return day === null ? step : onDayNear(step, day);
+  }
   if (cadence.id === "semimonthly" && occ.length >= 2) {
     const next = addMonthsKeepDay(occ[occ.length - 2]!.date, 1);
     return next > last ? next : addMonthsKeepDay(last, 1);

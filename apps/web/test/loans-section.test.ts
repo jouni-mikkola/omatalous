@@ -13,7 +13,7 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
   ({
     id: "home", name: "Kodin laina", lender: "Esimerkkipankki", kind: "mortgage", accountType: null, linkedAccount: null,
     balance: { cents: 12_000_000, unknown: null }, balanceDate: day, rateBp: 325, reference: "euribor_12", repayment: "annuity",
-    payment: { cents: 100_000, interestCents: 32_500, amortisationCents: 67_500, intervalMonths: 1, unknown: null },
+    payment: { cents: 100_000, interestCents: 32_500, amortisationCents: 67_500, intervalMonths: 1, date: null, unknown: null },
     interest: { cents: 380_000, unknown: null }, payoff: { date: "2040-02-01", unknown: null, never: false }, scenarios: [],
     ...over,
   }) as LoanRow;
@@ -40,7 +40,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("a payment without an interval is told without one, and never with the word null", () => {
-    const out = html(loans, context(report([row({ payment: { cents: 20_000, interestCents: null, amortisationCents: null, intervalMonths: null, unknown: "interval" } })])));
+    const out = html(loans, context(report([row({ payment: { cents: 20_000, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "interval" } })])));
     expect(out).toContain(figure("Maksuerä", "200,00 €"));
     expect(out).not.toContain("null");
     expect(html(loans, context(report([row()])))).toContain("<dd>1 000,00 €/kk<small>korkoa 325,00 €, lyhennystä 675,00 €</small></dd>");
@@ -48,7 +48,7 @@ describe("Raportit: Lainat", () => {
 
   it("the day a loan ends is the last payment, and a loan that owes nothing has no payment and no date", () => {
     expect(html(loans, context(report([row()])))).toContain(figure("Viimeinen eräpäivä", "1.2.2040"));
-    const none = { cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, unknown: null };
+    const none = { cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: null };
     const out = html(loans, context(report([row({ balance: { cents: 0, unknown: null }, payment: none, interest: { cents: 0, unknown: null }, payoff: { date: null, unknown: null, never: false } })])));
     expect(out).toContain(figure("Maksuerä", "–"));
     expect(out).toContain(figure("Viimeinen eräpäivä", "–"));
@@ -63,7 +63,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("a bullet has no payment to tell, in its row, after a move of the rate or in the payments of a month", () => {
-    const bullet = row({ repayment: "bullet", payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, unknown: null }, scenarios: [{ shiftBp: 100, movedBp: 100, rateBp: 425, paymentCents: null, interestCents: 510_000, unknown: null }] });
+    const bullet = row({ repayment: "bullet", payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, scenarios: [{ shiftBp: 100, movedBp: 100, rateBp: 425, paymentCents: null, interestCents: 510_000, unknown: null }] });
     const out = html(loans, context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 } })));
     expect(out).toContain("<dd>Kertalyhennys<small>maksetaan kerralla lopussa</small></dd>");
     expect(out).toContain("Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 5 100 €.");
@@ -115,7 +115,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("a move of the rate names the payment only when it has one, and a move with no figure has no line", () => {
-    const typed = { cents: 10_000, interestCents: null, amortisationCents: null, intervalMonths: 1, unknown: "repayment" } as const;
+    const typed = { cents: 10_000, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: "repayment" } as const;
     const move = (shiftBp: number, paymentCents: number | null, interestCents: number | null) => ({ shiftBp, movedBp: shiftBp, rateBp: 700 + shiftBp, paymentCents, interestCents, unknown: null });
     const line = html(loans, context(report([row({ payment: typed, scenarios: [move(-100, null, 18_000), move(100, null, 24_000)] })])));
     expect(line).toContain('<p class="loan-scenario">Jos viitekorko laskee prosenttiyksikön: korot 12 kuukaudessa 180 €. Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 240 €.</p>');

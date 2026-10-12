@@ -1,0 +1,49 @@
+/* Two made-up loan views, drawn the way a bank's page lays out a loan: a label at the left in regular weight, its value at
+   the right in bold, a thin rule under each row. Plain CSS and the system's sans-serif; no logo, no picture, no font file. */
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.4 system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1b2430; background: #f2f3f5; }
+h1 { margin: 20px 0 16px; font-size: 30px; }
+h2 { margin: 0; font-size: 20px; }
+
+.row { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 9px 0; border-bottom: 1px solid #dfe3e8; }
+.row .label { font-weight: 400; color: #36404e; }
+.row .value { font-weight: 700; text-align: right; }
+/* the page aligns a long value to the right, above its label */
+.row.over { flex-direction: column-reverse; align-items: stretch; gap: 2px; }
+.row.over .value { text-align: right; }
+.row.over .label { display: flex; align-items: center; }
+.info { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; margin-left: 7px; border: 1.5px solid #4a5666; border-radius: 50%; font-size: 11px; font-weight: 700; color: #4a5666; }
+.copy { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; font-weight: 400; color: #1b5fa8; }
+.copy i { position: relative; width: 12px; height: 14px; border: 1.5px solid #1b5fa8; border-radius: 2px; }
+.copy i::after { content: ""; position: absolute; left: 3px; top: -5px; width: 10px; height: 12px; border: 1.5px solid #1b5fa8; border-radius: 2px; }
+.section { margin: 14px 0 2px; font-weight: 700; }
+
+.bar { display: flex; justify-content: flex-end; padding-top: 18px; }
+.menu { padding: 8px 14px; border: 1px solid #98a2b3; border-radius: 6px; background: #fff; }
+.figures { display: flex; gap: 22px; margin-bottom: 18px; }
+.figure strong { display: block; font-size: 18px; white-space: nowrap; }
+.figure span { font-size: 13px; color: #4a5666; }
+.card { margin-bottom: 12px; padding: 12px 18px; border: 1px solid #d0d5dd; border-radius: 10px; background: #fff; }
+.card .row { border-bottom: 0; }
+.muted { color: #4a5666; }
+
+main.credit { width: 680px; padding: 20px 28px 28px; background: #fff; }
+main.credit .card { background: #f7f8fa; }
+
+.shell { width: 1100px; margin: 0 auto; padding-bottom: 40px; }
+.shell .left { width: 250px; }
+table { width: 100%; margin-top: 26px; border-collapse: collapse; }
+th { text-align: left; font-weight: 400; color: #4a5666; }
+th, td { padding: 9px 0; border-bottom: 1px solid #dfe3e8; }
+.col-1 { width: 360px; }
+.col-2 { width: 200px; }
+.col-3 { width: 430px; }
+.right { text-align: right; }
+.link { color: #1b5fa8; }
+
+.dim { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.55); }
+.dialog { width: 560px; padding: 20px 28px 22px; border-radius: 12px; background: #fff; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+.dialog header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.close { position: relative; width: 20px; height: 20px; }
+.close::before, .close::after { content: ""; position: absolute; left: 9px; top: 1px; width: 2px; height: 18px; background: #1b2430; transform: rotate(45deg); }
+.close::after { transform: rotate(-45deg); }

@@ -50,6 +50,9 @@ describe("security events", () => {
     const notices = (await admin.call("GET", "/api/security/notices")).body.notices as { kind: string; text: string }[];
     expect(notices.filter((n) => n.kind === "new_device")).toHaveLength(1); // Chrome was new once
     expect(notices.find((n) => n.kind === "new_device")!.text).toContain("Chrome, Windows");
+    // the first page names the device in its row: the field is the device alone, and no other notice has it
+    expect((notices.find((n) => n.kind === "new_device") as { detail?: string }).detail).toBe("Chrome, Windows");
+    expect(notices.filter((n) => n.kind !== "new_device" && "detail" in n)).toEqual([]);
     expect(notices.find((n) => n.kind === "new_device")!.text).toMatch(/ Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos\.$/);
     await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, FIREFOX_LINUX);
     expect(((await admin.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).filter((n) => n.kind === "new_device")).toHaveLength(2);

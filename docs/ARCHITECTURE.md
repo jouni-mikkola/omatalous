@@ -152,13 +152,15 @@ flowchart LR
   both counted in SQL. Rule limits live in `services/rules.ts` (at most 300 per user).
 - The first page (Yhteenveto) reads and computes nothing of its own. `holdings.ts` in core answers what the household has
   and owes: each account with its balance, each card with what is used of its limit, each loan with what is left. A
-  balance is the day walk's and a debt is `householdDebts`'. The one sum it makes is the known balances of the accounts
-  added together (`accountsCents`), and the cards' use and the loans' balance add up to the debt total (`debtCents`).
+  balance is the day walk's and a debt is `householdDebts`'. The sums it makes are the known figures of each group added
+  together (`accountsCents`, `cardsCents`, `loansCents`), and the cards' use and the loans' balance add up to the debt
+  total (`debtCents`).
   `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer (`buildHoldings`), and
   `components/holdings/Holdings.tsx` shows it as given. The card *Menot* shows `DashboardData.pace` from `monthPace` in
   `analysis/forecast.ts`: the month's spending so far and the month before's on the same day, both sums of rows with
-  nothing estimated (`SpendingCard` in `pages/Overview.tsx`, the chart in `charts/PaceChart.tsx`). The card of the days to the payday gets
-  `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words its heading, figures and warning (the rules
+  nothing estimated (`SpendingCard` in `pages/Overview.tsx`, the chart in `charts/PaceChart.tsx`). The block *Erääntyvät maksut* gets
+  `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words the line under its heading, its three figures, its warning and the rows of its two
+  tables (the rules
   are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).
 
 ## Settings and secrets

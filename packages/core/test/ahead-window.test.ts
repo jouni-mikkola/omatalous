@@ -18,7 +18,8 @@ const card: Account = { id: "card", name: "Luottokortti", iban: null, currency: 
 
 const WHOLE: Part = { from: 0, to: 1, of: 1 };
 const HALF: Part = { from: 0, to: 1, of: 2 };
-const OTHER_HALF: Part = { from: 1, to: 2, of: 2 };
+const SIXTY: Part = { from: 0, to: 3, of: 5 };
+const FORTY: Part = { from: 3, to: 5, of: 5 };
 
 const everyDay = (until: IsoDate, row: (day: IsoDate) => Transaction[]): Transaction[] => {
   const rows: Transaction[] = [];
@@ -51,8 +52,8 @@ const cardRows = (bills: readonly number[] = BILLS, until: IsoDate = TODAY, firs
   ...everyDay(until, (d) => [tx({ accountId: "card", bookingDate: d, amountCents: -1000, merchant: "Kahvila", category: "restaurants" })]),
   ...monthly(20).flatMap((d, i) => (i >= first && bills[i] ? move(own, card, d, bills[i]!) : [])),
 ];
-const sumOfWalk = (d: ReturnType<typeof cashAhead>) =>
-  d.balance!.startCents + d.totals.incomeCents - d.totals.recurringCents - d.totals.typedCents - d.totals.cardCents - d.totals.transferCents - d.totals.everydayCents;
+/** What is left of the balance after the payments of the window, added up from the rows. */
+const freeOf = (d: ReturnType<typeof cashAhead>) => d.balance!.startCents + d.rows.filter((r) => r.cents < 0).reduce((sum, r) => sum + r.cents, 0);
 const of = (d: ReturnType<typeof cashAhead>, source: string) => d.rows.filter((r) => r.source === source);
 
 describe("the window: a connected card", () => {
@@ -63,9 +64,9 @@ describe("the window: a connected card", () => {
     expect(of(d, "card")).toEqual([{ date: "2026-10-20", name: "Luottokortti", category: "transfer", cents: -41_200, source: "card", basis: "balance" }]);
     // 20 euros a day leave the own account; the card's 10 a day are in its bill
     expect(d.everydayPerDayCents).toBe(2000);
-    expect(d.totals).toMatchObject({ cardCents: 41_200, transferCents: 0, recurringCents: 90_000, everydayCents: 60_000 });
-    expect(d.balance).toMatchObject({ counts: "all", accounts: 1, startCents: 200_000, last: { date: "2026-11-08", cents: 200_000 - 90_000 - 41_200 - 60_000 } });
-    expect(d.balance!.last.cents).toBe(sumOfWalk(d));
+    expect(d.totals).toMatchObject({ cardCents: 41_200, transferCents: 0, recurringCents: 90_000, dueCents: 131_200 });
+    expect(d.balance).toMatchObject({ counts: "all", accounts: 1, startCents: 200_000, freeCents: 200_000 - 90_000 - 41_200 });
+    expect(d.balance!.freeCents).toBe(freeOf(d));
     // Laskut's 30 days hold bills and subscriptions only
     expect(d.upcoming.map((r) => r.source)).toEqual(["recurring"]);
   });
@@ -103,7 +104,7 @@ describe("the window: a connected card", () => {
     const d = cashAhead(createContext([...home(), ...bills], [own], TODAY), [bal(own, 200_000)], NO_INPUTS);
     expect(d.rows.filter((r) => r.name === "Korttiyhtiö")).toEqual([{ date: "2026-10-20", name: "Korttiyhtiö", category: "card_bill", cents: -30_000, source: "recurring" }]);
     expect(of(d, "card")).toEqual([]);
-    expect(d.balance!.last.cents).toBe(sumOfWalk(d));
+    expect(d.balance!.freeCents).toBe(freeOf(d));
   });
 
   it("a subscription the card pays is in the card's bill: no row of the window, and still in Laskut's 30 days", () => {
@@ -111,6 +112,10 @@ describe("the window: a connected card", () => {
     const d = cashAhead(createContext([...home(), ...cardRows(), ...music], [own, card], TODAY), [bal(own, 200_000), bal(card, -41_200)], NO_INPUTS);
     expect(d.rows.map((r) => r.name)).toEqual(["Luottokortti", "Vuokranantaja Oy"]);
     expect(d.upcoming.map((r) => [r.date, r.name])).toEqual([["2026-10-11", "Musiikkipalvelu"], ["2026-11-02", "Vuokranantaja Oy"]]);
+    // the row says a card pays it, and the rent an account pays says nothing
+    expect(d.upcoming.map((r) => r.onCard ?? false)).toEqual([true, false]);
+    // what the accounts pay of Laskut's list is the window's own sum
+    expect(d.upcoming.filter((r) => !r.onCard && r.date <= d.to).reduce((sum, r) => sum - r.cents, 0)).toBe(d.totals.recurringCents + d.totals.typedCents);
   });
 });
 
@@ -126,11 +131,13 @@ describe("the window: own transfers and the accounts it counts", () => {
     expect(of(d, "transfer")).toEqual([{ date: "2026-11-01", name: "Yhteinen tili", category: "transfer", cents: -60_000, source: "transfer" }]);
     expect(d.totals).toMatchObject({ transferCents: 60_000, cardCents: 0, recurringCents: 90_000 });
     expect(d.balance).toMatchObject({ counts: "own", accounts: 1, startCents: 200_000 });
-    expect(d.balance!.last.cents).toBe(200_000 - 90_000 - 60_000 - 60_000);
-    expect(d.balance!.last.cents).toBe(sumOfWalk(d));
+    expect(d.balance!.freeCents).toBe(200_000 - 90_000 - 60_000);
+    expect(d.balance!.freeCents).toBe(freeOf(d));
     // the joint account's electricity bill is not paid from the counted account: Laskut has it at the viewer's part
     expect(d.rows.map((r) => r.name)).not.toContain("Sähköyhtiö");
     expect(d.upcoming.map((r) => [r.name, r.cents])).toEqual([["Sähköyhtiö", -4000], ["Vuokranantaja Oy", -90_000]]);
+    // an account outside the balance is still an account: only a card's series is marked
+    expect(d.upcoming.some((r) => r.onCard)).toBe(false);
   });
 
   it("the household view counts both accounts: the transfer between them is no row and changes nothing", () => {
@@ -139,7 +146,7 @@ describe("the window: own transfers and the accounts it counts", () => {
     expect(d.balance).toMatchObject({ counts: "all", accounts: 2, startCents: 250_000 });
     const without = household([...home(), ...power]);
     expect(d.rows).toEqual(without.rows);
-    expect(d.balance!.days).toEqual(without.balance!.days);
+    expect(d.balance).toEqual(without.balance);
     expect(d.rows.map((r) => r.name)).toEqual(["Sähköyhtiö", "Vuokranantaja Oy"]);
   });
 
@@ -163,18 +170,20 @@ describe("the window: own transfers and the accounts it counts", () => {
     expect(p.rows.filter((r) => r.cents === -30_000)).toEqual([{ date: "2026-10-26", name: "Rahastoyhtiö", category: "investments", cents: -30_000, source: "recurring" }]);
   });
 
-  it("a viewer whose only checking account is joint at 1 and 1: counted at the part, and the last day is half of the household's, to the cent", () => {
+  it("a viewer whose only checking account is joint at 60 and 40: every figure is the part, and the two parts are the household's, to the cent", () => {
     const all = home("joint");
-    const whole = cashAhead(createContext(all, [joint], TODAY), [bal(joint, 200_001)], NO_INPUTS);
-    const part = (p: Part) => cashAhead(createContext(cut(all, "joint", p), [joint], TODAY), [bal(joint, partCents(200_001, p), { part: p })], NO_INPUTS);
-    const [first, second] = [part(HALF), part(OTHER_HALF)];
-    expect(whole.balance).toMatchObject({ counts: "all", startCents: 200_001 });
-    expect(first.balance).toMatchObject({ counts: "part", accounts: 1, startCents: 100_001 });
-    expect(first.everydayPerDayCents).toBe(1000);
-    expect(first.rows).toEqual([{ date: "2026-11-02", name: "Vuokranantaja Oy", category: "housing", cents: -45_000, source: "recurring" }]);
-    // the two users' windows add up to the household's, the odd cent of the balance with one of them
-    expect(first.balance!.last.cents + second.balance!.last.cents).toBe(whole.balance!.last.cents);
-    expect(second.balance!.last.cents * 2).toBe(whole.balance!.last.cents - 1);
+    const whole = cashAhead(createContext(all, [joint], TODAY), [bal(joint, 80_001)], NO_INPUTS);
+    const part = (p: Part) => cashAhead(createContext(cut(all, "joint", p), [joint], TODAY), [bal(joint, partCents(80_001, p), { part: p })], NO_INPUTS);
+    const [first, second] = [part(SIXTY), part(FORTY)];
+    // 800,01 does not cover the rent of 900,00: the household is short by 99,99 on the day of the rent
+    expect(whole.balance).toMatchObject({ counts: "all", startCents: 80_001, freeCents: -9999, shortCents: 9999, shortOn: "2026-11-02" });
+    expect(first.balance).toMatchObject({ counts: "part", accounts: 1, startCents: partCents(80_001, SIXTY), shortOn: "2026-11-02" });
+    expect(first.rows).toEqual([{ date: "2026-11-02", name: "Vuokranantaja Oy", category: "housing", cents: -54_000, source: "recurring" }]);
+    expect([first.totals.dueCents, second.totals.dueCents]).toEqual([54_000, 36_000]);
+    expect([first.everydayPerDayCents, second.everydayPerDayCents]).toEqual([1200, 800]);
+    // the two windows add up to the household's, the odd cent of the balance with one of them
+    for (const key of ["startCents", "freeCents", "shortCents"] as const) expect(first.balance![key] + second.balance![key], key).toBe(whole.balance![key]);
+    expect(first.balance!.freeCents).toBe(freeOf(first));
   });
 
   it("other pay is a row only when a counted account gets it; the payday is the view's", () => {
@@ -184,7 +193,9 @@ describe("the window: own transfers and the accounts it counts", () => {
     expect([h.payday!.name, m.payday!.name]).toEqual(["Työnantaja Oy", "Työnantaja Oy"]);
     expect(of(h, "income").map((r) => [r.name, r.cents])).toEqual([["Kela", 20_000]]);
     expect(of(m, "income")).toEqual([]);
-    expect(m.balance!.last.cents).toBe(sumOfWalk(m));
+    // the benefit the joint account gets is a row of the household and in none of its figures
+    expect(h.balance!.freeCents).toBe(freeOf(h));
+    expect(m.balance!.freeCents).toBe(freeOf(m));
   });
 
   it("without a checking account in view nothing is left out", () => {
@@ -205,8 +216,8 @@ describe("a typed-in bill is dropped only when it is paid or a series carries it
     // the rent of 2.10. has the bill's name and the phone bill of 25.9. its size: both are charges of their own series
     expect(left(base, bill("Vuokranantaja Oy", 10_000), bill("Hammaslääkäri", 10_000))).toEqual(["Vuokranantaja Oy", "Hammaslääkäri"]);
     const d = cashAhead(createContext(base, [own], TODAY), [bal(own, 200_000)], { ...NO_INPUTS, expectedBills: [bill("Vuokranantaja Oy", 10_000)] });
-    expect(d.totals).toMatchObject({ typedCents: 10_000, recurringCents: 90_000 + 9850 });
-    expect(d.balance!.last.cents).toBe(sumOfWalk(d));
+    expect(d.totals).toMatchObject({ typedCents: 10_000, recurringCents: 90_000 + 9850, dueCents: 109_850 });
+    expect(d.balance!.freeCents).toBe(freeOf(d));
   });
 
   it("a row with no series pays it by its size or by its payee, and money in pays nothing", () => {
@@ -233,12 +244,36 @@ describe("a typed-in bill is dropped only when it is paid or a series carries it
   });
 });
 
-describe("start plus income less bills, card, transfers and everyday spending is the last day's balance", () => {
+describe("what is free is the balance less the payments of the window", () => {
+  it("a typed bill, the bill of a card and an own transfer are all due, and money a shop pays back every month is in no figure", () => {
+    const saved = monthly(26).flatMap((d) => move(own, savings, d, 30_000));
+    const refunds = monthly(15).map((d) => tx({ accountId: "own", bookingDate: d, amountCents: 5000, merchant: "Verkkokauppa", category: "shopping" }));
+    const typed: ExpectedBill = { id: "b1", name: "Autovakuutus", amountCents: 41_000, dueDate: "2026-10-20", cadence: "once", category: "insurance" };
+    const on = (rows: Transaction[], start: number) =>
+      cashAhead(createContext([...home(), ...cardRows(), ...saved, ...rows], [own, card, savings], TODAY), [bal(own, start), bal(card, -41_200), bal(savings, 900_000)], { ...NO_INPUTS, expectedBills: [typed] });
+    const d = on(refunds, 200_000);
+    expect(d.rows.map((r) => [r.date, r.source, r.cents])).toEqual([
+      ["2026-10-20", "card", -41_200],
+      ["2026-10-20", "expected", -41_000],
+      ["2026-10-26", "transfer", -30_000],
+      ["2026-11-02", "recurring", -90_000],
+    ]);
+    expect(d.totals).toEqual({ recurringCents: 90_000, typedCents: 41_000, cardCents: 41_200, transferCents: 30_000, dueCents: 202_200, incomeCents: 0 });
+    // 2 000,00 covers the first three and not the rent
+    expect(d.balance).toMatchObject({ startCents: 200_000, freeCents: -2200, shortCents: 2200, shortOn: "2026-11-02" });
+    // with 1 000,00 the transfer of the 26th is the first one it does not reach
+    expect(on(refunds, 100_000).balance).toMatchObject({ freeCents: -102_200, shortCents: 102_200, shortOn: "2026-10-26" });
+    // the 50 euros that come back on the 15th are no row, and the figures are those of the household without them
+    const without = on([], 200_000);
+    expect([d.rows, d.totals, d.balance]).toEqual([without.rows, without.totals, without.balance]);
+  });
+
   it("in every household of the kit, to the cent", () => {
     for (const h of [kitHousehold(null), ...EVENTS.map(kitHousehold)]) {
       const d = cashAhead(contextOf(h), h.balances, h.inputs);
       expect(d.balance, h.name).not.toBeNull();
-      expect(d.balance!.last.cents, h.name).toBe(sumOfWalk(d));
+      expect(d.balance!.freeCents, h.name).toBe(freeOf(d));
+      expect(d.totals.dueCents, h.name).toBe(d.balance!.startCents - d.balance!.freeCents);
       expect(d.rows.every((r) => r.date >= d.from && r.date <= d.to), h.name).toBe(true);
     }
   });
@@ -249,6 +284,6 @@ describe("start plus income less bills, card, transfers and everyday spending is
     const owed = -h.balances.find((b) => b.id === "card")!.balanceCents!;
     expect(of(d, "card")).toEqual([{ date: "2026-11-10", name: "Nordea Gold", category: "transfer", cents: -owed, source: "card", basis: "balance" }]);
     expect(d.totals.cardCents).toBe(owed);
-    expect(d.balance!.last.cents).toBe(sumOfWalk(d));
+    expect(d.balance!.freeCents).toBe(freeOf(d));
   });
 });

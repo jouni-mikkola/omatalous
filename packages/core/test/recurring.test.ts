@@ -411,3 +411,56 @@ describe("a subscription paid with MobilePay", () => {
     expect(found.filter(isFixedCost)).toEqual([]);
   });
 });
+
+describe("the usual day of a monthly series", () => {
+  const on = (dates: readonly string[], cents = -4200, extra: Partial<Transaction> = {}) => dates.map((d) => tx({ bookingDate: d, amountCents: cents, merchant: "Sähkö Esimerkki Oy", category: "utilities", ...extra }));
+  const next = (rows: Transaction[], day = "2026-10-25") => detectRecurring(rows, day).find((s) => s.merchant === "Sähkö Esimerkki Oy")!;
+
+  it("a bill paid on the 15th in five months and on the 9th once keeps the 15th, wherever the odd payment is", () => {
+    expect(next(on(["2026-05-15", "2026-06-15", "2026-07-15", "2026-08-15", "2026-09-15", "2026-10-09"])).nextDate).toBe("2026-11-15");
+    expect(next(on(["2026-05-15", "2026-06-09", "2026-07-15", "2026-08-15", "2026-09-15", "2026-10-15"])).nextDate).toBe("2026-11-15");
+    // a late one: paid on the 21st, and the next is still the 15th
+    expect(next(on(["2026-05-15", "2026-06-15", "2026-07-15", "2026-08-15", "2026-09-15", "2026-10-21"])).nextDate).toBe("2026-11-15");
+    // the seventh charge back is not read: six on the 9th outvote the older 15ths
+    expect(next(on(["2026-02-15", "2026-03-15", "2026-04-15", "2026-05-09", "2026-06-09", "2026-07-09", "2026-08-09", "2026-09-09", "2026-10-09"])).nextDate).toBe("2026-11-09");
+  });
+
+  it("a charge every four weeks drifts through the month and keeps the day of the last one", () => {
+    // 20.4., 18.5., 15.6., 13.7., 10.8., 7.9., 5.10.
+    const drifting = series("2026-04-20", 28, 7, -4200, { merchant: "Sähkö Esimerkki Oy", category: "utilities" });
+    expect(next(drifting)).toMatchObject({ cadence: "monthly", lastDate: "2026-10-05", nextDate: "2026-11-05" });
+    // two odd payments of six are one too many for a usual day; one was not (the test above)
+    expect(next(on(["2026-05-15", "2026-06-15", "2026-07-15", "2026-08-21", "2026-09-15", "2026-10-09"])).nextDate).toBe("2026-11-09");
+  });
+
+  it("two charges keep the day of the last one, three have a usual day", () => {
+    const yearly = (dates: readonly string[]) => next(on(dates, -31_250, { category: "insurance" }), "2026-04-01").nextDate;
+    expect(yearly(["2025-03-14", "2026-03-12"])).toBe("2027-03-12");
+    expect(yearly(["2024-03-14", "2025-03-14", "2026-03-12"])).toBe("2027-03-14");
+  });
+
+  it("money in has a usual day too, and a refund from the payee does not move the day of a bill", () => {
+    // the pay of the 25th came on Friday the 23rd: the next one is expected on the 25th, not on the 23rd
+    const pay = on(["2026-05-25", "2026-06-25", "2026-07-24", "2026-08-25", "2026-09-25", "2026-10-23"], 250_000, { category: "salary" });
+    expect(next(pay)).toMatchObject({ kind: "income", nextDate: "2026-11-25" });
+    const bill = on(["2026-05-15", "2026-06-15", "2026-07-15", "2026-08-15", "2026-09-15", "2026-10-09"]);
+    const refund = tx({ bookingDate: "2026-10-12", amountCents: 1500, merchant: "Sähkö Esimerkki Oy", category: "utilities" });
+    expect(detectRecurring([...bill, refund], "2026-10-25").map((s) => [s.kind, s.nextDate])).toEqual([["subscription", "2026-11-15"]]);
+  });
+
+  it("a series at the turn of the month comes on the 1st, and one on the last day stays on the last day", () => {
+    // rent on the 1st, or on the Friday before when the 1st is closed: after 30.10. the next is 1.12., not 30.11.
+    expect(next(on(["2026-06-01", "2026-07-01", "2026-07-31", "2026-09-01", "2026-10-01", "2026-10-30"]), "2026-11-05").nextDate).toBe("2026-12-01");
+    // half before the turn and half after it: the 1st, and not the middle of the month
+    expect(next(on(["2026-04-30", "2026-06-01", "2026-06-30", "2026-07-31", "2026-09-01", "2026-10-01"])).nextDate).toBe("2026-11-01");
+    const last = next(on(["2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31", "2026-09-30"]), "2026-10-09");
+    expect(last.nextDate).toBe("2026-10-31");
+    expect(projectDates(last, "2027-02-28")).toEqual(["2026-10-31", "2026-11-30", "2026-12-31", "2027-01-31", "2027-02-28"]);
+  });
+
+  it("a quarterly bill keeps its usual day through an early payment", () => {
+    const s = next(on(["2025-10-08", "2026-01-08", "2026-04-08", "2026-07-03"], -9640, { category: "insurance" }), "2026-08-01");
+    expect(s).toMatchObject({ cadence: "quarterly", nextDate: "2026-10-08" });
+    expect(projectDates(s, "2027-04-30")).toEqual(["2026-10-08", "2027-01-08", "2027-04-08"]);
+  });
+});

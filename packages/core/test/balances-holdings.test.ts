@@ -68,6 +68,8 @@ describe("holdings of the balance report", () => {
       const known = report.holdings.accounts.filter((a) => a.balanceCents !== null);
       const added = known.length ? known.reduce((s, a) => s + a.balanceCents!, 0) : null;
       if (report.holdings.accountsCents !== added) problems.push(`${seed}: the accounts' total ${report.holdings.accountsCents} against ${added}`);
+      // the cards' and the loans' totals are the two halves of the debt total, to the cent
+      if ((report.holdings.cardsCents ?? 0) + (report.holdings.loansCents ?? 0) !== report.holdings.debtCents) problems.push(`${seed}: the cards' and the loans' totals against ${report.holdings.debtCents}`);
     }
     expect(problems).toEqual([]);
     expect(withLoans).toBeGreaterThan(10);
@@ -170,6 +172,28 @@ describe("holdings of the balance report", () => {
     expect(household([input("c1", "Käyttötili", "checking", 0)]).holdings.accountsCents).toBe(0);
     expect(household([input("c1", "Käyttötili", "checking", null), input("s1", "Säästötili", "savings", null)]).holdings.accountsCents).toBeNull();
     expect(household([input("k1", "Kortti", "credit_card", -9_000)]).holdings.accountsCents).toBeNull();
+  });
+
+  it("the cards' total adds the known use of each card and the loans' total the known balances of each loan, and each is null when none is known", () => {
+    const card = (balanceCents: number | null, id = "k1") => input(id, `Kortti ${id}`, "credit_card", balanceCents, { creditLimitCents: 300_000 });
+    const totals = (balances: BalanceInput[], loans: Loan[] = []) => {
+      const { holdings } = household(balances, loans);
+      return { cards: holdings.cardsCents, loans: holdings.loansCents, debt: holdings.debtCents };
+    };
+    // money out: two cards add up, a card the bank gave no balance for and a loan account without one are left out
+    expect(totals([card(-1_000), card(-2_500, "k2"), card(null, "k3"), input("l1", "Autolaina", "loan", -300_000), input("l2", "Vanha laina", "loan", null)], [loan({ id: "x", balanceCents: 5_000 })])).toEqual({ cards: 3_500, loans: 305_000, debt: 308_500 });
+    // spending on the card raises its total, a refund lowers it, and one that puts the card in credit leaves it at 0, never below
+    expect(totals([card(-1_000)]).cards).toBe(1_000);
+    expect(totals([card(-1_500)]).cards).toBe(1_500);
+    expect(totals([card(-800)]).cards).toBe(800);
+    expect(totals([card(2_000)]).cards).toBe(0);
+    // a loan paid down to nothing is a known balance, and a payment on one lowers its total
+    expect(totals([], [loan({ id: "x", balanceCents: 0 })]).loans).toBe(0);
+    expect(totals([], [loan({ id: "x", balanceCents: 4_000 })]).loans).toBe(4_000);
+    // none known is null, not 0
+    expect(totals([card(null)]).cards).toBeNull();
+    expect(totals([input("c1", "Käyttötili", "checking", 10_000)])).toEqual({ cards: null, loans: null, debt: 0 });
+    expect(totals([input("l1", "Autolaina", "loan", null)]).loans).toBeNull();
   });
 
   it("an account carries the last four characters of its number as its mask, and none without a number or with less than four characters", () => {

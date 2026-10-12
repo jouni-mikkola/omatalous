@@ -3,6 +3,54 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.13.0
+
+- Yhteenveto is laid out anew and reads as a bank statement from top to bottom: Varallisuus, Erääntyvät maksut, Asuminen, Tulot ja menot and Ilmoitukset. Accounts, credit cards and loans are plain rows that each end in a total; the drawn card, the fold of other accounts, the fetch times and the banners are gone.
+- Erääntyvät maksut replaces the payday card and its forecast of a balance for each day: it shows the balance today, the payments due before the next payday and what is left after them. A bill you pay when the pay arrives is expected on the payday, so it no longer makes an account look short.
+- Asuminen is a new block: each home loan with its next payment, its rate as the reference rate and the margin, and the day the rate is set again, then the rent and the charges of the home and what the home costs a month.
+- Money that comes in no longer turns spending negative: a refund lowers the spending it takes back and anything else is income, so the rows of Menot kategorioittain add up to Menot.
+- The pages are a step darker with stronger contrast under a dark header, and the loan reader in Asetukset > Lainat fills the form from a screenshot of a bank's loan view.
+
+Money and reports
+
+- A monthly bill is expected on its usual day of the month, and a bill you pay when the pay arrives is expected on the next payday, also when a weekend moves the pay. Such bills are no longer counted as due before the pay, so Erääntyvät maksut on Yhteenveto does not show the account short because of them.
+- The list of the next 30 days on Laskut is named Erääntyvät maksut, as on Yhteenveto, and has two groups, each with its sum: the payments to the payday and the payments after it. With no payday known it is one group, Seuraavat 30 päivää. What a credit card is charged is a group of its own, Kortilta veloitettavat, so the first group adds up what the accounts pay, as the figure on Yhteenveto does.
+- The loan reader in Asetukset > Lainat now fills the form from a screenshot of a bank's loan view ("Lainan tiedot"): the sum left, the granted sum, the lender, the way of repayment, the last due date and the kind of loan.
+- Money that comes in on a spending category no longer makes spending negative by itself: it lowers spending only as a refund from a payee you paid in the 120 days before, and anything else is income (Hyvitykset, or Maksut henkilöiltä when it comes from a person). A category you set by hand on money that came in stands: the row lowers that category.
+- The rows of Menot kategorioittain add up to Menot in every view and month, and the chart of cumulative spending keeps a line that runs below zero inside its frame.
+- Yhteenveto has the block Erääntyvät maksut in place of the payday card: the balance today, the payments due before the next payday and what is left after them, then the payments one by one and the pay that is to arrive.
+- The block no longer draws a balance for each day and no longer takes everyday spending off the balance. The usual spending of a day is one line of context: the median of the last 13 whole weeks, and no line under eight weeks of history.
+- A household with two salaries waits for the nearest one: the payday is the next regular income of at least half the largest one. A small regular income, such as a benefit, does not end the window; when it lands in the window it is a row of Saapuvat maksut.
+- A pay that is late, or behind its day and not late yet, ends no window: the block still looks to the day before the next salary whose day is to come, and the payments due before it are listed.
+- One warning names the day of the first payment that the balance, with the pay that comes before that day, does not cover, and the most that is missing.
+- With two checking accounts in view the three figures need the balance of both; without one of them the block says Tilin saldo ei ole tiedossa and lists the payments.
+- A card's bill and a regular transfer to an own account are rows by the card's or the account's name, with the line Luottokortin lasku or Oma siirto under it. The line under Saldo says which accounts the balance counts.
+- Yhteenveto has a block Asuminen: each home loan with its next payment, its rate as the reference rate and the margin, and the day the rate is set again; then the rent and each charge of the home (vastike, water, electricity) with its payee, and what the home costs a month in all. Where a payment comes from a joint account the row is your part, and one line says so.
+- A household with no home loan, no rent and no right-of-occupancy charge is asked once whether it has a home loan: "Lisää asuntolaina" opens Asetukset > Lainat, and "Ei asuntolainaa" ends the question for that member and removes the block when there is nothing else to show in it.
+
+Look
+
+- Yhteenveto shows a credit card as its name with rows under it, like a loan, and no longer draws it as a card. Every account has its own row, nothing folds away, and each column ends with its total (Tilit yhteensä, Luottokortit yhteensä, Lainat yhteensä).
+- The line under Yhteenveto about accounts and fetch times, the fetch time in the header and the line about your part of a joint account are gone. Ilmoitukset is one line a row, four rows at most with a link "Kaikki" to Säästövinkit, and a sign-in from a new device is its first row, cleared with Kuittaa, instead of a banner on every page.
+- Yhteenveto reads as a statement from top to bottom: Varallisuus, Erääntyvät maksut, Asuminen, Tulot ja menot and Ilmoitukset, each the width of the page. Asuminen is tables in place of sentences: Lainat with the rate, the reference rate and margin, the review date and the next payment split into amortisation and interest, Asumiskulut by payee, and the three monthly sums beside it. A value that is not known is a dash with the link Täydennä.
+- Tulot ja menot shows the two months side by side in one table with the savings rate and the fixed costs under it, and Menot kategorioittain as a table whose rows open the category's rows in Tapahtumat. Erääntyvät maksut has its three figures at the left and the payments at the right. The comparison sentences, the strip Tulojen käyttö (it stays in Raportit) and the line of usual daily spending are gone from the page.
+- The pages are a step darker with stronger contrast, under a dark header.
+- The month switch moved from the top of Yhteenveto into the head of Tulot ja menot, the only block it changes. Varallisuus and Erääntyvät maksut always tell today, also when the month before is chosen; `#/overview?period=last-month` still opens it.
+- "Kategoriat" is now "Menot kategorioittain", "Mihin tulot menivät" is "Tulojen käyttö" and "säästöön 9 %" is "säästöaste 9 %".
+- What needs you on Yhteenveto is one list, Ilmoitukset, in a card at the foot of the page: the warning about the data first, then the alerts, then the insights while Säästövinkit is switched off. Before, the warning, the alerts and the insights were three blocks of coloured tiles. Only a warning is marked, with a rule at the left edge; with nothing to show there is no card.
+- A notice has its title and detail at the left and its buttons (Kuittaa, Käytössä, Lopetettu) at the right, under the text on a phone. The buttons do what they did.
+- Varallisuus on Yhteenveto has the look of a statement: Tilit, Luottokortit and Lainat stand in three columns from a window 1040 px wide (two or one when a group has nothing, under each other in a narrower window), with rows of one height and the sums on one right edge.
+- The name of an account or a card opens its rows in Tapahtumat, and the name of a loan opens the report Lainat. A name keeps its own colour until it is pointed at or focused.
+- Lainat has its own sum, "Lainat yhteensä". "Velat yhteensä", the loans and what the cards owe together, is a row under all three columns when a card has something used.
+- A bank's logo no longer stands before an account's name, and a card over its limit says so in a plain row, Luottoraja ylitetty.
+
+For developers
+
+- A self-check for a signed-in admin, `tools/audit/self-check.js`: run in the browser console, it lists where figures that must agree do not, with category ids, months, counts and sums only.
+- The dashboard answer has `housing`: the household's home loans as Varallisuus > Lainat has them (the month, the next payment, the rate with its reference rate and margin, the review day), loan payments that no saved loan is linked to, and the rent and the charges of the home, each named by the words of its latest payment. No page shows it yet.
+- `loanNextPayment` tells the due date of the next payment (`NextPayment.date`), null where no plan places it.
+- A loan saved with a fixed rate keeps no review day: the route drops a day sent with one.
+
 ## 0.12.0
 
 - A joint account now counts at your part. In Asetukset > Tilit you say who uses an account and at what parts, equally or by what each pays into it in a month. Your own view then holds your part of its balance, of its payments and of the loan paid from it, and Koko talous holds it whole.

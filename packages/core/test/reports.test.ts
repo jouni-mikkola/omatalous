@@ -228,7 +228,9 @@ describe("averages and partial periods", () => {
   });
 
   it("the pivot's month totals are the sum of its rows", () => {
-    const refunds = [...dataset(), tx({ bookingDate: "2026-09-21", amountCents: 50000, category: "home", merchant: "Uusi Kauppa" })];
+    // 500,00 paid in December comes back in January: inside the range the category nets below zero
+    const paid = tx({ bookingDate: "2025-12-20", amountCents: -50000, category: "home", merchant: "Uusi Kauppa" });
+    const refunds = [...dataset(), paid, tx({ bookingDate: "2026-01-21", amountCents: 50000, category: "home", merchant: "Uusi Kauppa" })];
     const r = buildReports({ ctx: createContext(refunds, [checking], today), range: { from: "2026-01-01", to: "2026-09-30" }, balances: [] });
     r.pivot.months.forEach((_, i) => expect(r.pivot.monthTotals[i]).toBe(r.pivot.rows.reduce((s, row) => s + row.values[i]!, 0)));
     expect(r.pivot.rows.find((row) => row.category === "home")!.totalCents).toBe(12900 - 50000);
@@ -761,8 +763,8 @@ describe("loans: the Lainat report and net worth", () => {
       expect(row.payment.interestCents! + row.payment.amortisationCents!).toBe(row.payment.cents);
     }
     // a month of 4 % on 120 000 € is 400 €; the car's 500 € is amortisation and a month of 6 % on 12 000 € comes on top
-    expect(r.loans[0]!.payment).toEqual({ cents: 100000, interestCents: 40000, amortisationCents: 60000, intervalMonths: 1, unknown: null });
-    expect(r.loans[1]!.payment).toEqual({ cents: 56000, interestCents: 6000, amortisationCents: 50000, intervalMonths: 1, unknown: null });
+    expect(r.loans[0]!.payment).toEqual({ cents: 100000, interestCents: 40000, amortisationCents: 60000, intervalMonths: 1, unknown: null, date: "2026-11-01" });
+    expect(r.loans[1]!.payment).toEqual({ cents: 56000, interestCents: 6000, amortisationCents: 50000, intervalMonths: 1, unknown: null, date: "2026-11-01" });
     // unknown is null with its reason, never zero: the cards have no rate and no payment
     for (const row of r.loans.slice(2)) expect(row).toMatchObject({ payment: { cents: null, unknown: "repayment" }, interest: { cents: null, unknown: "rate" }, payoff: { date: null, unknown: "repayment" } });
     // a move of the reference rate is told for the loan it moves: one point down and one up

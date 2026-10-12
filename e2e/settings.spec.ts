@@ -32,11 +32,12 @@ test("Asetukset is a link in the header with Omat and Talous, Tietojen laatu is 
   await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   await expect(page.getByText("Lisää seuraava tili")).toHaveCount(0);
 
-  // Raportit no longer has the card, and the month page links to it
+  // Raportit no longer has the card, and Yhteenveto has no line that links to it (a warning about the data is a row of Ilmoitukset)
   await page.goto("/#/reports");
   await expect(page.getByRole("heading", { name: "Tietojen laatu" })).toHaveCount(0);
   await page.goto("/#/overview");
-  await page.locator(".data-scope").getByRole("link", { name: "Tietojen laatu" }).click();
+  await expect(page.getByRole("link", { name: "Tietojen laatu" })).toHaveCount(0);
+  await page.goto("/#/settings#laatu");
   await expect.poll(hash).toBe("#/settings#laatu");
   await expect(page.locator("#tilit").getByRole("heading", { name: "Tietojen laatu" })).toBeVisible();
 

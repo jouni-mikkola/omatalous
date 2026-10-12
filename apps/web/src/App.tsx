@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, setUnauthenticatedHandler } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
-import { date, dateTime } from "./format.ts";
+import { date } from "./format.ts";
 import { navigate, useApi, useHashRoute } from "./hooks.ts";
 import { SETTINGS, visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
@@ -20,7 +20,7 @@ import { Settings } from "./pages/Settings.tsx";
 import { Transactions } from "./pages/Transactions.tsx";
 import { Wizard } from "./pages/Wizard.tsx";
 import { scopeLine, viewsParts } from "./part.ts";
-import { periodFor, periodRange, periodsOf } from "./period.ts";
+import { periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { SETTINGS_ANCHOR } from "./routes.ts";
 import type { Meta, Scope, User } from "./types.ts";
 
@@ -164,7 +164,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const scopeNote = scopeLine(m, effectiveScope, page);
   const period = periodFor(page, params.get("period"));
   const range = periodRange(period, m.today);
-  const presets = periodsOf(page, m.today);
+  const presets = shellPeriodsOf(page, m.today);
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
@@ -186,121 +186,124 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   };
 
   return (
-    <div className="app">
+    <>
       <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); document.getElementById("main")?.focus(); }}>
         Siirry sisältöön
       </a>
       <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <i style={{ height: 6 }} />
-            <i style={{ height: 10 }} />
-            <i style={{ height: 13 }} />
-          </span>
-          Omatalous
+        <div className="topbar-in">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden="true">
+              <i style={{ height: 6 }} />
+              <i style={{ height: 10 }} />
+              <i style={{ height: 13 }} />
+            </span>
+            Omatalous
+          </div>
+          <nav className="nav" aria-label="Päävalikko">
+            {nav.map((e) => (
+              <a key={e.id} href={`#/${e.id}`} aria-current={page === e.id ? "page" : undefined}>
+                {e.label}
+              </a>
+            ))}
+          </nav>
+          <span className="spacer" />
+          {hasHousehold && (
+            <div className="segmented scope-toggle" role="group" aria-label="Näkymä">
+              <button type="button" aria-pressed={effectiveScope === "own"} onClick={() => setScope("own")}>
+                Oma
+              </button>
+              <button type="button" aria-pressed={effectiveScope === "household"} onClick={() => setScope("household")}>
+                Koko talous
+              </button>
+            </div>
+          )}
+          <a className="settings-link" href={`#/${SETTINGS.id}`} aria-current={page === SETTINGS.id ? "page" : undefined}>
+            {SETTINGS.label}
+          </a>
+          <details className="user-menu" ref={userMenu}>
+            <summary aria-label="Käyttäjävalikko">
+              <span className="avatar" aria-hidden="true">
+                {initials}
+              </span>
+              <span className="small">{user.displayName}</span>
+            </summary>
+            {/* choosing an item closes the menu */}
+            <div className="menu" onClick={(e) => ((e.currentTarget.parentElement as HTMLDetailsElement).open = false)}>
+              <div className="muted">
+                {user.username} · {user.role === "admin" ? "ylläpitäjä" : "jäsen"}
+                <br />
+                Omatalous {m.version.app}
+              </div>
+              <a href={`#/settings#${SETTINGS_ANCHOR.password}`}>Vaihda salasana</a>
+              <button type="button" onClick={signOut}>
+                Kirjaudu ulos
+              </button>
+            </div>
+          </details>
         </div>
-        <nav className="nav" aria-label="Päävalikko">
-          {nav.map((e) => (
-            <a key={e.id} href={`#/${e.id}`} aria-current={page === e.id ? "page" : undefined}>
-              {e.label}
-            </a>
-          ))}
-        </nav>
-        <span className="spacer" />
-        {hasHousehold && (
-          <div className="segmented scope-toggle" role="group" aria-label="Näkymä">
-            <button type="button" aria-pressed={effectiveScope === "own"} onClick={() => setScope("own")}>
-              Oma
-            </button>
-            <button type="button" aria-pressed={effectiveScope === "household"} onClick={() => setScope("household")}>
-              Koko talous
+      </header>
+
+      <div className="app">
+        {meta.error && <div className="notice warning">Ei yhteyttä palvelimeen. Tiedot voivat olla vanhoja.</div>}
+        {signOutError && <div className="notice warning">{signOutError}</div>}
+        <SecurityNotices />
+        {loadedBuild && m.version.build !== loadedBuild && (
+          <div className="notice good">
+            Uusi versio {m.version.app}.{" "}
+            <button className="btn btn-small" type="button" onClick={() => window.location.reload()}>
+              Päivitä sivu
             </button>
           </div>
         )}
-        <span className="sync-status">{m.lastSync ? `Haettu ${dateTime(m.lastSync.finishedAt ?? m.lastSync.startedAt)}` : ""}</span>
-        <a className="settings-link" href={`#/${SETTINGS.id}`} aria-current={page === SETTINGS.id ? "page" : undefined}>
-          {SETTINGS.label}
-        </a>
-        <details className="user-menu" ref={userMenu}>
-          <summary aria-label="Käyttäjävalikko">
-            <span className="avatar" aria-hidden="true">
-              {initials}
-            </span>
-            <span className="small">{user.displayName}</span>
-          </summary>
-          {/* choosing an item closes the menu */}
-          <div className="menu" onClick={(e) => ((e.currentTarget.parentElement as HTMLDetailsElement).open = false)}>
-            <div className="muted">
-              {user.username} · {user.role === "admin" ? "ylläpitäjä" : "jäsen"}
-              <br />
-              Omatalous {m.version.app}
+        {consents.map((n) => (
+          <div key={n.id} className="notice warning">
+            {consentNoticeText(n)}{" "}
+            {n.kind === "left_out" && canLinkAccounts && (
+              <>
+                <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
+                  Avaa Control Panel
+                </a>{" "}
+              </>
+            )}
+            <a href="#/settings?add=1">Yhdistä uudelleen</a>
+          </div>
+        ))}
+        {scopeNote && <div className="notice">{scopeNote}</div>}
+
+        <main id="main" tabIndex={-1}>
+        <h1 className="sr-only">{pageLabel}</h1>
+        {presets.length > 0 && (m.accounts.length > 0 || hasHousehold) && (
+          <div className="filters" role="toolbar" aria-label="Aikaväli">
+            <div className="segmented">
+              {presets.map((p) => (
+                <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate(page, { period: p.id })}>
+                  {p.label}
+                </button>
+              ))}
             </div>
-            <a href={`#/settings#${SETTINGS_ANCHOR.password}`}>Vaihda salasana</a>
-            <button type="button" onClick={signOut}>
-              Kirjaudu ulos
-            </button>
+            <span className="range-label">
+              {date(range.from)} – {date(range.to)}
+            </span>
           </div>
-        </details>
-      </header>
+        )}
 
-      {meta.error && <div className="notice warning">Ei yhteyttä palvelimeen. Tiedot voivat olla vanhoja.</div>}
-      {signOutError && <div className="notice warning">{signOutError}</div>}
-      <SecurityNotices />
-      {loadedBuild && m.version.build !== loadedBuild && (
-        <div className="notice good">
-          Uusi versio {m.version.app}.{" "}
-          <button className="btn btn-small" type="button" onClick={() => window.location.reload()}>
-            Päivitä sivu
-          </button>
-        </div>
-      )}
-      {consents.map((n) => (
-        <div key={n.id} className="notice warning">
-          {consentNoticeText(n)}{" "}
-          {n.kind === "left_out" && canLinkAccounts && (
-            <>
-              <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
-                Avaa Control Panel
-              </a>{" "}
-            </>
-          )}
-          <a href="#/settings?add=1">Yhdistä uudelleen</a>
-        </div>
-      ))}
-      {scopeNote && <div className="notice">{scopeNote}</div>}
-
-      <main id="main" tabIndex={-1}>
-      <h1 className="sr-only">{pageLabel}</h1>
-      {presets.length > 0 && (m.accounts.length > 0 || hasHousehold) && (
-        <div className="filters" role="toolbar" aria-label="Aikaväli">
-          <div className="segmented">
-            {presets.map((p) => (
-              <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate(page, { period: p.id })}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <span className="range-label">
-            {date(range.from)} – {date(range.to)}
-          </span>
-        </div>
-      )}
-
-      {page === "overview" && (
-        <Overview
-          meta={m}
-          range={range}
-          scope={effectiveScope}
-          onEmptyAction={loadDemo}
-          onShowHousehold={() => setScope("household")}
-        />
-      )}
-      {page === "reports" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Reports meta={m} range={range} scope={effectiveScope} anchor={route.anchor} />)}
-      {page === "optimise" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Optimise scope={effectiveScope} />)}
-      {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} anchor={route.anchor} />)}
-      {page === "bills" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Bills meta={m} range={range} scope={effectiveScope} />)}
-      {page === "settings" && <Settings meta={m} params={params} anchor={route.anchor} onChange={meta.reload} />}
-      </main>
-    </div>
+        {page === "overview" && (
+          <Overview
+            meta={m}
+            period={period}
+            scope={effectiveScope}
+            onEmptyAction={loadDemo}
+            onShowHousehold={() => setScope("household")}
+          />
+        )}
+        {page === "reports" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Reports meta={m} range={range} scope={effectiveScope} anchor={route.anchor} />)}
+        {page === "optimise" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Optimise scope={effectiveScope} />)}
+        {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} anchor={route.anchor} />)}
+        {page === "bills" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Bills meta={m} range={range} scope={effectiveScope} />)}
+        {page === "settings" && <Settings meta={m} params={params} anchor={route.anchor} onChange={meta.reload} />}
+        </main>
+      </div>
+    </>
   );
 }

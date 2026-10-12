@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type LoanDraftValues, type LoanReference, fold } from "../../src/index.ts";
-import { LOAN_LABELS, LOAN_LABELS_UNSURE, type LoanLabelField, isLoanLenderLine, isLoanOtherUnit, isLoanRateFormula, isLoanTotal, loanLabelsIn, loanMoneyUnit, loanPercentUnit } from "../../src/wording-loan-pages.ts";
+import { LOAN_LABELS, LOAN_LABELS_UNSURE, type LoanLabelField, isLoanLenderLine, isLoanOtherUnit, isLoanRateFormula, isLoanTotal, loanKindHeading, loanKindOfLender, loanLabelsIn, loanMoneyUnit, loanPercentUnit } from "../../src/wording-loan-pages.ts";
 
 const phrases = [LOAN_LABELS, LOAN_LABELS_UNSURE].flatMap((lists) => (Object.entries(lists) as [LoanLabelField, string][]).flatMap(([field, list]) => list.split("|").map((label) => ({ field, label }))));
 const fieldsOf = (text: string) => loanLabelsIn(fold(text)).map((h) => h.field);
@@ -35,7 +35,31 @@ describe("loan intake: the label lists of wording-loan-pages.ts", () => {
     }
   });
 
+  it("the labels of a bank's Lainan tiedot view name their fields, the fallback and the caption under a figure are marked", () => {
+    const labels: [string, LoanLabelField][] = [
+      ["Myönnetty", "grantedCents"],
+      ["Pääomaa maksamatta", "balanceCents"],
+      ["Seuraava maksu", "paymentCents"],
+      ["Lyhennystyyppi", "repayment"],
+      ["Viimeinen lyhennys", "endDate"],
+      ["Velkoja", "lender"],
+    ];
+    for (const [label, field] of labels) expect(loanLabelsIn(fold(`${label} 1`)).map((h) => [h.field, h.certain, h.fallback, h.figureAbove]), label).toEqual([[field, true, undefined, undefined]]);
+    expect(loanLabelsIn("NOSTETTU YHTEENSA 1").map((h) => [h.field, h.certain, h.fallback])).toEqual([["grantedCents", false, true]]);
+    expect(loanLabelsIn("MAKSAMATTA").map((h) => [h.field, h.certain, h.figureAbove])).toEqual([["balanceCents", false, true]]);
+    // the longer label wins over the caption it holds
+    expect(loanLabelsIn("PAAOMAA MAKSAMATTA 1").map((h) => h.label)).toEqual(["PAAOMAA MAKSAMATTA"]);
+  });
+
+  it("the kind of a loan is named by a heading that is the whole line, or by a mortgage bank", () => {
+    expect(["Asuntolaina", "ASUNTOLAINA", " Joustoluotto ", "Asuntolaina on myönnetty", "Asuntolainat", ""].map((line) => loanKindHeading(fold(line)))).toEqual(["mortgage", "mortgage", "credit_line", null, null, null]);
+    expect(["Nordea Kiinnitysluottopankki®", "Esimerkki Kiinnitysluottopankki Oyj", "Esimerkkipankki Oyj", "Kiinnitys"].map((line) => loanKindOfLender(fold(line)))).toEqual(["mortgage", "mortgage", null, null]);
+  });
+
   it("a label is a whole word: a longer word that holds it is another thing", () => {
+    for (const other of ["Maksuerien lukumäärä", "Seuraava maksupäivä", "Seuraava koron erääntymispäivä", "Pääomaa maksettu", "Nostamaton määrä yhteensä", "Käytettävissä oleva LyhennysJousto", "Koronmaksuväli", "Ensimmäinen nostopäivä", "Maksettu yhteensä", "Lainan tiedot", "Maksuohjelma", "Aiemmat maksut"]) {
+      expect(fieldsOf(other), other).toEqual([]);
+    }
     for (const other of ["Todellinen vuosikorko", "Viivästyskorko", "Korkokatto", "Talletuskorko", "Luotonantajan osoite", "Luottorajan ylitys", "Tilin saldo", "Seuraava eräpäivä", "Maksuerät", "Lyhennysvapaa", "Tasalyhennys"]) {
       expect(fieldsOf(other), other).toEqual([]);
     }

@@ -22,7 +22,7 @@ const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö"
   rows,
   upcoming: rows.filter((r) => r.cents < 0),
   everydayPerDayCents: 0,
-  totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), everydayCents: 0, incomeCents: sum(rows, "income"), cardCents: 0, transferCents: 0 },
+  totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), cardCents: 0, transferCents: 0, dueCents: sum(rows, "recurring") + sum(rows, "expected"), incomeCents: sum(rows, "income") },
   balance: null,
   missing: "balance",
 });
@@ -33,23 +33,96 @@ const flat = (html: string) => html.replace(/[\u00a0\u202f]/g, " ");
 const coming = (a: Ahead | null) => flat(renderToStaticMarkup(createElement(Coming, { ahead: a, today: "2026-10-11", label, onAdded: () => {} })));
 const nextDays = (a: Ahead) => flat(renderToStaticMarkup(createElement(NextDays, { ahead: a })));
 
-describe("Laskut: Tulossa", () => {
-  it("lists the bills of the next 30 days in one list, the typed-in one marked, and no pay day", () => {
+/** The same answer with a pay to wait for on Thu 15.10.: the window ends the day before it. */
+const beforePay = (a: Ahead, date = "2026-10-15"): Ahead => ({ ...a, reason: "payday", payday: { date, name: "Palkka", cents: 395_000 }, to: "2026-10-14", days: 3 });
+/** The head rows of the groups, each as its name and its sum. */
+const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="num">([^<]*)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]}`);
+
+describe("Laskut: Erääntyvät maksut", () => {
+  it("with no pay known lists the bills of the next 30 days in one group, the typed-in one marked, and no pay day", () => {
     const out = coming(ahead());
-    expect(out).toContain("Seuraavat 30 päivää, 3 maksua");
+    expect(out).toContain("<h2>Erääntyvät maksut</h2>");
+    // 89 + 15,99 + 312,50
+    expect(groupHeads(out)).toEqual(["Seuraavat 30 päivää: 417,49 €"]);
     for (const name of ["Sähkö", "Netflix", "Ajoneuvovero"]) expect(out).toContain(name);
     expect(out).toContain("lisätty käsin");
     expect(out).not.toContain("Palkka");
+    // the payments are not counted under the heading
+    expect(out).not.toContain("maksua");
     // the dates in the order the rows come, and the amounts as bills (no minus)
     expect(out.indexOf("Sähkö")).toBeLessThan(out.indexOf("Netflix"));
     expect(out).toContain("12.10.");
   });
 
-  it("its sum is the Maksut of Yhteenveto's Seuraavat 30 päivää: one list, one total", () => {
+  it("its sum is the Erääntyvät maksut of Yhteenveto: one list, one total", () => {
     const rows = ahead();
-    // 89 + 15,99 + 312,50
-    expect(coming(rows)).toContain("<strong>417 €</strong>");
-    expect(nextDays(rows)).toContain("<dt>Maksut</dt><dd>417 €</dd>");
+    expect(groupHeads(coming(rows))).toEqual(["Seuraavat 30 päivää: 417,49 €"]);
+    const balance = { startCents: 100_000, counts: "all" as const, accounts: 1, balanceAt: null, freeCents: 58_251, shortCents: 0, shortOn: null };
+    expect(nextDays({ ...rows, balance, missing: null })).toContain('<dt class="st-name">Erääntyvät maksut</dt><dd class="st-num">417,49 €</dd>');
+  });
+
+  it("with a pay to wait for it has the window of Yhteenveto and what comes after it, and the two sums are the sum of the one list", () => {
+    const out = coming(beforePay(ahead()));
+    // 89 before the pay; 15,99 + 312,50 after it: 417,49 in all, the sum of the list without a pay
+    expect(groupHeads(out)).toEqual(["Palkkapäivään asti, to 15.10.: 89,00 €", "Palkkapäivän jälkeen: 328,49 €"]);
+    const at = (text: string) => out.indexOf(text);
+    expect(at("Palkkapäivään asti")).toBeLessThan(at("Sähkö"));
+    expect(at("Sähkö")).toBeLessThan(at("Palkkapäivän jälkeen"));
+    expect(at("Palkkapäivän jälkeen")).toBeLessThan(at("Netflix"));
+    expect(out).not.toContain("Seuraavat 30 päivää");
+    // the line of Yhteenveto, word for word
+    expect(nextDays(beforePay(ahead()))).toContain("Palkkapäivään asti, to 15.10.");
+  });
+
+  it("a bill due on the day of the pay is after it, and a group to the pay with nothing due says so with its sum", () => {
+    const onPayDay = [row({ date: "2026-10-15", name: "Vuokra", category: null, cents: -90_000, source: "recurring" })];
+    expect(groupHeads(coming(beforePay(ahead(onPayDay))))).toEqual(["Palkkapäivään asti, to 15.10.: 0,00 €", "Palkkapäivän jälkeen: 900,00 €"]);
+    // the last day of the window is before the pay
+    const dayBefore = [row({ date: "2026-10-14", name: "Vuokra", category: null, cents: -90_000, source: "recurring" })];
+    expect(groupHeads(coming(beforePay(ahead(dayBefore))))).toEqual(["Palkkapäivään asti, to 15.10.: 900,00 €"]);
+  });
+
+  it("what a credit card is charged is a third group with its own sum, and the first group's sum is the figure of Yhteenveto", () => {
+    const music = row({ date: "2026-10-13", name: "Musiikkipalvelu", category: "subscriptions", cents: -1_199, source: "recurring", onCard: true });
+    const film = row({ date: "2026-10-28", name: "Elokuvapalvelu", category: "subscriptions", cents: -1_390, source: "recurring", onCard: true });
+    const base = beforePay(ahead());
+    const withCard = { ...base, upcoming: [...base.upcoming, music, film] };
+    const out = coming(withCard);
+    // the card's 11,99 of 13.10. is before the pay by its day, and is in neither sum of what the accounts pay
+    expect(groupHeads(out)).toEqual(["Palkkapäivään asti, to 15.10.: 89,00 €", "Palkkapäivän jälkeen: 328,49 €", "Kortilta veloitettavat: 25,89 €"]);
+    expect(out.indexOf("Kortilta veloitettavat")).toBeGreaterThan(out.indexOf("Ajoneuvovero"));
+    expect(out.indexOf("Musiikkipalvelu")).toBeGreaterThan(out.indexOf("Kortilta veloitettavat"));
+    // Yhteenveto's figure of the same window is the first group's sum: no card's bill and no transfer is in it
+    const balance = { startCents: 100_000, counts: "all" as const, accounts: 1, balanceAt: null, freeCents: 91_100, shortCents: 0, shortOn: null };
+    const window = base.rows.filter((r) => r.cents < 0 && r.date <= base.to);
+    expect(nextDays({ ...withCard, rows: window, totals: { ...base.totals, recurringCents: 8_900, typedCents: 0, dueCents: 8_900 }, balance, missing: null })).toContain('<dt class="st-name">Erääntyvät maksut</dt><dd class="st-num">89,00 €</dd>');
+    // near misses: without a card's row there is no third group, and with no pay to wait for the card's rows are still apart
+    expect(groupHeads(coming(base))).toHaveLength(2);
+    expect(groupHeads(coming({ ...ahead(), upcoming: [...ahead().upcoming, music] }))).toEqual(["Seuraavat 30 päivää: 417,49 €", "Kortilta veloitettavat: 11,99 €"]);
+  });
+
+  it("on the payday, before the pay is booked, a bill paid from the pay is after it and a debit of the day is before it", () => {
+    const today = { ...beforePay(ahead([]), "2026-10-11"), to: "2026-10-11", days: 0 };
+    const rent = row({ date: "2026-10-11", name: "Vuokra", category: null, cents: -90_000, source: "recurring", withPay: true });
+    const debit = row({ date: "2026-10-11", name: "Puhelin", category: null, cents: -2_990, source: "recurring" });
+    expect(groupHeads(coming({ ...today, upcoming: [rent, debit] }))).toEqual(["Palkkapäivään asti, su 11.10.: 29,90 €", "Palkkapäivän jälkeen: 900,00 €"]);
+  });
+
+  it("a pay behind its day with no pay to come is one group of the 30 days, and with one to come the group names that day", () => {
+    const behind = { date: "2026-10-11", expected: "2026-10-09", name: "Palkka", cents: 395_000 };
+    expect(groupHeads(coming({ ...ahead(), reason: "payday", payday: behind }))).toEqual(["Seuraavat 30 päivää: 417,49 €"]);
+    const next = { ...ahead(), reason: "payday" as const, payday: { ...behind, next: "2026-10-15" }, to: "2026-10-14", days: 3 };
+    expect(groupHeads(coming(next))).toEqual(["Palkkapäivään asti, to 15.10. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.: 89,00 €", "Palkkapäivän jälkeen: 328,49 €"]);
+  });
+
+  it("past ten rows it shows the first ten of the list, and each group still has the sum of all its rows", () => {
+    const many = Array.from({ length: 12 }, (_, i) => row({ date: `2026-10-${String(13 + i).padStart(2, "0")}`, name: `Lasku ${i + 1}`, category: null, cents: -1_000, source: "recurring" }));
+    const out = coming(beforePay(ahead(many)));
+    // 13.10. and 14.10. before the pay, ten after it
+    expect(groupHeads(out)).toEqual(["Palkkapäivään asti, to 15.10.: 20,00 €", "Palkkapäivän jälkeen: 100,00 €"]);
+    expect(out).toContain("Lasku 10<");
+    expect(out).not.toContain("Lasku 11<");
+    expect(out).toContain("Näytä kaikki (12)");
   });
 
   it("offers the form behind Lisää lasku and not before", () => {
@@ -65,19 +138,21 @@ describe("Laskut: Tulossa", () => {
   });
 });
 
-describe("Yhteenveto: Seuraavat 30 päivää", () => {
+describe("Yhteenveto: Erääntyvät maksut", () => {
   it("lists the bills before the pay and links to Laskut", () => {
     const out = nextDays(ahead());
-    expect(out).toContain("<h2>Seuraavat 30 päivää</h2>");
+    expect(out).toContain(">Erääntyvät maksut</h2>");
+    expect(out).toContain("Erääntyvät maksut seuraavan 30 päivän aikana</caption>");
     for (const name of ["Sähkö", "Netflix", "Ajoneuvovero"]) expect(out).toContain(name);
     expect(out.indexOf("Ajoneuvovero")).toBeLessThan(out.indexOf(">Palkka</a>"));
     expect(out).toContain('href="#/bills"');
-    expect(out).toContain("3 maksua");
     expect(out).not.toContain("Näytä kaikki");
   });
 
-  it("has no link while there is no bill to show", () => {
-    expect(nextDays(ahead([row({})]))).not.toContain('href="#/bills"');
+  it("says nothing is due while there is no bill to show, and still links to Laskut, where one is added", () => {
+    const out = nextDays(ahead([row({})]));
+    expect(out).toContain(">Ei erääntyviä maksuja.</td>");
+    expect(out).toContain('<a href="#/bills">Lisää lasku</a>');
   });
 });
 

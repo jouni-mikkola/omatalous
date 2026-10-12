@@ -1,51 +1,51 @@
-/* App.tsx: header, navigation, user menu, skip link. */
+/* App.tsx: header band, navigation, user menu, skip link. */
 
 .app { max-width: 1240px; margin: 0 auto; padding: 0 16px 48px; }
-.topbar { display: flex; align-items: center; gap: 8px 24px; padding: 14px 0 0; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
 
-.nav { display: flex; gap: 0 20px; flex-wrap: wrap; align-self: stretch; }
-.nav a { display: inline-flex; align-items: center; padding: 0 0 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; color: var(--text-2); }
-.nav a:hover { color: var(--text); }
-.nav a[aria-current="page"] { color: var(--text); border-bottom-color: var(--ink); font-weight: 500; }
-.topbar .user-menu, .topbar .sync-status, .topbar .scope-toggle, .topbar .settings-link { margin-bottom: 10px; }
-/* Asetukset is not one of the five questions: a link beside the user menu */
-.settings-link { padding: 4px 8px; border-radius: 8px; color: var(--text-2); text-decoration: none; }
-.settings-link:hover { background: var(--surface-2); color: var(--text); }
-.settings-link[aria-current="page"] { background: var(--surface-2); color: var(--text); font-weight: 500; }
+/* the band runs the full width of the window in --ink; what is in it is as wide as the page below */
+.topbar { background: var(--ink); color: var(--on-ink); margin-bottom: 20px; }
+.topbar-in { max-width: 1240px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 8px 20px; flex-wrap: wrap; }
+.topbar :focus-visible { outline-color: var(--on-ink); box-shadow: none; }
+.topbar .brand { padding-bottom: 0; }
+.topbar .brand-mark { background: var(--on-ink); }
+.topbar .brand-mark i { background: var(--ink); }
 .topbar .spacer { flex: 1; }
-.sync-status { color: var(--muted); font-size: 12px; }
+
+/* the page you are on is a filled pill, the others plain text */
+.nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.settings-link { margin-left: auto; }
+.nav a, .settings-link { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 8px; color: var(--on-ink-2); text-decoration: none; }
+.nav a:hover, .settings-link:hover { background: var(--ink-2); color: var(--on-ink); }
+.nav a[aria-current="page"], .settings-link[aria-current="page"] { background: var(--on-ink); color: var(--ink); font-weight: 500; }
+
+.topbar .segmented { background: var(--ink-2); border-color: transparent; }
+.topbar .segmented button { color: var(--on-ink-2); }
+.topbar .segmented button:hover { color: var(--on-ink); }
+.topbar .segmented button[aria-pressed="true"] { background: var(--on-ink); color: var(--ink); }
+.scope-toggle { margin-left: 4px; }
 
 .range-label { color: var(--muted); font-size: 13px; }
 
 .user-menu { position: relative; }
 .user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; }
 .user-menu summary::-webkit-details-marker { display: none; }
-.user-menu summary:hover { background: var(--surface-2); }
-.avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; }
-.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16); display: flex; flex-direction: column; }
+.user-menu summary:hover { background: var(--ink-2); }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--on-ink); color: var(--ink); display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 200px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: var(--pop-shadow); display: flex; flex-direction: column; }
 .menu button, .menu a { text-align: left; border: none; background: none; padding: 7px 10px; border-radius: 6px; cursor: pointer; text-decoration: none; color: var(--text); }
 .menu button:hover, .menu a:hover { background: var(--surface-2); }
 .menu .muted { padding: 4px 10px 8px; font-size: 12px; }
 
-.scope-toggle { margin-left: 4px; }
-
-/* phones: the tabs stay visible in one row */
+/* phones: the brand, Asetukset and the user on the first row, the tabs in one row below */
 @media (max-width: 640px) {
-  /* five short labels share one row; they wrap onto a second only on a screen narrower than the labels */
-  .nav { display: flex; justify-content: space-between; order: 3; width: 100%; gap: 0; }
-  .nav a { white-space: nowrap; justify-content: center; padding: 9px 3px; margin-bottom: 0; border-bottom: none; border-radius: 6px; }
-  .nav a[aria-current="page"] { background: var(--surface-2); }
+  .topbar-in { padding: 8px 12px 10px; gap: 6px 8px; }
   .topbar .spacer { display: none; }
-  .brand { padding-bottom: 6px; }
-  .topbar .user-menu { margin-bottom: 4px; }
-  /* the link and the menu share the right end of the first row */
-  .topbar .settings-link { margin-bottom: 4px; margin-left: auto; }
+  /* five short labels share one row; they wrap onto a second only on a screen narrower than the labels */
+  .nav { order: 3; width: 100%; justify-content: space-between; gap: 0; }
+  .nav a { flex: 1 1 auto; white-space: nowrap; justify-content: center; padding: 8px 3px; }
 }
 
-.skip-link { position: absolute; left: 8px; top: -48px; z-index: 20; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 6px; text-decoration: none; }
-.skip-link:focus { top: 8px; }
-main:focus { outline: none; }
-
-.skip-link { position: absolute; left: -9999px; top: 8px; z-index: 10; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 6px; }
+/* off the screen until it is focused; light on the dark band and on the page alike */
+.skip-link { position: absolute; left: -9999px; top: 8px; z-index: 10; background: var(--on-ink); color: var(--ink); padding: 8px 12px; border-radius: 6px; text-decoration: none; box-shadow: 0 0 0 2px var(--ink); }
 .skip-link:focus { left: 8px; }
 main:focus { outline: none; }

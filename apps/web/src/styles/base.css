@@ -27,9 +27,10 @@ a { color: var(--accent-ink); }
 .segmented button:hover { color: var(--text); }
 .segmented button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); font-weight: 500; }
 
-input[type="text"], input[type="search"], input[type="date"], input[type="url"], select {
+input[type="text"], input[type="search"], input[type="date"], input[type="url"], input[type="password"], select {
   border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 6px 8px; min-width: 0;
 }
+::placeholder { color: var(--muted); opacity: 1; }
 
 .grid { display: grid; gap: 16px; }
 .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -126,7 +127,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
 
 /* confirmation dialog (member removal) */
 dialog.confirm { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); padding: 20px; max-width: min(440px, calc(100vw - 32px)); }
-dialog.confirm::backdrop { background: rgb(20 21 25 / 0.45); }
+dialog.confirm::backdrop { background: var(--backdrop); }
 dialog.confirm h2 { margin: 0 0 8px; font-size: 16px; }
 dialog.confirm p { margin: 0 0 8px; color: var(--text-2); }
 dialog.confirm .form-row { justify-content: flex-end; margin: 16px 0 0; }

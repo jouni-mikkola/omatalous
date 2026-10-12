@@ -1,13 +1,16 @@
 import { type CategoryKind, getCategory } from "../categories.ts";
 import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
 import { detectRecurring, type RecurringSeries } from "../recurring.ts";
-import { pairedReturns } from "../returns.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
-import { type Flows, flowsOf } from "./flows.ts";
+import { type Flows, flowsOf, incomeOf } from "./flows.ts";
+import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
 
-/** A transaction with everything the reports need precomputed once. */
+/**
+ * A transaction with everything the reports need precomputed once. `category` is the stored one, except on a refund
+ * whose payments are in another category: it counts in theirs (`moneyIn`).
+ */
 export interface AnalysisTx extends Transaction {
   day: number;
   month: number;
@@ -17,7 +20,7 @@ export interface AnalysisTx extends Transaction {
   flows: Flows;
   /** consumption + debt: what category and trend charts show. */
   spend: number;
-  /** Cents of this purchase that came back later: a shop refund, a person paying back, friends' shares (see pairedReturns). */
+  /** Cents of this purchase that came back later: a shop refund, a person paying back, friends' shares (see `moneyIn`). */
   refunded: number;
 }
 
@@ -46,6 +49,8 @@ export interface AnalysisContext {
   accounts: readonly Account[];
   /** Sorted by day ascending. */
   txs: readonly AnalysisTx[];
+  /** Money in that takes a payment back (`moneyIn`): the returning row's id to the payment whose category it lowers. */
+  returns: ReadonlyMap<string, string>;
   recurring: readonly RecurringSeries[];
   /** Category ids that own colour slots 1–7 (by all-time spend). */
   colorOrder: readonly string[];
@@ -75,10 +80,29 @@ export function createContext(transactions: readonly Transaction[], accounts: re
       };
     })
     .sort((a, b) => a.day - b.day);
-  // what came back from each purchase, from the same matcher that categorised the returning rows
+  // money in on a spending category: a refund lowers the category of the payments it takes back (or the one the user
+  // put it in), the rest is income
   const byId = new Map(txs.map((t) => [t.id, t]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
-  for (const [returnId, purchaseId] of pairedReturns(txs, ownIbans)) byId.get(purchaseId)!.refunded += -byId.get(returnId)!.flows.consumption;
+  const returns = new Map<string, string>();
+  for (const [id, refund] of moneyIn(txs, ownIbans)) {
+    const t = byId.get(id)!;
+    if (!refund) {
+      t.flows = incomeOf(t.amountCents);
+      t.spend = 0;
+      continue;
+    }
+    // a refund by the user's word alone takes back no payment and stays in the category it was put in
+    if (!refund.length) continue;
+    const first = byId.get(refund[0]![0])!;
+    if (first.category !== t.category) {
+      Object.assign(t, { category: first.category, kind: first.kind, group: first.group });
+      t.flows = flowsOf(t, savingsIds, loanIds);
+      t.spend = t.flows.consumption + t.flows.debt;
+    }
+    for (const [paymentId, cents] of refund) byId.get(paymentId)!.refunded += cents;
+    returns.set(id, first.id);
+  }
 
   const recurring = detectRecurring(txs, today);
   const fixedIds = new Set<string>();
@@ -96,7 +120,7 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     .slice(0, 7)
     .map(([c]) => c);
 
-  return { today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, recurring, colorOrder, fixedIds, habitIds };
+  return { today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder, fixedIds, habitIds };
 }
 
 /** Bank exports start on a weekday with bookings: a history from the 3rd still covers a month from the 1st. */

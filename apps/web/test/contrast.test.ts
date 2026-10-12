@@ -52,12 +52,20 @@ describe("tokens.css contrast", () => {
     expect(below(4.5, TEXTS, TINTS)).toEqual([]);
   });
 
-  it("--on-ink reads on --ink and on --accent at 4.5 to 1", () => {
-    expect(below(4.5, ["on-ink"], ["ink", "accent"])).toEqual([]);
+  it("text and second text read on the page and on both surfaces at 7 to 1", () => {
+    expect(below(7, ["text", "text-2"], GROUNDS)).toEqual([]);
   });
 
-  it("--accent, which only draws edges and rings (the text is --accent-ink), shows on the surface at 3 to 1", () => {
-    expect(below(3, ["accent"], ["surface"])).toEqual([]);
+  it("muted reads on the surface at 6 to 1 and on the page and the second surface at 4.5 to 1", () => {
+    expect([...below(6, ["muted"], ["surface"]), ...below(4.5, ["muted"], ["page", "surface-2"])]).toEqual([]);
+  });
+
+  it("accent, good, bad and warn read on the surface at 4.5 to 1", () => {
+    expect(below(4.5, ["accent", "good", "bad", "warn"], ["surface"])).toEqual([]);
+  });
+
+  it("the header band: --on-ink and --on-ink-2 read on --ink at 7 to 1, --on-ink on the band's hover colour --ink-2 too, and on --accent at 4.5", () => {
+    expect([...below(7, ["on-ink", "on-ink-2"], ["ink"]), ...below(7, ["on-ink"], ["ink-2"]), ...below(4.5, ["on-ink"], ["accent"])]).toEqual([]);
   });
 
   it("series colours and the two darkest heat steps show on the surface at 3 to 1", () => {
@@ -72,8 +80,8 @@ describe("tokens.css contrast", () => {
     expect(HEAT.flatMap((h, i) => below(4.5, [inks[i] ?? ""], [h]))).toEqual([]);
   });
 
-  it("border is 1.3 to 1 off the surface, grid 1.2, axis 3", () => {
-    expect([...below(1.3, ["border"], ["surface"]), ...below(1.2, ["grid"], ["surface"]), ...below(3, ["axis"], ["surface"])]).toEqual([]);
+  it("border is 1.5 to 1 off the surface, grid 1.3, axis 3", () => {
+    expect([...below(1.5, ["border"], ["surface"]), ...below(1.3, ["grid"], ["surface"]), ...below(3, ["axis"], ["surface"])]).toEqual([]);
   });
 
   it("neighbouring series differ by 1.2 to 1 in luminance or by 60 degrees of hue", () => {
@@ -87,16 +95,15 @@ describe("tokens.css contrast", () => {
     expect(alike).toEqual([]);
   });
 
-  it("the page stays between 0.70 and 0.76 in luminance and the surface 0.06 above it, with surface-2 and the tints no brighter than the surface", () => {
-    expect(luminance("page")).toBeGreaterThanOrEqual(0.7);
-    expect(luminance("page")).toBeLessThanOrEqual(0.76);
-    expect(luminance("surface") - luminance("page")).toBeCloseTo(0.061, 2);
+  it("a card stands out from the page: the surface is 1.10 to 1 brighter, and the second surface and the tints are no brighter than it", () => {
+    const lift = (luminance("surface") + 0.05) / (luminance("page") + 0.05);
+    expect(lift, `surface against page: ${lift.toFixed(2)} < 1.10`).toBeGreaterThanOrEqual(1.1);
     expect(luminance("surface-2")).toBeLessThan(luminance("page"));
     expect(TINTS.filter((t) => luminance(t) > luminance("surface"))).toEqual([]);
   });
 
-  it("the colour the browser draws around the page (theme-color in index.html) is the page colour", () => {
+  it("the colour the browser draws around the page (theme-color in index.html) is the colour of the header band, --ink", () => {
     const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-    expect(html.match(/<meta name="theme-color" content="(#[0-9a-f]{6})"/i)?.[1]).toBe(hex("page"));
+    expect(html.match(/<meta name="theme-color" content="(#[0-9a-f]{6})"/i)?.[1]).toBe(hex("ink"));
   });
 });
