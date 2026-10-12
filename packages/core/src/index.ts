@@ -10,6 +10,8 @@
  *   optimise/*                                     Optimoi: decisions with a price or a deadline, one file per area
  */
 export * from "./types.ts";
+export * from "./account-use.ts";
+export { holdersIn, userNameOf } from "./person-names.ts";
 export * from "./dates.ts";
 export * from "./stats.ts";
 export * from "./categories.ts";

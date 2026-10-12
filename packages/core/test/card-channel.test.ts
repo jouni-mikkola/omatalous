@@ -163,11 +163,15 @@ describe("one reference is one contract", () => {
     expect(pick(categories(loan(), [CHK, issuerCard]))).toEqual(["loans", "loans", "loans", "loans", "transfer", "transfer", "transfer"]);
   });
 
-  it("a payee that paid credit out is a lender: its bills are no transfers", () => {
-    const payout = row("payout", "2026-01-15", 200000, { counterparty: "RESURS BANK AB", description: "LUOTON NOSTO" });
-    const all = categories([payout, ...loan()], [CHK, issuerCard]);
+  it("the payments to the account that paid credit out are a lender's contract: its bills are no transfers", () => {
+    const account = "FI0000000000000058";
+    const payout = (iban?: string) => row("payout", "2026-01-15", 200000, { counterparty: "RESURS BANK AB", iban, description: "LUOTON NOSTO" });
+    const all = categories([payout(account), ...loan().map((t) => ({ ...t, counterpartyIban: account }))], [CHK, issuerCard]);
     expect(all.payout).toBe("credit_draw");
     expect(pick(all)).toEqual(["loans", "loans", "loans", "loans", "card_bill", "card_bill", "card_bill"]);
+    // the issuer's name alone ties no payment to the payout: a card's own credit moved to the account carries it too
+    const byName = categories([payout(), ...loan()], [CHK, issuerCard]);
+    expect(pick(byName)).toEqual(["loans", "loans", "loans", "loans", "transfer", "transfer", "transfer"]);
   });
 });
 

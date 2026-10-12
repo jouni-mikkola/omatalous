@@ -1,22 +1,27 @@
 import { defineConfig } from "@playwright/test";
 
-// Started by e2e/run.mjs, which provides the address of the temporary server.
-const baseURL = process.env.E2E_BASE_URL;
-if (!baseURL) throw new Error("Run the suite with `pnpm e2e` (after `pnpm build`).");
+// Started by e2e/run.mjs: one temporary server for each worker, in the order of the workers' `parallelIndex`.
+const servers: { base: string; dir: string; setupCode: string; fakeBank: string }[] = JSON.parse(process.env.E2E_SERVERS ?? "[]");
+if (!servers.length) throw new Error("Run the suite with `pnpm e2e` (after `pnpm build`).");
+// The config is loaded again in every worker, after Playwright has set its index. The specs read their server from
+// the environment, so a worker gets the environment of its own server before it loads any spec.
+const own = servers[Number(process.env.TEST_PARALLEL_INDEX ?? 0)];
+if (!own) throw new Error(`There are ${servers.length} servers and more workers: set E2E_WORKERS for \`pnpm e2e\` instead of --workers.`);
+Object.assign(process.env, { E2E_BASE_URL: own.base, E2E_DIR: own.dir, E2E_SETUP_CODE: own.setupCode, E2E_FAKE_BANK: own.fakeBank });
 
 export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
-  // one worker: the specs share one server and run in order (setup, demo data, pages, a flow)
-  workers: 1,
+  // the specs of one file run in order; the files are shared out among the workers, and each worker has its own server
+  workers: servers.length,
   fullyParallel: false,
   retries: 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [["list"]],
-  outputDir: `${process.env.E2E_DIR ?? "."}/results`,
+  outputDir: `${servers[0]!.dir}/results`,
   use: {
-    baseURL,
+    baseURL: own.base,
     locale: "fi-FI",
     timezoneId: "Europe/Helsinki",
     screenshot: "only-on-failure",

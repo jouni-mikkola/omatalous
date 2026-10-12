@@ -29,12 +29,12 @@ pnpm findings --golden  # writes the golden files again after a change of a dete
   `analysis/usual.ts` (complete months, the usual level, usual spending and usual income, the gate `gateFor`) and
   `commitments.ts` (fixed costs, subscriptions, expected bill dates, expected charges, cancelled subscriptions);
   `analysis/fees.ts` (late fees, bank fees); a series' cost is its own `perMonth`, `monthlyCents`, `yearlyCents`;
-  `docs/MONEY_FLOWS.md` says them in prose. `forecast.ts` (month forecast and its range), `ahead.ts` (what is coming until the next payday, 30 days with no regular pay; its `upcoming` is the next 30 days that Laskut > Tulossa lists),
+  `docs/MONEY_FLOWS.md` says them in prose. `forecast.ts` (`monthPace`: the month's spending so far against the month before; the usual everyday spending and the typed-in bills still to pay, which `ahead.ts` reads), `ahead.ts` (what is coming until the next payday, 30 days with no regular pay; its `upcoming` is the next 30 days that Laskut > Tulossa lists),
   `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete
   months), `change.ts` (what moved spending, split into causes that add up, the rises the spike alert tells included;
   wording in `change-text.ts`), `loans.ts` (the `Loan` type and every loan figure, a connected card or loan account read
   as a loan included, ADR 0012), `household-debts.ts` (the list of the household's debts behind every debt total; a
-  saved loan linked to its account counts once), `card-channel.ts` (a card's payment channel, the payee account and reference of the payments that paired with the card's own rows; `settleTransfers` is its entry, ADR 0015), `holdings.ts` (`buildHoldings`: the accounts, cards and loans of Kuukausi and Saldot, from `analysis/balance-walk.ts` and `household-debts.ts`), `loan-intake/` (a draft from pasted text or OCR, each field `sure` or
+  saved loan linked to its account counts once), `card-channel.ts` (a card's payment channel, the payee account and reference of the payments that paired with the card's own rows; `settleTransfers` is its entry, ADR 0015), `holdings.ts` (`buildHoldings`: the accounts, cards and loans of Yhteenveto and Saldot, from `analysis/balance-walk.ts` and `household-debts.ts`), `loan-intake/` (a draft from pasted text or OCR, each field `sure` or
   `check`), `loan-detect.ts` (payments that look like an unsaved loan), `analysis/credit.ts` (what a connected card
   costs), `income.ts` (income by type, derived on read) with `income-changes.ts`, `income-events.ts`,
   `income-series.ts`. `analysis/insights/` has one source per file with its own gate and history rule (`shared.ts` holds
@@ -66,7 +66,7 @@ pnpm findings --golden  # writes the golden files again after a change of a dete
   `test/*.test.sh` shell suites (`test/ops-world.sh` is the helper's test world), `ci/*` (`smoke-image.sh` the image smoke test, `promote-release.sh` what `promote.yml` runs, `drills.sh` ten drills in real Docker with its functions in `drills-lib.sh`, `lib.sh` the helpers `upgrade-run.sh` and `drills-lib.sh` both source, each defined there and nowhere else)) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` runs six jobs (plan, verify, build for amd64 and arm64 on runners of their own, smoke, publish, release; a `dry-run` job for a dry run) when `main` gets a new version, on a `v*` tag or by hand, and creates the release as a pre-release; `.github/workflows/promote.yml` promotes it after 48 hours (a draft holds it and every older pre-release).
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`;
-  `components/BankPicker.tsx`; `components/holdings/` (`Holdings`, `CardFace`, `card-tier.ts`: the Tilit, Kortit and Lainat of Kuukausi, styled in `styles/holdings.css`) and `components/next-days.ts` (the heading, figures and warning of the payday card); bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
+  `components/BankPicker.tsx`; `components/holdings/` (`Holdings`, `CardFace`, `FigureRow`, `card-tier.ts`, `holding-rows.ts`: the Tilit, Luottokortit and Lainat of the Varallisuus card on Yhteenveto, styled in `styles/holdings.css`) and `components/next-days.ts` (the heading, figures and warning of the payday card); bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
   (`bankLogo` in `src/banks.ts`); `consent-notices.ts` (when a consent ends, unlinked accounts, the calendar file);
   loans: `components/loans/`, `pages/settings/Loans.tsx`, `pages/settings/LoanIntake.tsx`, `LoanLinks` (in
   `components/loans/LoanEditor.tsx`: the accounts and loans the loan form reads). `styles/` (tokens.css and base.css
@@ -107,8 +107,9 @@ pnpm findings --golden  # writes the golden files again after a change of a dete
   `instance:enablebanking`, and the Cloudflare API token of the Etäkäyttö page (settings key `instance_cloudflare`) with
   `instance:cloudflare`. Never log or return secrets, private keys, that token or `raw` bank payloads (only the certificate).
 - Only merchant names of business rows (core `isBusinessRow`) are sent to the trade register, and only if core
-  `isLookupName` accepts them (never a name shaped like a person's); never amounts, dates, account numbers or names of
-  people.
+  `isLookupName` accepts them (never a name shaped like a person's) and `mayBePerson` does not refuse them (a word of a
+  name the household has, an invoice alone as the only evidence of a business); `askRegister` is the one door and checks
+  the household's names again; never amounts, dates, account numbers or names of people.
 - The bank logo fetch (`connectors/enable-banking/logos.ts`) calls only an https address on `enablebanking.com` taken from
   the cached bank list, follows no redirect, reads at most 300 kB and serves the picture with its own CSP; the request
   names a registry bank id and nothing else.

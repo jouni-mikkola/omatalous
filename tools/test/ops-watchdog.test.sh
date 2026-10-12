@@ -170,6 +170,52 @@ t_watchdog_failed_rollback_recovery() {
   echo unhealthy >"$S/health"; ticks 6 150
   check "failed: also when Docker reports it unhealthy" test "$(rollbacks)" = 1
 }
+# ── recover: the helper's own rollback after an update that failed with the app down ───
+# The new version does not answer and update.sh's own rollback refuses (the database copy is unusable), so the helper
+# rolls back itself. In the stub the first check of the copy is update.sh's, the second is the helper's: the commands
+# given run just before the second (S, CL and ID are set for them), and what the stub then does is up to the files they
+# leave.
+failed_update() { # failed_update COMMANDS
+  world; release 0.2.0; touch "$S/bad_0.2.0" "$S/snapshot-bad"; poll update
+  mv "$S/bin/docker" "$S/bin/docker.real"
+  cat >"$S/bin/docker" <<EOF
+#!/usr/bin/env bash
+S="$S"; CL="$CL"; ID="$ID"
+case \$* in *"copy unusable"*)
+  n=\$(cat "\$S/copy-checks" 2>/dev/null || echo 0); echo \$((n + 1)) >"\$S/copy-checks"
+  if ((n == 1)); then $1; fi ;;
+esac
+exec "\$S/bin/docker.real" "\$@"
+EOF
+  chmod +x "$S/bin/docker"
+  tick
+}
+summary_of() { jq -r .summary <<<"$(report)"; }
+t_recover_rollback_worked() {
+  failed_update 'rm -f "$S/snapshot-bad"'
+  check "recover: a rollback that worked is said so" test "$(summary_of)" = "Päivitys ei onnistunut. Syy on lokissa. Edellinen versio palautettiin."
+  check "recover: the previous version runs and nothing is left in RECOVERY.txt" test "$(cver)" = 0.1.0 -a ! -e "$CL/ops/RECOVERY.txt"
+  check "recover: the run's log says it" grep -q 'The previous version is running\.' "$S/reports/1.json"
+  # the disk is full by now: the line cannot be added to the run's log, and the rollback was still a rollback
+  failed_update 'rm -f "$S/snapshot-bad"; chmod a-w "$CL/ops/run/$ID.log"'
+  check "recover: a rollback that worked is said so also when the log cannot take its last line" test "$(summary_of)" = "Päivitys ei onnistunut. Syy on lokissa. Edellinen versio palautettiin."
+  check "recover: and no RECOVERY.txt is written for it" test "$(cver)" = 0.1.0 -a ! -e "$CL/ops/RECOVERY.txt"
+}
+t_recover_version_that_answers() {
+  # update.sh --rollback refuses again, and the new version answers a few looks later: it is the version that runs
+  failed_update 'rm -f "$S/bad_0.2.0"'
+  check "recover: a rollback that did not happen says which version answers" test "$(summary_of)" = "Päivitys ei onnistunut. Syy on lokissa. Edellistä versiota ei voitu palauttaa, käynnissä on versio 0.2.0."
+  check "recover: the run's log does not claim the previous version" bash -c "! grep -q 'The previous version is running' '$S/reports/1.json' && grep -q 'the version that answers is 0.2.0' '$S/reports/1.json'"
+  check "recover: reported failed" reported failed
+  check "recover: the new version still runs and there is no RECOVERY.txt" test "$(cver)" = 0.2.0 -a ! -e "$CL/ops/RECOVERY.txt"
+  # a rollback that ended with an error but left the previous version answering is a rollback
+  failed_update 'rm -f "$S/bad_0.2.0"; echo 0.1.0 >"$S/cver"'
+  check "recover: update.sh failed and the previous version answers all the same: it is said so" test "$(summary_of)" = "Päivitys ei onnistunut. Syy on lokissa. Edellinen versio palautettiin."
+  check "recover: and the log says it" grep -q 'The previous version is running\.' "$S/reports/1.json"
+  # the version that answers cannot be read
+  failed_update 'rm -f "$S/bad_0.2.0" "$S/cver"'
+  check "recover: a version that cannot be read is not called the previous one" test "$(summary_of)" = "Päivitys ei onnistunut. Syy on lokissa. Edellistä versiota ei voitu palauttaa, käynnissä on versio ?."
+}
 t_watchdog_unhealthy_before_update() {
   # an earlier update is being watched, the app goes bad, and a second update is made on top
   world; updated; touch "$S/bad_0.2.0"; count_to 240

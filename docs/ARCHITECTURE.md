@@ -85,8 +85,8 @@ flowchart LR
   it. The channel is worked out on every run and stored nowhere (ADR 0015). `pipeline.ts` runs them in order.
   `categorize` takes the accounts, since the holders come from them (`accounts.holder`).
 - Industry lookup (`services/industry.ts`, `providers/prh`): merchants nothing recognises, from business
-  rows only and never under a name shaped like a person's (`isLookupName`), are searched by name in the Finnish trade
-  register. Core `industry.ts` picks the matching
+  rows only and never under a name that may be a person's (`isLookupName`, `mayBePerson` in `payee-guard.ts`), are
+  searched by name in the Finnish trade register. `askRegister` is the one door to it. Core `industry.ts` picks the matching
   company. Answers are kept per merchant name in `merchant_industry`, so a name is looked up once, and
   `merchant_industry_users` records which names each user's lookups asked about. A user gets answers only
   for those names. The category is worked out from the stored TOL code at every reprocess, so a change to
@@ -150,11 +150,14 @@ flowchart LR
   register decide again. Both reprocess the user's data. `GET /api/merchants/uncategorised` feeds
   *Luokittelematta*: `items` are the 50 merchants with the most money out, and `count` and `totalCents` are all of them,
   both counted in SQL. Rule limits live in `services/rules.ts` (at most 300 per user).
-- The first page (Kuukausi) reads and computes nothing of its own. `holdings.ts` in core answers what the household has
-  and owes: each account with its balance, each card with what is used of its limit, each loan with what is left. It
-  adds nothing itself: a balance is the day walk's, a debt is `householdDebts`', and the cards' use and the loans' balance
-  add up to the debt total. `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer
-  (`buildHoldings`), and `components/holdings/Holdings.tsx` shows it as given. The card of the days to the payday gets
+- The first page (Yhteenveto) reads and computes nothing of its own. `holdings.ts` in core answers what the household has
+  and owes: each account with its balance, each card with what is used of its limit, each loan with what is left. A
+  balance is the day walk's and a debt is `householdDebts`'. The one sum it makes is the known balances of the accounts
+  added together (`accountsCents`), and the cards' use and the loans' balance add up to the debt total (`debtCents`).
+  `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer (`buildHoldings`), and
+  `components/holdings/Holdings.tsx` shows it as given. The card *Menot* shows `DashboardData.pace` from `monthPace` in
+  `analysis/forecast.ts`: the month's spending so far and the month before's on the same day, both sums of rows with
+  nothing estimated (`SpendingCard` in `pages/Overview.tsx`, the chart in `charts/PaceChart.tsx`). The card of the days to the payday gets
   `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words its heading, figures and warning (the rules
   are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).
 
@@ -298,6 +301,7 @@ fetch from the same day. The other accounts go on.
 | `connections` | bank consents per user, validity, status |
 | `accounts` | type, IBAN, `identity` (the same real account seen by two users), balance, the bank's `name`; migration 0013 adds the user's own `custom_name`, the `holder`, a card's last four digits (`card_mask`) and `credit_limit_cents` |
 | `account_shares` | which account is shared with whom (read-only) |
+| `account_use` | who of the household uses a real account and at what weights, when the household has said it: the account's key (`accounts.identity`, else its id), the user (none for the holders who are no user of the instance, together), the weight and who said it. A joint account both partners linked is one key. An account with no row has its use worked out from the bank's holder names on every read and stored nowhere. In this release no figure reads it |
 | `transactions` | bank fields plus `merchant`, `category`, `category_source`, `is_transfer`, `search_text` (folded text for search, migration 0003), `bank_txn_code` (the bank's own code of the row, migration 0015), raw payload |
 | `category_rules` | users' own rules, including the per-merchant rules from *Tapahtumat > Kauppiaat* |
 | `merchant_industry` | trade register answers per merchant name: business id, company, industry code and label. No user id |
@@ -316,7 +320,11 @@ fetch from the same day. The other accounts go on.
 
 Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised, and 0008 three for the
 transaction list's counts and sums and for one merchant's or one category's rows. Migration 0016 adds `loans.account_id`
-and an index on it. It only adds, with a compat floor of 0.8.0, so a rollback keeps the links.
+and an index on it. It only adds, with a compat floor of 0.8.0, so a rollback keeps the links. Migration 0018 adds
+`account_use`, again only a table, with a compat floor of 0.10.0. `PUT /api/accounts/:id/use` says who uses an account
+the caller linked and `DELETE` takes it back; `GET /api/meta` gives each account its `use` and the viewer's `part`. A
+member who is removed leaves their weight with the account's other holders (it is added to the row of the holders who
+are no user), so the ratio that was said stays; where they had the only row, the statement goes with them.
 
 Every user row has `user_id` with `ON DELETE CASCADE`, so deleting a user deletes their data. `ops_requests`
 belongs to the instance and keeps the id of the admin who asked.

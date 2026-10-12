@@ -25,7 +25,7 @@
 # Then `.env` is kept as ops/env.prev and written through access_env_write (scripts/lib/ops-access.sh), as the `access`
 # action does: BIND_ADDRESS gets the new address, and so does APP_BASE_URL when it was the installer's
 # http://ADDRESS:PORT of the old one (an address someone typed in stays). The other keys access_env_write drops are
-# written back as they were. The app is started as `access` starts it. When it does not answer, the kept `.env` goes
+# named to it as kept, so they stay as they were. The app is started as `access` starts it. When it does not answer, the kept `.env` goes
 # back, unless someone has changed the file since, and the app is started with that.
 # ops/address-doing is there from before `.env` is written until all this is settled. A helper killed in between (a
 # power cut) leaves it, and the next tick starts the app and settles the change the same way.
@@ -33,17 +33,17 @@
 # One line per change goes to helper.log and to the host's journal: "Osoite vaihtui: http://10.0.0.5:8080". A tick
 # that changes nothing writes nothing. What the compose commands printed is in ops/run/address.log.
 #
-# The two files below are read when the helper loads its parts, from the folder of this file, and not when the address
+# host-addr.sh below is read when the helper loads its parts, from the folder of this file, and not when the address
 # changes: a rollback earlier in the tick (the watchdog) puts an older release's files on disk, and the launcher's
-# last good copy of the helper has its own beside it. Without them address_tick does nothing.
+# last good copy of the helper has its own beside it. The helper's load_libs reads ops-access.sh the same way. Without
+# either address_tick does nothing. It also uses in_a_row of lib/ops-watchdog.sh, tried_within of
+# lib/ops-housekeeping.sh and envfile_restore of lib/envfile.sh.
 
 ADDR_MISSING=600; ADDR_GAP=300; ADDR_APART=3600
 T_ADDRESS=$(t_for 300 ADDRESS) # seconds for one compose command
 ADDR_LIB=${BASH_SOURCE[0]%/*}
 # shellcheck source=host-addr.sh
 . "$ADDR_LIB/host-addr.sh" 2>/dev/null || true
-# shellcheck source=ops-access.sh
-. "$ADDR_LIB/ops-access.sh" 2>/dev/null || true
 
 # address_private ADDRESS: one IPv4 address of RFC 1918, written the way `ip` prints it, and nothing else
 address_private() {
@@ -66,7 +66,7 @@ address_settle() {
     yesnew) log "Osoite vaihtui: $url" ;;
     yes*) ;; # the app answers with a .env that is not the one written here: nothing to tell
     nonew)
-      if ! { rm -f .env.new && cp "$OPS/env.prev" .env.new && chmod 600 .env.new && mv -f .env.new .env; }; then
+      if ! envfile_restore .env "$OPS/env.prev"; then
         log "address: the app did not start at $url, and the earlier settings could not be put back. They are in ops/env.prev."
       else
         run_cap "$T_ADDRESS" docker compose up -d --no-build || true
@@ -81,24 +81,18 @@ address_settle() {
 
 # address_rebind OLD NEW NOW, in a shell of its own: the installer's lock goes with it
 address_rebind() {
-  local old=$1 new=$2 url line k pairs=("BIND_ADDRESS=$2")
-  local -A had=()
+  local old=$1 new=$2 url base=+APP_BASE_URL
   installer_lock || return 0
   url=$(access_lan_url) || return 0 # HOST_PORT is no port
   printf '%s\n' "$3" >"$OPS/address-at" || return 0
-  while IFS= read -r line || [[ -n $line ]]; do
-    [[ $line == *=* ]] || continue
-    case ${line%%=*} in CLOUDFLARE_TUNNEL_TOKEN | COMPOSE_PROFILES | TRUST_PROXY | APP_BASE_URL | CF_ACCESS_AUD | CF_ACCESS_TEAM_DOMAIN | ACCESS_LAN_BIND) had[${line%%=*}]=${line#*=} ;; esac
-  done <.env
-  [[ ${had[APP_BASE_URL]-} != "$url" ]] || had[APP_BASE_URL]=http://$new:${url##*:}
-  for k in APP_BASE_URL TRUST_PROXY COMPOSE_PROFILES CLOUDFLARE_TUNNEL_TOKEN CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN ACCESS_LAN_BIND; do
-    [[ -z ${had[$k]+x} ]] || pairs+=("$k=${had[$k]}")
-  done
+  # APP_BASE_URL follows only when it was the installer's address of the old one
+  [[ $(env_get APP_BASE_URL) != "$url" ]] || base=APP_BASE_URL=http://$new:${url##*:}
   # the mark of an earlier change goes before address-doing is made: a helper killed right here must not tell of that one
-  if ! { rm -f "$OPS/env.prev" "$OPS/env.written" && cp .env "$OPS/env.prev" && chmod 600 "$OPS/env.prev" && : >"$OPS/address-doing"; }; then
+  if ! { rm -f "$OPS/env.written" && access_env_keep && : >"$OPS/address-doing"; }; then
     log "address: $old is no longer on this machine, but the settings could not be kept in ops/env.prev. Nothing was changed."; return 0
   fi
-  if ! access_env_write address "${pairs[@]}"; then
+  # every key access_env_write drops and this change does not set is named as kept, in the order they are written
+  if ! access_env_write address "BIND_ADDRESS=$new" "$base" +TRUST_PROXY +COMPOSE_PROFILES +CLOUDFLARE_TUNNEL_TOKEN +CF_ACCESS_AUD +CF_ACCESS_TEAM_DOMAIN +ACCESS_LAN_BIND; then
     rm -f .env.new "$OPS/address-doing" 2>/dev/null
     log "address: $old is no longer on this machine, but .env could not be written. Nothing was changed."; return 0
   fi
@@ -117,9 +111,9 @@ address_candidate() {
 }
 
 address_tick() {
-  local bind new now at dev first="" latest="" was="" rdev="" raddr=""
+  local bind new now dev first="" latest="" was="" rdev="" raddr="" secs=0
   # a host-addr.sh or release.sh of an older release (the launcher's copy, a rollback) has not all of these: then nothing is done
-  declare -F env_get log run_cap wait_healthy host_addr_if host_if_addrs host_if_tunnel access_env_write access_env_state access_lan_url installer_lock >/dev/null || return 0
+  declare -F env_get log run_cap wait_healthy host_addr_if host_if_addrs host_if_tunnel access_env_write access_env_keep access_env_state access_lan_url installer_lock in_a_row tried_within envfile_restore >/dev/null || return 0
   if [[ -e $OPS/address-doing ]]; then
     [[ -n ${CUT:-}${LOGF:-} ]] || (installer_lock && address_settle) || true
     return 0
@@ -141,17 +135,14 @@ address_tick() {
   fi
   now=$(date +%s)
   [[ ! -f $OPS/address-since ]] || read -r first latest was <"$OPS/address-since" || true
-  if [[ $first =~ ^[0-9]{1,12}$ && $latest =~ ^[0-9]{1,12}$ && $was == "$bind" ]] && ((10#$first <= 10#$latest && 10#$latest <= now && now - 10#$latest <= ADDR_GAP)); then
-    first=$((10#$first))
-  else
-    first=$now
-  fi
-  printf '%s %s %s\n' "$first" "$now" "$bind" >"$OPS/address-since" || return 0
-  ((now - first >= ADDR_MISSING)) || return 0
+  # The file holds the first and the latest look that found this address missing, and the count so far is the time
+  # between them. A file that is not that (another address, no times, the first after the latest) is no look to count from.
+  if [[ $first =~ ^[0-9]{1,12}$ && $latest =~ ^[0-9]{1,12}$ && $was == "$bind" ]] && ((10#$first <= 10#$latest)); then secs=$((10#$latest - 10#$first)); else latest=-; fi
+  secs=$(in_a_row "$secs" "$latest" "$now" "$ADDR_GAP" again)
+  printf '%s %s %s\n' "$((now - secs))" "$now" "$bind" >"$OPS/address-since" || return 0
+  ((secs >= ADDR_MISSING)) || return 0
   [[ -z ${CUT:-}${LOGF:-} ]] || return 0
-  at=$(cat "$OPS/address-at" 2>/dev/null) || at=""
-  # a time in the future (the clock went back) or one that is not a time holds nothing back
-  if [[ $at =~ ^[0-9]{1,12}$ ]] && ((10#$at <= now && now - 10#$at < ADDR_APART)); then return 0; fi
+  ! tried_within "$OPS/address-at" "$now" "$ADDR_APART" || return 0
   # only the interface the address was on, and never a tunnel, whatever the default route says
   [[ -n $rdev && $raddr == "$bind" ]] && ! host_if_tunnel "$rdev" || return 0
   new=$(address_candidate "$rdev") && [[ -n $new && $new != "$bind" ]] || return 0

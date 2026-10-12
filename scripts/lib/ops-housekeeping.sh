@@ -20,6 +20,15 @@
 HK_MIN_KB=$((3 * 1024 * 1024))
 HK_GAP=$((6 * 3600))
 
+# tried_within FILE NOW SECONDS: FILE holds the time of the last try, in seconds, and that is under SECONDS before NOW.
+# A time in the future (the clock went back) or one that is not a time holds nothing back. The helper's one "not again
+# within": the prune here and the change of the address (lib/ops-address.sh).
+tried_within() {
+  local at
+  at=$(cat "$1" 2>/dev/null) || at=""
+  [[ $at =~ ^[0-9]{1,12}$ ]] && ((10#$at <= $2 && $2 - 10#$at < $3))
+}
+
 # the image ID the running app container was made from, empty when it is not known
 hk_running_image() {
   local c
@@ -50,12 +59,10 @@ hk_prune() {
 }
 
 housekeeping() {
-  local dir kb now at out rc st prc sm ll after
+  local dir kb now out rc st prc sm ll after
   [[ -z ${LOGF:-} ]] || return 0   # an action is running
   now=$(date +%s)
-  at=$(cat "$OPS/housekeeping-at" 2>/dev/null || true)
-  # a time in the future (the clock went back) or one that is not a time holds nothing back
-  if [[ $at =~ ^[0-9]{1,12}$ ]] && ((10#$at <= now && now - 10#$at < HK_GAP)); then return 0; fi
+  if tried_within "$OPS/housekeeping-at" "$now" "$HK_GAP"; then return 0; fi
   dir=$(timeout 20 docker info -f '{{.DockerRootDir}}' 2>/dev/null | head -1) || true
   [[ -n $dir && -d $dir ]] || return 0
   kb=$(free_kb "$dir")

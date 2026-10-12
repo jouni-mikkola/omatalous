@@ -20,7 +20,7 @@ describe("a page asks the server for the reports of its own sections", () => {
     }
   });
 
-  it("Kuukausi asks for the spending change only", () => {
+  it("Yhteenveto asks for the spending change only", () => {
     expect(reportsOf("month")).toEqual(["spendingChange"]);
     expect(reportsOf("reports")).not.toContain("spendingChange");
   });

@@ -200,7 +200,8 @@ export async function removeUser(s: Services, userId: string, by: string, req: R
   const target = await s.users.get(userId);
   if (!target) throw new UserError("Käyttäjää ei löydy.");
   const bank = await revokeAllConnections(s, userId);
-  await s.users.delete(userId);
+  // the member's rows of who uses an account go with them, and their weight stays with the others as a part of the holders who are no user
+  await s.household.removeMember(userId);
   // the instance version: every member's household view may have held this member's accounts
   await s.settings.bumpDataVersion();
   await s.settings.delete(`${USER_DATA_VERSION}${userId}`);

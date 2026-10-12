@@ -20,8 +20,8 @@ want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
 
 IMG=ghcr.io/jouni-mikkola/omatalous
 # the stub docker of the whole install: it logs every call (S/docker.log) and answers for the release image of the
-# version it was last asked to pull (S/pulled): the digest, the commit of that tag in the folder it runs in, the version
-# and the compose layout number the release file has
+# version it was last asked to pull (S/pulled): the digest, the image id, the commit of that tag in the folder it runs in, the
+# version and the compose layout number the release file has
 write_docker() {
   cat >"$S/bin/docker" <<'EOF'
 #!/usr/bin/env bash
@@ -37,6 +37,7 @@ case $1 in
         *talous.commit*) git rev-parse "refs/tags/v$(cat "$S/pulled")^{commit}" ;;
         *talous.version*) cat "$S/pulled" ;;
         *talous.compose*) echo 3 ;;
+        *.Id*) echo "sha256:$(printf '%064d' 9)" ;;
       esac
     fi ;;
   compose)
@@ -168,6 +169,7 @@ t_new_install_asks_which_release_is_out() {
   check "GitHub names it: the folder did not move" same "$CL" HEAD "$CL" v0.9.1
   check "the registry tag of the pulled image goes once the image is tagged for the instance, and no other tag does" bash -c "awk '/^image tag .*:latest\$/ {t=1} t && \$0 == \"image rm $IMG:0.9.1\" {f=1} END {exit !f}' '$S/docker.log' && ! grep -E '^image rm .*:(latest|previous)\$' '$S/docker.log' >/dev/null"
   fresh_world v0.9.0; run_install --yes --access local; why
+  check "the instance's tag is made from the image's id, not from the registry's tag or digest" bash -c "grep -qxF 'image tag sha256:$(printf '%064d' 9) clone:latest' '$S/docker.log' && ! grep -qE '^image tag ghcr.io' '$S/docker.log'"
   check "GitHub names the release below, so the tag at HEAD is a pre-release: the release GitHub names is installed" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Channel: release v0.9.0' '$W/install.out' && grep -qxF 'pull $IMG:0.9.0' '$S/docker.log'"
   check "pre-release at HEAD: its image is not pulled and nothing is built from source" bash -c "! grep -q '0.9.1' '$S/docker.log' && ! grep -qx 'compose build banking' '$S/docker.log'"
   check "pre-release at HEAD: the folder is on main at v0.9.0" bash -c "[[ \$(git -C '$CL' symbolic-ref --short HEAD) = main && \$(git -C '$CL' rev-parse HEAD) = \$(git -C '$CL' rev-parse 'v0.9.0^{commit}') ]]"

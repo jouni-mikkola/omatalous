@@ -82,7 +82,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(async ({ browser }) => household(browser));
 test.afterAll(async ({ browser }) => remove(browser));
 
-test("Viime kuu of the demo household: the bridge tells where the pay went, and Raportit prints the same figures for the month", async ({ browser }) => {
+test("Last month of the demo household: the bridge tells where the pay went, and Raportit prints the same figures for the month", async ({ browser }) => {
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);

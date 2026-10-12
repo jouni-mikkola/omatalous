@@ -3,7 +3,7 @@
 # NODE, CLOCK, REMOTE, DEV, DEADLINE): the bookkeeping of a drill (step, die, skip, fresh), the app's API on the
 # rehearsal's install, and the maintenance helper with a clock that can be set ahead and the releases the drills push.
 # It defines functions and runs nothing. The drills themselves are in drills.sh. What upgrade-run.sh needs as well (dc, shim,
-# app_version, migrations, api, until_ok, push_release) is in lib.sh.
+# app_version, migrations, golden_rows, api, until_ok, push_release) is in lib.sh.
 
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh" || exit 1
@@ -55,17 +55,8 @@ audit_rows() { tr '{' '\n' | sed -n 's/.*"username":\([^,]*\),.*"action":"\([^"]
 post() { curl -sS --max-time 90 -o "$LOGS/body" -w '%{http_code}' -b "$JAR" -c "$JAR" -H 'Content-Type: application/json' -H 'X-Requested-With: fetch' -d "$2" "$URL$1"; }
 body() { head -c 300 "$LOGS/body" 2>/dev/null; }
 notices() { api "$URL/api/security/notices"; }
-# the rows that must survive, of a database file inside the container. upgrade-run.sh keeps its own `golden`: it also reads
-# the user's choices and the settings, and counts a table an older baseline lacks as 0
-golden_of() {
-  dc exec -T banking "${NODE[@]}" -e '
-    const d = new (require("node:sqlite").DatabaseSync)(process.argv[1], { readOnly: true });
-    const p = (...a) => console.log(a.join(" "));
-    for (const r of d.prepare("SELECT u.username AS u, count(t.id) AS n, coalesce(sum(t.amount_cents),0) AS s FROM users u LEFT JOIN transactions t ON t.user_id = u.id GROUP BY u.id ORDER BY u.username").all()) p("tx", r.u, r.n, r.s);
-    p("accounts", d.prepare("SELECT count(*) AS n FROM accounts").get().n);
-    p("rules", d.prepare("SELECT count(*) AS n FROM category_rules").get().n);
-    p("marks", d.prepare("SELECT count(*) AS n FROM user_marks").get().n);' "$1" | sort
-}
+# the rows that must survive, of a database file inside the container (golden_rows in lib.sh reads them)
+golden_of() { golden_rows "$1"; }
 # a change after the copy, so that the live data and the copy differ
 mutate() {
   dc exec -T banking "${NODE[@]}" -e 'const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db"); d.exec("DELETE FROM transactions WHERE id IN (SELECT id FROM transactions ORDER BY id DESC LIMIT 3)"); d.exec("PRAGMA wal_checkpoint(TRUNCATE)"); d.close();'

@@ -49,5 +49,5 @@ describe("repo rules: Finnish voice (rule 28)", () => {
       for (const p of breaks(r.text)) found.push({ file: r.file, line: r.line, why: `${p.name} (${p.fix}): ${r.text.replace(/\s+/g, " ").slice(0, 80)}` });
     }
     expectNoFindings("Finnish voice", found, "the patterns and their fixes are in tools/repo-rules/finnish.ts; a text that must keep a word (a quoted bank text) needs the pattern narrowed there, with a case in finnish.test.ts.");
-  });
+  }, 30_000); // reads every text the browser shows: a loaded machine takes over the five seconds a test gets
 });

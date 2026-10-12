@@ -193,5 +193,5 @@ describe("pnpm strings on this repository", () => {
     expect(one.status).toBe(0);
     expect(one.stdout.trimEnd().split("\n")).toEqual(lines(repo).filter((l) => l.startsWith(`${file}:`)));
     expect(spawnSync(process.execPath, ["tools/ui-strings.mjs", "--dir", "x"], { cwd: REPO, encoding: "utf8" }).status).toBe(2);
-  });
+  }, 30_000); // starts node twice: a loaded machine takes over the five seconds a test gets
 });

@@ -13,12 +13,12 @@ Every transaction lands in exactly one flow, so nothing is counted twice or left
 
 ## Definitions
 
-A figure has one definition, in `packages/core`, and the month page, the reports and Laskut all use it.
+A figure has one definition, in `packages/core`, and the first page, the reports and Laskut all use it.
 
 | Word | Means | In core |
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
-| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. A month's usual spending is the median of those months' totals, on the same days for a running month: the forecast, the pace chart and *Menojen muutos* say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
+| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. A month's usual spending is the median of those months' totals, on the same days for a running month: *Menojen muutos* and the buffer report say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
 | *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
 | *Yli jäi* | Income + credit drawn − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on. See *Yli jäi and borrowed money* | `PeriodTotals.leftCents`, summed in `totalsOf` in `analysis/flows.ts` and nowhere else |
@@ -42,7 +42,7 @@ row count still includes them, and the page says the transfers are not in the su
 ## Yli jäi and borrowed money
 
 *Yli jäi* is what a period left on the accounts: income + credit drawn − spending − debt service − saved (ADR 0014).
-`totalsOf` holds the sum, and the month page and the cash flow report read `leftCents` from it. The figure is the same
+`totalsOf` holds the sum, and the first page and the cash flow report read `leftCents` from it. The figure is the same
 number the rows give with no flow in between: the sum of every row on an account that is not a loan, less the transfer
 rows (a pair cancels itself, so this takes away the legs with no other half in the period), less the money moved into
 savings accounts, which is *Säästöön*. A card account is in the sum, since a card purchase is spending on the day it is
@@ -106,7 +106,7 @@ sentences under it and nothing told as a share of the income.
 | Transfer to a person's account with no payment reference | spending ("Maksut henkilöille") | a gift or a share, not a sole trader's invoice. Money in is not read this way. See *People* |
 | Money from another holder of your account (a partner), also when the bank calls it an own transfer | income that is not earned ("Maksut henkilöiltä") | it is her money, not your pay and not your saving. See *People* |
 | A limited company with a word of lending in its name that no list knows | paid: debt (finance, credit, loan, bank). Money in: borrowing, for finance, credit or loan only | a bank also pays pay and bonuses. See *Lenders* |
-| Money out to the bank of a connected account, by its plain name | not debt by the name alone | a paper statement or a card bill paid by reference is no instalment. The bank's finance company is a lender like any other |
+| Money out to the bank of a connected account, by its plain name | not debt by the name alone | a paper statement or a card bill paid by reference with sums that vary is no instalment: the same sum paid month after month under one reference is (see *Lenders*). The bank's finance company is a lender like any other |
 | MobilePay to a business (name ends or starts with Oy, Ky, ry and the like) | spending in the business's category | a company form in the payee name rules out a person |
 | Tori.fi, Vinted, Huuto.net | income ("Myyntitulot") | |
 | Cash withdrawal | spending ("Käteisnostot") | |
@@ -158,13 +158,17 @@ account, so the bill must not count again. Each run works this out from the rows
 - **Before the card's first row and after.** A payment to a known channel that paired with nothing is a transfer when
   the card's own rows began more than a billing month (`BILLING_MONTH_DAYS`) before it: the purchases it pays are on
   the card account. A payment within that time of the card's first row, or before it, is a card bill and counts as
-  spending (*Luottokortin lasku*), since the purchases it pays are in no row. A bill that pairs is a transfer whenever
-  it is paid, so the purchases of the first paired bill are counted nowhere.
+  spending (*Luottokortin lasku*), since the purchases it pays are in no row. A channel that several cards share pays
+  the card whose rows began last before the payment, so a new card's first bill is a card bill whatever the old card's
+  rows hold. A bill that pairs is a transfer whenever it is paid, so the purchases of the first paired bill are counted
+  nowhere.
 - **The issuer fallback.** A payment still called a card bill, whose text names a connected card, is a transfer. The
   text names a card when it holds the issuer's word and the card's product: a Platinum bill while only Gold is connected
   stays spending. A name is weak evidence, since a finance company shares its bank's name, so it counts only when
-  nothing better is known: the card has no channel yet, the payee never paid credit out to the household (*Lenders*),
-  the row is no return and was not set by hand.
+  nothing better is known: the card has no channel yet, the payment is not to the account and reference that paid
+  credit out to the household (a lender's contract, which a flexible credit repaid in varying sums is: *Lenders*), the
+  row is no return and was not set by hand. A bill that names a connected card is that card's also when its issuer paid
+  credit out: only the payments to the account and reference the credit came from are left as they were.
 - **Your rules.** The channel decides every payment that could be a transfer leg, also one that a rule of yours put in
   a debt, savings or *Muut* category. A rule to a purchase category (*Koti*) and a category set by hand on a row stay.
 - **Data quality.** The bills counted as spending show in Tietojen laatu (*Korttilaskuja … lasketaan menoiksi*), with a
@@ -199,8 +203,23 @@ is often a shop's brand too (Elisa, Helen, Silja), so a person is told before th
   name. Where the user is not known the own name cannot be told, so such a row is a payment between people.
 - **MobilePay at a till.** "MOB.PAY*" in front of a payee, with a person's name behind it, is a person, unless the
   card's merchant code names a shop.
-- **What stays a shop.** A card row, and a payee with a company form or a trade word in its name. Money in with a pay
-  word or the bank's pay code is pay, unless it comes from a co-holder or through MobilePay.
+- **A card row.** On a card account the country and the town in front of the payee are dropped before a person is
+  looked for. A row with a card's code or a card terminal's text is never a payment to a person by the bank's word or
+  by the holder's name: a card pays a shop, whatever the shop is called.
+- **What stays a shop.** A card row, and a payee with a company form or a trade word in its name. A trade word in front
+  of a name (*Kampaamo Liisa*, *Siivous Virtanen*), a town (*Helsingin kaupunki*), a company with its form between two
+  words (*Bostads Ab Exempel*), a school or an association (*Esimerkin koulu*) is no person: the rules after the people
+  sort it. Money in with a pay word or the bank's pay code is pay, unless it comes from a co-holder or through
+  MobilePay.
+- **A payee that may be a person is not asked about.** The trade register is public, so a payee goes there only when it
+  may be no person (`mayBePerson` in `payee-guard.ts`). It may be one when its name has the shape of a person's, when
+  it holds a word of a name the household has (the holders of its accounts as the bank gives them, its members' display
+  names), or when nothing but an invoice speaks for a business and the name does not say it is one (a company form, or
+  a business word with no person's two names beside it). An invoice to one bare word (*Zorro*), to a name with a sign
+  in a word (*A&B Esimerkki*) or to an e-mail address is therefore no business's alone: it counts when another row of
+  the same merchant shows a business in another way (a card payment, a merchant code, a company form or a business
+  word). What is sent and what the guard does not catch is in
+  [SECURITY.md](SECURITY.md#trade-register-lookup).
 
 ### Lenders
 
@@ -214,8 +233,9 @@ four ways, in this order, and the first that applies decides.
    (*rahoitus*, *finans*, *kredit*), and bank, as a word of its own or after *säästö*, *osuus*, *hypo*, *asunto*,
    *spare* or *handels* (Osuuspankki, Sparebank, not Powerbank). Money out to one is debt, and *financial* counts as a
    word of lending then. Money in is credit drawn by finance, credit or loan only: a bank also pays pay and bonuses and
-   returns deposits, and the pay words and the bank's pay code are read before the name. Not a lender by its shape: a
-   card payment, an insurer, a housing company, a lease, a bond, a text that names a card, a refund coming in (a
+   returns deposits, and the pay words and the bank's pay code are read before the name. A word of credit inside a
+   company's name (a compound ending in *luotto*, *autorahoitus*) is read only when the row is no card payment: a card
+   purchase from such a company is a purchase. Not a lender by its shape: a card payment, an insurer, a housing company, a lease, a bond, a text that names a card, a refund coming in (a
    lender's overpayment sent back is one), and a name with a trade word in it (a restaurant called The Bank).
 3. **The payee's own payout.** A payee that paid credit out to the household is a lender, so its later payments are
    debt, also when the text says nothing of lending. A person and the user's own name are none, since the money they
@@ -227,7 +247,14 @@ four ways, in this order, and the first that applies decides.
 **The household's own bank.** The bank of a connected account is no lender by its plain name. Money out to it (a paper
 statement, a share subscription, a card's bill paid by reference) is not a loan payment by the name alone, and the
 register's answer "credit institution" does not make it one: the name rule and the register share one test
-(`isOwnBankPayment`), so a row has one answer. This holds for money out only, and never for the bank's finance company,
+(`isOwnBankPayment`), so a row has one answer. Another bank of the same kind (a savings bank, a cooperative bank) is
+not the household's own: the kind of bank in a name names nobody when the name has another word. A loan at the bank
+that is paid like an invoice has no word of a loan to read, so its reference tells it: money out to the bank itself,
+with a payment reference and no word in its text, is one contract for each reference, and when the sums that repeat three
+times or more under it are at least half of its payments, they are a loan's instalments (`isInstalments` in
+`card-channel.ts`). A fee or a subscription is not paid so. A company that only shares a word with the bank's name
+(its fund company) is no contract, and a card paid one fixed sum under its reference reads the same as a loan, which
+only a pair with the card's own row tells apart. This holds for money out only, and never for the bank's finance company,
 a name that holds the bank's word and also a word of finance, credit or loan with a company form. That is a lender like
 any other, both ways. Money in from the bank stays what it is: pay, a bonus, a deposit coming home.
 
@@ -326,7 +353,7 @@ that may be going to waste. Clicking one opens the transactions behind it.
 | *Sama veloitus kahdesti* | The same merchant, amount and day twice on one account, at least 20 €. A merchant that does this often (two cinema tickets) is left out. A monthly bill paid twice within a week counts too |
 | *Myöhästymiskuluja* | A payment text with *muistutusmaksu*, *viivästyskorko*, *perintäkulu* or *karhumaksu*. Shows the total and the merchants |
 | *Kaksi äänikirjapalvelua* and the like | Two or more active subscriptions of the same kind: audiobooks, music, cloud storage, video. Video is shown as information only, the others as a warning |
-| Category spike | A category that rose in the month against its usual level in the *Menojen muutos* report, by the report's gate or more and out of its own noise, with the report's amount and usual level (ADR 0013). Every category is read, also one the report's table folds into *Muut*. The month is the report's: the one the period ends in, so Kuukausi, 3 kk and Vuosi that reach today all tell the running month, and last month's spike shows when that month is selected. The rise in purchases that are no one-off and no bill or subscription of a month or longer must be at least 50 €, over half the usual level, from three or more purchases, most of the category's rise and above every usual month, so a sofa, a car repair, a new subscription or a bigger bill is not a spike. A running month is set against the same days of the usual months (*Tavallisesti tähän mennessä*). When the rows end before today, the alert names the day both figures are cut at (*10.10. mennessä*). A month that was as far above usual a year ago does not count. Before a year of history, December gifts and shopping and summer trips and outings do not count either. Uncategorised rows and loan payments never alert |
+| Category spike | A category that rose in the month against its usual level in the *Menojen muutos* report, by the report's gate or more and out of its own noise, with the report's amount and usual level (ADR 0013). Every category is read, also one the report's table folds into *Muut*. The month is the report's: the one the period ends in, so the running month's spike shows when Yhteenveto shows the running month, and last month's when it shows the month before. The rise in purchases that are no one-off and no bill or subscription of a month or longer must be at least 50 €, over half the usual level, from three or more purchases, most of the category's rise and above every usual month, so a sofa, a car repair, a new subscription or a bigger bill is not a spike. A running month is set against the same days of the usual months (*Tavallisesti tähän mennessä*). When the rows end before today, the alert names the day both figures are cut at (*10.10. mennessä*). A month that was as far above usual a year ago does not count. Before a year of history, December gifts and shopping and summer trips and outings do not count either. Uncategorised rows and loan payments never alert |
 | A forgotten subscription, titled with the merchant and its cost (*Esimerkkipalvelu 12 €/kk, 144 € vuodessa*) | An active subscription that the recurring detection marks for review: a service of 3–15 € a month (a gym up to 60 €) that has run for half a year. The alert says how many months it was paid and asks with the buttons *Käytössä* and *Lopetettu*. Shown when the period reaches today, two at most |
 | *Pankkikuluja … vuodessa* | Bank fees and interest add up to over 100 € a year, judged over at least six months and 150 days of data. Reminder fees and late interest have their own alert |
 | *… kertaa kuussa* | A merchant with at least eight small purchases a month (median under 10 €) over the last 90 days, with the yearly sum. Fixed costs, cash and payments to people are left out |
@@ -335,38 +362,63 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 
 ## Periods, fixed costs and insights
 
-- *3 kk*, *6 kk* and *12 kk* are the last whole months. *Tämä kuu* runs to today and is compared with the
-  same days of the previous month. *Tämä vuosi* runs to today. Its savings rate counts its complete months,
-  because the running month has its bills but often not yet its salary.
-- The month forecast is what has gone so far, the bills still due this month and the usual everyday
-  spending for the days left (the median of the last six complete months, per day). The credit card bill is no
-  fixed cost, but the forecast expects it. A merchant marked as
-  cancelled is not expected. Bills the household typed in count while they are still to pay this month:
-  one that the history shows as a series is left out, and so is one for which a row of about the same
-  amount (within 5 %) was booked in the month before its date. The overview shows the forecast as a range:
-  the forecast plus and minus the median error the same forecast made on the household's own last six
-  complete months, each taken with the same number of days left and without typed-in bills, and never
-  below what has been spent. A month counts when a complete month comes before it. Under three such
-  months the typical errors of two test households apply instead: 8 % on the 5th, 6 % on the 10th, 2,5 %
-  on the 20th and nothing on the last day, interpolated in between. The tile names which of the two it
-  rests on.
-- The pace chart, in the forecast card, compares the month with *Tavallisesti*: for each day, the median cumulative
-  spending of the last six complete months, so its last day is the usual month and today's point the usual so far.
-  Under three complete months there is no line.
-- *Menojen muutos* (*Kuukausi > Viime kuu*) sets the month against its usual total and splits the change into
-  causes by category. A category's usual level is its own median with its one-offs struck. Medians do not add up,
+- Yhteenveto offers two months and names them (*Lokakuu 2026*, *Syyskuu 2026*): the running month, which runs to
+  today and is compared with the same days of the previous month, and the month before it, whole. *3 kk*, *6 kk* and
+  *12 kk* on Raportit are the last whole months. *Tämä vuosi* on Raportit runs to today. Its savings rate counts its
+  complete months, because the running month has its bills but often not yet its salary.
+- *Menojen muutos* (on Yhteenveto, with the month before the running one chosen) sets the month against its usual
+  total and splits the change into causes by category. A category's usual level is its own median with its one-offs struck. Medians do not add up,
   and a level leaves its one-offs out, so the categories' levels add up to more or less than the usual month. The
   difference is in *Muut* as *Kuukausien vaihtelu*, which is no cause and can make the usual of *Muut* negative.
-- The card on Kuukausi counts the days to the next payday (*The days to the payday* below). *Tulossa* on Laskut keeps
+- The card of the days to the payday on Yhteenveto counts to the next payday (*The days to the payday* below). *Tulossa* on Laskut keeps
   its 30 days: it lists the subscriptions and bills of the next 30 days from the same rows as the card, whatever the
   card's window is.
 - Insights say what changed in the period. A month is compared with its usual level (the median of the
   six months before) and shown only when it is outside all of them. A longer period is compared with the
   previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.
 
+## The first page
+
+Yhteenveto opens with the card *Varallisuus*, then *Menot* when the running month is shown, then the card of the days
+to the payday. The figures on the first two are core's and the page shows them as given.
+
+**Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out.
+
+- **Tilit.** Checking, savings and other accounts, each with its balance from the day walk. *Yhteensä* is
+  `accountsCents`: the known balances of the accounts added together. An account the bank gave no balance is left out of
+  the sum and counted in the small line under it (*Ilman 2 tilin saldoa*), and with no known balance at all the total is
+  empty, never 0. With more than four accounts, those with less than a euro in them, either side of zero, fold into
+  *Muut tilit* and stay in the total.
+- **Luottokortit.** Each connected credit card. *Käytetty luotto* is what is owed on it as `householdDebts` counts it
+  (`usedCents`: 0 for a card in credit, *Ei tiedossa* when the bank gave no balance). *Luottoraja* is the limit the bank
+  gave, when it is above zero, and *Käytettävissä* is the limit less what is used, 0 over the limit (`freeCents`). A card
+  over its limit shows *Luottoraja ylitetty* and what is owed above it (`overCents`) in place of *Käytettävissä*. A card
+  with no limit shows what is used alone.
+- **Lainat.** Every debt of `householdDebts` that is no connected card's: a saved loan, a loan account, and a saved loan
+  linked to its account once. *Lainaa jäljellä* is what is left on the day (`leftCents`), and a loan whose balance is not
+  known says so and is left out of the debt total. *Kuukausierä* is the next payment spread over a month, and only a
+  loan that has one shows it.
+- **The debt row.** Under the loans, when the household owes anything, stands `debtCents`: the one debt total of
+  `householdDebts`, in which the cards' use and the loans' balance add up to the cent. It is called *Velat yhteensä*
+  when a card has something used and *Lainat yhteensä* when the loans alone make it (`debtTotalName` in
+  `components/holdings/holding-rows.ts`).
+
+**Menot** is `monthPace` in `analysis/forecast.ts`. Spending is what the totals count, consumption and debt service.
+Nothing is forecast: both months are sums of real rows. The card shows the running month only; the month before is told
+by *Menojen muutos*.
+
+- **The figure** is the month's spending so far, `currentTotal` of `monthPace`: the cumulative spending to today, 0
+  before the 1st.
+- **The line under it** (*Syyskuussa 12.9. mennessä* and a sum) is the month before by the same day of the month
+  (`previous.toToday`), or by its last day when that month is shorter than today's day of the month. It is left out
+  when the history has no row in the month before.
+- **The chart** (*Menojen kertymä*) draws both months day by day, each the cumulative sum of its rows: the running month
+  to today, the month before to its last day. The month before has no line when the history does not reach it, and with
+  nothing spent yet the card says so in a line instead of a chart.
+
 ## The days to the payday
 
-The card on Kuukausi answers one question: is there enough on the account until the pay comes. `cashAhead` in
+The card on Yhteenveto that counts the days to the payday answers one question: is there enough on the account until the pay comes. `cashAhead` in
 `analysis/ahead.ts` owns its figures, and the card (`components/next-days.ts`) only words them.
 
 - **The payday** is the next pay of the regular income with the largest usual amount. A monthly salary comes on its pay
@@ -380,9 +432,11 @@ The card on Kuukausi answers one question: is there enough on the account until 
   (`MAX_PAYDAY_DAYS`), so the window is the next 30 days (*Seuraavat 30 päivää*). *late*: that pay is more than five days
   late (`OVERDUE_DAYS`), so the window is 30 days and the card says since when the pay was expected.
 - **What the window holds.** The subscriptions and bills that the history shows (also savings plans, which leave the
-  checking account), the bills the household typed in, by the same two rules as the month forecast, and other pay that
-  lands inside it. The payday itself is no row. With a checking balance, own and shared, and one complete month, it
-  gives the balance at the end of each day. It starts from today's balance as Saldot has it (the bank's balance with
+  checking account), the bills the household typed in while they are still to pay (one that the history shows as a
+  series is left out, and so is one for which a row of about the same amount, within 5 %, was booked from 31 days
+  before its date up to today: `expectedBillRows` in `analysis/forecast.ts`), and other pay that lands inside it. The
+  payday itself is no row. With a checking balance, own and shared, and one complete month, it gives the balance at the
+  end of each day. It starts from today's balance as Saldot has it (the bank's balance with
   the rows booked since), adds other pay, takes off the bills and takes off the usual everyday spending per day from
   tomorrow on (the median of the last six complete months, without fixed costs). Start balance plus pay less bills less
   everyday spending is the last day's balance, to the cent. The lowest day is named when it is below zero or below a
@@ -403,7 +457,7 @@ The card on Kuukausi answers one question: is there enough on the account until 
 - A category whose refunds were greater than its spending in the range stays in *Kategoriat* and *Kuukausitaulukko* as a
   row with its minus, last in the order. Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
-  month page's own list of categories adds only categories above zero, so it can differ from the month's total by the
+  first page's own list of categories (*Kategoriat*) adds only categories above zero, so it can differ from the month's total by the
   refunds of such a category.
 - *Luokittelematta* on Tapahtumat lists the 50 merchants with the most money out that nothing recognised. Its heading
   counts all of them and their money out, which the server adds up in SQL, so the list can be shorter than the count.
@@ -479,7 +533,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   (`overdraftTwice` in `reports/loans.ts`). Lainat and Saldot say so where they show that figure, and that the right
   figure is then larger by the saved loan. They advise no step: removing the saved loan would take the debt out of the
   debt total, which holds it once.
-- The debt total is one number. The Lainat report, the first page's *Velkaa yhteensä*, the accounts less the debts and
+- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä* when no card owes anything), the accounts less the debts and
   the Velat lines of the Säästövinkit loan area all read `householdDebts` (`owners.test.ts` and
   `balances-holdings.test.ts` in `packages/core/test` hold them together).
 - The accounts less the debts ("Tilit miinus velat", `accountsLessDebt` of `balanceReport`) are the connected

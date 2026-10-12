@@ -2,7 +2,7 @@ import { FEATURES, type FeatureState } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { NAV, type NavEntry, SETTINGS, visibleNav } from "../src/nav.ts";
 
-const GATED: NavEntry[] = [{ id: "overview", label: "Kuukausi" }, { id: "optimise", label: "Säästövinkit", feature: "optimise" }];
+const GATED: NavEntry[] = [{ id: "overview", label: "Yhteenveto" }, { id: "optimise", label: "Säästövinkit", feature: "optimise" }];
 
 describe("visibleNav", () => {
   it("hides the entry of a module while its flag is off", () => {
@@ -17,12 +17,12 @@ describe("visibleNav", () => {
     expect(visibleNav(undefined, GATED).map((e) => e.id)).toEqual(["overview"]);
   });
 
-  it("the shipped nav is Kuukausi | Laskut | Tapahtumat | Raportit | Säästövinkit, with Säästövinkit last and left out while its flag is off or not loaded", () => {
+  it("the shipped nav is Yhteenveto | Laskut | Tapahtumat | Raportit | Säästövinkit, with Säästövinkit last and left out while its flag is off or not loaded", () => {
     expect(NAV.filter((e) => e.feature).map((e) => [e.id, e.feature])).toEqual([["optimise", "optimise"]]);
     const off = ["overview", "bills", "transactions", "reports"];
     expect(visibleNav(undefined).map((e) => e.id)).toEqual(off);
     expect(visibleNav({ optimise: false }).map((e) => e.id)).toEqual(off);
-    expect(visibleNav({ optimise: true }).map((e) => e.label)).toEqual(["Kuukausi", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
+    expect(visibleNav({ optimise: true }).map((e) => e.label)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
   });
 
   it("Asetukset is the link in the header, not a nav entry, and a page of its own that no flag hides", () => {
@@ -36,9 +36,9 @@ describe("visibleNav", () => {
     expect(visibleNav(defaults).map((e) => e.id)).toContain("optimise");
   });
 
-  it("names its pages Kuukausi, Laskut and Säästövinkit; the ids of the old pages, and so their addresses, stay", () => {
+  it("names its pages Yhteenveto, Laskut and Säästövinkit; the ids of the old pages, and so their addresses, stay", () => {
     const label = (id: string) => NAV.find((e) => e.id === id)?.label;
-    expect(label("overview")).toBe("Kuukausi");
+    expect(label("overview")).toBe("Yhteenveto");
     expect(label("bills")).toBe("Laskut");
     expect(label("optimise")).toBe("Säästövinkit");
     expect(label("reports")).toBe("Raportit");

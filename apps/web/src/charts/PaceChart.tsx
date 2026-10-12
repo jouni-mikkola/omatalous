@@ -7,16 +7,30 @@ import "../styles/charts.css";
 
 const MARGIN = { top: 12, right: 64, bottom: 24, left: 56 };
 const CURRENT = "var(--series-1)";
-const USUAL = "var(--series-avg)";
+const PREVIOUS = "var(--series-avg)";
 
-/** Cumulative spending this month (accent) against the usual month (gray), when there are three complete months to say what usual is. */
-export function PaceChart({ current, usual, height = 220 }: { current: (number | null)[]; usual: number[] | null; height?: number }) {
+/**
+ * Cumulative spending of this month (accent) against the month before (gray), both of real rows, by day of the month.
+ * The names are the months', for the legend and the tooltip. The month before has no line when the history does not reach it.
+ */
+export function PaceChart({
+  current,
+  previous,
+  names,
+  height = 220,
+}: {
+  current: (number | null)[];
+  previous: number[] | null;
+  names: { current: string; previous: string };
+  height?: number;
+}) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
-  const days = current.length;
+  // one axis for both months: a longer month before still ends on its last day
+  const days = Math.max(current.length, previous?.length ?? 0);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
-  const values = [...(usual ?? []), ...current.filter((v): v is number => v !== null)];
+  const values = [...(previous ?? []), ...current.filter((v): v is number => v !== null)];
   const { ticks, max } = niceTicks(Math.max(...values, 0));
   const x = (i: number) => (days > 1 ? (i / (days - 1)) * innerW : 0);
   const y = (v: number) => innerH - (v / max) * innerH;
@@ -37,17 +51,17 @@ export function PaceChart({ current, usual, height = 220 }: { current: (number |
       <div className="legend" aria-hidden="true">
         <span>
           <i className="line-key" style={{ background: CURRENT }} />
-          Tämä kuukausi
+          {names.current}
         </span>
-        {usual && (
+        {previous && (
           <span>
-            <i className="line-key" style={{ background: USUAL }} />
-            Tavallisesti
+            <i className="line-key" style={{ background: PREVIOUS }} />
+            {names.previous}
           </span>
         )}
       </div>
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label="Kuukauden kertyvät menot verrattuna tavalliseen kuukauteen">
+        <svg width={width} height={height} role="img" aria-label={previous ? "Kuukauden kertyvät menot verrattuna edelliseen kuukauteen" : "Kuukauden kertyvät menot"}>
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
             {ticks.map((t) => (
               <g key={t} transform={`translate(0,${y(t)})`}>
@@ -62,7 +76,7 @@ export function PaceChart({ current, usual, height = 220 }: { current: (number |
                 {d}.
               </text>
             ))}
-            {usual && <path d={path(usual)} fill="none" stroke={USUAL} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
+            {previous && <path d={path(previous)} fill="none" stroke={PREVIOUS} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
             <path d={path(current)} fill="none" stroke={CURRENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
             {lastVal !== null && (
               <>
@@ -75,7 +89,7 @@ export function PaceChart({ current, usual, height = 220 }: { current: (number |
             {hover !== null && (
               <g pointerEvents="none">
                 <line className="axis-line" x1={x(hover)} x2={x(hover)} y1={0} y2={innerH} />
-                {usual && <circle cx={x(hover)} cy={y(usual[hover]!)} r={4} fill={USUAL} stroke="var(--surface)" strokeWidth={2} />}
+                {previous?.[hover] != null && <circle cx={x(hover)} cy={y(previous[hover]!)} r={4} fill={PREVIOUS} stroke="var(--surface)" strokeWidth={2} />}
                 {current[hover] != null && <circle cx={x(hover)} cy={y(current[hover]!)} r={4} fill={CURRENT} stroke="var(--surface)" strokeWidth={2} />}
               </g>
             )}
@@ -102,8 +116,8 @@ export function PaceChart({ current, usual, height = 220 }: { current: (number |
       {hover !== null && (
         <Tooltip x={MARGIN.left + x(hover)} y={MARGIN.top + 8} containerWidth={width}>
           <div className="tooltip-title">{hover + 1}. päivä</div>
-          {current[hover] != null && <TooltipRow color={CURRENT} name="Tämä kuukausi" value={money(current[hover]!, false)} />}
-          {usual && <TooltipRow color={USUAL} name="Tavallisesti" value={money(usual[hover]!, false)} />}
+          {current[hover] != null && <TooltipRow color={CURRENT} name={names.current} value={money(current[hover]!, false)} />}
+          {previous?.[hover] != null && <TooltipRow color={PREVIOUS} name={names.previous} value={money(previous[hover]!, false)} />}
         </Tooltip>
       )}
     </div>

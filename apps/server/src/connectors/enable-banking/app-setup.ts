@@ -255,7 +255,7 @@ async function applicationActive(client: EnableBankingClient): Promise<boolean |
 /** Signs a request with the given credentials and reads the application and the bank list: proves App ID and key belong together. */
 async function probe(s: Services, appId: string, privateKeyPem: string, saved: boolean, own = false): Promise<ActivationResult> {
   try {
-    const client = new EnableBankingClient({ appId, privateKeyPem, fetch: s.fetch });
+    const client = new EnableBankingClient({ appId, privateKeyPem, baseUrl: s.config.bank.apiUrl, fetch: s.fetch });
     const active = await applicationActive(client);
     if (active === false) return { verified: false, active, message: INACTIVE_MESSAGE };
     const banks = await client.listAspsps(DEFAULT_BANK.country);
@@ -295,7 +295,7 @@ const bankLists = new WeakMap<object, BankList>();
 /** Asks Enable Banking for the application's bank list. The promise never rejects: a failed call keeps `previous`'s answer. */
 function askBankList(s: Services, appId: string, privateKeyPem: string, previous?: BankList): BankList {
   const list: BankList = { appId, at: s.now().getTime(), aspsps: previous?.appId === appId ? previous.aspsps : null, ok: false, pending: null };
-  list.pending = new EnableBankingClient({ appId, privateKeyPem, fetch: s.fetch })
+  list.pending = new EnableBankingClient({ appId, privateKeyPem, baseUrl: s.config.bank.apiUrl, fetch: s.fetch })
     .listAspsps(DEFAULT_BANK.country)
     .then(
       (aspsps) => {

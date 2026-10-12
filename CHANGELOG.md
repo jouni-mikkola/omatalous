@@ -3,6 +3,54 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.11.0
+
+- The first page is now Yhteenveto and opens with Varallisuus: your accounts with their total, your credit cards with the credit used, the limit and what is available, and your loans with what is left and the monthly instalment. Its two buttons name the months they show, such as Lokakuu 2026.
+- The forecast to the month's end is gone, because its range was too wide to help. The card Menot shows what the month has cost so far beside what the month before had cost by the same day, from real rows only.
+- More payments are sorted right. A hairdresser, a taxi, a town or a company whose name reads like a person's is sorted by its trade again, and a loan at your own bank that is paid like an invoice counts as a debt payment. Past months are sorted again on the first start, so their figures change with it.
+- The trade register is never asked about a name that holds a word of your household's own names, and only a merchant's name is ever sent to it.
+- An update says so when GitHub's limit of requests was met, and two installs on one Docker no longer stop each other's update.
+
+Money and reports
+
+- A payment to a hairdresser, a cleaner, a florist, a taxi, a physiotherapist, a kennel, a pizzeria or a town that is named like a person ("Kampaamo Liisa", "Helsingin kaupunki") is sorted by its trade again, not as a payment to a person.
+- A company with its form in the middle of its name, a school and an association ("Bostads Ab Exempel", "Esimerkin koulu") are no longer taken for a person.
+- A MobilePay payment to a person on a card account is a payment to a person also when the row begins with the country and the town.
+- A card purchase from a company whose name holds a word of credit (a car workshop called "Autorahoitus") is a purchase by its card code, not a loan payment.
+- A loan at your own bank that is paid like an invoice, with a reference number and no text beside it, counts as a debt payment when the same sum is paid under that reference month after month. Only payments to the bank itself count: a company that shares a word with your bank's name, such as its fund company, is not taken for the bank.
+- Another bank of the same kind as yours (another savings bank) is no longer read as your own bank.
+- Credit drawn from the issuer of a connected card no longer makes that card's bills count as spending a second time.
+- When a new card replaces an old one and is paid the same way, the new card's first bill counts as spending once a later bill of the new card has been matched with the card's own payment row: the purchases it pays for are in no data. Until then it is taken for a payment between your own accounts.
+- The server works out who uses each account. A joint account is its holders' in equal parts, by the holder names the bank gives, and any other account is the member's who linked it. `/api/meta` tells it for each account as `use`, with the viewer's `part`. No figure counts by it yet.
+- The member who linked an account can say who uses it and at what weights, and take that back (`PUT` and `DELETE /api/accounts/<id>/use`). One statement holds for the real account, so both partners' copies of a joint account read the same. No page offers it yet.
+- A part that was said of an account stays when a member is removed: the others keep the same ratio, and the removed member's share goes to the account's holders who are not users of the app.
+- An invoice (a payment to an account with a reference number) to a payee whose name does not say it is a business, such as the one word `Zorro` or `A&B Esimerkki`, now takes the category of the company's industry when the household also pays the same shop by card. An invoice alone does not make such a name a business, so it is not looked up. An invoice to a name that reads as a person's stays as it was sorted.
+- Security: the trade register is never asked about a name that holds a word of the household's own names. Those are the holders of its accounts as the bank gives them and the members' display names, so a relative's firm and a shop named like a member are not looked up, whatever the row says. A word is matched as the bank writes it, so a firm named with the surname in the genitive (`Meikäläisen Huolto`) is still looked up.
+- Security: only the name of the merchant is sent to the register, never amounts, dates or account numbers. A name that reads as a person's (two to four words, none a company form or a business word) is not sent. A firm named after its owner with a company form (`Tmi Liisa Virtanen`, `Virtanen Oy`) is, as before, unless it holds a word of the household's own names.
+- The forecast to the month's end is gone from the first page: its range was too wide to help. The card "Menot" now shows what the running month has cost so far, what the month before had cost by the same day ("Syyskuussa 12.9. mennessä") and a chart of both months ("Menojen kertymä"). Every figure is a sum of real rows, and the usual month is no longer drawn there.
+
+Look
+
+- The first page is now called Yhteenveto (it was Kuukausi), in the menu, the heading and the tab title. Its two buttons name the months they show, for example Lokakuu 2026 and Syyskuu 2026, in place of Tämä kuu and Viime kuu. Bookmarks to the page and to either month keep working.
+- The first page opens with one card, Varallisuus, with Tilit, Luottokortit and Lainat in it. The groups stand side by side on a wide screen and under each other on a phone.
+- Tilit starts with the total of the accounts and says how many accounts it leaves out for want of a balance. Two accounts with the same name show the last four characters of the account number. With more than four accounts, those that hold less than one euro fold into "Muut tilit".
+- A credit card is a small card drawn with the bank's name, a chip and the last four digits, beside its name and its figures: how much credit is used, the limit and what is available, or by how much the limit is passed. The type the bank adds to the name in brackets, such as "(credit)", is left out.
+- Lainat shows what is left of each loan and the monthly instalment as two lines, and the total under it is called "Velat yhteensä" when credit cards are in it.
+
+Maintenance
+
+- The maintenance scripts keep one copy of code they had several times, and the helper and the Cloudflare setup change `.env` through one library. Nothing changes for an install.
+- When GitHub refuses the check for a new version because the limit of requests was met (403 or 429), update.sh says so and that an hour's wait cures it, instead of the plain "could not ask GitHub".
+- Two Omatalous instances on one Docker that fetch the same version at the same moment no longer stop each other's update: the image is tagged by its id, and the pull is made once more if the other instance has removed the registry tag first.
+
+For developers
+
+- `pnpm e2e` runs on three Playwright workers, each with a server, data directory and fake bank of its own, so a whole run takes about half the time. `E2E_WORKERS=1` runs the specs one after the other.
+
+Upgrade
+
+- Migration 0018 runs on the first start. It adds a table and changes no row.
+
 ## 0.10.0
 
 - Figures that were wrong are right. Card bills are told as card bills also for the months before the card was connected, money from the other holder of a joint account is shown as money from a person, not as earned income or savings drawn, and a lender the app did not know is counted as debt. Past months are sorted again on the first start, so their figures change with it.

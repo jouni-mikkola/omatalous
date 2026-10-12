@@ -115,6 +115,19 @@ t_launcher_syntax_error_uses_last_good() {
   check "syntax error: a mended clone runs its own helper again" test "$TICK_RC" = 0 -a "$(n_calls '^tick B$')" = 1 -a "$(lines)" = 1
 }
 
+# The copy is whole: the last good helper loads every part from its own folder, ops-access.sh too (the address the
+# report tells comes from it). A clone's ops-access.sh that would fail, and says so in calls.log, is not read by it.
+t_launcher_copy_reads_its_own_access_lib() {
+  with_copy
+  printf 'echo "clone access lib" >>"$OPS_STUB_DIR/calls.log"\nreturn 1\n' >"$CL/scripts/lib/ops-access.sh"
+  broken scripts/ops-helper.sh; poll backup; ltick
+  check "own parts: the copy served the request" served
+  check "own parts: the clone's ops-access.sh was not read" test "$(n_calls '^clone access lib$')" = 0
+  check "own parts: the report tells the home network address, from the copy's ops-access.sh" grep -q '"lanAddress":"http://' <<<"$(report)"
+  git -C "$CL" checkout -q scripts/ops-helper.sh; : >"$S/calls.log"; ltick
+  check "own parts: a clone that runs its own helper reads its own ops-access.sh, once in the tick and once in its own test" test "$TICK_RC" = 0 -a "$(n_calls '^clone access lib$')" = 2
+}
+
 # a helper broken for days must not push the lines that say why out of the log
 t_launcher_line_once_in_ten_minutes() {
   with_copy; broken scripts/ops-helper.sh

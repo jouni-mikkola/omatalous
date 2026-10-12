@@ -1,57 +1,65 @@
-/* The first page's holdings: accounts, cards and loans (components/holdings/). */
+/* The first page's holdings: accounts, credit cards and loans (components/holdings/). */
 
-/* one card, the groups under each other with a rule between */
-.holding-group + .holding-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+/* A card is an object, not a part of the page: its colours are the same in the light and the dark theme, as a real card's
+   are, so they are fixed here and are not theme tokens. */
+:root {
+  --card-ink: #f2f4f7;
+  --card-navy-from: #243759;
+  --card-navy-to: #111c33;
+  --card-gold-from: #8b6b31;
+  --card-gold-to: #5e4719;
+  --card-platinum-from: #687385;
+  --card-platinum-to: #424b59;
+  --card-chip: #dcbc6e;
+  --card-chip-line: #8a6c2b;
+}
+
+/* one card; the groups stand side by side on a wide page and under each other on a phone. Each group draws a hairline on
+   its top and left edge, and the row cuts off the ones on its own edges. */
+.holdings .card-head { margin-bottom: 0; }
+.holding-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); margin: 0 -18px -4px; overflow: hidden; }
+.holding-group { min-width: 0; margin: -1px 0 0 -1px; padding: 14px 18px 4px; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+.holding-group h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--text-2); }
 
 .holding-list { list-style: none; margin: 0; padding: 0; }
-.holding-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
-.holding-row:last-child { border-bottom: none; }
+.holding-list > li { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+.holding-list > li:last-child { border-bottom: none; }
+.holding-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .holding-logo { flex: none; width: 52px; }
 .holding-main { flex: 1 1 0; min-width: 0; }
 .holding-name { font-weight: 500; overflow-wrap: anywhere; }
 .holding-sub { color: var(--muted); font-size: 12px; }
 .holding-amount { margin-left: auto; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.holding-amount .holding-sub { font-weight: 400; }
-.holding-note { flex-basis: 100%; margin: 0; }
+.holding-sum .holding-amount { font-size: 20px; letter-spacing: -0.02em; }
 .holding-total .holding-name, .holding-total .holding-amount { font-weight: 600; }
+.holding-note { margin: 4px 0 0; }
+.holding-fold > summary { cursor: pointer; padding: 8px 0; color: var(--text-2); font-size: 13px; }
 
-/* the faces side by side on a wide page, under each other on a phone */
-.holding-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 280px)); gap: 20px 16px; justify-content: start; }
-.holding-card { min-width: 0; }
+/* label at the left, figure at the right, the figures under each other */
+.holding-figures { margin: 4px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.holding-figures > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 12px; }
+.holding-figures dt { color: var(--muted); }
+.holding-figures dd { margin: 0 0 0 auto; font-weight: 500; text-align: right; }
+.holding-figures dd .muted { font-weight: 400; }
+.holding-figure-warn dt, .holding-figure-warn dd { color: var(--warn); }
 
-/* a real card is 85.6 by 54 mm; the tier is the look: gold and platinum take a tint from the tokens, plain none */
-.card-face { aspect-ratio: 85.6 / 54; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); }
-.card-face-gold { background: var(--warn-bg); border-color: var(--series-4); }
-.card-face-platinum { background: var(--info-bg); border-color: var(--axis); }
-.card-face-top { min-height: 22px; }
-.card-face-bank { font-size: 12px; color: var(--text-2); }
-.card-face-mask { font-size: 14px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: var(--text-2); }
-.card-face-name { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+/* a credit card: the face at the left, the name and the figures at the right */
+.holding-card { display: flex; align-items: flex-start; gap: 12px; }
+.holding-card-text { flex: 1 1 0; min-width: 0; }
 
-/* under the face: used and limit, the bar, what is free */
-.card-use { margin-top: 8px; font-size: 13px; }
-.card-use-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 12px; font-variant-numeric: tabular-nums; }
-.card-use-line strong { font-weight: 600; }
-.card-over { color: var(--warn); }
-.card-meter { display: block; margin: 6px 0; }
+/* 132 by 83 px is a real card's 85.6 by 54 mm; the tier is the look */
+.card-face { flex: none; box-sizing: border-box; width: 132px; height: 83px; padding: 9px 10px; display: grid; grid-template-rows: auto 1fr auto; border-radius: 8px; color: var(--card-ink); background: linear-gradient(135deg, var(--card-navy-from), var(--card-navy-to)); }
+.card-face-gold { background: linear-gradient(135deg, var(--card-gold-from), var(--card-gold-to)); }
+.card-face-platinum { background: linear-gradient(135deg, var(--card-platinum-from), var(--card-platinum-to)); }
+.card-face-top { display: flex; align-items: center; height: 22px; min-width: 0; }
+.card-face-bank { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; font-weight: 600; }
+.card-chip { align-self: center; }
+.card-chip-body { fill: var(--card-chip); }
+.card-chip-lines { fill: none; stroke: var(--card-chip-line); stroke-width: 0.75; }
+.card-face-mask { font-size: 12px; line-height: 16px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+
+/* the meter under the figures */
+.card-meter { display: block; margin: 6px 0 0; }
 .card-meter-track { fill: var(--surface-2); }
 .card-meter-used { fill: var(--series-1); }
 .card-meter.over .card-meter-used { fill: var(--warn); }
-
-/* on a phone a card is one row: the small face at the left, its figures stacked at the right, as tall as an account row */
-@media (max-width: 600px) {
-  .holding-cards { display: block; }
-  .holding-card { display: grid; grid-template-columns: min(44%, 160px) minmax(0, 1fr); align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
-  .holding-card:last-child { border-bottom: none; }
-  .card-face { padding: 8px 10px; }
-  .card-face-top { min-height: 17px; }
-  .card-face .bank-logo-sm { width: 40px; height: 17px; border-radius: 4px; }
-  .card-face .bank-logo-sm img[src^="/api/bank/logos/"] { padding: 2px 4px; }
-  .card-face-bank { display: block; font-size: 11px; }
-  .card-face-mask { font-size: 12px; letter-spacing: 0.06em; }
-  .card-face-name { font-size: 13px; }
-  /* a long name is cut here and stays whole in its title */
-  .card-face-bank, .card-face-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card-use { margin-top: 0; min-width: 0; }
-  .card-use-line { flex-direction: column; }
-}

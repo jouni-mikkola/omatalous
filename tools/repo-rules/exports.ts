@@ -113,7 +113,7 @@ describe("repo rules: unread exports (rule 24)", () => {
       .filter((u) => !known.has(u.key))
       .map((u) => ({ file: u.file, line: u.line, why: `export ${u.key.split("  ")[1]} is read by no other source file (a test does not count)` }));
     expectNoFindings("unread exports", found, `delete the export with its test, or drop \`export\` when only its own file uses it. Do not add it to ${LIST}.`);
-  });
+  }, 30_000); // parses every source file of core and the server: a loaded machine takes over the five seconds a test gets
 
   it("rule 24b: every entry of the list is still an unread export, so the list shrinks when one is deleted or read", () => {
     const live = new Set(unreadExports(files(), parse).map((u) => u.key));
@@ -121,5 +121,5 @@ describe("repo rules: unread exports (rule 24)", () => {
       .filter((k) => !live.has(k))
       .map((k) => ({ file: LIST, line: lineIn(LIST, k), why: `no longer an unread export, delete the line: ${k}` }));
     expectNoFindings("unread exports list", found, `remove the listed lines from ${LIST}. Good: the export is gone or read.`);
-  });
+  }, 30_000);
 });

@@ -91,7 +91,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   not counted twice.
 - Check under *Asetukset > Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
   account counts as a transfer, because the purchases are already counted on the card. The type also puts the card
-  under *Kortit* on the first page, with its last four digits and, when the bank gives a limit, how much of it is used.
+  under *Luottokortit* in the *Varallisuus* card on the first page, with its last four digits and, when the bank gives a limit, how much of it is used.
 - Omatalous reads these fields of each account. The bank's `product` (Käyttötili, ASP-tili, Nordea Gold) becomes the account's name, and
   `name`, which holds the holders ("A;B"), a line under it. `cash_account_type` gives the type; Nordea sends `CACC` for every
   account, so a product with a savings word (säästö, ASP, tuotto, sijoitus) reads as *Säästötili* when the account is first linked (change the type under *Asetukset > Tilit* if it is wrong). A card's masked number

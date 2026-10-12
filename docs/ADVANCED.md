@@ -601,9 +601,10 @@ levy* does, with two differences: only untagged images that carry this app's lab
 image since 0.3.0) go, and the build cache stays. The daily round looks, at most once in six hours, and one line in
 `ops/helper.log` tells the free space before and after ("housekeeping: Docker's disk (...) had N MB free; pruned this
 app's old images; now M MB free"). It never touches a volume (the data and the backups), the running version, the
-previous version or the tagged images of other software. A release image arrives with a registry tag, which the update
-removes once the image has its own tag, so that an old version is untagged and the cleaning can free it. *Siivoa levy*
-("Poistaa vanhat versiot ja välimuistin.") is unchanged and also removes the build cache.
+previous version or the tagged images of other software. A release image arrives with a registry tag. The update reads
+the image's id right after the pull and tags the image `:latest` by that id, then removes the registry tag, so that an old
+version is untagged and the cleaning can free it, so it frees every older image and leaves the running version and the
+previous one. *Siivoa levy* ("Poistaa vanhat versiot ja välimuistin.") is unchanged and also removes the build cache.
 
 #### Files in ops/
 
@@ -617,6 +618,13 @@ try). Leave them alone.
 An update pulls the signed image from `ghcr.io` and checks its signature against the project's release workflow. It
 copies the database before the new version starts, and goes back by itself if the new version does not start.
 `./scripts/update.sh --yes` does the same from cron.
+
+Two copies of Omatalous on one machine may fetch the same version at the same moment, and the one that finishes first
+removes the registry tag of the image. The other update then pulls the image once more and goes on. If the tag is gone
+again after that second pull, the update stops and the old version keeps running. When the script asks GitHub which
+release is out and GitHub answers 403 or 429, the limit of requests for the address was met (60 an hour without a
+token). `./scripts/update.sh` run by hand then says "GitHub turned the request down: the limit of requests for this
+address was met. Nothing was changed. Wait an hour and run this again." It does not try again.
 
 The copy taken before an update is kept for 14 days, and the newest one longer, so a rollback after a longer wait goes
 back to that newest copy. The three newest intact copies of any kind are never deleted, see
@@ -698,6 +706,11 @@ copies made before the rotation are gone.
 ## Settings in .env
 
 The installer writes `.env`. You rarely need to change it by hand. After a change, run `docker compose up -d`.
+
+Four jobs change `.env` after the first install: remote access on the Etäkäyttö page, a new home network address, the
+switch *Tarjoa uudet versiot heti* and the Cloudflare setup of the installer. All four write it the same way: a whole new
+file beside it, then one rename. A stop at any moment (a kill, a power cut, a full disk) leaves the old file or the new
+one, never half of one, and a line of any other key stays as it was.
 
 | Key | Meaning |
 |---|---|

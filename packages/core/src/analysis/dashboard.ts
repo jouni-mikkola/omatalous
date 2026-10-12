@@ -10,12 +10,12 @@ import { type Bridge, buildBridge } from "./bridge.ts";
 import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
-import { type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
+import { type MonthPace, monthPace } from "./forecast.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { isCompleteMonth } from "./usual.ts";
 
-// the pace and forecast code lives in forecast.ts; these keep the names the package index has always exported
-export { type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
+// the pace code lives in forecast.ts; these keep the names the package index has always exported
+export { type MonthPace, monthPace } from "./forecast.ts";
 
 export interface CategoryTotal {
   category: string;
@@ -47,9 +47,11 @@ export interface DashboardData {
   bridge: Bridge;
   fixedMonthlyCents: number;
   categories: CategoryTotal[];
+  /**
+   * What the month has cost so far against the month before on the same days. The running month when the range
+   * reaches today (the period can be longer than the month), else the month the range ends in.
+   */
   pace: MonthPace;
-  /** null when the selected period does not include today. */
-  forecast: MonthForecast | null;
   /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the balance line. null when the selected period does not include today. */
   ahead: AheadData | null;
   /** Cost traps and mistakes; the overview shows them before insights. */
@@ -99,7 +101,7 @@ function settledTotals(ctx: AnalysisContext, range: DateRange, current: readonly
 }
 
 /**
- * Everything the month page shows (Kuukausi). Why a past month differed is the spending change report's usual view.
+ * Everything the month page shows (Yhteenveto). Why a past month differed is the spending change report's usual view.
  * `balances` and `inputs` are what the cached context does not hold: the
  * account balances and the user's marks and expected bills, read per request.
  */
@@ -114,7 +116,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
   const totals = totalsOf(current.map((t) => t.flows));
   const previousTotals = totalsOf(previous.map((t) => t.flows));
   const categories = categoryTotals(current, previous);
-  const toMonth = monthOf(range.to);
   const alerts = buildAlerts(ctx, range, inputs);
   // one report for the notice and the count, so the two cannot disagree
   const quality = dataQualityReport(ctx, range, balances);
@@ -132,8 +133,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     // the fixed costs as they were at the end of the period; a subscription the household marked as cancelled has left them
     fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to), cancelledSubjects(inputs)),
     categories,
-    pace: monthPace(ctx, toMonth, ctx.today < range.to ? ctx.today : range.to),
-    forecast: range.from <= ctx.today && ctx.today <= range.to ? monthForecast(ctx, inputs) : null,
+    pace: monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to),
     ahead: running ? cashAhead(ctx, balances, inputs) : null,
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning") ?? null,

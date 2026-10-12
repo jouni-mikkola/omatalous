@@ -2,13 +2,13 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// The first page (Kuukausi) opens with what the household has and owes: accounts, cards, loans. The demo household of
-// the administrator that app.spec.ts made has a checking and a savings account and a card with no limit, and no saved
+// The first page (Yhteenveto) opens with what the household has and owes: accounts, cards, loans. The demo household of
+// the administrator that e2e/run.mjs made has a checking and a savings account and a card with no limit, and no saved
 // loan; this spec saves one through the loans route and removes it at the end, so the specs after it find the household
 // as they expect. Every figure on the page must be the one Raportit > Saldot and Lainat give. The demo card has no limit
 // and the app has no way to give it one, so the card with a limit is the page's own answer changed on its way, with
 // figures as the bank and core would give them (core's tests hold the figures; this spec holds what a household sees of
-// them). Run it after app.spec.ts.
+// them).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 
@@ -26,8 +26,8 @@ async function signedIn(context: BrowserContext, path: string): Promise<Page> {
   return page;
 }
 
-/** The holdings card of Kuukausi: the only card with a heading Tilit on that page. */
-const holdingsOf = (page: Page) => page.locator(".card").filter({ has: page.getByRole("heading", { name: "Tilit", exact: true }) });
+/** The holdings card of Yhteenveto: the only card with a heading Varallisuus on that page. */
+const holdingsOf = (page: Page) => page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varallisuus", exact: true }) });
 
 /** What the page shows for an account: the amount in its row. */
 const amountOf = async (page: Page, name: string): Promise<number> => cents(await holdingsOf(page).locator(".holding-row", { hasText: name }).locator(".holding-amount").innerText());
@@ -51,7 +51,7 @@ test.afterAll(async ({ browser }) => {
   await context.close();
 });
 
-test("the demo household: both accounts with their balance, the card with what is used and no bar, no Lainat", async ({ browser }) => {
+test("the demo household: both accounts with their balance and a total, the card with what is used and no bar, no Lainat", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await signedIn(context, "/#/overview");
   const seen = watch(page);
@@ -59,20 +59,32 @@ test("the demo household: both accounts with their balance, the card with what i
 
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
-  await expect(holdings.getByRole("heading", { level: 2 })).toHaveText(["Tilit", "Kortit"]);
+  await expect(holdings.getByRole("heading", { level: 2 })).toHaveText(["Varallisuus"]);
+  await expect(holdings.getByRole("heading", { level: 3 })).toHaveText(["Tilit", "Luottokortit"]);
   const checking = await amountOf(page, "Käyttötili (esimerkki)");
   const savings = await amountOf(page, "Säästötili (esimerkki)");
+  // the first row of Tilit is the total of the two, and the groups stand side by side
+  const sum = holdings.locator(".holding-row").first();
+  await expect(sum).toContainText("Yhteensä");
+  expect(cents(await sum.locator(".holding-amount").innerText())).toBe(checking + savings);
+  const [accountsBox, cardsBox] = await Promise.all(["Tilit", "Luottokortit"].map(async (name) => (await holdings.locator(".holding-group", { has: page.getByRole("heading", { name, exact: true }) }).boundingBox())!));
+  expect(cardsBox!.x, "the groups are side by side").toBeGreaterThan(accountsBox!.x + accountsBox!.width - 2);
+  expect(Math.abs(cardsBox!.y - accountsBox!.y)).toBeLessThanOrEqual(1);
 
-  // the card: its name makes it gold, the demo gives it no limit, so the debt alone is told and there is no bar
+  // the card: its name makes the face gold, the demo gives it no limit, so what is used alone is told and there is no bar
   const card = holdings.locator(".holding-card");
-  await expect(card.locator(".card-face-gold")).toContainText("Nordea Gold (esimerkki)");
+  await expect(card.locator(".card-face-gold")).toBeVisible();
+  await expect(card.locator(".card-face")).toHaveAttribute("aria-hidden", "true");
+  const face = (await card.locator(".card-face").boundingBox())!;
+  expect([face.width, face.height]).toEqual([132, 83]);
+  await expect(card.locator(".holding-name")).toContainText("Nordea Gold (esimerkki)");
   await expect(card.locator(".card-meter")).toHaveCount(0);
-  const use = plain(await card.locator(".card-use").innerText());
-  expect(use).toMatch(/^Velkaa [\d ]+,\d\d €$/);
-  const used = cents(use.replace("Velkaa ", ""));
+  const use = plain(await card.locator(".holding-figures").innerText());
+  expect(use).toMatch(/^Käytetty luotto [\d ]+,\d\d €$/);
+  const used = cents(use.replace("Käytetty luotto ", ""));
 
   // above the month
-  const month = await page.getByRole("region", { name: "Ennuste kuun loppuun" }).boundingBox();
+  const month = await page.getByRole("region", { name: "Menot", exact: true }).boundingBox();
   expect((await holdings.boundingBox())!.y, "the holdings are above the month").toBeLessThan(month!.y);
 
   // the figures are Saldot's, whole euros against the cents shown here
@@ -128,13 +140,13 @@ test("a card with a limit shows used, limit and free beside a bar, and over the 
     await expect(card).toBeVisible();
     return card;
   };
-  const useOf = async (card: Locator) => plain(await card.locator(".card-use").innerText());
+  const useOf = async (card: Locator) => plain(await card.locator(".holding-figures").innerText());
 
   // within the limit: used, limit and free in that order, and a bar 41 % full in the colour of use
   let card = await show(stub);
-  expect(await useOf(card)).toBe("Käytössä 1 240,00 € Luottoraja 3 000,00 € Vapaana 1 760,00 €");
+  expect(await useOf(card)).toBe("Käytetty luotto 1 240,00 € Luottoraja 3 000,00 € Käytettävissä 1 760,00 €");
   await expect(card.locator(".card-meter")).not.toHaveClass(/over/);
-  await expect(card.getByText("Yli luottorajan")).toHaveCount(0);
+  await expect(card.getByText("Luottoraja ylitetty")).toHaveCount(0);
   expect(await filled(card)).toBeCloseTo(0.41, 2);
   const inUse = await fillColour(card);
   // the balance is fresh: no line that dates it
@@ -142,22 +154,22 @@ test("a card with a limit shows used, limit and free beside a bar, and over the 
 
   // exactly at the limit: a full bar, nothing free, and not over
   card = await show({ limitCents: LIMIT, usedCents: LIMIT, freeCents: 0, overCents: 0, balanceAt: today });
-  expect(await useOf(card)).toBe("Käytössä 3 000,00 € Luottoraja 3 000,00 € Vapaana 0,00 €");
+  expect(await useOf(card)).toBe("Käytetty luotto 3 000,00 € Luottoraja 3 000,00 € Käytettävissä 0,00 €");
   await expect(card.locator(".card-meter")).not.toHaveClass(/over/);
   expect(await filled(card)).toBeCloseTo(1, 2);
   expect(await fillColour(card)).toBe(inUse);
 
   // over the limit: told in words, the bar full and in another colour, and nothing free is offered
   card = await show({ limitCents: LIMIT, usedCents: 320_000, freeCents: 0, overCents: 20_000, balanceAt: today });
-  expect(await useOf(card)).toBe("Käytössä 3 200,00 € Luottoraja 3 000,00 € Yli luottorajan");
+  expect(await useOf(card)).toBe("Käytetty luotto 3 200,00 € Luottoraja 3 000,00 € Luottoraja ylitetty 200,00 €");
   await expect(card.locator(".card-meter")).toHaveClass(/over/);
   expect(await filled(card)).toBeCloseTo(1, 2);
   expect(await fillColour(card)).not.toBe(inUse);
-  await expect(card.getByText(/Vapaana/)).toHaveCount(0);
+  await expect(card.getByText(/Käytettävissä/)).toHaveCount(0);
 
   // no balance from the bank: the limit alone, no bar, and no figure that looks like zero
   card = await show({ limitCents: LIMIT, usedCents: null, freeCents: null, overCents: null, balanceAt: null });
-  expect(await useOf(card)).toBe("Saldo puuttuu Luottoraja 3 000,00 €");
+  expect(await useOf(card)).toBe("Käytetty luotto Ei tiedossa Luottoraja 3 000,00 €");
   await expect(card.locator(".card-meter")).toHaveCount(0);
 
   // an old balance is dated under the figures, and a debt that may be counted twice carries its note
@@ -185,15 +197,14 @@ test("a saved loan is a row with what is left and the payment a month, and its f
   const page = await signedIn(context, "/#/overview");
   const seen = watch(page);
   const holdings = holdingsOf(page);
-  await expect(holdings.getByRole("heading", { level: 2 })).toHaveText(["Tilit", "Kortit", "Lainat"]);
-  const row = holdings.locator(".holding-row", { hasText: "Kodin laina" });
+  await expect(holdings.getByRole("heading", { level: 3 })).toHaveText(["Tilit", "Luottokortit", "Lainat"]);
+  const row = holdings.locator(".holding-loan", { hasText: "Kodin laina" });
   await expect(row).toContainText("Esimerkkirahoitus Oy");
-  await expect(row).toContainText(/Maksu 1\s000,00\s€ kuukaudessa/);
-  const left = plain(await row.locator(".holding-amount").innerText());
-  expect(left).toBe("120 000,00 € jäljellä");
-  const used = cents(plain(await holdings.locator(".card-use").innerText()).replace("Velkaa ", ""));
-  // one line under Lainat holds the debt total
-  await expect(holdings.locator(".holding-total .holding-name")).toHaveText("Velkaa yhteensä");
+  expect(plain(await row.locator(".holding-figures").innerText())).toBe("Lainaa jäljellä 120 000,00 € Kuukausierä 1 000,00 €");
+  const used = cents(plain(await holdings.locator(".holding-card .holding-figures").innerText()).replace("Käytetty luotto ", ""));
+  // one line under Lainat holds the debt total, and the card is in it, so it is the debts
+  expect(used, "the demo card owes something").toBeGreaterThan(0);
+  await expect(holdings.locator(".holding-total .holding-name")).toHaveText("Velat yhteensä");
   const firstTotal = cents(plain(await holdings.locator(".holding-total .holding-amount").innerText()));
 
   // Lainat: the same loan with the same figure, and the debt total is the card and the loan
@@ -212,15 +223,18 @@ test("a saved loan is a row with what is left and the payment a month, and its f
 });
 
 for (const width of [390, 360]) {
-  test(`at ${width} px nothing scrolls sideways, a card is one row with its figures beside the face and the month is within two screens`, async ({ browser }) => {
+  test(`at ${width} px nothing scrolls sideways, the groups are under each other, a card is one row with its figures beside the face and the month is within two screens`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 844 } });
     const page = await signedIn(context, "/#/overview");
     const seen = watch(page);
     const holdings = holdingsOf(page);
-    await expect(holdings.locator(".holding-row", { hasText: "Kodin laina" })).toBeVisible();
-    expect(await overflow(page), `Kuukausi scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
+    await expect(holdings.locator(".holding-loan", { hasText: "Kodin laina" })).toBeVisible();
+    expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
     const face = (await holdings.locator(".card-face").boundingBox())!;
-    const use = (await holdings.locator(".card-use").boundingBox())!;
+    const use = (await holdings.locator(".holding-card-text").boundingBox())!;
+    const groups = await holdings.locator(".holding-group").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({ top: r.top, bottom: r.bottom })));
+    expect(groups.length).toBe(3);
+    groups.slice(1).forEach((g, i) => expect(g.top, "a group starts under the one before").toBeGreaterThanOrEqual(groups[i]!.bottom - 2));
     expect(face.x + face.width, "the face is inside the screen").toBeLessThanOrEqual(width);
     expect(use.x + use.width, "the figures are inside the screen").toBeLessThanOrEqual(width);
     // the proportions of a real card, and the figures at the right of the face on the same row
@@ -228,10 +242,10 @@ for (const width of [390, 360]) {
     expect(face.width / face.height).toBeLessThan(1.62);
     expect(use.x, "the figures are beside the face").toBeGreaterThanOrEqual(face.x + face.width);
     expect(use.y, "on the face's row").toBeLessThan(face.y + face.height);
-    // the name is whole in its title, whatever the face cuts
-    await expect(holdings.locator(".card-face-name")).toHaveAttribute("title", "Nordea Gold (esimerkki)");
+    // the name stands whole beside the face
+    await expect(holdings.locator(".holding-card .holding-name")).toContainText("Nordea Gold (esimerkki)");
     // two accounts, a card and a loan: the month's first figure is no further than two screens down
-    const top = await page.getByRole("region", { name: "Ennuste kuun loppuun" }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    const top = await page.getByRole("region", { name: "Menot", exact: true }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
     expect(top, "the month starts within two screens").toBeLessThan(2 * 844);
 
     expect(seen.problems).toEqual([]);

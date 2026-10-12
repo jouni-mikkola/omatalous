@@ -4,7 +4,7 @@ import { overflow, watch } from "./helpers.ts";
 
 // Asetukset > Pankkiyhteydet after a link: a new consent from any row, when the consent ends and the calendar file,
 // the accounts the bank handed over that are not linked at Enable Banking, and the next bank. The server's answer for
-// /api/meta is replaced, so no bank is called. Runs after app.spec.ts, which created the administrator.
+// /api/meta is replaced, so no bank is called. The server has the administrator already (e2e/run.mjs makes it).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const BANKS = [

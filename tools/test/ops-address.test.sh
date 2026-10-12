@@ -296,7 +296,7 @@ EOF
 # and forgotten here fails this
 t_env_keys_all_kept() {
   local keys k n=0 lines=()
-  keys=$(sed -n 's/^ *case \${line%%=\*} in \(.*\)) continue ;; esac$/\1/p' "$SRC/scripts/lib/ops-access.sh" | tr -d ' ' | tr '|' ' ')
+  keys=$(sed -n 's/^ACCESS_KEYS="\(.*\)"$/\1/p' "$SRC/scripts/lib/ops-access.sh")
   for k in $keys; do n=$((n + 1)); case $k in BIND_ADDRESS | APP_BASE_URL | COMPOSE_PROFILES) ;; *) lines+=("$k=value-$n") ;; esac; done
   check "the list of keys was found in ops-access.sh (BIND_ADDRESS and seven more)" bash -c "[[ $n -ge 8 && ' $keys ' == *' BIND_ADDRESS '* && ' $keys ' == *' APP_BASE_URL '* ]]"
   addr_world "${lines[@]}" "CADDY_ADDRESS=$OLD" OTHER_KEY=stays; missing_for 1200; tick
@@ -315,11 +315,17 @@ t_env_keys_all_kept() {
 }
 
 # with the launcher's --root the libs come from the copy's folder, and after a rollback inside a tick the files on disk are
-# an older release's: the lib loads its two files from its own folder when the helper loads it, and is quiet without them
+# an older release's: the two files it needs are loaded from the helper's own folder when the helper loads its parts
+# (host-addr.sh by the lib, ops-access.sh by load_libs, and by no other line), and the lib is quiet without them
+own_folder() {
+  [[ $(grep -cE '^\. "\$ADDR_LIB/host-addr\.sh"' "$SRC/scripts/lib/ops-address.sh") == 1 ]] || return 1
+  [[ $(cat "$SRC/scripts/ops-helper.sh" "$SRC"/scripts/lib/ops-*.sh | grep -cE '^[^#]*\. [^ ]*ops-access\.sh') == 1 ]] || return 1
+  grep -qE '^[^#]*\. "\$LIB/ops-access\.sh"' "$SRC/scripts/ops-helper.sh"
+}
 t_rebind_own_files() {
   addr_world; rm -f "$CL/scripts/lib/host-addr.sh"; missing_for 1200; tick
   check "without host-addr.sh the tick runs and changes nothing" bash -c "[[ $TICK_RC == 0 ]] && ! grep -q 'does not load' '$CL/ops/helper.log'" && check "no host-addr.sh: .env is as it was" env_same
-  check "the two files are read from the folder of the lib, when it loads" test "$(grep -cE '^\. "\$ADDR_LIB/(host-addr|ops-access)\.sh"' "$SRC/scripts/lib/ops-address.sh")" = 2
+  check "the two files are read from the folder of the helper's parts, when they load" own_folder
   addr_world; sed -i '/^host_addr_if() /d' "$CL/scripts/lib/host-addr.sh"; missing_for 1200; tick
   check "a host-addr.sh of an older release (one function short): the tick runs" bash -c "[[ $TICK_RC == 0 ]] && ! grep -q 'does not load' '$CL/ops/helper.log'" && check "older host-addr.sh: .env is as it was" env_same
   addr_world; printf 'watchdog_tick() { rm -f scripts/lib/host-addr.sh scripts/lib/ops-access.sh; }\n' >>"$CL/scripts/lib/ops-watchdog.sh"; missing_for 1200; tick

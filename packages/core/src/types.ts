@@ -22,6 +22,34 @@ export interface Account {
   type: AccountType;
 }
 
+/**
+ * How much of an account's every cent is one user's: the range `from`..`to` of the users' weights, which add up to
+ * `of`. `partOf` works it out and `partCents` cuts an amount by it (account-use.ts). All of an account is 0, 1, 1
+ * and none of it 0, 0, 1.
+ */
+export interface Part {
+  from: number;
+  to: number;
+  of: number;
+}
+
+/** One user of an account. `userId` null: the holders who are no user of this instance, together. Only the ratio of the weights counts. */
+export interface AccountUser {
+  userId: string | null;
+  /** What a member is shown: a display name, and for the user with no id the bank's holder names or "Muu tilinomistaja". */
+  label: string;
+  weight: number;
+}
+
+/**
+ * Who of the household uses an account, in the order of the parts: by user id, the user with no id last.
+ * said: the household said so. bank: the bank's holder names tell. owner: nothing tells, so whoever linked it.
+ */
+export interface AccountUse {
+  users: AccountUser[];
+  source: "said" | "bank" | "owner";
+}
+
 export type TransactionStatus = "booked" | "pending";
 
 /**
@@ -75,6 +103,11 @@ export interface Transaction {
   isTransfer: boolean;
   /** The connector or import the row came from, when the caller has it. Layouts of one source differ, sources differ more. */
   source?: string;
+  /**
+   * The bank's amount, on a row cut to the viewer's part of a joint account: `amountCents` is the part then. Left out,
+   * the row is whole. Nothing fills it yet: the loader of a member's own view will. Read it through `billCents`.
+   */
+  wholeCents?: number;
 }
 
 /** merchant_exact: the whole merchant name, so "Matti Meikäläinen" does not catch "Mobilepay Matti Meikäläinen". */
@@ -112,6 +145,10 @@ export interface BalanceInput {
   cardMask?: string | null;
   /** The limit of a card or credit line as the bank gave it, in cents. */
   creditLimitCents?: number | null;
+  /** Who uses the account. Nothing fills it yet: the server will, with the balances of a view (`requestInputs`). Left out, nothing is known of its use. */
+  use?: AccountUse;
+  /** The viewer's part of the account, filled with `use`. Left out, the account counts whole. */
+  part?: Part;
 }
 
 /** What the user said about a subscription or an alert: still in use, cancelled, or not to be shown again. */

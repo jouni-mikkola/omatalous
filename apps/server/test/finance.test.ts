@@ -39,7 +39,7 @@ describe("dashboard and reports on demo data", () => {
     expect(r.balances.accounts).toHaveLength(3);
     expect(r.balances.accounts.every((a: { values: unknown[] }) => a.values.length === 12)).toBe(true);
 
-    // a page that shows a few sections asks for their reports only (Kuukausi: the spending change); an unknown name is a 400
+    // a page that shows a few sections asks for their reports only (Yhteenveto: the spending change); an unknown name is a 400
     const month = await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=spendingChange");
     expect(Object.keys(month.body)).toEqual(["spendingChange"]);
     expect(month.body.spendingChange.views[0].view).toBe("usual");

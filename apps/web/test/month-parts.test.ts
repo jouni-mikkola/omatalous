@@ -271,7 +271,7 @@ describe("the bridge of a period that took more than its income", () => {
   });
 });
 
-describe("the line of Tämä kuu", () => {
+describe("the line of the running month", () => {
   const line = (t: ReturnType<typeof period>) =>
     plain(renderToStaticMarkup(createElement(BridgeLine, { b: { totals: t, basis: "last", month: "2026-09", usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null } as unknown as DashboardData["bridge"] }))).replace(/<[^>]+>/g, "");
 

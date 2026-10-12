@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// Asetukset > Tilit: accounts you can tell apart. Needs the administrator and the demo household that app.spec.ts
-// creates, so it runs after it (the name sorts after "app", which Playwright runs first by file name).
+// Asetukset > Tilit: accounts you can tell apart. Needs the administrator and the demo household that e2e/run.mjs
+// makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 test("Tilit shows the IBAN in groups of four, and an own name stays apart from the original and can be taken away", async ({ browser }) => {

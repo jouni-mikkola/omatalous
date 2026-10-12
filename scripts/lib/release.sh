@@ -54,27 +54,40 @@ cosign_verify() { # cosign_verify REF [extra cosign flags]: the identity and iss
   fi
 }
 # Pulls the release image, verifies it and tags it as $IMAGE:latest. $1 = tag (vX.Y.Z), $2 = the commit it was built from.
+# Two instances on one Docker may fetch the same version at the same moment, and the one that is done first removes the
+# registry tag (below), which takes the image's digest by the registry with it. So the local image is asked for what it is
+# right after the pull (its digest, its id, its labels) and by nothing that goes with that tag; when the tag is gone before
+# that, the pull is made once more. The signature (a look at the registry) and the tag of $IMAGE:latest come after, by the
+# digest and the id read here.
 fetch_release_image() {
-  local version=${1#v} commit=$2 ref digest log rc=0 want have
+  local version=${1#v} commit=$2 ref digest id got_commit got_version have want log rc try
   ref=$REGISTRY_IMAGE:$version
-  log=$(mktemp)
-  run_logged "$log" "Pulling" docker pull "$ref" || rc=$?
-  if ((rc != 0)); then
-    tail -n 5 "$log" | cut -c1-200; rm -f "$log"
-    die "Could not pull the image of version $version. Check the network (curl -I https://ghcr.io). ${KEEP_NOTE:-}"
-  fi
-  rm -f "$log"
-  digest=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$ref" | grep "^$REGISTRY_IMAGE@sha256:" | head -1 || true)
-  [[ -n $digest ]] || die "Could not read the image digest ($ref). ${KEEP_NOTE:-}"
-  # the signature is checked on the digest, and the image is used by the same digest
+  for try in 1 2; do
+    log=$(mktemp); rc=0
+    run_logged "$log" "Pulling" docker pull "$ref" || rc=$?
+    if ((rc != 0)); then
+      tail -n 5 "$log" | cut -c1-200; rm -f "$log"
+      die "Could not pull the image of version $version. Check the network (curl -I https://ghcr.io). ${KEEP_NOTE:-}"
+    fi
+    rm -f "$log"
+    id=''; got_commit=''; got_version=''; have=''
+    digest=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$ref" 2>/dev/null | grep "^$REGISTRY_IMAGE@sha256:" | head -1 || true)
+    if [[ -n $digest ]]; then
+      id=$(docker image inspect -f '{{.Id}}' "$digest" 2>/dev/null || true)
+      got_commit=$(image_label "$digest" talous.commit); got_version=$(image_label "$digest" talous.version); have=$(image_label "$digest" talous.compose)
+    fi
+    [[ -z $digest || -z $id || -z $got_commit || -z $got_version || -z $have ]] || break
+  done
+  [[ -n $digest && -n $id ]] || die "Could not read the image digest ($ref). ${KEEP_NOTE:-}"
+  # the signature is checked on the digest, and the image is used by the same digest (its id, read from the digest)
   verify_signature "$digest" "$commit" || die "Could not verify the image signature ($digest). The image is not used. ${KEEP_NOTE:-}"
   ok "Signature verified: $digest"
-  [[ $(image_label "$digest" talous.commit) == "$commit" && $(image_label "$digest" talous.version) == "$version" ]] \
+  [[ $got_commit == "$commit" && $got_version == "$version" ]] \
     || die "The image does not match release $1 (version or commit differs). The image is not used."
-  want=$(compose_compat "$commit"); have=$(image_label "$digest" talous.compose)
+  want=$(compose_compat "$commit")
   [[ -n $want && $have == "$want" ]] \
     || die "The image expects docker-compose.yml layout $have, the release file has $want. The image is not used."
-  docker image tag "$digest" "$IMAGE:latest"
+  docker image tag "$id" "$IMAGE:latest"
   # The image is used as $IMAGE:latest from here on. Its registry tag goes (rm of a tag only untags), or every old version
   # would keep a tag for good and `docker image prune` would never free one.
   docker image rm "$ref" >/dev/null 2>&1 || true
@@ -129,12 +142,14 @@ release_pick() {
 # release_answer MODE FILE: asks, then prints what release_pick prints. Fails with 1 when GitHub gave no usable answer, and with
 # 2 when it says there is no release (404, or an empty list) and the folder holds no release tag: the one case in which an
 # install may follow the source. "No release" while the folder holds a release tag is no answer (a release was made and GitHub
-# does not show it), so it fails with 1 like an API error.
+# does not show it), so it fails with 1 like an API error. It fails with 3 when GitHub turned the request down with 403 or 429,
+# which is how it says that the limit of requests for this address was met (60 an hour without a key): an hour's wait cures it.
 release_answer() {
   local code
   code=$(release_get "$1" "$2")
   case $code in
     404) ;;
+    403 | 429) return 3 ;;
     200) release_pick "$1" "$2" && return 0
       [[ $1 == newest && $(tr -d ' \n\r\t' <"$2") == '[]' ]] || return 1 ;;
     *) return 1 ;;
@@ -172,6 +187,7 @@ choose_release() { # choose_release TARGET CHANNEL_SETTING
     RELEASE_TAG=$TALOUS_RELEASE
   elif [[ -z $1 && $2 != source ]]; then
     RELEASE_TAG=$(release_from_api "$follow") || rc=$?
+    ((rc != 3)) || die "GitHub turned the request down: the limit of requests for this address was met. Nothing was changed. Wait an hour and run this again."
     ((rc == 0 || rc == 2)) || die "Could not ask GitHub for the latest release. Nothing was changed."
     [[ -z $RELEASE_TAG ]] || git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}" >/dev/null || die "Release $RELEASE_TAG is not in this folder. Nothing was changed. Check the network and run: git fetch --tags"
     if [[ -n $RELEASE_TAG ]] && held=$(release_above "$RELEASE_TAG"); then

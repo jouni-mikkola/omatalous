@@ -1,83 +1,63 @@
 /**
- * Where the running month is heading: the pace curve against the usual month and the forecast to the month's end.
+ * How the running month is going: the pace curve, its spending so far against the month before on the same days.
  */
-import { cancelledSubjects, expectedCharges, expectedDates } from "../commitments.ts";
-import { addMonths, dateIn, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { expectedDates } from "../commitments.ts";
+import { addMonths, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
-import { type ExpectedBill, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
-import { type AnalysisContext, inDays, recurringAt } from "./context.ts";
-import { completeMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualFrom, usualSpending, usualSpendingOver } from "./usual.ts";
+import type { ExpectedBill, IsoDate } from "../types.ts";
+import { type AnalysisContext, inDays } from "./context.ts";
+import { completeMonthsBefore, spendingThrough } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
   daysInMonth: number;
-  /** Cumulative spending by day of month; null after today. */
+  /** Cumulative spending (consumption + debt) by day of month; null after today. */
   current: (number | null)[];
-  /**
-   * Tavallisesti: for each day, the median cumulative spending of the last six complete months before this one.
-   * null under three complete months.
-   */
-  usual: number[] | null;
+  /** The month's spending so far: the last point of `current`, 0 before the 1st. */
   currentTotal: number;
-  usualAtToday: number | null;
-  usualMonthTotal: number | null;
+  /** The calendar month before, of real rows. null when the history has no row in it. */
+  previous: {
+    /** "2026-09" */
+    month: string;
+    /** Cumulative spending by day of that month, all its days, summed as `current` is. */
+    curve: number[];
+    /** The day of that month that `toToday` runs to: today's day of the month, or its last day when it is shorter. 0 before the 1st. */
+    day: number;
+    /** Its cumulative spending on its days 1 to `day`. */
+    toToday: number;
+  } | null;
 }
 
-/** Running month: spending so far, the forecast to month end and bills still to come. */
-export interface MonthForecast {
-  /** "2026-10" */
-  month: string;
-  /** consumption + debt so far this month */
-  spentCents: number;
-  /** spent + bills still due + usual everyday spending for the days left */
-  forecastCents: number;
-  /** Subscriptions and bills still due before the month ends. */
-  billsLeftCents: number;
-  /** Usual everyday spending for the days left. */
-  usualLeftCents: number;
-  /** Tavallisesti: the median spending of the last six complete months, null under three. */
-  usualMonthCents: number | null;
-  /** The complete months that level is the median of, oldest first, so a page can name them. */
-  usualMonths: string[];
-  /** The month's likely total from lowCents to highCents: the forecast plus and minus its typical error (see forecastRange). */
-  lowCents: number;
-  highCents: number;
-  /** "own": the error of this forecast on the household's own past months. "table": typical errors of test households, used under three months. */
-  rangeBasis: "own" | "table";
-  /** The past months an "own" range rests on, 0 for the table. */
-  rangeMonths: number;
-  /** Half the width of the range, in percent of the forecast, one decimal. */
-  rangePercent: number;
-  /**
-   * The day the first forecast comes, while no complete month gives the usual everyday spending for the days left:
-   * without it the forecast would be what has gone and the bills, nothing more. Null once there is a forecast.
-   */
-  pendingUntil: IsoDate | null;
+/** A month's cumulative spending on each of its days; the last day takes in the 31st of a longer month, so the curve ends at the whole month. */
+function spendingCurve(ctx: AnalysisContext, month: string): number[] {
+  const days = daysInMonth(month);
+  return Array.from({ length: days }, (_, i) => spendingThrough(ctx, month, i === days - 1 ? 31 : i + 1));
+}
+
+/** The history has a row in the month, of any kind: a month it does not reach has nothing to be set against. */
+function hasRows(ctx: AnalysisContext, month: string): boolean {
+  return inDays(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) }).length > 0;
 }
 
 /**
- * Is this month's spending running ahead of or behind the usual month? Each day of the usual curve is
- * `usualSpendingOver` on the days up to it, so its last day is the month's usual total and today's point is
- * "tavallisesti tähän mennessä": the same base as every other usual figure of the month.
+ * What the month has cost so far, day by day, and what the month before had cost by the same day: both are sums of
+ * the rows (`spendingThrough`), nothing is estimated.
  */
 export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): MonthPace {
   const days = daysInMonth(month);
-  // a month after the running one has no complete month right before it: count back from the running one
-  const before = completeMonthsBefore(ctx, month > monthOf(ctx.today) ? monthOf(ctx.today) : month);
-  // the last day takes in the 31st of a longer month, so the curve ends at the whole month
-  const through = (i: number) => (i === days - 1 ? 31 : i + 1);
-  const usual = before.length < MIN_COMPARE_MONTHS ? null : Array.from({ length: days }, (_, i) => usualSpendingOver(ctx, before, through(i))!);
-  const cur = Array.from({ length: days }, (_, i) => spendingThrough(ctx, month, through(i)));
+  const cur = spendingCurve(ctx, month);
   const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
+  const before = addMonths(month, -1);
+  const curve = hasRows(ctx, before) ? spendingCurve(ctx, before) : null;
+  // a month shorter than today's day of the month is read to its last day
+  const day = Math.min(lastDay, curve?.length ?? 0);
   return {
     month,
     daysInMonth: days,
     current: cur.map((v, i) => (i < lastDay ? v : null)),
-    usual,
     currentTotal: lastDay ? cur[lastDay - 1]! : 0,
-    usualAtToday: usual ? (lastDay ? usual[lastDay - 1]! : 0) : null,
-    usualMonthTotal: usual ? usual[days - 1] ?? 0 : null,
+    previous: curve && { month: before, curve, day, toToday: day ? curve[day - 1]! : 0 },
   };
 }
 
@@ -143,101 +123,4 @@ export function expectedBillRows(ctx: AnalysisContext, bills: readonly ExpectedB
     }
   }
   return out;
-}
-
-/** The forecast of one month as it stood on `asOf`, by its parts. */
-interface ForecastParts {
-  spentCents: number;
-  billsLeftCents: number;
-  usualLeftCents: number;
-  forecastCents: number;
-}
-
-/**
- * What has gone by `asOf` (that day included), the bills still due as the series looked on that day, the typed-in bills
- * still to pay this month and the usual everyday spending for the days left. The same sum for today and for a past day,
- * so the past can grade it; the past months are graded without typed-in bills, which the household did not have then.
- */
-function forecastAsOf(ctx: AnalysisContext, asOf: IsoDate, cancelled?: ReadonlySet<string>, typed: readonly ExpectedBill[] = []): ForecastParts {
-  const month = monthOf(asOf);
-  const end = monthEnd(month);
-  const spent = inDays(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(asOf) }).reduce((s, t) => s + t.spend, 0);
-  const series = expectedCharges(recurringAt(ctx, asOf), asOf, end, { cancelled }).reduce((s, c) => s + c.amountCents, 0);
-  const due = series + expectedBillRows(ctx, typed, asOf, end).reduce((s, b) => s + b.amountCents, 0);
-  const daysLeft = daysInMonth(month) - Number(asOf.slice(8, 10));
-  const usualLeft = Math.max(0, Math.round(everydayPerDay(ctx, month) * daysLeft));
-  return { spentCents: spent, billsLeftCents: due, usualLeftCents: usualLeft, forecastCents: spent + due + usualLeft };
-}
-
-/**
- * How far the forecast was off on test households, by day of month: 8 % on the 5th, 6 % on the 10th, 2,5 % on the
- * 20th, nothing on the last day. Between the days the error is interpolated; before the 5th the 5th's applies.
- */
-function tableError(day: number, monthLength: number): number {
-  const points: (readonly [number, number])[] = [[5, 0.08], [10, 0.06], [20, 0.025], [monthLength, 0]];
-  if (day <= points[0]![0]) return points[0]![1];
-  for (let i = 1; i < points.length; i++) {
-    const [d0, e0] = points[i - 1]!;
-    const [d1, e1] = points[i]!;
-    if (day <= d1) return e0 + ((e1 - e0) * (day - d0)) / (d1 - d0);
-  }
-  return 0;
-}
-
-/**
- * The range around the forecast: plus and minus the median absolute relative error that the same forecast made on
- * the household's own last six complete months, taken with the same number of days left. A month needs a complete month
- * before it to have an everyday level. Under three such months the table of typical errors applies instead.
- */
-function forecastRange(ctx: AnalysisContext, asOf: IsoDate, forecast: ForecastParts): Pick<MonthForecast, "lowCents" | "highCents" | "rangeBasis" | "rangeMonths" | "rangePercent"> {
-  const month = monthOf(asOf);
-  const day = Number(asOf.slice(8, 10));
-  // past months are met by the days left in the month: the last day of a short month with the last day of a long one
-  const left = daysInMonth(month) - day;
-  const stats = monthStats(ctx);
-  const errors: number[] = [];
-  for (const m of completeMonthsBefore(ctx, month)) {
-    const actual = stats.get(monthIndex(m))?.spend ?? 0;
-    if (actual <= 0 || !completeMonthsBefore(ctx, m, 1).length) continue;
-    const predicted = forecastAsOf(ctx, dateIn(m, Math.max(1, daysInMonth(m) - left))).forecastCents;
-    errors.push(Math.abs(predicted - actual) / actual);
-  }
-  const own = errors.length >= MIN_COMPARE_MONTHS;
-  const error = own ? median(errors) : tableError(day, daysInMonth(month));
-  return {
-    lowCents: Math.max(forecast.spentCents, Math.round(forecast.forecastCents * (1 - error))),
-    highCents: Math.round(forecast.forecastCents * (1 + error)),
-    rangeBasis: own ? "own" : "table",
-    rangeMonths: own ? errors.length : 0,
-    rangePercent: Math.round(error * 1000) / 10,
-  };
-}
-
-/**
- * Where this month is heading: what has gone so far, the subscriptions and bills still due, and the usual
- * everyday spending for the days left, with the range the forecast's own record gives it. A merchant the
- * household marked as cancelled is not expected, and the bills it typed in count when they are still to pay.
- */
-export function monthForecast(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): MonthForecast {
-  const month = monthOf(ctx.today);
-  const parts = forecastAsOf(ctx, ctx.today, cancelledSubjects(inputs), inputs.expectedBills);
-  const usualMonths = completeMonthsBefore(ctx, month);
-  return {
-    month,
-    ...parts,
-    usualMonthCents: usualSpending(ctx, month),
-    usualMonths,
-    ...forecastRange(ctx, ctx.today, parts),
-    pendingUntil: usualMonths.length ? null : firstForecastDay(ctx, month),
-  };
-}
-
-/**
- * The 1st of the month after the first month the history covers from its 1st: the first complete month has ended
- * then. A history that starts mid-month waits for the next month to end. `usualFrom` is the same day with three
- * complete months behind it, so this is two months before it.
- */
-function firstForecastDay(ctx: AnalysisContext, month: string): IsoDate {
-  const usual = usualFrom(ctx);
-  return `${usual ? addMonths(usual.slice(0, 7), 1 - MIN_COMPARE_MONTHS) : addMonths(month, 1)}-01`;
 }

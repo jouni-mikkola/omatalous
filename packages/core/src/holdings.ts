@@ -1,8 +1,8 @@
 /**
  * Decision: what the household has and owes before any analysis: each account, each card with what is used of its
- * limit, each loan with what is left. The first page (Kuukausi) and the balance report (Saldot) read this one answer.
+ * limit, each loan with what is left. The first page (Yhteenveto) and the balance report (Saldot) read this one answer.
  *
- * It computes no figure of its own (ADR 0004). An account's balance is the day walk's (`balanceWalk`), a debt's figures
+ * It computes no figure of its own (ADR 0004) beyond the one total of the accounts' known balances. An account's balance is the day walk's (`balanceWalk`), a debt's figures
  * are `householdDebts`' and `loans.ts`', and the flag for a debt that may be counted twice is the Lainat report's
  * (`maybeTwice`). The cards' `usedCents` and the loans' `leftCents` add up to the debt total, to the cent.
  *
@@ -14,6 +14,7 @@ import type { AnalysisContext } from "./analysis/context.ts";
 import { householdDebts } from "./household-debts.ts";
 import { creditAccountLoan, creditUse, debtPaymentsPerMonth, loanBalanceOn } from "./loans.ts";
 import { maybeTwice } from "./reports/loans.ts";
+import { normalizeIban } from "./transfers.ts";
 import type { BalanceInput, IsoDate, Loan, UserInputs } from "./types.ts";
 
 /**
@@ -35,7 +36,11 @@ export interface Holdings {
     balanceCents: number | null;
     /** The local day the bank gave the balance, null when unknown. */
     balanceAt: string | null;
+    /** The last four characters of the account number, null when the account has none. The page shows it after the name when two accounts share one. */
+    mask: string | null;
   }[];
+  /** The known balances of `accounts` added once. Null when no account has a balance: an unknown total is never 0. */
+  accountsCents: number | null;
   cards: {
     id: string;
     name: string;
@@ -75,6 +80,12 @@ export interface Holdings {
   debtCents: number;
 }
 
+/** The last four characters of an account number, null for no number or one shorter than that. */
+const accountMask = (iban: string | null | undefined): string | null => {
+  const number = normalizeIban(iban);
+  return number && number.length >= 4 ? number.slice(-4) : null;
+};
+
 /** A card has a limit when the bank gave one above zero. The one place that decides it: the cards here and Asetukset > Tilit both ask. */
 export const cardLimitCents = (cents: number | null | undefined): number | null => (cents != null && cents > 0 ? cents : null);
 
@@ -89,11 +100,14 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
   // one debt for each account that has one, in `connected`'s order
   const debtOf = new Map(debts.sources.map((s, i) => [s.accountId, debts.connected[i]!]));
 
+  const numberOf = new Map(ctx.accounts.map((a) => [a.id, a.iban]));
   const accounts = balances.flatMap((b): Holdings["accounts"] =>
     b.type !== "credit_card" && b.type !== "loan"
-      ? [{ id: b.id, name: b.name, type: b.type, bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt }]
+      ? [{ id: b.id, name: b.name, type: b.type, bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt, mask: accountMask(numberOf.get(b.id)) }]
       : [],
   );
+  const known = accounts.flatMap((a) => (a.balanceCents === null ? [] : [a.balanceCents]));
+  const accountsCents = known.length ? known.reduce((sum, cents) => sum + cents, 0) : null;
 
   const cards = balances.flatMap((b): Holdings["cards"] => {
     if (b.type !== "credit_card") return [];
@@ -139,5 +153,5 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     }),
   ];
 
-  return { accounts, cards, loans, debtCents: debts.total.cents };
+  return { accounts, accountsCents, cards, loans, debtCents: debts.total.cents };
 }

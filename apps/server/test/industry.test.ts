@@ -160,10 +160,10 @@ describe("industry lookup", () => {
   it("the door to the register refuses a person's name and the name of a way to pay without a request", async () => {
     const { asked, fetchMock } = fakeRegister();
     for (const name of ["Matti Meikäläinen", "Meikäläinen Matti", "M. Meikäläinen", "Osk. Meikäläinen", "Siirto", "Pikasiirto", "Tuntematon"]) {
-      expect(await askRegister(fetchMock, name), name).toEqual({ companies: [], complete: true });
+      expect(await askRegister(fetchMock, name, new Set()), name).toEqual({ companies: [], complete: true });
     }
     expect(asked).toEqual([]);
-    expect((await askRegister(fetchMock, "Pikku Puoti")).companies).toHaveLength(1);
+    expect((await askRegister(fetchMock, "Pikku Puoti", new Set())).companies).toHaveLength(1);
     expect(asked).toEqual(["Pikku Puoti"]);
   });
 

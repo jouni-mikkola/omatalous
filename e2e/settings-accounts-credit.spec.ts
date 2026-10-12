@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // Asetukset > Tilit: how much of a card's credit limit is in use. Needs the administrator and the demo household that
-// app.spec.ts creates, so the name sorts after "app" (Playwright runs the files in name order). The demo card has no
+// e2e/run.mjs makes. The demo card has no
 // limit, so the limit and the balance a bank would give are put into the answer of /api/meta.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 

@@ -175,7 +175,7 @@ export const section: ReportSection = {
   id: "muutos",
   title: "Menojen muutos",
   order: 25,
-  // why last month differed: Kuukausi > Viime kuu, in place of the month table
+  // why last month differed: Yhteenveto, the month before the running one, in place of the month table
   page: "month",
   reports: ["spendingChange"],
   // a view needs three complete months before the month, or a year of history

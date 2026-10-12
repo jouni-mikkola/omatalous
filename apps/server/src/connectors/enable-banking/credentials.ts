@@ -52,5 +52,5 @@ export async function saveCredentials(s: Services, userId: string, appIdInput: u
 export async function clientFor(s: Services, userId: string): Promise<EnableBankingClient> {
   const creds = await resolveCredentials(s, userId);
   if (!creds) throw new UserError("Pankkiyhteydet eivät ole vielä käytössä. Pyydä ylläpitäjää ottamaan ne käyttöön kohdassa Asetukset > Palvelin.");
-  return new EnableBankingClient({ appId: creds.appId, privateKeyPem: creds.privateKeyPem, fetch: s.fetch, authHosts: s.config.bank.authHosts, timeZone: s.instance.current.timezone });
+  return new EnableBankingClient({ appId: creds.appId, privateKeyPem: creds.privateKeyPem, baseUrl: s.config.bank.apiUrl, fetch: s.fetch, authHosts: s.config.bank.authHosts, timeZone: s.instance.current.timezone });
 }

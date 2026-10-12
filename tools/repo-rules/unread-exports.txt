@@ -133,6 +133,9 @@ apps/server/src/services/security.ts  MAX_EVENTS
 apps/server/src/services/upgrade.ts  UpgradeResult
 apps/server/src/services/upgrade.ts  runUpgradeTasks
 apps/server/src/services/users.ts  RemovalResult
+packages/core/src/account-use.ts  WHOLE
+packages/core/src/account-use.ts  billCents
+packages/core/src/account-use.ts  partCents
 packages/core/src/analysis/ahead.ts  AheadBalance
 packages/core/src/analysis/ahead.ts  AheadRow
 packages/core/src/analysis/alerts.ts  AlertKind

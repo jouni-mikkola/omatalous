@@ -1,7 +1,9 @@
 # shellcheck shell=bash
 # The helper's watchdog over an update, for scripts/ops-helper.sh. The helper's load_libs sources this file after
 # check_permissions has passed on scripts/lib (and scripts/lib/dbcopy.sh, for atomic_write). It defines functions and
-# three numbers and runs nothing, so all of it is in memory before a rollback swaps the files on disk.
+# three numbers and runs nothing, so all of it is in memory before a rollback swaps the files on disk. It also holds the
+# helper's one rollback (rollback_run, with write_recovery, and recover) and the one count of "in a row" (in_a_row),
+# which the helper's other parts call.
 #
 # Decision it serves: an update that starts and then stops answering is undone by the helper within minutes, once, while
 # the household sleeps. A watchdog that rolls back a healthy or deliberately stopped app is worse than none, so every
@@ -11,6 +13,9 @@
 #                                       app_running check, so also when the app is down. Its status is not read. A tick
 #                                       in which it ran the rollback ends inside it (exit 0), see watchdog_rollback.
 #   watchdog_report AT FROM TO REASON   the helper rolled the app back by itself, from version FROM to version TO.
+#   rollback_run LOOK [STEP]            update.sh --rollback, a look at the app, and ops/RECOVERY.txt when it is left down.
+#   recover [BEFORE]                    rollback_run wait for an update that failed with the app down, and what to tell of it.
+#   in_a_row SECONDS LAST NOW GAP PAUSE the seconds something has lasted in a row, one look later.
 #
 # Its files in ops/:
 #   watchdog-since          "START SECONDS LAST JOURNAL" while the app is unhealthy: when that began, how many seconds of
@@ -29,8 +34,67 @@ WATCHDOG_GAP=180       # two looks further apart than this: the helper was not l
 # bad ten minutes many hours later is rarely the update's doing.
 WATCHDOG_WINDOW=3600
 
-# the value of KEY in backups/.last-update (read as data, never sourced)
-watchdog_state() { [[ -f backups/.last-update ]] && grep -E "^$1=" backups/.last-update | tail -1 | cut -d= -f2- || true; }
+# in_a_row SECONDS LAST NOW GAP PAUSE: something was so for SECONDS in a row at the look of LAST and is so at the look of
+# NOW (times in seconds). Prints for how long it has been so now. The time between the two looks counts when it is 0 to
+# GAP seconds. When it does not count (LAST is no time, which is how a caller says there is no look to count from; a
+# longer pause; a clock that went back) PAUSE decides: with `wait` the count stays as it was (the watchdog: the helper
+# was not looking, and the app may have been unhealthy all along), with `again` it starts from 0 (the address: ten
+# minutes that nobody watched are no ten minutes in a row).
+in_a_row() {
+  if [[ $2 =~ ^[0-9]{1,12}$ ]] && (($3 >= 10#$2 && $3 - 10#$2 <= $4)); then echo $(($1 + $3 - 10#$2))
+  elif [[ $5 == again ]]; then echo 0
+  else echo "$1"; fi
+}
+
+write_recovery() {
+  {
+    printf 'Omatalous: the update failed and the previous version could not be restored (%s).\n\n' "$(now_iso)"
+    printf 'Run on the machine, in the folder %s:\n' "$ROOT"
+    printf '  ./scripts/update.sh --rollback\n'
+    printf '  docker compose logs --tail 60 banking\n'
+    printf '  ./scripts/doctor.sh\n\n'
+    printf 'Database copies are kept in /data/backups in the app volume (pre-update-*.db) and in the backups folder of this folder.\n'
+  } >"$OPS/RECOVERY.txt"
+  log "RECOVERY.txt written: $ROOT/$OPS/RECOVERY.txt"
+}
+# rollback_run LOOK [STEP]: the helper's one rollback. update.sh --rollback runs with its output in LOGF, the app is
+# looked at, and ops/RECOVERY.txt is written when the app is left down. ROLLBACK_RC is what update.sh ended with.
+# Returns 0 when update.sh ended with 0 and the app answers (RECOVERY.txt is then removed), 2 when update.sh failed and
+# the app answers all the same (nothing is written or removed), 1 when the app does not answer or was not looked at
+# (RECOVERY.txt is written). The four callers differ in the look after an update.sh that failed, and LOOK says which:
+#   wait   fifteen looks whatever update.sh ended with (recover of the helper, and the watchdog)
+#   look   one look (the rollback request: update.sh may have refused before it stopped anything)
+#   none   no look: the app that runs is the version being taken back, with a helper that does not work (the self-test)
+# After an update.sh that ended with 0 it is always fifteen looks, and STEP, when given, goes into LOGF before them.
+rollback_run() {
+  local up=no
+  ROLLBACK_RC=0
+  run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes || ROLLBACK_RC=$?
+  if ((ROLLBACK_RC == 0)) && [[ -n ${2:-} ]]; then echo "$2" >>"$LOGF"; fi
+  if ((ROLLBACK_RC == 0)) || [[ $1 == wait ]]; then if wait_healthy 15; then up=yes; fi
+  elif [[ $1 == look ]]; then if app_up; then up=yes; fi; fi
+  if [[ $up == no ]]; then write_recovery; return 1; fi
+  ((ROLLBACK_RC == 0)) || return 2
+  rm -f "$OPS/RECOVERY.txt"
+}
+# recover [BEFORE]: after a failed or killed update, if the app is not answering, go back to the previous version
+# (rollback_run wait). An app that answers counts whatever update.sh ended with (status 2) and recover returns 0 for it,
+# but it is the previous version only when its version is BEFORE, the one that ran before the update. Another version,
+# or one that cannot be read, is left in RECOVER_VERSION ("?" for the latter) for the summary; "" says the previous
+# version runs. Returns 1 when the app is left down.
+recover() {
+  local r=0 now
+  RECOVER_VERSION=""
+  if app_up; then return 0; fi
+  say_log "The app does not respond, restoring the previous version."
+  rollback_run wait || r=$?
+  ((r != 1)) || return 1
+  rm -f "$OPS/RECOVERY.txt"
+  if ((r == 2)) && now=$(current_version || true) && [[ -z $now || $now != "${1:-}" ]]; then
+    RECOVER_VERSION=${now:-?}; say_log "The rollback ended with $ROLLBACK_RC, and the version that answers is $RECOVER_VERSION."
+  else say_log "The previous version is running."; fi
+  return 0 # a line that cannot be added to the log (a full disk) does not undo a rollback that worked
+}
 # install.sh and update.sh (an update or a rollback by hand) hold a lock on scripts/install.sh while they run. An update
 # replaces that file and keeps its lock on the old one, which a probe by name does not see, so a running process of
 # either script counts as well.
@@ -45,7 +109,7 @@ watchdog_since_write() { printf '%s %s %s %s\n' "$1" "$2" "$3" "$4" >"$OPS/watch
 watchdog_journal() { find "$OPS/journal" -type f -printf '%f %s %T@\n' 2>/dev/null | sort | cksum | tr -d ' '; }
 watchdog_image_version() { # watchdog_image_version IMAGE: its version label, when it is X.Y.Z
   local v
-  v=$(docker image inspect -f '{{index .Config.Labels "talous.version"}}' "$1" 2>/dev/null || true)
+  v=$(image_label "$1" talous.version) # lib/release.sh
   [[ $v =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && printf '%s' "$v"
 }
 
@@ -99,7 +163,7 @@ watchdog_doctor_item() {
 # previous release's and the functions in memory are this one's. So nothing below update.sh reads a script, and the tick
 # ends here once the state is sent (exit 0): no request, no update check and no doctor run follow in this process.
 watchdog_rollback() {
-  local at=$1 from to latest previous rc=0
+  local at=$1 from to latest previous r=0
   # shellcheck disable=SC2034 # run_cap writes there
   local LOGF=$OPS/run/watchdog-$at.log
   # A rollback has failed here already (recover, or a rollback request): a second one would be a loop.
@@ -117,19 +181,18 @@ watchdog_rollback() {
   log "watchdog: the app has been unhealthy for 10 minutes after the update of $at. Going back from ${from:-?} to ${to:-the previous version}."
   : >"$LOGF"
   run_cap "$T_LOGS" docker compose logs --no-color --tail 60 banking || true
-  run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes || rc=$?
-  if ! wait_healthy 15; then
-    log "watchdog: the rollback did not bring the app back (update.sh ended with $rc). Its output: $ROOT/$LOGF"
-    write_recovery
+  rollback_run wait || r=$?
+  if ((r == 1)); then
+    log "watchdog: the rollback did not bring the app back (update.sh ended with $ROLLBACK_RC). Its output: $ROOT/$LOGF"
     exit 0
   fi
-  if ((rc != 0)); then
-    log "watchdog: the rollback ended with $rc, and the app answers. Nothing is reported. Its output: $ROOT/$LOGF"
+  if ((r != 0)); then
+    log "watchdog: the rollback ended with $ROLLBACK_RC, and the app answers. Nothing is reported. Its output: $ROOT/$LOGF"
     exit 0
   fi
   # The stored answer about a new version is from before the rollback. The daily check asks again. ops/last-check stays,
   # because that check also runs doctor, which writes its result again without the item below.
-  rm -f "$OPS/RECOVERY.txt" "$OPS/watchdog-since" "$OPS/check.frag"
+  rm -f "$OPS/watchdog-since" "$OPS/check.frag"
   [[ -n $to ]] || to=$(current_version || true)
   log "watchdog: version ${to:-?} is running again. The app's last log lines and the rollback's output: $ROOT/$LOGF"
   if watchdog_report "$at" "$from" "$to" unhealthy; then
@@ -137,8 +200,7 @@ watchdog_rollback() {
   else
     log "watchdog: the rollback cannot be reported, the versions are not known (${from:-?}, ${to:-?})"
   fi
-  # the heartbeat's own line: the report does not wait for the tenth tick
-  state_json | timeout 30 docker compose exec -T banking "${NODE[@]}" dist/node.js ops state --helper "$OPS_HELPER_VERSION" >/dev/null 2>&1 || true
+  send_state # the heartbeat's own: the report does not wait for the tenth tick
   exit 0
 }
 
@@ -160,7 +222,7 @@ watchdog_tick() {
   journal=$(watchdog_journal)
   if ! watchdog_installer_idle; then [[ -z $start ]] || watchdog_since_write "$start" "$secs" - "$journal"; return 0; fi
 
-  at=$(watchdog_state AT)
+  at=$(last_update AT)
   if [[ $at =~ ^([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z$ ]]; then
     at_s=$(date -u -d "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}" +%s 2>/dev/null) || at_s=""
   fi
@@ -177,8 +239,9 @@ watchdog_tick() {
     down) [[ -z $start ]] || watchdog_since_write "$start" 0 - "$journal"; return 0 ;;
     *) [[ -z $start ]] || watchdog_since_write "$start" "$secs" - "$journal"; return 0 ;;
   esac
+  # a request since the last look (the journal differs) is a look that does not count, like the - of a pause
   if [[ -z $start ]]; then start=$now; secs=0
-  elif [[ $last != - && $seen == "$journal" ]] && ((now >= last && now - last <= WATCHDOG_GAP)); then secs=$((secs + now - last)); fi
+  else [[ $seen == "$journal" ]] || last=-; secs=$(in_a_row "$secs" "$last" "$now" "$WATCHDOG_GAP" wait); fi
   watchdog_since_write "$start" "$secs" "$now" "$journal" || return 0
   [[ $watched == true ]] && ((secs >= WATCHDOG_WAIT)) || return 0
   watchdog_rollback "$at"

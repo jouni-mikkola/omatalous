@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -259,6 +259,60 @@ describe("0015 stores the bank's transaction code", () => {
     expect(await runUpgradeTasks(app.services, `${APP_VERSION}+codes`)).toMatchObject({ bankCodes: 1 });
     expect(await db.all("SELECT id, bank_txn_code, category FROM transactions WHERE bank_txn_code IS NOT NULL")).toEqual([{ id: row.id, bank_txn_code: "PMNT-RCDT-SALA", category: "salary" }]);
     db.close();
+  });
+});
+
+describe("0018 adds the table of who uses an account", () => {
+  it("a database of 0.10.0 gets the table empty and keeps every row, and the code of 0.10.0 still opens it", async () => {
+    const file = fromFixture("0.10.0.sql");
+    const before = dump(file);
+    // the frozen household has a joint account of two holders, which is what the table is for
+    expect(before.accounts!.rows.find((r) => r.id === "a-5")).toMatchObject({ identity: "idn-5", holder: "MEIKALAINEN MATTI, KORHONEN ELISA" });
+    const { db, applied } = await openDatabase(file);
+    expect(applied).toEqual(["0018_account_use.sql"]);
+    expect(await db.all("SELECT * FROM account_use")).toEqual([]);
+    db.close();
+    const after = dump(file);
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use"].sort());
+    expectAdditive(before, after, "0018_account_use.sql");
+
+    // what the household says is held to one row for each user of a real account, the user with no id included
+    const raw = openNodeSqlite(file);
+    const say = (user: string | null, weight: number, key = "idn-5") => raw.run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES (?, ?, ?, 'u-aino', '2026-10-09T08:00:00.000Z')", [key, user, weight]);
+    try {
+      await say("u-aino", 60_000);
+      await say("u-eero", 40_000);
+      await say(null, 0);
+      await expect(say("u-eero", 1)).rejects.toThrow(/UNIQUE/);
+      await expect(say(null, 1)).rejects.toThrow(/UNIQUE/);
+      await expect(say("u-aino", -1, "idn-1")).rejects.toThrow(/CHECK/);
+      await expect(say("u-nobody", 1, "idn-1")).rejects.toThrow(/FOREIGN KEY/);
+      // near misses: the same user on another account, and a weight of nothing
+      await say("u-eero", 0, "idn-1");
+      await say(null, 1, "idn-1");
+    } finally {
+      raw.close();
+    }
+
+    // a rollback: the release before has no such file, opens the database as it is and leaves what was said for the next update
+    const dir = tmp();
+    cpSync(findMigrationsDir(), dir, { recursive: true });
+    rmSync(join(dir, "0018_account_use.sql"));
+    const old = await openDatabase(file, dir, undefined, { appVersion: "0.10.0" });
+    expect(old.applied).toEqual([]);
+    expect(old.ahead).toEqual(["0018_account_use.sql"]);
+    expect(await old.db.all("SELECT user_id, weight FROM account_use WHERE account_key = 'idn-5' ORDER BY user_id IS NULL, user_id")).toEqual([
+      { user_id: "u-aino", weight: 60_000 },
+      { user_id: "u-eero", weight: 40_000 },
+      { user_id: null, weight: 0 },
+    ]);
+    old.db.close();
+    // near miss: a release older than the floor is refused, as it was before this table
+    await expect(openDatabase(file, dir, undefined, { appVersion: "0.9.9" })).rejects.toThrow(/upgraded by a newer app version \(0018_account_use\.sql\)/);
+    const again = await openDatabase(file);
+    expect(again.applied).toEqual([]);
+    expect(await again.db.all("SELECT count(*) AS n FROM account_use")).toEqual([{ n: 5 }]);
+    again.db.close();
   });
 });
 

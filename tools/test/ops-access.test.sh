@@ -470,9 +470,10 @@ t_version_and_constructs() {
   lan_world; traced; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; tick
   check "the helper polls as version 4" test "$(n_calls 'dist/node.js ops poll --helper 4 ')" = 1
   # Every command of that tick, as bash expanded it. The token may only be in a test, an assignment, the pairs handed
-  # to access_env_write and the printf builtin that writes its line of .env: any other command had it as an argument.
+  # to access_env_write and by it to the writer of .env (envfile_stage, a function like it), and the printf builtin that
+  # writes its line of .env: any other command had it as an argument.
   check "access: the traced tick applied the change and the trace saw the token" bash -c "grep -q '\"status\":\"ok\"' '$S/report.json' && [[ \$(grep -cF '$TOKEN' '$S/trace') -ge 5 ]]"
-  check "access: no other command ever holds the token" test "$(grep -F "$TOKEN" "$S/trace" | grep -cvE "^\\++ (\\[\\[ |[A-Za-z_]+=|access_env_write |printf .%s\\\\n. CLOUDFLARE_TUNNEL_TOKEN=)")" = 0
+  check "access: no other command ever holds the token" test "$(grep -F "$TOKEN" "$S/trace" | grep -cvE "^\\++ (\\[\\[ |[A-Za-z_]+=|access_env_write |envfile_stage |printf .%s\\\\n. CLOUDFLARE_TUNNEL_TOKEN=)")" = 0
   check "access: no eval, source, bash -c or sudo" bash -c "! grep -vE '^[[:space:]]*#' '$SRC/scripts/lib/ops-access.sh' | grep -nE '(^|[;&|(])[[:space:]]*(eval|source)[[:space:]]|bash -c|sudo '"
   # the values of a request may only meet bash builtins: no line of the file hands one to another program
   check "access: a value never goes on a command line" bash -c "! grep -nE '\\b(grep|sed|awk|cut|tr|head|tail|echo|docker|timeout|run_cap|in_app|cp|mv|cat|tee|logger|log|say_log)\\b[^|;]*\\\$\\{?(A_TOKEN|A_AUD|A_TEAM|pairs|out|line|pair|[htad])\\b' '$SRC/scripts/lib/ops-access.sh'"

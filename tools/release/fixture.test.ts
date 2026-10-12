@@ -276,4 +276,35 @@ describe("tools/release/fixture.mjs", { timeout: 30_000 }, () => {
     expect(JSON.parse(none.out)).toMatchObject({ previous: "0.8.0", migrations: [] });
     expect(run("0.9.0", "--nope").err).toContain("[--at ISO] [--facts])");
   });
+
+  it("makes the fixture of 0.11.0 from the seed of the repository: a said use of two rows on the joint account of 0.10.0", async () => {
+    const dir = scratch();
+    // the migrations of 0.11.0 up to the one that adds account_use, and the contract a fresh database of them gives
+    const migrations = join(dir, "migrations");
+    mkdirSync(migrations);
+    for (const f of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql") && f < "0019")) cpSync(join(MIGRATIONS, f), join(migrations, f));
+    mkdirSync(join(dir, "contracts/0.11.0"), { recursive: true });
+    writeFileSync(join(dir, "contracts/0.11.0/schema.sql"), await freshContract("0.11.0", migrations));
+    const seeds = join(dir, "seeds");
+    mkdirSync(seeds);
+    cpSync(join(FIXTURES, "seeds/0.11.0/account_use.sql"), join(seeds, "account_use.sql"));
+    const out = join(dir, "0.11.0.sql");
+    const done = run("0.11.0", "--out", out, "--seeds", seeds, "--migrations", migrations, "--contracts", join(dir, "contracts"), "--at", AT);
+    expect(done.err).toBe("");
+    expect(done.code).toBe(0);
+    expect(done.out).toContain("the tables account_use (2 rows)");
+    expect(done.out).toContain("-- Rows of account_use: A said use of the joint account a-5");
+    const db = load(out);
+    const rows = db.prepare("SELECT account_key, user_id, weight, said_by FROM account_use ORDER BY weight DESC").all();
+    expect(rows).toEqual([
+      { account_key: "idn-5", user_id: "u-aino", weight: 60000, said_by: "u-aino" },
+      { account_key: "idn-5", user_id: null, weight: 40000, said_by: "u-aino" },
+    ]);
+    // the key names an account of two holders that the member who says it linked, and the member is a user
+    const joint = db.prepare("SELECT user_id, holder FROM accounts WHERE identity = 'idn-5'").get() as { user_id: string; holder: string };
+    expect(joint.user_id).toBe("u-aino");
+    expect(joint.holder.split(",")).toHaveLength(2);
+    expect(db.prepare("SELECT count(*) AS n FROM users WHERE id = 'u-aino'").get()).toEqual({ n: 1 });
+    db.close();
+  });
 });

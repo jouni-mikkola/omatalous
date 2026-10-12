@@ -196,6 +196,11 @@ maintenance helper is current. The installer's script path does the same and sta
 
 Secrets never appear in `docker inspect`, in logs or in API responses. Raw bank payloads stay on the server.
 
+The address of the bank's API is fixed in the code. A developer setting, `EB_API_URL`, moves it to a stand-in on the same
+machine for browser tests. It takes only a loopback address (`127.0.0.1`, `localhost` or `[::1]`), and the app stops at
+start with any other, so the requests that the bank key signs never go anywhere else. It is read from the environment
+only, not from the database and not from the browser.
+
 The Cloudflare API token that lets the installer make a tunnel (`~/.config/omatalous/cloudflare.env`, mode 600, outside
 the clone) can create and remove tunnels, change DNS records of your domain and change who Cloudflare Access lets in. It
 cannot read the app's data. The installer refuses the file when others can read it or when it belongs to someone else. It
@@ -247,23 +252,47 @@ Merchants that nothing else categorises are searched in the Finnish trade regist
 YTJ, `https://avoindata.prh.fi/opendata-ytj-api/v3/companies?name=...`). The industry code of the company
 found gives the category. An unclear match is left alone.
 
-- Only the merchant name is sent, and only for rows that show they are a business (core `isBusinessRow`):
-  a card purchase (a merchant code, a card account or the text a card terminal leaves, on a row with no payee
-  account number), a shop that was paid at least twice without a payee account and not by MobilePay (the rows of
-  the removed CSV import, which old accounts still hold, carry no card text), an e-invoice, direct payment or card text in the description, a payee name that starts or
-  ends with a company form such as Oy or ry, or an invoice: a payee account, a reference number and a payee name
-  with a business word such as kauppa or liike and at most one name on either side of it. A plain transfer is
-  never enough, and neither is a reference number alone, since a private landlord gives one too. A MobilePay or
-  PayPal payment to a name with no company form and no business word is a payment to a person. A name that is
-  also used on a row that is not a business row is not sent.
-- A name shaped like a person's is never sent, whatever the row says (core `isLookupName` and `isPersonShaped`): two to
-  four words of letters with no company form and no business word. The name of a way to pay, such as Siirto, is not
-  sent either. Amounts, dates, account numbers and names of people are never sent. The rule has gaps, which are
-  accepted because the register is public and the alternative is to look up fewer shops: a name of one word
-  (a shop named by a surname, on a card row), a sole trader's own name written with its form (Tmi First Last), a
-  company named after a person (Pekka Esimerkki Oy) and a first name beside a town that is also a surname, which the
-  merchant cleaning drops so that the first name alone is left, can be sent. A name that begins with a company form
-  (AB ESIMERKKI) reads as a person's name, so it is not looked up and the register gives it no category.
+- Only the merchant name is sent. Amounts, dates, account numbers, reference numbers, messages and any row of money
+  coming in are never sent.
+- Only for rows that show they are a business (core `isBusinessRow`): a card purchase (a merchant code, a card account
+  or the text a card terminal leaves, on a row with no payee account number), a shop that was paid at least twice
+  without a payee account and not by MobilePay (the rows of the removed CSV import, which old accounts still hold,
+  carry no card text), an e-invoice, direct payment or card text in the description, a payee name that starts or
+  ends with a company form such as Oy or ry, or an invoice: a payee account, a reference number and a payee field
+  whose name passes the guard below. A plain transfer is never enough, and neither is a reference number alone,
+  since a private landlord gives one too. A MobilePay or PayPal payment to a name with no company form and no business
+  word is a payment to a person. A name that is also used on a row that is not a business row is not sent.
+- A name is refused at the first of these that applies, in the order the code takes them (core `industryCandidates`,
+  then `askRegister` in `services/industry.ts`):
+  1. The name itself (`isLookupName`): fewer than three letters besides a company form, longer than 60 characters, a placeholder, the name of a
+     way to pay such as Siirto, or the shape of a person's: two to four words of letters with no company form and no
+     business word.
+  2. The rows: every row of money out that nothing else categorised and that is no transfer must show a business as
+     above, and one that shows none rules its merchant out.
+  3. The guard (`mayBePerson` in `payee-guard.ts`), which refuses a payee that may be a person. Any one of three
+     refuses it: the name has the shape of a person's, read in the merchant and in the bank's own text; the name holds a
+     word of a name the household has; or nothing but an invoice speaks for a business and the name does not say it
+     is one, which a company form does, or a business word with no person's two names beside it. A bare word, a name
+     with a sign in a word (*A&B Esimerkki*) and an e-mail address say nothing, so an invoice alone sends none of
+     them. Another row of the same merchant that shows a business in another way (a card payment, a merchant code, a
+     company form or a business word) is what vouches for them.
+  4. The one door to the register, `askRegister`, which every request passes, the shorter query below included. It
+     checks `isLookupName` and the household's names once more, so a caller that skips the steps above cannot send a name
+     they refuse.
+- The household's names are the holders of its accounts as the bank gives them, for every member's accounts, and its
+  members' display names. They are read on the server only and never leave it. A word of them counts when the name
+  holds it whole, at either end of a longer word when it has five letters or more (two names written together), and
+  from its first four letters on as the last word of a name, where a bank cut the name. An initial and a company form
+  are no word of a name.
+- The guard reads spelling, not meaning, and it has gaps. The register is public and the alternative is to look up fewer
+  shops, so these are accepted. It does not catch a household name written in another form, such as the genitive
+  (*Meikäläisen Huolto* is still looked up) or a misspelling, and a word of a household name of under five letters is
+  matched only as a word of its own (*Annan Kukka* for a holder Anna). A sole trader's own name written with its form
+  (*Tmi First Last*) and a company named after a person (*Pekka Esimerkki Oy*) are asked about, since a company form
+  says business. A person paid by invoice under one word that is also the name of a shop the household pays by card is
+  asked about, and takes the shop's category. It also errs the other way: a name whose last word is the first four
+  letters or more of a household word is never asked about, so a member shown as *Marketta* keeps every shop named
+  *Market* out of the lookup.
 - The request goes to one fixed address. Redirects are not followed, so the name cannot end up at
   another host. The answer is read up to 2 MB and refused if it is longer.
 - It runs at the hourly tick, never at start, and right after a fetch that brought new
@@ -278,7 +307,9 @@ found gives the category. An unclear match is left alone.
   asked about, so an answer never reveals another member's purchases. On an account shared with them,
   the owner's lookups count too. A found company is checked again after a year, no match or an unclear
   one after 60 days, an error after a day. After every version change the app removes the stored answers of names
-  that the rule above no longer lets through, so an earlier version's answer for a person's name does not stay.
+  that `isLookupName` refuses, so an earlier version's answer for a name shaped like a person's does not stay. An
+  answer stored for a name that holds a word of the household's names stays and is shown, but the name is never asked
+  about again.
 - An admin turns it off under *Asetukset > Palvelin*. `INDUSTRY_LOOKUP=false` in `.env` sets the default
   to off. A value saved in the browser takes precedence.
 
@@ -521,7 +552,8 @@ an empty list. No response body contains a raw bank payload, a private key, the 
 - Only a few password hashes run at once. Many addresses that keep sending wrong logins can keep them busy, and a login
   then answers "Palvelin on kiireinen" until the flood stops. Signed-in sessions are not affected. Before the first
   admin exists, the same flood can block the setup form for up to 15 minutes.
-- The trade register rule above is a shape test. It lets a few names of people through and keeps some shops out.
+- The trade register rules above read spelling, not meaning. They let a few names of people through and keep some shops
+  out; the gaps are listed under *Trade register lookup*.
 
 ## Habits
 

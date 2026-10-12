@@ -60,7 +60,7 @@ export const isReportId = (id: string): id is ReportId => Object.hasOwn(REPORTS,
 
 /**
  * `inputs` may be left out by a caller without marks or bills: every report gets it filled in. `only` builds just those
- * reports, for a page that shows a few sections (Kuukausi reads one); the others are missing from the answer.
+ * reports, for a page that shows a few sections (Yhteenveto reads one); the others are missing from the answer.
  */
 export function buildReports(input: Omit<ReportInput, "inputs"> & { inputs?: UserInputs }, only?: readonly ReportId[]): ReportsData {
   const full: ReportInput = { ...input, inputs: input.inputs ?? NO_INPUTS };

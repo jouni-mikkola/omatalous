@@ -14,10 +14,10 @@ import type { ReportRange } from "./reports/types.ts";
 import "../styles/reports.css";
 
 export function Reports({ meta, range, scope, anchor }: { meta: Meta; range: ReportRange; scope: Scope; anchor?: string }) {
-  // the reports this page's sections read: the spending change is Kuukausi's
+  // the reports this page's sections read: the spending change is Yhteenveto's
   const q = query({ ...range, scope, reports: reportsOf("reports").join(",") });
   const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${q}`);
-  // an address names a section (#/reports?period=12m#kuukaudet from Kuukausi): scroll to it once the sections are there
+  // an address names a section (#/reports?period=12m#kuukaudet from Yhteenveto): scroll to it once the sections are there
   const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
     if (!anchor || !data || scrolledFor.current === anchor) return;

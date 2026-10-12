@@ -2,8 +2,8 @@ import { expect, test, type Browser, type BrowserContext } from "@playwright/tes
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// The card on Kuukausi that answers "is there enough on the account until the pay comes", on the demo household of the
-// administrator that app.spec.ts made. The demo's dates follow the day the spec runs, so the spec asserts the shape and
+// The card on Yhteenveto that answers "is there enough on the account until the pay comes", on the demo household of the
+// administrator that e2e/run.mjs made. The demo's dates follow the day the spec runs, so the spec asserts the shape and
 // the names the app itself reads from the demo's rows, never a date or a sum. The two states the demo does not have, no regular payer and a late pay, are
 // proved by apps/web/test/next-days.test.ts (the sentences) and packages/core/test/ahead-payday.test.ts (the window).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");

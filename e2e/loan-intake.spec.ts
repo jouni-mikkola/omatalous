@@ -19,7 +19,7 @@ test.describe.configure({ mode: "serial" });
 const DESKTOP = { width: 1366, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
-/** The administrator, as loans.spec.ts has it: signed in by app.spec.ts in a whole run, set up here through the API when this spec runs alone. */
+/** The administrator, as loans.spec.ts has it: signed in by e2e/run.mjs, set up here through the API only on a server that has none. */
 async function administrator(browser: Browser, viewport = DESKTOP): Promise<BrowserContext> {
   const locale = { locale: "fi-FI", timezoneId: "Europe/Helsinki" };
   if (existsSync(STATE)) return browser.newContext({ storageState: STATE, viewport, ...locale });

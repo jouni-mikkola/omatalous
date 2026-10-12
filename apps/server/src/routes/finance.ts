@@ -5,6 +5,7 @@ import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
+import { clearAccountUse, parseSaidUsers, sayAccountUse, usesInView } from "../services/account-use.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
@@ -37,14 +38,16 @@ export function financeRoutes(s: Services) {
     ]);
     const today = s.today();
     const { privacyUrl, termsUrl } = registrationUrls(s);
+    // who uses each account in view, and the viewer's part of it
+    const uses = await usesInView(s, user.id, [...accounts, ...sharedAccounts]);
     return c.json({
       today,
       user,
       categories: CATEGORIES,
       kinds: KIND_LABEL,
-      accounts: await accountsView(s, user.id, accounts),
+      accounts: (await accountsView(s, user.id, accounts)).map((account) => ({ ...account, ...uses.get(account.id) })),
       // without the bank of the owner's connection: the member sees the account by its name, and a card has no IBAN that tells more
-      sharedAccounts: sharedAccounts.map(({ bank: _bank, ...account }) => account),
+      sharedAccounts: sharedAccounts.map(({ bank: _bank, ...account }) => ({ ...account, ...uses.get(account.id) })),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
       connections: connections.map((conn) => connectionView(conn, today, accounts, connections)),
@@ -176,6 +179,18 @@ export function financeRoutes(s: Services) {
 
   app.delete("/accounts/:id/shares/:userId", async (c) => {
     await unshareAccount(s, c.get("user").id, c.req.param("id"), c.req.param("userId"));
+    return c.json({ ok: true });
+  });
+
+  // who uses an account and at what weights: said by a member who linked it, for the real account
+  app.put("/accounts/:id/use", async (c) => {
+    const raw = strictObject(await body(c), ["users"] as const);
+    await sayAccountUse(s, c.get("user").id, c.req.param("id"), parseSaidUsers(raw.users));
+    return c.json({ ok: true });
+  });
+
+  app.delete("/accounts/:id/use", async (c) => {
+    await clearAccountUse(s, c.get("user").id, c.req.param("id"));
     return c.json({ ok: true });
   });
 

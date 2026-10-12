@@ -7,8 +7,8 @@
 # oldest row through `docker compose exec ... ops poll`, checks it against a fixed list, runs one of our own
 # scripts and reports the result back through `ops report`. Nothing from the database reaches a shell: the
 # row is accepted only if the whole poll answer matches one exact shape, and the action is picked by a
-# `case` with a refusing default. Version 3 knows ten actions: check-update, update, rollback, backup, restart,
-# doctor, logs, prune, helper-renew and access (scripts/lib/ops-access.sh). None takes parameters. No port changes.
+# `case` with a refusing default. Version 4 knows twelve actions: check-update, update, rollback, backup, restart, doctor,
+# logs, prune, helper-renew, access (scripts/lib/ops-access.sh), prerelease-on and prerelease-off. None takes parameters.
 #
 # Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what matters.
 # A release install takes only a version the GitHub Releases API names, only if it is a semver step up from the running
@@ -77,10 +77,12 @@ NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
 t_for() { local v=OPS_T_$2; if [[ ${OPS_TEST:-} == 1 && -n ${!v:-} ]]; then echo "${!v}"; else echo "$1"; fi; }
-T_UPDATE=$(t_for 1200 UPDATE); T_ROLLBACK=$(t_for 600 ROLLBACK); T_BACKUP=$(t_for 300 BACKUP)
+T_UPDATE=$(t_for 1200 UPDATE); T_BACKUP=$(t_for 300 BACKUP)
 T_RESTART=$(t_for 180 RESTART); T_DOCTOR=$(t_for 120 DOCTOR)
 # shellcheck disable=SC2034 # read by fetch_release and check_update (lib/ops-release.sh)
 T_CHECK=$(t_for 60 CHECK)
+# shellcheck disable=SC2034 # read by rollback_run (lib/ops-watchdog.sh)
+T_ROLLBACK=$(t_for 600 ROLLBACK)
 T_LOGS=$(t_for 60 LOGS); T_PRUNE=$(t_for 300 PRUNE); T_RENEW=$(t_for 120 RENEW)
 LOG_CAP=262144
 # what store_result keeps of a log: the last lines and bytes (the logs action holds up to three services)
@@ -98,9 +100,11 @@ log() {
   fi
 }
 
-# ── data helpers: .env and ops/policy are read, never sourced ────────────────
-env_get() { [[ -f .env ]] && grep -E "^$1=" .env | tail -1 | cut -d= -f2- || true; }
-pol_get() { [[ -f $OPS/policy ]] && grep -E "^$1=" "$OPS/policy" | tail -1 | cut -d= -f2- || true; }
+# ── data helpers: .env, ops/policy and backups/.last-update (update.sh's record of its update) are read, never sourced ──
+kv_get() { [[ -f $1 ]] && grep -E "^$2=" "$1" | tail -1 | cut -d= -f2- || true; } # kv_get FILE KEY
+env_get() { kv_get .env "$1"; }
+pol_get() { kv_get "$OPS/policy" "$1"; }
+last_update() { kv_get backups/.last-update "$1"; }
 
 # JSON string body from stdin (no surrounding quotes). Control characters are already gone.
 json_body() { awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); if (NR > 1) print "\\n"; print }'; }
@@ -137,12 +141,18 @@ check_permissions() {
 }
 # The parts of a tick that live in scripts/lib, read only after check_permissions has passed on scripts/lib. All of them are
 # loaded before anything runs, so an update that swaps the files on disk (the rollback of a failed self-test or of the
-# watchdog) leaves the running tick every function it still calls. dbcopy.sh is for atomic_write (watchdog_report).
+# watchdog) leaves the running tick every function it still calls. dbcopy.sh is for atomic_write (watchdog_report) and
+# envfile.sh is the writer of .env. ops-access.sh is loaded here and nowhere else, so the launcher's last good copy runs its
+# own and never the clone's. A tick runs without it too: ACCESS_LIB stays empty when the file is missing or does not load
+# whole, and then an `access` request is answered as failed and the state names no lanAddress.
 load_libs() {
   local l
   # shellcheck source=/dev/null
   for l in release selftest watchdog address housekeeping; do . "$LIB/ops-$l.sh" || return 1; done
-  . "$LIB/dbcopy.sh"
+  # shellcheck source=lib/ops-access.sh
+  ACCESS_LIB=""; . "$LIB/ops-access.sh" 2>/dev/null && ACCESS_LIB=1
+  # shellcheck source=/dev/null
+  . "$LIB/dbcopy.sh" && . "$LIB/envfile.sh"
 }
 
 ENV_ERR=""
@@ -174,6 +184,8 @@ env_check() {
 
 # ── docker ──────────────────────────────────────────────────────────────────
 INSTANCE=$(env_get INSTANCE_NAME); INSTANCE=${INSTANCE:-$DEFAULT_INSTANCE}
+# the docker binary named at install (ops/policy) goes first in PATH, for a tick and for the self-test
+policy_docker() { local d; d=$(pol_get DOCKER); if [[ -n $d && $d =~ ^/[A-Za-z0-9_./-]+/docker$ && -x $d && ! -w $(dirname "$d") ]]; then PATH=$(dirname "$d"):$PATH; export PATH; fi; }
 app_running() { [[ -n $(timeout 20 docker compose ps --status running -q banking 2>/dev/null) ]]; }
 app_up() { timeout 20 docker compose exec -T banking wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1; }
 in_app() { timeout "${APP_TIMEOUT:-60}" docker compose exec -T banking "${NODE[@]}" "$@"; }
@@ -333,7 +345,7 @@ store_result() { # store_result ID STATUS RC SUMMARY LOGFILE
 state_json() {
   local v commit mode prof bind port url lan first=1 f
   v=$(current_version || true)
-  commit=$(docker image inspect -f '{{index .Config.Labels "talous.commit"}}' "$INSTANCE:latest" 2>/dev/null || true)
+  commit=$(image_label "$INSTANCE:latest" talous.commit) # lib/release.sh
   prof=$(env_get COMPOSE_PROFILES); bind=$(env_get BIND_ADDRESS); bind=${bind:-127.0.0.1}
   port=$(env_get HOST_PORT); port=${port:-8080}; url=$(env_get APP_BASE_URL)
   case $prof in *caddy*) mode=domain ;; *tunnel*) mode=tunnel ;; *) if [[ $bind == 127.0.0.1 || $bind == localhost ]]; then mode=local; else mode=lan; fi ;; esac
@@ -351,12 +363,14 @@ state_json() {
   printf '"channel":"%s"' "$([[ $(env_get TALOUS_CHANNEL) == source ]] && echo source || echo release)"
   # ] and [ (an IPv6 address) lead the set: a backslash does not quote them inside one
   if [[ -n $url && $url =~ ^[][A-Za-z0-9:/._-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
-  # shellcheck source=lib/ops-access.sh # where the copy would answer after `lan` right now, by the rule `lan` uses
-  if lan=$(. scripts/lib/ops-access.sh 2>/dev/null && access_lan_url) && [[ $lan =~ ^http://[][A-Za-z0-9.:]{1,110}$ ]]; then sep; printf '"lanAddress":"%s"' "$lan"; fi
+  # where the copy would answer after `lan` right now, by the rule `lan` uses (lib/ops-access.sh)
+  if [[ -n ${ACCESS_LIB:-} ]] && lan=$(access_lan_url) && [[ $lan =~ ^http://[][A-Za-z0-9.:]{1,110}$ ]]; then sep; printf '"lanAddress":"%s"' "$lan"; fi
   for f in check doctor backups; do if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi; done
   if [[ -s $OPS/watchdog.frag ]]; then sep; printf '"watchdog":'; cat "$OPS/watchdog.frag"; fi # watchdog_report (lib/ops-watchdog.sh)
   printf '}'
 }
+# The snapshot goes to the app: with the heartbeat, and right after the watchdog's rollback. An app that does not take it gets the next one.
+send_state() { state_json | timeout 30 docker compose exec -T banking "${NODE[@]}" dist/node.js ops state --helper "$OPS_HELPER_VERSION" >/dev/null 2>&1 || true; }
 # host backups (backup.sh) for the list on the page
 write_backups_frag() {
   local f name size at out="" n=0
@@ -385,26 +399,8 @@ run_cap() { # run_cap SECONDS cmd...: output into LOGF, capped; returns the comm
 }
 fail() { STATUS=failed; RC=${2:-1}; SUMMARY=$1; }
 
-write_recovery() {
-  {
-    printf 'Omatalous: the update failed and the previous version could not be restored (%s).\n\n' "$(now_iso)"
-    printf 'Run on the machine, in the folder %s:\n' "$ROOT"
-    printf '  ./scripts/update.sh --rollback\n'
-    printf '  docker compose logs --tail 60 banking\n'
-    printf '  ./scripts/doctor.sh\n\n'
-    printf 'Database copies are kept in /data/backups in the app volume (pre-update-*.db) and in the backups folder of this folder.\n'
-  } >"$OPS/RECOVERY.txt"
-  log "RECOVERY.txt written: $ROOT/$OPS/RECOVERY.txt"
-}
-# After a failed or killed update: if the app is not answering, go back to the previous version
-recover() {
-  if app_up; then return 0; fi
-  say_log "The app does not respond, restoring the previous version."
-  run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes || true
-  if wait_healthy 15; then rm -f "$OPS/RECOVERY.txt"; say_log "The previous version is running."; return 0; fi
-  write_recovery
-  return 1
-}
+# recover [BEFORE] is in lib/ops-watchdog.sh: after a failed or killed update with the app down, back to the previous
+# version. It returns 1 when the app is left down. RECOVER_VERSION is the version that answers when that is not BEFORE.
 
 act_check_update() {
   echo "STEP: 1/1 Tarkistetaan uusi versio" >>"$LOGF"
@@ -454,7 +450,7 @@ act_update() {
       rm -f "$OPS/watchdog.frag"   # the report of an earlier rollback is old news once an update has gone through (watchdog_report)
       after_update_check   # lib/ops-selftest.sh: no arguments; it may call fail and change SUMMARY
     else
-      fail "Päivitetty sovellus ei vastaa."; recover || SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."
+      fail "Päivitetty sovellus ei vastaa."; recover "$before" || SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."
     fi
   else
     RC=$?
@@ -465,21 +461,18 @@ act_update() {
     elif app_up; then fail "Päivitys ei onnistunut, edellinen versio on käynnissä. Syy on lokissa." "$RC"
     else
       fail "Päivitys ei onnistunut. Syy on lokissa." "$RC"
-      if recover; then SUMMARY="$SUMMARY Edellinen versio palautettiin."; else SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."; fi
+      if ! recover "$before"; then SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."
+      elif [[ -n $RECOVER_VERSION ]]; then SUMMARY="$SUMMARY Edellistä versiota ei voitu palauttaa, käynnissä on versio $RECOVER_VERSION."
+      else SUMMARY="$SUMMARY Edellinen versio palautettiin."; fi
     fi
   fi
 }
 act_rollback() {
   echo "STEP: 1/2 Palautetaan edellinen versio" >>"$LOGF"
-  if run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes; then
-    echo "STEP: 2/2 Tarkistetaan että sovellus vastaa" >>"$LOGF"
-    if wait_healthy 15; then SUMMARY="Edellinen versio palautettu: $(current_version || echo '?')."; rm -f "$OPS/RECOVERY.txt" "$OPS/check.frag" "$OPS/last-check"
-    else fail "Palautettu sovellus ei vastaa."; write_recovery; fi
-  else
-    RC=$?
-    fail "Palautus ei onnistunut. Syy on lokissa." "$RC"
-    app_up || write_recovery
-  fi
+  if rollback_run look "STEP: 2/2 Tarkistetaan että sovellus vastaa"; then
+    SUMMARY="Edellinen versio palautettu: $(current_version || echo '?')."; rm -f "$OPS/check.frag" "$OPS/last-check"
+  elif ((ROLLBACK_RC == 0)); then fail "Palautettu sovellus ei vastaa."
+  else fail "Palautus ei onnistunut. Syy on lokissa." "$ROLLBACK_RC"; fi
 }
 act_backup() {
   local stamp
@@ -572,8 +565,8 @@ act_helper_renew() {
   echo "STEP: 1/1 Asennetaan apuri uudelleen tästä kansiosta" >>"$LOGF"
   if run_cap "$T_RENEW" ./scripts/install.sh --ops-helper; then SUMMARY="Apuri asennettu uudelleen."; else RC=$?; fail "Apurin uusinta ei onnistunut. Syy on lokissa." "$RC"; fi
 }
-# shellcheck source=lib/ops-access.sh
-act_access() { if . scripts/lib/ops-access.sh; then access_apply "$1"; else fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; fi; } # the change of remote access the app prepared, checked there
+# the change of remote access the app prepared, checked there (access_apply, lib/ops-access.sh)
+act_access() { if [[ -n ${ACCESS_LIB:-} ]]; then access_apply "$1"; else fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; fi; }
 
 # runs one request that passed validation
 run_request() { # run_request ID ACTION
@@ -647,7 +640,7 @@ heartbeat() {
   fi
   if ((n % 10 == 0)) || [[ $boot != "$old_boot" ]] || [[ $stale == true ]]; then
     printf '%s\n' "$boot" >"$OPS/boot_id"
-    state_json | timeout 30 docker compose exec -T banking "${NODE[@]}" dist/node.js ops state --helper "$OPS_HELPER_VERSION" >/dev/null 2>&1 || true
+    send_state
   fi
   # old journal entries and logs go after 30 days
   find "$OPS/journal" "$OPS/run" -type f -mtime +30 -delete 2>/dev/null || true
@@ -691,15 +684,12 @@ main() {
   [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { log "INSTANCE_NAME is invalid"; exit 1; }
   load_libs || { log "A part of the helper does not load (scripts/lib). The helper does not run."; exit 1; }
   now_iso >"$OPS/helper-seen"; rm -f .env.new 2>/dev/null # (left by a helper killed while it wrote .env: it holds the tunnel token)
-  # the docker binary named at install goes first in PATH
-  local d; d=$(pol_get DOCKER)
-  if [[ -n $d && $d =~ ^/[A-Za-z0-9_./-]+/docker$ && -x $d && ! -w $(dirname "$d") ]]; then PATH=$(dirname "$d"):$PATH; export PATH; fi
+  policy_docker
   docker info >/dev/null 2>&1 || { log "Docker does not respond"; exit 0; }
   # A request cut short by a kill is finished as failed. An `access` or a `restart` then starts the containers again
   # (cut_short, lib/ops-access.sh). Only an update or a rollback, with the app down, goes back to the previous version.
   local cut=""; if finish_unfinished; then cut=$(journal_action "$CUT"); fi
-  # shellcheck source=lib/ops-access.sh
-  case $cut in access | restart) . scripts/lib/ops-access.sh && cut_short "$CUT" "$cut" ;; esac
+  case $cut in access | restart) [[ -z ${ACCESS_LIB:-} ]] || cut_short "$CUT" "$cut" ;; esac
   # every tick, with the app down too, each with no arguments: watchdog_tick (lib/ops-watchdog.sh), address_tick (lib/ops-address.sh)
   watchdog_tick
   address_tick

@@ -161,6 +161,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const effectiveScope: Scope = hasHousehold ? (scope ?? (m.accounts.length ? "own" : "household")) : "own";
   const period = periodFor(page, params.get("period"));
   const range = periodRange(period, m.today);
+  const presets = periodsOf(page, m.today);
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
@@ -269,10 +270,10 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
 
       <main id="main" tabIndex={-1}>
       <h1 className="sr-only">{pageLabel}</h1>
-      {periodsOf(page).length > 0 && (m.accounts.length > 0 || hasHousehold) && (
+      {presets.length > 0 && (m.accounts.length > 0 || hasHousehold) && (
         <div className="filters" role="toolbar" aria-label="Aikaväli">
           <div className="segmented">
-            {periodsOf(page).map((p) => (
+            {presets.map((p) => (
               <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate(page, { period: p.id })}>
                 {p.label}
               </button>

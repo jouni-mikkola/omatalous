@@ -7,11 +7,24 @@
  *
  * Only the merchant's name leaves the server, and only a name whose rows
  * say it is a business (core industryCandidates): a card purchase, a direct
- * debit, an invoice to a payee named like a business, a company form or a
- * business word in the name. A person's name never goes: every string sent
+ * debit, an invoice to a payee that is no person as far as the name tells, a
+ * company form or a business word in the name. A person's name never goes,
+ * and neither does a name with a word of the household's own names (the
+ * holders of its accounts, its members' display names): every string sent
  * passes askRegister. Admins can turn the lookup off (Asetukset > Palvelin).
  */
-import { categoryForIndustry, type IndustryCodeSet, industryCandidates, type IndustryMatch, isIndustryCodeSet, isLookupName, matchCompany, shorterQuery } from "@banking/core";
+import {
+  categoryForIndustry,
+  householdWords,
+  type IndustryCodeSet,
+  industryCandidates,
+  type IndustryMatch,
+  isIndustryCodeSet,
+  isLookupName,
+  matchCompany,
+  namesHousehold,
+  shorterQuery,
+} from "@banking/core";
 import { RegistryError, type SearchResult, searchCompanies } from "../providers/prh/client.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
@@ -34,10 +47,12 @@ const MAX_FAILURES = 3;
 
 /**
  * The one door to the register: the name and its shorter form both go through here. A name core's isLookupName
- * refuses (a person's name, the name of a way to pay) makes no request and has no hits.
+ * refuses (a person's name, the name of a way to pay) makes no request and has no hits, and neither does a name
+ * with a word of the household's own names (core namesHousehold). `household` is never left out: a caller that has no
+ * names passes an empty set, and says so.
  */
-export async function askRegister(fetchFn: typeof fetch, name: string): Promise<SearchResult> {
-  return isLookupName(name) ? searchCompanies(fetchFn, name) : { companies: [], complete: true };
+export async function askRegister(fetchFn: typeof fetch, name: string, household: ReadonlySet<string>): Promise<SearchResult> {
+  return isLookupName(name) && !namesHousehold(name, household) ? searchCompanies(fetchFn, name) : { companies: [], complete: true };
 }
 
 /**
@@ -58,10 +73,12 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
     // asking first: a name another member's lookup already answered then needs no new request.
     const perUser = new Map<string, string[]>();
     const fresh = new Map<string, string[]>();
-    for (const user of await s.users.list()) {
-      const repo = s.finance(user.id);
-      const [rows, accounts] = await Promise.all([repo.uncategorisedSpending(), repo.listAccounts()]);
-      const names = industryCandidates(rows, accounts);
+    const members = [];
+    for (const user of await s.users.list()) members.push({ user, accounts: await s.finance(user.id).listAccounts() });
+    // the household's own names, the same for every member's rows: a partner's name is a payee on the other's account
+    const household = householdWords(members.flatMap(({ user, accounts }) => [user.displayName, ...accounts.map((account) => account.holder)]));
+    for (const { user, accounts } of members) {
+      const names = industryCandidates(await s.finance(user.id).uncategorisedSpending(), accounts, household);
       perUser.set(user.id, names);
       fresh.set(user.id, await s.industry.recordRequests(user.id, names));
     }
@@ -86,11 +103,11 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
         if (i > 0 && pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
         let match: IndustryMatch;
         try {
-          const first = await askRegister(fetchFn, merchant);
+          const first = await askRegister(fetchFn, merchant, household);
           // one page of a long hit list may miss the right company: then only an exact name counts
           match = matchCompany(merchant, first.companies, { exactOnly: !first.complete });
           const shorter = match.status === "none" ? shorterQuery(merchant) : null;
-          if (shorter) match = matchCompany(shorter, (await askRegister(fetchFn, shorter)).companies, { exactOnly: true });
+          if (shorter) match = matchCompany(shorter, (await askRegister(fetchFn, shorter, household)).companies, { exactOnly: true });
         } catch (err) {
           await s.industry.saveError(merchant, s.now());
           // the error's own text only: a merchant name is not written to the log

@@ -10,7 +10,7 @@ export interface NavEntry {
 
 /** The five questions the household asks of its money, in the order they are asked. Asetukset is not one of them. */
 export const NAV: readonly NavEntry[] = [
-  { id: "overview", label: "Kuukausi" },
+  { id: "overview", label: "Yhteenveto" },
   { id: "bills", label: "Laskut" },
   { id: "transactions", label: "Tapahtumat" },
   { id: "reports", label: "Raportit" },

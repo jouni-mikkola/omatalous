@@ -69,11 +69,6 @@ export class UsersRepo {
     ]);
   }
 
-  /** Deletes the user and, through ON DELETE CASCADE, all of their data. */
-  async delete(id: string): Promise<void> {
-    await this.db.run("DELETE FROM users WHERE id = ?", [id]);
-  }
-
   /**
    * After a member is removed: rewrites the file so their rows do not stay in free pages, and
    * empties the write-ahead log. (secure_delete is on for every connection, see node-sqlite.ts.)

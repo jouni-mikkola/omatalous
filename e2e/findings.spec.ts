@@ -4,18 +4,18 @@ import { overflow, watch } from "./helpers.ts";
 
 // Every finding is answered in one place: the insights the overview and Raportit > Havainnot told are Muut havainnot
 // on Säästövinkit, answered with the same words and listed under Päätetyt. Switched off, they are back where they
-// were. Runs after app.spec.ts, which created the administrator and loaded the demo household.
+// were. The server has the administrator and the demo household already (e2e/run.mjs makes them).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists one under Päätetyt, and with the page off they show on Kuukausi and Raportit", async ({ browser }) => {
+test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists one under Päätetyt, and with the page off they show on Yhteenveto and Raportit", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   const flag = (on: boolean) => context.request.put("/api/admin/features", { headers: { "X-Requested-With": "fetch" }, data: { optimise: on } });
   try {
-    // with Säästövinkit on, Kuukausi and Raportit leave the insights to it
+    // with Säästövinkit on, Yhteenveto and Raportit leave the insights to it
     await page.goto("/#/overview");
-    await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expect(page.locator(".insights")).toHaveCount(0);
     await page.goto("/#/reports");
@@ -62,11 +62,11 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
     await expect(charge).toBeVisible();
     await expect(decided).toHaveCount(0);
 
-    // switched off: Kuukausi shows the first insights again and Raportit has Havainnot
+    // switched off: Yhteenveto shows the first insights again and Raportit has Havainnot
     expect((await flag(false)).ok()).toBe(true);
     await page.goto("/#/overview");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
     await expect(page.locator(".insights").getByText(title)).toBeVisible();
     await page.goto("/#/reports");
     await expect(page.getByRole("heading", { name: "Havainnot" })).toBeVisible();

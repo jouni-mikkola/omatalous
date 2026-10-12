@@ -261,7 +261,7 @@ describe("alerts", () => {
         expect(reportOf(rows, range, now).periodLabel).toBe(now < "2026-04" || range.to < "2026-04" ? "Maaliskuu" : "Huhtikuu");
         return buildAlerts(createContext(rows, [checking], now), range).filter((a) => a.kind === "spike").map((a) => [plain(a.title), plain(a.detail)]);
       };
-      // on 20.3. Kuukausi, 3 kk and Vuosi all end in the running March
+      // on 20.3. the month, 3 kk and Vuosi all end in the running March
       const running = [["Ruoan kotiinkuljetus 340 € maaliskuussa", "Tavallisesti tähän mennessä noin 68 €"]];
       expect(spikesAt("2026-03-20", { from: "2026-03-01", to: "2026-03-31" })).toEqual(running);
       expect(spikesAt("2026-03-20", { from: "2026-01-01", to: "2026-03-31" })).toEqual(running);

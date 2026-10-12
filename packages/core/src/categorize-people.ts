@@ -4,19 +4,12 @@
  * name or surname is often a shop's brand too (Elisa, Helen, Silja, Asko, Virta), so a person is told before the shops.
  */
 import type { CategorizeInput, CompiledRule } from "./categorize.ts";
-import { fold } from "./merchant.ts";
+import { hasTerminalShape } from "./industry.ts";
+import { dropCardAccountPrefix, fold } from "./merchant.ts";
+import { holdersIn, type Name, nameOf, samePerson, userNameOf } from "./person-names.ts";
 import type { Account } from "./types.ts";
-import { hasPayeeForm, INVOICE_WORDS, isBusinessPaymentText, isCardCode, isPersonShaped, isRent, MOBILEPAY_SHOP_PREFIX, MOBILEPAY_WORDS, PERSON_PAYMENT_WORDS, words } from "./wording.ts";
-
-/** A name as its folded words: a bank writes the surname first or last. */
-type Name = ReadonlySet<string>;
-const nameOf = (text: string): Name => new Set(fold(text).split(/[^\p{L}]+/u).filter(Boolean));
-
-/** One person: every word of the shorter name is in the longer one, and it has two at least. One bank leaves a middle name out. */
-function samePerson(a: Name, b: Name): boolean {
-  const [few, many] = a.size <= b.size ? [a, b] : [b, a];
-  return few.size >= 2 && [...few].every((word) => many.has(word));
-}
+import { hasPayeeForm, INVOICE_WORDS, isBusinessPaymentText, isCardCode, isPersonShaped, isRent, MOBILEPAY_SHOP_PREFIX, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_WORDS, words } from "./wording.ts";
+import { isOrganisationName } from "./wording-lenders.ts";
 
 export interface Holders {
   /** The user's own name. Null: the accounts do not tell it, and then nobody is told apart. */
@@ -29,22 +22,15 @@ const NOBODY: Holders = { user: null, others: [] };
 const known = new WeakMap<readonly Account[], Holders>();
 
 /**
- * Who holds the accounts, from the holders the bank gives ("A, B"). The user is the one name on the most accounts: a
- * joint account's other holder and a child's account each stand on fewer. A joint account alone leaves two names on as
- * many, and so do two people's own accounts: the user is not known then, and every row is read as before.
+ * Who holds the accounts, from the holders the bank gives ("A, B"). The user is the one name on the most accounts
+ * (`userNameOf`). When the accounts do not tell it, nobody is told apart and every row is read as before.
  */
 export function holdersOf(accounts: readonly Account[]): Holders {
   if (!accounts.length) return NOBODY;
   let holders = known.get(accounts);
   if (!holders) {
-    const lists = accounts.map((a) => (a.holder ?? "").split(",").map(nameOf).filter((name) => name.size >= 2)).filter((names) => names.length > 0);
-    const names = lists.flat();
-    const accountsOf = (name: Name) => lists.filter((list) => list.some((other) => samePerson(name, other))).length;
-    const most = Math.max(0, ...names.map(accountsOf));
-    // one person may be written two ways on two accounts: those are one name, two people on as many accounts are a tie
-    const top = names.filter((name) => accountsOf(name) === most);
-    const user = top.length > 0 && top.every((name) => samePerson(name, top[0]!)) ? top[0]! : null;
-    holders = user ? { user, others: names.filter((name) => !samePerson(name, user)) } : NOBODY;
+    const user = userNameOf(accounts);
+    holders = user ? { user, others: accounts.flatMap((a) => holdersIn(a.holder).map((h) => h.name)).filter((name) => !samePerson(name, user)) } : NOBODY;
     known.set(accounts, holders);
   }
   return holders;
@@ -61,9 +47,14 @@ const INVOICE_TEXT = words(INVOICE_WORDS, true);
 /** A reference number written into a message: the word for one, an RF reference (its groups may stand apart), or six digits at least as long as a bank's (single spaces between them: references print in fives). */
 const REFERENCE_TEXT = /(?<![A-Z0-9])VIITE[A-Z]*|(?<![A-Z0-9])RF\d{2}(?: ?[A-Z0-9]){4,}|\d(?: ?\d){5}/;
 
-const payeeOf = (input: CategorizeInput) => fold(input.counterparty ?? "").trim();
-/** No card in it: a card row pays a shop, also one named like a person. */
-const noCard = (input: CategorizeInput) => !input.mcc && !isCardCode(input.bankTxnCode);
+/** The folded payee, without the country and the city a card account writes in front of it ("OSTO FIN KUOPIO MOB.PAY*MATTI MEIKALAINEN"): the merchant's name is read without them too. */
+const payeeOf = (input: CategorizeInput) => dropCardAccountPrefix(fold(input.counterparty ?? "").trim());
+/**
+ * No card in the row: no card code, no code of the bank's for a card, and no text of a card terminal. One bank gives
+ * neither code, and there the terminal's number and town are all that tells a purchase. A card pays a shop, whatever
+ * the shop is called, also one named like a person or like a lender.
+ */
+export const noCard = (row: Pick<CategorizeInput, "mcc" | "bankTxnCode" | "counterparty" | "description">) => !row.mcc && !isCardCode(row.bankTxnCode) && !hasTerminalShape(row);
 
 /** The payer or payee is another holder of the user's accounts: a person of the household, whatever the text says. */
 function isCoHolder(input: CategorizeInput, holders: Holders): boolean {
@@ -85,8 +76,9 @@ export function peopleRules(
   shopMcc: (mcc: string | null) => boolean,
   namesShopOrService: (message: string) => boolean,
 ): { first: CompiledRule[]; plain: CompiledRule[] } {
-  // a person has the shape of a name, by the rule that keeps a name from the trade register, no company form and no trade word
-  const person = (name: string) => isPersonShaped(name) && !hasPayeeForm(name) && !namedLikeBusiness(name);
+  // a person has the shape of a name, by the rule that keeps a name from the trade register, no company form at an end or
+  // between two words ("BOSTADS AB EXEMPEL"), no word of a school or an association and no trade word
+  const person = (name: string) => isPersonShaped(name) && !hasPayeeForm(name) && !namesBusiness(name) && !isOrganisationName(name) && !namedLikeBusiness(name);
 
   const viaMobilePay = (input: CategorizeInput): boolean => {
     const payee = payeeOf(input);

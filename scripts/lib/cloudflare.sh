@@ -12,8 +12,11 @@
 #
 # The file holds an API token, so it is read by this user only. It is parsed, never sourced, and its values reach the
 # app image's command through the environment of docker run, never through an argument list (ps shows those).
-# Uses the installer's globals and helpers (die, say, ask, existing, valid_domain, A_*, ACCESS, DOMAIN, ...).
+# Uses the installer's globals and helpers (die, say, ask, existing, valid_domain, A_*, ACCESS, DOMAIN, ...), and the
+# writer of .env beside this file (envfile.sh).
 
+# shellcheck source=envfile.sh
+. "${BASH_SOURCE[0]%/*}/envfile.sh"
 CF_FILE="${HOME:-/nonexistent}/.config/omatalous/cloudflare.env"
 CF_API_TOKEN=""; CF_EMAILS=""; CF_BASE=""
 ACCESS_EMAILS=""   # the emails Access lets in for this copy: .env CLOUDFLARE_ACCESS_EMAILS, by default the file's list
@@ -106,27 +109,11 @@ cf_fail() {
 
 # env_set ITEM...: KEY=VALUE replaces the line KEY=... in .env (or adds it), a bare KEY removes it. Every item goes in
 # with one rename, so a stop leaves all of them or none: half an Access pair is a .env the app refuses to start with
-# (platform/config.ts). Only builtins see the values.
+# (platform/config.ts). Only builtins see the values. The writing is the one writer's (envfile_write, envfile.sh), which
+# the maintenance helper uses too: the file is made beside .env, never through a link, and is this user's alone.
 env_set() {
-  local line item key mine found=" "
   umask 077
-  {
-    while IFS= read -r line || [[ -n $line ]]; do
-      mine=""
-      for item in "$@"; do
-        key=${item%%=*}
-        [[ $line == "$key="* ]] || continue
-        mine=$key
-        [[ $item != *=* ]] || { printf '%s\n' "$item"; found+="$key "; }
-        break
-      done
-      [[ -n $mine ]] || printf '%s\n' "$line"
-    done <"$ENV_FILE"
-    for item in "$@"; do
-      [[ $item != *=* || $found == *" ${item%%=*} "* ]] || printf '%s\n' "$item"
-    done
-  } >"$ENV_FILE.new"
-  chmod 600 "$ENV_FILE.new"; mv -f "$ENV_FILE.new" "$ENV_FILE"
+  envfile_write "$ENV_FILE" place 600 "$@"
 }
 
 # The pair CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN in .env turns on the app's own check of Cloudflare Access

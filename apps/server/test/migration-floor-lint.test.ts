@@ -1,8 +1,11 @@
 /**
  * The compat header is a promise that older builds may keep running on the schema a migration leaves. A wrong promise
  * loses data, so the lint is an allowlist: a migration may carry the header only when every statement in it is one of
- *   CREATE TABLE [IF NOT EXISTS], CREATE INDEX [IF NOT EXISTS] (not unique), ALTER TABLE ... ADD COLUMN (nullable or
- *   with a DEFAULT, not a key).
+ *   CREATE TABLE [IF NOT EXISTS], CREATE INDEX [IF NOT EXISTS] (unique only on a table the same file creates by a plain
+ *   CREATE TABLE, one with no IF NOT EXISTS, which stops when the table is there: older code writes no row of it),
+ *   ALTER TABLE ... ADD COLUMN (nullable or with a DEFAULT, not a key).
+ * A quoted table name that holds `.`, `[` or `]` is refused: the lint compares names without their quotes, and such a
+ * name would be read as another table.
  * Anything else, however it is spelled, makes the header an error. A migration that is on the list throughout must
  * carry the header (so the floor is a decision, not a default).
  */
@@ -52,11 +55,31 @@ function statements(sql: string): string[] {
 
 const IDENT = String.raw`(?:"[^"]+"|\`[^\`]+\`|\[[^\]]+\]|[\w.]+)`;
 const ADD_COLUMN = new RegExp(`^ALTER TABLE ${IDENT} ADD (?:COLUMN )?(.+)$`, "i");
+// a name ends at a space or the column list: `"main"."t"` is not the table `main`
+const NAME_END = String.raw`(?=[\s(]|$)`;
+const CREATE_TABLE = new RegExp(`^CREATE TABLE (IF NOT EXISTS )?(${IDENT})${NAME_END}`, "i");
+const UNIQUE_INDEX = new RegExp(`^CREATE UNIQUE INDEX (?:IF NOT EXISTS )?${IDENT} ON (${IDENT})${NAME_END}`, "i");
+/** A table's name as two spellings of it compare: no quotes, no `main.`, one case. Null for a quoted name that holds `.`, `[` or `]`, which no other spelling stands for. */
+function bare(ident: string): string | null {
+  const quoted = /^(?:"(.*)"|`(.*)`|\[(.*)\])$/.exec(ident);
+  if (!quoted) return ident.replace(/^main\./i, "").toLowerCase();
+  const name = (quoted[1] ?? quoted[2] ?? quoted[3])!;
+  return /[.[\]]/.test(name) ? null : name.toLowerCase();
+}
 
-/** Is the statement one that cannot remove, rewrite or constrain what older code reads or writes? */
-function isAdditive(statement: string): boolean {
-  if (/^CREATE TABLE (IF NOT EXISTS )?\S/i.test(statement)) return true;
+/** Is the statement one that cannot remove, rewrite or constrain what older code reads or writes? `created`: the tables the same file makes. */
+function isAdditive(statement: string, created: ReadonlySet<string>): boolean {
+  if (/^CREATE TABLE /i.test(statement)) {
+    const table = CREATE_TABLE.exec(statement);
+    return table !== null && bare(table[2]!) !== null;
+  }
   if (/^CREATE INDEX (IF NOT EXISTS )?\S/i.test(statement)) return true;
+  // a unique index holds the rows older code writes to its promise, except on a table this file creates: older code writes none of its rows
+  const unique = UNIQUE_INDEX.exec(statement);
+  if (unique) {
+    const on = bare(unique[1]!);
+    return on !== null && created.has(on);
+  }
   // string literals out of the way, so a default of 'NOT NULL' or 'unique' does not count
   const add = ADD_COLUMN.exec(statement.replace(/'(?:[^']|'')*'/g, "''"));
   if (!add) return false;
@@ -78,7 +101,15 @@ function floorProblems(sql: string): string[] {
   const breaking = /^--\s*migrate:\s*breaking\s+\S+/m.test(sql);
   const rebuild = /^--\s*migrate:\s*foreign_keys=off\s*$/m.test(sql);
   const all = statements(sql);
-  const unsafe = all.filter((s) => !isAdditive(s));
+  // a table is new only by a plain CREATE TABLE: with IF NOT EXISTS it does nothing when the table is there, and then the index below is on an old table
+  const created = new Set(
+    all.flatMap((s) => {
+      const table = CREATE_TABLE.exec(s);
+      const name = table && !table[1] ? bare(table[2]!) : null;
+      return name === null ? [] : [name];
+    }),
+  );
+  const unsafe = all.filter((s) => !isAdditive(s, created));
   if (declared) {
     if (breaking) out.push("a breaking migration must not declare a compat floor");
     if (rebuild) out.push("a table rebuild must not declare a compat floor");
@@ -117,6 +148,12 @@ describe("compat floor lint", () => {
       'ALTER TABLE "accounts" ADD COLUMN "note" TEXT;',
       "ALTER TABLE main.accounts ADD COLUMN flag INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE accounts ADD COLUMN owner TEXT REFERENCES users(id);",
+      // a unique index on a table of the same file, however the two names are spelled
+      "CREATE TABLE notes (id INTEGER, body TEXT); CREATE UNIQUE INDEX idx_notes ON notes(id, COALESCE(body, ''));",
+      'CREATE TABLE "Notes" (id INTEGER); CREATE UNIQUE INDEX IF NOT EXISTS idx_notes ON main.notes (id);',
+      "CREATE TABLE notes (id INTEGER); CREATE UNIQUE INDEX idx_a ON `Notes`(id); CREATE UNIQUE INDEX idx_b ON [notes] (id);",
+      // near misses of the refusals: IF NOT EXISTS is an additive statement on its own, and a space in a quoted name is a name
+      'CREATE TABLE IF NOT EXISTS notes (id INTEGER); CREATE TABLE "my notes" (id INTEGER); CREATE UNIQUE INDEX idx_mine ON "my notes"(id);',
       // text inside a literal or a comment is not a statement
       "ALTER TABLE accounts ADD COLUMN note TEXT DEFAULT 'x; DROP TABLE users; -- NOT NULL';",
       "-- DELETE FROM users;\nCREATE TABLE a (id TEXT REFERENCES u(id) ON DELETE CASCADE); /* UPDATE a SET b = 1; */",
@@ -146,6 +183,24 @@ describe("compat floor lint", () => {
       "INSERT OR REPLACE INTO a (id) VALUES (1);",
       "INSERT INTO a (id) VALUES (1);",
       "CREATE UNIQUE INDEX idx_u ON a(b);",
+      // near misses of the one unique index that is allowed: a table the file does not create, and one it creates only in a comment
+      "CREATE TABLE notes (id INTEGER); CREATE UNIQUE INDEX idx_u ON accounts(iban);",
+      "CREATE TABLE notes (id INTEGER); CREATE UNIQUE INDEX idx_u ON notes_old(id);",
+      "-- CREATE TABLE a (b TEXT);\nCREATE UNIQUE INDEX idx_u ON a(b);",
+      // a table the file makes only if it is not there makes nothing on an old table, and the index would hold the rows older code writes
+      "CREATE TABLE IF NOT EXISTS accounts (id TEXT, iban TEXT); CREATE UNIQUE INDEX idx_u ON accounts(iban);",
+      "create table if not exists main.accounts (id TEXT, iban TEXT); create unique index idx_u on accounts (iban);",
+      // a quoted name that holds `.`, `[` or `]` is one name: stripping the marks would read it as the old table
+      'CREATE TABLE "main.accounts" (id TEXT, iban TEXT); CREATE UNIQUE INDEX idx_u ON accounts(iban);',
+      'CREATE TABLE "acc[ounts]" (id TEXT, iban TEXT); CREATE UNIQUE INDEX idx_u ON accounts(iban);',
+      "CREATE TABLE `main.accounts` (id TEXT); CREATE UNIQUE INDEX idx_u ON accounts(id);",
+      "CREATE TABLE [acc.ounts] (id TEXT); CREATE UNIQUE INDEX idx_u ON accounts(id);",
+      'CREATE TABLE "main.accounts" (id TEXT);',
+      'CREATE TABLE IF NOT EXISTS "acc]ounts" (id TEXT);',
+      'CREATE TABLE notes (id TEXT); CREATE UNIQUE INDEX idx_u ON "main.notes"(id);',
+      // a quoted schema in front of the name is not the table
+      'CREATE TABLE "main" (id TEXT); CREATE UNIQUE INDEX idx_u ON "main"."accounts"(iban);',
+      'CREATE TABLE "main"."notes" (id TEXT);',
       "CREATE TRIGGER trg AFTER INSERT ON a BEGIN UPDATE a SET b = 1; END;",
       "CREATE TEMP TABLE t (id INTEGER);",
       "CREATE VIEW v AS SELECT 1;",

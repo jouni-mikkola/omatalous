@@ -12,7 +12,7 @@ const SHOWN = 10;
 /**
  * Tulossa: the one list of what leaves the account in the next 30 days, whether the bank history shows it every month,
  * rarely, or the household typed it in. It is `upcoming` of the dashboard answer, found by the same code as the rows of the
- * card on Kuukausi, which lists the first part of it, to the payday. The count and the sum come from this list.
+ * card on Yhteenveto, which lists the first part of it, to the payday. The count and the sum come from this list.
  * "Lisää lasku" opens the form for a bill the history cannot know yet.
  */
 export function Coming({ ahead, today, label, onAdded }: { ahead: Ahead | null; today: string; label: (id: string) => string; onAdded: () => void }) {

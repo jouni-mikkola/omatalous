@@ -15,6 +15,20 @@ export function cardTier(name: string): CardTier {
   return has(GOLD) ? "gold" : "plain";
 }
 
+/** The words a bank puts in brackets after a card's name to tell its type, in the lower case they are compared in. */
+const CARD_TYPES = ["credit", "debit", "credit card", "debit card", "luotto", "luottokortti", "debetti", "kredit"];
+const TYPE_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:${CARD_TYPES.join("|")})\s*\)`, "gi");
+
+/**
+ * The bank's name for a card without the type it adds in brackets ("Nordea Gold (credit)" gives "Nordea Gold"). Only a
+ * bracket that holds nothing but a type word goes: the owner's name of a shared card, "(Eero)", stays, and so does a name
+ * that would be left empty.
+ */
+export function cardName(name: string): string {
+  const plain = name.replace(TYPE_IN_BRACKETS, "").replace(/\s+/g, " ").trim();
+  return plain || name.trim();
+}
+
 /**
  * How much of the bar under a card face is filled, in whole percent: the used part of the limit, at least 2 % while
  * anything is used (so a small debt still shows) and the full width at and over the limit. Only the width is worked out

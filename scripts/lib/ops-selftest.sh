@@ -15,9 +15,9 @@
 #                        on the disk, which is the new one. When that fails it takes the update back and makes the request
 #                        a failed one (fail); its own status is not read.
 #
-# It uses the helper's SELF, ROOT, OPS, NODE, OPS_HELPER_VERSION, ENV_ERR, T_ROLLBACK, t_for, now_iso, log, say_log,
-# pol_get, check_permissions, env_check, app_up, current_version, semver_gt, wait_healthy, run_cap, fail and
-# write_recovery, watchdog_report of lib/ops-watchdog.sh, and the locals before and after of act_update.
+# It uses the helper's SELF, ROOT, OPS, NODE, OPS_HELPER_VERSION, ENV_ERR, t_for, now_iso, log, say_log, last_update,
+# policy_docker, check_permissions, env_check, app_up, current_version, semver_gt and fail, rollback_run and
+# watchdog_report of lib/ops-watchdog.sh, and the locals before and after of act_update.
 
 # Room for two looks at Docker and the app (20 + 20 + 30 s each at the worst), the wait between them and the dry poll.
 T_SELFTEST=$(t_for 240 SELFTEST)
@@ -34,7 +34,7 @@ SELFTEST_COPY_MAX_AGE=3600
 # log). Everything here only reads. The app is asked only after it has answered its health check: every command run in
 # the app opens the database and applies pending migrations, and a server that answers has done both already.
 selftest_checks() {
-  local f out d
+  local f out
   SELFTEST_WHY=""
   # bash reads a script while it runs it, so a broken line shows only when it is reached: parse every script whole
   for f in "$SELF" scripts/*.sh scripts/lib/*.sh; do
@@ -49,9 +49,7 @@ selftest_checks() {
     return 1
   fi
   env_check || { SELFTEST_WHY=".env is invalid: $ENV_ERR"; return 1; }
-  # the docker binary named at install goes first in PATH, as in a tick
-  d=$(pol_get DOCKER)
-  if [[ -n $d && $d =~ ^/[A-Za-z0-9_./-]+/docker$ && -x $d && ! -w $(dirname "$d") ]]; then PATH=$(dirname "$d"):$PATH; export PATH; fi
+  policy_docker # as in a tick
   # One failed look must not take an update back: right after the switch Docker or the app can be slow for a moment.
   # What a second look cannot change (a broken file, .env, a wrong answer to the poll) gets no second look.
   selftest_live || { sleep "$SELFTEST_RETRY_WAIT"; selftest_live; } || return 1
@@ -102,11 +100,11 @@ selftest_why_fi() {
 # left (BEFORE, when that is known) and its time is under SELFTEST_COPY_MAX_AGE old. Sets SELFTEST_AT and SELFTEST_PREV.
 # update.sh writes the record only when it had a previous image to keep, so an update can leave an older one behind.
 selftest_copy() {
-  local f=backups/.last-update at now
+  local at now
   SELFTEST_AT=""; SELFTEST_PREV=""
-  [[ -f $f ]] || return 1
-  SELFTEST_AT=$(grep -E '^AT=' "$f" | tail -1 | cut -d= -f2-)
-  SELFTEST_PREV=$(grep -E '^PREV_VERSION=' "$f" | tail -1 | cut -d= -f2-); SELFTEST_PREV=${SELFTEST_PREV%% *}
+  [[ -f backups/.last-update ]] || return 1
+  SELFTEST_AT=$(last_update AT)
+  SELFTEST_PREV=$(last_update PREV_VERSION); SELFTEST_PREV=${SELFTEST_PREV%% *}
   [[ $SELFTEST_AT =~ ^([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z$ ]] || return 1
   at=$(date -u -d "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}" +%s 2>/dev/null) || return 1
   now=$(date -u +%s)
@@ -137,17 +135,15 @@ after_update_check() {
   fi
   # From here on the files on the disk are the previous version's: everything called below is in memory already.
   say_log "The new helper does not work ($why). Restoring the previous version."
-  rc=0; run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes || rc=$?
-  if ((rc == 0)) && wait_healthy 15; then
+  if rollback_run none; then
     # as after the rollback action: the saved answer of the version check says "no update", and the update is there again
-    rm -f "$OPS/RECOVERY.txt" "$OPS/check.frag" "$OPS/last-check"
+    rm -f "$OPS/check.frag" "$OPS/last-check"
     from=${after:-}; to=$(current_version || true); to=${to:-${before:-}}; to=${to:-$SELFTEST_PREV}
     watchdog_report "$SELFTEST_AT" "$from" "$to" self_test || log "update: the rollback could not be reported to the app (from \"$from\" to \"$to\")"
     say_log "The previous version is running."
     log "update: the previous version was restored"
     fail "Edellinen versio palautettiin, koska uusi ylläpitoapuri ei toiminut ($why_fi)."
   else
-    write_recovery
-    fail "Uusi ylläpitoapuri ei toiminut ($why_fi). Palautus epäonnistui, katso ops/RECOVERY.txt." "$((rc ? rc : 1))"
+    fail "Uusi ylläpitoapuri ei toiminut ($why_fi). Palautus epäonnistui, katso ops/RECOVERY.txt." "$((ROLLBACK_RC ? ROLLBACK_RC : 1))"
   fi
 }

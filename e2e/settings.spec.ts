@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// Asetukset: the header link, Omat and Talous, and the repair of a bank connection that ended. Runs after app.spec.ts,
-// which created the administrator and loaded the demo household.
+// Asetukset: the header link, Omat and Talous, and the repair of a bank connection that ended. The server has the
+// administrator and the demo household already (e2e/run.mjs makes them).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 test("Asetukset is a link in the header with Omat and Talous, Tietojen laatu is in Tilit, and the old addresses keep working", async ({ browser }) => {
@@ -15,7 +15,7 @@ test("Asetukset is a link in the header with Omat and Talous, Tietojen laatu is 
 
   // five questions in the nav, and Asetukset beside the user menu instead of among them
   await page.goto("/#/overview");
-  await expect(nav.getByRole("link")).toHaveText(["Kuukausi", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
+  await expect(nav.getByRole("link")).toHaveText(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
   await expect(nav.getByRole("link", { name: "Asetukset" })).toHaveCount(0);
   const header = page.locator("header.topbar").getByRole("link", { name: "Asetukset", exact: true });
   await header.click();

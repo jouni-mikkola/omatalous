@@ -1,4 +1,4 @@
-import { coverOf, type MarkKind, MIN_COMPARE_MONTHS } from "@banking/core";
+import { coverOf, type MarkKind } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { api, query } from "../api.ts";
 import { PaceChart } from "../charts/PaceChart.tsx";
@@ -14,7 +14,7 @@ import { Insights } from "../components/Insights.tsx";
 import { NextDays } from "../components/NextDays.tsx";
 import { bridgeIncome } from "../components/month-parts.ts";
 import { SurplusBridge } from "../components/SurplusBridge.tsx";
-import { completeMonths, count, date, dayMonth, money, monthLong, monthSpan, percent, signedMoney } from "../format.ts";
+import { date, dayMonth, money, monthLong, percent, signedMoney } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { DashboardData, Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
@@ -30,20 +30,6 @@ function pctChange(current: number, previous: number): string | null {
   const pct = Math.round(((current - previous) / Math.abs(previous)) * 100);
   // U+2212 for a fall, the same minus as everywhere else in the app
   return pct === 0 ? "±0 %" : `${pct > 0 ? "+" : "−"}${Math.abs(pct)} %`;
-}
-
-/** "3 000–3 200 €", or one figure when the forecast has always been exact. */
-function forecastRange(f: NonNullable<DashboardData["forecast"]>): string {
-  if (f.lowCents === f.highCents) return money(f.highCents, false);
-  return `${money(f.lowCents, false).replace(/\s€$/, "")}–${money(f.highCents, false)}`;
-}
-
-/** What the range stands on, so a household can tell a measured range from a typical one. */
-function rangeBasis(f: NonNullable<DashboardData["forecast"]>): string {
-  const pct = `vaihteluväli ±${count(f.rangePercent)} %`;
-  return f.rangeBasis === "own"
-    ? `${pct}, mitattu ${f.rangeMonths} edellisestä kuukaudesta`
-    : `${pct}, yleinen arvio ilman omaa historiaa`;
 }
 
 /** "2026-09-01", "2026-09-09" → "1.–9.9."; across months "28.8.–9.9." */
@@ -70,7 +56,7 @@ export function Overview({
   const hasData = meta.accounts.length > 0 || (scope === "household" && meta.sharedAccounts.length > 0);
   // no request while there are no accounts: the first one after demo data or a sync is a fresh fetch
   const { data, error, loading, reload } = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...range, scope })}` : null);
-  // a month that has ended is told by the sections of this page (Menojen muutos); the running one by the forecast
+  // a month that has ended is told by the sections of this page (Menojen muutos); the running one by its spending card
   const ended = range.to < meta.today;
   const monthReports = reportsOf("month");
   const reports = useApi<ReportsData>(hasData && ended && monthReports.length ? `/api/reports${query({ ...range, scope, reports: monthReports.join(",") })}` : null);
@@ -107,7 +93,7 @@ export function Overview({
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
   if (!data) return <Loading />;
 
-  const { totals, previousTotals, colorOrder, comparable, forecast } = data;
+  const { totals, previousTotals, colorOrder, comparable } = data;
   // a running period is compared with the same days of the previous one
   // the year only when the comparison falls in another year (Tämä vuosi, or January)
   const prevYear = data.range.previousTo.slice(0, 4) === data.range.to.slice(0, 4) ? "" : data.range.previousTo.slice(0, 4);
@@ -157,7 +143,7 @@ export function Overview({
 
       <Holdings holdings={data.holdings} meta={meta} />
 
-      {forecast && <ForecastCard forecast={forecast} pace={data.pace} />}
+      {data.running && <SpendingCard pace={data.pace} />}
 
       {data.ahead && (
         <div className="card">
@@ -166,7 +152,7 @@ export function Overview({
       )}
 
       <div className="card">
-        {/* Tämä kuu tells last month's split in one line: the card itself is Viime kuu's */}
+        {/* The running month tells last month's split in one line: the card itself is the month before's */}
         {data.running && (data.bridge.basis === "last" || data.bridge.basis === "partial") ? (
           <BridgeLine b={data.bridge} />
         ) : (
@@ -211,9 +197,9 @@ export function Overview({
 }
 
 /**
- * Tämä kuu's line on last month's income: the month, partial while the history has no complete month, its income and
+ * The running month's line on last month's income: the month, partial while the history has no complete month, its income and
  * savings rate, the credit drawn when there was some (`coverOf`, as the table of Tulot ja menot names it), and a link
- * to Viime kuu, where the split is.
+ * to the month before, where the split is.
  */
 export function BridgeLine({ b }: { b: DashboardData["bridge"] }) {
   const { incomeCents: income, savingsRate } = b.totals;
@@ -265,63 +251,36 @@ function bridgeSub(b: DashboardData["bridge"], runningMonth: string): ReactNode 
 }
 
 /**
- * Where the running month is heading, with what the range stands on, and how it has gone so far (Kuukauden kulku).
- * The month the forecast is for is named, because the period on the page can be longer. Each "tavallisesti" here is
- * the month's one usual total (`usualSpending`): of the whole month, and of its days so far.
+ * What the running month has cost so far, set against the month before on the same day, and how it has gone (Menojen
+ * kertymä). Nothing is forecast: both lines are sums of real rows. The month is named, because the period on the page
+ * can be longer.
  */
-function ForecastCard({ forecast: f, pace }: { forecast: NonNullable<DashboardData["forecast"]>; pace: DashboardData["pace"] }) {
-  const change = f.usualMonthCents ? pctChange(f.forecastCents, f.usualMonthCents) : null;
+function SpendingCard({ pace }: { pace: DashboardData["pace"] }) {
+  const { previous } = pace;
   return (
-    <section className="card forecast-card" aria-labelledby="forecast-h">
+    <section className="card spending-card" aria-labelledby="spending-h">
       <div className="card-head">
         <div>
-          <h2 id="forecast-h">Ennuste kuun loppuun</h2>
-          <div className="card-sub">{capitalize(monthLong(f.month))}</div>
+          <h2 id="spending-h">Menot</h2>
+          <div className="card-sub">{capitalize(monthLong(pace.month))}</div>
         </div>
       </div>
-      <div className="forecast-body">
+      <div className="spending-body">
         <div>
-          {/* without a complete month there is no usual everyday spending for the days left: what has gone is no forecast */}
-          {f.pendingUntil ? (
-            <p className="tile-note">
-              Ennuste näkyy {date(f.pendingUntil)}, kun historiassa on {completeMonths(1)}.
-            </p>
-          ) : (
-            <>
-              <div className="tile-value">{forecastRange(f)}</div>
-              <div className="tile-note">{rangeBasis(f)}</div>
-            </>
+          <div className="tile-value">{money(pace.currentTotal, false)}</div>
+          {previous && (
+            <div className="tile-note">
+              {monthName(previous.month)}ssa {dayMonth(`${previous.month}-${String(previous.day).padStart(2, "0")}`)} mennessä {money(previous.toToday, false)}
+            </div>
           )}
-          <dl className="forecast-parts">
-            <div>
-              <dt>Menot tähän mennessä</dt>
-              <dd>{money(f.spentCents, false)}</dd>
-            </div>
-            {pace.usualAtToday !== null && (
-              <div>
-                <dt>Tavallisesti tähän mennessä</dt>
-                <dd>{money(pace.usualAtToday, false)}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Tulossa tässä kuussa</dt>
-              <dd>{money(f.billsLeftCents, false)}</dd>
-            </div>
-            {!f.pendingUntil && (
-              <div>
-                <dt>
-                  Tavallisesti kuussa
-                  {f.usualMonthCents !== null && <small className="muted"> ({monthSpan(f.usualMonths)})</small>}
-                </dt>
-                <dd>{f.usualMonthCents === null ? "–" : money(f.usualMonthCents, false)}</dd>
-              </div>
-            )}
-          </dl>
-          {!f.pendingUntil && <p className="small muted forecast-usual">{change ? `Ennuste on ${change} tavallisesta kuusta` : `Vertailu näkyy, kun historiassa on ${completeMonths(MIN_COMPARE_MONTHS)}`}</p>}
         </div>
-        <div className="forecast-pace">
-          <h3>Kuukauden kulku</h3>
-          {pace.currentTotal <= 0 ? <p className="muted small">Ei vielä menoja tässä kuussa.</p> : <PaceChart current={pace.current} usual={pace.usual} />}
+        <div className="spending-pace">
+          <h3>Menojen kertymä</h3>
+          {pace.currentTotal <= 0 ? (
+            <p className="muted small">Ei vielä menoja tässä kuussa.</p>
+          ) : (
+            <PaceChart current={pace.current} previous={previous?.curve ?? null} names={{ current: monthName(pace.month), previous: previous ? monthName(previous.month) : "" }} />
+          )}
         </div>
       </div>
     </section>
@@ -329,3 +288,6 @@ function ForecastCard({ forecast: f, pace }: { forecast: NonNullable<DashboardDa
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** "2026-10" → "Lokakuu": the month's name alone. */
+const monthName = (month: string) => capitalize(monthLong(month).replace(/ \d+$/, ""));

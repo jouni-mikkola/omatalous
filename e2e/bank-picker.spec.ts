@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // The bank picker in Asetukset > Pankkiyhteydet with the list the server offers: seventeen banks, one, none, the
-// renewal of a consent whose bank is on the list or is not, and the logos the server serves. Runs after app.spec.ts,
-// which created the administrator.
+// renewal of a consent whose bank is on the list or is not, and the logos the server serves. The server has the
+// administrator already (e2e/run.mjs makes it).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const NAMES: [string, string][] = [

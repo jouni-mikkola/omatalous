@@ -3,24 +3,19 @@
  *
  * A household's debt payments and the credit it draws are told as debt (ADR 0014). A lender on no list was a shop when
  * it was paid and income when it paid out, so the month looked better than it was. A lender is told three ways: by the
- * shape of its name (a rule, below), by its own payout and by the trade register (`lenderEvidence`). A card's bill is
- * decided after the rules (card-channel.ts), and nothing here asks whether a payment is one.
+ * shape of its name (a rule, below), by its own payout and by the trade register (`lenderEvidence`). The household's
+ * own bank is none by its name, and a loan there is told by the reference its instalments are paid under. A card's bill
+ * is decided after the rules (card-channel.ts), and nothing here asks whether a payment is one.
  */
+import { isInstalments, isLenderPayout, referenceOf } from "./card-channel.ts";
 import type { CategorizeInput, CompiledRule } from "./categorize.ts";
-import { type Holders, isUserName } from "./categorize-people.ts";
-import { hasTerminalShape } from "./industry.ts";
-import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
-import { namesBank } from "./transfers.ts";
+import { type Holders, noCard } from "./categorize-people.ts";
+import { fold } from "./merchant.ts";
+import { isBankName, namesBank } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
-import { isCardCode, isCardText, isInsuranceText, isLenderName, isNoCreditText, isPersonShaped, isReimbursementText } from "./wording.ts";
+import { isCardText, isInsuranceText, isLenderName, isNoCreditText, isReimbursementText } from "./wording.ts";
 import { hasInterestWord, isLenderShapedName, isStreetAddressText } from "./wording-lenders.ts";
 
-/**
- * No card in the row: no card code, no code of the bank's for a card, and no text of a card terminal. One bank gives
- * neither code, and there the terminal's number and town are all that tells a purchase. A card pays a shop, whatever
- * the shop is called.
- */
-const noCard = (row: Pick<CategorizeInput, "mcc" | "bankTxnCode" | "counterparty" | "description">) => !row.mcc && !isCardCode(row.bankTxnCode) && !hasTerminalShape(row);
 /** The folded text of a row that names no payee, else null. Such a row is the bank's own: cash from a machine, interest, a fee. */
 const bankText = (input: CategorizeInput) => (input.counterparty?.trim() ? null : fold(input.description ?? ""));
 const payeeOf = (row: Pick<CategorizeInput, "counterparty">) => fold(row.counterparty ?? "").trim();
@@ -29,12 +24,16 @@ const payeeOf = (row: Pick<CategorizeInput, "counterparty">) => fold(row.counter
  * A payment to the bank of one of the household's accounts that its name does not make a loan payment: money out, to a
  * name with no word of lending beyond the bank's own. The bank's finance company (ESIMERKKIPANKKI RAHOITUS OY) is a
  * lender again, both ways. The name rule and the trade register both ask this, so a row has one answer whichever of
- * them is on.
+ * them is on. `names` tells how closely the payee must be the bank: by a word of its name (the step aside, which only
+ * keeps a row what it was) or as the bank itself (a contract, which makes a row debt).
  */
-const isOwnBankPayment = (row: Pick<CategorizeInput, "counterparty" | "amountCents">, accounts: readonly Account[]) => {
+const isOwnBankPayment = (row: Pick<CategorizeInput, "counterparty" | "amountCents">, accounts: readonly Account[], names = namesBank) => {
   const payee = payeeOf(row);
-  return row.amountCents < 0 && !isLenderShapedName(payee, true) && accounts.some((a) => namesBank(payee, a));
+  return row.amountCents < 0 && !isLenderShapedName(payee, true) && accounts.some((a) => names(payee, a));
 };
+
+/** Whether a text holds a word. A reference number grouped by the bank (12345 67890) holds none; "TALLELOKERO" says what the money is. */
+const hasWord = (text: string | null | undefined) => /\p{L}/u.test(text ?? "");
 
 /**
  * The rules of this file, read after the lists of known lenders, the bank's codes and the people, and before the shops.
@@ -67,10 +66,17 @@ export function bankRowRules(namedLikeBusiness: (name: string) => boolean, cashM
  * What a payee's own payout and the trade register say of a payment no rule recognised. Read in `applyMerchantEvidence`
  * (pipeline.ts), which the full run and the run over one merchant's rows both go through.
  *
- * One payee, one answer: a merchant that paid credit out is a lender, so a payment to it pays that credit, also one
- * whose text has no word of lending. A person is none, nor is the user: the payer of such money moved it. The payee is the merchant: the short run holds every row of its merchants and
- * gives way to the full run when a payout comes or goes, so both give the same answer. Another form of the lender's
- * name is another merchant and is missed.
+ * One payee, one answer: a merchant that paid credit out (`isLenderPayout`, card-channel.ts) is a lender, so a payment to
+ * it pays that credit, also one whose text has no word of lending. The payee is the merchant: the short run holds every
+ * row of its merchants and gives way to the full run when a payout comes or goes, so both give the same answer. Another
+ * form of the lender's name is another merchant and is missed.
+ *
+ * The household's own bank is no lender by its name, and a loan there that is paid like an invoice has no word either:
+ * its reference tells it. Payments to the bank itself, with a reference and no word in their text, are one contract
+ * under one reference; when an amount is paid three times or more and makes up at least half of them they are a loan's
+ * instalments (`isInstalments`), and a fee or a subscription is not paid so. A company that only shares a word with the
+ * bank's name (its fund company, a stranger) is no contract, nor is a text that says what the money is. A card paid one
+ * fixed sum under its reference reads the same, and only a pair with the card's own row tells that one apart.
  *
  * The register: the industry of a credit institution gives `loans`, except on a card purchase and on a payment to the
  * bank of a connected account (the name rule's step-aside). A card pays a shop, and a shop that the register matched to
@@ -78,15 +84,31 @@ export function bankRowRules(namedLikeBusiness: (name: string) => boolean, cashM
  */
 export function lenderEvidence(txs: readonly Transaction[], cards: ReadonlySet<string>, holders: Holders, accounts: readonly Account[]) {
   const lenders = new Set<string>();
-  // a person's payout (a card's credit moved to the own account, an advance from a friend) makes the person no lender
-  const person = (t: Transaction) => {
-    const name = fold(t.counterparty ?? "").trim();
-    return !!name && !isLenderShapedName(name) && (isUserName(name, holders) || isPersonShaped(name));
+  const ownBank = new Map<string, boolean>();
+  const contracts = new Map<string, Transaction[]>();
+  /** The payee and the reference of a payment to the household's own bank itself, with no word in its text, else null. */
+  const contractOf = (t: Transaction): string | null => {
+    const reference = t.amountCents < 0 && !t.isTransfer && t.counterparty && !hasWord(t.description) ? referenceOf(t) : "";
+    if (!reference) return null;
+    let own = ownBank.get(t.counterparty!);
+    if (own === undefined) ownBank.set(t.counterparty!, (own = isOwnBankPayment(t, accounts, isBankName)));
+    return own ? `${t.merchant}\u0000${reference}` : null;
   };
-  for (const t of txs) if (t.category === "credit_draw" && t.amountCents > 0 && !t.isTransfer && t.merchant !== UNKNOWN_MERCHANT && !person(t)) lenders.add(t.merchant);
+  for (const t of txs) {
+    if (isLenderPayout(t, holders)) lenders.add(t.merchant);
+    const contract = contractOf(t);
+    if (!contract) continue;
+    const rows = contracts.get(contract);
+    if (rows) rows.push(t);
+    else contracts.set(contract, [t]);
+  }
+  const instalment = (t: Transaction) => {
+    const rows = contracts.get(contractOf(t) ?? "");
+    return !!rows && isInstalments(rows);
+  };
   const onCard = (t: Transaction) => cards.has(t.accountId) || !noCard(t);
   return {
-    paid: (t: Transaction) => lenders.has(t.merchant) && !onCard(t),
+    paid: (t: Transaction) => (lenders.has(t.merchant) || instalment(t)) && !onCard(t),
     industry: (t: Transaction, industry: string | undefined) => (industry === "loans" && (onCard(t) || isOwnBankPayment(t, accounts)) ? undefined : industry),
   };
 }

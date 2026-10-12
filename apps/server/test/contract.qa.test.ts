@@ -222,6 +222,8 @@ describe("data versions", () => {
     "PATCH /api/accounts/:id",
     "PUT /api/accounts/:id/shares/:userId",
     "DELETE /api/accounts/:id/shares/:userId",
+    "PUT /api/accounts/:id/use",
+    "DELETE /api/accounts/:id/use",
     "DELETE /api/accounts/:id",
     "DELETE /api/demo",
     // the new accounts are written before the first fetch; run with the mock bank below
@@ -286,6 +288,10 @@ describe("data versions", () => {
     await step("DELETE /api/merchants/rule", () => admin.call("DELETE", "/api/merchants/rule", { merchant: tx.merchant }), true);
     await step("PATCH /api/accounts/:id", () => admin.call("PATCH", `/api/accounts/${accountId}`, { name: "Käyttötili" }), true);
     await step("PUT /api/accounts/:id/shares/:userId", () => admin.call("PUT", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
+    // who uses an account changes the figures of everyone who sees it: here its owner and the member it is shared with
+    const use = { users: [{ userId: adminId, weight: 3 }, { userId: m.id, weight: 2 }] };
+    await step("PUT /api/accounts/:id/use", () => admin.call("PUT", `/api/accounts/${accountId}/use`, use), true, [adminId, m.id]);
+    await step("DELETE /api/accounts/:id/use", () => admin.call("DELETE", `/api/accounts/${accountId}/use`), true, [adminId, m.id]);
     await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
 
     await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);

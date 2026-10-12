@@ -80,7 +80,7 @@ describe("the page of a section", () => {
     }, [{}]);
   const ids = (page: "month" | "bills" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
 
-  it("every section names one, and each page shows the sections that name it: Menojen muutos on Kuukausi, Laskut its two, Tilit the data quality notes", () => {
+  it("every section names one, and each page shows the sections that name it: Menojen muutos on Yhteenveto, Laskut its two, Tilit the data quality notes", () => {
     expect(REPORT_SECTIONS.length).toBeGreaterThan(10);
     expect(ids("month")).toEqual(["muutos"]);
     expect(ids("bills")).toEqual(["hinnat", "tulevat"]);

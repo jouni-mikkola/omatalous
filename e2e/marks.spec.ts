@@ -11,8 +11,7 @@ const FETCH = { "X-Requested-With": "fetch" };
 const PASSWORD = "merkki-testin-salasana-1";
 
 /**
- * The administrator: signed in by app.spec.ts when the whole suite runs, and set up here through the API when this
- * spec runs alone (`pnpm e2e e2e/marks.spec.ts`).
+ * The administrator: signed in by e2e/run.mjs, and set up here through the API only on a server that has none.
  */
 async function administrator(browser: Browser): Promise<BrowserContext> {
   if (existsSync(STATE)) return browser.newContext({ storageState: STATE });

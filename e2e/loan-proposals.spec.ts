@@ -14,8 +14,7 @@ const PASSWORD = "ehdotus-testin-salasana-1";
 const SHOTS = process.env.SHOTS_DIR;
 
 /**
- * The administrator: signed in by app.spec.ts when the whole suite runs, and set up here through the API when this
- * spec runs alone (`pnpm e2e e2e/loan-proposals.spec.ts`).
+ * The administrator: signed in by e2e/run.mjs, and set up here through the API only on a server that has none.
  */
 async function administrator(browser: Browser): Promise<BrowserContext> {
   if (existsSync(STATE)) return browser.newContext({ storageState: STATE });

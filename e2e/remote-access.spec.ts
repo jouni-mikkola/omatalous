@@ -104,7 +104,7 @@ async function standIn(page: Page, start: Json = OFF) {
   return fake;
 }
 
-/** Run alone, without app.spec.ts before it: makes the administrator the same way and keeps the session. */
+/** On a server without the administrator (e2e/run.mjs makes one): makes it the same way and keeps the session. */
 async function ensureAdmin(browser: Browser) {
   if (existsSync(STATE)) return;
   const context = await browser.newContext();
@@ -119,7 +119,7 @@ async function ensureAdmin(browser: Browser) {
   await expect(page.getByRole("heading", { name: "Käyttöönotto" })).toBeVisible();
   await page.getByRole("button", { name: "Ohita" }).click();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
-  await expect(page.getByRole("navigation").getByText("Kuukausi").first()).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
   await context.storageState({ path: STATE });
   await context.close();
 }
@@ -158,6 +158,9 @@ async function confirm(page: Page, opener: Locator, send: string, password = PAS
   await dialog.getByRole("button", { name: send, exact: true }).click();
   return dialog;
 }
+
+// The page's answers are played by standIn, so the widths do not share state: each may run in a worker of its own.
+test.describe.configure({ mode: "parallel" });
 
 for (const width of [1280, 390]) {
   test.describe(`remote access at ${width} px`, () => {

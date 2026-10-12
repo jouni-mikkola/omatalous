@@ -45,7 +45,7 @@ describe("Laskut: Tulossa", () => {
     expect(out).toContain("12.10.");
   });
 
-  it("its sum is the Maksut of Kuukausi's Seuraavat 30 päivää: one list, one total", () => {
+  it("its sum is the Maksut of Yhteenveto's Seuraavat 30 päivää: one list, one total", () => {
     const rows = ahead();
     // 89 + 15,99 + 312,50
     expect(coming(rows)).toContain("<strong>417 €</strong>");
@@ -65,7 +65,7 @@ describe("Laskut: Tulossa", () => {
   });
 });
 
-describe("Kuukausi: Seuraavat 30 päivää", () => {
+describe("Yhteenveto: Seuraavat 30 päivää", () => {
   it("lists the bills before the pay and links to Laskut", () => {
     const out = nextDays(ahead());
     expect(out).toContain("<h2>Seuraavat 30 päivää</h2>");

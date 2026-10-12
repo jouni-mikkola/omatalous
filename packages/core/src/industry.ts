@@ -9,9 +9,12 @@
  * ("TOIMI3") and TOL 2025 ("TOIMI4", based on NACE Rev. 2.1). Most
  * prefixes mean the same in both; where they differ there is a table per set.
  */
-import { cleanDescription, fold, isPlaceName, UNKNOWN_MERCHANT } from "./merchant.ts";
-import { companyForms, dropUnseen, hasBusinessWord, hasPayeeForm, isBusinessPaymentText, isPaymentMethodName, isPersonShaped, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_PREFIX } from "./wording.ts";
+import { fold, isPlaceName, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { householdWords, mayBePerson, nameIn, payeeName, payeeText, TERMINAL_PREFIX } from "./payee-guard.ts";
+import { companyForms, hasBusinessWord, hasPayeeForm, isBusinessPaymentText, isPaymentMethodName, isPersonShaped, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_PREFIX } from "./wording.ts";
 import type { Account, Transaction } from "./types.ts";
+
+export { householdWords, namesHousehold } from "./payee-guard.ts";
 
 export type IndustryCodeSet = "TOL2008" | "TOL2025";
 
@@ -291,7 +294,7 @@ export function shorterQuery(merchant: string): string | null {
 
 type BusinessRowFields = Pick<Transaction, "mcc" | "accountId" | "counterparty" | "counterpartyIban" | "description"> & {
   merchant?: string;
-  /** The payment's reference number. A stored row has one; the core `Transaction` does not carry it. */
+  /** The payment's reference number. A row built without the field says nothing either way, and is no invoice. */
   reference?: string | null;
 };
 
@@ -316,31 +319,6 @@ export function ledgersWithPayeeAccounts(txs: readonly Pick<Transaction, "accoun
   return ledgers;
 }
 
-/**
- * Letters the cleaning keeps: it knows A to Z and the Nordic letters, and would split "AYŞE" into "AY" and "E" and
- * "RYŁSKI" into "RY" and "SKI". An accent goes, and so does a character nobody sees, which the cleaning would make a
- * space ("HEN" + soft hyphen + "RY"). A letter with no accent to drop (Ł, Ø, Æ, ß, another script) stands as X, so
- * every word stays whole.
- */
-const plain = (text: string | null): string => dropUnseen((text ?? "").normalize("NFD")).replace(/[^\P{L}A-Za-z]/gu, "X");
-
-/** One of the bank's texts as a name: cleaned the way the merchant name is made (normalizeMerchant), letters whole. */
-const nameIn = (text: string | null): string => fold(cleanDescription(plain(text)));
-
-/**
- * The payee's name as the bank's own text gives it: the payee field, else the payment text. The merchant itself may
- * say less: a brand rule shortens "MAX MEIKALAINEN" to "Max", and a letter the cleaning does not know splits a name
- * into words that read as a company form.
- */
-function payeeName(t: Pick<Transaction, "counterparty" | "description">): string {
-  return nameIn(t.counterparty) || nameIn(t.description);
-}
-
-/** The bank's text that names the payee, as it came. */
-const payeeText = (t: Pick<Transaction, "counterparty" | "description">): string => (t.counterparty?.trim() ? t.counterparty : (t.description ?? ""));
-
-/** A processor's or a wallet's prefix before the shop's name, which a card terminal's text has: "SUMUP *KUKKAKAUPPA ILO", "MOB.PAY*STORYTEL OY". */
-const TERMINAL_PREFIX = /^\s*[\p{L}\p{N}._]{2,12} ?\*\s*[\p{L}\p{N}]/u;
 /** The text a bank leaves when it gives the shop's name apart: the terminal's number and its town ("483920 HELSINKI"). */
 const TERMINAL_TEXT = /^\d{4,}(?:\s+\d+)*\s+(\p{L}+(?:\s+\p{L}+)?)$/u;
 
@@ -369,17 +347,20 @@ function paysBareNameByWallet(t: Pick<Transaction, "counterparty" | "description
 /** A Finnish reference number or an international RF reference. */
 const REFERENCE_NUMBER = /^(?:RF\d{2}[A-Z0-9]{1,21}|\d{4,20})$/;
 
-/**
- * An invoice from a business: a payment to an account with a reference number, to a payee whose name says it is a
- * business (wording `namesBusiness`). The reference alone proves nothing: a private landlord gives one too, and the
- * payer typed the payee's name. A row with no payee field is none: its name is the payer's own message.
- */
-function isInvoice(t: BusinessRowFields): boolean {
-  if (!t.counterpartyIban || !t.reference || !REFERENCE_NUMBER.test(t.reference.replace(/\s+/g, "").toUpperCase())) return false;
-  return !!t.counterparty?.trim() && namesBusiness(nameIn(t.counterparty));
-}
-
 const NO_NAMES: ReadonlySet<string> = new Set();
+
+/**
+ * An invoice from a business: a payment to an account with a reference number, to a payee the guard takes for no
+ * person (mayBePerson). The reference alone proves nothing: a private landlord gives one too, and the payer typed
+ * the payee's name. A row with no payee field is none: its name is the payer's own message. A payee whose name says
+ * it is a business and names no person beside that (wording `namesBusiness`) was an invoice's before the guard and
+ * stays one. `evidenced`: another row of the merchant has business evidence of another kind.
+ */
+function isInvoice(t: BusinessRowFields, evidenced: boolean): boolean {
+  if (!t.counterpartyIban || !t.reference || !REFERENCE_NUMBER.test(t.reference.replace(/\s+/g, "").toUpperCase())) return false;
+  const payee = nameIn(t.counterparty);
+  return /\p{L}/u.test(payee) && (namesBusiness(payee) || !mayBePerson(t, NO_NAMES, evidenced));
+}
 
 /**
  * Merchants that a row shows to be a shop by its own evidence and that were paid at least twice without a payee
@@ -396,7 +377,8 @@ export function businessMerchants(
   const shown = new Set<string>();
   for (const t of txs) {
     if (t.amountCents >= 0 || t.counterpartyIban || t.merchant === UNKNOWN_MERCHANT || isMobilePay(t)) continue;
-    if (!shown.has(t.merchant) && hasBusinessEvidence(t, NO_NAMES, NO_NAMES, false)) shown.add(t.merchant);
+    // a row with no payee account is no invoice, so this is all the evidence it can have
+    if (!shown.has(t.merchant) && isPaidAsBusiness(t, NO_NAMES, NO_NAMES, false)) shown.add(t.merchant);
     if (payeeLedgers.has(ledgerOf(t))) counts.set(t.merchant, (counts.get(t.merchant) ?? 0) + 1);
   }
   return new Set([...shown].filter((merchant) => (counts.get(merchant) ?? 0) >= 2));
@@ -404,28 +386,36 @@ export function businessMerchants(
 
 /**
  * Whether a row of spending pays a business: the register's answer for its merchant may be used on it, and the
- * merchant's name may be asked about when the name itself is no person's (industryCandidates). Positive evidence only:
+ * merchant's name may be asked about when the guard takes it for no person's (industryCandidates). Positive evidence only:
  *   - a card paid: no payee account, and a merchant code, a card account or the text a card terminal leaves,
  *     or a merchant in `shops` (businessMerchants)
  *   - the payee's name has a company form (Oy, Ab, ry…)
  *   - the bank's text says card purchase, e-invoice or direct payment
- *   - an invoice: a payee account, a reference number and a payee field whose name says it is a business
+ *   - an invoice: a payee account, a reference number and a payee field the guard takes for no person (isInvoice).
+ *     Here a merchant in `shops` is what vouches for a payee whose name does not say business itself: one bare
+ *     word, or a sign in a word
  * A plain transfer is never enough, and neither is a missing payee account. A MobilePay or PayPal payment to a bare
  * name pays a person, whatever else the row says.
  */
 export function isBusinessRow(t: BusinessRowFields, cards: ReadonlySet<string>, shops: ReadonlySet<string> = NO_NAMES): boolean {
-  return hasBusinessEvidence(t, cards, shops, isMobilePay(t));
+  return hasBusinessEvidence(t, cards, shops, isMobilePay(t), shops);
 }
 
-function hasBusinessEvidence(t: BusinessRowFields, cards: ReadonlySet<string>, shops: ReadonlySet<string>, mobilePay: boolean): boolean {
+/** Business evidence of a row other than an invoice. */
+function isPaidAsBusiness(t: BusinessRowFields, cards: ReadonlySet<string>, shops: ReadonlySet<string>, mobilePay: boolean): boolean {
   if (paysBareNameByWallet(t, mobilePay)) return false;
   // a payee account means a transfer, also from a card account (credit moved to a person)
   if (!t.counterpartyIban && (t.mcc || cards.has(t.accountId) || hasTerminalShape(t))) return true;
   if (!t.counterpartyIban && t.merchant !== undefined && shops.has(t.merchant) && !mobilePay) return true;
   // in the bank's own text, where a name's letters are whole: the payee field, else the text that names the payee
   if (hasPayeeForm(fold(payeeText(t)))) return true;
-  if (t.description && isBusinessPaymentText(fold(t.description))) return true;
-  return isInvoice(t);
+  return !!t.description && isBusinessPaymentText(fold(t.description));
+}
+
+/** `evidenced`: the merchants with a row that isPaidAsBusiness, as far as the caller knows them. */
+function hasBusinessEvidence(t: BusinessRowFields, cards: ReadonlySet<string>, shops: ReadonlySet<string>, mobilePay: boolean, evidenced: ReadonlySet<string>): boolean {
+  if (isPaidAsBusiness(t, cards, shops, mobilePay)) return true;
+  return !paysBareNameByWallet(t, mobilePay) && isInvoice(t, t.merchant !== undefined && evidenced.has(t.merchant));
 }
 
 /**
@@ -440,34 +430,31 @@ export function isLookupName(merchant: string): boolean {
 }
 
 /**
- * Whether a row names a person: its merchant, or the payee's name in the bank's own text, has the shape of a
- * person's name. How whole the name is depends on where the bank has it from. With the payee's account it comes
- * whole, from the payment order. Without one it is a card terminal's or a wallet's and may be cut after two names:
- * there a last word that a name can begin with is no company form ("VIRTANEN LIISA KY"). Behind a prefix it shares
- * a short field and may be cut after one ("MOB.PAY*MEIKALAINEN OSK").
- */
-function namesPerson(t: Pick<Transaction, "merchant" | "counterparty" | "counterpartyIban" | "description">): boolean {
-  const cutFrom = TERMINAL_PREFIX.test(payeeText(t)) ? 2 : t.counterpartyIban ? Number.POSITIVE_INFINITY : 3;
-  return isPersonShaped(fold(t.merchant), cutFrom) || isPersonShaped(payeeName(t), cutFrom);
-}
-
-/**
  * Merchants with spending that nothing else categorised, largest total
  * first, limited to those that are clearly businesses: every such row of
- * the merchant is a business row (isBusinessRow) and none names a person.
+ * the merchant is a business row (isBusinessRow), and the guard takes none
+ * for a person's (mayBePerson), whatever made the row a business row.
+ *
+ * The household's names are the holders of `accounts` and the words in
+ * `household` (householdWords): the members' display names, the holders of
+ * another member's accounts.
  */
 export function industryCandidates(
   txs: readonly (BusinessRowFields & Pick<Transaction, "amountCents" | "isTransfer" | "categorySource" | "merchant">)[],
-  accounts: readonly Pick<Account, "id" | "type">[],
+  accounts: readonly Pick<Account, "id" | "type" | "holder">[],
+  household: ReadonlySet<string> = NO_NAMES,
 ): string[] {
   const cards = new Set(accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  const names = new Set([...household, ...householdWords(accounts.map((a) => a.holder))]);
   const totals = new Map<string, number>();
   const ruledOut = new Set<string>();
   const uncategorised = txs.filter((t) => t.amountCents < 0 && !t.isTransfer && t.categorySource === "default" && isLookupName(t.merchant));
   const shops = businessMerchants(uncategorised, ledgersWithPayeeAccounts(txs));
+  // what vouches for an invoice's payee whose name does not say business: a row of the same merchant that a card paid, or the like
+  const evidenced = new Set(uncategorised.filter((t) => isPaidAsBusiness(t, cards, shops, isMobilePay(t))).map((t) => t.merchant));
   for (const t of uncategorised) {
-    // one row that is a transfer, or that names a person, rules the merchant out
-    if (!isBusinessRow(t, cards, shops) || namesPerson(t)) {
+    // one row that is a transfer, or whose payee may be a person, rules the merchant out
+    if (!hasBusinessEvidence(t, cards, shops, isMobilePay(t), evidenced) || mayBePerson(t, names, evidenced.has(t.merchant))) {
       ruledOut.add(t.merchant);
       continue;
     }

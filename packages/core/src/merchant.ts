@@ -258,7 +258,7 @@ const cityKey = (city: string) => fold(city).replace(/AE/g, "A").replace(/OE/g, 
  * Ä and Ö ("JOENSUU" holds an OE of its own). When none holds, the word may be the first of the name, so only the
  * country goes. A town followed by nothing but a company form ("TIKKURILA OYJ") is a company named for its town, kept.
  */
-function dropCardAccountPrefix(s: string): string {
+export function dropCardAccountPrefix(s: string): string {
   const m = CARD_ACCOUNT_TEXT.exec(s);
   if (!m || !COUNTRY_CODES.has(m[1]!) || m[4] === undefined) return s;
   const [afterCountry, city, rest] = [m[2]!, m[3]!, m[4].trimEnd()];

@@ -70,10 +70,28 @@ export interface Config {
     consentDays: number;
     /** Extra host names (with their subdomains) the bank's consent page may be on, on top of the built-in list (EB_AUTH_HOSTS). */
     authHosts: string[];
+    /** Where the bank's API is (EB_API_URL), for the fake bank of the browser specs. Always a loopback address; undefined means Enable Banking's own. */
+    apiUrl: string | undefined;
   };
 }
 
 type Env = Record<string, string | undefined>;
+
+const LOOPBACK_HOSTS: readonly string[] = ["127.0.0.1", "localhost", "[::1]"];
+
+/**
+ * EB_API_URL moves the bank's API to a stand-in on this machine. The signed requests of the bank key go wherever it
+ * points, so any other host stops the start. It is read here and nowhere else: not from the database, not from the browser.
+ */
+function bankApiUrl(value: string | undefined): string | undefined {
+  const text = value?.trim();
+  if (!text) return undefined;
+  const url = URL.canParse(text) ? new URL(text) : null;
+  if (!url || !/^https?:$/.test(url.protocol) || url.username || url.password || !LOOPBACK_HOSTS.includes(url.hostname)) {
+    throw new Error("EB_API_URL must be an http or https address on this machine (127.0.0.1, localhost or [::1]); the bank's API is not reached anywhere else.");
+  }
+  return url.origin;
+}
 
 function int(value: string | undefined, fallback: number): number {
   const n = Number.parseInt(value ?? "", 10);
@@ -163,6 +181,7 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
       relayUrl: /^https:\/\/[^\s]+$/.test(env.EB_RELAY_URL?.trim() ?? "") ? env.EB_RELAY_URL!.trim() : null,
       consentDays: int(env.EB_CONSENT_DAYS, 180),
       authHosts: (env.EB_AUTH_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter((h) => /^[a-z0-9][a-z0-9.-]{1,100}$/.test(h)),
+      apiUrl: bankApiUrl(env.EB_API_URL),
     },
   };
 }

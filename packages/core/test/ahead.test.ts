@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { cashAhead } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { monthForecast, monthPace } from "../src/analysis/forecast.ts";
 import { addDays, weekdayOf } from "../src/dates.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
@@ -10,35 +9,6 @@ import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: "FI21 1234 5600 0007 85", currency: "EUR", type: "checking" };
 const today = "2026-10-09";
-
-describe("pace: the usual curve", () => {
-  // one purchase on the 2nd of each month; February and March fall outside the six months before October
-  const amounts = [900_000, 800_000, 1000, 2000, 3000, 4000, 5000, 9000];
-  const months = ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
-  const rows = (from: number) => months.slice(from).map((m, i) => tx({ bookingDate: `${m}-02`, amountCents: -amounts[from + i]!, merchant: `Shop ${m}` }));
-
-  it("is the per-day median of the last six complete months, not their mean", () => {
-    const ctx = createContext([...rows(0), tx({ bookingDate: "2026-10-03", amountCents: -4000, merchant: "Shop October" })], [checking], today);
-    const pace = monthPace(ctx, "2026-10", today);
-    expect(pace.usual![0]).toBe(0);
-    // median of 1000, 2000, 3000, 4000, 5000, 9000
-    expect(pace.usual![1]).toBe(3500);
-    expect(pace.usualAtToday).toBe(3500);
-    expect(pace.usualMonthTotal).toBe(3500);
-    expect(pace.usual).toHaveLength(31);
-    expect(pace.currentTotal).toBe(4000);
-    expect(pace.current[8]).toBe(4000);
-    expect(pace.current[9]).toBeNull();
-  });
-
-  it("is missing under three complete months, and a month ahead counts back from the running one", () => {
-    const two = createContext(rows(6), [checking], today);
-    const pace = monthPace(two, "2026-10", today);
-    expect(pace).toMatchObject({ usual: null, usualAtToday: null, usualMonthTotal: null });
-    const six = createContext(rows(0), [checking], today);
-    expect(monthPace(six, "2026-11", today).usual![1]).toBe(3500);
-  });
-});
 
 /**
  * A household with no surprises: 30 € of groceries every day, rent on the 2nd, Spotify on the 11th, salary on the
@@ -63,81 +33,6 @@ function steady(from: IsoDate, to: IsoDate): Transaction[] {
   return rows;
 }
 const upTo = (rows: Transaction[], day: IsoDate) => rows.filter((t) => t.bookingDate <= day);
-const spendOf = (rows: Transaction[], month: string) => rows.filter((t) => t.bookingDate.startsWith(month) && t.amountCents < 0).reduce((sum, t) => sum - t.amountCents, 0);
-
-describe("forecast range", () => {
-  const all = steady("2025-09-01", "2026-10-31");
-
-  it("a steady history's range holds the actual total", () => {
-    const ctx = createContext(upTo(all, today), [checking], today);
-    const f = monthForecast(ctx);
-    const actual = spendOf(all, "2026-10");
-    expect(f).toMatchObject({ rangeBasis: "own", rangeMonths: 6 });
-    expect(f.rangePercent).toBeGreaterThan(0);
-    expect(f.lowCents).toBeLessThanOrEqual(actual);
-    expect(f.highCents).toBeGreaterThanOrEqual(actual);
-    expect(f.lowCents).toBeLessThan(f.forecastCents);
-    expect(f.highCents).toBeGreaterThan(f.forecastCents);
-  });
-
-  it("a forecast that was exact in every past month gives a range with no width", () => {
-    // 30 euros a day and no surprises: the forecast is exact, so the range closes to the forecast
-    const flat = all.filter((t) => !t.merchant.startsWith("Extra"));
-    const f = monthForecast(createContext(upTo(flat, today), [checking], today));
-    expect(f).toMatchObject({ rangeBasis: "own", rangePercent: 0, lowCents: f.forecastCents, highCents: f.forecastCents });
-    expect(f.forecastCents).toBe(spendOf(flat, "2026-10"));
-  });
-
-  it("past months are compared by days left, so the last day of a short month meets the last day of the others", () => {
-    // 28.2.2027 is the last day of February: on the last day of every month the forecast is the actual total
-    const feb = "2027-02-28";
-    const long = steady("2025-09-01", feb);
-    const f = monthForecast(createContext(long, [checking], feb));
-    expect(f).toMatchObject({ rangeBasis: "own", rangeMonths: 6, rangePercent: 0 });
-    expect(f.lowCents).toBe(f.highCents);
-  });
-
-  it("the table applies under three months and gives its figure for the day", () => {
-    const short = steady("2026-08-01", "2026-10-31");
-    const at = (day: IsoDate) => monthForecast(createContext(upTo(short, day), [checking], day));
-    expect(at("2026-10-05")).toMatchObject({ rangeBasis: "table", rangeMonths: 0, rangePercent: 8 });
-    expect(at("2026-10-09").rangePercent).toBe(6.4);
-    expect(at("2026-10-10").rangePercent).toBe(6);
-    expect(at("2026-10-20").rangePercent).toBe(2.5);
-    const last = at("2026-10-31");
-    expect(last).toMatchObject({ rangePercent: 0, lowCents: last.forecastCents, highCents: last.forecastCents });
-    const day = at("2026-10-09");
-    expect(day.highCents).toBe(Math.round(day.forecastCents * 1.064));
-    expect(day.lowCents).toBe(Math.round(day.forecastCents * 0.936));
-  });
-
-  it("a month ago the history was too short to grade, so the first months are skipped, not the range", () => {
-    // four complete months: July has no complete month before it and is left out, three remain
-    const four = steady("2026-06-01", "2026-10-31");
-    expect(monthForecast(createContext(upTo(four, today), [checking], today))).toMatchObject({ rangeBasis: "own", rangeMonths: 3 });
-    const three = steady("2026-07-01", "2026-10-31");
-    expect(monthForecast(createContext(upTo(three, today), [checking], today))).toMatchObject({ rangeBasis: "table" });
-  });
-});
-
-describe("no forecast before a complete month", () => {
-  const all = steady("2026-09-15", "2026-11-30");
-
-  it("a first run with one partial month waits for the first complete month and says when it comes", () => {
-    // from 15 September: September is not complete, October will be on 1 November
-    const f = monthForecast(createContext(upTo(all, today), [checking], today));
-    expect(f.pendingUntil).toBe("2026-11-01");
-    expect(f.usualLeftCents).toBe(0);
-    // October is complete on 1 November, so November has a forecast
-    expect(monthForecast(createContext(upTo(all, "2026-11-09"), [checking], "2026-11-09")).pendingUntil).toBeNull();
-  });
-
-  it("a history from the 1st of last month has its forecast now", () => {
-    expect(monthForecast(createContext(upTo(steady("2026-09-01", "2026-10-31"), today), [checking], today)).pendingUntil).toBeNull();
-    // from the 1st of this month: the forecast comes when this month has ended
-    expect(monthForecast(createContext(upTo(steady("2026-10-01", "2026-10-31"), today), [checking], today)).pendingUntil).toBe("2026-11-01");
-  });
-});
 
 describe("cash ahead", () => {
   const all = steady("2025-09-01", "2026-10-31");
@@ -200,9 +95,8 @@ describe("cash ahead", () => {
     const d = cashAhead(unpaid, [balance(200_000)], cancelled);
     expect(d.rows.map((r) => r.name)).toEqual(["Sato"]);
     expect(d.balance!.days[30]!.cents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.days[30]!.cents + 1199);
-    // an in-use mark changes nothing, and the month forecast leaves the cancelled one out too
+    // an in-use mark changes nothing
     expect(cashAhead(unpaid, [balance(200_000)], inputs({ marks: [{ subject: "merchant:Spotify", mark: "in_use", markedAt: "2026-10-08T10:00:00Z" }] })).rows).toHaveLength(2);
-    expect(buildDashboard(ctx, { from: "2026-10-01", to: today }, [], cancelled).forecast!.billsLeftCents).toBe(monthForecast(ctx).billsLeftCents - 1199);
   });
 
   it("an expected bill shows on its date, a yearly one comes back, and one the history already knows is not counted twice", () => {
@@ -236,20 +130,6 @@ describe("cash ahead", () => {
     expect(names(paid(64_000, "2026-09-10"))).toContain("Autovakuutus");
     const d = cashAhead(paid(64_000, "2026-10-09"), [balance(200_000)], typed);
     expect(d.balance!.days[30]!.cents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.days[30]!.cents);
-  });
-
-  it("the month forecast counts the typed-in bills still to come this month, but not in the backtest", () => {
-    const plain = monthForecast(ctx);
-    const typed = inputs({ expectedBills: [bill({ amountCents: 64_000 }), bill({ id: "b2", name: "Joulu", dueDate: "2026-11-20", amountCents: 5000 }), bill({ id: "b3", name: "Maksettu", dueDate: "2026-10-30", amountCents: 12_000 })] });
-    const paid = createContext([...upTo(all, today), tx({ bookingDate: "2026-10-08", amountCents: -12_100, merchant: "Joku", category: "other" })], [checking], today);
-    const f = monthForecast(ctx, typed);
-    // the November bill is not this month's, the 30th is still to pay
-    expect(f.billsLeftCents).toBe(plain.billsLeftCents + 64_000 + 12_000);
-    expect(f.forecastCents).toBe(plain.forecastCents + 64_000 + 12_000);
-    expect(monthForecast(paid, typed).billsLeftCents).toBe(monthForecast(paid).billsLeftCents + 64_000);
-    // the past months were forecast without them: the error, and so the range's width in percent, is the same
-    expect(f.rangePercent).toBe(plain.rangePercent);
-    expect(buildDashboard(ctx, { from: "2026-10-01", to: today }, [], typed).forecast!.billsLeftCents).toBe(f.billsLeftCents);
   });
 
   it("a standing transfer to an own account is no series, so it is not in the line (NextDays says so)", () => {

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // Tapahtumat on a phone: rows under day headers, the filters behind Rajaa. It needs the administrator and the demo
-// household that app.spec.ts leaves behind; run alone, it creates them itself.
+// household that e2e/run.mjs makes; on a server without them it creates them itself.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const BASE = process.env.E2E_BASE_URL ?? "";
 

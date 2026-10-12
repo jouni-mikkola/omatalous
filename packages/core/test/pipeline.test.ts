@@ -6,7 +6,6 @@ import { flowsOf } from "../src/analysis/flows.ts";
 import { previousRange } from "../src/analysis/period.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { addDays, addMonths } from "../src/dates.ts";
-import { median } from "../src/stats.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -170,21 +169,20 @@ describe("dashboard, next level", () => {
     expect(d.insights.some((i) => i.id.startsWith("swing:"))).toBe(false);
   });
 
-  it("forecasts the running month from spending so far, bills to come and the usual days", () => {
+  it("tells the running month's spending so far against the month before on the same days, and the bills to come stay with the days ahead", () => {
     const ctx = createContext(base(), [checking], today);
     const d = buildDashboard(ctx, { from: "2026-10-01", to: today });
-    const f = d.forecast!;
-    expect(f.month).toBe("2026-10");
+    expect(d.pace.month).toBe("2026-10");
     // rent on 2.10. and groceries on 3.10.
     const spent = ctx.txs.filter((t) => t.bookingDate >= "2026-10-01").reduce((s, t) => s + t.spend, 0);
-    expect(f.spentCents).toBe(spent);
+    expect(d.pace.currentTotal).toBe(spent);
     expect(d.ahead!.rows.filter((r) => r.source === "recurring" && r.date <= "2026-10-23")).toEqual([{ date: "2026-10-11", name: "Spotify", category: "subscriptions", cents: -1199, source: "recurring" }]);
-    expect(f.forecastCents).toBeGreaterThan(spent + 1199);
-    // the usual month is the median of the six complete months before it (April to September)
-    const months = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) => ctx.txs.filter((t) => t.bookingDate.startsWith(m)).reduce((s, t) => s + t.spend, 0));
-    expect(f.usualMonthCents).toBe(Math.round(median(months)));
-    // a past period has no forecast
-    expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }).forecast).toBeNull();
+    // September's 1st to 9th
+    const september = ctx.txs.filter((t) => t.bookingDate >= "2026-09-01" && t.bookingDate <= "2026-09-09").reduce((s, t) => s + t.spend, 0);
+    expect(september).toBeGreaterThan(0);
+    expect(d.pace.previous).toMatchObject({ month: "2026-09", day: 9, toToday: september });
+    // a past period's pace is its own month's
+    expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }).pace.month).toBe("2026-09");
   });
 
   it("a running month is compared with the same days of the previous month", () => {

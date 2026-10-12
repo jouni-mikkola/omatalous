@@ -173,7 +173,7 @@ t_update_manual_follows_api() {
   check "by hand: and nothing was changed" untouched
 }
 t_update_api_down_changes_nothing() {
-  local answer code body key all='503| 403| 000| 200|<html>no</html> 200| 200|{"tag_name":"main"}'
+  local answer code body key all='503| 000| 200|<html>no</html> 200| 200|{"tag_name":"main"}'
   # v0.3.0 is the newest tag and an install that fell back to the tags would take it. An empty list is "no release yet" in
   # the newest mode only (the source, as before the first release): for /releases/latest it is no answer.
   for key in "" "TALOUS_PRERELEASE=yes"; do
@@ -188,6 +188,37 @@ t_update_api_down_changes_nothing() {
       check "api down (${key:-no key}, $code ${body:0:22}): the checkout and the running version are as they were" test "$(head_commit)" = "$C1" -a "$(cver)" = 0.1.0
     done
   done
+}
+
+# GitHub says 403 or 429 when the limit of requests is met (60 an hour for an address without a key): the run says so, and that an
+# hour's wait cures it. Another error (a 502) keeps the plain words, so the hint is not given where it does not hold.
+t_update_rate_limit_says_so() {
+  local code key
+  for key in "" "TALOUS_PRERELEASE=yes"; do
+    for code in 403 429 502; do
+      world; release 0.2.0; [[ -z $key ]] || setenv "$key"
+      echo "$code" >"$S/release.status"; echo "$code" >"$S/list.status"
+      by_hand
+      if [[ $code == 502 ]]; then
+        check "limit ($code, ${key:-no key}): another error keeps the plain words, with no word of the limit" bash -c "[[ $RC != 0 && \$1 == *'Could not ask GitHub for the latest release. Nothing was changed.'* && \$1 != *limit* && \$1 != *'an hour'* ]]" x "$OUT"
+      else
+        check "limit ($code, ${key:-no key}): update.sh says the limit of requests was met and that an hour's wait cures it" bash -c "[[ $RC != 0 && \$1 == *'GitHub turned the request down: the limit of requests for this address was met. Nothing was changed. Wait an hour and run this again.'* ]]" x "$OUT"
+      fi
+      check "limit ($code, ${key:-no key}): GitHub was asked once, with no second try" test "$(curls | wc -l)" = 1
+      check "limit ($code, ${key:-no key}): nothing was pulled, built, tagged or started" untouched
+      check "limit ($code, ${key:-no key}): the checkout and the running version are as they were" test "$(head_commit)" = "$C1" -a "$(cver)" = 0.1.0
+    done
+  done
+  world; release 0.2.0; by_hand
+  check "no limit: the same run goes through to 0.2.0" bash -c "[[ $RC == 0 && \$1 != *limit* ]]" x "$OUT"
+}
+# The image of the instance is tagged by the id the pull gave, not by the registry digest or tag, which another instance on the
+# same Docker may remove first (image-tags.test.sh runs that race).
+t_update_tags_by_image_id() {
+  world; release 0.2.0; by_hand
+  check "tag: the update went through" at_tag 0.2.0
+  check "tag: banking-app:latest is made from the image's id" test "$(n_calls '^docker image tag id-0.2.0 banking-app:latest *$')" = 1
+  check "tag: and no tag is made from the registry's tag or digest" test "$(n_calls '^docker image tag ghcr.io')" = 0
 }
 
 # ── an install on a pre-release the key no longer follows ───────────────────

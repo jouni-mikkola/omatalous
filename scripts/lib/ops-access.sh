@@ -1,10 +1,10 @@
 # shellcheck shell=bash
 # The `access` action of scripts/ops-helper.sh: applies the way of reaching this copy that the app has prepared,
-# Cloudflare Tunnel with Access ("tunnel") or the home network again ("lan"). Only the helper loads this file: in
-# load_libs through ops-address.sh, after check_permissions has passed on scripts/lib (a tick holds its lock then, the
-# self-test does not), and again by its path where a tick needs one function of it. It uses the helper's functions:
-# in_app, env_get, run_cap, wait_healthy, fail, t_for, app_running and store_result, and host_addrs of host-addr.sh,
-# which ops-address.sh loads just before this file.
+# Cloudflare Tunnel with Access ("tunnel") or the home network again ("lan"). Only the helper loads this file, once: in
+# load_libs, from the helper's own folder, after check_permissions has passed on scripts/lib (a tick holds its lock
+# then, the self-test does not). It uses the helper's functions: in_app, env_get, run_cap, wait_healthy, fail, t_for,
+# app_running and store_result, host_addrs of host-addr.sh, which ops-address.sh loads, and the writer of .env
+# (envfile_stage, envfile_commit and envfile_restore of envfile.sh).
 #
 # The change comes from the app, and a request from outside can reach the app, so nothing of it is trusted:
 #   - it is read only as the one line `ops access` prints, at most ACCESS_MAX printable ASCII characters
@@ -74,7 +74,7 @@ access_lan_bind() {
 # The home network address by the installer's rule (install.sh): that bind address and the port `.env` holds, and
 # this machine's first address when the app listens on all of them. `lan` writes it and the helper's state reports it
 # in every mode (lanAddress), so the address an admin sees before remote access goes off is the one `lan` then gives.
-# Fails only when the port is not a number. (state_json of the helper loads this file for this function alone.)
+# Fails only when the port is not a number. (state_json of the helper calls it for lanAddress.)
 access_lan_url() {
   local port addr
   port=$(env_get HOST_PORT); port=${port:-8080}
@@ -90,29 +90,25 @@ access_lan_url() {
   printf 'http://%s:%s' "$addr" "$port"
 }
 
-# .env.new made empty with mode 600, right after the caller removed an old one: the one way the helper starts a rewrite
-# of .env (access_env_write below and prerelease_set in ops-release.sh; each removes, writes its own lines and renames).
-# noclobber: a regular file, or a link to one or to nothing, that appeared in between is not written through (another kind
-# of file, a device behind a link, is: bash refuses only those).
-env_new() { (set -C; : >.env.new) 2>/dev/null && chmod 600 .env.new; }
+# The eight keys a change of access owns in .env: every line of them leaves its place in a rewrite (access_env_write).
+ACCESS_KEYS="CLOUDFLARE_TUNNEL_TOKEN COMPOSE_PROFILES TRUST_PROXY APP_BASE_URL CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN BIND_ADDRESS ACCESS_LAN_BIND"
 
-# Rewrites .env once: every line of the eight keys goes and the KEY=value pairs given are added, each once. The other
-# lines stay as they are (env_check passed them at the start of this tick). One rename, as in the installer's env_set
-# (scripts/lib/cloudflare.sh), so a helper killed half way never leaves a tunnel token without the Access pair. The
-# request and the checksum of the new file go to ops/env.written before the rename (access_env_state reads them).
-access_env_write() { # access_env_write ID KEY=value...
-  local id=$1 line pair sum; shift
+# .env as it is now, kept as ops/env.prev (one generation, mode 600) before a rewrite
+access_env_keep() { rm -f "$OPS/env.prev" && cp .env "$OPS/env.prev" && chmod 600 "$OPS/env.prev"; }
+
+# Rewrites .env once, through the one writer (scripts/lib/envfile.sh, which the installer's env_set uses too): every
+# line of the eight keys goes, and the items given follow the other lines in the order given, each once. KEY=value sets
+# a key and +KEY keeps it as .env has it. The other lines stay as they are (env_check passed them at the start of this
+# tick). One rename, so a helper killed half way never leaves a tunnel token without the Access pair. The request and
+# the checksum of the new file go to ops/env.written before the rename (access_env_state reads them).
+access_env_write() { # access_env_write ID ITEM...
+  local id=$1 k sum named=" " go=(); shift
   rm -f .env.new "$OPS/env.written" 2>/dev/null || return 1
-  env_new || return 1
-  {
-    while IFS= read -r line || [[ -n $line ]]; do
-      case ${line%%=*} in CLOUDFLARE_TUNNEL_TOKEN | COMPOSE_PROFILES | TRUST_PROXY | APP_BASE_URL | CF_ACCESS_AUD | CF_ACCESS_TEAM_DOMAIN | BIND_ADDRESS | ACCESS_LAN_BIND) continue ;; esac
-      printf '%s\n' "$line"
-    done <.env
-    for pair in "$@"; do printf '%s\n' "$pair"; done
-  } >>.env.new || return 1
-  sum=$(sha256sum <.env.new) && [[ $sum =~ ^[0-9a-f]{64} ]] && printf '%s %s\n' "$id" "${sum%% *}" >"$OPS/env.written" || return 1
-  mv -f .env.new .env
+  for k in "$@"; do k=${k#+}; named+="${k%%=*} "; done
+  for k in $ACCESS_KEYS; do [[ $named == *" $k "* ]] || go+=("$k"); done
+  envfile_stage .env end "$@" ${go[@]+"${go[@]}"} || return 1
+  sum=$(sha256sum <.env.new) && [[ $sum =~ ^[0-9a-f]{64} ]] && printf '%s %s\n' "$id" "${sum%% *}" >"$OPS/env.written" || { rm -f .env.new; return 1; }
+  envfile_commit .env 600
 }
 
 # What .env is after request ID: `new` when it is the file that request wrote, `old` when it is the one from before
@@ -143,7 +139,7 @@ access_back() { # access_back ID WHY
     fail "$why Tiedostoa .env on sen jälkeen muutettu käsin, joten aiempia asetuksia ei palautettu. Ne ovat palvelimella tiedostossa ops/env.prev."; return
   fi
   echo "Sovellus ei vastannut uusilla asetuksilla. Palautetaan aiemmat asetukset." >>"$LOGF"
-  if ! { rm -f .env.new && cp "$OPS/env.prev" .env.new && chmod 600 .env.new && mv -f .env.new .env; }; then
+  if ! envfile_restore .env "$OPS/env.prev"; then
     fail "$why Aiempia asetuksia ei saatu palautettua: ne ovat palvelimella tiedostossa ops/env.prev."; return
   fi
   # a tunnel the new settings started does not stay up beside settings that have none
@@ -171,7 +167,7 @@ access_apply() { # access_apply ID
     pairs=("APP_BASE_URL=$url" "BIND_ADDRESS=$bind")
   fi
   echo "STEP: 2/3 Kirjoitetaan asetukset ja käynnistetään sovellus" >>"$LOGF"
-  rm -f "$OPS/env.prev" && cp .env "$OPS/env.prev" && chmod 600 "$OPS/env.prev" || { fail "Aiempia asetuksia ei saatu talteen. Mitään ei muutettu."; return; }
+  access_env_keep || { fail "Aiempia asetuksia ei saatu talteen. Mitään ei muutettu."; return; }
   # back to the home network: the tunnel goes first, so it never leads to an app that has dropped its Access check
   if [[ $A_WANT == lan ]] && ! access_tunnel_off; then access_not_made "Tunnelia ei saatu pysäytettyä."; return; fi
   if ! access_env_write "$id" "${pairs[@]}"; then

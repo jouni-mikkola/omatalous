@@ -49,7 +49,7 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   analysis/                  flows, analysis context (cached on the server), dashboard, insights
   reports/                   one file per report, registered in reports/index.ts
   loans.ts                   every figure of a loan; household-debts.ts the list of debts behind each debt total
-  holdings.ts                accounts, cards and loans as the first page shows them; it adds nothing up itself
+  holdings.ts                accounts, cards and loans as the first page shows them, with the total of the accounts
 
 apps/server/src
   app.ts                     middleware and routes
@@ -205,8 +205,11 @@ There is no recipe for an import format: the CSV import was removed in 0.9.0 and
    Pick the floor by reading the new schema as that old version would: the new column is null or has a default, the
    new table and index are unused. Without the line no floor is stored and every build that lacks the file refuses the
    database, so a rollback restores the copy taken before the update. The line goes in the leading comment block.
-   A test allows the header only on a file made of `CREATE TABLE`, non-unique `CREATE INDEX` and `ALTER TABLE ... ADD
-   COLUMN` (nullable or with a default) statements, and requires it on such a file. Releases up to 0.5.x do not read
+   A test allows the header only on a file made of `CREATE TABLE`, `CREATE INDEX` and `ALTER TABLE ... ADD COLUMN`
+   (nullable or with a default) statements, and requires it on such a file. A `CREATE INDEX` must be non-unique, except
+   on a table the same file creates with a plain `CREATE TABLE` (one without `IF NOT EXISTS`, which stops when the table
+   is already there): older code writes no row of that table, so a unique index on it keeps no promise to rows that
+   older code writes. A unique index on any other table is refused. Releases up to 0.5.x do not read
    the floor and refuse a database with a migration they do not know.
 4. Rebuilding a table (dropping a column, changing a type): start the file with
    `-- migrate: foreign_keys=off` and a `-- migrate: breaking <reason>` line, and no compat floor.
@@ -342,17 +345,55 @@ also holds the theme colour in `apps/web/index.html` equal to the page colour, s
 
 ### End-to-end tests
 
-`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` copies the build to a temp directory, starts it on a free
-port with an empty database, and runs the Playwright specs in `e2e/` against it. The data directory is deleted
-at the end. The specs create the admin through the setup form, load the demo data, open every page on a desktop and a phone
-screen, and change a transaction's category and check that it
-is still there after a reload. A console error, an uncaught error, a failed request or any 4xx or 5xx response
-fails the run, and so does a page that scrolls sideways on the phone.
+`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default 3). Each is a copy of the
+build in a temp directory, on a free port, with a data directory and a fake bank of its own (see below), and the
+Playwright specs in `e2e/` run with one worker for each server. The data directories are deleted at the end.
+`E2E_WORKERS=1` runs the specs one after the other.
+
+Every one of these servers starts with the administrator made and the demo household loaded, and the specs sign in as
+that administrator. `app.spec.ts` runs the setup form and the demo through the page, on a server of its own. The specs
+open every page on a desktop and a phone screen, and change a transaction's category and check that it is still there
+after a reload. A console error, an uncaught error, a failed request or any 4xx or 5xx response fails the run, and so
+does a page that scrolls sideways on the phone.
+
+A spec file runs in one worker, in order. Two files may run at the same moment, each on its own server, so a spec must
+not depend on what another file left behind. A new spec reads its server from the environment, as the others do:
+`E2E_BASE_URL`, `E2E_DIR` (the data directory) and `E2E_FAKE_BANK`. Set the number of workers with `E2E_WORKERS`, not
+with Playwright's `--workers`: a worker without a server of its own stops the run.
 
 Playwright needs a Chromium. Where one is preinstalled, point `PLAYWRIGHT_BROWSERS_PATH` at it. Otherwise run
 `pnpm exec playwright install chromium` once. `E2E_CHROMIUM=/path/to/chrome` uses a specific binary. Extra
 arguments go to Playwright, for example `pnpm e2e --headed -g "kept after a reload"`. CI runs the suite in its
 own job after the build.
+
+#### The fake bank
+
+`e2e/fake-bank/` stands in for Enable Banking's API in the browser specs: plain Node, no dependency, on 127.0.0.1 only.
+It answers the calls of `apps/server/src/connectors/enable-banking/client.ts` about a made-up household and checks only
+that a request carries a bearer token. `pnpm e2e` starts one for each server, and `linkFakeBank(page)` in `e2e/helpers.ts`
+links it, so a spec that needs a connected bank asks for nothing more.
+
+To click through a bank connection in a dev server by hand:
+
+1. `node e2e/fake-bank/server.mjs` prints one line, `{"base":"http://127.0.0.1:PORT","consentHost":"consent.esimerkkipankki.example"}`.
+   `FAKE_BANK_PORT` picks the port, otherwise it is a free one.
+2. Start the app with `EB_API_URL=<base> EB_AUTH_HOSTS=<consentHost>`. `EB_API_URL` takes only a loopback address
+   (`127.0.0.1`, `localhost` or `[::1]`), because the requests signed with the bank key go wherever it points: with any
+   other address the app stops at start. `EB_API_URL` is a developer setting and no other doc names it.
+3. Save any Application ID in UUID form and any RSA private key in PEM form as your own: on *Asetukset* open *Oma Enable
+   Banking -sovellus* (it shows when the household has no shared app, see
+   [A member's own app](ENABLE_BANKING.md#a-members-own-app)) and press *Tallenna ja testaa*. The fake bank accepts any pair.
+4. Open *Asetukset > Pankkiyhteydet > Yhdistä pankki* and choose *Yhdistä Nordea*, the only bank it lists. The consent
+   page is on a host that does not exist, so take the path of the address you are sent to (`/consent/<id>`) and open it
+   on the fake bank's own address, `<base>/consent/<id>`. It sends the browser back to the redirect address the app gave,
+   with a code, and the connection is made.
+
+The household is made up and built from a fixed seed, so one day always gives the same rows: 14 months, up to today.
+MEIKALAINEN MATTI has a checking account (pay of 3 150,00 from ESIMERKKI OY on the 25th) and a savings account. The joint
+account of MEIKALAINEN MATTI;KORHONEN ELISA gets 600,00 from him on the 1st and 400,00 from her on the 2nd, pays a
+LAINAN LYHENNYS of 650,00 to ESIMERKKIPANKKI OYJ and the groceries. The ESIMERKKIPANKKI Luottokortti has a limit of
+3 000,00 and a debt, and its bill is paid from his checking account on the 5th. `e2e/fake-bank/household.mjs` holds the
+rows; every row is booked, so there is no pending transaction to test.
 
 ## Manual test: an existing install through the update
 

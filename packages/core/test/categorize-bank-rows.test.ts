@@ -273,8 +273,55 @@ describe("the household's own bank", () => {
       expect(new Set(run(monthly(payee, "30031", Array(6).fill(-152)), { accounts: [other, card] }).categories), payee).toEqual(new Set(["loans"]));
     }
     expect(new Set(run(monthly(BANK_AB, "30031", Array(6).fill(-152))).categories)).toEqual(new Set(["loans"]));
-    // the bank's own six payments under one reference are none
-    expect(new Set(run(monthly(BANK_AB, "30031", Array(6).fill(-152)), { accounts: [own, card] }).categories)).toEqual(new Set(["other"]));
+    // the bank's own six equal payments under one reference are a loan by the contract, not by the name (source merchant)
+    const ownLoan = run(monthly(BANK_AB, "30031", Array(6).fill(-152)), { accounts: [own, card] }).final;
+    expect(new Set(ownLoan.map((t) => `${t.category}/${t.categorySource}`))).toEqual(new Set(["loans/merchant"]));
+  });
+
+  const cat = (rows: Transaction[], accounts: Account[] = [own, card]) => run(rows, { accounts }).final.map((t) => `${t.category}/${t.categorySource}`);
+
+  // the contract is the bank's own: a payee that only shares a word with the bank's name, and a text that says what the money is, are none
+  describe("the contract is asked of the bank itself and of a text with no word", () => {
+    const sums = { equal: Array<number>(6).fill(-152), "three equal and three other": [-152, -152, -152, -98.2, -211.4, -175.9] };
+    it.each<[string, string, string | null]>([
+      ["Esimerkki Bank", "ESIMERKKI FUNDS OY", null],
+      ["Oma Säästöpankki Oyj", "OMA TUPA OY", null],
+      ["Esimerkkipankki Oyj", "ESIMERKKIPANKKI KIINTEISTOT OY", null],
+      ["Esimerkkipankki Oyj", BANK, "TALLELOKERO"],
+      ["Esimerkkipankki Oyj", BANK, "SOPIMUS 4411"],
+    ])("bank %s, payee %s, text %s: six payments under one reference are no loan", (bank, payee, text) => {
+      for (const [name, euros] of Object.entries(sums)) {
+        const rows = euros.map((e, i) => withReference(row(payee, text, e, { date: `${months[i]}-10` }), "30031"));
+        expect(new Set(cat(rows, [{ ...checking, bank }, card])), name).toEqual(new Set(["other/default"]));
+      }
+    });
+
+    it("the bank itself with the number only as its text holds a loan: the extra payments are the loan's, and two payments are none", () => {
+      for (const text of [null, "12345 67890"]) {
+        const rows = [-152, -152, -152, -98.2, -211.4, -175.9].map((e, i) => withReference(row(BANK_AB, text, e, { date: `${months[i]}-10` }), "30031"));
+        expect(new Set(cat(rows)), String(text)).toEqual(new Set(["loans/merchant"]));
+      }
+      expect(cat(monthly(BANK_AB, "30031", [-152, -152]))).toEqual(["other/default", "other/default"]);
+    });
+
+    it("a contract is one reference: a loan under one and bills under another are told apart", () => {
+      const rows = [...monthly(BANK_AB, "30031", Array(6).fill(-152)), ...monthly(BANK_AB, "20028", [-312.4, -188.1, -540, -95.75, -410.2, -267.3])];
+      expect(cat(rows)).toEqual([...Array(6).fill("loans/merchant"), ...Array(6).fill("other/default")]);
+    });
+
+    it("a payment that moves money to an account of the household is no instalment: three equal ones moved make no loan of three bills that vary", () => {
+      const savings: Account = { ...checking, id: "sav", iban: "FI4950009420028730", type: "savings" };
+      const moved = [-152, -152, -152].map((e, i) => withReference({ ...row(BANK_AB, null, e, { date: `${months[i]}-10` }), counterpartyIban: savings.iban }, "30031"));
+      const bills = [-312.4, -188.1, -540].map((e, i) => withReference(row(BANK_AB, null, e, { date: `${months[i + 3]}-10` }), "30031"));
+      const { final } = run([...moved, ...bills], { accounts: [own, savings, card] });
+      expect(final.slice(0, 3).map((t) => t.isTransfer)).toEqual([true, true, true]);
+      expect(final.slice(3).map((t) => t.category)).toEqual(["other", "other", "other"]);
+    });
+
+    it("a payment on a card's account is no instalment of the bank's contract", () => {
+      const onCard = monthly(BANK_AB, "30031", Array(6).fill(-152)).map((t) => ({ ...t, accountId: "card" }));
+      expect(new Set(cat(onCard))).toEqual(new Set(["other/default"]));
+    });
   });
 
   it("a bank abroad whose account is connected is the household's own", () => {
@@ -310,7 +357,8 @@ describe("the household's own bank", () => {
       const ownRows = () => [row(BANK, "TILIOTE PAPERINEN", -3), row(BANK, "MERKINTA 4411", -100), ...monthly(BANK, "30031", Array(6).fill(-152))];
       const register = (rows: Transaction[]) => new Map(rows.map((t) => [t.merchant, "loans"]));
       const rows = ownRows();
-      const want = Array(8).fill("other");
+      // the fee and the subscription are no loan; the six equal payments under one reference are one, by the contract
+      const want = ["other", "other", ...Array(6).fill("loans")];
       expect(categories(rows)).toEqual(want);
       expect(run(rows, { accounts: [mine, card], industries: register(rows) }).categories).toEqual(want);
       // not the household's bank: the register is heard

@@ -1,5 +1,5 @@
 import { getCategory } from "./categories.ts";
-import { isInstalments, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
+import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
 import { categorize, compileRules } from "./categorize.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
 import { holdersOf } from "./categorize-people.ts";
@@ -219,6 +219,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
   const { rows, accounts, industries } = input;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
   const ownIbans = ownIbansOf(accounts);
+  const holders = holdersOf(accounts);
   const run = (txs: readonly Transaction[], userRules: readonly CategoryRule[]) => {
     const steps = classify(txs, userRules, accounts);
     let step = steps.next();
@@ -268,8 +269,8 @@ export function enrichIsland(input: IslandInput): IslandResult {
     const oldKey = transferKey(o);
     const newKey = transferKey(n);
     if (oldKey !== newKey && newKey !== INERT) return { ok: false, reason: "a row may take part in transfer pairing" };
-    // the issuer fallback spares a lender's rows, also the ones stored as card bills here
-    if (isCreditPayout(o) !== isCreditPayout(n)) return { ok: false, reason: "a lender's payout came or went" };
+    // a payout makes its merchant a lender, and the issuer fallback spares the payments of its contract, also the ones stored as card bills here
+    if (isLenderPayout(o, holders) !== isLenderPayout(n, holders)) return { ok: false, reason: "a lender's payout came or went" };
     const oldReturn = returnKey(o, ownIbans, old.byUserRule.has(o.id));
     const newReturn = returnKey(n, ownIbans, now.byUserRule.has(n.id));
     if (oldReturn === "share" || newReturn === "share") return { ok: false, reason: "a row may be a friend's share of a bill" };
@@ -312,9 +313,6 @@ const transferKey = (t: Transaction): string => {
   const pairs = canPairAsTransfer(t);
   return !pairs && t.category !== "card_bill" ? INERT : `${pairs ? "leg" : ""}${t.category === "card_bill" ? "bill" : ""}`;
 };
-
-/** Credit paid out to the household: what makes its merchant a lender (card-channel.ts `settleTransfers`). */
-const isCreditPayout = (t: Transaction): boolean => t.category === "credit_draw" && t.amountCents > 0;
 
 /** What returns look at in a row's state (the rest of what they read is in the bank's fields, which a change does not touch). */
 const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolean) => returnClassOf(t, ownIbans, locked);

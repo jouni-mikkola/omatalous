@@ -1,20 +1,14 @@
-/* Kuukausi and Recurring: the forecast, key figures, insights, alerts, upcoming charges. */
+/* Yhteenveto and Recurring: the month's spending, key figures, insights, alerts, upcoming charges. */
 
 .tile-label { color: var(--text-2); font-size: 13px; }
 .tile-value { font-size: 28px; font-weight: 500; margin: 4px 0 2px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .tile-note { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
 .delta { font-size: 12px; color: var(--text-2); }
 
-/* the forecast: its figures beside the month's pace on a desktop, above it on a phone */
-.forecast-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (min-width: 900px) { .forecast-body { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
-.forecast-pace h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
-.forecast-parts { margin: 14px 0 0; display: grid; gap: 6px; }
-.forecast-parts > div { display: flex; justify-content: space-between; gap: 12px; }
-.forecast-parts dt { color: var(--text-2); }
-.forecast-parts dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
-.forecast-parts dt small { display: block; }
-.forecast-usual { margin: 10px 0 0; }
+/* the month's spending: its figure beside the month's pace on a desktop, above it on a phone */
+.spending-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 900px) { .spending-body { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
+.spending-pace h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
 .bridge-fixed { margin: 0; }
 /* what left the month page: the months side by side and the merchants, one link each */
 .month-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }

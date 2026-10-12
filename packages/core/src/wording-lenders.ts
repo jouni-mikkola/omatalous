@@ -1,7 +1,8 @@
 /**
  * What the rules of categorize-bank-rows.ts read: a lender told by the shape of its name, a cash machine's row and the
  * word of interest at the end of a word. The part of the bank dialect (ADR 0008) for the rows no word list names; the
- * words of the other bank rows are in wording.ts.
+ * words of the other bank rows are in wording.ts. Last, the words of a school or an association, which the rules about
+ * people read (categorize-people.ts).
  */
 import { isHousingCompanyName, isInsuranceText, words } from "./wording.ts";
 
@@ -43,3 +44,7 @@ export const isStreetAddressText = (folded: string) => STREET_ADDRESS.test(folde
 const INTEREST_WORD = words(String.raw`[A-Z]*(?:KORKO(?:A|N|T|JA|NA)?|KOR(?:ON|OT))`);
 /** The word for interest alone, in a compound (VELKAKORKO) or with a case ending, KORON and KOROT among them: a name that begins with it (KORKONEN, KORKOKENKA) is none. */
 export const hasInterestWord = (folded: string) => INTEREST_WORD.test(folded);
+
+const ORGANISATION_NAME = words(String.raw`[A-Z]*KOULU|[A-Z]*LUKIO|[A-Z]*OPISTO|[A-Z]*SEURA|VPK|FBK|[A-Z]*SKOLAN?|[A-Z]*FORENING(?:EN)?`);
+/** A folded payee with a word of a school or an association ("ESIMERKIN KOULU", "ESIMERKIN VPK"): two words of letters, and no person. None of the words is a first name or a surname. */
+export const isOrganisationName = (foldedPayee: string) => ORGANISATION_NAME.test(foldedPayee);

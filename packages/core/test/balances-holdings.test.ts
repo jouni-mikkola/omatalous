@@ -1,6 +1,6 @@
 /**
  * What the first page shows of accounts, cards and debts (`holdings.ts`): one answer, read by the balance report
- * (Saldot) and by the dashboard (Kuukausi). It computes nothing of its own, so the tests hold it to the owners of the
+ * (Saldot) and by the dashboard (Yhteenveto). It computes nothing of its own, so the tests hold it to the owners of the
  * figures: the debt total, the day walk and `loanBalanceOn`. Made-up accounts and loans only.
  */
 import { describe, expect, it } from "vitest";
@@ -64,6 +64,9 @@ describe("holdings of the balance report", () => {
       if (owed(report.holdings) !== report.holdings.debtCents) problems.push(`${seed}: ${owed(report.holdings)} against ${report.holdings.debtCents}`);
       if (report.holdings.debtCents !== report.debt.cents) problems.push(`${seed}: the debt total ${report.holdings.debtCents} against ${report.debt.cents}`);
       if (JSON.stringify(dashboard.holdings) !== JSON.stringify(report.holdings)) problems.push(`${seed}: the dashboard differs`);
+      const known = report.holdings.accounts.filter((a) => a.balanceCents !== null);
+      const added = known.length ? known.reduce((s, a) => s + a.balanceCents!, 0) : null;
+      if (report.holdings.accountsCents !== added) problems.push(`${seed}: the accounts' total ${report.holdings.accountsCents} against ${added}`);
     }
     expect(problems).toEqual([]);
     expect(withLoans).toBeGreaterThan(10);
@@ -154,6 +157,30 @@ describe("holdings of the balance report", () => {
     expect(holdings.accounts.map((a) => [a.id, a.type])).toEqual([["c1", "checking"], ["s1", "savings"], ["o1", "other"]]);
     expect(holdings.accounts.reduce((s, a) => s + (a.balanceCents ?? 0), 0)).toBe(570_000);
     expect(report.total.at(-1)).toBe(570_000);
+    // money in and money out: the overdraft is taken off, once
+    expect(holdings.accountsCents).toBe(570_000);
+  });
+
+  it("the accounts' total adds the known balances only: a card and a loan are not in it, an account without a balance leaves it out, and with none known it is null", () => {
+    const some = household([input("c1", "Käyttötili", "checking", 120_050), input("s1", "Säästötili", "savings", null), input("k1", "Kortti", "credit_card", -9_000), input("l1", "Autolaina", "loan", -300_000)]);
+    expect(some.holdings.accountsCents).toBe(120_050);
+    // a refund that turns the account positive again changes the total by the same cents
+    expect(household([input("c1", "Käyttötili", "checking", 120_050 + 2_500)]).holdings.accountsCents).toBe(122_550);
+    expect(household([input("c1", "Käyttötili", "checking", 0)]).holdings.accountsCents).toBe(0);
+    expect(household([input("c1", "Käyttötili", "checking", null), input("s1", "Säästötili", "savings", null)]).holdings.accountsCents).toBeNull();
+    expect(household([input("k1", "Kortti", "credit_card", -9_000)]).holdings.accountsCents).toBeNull();
+  });
+
+  it("an account carries the last four characters of its number as its mask, and none without a number or with less than four characters", () => {
+    const given = (iban: string | null) => buildHoldings(createContext([], [{ id: "a", name: "Käyttötili", iban, currency: "EUR", type: "checking" }], today), [input("a", "Käyttötili", "checking", 1_000)], inputsOf([])).accounts[0]!.mask;
+    expect(given("FI21 1234 5600 0007 85")).toBe("0785");
+    expect(given("fi2112345600000785")).toBe("0785");
+    expect(given("FI12")).toBe("FI12");
+    expect(given("FI1")).toBeNull();
+    expect(given(null)).toBeNull();
+    expect(given("")).toBeNull();
+    // a card is no account here and keeps the mask the bank gave it
+    expect(household([input("k1", "Kortti", "credit_card", -9_000, { cardMask: "•••• 4321" })]).holdings.cards[0]!.mask).toBe("•••• 4321");
   });
 
   it("the debt total is the cards' use and the loans' left to the cent, and there is none for a household in credit", () => {

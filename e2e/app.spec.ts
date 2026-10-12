@@ -1,13 +1,25 @@
-import { expect, type BrowserContext, type Page, test } from "@playwright/test";
+import { expect, type BrowserContext, type Page, test as base } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
+import { startServer } from "./server.mjs";
 
-const SETUP_CODE = process.env.E2E_SETUP_CODE ?? "";
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
-const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
+
+// The first run needs a server nobody has set up, so this file starts one of its own. The servers of the other files
+// have the administrator and the demo household made before their first spec (run.mjs); the tests below build on the
+// two that make them here.
+let app: Awaited<ReturnType<typeof startServer>>;
+let STATE = "";
+// (the hooks run with the auto fixtures too, so the address is asked for once before there is a server)
+const test = base.extend({ baseURL: async ({}, use) => use(app?.base) });
+test.beforeAll(async () => {
+  app = await startServer();
+  STATE = join(app.dir, "admin-state.json");
+});
+test.afterAll(() => app?.stop());
 
 const PAGES = [
-  ["overview", "Kuukausi"],
+  ["overview", "Yhteenveto"],
   ["reports", "Raportit"],
   ["optimise", "Säästövinkit"],
   ["transactions", "Tapahtumat"],
@@ -39,7 +51,7 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   await page.getByRole("button", { name: "Luo ja kirjaudu" }).click();
   await expect(page.locator(".error").first()).toBeVisible();
 
-  await page.getByLabel("Asennuskoodi").fill(SETUP_CODE);
+  await page.getByLabel("Asennuskoodi").fill(app.setupCode);
   await page.getByRole("button", { name: "Luo ja kirjaudu" }).click();
   await expect(page.getByRole("heading", { name: "Käyttöönotto" })).toBeVisible();
 
@@ -68,7 +80,7 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   await page.getByRole("button", { name: "Ohita" }).click();
   await expect(page.getByText("Salausavain")).toBeVisible();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
-  await expect(page.getByRole("navigation").getByText("Kuukausi").first()).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
   await page.context().storageState({ path: STATE });
   // the only expected failures are the wrong setup code (400) and nothing else
   expect(seen.problems.filter((p) => !/HTTP 400: POST .*\/api\/auth\/setup/.test(p) && !/Failed to load resource.*400/.test(p))).toEqual([]);
@@ -106,11 +118,11 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the forecast with the month's pace comes first, then the days to the payday
-          const month = page.getByRole("region", { name: "Ennuste kuun loppuun" });
-          const pace = month.getByRole("heading", { name: "Kuukauden kulku" });
+          // the month's spending with its pace comes first, then the days to the payday
+          const month = page.getByRole("region", { name: "Menot", exact: true });
+          const pace = month.getByRole("heading", { name: "Menojen kertymä" });
           await expect(pace).toBeVisible();
-          await expect(month.getByText("Tavallisesti tähän mennessä")).toBeVisible();
+          await expect(month.getByText(/kuussa \d+\.\d+\. mennessä/)).toBeVisible();
           const ahead = page.getByRole("heading", { name: /^Palkkapäivä / });
           await expect(ahead).toBeVisible();
           const [monthBox, aheadBox] = [await month.boundingBox(), await ahead.boundingBox()];
@@ -136,16 +148,24 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
   }
 }
 
-test("a period belongs to one page: Kuukausi offers two, Raportit five, and an old address opens the page that has its period", async ({ browser }) => {
+test("a period belongs to one page: Yhteenveto offers two months, Raportit five, and an old address opens the page that has its period", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   const toolbar = page.getByRole("toolbar", { name: "Aikaväli" });
   const pressed = toolbar.locator("button[aria-pressed=true]");
+  // the two months are named by the server's own day: "Lokakuu 2026" and the one before it
+  const { today } = (await (await context.request.get("/api/meta")).json()) as { today: string };
+  const monthName = (back: number) => {
+    const at = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1 - back, 1));
+    const name = new Intl.DateTimeFormat("fi-FI", { month: "long", year: "numeric", timeZone: "UTC" }).format(at);
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+  const [thisMonth, lastMonth] = [monthName(0), monthName(1)];
 
   await page.goto("/#/overview");
-  await expect(toolbar.getByRole("button")).toHaveText(["Tämä kuu", "Viime kuu"]);
-  await expect(pressed).toHaveText("Tämä kuu");
+  await expect(toolbar.getByRole("button")).toHaveText([thisMonth, lastMonth]);
+  await expect(pressed).toHaveText(thisMonth);
   await page.goto("/#/reports");
   await expect(toolbar.getByRole("button")).toHaveText(["3 kk", "6 kk", "12 kk", "Tämä vuosi", "Viime vuosi"]);
   await expect(pressed).toHaveText("12 kk");
@@ -157,8 +177,8 @@ test("a period belongs to one page: Kuukausi offers two, Raportit five, and an o
     ["overview?period=12m", "reports?period=12m", /^Raportit/, "12 kk"],
     ["overview?period=year", "reports?period=year", /^Raportit/, "Tämä vuosi"],
     ["overview?period=last-year", "reports?period=last-year", /^Raportit/, "Viime vuosi"],
-    ["reports?period=month", "overview?period=month", /^Kuukausi/, "Tämä kuu"],
-    ["reports?period=last-month", "overview?period=last-month", /^Kuukausi/, "Viime kuu"],
+    ["reports?period=month", "overview?period=month", /^Yhteenveto/, thisMonth],
+    ["reports?period=last-month", "overview?period=last-month", /^Yhteenveto/, lastMonth],
   ] as const;
   for (const [old, now, title, label] of MOVED) {
     await page.goto("/#/transactions");
@@ -255,7 +275,7 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   await context.close();
 });
 
-test("Viime kuu tells why the month differed (Menojen muutos), Tämä kuu does not, and Raportit has it no more", async ({ browser }) => {
+test("the last month tells why it differed (Menojen muutos), the running month does not, and Raportit has it no more", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -269,11 +289,11 @@ test("Viime kuu tells why the month differed (Menojen muutos), Tämä kuu does n
   if (await change.locator(".bridge-title").count()) await expect(change.locator(".bridge-title")).toContainText(`${usual} →`);
   const sentence = (await change.locator(".change-sentence").innerText()).replace(/\s/g, " ");
   if (sentence.includes("tavallisesti")) expect(sentence).toContain(`tavallisesti ${usual.replace(/\s/g, " ")}`);
-  await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toHaveCount(0);
   await expect(page.getByText("Tasauserä")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Tämä kuu" }).click();
-  await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toBeVisible();
+  await page.getByRole("toolbar", { name: "Aikaväli" }).getByRole("button").first().click();
+  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Menojen muutos" })).toHaveCount(0);
   await page.goto("/#/reports");
   await expect(page.getByRole("heading", { name: "Tulot ja menot" }).first()).toBeVisible();
@@ -379,7 +399,7 @@ test("a dismissed alert stays away after a reload", async ({ browser }) => {
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/overview");
-  await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
   const alerts = page.getByRole("list", { name: "Huomiot" });
   // a forgotten service is answered, not only dismissed (the buttons are looked at, not pressed: a mark would change the Laskut page)
   await expect(alerts.getByRole("button", { name: /^Käytössä: / }).first()).toBeVisible();
@@ -392,7 +412,7 @@ test("a dismissed alert stays away after a reload", async ({ browser }) => {
   await expect(alerts.getByRole("button", { name, exact: true })).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Ennuste kuun loppuun" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menot", exact: true })).toBeVisible();
   await page.waitForLoadState("networkidle");
   await expect(alerts.getByRole("button", { name, exact: true }), "the dismissed alert is back after a reload").toHaveCount(0);
   expect(seen.problems).toEqual([]);
@@ -554,9 +574,9 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     // switched off, the flags come with the page load: a reload hides the entry, and the address opens the overview
     expect((await flag(false)).ok()).toBe(true);
     await page.reload();
-    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Kuukausi" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Yhteenveto" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Säästövinkit" })).toHaveCount(0);
-    await expect(page).toHaveTitle(/^Kuukausi/);
+    await expect(page).toHaveTitle(/^Yhteenveto/);
   } finally {
     // the flag is back at its default, so the pages after this test see the app as shipped
     await flag(true);
@@ -574,7 +594,7 @@ test("sign out and back in", async ({ page }) => {
   await expect(page.getByText("Väärä käyttäjätunnus tai salasana.")).toBeVisible();
   await page.getByLabel("Salasana").fill(ADMIN.password);
   await page.getByRole("button", { name: "Kirjaudu" }).click();
-  await expect(page.getByRole("navigation").getByText("Kuukausi").first()).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
@@ -626,7 +646,7 @@ test("an expected bill is added in Tulossa on Laskut, is still there after a rel
   await context.close();
 });
 
-test("Toistuvat is Laskut: the old address opens the new page, and Kuukausi links to its list", async ({ browser }) => {
+test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto links to its list", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);

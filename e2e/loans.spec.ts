@@ -12,9 +12,8 @@ const PASSWORD = "laina-testin-salasana-1";
 test.describe.configure({ mode: "serial" });
 
 /**
- * The administrator: signed in by app.spec.ts when the whole suite runs. When this spec runs alone
- * (`pnpm e2e e2e/loans.spec.ts`) one is set up here through the API, the first-run wizard is closed, and the session
- * is kept for the tests after the first.
+ * The administrator: signed in by e2e/run.mjs. On a server that has none one is set up here through the API, the first-run wizard is
+ * closed, and the session is kept for the tests after the first.
  */
 async function administrator(browser: Browser): Promise<BrowserContext> {
   if (existsSync(STATE)) return browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 900 } });
@@ -549,7 +548,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
 });
 
 // A saved card loan and the demo household's card are one debt: the household says so once. Both tests need the demo
-// household that app.spec.ts creates (its card "Nordea Gold (esimerkki)"), so they skip when this file runs alone.
+// household that e2e/run.mjs loads (its card "Nordea Gold (esimerkki)"), so they skip on a server without it.
 const demoCard = async (context: BrowserContext) => ((await (await context.request.get("/api/meta")).json()).accounts as { id: string; name: string; type: string }[]).find((a) => a.type === "credit_card");
 const cardLoan = (name: string, day: string) => ({ name, kind: "card", lender: "ESIMERKKIRAHOITUS OY", grantedCents: null, balanceCents: 100_000, balanceDate: day, rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 300_000, seriesKey: null });
 /** The debt total of the Lainat report in whole euros. */
@@ -558,7 +557,7 @@ const owed = async (section: Locator) => Number((await section.locator(".kv > di
 test("the Lainat report offers to link a saved card to the card account, and the saved link takes the sentence and the typed balance out of the total", async ({ browser }) => {
   const context = await administrator(browser);
   const account = await demoCard(context);
-  test.skip(!account, "needs the demo household of app.spec.ts");
+  test.skip(!account, "needs the demo household");
   await clearLoans(context);
   const day = await today(context);
   const made = await context.request.post("/api/loans", { headers: FETCH, data: cardLoan("Esimerkkikortti", `${day.slice(0, 8)}01`) });
@@ -601,7 +600,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
 test("a refusal of the server stands in the form where its other errors are, and an account another loan holds is not offered", async ({ browser }) => {
   const context = await administrator(browser);
   const account = await demoCard(context);
-  test.skip(!account, "needs the demo household of app.spec.ts");
+  test.skip(!account, "needs the demo household");
   await clearLoans(context);
   const day = `${(await today(context)).slice(0, 8)}01`;
   for (const name of ["Esimerkkikortti A", "Esimerkkikortti B"]) expect((await context.request.post("/api/loans", { headers: FETCH, data: cardLoan(name, day) })).status()).toBe(200);

@@ -16,6 +16,9 @@ const PAIRABLE_CATEGORIES = new Set(["card_bill", "credit_draw", "other", "incom
 /** Words in card account names that name neither the issuer nor the product. */
 const GENERIC_CARD_WORDS = new Set(["KORTTI", "LUOTTOKORTTI", "CREDIT", "DEBIT", "CARD", "VISA", "MASTERCARD", "DEMO", "TILI", "ACCOUNT", "LUOTTO", "PANKKI", "BANK"]);
 
+/** The kinds of bank that many banks carry in their names, each with a word of its own beside it. */
+const BANK_KINDS = new Set(["SAASTOPANKKI", "OSUUSPANKKI", "SPARBANK", "ANDELSBANK"]);
+
 export function normalizeIban(iban: string | null | undefined): string | null {
   const s = iban?.replace(/\s+/g, "").toUpperCase();
   return s ? s : null;
@@ -104,13 +107,30 @@ export function namesCard(payee: string, card: Account): boolean {
   return (!!byName && billOfCard(new Set(wordsOf(fold(payee))), byName)) || namesBank(payee, card);
 }
 
+/** The words of an account's bank that name it: not a generic word, a number nor the form of a company. */
+const bankNaming = (account: Pick<Account, "bank">) => namingWords(wordsOf(fold(account.bank ?? ""))).filter((w) => !PAYEE_FORMS.has(w));
+
 /**
  * Whether a payee's name names the bank an account's connection was made with ("Esimerkkipankki Oyj" is named by
- * "ESIMERKKIPANKKI OYJ"). The company form in the bank's name names nobody: any other Oyj would be the bank.
+ * "ESIMERKKIPANKKI OYJ"). The company form in the bank's name names nobody: any other Oyj would be the bank. Nor does
+ * the kind of bank, when the name has another word: "TOISEN SAASTOPANKKI OY" is not "Esimerkin Säästöpankki". A bank
+ * whose whole name is its kind is named by it.
  */
 export function namesBank(payee: string, account: Pick<Account, "bank">): boolean {
   const text = new Set(wordsOf(fold(payee)));
-  return namingWords(wordsOf(fold(account.bank ?? ""))).some((w) => text.has(w) && !PAYEE_FORMS.has(w));
+  const naming = bankNaming(account);
+  const own = naming.filter((w) => !BANK_KINDS.has(w));
+  return (own.length ? own : naming).some((w) => text.has(w));
+}
+
+/**
+ * Whether a payee's name is the bank's own and nobody else's: it names the bank (see namesBank) and holds no word that
+ * names anything but the bank. "ESIMERKKIPANKKI OYJ" is "Esimerkkipankki Oyj" itself; "ESIMERKKIPANKKI KIINTEISTOT OY"
+ * and a stranger who shares the bank's one word ("OMA TUPA OY" beside "Oma Säästöpankki Oyj") only share a word with it.
+ */
+export function isBankName(payee: string, account: Pick<Account, "bank">): boolean {
+  const naming = bankNaming(account);
+  return namesBank(payee, account) && namingWords(wordsOf(fold(payee))).every((w) => PAYEE_FORMS.has(w) || naming.includes(w));
 }
 
 interface Pairing {
@@ -237,12 +257,10 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
 
 /** What is known against taking a row for a connected card's bill by its text alone. */
 interface IssuerEvidence {
-  /** Rows that are never a transfer leg (see TransferOptions). */
+  /** Rows that are never a transfer leg (see TransferOptions), and the payments of a lender's contract (card-channel.ts). */
   exclude?: ReadonlySet<string>;
   /** Cards whose payment channel is known (card-channel.ts): only a payment to that channel is their bill. */
   channelled?: ReadonlySet<string>;
-  /** Merchants that paid credit out to the household. A lender's name may hold the issuer's word, and its instalments are no card's bill. */
-  lenders?: ReadonlySet<string>;
 }
 
 /**
@@ -257,7 +275,6 @@ export function billsByIssuer(txs: readonly TransferInput[], accounts: readonly 
   const bills: string[] = [];
   for (const tx of txs) {
     if (tx.category !== "card_bill" || tx.categorySource === "user" || known.exclude?.has(tx.id) || settled.has(tx.id) || cardIds.has(tx.accountId) || tx.amountCents >= 0) continue;
-    if (tx.merchant !== undefined && known.lenders?.has(tx.merchant)) continue;
     const text = new Set(wordsOf(fold([tx.merchant, tx.counterparty, tx.description].filter(Boolean).join(" "))));
     if (cards.some((card) => billOfCard(text, card))) bills.push(tx.id);
   }
