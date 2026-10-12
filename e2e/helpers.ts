@@ -39,15 +39,25 @@ async function post(context: BrowserContext, path: string, data: object): Promis
 export async function makeMember(browser: Browser, username: string): Promise<{ state: string; id: string }> {
   const dir = process.env.E2E_DIR ?? ".";
   const admin = await browser.newContext({ storageState: join(dir, "admin-state.json") });
-  const { user, temporaryPassword } = await post(admin, "/api/users", { username, displayName: username, role: "member" });
-  await admin.close();
   const member = await browser.newContext();
-  await post(member, "/api/auth/login", { username, password: temporaryPassword });
-  await post(member, "/api/auth/password", { current: temporaryPassword, next: `${username}-123456` });
+  const id = await createMember(admin, member, username);
+  await admin.close();
   const state = join(dir, `${username}-state.json`);
   await member.storageState({ path: state });
   await member.close();
-  return { state, id: user.id };
+  return { state, id };
+}
+
+/**
+ * The administrator signed in in `admin` makes a member, and `member` (a context nobody is signed in in) signs in as it and
+ * changes the temporary password, as a person does at the first visit. The username needs five letters or more. Returns the
+ * member's id. `makeMember` and `pnpm shots --member` make a member this way.
+ */
+export async function createMember(admin: BrowserContext, member: BrowserContext, username: string, displayName = username): Promise<string> {
+  const { user, temporaryPassword } = await post(admin, "/api/users", { username, displayName, role: "member" });
+  await post(member, "/api/auth/login", { username, password: temporaryPassword });
+  await post(member, "/api/auth/password", { current: temporaryPassword, next: `${username}-123456` });
+  return user.id;
 }
 
 /** The member and what it linked go, so the instance is as the spec found it. */
@@ -87,3 +97,41 @@ export async function linkFakeBank(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Yhdistä Nordea" }).click();
   await expect(page.locator(".notice").filter({ hasText: "Pankki yhdistetty" })).toBeVisible();
 }
+
+/** Waits for the sync that a link starts to finish, so that every account of the member signed in in `context` has its balance. */
+export async function waitForSync(context: BrowserContext): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const meta = await (await context.request.get("/api/meta")).json();
+        return Boolean(meta.lastSync?.finishedAt) && meta.accounts.length > 0 && meta.accounts.every((a: { balanceCents: number | null }) => a.balanceCents !== null);
+      },
+      { message: "the sync after linking the fake bank did not finish", timeout: 30_000 },
+    )
+    .toBe(true);
+}
+
+/**
+ * The member signed in in `context` says who uses the fake bank's joint account and at what weights, as Asetukset > Tilit
+ * does it (PUT /api/accounts/:id/use). Both partners linked the account, so one saying is the real account's for both.
+ */
+export async function sayJointUse(context: BrowserContext, users: { userId: string; weight: number }[]): Promise<void> {
+  const meta = await (await context.request.get("/api/meta")).json();
+  const joint = (meta.accounts as { id: string; name: string }[]).find((a) => a.name === "Yhteistili");
+  expect(joint, "the fake bank's joint account (Yhteistili) is linked").toBeTruthy();
+  const said = await context.request.put(`/api/accounts/${encodeURIComponent(joint!.id)}/use`, { data: { users }, headers: FETCH });
+  expect(said.ok(), `PUT /api/accounts/:id/use answered ${said.status()} ${await said.text()}`).toBe(true);
+}
+
+/**
+ * The header's view switch of the member `userId` as `choice`, in every page `context` opens from now on. The app keeps the
+ * choice per user in the browser's storage (App.tsx) and reads it when the page loads, so the page starts in that view.
+ */
+export async function setScope(context: BrowserContext, userId: string, choice: "own" | "household"): Promise<void> {
+  await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: `scope:${userId}`, value: choice });
+}
+
+/** Spaces, no-break spaces and the typographic minus as a reader sees them. */
+export const plain = (s: string) => s.replace(/[\s  ]+/g, " ").replace(/−/g, "-").trim();
+/** "1 058,40 €" → 105840 */
+export const cents = (s: string) => Math.round(Number(plain(s).replace(/[ €]/g, "").replace(",", ".")) * 100);

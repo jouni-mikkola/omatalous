@@ -29,6 +29,7 @@ interface UseRow {
 
 /** An account as the derivation of a use reads it: who linked it, which real account it is, and the bank's line of holders. */
 interface HeldAccount {
+  id: string;
   userId: string;
   key: string;
   holder: string | null;
@@ -134,10 +135,12 @@ export class HouseholdRepo {
 
   /**
    * Every account of the instance with its holders, for deriving who uses an account: a member is matched to a holder
-   * by the name their own accounts give. The names are compared on the server and are not for a response.
+   * by the name their own accounts give. The ids tell which real account a loan of another member is paid from
+   * (services/loans-in-view.ts). The names and the ids are compared on the server and are not for a response.
    */
   async heldAccounts(): Promise<HeldAccount[]> {
-    return (await this.db.all<Row>(`SELECT a.user_id, ${keyOf("a")} AS account_key, a.holder FROM accounts a ORDER BY a.id`)).map((r) => ({
+    return (await this.db.all<Row>(`SELECT a.id, a.user_id, ${keyOf("a")} AS account_key, a.holder FROM accounts a ORDER BY a.id`)).map((r) => ({
+      id: String(r.id),
       userId: String(r.user_id),
       key: String(r.account_key),
       holder: str(r.holder),

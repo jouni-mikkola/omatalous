@@ -5,9 +5,10 @@ import { CategorySelect } from "../components/CategorySelect.tsx";
 import { DateFilter, FilterToggle, SearchBox } from "../components/FilterInputs.tsx";
 import { CADENCE_LABEL, date, dayHeading, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
-import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
+import { ownPart, viewsParts } from "../part.ts";
+import type { Category, Meta, Scope } from "../types.ts";
 import { Merchants, monthsBasis } from "./Merchants.tsx";
-import { byDay, TxItem, TxRow, usePhone } from "./TransactionRows.tsx";
+import { byDay, type ListedRow, TxItem, TxRow, usePhone } from "./TransactionRows.tsx";
 import "../styles/transactions.css";
 
 interface MerchantHistory {
@@ -93,7 +94,7 @@ export function Transactions({ meta, params, scope, anchor }: { meta: Meta; para
           Kauppiaat
         </button>
       </div>
-      {merchants ? <Merchants meta={meta} params={params} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
+      {merchants ? <Merchants meta={meta} params={params} scope={scope} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
     </div>
   );
 }
@@ -124,7 +125,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const [edits, setEdits] = useState(0);
   const phone = usePhone();
   const [panel, setPanel] = useState(false);
-  const { data, error, loading, reload } = useApi<{ total: number; inCents: number; outCents: number; items: TransactionItem[] }>(`/api/transactions${query({ ...filters, scope, limit })}`);
+  const { data, error, loading, reload } = useApi<{ total: number; inCents: number; outCents: number; items: ListedRow[] }>(`/api/transactions${query({ ...filters, scope, limit })}`);
   const anyOwn = data?.items.some((t) => t.own) ?? false;
   const transferIds = useRef(new Set<string>());
   transferIds.current = new Set(data?.items.filter((t) => t.isTransfer).map((t) => t.id));
@@ -178,6 +179,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     return () => window.clearTimeout(timer);
   }, [phone, changed]);
 
+  // in the own view the sums above the list add up the viewer's parts of a joint account's rows (the server's), also when one account is picked
+  const sumsAreParts = scope === "own" && (filters.accountId ? ownPart(meta, filters.accountId) !== undefined : viewsParts(meta));
   const anyFilter = Object.values(filters).some(Boolean);
   // the search box and the merchant badge are always in view, so only the filters behind the button count
   const active = [filters.category, filters.accountId, filters.from, filters.to].filter(Boolean).length;
@@ -214,7 +217,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       Lataa CSV
     </a>
   );
-  const rowProps = (t: TransactionItem) => ({
+  const rowProps = (t: ListedRow) => ({
     t,
     categories: meta.categories,
     categoryLabel: categoryLabel(t.category),
@@ -228,6 +231,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       {!filters.merchant && !filters.q && (
         <Uncategorised
           categories={meta.categories}
+          scope={scope}
           refresh={edits}
           onSaved={reload}
         />
@@ -268,6 +272,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
                 </>
               )}
             </div>
+            {sumsAreParts && data && data.total > 0 && <div className="card-sub">Yhteisen tilin tapahtumista summissa on sinun osuutesi.</div>}
           </div>
           <div className="form-row" style={{ margin: 0 }}>
             {anyOwn && (
@@ -378,16 +383,18 @@ interface UncategorisedItem {
  */
 function Uncategorised({
   categories,
+  scope,
   refresh,
   onSaved,
 }: {
   categories: Category[];
+  scope: Scope;
   /** Changes when a category was changed in the list below. */
   refresh: number;
   onSaved: () => void;
 }) {
   // items are the biggest merchants; the header counts all of them
-  const { data, reload } = useApi<{ items: UncategorisedItem[]; count: number; totalCents: number }>("/api/merchants/uncategorised");
+  const { data, reload } = useApi<{ items: UncategorisedItem[]; count: number; totalCents: number }>(`/api/merchants/uncategorised${query({ scope })}`);
   const seen = useRef(refresh);
   useEffect(() => {
     if (seen.current === refresh) return;

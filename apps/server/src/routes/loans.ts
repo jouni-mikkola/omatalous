@@ -36,6 +36,7 @@ const FIELDS = [
   "limitCents",
   "seriesKey",
   "accountId",
+  "rateReviewDate",
 ] as const satisfies readonly (keyof LoanFields)[];
 
 const MAX_NAME = 80;
@@ -130,6 +131,7 @@ const heldBy = (holder: Loan) => new UserError(`Tähän tiliin on jo liitetty la
 async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Promise<LoanFields> {
   const input = strictObject(raw, FIELDS);
   const oldest = addMonthsToDate(today, -12 * YEARS_BACK);
+  const latest = addMonthsToDate(today, 12 * YEARS_AHEAD);
   const loan: LoanFields = {
     name: parseName(input.name),
     lender: orNull(input.lender, parseLender),
@@ -145,10 +147,12 @@ async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Pr
     intervalMonths: orNull(input.intervalMonths, (v) => whole(v, 1, MAX_LOAN_INTERVAL_MONTHS, `Lyhennysvälin pitää olla 1–${MAX_LOAN_INTERVAL_MONTHS} kuukautta.`)),
     paymentCents: orNull(input.paymentCents, (v) => cents(v, 1, "Maksuerän")),
     // one that has passed is kept: core reads it as no last due date
-    endDate: orNull(input.endDate, (v) => date(v, oldest, addMonthsToDate(today, 12 * YEARS_AHEAD), `Viimeinen eräpäivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`)),
+    endDate: orNull(input.endDate, (v) => date(v, oldest, latest, `Viimeinen eräpäivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`)),
     limitCents: orNull(input.limitCents, (v) => cents(v, 1, "Luottorajan")),
     seriesKey: orNull(input.seriesKey, parseSeriesKey),
   };
+  // a day that has passed is kept: the rate has been reviewed since. A loan with no day has no field, as with the link.
+  if (!absent(input.rateReviewDate)) loan.rateReviewDate = date(input.rateReviewDate, oldest, latest, `Koron tarkistuspäivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`);
   // a card or a credit line is drawn and paid as its holder likes: it has a limit and no plan
   if (isRevolving(loan.kind) && loan.repayment !== null) {
     throw new UserError("Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.");
@@ -177,8 +181,9 @@ export function loanRoutes(s: Services) {
 
   /**
    * The loans the bank rows show and the household has not answered (`loanProposals`). Worked out for each request
-   * from the viewer's own rows, marks and saved loans, outside the cached context: "Ei laina" or a saved loan takes
-   * effect at once and moves no data version. A row id, the account and the payment reference stay on the server.
+   * from the viewer's own rows and marks and the saved loans of the own view (`loansInView`: a loan another user of a
+   * joint account saved is not proposed again), outside the cached context: "Ei laina" or a saved loan takes effect
+   * at once and moves no data version. A row id, the account and the payment reference stay on the server.
    */
   app.get("/loans/proposals", async (c) => {
     const userId = c.get("user").id;

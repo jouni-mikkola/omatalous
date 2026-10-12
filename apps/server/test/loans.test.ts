@@ -128,6 +128,12 @@ describe("loans", () => {
     ["a last due date more than 40 years back", { ...mortgage, endDate: "1986-10-08" }],
     ["a last due date more than 50 years ahead", { ...mortgage, endDate: "2076-10-10" }],
     ["a last due date in the year 9999", { ...mortgage, endDate: "9999-12-31" }],
+    ["a review day that does not exist", { ...mortgage, rateReviewDate: "2027-02-30" }],
+    ["a review day as a number", { ...mortgage, rateReviewDate: 20_270_314 }],
+    ["a review day in another format", { ...mortgage, rateReviewDate: "14.3.2027" }],
+    ["a review day that is empty", { ...mortgage, rateReviewDate: "" }],
+    ["a review day more than 40 years back", { ...mortgage, rateReviewDate: "1986-10-08" }],
+    ["a review day more than 50 years ahead", { ...mortgage, rateReviewDate: "2076-10-10" }],
     ["an empty series key", { ...mortgage, seriesKey: "" }],
     ["a series key over 200 characters", { ...mortgage, seriesKey: "x".repeat(201) }],
     ["a series key with a control character", { ...mortgage, seriesKey: "out:a-1:\u0007" }],
@@ -168,6 +174,7 @@ describe("loans", () => {
     expect(await error({ ...mortgage, rateBp: 5001 })).toBe("Kokonaiskoron pitää olla 0–50 %, enintään kahden desimaalin tarkkuudella.");
     expect(await error({ ...mortgage, balanceDate: "2026-10-10" })).toMatch(/^Jäljellä olevan summan päivä/);
     expect(await error({ ...mortgage, endDate: "2076-10-10" })).toMatch(/^Viimeinen eräpäivä/);
+    expect(await error({ ...mortgage, rateReviewDate: "2027-02-30" })).toBe("Koron tarkistuspäivä voi olla enintään 40 vuotta sitten ja 50 vuoden päässä.");
     expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/^Maksuerä on pienempi kuin lyhennysvälin korko/);
     // a payment holiday is such a loan with every field right, so the message names the way to save it
     expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä maksuerä tyhjäksi/);
@@ -192,6 +199,9 @@ describe("loans", () => {
       ["a balance date 40 years back", { ...bare, balanceDate: "1986-10-09" }],
       ["a last due date 40 years back", { ...mortgage, endDate: "1986-10-09" }],
       ["a last due date 50 years ahead", { ...mortgage, endDate: "2076-10-09" }],
+      ["a review day 40 years back", { ...mortgage, rateReviewDate: "1986-10-09" }],
+      ["a review day today", { ...mortgage, rateReviewDate: "2026-10-09" }],
+      ["a review day 50 years ahead", { ...mortgage, rateReviewDate: "2076-10-09" }],
       ["a payment equal to the interest", { ...mortgage, paymentCents: 43_163 }],
       ["a payment every third month equal to that interval's interest", { ...mortgage, intervalMonths: 3, paymentCents: 129_489 }],
       ["an equal principal payment under the interest, which comes on top", { ...mortgage, repayment: "equal_principal", paymentCents: 100 }],
@@ -279,6 +289,60 @@ describe("loans", () => {
       { user_id: adminId, name: "Asuntolaina" },
       { user_id: eero.id, name: "Eeron laina" },
     ]);
+  });
+
+  it("keeps the review day of the rate: a real date, also one that has passed, and null clears it", async () => {
+    const { admin, db } = await setupApp();
+    const day = async (id: string) => (await db.first<{ rate_review_date: string | null }>("SELECT rate_review_date FROM loans WHERE id = ?", [id]))?.rate_review_date;
+    const added = await admin.call("POST", "/api/loans", { ...mortgage, rateReviewDate: "2027-03-14" });
+    expect(added.status).toBe(200);
+    const id: string = added.body.loan.id;
+    expect(added.body.loan).toEqual({ id, ...mortgage, rateReviewDate: "2027-03-14" });
+    expect(await day(id)).toBe("2027-03-14");
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([added.body.loan]);
+
+    // a day that has passed is taken: the rate has been reviewed since
+    const passed = await admin.call("PUT", `/api/loans/${id}`, { ...mortgage, rateReviewDate: "2026-03-14" });
+    expect(passed.status).toBe(200);
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([{ id, ...mortgage, rateReviewDate: "2026-03-14" }]);
+
+    // a refused day changes nothing
+    expect((await admin.call("PUT", `/api/loans/${id}`, { ...mortgage, rateReviewDate: "2027-02-30" })).status).toBe(400);
+    expect(await day(id)).toBe("2026-03-14");
+
+    // null clears it, and so does a body that leaves it out: the body of a PUT is the whole loan
+    for (const cleared of [{ ...mortgage, rateReviewDate: null }, mortgage]) {
+      expect((await admin.call("PUT", `/api/loans/${id}`, { ...mortgage, rateReviewDate: "2027-03-14" })).status).toBe(200);
+      const r = await admin.call("PUT", `/api/loans/${id}`, cleared);
+      expect(r.status).toBe(200);
+      expect(r.body.loan).toEqual({ id, ...mortgage });
+      expect(await day(id)).toBeNull();
+      expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([{ id, ...mortgage }]);
+    }
+    // a loan added with null has no day either
+    expect((await admin.call("POST", "/api/loans", { ...bare, rateReviewDate: null })).body.loan).not.toHaveProperty("rateReviewDate");
+  });
+
+  it("a member cannot set the review day on another member's loan, and each loan keeps its own day", async () => {
+    const { admin, member, db } = await setupApp();
+    const eero = await member("eero");
+    const mine = (await admin.call("POST", "/api/loans", { ...mortgage, rateReviewDate: "2027-03-14" })).body.loan;
+    const theirs = (await eero.call("POST", "/api/loans", { ...bare, rateReviewDate: "2027-05-02" })).body.loan;
+
+    const stolen = await eero.call("PUT", `/api/loans/${mine.id}`, { ...mortgage, rateReviewDate: "2028-01-01" });
+    expect(stolen.status).toBe(404);
+    expect(stolen.body).toEqual({ error: "Lainaa ei löydy." });
+    // the same call with the day cleared would be the way to wipe it: refused as well
+    expect((await eero.call("PUT", `/api/loans/${mine.id}`, { ...mortgage, rateReviewDate: null })).status).toBe(404);
+    expect(await db.all("SELECT name, rate_review_date FROM loans ORDER BY name")).toEqual([
+      { name: "Asuntolaina", rate_review_date: "2027-03-14" },
+      { name: "Opintolaina", rate_review_date: "2027-05-02" },
+    ]);
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([mine]);
+    expect((await eero.call("GET", "/api/loans")).body.loans).toEqual([theirs]);
+    // near miss: the owner changes it
+    expect((await admin.call("PUT", `/api/loans/${mine.id}`, { ...mortgage, rateReviewDate: "2028-01-01" })).status).toBe(200);
+    expect((await eero.call("GET", "/api/loans")).body.loans).toEqual([theirs]);
   });
 
   it("sharing an account shares no loan", async () => {

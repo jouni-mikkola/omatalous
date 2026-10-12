@@ -13,7 +13,9 @@ before on the same day, and a card counts the days to your next payday and shows
 everyday spending for those days and what should be left on the account the day before the pay. Without a regular pay
 the card looks 30 days ahead and says why. A loan at a lender that is not connected can
 be added from a pasted screenshot, a PDF or text, which is read in the browser, and then counts in the reports. Each
-household member has a login of their own, and accounts can be shared read-only. Your transactions, bank keys and
+household member has a login of their own, and accounts can be shared read-only. A joint account is counted at each
+member's part in their own view, and a member sees of another only the names of an account's users and the loans paid
+from an account they can see ([Security and privacy](docs/SECURITY.md#who-sees-what)). Your transactions, bank keys and
 backups stay on your machine. Nothing is sent to the project. The app keeps daily copies of its database and starts on
 the newest intact copy if the database is damaged, and with the maintenance helper an update that leaves the app not
 answering is taken back by itself.

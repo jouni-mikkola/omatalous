@@ -16,9 +16,14 @@
  * - A figure that needs a field the loan lacks is null and names the field in `unknown`. A loan whose plan lacks a
  *   field keeps its stated balance, and the figures that stand on that balance name the field too.
  *
+ * - A debt that is partly another user's (`Debt.part`) is counted whole, and each cent figure told of it is cut to the
+ *   part once, at the end (`partCents`): the parts of a debt's users add up to the debt, to the cent, on every day.
+ *
  * Money flows do not read this file: an instalment is debt whether or not its loan is known.
  */
+import { partCents } from "./account-use.ts";
 import { addMonthsToDate, daysBetween, monthIndex, monthOf } from "./dates.ts";
+import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import type { Account, IsoDate, Loan, UserInputs } from "./types.ts";
 
 /** What a figure could not know: a field the loan lacks, or a day before the day its balance was told. */
@@ -181,7 +186,9 @@ function* payments(loan: Loan, plan: Instalments, from: { balanceCents: number; 
  * What is owed on a day: the stated balance moved forward by the plan. A loan without a plan keeps its stated balance
  * until its last due date and names the missing field. Before the balance date nothing is known.
  */
-export function loanBalanceOn(loan: Loan, day: IsoDate): LoanFigure {
+export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
+  const cut = partly(loan);
+  if (cut) return figureOf(loanBalanceOn(cut.whole, day), cut.part);
   if (day < loan.balanceDate) return { cents: null, unknown: "before_balance_date" };
   const plan = planOf(loan);
   if ("missing" in plan) {
@@ -202,7 +209,9 @@ export function loanBalanceOn(loan: Loan, day: IsoDate): LoanFigure {
  * balance × rate whatever the year's length. A loan that owes nothing on the day costs nothing at any rate, so it
  * needs no rate to say so.
  */
-export function loanInterestNext12Months(loan: Loan, day: IsoDate): LoanFigure {
+export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
+  const cut = partly(loan);
+  if (cut) return figureOf(loanInterestNext12Months(cut.whole, day), cut.part);
   if (loan.rateBp === null) {
     const owed = loanBalanceOn(loan, day);
     return owed.cents === 0 ? owed : { cents: null, unknown: "rate" };
@@ -236,8 +245,21 @@ export function loanPayoffDate(loan: Loan): LoanPayoff {
   return { date: null, unknown: null, never: true };
 }
 
-/** How much of a credit line or card is in use: the balance on the day over the limit. */
-export function creditUse(loan: Loan, day: IsoDate): CreditUse {
+/**
+ * How much of a credit line or card is in use: the balance on the day over the limit. Of a debt at a part, what is
+ * used and the limit are parts and what is left is the one less the other, so the two add up to the part of the limit.
+ * The whole line decides whether it is over, and the share is the whole line's.
+ */
+export function creditUse(loan: Debt, day: IsoDate): CreditUse {
+  const cut = partly(loan);
+  if (cut) {
+    const whole = creditUse(cut.whole, day);
+    const usedCents = centsOf(whole.usedCents, cut.part);
+    const limitCents = centsOf(whole.limitCents, cut.part);
+    if (usedCents === null || limitCents === null || whole.overCents === null) return { ...whole, usedCents, limitCents };
+    const over = whole.overCents > 0;
+    return { ...whole, usedCents, limitCents, availableCents: over ? 0 : Math.max(0, limitCents - usedCents), overCents: over ? Math.max(0, usedCents - limitCents) : 0 };
+  }
   const usedCents = loanBalanceOn(loan, day).cents;
   const limitCents = loan.limitCents;
   if (usedCents === null || limitCents === null || limitCents <= 0) {
@@ -280,7 +302,7 @@ export function creditAccountLoan(
   };
 }
 
-function sumOf(loans: readonly Loan[], figure: (loan: Loan) => LoanFigure): DebtFigure {
+function sumOf(loans: readonly Debt[], figure: (loan: Debt) => LoanFigure): DebtFigure {
   let cents = 0;
   const unknown: DebtFigure["unknown"][number][] = [];
   for (const loan of loans) {
@@ -292,10 +314,10 @@ function sumOf(loans: readonly Loan[], figure: (loan: Loan) => LoanFigure): Debt
 }
 
 /** What the household owes on a day: the sum of `loanBalanceOn`. */
-export const debtTotalOn = (loans: readonly Loan[], day: IsoDate): DebtFigure => sumOf(loans, (loan) => loanBalanceOn(loan, day));
+export const debtTotalOn = (loans: readonly Debt[], day: IsoDate): DebtFigure => sumOf(loans, (loan) => loanBalanceOn(loan, day));
 
 /** What the debt costs over the 12 months after a day: the sum of `loanInterestNext12Months`. */
-export const debtInterestNext12Months = (loans: readonly Loan[], day: IsoDate): DebtFigure => sumOf(loans, (loan) => loanInterestNext12Months(loan, day));
+export const debtInterestNext12Months = (loans: readonly Debt[], day: IsoDate): DebtFigure => sumOf(loans, (loan) => loanInterestNext12Months(loan, day));
 
 /** The next payment of a loan after a day. */
 export interface NextPayment {
@@ -319,7 +341,16 @@ export interface NextPayment {
  * balance: a payment typed for it is told as typed, at most what is owed with the interest that can be counted, and
  * its split is not known. A bullet has no payment before its last due date.
  */
-export function loanNextPayment(loan: Loan, day: IsoDate): NextPayment {
+export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
+  const cut = partly(loan);
+  if (cut) {
+    const whole = loanNextPayment(cut.whole, day);
+    const interestCents = centsOf(whole.interestCents, cut.part);
+    const amortisationCents = centsOf(whole.amortisationCents, cut.part);
+    // the payment is its two parts where both are told, so the row adds up in every view
+    const cents = whole.cents !== null && interestCents !== null && amortisationCents !== null ? interestCents + amortisationCents : centsOf(whole.cents, cut.part);
+    return { ...whole, cents, interestCents, amortisationCents };
+  }
   const intervalMonths = intervalOf(loan);
   const none = (unknown: LoanUnknown | null): NextPayment => ({ cents: null, interestCents: null, amortisationCents: null, intervalMonths, unknown });
   if (day < loan.balanceDate) return none("before_balance_date");
@@ -357,17 +388,23 @@ export interface DebtPayments {
   bullets: number;
 }
 
-/** What the loans take a month on `day`: `loanNextPayment` of each, spread over its interval. A loan that owes nothing adds nothing. */
-export function debtPaymentsPerMonth(loans: readonly Loan[], day: IsoDate): DebtPayments {
+/**
+ * What the loans take a month on `day`: `loanNextPayment` of each, spread over its interval. A loan that owes nothing
+ * adds nothing. A debt at a part adds that part of the whole loan's month.
+ */
+export function debtPaymentsPerMonth(loans: readonly Debt[], day: IsoDate): DebtPayments {
   const sum = { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 };
   for (const loan of loans) {
-    const next = loanNextPayment(loan, day);
+    const cut = partly(loan);
+    const whole = cut?.whole ?? loan;
+    const next = loanNextPayment(whole, day);
     if (next.cents !== null && next.intervalMonths !== null) {
-      sum.monthlyCents += divRound(next.cents, next.intervalMonths);
+      const monthly = divRound(next.cents, next.intervalMonths);
+      sum.monthlyCents += cut ? partCents(monthly, cut.part) : monthly;
       sum.counted++;
     } else {
       // a balance dated after the day is no payment of zero: nothing is known of it
-      const owed = loanBalanceOn(loan, day).cents;
+      const owed = loanBalanceOn(whole, day).cents;
       if (owed === null || (owed > 0 && loan.repayment !== "bullet")) sum.unknown++;
       else if (owed > 0) sum.bullets++;
     }
@@ -411,7 +448,12 @@ const annuityShare = (rate: number, n: number): number => (rate === 0 ? 1 / n : 
  * rounding and the day its rate is reset decide the real one, so this is what the move does and no quote. An annuity
  * that never ends has no new payment to tell, and names the last due date it lacks.
  */
-export function loanRateScenario(loan: Loan, day: IsoDate, shiftBp: number): RateScenario {
+export function loanRateScenario(loan: Debt, day: IsoDate, shiftBp: number): RateScenario {
+  const cut = partly(loan);
+  if (cut) {
+    const whole = loanRateScenario(cut.whole, day, shiftBp);
+    return { ...whole, paymentCents: centsOf(whole.paymentCents, cut.part), interestCents: centsOf(whole.interestCents, cut.part) };
+  }
   if (loan.rateBp === null) return { shiftBp, movedBp: null, rateBp: null, paymentCents: null, interestCents: null, unknown: "rate" };
   // a rate already under its margin does not rise when the reference rate falls
   const floorBp = Math.min(loan.rateBp, loan.marginBp ?? 0);

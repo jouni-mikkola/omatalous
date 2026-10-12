@@ -4,6 +4,7 @@ import { date, dayHeading, dayMonth, money } from "../format.ts";
 import type { DashboardData } from "../types.ts";
 
 export type Ahead = NonNullable<DashboardData["ahead"]>;
+type Balance = NonNullable<Ahead["balance"]>;
 
 /** The days until a day in words: today, tomorrow, or a count. */
 const until = (days: number): string => (days === 0 ? "tänään" : days === 1 ? "huomenna" : `${days} päivän päästä`);
@@ -14,12 +15,14 @@ interface Heading {
 }
 
 /**
- * The heading of the card, by what the window waits for. With a payday it names the day, the weekday and the days to it.
+ * The heading of the card, by what the window waits for. With a payday it names the day, the weekday and the days to it;
+ * a pay whose day has gone by and that is not late yet keeps the day it was expected, and says it has not come.
  * Without one, or with a pay that is late, it is the 30 days from today, and a late pay says since when. The
  * day ends its sentence with its own full stop, so the sentence adds none.
  */
 export function heading(ahead: Ahead): Heading {
   const { payday, reason, from, days } = ahead;
+  if (reason === "payday" && payday?.expected) return { title: `Palkkapäivä ${dayHeading(payday.expected, from)}`, sub: "Palkka ei ole vielä tullut." };
   if (reason === "payday" && payday) return { title: `Palkkapäivä ${dayHeading(payday.date, from)}`, sub: until(daysBetween(from, payday.date)) };
   const title = `Seuraavat ${days} päivää`;
   if (reason === "late" && payday) return { title, sub: `Palkka on myöhässä, sen piti tulla ${dayHeading(payday.date, from)}` };
@@ -41,7 +44,9 @@ interface Figure {
 export function figures(ahead: Ahead): Figure[] {
   const { totals, balance, reason } = ahead;
   const waits = reason === "payday";
-  const out: Figure[] = [{ key: "bills", label: waits ? "Maksut ennen palkkapäivää" : "Maksut", note: null, cents: totals.recurringCents + totals.typedCents }];
+  // the four kinds of payment core totals, so that the start, the pay, these and the everyday spending end at the last balance
+  const bills = totals.recurringCents + totals.typedCents + totals.cardCents + totals.transferCents;
+  const out: Figure[] = [{ key: "bills", label: waits ? "Maksut ennen palkkapäivää" : "Maksut", note: null, cents: bills }];
   if (ahead.everydayPerDayCents > 0 && ahead.days > 0) {
     out.push({ key: "everyday", label: "Ostokset ilman laskuja ja tilauksia", note: `tavallisesti ${money(ahead.everydayPerDayCents, false)} päivässä`, cents: totals.everydayCents });
   }
@@ -69,10 +74,10 @@ interface PayLine {
   cents: number;
 }
 
-/** The pay the window waits for, the last line of the list and no row of it. A late pay is told in the heading. */
+/** The pay the window waits for, the last line of the list and no row of it, on the day the heading names. A late pay is told in the heading. */
 export function payLine(ahead: Ahead): PayLine | null {
   const { payday, reason, from } = ahead;
-  return reason === "payday" && payday ? { name: payday.name, when: dayHeading(payday.date, from), cents: payday.cents } : null;
+  return reason === "payday" && payday ? { name: payday.name, when: dayHeading(payday.expected ?? payday.date, from), cents: payday.cents } : null;
 }
 
 /** What the list is about, for a reader of the page that has no eyes for it. */
@@ -80,7 +85,45 @@ export function listCaption(ahead: Ahead): string {
   return ahead.reason === "payday" ? "Maksut ennen palkkapäivää" : `Maksut seuraavan ${ahead.days} päivän aikana`;
 }
 
-/** The start of the balance line, and what it leaves out. */
-export function footnote(balance: NonNullable<Ahead["balance"]>): string {
-  return `Lähtösaldo ${money(balance.startCents, false)}${balance.balanceAt ? `, laskettu pankin saldosta ${date(balance.balanceAt)}` : ""}. Omat siirrot eivät ole mukana.`;
+/** The accounts the balance line counts, when that is not every checking account in view. */
+const COUNTS: Record<Balance["counts"], string | null> = {
+  all: null,
+  own: "Yhteiset tilit eivät ole mukana.",
+  part: "Mukana on vain osuutesi yhteisestä tilistä.",
+};
+
+/** The start of the balance line, and which accounts it counts. */
+export function footnote(balance: Balance): string {
+  const start = `Lähtösaldo ${money(balance.startCents, false)}${balance.balanceAt ? `, laskettu pankin saldosta ${date(balance.balanceAt)}` : ""}.`;
+  return [start, COUNTS[balance.counts]].filter(Boolean).join(" ");
 }
+
+type Row = Ahead["rows"][number];
+
+/**
+ * What the list calls a row. A pay, a subscription and a typed bill go by the name they have; the bill of a card and a
+ * transfer say what they are first, since their name is the card's or the account's and no merchant's.
+ */
+export function rowLabel(r: Row): string {
+  switch (r.source) {
+    case "income":
+    case "recurring":
+    case "expected":
+      return r.name;
+    case "card":
+      return `Korttilasku (${r.name})`;
+    case "transfer":
+      return `Siirto tilille (${r.name})`;
+    default:
+      return r.source satisfies never;
+  }
+}
+
+/** Where a row's sum comes from, when it is an estimate: a card's bill is the card's use today, or an estimate from the bills paid before. */
+export function rowNote(r: Row): string | null {
+  if (r.source !== "card") return null;
+  return r.basis === "balance" ? "Käytetty luotto tänään" : "Arvio aiemmista laskuista";
+}
+
+/** Whether the name of a row is a merchant of Tapahtumat: a card's or an account's name is not one. */
+export const isMerchant = (r: Row): boolean => r.source !== "card" && r.source !== "transfer";

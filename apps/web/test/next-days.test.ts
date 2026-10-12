@@ -15,6 +15,7 @@ const BILLS = [row({}), row({ date: "2026-10-20", name: "Esimerkkivakuutus", cen
 
 const balance = (over: Partial<Balance> = {}): Balance => ({
   startCents: 200_000,
+  counts: "all",
   accounts: 1,
   balanceAt: "2026-10-12T06:00:00Z",
   days: [
@@ -38,7 +39,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
     rows,
     upcoming: rows.filter((r) => r.cents < 0),
     everydayPerDayCents: 3_000,
-    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), everydayCents: 30_000, incomeCents: sum("income") },
+    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), everydayCents: 30_000, incomeCents: sum("income"), cardCents: 0, transferCents: 0 },
     balance: balance(),
     missing: null,
     ...over,
@@ -56,6 +57,15 @@ describe("the heading, by what the window waits for", () => {
   it("says tomorrow and today in words", () => {
     expect(heading(ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-13", name: "Esimerkki Oy", cents: 300_000 } }))).toEqual({ title: "Palkkapäivä ti 13.10.", sub: "huomenna" });
     expect(heading(ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", cents: 300_000 } }))).toEqual({ title: "Palkkapäivä ma 12.10.", sub: "tänään" });
+  });
+
+  it("a pay whose day has gone by and that is not late yet keeps the day it was expected, in the title and on its line", () => {
+    const waited = ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-12", expected: "2026-10-09", name: "Esimerkki Oy", cents: 300_000 } });
+    expect(heading(waited)).toEqual({ title: "Palkkapäivä pe 9.10.", sub: "Palkka ei ole vielä tullut." });
+    expect(payLine(waited)).toEqual({ name: "Esimerkki Oy", when: "pe 9.10.", cents: 300_000 });
+    // near miss: the same pay due today has one day, and it is today
+    const due = ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", cents: 300_000 } });
+    expect([heading(due).sub, payLine(due)!.when]).toEqual(["tänään", "ma 12.10."]);
   });
 
   it("without a payday it is the 30 days of today", () => {
@@ -89,7 +99,7 @@ describe("the figures a person decides by", () => {
   it("leave out the balance without a checking balance and the everyday spending without a complete month", () => {
     const noBalance = ahead({ balance: null, missing: "balance" });
     expect(figures(noBalance).map((f) => f.key)).toEqual(["bills", "everyday"]);
-    const noHistory = ahead({ balance: null, missing: "history", everydayPerDayCents: 0, totals: { recurringCents: 0, typedCents: 0, everydayCents: 0, incomeCents: 0 } }, []);
+    const noHistory = ahead({ balance: null, missing: "history", everydayPerDayCents: 0, totals: { recurringCents: 0, typedCents: 0, everydayCents: 0, incomeCents: 0, cardCents: 0, transferCents: 0 } }, []);
     expect(figures(noHistory)).toEqual([{ key: "bills", label: "Maksut ennen palkkapäivää", note: null, cents: 0 }]);
   });
 
@@ -148,9 +158,9 @@ describe("the card", () => {
     expect(waiting).not.toContain("Lähtösaldo");
   });
 
-  it("keeps the start balance and the own transfers in one short note", () => {
-    expect(plain(footnote(balance()))).toBe("Lähtösaldo 2 000 €, laskettu pankin saldosta 12.10.2026. Omat siirrot eivät ole mukana.");
-    expect(plain(footnote(balance({ balanceAt: null })))).toBe("Lähtösaldo 2 000 €. Omat siirrot eivät ole mukana.");
+  it("keeps the start balance in one short note", () => {
+    expect(plain(footnote(balance()))).toBe("Lähtösaldo 2 000 €, laskettu pankin saldosta 12.10.2026.");
+    expect(plain(footnote(balance({ balanceAt: null })))).toBe("Lähtösaldo 2 000 €.");
   });
 
   it("names its list for a reader that has no eyes for it", () => {

@@ -10,6 +10,7 @@ import { buildHoldings, cardLimitCents } from "../src/holdings.ts";
 import { loanBalanceOn } from "../src/loans.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { balanceReport } from "../src/reports/balances.ts";
+import { loansReport } from "../src/reports/loans.ts";
 import type { Account, BalanceInput, Loan, Transaction, UserInputs } from "../src/types.ts";
 import { ACCOUNTS, randomHistory, rng } from "./gen.ts";
 import { tx } from "./helpers.ts";
@@ -212,6 +213,20 @@ describe("holdings of the balance report", () => {
     const { holdings } = household([input("l1", "Autolaina", "loan", -300_000)], [savedLoan, other]);
     // the connected loan account stands beside the saved loan that is no card; the saved card has no account beside it
     expect(Object.fromEntries(holdings.loans.map((l) => [l.id, l.maybeTwice]))).toEqual({ mine: true, other: false, "account:l1": true });
+  });
+
+  it("a loan another member typed in says who, as a typed row and as a linked account's, here and in the Lainat report, and no other row says anything", () => {
+    const balances = [input("l1", "Asuntolaina", "loan", -300_000), input("l2", "Autolaina", "loan", -50_000)];
+    const loans = [loan({ id: "mine", balanceCents: 400_000 }), loan({ id: "hers", balanceCents: 100_000, typedBy: "Aino" }), loan({ id: "pair", balanceCents: 310_000, typedBy: "Aino", accountId: "l1" })];
+    const { ctx, holdings } = household(balances, loans);
+    const rows = holdings.loans.map((l) => [l.id, l.source, l.typedBy]);
+    expect(rows).toEqual([["mine", "typed", undefined], ["hers", "typed", "Aino"], ["pair", "account", "Aino"], ["account:l2", "account", undefined]]);
+    for (const row of [holdings.loans[0]!, holdings.loans[3]!]) expect(row).not.toHaveProperty("typedBy");
+    const listed = loansReport(ctx, balances, inputsOf(loans)).loans;
+    expect(listed.map((l) => [l.id, l.typedBy])).toEqual(rows.map(([id, , typedBy]) => [id, typedBy]));
+    expect(listed[0]).not.toHaveProperty("typedBy");
+    // the name changes no figure: the linked pair is the account's balance once
+    expect(owed(holdings)).toBe(400_000 + 100_000 + 300_000 + 50_000);
   });
 
   it("another member's accounts carry the owner's name as the series do, and a joint account is listed once", () => {

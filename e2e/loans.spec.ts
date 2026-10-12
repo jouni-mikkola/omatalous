@@ -222,6 +222,69 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await context.close();
 });
 
+test("the day the rate is reviewed is typed in the form and kept, a fixed rate has no such field, and the form fits a phone", async ({ browser }) => {
+  const context = await administrator(browser);
+  await clearLoans(context);
+  const page = await context.newPage();
+  const seen = watch(page);
+  const loans = async () => (await (await context.request.get("/api/loans")).json()).loans as { name: string; reference: string | null; rateReviewDate?: string | null }[];
+  await page.goto("/#/settings");
+  const card = lainat(page);
+  await card.getByRole("button", { name: "Lisää käsin" }).click();
+  const form = card.getByRole("region", { name: "Uusi laina" });
+  await form.getByLabel("Laji").selectOption("mortgage");
+  await form.getByLabel("Nimi").fill("Kotilaina");
+  await form.getByLabel("Lainaa jäljellä (€)").fill("120 000");
+  await form.getByLabel("Kokonaiskorko (%)").fill("3,39");
+  await form.getByLabel("Marginaali (%)").fill("0,65");
+  const day = form.getByLabel("Koron tarkistuspäivä", { exact: true });
+  // no reference rate named yet: the field is there, with its hint, right after the margin
+  await expect(day).toBeVisible();
+  await expect(day).toHaveAttribute("type", "date");
+  await expect(day).not.toHaveAttribute("required", "");
+  await expect(field(form, "Koron tarkistuspäivä")).toContainText("Päivä, jona pankki seuraavan kerran tarkistaa viitekoron. Näkyy lainasopimuksessa ja verkkopankissa.");
+  const labels = await form.locator("label.field-label").allInnerTexts();
+  expect(labels.indexOf("Koron tarkistuspäivä")).toBe(labels.indexOf("Marginaali (%)") + 1);
+
+  // a fixed rate has no review day, and what was typed comes back with the reference rate
+  await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
+  await day.fill("2027-03-14");
+  await form.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
+  await expect(day).toHaveCount(0);
+  await expect(form.getByText("Päivä, jona pankki seuraavan kerran tarkistaa viitekoron.")).toHaveCount(0);
+  await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
+  await expect(day).toHaveValue("2027-03-14");
+  await form.getByRole("button", { name: "Tallenna" }).click();
+  await said(card, "Kotilaina tallennettu.");
+  expect(await loans()).toMatchObject([{ name: "Kotilaina", reference: "euribor_12", rateReviewDate: "2027-03-14" }]);
+
+  // the day is kept: it is in the editor after a reload
+  await page.reload();
+  await card.getByRole("button", { name: "Muokkaa lainaa Kotilaina" }).click();
+  const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+  await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveValue("2027-03-14");
+  // on a phone neither the page nor the form scrolls sideways
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
+  expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toBeVisible();
+
+  // a fixed rate saves no day, whatever the editor held
+  await dialog.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
+  await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Tallenna" }).click();
+  await said(card, "Muutokset tallennettu.");
+  expect(await loans()).toMatchObject([{ name: "Kotilaina", reference: "fixed" }]);
+  expect((await loans())[0]!.rateReviewDate ?? null).toBeNull();
+  // and its editor has no field either
+  await card.getByRole("button", { name: "Muokkaa lainaa Kotilaina" }).click();
+  await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Peruuta" }).click();
+  expect(seen.problems).toEqual([]);
+  await clearLoans(context);
+  await context.close();
+});
+
 test("a pasted picture is read in the browser from the app's own files, every field of it is to check, and it saves", async ({ browser }) => {
   test.setTimeout(180_000);
   const context = await administrator(browser);

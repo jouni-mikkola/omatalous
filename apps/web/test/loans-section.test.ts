@@ -147,14 +147,43 @@ describe("Raportit: Lainat", () => {
     expect(html(balances, context(report([row()]), "own", odd))).toContain("Tilit miinus velat tänään 1 800,45 €: tilit yhteensä 3 000,55 €, tallennetut lainat 1 200,10 €.");
   });
 
-  it("in the household view the saved loans are said to be the viewer's own", () => {
-    expect(html(loans, context(report([row()]), "household"))).toContain("Tallennetuista lainoista ovat mukana vain omasi.");
-    expect(html(balances, context(report([row()]), "household"))).toContain("omat tallennetut lainasi 120 000,00 €.");
+  it("the household view says when another member's saved loan is in it, and the Saldot line calls the saved loans nobody's own", () => {
+    const note = "Toisen lisäämä laina on mukana, kun sitä maksetaan tililtä, jonka näet.";
+    expect(html(loans, context(report([row()]), "household"))).toContain(note);
+    expect(html(loans, context(report([row()])))).not.toContain(note);
+    expect(html(balances, context(report([row()]), "household"))).toContain("tilit yhteensä 1 200,00 €, tallennetut lainat 120 000,00 €.");
   });
 
   it("with a linked loan the Saldot line says its figure holds the loans no account holds", () => {
     const rows = [row(), row({ id: "card", linkedAccount: { id: "a1", name: "Luottokortti" } })];
-    expect(html(balances, context(report(rows)))).toContain("tilit yhteensä 1 200,00 €, tiliin liittämättömät tallennetut lainat 120 000,00 €.");
-    expect(html(balances, context(report(rows), "household"))).toContain("omat tiliin liittämättömät tallennetut lainasi 120 000,00 €.");
+    for (const scope of ["own", "household"]) expect(html(balances, context(report(rows), scope))).toContain("tilit yhteensä 1 200,00 €, tiliin liittämättömät tallennetut lainat 120 000,00 €.");
+  });
+
+  it("a loan another member typed in says who after the kind and the part, and the viewer's own says nothing", () => {
+    const theirs = row({ id: "theirs", part: { from: 3, to: 5, of: 5 }, typedBy: "Aino" });
+    const out = html(loans, context(report([row(), theirs])));
+    expect(out).toContain("<strong>Kodin laina</strong><span>Asuntolaina · Esimerkkipankki · osuutesi 40 % · Lisännyt Aino</span>");
+    expect(out).toContain("<strong>Kodin laina</strong><span>Asuntolaina · Esimerkkipankki</span>");
+    expect(out.split("Lisännyt").length - 1).toBe(1);
+  });
+
+  it("a debt that may be there twice offers no link for a loan another member typed in, and says who can remove it", () => {
+    const beside = { loans: [{ id: "home", name: "Kodin laina" }, { id: "theirs", name: "Autolaina" }], accounts: [{ id: "acc", name: "Lainatili" }] };
+    const rows = [row(), row({ id: "theirs", name: "Autolaina", typedBy: "Aino" })];
+    const withOwn = (r: unknown, accounts: { id: string }[]) => ({ ...context(r), meta: { today: day, accounts } }) as unknown as ReportContext;
+    // the viewer's own loan links to the viewer's own account, hers does not
+    const linkable = html(loans, withOwn(report(rows, { maybeTwice: [beside] }), [{ id: "acc" }]));
+    expect(linkable).toContain("Liitä Kodin laina tiliin Lainatili</a>");
+    expect(linkable).not.toContain("Liitä Autolaina");
+    expect(linkable).not.toContain("theirs");
+    // a set with a loan of the viewer's own and no account to link to: the viewer removes their own, as before
+    expect(html(loans, withOwn(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos velka on sama, poista tallennettu laina kohdassa Asetukset &gt; Lainat, niin se lasketaan kerran.");
+    // every saved loan of the set is another member's: nothing to link though the account is the viewer's own, and the typists are named once each
+    const others = { ...beside, loans: [{ id: "theirs", name: "Autolaina" }, { id: "second", name: "Remonttilaina" }, { id: "his", name: "Venelaina" }] };
+    const all = [row({ id: "theirs", typedBy: "Aino" }), row({ id: "second", typedBy: "Aino" }), row({ id: "his", typedBy: "Eero" })];
+    const out = html(loans, withOwn(report(all, { maybeTwice: [others] }), [{ id: "acc" }]));
+    expect(out).toContain("Jos velka on sama, Aino tai Eero voi poistaa tallennetun lainan kohdassa Asetukset &gt; Lainat, niin se lasketaan kerran.");
+    expect(out).not.toContain("Liitä");
+    expect(out).not.toContain("<a ");
   });
 });

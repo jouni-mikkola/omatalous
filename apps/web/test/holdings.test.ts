@@ -78,6 +78,17 @@ describe("Holdings", () => {
       expect(text(markup.slice(markup.indexOf("Autolaina")))).not.toContain("Kuukausierä");
     });
 
+    it("a loan another member typed in says who under the lender and the part, and the viewer's own says nothing", () => {
+      const theirs = loan({ id: "l2", name: "Autolaina", part: { from: 3, to: 5, of: 5 }, typedBy: "Aino" });
+      const markup = html(answer({ loans: [loan(), theirs], debtCents: 16_800_000 }));
+      expect(text(markup)).toContain("Autolaina Esimerkkirahoitus Oy osuutesi 40 % Lisännyt Aino Lainaa jäljellä");
+      expect(markup).toContain('<div class="holding-sub">Lisännyt Aino</div>');
+      expect(text(markup.slice(0, markup.indexOf("Autolaina")))).not.toContain("Lisännyt");
+      // the row is told and nothing on it opens the loan
+      expect(markup).not.toContain("<a ");
+      expect(markup).not.toContain("<button");
+    });
+
     it("says the unknown for a loan that has no figure, and carries the note of a debt that may be there twice", () => {
       const markup = html(answer({ loans: [loan({ leftCents: null, maybeTwice: true })], debtCents: 0 }));
       expect(text(markup)).toContain(`Lainaa jäljellä ${FIGURE_UNKNOWN}`);

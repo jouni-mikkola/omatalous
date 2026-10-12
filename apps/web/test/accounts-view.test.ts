@@ -77,7 +77,7 @@ const account = (extra: Partial<Account>): Account => ({
   ...extra,
 });
 const connection = (id: string): Connection => ({ id, institution: "Nordea", status: "active", state: "active", history: false, replaced: false, validUntil: "2027-03-01T00:00:00Z", createdAt: "2026-09-01T00:00:00Z", lastSyncedAt: null, daysLeft: 140 });
-const metaOf = (accounts: Account[], connections: Connection[]) => ({ user: { role: "member" }, bank: { configured: true, banks: [], redirectMode: "own", source: "user" }, connections, accounts }) as unknown as Meta;
+const metaOf = (accounts: Account[], connections: Connection[]) => ({ user: { id: "u1", role: "member" }, members: [{ id: "u1", displayName: "Matti" }], shares: [], bank: { configured: true, banks: [], redirectMode: "own", source: "user" }, connections, accounts }) as unknown as Meta;
 /** What a reader sees: no tags, no React text separators, one kind of space. */
 const text = (markup: string) => markup.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
@@ -117,6 +117,18 @@ describe("Tilit: what tells accounts apart", () => {
     const full = render([card(-300000)]);
     expect(full).toContain("Luottoraja 3 000 €, käytössä 3 000 €");
     expect(full).not.toContain("yli luottorajan");
+  });
+
+  it("has a column of users only when some account has a choice to make, and a row under a joint account for its parts", () => {
+    const alone = render([account({})]);
+    expect(alone).not.toContain("Käyttäjä");
+    expect(alone).not.toContain("Omat osuudet");
+    const use = { users: [{ userId: "u1", label: "Matti", weight: 1 }, { userId: null, label: "Maija Mallikas", weight: 1 }], source: "bank" as const };
+    const joint = render([account({ use })]);
+    expect(joint).toContain("Käyttäjä");
+    expect(joint).toContain("Tasan Omat osuudet");
+    // near miss: the same two holders but one user's part is 0, so the account is one user's and has no parts to open
+    expect(render([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("Omat osuudet");
   });
 
   it("does not say the holder twice when the bank gave no product and the name is the holder", () => {

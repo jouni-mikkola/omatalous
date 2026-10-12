@@ -6,7 +6,7 @@ import { DateFilter, SearchBox } from "../components/FilterInputs.tsx";
 import { date, money, plural } from "../format.ts";
 import { navigate } from "../hooks.ts";
 import { RULES_ANCHOR } from "../routes.ts";
-import type { Meta } from "../types.ts";
+import type { Meta, Scope } from "../types.ts";
 import { Rules } from "./Rules.tsx";
 import "../styles/categories.css";
 
@@ -35,7 +35,7 @@ export const monthsBasis = (months: number): string =>
  * the table. The filters live in the address (`q`, `category`, `from`, `to`, `habit`), so a link from another page can
  * open a month, and Arkiostot keeps the merchants the recurring detection calls everyday purchases.
  */
-export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSearchParams; anchor?: string }) {
+export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
   const filters = {
     q: params.get("q") ?? "",
     category: params.get("category") ?? "",
@@ -61,7 +61,7 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
     async (keep: boolean) => {
       const id = ++request.current;
       try {
-        const r = await api<{ items: MerchantItem[]; months: number }>(`/api/merchants${query({ q, category, from, to, habit: habit ? "1" : "", limit: LIMIT })}`);
+        const r = await api<{ items: MerchantItem[]; months: number }>(`/api/merchants${query({ q, category, from, to, habit: habit ? "1" : "", scope, limit: LIMIT })}`);
         if (id !== request.current) return;
         setLoadError(null);
         setMonths(r.months);
@@ -74,7 +74,7 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
         if (id === request.current) setLoadError((err as Error).message);
       }
     },
-    [q, category, from, to, habit],
+    [q, category, from, to, habit, scope],
   );
   useEffect(() => {
     void load(false);

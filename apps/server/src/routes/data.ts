@@ -2,7 +2,7 @@
 import { buildReports, getCategory } from "@banking/core";
 import { Hono } from "hono";
 import { loadDemoData } from "../demo.ts";
-import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
+import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -14,14 +14,17 @@ const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
-  /** Same filters as the transaction list, every matching row (paged so a long history is complete). */
+  /**
+   * Same filters and the same accounts as the transaction list, every matching row with the amount the bank booked
+   * (paged so a long history is complete). The category and the transfer mark are the ones the list of the view shows.
+   */
   app.get("/export/transactions.csv", async (c) => {
     const user = c.get("user");
     const range = parseRange(c, s.today());
     const q = c.req.query();
     const repo = s.finance(user.id);
-    const shared = parseScope(q.scope) === "household" ? await sharedInView(s, user.id) : [];
-    const filter = { ...range, accountId: q.accountId, category: q.category, merchant: q.merchant, q: q.q?.slice(0, 100) };
+    const { shared, own } = await rowsInView(s, user.id, parseScope(q.scope));
+    const filter = { ...range, accountId: q.accountId, category: q.category, merchant: q.merchant, q: q.q?.slice(0, 100), own };
     const accounts = new Map([...(await repo.listAccounts()), ...shared].map((a) => [a.id, a.name]));
     const pieces = [
       csv([["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Siirto"]]),
@@ -33,7 +36,8 @@ export function dataRoutes(s: Services) {
       if (page.length) {
         pieces.push(
           csvBody(
-            page.map((t) => {
+            page.map((stored) => {
+              const t = { ...stored, ...own.told.get(stored.id) };
               const cat = getCategory(t.category);
               return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat.label, cat.group, cents(t.amountCents), t.status === "pending" ? "varaus" : "kirjattu", t.isTransfer ? "kyllä" : ""];
             }),

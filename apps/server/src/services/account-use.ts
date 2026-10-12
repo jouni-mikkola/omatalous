@@ -6,7 +6,7 @@
  * A member is matched to a holder by the name their own accounts give. Those names stay here: a response carries
  * display names, and a holder's name only on the account whose own line of holders already shows it.
  */
-import { type AccountUse, type AccountUser, deriveUse, holdersIn, OTHER_HOLDER, type Part, partOf, saidUse, type UseMember, userNameOf } from "@banking/core";
+import { type AccountUse, type AccountUser, deriveUse, holdersIn, OTHER_HOLDER, type Part, partOf, saidUse, suggestWeights, type UseMember, userNameOf } from "@banking/core";
 import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
@@ -75,11 +75,16 @@ export function parseSaidUsers(value: unknown): SaidUser[] {
   return users;
 }
 
-/** The real account behind an account the member linked. Another member's account looks the same as a missing one, also when it is shared with them. */
-async function ownKey(s: Services, userId: string, accountId: string): Promise<string> {
+/** An account the member linked. Another member's account looks the same as a missing one, also when it is shared with them. */
+async function ownAccount(s: Services, userId: string, accountId: string): Promise<StoredAccount> {
   const account = await s.finance(userId).getAccount(accountId);
   if (!account) throw new NotFound("Tiliä ei löydy.");
-  return accountKey(account);
+  return account;
+}
+
+/** The real account behind an account the member linked. */
+async function ownKey(s: Services, userId: string, accountId: string): Promise<string> {
+  return accountKey(await ownAccount(s, userId, accountId));
 }
 
 /** A use changes the figures of everyone who sees the account, and of nobody else. */
@@ -101,4 +106,32 @@ export async function clearAccountUse(s: Services, userId: string, accountId: st
   const key = await ownKey(s, userId, accountId);
   await s.household.clearUse(key);
   await bumpSeers(s, key);
+}
+
+/**
+ * What the page needs beside an account's use: the weights the bank's rows propose (null when the account has fewer than
+ * two users, or its rows tell no habit), and the members the use names who cannot see the account (neither linked it nor
+ * were given it), so the page can offer the share. Asked by the member who linked the account; no name leaves here.
+ */
+export async function suggestAccountUse(s: Services, userId: string, accountId: string): Promise<{ weights: SaidUser[] | null; unseen: string[] }> {
+  const account = await ownAccount(s, userId, accountId);
+  const key = accountKey(account);
+  const use = (await usesInView(s, userId, [account])).get(account.id)!.use;
+  const using = use.users.filter((u) => u.weight > 0);
+  const seen = new Set(await s.household.seenBy(key));
+  const unseen = using.flatMap((u) => (u.userId !== null && !seen.has(u.userId) ? [u.userId] : []));
+  if (using.length < 2) return { weights: null, unseen };
+  const [held, own, shared] = await Promise.all([s.household.heldAccounts(), s.finance(userId).listAccounts(), s.household.sharedWith(userId)]);
+  // the accounts in view a user pays from: the member's own, and those shared with the member; never this account itself
+  const inView = [...own, ...shared].filter((a) => accountKey(a) !== key);
+  const payers = use.users.map((u) => {
+    // a holder who is no member has no accounts here: the bank's line of holders is the only name, when it is one person's
+    const holders = u.userId === null && u.label !== OTHER_HOLDER ? holdersIn(u.label) : [];
+    return {
+      userId: u.userId,
+      name: u.userId === null ? (holders.length === 1 ? holders[0]!.name : null) : userNameOf(held.filter((a) => a.userId === u.userId)),
+      ibans: inView.flatMap((a) => (a.userId === u.userId && a.iban ? [a.iban] : [])),
+    };
+  });
+  return { weights: suggestWeights(await s.finance(userId).transactionsOfAccount(account.id), account, payers, s.today()), unseen };
 }

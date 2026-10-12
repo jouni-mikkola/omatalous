@@ -1,40 +1,143 @@
 // @ts-check
 /**
- * `pnpm shots <route> [--widths 390,1366] [--demo]`: screenshots of one page of the built app, for a UI change.
- *   pnpm shots overview --demo            the overview with the demo household, at 390 and 1366 px
- *   pnpm shots "reports?tab=income"       a route with its query (the part after #/)
+ * `pnpm shots <route>... [options]`: screenshots of pages of the built app, for a UI change; `pnpm shots --help` lists the options.
  * Builds first when the build is older than the sources, starts the app on a free port with a temporary data directory
- * (e2e/server.mjs, as `pnpm e2e` does), creates the administrator, loads the demo household with --demo, saves one
- * full-page PNG per width to $SHOTS_DIR (default /tmp/claude-0/shots), fails when a width scrolls sideways or has a
+ * (e2e/server.mjs, as `pnpm e2e` does), creates the administrator, loads the demo household and links the fake bank when asked
+ * (linkFakeBank of e2e/helpers.ts), makes a second member who links it too when asked (createMember of e2e/helpers.ts), saves one
+ * full-page PNG per route and width to $SHOTS_DIR (default /tmp/claude-0/shots), fails when a picture scrolls sideways or has a
  * table wider than the screen, and stops the app. Needs a Playwright Chromium (PLAYWRIGHT_BROWSERS_PATH).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../..");
+const WIDTHS = [1280, 1000, 700, 390];
+/** The largest part the server takes (apps/server/src/services/account-use.ts). */
+const MAX_PART = 100_000_000;
+/** The second member `--member` makes: five letters or more in the username, a display name as a household would have. */
+const SECOND = { username: "eero-esimerkki", displayName: "Eero" };
 
-/** @param {string[]} argv */
+export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the built app, one per route and width
+  <route>          a page id with an optional query: overview, "reports?tab=income". Several routes share one app start and one login
+  --widths a,b     pixel widths (default ${WIDTHS.join(",")})
+  --demo           the demo household: 14 months of made-up rows on its own accounts
+  --fake-bank      links the fake bank (e2e/fake-bank/): a checking and a savings account, a joint account of MEIKALAINEN MATTI;KORHONEN ELISA,
+                   an ESIMERKKIPANKKI card with a 3 000 EUR limit and its bill. With --demo the demo's accounts are there as well
+  --answers f.mjs  default export { "/api/dashboard": (answer) => changed answer }: the page shows the changed answer, so a state no
+                   household has can be shown. Fails when nothing asked for a path. Example: tools/shots-examples/answers.mjs
+  --steps f.mjs    default export async (page, route) => {}, run for every picture after the page has loaded, before the picture
+                   (open a row, pick a month, switch a view). Example: tools/shots-examples/steps.mjs
+  --scope own|household
+                   the header's view switch, set before the page loads. It shows only when the household has a shared account
+                   (a second member, see --member); without one, or to click it yourself, use --steps
+  --member         needs --fake-bank. A second member, Eero, links the fake bank too: the joint account has two users, the switch
+                   shows and --scope has something to show. The pictures are the first member's
+  --parts a:b      needs --member. The first member says, as Asetukset > Tilit does, that the joint account is used by the two at
+                   a:b euros a month (60:40 is 60 % and 40 %); without it the bank's own answer stands: both members and the
+                   other holder, a third each
+  --loan           needs --member. The second member saves the mortgage the joint account's payments propose, so the first member
+                   sees a loan another member typed in
+  --name label     in the file names: <route>-<label>-<width>.png, so that two states do not overwrite each other
+Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
+
+/**
+ * @typedef {{ help: boolean, routes: string[], widths: number[], demo: boolean, fakeBank: boolean, answers: string | null,
+ *   steps: string | null, scope: "own" | "household" | null, name: string | null, member: boolean, parts: [number, number] | null,
+ *   loan: boolean }} Options
+ */
+
+/**
+ * @param {string[]} argv
+ * @returns {Options}
+ */
 export function parseArgs(argv) {
-  let widths = [390, 1366];
-  let demo = false;
-  /** @type {string[]} */
-  const rest = [];
+  /** @type {Options} */
+  const o = { help: false, routes: [], widths: WIDTHS, demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? "";
-    if (a === "--demo") demo = true;
-    else if (a === "--widths" || a.startsWith("--widths=")) {
-      const v = a.includes("=") ? a.slice(9) : argv[++i] ?? "";
-      widths = v.split(",").map(Number);
-      if (!widths.length || widths.some((w) => !Number.isInteger(w) || w < 200 || w > 4000)) throw new Error(`--widths takes pixel widths like 390,1366 (got: ${v})`);
-    } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (usage: pnpm shots <route> [--widths 390,1366] [--demo])`);
-    else rest.push(a);
+    const eq = a.startsWith("--") ? a.indexOf("=") : -1;
+    const flag = eq > 0 ? a.slice(0, eq) : a;
+    /** The value of an option: after the `=`, else the next argument. */
+    const value = () => (eq > 0 ? a.slice(eq + 1) : (argv[++i] ?? ""));
+    const file = () => {
+      const v = value();
+      if (!v || v.startsWith("-")) throw new Error(`${flag} takes the path of a .mjs file (got: ${v || "nothing"})`);
+      return v;
+    };
+    if (a === "--help" || a === "-h") o.help = true;
+    else if (a === "--demo") o.demo = true;
+    else if (a === "--fake-bank") o.fakeBank = true;
+    else if (a === "--member") o.member = true;
+    else if (a === "--loan") o.loan = true;
+    else if (flag === "--widths") {
+      const v = value();
+      o.widths = v.split(",").map(Number);
+      if (o.widths.some((w) => !Number.isInteger(w) || w < 200 || w > 4000)) throw new Error(`--widths takes pixel widths like 390,1366 (got: ${v})`);
+    } else if (flag === "--answers") o.answers = file();
+    else if (flag === "--steps") o.steps = file();
+    else if (flag === "--scope") {
+      const v = value();
+      if (v !== "own" && v !== "household") throw new Error(`--scope takes own or household (got: ${v})`);
+      o.scope = v;
+    } else if (flag === "--parts") {
+      const v = value();
+      const m = /^(\d{1,9}):(\d{1,9})$/.exec(v);
+      if (!m || Number(m[1]) + Number(m[2]) === 0 || Number(m[1]) > MAX_PART || Number(m[2]) > MAX_PART) throw new Error(`--parts takes two whole numbers, not both 0, like 60:40 (got: ${v})`);
+      o.parts = [Number(m[1]), Number(m[2])];
+    } else if (flag === "--name") {
+      const v = value();
+      if (!/^[\w-]+$/.test(v)) throw new Error(`--name takes letters, digits, - and _ (got: ${v})`);
+      o.name = v;
+    } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (pnpm shots --help lists them)`);
+    else {
+      const route = a.replace(/^#?\/?/, "");
+      if (!/^[a-z][a-z-]*(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`a route is a page id with an optional query, like overview or reports?tab=income (got: ${route})`);
+      if (!o.routes.includes(route)) o.routes.push(route);
+    }
   }
-  if (rest.length !== 1) throw new Error("usage: pnpm shots <route> [--widths 390,1366] [--demo]");
-  const route = (rest[0] ?? "").replace(/^#?\/?/, "");
-  if (!/^[a-z][a-z-]*(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`the route is a page id with an optional query, like overview or reports?tab=income (got: ${route})`);
-  return { route, widths, demo, slug: route.replace(/[?=&%]+/g, "-") };
+  if (!o.help && !o.routes.length) throw new Error("usage: pnpm shots <route>... [options] (pnpm shots --help lists them)");
+  if (!o.help && o.member && !o.fakeBank) throw new Error("--member needs --fake-bank: the second member links the fake bank");
+  if (!o.help && !o.member && (o.parts || o.loan)) throw new Error(`${o.parts ? "--parts" : "--loan"} needs --member: it is about the second member`);
+  return o;
+}
+
+/** The file of one picture: the route, the label of `--name` when there is one, and the width. */
+export function shotName(/** @type {string} */ route, /** @type {string | null} */ name, /** @type {number} */ width) {
+  return `${[route.replace(/[?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
+}
+
+/**
+ * The paths of the API and what changes their answers, from the default export of an `--answers` module.
+ * @param {unknown} mod
+ * @returns {Record<string, (answer: any) => unknown>}
+ */
+export function answerTable(mod, file = "the answers module") {
+  const table = /** @type {{ default?: unknown }} */ (mod)?.default;
+  if (!table || typeof table !== "object" || Array.isArray(table)) throw new Error(`${file}: the default export is an object from an API path to a function, like { "/api/dashboard": (answer) => answer }`);
+  for (const [path, change] of Object.entries(table)) {
+    if (!/^\/api\/[\w/.-]+$/.test(path)) throw new Error(`${file}: "${path}" is no path of the API (like /api/dashboard, without the query)`);
+    if (typeof change !== "function") throw new Error(`${file}: the value of ${path} is a function from the answer to the answer to show`);
+  }
+  return /** @type {Record<string, (answer: any) => unknown>} */ (table);
+}
+
+/**
+ * The function of a `--steps` module.
+ * @param {unknown} mod
+ * @returns {(page: import("@playwright/test").Page, route: string) => Promise<void> | void}
+ */
+export function stepsFunction(mod, file = "the steps module") {
+  const run = /** @type {{ default?: unknown }} */ (mod)?.default;
+  if (typeof run !== "function") throw new Error(`${file}: the default export is a function, async (page, route) => {}`);
+  return /** @type {any} */ (run);
+}
+
+/** @param {string} file a path, relative to the directory the command runs in */
+async function load(file) {
+  if (!existsSync(file)) throw new Error(`${file} does not exist`);
+  return import(pathToFileURL(resolve(file)).href);
 }
 
 /** True when the build is missing or older than the newest source file. */
@@ -47,14 +150,25 @@ function stale() {
   return ["apps/web/src", "apps/web/public", "apps/server/src", "packages/core/src"].some((d) => newest(join(ROOT, d)) > oldest) || statSync(join(ROOT, "apps/web/index.html")).mtimeMs > oldest;
 }
 
+/** Waits for the page to stop loading: the requests are done and the "Ladataan…" text is gone. */
+async function settle(/** @type {import("@playwright/test").Page} */ page) {
+  await page.waitForLoadState("networkidle");
+  await page.getByText("Ladataan…").waitFor({ state: "detached", timeout: 15_000 }).catch(() => {});
+}
+
 async function main() {
   const o = parseArgs(process.argv.slice(2));
+  if (o.help) return console.log(USAGE);
+  // the modules first: a typo in a file name should not cost a build and a start
+  const answers = o.answers ? answerTable(await load(o.answers), o.answers) : null;
+  const steps = o.steps ? stepsFunction(await load(o.steps), o.steps) : null;
   if (stale()) {
     console.log("shots: the build is older than the sources, building");
     if (spawnSync("pnpm", ["build"], { cwd: ROOT, stdio: "inherit" }).status !== 0) throw new Error("pnpm build failed");
   }
   const { startServer } = await import("../e2e/server.mjs");
-  const { chromium } = await import("@playwright/test");
+  const { createMember, linkFakeBank, sayJointUse, setScope, waitForSync } = await import("../e2e/helpers.ts");
+  const { chromium, expect } = await import("@playwright/test");
   const out = process.env.SHOTS_DIR ?? "/tmp/claude-0/shots";
   mkdirSync(out, { recursive: true });
   const app = await startServer();
@@ -63,30 +177,92 @@ async function main() {
   let bad = 0;
   try {
     browser = await chromium.launch(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {});
-    const context = await browser.newContext({ locale: "fi-FI", timezoneId: "Europe/Helsinki" });
+    const context = await browser.newContext({ locale: "fi-FI", timezoneId: "Europe/Helsinki", baseURL: app.base });
     const call = async (/** @type {string} */ path, /** @type {object} */ data = {}) => {
       const r = await context.request.post(`${app.base}${path}`, { data, headers: { "X-Requested-With": "fetch" } });
       if (!r.ok()) throw new Error(`POST ${path} answered ${r.status()}: ${(await r.text()).slice(0, 200)}`);
+      return r.json().catch(() => null);
     };
-    await call("/api/auth/setup", { code: app.setupCode, username: "shots", displayName: "Shots", password: "shots-salasana-123456" });
+    const { user } = await call("/api/auth/setup", { code: app.setupCode, username: "shots", displayName: "Shots", password: "shots-salasana-123456" });
     await call("/api/admin/instance/complete");
     if (o.demo) await call("/api/demo");
-    for (const width of o.widths) {
-      const page = await context.newPage();
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto(`${app.base}/#/${o.route}`);
-      await page.waitForLoadState("networkidle");
-      await page.getByText("Ladataan…").waitFor({ state: "detached", timeout: 15_000 }).catch(() => {});
-      const file = join(out, `${o.slug}-${width}.png`);
-      await page.screenshot({ path: file, fullPage: true });
-      const m = await page.evaluate(() => ({
-        over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        tables: Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length,
-      }));
-      const ok = m.over <= 1 && m.tables === 0;
-      if (!ok) bad++;
-      console.log(`shots: ${o.route} at ${width}px ${file} ${ok ? "no horizontal scroll" : `SCROLLS SIDEWAYS (${m.over}px over, ${m.tables} tables wider than the screen)`}`);
-      await page.close();
+    if (o.fakeBank) {
+      // linkFakeBank reads the app's address and the bank's application from the environment, as the specs get them from run.mjs
+      Object.assign(process.env, { E2E_BASE_URL: app.base, E2E_FAKE_BANK: app.fakeBank });
+      const linking = await context.newPage();
+      await linkFakeBank(linking);
+      await linking.close();
+      // the sync the link starts runs on: the pictures wait until it has read every account
+      await waitForSync(context);
+      if (o.member) {
+        // a second member of the household links the bank too; both copies of the joint account are one real account
+        const second = await browser.newContext({ locale: "fi-FI", timezoneId: "Europe/Helsinki", baseURL: app.base });
+        const secondId = await createMember(context, second, SECOND.username, SECOND.displayName);
+        const secondLinking = await second.newPage();
+        await linkFakeBank(secondLinking);
+        await secondLinking.close();
+        await waitForSync(second);
+        // the page sends the euros it is given as cents: the weights are cents a month
+        if (o.parts) await sayJointUse(context, [{ userId: user.id, weight: o.parts[0] * 100 }, { userId: secondId, weight: o.parts[1] * 100 }]);
+        if (o.loan) {
+          // what the second member's own view proposes from the joint account's payments, saved as they would save it
+          const { proposals } = await (await second.request.get("/api/loans/proposals")).json();
+          const [proposal, ...rest] = proposals;
+          if (!proposal || rest.length) throw new Error(`--loan wants one proposed loan from the fake bank's payments and the second member has ${proposals.length}`);
+          const { today } = await (await second.request.get("/api/meta")).json();
+          const saved = await second.request.post("/api/loans", {
+            headers: { "X-Requested-With": "fetch" },
+            data: {
+              name: "Asuntolaina", lender: proposal.payee, kind: "mortgage", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: today, rateBp: 400, reference: null,
+              marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: proposal.paymentCents, endDate: null, limitCents: null, seriesKey: proposal.key,
+            },
+          });
+          if (!saved.ok()) throw new Error(`POST /api/loans answered ${saved.status()}: ${(await saved.text()).slice(0, 200)}`);
+        }
+        console.log(`shots: ${SECOND.displayName} is a second member and linked the fake bank${o.loan ? ", saved a loan" : ""}${o.parts ? `; the joint account is used ${o.parts.join(":")}` : ""}`);
+      }
+    }
+    if (o.scope) await setScope(context, user.id, o.scope);
+    /** The paths whose answer was changed at least once. */
+    const changed = new Set();
+    if (answers) {
+      await context.route("**/api/**", async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const change = Object.hasOwn(answers, path) ? answers[path] : undefined;
+        if (!change) return route.fallback();
+        const response = await route.fetch();
+        const answer = await response.json().catch(() => undefined);
+        if (answer === undefined) return route.fulfill({ response });
+        changed.add(path);
+        await route.fulfill({ response, json: (await change(answer)) ?? answer });
+      });
+    }
+    for (const route of o.routes) {
+      for (const width of o.widths) {
+        const page = await context.newPage();
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`/#/${route}`);
+        await settle(page);
+        if (steps) {
+          await steps(page, route);
+          await settle(page);
+        }
+        const file = join(out, shotName(route, o.name, width));
+        await page.screenshot({ path: file, fullPage: true });
+        const m = await page.evaluate(() => ({
+          over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          tables: Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length,
+        }));
+        const ok = m.over <= 1 && m.tables === 0;
+        if (!ok) bad++;
+        console.log(`shots: ${route} at ${width}px ${file} ${ok ? "no horizontal scroll" : `SCROLLS SIDEWAYS (${m.over}px over, ${m.tables} tables wider than the screen)`}`);
+        await page.close();
+      }
+    }
+    const unused = Object.keys(answers ?? {}).filter((path) => !changed.has(path));
+    if (unused.length) {
+      bad++;
+      console.log(`shots: no picture shows the answer for ${unused.join(", ")}: no page asked for it, or what it answered was not JSON`);
     }
   } finally {
     await browser?.close();

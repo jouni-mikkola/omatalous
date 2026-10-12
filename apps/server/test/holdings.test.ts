@@ -51,10 +51,12 @@ async function households() {
 
 describe("holdings in the answers", () => {
   it("the bank, mask and limit stored for an account reach the report and the first page", async () => {
-    const { admin, holdings } = await households();
+    const { admin, adminId, holdings } = await households();
     const { holdings: h } = await holdings(admin, "own");
+    // an account one member linked and nobody said more about is that member's: the row names who uses it
+    const use = { source: "owner", users: [{ userId: adminId, label: "Aino", weight: 1 }] };
     expect(h.cards).toEqual([
-      { id: "a-card", name: "a-card", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: "2026-10-09" },
+      { id: "a-card", name: "a-card", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: "2026-10-09", use },
     ]);
     expect(h.accounts).toMatchObject([{ id: "a-chk", type: "checking", bank: "ESIMERKKIPANKKI", balanceCents: 251_700 }]);
     expect(h.loans).toMatchObject([{ name: "Ainon laina", source: "typed", leftCents: 400_000, ownerName: null }]);
@@ -72,7 +74,7 @@ describe("holdings in the answers", () => {
   });
 
   it("a member's card that was not shared stays out of the household view; the shared one comes without the owner's bank", async () => {
-    const { admin, holdings } = await households();
+    const { admin, eero, holdings } = await households();
     const own = await holdings(admin, "own");
     expect(own.holdings.cards.map((c: { id: string }) => c.id)).toEqual(["a-card"]);
 
@@ -80,6 +82,7 @@ describe("holdings in the answers", () => {
     expect(h.cards.map((c: { id: string }) => c.id)).toEqual(["a-card", "e-card"]);
     expect(h.cards[1]).toEqual({
       id: "e-card", name: "e-card (Eero)", bank: null, ownerName: "Eero", mask: "•••• 5678", limitCents: 300_000, usedCents: 50_000, freeCents: 250_000, overCents: 0, balanceAt: "2026-10-09",
+      use: { source: "owner", users: [{ userId: eero.id, label: "Eero", weight: 1 }] },
     });
     expect(h.accounts.map((a: { id: string; name: string; bank: string | null; ownerName: string | null; balanceCents: number }) => [a.id, a.name, a.bank, a.ownerName, a.balanceCents])).toEqual([
       ["a-chk", "a-chk", "ESIMERKKIPANKKI", null, 251_700],

@@ -5,7 +5,7 @@ import { LineChart } from "../charts/LineChart.tsx";
 import { completeMonths, dayMonth, money, plural } from "../format.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
 import "../styles/ahead.css";
-import { type Ahead, figures, footnote, heading, listCaption, payLine, warning } from "./next-days.ts";
+import { type Ahead, figures, footnote, heading, isMerchant, listCaption, payLine, rowLabel, rowNote, warning } from "./next-days.ts";
 
 type Row = Ahead["rows"][number];
 
@@ -51,15 +51,19 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
         <table className="compact">
           <caption className="sr-only">{listCaption(ahead)}</caption>
           <tbody>
-            {listed.map((r, i) => (
-              <tr key={`${r.date}-${r.name}-${i}`}>
-                <td>
-                  <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
-                </td>
-                <td className="num muted">{dayMonth(r.date)}</td>
-                <td className={r.cents > 0 ? "num ahead-in" : "num"}>{r.cents > 0 ? signed(r.cents) : money(-r.cents)}</td>
-              </tr>
-            ))}
+            {listed.map((r, i) => {
+              const note = rowNote(r);
+              return (
+                <tr key={`${r.date}-${r.name}-${i}`}>
+                  <td>
+                    {isMerchant(r) ? <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a> : rowLabel(r)}
+                    {note && <div className="sub">{note}</div>}
+                  </td>
+                  <td className="num muted">{dayMonth(r.date)}</td>
+                  <td className={r.cents > 0 ? "num ahead-in" : "num"}>{r.cents > 0 ? signed(r.cents) : money(-r.cents)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -114,7 +118,7 @@ function BalanceChart({ ahead, balance }: { ahead: Ahead; balance: NonNullable<A
               {balance.days.map((d) => (
                 <tr key={d.date}>
                   <td className="muted">{dayMonth(d.date)}</td>
-                  <td>{(byDay.get(d.date) ?? []).map((r) => `${r.name} ${signed(r.cents)}`).join(", ")}</td>
+                  <td>{(byDay.get(d.date) ?? []).map((r) => `${rowLabel(r)} ${signed(r.cents)}`).join(", ")}</td>
                   <td className="num">{money(d.cents, false)}</td>
                 </tr>
               ))}

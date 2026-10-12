@@ -4,7 +4,7 @@
 .edit-row td { background: var(--surface-2); }
 .account-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; padding: 4px 0; }
 .account-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; max-width: 260px; }
-.acc-type-phone { display: none; }
+.acc-type-phone, .acc-use-phone { display: none; }
 /* settings: what an account's last fetch ran into, wrapped (td .sub cuts a line short) */
 .acc-problem { color: var(--warn); font-size: 12px; margin-top: 2px; max-width: 32rem; white-space: normal; }
 /* settings: the lines under an account's name (IBAN, holder, limit), and the accounts a connection reads, wrap instead of being cut */
@@ -15,13 +15,23 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .credit-bar span { display: block; height: 100%; border-radius: 2px; background: var(--series-1); }
 .credit-bar.over span { background: var(--warn); }
 @media (max-width: 600px) {
-  .accounts-table .acc-type { display: none; }
-  .acc-type-phone { display: block; margin-top: 4px; }
+  .accounts-table .acc-type, .accounts-table .acc-use { display: none; }
+  .acc-type-phone, .acc-use-phone { display: block; margin-top: 4px; }
   /* the name, balance and edit button must fit without a sideways scroll */
   .accounts-table td .sub { max-width: 40vw; }
   .accounts-table td, .accounts-table th { padding-left: 4px; padding-right: 4px; }
   .account-form label { max-width: none; }
 }
+/* settings: who uses an account; a joint account's parts and the share for a member who cannot see it, in a row under the account */
+.use-parts { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 4px 0; }
+.use-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 16px; }
+.use-field { display: flex; flex-direction: column; gap: 4px; }
+.use-input { display: flex; align-items: center; gap: 6px; }
+.use-input input { width: 6.5rem; }
+.use-total { min-width: 7rem; font-variant-numeric: tabular-nums; }
+.use-help { flex-basis: 100%; }
+.use-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.shared-list { margin: 2px 0 0; padding-left: 20px; }
 .account-form .form-row { margin: 0; flex: 1 1 260px; }
 .account-form .error { flex-basis: 100%; }
 

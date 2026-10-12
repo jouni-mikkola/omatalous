@@ -23,7 +23,10 @@ export const REPAYMENT_LABEL: Record<NonNullable<Loan["repayment"]>, string> = {
   bullet: "Kertalyhennys",
 };
 
-export const FIELD_LABEL: Record<LoanDraftKey, string> = {
+/** A field of the loan form: the ones a text can hold, and the review day of the rate, which only the household tells. */
+export type LoanFieldKey = LoanDraftKey | "rateReviewDate";
+
+export const FIELD_LABEL: Record<LoanFieldKey, string> = {
   lender: "Lainanantaja",
   balanceCents: "Lainaa jäljellä",
   balanceDate: "Jäljellä olevan summan päivä",
@@ -32,6 +35,7 @@ export const FIELD_LABEL: Record<LoanDraftKey, string> = {
   rateBp: "Kokonaiskorko",
   reference: "Viitekorko",
   marginBp: "Marginaali",
+  rateReviewDate: "Koron tarkistuspäivä",
   repayment: "Lyhennystapa",
   intervalMonths: "Lyhennysväli",
   paymentCents: "Maksuerä",

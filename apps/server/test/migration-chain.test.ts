@@ -269,7 +269,8 @@ describe("0018 adds the table of who uses an account", () => {
     // the frozen household has a joint account of two holders, which is what the table is for
     expect(before.accounts!.rows.find((r) => r.id === "a-5")).toMatchObject({ identity: "idn-5", holder: "MEIKALAINEN MATTI, KORHONEN ELISA" });
     const { db, applied } = await openDatabase(file);
-    expect(applied).toEqual(["0018_account_use.sql"]);
+    // 0019 follows on the way to today's schema
+    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql"]);
     expect(await db.all("SELECT * FROM account_use")).toEqual([]);
     db.close();
     const after = dump(file);
@@ -312,6 +313,61 @@ describe("0018 adds the table of who uses an account", () => {
     const again = await openDatabase(file);
     expect(again.applied).toEqual([]);
     expect(await again.db.all("SELECT count(*) AS n FROM account_use")).toEqual([{ n: 5 }]);
+    again.db.close();
+  });
+});
+
+describe("0019 adds the review day of a loan's rate", () => {
+  const MORTGAGE = "c1e2c3d4-0001-4a5b-8c6d-7e8f9a0b1c2d";
+
+  it("a database of 0.11.0 gets no day on any loan and keeps every other column, and the code of 0.11.0 still opens it", async () => {
+    const file = fromFixture("0.11.0.sql");
+    const before = dump(file);
+    // the frozen household has five typed loans of two users, one of them linked to an account
+    expect(before.loans!.rows).toHaveLength(5);
+    expect(before.loans!.columns).not.toContain("rate_review_date");
+    const first = await openDatabase(file);
+    expect(first.applied).toEqual(["0019_loan_rate_review.sql"]);
+    first.db.close();
+    const after = dump(file);
+    expect(Object.keys(after)).toEqual(Object.keys(before));
+    expect(after.loans!.columns).toEqual([...before.loans!.columns, "rate_review_date"]);
+    expect(after.loans!.rows.map((r) => r.rate_review_date)).toEqual([null, null, null, null, null]);
+    expectAdditive(before, after, "0019_loan_rate_review.sql");
+
+    // the store reads a loan with no day as it did before the column, saves a day with the loan and clears it again
+    const { db } = await openDatabase(file);
+    const { createApp } = await import("../src/app.ts");
+    const { loadConfig } = await import("../src/platform/config.ts");
+    const app = createApp({ db, config: loadConfig({ APP_SECRET: "test-secret-that-is-long-enough-0123456789", INDUSTRY_LOOKUP: "false", APP_BASE_URL: "http://localhost:8080" }), now: () => new Date("2026-10-12T10:00:00Z") });
+    const aino = app.services.finance("u-aino");
+    const loans = await aino.listLoans();
+    expect(loans.map((l) => l.name)).toEqual(["Asuntolaina", "Joustoluotto", "Autolaina", "Visa"]);
+    for (const loan of loans) expect(loan.rateReviewDate ?? null, loan.name).toBeNull();
+    const mortgage = loans[0]!;
+    expect(mortgage).toMatchObject({ id: MORTGAGE, rateBp: 340, reference: "euribor_12", marginBp: 65, endDate: "2051-06-15" });
+    expect(await aino.updateLoan({ ...mortgage, rateReviewDate: "2027-03-14" }, "2026-10-12T11:00:00.000Z")).toBe(true);
+    expect((await aino.listLoans())[0]).toEqual({ ...mortgage, rateReviewDate: "2027-03-14" });
+    expect(await aino.updateLoan({ ...mortgage, rateReviewDate: null }, "2026-10-12T11:00:00.000Z")).toBe(true);
+    expect((await aino.listLoans())[0]).toEqual(mortgage);
+    expect(await aino.updateLoan({ ...mortgage, rateReviewDate: "2027-03-14" }, "2026-10-12T11:00:00.000Z")).toBe(true);
+    db.close();
+
+    // a rollback: the release before has no such file, opens the database as it is, writes a loan without the column and leaves the day for the next update
+    const dir = tmp();
+    cpSync(findMigrationsDir(), dir, { recursive: true });
+    rmSync(join(dir, "0019_loan_rate_review.sql"));
+    const old = await openDatabase(file, dir, undefined, { appVersion: "0.11.0" });
+    expect(old.applied).toEqual([]);
+    expect(old.ahead).toEqual(["0019_loan_rate_review.sql"]);
+    await old.db.run("INSERT INTO loans (id, user_id, name, kind, balance_cents, balance_date, created_at, updated_at) VALUES ('old-1', 'u-eero', 'Vanha laina', 'other', 100000, '2026-10-12', '2026-10-12T12:00:00.000Z', '2026-10-12T12:00:00.000Z')");
+    old.db.close();
+    // near miss: a release older than the floor is refused, as it was before this column
+    await expect(openDatabase(file, dir, undefined, { appVersion: "0.10.9" })).rejects.toThrow(/upgraded by a newer app version \(0019_loan_rate_review\.sql\)/);
+    const again = await openDatabase(file);
+    expect(again.applied).toEqual([]);
+    expect(await again.db.all("SELECT id, rate_review_date FROM loans WHERE rate_review_date IS NOT NULL")).toEqual([{ id: MORTGAGE, rate_review_date: "2027-03-14" }]);
+    expect(await again.db.all("SELECT count(*) AS n FROM loans")).toEqual([{ n: 6 }]);
     again.db.close();
   });
 });

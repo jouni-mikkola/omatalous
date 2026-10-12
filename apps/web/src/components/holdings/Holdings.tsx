@@ -8,6 +8,7 @@
 import { daysBetween, FIGURE_UNKNOWN, SAME_DEBT_TWICE } from "@banking/core";
 import { logoForInstitution } from "../../banks.ts";
 import { date, money } from "../../format.ts";
+import { partText, typedByText } from "../../part.ts";
 import type { DashboardData, Meta } from "../../types.ts";
 import { BankLogo } from "../BankLogo.tsx";
 import { CardRow } from "./CardFace.tsx";
@@ -34,6 +35,7 @@ function Accounts({ holdings, meta, logoOf }: { holdings: Answer; meta: Meta; lo
     const logo = logos.get(a.id);
     const since = sinceLine(a.balanceAt, meta.today);
     const mask = masks.get(a.id);
+    const part = partText(a.part, "account");
     return (
       <li key={a.id} className="holding-row">
         {slot && <span className="holding-logo">{logo && <BankLogo src={logo} name={a.bank ?? ""} size="sm" />}</span>}
@@ -42,6 +44,7 @@ function Accounts({ holdings, meta, logoOf }: { holdings: Answer; meta: Meta; lo
             {a.name}
             {mask && <span className="muted"> ·· {mask}</span>}
           </div>
+          {part && <div className="holding-sub">{part}</div>}
           {since && <div className="holding-sub">{since}</div>}
         </div>
         <div className="holding-amount">{a.balanceCents === null ? "–" : money(a.balanceCents)}</div>
@@ -81,6 +84,8 @@ function Loans({ holdings }: { holdings: Answer }) {
           <li key={l.id} className="holding-loan">
             <div className="holding-name">{l.name}</div>
             {l.lender && <div className="holding-sub">{l.lender}</div>}
+            {l.part && <div className="holding-sub">{partText(l.part, "debt")}</div>}
+            {l.typedBy && <div className="holding-sub">{typedByText(l.typedBy)}</div>}
             <dl className="holding-figures">
               <FigureRow label="Lainaa jäljellä">{l.leftCents === null ? <span className="muted">{FIGURE_UNKNOWN}</span> : money(l.leftCents)}</FigureRow>
               {l.monthlyPaymentCents !== null && <FigureRow label="Kuukausierä">{money(l.monthlyPaymentCents)}</FigureRow>}

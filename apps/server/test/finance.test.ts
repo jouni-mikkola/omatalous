@@ -236,7 +236,7 @@ describe("isolation between household members", () => {
     expect(meta.sharedAccounts.map((a: { id: string }) => a.id)).toEqual(["aino-own"]);
   });
 
-  it("flags my copy of a joint account the partner linked too, so the income report keeps it whole", async () => {
+  it("reads my copy of a joint account the partner linked too as one account of two users, so the income report splits it between them", async () => {
     const { admin, s, adminId, member } = await setupApp();
     const eero = await member("eero", "Eero");
     const account = (id: string, identity: string) => ({ id, connectionId: null, provider: "csv", externalId: null, identity, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" as const });
@@ -246,7 +246,8 @@ describe("isolation between household members", () => {
     for (const id of ["aino-joint", "aino-own"]) expect((await admin.call("PUT", `/api/accounts/${id}/shares/${eero.id}`)).status).toBe(200);
 
     const reports = (await eero.call("GET", "/api/reports?from=2026-01-01&to=2026-09-30&scope=household")).body;
-    expect(reports.income.members.map((m: { label: string }) => m.label)).toEqual(["Yhteinen tili", "Aino"]);
+    // neither has income here, and two equal members come in the order of their ids
+    expect(reports.income.members.map((m: { label: string }) => m.label).sort()).toEqual(["Aino", "Eero"]);
   });
 });
 

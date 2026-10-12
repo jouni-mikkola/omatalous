@@ -1,6 +1,6 @@
 /**
  * Asetukset > Tilit: every account with its name, IBAN or card number, holder and
- * type (the bank's code is a guess for savings, so the type can be changed); the user's own name for any account;
+ * type (the bank's code is a guess for savings, so the type can be changed) and who uses it (AccountUse.tsx); the user's own name for any account;
  * balance and removal for the accounts the user brought in themselves (an earlier CSV import, demo). A bank account's balance comes
  * from the bank. Tietojen laatu sits under the table.
  */
@@ -10,6 +10,8 @@ import { api } from "../../api.ts";
 import { ACCOUNT_TYPE_LABEL, accountNumber, dateTime, eurosText, money, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
+import { isJoint, namesOther, optionsOf } from "./account-use.ts";
+import { UseParts, UseSelect } from "./AccountUse.tsx";
 
 const PROVIDER_LABEL: Record<string, string> = { enablebanking: "pankkiyhteys", csv: "CSV", demo: "demo" };
 // a bank-linked account comes back at the next link, so only an earlier CSV import or a demo one can be removed
@@ -20,25 +22,29 @@ type Message = { tone: "good" | "warning"; text: string };
 /** `children` are what sits under the table, inside the card: the data quality notes of the accounts. */
 export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: () => void; children?: ReactNode }) {
   const [editing, setEditing] = useState<string | null>(null);
-  const [savedType, setSavedType] = useState<string | null>(null);
+  // the passing "Tallennettu." under a select: which select of which account
+  const [saved, setSaved] = useState<{ what: "type" | "use"; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canFix = meta.user.role === "admin" || meta.bank.source === "user";
 
-  // "Tallennettu." next to a type select is a passing confirmation
+  // "Tallennettu." next to a select is a passing confirmation
   useEffect(() => {
-    if (!savedType) return;
-    const t = setTimeout(() => setSavedType(null), 4000);
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(null), 4000);
     return () => clearTimeout(t);
-  }, [savedType]);
+  }, [saved]);
+  // the column of users is there when some account has a choice to make; a member alone with accounts of their own has none
+  const showUse = meta.accounts.some((a) => optionsOf(a, meta).length > 1);
+  const warn = (text: string) => setMessage({ tone: "warning", text });
 
   const setType = async (a: Account, type: string) => {
     setMessage(null);
-    setSavedType(null);
+    setSaved(null);
     try {
       await api(`/api/accounts/${encodeURIComponent(a.id)}`, { method: "PATCH", body: { type } });
-      setSavedType(a.id);
+      setSaved({ what: "type", id: a.id });
       onChange();
     } catch (err) {
       setMessage({ tone: "warning", text: (err as Error).message });
@@ -75,6 +81,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
             <tr>
               <th>Tili</th>
               <th className="acc-type">Tyyppi</th>
+              {showUse && <th className="acc-use">Käyttäjä</th>}
               <th className="num">Saldo</th>
               <th className="hide-phone">Haettu</th>
               <th />
@@ -92,13 +99,26 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                       </option>
                     ))}
                   </select>
-                  {savedType === a.id && (
+                  {saved?.what === "type" && saved.id === a.id && (
                     <div className="small muted" role="status">
                       Tallennettu.
                     </div>
                   )}
                 </>
               );
+              // the same, for who uses the account
+              const users = showUse && (
+                <UseSelect
+                  account={a}
+                  meta={meta}
+                  saved={saved?.what === "use" && saved.id === a.id}
+                  onSaved={() => setSaved({ what: "use", id: a.id })}
+                  onChange={onChange}
+                  onError={warn}
+                />
+              );
+              // a joint account's parts, and the share for a named member who cannot see the account, in a row under it
+              const parts = showUse && a.use && (isJoint(a.use) || namesOther(a.use, meta.user.id));
               // the holder is a line of its own unless the name already says it
               const holder = a.holder && a.holder !== a.name && a.holder !== a.bankName ? a.holder : null;
               // the limit and how much of it is in use, from the bank's balance (creditUse in core owns the figure)
@@ -126,8 +146,10 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                     )}
                     <FetchProblem account={a} connection={meta.connections.find((c) => c.id === a.connectionId)} canFix={canFix} />
                     <div className="acc-type-phone">{type}</div>
+                    {showUse && <div className="acc-use-phone">{users}</div>}
                   </td>
                   <td className="acc-type">{type}</td>
+                  {showUse && <td className="acc-use">{users}</td>}
                   <td className="num">{a.balanceCents === null ? "–" : money(a.balanceCents)}</td>
                   <td className="hide-phone">{dateTime(a.lastSyncedAt ?? a.balanceAt)}</td>
                   <td className="num">
@@ -138,9 +160,24 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                     )}
                   </td>
                 </tr>,
+                parts && (
+                  <tr key={`${a.id}-use`} className="edit-row">
+                    <td colSpan={6}>
+                      {/* the key changes with the use and the shares, so the row asks again and starts from what is saved */}
+                      <UseParts
+                        key={`${JSON.stringify(a.use)}${meta.shares.filter((x) => x.accountId === a.id).map((x) => x.userId).join()}`}
+                        account={a}
+                        meta={meta}
+                        onSaved={() => setSaved({ what: "use", id: a.id })}
+                        onChange={onChange}
+                        onError={warn}
+                      />
+                    </td>
+                  </tr>
+                ),
                 editing === a.id && (
                   <tr key={`${a.id}-edit`} className="edit-row">
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <AccountForm
                         account={a}
                         busy={busy}

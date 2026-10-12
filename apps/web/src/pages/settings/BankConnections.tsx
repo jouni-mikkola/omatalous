@@ -4,7 +4,8 @@
  * shows each consent's validity and the accounts it reads (name and IBAN, so two consents of one holder differ),
  * and a fallback finishes a consent whose redirect page did not open. Every consent has "Yhdistä uudelleen", which starts
  * the same bank again, and a calendar file with a reminder before it ends. After a link the page lists the accounts
- * the bank handed over that Enable Banking does not let the app read, and offers the next bank.
+ * the bank handed over that Enable Banking does not let the app read, and offers the next bank, and asks who uses a new
+ * joint account (LinkQuestion, on that visit only).
  */
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
@@ -14,6 +15,7 @@ import { BankPicker, lastUsedBank } from "../../components/BankPicker.tsx";
 import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText, WARN_DAYS } from "../../consent-notices.ts";
 import { accountNumber, date, dateTime, plural } from "../../format.ts";
 import type { Account, BankOption, Connection, Meta } from "../../types.ts";
+import { LinkQuestion } from "./AccountUse.tsx";
 
 /**
  * The bank callback sends only these codes (routes/bank.ts). The link reasons have the same words as LINK_FAILURES in
@@ -222,6 +224,7 @@ export function BankConnections({
   };
 
   return (
+    <>
     <div className="card" id="pankkiyhteydet">
       <div className="card-head">
         <div>
@@ -390,5 +393,7 @@ export function BankConnections({
         </details>
       )}
     </div>
+    {linked && <LinkQuestion meta={meta} onChange={onChange} onSaved={onMessage} />}
+    </>
   );
 }

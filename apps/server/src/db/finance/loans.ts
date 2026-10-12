@@ -1,4 +1,4 @@
-/** Loans the user typed in and confirmed. Own rows only: sharing an account shares no loan. */
+/** Loans the user typed in and confirmed. Own rows only, though a view holds another member's loan paid from an account it counts, built from those rows by `loansInView`: sharing an account shares no row. */
 import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, notLoanKey, notLoanMark, renamedMarkSubject } from "@banking/core";
 import { num, type Row, str } from "../rows.ts";
 import type { SqlValue, Statement } from "../types.ts";
@@ -22,6 +22,7 @@ const COLUMNS = [
   "limit_cents",
   "series_key",
   "account_id",
+  "rate_review_date",
 ] as const;
 
 const values = (l: Loan) => [
@@ -41,6 +42,7 @@ const values = (l: Loan) => [
   l.limitCents,
   l.seriesKey,
   l.accountId ?? null,
+  l.rateReviewDate ?? null,
 ];
 
 /**
@@ -75,6 +77,8 @@ const toLoan = (r: Row): Loan => ({
   seriesKey: str(r.series_key),
   // a loan without a link has no field, so it reads as it did before the column
   ...(r.account_id == null ? {} : { accountId: String(r.account_id) }),
+  // likewise for a loan with no review day typed
+  ...(r.rate_review_date == null ? {} : { rateReviewDate: String(r.rate_review_date) }),
 });
 
 export class LoansRepo {

@@ -37,12 +37,15 @@ describe("a draft as a form", () => {
       rateBp: "3,39",
       reference: "euribor_12",
       marginBp: "0,65",
+      rateReviewDate: "",
       repayment: "annuity",
       intervalMonths: "1",
       paymentCents: "689,20",
       endDate: "2046-10-31",
       limitCents: "",
     });
+    // no text gives the review day of the rate, so a read loan has none to check
+    expect(markOf(form, "rateReviewDate")).toBeNull();
     expect(markOf(form, "balanceCents")).toBe("sure");
     expect(markOf(form, "lender")).toBe("check");
     expect(markOf(form, "limitCents")).toBe("missing");
@@ -69,7 +72,7 @@ describe("a draft as a form", () => {
 
     // text read from a picture: every field found is to check
     const ocr = setKind(draftOf(LISTING, "ocr"), "card");
-    expect(shownFields(ocr)).toEqual(["lender", "balanceCents", "balanceDate", "limitCents", "rateBp", "reference", "marginBp"]);
+    expect(shownFields(ocr)).toEqual(["lender", "balanceCents", "balanceDate", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate"]);
     expect(checksLeft(ocr)).toEqual(["lender", "balanceCents", "balanceDate", "rateBp", "reference", "marginBp"]);
   });
 });
@@ -89,6 +92,7 @@ describe("a form as the loan the server takes", () => {
         rateBp: 339,
         reference: "euribor_12",
         marginBp: 65,
+        rateReviewDate: null,
         repayment: "annuity",
         intervalMonths: 1,
         paymentCents: 68_920,
@@ -154,7 +158,55 @@ describe("a form as the loan the server takes", () => {
     expect(checksLeft(form)).toEqual([]);
     const { id, ...body } = loan;
     expect(form.id).toBe(id);
+    // a loan with no review day goes back with null: PUT replaces every field
+    expect(readForm(form)).toEqual({ errors: {}, body: { ...body, rateReviewDate: null } });
+  });
+});
+
+describe("the review day of the rate", () => {
+  const mortgage = (reference: string) => {
+    let form = setKind(emptyForm(TODAY), "mortgage");
+    form = setValue(form, "balanceCents", "150 000");
+    return setValue(setValue(form, "reference", reference), "rateReviewDate", "2027-03-14");
+  };
+
+  it("is a field after the margin, shown unless the rate is fixed", () => {
+    for (const reference of ["", "euribor_12", "euribor_6", "euribor_3"]) {
+      const shown = shownFields(mortgage(reference));
+      expect(shown, reference).toContain("rateReviewDate");
+      expect(shown.indexOf("rateReviewDate"), reference).toBe(shown.indexOf("marginBp") + 1);
+    }
+    expect(shownFields(setKind(emptyForm(TODAY), "mortgage"))).toContain("rateReviewDate");
+    expect(shownFields(mortgage("fixed"))).not.toContain("rateReviewDate");
+  });
+
+  it("is sent as typed, and an empty field sends null", () => {
+    expect(readForm(mortgage("euribor_12")).body).toMatchObject({ reference: "euribor_12", rateReviewDate: "2027-03-14" });
+    expect(readForm(mortgage("")).body).toMatchObject({ reference: null, rateReviewDate: "2027-03-14" });
+    expect(readForm(setValue(mortgage("euribor_12"), "rateReviewDate", "")).body).toMatchObject({ rateReviewDate: null });
+    expect(readForm(setKind(emptyForm(TODAY), "mortgage")).errors).toEqual({ balanceCents: "Anna, paljonko lainaa on jäljellä." });
+    expect(readForm(setValue(setKind(emptyForm(TODAY), "mortgage"), "balanceCents", "1 000")).body).toMatchObject({ rateReviewDate: null });
+  });
+
+  it("a fixed rate sends null whatever was typed, and the day comes back when the reference changes again", () => {
+    const fixed = mortgage("fixed");
+    expect(fixed.values.rateReviewDate).toBe("2027-03-14");
+    expect(readForm(fixed).body).toMatchObject({ reference: "fixed", rateReviewDate: null });
+    const back = setValue(fixed, "reference", "euribor_12");
+    expect(readForm(back).body).toMatchObject({ reference: "euribor_12", rateReviewDate: "2027-03-14" });
+  });
+
+  it("a saved loan's day is in the form and goes back whole, and a fixed one's goes back as null", () => {
+    const loan: Loan = {
+      id: "a1", name: "Kotilaina", lender: "Esimerkkipankki Oyj", kind: "mortgage", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: "2026-09-30", rateBp: 339, reference: "euribor_12", marginBp: 65,
+      repayment: "annuity", intervalMonths: 1, paymentCents: 68_920, endDate: "2046-10-31", limitCents: null, seriesKey: null, rateReviewDate: "2027-03-14",
+    };
+    const form = formOfLoan(loan);
+    expect(form.values.rateReviewDate).toBe("2027-03-14");
+    const { id: _id, ...body } = loan;
     expect(readForm(form)).toEqual({ errors: {}, body });
+    expect(formOfLoan({ ...loan, rateReviewDate: null }).values.rateReviewDate).toBe("");
+    expect(readForm(formOfLoan({ ...loan, reference: "fixed" })).body).toMatchObject({ reference: "fixed", rateReviewDate: null });
   });
 });
 

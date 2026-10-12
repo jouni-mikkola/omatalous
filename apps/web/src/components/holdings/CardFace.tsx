@@ -5,6 +5,7 @@
  * picture they explain. No bank's artwork: the look comes from the card's tier.
  */
 import { money } from "../../format.ts";
+import { partText } from "../../part.ts";
 import type { DashboardData } from "../../types.ts";
 import { BankLogo } from "../BankLogo.tsx";
 import { barPercent, cardName, cardTier } from "./card-tier.ts";
@@ -56,6 +57,7 @@ function Face({ card, logo }: { card: Card; logo: string | null }) {
 
 /** `logo`: the bank's picture, when the app has one. `since`: the line that tells when an old balance was given. */
 export function CardRow({ card, logo, since }: { card: Card; logo: string | null; since: string | null }) {
+  const part = partText(card.part, "debt");
   return (
     <li className="holding-card">
       <Face card={card} logo={logo} />
@@ -64,6 +66,7 @@ export function CardRow({ card, logo, since }: { card: Card; logo: string | null
           {cardName(card.name)}
           {card.mask && <span className="sr-only"> {card.mask}</span>}
         </div>
+        {part && <div className="holding-sub">{part}</div>}
         <Use card={card} />
         {since && <div className="holding-sub">{since}</div>}
       </div>

@@ -1,11 +1,16 @@
-/** Merchants of the signed-in user and the category each one is always put in. Own rows only. */
+/**
+ * Merchants of the signed-in user and the category each one is always put in. The list and the unrecognised spending
+ * read the rows the user can categorise, their own. `scope` picks how they count, as on every page: the own view has
+ * a joint account at the user's part and nothing of an account somebody else uses alone, the household view has every
+ * row whole.
+ */
 import { isKnownCategory, merchantBasis, merchantMonthly } from "@banking/core";
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { parseIsoDate, strictObject } from "../platform/validate.ts";
 import { clearMerchantRule, setMerchantCategory } from "../services/rules.ts";
-import { parseScope, sharedInView } from "../services/analysis.ts";
+import { parseScope, rowsInView } from "../services/analysis.ts";
 import { body, queryInt } from "./shared.ts";
 
 const DEFAULT_LIMIT = 200;
@@ -28,8 +33,9 @@ export function merchantRoutes(s: Services) {
     const user = c.get("user");
     const { q, category, limit, from, to, habit } = c.req.query();
     if (habit && habit !== "1") throw new UserError("Virheellinen rajaus.");
+    const scope = parseScope(c.req.query("scope"));
     // the set and the series figures are the detection's, not a second definition: the analysis is cached per user and data version
-    const { ctx } = await s.analysis.get(s, user.id, "own");
+    const [{ ctx }, { own }] = await Promise.all([s.analysis.get(s, user.id, scope), rowsInView(s, user.id, scope)]);
     const only = habit ? new Set(ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant)) : undefined;
     return c.json(
       await s.finance(user.id).merchantSummaries({
@@ -40,6 +46,7 @@ export function merchantRoutes(s: Services) {
         only,
         limit: Math.min(Math.max(queryInt(limit) ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
         basis: merchantBasis(ctx),
+        own,
       }),
     );
   });
@@ -53,8 +60,9 @@ export function merchantRoutes(s: Services) {
     const user = c.get("user");
     const merchant = parseMerchantName(c.req.query("merchant"));
     const scope = parseScope(c.req.query("scope"));
-    const shared = scope === "household" ? (await sharedInView(s, user.id)).map((a) => a.id) : undefined;
-    const history = await s.finance(user.id).merchantHistory(merchant, shared);
+    // the same rows as the transaction list of the view, and sums of parts as above it
+    const { shared, own } = await rowsInView(s, user.id, scope);
+    const history = await s.finance(user.id).merchantHistory(merchant, shared.map((a) => a.id), own);
     if (!history) return c.json({ summary: null });
     // the analysis is cached per user and data version: the series and the complete months come from it
     const { ctx } = await s.analysis.get(s, user.id, scope);
@@ -73,7 +81,10 @@ export function merchantRoutes(s: Services) {
   });
 
   /** The 50 biggest merchants whose spending nothing recognised, with the count and sum of all, for the "Luokittelematta" card. */
-  app.get("/merchants/uncategorised", async (c) => c.json(await s.finance(c.get("user").id).uncategorisedMerchants(50)));
+  app.get("/merchants/uncategorised", async (c) => {
+    const userId = c.get("user").id;
+    return c.json(await s.finance(userId).uncategorisedMerchants(50, (await rowsInView(s, userId, parseScope(c.req.query("scope")))).own));
+  });
 
   /** Every row of the merchant, now and later, goes to the category (rows set by hand one by one keep theirs). */
   app.put("/merchants/category", async (c) => {

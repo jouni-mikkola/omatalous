@@ -27,6 +27,7 @@ import { earlyRepayment } from "./events/early-repayment.ts";
 import { employerChange } from "./events/employer-change.ts";
 import { holidayAbroad } from "./events/holiday-abroad.ts";
 import { interestMirror } from "./events/interest-mirror.ts";
+import { jointMortgage } from "./events/joint-mortgage.ts";
 import { largePurchase } from "./events/large-purchase.ts";
 import { mobilepayPerson } from "./events/mobilepay-person.ts";
 import { moveNewLandlord } from "./events/move-new-landlord.ts";
@@ -81,6 +82,7 @@ export const EVENTS: readonly LifeEvent[] = [
   coHolderTransfer,
   employerChange,
   unknownLender,
+  jointMortgage,
 ];
 
 /** The kit's base household (`kit:base`), or the base with `event` applied (`kit:<event id>`). */

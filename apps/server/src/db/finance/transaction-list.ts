@@ -1,11 +1,14 @@
 /**
  * What the transactions page and the export read: the filter, its two sides (own rows and shared accounts) and
  * the pages. Every side starts with a user_id condition, so a filter can never reach another member's rows.
+ * The rows are the bank's, whole, in every view; the sums above the list are sums of the viewer's parts, and they and
+ * the category filter count a row as the view does (`toldSql`).
  */
 import { fold } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
+import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
 
 export interface TransactionFilter {
   from?: string;
@@ -16,6 +19,8 @@ export interface TransactionFilter {
   q?: string;
   limit?: number;
   offset?: number;
+  /** The own view: the viewer's accounts it leaves out, the parts the sums are cut by, and the rows it counts otherwise than they are stored. */
+  own?: OwnRows;
 }
 
 /** A LIKE pattern for text anywhere in a value; `%`, `_` and `\` typed by the user are literal. */
@@ -52,12 +57,15 @@ export class TransactionListRepo {
       where.push(condition);
       params.push(...values);
     };
-    if ("own" in side) add("user_id = ?", this.ctx.userId);
-    else add(`user_id != ? AND account_id IN (${side.shared.map(() => "?").join(",")})`, this.ctx.userId, ...side.shared);
+    if ("own" in side) {
+      const kept = notLeftSql(f.own);
+      add(`user_id = ?${kept.sql}`, this.ctx.userId, ...kept.params);
+    } else add(`user_id != ? AND account_id IN (${side.shared.map(() => "?").join(",")})`, this.ctx.userId, ...side.shared);
     if (f.from) add("booking_date >= ?", f.from);
     if (f.to) add("booking_date <= ?", f.to);
     if (f.accountId) add("account_id = ?", f.accountId);
-    if (f.category) add("category = ?", f.category);
+    const category = toldSql(f.own).category;
+    if (f.category) add(`${category.sql} = ?`, ...category.params, f.category);
     if (f.merchant) add("merchant = ?", f.merchant);
     const q = f.q ? fold(f.q.trim()) : "";
     const amount = f.q ? amountQuery(f.q) : null;
@@ -97,16 +105,19 @@ export class TransactionListRepo {
   async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; inCents: number; outCents: number; items: StoredTransaction[] }> {
     const sides = this.filterSides(f, accountIds);
     // money in and out over every matching row, so the list says what the whole filter adds up to. An own transfer
-    // leaves one account and lands on another: counted, it would add the same money to both sums.
+    // leaves one account and lands on another: counted, it would add the same money to both sums. A row of a joint
+    // account adds the viewer's part, as it does in every report, and a transfer is what the view counts as one.
+    const part = partSql(f.own?.parts ?? new Map(), "amount_cents");
+    const { moved } = toldSql(f.own);
     let total = 0;
     let inCents = 0;
     let outCents = 0;
     for (const side of sides) {
       const r = await this.ctx.db.first<{ c: number; inc: number | null; outc: number | null }>(
-        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND is_transfer = 0 THEN amount_cents END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 AND is_transfer = 0 THEN amount_cents END) AS outc
+        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS outc
          FROM transactions WHERE ${side.where.join(" AND ")}`,
-        side.params,
+        [...moved.params, ...part.params, ...moved.params, ...part.params, ...side.params],
       );
       total += Number(r?.c ?? 0);
       inCents += Number(r?.inc ?? 0);

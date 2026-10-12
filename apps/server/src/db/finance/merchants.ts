@@ -1,10 +1,13 @@
 /**
  * The user's rows seen by merchant: the names, the summaries for the category settings, one merchant's history,
- * the spending nothing recognised, and the trade register answers the user's own lookups found.
+ * the spending nothing recognised, and the trade register answers the user's own lookups found. The sums a page
+ * shows take `own`: in the own view a row of a joint account adds the viewer's part, an account somebody else uses
+ * alone adds nothing, and a row has the category and the transfer mark the view counts it by (`toldSql`).
  */
 import { fold, type IndustryCodeSet, isIndustryCodeSet, type MerchantBasis, merchantMonthly, monthEnd, type Transaction } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
+import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
 import type { RulesRepo } from "./rules.ts";
 import type { TransactionListRepo } from "./transaction-list.ts";
 
@@ -78,6 +81,8 @@ export interface MerchantFilter {
   limit: number;
   /** What `monthlyCents` reads; without it the figure is null. */
   basis?: MerchantBasis;
+  /** The own view: the viewer's accounts it leaves out, the parts the sums are cut by, and the rows it counts otherwise than they are stored. */
+  own?: OwnRows;
 }
 
 /** The merchants of a period and the complete months that `monthlyCents` of a merchant without a series divides by. */
@@ -150,7 +155,7 @@ export class MerchantsRepo {
    * It runs on idx_tx_user_merchant_date, so it reads only that merchant's rows however long the history is.
    * The same rows as the transaction list filtered to the merchant, so the counts agree.
    */
-  async merchantHistory(merchant: string, accountIds?: readonly string[]): Promise<MerchantHistory | null> {
+  async merchantHistory(merchant: string, accountIds?: readonly string[], own?: OwnRows): Promise<MerchantHistory | null> {
     // own transfers apart: they are rows of the merchant, but neither paid nor received, and not its category
     const categories = { paid: new Map<string, number>(), moved: new Map<string, number>() };
     const outByMonth: Record<string, number> = {};
@@ -160,18 +165,20 @@ export class MerchantsRepo {
     let inCents = 0;
     let firstDate = "";
     let lastDate = "";
-    for (const side of this.list.filterSides({ merchant }, accountIds)) {
-      const rows = await this.ctx.db.all<{ category: string; m: string; moved: number; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
-        `SELECT category, substr(booking_date, 1, 7) AS m, is_transfer != 0 AS moved, COUNT(*) AS n, SUM(CASE WHEN amount_cents > 0 THEN amount_cents END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 THEN amount_cents END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
-         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY category, m, moved`,
-        side.params,
+    const part = partSql(own?.parts ?? new Map(), "amount_cents");
+    const told = toldSql(own);
+    for (const side of this.list.filterSides({ merchant, own }, accountIds)) {
+      const rows = await this.ctx.db.all<{ cat: string; m: string; moved: number; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
+        `SELECT ${told.category.sql} AS cat, substr(booking_date, 1, 7) AS m, ${told.moved.sql} != 0 AS moved, COUNT(*) AS n, SUM(CASE WHEN amount_cents > 0 THEN ${part.sql} END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 THEN ${part.sql} END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
+         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY cat, m, moved`,
+        [...told.category.params, ...told.moved.params, ...part.params, ...part.params, ...side.params],
       );
       for (const r of rows) {
         const n = Number(r.n);
         count += n;
         const kept = Number(r.moved) ? categories.moved : categories.paid;
-        kept.set(r.category, (kept.get(r.category) ?? 0) + n);
+        kept.set(r.cat, (kept.get(r.cat) ?? 0) + n);
         if (!firstDate || r.first < firstDate) firstDate = r.first;
         if (r.last > lastDate) lastDate = r.last;
         if (Number(r.moved)) {
@@ -189,16 +196,20 @@ export class MerchantsRepo {
   }
 
   /** Money-out rows nothing recognised: the `limit` biggest merchants, and the count and sum of all of them. */
-  async uncategorisedMerchants(limit = 50): Promise<UncategorisedList> {
-    const nothingRecognised = `amount_cents < 0 AND category_source = 'default' AND category = 'other' AND is_transfer = 0`;
+  async uncategorisedMerchants(limit = 50, own?: OwnRows): Promise<UncategorisedList> {
+    const part = partSql(own?.parts ?? new Map(), "amount_cents");
+    const kept = notLeftSql(own);
+    const told = toldSql(own);
+    const nothingRecognised = `amount_cents < 0 AND category_source = 'default' AND ${told.category.sql} = 'other' AND ${told.moved.sql} = 0${kept.sql}`;
+    const narrowed = [this.ctx.userId, ...told.category.params, ...told.moved.params, ...kept.params];
     const rows = await this.ctx.db.all<{ merchant: string; total: number; n: number; last: string }>(
-      `SELECT merchant, -SUM(amount_cents) AS total, COUNT(*) AS n, MAX(booking_date) AS last FROM transactions
+      `SELECT merchant, -SUM(${part.sql}) AS total, COUNT(*) AS n, MAX(booking_date) AS last FROM transactions
        WHERE user_id = ? AND ${nothingRecognised} GROUP BY merchant ORDER BY total DESC, merchant LIMIT ?`,
-      [this.ctx.userId, limit],
+      [...part.params, ...narrowed, limit],
     );
     const [all] = await this.ctx.db.all<{ merchants: number; total: number | null }>(
-      `SELECT COUNT(DISTINCT merchant) AS merchants, -SUM(amount_cents) AS total FROM transactions WHERE user_id = ? AND ${nothingRecognised}`,
-      [this.ctx.userId],
+      `SELECT COUNT(DISTINCT merchant) AS merchants, -SUM(${part.sql}) AS total FROM transactions WHERE user_id = ? AND ${nothingRecognised}`,
+      [...part.params, ...narrowed],
     );
     return {
       items: rows.map((r) => ({ merchant: String(r.merchant), totalCents: Number(r.total), count: Number(r.n), lastDate: String(r.last) })),
@@ -216,14 +227,17 @@ export class MerchantsRepo {
    */
   async merchantSummaries(f: MerchantFilter): Promise<MerchantList> {
     const basis = f.basis ?? NO_BASIS;
-    const range = `${f.from ? " AND booking_date >= ?" : ""}${f.to ? " AND booking_date <= ?" : ""}`;
-    const params = [this.ctx.userId, ...(f.from ? [f.from] : []), ...(f.to ? [f.to] : [])];
+    const part = partSql(f.own?.parts ?? new Map(), "amount_cents");
+    const kept = notLeftSql(f.own);
+    const told = toldSql(f.own);
+    const range = `${kept.sql}${f.from ? " AND booking_date >= ?" : ""}${f.to ? " AND booking_date <= ?" : ""}`;
+    const params = [...told.category.params, ...part.params, ...part.params, this.ctx.userId, ...told.moved.params, ...kept.params, ...(f.from ? [f.from] : []), ...(f.to ? [f.to] : [])];
     // the first row of a merchant is its most common category
-    const rows = await this.ctx.db.all<{ merchant: string; category: string; n: number; total: number; income: number; first: string; last: string }>(
-      `SELECT merchant, category, COUNT(*) AS n, SUM(CASE WHEN amount_cents < 0 THEN -amount_cents ELSE 0 END) AS total,
-              SUM(CASE WHEN amount_cents > 0 THEN amount_cents ELSE 0 END) AS income, MIN(booking_date) AS first, MAX(booking_date) AS last
-       FROM transactions WHERE user_id = ? AND is_transfer = 0${range}
-       GROUP BY merchant, category ORDER BY merchant, n DESC, category`,
+    const rows = await this.ctx.db.all<{ merchant: string; cat: string; n: number; total: number; income: number; first: string; last: string }>(
+      `SELECT merchant, ${told.category.sql} AS cat, COUNT(*) AS n, SUM(CASE WHEN amount_cents < 0 THEN -${part.sql} ELSE 0 END) AS total,
+              SUM(CASE WHEN amount_cents > 0 THEN ${part.sql} ELSE 0 END) AS income, MIN(booking_date) AS first, MAX(booking_date) AS last
+       FROM transactions WHERE user_id = ? AND ${told.moved.sql} = 0${range}
+       GROUP BY merchant, cat ORDER BY merchant, n DESC, cat`,
       params,
     );
     const months = basis.months.length;
@@ -239,7 +253,7 @@ export class MerchantsRepo {
       if (!m) {
         merchants.set(r.merchant, {
           merchant: r.merchant,
-          category: r.category,
+          category: r.cat,
           count: Number(r.n),
           totalCents: Number(r.total),
           inCents: Number(r.income),
@@ -251,7 +265,7 @@ export class MerchantsRepo {
         continue;
       }
       // the total covers every category: the page shows the others, so a bank's loan instalments do not read as fees
-      m.otherCategories.push({ category: r.category, count: Number(r.n), totalCents: Number(r.total), inCents: Number(r.income) });
+      m.otherCategories.push({ category: r.cat, count: Number(r.n), totalCents: Number(r.total), inCents: Number(r.income) });
       m.count += Number(r.n);
       m.totalCents += Number(r.total);
       m.inCents += Number(r.income);
@@ -262,18 +276,21 @@ export class MerchantsRepo {
       .filter((m) => (!f.category || m.category === f.category) && (!f.only || f.only.has(m.merchant)) && (!q || fold(m.merchant).includes(q)))
       .sort((a, b) => b.totalCents - a.totalCents || b.inCents - a.inCents || b.count - a.count || a.merchant.localeCompare(b.merchant))
       .slice(0, f.limit);
-    const out = await this.outInRange(basisRange(basis));
+    const out = await this.outInRange(basisRange(basis), f.own);
     for (const m of items) m.monthlyCents = merchantMonthly(basis, m.merchant, out.get(m.merchant) ?? 0).monthlyCents;
     return { items, months };
   }
 
   /** Money out per merchant from `range.from` to `range.to`, own transfers left out; empty without a range. */
-  private async outInRange(range: { from: string; to: string } | null): Promise<Map<string, number>> {
+  private async outInRange(range: { from: string; to: string } | null, own?: OwnRows): Promise<Map<string, number>> {
     if (!range) return new Map();
+    const part = partSql(own?.parts ?? new Map(), "amount_cents");
+    const kept = notLeftSql(own);
+    const { moved } = toldSql(own);
     const rows = await this.ctx.db.all<{ merchant: string; outc: number }>(
-      `SELECT merchant, -SUM(amount_cents) AS outc FROM transactions
-       WHERE user_id = ? AND is_transfer = 0 AND amount_cents < 0 AND booking_date >= ? AND booking_date <= ? GROUP BY merchant`,
-      [this.ctx.userId, range.from, range.to],
+      `SELECT merchant, -SUM(${part.sql}) AS outc FROM transactions
+       WHERE user_id = ? AND ${moved.sql} = 0 AND amount_cents < 0${kept.sql} AND booking_date >= ? AND booking_date <= ? GROUP BY merchant`,
+      [...part.params, this.ctx.userId, ...moved.params, ...kept.params, range.from, range.to],
     );
     return new Map(rows.map((r) => [String(r.merchant), Number(r.outc)]));
   }

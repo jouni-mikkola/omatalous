@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { fakeBank, linkFakeBank, makeMember, removeMember, watch } from "./helpers.ts";
+import { cents, fakeBank, linkFakeBank, makeMember, removeMember, watch } from "./helpers.ts";
 
 // A consent that ends for real: the page goes to the bank, the bank sends it back, and the accounts and their rows come
 // from the fake bank (e2e/fake-bank/). The accounts are those of a member made here, so the demo household of the
@@ -12,9 +12,6 @@ test.beforeAll(async ({ browser }) => {
   member = await makeMember(browser, USERNAME);
 });
 test.afterAll(async ({ browser }) => removeMember(browser, member.id));
-
-/** "16 534,94 €" with its no-break spaces and typographic minus → 1653494 */
-const cents = (s: string) => Math.round(Number(s.replace(/[\s€]/g, "").replace("−", "-").replace(",", ".")) * 100);
 
 test("linking the fake bank brings four accounts: the joint one with both holders, the card with its limit and bar, and a balance on Yhteenveto", async ({ browser }) => {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 900 } });
@@ -33,7 +30,8 @@ test("linking the fake bank brings four accounts: the joint one with both holder
   const tilit = page.locator("#tilit");
   // every row holds the account types in its select, so a row is found by the name it starts with
   const row = (name: string) => tilit.getByRole("row", { name: new RegExp(`^${name} `) });
-  await expect(tilit.getByRole("row")).toHaveCount(5);
+  // the header, four accounts, and the row under the joint account that has its parts
+  await expect(tilit.getByRole("row")).toHaveCount(6);
   await expect(row("Käyttötili")).toContainText("FI21 1234 5600 0007 85");
   await expect(row("Käyttötili")).toContainText("MEIKALAINEN MATTI");
   await expect(row("Säästötili")).toContainText("FI14 1009 3000 1234 58");

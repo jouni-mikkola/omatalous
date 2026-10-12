@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import type { Meta } from "../../types.ts";
+import { sharedUseText } from "./account-use.ts";
 
 export function Sharing({ meta, onChange }: { meta: Meta; onChange: () => void }) {
   const others = meta.members.filter((m) => m.id !== meta.user.id);
@@ -61,9 +62,16 @@ export function Sharing({ meta, onChange }: { meta: Meta; onChange: () => void }
         {error && <div className="error">{error}</div>}
       </div>
       {meta.sharedAccounts.length > 0 && (
-        <p className="small muted">
-          Sinulle jaettu: {meta.sharedAccounts.map((a) => `${a.name} (${a.ownerName})`).join(", ")}.
-        </p>
+        <div className="small muted">
+          Sinulle jaettu:
+          <ul className="shared-list">
+            {meta.sharedAccounts.map((a) => (
+              <li key={a.id}>
+                {a.name} ({a.ownerName}){sharedUseText(a, meta.user.id) ? `, ${sharedUseText(a, meta.user.id)}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

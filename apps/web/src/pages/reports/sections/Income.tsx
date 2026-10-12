@@ -3,6 +3,7 @@ import type { IncomeChange, IncomeReport, IncomeTypeRow } from "@banking/core";
 import { Fragment, useState } from "react";
 import { type StackSeries, StackedColumns } from "../../../charts/StackedColumns.tsx";
 import { completeMonths, date, money, MONTHS_SHORT, monthLong, percent, plural } from "../../../format.ts";
+import { hasJointAccount } from "../../../part.ts";
 import "../../../styles/income.css";
 import { Kv, TableToggle } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
@@ -283,6 +284,7 @@ function Income({ ctx }: SectionProps) {
               </li>
             ))}
           </ul>
+          {hasJointAccount(ctx.meta) && <p className="income-caption">Yhteisen tilin tulot on jaettu käyttäjien osuuksien mukaan.</p>}
         </>
       )}
     </Section>

@@ -14,7 +14,13 @@
  * says "Ei laina" (`notLoanMark`). The subject is the proposal's own: Laskut marks the same series as `series:<key>`,
  * and the marks table keeps one mark for a subject, so a shared subject would let Käytössä take "Ei laina" away. The
  * payment is in the key so that a second loan from the same lender gets a key of its own.
+ *
+ * A payment is read at the bank's amount (`billCents`), also in a member's own view, where the rows of a joint account
+ * hold the viewer's part: a loan is typed with its whole payment, so a proposal tells the whole payment, and a key
+ * saved in one view names the series in the other. The key holds the bank's amount there too, also where the series id
+ * holds the part (one of a lender's several series): a key is the same in every view.
  */
+import { billCents } from "./account-use.ts";
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
@@ -34,7 +40,7 @@ export interface LoanProposal {
   /** Who is paid, as the series names it. */
   payee: string;
   accountId: string;
-  /** The usual payment, positive. */
+  /** The usual payment, positive, as the bank charges it: whole, also where the rows are cut to a part. */
   paymentCents: number;
   /** Calendar months from the first payment seen to the last, both included. */
   months: number;
@@ -82,6 +88,16 @@ function names(key: string, s: RecurringSeries, amounts: readonly number[]): boo
   return amounts.some((cents) => covers(subject, { id: s.id, merchant: s.merchant, kind: "subscription", typicalAmountCents: cents, priceChange: null }));
 }
 
+/**
+ * The series' usual payment as the bank charges it. On rows cut to the viewer's part the series knows the part alone,
+ * and the answer is the bank's amount of the charge nearest to the usual one.
+ */
+function wholePayment(typicalCents: number, charges: readonly AnalysisTx[]): number {
+  if (charges.every((t) => t.wholeCents === undefined)) return typicalCents;
+  const off = (t: AnalysisTx) => Math.abs(-t.amountCents - typicalCents);
+  return -billCents(charges.reduce((nearest, t) => (off(t) < off(nearest) ? t : nearest)));
+}
+
 function kindOf(category: string, text: string): LoanKind {
   if (category === "mortgage") return "mortgage";
   if (category === "student_loan") return "student";
@@ -109,8 +125,10 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring">, i
   for (const s of candidates) {
     const parts = parseSeriesId(s.id);
     if (!parts || parts.direction !== "out" || parts.product === "habit") continue;
-    const charges = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t && -t.amountCents >= MIN_LOAN_PAYMENT_CENTS);
-    if (charges.length < MIN_LOAN_CHARGES || s.typicalAmountCents < MIN_LOAN_PAYMENT_CENTS) continue;
+    const charges = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t && -billCents(t) >= MIN_LOAN_PAYMENT_CENTS);
+    if (charges.length < MIN_LOAN_CHARGES) continue;
+    const paymentCents = wholePayment(s.typicalAmountCents, charges);
+    if (paymentCents < MIN_LOAN_PAYMENT_CENTS) continue;
     charges.sort((a, b) => a.day - b.day);
     const latest = charges.slice(-MIN_LOAN_CHARGES);
     // separate invoices each bring their own reference; a contract keeps one
@@ -124,14 +142,17 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring">, i
     // Laina is a first name too: a person so named is a lender only when the payment text names the loan
     if (isNamedLaina(payee) && !hasPayeeForm(payee) && !isLoanText(fold(last.description ?? ""))) continue;
     if (isCancelled(cancelled, s)) continue;
-    const amounts = [s.typicalAmountCents, ...charges.map((t) => -t.amountCents)];
+    // a key holds the payment as it was in the view that saved it: the part and the bank's amount are both asked
+    const amounts = [s.typicalAmountCents, paymentCents, ...charges.flatMap((t) => [-t.amountCents, -billCents(t)])];
     if (taken.some((key) => names(key, s, amounts))) continue;
+    // one of a lender's several series has its payment in the series id, and on rows cut to a part that is the part
+    const cut = charges.some((t) => t.wholeCents !== undefined);
     out.push({
-      key: seriesId({ ...parts, product: parts.product ?? s.typicalAmountCents }),
+      key: seriesId({ ...parts, product: cut ? paymentCents : (parts.product ?? paymentCents) }),
       seriesId: s.id,
       payee: s.merchant,
       accountId: parts.accountId,
-      paymentCents: s.typicalAmountCents,
+      paymentCents,
       months: s.monthsActive,
       firstDate: s.firstDate,
       lastDate: s.lastDate,

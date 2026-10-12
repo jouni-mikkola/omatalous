@@ -18,6 +18,7 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm findings` | every statement the product makes about money, for the demo and the seeded households. `--golden` rewrites the golden files (see *Golden files* below) |
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
 | `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
+| `pnpm shots <route>...` | full-page PNGs of pages of the built app at several widths, with the demo household, the fake bank, changed API answers or a step of your own ([Pictures of a page](#pictures-of-a-page)) |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
@@ -317,6 +318,33 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
 3. Run `pnpm build` and `pnpm e2e` once, and only when the change touches the web app or a route. Never a subset of the
    specs: a page that breaks shows in another page's spec.
 4. Stage your files first (`git add -A`): the repo rules read the index and the new files that git does not ignore.
+
+### Pictures of a page
+
+`pnpm shots <route>...` saves a full-page PNG of every route at every width (default 1280, 1000, 700 and 390 px) to
+`$SHOTS_DIR` (default `/tmp/claude-0/shots`). It builds first when the build is old, starts the app once, signs in once,
+and fails when a picture scrolls sideways or has a table wider than the screen. `pnpm shots --help` lists the options.
+Write no spec to take pictures: the options show what a spec would.
+
+- `--demo` loads the demo household; `--fake-bank` links the fake bank (a joint account, a card with a limit and a
+  possible loan from the payments, see [the fake bank](#the-fake-bank)). With both, the household holds both.
+- `--answers file.mjs` changes what the API answers: the default export maps a path (`/api/dashboard`) to a function from
+  the answer to the answer to show. It shows a state no household has, and fails when no page asked for a path.
+- `--steps file.mjs` runs `async (page, route) => {}` for every picture, after the page has loaded: open a row, pick a month.
+- `--member` (with `--fake-bank`) makes a second member, Eero, who links the fake bank too, so the joint account has two
+  users and the view switch shows. `--parts 60:40` says the use of the joint account as the first member would in
+  Asetukset > Tilit; without it the bank's own answer stands (both members and the other holder, a third each). `--loan`
+  has the second member save the mortgage the joint account's payments propose, which the first member's pages then mark
+  as typed in by another member. The pictures are the first member's.
+- `--scope own|household` sets the view switch, which shows when the household has a shared account. `--name label` adds
+  the label to the file names, so that two states do not overwrite each other.
+
+```bash
+pnpm shots overview "reports?tab=income" --demo --widths 1280,390
+pnpm shots settings --fake-bank --name bank
+pnpm shots overview transactions --fake-bank --member --parts 60:40 --scope household --widths 1280,390 --name joint
+pnpm shots overview --demo --answers tools/shots-examples/answers.mjs --steps tools/shots-examples/steps.mjs --name overspent
+```
 
 ### Golden files
 

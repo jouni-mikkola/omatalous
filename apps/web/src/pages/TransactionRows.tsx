@@ -28,8 +28,14 @@ export function byDay(items: TransactionItem[]): { day: string; items: Transacti
   return days;
 }
 
+/** A row as /api/transactions gives it. In the own view a row of a joint account also carries the viewer's part of the bank's amount. */
+export type ListedRow = TransactionItem & { partCents?: number };
+
+/** The viewer's part of a joint account's row, told beside the bank's amount; null for a row that is all theirs. */
+const partOfRow = (t: ListedRow): string | null => (t.partCents === undefined || t.partCents === t.amountCents ? null : `osuutesi ${money(t.partCents)}`);
+
 interface RowProps {
-  t: TransactionItem;
+  t: ListedRow;
   categories: Category[];
   categoryLabel: string;
   pending: string | null;
@@ -65,6 +71,7 @@ function RowCategory({ t, categories, categoryLabel, pending, onCategory, phone 
 export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { account: string }) {
   const { t } = row;
   const detail = [t.counterparty, t.description].filter(Boolean).join(" · ");
+  const part = partOfRow(t);
   return (
     <tr>
       <td style={{ whiteSpace: "nowrap" }}>{date(t.bookingDate)}</td>
@@ -79,7 +86,10 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
       <td className="tx-category">
         <RowCategory {...row} />
       </td>
-      <td className={`num ${t.amountCents > 0 ? "amount-in" : ""}`}>{money(t.amountCents)}</td>
+      <td className={`num ${t.amountCents > 0 ? "amount-in" : ""}`}>
+        {money(t.amountCents)}
+        {part && <div className="sub tx-part">{part}</div>}
+      </td>
     </tr>
   );
 });
@@ -87,6 +97,7 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
 /** A phone row: the merchant and the amount, then the category. The day is the header above it. */
 export const TxItem = memo(function TxItem(row: RowProps) {
   const { t } = row;
+  const part = partOfRow(t);
   return (
     <li className="tx-item">
       <div className="tx-main">
@@ -97,6 +108,7 @@ export const TxItem = memo(function TxItem(row: RowProps) {
       </div>
       <div className="tx-cat">
         <RowCategory {...row} phone />
+        {part && <span className="tx-part">{part}</span>}
       </div>
     </li>
   );

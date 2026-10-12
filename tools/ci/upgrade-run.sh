@@ -6,7 +6,15 @@
 # Installs the baseline version (a release tag or commit) as a real git clone, loads data through its API,
 # updates it to the current checkout the way a user of that version would, then rehearses what the next release
 # needs from this checkout's update.sh: update, rollback, update again, a failing build, a failing migration.
-# Needs Docker, git, curl, node. The ports are fixed (8080), so run it on a machine where that is free (CI).
+# Needs Docker, git, curl, node. The install listens on port 8080 and has the names docker-compose.yml gives without a
+# key, so run it on a machine where those are free (CI), or give it a port and a name of its own:
+#
+# UPGRADE_PORT=<port> and UPGRADE_PROJECT=<name>: the install gets that port and is that Compose project, with its
+# container and image named after it, the way a second instance on one machine is set up: HOST_PORT, INSTANCE_NAME and
+# COMPOSE_PROJECT_NAME in its .env. This script carries them in its own environment too, so that a baseline script
+# that lost a key could not reach the install of another rehearsal. Several rehearsals then run at once
+# (tools/ci/local-proof.sh). A baseline whose docker-compose.yml reads no such key is refused before anything is
+# installed. The drills stand on the defaults, so the rehearsal they follow takes neither.
 #
 # UPGRADE_BUILD_SHIM=<script>: run in the install directory before every update or build (argument "baseline" for
 # the first build, "next" before an update), for machines that need build settings that are not part of the
@@ -20,7 +28,16 @@ DEV=$WORK/dev
 DIR=$WORK/talous # not named banking-app: names must follow the compose defaults
 # shellcheck disable=SC2034 # read in lib.sh (api)
 JAR=$WORK/jar
-URL=http://127.0.0.1:8080
+PORT=${UPGRADE_PORT:-8080}
+PROJECT=${UPGRADE_PROJECT:-}
+URL=http://127.0.0.1:$PORT
+# what docker-compose.yml names the container, the image and the data volume: its defaults, or after the project
+NAME=${PROJECT:-banking-app}
+VOLUME=${PROJECT:-talous}_banking-data
+# the .env lines of an install with a port or a name of its own
+MOVED=()
+[[ $PORT == 8080 ]] || MOVED+=("HOST_PORT=$PORT")
+[[ -z $PROJECT ]] || MOVED+=("INSTANCE_NAME=$PROJECT" "COMPOSE_PROJECT_NAME=$PROJECT")
 NODE=(node --disable-warning=ExperimentalWarning)
 export GIT_AUTHOR_NAME=ci GIT_AUTHOR_EMAIL=ci@example.invalid GIT_COMMITTER_NAME=ci GIT_COMMITTER_EMAIL=ci@example.invalid
 PASS='ci-salasana-123456'
@@ -102,6 +119,15 @@ run_update() {
 }
 said() { grep -qi -- "$1" "$WORK/update.log"; }
 
+# Before the install folder exists: the cleanup of a run that failed takes down the Compose project of that folder,
+# and a baseline that cannot take the keys would be the project of the defaults, which another rehearsal may be running.
+if ((${#MOVED[@]})); then
+  for key in HOST_PORT INSTANCE_NAME; do
+    [[ $(git -C "$SRC" show "$B:docker-compose.yml" 2>/dev/null) == *"\${$key"* ]] \
+      || fail "the docker-compose.yml of $B does not read $key, so this baseline runs only on port 8080 with the default names (set no UPGRADE_PORT and no UPGRADE_PROJECT)"
+  done
+fi
+
 log "baseline $B as a git install"
 git init -q --bare "$REMOTE"
 git -C "$SRC" push -q "$REMOTE" HEAD:refs/heads/ci
@@ -113,6 +139,10 @@ OLD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
 # knows releases would ask GitHub for the newest one and stop, since that tag is not in this folder. An older
 # baseline does not read the line.
 printf 'SETUP_CODE=ci-setup-code-12345\nTALOUS_CHANNEL=source\n' >"$DIR/.env"
+if ((${#MOVED[@]})); then
+  printf '%s\n' "${MOVED[@]}" >>"$DIR/.env"
+  export "${MOVED[@]}"
+fi
 shim baseline
 dc up -d --build
 wait_up
@@ -142,10 +172,11 @@ logged_in
 login_works
 [[ $(dc exec -T banking ls /data/backups | grep -c '^pre-') -ge 1 ]] || fail "no database copy was made"
 migrations | grep '^0004_' >/dev/null || fail "migrations did not run"
-docker image inspect banking-app:latest >/dev/null || fail "image name changed"
-docker ps --format '{{.Names}}' | grep -x banking-app >/dev/null || fail "container name changed"
-docker volume ls -q | grep -x talous_banking-data >/dev/null || fail "volume name changed"
-! grep -q '^INSTANCE_NAME=' "$DIR/.env" || fail "INSTANCE_NAME was written into .env"
+docker image inspect "$NAME:latest" >/dev/null || fail "image name changed"
+docker ps --format '{{.Names}}' | grep -x "$NAME" >/dev/null || fail "container name changed"
+docker volume ls -q | grep -x "$VOLUME" >/dev/null || fail "volume name changed"
+# an install with the default names has no such line; a named one was given it above
+[[ -n $PROJECT ]] || ! grep -q '^INSTANCE_NAME=' "$DIR/.env" || fail "INSTANCE_NAME was written into .env"
 git -C "$DIR" diff --quiet || fail "the working tree is dirty"
 
 # What the baseline stored of a joint account reads as one, and a use said through the route is stored as two rows

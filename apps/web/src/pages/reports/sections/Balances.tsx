@@ -3,6 +3,7 @@ import { ACCOUNTS_LESS_DEBT, SAME_DEBT_TWICE } from "@banking/core";
 import { useState } from "react";
 import { LineChart } from "../../../charts/LineChart.tsx";
 import { date, money, monthLabel, monthLong } from "../../../format.ts";
+import { ownPart, partText } from "../../../part.ts";
 import { TableToggle } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -11,7 +12,7 @@ import { overdraftTwice } from "./Loans.tsx";
 const TOTAL_LABEL = "Yhdistetyt tilit yhteensä, arvio";
 
 /** The saved loans of the line. A loan linked to an account is in the accounts' total already, so with one the line says which loans its figure holds. */
-const savedLabel = (household: boolean, linked: boolean) => `${household ? "omat " : ""}${linked ? "tiliin liittämättömät " : ""}${household ? "tallennetut lainasi" : "tallennetut lainat"}`;
+const savedLabel = (linked: boolean) => `${linked ? "tiliin liittämättömät " : ""}tallennetut lainat`;
 
 function Balances({ ctx }: SectionProps) {
   const r = ctx.data.balances;
@@ -29,7 +30,7 @@ function Balances({ ctx }: SectionProps) {
       {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
         <p className="muted">
           {ACCOUNTS_LESS_DEBT.label} tänään {money(r.accountsLessDebt[last]!)}: tilit yhteensä {money(r.total[last]!)},{" "}
-          {savedLabel(ctx.scope === "household", ctx.data.loans.loans.some((l) => l.linkedAccount !== null))} {money(r.debt.savedCents)}. {ACCOUNTS_LESS_DEBT.sub}
+          {savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))} {money(r.debt.savedCents)}. {ACCOUNTS_LESS_DEBT.sub}
           {ctx.data.loans.maybeTwice.length > 0 && ` ${SAME_DEBT_TWICE}: katso Lainat.`}
           {ctx.data.loans.overdraftTwice.map((t) => ` ${overdraftTwice(t)}`).join("")}
         </p>
@@ -41,11 +42,16 @@ function Balances({ ctx }: SectionProps) {
               <tr>
                 <th>Kuukausi</th>
                 <th className="num">Yhteensä, arvio</th>
-                {r.accounts.map((a) => (
-                  <th key={a.accountId} className="num">
-                    {a.name}
-                  </th>
-                ))}
+                {r.accounts.map((a) => {
+                  // the figures of an account at a part are that part: the own view only, Koko talous counts it whole
+                  const part = partText(ctx.scope === "own" ? ownPart(ctx.meta, a.accountId) : undefined, "account");
+                  return (
+                    <th key={a.accountId} className="num">
+                      {a.name}
+                      {part && <div className="small muted">{part}</div>}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

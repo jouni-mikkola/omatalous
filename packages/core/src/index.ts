@@ -11,6 +11,7 @@
  */
 export * from "./types.ts";
 export * from "./account-use.ts";
+export { suggestWeights } from "./account-use-suggest.ts";
 export { holdersIn, userNameOf } from "./person-names.ts";
 export * from "./dates.ts";
 export * from "./stats.ts";

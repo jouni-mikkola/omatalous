@@ -1,19 +1,41 @@
 /**
  * Builds and caches the analysis context (enriched transactions + recurring
- * series) per user and scope. A cache entry is valid while the data versions
+ * series) per user and view. A cache entry is valid while the data versions
  * it was built from are unchanged (the user's own, the owners' of shared
- * accounts in view, and the instance's), so a dashboard request after the
+ * accounts in view, and the instance's) and the viewer's parts of the accounts are, so a dashboard request after the
  * first one only filters and sums. The cache holds the context only: the dashboard and the reports are built for
  * each request, with the balances and the user's marks, expected bills and loans from `requestInputs`, so those need no
  * data version.
  */
-import { type Account, type AnalysisContext, type BalanceInput, createContext, detectTransfers, type UserInputs } from "@banking/core";
+import {
+  type Account,
+  type AccountUse,
+  type AnalysisContext,
+  applyUse,
+  type BalanceInput,
+  billCents,
+  createContext,
+  detectTransfers,
+  isNone,
+  isWhole,
+  type Part,
+  partCents,
+  type UserInputs,
+} from "@banking/core";
+import type { OwnRows } from "../db/finance-repo.ts";
 import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
+import { usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
+import { loansInView } from "./loans-in-view.ts";
 
-/** own = my accounts; household = mine + accounts other members shared with me. */
+/**
+ * own = what I use: my accounts and the ones shared with me that I have a part of, a joint account at my part, and
+ * nothing of an account somebody else uses alone. household = mine + accounts other members shared with me, each whole.
+ */
 export type Scope = "own" | "household";
+/** What a cache entry holds: a scope, or `used`: the accounts of the own view with their rows whole, for advice on what the household pays together. */
+export type View = Scope | "used";
 
 export function parseScope(value: string | undefined): Scope {
   return value === "household" ? "household" : "own";
@@ -24,11 +46,17 @@ export interface ScopeAccount extends StoredAccount {
   ownerName: string | null;
   /** My own copy of a joint account the partner linked too (household view only). */
   joint?: boolean;
+  /** Who uses the account. */
+  use?: AccountUse;
+  /** What the view counts of the account: the viewer's part in the own view. Left out, the account counts whole. */
+  part?: Part;
 }
 
 export interface ScopeData {
   ctx: AnalysisContext;
   accounts: ScopeAccount[];
+  /** The rows the view counts otherwise than they are stored, by row id: what the sums read in SQL follow. */
+  told: OwnRows["told"];
 }
 
 /** Cached transaction rows over all entries. A context costs about 0.8 KB a row, so this is roughly 200 MB. */
@@ -37,7 +65,7 @@ const MAX_CACHED_ROWS = 250_000;
 const IDLE_MS = 60 * 60_000;
 
 interface Entry {
-  /** The data versions it was built from (instance, the user and the owners of the shared accounts in view). */
+  /** What it was built from: the data versions (instance, the user and the owners of the shared accounts in view) and the viewer's part of each account. */
   version: string;
   today: string;
   data: Promise<ScopeData>;
@@ -54,7 +82,7 @@ export interface CacheOptions {
 }
 
 /**
- * One entry per user and scope. The day and the data versions are kept in the entry, so a new day or a change
+ * One entry per user and view. The day and the data versions are kept in the entry, so a new day or a change
  * replaces it where a key with the day in it left the old one in memory until the entry count ran out. The
  * budget counts rows, not entries: a household with long histories fills it sooner than a small one. The
  * least recently used entries go first, and the entry just asked for always stays.
@@ -76,17 +104,17 @@ export class AnalysisCache {
     return { entries: this.entries.size, rows: [...this.entries.values()].reduce((n, e) => n + e.rows, 0) };
   }
 
-  async get(s: Services, userId: string, requested: Scope): Promise<ScopeData> {
+  async get(s: Services, userId: string, requested: View): Promise<ScopeData> {
     const today = s.today();
-    // the household view of a member nobody shares with is their own view: one entry, not two
-    const shared = requested === "household" ? await sharedInView(s, userId) : [];
-    const scope: Scope = shared.length ? "household" : "own";
-    const version = await s.settings.dataVersionOf([userId, ...shared.map((a) => a.userId)]);
-    // which accounts are in view belongs to the version: a share that changes it must not serve the old view
-    const versionKey = shared.length ? `${version}|${shared.map((a) => a.id).sort().join(",")}` : version;
-    const key = `${userId}:${scope}`;
-    // shares that ended: the old household entry would only wait for the idle limit
-    if (requested === "household" && scope === "own") this.entries.delete(`${userId}:household`);
+    // a view with nothing of its own to show is the own view: one entry, not two
+    const inView = await accountsInView(s, userId, requested);
+    const version = await s.settings.dataVersionOf([userId, ...inView.accounts.map((a) => a.userId)]);
+    // which accounts are in view and at what part belongs to the version: a share or a use that changes it must not
+    // serve the old view, and a use derived from the holders' names changes with no data version moving
+    const versionKey = `${version}|${[...inView.parts].map(([id, part]) => `${id}:${part.from}-${part.to}/${part.of}`).sort().join(",")}`;
+    const key = `${userId}:${inView.view}`;
+    // shares or parts that ended: the old entry would only wait for the idle limit
+    if (requested !== inView.view) this.entries.delete(`${userId}:${requested}`);
     const now = this.clock();
     const hit = this.entries.get(key);
     // a build in progress is shared too: the dashboard and reports often ask at once
@@ -99,7 +127,7 @@ export class AnalysisCache {
       return hit.data;
     }
 
-    const entry: Entry = { version: versionKey, today, data: loadScope(s, userId, scope, today, shared), rows: 0, lastUsed: now };
+    const entry: Entry = { version: versionKey, today, data: loadScope(s, userId, inView, today), rows: 0, lastUsed: now };
     this.entries.set(key, entry);
     // a failed build is not kept
     entry.data.catch(() => this.entries.get(key) === entry && this.entries.delete(key));
@@ -126,49 +154,120 @@ export class AnalysisCache {
   }
 }
 
-async function loadScope(s: Services, userId: string, scope: Scope, today: string, shared: readonly ScopeAccount[]): Promise<ScopeData> {
-  const repo = s.finance(userId);
-  const own = await repo.listAccounts();
-  let accounts: ScopeAccount[] = own.map((a) => ({ ...a, ownerName: null }));
-  let txs: StoredTransaction[] = await repo.allTransactions();
+/** The accounts of a view as they are read. */
+interface InView {
+  /** The view that is read: the one asked for, or the own view when that one would hold the same. */
+  view: View;
+  /** The accounts in it, each with its use and what the view counts of it. */
+  accounts: ScopeAccount[];
+  /** The viewer's own accounts the view leaves out: somebody else uses them alone. */
+  left: ScopeAccount[];
+  /** The viewer's part of every account the viewer may see, by account id. */
+  parts: Map<string, Part>;
+}
 
-  if (scope === "household" && shared.length) {
-    // a joint account the partner linked too is left out of `shared` (sharedInView): flag my copy, so it is never split to a person
-    const partners = new Set((await s.household.sharedWith(userId)).map((a) => a.identity).filter(Boolean));
-    accounts = [...accounts.map((a) => (a.identity && partners.has(a.identity) ? { ...a, joint: true } : a)), ...shared];
-    txs = [...txs, ...(await s.household.transactionsOfAccounts(shared.map((a) => a.id)))];
-    txs = neutraliseTransfersBetweenMembers(txs, accounts);
+/**
+ * Which accounts a view holds. The own view: the viewer's accounts and the ones shared with them, each when the viewer
+ * has a part of it. The household view: all of them, whole; it is the own view when nobody shares with the viewer and
+ * every account of theirs is theirs whole. `used` is the own view's accounts counted whole, and the own view itself
+ * when that cuts nothing.
+ */
+async function accountsInView(s: Services, userId: string, requested: View): Promise<InView> {
+  const own = await s.finance(userId).listAccounts();
+  const offered = await s.household.sharedWith(userId);
+  const shared = offered.filter(notAmong(own));
+  const uses = await usesInView(s, userId, [...own, ...shared]);
+  const parts = new Map([...uses].map(([id, { part }]) => [id, part]));
+  const seen = (a: ScopeAccount): ScopeAccount & { part: Part } => ({ ...a, ...uses.get(a.id)! });
+  const mine = own.map((a) => seen({ ...a, ownerName: null }));
+  const all = [...mine, ...shared.map(seen)];
+
+  if (requested === "household" && (shared.length || mine.some((a) => !isWhole(a.part)))) {
+    // a joint account the partner linked too is left out of `shared`: flag my copy, so it is never split to a person
+    const partners = new Set(offered.map((a) => a.identity).filter(Boolean));
+    const whole = all.map(({ part: _part, ...a }): ScopeAccount => (a.userId === userId && a.identity && partners.has(a.identity) ? { ...a, joint: true } : a));
+    return { view: "household", accounts: whole, left: [], parts };
   }
-  return { ctx: createContext(txs, accounts, today), accounts };
+  const accounts = all.filter((a) => !isNone(a.part));
+  const left = mine.filter((a) => isNone(a.part));
+  if (requested === "used" && accounts.some((a) => !isWhole(a.part))) return { view: "used", accounts: accounts.map(({ part: _part, ...a }) => a), left, parts };
+  return { view: "own", accounts, left, parts };
+}
+
+/** A row cut to a part, as the bank booked it. */
+function uncut(t: StoredTransaction): StoredTransaction {
+  if (t.wholeCents === undefined) return t;
+  const { wholeCents: _whole, ...row } = t;
+  return { ...row, amountCents: billCents(t) };
+}
+
+async function loadScope(s: Services, userId: string, inView: InView, today: string): Promise<ScopeData> {
+  const { view, accounts, left, parts } = inView;
+  const theirs = accounts.filter((a) => a.userId !== userId).map((a) => a.id);
+  let txs: readonly StoredTransaction[] = await s.finance(userId).allTransactions();
+  if (theirs.length) txs = [...txs, ...(await s.household.transactionsOfAccounts(theirs))];
+  const told = new Map<string, Pick<StoredTransaction, "category" | "categorySource" | "isTransfer">>();
+  if (view === "household") {
+    if (theirs.length) txs = neutraliseTransfersBetweenMembers(txs, accounts);
+  } else {
+    // the rows of an account left out say where the money of the others went, so they are read and then dropped
+    const read = [...accounts, ...left];
+    const stored = new Map(txs.map((t) => [t.id, t]));
+    txs = applyUse(txs, read, parts, new Map(read.map((a) => [a.id, a.userId])));
+    // this is the one place that decides what a row counts as in the view: the sums read in SQL are handed the answer
+    for (const { id, category, categorySource, isTransfer } of txs) {
+      const was = stored.get(id)!;
+      if (was.category !== category || was.isTransfer !== isTransfer) told.set(id, { category, categorySource, isTransfer });
+    }
+    if (view === "used") txs = txs.map(uncut);
+  }
+  return { ctx: createContext(txs, accounts, today), accounts, told };
+}
+
+/**
+ * What the lists and sums read in SQL need of a view: the other members' accounts in it, and for the own view the
+ * accounts it leaves out, the parts it cuts amounts by and the rows it counts otherwise than they are stored. The same
+ * accounts and the same rows as the cached context of the view: the rows come from it. A view that cuts nothing
+ * counts every row as it is stored, so no context is asked for.
+ */
+export async function rowsInView(s: Services, userId: string, scope: Scope): Promise<{ shared: ScopeAccount[]; own: OwnRows }> {
+  const { view, accounts, left } = await accountsInView(s, userId, scope);
+  const parts = new Map(accounts.flatMap((a): [string, Part][] => (a.part && !isWhole(a.part) ? [[a.id, a.part]] : [])));
+  const told: OwnRows["told"] = view === "own" && (left.length || parts.size) ? (await s.analysis.get(s, userId, "own")).told : new Map();
+  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), parts, told } };
 }
 
 /**
  * What a dashboard or report request needs next to the cached context: the balances of the accounts in view and the
- * user's own marks, expected bills and loans (the household view uses the viewer's). Read for each request, never
- * cached.
+ * user's own marks and expected bills, and the loans of the view (`loansInView`). Read for each request, never
+ * cached. A balance and a credit limit are the viewer's part where the view counts the account at a part.
  */
 export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
   const repo = s.finance(userId);
-  const [marks, expectedBills, loans] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), repo.listLoans()]);
+  const [marks, expectedBills, loans] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts)]);
   // the books count local days: a balance given at 1.30 already holds that morning's rows
   const timezone = s.instance.current.timezone;
   const localDay = (at: string | null) => {
     const when = at ? new Date(at) : null;
     return when && !Number.isNaN(when.getTime()) ? todayIn(timezone, when) : null;
   };
-  const balances = accounts.map((a) => ({
+  const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
+  const balances = accounts.map((a): BalanceInput => ({
     id: a.id,
     name: a.ownerName ? `${a.name} (${a.ownerName})` : a.name,
     type: a.type,
-    balanceCents: a.balanceCents,
+    balanceCents: counted(a.balanceCents, a),
     ownerName: a.ownerName,
     balanceAt: localDay(a.balanceAt),
     // another member's account carries no bank, as the account lists leave it out (routes/finance.ts); its mask and limit
     // are in `sharedAccounts` of /meta already, since the member may see the account it was shared
     bank: a.ownerName ? null : (a.bank ?? null),
     cardMask: a.cardMask,
-    creditLimitCents: a.creditLimitCents,
-    ...(a.joint ? { joint: true } : {}),
+    creditLimitCents: counted(a.creditLimitCents, a),
+    // an account with two users is nobody's alone, whoever linked it
+    ...(a.joint || (a.use?.users.length ?? 0) > 1 ? { joint: true } : {}),
+    ...(a.use ? { use: a.use } : {}),
+    ...(a.part ? { part: a.part } : {}),
   }));
   return { balances, inputs: { marks, expectedBills, loans } };
 }
@@ -176,13 +275,18 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
 /**
  * Accounts other members shared with me, as the household view counts them.
  * A joint account linked by both partners is the same real account: only my
- * own copy is kept. The dashboard, the transaction list and the export all
- * use this, so none of them shows a joint account twice.
+ * own copy is kept. The account lists use this, and the views of the dashboard,
+ * the transaction list and the export keep the same rule (`accountsInView`),
+ * so none of them shows a joint account twice.
  */
 export async function sharedInView(s: Services, userId: string, own?: readonly StoredAccount[]): Promise<ScopeAccount[]> {
-  const mine = own ?? (await s.finance(userId).listAccounts());
-  const ownIdentities = new Set(mine.map((a) => a.identity).filter(Boolean));
-  return (await s.household.sharedWith(userId)).filter((a) => !a.identity || !ownIdentities.has(a.identity));
+  return (await s.household.sharedWith(userId)).filter(notAmong(own ?? (await s.finance(userId).listAccounts())));
+}
+
+/** Whether an account is another real account than each of `own`: my copy of a joint account wins over the partner's. */
+function notAmong(own: readonly StoredAccount[]): (a: StoredAccount) => boolean {
+  const identities = new Set(own.map((a) => a.identity).filter(Boolean));
+  return (a) => !a.identity || !identities.has(a.identity);
 }
 
 /**
@@ -191,10 +295,8 @@ export async function sharedInView(s: Services, userId: string, own?: readonly S
  * household view both legs are internal: mark them as transfers (in memory
  * only, nothing is written back).
  */
-function neutraliseTransfersBetweenMembers(txs: StoredTransaction[], accounts: Account[]): StoredTransaction[] {
+function neutraliseTransfersBetweenMembers(txs: readonly StoredTransaction[], accounts: Account[]): StoredTransaction[] {
   // the issuer fallback would let a member's card make my unconnected card's bill disappear
   const transfers = detectTransfers(txs, accounts, { issuerFallback: false });
   return txs.map((t): StoredTransaction => (transfers.has(t.id) && !t.isTransfer ? { ...t, isTransfer: true, category: "transfer" } : t));
 }
-
-

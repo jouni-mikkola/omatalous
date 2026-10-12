@@ -17,6 +17,7 @@ import { LoansRepo } from "./finance/loans.ts";
 import { MarksRepo } from "./finance/marks.ts";
 import { type MerchantFilter, MerchantsRepo } from "./finance/merchants.ts";
 import { OptimiseRepo } from "./finance/optimise.ts";
+import type { OwnRows } from "./finance/part-sql.ts";
 import { RulesRepo } from "./finance/rules.ts";
 import { SyncRunsRepo } from "./finance/sync-runs.ts";
 import { type TransactionFilter, TransactionListRepo } from "./finance/transaction-list.ts";
@@ -27,6 +28,7 @@ import type { Db, Statement } from "./types.ts";
 export { WRITE_CHUNK } from "./finance/context.ts";
 export type { NewAccount } from "./finance/accounts.ts";
 export type { MerchantFilter, MerchantHistory, MerchantList, MerchantSummary, UncategorisedMerchant } from "./finance/merchants.ts";
+export type { OwnRows } from "./finance/part-sql.ts";
 export type { TransactionFilter } from "./finance/transaction-list.ts";
 export { bankSignature, type StoredParty, searchText } from "./finance/transactions.ts";
 
@@ -114,8 +116,8 @@ export class FinanceRepo {
   merchantNames() { return this.merchants.merchantNames(); }
   matchedRowsOutside(merchants: readonly string[]) { return this.merchants.matchedRowsOutside(merchants); }
   uncategorisedSpending() { return this.merchants.uncategorisedSpending(); }
-  merchantHistory(merchant: string, accountIds?: readonly string[]) { return this.merchants.merchantHistory(merchant, accountIds); }
-  uncategorisedMerchants(limit?: number) { return this.merchants.uncategorisedMerchants(limit); }
+  merchantHistory(merchant: string, accountIds?: readonly string[], own?: OwnRows) { return this.merchants.merchantHistory(merchant, accountIds, own); }
+  uncategorisedMerchants(limit?: number, own?: OwnRows) { return this.merchants.uncategorisedMerchants(limit, own); }
   merchantSummaries(f: MerchantFilter) { return this.merchants.merchantSummaries(f); }
   hasMerchant(merchant: string) { return this.merchants.hasMerchant(merchant); }
   industryCodes(sharedOwners?: readonly string[]) { return this.merchants.industryCodes(sharedOwners); }

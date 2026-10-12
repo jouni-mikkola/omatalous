@@ -112,8 +112,8 @@ sentences under it and nothing told as a share of the income.
 | Cash withdrawal | spending ("Käteisnostot") | |
 | Bank fees | spending ("Pankkikulut") | |
 | Pending card payment | counted, replaced by the booked row on the next fetch | your own category choice moves with it |
-| Money between members in the *Koko talous* view | transfer | it stays in the household |
-| Joint account connected by both | one copy in the *Koko talous* view | matched by IBAN |
+| Money between members in the *Koko talous* view | transfer | it stays in the household. In a member's own view a movement to or from an account the member has no part of is money between people, see *Joint accounts* |
+| Joint account connected by both | one copy in the *Koko talous* view, the viewer's own, whole. In a member's own view it is counted at the member's part | the copies are the same real account when the bank gives them one identity (its own hash, else the IBAN). See *Joint accounts* |
 
 ## How a row is read
 
@@ -371,8 +371,8 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   and a level leaves its one-offs out, so the categories' levels add up to more or less than the usual month. The
   difference is in *Muut* as *Kuukausien vaihtelu*, which is no cause and can make the usual of *Muut* negative.
 - The card of the days to the payday on Yhteenveto counts to the next payday (*The days to the payday* below). *Tulossa* on Laskut keeps
-  its 30 days: it lists the subscriptions and bills of the next 30 days from the same rows as the card, whatever the
-  card's window is.
+  its 30 days: it lists the subscriptions and bills of the next 30 days from the same series as the card, whatever the
+  card's window is and whichever account pays them. It has no pay, no card bill and no transfer.
 - Insights say what changed in the period. A month is compared with its usual level (the median of the
   six months before) and shown only when it is outside all of them. A longer period is compared with the
   previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.
@@ -382,7 +382,9 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 Yhteenveto opens with the card *Varallisuus*, then *Menot* when the running month is shown, then the card of the days
 to the payday. The figures on the first two are core's and the page shows them as given.
 
-**Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out.
+**Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out. In a member's own view a joint account, a card
+or a loan that other members use is counted at the member's part, and its row says so (*osuutesi 60 %*, see *Joint
+accounts*).
 
 - **Tilit.** Checking, savings and other accounts, each with its balance from the day walk. *Yhteensä* is
   `accountsCents`: the known balances of the accounts added together. An account the bank gave no balance is left out of
@@ -428,22 +430,42 @@ The card on Yhteenveto that counts the days to the payday answers one question: 
   with no fixed day, follow the series' own dates. The window runs from today to the day before the payday.
 - **Three states** (`reason`). *payday*: the window ends the day before the payday, and the card is titled with the day
   (*Palkkapäivä* and the day). When the payday is today or tomorrow the window is today alone, and today's balance is the
-  last one before the pay. *none*: there is no regular income, or its next pay is more than 45 days away
+  last one before the pay. A pay that was expected on a day gone by and is not late yet is waited for today: the window
+  is today alone, and the title keeps the day it was expected, under it *Palkka ei ole vielä tullut* (`Payday.expected`).
+  *none*: there is no regular income, or its next pay is more than 45 days away
   (`MAX_PAYDAY_DAYS`), so the window is the next 30 days (*Seuraavat 30 päivää*). *late*: that pay is more than five days
   late (`OVERDUE_DAYS`), so the window is 30 days and the card says since when the pay was expected.
-- **What the window holds.** The subscriptions and bills that the history shows (also savings plans, which leave the
-  checking account), the bills the household typed in while they are still to pay (one that the history shows as a
-  series is left out, and so is one for which a row of about the same amount, within 5 %, was booked from 31 days
-  before its date up to today: `expectedBillRows` in `analysis/forecast.ts`), and other pay that lands inside it. The
-  payday itself is no row. With a checking balance, own and shared, and one complete month, it gives the balance at the
-  end of each day. It starts from today's balance as Saldot has it (the bank's balance with
-  the rows booked since), adds other pay, takes off the bills and takes off the usual everyday spending per day from
-  tomorrow on (the median of the last six complete months, without fixed costs). Start balance plus pay less bills less
-  everyday spending is the last day's balance, to the cent. The lowest day is named when it is below zero or below a
-  day of everyday spending.
-- **What it does not hold.** The bill of a connected card, which is a transfer: the card's purchases are in the
-  everyday spending day by day instead, so the line does not drop on the day the bill is paid. The bill of a card that
-  is not connected is a bill like any other when the history shows it as a series.
+- **Which accounts it counts** (`countedAccounts` in `analysis/ahead-moves.ts`, `counts` on the balance line). *all*:
+  every checking account in view, which is Koko talous and an own view with no joint account. *own*: the checking
+  accounts the member uses alone, while a joint account in view is left out. *part*: no checking account is the
+  member's alone, so the joint ones, at the member's part. The foot of the card says which when it is not *all*. The
+  payday is that of the whole view, whatever account the pay lands on. Everything else follows the counted accounts: a
+  charge is a row when one of them pays it, other pay when one of them gets it, and the usual everyday spending is what
+  they paid themselves. A bill the household typed in names no account and always counts.
+- **What the window holds.** What the counted accounts pay and get: the subscriptions and bills that the history shows
+  (also savings plans, which leave the checking account), the bills the household typed in while they are still to
+  pay (one that the history shows as a series is left out, and so is one for which a row of about the same amount,
+  within 5 %, was booked from 31 days before its date up to today: `expectedBillRows` in `analysis/forecast.ts`), other
+  pay that lands inside it, the bill of a connected card and a regular transfer to an account the window does not
+  count. The payday itself is no row. With a checking balance, own and shared, and one complete month, it gives the
+  balance at the end of each day. It starts from today's balance as Saldot has it (the bank's balance with the rows
+  booked since), adds other pay, takes off the bills, the card bills and the transfers, and takes off the usual
+  everyday spending per day from tomorrow on (the median of the last six complete months, without fixed costs). Start
+  balance plus pay less bills, card bills and transfers less everyday spending is the last day's balance, to the cent
+  (`AheadTotals`). The lowest day is named when it is below zero or below a day of everyday spending.
+- **A card's bill** is a row on the median day of the month of its last three bills (`expectedMoves` in
+  `analysis/ahead-moves.ts`). Its sum is what the card owes today when the last bill was paid in full, that is when it
+  is not late and covered what the card owed after the bill before it, and the page says *Käytetty luotto tänään*.
+  Otherwise it is the usual bill, the median of the last six, and the page says *Arvio aiemmista laskuista*. A bill up
+  to five days late sits on the first day. With fewer than three paid bills, or no bill for 62 days, there is no row.
+  The card's purchases are in its bill and not in the everyday spending.
+- **A regular transfer** to an account the window does not count (savings, a joint account, an account whose other leg
+  the rows do not show) is a row on its day when it is a monthly series of three payments or more. A transfer between
+  two counted accounts changes nothing.
+- **What it does not hold.** The bill of a card that is not connected is a bill like any other, when the history shows
+  it as a series. A savings plan to an account that is not connected is no transfer row and is counted once, as the
+  subscription it is. Money another member moves into a joint account is no row, so a member whose window starts from
+  the joint account's part runs low by the part of it.
 
 ## Reports
 
@@ -495,7 +517,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 | Next payment | The next payment of the plan in full, with its interest and its amortisation. It is never more than what is owed with its interest: the last payment is what is left. A loan that owes nothing has none, and neither has a bullet loan. A payment typed for a loan without a whole plan is told as typed, at most what is owed (with one interval's interest when the rate and the interval are known), and has no parts | `loanNextPayment` |
 | Payments a month | Each loan's next payment divided by its interval in months, to the nearest cent with a half cent up, added together. A loan that owes but has no payment with an interval is counted as missing. A bullet loan is counted apart: it pays interest and no instalment | `debtPaymentsPerMonth` |
 | A move of the reference rate | The payment and the next 12 months' interest with the rate moved by a number of points. The rate falls no lower than the loan's margin, and to zero when no margin was told. The figure says how far the rate moved. An annuity gets the payment that ends the loan on the due date it ends on now, a fixed instalment keeps its payment and takes longer, equal principal pays the new interest on top. Each is read from the schedule the next payment is read from, so the last payment is what is left. Told for a loan with a Euribor reference rate that owes and has a rate, one point down and one up. A fall the rate has no room for is left out | `loanRateScenario` |
-| The household's debts | Every saved loan, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
+| The household's debts | Every saved loan the view holds, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
 | Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |
 | A connected account as a loan | A connected card, or an account with a credit limit, read as a loan so that its debt and its use come from the same functions. The bank reports credit in use as a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank that reported a card's debt as a positive number would read as no debt. The id is `account:<account id>` | `creditAccountLoan` |
 | What a card cost | The bank's own charges on the card account in the complete months before a day, twelve at most. A charge worded as interest is interest, less the interest the bank took back and never below zero, and every other charge is a fee, and a late fee stays the late fee alert's. A month carried a balance when the bank charged interest in it. Nothing is scaled up for a card connected later | `cardCosts` |
@@ -513,6 +535,9 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 - A payment that does not cover its interest grows the balance. A plan that is not paid in 1 200 payments counts as
   never ending.
 - Nothing is estimated: a figure that needs a field the loan lacks is empty and names the field.
+- A loan can carry the day its rate is reviewed (*Koron tarkistuspäivä* in the loan's form, `Loan.rateReviewDate`). The
+  form shows it unless the reference rate is fixed, never requires it and keeps a day that has passed. No figure reads
+  it yet.
 - A saved loan can be tied to the connected card or loan account that is the same debt, in the loan's form (*Sama velka
   pankin tilillä*, offered when the household has such an account that no other loan holds). A linked pair counts once:
   in the debt total of Lainat, in the accounts less the debts of Saldot and in the Säästövinkit loan area. The balance
@@ -523,14 +548,14 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   Saldot before the account's first known balance the saved loan counts as typed.
 - A saved loan and an account that are not linked are both in the sums, so a debt the household saved and the bank also
   shows as an account is there twice. The Lainat report names each such set of saved loans once, with the accounts
-  beside it (`maybeTwice` in `reports/loans.ts`): a connected card beside every saved card and credit line that owes,
+  beside it (`maybeTwice` in `household-debts.ts`): a connected card beside every saved card and credit line that owes,
   whatever their names, and a connected loan account beside every saved loan that is no card. It says that removing the
   saved loan takes the second one out, and beside each of the household's own accounts it links to the loan's form with
   that account chosen, which counts the pair once. A linked loan or its account is not named. Saldot and the
   Säästövinkit loan area point to the report.
 - A checking account below zero is no loan: its overdraft is in the accounts' total and not in the debt total. Beside
   a saved credit line that owes it may be that credit, and then the accounts less the debts hold it twice
-  (`overdraftTwice` in `reports/loans.ts`). Lainat and Saldot say so where they show that figure, and that the right
+  (`overdraftTwice` in `household-debts.ts`). Lainat and Saldot say so where they show that figure, and that the right
   figure is then larger by the saved loan. They advise no step: removing the saved loan would take the debt out of the
   debt total, which holds it once.
 - The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä* when no card owes anything), the accounts less the debts and
@@ -541,8 +566,8 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   cards and loan accounts, a linked loan's among them, are in the accounts' total already. The figure holds no home, no investments and no other property, so it is not net worth and
   no page calls it that: the page says what is left out. It is empty for a month that ends before a saved loan's
   balance was told, and the same as the accounts' total without saved loans. Lainat and Saldot tell it for today.
-- The Lainat report (`reports/loans.ts`) shows only when the household saved a loan. In the household view the
-  accounts are the household's and the saved loans are the viewer's own, and the section says so. Its interest total
+- The Lainat report (`reports/loans.ts`) shows only when the household saved a loan. Which saved loans a view holds,
+  and at what part, is told in *Joint accounts*. Its interest total
   leaves out the loans that owe and have no rate (`loansWithoutRate`, the count Säästövinkit reads too), and its
   payments a month leave out the loans without a payment and an interval and a loan whose balance is dated after
   today: each says how many. The line of a move of the reference rate names the payment only when the move has one,
@@ -578,6 +603,112 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   after. Electricity bills are compared with the same months a year earlier and are at most likely, never confirmed, because
   the use behind them is a typed figure.
 
+## Joint accounts
+
+A joint account is a real account that more than one member of the household uses. A member's own view (*Oma talous*)
+counts it at the member's part, and *Koko talous* counts it whole. ADR 0016 says why. A part of an amount is worked out
+in one place, `partCents` in `account-use.ts`, and `accountsInView` in `services/analysis.ts` decides which accounts a
+view holds.
+
+**Who uses an account** (`deriveUse`, `saidUse` and `partOf` in `account-use.ts`, `usesInView` in
+`services/account-use.ts`)
+
+- Nobody has to say it. The bank's line of holders gives it on every read and the answer is stored nowhere. An account
+  with two holders or more is joint: each holder who is a member of the household is a user, the holders who are no
+  member are one user together, and a member who linked the account is always a user. Everyone weighs the same, so the
+  parts are equal. An account with one holder, none, or a line not read yet is used by the members who linked it, except
+  that an account whose one holder is another member is that member's alone (a child's account a parent linked).
+- A member is matched to a holder by the name the member's own accounts give. That name stays on the server: a page
+  gets display names.
+- The member who linked an account can say its use in *Asetukset > Tilit*: the users and the weight of each, typed as
+  euros a month ("600" and "400"). Only the ratio counts, and an empty field or 0 leaves a user out. *Palauta pankin
+  tiedoista* takes what was said back, and the bank's holders decide again. The page can propose weights from what each
+  user paid into the account in the last six complete months (`suggestWeights`), and stores them only when the member
+  takes them.
+- One statement holds for the real account, whoever linked a copy. A joint account that both partners linked reads the
+  same in both copies, and what either partner says replaces what was said. A statement gives nobody access to the
+  account: a user it names who cannot see the account sees nothing of it, and the page offers the share beside it.
+
+**What a member's own view holds** (`applyUse` in `account-use.ts`)
+
+- The accounts are the member's own and the ones shared with the member, each when the member has a part of it, and
+  each real account once (the member's own copy when both partners linked it). An account that other members use alone
+  is left out, whoever linked it.
+- A row of a joint account has the member's part as its amount and the bank's amount beside it (`wholeCents`), so every
+  report follows with no change in it. The sums read in SQL (the sums above the list on Tapahtumat, those of Kauppiaat)
+  use one expression that a test holds equal to `partCents`. Tapahtumat shows the bank's amount with the part beside
+  it, and the transaction export has the bank's amounts.
+- The balance and the credit limit of a joint account or a card are the member's part, so *Yhteensä* of Varallisuus and
+  a card's used and free credit follow.
+- Money a user pays into a joint account is a transfer: it pays for that user's part of what the account pays. Another
+  movement to or from an account of the household that the member has no part of is money between people (*Maksut
+  henkilöille*, *Maksut henkilöiltä*). A category set by hand is never changed, and two rows of one member that the
+  member's own categorisation left unpaired are never paired here.
+- A debt follows who uses the account behind it (`householdDebts`). A connected card or loan account has its own part,
+  a saved loan linked to one has that account's, and a saved loan with no account has the part of the account its
+  payments leave. A saved loan stays whole in the list of debts and each of its cent figures is cut once, at the end
+  (`debt-part.ts`), so the users' parts of its balance, payment and interest add up to the loan.
+- In Koko talous the income report splits a joint account's income between its users by their parts, and its *members*
+  list them. An account one member uses is that member's, whoever linked it. An own view has no split: its rows are
+  the member's part already.
+- Säästövinkit counts joint accounts whole in both views, because a contract is the household's and half an electricity
+  bill set beside a market price would be wrong advice, and the page says so. The match of a typed bill, the
+  match of a loan's payments and Säästövinkit read the bank's amount, `billCents`, and not the part.
+
+**Koko talous** counts every account whole: the member's own, also one that other members use alone, and the ones shared
+with the member. A joint account that both linked is there once, as the viewer's copy. Money between members is a
+transfer in it. It exists when somebody shares an account with the member, or when one of the member's own accounts is
+at less than the whole.
+
+**The figures add up.** For members who see the same accounts, one member's own view plus the other's is Koko talous,
+to the cent. The users' parts of a row add up to the row: a user's part is the cents up to the end of their range of the
+account less the cents up to its start, each rounded half up (`partCents`), and the ranges follow one another in the
+order of the user ids. So each part is within a cent of the exact share, and with two users a cent that cannot be
+split goes to the user whose id comes first. A case, with Aino and Eero saying 600 and 400, parts of 3/5 and 2/5:
+
+| | Aino's *Oma talous* | Eero's *Oma talous* | *Koko talous* |
+|---|---|---|---|
+| The joint account's balance | 600,01 € | 400,00 € | 1 000,01 € |
+| A mortgage paid from it, left | 89 999,99 € | 60 000,00 € | 149 999,99 € |
+| Its payment a month | 504,01 € | 336,00 € | 840,01 € |
+
+What adds up so: balances, debts, a loan's balance and its payment a month, spending and its curve over the days, the
+money out on Tapahtumat, and the income report (its *members* in Koko talous are the two own views' earned income).
+What does not: statistics that cannot add up (an average, a median, the smallest and largest of a month, a threshold,
+the usual spending), Tapahtumat's money in in Koko talous, and the payday window.
+
+**Loans** (`loansInView` in `services/loans-in-view.ts`)
+
+- A saved loan is its typist's: the list of loans and every change read the typist's own rows, and a change to another
+  member's loan is answered as for a loan that does not exist. Which account pays a loan is told by its series key alone
+  (`Loan.seriesKey`, read by `paidFrom`), the id of the payments' series, which holds the account they leave.
+- A view holds the viewer's own loans and, of the loans other members typed in, the ones paid from an account of the
+  view. In an own view that is a joint account the viewer and the typist both use, and the loan is cut by the viewer's
+  part of the account, so the users' parts add up to the loan. Koko talous and Säästövinkit count their accounts whole
+  and hold the loan whole, when the typist linked a copy of the account or is named a user of it at any weight. A
+  member who sees the account only by a share, never linked a copy and is not named a user keeps the loan alone in the
+  others' Koko talous.
+- A loan with no payments linked is its typist's alone in every view, and in an own view so is a loan paid from an
+  account one person uses.
+- A loan that two members typed in counts once. Of two loans paid by one series of payments a view holds the viewer's
+  own, or else the first typist's by user id. Two loans of one typist on one series both stay.
+- The row of another member's loan says whose it is (*Lisännyt Aino*, `Loan.typedBy`, the display name). The viewer sees
+  its name, lender, kind, balance, rate, plan and payments in Yhteenveto and in Raportit, and can neither list, change,
+  link nor remove it. It names the viewer's copy of the account, never an account the viewer cannot see.
+
+**A card another member linked** (the block "Money into a card" in `applyUse`). In an own view a payment that is the
+bill of a card another member linked is a transfer and not spending, as it is for the member who linked the card: the
+card's purchases are the spending, at the member's part of the card. The payment is the one of the same sum, within five
+days, out of an account of another member than the card's linker, which that member's own categorisation left open. It
+can leave that member's own account or their copy of a joint account. Without this the bill counted beside the
+purchases.
+
+**The payday window** follows the counted accounts (*Which accounts it counts* in *The days to the payday*). The windows
+of two members do not add up to Koko talous's, by design. A member with a checking account of their own does not count
+the joint account and sees a regular monthly transfer to it as a row, and the mortgage the joint account pays is no row
+there. Koko talous counts every account: the mortgage is a row, and a transfer between two counted accounts changes
+nothing. Each window answers whether that member's own money lasts to the pay.
+
 ## When it gets something wrong
 
 - Change the category in the transaction list. *Käytä samaa kategoriaa kauppiaan muissa tapahtumissa* also creates a
@@ -590,3 +721,20 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   matches whole words. Case does not matter, and ä and å match a, ö matches o.
 
 A category you set by hand never changes by itself, not even after an update.
+
+Known limits of the joint account:
+
+- The sums above the list on Tapahtumat go by the mark stored on a row. In Koko talous a payment between members, which
+  the first page counts as a transfer, can be in them: a partner's payment into a joint account is money in there.
+- A card that only one partner linked, its bill paid from the joint account: in the Koko talous of the partner who did
+  not link the card the bill is still counted beside the card's purchases. The own views and the linker's Koko talous
+  are right.
+- The same shape with a savings account (a joint account that both linked pays into a savings account one partner
+  linked and shared) is still spending in the other partner's own view.
+- In a payday window whose parts of the card and of the paying account differ, the card's row is the member's part of the
+  card's use, while the paying account falls by the member's part of the bill.
+- With a checking account of their own and the pay on the joint account, the payday card of a member waits for their part
+  of a pay, which the balance line never gets.
+- A saved loan linked to one person's account and paid from a joint one counts whole in its typist's own view and at a
+  part in the others', so the own views add up to more than the loan.
+- Two members with one display name are one line in the income report's split in Koko talous.

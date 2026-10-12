@@ -5,6 +5,7 @@ import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { intervalLabel, KIND_LABEL } from "../../../components/loans/labels.ts";
 import { Section } from "../../../components/Section.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, percent } from "../../../format.ts";
+import { partText, typedByText } from "../../../part.ts";
 import { hashOf } from "../../../routes.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
@@ -62,7 +63,8 @@ function scenario(s: RateScenario): string | null {
 }
 
 function Loan({ l }: { l: LoanRow }) {
-  const about = l.accountType ? `Yhdistetty tili · ${ACCOUNT_TYPE_LABEL[l.accountType] ?? l.accountType}` : [KIND_LABEL[l.kind], l.lender].filter(Boolean).join(" · ");
+  const kind = l.accountType ? `Yhdistetty tili · ${ACCOUNT_TYPE_LABEL[l.accountType] ?? l.accountType}` : [KIND_LABEL[l.kind], l.lender].filter(Boolean).join(" · ");
+  const about = [kind, partText(l.part, "debt"), typedByText(l.typedBy)].filter(Boolean).join(" · ");
   const pay = payment(l);
   const moves = l.scenarios.map(scenario).filter((line): line is string => line !== null);
   return (
@@ -99,22 +101,30 @@ interface Offer {
 
 /**
  * What the household can do about a debt that may be twice: link a saved loan to one of its own accounts, one link for
- * each loan beside each account. An account of another member is not offered, since only its owner's loan links to it.
+ * each loan beside each account. An account of another member is not offered, since only its owner's loan links to it,
+ * and neither is a loan another member typed in (`typists`, by loan id): its editor opens for its typist alone.
  */
-function offers(t: MaybeTwice, own: ReadonlySet<string>): Offer[] {
-  return t.loans.flatMap((l) =>
-    t.accounts
-      .filter((a) => own.has(a.id))
-      .map((a) => ({ label: `Liitä ${l.name} tiliin ${a.name}`, href: hashOf({ page: "settings", params: new URLSearchParams({ [LOAN_LINK_PARAM.loan]: l.id, [LOAN_LINK_PARAM.account]: a.id }), anchor: "lainat" }) })),
-  );
+function offers(t: MaybeTwice, own: ReadonlySet<string>, typists: ReadonlyMap<string, string>): Offer[] {
+  return t.loans
+    .filter((l) => !typists.has(l.id))
+    .flatMap((l) =>
+      t.accounts
+        .filter((a) => own.has(a.id))
+        .map((a) => ({ label: `Liitä ${l.name} tiliin ${a.name}`, href: hashOf({ page: "settings", params: new URLSearchParams({ [LOAN_LINK_PARAM.loan]: l.id, [LOAN_LINK_PARAM.account]: a.id }), anchor: "lainat" }) })),
+    );
 }
+
+/** Who typed in the saved loans of a set when none of them is the viewer's own: only they can remove one. Nobody when the viewer has a loan in it. */
+const removers = (t: MaybeTwice, typists: ReadonlyMap<string, string>): string[] => (t.loans.every((l) => typists.has(l.id)) ? [...new Set(t.loans.map((l) => typists.get(l.id)!))] : []);
 
 /**
  * A debt that may be in the total twice, and what takes the second one out: the link of the loan to the account, which
- * counts the pair once. With no account of the household's own to link to, removing the saved loan does it.
+ * counts the pair once. With no account of the household's own to link to, removing the saved loan does it: the viewer
+ * removes their own, and `others` names who can when every saved loan of the set is another member's.
  */
-function twice(t: MaybeTwice, linkable: boolean): string {
-  const fix = linkable ? "Jos velka on sama, se lasketaan kerran, kun laina liitetään tiliin." : "Jos velka on sama, poista tallennettu laina kohdassa Asetukset > Lainat, niin se lasketaan kerran.";
+function twice(t: MaybeTwice, linkable: boolean, others: readonly string[]): string {
+  const remove = others.length ? `${listed(others, "tai")} voi poistaa tallennetun lainan` : "poista tallennettu laina";
+  const fix = linkable ? "Jos velka on sama, se lasketaan kerran, kun laina liitetään tiliin." : `Jos velka on sama, ${remove} kohdassa Asetukset > Lainat, niin se lasketaan kerran.`;
   return `${SAME_DEBT_TWICE}: ${sides(t, "yhdistetty tili", "yhdistetyt tilit")}. ${fix}`;
 }
 
@@ -143,16 +153,17 @@ function notes(r: LoansReport, household: boolean, less: boolean, own: ReadonlyS
   const late = r.total.unknown.filter((u) => !u.counted).length;
   const noRate = r.withoutRate;
   const { unknown, bullets } = r.payments;
+  const typists = new Map(r.loans.flatMap((l): [string, string][] => (l.typedBy ? [[l.id, l.typedBy]] : [])));
   return [
-    // the accounts of the household view hold what others share, the saved loans are read for the viewer alone
-    ...(household ? [{ text: "Tallennetuista lainoista ovat mukana vain omasi." }] : []),
+    // the household view holds another member's saved loan by the account that pays it: one with no payments linked, or paid from an account out of view, is not here
+    ...(household ? [{ text: "Toisen lisäämä laina on mukana, kun sitä maksetaan tililtä, jonka näet." }] : []),
     ...(late ? [{ text: `Velan summasta puuttuu ${late === 1 ? "yksi laina, jonka jäljellä oleva summa on kirjattu tulevalle päivälle" : `${late} lainaa, joiden jäljellä oleva summa on kirjattu tulevalle päivälle`}.` }] : []),
     ...(noRate ? [{ text: `Koroista puuttuu ${loansWithout(noRate, "korkoa")}.` }] : []),
     ...(unknown ? [{ text: `Maksueristä puuttuu ${loansWithout(unknown, "maksuerää")}.` }] : []),
     ...(bullets ? [{ text: `${bullets === 1 ? "Kertalyhenteisen lainan" : "Kertalyhenteisten lainojen"} korot eivät ole mukana maksuerissä.` }] : []),
     ...r.maybeTwice.map((t) => {
-      const links = offers(t, own);
-      return { key: `twice ${idsOf(t)}`, text: twice(t, links.length > 0), warn: true, offers: links };
+      const links = offers(t, own, typists);
+      return { key: `twice ${idsOf(t)}`, text: twice(t, links.length > 0, removers(t, typists)), warn: true, offers: links };
     }),
     ...(less ? r.overdraftTwice.map((t) => ({ key: `overdraft ${idsOf(t)}`, text: overdraftTwice(t), warn: true })) : []),
   ];

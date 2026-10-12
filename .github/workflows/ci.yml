@@ -4,8 +4,10 @@ name: CI
 # added or renamed here changes nothing outside this file.
 #
 # The public repository runs CI on every push, which is free. The private one pays for its minutes, so a push there
-# skips every job, ci-ok included. It runs CI on a pull request and by hand (workflow_dispatch), which a release does
-# for the release commit and the baseline commit. A change has passed the same checks locally before it lands.
+# skips every job, ci-ok included. It runs CI on a pull request and by hand (workflow_dispatch). A release there starts
+# it only when it is asked for a clean runner: it runs the same checks and tools/ci/local-proof.sh (the image, the
+# smoke test and the upgrade rehearsal) on its own machine, and the public repository runs all of this file again for
+# free when the release is published. A change has passed the same checks locally before it lands.
 # The skipped check runs a push leaves answer nothing: tools/ci/wait.sh ignores them.
 on:
   push:

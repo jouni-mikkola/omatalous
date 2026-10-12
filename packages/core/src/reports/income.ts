@@ -1,4 +1,5 @@
 // Decision: is our income changing, and does the buffer match how it moves
+import { partCents, partOf, WHOLE } from "../account-use.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { INCOME_GROUPS, INCOME_TYPE_ORDER, INCOME_TYPES, type IncomeGroup, type IncomeType, nextPayDate } from "../analysis/income.ts";
 import { benefitName, type IncomeBase, incomeBase, type IncomeChange, incomeChanges, payDayText } from "../analysis/income-changes.ts";
@@ -6,9 +7,10 @@ import { payPieces } from "../analysis/income-series.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { addDays, addMonths, dayNumber, monthOf } from "../dates.ts";
+import { belowWhole } from "../household-debts.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
-import type { BalanceInput, IsoDate } from "../types.ts";
+import type { BalanceInput, IsoDate, Part } from "../types.ts";
 
 export interface IncomeRowRef {
   id: string;
@@ -143,10 +145,18 @@ function stabilityOf(values: readonly { month: string; cents: number }[]): Incom
   };
 }
 
-/** Label of the account's owner in the household view; a joint account both partners linked stays one, never split to a person. */
-function memberOf(a: BalanceInput): string {
-  if (a.joint) return "Yhteinen tili";
-  return a.ownerName ?? "Omat tilit";
+/**
+ * Whose income an account's is in the household view: a label for each, with the part of every row that is theirs.
+ * An account whose use is known is its users': one member's when one uses it, also when another member linked it, and
+ * split by the users' parts when several do, the holders who are no member under their own label. The parts of a row
+ * add up to the row. Where the use is not known the account is its owner's, and a joint account both partners linked
+ * stays one line.
+ */
+function membersOf(a: BalanceInput): { label: string; part: Part }[] {
+  const use = a.use;
+  const users = use?.users.filter((u) => u.weight > 0) ?? [];
+  if (!use || !users.length) return [{ label: a.joint ? "Yhteinen tili" : (a.ownerName ?? "Omat tilit"), part: WHOLE }];
+  return users.map((u) => ({ label: u.label, part: partOf(use, u.userId) }));
 }
 
 export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): IncomeReport {
@@ -256,15 +266,20 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     .sort((x, y) => (x.nextDate! < y.nextDate! ? -1 : 1));
 
   let members: IncomeMember[] | null = null;
-  if (balances.some((a) => a.ownerName !== null)) {
-    const labelOf = new Map(balances.map((a) => [a.id, memberOf(a)]));
+  const whose = new Map(balances.map((a) => [a.id, membersOf(a)]));
+  // an account at a part holds the viewer's part of each row and nobody else's: a member's own view, which has no split
+  const ownView = balances.some((a) => belowWhole(a.part));
+  if (!ownView && balances.some((a) => a.ownerName !== null || whose.get(a.id)!.length > 1)) {
     const sums = new Map<string, IncomeMember>();
-    for (const a of balances) if (!sums.has(labelOf.get(a.id)!)) sums.set(labelOf.get(a.id)!, { label: labelOf.get(a.id)!, earnedCents: 0, regular: false });
+    for (const users of whose.values()) for (const { label } of users) if (!sums.has(label)) sums.set(label, { label, earnedCents: 0, regular: false });
     for (const t of b.rows) {
-      const member = sums.get(labelOf.get(t.accountId) ?? "");
-      if (!member || !inWindow.has(monthOf(t.bookingDate)) || !INCOME_TYPES[typeOf(t.id)].earned) continue;
-      member.earnedCents += t.amountCents;
-      if (INCOME_TYPES[typeOf(t.id)].regular) member.regular = true;
+      const users = whose.get(t.accountId);
+      if (!users || !inWindow.has(monthOf(t.bookingDate)) || !INCOME_TYPES[typeOf(t.id)].earned) continue;
+      for (const { label, part } of users) {
+        const member = sums.get(label)!;
+        member.earnedCents += partCents(t.amountCents, part);
+        if (INCOME_TYPES[typeOf(t.id)].regular) member.regular = true;
+      }
     }
     members = [...sums.values()];
   }

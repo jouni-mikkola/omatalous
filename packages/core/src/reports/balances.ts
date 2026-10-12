@@ -46,7 +46,7 @@ export interface BalanceReport {
    * No home, no investments and no other property are in it, so it is no net worth.
    * Null where `total` is, and in a month that ends before such a saved loan's balance was told. The same as `total`
    * for a household without saved loans. A saved loan that is also a connected account and is not linked to it is
-   * taken twice (`maybeTwice` and `overdraftTwice` of the Lainat report name them).
+   * taken twice (`maybeTwice` and `overdraftTwice` of `household-debts.ts` name them, and the Lainat report says them).
    */
   accountsLessDebt: (number | null)[];
   /**

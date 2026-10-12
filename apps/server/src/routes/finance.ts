@@ -1,11 +1,11 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
+import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, partCents, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
-import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
+import { parseScope, requestInputs, rowsInView, sharedInView } from "../services/analysis.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
-import { clearAccountUse, parseSaidUsers, sayAccountUse, usesInView } from "../services/account-use.ts";
+import { clearAccountUse, parseSaidUsers, sayAccountUse, suggestAccountUse, usesInView } from "../services/account-use.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
@@ -97,12 +97,16 @@ export function financeRoutes(s: Services) {
   });
 
   // ── transactions ─────────────────────────────────────
+  /**
+   * The rows of the accounts in view as the bank booked them, in both views. In the own view a row of a joint account
+   * carries the viewer's part beside its amount (`partCents`), and `inCents` and `outCents` add up parts. A row has the
+   * category and the transfer mark the view counts it by, so the list, its sums and the front page say the same of it.
+   */
   app.get("/transactions", async (c) => {
     const user = c.get("user");
     const q = c.req.query();
-    const inView = parseScope(q.scope) === "household" ? await sharedInView(s, user.id) : undefined;
-    const shared = inView?.map((a) => a.id);
-    const { total, inCents, outCents, items } = await repoOf(user.id).listTransactions(
+    const { shared, own } = await rowsInView(s, user.id, parseScope(q.scope));
+    const { total, inCents, outCents, items: stored } = await repoOf(user.id).listTransactions(
       {
         from: q.from ? parseIsoDate(q.from, "Virheellinen aikaväli.") : undefined,
         to: q.to ? parseIsoDate(q.to, "Virheellinen aikaväli.") : undefined,
@@ -112,20 +116,30 @@ export function financeRoutes(s: Services) {
         q: q.q?.slice(0, 100),
         limit: queryInt(q.limit),
         offset: queryInt(q.offset),
+        own,
       },
-      shared,
+      shared.map((a) => a.id),
     );
+    const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
     // which company and industry an "industry" category came from, shown on hover; a shared
     // row's category came from its owner's lookups, so the owners' requests count too
     const industry = await repoOf(user.id).industryDetails(
       items.filter((t) => t.categorySource === "industry").map((t) => t.merchant),
-      (inView ?? []).map((a) => a.userId),
+      shared.map((a) => a.userId),
     );
     return c.json({
       total,
       inCents,
       outCents,
-      items: items.map((t) => ({ ...publicTx(t), own: t.userId === user.id, ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}) })),
+      items: items.map((t) => {
+        const part = own.parts.get(t.accountId);
+        return {
+          ...publicTx(t),
+          own: t.userId === user.id,
+          ...(part ? { partCents: partCents(t.amountCents, part) } : {}),
+          ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}),
+        };
+      }),
     });
   });
 
@@ -193,6 +207,9 @@ export function financeRoutes(s: Services) {
     await clearAccountUse(s, c.get("user").id, c.req.param("id"));
     return c.json({ ok: true });
   });
+
+  // the weights the account's rows propose, and the named members who cannot see it: asked by who linked it
+  app.get("/accounts/:id/use/suggestion", async (c) => c.json(await suggestAccountUse(s, c.get("user").id, c.req.param("id"))));
 
   return app;
 }

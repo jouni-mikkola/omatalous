@@ -3,13 +3,19 @@
  * nothing here reads that. A use is what the household said, or it is derived from the bank's holder names on every
  * read. A part is a range of the users' weights, so the users' parts of a row add up to the row, to the cent.
  */
-import { type Holder, holdersIn, type Name, samePerson } from "./person-names.ts";
+import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
+import { normalizeIban, pairTransfers } from "./transfers.ts";
 import type { Account, AccountUse, AccountUser, Part, Transaction } from "./types.ts";
 
 /** All of an account. */
 export const WHOLE: Part = Object.freeze({ from: 0, to: 1, of: 1 });
 /** None of it: an account somebody else uses alone. */
 export const NONE: Part = Object.freeze({ from: 0, to: 0, of: 1 });
+
+/** Whether a part is all of an account. */
+export const isWhole = (part: Part): boolean => part.from === 0 && part.to === part.of;
+/** Whether a part is none of it. */
+export const isNone = (part: Part): boolean => part.to === part.from;
 
 /** The user with no id, when the bank's line does not name them. */
 export const OTHER_HOLDER = "Muu tilinomistaja";
@@ -136,3 +142,107 @@ export function partCents(amountCents: number, part: Part): number {
 
 /** The bank's amount of a row, also when the row is cut to a part: what a typed bill or a loan's payment is matched by. */
 export const billCents = (t: Pick<Transaction, "amountCents" | "wholeCents">): number => t.wholeCents ?? t.amountCents;
+
+/**
+ * A member's own view of rows: what the member uses. `parts` is the viewer's part of each account by its id, and an
+ * account it does not name counts whole. `txs` and `accounts` are everything the viewer may see of the view, the
+ * accounts they have no part in included: those rows tell where the money of the others went. `owners` names the
+ * member who linked an account, by its id, where the accounts are not all one member's: each member's rows were
+ * categorised on their own.
+ *
+ * - A row of an account the viewer has no part in is dropped. The other leg of a movement to or from such an account
+ *   is no own transfer any more: it becomes money between people, `p2p` out and `p2p_in` in.
+ * - A row of an account the viewer has a part of gets `amountCents` cut to the part, and `wholeCents` keeps the bank's.
+ * - Money into such an account from an account of the household, or from one of its holders, is a transfer: a user
+ *   paying for their part of what the account pays. So is a movement between the accounts of two members, and the
+ *   payment of one member's account that is the bill of a card another member linked: the card's purchases are the
+ *   spending, at the viewer's part of the card.
+ *
+ * What a member's categorisation decided of that member's rows stays: a stored transfer keeps its other leg, and two
+ * rows it left unpaired are never paired here. A category set by hand stays. When every account of `accounts` counts
+ * whole the rows come back as they were given, the same array.
+ */
+export function applyUse<T extends Transaction>(
+  txs: readonly T[],
+  accounts: readonly Account[],
+  parts: ReadonlyMap<string, Part>,
+  owners: ReadonlyMap<string, string> = new Map(),
+): readonly T[] {
+  const partIn = (accountId: string): Part => parts.get(accountId) ?? WHOLE;
+  // a part of an account that is not in the view cuts nothing in it
+  if (accounts.every((a) => isWhole(partIn(a.id)))) return txs;
+  const gone = (accountId: string) => isNone(partIn(accountId));
+  const ownerOf = (accountId: string) => owners.get(accountId) ?? "";
+  const members = [...new Set(accounts.map((a) => ownerOf(a.id)))];
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+  const byIban = new Map(accounts.flatMap((a): [string, string][] => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id]] : [])));
+  const accountOf = new Map(txs.map((t) => [t.id, t.accountId]));
+  const settled = (t: T) => t.categorySource === "transfer";
+  /** The account of the other leg of a movement, by row id. */
+  const otherLeg = new Map<string, string>();
+  const link = (pairs: ReadonlyMap<string, string>) => {
+    for (const [out, into] of pairs) {
+      otherLeg.set(out, accountOf.get(into)!);
+      otherLeg.set(into, accountOf.get(out)!);
+    }
+  };
+  // a stored transfer does not say which account its other leg is on. The legs one member's categorisation stored
+  // pair among themselves again: none of them can take a row which that categorisation left alone.
+  for (const member of members) {
+    const legs = txs.filter((t) => settled(t) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
+    link(pairTransfers(legs, accounts.filter((a) => ownerOf(a.id) === member)).pairs);
+  }
+  // The rows of two members were never looked at together: money out of one member's account pairs with money into
+  // another member's. Two rows of one member stay unpaired, as that member's categorisation left them (a payment
+  // that came back and an equal sum on another account, say), and so does a row that returns a payment.
+  const between = new Set<string>();
+  if (members.length > 1) {
+    const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
+    for (const member of members) {
+      const found = pairTransfers(open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), accounts);
+      link(found.pairs);
+      for (const id of found.transfers) between.add(id);
+    }
+    // Money into a card is stored as a transfer whoever paid it. The leg that reached a card and has no other leg
+    // among its member's rows in the view was paid from elsewhere: by another member's account, or by a joint account
+    // that is in the view as the viewer's own copy. A payment of that sum which another member's categorisation, with
+    // no card to pair it with, left open is the card's bill. Only what the open rows left unpaired is looked at, and
+    // never two rows of one member.
+    const onCard = (t: T) => accountById.get(t.accountId)?.type === "credit_card";
+    const reached = txs.filter((t) => settled(t) && t.amountCents > 0 && onCard(t)).map((t) => ({ ...t, categorySource: "default" as const }));
+    for (const member of reached.length ? members : []) {
+      const unpaid = reached.filter((t) => !otherLeg.has(t.id) && ownerOf(t.accountId) !== member);
+      link(pairTransfers([...open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 && ownerOf(t.accountId) === member), ...unpaid], accounts).pairs);
+    }
+  }
+  /** The account at the other end of a movement inside the household, when the rows tell it: the paired leg's, else the one the row names by its IBAN. */
+  const otherEnd = (t: T): string | undefined => {
+    const paired = otherLeg.get(t.id);
+    if (paired !== undefined) return paired;
+    const named = byIban.get(normalizeIban(t.counterpartyIban) ?? "");
+    if (named === undefined || named === t.accountId) return undefined;
+    // a row its member's categorisation left a payment names an account of that member in vain
+    return settled(t) || (between.has(t.id) && ownerOf(named) !== ownerOf(t.accountId)) ? named : undefined;
+  };
+  const fromHolder = (t: T): boolean => {
+    const payer = t.counterparty ? nameOf(t.counterparty) : null;
+    return !!payer && t.category === "p2p_in" && holdersIn(accountById.get(t.accountId)?.holder).some((holder) => samePerson(payer, holder.name));
+  };
+  const transfer = (t: T): T => (t.isTransfer ? t : { ...t, category: "transfer", isTransfer: true });
+
+  const out: T[] = [];
+  for (const t of txs) {
+    const part = partIn(t.accountId);
+    if (isNone(part)) continue;
+    const joint = !isWhole(part);
+    let row = t;
+    if (t.categorySource !== "user") {
+      const other = otherEnd(t);
+      const paidIn = joint && t.amountCents > 0;
+      if (other !== undefined && gone(other) && !paidIn) row = { ...t, category: t.amountCents > 0 ? "p2p_in" : "p2p", categorySource: "rule", isTransfer: false };
+      else if (other !== undefined || (paidIn && fromHolder(t))) row = transfer(t);
+    }
+    out.push(joint ? { ...row, amountCents: partCents(row.amountCents, part), wholeCents: row.amountCents } : row);
+  }
+  return out;
+}

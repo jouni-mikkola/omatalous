@@ -91,6 +91,18 @@ describe("the window to the next payday", () => {
     expect(d.rows.some((r) => r.source === "income")).toBe(false);
   });
 
+  it("a pay expected yesterday and not late yet: the window is today alone, and the payday keeps the day it was expected", () => {
+    const d = run(history, "2026-10-16");
+    expect(d).toMatchObject({ reason: "payday", days: 0, from: "2026-10-16", to: "2026-10-16" });
+    expect(d.payday).toEqual({ date: "2026-10-16", expected: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
+    // the balance counts from today, as it does when the payday is today
+    expect(d.balance!.days.map((x) => x.date)).toEqual(["2026-10-16"]);
+    expect(d.rows.some((r) => r.source === "income")).toBe(false);
+    // near misses: on the day itself and the day before nothing has gone by, so there is no second day to tell
+    expect(run(history, "2026-10-15").payday).toEqual({ date: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
+    expect(run(history, "2026-10-14").payday).toEqual({ date: "2026-10-15", name: "Esimerkki Oy", cents: 300_000 });
+  });
+
   const everyOtherMonth = ["02", "04", "06", "08"].map((m) => tx({ bookingDate: `2026-${m}-10`, amountCents: 150_000, merchant: "Kausi Esimerkki Oy", category: "salary" }));
 
   it("a payer who pays every other month, next pay in 50 days: 30 days", () => {
@@ -199,9 +211,10 @@ describe("the next pay after one that came early or late", () => {
 
 describe("the totals add up to the walk", () => {
   const bills: ExpectedBill[] = [{ id: "b1", name: "Autovakuutus", amountCents: 41_000, dueDate: "2025-11-12", cadence: "once", category: "insurance" }];
-  const sumOfWalk = (d: ReturnType<typeof cashAhead>, start: number) => start + d.totals.incomeCents - d.totals.recurringCents - d.totals.typedCents - d.totals.everydayCents;
+  const sumOfWalk = (d: ReturnType<typeof cashAhead>, start: number) =>
+    start + d.totals.incomeCents - d.totals.recurringCents - d.totals.typedCents - d.totals.cardCents - d.totals.transferCents - d.totals.everydayCents;
 
-  it("start plus income less bills less everyday spending is the last day's balance, to the cent, in every seeded household", () => {
+  it("start plus income less bills, card bills, transfers and everyday spending is the last day's balance, to the cent, in every seeded household", () => {
     let paydays = 0;
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
       for (const settled of [true, false]) {
@@ -218,10 +231,13 @@ describe("the totals add up to the walk", () => {
           }
           expect(d.totals.recurringCents, label).toBe(d.rows.filter((r) => r.source === "recurring").reduce((s, r) => s - r.cents, 0));
           expect(d.rows.every((r) => r.date >= d.from && r.date <= d.to), label).toBe(true);
-          // the 30 days of payments are cut from the same rows: the payments of the window are the same ones
+          // the 30 days of payments hold the window's own bills, the same rows in the same order, and the bills an
+          // account outside the balance pays; a card's bill and a transfer are rows of the window only
           expect(d.upcoming.every((r) => r.cents < 0 && r.date >= d.from && r.date <= addDays(d.from, 30)), label).toBe(true);
           const to30 = (d.to < addDays(d.from, 30) ? d.to : addDays(d.from, 30));
-          expect(d.upcoming.filter((r) => r.date <= to30), label).toEqual(d.rows.filter((r) => r.cents < 0 && r.date <= to30));
+          const ownBills = d.rows.filter((r) => (r.source === "recurring" || r.source === "expected") && r.date <= to30);
+          expect(d.upcoming.filter((r) => ownBills.includes(r)), label).toEqual(ownBills);
+          expect(d.upcoming.every((r) => r.source === "recurring" || r.source === "expected"), label).toBe(true);
           if (d.reason === "payday") {
             paydays++;
             expect(d.days, label).toBeLessThanOrEqual(44);

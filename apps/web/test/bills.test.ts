@@ -22,7 +22,7 @@ const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö"
   rows,
   upcoming: rows.filter((r) => r.cents < 0),
   everydayPerDayCents: 0,
-  totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), everydayCents: 0, incomeCents: sum(rows, "income") },
+  totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), everydayCents: 0, incomeCents: sum(rows, "income"), cardCents: 0, transferCents: 0 },
   balance: null,
   missing: "balance",
 });

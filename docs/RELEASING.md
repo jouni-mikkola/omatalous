@@ -92,7 +92,7 @@ every push, which is free.
 
 | Workflow | Private repository | Public repository |
 |---|---|---|
-| `ci.yml` (about 9 billed minutes, and about one more for the image smoke test) | a pull request, or `workflow_dispatch` (a release starts it for the release commit and the baseline commit) | every push and pull request, and by hand |
+| `ci.yml` (about 9 billed minutes, and about one more for the image smoke test) | a pull request, or `workflow_dispatch` (a release starts it only when it is asked for a clean runner; it runs the same checks on its own machine) | every push and pull request, and by hand |
 
 A push to the private repository leaves a skipped `ci-ok` on its commit. `tools/ci/wait.sh` ignores skipped check runs,
 so only a run that did the work answers for a commit. The concurrency group of `ci.yml` names the event, so that skipped

@@ -3,6 +3,57 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.12.0
+
+- A joint account now counts at your part. In Asetukset > Tilit you say who uses an account and at what parts, equally or by what each pays into it in a month. Your own view then holds your part of its balance, of its payments and of the loan paid from it, and Koko talous holds it whole.
+- The pages say when a figure is a part: an account's row reads "Yhteinen tili, osuutesi 60 %", Tapahtumat shows the bank's amount with your part beside it, and Tulot splits the income of a joint account between its users.
+- Koko talous holds a loan your partner typed in when it is paid from an account you both see, marked "Lisännyt" with the name. A loan you both typed in counts once.
+- The payday card lists the credit card's bill and your regular transfer to a joint account, and says which accounts it counts.
+- A loan can hold the day its rate is next reviewed (Koron tarkistuspäivä).
+
+Money and reports
+
+- The days to the payday now follow the checking accounts whose balance they start from. A bill or a subscription counts when one of those accounts pays it, and the usual everyday spending is what those accounts paid themselves.
+- The bill of a connected credit card is a row on its usual day: what the card owes today, or the usual bill when the card is not paid in full or the last bill is late. The card's purchases are no longer in the everyday spending.
+- A regular monthly transfer to an account outside the balance (savings, a joint account) is a row on its day. A transfer between two counted accounts changes nothing.
+- In a member's own view the balance is that of the accounts the member uses alone. A member whose only checking account is joint gets it at their part.
+- A bill you typed in is no longer dropped because another bill of the same payee or a similar sum was paid. It is dropped when a payment that belongs to no subscription or bill has its name or its size, or when the bill of that name and size is already expected from the history.
+- Oma talous counts what a member uses. A joint account counts at the member's part: its rows, its balance and its credit limit, in the overview, every report, Laskut and the report exports. The parts of the users add up to the account, to the cent. An account somebody else uses alone counts nothing, and money moved to or from it is money between people.
+- Money a user pays into a joint account is a transfer in Oma talous, not income: it pays for that user's part of what the account pays.
+- Koko talous counts every account whole, as before. It now also exists for a member nobody shares an account with, when one of their own accounts has other users.
+- Tapahtumat lists the bank's rows whole in both views. In Oma talous the sums above the list, the merchant sums of Kauppiaat and the unrecognised spending add up the member's parts, and each row of a joint account carries the part as `partCents` in `/api/transactions`. The transaction export keeps the bank's amounts.
+- Säästövinkit reads the accounts a member uses whole in both views: a contract is the household's.
+- In Oma talous the sums of Tapahtumat and Kauppiaat count a row as the overview does. Money a user pays into a joint account is a transfer there too, and money to an account somebody else uses alone is money to a person. The category filter, a merchant's summary, the unrecognised spending and the Siirto column of the transaction export follow. The amount on a row stays the bank's.
+- Oma talous never pairs two rows of one member again. A payment that came back and an equal sum on another account of the same member stay as that member's categorisation left them. A household where no account has other users sees the rows and figures of 0.10.0 in Oma talous.
+- `/api/merchants` and `/api/merchants/uncategorised` take `scope`, and Koko talous counts the member's rows whole there. Kauppiaat and the unrecognised spending of Tapahtumat pass it.
+- A debt follows who uses the account behind it: a card or a loan account counts at the viewer's part of it, and a loan typed in at the part of the account its payments leave. So the own figures of each user of a joint account hold their part of a mortgage paid from it, whichever of them typed it in, and the parts add up to the cent.
+- Tulot in Koko talous splits the income of an account with several users between them by their parts, and counts an account one member uses as that member's, whoever linked it.
+- A proposed loan tells the bank's whole payment in every view, so a loan saved in one view is not proposed again in the other, nor to the other users of the joint account it is paid from.
+- Koko talous holds a loan another member typed in when the loan is paid from an account in the view, a joint account or one that member shared, and counts it whole. So for members who see the same accounts the two own views add up to Koko talous, whoever typed the loan in. Before, the other member's Koko talous owed less than their own view. A loan with no payments linked stays its typist's alone.
+- A loan both members typed in, each from their own papers, counts once: a view shows the viewer's own and leaves out the other member's loan paid by the same series of payments.
+- A loan another member typed in says so on Yhteenveto and in Raportit > Lainat ("Lisännyt Aino"), and is not offered for linking to an account. Only its typist can change or remove it, in Asetukset > Lainat.
+- In Koko talous the Lainat report no longer says that only the viewer's own saved loans are in it, and the Saldot line calls them saved loans in both views.
+- Oma talous no longer counts the bill of a card as spending on top of the card's purchases when one partner linked the card and the bill is paid from an account the other partner linked, such as a joint account both linked. The bill is a transfer there, at your part of the account, and the payday card expects it as the card's bill.
+- The payday card keeps the day a pay was expected when that day has gone by and the pay is not late yet, and says the pay has not come. The note under a card's bill that is estimated from earlier bills reads "Arvio aiemmista laskuista".
+- Asetukset > Tilit has a Käyttäjä column: who uses each account. The bank's holder names are chosen already, so most households change nothing. Choosing saves at once; "Palauta pankin tiedoista" takes a said answer back.
+- A joint account has "Tasan" or "Omat osuudet" under it, with a field in euros a month for each user and what they come to in percent. The page proposes the euros from what each user paid into the account in the last months, and one press takes them.
+- When a member is named as a user of an account but cannot see it, the page says so and offers "Jaa tili".
+- After a bank is linked, a card above the accounts asks who uses a new joint account, with the bank's answer chosen. Under "Tilien jakaminen", an account shared with you tells your part of it.
+- Koko talous is offered as soon as you have a part of a joint account, also when nobody shares anything with you. In Oma talous a line under the header says joint accounts are counted by your part, and Koko talous says they are counted whole.
+- Yhteenveto marks an account, a card or a loan you have a part of ("Yhteinen tili, osuutesi 60 %", "osuutesi 60 %"); Saldot and Lainat do the same. A row of a joint account in Tapahtumat shows the bank's amount and your part beside it, and a line says the sums above the list are parts.
+- The payday card lists the bill of a connected card and a regular transfer to an account outside the balance, each with its own line, and its payments figure holds them. The foot says which accounts the balance counts, and no longer says that own transfers are left out.
+- Tulot says that a joint account's income is split by the users' parts. Kauppiaat and the unrecognised spending of Tapahtumat follow the view you picked.
+- Asetukset > Lainat has a new field, Koron tarkistuspäivä, for the day the bank sets the loan's rate again. It is shown unless the reference rate is Kiinteä korko, it is never required, and a day that has passed is kept.
+
+For developers
+
+- `pnpm shots` takes several routes in one run at four widths, links the fake bank (`--fake-bank`), shows a changed answer of the API (`--answers`), runs steps before the picture (`--steps`) and sets the view (`--scope`). See "Pictures of a page" in docs/DEVELOPMENT.md.
+
+Upgrade
+
+- From the first start a member's own figures count their part of an account with two holders. Koko talous counts it whole, as before.
+- Migration 0019 runs on the first start, after the usual copy. It adds the review day of a loan's rate, empty for every loan there is.
+
 ## 0.11.0
 
 - The first page is now Yhteenveto and opens with Varallisuus: your accounts with their total, your credit cards with the credit used, the limit and what is available, and your loans with what is left and the monthly instalment. Its two buttons name the months they show, such as Lokakuu 2026.

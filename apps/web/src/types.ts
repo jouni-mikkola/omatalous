@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, Category, CategoryRule, DashboardData, FeatureState, LoanProposal, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { AccountType, AccountUse, Category, CategoryRule, DashboardData, FeatureState, LoanProposal, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, DashboardData, RecurringSeries, ReportsData };
 
@@ -36,6 +36,10 @@ export interface Account {
   lastSyncedAt: string | null;
   /** What the last fetch of the user's own account ran into; a shared account has none. */
   problem?: { kind: "not_linked" | "failed"; message: string } | null;
+  /** Who uses the account. /api/meta always tells it; a page reads a missing one as nothing to say. */
+  use?: AccountUse;
+  /** The viewer's part of it (their own accounts and those shared with them). */
+  part?: Part;
 }
 
 export interface SharedAccount extends Account {

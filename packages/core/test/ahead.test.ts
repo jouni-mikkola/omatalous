@@ -132,7 +132,7 @@ describe("cash ahead", () => {
     expect(d.balance!.days[30]!.cents).toBe(cashAhead(unpaid, [balance(200_000)], NO_INPUTS).balance!.days[30]!.cents);
   });
 
-  it("a standing transfer to an own account is no series, so it is not in the line (NextDays says so)", () => {
+  it("a standing transfer to an own account is no series; the window has it as a transfer row on its day, after this payday", () => {
     const savings: Account = { id: "sav", name: "Säästötili", iban: "FI14 1009 3000 1234 58", currency: "EUR", type: "savings" };
     const moves = ["2026-07-26", "2026-08-26", "2026-09-26"].flatMap((bookingDate) => [
       tx({ bookingDate, amountCents: -30_000, merchant: "Säästö", category: "transfer", isTransfer: true }),
@@ -140,7 +140,10 @@ describe("cash ahead", () => {
     ]);
     const withMoves = createContext([...upTo(all, today), ...moves], [checking, savings], today);
     expect(withMoves.recurring.some((r) => r.merchant === "Säästö")).toBe(false);
-    expect(cashAhead(withMoves, [balance(200_000)], NO_INPUTS).rows.map((r) => r.name)).not.toContain("Säästö");
+    // the next one is on 26.10., after the pay of 23.10.: no row of this window (ahead-window.test.ts has the rows)
+    expect(cashAhead(withMoves, [balance(200_000)], NO_INPUTS).rows.map((r) => r.source)).not.toContain("transfer");
+    const later = createContext([...upTo(all, "2026-10-23"), ...moves], [checking, savings], "2026-10-23");
+    expect(cashAhead(later, [balance(200_000)], NO_INPUTS).rows.find((r) => r.source === "transfer")).toMatchObject({ date: "2026-10-26", name: "Säästötili", cents: -30_000 });
   });
 
   it("without a checking balance there is the list and no balance line", () => {

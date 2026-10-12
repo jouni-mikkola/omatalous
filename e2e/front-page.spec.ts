@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { cents, overflow, plain, watch } from "./helpers.ts";
 
 // The first page (Yhteenveto) opens with what the household has and owes: accounts, cards, loans. The demo household of
 // the administrator that e2e/run.mjs made has a checking and a savings account and a card with no limit, and no saved
@@ -13,11 +13,6 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 
 test.describe.configure({ mode: "serial" });
-
-/** Spaces, no-break spaces and the typographic minus as a reader sees them. */
-const plain = (s: string) => s.replace(/[\s  ]+/g, " ").replace(/−/g, "-").trim();
-/** "1 058,40 €" → 105840 */
-const cents = (s: string) => Math.round(Number(plain(s).replace(/[ €]/g, "").replace(",", ".")) * 100);
 
 async function signedIn(context: BrowserContext, path: string): Promise<Page> {
   const page = await context.newPage();

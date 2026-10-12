@@ -4,11 +4,11 @@
  * What the household owes: the loans it saved and the connected accounts that carry debt. Which debts count, and
  * that a saved loan linked to an account counts once, is `householdDebts` of `household-debts.ts`, the one list behind
  * the debt total of this report, of the accounts less the debts in Saldot and of the Säästövinkit loan area. Every
- * figure of a loan is `loans.ts`'s (ADR 0004). This file lays the figures side by side and names the debts that may
- * be in a figure twice because no link says they are one (`maybeTwice`, `overdraftTwice`).
+ * figure of a loan is `loans.ts`'s (ADR 0004). This file lays the figures side by side, with the debts that may be
+ * in a figure twice because no link says they are one (`maybeTwice` and `overdraftTwice` of `household-debts.ts`).
  */
 import type { AnalysisContext } from "../analysis/context.ts";
-import { householdDebts, type HouseholdDebts } from "../household-debts.ts";
+import { householdDebts, type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
 import {
   type DebtFigure,
   type DebtPayments,
@@ -25,7 +25,10 @@ import {
   type NextPayment,
   type RateScenario,
 } from "../loans.ts";
-import { type AccountType, type BalanceInput, type IsoDate, isRevolving, type Loan, type UserInputs } from "../types.ts";
+import type { AccountType, BalanceInput, IsoDate, Loan, Part, UserInputs } from "../types.ts";
+
+// where the loan area of Säästövinkit and the reports' index read them, as before they moved
+export { type MaybeTwice, maybeTwice };
 
 // The words the Lainat report shares with Saldot and the loan area of Optimoi, so the three say a thing one way. The
 // full sentences that name the debts are the report's own (the web section).
@@ -50,64 +53,6 @@ export const loansWithout = (n: number, what: string, after = false): string =>
 /** The reference rate moves the scenario lines tell, in hundredths of a percent: one percentage point down and up. */
 const RATE_SHIFTS_BP = [-100, 100] as const;
 
-/** Saved loans and the connected accounts that may tell the debt they tell. */
-export interface MaybeTwice {
-  loans: readonly { id: string; name: string }[];
-  /** Every account that stands beside this set of saved loans. */
-  accounts: readonly { id: string; name: string }[];
-}
-
-/**
- * The saved loans that owe on the day and are linked to no account. A saved loan that owes nothing adds nothing, so it
- * is never named, and a linked one is its account's debt already (`HouseholdDebts.saved` leaves it out).
- */
-const owing = (debts: HouseholdDebts): Loan[] => debts.saved.filter((loan) => (loanBalanceOn(loan, debts.day).cents ?? 0) > 0);
-
-/** One entry per set of saved loans, with the accounts that stand beside it, so a page says each set once. */
-function pairs(balances: readonly BalanceInput[], beside: (account: BalanceInput) => readonly Loan[]): MaybeTwice[] {
-  const sets = new Map<string, { loans: MaybeTwice["loans"]; accounts: { id: string; name: string }[] }>();
-  for (const b of balances) {
-    const loans = beside(b);
-    if (!loans.length) continue;
-    const key = JSON.stringify(loans.map((l) => l.id));
-    const set = sets.get(key) ?? { loans: loans.map((l) => ({ id: l.id, name: l.name })), accounts: [] };
-    set.accounts.push({ id: b.id, name: b.name });
-    sets.set(key, set);
-  }
-  return [...sets.values()];
-}
-
-/**
- * The debts that may be in the debt total twice, and so in the accounts less the debts too: the fallback for a saved
- * loan and a connected account that no link ties. Nothing proves that the two are one debt, and both count. A linked
- * pair counts once (`householdDebts`), so neither its loan nor its account is named here. A connected card that owes
- * stands beside every saved card and credit line that owes, whatever their names: a household calls its card what it
- * likes, and some save it as a credit line. A connected loan account that owes stands beside every saved loan that is
- * no card: the bank shows the mortgage as an account, and the household saved it by hand too. Each entry carries the
- * ids of its loans and of its accounts, which is what a page needs to offer the link.
- */
-export function maybeTwice(balances: readonly BalanceInput[], debts: HouseholdDebts): MaybeTwice[] {
-  const saved = owing(debts);
-  const unlinked = new Set(debts.sources.filter((s) => !s.linked).map((s) => s.accountId));
-  return pairs(balances, (b) => {
-    if (!unlinked.has(b.id)) return [];
-    return saved.filter((loan) => (b.type === "credit_card" ? isRevolving(loan.kind) : loan.kind !== "card"));
-  });
-}
-
-/**
- * The debts that may be in the accounts less the debts twice and are in the debt total once. An account that is no
- * card and no loan account is no debt of `householdDebts`, so its balance below zero is in the accounts' total alone.
- * Beside a saved credit line that owes it may be that credit, drawn on the account: the saved loan then takes off what
- * the account's minus took already. A linked pair is not named: its account is a debt of the list, and its loan is
- * no saved loan beside the accounts.
- */
-export function overdraftTwice(balances: readonly BalanceInput[], debts: HouseholdDebts): MaybeTwice[] {
-  const lines = owing(debts).filter((loan) => loan.kind === "credit_line");
-  const counted = new Set(debts.sources.map((s) => s.accountId));
-  return pairs(balances, (b) => (!counted.has(b.id) && (b.balanceCents ?? 0) < 0 ? lines : []));
-}
-
 /**
  * How many loans an interest total leaves out for their rate: they owe and no rate was told. A loan whose balance is
  * dated after the day is left out too, for its balance, and is not one of these.
@@ -129,6 +74,13 @@ export interface LoanRow {
    * whose `accountId` names an account that is gone, is no card or loan account any more, or has no balance.
    */
   linkedAccount: { id: string; name: string } | null;
+  /** Who typed the loan in, when that is another member (`Loan.typedBy`): the viewer cannot change or link such a loan. Left out on every other row. */
+  typedBy?: string;
+  /**
+   * The viewer's part of the debt where it is below the whole (`HouseholdDebts.parts`): every cent figure of the row
+   * is that part of the debt's own. Left out, the debt is all the viewer's, as every debt is in the household's view.
+   */
+  part?: Part;
   /** Owed on the day. With `unknown` set it is the balance as stated, which no plan moved forward. */
   balance: LoanFigure;
   /**
@@ -185,6 +137,7 @@ export function loansReport(ctx: Pick<AnalysisContext, "today">, balances: reado
     const moves = hasReferenceRate(loan) && loan.rateBp !== null && (balance.cents ?? 0) > 0;
     const source = sourceOf.get(loan.id);
     const account = source ? accountOf.get(source.accountId) : undefined;
+    const part = debts.parts.get(loan.id);
     return {
       id: loan.id,
       name: loan.name,
@@ -192,6 +145,8 @@ export function loansReport(ctx: Pick<AnalysisContext, "today">, balances: reado
       kind: loan.kind,
       accountType: source && !source.linked ? (account?.type ?? null) : null,
       linkedAccount: source?.linked && account ? { id: account.id, name: account.name } : null,
+      ...(loan.typedBy ? { typedBy: loan.typedBy } : {}),
+      ...(part ? { part } : {}),
       balance,
       balanceDate: loan.balanceDate,
       rateBp: loan.rateBp,

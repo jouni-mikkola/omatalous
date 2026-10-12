@@ -105,7 +105,7 @@ export interface Transaction {
   source?: string;
   /**
    * The bank's amount, on a row cut to the viewer's part of a joint account: `amountCents` is the part then. Left out,
-   * the row is whole. Nothing fills it yet: the loader of a member's own view will. Read it through `billCents`.
+   * the row is whole. `applyUse` fills it, for the rows of a member's own view. Read it through `billCents`.
    */
   wholeCents?: number;
 }
@@ -145,9 +145,9 @@ export interface BalanceInput {
   cardMask?: string | null;
   /** The limit of a card or credit line as the bank gave it, in cents. */
   creditLimitCents?: number | null;
-  /** Who uses the account. Nothing fills it yet: the server will, with the balances of a view (`requestInputs`). Left out, nothing is known of its use. */
+  /** Who uses the account: the server fills it with the balances of a view, in both views. Left out, nothing is known of its use. */
   use?: AccountUse;
-  /** The viewer's part of the account, filled with `use`. Left out, the account counts whole. */
+  /** The viewer's part of the account, set in the own view only: the household view counts every account whole. Left out, the account counts whole. */
   part?: Part;
 }
 
@@ -208,6 +208,11 @@ export const LOAN_REFERENCES = ["euribor_12", "euribor_6", "euribor_3", "fixed"]
  */
 export interface Loan {
   id: string;
+  /**
+   * The display name of the member who typed the loan in, on a loan a view holds for another member (the server's
+   * `loansInView`). Left out on the viewer's own, and never stored: a loan with it is not the viewer's to change.
+   */
+  typedBy?: string;
   /** What the user calls it. */
   name: string;
   /** Who lent. */
@@ -241,6 +246,11 @@ export interface Loan {
    * none, so a loan built by hand still compiles and a loan without a link reads as it did before the field.
    */
   accountId?: string | null;
+  /**
+   * The day the bank sets the rate again, as the user typed it. Left out or null means none typed. No figure of the
+   * loan depends on it, and a day that has passed is kept: the rate has been reviewed since.
+   */
+  rateReviewDate?: IsoDate | null;
 }
 
 /**

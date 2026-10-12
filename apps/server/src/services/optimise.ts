@@ -31,7 +31,7 @@ import {
 } from "@banking/core";
 import { isoIn } from "../platform/config.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
-import { requestInputs, type Scope } from "./analysis.ts";
+import { requestInputs, type Scope, type View } from "./analysis.ts";
 import type { Services } from "./context.ts";
 
 /** A household types in a handful of numbers and decides on a few dozen findings; the caps only stop a script from filling the tables. */
@@ -49,10 +49,17 @@ export interface StateRequest {
 /** Owners of the shared accounts in view: their register answers categorised those rows, as on the transactions list. */
 const ownersOf = (userId: string, accounts: readonly { userId: string }[]) => [...new Set(accounts.map((a) => a.userId).filter((id) => id !== userId))];
 
+/**
+ * The rows the advice reads: every account whole in both views. A contract is the household's, and half an
+ * electricity bill against a market price is wrong advice, so the own view reads the accounts the viewer uses with
+ * their rows and balances as the bank has them.
+ */
+const viewOf = (scope: Scope): View => (scope === "own" ? "used" : scope);
+
 /** What the page and the evidence are built from, for the signed-in user. */
 async function compute(s: Services, userId: string, scope: Scope, without?: string) {
   const repo = s.finance(userId);
-  const { ctx, accounts } = await s.analysis.get(s, userId, scope);
+  const { ctx, accounts } = await s.analysis.get(s, userId, viewOf(scope));
   const [{ balances, inputs }, inputRows, states, codes] = await Promise.all([requestInputs(s, userId, accounts), repo.listInputs(), repo.listStates(), repo.industryCodes(ownersOf(userId, accounts))]);
   const values: InputValues = Object.fromEntries(inputRows.map(({ key, value, asOf }) => [key, { value, asOf }]));
   // the user's own register answers, for the merchants in view; a lookup never happens here
@@ -132,7 +139,7 @@ export async function setInput(s: Services, userId: string, scope: Scope, key: s
   if (!parsed.ok) throw new UserError(parsed.error);
   if (found.subject !== null) {
     // a quote belongs to a subscription or bill the history has found, in the scope the page is showing
-    const { ctx } = await s.analysis.get(s, userId, scope);
+    const { ctx } = await s.analysis.get(s, userId, viewOf(scope));
     if (!ctx.recurring.some((r) => r.id === found.subject)) throw new UserError("Vakuutusta ei löydy tiedoistasi.");
   }
   const repo = s.finance(userId);

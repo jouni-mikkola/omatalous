@@ -178,6 +178,12 @@ maintenance helper is current. The installer's script path does the same and sta
 - Every financial row has a `user_id`. Financial data is reached only through `FinanceRepo`, which adds
   `WHERE user_id = ?` to every query.
 - A member sees another member's account only if the owner shares it, and then read-only.
+- What a member sees of another member besides that: the display names of the users of an account the member can see
+  (a joint account's users and their weights, which `GET /api/meta` gives and which the member who linked the account
+  says), and the loans another member typed in that are paid from an account in the member's view, with the typist's
+  display name. The member can read such a loan's name, lender, balance, rate, plan and payments, and cannot list,
+  change, link or remove it. Nothing of an account that was not shared reaches a member: a use names users and
+  widens no access. Which loans a view holds is in MONEY_FLOWS.md (*Joint accounts*).
 - The bank's `state` value is tied to the user who started the consent and works once.
 - User management and server settings are admin only.
 - CSRF: requests that change something need the `X-Requested-With: fetch` header. When the browser sends an `Origin`, it
@@ -321,8 +327,10 @@ found gives the category. An unclear match is left alone.
 - The reader is Tesseract and pdf.js, both run as WebAssembly and JavaScript the app serves itself from `/assets`. No
   file of it comes from a CDN, and the Content-Security-Policy would block one. Both parse files the household gives
   them, and both are pinned to exact versions, so a security release of either needs a bump by hand.
-- Loans belong to the user who saved them. A member never sees another member's loans, and sharing an account shares no
-  loan.
+- Loans belong to the user who saved them: the list of loans and every change read the typist's own rows. A member sees
+  another member's loan only as *Who sees what* says, when it is paid from an account in the member's view. A loan's
+  series key is not checked against the typist's accounts when it is saved, so a member who is named a user of an
+  account can put a loan of their own into the views of that account's other users. Nothing of the others goes back.
 
 ## Container
 
