@@ -142,7 +142,7 @@ flowchart LR
   never marks one done itself. The first own-scope visit of a month stores a snapshot (`snapshot.ts`) of each finding's
   id, area, mid, certainty and status; the page lists what changed since the last one and draws found against
   confirmed euros a year once two snapshots exist. The flag `optimise` ships on (preview); an admin switches it off in
-  Asetukset > Palvelin. `test/optimise/household.ts` joins every area's hit into one household: every area with a
+  Asetukset > Tekniset asetukset > Palvelin. `test/optimise/household.ts` joins every area's hit into one household: every area with a
   finding kind must hit on it, every near miss must stay quiet and the headline must be the overlap-free sum.
 - Merchants (`routes/merchants.ts`): `GET /api/merchants` lists the user's merchants with their category,
   row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
@@ -226,7 +226,7 @@ The copies and the checks around them, each in one place:
 
 ## Maintenance from the browser
 
-*Asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migrations 0006 and 0007). A host
+*Asetukset > Tekniset asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migrations 0006 and 0007). A host
 helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of ten fixed actions (check-update, update,
 rollback, backup, restart, doctor, logs, prune, helper-renew, access) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
@@ -257,7 +257,7 @@ before an update swaps the files on disk.
   the clone's folder, which `install.sh`, `update.sh`, `restore.sh` and `reset.sh` hold for a whole run, so an update
   that replaces `scripts/install.sh` does not end it.
 
-*Asetukset > Palvelin > Etäkäyttö* sets up a Cloudflare Tunnel with Access from the browser. It does not use the
+*Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö* sets up a Cloudflare Tunnel with Access from the browser. It does not use the
 request row to carry values. The routes (`routes/admin.ts`, `services/remote-access*.ts`) ask for the admin's password,
 call Cloudflare's API in process with the saved token (`providers/cloudflare/`, the logic of the installer's
 `cloudflare up`), write the values to `<data>/ops/access-request.json` (`services/access-request.ts`) and queue the
@@ -316,7 +316,7 @@ fetch from the same day. The other accounts go on.
 | `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
 | `optimise_snapshots` | one snapshot of the findings per user and month, for the follow-up |
 | `security_events` | logins, lockouts, new devices, password changes and resets, ended sessions, added and deleted users, `ops_*` requests and results: time, user, IP, user agent. A `notify` event is shown once to its user. Kept 90 days, at most 2,000 |
-| `ops_requests` | maintenance requests from *Asetukset > Ylläpito*: the action, its status, who asked, the helper's summary, output and steps. The newest 200 finished ones are kept |
+| `ops_requests` | maintenance requests from *Asetukset > Tekniset asetukset > Ylläpito*: the action, its status, who asked, the helper's summary, output and steps. The newest 200 finished ones are kept |
 | `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted), the Cloudflare API token of the Etäkäyttö page (encrypted) and its record |
 | `_migrations` | applied migrations with checksums and compatibility floors |
 

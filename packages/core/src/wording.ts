@@ -366,9 +366,6 @@ export const isFuelText = (folded: string) => FUEL_WORDS.test(folded);
 export const isCarInsuranceText = (folded: string) => CAR_INSURANCE_WORDS.test(folded);
 export const isVehicleTaxText = (folded: string) => VEHICLE_TAX_WORDS.test(folded);
 export const isCarFinanceText = (folded: string) => CAR_FINANCE_WORDS.test(folded);
-// a car dealer by the words of the trade: a payment to one is a car bought, not a running cost
-const CAR_DEALER_WORDS = words(String.raw`AUTOLIIKE|AUTOKAUPPA|AUTOKAUPPIAS|AUTOTALO|AUTOKESKUS|AUTOMYYMALA|AUTOMYYNTI|BILHANDEL|BILFIRMA`);
-export const isCarDealerText = (folded: string) => CAR_DEALER_WORDS.test(folded);
 
 // ── lenders and the words for credit (the loan and credit rules of categorize.ts interpolate each list) ──
 

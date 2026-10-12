@@ -28,7 +28,7 @@ describe("accountNumber", () => {
   });
 });
 
-describe("fetchedText: the Haettu column of a connection", () => {
+describe("fetchedText: the Haettu column of a connection in Pankkiyhteydet", () => {
   const conn = { id: "c1", state: "active" as const, lastSyncedAt: null };
   const acc = (extra: Record<string, unknown> = {}) => ({ connectionId: "c1", lastSyncedAt: null, problem: null, ...extra }) as Parameters<typeof fetchedText>[1][number];
 
@@ -105,8 +105,8 @@ describe("Tilit: what tells accounts apart", () => {
       account({ name: "Yhteinen tili", customName: "Yhteinen tili", iban: "FI2112345600000785", holder: "Testi Esimerkki, Maija Mallikas" }),
       account({ id: "a2", name: "Nordea Gold", bankName: "Nordea Gold", type: "credit_card", cardMask: "•••• 1144", creditLimitCents: 200000, balanceCents: -34000, holder: "Testi Esimerkki" }),
     ]);
-    expect(out).toContain("Yhteinen tili FI21 1234 5600 0007 85 · pankkiyhteys Pankin nimi: Käyttötili Testi Esimerkki, Maija Mallikas");
-    expect(out).toContain("Nordea Gold •••• 1144 · pankkiyhteys Testi Esimerkki Luottoraja 2 000 €, käytössä 340 €");
+    expect(out).toContain("Yhteinen tili FI21 1234 5600 0007 85 Pankin nimi: Käyttötili Testi Esimerkki, Maija Mallikas");
+    expect(out).toContain("Nordea Gold •••• 1144 Testi Esimerkki Luottoraja 2 000 €, käytössä 340 €");
     expect(out).not.toContain("yli luottorajan");
   });
 
@@ -134,6 +134,19 @@ describe("Tilit: what tells accounts apart", () => {
   it("does not say the holder twice when the bank gave no product and the name is the holder", () => {
     const out = render([account({ name: "Testi Esimerkki", bankName: "Testi Esimerkki", holder: "Testi Esimerkki", iban: "FI2112345600000785" })]);
     expect(out.split("Testi Esimerkki").length - 1).toBe(1);
+  });
+
+  it("has no Haettu column and names no provider after the number: the table is the account, its type, its balance and Muokkaa", () => {
+    const out = render([account({ iban: "FI2112345600000785", lastSyncedAt: "2026-10-03T08:00:00Z" }), account({ id: "a2", provider: "demo", connectionId: null })]);
+    expect(out).not.toContain("Haettu");
+    expect(out).not.toContain("3.10.2026");
+    expect(out).not.toMatch(/pankkiyhteys|demo|CSV/);
+    expect(out).toMatch(/Tili Tyyppi Saldo/);
+  });
+
+  it("says only 'Ei tilejä.' when there is no account", () => {
+    expect(render([])).toContain("Ei tilejä.");
+    expect(render([])).not.toContain("Yhdistä");
   });
 
   it("every account has Muokkaa, a bank account too", () => {

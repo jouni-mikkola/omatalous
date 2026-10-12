@@ -76,9 +76,13 @@ test("Ilmoitukset is one card, the last of the page: the warning first and linke
     await expect(cardOf(page).getByRole("button", { name, exact: true }), "the dismissed alert is back after a reload").toHaveCount(0);
     await expect(cardOf(page).getByRole("listitem").first()).toContainText("Esimerkkitilin tiedot ovat vanhoja");
 
-    // the warning leads to Asetukset > Tietojen laatu
+    // the warning leads to Asetukset > Tietojen laatu, a card while the data has a note: the answer is given the note of the warning
+    await page.route("**/api/reports?**", async (route) => {
+      const answer = await route.fetch();
+      await route.fulfill({ response: answer, json: { ...(await answer.json()), dataQuality: { signals: [{ ...WARNING, tone: "warning" }] } } });
+    });
     await cardOf(page).getByRole("link", { name: /Esimerkkitilin tiedot ovat vanhoja/ }).click();
-    await expect(page).toHaveURL(/#\/settings#laatu$/);
+    await expect(page).toHaveURL(/#\/settings\?section=technical#laatu$/);
     await expect(page.getByRole("heading", { name: "Tietojen laatu" })).toBeVisible();
     expect(seen.problems).toEqual([]);
   } finally {
@@ -143,6 +147,57 @@ test("a row is one line with its Kuittaa at the right, a text that does not fit 
     expect(await overflow(page), "Yhteenveto with Ilmoitukset scrolls sideways at 390px").toBeLessThanOrEqual(1);
   } finally {
     await context.close();
+  }
+});
+
+test("a payment without a category is one line with Luokittele beside Kuittaa, and the link opens that payment in Tapahtumat, where it gets the category Auton osto", async ({ browser }) => {
+  const { state, id } = await makeMember(browser, "luokittelu");
+  const context = await browser.newContext({ storageState: state });
+  try {
+    expect((await context.request.post("/api/demo", { headers: FETCH })).status()).toBe(200);
+    // a payment of the demo stands for the one core finds: the row is the server's, the alert about it is made here
+    const list = await context.request.get("/api/transactions?limit=200", { headers: FETCH });
+    const { items } = (await list.json()) as { items: { merchant: string; bookingDate: string; amountCents: number; category: string }[] };
+    const paid = items.find((t) => t.amountCents < 0 && t.category === "groceries")!;
+    const day = `${Number(paid.bookingDate.slice(8))}.${Number(paid.bookingDate.slice(5, 7))}.`;
+    const detail = `${paid.merchant} ${day} ${(-paid.amountCents / 100).toFixed(2).replace(".", ",")} €`;
+    const alert = { id: "uncategorised:e2e", kind: "uncategorised", tone: "info", title: "Luokittelematon maksu", detail, row: { merchant: paid.merchant, date: paid.bookingDate } };
+    const page = await open(context, 1280, [alert, alertOf(1)]);
+    const seen = watch(page);
+
+    const row = cardOf(page).getByRole("listitem").filter({ hasText: "Luokittelematon maksu" });
+    await expect(row).toContainText(`Tiedoksi: Luokittelematon maksu ${detail}`);
+    expect((await row.boundingBox())!.height, "the row is one line").toBeLessThanOrEqual(41);
+    // one link, the words that say what to do, at the left of Kuittaa on the row's line
+    await expect(row.getByRole("link")).toHaveCount(1);
+    const link = row.getByRole("link", { name: `Luokittele: ${detail}`, exact: true });
+    await expect(link).toHaveText("Luokittele");
+    const [words, button] = await Promise.all([link.boundingBox(), row.getByRole("button", { name: `Kuittaa: Luokittelematon maksu ${detail}`, exact: true }).boundingBox()]);
+    expect(words!.x + words!.width, "Luokittele is at the left of Kuittaa").toBeLessThanOrEqual(button!.x);
+    expect(words!.y, "and on its line").toBeLessThan(button!.y + button!.height);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(link).toBeVisible();
+    const card = (await cardOf(page).boundingBox())!;
+    const narrow = (await row.getByRole("button", { name: /^Kuittaa: / }).boundingBox())!;
+    expect(narrow.x + narrow.width, "the answers stay inside the card on a phone").toBeLessThanOrEqual(card.x + card.width);
+    expect(await overflow(page), "Yhteenveto with the row scrolls sideways at 390px").toBeLessThanOrEqual(1);
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    // the link opens Tapahtumat with that payee on that day
+    await link.click();
+    await expect(page).toHaveURL(/#\/transactions\?/);
+    const filters = new URLSearchParams(page.url().split("?")[1]);
+    expect(Object.fromEntries(filters)).toEqual({ merchant: paid.merchant, from: paid.bookingDate, to: paid.bookingDate });
+    // and there the payment gets its category: Auton osto can be picked for any row
+    await page.getByRole("button", { name: `Kategoria: ${paid.merchant}, nyt Ruokakauppa` }).first().click();
+    await page.getByLabel(`Kategoria: ${paid.merchant}`, { exact: true }).selectOption({ label: "Auton osto" });
+    await expect(page.getByRole("status").filter({ hasText: /siirrettiin kategoriaan/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Kategoria: ${paid.merchant}, nyt Auton osto` }).first()).toBeVisible();
+    expect(seen.problems).toEqual([]);
+  } finally {
+    await context.close();
+    await removeMember(browser, id);
   }
 });
 

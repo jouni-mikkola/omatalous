@@ -174,6 +174,16 @@ describe("where a row leads", () => {
     const [n] = rows(data({ alerts: [alert("b", { merchant: "ESIMERKKI OY", category: "food" })] }));
     expect(n!.href).toBe("#/transactions?merchant=ESIMERKKI+OY");
   });
+
+  it("leads an alert about one row to that row: the payee on its day, with the words of the link", () => {
+    const large = alert("u", { kind: "uncategorised", title: "Luokittelematon maksu", detail: "Esimerkki Oy 12.10. 1 250,00 €", row: { merchant: "Esimerkki Oy", date: "2026-10-12" } });
+    const [n, plain] = rows(data({ alerts: [large, alert("b", { merchant: "ESIMERKKI OY" })] }));
+    expect(n!.href).toBe("#/transactions?merchant=Esimerkki+Oy&from=2026-10-12&to=2026-10-12");
+    expect(n!.link).toBe("Luokittele");
+    // two such rows have one title, so Kuittaa is named with the detail
+    expect(n!.answers.map((a) => a.name)).toEqual(["Kuittaa: Luokittelematon maksu Esimerkki Oy 12.10. 1 250,00 €"]);
+    expect(plain!.link).toBeUndefined();
+  });
 });
 
 describe("the card", () => {
@@ -203,6 +213,17 @@ describe("the card", () => {
     expect(html).toContain('<span class="notice-title">Hälytys a</span><span class="notice-detail"> Selitys a</span>');
     // no second line under the title: the 12 px line of the statement look is not used
     expect(html).not.toContain("st-sub");
+  });
+
+  it("gives a row that names what to do its words as the one link, beside Kuittaa, and leaves the text plain", () => {
+    const large = alert("u", { kind: "uncategorised", title: "Luokittelematon maksu", detail: "Esimerkki Oy 12.10. 1 250,00 €", row: { merchant: "Esimerkki Oy", date: "2026-10-12" } });
+    const html = draw(data({ alerts: [large] }));
+    expect(html).toContain('<span class="st-name notice-text" title="Luokittelematon maksu Esimerkki Oy 12.10. 1 250,00 €">');
+    expect(html).toContain('<a href="#/transactions?merchant=Esimerkki+Oy&amp;from=2026-10-12&amp;to=2026-10-12" aria-label="Luokittele: Esimerkki Oy 12.10. 1 250,00 €">Luokittele</a>');
+    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html.indexOf(">Luokittele</a>")).toBeLessThan(html.indexOf(">Kuittaa</button>"));
+    // a row whose text is its link has no second one
+    expect(draw(data({ alerts: [alert("a", { merchant: "ESIMERKKI OY" })] })).match(/<a /g)).toHaveLength(1);
   });
 
   it("shows four rows at most, and a link with the count to Säästövinkit when there are more", () => {

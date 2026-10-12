@@ -3,16 +3,17 @@ import { addDays, DAYS_PER_MONTH, dayNumber, daysBetween, monthIndex } from "../
 import { fold, UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
-import { NO_INPUTS, type UserInputs } from "../types.ts";
+import { type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { categoryRises } from "./change.ts";
 import { changeMonths, cutWords } from "./change-text.ts";
-import { type AnalysisContext, type AnalysisTx, inDays, netPurchase, recurringAt } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, netPurchase, netSpend, recurringAt } from "./context.ts";
 import { isBankFee, isLateFee } from "./fees.ts";
 import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
+import { shortDate } from "./income-series.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
 
-export type AlertKind = "double_charge" | "late_fee" | "cancelled" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
+export type AlertKind = "double_charge" | "late_fee" | "cancelled" | "uncategorised" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
 
 /** A cost trap or a mistake worth acting on. The overview shows these before insights. */
 export interface Alert {
@@ -25,6 +26,8 @@ export interface Alert {
   /** Where a click should go: a merchant or a category in the transactions list. */
   merchant?: string;
   category?: string;
+  /** On an alert about one row: the row, for a link that opens it. It says nothing of the payee, so no insight about the payee gives way to it. */
+  row?: { merchant: string; date: IsoDate };
   /** On a question about a forgotten service: the subject an answer is stored under, which names that one series. */
   markSubject?: string;
 }
@@ -34,7 +37,7 @@ const MAX_ALERTS = 6;
 /**
  * Cost traps in the selected period, judged at its end (range.to). Only
  * "forgotten" is about now, so it shows when the period reaches today.
- * Order: double_charge, late_fee, cancelled, overlap, spike, forgotten, fees, habit.
+ * Order: double_charge, late_fee, cancelled, uncategorised, overlap, spike, forgotten, fees, habit.
  * `inputs` carries the user's marks: a dismissed alert is left out, a subscription marked in use or cancelled is not
  * asked about, and a charge after a subscription was marked cancelled is a warning of its own.
  */
@@ -43,18 +46,20 @@ export function buildAlerts(ctx: AnalysisContext, range: DateRange, inputs: User
   const recurring = recurringAt(ctx, range.to);
   const overlaps = overlapAlerts(recurring);
   const merchantMarks = marksBySubject(inputs.marks);
+  const dismissed = dismissedIds(inputs.marks);
   return pick(
     [
       ...doubleCharges(ctx, current, recurring, range),
       ...lateFees(current),
       ...chargedAfterCancelling(current.filter(isCharge), merchantMarks, ctx.recurring),
+      ...uncategorised(ctx, range, dismissed),
       ...overlaps.alerts,
       ...spikes(ctx, range),
       ...(range.to >= ctx.today ? forgotten(ctx.recurring, overlaps.merchants, merchantMarks, ctx.today) : []),
       ...bankFees(ctx, current, range),
       ...habits(ctx, range),
     ],
-    dismissedIds(inputs.marks),
+    dismissed,
   );
 }
 
@@ -187,6 +192,34 @@ function lateFees(current: readonly AnalysisTx[]): Alert[] {
       ...(merchants.length === 1 ? { merchant: merchants[0] } : {}),
     },
   ];
+}
+
+// ── a large payment without a category ───────────────────
+
+const UNCATEGORISED_MIN_CENTS = 100_000;
+const UNCATEGORISED_DAYS = 365;
+const MAX_UNCATEGORISED = 3;
+
+/**
+ * A payment of 1 000 € or more that nothing recognised: it is still Muut menot, and neither the user nor a rule put it
+ * there. One row each for the three largest of the year up to the period's end, so the day reads without its year.
+ * The row is gone when the payment has a category, and one set aside gives its place to the next largest.
+ */
+function uncategorised(ctx: AnalysisContext, range: DateRange, dismissed: ReadonlySet<string>): Alert[] {
+  const toDay = dayNumber(range.to);
+  return inDays(ctx, { fromDay: toDay - UNCATEGORISED_DAYS + 1, toDay })
+    .filter((t) => t.status === "booked" && !t.isTransfer && t.category === "other" && t.categorySource === "default" && netSpend(t) >= UNCATEGORISED_MIN_CENTS)
+    .filter((t) => !dismissed.has(`uncategorised:${t.id}`))
+    .sort((a, b) => netSpend(b) - netSpend(a) || b.day - a.day || (a.id < b.id ? -1 : 1))
+    .slice(0, MAX_UNCATEGORISED)
+    .map((t) => ({
+      id: `uncategorised:${t.id}`,
+      kind: "uncategorised",
+      tone: "info",
+      title: "Luokittelematon maksu",
+      detail: `${t.merchant} ${shortDate(t.bookingDate)} ${formatEur(netSpend(t))}`,
+      row: { merchant: t.merchant, date: t.bookingDate },
+    }));
 }
 
 // ── overlapping services ─────────────────────────────────

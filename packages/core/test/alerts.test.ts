@@ -418,3 +418,51 @@ describe("alerts", () => {
     expect(kinds).toEqual(["double_charge", "late_fee", "overlap", "forgotten", "fees", "habit"]);
   });
 });
+
+describe("a large payment that is still Muut menot", () => {
+  const big = (id: string, cents: number, over: Partial<Transaction> = {}) => tx({ id, bookingDate: "2025-10-12", amountCents: -cents, merchant: "Esimerkki Oy", ...over });
+  const found = (rows: Transaction[], range = year) => ofKind(alertsOf([...household(), ...rows], range), "uncategorised");
+
+  it("is one row from 1 000 € on with the payee, the day and the sum, and none at 999,99 €", () => {
+    expect(found([big("a", 125000)])).toEqual([
+      { id: "uncategorised:a", kind: "uncategorised", tone: "info", title: "Luokittelematon maksu", detail: "Esimerkki Oy 12.10. 1 250,00 €", row: { merchant: "Esimerkki Oy", date: "2025-10-12" } },
+    ]);
+    expect(found([big("a", 100000)]).map((a) => a.detail)).toEqual(["Esimerkki Oy 12.10. 1 000,00 €"]);
+    expect(found([big("a", 99999)])).toEqual([]);
+  });
+
+  it("goes when the payment has a category, whoever gave it", () => {
+    expect(found([big("a", 125000, { category: "home", categorySource: "rule" })])).toEqual([]);
+    // Muut menot the user chose, or a rule of the user gave, is a category too
+    expect(found([big("a", 125000, { categorySource: "user" })])).toEqual([]);
+    expect(found([big("a", 125000, { categorySource: "rule" })])).toEqual([]);
+  });
+
+  it("is three rows at most, the largest first", () => {
+    const rows = [100000, 500000, 200000, 300000, 150000].map((cents, i) => big(`r${i}`, cents, { bookingDate: `2026-0${i + 1}-15` }));
+    expect(found(rows).map((a) => a.id)).toEqual(["uncategorised:r1", "uncategorised:r3", "uncategorised:r2"]);
+    // a row set aside gives its place to the next one
+    const marks = [{ subject: "alert:uncategorised:r1", mark: "dismissed" as const, markedAt: "2026-10-01T10:00:00" }];
+    const left = buildAlerts(createContext([...household(), ...rows], [checking], today), year, { marks, expectedBills: [], loans: [] });
+    expect(ofKind(left, "uncategorised").map((a) => a.id)).toEqual(["uncategorised:r3", "uncategorised:r2", "uncategorised:r4"]);
+  });
+
+  it("counts the payment by what it cost in the end, and money in is no payment", () => {
+    const back = (cents: number) => tx({ bookingDate: "2025-10-20", amountCents: cents, merchant: "Esimerkki Oy" });
+    // 1 250 € paid and 250 € back is a payment of 1 000 €; one cent more back and it is under the bound
+    expect(found([big("a", 125000), back(25000)]).map((a) => a.detail)).toEqual(["Esimerkki Oy 12.10. 1 000,00 €"]);
+    expect(found([big("a", 125000), back(25001)])).toEqual([]);
+    expect(found([tx({ bookingDate: "2025-10-12", amountCents: 125000, merchant: "Esimerkki Oy" })])).toEqual([]);
+  });
+
+  it("is no transfer and no row the bank has not booked, and reads the year up to the period's end", () => {
+    expect(found([big("a", 125000, { isTransfer: true, category: "transfer" })])).toEqual([]);
+    expect(found([big("a", 125000, { status: "pending" })])).toEqual([]);
+    // 10.10.2025 is the first day of the year that ends on 9.10.2026
+    expect(found([big("a", 125000, { bookingDate: "2025-10-10" })])).toHaveLength(1);
+    expect(found([big("a", 125000, { bookingDate: "2025-10-09" })])).toEqual([]);
+    // a period that ends before the payment does not show it
+    expect(found([big("a", 125000, { bookingDate: "2026-09-12" })], { from: "2026-08-01", to: "2026-08-31" })).toEqual([]);
+    expect(found([big("a", 125000, { bookingDate: "2026-09-12" })], { from: "2026-10-01", to: today })).toHaveLength(1);
+  });
+});

@@ -98,7 +98,7 @@ the earlier address in `.env`; turning remote access off puts it back.
 
 ### Remote access from the page
 
-An admin can set up the tunnel, the address and the Access rule under *Asetukset > Palvelin > Etäkäyttö*, on a copy whose
+An admin can set up the tunnel, the address and the Access rule under *Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö*, on a copy whose
 maintenance helper is current. The installer's script path does the same and stays for installs without the helper.
 
 - The page needs a Cloudflare API token (*Cloudflaren API-tunniste*) with the five permissions that
@@ -224,7 +224,7 @@ saved and remote access on, Cloudflare's side can be removed only while the toke
 
 ## Settings entered in the browser
 
-Nothing entered in the setup or under *Asetukset > Palvelin* can end up executed:
+Nothing entered in the setup or under *Asetukset > Tekniset asetukset > Palvelin* can end up executed:
 
 - Input goes to the database only, with one exception: the address of remote access (below). The files the app writes
   are `app_secret` and that request file, and their names come from the code. The app runs no external programs; the
@@ -316,7 +316,7 @@ found gives the category. An unclear match is left alone.
   that `isLookupName` refuses, so an earlier version's answer for a name shaped like a person's does not stay. An
   answer stored for a name that holds a word of the household's names stays and is shown, but the name is never asked
   about again.
-- An admin turns it off under *Asetukset > Palvelin*. `INDUSTRY_LOOKUP=false` in `.env` sets the default
+- An admin turns it off under *Asetukset > Tekniset asetukset > Palvelin*. `INDUSTRY_LOOKUP=false` in `.env` sets the default
   to off. A value saved in the browser takes precedence.
 
 ## Loans
@@ -362,7 +362,7 @@ found gives the category. An unclear match is left alone.
   damaged file, because a stop at start would loop. Both cases are security events (*Tietokanta palautettu
   varmuuskopiosta*, *Tietokanta vaurioitunut*) and a notice to every admin. The app never empties `/data/damaged`, and
   the files in it hold transactions in plain text.
-- *Palauta uusin varmuuskopio* and *Tyhjennä kaikki tiedot* in *Asetukset > Ylläpito* change the database itself.
+- *Palauta uusin varmuuskopio* and *Tyhjennä kaikki tiedot* in *Asetukset > Tekniset asetukset > Ylläpito* change the database itself.
   Each asks for the admin's password again and a typed word (`PALAUTA`, `TYHJENNÄ`), and is recorded as a security event
   with the asker's name. Neither goes through the host helper. A restore writes a marker, `/data/.restore-request`, which
   holds the file name of a copy in `/data/backups` and the asker's id. The app then ends itself as `docker stop` does,
@@ -382,7 +382,7 @@ found gives the category. An unclear match is left alone.
 
 ## Updates and the maintenance helper
 
-*Asetukset > Ylläpito* can update, roll back, back up, restart and check the install, read the logs, free disk space and renew the helper itself. The app does not run
+*Asetukset > Tekniset asetukset > Ylläpito* can update, roll back, back up, restart and check the install, read the logs, free disk space and renew the helper itself. The app does not run
 anything itself. It writes a request row, and a helper on the host (`scripts/ops-helper.sh`) takes it. Update, rollback and
 the download of a backup need the admin's password again, rollback also a typed word. Every request is recorded as a security event (`Ylläpito: ...`), and the other admins get a notice.
 Remote access is changed on its own page, with the password for every change, see
@@ -400,7 +400,7 @@ Remote access is changed on its own page, with the password for every change, se
   puts the earlier one back. To put it back by hand, copy `ops/env.prev` over `.env`, keep its mode 600, and run
   `docker compose up -d`. The maintenance route refuses `access`, so only the remote access routes, behind the
   password, can queue it. Port changes are not among the actions. The last two, `prerelease-on` and `prerelease-off`,
-  are the two positions of the switch *Tarjoa uudet versiot heti* under *Asetukset > Ylläpito*. They are two names so
+  are the two positions of the switch *Tarjoa uudet versiot heti* under *Asetukset > Tekniset asetukset > Ylläpito*. They are two names so
   that no value travels from the app to the host: the helper writes `yes` or `no`, words of its own script, on the one
   line `TALOUS_PRERELEASE` of `.env`. It writes only after it checked the file, holds the installer's lock, refuses a
   source install and keeps every other byte, the mode and the owner. An administrator's session queues them without the

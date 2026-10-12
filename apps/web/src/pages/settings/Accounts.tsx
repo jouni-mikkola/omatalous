@@ -5,22 +5,20 @@
  * from the bank. Tietojen laatu sits under the table.
  */
 import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { ACCOUNT_TYPE_LABEL, accountNumber, dateTime, eurosText, money, parseEuros } from "../../format.ts";
+import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 import { isJoint, namesOther, optionsOf } from "./account-use.ts";
 import { UseParts, UseSelect } from "./AccountUse.tsx";
 
-const PROVIDER_LABEL: Record<string, string> = { enablebanking: "pankkiyhteys", csv: "CSV", demo: "demo" };
 // a bank-linked account comes back at the next link, so only an earlier CSV import or a demo one can be removed
 const removable = (a: Account) => a.provider === "csv" || a.provider === "demo";
 
 type Message = { tone: "good" | "warning"; text: string };
 
-/** `children` are what sits under the table, inside the card: the data quality notes of the accounts. */
-export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: () => void; children?: ReactNode }) {
+export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   // the passing "Tallennettu." under a select: which select of which account
   const [saved, setSaved] = useState<{ what: "type" | "use"; id: string } | null>(null);
@@ -83,7 +81,6 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
               <th className="acc-type">Tyyppi</th>
               {showUse && <th className="acc-use">Käyttäjä</th>}
               <th className="num">Saldo</th>
-              <th className="hide-phone">Haettu</th>
               <th />
             </tr>
           </thead>
@@ -134,7 +131,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                   <td>
                     {a.name}
                     <div className="sub acc-line">
-                      {accountNumber(a) || "–"} · {PROVIDER_LABEL[a.provider] ?? a.provider}
+                      {accountNumber(a) || "–"}
                     </div>
                     {a.customName && <div className="sub acc-line">Pankin nimi: {a.bankName}</div>}
                     {holder && <div className="sub acc-line">{holder}</div>}
@@ -151,7 +148,6 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                   <td className="acc-type">{type}</td>
                   {showUse && <td className="acc-use">{users}</td>}
                   <td className="num">{a.balanceCents === null ? "–" : money(a.balanceCents)}</td>
-                  <td className="hide-phone">{dateTime(a.lastSyncedAt ?? a.balanceAt)}</td>
                   <td className="num">
                     {editing !== a.id && (
                       <button className="btn btn-small" type="button" onClick={() => setEditing(a.id)} aria-label={`Muokkaa tiliä ${a.name}`}>
@@ -162,7 +158,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                 </tr>,
                 parts && (
                   <tr key={`${a.id}-use`} className="edit-row">
-                    <td colSpan={6}>
+                    <td colSpan={5}>
                       {/* the key changes with the use and the shares, so the row asks again and starts from what is saved */}
                       <UseParts
                         key={`${JSON.stringify(a.use)}${meta.shares.filter((x) => x.accountId === a.id).map((x) => x.userId).join()}`}
@@ -177,7 +173,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
                 ),
                 editing === a.id && (
                   <tr key={`${a.id}-edit`} className="edit-row">
-                    <td colSpan={6}>
+                    <td colSpan={5}>
                       <AccountForm
                         account={a}
                         busy={busy}
@@ -197,9 +193,8 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
             })}
           </tbody>
         </table>
-        {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Yhdistä ensin pankki.</div>}
+        {!meta.accounts.length && <div className="empty">Ei tilejä.</div>}
       </div>
-      {children}
     </div>
   );
 }

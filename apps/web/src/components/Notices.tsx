@@ -21,7 +21,7 @@ function Row({ notice: n, onPress, busy }: { notice: Notice; onPress: (n: Notice
   const whole = n.detail ? `${n.title} ${n.detail}` : n.title;
   return (
     <li className={`st-row notice-item${n.warning ? " warn" : ""}`}>
-      {n.href ? (
+      {n.href && !n.link ? (
         <a className="st-name notice-text" href={n.href} title={whole}>
           {text}
         </a>
@@ -30,8 +30,13 @@ function Row({ notice: n, onPress, busy }: { notice: Notice; onPress: (n: Notice
           {text}
         </span>
       )}
-      {n.answers.length > 0 && (
+      {(n.answers.length > 0 || n.link) && (
         <div className="notice-actions">
+          {n.link && n.href && (
+            <a href={n.href} aria-label={`${n.link}: ${n.detail || n.title}`}>
+              {n.link}
+            </a>
+          )}
           {n.answers.map((a) => (
             <button key={a.label} className={a.label === "Kuittaa" ? "btn btn-small" : "link-btn"} type="button" disabled={busy} aria-label={a.name} onClick={() => onPress(n, a.send)}>
               {a.label}
@@ -45,10 +50,12 @@ function Row({ notice: n, onPress, busy }: { notice: Notice; onPress: (n: Notice
 
 /**
  * Ilmoitukset: what the user must act on, as one card at the foot of Yhteenveto, at most four rows of one line each: the
- * title and its detail, and at the right Kuittaa where the row can be set aside. A warning has a rule at the left edge;
- * nothing else is coloured. With more than four, the head links to Säästövinkit (while it is switched on) with the count.
- * The notices of the server (a sign-in from a new device) are read here: Kuittaa on one of them reads them all. With
- * nothing to show there is no card. A failed answer shows the server's sentence under the list and the row stays.
+ * title and its detail, and at the right Kuittaa where the row can be set aside. The row's text is its link; a row
+ * that names what to do (Luokittele) has those words as its link at the right, and its text is plain. A warning has a
+ * rule at the left edge; nothing else is coloured. With more than four, the head links to Säästövinkit (while it is
+ * switched on) with the count. The notices of the server (a sign-in from a new device) are read here: Kuittaa on one
+ * of them reads them all. With nothing to show there is no card. A failed answer shows the server's sentence under the
+ * list and the row stays.
  */
 export function Notices({
   data,

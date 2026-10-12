@@ -3,7 +3,7 @@
 Enable Banking is the service that lets Omatalous read your bank accounts. It is free when you read only your own
 accounts. You register one Enable Banking app for the household, which takes about 15 minutes.
 
-Omatalous walks you through it in the first-run setup, and later under *Asetukset > Palvelin*. It makes the key, lists
+Omatalous walks you through it in the first-run setup, and later under *Asetukset > Tekniset asetukset > Palvelin*. It makes the key, lists
 the fields of Enable Banking's registration form with a *Kopioi* button for each value, and tests the Application ID.
 This page has what the setup does not show.
 
@@ -18,7 +18,7 @@ The picker offers a bank when your Enable Banking app lists it. Omatalous asks E
 last list while Enable Banking does not answer. Until an app is set up and active the picker offers Nordea alone. An
 empty picker means the app lists none of these banks: Nordea, OP, Danske Bank, S-Pankki, Säästöpankki, Oma Säästöpankki,
 POP Pankki, Aktia, Ålandsbanken, Bank Norwegian, Resurs Bank, Morrow Bank, Eurocard, Finnair Plus Mastercard, SAS
-EuroBonus Mastercard, Holvi and Revolut. Check the app under *Asetukset > Palvelin*.
+EuroBonus Mastercard, Holvi and Revolut. Check the app under *Asetukset > Tekniset asetukset > Palvelin*.
 
 Omatalous knows Nordea's transaction wording best. The rows of any other bank are sorted by that bank's own codes, so
 check the categories of the first month under *Tapahtumat* and change what is wrong.
@@ -98,7 +98,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   (`CPAN`) shows as its last four digits and `credit_limit` as its limit. You can give any account a name of your own
   under *Asetukset > Tilit*: a new consent never replaces it. An account linked before these fields were read asks the bank for
   them once at the next fetch; a refusal is tried again at the one after.
-- *Asetukset > Pankkiyhteydet* says when each consent ends ("voimassa 14.1.2027 asti, vielä 93 päivää"). Omatalous reminds
+- *Asetukset > Pankkiyhteydet* says when each consent ends ("voimassa 14.1.2027 asti"; with fewer than 30 days left it adds ", vielä 12 päivää"). Omatalous reminds
   you 14 days before.
 - Renew a consent with *Yhdistä uudelleen* on its row. The button is there before the consent ends too, so you can renew
   on a quiet day. It starts the same bank at once, with no picker. Only a bank the picker no longer offers, or an
@@ -117,7 +117,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   press *Hae nyt*. No new connection is needed.
 - After a link the button *Yhdistä pankki* reads *Yhdistä toinen pankki*, so a household with two banks, or
   with Nordea and one account at a time, goes on without starting over. The wizard ends on the same page.
-- *Tyhjennä kaikki tiedot* under *Asetukset > Ylläpito* ends every bank consent at the bank. A restore of the copy it
+- *Tyhjennä kaikki tiedot* under *Asetukset > Tekniset asetukset > Ylläpito* ends every bank consent at the bank. A restore of the copy it
   made first brings the rows back and not the consents, so connect each bank again with *Yhdistä pankki*.
 - After a link the server log has one line per account: `bank link <bank id>: cash_account_type=... credit_limit=...
   balance_types=...`. It holds codes and yes or no only, no account number, name or amount. It shows what a bank sends.

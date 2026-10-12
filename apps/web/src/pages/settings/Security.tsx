@@ -1,6 +1,6 @@
 /**
- * Asetukset > Kirjautuminen (everyone: a new password, the signed-in devices) and Asetukset > Turvallisuusloki
- * (admin, in the Talous tab).
+ * Asetukset > Salasana (everyone, on the plain page), and on the technical page Omat istunnot (everyone: the signed-in
+ * devices) and Turvallisuusloki (admin).
  */
 import { useState } from "react";
 import { api } from "../../api.ts";
@@ -8,6 +8,7 @@ import { dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { PasswordForm } from "../Auth.tsx";
+import { useReportLoaded } from "./use-settings-page.ts";
 
 interface Session {
   id: string;
@@ -57,19 +58,46 @@ export const KIND_LABEL: Record<string, string> = {
 
 const kindLabel = (kind: string) => KIND_LABEL[kind] ?? (kind.startsWith("ops_") ? `Ylläpito: ${kind.slice(4).replace(/_/g, " ")}` : kind);
 
-/** The way in: a new password and the devices that are signed in. The address `#salasana` opens the password form. */
-export function Login({ openPassword }: { openPassword: boolean }) {
-  const sessions = useApi<{ sessions: Session[] }>("/api/security/sessions");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+/** The card Salasana: a button that opens the three fields. The address `#salasana` opens them at once. */
+export function Password({ openPassword }: { openPassword: boolean }) {
+  const [open, setOpen] = useState(openPassword);
   const [changed, setChanged] = useState(false);
-  const [passwordOpen, setPasswordOpen] = useState(openPassword);
   // a link to the form while the page is open: the card is already there, so the address alone opens it
   const [seenOpen, setSeenOpen] = useState(openPassword);
   if (openPassword !== seenOpen) {
     setSeenOpen(openPassword);
-    if (openPassword) setPasswordOpen(true);
+    if (openPassword) setOpen(true);
   }
+
+  return (
+    <div className="card" id={SETTINGS_ANCHOR.password}>
+      <div className="card-head">
+        <div>
+          <h2>Salasana</h2>
+        </div>
+        {!open && !changed && (
+          <button className="btn" type="button" onClick={() => setOpen(true)}>
+            Vaihda salasana
+          </button>
+        )}
+      </div>
+      {changed ? (
+        <div className="notice good" role="status">
+          Salasana vaihdettu. Muut laitteet kirjattiin ulos.
+        </div>
+      ) : (
+        open && <PasswordForm onDone={() => setChanged(true)} onCancel={() => setOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+/** The devices that are signed in, for the member whose page it is. */
+export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
+  const sessions = useApi<{ sessions: Session[] }>("/api/security/sessions");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useReportLoaded(sessions.data !== null || sessions.error !== null, onLoaded);
 
   const act = async (fn: () => Promise<unknown>, signsOut = false) => {
     if (busy) return;
@@ -92,28 +120,8 @@ export function Login({ openPassword }: { openPassword: boolean }) {
     <div className="card" id={SETTINGS_ANCHOR.login}>
       <div className="card-head">
         <div>
-          <h2>Kirjautuminen</h2>
+          <h2>Omat istunnot</h2>
         </div>
-      </div>
-
-      <details id={SETTINGS_ANCHOR.password} open={passwordOpen} onToggle={(e) => setPasswordOpen(e.currentTarget.open)}>
-        <summary className="small muted">Vaihda salasana</summary>
-        {changed ? (
-          <div className="notice good" role="status">
-            Salasana vaihdettu. Muut laitteet kirjattiin ulos.
-          </div>
-        ) : (
-          <PasswordForm
-            onDone={() => {
-              setChanged(true);
-              sessions.reload();
-            }}
-          />
-        )}
-      </details>
-
-      <div className="card-head" style={{ marginTop: 16 }}>
-        <h3 className="subhead">Omat istunnot</h3>
         <div className="form-row" style={{ margin: 0 }}>
           <button className="btn" disabled={busy || others === 0} onClick={() => void act(() => api("/api/security/sessions/revoke-all", { method: "POST", body: { keepCurrent: true } }))}>
             Kirjaa ulos muut laitteet
@@ -158,15 +166,15 @@ export function Login({ openPassword }: { openPassword: boolean }) {
 }
 
 /** The admin's list of logins, lockouts, key changes and maintenance requests of the last 90 days. */
-export function SecurityLog() {
+export function SecurityLog({ onLoaded }: { onLoaded?: () => void }) {
   const [kind, setKind] = useState("");
   const events = useApi<{ events: SecurityEvent[]; kinds: string[] }>(`/api/security/events${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
+  useReportLoaded(events.data !== null || events.error !== null, onLoaded);
   return (
     <div className="card" id={SETTINGS_ANCHOR.securityLog}>
       <div className="card-head">
         <div>
           <h2>Turvallisuusloki</h2>
-          <div className="card-sub">Merkinnät säilyvät 90 päivää.</div>
         </div>
         <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Merkinnän tyyppi">
           <option value="">Kaikki</option>

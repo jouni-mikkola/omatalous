@@ -66,9 +66,7 @@ export function BillForm({ today, onAdded }: { today: string; onAdded: (name: st
           </select>
         </label>
       </div>
-      <p className="muted small">
-        Anna seuraava eräpäivä. Toistuva lasku erääntyy sen jälkeen aina samana päivänä. Pankin tapahtumista lasku tunnistetaan, kun se on maksettu kahdesti.
-      </p>
+      <p className="muted small">Toistuva lasku erääntyy aina samana päivänä.</p>
       <div className="form-row">
         <button className="btn btn-primary" type="submit" disabled={saving}>
           {saving ? "Lisätään…" : "Lisää lasku"}

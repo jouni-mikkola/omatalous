@@ -44,7 +44,7 @@ export function RemoteAccessBody({ poll, now = Date.now() }: { poll: RemoteAcces
     <div className="remote-access" id="etakaytto">
       <div>
         <h3 className="subhead">Etäkäyttö</h3>
-        <p className="small muted">Etäkäytöllä sovellukseen pääsee kotiverkon ulkopuolelta. Kirjautumiseen tarvitaan sallittu sähköpostiosoite.</p>
+        <p>Etäkäytöllä sovellukseen pääsee kotiverkon ulkopuolelta.</p>
       </div>
       {error && !s && (
         <div className="notice warning" role="alert">

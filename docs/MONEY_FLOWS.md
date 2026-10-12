@@ -389,8 +389,9 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 
 ## The first page
 
-Yhteenveto opens with the card *Varallisuus*, then *Menot* when the running month is shown, then the block *Erääntyvät maksut*
-to the payday. The figures on the first two are core's and the page shows them as given.
+Yhteenveto opens with the card *Varallisuus*, then the blocks *Erääntyvät maksut* to the payday, *Asuminen*, *Tulot ja menot*
+and last *Ilmoitukset*. The figures of *Varallisuus* and of the running month's spending are core's and the page shows them
+as given.
 
 **Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out. In a member's own view a joint account, a card
 or a loan that other members use is counted at the member's part, and its row says so (*osuutesi 60 %*, see *Joint
@@ -510,9 +511,10 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
   least six earlier months, and a category that was as high in the same months a year ago, mostly bills,
   or tax and card bill categories are left out. It says what a year at the new level costs.
 - *Harvinaiset laskut* on Laskut sums the bills that do not come every month (every second month,
-  quarterly, half yearly, yearly) for each of the next twelve months, from the recurring detection, and
-  says how much to set aside a month. Pet food, shops and clinics are purchases and are not listed. It is
-  always about today.
+  quarterly, half yearly, yearly) for each of the next twelve months, from the recurring detection. It
+  shows the monthly figure to set aside at the right of its heading and a table with a row for each month
+  that has a bill due: the due month, the payees and the sum, and the day a paid bill was paid. Pet food,
+  shops and clinics are purchases and are not listed. It is always about today.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
   spending of the period. It starts with the fixed costs as a share of *Tavalliset tulot*. With a balance on a savings or checking account it says how many
@@ -609,7 +611,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 - Each finding has a low, a mid and a high figure with the assumption behind the range. The page shows the mid.
 - A finding needs a mid of at least 120 € a year. A deadline has no euros.
 - The car's running cost holds leasing, and a car bought is shown apart. *Muut havainnot* stand on the same complete
-  months as the findings. A check with no rows to read is told "ei tietoja" and is not counted as checked.
+  months as the findings. A check with no rows to read is not counted as checked; the page lists no checks.
 - A one-off (`oneOffs` with the level policy, the one every view uses, ADR 0005): a purchase over three times its usual ticket (its merchant's median, else its category's in other months) and at least 50 €, or 150 € with no ticket. Listed struck and left out. Transfers never
   count, and an account whose first row falls inside the window is left out of it.
 - The headline adds the mids of the findings shown, largest first. It leaves out a decided finding, one at matala
@@ -732,7 +734,7 @@ nothing. Each window answers whether that member's own money lasts to the pay.
 
 ## When it gets something wrong
 
-- Change the category in the transaction list. *Käytä samaa kategoriaa kauppiaan muissa tapahtumissa* also creates a
+- Change the category in the transaction list. *Sama kategoria kauppiaan muille tapahtumille* also creates a
   rule for old and new transactions.
 - The category *Omat siirrot* removes a transaction from every total.
 - Fix an account's type under *Asetukset > Tilit*. The type decides how transfers and savings are read.

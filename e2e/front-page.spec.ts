@@ -269,7 +269,7 @@ for (const width of [1280, 390]) {
     const first = page.locator("main .stack").first().locator("> *").first();
     await expect(first).toContainText("Varallisuus");
     // no line of when the data was fetched or how many accounts it holds, on the page or in the header
-    await expect(page.locator(".data-scope, .sync-status")).toHaveCount(0);
+    await expect(page.locator(".data-scope")).toHaveCount(0);
     await expect(page.getByText(/Mukana \d+ tili|haettu viimeksi|^Haettu \d/)).toHaveCount(0);
     if (width >= 1040) {
       // one grid of three columns: the right group of Erääntyvät maksut and of Tulot ja menot start on its first line, the sums of Asuminen on its second

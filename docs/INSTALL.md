@@ -83,7 +83,7 @@ To look around first, press *Lataa esimerkkitiedot* on the empty start page. The
 ## 4. Connect a bank
 
 The app walks you through registering a free Enable Banking app, once for the whole household. It takes about 15
-minutes and gives the values to paste. Later you find the same steps under *Asetukset > Palvelin*.
+minutes and gives the values to paste. Later you find the same steps under *Asetukset > Tekniset asetukset > Palvelin*.
 Then *Asetukset > Pankkiyhteydet > Yhdistä pankki* opens a list of the banks your Enable Banking app offers: Nordea,
 OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks and card issuers that
 [ENABLE_BANKING.md](ENABLE_BANKING.md) lists, each with its logo where Enable Banking has one. The first fetch brings
@@ -91,7 +91,7 @@ up to two years of history. Each connection has a button *Yhdistä uudelleen* th
 *Muistutus kalenteriin* downloads a calendar event for seven days before it ends. The guide says why Nordea is linked twice, how the other
 banks differ and what the error messages mean.
 
-After that Omatalous fetches at 6.15 and 18.15. Change the hours under *Asetukset > Palvelin*.
+After that Omatalous fetches at 6.15 and 18.15. Change the hours under *Asetukset > Tekniset asetukset > Palvelin*.
 
 A bank connection is the only way transactions come in. The import of Nordea CSV files was removed in 0.9.0. An account
 that an older version made from CSV files stays with its rows, and when you connect the same account through the bank,
@@ -127,19 +127,19 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
 
 ## After the install
 
-- Updates show up under *Asetukset > Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered about
+- Updates show up under *Asetukset > Tekniset asetukset > Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered about
   two days after it comes out. The switch *Tarjoa uudet versiot heti* on the same page offers it at once. Without the
   maintenance helper there is no switch, and `TALOUS_PRERELEASE=yes` in `.env` does the same, see
   [Updates in detail](ADVANCED.md#updates-in-detail).
 - The app keeps a database copy from each of the last seven days on the machine. Now and then press *Lataa uusin* under
-  *Asetukset > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
+  *Asetukset > Tekniset asetukset > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
   a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta uusin varmuuskopio* in the same place
   brings the newest copy back, and at every start the app checks its database and restores a damaged one from the
   newest intact copy.
 - Lost the address? Run `./scripts/install.sh` again in the `omatalous` folder. It keeps the settings and data and
   prints the address.
 - To use the app away from home, a VPN is the safest. A Cloudflare Tunnel with a login in front can be set up in the
-  browser, under *Asetukset > Palvelin > Etäkäyttö*, or with the installer. Make the Cloudflare API token with the
+  browser, under *Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö*, or with the installer. Make the Cloudflare API token with the
   permissions [ADVANCED.md](ADVANCED.md#cloudflare-tunnel) lists, turn on Zero Trust in the Cloudflare dashboard (the
   Free plan is enough), and expect to open the new address within 15 minutes of turning it on, or the app goes back to
   the home address by itself.

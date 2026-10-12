@@ -31,7 +31,8 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
     const charge = others.getByRole("article").filter({ hasText: "Uusi toistuva maksu: OpenAI" });
     await expect(charge).toBeVisible();
     await expect(charge).toContainText(/Maksaa 276\s€ vuodessa/);
-    await expect(charge).toContainText("irtisano se ennen seuraavaa veloitusta");
+    await expect(charge).toContainText("Tarkista, onko palvelu käytössä.");
+    await expect(charge).not.toContainText("Ensimmäinen veloitus");
     const title = (await charge.locator(".finding-title").innerText()).trim();
 
     // Ei koske meitä, the finding's words: the insight moves to Päätetyt with its state, and stays there after a reload

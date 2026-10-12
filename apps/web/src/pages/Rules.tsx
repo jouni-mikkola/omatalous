@@ -50,10 +50,7 @@ export function Rules({ meta }: { meta: Meta }) {
     <div className="stack">
       <div className="card" id={RULES_ANCHOR}>
         <div className="card-head">
-          <div>
-            <h2>Säännöt</h2>
-            <div className="card-sub">Sääntö siirtää kaikki sitä vastaavat tapahtumat valittuun kategoriaan, myös tulevat. Käsin valittu kategoria menee säännön edelle.</div>
-          </div>
+          <h2>Säännöt</h2>
         </div>
         <form className="form-row" onSubmit={add}>
           <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])} aria-label="Kenttä">
@@ -109,7 +106,7 @@ export function Rules({ meta }: { meta: Meta }) {
               ))}
             </tbody>
           </table>
-          {data && !data.rules.length && <div className="empty">Ei sääntöjä. Lisää sana kauppiaan nimestä tai viestistä, tai vaihda kategoria Tapahtumat-sivulla.</div>}
+          {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
         </div>
       </div>
     </div>

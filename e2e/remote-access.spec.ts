@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { overflow } from "./helpers.ts";
 
-// Asetukset > Talous > Palvelin > Etäkäyttö against a stand-in for the routes of the server (the real ones need Cloudflare
+// Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö against a stand-in for the routes of the server (the real ones need Cloudflare
 // and a host helper). The stand-in plays the helper too: a change shows as waiting, and the next read settles it.
 // Addresses are example.fi. With SHOTS_DIR set the states are also saved as pictures (cw3b-<state>-<width>.png).
 const DIR = process.env.E2E_DIR ?? ".";
@@ -132,7 +132,7 @@ async function open(browser: Browser, width: number, start: Json = OFF) {
   page.on("console", (m) => logged.push(m.text()));
   page.on("pageerror", (e) => logged.push(`page error: ${e.message}`));
   const fake = await standIn(page, start);
-  await page.goto("/#/settings?tab=talous");
+  await page.goto("/#/settings?section=technical");
   const section = page.locator("#etakaytto");
   await expect(section.getByRole("heading", { name: "Etäkäyttö", level: 3 })).toBeVisible();
   return { context, page, fake, section, logged };
@@ -438,8 +438,8 @@ for (const width of [1280, 390]) {
         { ...LEFT, cloudflare: { ...LEFT.cloudflare, removal: "kept", note: "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä." } },
         "Cloudflaressa on osoite talous.example.fi, mutta sovellus ei ole sen takana.",
       ],
-      ["helper-off", { ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } }, "Ylläpitoapuri ei ole käytössä."],
-      ["helper-old", { ...OFF, token: SAVED, helper: { ...OFF.helper, knowsAccess: false } }, "Ylläpitoapuri on liian vanha etäkäyttöön."],
+      ["helper-off", { ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } }, "Ota ylläpitoapuri käyttöön palvelimella:"],
+      ["helper-old", { ...OFF, token: SAVED, helper: { ...OFF.helper, knowsAccess: false } }, "Ota ylläpitoapuri käyttöön palvelimella:"],
       ["domain", { ...OFF, access: { ...OFF.access, mode: "domain" } }, "Tällä asennuksella on oma verkkotunnus (Caddy)"],
     ];
 

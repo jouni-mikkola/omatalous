@@ -1,11 +1,9 @@
 /** The Finnish words the Optimoi page shows for a core code, and the names of findings and series. */
-import { type AreaView, type DismissReason, type Effort, type EuroRange, parseFindingId, parseSeriesId } from "@banking/core";
+import { type AreaView, type DismissReason, type EuroRange, parseFindingId, parseSeriesId } from "@banking/core";
 import { money } from "../../format.ts";
 
 /** Called after something was saved; the page fetches again and says what happened. */
 export type Changed = (message: string) => void;
-
-export const EFFORT_TEXT: Record<Effort, string> = { minuutteja: "Kestää minuutteja", tunti: "Kestää tunnin", ilta: "Vie illan" };
 
 /** The four answers to Ei koske meitä, as the household reads them. */
 export const REASON_TEXT: Record<DismissReason, string> = {

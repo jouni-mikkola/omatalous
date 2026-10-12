@@ -35,6 +35,10 @@ test("390 px: rows sit under day headers, newest first, the merchant, category a
   const headers = page.locator(".tx-day h3");
   await expect(headers.first()).toBeVisible();
   expect(await headers.count()).toBeGreaterThan(5);
+  // the count and the two sums wrap under the (hidden) heading as labelled figures, and nothing scrolls sideways
+  const facts = page.locator(".tx-card dl.kv");
+  await expect(facts.locator("dt")).toHaveText(["Tapahtumia", "Maksettu yhteensä", "Saatu yhteensä"]);
+  await expect(facts.locator("dd").last()).toBeInViewport();
 
   // "ma 12.10." (a day of an earlier year has the year too), the weekday is the date's, and the days run backwards
   const year = new Date().getFullYear();

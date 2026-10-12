@@ -1,6 +1,6 @@
 import { getCategory } from "./categories.ts";
 import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
-import { categorize, compileRules } from "./categorize.ts";
+import { categorize, compileRules, dealerCategory } from "./categorize.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
 import { holdersOf } from "./categorize-people.ts";
 import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
@@ -59,9 +59,9 @@ const CHUNK = 4000;
 
 /**
  * What a rule says depends on the row's names, its card code, the bank's own transaction code, whether it has a
- * reference number, whether it has the payee's account, whether the account pays the payee steadily and the direction
- * of the money only, and a long history repeats the same shop, text and codes thousands of times: each distinct
- * combination is decided once. The reference and the payee's account are there as a yes or no (the reference also as
+ * reference number, whether it has the payee's account, whether the account pays the payee steadily, the direction of
+ * the money and whether the sum is a car's (`dealerCategory`) only, and a long history repeats the same shop, text and
+ * codes thousands of times: each distinct combination is decided once. The reference and the payee's account are there as a yes or no (the reference also as
  * not carried at all), never as their values: a number of its own on every row would make every row its own key. The
  * row's own account is not part of it but for that yes or no: the holders come from the whole list of accounts and no
  * rule reads a row's own.
@@ -81,7 +81,7 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
       continue;
     }
     const steadyPayee = t.amountCents < 0 && steady.has(partyKey(t));
-    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}`;
+    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}\u0000${dealerCategory(t.amountCents)}`;
     let result = decided.get(key);
     if (!result) decided.set(key, (result = categorize(steadyPayee ? { ...t, steadyPayee } : t, rules, accounts)));
     const { category, source, byUser } = result;
@@ -113,7 +113,9 @@ function* applyMerchantEvidence(
     const t = next[i]!;
     if (t.categorySource !== "default" || t.amountCents >= 0) continue;
     const same = lender.paid(t) ? "loans" : likeOthers.get(t.merchant);
-    const industry = lender.industry(t, industries.get(t.merchant));
+    const registered = lender.industry(t, industries.get(t.merchant));
+    // the register's class for the sale of motor vehicles names a dealer: the sum tells the car from its upkeep
+    const industry = registered === "vehicle_purchase" ? dealerCategory(t.amountCents) : registered;
     // debt too: a collection agency's industry means debt service
     const kind = industry ? getCategory(industry).kind : null;
     if (same) Object.assign(t, { category: same, categorySource: "merchant" });

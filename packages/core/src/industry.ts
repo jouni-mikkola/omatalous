@@ -116,6 +116,7 @@ const COMMON: PrefixTable = {
 const ONLY: Readonly<Record<IndustryCodeSet, PrefixTable>> = {
   TOL2008: {
     "45": "car",
+    "451": "vehicle_purchase", // sale of motor vehicles: the row's sum tells the car from its upkeep (`dealerCategory`)
     "4765": "kids", // toys
     "47764": "pets",
     "47783": "health", // opticians
@@ -126,7 +127,9 @@ const ONLY: Readonly<Record<IndustryCodeSet, PrefixTable>> = {
   TOL2025: {
     "4764": "kids", // toys
     "47763": "pets",
+    "4671": "vehicle_purchase", // wholesale of motor vehicles
     "478": "car", // vehicle and parts retail
+    "4781": "vehicle_purchase", // retail sale of motor vehicles
     "953": "car", // vehicle repair
   },
 };
@@ -249,9 +252,11 @@ export function matchCompany(merchant: string, companies: readonly RegistryCompa
   if (best < 3 && group.length > 3) return { ...NONE, status: "ambiguous" };
 
   const withCategory = group.map((g) => ({ ...g, category: g.company.industry ? categoryForIndustry(g.company.industry.code, g.company.industry.codeSet) : null }));
-  const categories = new Set(withCategory.map((g) => g.category).filter((c): c is string => c !== null));
+  // a dealer and a garage of one name are both the car's: the garage is picked, so the rows stay the car's upkeep
+  const upkeep = (c: string | null) => (c === "vehicle_purchase" ? "car" : c);
+  const categories = new Set(withCategory.map((g) => upkeep(g.category)).filter((c): c is string => c !== null));
   if (categories.size > 1) return { ...NONE, status: "ambiguous" };
-  const pick = withCategory.find((g) => g.category !== null) ?? withCategory[0]!;
+  const pick = withCategory.find((g) => g.category === "car") ?? withCategory.find((g) => g.category !== null) ?? withCategory[0]!;
   if (categories.size === 0 && group.length > 1) return { ...NONE, status: "ambiguous" };
   const industry = pick.company.industry;
   return {

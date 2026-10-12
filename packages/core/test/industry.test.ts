@@ -18,8 +18,9 @@ describe("categoryForIndustry", () => {
     ["47640", "TOL2008", "shopping"], // sports goods in 2008
     ["47640", "TOL2025", "kids"], // toys in 2025
     ["47810", "TOL2008", "groceries"], // food stalls in 2008
-    ["47810", "TOL2025", "car"], // car dealers in 2025
-    ["45110", "TOL2008", "car"],
+    ["47810", "TOL2025", "vehicle_purchase"], // car dealers in 2025: the row's sum tells the car from its upkeep
+    ["45110", "TOL2008", "vehicle_purchase"],
+    ["45200", "TOL2008", "car"], // a garage
     ["95310", "TOL2025", "car"],
     ["96021", "TOL2008", "personal_care"],
     ["96210", "TOL2025", "personal_care"],

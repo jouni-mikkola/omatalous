@@ -1,6 +1,6 @@
 /**
  * Seuranta: what came of a done decision (its verdict, the monthly effect and why), the switches the data shows waiting
- * for a confirmation, and the euros a year found against the euros confirmed, month by month.
+ * for a confirmation, and, from four months of snapshots, the euros a year found against the euros confirmed.
  */
 import { type AreaView, type FindingOutcome, type FollowUp as FollowUpData, parseFindingId, type SwitchProposal, type Verdict } from "@banking/core";
 import { useState } from "react";
@@ -133,14 +133,14 @@ function Line({ line }: { line: FollowUpData["line"] }) {
   );
 }
 
-/** Seuranta: shown when the data shows a switch to confirm or the line has two months. */
+/** Seuranta: shown when the data shows a switch to confirm or the line has four months. */
 export function FollowUp({ followUp, areas, titles, scope, onChanged }: { followUp: FollowUpData; areas: readonly AreaView[]; titles: ReadonlyMap<string, string>; scope: Scope; onChanged: Changed }) {
   const { proposals, line } = followUp;
-  // one month is a point, not a line
-  const drawn = line.length >= 2;
+  // under four months a line is a few points and tells nothing; a section left with its heading alone is not drawn
+  const drawn = line.length >= 4;
   if (!proposals.length && !drawn) return null;
   return (
-    <Section id="seuranta" title="Seuranta" sub="Tehtyjen muutosten vaikutus omien tapahtumien mukaan">
+    <Section id="seuranta" title="Seuranta">
       {proposals.length > 0 && (
         <ul className="decided-list">
           {proposals.map((p) => (

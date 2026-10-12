@@ -14,7 +14,7 @@ export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electrici
 export type AreaId = (typeof AREA_IDS)[number];
 
 /** What a decision takes: a few minutes, an hour, an evening. */
-export type Effort = "minuutteja" | "tunti" | "ilta";
+type Effort = "minuutteja" | "tunti" | "ilta";
 
 /** The verbs an action may start with (rule 5): a sinä imperative the household can carry out. */
 export const ACTION_VERBS = ["kilpailuta", "irtisano", "neuvottele", "vaihda", "hae", "maksa", "siirrä", "varaa", "tarkista"] as const;
@@ -125,7 +125,7 @@ export interface Finding extends Omit<FindingDraft, "weaknesses"> {
 }
 
 /** `no_data` waits for months or a fact; `no_rows` found no row of its kind in the data, so it looked at nothing. */
-export type CheckStatus = "finding" | "clear" | "needs_input" | "no_data" | "no_rows";
+type CheckStatus = "finding" | "clear" | "needs_input" | "no_data" | "no_rows";
 
 /**
  * One thing an area looked at: "Tarkistettiin 14 asiaa, 7 löydöstä, 3 ei voitu tarkistaa". The frame sets `finding`

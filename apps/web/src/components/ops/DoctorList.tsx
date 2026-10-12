@@ -8,7 +8,7 @@ export function DoctorList({ doctor, disabled, onRun }: { doctor: OpsSnapshot["d
       <div className="card-head">
         <div>
           <h2>{S.doctor}</h2>
-          <div className="card-sub">{doctor ? `Viimeksi ${dateTime(doctor.at)}` : S.noDoctor}</div>
+          <div className="card-sub">{doctor ? `Viimeksi ${dateTime(doctor.at)}` : "–"}</div>
         </div>
         <button className="btn" type="button" disabled={disabled} onClick={onRun}>
           {S.runDoctor}

@@ -120,13 +120,16 @@ export function unlinkedStep(count: number, canFix: boolean): string {
 
 /** The reminder falls this many days before the consent ends. */
 const REMINDER_DAYS = 7;
+/** The list of connections counts the days left only when fewer than this many are left. */
+const SHOW_DAYS_LEFT = 30;
 
-/** "voimassa 14.1.2027 asti, vielä 93 päivää"; the last day says so. Empty for a consent that is not active. */
+/** "voimassa 14.1.2027 asti"; the days left are added from the last month on ("…, vielä 12 päivää"); the last day says so. Empty for a consent that is not active. */
 export function validityText(c: Pick<Connection, "state" | "validUntil" | "daysLeft">): string {
   if (c.state !== "active" || !c.validUntil) return "";
   if (c.daysLeft === null) return `voimassa ${date(c.validUntil)} asti`;
   if (c.daysLeft <= 0) return "voimassa enää tänään";
-  return `voimassa ${date(c.validUntil)} asti, vielä ${plural(c.daysLeft, "päivä", "päivää")}`;
+  const until = `voimassa ${date(c.validUntil)} asti`;
+  return c.daysLeft < SHOW_DAYS_LEFT ? `${until}, vielä ${plural(c.daysLeft, "päivä", "päivää")}` : until;
 }
 
 /** The day of the reminder (YYYY-MM-DD), counted from the date the page shows for the end. Null without a date. */

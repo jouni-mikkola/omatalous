@@ -3,6 +3,7 @@ import { bankRowRules } from "./categorize-bank-rows.ts";
 import { type Holders, holdersOf, noCard, peopleRules } from "./categorize-people.ts";
 import { fold, namesUnknownMerchant } from "./merchant.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
+import { isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, words } from "./wording.ts";
 
 export interface CategorizeInput {
@@ -233,7 +234,7 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
   {
     category: "car",
     re: w(
-      String.raw`NESTE|ST1|ABC|SHELL|TEBOIL|SEO|GULF|EASYPARK|APCOA|SCANDINAVIAN PARKING|PARKMAN|MOOVY|AIMO PARK|EUROPARK|Q-PARK|P-HUB|PYSAKOINTI|PARKKI[A-Z]*|[A-Z-]*KATSASTUS|AVAINASEMA|RENGAS[A-Z]*|RENKAAT|AUTOPESU[A-Z]*|AUTOHUOLTO|AUTOPALVELU|AUTOKORJAAMO|KORJAAMO|AUTOMAALAAMO|MEKONOMEN|EUROMASTER|VIANOR|KAMUX|VEHO|BILIA|DELTA AUTO|LAAKKONEN OY|AUTOTALO LAAKKONEN|VAIHTOAUTOTALO LAAKKONEN|K-AUTO|AUTOTALO|K-LATAUS|VIRTA|PLUGIT|RECHARGE|IONITY|SUPERCHARGER|TESLA`,
+      String.raw`NESTE|ST1|ABC|SHELL|TEBOIL|SEO|GULF|EASYPARK|APCOA|SCANDINAVIAN PARKING|PARKMAN|MOOVY|AIMO PARK|EUROPARK|Q-PARK|P-HUB|PYSAKOINTI|PARKKI[A-Z]*|[A-Z-]*KATSASTUS|AVAINASEMA|RENGAS[A-Z]*|RENKAAT|AUTOPESU[A-Z]*|AUTOHUOLTO|AUTOPALVELU|AUTOKORJAAMO|KORJAAMO|AUTOMAALAAMO|MEKONOMEN|EUROMASTER|VIANOR|K-LATAUS|VIRTA|PLUGIT|RECHARGE|IONITY|SUPERCHARGER|TESLA`,
     ),
   },
   { category: "alcohol", re: w(String.raw`ALKO|SUPERALKO|SYSTEMBOLAGET|VINMONOPOLET`) },
@@ -379,7 +380,7 @@ export function categoryForMcc(mcc: string | null): string | null {
  * is not enough: first names and surnames are often brand words too (Elisa, Helen, Silja, Asko, Virta).
  */
 function namedLikeBusiness(name: string): boolean {
-  return MERCHANT_RULES.some((r) => {
+  return isCarTradeName(name) || MERCHANT_RULES.some((r) => {
     // "Q" + word matches only through a "[A-Z]*" prefix, which the rules give trade words
     if (name.split(" ").some((word) => r.re.test(`Q${word}`))) return true;
     return /[ \d-]/.test(r.re.exec(name)?.[0] ?? "");
@@ -388,6 +389,11 @@ function namedLikeBusiness(name: string): boolean {
 
 /** Whether a message alone holds a word of a shop's or service's rule: the person paid may be paid for what the word names. */
 const namesShopOrService = (message: string) => MERCHANT_RULES.some((r) => r.re.test(message));
+
+/** A payment to a car dealer buys the car from this sum on; under it the row is the car's upkeep. */
+const CAR_PRICE_CENTS = 150_000;
+/** The category of a car dealer's row by its sum. Money in follows the same sum: a deposit paid back is the purchase's. */
+export const dealerCategory = (amountCents: number) => (Math.abs(amountCents) >= CAR_PRICE_CENTS ? "vehicle_purchase" : "car");
 
 export interface CompiledRule {
   id?: number;
@@ -513,6 +519,17 @@ function exactPattern(pattern: string): (text: string) => boolean {
 
 const isIncome = (category: string) => getCategory(category).kind === "income";
 
+/** A shop, a bus company or a school whose own name stands first keeps its rule: K-Market Autokeskus, Koiviston Auto. */
+const headedByOtherRule = (name: string) => MERCHANT_RULES.some((r) => r.category !== "car" && r.re.exec(name)?.index === 0);
+/**
+ * A car dealer's row, by the payee's name alone (wording-car.ts) and before the shops, whose words a dealer's name may
+ * hold (Auto Market). The sum tells the car from its upkeep; a garage of the trade is upkeep at any sum.
+ */
+const DEALER_RULES: readonly CompiledRule[] = [
+  { category: "vehicle_purchase", income: false, field: "merchant", test: (name, input) => dealerCategory(input.amountCents) !== "car" && isCarDealerName(name) && !headedByOtherRule(name) },
+  { category: "car", income: false, field: "merchant", test: (name) => isCarTradeName(name) && !headedByOtherRule(name) },
+];
+
 /** User rules (low priority number) are placed before the built-in rules. */
 export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[] {
   const user = userRules
@@ -535,7 +552,7 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
   }));
   // a card code of a shop: the money transfer code (p2p) is none
   const people = peopleRules(namedLikeBusiness, (mcc) => (categoryForMcc(mcc) ?? "p2p") !== "p2p", namesShopOrService);
-  return [...user, ...people.first, ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
+  return [...user, ...people.first, ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...DEALER_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
 }
 
 function fieldText(input: CategorizeInput, field: RuleField): string {

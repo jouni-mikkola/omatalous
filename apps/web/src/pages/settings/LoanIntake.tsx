@@ -244,8 +244,8 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
             }}
           />
         </div>
-        <p id={`${uid}-privacy`} className="small muted">
-          Kuva ja teksti luetaan tässä selaimessa. Mitään ei tallenneta ennen kuin painat Tallenna.
+        <p id={`${uid}-privacy`}>
+          Kuva ja teksti luetaan tässä selaimessa.
         </p>
       </div>
 
@@ -287,7 +287,7 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
         </section>
       ))}
 
-      <p className="small muted loan-tip">Vinkki: positiivisen luottotietorekisterin asiointipalvelu näyttää kaikki lainasi samalla sivulla. Yksi kuvakaappaus siitä tuo kaikki lainat kerralla.</p>
+      <p className="loan-tip">Kuvakaappaus positiivisesta luottotietorekisteristä tuo kaikki lainat kerralla.</p>
     </div>
   );
 }

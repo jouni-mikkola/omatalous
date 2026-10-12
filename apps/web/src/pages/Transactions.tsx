@@ -2,20 +2,18 @@ import { UNKNOWN_MERCHANT } from "@banking/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
+import { FilterChip } from "../components/FilterChip.tsx";
 import { DateFilter, FilterToggle, SearchBox } from "../components/FilterInputs.tsx";
 import { CADENCE_LABEL, date, dayHeading, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
-import { ownPart, viewsParts } from "../part.ts";
 import type { Category, Meta, Scope } from "../types.ts";
-import { Merchants, monthsBasis } from "./Merchants.tsx";
+import { Merchants } from "./Merchants.tsx";
 import { byDay, type ListedRow, TxItem, TxRow, usePhone } from "./TransactionRows.tsx";
 import "../styles/transactions.css";
 
 interface MerchantHistory {
   merchant: string;
   count: number;
-  /** Rows that are own transfers: counted in `count`, not in the sums or the category. */
-  transfers: number;
   outCents: number;
   inCents: number;
   firstDate: string;
@@ -55,22 +53,25 @@ function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant
       <div className="card-head">
         <div>
           <h2>{s.merchant}</h2>
-          <div className="card-sub">
-            {categoryLabel(s.category)} · koko historia
-            {m.fromSeries ? " · kuussa ja vuodessa toistuvan maksun hinta" : m.monthlyCents ? ` · kuussa ${monthsBasis(m.months)}` : ""}
-            {s.transfers > 0 && ` · omat siirrot (${s.transfers}) eivät ole summissa`}
-          </div>
+          <div className="card-sub">{categoryLabel(s.category)}</div>
         </div>
       </div>
-      <dl className="kv">
-        {facts.map(([k, v]) => (
-          <div key={k}>
-            <dt className="k">{k}</dt>
-            <dd className="v">{v}</dd>
-          </div>
-        ))}
-      </dl>
+      <Facts facts={facts} />
     </section>
+  );
+}
+
+/** Labelled figures, a label with its value: the merchant's card and the head of the list show them alike. */
+function Facts({ facts }: { facts: [string, string][] }) {
+  return (
+    <dl className="kv">
+      {facts.map(([k, v]) => (
+        <div key={k}>
+          <dt className="k">{k}</dt>
+          <dd className="v">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -179,9 +180,15 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     return () => window.clearTimeout(timer);
   }, [phone, changed]);
 
-  // in the own view the sums above the list add up the viewer's parts of a joint account's rows (the server's), also when one account is picked
-  const sumsAreParts = scope === "own" && (filters.accountId ? ownPart(meta, filters.accountId) !== undefined : viewsParts(meta));
   const anyFilter = Object.values(filters).some(Boolean);
+  // Every matching row, loaded or not; an own transfer is in none of the sums, and in the own view they add up the
+  // viewer's parts of a joint account's rows (the server's). With a merchant filter the merchant's card states them.
+  const facts: [string, string][] = [];
+  if (data && data.total > 0 && !filters.merchant) {
+    facts.push(["Tapahtumia", String(data.total)]);
+    if (data.outCents > 0) facts.push(["Maksettu yhteensä", money(data.outCents)]);
+    if (data.inCents > 0) facts.push(["Saatu yhteensä", money(data.inCents)]);
+  }
   // the search box and the merchant badge are always in view, so only the filters behind the button count
   const active = [filters.category, filters.accountId, filters.from, filters.to].filter(Boolean).length;
   const fields = (
@@ -199,14 +206,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       <DateFilter value={filters.to} onCommit={(to) => set({ to })} label="Asti" />
     </>
   );
-  const merchantFilter = (
-    <span className="badge">
-      {filters.merchant}{" "}
-      <button className="icon-btn" onClick={() => set({ merchant: "" })} aria-label="Poista kauppiaan rajaus">
-        ×
-      </button>
-    </span>
-  );
+  const merchantFilter = <FilterChip label={filters.merchant} removeLabel="Poista kauppiaan rajaus" onRemove={() => set({ merchant: "" })} />;
   const clear = anyFilter && (
     <button className="btn btn-small" onClick={() => navigate("transactions")}>
       Tyhjennä
@@ -258,31 +258,17 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
 
       <div className={`card tx-card ${loading ? "loading" : ""}`}>
         <div className="card-head tx-head">
-          <div>
-            <h2 className={phone ? "sr-only" : undefined}>Tapahtumat</h2>
-            <div className="card-sub">
-              {data ? plural(data.total, "tapahtuma", "tapahtumaa") : "…"}
-              {/* every matching row, loaded or not: maksettu and saatu apart, a net of both says little; an own
-                  transfer would add the same money to both */}
-              {data && data.total > 0 && (
-                <>
-                  {data.outCents > 0 && ` · maksettu ${money(data.outCents)}`}
-                  {data.inCents > 0 && ` · saatu ${money(data.inCents)}`}
-                  {" · omia siirtoja ei lasketa summiin"}
-                </>
-              )}
-            </div>
-            {sumsAreParts && data && data.total > 0 && <div className="card-sub">Yhteisen tilin tapahtumista summissa on sinun osuutesi.</div>}
-          </div>
+          <h2 className={phone ? "sr-only" : undefined}>Tapahtumat</h2>
           <div className="form-row" style={{ margin: 0 }}>
             {anyOwn && (
-              <label className="small muted">
-                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Käytä samaa kategoriaa kauppiaan muissa tapahtumissa
+              <label>
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Sama kategoria kauppiaan muille tapahtumille
               </label>
             )}
             {!phone && csv}
           </div>
         </div>
+        {facts.length > 0 && <Facts facts={facts} />}
         {error && (
           <div className="error" role="alert">
             {error}{" "}
@@ -347,7 +333,13 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
           )}
           {data && !data.items.length && (
             <div className="empty">
-              {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla." : "Tapahtumia ei ole vielä. Yhdistä pankki kohdassa Asetukset."}
+              {anyFilter ? (
+                "Ei tapahtumia näillä rajauksilla."
+              ) : (
+                <>
+                  Ei tapahtumia. <a href="#/settings?add=1">Yhdistä pankki</a>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -373,8 +365,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
 interface UncategorisedItem {
   merchant: string;
   totalCents: number;
-  count: number;
-  lastDate: string;
 }
 
 /**
@@ -393,8 +383,7 @@ function Uncategorised({
   refresh: number;
   onSaved: () => void;
 }) {
-  // items are the biggest merchants; the header counts all of them
-  const { data, reload } = useApi<{ items: UncategorisedItem[]; count: number; totalCents: number }>(`/api/merchants/uncategorised${query({ scope })}`);
+  const { data, reload } = useApi<{ items: UncategorisedItem[] }>(`/api/merchants/uncategorised${query({ scope })}`);
   const seen = useRef(refresh);
   useEffect(() => {
     if (seen.current === refresh) return;
@@ -426,31 +415,16 @@ function Uncategorised({
   return (
     <div className="card">
       <div className="card-head">
-        <div>
-          <h2>Luokittelematta</h2>
-          <div className="card-sub">
-            {plural(data.count, "kauppias", "kauppiasta")}, {money(data.totalCents, false)}
-          </div>
-        </div>
-        <div className="form-row" style={{ margin: 0 }}>
-          <a className="btn btn-small" href="#/transactions?category=other">
-            Näytä kaikki
-          </a>
-          <a className="btn btn-small" href="#/transactions?view=merchants">
-            Kaikki kauppiaat
-          </a>
-        </div>
+        <h2>Luokittelematta</h2>
+        <a className="btn btn-small" href="#/transactions?category=other">
+          Näytä kaikki
+        </a>
       </div>
       {error && <div className="error">{error}</div>}
       <ul className="uncat-list">
         {rows.map((m) => (
           <li key={m.merchant}>
-            <div className="uncat-name">
-              <a href={`#/transactions${query({ merchant: m.merchant })}`}>{m.merchant}</a>
-              <div className="sub">
-                {plural(m.count, "tapahtuma", "tapahtumaa")} · viimeksi {date(m.lastDate)}
-              </div>
-            </div>
+            <a href={`#/transactions${query({ merchant: m.merchant })}`}>{m.merchant}</a>
             <span className="num">{money(m.totalCents)}</span>
             <CategorySelect
               categories={categories.filter((c) => c.id !== "other")}

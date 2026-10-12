@@ -86,8 +86,8 @@ test("every consent has Yhdistä uudelleen, also with months left, and it starts
   await expect(table.getByRole("button", { name: "Yhdistä uudelleen" })).toHaveCount(2);
 
   // the end of the consent in words, in one column with the state
-  await expect(table.getByRole("row", { name: /Nordea/ })).toContainText("voimassa 14.1.2027 asti, vielä 93 päivää");
-  await expect(table.getByRole("row", { name: /OP/ })).toContainText("voimassa 20.3.2027 asti, vielä 160 päivää");
+  await expect(table.getByRole("row", { name: /Nordea/ })).toContainText("voimassa 14.1.2027 asti");
+  await expect(table.getByRole("row", { name: /OP/ })).toContainText("voimassa 20.3.2027 asti");
   await expect(table.getByRole("columnheader", { name: "Voimassa" })).toHaveCount(0);
 
   await table.getByRole("row", { name: /OP/ }).getByRole("button", { name: "Yhdistä uudelleen" }).click();

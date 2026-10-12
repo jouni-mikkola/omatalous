@@ -49,7 +49,7 @@ test("a mark is on one subscription: of a merchant's two, Lopetettu takes one ou
     const subs = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset", exact: true }) });
     const row = (price: string) => subs.locator("tr", { has: page.getByRole("link", { name: "Apple", exact: true }) }).filter({ has: page.locator(".muted", { hasText: price }) });
     const total = async () => euros(await subs.locator(".card-head strong").innerText());
-    const inLine = async () => euros((/joista tilauksia (.*)$/.exec(await page.locator(".bills-line").innerText()) ?? [])[1] ?? "");
+    const inLine = async () => euros(await page.locator(".st-row", { hasText: "Tilaukset kuukaudessa" }).locator(".st-num").innerText());
     await expect(row("0,99")).toHaveCount(1);
     await expect(row("12,99")).toHaveCount(1);
     const before = await total();

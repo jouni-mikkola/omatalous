@@ -1,5 +1,5 @@
 /**
- * pnpm findings [--source insights|alerts|optimise|income|change|outcome|all] [--seeds N] [--demo] [--plain] [--settled]
+ * pnpm findings [--source insights|alerts|optimise|income|change|outcome|large|all] [--seeds N] [--demo] [--plain] [--settled]
  *               [--event <kit event id>|all] [--loud] [--json] [--golden]
  *
  * Prints every statement the product makes about money, one block each, for the demo and the seeded households.

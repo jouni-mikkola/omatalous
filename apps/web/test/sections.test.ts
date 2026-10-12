@@ -74,13 +74,14 @@ describe("the page of a section", () => {
       spendingChange: { views: [{}] },
       yearOverYear: { comparable: true },
       drift: { items: [{}] },
-      upcoming: { advice: "Varaa 47 € kuussa, harvinaiset laskut ovat 565 € vuodessa.", manual: [] },
+      upcoming: { yearlyCents: 56500, manual: [] },
       priceChanges: { items: [{}] },
       loans: { saved: 1 },
+      dataQuality: { signals: [{}] },
     }, [{}]);
   const ids = (page: "month" | "bills" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
 
-  it("every section names one, and each page shows the sections that name it: Menojen muutos on Yhteenveto, Laskut its two, Tilit the data quality notes", () => {
+  it("every section names one, and each page shows the sections that name it: Menojen muutos on Yhteenveto, Laskut its two, Tekniset asetukset the data quality notes", () => {
     expect(REPORT_SECTIONS.length).toBeGreaterThan(10);
     expect(ids("month")).toEqual(["muutos"]);
     expect(ids("bills")).toEqual(["hinnat", "tulevat"]);
@@ -96,14 +97,14 @@ describe("the page of a section", () => {
 
 describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
   const upcoming = (over: Record<string, unknown> = {}) => ({
-    upcoming: { from: "2026-10-11", to: "2027-01-11", items: [], totalCents: 0, reserveMonthlyCents: 4700, yearlyCents: 56500, months: [{ month: "2026-10", cents: 0, names: [] }], manual: [], advice: "Varaa 47 € kuussa, harvinaiset laskut ovat 565 € vuodessa.", ...over },
+    upcoming: { from: "2026-10-11", to: "2027-01-11", items: [], totalCents: 0, reserveMonthlyCents: 4700, yearlyCents: 56500, months: [{ month: "2026-10", cents: 0, names: [] }], manual: [], ...over },
   });
   const typed = { id: "b1", name: "Ajoneuvovero", amountCents: 31250, dueDate: "2026-12-01", cadence: "yearly", category: null, nextDate: "2026-12-01", counted: true };
 
   it("Harvinaiset laskut is shown only when a rare bill is found or one is typed in", () => {
     expect(upcomingSection.visible?.(context(upcoming()))).toBe(true);
-    expect(upcomingSection.visible?.(context(upcoming({ advice: "", manual: [typed] })))).toBe(true);
-    expect(upcomingSection.visible?.(context(upcoming({ advice: "", manual: [] })))).toBe(false);
+    expect(upcomingSection.visible?.(context(upcoming({ yearlyCents: 0, manual: [typed] })))).toBe(true);
+    expect(upcomingSection.visible?.(context(upcoming({ yearlyCents: 0, manual: [] })))).toBe(false);
   });
 
   it("has the twelve months and the typed-in bills, and neither the list of three months nor the form: Tulossa has those", () => {
@@ -113,6 +114,58 @@ describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
     expect(out).toContain("Poista lasku Ajoneuvovero");
     expect(out).not.toContain("Seuraavat kolme kuukautta");
     expect(out).not.toContain('aria-label="Lisää lasku"');
+  });
+
+  /** The markup with the spaces of the money format made plain, so a test reads "47 €". */
+  const flat = (out: string) => out.replace(/[  ]/g, " ");
+
+  it("Harvinaiset laskut has the monthly figure at the right of its heading and a table of Eräpäivä, Saaja and Summa, and no sentence", () => {
+    const months = [
+      { month: "2026-10", cents: 14_100, names: ["If", "Lähitapiola"], paid: [{ merchant: "If", date: "2026-10-05" }] },
+      { month: "2026-11", cents: 0, names: [], paid: [] },
+      { month: "2026-12", cents: 31_200, names: ["Ajoneuvovero"], paid: [] },
+    ];
+    const out = flat(html(upcomingSection, context(upcoming({ months }))));
+    expect(out).toContain("<strong>47 €/kk</strong>");
+    expect(out).toContain('<th scope="col" class="due-col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="st-num">Summa</th>');
+    expect(out).toContain('<td class="due-col">lokakuu 2026</td><td>If, Lähitapiola</td><td class="st-num">141 €</td><td><div>Maksettu 5.10.</div></td>');
+    // a month with nothing due is no row; one with nothing paid has an empty fourth cell
+    expect(out).not.toContain("marraskuu 2026");
+    expect(out).toContain('<td class="due-col">joulukuu 2026</td><td>Ajoneuvovero</td><td class="st-num">312 €</td><td></td>');
+    expect(out).not.toContain("vuodessa eli");
+    expect(out).not.toContain('class="lead"');
+  });
+
+  it("when two bills of a month are paid each paid day names its payee, and with nothing found there is no table and no figure", () => {
+    const paid = [{ merchant: "If", date: "2026-10-05" }, { merchant: "Lähitapiola", date: "2026-10-09" }];
+    const out = flat(html(upcomingSection, context(upcoming({ months: [{ month: "2026-10", cents: 20_000, names: ["If", "Lähitapiola"], paid }] }))));
+    expect(out).toContain("<div>Maksettu 5.10. (If)</div><div>Maksettu 9.10. (Lähitapiola)</div>");
+    const typedOnly = flat(html(upcomingSection, context(upcoming({ yearlyCents: 0, manual: [typed] }))));
+    expect(typedOnly).toContain("Poista lasku Ajoneuvovero");
+    expect(typedOnly).not.toContain("<table");
+    expect(typedOnly).not.toContain("/kk");
+  });
+
+  it("Hinnanmuutokset is a table of Saaja, Muuttunut, Aiempi hinta, Uusi hinta and Vuodessa that ends in Yhteensä, with the loans apart", () => {
+    const change = { merchant: "ESIMERKKI OY", category: "subscriptions", date: "2026-09-03", fromCents: 1_099, toCents: 1_299, yearlyEffectCents: 2_400 };
+    const loan = { merchant: "Esimerkkipankki", category: "loans", date: "2026-08-01", fromCents: 80_000, toCents: 75_000, yearlyEffectCents: -60_000 };
+    const ctx = (items: unknown[]) => {
+      const base = context({ priceChanges: { items, totalYearlyEffectCents: 2_400, debtYearlyEffectCents: -60_000 } });
+      return { ...base, meta: { ...base.meta, categories: [{ id: "subscriptions", kind: "expense" }, { id: "loans", kind: "debt" }] } } as ReportContext;
+    };
+    const both = flat(html(priceChanges, ctx([change, loan])));
+    const heads = [...both.matchAll(/<th[^>]*>([^<]+)<\/th>/g)].map((m) => m[1]);
+    expect(heads).toEqual(["Saaja", "Muuttunut", "Aiempi hinta", "Uusi hinta", "Vuodessa", "Yhteensä", "Lainojen erät"]);
+    expect(both).toContain('<td class="hide-phone">3.9.2026</td><td class="num">10,99 €</td><td class="num">12,99 €</td>');
+    expect(both).toContain('<th scope="row">Yhteensä</th><td class="hide-phone"></td><td></td><td></td><td class="num">+24 €</td>');
+    expect(both).toContain('<th scope="row">Lainojen erät</th><td class="hide-phone"></td><td></td><td></td><td class="num">−600 €</td>');
+    // no sentence on the card, no line under the payee
+    expect(both).not.toContain("vuodessa,");
+    expect(both).not.toContain("card-sub");
+    expect(both).not.toContain('class="sub"');
+    // near miss: with no loan there is no row for loans, and with only a loan none for prices
+    expect(flat(html(priceChanges, ctx([change])))).not.toContain("Lainojen erät");
+    expect(flat(html(priceChanges, ctx([loan])))).not.toContain("Yhteensä");
   });
 
   it("Hinnanmuutokset is shown only when a price changed", () => {

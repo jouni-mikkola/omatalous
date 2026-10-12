@@ -57,23 +57,23 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
     void d.dismiss();
   });
 
-  // reachable from Asetukset > Talous
-  await page.goto("/#/settings?tab=talous");
-  await page.getByRole("link", { name: "Avaa ylläpito" }).click();
+  // reachable from Asetukset > Tekniset asetukset
+  await page.goto("/#/settings");
+  await page.getByRole("link", { name: "Avaa", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ylläpito" }).first()).toBeVisible();
 
   // no helper yet: a clear state, the command to enable it, and no way to queue anything
-  await expect(page.getByText("Ylläpitoapuri ei ole käytössä")).toBeVisible();
-  await expect(page.getByText("./scripts/install.sh --ops-helper")).toBeVisible();
+  // (Palvelin > Etäkäyttö on the same page says the same, so the words are looked for in the Ylläpito card)
+  const maintenance = page.locator("#yllapito");
+  await expect(maintenance.getByText("Ylläpitoapuri ei ole käytössä")).toBeVisible();
+  await expect(maintenance.getByText("./scripts/install.sh --ops-helper")).toBeVisible();
   await expect(page.getByRole("button", { name: "Tarkista päivitykset" })).toBeDisabled();
-  // without the helper the page is the notice and the version; the controls that cannot work are folded away
+  // without the helper the page is the notice, the version and the reset; the controls that cannot work are not drawn
   await expect(page.getByRole("heading", { name: "Versio" })).toBeVisible();
-  await expect(page.getByText("Muut ylläpitotoiminnot")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeHidden();
-  await expect(page.getByRole("button", { name: "Lue lokit" })).toBeHidden();
-  await page.getByText("Muut ylläpitotoiminnot").click();
-  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Tyhjennä kaikki tiedot" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Lue lokit" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Palauta uusin varmuuskopio" })).toHaveCount(0);
 
   // the helper reports in, with a snapshot full of hostile strings
   helper(
@@ -90,8 +90,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   );
   await page.reload();
   await expect(page.getByText(/Apuri toimii/)).toBeVisible();
-  // a working helper has no fold: the controls are on the page
-  await expect(page.getByText("Muut ylläpitotoiminnot")).toHaveCount(0);
+  // a working helper has its controls on the page
   await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toBeVisible();
   // a version 1 helper does not know logs, prune and helper-renew: the page says so and offers the command
   await expect(page.getByText(/Apuri ei tue näitä toimintoja/)).toBeVisible();
@@ -141,7 +140,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   expect(await page.locator(".ops-log script, .ops-log img").count()).toBe(0);
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   // rollback is offered now, and asks for the typed word
-  await expect(page.getByText("Ajan tasalla")).toBeVisible();
+  await expect(page.getByText(/^Ajan tasalla/)).toBeVisible();
   await page.getByRole("button", { name: "Palauta edellinen versio" }).click();
   await expect(page.getByRole("dialog").getByLabel("Kirjoita PALAUTA vahvistukseksi")).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Peruuta" }).click();
@@ -238,17 +237,12 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   });
   const restoreCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Palauta uusin varmuuskopio" }) });
   const resetCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Tyhjennä kaikki tiedot" }) });
-  const openPanels = async () => {
-    // the earlier test leaves the helper working; run alone, the other controls are folded away
-    const fold = page.getByText("Muut ylläpitotoiminnot");
-    if (await fold.count()) await fold.click();
-  };
 
+  // the earlier test leaves the helper working; the restore card is not drawn without it
   // the real server answers the first read: with a copy or with none, the card has its words either way
   await page.goto("/#/settings?section=maintenance");
-  await openPanels();
   await expect(restoreCard.getByText(/Ehjää varmuuskopiota ei ole\.|Uusin ehjä varmuuskopio/)).toBeVisible();
-  await expect(resetCard).toContainText("Oma tunnuksesi, palvelimen asetukset ja Enable Banking -sovellus säilyvät.");
+  await expect(resetCard).toContainText("Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.");
 
   const sent = { restore: [] as unknown[], reset: [] as unknown[] };
   let copy: typeof COPY = COPY;
@@ -281,7 +275,6 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
     await route.fulfill({ status: answer.status, json: answer.json });
   });
   await page.reload();
-  await openPanels();
 
   // the card shows the copy's time large, its file and what is lost; the newest copy was made before this mistake or after it
   await expect(restoreCard.getByText("Uusin ehjä varmuuskopio")).toBeVisible();
@@ -326,7 +319,6 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   // the copy of a reset is named for what it does
   copy = PRE_RESET;
   await page.reload();
-  await openPanels();
   await expect(restoreCard).toContainText("Tämä varmuuskopio on otettu juuri ennen tietojen tyhjennystä.");
   await expect(restoreCard).toContainText("Sen palautus tuo tyhjennetyt tiedot takaisin.");
 
@@ -334,13 +326,11 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
-  // the reset card says before the click what goes, what stays and how it is undone
+  // the reset card says before the click what goes, that a copy is taken first and that the banks are connected again
   await resetCard.scrollIntoViewIfNeeded();
-  await expect(resetCard).toContainText("Tyhjennys poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.");
-  await expect(resetCard).toContainText("Ensin otetaan varmuuskopio.");
-  await expect(resetCard).toContainText("alle vuorokauden ajan");
-  await expect(resetCard).toContainText("vähintään 14 päivää");
-  await expect(resetCard).toContainText("Pankkiyhteydet lopetetaan.");
+  await expect(resetCard).toContainText("Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.");
+  await expect(resetCard).toContainText("Varmuuskopio otetaan ensin, ja sen voi palauttaa vuorokauden ajan.");
+  await expect(resetCard).toContainText("Pankkiyhteydet pitää yhdistää uudelleen.");
   const resetButton = resetCard.locator("button", { hasText: "Tyhjennä kaikki tiedot" });
   await resetButton.click();
   dialog = page.getByRole("dialog");

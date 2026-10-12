@@ -46,5 +46,3 @@ details.group > summary { cursor: pointer; }
 .pivot-months dd { font-variant-numeric: tabular-nums; }
 .pivot-list summary .pivot-name::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); }
 .pivot-list details[open] summary .pivot-name::before { content: "▾"; }
-/* the merchant's second line wraps on a phone so that the price columns stay inside the card */
-@media (max-width: 600px) { #hinnat td .sub { max-width: none; white-space: normal; overflow: visible; } }

@@ -15,7 +15,6 @@
 .uncat-list li:last-child { border-bottom: none; }
 .uncat-list + .btn { margin-top: 8px; }
 .uncat-list .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.uncat-list .sub { color: var(--muted); font-size: 12px; }
 .uncat-list a { overflow-wrap: anywhere; }
 .uncat-list select, .uncat-list .select-lite { width: 100%; }
 @media (max-width: 600px) {

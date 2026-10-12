@@ -1,19 +1,16 @@
-/* The Laskut page: the list of what is coming, the subscription marks, the tables, the twelve months and the form for a typed-in bill. */
+/* The Laskut page: the list of what is coming, the subscription marks, the tables, the twelve months and the form for a typed-in bill. The rows on top are the statement rows of statement.css. */
 
 .bills-head { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
 .bills-head .muted { font-weight: 400; font-size: 12px; margin-left: 6px; }
 
-/* one row a month: name and amount, a bar for the size, the bills below. A list works at any width. */
-.bill-months { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; }
-.bill-months li { padding: 7px 0; border-bottom: 1px solid var(--grid); }
-.bill-month-head { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
-.bill-month-head span::first-letter { text-transform: uppercase; }
-.bill-bar { height: 4px; margin-top: 4px; border-radius: 2px; background: var(--surface-2); }
-.bill-bar span { display: block; height: 100%; border-radius: 2px; background: var(--series-1); }
-.bill-months .sub { margin-top: 3px; max-width: none; }
-@media (max-width: 700px) { .bill-months { grid-template-columns: minmax(0, 1fr); } }
+/* the first column of a table of due dates is as wide as its text (a day has no space to break at, a month wraps on a phone); the payee takes the rest */
+.st-table .due-col { width: 1%; }
+/* above a phone the month stands on one line: width 1% alone would break it at its space */
+@media (min-width: 601px) { .rare-table .due-col { white-space: nowrap; } }
+/* four columns on a phone: a narrower gap between them leaves the payee its width */
+@media (max-width: 600px) { .rare-table :is(th, td) + :is(th, td) { padding-left: 8px; } }
 
-/* the bills of the next three months and the typed-in ones: name and amount, the rest below. No table, so a phone needs no side scroll. */
+/* the typed-in bills: name and amount, the rest below. No table, so a phone needs no side scroll. */
 .bill-list { list-style: none; margin: 0; padding: 0; max-width: 640px; }
 .bill-list li { padding: 8px 0; border-bottom: 1px solid var(--grid); }
 .bill-line { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
@@ -40,12 +37,10 @@
 .coming-table tr.group-head th { padding-left: 0; }
 .coming-table tr.group-head td { padding-top: 14px; font-weight: 600; vertical-align: bottom; }
 .coming-table tbody:first-of-type tr.group-head td { padding-top: 6px; }
-.group-sub { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; font-weight: 400; }
 
 /* what to do with a subscription: the saving, then the two answers; a mark replaces them with a badge and an undo */
 .sub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .sub-actions .badge { margin-left: 0; }
-.sub-saving { color: var(--muted); font-size: 12px; }
 
 /* at 390 px the name column wraps so that the date of the next charge fits inside the card */
 @media (max-width: 600px) {
@@ -53,8 +48,9 @@
   .series-table td.next, .series-table th:last-child { padding-left: 4px; }
 }
 
-/* the fixed costs in one line on top of the page */
-.bills-line { margin: 0; font-size: 15px; color: var(--text-2); }
-.bills-line strong { color: var(--text); font-variant-numeric: tabular-nums; }
-
-.bills-more { margin-top: 8px; }
+/* the row "Yhteensä" at the foot of a table: 600, the axis above it in place of the hairline of the row above */
+tr.foot-row > * { padding-top: 7px; padding-bottom: 7px; border-top: 1px solid var(--axis); border-bottom: 0; color: var(--text); font-size: 14px; font-weight: 600; white-space: nowrap; }
+tr.foot-row + tr.foot-row > * { border-top: 0; }
+tr:has(+ tr.foot-row) > * { border-bottom: 0; }
+/* the head of the price table is allowed two lines on a phone */
+@media (max-width: 600px) { #hinnat th { white-space: normal; } }

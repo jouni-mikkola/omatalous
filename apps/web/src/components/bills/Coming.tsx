@@ -9,8 +9,6 @@ import { BillForm } from "./BillForm.tsx";
 type Ahead = NonNullable<DashboardData["ahead"]>;
 type Row = Ahead["upcoming"][number];
 
-const SHOWN = 10;
-
 /**
  * The list in the groups of the window of Yhteenveto: what the accounts pay to the window's last day, the day before
  * the pay, under the line Yhteenveto has under its heading, then what they pay after it. So the first group's sum is the
@@ -34,17 +32,13 @@ function groupsOf(ahead: Ahead): { title: string; rows: Row[] }[] {
  * Erääntyvät maksut on Laskut: the one list of what is charged in the next 30 days, to an account or to a credit card,
  * whether the bank history shows it every month, rarely, or the household typed it in. It is `upcoming` of the dashboard answer, found by the
  * same code as the rows of the block of the same name on Yhteenveto, and grouped by that block's window, each group with
- * its sum. "Lisää lasku" opens the form for a bill the history cannot know yet.
+ * its sum. Every row of the 30 days is listed, as a day, a payee and a sum under the heads of the table of Yhteenveto.
+ * "Lisää lasku" opens the form for a bill the history cannot know yet.
  */
-export function Coming({ ahead, today, label, onAdded }: { ahead: Ahead | null; today: string; label: (id: string) => string; onAdded: () => void }) {
-  const [all, setAll] = useState(false);
+export function Coming({ ahead, today, onAdded }: { ahead: Ahead | null; today: string; onAdded: () => void }) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
-  const count = ahead?.upcoming.length ?? 0;
-  const groups = ahead && count > 0 ? groupsOf(ahead) : [];
-  // the first rows of the list as a whole; a group's sum is of all its rows
-  const limit = all ? count : SHOWN;
-  let before = 0;
+  const groups = ahead && ahead.upcoming.length > 0 ? groupsOf(ahead) : [];
 
   return (
     <div className="card" id="tulossa">
@@ -77,47 +71,48 @@ export function Coming({ ahead, today, label, onAdded }: { ahead: Ahead | null; 
           Lasku {added} lisätty.
         </p>
       )}
-      {count === 0 ? (
+      {groups.length === 0 ? (
         <p className="small muted">Ei laskuja seuraavan 30 päivän aikana.</p>
       ) : (
-        <table className="compact coming-table">
+        <table className="st-table coming-table">
           <caption className="sr-only">Maksut, jotka erääntyvät seuraavan 30 päivän aikana</caption>
-          {groups.map((g) => {
-            const shown = g.rows.slice(0, Math.max(0, limit - before));
-            before += g.rows.length;
-            return (
-              <tbody key={g.title}>
-                <tr className="group-head">
-                  <th colSpan={2} scope="rowgroup">
-                    {g.title}
-                  </th>
-                  <td className="num">{money(g.rows.reduce((sum, r) => sum - r.cents, 0))}</td>
+          <thead>
+            <tr>
+              <th scope="col" className="due-col">
+                Eräpäivä
+              </th>
+              <th scope="col">Saaja</th>
+              <th scope="col" className="st-num">
+                Summa
+              </th>
+            </tr>
+          </thead>
+          {groups.map((g) => (
+            <tbody key={g.title}>
+              <tr className="group-head">
+                <th colSpan={2} scope="rowgroup">
+                  {g.title}
+                </th>
+                <td className="st-num">{money(g.rows.reduce((sum, r) => sum - r.cents, 0))}</td>
+              </tr>
+              {g.rows.map((r, i) => (
+                <tr key={`${r.date}-${r.name}-${i}`}>
+                  <td className="due-col">{dayMonth(r.date)}</td>
+                  <td>
+                    {r.source === "expected" ? (
+                      <>
+                        {r.name} <span className="badge">lisätty käsin</span>
+                      </>
+                    ) : (
+                      <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
+                    )}
+                  </td>
+                  <td className="st-num">{money(-r.cents)}</td>
                 </tr>
-                {shown.map((r, i) => (
-                  <tr key={`${r.date}-${r.name}-${i}`}>
-                    <td>
-                      {r.source === "expected" ? (
-                        <>
-                          {r.name} <span className="badge">lisätty käsin</span>
-                        </>
-                      ) : (
-                        <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
-                      )}
-                      {r.category && <div className="sub">{label(r.category)}</div>}
-                    </td>
-                    <td className="num muted">{dayMonth(r.date)}</td>
-                    <td className="num">{money(-r.cents)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            );
-          })}
+              ))}
+            </tbody>
+          ))}
         </table>
-      )}
-      {count > SHOWN && (
-        <button className="btn btn-small bills-more" type="button" onClick={() => setAll((v) => !v)} aria-expanded={all}>
-          {all ? "Näytä vähemmän" : `Näytä kaikki (${count})`}
-        </button>
       )}
     </div>
   );

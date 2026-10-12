@@ -2,10 +2,12 @@
  * Every statement the product makes about money, as stable text: what the overview and Havainnot say (insights,
  * alerts), Optimoi's findings and their follow-up, Mikä muuttui (income) and the spending change sentences. One block
  * per statement with its number and its calc, so a reviewer reads a change in what the product says as a text diff.
+ * Last, the rows the product holds apart as large (`large`): no sentence of a page yet, so every one of them is quiet.
  */
 import { buildAlerts } from "../../packages/core/src/analysis/alerts.ts";
-import type { AnalysisContext } from "../../packages/core/src/analysis/context.ts";
+import { type AnalysisContext, netSpend } from "../../packages/core/src/analysis/context.ts";
 import { incomeBase, incomeChanges } from "../../packages/core/src/analysis/income-changes.ts";
+import { largeIncome, largePurchases } from "../../packages/core/src/analysis/large.ts";
 import type { DateRange } from "../../packages/core/src/analysis/period.ts";
 import { addMonths, monthOf } from "../../packages/core/src/dates.ts";
 import { allFindings, buildOptimise } from "../../packages/core/src/optimise/index.ts";
@@ -16,13 +18,13 @@ import { insightsReport } from "../../packages/core/src/reports/insights.ts";
 import { spendingChangeReport } from "../../packages/core/src/reports/spending-change.ts";
 import { contextOf, type Household } from "./households.ts";
 
-export const SOURCE_IDS = ["insights", "alerts", "optimise", "income", "change", "outcome"] as const;
+export const SOURCE_IDS = ["insights", "alerts", "optimise", "income", "change", "outcome", "large"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 export interface Statement {
   source: SourceId;
   household: string;
-  /** The product's own id: an insight, alert, finding or income change id; `change:<view>:<months>` and `outcome:<finding id>` here. */
+  /** The product's own id: an insight, alert, finding or income change id; `change:<view>:<months>`, `outcome:<finding id>` and `large:<day>:<row id>` here. */
   id: string;
   /** The detector that made it: an insight's id prefix, an alert's kind, `<area>:<kind>`, an income change kind, a change view. */
   kind: string;
@@ -120,6 +122,16 @@ const MAKERS: Record<SourceId, Maker> = {
           rows: null,
           loud: o.verdict !== "odottaa" && o.verdict !== "epäselvä",
         };
+      });
+  },
+  large: ({ ctx }) => {
+    const purchases = largePurchases(ctx);
+    const income = largeIncome(ctx);
+    return ctx.txs
+      .filter((t) => purchases.has(t.id) || income.has(t.id))
+      .map((t) => {
+        const bought = purchases.has(t.id);
+        return { id: `large:${t.bookingDate}:${t.id}`, kind: bought ? "purchase" : "income", title: t.merchant, figure: eur(bought ? netSpend(t) : t.flows.income), calc: [`category ${t.category}`], rows: 1, loud: false };
       });
   },
 };

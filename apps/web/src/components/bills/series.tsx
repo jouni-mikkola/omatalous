@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CADENCE_LABEL, date, money, plural } from "../../format.ts";
+import { CADENCE_LABEL, date, money } from "../../format.ts";
 import type { Recurring as Series } from "../../types.ts";
 
 /** "kuukausittain", or "11 kertaa vuodessa" for a monthly fee with a summer break. */
@@ -10,19 +10,18 @@ function frequency(s: Series): string {
 }
 
 /** Columns of a series table: a group heading row spans all of them. */
-export const COLUMNS = 7;
+export const COLUMNS = 6;
 
 /** The head of a series table. The last column is the next charge, or for series that ended the last one. */
 export function SeriesHead({ ended }: { ended?: boolean }) {
   return (
     <thead>
       <tr>
-        <th>Kauppias</th>
+        <th>Saaja</th>
         <th className="hide-phone">Tiheys</th>
         <th className="num hide-phone">Summa</th>
         <th className="num">Kuussa</th>
         <th className="num hide-phone">Vuodessa</th>
-        <th className="num hide-phone">Jatkunut</th>
         <th>{ended ? "Viimeksi" : "Seuraava"}</th>
       </tr>
     </thead>
@@ -41,9 +40,7 @@ export function SeriesRow({ s, label, ended, actions, priced }: { s: Series; lab
             {money(s.priceChange.fromCents)} → {money(s.priceChange.toCents)}
           </span>
         )}
-        <div className="sub">
-          {label(s.category)} · {s.occurrences} kertaa {date(s.firstDate)} alkaen
-        </div>
+        <div className="sub">{label(s.category)}</div>
         {actions}
       </td>
       <td className="hide-phone">{frequency(s)}</td>
@@ -52,7 +49,6 @@ export function SeriesRow({ s, label, ended, actions, priced }: { s: Series; lab
         <strong>{money(s.monthlyCents, false)}</strong>
       </td>
       <td className="num hide-phone">{money(s.yearlyCents, false)}</td>
-      <td className="num hide-phone">{plural(s.monthsActive, "kuukausi", "kuukautta")}</td>
       <td className="next">
         {ended ? (
           date(s.lastDate)
@@ -64,6 +60,20 @@ export function SeriesRow({ s, label, ended, actions, priced }: { s: Series; lab
           date(s.nextDate)
         )}
       </td>
+    </tr>
+  );
+}
+
+/** The row "Yhteensä" at the foot of a table of series: the sums of the columns Kuussa and Vuodessa, under the same heads. */
+export function SeriesTotal({ rows }: { rows: readonly Series[] }) {
+  return (
+    <tr className="foot-row">
+      <th scope="row">Yhteensä</th>
+      <td className="hide-phone" />
+      <td className="hide-phone" />
+      <td className="num">{money(monthlyOf(rows), false)}</td>
+      <td className="num hide-phone">{money(rows.reduce((sum, r) => sum + r.yearlyCents, 0), false)}</td>
+      <td />
     </tr>
   );
 }

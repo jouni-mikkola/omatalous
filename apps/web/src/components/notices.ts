@@ -36,6 +36,8 @@ export interface Notice {
   read: string;
   warning: boolean;
   href: string | null;
+  /** The words of the link, where the row has a link of its own at the right and its text is no link. */
+  link?: string;
   answers: Answer[];
 }
 
@@ -78,7 +80,8 @@ function securityNotice(n: SecurityNotice): Notice {
 
 /**
  * An alert opens its merchant's whole history (a double charge or a forgotten subscription shows in context) or its
- * category's rows of the chosen month. The question about a forgotten service is answered with Käytössä or Lopetettu on
+ * category's rows of the chosen month. An alert about one payment opens that payee's rows of the payment's day, behind
+ * a link that says what to do there. The question about a forgotten service is answered with Käytössä or Lopetettu on
  * that one series; every alert can be set aside with Kuittaa.
  */
 function alertNotice(a: Alert, range: { from: string; to: string }): Notice {
@@ -90,8 +93,11 @@ function alertNotice(a: Alert, range: { from: string; to: string }): Notice {
           { label: "Lopetettu", name: `Lopetettu: ${a.merchant}`, send: { subject, mark: "cancelled" } },
         ]
       : [];
-  const href = a.merchant ? `#/transactions${query({ merchant: a.merchant })}` : a.category ? `#/transactions${query({ category: a.category, from: range.from, to: range.to })}` : null;
-  return { id: a.id, kind: "alert", title: a.title, detail: a.detail, read: READ[a.tone], warning: a.tone === "warning", href, answers: [...question, dismiss(a.title, { subject: `alert:${a.id}`, mark: "dismissed" })] };
+  const filter = a.row ? { merchant: a.row.merchant, from: a.row.date, to: a.row.date } : a.merchant ? { merchant: a.merchant } : a.category ? { category: a.category, from: range.from, to: range.to } : null;
+  const link = a.kind === "uncategorised" ? { link: "Luokittele" } : {};
+  // two rows of one title are told apart by their detail, so the button's name carries it
+  const answers = [...question, dismiss(a.row ? `${a.title} ${a.detail}` : a.title, { subject: `alert:${a.id}`, mark: "dismissed" })];
+  return { id: a.id, kind: "alert", title: a.title, detail: a.detail, read: READ[a.tone], warning: a.tone === "warning", href: filter && `#/transactions${query(filter)}`, ...link, answers };
 }
 
 /** Core decides when a changed figure brings a dismissed insight back (`insightDismissSubject`). */

@@ -26,7 +26,7 @@ const PAGES = [
   ["bills", "Laskut"],
   ["transactions?view=merchants", "Tapahtumat"],
   ["settings", "Asetukset"],
-  ["settings?tab=talous", "Asetukset"],
+  ["settings?section=technical", "Asetukset"],
 ] as const;
 
 test.describe.configure({ mode: "serial" });
@@ -268,13 +268,22 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   const habits = new Set(series.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant));
   expect(habits.size, "the demo has everyday purchases").toBeGreaterThan(0);
   await page.goto("/#/transactions?view=merchants");
-  await page.getByRole("group", { name: "Kauppiaiden rajaus" }).getByRole("button", { name: "Arkiostot" }).click();
-  await expect(page).toHaveURL(/#\/transactions\?view=merchants&habit=1$/);
   await expect(rows.first()).toBeVisible();
+  // the page has no switch for them: only the address sets the filter, and the chip is shown while it is on
+  await expect(page.getByRole("group", { name: "Kauppiaiden rajaus" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Poista rajaus Arkiostot" })).toHaveCount(0);
+  await page.goto("/#/transactions?view=merchants&habit=1");
+  const chip = page.getByRole("button", { name: "Poista rajaus Arkiostot" });
+  await expect(chip).toBeVisible();
   await expect.poll(() => rows.count()).toBeLessThan(all);
   const shown = await rows.locator(".m-name a").allInnerTexts();
   expect(shown.length).toBeGreaterThan(0);
   for (const name of shown) expect(habits.has(name.trim()), `${name} is an everyday purchase`).toBe(true);
+  // its × shows every merchant again
+  await chip.click();
+  await expect.poll(hash).toBe("#/transactions?view=merchants");
+  await expect(chip).toHaveCount(0);
+  await expect.poll(() => rows.count()).toBe(all);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -327,9 +336,34 @@ test("the merchants of the month are a link to Tapahtumat, and a merchant there 
   for (const term of ["Maksuja", "Ensimmäinen", "Viimeisin"]) await expect(summary.getByText(term, { exact: true })).toBeVisible();
   // the list below is the same merchant
   await expect(page.locator("tbody tr").first()).toBeVisible();
-  // without a merchant filter there is no summary
+  // the card states the sums, so the list's head does not draw them a second time (and has no line about the sum)
+  for (const term of ["Maksettu yhteensä", "Saatu yhteensä"]) {
+    await expect(page.getByText(term, { exact: true })).toHaveCount(await summary.getByText(term, { exact: true }).count());
+  }
+  await expect(page.getByText("Tapahtumia", { exact: true })).toHaveCount(0);
+  // without a merchant filter there is no summary, and the list's head holds the three figures, once each
   await page.goto("/#/transactions");
   await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
+  for (const term of ["Tapahtumia", "Maksettu yhteensä"]) await expect(page.getByText(term, { exact: true })).toHaveCount(1);
+  await expect(page.getByText(/omia siirtoja ei lasketa/)).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("an empty Tapahtumat says so: with a filter that it matches nothing, without one with the way to a bank", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  // a household with no rows at all: the list's answer is empty whatever the address asks
+  await page.route("**/api/transactions?*", (route) => route.fulfill({ json: { total: 0, inCents: 0, outCents: 0, items: [] } }));
+  await page.goto("/#/transactions");
+  const empty = page.locator(".tx-card .empty");
+  await expect(empty).toHaveText(/^Ei tapahtumia\.\s*Yhdistä pankki$/);
+  await expect(empty.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings?add=1");
+  // no figures for nothing
+  await expect(page.getByText("Tapahtumia", { exact: true })).toHaveCount(0);
+  await page.goto("/#/transactions?q=zzzz");
+  await expect(empty).toHaveText("Ei tapahtumia näillä rajauksilla.");
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -372,10 +406,10 @@ test("a subscription marked as in use stays marked after a reload, and the mark 
   await page.goto("/#/bills");
   const total = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset" }) }).locator(".card-head strong");
   await expect(total).toBeVisible();
-  // the line on top of the page and the card header are one figure: "Kiinteät menot X kuussa, joista tilauksia Y"
-  const line = page.locator(".bills-line");
-  await expect(line).toContainText(/^Kiinteät menot .+ kuussa, joista tilauksia /);
-  await expect(line.locator("strong").nth(1)).toHaveText((await total.innerText()).replace(/\/kk$/, "").trim());
+  // the row "Tilaukset kuukaudessa" on top of the page and the card header are one figure
+  const row = page.locator(".st-row", { hasText: "Tilaukset kuukaudessa" });
+  await expect(row.locator(".st-name")).toHaveText("Tilaukset kuukaudessa");
+  await expect(row.locator(".st-num")).toHaveText((await total.innerText()).replace(/\/kk$/, "").trim());
 
   const answer = page.getByRole("button", { name: /^Käytössä: / }).first();
   await expect(answer).toBeVisible();
@@ -433,6 +467,9 @@ test("the Laskut tables fit a phone: the date of the next charge is inside the c
   // a table wider than its card scrolls sideways inside the card and clips the last column
   const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
   expect(clipped, "tables that scroll sideways").toBe(0);
+  // the list of what falls due has its three heads, and the page fits the screen
+  await expect(page.locator("#tulossa thead th")).toHaveText(["Eräpäivä", "Saaja", "Summa"]);
+  await fitsScreen(page, "Laskut");
   const next = page.locator("th", { hasText: "Seuraava" }).first();
   // the list of what falls due comes first, so the table is below the fold: scrolled to, it is whole inside the screen
   await next.scrollIntoViewIfNeeded();
@@ -462,20 +499,16 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Säästövinkit" })).toBeVisible();
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
 
-    // the header says what the numbers rest on, and the situation and its checks are there
-    await expect(page.getByText(/^Tiedot \d+\.\d+\.\d{4} asti/)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Tietojen laatu" })).toBeVisible();
+    // Tilanne is figures: the euros a year of the tips, then the four facts
     const situation = page.getByRole("region", { name: "Tilanne" });
-    await expect(situation).toContainText(/Säästömahdollisuus noin \d[\d\s]*€ vuodessa, 2 vinkkiä\./);
-    await expect(situation).toContainText(/Tarkistettiin \d+ asiaa/);
+    const found = situation.locator(".optimise-facts > div", { has: page.getByText("Säästömahdollisuus vuodessa (arvio)", { exact: true }) }).locator("dd");
+    await expect(found).toHaveText(/^\d[\d\s]*€$/);
     for (const fact of ["Säästöaste", "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista"]) await expect(situation.getByText(fact, { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Alueet", exact: true })).toBeVisible();
-    // the quiet areas are one line, and what they checked is behind it
-    const quiet = page.locator("details", { has: page.locator("summary", { hasText: "ilman vinkkejä" }) });
-    await expect(quiet.locator("summary")).toHaveText(/^Tarkistettu \d+ asiaa, \d+ aluetta ilman vinkkejä$/);
-    await expect(quiet.getByText("Asuntolainan marginaali")).toBeHidden();
-    await quiet.locator("summary").click();
-    await expect(quiet.getByText("Asuntolainan marginaali")).toBeVisible();
+    // what the numbers rest on, what was checked and what waits are not told on the page, and no area is a list of nothing
+    for (const gone of [/^Tiedot \d+\.\d+\.\d{4} asti/, /^Laskettu /, /^Tarkistett/, /^Odottaa tietoja/]) await expect(page.getByText(gone)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Tietojen laatu" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Alueet", exact: true })).toHaveCount(0);
+    await expect(page.locator("details", { has: page.locator("summary", { hasText: /Tarkistet|ilman vinkkejä|Odottaa/ }) })).toHaveCount(0);
 
     // the demo history has a software price rise and two video services at once
     const cards = page.locator("article.finding");
@@ -484,8 +517,9 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(rise).toBeVisible();
     await expect(overlap).toBeVisible();
     await expect(rise).toContainText(/144\s€ vuodessa/);
-    await expect(rise).toContainText("Varmuus: korkea");
-    await expect(overlap).toContainText("Varmuus: keskitaso");
+    // the certainty is told only when it is not high, as a badge with its reason
+    await expect(rise).not.toContainText("Varmuus");
+    await expect(overlap.locator(".finding-certainty")).toHaveText(/^Varmuus: keskitaso .+/);
 
     // the calculation: its lines, the months as bars with a table view, and a way to check the categories
     await rise.getByRole("button", { name: "Avaa laskelma" }).click();
@@ -499,6 +533,7 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
 
     // Ei koske meitä takes the finding out of its area and the headline to Päätetyt, and the choice stays after a reload
     const title = (await overlap.locator(".finding-title").innerText()).trim();
+    const before = await found.innerText();
     await overlap.getByRole("button", { name: "Ei koske meitä" }).click();
     await overlap.getByRole("button", { name: "Tarvitsen tämän" }).click();
     const decided = page.getByRole("region", { name: "Päätetyt" });
@@ -507,7 +542,8 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     // the card the keyboard was on is gone: focus is on the message
     await expect(page.getByRole("status").filter({ hasText: "Vinkki siirrettiin kohtaan Päätetyt." })).toBeFocused();
     await expect(overlap).toHaveCount(0);
-    await expect(situation).toContainText(/noin \d[\d\s]*€ vuodessa, 1 vinkki\./);
+    // the euros of the headline are one tip fewer
+    await expect(found).not.toHaveText(before);
 
     await page.reload();
     await expect(rise).toBeVisible();
@@ -557,6 +593,8 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     const smallRise = small.locator("article.finding").filter({ hasText: "Adobe: hinta nousi" });
     await expect(smallRise).toBeVisible();
     await small.waitForLoadState("networkidle");
+    // the first tip's title is on the first screen of a phone, with no scrolling
+    await expect(small.locator("article.finding .finding-title").first()).toBeInViewport({ ratio: 1 });
     await fitsScreen(small, "Säästövinkit at 390px");
     await smallRise.getByRole("button", { name: "Avaa laskelma" }).click();
     await expect(smallRise.getByText("Hinta ennen")).toBeVisible();
@@ -633,7 +671,9 @@ test("an expected bill is added in the list of what falls due on Laskut, is stil
   await expect(rare.getByRole("heading", { name: "Harvinaiset laskut" })).toBeVisible();
   const remove = (p: Page) => p.locator("#tulevat").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   await expect(remove(page)).toBeVisible();
-  await expect(rare.getByText(/^Harvinaiset laskut ovat .* vuodessa eli .* kuussa\.$/)).toBeVisible();
+  // the monthly figure stands beside the heading, and there is no sentence about it
+  await expect(rare.locator(".card-head strong")).toHaveText(/^\d[\d\s]*\s€\/kk$/);
+  await expect(rare.getByText(/vuodessa eli/)).toHaveCount(0);
 
   await page.reload();
   await expect(remove(page)).toBeVisible();
@@ -646,6 +686,26 @@ test("an expected bill is added in the list of what falls due on Laskut, is stil
   await page.reload();
   await expect(page.locator("#tulossa").getByRole("button", { name: "Lisää lasku" })).toBeVisible();
   await expect(page.getByText("E2E-ajoneuvovero")).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Harvinaiset laskut at 1280 px: the due month of a row stands on one line", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/bills");
+  const months = page.locator("#tulevat .rare-table td.due-col");
+  await expect(months.first()).toBeVisible();
+  // a text that wraps has one box per line
+  const wrapped = await months.evaluateAll((cells) =>
+    cells.filter((cell) => {
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      return range.getClientRects().length > 1;
+    }).length,
+  );
+  expect(wrapped, "months that wrap").toBe(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -669,7 +729,7 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
 
   // what the page holds: the fixed costs line, the one list of what is coming, the cards of subscriptions and contracts
   await page.goto("/#/bills");
-  await expect(page.locator(".bills-line")).toContainText("Kiinteät menot");
+  await expect(page.locator(".st-row", { hasText: "Kiinteät menot kuukaudessa" })).toBeVisible();
   for (const heading of ["Erääntyvät maksut", "Tilaukset", "Sopimukset ja laskut"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   // the report sections that moved here, and none of the old tiles or the old second list
   await expect(page.getByRole("heading", { name: "Tulevat laskut" })).toHaveCount(0);

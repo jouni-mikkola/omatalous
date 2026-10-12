@@ -49,7 +49,7 @@ export function UpdatePanel({ version, build, state, disabled, prerelease, onChe
           )}
         </>
       ) : (
-        <p className="muted">{state.checked_at ? S.upToDate(dateTime(state.checked_at)) : S.notChecked}</p>
+        <p className="muted">{state.checked_at ? S.upToDate(dateTime(state.checked_at)) : "–"}</p>
       )}
       <div className="form-row">
         {state.update_available && (

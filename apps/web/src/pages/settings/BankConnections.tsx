@@ -110,6 +110,7 @@ export function BankConnections({
   connected,
   onChange,
   onMessage,
+  sync,
 }: {
   meta: Meta;
   pickerOpen: boolean;
@@ -117,6 +118,8 @@ export function BankConnections({
   connected?: number | null;
   onChange: () => void;
   onMessage: (m: { tone: "good" | "warning"; text: string }) => void;
+  /** Hae nyt, beside Yhdistä pankki: drawn only while a connection is active. The page runs the fetch. */
+  sync?: { busy: boolean; disabled: boolean; start: () => void };
 }) {
   const [picking, setPicking] = useState(pickerOpen);
   // a bank was linked on this visit: the next one is offered straight away
@@ -230,11 +233,18 @@ export function BankConnections({
         <div>
           <h2>Pankkiyhteydet</h2>
         </div>
-        {!picking && (
-          <button className="btn btn-primary" type="button" onClick={openPicker}>
-            {linked ? "Yhdistä toinen pankki" : "Yhdistä pankki"}
-          </button>
-        )}
+        <div className="form-row" style={{ margin: 0 }}>
+          {sync && meta.connections.some((c) => c.status === "active") && (
+            <button className="btn" type="button" disabled={sync.disabled} onClick={sync.start}>
+              {sync.busy ? "Haetaan…" : "Hae nyt"}
+            </button>
+          )}
+          {!picking && (
+            <button className="btn btn-primary" type="button" onClick={openPicker}>
+              {linked ? "Yhdistä toinen pankki" : "Yhdistä pankki"}
+            </button>
+          )}
+        </div>
       </div>
 
       {picking && (

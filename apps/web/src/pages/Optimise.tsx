@@ -14,12 +14,10 @@ import { Section } from "../components/Section.tsx";
 import { Situation } from "../components/optimise/Situation.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Loading } from "../components/Loading.tsx";
-import { completeMonths, date, plural } from "../format.ts";
+import { completeMonths } from "../format.ts";
 import { useApi } from "../hooks.ts";
-import { SETTINGS_ANCHOR } from "../routes.ts";
 import type { Scope } from "../types.ts";
 import "../styles/optimise.css";
-import "../styles/quality.css";
 
 export function Optimise({ scope }: { scope: Scope }) {
   const { data: response, error, loading, reload } = useApi<OptimiseResponse>(`/api/optimise${query({ scope })}`);
@@ -48,12 +46,6 @@ export function Optimise({ scope }: { scope: Scope }) {
 
   return (
     <div className={`stack optimise ${loading ? "loading" : ""}`}>
-      <p className="data-scope">
-        <span>{data.dataTo ? `Tiedot ${date(data.dataTo)} asti` : "Ei tapahtumia"}</span>
-        <span>historiaa {plural(data.historyMonths, "kuukausi", "kuukautta")}</span>
-        <span>{plural(data.accounts, "tili", "tiliä")}</span>
-        <a href={`#/settings#${SETTINGS_ANCHOR.quality}`}>Tietojen laatu</a>
-      </p>
       {said && (
         <div className="notice good" role="status" tabIndex={-1} ref={notice}>
           {said.text}
@@ -62,12 +54,12 @@ export function Optimise({ scope }: { scope: Scope }) {
 
       {young && (
         <div className="notice" role="status">
-          Säästövinkit tarvitsevat {completeMonths(MIN_MONTHS_ANY)}. Siihen asti näkyvät vain määräajat.
+          Säästövinkit tarvitsevat {completeMonths(MIN_MONTHS_ANY)}.
         </div>
       )}
 
       {data.soon.length > 0 && (
-        <Section id="seuraavat" title="Seuraavat 60 päivää" sub="Määräajat, jotka ehtii vielä hoitaa">
+        <Section id="seuraavat" title="Seuraavat 60 päivää">
           <div className="findings">
             {data.soon.map((f) => (
               <FindingCard key={f.id} finding={f} today={data.today} scope={scope} onChanged={changed} />
@@ -78,13 +70,12 @@ export function Optimise({ scope }: { scope: Scope }) {
 
       {!young && <Situation data={data} />}
       <Changes changes={changes} since={since} areas={data.areas} titles={titles} />
-      {/* under three months the areas hold only deadlines, and those are what the notice promises */}
-      <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} quiet={!young} checked={data.checked.total} />
+      <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} />
       {/* the insights the overview and Raportit told while this page was off: answered here like the findings */}
       <Others others={data.others} onChanged={changed} />
       <FollowUp followUp={followUp} areas={data.areas} titles={titles} scope={scope} onChanged={changed} />
       <Decided data={data} states={states} outcomes={outcomes} scope={scope} onChanged={changed} />
-      <InputsCard needed={data.needed} given={inputs} areas={data.areas} today={data.today} scope={scope} onChanged={changed} />
+      <InputsCard needed={data.needed} given={inputs} today={data.today} scope={scope} onChanged={changed} />
     </div>
   );
 }

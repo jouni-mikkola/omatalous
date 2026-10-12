@@ -91,6 +91,16 @@ test("the question after a link, the parts of the joint account, the bank's answ
   await expect(unseen).toHaveCount(0);
   expect(((await (await context.request.get("/api/meta")).json()).shares as unknown[]).length).toBe(1);
 
+  // a window narrower than five columns need: the type and the user sit under the name, and the table stays inside its card
+  // with the balance and the edit button both in view
+  for (const width of [640, 700]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(use).toBeVisible();
+    const card = tilit.locator(".table-wrap");
+    expect(await card.evaluate((el) => el.scrollWidth - el.clientWidth), `Tilit at ${width} px scrolls sideways in its card`).toBeLessThanOrEqual(1);
+    await expect(tilit.getByRole("button", { name: "Muokkaa tiliä Yhteistili" })).toBeInViewport({ ratio: 1 });
+  }
+
   // a phone: the select sits under the name, and nothing scrolls sideways
   await use.selectOption("joint");
   await page.setViewportSize({ width: 390, height: 844 });

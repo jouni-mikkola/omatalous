@@ -1,5 +1,5 @@
-/** The numbers a household may type in: what each one unlocks, its old value and day, and the form that stores it. */
-import { addMonthsToDate, type AreaView, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate, type NeededInput } from "@banking/core";
+/** The numbers a household may type in: the old value and day, and the form that stores it. */
+import { addMonthsToDate, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate, type NeededInput } from "@banking/core";
 import { type FormEvent, useState } from "react";
 import { api, query } from "../../api.ts";
 import { date, eurosText, money, parseEuros, rateText } from "../../format.ts";
@@ -174,17 +174,14 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
   );
 }
 
-/** One input the checks wait for or that went stale: what it unlocks, the old value, the form. */
-function NeededRow({ need, areas, today, scope, onChanged }: { need: NeededInput; areas: readonly AreaView[]; today: IsoDate; scope: Scope; onChanged: Changed }) {
+/** One input the checks wait for or that went stale: its name, the old value, the form. */
+function NeededRow({ need, today, scope, onChanged }: { need: NeededInput; today: IsoDate; scope: Scope; onChanged: Changed }) {
   const found = inputDefOf(need.key);
   if (!found) return null;
-  const names = need.areas.map((id) => areas.find((a) => a.id === id)?.label ?? id);
   return (
     <li className="needed">
       <div className="needed-text">
         <strong>{labelOf(found.def, found.subject)}</strong>
-        <span className="small muted">{found.def.unlocks}</span>
-        <span className="small muted">Alue: {names.join(", ")}</span>
         {need.old && (
           <span className="small stale">
             Vanha arvo {valueText(found.def, need.old.value)}, annettu {date(need.old.asOf)}. Liian vanha, ei käytetä.
@@ -237,7 +234,7 @@ function GivenRow({ row, today, scope, onChanged }: { row: InputRow; today: IsoD
   );
 }
 
-export function InputsCard({ needed, given, areas, today, scope, onChanged }: { needed: readonly NeededInput[]; given: readonly InputRow[]; areas: readonly AreaView[]; today: IsoDate; scope: Scope; onChanged: Changed }) {
+export function InputsCard({ needed, given, today, scope, onChanged }: { needed: readonly NeededInput[]; given: readonly InputRow[]; today: IsoDate; scope: Scope; onChanged: Changed }) {
   const waiting = new Set(needed.map((n) => n.key));
   const kept = given.filter((g) => !waiting.has(g.key) && inputDefOf(g.key));
   if (!needed.length && !kept.length) return null;
@@ -246,7 +243,7 @@ export function InputsCard({ needed, given, areas, today, scope, onChanged }: { 
       {needed.length > 0 && (
         <ul className="needed-list">
           {needed.map((n) => (
-            <NeededRow key={n.key} need={n} areas={areas} today={today} scope={scope} onChanged={onChanged} />
+            <NeededRow key={n.key} need={n} today={today} scope={scope} onChanged={onChanged} />
           ))}
         </ul>
       )}

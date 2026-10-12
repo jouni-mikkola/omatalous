@@ -17,7 +17,9 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   await expect(row("Käyttötili (esimerkki)")).toContainText("FI21 1234 5600 0007 85");
   await expect(row("Säästötili (esimerkki)")).toContainText("FI14 1009 3000 1234 58");
   // no IBAN and no card number: a dash, as before
-  await expect(row("Nordea Gold (esimerkki)")).toContainText("– · demo");
+  await expect(row("Nordea Gold (esimerkki)").locator(".acc-line").first()).toHaveText("–");
+  // the provider is not named after the number
+  await expect(row("Nordea Gold (esimerkki)")).not.toContainText("demo");
 
   // any account can have a name of its own, bank-linked or not; the original stays on a line of its own
   await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili (esimerkki)" }).click();

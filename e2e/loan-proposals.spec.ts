@@ -46,15 +46,14 @@ test("a payment that looks like a loan is asked about: saved as a loan with the 
     const title = card.getByRole("heading", { name: "Mahdolliset lainat" });
     const company = card.getByRole("row").filter({ hasText: "Nordea Rahoitus Suomi Oy" });
 
-    // the block is above the list, with the payee, the sum and since when, and a question a neighbour would ask
+    // the block is above the list, with the payee, the sum and a question a neighbour would ask
     await expect(title).toBeVisible();
     await expect(card.getByText("Onko tämä lainan maksu?")).toBeVisible();
     await expect(company).toContainText(/289,00\s€ kuukaudessa/);
-    await expect(company).toContainText("Maksettu");
-    await expect(company).toContainText("lähtien");
     // the demo household has one such payment
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toHaveLength(1);
-    await expect(card.getByText("Jos vastasit vahingossa Ei laina, lisää laina itse alempana.")).toHaveCount(1);
+    // the block holds no sentence about changing an answer
+    await expect(card.getByText("Jos vastasit vahingossa Ei laina, lisää laina itse alempana.")).toHaveCount(0);
     // no count, badge or alert anywhere else: the nav and the overview say nothing about it
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     if (SHOTS) await card.screenshot({ path: join(SHOTS, "ln8-proposals-390.png") });

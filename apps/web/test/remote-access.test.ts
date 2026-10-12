@@ -465,16 +465,34 @@ describe("the blocks of each state", () => {
     expect(hostField(waiting)).toBe("");
   });
 
-  it("a helper that is missing or too old: one explanation, the command, the guide, and no form", () => {
+  it("a helper that is missing or too old: the one line, the command and the guide, and no token form, no line about the token and no fold", () => {
     for (const helper of [{ ...OFF.helper, status: "off" as const, knowsAccess: false }, { ...OFF.helper, knowsAccess: false }]) {
-      const html = page({ ...OFF, token: SAVED, helper, suggestedHostname: "talous.example.fi" });
-      expect(html).toContain("./scripts/install.sh --ops-helper");
-      expect(html).toContain("palvelimella asennusohjelmalla");
-      expect(html).toMatch(/href="[^"]*docs\/ADVANCED\.md#cloudflare-tunnel"/);
-      expect(html).not.toContain('name="hostname"');
+      for (const token of [SAVED, OFF.token]) {
+        const html = page({ ...OFF, token, helper, suggestedHostname: "talous.example.fi" });
+        expect(html).toContain("Ota ylläpitoapuri käyttöön palvelimella:");
+        expect(html).toContain("./scripts/install.sh --ops-helper");
+        expect(html).toMatch(/href="[^"]*docs\/ADVANCED\.md#cloudflare-tunnel"/);
+        expect(html).toContain(">Ohje</a>");
+        expect(html).not.toContain('name="hostname"');
+        expect(html).not.toContain('name="cloudflare-api-token"');
+        expect(html).not.toContain("Tallenna tunniste");
+        expect(html).not.toContain("Näin teet API-tunnisteen");
+        expect(html).not.toContain("palvelimella asennusohjelmalla");
+      }
     }
-    expect(page({ ...OFF, helper: { ...OFF.helper, status: "off", knowsAccess: false } })).toContain("Ylläpitoapuri ei ole käytössä.");
-    expect(page({ ...OFF, helper: { ...OFF.helper, knowsAccess: false } })).toContain("Ylläpitoapuri on liian vanha etäkäyttöön.");
+    // near miss: with the helper on and no token the form, its line and the fold are all there
+    const ready = page({ ...OFF, suggestedHostname: "talous.example.fi" });
+    expect(ready).toContain('name="cloudflare-api-token"');
+    expect(ready).toContain("Tallenna tunniste ensin");
+    expect(ready).toContain("Näin teet API-tunnisteen");
+    expect(ready).not.toContain("Ota ylläpitoapuri käyttöön palvelimella:");
+  });
+
+  it("a helper that is missing leaves a saved token listed and removable, and no way to replace it", () => {
+    const html = page({ ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } });
+    expect(html).toContain("Tallennettu ");
+    expect(html).toContain(">Poista tunniste</button>");
+    expect(html).not.toContain("Vaihda tunniste");
   });
 
   it("a copy with its own domain gets the server's sentence and no token or form", () => {

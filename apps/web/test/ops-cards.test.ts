@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ResetDone } from "../src/components/ops/ResetCard.tsx";
+import { ResetCard, ResetDone } from "../src/components/ops/ResetCard.tsx";
 import { RestoreFacts, RestoreLatest } from "../src/components/ops/RestoreLatest.tsx";
 import { confirmBody, formatSize, kindLabel,REQUEST_LAPSES_MS, restoreView, restoreWait, S, SLOW_MS, START_HELP } from "../src/components/ops/ops-strings.ts";
 import type { ResetResult, RestoreState } from "../src/components/ops/types.ts";
@@ -107,15 +107,25 @@ describe("Tyhjennä kaikki tiedot", () => {
     expect(done({ ...result, failed: 3 })).toContain("3 pankkiyhteyttä jäi voimaan pankissa. Ne vanhenevat itsestään.");
   });
 
-  it("says before the click what goes, what stays and how it is undone", () => {
-    expect(S.resetGoes).toContain("tilit, tapahtumat, lainat, säännöt ja muut käyttäjät");
-    expect(S.resetGoes).toContain("Oma tunnuksesi, palvelimen asetukset ja Enable Banking -sovellus säilyvät.");
-    const notes = S.resetNotes.join(" ");
-    expect(notes).toContain("Ensin otetaan varmuuskopio");
-    expect(notes).toContain("alle vuorokauden");
-    expect(notes).toContain("Palauta uusin varmuuskopio");
-    expect(notes).toContain("vähintään 14 päivää");
-    expect(notes).toContain("Pankkiyhteydet");
+  it("says before the click, in three lines of body text, what goes, that a copy is taken first and that the banks are connected again", () => {
+    expect(S.resetLines).toEqual([
+      "Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.",
+      "Varmuuskopio otetaan ensin, ja sen voi palauttaa vuorokauden ajan.",
+      "Pankkiyhteydet pitää yhdistää uudelleen.",
+    ]);
+    const html = renderToStaticMarkup(createElement(ResetCard, { disabled: false }));
+    for (const line of S.resetLines) expect(html).toContain(`<p>${line}</p>`);
+    expect(html).toContain("<h2>Tyhjennä kaikki tiedot</h2>");
+    expect(html).not.toMatch(/<ul|<li|card-sub|muted|small/);
+    // the button opens the password dialog, which asks for the word TYHJENNÄ (e2e/ops.spec.ts drives it)
+    expect(html).toContain(">Tyhjennä kaikki tiedot</button>");
+    expect(html).not.toContain("<dialog");
+    expect(S.resetWord).toBe("TYHJENNÄ");
+  });
+
+  it("the button is off while another request runs", () => {
+    expect(renderToStaticMarkup(createElement(ResetCard, { disabled: true }))).toMatch(/<button[^>]*disabled=""[^>]*>Tyhjennä kaikki tiedot/);
+    expect(renderToStaticMarkup(createElement(ResetCard, { disabled: false }))).not.toMatch(/<button[^>]*disabled/);
   });
 
   it("the list of copies names the one a reset made by what it is", () => {

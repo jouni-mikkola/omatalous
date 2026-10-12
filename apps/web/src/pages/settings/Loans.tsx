@@ -106,7 +106,6 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
       <div className="card-head">
         <div>
           <h2>Lainat</h2>
-          <div className="card-sub">Pankkiyhteys näyttää vain tilit ja kortit, joten lainat lisätään tässä.</div>
         </div>
       </div>
       {message && (
@@ -137,7 +136,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
                   <td>
                     {loan.name}
                     <div className="sub">{KIND_LABEL[loan.kind]}</div>
-                    {linkedTo(loan) && <div className="sub">{`Liitetty tiliin ${linkedTo(loan)!.name}. Velkana käytetään pankin saldoa, kun pankki ilmoittaa sen.`}</div>}
+                    {linkedTo(loan) && <div className="sub">{`Liitetty tiliin ${linkedTo(loan)!.name}`}</div>}
                     <div className="sub loan-phone">{[loan.lender, rateOf(loan), paymentOf(loan), loan.endDate && `viimeinen eräpäivä ${date(loan.endDate)}`].filter(Boolean).join(" · ")}</div>
                   </td>
                   <td className="hide-phone">{loan.lender ?? "–"}</td>
@@ -168,7 +167,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
       {/* while the list is on its way the line keeps its room, so the cards below do not move when it arrives */}
       {loans.length === 0 && !list.error && (
         <div className={`empty${list.data ? "" : " loans-wait"}`}>
-          Ei lainoja vielä. Liitä alle kuva tai teksti lainasta.
+          Ei lainoja.
         </div>
       )}
 

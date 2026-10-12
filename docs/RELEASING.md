@@ -60,7 +60,7 @@ is `RUNNERS` in `tools/repo-rules/runners.ts` and the `runs-on` lines together, 
 
 Every release is created as a pre-release. GitHub's `/releases/latest`, which installs read, skips pre-releases, so an
 install is offered a release only after it is promoted: at its next check or when *Päivitä* is pressed, never by itself.
-An install with the switch *Tarjoa uudet versiot heti* on (*Asetukset > Ylläpito*; without the helper, `TALOUS_PRERELEASE=yes` in its `.env`) follows pre-releases too and is offered one at once.
+An install with the switch *Tarjoa uudet versiot heti* on (*Asetukset > Tekniset asetukset > Ylläpito*; without the helper, `TALOUS_PRERELEASE=yes` in its `.env`) follows pre-releases too and is offered one at once.
 
 `promote.yml` (Actions, Promote) runs every six hours and by hand, in the public repository only. It looks at the highest
 version of all releases, drafts included. When that is a pre-release that is 48 hours old, above the release now marked

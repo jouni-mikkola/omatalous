@@ -23,8 +23,8 @@ export function ResetDone({ result }: { result: ResetResult }) {
 }
 
 /**
- * Decision: the admin can start over from the browser, and reads what goes, what stays and how to undo it before the
- * click. The button is off from the first submit until the server answers (a second request would get a 409).
+ * Decision: the admin can start over from the browser, and reads what goes, that a copy is taken first and what the
+ * banks need after it before the click. The button is off from the first submit until the server answers (a second request would get a 409).
  */
 export function ResetCard({ disabled }: { disabled: boolean }) {
   const [ask, setAsk] = useState(false);
@@ -55,7 +55,6 @@ export function ResetCard({ disabled }: { disabled: boolean }) {
       <div className="card-head">
         <div>
           <h2>{S.resetTitle}</h2>
-          {!done && <div className="card-sub">{S.resetSub}</div>}
         </div>
         {!done && (
           <button className="btn btn-danger" type="button" disabled={disabled || busy} onClick={() => setAsk(true)}>
@@ -66,14 +65,7 @@ export function ResetCard({ disabled }: { disabled: boolean }) {
       {done ? (
         <ResetDone result={done} />
       ) : (
-        <>
-          <p>{S.resetGoes}</p>
-          <ul>
-            {S.resetNotes.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </>
+        S.resetLines.map((line) => <p key={line}>{line}</p>)
       )}
       {ask && (
         <PasswordDialog title={S.resetTitle} submitLabel={S.resetSubmit} confirmWord={S.resetWord} danger onCancel={() => setAsk(false)} onSubmit={send}>

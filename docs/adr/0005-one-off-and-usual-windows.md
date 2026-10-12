@@ -15,6 +15,12 @@ and called a month dearer from the gap between the median of totals and the cate
   Optimoi (`levelWithoutOneOffs`) and the spike alert use it. `PAY` is the second policy: pay is a sequence, so a
   bonus is a one-off only when the next pay is back near the usual (income.ts).
   Superseded in part by ADR 0013: the spike alert reads the change report's rows and makes no call of its own.
+  `LARGE` (0.14.0) is the third policy, and the readers of `LEVEL` do not use it: a purchase bought once and told
+  apart from the spending of the months. It is no row of a series (a bill, a subscription, a habit), is at least 500 €
+  and over a quarter of what the rest of its category took in the twelve months around it; a row of Auton osto is one
+  whatever its sum, and a loan payment, a card bill and a transfer never are. `analysis/large.ts` gives the two sets
+  of a household: `largePurchases`, and `largeIncome`, a single income row over the usual income of a month that is
+  no part of a series and over a quarter of what the rest of its payer paid in those twelve months.
 - Dates: `monthEnd`, `dateIn`, `addMonthsToDate`, `DAYS_PER_MONTH` in dates.ts; the cadence table in recurring-cadence.ts;
   `netPurchase` and `netSpend` in context.ts; `mean` in stats.ts.
 - The change report's usual level of a category is the median of complete months with one-offs struck. Its usual total

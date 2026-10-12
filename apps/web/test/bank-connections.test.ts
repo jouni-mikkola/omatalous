@@ -139,8 +139,9 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
 });
 
 describe("Pankkiyhteydet: when the consent ends", () => {
-  it("says it in words, with the date and the days left", () => {
-    expect(html([conn("a", "active", 93, { validUntil: "2027-01-14T00:00:00Z" })])).toContain("voimassa 14.1.2027 asti, vielä 93 päivää");
+  it("says it in words, with the date and, in the last month, the days left", () => {
+    expect(html([conn("a", "active", 93, { validUntil: "2027-01-14T00:00:00Z" })])).toContain("voimassa 14.1.2027 asti");
+    expect(html([conn("a", "active", 93, { validUntil: "2027-01-14T00:00:00Z" })])).not.toContain("vielä 93");
     expect(html([conn("a", "active", 1, { validUntil: "2026-10-13T00:00:00Z" })])).toContain("voimassa 13.10.2026 asti, vielä 1 päivä");
     expect(html([conn("a", "active", 0, { validUntil: "2026-10-12T00:00:00Z" })])).toContain("voimassa enää tänään");
   });

@@ -104,8 +104,8 @@ test("pasted text fills the form with each figure's source line, a field to chec
   const loan = listing(await today(context));
   await page.goto("/#/settings");
   const card = lainat(page);
-  await expect(card.getByText("Ei lainoja vielä.")).toBeVisible();
-  await expect(card.getByText(/positiivisen luottotietorekisterin/)).toBeVisible();
+  await expect(card.getByText("Ei lainoja.")).toBeVisible();
+  await expect(card.getByText("Kuvakaappaus positiivisesta luottotietorekisteristä tuo kaikki lainat kerralla.")).toBeVisible();
 
   // the keyboard reaches the box and its buttons
   const box = card.getByLabel("Liitä kuva tai teksti lainasta");
@@ -217,7 +217,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   await question.getByRole("button", { name: "Poista" }).click();
   await said(card, "Laina poistettu.");
-  await expect(card.getByText("Ei lainoja vielä.")).toBeVisible();
+  await expect(card.getByText("Ei lainoja.")).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -573,7 +573,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await page.goto("/#/settings");
     const card = lainat(page);
     // the administrator's card of the last test is not the member's
-    await expect(card.getByText("Ei lainoja vielä.")).toBeVisible();
+    await expect(card.getByText("Ei lainoja.")).toBeVisible();
     await expect(card.getByText("Mallirahoitus")).toHaveCount(0);
 
     // a loan typed in by hand, on a phone
@@ -646,8 +646,8 @@ test("the Lainat report offers to link a saved card to the card account, and the
   await expect(dialog).toHaveCount(0);
   const card = lainat(page);
   await said(card, "Muutokset tallennettu.");
-  // the row says which account it is linked to and that the debt is counted once
-  await expect(card.getByRole("row").filter({ hasText: "Esimerkkikortti" })).toContainText("Liitetty tiliin Nordea Gold (esimerkki). Velkana käytetään pankin saldoa, kun pankki ilmoittaa sen.");
+  // the row says which account it is linked to
+  await expect(card.getByRole("row").filter({ hasText: "Esimerkkikortti" })).toContainText("Liitetty tiliin Nordea Gold (esimerkki)");
 
   // back at the report, with no reload by hand: the sentence is gone and the total fell by the typed balance
   await page.goBack();

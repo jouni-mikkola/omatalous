@@ -31,9 +31,9 @@ describe("a page asks the server for the reports of its own sections", () => {
     expect(REPORT_SECTIONS.filter((s) => s.page === "settings").map((s) => s.title)).toEqual(["Tietojen laatu"]);
   });
 
-  it("Tietojen laatu says nothing while there is no account: Tilit already says what to add", () => {
+  it("Tietojen laatu is a card only while the data has a note", () => {
     const quality = REPORT_SECTIONS.find((s) => s.id === "laatu")!;
-    const ctx = (accounts: unknown[]) => ({ meta: { accounts } }) as unknown as ReportContext;
+    const ctx = (signals: unknown[]) => ({ data: { dataQuality: { signals } } }) as unknown as ReportContext;
     expect(quality.visible?.(ctx([]))).toBe(false);
     expect(quality.visible?.(ctx([{ id: "a" }]))).toBe(true);
   });

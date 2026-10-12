@@ -1,9 +1,11 @@
 /**
- * Asetukset > Ylläpito (admin): update, rollback, backup, restart, doctor, logs, prune and helper renewal through the host
- * helper. Without the helper every one of them is off, so the page shows what the helper is and the version, and folds the rest.
+ * The Ylläpito cards of the technical page (admin): update, rollback, backup, restart, doctor, logs, prune and helper
+ * renewal through the host helper. Without the helper every one of them is off, so the cards are what the helper is, the
+ * version and the reset of the data; the other cards are not drawn. The cards are a fragment: the page holds them.
  */
 import { useEffect, useState } from "react";
 import { api, apiDownload, ApiError } from "../../api.ts";
+import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
@@ -137,16 +139,12 @@ export function Maintenance() {
           </div>
         )}
       </div>
-      <ResetCard disabled={data.active || pending} />
     </>
   );
 
   return (
-    <div className="stack">
-      <p>
-        <a href="#/settings?tab=talous">← Asetukset</a>
-      </p>
-      <div className="card">
+    <>
+      <div className="card" id={SETTINGS_ANCHOR.maintenance}>
         <div className="card-head">
           <h2>{S.title}</h2>
         </div>
@@ -172,14 +170,8 @@ export function Maintenance() {
             onUpdate={() => setDialog("update")}
             onRollback={() => setDialog("rollback")}
           />
-          {helperOff ? (
-            <details className="ops-fold">
-              <summary className="small muted">Muut ylläpitotoiminnot</summary>
-              <div className="stack">{panels}</div>
-            </details>
-          ) : (
-            panels
-          )}
+          {!helperOff && panels}
+          <ResetCard disabled={data.active || pending} />
         </>
       )}
 
@@ -221,7 +213,7 @@ export function Maintenance() {
           <p>{S.downloadBody}</p>
         </PasswordDialog>
       )}
-    </div>
+    </>
   );
 }
 

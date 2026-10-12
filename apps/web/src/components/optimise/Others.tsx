@@ -22,7 +22,7 @@ interface Reading {
 }
 
 const READINGS: Record<string, Reading> = {
-  new: { figure: (e) => `maksaa ${e} vuodessa`, todo: "Tarkista, onko palvelu käytössä. Jos ei, irtisano se ennen seuraavaa veloitusta." },
+  new: { figure: (e) => `maksaa ${e} vuodessa`, todo: "Tarkista, onko palvelu käytössä." },
   "subscriptions-added": { figure: (e) => `uudet maksavat ${e} vuodessa`, todo: "Tarkista, onko jokainen uusi tilaus käytössä." },
   price: { figure: (e) => `nousu ${e} vuodessa`, todo: "Tarkista, tarvitsetko palvelua tällä hinnalla, ja kilpailuta tai irtisano se." },
   "price-rises": { figure: (e) => `nousu ${e} vuodessa`, todo: "Tarkista, tarvitsetko palveluja näillä hinnoilla, ja kilpailuta tai irtisano ne." },
@@ -73,7 +73,6 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
           <p className="finding-title" id={titleId}>
             {i.title}
           </p>
-          <p className="small muted">{i.detail}</p>
           {todo && <p className="other-todo">{todo}</p>}
         </div>
         <div className="finding-money">
@@ -104,7 +103,7 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
 export function Others({ others, onChanged }: { others: readonly Insight[]; onChanged: Changed }) {
   if (!others.length) return null;
   return (
-    <Section id="muut-havainnot" title="Muut havainnot" sub="Havaintoja, jotka eivät sisälly vinkkeihin. Ne eivät ole säästöjä eivätkä kuulu yhteissummaan.">
+    <Section id="muut-havainnot" title="Muut havainnot">
       <div className="findings">
         {others.map((i) => (
           <OtherCard key={i.id} insight={i} onChanged={onChanged} />

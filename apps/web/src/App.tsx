@@ -19,7 +19,7 @@ import { Reports } from "./pages/Reports.tsx";
 import { Settings } from "./pages/Settings.tsx";
 import { Transactions } from "./pages/Transactions.tsx";
 import { Wizard } from "./pages/Wizard.tsx";
-import { scopeLine, viewsParts } from "./part.ts";
+import { viewsParts } from "./part.ts";
 import { periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { SETTINGS_ANCHOR } from "./routes.ts";
 import type { Meta, Scope, User } from "./types.ts";
@@ -161,7 +161,6 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   };
   // someone with only shared accounts would start on an empty page
   const effectiveScope: Scope = hasHousehold ? (scope ?? (m.accounts.length ? "own" : "household")) : "own";
-  const scopeNote = scopeLine(m, effectiveScope, page);
   const period = periodFor(page, params.get("period"));
   const range = periodRange(period, m.today);
   const presets = shellPeriodsOf(page, m.today);
@@ -269,7 +268,6 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
             <a href="#/settings?add=1">Yhdistä uudelleen</a>
           </div>
         ))}
-        {scopeNote && <div className="notice">{scopeNote}</div>}
 
         <main id="main" tabIndex={-1}>
         <h1 className="sr-only">{pageLabel}</h1>

@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { emptyForm, formOfProposal, readForm, setValue } from "../src/components/loans/form.ts";
-import { EDITOR_HELP, monthlyText, notLoanText, PROPOSAL_QUESTION, PROPOSALS_CHANGE, PROPOSALS_INTRO, PROPOSALS_TITLE, Proposals, sinceText } from "../src/components/loans/Proposals.tsx";
+import { EDITOR_HELP, monthlyText, notLoanText, PROPOSAL_QUESTION, PROPOSALS_TITLE, Proposals } from "../src/components/loans/Proposals.tsx";
 import { money } from "../src/format.ts";
 import type { LoanProposalRow } from "../src/types.ts";
 
@@ -74,25 +74,22 @@ describe("the block", () => {
     expect(html([])).toBe("");
   });
 
-  it("has a row for each proposal with the payee, the payment, since when and the two buttons", () => {
+  it("has a row for each proposal with the payee, the payment and the two buttons", () => {
     const out = html([proposal, person]);
     for (const p of [proposal, person]) {
       expect(out).toContain(p.payee);
       expect(out).toContain(money(p.paymentCents));
-      expect(out).toContain(sinceText(p));
       expect(out).toContain(`aria-label="Tallenna lainaksi: ${p.payee}"`);
       expect(out).toContain(`aria-label="Ei laina: ${p.payee}"`);
     }
     expect(out.match(/>Tallenna lainaksi</g)).toHaveLength(2);
     expect(out.match(/>Ei laina</g)).toHaveLength(2);
     expect(out).toContain(PROPOSAL_QUESTION);
-    expect(out).toContain(PROPOSALS_CHANGE);
     // the form opens on a click: it is not on the page until then
     expect(out).not.toContain("<form");
   });
 
   it("tells the sum through the shared formatter, as the list of loans does", () => {
-    expect(sinceText(proposal)).toBe("Maksettu 5.4.2026 lähtien");
     expect(monthlyText(proposal)).toBe(`${money(25_000)} kuukaudessa`);
     expect(monthlyText(proposal)).toMatch(/^250,00\s€ kuukaudessa$/);
     expect(notLoanText(person)).toBe("Merkitty: Pekka Virtanen ei ole laina.");
@@ -102,7 +99,7 @@ describe("the block", () => {
 describe("the words", () => {
   // built from code points: the repo rule that keeps em dashes out of text files reads the characters in a regex too
   const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
-  const texts = [PROPOSALS_TITLE, PROPOSALS_INTRO, PROPOSAL_QUESTION, PROPOSALS_CHANGE, EDITOR_HELP, sinceText(proposal), monthlyText(proposal), notLoanText(proposal)];
+  const texts = [PROPOSALS_TITLE, PROPOSAL_QUESTION, EDITOR_HELP, monthlyText(proposal), notLoanText(proposal)];
 
   it("are plain: no dash for a pause, no exclamation mark, no 'ei X vaan Y'", () => {
     for (const text of [...texts, html([proposal, person])]) {
@@ -114,14 +111,13 @@ describe("the words", () => {
 
   it("ask the question a neighbour would, and make Ei laina the answer for a payee that is not a lender", () => {
     expect(PROPOSAL_QUESTION).toBe("Onko tämä lainan maksu?");
-    expect(PROPOSALS_INTRO).toMatch(/tuttu ihminen/);
-    expect(PROPOSALS_INTRO).toMatch(/valitse Ei laina/);
+    expect(html([proposal])).toContain(">Ei laina<");
   });
 
-  it("say once that an answer can be changed, and put no count, badge or alert in the block", () => {
-    expect(PROPOSALS_CHANGE).toBe("Jos vastasit vahingossa Ei laina, lisää laina itse alempana.");
+  it("put no sentence, count, badge or alert in the block: a heading, the rows and their buttons", () => {
     const out = html([proposal, person]);
-    expect(out.split(PROPOSALS_CHANGE)).toHaveLength(2);
+    expect(out).not.toContain("<p");
+    expect(out).not.toMatch(/Nämä maksut|vahingossa|lähtien/);
     expect(out).not.toMatch(/badge|role="alert"/);
   });
 });

@@ -2,7 +2,7 @@
 import type { RefObject } from "react";
 import { dateTime } from "../../format.ts";
 import type { RemoteAccessState } from "./remote-access-api.ts";
-import { canRemoveToken, tokenNeededForOff, zonesSentence } from "./remote-access-model.ts";
+import { canRemoveToken, helperProblem, tokenNeededForOff, zonesSentence } from "./remote-access-model.ts";
 import { TokenGuide } from "./RemoteAccessGuide.tsx";
 
 export interface TokenBlockProps {
@@ -20,8 +20,12 @@ export interface TokenBlockProps {
   onRemove: () => void;
 }
 
-export function TokenBlock({ s, field, hasToken, replacing, onTyped, onReplace, onCancelReplace, onSave, onRemove }: TokenBlockProps) {
-  const showForm = !s.token.saved || !s.token.usable || replacing;
+export function TokenBlock({ s, field, hasToken, replacing: replacingAsked, onTyped, onReplace, onCancelReplace, onSave, onRemove }: TokenBlockProps) {
+  // without a working maintenance helper the token cannot be used: only a saved one is listed, so it can still be removed
+  const helperReady = helperProblem(s) === null;
+  if (!helperReady && !(s.token.saved && s.token.usable)) return null;
+  const replacing = helperReady && replacingAsked;
+  const showForm = helperReady && (!s.token.saved || !s.token.usable || replacing);
   // the server refuses a removal while remote access is on (409): the off takes the address out of Cloudflare with the token
   const removable = canRemoveToken(s) && !s.access.on;
   return (
@@ -34,9 +38,11 @@ export function TokenBlock({ s, field, hasToken, replacing, onTyped, onReplace, 
           </p>
           {(s.access.on || tokenNeededForOff(s)) && <p className="small muted">Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.</p>}
           <div className="form-row">
-            <button className="btn" type="button" onClick={onReplace}>
-              Vaihda tunniste
-            </button>
+            {helperReady && (
+              <button className="btn" type="button" onClick={onReplace}>
+                Vaihda tunniste
+              </button>
+            )}
             {removable && (
               <button className="btn btn-danger" type="button" onClick={onRemove}>
                 Poista tunniste

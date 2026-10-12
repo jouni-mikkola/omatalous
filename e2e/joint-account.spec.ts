@@ -2,8 +2,8 @@ import { type Browser, expect, type Locator, type Page, test } from "@playwright
 import { cents, linkFakeBank, makeMember, overflow, plain, removeMember, sayJointUse, setScope, waitForSync, watch } from "./helpers.ts";
 
 // The joint account as two members see it. Both partners link the fake bank (e2e/fake-bank/), so its joint account has two
-// users, and the first says they use it 60 and 40. Then the pages say a part: the switch of the view and the line under the
-// header of Koko talous, the account row of Yhteenveto, the rows and the sums line of Tapahtumat, the caption of Tulot and the block Erääntyvät maksut.
+// users, and the first says they use it 60 and 40. Then the pages say a part: the switch of the view, the account row of
+// Yhteenveto, the rows and the sums line of Tapahtumat, the caption of Tulot and the block Erääntyvät maksut. No notice under the header says it.
 // The members are made here and go at the end; the administrator's demo household, which the other specs read, is not touched.
 const NAMES = ["e2e-yhteinen-a", "e2e-yhteinen-b"] as const;
 const PARTS = [60, 40] as const;
@@ -48,8 +48,8 @@ async function open(browser: Browser, who: Member, path: string, options: { widt
   return { context, page, seen };
 }
 
-/** The line under the header that says how joint accounts are counted in Koko talous. */
-const noticeOf = (page: Page, text: string) => page.locator(".notice").filter({ hasText: text });
+/** A notice under the header that says how joint accounts are counted: no page, in neither view, has one. */
+const jointNotice = (page: Page) => page.locator(".notice").filter({ hasText: /osuutesi|Yhteiset tilit/ });
 
 /** The holdings card of Yhteenveto: the only card with a heading Varallisuus on that page. */
 const holdingsOf = (page: Page) => page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varallisuus", exact: true }) });
@@ -57,23 +57,45 @@ const jointRow = (page: Page) => holdingsOf(page).locator(".st-row", { hasText: 
 /** What the page shows for the joint account: the amount in its row, in cents. */
 const jointCents = async (page: Page) => cents(await jointRow(page).locator(".st-num").innerText());
 
-test("the switch offers Koko talous, whose line under the header says the joint accounts are whole, and the own view has no line, its rows saying the part", async ({ browser }) => {
+test("the switch offers Koko talous, and no page has a notice about the joint accounts in either view: the rows say the part", async ({ browser }) => {
   const { context, page, seen } = await open(browser, members[0]!, "/#/overview");
   const view = page.getByRole("group", { name: "Näkymä" });
   await expect(view.getByRole("button", { name: "Oma", exact: true })).toHaveAttribute("aria-pressed", "true");
-  // no line under the header: the row of the joint account says the part itself
-  await expect(noticeOf(page, "Yhteisistä tileistä luvuissa on sinun osuutesi.")).toHaveCount(0);
+  // no notice under the header: the row of the joint account says the part itself
+  await expect(jointNotice(page)).toHaveCount(0);
   await expect(jointRow(page)).toContainText(`osuutesi ${PARTS[0]} %`);
 
   await view.getByRole("button", { name: "Koko talous", exact: true }).click();
   await expect(view.getByRole("button", { name: "Koko talous", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(noticeOf(page, "Yhteiset tilit ovat luvuissa kokonaan.")).toBeVisible();
+  await expect(jointNotice(page)).toHaveCount(0);
   await expect(jointRow(page)).not.toContainText("osuutesi");
 
-  // and back
+  // Säästövinkit counts the accounts whole in both views, and says nothing of it
+  await page.goto("/#/optimise");
+  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Säästövinkit", level: 1 })).toHaveCount(1);
+  await expect(jointNotice(page)).toHaveCount(0);
   await view.getByRole("button", { name: "Oma", exact: true }).click();
-  await expect(noticeOf(page, "Yhteiset tilit ovat luvuissa kokonaan.")).toHaveCount(0);
+  await expect(view.getByRole("button", { name: "Oma", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(jointNotice(page)).toHaveCount(0);
+
+  // and back on the overview the own view has its part again
+  await page.goto("/#/overview");
   await expect(jointRow(page)).toContainText(`osuutesi ${PARTS[0]} %`);
+  await expect(jointNotice(page)).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("at 390 px the header has no fetch time, and the switch and the user menu stand on one row inside the screen", async ({ browser }) => {
+  const { context, page, seen } = await open(browser, members[0]!, "/#/overview", { width: 390 });
+  await expect(page.locator(".topbar").getByText(/Haettu/)).toHaveCount(0);
+  const [toggle, menu] = [await page.locator(".scope-toggle").boundingBox(), await page.locator(".user-menu").boundingBox()];
+  expect(toggle, "the switch is in the header").not.toBeNull();
+  expect(menu, "the user menu is in the header").not.toBeNull();
+  expect(Math.abs(toggle!.y + toggle!.height / 2 - (menu!.y + menu!.height / 2)), "the switch and the user menu are on one row").toBeLessThan(toggle!.height / 2);
+  expect(menu!.x + menu!.width, "the user menu is inside the screen").toBeLessThanOrEqual(390);
+  expect(await overflow(page), "Yhteenveto scrolls sideways at 390px").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -97,7 +119,7 @@ test("the joint account's row says the part, and the parts of the two members ad
   for (const s of [...own, ...whole]) await s.context.close();
 });
 
-test("Tapahtumat shows the bank's amount and the part beside it on a row of the joint account, and says the sums are parts", async ({ browser }) => {
+test("Tapahtumat shows the bank's amount and the part beside it on a row of the joint account, and has no line about the sums", async ({ browser }) => {
   const { context, page, seen } = await open(browser, members[0]!, "/#/transactions");
   const rows = page.locator("table tbody tr");
   const joint = rows.filter({ hasText: "Yhteistili" }).filter({ has: page.locator(".tx-part") }).first();
@@ -112,7 +134,7 @@ test("Tapahtumat shows the bank's amount and the part beside it on a row of the 
   const own = rows.filter({ hasText: "Käyttötili" }).first();
   await expect(own).toBeVisible();
   await expect(own.locator(".tx-part")).toHaveCount(0);
-  await expect(page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toBeVisible();
+  await expect(page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 

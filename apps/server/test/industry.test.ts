@@ -203,13 +203,14 @@ describe("industry lookup", () => {
   });
 
   it("asks about an invoice's payee whose name says it is a business: a payee account and a reference number", async () => {
-    const { asked, fetchMock } = fakeRegister({ answer: (name) => (name === "Autoliike Esimerkki" ? Response.json({ totalResults: 1, companies: [company("4567890-4", ["Autoliike Esimerkki Oy"], "45110", "TOIMI3")] }) : undefined) });
+    // the name tells no rule what is sold: the register's class does (the sale of motor vehicles)
+    const { asked, fetchMock } = fakeRegister({ answer: (name) => (name === "Koneliike Esimerkki" ? Response.json({ totalResults: 1, companies: [company("4567890-4", ["Koneliike Esimerkki Oy"], "45110", "TOIMI3")] }) : undefined) });
     const { s, repo } = await withData(fetchMock);
     await ingestTransactions(
       repo,
       "chk",
       [
-        raw("2026-09-07", -120, "AUTOLIIKE ESIMERKKI", { counterpartyIban: "FI4950009420028733", reference: "1234561" }),
+        raw("2026-09-07", -120, "KONELIIKE ESIMERKKI", { counterpartyIban: "FI4950009420028733", reference: "1234561" }),
         // a transfer with a message, and an invoice from a person
         raw("2026-09-08", -30, "LANKALIIKE ESIMERKKI", { counterpartyIban: "FI4950009420028734", description: "KIITOS" }),
         raw("2026-09-09", -400, "MEIKALAINEN MATTI", { counterpartyIban: "FI4950009420028735", reference: "1234574" }),
@@ -218,10 +219,10 @@ describe("industry lookup", () => {
     );
     await reprocess(repo, s.settings);
     await lookupIndustries(s, { pauseMs: 0 });
-    expect(asked).toContain("Autoliike Esimerkki");
+    expect(asked).toContain("Koneliike Esimerkki");
     expect(asked.filter((name) => /lankaliike|meik|matti/i.test(name))).toEqual([]);
-    // the answer is used on the invoice row
-    expect((await repo.allTransactions()).find((t) => t.merchant === "Autoliike Esimerkki")).toMatchObject({ category: "car", categorySource: "industry" });
+    // the answer is used on the invoice row: 120 € to a dealer is the car's upkeep
+    expect((await repo.allTransactions()).find((t) => t.merchant === "Koneliike Esimerkki")).toMatchObject({ category: "car", categorySource: "industry" });
   });
 
   it("a user's own rule still wins over the register", async () => {

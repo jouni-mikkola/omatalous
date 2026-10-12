@@ -18,7 +18,6 @@ export const S = {
   version: "Versio",
   checkUpdates: "Tarkista päivitykset",
   upToDate: (time: string) => `Ajan tasalla (tarkistettu ${time})`,
-  notChecked: "Päivityksiä ei ole vielä tarkistettu.",
   updateAvailable: "Uusi versio saatavilla",
   changes: "Muutokset",
   update: "Päivitä",
@@ -55,7 +54,6 @@ export const S = {
   noBackups: "Kopioita ei ole vielä.",
   doctor: "Tila",
   runDoctor: "Tarkista järjestelmä",
-  noDoctor: "Tarkistusta ei ole vielä ajettu.",
   restart: "Käynnistä sovellus uudelleen",
   restartHelp: "Sovellus on hetken pois käytöstä.",
   events: "Ylläpitoloki",
@@ -97,16 +95,10 @@ export const S = {
 
   // Tyhjennä kaikki tiedot
   resetTitle: "Tyhjennä kaikki tiedot",
-  resetSub: "Aloita alusta tyhjällä tietokannalla.",
   resetSubmit: "Tyhjennä",
   resetWord: "TYHJENNÄ",
-  resetGoes: "Tyhjennys poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät. Oma tunnuksesi, palvelimen asetukset ja Enable Banking -sovellus säilyvät.",
-  resetNotes: [
-    "Ensin otetaan varmuuskopio. Vanhat varmuuskopiot jäävät paikoilleen, joten tiedot säilyvät niissä.",
-    "Painikkeella Palauta uusin varmuuskopio tiedot saa takaisin alle vuorokauden ajan. Sen jälkeen uusin varmuuskopio on otettu jo tyhjennetystä tietokannasta.",
-    "Tyhjennystä edeltävä varmuuskopio säilyy vähintään 14 päivää.",
-    "Pankkiyhteydet lopetetaan. Ne pitää yhdistää uudelleen myös palautuksen jälkeen.",
-  ],
+  // the card's three lines: what goes, the copy that is taken first and for how long it brings the data back, and the banks
+  resetLines: ["Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.", "Varmuuskopio otetaan ensin, ja sen voi palauttaa vuorokauden ajan.", "Pankkiyhteydet pitää yhdistää uudelleen."],
   resetDialog: ["Tämä poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.", "Ensin otetaan varmuuskopio.", "Sinut kirjataan ulos."],
   resetCopy: (name: string) => `Varmuuskopio ennen tyhjennystä: ${name}`,
   resetFailed: (n: number) =>

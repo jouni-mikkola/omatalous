@@ -155,7 +155,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
               <button className="btn btn-primary" type="submit" disabled={busy}>
                 Tallenna
               </button>
-              <div className="field-help use-help">Menot ja tulot jaetaan sen mukaan, paljonko kukin maksaa tilille kuussa.</div>
+              <div className="field-help use-help">Jako sen mukaan, paljonko kukin maksaa tilille.</div>
             </form>
           )}
           {proposal && (

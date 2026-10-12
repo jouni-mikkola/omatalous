@@ -151,7 +151,7 @@ export function Setup({ onDone }: { onDone: (user: User) => void }) {
 
 /**
  * The three fields of a password change. The forced change after a temporary password shows it on a page of its own;
- * a member who wants a new one finds it in Asetukset > Kirjautuminen.
+ * a member who wants a new one finds it in Asetukset > Salasana.
  */
 export function PasswordForm({ forced, onDone, onCancel }: { forced?: boolean; onDone: () => void; onCancel?: () => void }) {
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });

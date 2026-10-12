@@ -14,9 +14,12 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .credit-bar { height: 4px; margin-top: 4px; max-width: 14rem; border-radius: 2px; background: var(--surface-2); }
 .credit-bar span { display: block; height: 100%; border-radius: 2px; background: var(--series-1); }
 .credit-bar.over span { background: var(--warn); }
-@media (max-width: 600px) {
+/* the type and the user move under the name while the five columns would not fit the card (about 700 px of screen) */
+@media (max-width: 760px) {
   .accounts-table .acc-type, .accounts-table .acc-use { display: none; }
   .acc-type-phone, .acc-use-phone { display: block; margin-top: 4px; }
+}
+@media (max-width: 600px) {
   /* the name, balance and edit button must fit without a sideways scroll */
   .accounts-table td .sub { max-width: 40vw; }
   .accounts-table td, .accounts-table th { padding-left: 4px; padding-right: 4px; }
@@ -69,10 +72,8 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 
 /* a connection row with a reconnect and a remove button */
 .row-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-/* the password form of Kirjautuminen: three fields do not need the width of the card */
+/* the password form of Salasana: three fields do not need the width of the card */
 #salasana .auth-form { max-width: 420px; }
-/* Asetukset: Omat | Talous */
-.settings-tabs { align-self: flex-start; }
 
 /* Pankkiyhteydet: the accounts Enable Banking does not let the app read, and the reminder button under a consent's end date */
 .unlinked p { margin: 0; }

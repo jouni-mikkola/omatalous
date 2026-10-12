@@ -6,11 +6,13 @@ import { date, dayMonth, money, monthLong } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/bills.css";
+import "../../../styles/statement.css";
 
 /**
- * Rare bills: what to set aside each month, the months of the next twelve that have bills (one paid this month is
- * named as paid, with its day), and the bills the household typed in, which can be removed here. A bill is found after two charges, so a yearly one is typed in
- * (Tulossa > Lisää lasku) for its first two years. The bills of the next 30 days are in Tulossa, not here.
+ * Rare bills: what to set aside each month, at the right of the heading; the months of the next twelve that have bills,
+ * as a table of the month, its payees and its sum (a bill paid this month is marked with its day); and the bills the
+ * household typed in, which can be removed here. A bill is found after two charges, so a yearly one is typed in
+ * (Erääntyvät maksut > Lisää lasku) for its first two years. The bills of the next 30 days are in Erääntyvät maksut, not here.
  */
 function Upcoming({ ctx }: SectionProps) {
   const r = ctx.data.upcoming;
@@ -26,35 +28,43 @@ function Upcoming({ ctx }: SectionProps) {
     }
   };
 
-  const biggest = Math.max(1, ...r.months.map((m) => m.cents));
   // a month without bills says nothing; the year still counts all twelve
   const months = r.months.filter((m) => m.cents > 0);
-  const nameOf = (m: (typeof months)[number], name: string) => {
-    const paid = m.paid.find((p) => p.merchant === name);
-    return paid ? `${name} maksettu ${dayMonth(paid.date)}` : name;
-  };
   return (
-    <Section id={section.id} title={section.title}>
-      {r.advice && (
-        <>
-          <p className="lead">{r.advice}</p>
-
-          <h3 className="bills-head">Seuraavat 12 kuukautta</h3>
-          <ul className="bill-months">
+    <Section id={section.id} title={section.title} actions={r.yearlyCents > 0 ? <strong>{money(r.reserveMonthlyCents, false)}/kk</strong> : undefined}>
+      {r.yearlyCents > 0 && (
+        <table className="st-table rare-table">
+          <caption className="sr-only">Seuraavat 12 kuukautta</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="due-col">
+                Eräpäivä
+              </th>
+              <th scope="col">Saaja</th>
+              <th scope="col" className="st-num">
+                Summa
+              </th>
+              <th scope="col" />
+            </tr>
+          </thead>
+          <tbody>
             {months.map((m) => (
-              <li key={m.month}>
-                <div className="bill-month-head">
-                  <span>{monthLong(m.month)}</span>
-                  <strong>{money(m.cents, false)}</strong>
-                </div>
-                <div className="bill-bar" aria-hidden="true">
-                  <span style={{ width: `${Math.max(2, (m.cents / biggest) * 100)}%` }} />
-                </div>
-                <div className="sub">{m.names.map((n) => nameOf(m, n)).join(", ")}</div>
-              </li>
+              <tr key={m.month}>
+                <td className="due-col">{monthLong(m.month)}</td>
+                <td>{m.names.join(", ")}</td>
+                <td className="st-num">{money(m.cents, false)}</td>
+                <td>
+                  {m.paid.map((p) => (
+                    <div key={`${p.merchant}-${p.date}`}>
+                      Maksettu {dayMonth(p.date)}
+                      {m.paid.length > 1 && ` (${p.merchant})`}
+                    </div>
+                  ))}
+                </td>
+              </tr>
             ))}
-          </ul>
-        </>
+          </tbody>
+        </table>
       )}
 
       {r.manual.length > 0 && (
@@ -91,7 +101,7 @@ export const section: ReportSection = {
   order: 50,
   page: "bills",
   reports: ["upcoming"],
-  // nothing rare found and nothing typed in: Tulossa has the form, and the sentence on what is found is in it
-  visible: (ctx) => ctx.data.upcoming.advice !== "" || ctx.data.upcoming.manual.length > 0,
+  // nothing rare found and nothing typed in: Erääntyvät maksut has the form
+  visible: (ctx) => ctx.data.upcoming.yearlyCents > 0 || ctx.data.upcoming.manual.length > 0,
   Component: Upcoming,
 };

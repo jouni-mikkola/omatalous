@@ -1,59 +1,9 @@
-/**
- * Alueet: up to three findings per area. The areas with none fold into one line with what was checked behind it, and
- * the checks that did not run (a number to type, too little data or history, or no row of their kind to read) into a
- * line of their own (`quiet`, off while the history is short).
- */
-import type { AreaView, Check, IsoDate } from "@banking/core";
-import { plural } from "../../format.ts";
+/** The areas that have findings: a card each, with up to three findings and the area's own figures. A quiet area has no card. */
+import type { AreaView, IsoDate } from "@banking/core";
 import type { Scope } from "../../types.ts";
+import { Section } from "../Section.tsx";
 import { FindingCard } from "./FindingCard.tsx";
 import type { Changed } from "./shared.tsx";
-
-const goToInputs = () => document.getElementById("tiedot")?.scrollIntoView({ behavior: "smooth" });
-
-/**
- * What a check says in words: found something, looked and found nothing, waits for a number, had too little data, or
- * had no row of its kind to read.
- * `shown` is whether a finding of this check is on the page; a check that found one the household has decided on says so.
- */
-function CheckStatus({ check, shown }: { check: Check; shown: boolean }) {
-  switch (check.status) {
-    case "finding":
-      return shown ? <span className="check-status found">vinkki</span> : <span className="check-status">päätetty</span>;
-    case "clear":
-      return <span className="check-status">ei vinkkiä</span>;
-    case "needs_input":
-      return (
-        <span className="check-status wait">
-          {check.hint ?? "tieto puuttuu"}{" "}
-          {check.input && (
-            <button className="link-btn small" type="button" onClick={goToInputs}>
-              Anna tieto
-            </button>
-          )}
-        </span>
-      );
-    case "no_data":
-      return <span className="check-status wait">{check.hint ?? "tietoja ei vielä riitä"}</span>;
-    case "no_rows":
-      return <span className="check-status">{check.hint ?? "ei tietoja"}</span>;
-  }
-}
-
-/** `shownKinds` are the kinds of the findings on the page; `more` findings past the cap may be of any kind, so they count as shown. */
-function Checks({ checks, shownKinds, more }: { checks: readonly Check[]; shownKinds: ReadonlySet<string>; more: number }) {
-  return (
-    <ul className="checks">
-      {checks.map((c) => (
-        <li key={c.id}>
-          <span className="check-label">{c.label}</span> <CheckStatus check={c} shown={more > 0 || shownKinds.has(c.id.slice(c.id.indexOf(":") + 1))} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const kindsOf = (area: AreaView): Set<string> => new Set(area.findings.map((f) => f.kind));
 
 function Summary({ area }: { area: AreaView }) {
   if (!area.summary) return null;
@@ -72,110 +22,31 @@ function Summary({ area }: { area: AreaView }) {
   );
 }
 
-/** An area with findings: a card per finding, "ja N muuta" for the ones past three, and the checks behind a fold. */
+/** An area with findings: a card per finding that is not already under Seuraavat 60 päivää, then the area's figures. */
 function AreaCard({ area, above, today, scope, onChanged }: { area: AreaView; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed }) {
   const here = area.findings.filter((f) => !above.has(f.id));
-  const up = area.findings.length - here.length;
+  if (!here.length && !area.summary) return null;
   return (
-    <section className="card area" id={`alue-${area.id}`} aria-labelledby={`alue-${area.id}-h`}>
-      <div className="card-head">
-        <div>
-          <h3 id={`alue-${area.id}-h`}>{area.label}</h3>
-          <div className="card-sub">{plural(area.findings.length + area.more, "vinkki", "vinkkiä")}</div>
-        </div>
-      </div>
+    <Section id={`alue-${area.id}`} title={area.label}>
       <div className="findings">
         {here.map((f) => (
           <FindingCard key={f.id} finding={f} today={today} scope={scope} onChanged={onChanged} />
         ))}
       </div>
-      {up > 0 && <p className="small muted">{plural(up, "vinkki", "vinkkiä")} näkyy yllä kohdassa Seuraavat 60 päivää.</p>}
-      {area.more > 0 && <p className="small muted">Lisäksi {plural(area.more, "vinkki", "vinkkiä")} odottaa, kunnes yllä olevat on käsitelty.</p>}
       <Summary area={area} />
-      {area.checks.length > 0 && (
-        <details className="area-checks">
-          <summary>Tarkistetut asiat ({area.checks.length})</summary>
-          <Checks checks={area.checks} shownKinds={kindsOf(area)} more={area.more} />
-        </details>
-      )}
-    </section>
+    </Section>
   );
 }
 
-/** A check that ran: it found something or looked and found nothing. The rest wait for a number, data or months. */
-const ran = (c: Check) => c.status === "finding" || c.status === "clear";
-
-/** An area in one of the two folds, with the checks of that fold; its figures go with the checks that ran, if any. */
-interface Part {
-  area: AreaView;
-  checks: Check[];
-  summary: boolean;
-}
-
-/**
- * The quiet areas with the checks that ran and found nothing, and every area's checks that could not run, each listed
- * once. An area whose checks all wait is not counted as looked at.
- */
-function partsOf(areas: readonly AreaView[]): { looked: Part[]; waiting: Part[] } {
-  const looked: Part[] = [];
-  const waiting: Part[] = [];
-  for (const area of areas) {
-    const done = area.checks.filter(ran);
-    const wait = area.checks.filter((c) => !ran(c));
-    const quiet = area.findings.length === 0;
-    const figuresHere = done.length > 0 || wait.length === 0;
-    if (quiet && (done.length > 0 || (figuresHere && area.summary))) looked.push({ area, checks: done, summary: figuresHere });
-    if (wait.length > 0) waiting.push({ area, checks: wait, summary: quiet && !figuresHere });
-  }
-  return { looked, waiting };
-}
-
-/** The checks that did not run, told in two: those that wait for a number or history, and those with no row to read. */
-function waitingTitle(waiting: readonly Part[]): string {
-  const told = (pick: (c: Check) => boolean) => ({ checks: waiting.reduce((n, p) => n + p.checks.filter(pick).length, 0), areas: waiting.filter((p) => p.checks.some(pick)).length });
-  const wait = told((c) => c.status !== "no_rows");
-  const none = told((c) => c.status === "no_rows");
-  const clauses: string[] = [];
-  if (wait.checks > 0) clauses.push(`Odottaa tietoja tai pidempää historiaa: ${plural(wait.checks, "asia", "asiaa")} ${wait.areas} alueelta`);
-  if (none.checks > 0) clauses.push(`${clauses.length ? "ei" : "Ei"} tietoja: ${plural(none.checks, "asia", "asiaa")} ${none.areas} alueelta`);
-  return clauses.join(", ");
-}
-
-function Fold({ id, title, parts }: { id: string; title: string; parts: readonly Part[] }) {
-  return (
-    <details className="card quiet-fold" id={id}>
-      <summary>{title}</summary>
-      <div className="quiet-areas">
-        {parts.map(({ area: a, checks, summary }) => (
-          <section key={a.id} className="quiet-area" aria-labelledby={`${id}-${a.id}-h`}>
-            <h3 id={`${id}-${a.id}-h`}>{a.label}</h3>
-            {checks.length > 0 && <Checks checks={checks} shownKinds={kindsOf(a)} more={a.more} />}
-            {summary && <Summary area={a} />}
-          </section>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-/**
- * `above` holds the ids of findings already shown under Seuraavat 60 päivää, so none appears twice. `checked` is every
- * check Tilanne counts: less the ones that did not run (waiting or with no rows), it is the figure Tilanne says was
- * checked, so both name one figure.
- */
-export function Areas({ areas, above, today, scope, onChanged, quiet: listQuiet, checked }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed; quiet: boolean; checked: number }) {
-  const withFindings = areas.filter((a) => a.findings.length > 0);
-  const { looked, waiting } = listQuiet ? partsOf(areas) : { looked: [], waiting: [] };
-  if (!withFindings.length && !looked.length && !waiting.length) return null;
-  const waits = waiting.reduce((n, p) => n + p.checks.length, 0);
+/** `above` holds the ids of findings already shown under Seuraavat 60 päivää, so none appears twice. */
+export function Areas({ areas, above, today, scope, onChanged }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed }) {
   return (
     <>
-      <h2 className="optimise-group">Alueet</h2>
-      {withFindings.map((a) => (
-        <AreaCard key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} />
-      ))}
-      {looked.length > 0 && <Fold id="alueet-hiljaa" title={`Tarkistettu ${plural(checked - waits, "asia", "asiaa")}, ${plural(looked.length, "alue", "aluetta")} ilman vinkkejä`} parts={looked} />}
-      {waiting.length > 0 && <Fold id="alueet-odottaa" title={waitingTitle(waiting)} parts={waiting} />}
+      {areas
+        .filter((a) => a.findings.length > 0)
+        .map((a) => (
+          <AreaCard key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} />
+        ))}
     </>
   );
 }

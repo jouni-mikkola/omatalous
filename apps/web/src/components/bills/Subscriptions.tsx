@@ -1,7 +1,7 @@
 import { type MarkKind, seriesOfMarkSubject, type UserMark } from "@banking/core";
-import { money, plural } from "../../format.ts";
+import { money } from "../../format.ts";
 import type { Recurring as Series } from "../../types.ts";
-import { COLUMNS, SeriesHead, SeriesRow } from "./series.tsx";
+import { COLUMNS, SeriesHead, SeriesRow, SeriesTotal } from "./series.tsx";
 
 /** What one subscription row can do next to the mark it already has. */
 export interface MarkControls {
@@ -15,9 +15,10 @@ export interface MarkControls {
 }
 
 /**
- * The subscriptions the household chose and may drop. The header total is the one in the line on top of the page. Rows
- * that are asked about come first; a subscription marked as cancelled is listed below, outside the total, until its
- * charges stop. A mark is on one row. When a merchant has several rows, each says its price after the name and in its
+ * The subscriptions the household chose and may drop, in one list. The header total is the one in the row on top of the
+ * page, and the row "Yhteensä" under the list adds the columns Kuussa and Vuodessa. Rows that are asked about come
+ * first; a subscription marked as cancelled is listed below that row, outside it, until its charges stop. A mark is on
+ * one row. When a merchant has several rows, each says its price after the name and in its
  * buttons, so the household sees which one it answers. A price change is a badge on its row; the table of them is the
  * Hinnanmuutokset card below this one.
  */
@@ -38,42 +39,32 @@ export function Subscriptions({
   const asked = subs.filter((s) => s.review && !controls.markOf(s));
   const rows = [...subs, ...stopped];
   const priced = (s: Series) => rows.some((o) => o !== s && o.merchant === s.merchant);
-  const groups = [
-    { key: "asked", title: "Tarkista nämä", sub: "Pieniä palveluja, joita on maksettu yli puoli vuotta", rows: asked },
-    { key: "rest", title: asked.length ? "Muut tilaukset" : null, sub: undefined, rows: subs.filter((s) => !asked.includes(s)) },
-    { key: "stopped", title: "Merkitty lopetetuksi", sub: "Ei mukana summassa.", rows: stopped },
-  ].filter((g) => g.rows.length);
+  const row = (s: Series) => <SeriesRow key={s.id} s={s} label={label} priced={priced(s)} actions={<MarkButtons s={s} controls={controls} priced={priced(s)} />} />;
   return (
     <div className="card">
       <div className="card-head">
-        <div>
-          <h2>Tilaukset</h2>
-          {subs.length > 0 && (
-            <div className="card-sub">
-              {plural(subs.length, "tilaus", "tilausta")} · {money(total * 12, false)} vuodessa
-            </div>
-          )}
-        </div>
+        <h2>Tilaukset</h2>
         <strong>{money(total, false)}/kk</strong>
       </div>
       <div className="table-wrap">
         <table className="series-table">
           <SeriesHead />
-          {groups.map((g) => (
-            <tbody key={g.key}>
-              {g.title && (
-                <tr className="group-head">
-                  <th colSpan={COLUMNS} scope="colgroup">
-                    {g.title}
-                    {g.sub && <span className="group-sub">{g.sub}</span>}
-                  </th>
-                </tr>
-              )}
-              {g.rows.map((s) => (
-                <SeriesRow key={s.id} s={s} label={label} priced={priced(s)} actions={<MarkButtons s={s} controls={controls} priced={priced(s)} />} />
-              ))}
+          {subs.length > 0 && (
+            <tbody>
+              {[...asked, ...subs.filter((s) => !asked.includes(s))].map(row)}
+              <SeriesTotal rows={subs} />
             </tbody>
-          ))}
+          )}
+          {stopped.length > 0 && (
+            <tbody>
+              <tr className="group-head">
+                <th colSpan={COLUMNS} scope="colgroup">
+                  Merkitty lopetetuksi
+                </th>
+              </tr>
+              {stopped.map(row)}
+            </tbody>
+          )}
         </table>
       </div>
     </div>
@@ -99,7 +90,6 @@ function MarkButtons({ s, controls, priced }: { s: Series; controls: MarkControl
   }
   return (
     <div className="sub-actions">
-      <span className="sub-saving">Lopettamalla säästät {money(s.yearlyCents, false)} vuodessa</span>
       <button className="btn btn-small" type="button" disabled={controls.busy} aria-label={`Käytössä: ${name}`} onClick={() => controls.set(s, "in_use")}>
         Käytössä
       </button>

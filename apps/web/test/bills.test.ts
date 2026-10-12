@@ -30,13 +30,13 @@ const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö"
 const label = (id: string) => ({ utilities: "Sähkö ja vesi", subscriptions: "Tilaukset" })[id] ?? id;
 /** The markup with the spaces of the money format made plain, so a test reads "417 €". */
 const flat = (html: string) => html.replace(/[\u00a0\u202f]/g, " ");
-const coming = (a: Ahead | null) => flat(renderToStaticMarkup(createElement(Coming, { ahead: a, today: "2026-10-11", label, onAdded: () => {} })));
+const coming = (a: Ahead | null) => flat(renderToStaticMarkup(createElement(Coming, { ahead: a, today: "2026-10-11", onAdded: () => {} })));
 const nextDays = (a: Ahead) => flat(renderToStaticMarkup(createElement(NextDays, { ahead: a })));
 
 /** The same answer with a pay to wait for on Thu 15.10.: the window ends the day before it. */
 const beforePay = (a: Ahead, date = "2026-10-15"): Ahead => ({ ...a, reason: "payday", payday: { date, name: "Palkka", cents: 395_000 }, to: "2026-10-14", days: 3 });
 /** The head rows of the groups, each as its name and its sum. */
-const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="num">([^<]*)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]}`);
+const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="st-num">([^<]*)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]}`);
 
 describe("Laskut: Erääntyvät maksut", () => {
   it("with no pay known lists the bills of the next 30 days in one group, the typed-in one marked, and no pay day", () => {
@@ -52,6 +52,18 @@ describe("Laskut: Erääntyvät maksut", () => {
     // the dates in the order the rows come, and the amounts as bills (no minus)
     expect(out.indexOf("Sähkö")).toBeLessThan(out.indexOf("Netflix"));
     expect(out).toContain("12.10.");
+  });
+
+  it("is a table of Eräpäivä, Saaja and Summa in that order, each row the day, the payee and the sum, and no line under the payee", () => {
+    const out = coming(ahead());
+    const heads = [...out.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]);
+    expect(heads).toEqual(["Eräpäivä", "Saaja", "Summa"]);
+    expect(out).toMatch(/<td class="due-col">12\.10\.<\/td><td><a href="[^"]*">Sähkö<\/a><\/td><td class="st-num">89,00 €<\/td>/);
+    // the category of a row is not said: the label of "utilities" is not in the markup
+    expect(out).not.toContain("Sähkö ja vesi");
+    expect(out).not.toContain('class="sub"');
+    // near miss: the typed-in bill keeps its mark in the payee cell
+    expect(out).toMatch(/<td>Ajoneuvovero <span class="badge">lisätty käsin<\/span><\/td>/);
   });
 
   it("its sum is the Erääntyvät maksut of Yhteenveto: one list, one total", () => {
@@ -115,14 +127,15 @@ describe("Laskut: Erääntyvät maksut", () => {
     expect(groupHeads(coming(next))).toEqual(["Palkkapäivään asti, to 15.10. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.: 89,00 €", "Palkkapäivän jälkeen: 328,49 €"]);
   });
 
-  it("past ten rows it shows the first ten of the list, and each group still has the sum of all its rows", () => {
+  it("lists every row of the 30 days, however many, with no fold and no count, and each group has the sum of its rows", () => {
     const many = Array.from({ length: 12 }, (_, i) => row({ date: `2026-10-${String(13 + i).padStart(2, "0")}`, name: `Lasku ${i + 1}`, category: null, cents: -1_000, source: "recurring" }));
     const out = coming(beforePay(ahead(many)));
-    // 13.10. and 14.10. before the pay, ten after it
+    // 13.10. and 14.10. before the pay, ten after it: 12 in all
     expect(groupHeads(out)).toEqual(["Palkkapäivään asti, to 15.10.: 20,00 €", "Palkkapäivän jälkeen: 100,00 €"]);
-    expect(out).toContain("Lasku 10<");
-    expect(out).not.toContain("Lasku 11<");
-    expect(out).toContain("Näytä kaikki (12)");
+    for (let i = 1; i <= 12; i++) expect(out).toContain(`Lasku ${i}<`);
+    expect(out).not.toContain("Näytä kaikki");
+    expect(out).not.toContain("Näytä vähemmän");
+    expect(out).not.toContain("(12)");
   });
 
   it("offers the form behind Lisää lasku and not before", () => {
@@ -233,5 +246,55 @@ describe("Laskut: Tilaukset and a mark on one subscription", () => {
     expect(out).toContain('aria-label="Käytössä: Spotify"');
     // on a merchant with one subscription there is nothing to add
     expect(card([spotify], [mark("merchant:Spotify", "in_use")])).not.toContain("Koskee kaikkia");
+  });
+
+  it("is one list under one head row, with no sentence on a card, a group or a row", () => {
+    const out = card([storage, music, spotify], []);
+    // the three rows asked about are the list; no group head, no count, no saving, no explanation
+    expect(out).not.toContain("group-head");
+    for (const gone of ["Tarkista nämä", "Muut tilaukset", "Pieniä palveluja", "Lopettamalla säästät", "tilausta", "Ei mukana summassa", "card-sub"]) expect(out).not.toContain(gone);
+    const heads = [...out.matchAll(/<th>([^<]*)<\/th>|<th class="[^"]*">([^<]*)<\/th>/g)].map((m) => m[1] ?? m[2]);
+    expect(heads).toEqual(["Saaja", "Tiheys", "Summa", "Kuussa", "Vuodessa", "Seuraava"]);
+    // a row says its category and nothing else under the payee
+    expect(rowWith(out, ">Spotify</a>")).toContain('<div class="sub">Tilaukset</div>');
+    expect(out).not.toContain("kertaa");
+  });
+
+  it("puts the rows that are asked about first, and the others after them", () => {
+    const answered = sub({ id: "out:acc-1:Yle", merchant: "Yle", review: true });
+    const small = sub({ id: "out:acc-1:Lehti", merchant: "Lehti", review: false });
+    const out = card([small, answered, spotify], [mark(seriesMarkSubject(answered), "in_use")]);
+    // Spotify is asked about; Lehti is not asked about; Yle has a mark
+    expect(out.indexOf(">Spotify</a>")).toBeLessThan(out.indexOf(">Lehti</a>"));
+    expect(out.indexOf(">Spotify</a>")).toBeLessThan(out.indexOf(">Yle</a>"));
+    expect(out).not.toContain("group-head");
+  });
+
+  it("ends the list in a row Yhteensä with the sums of the columns Kuussa and Vuodessa", () => {
+    const foot = rowWith(card([storage, music, spotify], []), "Yhteensä");
+    // 7,99 + 12,99 + 10,99 a month = 31,97; 95,88 + 155,88 + 131,88 a year = 383,64
+    expect(foot).toContain('<th scope="row">Yhteensä</th>');
+    expect(foot).toContain('<td class="num">32 €</td>');
+    expect(foot).toContain('<td class="num hide-phone">384 €</td>');
+  });
+
+  it("leaves a stopped subscription out of the row Yhteensä, and lists it below that row under its head", () => {
+    const out = card([storage, music, spotify], [mark(seriesMarkSubject(storage), "cancelled")]);
+    // 12,99 + 10,99 = 23,98 a month; 155,88 + 131,88 = 287,76 a year
+    const foot = rowWith(out, "Yhteensä");
+    expect(foot).toContain('<td class="num">24 €</td>');
+    expect(foot).toContain('<td class="num hide-phone">288 €</td>');
+    // the figure of the foot is the figure of the card header
+    expect(out).toContain("<strong>24 €/kk</strong>");
+    expect(out.indexOf("Yhteensä")).toBeLessThan(out.indexOf("Merkitty lopetetuksi"));
+    expect(out.indexOf("Merkitty lopetetuksi")).toBeLessThan(out.indexOf("Kumoa: Apple 7,99 €"));
+    // near miss: a card with nothing stopped has no such group
+    expect(card([spotify], [])).not.toContain("Merkitty lopetetuksi");
+  });
+
+  it("has no foot row, and no list, when every subscription is stopped", () => {
+    const out = card([spotify], [mark(seriesMarkSubject(spotify), "cancelled")]);
+    expect(out).not.toContain("Yhteensä");
+    expect(out).toContain("Merkitty lopetetuksi");
   });
 });

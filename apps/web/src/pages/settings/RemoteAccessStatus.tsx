@@ -2,7 +2,7 @@
 import { Command } from "../../components/ops/HelperStatus.tsx";
 import { dateTime } from "../../format.ts";
 import type { RemoteAccessState } from "./remote-access-api.ts";
-import { helperProblem, isInstallerHost, onTrial, stageOf, TUNNEL_GUIDE, tunnelUrl } from "./remote-access-model.ts";
+import { isInstallerHost, onTrial, stageOf, TUNNEL_GUIDE, tunnelUrl } from "./remote-access-model.ts";
 import { Reverted, Trial } from "./RemoteAccessTrial.tsx";
 
 /** An address worth a link: the https one a tunnel gives. A home network address stays plain text. */
@@ -121,16 +121,13 @@ export function Status({ s, down, onCancel, now }: { s: RemoteAccessState; down:
   );
 }
 
-/** A helper that is missing or too old: no form, and where to read how it is done. */
+/** A helper that is missing or too old: the command that sets it up and where to read how it is done, and no form. */
 export function HelperMissing({ s }: { s: RemoteAccessState }) {
-  const why = helperProblem(s) === "off" ? "Ylläpitoapuri ei ole käytössä." : "Ylläpitoapuri on liian vanha etäkäyttöön.";
   return (
     <div className="notice warning" role="status">
-      <strong>{why}</strong>
-      <p>Etäkäytön voi ottaa käyttöön tältä sivulta vasta, kun ylläpitoapuri on käytössä ja ajan tasalla. Ota se käyttöön palvelimella:</p>
+      <p>Ota ylläpitoapuri käyttöön palvelimella:</p>
       <Command text={s.helper.enableCommand} />
       <p>
-        Ilman apuria etäkäyttö tehdään palvelimella asennusohjelmalla.{" "}
         <a href={TUNNEL_GUIDE} target="_blank" rel="noopener noreferrer">
           Ohje
         </a>

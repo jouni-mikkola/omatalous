@@ -158,7 +158,7 @@ describe("pnpm strings on this repository", () => {
     "Maksettu yhteensä", // pages/Transactions.tsx
     "Tapahtumat ja kauppiaat",
     "Luokittelematta",
-    "Arkiostot ovat usein toistuvia pieniä ostoja", // pages/Merchants.tsx
+    "Ei kauppiaita näillä rajauksilla.", // pages/Merchants.tsx
     "Kauppias (tarkka)", // pages/Rules.tsx
     "Seuraavat 30 päivää", // components/NextDays.tsx
     "Palkkapäivä ei ole tiedossa.",

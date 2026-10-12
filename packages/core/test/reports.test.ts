@@ -321,7 +321,7 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(u.totalCents).toBe(u.items.reduce((s, i) => s + i.amountCents, 0));
     expect(u.items.map((i) => i.date)).toEqual([...u.items.map((i) => i.date)].sort());
     // the year counts the half-yearly one too: 4 x 96,40 + 2 x 89 = 563,60
-    expect(u.advice.replace(/\u00a0/g, " ")).toBe("Harvinaiset laskut ovat 564 € vuodessa eli 47 € kuussa.");
+    expect(u).toMatchObject({ yearlyCents: 56360, reserveMonthlyCents: 4697 });
     // monthly bills (Spotify, rent) are in the forecast, not here
     expect(u.items.every((i) => !["Spotify", "Sato Oyj", "Netflix"].includes(i.merchant))).toBe(true);
   });
@@ -329,7 +329,7 @@ describe("upcoming bills, rising costs and the buffer", () => {
   it("a pet food order every quarter is a purchase, not a bill, and nothing to tell stays quiet", () => {
     const pets = reports([...dataset(), ...quarterly("Musti ja Mirri", "2026-08-20", -3541, "pets")]).upcoming;
     expect(pets.items).toEqual([]);
-    expect(pets.advice).toBe("");
+    expect(pets.yearlyCents).toBe(0);
     expect(reports(dataset()).upcoming.items).toEqual([]);
   });
 

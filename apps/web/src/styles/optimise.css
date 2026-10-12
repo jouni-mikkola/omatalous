@@ -1,16 +1,14 @@
 /* Optimoi: the situation, the findings with their calculation, the decided ones and the inputs. */
 
-.optimise-group { font-size: 15px; font-weight: 600; margin: 8px 0 -4px; }
 .optimise .card h3 { font-size: 15px; font-weight: 600; margin: 0; }
 .optimise h4 { margin: 0; font-size: 13px; font-weight: 600; }
 
-/* Tilanne: the euros found, then four facts side by side */
-.optimise-headline { max-width: none; margin-bottom: 6px; }
-.optimise-headline strong { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+/* Tilanne: the euros found with their range, then four facts, side by side */
+.optimise-none { margin: 0; }
 .optimise-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 14px 0; margin: 14px 0 0; }
 .optimise-facts > div { border-left: 1px solid var(--border); padding: 0 14px; min-width: 0; }
 .optimise-facts dt, .optimise-facts dd { margin: 0; }
-.optimise-facts dt { color: var(--muted); font-size: 12px; }
+.optimise .optimise-facts .k { color: var(--text-2); font-size: inherit; }
 .optimise-facts dd.v { font-size: 20px; font-weight: 500; margin: 2px 0; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
 /* a finding: the words on the left, the euros on the right, on a phone one under the other */
@@ -28,7 +26,7 @@
 .finding-action { color: var(--text-2); }
 .finding-money { flex: 0 1 15rem; display: flex; flex-direction: column; gap: 1px; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .finding-euros { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.finding-range { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.finding-range { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .finding-certainty { margin: 8px 0 0; }
 .finding-certainty .badge { margin-left: 0; }
 /* an insight's figure is a cost or a change, not a saving: plain weight, beside its words, and what to do under them */
@@ -63,21 +61,8 @@
 .evidence-check { margin: 0; }
 @media (max-width: 600px) { .calc dd { max-width: 50%; } }
 
-/* an area: its checks behind a fold, and the quiet areas folded into one line, side by side when open */
-.area-checks { margin-top: 12px; }
-.area-checks summary { cursor: pointer; color: var(--text-2); font-size: 13px; }
-.checks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
-.checks li { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 13px; }
-.check-label { font-weight: 500; }
-.check-status { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
-.check-status.found { color: var(--text); font-weight: 600; }
+/* an area: its figures under its findings */
 .area-summary { margin-top: 12px; }
-/* checked without findings in one fold, waiting for a number, data or months in the next */
-.quiet-fold > summary { cursor: pointer; font-weight: 500; }
-.quiet-fold[open] > summary { margin-bottom: 12px; }
-.quiet-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px 24px; }
-.quiet-area { min-width: 0; }
-.quiet-area h3 { margin-bottom: 2px; }
 
 /* Päätetyt and the inputs */
 .decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }

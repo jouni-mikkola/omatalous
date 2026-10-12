@@ -1,7 +1,6 @@
 // Decision: how much to set aside each month for rare bills
 import { getCategory } from "../categories.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
-import { formatEur } from "../analysis/format.ts";
 import { expectedDates } from "../commitments.ts";
 import { addDays, addMonths, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
@@ -75,8 +74,6 @@ export interface UpcomingReport {
   months: BillMonth[];
   /** Every bill the user typed in, the soonest first. */
   manual: ManualBill[];
-  /** One sentence on the reserve; "" without bills. */
-  advice: string;
 }
 
 /** One due date of a bill, found or typed in. */
@@ -178,9 +175,5 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
     }))
     .sort((a, b) => (a.nextDate ?? "9999").localeCompare(b.nextDate ?? "9999") || a.name.localeCompare(b.name));
 
-  return { from, to, items, totalCents, reserveMonthlyCents, yearlyCents, months, manual, advice: yearlyCents > 0 ? advice(reserveMonthlyCents, yearlyCents) : "" };
-}
-
-function advice(reserve: number, yearly: number): string {
-  return `Harvinaiset laskut ovat ${formatEur(yearly, false)} vuodessa eli ${formatEur(reserve, false)} kuussa.`;
+  return { from, to, items, totalCents, reserveMonthlyCents, yearlyCents, months, manual };
 }

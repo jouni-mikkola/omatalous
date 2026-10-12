@@ -1,7 +1,7 @@
 /**
  * Auto: what the car cost over the year, split by what it was for, and parking against the resident parking permit.
  * The summary claims no saving. Parking turns into euros only with the permit price the household typed in. A lease is
- * a running cost whatever its category; a payment to a car dealer is a car bought once, shown apart and left out of the
+ * a running cost whatever its category; a row of the category Auton osto is a car bought once, shown apart and left out of the
  * running cost and of the yearly figure per kilometre. A household with no car row at all has a check that says so.
  */
 import type { AnalysisTx } from "../../analysis/context.ts";
@@ -12,7 +12,7 @@ import { annualise, findingId, levelWithoutOneOffs, MAX_ROWS, netCost } from "..
 import { valueOf } from "../inputs.ts";
 import type { Area, AreaInput, AreaResult, AreaSummary, CalcLine, Check, FindingDraft, Weakness } from "../types.ts";
 import { mccKind } from "../../industry.ts";
-import { isCarDealerText, isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isStreetParkingText, isVehicleTaxText } from "../../wording.ts";
+import { isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isStreetParkingText, isVehicleTaxText } from "../../wording.ts";
 
 /** Parking under this much a year is not worth asking the permit price for (the brief's input gate). */
 const PARKING_GATE_CENTS = 30_000;
@@ -47,13 +47,13 @@ function lineOf(t: AnalysisTx): Line | null {
   if (t.category === "insurance") return isCarInsuranceText(text) ? "insurance" : null;
   if (t.category === "taxes") return isVehicleTaxText(text) ? "tax" : null;
   if (t.category === "loans") return isCarFinanceText(text) ? "finance" : null;
-  if (t.category !== "car") return isCarDealerText(text) ? "purchase" : null;
+  if (t.category !== "car") return t.category === "vehicle_purchase" ? "purchase" : null;
   if (mcc === "parking" || isParkingText(text)) return "parking";
   if (mcc === "charging" || isChargingText(text)) return "charging";
   if (isInspectionText(text)) return "inspection";
   if (mcc === "car_service" || isCarServiceText(text)) return "service";
   if (mcc === "fuel" || isFuelText(text)) return "fuel";
-  return isCarDealerText(text) ? "purchase" : "other";
+  return "other";
 }
 
 /** Parking the resident permit could replace: a car row paid to a parking app or with the parking card code. */

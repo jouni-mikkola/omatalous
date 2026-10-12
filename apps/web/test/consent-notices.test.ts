@@ -151,10 +151,16 @@ describe("maskedNumber, unlinkedTitle and unlinkedStep", () => {
 
 describe("validityText", () => {
   it("says when an active consent ends, in words", () => {
-    expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: 93 })).toBe("voimassa 14.1.2027 asti, vielä 93 päivää");
+    expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: 93 })).toBe("voimassa 14.1.2027 asti");
     expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: 1 })).toBe("voimassa 14.1.2027 asti, vielä 1 päivä");
     expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: 0 })).toBe("voimassa enää tänään");
     expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: null })).toBe("voimassa 14.1.2027 asti");
+  });
+
+  it("counts the days left only when fewer than 30 are left", () => {
+    expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: 29 })).toBe("voimassa 14.1.2027 asti, vielä 29 päivää");
+    // near miss: with 30 days left the date alone says it
+    expect(validityText({ state: "active", validUntil: "2027-01-14T00:00:00Z", daysLeft: 30 })).toBe("voimassa 14.1.2027 asti");
   });
 
   it("is empty for a consent that is not active or has no date", () => {

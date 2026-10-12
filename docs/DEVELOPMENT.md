@@ -175,7 +175,7 @@ No migration is needed. After the next update every member's history is categori
 2. The module's routes in their own `Hono` app, mounted with `gated(s, id, routes)` from `auth/middleware.ts` at the
    module's prefix. While the flag is off they answer 404 like an unknown path.
 3. Its nav entry in `apps/web/src/nav.ts` names the flag, so it is hidden while the flag is off. `/api/meta` carries
-   the resolved flags; admins switch them in Asetukset > Palvelin.
+   the resolved flags; admins switch them in Asetukset > Tekniset asetukset > Palvelin.
 
 ### New bank
 
@@ -349,7 +349,7 @@ pnpm shots overview --demo --answers tools/shots-examples/answers.mjs --steps to
 ### Golden files
 
 `packages/core/test/golden/` holds every statement the product makes about money (alerts, insights, Säästövinkit, the
-income and change reports and their outcomes) for the demo, the kit's base household and seeds 1 to 5, one file per
+income and change reports and their outcomes, and the purchases and income set apart as large) for the demo, the kit's base household and seeds 1 to 5, one file per
 source. They are output and never edited by hand. `golden.test.ts` fails when the code says something else, and
 `pnpm findings --golden` writes the files again.
 

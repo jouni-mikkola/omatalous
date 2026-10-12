@@ -26,8 +26,6 @@ const bill = (name: string, amountCents: number, dueDate: string, cadence: Expec
 });
 const inputs = (...expectedBills: ExpectedBill[]): UserInputs => ({ marks: [], expectedBills });
 const report = (rows: Transaction[], u: UserInputs = inputs(), on = today) => upcomingReport(createContext(rows, [checking], on), u);
-/** `formatEur` puts a no-break space before the euro sign. */
-const plain = (s: string) => s.replace(/ /g, " ");
 
 describe("upcoming: what to set aside for rare bills", () => {
   it("the monthly reserve is the yearly cost of the rare bills over twelve", () => {
@@ -40,9 +38,10 @@ describe("upcoming: what to set aside for rare bills", () => {
     expect(u.months.reduce((s, m) => s + m.cents, 0)).toBe(u.yearlyCents);
   });
 
-  it("says the reserve and the year in one sentence", () => {
+  it("gives the reserve and the year as figures, and no sentence", () => {
     const u = report(quarterly("If", "2026-08-20", 14100));
-    expect(plain(u.advice)).toBe("Harvinaiset laskut ovat 564 € vuodessa eli 47 € kuussa.");
+    expect(u).toMatchObject({ yearlyCents: 56400, reserveMonthlyCents: 4700 });
+    expect(u).not.toHaveProperty("advice");
   });
 
   it("the year is twelve calendar months from this one, the dearest bill first in each", () => {
@@ -144,7 +143,6 @@ describe("upcoming: what to set aside for rare bills", () => {
   it("a one-off that has passed is history, and one beyond the year is not reserved yet", () => {
     const past = report([], inputs(bill("Sakko", 15000, "2026-09-20", "once")));
     expect(past.yearlyCents).toBe(0);
-    expect(past.advice).toBe("");
     expect(past.manual).toMatchObject([{ name: "Sakko", nextDate: null }]);
     const far = report([], inputs(bill("Remontti", 90000, "2027-11-01", "once")));
     expect(far.yearlyCents).toBe(0);
@@ -171,7 +169,7 @@ describe("upcoming: what to set aside for rare bills", () => {
   it("the monthly bills stay out and a bill with no bills at all says nothing", () => {
     const monthly = series("2025-09-12", 30.44, 13, -1199, { category: "subscriptions", merchant: "Spotify" });
     const u = report(monthly);
-    expect(u).toMatchObject({ items: [], totalCents: 0, yearlyCents: 0, reserveMonthlyCents: 0, advice: "", manual: [] });
+    expect(u).toMatchObject({ items: [], totalCents: 0, yearlyCents: 0, reserveMonthlyCents: 0, manual: [] });
     expect(u.months).toHaveLength(12);
     expect(u.months.every((m) => m.cents === 0)).toBe(true);
   });

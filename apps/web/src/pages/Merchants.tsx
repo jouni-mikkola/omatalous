@@ -2,6 +2,7 @@ import { UNKNOWN_MERCHANT } from "@banking/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategoryPicker, CategorySelect } from "../components/CategorySelect.tsx";
+import { FilterChip } from "../components/FilterChip.tsx";
 import { DateFilter, SearchBox } from "../components/FilterInputs.tsx";
 import { date, money, plural } from "../format.ts";
 import { navigate } from "../hooks.ts";
@@ -26,14 +27,10 @@ interface MerchantItem {
 
 const LIMIT = 200;
 
-/** What Kuussa of a merchant without an active series is, in words: the complete months it averages. */
-export const monthsBasis = (months: number): string =>
-  months === 0 ? "vasta kun ensimmäinen kuukausi on valmis" : months === 1 ? "viimeisen valmiin kuukauden summa" : `keskiarvo ${months} viimeiseltä valmiilta kuukaudelta`;
-
 /**
  * The Kauppiaat tab of Tapahtumat: every merchant of a period with the category its rows go to, and the rules under
  * the table. The filters live in the address (`q`, `category`, `from`, `to`, `habit`), so a link from another page can
- * open a month, and Arkiostot keeps the merchants the recurring detection calls everyday purchases.
+ * open a month, and `habit=1` keeps the merchants the recurring detection calls everyday purchases (the chip Arkiostot).
  */
 export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
   const filters = {
@@ -48,7 +45,6 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
     navigate("transactions", { view: "merchants", q: next.q, category: next.category, from: next.from, to: next.to, habit: next.habit ? "1" : "" });
   };
   const [items, setItems] = useState<MerchantItem[] | null>(null);
-  const [months, setMonths] = useState(1);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [changed, setChanged] = useState<number | null>(null);
@@ -61,10 +57,9 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
     async (keep: boolean) => {
       const id = ++request.current;
       try {
-        const r = await api<{ items: MerchantItem[]; months: number }>(`/api/merchants${query({ q, category, from, to, habit: habit ? "1" : "", scope, limit: LIMIT })}`);
+        const r = await api<{ items: MerchantItem[] }>(`/api/merchants${query({ q, category, from, to, habit: habit ? "1" : "", scope, limit: LIMIT })}`);
         if (id !== request.current) return;
         setLoadError(null);
-        setMonths(r.months);
         setItems((old) => {
           if (!keep || !old) return r.items;
           const fresh = new Map(r.items.map((m) => [m.merchant, m]));
@@ -116,23 +111,15 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
 
   const err = error ?? loadError;
   const categoryLabel = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
-  const period = from || to;
-  const narrowed = !!(q || category || period || habit);
+  const narrowed = !!(q || category || from || to || habit);
   return (
     <>
       <div className="filters">
         <SearchBox value={q} onSearch={(next) => set({ q: next })} label="Hae kauppiasta" />
         <CategorySelect categories={meta.categories} value={category} onChange={(next) => set({ category: next })} allowEmpty ariaLabel="Rajaa kategorialla" />
-        <div className="segmented" role="group" aria-label="Kauppiaiden rajaus">
-          <button type="button" aria-pressed={!habit} onClick={() => set({ habit: false })}>
-            Kaikki
-          </button>
-          <button type="button" aria-pressed={habit} onClick={() => set({ habit: true })}>
-            Arkiostot
-          </button>
-        </div>
         <DateFilter value={from} onCommit={(next) => set({ from: next })} label="Alkaen" />
         <DateFilter value={to} onCommit={(next) => set({ to: next })} label="Asti" />
+        {habit && <FilterChip label="Arkiostot" removeLabel="Poista rajaus Arkiostot" onRemove={() => set({ habit: false })} />}
         {narrowed && (
           <button className="btn btn-small" type="button" onClick={() => navigate("transactions", { view: "merchants" })}>
             Tyhjennä
@@ -141,15 +128,7 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
       </div>
       <div className="card">
         <div className="card-head">
-          <div>
-            <h2>Kauppiaat</h2>
-            <div className="card-sub">
-              {items
-                ? `${plural(items.length, "kauppias", "kauppiasta")}, summat ${period ? "valitulta jaksolta" : "koko historiasta"} ilman omia siirtoja. Kuussa: toistuvan maksun kuukausihinta, muilla ${monthsBasis(months)}.`
-                : "…"}
-              {habit && " Arkiostot ovat usein toistuvia pieniä ostoja, jotka jatkuvat yhä."}
-            </div>
-          </div>
+          <h2>Kauppiaat</h2>
           <button className="btn btn-small" type="button" onClick={() => document.getElementById(RULES_ANCHOR)?.scrollIntoView({ block: "start" })}>
             Säännöt
           </button>

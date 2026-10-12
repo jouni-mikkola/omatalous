@@ -1,6 +1,6 @@
 import type { AccountUse, Part } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { hasJointAccount, ownPart, partText, scopeLine, viewsParts } from "../src/part.ts";
+import { hasJointAccount, ownPart, partText, viewsParts } from "../src/part.ts";
 import type { Account, Meta, SharedAccount } from "../src/types.ts";
 
 /** The percent sign has a no-break space before it. */
@@ -54,34 +54,5 @@ describe("whether the viewer has a part below the whole", () => {
     expect(hasJointAccount(meta([account("j", TWO, HALF)]))).toBe(true);
     expect(hasJointAccount(meta([account("a", ONE, WHOLE)], [{ ...shared("s", "Aino"), use: TWO } as SharedAccount]))).toBe(true);
     expect(hasJointAccount(meta([account("a", ONE, WHOLE)], [shared("s", "Aino")]))).toBe(false);
-  });
-});
-
-describe("the line under the header", () => {
-  const joint = meta([account("a", ONE, WHOLE), account("j", TWO, HALF)]);
-
-  it("says nothing in the own view of a page whose rows say the part themselves, whatever the page", () => {
-    for (const page of ["overview", "transactions", "bills", "reports", "settings"]) expect(scopeLine(joint, "own", page), page).toBeNull();
-  });
-
-  it("tells on Säästövinkit that the accounts are counted whole, since a contract is the household's", () => {
-    expect(scopeLine(joint, "own", "optimise")).toBe("Yhteiset tilit ovat tässä mukana kokonaan, koska sopimukset ovat koko talouden.");
-  });
-
-  it("says nothing to a viewer with no part below the whole", () => {
-    expect(scopeLine(meta([account("a", ONE, WHOLE)]), "own", "overview")).toBeNull();
-    expect(scopeLine(meta([account("a", ONE, WHOLE)], [shared("s", "Aino")]), "own", "overview")).toBeNull();
-  });
-
-  it("tells in Koko talous the members whose accounts are in view and that joint accounts are whole", () => {
-    const both = meta([account("a", ONE, WHOLE), account("j", TWO, HALF)], [shared("s", "Aino"), shared("t", "Aino"), shared("u", "Eero")]);
-    expect(scopeLine(both, "household", "overview")).toBe("Mukana jaetut tilit: Aino, Eero. Yhteiset tilit ovat luvuissa kokonaan.");
-    // nobody shares anything: there is no list of members to start the line with
-    expect(scopeLine(joint, "household", "overview")).toBe("Yhteiset tilit ovat luvuissa kokonaan.");
-  });
-
-  it("keeps the line it had for a viewer with no part below the whole", () => {
-    expect(scopeLine(meta([account("a", ONE, WHOLE)], [shared("s", "Aino")]), "household", "overview")).toBe("Mukana jaetut tilit: Aino");
-    expect(scopeLine(meta([account("a", ONE, WHOLE)]), "household", "overview")).toBeNull();
   });
 });

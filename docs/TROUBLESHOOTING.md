@@ -9,7 +9,7 @@ and retry:
 cd ~/omatalous
 ```
 
-1. Check the install. In the app, open *Asetukset > Ylläpito* and press *Tarkista järjestelmä*. If the app does not
+1. Check the install. In the app, open *Asetukset > Tekniset asetukset > Ylläpito* and press *Tarkista järjestelmä*. If the app does not
    open at all, run `./scripts/doctor.sh` on the machine instead. Both name the problem and the command that fixes it.
 2. Restart the app with *Käynnistä sovellus uudelleen*, or `docker compose restart banking`.
 3. If the trouble began with an update, press *Palauta edellinen versio*, or run `./scripts/update.sh --rollback`. The
@@ -59,7 +59,7 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | You lost the setup link before creating the first user | Run `./scripts/install.sh` again. It prints a new link. |
 | "Väärä asennuskoodi." or "Asennuskoodi on vanhentunut." on the setup page | A generated setup code works for 24 hours. Run `docker compose exec banking node dist/node.js setup-code` in the install folder (a second copy's own folder for a second copy). It prints a new code. A `SETUP_CODE` kept in `.env` never expires, and the command prints that code. |
 | You forgot your password | Another admin can press *Nollaa salasana* under *Asetukset > Talouden jäsenet*. If you are the only admin, run `docker compose exec banking node dist/node.js user reset-password <username>`. It prints a temporary password. |
-| Login does not stay on an https address | Use the address shown under *Asetukset > Palvelin*. |
+| Login does not stay on an https address | Use the address shown under *Asetukset > Tekniset asetukset > Palvelin*. |
 
 ## Connecting the bank
 

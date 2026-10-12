@@ -30,7 +30,6 @@ export function Sharing({ meta, onChange }: { meta: Meta; onChange: () => void }
       <div className="card-head">
         <div>
           <h2>Tilien jakaminen</h2>
-          <div className="card-sub">Jäsen näkee jaetun tilin, mutta ei voi muuttaa sitä.</div>
         </div>
       </div>
       <div className="table-wrap">

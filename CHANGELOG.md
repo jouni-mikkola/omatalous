@@ -3,6 +3,42 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.14.0
+
+- Asetukset is one plain page: Pankkiyhteydet, Tilit, Talouden jäsenet, Lainat and Salasana. Everything technical (the server, the bank link's application, remote access, the security log, maintenance) is on a page of its own behind one card, Tekniset asetukset.
+- Laskut, Tapahtumat, Kauppiaat and Säästövinkit state their figures in rows and tables. The explanatory sentences, the counts and the lists of what was not found are gone, and Säästövinkit shows the tips first.
+- A large payment to a car dealer is a category of its own, Auton osto, and no longer groceries or uncategorised. A payment of 1 000 € or more that has no category is a row of Ilmoitukset with the link Luokittele.
+
+Money and reports
+
+- A new category, Auton osto: a payment of 1 500 € or more to a car dealer is the purchase of a car, and a smaller payment to a dealer stays in the car's running costs. You can also pick the category yourself for any row.
+- Ilmoitukset shows a payment of 1 000 € or more that is still in Muut menot as "Luokittelematon maksu", and its link Luokittele opens the row in Tapahtumat, where you give it a category.
+
+Look
+
+- Tilit in Asetukset no longer scrolls sideways in a window between a phone and about 760 px wide: the type and the user of an account sit under its name there.
+- Asetukset is one plain page for everyone: Pankkiyhteydet, Tilit, Talouden jäsenet (admin), Tilien jakaminen, Lainat, Salasana and a card Tekniset asetukset. The tabs Omat and Talous are gone.
+- Tekniset asetukset holds the rest on a page of its own: Haku pankista, Tietojen laatu, Omat istunnot, the member's own Enable Banking application, Esimerkkitiedot and, for an admin, Palvelin, Turvallisuusloki and Ylläpito.
+- Hae nyt is in the head of Pankkiyhteydet and only shows while a bank is connected. Vaihda salasana is a button in the card Salasana.
+- Without the maintenance helper, Ylläpito shows the notice, the version and Tyhjennä kaikki tiedot; the controls that cannot work are no longer folded behind a line.
+- Tietojen laatu is a card only while the data has a note. Old addresses (`?tab=talous`, `?section=security`, `#laatu`, `#kirjautuminen`, `#turvallisuusloki`) open the card they named.
+- Asetukset > Tilit no longer has the "Haettu" column or a provider word after the account number, and an empty list reads "Ei tilejä."
+- The cards of Lainat, Tilien jakaminen, Etäkäyttö and Tyhjennä kaikki tiedot lose their explanatory sentences; the reset card keeps three plain lines.
+- A bank connection says how many days of its consent are left only when fewer than 30 are.
+- With the maintenance helper off, Etäkäyttö shows only the command that sets the helper up and the link to its guide.
+- Laskut states its figures in rows and tables. The first line is two rows, Kiinteät menot kuukaudessa and Tilaukset kuukaudessa, and no card has a sentence under its heading.
+- Erääntyvät maksut on Laskut is a table with the heads Eräpäivä, Saaja and Summa, lists every payment of the 30 days (there is no Näytä kaikki) and has no category line under the payee.
+- Tilaukset is one list, the ones asked about first. Its row Yhteensä has the sums of Kuussa and Vuodessa and leaves out the ones marked as stopped, which stand below it. A series table says the category alone under the payee and has no column Jatkunut.
+- Hinnanmuutokset has the columns Saaja, Muuttunut, Aiempi hinta, Uusi hinta and Vuodessa and ends in a row Yhteensä, with the loan instalments in a row of their own. Harvinaiset laskut shows the monthly figure at the right of its heading and the twelve months as a table.
+- The fold of the series that have ended is Päättyneet maksut, with no count, and the form for a bill has one line of help.
+- The banner under the header about how joint accounts are counted is gone, and so is the paragraph of the empty start page: it has its heading and the two buttons Yhdistä pankki and Lataa esimerkkitiedot in one row.
+- Tapahtumat shows its count and its two sums as three labelled figures, Tapahtumia, Maksettu yhteensä and Saatu yhteensä, in the form of a merchant's card; the sentences about own transfers, joint accounts and how a merchant's figures are counted are gone. A merchant's card keeps its figures, and the list does not repeat them.
+- Kauppiaat has no sentence under its heading and no switch between all merchants and Arkiostot; a link that asks for Arkiostot shows a chip with a × that takes it off. Luokittelematta no longer counts its merchants, and Säännöt has no explanation under its heading.
+- An empty Tapahtumat says "Ei tapahtumia." with a link, Yhdistä pankki, to the page where a bank is added.
+- Säästövinkit shows the tips and their figures first and no longer lists what was not found. The line with the date of the data, the months of history and the accounts, the Alueet heading with its two folds of checked and waiting items, and the sentences on how the sum was counted are gone. A tip shows its certainty only when it is not high. At 390 px the first tip is on the first screen.
+- Tilanne gives the euros a year as the first of its figures, "Säästömahdollisuus vuodessa (arvio)", followed by "Vaihteluväli" when the tips' range is wider than one figure. Without a tip it says "Ei vinkkejä." An area's figures show only on an area that has a tip.
+- A tip no longer shows how long it takes or the assumption behind its euros, and a tip with euros shows its deadline as "Määräaika" on a line of its own. Muut havainnot keeps the first sentence of its advice and drops the line about the first charge. The inputs Säästövinkit asks for show their name and the field, no longer what they unlock or the area. Seuranta draws its chart from four months of history.
+
 ## 0.13.0
 
 - Yhteenveto is laid out anew and reads as a bank statement from top to bottom: Varallisuus, Erääntyvät maksut, Asuminen, Tulot ja menot and Ilmoitukset. Accounts, credit cards and loans are plain rows that each end in a total; the drawn card, the fold of other accounts, the fetch times and the banners are gone.

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { loanCalls } from "../../api.ts";
-import { date, money } from "../../format.ts";
+import { money } from "../../format.ts";
 import type { LoanProposalRow } from "../../types.ts";
 import { formOfProposal } from "./form.ts";
 import { LoanEditor } from "./LoanEditor.tsx";
@@ -12,14 +12,9 @@ import { LoanEditor } from "./LoanEditor.tsx";
  * shown while there is nothing to ask.
  */
 export const PROPOSALS_TITLE = "Mahdolliset lainat";
-export const PROPOSALS_INTRO =
-  "Nämä maksut lähtevät tililtä joka kuukausi ja näyttävät lainan maksueriltä. Saaja voi olla pankki, rahoitusyhtiö tai tuttu ihminen. Jos maksu on jotain muuta, esimerkiksi vuokra, valitse Ei laina.";
 export const PROPOSAL_QUESTION = "Onko tämä lainan maksu?";
-export const PROPOSALS_CHANGE = "Jos vastasit vahingossa Ei laina, lisää laina itse alempana.";
 export const EDITOR_HELP = "Maksuerä ja lyhennysväli on täytetty tilin tapahtumien mukaan. Lisää vielä, paljonko lainaa on jäljellä ja mikä sen korko on.";
 
-/** Since when the payment has been seen, as the row says it. */
-export const sinceText = (proposal: Pick<LoanProposalRow, "firstDate">): string => `Maksettu ${date(proposal.firstDate)} lähtien`;
 /** The monthly payment, as the phone's second line says it. */
 export const monthlyText = (proposal: Pick<LoanProposalRow, "paymentCents">): string => `${money(proposal.paymentCents)} kuukaudessa`;
 /** What the page tells after "Ei laina". */
@@ -52,7 +47,6 @@ export function Proposals({ proposals, today, onAnswered }: { proposals: readonl
   return (
     <div className="loan-proposals">
       <h3 className="subhead">{PROPOSALS_TITLE}</h3>
-      <p className="small muted">{PROPOSALS_INTRO}</p>
       {problem && (
         <div className="notice warning" role="alert">
           {problem}
@@ -87,7 +81,6 @@ export function Proposals({ proposals, today, onAnswered }: { proposals: readonl
           </tbody>
         </table>
       </div>
-      <p className="small muted">{PROPOSALS_CHANGE}</p>
     </div>
   );
 }
@@ -107,7 +100,6 @@ function ProposalRow({ proposal, today, open, busy, onOpen, onClose, onNotLoan, 
       <tr>
         <td>
           {proposal.payee}
-          <div className="sub">{sinceText(proposal)}</div>
           <div className="sub loan-phone">{monthlyText(proposal)}</div>
         </td>
         <td className="num hide-phone">{money(proposal.paymentCents)}</td>
