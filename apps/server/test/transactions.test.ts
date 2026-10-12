@@ -28,14 +28,16 @@ describe("merchants nothing categorised", () => {
         { merchant: "Qwerty Puoti", totalCents: 5550, count: 1, lastDate: "2026-09-10" },
         { merchant: "Xyzzy Tuntematon", totalCents: 4200, count: 2, lastDate: "2026-09-20" },
       ],
+      count: 2,
+      totalCents: 9750,
     });
 
     // another member sees none of it, not even with the account shared
     const eero = await member("eero");
     const accountId = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
     await admin.call("PUT", `/api/accounts/${accountId}/shares/${eero.id}`);
-    expect((await eero.call("GET", "/api/merchants/uncategorised")).body).toEqual({ items: [] });
-    expect((await eero.call("GET", "/api/merchants/uncategorised?scope=household")).body).toEqual({ items: [] });
+    expect((await eero.call("GET", "/api/merchants/uncategorised")).body).toEqual({ items: [], count: 0, totalCents: 0 });
+    expect((await eero.call("GET", "/api/merchants/uncategorised?scope=household")).body).toEqual({ items: [], count: 0, totalCents: 0 });
 
     // a rule for the merchant takes it off the list
     await admin.call("POST", "/api/rules", { field: "merchant", pattern: "Qwerty Puoti", category: "shopping" });

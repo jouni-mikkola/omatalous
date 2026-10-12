@@ -65,7 +65,7 @@ export function renewals({ ctx, running, inputs }: InsightArgs): Insight[] {
     {
       id,
       tone: "info",
-      title: `${capitalise(countWord(due.length))} ${noun} uusiutuu ${RENEW_DAYS} päivässä, ${formatEur(total, false)}`,
+      title: `${capitalise(countWord(due.length))} ${noun} uusiutuu ${RENEW_DAYS} päivän kuluessa, ${formatEur(total, false)}`,
       detail: `${finnishList(due.map((s) => `${s.merchant} ${formatFiDate(s.nextDate!)}`))}.`,
       yearlyCents: yearly,
       rows,

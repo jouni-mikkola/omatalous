@@ -227,7 +227,7 @@ function probeProblem(err: unknown, saved: boolean, own: boolean): ActivationRes
     if (err.status === 401) {
       const message = own
         ? "Enable Banking ei tunnistanut sovellusta (401). Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta."
-        : "Enable Banking ei tunnistanut sovellusta (401). Tarkista Application ID ja että Enable Bankingissa on Omatalouden luoma varmenne.";
+        : "Enable Banking ei tunnistanut sovellusta (401). Tarkista Application ID ja varmista, että Enable Bankingissa on Omatalouden luoma varmenne.";
       return { verified: false, keyRefused: true, message };
     }
     if (err.status === 403) {

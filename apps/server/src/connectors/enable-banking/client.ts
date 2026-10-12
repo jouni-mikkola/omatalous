@@ -33,7 +33,7 @@ export class EnableBankingError extends UpstreamError {
     body: string,
     path: string,
   ) {
-    super(`Enable Banking ${status} on ${path}${errorCode(body) ? ` ${errorCode(body)}` : ""}`, `Pankkirajapinta vastasi virheellä (${status}). Yritä myöhemmin uudelleen.`);
+    super(`Enable Banking ${status} on ${path}${errorCode(body) ? ` ${errorCode(body)}` : ""}`, `Enable Banking vastasi virheellä ${status}. Yritä myöhemmin uudelleen.`);
     // not enumerable, so printing the error to the log does not print the response
     Object.defineProperty(this, "body", { value: body, enumerable: false });
   }

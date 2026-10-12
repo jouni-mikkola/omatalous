@@ -10,14 +10,19 @@ import type { DashboardData, Recurring } from "../src/types.ts";
 type Ahead = NonNullable<DashboardData["ahead"]>;
 type Row = Ahead["rows"][number];
 
+const sum = (rows: Row[], source: Row["source"]) => rows.filter((r) => r.source === source).reduce((total, r) => total + Math.abs(r.cents), 0);
 const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Palkka", category: "salary", cents: 395_000, source: "income", ...over });
 /** A 30-day answer as the dashboard gives it: a pay day, two bills of the history and one the household typed in. */
 const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö", category: "utilities", cents: -8_900, source: "recurring" }), row({ date: "2026-10-20", name: "Netflix", category: "subscriptions", cents: -1_599, source: "recurring" }), row({ date: "2026-11-03", name: "Ajoneuvovero", category: null, cents: -31_250, source: "expected" })]): Ahead => ({
   from: "2026-10-11",
   to: "2026-11-10",
+  days: 30,
+  reason: "none",
+  payday: null,
   rows,
+  upcoming: rows.filter((r) => r.cents < 0),
   everydayPerDayCents: 0,
-  everydayCents: 0,
+  totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), everydayCents: 0, incomeCents: sum(rows, "income") },
   balance: null,
   missing: "balance",
 });
@@ -40,18 +45,18 @@ describe("Laskut: Tulossa", () => {
     expect(out).toContain("12.10.");
   });
 
-  it("its sum is the Menoja of Kuukausi's Seuraavat 30 päivää: one list, one total", () => {
+  it("its sum is the Maksut of Kuukausi's Seuraavat 30 päivää: one list, one total", () => {
     const rows = ahead();
     // 89 + 15,99 + 312,50
     expect(coming(rows)).toContain("<strong>417 €</strong>");
-    expect(nextDays(rows)).toContain("Menoja 417 €");
+    expect(nextDays(rows)).toContain("<dt>Maksut</dt><dd>417 €</dd>");
   });
 
   it("offers the form behind Lisää lasku and not before", () => {
     const out = coming(ahead());
     expect(out).toContain("Lisää lasku");
     expect(out).toContain('aria-expanded="false"');
-    expect(out).not.toContain("Lisää odotettu lasku");
+    expect(out).not.toContain('aria-label="Lisää lasku"');
   });
 
   it("without bills or a dashboard answer it still opens the form", () => {
@@ -61,11 +66,11 @@ describe("Laskut: Tulossa", () => {
 });
 
 describe("Kuukausi: Seuraavat 30 päivää", () => {
-  it("keeps its totals and the pay day, lists no bill and links to Laskut", () => {
+  it("lists the bills before the pay and links to Laskut", () => {
     const out = nextDays(ahead());
-    expect(out).toContain("Menoja 417 €, tuloja 3 950 €");
-    expect(out).toContain("Palkka");
-    for (const name of ["Sähkö", "Netflix", "Ajoneuvovero"]) expect(out).not.toContain(name);
+    expect(out).toContain("<h2>Seuraavat 30 päivää</h2>");
+    for (const name of ["Sähkö", "Netflix", "Ajoneuvovero"]) expect(out).toContain(name);
+    expect(out.indexOf("Ajoneuvovero")).toBeLessThan(out.indexOf(">Palkka</a>"));
     expect(out).toContain('href="#/bills"');
     expect(out).toContain("3 maksua");
     expect(out).not.toContain("Näytä kaikki");

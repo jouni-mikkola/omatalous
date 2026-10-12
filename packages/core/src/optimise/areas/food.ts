@@ -154,13 +154,13 @@ function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: r
       { label: `${thenSpan}, kertaa kuussa`, value: formatCount(thenOrders) },
     ];
     if (Math.abs(rise - (nowOrders - thenOrders)) > 1e-9) calc.push({ label: "Kotiinkuljetuksia lisää kuussa, kaikki palvelut", value: formatCount(mean(allNow) - mean(allThen)) });
-    calc.push({ label: "Keskiostos", value: formatEur(ticket) }, { label: "Ero vuodessa", value: eur(midCents) }, ...struckLines(shown, struck));
+    calc.push({ label: "Ostoskerta keskimäärin", value: formatEur(ticket) }, { label: "Ero vuodessa", value: eur(midCents) }, ...struckLines(shown, struck));
     out.push({
       id: findingId("food", "delivery", merchant),
       area: "food",
       kind: "delivery",
       subject: merchant,
-      title: `${merchant}: ${formatCount(nowOrders)} kertaa kuussa, vuotta aiemmin ${formatCount(thenOrders)}. Keskiostos ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
+      title: `${merchant}: ${formatCount(nowOrders)} kertaa kuussa, vuotta aiemmin ${formatCount(thenOrders)}. Ostoskerta keskimäärin ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
       action: `Tarkista ruoan kotiinkuljetus: vuotta aiemmin ${formatCount(thenOrders)} kertaa kuussa.`,
       effort: "minuutteja",
       euros: { lowCents: Math.round(midCents / 2), midCents, highCents, assumption: "Jos kotiinkuljetuksia on yhtä monta kuin vuotta aiemmin." },

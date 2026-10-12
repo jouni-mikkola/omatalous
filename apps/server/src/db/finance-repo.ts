@@ -79,7 +79,6 @@ export class FinanceRepo {
   upsertConnection(c: Omit<Connection, "userId">) { return this.connections.upsertConnection(c); }
   setConnectionStatus(id: string, status: Connection["status"]) { return this.connections.setConnectionStatus(id, status); }
   markConnectionSynced(id: string, at: string) { return this.connections.markConnectionSynced(id, at); }
-  deleteConnectionWithoutAccounts(id: string) { return this.connections.deleteConnectionWithoutAccounts(id); }
 
   // ── transactions (finance/transactions.ts) ───────────────
   allTransactions() { return this.transactions.allTransactions(); }
@@ -131,6 +130,7 @@ export class FinanceRepo {
   deleteUnknownMerchantRules() { return this.rules.deleteUnknownMerchantRules(); }
   addRule(rule: Omit<CategoryRule, "id">) { return this.rules.addRule(rule); }
   renameMerchantRules(renames: ReadonlyMap<string, string>) { return this.rules.renameMerchantRules(renames); }
+  settleMerchantRules(merchants: ReadonlySet<string>) { return this.rules.settleMerchantRules(merchants); }
   deleteRule(id: number) { return this.rules.deleteRule(id); }
 
   // ── marks (finance/marks.ts) ─────────────────────────────

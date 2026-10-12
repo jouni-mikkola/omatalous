@@ -27,7 +27,7 @@ export function merchantRoutes(s: Services) {
   app.get("/merchants", async (c) => {
     const user = c.get("user");
     const { q, category, limit, from, to, habit } = c.req.query();
-    if (habit && habit !== "1") throw new UserError("Virheellinen suodatin.");
+    if (habit && habit !== "1") throw new UserError("Virheellinen rajaus.");
     // the set and the series figures are the detection's, not a second definition: the analysis is cached per user and data version
     const { ctx } = await s.analysis.get(s, user.id, "own");
     const only = habit ? new Set(ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant)) : undefined;
@@ -72,8 +72,8 @@ export function merchantRoutes(s: Services) {
     });
   });
 
-  /** Merchants whose spending nothing recognised, for the "Luokittelematta" card. */
-  app.get("/merchants/uncategorised", async (c) => c.json({ items: await s.finance(c.get("user").id).uncategorisedMerchants(50) }));
+  /** The 50 biggest merchants whose spending nothing recognised, with the count and sum of all, for the "Luokittelematta" card. */
+  app.get("/merchants/uncategorised", async (c) => c.json(await s.finance(c.get("user").id).uncategorisedMerchants(50)));
 
   /** Every row of the merchant, now and later, goes to the category (rows set by hand one by one keep theirs). */
   app.put("/merchants/category", async (c) => {

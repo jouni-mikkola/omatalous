@@ -3,6 +3,80 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.10.0
+
+- Figures that were wrong are right. Card bills are told as card bills also for the months before the card was connected, money from the other holder of a joint account is shown as money from a person, not as earned income or savings drawn, and a lender the app did not know is counted as debt. Past months are sorted again on the first start, so their figures change with it.
+- A shop has one name whatever way the payment came, the totals in Raportit agree (a category with more refunds than spending keeps its minus), and Säästövinkit counts a lease in the cost of a car and shows a car you bought apart from it.
+- Kuukausi opens with what you have and owe: your accounts with their balance, your credit cards with how much of the limit is used, and your loans with what is left and the payment a month. The card below it, which looked 30 days ahead, now counts the days to your next payday: the bills before it, your usual everyday spending and what should be left on the account the day before the pay.
+- An administrator can turn on "Tarjoa uudet versiot heti" under Asetukset > Ylläpito. A new version is then offered at once and not two days after its release. The update still starts only when you press Päivitä.
+- The page is a little darker and easier on the eyes in the evening, the Finnish texts were read through, and the list of earlier connections is gone from Asetukset > Pankkiyhteydet.
+
+Money and reports
+
+- A credit card paid by bank transfer is recognised by where its payments go: the payee account and reference of a payment that paired with the card's own rows. Earlier payments to the same place are Luottokortin lasku for the months before the card was connected, where they were Muut menot. A later payment that found no pair is a transfer.
+- Loan instalments under one reference stay one loan. A larger extra payment or an instalment that changed no longer turns into a card bill and then into a transfer, which took the debt payment out of its month.
+- A bill is taken for a connected card's by its text alone only when nothing says otherwise: a card with a known payment channel has no other bill, and a company that paid credit out to the household is a lender.
+- Money that another holder of your account moves in is no longer counted as your savings drawn. When the holder names the bank gives tell who you are (one account in your name alone is enough), an own transfer from the other holder of a joint account is money from a person, and so is everything else that person sends, whatever the message says. A payment to them is a payment to a person, and rent paid to them stays rent. Before, a holder whose first name is also a company's name was read as that company.
+- A payment between people that the bank marks with its own word (Mobiilimaksu, Siirto-maksu) is money to or from a person when the name beside it is a person's. Such money in is not earned income.
+- A MobilePay payment that the bank books as a card purchase (MOB.PAY* in front of a person's name) is a payment to a person. With a business behind the prefix it stays a shop.
+- A travel claim or other money back whose text has a number glued to the word (Matkalasku123456) is read as a reimbursement. Before, the number hid the word.
+- A lender that the app's lists do not name is told as debt. A payment to a company with a word for finance or credit in its name, or with the word bank as a word of its own (Esimerkkirahoitus Oy, Esimerkki Bank AB), is a loan payment. A name that only ends in bank (Powerbank Oy, Varaosapankki Oy) is no lender. Before, such a payment was "Muut menot", so the month looked better than it was. A card purchase, pay, a refund, deposit interest, a savings account and an insurance from such a company stay what they were.
+- Money in from such a company is credit drawn when its name has a word for finance or credit. A bank is not told that way by its name: its pay, bonus or a closed deposit stays income, as before. The name alone also makes no lender of the bank of one of your connected accounts, so its small lines (a paper statement) and a card's bill with only a reference stay as they were.
+- A company that has once paid credit to your account is a lender: later payments to it are loan payments, also when their text holds only a number. A person is never made a lender by a payout, and nor are you (a card's credit moved to your own account under your own name).
+- A payment to a company that the trade register knows as a bank or another credit institution is a loan payment, unless it was made with a card.
+- A cash machine's row that holds only its street address is a cash withdrawal. Before, a word in the street's or the town's name could make it a shop. A card purchase keeps what its merchant code says, also when its text is an address.
+- Interest the bank takes with no payee on the row is interest also when the word ends a longer one (Velkakorko), but a name that only starts with it (Korkonen, Korkokenkä) is none. Tax at source on interest (Lähdevero) is a tax, and the bank's monthly services (Päivittäispalvelut) are bank fees.
+- An overpayment that a lender sends back (Liikasuoritus, Ylisuoritus) is a refund and not credit drawn.
+- The balance report and the month page's answer now list what the household has and owes: each checking and savings account with its balance today, each card with its limit and what is used of it, each loan with what is left and its payment a month. Nothing is computed twice: the cards used and the loans left add up to the debt total.
+- A transfer to a person's account with no reference number is a payment between people (a gift, an allowance, a share of a bill), also when the person's name is a shop's brand too (Helen, Elisa). It is read as before when the payee is paid about the same sum in three or more months (rent, a childminder, a coach), when the payee is you, when the message names a purchase, an invoice or a reference number, when there is no payee account, and for money in.
+- Which holder you are is now told by the name on the most connected accounts, so another person's account (a child's) no longer hides the other holder of your joint account.
+- The payday on the first page follows the same pay day rule as Raportit > Tulot: a pay day that falls on a bank holiday, such as Christmas Eve, is the banking day before it, and a payer with no fixed day follows the dates of its own pay.
+- The payday on the month page is right after a pay that came on the Friday before the 1st, and after a pay booked late in the next month. Before, the card could call today the payday until the next pay came in, or lose the month's pay.
+- The balance before the payday starts from today's balance, the same figure as the accounts on the month page and in Saldot, with the purchases booked since the bank gave the balance. Its note now says the balance is calculated from the bank's balance of that day.
+- In Kategoriat, and in the share of uncategorised spending, no share goes over 100 % when another category has more refunds than spending.
+- Accounts of the type "other" are listed on the month page, so the accounts add up to the total in Saldot.
+- Under Lainat on the month page one line, "Velkaa yhteensä", gives everything the household owes, cards and loans together, the same sum as in Raportit.
+- The note about card bills counted as spending also shows when a card is connected, and then says the bills are from before the card's transactions or from a card that is not connected.
+- In a household with two earners, each change of payer names its own new payer and its own earlier pay, and one member's pay that stopped is no longer told as a change of payer because another member took a side job on another account.
+- A change of payer stays on the first page for 120 days after the old payer's last payment; the income report still shows it for twelve months.
+- The bank of one of your connected accounts is no lender by its name for its own plain lines, but a finance company that carries its name (Esimerkkipankki Rahoitus Oy) is one: a payment to it is a loan payment, and money it pays out is credit drawn.
+- Koron and Korot are read as interest, like Korko, on a bank row with no payee.
+- When one account has two old payers and two new ones, each change of payer pairs an old payer with the new payer whose pay is nearest to it, and not with the one paid first.
+- A regular payer's only payment in a pay period counts as regular pay up to the payer's usual level, also when its text says holiday pay or bonus. Only what goes above the level is shown as extra pay.
+- The income report tells a change of payer, or pay that stopped, in the twelve months it shows, not only when the period ends today. A payer that stops and another that begins within two pay periods are one change.
+- A shop has one name whatever road the payment took. The country and city a card account writes in front of the shop are dropped, a payment service in front of the name (Paytrail, Zettle and the like) is dropped, and a marketplace keeps its own name without the item title or order number. More purchases then reach the brand and category rules. Merchant names change by themselves on the first start after the update. Your rules by merchant name and your marks on subscriptions follow a merchant to its new name. When several merchants get one name, a mark on one of them does not carry over.
+- The card on Kuukausi that looked 30 days ahead now counts the days to your next payday. Its heading names the payday and the days left, and under it stand the payments before it, the usual everyday spending for those days and what is left on the account on the last day before the pay. When the account would drop below zero, or below a day of everyday spending, that day comes first. The pay is the last line. Without a regular pay, or when the pay is late, the card keeps the 30 days and says why.
+- Kuukausitaulukko and Kategoriat now show a category that got more refunds than spending in the period, as a row with a minus at the end. Their totals equal the expense in Tulot ja menot to the cent, and the change against the previous period adds up the same way.
+- The Luokittelematta card on Tapahtumat counts all uncategorised merchants and adds up all of them. It used to count and add up only the 50 it lists.
+- The share of Muut menot is figured on one base in Kategoriat and in the Tietojen laatu notice about uncategorised spending, so the two pages give the same percentage. The base is each category's spending less its own refunds, adding up only the categories that stay above zero: a refund in one category does not lower another.
+- Säästövinkit counts a lease in the car's running cost on a line of its own, "Leasing", whatever category the bank rows were sorted into.
+- A payment to a car dealer shows apart as "Auton osto". A car bought once is not a monthly habit, so it stays out of the running cost and the cost per kilometre.
+- The other insights in Säästövinkit are built from the same complete months as the findings, so a yearly figure no longer stands on the first days of a month.
+- A check that found no rows of its kind, such as the car costs of a household with no car, is no longer counted as checked. Tilanne counts it apart and Alueet names it "ei tietoja".
+
+Look
+
+- The month page now opens with what the household has and owes. Accounts are listed with their balance, each card is drawn as a card with its name and last digits and a bar of how much of its limit is used, with the used amount, the limit and what is free beside it, and each loan shows what is left and its payment a month. A card without a limit shows only the debt. A balance the bank gave more than a day ago says its date. A card named Gold, Platinum, Kultakortti or Platinakortti gets a tinted face; others stay plain.
+- The security log names three events more plainly: a sign-in from a new device, a session that was signed out and a backup that was downloaded.
+- The privacy page of the return page now says that GitHub Pages is what sees the return request.
+- The page and its cards are darker, so the app is easier on the eyes in the evening. Every text, chart and heat map colour is still checked against them: a test measures the contrast of each colour in the style sheet.
+- A few colours moved a step to stay readable on the darker page: muted text, the green and red text, the ochre and grey chart series, the lightest heat map step and the chart axis line.
+- The Finnish of the whole app was read through and about sixty texts were corrected: one name for one thing, plain verbs, and counts that read right for one. For example, the button that adds a bank now always reads "Yhdistä pankki", and "löydös" in the savings tips is "vinkki" everywhere.
+- The sentences that the reports, savings tips and alerts build from parts were read through and over forty were corrected: one name for one thing ("vinkki", never "löydös"; "valmis kuukausi"; "annettu"), counts that read right for one ("Yksi epäonnistunut kirjautuminen"), and the example accounts are named "(esimerkki)" instead of "(demo)". Repo rule 28 keeps the calques and rejected words from coming back.
+- Asetukset > Pankkiyhteydet no longer lists earlier connections. A connection whose accounts moved to a newer one, or that never had any, is not shown. A connection that has ended and still owns accounts stays in the list with Yhdistä uudelleen.
+- The line in Asetukset > Palvelin that told what to do when the bank shows an error page at the end of the setup is gone. The Pankkiyhteydet page already asks for the address of that page when it is needed.
+
+Maintenance
+
+- *Asetukset > Ylläpito* has a switch, *Tarjoa uudet versiot heti*. A new version is normally offered two days after it comes out, and with the switch on it is offered at once. Nothing installs before you press *Päivitä*. Nobody needs to edit `.env` for this any more: the maintenance helper sets the line `TALOUS_PRERELEASE` and leaves the rest of the file as it was.
+- The switch shows when the maintenance helper is in use. An install without the helper sets `TALOUS_PRERELEASE` in `.env` as before, and an install that follows the source code (`TALOUS_CHANNEL=source`) has no switch.
+- The card *Palauta viimeisin varmuuskopio* in *Asetukset > Ylläpito* is now called *Palauta uusin varmuuskopio*, and a few of its sentences and the status *Peruutettu* read more plainly.
+
+Upgrade
+
+- The first start after the update sorts every row again, so categories, merchant names and card bills of past months change by themselves. Your own category choices stay, and your rules and marks follow a merchant to its new name. When several merchants get one name (every marketplace purchase becomes "Tori"), a rule made on one of them would reach all of them, so it becomes your own category choice on the rows it covered and the rule is removed. A mark on one of them does not carry over.
+- Migration 0017 rebuilds the table of maintenance requests on the first start, after the usual copy. A rollback from this version puts back the copy from before the update.
+
 ## 0.9.0
 
 - A damaged database no longer takes the app down: it starts on the newest intact copy. Under Asetukset > Ylläpito an admin can restore the newest copy, or start over, with one button each.

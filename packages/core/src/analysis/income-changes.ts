@@ -4,7 +4,7 @@
  * Each change has its number, its basis and its rows. `incomeInsights` returns the ones that are insights
  * (H-insights candidates 1 to 4 and 17); a missing salary is an alert and stays in the income report.
  */
-import { addDays, dayNumber, fromDayNumber, monthOf } from "../dates.ts";
+import { addDays, addMonths, dayNumber, fromDayNumber, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import type { IsoDate, UserInputs } from "../types.ts";
@@ -36,6 +36,12 @@ const VARIABLE_SPREAD = 0.08;
 const BENEFIT_GRACE_DAYS = 10;
 /** A stop and a start within this many days are one change (a payer or a benefit that changed). */
 const SWITCH_DAYS = 45;
+/** A payer stops and another begins within this many pay periods: one change of payer. */
+const SWITCH_PERIODS = 2;
+/** A new payer on another account is the old one's successor only at a level within this share of the old level. */
+const SWITCH_LEVEL = 0.25;
+/** A change of payer stays on the first page this many days after the old payer's last payment; the report keeps twelve months. */
+const FIRST_PAGE_DAYS = 120;
 /** Banking days after the pay day before pay counts as missing: a weekend, a holiday, a slow sync. */
 const PAY_GRACE_BANKING_DAYS = 2;
 
@@ -214,15 +220,17 @@ function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] 
   return out;
 }
 
-/** Salary that did not come: one missed pay day, a payer that changed, or pay that stopped. Only for a view of today. */
-function payMissing(b: IncomeBase, salaries: IncomeSeries[]): { changes: IncomeChange[]; newSeries: Set<IncomeSeries> } {
+/**
+ * Salary that did not come, read at the end of the window: a payer that changed, or pay that stopped, when its last
+ * payment falls in the window; one missed pay day only in a view of today.
+ */
+function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean): { changes: IncomeChange[]; newSeries: Set<IncomeSeries> } {
   const changes: IncomeChange[] = [];
   const newSeries = new Set<IncomeSeries>();
-  const endDay = dayNumber(b.end);
   for (const s of salaries) {
     if (s.periods.length < 3) continue;
     const lastMain = s.rows[s.rows.length - 1]!;
-    if (endDay - lastMain.day > 120) continue;
+    if (lastMain.bookingDate < b.from) continue;
     const pd = s.payDay;
     const e1 = pd ? nextPayDate(addDays(lastMain.bookingDate, 5), pd) : fromDayNumber(lastMain.day + Math.round(s.gapDays));
     const due1 = addBankingDays(e1, PAY_GRACE_BANKING_DAYS);
@@ -233,7 +241,24 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[]): { changes: IncomeC
     // holiday pay paid ahead in summer makes the next pay day look empty
     const summer = ["06", "07", "08"].includes(e1.slice(5, 7));
     if (summer && later.some((t) => b.types.get(t.id) === "holiday_pay")) continue;
-    const other = salaries.find((o) => o !== s && o.rows[0]!.day > s.rows[0]!.day && o.rows[0]!.day >= lastMain.day - 15 && o.rows[0]!.day <= dayNumber(e1) + SWITCH_DAYS && Math.abs(o.usualCents - s.usualCents) <= s.usualCents * 0.25);
+    // another payer began within two pay periods of the last payment: one change, whatever the new level; a payer
+    // with a single payment so far needs a level near the old one to be no stray row. A payer already taken as the
+    // successor of another stays with that one. One on the same account comes first; on another account (another
+    // member's pay or side job) only a payer at the old level is the successor, whatever its length. Of the payers that
+    // fit, the one whose level is nearest the old payer's is the successor, not the one paid first.
+    const lastPeriod = s.periods[s.periods.length - 1]!.month;
+    const levelGap = (o: IncomeSeries) => Math.abs(o.usualCents - s.usualCents);
+    const nearLevel = (o: IncomeSeries) => levelGap(o) <= s.usualCents * SWITCH_LEVEL;
+    const nearest = (list: IncomeSeries[]) => list.reduce<IncomeSeries | undefined>((best, o) => (!best || levelGap(o) < levelGap(best) ? o : best), undefined);
+    const began = salaries.filter(
+      (o) =>
+        o !== s &&
+        !newSeries.has(o) &&
+        o.rows[0]!.day > s.rows[0]!.day &&
+        o.rows[0]!.day >= lastMain.day - 15 &&
+        o.periods[0]!.month <= addMonths(lastPeriod, SWITCH_PERIODS),
+    );
+    const other = nearest(began.filter((o) => o.accountId === s.accountId && (o.periods.length >= 2 || nearLevel(o)))) ?? nearest(began.filter((o) => o.accountId !== s.accountId && nearLevel(o)));
     if (other) {
       newSeries.add(other);
       const diff = other.usualCents - s.usualCents;
@@ -247,6 +272,7 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[]): { changes: IncomeC
         monthlyCents: diff,
         yearlyCents: Math.abs(diff) * 12,
         txIds: [...s.rows.slice(-2), ...other.rows].map((t) => t.id),
+        lastPaid: lastMain.bookingDate,
       });
       continue;
     }
@@ -263,10 +289,11 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[]): { changes: IncomeC
         monthlyCents: -s.usualCents,
         yearlyCents: s.usualCents * 12,
         txIds: [...s.rows.slice(-2), ...later].map((t) => t.id),
+        lastPaid: lastMain.bookingDate,
       });
       continue;
     }
-    if (!pd || s.periods.length < 6) continue;
+    if (!today || !pd || s.periods.length < 6) continue;
     const lastSeen = fromDayNumber(b.lastDay.get(s.accountId)!);
     changes.push({
       id: `income:missing:${s.key}:${e1}`,
@@ -286,7 +313,7 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[]): { changes: IncomeC
 export function incomeChanges(b: IncomeBase, today: boolean): IncomeChange[] {
   const salaries = b.series.filter((s) => s.type === "salary");
   const benefits = b.series.filter((s) => s.type !== "salary");
-  const missing = today ? payMissing(b, salaries) : { changes: [], newSeries: new Set<IncomeSeries>() };
+  const missing = payMissing(b, salaries, today);
   const skip = new Set<string>([...missing.newSeries].map((s) => payerKey(s.rows[0]!)));
   for (const s of benefits) if (hasStarted(b, s)) skip.add(payerKey(s.rows[0]!));
   const out = [
@@ -317,12 +344,16 @@ const INSIGHT_KINDS: ReadonlySet<IncomeChangeKind> = new Set([
   "new_source",
 ]);
 
-/** Income insights in the shape of analysis/insights.ts, each with `yearlyCents` for the ranking. */
+/**
+ * Income insights in the shape of analysis/insights.ts, each with `yearlyCents` for the ranking. The report keeps a
+ * change of payer for twelve months; the first page drops one whose old payer was last paid over `FIRST_PAGE_DAYS`
+ * before the end of the view: there a change is news for about four months, not for a year.
+ */
 export function incomeInsights(ctx: AnalysisContext, range: DateRange, _inputs: UserInputs): IncomeInsight[] {
   const end = range.to < ctx.today ? range.to : ctx.today;
   const b = incomeBase(ctx, end);
   return incomeChanges(b, end === ctx.today)
-    .filter((c) => INSIGHT_KINDS.has(c.kind))
+    .filter((c) => INSIGHT_KINDS.has(c.kind) && (!c.lastPaid || dayNumber(end) - dayNumber(c.lastPaid) <= FIRST_PAGE_DAYS))
     .map((c) => ({
       id: c.id,
       tone: c.kind === "residual_tax" || c.monthlyCents < 0 ? "warning" : c.kind === "raise" || c.kind === "benefit_started" || c.kind === "new_source" ? "good" : "info",

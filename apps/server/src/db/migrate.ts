@@ -24,7 +24,10 @@
  *   `-- migrate: foreign_keys=off`. Foreign keys are switched off around it
  *   (SQLite cannot do that inside a transaction, and with them on, dropping
  *   a parent table would cascade-delete its children) and verified with
- *   PRAGMA foreign_key_check before commit.
+ *   PRAGMA foreign_key_check before commit. A table with no foreign key in
+ *   either direction is rebuilt with them on, without the header (0017 does),
+ *   because that check covers every table: one old orphan row elsewhere
+ *   would stop an update that could not have harmed it.
  */
 import { createHash } from "node:crypto";
 import { APP_VERSION } from "../version.ts";

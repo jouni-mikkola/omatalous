@@ -16,7 +16,7 @@ export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: re
 
 const LINK_HELP = "Kun laina on liitetty tiliin, velka lasketaan vain kerran ja saldo tulee pankista.";
 /** Under the balance of a linked loan: the bank's balance counts while the bank tells one, and the typed one otherwise. */
-const LINKED_BALANCE_HELP = "Velkana käytetään pankin saldoa niin kauan kuin pankki kertoo sellaisen. Muulloin käytetään tätä saldoa, joten pidä se ajan tasalla.";
+const LINKED_BALANCE_HELP = "Velkana käytetään pankin saldoa aina, kun pankki ilmoittaa sen. Muulloin käytetään tähän kirjattua saldoa.";
 
 /** What the payment figure is, by the way the loan is paid back. */
 function paymentHelp(form: LoanForm): string | null {
@@ -217,7 +217,7 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
       {interest !== null && (
         <div className="notice warning loan-interest" role="status">
           <p>
-            Maksuerä on pienempi kuin lyhennysvälin korko ({money(interest)}), joten laina ei lyhenisi. Tarkista korko ja maksuerä. Jos lainassa on lyhennysvapaa tai maksat vain korkoa, jätä maksuerä tyhjäksi. Jäljellä oleva laina pysyy silloin ennallaan.
+            Maksuerä on pienempi kuin lyhennysvälin korko ({money(interest)}), joten laina ei lyhenisi. Tarkista luvut, tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.
           </p>
           <button className="btn btn-small" type="button" onClick={() => change("paymentCents", "")}>
             Tyhjennä maksuerä

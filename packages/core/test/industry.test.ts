@@ -34,7 +34,7 @@ describe("categoryForIndustry", () => {
 
   it("says nothing for broad industries and bad codes", () => {
     expect(categoryForIndustry("46389", "TOL2025")).toBeNull(); // food wholesale
-    expect(categoryForIndustry("64190", "TOL2008")).toBeNull(); // banks
+    expect(categoryForIndustry("64200", "TOL2008")).toBeNull(); // holding companies: finance that lends nothing to a household
     expect(categoryForIndustry("70100", "TOL2025")).toBeNull(); // head offices
     expect(categoryForIndustry("abc", "TOL2025")).toBeNull();
   });

@@ -72,7 +72,7 @@ function Merchants({ view, category }: { view: View; category: Category }) {
           <table className="compact">
             <thead>
               <tr>
-                <th>Kauppa</th>
+                <th>Kauppias</th>
                 <th className="num">Käyntejä</th>
                 <th className="num">Ostoskerta</th>
                 <th className="num">Muutos</th>
@@ -147,7 +147,7 @@ function SpendingChange({ ctx }: SectionProps) {
                     <td className={`num ${c.changeCents > 0 ? "worse" : c.changeCents < 0 ? "better" : ""}`}>{signedMoney(c.changeCents)}</td>
                     <td className="muted">
                       {causes(c, c.bills)}
-                      {c.restCount > 0 && `${c.buckets.length ? "; " : ""}Pienet muutokset ${signedMoney(c.restCents)}`}
+                      {c.restCount > 0 && `${c.buckets.length ? "; pienet muutokset" : "Pienet muutokset"} ${signedMoney(c.restCents)}`}
                       {c.season && ` (${SEASON})`}
                     </td>
                   </tr>

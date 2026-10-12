@@ -160,7 +160,7 @@ async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Pr
   if (holdsInterest && loan.paymentCents !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
     if (loan.paymentCents < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
       throw new UserError(
-        "Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista korko ja maksuerä. Jos lainassa on lyhennysvapaa tai maksat vain korkoa, jätä maksuerä tyhjäksi. Jäljellä oleva laina pysyy silloin ennallaan.",
+        "Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut, tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.",
       );
     }
   }

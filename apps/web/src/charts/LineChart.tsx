@@ -5,7 +5,7 @@ import { niceTicks } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
 
-export interface LineSeries {
+interface LineSeries {
   key: string;
   label: string;
   color: string;

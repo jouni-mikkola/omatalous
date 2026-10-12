@@ -130,7 +130,7 @@ export function HelperMissing({ s }: { s: RemoteAccessState }) {
       <p>Etäkäytön voi ottaa käyttöön tältä sivulta vasta, kun ylläpitoapuri on käytössä ja ajan tasalla. Ota se käyttöön palvelimella:</p>
       <Command text={s.helper.enableCommand} />
       <p>
-        Ilman apuria etäkäyttö tehdään asennusohjelman skriptillä.{" "}
+        Ilman apuria etäkäyttö tehdään palvelimella asennusohjelmalla.{" "}
         <a href={TUNNEL_GUIDE} target="_blank" rel="noopener noreferrer">
           Ohje
         </a>

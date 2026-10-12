@@ -15,6 +15,8 @@ export interface Account {
   bankName?: string;
   /** The bank the account's connection was made with ("Nordea"), on an account that came through one. A card has no IBAN to tell it. */
   bank?: string | null;
+  /** The holder or holders of the account as the bank gives them ("A, B"). Null: not read yet. "": read, and the bank gave none. */
+  holder?: string | null;
   iban: string | null;
   currency: string;
   type: AccountType;
@@ -65,6 +67,8 @@ export interface Transaction {
   mcc: string | null;
   /** The bank's own code for the kind of transaction, as on the raw row ("PMNT-CCRD-POSD"). The rules read it where no wording decides. */
   bankTxnCode?: string | null;
+  /** The payment's reference number as the bank gave it: null or empty is a payment with none. A row built without the field (the kit, the demo) says nothing either way. */
+  reference?: string | null;
   merchant: string;
   category: string;
   categorySource: CategorySource;
@@ -102,6 +106,12 @@ export interface BalanceInput {
   balanceAt: string | null;
   /** A joint account both partners linked: the household view keeps it once and never splits it to a person. */
   joint?: boolean;
+  /** The bank of the account's connection as the app shows it ("Nordea"). Null for an account shared with the viewer, as the account lists leave it out. */
+  bank?: string | null;
+  /** A card's last four digits as the bank gave them ("•••• 1234"). Never built from an account number. */
+  cardMask?: string | null;
+  /** The limit of a card or credit line as the bank gave it, in cents. */
+  creditLimitCents?: number | null;
 }
 
 /** What the user said about a subscription or an alert: still in use, cancelled, or not to be shown again. */

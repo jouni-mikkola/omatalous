@@ -11,14 +11,15 @@ const SHOWN = 10;
 
 /**
  * Tulossa: the one list of what leaves the account in the next 30 days, whether the bank history shows it every month,
- * rarely, or the household typed it in. The rows and their sum are the ones of Kuukausi's Seuraavat 30 päivää
- * (`ahead` of the dashboard), pay days left out. "Lisää lasku" opens the form for a bill the history cannot know yet.
+ * rarely, or the household typed it in. It is `upcoming` of the dashboard answer, found by the same code as the rows of the
+ * card on Kuukausi, which lists the first part of it, to the payday. The count and the sum come from this list.
+ * "Lisää lasku" opens the form for a bill the history cannot know yet.
  */
 export function Coming({ ahead, today, label, onAdded }: { ahead: Ahead | null; today: string; label: (id: string) => string; onAdded: () => void }) {
   const [all, setAll] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
-  const rows = (ahead?.rows ?? []).filter((r) => r.cents < 0);
+  const rows = ahead?.upcoming ?? [];
   const shown = all ? rows : rows.slice(0, SHOWN);
   const total = rows.reduce((sum, r) => sum - r.cents, 0);
 

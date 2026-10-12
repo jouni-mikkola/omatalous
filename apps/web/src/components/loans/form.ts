@@ -8,16 +8,16 @@ import type { Account, LoanProposalRow } from "../../types.ts";
 import { KIND_LABEL } from "./labels.ts";
 
 /** Read as printed, read with doubt, or not in the text. */
-export type FieldMark = "sure" | "check" | "missing";
+type FieldMark = "sure" | "check" | "missing";
 
 /** The fields of a loan the form shows, in the order it shows them. Name and kind stand above them. */
-export const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanDraftKey[];
+const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanDraftKey[];
 
 const MONEY_KEYS = ["balanceCents", "grantedCents", "limitCents", "paymentCents"] as const;
 const RATE_KEYS = ["rateBp", "marginBp"] as const;
 
 /** What a draft adds to a form: where each value came from. A saved loan has none. */
-export interface FormSource {
+interface FormSource {
   marks: Record<LoanDraftKey, FieldMark>;
   lines: Partial<Record<LoanDraftKey, string>>;
   warnings: readonly LoanDraftWarning[];
@@ -149,7 +149,7 @@ export const setKind = (form: LoanForm, kind: LoanKind | ""): LoanForm => ({ ...
 export const LOAN_LINK_PARAM = { loan: "linkLoan", account: "linkAccount" } as const;
 
 /** A card or loan account a loan can be linked to, with the text the select shows for it. */
-export interface LinkChoice {
+interface LinkChoice {
   id: string;
   label: string;
 }
@@ -189,8 +189,8 @@ export function defaultName(kind: LoanKind, lender: string): string {
   return (who ? `${KIND_LABEL[kind]}, ${who}` : KIND_LABEL[kind]).slice(0, 80);
 }
 
-const MONEY_ERROR = "Kirjoita summa euroina, esimerkiksi 12 500,00.";
-const RATE_ERROR = "Kirjoita korko prosentteina, esimerkiksi 3,25.";
+const MONEY_ERROR = "Anna summa euroina, esimerkiksi 12 500,00.";
+const RATE_ERROR = "Anna korko prosentteina, esimerkiksi 3,25.";
 
 /**
  * The loan the form holds, as the server takes it: every field, hidden ones as null. An empty input is null, and so is
@@ -216,7 +216,7 @@ export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormE
   const positive = (value: number | null) => (value === 0 ? null : value);
 
   if (form.kind === "") errors.kind = "Valitse laji.";
-  if (text("balanceCents") === "") errors.balanceCents = "Kirjoita, paljon lainaa on jäljellä.";
+  if (text("balanceCents") === "") errors.balanceCents = "Anna, paljonko lainaa on jäljellä.";
   const balanceCents = cents("balanceCents");
   if (text("balanceDate") === "") errors.balanceDate = "Valitse päivä.";
   const months = text("intervalMonths");

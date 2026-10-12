@@ -64,10 +64,13 @@ export const ACTION_LABEL: Record<OpsAction, string> = {
   prune: "levyn siivous",
   "helper-renew": "apurin uusinta",
   access: "etäkäyttö",
+  // no colon in a name: the audit list splits an event at its first ": "
+  "prerelease-on": "uusien versioiden tarjoaminen heti",
+  "prerelease-off": "uusien versioiden tarjoaminen kahden päivän päästä",
 };
 
 /** These also reach the other admins as a notice. */
-const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart", "access"];
+const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart", "access", "prerelease-on", "prerelease-off"];
 
 export const ENABLE_COMMAND = "./scripts/install.sh --ops-helper";
 const MUTATING_PER_MINUTE_MS = 60_000;
@@ -127,7 +130,7 @@ export async function helperInfo(s: Services) {
   const seenAt = await s.settings.get(HELPER_SEEN_KEY);
   const version = await s.settings.get(VERSION_KEY);
   const { status, reason } = helperStatus(seenAt, s.now());
-  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
+  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), knowsPrerelease: helperKnows(version, "prerelease-on"), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
 }
 
 // ── backups kept by the app ──────────────────────────────
@@ -351,7 +354,7 @@ export async function cancelOp(s: Services, user: User, id: string, req: Req) {
   const row = await s.ops.get(id);
   if (!row) throw new UserError("Pyyntöä ei löydy.");
   if (!(await s.ops.cancelQueued(id, s.now().toISOString()))) throw new UserError("Pyyntöä ei voi enää perua.");
-  await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${(ACTION_LABEL as Record<string, string>)[row.action] ?? row.action}: peruttu` });
+  await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${(ACTION_LABEL as Record<string, string>)[row.action] ?? row.action}: peruutettu` });
 }
 
 /** The newest database copy, after the password. Returns the file to stream. */

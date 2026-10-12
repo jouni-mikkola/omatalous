@@ -102,7 +102,7 @@ export function Setup({ onDone }: { onDone: (user: User) => void }) {
     if (busy) return;
     const found: typeof errors = {};
     if (!form.code.trim()) found.code = "Anna asennuskoodi.";
-    if (!/^[A-Za-z0-9._-]{3,32}$/.test(form.username)) found.username = "Tunnuksessa saa olla 3–32 kirjainta, numeroa, pistettä, alaviivaa tai viivaa.";
+    if (!/^[A-Za-z0-9._-]{3,32}$/.test(form.username)) found.username = "Käyttäjätunnuksessa pitää olla 3–32 merkkiä (a–z, 0–9, . _ -).";
     if (!form.displayName.trim()) found.displayName = "Anna nimi.";
     if (form.password.length < 12) found.password = "Vähintään 12 merkkiä.";
     else if (form.password !== form.confirm) found.confirm = "Salasanat eivät täsmää.";

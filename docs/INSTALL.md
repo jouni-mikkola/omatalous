@@ -78,13 +78,13 @@ The setup code works for 24 hours. After that the page says *Asennuskoodi on van
 `docker compose exec banking node dist/node.js setup-code` prints a new code to type into the page. A `SETUP_CODE` kept in
 `.env` does not expire.
 
-To look around first, press *Lataa esimerkkitiedot* on the empty start page. *Asetukset > Poista demodata* removes it.
+To look around first, press *Lataa esimerkkitiedot* on the empty start page. The card *Esimerkkitiedot* in *Asetukset* has *Poista esimerkkitiedot*, which removes it.
 
 ## 4. Connect a bank
 
 The app walks you through registering a free Enable Banking app, once for the whole household. It takes about 15
 minutes and gives the values to paste. Later you find the same steps under *Asetukset > Palvelin*.
-Then *Asetukset > Pankkiyhteydet > Lisää pankkiyhteys* opens a list of the banks your Enable Banking app offers: Nordea,
+Then *Asetukset > Pankkiyhteydet > Yhdistä pankki* opens a list of the banks your Enable Banking app offers: Nordea,
 OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks and card issuers that
 [ENABLE_BANKING.md](ENABLE_BANKING.md) lists, each with its logo where Enable Banking has one. The first fetch brings
 up to two years of history. Each connection has a button *Yhdistä uudelleen* that renews it, also before it ends, and
@@ -100,7 +100,7 @@ those rows move into the bank's account.
 ## 5. Add the household
 
 Optional. Add the others under *Asetukset > Talouden jäsenet*. Each gets a temporary password and picks their own at
-the first login. Members do not register anything at Enable Banking. They press *Lisää pankkiyhteys* and log in with
+the first login. Members do not register anything at Enable Banking. They press *Yhdistä pankki* and log in with
 their own Nordea ID. Under *Asetukset > Tilien jakaminen* a member can share an account with the others, read-only.
 
 ## 6. Add your loans
@@ -128,11 +128,12 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
 ## After the install
 
 - Updates show up under *Asetukset > Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered about
-  two days after it comes out. `TALOUS_PRERELEASE=yes` in `.env` takes it at once, see
+  two days after it comes out. The switch *Tarjoa uudet versiot heti* on the same page offers it at once. Without the
+  maintenance helper there is no switch, and `TALOUS_PRERELEASE=yes` in `.env` does the same, see
   [Updates in detail](ADVANCED.md#updates-in-detail).
 - The app keeps a database copy from each of the last seven days on the machine. Now and then press *Lataa uusin* under
   *Asetukset > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
-  a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta viimeisin varmuuskopio* in the same place
+  a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta uusin varmuuskopio* in the same place
   brings the newest copy back, and at every start the app checks its database and restores a damaged one from the
   newest intact copy.
 - Lost the address? Run `./scripts/install.sh` again in the `omatalous` folder. It keeps the settings and data and

@@ -219,7 +219,7 @@ const SERVICES: readonly { type: ServiceType; noun: string; brands: readonly [st
   },
   {
     type: "cloud",
-    noun: "pilvitallennusta",
+    noun: "pilvitallennuspalvelua",
     brands: [
       ["icloud", /ICLOUD/],
       ["googleone", /GOOGLE ?ONE/],

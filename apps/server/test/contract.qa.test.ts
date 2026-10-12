@@ -246,9 +246,8 @@ describe("data versions", () => {
   // Nothing the analysis reads: sign-in, members (removal aside), the instance, maintenance, security events, bank keys, a
   // consent not yet given, and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
   // (connector.ts removeConnection), and /api/meta reads the connection list for each request. Run below for the last one.
-  // Taking a connection off the list removes only one that owns no account (forgetConnection).
   const NO_ANALYSIS =
-    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/(history\/)?:id$/;
+    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
 
   it("every non-GET route is on exactly one named list", async () => {
     const { routes } = await rig();

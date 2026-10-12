@@ -111,7 +111,7 @@ drill_restore() {
   login || die "sign-in failed after the restore"
   notices | grep 'palautti tietokannan' >/dev/null || die "no notice naming who asked: $(notices | head -c 300)"
   # the list gives an event as an action and an outcome: services/ops.ts splits the detail "tietokannan palautus: tehty (<copy>)"
-  audit=$(japi "$URL/api/ops/audit") || die "GET /api/ops/audit failed"
+  audit=$(api "$URL/api/ops/audit") || die "GET /api/ops/audit failed"
   grep -F "\"action\":\"tietokannan palautus\",\"outcome\":\"tehty ($COPY)\"" <<<"$audit" >/dev/null \
     || die "the audit list has no 'tietokannan palautus' with the outcome 'tehty ($COPY)'" "the list, newest first, as action: outcome [user]:" "$(audit_rows <<<"$audit")" "its first bytes: $(head -c 240 <<<"$audit")"
 }
@@ -135,7 +135,7 @@ drill_reset() {
   [[ $(golden_of /data/banking.db) != *"ci-member"* ]] || die "the member is still there"
   login || die "the admin cannot sign in after the reset"
   step "Palauta viimeisin brings the data back"
-  japi "$URL/api/ops/restore-latest" | grep '"name":"pre-reset-' >/dev/null || die "the newest copy is not the pre-reset one: $(japi "$URL/api/ops/restore-latest" | head -c 300)"
+  api "$URL/api/ops/restore-latest" | grep '"name":"pre-reset-' >/dev/null || die "the newest copy is not the pre-reset one: $(api "$URL/api/ops/restore-latest" | head -c 300)"
   restore_api
   [[ $RESTORED == pre-reset-* ]] || die "the restored copy is '$RESTORED'"
   [[ $(golden_of /data/banking.db) == "$gold" ]] || die "the data is not what it was before the reset (diff: $(diff <(printf '%s\n' "$gold") <(golden_of /data/banking.db) | head -c 300))"

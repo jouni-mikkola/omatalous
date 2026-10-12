@@ -42,7 +42,7 @@ describe("upcoming: what to set aside for rare bills", () => {
 
   it("says the reserve and the year in one sentence", () => {
     const u = report(quarterly("If", "2026-08-20", 14100));
-    expect(plain(u.advice)).toBe("Varaa 47 € kuussa, harvinaiset laskut ovat 564 € vuodessa.");
+    expect(plain(u.advice)).toBe("Harvinaiset laskut ovat 564 € vuodessa eli 47 € kuussa.");
   });
 
   it("the year is twelve calendar months from this one, the dearest bill first in each", () => {

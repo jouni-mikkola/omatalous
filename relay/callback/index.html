@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-t416bS7qkkDz7pitrAytXmb1pwNUqnNbGfpev+xERqM='; style-src 'sha256-LbWXM3vFItaK5awfpEKZLFZqObMSwyJR9FIdTfJjGtw='; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-vKLP/q6wfDYOfLc/F6JG2Pmf33HulMekwSju1t/NRV8='; style-src 'sha256-LbWXM3vFItaK5awfpEKZLFZqObMSwyJR9FIdTfJjGtw='; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>Paluu Omatalouteen</title>
@@ -99,7 +99,7 @@ function paluu(loc, doc, nav) {
   var where = doc.getElementById("where");
   if (!target) {
     doc.getElementById("title").textContent = "Paluuosoite ei kelpaa";
-    where.textContent = "Avaa Omatalous omalla osoitteellaan ja aloita pankkiyhteys uudelleen.";
+    where.textContent = "Avaa Omatalous sen omasta osoitteesta ja yhdistä pankki uudelleen.";
     return null;
   }
   where.textContent = "Palataan Omatalouteen: " + target.origin;

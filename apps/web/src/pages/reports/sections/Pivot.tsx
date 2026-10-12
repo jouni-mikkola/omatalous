@@ -1,6 +1,6 @@
 // Decision: find the month a category jumped
 import { money, monthLabel, monthLong } from "../../../format.ts";
-import { ExportLink } from "../parts.tsx";
+import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/quality.css";
@@ -80,6 +80,7 @@ function Pivot({ ctx }: SectionProps) {
       </div>
       <PivotList r={r} />
       {partial && <p className="small muted">Vajaa kuukausi ei ole mukana keskiarvossa eikä värityksessä.</p>}
+      {r.rows.some((row) => row.totalCents < 0) && <p className="small muted">{NEGATIVE_TOTAL_NOTE}</p>}
     </Section>
   );
 }

@@ -7,7 +7,7 @@ export const WARN_DAYS = 14;
 /** The applications page of the Enable Banking Control Panel, where Link accounts is. */
 export const CONTROL_PANEL = "https://enablebanking.com/cp/applications";
 
-export interface ConsentNotice {
+interface ConsentNotice {
   /** The connection the notice is about, or for left_out the account. */
   id: string;
   institution: string;
@@ -63,14 +63,14 @@ export function expiresIn(daysLeft: number): string {
 /** The same words as the connections table and Tietojen laatu; a consent that broke shows no date. */
 export function consentNoticeText(n: ConsentNotice): string {
   if (n.kind === "left_out") return leftOutText(n.accountName ?? n.institution);
-  if (n.kind === "lapsed") return `${n.institution}-yhteys vanhentui${n.endedOn ? ` ${date(n.endedOn)}` : ""}.`;
-  if (n.kind === "broken") return `${n.institution}-yhteys katkesi.`;
-  return `${n.institution}-yhteys vanhenee ${expiresIn(n.daysLeft ?? 0)}.`;
+  if (n.kind === "lapsed") return `${n.institution}: yhteys vanhentui${n.endedOn ? ` ${date(n.endedOn)}` : ""}.`;
+  if (n.kind === "broken") return `${n.institution}: yhteys katkesi.`;
+  return `${n.institution}: yhteys vanhenee ${expiresIn(n.daysLeft ?? 0)}.`;
 }
 
 // ── accounts the bank handed over that the app may not read ─────────────────────────
 
-export interface UnlinkedAccount {
+interface UnlinkedAccount {
   id: string;
   institution: string;
   /** The name the bank gives the account (its product name when it gives one). */
@@ -119,7 +119,7 @@ export function unlinkedStep(count: number, canFix: boolean): string {
 // ── the calendar reminder ───────────────────────────────────────────────────────────
 
 /** The reminder falls this many days before the consent ends. */
-export const REMINDER_DAYS = 7;
+const REMINDER_DAYS = 7;
 
 /** "voimassa 14.1.2027 asti, vielä 93 päivää"; the last day says so. Empty for a consent that is not active. */
 export function validityText(c: Pick<Connection, "state" | "validUntil" | "daysLeft">): string {
@@ -178,7 +178,7 @@ function shortHash(s: string): string {
   return h.toString(16).padStart(8, "0");
 }
 
-export interface Reminder {
+interface Reminder {
   /** YYYY-MM-DD */
   day: string;
   filename: string;

@@ -270,7 +270,7 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
   const judge = (last: string): FindingOutcome => {
     const after = last > changeover ? monthRange(addMonths(changeover, 1), last).filter((m) => isCompleteMonth(ctx, m)) : [];
     const ready = `${addMonths(changeover, wait + 1)}-01`;
-    const waiting = (reason = `Tulos lasketaan, kun muutoksen jälkeen on ${wait} täyttä kuukautta: ${formatFiDate(ready)}.`): FindingOutcome => ({ verdict: "odottaa", monthlyCents: null, reason });
+    const waiting = (reason = `Tulos lasketaan, kun muutoksen jälkeen on ${wait} valmista kuukautta: ${formatFiDate(ready)}.`): FindingOutcome => ({ verdict: "odottaa", monthlyCents: null, reason });
     if (after.length < wait) return waiting();
     // an account that stopped syncing would read as a saving: its rows must reach the last month judged
     const lastMonth = after[after.length - 1]!;
@@ -305,13 +305,13 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
       let verdict = verdictOf(effect, diffs.every((d) => d > 0));
       // a lower bill may be a milder year: the bills alone never confirm a cheaper price
       if (measure.kind === "unit" && verdict === "vahvistui") verdict = "todennäköinen";
-      return withReplacement({ verdict, monthlyCents: effect, reason: `${difference(effect)} verrattuna samoihin ${months.length} kuukauteen vuotta aiemmin. ${note}` });
+      return withReplacement({ verdict, monthlyCents: effect, reason: `${difference(effect)} verrattuna samaan jaksoon vuotta aiemmin. ${note}` });
     }
 
     if (!contract) {
       let before = completeMonthsBefore(ctx, changeover, BEFORE_MONTHS).map(sumOf);
       if (before.length < MIN_BEFORE_MONTHS && (state.baseline?.length ?? 0) >= MIN_BEFORE_MONTHS) before = state.baseline!.map((b) => b.cents);
-      if (before.length < MIN_BEFORE_MONTHS) return { verdict: "epäselvä", monthlyCents: null, reason: `Ennen muutosta on alle ${MIN_BEFORE_MONTHS} täyttä kuukautta vertailuun.` };
+      if (before.length < MIN_BEFORE_MONTHS) return { verdict: "epäselvä", monthlyCents: null, reason: `Ennen muutosta on alle ${MIN_BEFORE_MONTHS} valmista kuukautta vertailuun.` };
       const b = median(before);
       // a payment that covers months ahead (a yearly fee instead of monthly ones) in the changeover month would leave
       // the months after empty and read as a saving

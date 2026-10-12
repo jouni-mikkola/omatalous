@@ -5,6 +5,8 @@
 # OPS_HELPER_VERSION, env_get, pol_get, json_str, now_iso, say_log, current_version, semver_gt and git_policy, and sets
 # REL_STATUS, REL_TAG, REL_NOTES, CHECK_MODE and UPDATE_AVAILABLE, which act_update and act_check_update read. Which release
 # an install follows (the latest, or with TALOUS_PRERELEASE=yes the newest) is decided in lib/release.sh, as for update.sh.
+# The switch that sets that line (act_prerelease, last in this file) also uses the helper's env_check, fail and LOGF,
+# installer_lock of lib/release.sh and env_new of lib/ops-access.sh.
 
 # shellcheck source=release.sh
 . "$LIB/release.sh" || return 1
@@ -67,4 +69,58 @@ check_update() {
     timeout -k 5 "$T_CHECK" git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null || { say_log "Could not check the source (no network)."; return 1; }
   fi
   write_check_frag
+}
+
+# ── the switch for pre-releases: the actions prerelease-on and prerelease-off ──
+# A request of the switch is its name and nothing else. run_request turns the name into `yes` or `no`, the helper's own
+# two words, so nothing the app says is ever written. One line of .env changes, the one release_mode (lib/release.sh) reads.
+#
+# prerelease_set makes that line TALOUS_PRERELEASE=WANT. Every other byte stays: the last line of the key is replaced where
+# it stands and earlier ones go, and a file without the key gets it as a new last line (after a newline of its own when
+# the file ends without one). sed leaves a last line without a newline as it is. The new file is .env.new (env_new,
+# lib/ops-access.sh: made anew, never through a link), gets the owner, group and mode of .env and takes its place in one
+# rename. A file that says so already is not rewritten. .env.new is gone on every way out, and main removes one that a
+# killed helper left.
+prerelease_set() { # prerelease_set yes|no
+  local want=$1 n rc=1
+  rm -f .env.new 2>/dev/null && env_new || return 1
+  n=$(LC_ALL=C grep -an '^TALOUS_PRERELEASE=' .env | tail -1 | cut -d: -f1) || true
+  if [[ $n =~ ^[0-9]+$ ]]; then
+    LC_ALL=C sed -e "${n}s/.*/TALOUS_PRERELEASE=$want/" -e "${n}!{/^TALOUS_PRERELEASE=/d;}" .env >>.env.new
+  else
+    { cat .env && { [[ ! -s .env || $(tail -c 1 .env | wc -l) -eq 1 ]] || echo; } && printf 'TALOUS_PRERELEASE=%s\n' "$want"; } >>.env.new
+  fi && {
+    if cmp -s .env .env.new; then rc=0
+    elif chown --reference=.env .env.new && chmod --reference=.env .env.new && mv -f .env.new .env; then rc=0; fi
+  } 2>/dev/null
+  rm -f .env.new 2>/dev/null
+  return "$rc"
+}
+# The action. The tick's env_check passed before the poll (main); it is asked again right before the write, and a file it
+# would refuse stays as it is. A source install follows a branch and has no releases to follow. The rewrite holds the
+# installer's lock, which install.sh and update.sh read and rewrite .env under, in a subshell that lets go of it. Then
+# the check of check-update, so the page shows at once which version is on offer now. When that check gets no answer the
+# setting stands and the daily check is due again at the next idle tick.
+act_prerelease() { # act_prerelease yes|no
+  local want=$1 rc=0 mode=latest
+  echo "STEP: 1/2 Tallennetaan asetus" >>"$LOGF"
+  [[ -f .env ]] || { fail "Asennuksen .env-tiedostoa ei ole. Mitään ei muutettu."; return; }
+  if ! env_check; then say_log ".env is invalid: $ENV_ERR."; fail "Tiedosto .env ei ole kelvollinen. Mitään ei muutettu."; return; fi
+  if [[ $(env_get TALOUS_CHANNEL) == source ]]; then fail "Tämä asennus päivittyy lähdekoodista eikä julkaistuista versioista. Mitään ei muutettu."; return; fi
+  (installer_lock || exit 3; prerelease_set "$want") || rc=$?
+  if ((rc == 3)); then fail "Palvelimella on asennus tai päivitys kesken. Mitään ei muutettu."; return; fi
+  if ((rc != 0)); then fail "Tiedostoa .env ei voitu kirjoittaa. Mitään ei muutettu."; return; fi
+  # Read back as the daily check reads it: a line the reader does not see (grep reads nothing from a file with a NUL byte
+  # in it) is no setting, and the page must not say done when the host reads otherwise.
+  [[ $want != yes ]] || mode=newest
+  if [[ $(release_mode 2>/dev/null) != "$mode" ]]; then
+    say_log "TALOUS_PRERELEASE=$want was written, but the daily check does not read it from .env."
+    fail "Asetus kirjoitettiin tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella."
+    return
+  fi
+  say_log "TALOUS_PRERELEASE=$want is the setting in .env."
+  echo "STEP: 2/2 Tarkistetaan uusi versio" >>"$LOGF"
+  if [[ $want == yes ]]; then SUMMARY="Uudet versiot tarjotaan heti."; else SUMMARY="Uudet versiot tarjotaan kaksi päivää julkaisun jälkeen."; fi
+  if check_update; then [[ $UPDATE_AVAILABLE != true ]] || SUMMARY+=" Uusi versio on saatavilla."
+  else rm -f "$OPS/last-check"; SUMMARY+=" Uutta versiota ei voitu tarkistaa."; fi
 }

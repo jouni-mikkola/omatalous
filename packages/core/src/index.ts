@@ -22,6 +22,7 @@ export * from "./recurring.ts";
 export * from "./commitments.ts";
 export * from "./loans.ts";
 export * from "./household-debts.ts";
+export { cardLimitCents } from "./holdings.ts";
 export * from "./loan-detect.ts";
 export * from "./pipeline.ts";
 export * from "./returns.ts";

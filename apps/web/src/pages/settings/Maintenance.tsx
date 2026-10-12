@@ -8,7 +8,7 @@ import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
-import { S } from "../../components/ops/ops-strings.ts";
+import { prereleaseAction, prereleaseOn, S, showsPrerelease } from "../../components/ops/ops-strings.ts";
 import { ResetCard } from "../../components/ops/ResetCard.tsx";
 import { RestoreLatest } from "../../components/ops/RestoreLatest.tsx";
 import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
@@ -167,6 +167,7 @@ export function Maintenance() {
             build={data.build}
             state={data.state}
             disabled={blocked}
+            prerelease={showsPrerelease(data.helper, data.state) ? { on: prereleaseOn(data.state, latest), onChange: (on) => void quick(prereleaseAction(on)) } : null}
             onCheck={() => void quick("check-update")}
             onUpdate={() => setDialog("update")}
             onRollback={() => setDialog("rollback")}

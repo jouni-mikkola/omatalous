@@ -22,7 +22,7 @@ export function SecurityNotices() {
         <div key={n.id} className="notice warning">
           {n.text}{" "}
           {n.kind === "industry_lookup_off" && <a href="#/settings?section=server">Asetukset &gt; Palvelin</a>}
-          {MAINTENANCE.has(n.kind) && <a href="#/settings?section=maintenance">Avaa Ylläpito</a>}
+          {MAINTENANCE.has(n.kind) && <a href="#/settings?section=maintenance">Avaa ylläpito</a>}
           {n.kind !== "industry_lookup_off" && !MAINTENANCE.has(n.kind) && <a href="#/settings?section=security">Turvallisuus</a>}
         </div>
       ))}

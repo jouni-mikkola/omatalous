@@ -124,11 +124,13 @@ export interface Finding extends Omit<FindingDraft, "weaknesses"> {
   reopened?: boolean;
 }
 
-export type CheckStatus = "finding" | "clear" | "needs_input" | "no_data";
+/** `no_data` waits for months or a fact; `no_rows` found no row of its kind in the data, so it looked at nothing. */
+export type CheckStatus = "finding" | "clear" | "needs_input" | "no_data" | "no_rows";
 
 /**
  * One thing an area looked at: "Tarkistettiin 14 asiaa, 7 löydöstä, 3 ei voitu tarkistaa". The frame sets `finding`
- * and `clear` from the findings that survive, so an area may report either.
+ * and `clear` from the findings that survive, so an area may report either. A check with no row to read reports
+ * `no_rows` and is not counted as checked.
  */
 export interface Check {
   /** `<area>:<kind>`, the same kind as its findings. */
@@ -322,12 +324,16 @@ export interface OptimiseData {
   dismissed: { state: FindingState; finding: Finding }[];
   /** Päätetyt, Muistutus: findings snoozed until a day after today. `finding` is null when the data no longer shows it. */
   snoozed: { state: FindingState; finding: Finding | null }[];
-  /** Muut havainnot: the running month's insights no finding covers, largest yearly figure first (`others.ts`). */
+  /** Muut havainnot: the insights of the findings' window that no finding covers, largest yearly figure first (`others.ts`). */
   others: Insight[];
   /** Päätetyt, Ei koske meitä: insights dismissed at a figure within 25 % of today's. */
   othersDismissed: DismissedInsight[];
   needed: NeededInput[];
-  checked: { total: number; findings: number; unavailable: number };
+  /**
+   * `total` is every check, and splits into those that found something or found nothing, `unavailable` (waiting for a
+   * number, a fact or months) and `noRows` (no row of their kind to read). `findings` counts active findings, not checks.
+   */
+  checked: { total: number; findings: number; unavailable: number; noRows: number };
 }
 
 /** An insight the household dismissed (Ei koske meitä) that stays hidden until its figure moves 25 %. */

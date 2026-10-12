@@ -1,6 +1,6 @@
 import { memo, useSyncExternalStore } from "react";
 import { CategoryPicker } from "../components/CategorySelect.tsx";
-import { date, dayMonth, money } from "../format.ts";
+import { date, money } from "../format.ts";
 import type { Category, TransactionItem } from "../types.ts";
 
 // The rows of Tapahtumat: a table row for a wide screen, a two-line row under a day header for a phone.
@@ -17,13 +17,6 @@ export function usePhone(): boolean {
   return useSyncExternalStore(onPhoneChange, () => window.matchMedia(PHONE).matches);
 }
 
-const WEEKDAY = ["su", "ma", "ti", "ke", "to", "pe", "la"];
-/** "2026-10-12" gives "ma 12.10."; a day of another year than today's has the year too. */
-export function dayHeading(iso: string, today: string): string {
-  const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
-  const weekday = WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${weekday} ${iso.slice(0, 4) === today.slice(0, 4) ? dayMonth(iso) : date(iso)}`;
-}
 /** Rows are newest first, so the days are runs of equal booking dates. */
 export function byDay(items: TransactionItem[]): { day: string; items: TransactionItem[] }[] {
   const days: { day: string; items: TransactionItem[] }[] = [];
@@ -35,7 +28,7 @@ export function byDay(items: TransactionItem[]): { day: string; items: Transacti
   return days;
 }
 
-export interface RowProps {
+interface RowProps {
   t: TransactionItem;
   categories: Category[];
   categoryLabel: string;

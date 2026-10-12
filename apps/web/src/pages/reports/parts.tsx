@@ -1,3 +1,6 @@
+/** Under a table of expense categories when one of them totals below zero (Categories and Pivot say it alike). */
+export const NEGATIVE_TOTAL_NOTE = "Miinuksella olevassa kategoriassa palautuksia oli jaksolla enemmän kuin menoja.";
+
 export function ExportLink({ href }: { href: string }) {
   return (
     <a className="btn btn-small" href={href} download>

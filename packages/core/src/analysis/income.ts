@@ -67,10 +67,10 @@ export const INCOME_TYPES: Record<IncomeType, IncomeTypeDef> = {
   earnings_pension: { label: "Työeläke", group: "pension", regular: true, earned: true },
   benefit_other: { label: "Muut etuudet", group: "other", regular: false, earned: true },
   tax_refund: { label: "Veronpalautus", group: "other", regular: false, earned: true },
-  investment: { label: "Korot ja osingot", group: "other", regular: false, earned: true },
-  sales: { label: "Myynti", group: "other", regular: false, earned: true },
+  investment: { label: "Osingot ja korot", group: "other", regular: false, earned: true },
+  sales: { label: "Myyntitulot", group: "other", regular: false, earned: true },
   other_income: { label: "Muut tulot", group: "other", regular: false, earned: true },
-  persons: { label: "Henkilöiltä", group: "not_earned", regular: false, earned: false },
+  persons: { label: "Maksut henkilöiltä", group: "not_earned", regular: false, earned: false },
   refunds: { label: "Hyvitykset", group: "not_earned", regular: false, earned: false },
 };
 
@@ -83,7 +83,7 @@ export const INCOME_GROUPS: readonly { id: IncomeGroup; label: string }[] = [
   { id: "fund", label: "Ansiosidonnainen" },
   { id: "pension", label: "Työeläke" },
   { id: "other", label: "Muut tulot" },
-  { id: "not_earned", label: "Henkilöiltä ja hyvitykset" },
+  { id: "not_earned", label: "Maksut henkilöiltä ja hyvitykset" },
 ];
 
 /** Whole-word alternation on folded text, as in categorize.ts. */
@@ -191,26 +191,28 @@ export function periodOf(dates: readonly IsoDate[]): (d: IsoDate) => string {
 /** Final type of every income row, keyed by row id. Salary rows are typed by the pattern of their payer. */
 export function incomeTypes(txs: readonly AnalysisTx[]): Map<string, IncomeType> {
   const out = new Map<string, IncomeType>();
-  const payers = new Map<string, AnalysisTx[]>();
-  for (const t of txs) {
-    if (!isIncomeRow(t)) continue;
-    out.set(t.id, incomeTypeOf(t));
-    if (t.category === "salary" && t.amountCents > 0) {
-      const key = payerKey(t);
-      const list = payers.get(key);
-      if (list) list.push(t);
-      else payers.set(key, [t]);
-    }
-  }
-  for (const rows of payers.values()) refinePay(rows, out);
+  const income = txs.filter(isIncomeRow);
+  for (const t of income) out.set(t.id, incomeTypeOf(t));
+  for (const rows of payersOf(income).values()) refinePay(rows, out);
   return out;
 }
 
-function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): void {
+/** The salary payments of each payer, keyed by `payerKey`. */
+export function payersOf(txs: readonly AnalysisTx[]): Map<string, AnalysisTx[]> {
+  const payers = new Map<string, AnalysisTx[]>();
+  for (const t of txs) {
+    if (t.category !== "salary" || t.amountCents <= 0) continue;
+    const key = payerKey(t);
+    const list = payers.get(key);
+    if (list) list.push(t);
+    else payers.set(key, [t]);
+  }
+  return payers;
+}
+
+/** One payer's payments by pay period (the month, see `periodOf`), judged over all of the payer's payments. */
+export function byPayPeriod(rows: readonly AnalysisTx[]): Map<string, AnalysisTx[]> {
   const period = periodOf(rows.map((t) => t.bookingDate));
-  const plain = rows.filter((t) => out.get(t.id) === "salary");
-  if (plain.length < 3) return;
-  const usual = median(plain.map((t) => t.amountCents));
   const byPeriod = new Map<string, AnalysisTx[]>();
   for (const t of rows) {
     const p = period(t.bookingDate);
@@ -218,6 +220,14 @@ function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): v
     if (list) list.push(t);
     else byPeriod.set(p, [t]);
   }
+  return byPeriod;
+}
+
+function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): void {
+  const plain = rows.filter((t) => out.get(t.id) === "salary");
+  if (plain.length < 3) return;
+  const usual = median(plain.map((t) => t.amountCents));
+  const byPeriod = byPayPeriod(rows);
   const counts = [...byPeriod.values()].map((l) => l.length);
   // a payer that pays twice a month or every two weeks: a second payment in a month is no extra
   const multi = median(counts) >= 2;

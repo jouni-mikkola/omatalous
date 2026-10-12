@@ -31,7 +31,7 @@ export function Outcome({ outcome }: { outcome: FindingOutcome }) {
   );
 }
 
-/** What the confirmation names: the merchant of the finding's series, else its area ("löydös Helen", "löydös Sähkö"). */
+/** What the confirmation names: the merchant of the finding's series, else its area ("vinkki Helen", "vinkki Sähkö"). */
 function shortName(id: string, areas: readonly AreaView[]): string {
   const parts = parseFindingId(id);
   if (!parts) return id;
@@ -48,7 +48,7 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
     setBusy(true);
     setError(null);
     api(`/api/optimise/findings/${encodeURIComponent(proposal.findingId)}${query({ scope })}`, { method: "PUT", body: { status: "done", effectiveDate: proposal.date } })
-      .then(() => onChanged("Löydös siirrettiin kohtaan Päätetyt."))
+      .then(() => onChanged("Vinkki siirrettiin kohtaan Päätetyt."))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
@@ -61,7 +61,7 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
       {asking ? (
         <div className="decide-form" role="group" aria-label={`Vahvista: ${name}`}>
           <span>
-            Merkitäänkö löydös {short} tehdyksi {date(proposal.date)} alkaen?
+            Merkitäänkö vinkki {short} tehdyksi {date(proposal.date)} alkaen?
           </span>
           <button className="btn btn-small btn-primary" type="button" disabled={busy} onClick={confirm}>
             Merkitse tehdyksi
@@ -140,7 +140,7 @@ export function FollowUp({ followUp, areas, titles, scope, onChanged }: { follow
   const drawn = line.length >= 2;
   if (!proposals.length && !drawn) return null;
   return (
-    <Section id="seuranta" title="Seuranta" sub="Tehtyjen muutosten vaikutus omista tiedoista">
+    <Section id="seuranta" title="Seuranta" sub="Tehtyjen muutosten vaikutus omien tapahtumien mukaan">
       {proposals.length > 0 && (
         <ul className="decided-list">
           {proposals.map((p) => (

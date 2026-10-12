@@ -7,6 +7,7 @@
  * a debt may be in it twice (`maybeTwice` of the Lainat report). The saved mortgage is read from that same list, so
  * one linked to its loan account owes what the bank tells.
  */
+import type { BalanceWalk } from "../../analysis/balance-walk.ts";
 import type { AnalysisTx } from "../../analysis/context.ts";
 import { cardCosts } from "../../analysis/credit.ts";
 import { formatFiDate } from "../../analysis/format.ts";
@@ -14,7 +15,6 @@ import { addMonths, monthOf } from "../../dates.ts";
 import { householdDebts } from "../../household-debts.ts";
 import { loanBalanceOn, loansOf } from "../../loans.ts";
 import type { RecurringSeries } from "../../recurring.ts";
-import type { BalanceWalk } from "../../reports/balances.ts";
 import { FIGURE_UNKNOWN, loansWithout, loansWithoutRate, maybeTwice, SAME_DEBT_TWICE } from "../../reports/loans.ts";
 import type { BalanceInput, Loan } from "../../types.ts";
 import { annualise, eur, findingId, MAX_ROWS, monthEndDays, ownAccounts, pct, rowsById, savingsYield, usualSpend, walksOf } from "../common.ts";

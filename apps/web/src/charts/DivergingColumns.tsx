@@ -5,7 +5,7 @@ import { niceTicks, roundedTop } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
 
-export interface DivergingSeries {
+interface DivergingSeries {
   key: string;
   label: string;
   color: string;

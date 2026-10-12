@@ -4,7 +4,8 @@
  *   node tools/check/scope.mjs <base>     prints key=value lines for tools/check.sh
  *
  * Vitest is narrowed by package: a change in a package runs its tests and those of the packages that depend on it
- * (read from the package.json files), and the repo rules always run because they read every tracked file. A path
+ * (read from the package.json files), and the repo rules always run because they read every tracked file. A change in
+ * the src/ of a package also runs tools/ui-strings.test.ts, which pins the sentences those sources hold. A path
  * this module does not know (root config, relay/, Dockerfile, ...) is read by tests in other places, so it runs all
  * of vitest.
  *
@@ -20,6 +21,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const RULES = "tools/repo-rules";
+/** A source file of a package, which tools/ui-strings.test.ts reads for the literal sentences of the pages. */
+const PACKAGE_SOURCE = /^(apps|packages)\/[^/]+\/src\//;
+const UI_STRINGS = "tools/ui-strings.test.ts";
 /** Paths that no vitest test reads outside their own package: docs, plans, fragments, the browser suite and the root
  * notes (CHANGELOG.md is read by a server test). */
 const INERT = /^(docs\/|changelog\.d\/|\.claude\/|e2e\/|(?!CHANGELOG\.md$)[^/]+\.md$)/;
@@ -122,6 +126,7 @@ export function scopeOf(files, pkgs = workspace(), corpus = undefined) {
       continue;
     }
     const pkg = pkgs.find((p) => f.startsWith(`${p.dir}/`));
+    if (PACKAGE_SOURCE.test(f)) tests.add(UI_STRINGS);
     if (pkg) touched.add(pkg.dir);
     else if (f.startsWith("tools/")) tests.add("tools");
     else if (!INERT.test(f)) unknown(`${f} is read by tests in several places`);

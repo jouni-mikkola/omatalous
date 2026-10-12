@@ -4,7 +4,7 @@ const num0 = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 0 });
 const num1 = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 1 });
 
 export const MONTHS_SHORT = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
-export const MONTHS_LONG = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
+const MONTHS_LONG = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
 
 /** 123456 → "1 234,56 €" */
 export function money(cents: number, decimals = true): string {
@@ -91,6 +91,14 @@ export function date(iso: string | null | undefined): string {
 export function dayMonth(iso: string): string {
   const [, m, d] = iso.slice(0, 10).split("-");
   return `${Number(d)}.${Number(m)}.`;
+}
+
+const WEEKDAY = ["su", "ma", "ti", "ke", "to", "pe", "la"];
+/** "2026-10-12" gives "ma 12.10."; a day of another year than today's has the year too. */
+export function dayHeading(iso: string, today: string): string {
+  const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
+  const weekday = WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${weekday} ${iso.slice(0, 4) === today.slice(0, 4) ? dayMonth(iso) : date(iso)}`;
 }
 
 export function dateTime(iso: string | null | undefined): string {

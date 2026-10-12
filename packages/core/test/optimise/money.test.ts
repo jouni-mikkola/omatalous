@@ -3,6 +3,7 @@
  * month repeats the same rows, so the usual spending is the month's sum and the walks are sums of whole months.
  */
 import { describe, expect, it } from "vitest";
+import { balanceWalk } from "../../src/analysis/balance-walk.ts";
 import { createContext } from "../../src/analysis/context.ts";
 import { cardCosts } from "../../src/analysis/credit.ts";
 import { dayNumber, monthRange } from "../../src/dates.ts";
@@ -18,7 +19,7 @@ import {
   type LoanReference,
   type OptimiseInput,
 } from "../../src/optimise/index.ts";
-import { balanceReport, balanceWalk, lowestDayBalance } from "../../src/reports/balances.ts";
+import { balanceReport, lowestDayBalance } from "../../src/reports/balances.ts";
 import type { Account, BalanceInput, Transaction } from "../../src/types.ts";
 import { enrich, FRAME, type Household, household, householdInput, joinHousehold } from "./household.ts";
 import * as loansPart from "./parts/loans.ts";

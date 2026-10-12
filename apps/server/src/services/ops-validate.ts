@@ -3,10 +3,12 @@
  * sends back. The helper repeats the action list and the scrub in bash (`ACTIONS` and `scrub_out` in
  * scripts/ops-helper.sh); tools/repo-rules/parity.ts fails when the action lists differ.
  *
- * None of the ten actions takes parameters. `access` applies the change of remote access the app has prepared in a
- * file of its own (services/access-request.ts); the request itself says nothing about it. `port` is in the table but
- * refused. A new action needs a migration too (the CHECK on ops_requests.action lists them), an entry in ACTION_SINCE
- * and the helper's `case`.
+ * None of the twelve actions takes parameters. `access` applies the change of remote access the app has prepared in a
+ * file of its own (services/access-request.ts); the request itself says nothing about it. `prerelease-on` and
+ * `prerelease-off` are the two positions of one switch as two names, so that no value travels to the host. `port` is
+ * reserved and refused. A new action needs an entry in OPS_ACTIONS and ACTION_SINCE and the helper's `ACTIONS` and
+ * `case`. This list and the helper's are the gates: the table stores any name since migration 0017 dropped the CHECK
+ * on ops_requests.action, and a row is only ever written for a name that parseOpsRequest let through.
  */
 import { HttpUserError, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -14,7 +16,7 @@ import { strictObject } from "../platform/validate.ts";
 /** The setting that holds when the host helper was last heard of (ISO): written at every real poll, report and state (services/ops.ts), read for the page and for the notice of a silent helper (services/db-health.ts). */
 export const HELPER_SEEN_KEY = "ops_helper_seen";
 
-export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access"] as const;
+export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access", "prerelease-on", "prerelease-off"] as const;
 export type OpsAction = (typeof OPS_ACTIONS)[number];
 
 /** Reserved for a later release. */
@@ -159,6 +161,8 @@ export const ACTION_SINCE: Record<OpsAction, number> = {
   prune: 2,
   "helper-renew": 2,
   access: 3,
+  "prerelease-on": 4,
+  "prerelease-off": 4,
 };
 
 export type HelperStatus = "ok" | "slow" | "off";
@@ -212,6 +216,10 @@ export interface OpsState {
   address?: string;
   /** Where the copy would answer after remote access goes off, by the rule the helper's `lan` uses. Absent until a helper that knows the field has reported. */
   lanAddress?: string;
+  /** The switch for pre-releases as the host's `.env` has it (TALOUS_PRERELEASE). Absent until a helper that knows the field has reported. */
+  prerelease?: "yes" | "no";
+  /** `source`: the install follows a branch and has no releases to follow, so the page shows no switch. */
+  channel?: "source" | "release";
   doctor?: { at: string; items: { id: string; level: "ok" | "warn" | "error"; title: string; detail: string; hint: string }[] };
   backups?: { name: string; size: number; at: string; kind: string }[];
 }
@@ -250,6 +258,8 @@ export function normaliseState(input: unknown, secrets: readonly string[] = []):
   if (str("mode", 20)) out.mode = str("mode", 20);
   if (str("address", 120)) out.address = str("address", 120);
   if (lanAddress(o.lanAddress, secrets)) out.lanAddress = lanAddress(o.lanAddress, secrets);
+  if (o.prerelease === "yes" || o.prerelease === "no") out.prerelease = o.prerelease;
+  if (o.channel === "source" || o.channel === "release") out.channel = o.channel;
   if (Number.isInteger(o.port) && (o.port as number) >= 1 && (o.port as number) <= 65535) out.port = o.port as number;
   if (Array.isArray(o.behind_commits)) {
     out.behind_commits = o.behind_commits

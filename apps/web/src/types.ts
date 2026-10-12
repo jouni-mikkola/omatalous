@@ -48,7 +48,7 @@ export interface Connection {
   status: "active" | "expired" | "revoked";
   /** active, lapsed (its date passed), broken (closed before its date), removed (services/accounts.ts) */
   state: "active" | "lapsed" | "broken" | "removed";
-  /** Owns no account: it folds under "Aiemmat yhteydet" and has no notice. */
+  /** Owns no account: the settings do not list it and it has no notice. */
   history: boolean;
   /** Not active, and a newer consent of the same bank is: its accounts did not come with the new consent. */
   replaced: boolean;

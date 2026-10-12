@@ -182,5 +182,5 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
 }
 
 function advice(reserve: number, yearly: number): string {
-  return `Varaa ${formatEur(reserve, false)} kuussa, harvinaiset laskut ovat ${formatEur(yearly, false)} vuodessa.`;
+  return `Harvinaiset laskut ovat ${formatEur(yearly, false)} vuodessa eli ${formatEur(reserve, false)} kuussa.`;
 }

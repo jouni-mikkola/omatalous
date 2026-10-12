@@ -170,7 +170,7 @@ function Savings({ rows, label }: { rows: Series[]; label: (id: string) => strin
       <div className="card-head">
         <div>
           <h2>Säännöllinen säästäminen</h2>
-          <div className="card-sub">Kuukausisäästö ei ole kiinteä meno, joten se ei ole mukana kiinteissä menoissa.</div>
+          <div className="card-sub">Ei mukana kiinteissä menoissa.</div>
         </div>
         <strong>{money(monthlyOf(rows), false)}/kk</strong>
       </div>

@@ -11,7 +11,8 @@ import { loadFixture } from "./fixture-db.ts";
 import { setupApp } from "./helpers.ts";
 
 const FIXTURES = new URL("./fixtures/db/", import.meta.url);
-const fixtureNames = readdirSync(FIXTURES).filter((f) => f.endsWith(".sql")).sort();
+// in version order, so 0.10.0 comes after 0.9.0
+const fixtureNames = readdirSync(FIXTURES).filter((f) => f.endsWith(".sql")).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 const tmp = () => mkdtempSync(join(tmpdir(), "talous-chain-"));
 
 /** A data dir holding a database made by loading a frozen fixture, as an old release left it. */
@@ -198,13 +199,15 @@ describe("release bookkeeping", () => {
   });
 });
 
-describe("0007 widens the ops_requests action list", () => {
+describe("0007 widens the ops_requests action list and 0017 takes the list out of the table", () => {
   it("keeps every row, its rowid and both indexes, and accepts the new actions", async () => {
     const file = fromFixture("0.4.0.sql");
     const raw = new DatabaseSync(file);
     const ins = raw.prepare("INSERT INTO ops_requests (id, action, status, requested_by, requested_at, output) VALUES (?, ?, ?, 'u', '2026-10-01T00:00:00.000Z', ?)");
     const old = ["update", "rollback", "backup", "restart", "doctor", "check-update", "access", "port"];
     old.forEach((a, i) => ins.run(`op_000000000000000${i}`, a, "ok", `out ${a}`));
+    // a gap in the rowids: a rebuild that does not copy them closes it, and the rows after it move
+    raw.prepare("DELETE FROM ops_requests WHERE id = 'op_0000000000000002'").run();
     const before = raw.prepare("SELECT rowid, * FROM ops_requests ORDER BY rowid").all();
     raw.close();
     const all = readMigrations(findMigrationsDir()).sort((a, b) => a.name.localeCompare(b.name));
@@ -221,9 +224,14 @@ describe("0007 widens the ops_requests action list", () => {
       await add("op_aaaaaaaaaaaaaaa1", "logs");
       await add("op_aaaaaaaaaaaaaaa2", "logs");
       await expect(add("op_aaaaaaaaaaaaaaa3", "prune")).rejects.toThrow(/UNIQUE/);
-      await expect(add("op_aaaaaaaaaaaaaaa4", "rm -rf")).rejects.toThrow(/CHECK/);
+      // since 0017 the table lists no names (the server's OPS_ACTIONS and the helper's ACTIONS are the gates): the one slot and the list of statuses still hold
+      expect(pending.map((m) => m.name)).toContain("0017_ops_actions_open.sql");
+      await expect(add("op_aaaaaaaaaaaaaaa4", "prerelease-on")).rejects.toThrow(/UNIQUE/);
+      await expect(db.run("INSERT INTO ops_requests (id, action, status, requested_by, requested_at) VALUES ('op_aaaaaaaaaaaaaaa6', 'logs', 'bogus', 'u', 'x')")).rejects.toThrow(/CHECK/);
       await db.run("UPDATE ops_requests SET status = 'ok' WHERE id = 'o-4'");
       await add("op_aaaaaaaaaaaaaaa5", "helper-renew");
+      await db.run("UPDATE ops_requests SET status = 'ok' WHERE id = 'op_aaaaaaaaaaaaaaa5'");
+      await add("op_aaaaaaaaaaaaaaa7", "prerelease-off");
     } finally {
       db.close();
     }

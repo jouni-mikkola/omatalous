@@ -188,10 +188,31 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await page.getByRole("button", { name: "Asenna apuri uudelleen" }).click();
   const renewReq = helper(["poll", "--helper", "2", "--done", ""]);
   expect(renewReq.request).toMatchObject({ action: "helper-renew", params: {}, secret: null });
+  // a version 2 helper says nothing of the switch for new versions, so the page has none
+  const newVersions = page.getByRole("switch", { name: "Tarjoa uudet versiot heti" });
+  await expect(newVersions).toHaveCount(0);
+  // the renewed helper is version 4, and its first snapshot says where the switch stands on the host
+  helper(["state", "--helper", "4"], JSON.stringify({ prerelease: "no", channel: "release" }));
   helper(["report"], JSON.stringify({ id: renewReq.request.id, status: "ok", exit_code: 0, summary: "Apuri asennettu uudelleen." }));
   await expect(page.getByText("Apuri asennettu uudelleen.")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("cell", { name: "levyn siivous" }).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "apurin uusinta" }).first()).toBeVisible();
+
+  // the switch: one click and no dialog, it shows the asked position while the helper works and the host's after it
+  await expect(newVersions).toBeEnabled({ timeout: 15_000 });
+  await expect(newVersions).not.toBeChecked();
+  ageRequests();
+  await newVersions.click();
+  await expect(page.getByText(/Jonossa\./)).toBeVisible();
+  await expect(newVersions).toBeChecked();
+  await expect(newVersions).toBeDisabled();
+  const switchReq = helper(["poll", "--helper", "4", "--done", ""]);
+  expect(switchReq.request).toMatchObject({ action: "prerelease-on", params: {}, secret: null });
+  helper(["report"], JSON.stringify({ id: switchReq.request.id, status: "ok", exit_code: 0, summary: "Uudet versiot tarjotaan heti.", state: { prerelease: "yes", channel: "release" } }));
+  await expect(page.getByText("Uudet versiot tarjotaan heti.")).toBeVisible({ timeout: 15_000 });
+  await expect(newVersions).toBeEnabled();
+  await expect(newVersions).toBeChecked();
+  await expect(page.getByRole("cell", { name: "uusien versioiden tarjoaminen heti" }).first()).toBeVisible();
 
   // no horizontal scroll on a phone
   await page.setViewportSize({ width: 375, height: 667 });
@@ -202,7 +223,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await context.close();
 });
 
-// Palauta viimeisin varmuuskopio and Tyhjennä kaikki tiedot. A real restore stops the shared e2e server and a real reset
+// Palauta uusin varmuuskopio and Tyhjennä kaikki tiedot. A real restore stops the shared e2e server and a real reset
 // removes its users, so both POSTs are answered here and never reach it. The copy GET is answered with a made-up copy.
 const COPY = { name: "auto-2026-10-09.db", at: "2026-10-09T03:00:00.000Z", size: 3_200_000, kind: "daily" };
 const PRE_RESET = { name: "pre-reset-20261009T100000.db", at: "2026-10-09T07:00:00.000Z", size: 3_300_000, kind: "pre-reset" };
@@ -215,7 +236,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
     seen.push(`unexpected dialog: ${d.message()}`);
     void d.dismiss();
   });
-  const restoreCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Palauta viimeisin varmuuskopio" }) });
+  const restoreCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Palauta uusin varmuuskopio" }) });
   const resetCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Tyhjennä kaikki tiedot" }) });
   const openPanels = async () => {
     // the earlier test leaves the helper working; run alone, the other controls are folded away
@@ -271,7 +292,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   expect(reads).toBe(1);
 
   // a word in the wrong case is stopped by the form: nothing is sent
-  await restoreCard.getByRole("button", { name: "Palauta viimeisin varmuuskopio" }).click();
+  await restoreCard.getByRole("button", { name: "Palauta uusin varmuuskopio" }).click();
   let dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Tietokanta korvataan varmuuskopiolla ajalta")).toBeVisible();
   await dialog.getByLabel("Salasanasi").fill("väärä-salasana-1234");
@@ -294,7 +315,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   expect(sent.restore.at(-1)).toEqual({ password: "esimerkki-salasana-123", confirm: "PALAUTA" });
   const asked = page.getByRole("status").filter({ hasText: "Palautus on pyydetty." });
   await expect(asked).toContainText("Sovellus käynnistyy uudelleen ja korvaa tietokannan varmuuskopiolla ajalta");
-  await expect(restoreCard.getByRole("button", { name: "Palauta viimeisin varmuuskopio" })).toHaveCount(0);
+  await expect(restoreCard.getByRole("button", { name: "Palauta uusin varmuuskopio" })).toHaveCount(0);
   // it never says the restore was done: the notice after the start tells that
   await expect(asked).toContainText("Sivun yläreunan ilmoitus kertoo, tehtiinkö palautus.", { timeout: 20_000 });
   await expect(asked.getByRole("button", { name: "Lataa sivu uudelleen" })).toBeVisible();
@@ -341,7 +362,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   await expect(done).toContainText("Tiedot on tyhjennetty. Kirjaudu sisään uudelleen.");
   await expect(done).toContainText("Varmuuskopio ennen tyhjennystä: pre-reset-20261009T100000.db");
   await expect(done).toContainText("2 pankkiyhteyttä jäi voimaan pankissa. Ne vanhenevat itsestään.");
-  await expect(done).toContainText("Pankit yhdistetään uudelleen kirjautumisen jälkeen.");
+  await expect(done).toContainText("Yhdistä pankit uudelleen, kun olet kirjautunut.");
   await expect(dialog).toBeHidden();
   expect(sent.reset).toEqual([
     { password: "esimerkki-salasana-123", confirm: "TYHJENNÄ" },

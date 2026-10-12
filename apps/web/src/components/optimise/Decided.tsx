@@ -20,7 +20,7 @@ function Undo({ title, take, onChanged }: { title: string; take: () => Promise<u
     setBusy(true);
     setError(null);
     take()
-      .then(() => onChanged("Päätös peruttiin."))
+      .then(() => onChanged("Päätös peruutettiin."))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };

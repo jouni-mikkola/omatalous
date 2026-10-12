@@ -113,7 +113,7 @@ export async function optimisePage(s: Services, userId: string, scope: Scope): P
 export async function optimiseEvidence(s: Services, userId: string, scope: Scope, id: string): Promise<EvidenceResponse> {
   const { ctx, accounts, data } = await compute(s, userId, scope);
   const finding = allFindings(data).find((f) => f.id === id);
-  if (!finding) throw new NotFound("Löydöstä ei löydy.");
+  if (!finding) throw new NotFound("Vinkkiä ei löydy.");
   const byId = rowsById(ctx);
   const names = new Map(accounts.map((a) => [a.id, a.ownerName ? `${a.name} (${a.ownerName})` : a.name]));
   const struck = new Set(finding.struck);
@@ -165,7 +165,7 @@ export async function decide(s: Services, userId: string, scope: Scope, id: stri
   // the finding as it is without this decision: a snoozed one is hidden while its state stands
   const { ctx, data } = await compute(s, userId, scope, id);
   const finding = allFindings(data).find((f) => f.id === id);
-  if (!finding) throw new NotFound("Löydöstä ei löydy.");
+  if (!finding) throw new NotFound("Vinkkiä ei löydy.");
   if (request.status !== null) {
     if (stored.length >= MAX_STATES && !known) throw new UserError("Päätöksiä on liikaa. Poista ensin vanhoja.");
     const effectiveDate = request.status === "done" ? (request.effectiveDate ?? s.today()) : null;

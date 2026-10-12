@@ -1,7 +1,9 @@
 import { getCategory } from "./categories.ts";
+import { bankRowRules } from "./categorize-bank-rows.ts";
+import { type Holders, holdersOf, peopleRules } from "./categorize-people.ts";
 import { fold, namesUnknownMerchant } from "./merchant.ts";
-import type { CategoryRule, CategorySource, RuleField } from "./types.ts";
-import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isNoCreditText, isOwnTransferCode, isPersonShaped, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS } from "./wording.ts";
+import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, words } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -9,6 +11,12 @@ export interface CategorizeInput {
   description: string | null;
   mcc: string | null;
   bankTxnCode?: string | null;
+  /** The payment's reference number. Absent: the row carries no such field and nothing is known; null or empty: the payment has none. */
+  reference?: string | null;
+  /** The payee's account. Absent or empty: the row has none, as a card purchase has not. */
+  counterpartyIban?: string | null;
+  /** The row's account pays this payee about the same sum in three or more months (`steadyParties`): a payee, not a single gift. Absent: not known, taken as no. */
+  steadyPayee?: boolean;
   amountCents: number;
 }
 
@@ -29,19 +37,16 @@ interface BuiltinRule {
   when?: (text: string, input: CategorizeInput) => boolean;
 }
 
-/** Whole-word alternation that also works next to "+", "'" and "." */
-function w(alternatives: string): RegExp {
-  return new RegExp(String.raw`(?<![A-Z0-9])(?:${alternatives})(?![A-Z0-9])`);
-}
+/** Whole-word alternation: the one word boundary of the bank dialect (wording.ts). */
+const w = words;
 
 /** Banks that lend mortgages. Nordea's finance company (Nordea Rahoitus) lends for cars and cards instead. */
 const MORTGAGE_BANK = w(String.raw`(?!${NORDEA_FINANCE_WORDS})NORDEA|OP|[A-Z]*OSUUSPANKKI|DANSKE|S-PANKKI|AKTIA|[A-Z]*SAASTOPANKKI|POP PANKKI|HANDELSBANKEN|ALANDSBANKEN`);
 
 /**
- * Built-in rules for Finnish merchants and payment texts. Matched against the
- * folded (upper-case, ä→a, ö→o) merchant + counterparty + description.
- * First match wins: purpose-of-payment rules (debt, card bills, savings), then the bank's own code (CODE_RULES),
- * then merchant rules, and generic fallbacks (refunds, MobilePay) last.
+ * Built-in rules for Finnish merchants and payment texts, matched against the folded (upper-case, ä→a, ö→o) merchant +
+ * counterparty + description. First match wins: purpose-of-payment rules (debt, card bills, savings), the bank's own code
+ * (CODE_RULES), lenders by name and the bank's own rows (categorize-bank-rows.ts), merchant rules, generic fallbacks last.
  */
 const PURPOSE_RULES: readonly BuiltinRule[] = [
   // ── income ──
@@ -119,7 +124,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
     category: "fees",
     direction: "out",
     re: w(
-      String.raw`PALVELUMAKSU|PALVELUPAKETTI|KUUKAUSIMAKSU NORDEA|TILINHOITOMAKSU|KORTTIMAKSU|KORTIN VUOSIMAKSU|KORTTIVUOSIMAKSU|PANKKIMAKSU|SERVICE FEE|VALUUTANVAIHTO[A-Z]*|VALUUTTAMUUNNOS[A-Z]*|ULKOMAANMAKSU|NOSTOMAKSU|MUISTUTUSMAKSU`,
+      String.raw`PALVELUMAKSU|PALVELUPAKETTI|PAIVITTAISPALVELU[A-Z]*|KUUKAUSIMAKSU NORDEA|TILINHOITOMAKSU|KORTTIMAKSU|KORTIN VUOSIMAKSU|KORTTIVUOSIMAKSU|PANKKIMAKSU|SERVICE FEE|VALUUTANVAIHTO[A-Z]*|VALUUTTAMUUNNOS[A-Z]*|ULKOMAANMAKSU|NOSTOMAKSU|MUISTUTUSMAKSU`,
     ),
   },
   { category: "cash", direction: "out", re: w(String.raw`KATEISNOSTO|OTTO|ATM|AUTOMAATTI|CASH WITHDRAWAL`) },
@@ -127,7 +132,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
     category: "taxes",
     direction: "out",
     re: w(
-      String.raw`VEROHALLINTO|${RESIDUAL_TAX_WORDS}|${OTHER_TAX_WORDS}|TRAFICOM|YLEISRADIO|POLIISI[A-Z]*|OIKEUSREKISTERIKESKUS|RIKESAKKO|SAKKO|PYSAKOINTIVIRHE[A-Z]*|PYSAKOINNINVALVONTA|VALVONTAMAKSU|TARKASTUSMAKSU|PARKKIPATE|TULLI|DIGI- JA VAESTOTIETOVIRASTO|DVV|MAANMITTAUSLAITOS|PATENTTI- JA REKISTERIHALLITUS|MAAHANMUUTTOVIRASTO|MIGRI`,
+      String.raw`VEROHALLINTO|${RESIDUAL_TAX_WORDS}|${OTHER_TAX_WORDS}|LAHDEVERO|TRAFICOM|YLEISRADIO|POLIISI[A-Z]*|OIKEUSREKISTERIKESKUS|RIKESAKKO|SAKKO|PYSAKOINTIVIRHE[A-Z]*|PYSAKOINNINVALVONTA|VALVONTAMAKSU|TARKASTUSMAKSU|PARKKIPATE|TULLI|DIGI- JA VAESTOTIETOVIRASTO|DVV|MAANMITTAUSLAITOS|PATENTTI- JA REKISTERIHALLITUS|MAAHANMUUTTOVIRASTO|MIGRI`,
     ),
   },
 ];
@@ -249,7 +254,7 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
   {
     category: "home",
     re: w(
-      String.raw`IKEA|JYSK|BAUHAUS|K-?RAUTA|RAUTA|RAUTAKAUPPA|RAUTIA|RAUTAKESKO|EURONICS|MEDIA ?MARKT|ELKJOP|ELGIGANTEN|FOTOKEMA|STARK|OBI|BILTEMA|MOTONET|PUUILO|GIGANTTI|VERKKOKAUPPA\.?COM|POWER|JIMMS|PROSHOP|DUSTIN|DATATRONIC|MULTITRONIC|APPLE STORE|ASKO|SOTKA|MASKU OY|MASKUN KALUSTETALO|VEPSALAINEN OY|VEPSALAINEN\.COM|ISKU|INDISKA|BEDSHOP|UNIKULMA|HOBBY HALL|CLAS OHLSON|PLANTAGEN|HAKAMAKI|HONG KONG|SINOOPPI|KUKKA[A-Z]*|FLORISTI[A-Z]*|[A-Z]*PUUTARHA[A-Z]*|[A-Z]*PESULA|LUKKOLIIKE|HUOLTOMIES|SIIVOUS[A-Z]*|KOTISIIVOUS|IKKUNANPESU|REMONTTI[A-Z]*|SAHKO(?:ASENN|ASENT|PALVELU|TYO|URAKOINTI)[A-Z]*|LVI|PUTKI(?!NEN)[A-Z]*|LUKKOSEPPA|SUUTARI|OMMELU|KELLOSEPPA|VAATEKORJAAMO|BETONI|MAANRAKENNUS|PIHAKIVI|PIHA|KATTOREMONTTI|MAALARI|MAALAUS[A-Z]*|SIIVOUSPALVELU[A-Z]*|SIIVOUSLIIKE|MUUTTO[A-Z]*|PIHATYO[A-Z]*|LUMITYO[A-Z]*|KOTITALKKARI`,
+      String.raw`IKEA|JYSK|BAUHAUS|K-?RAUTA|RAUTA|RAUTAKAUPPA|RAUTIA|RAUTAKESKO|EURONICS|MEDIA ?MARKT|ELKJOP|ELGIGANTEN|FOTOKEMA|STARK|OBI|BILTEMA|MOTONET|PUUILO|GIGANTTI|VERKKOKAUPPA\.?COM|POWER|JIMMS|PROSHOP|DUSTIN|DATATRONIC|MULTITRONIC|APPLE STORE|ASKO|SOTKA|MASKU OY|MASKUN KALUSTETALO|VEPSALAINEN OY|VEPSALAINEN\.COM|ISKU|INDISKA|BEDSHOP|UNIKULMA|HOBBY HALL|CLAS OHLSON|PLANTAGEN|HAKAMAKI|HONG KONG|SINOOPPI|KUKKA[A-Z]*|KIMPPU|FLORISTI[A-Z]*|[A-Z]*PUUTARHA[A-Z]*|[A-Z]*PESULA|LUKKOLIIKE|HUOLTOMIES|SIIVOUS[A-Z]*|KOTISIIVOUS|IKKUNANPESU|REMONTTI[A-Z]*|SAHKO(?:ASENN|ASENT|PALVELU|TYO|URAKOINTI)[A-Z]*|LVI|PUTKI(?!NEN)[A-Z]*|LUKKOSEPPA|SUUTARI|OMMELU|KELLOSEPPA|VAATEKORJAAMO|BETONI|MAANRAKENNUS|PIHAKIVI|PIHA|KATTOREMONTTI|MAALARI|MAALAUS[A-Z]*|SIIVOUSPALVELU[A-Z]*|SIIVOUSLIIKE|MUUTTO[A-Z]*|PIHATYO[A-Z]*|LUMITYO[A-Z]*|KOTITALKKARI`,
     ),
   },
   {
@@ -273,7 +278,8 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
 const FALLBACK_RULES: readonly BuiltinRule[] = [
   // a city or municipality without a more specific purpose (daycare and health care are matched above)
   { category: "taxes", direction: "out", re: w(String.raw`[A-Z]+N KAUPUNKI|[A-Z]+N KUNTA|KAUPUNGINKANSLIA`) },
-  { category: "reimbursements", direction: "in", re: w(REIMBURSEMENT_WORDS) },
+  // a travel claim comes with its number glued on (MATKALASKU123456)
+  { category: "reimbursements", direction: "in", re: w(REIMBURSEMENT_WORDS, true) },
   // a company paid or paying with MobilePay is not a person (TIKKURILAN TIIKERIT RY)
   { category: "p2p_in", direction: "in", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLTA`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) },
   { category: "p2p", direction: "out", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLLE`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) },
@@ -366,8 +372,6 @@ export function categoryForMcc(mcc: string | null): string | null {
   return null;
 }
 
-const P2P_MARKER = w(`${MOBILEPAY_WORDS}|SIIRTO HENKILO(?:LLE|LTA)`);
-
 /**
  * Whether a merchant rule recognises the name as a business: a trade word
  * that the rules also find inside a compound (KESÄKAHVILA, LÄHIAPTEEKKI), or
@@ -382,16 +386,8 @@ function namedLikeBusiness(name: string): boolean {
   });
 }
 
-/**
- * MobilePay to or from a person. Checked before the merchant rules, because first names and surnames are often
- * merchant words too. A person has the shape of a name, by the rule that keeps a name from the trade register
- * (isPersonShaped), no company form at either end and no trade word.
- */
-function personViaMobilePay(input: CategorizeInput): boolean {
-  const name = fold(input.counterparty ?? "").trim();
-  if (!P2P_MARKER.test(fold([input.counterparty, input.description].filter(Boolean).join(" ")))) return false;
-  return isPersonShaped(name) && !hasPayeeForm(name) && !namedLikeBusiness(name);
-}
+/** Whether a message alone holds a word of a shop's or service's rule: the person paid may be paid for what the word names. */
+const namesShopOrService = (message: string) => MERCHANT_RULES.some((r) => r.re.test(message));
 
 export interface CompiledRule {
   id?: number;
@@ -402,8 +398,8 @@ export interface CompiledRule {
   direction?: Direction;
   /** One of the user's own rules. */
   byUser?: boolean;
-  /** `input` is there for rules that look at a single field (see personViaMobilePay). */
-  test: (text: string, input: CategorizeInput) => boolean;
+  /** `input` is there for rules that look at a single field, `holders` for the rules about people (categorize-people.ts), `accounts` for those about the household's banks. */
+  test: (text: string, input: CategorizeInput, holders: Holders, accounts: readonly Account[]) => boolean;
 }
 
 /** "/…/" with optional flags: how older versions stored a regex rule. */
@@ -537,11 +533,9 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
     direction: r.direction,
     test: r.when ? (text, input) => r.re.test(text) && r.when!(text, input) : (text) => r.re.test(text),
   }));
-  const people: CompiledRule[] = [
-    { category: "p2p_in", income: false, field: "any", direction: "in", test: (_text, input) => personViaMobilePay(input) },
-    { category: "p2p", income: false, field: "any", direction: "out", test: (_text, input) => personViaMobilePay(input) },
-  ];
-  return [...user, ...people, ...builtin(PURPOSE_RULES), ...CODE_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
+  // a card code of a shop: the money transfer code (p2p) is none
+  const people = peopleRules(namedLikeBusiness, (mcc) => (categoryForMcc(mcc) ?? "p2p") !== "p2p", namesShopOrService);
+  return [...user, ...people.first, ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
 }
 
 function fieldText(input: CategorizeInput, field: RuleField): string {
@@ -558,8 +552,9 @@ function fieldText(input: CategorizeInput, field: RuleField): string {
   }
 }
 
-export function categorize(input: CategorizeInput, rules: readonly CompiledRule[]): CategorizeResult {
+export function categorize(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[] = []): CategorizeResult {
   const direction: Direction = input.amountCents >= 0 ? "in" : "out";
+  const holders = holdersOf(accounts);
   const texts = new Map<RuleField, string>();
   for (const rule of rules) {
     if (rule.direction && rule.direction !== direction) continue;
@@ -567,7 +562,7 @@ export function categorize(input: CategorizeInput, rules: readonly CompiledRule[
     if (direction === "out" && rule.income) continue;
     let text = texts.get(rule.field);
     if (text === undefined) texts.set(rule.field, (text = fieldText(input, rule.field)));
-    if (rule.test(text, input)) {
+    if (rule.test(text, input, holders, accounts)) {
       const byUser = rule.byUser ? { byUser: true } : {};
       // a lender sending money (loan payout) is borrowing, not repayment
       if (direction === "in" && getCategory(rule.category).kind === "debt") return { category: "credit_draw", source: "rule", ...byUser };

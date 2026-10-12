@@ -97,17 +97,17 @@ function habitFinding(a: AreaInput, merchant: string, win: { now: string[]; then
     { label: `${nowSpan}, kertaa kuussa tavallisesti`, value: formatCount(own6.now) },
     { label: `${thenSpan}, kertaa kuussa tavallisesti`, value: formatCount(own6.then) },
     { label: `${thenSpan}, kertaa kuussa keskimäärin`, value: formatCount(thenMean) },
-    { label: "Keskiostos", value: formatEur(ticket) },
+    { label: "Ostoskerta keskimäärin", value: formatEur(ticket) },
     { label: "Ero vuodessa", value: eur(midCents) },
     ...struckRows.slice(0, 5).map((t) => ({ label: `Kertaosto ${formatFiDate(t.bookingDate)}`, value: formatEur(netPurchase(t)), struck: true })),
   ];
-  if (more < own6.now - own6.then) calc.splice(3, 0, { label: "Pieniä ostoksia lisää kuussa, sama luokka", value: formatCount(all.now - all.then) });
+  if (more < own6.now - own6.then) calc.splice(3, 0, { label: "Pieniä ostoksia lisää kuussa, sama kategoria", value: formatCount(all.now - all.then) });
   return {
     id: findingId("habits", "repeat", merchant),
     area: "habits",
     kind: "repeat",
     subject: merchant,
-    title: `${merchant}: ${formatCount(own6.now)} kertaa kuussa, vuotta aiemmin ${formatCount(own6.then)}. Keskiostos ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[win.now.length - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
+    title: `${merchant}: ${formatCount(own6.now)} kertaa kuussa, vuotta aiemmin ${formatCount(own6.then)}. Ostoskerta keskimäärin ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[win.now.length - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
     action: `Tarkista käyntien määrä: vuotta aiemmin ${formatCount(own6.then)} kertaa kuussa.`,
     effort: "minuutteja",
     euros: { lowCents: Math.round(midCents / 2), midCents, highCents, assumption: "Jos käyntejä on yhtä monta kuin vuotta aiemmin." },

@@ -1,10 +1,35 @@
 /** The user's category rules, including the "all of this merchant" rules that the category settings write. */
-import { type CategoryRule, namesUnknownMerchant, type RuleField } from "@banking/core";
+import { type CategoryRule, getCategory, namesUnknownMerchant, type RuleField } from "@banking/core";
 import type { Row } from "../rows.ts";
 import { type FinanceContext, writeBatch } from "./context.ts";
 
 /** Rules made with "all of this merchant". */
 const MERCHANT_RULE_FIELDS = "('merchant', 'merchant_exact')";
+
+/** The part of a stored row `settleMerchantRules` reads. */
+interface SettleRow {
+  merchant: string;
+  categorySource: string;
+  amountCents: number;
+}
+
+/**
+ * The money a rule's category reaches, as categorising reads a rule: an income category only money in (+1), a debt one only
+ * money out (-1; money in under a debt category is credit drawn, which the reprocess tells), any other both (0): a
+ * spending rule also reaches a refund or a sale at the name.
+ */
+function directionOf(category: string): 1 | -1 | 0 {
+  const kind = getCategory(category).kind;
+  return kind === "income" ? 1 : kind === "debt" ? -1 : 0;
+}
+const moneySql = (category: string) => {
+  const way = directionOf(category);
+  return way > 0 ? " AND amount_cents > 0" : way < 0 ? " AND amount_cents < 0" : "";
+};
+
+/** Whether the settle writes this category onto the row: the SQL of `settleMerchantRules` says the same. */
+const settleReaches = (category: string, row: Pick<SettleRow, "categorySource" | "amountCents">) =>
+  row.categorySource !== "user" && row.categorySource !== "transfer" && (directionOf(category) === 0 || Math.sign(row.amountCents) === directionOf(category));
 
 export class RulesRepo {
   constructor(private readonly ctx: FinanceContext) {}
@@ -80,6 +105,30 @@ export class RulesRepo {
         params: [to, this.ctx.userId, from],
       })),
     );
+  }
+
+  /**
+   * For merchants whose names an upgrade makes one with others ("TORI.FI SOFA" and "TORI.FI LASTEN KIRJAT" both become
+   * "Tori"): a rule made on one of them must not take the rest, and it cannot follow the new name. Each rule's category
+   * is written onto the rows of its own name as the household's own choice (a row set by hand keeps its category) and the
+   * rule is deleted, both in one batch. Call it while the rows still carry the old names. A row set by hand, or stored as
+   * a transfer, keeps what it has, and a rule reaches only the money its category can describe (`directionOf`). Of two
+   * rules that reach a row the lower priority number wins, as in categorising. Returns what the rows got: the category a
+   * row of the old name was given, or undefined for a row the rules left alone.
+   */
+  async settleMerchantRules(merchants: ReadonlySet<string>): Promise<(row: SettleRow) => string | undefined> {
+    const rules = (await this.listRules()).filter((r) => (r.field === "merchant" || r.field === "merchant_exact") && !namesUnknownMerchant(r) && merchants.has(r.pattern));
+    await writeBatch(
+      this.ctx.db,
+      rules.flatMap((r) => [
+        {
+          sql: `UPDATE transactions SET category = ?, category_source = 'user' WHERE user_id = ? AND merchant = ? AND category_source NOT IN ('user', 'transfer')${moneySql(r.category)}`,
+          params: [r.category, this.ctx.userId, r.pattern],
+        },
+        { sql: "DELETE FROM category_rules WHERE id = ? AND user_id = ?", params: [r.id!, this.ctx.userId] },
+      ]),
+    );
+    return (row) => rules.find((r) => r.pattern === row.merchant && settleReaches(r.category, row))?.category;
   }
 
   async deleteRule(id: number): Promise<void> {

@@ -45,7 +45,7 @@ function Changes({ r }: { r: IncomeReport }) {
       </ul>
       {r.changes.length > 3 && (
         <button className="btn btn-small" onClick={() => setAll((v) => !v)} aria-expanded={all}>
-          {all ? "Näytä kolme" : `Näytä kaikki (${r.changes.length})`}
+          {all ? "Näytä vähemmän" : `Näytä kaikki (${r.changes.length})`}
         </button>
       )}
     </>
@@ -115,7 +115,7 @@ function Types({ r }: { r: IncomeReport }) {
                                 </li>
                               ))}
                             </ul>
-                            <a href={rowsHref(p.payer, r)}>Näytä tapahtumissa</a>
+                            <a href={rowsHref(p.payer, r)}>Näytä tapahtumat</a>
                           </td>
                         </tr>
                       )}
@@ -185,10 +185,10 @@ function Year({ r }: { r: IncomeReport }) {
       ) : (
         <StackedColumns months={months} series={used} highlight={(m) => past.has(m)} label="Tulot kuukausittain tulolajeittain" />
       )}
-      {r.projection.length > 0 && <p className="income-caption">Himmeät sarakkeet ovat arvio säännöllisistä tuloista.</p>}
+      {r.projection.length > 0 && <p className="income-caption">Himmeät pylväät ovat arvio säännöllisistä tuloista.</p>}
       {r.markers.length > 0 && (
         <p className="income-caption">
-          Viime vuonna lisäksi {r.markers.map((m) => `${m.label.toLowerCase()} ${money(m.cents, false)} (${monthLong(m.month).split(" ")[0]})`).join(", ")}. {r.markers.length === 1 ? "Se ei ole" : "Ne eivät ole"} arviossa.
+          Viime vuonna lisäksi {r.markers.map((m) => `${m.label.toLowerCase()} ${money(m.cents, false)} (${monthLong(m.month).split(" ")[0]})`).join(", ")}. {r.markers.length === 1 ? "Se ei ole mukana" : "Ne eivät ole mukana"} arviossa.
         </p>
       )}
     </div>
@@ -242,13 +242,13 @@ function Income({ ctx }: SectionProps) {
   }
   const change = r.earnedChange;
   return (
-    <Section id={section.id} title={title} sub={`${span(first, last)}, nettotulot ilman henkilöiltä saatuja ja hyvityksiä`}>
+    <Section id={section.id} title={title} sub={`${span(first, last)}, nettotulot ilman henkilöiltä saatuja maksuja ja hyvityksiä`}>
       <Kv
         items={[
           // what reached the accounts, after tax: not the gross ansiotulo of taxation
           [`Nettotulot ${r.months.length} kuukaudessa`, money(r.earnedCents, false)],
           ...(change === null ? [] : ([["Edellisestä 12 kuukaudesta", signedPercent(change)]] as [string, string][])),
-          ...(r.notEarnedCents ? ([["Henkilöiltä ja hyvityksinä", money(r.notEarnedCents, false)]] as [string, string][]) : []),
+          ...(r.notEarnedCents ? ([["Maksut henkilöiltä ja hyvitykset", money(r.notEarnedCents, false)]] as [string, string][]) : []),
         ]}
       />
       <h3>Mikä muuttui</h3>

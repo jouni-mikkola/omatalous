@@ -14,6 +14,8 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm test:sh` | the shell suites in `tools/test/` |
 | `pnpm lint:sh` | lint of every shell file (`tools/ci/shell-lint.sh`) |
 | `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
+| `pnpm strings` | every text the browser can show, one line each: `file:line`, tab, kind (`jsx`, `attr`, `literal`, `error`), tab, the text. Narrow it with `grep` on the first column, `--file <path>`, or `--count`; `pnpm -s strings` leaves out pnpm's own lines. For reading the Finnish of the whole app in one place |
+| `pnpm findings` | every statement the product makes about money, for the demo and the seeded households. `--golden` rewrites the golden files (see *Golden files* below) |
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
 | `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
@@ -36,7 +38,10 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   categories.ts              categories: id, label, flow kind, report group
   merchant.ts                merchant name cleanup
   categorize.ts              rules engine, Finnish rules, MCC codes
+  categorize-people.ts       the rules about people: holders of the accounts, MobilePay, the bank's words for a payment between people
+  categorize-bank-rows.ts    lenders by the shape of their name, by their own payout and by the register; the bank's own rows
   transfers.ts               transfers between own accounts, card payments
+  card-channel.ts            a card's payment channel, learned from paired rows on every run and stored nowhere
   industry.ts                trade register match, TOL code to category, which rows are businesses
   pipeline.ts                categorize, transfers, merchant memory, industry; run after every change
   recurring.ts               subscriptions, bills, habits, income, price changes
@@ -44,6 +49,7 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   analysis/                  flows, analysis context (cached on the server), dashboard, insights
   reports/                   one file per report, registered in reports/index.ts
   loans.ts                   every figure of a loan; household-debts.ts the list of debts behind each debt total
+  holdings.ts                accounts, cards and loans as the first page shows them; it adds nothing up itself
 
 apps/server/src
   app.ts                     middleware and routes
@@ -68,7 +74,7 @@ apps/server/src
   entry/secret-rotate.ts     the secret rotation command
   db/startup-gate.ts         the check before the database opens; backup-keep.ts, backup-check.ts which copies pruning
                              keeps and the deep check of a copy (ARCHITECTURE.md, "Keeping the data safe")
-  services/db-restore.ts     Palauta viimeisin varmuuskopio; reset.ts Tyhjennä kaikki tiedot; disk.ts the reserve file;
+  services/db-restore.ts     Palauta uusin varmuuskopio; reset.ts Tyhjennä kaikki tiedot; disk.ts the reserve file;
                              db-health.ts the notices about the safety net
 
 apps/web/src
@@ -126,6 +132,19 @@ a change meets:
   name that only `tools/test` uses does not count: a function that only a test calls is dead.
 - Rule 27: `git check-ignore` holds for `.env.new`, `ops/env.prev` and `.env.bak.1`, so a copy of `.env` is never
   committed.
+- Rule 28: Finnish that reads as translated or machine written (`tools/repo-rules/finnish.ts`). It reads the files whose
+  strings reach the browser, the same folders `pnpm strings` lists. It refuses a calque (*pois lukien*), a word the
+  glossary rejects (*löydös*, *syötetty*, *keskiostos*), a past-tense te-form and the marks of machine-written prose: an
+  em dash in a Finnish string, "ei ... vaan" as a contrast and an exclamation mark at the end of a sentence. A failure prints the file and line,
+  the name of the pattern and one line on how to write it instead. Write the sentence again in plain Finnish, as a person
+  would say it to a friend. Do not add the string to a list to make the rule pass: a pattern that catches a good
+  sentence gets a near miss in `tools/repo-rules/finnish.test.ts` first.
+
+Rules 12 and 28 together are the Finnish of the app: everything the browser shows is Finnish, in the words of the glossary
+(*tapahtuma*, never *tilitapahtuma*). `pnpm strings` lists every such text with its file and line, so a copy pass reads the
+whole app in one list. A text you change or remove is searched in `tools/`, `apps/web/test` and `e2e` before the
+commit, and `pnpm test tools/ui-strings.test.ts` runs: that test pins some sentences of the app's pages, and a copy
+pass that rewrites one changes its part there too.
 
 ## Recipes
 
@@ -206,6 +225,32 @@ There is no recipe for an import format: the CSV import was removed in 0.9.0 and
    ([changelog.d/README.md](../changelog.d/README.md)). The release script refuses a release that adds a migration
    without one. Do not bump versions or edit `CHANGELOG.md`: `pnpm release:prepare` does both at release.
 
+### The loan link and a debt figure
+
+A saved loan can name the connected card or loan account that is the same debt (`loans.account_id`, migration 0016: a
+nullable column, `ON DELETE SET NULL`, additive with a compat floor of 0.8.0). A linked pair is one debt. Every debt total
+reads the list in `householdDebts`, and no view adds loans and accounts up itself.
+
+1. A figure of one loan (owed on a day, interest, next payment, payoff date) is a function in `loans.ts`. Which debts
+   count, and that a linked pair counts once, is decided in `household-debts.ts` alone (ADR 0004, 0012). A new debt
+   figure goes in one of the two, never in a report or a component.
+2. The link itself is made on the server: `routes/loans.ts` takes `accountId` through `parseAccountId`, which accepts only
+   the owner's own card or loan account, and the statement in `db/finance/loans.ts` (`ACCOUNT_FREE`) allows one loan to
+   an account. A new way to save a loan goes through both.
+3. In core a linked pair is one entry of `HouseholdDebts.connected` whose `sources` entry says `linked`. It holds the
+   bank's balance with the saved loan's rate and payments while the account's balance is at or below zero and is not
+   older than the balance typed for the loan (`balanceDayOf`); otherwise it counts as typed, still once. The readers are
+   the Lainat report, the accounts less the debts in Saldot, the loan area of Säästövinkit and `buildHoldings` for the
+   first page. A debt that may still be counted twice is named by `maybeTwice` in `reports/loans.ts`.
+4. In the web, `LoanLinks` (`components/loans/LoanEditor.tsx`) gives the form the household's accounts and loans, and the
+   Lainat report links to a loan's form with an account chosen by `#/settings?linkLoan=<loan id>&linkAccount=<account id>`
+   (`LOAN_LINK_PARAM` in `components/loans/form.ts`).
+5. Tests to extend: `packages/core/test/household-debts.test.ts` (the list and its three readers, with and without a
+   link), `owners.test.ts` (the readers agree), `balances-holdings.test.ts` (cards' use and loans' balance add up to the
+   debt total), `apps/server/test/loan-link.test.ts` (own account only, one loan to an account, the link goes with the
+   account), `apps/web/test/loan-link.test.ts` and `e2e/loans.spec.ts`. A figure that changes for a linked pair needs a
+   case with the link and one without.
+
 ### New API route
 
 Add it to the right `routes/*.ts`. Everything under `/api/*` after `requireUser` needs a login and the
@@ -259,6 +304,41 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
 - The shell suites (`tools/test/*.test.sh`) of the maintenance helper share one fake host, clone and set of ticks,
   `tools/test/ops-world.sh`, and `ops-helper.test.sh` has a scenario for each place the helper calls one of its libraries.
 - A new feature gets a test. A bug fix starts with a test that shows the bug.
+
+### How to test a change
+
+1. While you work, run the one test file you are changing: `pnpm test path/to/file.test.ts`.
+2. Before you commit, run `pnpm check --changed <base>` once, with the commit your work started from (without a base it
+   is `origin/main`). It runs the type check everywhere, the tests of the packages the diff touches and the shell suites
+   only if shell changed, and ends in a few lines. A plain `pnpm check` runs everything, as CI does.
+3. Run `pnpm build` and `pnpm e2e` once, and only when the change touches the web app or a route. Never a subset of the
+   specs: a page that breaks shows in another page's spec.
+4. Stage your files first (`git add -A`): the repo rules read the index and the new files that git does not ignore.
+
+### Golden files
+
+`packages/core/test/golden/` holds every statement the product makes about money (alerts, insights, Säästövinkit, the
+income and change reports and their outcomes) for the demo, the kit's base household and seeds 1 to 5, one file per
+source. They are output and never edited by hand. `golden.test.ts` fails when the code says something else, and
+`pnpm findings --golden` writes the files again.
+
+- Commit the diff with the code that moved it, and explain each moved statement: a moved line must have a cause in the
+  change, and a line nobody can explain stops the change.
+- When two branches both move them, the first lands with its diff. Each later one is rebased, takes the golden
+  files of the new head, runs `pnpm findings --golden`, and its diff must be the lines its own change explains. Never
+  merge a golden file by hand.
+- `kit/known.ts` lists the false statements that the tests know of. It may only shrink.
+
+### The contrast test
+
+`apps/web/test/contrast.test.ts` reads `apps/web/src/styles/tokens.css` as text and measures every `#rrggbb` token with
+the WCAG 2 formulas: text tokens at 4.5 to 1 on the page and both surfaces, text on the three tints, series colours and
+the two darkest heat steps at 3 to 1 on the surface, the border at 1.3 to 1, the grid at 1.2 and the axis at 3, and
+neighbouring series at 1.2 to 1 in luminance or 60 degrees of hue apart. It also keeps the page between 0.70 and 0.76 in
+luminance and the surface 0.06 above it. A failure names the pair and its figure (`muted on surface-2: 4.31 < 4.5`).
+When a new token fails, move the colour, not the test: darken or lighten it in linear light by the smallest step that
+passes, plus a little margin, so its hue stays. A new text or series token goes on its list in the test. The test
+also holds the theme colour in `apps/web/index.html` equal to the page colour, so the two move together.
 
 ### End-to-end tests
 

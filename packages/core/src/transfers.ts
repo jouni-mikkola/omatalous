@@ -2,6 +2,10 @@ import { getCategory } from "./categories.ts";
 import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
 import type { Account, Transaction } from "./types.ts";
+import { companyForms } from "./wording.ts";
+
+/** The forms that make a payee a company. */
+const PAYEE_FORMS = companyForms("payee");
 
 /** Max days between the two legs of a transfer between own accounts. */
 const PAIR_WINDOW_DAYS = 5;
@@ -59,18 +63,23 @@ const wordsOf = (text: string): string[] =>
   text.split(/[^A-Z0-9-]+/).flatMap((t) => (/^[A-Z0-9]+(-[A-Z0-9]+)+$/.test(t) ? [t, ...t.split("-")] : t.split("-"))).filter(Boolean);
 
 interface CardName {
+  /** The card's account. */
+  id: string;
   /** What names the card: the issuer and the product, as whole words (a short issuer name such as OP is a word of its own). */
   words: Set<string>;
   /** Every word of the account name, to tell which product it is. */
   all: Set<string>;
 }
 
+/** The words of a name that say whose it is: neither a generic card word nor a number. */
+const namingWords = (words: readonly string[]) => words.filter((w) => w.length >= 2 && !GENERIC_CARD_WORDS.has(w) && !/^\d+$/.test(w));
+
 function cardNames(accounts: readonly Account[]): CardName[] {
   return accounts
     .filter((a) => a.type === "credit_card")
     .map((a) => {
       const all = wordsOf(fold(a.bankName ?? a.name));
-      return { all: new Set(all), words: new Set(all.filter((w) => w.length >= 2 && !GENERIC_CARD_WORDS.has(w) && !/^\d+$/.test(w))) };
+      return { id: a.id, all: new Set(all), words: new Set(namingWords(all)) };
     })
     .filter((c) => c.words.size > 0);
 }
@@ -84,6 +93,31 @@ function billOfCard(text: ReadonlySet<string>, card: CardName): boolean {
   const issuer = [...card.words].filter((w) => !CARD_PRODUCT_WORDS.includes(w));
   if (!(issuer.length ? issuer : [...card.words]).some((w) => text.has(w))) return false;
   return !CARD_PRODUCT_WORDS.some((w) => text.has(w) && !card.all.has(w));
+}
+
+/**
+ * Whether a payee's name names this card: its issuer by the card's own name (see billOfCard), or the bank the card's
+ * connection was made with. "ESIMERKKIPANKKI OYJ" names "Esimerkkipankki Gold".
+ */
+export function namesCard(payee: string, card: Account): boolean {
+  const [byName] = cardNames([card]);
+  return (!!byName && billOfCard(new Set(wordsOf(fold(payee))), byName)) || namesBank(payee, card);
+}
+
+/**
+ * Whether a payee's name names the bank an account's connection was made with ("Esimerkkipankki Oyj" is named by
+ * "ESIMERKKIPANKKI OYJ"). The company form in the bank's name names nobody: any other Oyj would be the bank.
+ */
+export function namesBank(payee: string, account: Pick<Account, "bank">): boolean {
+  const text = new Set(wordsOf(fold(payee)));
+  return namingWords(wordsOf(fold(account.bank ?? ""))).some((w) => text.has(w) && !PAYEE_FORMS.has(w));
+}
+
+interface Pairing {
+  /** Rows that only move money between own accounts. */
+  transfers: Set<string>;
+  /** The pairs found by amount and day: the outgoing row's id and its incoming row's. */
+  pairs: Map<string, string>;
 }
 
 /**
@@ -104,7 +138,15 @@ function billOfCard(text: ReadonlySet<string>, card: CardName): boolean {
  * category, e.g. "säästöön" to an unconnected savings account counts as savings.
  */
 export function detectTransfers(txs: readonly TransferInput[], accounts: readonly Account[], options: TransferOptions = {}): Set<string> {
+  const { transfers } = pairTransfers(txs, accounts, options.exclude);
+  if (options.issuerFallback !== false) for (const id of billsByIssuer(txs, accounts, transfers, { exclude: options.exclude })) transfers.add(id);
+  return transfers;
+}
+
+/** Everything `detectTransfers` finds before the issuer fallback, with the pairs: what a pair teaches is read from them (card-channel.ts). */
+export function pairTransfers(txs: readonly TransferInput[], accounts: readonly Account[], exclude?: ReadonlySet<string>): Pairing {
   const transfers = new Set<string>();
+  const pairs = new Map<string, string>();
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
   const isCard = (t: TransferInput) => accountById.get(t.accountId)?.type === "credit_card";
@@ -114,7 +156,7 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
   const onLoan = (t: TransferInput) => accountById.get(t.accountId)?.type === "loan";
   const toLoan = (t: TransferInput) => loanIbans.has(normalizeIban(t.counterpartyIban) ?? "");
 
-  const skipped = options.exclude ?? new Set<string>();
+  const skipped = exclude ?? new Set<string>();
 
   for (const tx of txs) {
     if (tx.categorySource === "user" || skipped.has(tx.id) || onLoan(tx) || toLoan(tx)) continue;
@@ -186,19 +228,38 @@ export function detectTransfers(txs: readonly TransferInput[], accounts: readonl
         used.add(best.id);
         transfers.add(out.id);
         transfers.add(best.id);
+        pairs.set(out.id, best.id);
       }
     }
   }
+  return { transfers, pairs };
+}
 
-  if (options.issuerFallback !== false) {
-    const cards = cardNames(accounts);
-    if (cards.length) {
-      for (const tx of txs) {
-        if (tx.category !== "card_bill" || tx.categorySource === "user" || skipped.has(tx.id) || transfers.has(tx.id) || isCard(tx) || tx.amountCents >= 0) continue;
-        const text = new Set(wordsOf(fold([tx.merchant, tx.counterparty, tx.description].filter(Boolean).join(" "))));
-        if (cards.some((card) => billOfCard(text, card))) transfers.add(tx.id);
-      }
-    }
+/** What is known against taking a row for a connected card's bill by its text alone. */
+interface IssuerEvidence {
+  /** Rows that are never a transfer leg (see TransferOptions). */
+  exclude?: ReadonlySet<string>;
+  /** Cards whose payment channel is known (card-channel.ts): only a payment to that channel is their bill. */
+  channelled?: ReadonlySet<string>;
+  /** Merchants that paid credit out to the household. A lender's name may hold the issuer's word, and its instalments are no card's bill. */
+  lenders?: ReadonlySet<string>;
+}
+
+/**
+ * The issuer fallback: card bills that paired with nothing (`settled` holds what did) and whose text names a connected
+ * card. The text is weak evidence, since a finance company shares its bank's name, so anything known about this card
+ * or this payee goes first.
+ */
+export function billsByIssuer(txs: readonly TransferInput[], accounts: readonly Account[], settled: ReadonlySet<string>, known: IssuerEvidence = {}): string[] {
+  const cards = cardNames(accounts).filter((card) => !known.channelled?.has(card.id));
+  if (!cards.length) return [];
+  const cardIds = new Set(accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  const bills: string[] = [];
+  for (const tx of txs) {
+    if (tx.category !== "card_bill" || tx.categorySource === "user" || known.exclude?.has(tx.id) || settled.has(tx.id) || cardIds.has(tx.accountId) || tx.amountCents >= 0) continue;
+    if (tx.merchant !== undefined && known.lenders?.has(tx.merchant)) continue;
+    const text = new Set(wordsOf(fold([tx.merchant, tx.counterparty, tx.description].filter(Boolean).join(" "))));
+    if (cards.some((card) => billOfCard(text, card))) bills.push(tx.id);
   }
-  return transfers;
+  return bills;
 }

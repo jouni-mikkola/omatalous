@@ -208,7 +208,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
       const kind = c.id.slice(c.id.indexOf(":") + 1);
       if (kinds.has(kind) || decided.has(kind)) return { ...c, status: "finding" };
       const why = dropped.get(kind);
-      if ((why === "history" || why === "facts" || why === "certainty") && c.status !== "needs_input") return { ...c, status: "no_data" };
+      if ((why === "history" || why === "facts" || why === "certainty") && (c.status === "clear" || c.status === "finding")) return { ...c, status: "no_data" };
       return c.status === "finding" ? { ...c, status: "clear" } : c;
     });
     shown.sort(byRank);
@@ -255,12 +255,13 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     done,
     dismissed,
     snoozed,
-    ...othersOf(ctx, a.inputs, findingRows),
+    ...othersOf(a, findingRows),
     needed: neededOf(views, a.values, today),
     checked: {
       total: checks.length,
       findings: active.length,
       unavailable: checks.filter((c) => c.status === "needs_input" || c.status === "no_data").length,
+      noRows: checks.filter((c) => c.status === "no_rows").length,
     },
   };
 }

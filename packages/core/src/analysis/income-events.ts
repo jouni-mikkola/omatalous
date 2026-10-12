@@ -38,7 +38,7 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>): IncomeChan
       kind: "new_source",
       type: b.types.get(first.id)!,
       payer: first.merchant,
-      title: `Uusi tulo: ${first.merchant}, ${eur(total)} ${months === 1 ? "kuukaudessa" : `${COUNT_INESSIVE[months]} kuussa`}`,
+      title: `Uusi tulo: ${first.merchant}, ${eur(total)} ${months === 1 ? "kuukaudessa" : `${COUNT_INESSIVE[months]} kuukaudessa`}`,
       detail: rows.length === 1 ? `Yksi maksu ${formatFiDate(first.bookingDate)}.` : `${rows.length} maksua ${formatFiDate(first.bookingDate)} alkaen.`,
       monthlyCents: Math.round(total / 3),
       yearlyCents: Math.round((total / 3) * 12),

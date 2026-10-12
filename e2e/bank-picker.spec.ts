@@ -68,7 +68,7 @@ const tiles = (page: Page) => page.locator(".bank-tile");
 test("seventeen banks: searchable, the bank used last first, reachable by keyboard and without sideways scroll at 390 px", async ({ browser }) => {
   const { context, page, seen, started } = await open(browser, offer(17), [consent("c1", "OP", "active", "2026-09-20T00:00:00Z"), consent("c0", "Nordea", "lapsed", "2026-01-10T00:00:00Z")]);
   await page.goto("/#/settings");
-  await page.getByRole("button", { name: "Lisää pankkiyhteys" }).click();
+  await page.getByRole("button", { name: "Yhdistä pankki" }).click();
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
 
   // all of them, OP (the newest consent) first and marked, a name on a plain plate where there is no logo

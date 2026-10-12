@@ -1,7 +1,7 @@
 // Decision: where to cut
 import { query } from "../../../api.ts";
 import { money, percent, signedMoney } from "../../../format.ts";
-import { ExportLink } from "../parts.tsx";
+import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -23,8 +23,9 @@ function Categories({ ctx }: SectionProps) {
   const hasAverage = r.groups.some((g) => g.categories.some((c) => c.monthlyAvgCents !== null));
   // a share says of what: spending is the base of the first, income of the second
   const hasIncome = r.incomeCents > 0;
+  const negative = r.groups.some((g) => g.totalCents < 0 || g.categories.some((c) => c.totalCents < 0));
   return (
-    <Section id={section.id} title={section.title} sub={r.comparable ? "Muutos edelliseen jaksoon" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
+    <Section id={section.id} title={section.title} sub={r.comparable ? "Muutos edellisestä jaksosta" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
       <div className="table-wrap">
         <table>
           <thead>
@@ -42,8 +43,8 @@ function Categories({ ctx }: SectionProps) {
               <tr key={g.group} className="group-row">
                 <td>{g.group}</td>
                 <td className="num">{money(g.totalCents, false)}</td>
-                <td className="num">{percent(g.share)}</td>
-                {hasIncome && <td className="num hide-phone">{percent(g.incomeShare ?? 0)}</td>}
+                <td className="num">{g.totalCents < 0 ? "–" : percent(g.share)}</td>
+                {hasIncome && <td className="num hide-phone">{g.totalCents < 0 ? "–" : percent(g.incomeShare ?? 0)}</td>}
                 {hasAverage && <td className="num hide-phone">{money(g.categories.reduce((s, c) => s + (c.monthlyAvgCents ?? 0), 0), false)}</td>}
                 {r.comparable && (
                   <td className="num">
@@ -57,8 +58,8 @@ function Categories({ ctx }: SectionProps) {
                     <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>
                   </td>
                   <td className="num">{money(c.totalCents, false)}</td>
-                  <td className="num">{percent(c.share)}</td>
-                  {hasIncome && <td className="num hide-phone">{percent(c.incomeShare ?? 0)}</td>}
+                  <td className="num">{c.totalCents < 0 ? "–" : percent(c.share)}</td>
+                  {hasIncome && <td className="num hide-phone">{c.totalCents < 0 ? "–" : percent(c.incomeShare ?? 0)}</td>}
                   {hasAverage && <td className="num hide-phone">{c.monthlyAvgCents === null ? "–" : money(c.monthlyAvgCents, false)}</td>}
                   {r.comparable && (
                     <td className="num">
@@ -88,6 +89,7 @@ function Categories({ ctx }: SectionProps) {
         </table>
         {!r.groups.length && <div className="empty">Ei menoja valitulla jaksolla.</div>}
       </div>
+      {negative && <p className="small muted">{NEGATIVE_TOTAL_NOTE}</p>}
     </Section>
   );
 }

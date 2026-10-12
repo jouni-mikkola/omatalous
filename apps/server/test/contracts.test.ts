@@ -60,13 +60,15 @@ interface TableInfo {
   foreignKeys: string[];
   /** One key per index: unique flag, columns and the WHERE of a partial index. Names do not count. */
   indexes: string[];
-  /** The quoted values inside CHECK (...): an old build may still write any of them. */
-  checkValues: string[];
+  /** Every CHECK (...) of the table as written, without the parentheses. */
+  checkClauses: string[];
+  /** The quoted values inside each CHECK (...), by the column the clause limits: an old build may still write any of them. */
+  checkValues: Record<string, string[]>;
 }
 type Schema = Record<string, TableInfo>;
 
-/** Quoted strings inside the parentheses of CHECK clauses. */
-function checkValues(sql: string): string[] {
+/** The text inside the parentheses of each CHECK of a table. */
+function checkClauses(sql: string): string[] {
   const out: string[] = [];
   const re = /CHECK\s*\(/gi;
   for (let m = re.exec(sql); m; m = re.exec(sql)) {
@@ -74,9 +76,19 @@ function checkValues(sql: string): string[] {
     let i = m.index + m[0].length;
     const start = i;
     for (; i < sql.length && depth > 0; i++) depth += sql[i] === "(" ? 1 : sql[i] === ")" ? -1 : 0;
-    for (const lit of sql.slice(start, i).matchAll(/'((?:[^']|'')*)'/g)) out.push(lit[1]!);
+    out.push(sql.slice(start, i));
   }
-  return [...new Set(out)].sort();
+  return out;
+}
+
+/** Quoted strings inside the parentheses of each CHECK clause, under the first word of the clause, which is its column. */
+function checkValues(clauses: string[]): Record<string, string[]> {
+  const out: Record<string, Set<string>> = {};
+  for (const clause of clauses) {
+    const values = (out[/[A-Za-z_]\w*/.exec(clause)?.[0] ?? ""] ??= new Set());
+    for (const lit of clause.matchAll(/'((?:[^']|'')*)'/g)) values.add(lit[1]!);
+  }
+  return Object.fromEntries(Object.entries(out).map(([column, values]) => [column, [...values].sort()]));
 }
 
 function describeSchema(db: DatabaseSync): Schema {
@@ -91,11 +103,13 @@ function describeSchema(db: DatabaseSync): Schema {
       const where = ix.partial ? ` where ${/\bWHERE\b([\s\S]*)$/i.exec(ixSql)?.[1]?.replace(/\s+/g, " ").trim() ?? "?"}` : "";
       return `${ix.unique ? "unique " : ""}(${cols.join(", ")})${where}`;
     });
+    const clauses = checkClauses(sql);
     out[name] = {
       columns: db.prepare(`PRAGMA table_info(${q})`).all() as unknown as Column[],
       foreignKeys: fks.map((f) => `${f.from} -> ${f.table}.${f.to ?? ""} on delete ${f.on_delete} on update ${f.on_update}`).sort(),
       indexes: indexes.sort(),
-      checkValues: checkValues(sql),
+      checkClauses: clauses,
+      checkValues: checkValues(clauses),
     };
   }
   return out;
@@ -133,7 +147,13 @@ function schemaProblems(contract: Schema, head: Schema): string[] {
       const cols = /^unique \(([^)]*)\)$/.exec(ix)?.[1]?.split(", ");
       if (cols && !c.indexes.includes(ix) && cols.every((x) => known.has(x))) out.push(`new unique index ${ix} on ${table}, older code may break it`);
     }
-    for (const v of c.checkValues) if (!h.checkValues.includes(v)) out.push(`CHECK of ${table} no longer allows '${v}'`);
+    // a column whose CHECK is gone takes every value; a CHECK that is still there must list what the contract's did. A clause
+    // that limits the column but starts with another word (lower(status) IN (...)) is filed elsewhere: it still counts, as one
+    // that lists nothing, so every old value is reported.
+    for (const [column, values] of Object.entries(c.checkValues)) {
+      const now = h.checkValues[column] ?? (h.checkClauses.some((x) => new RegExp(`\\b${column}\\b`).test(x)) ? [] : undefined);
+      for (const v of now ? values : []) if (!now!.includes(v)) out.push(`CHECK of ${table} no longer allows '${v}'`);
+    }
   }
   return out;
 }
@@ -257,6 +277,9 @@ describe("contracts: schema", () => {
       // a wider CHECK list is fine
       const wider = schemaOf(BASE.replace("('new','done')", "('new','done','later')"));
       expect(schemaProblems(schemaOf(BASE), wider)).toEqual([]);
+      // so is a CHECK that is gone: the column then takes every value
+      const open = schemaOf(BASE.replace(" CHECK (status IN ('new','done'))", ""));
+      expect(schemaProblems(schemaOf(BASE), open)).toEqual([]);
     });
 
     it("notices what an additive release must not do", () => {
@@ -268,6 +291,7 @@ describe("contracts: schema", () => {
         ["a column made NOT NULL", BASE.replace("body TEXT,", "body TEXT NOT NULL,"), /notes\.body became NOT NULL/],
         ["a changed default", BASE.replace("DEFAULT 'new'", "DEFAULT 'open'"), /notes\.status changed its default/],
         ["a narrowed CHECK", BASE.replace("('new','done')", "('new')"), /no longer allows 'done'/],
+        ["a CHECK that still limits the column under another first word", BASE.replace("CHECK (status IN ('new','done'))", "CHECK (lower(status) IN ('new'))"), /no longer allows 'done'/],
         ["a dropped index", BASE.replace("CREATE INDEX idx_notes_user ON notes(user_id, id);", ""), /index \(user_id, id\) of notes is gone/],
         ["a changed partial index", BASE.replace("WHERE status = 'new'", "WHERE status = 'done'"), /index \(user_id\) where status = 'new' of notes is gone/],
         ["a changed foreign key", BASE.replace("ON DELETE CASCADE", "ON DELETE SET NULL"), /foreign keys of notes changed/],

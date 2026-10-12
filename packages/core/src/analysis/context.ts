@@ -141,14 +141,3 @@ export function inDays(ctx: AnalysisContext, r: DayRange): AnalysisTx[] {
   for (let i = lo; i < list.length && list[i]!.day <= r.toDay; i++) out.push(list[i]!);
   return out;
 }
-
-/**
- * Categories that are costs of living or money handled, not something bought:
- * "largest purchase" skips them (a tax payment, an insurance premium or a yearly subscription is not a purchase, nor is the weekly food shop).
- */
-const NOT_PURCHASES = new Set(["taxes", "card_bill", "p2p", "cash", "fees", "insurance", "housing", "utilities", "telecom", "memberships", "subscriptions", "groceries"]);
-
-/** A one-off spend on goods or services, for "largest purchases". */
-export function isPurchase(t: Pick<AnalysisTx, "category" | "kind">): boolean {
-  return t.kind === "expense" && !NOT_PURCHASES.has(t.category);
-}

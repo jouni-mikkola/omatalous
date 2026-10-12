@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { FORMS as DASH_FORMS, isResearch } from "./em-dash-forms.mjs";
+import "./finnish.ts";
 import { type Finding, expectNoFindings, lineIn, lineOf, literals, parse, plainString, repoFiles, ROOT, SQL_START, sourceFiles, walk } from "./lib.ts";
 
 describe("repo rules: text", () => {

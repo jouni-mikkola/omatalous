@@ -14,17 +14,17 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   const tilit = page.locator("#tilit");
   const row = (name: string) => tilit.getByRole("row").filter({ hasText: name }).first();
 
-  await expect(row("Käyttötili (demo)")).toContainText("FI21 1234 5600 0007 85");
-  await expect(row("Säästötili (demo)")).toContainText("FI14 1009 3000 1234 58");
+  await expect(row("Käyttötili (esimerkki)")).toContainText("FI21 1234 5600 0007 85");
+  await expect(row("Säästötili (esimerkki)")).toContainText("FI14 1009 3000 1234 58");
   // no IBAN and no card number: a dash, as before
-  await expect(row("Nordea Gold (demo)")).toContainText("– · demo");
+  await expect(row("Nordea Gold (esimerkki)")).toContainText("– · demo");
 
   // any account can have a name of its own, bank-linked or not; the original stays on a line of its own
-  await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili (demo)" }).click();
+  await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili (esimerkki)" }).click();
   await page.getByLabel("Oma nimi").fill("Yhteinen tili");
   await page.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(tilit.getByText("Tallennettu.").first()).toBeVisible();
-  await expect(row("Yhteinen tili")).toContainText("Pankin nimi: Käyttötili (demo)");
+  await expect(row("Yhteinen tili")).toContainText("Pankin nimi: Käyttötili (esimerkki)");
   await expect(row("Yhteinen tili")).toContainText("FI21 1234 5600 0007 85");
   await expect(tilit.getByLabel("Tilin Yhteinen tili tyyppi").first()).toHaveValue("checking");
 
@@ -33,13 +33,13 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   await expect(page.getByLabel("Oma nimi")).toHaveValue("Yhteinen tili");
   await page.getByLabel("Oma nimi").fill("");
   await page.getByRole("button", { name: "Tallenna", exact: true }).click();
-  await expect(row("Käyttötili (demo)")).toBeVisible();
+  await expect(row("Käyttötili (esimerkki)")).toBeVisible();
   await expect(tilit.getByText("Pankin nimi:")).toHaveCount(0);
 
   // the lines under a name wrap on a phone instead of scrolling the page sideways
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(row("Käyttötili (demo)")).toContainText("FI21 1234 5600 0007 85");
+  await expect(row("Käyttötili (esimerkki)")).toContainText("FI21 1234 5600 0007 85");
   expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   expect(seen.problems).toEqual([]);

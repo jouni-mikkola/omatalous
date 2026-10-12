@@ -20,6 +20,7 @@
     "release:fixture": "node tools/release/fixture.mjs",
     "e2e": "node e2e/run.mjs",
     "where": "node tools/where.mjs",
+    "strings": "node tools/ui-strings.mjs",
     "shots": "node tools/shots.mjs",
     "findings": "node --experimental-strip-types --disable-warning=ExperimentalWarning tools/findings/cli.ts",
     "typecheck": "pnpm -r typecheck && tsc -p .",

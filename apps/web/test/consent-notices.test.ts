@@ -70,11 +70,11 @@ describe("consentNotices", () => {
 
 describe("consentNoticeText", () => {
   it("names the bank, a passed date and never a date ahead", () => {
-    expect(consentNoticeText({ id: "b", institution: "OP", kind: "lapsed", endedOn: "2026-10-01T00:00:00Z", daysLeft: null })).toBe("OP-yhteys vanhentui 1.10.2026.");
-    expect(consentNoticeText({ id: "b", institution: "Nordea", kind: "broken", endedOn: null, daysLeft: null })).toBe("Nordea-yhteys katkesi.");
-    expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 0 })).toBe("Nordea-yhteys vanhenee tänään.");
-    expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 1 })).toBe("Nordea-yhteys vanhenee huomenna.");
-    expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 9 })).toBe("Nordea-yhteys vanhenee 9 päivän päästä.");
+    expect(consentNoticeText({ id: "b", institution: "OP", kind: "lapsed", endedOn: "2026-10-01T00:00:00Z", daysLeft: null })).toBe("OP: yhteys vanhentui 1.10.2026.");
+    expect(consentNoticeText({ id: "b", institution: "Nordea", kind: "broken", endedOn: null, daysLeft: null })).toBe("Nordea: yhteys katkesi.");
+    expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 0 })).toBe("Nordea: yhteys vanhenee tänään.");
+    expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 1 })).toBe("Nordea: yhteys vanhenee huomenna.");
+    expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 9 })).toBe("Nordea: yhteys vanhenee 9 päivän päästä.");
     expect(leftOutText("Säästötili")).toMatch(/^Säästötili ei tullut mukaan uuteen yhteyteen\./);
   });
 

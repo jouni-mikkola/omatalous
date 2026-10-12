@@ -17,6 +17,13 @@ export interface UncategorisedMerchant {
   lastDate: string;
 }
 
+/** The answer of `GET /merchants/uncategorised`: the biggest merchants, and the count and sum over all of them. */
+interface UncategorisedList {
+  items: UncategorisedMerchant[];
+  count: number;
+  totalCents: number;
+}
+
 /**
  * Everything one merchant's rows add up to, for the summary above a merchant-filtered transaction list. An own
  * transfer is counted as a row but not in the sums: it is money moved, not paid or received.
@@ -181,15 +188,23 @@ export class MerchantsRepo {
     return { count, transfers, outCents, inCents, firstDate, lastDate, category: ranked[0]![0], outByMonth };
   }
 
-  /** Money-out rows nothing recognised, per merchant, biggest spending first. */
-  async uncategorisedMerchants(limit = 50): Promise<UncategorisedMerchant[]> {
+  /** Money-out rows nothing recognised: the `limit` biggest merchants, and the count and sum of all of them. */
+  async uncategorisedMerchants(limit = 50): Promise<UncategorisedList> {
+    const nothingRecognised = `amount_cents < 0 AND category_source = 'default' AND category = 'other' AND is_transfer = 0`;
     const rows = await this.ctx.db.all<{ merchant: string; total: number; n: number; last: string }>(
       `SELECT merchant, -SUM(amount_cents) AS total, COUNT(*) AS n, MAX(booking_date) AS last FROM transactions
-       WHERE user_id = ? AND amount_cents < 0 AND category_source = 'default' AND category = 'other' AND is_transfer = 0
-       GROUP BY merchant ORDER BY total DESC, merchant LIMIT ?`,
+       WHERE user_id = ? AND ${nothingRecognised} GROUP BY merchant ORDER BY total DESC, merchant LIMIT ?`,
       [this.ctx.userId, limit],
     );
-    return rows.map((r) => ({ merchant: String(r.merchant), totalCents: Number(r.total), count: Number(r.n), lastDate: String(r.last) }));
+    const [all] = await this.ctx.db.all<{ merchants: number; total: number | null }>(
+      `SELECT COUNT(DISTINCT merchant) AS merchants, -SUM(amount_cents) AS total FROM transactions WHERE user_id = ? AND ${nothingRecognised}`,
+      [this.ctx.userId],
+    );
+    return {
+      items: rows.map((r) => ({ merchant: String(r.merchant), totalCents: Number(r.total), count: Number(r.n), lastDate: String(r.last) })),
+      count: Number(all?.merchants ?? 0),
+      totalCents: Number(all?.total ?? 0),
+    };
   }
 
   /**

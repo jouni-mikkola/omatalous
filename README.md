@@ -6,14 +6,18 @@ It runs on your own Linux machine at home, and you use it in a browser, in Finni
 New transactions come from the bank through Enable Banking, which is free for your own accounts. Nordea works best, and
 OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks that Enable Banking offers can be
 connected too. Omatalous sorts the rows into spending, loan payments, saving and
-income, finds recurring bills and warns about double charges and late fees. A loan at a lender that is not connected can
+income, finds recurring bills and warns about double charges and late fees. The first page, Kuukausi, opens with what the
+household has and owes: each account with its balance, each credit card with how much of its limit is used, and each loan
+with what is left and the payment a month. Below it a card counts the days to your next payday and shows the bills
+before it, your usual everyday spending for those days and what should be left on the account the day before the pay.
+Without a regular pay the card looks 30 days ahead and says why. A loan at a lender that is not connected can
 be added from a pasted screenshot, a PDF or text, which is read in the browser, and then counts in the reports. Each
 household member has a login of their own, and accounts can be shared read-only. Your transactions, bank keys and
 backups stay on your machine. Nothing is sent to the project. The app keeps daily copies of its database and starts on
 the newest intact copy if the database is damaged, and with the maintenance helper an update that leaves the app not
 answering is taken back by itself.
 
-<img src="docs/images/kuukausi.png" alt="Kuukausi, the first page of Omatalous, with demo data">
+<img src="docs/images/kuukausi.png" alt="Kuukausi, the first page of Omatalous, with example data">
 
 ## Install
 

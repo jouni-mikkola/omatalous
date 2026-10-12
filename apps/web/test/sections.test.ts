@@ -112,7 +112,7 @@ describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
     expect(out).toContain("Seuraavat 12 kuukautta");
     expect(out).toContain("Poista lasku Ajoneuvovero");
     expect(out).not.toContain("Seuraavat kolme kuukautta");
-    expect(out).not.toContain("Lisää odotettu lasku");
+    expect(out).not.toContain('aria-label="Lisää lasku"');
   });
 
   it("Hinnanmuutokset is shown only when a price changed", () => {

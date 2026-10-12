@@ -183,7 +183,7 @@ describe("bank return modes", () => {
     const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
     bank.authFailure = { status: 500, body: JSON.stringify({ error: "ASPSP_ERROR", message: "Account FI2112345600000785 balance 1234.50" }) };
     const r = await admin.call("POST", "/api/connections/start", {});
-    expect(r).toMatchObject({ status: 502, body: { error: "Pankkirajapinta vastasi virheellä (500). Yritä myöhemmin uudelleen." } });
+    expect(r).toMatchObject({ status: 502, body: { error: "Enable Banking vastasi virheellä 500. Yritä myöhemmin uudelleen." } });
     expect(JSON.stringify(r.body)).not.toContain("FI2112345600000785");
   });
 

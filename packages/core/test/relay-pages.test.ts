@@ -72,7 +72,7 @@ describe("relay site", () => {
     expect(en).toContain("developer of the app receives no data");
     expect(en).toContain("household's admin");
     // the return hop is named too: GitHub Pages sees the request, as docs/SECURITY.md says
-    expect(fi).toContain("Paluusivua palvelee GitHub Pages");
+    expect(fi).toContain("Paluusivu on GitHub Pagesissa");
     expect(fi).toContain("kertakäyttöisen koodin");
     expect(fi).toContain("IP-osoitteen");
     expect(en).toContain("The return page is served by GitHub Pages");

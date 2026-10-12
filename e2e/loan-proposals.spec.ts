@@ -75,7 +75,7 @@ test("a payment that looks like a loan is asked about: saved as a loan with the 
     // the balance is the household's to type: without it nothing is saved
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
     await expect(form.getByRole("alert")).toHaveText("Korjaa merkityt kentät.");
-    await expect(form.getByText("Kirjoita, paljon lainaa on jäljellä.")).toBeVisible();
+    await expect(form.getByText("Anna, paljonko lainaa on jäljellä.")).toBeVisible();
     expect((await (await context.request.get("/api/loans")).json()).loans).toEqual([]);
     // Peruuta closes the form and the proposal stays
     await form.getByRole("button", { name: "Peruuta" }).click();

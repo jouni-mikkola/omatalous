@@ -75,7 +75,7 @@ describe("electricity price per kWh", () => {
     const short: Frame = { ...FRAME, start: "2026-02-01", months: monthRange("2026-02", "2026-09") };
     const data = run([{ txs: el.bills(short), values: el.KWH }], short);
     expect(allFindings(data).filter((f) => f.kind === "price")).toEqual([]);
-    expect(checkOf(data, "electricity:price")).toMatchObject({ status: "no_data", hint: "Vertailuun tarvitaan 12 täyttä kuukautta." });
+    expect(checkOf(data, "electricity:price")).toMatchObject({ status: "no_data", hint: "Vertailuun tarvitaan 12 valmista kuukautta." });
   });
 
   it("nets money in from the same payees against the bills", () => {
@@ -112,7 +112,7 @@ describe("electricity price per kWh", () => {
     expect(checkOf(b, "electricity:price").status).toBe("clear");
     const c = run([moved!]);
     expect(allFindings(c)).toEqual([]);
-    expect(checkOf(c, "electricity:price")).toMatchObject({ status: "no_data", hint: "Muuton jälkeen on alle 12 täyttä kuukautta." });
+    expect(checkOf(c, "electricity:price")).toMatchObject({ status: "no_data", hint: "Muuton jälkeen on alle 12 valmista kuukautta." });
     const d = run([switched!]);
     expect(allFindings(d)).toEqual([]);
     expect(checkOf(d, "electricity:price")).toMatchObject({ status: "clear" });
@@ -215,7 +215,7 @@ describe("housing charge rise", () => {
     const data = run([{ txs: sato, values: hs.housingType("vuokra") }]);
     expect(allFindings(data)).toEqual([]);
     expect(data.headline.count).toBe(0);
-    expect(checkOf(data, "housing:rise")).toMatchObject({ status: "needs_input", input: "moved_on", hint: "Jos muutitte, lisää muuttopäivä." });
+    expect(checkOf(data, "housing:rise")).toMatchObject({ status: "needs_input", input: "moved_on", hint: "Jos muutit, lisää muuttopäivä." });
     // with a move date before the series the step is still no rise to act on
     const known = run([{ txs: sato, values: { ...hs.housingType("vuokra"), moved_on: { value: "2024-01-15", asOf: "2026-10-01" } } }]);
     expect(allFindings(known)).toEqual([]);

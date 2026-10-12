@@ -23,9 +23,9 @@ const meta = async (admin: Admin) => (await admin.call("GET", "/api/meta")).body
 const connection = async (admin: Admin, id: string) => (await meta(admin)).connections.find((c: { id: string }) => c.id === id);
 
 describe("connection states", () => {
-  it("a consent closed before its date reads katkesi, and a reconnect makes it history that can leave the list", async () => {
+  it("a consent closed before its date reads katkesi, and a reconnect makes it history that no route removes", async () => {
     const bank = mockBank();
-    const { admin, member } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
     const old = await connect(admin, bank);
     expect(await connection(admin, old)).toMatchObject({ status: "active", state: "active", history: false, daysLeft: 179 });
 
@@ -43,12 +43,9 @@ describe("connection states", () => {
     expect(after.connections.find((c: { id: string }) => c.id === old)).toMatchObject({ state: "broken", history: true });
     expect(after.connections.find((c: { id: string }) => c.id === fresh)).toMatchObject({ state: "active", history: false });
 
-    // "Poista listalta": refused while the row owns an account, and for another member's row
-    expect((await admin.call("DELETE", `/api/connections/history/${fresh}`)).status).toBe(400);
-    const eero = await member("eero");
-    expect((await eero.call("DELETE", `/api/connections/history/${old}`)).status).toBe(404);
-    expect((await admin.call("DELETE", `/api/connections/history/${old}`)).status).toBe(200);
-    expect((await meta(admin)).connections.map((c: { id: string }) => c.id)).toEqual([fresh]);
+    // no route takes a row off the list: nothing answers that path, and the stored row stays
+    for (const id of [old, fresh]) expect((await admin.call("DELETE", `/api/connections/history/${id}`)).status, id).toBe(404);
+    expect((await meta(admin)).connections.map((c: { id: string }) => c.id).sort()).toEqual([fresh, old].sort());
   });
 
   it("an account a newer consent did not bring keeps its ended consent, which reads replaced; without a newer one it is katkesi", async () => {

@@ -40,7 +40,7 @@ export function securityRoutes(s: Services) {
   app.get("/events", async (c) => {
     const user = c.get("user");
     const kind = c.req.query("kind");
-    if (kind && !validKind(kind)) throw new UserError("Tuntematon tapahtumatyyppi.");
+    if (kind && !validKind(kind)) throw new UserError("Tuntematon merkinnän tyyppi.");
     const limit = Math.min(queryInt(c.req.query("limit")) ?? 100, 500);
     // members see their own events, admins everyone's
     const events = await s.security.list({ userId: user.role === "admin" ? undefined : user.id, kind, limit });

@@ -64,7 +64,8 @@ export async function runUpgradeTasks(s: Services, buildId: string): Promise<Upg
         // read, so the categorising below sees the codes. A file's rows have no such payload.
         result.bankCodes += await repo.fillBankCodes(EB_SOURCE, "$.bank_transaction_code", (field) => bankTxnCode(field as EbTransaction["bank_transaction_code"]));
         const rows = await repo.allTransactionsWithSearchText();
-        const changes: { id: string; merchant: string }[] = [];
+        // the rows that get a new name, which they take once the rules of merged names are settled (below)
+        const moved: [row: (typeof rows)[number], merchant: string][] = [];
         const names = new Map<string, Set<string>>();
         // the same text repeats across a history: derive each name once
         const derived = new Map<string, string>();
@@ -77,16 +78,23 @@ export async function runUpgradeTasks(s: Services, buildId: string): Promise<Upg
           const set = names.get(t.merchant);
           if (set) set.add(merchant);
           else names.set(t.merchant, new Set([merchant]));
-          if (merchant !== t.merchant) {
-            changes.push({ id: t.id, merchant });
-            t.merchant = merchant;
-          }
+          if (merchant !== t.merchant) moved.push([t, merchant]);
         }
-        await repo.updateMerchants(changes);
+        const { renames, merged } = followingNames(names);
+        // The rules of names that become one name with others are settled while the rows still carry the old names. The
+        // in-memory rows get the same choice, so the categorising below starts from what is stored.
+        const settled = await repo.settleMerchantRules(merged);
+        for (const [t, merchant] of moved) {
+          const category = settled(t);
+          if (category !== undefined) {
+            t.category = category;
+            t.categorySource = "user";
+          }
+          t.merchant = merchant;
+        }
+        await repo.updateMerchants(moved.map(([t, merchant]) => ({ id: t.id, merchant })));
         // rows from before search_text existed, and the names just re-derived
         await repo.writeSearchText(rows);
-        // a rule, a mark, a loan's series or an Optimoi decision for an exact old name follows it only when every row of that name got the same new name
-        const renames = new Map([...names].filter(([from, to]) => to.size === 1 && !to.has(from)).map(([from, to]): [string, string] => [from, [...to][0]!]));
         await repo.renameMerchantRules(renames);
         // 0.8.3 and older let a category for one unnamed row become a rule for every unnamed row. The rule has no effect now
         // (core `compileRules`); deleting it is what lets the rows it moved return to automatic in the reprocess below,
@@ -95,7 +103,7 @@ export async function runUpgradeTasks(s: Services, buildId: string): Promise<Upg
         await repo.renameMerchantMarks(renames);
         await repo.renameMerchantStates(renames);
         result.recategorised += (await reprocessLocked(repo, s.settings, rows)).changed;
-        result.merchantsRenamed += changes.length;
+        result.merchantsRenamed += moved.length;
       });
       result.users++;
       await s.settings.set(`${BUILD_KEY}:${user.id}`, buildId);
@@ -105,6 +113,26 @@ export async function runUpgradeTasks(s: Services, buildId: string): Promise<Upg
   } finally {
     await s.settings.delete(LOCK_KEY);
   }
+}
+
+/**
+ * What becomes of the household's choices on exact old names. `names` holds every stored name with the new names its
+ * rows get. A rule, a mark, a loan's series or an Optimoi decision follows its name (`renames`) when every row of the
+ * name got the same new name and no other old name got it too. When two or more old names become one, what the
+ * household chose for one of them would reach the rest and could not be told apart again: those names (`merged`) keep
+ * their marks and states, and their rules are settled onto the rows instead. A name some rows keep stays as it is.
+ */
+function followingNames(names: ReadonlyMap<string, ReadonlySet<string>>): { renames: Map<string, string>; merged: Set<string> } {
+  const sources = new Map<string, number>();
+  for (const to of names.values()) for (const name of to) sources.set(name, (sources.get(name) ?? 0) + 1);
+  const renames = new Map<string, string>();
+  const merged = new Set<string>();
+  for (const [from, to] of names) {
+    if (to.has(from)) continue;
+    if ([...to].some((name) => sources.get(name)! > 1)) merged.add(from);
+    else if (to.size === 1) renames.set(from, [...to][0]!);
+  }
+  return { renames, merged };
 }
 
 /** The start-up and hourly-tick entry: runs the tasks when the build differs and says what happened. Never throws. */

@@ -29,7 +29,7 @@ export function connectionState(conn: Pick<Connection, "status" | "validUntil">,
 
 /**
  * A consent as the settings and the notices show it. One that owns no account is history: its accounts moved to a
- * newer consent, or it never had any. It folds under "Aiemmat yhteydet" and has no notice.
+ * newer consent, or it never had any. The settings do not list it and it has no notice; its stored row stays.
  *
  * `replaced`: it is not active and a newer consent of the same bank is. The accounts still on it did not come with the
  * new consent: a restricted application leaves out of a session every account that is not under Linked accounts, so

@@ -15,21 +15,15 @@ want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
 unprivileged ops-watchdog.test.sh "$@"
 
 # ── the world, with a clock and a container state ───────────────────────────
-# ops-world.sh has neither, so they are added here. The clock is stub/clock (epoch seconds): a `date` stub answers that
-# time and nothing moves it but the scenario, so 9 min 59 s and 10 min are exact on a slow machine too. A call that
-# names its own time (-d) goes to the real date. `docker inspect` of the container's state answers stub/state (default:
-# running or exited, as the world has it) and stub/health (default: no health check); an empty stub/state is a Docker
-# that does not say.
-T0=1767268800          # 2026-01-01T12:00:00Z
+# The clock is the world's (set_clock, later): nothing moves it but the scenario, so 9 min 59 s and 10 min are exact on a
+# slow machine too. The world has no container state, so it is added here: `docker inspect` of the container's state
+# answers stub/state (default: running or exited, as the world has it) and stub/health (default: no health check); an
+# empty stub/state is a Docker that does not say.
 AT0=20260101T120000Z   # the AT of an update made at T0
+WAIT_MAX=60            # seconds a scenario waits for something it started in the background
 world() {
   new_world
-  echo "$T0" >"$S/clock"
-  cat >"$S/bin/date" <<'EOF'
-#!/bin/bash
-for a in "$@"; do case $a in -d* | --date*) exec /bin/date "$@" ;; esac; done
-exec /bin/date -d "@$(cat "$OPS_STUB_DIR/clock")" "$@"
-EOF
+  set_clock
   mv "$S/bin/docker" "$S/bin/docker.world"
   cat >"$S/bin/docker" <<'EOF'
 #!/bin/bash
@@ -52,9 +46,8 @@ for p in $(/usr/bin/pgrep "$@"); do
 done
 exit $found
 EOF
-  chmod +x "$S/bin/date" "$S/bin/docker" "$S/bin/pgrep"
+  chmod +x "$S/bin/docker" "$S/bin/pgrep"
 }
-later() { echo $(($(cat "$S/clock") + $1)) >"$S/clock"; }
 ticks() { local i; for ((i = 0; i < $1; i++)); do later "${2:-60}"; tick; done; } # ticks N [SECONDS]: N ticks, SECONDS apart
 # count_to SECONDS: looks a minute apart (the last one sooner) until SECONDS of unhealthy time count. The first look
 # starts the count and adds nothing.
@@ -229,10 +222,11 @@ t_watchdog_pauses_under_lock() {
   # An update replaces scripts/install.sh and keeps its lock on the old file, so the lock by name looks free while
   # update.sh still waits for the new version. The running process is seen instead.
   world; updated; touch "$S/bad_0.2.0"; count_to 540
-  mkdir "$W/hand"; printf '#!/bin/bash\ntrap "kill \\$s" TERM\nsleep 300 & s=$!\nwait\n' >"$W/hand/update.sh"
+  mkdir "$W/hand"; printf '#!/bin/bash\ntrap "kill \\$s" TERM\nsleep 300 & s=$!\n: >started\nwait\n' >"$W/hand/update.sh"
   (cd "$W/hand" && exec bash ./update.sh) &
-  local pid=$! i
-  for ((i = 0; i < 50; i++)); do grep -a 'update\.sh' "/proc/$pid/cmdline" >/dev/null 2>&1 && break; sleep 0.1; done
+  local pid=$! limit=$((SECONDS + WAIT_MAX))
+  until [[ -e $W/hand/started ]] || ((SECONDS >= limit)); do sleep 0.1; done
+  [[ -e $W/hand/started ]] || fail "process: the stub update.sh did not write hand/started within $WAIT_MAX s, so it was not seen running"
   ticks 6 150
   check "process: while an update.sh runs nothing is rolled back and the count waits" test "$(rollbacks)" = 0 -a "$(counted)" = 540
   kill "$pid"; wait "$pid" 2>/dev/null

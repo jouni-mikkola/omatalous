@@ -20,7 +20,7 @@ const STATUSES = ["done", "dismissed", "snoozed"] as const;
 const absent = (v: unknown) => v === undefined || v === null;
 
 function parseId(value: unknown): string {
-  if (typeof value !== "string" || !parseFindingId(value)) throw new UserError("Virheellinen löydöksen tunniste.");
+  if (typeof value !== "string" || !parseFindingId(value)) throw new UserError("Virheellinen vinkin tunniste.");
   return value;
 }
 
@@ -42,7 +42,7 @@ function parseState(raw: unknown, today: IsoDate): StateRequest {
   let until: IsoDate | null = null;
   if (status === "snoozed") {
     // the finding is hidden before this day, so tomorrow is the first that hides anything
-    if (!isIsoDate(input.until) || input.until <= today || input.until > addDays(today, SNOOZE_DAYS)) throw new UserError("Anna päivä, joka on huomisesta vuoden päähän.");
+    if (!isIsoDate(input.until) || input.until <= today || input.until > addDays(today, SNOOZE_DAYS)) throw new UserError("Anna päivä, joka on aikaisintaan huomenna ja enintään vuoden päässä.");
     until = input.until;
   }
   let effectiveDate: IsoDate | null = null;

@@ -29,7 +29,7 @@ test("Asetukset is a link in the header with Omat and Talous, Tietojen laatu is 
   for (const heading of ["Pankkiyhteydet", "Tilit", "Kirjautuminen"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   await expect(page.locator("#tilit").getByRole("heading", { name: "Tietojen laatu" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Turvallisuusloki" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Lisää pankkiyhteys" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   await expect(page.getByText("Lisää seuraava tili")).toHaveCount(0);
 
   // Raportit no longer has the card, and the month page links to it
@@ -133,11 +133,11 @@ test("an ended or ending bank connection has Yhdistä uudelleen on its row and i
   await banner.getByRole("link", { name: "Yhdistä uudelleen" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings?add=1");
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Lisää pankkiyhteys" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeHidden();
 
   // both rows offer it, one click starts Nordea again without the picker
   await page.getByRole("button", { name: "Sulje" }).click();
-  await expect(page.getByRole("button", { name: "Lisää pankkiyhteys" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   const reconnect = page.getByRole("table").getByRole("button", { name: "Yhdistä uudelleen" });
   await expect(reconnect).toHaveCount(2);
   const readBefore = metaAsked;

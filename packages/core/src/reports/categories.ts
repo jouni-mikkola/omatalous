@@ -1,6 +1,7 @@
 // Decision: where to cut
 import { CATEGORY_GROUPS, getCategory } from "../categories.ts";
 import { type AnalysisContext, historyCovers, inDays } from "../analysis/context.ts";
+import { spendingBase } from "../analysis/data-quality.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { fromMonthIndex } from "../dates.ts";
 import { totalsOf } from "../analysis/flows.ts";
@@ -93,20 +94,20 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     }
   }
 
-  let total = 0;
-  for (const e of perCategory.values()) if (e.total > 0) total += e.total;
+  // refunds are taken off, so the total is the expense of the cashflow report and a category with more refunds than
+  // spending is a row with a minus; a share is of the categories that net above zero, so none passes 100 %
+  const total = current.reduce((s, t) => s + t.spend, 0);
+  const base = spendingBase(current);
   const income = totalsOf(current.map((t) => t.flows)).incomeCents;
   const ofIncome = (cents: number) => (income > 0 ? cents / income : null);
   // a category spent on in the previous period only is a row too, at 0 now, so the changes add up to the total change
-  const spent = new Set([...perCategory].filter(([, e]) => e.total > 0).map(([category]) => category));
-  for (const [category, cents] of prev) if (cents > 0) spent.add(category);
+  const spent = new Set([...perCategory].filter(([, e]) => e.total !== 0).map(([category]) => category));
+  for (const [category, cents] of prev) if (cents !== 0) spent.add(category);
   const none = { monthly: months.map(() => 0), total: 0, count: 0 };
 
   const stats: CategoryStat[] = [...spent]
     .map((category) => {
-      const cur = perCategory.get(category);
-      // net refunds are no spending: such a category is at 0, as it is left out of the total
-      const e = cur && cur.total > 0 ? cur : none;
+      const e = perCategory.get(category) ?? none;
       const c = getCategory(category);
       const [recent, before] = trendSums.get(category) ?? [0, 0];
       return {
@@ -115,7 +116,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         group: c.group,
         kind: c.kind,
         totalCents: e.total,
-        share: total ? e.total / total : 0,
+        share: base ? e.total / base : 0,
         incomeShare: ofIncome(e.total),
         count: e.count,
         avgTxCents: e.count ? Math.round(e.total / e.count) : 0,
@@ -125,7 +126,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         minMonthCents: averagedAt.length ? Math.min(...averagedAt.map((i) => e.monthly[i]!)) : null,
         maxMonthCents: averagedAt.length ? Math.max(...averagedAt.map((i) => e.monthly[i]!)) : null,
         monthsActive: e.monthly.filter((v) => v > 0).length,
-        previousCents: Math.max(0, prev.get(category) ?? 0),
+        previousCents: prev.get(category) ?? 0,
         trend: before > 0 ? (recent - before) / before : null,
       };
     })
@@ -137,7 +138,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     return {
       group,
       totalCents: groupTotal,
-      share: total ? groupTotal / total : 0,
+      share: base ? groupTotal / base : 0,
       incomeShare: ofIncome(groupTotal),
       previousCents: categories.reduce((s, c) => s + c.previousCents, 0),
       categories,

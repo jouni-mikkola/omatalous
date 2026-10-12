@@ -162,7 +162,7 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   const since = mark && mark > new Date(s.now().getTime() - 86_400_000).toISOString() ? mark : new Date(s.now().getTime() - 86_400_000).toISOString();
   const failed = await s.security.countSince(user.id, "login_fail", since);
   if (failed > 0) {
-    out.push({ id: "fails", kind: "login_fail", at: null, text: `${failed} epäonnistunutta kirjautumista tunnuksellasi viime vuorokauden aikana.` });
+    out.push({ id: "fails", kind: "login_fail", at: null, text: `${failed === 1 ? "Yksi epäonnistunut kirjautuminen" : `${failed} epäonnistunutta kirjautumista`} tunnuksellasi viime vuorokauden aikana.` });
   }
   if (user.role === "admin" && (await s.settings.get(INDUSTRY_NOTICE))) {
     out.push({

@@ -174,7 +174,21 @@ cf_world() { # a first install: no .env yet, the Cloudflare file (mode 600), a d
   write_docker
 }
 # the secrets in any process's argument list while the install runs (ps shows arguments, not the environment)
-watch_ps() { rm -f "$W/ps.stop"; : >"$W/ps.hits"; ( while [[ ! -e $W/ps.stop ]]; do ps -eo args 2>/dev/null | grep -F -f "$W/secrets" >>"$W/ps.hits"; sleep 0.01; done ) & WATCH=$!; }
+# The watcher says by a file that it has taken its first sample (ps.first), and the caller starts the command only then. It
+# says by another that a sample began after ps.begun was written (ps.seen), so a command that writes ps.begun can wait for
+# it. unwatch_ps takes the stop flag first, then the watcher takes one more sample and ends. No sleep decides what is seen.
+watch_ps() {
+  rm -f "$W"/ps.{stop,first,begun,seen}; : >"$W/ps.hits"
+  ( while :; do
+      stop=0; seen=0; [[ ! -e $W/ps.stop ]] || stop=1; [[ ! -e $W/ps.begun ]] || seen=1
+      ps -eo args 2>/dev/null | grep -F -f "$W/secrets" >>"$W/ps.hits"
+      : >"$W/ps.first"; ((seen == 0)) || : >"$W/ps.seen"
+      ((stop == 0)) || break
+      sleep 0.01
+    done ) &
+  WATCH=$!
+  while [[ ! -e $W/ps.first ]] && kill -0 "$WATCH" 2>/dev/null; do sleep 0.01; done
+}
 unwatch_ps() { touch "$W/ps.stop"; wait "$WATCH" 2>/dev/null; }
 cf_install() { # the whole install with these arguments; XENV holds extra environment, INPUT the answers
   watch_ps
@@ -201,7 +215,11 @@ no_pair() { ! grep -q '^CF_ACCESS_' "$CL/.env"; }
 
 t_cloudflare_watcher_sees_argv() {
   cf_world
-  watch_ps; bash -c 'sleep 0.5; true' "$API_TOKEN"; unwatch_ps
+  watch_ps
+  # the command has the secret in its arguments and ends only after a sample that began once it was there, and after the
+  # file WATCH_HOLD names when a caller (t_other_run_is_not_seen) sets one
+  bash -c 'touch "$1"; while [[ ! -e $2 || (-n $3 && ! -e $3) ]]; do sleep 0.01; done' "$API_TOKEN" "$W/ps.begun" "$W/ps.seen" "${WATCH_HOLD:-}"
+  unwatch_ps
   check "the process list check does see a secret in an argument list" test -s "$W/ps.hits"
 }
 t_cloudflare_first_install() {
@@ -681,12 +699,15 @@ pid_in_tokens() { [[ $API_TOKEN == *_$$_* && $(printf '%s' "$TUN_TOKEN" | base64
 t_other_run_is_not_seen() {
   cf_world
   watch_ps
-  bash "$HERE/install.test.sh" t_cloudflare_watcher_sees_argv >"$W/other.out" 2>&1 &
+  # the other run's command stays until this run has seen its token and this run's watcher has sampled once more
+  WATCH_HOLD="$W/other.hold" bash "$HERE/install.test.sh" t_cloudflare_watcher_sees_argv >"$W/other.out" 2>&1 &
   local other=$! found=0 rc=0 _
   for _ in $(seq 1 600); do
     if ps -eo args 2>/dev/null | grep -E 'cfapi_example_[0-9]+_0123' | grep -vF "cfapi_example_${$}_" | grep . >/dev/null; then found=1; break; fi
     sleep 0.05
   done
+  touch "$W/ps.begun"; until [[ -e $W/ps.seen ]]; do sleep 0.01; done
+  touch "$W/other.hold"
   wait "$other" || rc=$?
   unwatch_ps
   check "the other run's token was in the process list while this run watched" test "$found" = 1

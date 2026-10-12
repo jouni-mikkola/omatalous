@@ -48,10 +48,10 @@ const state = (source: "web" | null, inactiveMessage: string | null) =>
     bankApp: { source, inactiveMessage },
   }) as unknown as InstanceState;
 const wizardDone = (current: InstanceState) => renderToStaticMarkup(createElement(WizardDone, { current, finishing: false, onBack: () => {}, onFinish: () => {} }));
-const connectButton = (out: string) => out.match(/<button[^>]*btn-primary[^>]*>\s*Lisää pankkiyhteys/)?.[0] ?? null;
+const connectButton = (out: string) => out.match(/<button[^>]*btn-primary[^>]*>\s*Yhdistä pankki/)?.[0] ?? null;
 
 describe("the wizard's last step", () => {
-  it("keeps Lisää pankkiyhteys on while the app reads Inactive, and says so", () => {
+  it("keeps Yhdistä pankki on while the app reads Inactive, and says so", () => {
     const out = wizardDone(state("web", "Sovellus ei ole vielä aktiivinen."));
     expect(connectButton(out)).not.toBeNull();
     expect(connectButton(out)).not.toContain("disabled");

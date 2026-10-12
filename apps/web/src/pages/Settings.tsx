@@ -146,7 +146,7 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
                 </div>
               </div>
               <div className="form-row" style={{ margin: 0 }}>
-                {!hasConnection && <span className="small muted">Lisää ensin pankkiyhteys.</span>}
+                {!hasConnection && <span className="small muted">Yhdistä ensin pankki.</span>}
                 <button className="btn" disabled={busy !== null || !hasConnection} onClick={() => run("sync", async () => {
                   const r = await api<{ status: string; inserted: number; messages: string[] }>("/api/sync", { method: "POST" });
                   return [`${plural(r.inserted, "uusi tapahtuma", "uutta tapahtumaa")}.`, ...r.messages].join(" ");

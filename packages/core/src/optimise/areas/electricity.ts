@@ -112,11 +112,11 @@ function priceCheck(status: Check["status"], hint?: string, input?: string): Che
 
 function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check } {
   const { ctx, today } = a;
-  if (a.months.length < 12) return { finding: null, check: priceCheck("no_data", "Vertailuun tarvitaan 12 täyttä kuukautta.") };
+  if (a.months.length < 12) return { finding: null, check: priceCheck("no_data", "Vertailuun tarvitaan 12 valmista kuukautta.") };
   const from = `${a.months[0]}-01`;
   const moved = valueOf(a.values, "moved_on", today);
   // the bills of the old home are another household's use: the year starts after the move
-  if (moved && moved >= from) return { finding: null, check: priceCheck("no_data", "Muuton jälkeen on alle 12 täyttä kuukautta.") };
+  if (moved && moved >= from) return { finding: null, check: priceCheck("no_data", "Muuton jälkeen on alle 12 valmista kuukautta.") };
   const { bills, credits } = billsOf(ctx, a, a.months, from);
   if (!bills.length) return { finding: null, check: priceCheck("no_data", "Sähkölaskuja ei löytynyt 12 kuukauden ajalta.") };
   const sellers = bills.filter((b) => b.kind !== "network");
@@ -172,11 +172,11 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
     ...(creditSum ? [{ label: "Hyvitykset samoilta yhtiöiltä", value: formatEur(-creditSum, false) }] : []),
     ...struckRows.map((t) => ({ label: `${t.merchant} ${formatFiDate(t.bookingDate)}, kertaluonteinen`, value: formatEur(t.spend), struck: true })),
     { label: "Sähkölaskut yhteensä", value: formatEur(total, false) },
-    { label: `Vuosikulutus, syötetty ${formatFiDate(kwhDate)}`, value: kwhText(kwh) },
+    { label: `Vuosikulutus, annettu ${formatFiDate(kwhDate)}`, value: kwhText(kwh) },
     { label: "Oma hinta", value: perKwh(own) },
     { label: band.label, value: perKwh(bandT) },
-    ...(dearer ? [{ label: "Vertailuhinta enintään, puolivälissä pienemmän kulutuksen kokoluokkaan", value: perKwh(lowEdge) }] : []),
-    ...(cheaper ? [{ label: "Vertailuhinta vähintään, puolivälissä suuremman kulutuksen kokoluokkaan", value: perKwh(highEdge) }] : []),
+    ...(dearer ? [{ label: "Vertailuhinta enintään: oman ja pienemmän kulutuksen kokoluokan puoliväli", value: perKwh(lowEdge) }] : []),
+    ...(cheaper ? [{ label: "Vertailuhinta vähintään: oman ja suuremman kulutuksen kokoluokan puoliväli", value: perKwh(highEdge) }] : []),
     { label: `Ero ${perKwh(gap)} × ${kwhText(kwh)}`, value: formatEur(mid, false) },
   ];
   // the one-offs stay among the rows, the latest bills fill the rest
@@ -234,7 +234,7 @@ function assessContract(a: AreaInput, hasBills: boolean): { finding: FindingDraf
     weaknesses: [],
     shared: false,
     calc: [
-      { label: `Sopimus päättyy, syötetty ${formatFiDate(typed)}`, value: formatFiDate(end) },
+      { label: `Sopimus päättyy, annettu ${formatFiDate(typed)}`, value: formatFiDate(end) },
       { label: "Kilpailuta viimeistään", value: formatFiDate(decideBy) },
     ],
     rows: [],

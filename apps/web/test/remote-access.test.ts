@@ -469,7 +469,7 @@ describe("the blocks of each state", () => {
     for (const helper of [{ ...OFF.helper, status: "off" as const, knowsAccess: false }, { ...OFF.helper, knowsAccess: false }]) {
       const html = page({ ...OFF, token: SAVED, helper, suggestedHostname: "talous.example.fi" });
       expect(html).toContain("./scripts/install.sh --ops-helper");
-      expect(html).toContain("asennusohjelman skriptillä");
+      expect(html).toContain("palvelimella asennusohjelmalla");
       expect(html).toMatch(/href="[^"]*docs\/ADVANCED\.md#cloudflare-tunnel"/);
       expect(html).not.toContain('name="hostname"');
     }

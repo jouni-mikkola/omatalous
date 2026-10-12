@@ -1,6 +1,6 @@
 import "../styles/charts.css";
 
-export interface BarItem {
+interface BarItem {
   key: string;
   label: string;
   value: number;

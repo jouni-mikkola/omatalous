@@ -88,7 +88,9 @@ describe("industry lookup", () => {
     const byMerchant = new Map((await repo.allTransactions()).map((t) => [t.merchant, t]));
     expect(byMerchant.get("Pikku Puoti")).toMatchObject({ category: "restaurants", categorySource: "industry" });
     expect(byMerchant.get("Saumaus Nieminen Oy")).toMatchObject({ category: "home", categorySource: "industry" });
-    expect(byMerchant.get("Liisa Virtanen")).toMatchObject({ category: "other", categorySource: "default" });
+    // people are never asked about: a transfer to a person's account with no reference number is a payment between people, and a row with no account is read as before
+    expect(byMerchant.get("Liisa Virtanen")).toMatchObject({ category: "p2p", categorySource: "rule" });
+    expect(byMerchant.get("Maija Nieminen")).toMatchObject({ category: "other", categorySource: "default" });
 
     // the list says where the category came from
     const list = await admin.call("GET", "/api/transactions?merchant=Pikku%20Puoti");
@@ -245,7 +247,8 @@ describe("industry lookup", () => {
     expect(asked).toHaveLength(2);
     expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 0 });
     expect(asked).toHaveLength(2);
-    expect((await repo.allTransactions()).every((t) => t.categorySource === "default")).toBe(true);
+    // the register told nothing: what is not a person's is what it was
+    expect((await repo.allTransactions()).filter((t) => t.category !== "p2p").every((t) => t.categorySource === "default")).toBe(true);
   });
 
   it("records which user asked about which name, people never", async () => {

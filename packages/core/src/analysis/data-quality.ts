@@ -1,4 +1,4 @@
-import { type AnalysisContext, inDays } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 import { daysBetween } from "../dates.ts";
@@ -24,6 +24,20 @@ export interface DataQualityReport {
 const SHORT_HISTORY_DAYS = 90;
 // 5 % of a family's spending is often the third largest category
 const UNCATEGORISED_SHARE = 0.05;
+/**
+ * What a share of spending is measured against: the spending of each category with its refunds taken off, the
+ * categories that net above zero added up. A category with more refunds than spending takes nothing off the base, so
+ * no share passes 100 %. The Kategoriat shares, the share of "Muut menot" here and the dashboard's category list use
+ * this one base; the net total of the cashflow report is a different figure and can be smaller.
+ */
+export function spendingBase(txs: readonly Pick<AnalysisTx, "spend" | "category">[]): number {
+  const net = new Map<string, number>();
+  for (const t of txs) net.set(t.category, (net.get(t.category) ?? 0) + t.spend);
+  let base = 0;
+  for (const cents of net.values()) if (cents > 0) base += cents;
+  return base;
+}
+
 const GAP_DAYS = 14;
 const STALE_DAYS = 7;
 /** A card is used less often than a checking account: three weeks of quiet is ordinary. */
@@ -55,7 +69,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     }
   }
 
-  const spending = inRange.reduce((s, t) => s + Math.max(0, t.spend), 0);
+  const spending = spendingBase(inRange);
   const other = inRange.filter((t) => t.category === "other").reduce((s, t) => s + t.spend, 0);
   if (spending > 0 && other / spending >= UNCATEGORISED_SHARE) {
     const byMerchant = new Map<string, number>();
@@ -100,20 +114,18 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     }
   }
 
+  // with a card connected the bills are of the months before its rows, or of a card that is not connected
   const hasCardAccount = ctx.accounts.some((a) => a.type === "credit_card");
-  if (!hasCardAccount) {
-    const bills = inRange.filter((t) => t.category === "card_bill" && t.spend > 0);
-    const total = bills.reduce((s, t) => s + t.spend, 0);
-    if (total > 0) {
-      signals.push({
-        id: "card_bills",
-        tone: "warning",
-        title: `Korttilaskuja ${formatEur(total, false)} lasketaan menoiksi`,
-        detail: "Kortin ostot eivät näy kategorioittain. Yhdistä kortti.",
-        category: "card_bill",
-        cents: total,
-      });
-    }
+  const billTotal = inRange.filter((t) => t.category === "card_bill" && t.spend > 0).reduce((s, t) => s + t.spend, 0);
+  if (billTotal > 0) {
+    signals.push({
+      id: "card_bills",
+      tone: "warning",
+      title: `Korttilaskuja ${formatEur(billTotal, false)} lasketaan menoiksi`,
+      detail: hasCardAccount ? "Laskut ovat ajalta ennen kortin tapahtumia tai kortista, jota ei ole yhdistetty." : "Kortin ostot eivät näy kategorioittain. Yhdistä kortti.",
+      category: "card_bill",
+      cents: billTotal,
+    });
   }
 
   // money sent to an own account or fund that is not connected is counted as saved: the savings rate takes it on trust

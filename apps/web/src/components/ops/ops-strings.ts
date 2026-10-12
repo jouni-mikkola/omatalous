@@ -1,4 +1,4 @@
-import type { RestoreState } from "./types.ts";
+import type { HelperInfo, OpsAction, OpsRequestView, OpsSnapshot, RestoreState } from "./types.ts";
 
 /** Finnish wording of Asetukset > Ylläpito in one place, so it is read through once. */
 export const ENABLE_DOC = "https://github.com/jouni-mikkola/omatalous/blob/main/docs/ADVANCED.md#the-maintenance-helper";
@@ -22,17 +22,19 @@ export const S = {
   updateAvailable: "Uusi versio saatavilla",
   changes: "Muutokset",
   update: "Päivitä",
+  prerelease: "Tarjoa uudet versiot heti",
+  prereleaseHelp: "Uusi versio tulee tavallisesti tarjolle kaksi päivää julkaisunsa jälkeen. Kun tämä on päällä, se tarjotaan heti. Asennus alkaa vasta, kun painat Päivitä.",
   updateTitle: "Päivitä sovellus",
   updateBody: ["Tietokannasta otetaan kopio.", "Sovellus käynnistyy hetkeksi uudelleen.", "Edellinen versio voidaan palauttaa."],
   rollback: "Palauta edellinen versio",
   rollbackTitle: "Palauta edellinen versio",
-  rollbackBody: "Tietokannasta otetaan ensin kopio. Jos vanha versio ei pysty lukemaan tietokantaa, palautetaan päivitystä edeltävä kopio ja päivityksen jälkeiset muutokset katoavat.",
+  rollbackBody: "Tietokannasta otetaan ensin kopio. Jos vanha versio ei pysty lukemaan tietokantaa, palautetaan päivitystä edeltävä kopio ja päivityksen jälkeiset muutokset häviävät.",
   rollbackSchema: "Päivitys muutti tietokannan rakennetta.",
   rollbackConfirm: (word: string) => `Kirjoita ${word} vahvistukseksi`,
   password: "Salasanasi",
   cancel: "Peruuta",
   working: "Hetki…",
-  queued: "Jonossa. Alkaa minuutin sisällä.",
+  queued: "Jonossa. Apuri aloittaa tavallisesti minuutin sisällä.",
   running: "Käynnissä.",
   restarting: "Sovellus käynnistyy uudelleen…",
   restartingLong: `Jos sivu ei palaa, palauta edellinen versio palvelimella: ${ROLLBACK_HELP}`,
@@ -40,7 +42,7 @@ export const S = {
   ok: "Onnistui",
   failed: "Epäonnistui",
   expired: "Vanhentui",
-  cancelled: "Peruttu",
+  cancelled: "Peruutettu",
   showLog: "Näytä loki",
   hideLog: "Piilota loki",
   noLog: "Lokia ei ole.",
@@ -68,8 +70,8 @@ export const S = {
   renewHelp: "Asentaa apurin ajastuksen ja asetukset uudelleen.",
   toolsOutdated: "Apuri ei tue näitä toimintoja. Päivitä se palvelimella:",
 
-  // Palauta viimeisin varmuuskopio. The sentences of the server (the 400, 403, 409 and 503 answers) are shown as they come.
-  restoreTitle: "Palauta viimeisin varmuuskopio",
+  // Palauta uusin varmuuskopio. The sentences of the server (the 400, 403, 409 and 503 answers) are shown as they come.
+  restoreTitle: "Palauta uusin varmuuskopio",
   restoreSub: "Korvaa tietokannan uusimmalla ehjällä varmuuskopiolla.",
   restoreSubmit: "Palauta",
   restoreWord: "PALAUTA",
@@ -101,7 +103,7 @@ export const S = {
   resetGoes: "Tyhjennys poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät. Oma tunnuksesi, palvelimen asetukset ja Enable Banking -sovellus säilyvät.",
   resetNotes: [
     "Ensin otetaan varmuuskopio. Vanhat varmuuskopiot jäävät paikoilleen, joten tiedot säilyvät niissä.",
-    "Painike Palauta viimeisin varmuuskopio tuo tiedot takaisin alle vuorokauden ajan. Se palauttaa uusimman varmuuskopion, ja seuraava päivittäinen varmuuskopio otetaan jo tyhjennyksen jälkeen.",
+    "Painikkeella Palauta uusin varmuuskopio tiedot saa takaisin alle vuorokauden ajan. Sen jälkeen uusin varmuuskopio on otettu jo tyhjennetystä tietokannasta.",
     "Tyhjennystä edeltävä varmuuskopio säilyy vähintään 14 päivää.",
     "Pankkiyhteydet lopetetaan. Ne pitää yhdistää uudelleen myös palautuksen jälkeen.",
   ],
@@ -109,7 +111,7 @@ export const S = {
   resetCopy: (name: string) => `Varmuuskopio ennen tyhjennystä: ${name}`,
   resetFailed: (n: number) =>
     `${n === 1 ? "1 pankkiyhteys jäi" : `${n} pankkiyhteyttä jäi`} voimaan pankissa. ${n === 1 ? "Se vanhenee" : "Ne vanhenevat"} itsestään.`,
-  resetBanks: "Pankit yhdistetään uudelleen kirjautumisen jälkeen.",
+  resetBanks: "Yhdistä pankit uudelleen, kun olet kirjautunut.",
   signIn: "Kirjaudu sisään",
 };
 
@@ -133,6 +135,22 @@ export function restoreWait(waitedMs: number): string[] {
   if (waitedMs < SLOW_MS) return [S.restoreWaiting];
   return waitedMs < REQUEST_LAPSES_MS ? [S.restoreSlow] : [S.restoreSlow, S.restoreLate];
 }
+
+/**
+ * The switch for new versions is on the page when the helper is on, knows the two requests and has said where the
+ * switch stands, and the install follows releases (a source install has none to follow).
+ */
+export function showsPrerelease(helper: HelperInfo, state: OpsSnapshot): boolean {
+  return helper.status !== "off" && helper.knowsPrerelease && state.channel !== "source" && state.prerelease !== undefined;
+}
+/** Where the switch stands: what a request under way asks for, else what the helper last reported from the host. */
+export function prereleaseOn(state: OpsSnapshot, latest: OpsRequestView | undefined): boolean {
+  const asked = latest && (latest.status === "queued" || latest.status === "running") ? latest.action : "";
+  if (asked === "prerelease-on" || asked === "prerelease-off") return asked === "prerelease-on";
+  return state.prerelease === "yes";
+}
+/** The request a turn of the switch sends. The position is in the name, and no value goes with it. */
+export const prereleaseAction = (on: boolean): OpsAction => (on ? "prerelease-on" : "prerelease-off");
 
 export const LEVEL: Record<string, string> = { ok: "kunnossa", warn: "varoitus", error: "virhe" };
 const KIND: Record<string, string> = { daily: "päivittäinen", "pre-update": "ennen päivitystä", "pre-reset": "ennen tyhjennystä", manual: "käsin" };

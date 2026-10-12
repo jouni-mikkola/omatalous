@@ -323,7 +323,7 @@ found gives the category. An unclear match is left alone.
   damaged file, because a stop at start would loop. Both cases are security events (*Tietokanta palautettu
   varmuuskopiosta*, *Tietokanta vaurioitunut*) and a notice to every admin. The app never empties `/data/damaged`, and
   the files in it hold transactions in plain text.
-- *Palauta viimeisin varmuuskopio* and *Tyhjennä kaikki tiedot* in *Asetukset > Ylläpito* change the database itself.
+- *Palauta uusin varmuuskopio* and *Tyhjennä kaikki tiedot* in *Asetukset > Ylläpito* change the database itself.
   Each asks for the admin's password again and a typed word (`PALAUTA`, `TYHJENNÄ`), and is recorded as a security event
   with the asker's name. Neither goes through the host helper. A restore writes a marker, `/data/.restore-request`, which
   holds the file name of a copy in `/data/backups` and the asker's id. The app then ends itself as `docker stop` does,
@@ -352,7 +352,7 @@ Remote access is changed on its own page, with the password for every change, se
 - The update path is root-equivalent. The helper's user is in the `docker` group, so what the helper installs
   decides who owns the machine. The root of trust is the project's GitHub account and its release workflow. Releases are
   signed there, see [RELEASING.md](RELEASING.md).
-- The helper runs ten fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
+- The helper runs twelve fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
   never reaches a shell. The tenth, `access`, applies the way of reaching the copy that the app has prepared: Cloudflare
   Tunnel with Access, or the home network again. It takes four values from the request file described above, never from
   the request row: the host name, the tunnel token, the Access audience tag and the team domain. It checks each by
@@ -360,7 +360,13 @@ Remote access is changed on its own page, with the password for every change, se
   600, one generation, the earlier tunnel token included). If the app does not answer with the new `.env`, the helper
   puts the earlier one back. To put it back by hand, copy `ops/env.prev` over `.env`, keep its mode 600, and run
   `docker compose up -d`. The maintenance route refuses `access`, so only the remote access routes, behind the
-  password, can queue it. Port changes are not among the actions.
+  password, can queue it. Port changes are not among the actions. The last two, `prerelease-on` and `prerelease-off`,
+  are the two positions of the switch *Tarjoa uudet versiot heti* under *Asetukset > Ylläpito*. They are two names so
+  that no value travels from the app to the host: the helper writes `yes` or `no`, words of its own script, on the one
+  line `TALOUS_PRERELEASE` of `.env`. It writes only after it checked the file, holds the installer's lock, refuses a
+  source install and keeps every other byte, the mode and the owner. An administrator's session queues them without the
+  password, as it does a restart: the switch chooses only how early a release is offered. A pre-release passes the
+  same signature checks, and nothing installs before *Päivitä* and the password.
 - The timer runs a launcher that lives outside the clone, `~/.local/share/omatalous/<name>/launcher.sh`, so that no
   update replaces the file the timer runs. It refuses to run as root, takes one argument (the clone) and nothing from a
   request or the database, uses a fixed `PATH`, and runs no file, of the clone or of its last good copy of the helper,
@@ -375,7 +381,8 @@ Remote access is changed on its own page, with the password for every change, se
   never follows a tunnel or a point-to-point link, and holds the installer's lock. The disk step removes only untagged
   images that carry this app's label and never touches a volume.
 - A release install takes a version the GitHub Releases API names, only a semver step up from the running one. The answer
-  chooses only a tag: the latest full release, or with `TALOUS_PRERELEASE=yes` the newest, a pre-release too. The tag
+  chooses only a tag: the latest full release, or the newest, a pre-release too, when the switch *Tarjoa uudet versiot
+  heti* is on (`TALOUS_PRERELEASE=yes` in `.env`, which the helper writes or, on an install without it, a person). The tag
   must be `vX.Y.Z`, exist in the folder, be an ancestor of the branch the clone follows and pass the helper's signer and
   compose checks, and its image must pass the cosign check for the commit the tag names. The address of the API is
   fixed and no environment variable replaces it. A release is a pre-release for its first 48 hours, until a workflow of

@@ -196,11 +196,11 @@ async function conditions(s: Services, probes: HealthProbes = {}): Promise<Condi
   const helperSeen = await s.settings.get(HELPER_SEEN_KEY);
 
   const out: Condition[] = [];
-  if (copyMissing) out.push({ kind: "copy_missing", key: since.copy_missing!, text: `Ehjää varmuuskopiota ei ole tehty 36 tuntiin. Ota varmuuskopio kohdasta ${WHERE}.` });
+  if (copyMissing) out.push({ kind: "copy_missing", key: since.copy_missing!, text: `Ehjää varmuuskopiota ei ole tehty 36 tuntiin. Ota varmuuskopio kohdassa ${WHERE}.` });
   if (check && check.ok === false) {
-    out.push({ kind: "copy_check_failed", key: String(check.at), text: `Varmuuskopio ${check.file} ei läpäissyt tarkistusta eikä sitä enää käytetä palautukseen. Ota uusi varmuuskopio kohdasta ${WHERE}.` });
+    out.push({ kind: "copy_check_failed", key: String(check.at), text: `Varmuuskopio ${check.file} ei läpäissyt tarkistusta eikä sitä enää käytetä palautukseen. Ota uusi varmuuskopio kohdassa ${WHERE}.` });
   }
-  if (diskLow) out.push({ kind: "disk_low", key: since.disk_low!, text: `Palvelimen levyllä on enää ${Math.floor((disk.freeBytes ?? 0) / MB)} Mt vapaata tilaa. Siivoa levy kohdasta ${WHERE}.` });
+  if (diskLow) out.push({ kind: "disk_low", key: since.disk_low!, text: `Palvelimen levyllä on enää ${Math.floor((disk.freeBytes ?? 0) / MB)} Mt vapaata tilaa. Siivoa levy kohdassa ${WHERE}.` });
   // "stale" is the helper's own word for it (ops-validate.ts): seen once, and not for 24 hours
   if (helperSeen && helperStatus(helperSeen, s.now()).reason === "stale") {
     out.push({ kind: "helper_silent", key: helperSeen, text: `Ylläpitoapurista ei ole kuulunut vuorokauteen. Käynnistä se palvelimella uudelleen: ohje on kohdassa ${WHERE}.` });

@@ -25,6 +25,15 @@ export const MOBILEPAY_SHOP_PREFIX = String.raw`MOB\.? ?PAY`;
  * when the name says so itself (industry.ts). A card terminal's prefix (SUMUP, ZETTLE) stands before a seller.
  */
 export const PERSON_PAYMENT_PREFIX = String.raw`${MOBILEPAY_SHOP_PREFIX}|PAYPAL|PP`;
+/** A bank's own words for a payment between people, sent by phone number, as a regex alternation. They name nobody: the payee beside them does (categorize-people.ts). */
+export const PERSON_PAYMENT_WORDS = "MOBIILIMAKSU|SIIRTO-MAKSU";
+/** The words of an invoice in a message, as a regex alternation: with the endings a sole trader writes (LASKUTUS, LASKUNRO, FAKTURA), "E-LASKU" and "E-INVOICE" after the hyphen, and INV by itself. */
+export const INVOICE_WORDS = "LASKU[A-Z]*|INVOICE[A-Z]*|FAKTURA[A-Z]*|INV";
+
+const BUSINESS_PAYMENT =
+  /(?<![\p{L}\p{N}])(?:KORTTIOSTO|KORTTIMAKSU|CARD PURCHASE|OSTOPVM|E-LASKU|E-INVOICE|SUORAMAKSU|VERKKOMAKSU)(?![\p{L}\p{N}])|X{2,}\d{2,4}|\*{2,}\d{2,4}/u;
+/** Whether a folded text has what banks put on card purchases and e-invoices, never on a transfer to a person. */
+export const isBusinessPaymentText = (folded: string) => BUSINESS_PAYMENT.test(folded);
 
 /**
  * The names of ways to pay, as a regex alternation. A bank prints one where a payee's name would stand, and the
@@ -188,7 +197,8 @@ export function namesBusiness(folded: string): boolean {
 // A predicate keeps the matching its reader had (whole words, a substring, a whole name). Where a rule of
 // categorize.ts reads the same list, it interpolates the same constant.
 
-export const words = (list: string) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?![A-Z0-9])`);
+/** Whole words of a list, also next to "+", "'" and ".". `numbered`: a bank glues a document's number on ("MATKALASKU123456"), so only a letter ends the word. */
+export const words = (list: string, numbered = false) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?![A-Z${numbered ? "" : "0-9"}])`);
 
 /** Electricity sellers, as a regex alternation: the utilities rule of categorize.ts and `isElectricitySeller` read it. */
 export const ELECTRICITY_SELLER_WORDS = String.raw`FORTUM|VATTENFALL|OOMI|\bVARE\b|HELEN|LUMME|NORDIC GREEN|LOISTE|HERRFORS`;
@@ -229,6 +239,8 @@ const bankTxnCodes =
 // monthly settlement as POSC, and money loaded with a card to an own account at another bank comes as a purchase.
 /** Cash taken out: from an ATM with the card (CCRD), abroad too, or over a counter (CNTR), a branch's too. */
 export const isCashWithdrawalCode = bankTxnCodes("CCRD-CWDL", "CCRD-XBCW", "CNTR-CWDL", "CNTR-BCWD");
+/** Anything booked with a card (the CCRD family): such a row is no transfer to a person, whatever its payee is named. */
+export const isCardCode = (code: string | null | undefined): boolean => /(?:^|-)CCRD-/.test(code ?? "");
 /** Pay received, as a credit transfer (RCDT) or an instant one (RRCT): payroll, also from abroad. */
 export const isSalaryCode = bankTxnCodes("RCDT-SALA", "RCDT-XBSA", "RRCT-SALA", "RRCT-XBSA");
 /**
@@ -295,12 +307,12 @@ const LOAN_TEXT = words(`${LOAN_WORDS}|SOPIMUS`);
 export const isLoanText = (folded: string) => LOAN_TEXT.test(folded) || isCreditText(folded);
 
 /** Refund words, as a regex alternation: `REIMBURSEMENT_WORDS` and `isRefundText` read it. */
-export const REFUND_WORDS = "HYVITYS|PALAUTUS|REFUND|CHARGEBACK|OIKAISU";
+export const REFUND_WORDS = "HYVITYS|PALAUTUS|REFUND|CHARGEBACK|OIKAISU|LIIKASUORITUS|YLISUORITUS";
 const REFUND_TEXT = new RegExp(`(?<![A-Z0-9])(?:${REFUND_WORDS})[A-Z]*(?![A-Z0-9])`);
 export const isRefundText = (folded: string) => REFUND_TEXT.test(folded);
 /** Money back for a cost the household paid. The reimbursements rule of categorize.ts reads the words, and its salary code steps aside for them: an employer pays a travel claim in the payroll batch. */
 export const REIMBURSEMENT_WORDS = `VAKUUTUSKORVAUS|KORVAUS|KULUKORVAUS|MATKALASKU|${REFUND_WORDS}`;
-const REIMBURSEMENT_TEXT = words(REIMBURSEMENT_WORDS);
+const REIMBURSEMENT_TEXT = words(REIMBURSEMENT_WORDS, true);
 export const isReimbursementText = (folded: string) => REIMBURSEMENT_TEXT.test(folded);
 
 /** Residual tax and the other taxes paid to the same office, as regex alternations: taxes in categorize.ts reads both. */
@@ -353,6 +365,9 @@ export const isFuelText = (folded: string) => FUEL_WORDS.test(folded);
 export const isCarInsuranceText = (folded: string) => CAR_INSURANCE_WORDS.test(folded);
 export const isVehicleTaxText = (folded: string) => VEHICLE_TAX_WORDS.test(folded);
 export const isCarFinanceText = (folded: string) => CAR_FINANCE_WORDS.test(folded);
+// a car dealer by the words of the trade: a payment to one is a car bought, not a running cost
+const CAR_DEALER_WORDS = words(String.raw`AUTOLIIKE|AUTOKAUPPA|AUTOKAUPPIAS|AUTOTALO|AUTOKESKUS|AUTOMYYMALA|AUTOMYYNTI|BILHANDEL|BILFIRMA`);
+export const isCarDealerText = (folded: string) => CAR_DEALER_WORDS.test(folded);
 
 // ── lenders and the words for credit (the loan and credit rules of categorize.ts interpolate each list) ──
 

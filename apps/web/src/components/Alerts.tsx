@@ -6,7 +6,7 @@ import "../styles/overview.css";
 type Alert = DashboardData["alerts"][number];
 
 /** What the household said about an alert: the alert it hides, and the mark to store (`alert:<id>`, or the subject of the series the question is about). */
-export type OnMark = (alertId: string, subject: string, mark: MarkKind) => void;
+type OnMark = (alertId: string, subject: string, mark: MarkKind) => void;
 
 /**
  * Cost traps worth a look, above the insights. A row with a merchant or a

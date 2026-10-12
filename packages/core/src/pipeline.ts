@@ -1,11 +1,14 @@
 import { getCategory } from "./categories.ts";
+import { isInstalments, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
 import { categorize, compileRules } from "./categorize.ts";
+import { lenderEvidence } from "./categorize-bank-rows.ts";
+import { holdersOf } from "./categorize-people.ts";
 import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
 import { median } from "./stats.ts";
-import { matchReturns, returnClassOf, SHARE_WINDOW_DAYS } from "./returns.ts";
-import { detectTransfers, normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
+import { matchReturns, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
+import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
 import type { Account, CategoryRule, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
 
@@ -55,15 +58,21 @@ export async function enrichTransactionsPausing(
 const CHUNK = 4000;
 
 /**
- * What a rule says depends on the row's names, its card code, the bank's own transaction code and the direction of
- * the money only, and a long history repeats the same shop, text and codes thousands of times: each distinct
- * combination is decided once.
+ * What a rule says depends on the row's names, its card code, the bank's own transaction code, whether it has a
+ * reference number, whether it has the payee's account, whether the account pays the payee steadily and the direction
+ * of the money only, and a long history repeats the same shop, text and codes thousands of times: each distinct
+ * combination is decided once. The reference and the payee's account are there as a yes or no (the reference also as
+ * not carried at all), never as their values: a number of its own on every row would make every row its own key. The
+ * row's own account is not part of it but for that yes or no: the holders come from the whole list of accounts and no
+ * rule reads a row's own.
  */
-function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule[]): Generator<void, { next: Transaction[]; byUserRule: Set<string> }, void> {
+function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule[], accounts: readonly Account[]): Generator<void, { next: Transaction[]; byUserRule: Set<string> }, void> {
   const rules = compileRules(userRules);
   const byUserRule = new Set<string>();
   const decided = new Map<string, ReturnType<typeof categorize>>();
   const next: Transaction[] = new Array(txs.length);
+  // payees the account pays about the same sum in three or more months: not a single gift to a person
+  const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
   for (let i = 0; i < txs.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = txs[i]!;
@@ -71,9 +80,10 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
       next[i] = { ...t, isTransfer: t.category === "transfer" };
       continue;
     }
-    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}`;
+    const steadyPayee = t.amountCents < 0 && steady.has(partyKey(t));
+    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}`;
     let result = decided.get(key);
-    if (!result) decided.set(key, (result = categorize(t, rules)));
+    if (!result) decided.set(key, (result = categorize(steadyPayee ? { ...t, steadyPayee } : t, rules, accounts)));
     const { category, source, byUser } = result;
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")
@@ -97,12 +107,13 @@ function* applyMerchantEvidence(
   const likeOthers = merchantCategories(next);
   const cards = new Set(accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   const shops = businessMerchants(next, payeeLedgers);
+  const lender = lenderEvidence(next, cards, holdersOf(accounts), accounts);
   for (let i = 0; i < next.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = next[i]!;
     if (t.categorySource !== "default" || t.amountCents >= 0) continue;
-    const same = likeOthers.get(t.merchant);
-    const industry = industries.get(t.merchant);
+    const same = lender.paid(t) ? "loans" : likeOthers.get(t.merchant);
+    const industry = lender.industry(t, industries.get(t.merchant));
     // debt too: a collection agency's industry means debt service
     const kind = industry ? getCategory(industry).kind : null;
     if (same) Object.assign(t, { category: same, categorySource: "merchant" });
@@ -136,7 +147,7 @@ function* enrichSteps(
   userRules: readonly CategoryRule[],
   industries: ReadonlyMap<string, string>,
 ): Generator<void, Transaction[], void> {
-  const { next, byUserRule } = yield* classify(txs, userRules);
+  const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
   applyCardBills(next, byUserRule);
   yield;
@@ -144,12 +155,17 @@ function* enrichSteps(
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
   const returns = matchReturns(next, ownIbansOf(accounts), byUserRule);
   yield;
-  const transfers = detectTransfers(next, accounts, { exclude: new Set([...returns.keys(), ...returns.values()]) });
+  const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]));
   for (const t of next) {
-    if (t.categorySource !== "user" && transfers.has(t.id)) {
+    if (t.categorySource === "user") continue;
+    if (transfers.has(t.id)) {
       t.category = "transfer";
       t.categorySource = "transfer";
       t.isTransfer = true;
+    } else if (cardBills.has(t.id)) {
+      // a rule's verdict, so the merchant's other rows and its industry do not overrule it
+      t.category = "card_bill";
+      t.categorySource = "rule";
     }
   }
   yield;
@@ -189,6 +205,11 @@ export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; r
  * - votes, card bills, industry and refunds of one merchant stay inside its rows;
  * - transfer pairing is unchanged when no row of the island pairs (none was paired) and each row either keeps its
  *   part in it or leaves it for good (a row that was never paired leaving the candidates changes nobody's pairing);
+ * - a card's payment channel (card-channel.ts) is knowledge about the whole history, and the island is not handed it.
+ *   A channel is learned from pairs only, so an island with a pair has answered already. A row that a channel learned
+ *   elsewhere decides can pair, and is stored as a transfer or as a card bill the steps here do not give, so the
+ *   stored rows are not reproduced; a row that starts to be one takes a part in pairing. Each ends in the full run;
+ * - a lender is a merchant with a credit payout among its own rows, so a payout that comes or goes is checked;
  * - returns are unchanged when each row keeps its part, and a friend's share outside the island that follows an
  *   island purchase is looked for;
  * - the old inputs run through the same steps must give the stored rows back, which also catches a stored state that
@@ -199,7 +220,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
   const ownIbans = ownIbansOf(accounts);
   const run = (txs: readonly Transaction[], userRules: readonly CategoryRule[]) => {
-    const steps = classify(txs, userRules);
+    const steps = classify(txs, userRules, accounts);
     let step = steps.next();
     while (!step.done) step = steps.next();
     const { next, byUserRule } = step.value;
@@ -247,6 +268,8 @@ export function enrichIsland(input: IslandInput): IslandResult {
     const oldKey = transferKey(o);
     const newKey = transferKey(n);
     if (oldKey !== newKey && newKey !== INERT) return { ok: false, reason: "a row may take part in transfer pairing" };
+    // the issuer fallback spares a lender's rows, also the ones stored as card bills here
+    if (isCreditPayout(o) !== isCreditPayout(n)) return { ok: false, reason: "a lender's payout came or went" };
     const oldReturn = returnKey(o, ownIbans, old.byUserRule.has(o.id));
     const newReturn = returnKey(n, ownIbans, now.byUserRule.has(n.id));
     if (oldReturn === "share" || newReturn === "share") return { ok: false, reason: "a row may be a friend's share of a bill" };
@@ -290,6 +313,9 @@ const transferKey = (t: Transaction): string => {
   return !pairs && t.category !== "card_bill" ? INERT : `${pairs ? "leg" : ""}${t.category === "card_bill" ? "bill" : ""}`;
 };
 
+/** Credit paid out to the household: what makes its merchant a lender (card-channel.ts `settleTransfers`). */
+const isCreditPayout = (t: Transaction): boolean => t.category === "credit_draw" && t.amountCents > 0;
+
 /** What returns look at in a row's state (the rest of what they read is in the bank's fields, which a change does not touch). */
 const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolean) => returnClassOf(t, ownIbans, locked);
 
@@ -299,6 +325,11 @@ const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolea
  * jump from month to month: a card bill, not an instalment. An amount paid
  * three times or more is an instalment and stays a loan, so a car loan and a
  * card bill from the same issuer are told apart.
+ *
+ * One reference is one contract, so the payments under it share the answer: where at least half of them are equal
+ * instalments, an extra payment and an instalment that changed are the same loan's, and where most vary, the equal
+ * ones are that card's bills too. A reference seen once or twice is an invoice's own number and says nothing: its
+ * rows are judged with the ones that have none, each by its amount as before.
  */
 function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
   const groups = new Map<string, Transaction[]>();
@@ -313,15 +344,31 @@ function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
   }
   const bills: Transaction[] = [];
   for (const rows of groups.values()) {
-    const counts = new Map<number, number>();
-    for (const t of rows) counts.set(t.amountCents, (counts.get(t.amountCents) ?? 0) + 1);
-    const varying = rows.filter((t) => counts.get(t.amountCents)! < 3).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
-    if (varying.length < 3) continue;
-    // month-to-month change, not the overall range: a slowly shrinking instalment is not a card bill
-    const changes = varying.slice(1).map((t, i) => Math.abs(t.amountCents - varying[i]!.amountCents) / Math.abs(varying[i]!.amountCents));
-    if (median(changes) > 0.1) bills.push(...varying);
+    const byReference = new Map<string, Transaction[]>();
+    for (const t of rows) {
+      const reference = referenceOf(t);
+      const same = byReference.get(reference);
+      if (same) same.push(t);
+      else byReference.set(reference, [t]);
+    }
+    const rest: Transaction[] = [];
+    for (const [reference, same] of byReference) {
+      if (reference === "" || same.length < 3) rest.push(...same);
+      else bills.push(...billsAmong(same, true));
+    }
+    bills.push(...billsAmong(rest, false));
   }
   return bills;
+}
+
+/** The card bills among one payee's rows: all or none of a contract's, and otherwise the ones whose amount varies. */
+function billsAmong(rows: readonly Transaction[], contract: boolean): readonly Transaction[] {
+  const varying = varyingRows(rows).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
+  if (varying.length < 3 || (contract && isInstalments(rows))) return [];
+  // month-to-month change, not the overall range: a slowly shrinking instalment is not a card bill
+  const changes = varying.slice(1).map((t, i) => Math.abs(t.amountCents - varying[i]!.amountCents) / Math.abs(varying[i]!.amountCents));
+  if (median(changes) <= 0.1) return [];
+  return contract ? rows : varying;
 }
 
 /** Categories whose rows say nothing about what a merchant sells. */

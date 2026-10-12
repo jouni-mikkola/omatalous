@@ -1,17 +1,16 @@
 /**
  * Muut havainnot: the insights (analysis/insights) on the page where the household answers every finding. They are
- * the running month's, judged as the overview judged them (the month up to today, with its alerts), and each keeps its
- * own gate and history rule. The page tells each euro once: an insight over half of whose rows are paid to the payees
- * of the findings, all of them together, is theirs to tell, whether a finding shows or was decided on, so it is left
- * out; so is one that the findings tell in part when the part left over is under the gate. Payees and not row ids: a
- * finding stands on complete months, an insight on today, so the newest charge is in one and not the other. Ei koske
- * meitä stores a dismissal mark (`insightDismissSubject`), and the insight returns when its figure moves 25 %.
+ * judged on the window the findings use (`areaInputOf`: the last complete months, up to 12), so the yearly figure each
+ * states stands on a year and not on the first days of a month, and each keeps its own gate and history rule. The page
+ * tells each euro once: an insight over half of whose rows are paid to the payees of the findings, all of them
+ * together, is theirs to tell, whether a finding shows or was decided on, so it is left out; so is one that the findings
+ * tell in part when the part left over is under the gate. Payees and not row ids: an insight and a finding may pick
+ * different charges of one payee. Ei koske meitä stores a dismissal mark (`insightDismissSubject`), and the insight
+ * returns when its figure moves 25 %.
  */
-import type { AnalysisContext } from "../analysis/context.ts";
 import { answeredInsights, type Insight, insightInputOf } from "../analysis/insights/index.ts";
-import type { UserInputs } from "../types.ts";
 import { GATE_YEARLY_CENTS, rowsById } from "./common.ts";
-import type { DismissedInsight } from "./types.ts";
+import type { AreaInput, DismissedInsight } from "./types.ts";
 
 /** A row of an insight as the overlap rule reads it: who was paid and how much. */
 export interface PaidRow {
@@ -36,8 +35,11 @@ export function coveredBy(insight: Pick<Insight, "rows" | "yearlyCents">, rowOf:
 }
 
 /** The insights no finding covers: shown, or dismissed while their figure stays within 25 % of the dismissed one. */
-export function othersOf(ctx: AnalysisContext, inputs: UserInputs, findingRows: readonly (readonly string[])[]): { others: Insight[]; othersDismissed: DismissedInsight[] } {
-  const range = { from: `${ctx.today.slice(0, 7)}-01`, to: ctx.today };
+export function othersOf(a: AreaInput, findingRows: readonly (readonly string[])[]): { others: Insight[]; othersDismissed: DismissedInsight[] } {
+  const { ctx } = a;
+  const first = a.months[0];
+  if (!first) return { others: [], othersDismissed: [] };
+  const range = { from: `${first}-01`, to: a.end };
   const byId = rowsById(ctx);
   const rowOf = (id: string): PaidRow | undefined => {
     const t = byId.get(id);
@@ -46,7 +48,8 @@ export function othersOf(ctx: AnalysisContext, inputs: UserInputs, findingRows: 
   const told = new Set(findingRows.flatMap((rows) => rows.flatMap((id) => byId.get(id)?.merchant ?? [])));
   const others: Insight[] = [];
   const othersDismissed: DismissedInsight[] = [];
-  for (const { insight, dismissal } of answeredInsights(insightInputOf(ctx, range, inputs))) {
+  // the page is read today: a renewal that is due in the next days is not a matter of the window
+  for (const { insight, dismissal } of answeredInsights({ ...insightInputOf(ctx, range, a.inputs), running: true })) {
     if (coveredBy(insight, rowOf, told)) continue;
     if (dismissal) othersDismissed.push({ insight, subject: dismissal.subject, markedAt: dismissal.markedAt });
     else others.push(insight);

@@ -129,7 +129,7 @@ function assess(a: AreaInput): AreaResult {
         highCents: high,
         assumption: sums.other
           ? "Työn osuus on siivouksessa ja pihatöissä 100\u00a0% ja muissa töissä 50–100\u00a0% laskusta, arviossa 75\u00a0%."
-          : "Laskelma olettaa, että siivous- ja pihatyölaskut ovat kokonaan työtä.",
+          : "Laskelmassa oletetaan, että siivous- ja pihatyölaskut ovat kokonaan työtä.",
       },
       decideBy: null,
       weaknesses: [ESTIMATE],

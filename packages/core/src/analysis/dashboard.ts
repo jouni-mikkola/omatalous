@@ -1,8 +1,9 @@
 import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
+import { buildHoldings, type Holdings } from "../holdings.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
-import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
+import { dataQualityReport, type QualitySignal, spendingBase } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
@@ -49,7 +50,7 @@ export interface DashboardData {
   pace: MonthPace;
   /** null when the selected period does not include today. */
   forecast: MonthForecast | null;
-  /** The next 30 days: pay days, bills and the balance line. null when the selected period does not include today. */
+  /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the balance line. null when the selected period does not include today. */
   ahead: AheadData | null;
   /** Cost traps and mistakes; the overview shows them before insights. */
   alerts: Alert[];
@@ -58,6 +59,8 @@ export interface DashboardData {
   /** How many signals the data quality report holds (warnings and notes), for the line at the top of the overview. */
   dataSignals: number;
   insights: Insight[];
+  /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
+  holdings: Holdings;
   /** Category ids that own colour slots 1–7 (slot 8 is "Muut"). */
   colorOrder: string[];
 }
@@ -77,8 +80,7 @@ export function categoryTotals(current: readonly AnalysisTx[], previous: readonl
   }
   const prev = new Map<string, number>();
   for (const t of previous) if (t.spend) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
-  let all = 0;
-  for (const e of totals.values()) if (e.cents > 0) all += e.cents;
+  const all = spendingBase(current);
   return [...totals.entries()]
     .filter(([, e]) => e.cents > 0)
     .map(([category, e]) => {
@@ -137,6 +139,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     dataNotice: quality.signals.find((x) => x.tone === "warning") ?? null,
     dataSignals: quality.signals.length,
     insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
+    holdings: buildHoldings(ctx, balances, inputs),
     colorOrder: [...ctx.colorOrder],
   };
 }

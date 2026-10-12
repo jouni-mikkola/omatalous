@@ -9,7 +9,7 @@ This page has what the setup does not show.
 
 ## Choosing a bank
 
-*Asetukset > Pankkiyhteydet > Lisää pankkiyhteys* opens the bank picker. It lists the banks by name, with the logo where there is
+*Asetukset > Pankkiyhteydet > Yhdistä pankki* opens the bank picker. It lists the banks by name, with the logo where there is
 one and the name on a plain plate where there is none. Nordea's logo comes with the app. The server fetches the others
 from Enable Banking's website and serves them from its own address. The bank you connected last is first.
 With more than eight banks there is a search field.
@@ -32,7 +32,7 @@ link. You always log in on your bank's own page, and Omatalous can only read tra
   a restricted app may read. Enable Banking lets you use your own accounts with an app you registered yourself, without
   a contract, and only in restricted mode: the API returns the linked accounts and strips every other account from the
   answer.
-- The connection in Omatalous (*Asetukset > Pankkiyhteydet > Lisää pankkiyhteys*) is the consent that Omatalous fetches
+- The connection in Omatalous (*Asetukset > Pankkiyhteydet > Yhdistä pankki*) is the consent that Omatalous fetches
   with. You give it with your bank's login. It lasts 180 days or the bank's own maximum when that is shorter, and you
   renew it before it ends.
 
@@ -81,13 +81,17 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 ## After you connect
 
 - Use a phone or computer on your home Wi-Fi. After the bank login the browser shows a page on `github.io` for a
-  moment and comes back to Omatalous.
+  moment and comes back to Omatalous. If the browser stays on that page, or the bank ends on an error page, copy the
+  whole address from the address bar and paste it under *Asetukset > Pankkiyhteydet*, in the line *Viimeistele yhteys
+  osoitteella*. Then press *Viimeistele*. An install that still ends on the bank's error page has that line as *Liitä
+  pankin viimeisen sivun osoite*.
 - The first fetch brings up to two years of history in the background, as much as the bank gives. Omatalous reads no
   files, so there is no import for older history. An account that an earlier version took in from a CSV file stays with
   its rows. When you link the same account (the same IBAN) at the bank, its rows move into the bank's account and are
   not counted twice.
 - Check under *Asetukset > Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
-  account counts as a transfer, because the purchases are already counted on the card.
+  account counts as a transfer, because the purchases are already counted on the card. The type also puts the card
+  under *Kortit* on the first page, with its last four digits and, when the bank gives a limit, how much of it is used.
 - Omatalous reads these fields of each account. The bank's `product` (Käyttötili, ASP-tili, Nordea Gold) becomes the account's name, and
   `name`, which holds the holders ("A;B"), a line under it. `cash_account_type` gives the type; Nordea sends `CACC` for every
   account, so a product with a savings word (säästö, ASP, tuotto, sijoitus) reads as *Säästötili* when the account is first linked (change the type under *Asetukset > Tilit* if it is wrong). A card's masked number
@@ -99,7 +103,8 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 - Renew a consent with *Yhdistä uudelleen* on its row. The button is there before the consent ends too, so you can renew
   on a quiet day. It starts the same bank at once, with no picker. Only a bank the picker no longer offers, or an
   instance where no Enable Banking application can start a bank yet, opens the picker, which says what is missing.
-  The history stays, and the old consent goes under *Aiemmat yhteydet* when the new one has its accounts.
+  The history stays. When the new consent has its accounts, the old one is no longer in the list. A consent that has
+  ended and still has accounts stays in the list, with *Yhdistä uudelleen*.
   Nordea gives one account per consent, so renew each consent you have.
 - *Muistutus kalenteriin* under the end date downloads a calendar file (`.ics`) with one all-day event seven days before
   the consent ends, "Omatalous: pankkiyhteys vanhenee 14.1.2027". The browser makes the file. It holds the bank's name, the end date
@@ -110,10 +115,10 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   fetch reads it. The step is in the list: link the accounts
   under *Link accounts* in the Control Panel (a member who uses the household's app asks the administrator), then
   press *Hae nyt*. No new connection is needed.
-- After a link the button *Lisää pankkiyhteys* reads *Yhdistä toinen pankki*, so a household with two banks, or
+- After a link the button *Yhdistä pankki* reads *Yhdistä toinen pankki*, so a household with two banks, or
   with Nordea and one account at a time, goes on without starting over. The wizard ends on the same page.
 - *Tyhjennä kaikki tiedot* under *Asetukset > Ylläpito* ends every bank consent at the bank. A restore of the copy it
-  made first brings the rows back and not the consents, so connect each bank again with *Lisää pankkiyhteys*.
+  made first brings the rows back and not the consents, so connect each bank again with *Yhdistä pankki*.
 - After a link the server log has one line per account: `bank link <bank id>: cash_account_type=... credit_limit=...
   balance_types=...`. It holds codes and yes or no only, no account number, name or amount. It shows what a bank sends.
 
@@ -124,12 +129,12 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 | "Enable Banking ei tunnistanut sovellusta" (also with 401), or "Enable Banking hylkäsi avaimen (401)" | The Application ID is not copied in full, or the certificate in Enable Banking is not the one Omatalous made. A new key (*Luo uusi*) makes the old certificate useless. Check both and press *Tallenna ja testaa* again. *Testaa yhteys* under *Asetukset > Palvelin* shows which of the two it is. |
 | "Enable Banking ei vielä päästä sovellusta pankkeihin", or "Enable Banking hylkäsi avaimen (403)" | The app is still *Inactive*, or no account is linked. Press *Activate by linking accounts* in the Control Panel, choose your bank, then press *Testaa yhteys* under *Asetukset > Palvelin*. |
 | "Enable Banking ei hyväksy paluuosoitetta" | The address the message names is missing from your app's Redirect URLs. Add it in the Control Panel. |
-| An account or a card is missing | It is not under *Linked accounts*. Link it with *Link accounts*, then connect again with *Lisää pankkiyhteys*. |
-| "N tiliä ei ole linkitetty Enable Bankingissa" with a list under *Pankkiyhteydet*, "&lt;account&gt;: tiliä ei ole linkitetty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted and reads only the accounts under *Linked accounts*. The list names each such account by the bank's name for it and its last four digits. Open *API applications*, your app, *Link accounts*, and link those accounts or cards. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
+| An account or a card is missing | It is not under *Linked accounts*. Link it with *Link accounts*, then connect again with *Yhdistä pankki*. |
+| "N tiliä ei ole linkitetty Enable Bankingissa" ("Yksi tili ei ole linkitetty Enable Bankingissa" for one) with a list under *Pankkiyhteydet*, "&lt;account&gt;: tiliä ei ole linkitetty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted and reads only the accounts under *Linked accounts*. The list names each such account by the bank's name for it and its last four digits. Open *API applications*, your app, *Link accounts*, and link those accounts or cards. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
 | "&lt;account&gt; ei tullut mukaan uuteen yhteyteen" | The new connection did not bring that account, so it stays on the old one and is not fetched. Link it under *Link accounts* in the Control Panel, then press *Yhdistä uudelleen*. |
 | "Pankki ei antanut tilejä" | The connection finished with no accounts, because none was linked at Enable Banking. Link them in the Control Panel and connect again. |
 | "Pankki keskeytti yhdistämisen", or "Enable Banking hylkäsi yhdistämisen" | The app's request log in the Control Panel has the reason. The server log has a line `bank link refused` with the status and code. |
-| "Yhdistäminen keskeytyi", or "Yhdistäminen vanheni" | The login was cancelled at the bank, or the link was used already or is more than an hour old. Start again with *Lisää pankkiyhteys*. |
+| "Yhdistäminen keskeytyi", or "Yhdistäminen vanheni" | The login was cancelled at the bank, or the link was used already or is more than an hour old. Start again with *Yhdistä pankki*. |
 | "Enable Banking vastasi virheellä ...", or "Enable Bankingiin ei saatu yhteyttä" | The problem is at Enable Banking or in the machine's connection. Try again later. |
 | The picker is empty, or lacks a bank you expect | The app's bank list at Enable Banking has none of the banks Omatalous knows, or not that one. The server log has a line `bank list:` when Enable Banking answered with an error. Check the app under *Asetukset > Palvelin*. |
 

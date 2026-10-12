@@ -312,6 +312,38 @@ describe("the enrichment with its rule memo and pauses", () => {
     }
   });
 
+  it("two rows with the same text are decided apart by whether they carry a reference and the payee's account, not by their values", async () => {
+    const { enrichTransactionsReference } = await import("./pipeline-reference.ts");
+    const pay = (id: string, accountId: string, reference?: string | null, counterpartyIban: string | null = "FI4950009420028731") =>
+      tx({ id, accountId, bookingDate: "2026-09-10", amountCents: -5000, merchant: "Maija Meikalainen", counterparty: "MEIKALAINEN MAIJA", counterpartyIban, description: "kiitos", ...(reference === undefined ? {} : { reference }) });
+    const rows = [
+      pay("field-absent", "chk"),
+      pay("none", "chk", null),
+      pay("empty", "sav", ""),
+      pay("numbered", "chk", "4471"),
+      pay("other-number", "sav", "99887"),
+      pay("no-account", "chk", null, null),
+      pay("other-account", "sav", null, "FI9900000000000009"),
+    ];
+    for (const input of [rows, [...rows].reverse()]) {
+      const changed = enrichTransactions(input, [checking, savings], []);
+      expect(changed.map((t) => `${t.id}:${t.category}`).sort()).toEqual(["empty:p2p", "none:p2p", "other-account:p2p"]);
+      expect(changed).toEqual(enrichTransactionsReference(input, [checking, savings], [], new Map()));
+    }
+  });
+
+  it("two rows with the same text are decided apart by whether their account pays the payee steadily, as the plain version does", async () => {
+    const { enrichTransactionsReference } = await import("./pipeline-reference.ts");
+    const pay = (id: string, accountId: string, bookingDate: string) =>
+      tx({ id, accountId, bookingDate, amountCents: -85_000, merchant: "Pekka Virtanen", counterparty: "VIRTANEN PEKKA", counterpartyIban: "FI4950009420028731", reference: null, description: "kiitos" });
+    const rows = [...["04", "05", "06", "07"].map((month) => pay(`steady-${month}`, "chk", `2026-${month}-05`)), pay("single", "sav", "2026-07-05")];
+    for (const input of [rows, [...rows].reverse()]) {
+      const changed = enrichTransactions(input, [checking, savings], []);
+      expect(changed.map((t) => `${t.id}:${t.category}`)).toEqual(["single:p2p"]);
+      expect(changed).toEqual(enrichTransactionsReference(input, [checking, savings], [], new Map()));
+    }
+  });
+
   it("gives the same rows as the plain version on random histories", async () => {
     const { enrichTransactionsReference } = await import("./pipeline-reference.ts");
     const { enrichTransactionsPausing } = await import("../src/pipeline.ts");

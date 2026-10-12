@@ -322,11 +322,6 @@ export function BankAppSetup({
                 </li>
               </ul>
               <div className="small muted">Paina lopuksi Register.</div>
-              {app.redirectMode === "paste" && (
-                <div className="small muted">
-                  Kun pankki näyttää lopuksi virhesivun, liitä sen osoite kohtaan Asetukset &gt; Pankkiyhteydet.
-                </div>
-              )}
             </li>
             <li>
               Linkitä tilit. Paina <em>Activate by linking accounts</em>, valitse Finland, oma pankkisi ja Personal. Kirjaudu pankkiin. Lisää muut tilit ja
@@ -394,7 +389,7 @@ export function BankAppSetup({
 
       {configured && !showSetup && app.redirectMode === "paste" && (
         <div className="notice">
-          Ota paluusivu käyttöön: lisää <code>{app.relayUrl}</code> Enable Bankingin sovelluksen Redirect URLs -kohtaan ja paina Ota käyttöön.{" "}
+          Lisää <code>{app.relayUrl}</code> Enable Bankingin sovelluksen Redirect URLs -kohtaan ja ota sitten paluusivu käyttöön.{" "}
           <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => run("relay", () => api<InstanceState>("/api/admin/instance/redirect-mode", { method: "PUT", body: { mode: "relay" } }))}>
             Ota käyttöön
           </button>

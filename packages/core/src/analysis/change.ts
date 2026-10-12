@@ -195,7 +195,7 @@ export function contextIndex(ctx: AnalysisContext): ContextIndex {
 /** The row for the categories under the gate together; with none, the row holds only the usual month's spread. */
 export const restLabel = (count: number) => (count ? `Muut (${count})` : "Muut");
 
-const LABEL: Record<BucketKind, string> = { oneoff: "Kertaosto", timing: "Ajoitus", new: "Uudet kaupat", stopped: "Ostot jääneet pois", price: "Kalliimpi ostoskerta", volume: "Useammin", spread: "Kuukausien vaihtelu", other: "Ei eriteltyä syytä" };
+const LABEL: Record<BucketKind, string> = { oneoff: "Kertaosto", timing: "Ajoitus", new: "Uudet kaupat", stopped: "Ostot jääneet pois", price: "Kalliimpi ostoskerta", volume: "Useammin", spread: "Kuukausien vaihtelu", other: "Syy ei näy tiedoista" };
 
 export function bucketLabel(kind: BucketKind, cents: number, bills = false): string {
   // a contract's moved amount is a bigger bill, never a dearer purchase

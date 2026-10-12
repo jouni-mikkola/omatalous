@@ -116,14 +116,14 @@ describe("a form as the loan the server takes", () => {
 
   it("names what is missing or cannot be read", () => {
     let form = emptyForm(TODAY);
-    expect(readForm(form)).toEqual({ body: null, errors: { kind: "Valitse laji.", balanceCents: "Kirjoita, paljon lainaa on jäljellä." } });
+    expect(readForm(form)).toEqual({ body: null, errors: { kind: "Valitse laji.", balanceCents: "Anna, paljonko lainaa on jäljellä." } });
     form = setKind(form, "other");
     form = setValue(form, "balanceCents", "paljon");
     form = setValue(form, "rateBp", "-1");
     form = setValue(form, "balanceDate", "");
     expect(readForm(form).errors).toEqual({
-      balanceCents: "Kirjoita summa euroina, esimerkiksi 12 500,00.",
-      rateBp: "Kirjoita korko prosentteina, esimerkiksi 3,25.",
+      balanceCents: "Anna summa euroina, esimerkiksi 12 500,00.",
+      rateBp: "Anna korko prosentteina, esimerkiksi 3,25.",
       balanceDate: "Valitse päivä.",
     });
   });

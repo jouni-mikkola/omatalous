@@ -117,7 +117,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
         ? [
             ...renewalLines,
             { label: "Hinta nyt vuodessa", value: formatEur(newYearly, false) },
-            { label: `Tarjous, syötetty ${formatFiDate(quoteStatus.state === "ok" ? quoteStatus.stored.asOf : today)}`, value: formatEur(quote!, false) },
+            { label: `Tarjous, annettu ${formatFiDate(quoteStatus.state === "ok" ? quoteStatus.stored.asOf : today)}`, value: formatEur(quote!, false) },
             { label: "Ero vuodessa", value: formatEur(difference, false) },
           ]
         : [...renewalLines, ...riseLines.slice(2)],

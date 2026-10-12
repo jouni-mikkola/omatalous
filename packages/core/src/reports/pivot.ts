@@ -46,9 +46,10 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange): PivotReport
       const averageCents = averaged.length ? Math.round(averaged.reduce((s, i) => s + values[i]!, 0) / averaged.length) : null;
       return { category, label: c.label, group: c.group, values, totalCents: total, averageCents };
     })
-    .filter((r) => r.totalCents > 0)
+    // a category with more refunds than spending stays, below the others with its minus: the totals are then the
+    // expense of the cashflow report, and the rows add up to them
+    .filter((r) => r.totalCents !== 0 || r.values.some((v) => v !== 0))
     .sort((a, b) => b.totalCents - a.totalCents);
-  // totals of the rows shown, so the table adds up (a category with more refunds than spending is left out)
   const monthTotals = months.map((_, i) => out.reduce((s, r) => s + r.values[i]!, 0));
   return {
     months: monthLabels(months),

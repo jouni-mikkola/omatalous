@@ -231,7 +231,7 @@ describe("averages and partial periods", () => {
     const refunds = [...dataset(), tx({ bookingDate: "2026-09-21", amountCents: 50000, category: "home", merchant: "Uusi Kauppa" })];
     const r = buildReports({ ctx: createContext(refunds, [checking], today), range: { from: "2026-01-01", to: "2026-09-30" }, balances: [] });
     r.pivot.months.forEach((_, i) => expect(r.pivot.monthTotals[i]).toBe(r.pivot.rows.reduce((s, row) => s + row.values[i]!, 0)));
-    expect(r.pivot.rows.some((row) => row.category === "home")).toBe(false);
+    expect(r.pivot.rows.find((row) => row.category === "home")!.totalCents).toBe(12900 - 50000);
   });
 
   it("a smaller loan instalment is kept apart from price rises", () => {
@@ -288,15 +288,19 @@ describe("data quality signals", () => {
     expect(found).toContain("stale");
   });
 
-  it("flags card bills counted as spending only while no card account is connected", () => {
+  it("flags card bills counted as spending, and tells to connect the card only while none is", () => {
     const bills = series("2025-09-10", 30.44, 14, -45000, { category: "card_bill", merchant: "Nordea Rahoitus Suomi Oy" });
-    expect(ids([...dataset(), ...bills])).toContain("card_bills");
+    const signalOf = (accounts: Account[]) => buildReports({ ctx: createContext([...dataset(), ...bills], accounts, today), range, balances: [] }).dataQuality.signals.find((s) => s.id === "card_bills");
+    const none = signalOf([checking]);
+    expect(none?.detail).toBe("Kortin ostot eivät näy kategorioittain. Yhdistä kortti.");
+    // bills of the months before the card's rows, or of a card that is not connected
     const card: Account = { id: "card", name: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" };
-    expect(ids([...dataset(), ...bills], [checking, card])).not.toContain("card_bills");
+    const connected = signalOf([checking, card]);
+    expect(connected?.detail).toBe("Laskut ovat ajalta ennen kortin tapahtumia tai kortista, jota ei ole yhdistetty.");
+    expect(connected?.cents).toBe(none?.cents);
   });
 
 });
-
 
 describe("upcoming bills, rising costs and the buffer", () => {
   const range = { from: "2026-01-01", to: "2026-09-30" };
@@ -315,7 +319,7 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(u.totalCents).toBe(u.items.reduce((s, i) => s + i.amountCents, 0));
     expect(u.items.map((i) => i.date)).toEqual([...u.items.map((i) => i.date)].sort());
     // the year counts the half-yearly one too: 4 x 96,40 + 2 x 89 = 563,60
-    expect(u.advice.replace(/\u00a0/g, " ")).toBe("Varaa 47 € kuussa, harvinaiset laskut ovat 564 € vuodessa.");
+    expect(u.advice.replace(/\u00a0/g, " ")).toBe("Harvinaiset laskut ovat 564 € vuodessa eli 47 € kuussa.");
     // monthly bills (Spotify, rent) are in the forecast, not here
     expect(u.items.every((i) => !["Spotify", "Sato Oyj", "Netflix"].includes(i.merchant))).toBe(true);
   });

@@ -113,7 +113,7 @@ describe("outcomeOf: a monthly item", () => {
     expect(outcomeOf(ctx, done(id, "2026-09-03", 24000), null)).toEqual({
       verdict: "odottaa",
       monthlyCents: null,
-      reason: "Tulos lasketaan, kun muutoksen jälkeen on 2 täyttä kuukautta: 1.12.2026.",
+      reason: "Tulos lasketaan, kun muutoksen jälkeen on 2 valmista kuukautta: 1.12.2026.",
     });
     expect(outcomeOf(ctx, done(id, "2026-08-03", 24000), null)).toMatchObject({ verdict: "odottaa", reason: expect.stringContaining("1.11.2026") });
     // a change dated ahead waits too
@@ -239,7 +239,7 @@ describe("outcomeOf: quarterly and yearly items, seasons and the unit price", ()
     // dated in October 2025, eleven complete months follow: one cycle is twelve
     expect(outcomeOf(ctx, done("insurance:renewal:Lähivakuutus", "2025-10-20", 15000), measured(measure))).toMatchObject({
       verdict: "odottaa",
-      reason: "Tulos lasketaan, kun muutoksen jälkeen on 12 täyttä kuukautta: 1.11.2026.",
+      reason: "Tulos lasketaan, kun muutoksen jälkeen on 12 valmista kuukautta: 1.11.2026.",
     });
     // the same price a year later is the old yearly series going on, at its own cadence
     const same = ctxOf([row("2024-11-10", -60000, "Lähivakuutus", "insurance"), row("2025-11-10", -60000, "Lähivakuutus", "insurance")]);
@@ -297,7 +297,7 @@ describe("outcomeOf: quarterly and yearly items, seasons and the unit price", ()
     const o = outcomeOf(ctx, done("seasons:christmas", "2025-11-15", 12000), measured({ kind: "season", keys: ["gifts_donations"] }));
     // December 2025: 500 € × 1,002 − 300 €; January 2026: 100 € × 0,998 − 80 €; the median of the two
     expect(o).toMatchObject({ verdict: "vahvistui", monthlyCents: Math.round((50100 - 30000 + 9980 - 8000) / 2) });
-    expect(o.reason).toBe("110 € kuussa vähemmän verrattuna samoihin 2 kuukauteen vuotta aiemmin. Vuoden takaiset summat on korjattu kuluttajahintojen muutoksella.");
+    expect(o.reason).toBe("110 € kuussa vähemmän verrattuna samaan jaksoon vuotta aiemmin. Vuoden takaiset summat on korjattu kuluttajahintojen muutoksella.");
   });
 
   it("the unit compares the bills of the same months a year earlier, says so, and is never more than todennäköinen", () => {
@@ -307,7 +307,7 @@ describe("outcomeOf: quarterly and yearly items, seasons and the unit price", ()
     expect(o).toEqual({
       verdict: "todennäköinen",
       monthlyCents: 3000,
-      reason: "30 € kuussa vähemmän verrattuna samoihin 2 kuukauteen vuotta aiemmin. Vertailussa ovat laskujen summat, joten kulutuksen muutos näkyy luvussa.",
+      reason: "30 € kuussa vähemmän verrattuna samaan jaksoon vuotta aiemmin. Vertailussa ovat laskujen summat, joten kulutuksen muutos näkyy luvussa.",
     });
     expect(o.reason).not.toMatch(/kWh|kilowatti/);
   });

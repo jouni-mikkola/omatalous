@@ -370,8 +370,8 @@ describe("spendingChange", () => {
     ];
     const usual = spendingChangeReport(ctxOf(rows), { from: "2026-09-01", to: "2026-09-30" }).views.find((v) => v.view === "usual")!;
     expect(usual.change.categories.find((c) => c.category === "home")).toMatchObject({ changeCents: 40000, restCents: 1000 });
-    expect(usual.bars).toEqual([{ category: "home", label: "Koti ja elektroniikka", kind: "other", cents: 40000, season: false, cause: "ei eriteltyä syytä" }]);
-    expect(usual.sentence).toBe("Syyskuu on 400 € tavallista kalliimpi: Koti ja elektroniikka +400 € (ei eriteltyä syytä).");
+    expect(usual.bars).toEqual([{ category: "home", label: "Koti ja elektroniikka", kind: "other", cents: 40000, season: false, cause: "syy ei näy tiedoista" }]);
+    expect(usual.sentence).toBe("Syyskuu on 400 € tavallista kalliimpi: Koti ja elektroniikka +400 € (syy ei näy tiedoista).");
   });
 
   it("what the named bars leave is Muut muutokset, not the table's Muut", () => {
@@ -385,7 +385,7 @@ describe("spendingChange", () => {
     ];
     const usual = spendingChangeReport(ctxOf(rows), { from: "2026-09-01", to: "2026-09-30" }).views.find((v) => v.view === "usual")!;
     expect(usual.bars.map((b) => [b.label, b.cents])).toEqual([["Koti ja elektroniikka", 40000], ["Muut muutokset", 1000]]);
-    expect(usual.sentence.replace(/\s/g, " ")).toBe("Syyskuu on 410 € tavallista kalliimpi: Koti ja elektroniikka +400 € (ei eriteltyä syytä), muut muutokset +10 €.");
+    expect(usual.sentence.replace(/\s/g, " ")).toBe("Syyskuu on 410 € tavallista kalliimpi: Koti ja elektroniikka +400 € (syy ei näy tiedoista), muut muutokset +10 €.");
   });
 
   it("causes that cancel inside a category are no bars, and the usual-level gap is never a bar", () => {

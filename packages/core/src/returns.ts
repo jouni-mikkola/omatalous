@@ -53,11 +53,11 @@ const NOT_A_PURCHASE = new Set(["card_bill", "cash"]);
  */
 export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<string> = new Set(), locked: ReadonlySet<string> = new Set()): Map<string, string> {
   const rows = sortedRows(txs);
-  const regular = regularSenders(rows.filter((t) => t.amountCents > 0 && isNamed(t, ownIbans)));
+  const regular = steadyParties(rows.filter((t) => t.amountCents > 0 && isNamed(t, ownIbans)));
 
   const incoming: Incoming[] = [];
   for (const t of rows) {
-    if (t.amountCents <= 0 || !isNamed(t, ownIbans) || t.categorySource === "user" || locked.has(t.id) || regular.has(keyOf(t))) continue;
+    if (t.amountCents <= 0 || !isNamed(t, ownIbans) || t.categorySource === "user" || locked.has(t.id) || regular.has(partyKey(t))) continue;
     if (t.category === "p2p_in" && t.categorySource === "rule") incoming.push({ t, day: dayNumber(t.bookingDate), person: true, share: true });
     else if (isPlainIncome(t)) incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false });
   }
@@ -115,7 +115,8 @@ interface Purchase {
 }
 
 const sortedRows = (txs: readonly ReturnInput[]) => [...txs].sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || a.id.localeCompare(b.id));
-const keyOf = (t: ReturnInput) => `${t.accountId}|${t.merchant}`;
+/** The key of a payer or payee: the account and the merchant. */
+export const partyKey = (t: Pick<Transaction, "accountId" | "merchant">) => `${t.accountId}|${t.merchant}`;
 /** A named payer or payee that is not one of the user's own accounts. */
 const isNamed = (t: ReturnInput, ownIbans: ReadonlySet<string>) => t.merchant !== UNKNOWN_MERCHANT && !ownIbans.has(normalizeIban(t.counterpartyIban) ?? "");
 
@@ -128,7 +129,7 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
     if (t.amountCents >= 0 || !isNamed(t, ownIbans) || NOT_A_PURCHASE.has(t.category) || getCategory(t.category).kind !== "expense") continue;
     const p = { t, day: dayNumber(t.bookingDate), left: -t.amountCents };
     list.push(p);
-    const key = keyOf(t);
+    const key = partyKey(t);
     const group = purchases.get(key);
     if (group) group.push(p);
     else purchases.set(key, [p]);
@@ -140,7 +141,7 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
   for (const inc of incoming) {
     const cents = inc.t.amountCents;
     let best: Purchase | undefined;
-    for (const p of purchases.get(keyOf(inc.t)) ?? []) {
+    for (const p of purchases.get(partyKey(inc.t)) ?? []) {
       // a person is paid back the whole amount or not at all: a partial amount is not evidence
       const person = p.t.category === "p2p";
       if (p.day > inc.day || inc.day - p.day > (person ? PAYBACK_WINDOW_DAYS : REFUND_WINDOW_DAYS) || p.left < cents) continue;
@@ -216,23 +217,23 @@ function lowerBound(items: readonly { day: number }[], day: number): number {
 }
 
 /**
- * Senders (account and merchant) that pay about the same amount (within
- * 10 % of their median) in three or more different months: rent from a
- * lodger, a regular allowance. Their money is income, never a refund.
+ * Parties (account and merchant, see `partyKey`) that move about the same amount (within 10 % of their median) in
+ * three or more different months, the rows being all of one direction: rent from a lodger or to a landlord, a regular
+ * allowance. Money in from one is income, never a refund; money out to one is a steady payee, not a single gift.
  */
-function regularSenders(rows: readonly ReturnInput[]): Set<string> {
-  const bySender = new Map<string, ReturnInput[]>();
+export function steadyParties(rows: readonly Pick<Transaction, "accountId" | "merchant" | "amountCents" | "bookingDate">[]): Set<string> {
+  const byParty = new Map<string, (typeof rows)[number][]>();
   for (const t of rows) {
-    const key = `${t.accountId}|${t.merchant}`;
-    const group = bySender.get(key);
+    const key = partyKey(t);
+    const group = byParty.get(key);
     if (group) group.push(t);
-    else bySender.set(key, [t]);
+    else byParty.set(key, [t]);
   }
   const out = new Set<string>();
-  for (const [key, list] of bySender) {
+  for (const [key, list] of byParty) {
     if (list.length < 3) continue;
     const typical = median(list.map((t) => t.amountCents));
-    const months = new Set(list.filter((t) => Math.abs(t.amountCents - typical) <= typical * 0.1).map((t) => monthOf(t.bookingDate)));
+    const months = new Set(list.filter((t) => Math.abs(t.amountCents - typical) <= Math.abs(typical) * 0.1).map((t) => monthOf(t.bookingDate)));
     if (months.size >= 3) out.add(key);
   }
   return out;

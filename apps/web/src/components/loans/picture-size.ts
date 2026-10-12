@@ -3,7 +3,7 @@
  * file of a few megabytes can be a picture of billions of pixels that fills a phone's memory: the size is checked
  * before anything is decoded.
  */
-export interface PictureSize {
+interface PictureSize {
   width: number;
   height: number;
 }

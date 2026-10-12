@@ -424,7 +424,7 @@ describe("decisions on findings", () => {
     expect((await admin.call("GET", "/api/optimise/evidence?id=%E0%A4%A")).status).toBe(400);
     // well formed, but nothing of this user's history makes it, for any status and for null
     for (const body of [{ status: "dismissed" }, { status: "done" }, { status: "snoozed", until: "2026-12-01" }, { status: null }]) {
-      expect(await decide(admin, "subscriptions:test:out:demo-nothing:Joku", body)).toMatchObject({ status: 404, body: { error: "Löydöstä ei löydy." } });
+      expect(await decide(admin, "subscriptions:test:out:demo-nothing:Joku", body)).toMatchObject({ status: 404, body: { error: "Vinkkiä ei löydy." } });
     }
     expect((await db.first<{ n: number }>("SELECT count(*) AS n FROM optimise_states"))?.n).toBe(0);
   });
@@ -503,7 +503,7 @@ describe("the evidence of a finding", () => {
     await decide(admin, c!.id, { status: "snoozed", until: "2026-12-01" });
     expect((await evidence(a!.id)).status).toBe(200);
     expect((await evidence(b!.id)).status).toBe(200);
-    expect(await evidence(c!.id)).toMatchObject({ status: 404, body: { error: "Löydöstä ei löydy." } });
+    expect(await evidence(c!.id)).toMatchObject({ status: 404, body: { error: "Vinkkiä ei löydy." } });
     expect((await evidence("subscriptions:test:out:demo-nothing:Joku")).status).toBe(404);
     expect((await admin.call("GET", "/api/optimise/evidence")).status).toBe(400);
   });

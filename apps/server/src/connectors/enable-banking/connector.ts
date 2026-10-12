@@ -3,7 +3,7 @@
  * end. The link flow is in link.ts, the application's keys in credentials.ts and app-setup.ts.
  */
 import { addDays } from "@banking/core";
-import { NotFound, UserError } from "../../platform/errors.ts";
+import { UserError } from "../../platform/errors.ts";
 import type { FinanceRepo } from "../../db/finance-repo.ts";
 import type { Services } from "../../services/context.ts";
 import type { Connector, ConnectorContext, PullWindow, Puller, SyncProblem } from "../types.ts";
@@ -133,27 +133,6 @@ export async function removeConnection(s: Services, repo: FinanceRepo, id: strin
     if (!(err instanceof EnableBankingError) && !(err instanceof UserError)) throw err;
   }
   await repo.setConnectionStatus(id, "revoked");
-}
-
-/**
- * Takes a connection that owns no account off the list ("Poista listalta"). One that still owns an account stays:
- * its accounts would lose the line that says why they are not fetched. A consent still open at the bank is ended
- * there first, best effort.
- */
-export async function forgetConnection(s: Services, repo: FinanceRepo, id: string): Promise<void> {
-  const conn = (await repo.listConnections()).find((c) => c.id === id);
-  if (!conn) throw new NotFound("Yhteyttä ei löydy.");
-  const owns = "Yhteydellä on tilejä, joten se pysyy listalla.";
-  if ((await repo.listAccounts()).some((a) => a.connectionId === id)) throw new UserError(owns);
-  if (conn.status === "active" && conn.provider === enableBanking.id) {
-    try {
-      await (await clientFor(s, repo.userId)).deleteSession(id);
-    } catch (err) {
-      if (!(err instanceof EnableBankingError) && !(err instanceof UserError)) throw err;
-    }
-  }
-  // the statement checks again, so an account linked to it meanwhile keeps its connection
-  if (!(await repo.deleteConnectionWithoutAccounts(id))) throw new UserError(owns);
 }
 
 /**

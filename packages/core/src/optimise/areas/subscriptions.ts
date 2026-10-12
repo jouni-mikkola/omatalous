@@ -59,7 +59,7 @@ function rises(a: AreaInput, answered: Answers): FindingDraft[] {
         effort: "minuutteja",
         euros: { lowCents: yearlyCents, midCents: yearlyCents, highCents: yearlyCents, assumption: "Jos hinta palaa entiselleen." },
         decideBy: null,
-        weaknesses: before < FEW_BEFORE ? [{ id: "estimate", reason: `Vanhaa hintaa on veloitettu vain ${before} kertaa.` }] : [],
+        weaknesses: before < FEW_BEFORE ? [{ id: "estimate", reason: `Vanhaa hintaa on veloitettu ${before === 1 ? "vain kerran" : `vain ${before} kertaa`}.` }] : [],
         shared: false,
         calc: [
           payee(s.merchant),

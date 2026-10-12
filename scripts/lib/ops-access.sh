@@ -90,6 +90,12 @@ access_lan_url() {
   printf 'http://%s:%s' "$addr" "$port"
 }
 
+# .env.new made empty with mode 600, right after the caller removed an old one: the one way the helper starts a rewrite
+# of .env (access_env_write below and prerelease_set in ops-release.sh; each removes, writes its own lines and renames).
+# noclobber: a regular file, or a link to one or to nothing, that appeared in between is not written through (another kind
+# of file, a device behind a link, is: bash refuses only those).
+env_new() { (set -C; : >.env.new) 2>/dev/null && chmod 600 .env.new; }
+
 # Rewrites .env once: every line of the eight keys goes and the KEY=value pairs given are added, each once. The other
 # lines stay as they are (env_check passed them at the start of this tick). One rename, as in the installer's env_set
 # (scripts/lib/cloudflare.sh), so a helper killed half way never leaves a tunnel token without the Access pair. The
@@ -97,8 +103,7 @@ access_lan_url() {
 access_env_write() { # access_env_write ID KEY=value...
   local id=$1 line pair sum; shift
   rm -f .env.new "$OPS/env.written" 2>/dev/null || return 1
-  # noclobber: a file that appeared in between is not written through
-  (set -C; : >.env.new) 2>/dev/null && chmod 600 .env.new || return 1
+  env_new || return 1
   {
     while IFS= read -r line || [[ -n $line ]]; do
       case ${line%%=*} in CLOUDFLARE_TUNNEL_TOKEN | COMPOSE_PROFILES | TRUST_PROXY | APP_BASE_URL | CF_ACCESS_AUD | CF_ACCESS_TEAM_DOMAIN | BIND_ADDRESS | ACCESS_LAN_BIND) continue ;; esac

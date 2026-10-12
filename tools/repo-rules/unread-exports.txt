@@ -133,7 +133,6 @@ apps/server/src/services/security.ts  MAX_EVENTS
 apps/server/src/services/upgrade.ts  UpgradeResult
 apps/server/src/services/upgrade.ts  runUpgradeTasks
 apps/server/src/services/users.ts  RemovalResult
-packages/core/src/analysis/ahead.ts  AHEAD_DAYS
 packages/core/src/analysis/ahead.ts  AheadBalance
 packages/core/src/analysis/ahead.ts  AheadRow
 packages/core/src/analysis/alerts.ts  AlertKind
@@ -180,9 +179,7 @@ packages/core/src/analysis/insights/types.ts  InsightTone
 packages/core/src/analysis/one-offs.ts  OneOffPolicy
 packages/core/src/analysis/usual.ts  GATE_SHARE
 packages/core/src/analysis/usual.ts  USUAL_MONTHS
-packages/core/src/categorize.ts  CategorizeInput
 packages/core/src/categorize.ts  CategorizeResult
-packages/core/src/categorize.ts  CompiledRule
 packages/core/src/categorize.ts  categoryForMcc
 packages/core/src/categorize.ts  compilePattern
 packages/core/src/commitments.ts  ExpectedCharge

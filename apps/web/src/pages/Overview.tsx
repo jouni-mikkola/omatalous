@@ -5,6 +5,7 @@ import { PaceChart } from "../charts/PaceChart.tsx";
 import { categoryColor } from "../charts/palette.ts";
 import { Alerts } from "../components/Alerts.tsx";
 import { DataScope } from "../components/DataScope.tsx";
+import { Holdings } from "../components/holdings/Holdings.tsx";
 import { Loading } from "../components/Loading.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { EmptyStart } from "../components/EmptyStart.tsx";
@@ -154,6 +155,8 @@ export function Overview({
         </ul>
       )}
 
+      <Holdings holdings={data.holdings} meta={meta} />
+
       {forecast && <ForecastCard forecast={forecast} pace={data.pace} />}
 
       {data.ahead && (
@@ -281,7 +284,7 @@ function ForecastCard({ forecast: f, pace }: { forecast: NonNullable<DashboardDa
           {/* without a complete month there is no usual everyday spending for the days left: what has gone is no forecast */}
           {f.pendingUntil ? (
             <p className="tile-note">
-              Ennuste näkyy {date(f.pendingUntil)}, kun historiassa on {completeMonths(1)}. Siitä saadaan tavallinen arkikulutus kuun loppuun.
+              Ennuste näkyy {date(f.pendingUntil)}, kun historiassa on {completeMonths(1)}.
             </p>
           ) : (
             <>

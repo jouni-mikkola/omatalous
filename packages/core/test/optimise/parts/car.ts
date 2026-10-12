@@ -31,6 +31,27 @@ function carRows(frame: Frame) {
   ];
 }
 
+/** A lease paid on the 12th of each of the last 12 months. The bank gives it no car category: it sits in Muut. */
+export function lease(frame: Frame, cents = 38_000) {
+  return lastYear(frame).map((m) => ({ merchant: "Esimerkkileasing Oy", counterparty: "ESIMERKKILEASING OY", description: "LEASINGVUOKRA", bookingDate: `${m}-12`, amountCents: -cents }));
+}
+
+/** One payment to a car dealer, or the down payment and the balance when `parts` is 2. */
+export function dealer(frame: Frame, cents = 1_500_000, parts = 1) {
+  return Array.from({ length: parts }, (_, i) => ({
+    merchant: "Esimerkki Autoliike Oy",
+    counterparty: "ESIMERKKI AUTOLIIKE OY",
+    description: "AUTOKAUPPA XYZ-123",
+    bookingDate: `${lastYear(frame)[3 + i * 2]}-18`,
+    amountCents: -Math.round(cents / parts),
+  }));
+}
+
+/** A car loan: an instalment on the 20th of each of the last 12 months to a lender that names the car. */
+export function carLoan(frame: Frame, cents = 29_000) {
+  return lastYear(frame).map((m) => ({ merchant: "Esimerkkirahoitus Oy", counterparty: "ESIMERKKIRAHOITUS OY", description: "AUTOLAINA LYHENNYS", bookingDate: `${m}-20`, amountCents: -cents }));
+}
+
 const PRICED = "2026-09-01";
 
 /** 48 × 9 € = 432 € of parking against a 180 € permit; 12 000 km. */

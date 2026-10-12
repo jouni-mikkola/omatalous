@@ -51,7 +51,7 @@ export function addressToSave(configured: string, browserOrigin: string): string
 }
 
 /**
- * The last step: what was set up, and where to go next. Lisää pankkiyhteys stays on while the app reads Inactive:
+ * The last step: what was set up, and where to go next. Yhdistä pankki stays on while the app reads Inactive:
  * starting a connection tests the app again and says what is wrong (`stillInactive` in connectors/enable-banking/link.ts).
  */
 export function WizardDone({ current, finishing, onBack, onFinish }: { current: InstanceState; finishing: boolean; onBack: () => void; onFinish: (next: "overview" | "connect") => void }) {
@@ -88,7 +88,7 @@ export function WizardDone({ current, finishing, onBack, onFinish }: { current: 
         </button>
         {current.bankApp.source && (
           <button className="btn btn-primary" type="button" disabled={finishing} onClick={() => onFinish("connect")}>
-            Lisää pankkiyhteys
+            Yhdistä pankki
           </button>
         )}
       </div>

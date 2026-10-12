@@ -11,7 +11,7 @@ import { BankLogo } from "./BankLogo.tsx";
 import "../styles/bank-picker.css";
 
 /** A list longer than this gets a search field. */
-export const SEARCH_ABOVE = 8;
+const SEARCH_ABOVE = 8;
 
 /** A name as letters and digits only, without case or accents: "s pankki" finds S-Pankki, "alands" Ålandsbanken. */
 function fold(text: string): string {

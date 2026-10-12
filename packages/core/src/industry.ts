@@ -10,7 +10,7 @@
  * prefixes mean the same in both; where they differ there is a table per set.
  */
 import { cleanDescription, fold, isPlaceName, UNKNOWN_MERCHANT } from "./merchant.ts";
-import { companyForms, dropUnseen, hasBusinessWord, hasPayeeForm, isPaymentMethodName, isPersonShaped, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_PREFIX } from "./wording.ts";
+import { companyForms, dropUnseen, hasBusinessWord, hasPayeeForm, isBusinessPaymentText, isPaymentMethodName, isPersonShaped, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_PREFIX } from "./wording.ts";
 import type { Account, Transaction } from "./types.ts";
 
 export type IndustryCodeSet = "TOL2008" | "TOL2025";
@@ -69,6 +69,8 @@ const COMMON: PrefixTable = {
   "62": "subscriptions",
   "63": "subscriptions",
   "64": null,
+  "6419": "loans", // banks; not on a card purchase (categorize-bank-rows.ts)
+  "6492": "loans", // other credit granting
   "65": "insurance",
   "66": null,
   "68": "housing",
@@ -287,10 +289,6 @@ export function shorterQuery(merchant: string): string | null {
 
 // ── which merchants to look up ───────────────────────────
 
-/** Texts banks put on card purchases and e-invoices, never on a transfer to a person. */
-const BUSINESS_PAYMENT =
-  /(?<![\p{L}\p{N}])(?:KORTTIOSTO|KORTTIMAKSU|CARD PURCHASE|OSTOPVM|E-LASKU|E-INVOICE|SUORAMAKSU|VERKKOMAKSU)(?![\p{L}\p{N}])|X{2,}\d{2,4}|\*{2,}\d{2,4}/u;
-
 type BusinessRowFields = Pick<Transaction, "mcc" | "accountId" | "counterparty" | "counterpartyIban" | "description"> & {
   merchant?: string;
   /** The payment's reference number. A stored row has one; the core `Transaction` does not carry it. */
@@ -347,7 +345,7 @@ const TERMINAL_PREFIX = /^\s*[\p{L}\p{N}._]{2,12} ?\*\s*[\p{L}\p{N}]/u;
 const TERMINAL_TEXT = /^\d{4,}(?:\s+\d+)*\s+(\p{L}+(?:\s+\p{L}+)?)$/u;
 
 /** The shape a card terminal gives a row, on any account. */
-function hasTerminalShape(t: Pick<Transaction, "counterparty" | "description">): boolean {
+export function hasTerminalShape(t: Pick<Transaction, "counterparty" | "description">): boolean {
   if (TERMINAL_PREFIX.test(payeeText(t))) return true;
   // beside a payee's name only: the text of a row that names no payee is the name itself
   const town = t.counterparty?.trim() && t.description ? TERMINAL_TEXT.exec(t.description.trim())?.[1] : undefined;
@@ -426,7 +424,7 @@ function hasBusinessEvidence(t: BusinessRowFields, cards: ReadonlySet<string>, s
   if (!t.counterpartyIban && t.merchant !== undefined && shops.has(t.merchant) && !mobilePay) return true;
   // in the bank's own text, where a name's letters are whole: the payee field, else the text that names the payee
   if (hasPayeeForm(fold(payeeText(t)))) return true;
-  if (t.description && BUSINESS_PAYMENT.test(fold(t.description))) return true;
+  if (t.description && isBusinessPaymentText(fold(t.description))) return true;
   return isInvoice(t);
 }
 

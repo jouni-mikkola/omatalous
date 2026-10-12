@@ -33,8 +33,9 @@ export function Situation({ data }: { data: OptimiseData }) {
           "Vinkkejä ei ole nyt."
         )}{" "}
         <span className="muted">
-          Tarkistettiin {plural(checked.total - checked.unavailable, "asia", "asiaa")}
-          {checked.unavailable > 0 && `, ${checked.unavailable} odottaa tietoja tai pidempää historiaa`}.
+          Tarkistettiin {plural(checked.total - checked.unavailable - checked.noRows, "asia", "asiaa")}
+          {checked.unavailable > 0 && `, ${checked.unavailable} odottaa tietoja tai pidempää historiaa`}
+          {checked.noRows > 0 && `${checked.unavailable > 0 ? " ja" : ","} ${checked.noRows} asiasta ei ole tietoja`}.
         </span>
       </p>
       {checked.findings > headline.count && (

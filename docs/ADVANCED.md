@@ -357,7 +357,7 @@ hand as above.
 
 #### Restore the newest copy from the browser
 
-*Asetukset > Ylläpito > Palauta viimeisin varmuuskopio* replaces the database with the newest intact copy in
+*Asetukset > Ylläpito > Palauta uusin varmuuskopio* replaces the database with the newest intact copy in
 `/data/backups`. The admin gives the password and types `PALAUTA`. The app then ends by itself, as `docker stop` ends it,
 and Docker's restart policy starts it again (`restart: unless-stopped` in `docker-compose.yml`). The copy goes in at
 that start. Nothing else starts the app: with no restart policy, with `on-failure` or with a bare `node` process the
@@ -405,7 +405,7 @@ Payee names the register did not find as a company are deleted. Everyone is sign
 
 A copy `pre-reset-<time>.db` is made first in `/data/backups` and kept at least 14 days. The list of copies on the
 page shows it as *ennen tyhjennystä*. Restoring it undoes the
-reset. *Palauta viimeisin varmuuskopio* does that only while this copy is the newest, which is until the next daily
+reset. *Palauta uusin varmuuskopio* does that only while this copy is the newest, which is until the next daily
 copy, less than a day later. After that restore it by its name as in [Restore a backup](#restore-a-backup). A restore
 brings the rows back and not the bank connections, so connect every bank again. The reset ends the bank consents at the
 bank first, and one that could not be ended expires there on its own.
@@ -504,10 +504,11 @@ buttons on that page work through a small helper on the machine, which the insta
 It needs a normal user, never root, and `jq`. It runs once a minute from a systemd user timer, or from cron where a timer
 cannot keep running. `./scripts/install.sh --ops-helper-off` removes it.
 
-The app only writes a request. The helper checks it against a fixed list of ten actions (check for updates, update, roll
-back, back up, restart, check the install, read the logs, free disk space, renew itself and change how the copy is
-reached) and runs one of the project's own scripts. Nothing from the database reaches a shell, and the port is never
-changed from the browser. The last action belongs to the Etäkäyttö page, see [Cloudflare Tunnel](#cloudflare-tunnel):
+The app only writes a request. The helper checks it against a fixed list of twelve actions (check for updates, update, roll
+back, back up, restart, check the install, read the logs, free disk space, renew itself, change how the copy is
+reached, and turn the switch for new versions on or off, see [Updates in detail](#updates-in-detail)) and runs one of
+the project's own scripts. Nothing from the database reaches a shell, and the port is never
+changed from the browser. Changing how the copy is reached belongs to the Etäkäyttö page, see [Cloudflare Tunnel](#cloudflare-tunnel):
 it rewrites `.env` from a request file the app checked and the helper checks again, and *Ylläpito* has no button for it.
 None of them takes a parameter. The logs are the last 100 lines of each running service with keys and tokens hidden. Freeing
 disk space runs `docker image prune -f` and `docker builder prune -f`, which leave the running and the previous version
@@ -651,8 +652,11 @@ or the check took too long. Both ways the current database is saved first in the
 Each release starts on GitHub as a pre-release, and an install follows the latest full release. The project's promotion
 workflow, which looks every six hours, promotes a release once it is 48 hours old, so an install is offered it two days
 after it came out. The daily check, *Päivitä* and `./scripts/update.sh` all wait for that, and nothing installs by
-itself. With `TALOUS_PRERELEASE=yes` in `.env` they follow the newest release instead, a pre-release too. The default is
-`no`. The key does nothing with `TALOUS_CHANNEL=source`, but a value other than `yes` or `no` is refused there too, and
+itself. With the switch *Tarjoa uudet versiot heti* under *Asetukset > Ylläpito* on, they follow the newest release
+instead, a pre-release too. The maintenance helper then sets the line `TALOUS_PRERELEASE=yes` in `.env`, or `no` when
+the switch is turned off, leaves every other line as it was and checks for a new version at once. An install without
+the helper has no switch: write the line in `.env` by hand. The default is `no`. The key does nothing with
+`TALOUS_CHANNEL=source` and such an install has no switch, but a value other than `yes` or `no` is refused there too, and
 the installer keeps the key over a re-run. An install that is on a pre-release stays there when the key is off or
 removed, and `update.sh` says "Already on vX.Y.Z, newer than the latest release (vY). TALOUS_PRERELEASE=yes in .env
 follows releases during their first two days. Nothing was changed." The project holds a release back by making it a
@@ -703,7 +707,7 @@ The installer writes `.env`. You rarely need to change it by hand. After a chang
 | `BIND_ADDRESS` | the address the port listens on, the home network address by default |
 | `CADDY_ADDRESS` | the address for Caddy's ports 80 and 443, needed only when two copies use their own domains |
 | `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
-| `TALOUS_PRERELEASE` | `yes` or `no`, default `no`. `yes` follows the newest release, a pre-release too, in its first 48 hours, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
+| `TALOUS_PRERELEASE` | `yes` or `no`, default `no`. `yes` follows the newest release, a pre-release too, in its first 48 hours, see [Updates in detail](#updates-in-detail). The switch *Tarjoa uudet versiot heti* under *Asetukset > Ylläpito* sets it. It stays over a re-run and `--reconfigure`. |
 | `TRUST_PROXY` | `true` behind Caddy or a tunnel, so the app sees each visitor's own address. The installer sets it. |
 | `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together. Each address is printable ASCII with one `@` and a host name that is no IP address, at most 50 in all. |
 | `CF_ACCESS_AUD`, `CF_ACCESS_TEAM_DOMAIN` | the Access application's audience tag and the team domain. With both set the app checks Cloudflare's signature on every request, see [Cloudflare Tunnel](#cloudflare-tunnel). Set both or neither. The installer and the Etäkäyttö page write them. |

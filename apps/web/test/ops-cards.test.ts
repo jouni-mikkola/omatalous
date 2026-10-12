@@ -13,7 +13,7 @@ const preReset: RestoreState = { copy: { name: "pre-reset-20261009T100000.db", a
 
 const facts = (state: RestoreState | null, error: string | null = null) => renderToStaticMarkup(createElement(RestoreFacts, { state, error }));
 
-describe("Palauta viimeisin varmuuskopio: the texts for a copy and for none", () => {
+describe("Palauta uusin varmuuskopio: the texts for a copy and for none", () => {
   it("names the copy by its time, size and file, and says what is lost", () => {
     const html = facts(auto);
     expect(html).toContain(dateTime(AT));
@@ -52,7 +52,7 @@ describe("Palauta viimeisin varmuuskopio: the texts for a copy and for none", ()
     expect(facts(null)).toContain("Haetaan uusinta varmuuskopiota…");
     expect(facts(null, "Palvelimeen ei saada yhteyttä. Yritä uudelleen.")).toContain("Palvelimeen ei saada yhteyttä.");
     const card = renderToStaticMarkup(createElement(RestoreLatest, { listKey: "", disabled: false }));
-    expect(card).toContain("<h2>Palauta viimeisin varmuuskopio</h2>");
+    expect(card).toContain("<h2>Palauta uusin varmuuskopio</h2>");
     expect(card).not.toContain("<button");
   });
 
@@ -113,7 +113,7 @@ describe("Tyhjennä kaikki tiedot", () => {
     const notes = S.resetNotes.join(" ");
     expect(notes).toContain("Ensin otetaan varmuuskopio");
     expect(notes).toContain("alle vuorokauden");
-    expect(notes).toContain("uusimman varmuuskopion");
+    expect(notes).toContain("Palauta uusin varmuuskopio");
     expect(notes).toContain("vähintään 14 päivää");
     expect(notes).toContain("Pankkiyhteydet");
   });

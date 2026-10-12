@@ -23,7 +23,7 @@ test("Tilit shows how much of a card's limit is in use, as a line and a thin bar
     json.accounts =json.accounts.map((a: { type: string }) => (a.type === "credit_card" ? { ...a, ...bank } : a));
     await route.fulfill({ response, json });
   });
-  const row = page.locator("#tilit").getByRole("row").filter({ hasText: "Nordea Gold (demo)" }).first();
+  const row = page.locator("#tilit").getByRole("row").filter({ hasText: "Nordea Gold (esimerkki)" }).first();
   const bar = row.locator(".credit-bar");
 
   // 1 240 € of 3 000 €: the line says both and the bar is 41 % full

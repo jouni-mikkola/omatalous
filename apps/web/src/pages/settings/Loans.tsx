@@ -137,7 +137,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
                   <td>
                     {loan.name}
                     <div className="sub">{KIND_LABEL[loan.kind]}</div>
-                    {linkedTo(loan) && <div className="sub">{`Liitetty tiliin ${linkedTo(loan)!.name}. Velkana pankin saldo, kun pankki kertoo sellaisen.`}</div>}
+                    {linkedTo(loan) && <div className="sub">{`Liitetty tiliin ${linkedTo(loan)!.name}. Velkana käytetään pankin saldoa, kun pankki ilmoittaa sen.`}</div>}
                     <div className="sub loan-phone">{[loan.lender, rateOf(loan), paymentOf(loan), loan.endDate && `viimeinen eräpäivä ${date(loan.endDate)}`].filter(Boolean).join(" · ")}</div>
                   </td>
                   <td className="hide-phone">{loan.lender ?? "–"}</td>

@@ -17,6 +17,7 @@
  */
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
+import { referenceOf } from "./card-channel.ts";
 import { cancelledSubjects, isCancelled } from "./commitments.ts";
 import { loansOf } from "./loans.ts";
 import { fold } from "./merchant.ts";
@@ -54,16 +55,6 @@ const MIN_LOAN_CHARGES = 3;
 
 /** Interest alone is the cost of a card or an overdraft, and a collector's plan is paid to someone who lent nothing. */
 const LOAN_CATEGORIES: ReadonlySet<string> = new Set(["mortgage", "loans", "student_loan"]);
-
-/**
- * A row's payment reference without spaces and leading zeros. Core's `Transaction` does not name the field: the rows
- * the server stores and analyses carry it, and a row built by hand has none.
- */
-function referenceOf(t: AnalysisTx): string | null {
-  const raw = (t as AnalysisTx & { reference?: unknown }).reference;
-  const reference = typeof raw === "string" ? raw.replace(/\s/g, "").replace(/^0+/, "").toUpperCase() : "";
-  return reference || null;
-}
 
 const NOT_LOAN_SUBJECT = "loan-proposal:";
 
@@ -123,7 +114,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring">, i
     charges.sort((a, b) => a.day - b.day);
     const latest = charges.slice(-MIN_LOAN_CHARGES);
     // separate invoices each bring their own reference; a contract keeps one
-    const references = new Set(latest.map(referenceOf).filter((r): r is string => r !== null));
+    const references = new Set(latest.map(referenceOf).filter((r) => r !== ""));
     if (references.size > 1) continue;
     // an insurer, a landlord, a lessor and a housing company charging for its own loan are paid no loan of the household's
     const last = latest.at(-1)!;

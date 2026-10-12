@@ -31,16 +31,16 @@ export const KIND_LABEL: Record<string, string> = {
   login_ok: "Kirjautuminen",
   login_fail: "Epäonnistunut kirjautuminen",
   lockout: "Kirjautuminen estetty hetkeksi",
-  new_device: "Uusi laite",
+  new_device: "Kirjautuminen uudelta laitteelta",
   password_changed: "Salasana vaihdettu",
   password_reset_by_admin: "Ylläpitäjä nollasi salasanan",
-  session_revoked: "Istunto päätetty",
+  session_revoked: "Istunto kirjattiin ulos",
   user_created: "Jäsen lisätty",
   user_deleted: "Jäsen poistettu",
   ops_request: "Ylläpitopyyntö",
   ops_denied: "Ylläpitopyyntö estetty",
   ops_result: "Ylläpitopyynnön tulos",
-  ops_download: "Varmuuskopion lataus",
+  ops_download: "Varmuuskopio ladattu",
   ops_notice: "Ylläpidon ilmoitus",
   ops_watchdog: "Edellinen versio palautettiin",
   watchdog_notice: "Edellinen versio palautettiin, ilmoitus ylläpitäjälle",
@@ -100,7 +100,7 @@ export function Login({ openPassword }: { openPassword: boolean }) {
         <summary className="small muted">Vaihda salasana</summary>
         {changed ? (
           <div className="notice good" role="status">
-            Salasana vaihdettu. Muut laitteet kirjautuvat ulos.
+            Salasana vaihdettu. Muut laitteet kirjattiin ulos.
           </div>
         ) : (
           <PasswordForm
@@ -168,7 +168,7 @@ export function SecurityLog() {
           <h2>Turvallisuusloki</h2>
           <div className="card-sub">Merkinnät säilyvät 90 päivää.</div>
         </div>
-        <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Tapahtumatyyppi">
+        <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Merkinnän tyyppi">
           <option value="">Kaikki</option>
           {(events.data?.kinds ?? Object.keys(KIND_LABEL)).map((k) => (
             <option key={k} value={k}>
@@ -183,7 +183,7 @@ export function SecurityLog() {
           <thead>
             <tr>
               <th>Aika</th>
-              <th>Tapahtuma</th>
+              <th>Merkintä</th>
               <th>Käyttäjä</th>
               <th className="hide-phone">Laite</th>
               <th className="hide-phone">Osoite</th>

@@ -5,6 +5,7 @@
  */
 import { type AnalysisContext, type AnalysisTx, historyCovers, netSpend } from "../analysis/context.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
+import { balanceWalk, type BalanceWalk } from "../analysis/balance-walk.ts";
 import { formatEur } from "../analysis/format.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
 import type { DateRange } from "../analysis/period.ts";
@@ -12,7 +13,6 @@ import { LEVEL, oneOffs } from "../analysis/one-offs.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
 import { addMonths, dayNumber, monthEnd, monthOf } from "../dates.ts";
 import { priceChangeYearlyCents, type RecurringSeries } from "../recurring.ts";
-import { balanceWalk, type BalanceWalk } from "../reports/balances.ts";
 import { bufferReport } from "../reports/buffer.ts";
 import { mean, median } from "../stats.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";

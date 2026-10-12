@@ -126,7 +126,7 @@ export class OpsRepo {
   }
 
   async cancelQueued(id: string, at: string): Promise<boolean> {
-    const r = await this.db.run("UPDATE ops_requests SET status = 'cancelled', finished_at = ?, summary = 'Peruttu', secret_sealed = NULL WHERE id = ? AND status = 'queued'", [at, id]);
+    const r = await this.db.run("UPDATE ops_requests SET status = 'cancelled', finished_at = ?, summary = 'Peruutettu', secret_sealed = NULL WHERE id = ? AND status = 'queued'", [at, id]);
     return r.changes > 0;
   }
 

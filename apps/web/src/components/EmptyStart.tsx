@@ -21,11 +21,11 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
       <p className="muted">Yhdistä pankki, niin tapahtumat tulevat tänne. Ne haetaan automaattisesti pari kertaa päivässä.</p>
       <p>
         <button className="btn btn-primary" type="button" onClick={() => navigate("settings", { add: "1" })}>
-          Lisää pankkiyhteys
+          Yhdistä pankki
         </button>
       </p>
       <p className="small muted">
-        Haluatko ensin kokeilla?{" "}
+        Tai kokeile ensin esimerkkitiedoilla.{" "}
         <button className="link-btn" type="button" onClick={() => void loadDemo()} disabled={demo.busy}>
           {demo.busy ? "Ladataan…" : "Lataa esimerkkitiedot"}
         </button>

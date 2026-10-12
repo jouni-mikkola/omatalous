@@ -2,7 +2,7 @@
 # shellcheck shell=bash disable=SC2034
 # The world of the maintenance helper's shell suites: ops-helper.test.sh and the suite of each lib under
 # scripts/lib/ops-*.sh. Sourced by them, not a suite of its own (check.sh runs *.test.sh). Stubs for docker, cosign,
-# curl, df, crontab, systemctl, loginctl, sleep and sync, a bare git remote, and a clone with the helper. Nothing here
+# curl, date (the real one until a suite sets a clock), df, crontab, systemctl, loginctl, sleep and sync, a bare git remote, and a clone with the helper. Nothing here
 # touches the network, a real container or a real registry.
 #
 # The caller sets HERE (the folder of tools/test), SRC (the repository) and FILTER, defines `want` the way every suite
@@ -218,6 +218,16 @@ exit 0
 EOF
   printf '#!/bin/sh\n[ -e "$OPS_STUB_DIR/systemd" ] && echo yes\nexit 0\n' >"$b/loginctl"
   printf '#!/bin/sh\nexec /bin/sleep 0.01\n' >"$b/sleep"
+  # The test's clock. A world has the real `date` until a scenario calls set_clock: stub/clock holds epoch seconds, this
+  # `date` answers that time, and only `later` moves it. A call that names its own time (-d) is the real date. The file
+  # is found by the stub's own place: the helper also runs commands with an empty environment.
+  cat >"$b/date" <<'EOF'
+#!/bin/bash
+c=${0%/*}/../clock
+[[ -e $c ]] || exec /bin/date "$@"
+for a in "$@"; do case $a in -d* | --date*) exec /bin/date "$@" ;; esac; done
+exec /bin/date -d "@$(cat "$c")" "$@"
+EOF
   # sync only records what it was asked to flush (and fails when a test says so)
   printf '#!/bin/sh\necho "sync $*" >>"$OPS_STUB_DIR/calls.log"\n[ -e "$OPS_STUB_DIR/sync-fail" ] && exit 1\n[ -e "$OPS_STUB_DIR/sync-fail-paths" ] && [ $# -gt 0 ] && exit 1\nexit 0\n' >"$b/sync"
   chmod +x "$b"/*
@@ -249,6 +259,9 @@ new_world() {
   touch "$S/running" "$S/container"; echo 0.1.0 >"$S/cver"; : >"$S/calls.log"
   echo 200 >"$S/release.status"
 }
+T0=1767268800 # 2026-01-01T12:00:00Z, where a suite that sets a clock starts it
+set_clock() { echo "${1:-$T0}" >"$S/clock"; }
+later() { set_clock $(($(cat "$S/clock") + $1)); } # later SECONDS: time passes (a negative number is a clock that steps back)
 setenv() { printf '%s\n' "$@" >"$CL/.env"; chmod 600 "$CL/.env"; }
 poll() { printf '{"request":{"id":"%s","action":"%s","params":{},"secret":null}}\n' "${2:-op_0123456789abcdef}" "$1" >"$S/poll"; }
 tick() { # one tick of the helper in the clone, as the timer would run it

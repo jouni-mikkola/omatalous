@@ -56,8 +56,8 @@ const ROUTES: [string, string, unknown?][] = [
 ];
 
 describe("ops: validation", () => {
-  it("accepts the ten actions and nothing else", () => {
-    for (const action of ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access"]) expect(parseOpsRequest({ action }).action).toBe(action);
+  it("accepts every action by its name alone and nothing else", () => {
+    for (const action of ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access", "prerelease-on", "prerelease-off"]) expect(parseOpsRequest({ action }).action).toBe(action);
     // access takes no parameters either: what to apply waits in the app's own file
     for (const bad of [{ action: "logs", params: { service: "banking" } }, { action: "prune", params: { all: true } }, { action: "helper-renew", params: { args: "--ops-policy" } }, { action: "Logs" }, { action: "helper_renew" }, { action: "access", params: { want: "lan" } }, { action: "access", params: { hostname: "koti.example.fi" } }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
       expect(() => parseOpsRequest(bad), JSON.stringify(bad)).toThrow();

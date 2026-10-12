@@ -6,7 +6,7 @@ import "../styles/overview.css";
 const TONE: Record<Insight["tone"], string> = { good: "Hyvä", warning: "Huomio", info: "Tiedoksi" };
 
 /** The mark subject of a dismissed insight; core decides when a changed figure brings it back. */
-export const dismissSubject = (i: Insight): string => insightDismissSubject(i);
+const dismissSubject = (i: Insight): string => insightDismissSubject(i);
 
 export function Insights({ insights, onDismiss, busy }: { insights: Insight[]; onDismiss: (id: string, subject: string) => void; busy: boolean }) {
   if (!insights.length) return null;

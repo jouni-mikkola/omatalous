@@ -93,6 +93,21 @@ exec /usr/bin/stat "${all[@]}"
 EOF
   printf '#!/bin/sh\nexit 0\n' >"$b/jq"
   printf '#!/bin/sh\nexit 1\n' >"$b/docker"
+  # A scenario that lets a script reach the network writes its own $S/bin/curl over this one. Without it a call is the
+  # scenario's mistake, and it must not reach the real host: it fails and names the URL.
+  cat >"$b/curl" <<'EOF'
+#!/usr/bin/env bash
+url=""; for a in "$@"; do case $a in http*) url=$a ;; esac; done
+echo "curl stub: no answer given for ${url:-(no URL)}; the scenario writes its own bin/curl" >&2
+exit 7
+EOF
+  # What listens on the machine is the scenario's to say (S/listening, the lines `ss -H -ltn` prints), nothing by default:
+  # the real host has listeners of its own, such as another container on 8080, and an install must not meet them.
+  cat >"$b/ss" <<'EOF'
+#!/usr/bin/env bash
+cat "${0%/*}/../listening" 2>/dev/null
+exit 0
+EOF
   chmod +x "$b"/*
 }
 # cron on or off: a crontab command kept in a file, or none at all

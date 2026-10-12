@@ -42,7 +42,7 @@ describe("the select of the loan form", () => {
   it("a linked loan shows its account chosen, and its balance says the bank's counts while the bank tells one", () => {
     const out = editor(formOfLoan(saved("a", "card")), [card], [saved("a", "card")]);
     expect(accountSelect(out)).toContain('<option value="card" selected="">Esimerkkikortti</option>');
-    expect(out).toContain("Velkana käytetään pankin saldoa niin kauan kuin pankki kertoo sellaisen. Muulloin käytetään tätä saldoa, joten pidä se ajan tasalla.");
+    expect(out).toContain("Velkana käytetään pankin saldoa aina, kun pankki ilmoittaa sen. Muulloin käytetään tähän kirjattua saldoa.");
   });
 
   it("a stored link to an account that is not offered any more is shown as no link", () => {

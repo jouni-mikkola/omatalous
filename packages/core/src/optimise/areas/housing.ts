@@ -86,7 +86,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
   const all = candidates.map((item) => ({ item, riseT: stepTenths(item.series.priceChange!) }));
   // one step over 10 % is a move, a new flat or a loan share, never a rise to act on (the price insight's rule too)
   const rises = all.filter((r) => r.riseT <= MAX_HOUSING_STEP_TENTHS);
-  const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? "Nousu on yli 10\u00a0% kerralla, joten sitä ei verrata." : "Jos muutitte, lisää muuttopäivä.", moved ? undefined : "moved_on") : null;
+  const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? "Nousu on yli 10\u00a0% kerralla, joten sitä ei verrata." : "Jos muutit, lisää muuttopäivä.", moved ? undefined : "moved_on") : null;
   if (!rises.some((r) => r.riseT >= GATE_TENTHS)) return { findings: [], checks: [step ?? check("clear")] };
   const type = valueOf(a.values, "housing_type", today);
   if (!type) return { findings: [], checks: [check("needs_input", "Valitse asumismuoto, niin nousua verrataan kyselyyn tai vuokraindeksiin.", "housing_type")] };

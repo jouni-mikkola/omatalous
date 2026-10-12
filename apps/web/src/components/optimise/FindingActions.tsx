@@ -55,7 +55,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
   };
   const done = (e: FormEvent) => {
     e.preventDefault();
-    send({ status: "done", effectiveDate: day }, "Löydös siirrettiin kohtaan Päätetyt.");
+    send({ status: "done", effectiveDate: day }, "Vinkki siirrettiin kohtaan Päätetyt.");
   };
   const button = (label: string, on: Panel) => (
     <button className="btn btn-small" type="button" aria-expanded={panel === on} aria-describedby={describedBy} onClick={() => toggle(on)}>
@@ -94,7 +94,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
       {panel === "dismiss" && (
         <div className="decide-form" role="group" aria-label="Syy">
           {DISMISS_REASONS.map((reason) => (
-            <button key={reason} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "dismissed", reason }, "Löydös siirrettiin kohtaan Päätetyt.")}>
+            <button key={reason} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "dismissed", reason }, "Vinkki siirrettiin kohtaan Päätetyt.")}>
               {REASON_TEXT[reason]}
             </button>
           ))}
@@ -104,7 +104,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
       {panel === "snooze" && (
         <div className="decide-form" role="group" aria-label="Muistutus">
           {snoozeChoices(finding, today).map((c) => (
-            <button key={c.label} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "snoozed", until: c.until }, `Löydös palaa ${date(c.until)}.`)}>
+            <button key={c.label} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "snoozed", until: c.until }, `Vinkki palaa ${date(c.until)}.`)}>
               {c.label}
             </button>
           ))}

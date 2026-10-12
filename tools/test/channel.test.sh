@@ -300,6 +300,106 @@ t_rollback_renews_helper() {
   check "rollback: a previous version that does not start fails the rollback and renews nothing" bash -c "[[ $RC != 0 && \$1 != *'Maintenance helper renewed'* ]] && [[ \$(cat '$S/crontab') == \$2 ]]" x "$OUT" "$stale"
 }
 
+# ── the switch on the maintenance page: the requests prerelease-on and prerelease-off ──
+# 0.2.0 is the latest release and 0.3.0 a pre-release, so the check that follows a write tells which one is on offer.
+switch_world() { world; release 0.2.0; prerelease 0.3.0; list "$(rel v0.3.0 false true)" "$(rel v0.2.0 false false)"; }
+# One request of the switch. ENV is a printf format, so a last line can lack its newline. The file as it was before the
+# tick is env.before, the report is REP.
+# shellcheck disable=SC2059
+flip() { # flip on|off [ENV]
+  [[ $# -lt 2 ]] || { printf "$2" >"$CL/.env"; chmod 600 "$CL/.env"; }
+  cp -p "$CL/.env" "$W/env.before"; rm -f "$S/reports"/* "$CL/ops/journal"/*; : >"$S/calls.log"
+  poll "prerelease-$1"; tick; REP=$(report)
+}
+# shellcheck disable=SC2059
+env_is() { printf "$1" | cmp -s - "$CL/.env"; } # .env to the byte
+env_kept() { cmp -s "$CL/.env" "$W/env.before" && [[ ! -e $CL/.env.new && ! -L $CL/.env.new ]]; } # as before the tick, and no .env.new
+said() { jq -r "$1" <<<"$REP" 2>/dev/null; } # a field of the report
+
+t_switch_changes_one_line() {
+  switch_world
+  flip on 'HOST_PORT=8081\n# a note\n'
+  check "on, no key: the line is added last and the rest is as it was" env_is 'HOST_PORT=8081\n# a note\nTALOUS_PRERELEASE=yes\n'
+  check "on: reported ok, with the position and the channel" test "$(said '.status + " " + .state.prerelease + " " + .state.channel')" = "ok yes release"
+  check "on: the check that follows asks for the newest and offers the pre-release" bash -c "[[ \$1 == 0.3.0 && \$2 == 'curl $API?per_page=20' ]]" x "$(said .state.latest_version)" "$(curls)"
+  check "on: the summary says what is offered now" test "$(said .summary)" = "Uudet versiot tarjotaan heti. Uusi versio on saatavilla."
+  flip off
+  check "off from yes: the line changes where it stood" env_is 'HOST_PORT=8081\n# a note\nTALOUS_PRERELEASE=no\n'
+  check "off: reported, and the check asks /releases/latest alone and offers the release" bash -c "[[ \$1 == 'ok no 0.2.0' && \$2 == 'curl $API/latest' ]]" x "$(said '.status + " " + .state.prerelease + " " + .state.latest_version')" "$(curls)"
+  flip on 'A=1\nTALOUS_PRERELEASE=no\nB=2\n'
+  check "on from no: the line changes in its place" env_is 'A=1\nTALOUS_PRERELEASE=yes\nB=2\n'
+  flip off 'TALOUS_PRERELEASE=yes\nA=1\nTALOUS_PRERELEASE=yes\nB=2\n'
+  check "the key twice: once in the result, where the last one stood" env_is 'A=1\nTALOUS_PRERELEASE=no\nB=2\n'
+  flip on '# keep  this\n\nA=1 # x\nTALOUS_PRERELEASE=no\nLAST=1'
+  check "a comment, an empty line and no final newline: every other byte stays" env_is '# keep  this\n\nA=1 # x\nTALOUS_PRERELEASE=yes\nLAST=1'
+  flip on 'A=1\nTALOUS_PRERELEASE=no'
+  check "the key on a last line without a newline: still without one" env_is 'A=1\nTALOUS_PRERELEASE=yes'
+  flip on 'A=1\n# end'
+  check "no key and no final newline: the key gets a line of its own" env_is 'A=1\n# end\nTALOUS_PRERELEASE=yes\n'
+  check "no .env.new is left after any of them" test ! -e "$CL/.env.new"
+}
+t_switch_keeps_the_file() {
+  local ino
+  switch_world
+  printf 'A=1\n' >"$CL/.env"; chmod 640 "$CL/.env"; flip on
+  check "the mode of .env is kept" test "$(stat -c %a "$CL/.env")" = 640
+  ino=$(stat -c %i "$CL/.env"); flip on
+  check "a file that says so already is not rewritten, and the request is ok" bash -c "[[ \$1 == '$ino' && \$2 == 'ok yes' ]]" x "$(stat -c %i "$CL/.env")" "$(said '.status + " " + .state.prerelease')"
+  echo keep >"$W/victim"; ln -s "$W/victim" "$CL/.env.new"; flip off 'TALOUS_PRERELEASE=yes\n'
+  check "a link left as .env.new: its target is not written and the link is gone" bash -c "[[ \$(cat '$W/victim') == keep && ! -e '$CL/.env.new' && ! -L '$CL/.env.new' ]]"
+  check "and the setting is saved" env_is 'TALOUS_PRERELEASE=no\n'
+  printf '#!/bin/sh\nexit 1\n' >"$S/bin/chown"; chmod +x "$S/bin/chown"; flip on 'A=1\n'; rm -f "$S/bin/chown"
+  check "a write that fails half way: reported failed with the reason" test "$(said '.status + " " + .state.prerelease + " " + .summary')" = "failed no Tiedostoa .env ei voitu kirjoittaa. Mitään ei muutettu."
+  check "and .env is as it was, with no .env.new" env_kept
+  echo 500 >"$S/list.status"; touch "$CL/ops/last-check"; flip on 'A=1\n'
+  check "no answer to the check after the write: the setting stands and the summary says both" test "$(said '.status + " " + .summary')" = "ok Uudet versiot tarjotaan heti. Uutta versiota ei voitu tarkistaa."
+  check "and the daily check is due again" bash -c "[[ ! -e '$CL/ops/last-check' ]] && grep -qx 'TALOUS_PRERELEASE=yes' '$CL/.env'"
+}
+t_switch_refusals() {
+  local bad
+  switch_world
+  # a .env the helper refuses stops the tick before the poll: the request is not picked up, so there is no report either
+  for bad in 'a key that redirects Docker|TALOUS_PRERELEASE=no\nDOCKER_HOST=tcp://198.51.100.7:2375\n' 'a CR at the line end|TALOUS_PRERELEASE=no\r\n' 'a value that is not yes or no|TALOUS_PRERELEASE=maybe\n'; do
+    flip on "${bad#*|}"
+    check "a .env the helper refuses (${bad%%|*}): nothing is run or reported" bash -c "[[ $TICK_RC != 0 && -z \$1 && \$(grep -c . '$S/calls.log') == 0 ]]" x "$REP"
+    check "and the file is as it was" env_kept
+  done
+  flip on 'TALOUS_CHANNEL=source\n'
+  check "a source install: refused with the reason, and the page is told the channel" bash -c "[[ \$1 == 'failed source' && \$2 == *lähdekoodista* && -z \$3 ]]" x "$(said '.status + " " + .state.channel')" "$(said .summary)" "$(curls)"
+  check "and nothing is written" env_kept
+  exec 9<"$CL"; flock -n 9; flip on 'A=1\n'; exec 9<&-
+  check "an install or an update holds the lock: refused with the reason" bash -c "[[ \$1 == failed && \$2 == *'asennus tai päivitys kesken'* ]]" x "$(said .status)" "$(said .summary)"
+  check "and nothing is written" env_kept
+}
+t_switch_says_done_only_when_the_host_reads_it() {
+  switch_world
+  # grep reads nothing from a file with a NUL byte in it, so the daily check would not see the line the switch wrote
+  flip on 'A=1\n# x\0y\n'
+  check "a .env the daily check cannot read: reported failed with the reason, and the position stays off" test "$(said '.status + " " + .state.prerelease + " " + .summary')" = "failed no Asetus kirjoitettiin tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella."
+  check "and no check for a new version was made" test -z "$(curls)"
+}
+t_switch_asks_the_file_again_before_the_write() {
+  switch_world
+  # the docker stub answers the poll, and a line the helper refuses appears in .env as it does
+  mv "$S/bin/docker" "$S/bin/docker.real"
+  printf '#!/usr/bin/env bash\n[[ $* == *"ops poll"* ]] && echo DOCKER_HOST=tcp://198.51.100.7:2375 >>"%s"\nexec "$OPS_STUB_DIR/bin/docker.real" "$@"\n' "$CL/.env" >"$S/bin/docker"
+  chmod +x "$S/bin/docker"; flip on 'A=1\n'
+  check "a .env that turned invalid after the poll: reported failed with the reason" test "$(said '.status + " " + .summary')" = "failed Tiedosto .env ei ole kelvollinen. Mitään ei muutettu."
+  check "and the setting is not written" env_is 'A=1\nDOCKER_HOST=tcp://198.51.100.7:2375\n'
+}
+t_switch_position_reaches_the_page() {
+  switch_world; setenv 'TALOUS_PRERELEASE=yes'
+  rm -f "$S/state.last"; tick
+  check "a snapshot tells the position and the channel" test "$(jq -r '.prerelease + " " + .channel' "$S/state.last")" = "yes release"
+  rm -f "$S/state.last"; tick
+  check "the tick after it sends none" test ! -e "$S/state.last"
+  # what an older helper left as its mark of the boot names no helper version
+  cat /proc/sys/kernel/random/boot_id >"$CL/ops/boot_id" 2>/dev/null || echo none >"$CL/ops/boot_id"; tick
+  check "the first tick of a renewed helper sends one, so the switch shows at once" test "$(jq -r .prerelease "$S/state.last" 2>/dev/null)" = yes
+  rm -f "$CL/.env" "$CL/ops/boot_id" "$S/state.last"; tick
+  check "an install with no .env says its channel and no position, so the page has no switch" test "$(jq -r '(.prerelease // "none") + " " + .channel' "$S/state.last" 2>/dev/null)" = "none release"
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^t_'); do
   want "$t" || continue
   echo "── ${t#t_}"

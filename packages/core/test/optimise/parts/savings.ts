@@ -3,10 +3,11 @@
  * The hit keeps 30 000 € on checking and 50 000 € on savings, so the checking account never fell near a month of
  * spending and the savings paid about 1,2 % after tax.
  */
+import { balanceWalk } from "../../../src/analysis/balance-walk.ts";
 import { addDays, addMonths, dayNumber } from "../../../src/dates.ts";
 import { areaInputOf } from "../../../src/optimise/index.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
-import { balanceWalk, lowestDayBalance } from "../../../src/reports/balances.ts";
+import { lowestDayBalance } from "../../../src/reports/balances.ts";
 import { bufferReport } from "../../../src/reports/buffer.ts";
 import type { Account, BalanceInput, Transaction } from "../../../src/types.ts";
 import { type Frame, householdInput, joinHousehold, type Part, type PartHousehold } from "../household.ts";

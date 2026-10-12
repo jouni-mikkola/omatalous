@@ -2,10 +2,14 @@
 # What the drills of tools/ci/drills.sh stand on, sourced by it after its variables are set (DIR, LOGS, URL, JAR, PASS,
 # NODE, CLOCK, REMOTE, DEV, DEADLINE): the bookkeeping of a drill (step, die, skip, fresh), the app's API on the
 # rehearsal's install, and the maintenance helper with a clock that can be set ahead and the releases the drills push.
-# It defines functions and runs nothing. The drills themselves are in drills.sh.
+# It defines functions and runs nothing. The drills themselves are in drills.sh. What upgrade-run.sh needs as well (dc, shim,
+# app_version, migrations, api, until_ok, push_release) is in lib.sh.
+
+# shellcheck source=lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" || exit 1
 
 # ── bookkeeping ─────────────────────────────────────────────────────────────
-dc() { (cd "$DIR" && docker compose "$@"); }
+# step is the drills' log: its line also goes to $LOGS/step; upgrade-run.sh has its own `log`
 step() { printf '%s\n' "$*" >"$LOGS/step"; printf '\n-- %s\n' "$*"; }
 # die REASON [SEEN...]: REASON goes on the drill's result line. What the drill saw is printed under that line by run_drill:
 # SEEN, then SAW when a helper such as login set it, then what the drill's own SAW_FN prints.
@@ -21,23 +25,10 @@ skip() { printf '%s\n' "$1" >"$LOGS/reason"; printf 'SKIPPED: %s\n' "$1"; exit 7
 # newest FILE...: the newest of the files that exist
 newest() { local f r=""; for f in "$@"; do [[ -e $f ]] && [[ -z $r || $f -nt $r ]] && r=$f; done; printf '%s' "$r"; }
 note_result() { local r=${3//$'\n'/ }; printf '%s|%s|%s\n' "$1" "$2" "$r" >>"$LOGS/results"; printf 'drill %s %s: %s\n' "$1" "$2" "$r"; }
-# until_ok SECONDS cmd...: the command succeeds before SECONDS or the script's time is up
-until_ok() {
-  local end=$((SECONDS + $1)); shift
-  while :; do
-    "$@" >/dev/null 2>&1 && return 0
-    ((SECONDS >= end || SECONDS >= DEADLINE)) && return 1
-    sleep 2
-  done
-}
-shim() { if [[ -n ${UPGRADE_BUILD_SHIM:-} ]]; then (cd "$DIR" && "$UPGRADE_BUILD_SHIM" "${1:-next}"); fi; }
 
 # ── the app ─────────────────────────────────────────────────────────────────
-app_ok() { curl -fsS --max-time 5 "$URL/api/health"; }
-app_version() { dc exec -T banking "${NODE[@]}" dist/node.js version 2>/dev/null | tail -1 | awk '{print $1}'; }
 started_at() { docker inspect -f '{{.State.StartedAt}}' banking-app; }
 restarted() { [[ $(started_at) != "$1" ]]; }
-curlj() { curl -fsS --max-time 60 -H 'Content-Type: application/json' -H 'X-Requested-With: fetch' "$@"; }
 # login: signs in as the admin. On a refusal SAW holds the answer, for die
 login() {
   local code
@@ -60,12 +51,12 @@ fresh() {
 }
 # the audit list on stdin as lines "action: outcome [user]", the eight newest
 audit_rows() { tr '{' '\n' | sed -n 's/.*"username":\([^,]*\),.*"action":"\([^"]*\)","outcome":"\([^"]*\)".*/\2: \3 [\1]/p' | head -n 8; }
-japi() { curlj -b "$JAR" -c "$JAR" "$@"; }
 # post PATH JSON: the status code on stdout, the body in $LOGS/body
 post() { curl -sS --max-time 90 -o "$LOGS/body" -w '%{http_code}' -b "$JAR" -c "$JAR" -H 'Content-Type: application/json' -H 'X-Requested-With: fetch' -d "$2" "$URL$1"; }
 body() { head -c 300 "$LOGS/body" 2>/dev/null; }
-notices() { japi "$URL/api/security/notices"; }
-# the rows that must survive, of a database file inside the container
+notices() { api "$URL/api/security/notices"; }
+# the rows that must survive, of a database file inside the container. upgrade-run.sh keeps its own `golden`: it also reads
+# the user's choices and the settings, and counts a table an older baseline lacks as 0
 golden_of() {
   dc exec -T banking "${NODE[@]}" -e '
     const d = new (require("node:sqlite").DatabaseSync)(process.argv[1], { readOnly: true });
@@ -75,7 +66,6 @@ golden_of() {
     p("rules", d.prepare("SELECT count(*) AS n FROM category_rules").get().n);
     p("marks", d.prepare("SELECT count(*) AS n FROM user_marks").get().n);' "$1" | sort
 }
-migrations() { dc exec -T banking "${NODE[@]}" -e 'const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db", { readOnly: true }); for (const r of d.prepare("SELECT name FROM _migrations ORDER BY name").all()) console.log(r.name);'; }
 # a change after the copy, so that the live data and the copy differ
 mutate() {
   dc exec -T banking "${NODE[@]}" -e 'const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db"); d.exec("DELETE FROM transactions WHERE id IN (SELECT id FROM transactions ORDER BY id DESC LIMIT 3)"); d.exec("PRAGMA wal_checkpoint(TRUNCATE)"); d.close();'
@@ -155,15 +145,8 @@ ops_saw() {
   f=$(newest "$DIR"/ops/run/*.log); [[ -z $f ]] || { echo "the end of ops/run/${f##*/}:"; tail -n 6 "$f"; }
   echo "the end of the ticks' output:"; tail -n 5 "$LOGS/tick.out" 2>/dev/null
 }
-# a commit on the remote's branch ci, made in a clone of the drills' own
-push_release() { # message, then the name of a function that is run in that clone and changes its files
-  if [[ ! -d $DEV ]]; then git clone -q --branch ci "$REMOTE" "$DEV" || return 1; fi
-  git -C "$DEV" pull -q --ff-only origin ci || return 1
-  (cd "$DEV" && "$2") || return 1
-  git -C "$DEV" add -A && git -C "$DEV" commit -q -m "$1" && git -C "$DEV" push -q origin HEAD:ci
-}
 merged() { [[ $(git -C "$DIR" rev-parse HEAD) == "$1" ]]; }
-# the releases the drills push, each run in the clone by push_release
+# the releases the drills push (push_release in lib.sh), each run in the clone as the function named
 release_watchdog() { # a migration the previous version cannot read, and a changed install.sh
   rm -f apps/server/migrations/9998_ci_bad.sql
   sed -i 's/^export const APP_VERSION = .*/export const APP_VERSION = "9999.1.0";/' apps/server/src/version.ts

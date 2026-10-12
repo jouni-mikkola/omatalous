@@ -154,7 +154,7 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
   if (daysBetween(today, start) > SOON_DAYS) return null;
   return {
     ...base,
-    title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(monthInessive(s.month))} ${s.month.slice(0, 4)} lisämenot olivat ${eur(s.extras[0]!)} ja vuotta aiemmin ${eur(s.extras[1]!)}, kertaostot pois lukien.`,
+    title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(monthInessive(s.month))} ${s.month.slice(0, 4)} lisämenot olivat ${eur(s.extras[0]!)} ja vuotta aiemmin ${eur(s.extras[1]!)} ilman kertaostoja.`,
     action: `Varaa ${monthGenitive(s.month)} menoihin ${eur(reserve)} kuussa.`,
     effort: "minuutteja",
     euros: null,

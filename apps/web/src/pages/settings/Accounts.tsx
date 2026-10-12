@@ -4,7 +4,7 @@
  * balance and removal for the accounts the user brought in themselves (an earlier CSV import, demo). A bank account's balance comes
  * from the bank. Tietojen laatu sits under the table.
  */
-import { creditAccountLoan, creditUse } from "@banking/core";
+import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { ACCOUNT_TYPE_LABEL, accountNumber, dateTime, eurosText, money, parseEuros } from "../../format.ts";
@@ -102,7 +102,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
               // the holder is a line of its own unless the name already says it
               const holder = a.holder && a.holder !== a.name && a.holder !== a.bankName ? a.holder : null;
               // the limit and how much of it is in use, from the bank's balance (creditUse in core owns the figure)
-              const limit = a.creditLimitCents && a.creditLimitCents > 0 ? a.creditLimitCents : null;
+              const limit = cardLimitCents(a.creditLimitCents);
               const loan = limit === null ? null : creditAccountLoan(a, meta.today);
               const use = loan && creditUse(loan, loan.balanceDate);
               const used = use?.usedCents ? use.usedCents : 0;
@@ -160,7 +160,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
             })}
           </tbody>
         </table>
-        {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Lisää ensin pankkiyhteys.</div>}
+        {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Yhdistä ensin pankki.</div>}
       </div>
       {children}
     </div>

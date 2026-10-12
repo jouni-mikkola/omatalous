@@ -196,7 +196,7 @@ describe("what changed", () => {
     const base = monthly("2025-08", 15, 300000, salary("Yritys Oy"));
     const vinted = [tx({ merchant: "Vinted", category: "sales", categorySource: "rule", bookingDate: "2026-08-02", amountCents: 14000 }), tx({ merchant: "Vinted", category: "sales", categorySource: "rule", bookingDate: "2026-09-12", amountCents: 20000 })];
     const found = changesOf([...base, ...vinted]).find((c) => c.kind === "new_source");
-    expect(found?.title).toBe("Uusi tulo: Vinted, 340 € kolmessa kuussa");
+    expect(found?.title).toBe("Uusi tulo: Vinted, 340 € kolmessa kuukaudessa");
     const small = vinted.map((t) => ({ ...t, id: `${t.id}s`, amountCents: 2000 }));
     expect(changesOf([...base, ...small]).find((c) => c.kind === "new_source")).toBeUndefined();
   });

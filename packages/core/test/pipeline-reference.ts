@@ -3,7 +3,7 @@ import { getCategory } from "../src/categories.ts";
 import { categorize, compileRules } from "../src/categorize.ts";
 import { businessMerchants, isBusinessRow } from "../src/industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "../src/merchant.ts";
-import { matchReturns } from "../src/returns.ts";
+import { matchReturns, partyKey, steadyParties } from "../src/returns.ts";
 import { detectTransfers, normalizeIban } from "../src/transfers.ts";
 import type { Account, CategoryRule, Transaction } from "../src/types.ts";
 import { isCardIssuerText } from "../src/wording.ts";
@@ -26,9 +26,11 @@ export function enrichTransactionsReference(
 ): Transaction[] {
   const rules = compileRules(userRules);
   const byUserRule = new Set<string>();
+  // the payees an account pays about the same sum in three or more months: the pipeline hands the rules the same yes or no
+  const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
   const next = txs.map((t): Transaction => {
     if (t.categorySource === "user") return { ...t, isTransfer: t.category === "transfer" };
-    const { category, source, byUser } = categorize(t, rules);
+    const { category, source, byUser } = categorize(t.amountCents < 0 && steady.has(partyKey(t)) ? { ...t, steadyPayee: true } : t, rules, accounts);
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")
     return { ...t, category, categorySource: source, isTransfer: category === "transfer" };

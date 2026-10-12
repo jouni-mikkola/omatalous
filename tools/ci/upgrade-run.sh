@@ -18,19 +18,20 @@ WORK=${UPGRADE_WORK:-$(mktemp -d)}
 REMOTE=$WORK/remote.git
 DEV=$WORK/dev
 DIR=$WORK/talous # not named banking-app: names must follow the compose defaults
+# shellcheck disable=SC2034 # read in lib.sh (api)
 JAR=$WORK/jar
 URL=http://127.0.0.1:8080
 NODE=(node --disable-warning=ExperimentalWarning)
 export GIT_AUTHOR_NAME=ci GIT_AUTHOR_EMAIL=ci@example.invalid GIT_COMMITTER_NAME=ci GIT_COMMITTER_EMAIL=ci@example.invalid
 PASS='ci-salasana-123456'
 
+# dc, shim, app_version, migrations, api, until_ok and push_release are shared with the drills
+# shellcheck source=lib.sh
+. "$SRC/tools/ci/lib.sh"
+
+# log and fail end the run on the spot; the drills' step and die also keep what a drill saw for its result line
 log()  { printf '\n== %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-# argument "baseline": the shim is about the checkout as it is; otherwise about the version the next update pulls
-# (branch ci of the remote)
-shim() { if [[ -n ${UPGRADE_BUILD_SHIM:-} ]]; then (cd "$DIR" && "$UPGRADE_BUILD_SHIM" "${1:-next}"); fi; }
-dc()   { (cd "$DIR" && docker compose "$@"); }
-api()  { curl -fsS -b "$JAR" -c "$JAR" -H 'Content-Type: application/json' -H 'X-Requested-With: fetch' "$@"; }
 cleanup() {
   local rc=$?
   if ((rc != 0)) && [[ -d $DIR ]]; then dc logs --tail 80 banking >&2 || true; fi
@@ -41,10 +42,10 @@ cleanup() {
   return "$rc"
 }
 trap cleanup EXIT
-wait_up() { for _ in $(seq 1 90); do dc exec -T banking wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1 && return 0; sleep 2; done; fail "the app did not come up"; }
-app_version() { dc exec -T banking "${NODE[@]}" dist/node.js version 2>/dev/null | tail -1 | awk '{print $1}' || echo unknown; }
+wait_up() { until_ok 180 app_ok || fail "the app did not come up"; }
 head_version() { sed -n 's/^export const APP_VERSION = "\(.*\)";$/\1/p' "$SRC/apps/server/src/version.ts"; }
-# facts that must survive an update: rows, sums, user-set categories, settings. Migration names are separate.
+# facts that must survive an update: rows, sums, user-set categories, settings. Migration names are separate. The drills'
+# golden_of reads any database file but not these: it needs no tolerance for a baseline whose schema lacks a table.
 golden() {
   dc exec -T banking "${NODE[@]}" -e '
     const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db");
@@ -79,18 +80,10 @@ seed_choices() {
       }
     }'
 }
-migrations() { dc exec -T banking "${NODE[@]}" -e 'const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db"); for (const r of d.prepare("SELECT name FROM _migrations ORDER BY name").all()) console.log(r.name);'; }
 expect_equal() { diff <(printf '%s\n' "$2") <(printf '%s\n' "$3") >&2 || fail "$1 changed (diff above: expected, then actual)"; }
 logged_in() { api "$URL/api/auth/state" | grep '"username":"ci-admin"' >/dev/null || fail "the old session no longer works"; }
-login_works() { curl -fsS -c "$WORK/jar2" -H 'Content-Type: application/json' -H 'X-Requested-With: fetch' -d "{\"username\":\"ci-admin\",\"password\":\"$PASS\"}" "$URL/api/auth/login" >/dev/null || fail "password login fails"; }
-# a commit on top of the remote branch, made in a separate clone
-push_commit() { # message, then a shell snippet run in the dev clone
-  git -C "$DEV" pull -q --ff-only origin ci
-  (cd "$DEV" && eval "$2")
-  git -C "$DEV" add -A
-  if ! git -C "$DEV" diff --cached --quiet; then git -C "$DEV" commit -q -m "$1"; fi
-  git -C "$DEV" push -q origin HEAD:ci
-}
+# its own cookie file, so that the old session in $JAR stays what logged_in looks at (the drills' login replaces $JAR)
+login_works() { curlj -c "$WORK/jar2" -d "{\"username\":\"ci-admin\",\"password\":\"$PASS\"}" "$URL/api/auth/login" >/dev/null || fail "password login fails"; }
 # output goes to update.log (and the terminal); the status is update.sh's own. The checkout's script is run
 # with --yes, an old baseline's script (which has no such flag) with no arguments.
 run_update() {
@@ -109,7 +102,10 @@ git clone -q --branch ci "$REMOTE" "$DIR"
 git clone -q --branch ci "$REMOTE" "$DEV"
 git -C "$DIR" reset -q --hard "$B"
 OLD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
-printf 'SETUP_CODE=ci-setup-code-12345\n' >"$DIR/.env"
+# The remote here holds no release tag, so the install follows the source from its first update on: a baseline that
+# knows releases would ask GitHub for the newest one and stop, since that tag is not in this folder. An older
+# baseline does not read the line.
+printf 'SETUP_CODE=ci-setup-code-12345\nTALOUS_CHANNEL=source\n' >"$DIR/.env"
 shim baseline
 dc up -d --build
 wait_up
@@ -170,7 +166,7 @@ GOLD_HEAD=$(golden)
 [[ $GOLD_HEAD == *"optimise_snapshots ci-admin 1"* && $GOLD_HEAD == *"optimise_snapshots ci-member 1"* ]] || fail "the Optimoi snapshots were not written"
 
 log "this checkout's update.sh on the next release"
-printf 'TALOUS_CHANNEL=source\n' >>"$DIR/.env"
+grep -q '^TALOUS_CHANNEL=source$' "$DIR/.env" || printf 'TALOUS_CHANNEL=source\n' >>"$DIR/.env" # an old baseline may have written .env anew
 run_update --yes >/dev/null
 said 'already current\|Updated\|Running\|jo käytössä\|Päivitetty\|Käynnissä' || fail "no outcome line"
 wait_up
@@ -178,7 +174,7 @@ run_update --yes >/dev/null
 said 'already current\|jo käytössä' || fail "a second run on the same version should say it is current"
 HEAD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
 
-push_commit "ci: next release" '
+push_release "ci: next release" '
   sed -i "s/^export const APP_VERSION = .*/export const APP_VERSION = \"9999.0.0\";/" apps/server/src/version.ts
   echo "ALTER TABLE accounts ADD COLUMN ci_note TEXT;" >apps/server/migrations/9999_ci_next.sql'
 run_update --yes >/dev/null
@@ -199,20 +195,20 @@ wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "next release is not running again"
 
 log "a build that fails leaves the old version running and is not called current"
-push_commit "ci: broken build" 'sed -i "s/^RUN mkdir \/data/RUN false \&\& mkdir \/data/" Dockerfile'
+push_release "ci: broken build" 'sed -i "s/^RUN mkdir \/data/RUN false \&\& mkdir \/data/" Dockerfile'
 if run_update --yes >/dev/null; then fail "a broken build must not succeed"; fi
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "the old version stopped"
 run_update --yes >/dev/null || true
 if said 'already current\|jo käytössä'; then fail "a failed update was reported as current"; fi
-push_commit "ci: repair build" 'git revert --no-edit HEAD >/dev/null'
+push_release "ci: repair build" 'git revert --no-edit HEAD >/dev/null'
 run_update --yes >/dev/null
 said 'Updated\|Päivitetty' || fail "update after the repair failed"
 wait_up
 
 log "a migration that fails is rolled back by itself"
 GOLD1=$(golden)
-push_commit "ci: broken migration" 'echo "SELECT * FROM table_that_does_not_exist;" >apps/server/migrations/9998_ci_bad.sql'
+push_release "ci: broken migration" 'echo "SELECT * FROM table_that_does_not_exist;" >apps/server/migrations/9998_ci_bad.sql'
 if run_update --yes >/dev/null; then fail "a failing migration must not succeed"; fi
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "rollback after the failed migration did not bring the old version back"

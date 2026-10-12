@@ -1,6 +1,6 @@
 /** Bank credentials, consents and synchronisation for the signed-in user. */
 import { Hono } from "hono";
-import { forgetConnection, removeConnection } from "../connectors/enable-banking/connector.ts";
+import { removeConnection } from "../connectors/enable-banking/connector.ts";
 import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
 import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
 import { LinkFailure, returnedWithError } from "../connectors/link-state.ts";
@@ -97,12 +97,6 @@ export function bankRoutes(s: Services) {
     const r = await completeConnection(s, s.finance(user.id), code, state);
     inBackground(syncUser(s, user.id, "connect"));
     return c.json(r);
-  });
-
-  /** "Poista listalta": a connection that owns no account any more. */
-  app.delete("/connections/history/:id", async (c) => {
-    await forgetConnection(s, s.finance(c.get("user").id), c.req.param("id"));
-    return c.json({ ok: true });
   });
 
   app.delete("/connections/:id", async (c) => {

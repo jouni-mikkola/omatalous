@@ -2,6 +2,7 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import { INCOME_GROUPS, INCOME_TYPE_ORDER, INCOME_TYPES, type IncomeGroup, type IncomeType, nextPayDate } from "../analysis/income.ts";
 import { benefitName, type IncomeBase, incomeBase, type IncomeChange, incomeChanges, payDayText } from "../analysis/income-changes.ts";
+import { payPieces } from "../analysis/income-series.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { addDays, addMonths, dayNumber, monthOf } from "../dates.ts";
@@ -152,8 +153,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const end = range.to < ctx.today ? range.to : ctx.today;
   const today = end === ctx.today;
   const b = incomeBase(ctx, end);
-  const endMonth = monthOf(end);
-  const anchor = isCompleteMonth(ctx, endMonth) ? endMonth : addMonths(endMonth, -1);
+  const anchor = b.anchor;
   const labels = Array.from({ length: 12 }, (_, i) => addMonths(anchor, i - 11));
   const inWindow = new Set(labels);
   const typeOf = (id: string) => b.types.get(id)!;
@@ -163,22 +163,23 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const prevLabels = new Set(labels.map((m) => addMonths(m, -12)));
   let previous = 0;
   const typeRows = new Map<IncomeType, { total: number; complete: number; payers: Map<string, IncomeRowRef[] & { payer?: string }> }>();
-  for (const t of b.rows) {
+  // a payment is one part, or two when a regular payer's only payment stands above the usual level
+  const parts = b.rows.flatMap((t) => payPieces(b, t).map((p) => ({ t, ...p })));
+  for (const { t, type, cents } of parts) {
     const month = monthOf(t.bookingDate);
-    const type = typeOf(t.id);
-    if (prevLabels.has(month) && INCOME_TYPES[type].earned) previous += t.amountCents;
+    if (prevLabels.has(month) && INCOME_TYPES[type].earned) previous += cents;
     const m = byMonth.get(month);
     if (!m) continue;
-    m.totalCents += t.amountCents;
-    m.byGroup[INCOME_TYPES[type].group] += t.amountCents;
+    m.totalCents += cents;
+    m.byGroup[INCOME_TYPES[type].group] += cents;
     let row = typeRows.get(type);
     if (!row) typeRows.set(type, (row = { total: 0, complete: 0, payers: new Map() }));
-    row.total += t.amountCents;
-    if (m.complete) row.complete += t.amountCents;
+    row.total += cents;
+    if (m.complete) row.complete += cents;
     const key = fold(t.merchant);
     let list = row.payers.get(key);
     if (!list) row.payers.set(key, (list = Object.assign([] as IncomeRowRef[], { payer: t.merchant })));
-    list.push({ id: t.id, date: t.bookingDate, amountCents: t.amountCents });
+    list.push({ id: t.id, date: t.bookingDate, amountCents: cents });
   }
   const completeMonths = months.filter((m) => m.complete).length;
   const earnedCents = [...typeRows].filter(([type]) => INCOME_TYPES[type].earned).reduce((s, [, r]) => s + r.total, 0);
@@ -223,24 +224,24 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
       })
     : [];
   const markers = today
-    ? b.rows
-        .filter((t) => inWindow.has(monthOf(t.bookingDate)) && ["holiday_pay", "other_pay", "tax_refund"].includes(typeOf(t.id)) && t.amountCents > 0)
-        .reduce<{ month: string; label: string; cents: number }[]>((acc, t) => {
+    ? parts
+        .filter(({ t, type, cents }) => inWindow.has(monthOf(t.bookingDate)) && ["holiday_pay", "other_pay", "tax_refund"].includes(type) && cents > 0)
+        .reduce<{ month: string; label: string; cents: number }[]>((acc, { t, type, cents }) => {
           const month = addMonths(monthOf(t.bookingDate), 12);
-          const label = INCOME_TYPES[typeOf(t.id)].label;
+          const label = INCOME_TYPES[type].label;
           const hit = acc.find((x) => x.month === month && x.label === label);
-          if (hit) hit.cents += t.amountCents;
-          else acc.push({ month, label, cents: t.amountCents });
+          if (hit) hit.cents += cents;
+          else acc.push({ month, label, cents });
           return acc;
         }, [])
     : [];
 
   const regularByMonth = months.filter((m) => m.complete).map((m) => ({ month: m.month, cents: 0 }));
   const regularIndex = new Map(regularByMonth.map((r) => [r.month, r]));
-  for (const t of b.rows) {
+  for (const { t, type, cents } of parts) {
     // by pay period: pay for the 1st booked on the 31st is that month's pay, so a flat salary has no gap month
     const r = regularIndex.get(b.periodMonth.get(t.id) ?? monthOf(t.bookingDate));
-    if (r && INCOME_TYPES[typeOf(t.id)].regular) r.cents += t.amountCents;
+    if (r && INCOME_TYPES[type].regular) r.cents += cents;
   }
 
   const payDays: IncomePayDay[] = activeSeries

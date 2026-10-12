@@ -93,7 +93,7 @@ describe("compatibility floor", () => {
     // a source-channel install applies unreleased migrations under the version of the last release (APP_VERSION only
     // moves at a release), and that release's code does not have the file
     const file = fromFixture("0.5.0.sql");
-    const dir = migrationsWith({ "0010_drop.sql": "-- migrate: breaking drops a table\nDROP TABLE ops_requests;" });
+    const dir = migrationsWith({ "0010_drop.sql": "-- migrate: breaking drops a table\nDROP TABLE sync_runs;" });
     (await openDatabase(file, dir)).db.close();
     expect(floors(file)["0010_drop.sql"]).toBeNull();
     for (const appVersion of [undefined, "0.5.1", "0.6.0", "9.0.0"]) {

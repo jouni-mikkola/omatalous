@@ -129,7 +129,7 @@ export function Evidence({ id, scope }: { id: string; scope: Scope }) {
       {data.rows.length > 0 && <Rows rows={data.rows} household={scope === "household"} />}
       {merchants.length > 0 && (
         <p className="small muted evidence-check">
-          Onko luokittelu väärin? Tarkista tapahtumat:{" "}
+          Jos luokittelu on väärin, korjaa se tapahtumissa:{" "}
           {merchants.map((m, i) => (
             <span key={m}>
               {i > 0 && ", "}

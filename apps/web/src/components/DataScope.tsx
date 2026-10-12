@@ -5,12 +5,12 @@ import type { Account, Meta, Scope } from "../types.ts";
 import "../styles/quality.css";
 
 /** The accounts the numbers are made of: the user's own, and with the household view the ones shared with them. */
-export function accountsInNumbers(meta: Meta, scope: Scope): (Account & { ownerName?: string })[] {
+function accountsInNumbers(meta: Meta, scope: Scope): (Account & { ownerName?: string })[] {
   return scope === "household" ? [...meta.accounts, ...meta.sharedAccounts] : meta.accounts;
 }
 
 /** When the account was last fetched or imported; a balance typed in by hand counts as an import. */
-export function lastFetched(account: Pick<Account, "lastSyncedAt" | "balanceAt">): string | null {
+function lastFetched(account: Pick<Account, "lastSyncedAt" | "balanceAt">): string | null {
   return account.lastSyncedAt ?? account.balanceAt;
 }
 

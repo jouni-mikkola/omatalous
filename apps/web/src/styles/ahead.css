@@ -1,8 +1,17 @@
-/* The next 30 days on the overview (components/NextDays.tsx). */
+/* The days until the next pay on the overview (components/NextDays.tsx). */
 .ahead-verdict { margin: 4px 0 8px; font-size: 13px; }
 .ahead-verdict.notice { padding: 8px 12px; margin-bottom: 8px; }
+.ahead-figures { margin: 0 0 12px; }
+.ahead-figure { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; }
+.ahead-figure dt, .ahead-figure dd { margin: 0; }
+/* what the figure is made of sits under its label, so a phone does not break it in the middle */
+.ahead-figure dt .small { display: block; }
+.ahead-figure dd { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ahead-figure-left { font-weight: 600; }
 .ahead-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0; }
 .ahead-table { max-height: 260px; overflow: auto; }
 .ahead-in { color: var(--good); }
+.ahead-pay { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 13px; }
+.ahead-pay .num { font-variant-numeric: tabular-nums; }
 .ahead-more { margin-top: 8px; }
 .ahead-note { margin: 8px 0 0; }

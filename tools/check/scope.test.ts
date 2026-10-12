@@ -6,6 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { changedFiles, loadCorpus, scopeOf, workspace } from "./scope.mjs";
 
 const RULES = "tools/repo-rules";
+const UI_STRINGS = "tools/ui-strings.test.ts";
 const real = workspace();
 
 describe("check --changed: scope of a diff", () => {
@@ -17,12 +18,23 @@ describe("check --changed: scope of a diff", () => {
 
   it("a core change runs core and every package that imports it, the repo rules, and no shell step", () => {
     const s = scopeOf(["packages/core/src/recurring.ts", "packages/core/test/recurring.test.ts"]);
-    expect(s).toMatchObject({ full: false, tests: ["apps/server", "apps/web", "packages/core", RULES], lint: false, sh: false });
+    expect(s).toMatchObject({ full: false, tests: ["apps/server", "apps/web", "packages/core", RULES, UI_STRINGS], lint: false, sh: false });
   });
 
   it("a server or web change leaves core's tests out", () => {
-    expect(scopeOf(["apps/server/src/routes/admin.ts"]).tests).toEqual(["apps/server", RULES]);
-    expect(scopeOf(["apps/web/src/pages/Wizard.tsx", "apps/web/src/styles/tokens.css"]).tests).toEqual(["apps/web", RULES]);
+    expect(scopeOf(["apps/server/src/routes/admin.ts"]).tests).toEqual(["apps/server", RULES, UI_STRINGS]);
+    expect(scopeOf(["apps/web/src/pages/Wizard.tsx", "apps/web/src/styles/tokens.css"]).tests).toEqual(["apps/web", RULES, UI_STRINGS]);
+  });
+
+  it("a change in the src/ of a package also runs the suite that pins the UI sentences, and a test or a tools change does not add it", () => {
+    for (const f of ["packages/core/src/wording.ts", "apps/server/src/services/upgrade.ts", "apps/web/src/pages/Bills.tsx"]) {
+      expect(scopeOf([f]).tests, f).toContain(UI_STRINGS);
+    }
+    for (const f of ["packages/core/test/ahead.test.ts", "apps/web/test/next-days.test.ts", "apps/web/package.json", "docs/INSTALL.md"]) {
+      expect(scopeOf([f]).tests, f).not.toContain(UI_STRINGS);
+    }
+    // a tools change runs all of tools/, which holds it already: it is listed once, under the folder
+    expect(scopeOf(["tools/check/scope.mjs", "apps/web/src/pages/Bills.tsx"]).tests).toEqual(["apps/web", RULES, "tools"].sort());
   });
 
   it("docs, fragments, the .claude folder and the browser suite run only the repo rules", () => {
@@ -132,7 +144,7 @@ describe("check --changed: a shell file narrows the suites and tests by name", (
 
   it("scripts next to package changes: vitest by package, the suites by name", () => {
     const s = scope(["scripts/backup.sh", "apps/web/src/main.tsx"]);
-    expect(s).toMatchObject({ full: false, tests: ["apps/web", RULES], suites: ["tools/test/backup.test.sh"] });
+    expect(s).toMatchObject({ full: false, tests: ["apps/web", RULES, UI_STRINGS], suites: ["tools/test/backup.test.sh"] });
   });
 
   it("the compose file runs every suite whatever else changed", () => {

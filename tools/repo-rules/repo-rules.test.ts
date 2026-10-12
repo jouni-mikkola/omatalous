@@ -35,6 +35,7 @@
  *   rule 25  no shell file or workflow pipes into grep -q     shell.ts
  *   rule 26  a function defined in scripts/ is named twice    shell.ts
  *   rule 27  the lines that keep a secret out stay ignored    shell.ts
+ *   rule 28  the UI text keeps the fixes of a Finnish pass    finnish.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

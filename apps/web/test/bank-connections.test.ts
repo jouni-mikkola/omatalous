@@ -117,15 +117,24 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     expect(out).toContain("vanhenee pian");
   });
 
-  it("gives the phone layout to both tables, with a label on every cell that has a column head", () => {
-    const old = conn("h", "broken", null, { history: true, createdAt: "2026-03-01T00:00:00Z" });
-    const out = html([conn("a", "active", 93), old]);
-    expect(out.match(/<table class="conn-table"/g)).toHaveLength(2);
+  it("gives the phone layout to the table, with a label on every cell that has a column head", () => {
+    const out = html([conn("a", "active", 93)]);
+    expect(out.match(/<table class="conn-table"/g)).toHaveLength(1);
     expect(out).toContain('data-label="Tila"');
     expect(out).toContain('data-label="Haettu"');
-    expect(out).toContain('data-label="Yhdistetty"');
-    // Poista listalta is in the second table, which the phone layout reaches
-    expect(out.slice(out.indexOf("Aiemmat yhteydet"))).toMatch(/<table class="conn-table"[\s\S]*Poista listalta/);
+  });
+
+  it("lists no earlier consents: two that own no account are left out, and one whose date passed keeps its renewal", () => {
+    const earlier = [conn("h1", "broken", null, { history: true, institution: "Aktia" }), conn("h2", "lapsed", null, { history: true, institution: "Holvi" })];
+    const out = html([conn("a", "lapsed", null, { validUntil: "2026-09-01T00:00:00Z" }), ...earlier]);
+    expect(out).not.toContain("Aiemmat yhteydet");
+    expect(out).not.toContain("Poista listalta");
+    expect(out).not.toContain("Aktia");
+    expect(out).not.toContain("Holvi");
+    expect(out.match(/<table class="conn-table"/g)).toHaveLength(1);
+    // the one that still owns its accounts shows its end and the way to renew
+    expect(out).toContain("vanhentui 1.9.2026");
+    expect(renews(out)).toBe(1);
   });
 });
 
@@ -208,10 +217,10 @@ describe("Pankkiyhteydet: accounts that are not linked in the Control Panel", ()
 });
 
 describe("Pankkiyhteydet: the add button", () => {
-  it("reads Lisää pankkiyhteys, with a connection or without", () => {
+  it("reads Yhdistä pankki, with a connection or without", () => {
     for (const connections of [[], [conn("a", "active", 90)], [conn("a", "lapsed", null)]]) {
       const out = html(connections);
-      expect(out).toContain("Lisää pankkiyhteys");
+      expect(out).toContain("Yhdistä pankki");
       expect(out).not.toContain("Yhdistä toinen pankki");
       expect(out).not.toContain("Lisää seuraava tili");
     }
@@ -220,9 +229,9 @@ describe("Pankkiyhteydet: the add button", () => {
   it("reads Yhdistä toinen pankki after a bank brought accounts, and not after one that brought none", () => {
     const out = html([conn("a", "active", 90)], true, [account("Käyttötili", "a", { lastSyncedAt: null })], 2);
     expect(out).toMatch(/<button[^>]*btn-primary[^>]*>Yhdistä toinen pankki<\/button>/);
-    expect(out).not.toContain("Lisää pankkiyhteys");
+    expect(out).not.toContain("Yhdistä pankki");
     const none = html([conn("a", "active", 90)], true, [], 0);
-    expect(none).toContain("Lisää pankkiyhteys");
+    expect(none).toContain("Yhdistä pankki");
     expect(none).not.toContain("Yhdistä toinen pankki");
   });
 });

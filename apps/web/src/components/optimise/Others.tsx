@@ -104,7 +104,7 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
 export function Others({ others, onChanged }: { others: readonly Insight[]; onChanged: Changed }) {
   if (!others.length) return null;
   return (
-    <Section id="muut-havainnot" title="Muut havainnot" sub="Huomioita, joita vinkit eivät jo kerro. Ne eivät ole säästöjä eivätkä kuulu yhteissummaan.">
+    <Section id="muut-havainnot" title="Muut havainnot" sub="Havaintoja, jotka eivät sisälly vinkkeihin. Ne eivät ole säästöjä eivätkä kuulu yhteissummaan.">
       <div className="findings">
         {others.map((i) => (
           <OtherCard key={i.id} insight={i} onChanged={onChanged} />

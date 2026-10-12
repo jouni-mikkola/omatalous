@@ -55,3 +55,6 @@ No view works a sum out. `coverOf` gives what the drawn money left (`creditLeftC
   metamorphic test holds what the product says about it, and `totals.test.ts` holds its *Yli jäi* to the rows.
 - Telling a card from an account needs the card accounts' change in the period, which `PeriodTotals` lacks. Until a
   later task gives it, purchases on a connected card have no cover of their own.
+- Credit drawn is told by the payer's name too: money in from a lender on the lists, or from a company with finance,
+  credit or loan in its name, is borrowed and not income. A payment to a payee that paid credit out is debt service,
+  also when its text says nothing of lending (MONEY_FLOWS.md, *Lenders*).

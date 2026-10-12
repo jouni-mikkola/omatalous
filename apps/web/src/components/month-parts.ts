@@ -67,7 +67,7 @@ export function bridgeSources(totals: BridgeTotals): BridgePart[] {
 /** What stayed is a share of the income only when the income was all the money: with drawn money in it, it is none. */
 const leftOfIncome = (totals: BridgeTotals): boolean => bridgeDraws(totals) && totals.leftCents >= 0 && bridgeSources(totals).length === 0;
 
-export interface BridgeFigure extends BridgePart {
+interface BridgeFigure extends BridgePart {
   /** The figure is a share of the income, so it is also told as one. */
   ofIncome: boolean;
 }
@@ -89,7 +89,7 @@ export function bridgeFigures(totals: BridgeTotals): BridgeFigure[] {
   ];
 }
 
-export interface BridgeRow {
+interface BridgeRow {
   key: BridgePart["key"] | "credit-drawn" | "savings-drawn";
   label: string;
   cents: number;
@@ -126,7 +126,7 @@ export interface DrawnLine {
   stayed: string | null;
 }
 
-export interface BridgeText {
+interface BridgeText {
   /** How the gap between the income and what the period took was paid; null when the income paid for everything. */
   gap: string | null;
   /** Money that came in without being income: credit drawn and savings drawn. */
@@ -180,7 +180,7 @@ export function bridgeText(totals: BridgeTotals): BridgeText {
 }
 
 /** The income the bridge's sentence names: the figure its change against the usual income is told from. */
-export interface BridgeIncome {
+interface BridgeIncome {
   label: "Tulot" | "Ansiotulot";
   cents: number;
   /** Tavalliset tulot to compare with; null when the month has none. */

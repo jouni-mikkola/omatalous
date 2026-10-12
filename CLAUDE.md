@@ -15,24 +15,26 @@ pnpm typecheck        # tsc for core, server, web, plus e2e, tools and root conf
 pnpm build            # web (Vite) + server bundle (esbuild, apps/server/dist/node.js)
 pnpm dev              # API :8080 + Vite :5173
 pnpm seed:demo        # demo user + data in ./data
+pnpm strings          # every text the browser can show, one line each (--file, --count, --also): start a change of Finnish text there
+pnpm findings --golden  # writes the golden files again after a change of a detector or its wording; never merged by hand
 ```
 
 ## Layout
 
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation, rules
-  (`categorize.ts`), the bank dialect (`wording.ts` and, for what a loan page prints, `wording-loan-pages.ts`: word
+  (`categorize.ts`; `categorize-people.ts` holds the rules about people, read before the shops: who the user is, the other holders of the accounts, MobilePay, the bank's own words for a payment between people; `categorize-bank-rows.ts` the lenders the word lists miss, told by the shape of the name, by their own payout and by the register, and the bank's own rows of cash and interest), the bank dialect (`wording.ts`, for what a loan page prints `wording-loan-pages.ts`, for lenders by their names `wording-lenders.ts`: word
   lists behind named predicates, ADR 0008), trade register matching and TOL and MCC codes (`industry.ts`), transfers,
   returns (`returns.ts`: refunds and money paid back), enrichment pipeline, recurring detection, money flows, analysis
   context, dashboard, insights, `reports/*` with a registry in `reports/index.ts`. One definition per figure (ADR 0004):
   `analysis/usual.ts` (complete months, the usual level, usual spending and usual income, the gate `gateFor`) and
   `commitments.ts` (fixed costs, subscriptions, expected bill dates, expected charges, cancelled subscriptions);
   `analysis/fees.ts` (late fees, bank fees); a series' cost is its own `perMonth`, `monthlyCents`, `yearlyCents`;
-  `docs/MONEY_FLOWS.md` says them in prose. `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
+  `docs/MONEY_FLOWS.md` says them in prose. `forecast.ts` (month forecast and its range), `ahead.ts` (what is coming until the next payday, 30 days with no regular pay; its `upcoming` is the next 30 days that Laskut > Tulossa lists),
   `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete
   months), `change.ts` (what moved spending, split into causes that add up, the rises the spike alert tells included;
   wording in `change-text.ts`), `loans.ts` (the `Loan` type and every loan figure, a connected card or loan account read
   as a loan included, ADR 0012), `household-debts.ts` (the list of the household's debts behind every debt total; a
-  saved loan linked to its account counts once), `loan-intake/` (a draft from pasted text or OCR, each field `sure` or
+  saved loan linked to its account counts once), `card-channel.ts` (a card's payment channel, the payee account and reference of the payments that paired with the card's own rows; `settleTransfers` is its entry, ADR 0015), `holdings.ts` (`buildHoldings`: the accounts, cards and loans of Kuukausi and Saldot, from `analysis/balance-walk.ts` and `household-debts.ts`), `loan-intake/` (a draft from pasted text or OCR, each field `sure` or
   `check`), `loan-detect.ts` (payments that look like an unsaved loan), `analysis/credit.ts` (what a connected card
   costs), `income.ts` (income by type, derived on read) with `income-changes.ts`, `income-events.ts`,
   `income-series.ts`. `analysis/insights/` has one source per file with its own gate and history rule (`shared.ts` holds
@@ -61,10 +63,10 @@ pnpm seed:demo        # demo user + data in ./data
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `restore.sh`, `doctor.sh`, `reset.sh`, `cloudflare-setup.sh` (writes
   `~/.config/omatalous/cloudflare.env`), `ops-helper.sh` (host helper for Asetukset > Ylläpito), `ops-launcher.sh` (what the helper's timer or cron line runs; installed outside the clone as `~/.local/share/omatalous/<instance>/launcher.sh`, with a `last-good/` copy of a helper that passed `--self-test`; a change to it needs a higher `LAUNCHER_VERSION`, 2 now, the self-test does not cover it, and it keeps its two calls: the helper with no argument and with `--root CLONE`), `lib/` (`release.sh` signatures, which release an install follows (`release_from_api`, `choose_release`) and `installer_lock` (the lock of every script that changes the install is the clone folder itself, fd 9, plus a look at /proc for an old update.sh whose `install.sh` was replaced; the helper loads the file too), `dbcopy.sh` copies, `preflight.sh` the migration check of
   the new image before the switch, `ops-access.sh` the helper's `access` action, `install-host.sh` the Docker, re-exec and Cloudflare-file steps of install.sh and `confirm_release` (a new install in a clone made by hand that sits at a release not out yet moves to the latest one), `ops-release.sh` the update check, `ops-selftest.sh` the self-test, `ops-watchdog.sh` the rollback of an update that stops answering, `ops-address.sh` with `host-addr.sh` the follow-up of the home network address, `ops-housekeeping.sh` the cleaning of old images, `ops-schedule.sh` the timer or cron line; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`relay-hash.mjs`,
-  `test/*.test.sh` shell suites (`test/ops-world.sh` is the helper's test world), `ci/*` (`smoke-image.sh` the image smoke test, `promote-release.sh` what `promote.yml` runs, `drills.sh` ten drills in real Docker with its functions in `drills-lib.sh`)) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
+  `test/*.test.sh` shell suites (`test/ops-world.sh` is the helper's test world), `ci/*` (`smoke-image.sh` the image smoke test, `promote-release.sh` what `promote.yml` runs, `drills.sh` ten drills in real Docker with its functions in `drills-lib.sh`, `lib.sh` the helpers `upgrade-run.sh` and `drills-lib.sh` both source, each defined there and nowhere else)) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` runs six jobs (plan, verify, build for amd64 and arm64 on runners of their own, smoke, publish, release; a `dry-run` job for a dry run) when `main` gets a new version, on a `v*` tag or by hand, and creates the release as a pre-release; `.github/workflows/promote.yml` promotes it after 48 hours (a draft holds it and every older pre-release).
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`;
-  `components/BankPicker.tsx`; bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
+  `components/BankPicker.tsx`; `components/holdings/` (`Holdings`, `CardFace`, `card-tier.ts`: the Tilit, Kortit and Lainat of Kuukausi, styled in `styles/holdings.css`) and `components/next-days.ts` (the heading, figures and warning of the payday card); bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
   (`bankLogo` in `src/banks.ts`); `consent-notices.ts` (when a consent ends, unlinked accounts, the calendar file);
   loans: `components/loans/`, `pages/settings/Loans.tsx`, `pages/settings/LoanIntake.tsx`, `LoanLinks` (in
   `components/loans/LoanEditor.tsx`: the accounts and loans the loan form reads). `styles/` (tokens.css and base.css
@@ -145,6 +147,10 @@ pnpm seed:demo        # demo user + data in ./data
   version (`-- migrate: compat X.Y.Z`, allowed only on additive files); `migrate-check <db>` tries pending migrations on a copy; `openDatabase` snapshots before migrating; `scripts/update.sh`
   has `--rollback`, which keeps the live DB only when the previous image's `migrate-check` reports nothing to apply. Derived fields are recomputed after every version change (`services/upgrade.ts`), so rule
   changes need no migration.
+- A card's payment channel is derived from the rows on every run and stored nowhere, so a change of rule is felt by the
+  next run with no migration (ADR 0015).
+- The accounts, cards and loans of the first page show the fields of `holdings` in the dashboard answer. The web adds up
+  and compares no money of its own there. The width of a card's bar (`barPercent`) is the one figure it draws.
 
 ## Conventions
 
@@ -175,6 +181,9 @@ pnpm seed:demo        # demo user + data in ./data
   pending rows).
 - Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
   fixed category colour order from the server, tokens in `styles/tokens.css`, one theme only).
+- `apps/web/test/contrast.test.ts` measures the `#rrggbb` tokens of `styles/tokens.css` against the page and the
+  surfaces and holds the theme colour in `index.html` equal to the page colour. A token that fails is moved, never the
+  test.
 - Repo rules (`tools/repo-rules`, listed in the header of `repo-rules.test.ts`; they read tracked files and untracked
   files git does not ignore, so a new file meets them before `git add`): rule 6 also refuses an import from a `test` or
   `fixtures` folder in `src`; rule 12 reads the sentences the server sends too (SQL skipped); rule 23 refuses a
@@ -182,4 +191,7 @@ pnpm seed:demo        # demo user + data in ./data
   reader) unless it stands in `tools/repo-rules/unread-exports.txt`, a list that only shrinks (a line goes with its
   export); rule 25 a pipe into `grep -q` in a shell file or a workflow (write `grep … >/dev/null`); rule 26 a function
   defined under `scripts/` that nothing else under `scripts/` names; rule 27 needs `git check-ignore` to hold for
-  `.env.new`, `ops/env.prev` and `.env.bak.1`.
+  `.env.new`, `ops/env.prev` and `.env.bak.1`; rule 28 refuses, in the texts `pnpm strings` lists, the habits a copy pass
+  took out of the Finnish (a calque or a rejected word, an em dash, "ei X vaan Y" as a contrast, an exclamation mark
+  that ends a sentence; the list is `tools/repo-rules/finnish.ts`, and a pattern that catches a good sentence gets a
+  near miss in `finnish.test.ts` first).

@@ -13,15 +13,18 @@
 import type { Household } from "../../../../tools/findings/households.ts";
 import { balanceCarried } from "./events/balance-carried.ts";
 import { carLoan } from "./events/car-loan.ts";
+import { cardChannel } from "./events/card-channel.ts";
 import { cardClosed } from "./events/card-closed.ts";
 import { cardConnectedLate } from "./events/card-connected-late.ts";
 import { cardReplaced } from "./events/card-replaced.ts";
 import { creditDrawn } from "./events/credit-drawn.ts";
 import { cadenceMonthlyToYearly } from "./events/cadence-monthly-to-yearly.ts";
 import { cadenceQuarterlyToMonthly } from "./events/cadence-quarterly-to-monthly.ts";
+import { coHolderTransfer } from "./events/co-holder-transfer.ts";
 import { daycareHours } from "./events/daycare-hours.ts";
 import { debtCollector } from "./events/debt-collector.ts";
 import { earlyRepayment } from "./events/early-repayment.ts";
+import { employerChange } from "./events/employer-change.ts";
 import { holidayAbroad } from "./events/holiday-abroad.ts";
 import { interestMirror } from "./events/interest-mirror.ts";
 import { largePurchase } from "./events/large-purchase.ts";
@@ -33,6 +36,7 @@ import { refund } from "./events/refund.ts";
 import { stoppedAccount } from "./events/stopped-account.ts";
 import { syncLag } from "./events/sync-lag.ts";
 import { taxRefund } from "./events/tax-refund.ts";
+import { unknownLender } from "./events/unknown-lender.ts";
 import { withdrawalFees } from "./events/withdrawal-fees.ts";
 import { frameOf, type LifeEvent } from "./frame.ts";
 import { HISTORY_MONTHS, householdOf, steadyRows, withCardBills } from "./household.ts";
@@ -73,6 +77,10 @@ export const EVENTS: readonly LifeEvent[] = [
   balanceCarried,
   creditDrawn,
   carLoan,
+  cardChannel,
+  coHolderTransfer,
+  employerChange,
+  unknownLender,
 ];
 
 /** The kit's base household (`kit:base`), or the base with `event` applied (`kit:<event id>`). */

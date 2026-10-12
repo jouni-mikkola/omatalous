@@ -1,5 +1,5 @@
 /**
- * The member's bank consents: "Lisää pankkiyhteys" opens a bank picker
+ * The member's bank consents: "Yhdistä pankki" opens a bank picker
  * (components/BankPicker.tsx: the banks the server offers), the list
  * shows each consent's validity and the accounts it reads (name and IBAN, so two consents of one holder differ),
  * and a fallback finishes a consent whose redirect page did not open. Every consent has "Yhdistä uudelleen", which starts
@@ -132,9 +132,8 @@ export function BankConnections({
   const [pasted, setPasted] = useState("");
   const [pasteOpen, setPasteOpen] = useState(false);
   const mode = meta.bank.redirectMode;
-  // a consent that owns no account is history: its accounts moved to a newer one, or it never had any
+  // a consent that owns no account is not listed: its accounts moved to a newer one, or it never had any
   const current = meta.connections.filter((c) => !c.history);
-  const history = meta.connections.filter((c) => c.history);
   const isAdmin = meta.user.role === "admin";
   // an app that reads Inactive is not held back here: starting a connection tests it again and says what is wrong
   const canStart = meta.bank.configured || !!meta.bank.inactive;
@@ -230,7 +229,7 @@ export function BankConnections({
         </div>
         {!picking && (
           <button className="btn btn-primary" type="button" onClick={openPicker}>
-            {linked ? "Yhdistä toinen pankki" : "Lisää pankkiyhteys"}
+            {linked ? "Yhdistä toinen pankki" : "Yhdistä pankki"}
           </button>
         )}
       </div>
@@ -254,7 +253,7 @@ export function BankConnections({
             </div>
           ) : isAdmin ? (
             <div className="notice warning">
-              Määritä ensin Enable Banking kohdassa <a href="#/settings?section=server">Palvelin</a>.
+              Määritä ensin Enable Banking kohdassa Asetukset &gt; <a href="#/settings?section=server">Palvelin</a>.
             </div>
           ) : (
             <div className="notice warning">Ylläpitäjän pitää ensin ottaa pankkiyhteydet käyttöön.</div>
@@ -355,47 +354,6 @@ export function BankConnections({
         </div>
       ) : (
         !picking && <p className="muted">Ei pankkiyhteyksiä.</p>
-      )}
-
-      {history.length > 0 && (
-        <details className="connection-history">
-          <summary className="small muted">Aiemmat yhteydet ({history.length})</summary>
-          <div className="table-wrap">
-            <table className="conn-table" role="table">
-              <thead>
-                <tr>
-                  <th>Pankki</th>
-                  <th>Yhdistetty</th>
-                  <th>Haettu</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((c) => (
-                  <tr key={c.id} role="row">
-                    <td role="cell">{c.institution}</td>
-                    <td role="cell" data-label="Yhdistetty">{date(c.createdAt)}</td>
-                    <td role="cell" data-label="Haettu">{dateTime(c.lastSyncedAt)}</td>
-                    <td role="cell" className="num">
-                      <button
-                        className="btn btn-small"
-                        type="button"
-                        disabled={busy !== null}
-                        onClick={() =>
-                          run(`forget-${c.id}`, async () => {
-                            await api(`/api/connections/history/${encodeURIComponent(c.id)}`, { method: "DELETE" });
-                          })
-                        }
-                      >
-                        Poista listalta
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
       )}
 
       {meta.bank.configured && (

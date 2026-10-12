@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
 import { DateFilter, FilterToggle, SearchBox } from "../components/FilterInputs.tsx";
-import { CADENCE_LABEL, date, money, plural } from "../format.ts";
+import { CADENCE_LABEL, date, dayHeading, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
 import { Merchants, monthsBasis } from "./Merchants.tsx";
-import { byDay, dayHeading, TxItem, TxRow, usePhone } from "./TransactionRows.tsx";
+import { byDay, TxItem, TxRow, usePhone } from "./TransactionRows.tsx";
 import "../styles/transactions.css";
 
 interface MerchantHistory {
@@ -199,7 +199,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const merchantFilter = (
     <span className="badge">
       {filters.merchant}{" "}
-      <button className="icon-btn" onClick={() => set({ merchant: "" })} aria-label="Poista kauppiassuodatin">
+      <button className="icon-btn" onClick={() => set({ merchant: "" })} aria-label="Poista kauppiaan rajaus">
         ×
       </button>
     </span>
@@ -386,7 +386,8 @@ function Uncategorised({
   refresh: number;
   onSaved: () => void;
 }) {
-  const { data, reload } = useApi<{ items: UncategorisedItem[] }>("/api/merchants/uncategorised");
+  // items are the biggest merchants; the header counts all of them
+  const { data, reload } = useApi<{ items: UncategorisedItem[]; count: number; totalCents: number }>("/api/merchants/uncategorised");
   const seen = useRef(refresh);
   useEffect(() => {
     if (seen.current === refresh) return;
@@ -397,7 +398,6 @@ function Uncategorised({
   const [error, setError] = useState<string | null>(null);
   const [more, setMore] = useState(false);
   if (!data?.items.length) return null;
-  const total = data.items.reduce((s, i) => s + i.totalCents, 0);
   // the list below is what the page is for: the card starts short
   const rows = data.items.slice(0, more ? 10 : 5);
 
@@ -422,7 +422,7 @@ function Uncategorised({
         <div>
           <h2>Luokittelematta</h2>
           <div className="card-sub">
-            {plural(data.items.length, "kauppias", "kauppiasta")}, {money(total, false)}
+            {plural(data.count, "kauppias", "kauppiasta")}, {money(data.totalCents, false)}
           </div>
         </div>
         <div className="form-row" style={{ margin: 0 }}>

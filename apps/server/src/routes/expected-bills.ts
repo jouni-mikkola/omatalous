@@ -49,7 +49,7 @@ export function expectedBillRoutes(s: Services) {
   app.post("/expected-bills", async (c) => {
     const repo = s.finance(c.get("user").id);
     const input = parseExpectedBill(await body(c), s.today());
-    if ((await repo.listExpectedBills()).length >= MAX_BILLS) throw new UserError(`Odotettuja laskuja voi olla enintään ${MAX_BILLS}. Poista ensin turhat.`);
+    if ((await repo.listExpectedBills()).length >= MAX_BILLS) throw new UserError(`Itse lisättyjä laskuja voi olla enintään ${MAX_BILLS}. Poista ensin turhat.`);
     const bill: ExpectedBill = { id: randomToken(), ...input };
     // bills are read per request, so nothing is cached and no data version moves
     await repo.addExpectedBill(bill, s.now().toISOString());

@@ -1,4 +1,4 @@
-export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew" | "access";
+export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew" | "access" | "prerelease-on" | "prerelease-off";
 
 export interface OpsRequestView {
   id: string;
@@ -40,6 +40,10 @@ export interface OpsSnapshot {
   mode?: string;
   port?: number;
   address?: string;
+  /** Where the switch for new versions stands on the host. Absent until a helper that knows it has reported. */
+  prerelease?: "yes" | "no";
+  /** `source`: the install follows a branch, so there is no switch. */
+  channel?: "source" | "release";
   doctor?: { at: string; items: DoctorItem[] };
   backups?: Backup[];
 }
@@ -52,6 +56,8 @@ export interface HelperInfo {
   outdated: boolean;
   /** The helper knows logs, prune and helper-renew. */
   tools: boolean;
+  /** The helper knows prerelease-on and prerelease-off. */
+  knowsPrerelease: boolean;
   enableCommand: string;
 }
 

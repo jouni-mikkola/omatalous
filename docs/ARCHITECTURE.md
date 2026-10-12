@@ -76,6 +76,14 @@ flowchart LR
 - A category comes from the first that applies: the user's rules, built-in rules, the card's merchant code
   (MCC), the category most of the same merchant's other rows got, the merchant's industry from the trade
   register. Otherwise a default.
+- The row logic of core is a few files, each with one owner (the order of the steps: [MONEY_FLOWS.md](MONEY_FLOWS.md#how-a-row-is-read)).
+  `merchant.ts` works out the merchant name. `categorize.ts` holds the rules and the order they are read in;
+  `categorize-people.ts` holds the rules about people (the holders of the accounts, MobilePay, the bank's own words for a
+  payment between people), and `categorize-bank-rows.ts` the lenders by the shape of their name, by their own payout and
+  by the register, and the rows of the bank itself. `transfers.ts` pairs rows between own accounts and holds the
+  issuer fallback. `card-channel.ts` learns each connected card's payment channel from the pairs and decides a payment to
+  it. The channel is worked out on every run and stored nowhere (ADR 0015). `pipeline.ts` runs them in order.
+  `categorize` takes the accounts, since the holders come from them (`accounts.holder`).
 - Industry lookup (`services/industry.ts`, `providers/prh`): merchants nothing recognises, from business
   rows only and never under a name shaped like a person's (`isLookupName`), are searched by name in the Finnish trade
   register. Core `industry.ts` picks the matching
@@ -140,7 +148,15 @@ flowchart LR
   row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
   for one merchant name and `DELETE /api/merchants/rule` removes it, after which the other rules and the
   register decide again. Both reprocess the user's data. `GET /api/merchants/uncategorised` feeds
-  *Luokittelematta*. Rule limits live in `services/rules.ts` (at most 300 per user).
+  *Luokittelematta*: `items` are the 50 merchants with the most money out, and `count` and `totalCents` are all of them,
+  both counted in SQL. Rule limits live in `services/rules.ts` (at most 300 per user).
+- The first page (Kuukausi) reads and computes nothing of its own. `holdings.ts` in core answers what the household has
+  and owes: each account with its balance, each card with what is used of its limit, each loan with what is left. It
+  adds nothing itself: a balance is the day walk's, a debt is `householdDebts`', and the cards' use and the loans' balance
+  add up to the debt total. `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer
+  (`buildHoldings`), and `components/holdings/Holdings.tsx` shows it as given. The card of the days to the payday gets
+  `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words its heading, figures and warning (the rules
+  are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).
 
 ## Settings and secrets
 
@@ -155,7 +171,11 @@ On start the app checks its migrations against the database. Each applied file i
 database from a newer version is refused unless every migration this build lacks declared a compatibility
 floor (`-- migrate: compat <version>`, stored in `_migrations.compat`) that this build meets, and a copy
 is taken before anything changes. After a version
-change the derived data (merchant names, categories, transfers) is computed again for every member.
+change the derived data (merchant names, categories, transfers) is computed again for every member. The names are
+renamed once, at the first start of a build (`services/upgrade.ts`). What the household attached to an old name (a rule,
+a mark, a loan's series, an Optimoi decision) follows it when every row of that name gets one new name that no other old
+name gets. When old names merge, a rule is written onto their rows as the household's own choice and the marks stay on
+the old names ([MONEY_FLOWS.md](MONEY_FLOWS.md#merchant-names)).
 `scripts/update.sh` adds a backup, a health check and a rollback around this. Releases are signed images from
 `ghcr.io` ([RELEASING.md](RELEASING.md)).
 
@@ -193,7 +213,7 @@ The copies and the checks around them, each in one place:
   of the household's.
 - The reserve (`services/disk.ts`): `<data>/.reserve` is 64 MB of zeros, given up when under 128 MB is free so that a full
   disk still lets an admin sign in and free space, and written again once over 1 GB is free.
-- *Palauta viimeisin varmuuskopio* (`services/db-restore.ts`): the app notes the request in `<data>/.restore-request` and
+- *Palauta uusin varmuuskopio* (`services/db-restore.ts`): the app notes the request in `<data>/.restore-request` and
   ends as `docker stop` does (`entry/shutdown.ts`). Docker's restart policy (`restart: unless-stopped`) starts it again
   and the startup check puts the copy in place, so there is one restore path. A request older than 15 minutes is dropped.
 - *Tyhjennä kaikki tiedot* (`services/reset.ts`): writes a checked `pre-reset-` copy first, ends every bank consent, deletes
@@ -212,7 +232,7 @@ and the report. It sources the rest from `scripts/lib/` after `check_permissions
 before an update swaps the files on disk.
 
 - `ops-release.sh` asks GitHub for the latest release. `release.sh` (shared with `update.sh`) decides which release an
-  install follows, the latest or with `TALOUS_PRERELEASE=yes` the newest, and holds the signature check.
+  install follows, the latest or with `TALOUS_PRERELEASE=yes` the newest, and holds the signature check. The switch *Tarjoa uudet versiot heti* on the Ylläpito page has the helper write that key, in `ops-release.sh`.
 - `ops-selftest.sh` is `./scripts/ops-helper.sh --self-test`, and what an update does when the helper it brought fails
   it: the update is taken back at once when its record is under 60 minutes old.
 - `ops-watchdog.sh` looks at the app's container every minute. For one hour after an update, an app that has been

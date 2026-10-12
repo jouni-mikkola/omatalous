@@ -1,0 +1,209 @@
+/**
+ * What the first page shows of accounts, cards and debts (`holdings.ts`): one answer, read by the balance report
+ * (Saldot) and by the dashboard (Kuukausi). It computes nothing of its own, so the tests hold it to the owners of the
+ * figures: the debt total, the day walk and `loanBalanceOn`. Made-up accounts and loans only.
+ */
+import { describe, expect, it } from "vitest";
+import { createContext } from "../src/analysis/context.ts";
+import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildHoldings, cardLimitCents } from "../src/holdings.ts";
+import { loanBalanceOn } from "../src/loans.ts";
+import { enrichTransactions } from "../src/pipeline.ts";
+import { balanceReport } from "../src/reports/balances.ts";
+import type { Account, BalanceInput, Loan, Transaction, UserInputs } from "../src/types.ts";
+import { ACCOUNTS, randomHistory, rng } from "./gen.ts";
+import { tx } from "./helpers.ts";
+
+const today = "2026-10-09";
+const range = { from: "2026-06-01", to: today };
+const loan = (p: Partial<Loan> & Pick<Loan, "id" | "balanceCents">): Loan => ({
+  name: p.id, lender: null, kind: "consumer", grantedCents: null, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: null, ...p,
+});
+const input = (id: string, name: string, type: Account["type"], balanceCents: number | null, more: Partial<BalanceInput> = {}): BalanceInput => ({
+  id, name, type, balanceCents, ownerName: null, balanceAt: null, ...more,
+});
+const inputsOf = (loans: Loan[]): UserInputs => ({ marks: [], expectedBills: [], loans });
+const accountOf = (b: BalanceInput): Account => ({ id: b.id, name: b.name, iban: null, currency: "EUR", type: b.type });
+
+/** The report and the dashboard of a household with no rows but the ones given. */
+function household(balances: BalanceInput[], loans: Loan[] = [], txs: Transaction[] = [], on = today) {
+  const accounts = balances.map(accountOf);
+  const ctx = createContext(txs, accounts, on);
+  const inputs = inputsOf(loans);
+  const report = balanceReport(ctx, { ...range, to: on }, balances, inputs);
+  return { ctx, report, holdings: report.holdings, dashboard: buildDashboard(ctx, { ...range, to: on }, balances, inputs) };
+}
+
+const owed = (h: ReturnType<typeof buildHoldings>) => h.cards.reduce((s, c) => s + (c.usedCents ?? 0), 0) + h.loans.reduce((s, l) => s + (l.leftCents ?? 0), 0);
+
+describe("holdings of the balance report", () => {
+  it("cards used plus loans left is the debt total to the cent, on every seeded household, in the report and on the first page", () => {
+    const problems: string[] = [];
+    let withLoans = 0;
+    for (let seed = 1; seed <= 25; seed++) {
+      const r = rng(seed * 7919);
+      const { txs, accounts, rules } = randomHistory(seed, 250);
+      const on = "2025-11-15";
+      const ctx = createContext(enrichTransactions(txs, accounts, rules), accounts, on);
+      const cents = (max: number) => Math.round(r() * max);
+      const balances = ACCOUNTS.map((a) => {
+        // some households lack a balance on an account, some owe on the card and the loan account
+        const none = r() < 0.15;
+        const sign = a.type === "credit_card" || a.type === "loan" ? -1 : 1;
+        return input(a.id, a.name, a.type, none ? null : sign * cents(a.type === "loan" ? 20_000_000 : 400_000), a.type === "credit_card" ? { creditLimitCents: 500_000, cardMask: "•••• 4242" } : {});
+      });
+      const saved = [
+        loan({ id: `own-${seed}`, balanceCents: cents(900_000), kind: "consumer", repayment: "annuity", intervalMonths: 1, paymentCents: 20_000, rateBp: 500, balanceDate: "2025-10-01" }),
+        // a typed card, and on every other seed one linked to the card account or to the loan account
+        loan({ id: `typed-${seed}`, balanceCents: cents(300_000), kind: "card", limitCents: 300_000, balanceDate: "2025-10-20", accountId: seed % 3 === 0 ? "card" : seed % 3 === 1 ? "loan" : null }),
+      ];
+      if (seed % 3 !== 2) withLoans++;
+      const inputs = inputsOf(saved);
+      const report = balanceReport(ctx, { from: "2025-06-01", to: on }, balances, inputs);
+      const dashboard = buildDashboard(ctx, { from: "2025-10-01", to: on }, balances, inputs);
+      if (owed(report.holdings) !== report.holdings.debtCents) problems.push(`${seed}: ${owed(report.holdings)} against ${report.holdings.debtCents}`);
+      if (report.holdings.debtCents !== report.debt.cents) problems.push(`${seed}: the debt total ${report.holdings.debtCents} against ${report.debt.cents}`);
+      if (JSON.stringify(dashboard.holdings) !== JSON.stringify(report.holdings)) problems.push(`${seed}: the dashboard differs`);
+    }
+    expect(problems).toEqual([]);
+    expect(withLoans).toBeGreaterThan(10);
+  }, 30_000);
+
+  it("a card with a limit and a debt gives used and free that add up to the limit", () => {
+    const { holdings } = household([input("card", "Esimerkkikortti", "credit_card", -120_000, { creditLimitCents: 500_000, cardMask: "•••• 1234", bank: "ESIMERKKIPANKKI" })]);
+    expect(holdings.cards).toEqual([
+      { id: "card", name: "Esimerkkikortti", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: null },
+    ]);
+    const [c] = holdings.cards;
+    expect(c!.usedCents! + c!.freeCents!).toBe(c!.limitCents);
+  });
+
+  it("a card with no limit gives free null and no share", () => {
+    const { holdings } = household([input("card", "Kortti", "credit_card", -120_000), input("zero", "Nollaraja", "credit_card", -5_000, { creditLimitCents: 0 })]);
+    expect(holdings.cards.map((c) => [c.limitCents, c.usedCents, c.freeCents, c.overCents])).toEqual([[null, 120_000, null, null], [null, 5_000, null, null]]);
+  });
+
+  it("a card with money on it is used 0 and never negative, and a card over its limit has nothing free and the excess told", () => {
+    const { holdings, report } = household([
+      input("refund", "Hyvityskortti", "credit_card", 4_500, { creditLimitCents: 200_000 }),
+      input("full", "Taynna", "credit_card", -200_000, { creditLimitCents: 200_000 }),
+      input("over", "Ylitetty", "credit_card", -230_000, { creditLimitCents: 200_000 }),
+    ]);
+    // at the limit is not over it
+    expect(holdings.cards.map((c) => [c.usedCents, c.freeCents, c.overCents])).toEqual([[0, 200_000, 0], [200_000, 0, 0], [230_000, 0, 30_000]]);
+    expect(report.debt.cents).toBe(430_000);
+  });
+
+  it("a card the bank gave no balance for has no use and no free, not zero", () => {
+    const { holdings } = household([input("card", "Kortti", "credit_card", null, { creditLimitCents: 200_000, cardMask: "•••• 9999" })]);
+    expect(holdings.cards).toMatchObject([{ limitCents: 200_000, usedCents: null, freeCents: null, overCents: null, mask: "•••• 9999" }]);
+  });
+
+  it("a saved loan linked to an account appears once, told by the account, and the debt total counts it once", () => {
+    const home = loan({ id: "home", name: "Kodin laina", kind: "mortgage", balanceCents: 15_000_000, rateBp: 360, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, accountId: "loan-acc" });
+    const { holdings, report } = household([input("loan-acc", "Asuntolaina", "loan", -14_912_345)], [home]);
+    expect(holdings.loans).toHaveLength(1);
+    expect(holdings.loans[0]).toMatchObject({ id: "home", name: "Kodin laina", kind: "mortgage", source: "account", maybeTwice: false, monthlyPaymentCents: 90_000 });
+    expect(owed(holdings)).toBe(report.debt.cents);
+  });
+
+  it("a saved loan linked to a card is that card's use, and the card is not a loan too", () => {
+    const typed = loan({ id: "cardloan", name: "Korttiluotto", kind: "card", balanceCents: 123_456, limitCents: 400_000, accountId: "card" });
+    const { holdings, report } = household([input("card", "Esimerkkikortti", "credit_card", -80_000, { creditLimitCents: 500_000 })], [typed]);
+    expect(holdings.loans).toEqual([]);
+    // the pair counts as the saved loan: the account's balance, the loan's limit
+    expect(holdings.cards).toMatchObject([{ name: "Esimerkkikortti", usedCents: 80_000, limitCents: 400_000, freeCents: 320_000, overCents: 0 }]);
+    expect(owed(holdings)).toBe(report.debt.cents);
+  });
+
+  it("the excess over the limit follows the limit the debt carries, the saved loan's when one is linked", () => {
+    const tight = loan({ id: "cardloan", name: "Korttiluotto", kind: "card", balanceCents: 80_000, limitCents: 50_000, accountId: "card" });
+    const { holdings } = household([input("card", "Esimerkkikortti", "credit_card", -80_000, { creditLimitCents: 500_000 })], [tight]);
+    expect(holdings.cards).toMatchObject([{ limitCents: 50_000, usedCents: 80_000, freeCents: 0, overCents: 30_000 }]);
+  });
+
+  it("a limit counts when it is above zero, and a limit of nothing or less is no limit", () => {
+    expect([cardLimitCents(1), cardLimitCents(500_000), cardLimitCents(0), cardLimitCents(-1), cardLimitCents(null), cardLimitCents(undefined)]).toEqual([1, 500_000, null, null, null, null]);
+  });
+
+  it("a typed loan with no account is what is left today by its plan, with the payment of a month", () => {
+    // 10 000 euros on the 1st of June, 500 a month with no interest: four payments are due by 9.10. (June to September)
+    const typed = loan({ id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", balanceCents: 1_000_000, balanceDate: "2026-06-01", repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 50_000, rateBp: 0 });
+    const { holdings } = household([], [typed]);
+    expect(holdings.loans).toEqual([
+      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, source: "typed", maybeTwice: false },
+    ]);
+    expect(holdings.loans[0]!.leftCents).toBeLessThan(typed.balanceCents);
+  });
+
+  it("an account with no balance from the bank appears with balance null, not 0", () => {
+    const { holdings } = household([input("a", "Käyttötili", "checking", null), input("b", "Säästötili", "savings", 0, { balanceAt: "2026-10-05" })]);
+    expect(holdings.accounts.map((a) => [a.id, a.type, a.balanceCents, a.balanceAt])).toEqual([["a", "checking", null, null], ["b", "savings", 0, "2026-10-05"]]);
+  });
+
+  it("an account's balance today is the day walk's: a row booked since the balance was given is in it, and Saldot's last month says the same", () => {
+    const rows = [tx({ accountId: "a", bookingDate: "2026-10-07", amountCents: -2_500 })];
+    const { holdings, report } = household([input("a", "Käyttötili", "checking", 100_000, { balanceAt: "2026-10-05" })], [], rows);
+    expect(holdings.accounts[0]!.balanceCents).toBe(97_500);
+    expect(report.accounts[0]!.values.at(-1)).toBe(97_500);
+  });
+
+  it("an account of type other is listed, so the accounts add up to Saldot's total", () => {
+    const balances = [input("c1", "Käyttötili", "checking", -30_000), input("s1", "Säästötili", "savings", 500_000), input("o1", "Rahastotili", "other", 100_000)];
+    const { holdings, report } = household(balances);
+    expect(holdings.accounts.map((a) => [a.id, a.type])).toEqual([["c1", "checking"], ["s1", "savings"], ["o1", "other"]]);
+    expect(holdings.accounts.reduce((s, a) => s + (a.balanceCents ?? 0), 0)).toBe(570_000);
+    expect(report.total.at(-1)).toBe(570_000);
+  });
+
+  it("the debt total is the cards' use and the loans' left to the cent, and there is none for a household in credit", () => {
+    const owing = household([input("c1", "Käyttötili", "checking", 10_000), input("k1", "Kortti", "credit_card", -1_000, { creditLimitCents: 300_000 }), input("l1", "Autolaina", "loan", -300_000)], [loan({ id: "x", balanceCents: 5_000 })]);
+    expect(owing.holdings.debtCents).toBe(owed(owing.holdings));
+    expect(owing.holdings.debtCents).toBe(owing.report.debt.cents);
+    expect(owing.holdings.debtCents).toBe(306_000);
+    const clear = household([input("c1", "Käyttötili", "checking", 10_000), input("k1", "Kortti", "credit_card", 2_000, { creditLimitCents: 300_000 })]);
+    expect(clear.holdings.debtCents).toBe(0);
+  });
+
+  it("lists checking, savings and other accounts as accounts, cards as cards, and a loan account as a loan, each once and in the accounts' order", () => {
+    const balances = [
+      input("c1", "Käyttötili", "checking", 10_000),
+      input("k1", "Kortti", "credit_card", -1_000),
+      input("s1", "Säästötili", "savings", 20_000),
+      input("l1", "Autolaina", "loan", -300_000),
+      input("o1", "Muu tili", "other", 5_000),
+    ];
+    const { holdings } = household(balances);
+    expect(holdings.accounts.map((a) => a.id)).toEqual(["c1", "s1", "o1"]);
+    expect(holdings.cards.map((c) => c.id)).toEqual(["k1"]);
+    expect(holdings.loans.map((l) => [l.id, l.source, l.leftCents])).toEqual([["account:l1", "account", 300_000]]);
+  });
+
+  it("names the debts that may be in the total twice, as the Lainat report does, and no others", () => {
+    const savedLoan = loan({ id: "mine", name: "Oma laina", balanceCents: 400_000 });
+    const other = loan({ id: "other", name: "Toinen", balanceCents: 100_000, kind: "card" });
+    const { holdings } = household([input("l1", "Autolaina", "loan", -300_000)], [savedLoan, other]);
+    // the connected loan account stands beside the saved loan that is no card; the saved card has no account beside it
+    expect(Object.fromEntries(holdings.loans.map((l) => [l.id, l.maybeTwice]))).toEqual({ mine: true, other: false, "account:l1": true });
+  });
+
+  it("another member's accounts carry the owner's name as the series do, and a joint account is listed once", () => {
+    const balances = [
+      input("mine", "Käyttötili", "checking", 10_000),
+      input("joint", "Yhteistili", "checking", 30_000, { joint: true }),
+      input("eero", "Käyttötili (Eero)", "checking", 5_000, { ownerName: "Eero" }),
+      input("eero-card", "Kortti (Eero)", "credit_card", -2_000, { ownerName: "Eero", cardMask: "•••• 5555", creditLimitCents: 100_000 }),
+    ];
+    const { holdings, report } = household(balances);
+    expect(holdings.accounts.map((a) => [a.id, a.name, a.ownerName])).toEqual([["mine", "Käyttötili", null], ["joint", "Yhteistili", null], ["eero", "Käyttötili (Eero)", "Eero"]]);
+    expect(holdings.accounts.map((a) => a.name)).toEqual(report.accounts.filter((s) => s.type === "checking").map((s) => s.name));
+    expect(holdings.cards).toMatchObject([{ id: "eero-card", name: "Kortti (Eero)", ownerName: "Eero", mask: "•••• 5555", usedCents: 2_000, freeCents: 98_000 }]);
+  });
+
+  it("the dashboard carries the same holdings as the report", () => {
+    const balances = [input("c1", "Käyttötili", "checking", 10_000), input("k1", "Kortti", "credit_card", -1_000, { creditLimitCents: 300_000 })];
+    const { dashboard, holdings } = household(balances, [loan({ id: "x", balanceCents: 5_000 })]);
+    expect(dashboard.holdings).toEqual(holdings);
+    expect(dashboard.holdings).toEqual(buildHoldings(createContext([], balances.map(accountOf), today), balances, inputsOf([loan({ id: "x", balanceCents: 5_000 })])));
+  });
+});

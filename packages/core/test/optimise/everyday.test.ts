@@ -66,9 +66,9 @@ describe("Ruoka", () => {
 
     expect(calcValue(wolt, /2026, kertaa/)).toBe("8");
     expect(calcValue(wolt, /2025, kertaa/)).toBe("3");
-    const ticket = cents(calcValue(wolt, /^Keskiostos/));
+    const ticket = cents(calcValue(wolt, /^Ostoskerta keskimäärin/));
     expect(Math.abs(wolt.euros!.midCents - 5 * ticket * 12)).toBeLessThanOrEqual(12);
-    expect(wolt.title).toMatch(/^Wolt: 8 kertaa kuussa, vuotta aiemmin 3\. Keskiostos /);
+    expect(wolt.title).toMatch(/^Wolt: 8 kertaa kuussa, vuotta aiemmin 3\. Ostoskerta keskimäärin /);
     // tilaus is a subscription in this app: a delivery order is counted in kertaa
     expect(JSON.stringify([wolt.title, wolt.action, wolt.euros!.assumption, wolt.calc])).not.toMatch(/tilau/i);
   });
@@ -122,10 +122,10 @@ describe("Pienet tavat", () => {
     expect(findings.map((f) => f.id)).toEqual(["habits:repeat:R-Kioski Kamppi"]);
     expect(calcValue(kiosk, /^Huhti–syyskuu 2026, kertaa kuussa tavallisesti/)).toBe("14");
     expect(calcValue(kiosk, /^Huhti–syyskuu 2025, kertaa kuussa tavallisesti/)).toBe("8");
-    const ticket = cents(calcValue(kiosk, /^Keskiostos/));
+    const ticket = cents(calcValue(kiosk, /^Ostoskerta keskimäärin/));
     expect(kiosk.euros).toMatchObject({ midCents: 6 * ticket * 12, lowCents: 3 * ticket * 12, highCents: 6 * ticket * 12 });
     expect(kiosk.euros!.assumption).toBe("Jos käyntejä on yhtä monta kuin vuotta aiemmin.");
-    expect(kiosk.title).toMatch(/^R-Kioski Kamppi: 14 kertaa kuussa, vuotta aiemmin 8\. Keskiostos \d+,\d\d €, huhti–syyskuu 2026 verrattuna samaan aikaan vuotta aiemmin\.$/);
+    expect(kiosk.title).toMatch(/^R-Kioski Kamppi: 14 kertaa kuussa, vuotta aiemmin 8\. Ostoskerta keskimäärin \d+,\d\d €, huhti–syyskuu 2026 verrattuna samaan aikaan vuotta aiemmin\.$/);
     expect(kiosk.action).toBe("Tarkista käyntien määrä: vuotta aiemmin 8 kertaa kuussa.");
     expect(kiosk.weaknesses).toEqual([]);
   });
@@ -233,7 +233,7 @@ describe("Vuosimenot", () => {
     expect(f.decideBy).toBe("2026-12-01");
     const extra = cents(calcValue(f, /^Keskimäärin yli tavallisen/));
     expect(f.action).toBe(`Varaa joulukuun menoihin ${Math.ceil(extra / 1200)} € kuussa.`);
-    expect(f.title).toMatch(/^Joulukuu on ollut kahtena vuonna .+ tavallista kalliimpi\. Joulukuussa 2025 lisämenot olivat .+ ja vuotta aiemmin .+, kertaostot pois lukien\.$/);
+    expect(f.title).toMatch(/^Joulukuu on ollut kahtena vuonna .+ tavallista kalliimpi\. Joulukuussa 2025 lisämenot olivat .+ ja vuotta aiemmin .+ ilman kertaostoja\.$/);
     expect(f.measure.kind).toBe("none");
   });
 

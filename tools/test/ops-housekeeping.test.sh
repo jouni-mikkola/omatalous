@@ -201,7 +201,7 @@ t_prune_not_during_request() {
   hk_call 'load_libs; housekeeping'
   check "request: the same call without an action prunes (the check above is not vacuous)" test "$(prunes)" = 1
   hk_world; low
-  ( exec 9<"$CL/scripts/install.sh"; flock -n 9 && exec sleep 60 ) & lockpid=$!
+  ( exec 9<"$CL/scripts/install.sh"; flock 9 && exec sleep 60 ) & lockpid=$! # waits: the poll below takes the lock for a moment, and a holder that does not wait could lose it for good
   for _ in $(seq 50); do flock -n "$CL/scripts/install.sh" true || break; sleep 0.1; done
   tick
   check "lock: the installer's lock is held: nothing is pruned, written or logged" test "$(prunes)" = 0 -a "$(hk_lines)" = 0 -a ! -e "$CL/ops/housekeeping-at" -a -f "$H/img/own-old"

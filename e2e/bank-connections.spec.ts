@@ -145,7 +145,7 @@ test("a link that left accounts unread lists them by the bank's name and the las
   // the bank has just handed over three accounts: the next bank is offered, and the list waits for the first fetch
   const add = card(page).getByRole("button", { name: "Yhdistä toinen pankki" });
   await expect(add).toBeVisible();
-  await expect(card(page).getByRole("button", { name: "Lisää pankkiyhteys" })).toHaveCount(0);
+  await expect(card(page).getByRole("button", { name: "Yhdistä pankki" })).toHaveCount(0);
   await expect(card(page).getByText("linkitetty Enable Bankingissa")).toHaveCount(0);
 
   const list = card(page).locator(".unlinked");
@@ -173,7 +173,7 @@ test("the list is one line for one account, and not there when every account is 
   await one.page.goto("/#/settings");
   await expect(card(one.page).getByText("Yksi tili ei ole linkitetty Enable Bankingissa.")).toBeVisible();
   await expect(card(one.page).locator(".unlinked").getByRole("listitem")).toHaveText(["Käyttötili · •••• 0785"]);
-  await expect(card(one.page).getByRole("button", { name: "Lisää pankkiyhteys" })).toBeVisible();
+  await expect(card(one.page).getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   expect(one.seen.problems).toEqual([]);
   await one.context.close();
 
@@ -189,13 +189,13 @@ test("the list is one line for one account, and not there when every account is 
   await empty.page.goto("/#/settings?connected=0");
   await empty.page.reload();
   await expect(empty.page.getByText("Pankki ei antanut tilejä.")).toBeVisible();
-  await expect(card(empty.page).getByRole("button", { name: "Lisää pankkiyhteys" })).toBeVisible();
+  await expect(card(empty.page).getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   await expect(card(empty.page).getByRole("button", { name: "Yhdistä toinen pankki" })).toHaveCount(0);
   await empty.context.close();
 });
 
-test("390 px: the consents, the list and the buttons fit without sideways scroll", async ({ browser }) => {
-  // an earlier consent too: Poista listalta is in the second table
+test("390 px: the consents and the buttons fit without sideways scroll", async ({ browser }) => {
+  // a consent that owns no account is among the answer too
   const earlier = { ...consent("h1", "Aktia", 0, "2026-05-01T00:00:00Z"), status: "expired", state: "lapsed", history: true };
   const connections = [consent("n1", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("o1", "OP", 10, "2026-10-22T00:00:00Z"), earlier];
   const accounts = [account("Käyttötili", "n1", { iban: IBANS.chk, problem: notLinked }), account("OP-tili", "o1", { iban: IBANS.sav, problem: notLinked })];
@@ -217,14 +217,9 @@ test("390 px: the consents, the list and the buttons fit without sideways scroll
       expect(box.x + box.width, `row ${row}`).toBeLessThanOrEqual(390);
     }
   }
-  // the earlier consents are blocks too, each cell with its label
-  await card(page).getByText("Aiemmat yhteydet").click();
-  const forget = card(page).getByRole("button", { name: "Poista listalta" });
-  await forget.scrollIntoViewIfNeeded();
-  const where = (await forget.boundingBox())!;
-  expect(where.x).toBeGreaterThanOrEqual(0);
-  expect(where.x + where.width).toBeLessThanOrEqual(390);
-  await expect(card(page).locator(".connection-history td[data-label]")).toHaveCount(2);
+  // the consent that owns no account is not listed
+  await expect(card(page).getByText("Aiemmat yhteydet")).toHaveCount(0);
+  await expect(card(page).getByText("Aktia")).toHaveCount(0);
   expect(await overflow(page)).toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();

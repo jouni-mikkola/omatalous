@@ -175,7 +175,7 @@ describe("loans", () => {
     expect(await error({ ...creditLine, repayment: "annuity" })).toBe("Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.");
     expect(await error({ ...creditLine, kind: "card", repayment: "annuity" })).toMatch(/^Luottokortilla ja luottolimiitillä/);
     expect(await error({ ...mortgage, kind: "boat" })).toBe("Tuntematon laji.");
-    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/Jäljellä oleva laina pysyy silloin ennallaan\.$/);
+    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä maksuerä tyhjäksi, jos maksat vain korkoa\.$/);
   });
 
   it("takes the first and last value of each range", async () => {

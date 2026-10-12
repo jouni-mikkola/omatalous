@@ -138,7 +138,7 @@ describe("optimise frame: what is shown", () => {
     const data = run(CTX12, area(drafts));
     expect(ids(data.areas[0]!.findings)).toEqual(["subscriptions:rise:S1", "subscriptions:rise:S4", "subscriptions:rise:S2"]);
     expect(data.areas[0]!.more).toBe(2);
-    expect(data.checked).toEqual({ total: 2, findings: 5, unavailable: 0 });
+    expect(data.checked).toEqual({ total: 2, findings: 5, unavailable: 0, noRows: 0 });
     expect(data.areas[0]!.checks.find((c) => c.id === "subscriptions:rise")!.status).toBe("finding");
   });
 

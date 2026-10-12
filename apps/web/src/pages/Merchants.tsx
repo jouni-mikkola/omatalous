@@ -28,7 +28,7 @@ const LIMIT = 200;
 
 /** What Kuussa of a merchant without an active series is, in words: the complete months it averages. */
 export const monthsBasis = (months: number): string =>
-  months === 0 ? "vasta kun ensimmäinen kuukausi on valmis" : months === 1 ? "viimeisen valmiin kuukauden summa" : `keskiarvo viimeisiltä ${months} valmiilta kuukaudelta`;
+  months === 0 ? "vasta kun ensimmäinen kuukausi on valmis" : months === 1 ? "viimeisen valmiin kuukauden summa" : `keskiarvo ${months} viimeiseltä valmiilta kuukaudelta`;
 
 /**
  * The Kauppiaat tab of Tapahtumat: every merchant of a period with the category its rows go to, and the rules under
@@ -122,7 +122,7 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
     <>
       <div className="filters">
         <SearchBox value={q} onSearch={(next) => set({ q: next })} label="Hae kauppiasta" />
-        <CategorySelect categories={meta.categories} value={category} onChange={(next) => set({ category: next })} allowEmpty ariaLabel="Suodata kategorialla" />
+        <CategorySelect categories={meta.categories} value={category} onChange={(next) => set({ category: next })} allowEmpty ariaLabel="Rajaa kategorialla" />
         <div className="segmented" role="group" aria-label="Kauppiaiden rajaus">
           <button type="button" aria-pressed={!habit} onClick={() => set({ habit: false })}>
             Kaikki
@@ -145,7 +145,7 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
             <h2>Kauppiaat</h2>
             <div className="card-sub">
               {items
-                ? `${plural(items.length, "kauppias", "kauppiasta")}, summat ${period ? "valitulta jaksolta" : "koko historiasta"}, omat siirrot pois lukien. Kuussa: toistuvan maksun kuukausihinta, muilla ${monthsBasis(months)}.`
+                ? `${plural(items.length, "kauppias", "kauppiasta")}, summat ${period ? "valitulta jaksolta" : "koko historiasta"} ilman omia siirtoja. Kuussa: toistuvan maksun kuukausihinta, muilla ${monthsBasis(months)}.`
                 : "…"}
               {habit && " Arkiostot ovat usein toistuvia pieniä ostoja, jotka jatkuvat yhä."}
             </div>
@@ -193,7 +193,7 @@ export function Merchants({ meta, params, anchor }: { meta: Meta; params: URLSea
                   <td className="m-category">
                     {/* the placeholder of rows without a name: a category for it would take every one of them */}
                     {m.merchant === UNKNOWN_MERCHANT ? (
-                      <span className="small muted">Vaihda kategoria tapahtumalta</span>
+                      <span className="small muted">Vaihda kategoria tapahtuma kerrallaan</span>
                     ) : (
                       <>
                         <CategoryPicker

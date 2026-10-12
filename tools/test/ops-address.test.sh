@@ -3,7 +3,8 @@
 # ticks, stub docker) is tools/test/ops-world.sh; this suite adds a stub `ip` that answers from $S/addrs (this machine's
 # addresses, "ADDRESS [INTERFACE]" a line, eth0 when not named), $S/p2p (the interfaces with the POINTOPOINT flag) and
 # $S/route (the default route's address), and a docker that remembers the .env the app was started with.
-# Time does not pass in a test: `missing_for` writes ops/address-since as the ticks of that many seconds would have.
+# The clock is the test's (set_clock, later in ops-world.sh): time passes only when a scenario says so, so every limit is
+# tried one second under and one second over. `missing_for` writes ops/address-since as the ticks of that many seconds would have.
 #
 #   tools/test/ops-address.test.sh [name-filter]
 set -u
@@ -21,7 +22,7 @@ OLD=192.168.1.50; NEW=10.0.0.5
 net() { printf '%s\n' "$1" >"$S/addrs"; printf '%s\n' "${2-$1}" >"$S/route"; }
 # a home network install at OLD, as install.sh writes its .env, on a machine the router has moved to NEW
 addr_world() { # addr_world [.env lines that replace or add]
-  new_world
+  new_world; set_clock
   setenv '# Written by scripts/install.sh. Re-run the script to change.' "APP_BASE_URL=http://$OLD:8080" TRUST_PROXY=false COMPOSE_PROFILES= \
     COMPOSE_PROJECT_NAME=clone HOST_PORT=8080 DOMAIN= ACME_EMAIL= CLOUDFLARE_TUNNEL_TOKEN= TZ=Europe/Helsinki "BIND_ADDRESS=$OLD"
   local e; for e in "$@"; do sed -i "/^${e%%=*}=/d" "$CL/.env"; printf '%s\n' "$e" >>"$CL/.env"; done
@@ -62,7 +63,7 @@ EOF
   net "$NEW"
 }
 # the address has been missing for $1 seconds, and the latest tick that saw so was $2 seconds ago (a minute)
-missing_for() { local now; now=$(date +%s); printf '%s %s %s\n' "$((now - $1))" "$((now - ${2:-60}))" "${3:-$OLD}" >"$CL/ops/address-since"; }
+missing_for() { local now; now=$(<"$S/clock"); printf '%s %s %s\n' "$((now - $1))" "$((now - ${2:-60}))" "${3:-$OLD}" >"$CL/ops/address-since"; }
 ups() { n_calls 'compose up -d --no-build'; }
 env_line() { [[ $(grep -c "^${1%%=*}=" "$CL/.env") == 1 ]] && grep -qxF "$1" "$CL/.env"; } # the key once, with this value
 env_same() { cmp -s "$CL/.env" "$W/env.before" && [[ $(stat -c %a "$CL/.env") == 600 && ! -e $CL/.env.new ]]; }
@@ -85,9 +86,9 @@ t_rebind_after_10_min() {
   check "while the address is there its interface is kept, and no count" bash -c "[[ \$(cat '$CL/ops/address-if') == 'eth0 $OLD' && ! -e '$CL/ops/address-since' ]]"
   tick
   check "first tick: the missing address is noted, nothing changes" bash -c "[[ -s '$CL/ops/address-since' ]]" && check "first tick: nothing changed" untouched
-  missing_for 570; tick
-  check "9 min 30 s: nothing changes" untouched
-  missing_for 630; tick # half a minute over, as 570 is half a minute under: the machine's clock may step back between here and the tick
+  missing_for 599; tick
+  check "9 min 59 s: nothing changes" untouched
+  missing_for 601; tick
   check "10 min: BIND_ADDRESS and APP_BASE_URL hold the new address" rebound
   check "10 min: the app was started once, with the new .env" bash -c "[[ $(ups) == 1 ]] && grep -qx 'BIND_ADDRESS=$NEW' '$S/env.live'"
   check "10 min: told in helper.log, once" bash -c "[[ $(told) == 1 ]] && grep -qE '^[0-9T:Z-]+ Osoite vaihtui: http://$NEW:8080\$' '$CL/ops/helper.log'"
@@ -104,19 +105,30 @@ t_rebind_after_10_min() {
 }
 
 t_rebind_needs_in_a_row() {
-  addr_world; missing_for 570
+  addr_world; missing_for 599
   net "$OLD" "$NEW"; tick
   check "a tick that finds the address forgets the count" bash -c "[[ ! -e '$CL/ops/address-since' ]]"
   net "$NEW"; tick
   check "missing again: the count starts from this tick" bash -c "read -r a b c <'$CL/ops/address-since'; [[ \$a == \"\$b\" && \$c == $OLD ]]" && check "missing again: nothing changed" untouched
-  missing_for 1200 320; tick
+  missing_for 1200 301; tick
   check "a pause of over five minutes between two ticks starts the count again" untouched
   missing_for 1200 60 192.168.1.51; tick
   check "a count kept for another BIND_ADDRESS starts again" untouched
   echo "soon 1 $OLD" >"$CL/ops/address-since"; tick
   check "a count that is no time starts again" untouched
-  missing_for 1200 280; tick
+  missing_for 1200 299; tick
   check "ten minutes of ticks at most five minutes apart: the address changes" rebound
+}
+
+# The host's clock steps back a second or two (a time sync). Nothing may change on the strength of a clock that went back,
+# and the count that was kept goes on once the time is there again.
+t_rebind_clock_steps_back() {
+  addr_world; missing_for 601; later -2; tick
+  check "clock back 2 s from 10 min 1 s: 9 min 59 s are not enough, nothing changes" untouched
+  later 2; tick
+  check "clock back 2 s: the kept count goes on and the address changes at its 10 minutes" rebound
+  addr_world; missing_for 1200 1; later -2; tick
+  check "clock back past the latest tick: the count starts again, nothing changes" untouched
 }
 
 t_rebind_not_lan_mode() {
@@ -200,7 +212,7 @@ t_rebind_not_during_request() {
   check "the tick after it does" rebound
   # an install, update, restore or reset run by hand holds the installer's lock
   addr_world; missing_for 1200
-  ( exec 9<"$CL/scripts/install.sh"; flock -n 9 && exec sleep 60 ) & lockpid=$!
+  ( exec 9<"$CL/scripts/install.sh"; flock 9 && exec sleep 60 ) & lockpid=$! # waits: the poll below takes the lock for a moment, and a holder that does not wait could lose it for good
   for _ in $(seq 50); do flock -n "$CL/scripts/install.sh" true || break; sleep 0.1; done
   tick
   check "the installer's lock is held: nothing changes, and it does not count as a try" untouched
@@ -230,11 +242,11 @@ t_rebind_once_an_hour() {
   # the next tick keeps the interface of the new address; then the router moves the machine again
   tick; cp "$CL/.env" "$W/env.before"; net 10.0.0.9; : >"$S/calls.log"; tick; missing_for 1200 60 "$NEW"; tick
   check "a second change within the hour waits" bash -c "cmp -s '$CL/.env' '$W/env.before' && [[ $(ups) == 0 && $(told) == 1 ]]"
-  now=$(date +%s); echo $((now - 3540)) >"$CL/ops/address-at"; tick
-  check "59 min: it still waits" cmp -s "$CL/.env" "$W/env.before"
-  echo $((now - 3660)) >"$CL/ops/address-at"; tick # a minute over, as 3540 is a minute under (a clock that steps back cost a red gate)
+  now=$(<"$S/clock"); echo $((now - 3599)) >"$CL/ops/address-at"; tick
+  check "59 min 59 s: it still waits" cmp -s "$CL/.env" "$W/env.before"
+  echo $((now - 3601)) >"$CL/ops/address-at"; tick
   check "over an hour: the address changes again" bash -c "grep -qx 'BIND_ADDRESS=10.0.0.9' '$CL/.env' && [[ $(told) == 2 ]]"
-  addr_world; missing_for 1200; echo $(($(date +%s) + 9000)) >"$CL/ops/address-at"; tick
+  addr_world; missing_for 1200; echo $(($(<"$S/clock") + 9000)) >"$CL/ops/address-at"; tick
   check "a time of the last change in the future holds nothing back" rebound
 }
 

@@ -28,7 +28,7 @@
 #   ops-helper.sh --version  prints the protocol version
 #   ops-helper.sh --self-test  runs self_test (scripts/lib/ops-selftest.sh), the only argument it takes
 # ──────────────────────────────────────────────────────────────────────────────
-OPS_HELPER_VERSION=3
+OPS_HELPER_VERSION=4
 set -u -o pipefail
 set +x
 
@@ -72,7 +72,7 @@ esac
 cd "$ROOT" || exit 1
 OPS=ops
 DEFAULT_INSTANCE=banking-app
-ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew access"
+ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew access prerelease-on prerelease-off"
 NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
@@ -345,6 +345,10 @@ state_json() {
   # update.sh records whether the update changed the schema; only an explicit "no" is believed (older ones write none)
   sep; printf '"schema_changed":%s' "$([[ -f backups/.last-update ]] && ! grep -qx 'SCHEMA_CHANGED=no' backups/.last-update && echo true || echo false)"
   sep; printf '"mode":"%s"' "$mode"; if [[ $port =~ ^[0-9]{2,5}$ ]]; then sep; printf '"port":%s' "$port"; fi
+  # the switch for pre-releases as .env has it, said every time so that a `no` replaces a stored `yes`; a source install has no
+  # switch, and an install without a .env says no position, so the page shows none (every request would end refused)
+  sep; if [[ -f .env ]]; then printf '"prerelease":"%s",' "$([[ $(env_get TALOUS_PRERELEASE) == yes ]] && echo yes || echo no)"; fi
+  printf '"channel":"%s"' "$([[ $(env_get TALOUS_CHANNEL) == source ]] && echo source || echo release)"
   # ] and [ (an IPv6 address) lead the set: a backslash does not quote them inside one
   if [[ -n $url && $url =~ ^[][A-Za-z0-9:/._-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
   # shellcheck source=lib/ops-access.sh # where the copy would answer after `lan` right now, by the rule `lan` uses
@@ -590,6 +594,8 @@ run_request() { # run_request ID ACTION
     prune) act_prune ;;
     helper-renew) act_helper_renew ;;
     access) act_access "$id" ;;
+    prerelease-on) act_prerelease yes ;; # lib/ops-release.sh. The name is the whole request: yes and no are this file's words
+    prerelease-off) act_prerelease no ;;
     *) fail "Tuntematon toiminto." ;;
   esac
   [[ -n $SUMMARY ]] || SUMMARY=$([[ $STATUS == ok ]] && echo "Valmis." || echo "Epäonnistui.")
@@ -630,7 +636,8 @@ heartbeat() {
   local n boot old_boot stale=false
   n=$(cat "$OPS/tick" 2>/dev/null || echo 0); [[ $n =~ ^[0-9]+$ ]] || n=0
   n=$((n + 1)); printf '%s\n' "$n" >"$OPS/tick"
-  boot=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo none); old_boot=$(cat "$OPS/boot_id" 2>/dev/null || true)
+  # the helper's version is part of the mark: the first tick of a renewed helper sends its snapshot, with the fields it adds
+  boot="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo none) $OPS_HELPER_VERSION"; old_boot=$(cat "$OPS/boot_id" 2>/dev/null || true)
   if [[ ! -f $OPS/last-check ]] || [[ -n $(find "$OPS/last-check" -mmin +1440 2>/dev/null) ]]; then stale=true; fi
   if [[ $stale == true ]]; then
     if check_update >/dev/null 2>&1; then touch "$OPS/last-check"; else touch -d '23 hours ago' "$OPS/last-check" 2>/dev/null || touch "$OPS/last-check"; fi

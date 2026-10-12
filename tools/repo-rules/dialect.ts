@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, lineIn, lineOf, parse, sourceFiles, walk } from "./lib.ts";
 
 const SELF = "tools/repo-rules/dialect.ts";
-const DIALECT = /^packages\/core\/src\/(categorize\.ts|wording(-loan-pages)?\.ts|industry\.ts|merchant\.ts)/;
+const DIALECT = /^packages\/core\/src\/(categorize\.ts|wording(-loan-pages|-lenders)?\.ts|industry\.ts|merchant\.ts)/;
 
 /** `file  start of the list`: lists that still sit outside the dialect files. */
 const BASELINE: readonly string[] = [
@@ -70,7 +70,7 @@ function scan() {
 }
 
 describe("repo rules: bank dialect (rule 21)", () => {
-  it("rule 21a: an upper-case keyword list sits in categorize.ts, wording.ts, wording-loan-pages.ts, industry.ts or merchant.ts, except the baseline", () => {
+  it("rule 21a: an upper-case keyword list sits in categorize.ts, wording.ts, wording-loan-pages.ts, wording-lenders.ts, industry.ts or merchant.ts, except the baseline", () => {
     expect(longestRun("SATO|KOJAMO|LUMO"), "the scan sees a list").toBe(3);
     expect(longestRun(String.raw`\d{1,2}\.\d{1,2}|[−-]?\d+`), "and no number pattern").toBe(0);
     const base = new Set(BASELINE);

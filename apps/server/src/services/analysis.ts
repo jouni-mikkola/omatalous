@@ -163,6 +163,11 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     balanceCents: a.balanceCents,
     ownerName: a.ownerName,
     balanceAt: localDay(a.balanceAt),
+    // another member's account carries no bank, as the account lists leave it out (routes/finance.ts); its mask and limit
+    // are in `sharedAccounts` of /meta already, since the member may see the account it was shared
+    bank: a.ownerName ? null : (a.bank ?? null),
+    cardMask: a.cardMask,
+    creditLimitCents: a.creditLimitCents,
     ...(a.joint ? { joint: true } : {}),
   }));
   return { balances, inputs: { marks, expectedBills, loans } };

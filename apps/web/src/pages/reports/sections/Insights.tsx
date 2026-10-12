@@ -1,6 +1,6 @@
 // Decision: what is worth changing first
 import { query } from "../../../api.ts";
-import { money, signedMoney } from "../../../format.ts";
+import { money, plural, signedMoney } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -39,7 +39,7 @@ function Insights({ ctx }: SectionProps) {
       ) : (
         <div className="empty">
           Tähän tulevat hinnankorotukset, päättyneet ja uudet maksut sekä osamaksut. Vuosivertailut
-          tarvitsevat 18–24 kuukautta historiaa, nyt sitä on {r.months} kuukautta.
+          tarvitsevat 18–24 kuukautta historiaa, nyt sitä on {plural(r.months, "kuukausi", "kuukautta")}.
         </div>
       )}
     </Section>

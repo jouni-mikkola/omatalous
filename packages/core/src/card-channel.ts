@@ -1,0 +1,135 @@
+/**
+ * A connected card's payment channel: the payee the household pays that card's bill to from another account. Nothing
+ * in such a payment need say "card" (the payee is the bank, the text a reference number), so the channel is learned
+ * from the payments that paired with the card's incoming rows. It is worked out on every run and stored nowhere.
+ */
+import { dayNumber } from "./dates.ts";
+import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { billsByIssuer, namesCard, normalizeIban, pairable, pairTransfers } from "./transfers.ts";
+import type { Account, Transaction } from "./types.ts";
+import { isCardIssuerText, isPersonShaped } from "./wording.ts";
+
+/** A row with the payment's reference number. A stored row has one; the core `Transaction` does not name it. */
+type Referenced = Transaction & { reference?: string | null };
+
+/** A card bill pays the purchases of the month before it: a card whose rows began more than this long before a payment holds them. */
+const BILLING_MONTH_DAYS = 31;
+
+/** A payment's reference as one token, or "": the spaces a bank groups it with and leading zeros tell nothing apart. */
+export function referenceOf(t: Transaction): string {
+  return ((t as Referenced).reference ?? "").replace(/\s+/g, "").replace(/^0+/, "").toUpperCase();
+}
+
+/**
+ * Whom a payment pays, as closely as the row says: the payee's account and the reference, and with no account the
+ * payee's name and the reference. A name alone is no key: a bank's name stands on its loans and fees too.
+ */
+function payeeKey(t: Transaction): string | null {
+  const iban = normalizeIban(t.counterpartyIban);
+  const reference = referenceOf(t);
+  if (iban) return `${iban}|${reference}`;
+  const name = fold(t.counterparty ?? "").trim();
+  return name && reference ? `${name}|${reference}` : null;
+}
+
+/**
+ * One pair is enough when the payee is a card issuer, or names this card's bank and is not shaped like a person.
+ * Any other payee needs two pairs, because an equal amount within a few days happens once by chance: money sent to a
+ * person on the day another bank's payment reached the card, or a shop's invoice of the same sum. A card named after
+ * its holder would otherwise make that person a channel.
+ */
+function teachesAlone(payee: string, card: Account): boolean {
+  return isCardIssuerText(payee) || (!isPersonShaped(payee) && namesCard(payee, card));
+}
+
+/**
+ * The rows whose amount was paid fewer than three times. In a loan's series the instalment repeats, so these are the
+ * extra payments and the instalments that changed.
+ */
+export function varyingRows<T extends { amountCents: number }>(rows: readonly T[]): T[] {
+  const counts = new Map<number, number>();
+  for (const t of rows) counts.set(t.amountCents, (counts.get(t.amountCents) ?? 0) + 1);
+  return rows.filter((t) => counts.get(t.amountCents)! < 3);
+}
+
+/** Whether payments are one loan's instalments: an amount paid three times or more makes up at least half of them. */
+export function isInstalments(rows: readonly { amountCents: number }[]): boolean {
+  return varyingRows(rows).length * 2 <= rows.length;
+}
+
+/**
+ * Each known channel: the payee key of the payments that paired with a card's incoming rows, and that card's account.
+ * A key whose payments are a loan's teaches nothing, whatever paired: an instalment equals a card payment once by
+ * chance, and a card paid one fixed sum every month is told from a loan by nothing but the pairs, so it stays unlearned.
+ */
+function cardChannels(txs: readonly Transaction[], accounts: readonly Account[], pairs: ReadonlyMap<string, string>): Map<string, string> {
+  const channels = new Map<string, string>();
+  const cards = new Map(accounts.filter((a) => a.type === "credit_card").map((a) => [a.id, a]));
+  if (!cards.size || !pairs.size) return channels;
+  const byId = new Map<string, Transaction>();
+  const incoming = new Set(pairs.values());
+  for (const t of txs) if (pairs.has(t.id) || incoming.has(t.id)) byId.set(t.id, t);
+  const seen = new Map<string, { payee: string; byCard: Map<string, number>; payments: Transaction[] }>();
+  for (const [outId, inId] of pairs) {
+    const out = byId.get(outId)!;
+    const cardId = byId.get(inId)!.accountId;
+    const key = cards.has(cardId) && !cards.has(out.accountId) ? payeeKey(out) : null;
+    if (!key) continue;
+    let entry = seen.get(key);
+    if (!entry) seen.set(key, (entry = { payee: fold(out.counterparty ?? ""), byCard: new Map(), payments: [] }));
+    entry.byCard.set(cardId, (entry.byCard.get(cardId) ?? 0) + 1);
+  }
+  // all of a key's payments, paired or not
+  for (const t of txs) {
+    if (t.amountCents >= 0 || cards.has(t.accountId)) continue;
+    const key = payeeKey(t);
+    if (key) seen.get(key)?.payments.push(t);
+  }
+  for (const [key, { payee, byCard, payments }] of seen) {
+    if (isInstalments(payments)) continue;
+    const [cardId, count] = [...byCard].sort((a, b) => b[1] - a[1])[0]!;
+    if (count >= 2 || teachesAlone(payee, cards.get(cardId)!)) channels.set(key, cardId);
+  }
+  return channels;
+}
+
+/**
+ * Transfer detection for one user's own history: the pairs, what they teach about each card's channel, and the issuer
+ * fallback bounded by it.
+ *
+ * A payment to a known channel that paired with nothing is a transfer when the card's own rows cover the time it pays
+ * for, since those purchases are counted from the card's rows. An earlier one is a card bill (`cardBills`): the
+ * purchases are not in the data, so the bill is the spending. Only rows that could have paired are decided, so a
+ * category the user set, a purchase and a return stay as they are.
+ */
+export function settleTransfers(txs: readonly Transaction[], accounts: readonly Account[], exclude: ReadonlySet<string>): { transfers: Set<string>; cardBills: Set<string> } {
+  const { transfers, pairs } = pairTransfers(txs, accounts, exclude);
+  const cardBills = new Set<string>();
+  const channels = cardChannels(txs, accounts, pairs);
+  const channelled = new Set(channels.values());
+  if (channels.size) {
+    const typeOf = new Map(accounts.map((a) => [a.id, a.type]));
+    const began = new Map<string, number>();
+    for (const t of txs) {
+      if (!channelled.has(t.accountId)) continue;
+      const day = dayNumber(t.bookingDate);
+      if (day < (began.get(t.accountId) ?? Number.POSITIVE_INFINITY)) began.set(t.accountId, day);
+    }
+    for (const t of txs) {
+      if (t.amountCents >= 0 || transfers.has(t.id) || exclude.has(t.id) || !pairable(t)) continue;
+      const type = typeOf.get(t.accountId);
+      if (type === "credit_card" || type === "loan") continue;
+      const key = payeeKey(t);
+      const card = key ? channels.get(key) : undefined;
+      if (!card) continue;
+      if (dayNumber(t.bookingDate) - began.get(card)! > BILLING_MONTH_DAYS) transfers.add(t.id);
+      else cardBills.add(t.id);
+    }
+  }
+  // a payee that paid credit out and was not the other leg of an own transfer is a lender
+  const lenders = new Set<string>();
+  for (const t of txs) if (t.category === "credit_draw" && t.amountCents > 0 && !transfers.has(t.id) && t.merchant !== UNKNOWN_MERCHANT) lenders.add(t.merchant);
+  const decided = cardBills.size ? new Set([...exclude, ...cardBills]) : exclude;
+  for (const id of billsByIssuer(txs, accounts, transfers, { exclude: decided, channelled, lenders })) transfers.add(id);
+  return { transfers, cardBills };
+}
