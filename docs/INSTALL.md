@@ -122,7 +122,7 @@ with the balance from the bank.
 
 A household with a saved loan gets a *Lainat* section in *Raportit* with what is owed, the interest of the next 12 months
 and the payments a month. *Saldot* shows the connected accounts less the saved loans as *Tilit miinus velat*, and
-*Säästövinkit* reads the loans too. A figure the app does not know reads "ei tiedossa", never zero. How the figures are counted is in
+*Säästövinkit* reads the loans too. A figure the app does not know is a dash in *Lainat* and reads "ei tiedossa" in *Säästövinkit*, never zero. How the figures are counted is in
 [MONEY_FLOWS.md](MONEY_FLOWS.md). If a reading fails, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#loans).
 
 ## After the install

@@ -68,6 +68,12 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 .loan-figures dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .loan-figures dd small { display: block; color: var(--muted); font-size: 12px; }
 .loan-figures dd.unknown { color: var(--muted); }
+/* the parts a figure is made of: label at the left, value at the right, in the body size */
+.loan-figures .loan-parts { margin: 4px 0 0; }
+.loan-figures .loan-parts > div { display: flex; justify-content: space-between; gap: 8px; }
+.loan-figures .loan-parts dt { color: inherit; font-size: inherit; }
+.loan-figures .loan-parts dd { margin: 0; }
+.loan-mend { display: inline-block; margin-top: 8px; }
 .loan-scenario { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
 
 @media (max-width: 700px) { .loan-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

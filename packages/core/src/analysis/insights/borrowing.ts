@@ -16,11 +16,11 @@ import { dateSpan, lastCompleteMonths, monthRows, monthSpan } from "./shared.ts"
 import type { Insight, InsightArgs } from "./types.ts";
 
 /**
- * The line the debt insight and Optimoi's Tilanne block draw. It is the app's own, not an outside figure: no authority
- * sets a line for debt service as paid (Finanssivalvonta's 60 % is for a new mortgage at a stressed 6 % rate), so it has
- * no row in optimise/facts/ and Tilanne says it is the app's own.
+ * The line the debt insight draws. It is the app's own, not an outside figure: no authority sets a line for debt
+ * service as paid (Finanssivalvonta's 60 % is for a new mortgage at a stressed 6 % rate), so it has no row in
+ * optimise/facts/.
  */
-export const DEBT_SHARE = 0.35;
+const DEBT_SHARE = 0.35;
 const MONTHS = 6;
 
 export interface DebtShare {

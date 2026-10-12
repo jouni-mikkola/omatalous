@@ -319,7 +319,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               <thead>
                 <tr>
                   <th>Päivä</th>
-                  <th>Kauppias</th>
+                  <th>Saaja/maksaja</th>
+                  <th className="tx-account">Tili</th>
                   <th className="tx-category">Kategoria</th>
                   <th className="num">Summa</th>
                 </tr>

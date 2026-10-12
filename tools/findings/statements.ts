@@ -2,13 +2,15 @@
  * Every statement the product makes about money, as stable text: what the overview and Havainnot say (insights,
  * alerts), Optimoi's findings and their follow-up, Mikä muuttui (income) and the spending change sentences. One block
  * per statement with its number and its calc, so a reviewer reads a change in what the product says as a text diff.
- * Last, the rows the product holds apart as large (`large`): no sentence of a page yet, so every one of them is quiet.
+ * Last, the rows the product holds apart as large (`large`) and what goes where by theme over the last twelve complete
+ * months (`themes`): no sentence of a page yet, so every one of them is quiet.
  */
 import { buildAlerts } from "../../packages/core/src/analysis/alerts.ts";
 import { type AnalysisContext, netSpend } from "../../packages/core/src/analysis/context.ts";
 import { incomeBase, incomeChanges } from "../../packages/core/src/analysis/income-changes.ts";
 import { largeIncome, largePurchases } from "../../packages/core/src/analysis/large.ts";
 import type { DateRange } from "../../packages/core/src/analysis/period.ts";
+import { themesReport } from "../../packages/core/src/analysis/themes-report.ts";
 import { addMonths, monthOf } from "../../packages/core/src/dates.ts";
 import { allFindings, buildOptimise } from "../../packages/core/src/optimise/index.ts";
 import { outcomeOf } from "../../packages/core/src/optimise/outcome.ts";
@@ -18,15 +20,18 @@ import { insightsReport } from "../../packages/core/src/reports/insights.ts";
 import { spendingChangeReport } from "../../packages/core/src/reports/spending-change.ts";
 import { contextOf, type Household } from "./households.ts";
 
-export const SOURCE_IDS = ["insights", "alerts", "optimise", "income", "change", "outcome", "large"] as const;
+export const SOURCE_IDS = ["insights", "alerts", "optimise", "income", "change", "outcome", "large", "themes"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 export interface Statement {
   source: SourceId;
   household: string;
-  /** The product's own id: an insight, alert, finding or income change id; `change:<view>:<months>`, `outcome:<finding id>` and `large:<day>:<row id>` here. */
+  /**
+   * The product's own id: an insight, alert, finding or income change id; `change:<view>:<months>`, `outcome:<finding id>`,
+   * `large:<day>:<row id>`, `themes:<theme id>` and `themes:window` here.
+   */
   id: string;
-  /** The detector that made it: an insight's id prefix, an alert's kind, `<area>:<kind>`, an income change kind, a change view. */
+  /** The detector that made it: an insight's id prefix, an alert's kind, `<area>:<kind>`, an income change kind, a change view; `theme`, `window` or `none` of the themes. */
   kind: string;
   title: string;
   /** The number it stands on, "" when it has none (an alert). */
@@ -133,6 +138,29 @@ const MAKERS: Record<SourceId, Maker> = {
         const bought = purchases.has(t.id);
         return { id: `large:${t.bookingDate}:${t.id}`, kind: bought ? "purchase" : "income", title: t.merchant, figure: eur(bought ? netSpend(t) : t.flows.income), calc: [`category ${t.category}`], rows: 1, loud: false };
       });
+  },
+  themes: ({ ctx }) => {
+    const r = themesReport(ctx);
+    if (!r) return [{ id: "themes:window", kind: "none", title: "no answer: under three complete months that every paying account covers", figure: "", calc: [], rows: null, loud: false }];
+    type Figures = (typeof r.themes)[number]["lines"][number];
+    const figures = (f: Pick<Figures, "monthlyCents" | "yearCents" | "changePct">) =>
+      `${eur(f.monthlyCents)} a month, ${f.yearCents === null ? "no year" : `${eur(f.yearCents)} a year`}${f.changePct === null ? "" : `, ${f.changePct > 0 ? "+" : ""}${f.changePct} %`}`;
+    return [
+      {
+        id: "themes:window",
+        kind: "window",
+        title: `${r.window.first}..${r.window.last}, ${r.window.months} months`,
+        figure: `${eur(r.spendingCents)} spending`,
+        calc: [
+          `themes ${eur(r.totalCents)}: ${figures({ monthlyCents: r.totalMonthlyCents, yearCents: r.totalYearCents, changePct: null })}`,
+          `large purchases ${eur(r.large.cents)}`,
+          ...r.large.rows.map((x) => `large ${x.date} ${x.payee}: ${eur(x.cents)}`),
+        ],
+        rows: r.large.rows.length,
+        loud: false,
+      },
+      ...r.themes.map((t) => ({ id: `themes:${t.id}`, kind: "theme", title: t.heading, figure: figures(t), calc: t.lines.map((l) => `${l.heading}: ${figures(l)}`), rows: null, loud: false })),
+    ];
   },
 };
 

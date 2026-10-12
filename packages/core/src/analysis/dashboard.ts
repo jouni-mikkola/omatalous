@@ -13,6 +13,7 @@ import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
+import { type ThemesReport, themesReport } from "./themes-report.ts";
 import { isCompleteMonth } from "./usual.ts";
 
 // the pace code lives in forecast.ts; these keep the names the package index has always exported
@@ -48,6 +49,11 @@ export interface DashboardData {
   bridge: Bridge;
   fixedMonthlyCents: number;
   categories: CategoryTotal[];
+  /**
+   * What goes where: the themes of the last twelve complete months before today, whatever the range. null under three
+   * complete months that every paying account covers.
+   */
+  themes: ThemesReport | null;
   /**
    * What the month has cost so far against the month before on the same days. The running month when the range
    * reaches today (the period can be longer than the month), else the month the range ends in.
@@ -137,6 +143,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     // the fixed costs as they were at the end of the period; a subscription the household marked as cancelled has left them
     fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to), cancelledSubjects(inputs)),
     categories,
+    themes: themesReport(ctx),
     pace: monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to),
     ahead: running ? cashAhead(ctx, balances, inputs) : null,
     alerts,

@@ -94,8 +94,7 @@ function cardTiers(a: AreaInput, w: Window | null): FindingDraft[] {
         subject: s.id,
         title: `${fact.label}: ${formatEur(fact.value)} kuussa, ${credit.label} ${formatEur(credit.value)}. Ero on ${formatEur(yearly, false)} vuodessa.`,
         action: `Vaihda kortti ${credit.label.replace(/ -kortti$/, " -korttiin")}.`,
-        effort: "minuutteja",
-        euros: { lowCents: yearly, midCents: yearly, highCents: yearly, assumption: "Jos kortin lisäetuja ei käytetä." },
+        euros: { lowCents: yearly, midCents: yearly, highCents: yearly },
         decideBy: null,
         weaknesses: [{ id: "estimate", reason: "Kortin lisäetujen arvoa ei ole tiedoissa." }],
         shared: false,
@@ -150,8 +149,7 @@ function lateFees(a: AreaInput, w: Window | null): FindingDraft[] {
       subject: null,
       title: `Myöhästymiskuluja ${formatEur(year.yearlyCents, false)} vuodessa, ${count}. Viimeisin ${formatFiDate(last)}.`,
       action: "Maksa laskut viimeistään eräpäivänä.",
-      effort: "minuutteja",
-      euros: { lowCents: year.yearlyCents, midCents: year.yearlyCents, highCents: year.yearlyCents, assumption: "Jos laskut maksetaan eräpäivänä." },
+      euros: { lowCents: year.yearlyCents, midCents: year.yearlyCents, highCents: year.yearlyCents },
       decideBy: null,
       weaknesses: year.weakness ? [year.weakness] : [],
       shared: false,
@@ -223,7 +221,7 @@ export const bank: Area = {
     const checks: Check[] = [
       list
         ? { id: "bank:card_tier", label: "Kortin hintataso", status: "clear" }
-        : { id: "bank:card_tier", label: "Kortin hintataso", status: "no_data", hint: "Vertailutieto on vanhentunut." },
+        : { id: "bank:card_tier", label: "Kortin hintataso", status: "no_data" },
       { id: "bank:late_fees", label: "Myöhästymiskulut", status: "clear" },
     ];
     const summary = feeSummary(a, w);

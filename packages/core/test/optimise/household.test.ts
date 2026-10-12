@@ -97,7 +97,7 @@ describe("Optimoi on the joined household", () => {
 });
 
 /** Keys whose strings are codes, ids or dates, never read as text. */
-const CODES = new Set(["id", "findingId", "rows", "struck", "claims", "measure", "facts", "needs", "subject", "kind", "area", "areas", "key", "input", "status", "level", "effort", "unit", "verdict", "month", "today", "end", "dataTo", "decideBy", "effectiveDate", "until", "decidedAt", "asOf", "date", "baseline"]);
+const CODES = new Set(["id", "findingId", "rows", "struck", "claims", "measure", "facts", "needs", "subject", "kind", "area", "key", "input", "status", "level", "unit", "verdict", "month", "today", "end", "dataTo", "decideBy", "effectiveDate", "until", "decidedAt", "asOf", "date", "baseline"]);
 
 function textsIn(value: unknown, key = ""): string[] {
   if (CODES.has(key)) return [];

@@ -40,7 +40,7 @@ function renewalOf(s: RecurringSeries): { date: IsoDate; label: string } {
 function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
   const { ctx, today, end } = a;
   const paysInsurance = ctx.txs.some((t) => !t.isTransfer && t.category === "insurance" && t.spend > 0 && t.bookingDate > addDays(end, -365) && t.bookingDate <= end);
-  if (!paysInsurance) return { findings: [], checks: [{ id: "insurance:rise", label: RISE_LABEL, status: "no_data", hint: "Vakuutusmaksuja ei löytynyt 12 kuukauden ajalta." }] };
+  if (!paysInsurance) return { findings: [], checks: [{ id: "insurance:rise", label: RISE_LABEL, status: "no_data" }] };
 
   const findings: FindingDraft[] = [];
   let noCpi = false;
@@ -82,8 +82,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
       kind: "rise",
       title: `${s.merchant}: ${formatEur(fromCents)} → ${formatEur(toCents)} ${formatFiDate(date)} alkaen, nousua ${pctText(riseT)}. Kuluttajahintojen muutos samana aikana oli ${pctText(cpiT)}.`,
       action: "Kilpailuta vakuutus ennen seuraavaa uusiutumista.",
-      effort: "tunti",
-      euros: { lowCents: mid, midCents: mid, highCents: mid, assumption: "Jos maksu olisi noussut kuluttajahintojen verran." },
+      euros: { lowCents: mid, midCents: mid, highCents: mid },
       decideBy: null,
       weaknesses: [{ id: "estimate", reason: "Vakuutusturvan muutos näkyy samanlaisena nousuna." }],
       calc: [payee, ...riseLines, { label: "Maksut ennen nousua vuodessa", value: formatEur(oldYearly, false) }, { label: `Nousu yli inflaation ${pointsText(excess)} × ${formatEur(oldYearly, false)}`, value: formatEur(mid, false) }],
@@ -109,8 +108,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
         ? `${s.merchant}: uusiutuu arviolta ${formatFiDate(renewal.date)}, hinta ${formatEur(newYearly, false)} vuodessa ja tarjous ${formatEur(quote!, false)} vuodessa.`
         : `${s.merchant}: uusiutuu arviolta ${formatFiDate(renewal.date)}. Edellinen uusiutuminen nosti maksua ${pctText(riseT)}, kuluttajahintojen muutos oli ${pctText(cpiT)}.`,
       action: `Kilpailuta vakuutus ennen ${shortDate(decideBy, today)}`,
-      effort: "tunti",
-      euros: exact ? { lowCents: difference, midCents: difference, highCents: difference, assumption: "Jos vaihdat tarjouksen hintaan." } : null,
+      euros: exact ? { lowCents: difference, midCents: difference, highCents: difference } : null,
       decideBy,
       weaknesses: exact ? [] : [{ id: "estimate", reason: "Vakuutusturvan muutos näkyy samanlaisena nousuna." }],
       calc: exact
@@ -133,7 +131,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
       kinds.has("rise")
         ? { id: "insurance:rise", label: RISE_LABEL, status: "finding" }
         : noCpi
-          ? { id: "insurance:rise", label: RISE_LABEL, status: "no_data", hint: "Kuluttajahintojen muutosta ei ole vielä julkaistu nousukuukaudelta." }
+          ? { id: "insurance:rise", label: RISE_LABEL, status: "no_data" }
           : { id: "insurance:rise", label: RISE_LABEL, status: "clear" },
       { id: "insurance:renewal", label: RENEWAL_LABEL, status: kinds.has("renewal") ? "finding" : "clear" },
     ],

@@ -1,6 +1,7 @@
 /**
  * The choices Holdings makes about its rows: which accounts and which cards need their number to be told apart, how a
- * card is named, and when the block has a line of its own for the debts. No sum is made here: every total is core's.
+ * card is named and which tone its picture has, and when the block has a line of its own for the debts. No sum is made
+ * here: every total is core's.
  */
 import type { DashboardData } from "../../types.ts";
 
@@ -29,6 +30,27 @@ const TYPE_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:${CARD_TYPES.join("|")
 export function cardName(name: string): string {
   const plain = name.replace(TYPE_IN_BRACKETS, "").replace(/\s+/g, " ").trim();
   return plain || name.trim();
+}
+
+/** The look of a card's picture on Yhteenveto: one of five tones. */
+export type CardTone = "gold" | "platinum" | "black" | "silver" | "plain";
+
+/** The stems of a card's name that give a tone, in the order they are tried: black before platinum before gold. */
+const TONE_STEMS: readonly (readonly [Exclude<CardTone, "plain">, readonly string[]])[] = [
+  ["black", ["black", "musta", "elite", "infinite"]],
+  ["platinum", ["platinum", "platina"]],
+  ["gold", ["gold", "kulta"]],
+  ["silver", ["silver", "hopea"]],
+];
+
+/**
+ * The tone of a card's picture, from the card's own name: the bank sends no card class, so the name is all there is to read.
+ * A word counts when it starts with a stem, so a compound such as "kultakortti" is found too, and so is "Goldman".
+ * Black is tried first, then platinum, gold and silver; any other name is plain.
+ */
+export function cardTone(name: string): CardTone {
+  const words = name.toLowerCase().match(/\p{L}+/gu) ?? [];
+  return TONE_STEMS.find(([, stems]) => words.some((w) => stems.some((s) => w.startsWith(s))))?.[0] ?? "plain";
 }
 
 /**

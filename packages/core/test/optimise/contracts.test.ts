@@ -45,11 +45,10 @@ describe("Puhelin ja tilaukset", () => {
     const f = one(SUBS_SHOWN, "rise");
     expect(f.id).toBe("subscriptions:rise:out:h-chk:Elisa");
     expect(plain(f.title)).toBe("Elisa: hinta nousi 44,90 € → 56,90 € 12.3.2026. Nousu on 144 € vuodessa.");
-    expect(f.euros).toEqual({ lowCents: 14400, midCents: 14400, highCents: 14400, assumption: "Jos hinta palaa entiselleen." });
+    expect(f.euros).toEqual({ lowCents: 14400, midCents: 14400, highCents: 14400 });
     expect(f.claims).toEqual(["series:out:h-chk:Elisa"]);
     expect(f.certainty.level).toBe("korkea");
     expect(f.action).toBe("Neuvottele hinnasta tai kilpailuta liittymä.");
-    expect(f.effort).toBe("minuutteja");
   });
 
   it("steps down when fewer than six charges came before the rise", () => {
@@ -62,7 +61,7 @@ describe("Puhelin ja tilaukset", () => {
     const f = one(SUBS_SHOWN, "overlap");
     expect(f.id).toBe("subscriptions:overlap:music");
     expect(plain(f.title)).toBe("Kaksi musiikkipalvelua yhteensä 22,98 € kuussa: Spotify ja Tidal.");
-    expect(f.euros).toEqual({ lowCents: 13188, midCents: 13188, highCents: 13188, assumption: "Yksi palvelu lopetetaan tai palvelut ovat voimassa vuorotellen." });
+    expect(f.euros).toEqual({ lowCents: 13188, midCents: 13188, highCents: 13188 });
     expect(f.certainty).toEqual({ level: "keskitaso", reason: "Tiedoista ei näy, kuka käyttää mitäkin palvelua." });
     expect(f.action.startsWith("Irtisano")).toBe(true);
   });
@@ -118,7 +117,7 @@ describe("Pankkikulut", () => {
     const f = one(BANK_SHOWN, "card_tier");
     expect(f.id).toBe("bank:card_tier:out:h-card:Nordea");
     expect(plain(f.title)).toBe("Nordea Platinum -kortti: 16,99 € kuussa, Nordea Credit -kortti 2,99 €. Ero on 168 € vuodessa.");
-    expect(f.euros).toEqual({ lowCents: 16800, midCents: 16800, highCents: 16800, assumption: "Jos kortin lisäetuja ei käytetä." });
+    expect(f.euros).toEqual({ lowCents: 16800, midCents: 16800, highCents: 16800 });
     expect(f.certainty).toEqual({ level: "keskitaso", reason: "Kortin lisäetujen arvoa ei ole tiedoissa." });
     expect(f.facts).toEqual(["nordea_price:platinum", "nordea_price:credit"]);
     expect(f.action).toBe("Vaihda kortti Nordea Credit -korttiin.");
@@ -128,7 +127,7 @@ describe("Pankkikulut", () => {
     const f = one(BANK_SHOWN, "late_fees");
     expect(f.id).toBe("bank:late_fees");
     expect(plain(f.title)).toBe("Myöhästymiskuluja 140 € vuodessa, 4 veloitusta. Viimeisin 20.8.2026.");
-    expect(f.euros).toEqual({ lowCents: 14000, midCents: 14000, highCents: 14000, assumption: "Jos laskut maksetaan eräpäivänä." });
+    expect(f.euros).toEqual({ lowCents: 14000, midCents: 14000, highCents: 14000 });
     expect(f.certainty.level).toBe("korkea");
     expect(f.action.startsWith("Maksa")).toBe(true);
   });
@@ -165,7 +164,7 @@ describe("Pankkikulut", () => {
     const input = householdInput(joinHousehold([bankPart.hit(frame)], frame));
     const result = bank.assess(areaInputOf(input));
     expect(result.findings.filter((f) => f.kind === "card_tier")).toEqual([]);
-    expect(result.checks.find((c) => c.id === "bank:card_tier")).toMatchObject({ status: "no_data", hint: "Vertailutieto on vanhentunut." });
+    expect(result.checks.find((c) => c.id === "bank:card_tier")).toMatchObject({ status: "no_data" });
     expect(result.summary?.lines.map((l) => l.label)).toEqual(["Muut pankkikulut", "Yhteensä"]);
   });
 

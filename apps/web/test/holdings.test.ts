@@ -2,6 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Holdings } from "../src/components/holdings/Holdings.tsx";
+import { money } from "../src/format.ts";
+import { partText } from "../src/part.ts";
 import type { DashboardData, Meta } from "../src/types.ts";
 
 type Answer = DashboardData["holdings"];
@@ -160,19 +162,56 @@ describe("Holdings", () => {
   describe("Luottokortit", () => {
     const withCards = (cards: Answer["cards"], cardsCents: number | null = null) => html(answer({ cards, cardsCents }));
 
-    it("draws no picture of a card: no face, chip, digits on a face, colour of its own or bar", () => {
-      const markup = html({ ...answer({ cards: [card({ bank: "ESIMERKKIPANKKI", mask: "•••• 4321", name: "Esimerkkikortti Gold" })] }) });
-      for (const gone of ["card-face", "card-chip", "card-meter", "card-tier", "<svg", "<img", "--card-"]) expect(markup, gone).not.toContain(gone);
-      expect(markup).not.toContain("4321");
+    it("gives every card its face at the left of its unit, hidden from a screen reader, and no meter, bar or sentence of its own", () => {
+      const two = withCards([card({ bank: "ESIMERKKIPANKKI", mask: "•••• 4321", name: "Esimerkkikortti Gold" }), card({ id: "k2", name: "Toinen kortti" })]);
+      const units = two.split('<li class="holding-unit holding-unit-faced">').slice(1);
+      expect(units).toHaveLength(2);
+      for (const unit of units) {
+        expect(unit.startsWith('<div class="card-face card-face-'), "the face comes first, before the name").toBe(true);
+        expect(unit).toMatch(/^<div class="card-face [^"]*" aria-hidden="true">/);
+        expect(unit.match(/class="card-face /g)).toHaveLength(1);
+      }
+      for (const gone of ["card-meter", "<button", "<img"]) expect(two, gone).not.toContain(gone);
+      // the number is on the face of the card that has one, and the face of the other has none
+      expect(units[0]).toContain("•••• 4321");
+      expect(units[1]).not.toContain("••••");
+      // Tilit and Lainat are rows: no face, no picture
+      const rest = html(answer({ accounts: [account("a", "Käyttötili", 100_000, "1234")], accountsCents: 100_000, loans: [loan()], loansCents: 12_000_000 }));
+      for (const gone of ["card-face", "card-chip", "<svg", "<img", "holding-unit-body"]) expect(rest, gone).not.toContain(gone);
+    });
+
+    it("leaves the name, its lines and the figures of a card as the block drew them before the face: the same markup, now beside it", () => {
+      const markup = withCards([card({ name: "Esimerkkipankki Gold (credit)", bank: "Esimerkkipankki", mask: "•••• 4321", usedCents: 120_000, freeCents: 180_000, balanceAt: "2026-10-09", part: { from: 1, to: 2, of: 2 } })]);
+      const figureRow = (label: string, cents: number) => `<div class="st-row"><dt class="st-name holding-label">${label}</dt><dd class="st-num">${money(cents)}</dd></div>`;
+      const before =
+        '<div class="st-row holding-unit-head"><span class="st-name holding-name" title="Esimerkkipankki Gold"><a href="#/transactions?accountId=k1">Esimerkkipankki Gold</a></span>' +
+        `<span class="st-sub">${partText({ from: 1, to: 2, of: 2 }, "debt")}</span><span class="st-sub">Saldo päivältä 9.10.2026</span></div>` +
+        `<dl class="st-rows">${figureRow("Käytetty luotto", 120_000)}${figureRow("Luottoraja", 300_000)}${figureRow("Käytettävissä", 180_000)}</dl>`;
+      expect(markup).toContain(`<div class="holding-unit-body">${before}</div></li>`);
+      // all the unit's text is in the body: what stands before it is the face, which a screen reader leaves out
+      const open = '<li class="holding-unit holding-unit-faced">';
+      const face = markup.slice(markup.indexOf(open) + open.length, markup.indexOf('<div class="holding-unit-body">'));
+      expect(face).toMatch(/^<div class="card-face card-face-gold" aria-hidden="true">.*<\/div>$/);
+      expect(face).not.toMatch(/<(a|button|input|select)[ >]/);
     });
 
     it("is the card's name as a link, then its three rows indented under it, as a loan is", () => {
       const markup = withCards([card({ usedCents: 120_000, freeCents: 180_000 })]);
       expect(text(markup)).toContain("Esimerkkikortti Käytetty luotto 1 200,00 € Luottoraja 3 000,00 € Käytettävissä 1 800,00 €");
-      expect(markup).toContain('<li class="holding-unit"><div class="st-row holding-unit-head">');
+      expect(markup).toContain('<div class="holding-unit-body"><div class="st-row holding-unit-head">');
       expect(markup).toContain('<a href="#/transactions?accountId=k1">Esimerkkikortti</a>');
-      // a loan has the same unit
+      // a loan has the same unit, without the face
       expect(html(answer({ loans: [loan()], loansCents: 12_000_000 }))).toContain('<li class="holding-unit"><div class="st-row holding-unit-head">');
+    });
+
+    it("shows the bank's logo on the face from the same place as Asetukset does: bundled, served by the server, else the bank's name", () => {
+      const withBanks = (bank: string, banks: unknown[]) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ bank })] }), meta: { today: "2026-10-12", bank: { banks } } as unknown as Meta }));
+      expect(withBanks("Nordea", [])).toContain('<img src="/banks/nordea.png" alt="Nordea"');
+      expect(withBanks("OP", [{ id: "op-fi", logo: true }])).toContain('<img src="/api/bank/logos/op-fi" alt="OP"');
+      const named = withBanks("OP", [{ id: "op-fi", logo: false }]);
+      expect(named).toContain('<span class="card-face-bank">OP</span>');
+      expect(named).not.toContain("<img");
+      expect(withBanks("Esimerkkipankki", [])).toContain('<span class="card-face-bank">Esimerkkipankki</span>');
     });
 
     it("has one row for a card without a limit, and a dash for one the bank gave no balance", () => {
@@ -206,13 +245,16 @@ describe("Holdings", () => {
       expect(text(withCards([card()]))).not.toContain("Saldo päivältä");
     });
 
-    it("carries the last four digits of two cards that share a name, and of no other", () => {
+    it("carries the last four digits of two cards that share a name, and of no other, in the text beside the face", () => {
+      const spoken = (markup: string) => markup.split("<li ").slice(1).map((li) => li.slice(li.indexOf('<div class="holding-unit-body">'))).join("");
       const twin = (id: string, mask: string, name = "Esimerkkikortti") => card({ id, name, mask });
       const two = withCards([twin("a", "•••• 1234"), twin("b", "•••• 5678"), twin("c", "•••• 9999", "Toinen kortti")]);
-      expect(text(two)).toContain("Esimerkkikortti ·· 1234");
-      expect(text(two)).toContain("Esimerkkikortti ·· 5678");
-      expect(two).not.toContain("9999");
-      expect(withCards([twin("a", "•••• 1234")])).not.toContain("1234");
+      expect(text(spoken(two))).toContain("Esimerkkikortti ·· 1234");
+      expect(text(spoken(two))).toContain("Esimerkkikortti ·· 5678");
+      expect(spoken(two)).not.toContain("9999");
+      expect(spoken(withCards([twin("a", "•••• 1234")]))).not.toContain("1234");
+      // the faces show the number of every card that has one
+      expect(two.match(/<span class="card-face-mask">/g)).toHaveLength(3);
     });
 
     it("ends with the total core gives, as the last row, with two cards or more, and has none for one", () => {

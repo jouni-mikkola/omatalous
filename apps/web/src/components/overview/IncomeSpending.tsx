@@ -1,10 +1,13 @@
 // Decision: where the month's money went, told once
+import { useState } from "react";
 import { query } from "../../api.ts";
 import { PaceChart } from "../../charts/PaceChart.tsx";
 import { navigate } from "../../hooks.ts";
 import type { PeriodPreset } from "../../period.ts";
 import type { DashboardData } from "../../types.ts";
-import { incomeSpendingView, monthName } from "./income-spending.ts";
+import { type IncomeSpendingView, incomeSpendingView, monthName } from "./income-spending.ts";
+import { ThemesTable } from "./ThemesTable.tsx";
+import { OPEN_AT_FIRST, toggled } from "./themes-table.ts";
 import "../../styles/overview.css";
 import "../../styles/statement.css";
 
@@ -20,6 +23,8 @@ interface ReportAnchors {
  * its way: the head stays, so the switch does not flicker away.
  */
 export function IncomeSpending({ data, period, presets, anchors }: { data: DashboardData | null; period: string; presets: readonly PeriodPreset[]; anchors: ReportAnchors }) {
+  // the rows of the table of themes that are open stay so while the next month's answer is on its way
+  const [open, setOpen] = useState(OPEN_AT_FIRST);
   return (
     <section className="card st-block" aria-labelledby="income-spending-h">
       <div className="card-head">
@@ -32,16 +37,17 @@ export function IncomeSpending({ data, period, presets, anchors }: { data: Dashb
           ))}
         </div>
       </div>
-      {data ? <Month data={data} anchors={anchors} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
+      {data ? <Month data={data} anchors={anchors} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
     </section>
   );
 }
 
 /**
  * The month in two groups: at the left the two months' figures as a table, two rows under a rule and the chart of the
- * running month; at the right the categories as a table. The right group takes two of the block's three columns.
+ * running month; at the right the categories as a table. The right group takes two of the block's three columns. When
+ * core has the themes of the last complete months their table takes the place of the month's list of categories.
  */
-function Month({ data, anchors }: { data: DashboardData; anchors: ReportAnchors }) {
+function Month({ data, anchors, open, onToggle }: { data: DashboardData; anchors: ReportAnchors; open: ReadonlySet<string>; onToggle: (id: string) => void }) {
   const view = incomeSpendingView(data);
   const { from, to } = data.range;
   const link = { Tulot: `#/reports#${anchors.income}`, Menot: `#/transactions${query({ from, to })}` };
@@ -109,44 +115,7 @@ function Month({ data, anchors }: { data: DashboardData; anchors: ReportAnchors 
         )}
       </div>
       <div className="st-wide">
-        <h3 className="st-cap" id="categories-h">
-          Menot kategorioittain
-        </h3>
-        <table className="st-table category-table" aria-labelledby="categories-h">
-          <thead>
-            <tr>
-              <th scope="col">Kategoria</th>
-              <td className="category-bar" />
-              <th scope="col" className="st-num">
-                {view.month}
-              </th>
-              {view.previous && (
-                <th scope="col" className="st-num">
-                  Muutos
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {view.categories.map((c) => (
-              <tr key={c.key}>
-                <th scope="row" className="st-cut" title={c.label}>
-                  {c.category ? <a href={`#/transactions${query({ category: c.category, from, to })}`}>{c.label}</a> : c.label}
-                </th>
-                <td className="category-bar">
-                  <span style={{ width: `${c.share}%` }} />
-                </td>
-                <td className="st-num">{c.text}</td>
-                {view.previous && <td className="st-num">{c.change}</td>}
-              </tr>
-            ))}
-            {view.empty && (
-              <tr>
-                <td colSpan={view.previous ? 4 : 3}>{view.empty}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        {data.themes ? <ThemesTable report={data.themes} open={open} onToggle={onToggle} /> : <MonthCategories view={view} from={from} to={to} />}
         {view.categories.length > 0 && (
           <p className="st-links">
             <a href={`#/transactions${query({ view: "merchants", from, to })}`}>Kauppiaat</a>
@@ -155,5 +124,51 @@ function Month({ data, anchors }: { data: DashboardData; anchors: ReportAnchors 
         )}
       </div>
     </div>
+  );
+}
+
+/** The month's list of categories, as the block drew it before core told the themes: the nine largest and the rest. */
+function MonthCategories({ view, from, to }: { view: IncomeSpendingView; from: string; to: string }) {
+  return (
+    <>
+      <h3 className="st-cap" id="categories-h">
+        Menot kategorioittain
+      </h3>
+      <table className="st-table category-table" aria-labelledby="categories-h">
+        <thead>
+          <tr>
+            <th scope="col">Kategoria</th>
+            <td className="category-bar" />
+            <th scope="col" className="st-num">
+              {view.month}
+            </th>
+            {view.previous && (
+              <th scope="col" className="st-num">
+                Muutos
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {view.categories.map((c) => (
+            <tr key={c.key}>
+              <th scope="row" className="st-cut" title={c.label}>
+                {c.category ? <a href={`#/transactions${query({ category: c.category, from, to })}`}>{c.label}</a> : c.label}
+              </th>
+              <td className="category-bar">
+                <span style={{ width: `${c.share}%` }} />
+              </td>
+              <td className="st-num">{c.text}</td>
+              {view.previous && <td className="st-num">{c.change}</td>}
+            </tr>
+          ))}
+          {view.empty && (
+            <tr>
+              <td colSpan={view.previous ? 4 : 3}>{view.empty}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </>
   );
 }

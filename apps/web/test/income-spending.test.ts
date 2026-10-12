@@ -1,6 +1,10 @@
 import { type Account, buildDashboard, CATEGORIES, createContext, type Transaction } from "@banking/core";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { IncomeSpending } from "../src/components/overview/IncomeSpending.tsx";
 import { incomeSpendingView } from "../src/components/overview/income-spending.ts";
+import { periodsOf } from "../src/period.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-12";
@@ -197,5 +201,43 @@ describe("Tulot ja menot: the savings rate and the fixed costs", () => {
 
   it("the fixed costs are left out when the household has none", () => {
     expect(view(history, "2026-10-01", today).fixed).toBeNull();
+  });
+});
+
+describe("Tulot ja menot: the month's list or the table of themes", () => {
+  const draw = (data: ReturnType<typeof answer>) =>
+    renderToStaticMarkup(createElement(IncomeSpending, { data, period: "month", presets: periodsOf("overview", today), anchors: { income: "tulot", months: "kuukaudet" } }));
+  const text = (html: string) => plain(html.replace(/<[^>]*>/g, " ")).replace(/ +/g, " ");
+  // three complete months with one account that covers them: July, August and September
+  const threeMonths = [buy("2026-07-02", 6_000), ...history];
+
+  it("draws the month's list when core has no themes: under three complete months", () => {
+    const data = answer(history, "2026-10-01", today);
+    expect(data.themes).toBeNull();
+    const html = draw(data);
+    expect(html).toContain('class="st-table category-table"');
+    expect(text(html)).toContain("Kategoria Lokakuu Muutos");
+    expect(html).not.toContain("Kuukaudessa");
+    expect(html).not.toContain("themes-table");
+    expect(text(html)).toContain("Kauppiaat Menot kuukausittain");
+  });
+
+  it("draws the table of themes in the list's place when core has them, whichever month is chosen, and keeps the rest of the block", () => {
+    const tables: string[] = [];
+    for (const [from, to] of [["2026-10-01", today], ["2026-09-01", "2026-09-30"]] as const) {
+      const data = answer(threeMonths, from, to);
+      expect(data.themes).not.toBeNull();
+      const html = draw(data);
+      expect(html).toContain("themes-table");
+      expect(html).not.toContain("category-table");
+      expect(text(html)).toContain("Menot kategorioittain 7/2026–9/2026 Kuukaudessa");
+      expect(text(html)).not.toContain("Kategoria ");
+      tables.push(/<table class="st-table themes-table".*?<\/table>/.exec(html)![0]);
+      // the months' figures, the chart's place and the links stay
+      expect(html).toContain("month-table");
+      expect(text(html)).toContain("Kauppiaat Menot kuukausittain");
+    }
+    // the table does not follow the month: the same in both
+    expect(tables[0]).toBe(tables[1]);
   });
 });

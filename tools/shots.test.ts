@@ -3,14 +3,14 @@ import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
-import { afterAll, describe, expect, it } from "vitest";
-import { answerTable, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
+import { afterAll, describe, expect, it, vi } from "vitest";
+import { answerTable, applyLook, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 
 describe("pnpm shots arguments", () => {
   it("takes a route, widths and --demo, and without more asks for the four widths of a phone to a desktop", () => {
-    expect(parseArgs(["overview"])).toEqual({ help: false, routes: ["overview"], widths: [1280, 1000, 700, 390], demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false });
+    expect(parseArgs(["overview"])).toEqual({ help: false, routes: ["overview"], widths: [1280, 1000, 700, 390], demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, look: null });
     expect(parseArgs(["#/reports?tab=income", "--widths", "320,768", "--demo"])).toMatchObject({ routes: ["reports?tab=income"], widths: [320, 768], demo: true });
     expect(parseArgs(["optimise", "--widths=500"]).widths).toEqual([500]);
   });
@@ -37,9 +37,16 @@ describe("pnpm shots arguments", () => {
     expect(parseArgs(["--help", "--member"]).help).toBe(true);
   });
 
+  it("takes --look classic or c, with a space or an =, and refuses any other look", () => {
+    expect(parseArgs(["overview", "--look", "classic"]).look).toBe("classic");
+    expect(parseArgs(["overview", "--look=c"]).look).toBe("c");
+    expect(() => parseArgs(["overview", "--look", "night"])).toThrow(/--look takes classic or c \(got: night\)/);
+    expect(() => parseArgs(["overview", "--look"])).toThrow(/--look takes classic or c/);
+  });
+
   it("lists every option in --help, which needs no route", () => {
     expect(parseArgs(["--help"]).help).toBe(true);
-    for (const option of ["--widths", "--demo", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name"]) expect(USAGE).toContain(option);
+    for (const option of ["--widths", "--demo", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--look"]) expect(USAGE).toContain(option);
     expect(USAGE.split("\n").length).toBeLessThanOrEqual(24);
   });
 
@@ -79,6 +86,25 @@ describe("pnpm shots file names", () => {
     const shots: [string, string | null][] = [["overview", null], ["overview", "bank"], ["overview?period=year", null], ["settings", null]];
     const names = shots.flatMap(([route, name]) => [390, 700].map((w) => shotName(route, name, w)));
     expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe("pnpm shots look", () => {
+  it("puts data-look=classic on <html> for classic and takes the attribute away for c, whether or not it was there", () => {
+    const attributes = new Map<string, string>();
+    vi.stubGlobal("document", { documentElement: { setAttribute: (k: string, v: string) => attributes.set(k, v), removeAttribute: (k: string) => attributes.delete(k) } });
+    try {
+      applyLook("classic");
+      expect([...attributes]).toEqual([["data-look", "classic"]]);
+      applyLook("classic");
+      expect([...attributes]).toEqual([["data-look", "classic"]]);
+      applyLook("c");
+      expect([...attributes]).toEqual([]);
+      applyLook("c");
+      expect([...attributes]).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -146,6 +172,7 @@ export default async (page, route) => {
     accounts: (await (await fetch("/api/meta")).json()).accounts.map((a) => ({ name: a.name, holder: a.holder, limit: a.creditLimitCents })),
     storage: Object.fromEntries(Object.entries(localStorage)),
     heading: document.querySelector("h1")?.textContent,
+    look: document.documentElement.getAttribute("data-look"),
   }));
   const meta = await page.evaluate(async () => (await (await fetch("/api/meta")).json()));
   const joint = meta.accounts.find((a) => a.name === "Yhteistili");
@@ -247,4 +274,16 @@ export default async (page, route) => {
     expect(seen()).toEqual([]);
     expect(existsSync(join(out, "overview-390.png"))).toBe(true);
   }, 120_000);
+
+  it("--look c takes the attribute of <html> away and --look classic puts it there, before the steps run; without it the page is as index.html serves it", () => {
+    const served = /<html\b[^>]*\sdata-look="([a-z]+)"/.exec(readFileSync(join(ROOT, "apps/web/index.html"), "utf8"))?.[1] ?? null;
+    const looks = (...args: string[]) => {
+      const r = run("overview", "--widths", "390", "--steps", steps, "--name", "look", ...args);
+      expect(r.status, r.stdout + r.stderr).toBe(0);
+      return seen().map((s) => s.look);
+    };
+    expect(looks("--look", "c")).toEqual([null]);
+    expect(looks("--look", "classic")).toEqual(["classic"]);
+    expect(looks()).toEqual([served]);
+  }, 300_000);
 });

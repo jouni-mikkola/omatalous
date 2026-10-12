@@ -88,8 +88,7 @@ function draft(o: DraftOpts = {}): FindingDraft {
     subject,
     title: mid === null ? `${subject}: sopimus uusiutuu ${o.decideBy}.` : `${subject}: nousu on ${formatEur(mid, false)} vuodessa.`,
     action: "Neuvottele hinta.",
-    effort: "minuutteja",
-    euros: mid === null ? null : { lowCents: o.low ?? Math.round(mid * 0.8), midCents: mid, highCents: o.high ?? Math.round(mid * 1.2), assumption: "Jos hinta palaa entiselleen." },
+    euros: mid === null ? null : { lowCents: o.low ?? Math.round(mid * 0.8), midCents: mid, highCents: o.high ?? Math.round(mid * 1.2) },
     decideBy: o.decideBy ?? null,
     weaknesses: o.weaknesses ?? [],
     shared: o.shared ?? false,
@@ -321,20 +320,17 @@ describe("optimise frame: inputs and facts", () => {
     const old = { value: 15000, asOf: addDays(TODAY, -366) };
     const stale = run(CTX12, kmArea, { values: { car_km: old } });
     expect(shown(stale)).toEqual([]);
-    expect(stale.needed).toEqual([{ key: "car_km", def: "car_km", subject: null, areas: ["car"], old }]);
+    expect(stale.needed).toEqual([{ key: "car_km", def: "car_km", subject: null, old }]);
     const fresh = run(CTX12, kmArea, { values: { car_km: { value: 15000, asOf: addDays(TODAY, -10) } } });
     expect(ids(shown(fresh))).toEqual(["car:summary"]);
     expect(fresh.needed).toEqual([]);
   });
 
-  it("lists each needed input once with every area that asks for it", () => {
+  it("lists each needed input once, however many areas ask for it", () => {
     const one = area([draft({ needs: ["insurance_quote:s1", "not_an_input"] })], [{ id: "subscriptions:renewal", label: "Uusiutuvat sopimukset", status: "needs_input", input: "electricity_kwh" }]);
     const two = area([], [{ id: "electricity:price", label: "Sähkön hinta", status: "needs_input", input: "electricity_kwh" }], "electricity");
     const data = run(CTX12, [one, two]);
-    expect(data.needed.map((n) => [n.key, n.areas])).toEqual([
-      ["electricity_kwh", ["subscriptions", "electricity"]],
-      ["insurance_quote:s1", ["subscriptions"]],
-    ]);
+    expect(data.needed.map((n) => n.key)).toEqual(["electricity_kwh", "insurance_quote:s1"]);
   });
 
   const ROWS: Fact[] = [
@@ -358,7 +354,7 @@ describe("optimise frame: inputs and facts", () => {
         }),
       ];
     },
-    (a) => [{ id: "subscriptions:rise", label: "Maksu", status: factFrom(ROWS, "rate", a.today) ? "clear" : "no_data", hint: "Vertailutieto on vanhentunut." }],
+    (a) => [{ id: "subscriptions:rise", label: "Maksu", status: factFrom(ROWS, "rate", a.today) ? "clear" : "no_data" }],
   );
 
   it("hides a comparison whose fact expired and shows a proposed fact only as a calc line", () => {
@@ -482,7 +478,6 @@ describe("optimise frame: Tilanne", () => {
       ["buffer", "3,0 kuukautta"],
       ["debt_share", "0\u00a0%"],
     ]);
-    expect(data.situation[2]!.basis).toBe(`Tilien saldot ${formatEur(75000, false)} ja tavalliset menot ${formatEur(25000, false)} kuussa.`);
     expect(data).toMatchObject({ months: 12, historyMonths: 12, accounts: 2, dataTo: TODAY, end: "2026-09-30" });
   });
 });

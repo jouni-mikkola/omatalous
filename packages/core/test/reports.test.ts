@@ -396,18 +396,9 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(b.fixedMonthlyCents).toBeGreaterThanOrEqual(130000);
     expect(b.usualSpendCents).toBe(usualSpend(dataset()));
     expect(b.bufferMonths).toBeCloseTo(300000 / b.usualSpendCents!, 6);
-    // under three months: says what it counted and how much is missing
     expect(b.bufferMonths!).toBeLessThan(3);
-    expect(b.advice).toContain("Säästötileillä on");
-    expect(b.advice).toContain("kun menot ovat tavallisesti");
-    // the months the usual level stands on are named, as on the overview
-    expect(b.advice).toMatch(/kuukaudessa \([a-zä]+–[a-zä]+kuu \d{4}\)\./);
-    expect(b.advice).toContain("puuttuu");
-    expect(b.advice).toContain("% tuloista");
     const big = reports(dataset(), [account("sav", "savings", 900000)]).buffer;
     expect(big.bufferMonths!).toBeGreaterThanOrEqual(3);
-    // three months or more is a number, not a verdict
-    expect(big.advice).not.toMatch(/riittävä|puuttuu|sitoumuksia/);
   });
 
   it("the buffer is told against all usual spending, groceries included, and counts savings and checking, not cards or loans", () => {
@@ -417,13 +408,10 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(withFood.usualSpendCents!).toBeGreaterThan(noFood.usualSpendCents! + 20000);
     expect(noFood.usualSpendCents!).toBeGreaterThanOrEqual(noFood.fixedMonthlyCents);
     expect(withFood.cashCents).toBe(800000);
-    expect(withFood.cashTypes).toEqual(["savings", "checking"]);
     expect(withFood.bufferMonths).toBeCloseTo(800000 / withFood.usualSpendCents!, 6);
-    expect(withFood.advice).toContain("Säästö- ja käyttötileillä on");
     // a checking balance alone is a buffer too
     const checkingOnly = reports(dataset(), [account("acc-1", "checking", 500000)]).buffer;
     expect(checkingOnly.bufferMonths).toBeCloseTo(500000 / checkingOnly.usualSpendCents!, 6);
-    expect(checkingOnly.advice).toContain("Käyttötileillä on");
     // a card in debt and a loan are not cash
     const withDebts = reports(dataset(), [account("sav", "savings", 300000), account("card", "credit_card", -80000), account("loan", "loan", -9000000)]).buffer;
     expect(withDebts.cashCents).toBe(300000);
@@ -441,18 +429,16 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(none.cashCents).toBeNull();
     // a card or loan balance alone is no buffer
     expect(reports(dataset(), [account("card", "credit_card", -80000)]).buffer.cashCents).toBeNull();
-    // two months of history: no income level, no share, and the buffer says when it will show
+    // two months of history: no income level and no share
     const short = reports(dataset().filter((t) => t.bookingDate >= "2026-08-01"), [account("sav", "savings", 300000)]).buffer;
     expect(short.fixedShare).toBeNull();
     expect(short.usualSpendCents).toBeNull();
     expect(short.bufferMonths).toBeNull();
-    expect(short.advice).toContain("Puskurin pituus näkyy 1.11.2026.");
-    expect(reports(monthly("2025-09", 13, 40000)).buffer.advice).toBe("");
     // without fixed costs the buffer still reads from the spending
     const food = reports(monthly("2025-09", 13, 40000), [account("acc-1", "checking", 500000)]).buffer;
     expect(food.usualSpendCents).toBe(40000);
     expect(food.bufferMonths).toBeCloseTo(12.5, 6);
-    expect(food.advice).not.toContain("Kiinteät menot");
+    expect(food.fixedShare).toBeNull();
   });
 });
 

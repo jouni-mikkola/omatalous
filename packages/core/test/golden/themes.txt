@@ -1,0 +1,600 @@
+# themes: 101 statements on demo, kit:base, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+themes · demo · themes:car (quiet)
+  Auto
+  = 411.74 € a month, 4940.91 € a year
+  | Polttoaine: 122.74 € a month, 1472.91 € a year
+  | Rahoitus: 289.00 € a month, 3468.00 € a year
+
+themes · demo · themes:food (quiet)
+  Ruoka
+  = 994.35 € a month, 11932.24 € a year
+  | Ruokakauppa: 590.01 € a month, 7080.06 € a year
+  | Ravintolat ja kahvilat: 146.55 € a month, 1758.64 € a year
+  | Ruoan kotiinkuljetus: 217.04 € a month, 2604.50 € a year
+  | Alko: 40.75 € a month, 489.04 € a year
+
+themes · demo · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 106.65 € a month, 1279.85 € a year
+  | Terveys ja apteekki: 28.23 € a month, 338.74 € a year
+  | Liikunta: 59.00 € a month, 708.00 € a year
+  | Kampaamo ja kauneus: 19.42 € a month, 233.11 € a year
+
+themes · demo · themes:housing (quiet)
+  Asuminen
+  = 1106.97 € a month, 13283.58 € a year
+  | Vuokra ja vastike: 1050.00 € a month, 12600.00 € a year
+  | Sähkö, vesi ja lämpö: 56.97 € a month, 683.58 € a year
+
+themes · demo · themes:insurance (quiet)
+  Vakuutukset
+  = 47.43 € a month, 569.20 € a year
+  | Vakuutukset: 47.43 € a month, 569.20 € a year
+
+themes · demo · themes:leisure (quiet)
+  Vapaa-aika
+  = 68.00 € a month, 815.95 € a year
+  | Vapaa-aika ja harrastukset: 9.01 € a month, 108.17 € a year
+  | Matkat: 52.92 € a month, 635.00 € a year
+  | Rahapelit: 6.07 € a month, 72.78 € a year
+
+themes · demo · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 164.50 € a month, 1973.99 € a year
+  | Puhelin ja netti: 29.90 € a month, 358.80 € a year
+  | Tilaukset ja suoratoisto: 134.60 € a month, 1615.19 € a year
+
+themes · demo · themes:other (quiet)
+  Muut menot
+  = 11.17 € a month, 134.08 € a year
+  | Maksut henkilöille: 11.17 € a month, 134.08 € a year
+
+themes · demo · themes:shopping (quiet)
+  Ostokset
+  = 136.23 € a month, 1634.71 € a year
+  | Vaatteet ja ostokset: 55.61 € a month, 667.27 € a year
+  | Koti ja elektroniikka: 80.62 € a month, 967.44 € a year
+
+themes · demo · themes:transport (quiet)
+  Liikkuminen
+  = 74.01 € a month, 888.17 € a year
+  | Joukkoliikenne ja taksit: 74.01 € a month, 888.17 € a year
+
+themes · demo · themes:window (quiet)
+  2025-10..2026-09, 12 months
+  = 37452.68 € spending
+  | themes 37452.68 €: 3121.05 € a month, 37452.68 € a year
+  | large purchases 0.00 €
+  rows 0
+
+themes · kit:base · themes:car (quiet)
+  Auto
+  = 120.91 € a month, 1450.94 € a year
+  | Polttoaine: 120.91 € a month, 1450.94 € a year
+
+themes · kit:base · themes:food (quiet)
+  Ruoka
+  = 955.24 € a month, 11462.87 € a year
+  | Ruokakauppa: 711.28 € a month, 8535.33 € a year, -3 %
+  | Ravintolat ja kahvilat: 142.64 € a month, 1711.64 € a year, +17 %
+  | Ruoan kotiinkuljetus: 101.32 € a month, 1215.90 € a year
+
+themes · kit:base · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 23.99 € a month, 287.87 € a year
+  | Terveys ja apteekki: 23.99 € a month, 287.87 € a year
+
+themes · kit:base · themes:housing (quiet)
+  Asuminen
+  = 1740.41 € a month, 20884.90 € a year
+  | Vuokra ja vastike: 1050.00 € a month, 12600.00 € a year
+  | Asuntolaina: 612.40 € a month, 7348.80 € a year
+  | Sähkö, vesi ja lämpö: 78.01 € a month, 936.10 € a year
+
+themes · kit:base · themes:insurance (quiet)
+  Vakuutukset
+  = 47.43 € a month, 569.20 € a year
+  | Vakuutukset: 47.43 € a month, 569.20 € a year
+
+themes · kit:base · themes:kids (quiet)
+  Lapset
+  = 256.58 € a month, 3078.90 € a year
+  | Lapset: 256.58 € a month, 3078.90 € a year
+
+themes · kit:base · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 80.78 € a month, 969.36 € a year
+  | Puhelin ja netti: 19.90 € a month, 238.80 € a year
+  | Tilaukset ja suoratoisto: 60.88 € a month, 730.56 € a year
+
+themes · kit:base · themes:shopping (quiet)
+  Ostokset
+  = 36.73 € a month, 440.76 € a year, +75 %
+  | Vaatteet ja ostokset: 36.73 € a month, 440.76 € a year, +75 %
+
+themes · kit:base · themes:taxes (quiet)
+  Verot ja maksut
+  = 3.58 € a month, 42.90 € a year
+  | Verot, maksut ja sakot: 3.58 € a month, 42.90 € a year
+
+themes · kit:base · themes:window (quiet)
+  2025-10..2026-09, 12 months
+  = 39187.70 € spending
+  | themes 39187.70 €: 3265.65 € a month, 39187.70 € a year
+  | large purchases 0.00 €
+  rows 0
+
+themes · plain:1 · themes:car (quiet)
+  Auto
+  = 65.31 € a month, no year
+  | Polttoaine: 65.31 € a month, no year
+
+themes · plain:1 · themes:food (quiet)
+  Ruoka
+  = 527.90 € a month, no year
+  | Ruokakauppa: 244.68 € a month, no year
+  | Ravintolat ja kahvilat: 283.22 € a month, no year
+
+themes · plain:1 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 48.39 € a month, no year
+  | Terveys ja apteekki: 48.39 € a month, no year
+
+themes · plain:1 · themes:housing (quiet)
+  Asuminen
+  = 614.14 € a month, no year
+  | Asuntolaina: 560.76 € a month, no year
+  | Sähkö, vesi ja lämpö: 53.38 € a month, no year
+
+themes · plain:1 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 139.15 € a month, no year
+  | Puhelin ja netti: 8.50 € a month, no year
+  | Tilaukset ja suoratoisto: 130.65 € a month, no year
+
+themes · plain:1 · themes:other (quiet)
+  Muut menot
+  = 312.38 € a month, no year
+  | Maksut henkilöille: 33.76 € a month, no year
+  | Muut: 278.62 € a month, no year
+
+themes · plain:1 · themes:shopping (quiet)
+  Ostokset
+  = 399.43 € a month, no year
+  | Vaatteet ja ostokset: 352.42 € a month, no year
+  | Koti ja elektroniikka: 47.01 € a month, no year
+
+themes · plain:1 · themes:window (quiet)
+  2025-01..2025-10, 10 months
+  = 21066.90 € spending
+  | themes 21066.90 €: 2106.70 € a month, no year
+  | large purchases 0.00 €
+  rows 0
+
+themes · plain:2 · themes:car (quiet)
+  Auto
+  = 60.65 € a month, no year
+  | Polttoaine: 60.65 € a month, no year
+
+themes · plain:2 · themes:food (quiet)
+  Ruoka
+  = 552.56 € a month, no year
+  | Ruokakauppa: 254.36 € a month, no year
+  | Ravintolat ja kahvilat: 298.20 € a month, no year
+
+themes · plain:2 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 82.46 € a month, no year
+  | Terveys ja apteekki: 82.46 € a month, no year
+
+themes · plain:2 · themes:housing (quiet)
+  Asuminen
+  = 520.20 € a month, no year
+  | Asuntolaina: 489.32 € a month, no year
+  | Sähkö, vesi ja lämpö: 30.88 € a month, no year
+
+themes · plain:2 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 172.17 € a month, no year
+  | Puhelin ja netti: 61.87 € a month, no year
+  | Tilaukset ja suoratoisto: 110.30 € a month, no year
+
+themes · plain:2 · themes:other (quiet)
+  Muut menot
+  = 464.76 € a month, no year
+  | Maksut henkilöille: 44.47 € a month, no year
+  | Muut: 420.29 € a month, no year
+
+themes · plain:2 · themes:shopping (quiet)
+  Ostokset
+  = 386.10 € a month, no year
+  | Vaatteet ja ostokset: 334.75 € a month, no year
+  | Koti ja elektroniikka: 51.35 € a month, no year
+
+themes · plain:2 · themes:window (quiet)
+  2025-02..2025-10, 9 months
+  = 20150.02 € spending
+  | themes 20150.02 €: 2238.90 € a month, no year
+  | large purchases 0.00 €
+  rows 0
+
+themes · plain:3 · themes:car (quiet)
+  Auto
+  = 40.62 € a month, no year
+  | Polttoaine: 40.62 € a month, no year
+
+themes · plain:3 · themes:food (quiet)
+  Ruoka
+  = 455.53 € a month, no year
+  | Ruokakauppa: 184.21 € a month, no year
+  | Ravintolat ja kahvilat: 271.32 € a month, no year
+
+themes · plain:3 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 71.61 € a month, no year
+  | Terveys ja apteekki: 71.61 € a month, no year
+
+themes · plain:3 · themes:housing (quiet)
+  Asuminen
+  = 744.24 € a month, no year
+  | Asuntolaina: 712.25 € a month, no year
+  | Sähkö, vesi ja lämpö: 31.99 € a month, no year
+
+themes · plain:3 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 191.51 € a month, no year
+  | Puhelin ja netti: 50.88 € a month, no year
+  | Tilaukset ja suoratoisto: 140.63 € a month, no year
+
+themes · plain:3 · themes:other (quiet)
+  Muut menot
+  = 257.92 € a month, no year
+  | Maksut henkilöille: 34.11 € a month, no year
+  | Muut: 223.81 € a month, no year
+
+themes · plain:3 · themes:shopping (quiet)
+  Ostokset
+  = 494.33 € a month, no year
+  | Vaatteet ja ostokset: 401.05 € a month, no year
+  | Koti ja elektroniikka: 93.28 € a month, no year
+
+themes · plain:3 · themes:window (quiet)
+  2025-02..2025-10, 9 months
+  = 20301.91 € spending
+  | themes 20301.91 €: 2255.76 € a month, no year
+  | large purchases 0.00 €
+  rows 0
+
+themes · plain:4 · themes:car (quiet)
+  Auto
+  = 52.67 € a month, no year
+  | Polttoaine: 52.67 € a month, no year
+
+themes · plain:4 · themes:food (quiet)
+  Ruoka
+  = 400.14 € a month, no year
+  | Ruokakauppa: 210.67 € a month, no year
+  | Ravintolat ja kahvilat: 189.47 € a month, no year
+
+themes · plain:4 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 111.37 € a month, no year
+  | Terveys ja apteekki: 111.37 € a month, no year
+
+themes · plain:4 · themes:housing (quiet)
+  Asuminen
+  = 817.66 € a month, no year
+  | Asuntolaina: 756.56 € a month, no year
+  | Sähkö, vesi ja lämpö: 61.10 € a month, no year
+
+themes · plain:4 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 201.94 € a month, no year
+  | Puhelin ja netti: 50.21 € a month, no year
+  | Tilaukset ja suoratoisto: 151.73 € a month, no year
+
+themes · plain:4 · themes:other (quiet)
+  Muut menot
+  = 383.20 € a month, no year
+  | Maksut henkilöille: 62.25 € a month, no year
+  | Muut: 320.95 € a month, no year
+
+themes · plain:4 · themes:shopping (quiet)
+  Ostokset
+  = 405.03 € a month, no year
+  | Vaatteet ja ostokset: 330.23 € a month, no year
+  | Koti ja elektroniikka: 74.80 € a month, no year
+
+themes · plain:4 · themes:window (quiet)
+  2025-02..2025-10, 9 months
+  = 21348.04 € spending
+  | themes 21348.04 €: 2372.01 € a month, no year
+  | large purchases 0.00 €
+  rows 0
+
+themes · plain:5 · themes:car (quiet)
+  Auto
+  = 60.11 € a month, no year
+  | Polttoaine: 60.11 € a month, no year
+
+themes · plain:5 · themes:food (quiet)
+  Ruoka
+  = 481.22 € a month, no year
+  | Ruokakauppa: 185.90 € a month, no year
+  | Ravintolat ja kahvilat: 295.32 € a month, no year
+
+themes · plain:5 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 73.76 € a month, no year
+  | Terveys ja apteekki: 73.76 € a month, no year
+
+themes · plain:5 · themes:housing (quiet)
+  Asuminen
+  = 609.26 € a month, no year
+  | Asuntolaina: 533.95 € a month, no year
+  | Sähkö, vesi ja lämpö: 75.31 € a month, no year
+
+themes · plain:5 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 215.07 € a month, no year
+  | Puhelin ja netti: 77.76 € a month, no year
+  | Tilaukset ja suoratoisto: 137.31 € a month, no year
+
+themes · plain:5 · themes:other (quiet)
+  Muut menot
+  = 250.64 € a month, no year
+  | Maksut henkilöille: 53.42 € a month, no year
+  | Muut: 197.22 € a month, no year
+
+themes · plain:5 · themes:shopping (quiet)
+  Ostokset
+  = 372.96 € a month, no year
+  | Vaatteet ja ostokset: 312.63 € a month, no year
+  | Koti ja elektroniikka: 60.33 € a month, no year
+
+themes · plain:5 · themes:window (quiet)
+  2025-02..2025-10, 9 months
+  = 18567.18 € spending
+  | themes 18567.18 €: 2063.02 € a month, no year
+  | large purchases 0.00 €
+  rows 0
+
+themes · settled:1 · themes:car (quiet)
+  Auto
+  = 44.17 € a month, 530.05 € a year
+  | Polttoaine: 44.17 € a month, 530.05 € a year
+
+themes · settled:1 · themes:food (quiet)
+  Ruoka
+  = 503.05 € a month, 6036.60 € a year, +27 %
+  | Ruokakauppa: 199.26 € a month, 2391.10 € a year, -8 %
+  | Ravintolat ja kahvilat: 303.79 € a month, 3645.50 € a year, +70 %
+
+themes · settled:1 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 43.76 € a month, 525.10 € a year
+  | Terveys ja apteekki: 43.76 € a month, 525.10 € a year
+
+themes · settled:1 · themes:housing (quiet)
+  Asuminen
+  = 1452.08 € a month, 17424.99 € a year
+  | Vuokra ja vastike: 930.48 € a month, 11165.76 € a year
+  | Asuntolaina: 407.35 € a month, 4888.20 € a year
+  | Sähkö, vesi ja lämpö: 114.25 € a month, 1371.03 € a year
+
+themes · settled:1 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 221.57 € a month, 2658.84 € a year, +26 %
+  | Puhelin ja netti: 42.24 € a month, 506.90 € a year, +37 %
+  | Tilaukset ja suoratoisto: 179.33 € a month, 2151.94 € a year, +24 %
+
+themes · settled:1 · themes:other (quiet)
+  Muut menot
+  = 167.10 € a month, 2005.20 € a year, +41 %
+  | Maksut henkilöille: 57.37 € a month, 688.44 € a year
+  | Muut: 109.73 € a month, 1316.76 € a year, +76 %
+
+themes · settled:1 · themes:shopping (quiet)
+  Ostokset
+  = 460.86 € a month, 5530.35 € a year, +18 %
+  | Vaatteet ja ostokset: 396.21 € a month, 4754.52 € a year, +13 %
+  | Koti ja elektroniikka: 64.65 € a month, 775.83 € a year, +61 %
+
+themes · settled:1 · themes:window (quiet)
+  2024-11..2025-10, 12 months
+  = 34711.13 € spending
+  | themes 34711.13 €: 2892.59 € a month, 34711.13 € a year
+  | large purchases 0.00 €
+  rows 0
+
+themes · settled:2 · themes:car (quiet)
+  Auto
+  = 63.82 € a month, 765.86 € a year
+  | Polttoaine: 63.82 € a month, 765.86 € a year
+
+themes · settled:2 · themes:food (quiet)
+  Ruoka
+  = 555.94 € a month, 6671.33 € a year, +40 %
+  | Ruokakauppa: 217.83 € a month, 2613.96 € a year, +42 %
+  | Ravintolat ja kahvilat: 338.11 € a month, 4057.37 € a year, +39 %
+
+themes · settled:2 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 36.67 € a month, 440.05 € a year, -57 %
+  | Terveys ja apteekki: 36.67 € a month, 440.05 € a year, -55 %
+
+themes · settled:2 · themes:housing (quiet)
+  Asuminen
+  = 1466.97 € a month, 17603.67 € a year, +2 %
+  | Vuokra ja vastike: 1036.44 € a month, 12437.28 € a year
+  | Asuntolaina: 312.30 € a month, 3747.60 € a year
+  | Sähkö, vesi ja lämpö: 118.23 € a month, 1418.79 € a year, +35 %
+
+themes · settled:2 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 217.21 € a month, 2606.47 € a year
+  | Puhelin ja netti: 23.99 € a month, 287.88 € a year, -52 %
+  | Tilaukset ja suoratoisto: 193.22 € a month, 2318.59 € a year, +13 %
+
+themes · settled:2 · themes:other (quiet)
+  Muut menot
+  = 84.16 € a month, 1009.94 € a year, -30 %
+  | Maksut henkilöille: 49.33 € a month, 591.92 € a year, -18 %
+  | Muut: 34.83 € a month, 418.02 € a year, -42 %
+
+themes · settled:2 · themes:shopping (quiet)
+  Ostokset
+  = 475.44 € a month, 5705.23 € a year, +12 %
+  | Vaatteet ja ostokset: 389.42 € a month, 4673.03 € a year
+  | Koti ja elektroniikka: 86.02 € a month, 1032.20 € a year, +100 %
+
+themes · settled:2 · themes:window (quiet)
+  2024-11..2025-10, 12 months
+  = 34802.55 € spending
+  | themes 34802.55 €: 2900.21 € a month, 34802.55 € a year
+  | large purchases 0.00 €
+  rows 0
+
+themes · settled:3 · themes:car (quiet)
+  Auto
+  = 48.07 € a month, no year
+  | Polttoaine: 48.07 € a month, no year
+
+themes · settled:3 · themes:food (quiet)
+  Ruoka
+  = 497.20 € a month, no year
+  | Ruokakauppa: 176.57 € a month, no year
+  | Ravintolat ja kahvilat: 320.63 € a month, no year
+
+themes · settled:3 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 81.95 € a month, no year
+  | Terveys ja apteekki: 81.95 € a month, no year
+
+themes · settled:3 · themes:housing (quiet)
+  Asuminen
+  = 1350.67 € a month, no year
+  | Vuokra ja vastike: 861.74 € a month, no year
+  | Asuntolaina: 375.77 € a month, no year
+  | Sähkö, vesi ja lämpö: 113.16 € a month, no year
+
+themes · settled:3 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 179.88 € a month, no year
+  | Tilaukset ja suoratoisto: 179.88 € a month, no year
+
+themes · settled:3 · themes:other (quiet)
+  Muut menot
+  = 142.89 € a month, no year
+  | Maksut henkilöille: 49.26 € a month, no year
+  | Muut: 93.63 € a month, no year
+
+themes · settled:3 · themes:shopping (quiet)
+  Ostokset
+  = 472.15 € a month, no year
+  | Vaatteet ja ostokset: 401.41 € a month, no year
+  | Koti ja elektroniikka: 70.74 € a month, no year
+
+themes · settled:3 · themes:window (quiet)
+  2024-11..2025-08, 10 months
+  = 27728.01 € spending
+  | themes 27728.01 €: 2772.81 € a month, no year
+  | large purchases 0.00 €
+  rows 0
+
+themes · settled:4 · themes:car (quiet)
+  Auto
+  = 63.28 € a month, 759.36 € a year
+  | Polttoaine: 63.28 € a month, 759.36 € a year
+
+themes · settled:4 · themes:food (quiet)
+  Ruoka
+  = 368.92 € a month, 4427.09 € a year, -6 %
+  | Ruokakauppa: 165.26 € a month, 1983.15 € a year, -11 %
+  | Ravintolat ja kahvilat: 203.66 € a month, 2443.94 € a year
+
+themes · settled:4 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 120.66 € a month, 1447.89 € a year, +138 %
+  | Terveys ja apteekki: 120.66 € a month, 1447.89 € a year, +138 %
+
+themes · settled:4 · themes:housing (quiet)
+  Asuminen
+  = 1381.80 € a month, 16581.61 € a year, -4 %
+  | Vuokra ja vastike: 993.90 € a month, 11926.80 € a year
+  | Asuntolaina: 299.60 € a month, 3595.20 € a year
+  | Sähkö, vesi ja lämpö: 88.30 € a month, 1059.61 € a year, -36 %
+
+themes · settled:4 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 334.08 € a month, 4008.98 € a year, +50 %
+  | Puhelin ja netti: 67.65 € a month, 811.76 € a year, +41 %
+  | Tilaukset ja suoratoisto: 266.43 € a month, 3197.22 € a year, +53 %
+
+themes · settled:4 · themes:other (quiet)
+  Muut menot
+  = 84.21 € a month, 1010.57 € a year, -40 %
+  | Maksut henkilöille: 53.58 € a month, 642.93 € a year
+  | Muut: 30.63 € a month, 367.64 € a year, -66 %
+
+themes · settled:4 · themes:shopping (quiet)
+  Ostokset
+  = 398.27 € a month, 4779.28 € a year, -17 %
+  | Vaatteet ja ostokset: 337.43 € a month, 4049.19 € a year, -19 %
+  | Koti ja elektroniikka: 60.84 € a month, 730.09 € a year
+
+themes · settled:4 · themes:window (quiet)
+  2024-11..2025-10, 12 months
+  = 33014.78 € spending
+  | themes 33014.78 €: 2751.22 € a month, 33014.78 € a year
+  | large purchases 0.00 €
+  rows 0
+
+themes · settled:5 · themes:car (quiet)
+  Auto
+  = 50.88 € a month, 610.55 € a year
+  | Polttoaine: 50.88 € a month, 610.55 € a year
+
+themes · settled:5 · themes:food (quiet)
+  Ruoka
+  = 393.08 € a month, 4716.96 € a year
+  | Ruokakauppa: 165.12 € a month, 1981.45 € a year
+  | Ravintolat ja kahvilat: 227.96 € a month, 2735.51 € a year
+
+themes · settled:5 · themes:health (quiet)
+  Terveys ja hyvinvointi
+  = 48.12 € a month, 577.42 € a year
+  | Terveys ja apteekki: 48.12 € a month, 577.42 € a year
+
+themes · settled:5 · themes:housing (quiet)
+  Asuminen
+  = 1282.59 € a month, 15391.07 € a year
+  | Vuokra ja vastike: 792.14 € a month, 9505.68 € a year
+  | Asuntolaina: 392.41 € a month, 4708.92 € a year
+  | Sähkö, vesi ja lämpö: 98.04 € a month, 1176.47 € a year
+
+themes · settled:5 · themes:media (quiet)
+  Viestintä ja tilaukset
+  = 229.59 € a month, 2755.04 € a year
+  | Puhelin ja netti: 58.32 € a month, 699.82 € a year
+  | Tilaukset ja suoratoisto: 171.27 € a month, 2055.22 € a year
+
+themes · settled:5 · themes:other (quiet)
+  Muut menot
+  = 160.67 € a month, 1928.00 € a year
+  | Maksut henkilöille: 41.08 € a month, 492.89 € a year
+  | Muut: 119.59 € a month, 1435.11 € a year
+
+themes · settled:5 · themes:shopping (quiet)
+  Ostokset
+  = 393.60 € a month, 4723.19 € a year
+  | Vaatteet ja ostokset: 365.67 € a month, 4388.07 € a year
+  | Koti ja elektroniikka: 27.93 € a month, 335.12 € a year
+
+themes · settled:5 · themes:window (quiet)
+  2024-11..2025-10, 12 months
+  = 30702.23 € spending
+  | themes 30702.23 €: 2558.53 € a month, 30702.23 € a year
+  | large purchases 0.00 €
+  rows 0

@@ -1,22 +1,12 @@
 // Decision: is our income changing, and does the buffer match how it moves
 import type { IncomeChange, IncomeReport, IncomeTypeRow } from "@banking/core";
 import { Fragment, useState } from "react";
-import { type StackSeries, StackedColumns } from "../../../charts/StackedColumns.tsx";
-import { completeMonths, date, money, MONTHS_SHORT, monthLong, percent, plural } from "../../../format.ts";
+import { date, money, monthLong, percent, plural } from "../../../format.ts";
 import { hasJointAccount } from "../../../part.ts";
 import "../../../styles/income.css";
-import { Kv, TableToggle } from "../parts.tsx";
+import { Kv } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
-
-/** Chart layers in the fixed order of the core groups; money that is not earned is the neutral gray. */
-const groupColor = (i: number, id: string) => (id === "not_earned" ? "var(--series-rest)" : `var(--series-${i + 1})`);
-
-/** ["2025-10", ..., "2026-09"] → "lokakuu 2025–syyskuu 2026" */
-function span(first: string, last: string): string {
-  const name = (m: string) => `${MONTHS_SHORT[Number(m.slice(5, 7)) - 1]}kuu`;
-  return first.slice(0, 4) === last.slice(0, 4) ? `${MONTHS_SHORT[Number(first.slice(5, 7)) - 1]}–${name(last)} ${last.slice(0, 4)}` : `${name(first)} ${first.slice(0, 4)}–${name(last)} ${last.slice(0, 4)}`;
-}
 
 function signedPercent(x: number): string {
   if (Math.round(x * 100) === 0) return "±0 %";
@@ -25,9 +15,9 @@ function signedPercent(x: number): string {
 
 const rowsHref = (payer: string, r: IncomeReport) => `#/transactions?merchant=${encodeURIComponent(payer)}&from=${r.months[0]!.month}-01`;
 
+/** The changes of the usual income; the section mounts it only when there are some. */
 function Changes({ r }: { r: IncomeReport }) {
   const [all, setAll] = useState(false);
-  if (!r.changes.length) return <p className="muted">Ei muutoksia tavallisiin tuloihin {r.months.length} kuukaudessa.</p>;
   const shown: IncomeChange[] = all ? r.changes : r.changes.slice(0, 3);
   return (
     <>
@@ -75,12 +65,11 @@ function Types({ r }: { r: IncomeReport }) {
         <tbody>
           {r.types.map((t) => (
             <Fragment key={t.type}>
-              <tr className={t.earned ? "" : "not-earned"}>
+              <tr>
                 <td>
                   <button className="link-button" onClick={() => toggle(t)} aria-expanded={openType === t.type}>
                     {t.label}
                   </button>
-                  {!t.earned && <span className="income-note">ei ansiotuloa</span>}
                 </td>
                 <td className="num">{money(t.totalCents, false)}</td>
                 <td className="num">{t.monthlyCents === null ? "–" : money(t.monthlyCents, false)}</td>
@@ -132,87 +121,67 @@ function Types({ r }: { r: IncomeReport }) {
 }
 
 function Year({ r }: { r: IncomeReport }) {
-  const [table, setTable] = useState(false);
-  const months = [...r.months.map((m) => m.month), ...r.projection.map((p) => p.month)];
-  const past = new Set(r.months.map((m) => m.month));
-  const series: StackSeries[] = r.groups.map((g, i) => ({
-    key: g.id,
-    label: g.label,
-    color: groupColor(i, g.id),
-    // a month with a returned salary can sum below zero: the chart stacks what came in, the table shows the sum
-    values: [...r.months.map((m) => Math.max(0, m.byGroup[g.id])), ...r.projection.map((p) => p.byGroup[g.id])],
-  }));
-  const used = series.filter((s) => s.values.some((v) => v > 0));
+  // a column for each group that took in money in some month; a phone has the total alone, the split by type is in Tulolajit
+  const used = r.groups.filter((g) => r.months.some((m) => m.byGroup[g.id] > 0));
   return (
     <div className="income-year">
-      <div className="income-year-head">
-        <h3>Kuukausittain</h3>
-        <TableToggle table={table} onToggle={() => setTable((v) => !v)} />
-      </div>
-      {table ? (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Kuukausi</th>
-                {used.map((s) => (
-                  <th key={s.key} className="num">
-                    {s.label}
-                  </th>
-                ))}
-                <th className="num">Yhteensä</th>
-              </tr>
-            </thead>
-            <tbody>
-              {months.map((m, i) => (
-                <tr key={m} className={past.has(m) ? "" : "projected"}>
-                  <td>
-                    {monthLong(m)}
-                    {past.has(m) ? (r.months[i]!.complete ? "" : " (vajaa)") : " (arvio)"}
-                  </td>
-                  {used.map((s) => (
-                    <td key={s.key} className="num">
-                      {money(past.has(m) ? r.months[i]!.byGroup[s.key as keyof IncomeReport["months"][number]["byGroup"]] : s.values[i]!, false)}
-                    </td>
-                  ))}
-                  <td className="num">
-                    <strong>{money(past.has(m) ? r.months[i]!.totalCents : used.reduce((sum, s) => sum + s.values[i]!, 0), false)}</strong>
-                  </td>
-                </tr>
+      <h3>Kuukausittain</h3>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kuukausi</th>
+              {used.map((g) => (
+                <th key={g.id} className="num hide-phone">
+                  {g.label}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <StackedColumns months={months} series={used} highlight={(m) => past.has(m)} label="Tulot kuukausittain tulolajeittain" />
-      )}
-      {r.projection.length > 0 && <p className="income-caption">Himmeät pylväät ovat arvio säännöllisistä tuloista.</p>}
-      {r.markers.length > 0 && (
-        <p className="income-caption">
-          Viime vuonna lisäksi {r.markers.map((m) => `${m.label.toLowerCase()} ${money(m.cents, false)} (${monthLong(m.month).split(" ")[0]})`).join(", ")}. {r.markers.length === 1 ? "Se ei ole mukana" : "Ne eivät ole mukana"} arviossa.
-        </p>
-      )}
+              <th className="num">Yhteensä</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.months.map((m) => (
+              <tr key={m.month}>
+                <td>
+                  {monthLong(m.month)}
+                  {m.complete ? "" : " (vajaa)"}
+                </td>
+                {used.map((g) => (
+                  <td key={g.id} className="num hide-phone">
+                    {money(m.byGroup[g.id], false)}
+                  </td>
+                ))}
+                <td className="num">
+                  <strong>{money(m.totalCents, false)}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
+/** The usual income and how much it moves; with too short a history there is nothing to tell, and nothing is drawn. */
 function Stability({ r }: { r: IncomeReport }) {
   const s = r.stability;
-  if (!s) return <p className="muted">Tulojen vaihtelu lasketaan, kun historiaa on {completeMonths(r.needs.stabilityMonths)}.</p>;
-  if (s.steady) return <p>Säännölliset tulot vaihtelivat alle {percent(r.needs.steadySpread)} kuukaudesta toiseen, tavallisesti {money(s.medianCents, false)} kuussa.</p>;
+  if (!s) return null;
+  const usual: [string, string] = ["Tavalliset tulot kuukaudessa", money(s.medianCents, false)];
   const weeks = s.worstRunWeeks.toLocaleString("fi-FI", { maximumFractionDigits: 1 });
   return (
     <>
-      <Kv
-        items={[
-          ["Säännölliset tulot tavallisesti", money(s.medianCents, false)],
-          ["Vaihtelu kuukaudesta toiseen", percent(s.spread)],
-          ["Heikoin kuukausi", `${monthLong(s.lowMonth)}, ${money(s.lowCents, false)}`],
-        ]}
-      />
-      <p>
-        Heikoin kuukausi oli {percent(s.lowShare)} tavallista pienempi. Suurin vajaus peräkkäisinä kuukausina oli {money(s.worstRunCents, false)} eli {weeks} viikon tulot.
-      </p>
+      <h3>Vaihtelu</h3>
+      {s.steady ? (
+        <Kv items={[usual, ["Vaihtelu kuukaudesta toiseen", `alle ${percent(r.needs.steadySpread)}`]]} />
+      ) : (
+        <>
+          <Kv items={[usual, ["Vaihtelu kuukaudesta toiseen", percent(s.spread)], ["Heikoin kuukausi", `${monthLong(s.lowMonth)}, ${money(s.lowCents, false)}`]]} />
+          <p>
+            Heikoin kuukausi oli {percent(s.lowShare)} tavallista pienempi. Suurin vajaus peräkkäisinä kuukausina oli {money(s.worstRunCents, false)} eli {weeks} viikon tulot.
+          </p>
+        </>
+      )}
     </>
   );
 }
@@ -228,22 +197,9 @@ function fromHistory(months: IncomeReport["months"]): IncomeReport["months"] {
 
 function Income({ ctx }: SectionProps) {
   const r = { ...ctx.data.income, months: fromHistory(ctx.data.income.months) };
-  const first = r.months[0]!.month;
-  const last = r.months[r.months.length - 1]!.month;
-  // the card covers the twelve months up to the last complete one whatever the period, so its title says so
-  const title = `Tulot, ${plural(r.months.length, "kuukausi", "kuukautta")}`;
-  if (!r.enough) {
-    return (
-      <Section id={section.id} title={title}>
-        <div className="empty">
-          Tulot jaetaan tulolajeihin, kun historiaa on {completeMonths(r.needs.compositionMonths)}. Vertailu edelliseen vuoteen tarvitsee {plural(r.needs.previousYearMonths, "kuukauden", "kuukautta")}.
-        </div>
-      </Section>
-    );
-  }
   const change = r.earnedChange;
   return (
-    <Section id={section.id} title={title} sub={`${span(first, last)}, nettotulot ilman henkilöiltä saatuja maksuja ja hyvityksiä`}>
+    <Section id={section.id} title={section.title}>
       <Kv
         items={[
           // what reached the accounts, after tax: not the gross ansiotulo of taxation
@@ -252,8 +208,12 @@ function Income({ ctx }: SectionProps) {
           ...(r.notEarnedCents ? ([["Maksut henkilöiltä ja hyvitykset", money(r.notEarnedCents, false)]] as [string, string][]) : []),
         ]}
       />
-      <h3>Mikä muuttui</h3>
-      <Changes r={r} />
+      {r.changes.length > 0 && (
+        <>
+          <h3>Mikä muuttui</h3>
+          <Changes r={r} />
+        </>
+      )}
       <h3>Tulolajit</h3>
       <Types r={r} />
       <Year r={r} />
@@ -271,7 +231,6 @@ function Income({ ctx }: SectionProps) {
           </ul>
         </>
       )}
-      <h3>Vaihtelu</h3>
       <Stability r={r} />
       {r.members && (
         <>
@@ -297,5 +256,7 @@ export const section: ReportSection = {
   order: 25,
   page: "reports",
   reports: ["income"],
+  // a history too short to split the income into types has nothing to tell: the section is left out until it has
+  visible: (ctx) => ctx.data.income.enough,
   Component: Income,
 };

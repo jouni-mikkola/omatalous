@@ -72,7 +72,7 @@ function Merchants({ view, category }: { view: View; category: Category }) {
           <table className="compact">
             <thead>
               <tr>
-                <th>Kauppias</th>
+                <th>Saaja</th>
                 <th className="num">Käyntejä</th>
                 <th className="num">Ostoskerta</th>
                 <th className="num">Muutos</th>

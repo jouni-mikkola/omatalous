@@ -3,18 +3,20 @@
  * with what is used of its limit, each loan with what is left, and a total at the foot of each group. Yhteenveto opens
  * with it, under the heading Varallisuus, in the statement look of the page (statement.css): the groups side by side
  * with a rule between, rows of one height with their figures on one right edge. A card and a loan have one form: the
- * name as a link, then its figures as indented rows. Every figure is the one in `holdings` (the answer Yhteenveto
- * already loads), shown as given: no sum is made here. A group with nothing in it is left out, and every account has
- * its row, in the order core gives. The name of an account, a card or a loan is a link: to the rows of the account in
- * Tapahtumat, to the report Lainat.
+ * name as a link, then its figures as indented rows; a card has its picture (CardFace) at the left of them. Every
+ * figure is the one in `holdings` (the answer Yhteenveto already loads), shown as given: no sum is made here. A group
+ * with nothing in it is left out, and every account has its row, in the order core gives. The name of an account, a card
+ * or a loan is a link: to the rows of the account in Tapahtumat, to the report Lainat.
  */
 import type { ReactNode } from "react";
 import { daysBetween, SAME_DEBT_TWICE } from "@banking/core";
 import { query } from "../../api.ts";
+import { logoForInstitution } from "../../banks.ts";
 import { date, money } from "../../format.ts";
 import { partText, typedByText } from "../../part.ts";
 import { LOANS_REPORT_ANCHOR } from "../../routes.ts";
 import type { DashboardData, Meta } from "../../types.ts";
+import { CardFace } from "./CardFace.tsx";
 import { FigureRow } from "./FigureRow.tsx";
 import { cardMasks, cardName, cardsOwe, maskedNames } from "./holding-rows.ts";
 import "../../styles/statement.css";
@@ -53,16 +55,26 @@ function Total({ label, cents, note }: { label: string; cents: number | null; no
   );
 }
 
-/** A card or a loan: its name with the lines under it, and its figures as rows set in a little. `note` follows the figures. */
-function Unit({ name, href, mask, lines, note, children }: { name: string; href: string; mask?: string | undefined; lines: (string | null | undefined)[]; note?: ReactNode; children: ReactNode }) {
-  return (
-    <li className="holding-unit">
+/**
+ * A card or a loan: its name with the lines under it, and its figures as rows set in a little. `note` follows the figures.
+ * `face` is a picture at the left of all of that, for the eye alone.
+ */
+function Unit({ name, href, mask, lines, note, face, children }: { name: string; href: string; mask?: string | undefined; lines: (string | null | undefined)[]; note?: ReactNode; face?: ReactNode; children: ReactNode }) {
+  const rows = (
+    <>
       <div className="st-row holding-unit-head">
         <Name name={name} href={href} mask={mask} />
         {lines.map((line, i) => line && <span key={i} className="st-sub">{line}</span>)}
       </div>
       <dl className="st-rows">{children}</dl>
       {note}
+    </>
+  );
+  if (!face) return <li className="holding-unit">{rows}</li>;
+  return (
+    <li className="holding-unit holding-unit-faced">
+      {face}
+      <div className="holding-unit-body">{rows}</div>
     </li>
   );
 }
@@ -104,7 +116,14 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           const { usedCents: used, limitCents: limit, freeCents: free, overCents } = c;
           const over = overCents !== null && overCents > 0 ? overCents : null;
           return (
-            <Unit key={c.id} name={cardName(c.name)} href={`#/transactions${query({ accountId: c.id })}`} mask={masks.get(c.id)} lines={[partText(c.part, "debt"), sinceLine(c.balanceAt, meta.today)]}>
+            <Unit
+              key={c.id}
+              name={cardName(c.name)}
+              href={`#/transactions${query({ accountId: c.id })}`}
+              mask={masks.get(c.id)}
+              lines={[partText(c.part, "debt"), sinceLine(c.balanceAt, meta.today)]}
+              face={<CardFace card={c} logo={c.bank ? logoForInstitution(c.bank, meta.bank.banks) : null} />}
+            >
               <FigureRow label="Käytetty luotto" bad={over !== null}>{figure(used)}</FigureRow>
               {limit !== null && <FigureRow label="Luottoraja">{money(limit)}</FigureRow>}
               {limit !== null && (over !== null ? <FigureRow label="Luottoraja ylitetty">{money(over)}</FigureRow> : free !== null && <FigureRow label="Käytettävissä">{money(free)}</FigureRow>)}

@@ -122,14 +122,10 @@ function assess(a: AreaInput): AreaResult {
         year === Number(today.slice(0, 4))
           ? `Tarkista keväällä ${year + 1} esitäytetystä veroilmoituksesta, että vähennys on mukana, ja lisää se OmaVerossa, jos ei ole.`
           : "Tarkista, että vähennys on esitäytetyssä veroilmoituksessa, ja lisää se OmaVerossa, jos ei ole.",
-      effort: "tunti",
       euros: {
         lowCents: low,
         midCents: mid,
         highCents: high,
-        assumption: sums.other
-          ? "Työn osuus on siivouksessa ja pihatöissä 100\u00a0% ja muissa töissä 50–100\u00a0% laskusta, arviossa 75\u00a0%."
-          : "Laskelmassa oletetaan, että siivous- ja pihatyölaskut ovat kokonaan työtä.",
       },
       decideBy: null,
       weaknesses: [ESTIMATE],

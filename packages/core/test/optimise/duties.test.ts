@@ -52,7 +52,6 @@ describe("tax: household deduction", () => {
   it("counts cleaning in full: 35 % of 1 080 € less 150 €", () => {
     const [f] = run(tax, [{ txs: rowsOf("c", cleaning(FRAME)) }]).findings;
     expect(f!.euros).toMatchObject({ lowCents: 22_800, midCents: 22_800, highCents: 22_800 });
-    expect(f!.euros!.assumption).toBe("Laskelmassa oletetaan, että siivous- ja pihatyölaskut ovat kokonaan työtä.");
   });
 
   it("stays quiet on a person paid for cleaning and on 280 € paid", () => {

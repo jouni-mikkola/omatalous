@@ -38,7 +38,7 @@ import { inputDefOf, inputStatus } from "./inputs.ts";
 import { othersOf } from "./others.ts";
 import { situationOf } from "./situation.ts";
 import { placeOf } from "./state.ts";
-import type { Area, AreaId, AreaInput, AreaView, Check, Finding, FindingDraft, FindingState, Headline, InputValues, NeededInput, OptimiseData } from "./types.ts";
+import type { Area, AreaInput, AreaView, Check, Finding, FindingDraft, FindingState, Headline, InputValues, NeededInput, OptimiseData } from "./types.ts";
 
 export * from "./common.ts";
 export * from "./facts/index.ts";
@@ -269,21 +269,16 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
 /** The inputs the checks wait for and the findings would sharpen with, once each, with the stale value if any. */
 function neededOf(views: readonly (AreaView & { all: readonly Finding[] })[], values: InputValues, today: IsoDate): NeededInput[] {
   const out = new Map<string, NeededInput>();
-  const add = (key: string, area: AreaId) => {
+  const add = (key: string) => {
     const found = inputDefOf(key);
-    if (!found) return;
+    if (!found || out.has(key)) return;
     const status = inputStatus(values, key, today);
     if (status.state === "ok") return;
-    const entry = out.get(key);
-    if (entry) {
-      if (!entry.areas.includes(area)) entry.areas.push(area);
-      return;
-    }
-    out.set(key, { key, def: found.def.key, subject: found.subject, areas: [area], old: status.state === "stale" ? status.stored : null });
+    out.set(key, { key, def: found.def.key, subject: found.subject, old: status.state === "stale" ? status.stored : null });
   };
   for (const v of views) {
-    for (const c of v.checks) if (c.status === "needs_input" && c.input) add(c.input, v.id);
-    for (const f of v.all) for (const key of f.needs ?? []) add(key, v.id);
+    for (const c of v.checks) if (c.status === "needs_input" && c.input) add(c.input);
+    for (const f of v.all) for (const key of f.needs ?? []) add(key);
   }
   return [...out.values()];
 }

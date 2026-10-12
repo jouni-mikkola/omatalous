@@ -12,15 +12,13 @@ import { annualise, findingId, levelWithoutOneOffs, MAX_ROWS, netCost } from "..
 import { valueOf } from "../inputs.ts";
 import type { Area, AreaInput, AreaResult, AreaSummary, CalcLine, Check, FindingDraft, Weakness } from "../types.ts";
 import { mccKind } from "../../industry.ts";
-import { isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isStreetParkingText, isVehicleTaxText } from "../../wording.ts";
+import { type CarLine as Line, carLineOf as lineOf } from "../../themes.ts";
+import { isStreetParkingText } from "../../wording.ts";
 
 /** Parking under this much a year is not worth asking the permit price for (the brief's input gate). */
 const PARKING_GATE_CENTS = 30_000;
 /** The summary needs this many complete months, as a euro finding does (rule 2). */
 const SUMMARY_MONTHS = 6;
-
-
-type Line = "fuel" | "charging" | "parking" | "service" | "inspection" | "insurance" | "tax" | "finance" | "lease" | "other" | "purchase";
 
 /** In the order the summary prints them. `purchase` is no running cost: it comes after the total. */
 const LABELS: Readonly<Record<Line, string>> = {
@@ -38,23 +36,6 @@ const LABELS: Readonly<Record<Line, string>> = {
 };
 
 const textOf = (t: AnalysisTx) => fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
-
-/** What a car row was for, or null for a row that is not about the car. A row counts on one line only. */
-function lineOf(t: AnalysisTx): Line | null {
-  const text = textOf(t);
-  const mcc = mccKind(t.mcc);
-  if (isLeaseText(text)) return "lease";
-  if (t.category === "insurance") return isCarInsuranceText(text) ? "insurance" : null;
-  if (t.category === "taxes") return isVehicleTaxText(text) ? "tax" : null;
-  if (t.category === "loans") return isCarFinanceText(text) ? "finance" : null;
-  if (t.category !== "car") return t.category === "vehicle_purchase" ? "purchase" : null;
-  if (mcc === "parking" || isParkingText(text)) return "parking";
-  if (mcc === "charging" || isChargingText(text)) return "charging";
-  if (isInspectionText(text)) return "inspection";
-  if (mcc === "car_service" || isCarServiceText(text)) return "service";
-  if (mcc === "fuel" || isFuelText(text)) return "fuel";
-  return "other";
-}
 
 /** Parking the resident permit could replace: a car row paid to a parking app or with the parking card code. */
 const isStreetParking = (t: AnalysisTx) => !t.isTransfer && t.category === "car" && (mccKind(t.mcc) === "parking" || isStreetParkingText(textOf(t)));
@@ -102,7 +83,7 @@ function parkingOf(a: AreaInput): { finding: FindingDraft | null; check: Check |
   if (permit === null) {
     return {
       finding: null,
-      check: { ...check, status: "needs_input", input: "parking_permit_price", hint: "Lisää asukaspysäköintitunnuksen vuosihinta, niin pysäköintiä verrataan siihen." },
+      check: { ...check, status: "needs_input", input: "parking_permit_price" },
     };
   }
   const mid = year.yearlyCents - permit;
@@ -130,8 +111,7 @@ function parkingOf(a: AreaInput): { finding: FindingDraft | null; check: Check |
       subject: null,
       title: `Pysäköinti ${eur(year.yearlyCents)} vuodessa, asukaspysäköintitunnus ${eur(permit)} vuodessa. Pohjana ${counted} pysäköintimaksua ${year.months} kuukaudessa.`,
       action: "Hae asukaspysäköintitunnus.",
-      effort: "tunti",
-      euros: { lowCents: mid, midCents: mid, highCents: mid, assumption: "Laskelmassa oletetaan, että kaikki pysäköinti on asukaspysäköintialueella." },
+      euros: { lowCents: mid, midCents: mid, highCents: mid },
       decideBy: null,
       weaknesses: year.weakness ? [OUTSIDE_ZONE, year.weakness] : [OUTSIDE_ZONE],
       shared: false,
@@ -152,14 +132,14 @@ function assess(a: AreaInput): AreaResult {
   const checks: Check[] = [];
   if (parking.check) checks.push(parking.finding ? { ...parking.check, status: "finding" } : parking.check);
   // a household with no car row has nothing to add up: the area says so and is not counted as looked at
-  if (sums && !summary) checks.push({ id: "car:cost", label: "Auton menot", status: "no_rows", hint: `Auton menoja ei löytynyt ${a.months.length} kuukauden ajalta.` });
+  if (sums && !summary) checks.push({ id: "car:cost", label: "Auton menot", status: "no_rows" });
   // the summary asks for the yearly distance, so the page can offer the input
   if (summary) {
     const km = valueOf(a.values, "car_km", a.today);
     checks.push(
       km
         ? { id: "car:per_km", label: "Auton menot kilometriä kohden", status: "clear" }
-        : { id: "car:per_km", label: "Auton menot kilometriä kohden", status: "needs_input", input: "car_km", hint: "Lisää vuoden ajokilometrit, niin auton menot lasketaan kilometriä kohden." },
+        : { id: "car:per_km", label: "Auton menot kilometriä kohden", status: "needs_input", input: "car_km" },
     );
   }
   return { findings: parking.finding ? [parking.finding] : [], checks, ...(summary ? { summary } : {}) };

@@ -2,17 +2,17 @@
 import { ACCOUNTS_LESS_DEBT, SAME_DEBT_TWICE } from "@banking/core";
 import { useState } from "react";
 import { LineChart } from "../../../charts/LineChart.tsx";
-import { date, money, monthLabel, monthLong } from "../../../format.ts";
+import { FigureRow } from "../../../components/holdings/FigureRow.tsx";
+import { money, monthLabel, monthLong } from "../../../format.ts";
 import { ownPart, partText } from "../../../part.ts";
+import "../../../styles/statement.css";
 import { TableToggle } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { overdraftTwice } from "./Loans.tsx";
 
-const TOTAL_LABEL = "Yhdistetyt tilit yhteensä, arvio";
-
-/** The saved loans of the line. A loan linked to an account is in the accounts' total already, so with one the line says which loans its figure holds. */
-const savedLabel = (linked: boolean) => `${linked ? "tiliin liittämättömät " : ""}tallennetut lainat`;
+/** The saved loans of the rows. A loan linked to an account is in the accounts' total already, so with one the row says which loans its figure holds. */
+const savedLabel = (linked: boolean) => (linked ? "Tiliin liittämättömät tallennetut lainat" : "Tallennetut lainat");
 
 function Balances({ ctx }: SectionProps) {
   const r = ctx.data.balances;
@@ -20,20 +20,31 @@ function Balances({ ctx }: SectionProps) {
   const last = r.months.length - 1;
   // the month in progress has no end yet: its point is the balance of today
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
-  const oldest = r.accounts.reduce((o, a) => (a.asOf < o ? a.asOf : o), ctx.meta.today);
-  const sub = lastIsToday
-    ? `Kuukauden lopussa, viimeinen piste tänään${oldest < ctx.meta.today ? `. Vanhin saldo on päivältä ${date(oldest)}` : ""}`
-    : "Kuukauden lopussa";
+  const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
   return (
-    <Section id={section.id} title={section.title} sub={sub} actions={<TableToggle table={table} onToggle={() => setTable((v) => !v)} />}>
+    <Section id={section.id} title="Tilien saldo kuukauden lopussa (arvio)" actions={<TableToggle table={table} onToggle={() => setTable((v) => !v)} />}>
       {/* told for today only, as the debts are, and only to a household that saved a loan; with cents, so the three figures subtract */}
       {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
-        <p className="muted">
-          {ACCOUNTS_LESS_DEBT.label} tänään {money(r.accountsLessDebt[last]!)}: tilit yhteensä {money(r.total[last]!)},{" "}
-          {savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))} {money(r.debt.savedCents)}. {ACCOUNTS_LESS_DEBT.sub}
-          {ctx.data.loans.maybeTwice.length > 0 && ` ${SAME_DEBT_TWICE}: katso Lainat.`}
-          {ctx.data.loans.overdraftTwice.map((t) => ` ${overdraftTwice(t)}`).join("")}
-        </p>
+        <>
+          <dl className="st-rows balance-rows">
+            <FigureRow label="Tilit yhteensä">{money(r.total[last]!)}</FigureRow>
+            <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
+            <FigureRow label={ACCOUNTS_LESS_DEBT.label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
+          </dl>
+          {(maybeTwice.length > 0 || overdrafts.length > 0) && (
+            <ul className="loans-notes">
+              {maybeTwice.length > 0 && <li className="warn">{SAME_DEBT_TWICE}: katso Lainat.</li>}
+              {overdrafts.map((t) => {
+                const text = overdraftTwice(t);
+                return (
+                  <li key={text} className="warn">
+                    {text}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
       {table ? (
         <div className="table-wrap">
@@ -72,18 +83,10 @@ function Balances({ ctx }: SectionProps) {
           </table>
         </div>
       ) : (
-        <>
-          <div className="legend" aria-hidden="true">
-            <span>
-              <i className="line-key" style={{ background: "var(--series-1)" }} />
-              {TOTAL_LABEL}
-            </span>
-          </div>
-          <LineChart
-            labels={r.months.map((m, i) => (i === last && lastIsToday ? "tänään" : monthLabel(m, m.endsWith("-01"))))}
-            series={[{ key: "total", label: TOTAL_LABEL, color: "var(--series-1)", values: r.total }]}
-          />
-        </>
+        <LineChart
+          labels={r.months.map((m, i) => (i === last && lastIsToday ? "tänään" : monthLabel(m, m.endsWith("-01"))))}
+          series={[{ key: "total", label: "Yhdistetyt tilit yhteensä, arvio", color: "var(--series-1)", values: r.total }]}
+        />
       )}
     </Section>
   );

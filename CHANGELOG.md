@@ -3,6 +3,34 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.15.0
+
+- The first page shows what the money goes to. Menot kategorioittain is a table of the main classes (Ruoka, Asuminen, Auto and so on) over the last twelve complete months: a figure a month, a figure a year and the change from the year before. A class opens to its lines, and large purchases stand apart under the table.
+- A credit card has its picture again on Yhteenveto: a card face in gold, platinum, black, silver or plain, chosen from the card's name.
+- Raportit states its figures in rows. Kiinteät ja muuttuvat, Saldot, Tulot and Lainat lose two charts and their explanatory paragraphs, the income table holds only the months that came, and a connected credit card is shown as a card with its used credit and limit, not as a loan.
+- In Tapahtumat the payee's column is Saaja/maksaja and the account has a column of its own, Tili.
+
+Money and reports
+
+- Yhteenveto: "Menot kategorioittain" shows what the last complete months (up to twelve) went to, theme by theme, with a figure a month, a figure for the year when twelve months are there and the change on the year before when it can be told. A theme opens to its lines, and the large purchases stand under the table.
+- That table stays the same when you pick another month in the block; a household with under three complete months keeps the month's list.
+
+Look
+
+- A credit card has its picture again on Yhteenveto: a gold, platinum, black, silver or plain card drawn from the card's own name, with the bank's logo and the last four digits, at the left of its rows.
+- Raportit lost two charts and several sentences: Tulot has its months as a table and no chart behind a button, and Kiinteät ja muuttuvat has its figures and no chart or paragraph. Saldot and Tulot ja menot keep their charts.
+- Fixed costs a month and their share of the income are figures in Kiinteät ja muuttuvat, and the three accounts-less-debts figures in Saldot are rows with a label at the left.
+- Tulot is shown only when the history is long enough, and "Mikä muuttui" only when the income changed.
+- Lainat tells a missing figure as a dash with one link, Täydennä, to the card Lainat in Asetukset. The interest and the amortisation of a payment, and your part of a loan, are figures with a label. A connected credit card shows its used credit and its limit, no loan terms.
+- The column "Osuus tuloista" is gone from Kategoriat.
+- In Tapahtumat the payee's column is headed Saaja/maksaja, the account has a column of its own (Tili), and the bank's text under a name is shown only when it says more than the name.
+
+For developers
+
+- `tokens.css` holds two sets of the same tokens, the night look on `:root` and the light look the app has on `:root[data-look="classic"]`, which `index.html` selects, so no page changes yet; `contrast.test.ts` runs every bar on each set, IBM Plex Sans 300 is bundled, and `pnpm shots --look classic|c` takes a picture in either look.
+- Core has themes, the main classes above the categories: `themeOf` in `packages/core/src/themes.ts` gives every row of spending one theme and one line in it, and the themes of a period add up to its Menot. No page shows them yet.
+- Core answers what goes where: `themesReport` in `packages/core/src/analysis/themes-report.ts` sums the themes of the last twelve complete months, each with its lines, a figure a month, a figure for the year and the change against the year before, and holds large purchases apart. The first page's answer carries it as `themes`, `pnpm findings --source themes` prints it, and no page draws it yet.
+
 ## 0.14.0
 
 - Asetukset is one plain page: Pankkiyhteydet, Tilit, Talouden jäsenet, Lainat and Salasana. Everything technical (the server, the bank link's application, remote access, the security log, maintenance) is on a page of its own behind one card, Tekniset asetukset.

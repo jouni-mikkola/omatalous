@@ -55,7 +55,7 @@ describe("electricity price per kWh", () => {
   });
 
   it("compares only bills that cover exactly one year, and never annualises fewer than 12 months", () => {
-    const uncovered = { status: "no_data", hint: "12 kuukauden laskut eivät kata täsmälleen yhtä vuotta." };
+    const uncovered = { status: "no_data" };
     // a bill paid in two parts: 24 seller payments in 12 months
     const halves = el.bills(FRAME, { seller: [7500, 5000] });
     const second = halves
@@ -75,7 +75,7 @@ describe("electricity price per kWh", () => {
     const short: Frame = { ...FRAME, start: "2026-02-01", months: monthRange("2026-02", "2026-09") };
     const data = run([{ txs: el.bills(short), values: el.KWH }], short);
     expect(allFindings(data).filter((f) => f.kind === "price")).toEqual([]);
-    expect(checkOf(data, "electricity:price")).toMatchObject({ status: "no_data", hint: "Vertailuun tarvitaan 12 valmista kuukautta." });
+    expect(checkOf(data, "electricity:price")).toMatchObject({ status: "no_data" });
   });
 
   it("nets money in from the same payees against the bills", () => {
@@ -102,17 +102,17 @@ describe("electricity price per kWh", () => {
     expect(f.euros!.midCents).toBe((228 - 183) * 1000);
   });
 
-  it("stays quiet on the near misses, and the check says why", () => {
+  it("stays quiet on the near misses, and the check has no data", () => {
     const [sellerOnly, under, moved, switched] = el.nearMiss(FRAME);
     const a = run([sellerOnly!]);
     expect(allFindings(a).filter((f) => f.kind === "price")).toEqual([]);
-    expect(checkOf(a, "electricity:price")).toMatchObject({ status: "no_data", hint: "Verkkoyhtiön laskuja ei löytynyt 12 kuukauden ajalta." });
+    expect(checkOf(a, "electricity:price")).toMatchObject({ status: "no_data" });
     const b = run([under!]);
     expect(allFindings(b)).toEqual([]);
     expect(checkOf(b, "electricity:price").status).toBe("clear");
     const c = run([moved!]);
     expect(allFindings(c)).toEqual([]);
-    expect(checkOf(c, "electricity:price")).toMatchObject({ status: "no_data", hint: "Muuton jälkeen on alle 12 valmista kuukautta." });
+    expect(checkOf(c, "electricity:price")).toMatchObject({ status: "no_data" });
     const d = run([switched!]);
     expect(allFindings(d)).toEqual([]);
     expect(checkOf(d, "electricity:price")).toMatchObject({ status: "clear" });
@@ -123,20 +123,20 @@ describe("electricity price per kWh", () => {
     expect(checkOf(data, "electricity:price")).toMatchObject({ status: "needs_input", input: "electricity_kwh" });
     expect(data.needed.map((n) => n.key)).toContain("electricity_kwh");
     const none = run([]);
-    expect(checkOf(none, "electricity:price")).toMatchObject({ status: "no_data", hint: "Sähkölaskuja ei löytynyt 12 kuukauden ajalta." });
+    expect(checkOf(none, "electricity:price")).toMatchObject({ status: "no_data" });
     expect(none.needed).toEqual([]);
   });
 
   it("does not compare two network companies' year, a price over twice the band or an expired band", () => {
     const two = el.bills(FRAME, { extra: (row) => ["2026-06-20", "2026-07-20", "2026-08-20", "2026-09-20"].map((d) => row(d, 7000, "Elenia")) });
-    expect(checkOf(run([{ txs: two, values: el.KWH }]), "electricity:price")).toMatchObject({ status: "no_data", hint: "Verkkolaskuja on kahdelta yhtiöltä 12 kuukauden ajalta." });
+    expect(checkOf(run([{ txs: two, values: el.KWH }]), "electricity:price")).toMatchObject({ status: "no_data" });
     const dear = run([{ txs: el.bills(FRAME, { seller: [30000, 30000] }), values: el.KWH }]);
     expect(allFindings(dear)).toEqual([]);
-    expect(checkOf(dear, "electricity:price").hint).toBe("Hinta on yli kaksi kertaa kokoluokan keskihinta: tarkista vuosikulutus.");
+    expect(checkOf(dear, "electricity:price").status).toBe("no_data");
     // the band means age six months after June 2026
     const later = frameAt("2027-01-15");
     const old = run([{ txs: el.bills(later), values: { electricity_kwh: { value: 10_000, asOf: "2027-01-02" } } }], later);
-    expect(checkOf(old, "electricity:price")).toMatchObject({ status: "no_data", hint: "Vertailutieto on vanhentunut." });
+    expect(checkOf(old, "electricity:price")).toMatchObject({ status: "no_data" });
   });
 
   it("knows a bill by its industry code before its name", () => {
@@ -207,7 +207,7 @@ describe("housing charge rise", () => {
     expect(checkOf(run([{ txs: hs.charges(FRAME, { to: 31200 }) }]), "housing:rise").status).toBe("clear");
     const house = run([{ txs: rose, values: hs.housingType("omakotitalo") }]);
     expect(allFindings(house)).toEqual([]);
-    expect(checkOf(house, "housing:rise")).toMatchObject({ status: "no_data", hint: "Asumismuodolle ei ole vertailutietoa." });
+    expect(checkOf(house, "housing:rise")).toMatchObject({ status: "no_data" });
   });
 
   it("leaves out one step over 10 %: a move to another flat of the same landlord, and asks for the move date", () => {
@@ -215,11 +215,11 @@ describe("housing charge rise", () => {
     const data = run([{ txs: sato, values: hs.housingType("vuokra") }]);
     expect(allFindings(data)).toEqual([]);
     expect(data.headline.count).toBe(0);
-    expect(checkOf(data, "housing:rise")).toMatchObject({ status: "needs_input", input: "moved_on", hint: "Jos muutit, lisää muuttopäivä." });
+    expect(checkOf(data, "housing:rise")).toMatchObject({ status: "needs_input", input: "moved_on" });
     // with a move date before the series the step is still no rise to act on
     const known = run([{ txs: sato, values: { ...hs.housingType("vuokra"), moved_on: { value: "2024-01-15", asOf: "2026-10-01" } } }]);
     expect(allFindings(known)).toEqual([]);
-    expect(checkOf(known, "housing:rise")).toMatchObject({ status: "no_data", hint: "Nousu on yli 10 % kerralla, joten sitä ei verrata." });
+    expect(checkOf(known, "housing:rise")).toMatchObject({ status: "no_data" });
     // 10,0 % is still a rise
     expect(byId(run([{ txs: hs.charges(FRAME, { merchant: "Sato", description: "VUOKRA", from: 80000, to: 88000 }), values: hs.housingType("vuokra") }]), "housing:rise:out:h-chk:Sato")).toBeDefined();
   });
@@ -230,7 +230,7 @@ describe("housing charge rise", () => {
     expect(allFindings(run([{ ...hs.hit(FRAME), txs: [...hs.hit(FRAME).txs, ...parking] }]))).toEqual([]);
     const q3 = run([{ txs: hs.charges(FRAME, { merchant: "Sato", description: "VUOKRA", from: 80000, to: 84800, changeMonth: "2026-07" }), values: hs.housingType("vuokra") }]);
     expect(allFindings(q3)).toEqual([]);
-    expect(checkOf(q3, "housing:rise")).toMatchObject({ status: "no_data", hint: "Vertailutietoa ei ole nousun ajalta." });
+    expect(checkOf(q3, "housing:rise")).toMatchObject({ status: "no_data" });
   });
 });
 
@@ -267,8 +267,8 @@ describe("insurance", () => {
     for (const miss of ins.nearMiss(FRAME)) expect(allFindings(run([miss]))).toEqual([]);
     const september = run([{ txs: ins.premiums(FRAME, { to: 12000, changeMonth: "2026-09" }) }]);
     expect(allFindings(september)).toEqual([]);
-    expect(checkOf(september, "insurance:rise")).toMatchObject({ status: "no_data", hint: "Kuluttajahintojen muutosta ei ole vielä julkaistu nousukuukaudelta." });
-    expect(checkOf(run([]), "insurance:rise")).toMatchObject({ status: "no_data", hint: "Vakuutusmaksuja ei löytynyt 12 kuukauden ajalta." });
+    expect(checkOf(september, "insurance:rise")).toMatchObject({ status: "no_data" });
+    expect(checkOf(run([]), "insurance:rise")).toMatchObject({ status: "no_data" });
   });
 });
 

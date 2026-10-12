@@ -42,13 +42,31 @@ describe("Raportit: Tulot ja menot", () => {
 
 describe("Raportit: Kiinteät ja muuttuvat", () => {
   const rows = [{ month: "2026-08", fixedCents: 120_000, habitCents: 30_000, variableCents: 50_000, debtCents: 0 }];
-  const fixedData = (t: { fixedCents: number; habitCents: number; variableCents: number; debtCents: number }) => ({ fixedVariable: { totals: t, rows }, buffer: { advice: null, cashCents: 10_000 } });
+  const fixedData = (t: { fixedCents: number; habitCents: number; variableCents: number; debtCents: number }, buffer: Record<string, unknown> = {}) => ({
+    fixedVariable: { totals: t, rows },
+    buffer: { fixedMonthlyCents: 130_000, fixedShare: 0.4, ...buffer },
+  });
+  const parts = { fixedCents: 120_000, habitCents: 30_000, variableCents: 50_000, debtCents: 0 };
+  /** The figures of the card: label and value of each tile, in order. */
+  const tiles = (out: string) => [...out.replace(/[  ]/g, " ").matchAll(/<div class="k">([^<]*)<\/div><div class="v">([^<]*)<\/div>/g)].map((m) => `${m[1]}: ${m[2]}`);
 
-  it("hides a part the period has none of, with its legend entry", () => {
+  it("hides a part the period has none of", () => {
     const out = html(fixedVariable, context(fixedData({ fixedCents: 120_000, habitCents: 30_000, variableCents: 50_000, debtCents: 0 })));
     expect(out).toContain("Kiinteät");
     expect(out).toContain("Satunnaiset");
     expect(out).not.toContain("Muu velanhoito");
+  });
+
+  it("starts with the fixed costs a month and their share of the income, and has no paragraph and no chart", () => {
+    const out = html(fixedVariable, context(fixedData(parts)));
+    expect(tiles(out).slice(0, 2)).toEqual(["Kiinteät menot kuukaudessa: 1 300 €", "Osuus tuloista: 40 %"]);
+    expect(out).not.toMatch(/<p|<svg|legend|Asetukset/);
+  });
+
+  it("a share of the income that is not known is a dash, and nothing else is said", () => {
+    const out = html(fixedVariable, context(fixedData(parts, { fixedShare: null, fixedMonthlyCents: 0 })));
+    expect(tiles(out).slice(0, 2)).toEqual(["Kiinteät menot kuukaudessa: 0 €", "Osuus tuloista: –"]);
+    expect(out).not.toContain("<p");
   });
 
   it("shows every part when each has some, with its share of the spending", () => {
@@ -71,6 +89,7 @@ describe("the page of a section", () => {
   const full = () =>
     context({
       balances: { accounts: [{}] },
+      income: { enough: true },
       spendingChange: { views: [{}] },
       yearOverYear: { comparable: true },
       drift: { items: [{}] },

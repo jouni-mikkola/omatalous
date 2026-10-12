@@ -401,12 +401,15 @@ accounts*).
   in the order core gives. The last row is *Tilit yhteensä*, `accountsCents`: the known balances of the accounts added
   together. An account the bank gave no balance shows a dash and is left out of the sum, which says so in the small line
   under it (*Ilman 2 tilin saldoa*); with no known balance at all the total is a dash, never 0.
-- **Luottokortit.** Each connected credit card, drawn as a loan is: its name, then its rows. *Käytetty luotto* is what is
+- **Luottokortit.** Each connected credit card has its face at the left of its name and its rows: a card the app draws
+  itself, in the tone the card's name gives (gold, platinum, black, silver or plain), with the bank's logo or name, the
+  last four digits of the number and the tone's word. *Käytetty luotto* is what is
   owed on it as `householdDebts` counts it (`usedCents`: 0 for a card in credit, a dash when the bank gave no balance) and
   is shown in the colour of what is wrong when the card is over its limit. *Luottoraja* is the limit the bank gave, when it
   is above zero, and *Käytettävissä* is the limit less what is used, 0 over the limit (`freeCents`). A card over its limit
   shows *Luottoraja ylitetty* and what is owed above it (`overCents`) in place of *Käytettävissä*. A card with no limit shows
-  what is used alone. The last four digits of the number follow a card's name only when another card has the same name.
+  what is used alone. The last four digits of the number follow a card's name only when another card has the same name; the face shows them
+  for every card that has a number.
   With two cards or more the last row is *Luottokortit yhteensä*, `cardsCents`: the cards' known use added together.
 - **Lainat.** Every debt of `householdDebts` that is no connected card's: a saved loan, a loan account, and a saved loan
   linked to its account once. *Lainaa jäljellä* is what is left on the day (`leftCents`), and a loan whose balance is not
@@ -501,8 +504,9 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
 - A category whose refunds were greater than its spending in the range stays in *Kategoriat* and *Kuukausitaulukko* as a
   row with its minus, last in the order. Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
-  first page's list *Menot kategorioittain* has such a category as a row with its minus too, and the categories after
-  the ninth are one row, *Muut*, whenever their sum is not zero, so its rows add up to *Menot*.
+  first page's list *Menot kategorioittain* of the month, which a household with themes (see *Themes*) sees as their
+  table instead, has such a category as a row with its minus too, and the categories after the ninth are one row,
+  *Muut*, whenever their sum is not zero, so its rows add up to *Menot*.
 - *Luokittelematta* on Tapahtumat lists the 50 merchants with the most money out that nothing recognised. Its heading
   counts all of them and their money out, which the server adds up in SQL, so the list can be shorter than the count.
 - *Nousseet menot* shows a category that has been over its own level in each of the last three whole
@@ -517,12 +521,73 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
   shops and clinics are purchases and are not listed. It is always about today.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
-  spending of the period. It starts with the fixed costs as a share of *Tavalliset tulot*. With a balance on a savings or checking account it says how many
-  months of usual spending, groceries included, that money covers against a buffer of three months, and names
-  the gap below it. Under three complete months it gives the date the figure appears. Without a balance it says
-  where to add one.
+  spending of the period. It starts with two figures, the fixed costs a month and their share of *Tavalliset tulot*,
+  the share a dash where the income or the costs are too small to tell. It has no chart and no sentence.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
+
+## Themes
+
+A theme is a main class of spending, one level above the categories: *Asuminen*, *Ruoka*, *Auto* and twelve more
+(`THEMES` in `themes.ts`). Every row that counts in spending has one theme and one line in it (`themeOf`), so the
+themes of a period add up to its spending. A line is a category under its own label: *Ruoka* has *Ruokakauppa*,
+*Ravintolat ja kahvilat*, *Ruoan kotiinkuljetus* and *Alko*.
+
+- **Rows pulled from other categories.** One theme takes rows out of their categories by their words. *Auto* has the
+  car's insurance, which is a row of *Vakuutukset*, the vehicle tax, a row of *Verot, maksut ja sakot*, the car's
+  finance, a row of *Kulutusluotot*, and a lease whatever its category. Its lines say what a car row was for: fuel,
+  charging, parking, service, inspection, insurance, tax, finance, a lease and the rest. Home insurance, property tax
+  and a pet insurer's premium are not told apart yet and stay in the theme of their category.
+- **A household without a car has no *Auto*.** Nobody is asked how many cars there are, so the fuel stands in for the
+  answer: *Auto* exists when the months looked at hold six purchases of fuel or charging. Without it the car's own
+  categories are lines of *Liikkuminen*, and the insurance, the tax and the finance stay where their category is.
+- **Money back** counts in the theme and on the line of the payment it takes back, in the month it arrives.
+
+What goes where over a year is `themesReport` in `analysis/themes-report.ts`. The first page's answer carries it as
+`themes`, the same whatever period the page shows. The first page draws it as *Menot kategorioittain* (below).
+
+- **The months.** The last twelve complete months before today, never the running one, narrowed twice. First, every
+  account with spending in the window was in the data from the window's first day. The data does not say from which
+  day an account's history was asked, so the account's first row decides, with the three days of slack the oldest row
+  has (`isCompleteMonth`): a card connected five months ago makes the window five months, a month an account covers
+  in part is not in it, and a card opened or first used inside the twelve months is read the same way. A new card
+  narrows nothing when another card of the same bank has rows from a month or more before its first one, and neither
+  does a new account when another account of that bank has them: the bank has shown how far back it gives history,
+  so the new one had nothing to show before, as when a bank replaces a card. Second, an
+  account pays when it has spending in half of the months left or more, and from its first row on a paying account
+  must have a row of some kind in every month: a month without one is missing data, a card that stopped syncing, and
+  not a month without spending. The window is the newest run of three or more such months, so it can end before the
+  last complete month.
+  An account with no spending in the months left does not count: a card that ended when another took over moves
+  nothing. Under three months there is no answer.
+- **A month and a year.** A theme's figure a month is the window's sum divided by its months. Its figure for the year
+  is the sum of a window of twelve months, and a shorter window has none: nothing is scaled up to a year. A theme's
+  cents a month are shared out among its lines, so the lines add up to the theme and one of them can be a cent off
+  its own sum divided by the months. The total a month is the sum of the themes.
+- **Large purchases stand apart.** A purchase of the `large` policy (`largePurchases` in `analysis/large.ts`) is in no
+  theme: one of at least 500 € that is over a quarter of what the rest of its category took in the twelve months
+  around it and is no row of a series, and every row of *Auton osto*. The large purchases of the window are one sum,
+  a count of the purchases and the rows the sum is made of, the largest first, each with its day, its payee and its
+  cents in the view. Money that came back for a large purchase is one of those rows with its minus, so it lowers that
+  sum and no theme. Money in on *Auton osto* that takes back no payment, the old car sold, is such a row too and on no
+  line of *Auto*; it is no purchase and the count leaves it out. The rows add up to the sum, and the themes and the
+  large purchases add up to the spending of the window to the cent, which `packages/core/test/themes-report.test.ts`
+  holds for every fixture household that has an answer, as the household sees it and with every account cut to a
+  half. No fixture household has an account with two holders.
+- **The change** sets a theme or a line against the twelve months before the window. It needs 24 complete months,
+  every account with spending in either year in the data from the first day of the year before, and every paying
+  account of either year with a row in each month of both. The year before is placed by the same answer on *Auto*,
+  and the change is told only from the gate on: 2 % of the level a month in the year before, and at least 10 € a
+  month (`gateFor`).
+- **The first page's table** *Menot kategorioittain* takes the place of the month's list of categories when the answer
+  has `themes`, and the month switch does not change it: its period, as months and years, is at the right of its
+  heading. It draws the answer and computes nothing but its rest row: the seven largest themes as the answer orders
+  them, and the others in one row *Muut (n)* whose figures are the sums of theirs. A figure a month, a figure for the
+  year only when the window is twelve months, and the change only when some row has one; a row without a change has an
+  empty cell. Every theme opens to its lines with a button (*Ruoka* is open when the page opens), except a theme of one
+  line that has its name. A line that is a category links to its rows in Tapahtumat over the window's days; the lines
+  of *Auto* are no categories and have no link. *Yhteensä* is the sum of the themes. The large purchases are a row of
+  their own under the table, with the sum of the whole window, and open to their rows (`ThemesTable.tsx`).
 
 ## Loans
 
@@ -593,10 +658,13 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   and at what part, is told in *Joint accounts*. Its interest total
   leaves out the loans that owe and have no rate (`loansWithoutRate`, the count Säästövinkit reads too), and its
   payments a month leave out the loans without a payment and an interval and a loan whose balance is dated after
-  today: each says how many. The line of a move of the reference rate names the payment only when the move has one,
+  today; the page does not count them. The line of a move of the reference rate names the payment only when the move has one,
   and a move with no figure has no line. A payment made less often than monthly is spread over its interval, and a payment
-  without an interval is shown without one. The date a loan ends is "Viimeinen eräpäivä". What is not known reads
-  "ei tiedossa", never zero.
+  without an interval is shown without one. The interest and the amortisation of a payment, and the viewer's part of a loan,
+  are values with a label of their own. The date a loan ends is "Viimeinen eräpäivä". What is not known is a dash on the page,
+  never zero; a saved loan of the viewer's own with a dash in it has the link *Täydennä* to *Asetukset* > *Lainat*, and a loan
+  another member typed in has none. A connected credit card is a row of *Käytetty luotto* and, when the account has a limit
+  and the viewer has the whole card, *Luottoraja*, with none of a loan's terms.
 - The Säästövinkit loan area reads a saved mortgage where there is one: its margin and reference rate answer for the
   `loan_rate` question, its balance is the loan's balance today (the bank's balance when the mortgage is linked to its
   loan account), and paying it down early is counted at its own rate
@@ -608,10 +676,11 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 
 - A finding's euros are a year: the last 12 complete months, or 6 to 11 complete months scaled to a year with one
   step less certainty. Under six complete months there are no euros, under three only deadlines.
-- Each finding has a low, a mid and a high figure with the assumption behind the range. The page shows the mid.
+- Each finding has a low, a mid and a high figure. The page shows the mid.
 - A finding needs a mid of at least 120 € a year. A deadline has no euros.
 - The car's running cost holds leasing, and a car bought is shown apart. *Muut havainnot* stand on the same complete
-  months as the findings. A check with no rows to read is not counted as checked; the page lists no checks.
+  months as the findings. The answer counts the checks of the areas: all of them, those waiting for a number, a fact or
+  months, and those with no rows to read, which did not look at anything. No page shows the counts.
 - A one-off (`oneOffs` with the level policy, the one every view uses, ADR 0005): a purchase over three times its usual ticket (its merchant's median, else its category's in other months) and at least 50 €, or 150 € with no ticket. Listed struck and left out. Transfers never
   count, and an account whose first row falls inside the window is left out of it.
 - The headline adds the mids of the findings shown, largest first. It leaves out a decided finding, one at matala

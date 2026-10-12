@@ -70,7 +70,7 @@ describe("Ruoka", () => {
     expect(Math.abs(wolt.euros!.midCents - 5 * ticket * 12)).toBeLessThanOrEqual(12);
     expect(wolt.title).toMatch(/^Wolt: 8 kertaa kuussa, vuotta aiemmin 3\. Ostoskerta keskimäärin /);
     // tilaus is a subscription in this app: a delivery order is counted in kertaa
-    expect(JSON.stringify([wolt.title, wolt.action, wolt.euros!.assumption, wolt.calc])).not.toMatch(/tilau/i);
+    expect(JSON.stringify([wolt.title, wolt.action, wolt.calc])).not.toMatch(/tilau/i);
   });
 
   it("strikes the party dinner and lists it", () => {
@@ -124,7 +124,6 @@ describe("Pienet tavat", () => {
     expect(calcValue(kiosk, /^Huhti–syyskuu 2025, kertaa kuussa tavallisesti/)).toBe("8");
     const ticket = cents(calcValue(kiosk, /^Ostoskerta keskimäärin/));
     expect(kiosk.euros).toMatchObject({ midCents: 6 * ticket * 12, lowCents: 3 * ticket * 12, highCents: 6 * ticket * 12 });
-    expect(kiosk.euros!.assumption).toBe("Jos käyntejä on yhtä monta kuin vuotta aiemmin.");
     expect(kiosk.title).toMatch(/^R-Kioski Kamppi: 14 kertaa kuussa, vuotta aiemmin 8\. Ostoskerta keskimäärin \d+,\d\d €, huhti–syyskuu 2026 verrattuna samaan aikaan vuotta aiemmin\.$/);
     expect(kiosk.action).toBe("Tarkista käyntien määrä: vuotta aiemmin 8 kertaa kuussa.");
     expect(kiosk.weaknesses).toEqual([]);

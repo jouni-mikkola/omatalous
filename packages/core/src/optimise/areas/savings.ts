@@ -20,26 +20,20 @@ const FRESH_BALANCE_DAYS = 7;
  * says nothing about them.
  */
 const HOUSEHOLD_SIGNALS = new Set(["own_unconnected", "no_balance"]);
-const WALK_SIGNALS = { gap: (name: string) => `Tilin ${name} tiedoissa on tauko.`, stale: (name: string) => `Tilin ${name} uusimpia tapahtumia ei ole haettu.` } as const;
 
 const IDLE_ID = "savings:idle_cash";
 const IDLE_LABEL = "Käyttötilin ylimääräinen saldo";
-const ADD_CHECKING = "Lisää käyttötilin saldo kohdassa Asetukset > Tilit.";
 
 function idleCash(a: AreaInput): { check: Check; draft?: FindingDraft } {
-  const noData = (hint?: string) => ({ check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_data" as const, ...(hint ? { hint } : {}) } });
+  const noData = () => ({ check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_data" as const } });
   const checking = ownAccounts(a, "checking");
-  if (!checking.length || checking.some((b) => b.balanceCents === null)) return noData(ADD_CHECKING);
+  if (!checking.length || checking.some((b) => b.balanceCents === null)) return noData();
   const todayDay = dayNumber(a.today);
-  if (checking.some((b) => !b.balanceAt || todayDay - dayNumber(b.balanceAt.slice(0, 10)) > FRESH_BALANCE_DAYS)) return noData("Käyttötilin saldo on yli 7 päivää vanha.");
-  const signal = a.quality.signals.find((s) => HOUSEHOLD_SIGNALS.has(s.id));
-  if (signal) return noData(`${signal.title}.`);
-  for (const b of checking) {
-    const kind = (["gap", "stale"] as const).find((k) => a.quality.byAccount[b.id]?.includes(k));
-    if (kind) return noData(WALK_SIGNALS[kind](b.name));
-  }
+  if (checking.some((b) => !b.balanceAt || todayDay - dayNumber(b.balanceAt.slice(0, 10)) > FRESH_BALANCE_DAYS)) return noData();
+  if (a.quality.signals.some((s) => HOUSEHOLD_SIGNALS.has(s.id))) return noData();
+  if (checking.some((b) => (["gap", "stale"] as const).some((k) => a.quality.byAccount[b.id]?.includes(k)))) return noData();
   const yieldOf = savingsYield(a);
-  if (!yieldOf) return noData("Säästötilin tuotto lasketaan säästötilin saldosta ja 12 kuukauden koroista.");
+  if (!yieldOf) return noData();
   const usual = usualSpend(a);
   const from = `${a.months[0]}-01`;
   const before = accountsBefore(a.ctx, from);
@@ -61,8 +55,7 @@ function idleCash(a: AreaInput): { check: Check; draft?: FindingDraft } {
       `${checking.length === 1 ? "Käyttötilillä" : "Käyttötileillä"} on ollut ${formatFiDate(from)} alkaen vähintään ${eur(lowest.cents)}, ja menot ovat tavallisesti ${eur(usual)} kuussa. ` +
       `${yieldOf.accounts.length === 1 ? "Säästötilin" : "Säästötilien"} tuotto oli ${pct(yieldOf.rate)}.`,
     action: "Siirrä ylimääräinen saldo säästötilille.",
-    effort: "minuutteja",
-    euros: { lowCents: yearly, midCents: yearly, highCents: yearly, assumption: "Summa siirretään omalle säästötilille samalla korolla." },
+    euros: { lowCents: yearly, midCents: yearly, highCents: yearly },
     decideBy: null,
     weaknesses: [],
     shared: false,

@@ -7,7 +7,7 @@ import { addMonthsToDate, dayNumber, fromDayNumber } from "../dates.ts";
 import { formatFiDate } from "../analysis/format.ts";
 import type { IsoDate } from "../types.ts";
 import { isSubject } from "./common.ts";
-import type { AreaId, InputKey, InputValue, InputValueMap, InputValues, LoanReference, StoredInput } from "./types.ts";
+import type { InputKey, InputValue, InputValueMap, InputValues, LoanReference, StoredInput } from "./types.ts";
 
 export type InputKind = "integer" | "cents" | "date" | "choice" | "loan_rate";
 
@@ -26,11 +26,8 @@ export interface InputDef {
   choices?: readonly { id: string; label: string }[];
   /** Shown after the field: "kWh vuodessa". Money is typed in euros and stored in cents. */
   unit?: string;
-  /** What the input unlocks, one Finnish sentence. */
-  unlocks: string;
   /** Days after it was saved that the value counts as missing; "date" when its own date has passed; null never. */
   staleAfterDays: number | "date" | null;
-  areas: readonly AreaId[];
   /** The key carries a subject: `insurance_quote:<series id>`. */
   perSubject: boolean;
 }
@@ -53,9 +50,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     min: 0,
     max: 500,
     choices: LOAN_REFERENCES,
-    unlocks: "Marginaalin vertailu ja lainan lyhentäminen säästöillä.",
     staleAfterDays: 365,
-    areas: ["loans"],
     perSubject: false,
   },
   electricity_kwh: {
@@ -65,9 +60,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     min: 500,
     max: 60_000,
     unit: "kWh vuodessa",
-    unlocks: "Sähkön hinta kilowattitunnilta verrattuna saman kokoluokan keskihintaan.",
     staleAfterDays: 395,
-    areas: ["electricity"],
     perSubject: false,
   },
   electricity_contract_end: {
@@ -76,9 +69,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     kind: "date",
     minMonths: 0,
     maxMonths: 36,
-    unlocks: "Määräaika sopimuksen kilpailuttamiselle.",
     staleAfterDays: "date",
-    areas: ["electricity"],
     perSubject: false,
   },
   housing_type: {
@@ -92,9 +83,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
       { id: "vuokra", label: "Vuokra-asunto" },
       { id: "asumisoikeus", label: "Asumisoikeusasunto" },
     ],
-    unlocks: "Asumismenojen nousu verrattuna kyselyyn tai vuokraindeksiin.",
     staleAfterDays: 1095,
-    areas: ["housing"],
     perSubject: false,
   },
   moved_on: {
@@ -103,9 +92,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     kind: "date",
     minMonths: -36,
     maxMonths: 0,
-    unlocks: "Asumisen ja sähkön vertailut alkavat muuton jälkeen.",
     staleAfterDays: null,
-    areas: ["housing", "electricity"],
     perSubject: false,
   },
   insurance_quote: {
@@ -115,9 +102,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     min: 100,
     max: 1_000_000,
     unit: "€ vuodessa",
-    unlocks: "Tarkka ero nykyiseen hintaan, kun vakuutus uusiutuu.",
     staleAfterDays: 180,
-    areas: ["insurance"],
     perSubject: true,
   },
   parking_permit_price: {
@@ -127,9 +112,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     min: 100,
     max: 200_000,
     unit: "€ vuodessa",
-    unlocks: "Pysäköintimaksujen vertailu asukaspysäköintitunnuksen hintaan.",
     staleAfterDays: 365,
-    areas: ["car"],
     perSubject: false,
   },
   car_km: {
@@ -139,9 +122,7 @@ export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
     min: 1_000,
     max: 100_000,
     unit: "km vuodessa",
-    unlocks: "Auton menot kilometriä kohden.",
     staleAfterDays: 365,
-    areas: ["car"],
     perSubject: false,
   },
 };

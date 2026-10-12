@@ -121,6 +121,9 @@ flowchart LR
   after the file and its folder are flushed to disk (`platform/durable.ts`) and the copy has been opened and checked.
   What keeps the copies safe is under [Keeping the data safe](#keeping-the-data-safe).
 - The analysis context is built once per user data version; a request only filters and adds up.
+- Themes are the main classes above the categories. `themes.ts` gives every row of spending one theme and one
+  line in it; `analysis/themes-report.ts` sums them over the last twelve complete months, and the overview's
+  answer carries the report as `themes`. What the user sees: [MONEY_FLOWS.md](MONEY_FLOWS.md#themes).
 - Alerts (`analysis/alerts.ts`, shown above the insights on the overview) are cost traps found in the
   selected period: double charges, late fees, overlapping services, spending spikes, services to review,
   bank fees and small habits. At most six are shown, one of each kind first. What the user sees:
@@ -129,7 +132,7 @@ flowchart LR
   the range. The registry has `summary`, `cashflow`, `categories`, `pivot`, `fixedVariable`, `priceChanges`,
   `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift`, `buffer`, `spendingChange`, `income`, `insights` and `loans`.
 - Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
-  file per area in `areas/` returns findings (title, action, a euro range with its assumption, calc lines, evidence
+  file per area in `areas/` returns findings (title, action, a euro range, calc lines, evidence
   rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months
   only (under three only deadlines, under six no euros), the 120 € gate, certainty from weaknesses (`common.ts`), the
   user's states (`state.ts`), three findings per area and a headline that skips overlapping findings. An outside figure

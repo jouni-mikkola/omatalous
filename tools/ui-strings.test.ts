@@ -163,8 +163,8 @@ describe("pnpm strings on this repository", () => {
     "Seuraavat 30 päivää", // components/NextDays.tsx
     "Palkkapäivä ei ole tiedossa.",
     "Tilin saldo ei ole tiedossa.",
-    "Käyttötilin saldo on yli 7 päivää vanha.", // core optimise
-    "Lisää käyttötilin saldo kohdassa Asetukset > Tilit.",
+    "Kilpailuta asuntolainan marginaali.", // core optimise
+    "Tarkista korotuksen peruste vuokrasopimuksesta.",
     "Väärä käyttäjätunnus tai salasana.", // server
     "Osoite on vajaa. Liitä koko osoite.",
     "Liitä koko osoite selaimen osoiteriviltä.",

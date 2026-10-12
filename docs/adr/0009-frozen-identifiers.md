@@ -16,7 +16,7 @@ regex (outcome, the Optimoi page, the rename of stored decisions). Stored codes 
 - A merchant name never holds `#` or `:` (`cleanDescription` drops them), so every id the app has stored keeps its
   form. Only a name ending like a suffix would get one more `#`; `series-id.test.ts` round-trips such names and checks
   that derived names keep the stored form.
-- Frozen codes, spelled as stored: certainty `korkea`, `keskitaso`, `matala`; effort `minuutteja`, `tunti`, `ilta`;
+- Frozen codes, spelled as stored: certainty `korkea`, `keskitaso`, `matala`;
   housing types and outcome verdicts in `optimise/types.ts` and `optimise/outcome.ts`; `CheckStatus`,
   `FindingStatus`, `DismissReason`; finding ids `<area>:<kind>:<subject>`; connector ids.
 - New codes are English snake_case. Module names say what they hold: `db/optimize.ts` (SQLite `PRAGMA optimize`)

@@ -84,8 +84,7 @@ function eatingOut(a: AreaInput, win: { now: string[]; then: string[]; all: stri
     subject: null,
     title: `Ravintolat ja ruoan kotiinkuljetus: ${eur(nowLevel)} kuussa, vuotta aiemmin ${eur(thenLevel)}. ${nowSpan} verrattuna samaan aikaan vuotta aiemmin, tavallinen kuukausi ilman kertaostoja.`,
     action: `Varaa ravintoloihin ja ruoan kotiinkuljetukseen ${eur(thenLevel)} kuussa, kuten vuotta aiemmin.`,
-    effort: "minuutteja",
-    euros: { lowCents: Math.round(midCents / 2), midCents, highCents, assumption: "Jos taso palaa vuoden takaiseen." },
+    euros: { lowCents: Math.round(midCents / 2), midCents, highCents },
     decideBy: null,
     weaknesses: [{ id: "estimate", reason: "Kotitalouden koko ei näy tiedoista." }],
     shared: false,
@@ -162,8 +161,7 @@ function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: r
       subject: merchant,
       title: `${merchant}: ${formatCount(nowOrders)} kertaa kuussa, vuotta aiemmin ${formatCount(thenOrders)}. Ostoskerta keskimäärin ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
       action: `Tarkista ruoan kotiinkuljetus: vuotta aiemmin ${formatCount(thenOrders)} kertaa kuussa.`,
-      effort: "minuutteja",
-      euros: { lowCents: Math.round(midCents / 2), midCents, highCents, assumption: "Jos kotiinkuljetuksia on yhtä monta kuin vuotta aiemmin." },
+      euros: { lowCents: Math.round(midCents / 2), midCents, highCents },
       decideBy: null,
       weaknesses: [],
       shared: false,
@@ -178,16 +176,14 @@ function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: r
   return out;
 }
 
-const NO_HISTORY = "Vertailu vuoden takaiseen tarvitsee 18 kuukauden historian.";
-
 export const food: Area = {
   id: "food",
   label: "Ruoka",
   assess: (a) => {
     const win = yearOverYear(a);
     const checks = (status: Check["status"]): Check[] => [
-      { id: "food:eating_out", label: "Ravintolat ja kotiinkuljetus", status, ...(status === "no_data" ? { hint: NO_HISTORY } : {}) },
-      { id: "food:delivery", label: "Ruoan kotiinkuljetus", status, ...(status === "no_data" ? { hint: NO_HISTORY } : {}) },
+      { id: "food:eating_out", label: "Ravintolat ja kotiinkuljetus", status },
+      { id: "food:delivery", label: "Ruoan kotiinkuljetus", status },
     ];
     if (!win) return { findings: [], checks: checks("no_data") };
     const rows = eatingOutRows(a.ctx, win.all);

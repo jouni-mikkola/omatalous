@@ -110,23 +110,25 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   const { page, seen, context } = await open(browser, 1280);
   const section = page.locator("#lainat");
 
-  // the totals: both loans are owed, and the sums that leave the card out say so
+  // the totals: both loans are owed
   const tiles = await texts(page, "#lainat .kv > div");
   expect(tiles[0]).toBe("Velkaa yhteensä 121 240 €");
   expect(tiles[1]).toMatch(/^Korot 12 kuukaudessa \d[\d ]* €$/);
   expect(tiles[2]).toBe("Maksuerät kuussa 1 000 €");
-  expect(await texts(page, "#lainat .loans-notes li")).toEqual(["Koroista puuttuu yksi laina, jonka korkoa ei tiedetä.", "Maksueristä puuttuu yksi laina, jonka maksuerää ei tiedetä."]);
+  // a figure the card lacks is a dash in its row, and no sentence tells which loans a sum leaves out
+  await expect(section.locator(".loans-notes")).toHaveCount(0);
+  await expect(section).not.toContainText(/puuttuu|ei tiedossa/);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
   // reads their texts), and nothing on the page calls a figure net worth
   await expect(page.locator("main")).not.toContainText("Nettovarallisuus");
 
-  // the mortgage: every figure, and the payment split into interest and amortisation
+  // the mortgage: every figure, and the payment split into its interest and amortisation, each with a label
   const rows = section.locator(".loan-list > li");
   await expect(rows).toHaveCount(2);
   const home = rows.nth(0);
   await expect(home.locator(".loan-head")).toHaveText(/Kodin laina\s*Asuntolaina · Esimerkkipankki/);
   const figures = (await home.locator(".loan-figures > div").allInnerTexts()).map(plain);
-  expect(figures.slice(0, 3)).toEqual(["Velkaa 120 000,00 €", "Korko 4,00 % 12 kuukauden Euribor", "Maksuerä 1 000,00 €/kk korkoa 400,00 €, lyhennystä 600,00 €"]);
+  expect(figures.slice(0, 3)).toEqual(["Velkaa 120 000,00 €", "Korko 4,00 % 12 kuukauden Euribor", "Maksuerä 1 000,00 €/kk Korko 400,00 € Lyhennys 600,00 €"]);
   expect(figures[3]).toBe(tiles[1]);
   expect(figures[4]).toMatch(/^Viimeinen eräpäivä \d{1,2}\.\d{1,2}\.\d{4}$/);
 
@@ -141,19 +143,50 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   expect(downInterest!).toBeLessThan(interest);
   expect(upInterest!).toBeGreaterThan(interest);
 
-  // the card: the balance is known, and the rest is said to be unknown instead of printed as zero
+  // the mortgage has everything: nothing to complete
+  await expect(home.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
+
+  // the card: the balance is known, and the rest is a dash instead of a zero, with one link to complete it
   const card = rows.nth(1);
   expect((await card.locator(".loan-figures > div").allInnerTexts()).map(plain)).toEqual([
     `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.${today.slice(0, 4)}`,
-    "Korko ei tiedossa",
-    "Maksuerä ei tiedossa",
-    "Korot 12 kuukaudessa ei tiedossa",
-    "Viimeinen eräpäivä ei tiedossa",
+    "Korko –",
+    "Maksuerä –",
+    "Korot 12 kuukaudessa –",
+    "Viimeinen eräpäivä –",
   ]);
   await expect(card.locator(".loan-scenario")).toHaveCount(0);
+  await expect(card.getByRole("link")).toHaveCount(1);
+  await expect(card.getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings#lainat");
 
   expect(await overflow(page)).toBe(0);
   await shot(page, 1280);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Täydennä opens Asetukset at the card Lainat, where the loan can be changed", async ({ browser }) => {
+  const { page, seen, context } = await open(browser, 1280);
+  await page.locator("#lainat .loan-list > li").nth(1).getByRole("link", { name: "Täydennä", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings#lainat");
+  await expect(page.getByRole("button", { name: "Muokkaa lainaa Kaupan kortti" })).toBeVisible();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Raportit has two charts, Tulot ja menot and Saldot, and none of the paragraphs the figures replaced", async ({ browser }) => {
+  const { page, seen, context } = await open(browser, 1280);
+  await expect(page.locator("#kassavirta").getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
+  // the charts are the figures drawn: the month columns of the cash flow and the line of the balances
+  const charts = page.locator("main svg[role='img']");
+  expect(await charts.evaluateAll((all) => all.map((c) => c.getAttribute("aria-label")))).toEqual(["Tulot ja menot kuukausittain", "Yhdistetyt tilit yhteensä, arvio"]);
+  await expect(page.locator("#saldot").getByRole("heading", { name: "Tilien saldo kuukauden lopussa (arvio)" })).toBeVisible();
+  await expect(page.locator("#saldot .legend")).toHaveCount(0);
+  // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulot
+  await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
+  await expect(page.locator("#kiinteat .kv .k").filter({ hasText: "Kiinteät menot kuukaudessa" })).toHaveCount(1);
+  await expect(page.locator("#kiinteat .kv .k").filter({ hasText: "Osuus tuloista" })).toHaveCount(1);
+  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulot", exact: true })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

@@ -40,12 +40,13 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --loan           needs --member. The second member saves the mortgage the joint account's payments propose, so the first member
                    sees a loan another member typed in
   --name label     in the file names: <route>-<label>-<width>.png, so that two states do not overwrite each other
+  --look classic|c classic puts data-look="classic" on <html>, c takes it away (before the steps and the picture); without it the page is as served
 Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
 /**
  * @typedef {{ help: boolean, routes: string[], widths: number[], demo: boolean, fakeBank: boolean, answers: string | null,
  *   steps: string | null, scope: "own" | "household" | null, name: string | null, member: boolean, parts: [number, number] | null,
- *   loan: boolean }} Options
+ *   loan: boolean, look: "classic" | "c" | null }} Options
  */
 
 /**
@@ -54,7 +55,7 @@ Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture s
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { help: false, routes: [], widths: WIDTHS, demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false };
+  const o = { help: false, routes: [], widths: WIDTHS, demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, look: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? "";
     const eq = a.startsWith("--") ? a.indexOf("=") : -1;
@@ -90,6 +91,10 @@ export function parseArgs(argv) {
       const v = value();
       if (!/^[\w-]+$/.test(v)) throw new Error(`--name takes letters, digits, - and _ (got: ${v})`);
       o.name = v;
+    } else if (flag === "--look") {
+      const v = value();
+      if (v !== "classic" && v !== "c") throw new Error(`--look takes classic or c (got: ${v})`);
+      o.look = v;
     } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (pnpm shots --help lists them)`);
     else {
       const route = a.replace(/^#?\/?/, "");
@@ -148,6 +153,13 @@ function stale() {
   /** @param {string} d @returns {number} */
   const newest = (d) => readdirSync(d, { withFileTypes: true }).reduce((m, e) => (e.name === "node_modules" || e.name === "dist" ? m : Math.max(m, e.isDirectory() ? newest(join(d, e.name)) : statSync(join(d, e.name)).mtimeMs)), 0);
   return ["apps/web/src", "apps/web/public", "apps/server/src", "packages/core/src"].some((d) => newest(join(ROOT, d)) > oldest) || statSync(join(ROOT, "apps/web/index.html")).mtimeMs > oldest;
+}
+
+/** What `--look` does inside the page: `classic` puts the attribute on <html>, `c` is the look without it. */
+export function applyLook(/** @type {"classic" | "c"} */ look) {
+  const root = document.documentElement;
+  if (look === "classic") root.setAttribute("data-look", "classic");
+  else root.removeAttribute("data-look");
 }
 
 /** Waits for the page to stop loading: the requests are done and the "Ladataan…" text is gone. */
@@ -243,6 +255,7 @@ async function main() {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(`/#/${route}`);
         await settle(page);
+        if (o.look) await page.evaluate(applyLook, o.look);
         if (steps) {
           await steps(page, route);
           await settle(page);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardMasks, cardName, cardsOwe, maskedNames } from "../src/components/holdings/holding-rows.ts";
+import { cardMasks, cardName, cardsOwe, cardTone, maskedNames } from "../src/components/holdings/holding-rows.ts";
 
 const account = (id: string, name = id, mask: string | null = null) => ({ id, name, mask });
 
@@ -49,6 +49,44 @@ describe("cardName", () => {
   it("never leaves a card without a name", () => {
     expect(cardName("(credit)")).toBe("(credit)");
     expect(cardName("")).toBe("");
+  });
+});
+
+describe("cardTone", () => {
+  const tonesOf = (names: readonly string[]) => names.map((name) => cardTone(name));
+
+  it("is gold for a word that starts with gold or kulta, in either case and inside a compound", () => {
+    expect(tonesOf(["Esimerkkipankki Gold", "GOLD", "Kultakortti", "Kulta Visa", "esimerkki-kulta", "Gold (credit)"])).toEqual(Array(6).fill("gold"));
+  });
+
+  it("is platinum for platinum and platina, black for black, musta, elite and infinite, silver for silver and hopea", () => {
+    expect(tonesOf(["Esimerkkipankki Platinum", "Platinakortti"])).toEqual(["platinum", "platinum"]);
+    expect(tonesOf(["Esimerkkipankki Black", "Mustakortti", "Elite", "Visa Infinite"])).toEqual(["black", "black", "black", "black"]);
+    expect(tonesOf(["Esimerkkipankki Silver", "Hopeakortti"])).toEqual(["silver", "silver"]);
+  });
+
+  it("is plain for any other name, and for an empty one", () => {
+    expect(tonesOf(["Esimerkkipankki Luotto", "Esimerkkikortti (credit)", "", "  ", "Visa"])).toEqual(Array(5).fill("plain"));
+  });
+
+  it("takes a word by its start: Goldman is gold by the stem rule, Golf and Marigold are plain", () => {
+    expect(cardTone("Goldman Sachs")).toBe("gold");
+    expect(cardTone("Golf")).toBe("plain");
+    expect(cardTone("Marigold")).toBe("plain");
+    expect(cardTone("Pikkukulta")).toBe("plain");
+    expect(cardTone("Go ld")).toBe("plain");
+  });
+
+  it("tries black before platinum, and platinum before gold: Platinum Gold is platinum, World Elite is black", () => {
+    expect(cardTone("Platinum Gold")).toBe("platinum");
+    expect(cardTone("Gold Platinum")).toBe("platinum");
+    expect(cardTone("World Elite")).toBe("black");
+    expect(cardTone("Gold Platinum Black")).toBe("black");
+    expect(cardTone("Kulta Musta")).toBe("black");
+  });
+
+  it("tries silver last, so a name with silver and gold in it is gold", () => {
+    expect(cardTone("Silver Gold")).toBe("gold");
   });
 });
 

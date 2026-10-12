@@ -13,18 +13,14 @@ import type { FindingChange } from "./snapshot.ts";
 export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electricity", "housing", "insurance", "food", "habits", "seasons", "tax", "kids", "car"] as const;
 export type AreaId = (typeof AREA_IDS)[number];
 
-/** What a decision takes: a few minutes, an hour, an evening. */
-type Effort = "minuutteja" | "tunti" | "ilta";
-
 /** The verbs an action may start with (rule 5): a sinä imperative the household can carry out. */
 export const ACTION_VERBS = ["kilpailuta", "irtisano", "neuvottele", "vaihda", "hae", "maksa", "siirrä", "varaa", "tarkista"] as const;
 
-/** Yearly cents, `lowCents <= midCents <= highCents`, positive. `assumption` is one Finnish sentence. */
+/** Yearly cents, `lowCents <= midCents <= highCents`, positive. */
 export interface EuroRange {
   lowCents: number;
   midCents: number;
   highCents: number;
-  assumption: string;
 }
 
 /** One row of the Laskelma table. Every number of a finding's title is in one of these (rule 5). */
@@ -92,7 +88,6 @@ export interface FindingDraft {
   title: string;
   /** A sinä imperative starting with one of `ACTION_VERBS`, capitalised. */
   action: string;
-  effort: Effort;
   /** Null for a deadline finding. */
   euros: EuroRange | null;
   /** The last day to act; null when there is no deadline. */
@@ -140,7 +135,7 @@ export interface Check {
   status: CheckStatus;
   /** The input key that would let the check run (status `needs_input`). */
   input?: string;
-  /** One Finnish sentence: what is missing ("Lisää lainatilin saldo kohdassa Asetukset > Tilit."). */
+  /** One Finnish sentence, set by the Lapset area only; no page shows it. */
   hint?: string;
 }
 
@@ -264,10 +259,6 @@ export interface SituationFact {
   unit: "share" | "months";
   /** The value as the page shows it: "12 %", "2,7 kuukautta"; "" when null. */
   text: string;
-  /** One Finnish sentence with the sums it stands on; when null, why. */
-  basis: string;
-  /** The line it is drawn against (3 months of buffer, 35 % of debt service), in the same unit. */
-  reference?: number;
 }
 
 export interface Headline {
@@ -291,13 +282,12 @@ export interface AreaView {
   weightCents: number;
 }
 
-/** An input the page asks for, with what it unlocks and the old value when it went stale. */
+/** An input the page asks for, with the old value when it went stale. */
 export interface NeededInput {
   /** Full key, as stored. */
   key: string;
   def: InputKey;
   subject: string | null;
-  areas: AreaId[];
   /** The stale value and its day, or null when there is none. */
   old: StoredInput | null;
 }

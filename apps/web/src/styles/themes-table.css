@@ -1,0 +1,48 @@
+/*
+ * "Menot kategorioittain" over the last complete months (ThemesTable): the heading with the period at its right, the
+ * table of the themes with the lines under the open ones, the total, and the large purchases under the table as a row of
+ * their own. The rows, the figures and the cut names are the statement classes (statement.css); the bar is
+ * `.category-bar` (overview.css), the one the month's list draws.
+ */
+
+.themes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 4px; }
+.themes-head .st-cap { margin: 0; }
+.themes-head .st-num { font-size: 14px; line-height: 18px; }
+
+/* the name and the figures take what they need, the bar takes the rest */
+.themes-table { table-layout: fixed; }
+.themes-table th:first-child { width: 14rem; }
+.themes-table .themes-month { width: 7rem; }
+.themes-table .themes-year { width: 7.5rem; }
+.themes-table .themes-change { width: 5rem; }
+.themes-table td.category-bar { vertical-align: middle; }
+
+/* a label that opens its lines: a button that reads as the text, with an arrow that turns when it is open */
+.themes-toggle { display: flex; align-items: baseline; width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.themes-toggle:focus-visible { outline-offset: -2px; }
+.themes-toggle::before { content: ""; flex: none; box-sizing: border-box; width: 6px; height: 6px; margin: 0 10px 0 2px; align-self: center; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.themes-toggle[aria-expanded="true"]::before { transform: rotate(45deg); }
+.themes-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a theme with nothing to open stands where the labels with an arrow stand */
+.themes-plain { display: block; padding-left: 18px; overflow: hidden; text-overflow: ellipsis; }
+.themes-table .themes-line > th { padding-left: 30px; }
+
+/* the total: 600 under the axis, which takes the place of the hairline above */
+.themes-table .themes-total > * { border-top: 1px solid var(--axis); font-weight: 600; }
+.themes-table tr:has(+ .themes-total) > * { border-bottom: 0; }
+
+/* the large purchases: one sum of the whole window, a row of its own under the table */
+.themes-large { border-top: 1px solid var(--grid); }
+.themes-large > .st-row { border-bottom: 0; }
+.themes-large-rows { padding-left: 18px; border-top: 1px solid var(--grid); }
+.themes-large-rows .themes-date { width: 5rem; text-align: left; }
+
+/* where the card is narrow the bar and the change go and the name takes its room */
+@media (max-width: 600px) {
+  .themes-table .themes-bar, .themes-table .themes-change { display: none; }
+  .themes-table th:first-child { width: auto; }
+  .themes-table .themes-month { width: 5.5rem; }
+  .themes-table .themes-year { width: 6rem; }
+  .st-table.themes-table :is(th, td) + :is(th, td) { padding-left: 10px; }
+  .themes-table .themes-line > th { padding-left: 22px; }
+}

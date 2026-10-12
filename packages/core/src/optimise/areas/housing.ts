@@ -68,8 +68,8 @@ function housingPayeesFirstSeen(ctx: AnalysisContext): Map<string, IsoDate> {
   return first;
 }
 
-function check(status: Check["status"], hint?: string, input?: string): Check {
-  return { id: "housing:rise", label: LABEL, status, ...(hint ? { hint } : {}), ...(input ? { input } : {}) };
+function check(status: Check["status"], input?: string): Check {
+  return { id: "housing:rise", label: LABEL, status, ...(input ? { input } : {}) };
 }
 
 function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
@@ -86,11 +86,11 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
   const all = candidates.map((item) => ({ item, riseT: stepTenths(item.series.priceChange!) }));
   // one step over 10 % is a move, a new flat or a loan share, never a rise to act on (the price insight's rule too)
   const rises = all.filter((r) => r.riseT <= MAX_HOUSING_STEP_TENTHS);
-  const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? "Nousu on yli 10\u00a0% kerralla, joten sitä ei verrata." : "Jos muutit, lisää muuttopäivä.", moved ? undefined : "moved_on") : null;
+  const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? undefined : "moved_on") : null;
   if (!rises.some((r) => r.riseT >= GATE_TENTHS)) return { findings: [], checks: [step ?? check("clear")] };
   const type = valueOf(a.values, "housing_type", today);
-  if (!type) return { findings: [], checks: [check("needs_input", "Valitse asumismuoto, niin nousua verrataan kyselyyn tai vuokraindeksiin.", "housing_type")] };
-  if (type === "omakotitalo" || type === "asumisoikeus") return { findings: [], checks: [check("no_data", "Asumismuodolle ei ole vertailutietoa.")] };
+  if (!type) return { findings: [], checks: [check("needs_input", "housing_type")] };
+  if (type === "omakotitalo" || type === "asumisoikeus") return { findings: [], checks: [check("no_data")] };
 
   const findings: FindingDraft[] = [];
   let missing = false;
@@ -123,12 +123,10 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
       subject: s.id,
       title: `${s.merchant}: ${formatEur(fromCents)} → ${formatEur(toCents)} ${formatFiDate(date)} alkaen, nousua ${pctText(riseT)}. ${basis}`,
       action: b.owner ? "Tarkista vastikkeen nousu: pyydä isännöitsijältä erittely nousun syystä." : "Tarkista korotuksen peruste vuokrasopimuksesta.",
-      effort: "minuutteja",
       euros: {
         lowCents: euros(b.high),
         midCents: euros(b.mid),
         highCents: euros(b.low),
-        assumption: b.owner ? "Jos maksu olisi noussut kyselyn keskiarvon verran." : "Jos vuokra olisi noussut vuokraindeksin verran.",
       },
       decideBy: null,
       weaknesses,
@@ -151,7 +149,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
     });
   }
   if (findings.length) return { findings, checks: [check("finding")] };
-  return { findings, checks: [missing ? check("no_data", "Vertailutietoa ei ole nousun ajalta.") : (step ?? check("clear"))] };
+  return { findings, checks: [missing ? check("no_data") : (step ?? check("clear"))] };
 }
 
 export const housing: Area = { id: "housing", label: "Asuminen", assess };

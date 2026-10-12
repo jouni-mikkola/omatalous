@@ -37,9 +37,6 @@ const RESET_MONTHS: Record<Exclude<LoanReference, "fixed">, number> = { euribor_
 /** How far back the latest Euribor month may lie before the facts count as missing. */
 const REFERENCE_LAG_MONTHS = 2;
 
-const ADD_LOAN_BALANCE = "Lisää lainatilin saldo kohdassa Asetukset > Tilit.";
-const FACTS_OLD = "Vertailutieto on vanhentunut.";
-
 const LABELS = { margin: "Asuntolainan marginaali", prepay: "Lainan lyhentäminen säästöillä", card_interest: "Luottokortin korot" } as const;
 type Kind = keyof typeof LABELS;
 type Outcome = { check: Check; draft?: FindingDraft };
@@ -167,8 +164,8 @@ function marginFinding(a: AreaInput): Outcome {
   const { series, rate, balance } = inputs;
   const low = factOn("mortgage_margin_sample_low", a.today);
   const high = factOn("mortgage_margin_sample_high", a.today);
-  if (!low || !high) return checkOf("margin", "no_data", { hint: FACTS_OLD });
-  if (balance === null) return checkOf("margin", "no_data", { hint: ADD_LOAN_BALANCE });
+  if (!low || !high) return checkOf("margin", "no_data");
+  if (balance === null) return checkOf("margin", "no_data");
   const lowBp = Math.round(low.value * 100);
   const highBp = Math.round(high.value * 100);
   if (rate.marginBp < highBp + MARGIN_OVER_TOP_BP) return checkOf("margin", "clear");
@@ -183,8 +180,7 @@ function marginFinding(a: AreaInput): Outcome {
     subject: series.id,
     title: `Asuntolainan marginaali ${margin(rate.marginBp)}, esimerkkitarjouksissa ${offers}. Lainaa on jäljellä ${eur(balance)}.`,
     action: "Kilpailuta asuntolainan marginaali.",
-    effort: "tunti",
-    euros: { ...euros, assumption: "Jos marginaali laskee esimerkkitarjousten tasolle." },
+    euros,
     decideBy: null,
     weaknesses: isSampleFact(high) ? [{ id: "sample", reason: "Esimerkkitarjoukset eivät ole tarjous tälle taloudelle." }] : [],
     shared: false,
@@ -208,12 +204,12 @@ function prepayFinding(a: AreaInput): Outcome {
   const inputs = loanInputs(a, "prepay");
   if ("check" in inputs) return inputs;
   const { series, rate, balance, rateBp } = inputs;
-  if (balance === null) return checkOf("prepay", "no_data", { hint: ADD_LOAN_BALANCE });
+  if (balance === null) return checkOf("prepay", "no_data");
   // the rate of a saved mortgage is the household's own figure: the Euribor months are read only without it
   const reference = rateBp === null ? referenceRange(rate.reference, monthOf(a.end), a.today) : null;
-  if (rateBp === null && !reference) return checkOf("prepay", "no_data", { hint: FACTS_OLD });
+  if (rateBp === null && !reference) return checkOf("prepay", "no_data");
   const yieldOf = savingsYield(a);
-  if (!yieldOf) return checkOf("prepay", "no_data", { hint: "Säästötilin tuotto lasketaan säästötilin saldosta ja 12 kuukauden koroista." });
+  if (!yieldOf) return checkOf("prepay", "no_data");
   const usual = usualSpend(a);
   if (usual === null) return checkOf("prepay", "no_data");
   const todayDay = a.ctx.todayDay;
@@ -239,8 +235,7 @@ function prepayFinding(a: AreaInput): Outcome {
     subject: null,
     title: `${yieldOf.accounts.length === 1 ? "Säästötilillä" : "Säästötileillä"} on ${eur(excess)} yli kolmen kuukauden menojen. Lainan korko on ${loanRate}, säästöjen tuotto ${pct(yieldOf.rate)}.`,
     action: "Maksa ylimääräinen lyhennys säästöistä.",
-    effort: "tunti",
-    euros: { lowCents: yearly(spread.low), midCents: yearly(spread.mid), highCents: yearly(spread.high), assumption: "Kolmen kuukauden menot jäävät säästötilille." },
+    euros: { lowCents: yearly(spread.low), midCents: yearly(spread.mid), highCents: yearly(spread.high) },
     decideBy: null,
     weaknesses: reference ? [{ id: "estimate", reason: "Lainan korko on arvio, koska koron tarkistuspäivää ei tiedetä." }] : [],
     shared: false,
@@ -282,9 +277,9 @@ function cardInterestFinding(a: AreaInput): Outcome {
   const checking = ownAccounts(a, "checking");
   const walksChecking = checking.length ? walksOf(a, checking) : null;
   const walksCard = walksOf(a, cards);
-  if (!walksChecking || !walksCard) return checkOf("card_interest", "no_data", { hint: "Lisää käyttötilin ja luottokortin saldo kohdassa Asetukset > Tilit." });
+  if (!walksChecking || !walksCard) return checkOf("card_interest", "no_data");
   const flagged = [...checking, ...cards].some((b) => CARD_SIGNALS.some((s) => a.quality.byAccount[b.id]?.includes(s))) || a.quality.signals.some((s) => s.id === "no_balance");
-  if (flagged) return checkOf("card_interest", "no_data", { hint: "Käyttötilin tai kortin tiedoissa on tauko tai puuttuvia tapahtumia." });
+  if (flagged) return checkOf("card_interest", "no_data");
   // month ends of the month before the window and of each window month: interest booked in a month counts only when
   // the checking accounts held the card's whole debt at both ends of it
   const ends = monthEndDays([addMonths(a.months[0]!, -1), ...a.months]);
@@ -329,8 +324,7 @@ function cardInterestFinding(a: AreaInput): Outcome {
     subject: null,
     title: `Luottokortin korkoja maksettiin ${eur(paid)} ${months.size} kuukautena, joiden alussa ja lopussa käyttötilin saldo kattoi kortin velan.`,
     action: "Maksa kortin lasku kokonaan eräpäivänä.",
-    effort: "minuutteja",
-    euros: { lowCents: yearly.yearlyCents, midCents: yearly.yearlyCents, highCents: yearly.yearlyCents, assumption: "Jos kortin lasku maksetaan kokonaan eräpäivänä." },
+    euros: { lowCents: yearly.yearlyCents, midCents: yearly.yearlyCents, highCents: yearly.yearlyCents },
     decideBy: null,
     weaknesses: yearly.weakness ? [yearly.weakness] : [],
     shared: false,

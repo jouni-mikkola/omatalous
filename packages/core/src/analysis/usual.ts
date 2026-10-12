@@ -37,17 +37,6 @@ export function completeMonthsBefore(ctx: MonthContext, month: string, n: number
 }
 
 /**
- * The first day with `MIN_COMPARE_MONTHS` complete months behind it: the 1st of the month after the third month the
- * history covers from its first day. Null without history.
- */
-export function usualFrom(ctx: MonthContext): string | null {
-  if (!ctx.dataFrom) return null;
-  const start = monthIndex(ctx.dataFrom.slice(0, 7));
-  const first = historyCovers(ctx, `${fromMonthIndex(start)}-01`) ? start : start + 1;
-  return `${fromMonthIndex(first + MIN_COMPARE_MONTHS)}-01`;
-}
-
-/**
  * The usual level of a month figure: the median of the values of `completeMonthsBefore(ctx, month, USUAL_MONTHS)`,
  * in whole cents, or null under three values.
  */

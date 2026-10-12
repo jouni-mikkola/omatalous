@@ -20,7 +20,6 @@ function Cashflow({ ctx }: SectionProps) {
     <Section
       id={section.id}
       title={section.title}
-      sub={r.average ? `Kuukaudessa keskimäärin tulot ${money(r.average.incomeCents, false)}, menot ${money(r.average.consumptionCents + r.average.debtCents, false)}` : undefined}
       actions={
         <>
           <TableToggle table={table} onToggle={() => setTable((v) => !v)} />

@@ -76,7 +76,7 @@ function Rows({ rows, household }: { rows: EvidenceResponse["rows"]; household: 
           <thead>
             <tr>
               <th>Päivä</th>
-              <th>Kauppias</th>
+              <th>Saaja</th>
               {showAccount && <th className="hide-phone">Tili</th>}
               <th className="num">Summa</th>
             </tr>

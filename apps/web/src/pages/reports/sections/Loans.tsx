@@ -1,51 +1,70 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
-import { ACCOUNTS_LESS_DEBT, FIGURE_UNKNOWN, LOAN_REFERENCE_LABEL, type LoanRow, type LoansReport, loansWithout, type MaybeTwice, type RateScenario, SAME_DEBT_TWICE } from "@banking/core";
+import { ACCOUNTS_LESS_DEBT, belowWhole, cardLimitCents, LOAN_REFERENCE_LABEL, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario, SAME_DEBT_TWICE } from "@banking/core";
 import { Fragment } from "react";
 import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { intervalLabel, KIND_LABEL } from "../../../components/loans/labels.ts";
 import { Section } from "../../../components/Section.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, percent } from "../../../format.ts";
-import { partText, typedByText } from "../../../part.ts";
+import { typedByText } from "../../../part.ts";
 import { hashOf, LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR } from "../../../routes.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 
-/** A figure the loan does not have: nothing is due, or nothing was drawn. */
-const NONE = "–";
+/** A figure the loan has no value for: nothing is due, nothing was drawn, or the household has not told it. */
+const DASH = "–";
 
-function Figure({ label, value, sub }: { label: string; value: string | null; sub?: string | null }) {
+interface FigureProps {
+  label: string;
+  /** Null when the figure is not known: a dash. */
+  value: string | null;
+  sub?: string | null;
+  /** Labelled values the figure is made of, each a row of its own under it. */
+  parts?: readonly (readonly [label: string, value: string])[];
+}
+
+function Figure({ label, value, sub, parts }: FigureProps) {
   return (
     <div>
       <dt>{label}</dt>
       <dd className={value === null ? "unknown" : undefined}>
-        {value ?? FIGURE_UNKNOWN}
+        {value ?? DASH}
         {sub && <small>{sub}</small>}
+        {parts && parts.length > 0 && (
+          <dl className="loan-parts">
+            {parts.map(([k, v]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </dd>
     </div>
   );
 }
 
-function payment(l: LoanRow): { value: string | null; sub: string | null } {
+function payment(l: LoanRow): Pick<FigureProps, "value" | "sub" | "parts"> {
   const p = l.payment;
   if (p.cents === null) {
     // the amortisation of an equal principal loan is known also when the interest on top of it is not
-    if (p.unknown !== null) return { value: null, sub: p.amortisationCents !== null ? `lyhennystä ${money(p.amortisationCents)}` : null };
+    if (p.unknown !== null) return { value: null, parts: p.amortisationCents !== null ? [["Lyhennys", money(p.amortisationCents)]] : [] };
     // nothing is due: a bullet pays at the end, any other loan owes nothing
-    return l.repayment === "bullet" && (l.balance.cents ?? 0) > 0 ? { value: "Kertalyhennys", sub: "maksetaan kerralla lopussa" } : { value: NONE, sub: null };
+    return l.repayment === "bullet" && (l.balance.cents ?? 0) > 0 ? { value: "Kertalyhennys", sub: "maksetaan kerralla lopussa" } : { value: DASH };
   }
   const monthly = p.intervalMonths === 1;
-  const parts = [
-    p.intervalMonths === null || monthly ? null : intervalLabel(p.intervalMonths).toLowerCase(),
-    p.interestCents !== null && p.amortisationCents !== null ? `korkoa ${money(p.interestCents)}, lyhennystä ${money(p.amortisationCents)}` : null,
-  ].filter((x): x is string => x !== null);
-  return { value: monthly ? `${money(p.cents)}/kk` : money(p.cents), sub: parts.join(", ") || null };
+  return {
+    value: monthly ? `${money(p.cents)}/kk` : money(p.cents),
+    sub: p.intervalMonths === null || monthly ? null : intervalLabel(p.intervalMonths).toLowerCase(),
+    parts: p.interestCents !== null && p.amortisationCents !== null ? [["Korko", money(p.interestCents)], ["Lyhennys", money(p.amortisationCents)]] : [],
+  };
 }
 
 /** The date of the last payment. A debt that owed nothing to begin with has none. */
 function lastPayment(l: LoanRow): string | null {
   if (l.payoff.date) return date(l.payoff.date);
   if (l.payoff.never) return "Ei lyhene tällä erällä";
-  return l.payoff.unknown ? null : NONE;
+  return l.payoff.unknown ? null : DASH;
 }
 
 /**
@@ -62,26 +81,53 @@ function scenario(s: RateScenario): string | null {
   return figures.length ? `Jos viitekorko ${s.shiftBp < 0 ? "laskee" : "nousee"} ${points}: ${figures.join(", ")}.` : null;
 }
 
-function Loan({ l }: { l: LoanRow }) {
-  const kind = l.accountType ? `Yhdistetty tili · ${ACCOUNT_TYPE_LABEL[l.accountType] ?? l.accountType}` : [KIND_LABEL[l.kind], l.lender].filter(Boolean).join(" · ");
-  const about = [kind, partText(l.part, "debt"), typedByText(l.typedBy)].filter(Boolean).join(" · ");
-  const pay = payment(l);
+/** A word under a loan's name unless it only repeats the name: "Asuntolaina" under the name "Asuntolaina". */
+const unlessName = (word: string, name: string) => (word.trim().toLowerCase() === name.trim().toLowerCase() ? null : word);
+
+/** Where a loan's missing terms are told: the card Lainat of Asetukset. */
+const SETTINGS_LOANS = hashOf({ page: "settings", params: new URLSearchParams(), anchor: SETTINGS_ANCHOR.loans });
+
+/** `limitCents`: the limit of a connected card, when it has one to tell. */
+function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
+  // a connected card is a card: what is used and the limit, none of a loan's terms
+  const card = l.accountType === "credit_card";
+  const kind = l.accountType
+    ? card
+      ? null
+      : ["Yhdistetty tili", unlessName(ACCOUNT_TYPE_LABEL[l.accountType] ?? l.accountType, l.name)].filter(Boolean).join(" · ")
+    : [unlessName(KIND_LABEL[l.kind], l.name), l.lender].filter(Boolean).join(" · ");
+  const about = [kind, typedByText(l.typedBy)].filter(Boolean).join(" · ");
   const moves = l.scenarios.map(scenario).filter((line): line is string => line !== null);
+  const figures: FigureProps[] = card
+    ? [{ label: "Käytetty luotto", value: l.balance.cents !== null ? money(l.balance.cents) : null }, ...(limitCents !== null ? [{ label: "Luottoraja", value: money(limitCents) }] : [])]
+    : [
+        // a balance no plan moved forward is the one that was told, with its day
+        { label: "Velkaa", value: l.balance.cents !== null ? money(l.balance.cents) : null, sub: l.balance.cents !== null && l.balance.unknown ? `jäljellä ${date(l.balanceDate)}` : null },
+        { label: "Korko", value: l.rateBp !== null ? percent(l.rateBp / 10_000, 2) : null, sub: l.reference ? LOAN_REFERENCE_LABEL[l.reference] : null },
+        { label: "Maksuerä", ...payment(l) },
+        { label: "Korot 12 kuukaudessa", value: l.interest.cents !== null ? money(l.interest.cents, false) : null },
+        { label: "Viimeinen eräpäivä", value: lastPayment(l) },
+      ];
+  if (belowWhole(l.part)) figures.push({ label: "Osuutesi", value: percent((l.part.to - l.part.from) / l.part.of) });
+  // a loan of the viewer's own with a dash in it is theirs to complete: another member's loan is its typist's, and a connected account has no saved loan
+  const mend = l.accountType === null && !l.typedBy && figures.some((f) => f.value === null);
   return (
     <li>
       <div className="loan-head">
         <strong>{l.name}</strong>
-        <span>{about}</span>
+        {about && <span>{about}</span>}
       </div>
       <dl className="loan-figures">
-        {/* a balance no plan moved forward is the one that was told, with its day */}
-        <Figure label="Velkaa" value={l.balance.cents !== null ? money(l.balance.cents) : null} sub={l.balance.cents !== null && l.balance.unknown ? `jäljellä ${date(l.balanceDate)}` : null} />
-        <Figure label="Korko" value={l.rateBp !== null ? percent(l.rateBp / 10_000, 2) : null} sub={l.reference ? LOAN_REFERENCE_LABEL[l.reference] : null} />
-        <Figure label="Maksuerä" value={pay.value} sub={pay.sub} />
-        <Figure label="Korot 12 kuukaudessa" value={l.interest.cents !== null ? money(l.interest.cents, false) : null} />
-        <Figure label="Viimeinen eräpäivä" value={lastPayment(l)} />
+        {figures.map((f) => (
+          <Figure key={f.label} {...f} />
+        ))}
       </dl>
       {moves.length > 0 && <p className="loan-scenario">{moves.join(" ")}</p>}
+      {mend && (
+        <a className="loan-mend" href={SETTINGS_LOANS}>
+          Täydennä
+        </a>
+      )}
     </li>
   );
 }
@@ -148,19 +194,12 @@ interface Note {
   offers?: Offer[];
 }
 
-/** Whose loans these are, what a total leaves out, and a debt that may be in a figure twice. `less`: the accounts less the debts are shown. `own`: the ids of the viewer's own accounts. */
-function notes(r: LoansReport, household: boolean, less: boolean, own: ReadonlySet<string>): Note[] {
+/** What the debt total leaves out, and a debt that may be in a figure twice. `less`: the accounts less the debts are shown. `own`: the ids of the viewer's own accounts. */
+function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] {
   const late = r.total.unknown.filter((u) => !u.counted).length;
-  const noRate = r.withoutRate;
-  const { unknown, bullets } = r.payments;
   const typists = new Map(r.loans.flatMap((l): [string, string][] => (l.typedBy ? [[l.id, l.typedBy]] : [])));
   return [
-    // the household view holds another member's saved loan by the account that pays it: one with no payments linked, or paid from an account out of view, is not here
-    ...(household ? [{ text: "Toisen lisäämä laina on mukana, kun sitä maksetaan tililtä, jonka näet." }] : []),
     ...(late ? [{ text: `Velan summasta puuttuu ${late === 1 ? "yksi laina, jonka jäljellä oleva summa on kirjattu tulevalle päivälle" : `${late} lainaa, joiden jäljellä oleva summa on kirjattu tulevalle päivälle`}.` }] : []),
-    ...(noRate ? [{ text: `Koroista puuttuu ${loansWithout(noRate, "korkoa")}.` }] : []),
-    ...(unknown ? [{ text: `Maksueristä puuttuu ${loansWithout(unknown, "maksuerää")}.` }] : []),
-    ...(bullets ? [{ text: `${bullets === 1 ? "Kertalyhenteisen lainan" : "Kertalyhenteisten lainojen"} korot eivät ole mukana maksuerissä.` }] : []),
     ...r.maybeTwice.map((t) => {
       const links = offers(t, own, typists);
       return { key: `twice ${idsOf(t)}`, text: twice(t, links.length > 0, removers(t, typists)), warn: true, offers: links };
@@ -177,16 +216,18 @@ function Loans({ ctx }: SectionProps) {
   const less = last >= 0 && b.months[last] === ctx.running ? b.accountsLessDebt[last] : undefined;
   const p = r.payments;
   // only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
-  const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? FIGURE_UNKNOWN : p.bullets > 0 ? "ei maksueriä" : money(0, false);
+  const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? DASH : p.bullets > 0 ? "ei maksueriä" : money(0, false);
   const items: [label: string, value: string, sub?: string][] = [
     ["Velkaa yhteensä", money(r.total.cents, false)],
-    ["Korot 12 kuukaudessa", r.interestKnown ? money(r.interest.cents, false) : FIGURE_UNKNOWN],
+    ["Korot 12 kuukaudessa", r.interestKnown ? money(r.interest.cents, false) : DASH],
     ["Maksuerät kuussa", monthly],
-    ...(less === undefined ? [] : [[ACCOUNTS_LESS_DEBT.label, less === null ? FIGURE_UNKNOWN : money(less, false), ACCOUNTS_LESS_DEBT.sub] as [string, string, string]]),
+    ...(less === undefined ? [] : [[ACCOUNTS_LESS_DEBT.label, less === null ? DASH : money(less, false), ACCOUNTS_LESS_DEBT.sub] as [string, string, string]]),
   ];
-  const lines = notes(r, ctx.scope === "household", less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
+  const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
+  // the limit of a connected card is the account's own: a card at a part shows the viewer's part of what is used, and no limit beside it
+  const limitOf = (l: LoanRow) => (l.accountType === "credit_card" && !belowWhole(l.part) ? cardLimitCents(ctx.meta.accounts.find((a) => `account:${a.id}` === l.id)?.creditLimitCents) : null);
   return (
-    <Section id={section.id} title={section.title} sub={`Tilanne ${date(r.day)}`}>
+    <Section id={section.id} title={section.title}>
       <div className="kv">
         {items.map(([label, value, sub]) => (
           <div key={label}>
@@ -213,7 +254,7 @@ function Loans({ ctx }: SectionProps) {
       )}
       <ul className="loan-list">
         {r.loans.map((l) => (
-          <Loan key={l.id} l={l} />
+          <Loan key={l.id} l={l} limitCents={limitOf(l)} />
         ))}
       </ul>
     </Section>

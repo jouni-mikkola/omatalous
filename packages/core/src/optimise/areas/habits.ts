@@ -109,8 +109,7 @@ function habitFinding(a: AreaInput, merchant: string, win: { now: string[]; then
     subject: merchant,
     title: `${merchant}: ${formatCount(own6.now)} kertaa kuussa, vuotta aiemmin ${formatCount(own6.then)}. Ostoskerta keskimäärin ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[win.now.length - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
     action: `Tarkista käyntien määrä: vuotta aiemmin ${formatCount(own6.then)} kertaa kuussa.`,
-    effort: "minuutteja",
-    euros: { lowCents: Math.round(midCents / 2), midCents, highCents, assumption: "Jos käyntejä on yhtä monta kuin vuotta aiemmin." },
+    euros: { lowCents: Math.round(midCents / 2), midCents, highCents },
     decideBy: null,
     weaknesses,
     shared: false,
@@ -130,7 +129,7 @@ export const habits: Area = {
   assess: (a) => {
     const win = yearOverYear(a);
     const check = (status: Check["status"]): Check[] => [
-      { id: "habits:repeat", label: "Arkiostot", status, ...(status === "no_data" ? { hint: "Vertailu vuoden takaiseen tarvitsee 18 kuukauden historian." } : {}) },
+      { id: "habits:repeat", label: "Arkiostot", status },
     ];
     if (!win) return { findings: [], checks: check("no_data") };
     const candidates = habitItems(a.ctx, { from: addDays(a.end, -(HABIT_DAYS - 1)), to: a.end }).map((h) => h.merchant).sort();

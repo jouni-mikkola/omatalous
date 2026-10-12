@@ -312,7 +312,7 @@ describe("loans", () => {
     expect(status(none, "margin")).toMatchObject({ status: "needs_input", input: "loan_rate" });
     expect(status(none, "prepay")).toMatchObject({ status: "needs_input", input: "loan_rate" });
     const noBalance = assess({ ...LOANS, balances: { ...LOANS.balances, loan: null } }).loans;
-    expect(status(noBalance, "margin")).toMatchObject({ status: "no_data", hint: "Lisää lainatilin saldo kohdassa Asetukset > Tilit." });
+    expect(status(noBalance, "margin")).toMatchObject({ status: "no_data" });
     expect(draft(noBalance, "margin")).toBeUndefined();
     const noCardBalance = assess({ ...LOANS, balances: { ...LOANS.balances, card: null } }).loans;
     expect(status(noCardBalance, "card_interest")?.status).toBe("no_data");
@@ -357,14 +357,14 @@ describe("savings", () => {
     // 150 € over a mean of 38 975 € is 0,38 %
     expect(draft(assess({ ...SAVINGS, savingsInterest: 15000 }).savings, "idle_cash")).toBeUndefined();
     const stale = assess({ ...SAVINGS, balanceAt: "2026-10-07" }).savings;
-    expect(status(stale, "idle_cash")).toMatchObject({ status: "no_data", hint: "Käyttötilin saldo on yli 7 päivää vanha." });
+    expect(status(stale, "idle_cash")).toMatchObject({ status: "no_data" });
     expect(draft(assess({ ...SAVINGS, balanceAt: "2026-10-08" }).savings, "idle_cash")).toBeDefined();
     // three weeks without a row on the checking account in March 2026
     const gap = build({ ...SAVINGS });
     const holed = { ...gap, ctx: createContext(gap.ctx.txs.filter((t) => !(t.accountId === "chk" && t.bookingDate >= "2026-03-02" && t.bookingDate <= "2026-03-21")), ACCOUNTS.slice(0, 2), TODAY) };
     const r2 = savings.assess(areaInputOf(holed));
     expect(status(r2, "idle_cash")?.status).toBe("no_data");
-    expect(status(r2, "idle_cash")?.hint).toBe("Tilin Käyttötili tiedoissa on tauko.");
+    expect(status(r2, "idle_cash")?.status).toBe("no_data");
     // a card left unused for three weeks says nothing about the checking account
     const card = build({ ...SAVINGS, card: true, balances: { ...SAVINGS.balances, card: -120000 } });
     const quietCard = { ...card, ctx: createContext(card.ctx.txs.filter((t) => !(t.accountId === "card" && t.bookingDate >= "2026-03-02" && t.bookingDate <= "2026-03-21")), ACCOUNTS.filter((x) => x.id !== "loan"), TODAY) };
@@ -415,7 +415,7 @@ describe("savings", () => {
 
   it("asks for the checking balance", () => {
     const r2 = assess({ ...SAVINGS, balances: { chk: null, sav: 5000000 } }).savings;
-    expect(status(r2, "idle_cash")).toMatchObject({ status: "no_data", hint: "Lisää käyttötilin saldo kohdassa Asetukset > Tilit." });
+    expect(status(r2, "idle_cash")).toMatchObject({ status: "no_data" });
   });
 });
 

@@ -68,8 +68,6 @@ describe("usual income has one owner", () => {
     expect(buffer.incomeMonthlyCents).toBe(share.incomeCents);
     expect(buffer.fixedMonthlyCents).toBe(share.fixedCents);
     expect(buffer.fixedShare).toBe(share.fixedCents / share.incomeCents);
-    // one N in both sentences
-    expect(buffer.advice).toContain(`vievät ${share.pct} % tuloista`);
     expect(debtShareOf(ctx, today, NO_INPUTS)!.incomeCents).toBe(share.incomeCents);
     expect(incomeBase(ctx, today).usualMonthlyCents).toBe(share.incomeCents);
 

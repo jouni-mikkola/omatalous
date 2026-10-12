@@ -3,8 +3,25 @@
 /* a select is as wide as its longest option; the cap leaves the room to the merchant */
 .tx-table td select, .tx-table td .select-lite { max-width: 11rem; }
 
-/* tablets keep four columns: the second line gives up the room the category column needs */
-@media (min-width: 601px) and (max-width: 960px) { .tx-table td .sub { max-width: calc(100vw - 500px); } }
+/* what stands under a payee's name: the bank's text in the text colour, one line cut with an ellipsis (its title holds all of it) */
+.tx-under { display: flex; flex-direction: column; align-items: flex-start; font-size: 12px; }
+.tx-text { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-account-under { display: none; }
+@media (min-width: 1200px) { .tx-text { max-width: 32rem; } }
+
+/*
+ * Tablets: five columns leave the name seven characters, so the account's column gives way and its name stands under the
+ * payee's, after the bank's text. The line asks the column for no width of its own (width 0, then as wide as the cell), so
+ * the other columns keep theirs and the table never scrolls sideways.
+ */
+@media (min-width: 601px) and (max-width: 960px) {
+  .tx-account { display: none; }
+  .tx-under { width: 0; min-width: 100%; }
+  .tx-text { max-width: 100%; }
+  .tx-account-under { display: block; }
+  /* the viewer's part of a joint row may wrap under its amount rather than widen the column */
+  .tx-table td .tx-part { white-space: normal; }
+}
 .amount-in { color: var(--good); }
 
 /* transactions: filters keep their visible labels, also on a phone */

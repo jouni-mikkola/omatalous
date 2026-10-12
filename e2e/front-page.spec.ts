@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { cents, overflow, plain, watch } from "./helpers.ts";
 
@@ -52,7 +52,7 @@ test.afterAll(async ({ browser }) => {
   await context.close();
 });
 
-test("the demo household: both accounts with their balance and a total at the foot, the card as rows with what is used, no drawn card, no Lainat", async ({ browser }) => {
+test("the demo household: both accounts with their balance and a total at the foot, the card as rows with what is used and its face, no Lainat", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await signedIn(context, "/#/overview");
   const seen = watch(page);
@@ -73,9 +73,10 @@ test("the demo household: both accounts with their balance and a total at the fo
   expect(cardsBox!.x, "the groups are side by side").toBeGreaterThan(accountsBox!.x + accountsBox!.width - 2);
   expect(Math.abs(cardsBox!.y - accountsBox!.y)).toBeLessThanOrEqual(1);
 
-  // the card: a name and rows, nothing drawn; the demo gives it no limit, so what is used alone is told
+  // the card: a name and rows with its face at the left, no bar; the demo gives it no limit, so what is used alone is told
   const card = cardsOf(page);
-  await expect(holdings.locator("svg, img, .card-face, .card-meter")).toHaveCount(0);
+  await expect(holdings.locator(".card-face")).toHaveCount(1);
+  await expect(holdings.locator("img, .card-meter")).toHaveCount(0);
   await expect(card.locator(".holding-name")).toContainText("Nordea Gold (esimerkki)");
   await expect(card.locator(".st-row")).toHaveCount(2);
   const use = await figuresOf(card);
@@ -290,7 +291,7 @@ for (const width of [1280, 390]) {
   });
 }
 
-test("Tulot ja menot is two tables and no sentence: the two months' figures side by side, two rows under a rule, the chart, and the categories with one bar colour, a link to their rows and no change of nothing", async ({ browser }) => {
+test("Tulot ja menot is two tables and no sentence: the two months' figures side by side, two rows under a rule, the chart, and beside them the table of themes with its sums, its bars, its open and closed rows and a link to the rows of a category", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await signedIn(context, "/#/overview");
   const seen = watch(page);
@@ -323,8 +324,204 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   expect(chart.y).toBeGreaterThan(table.y + table.height);
   expect(categoriesHead.x, "the categories are beside the figures").toBeGreaterThan(table.x + table.width);
 
+  // the table of themes stands where the list of the month was: core's themes over the last complete months, whichever month is chosen
+  const answer = ((await (await context.request.get("/api/dashboard")).json()).themes ?? null) as Themes | null;
+  expect(answer, "the demo household has three complete months, so core has its themes").not.toBeNull();
+  const { window: span, themes } = answer!;
   const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
-  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kategoria", heads[0], "Muutos"]);
+  expect(plain(await block.locator(".themes-head").innerText())).toBe(`Menot kategorioittain ${monthYear(span.first)}–${monthYear(span.last)}`);
+  const hasChange = themes.some((t) => t.changePct !== null || t.lines.some((l) => l.changePct !== null));
+  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa", ...(span.months === 12 ? ["Vuodessa"] : []), ...(hasChange ? ["Muutos"] : [])]);
+  // the seven largest themes as the answer has them and the rest in one row; every sum is the answer's
+  const named = themes.slice(0, 7);
+  const rest = themes.slice(7);
+  const themeRows = categories.locator("tbody tr.themes-row");
+  expect((await themeRows.locator("th").allInnerTexts()).map(plain)).toEqual([...named.map((t) => t.heading), ...(rest.length ? [`Muut (${rest.length})`] : [])]);
+  const column = async (name: string) => (await categories.locator(`tbody tr.themes-row td.${name}`).allInnerTexts()).map(cents);
+  const total = categories.locator("tbody tr.themes-total");
+  expect(await total.locator("th").innerText()).toBe("Yhteensä");
+  expect(cents(await total.locator("td.themes-month").innerText()), "Yhteensä a month is the answer's").toBe(answer!.totalMonthlyCents);
+  expect((await column("themes-month")).reduce((a, b) => a + b, 0), "the column adds up to Yhteensä as printed").toBe(answer!.totalMonthlyCents);
+  if (span.months === 12) {
+    expect(cents(await total.locator("td.themes-year").innerText())).toBe(answer!.totalYearCents);
+    expect((await column("themes-year")).reduce((a, b) => a + b, 0)).toBe(answer!.totalYearCents);
+  }
+  // the bar is one colour on theme rows only, as long as the theme against the largest
+  const bars = await categories.locator(".category-bar span").evaluateAll((els) => els.map((el) => ({ colour: getComputedStyle(el).backgroundColor, width: el.getBoundingClientRect().width, row: el.closest("tr")!.className })));
+  expect(new Set(bars.map((b) => b.colour)).size, "one bar colour").toBe(1);
+  expect(bars.every((b) => b.row === "themes-row")).toBe(true);
+  expect(bars).toHaveLength(named.filter((t) => t.monthlyCents > 0).length);
+  expect(bars[1]!.width / bars[0]!.width, "the second bar against the first").toBeCloseTo(named[1]!.monthlyCents / named[0]!.monthlyCents, 1);
+  await expect(categories.locator(".legend-swatch, .swatch, .dot")).toHaveCount(0);
+  await expect(page.getByText("±")).toHaveCount(0);
+  await expect(block.getByRole("link", { name: "Kauppiaat", exact: true })).toBeVisible();
+  await expect(block.getByRole("link", { name: "Menot kuukausittain", exact: true })).toBeVisible();
+  // no sentence under the table: nothing but the large purchases, and only when there are some
+  await expect(block.locator(".themes-large")).toHaveCount(answer!.large.rows.length > 0 ? 1 : 0);
+
+  // Ruoka is open when the page opens and the others are closed; the button closes it and opens it again
+  const food = categories.getByRole("button", { name: "Ruoka", exact: true });
+  const lines = categories.locator("tbody tr.themes-line");
+  const foodLines = themes.find((t) => t.id === "food")!.lines;
+  await expect(categories.locator("button[aria-expanded=true]")).toHaveCount(1);
+  await expect(food).toHaveAttribute("aria-expanded", "true");
+  await expect(lines.locator("th")).toHaveText(foodLines.map((l) => l.heading));
+  await food.click();
+  await expect(food).toHaveAttribute("aria-expanded", "false");
+  await expect(lines).toHaveCount(0);
+  await food.click();
+  await expect(lines).toHaveCount(foodLines.length);
+  // the lines of a category are links to its rows over the window's days; each theme opens by itself
+  const days = `from=${span.first}-01&to=${monthLastDay(span.last)}`;
+  for (const line of foodLines) await expect(categories.getByRole("link", { name: line.heading, exact: true })).toHaveAttribute("href", `#/transactions?category=${line.id}&${days}`);
+  const car = themes.find((t) => t.id === "car");
+  if (car && named.includes(car)) {
+    await categories.getByRole("button", { name: "Auto", exact: true }).click();
+    await expect(lines).toHaveCount(foodLines.length + car.lines.length);
+    // the lines of Auto say what a row was for: none of them is a category, so none is a link
+    for (const line of car.lines) await expect(lines.filter({ hasText: line.heading }).getByRole("link")).toHaveCount(0);
+    await categories.getByRole("button", { name: "Auto", exact: true }).click();
+    await expect(lines).toHaveCount(foodLines.length);
+  }
+  // Muut (n) opens to its themes, which are no links
+  if (rest.length) {
+    await categories.getByRole("button", { name: `Muut (${rest.length})`, exact: true }).click();
+    await expect(lines).toHaveCount(foodLines.length + rest.length);
+    await expect(categories.getByRole("link", { name: rest[0]!.heading, exact: true })).toHaveCount(0);
+  }
+
+  // a category's name opens its rows of the window in Tapahtumat
+  await categories.getByRole("link", { name: foodLines[0]!.heading, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`#/transactions\\?category=${foodLines[0]!.id}&${days}`));
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+/** What the specs below read of the answer's themes. */
+interface Themes {
+  window: { first: string; last: string; months: number };
+  themes: { id: string; heading: string; monthlyCents: number; yearCents: number | null; changePct: number | null; lines: { id: string; heading: string; monthlyCents: number; yearCents: number | null; changePct: number | null }[] }[];
+  totalMonthlyCents: number;
+  totalYearCents: number | null;
+  large: { cents: number; count: number; rows: { id: string; date: string; payee: string; cents: number }[] };
+}
+/** "2025-10" as the heading of the table writes it: "10/2025". */
+const monthYear = (month: string) => `${Number(month.slice(5))}/${month.slice(0, 4)}`;
+/** The last day of "2026-09". */
+const monthLastDay = (month: string) => new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0)).toISOString().slice(0, 10);
+
+/** The first page with the themes of its answer changed on their way, as no household of the demo has them; null is no themes. */
+async function withThemes(browser: Browser, width: number, change: (themes: Themes) => Themes | null): Promise<{ context: BrowserContext; page: Page; seen: { problems: string[] }; answer: Themes }> {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  let answer = null as Themes | null;
+  await page.route(/\/api\/dashboard(\?|$)/, async (route) => {
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json) return route.continue();
+    answer = json.themes;
+    if (json.themes) json.themes = change(json.themes);
+    await route.fulfill({ response, json });
+  });
+  await page.goto("/#/overview");
+  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+  await expect(monthOf(page)).toBeVisible();
+  return { context, page, seen, answer: answer! };
+}
+
+/**
+ * A change to the demo's themes that gives the table every column and row it can have, and one label too long for a phone:
+ * the first theme has +4 %, Ruoka -7 % with +9 % on its first line and the long label on its second.
+ */
+const LONG = "Ravintolat, kahvilat, pikaruoka ja muut ulkona syömiseen menevät kulut";
+const pctOf = (id: string, i: number) => (id === "food" ? -7 : i === 0 ? 4 : null);
+const rich = (t: Themes): Themes => ({
+  ...t,
+  themes: t.themes.map((x, i) => ({
+    ...x,
+    changePct: pctOf(x.id, i),
+    lines: x.lines.map((l, j) => ({ ...l, heading: x.id === "food" && j === 1 ? LONG : l.heading, changePct: x.id === "food" && j === 0 ? 9 : null })),
+  })),
+  large: {
+    cents: 189_900,
+    count: 2,
+    rows: [
+      { id: "a", date: "2026-03-14", payee: "ESIMERKKI OY", cents: 149_900 },
+      { id: "b", date: "2026-01-05", payee: "Esimerkkikone Oy", cents: 65_000 },
+      { id: "c", date: "2025-11-20", payee: "Esimerkkikone Oy", cents: -25_000 },
+    ],
+  },
+});
+
+test("Menot kategorioittain: Muutos, Muut and Suuret hankinnat draw what the answer holds, a row without a change has an empty cell, and money back alone has no number", async ({ browser }) => {
+  const { context, page, seen, answer } = await withThemes(browser, 1280, rich);
+  const block = monthOf(page);
+  const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
+  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa", ...(answer.window.months === 12 ? ["Vuodessa"] : []), "Muutos"]);
+  const change = categories.locator("tbody tr.themes-row td.themes-change");
+  const rest = answer.themes.slice(7);
+  expect((await change.allInnerTexts()).map(plain), "a row without a change has an empty cell, and so has the rest row").toEqual([...answer.themes.slice(0, 7).map((t, i) => { const pct = pctOf(t.id, i); return pct === null ? "" : `${pct > 0 ? "+" : "-"}${Math.abs(pct)} %`; }), ...(rest.length ? [""] : [])]);
+  expect(await categories.locator("tbody tr.themes-total td.themes-change").innerText(), "nor does the total").toBe("");
+  await expect(categories.locator("tbody tr.themes-line td.themes-change").first()).toHaveText("+9 %");
+  await expect(categories.locator("tbody tr.themes-line td.themes-change").nth(1)).toHaveText("");
+  // Muut (n) opens to the themes it holds
+  expect(rest.length, "the demo has more than seven themes").toBeGreaterThan(0);
+  await categories.getByRole("button", { name: `Muut (${rest.length})`, exact: true }).click();
+  await expect(categories.locator("tbody tr.themes-line th")).toHaveText([...answer.themes.find((t) => t.id === "food")!.lines.map((l, j) => (j === 1 ? LONG : l.heading)), ...rest.map((t) => t.heading)]);
+  // Suuret hankinnat: a row of its own under the table, the window's sum at its right, closed until opened
+  const large = block.getByRole("button", { name: "Suuret hankinnat (2)", exact: true });
+  await expect(large).toHaveAttribute("aria-expanded", "false");
+  const row = block.locator(".themes-large > .st-row");
+  expect(cents(await row.locator(".st-num").innerText())).toBe(189_900);
+  const [tableBox, rowBox] = [(await categories.boundingBox())!, (await row.boundingBox())!];
+  expect(tableBox.y + tableBox.height, "the row is under the table").toBeLessThanOrEqual(rowBox.y);
+  await expect(block.locator(".themes-large-rows")).toHaveCount(0);
+  await large.click();
+  expect((await block.locator(".themes-large-rows li").allInnerTexts()).map(plain)).toEqual(["14.3.2026 ESIMERKKI OY 1 499,00 €", "5.1.2026 Esimerkkikone Oy 650,00 €", "20.11.2025 Esimerkkikone Oy -250,00 €"]);
+  await large.click();
+  await expect(block.locator(".themes-large-rows")).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+
+  // money back alone: the same row, with no number in brackets and the sum below zero
+  const back = await withThemes(browser, 1280, (t) => ({ ...t, large: { cents: -25_000, count: 0, rows: [{ id: "c", date: "2025-11-20", payee: "Esimerkkikone Oy", cents: -25_000 }] } }));
+  await expect(monthOf(back.page).getByRole("button", { name: "Suuret hankinnat", exact: true })).toBeVisible();
+  expect(cents(await monthOf(back.page).locator(".themes-large > .st-row .st-num").innerText())).toBe(-25_000);
+  await expect(monthOf(back.page).getByText(/Suuret hankinnat \(/)).toHaveCount(0);
+  // and none at all when the answer has no row
+  const none = await withThemes(browser, 1280, (t) => ({ ...t, large: { cents: 0, count: 0, rows: [] } }));
+  await expect(monthOf(none.page).locator(".themes-large")).toHaveCount(0);
+  for (const other of [back, none]) {
+    expect(other.seen.problems).toEqual([]);
+    await other.context.close();
+  }
+});
+
+test("Menot kategorioittain: a window of seven months has no Vuodessa", async ({ browser }) => {
+  const { context, page, seen } = await withThemes(browser, 1280, (t) => ({
+    ...t,
+    window: { first: "2026-03", last: "2026-09", months: 7 },
+    themes: t.themes.map((x) => ({ ...x, yearCents: null, lines: x.lines.map((l) => ({ ...l, yearCents: null })) })),
+    totalYearCents: null,
+  }));
+  const block = monthOf(page);
+  const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
+  expect(plain(await block.locator(".themes-head").innerText())).toBe("Menot kategorioittain 3/2026–9/2026");
+  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa"]);
+  await expect(block.getByText("Vuodessa")).toHaveCount(0);
+  await expect(categories.locator("td.themes-year")).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Menot kategorioittain draws the month's list when core has no themes", async ({ browser }) => {
+  const { context, page, seen } = await withThemes(browser, 1280, () => null);
+  const block = monthOf(page);
+  const month = plain(await block.locator(".month-table thead th").first().innerText());
+  await expect(block.locator(".themes-table, .themes-head, .themes-large")).toHaveCount(0);
+  const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
+  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kategoria", month, "Muutos"]);
   const bars = await categories.locator(".category-bar span").evaluateAll((els) => els.map((el) => ({ colour: getComputedStyle(el).backgroundColor, width: el.getBoundingClientRect().width })));
   expect(new Set(bars.map((b) => b.colour)).size, "one bar colour").toBe(1);
   expect(bars[0]!.width, "the first row is the largest, and its bar the longest of the named").toBeGreaterThanOrEqual(Math.max(...bars.slice(0, 9).map((b) => b.width)));
@@ -334,7 +531,6 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   await expect(page.getByText("±")).toHaveCount(0);
   await expect(block.getByRole("link", { name: "Kauppiaat", exact: true })).toBeVisible();
   await expect(block.getByRole("link", { name: "Menot kuukausittain", exact: true })).toBeVisible();
-
   // a category's name opens its rows of the month in Tapahtumat
   const name = categories.locator("tbody tr").first().getByRole("link");
   await expect(name).toHaveAttribute("href", /^#\/transactions\?category=[\w-]+&from=\d{4}-\d\d-01&to=\d{4}-\d\d-\d\d$/);
@@ -343,6 +539,30 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+for (const width of [1000, 700, 390]) {
+  test(`Menot kategorioittain at ${width} px does not scroll sideways with every column and row open; a label that does not fit is cut and has its text in title`, async ({ browser }) => {
+    const { context, page, seen, answer } = await withThemes(browser, width, rich);
+    const block = monthOf(page);
+    const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
+    await categories.getByRole("button", { name: /^Muut \(/ }).click();
+    await block.getByRole("button", { name: "Suuret hankinnat (2)", exact: true }).click();
+    expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
+    const cut = categories.locator("th.st-cut", { hasText: LONG });
+    await expect(cut).toHaveAttribute("title", LONG);
+    // a phone has the label and two sums: no bar and no change
+    const phone = width < 600;
+    const shown = await categories.locator("thead th").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().width > 0).map((el) => el.textContent!.trim()));
+    expect(shown, "the columns").toEqual(phone ? ["Kuukaudessa", "Vuodessa"] : ["Kuukaudessa", ...(answer.window.months === 12 ? ["Vuodessa"] : []), "Muutos"]);
+    expect(await categories.locator("td.category-bar").first().isVisible(), "the bar").toBe(!phone);
+    // no figure is cut by its column
+    const cutFigures = await categories.locator("td.st-num").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().width > 0 && el.scrollWidth > el.clientWidth + 1).length);
+    expect(cutFigures, "a figure that does not fit its column").toBe(0);
+    if (phone) expect(await cut.evaluate((el) => el.scrollWidth > el.clientWidth), "the long label is cut").toBe(true);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
+}
 
 test("Asuminen is on the page when the answer has no Erääntyvät maksut, and Erääntyvät maksut when it has", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });

@@ -27,7 +27,6 @@ function cellLevels(r: Report, row: Report["rows"][number]): number[] {
 
 function Pivot({ ctx }: SectionProps) {
   const r = ctx.data.pivot;
-  const partial = r.complete.some((c) => !c);
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.averageCents !== null;
   return (
@@ -79,7 +78,6 @@ function Pivot({ ctx }: SectionProps) {
         </table>
       </div>
       <PivotList r={r} />
-      {partial && <p className="small muted">Vajaa kuukausi ei ole mukana keskiarvossa eikä värityksessä.</p>}
       {r.rows.some((row) => row.totalCents < 0) && <p className="small muted">{NEGATIVE_TOTAL_NOTE}</p>}
     </Section>
   );

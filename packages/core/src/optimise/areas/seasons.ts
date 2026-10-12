@@ -132,8 +132,7 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
         ...base,
         title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(twoMonthsInessive(addMonths(s.month, 1)))} korkoa maksettiin keskimäärin ${eur(midCents)} enemmän kuin ${twoMonthsInessive(addMonths(s.month, -2))}.`,
         action: `Maksa ${monthGenitive(s.month)} menot ilman luottoa: varaa ${eur(reserve)} kuussa.`,
-        effort: "tunti",
-        euros: { lowCents: Math.min(...extras), midCents, highCents: Math.max(...extras), assumption: `Jos ${monthGenitive(s.month)} lisämenot maksetaan ilman luottoa.` },
+        euros: { lowCents: Math.min(...extras), midCents, highCents: Math.max(...extras) },
         decideBy: null,
         calc: [
           ...calc,
@@ -156,7 +155,6 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
     ...base,
     title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(monthInessive(s.month))} ${s.month.slice(0, 4)} lisämenot olivat ${eur(s.extras[0]!)} ja vuotta aiemmin ${eur(s.extras[1]!)} ilman kertaostoja.`,
     action: `Varaa ${monthGenitive(s.month)} menoihin ${eur(reserve)} kuussa.`,
-    effort: "minuutteja",
     euros: null,
     decideBy: start,
     calc: [...calc, { label: "Varaus kuussa", value: eur(reserve) }],
@@ -173,7 +171,7 @@ export const seasons: Area = {
     const recent = lastCompleteMonths(a.ctx, a.today, 12);
     const enough = recent.length === 12 && isCompleteMonth(a.ctx, addMonths(recent[0]!, -12));
     const checks: Check[] = [
-      { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data", ...(enough ? {} : { hint: "Vertailu tarvitsee kahden vuoden historian." }) },
+      { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data" },
     ];
     if (!enough) return { findings: [], checks };
     const items = expensiveMonthItems({ ctx: a.ctx, end: a.today, gateMonthlyCents: gateMonthly(a.ctx, a.today) });

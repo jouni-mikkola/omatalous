@@ -1,4 +1,78 @@
+/*
+ * Two sets of the same tokens. :root holds the night look; :root[data-look="classic"] holds the light look the app
+ * had before it. index.html puts the attribute on <html>. The classic selector also matches :root, so a token
+ * missing from one set would show the other set's value: every token is in both, and contrast.test.ts holds it.
+ * One token a line, colours as #rrggbb in lower case: the test reads them.
+ */
 :root {
+  color-scheme: dark;
+  --page: #080b16;
+  --surface: #12172a;
+  --surface-2: #1a2038;
+  --text: #eef0fb;
+  --text-2: #b6bcd9;
+  --muted: #8f97bd;
+  --grid: #262d4c;
+  --axis: #5b6592;
+  --border: #2e3659;
+  --ink: #0d1120;
+  --on-ink: #eef0fb;
+  --ink-2: #1a2038;
+  --on-ink-2: #b6bcd9;
+  --accent: #a9c1ff;
+  --accent-ink: #a9c1ff;
+  --good: #6fe0a8;
+  --bad: #ff9199;
+  --warn: #f3c267;
+  --warn-bg: #2d2c31;
+  --good-bg: #1d2f39;
+  --info-bg: #242b44;
+  --series-1: #36c3e9;
+  --series-2: #6a5cf0;
+  --series-3: #7df0d0;
+  --series-4: #4a8cf7;
+  --series-5: #5adadc;
+  --series-6: #5a74f4;
+  --series-7: #40a8f0;
+  --series-rest: #5b6592;
+  --series-avg: #8f97bd;
+  --heat-1: #6a5cf0;
+  --heat-2: #4a8cf7;
+  --heat-3: #36c3e9;
+  --heat-4: #7df0d0;
+  --heat-ink-1: #ffffff;
+  --heat-ink-2: #0a0d19;
+  --heat-ink-3: #0a0d19;
+  --heat-ink-4: #0a0d19;
+  --plate: #ffffff;
+  --plate-ink: #0b0b0b;
+  --plate-edge: rgb(11 11 11 / 0.14);
+  --pop-shadow: 0 8px 28px rgb(0 0 0 / 0.5);
+  --backdrop: rgb(4 6 12 / 0.7);
+  --shadow: none;
+  --radius: 16px;
+  --fill: #eef0fb;
+  --on-fill: #0a0d19;
+  --control: #1a2038;
+  --control-hover: #222a4a;
+  --control-edge: #39426b;
+  --control-edge-hover: #a9c1ff;
+  --pop-edge: #39426b;
+  --bar-edge: #262d4c;
+  --spectrum-1: #6a5cf0;
+  --spectrum-2: #4a8cf7;
+  --spectrum-3: #36c3e9;
+  --spectrum-4: #7df0d0;
+  --dot: #ffffff;
+  --dot-halo: rgb(125 240 208 / 0.3);
+  --radius-pill: 999px;
+  --radius-m: 10px;
+  --radius-s: 8px;
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "kern";
+}
+
+:root[data-look="classic"] {
   color-scheme: light;
   --page: #c8cdd6;
   --surface: #d8dce2;
@@ -45,6 +119,21 @@
   --backdrop: rgb(19 27 41 / 0.55);
   --shadow: none;
   --radius: 10px;
-  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-feature-settings: "kern";
+  --fill: #1b2f54;
+  --on-fill: #f2f4f7;
+  --control: #d8dce2;
+  --control-hover: #d8dce2;
+  --control-edge: #a7afbb;
+  --control-edge-hover: #6f7683;
+  --pop-edge: #a7afbb;
+  --bar-edge: #1b2f54;
+  --spectrum-1: #2456a6;
+  --spectrum-2: #2456a6;
+  --spectrum-3: #2456a6;
+  --spectrum-4: #2456a6;
+  --dot: #2456a6;
+  --dot-halo: rgb(216 220 226 / 1);
+  --radius-pill: 6px;
+  --radius-m: 8px;
+  --radius-s: 6px;
 }

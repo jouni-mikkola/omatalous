@@ -1,3 +1,4 @@
+import { fold } from "@banking/core";
 import { memo, useSyncExternalStore } from "react";
 import { CategoryPicker } from "../components/CategorySelect.tsx";
 import { date, money } from "../format.ts";
@@ -33,6 +34,16 @@ export type ListedRow = TransactionItem & { partCents?: number };
 
 /** The viewer's part of a joint account's row, told beside the bank's amount; null for a row that is all theirs. */
 const partOfRow = (t: ListedRow): string | null => (t.partCents === undefined || t.partCents === t.amountCents ? null : `osuutesi ${money(t.partCents)}`);
+
+/**
+ * The bank's own text of a row (its payee and message), cut to what the payee's name does not already say: a part that
+ * is the name in other letters ("ESIMERKKI OY" under "Esimerkki Oy") is left out. null when nothing is left.
+ */
+const bankText = (t: ListedRow): string | null => {
+  const name = fold(t.merchant.trim());
+  const parts = [t.counterparty, t.description].map((s) => s?.trim()).filter((s): s is string => !!s && fold(s) !== name);
+  return parts.length ? parts.join(" · ") : null;
+};
 
 interface RowProps {
   t: ListedRow;
@@ -70,7 +81,7 @@ function RowCategory({ t, categories, categoryLabel, pending, onCategory, phone 
 
 export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { account: string }) {
   const { t } = row;
-  const detail = [t.counterparty, t.description].filter(Boolean).join(" · ");
+  const text = bankText(t);
   const part = partOfRow(t);
   return (
     <tr>
@@ -79,10 +90,16 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
         <a href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>{t.merchant}</a>
         {t.status === "pending" && <span className="badge warn">varaus</span>}
         {t.isTransfer && <span className="badge">oma siirto</span>}
-        <div className="sub" title={detail}>
-          {detail || "–"} · {account}
+        <div className="tx-under">
+          {text && (
+            <span className="tx-text" title={text}>
+              {text}
+            </span>
+          )}
+          <span className="tx-account-under">{account}</span>
         </div>
       </td>
+      <td className="tx-account">{account}</td>
       <td className="tx-category">
         <RowCategory {...row} />
       </td>

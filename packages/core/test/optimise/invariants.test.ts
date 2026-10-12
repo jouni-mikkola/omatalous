@@ -55,12 +55,11 @@ function problemsOf(area: Area, result: AreaResult, ctx: AnalysisContext): strin
     for (const n of numbersIn(f.title)) if (!calcNumbers.has(n)) out.push(`${at}: ${n} in the title is in no calc line`);
     const verb = f.action.split(/[\s,.:]/)[0]!.toLowerCase();
     if (!(ACTION_VERBS as readonly string[]).includes(verb)) out.push(`${at}: action starts with "${verb}"`);
-    for (const [where, text] of [["title", f.title], ["action", f.action], ["assumption", f.euros?.assumption ?? ""], ...f.calc.map((c) => ["calc", c.label] as const), ...f.weaknesses.map((w) => ["weakness", w.reason] as const)] as const) style(`${at} ${where}`, text);
+    for (const [where, text] of [["title", f.title], ["action", f.action], ...f.calc.map((c) => ["calc", c.label] as const), ...f.weaknesses.map((w) => ["weakness", w.reason] as const)] as const) style(`${at} ${where}`, text);
     // rule 6: euros
     if (f.euros) {
-      const { lowCents: low, midCents: mid, highCents: high, assumption } = f.euros;
+      const { lowCents: low, midCents: mid, highCents: high } = f.euros;
       if (![low, mid, high].every((x) => Number.isSafeInteger(x) && x > 0) || !(low <= mid && mid <= high)) out.push(`${at}: euros ${low} ${mid} ${high} are not 0 < low <= mid <= high cents`);
-      if (!assumption || assumption.split(/(?<=[.?!])\s+(?=\p{Lu})/u).length > 1) out.push(`${at}: the assumption is not one sentence`);
       if (!f.claims.length) out.push(`${at}: a euro finding without claims cannot be checked for overlap`);
     } else if (!f.decideBy) out.push(`${at}: neither euros nor a deadline`);
     // rule 4: rows
@@ -127,8 +126,7 @@ describe("optimise invariants over every area", () => {
           subject: "Nordea",
           title: "Kulut nousivat 240 € vuodessa! Kannattaa vaihtaa. Kolmas lause.",
           action: "Harkitse vaihtoa.",
-          effort: "minuutteja",
-          euros: { lowCents: 30000, midCents: 24000, highCents: 36000, assumption: "" },
+          euros: { lowCents: 30000, midCents: 24000, highCents: 36000 },
           decideBy: null,
           weaknesses: [],
           shared: false,
@@ -153,7 +151,6 @@ describe("optimise invariants over every area", () => {
       "exclamation mark",
       "verdict or advice word",
       "are not 0 < low <= mid <= high",
-      "not one sentence",
       "without claims",
       "is a transfer",
       "is not in the context",

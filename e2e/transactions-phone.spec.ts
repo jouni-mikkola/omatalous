@@ -162,7 +162,7 @@ test("1366 px: the page is still the table with its filters in a row", async ({ 
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  await expect(page.locator("table.tx-table thead th")).toHaveText(["Päivä", "Kauppias", "Kategoria", "Summa"]);
+  await expect(page.locator("table.tx-table thead th")).toHaveText(["Päivä", "Saaja/maksaja", "Tili", "Kategoria", "Summa"]);
   await expect(page.locator("table.tx-table tbody tr").first()).toBeVisible();
   await expect(page.locator(".tx-day")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Rajaa/ })).toHaveCount(0);
@@ -172,3 +172,80 @@ test("1366 px: the page is still the table with its filters in a row", async ({ 
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+// The table of Tapahtumat on a screen wider than a phone: the bank's text under the payee's name only when the name does
+// not say it, and the account in a column of its own, or under the name where five columns do not fit.
+const LONG = "Kuukausimaksu kuvauksen kanssa, joka on aika pitkä ja jatkuu vielä pidemmälle kuin mikään sarake jaksaa näyttää, viite 1234 5678 9012";
+const ROWS = [
+  // the bank's payee is the name in capitals and without its umlauts: nothing to add
+  { merchant: "Esimerkki Käpylä Oy", counterparty: "ESIMERKKI KAPYLA OY", description: null },
+  // the same payee with a message: the message alone
+  { merchant: "Esimerkki Vaasa Oy", counterparty: "ESIMERKKI VAASA OY", description: "Lasku 1234" },
+  // a near miss: the legal form differs, so the bank's text says something
+  { merchant: "Esimerkki Tele Oy", counterparty: "ESIMERKKI TELE OYJ", description: null },
+  { merchant: "Esimerkki Tyhjä Oy", counterparty: null, description: null },
+  { merchant: "Esimerkki Pitkä Oy", counterparty: "ESIMERKKI PITKA OY", description: LONG },
+];
+
+for (const width of [1366, 1000, 700, 601]) {
+  test(`${width} px: the bank's text only where it adds to the name, the account in a column or under the name, nothing scrolls sideways`, async ({ browser }) => {
+    const context = await signedIn(browser, width, 900);
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.route(/\/api\/transactions\?/, async (route) => {
+      const response = await route.fetch().catch(() => null);
+      const json = await response?.json().catch(() => null);
+      if (!response || !json) return;
+      ROWS.forEach((row, i) => Object.assign(json.items[i], row));
+      // a joint account's row tells the viewer's part under its amount, which is the widest the amount column gets
+      json.items[1].partCents = -123_456;
+      await route.fulfill({ response, json });
+    });
+    await page.goto("/#/transactions");
+    const wide = width > 960;
+    const heads = page.locator("table.tx-table thead th:visible");
+    await expect(heads).toHaveText(wide ? ["Päivä", "Saaja/maksaja", "Tili", "Kategoria", "Summa"] : ["Päivä", "Saaja/maksaja", "Kategoria", "Summa"]);
+    const rowOf = (name: string) => page.locator("table.tx-table tbody tr").filter({ has: page.getByRole("link", { name, exact: true }) });
+    const textOf = (name: string) => rowOf(name).locator("td").nth(1).locator(".tx-text");
+
+    await expect(textOf("Esimerkki Käpylä Oy")).toHaveCount(0);
+    await expect(textOf("Esimerkki Tyhjä Oy")).toHaveCount(0);
+    await expect(textOf("Esimerkki Vaasa Oy")).toHaveText("Lasku 1234");
+    await expect(textOf("Esimerkki Vaasa Oy")).toHaveAttribute("title", "Lasku 1234");
+    await expect(textOf("Esimerkki Tele Oy")).toHaveText("ESIMERKKI TELE OYJ");
+    await expect(textOf("Esimerkki Tele Oy")).toHaveAttribute("title", "ESIMERKKI TELE OYJ");
+
+    // a long text is one line cut with an ellipsis, and its title holds all of it
+    const long = textOf("Esimerkki Pitkä Oy");
+    await expect(long).toHaveAttribute("title", LONG);
+    const box = await long.evaluate((el) => ({ cut: el.scrollWidth > el.clientWidth, height: el.getBoundingClientRect().height }));
+    expect(box.cut, "the long text is cut").toBe(true);
+    expect(box.height, "on one line").toBeLessThan(20);
+
+    // the account is named by the filter above the list; it stands in a cell of its own, or under the name when there is no room
+    const names = await page.getByLabel("Tili", { exact: true }).locator("option").allInnerTexts();
+    for (const name of ROWS.map((r) => r.merchant)) {
+      const row = rowOf(name);
+      if (wide) {
+        const account = (await row.locator("td.tx-account").innerText()).trim();
+        expect(names, `the account of ${name}`).toContain(account);
+        await expect(row.locator("td").nth(1).locator(".tx-account-under")).toBeHidden();
+      } else {
+        await expect(row.locator("td.tx-account")).toBeHidden();
+        const account = (await row.locator("td").nth(1).locator(".tx-account-under").innerText()).trim();
+        expect(names, `the account of ${name}`).toContain(account);
+      }
+    }
+    if (!wide) {
+      // under the bank's text, not beside it
+      const text = (await textOf("Esimerkki Vaasa Oy").boundingBox())!;
+      const account = (await rowOf("Esimerkki Vaasa Oy").locator(".tx-account-under").boundingBox())!;
+      expect(account.y, "the account is below the text").toBeGreaterThanOrEqual(text.y + text.height - 1);
+    }
+
+    expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
+    expect(await page.locator(".table-wrap").evaluate((el) => el.scrollWidth - el.clientWidth), "the table scrolls inside its card").toBeLessThanOrEqual(1);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
+}
