@@ -3,6 +3,17 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.18.0
+
+- Varallisuus on the first page shows accounts, loans and cards side by side. A card's face tilts toward the pointer, and a card with a limit has an arc of the share of its credit that is used.
+- Erääntyvät maksut draws the days from today to payday: each payment is a dot sized by its sum, and the balance steps down under it. A bill you typed is a full dot, an estimate a hollow one.
+
+Look
+
+- Varallisuus on Yhteenveto has the new layout: Tilit and Lainat side by side with the credit cards in a row under them, and a household with no loan gets Tilit and its cards side by side. A card's face tilts toward the pointer with a band of light, and a card with a limit has an arc of how much of it is used.
+- Erääntyvät maksut on the first page now shows the days to the next payday as a line. Each bill is a dot, larger for a larger sum, and under the days the balance steps down by what is paid. A bill you typed in is a full dot, a bill the app estimates from your bank rows is a hollow one. The dots can be reached with the arrow keys, name the payee, the sum and the day, and light their row in the table.
+- The bill of a credit card in Erääntyvät maksut has the card's plain name, as in Varallisuus, without the type the bank adds in brackets.
+
 ## 0.17.0
 
 - The whole app has the new dark look on every page, and its panels have a lit top edge, a faint glow inside and a deep shadow.

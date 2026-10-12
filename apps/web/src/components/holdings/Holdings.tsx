@@ -1,12 +1,13 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
  * with what is used of its limit, each loan with what is left, and a total at the foot of each group. Yhteenveto opens
- * with it, under the heading Varallisuus, in the statement look of the page (statement.css): the groups side by side
- * with a rule between, rows of one height with their figures on one right edge. A card and a loan have one form: the
- * name as a link, then its figures as indented rows; a card has its picture (CardFace) at the left of them. Every
- * figure is the one in `holdings` (the answer Yhteenveto already loads), shown as given: no sum is made here. A group
- * with nothing in it is left out, and every account has its row, in the order core gives. The name of an account, a card
- * or a loan is a link: to the rows of the account in Tapahtumat, to the report Lainat.
+ * with it, under the heading Varallisuus. Tilit and Lainat stand side by side, the cards in a row of their own under
+ * them; where a group is missing the others close up, so a household with no loan has Tilit and its cards side by
+ * side and no hole. A card and a loan have one form: the name as a link, then its figures as rows; a card has its picture
+ * (CardFace) and, when it has a limit, the arc of what is used (CreditArc) beside its name. Every figure is the one in
+ * `holdings` (the answer Yhteenveto already loads), shown as given: no sum is made here. A group with nothing in it is
+ * left out, and every account has its row, in the order core gives. The name of an account, a card or a loan is a link:
+ * to the rows of the account in Tapahtumat, to the report Lainat.
  */
 import type { ReactNode } from "react";
 import { daysBetween, SAME_DEBT_TWICE } from "@banking/core";
@@ -17,6 +18,7 @@ import { partText, typedByText } from "../../part.ts";
 import { LOANS_REPORT_ANCHOR } from "../../routes.ts";
 import type { DashboardData, Meta } from "../../types.ts";
 import { CardFace } from "./CardFace.tsx";
+import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
 import { cardMasks, cardName, cardsOwe, maskedNames } from "./holding-rows.ts";
 import "../../styles/statement.css";
@@ -57,15 +59,16 @@ function Total({ label, cents, note }: { label: string; cents: number | null; no
 
 /**
  * A card or a loan: its name with the lines under it, and its figures as rows set in a little. `note` follows the figures.
- * `face` is a picture at the left of all of that, for the eye alone.
+ * `face` is a picture at the left of all of that, for the eye alone, and `arc` stands under the name beside it.
  */
-function Unit({ name, href, mask, lines, note, face, children }: { name: string; href: string; mask?: string | undefined; lines: (string | null | undefined)[]; note?: ReactNode; face?: ReactNode; children: ReactNode }) {
+function Unit({ name, href, mask, lines, note, face, arc, children }: { name: string; href: string; mask?: string | undefined; lines: (string | null | undefined)[]; note?: ReactNode; face?: ReactNode; arc?: ReactNode; children: ReactNode }) {
   const rows = (
     <>
       <div className="st-row holding-unit-head">
         <Name name={name} href={href} mask={mask} />
         {lines.map((line, i) => line && <span key={i} className="st-sub">{line}</span>)}
       </div>
+      {arc}
       <dl className="st-rows">{children}</dl>
       {note}
     </>
@@ -91,7 +94,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           const part = partText(a.part, "account");
           const since = sinceLine(a.balanceAt, meta.today);
           return (
-            <li key={a.id} className="st-row">
+            <li key={a.id} className="st-row holding-account">
               <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
               <span className="st-num">{figure(a.balanceCents)}</span>
               {part && <span className="st-sub">{part}</span>}
@@ -109,20 +112,30 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { cards, cardsCents } = holdings;
   const masks = cardMasks(cards);
   return (
-    <section>
-      <h3 className="st-cap">Luottokortit</h3>
-      <ul className="holding-units">
+    <section className="holding-cards">
+      <header className="holding-cards-head">
+        <h3 className="st-cap">Luottokortit</h3>
+        {cards.length > 1 && (
+          <dl className="holding-inline">
+            <dt>Luottokortit yhteensä</dt>
+            <dd>{figure(cardsCents)}</dd>
+          </dl>
+        )}
+      </header>
+      <ul className="holding-units holding-card-list">
         {cards.map((c) => {
           const { usedCents: used, limitCents: limit, freeCents: free, overCents } = c;
           const over = overCents !== null && overCents > 0 ? overCents : null;
+          const href = `#/transactions${query({ accountId: c.id })}`;
           return (
             <Unit
               key={c.id}
               name={cardName(c.name)}
-              href={`#/transactions${query({ accountId: c.id })}`}
+              href={href}
               mask={masks.get(c.id)}
               lines={[partText(c.part, "debt"), sinceLine(c.balanceAt, meta.today)]}
-              face={<CardFace card={c} logo={c.bank ? logoForInstitution(c.bank, meta.bank.banks) : null} />}
+              face={<CardFace card={c} logo={c.bank ? logoForInstitution(c.bank, meta.bank.banks) : null} href={href} />}
+              arc={<CreditArc usedCents={used} limitCents={limit} />}
             >
               <FigureRow label="Käytetty luotto" bad={over !== null}>{figure(used)}</FigureRow>
               {limit !== null && <FigureRow label="Luottoraja">{money(limit)}</FigureRow>}
@@ -131,7 +144,6 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           );
         })}
       </ul>
-      {cards.length > 1 && <Total label="Luottokortit yhteensä" cents={cardsCents} />}
     </section>
   );
 }
@@ -141,7 +153,7 @@ function Loans({ holdings }: { holdings: Answer }) {
   return (
     <section>
       <h3 className="st-cap">Lainat</h3>
-      <ul className="holding-units">
+      <ul className="holding-units holding-loans">
         {loans.map((l) => (
           <Unit
             key={l.id}
@@ -164,9 +176,9 @@ export function Holdings({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { accounts, cards, loans, debtCents } = holdings;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
-  // the block splits at the thirds the blocks under it split at: three groups are thirds, of two the second takes two
-  // thirds, and one alone has the whole width
-  const columns = `st-cols st-cols-3 holding-cols-${groups}`;
+  // two groups stand side by side; of three, Tilit and Lainat do, with the cards under them across the block: a group
+  // that is missing leaves no hole, the next one moves up into its place
+  const columns = `holding-groups holding-groups-${groups}`;
   // the debts of the block are more than the loans only when a card owes: then they have their own line at its foot
   const debts = loans.length > 0 && cardsOwe(cards);
 
@@ -177,8 +189,8 @@ export function Holdings({ holdings, meta }: { holdings: Answer; meta: Meta }) {
       </div>
       <div className={columns}>
         {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} />}
-        {cards.length > 0 && <Cards holdings={holdings} meta={meta} />}
         {loans.length > 0 && <Loans holdings={holdings} />}
+        {cards.length > 0 && <Cards holdings={holdings} meta={meta} />}
       </div>
       {debts && (
         <dl className="st-rows holding-foot">

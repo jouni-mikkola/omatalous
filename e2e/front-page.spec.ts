@@ -189,7 +189,7 @@ test("a saved loan is a row with what is left and the payment a month, and its f
   const page = await signedIn(context, "/#/overview");
   const seen = watch(page);
   const holdings = holdingsOf(page);
-  await expect(holdings.getByRole("heading", { level: 3 })).toHaveText(["Tilit", "Luottokortit", "Lainat"]);
+  await expect(holdings.getByRole("heading", { level: 3 })).toHaveText(["Tilit", "Lainat", "Luottokortit"]);
   const row = holdings.locator(".holding-unit", { hasText: "Kodin laina" });
   await expect(row).toContainText("Esimerkkirahoitus Oy");
   expect(await figuresOf(row)).toBe("Lainaa jäljellä 120 000,00 € Kuukausierä 1 000,00 €");
@@ -224,7 +224,7 @@ for (const width of [390, 360]) {
     await expect(holdings.locator(".holding-unit", { hasText: "Kodin laina" })).toBeVisible();
     expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
     const use = (await cardsOf(page).boundingBox())!;
-    const groups = await holdings.locator(".st-cols > section").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({ top: r.top, bottom: r.bottom })));
+    const groups = await holdings.locator(".holding-groups > section").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({ top: r.top, bottom: r.bottom })));
     expect(groups.length).toBe(3);
     groups.slice(1).forEach((g, i) => expect(g.top, "a group starts under the one before").toBeGreaterThanOrEqual(groups[i]!.bottom - 2));
     expect(use.x + use.width, "the card's rows are inside the screen").toBeLessThanOrEqual(width);
@@ -280,10 +280,10 @@ for (const width of [1280, 390]) {
       expect(due.x).toBe(month.x);
       expect(Math.abs(due.x - line(1))).toBeLessThanOrEqual(2);
       expect(Math.abs(home.x + home.width - line(2))).toBeLessThanOrEqual(2);
-      // the groups of Varallisuus stand on the same lines: the second starts on the first, a third one on the second
-      const starts = await blocks[0]!.locator(".st-cols > section").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().x));
+      // the first two groups of Varallisuus stand side by side, in the five parts and seven of its own grid (e2e/holdings.spec.ts)
+      const starts = await blocks[0]!.locator(".holding-groups > section").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().x));
       expect(starts.length).toBeGreaterThan(1);
-      starts.slice(1).forEach((x, i) => expect(Math.abs(x - line(i + 1)), "a group of Varallisuus starts on a third").toBeLessThanOrEqual(2));
+      expect(starts[1], "the second group of Varallisuus starts right of the first").toBeGreaterThan(starts[0]! + 100);
     }
     expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
     expect(seen.problems).toEqual([]);

@@ -12,7 +12,7 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 interface Ahead {
   reason: "payday" | "late" | "none";
   payday: { name: string; cents: number } | null;
-  rows: { name: string; cents: number; source: string }[];
+  rows: { date: string; name: string; cents: number; source: string; basis?: string }[];
   upcoming: { cents: number; onCard?: boolean }[];
   totals: { dueCents: number; cardCents: number; transferCents: number };
   balance: { startCents: number; freeCents: number } | null;
@@ -30,8 +30,11 @@ async function demoNames(context: BrowserContext): Promise<Set<string>> {
 /** The names of a table's rows: the cell carries the whole name as its title, whatever line stands under it. */
 const namesOf = (table: Locator) => table.locator("tbody tr td:nth-child(2)").evaluateAll((cells) => cells.map((c) => c.getAttribute("title")));
 
-async function open(browser: Browser, width: number) {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
+/** Whether the app estimates a row: its own statement of the rule, so that a change of the app's is seen here. */
+const estimated = (r: Ahead["rows"][number]) => r.source === "recurring" || r.source === "transfer" || (r.source === "card" && r.basis !== "balance");
+
+async function open(browser: Browser, width: number, reducedMotion: "reduce" | "no-preference" = "no-preference") {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, reducedMotion });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/overview");
@@ -83,8 +86,30 @@ test("the line over the figures names the payday, the three figures are the API'
   await expect(pay.locator("td:nth-child(2)")).toHaveText(/acme/i);
   expect(cents(await pay.locator("td:last-child").innerText())).toBe(ahead.payday!.cents);
 
-  // the block is figures and tables: no chart, and nothing to switch
-  await expect(card.locator("svg, canvas, button")).toHaveCount(0);
+  // the line of days: only when a payment is due, a dot for each payment of the table in its order, each named by the payee,
+  // the sum and the day. A row the app estimates is a hollow dot and says so in its name; a bill the household typed in is a full dot
+  const line = card.locator(".nd-line");
+  await expect(line).toHaveCount(paid.length > 0 ? 1 : 0);
+  await expect(card.locator("canvas, button")).toHaveCount(0);
+  if (paid.length > 0) {
+    const dots = line.locator(".nd-dot:not(.nd-pay)");
+    await expect(dots).toHaveCount(paid.length);
+    const names = await dots.evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? ""));
+    const rows = await table.locator("tbody tr").evaluateAll((trs) => trs.map((tr) => ({ day: tr.children[0]!.textContent ?? "", name: tr.children[1]!.getAttribute("title") ?? "", sum: tr.children[2]!.textContent ?? "" })));
+    rows.forEach((r, i) => {
+      expect(names[i]!.startsWith(`${r.name}, `), `${names[i]} starts with the payee`).toBe(true);
+      expect(names[i], "the sum as the table has it").toContain(`, ${r.sum}, `);
+      expect(names[i]!.endsWith(` ${r.day}`), `${names[i]} ends with the day`).toBe(true);
+      expect(names[i]!.includes(", arvio, "), `${names[i]} says estimate when the app estimates the row`).toBe(estimated(paid[i]!));
+    });
+    await expect(line.locator(".nd-dot.nd-est")).toHaveCount(paid.filter(estimated).length);
+    // the days end on the payday, the pay is a mark on it, and the note that all of it is estimated is read before the line
+    await expect(line.locator(".nd-axis .nd-pd")).toHaveCount(1);
+    await expect(line.locator(".nd-pay")).toHaveCount(1);
+    const [note, drawn] = await Promise.all([card.locator(".ahead-estimates"), line, table].map(async (l) => (await l.boundingBox())!));
+    expect(note!.y + note!.height, "the note stands over the line").toBeLessThanOrEqual(drawn!.y);
+    expect(drawn!.y + drawn!.height, "the line stands over the tables").toBeLessThanOrEqual((await table.boundingBox())!.y);
+  }
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -97,6 +122,17 @@ test("on a phone nothing scrolls sideways, the figures come before the tables an
   // the pay's table is there whatever the day is, so the block has a table: the figures stand above the first one
   const tables = card.locator("table");
   expect(figure!.y, "the first figure is above the tables").toBeLessThan((await tables.first().boundingBox())!.y);
+  // the line of days is as wide as the card's group and every dot is inside it: nothing leaves it, nothing scrolls
+  const drawn = card.locator(".nd-line");
+  if ((await drawn.count()) > 0) {
+    const frame = (await drawn.boundingBox())!;
+    expect(frame.width).toBeGreaterThan(200);
+    for (const box of await Promise.all((await card.locator(".nd-dot").all()).map(async (d) => (await d.boundingBox())!))) {
+      expect(box.x, "a dot left of the line").toBeGreaterThanOrEqual(frame.x - 1);
+      expect(box.x + box.width, "a dot right of the line").toBeLessThanOrEqual(frame.x + frame.width + 1);
+    }
+    expect(await drawn.evaluate((el) => el.scrollWidth - el.clientWidth), "the line scrolls sideways").toBeLessThanOrEqual(1);
+  }
   // a table is three columns inside the card: the day, the name, the sum. A long name is cut; a sum never is.
   const shape = await tables.evaluateAll((all) =>
     all.map((t) => ({
@@ -137,4 +173,54 @@ test("Laskut has the same payments in groups: the first group's sum is the figur
   expect(groups.reduce((sum, g) => sum + g.cents, 0)).toBe(ahead.upcoming.reduce((sum, r) => sum - r.cents, 0));
   expect(seen.problems).toEqual([]);
   await context.close();
+});
+
+test("a dot is reached with the keys and lights its row, a row lights its dot, Esc puts the light out and the line has one tab stop", async ({ browser }) => {
+  const { context, page, seen, card } = await open(browser, 1280);
+  const dots = card.locator(".nd-dot:not(.nd-pay)");
+  // a window with nothing due has no line: the first test holds that
+  if ((await dots.count()) > 0) {
+    const rows = card.locator("table.ahead-table").first().locator("tbody tr");
+    await expect(card.locator('.nd-dot[tabindex="0"]')).toHaveCount(1);
+    await expect(card.locator(".nd-tip")).toHaveCount(0);
+    await dots.first().focus();
+    // the tooltip names the payee and its row is lit
+    await expect(card.locator(".nd-tip")).toContainText((await rows.first().locator("td:nth-child(2)").getAttribute("title"))!);
+    await expect(rows.first()).toHaveClass(/\bon\b/);
+    const first = await dots.first().getAttribute("aria-label");
+    if ((await card.locator(".nd-dot").count()) > 1) {
+      await page.keyboard.press("ArrowRight");
+      expect(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "an arrow moves to the next dot").not.toBe(first);
+      await page.keyboard.press("Home");
+      expect(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Home is the first dot").toBe(first);
+    }
+    await page.keyboard.press("Escape");
+    await expect(card.locator(".nd-tip")).toHaveCount(0);
+    await expect(rows.first()).not.toHaveClass(/\bon\b/);
+    await dots.first().blur();
+    // the pointer on a row lights its dot, and leaving puts it out
+    await rows.first().hover();
+    await expect(dots.first()).toHaveClass(/\bon\b/);
+    await page.mouse.move(0, 0);
+    await expect(dots.first()).not.toHaveClass(/\bon\b/);
+  }
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("the line eases and draws itself in only when the reader has not asked for less motion", async ({ browser }) => {
+  const motion = async (preference: "reduce" | "no-preference") => {
+    const { context, card } = await open(browser, 1280, preference);
+    const dot = card.locator(".nd-dot").first();
+    const seen = (await dot.count()) > 0 ? await Promise.all([card.locator(".nd-steps svg").evaluate((el) => getComputedStyle(el).animationName), dot.evaluate((el) => getComputedStyle(el).transitionDuration)]) : null;
+    await context.close();
+    return seen;
+  };
+  // a window with nothing due has no line: the first test holds that
+  const [calm, lively] = [await motion("reduce"), await motion("no-preference")];
+  if (calm && lively) {
+    expect(calm).toEqual(["none", "0s"]);
+    expect(lively[0]).toBe("nd-wipe");
+    expect(lively[1]).not.toBe("0s");
+  }
 });

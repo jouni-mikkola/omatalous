@@ -103,8 +103,8 @@ describe("the line under the heading, by what the window waits for", () => {
     const out = html(ahead());
     expect(out).toContain('<section class="card st-block" aria-labelledby="ahead-h"><div class="card-head"><h2 id="ahead-h">Erääntyvät maksut</h2></div>');
     expect(out).toContain('<div class="st-cols st-cols-3"><div><h3 class="st-cap ahead-window">Palkkapäivään asti, pe 23.10.</h3><dl class="st-rows">');
-    // the tables and the links are the right group, which takes two of the three columns
-    expect(out.indexOf('<div class="st-wide"><table')).toBeGreaterThan(out.indexOf("</dl>"));
+    // the note, the line of days, the tables and the links are the right group, which takes two of the three columns
+    expect(out.indexOf('<div class="st-wide"><p class="st-note ahead-estimates">')).toBeGreaterThan(out.indexOf("</dl>"));
     expect(out.endsWith('<a href="#/bills">Lisää lasku</a></p></div></div></section>')).toBe(true);
   });
 });
@@ -217,6 +217,15 @@ describe("the two tables", () => {
     expect(html(ahead(NONE, [OTHER_PAY]))).toContain("Saapuvat maksut");
   });
 
+  it("calls a card's bill by the card's plain name, as Varallisuus does, and no other row by anything but its own", () => {
+    const card = row({ date: "2026-10-16", name: "Esimerkkipankki Gold (credit)", category: "transfer", cents: -64_230, source: "card", basis: "balance" });
+    const lines = payments(ahead({}, [BILLS[0]!, card]));
+    expect(lines.map((l) => l.name)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkipankki Gold"]);
+    // a bracket in the name of a merchant stays: only a card is named by its type
+    expect(payments(ahead({}, [row({ name: "Kahvila Esimerkki (credit)" })]))[0]!.name).toBe("Kahvila Esimerkki (credit)");
+    expect(names(html(ahead({}, [card])))).toEqual(["Esimerkkipankki Gold", "Esimerkki Oy"]);
+  });
+
   it("names the table of the payments for a reader that has no eyes for it", () => {
     expect(paymentsCaption(ahead())).toBe("Erääntyvät maksut ennen palkkapäivää");
     expect(paymentsCaption(ahead(NONE))).toBe("Erääntyvät maksut seuraavan 30 päivän aikana");
@@ -241,9 +250,13 @@ describe("what stands in place of the payments, and under the tables", () => {
     expect(html(ahead())).not.toContain("päivässä");
   });
 
-  it("says the days and the sums are estimates under the payments' table, only when a payment is listed", () => {
-    const note = '</table><p class="st-note">Eräpäivät ja summat ovat arvioita.</p>';
-    expect(html(ahead())).toContain(note);
+  it("says the days and the sums are estimates over the line of days, only when a payment is listed", () => {
+    const note = '<p class="st-note ahead-estimates">Eräpäivät ja summat ovat arvioita.</p>';
+    const out = html(ahead());
+    expect(out).toContain(note);
+    // a reader meets it before the line and before the tables
+    expect(out.indexOf(note)).toBeLessThan(out.indexOf('class="nd-line'));
+    expect(out.indexOf(note)).toBeLessThan(out.indexOf("<table"));
     expect(html(ahead({}, []))).not.toContain("arvioita");
   });
 
@@ -253,8 +266,11 @@ describe("what stands in place of the payments, and under the tables", () => {
     }
   });
 
-  it("draws no chart, no table of days and no switch between them", () => {
+  it("draws the line of days only when a payment is due, and has no canvas, no switch and no table of days", () => {
     const out = html(ahead({}, [...BILLS, OTHER_PAY]));
-    for (const gone of ["<svg", "<canvas", "<button", "Kaavio", "Taulukko", "Alin saldo", "Lähtösaldo"]) expect(out, gone).not.toContain(gone);
+    expect(out).toContain('class="nd-line');
+    for (const gone of ["<canvas", "<button", "Kaavio", "Taulukko", "Alin saldo", "Lähtösaldo"]) expect(out, gone).not.toContain(gone);
+    // no payment: the block is its figures and its tables, with no empty axis
+    for (const a of [ahead({}, []), ahead({}, [OTHER_PAY]), ahead(NONE, [])]) for (const gone of ["nd-line", "<svg", "nd-axis"]) expect(html(a), gone).not.toContain(gone);
   });
 });

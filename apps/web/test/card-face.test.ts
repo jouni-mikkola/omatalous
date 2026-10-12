@@ -3,10 +3,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CardFace } from "../src/components/holdings/CardFace.tsx";
+import { tiltAt } from "../src/components/holdings/card-tilt.ts";
 
 type Props = Parameters<typeof CardFace>[0];
 const face = (card: Partial<Props["card"]> = {}, logo: string | null = null) =>
-  renderToStaticMarkup(createElement(CardFace, { card: { name: "Esimerkkipankki Luotto", bank: null, mask: null, ...card }, logo }));
+  renderToStaticMarkup(createElement(CardFace, { card: { name: "Esimerkkipankki Luotto", bank: null, mask: null, ...card }, logo, href: "#/transactions?accountId=k1" }));
 
 describe("CardFace", () => {
   it("has the class of the tone the card's name gives, and the tone's word at the bottom right, in capitals", () => {
@@ -17,14 +18,14 @@ describe("CardFace", () => {
       ["Esimerkkipankki Silver", "silver", "SILVER"],
     ] as const) {
       const markup = face({ name });
-      expect(markup, name).toContain(`<div class="card-face card-face-${tone}" aria-hidden="true">`);
+      expect(markup, name).toContain(`<div class="card-face card-face-${tone}">`);
       expect(markup, name).toContain(`<span class="card-face-tone">${word}</span>`);
     }
   });
 
   it("is plain for any other name, with no word on it", () => {
     const markup = face({ name: "Esimerkkipankki Luotto", mask: "•••• 4321" });
-    expect(markup).toContain('<div class="card-face card-face-plain" aria-hidden="true">');
+    expect(markup).toContain('<div class="card-face card-face-plain">');
     expect(markup).not.toContain("card-face-tone");
     // the digits stand alone at the bottom
     expect(markup).toContain('<div class="card-face-bottom"><span class="card-face-mask">•••• 4321</span></div>');
@@ -61,43 +62,76 @@ describe("CardFace", () => {
     expect(face({ bank: "" })).toContain('<div class="card-face-top"></div>');
   });
 
-  it("is hidden from a screen reader whole, and holds no link, control or picture file of its own", () => {
+  it("is a link for a pointer that the keyboard and a screen reader leave out: the name beside it is their link", () => {
     const markup = face({ name: "Esimerkkipankki Gold", bank: "Esimerkkipankki", mask: "•••• 4321" });
-    expect(markup.startsWith('<div class="card-face card-face-gold" aria-hidden="true">')).toBe(true);
+    expect(markup.startsWith('<a class="card-face-link" href="#/transactions?accountId=k1" tabindex="-1" aria-hidden="true"')).toBe(true);
     expect(markup.match(/aria-hidden/g)).toHaveLength(1);
-    expect(markup).not.toMatch(/<(a|button|input|select|img|image|use|style|link)[ >]/);
+    expect(markup.match(/<a[ >]/g)).toHaveLength(1);
+    expect(markup).not.toMatch(/<(button|input|select|img|image|use|style|link)[ >]/);
     expect(markup).not.toContain("style=");
-    // the chip and the sign are drawn, and out of the tab order
-    expect(markup.match(/<svg /g)).toHaveLength(2);
-    expect(markup.match(/focusable="false"/g)).toHaveLength(2);
   });
 
-  it("draws a chip and, at its right, the contactless sign as three strokes", () => {
+  it("draws a chip as one small SVG, out of the tab order, and no other sign", () => {
     const markup = face();
-    expect(markup).toContain('<span class="card-chip"><svg width="20" height="15"');
-    expect(markup).toMatch(/<\/span><svg class="card-contactless"[^>]*><path d="[^"]*"><\/path><\/svg>/);
-    expect(markup.match(/<path d="[^"]*"/g)?.[1]?.match(/M/g)).toHaveLength(3);
+    expect(markup).toContain('<span class="card-chip"><svg viewBox="0 0 34 26" focusable="false">');
+    expect(markup.match(/<svg /g)).toHaveLength(1);
+    expect(markup).not.toContain("contactless");
+  });
+});
+
+describe("tiltAt", () => {
+  const box = { left: 100, top: 50, width: 200, height: 100 };
+  const mouse = (clientX: number, clientY: number, pointerType = "mouse") => ({ pointerType, clientX, clientY });
+
+  it("is flat in the middle and leans toward the pointer at the edges, up to 12 degrees across and 10 up and down", () => {
+    expect(tiltAt(mouse(200, 100), box, false)).toEqual({ rx: 0, ry: 0, gx: 50 });
+    expect(tiltAt(mouse(300, 50), box, false)).toEqual({ rx: 12, ry: 10, gx: 100 });
+    expect(tiltAt(mouse(100, 150), box, false)).toEqual({ rx: -12, ry: -10, gx: 0 });
+  });
+
+  it("reads a pointer outside the box at its nearest edge, so the lean never passes its limits", () => {
+    expect(tiltAt(mouse(5000, -400), box, false)).toEqual({ rx: 12, ry: 10, gx: 100 });
+    expect(tiltAt(mouse(-5000, 4000), box, false)).toEqual({ rx: -12, ry: -10, gx: 0 });
+  });
+
+  it("stays flat for a finger, for a person who asked for less motion, and for a box with no size; a pen leans as a mouse does", () => {
+    expect(tiltAt(mouse(250, 60, "touch"), box, false)).toBeNull();
+    expect(tiltAt(mouse(250, 60), box, true)).toBeNull();
+    expect(tiltAt(mouse(250, 60), { ...box, width: 0 }, false)).toBeNull();
+    expect(tiltAt(mouse(250, 60), { ...box, height: 0 }, false)).toBeNull();
+    expect(tiltAt(mouse(250, 60, "pen"), box, false)).not.toBeNull();
+  });
+
+  it("rounds to a tenth, so the style the pointer writes is short", () => {
+    expect(tiltAt(mouse(133, 61), box, false)).toEqual({ rx: -8, ry: 7.8, gx: 16.5 });
   });
 });
 
 describe("the face in holdings.css", () => {
   const css = readFileSync(new URL("../src/styles/holdings.css", import.meta.url), "utf8").replace(/\/\*[^]*?\*\//g, "");
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim(), body: m[2]! }));
-  const faceRules = rules.filter((r) => /\.card-(face|chip|contactless)/.test(r.selector));
+  // the rules of the face itself; the ring of the focus, which stands on the unit, is the page's and reads its token
+  const faceRules = rules.filter((r) => /^\.card-(face|chip)/.test(r.selector));
 
-  it("has the rules of the face, the five tones among them", () => {
-    for (const tone of ["gold", "platinum", "black", "silver"]) expect(faceRules.map((r) => r.selector), tone).toContain(`.card-face-${tone}`);
+  it("has the rules of the face, the four tones that are not plain among them, each with a ground of its own", () => {
+    for (const tone of ["gold", "platinum", "black", "silver"]) {
+      const rule = faceRules.find((r) => r.selector === `.card-face-${tone}`);
+      expect(rule?.body, tone).toMatch(/background-image: linear-gradient/);
+    }
     expect(faceRules.length).toBeGreaterThan(10);
   });
 
-  it("reads no token of the page: every colour of the face is a custom property of the face, so no look changes it", () => {
+  it("reads no token of the page: the colours of the face are its own, so no look changes them", () => {
     for (const rule of faceRules) {
       for (const [, name] of rule.body.matchAll(/var\(\s*(--[\w-]+)/g)) expect(name, rule.selector).toMatch(/^--face-/);
     }
-    expect(css.match(/--face-[\w-]+\s*:/g)?.length).toBeGreaterThan(20);
   });
 
   it("draws the face by CSS and SVG alone: no image file, no font, nothing fetched", () => {
     for (const rule of faceRules) expect(rule.body, rule.selector).not.toMatch(/url\(|@import|@font-face|image-set\(/);
+  });
+
+  it("holds the face flat for a person who asked for less motion, whatever the pointer does", () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.card-face[^}]*transform: none; transition: none/);
   });
 });
