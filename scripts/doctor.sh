@@ -332,7 +332,7 @@ fi
 host_addr_list() { ip -4 -o addr show 2>/dev/null | awk '{split($4, a, "/"); print a[1]}'; }
 if [[ -f .env && -n ${BIND:-} && $BIND != 127.0.0.1 && $BIND != localhost && $BIND != 0.0.0.0 && $BIND != "::" ]] && command -v ip >/dev/null; then
   head_ "Home network address" "Kotiverkon osoite"
-  if host_addr_list | grep -qxF "$BIND"; then
+  if host_addr_list | grep -xF "$BIND" >/dev/null; then
     ok "$(t "The machine has the address $BIND" "Koneella on osoite $BIND")"
     urlhost=${URL#*://}; urlhost=${urlhost%%/*}; urlhost=${urlhost%:*}
     if [[ -n $URL && $urlhost != "$BIND" ]]; then
@@ -353,7 +353,7 @@ head_ "Maintenance helper" "Ylläpitoapuri"
 UNIT="talous-ops-$INSTANCE"
 HELPER_KIND=""; perm_bad=""
 if command -v systemctl >/dev/null && systemctl --user is-enabled "$UNIT.timer" >/dev/null 2>&1; then HELPER_KIND=systemd
-elif command -v crontab >/dev/null && crontab -l 2>/dev/null | grep -qE " # talous-ops:$INSTANCE\$"; then HELPER_KIND=cron; fi
+elif command -v crontab >/dev/null && crontab -l 2>/dev/null | grep -E " # talous-ops:$INSTANCE\$" >/dev/null; then HELPER_KIND=cron; fi
 if [[ -z $HELPER_KIND ]]; then
   warn "$(t "The maintenance helper is not enabled, so updates and backups cannot be done from the browser." "Ylläpitoapuri ei ole käytössä, joten päivitys ja varmuuskopio eivät onnistu selaimesta.")" "./scripts/install.sh --ops-helper"
 elif [[ $(id -u) -eq 0 ]]; then
@@ -361,6 +361,24 @@ elif [[ $(id -u) -eq 0 ]]; then
   warn "$(t "The maintenance helper is scheduled for root ($HELPER_KIND), and it does not run as root." "Ylläpitoapuri on ajastettu pääkäyttäjälle ($HELPER_KIND), mutta se ei toimi pääkäyttäjänä.")" "$(t "Remove it: ./scripts/install.sh --ops-helper-off   and install it again as a normal user: ./scripts/install.sh --ops-helper" "Poista: ./scripts/install.sh --ops-helper-off   ja asenna uudelleen tavallisella käyttäjällä: ./scripts/install.sh --ops-helper")"
 else
   ok "$(t "The maintenance helper is scheduled ($HELPER_KIND)" "Ylläpitoapuri ajastettu ($HELPER_KIND)")"
+  # The schedule runs a launcher outside this folder, which keeps the last helper that worked and runs it when an update
+  # leaves a helper that does not start. An install from before the launcher gets it on its next update.
+  LAUNCHER=$(ops_scheduled_launcher "$INSTANCE" || true)
+  if [[ -z $LAUNCHER || ! -f $LAUNCHER ]]; then
+    warn "$(t "The helper's schedule does not run the launcher, so an update that breaks the helper would stop it." "Apurin ajastus ei käytä käynnistintä, joten apurin rikkova päivitys pysäyttäisi sen.")" "./scripts/install.sh --ops-helper"
+  elif [[ -f ${LAUNCHER%/*}/last-good/.hash ]]; then
+    ok "$(t "The launcher has a last good copy of the helper (taken $(span $(( $(date +%s) - $(stat -c %Y "${LAUNCHER%/*}/last-good/.hash") ))) ago)" "Käynnistimellä on apurin viimeisin toimiva kopio (otettu $(span $(( $(date +%s) - $(stat -c %Y "${LAUNCHER%/*}/last-good/.hash") ))) sitten)")"
+  elif [[ -f ops/helper-seen ]]; then
+    warn "$(t "The launcher has no last good copy of the helper yet." "Käynnistimellä ei ole vielä apurin toimivaa kopiota.")" "$(t "It is taken after the helper's next good run, once the helper has passed its own test. If it stays missing: tail -n 20 ops/helper.log" "Kopio otetaan apurin seuraavan onnistuneen ajon jälkeen, kun apuri on läpäissyt oman testinsä. Jos sitä ei tule: tail -n 20 ops/helper.log")"
+  fi
+  # while the helper of this folder cannot be run, the launcher keeps what it last said in .note beside itself (the
+  # log gets that line once in ten minutes); a tick of this folder's own helper removes the file
+  fellback=$(cat "${LAUNCHER%/*}/.note" 2>/dev/null || true)
+  if [[ -n $LAUNCHER && $fellback == *"cannot be run"* ]]; then
+    if [[ $fellback == *"Nothing runs"* ]]; then fellback=$(t "and there is no last good copy of it, so no helper runs." "eikä siitä ole toimivaa kopiota, joten apuri ei toimi.")
+    else fellback=$(t "and the launcher runs its last good copy instead." "ja käynnistin ajaa sen sijaan viimeisintä toimivaa kopiota."); fi
+    warn "$(t "The helper of this folder cannot be run, $fellback" "Tämän kansion apuri ei käynnisty, $fellback")" "$(t "Update or go back to the previous version (Asetukset > Ylläpito), or run: ./scripts/update.sh   The reason: cat ${LAUNCHER%/*}/.note" "Päivitä tai palauta edellinen versio (Asetukset > Ylläpito), tai aja: ./scripts/update.sh   Syy: cat ${LAUNCHER%/*}/.note")"
+  fi
   # the helper refuses to run when someone else owns the clone, .git, scripts or .env, or others can write to them
   perm_bad=$(ops_unsafe_paths)
   if [[ -n $perm_bad ]]; then

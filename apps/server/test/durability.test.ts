@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -168,18 +168,20 @@ describe("verified copies", () => {
     const dir = tmp();
     const path = join(dir, "banking.db");
     const file = join(dir, "backups", "auto-2026-10-10.db");
+    // the copy is written under the name in the statement (a part file) and gets its own name when it is good
+    const target = (sql: string) => /^VACUUM INTO '(.+)'$/.exec(sql)![1]!;
     // a database whose VACUUM INTO leaves an empty file, as a full disk does
-    const empty = { exec: () => writeFileSync(file, "") };
+    const empty = { exec: (sql: string) => writeFileSync(target(sql), "") };
     expect(() => dailyBackup(empty, path, "2026-10-10")).toThrow(/failed its check and was removed: the file is empty/);
-    expect(existsSync(file)).toBe(false);
+    expect(readdirSync(join(dir, "backups"))).toEqual([]);
     const failing = {
-      exec: () => {
-        writeFileSync(file, "partial");
+      exec: (sql: string) => {
+        writeFileSync(target(sql), "partial");
         throw new Error("database or disk is full");
       },
     };
     expect(() => dailyBackup(failing, path, "2026-10-10")).toThrow(/disk is full/);
-    expect(existsSync(file)).toBe(false);
+    expect(readdirSync(join(dir, "backups"))).toEqual([]);
   });
 
   it("lists only usable copies and downloads the newest one that passes", async () => {
@@ -252,10 +254,11 @@ describe("node-sqlite errors", () => {
 });
 
 describe("scripts/lib/dbcopy.sh (the copy that update.sh, backup.sh and the helper make in the container)", () => {
-  const run = (data: string, options: string, target: string) =>
+  /** `preload` is a script node loads first: the tests' way to give the disk a free space of their choice. */
+  const run = (data: string, options: string, target: string, preload?: string) =>
     spawnSync("bash", ["-c", '. scripts/lib/dbcopy.sh; node --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" "$0" "$1"', options, target], {
       cwd: join(import.meta.dirname, "../../.."),
-      env: { ...process.env, DBCOPY_DATA: data },
+      env: { ...process.env, DBCOPY_DATA: data, ...(preload ? { NODE_OPTIONS: `--require=${preload}` } : {}) },
       encoding: "utf8",
     });
 
@@ -270,6 +273,119 @@ describe("scripts/lib/dbcopy.sh (the copy that update.sh, backup.sh and the help
     expect(r.status).toBe(0);
     expect(names(join(backups, "manual-20261010T000000Z.db"))).toEqual(["aino"]);
     expect(readdirSync(backups).sort()).toEqual(["manual-20260104T000000Z.db", "manual-20260105T000000Z.db", "manual-20260106T000000Z.db", "manual-20260107T000000Z.db", "manual-20261010T000000Z.db"]);
+  });
+
+  it("keep: never deletes the three newest intact copies, and nothing while the live database is damaged", async () => {
+    const dir = tmp();
+    const { path, db } = await realDb(dir);
+    const backups = join(dir, "backups");
+    mkdirSync(backups);
+    const name = (day: number) => `manual-2026010${day}T000000Z.db`;
+    // the intact copies are the oldest; the newer names are what a full disk left behind
+    for (let day = 1; day <= 3; day++) {
+      db.exec(`VACUUM INTO '${join(backups, name(day))}'`);
+      utimesSync(join(backups, name(day)), new Date(`2026-01-0${day}T00:00:00Z`), new Date(`2026-01-0${day}T00:00:00Z`));
+    }
+    db.close();
+    for (let day = 4; day <= 8; day++) writeFileSync(join(backups, name(day)), "cut short");
+    const r = run(dir, "keep:^manual-[0-9TZ]+\\.db$", join(backups, "manual-20261010T000000Z.db"));
+    expect(r.status, r.stderr).toBe(0);
+    // by name the new copy and 05 to 08 stay. Of 01 to 04 the count would take all: 03 and 02 stay, with the new copy they are the three.
+    expect(readdirSync(backups).sort()).toEqual([name(2), name(3), name(5), name(6), name(7), name(8), "manual-20261010T000000Z.db"]);
+
+    // `prune` makes no copy and applies the same rule to the folder
+    for (let day = 4; day <= 5; day++) writeFileSync(join(backups, `manual-2026020${day}T000000Z.db`), "cut short");
+    const damaged = Buffer.from(readFileSync(path));
+    const healthy = Buffer.from(damaged);
+    damaged.fill(0xff, 4096, 4096 * 4);
+    writeFileSync(path, damaged);
+    const before = readdirSync(backups).sort();
+    const held = run(dir, "prune,keep:^manual-[0-9TZ]+\\.db$", backups);
+    expect(held.status, held.stderr).toBe(0);
+    expect(held.stderr).toMatch(/database copies are not pruned: the live database /);
+    expect(readdirSync(backups).sort()).toEqual(before);
+
+    writeFileSync(path, healthy);
+    const pruned = run(dir, "prune,keep:^manual-[0-9TZ]+\\.db$", backups);
+    expect(pruned.status, pruned.stderr).toBe(0);
+    expect(readdirSync(backups).sort()).toEqual([name(2), name(3), name(7), name(8), "manual-20260204T000000Z.db", "manual-20260205T000000Z.db", "manual-20261010T000000Z.db"]);
+    expect(run(dir, "prune,keep:^manual-", join(dir, "no-such-folder")).status).toBe(0);
+  });
+
+  it("does not start a copy on a disk without twice the database and its WAL free", async () => {
+    const dir = tmp();
+    const { db } = await realDb(dir);
+    db.close();
+    const backups = join(dir, "backups");
+    mkdirSync(backups);
+    const target = join(backups, "pre-update-20261010T000000Z.db");
+    writeFileSync(target, "a file of that name from before");
+    // a preload in place of a full disk: one free block
+    const preload = join(dir, "full.cjs");
+    writeFileSync(preload, 'require("node:fs").statfsSync = () => ({ bavail: 1, bsize: 4096 });\n');
+    const r = spawnSync("bash", ["-c", '. scripts/lib/dbcopy.sh; node --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" exists "$0"', target], {
+      cwd: join(import.meta.dirname, "../../.."),
+      env: { ...process.env, DBCOPY_DATA: dir, NODE_OPTIONS: `--require=${preload}` },
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/database copy failed: not enough free space in .*backups: 0\.0 MB free, a copy needs \d+\.\d MB \(twice the database and its WAL\)/);
+    // a refusal removes nothing
+    expect(readFileSync(target, "utf8")).toBe("a file of that name from before");
+  });
+
+  it("room:3 asks for three times the database, which is what update.sh asks before it switches", async () => {
+    const dir = tmp();
+    const { path, db } = await realDb(dir);
+    db.close();
+    const backups = join(dir, "backups");
+    mkdirSync(backups);
+    const size = statSync(path).size + (existsSync(`${path}-wal`) ? statSync(`${path}-wal`).size : 0);
+    // Between twice and three times the database free: room for one copy. After it the new version would find too
+    // little for its copy before a migration, and by then the old version is gone.
+    const preload = join(dir, "free.cjs");
+    writeFileSync(preload, `require("node:fs").statfsSync = () => ({ bavail: ${Math.ceil((2.5 * size) / 4096)}, bsize: 4096 });\n`);
+    const target = join(backups, "pre-update-20261010T000000Z.db");
+    const refused = run(dir, "exists,room:3", target, preload);
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toMatch(/database copy failed: not enough free space in .*backups: \d+\.\d MB free, a copy needs /);
+    expect(refused.stderr).toContain(`a copy needs ${((3 * size) / 1048576).toFixed(1)} MB (3 times the database and its WAL)`);
+    expect(readdirSync(backups)).toEqual([]);
+    expect(run(dir, "exists", target, preload).status).toBe(0);
+    expect(readdirSync(backups)).toEqual(["pre-update-20261010T000000Z.db"]);
+
+    const update = readFileSync(join(import.meta.dirname, "../../../scripts/update.sh"), "utf8");
+    expect(update).toMatch(/in_app -e "\$DBCOPY_JS" exists,room:3 "\$snapshot" \|\| die "[^"\n]*three times the size of the database/);
+  });
+
+  it("keep: counts among the three only the copies a restore would take", async () => {
+    const dir = tmp();
+    const { db } = await realDb(dir);
+    const backups = join(dir, "backups");
+    mkdirSync(backups);
+    const name = (day: number) => `manual-2026010${day}T000000Z.db`;
+    const intact = (file: string, at: string) => {
+      db.exec(`VACUUM INTO '${join(backups, file)}'`);
+      utimesSync(join(backups, file), new Date(at), new Date(at));
+    };
+    for (let day = 1; day <= 3; day++) intact(name(day), `2026-01-0${day}T00:00:00Z`);
+    // what two restores saved is intact and newer than those copies: it takes no place among the three
+    intact("pre-restore-20260601T000000.db", "2026-06-01T00:00:00Z");
+    intact("pre-restore-20260602T000000.db", "2026-06-02T00:00:00Z");
+    intact("kopio.db", "2025-12-01T00:00:00Z");
+    db.close();
+    for (let day = 4; day <= 8; day++) writeFileSync(join(backups, name(day)), "cut short");
+    const keep = "keep:^manual-[0-9TZ]+\\.db$";
+    const r = run(dir, keep, join(backups, "manual-20261010T000000Z.db"));
+    expect(r.status, r.stderr).toBe(0);
+    // by name the new copy and 05 to 08 stay. The three are the new copy, 03 and 02, as without the pre-restore copies.
+    const saved = ["pre-restore-20260601T000000.db", "pre-restore-20260602T000000.db"];
+    expect(readdirSync(backups).sort()).toEqual(["kopio.db", name(2), name(3), name(5), name(6), name(7), name(8), "manual-20261010T000000Z.db", ...saved]);
+
+    // a copy somebody put there under a name of their own is one a restore would take: with it and the new copy, 03 is the third
+    utimesSync(join(backups, "kopio.db"), new Date("2026-07-01T00:00:00Z"), new Date("2026-07-01T00:00:00Z"));
+    expect(run(dir, `prune,${keep}`, backups).status).toBe(0);
+    expect(readdirSync(backups).sort()).toEqual(["kopio.db", name(3), name(5), name(6), name(7), name(8), "manual-20261010T000000Z.db", ...saved]);
   });
 
   it("removes a copy that fails its check and exits 1, and does nothing without a database when told so", () => {

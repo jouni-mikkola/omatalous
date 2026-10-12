@@ -6,6 +6,7 @@
 #   - Docker: the check and its fixes before the questions (docker_ready), the install and the other waiting steps after
 #     the last answer (prep_host)
 #   - the Cloudflare settings file for choice 3 (cf_setup_if_missing)
+#   - a new instance on the release this clone is at (pin_new_clone)
 # Uses the installer's globals and helpers (die, say, ok, warn, confirm, as_root, in_docker_group, A_*, YES, ...).
 
 # The answers a re-exec handed over (reexec_with_group writes them to a private file, so a token never shows in ps and
@@ -90,7 +91,7 @@ reexec_with_group() {
   command -v sg >/dev/null || command -v sudo >/dev/null || return 1
   answers=$(save_answers) || return 1
   export TALOUS_REEXEC=1 TALOUS_ANSWERS=$answers
-  exec 9<&-   # the new process takes the lock again
+  exec 9<&- 6<&-   # the new process takes the lock again
   if command -v sg >/dev/null; then
     say "Opening a new session with the docker group and continuing."
     exec sg docker -c "$(printf '%q ' "$ROOT/scripts/install.sh" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
@@ -169,4 +170,59 @@ prep_host() {
       ((free_kb >= 2048 * 1024)) || warn "Only $((free_kb / 1024)) MB free on the disk. The build may stop half way if the space runs out."
     fi
   fi
+}
+
+# A new install (the folder has no .env yet) that sits on a release tag asks GitHub whether that release is out: a release
+# is a pre-release for its first 48 hours, and a clone of main holds its tag from the first minute. When GitHub names a
+# lower release the folder moves to that one, where relay/install.sh would have put it, and the installer of that release
+# takes over before anything is asked or written. When GitHub cannot be asked the install goes on with the tag at HEAD
+# and one line says so. An installed folder stays where it is, as with update.sh, and so does the clone of
+# --new-instance, which pin_new_clone has put on the release the first instance runs. Which of two tags is the higher is
+# release_above's to say (lib/release.sh).
+confirm_release() {
+  local rel="" held commit branch rc=0
+  [[ ! -e $ENV_FILE && $FROM_CLONE == false && ${TALOUS_CHANNEL:-} != source ]] || return 0
+  [[ -n $(git tag --points-at HEAD 2>/dev/null </dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true) ]] || return 0
+  rel=$(release_from_api "$(release_mode)") || rc=$?
+  if ((rc != 0)) || [[ -z $rel ]]; then
+    warn "GitHub could not be asked which release is out, so the release this folder is at could not be confirmed. The install goes on with it."
+    return 0
+  fi
+  held=$(release_above "$rel") || return 0 # GitHub names the tag at HEAD or one above it
+  commit=$(git rev-parse -q --verify "refs/tags/$rel^{commit}" </dev/null || true)
+  if [[ -z $commit ]] || ! git merge-base --is-ancestor "$commit" HEAD </dev/null 2>/dev/null; then
+    warn "Release $rel, the one GitHub names, is not in the history of this folder, so $held could not be confirmed. The install goes on with it."
+    return 0
+  fi
+  say "This folder is at $held, which is not out yet (a release waits two days). Installing the latest release, $rel."
+  branch=$(git symbolic-ref --short -q HEAD </dev/null || true)
+  git checkout --quiet ${branch:+-B "$branch"} "$commit" </dev/null || die "Could not move this folder to release $rel. Nothing was installed."
+  exec 9<&- 6<&-
+  exec "$ROOT/scripts/install.sh" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"}
+}
+
+# --new-instance, after the clone: puts the new clone on the release this clone is at, so a second household gets the
+# signed release image the first one runs (the channel block of install.sh takes it when HEAD is exactly the release).
+# $1 = the new clone, $2 = its branch. The release is the tag vX.Y.Z at HEAD of this clone, never the highest tag (from
+# 0.9.0 on that can be a pre-release). The branch moves to it only when its commit is on origin/main, the rule of
+# relay/install.sh: the maintenance helper's git policy pins main. With no tag at HEAD, no such tag in the new clone or a
+# release off main, the clone keeps the head of the branch (the source is built, as before) and one line says so.
+pin_new_clone() {
+  local clone=$1 branch=$2 tag commit why
+  tag=$(git tag --points-at HEAD 2>/dev/null </dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+  if [[ -z $tag ]]; then
+    say "This clone is not at a release (no tag vX.Y.Z at HEAD): the new instance stays on the head of $branch and is built from source."
+    return 0
+  fi
+  commit=$(git rev-parse "$tag^{commit}" </dev/null)
+  if [[ $(git -C "$clone" rev-parse --verify --quiet "refs/tags/$tag^{commit}" </dev/null) != "$commit" ]]; then
+    why="The remote repository has no tag $tag on this commit (git push origin $tag)"
+  elif ! git -C "$clone" merge-base --is-ancestor "$commit" refs/remotes/origin/main </dev/null 2>/dev/null; then
+    why="Release $tag is not on origin/main"
+  else
+    git -C "$clone" checkout --quiet -B "$branch" "$commit" </dev/null || die "Could not check out release $tag. The folder $clone was left in place."
+    ok "The new instance is on release $tag, the one this clone runs."
+    return 0
+  fi
+  say "$why: the new instance stays on the head of $branch and is built from source."
 }

@@ -2,6 +2,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { syncUser } from "../src/connectors/sync.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { checkingAccount, setupApp, waitFor } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
@@ -46,7 +47,7 @@ describe("sync", () => {
   it("CSV rows in a bank account do not move the sync window, future dates are skipped", async () => {
     const { bank, admin, s, adminId } = await connected();
     const checking = await checkingAccount(admin);
-    const r = await admin.call("POST", "/api/import/csv", {
+    const r = await seedCsv(s, admin, {
       accountId: checking.id,
       content: "Kirjauspäivä;Määrä;Saaja/Maksaja;Viesti\n2026-11-01;-10,00;TULEVA;X\n2026-10-01;-5,00;KAHVILA;Y\n",
     });
@@ -63,8 +64,6 @@ describe("bad input is a 400, never a 500", () => {
   it.each([
     ["GET", "/api/transactions?limit=abc", undefined],
     ["GET", "/api/transactions?offset=-1", undefined],
-    ["POST", "/api/import/csv", { content: 123 }],
-    ["POST", "/api/import/csv", null],
     ["POST", "/api/connections/complete", null],
     ["POST", "/api/rules", { field: "any", pattern: 5, category: "groceries" }],
     ["POST", "/api/rules", { field: "any", pattern: "/(a+)+$/", category: "groceries" }],
@@ -81,6 +80,17 @@ describe("bad input is a 400, never a 500", () => {
     const { client } = await setupApp();
     expect((await client().call("POST", "/api/auth/login", { username: 5, password: "x" })).status).toBe(401);
     expect((await client().call("POST", "/api/auth/login", { username: "a".repeat(10_000), password: "x" })).status).toBe(401);
+  });
+});
+
+describe("request size limit", () => {
+  it("a JSON body over 256 KB is a 413 with a JSON error, and one just under it is not", async () => {
+    const { admin } = await setupApp();
+    const rule = (size: number) => ({ field: "any", pattern: "x".repeat(size), category: "groceries" });
+    const over = await admin.call("POST", "/api/rules", rule(300 * 1024));
+    expect(over.status).toBe(413);
+    expect(over.body.error).toBeTruthy();
+    expect((await admin.call("POST", "/api/rules", rule(255 * 1024))).status).not.toBe(413);
   });
 });
 

@@ -19,6 +19,8 @@ const LOCK_TRIES = 400;
 export const IN_PROGRESS = "Etäkäytön muutos on jo kesken. Odota, että se valmistuu.";
 /** How long a new address may stay up before somebody has got in through it (remote-access-trial.ts). */
 export const TRIAL_MS = 15 * 60_000;
+/** How long the page tells how the last change ended, from the time it ended. */
+export const LAST_TOLD_MS = 24 * 3_600_000;
 export const WAITING: readonly string[] = ["queued", "running"];
 
 type Want = "tunnel" | "lan";

@@ -139,8 +139,8 @@ export const REMOVAL_NOTE: Record<Removal, string | null> = {
   waiting: "Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista.",
   kept:
     "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. " +
-    "Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja poista etäkäyttö sitten uudelleen.",
-  failed: "Cloudflaren puolta ei saatu poistettua. Tarkista API-tunniste ja poista etäkäyttö uudelleen.",
+    "Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä.",
+  failed: "Cloudflaren puolta ei saatu poistettua. Tarkista API-tunniste ja ota etäkäyttö uudelleen pois käytöstä.",
   installer:
     "Tämän osoitteen on tehnyt Cloudflareen palvelimen asennusohjelma, joten tunneli, DNS-tietue ja kirjautumissuojaus (Access) jäivät sinne. " +
     "Poista ne Cloudflaren hallinnasta tai palvelimen asennusohjelmalla.",

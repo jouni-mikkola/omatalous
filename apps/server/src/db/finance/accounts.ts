@@ -70,11 +70,6 @@ export class AccountsRepo {
     );
   }
 
-  /** Fills a missing IBAN only: an IBAN the bank sent is never replaced. */
-  async setAccountIbanIfMissing(id: string, iban: string): Promise<void> {
-    await this.ctx.db.run("UPDATE accounts SET iban = ? WHERE id = ? AND user_id = ? AND iban IS NULL", [iban, id, this.ctx.userId]);
-  }
-
   /** Removes one account with its transactions (shares go with ON DELETE CASCADE). */
   async deleteAccount(id: string): Promise<void> {
     await this.ctx.db.batch([
@@ -92,6 +87,9 @@ export class AccountsRepo {
    * Moves every row and share of account `from` to account `to` and removes `from`. `newIds` gives rows a new id
    * (ids derive from the account id). A row whose new id exists already in `to` is a duplicate and is dropped
    * with the old account.
+   * A saved loan linked to `from` follows to `to`: the household said once that the two are one debt. An account has
+   * one saved loan (`loans.ts`), so when a loan holds `to` already the one of `from` stays put and ends unlinked as
+   * its account goes (ON DELETE SET NULL).
    */
   async mergeAccountInto(from: string, to: string, newIds: ReadonlyMap<string, string>): Promise<void> {
     await this.ctx.db.batch([
@@ -103,6 +101,10 @@ export class AccountsRepo {
       {
         sql: "INSERT OR IGNORE INTO account_shares (account_id, user_id, created_at) SELECT ?, user_id, created_at FROM account_shares WHERE account_id = ?",
         params: [to, from],
+      },
+      {
+        sql: "UPDATE loans SET account_id = ? WHERE user_id = ? AND account_id = ? AND NOT EXISTS (SELECT 1 FROM loans AS held WHERE held.user_id = ? AND held.account_id = ?)",
+        params: [to, this.ctx.userId, from, this.ctx.userId, to],
       },
       { sql: "DELETE FROM transactions WHERE user_id = ? AND account_id = ?", params: [this.ctx.userId, from] },
       { sql: "DELETE FROM accounts WHERE id = ? AND user_id = ?", params: [from, this.ctx.userId] },

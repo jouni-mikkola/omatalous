@@ -34,12 +34,6 @@ const RULES: Rule[] = [
     deny: new RegExp(`^(?!${CORE}/)`),
   },
   {
-    id: "core-does-not-import-sources",
-    why: "core domain code receives a source's dialect as an argument; only the server looks a parser up in sources/registry.ts",
-    from: new RegExp(`^${CORE}/(?!sources/|index\\.ts$)`),
-    deny: new RegExp(`^${CORE}/sources/`),
-  },
-  {
     id: "analysis-is-below-reports",
     why: "reports are built on analysis, so analysis must not import them back (a cycle between folders)",
     from: new RegExp(`^${CORE}/analysis/`),
@@ -116,6 +110,12 @@ const RULES: Rule[] = [
     why: "pages compose charts and components; the reverse makes a cycle",
     from: /^apps\/web\/src\/(charts|components)\//,
     deny: /^apps\/web\/src\/pages\//,
+  },
+  {
+    id: "src-does-not-import-test",
+    why: "what src/ imports is shipped and runs in production; a test or fixtures folder is not, so code a test needs stays out of src/ and code src/ needs is never kept in a test",
+    from: /^(apps|packages)\/[^/]+\/src\//,
+    deny: /(^|\/)(test|fixtures)\//,
   },
 ];
 
@@ -246,6 +246,17 @@ describe("repo rules: import boundaries (rule 6)", () => {
     const found: Finding[] = cyclesOf(graph).map((cycle) => ({ file: cycle[0]!, line: 1, why: `import cycle: ${cycle.join(" -> ")}` }));
     expect(graph.size, "the scan found the sources").toBeGreaterThan(200);
     expectNoFindings("import cycles", found, "move what both files need into a third file that imports neither (a shared.ts beside them), so the imports point one way.");
+  });
+
+  it("rule 6e: src/ importing from a test or fixtures folder is refused, a test importing a test is not", () => {
+    const known = new Set(["apps/server/src/demo.ts", "apps/server/src/db/open.ts", "apps/server/test/helpers.ts", "apps/server/test/fixtures/nordea-csv.ts", "packages/core/test/data.ts"]);
+    const refused = (from: string, spec: string) => RULES.filter((r) => r.from.test(from) && r.deny.test(target(from, spec, known))).map((r) => r.id);
+    expect(refused("apps/server/src/demo.ts", "../test/helpers.ts")).toEqual(["src-does-not-import-test"]);
+    expect(refused("apps/server/src/demo.ts", "../test/fixtures/nordea-csv.ts")).toEqual(["src-does-not-import-test"]);
+    expect(refused("apps/server/src/services/ingest.ts", "../../test/fixtures/new-file.ts")).toEqual(["src-does-not-import-test"]);
+    expect(refused("packages/core/src/index.ts", "../test/data.ts")).toContain("src-does-not-import-test");
+    expect(refused("apps/server/src/demo.ts", "./db/open.ts")).toEqual([]);
+    expect(refused("apps/server/test/helpers.ts", "./fixtures/nordea-csv.ts")).toEqual([]);
   });
 
   it("rule 6c: every boundary rule still applies to at least one file", () => {

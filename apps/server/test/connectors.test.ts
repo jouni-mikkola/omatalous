@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CONNECTORS, connectorById } from "../src/connectors/registry.ts";
+import { CONNECTORS } from "../src/connectors/registry.ts";
 
 const DIR = new URL("../src/connectors/", import.meta.url);
 
@@ -22,13 +22,11 @@ describe("connector registry", () => {
     // accounts.provider, connections.provider and transactions.source of existing installs
     expect(ids).toContain("enablebanking");
     expect(ids).toContain("csv");
-    expect(connectorById("enablebanking")?.kind).toBe("psd2");
-    expect(connectorById("csv")?.kind).toBe("file");
-    expect(connectorById("nothing")).toBeUndefined();
   });
 
   it("gives a sync only to connectors that fetch by themselves", () => {
-    expect(connectorById("enablebanking")?.sync).toBeDefined();
-    expect(connectorById("csv")?.sync).toBeUndefined();
+    const byId = (id: string) => CONNECTORS.find((c) => c.id === id);
+    expect(byId("enablebanking")?.sync).toBeDefined();
+    expect(byId("csv")?.sync).toBeUndefined();
   });
 });

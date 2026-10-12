@@ -98,7 +98,7 @@ previous_reads_database() {
     fi
   fi
   # the JSON line is the check's own, e.g. {"ok":true,"file":...,"applied":[],"ahead":[...],...}
-  if ((rc == 0)) && ! grep -E '^\{"ok":true,' "$log" | grep -q '"applied":\[\],'; then
+  if ((rc == 0)) && ! grep -E '^\{"ok":true,' "$log" | grep '"applied":\[\],' >/dev/null; then
     printf 'The previous version has changes of its own to make to the database, so it is not kept as it is. End of its output:\n' >&2
     tail -n 3 "$log" | cut -c1-400 | sed 's/^/  /' >&2
     rc=1

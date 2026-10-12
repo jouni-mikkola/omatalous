@@ -10,10 +10,6 @@ import type { Connector } from "./types.ts";
 /** In the order of the folders. */
 export const CONNECTORS: readonly Connector[] = [csvImport, enableBanking];
 
-export function connectorById(id: string): Connector | undefined {
-  return CONNECTORS.find((c) => c.id === id);
-}
-
 /** Ends every active consent of a user at every connector that has consents, for a member who is being removed. */
 export async function revokeAllConnections(s: Services, userId: string): Promise<{ revoked: number; failed: number }> {
   const total = { revoked: 0, failed: 0 };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { recordEvent, validKind } from "../src/services/security.ts";
+import { gateEvent } from "../src/db/startup-gate.ts";
+import { noticesFor, recordEvent, validKind } from "../src/services/security.ts";
 import { setupApp } from "./helpers.ts";
 
 const CHROME_WIN = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" };
@@ -98,6 +99,29 @@ describe("security events", () => {
     expect((await admin.call("GET", "/api/meta")).status).toBe(200);
     await admin.call("POST", "/api/security/sessions/revoke-all", {});
     expect((await admin.call("GET", "/api/meta")).status).toBe(401);
+  });
+
+  it("records the address and browser of the request behind an ended session", async () => {
+    const { admin, s } = await setupApp();
+    await admin.call("POST", "/api/security/sessions/revoke-all", { keepCurrent: true }, FIREFOX_LINUX);
+    const events = await s.security.list({ kind: "session_revoked", limit: 5 });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ ip: "local", userAgent: FIREFOX_LINUX["User-Agent"] });
+  });
+
+  it("tells an admin of a damaged database in Finnish: what to do next and where, no English heading, one name for a copy", async () => {
+    const { s, adminId } = await setupApp();
+    const damaged = (waiting: { name: string; why: string } | null) => gateEvent({ state: "damaged", lines: [], reason: "quick_check", waiting }, (iso) => iso);
+    for (const waiting of [null, { name: "auto-2026-10-11.db", why: "ENOSPC" }]) await recordEvent(s, { ...damaged(waiting), userId: adminId, notify: true });
+    const texts = (await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.kind === "db_damaged").map((n) => n.text);
+    expect(texts).toHaveLength(2);
+    for (const text of texts) {
+      expect(text).not.toContain("Restore a backup");
+      expect(text).not.toMatch(/(^|[^a-zäö])kopio/i);
+    }
+    // both cases end with the restore by hand: a restart has tried the waiting copy already, so a button would try the same again
+    for (const text of texts) expect(text).toContain("./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.");
+    expect(texts.filter((t) => t.includes("käynnistä sovellus uudelleen"))).toHaveLength(1);
   });
 
   it("a member cannot end another member's session", async () => {

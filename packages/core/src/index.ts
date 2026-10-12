@@ -8,7 +8,6 @@
  *   analysis/*                                     money flows, context, dashboard, alerts, insights
  *   reports/*                                      report registry (one file per report)
  *   optimise/*                                     Optimoi: decisions with a price or a deadline, one file per area
- *   sources/*                                      import parsers (file text to raw rows), one folder each
  */
 export * from "./types.ts";
 export * from "./dates.ts";
@@ -22,7 +21,7 @@ export * from "./transfers.ts";
 export * from "./recurring.ts";
 export * from "./commitments.ts";
 export * from "./loans.ts";
-export * from "./loan-payment-split.ts";
+export * from "./household-debts.ts";
 export * from "./loan-detect.ts";
 export * from "./pipeline.ts";
 export * from "./returns.ts";
@@ -43,7 +42,6 @@ export { isLongSubscription, renewalItems } from "./analysis/insights/renewals.t
 export * from "./analysis/dashboard.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";
-export * from "./sources/index.ts";
 export * from "./features.ts";
 export * from "./optimise/index.ts";
 export * from "./optimise/outcome.ts";

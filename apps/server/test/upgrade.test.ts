@@ -193,9 +193,9 @@ describe("after a version change", () => {
       eb("text", "12.00", "DBIT", "KAUPPA A", { description: "Korttiosto" }),
       eb("none", "7.00", "DBIT", "KAUPPA B"),
     ];
-    await ingestTransactions(repo, "chk", fetched, "enablebanking", { replacePending: true });
+    await ingestTransactions(repo, "chk", fetched, "enablebanking");
     // a file's row is not the bank's payload, whatever it holds
-    await ingestTransactions(repo, "chk", [{ ...eb("file", "2200.00", "CRDT", "HUS-YHTYMÄ", SALARY), externalId: null, bookingDate: "2026-10-02" }], "csv", { replacePending: false });
+    await ingestTransactions(repo, "chk", [{ ...eb("file", "2200.00", "CRDT", "HUS-YHTYMÄ", SALARY), externalId: null, bookingDate: "2026-10-02" }], "csv");
     // as the version before stored them: no code, the categories the wording alone gives, and one payload that does not parse
     const id = async (cents: number) => (await repo.allTransactions()).find((t) => t.amountCents === cents)!.id;
     await s.db.run("UPDATE transactions SET bank_txn_code = NULL WHERE user_id = ?", [adminId]);

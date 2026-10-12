@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { RawTransaction } from "@banking/core";
 import { AnalysisCache } from "../src/services/analysis.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";
 
@@ -26,7 +27,7 @@ describe("the analysis cache", () => {
   it("holds one entry per user and scope over many days", async () => {
     const clock = { now: new Date("2026-10-09T10:00:00Z") };
     const { admin, s, adminId } = await setupApp({}, undefined, { now: () => clock.now });
-    await admin.call("POST", "/api/import/csv", { content: csvOf(30), accountName: "Tili" });
+    await seedCsv(s, admin, { content: csvOf(30), accountName: "Tili" });
     const cache = new AnalysisCache();
     const first = await cache.get(s, adminId, "own");
     expect(await cache.get(s, adminId, "own")).toBe(first);
@@ -42,7 +43,7 @@ describe("the analysis cache", () => {
 
   it("the household view of a member nobody shares with is the own view, in one entry", async () => {
     const { admin, s, adminId } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content: csvOf(5), accountName: "Tili" });
+    await seedCsv(s, admin, { content: csvOf(5), accountName: "Tili" });
     const cache = new AnalysisCache();
     expect(await cache.get(s, adminId, "household")).toBe(await cache.get(s, adminId, "own"));
     expect(cache.stats().entries).toBe(1);
@@ -52,9 +53,9 @@ describe("the analysis cache", () => {
     const { admin, member, s, adminId } = await setupApp();
     const eero = await member("eero");
     const liisa = await member("liisa");
-    await admin.call("POST", "/api/import/csv", { content: csvOf(40), accountName: "Tili" });
-    await eero.call("POST", "/api/import/csv", { content: csvOf(40), accountName: "Tili" });
-    await liisa.call("POST", "/api/import/csv", { content: csvOf(40), accountName: "Tili" });
+    await seedCsv(s, admin, { content: csvOf(40), accountName: "Tili" });
+    await seedCsv(s, eero, { content: csvOf(40), accountName: "Tili" });
+    await seedCsv(s, liisa, { content: csvOf(40), accountName: "Tili" });
     const cache = new AnalysisCache({ maxRows: 90 });
     const a = await cache.get(s, adminId, "own");
     await cache.get(s, eero.id, "own");
@@ -75,8 +76,8 @@ describe("the analysis cache", () => {
     const clock = { ms: 0 };
     const { admin, member, s, adminId } = await setupApp();
     const eero = await member("eero");
-    await admin.call("POST", "/api/import/csv", { content: csvOf(3), accountName: "Tili" });
-    await eero.call("POST", "/api/import/csv", { content: csvOf(3), accountName: "Tili" });
+    await seedCsv(s, admin, { content: csvOf(3), accountName: "Tili" });
+    await seedCsv(s, eero, { content: csvOf(3), accountName: "Tili" });
     const cache = new AnalysisCache({ clock: () => clock.ms });
     await cache.get(s, adminId, "own");
     await cache.get(s, eero.id, "own");
@@ -90,8 +91,8 @@ describe("per-user data versions", () => {
   it("one member's change leaves the others' cached analyses alone", async () => {
     const { admin, member, s, adminId } = await setupApp();
     const eero = await member("eero");
-    await admin.call("POST", "/api/import/csv", { content: csvOf(10), accountName: "Tili" });
-    await eero.call("POST", "/api/import/csv", { content: csvOf(10, "TOINEN"), accountName: "Tili" });
+    await seedCsv(s, admin, { content: csvOf(10), accountName: "Tili" });
+    await seedCsv(s, eero, { content: csvOf(10, "TOINEN"), accountName: "Tili" });
     const mine = await s.analysis.get(s, adminId, "own");
     const theirs = await s.analysis.get(s, eero.id, "own");
     const row = (await eero.call("GET", "/api/transactions?limit=1")).body.items[0];
@@ -104,8 +105,8 @@ describe("per-user data versions", () => {
     const { admin, member, s, adminId } = await setupApp();
     const eero = await member("eero");
     const liisa = await member("liisa");
-    await admin.call("POST", "/api/import/csv", { content: csvOf(10), accountName: "Tili" });
-    await eero.call("POST", "/api/import/csv", { content: csvOf(5, "TOINEN"), accountName: "Eeron tili" });
+    await seedCsv(s, admin, { content: csvOf(10), accountName: "Tili" });
+    await seedCsv(s, eero, { content: csvOf(5, "TOINEN"), accountName: "Eeron tili" });
     const accountId = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
     expect((await admin.call("PUT", `/api/accounts/${accountId}/shares/${eero.id}`)).status).toBe(200);
 
@@ -115,7 +116,7 @@ describe("per-user data versions", () => {
     const liisaOwn = await s.analysis.get(s, liisa.id, "own");
 
     // the owner imports more: the member who sees the account gets the new rows, the others keep their entries
-    await admin.call("POST", "/api/import/csv", { content: csvOf(4, "UUSI"), accountId });
+    await seedCsv(s, admin, { content: csvOf(4, "UUSI"), accountId });
     const after = await s.analysis.get(s, eero.id, "household");
     expect(after).not.toBe(eeroHousehold);
     expect(after.ctx.txs).toHaveLength(19);
@@ -130,8 +131,8 @@ describe("per-user data versions", () => {
   it("removing a member drops everyone's cached view of them", async () => {
     const { admin, member, s, adminId } = await setupApp();
     const eero = await member("eero");
-    await admin.call("POST", "/api/import/csv", { content: csvOf(6), accountName: "Tili" });
-    await eero.call("POST", "/api/import/csv", { content: csvOf(3, "TOINEN"), accountName: "Tili" });
+    await seedCsv(s, admin, { content: csvOf(6), accountName: "Tili" });
+    await seedCsv(s, eero, { content: csvOf(3, "TOINEN"), accountName: "Tili" });
     const accountId = (await eero.call("GET", "/api/meta")).body.accounts[0].id;
     await eero.call("PUT", `/api/accounts/${accountId}/shares/${adminId}`);
     expect((await s.analysis.get(s, adminId, "household")).ctx.txs).toHaveLength(9);
@@ -143,18 +144,18 @@ describe("per-user data versions", () => {
 describe("a sync or an import that changed nothing", () => {
   it("the same CSV again writes nothing, marks nothing and keeps the version", async () => {
     const { admin, s, adminId } = await setupApp();
-    const first = await admin.call("POST", "/api/import/csv", { content: csvOf(20), accountName: "Tili" });
+    const first = await seedCsv(s, admin, { content: csvOf(20), accountName: "Tili" });
     expect(first.body).toMatchObject({ inserted: 20 });
     const accountId = first.body.accountId;
     const version = await s.settings.dataVersionOf([adminId]);
     const entry = await s.analysis.get(s, adminId, "own");
-    const again = await admin.call("POST", "/api/import/csv", { content: csvOf(20), accountId });
+    const again = await seedCsv(s, admin, { content: csvOf(20), accountId });
     expect(again.body).toMatchObject({ inserted: 0, updated: 20, changed: 0 });
     expect(await s.settings.dataVersionOf([adminId])).toBe(version);
     expect(await s.finance(adminId).unprocessedMark()).toBeNull();
     expect(await s.analysis.get(s, adminId, "own")).toBe(entry);
     // one new row is a change
-    const more = await admin.call("POST", "/api/import/csv", { content: csvOf(21), accountId });
+    const more = await seedCsv(s, admin, { content: csvOf(21), accountId });
     expect(more.body).toMatchObject({ inserted: 1, changed: 1 });
     expect(await s.settings.dataVersionOf([adminId])).not.toBe(version);
   });
@@ -164,19 +165,19 @@ describe("a sync or an import that changed nothing", () => {
     const repo = s.finance(adminId);
     await account(repo);
     const rows = [raw("2026-10-01", -42, "K-MARKET", { externalId: "x1", raw: { v: 1 } }), raw("2026-10-02", 2500, "TYÖNANTAJA OY", { externalId: "x2", raw: { v: 1 } })];
-    expect(await ingestTransactions(repo, "chk", rows, "enablebanking", { replacePending: true })).toMatchObject({ inserted: 2, changed: 2 });
+    expect(await ingestTransactions(repo, "chk", rows, "enablebanking")).toMatchObject({ inserted: 2, changed: 2 });
     await s.settings.set("probe", "1");
     await repo.clearUnprocessedMark(await repo.unprocessedMark());
     const version = await s.settings.dataVersionOf([adminId]);
 
-    const same = await ingestTransactions(repo, "chk", rows, "enablebanking", { replacePending: true });
+    const same = await ingestTransactions(repo, "chk", rows, "enablebanking");
     expect(same).toMatchObject({ inserted: 0, updated: 2, changed: 0 });
-    const rawOnly = await ingestTransactions(repo, "chk", [{ ...rows[0]!, raw: { v: 2, extra: true } }, rows[1]!], "enablebanking", { replacePending: true });
+    const rawOnly = await ingestTransactions(repo, "chk", [{ ...rows[0]!, raw: { v: 2, extra: true } }, rows[1]!], "enablebanking");
     expect(rawOnly.changed).toBe(0);
     expect(await s.settings.dataVersionOf([adminId])).toBe(version);
     expect(await repo.unprocessedMark()).toBeNull();
 
-    const edited = await ingestTransactions(repo, "chk", [{ ...rows[0]!, description: "korjattu viesti" }, rows[1]!], "enablebanking", { replacePending: true });
+    const edited = await ingestTransactions(repo, "chk", [{ ...rows[0]!, description: "korjattu viesti" }, rows[1]!], "enablebanking");
     expect(edited).toMatchObject({ updated: 2, changed: 1 });
     expect(await repo.unprocessedMark()).not.toBeNull();
     expect(await s.settings.dataVersionOf([adminId])).not.toBe(version);
@@ -188,14 +189,14 @@ describe("a sync or an import that changed nothing", () => {
     const repo = s.finance(adminId);
     await account(repo);
     const pending = [raw("2026-10-08", -3.2, "KAHVILA ESPRESSO", { status: "pending", externalId: null })];
-    expect(await ingestTransactions(repo, "chk", pending, "enablebanking", { replacePending: true })).toMatchObject({ changed: 1 });
+    expect(await ingestTransactions(repo, "chk", pending, "enablebanking")).toMatchObject({ changed: 1 });
     await repo.clearUnprocessedMark(await repo.unprocessedMark());
-    expect(await ingestTransactions(repo, "chk", pending, "enablebanking", { replacePending: true })).toMatchObject({ changed: 0 });
+    expect(await ingestTransactions(repo, "chk", pending, "enablebanking")).toMatchObject({ changed: 0 });
     expect(await repo.unprocessedMark()).toBeNull();
     // the amount changed at the bank
-    expect((await ingestTransactions(repo, "chk", [{ ...pending[0]!, amountCents: -350 }], "enablebanking", { replacePending: true })).changed).toBeGreaterThan(0);
+    expect((await ingestTransactions(repo, "chk", [{ ...pending[0]!, amountCents: -350 }], "enablebanking")).changed).toBeGreaterThan(0);
     // the pending row is gone and a booked one came
-    const booked = await ingestTransactions(repo, "chk", [raw("2026-10-08", -3.5, "KAHVILA ESPRESSO")], "enablebanking", { replacePending: true });
+    const booked = await ingestTransactions(repo, "chk", [raw("2026-10-08", -3.5, "KAHVILA ESPRESSO")], "enablebanking");
     expect(booked.changed).toBeGreaterThan(0);
     expect((await repo.allTransactions()).map((t) => t.status)).toEqual(["booked"]);
   });

@@ -47,8 +47,10 @@ async function open(browser: import("@playwright/test").Browser, banks: ReturnTy
   const page = await context.newPage();
   const seen = watch(page);
   await page.route("**/api/meta", async (route) => {
-    const response = await route.fetch();
-    const json = await response.json();
+    // the page reads /api/meta by itself: a read still on its way when the page reloads or the context closes has no response left to change
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json) return;
     json.connections = connections;
     json.bank = { ...json.bank, configured: true, redirectMode: "own", banks };
     await route.fulfill({ response, json });

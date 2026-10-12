@@ -36,8 +36,8 @@ export function parseHash(hash: string): Route {
  * a page of their own (`#/categories`, `?tab=rules`, `#/rules`) and are now the Kauppiaat tab of Tapahtumat, the rules
  * under its table. Toistuvat (`#/recurring`) became Laskut (`#/bills`). The old security page of Asetukset
  * (`?section=security`) split in two: a member's sessions are in Kirjautuminen, an admin's log is the Turvallisuusloki
- * of the Talous tab, so the role decides. `?section=server`, `?section=csv`, `?section=maintenance` and `?add=1` are
- * still read by the page itself and need no redirect.
+ * of the Talous tab, so the role decides. `?section=server`, `?section=maintenance` and `?add=1` are still read by the
+ * page itself and need no redirect.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
   if (route.page === "settings" && route.params.get("section") === "security") {

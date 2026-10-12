@@ -4,13 +4,15 @@
  * saved gives its own margin, reference rate, rate and balance (`loans.ts`), so nothing is asked again; without one the
  * rates come from the user's `loan_rate` input and the Euribor facts. The deposit yield is the household's own
  * (`savingsYield`). With saved loans the area also tells the debt total, the one of `householdDebts`, and says when
- * a debt may be in it twice (`maybeTwice` of the Lainat report).
+ * a debt may be in it twice (`maybeTwice` of the Lainat report). The saved mortgage is read from that same list, so
+ * one linked to its loan account owes what the bank tells.
  */
 import type { AnalysisTx } from "../../analysis/context.ts";
 import { cardCosts } from "../../analysis/credit.ts";
 import { formatFiDate } from "../../analysis/format.ts";
 import { addMonths, monthOf } from "../../dates.ts";
-import { householdDebts, loanBalanceOn, loansOf } from "../../loans.ts";
+import { householdDebts } from "../../household-debts.ts";
+import { loanBalanceOn, loansOf } from "../../loans.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { BalanceWalk } from "../../reports/balances.ts";
 import { FIGURE_UNKNOWN, loansWithout, loansWithoutRate, maybeTwice, SAME_DEBT_TWICE } from "../../reports/loans.ts";
@@ -117,9 +119,13 @@ interface SavedMortgage {
   balanceCents: number | null;
 }
 
-/** The saved loan the mortgage series pays: the saved mortgage linked to the series, else the one that owes most. */
+/**
+ * The saved loan the mortgage series pays: the saved mortgage linked to the series, else the one that owes most. The
+ * mortgages are those of the household's debts (`householdDebts`): a saved one linked to its loan account is there
+ * with the account's balance, and a connected account alone is a card or a credit line, never a mortgage.
+ */
 function savedMortgage(a: AreaInput, series: RecurringSeries): SavedMortgage | null {
-  const mortgages = loansOf(a.inputs).filter((l) => l.kind === "mortgage");
+  const mortgages = householdDebts(a.balances, a.inputs, a.today).loans.filter((l) => l.kind === "mortgage");
   if (!mortgages.length) return null;
   const owed = (loan: Loan) => loanBalanceOn(loan, a.today).cents;
   const loan = mortgages.find((l) => l.seriesKey === series.id) ?? [...mortgages].sort((x, y) => (owed(y) ?? 0) - (owed(x) ?? 0) || x.id.localeCompare(y.id))[0]!;

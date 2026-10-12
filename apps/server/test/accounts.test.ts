@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseBankCsv } from "@banking/core";
 import { accountHolder, accountName, accountType, cardMask, creditLimitCents } from "../src/connectors/enable-banking/mapper.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { NOW, setupApp } from "./helpers.ts";
 
 // modelled on Nordea's netbank export of a checking and a savings account (review data)
@@ -32,23 +32,13 @@ type Tx = { accountId: string; amountCents: number; isTransfer: boolean; descrip
 
 async function importBoth() {
   const app = await setupApp();
-  const checking = await app.admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili", accountType: "checking" });
-  const savings = await app.admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: "Säästötili", accountType: "savings" });
+  const checking = await seedCsv(app.s, app.admin, { content: checkingCsv, accountName: "Käyttötili", accountType: "checking" });
+  const savings = await seedCsv(app.s, app.admin, { content: savingsCsv, accountName: "Säästötili", accountType: "savings" });
   expect([checking.status, savings.status]).toEqual([200, 200]);
   return { ...app, checkingId: checking.body.accountId as string, savingsId: savings.body.accountId as string };
 }
 
-describe("CSV import: the account's own IBAN", () => {
-  it("reads it from the payer column of money out and the payee column of money in", () => {
-    expect(parseBankCsv(checkingCsv).ownIban).toBe("FI1212345600078541");
-    expect(parseBankCsv(savingsCsv).ownIban).toBe("FI4512345600092177");
-    expect(parseBankCsv(plainCsv).ownIban).toBeNull();
-    // the most common one wins: a single row with another value does not decide
-    expect(parseBankCsv(file(`2026/09/01;-1,00;FI99 0000 0000 0000 00;;;X;;EUR`, `2026/09/02;-1,00;${CHECKING};;;X;;EUR`, `2026/09/03;5,00;;${CHECKING};;X;;EUR`)).ownIban).toBe("FI1212345600078541");
-    // not an IBAN: ignored
-    expect(parseBankCsv(file(`2026/09/01;-1,00;12345-678;;;X;;EUR`)).ownIban).toBeNull();
-  });
-
+describe("old CSV accounts: own transfers", () => {
   it("own transfers between two imported accounts pair up and count as saved", async () => {
     const { admin, checkingId, savingsId } = await importBoth();
     const accounts = new Map((await admin.call("GET", "/api/meta")).body.accounts.map((a: { id: string; iban: string | null }) => [a.id, a.iban]));
@@ -65,43 +55,14 @@ describe("CSV import: the account's own IBAN", () => {
     const july = (await admin.call("GET", "/api/dashboard?from=2026-07-01&to=2026-07-31")).body.totals;
     expect(july).toMatchObject({ incomeCents: 0, savedCents: -80000 });
   });
-
-  it("fills a missing IBAN of the chosen account and never replaces one", async () => {
-    const { admin, s, adminId } = await setupApp();
-    const first = await admin.call("POST", "/api/import/csv", { content: plainCsv, accountName: "Vanha tili" });
-    const iban = async (id: string) => (await s.finance(adminId).getAccount(id))?.iban;
-    expect(await iban(first.body.accountId)).toBeNull();
-    await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountId: first.body.accountId });
-    expect(await iban(first.body.accountId)).toBe("FI1212345600078541");
-    await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountId: first.body.accountId });
-    expect(await iban(first.body.accountId)).toBe("FI1212345600078541");
-  });
-
-  it("leaves the IBAN out when another own account already has it", async () => {
-    const { admin, s, adminId } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" });
-    const copy = await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Kopio" });
-    expect((await s.finance(adminId).getAccount(copy.body.accountId))?.iban).toBeNull();
-  });
 });
 
-describe("CSV import: account names", () => {
-  it("refuses a new account whose name is taken, in any case", async () => {
-    const { admin } = await setupApp();
-    const first = await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" });
-    expect(first.status).toBe(200);
-    const again = await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: " KÄYTTÖTILI " });
-    expect(again).toMatchObject({ status: 400, body: { error: "Tili KÄYTTÖTILI on jo olemassa. Valitse se listasta tai anna toinen nimi." } });
-    // into the existing account by id is fine
-    expect((await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountId: first.body.accountId })).status).toBe(200);
-    expect((await admin.call("GET", "/api/meta")).body.accounts).toHaveLength(1);
-  });
-
+describe("old CSV accounts: names", () => {
   it("a renamed account keeps its rows when a new file uses its old name", async () => {
-    const { admin } = await setupApp();
-    const first = await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Vanha" });
+    const { admin, s } = await setupApp();
+    const first = await seedCsv(s, admin, { content: checkingCsv, accountName: "Vanha" });
     await admin.call("PATCH", `/api/accounts/${first.body.accountId}`, { name: "Uusi" });
-    const second = await admin.call("POST", "/api/import/csv", { content: plainCsv, accountName: "Vanha" });
+    const second = await seedCsv(s, admin, { content: plainCsv, accountName: "Vanha" });
     expect(second.status).toBe(200);
     expect(second.body.accountId).not.toBe(first.body.accountId);
     const names = (await admin.call("GET", "/api/meta")).body.accounts.map((a: { name: string }) => a.name);
@@ -113,7 +74,7 @@ describe("CSV import: account names", () => {
 describe("account balance", () => {
   it("can be set by hand on an imported account", async () => {
     const { admin, s, adminId } = await setupApp();
-    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
     const version = await s.settings.dataVersionOf([adminId]);
     const r = await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 123456 });
     expect(r).toMatchObject({ status: 200, body: { id: accountId, balanceCents: 123456, balanceAt: NOW.toISOString(), name: "Käyttötili" } });
@@ -123,8 +84,8 @@ describe("account balance", () => {
   });
 
   it("must be whole cents within limits", async () => {
-    const { admin } = await setupApp();
-    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const { admin, s } = await setupApp();
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
     for (const balanceCents of [12.5, "100", null, 100_000_000_001, -100_000_000_001, Number.NaN, true]) {
       const r = await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents });
       expect(r, String(balanceCents)).toMatchObject({ status: 400, body: { error: "Virheellinen saldo." } });
@@ -134,13 +95,13 @@ describe("account balance", () => {
   });
 
   it("is only for imported accounts, and only the owner's", async () => {
-    const { admin, member } = await setupApp();
+    const { admin, s, member } = await setupApp();
     await admin.call("POST", "/api/demo");
     const demo = (await admin.call("GET", "/api/meta")).body.accounts[0];
     const r = await admin.call("PATCH", `/api/accounts/${demo.id}`, { balanceCents: 100 });
     expect(r).toMatchObject({ status: 400, body: { error: "Saldon voi asettaa vain tuodulle tilille." } });
 
-    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
     const eero = await member("eero");
     expect((await eero.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 100 })).status).toBe(404);
     expect((await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === accountId).balanceCents).toBeNull();
@@ -189,25 +150,20 @@ describe("deleting an account", () => {
 });
 
 describe("account type", () => {
-  it("can be set to a known type; an unknown one is refused when editing and replaced by checking when importing", async () => {
-    const { admin } = await setupApp();
-    const typeOf = async (id: string) => (await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === id).type;
-    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+  it("can be set to a known type; an unknown one is refused", async () => {
+    const { admin, s } = await setupApp();
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
     for (const type of ["checking", "savings", "credit_card", "loan", "other"]) {
       expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { type })).body.type, type).toBe(type);
     }
     expect(await admin.call("PATCH", `/api/accounts/${accountId}`, { type: "räjähde" })).toMatchObject({ status: 400, body: { error: "Tuntematon tilityyppi." } });
-    const unknown = (await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: "Toinen", accountType: "räjähde" })).body.accountId;
-    expect(await typeOf(unknown)).toBe("checking");
-    const loan = (await admin.call("POST", "/api/import/csv", { content: savingsCsv, accountName: "Laina", accountType: "loan" })).body.accountId;
-    expect(await typeOf(loan)).toBe("loan");
   });
 });
 
 describe("account name", () => {
   it("is the user's own, stored apart from the original; an empty one or the original brings it back", async () => {
-    const { admin } = await setupApp();
-    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const { admin, s } = await setupApp();
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
     const account = async () => (await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === accountId);
     expect(await account()).toMatchObject({ name: "Käyttötili", bankName: "Käyttötili", customName: null });
 
@@ -221,8 +177,8 @@ describe("account name", () => {
   });
 
   it("is only the owner's to change", async () => {
-    const { admin, member } = await setupApp();
-    const { accountId } = (await admin.call("POST", "/api/import/csv", { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const { admin, s, member } = await setupApp();
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
     const eero = await member("eero");
     expect((await eero.call("PATCH", `/api/accounts/${accountId}`, { name: "Minun" })).status).toBe(404);
     expect((await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === accountId).customName).toBeNull();

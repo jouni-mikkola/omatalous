@@ -3,6 +3,124 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.9.0
+
+- A damaged database no longer takes the app down: it starts on the newest intact copy. Under Asetukset > Ylläpito an admin can restore the newest copy, or start over, with one button each.
+- An update that leaves the app not answering is taken back by itself, and the maintenance helper keeps a last good copy of itself, so Päivitä and Palauta edellinen versio work even after a broken update.
+- A loan you saved can be linked to its connected card or loan account, and then it counts once in the debt total, in Saldot and in Säästövinkit.
+- The app follows the server to a new home network address by itself, and a new release waits 48 hours before installs are offered it.
+- The CSV import is gone. Bank connections are the way in, and accounts imported earlier stay.
+
+Money and reports
+
+- A saved loan linked to its connected card or loan account counts once: in the debt total of Lainat, in the accounts less the debts in Saldot and in the debt total of Säästövinkit. The balance is the one the bank tells, and the rate and the payments are those of the saved loan. The payoff date is counted from the bank's balance on the saved loan's due days, so it does not move from one day to the next.
+- The link counts while the account's balance is at or below zero and is as new as the balance typed for the loan. With an account balance above zero, or one older than the typed balance, the saved loan counts with its typed balance, still once. In the months of Saldot before the linked account's first known balance the saved loan counts as typed.
+- The warning that a debt may be in a total twice no longer names a linked loan or its account. It stays for a saved loan and an account that are not linked.
+- The mortgage tips of Säästövinkit use the bank's balance for a saved mortgage linked to its loan account.
+- The loan form in Asetukset > Lainat has the choice "Sama velka pankin tilillä", shown when the household has a card or loan account. A loan linked to an account counts once in the totals, with the bank's balance while the bank tells one and the balance typed in the form otherwise. An account that another loan holds is not offered. The loan list shows on a linked loan's row which account it is linked to.
+- In the Lainat report the warning that a debt may be in the total twice ends with a link for each saved loan beside each of the household's own accounts. The link opens that loan's form with the account chosen, and once the loan is saved the warning is gone when the report is opened again. In the household view, where the account is a partner's, the warning still tells to remove the saved loan.
+
+Fetching and importing
+
+- The Tuo CSV card is gone from Asetukset, and the empty start pages offer the bank connection and the example data. The link `?section=csv` still opens Asetukset and scrolls nowhere.
+- The notes under Tietojen laatu and the empty list of transactions no longer tell to import a file.
+
+Reliability
+
+- The three newest database copies that pass the integrity check are never deleted, whatever their age or name. A damaged copy does not count as one of the three, and neither does a `pre-restore-` copy, which a restore saved of the database it replaced. This holds in the app and in `scripts/update.sh`.
+- No database copy is deleted while the live database fails its integrity check.
+- A database copy is not started unless its disk has twice the size of the database and its WAL free. The error says how much is free and how much a copy needs. This holds for the daily copy, the copy before a migration and `scripts/backup.sh`.
+- `scripts/update.sh` asks for three times the size of the database before it switches: its own copy, and the copy the new version takes before it changes the database. An update without that room stops while the old version still runs and names the data volume.
+- A database copy that fails no longer removes an older copy of the same name. A copy is written under a temporary name and gets its own name only when it is complete and checked.
+- The data volume holds a reserve file, `/data/.reserve`, of 64 MB. It is deleted when under 128 MB is free, so that a full disk still has room to sign in and free space, and written again once over 1 GB is free.
+- A damaged database file no longer leaves the household without the app. When the server starts it checks the database, moves a damaged one to `data/damaged/banking-<time>.db` with its `-wal` and `-shm` files, and puts the newest intact copy from `data/backups` in its place. Nothing is deleted.
+- Every admin gets a notice that names the copy and its time and says that changes made after it are lost. Asetukset > Turvallisuusloki has the event.
+- With no intact copy, a damaged database that still opens stays in place: the app starts on it, the admins get a notice, and the line in the log names the restore instructions.
+- When an intact copy exists and there is no room on the disk to put it in place, the notice says so: make room and restart, and the next start restores the copy.
+- The check runs only when the server starts, never for a command such as `restore`, `migrate-check` or `version`. A database that is only busy or locked is left alone.
+- An admin can take the newest intact database copy back from the browser, with no shell: the server side of "Palauta viimeisin". The request asks for the password again and the word PALAUTA, and it names no file: the server picks the copy, the same one a start after damage would take.
+- The running app restores nothing itself. It notes the request in the data folder and stops, Docker starts it again, and the check before the start puts the copy in place. The database that was replaced is kept as `data/backups/pre-restore-<time>.db`.
+- A restore is refused while an update or another maintenance request is under way, while a bank fetch or other background work runs, while an earlier restore waits for its start, and when no copy is intact. A refusal changes nothing on disk.
+- The request is in the audit list of Asetukset > Ylläpito, and the other admins get a notice.
+- A restore asked in the browser is carried out only by a start within 15 minutes of it. An older request is dropped, and the admins get a notice that the data is as it was. A requested restore that fails at the start is told the same way, and the audit list shows whether the restore was done.
+- The notice after a requested restore names the admin who asked for it.
+- A copy saved before the data was emptied (`pre-reset-<time>.db`) is restored only when an admin asks for it. A start after damage never takes it alone, and it is kept for 14 days however many copies follow.
+- "Lataa uusin" hands out the copy a restore would take, never the database that a restore just replaced.
+- A wrong confirmation word at "Tyhjennä kaikki tiedot" is now recorded in the security events, as it already was for a restore and a rollback.
+- The weekly check of the database copies leaves a copy alone while its file has changed in the last two minutes and looks at it on the next round. A copy that was still being written or copied into the folder could be set aside as damaged.
+- A restore of the database cannot be asked for while a reset of the data is still ending the bank connections, and a reset cannot be asked for while a restore waits for the restart. Both are refused with "Toinen toiminto on kesken."
+- A rollback has one name on every page and in every notice: "Edellinen versio palautettiin", with the reason after it. The security log and the notice for an update the server took back no longer say "Ylläpitoapuri palautti päivityksen". The notice about a damaged database says in Finnish what to do next (free disk space and restart, or `./scripts/restore.sh` on the server) and calls a copy a "varmuuskopio".
+- The app follows the server to a new home network address by itself. When the router gives the server another address, the maintenance helper notices that the old one has been gone for ten minutes, moves the app to the new address of the same network interface and starts it again, so it answers at the new address within a quarter of an hour. Before, someone had to run the installer again. The helper does this only on an install that listens on a home network address (no Cloudflare Tunnel, no own domain) and only for a private address (10.x, 172.16 to 172.31, 192.168.x), at most once an hour. If the app does not answer at the new address, the earlier settings are put back. The change is one line in `ops/helper.log`: `Osoite vaihtui: http://10.0.0.5:8080`.
+- The maintenance helper frees Docker's disk before it runs out: when the disk has under 3 GB free, it removes this app's old, unused images, at most once in six hours, so the next update does not fail for lack of room. It takes only images that carry the app's own label. The running version, the previous version for a rollback, other software's images, the build cache and every volume stay, and nothing is done while an action or an install runs. The result is one line in `ops/helper.log`. The Siivoa button is unchanged.
+- An update started from the page now tests the maintenance helper it brought. When the new helper cannot run, the update is taken back at once and the result says why, so a household is not left with an app that nobody can update from the page. The first update this guards is the one after 0.9.0.
+- `./scripts/ops-helper.sh --self-test` runs the same test by hand. It prints `self-test ok` or `self-test failed: <reason>` and changes nothing.
+- An update that leaves the app unhealthy is taken back with nobody at the keyboard. The maintenance helper looks at the app's container once a minute, always. When the app has been restarting, unhealthy by Docker's check or running without an answer for ten minutes in a row, and the update is less than one hour old, the helper restores the previous version with `./scripts/update.sh --rollback --yes` and reports it to the app. It does this once for an update, whatever follows. After the first hour it only looks: a rollback can put back the database copy from before the update, and what was entered since would leave the live database.
+- The helper leaves the app alone when the container was stopped by hand, while an install, an update or a request runs, and when the app was already unhealthy before the update began. A rollback that does not bring the app back writes ops/RECOVERY.txt and is not tried again.
+- The app's last log lines before such a rollback, and the rollback's output, are kept on the host for 30 days in ops/run/watchdog-<time of the update>.log. After a rollback to 0.8.x, which knows nothing of the report, the maintenance page shows it as one more line of the checks, until the next check runs.
+- The maintenance helper's timer or cron line runs a small launcher that lives outside the Omatalous folder, in `~/.local/share/omatalous/<instance>/`, so an update never touches the file the timer runs. After a good run the launcher keeps a copy of the helper, once the helper has passed its self-test. When an update leaves a helper that is missing or does not even start, the launcher runs that last good copy, so Päivitä and Palauta edellinen still work from the browser. One line in `ops/helper.log` says when it does.
+- The launcher refuses to run as root, and it runs no helper file that someone else owns or that others can write to.
+- `./scripts/doctor.sh` tells whether the schedule runs the launcher, how old its last good copy of the helper is, and when the copy is running in place of the helper.
+- `./scripts/install.sh --ops-helper-off` and `./scripts/reset.sh` remove the launcher's folder with the schedule.
+- Once a week the newest database copy gets a full check (`integrity_check` and `foreign_key_check`), in an hourly run that did not write the daily copy. A copy that fails is renamed `<name>.damaged` and kept; it is no longer a copy to restore from, and it is not one of the three protected copies.
+- An admin is told on the notice list when the safety net has a hole: no intact database copy in 36 hours, a copy that failed its weekly check, under 1 GB free on the data disk (or the reserve file given up), and a host helper that has not been heard of for 24 hours. Each notice says what to do and names Asetukset > Ylläpito.
+- A notice about the safety net that an admin marks as read stays away while the problem lasts and comes back when the problem comes back. Each admin marks their own.
+
+Maintenance
+
+- An install follows the release GitHub marks as latest. A new release is a pre-release for its first 48 hours, and the daily check, the Päivitä button and `./scripts/update.sh` run by hand all leave it alone until it is promoted. `update.sh` used to take the newest git tag when run by hand, which a pre-release has from the start. A folder that is already on a pre-release (the key was on, or it was cloned in the first two days) stays there when `update.sh` is run by hand with the key off: it says so, changes nothing and does not build the source.
+- `TALOUS_PRERELEASE=yes` in `.env` makes an install follow the newest release, a pre-release included, in the check, the button and `update.sh`. `no` or no line is the default. Any other value is refused: the helper does not run and `update.sh` stops, and the self-test names the key.
+- When `update.sh` run by hand cannot ask GitHub which release is the latest, it stops with "Could not ask GitHub for the latest release. Nothing was changed." It no longer falls back to the newest tag. The same when GitHub says there is no release at all while the folder holds release tags: the daily check then fails too, instead of offering the source.
+- A rollback renews the maintenance helper's schedule, as an update does, so the timer matches the version now running.
+- A household can start over from the browser and keep the install. An admin gives the password and types `TYHJENNÄ`: every member, account, transaction, rule, mark, loan, expected bill, saving tip, bank key and bank connection is deleted, and so are the payee names the trade register did not know as a company. The admin's own account, the server's settings, the shared bank application and the trade register's answers about companies stay.
+- The app first writes a checked copy of the database, `data/backups/pre-reset-<time>.db`, and keeps it for at least 14 days. When the copy cannot be made, nothing is deleted. Restoring that copy brings the rows back. It does not bring back the bank consents: those were ended at the bank, so each bank is connected again.
+- The reset removes no database copy. Older copies in `data/backups`, a database in `data/damaged` and the host's archives still hold the household's data until they are pruned or deleted by hand.
+- Every bank consent is ended at the bank before its key is deleted. A consent the bank does not end is counted in the answer and in Asetukset > Turvallisuusloki, and the reset goes on.
+- Everyone is signed out, the admin too, and the admin signs in again with the same password. The reset is refused while a maintenance request runs, a bank fetch is in flight or a restore waits for the next start.
+- `./scripts/reset.sh` is unchanged: it still removes the whole install.
+- An update, install, restore or reset run by hand keeps every other maintenance action out until it has ended. The lock used to stop holding once the update had replaced `scripts/install.sh`, so the helper could change the address or prune images during the rest of that update.
+- The helper's launcher keeps a helper as its last good copy only after that helper has passed `./scripts/ops-helper.sh --self-test`. A helper that fails the test leaves the earlier copy in place.
+- `./scripts/install.sh` in a folder cloned by hand asks GitHub which release is out. During a release's first two days it installs the latest release and not the pre-release the clone is at. When GitHub cannot be asked it goes on and says the release could not be confirmed.
+- A release image no longer keeps its registry tag after it is installed, so Siivoa and the helper's housekeeping free the images of old versions on a release-channel install too.
+- The setup code for the first account now works for 24 hours. After that the setup page says the code has expired and names the command that gives a new one: `docker compose exec banking node dist/node.js setup-code`.
+- A restart replaces an expired setup code and prints the new one in the log, the way it prints the first one.
+- A `SETUP_CODE` set in `.env` does not expire.
+- A second instance made with `./scripts/install.sh --new-instance NAME` starts on the release this clone is at and uses its signed release image, as the one-line install does. It used to take the head of the branch and build it from source. It never takes a newer tag. With no release tag at HEAD, or a release that is not on `origin/main`, it keeps the head of the branch, builds the source and says so in one line.
+- A re-run of the installer, or `--reconfigure`, keeps `TALOUS_CHANNEL` and `TALOUS_PRERELEASE` in `.env`, so the release channel the install was on is not lost.
+- Etäkäyttö: the Cloudflare API token cannot be removed while remote access is on, because turning remote access off takes the address out of Cloudflare with it. Turn remote access off first. Saving another token in its place works at any time.
+- Etäkäyttö: how the last change ended (it failed, or the server took a new address back) is shown for 24 hours and then no more.
+- Turning remote access off is called *ottaa pois käytöstä* everywhere: on the page, in the server's answers and in the security event (*Etäkäyttö otettu pois käytöstä*).
+- A report the maintenance helper sends after the 30 minute timeout is stored without the tunnel token, the audience tag and the host name of the Access team, like a report that comes in time.
+- Asetukset > Ylläpito has a card "Palauta viimeisin varmuuskopio" below the list of copies. It shows the newest intact copy with its time in large type, its file name and its size, and says that changes made after the copy are lost and that bank transactions are fetched again at the next fetch. The admin gives the password and types `PALAUTA`. The app then stops itself and Docker starts it again, and the card waits until the app answers. When it stays down the card says to run `docker compose up -d` in the install folder, and that a request older than 15 minutes is dropped. The card never says the restore was done: the notice after the start tells whether it was. A copy that a reset made first (`pre-reset-…`) is named as the one that undoes the reset. With no intact copy the card says so and has no button.
+- Asetukset > Ylläpito ends with a danger card "Tyhjennä kaikki tiedot" for the reset. Before the click it says what goes (accounts, transactions, loans, rules and the other users), what stays (the admin's own account, the server's settings and the bank application), that a copy is made first, that the copies keep the data, that "Palauta viimeisin varmuuskopio" undoes the reset for under a day because it takes the newest copy, and that the bank connections are made again. The admin gives the password and types `TYHJENNÄ`. The button is off from the submit until the answer. After the answer the card shows the server's sentence, the name of the copy and how many bank connections the bank did not end, and links to the sign-in page. A refusal from the server is shown as the server worded it.
+
+For developers
+
+- `tools/ci/drills.sh` runs ten drills in real Docker on the install the upgrade rehearsal has just built: the startup gate on a damaged database, Palauta viimeisin through the API with the app restarting by itself, the watchdog's rollback (once, and not again), a next release whose helper fails its self-test, a full data volume, the reset followed by a restore, the installer's lock after an update that changes `install.sh`, the rollback over a database the previous version cannot read, the helper behind symbolic links, and the release parser against GitHub's real answer. Each prints one line, ok or failed with the reason, and a failed drill prints what it saw under it, within 30 lines. The release parser's drill reads skipped, which is no failure, when GitHub gives no answer. The script stops itself at 10 minutes (`DRILLS_LIMIT`).
+- `upgrade.yml` runs the drills as one step on the first baseline's leg, after the rehearsal. The new input `drills_only` runs that one leg and the drills and skips the rest, for a short round while working; `upgrade-ok` stays red then, on purpose.
+- `ops poll --dry --helper N` answers the host helper's question "do you answer me": it always prints `{"request":null}` and writes nothing, so no request is handed out or expired and the helper does not count as seen. The poll without `--dry` is unchanged.
+- The helper's state may carry `watchdog: { at, from, to, reason }` for an update it took back by itself. Each new `at` becomes one `ops_watchdog` security event and a `watchdog_notice` to every admin; a report in any other shape is dropped.
+- A release is created as a pre-release. `/releases/latest`, which installs read, skips it, so an install is offered a release 48 hours after it is made.
+- `promote.yml` runs every six hours and by hand, in the public repository only. `tools/ci/promote-release.sh` promotes the highest release when it is a pre-release that is 48 hours old, above the latest release, and its image verifies with the check installs run. One release per run; the run ends green when there is nothing to do.
+- A release is held by making it a draft (`gh release edit TAG --draft`) and pulled by deleting it. A draft is never promoted, and while the highest release is a draft nothing older is promoted either. Promoting early is `gh release edit TAG --prerelease=false --latest`.
+- A release builds the amd64 and the arm64 image each on a runner of its own processor. The arm64 build no longer runs under emulation.
+- A release starts both images before it tags or signs anything: as a new install and on a database of 0.5.0, which must migrate. A failed start leaves no tag, no signature and no release.
+- The release workflow has a `dry_run` input that builds and smoke tests both images and publishes nothing.
+- `tools/ci/smoke-image.sh IMAGE VERSION COMMIT` is that smoke test. CI's docker job runs it on every image it builds.
+- Every workflow job runs on `ubuntu-24.04` or `ubuntu-24.04-arm`, and repo rule 23 refuses a `-latest` runner label.
+
+Upgrade
+
+- Updates now follow the release GitHub marks as latest. To get a release during its first two days, set TALOUS_PRERELEASE=yes in .env.
+- Importing a CSV file is no longer possible. Accounts and rows imported earlier stay and work as before.
+- The first start writes `/data/.reserve` (64 MB) when the data volume has over 1 GB free. A backup made with `scripts/backup.sh` does not include it.
+- From the update after this one, `scripts/update.sh` needs three times the size of the database free in the data volume.
+- A database the app found damaged at start is kept in the new folder `data/damaged`. The app never removes those files: delete them by hand when they are no longer needed.
+- The maintenance helper's timer now runs a launcher under ~/.local/share/omatalous/<instance>/. Nothing to do.
+- A copy that has no user yet, and no `SETUP_CODE` in `.env`, gets a new setup code at the first start, and the old code stops working. Get a code with `docker compose exec banking node dist/node.js setup-code`. Copies with a user are not affected.
+- `./scripts/install.sh --new-instance NAME` now installs the release this clone is at, not the head of the branch.
+- Migration 0016 adds the column `account_id` to `loans` on the first start, after the usual copy. It only adds a column and an index, so 0.8.0 or later still opens the database after a rollback and keeps the links.
+- `cloudflare up`, which `./scripts/install.sh` runs for a Cloudflare Tunnel, checks the host name and the sign-in addresses the way the Etäkäyttö page does. An address the page would not take and a host such as `127.0.0.1` now stop it with exit 2.
+
 ## 0.8.7
 
 - Loans: paste a screenshot or the text of a loan, drop a PDF or type the figures under Asetukset > Lainat, and the app reads the lender, what is owed, the rate and the payment into a form to check. The reports then count the debt and show the interest of the next 12 months.

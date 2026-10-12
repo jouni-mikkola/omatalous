@@ -1,6 +1,5 @@
 /** Bank credentials, consents and synchronisation for the signed-in user. */
 import { Hono } from "hono";
-import { clientIp } from "../auth/middleware.ts";
 import { forgetConnection, removeConnection } from "../connectors/enable-banking/connector.ts";
 import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
 import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
@@ -9,7 +8,7 @@ import { syncUser } from "../connectors/sync.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { body } from "./shared.ts";
+import { body, requestInfo } from "./shared.ts";
 
 /** Work that finishes after the response: the Node process keeps it running, a failure is only logged. */
 function inBackground(task: Promise<unknown>): void {
@@ -69,7 +68,7 @@ export function bankRoutes(s: Services) {
   app.put("/bank/credentials", async (c) => {
     const { appId, privateKeyPem } = strictObject(await body(c), ["appId", "privateKeyPem"] as const);
     // the test of the pair comes back too: a key can be saved while the application is still inactive
-    return c.json({ ok: true, result: await saveCredentials(s, c.get("user").id, appId, privateKeyPem, { ip: clientIp(c, s), userAgent: c.req.header("user-agent") ?? null }) });
+    return c.json({ ok: true, result: await saveCredentials(s, c.get("user").id, appId, privateKeyPem, requestInfo(c, s)) });
   });
 
   app.delete("/bank/credentials", async (c) => {

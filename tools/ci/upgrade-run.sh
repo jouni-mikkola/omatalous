@@ -34,6 +34,8 @@ api()  { curl -fsS -b "$JAR" -c "$JAR" -H 'Content-Type: application/json' -H 'X
 cleanup() {
   local rc=$?
   if ((rc != 0)) && [[ -d $DIR ]]; then dc logs --tail 80 banking >&2 || true; fi
+  # UPGRADE_KEEP_UP=1: a run that passed leaves the install up, and UPGRADE_WORK in place, for tools/ci/drills.sh, which removes it
+  if ((rc == 0)) && [[ ${UPGRADE_KEEP_UP:-} == 1 ]]; then return 0; fi
   [[ -d $DIR ]] && dc down -v >/dev/null 2>&1 || true
   [[ -n ${UPGRADE_WORK:-} ]] || rm -rf "$WORK"
   return "$rc"

@@ -1,11 +1,16 @@
 /**
  * The host helper's side of the maintenance channel, run as
  *   docker compose exec -T banking node dist/node.js ops poll --helper <ver> --done <id,id>
+ *   docker compose exec -T banking node dist/node.js ops poll --dry --helper <ver>
  *   docker compose exec -T banking node dist/node.js ops report [--helper <ver>]   (JSON on stdin)
  *   docker compose exec -T banking node dist/node.js ops state [--helper <ver>]    (JSON on stdin)
  *   docker compose exec -T banking node dist/node.js ops access --helper <ver>
  * Each prints one JSON object on stdout and exits 0 unless the database is unreachable. Secrets and
  * results go through stdin and stdout, never argv.
+ *
+ * `ops poll --dry` is the helper's question "do you answer me": it always prints {"request":null} and writes nothing,
+ * so no request is handed out and the helper does not count as seen. A server from before the flag ignores it and
+ * polls for real, so the helper asks only a server that has it.
  *
  * `ops access` prints the change of remote access the app has prepared (services/access-request.ts), with the keys in
  * this order: {"want":"tunnel","hostname","tunnelToken","accessAud","teamDomain"}, {"want":"lan"} or {"want":null}.
@@ -29,7 +34,7 @@ export async function runOpsCli(s: Services, args: string[], readStdin: () => Pr
   try {
     if (sub === "poll") {
       const done = (option(args, "--done") ?? "").split(",").filter(Boolean);
-      print({ request: await pollOps(s, { helper, done }) });
+      print({ request: await pollOps(s, { helper, done, dry: args.includes("--dry") }) });
       return 0;
     }
     if (sub === "access") {
@@ -63,6 +68,6 @@ export async function runOpsCli(s: Services, args: string[], readStdin: () => Pr
     }
     throw err;
   }
-  console.error("Usage: ops poll --helper <version> --done <ids> | ops report | ops state | ops access --helper <version>");
+  console.error("Usage: ops poll [--dry] --helper <version> --done <ids> | ops report | ops state | ops access --helper <version>");
   return 1;
 }

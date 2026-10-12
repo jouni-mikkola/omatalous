@@ -42,12 +42,17 @@ export const KIND_LABEL: Record<string, string> = {
   ops_result: "Ylläpitopyynnön tulos",
   ops_download: "Varmuuskopion lataus",
   ops_notice: "Ylläpidon ilmoitus",
+  ops_watchdog: "Edellinen versio palautettiin",
+  watchdog_notice: "Edellinen versio palautettiin, ilmoitus ylläpitäjälle",
   remote_access_on: "Etäkäyttö otettu käyttöön",
-  remote_access_off: "Etäkäyttö poistettu käytöstä",
+  remote_access_off: "Etäkäyttö otettu pois käytöstä",
   remote_access_failed: "Etäkäytön muutos epäonnistui",
   remote_access_reverted: "Etäkäyttö poistettu, koska kukaan ei päässyt sisään",
   cloudflare_token_saved: "Cloudflaren API-tunniste tallennettu",
   cloudflare_token_removed: "Cloudflaren API-tunniste poistettu",
+  db_damaged: "Tietokanta vaurioitunut",
+  db_restored: "Tietokanta palautettu varmuuskopiosta",
+  data_reset: "Talouden tiedot tyhjennetty",
 };
 
 const kindLabel = (kind: string) => KIND_LABEL[kind] ?? (kind.startsWith("ops_") ? `Ylläpito: ${kind.slice(4).replace(/_/g, " ")}` : kind);

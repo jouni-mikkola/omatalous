@@ -9,6 +9,8 @@ import { DoctorList } from "../../components/ops/DoctorList.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
 import { S } from "../../components/ops/ops-strings.ts";
+import { ResetCard } from "../../components/ops/ResetCard.tsx";
+import { RestoreLatest } from "../../components/ops/RestoreLatest.tsx";
 import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
@@ -82,6 +84,7 @@ export function Maintenance() {
         onBackup={() => void quick("backup")}
         onDownload={() => setDialog("download")}
       />
+      <RestoreLatest listKey={data.appBackups.map((b) => b.name).join()} disabled={data.active || pending} />
       <DoctorList doctor={data.state.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
       <ToolsPanel
         disabled={blocked}
@@ -134,6 +137,7 @@ export function Maintenance() {
           </div>
         )}
       </div>
+      <ResetCard disabled={data.active || pending} />
     </>
   );
 

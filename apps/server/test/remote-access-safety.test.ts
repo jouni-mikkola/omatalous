@@ -164,7 +164,7 @@ describe("remote access: where the copy answers after off", () => {
       expect((await w.state()).access.afterOff).toBe(address);
       const r = await w.off();
       expect(r.status).toBe(400);
-      expect(r.body.error).toBe(`Kun etäkäyttö poistetaan, sovellus vastaa vain palvelimella itsellään osoitteessa ${address}. Vahvista, että tämä sopii.`);
+      expect(r.body.error).toBe(`Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa ${address}. Vahvista, että tämä sopii.`);
     }
     expect((await w.off(PASSWORD, { localOnly: "kyllä" })).status).toBe(400);
     expect(existsSync(w.file)).toBe(false);

@@ -10,6 +10,9 @@ import { overdraftTwice } from "./Loans.tsx";
 
 const TOTAL_LABEL = "Yhdistetyt tilit yhteensä, arvio";
 
+/** The saved loans of the line. A loan linked to an account is in the accounts' total already, so with one the line says which loans its figure holds. */
+const savedLabel = (household: boolean, linked: boolean) => `${household ? "omat " : ""}${linked ? "tiliin liittämättömät " : ""}${household ? "tallennetut lainasi" : "tallennetut lainat"}`;
+
 function Balances({ ctx }: SectionProps) {
   const r = ctx.data.balances;
   const [table, setTable] = useState(false);
@@ -26,7 +29,7 @@ function Balances({ ctx }: SectionProps) {
       {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
         <p className="muted">
           {ACCOUNTS_LESS_DEBT.label} tänään {money(r.accountsLessDebt[last]!)}: tilit yhteensä {money(r.total[last]!)},{" "}
-          {ctx.scope === "household" ? "omat tallennetut lainasi" : "tallennetut lainat"} {money(r.debt.savedCents)}. {ACCOUNTS_LESS_DEBT.sub}
+          {savedLabel(ctx.scope === "household", ctx.data.loans.loans.some((l) => l.linkedAccount !== null))} {money(r.debt.savedCents)}. {ACCOUNTS_LESS_DEBT.sub}
           {ctx.data.loans.maybeTwice.length > 0 && ` ${SAME_DEBT_TWICE}: katso Lainat.`}
           {ctx.data.loans.overdraftTwice.map((t) => ` ${overdraftTwice(t)}`).join("")}
         </p>

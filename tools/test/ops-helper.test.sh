@@ -4,278 +4,15 @@
 #
 #   tools/test/ops-helper.test.sh [name-filter]
 #
-# The helper refuses to run as root, so a root run (a container, say) copies the scripts and runs the
-# tests as an unprivileged user; the refusal itself is checked first.
+# The world (stubs, clone, ticks) is tools/test/ops-world.sh, shared with the suites of the libs under scripts/lib.
 set -u
-umask 022
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC=${OPS_TEST_SRC:-$(cd "$HERE/../.." && pwd)}
 FILTER=${1:-}
-
-# ── root: check the refusal, then run everything as nobody on a copy ────────
-if [[ $EUID -eq 0 && -z ${OPS_TEST_CHILD:-} ]]; then
-  base=$(mktemp -d); chmod 755 "$base"
-  mkdir -p "$base/src/tools"; cp -r "$SRC/scripts" "$SRC/docker-compose.yml" "$base/src/"; cp -r "$SRC/tools/test" "$base/src/tools/"
-  chown -R 65534:65534 "$base"
-  out=$(cd "$base/src" && TALOUS_OPS_CLEAN="" ./scripts/ops-helper.sh 2>&1); rc=$?
-  if [[ $rc -ne 0 && $out == *"does not run as root"* ]]; then echo "ok   helper refuses to run as root"; rootfail=0
-  else echo "FAIL helper refuses to run as root (rc $rc: $out)"; rootfail=1; fi
-  setpriv --reuid=65534 --regid=65534 --clear-groups env -u TMPDIR HOME="$base" OPS_TEST_CHILD=1 OPS_TEST_SRC="$base/src" bash "$base/src/tools/test/ops-helper.test.sh" "$FILTER"
-  rc=$?
-  rm -rf "$base"
-  exit $((rc || rootfail))
-fi
-
-PASS=0; FAILED=0
-pass() { PASS=$((PASS + 1)); echo "ok   $1"; }
-fail() { FAILED=$((FAILED + 1)); echo "FAIL $1"; [[ -z ${2:-} ]] || echo "       $2"; }
-check() { # check NAME CMD...
-  local n=$1; shift
-  if "$@"; then pass "$n"; else fail "$n"; fi
-}
 want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
-
-TMPBASE=$(mktemp -d)
-trap 'rm -rf "$TMPBASE"' EXIT
-export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
-REG=ghcr.io/jouni-mikkola/omatalous
-
-# ── the stubs ───────────────────────────────────────────────────────────────
-write_stubs() {
-  local b=$S/bin
-  cat >"$b/docker" <<'EOF'
-#!/usr/bin/env bash
-S=$OPS_STUB_DIR
-printf 'docker %s\n' "$(printf '%s ' "$@" | tr '\n' ' ' | cut -c1-420)" >>"$S/calls.log"
-key() { printf '%s' "$1" | tr '/:@' '___'; }
-ver_of() { [[ -f $S/images/$(key "$1") ]] && cut -d'|' -f1 "$S/images/$(key "$1")"; }
-healthy() { [[ -e $S/running ]] && [[ ! -e $S/bad_$(cat "$S/cver" 2>/dev/null) ]]; }
-last_arg() { eval "printf '%s' \"\${$#}\""; }
-case ${1:-} in
-  info) [[ $* == *DockerRootDir* ]] && echo "$S/root"; exit 0 ;;
-  version) echo 27.0.0; exit 0 ;;
-  volume) echo vol; exit 0 ;;
-  builder)
-    [[ ${2:-} == prune ]] || exit 0
-    [[ -e $S/prunefail ]] && { echo "prune failed" >&2; exit 1; }
-    echo "Total reclaimed space: $(cat "$S/prune-cache" 2>/dev/null || echo 0B)"; exit 0 ;;
-  inspect)
-    case $* in *RestartCount*) echo 0 ;; *.Image*) echo "id-$(cat "$S/cver" 2>/dev/null)" ;; esac; exit 0 ;;
-  run)
-    # the rollback asks the previous image whether it opens the live database as it is: its migrate-check on the data volume
-    case $* in *"migrate-check /data/banking.db"*)
-      echo "PREVIOUS_CHECK $*" >>"$S/calls.log"
-      [[ -e $S/previous-hang ]] && exec /bin/sleep 1000
-      code=0; [[ -e $S/previous-check ]] && code=$(cat "$S/previous-check")
-      # an answer of 0 comes with the check's JSON line, and by default with nothing to apply
-      if [[ $code == 0 && ! -e $S/previous-nojson ]]; then
-        printf '{"ok":true,"file":"/data/banking.db","elapsed_ms":5,"migrate_ms":0,"from":10,"to":10,"applied":%s,"ahead":["0010_x.sql"],"integrity":"ok","foreign_key_violations":{"before":0,"after":0},"tables":{},"problems":[]}\n' "$(cat "$S/previous-applied" 2>/dev/null || echo '[]')"
-        echo "migrate-check: ok, nothing to apply in 5 ms (migrating took 0 ms). /data/banking.db was not changed." >&2
-      fi
-      exit "$code" ;; esac
-    # update.sh asks the new image whether it has migrate-check: its usage answer is exit code 2, an older image fails otherwise
-    case $* in *migrate-check*) echo "DETECT migrate-check" >>"$S/calls.log"; [[ -e $S/no-migrate-check ]] && exit 1; exit 2 ;; esac
-    exit 0 ;;
-  pull)
-    [[ -e $S/pullfail ]] && exit 1
-    v=${2##*:}; [[ -f $S/registry/$v ]] || exit 1
-    cp "$S/registry/$v" "$S/byid/$v"; cp "$S/registry/$v" "$S/images/$(key "$2")"; cp "$S/registry/$v" "$S/images/$(key "$REG_IMG@sha256:$(printf %s "$v" | sha256sum | cut -c1-64)")"
-    echo pulled; exit 0 ;;
-  image)
-    case ${2:-} in
-      prune)
-        [[ -e $S/prunefail ]] && { echo "prune failed" >&2; exit 1; }
-        # a prune that wrongly takes the previous image, for the safety check
-        [[ -e $S/prune-eats-previous ]] && rm -f "$S/images/banking-app_previous"
-        echo "Deleted Images:"; echo "Total reclaimed space: $(cat "$S/prune-images" 2>/dev/null || echo 0B)"; exit 0 ;;
-      tag)
-        # an image ID ("id-<version>", what docker inspect gives for a container) names an image whatever tags it has lost
-        if [[ $3 == id-* ]]; then [[ -f $S/byid/${3#id-} ]] || exit 1; cp "$S/byid/${3#id-}" "$S/images/$(key "$4")"; exit 0; fi
-        [[ -f $S/images/$(key "$3") ]] || exit 1; cp "$S/images/$(key "$3")" "$S/images/$(key "$4")"; exit 0 ;;
-      inspect)
-        ref=${@: -1}; f=$S/images/$(key "$ref"); [[ -f $f ]] || exit 1
-        IFS='|' read -r v c cp <"$f"
-        case $* in
-          *RepoDigests*) echo "$REG_IMG@sha256:$(printf %s "$v" | sha256sum | cut -c1-64)" ;;
-          *talous.commit*) echo "$c" ;;
-          *talous.version*) echo "$v" ;;
-          *talous.compose*) echo "$cp" ;;
-          *.Id*) echo "id-$v" ;;
-        esac; exit 0 ;;
-      *) exit 0 ;;
-    esac ;;
-  compose)
-    shift
-    case ${1:-} in
-      version) if [[ -f $S/race.sh ]]; then bash "$S/race.sh"; rm -f "$S/race.sh"; fi; echo 2.29.0; exit 0 ;;
-      -f) exec /usr/bin/docker compose "$@" ;;
-      config) printf '{\n  "name": "clone"\n}\n'; exit 0 ;;
-      ps)
-        case $* in
-          *"--status running"*)
-            # caddy and tunnel run only when a test says so
-            case $(last_arg "$@") in caddy | tunnel) [[ -e $S/running && -e $S/svc-$(last_arg "$@") ]] && echo cid1 ;; *) [[ -e $S/running ]] && echo cid1 ;; esac ;;
-          *) [[ -e $S/container ]] && echo cid1 ;;
-        esac; exit 0 ;;
-      exec)
-        [[ -e $S/running ]] || exit 1
-        case $* in
-          *wget*) healthy; exit $? ;;
-          *"ops poll"*) if [[ -f $S/poll ]]; then cat "$S/poll"; [[ -e $S/poll-keep ]] || rm -f "$S/poll"; else echo '{"request":null}'; fi; exit 0 ;;
-          *"ops report"*) n=$(ls "$S/reports" | wc -l); cat >"$S/reports/$((n + 1)).json"; echo '{"ok":true}'; exit 0 ;;
-          *"ops state"*) cat >"$S/state.last"; echo '{"ok":true}'; exit 0 ;;
-          *"dist/node.js version"*) echo "$(cat "$S/cver") (test)"; exit 0 ;;
-          # update.sh compares the migration names of the live database with the pre-update copy
-          *group_concat*) [[ -e $S/schema-fail ]] && exit 1; echo "SCHEMA_CHECK $(last_arg "$@")" >>"$S/calls.log"; if [[ -e $S/schema-changed ]]; then echo yes; else echo no; fi; exit 0 ;;
-          *" -e "*) [[ -e $S/fail-snapshot ]] && exit 1; echo "SNAPSHOT $(last_arg "$@")" >>"$S/calls.log"; echo same; exit 0 ;;
-        esac; exit 0 ;;
-      run)
-        case $* in
-          *migrate-check*)
-            echo "MIGRATE_CHECK $(last_arg "$@")" >>"$S/calls.log"
-            [[ -e $S/migrate-hang ]] && exec /bin/sleep 1000
-            # the container itself failed (docker error, out of memory): no JSON, a code other than the check's own 1
-            [[ -e $S/migrate-crash ]] && { echo "docker: Error response from daemon: boom" >&2; exit "$(cat "$S/migrate-crash")"; }
-            if [[ -e $S/migrate-fail ]]; then
-              printf '{"ok":false,"file":"%s","elapsed_ms":40,"migrate_ms":10,"from":8,"to":8,"applied":[],"ahead":[],"integrity":"ok","foreign_key_violations":{"before":0,"after":0},"tables":{},"problems":["migration 0010_x.sql failed: boom"]}\n' "$(last_arg "$@")"
-              echo "migrate-check failed: migration 0010_x.sql failed: boom" >&2; exit 1
-            fi
-            printf '{"ok":true,"file":"%s","elapsed_ms":%s,"migrate_ms":10,"from":8,"to":9,"applied":["0009_x.sql"],"ahead":[],"integrity":"ok","foreign_key_violations":{"before":0,"after":0},"tables":{},"problems":[]}\n' "$(last_arg "$@")" "$(cat "$S/migrate-ms" 2>/dev/null || echo 40)"
-            echo "migrate-check: ok, 1 migration applied to a copy in 40 ms (migrating took 10 ms). The file was not changed." >&2
-            exit 0 ;;
-          *"copy unusable"*)
-            # the rollback's check of the copy (DBCHECK_JS)
-            [[ -e $S/snapshot-bad ]] && { echo "database copy unusable: it failed quick_check" >&2; exit 1; }
-            echo "DBCHECK $(last_arg "$@")" >>"$S/calls.log"; exit 0 ;;
-          *group_concat*)
-            # the rollback's choice: the database still has the old schema ("same"), or a copy has to be restored
-            if [[ -e $S/restore-needed ]]; then echo "restore $(last_arg "$@")"; else echo same; fi; exit 0 ;;
-          *"--entrypoint node"*) [[ -e $S/fail-snapshot ]] && exit 1; echo "SNAPSHOT $(last_arg "$@")" >>"$S/calls.log"; echo same; exit 0 ;;
-        esac; exit 0 ;;
-      build)
-        [[ -e $S/failbuild ]] && { echo "build failed: boom" >&2; exit 1; }
-        echo "${APP_VERSION:-?}|${GIT_COMMIT:-?}|1" >"$S/images/$(key banking-app:latest)"; cp "$S/images/$(key banking-app:latest)" "$S/byid/${APP_VERSION:-?}"; exit 0 ;;
-      up)
-        [[ -e $S/failup ]] && exit 1
-        touch "$S/running" "$S/container"; v=$(ver_of banking-app:latest); echo "$v" >"$S/cver"; exit 0 ;;
-      stop) rm -f "$S/running"; exit 0 ;;
-      start) touch "$S/running"; exit 0 ;;
-      restart) [[ -e $S/hang-restart ]] && exec /bin/sleep 1000; exit 0 ;;
-      logs)
-        n=150; [[ $* == *"--tail "* ]] && n=$(sed -E 's/.*--tail ([0-9]+).*/\1/' <<<"$*")
-        svc=$(last_arg "$@")
-        for ((i = 1; i <= n + 50; i++)); do echo "$svc-1  | line $i of $svc"; done | tail -n "$n"
-        echo "$svc-1  | call with Bearer abc123tokenvalue ok"
-        echo "$svc-1  | session eyJhbGciOiJSUzI1NiJ9.eyJ4IjoxfQ.c2ln done"
-        echo "$svc-1  | TUNNEL_TOKEN=abc"
-        echo "$svc-1  | api_key=zzz"
-        echo "$svc-1  | kept log line"
-        exit 0 ;;
-      down|pull) exit 0 ;;
-    esac; exit 0 ;;
-esac
-exit 0
-EOF
-  sed -i "s#^S=\$OPS_STUB_DIR#S=\$OPS_STUB_DIR; REG_IMG=$REG#" "$b/docker"
-  cat >"$b/cosign" <<'EOF'
-#!/usr/bin/env bash
-printf 'cosign %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
-[[ -e $OPS_STUB_DIR/cosignfail ]] && exit 1
-[[ $* == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* && $* == *"release\\.yml@refs/(tags/v"* && $* == *"@sha256:"* ]] || exit 1
-# the trigger of the run that signed the stub image: a push unless a test says otherwise
-by=$(cat "$OPS_STUB_DIR/signed-by" 2>/dev/null || echo push)
-[[ $* == *"--certificate-github-workflow-sha "????????????????????????????????????????" "* && $* == *"--certificate-github-workflow-trigger $by "* ]] || exit 1
-exit 0
-EOF
-  cat >"$b/curl" <<'EOF'
-#!/usr/bin/env bash
-S=$OPS_STUB_DIR; out=""; url=""
-while (($#)); do case $1 in -o) out=$2; shift ;; http*) url=$1 ;; esac; shift; done
-printf 'curl %s\n' "$url" >>"$S/calls.log"
-[[ $url == https://api.github.com/repos/jouni-mikkola/omatalous/releases/latest ]] || { printf 000; exit 1; }
-code=$(cat "$S/release.status" 2>/dev/null || echo 200)
-[[ $code != 200 ]] || cp "$S/release.json" "$out"
-printf '%s' "$code"
-EOF
-  cat >"$b/df" <<'EOF'
-#!/usr/bin/env bash
-if [[ -e $OPS_STUB_DIR/lowdisk ]]; then printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\nx 100000 90000 10240 90%% /\n'; else exec /bin/df "$@"; fi
-EOF
-  # scheduling: a crontab kept in a file, and systemd only when a test asks for it
-  cat >"$b/crontab" <<'EOF'
-#!/usr/bin/env bash
-f=$OPS_STUB_DIR/crontab
-case ${1:-} in -l) [[ -s $f ]] && cat "$f"; exit 0 ;; -r) rm -f "$f"; exit 0 ;; -) cat >"$f"; exit 0 ;; esac
-exit 1
-EOF
-  cat >"$b/systemctl" <<'EOF'
-#!/usr/bin/env bash
-[[ -e $OPS_STUB_DIR/systemd ]] || exit 1
-printf 'systemctl %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
-exit 0
-EOF
-  printf '#!/bin/sh\n[ -e "$OPS_STUB_DIR/systemd" ] && echo yes\nexit 0\n' >"$b/loginctl"
-  printf '#!/bin/sh\nexec /bin/sleep 0.01\n' >"$b/sleep"
-  # sync only records what it was asked to flush (and fails when a test says so)
-  printf '#!/bin/sh\necho "sync $*" >>"$OPS_STUB_DIR/calls.log"\n[ -e "$OPS_STUB_DIR/sync-fail" ] && exit 1\n[ -e "$OPS_STUB_DIR/sync-fail-paths" ] && [ $# -gt 0 ] && exit 1\nexit 0\n' >"$b/sync"
-  chmod +x "$b"/*
-}
-
-# a world: stub state, a bare remote with one commit (0.1.0), a clone with the helper, a running 0.1.0
-new_world() {
-  W=$(mktemp -d "$TMPBASE/w.XXXXXX"); S=$W/stub
-  mkdir -p "$S"/{bin,images,registry,reports,root,byid} "$W/home"
-  write_stubs
-  git init -q --bare -b main "$W/origin.git"
-  git clone -q "file://$W/origin.git" "$W/seed" 2>/dev/null
-  mkdir -p "$W/seed/apps/server/src" "$W/seed/scripts/lib"
-  cp "$SRC"/scripts/*.sh "$W/seed/scripts/"; cp "$SRC"/scripts/lib/*.sh "$W/seed/scripts/lib/"; cp "$SRC/docker-compose.yml" "$W/seed/"
-  printf '#!/usr/bin/env bash\necho "backup.sh ran" >>"$OPS_STUB_DIR/calls.log"\nprintf "\\033[31mred\\033[0m\\nToken abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv end\\nAuthorization: Bearer xyz\\nTUNNEL_TOKEN=abc\\nkept line\\n"\n' >"$W/seed/scripts/backup.sh"
-  printf '#!/usr/bin/env bash\necho '"'"'{"at":"2026-01-01T00:00:00Z","items":[{"id":"x-1","level":"ok","title":"t","detail":"","hint":""}]}'"'"'\n' >"$W/seed/scripts/doctor.sh"
-  chmod +x "$W"/seed/scripts/*.sh
-  printf '/ops/\n/backups/\n.env\n' >"$W/seed/.gitignore"
-  echo 'export const APP_VERSION = "0.1.0";' >"$W/seed/apps/server/src/version.ts"
-  git -C "$W/seed" add -A && git -C "$W/seed" commit -qm "0.1.0" && git -C "$W/seed" push -q origin main 2>/dev/null
-  C1=$(git -C "$W/seed" rev-parse HEAD)
-  git clone -q "file://$W/origin.git" "$W/clone" 2>/dev/null
-  CL=$W/clone
-  mkdir -p "$CL/ops"; chmod 700 "$CL/ops"
-  printf 'REMOTE_URL=file://%s/origin.git\nBRANCH=main\n' "$W" >"$CL/ops/policy"; chmod 600 "$CL/ops/policy"
-  : >"$CL/.env"; chmod 600 "$CL/.env"
-  # the running version
-  echo "0.1.0|$C1|1" >"$S/images/$(printf %s banking-app:latest | tr '/:@' '___')"; cp "$S/images/banking-app_latest" "$S/byid/0.1.0"
-  touch "$S/running" "$S/container"; echo 0.1.0 >"$S/cver"; : >"$S/calls.log"
-  echo 200 >"$S/release.status"
-}
-setenv() { printf '%s\n' "$@" >"$CL/.env"; chmod 600 "$CL/.env"; }
-poll() { printf '{"request":{"id":"%s","action":"%s","params":{},"secret":null}}\n' "${2:-op_0123456789abcdef}" "$1" >"$S/poll"; }
-tick() { # one tick of the helper in the clone, as the timer would run it
-  (cd "$CL" && env OPS_TEST=1 OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" "$@" ./scripts/ops-helper.sh >"$W/tick.out" 2>&1)
-  TICK_RC=$?
-}
-calls() { cat "$S/calls.log" 2>/dev/null; }
-n_calls() { calls | grep -cE "$1" || true; }
-# the newest report's text
-report() { local f; f=$(ls "$S/reports" | sort -n | tail -1); [[ -n $f ]] && cat "$S/reports/$f" || true; }
-reported() { grep -q "\"status\":\"$1\"" <<<"$(report)"; }
-nreports() { ls "$S/reports" | wc -l; }
-head_commit() { git -C "$CL" rev-parse HEAD; }
-cver() { cat "$S/cver"; }
-# a release in the seed: version.ts, a commit, a tag, the registry image and what the Releases API says
-release() { # release VERSION
-  echo "export const APP_VERSION = \"$1\";" >"$W/seed/apps/server/src/version.ts"
-  git -C "$W/seed" add -A; git -C "$W/seed" commit -qm "release $1"; git -C "$W/seed" tag "v$1"
-  git -C "$W/seed" push -q origin main "v$1" 2>/dev/null
-  echo "$1|$(git -C "$W/seed" rev-parse HEAD)|1" >"$S/registry/$1"
-  printf '{\n  "tag_name": "v%s",\n  "body": "Notes for %s\\n- one"\n}\n' "$1" "$1" >"$S/release.json"
-}
-src_commit() { # a source commit on main
-  echo "x$RANDOM" >>"$W/seed/CHANGES"
-  git -C "$W/seed" add -A; git -C "$W/seed" commit -qm "change $RANDOM"; git -C "$W/seed" push -q origin main 2>/dev/null
-}
-ID=op_0123456789abcdef
-ID2=op_fedcba9876543210
+# shellcheck source=ops-world.sh
+. "$HERE/ops-world.sh"
+unprivileged ops-helper.test.sh "$@"
 
 # ── release mode ────────────────────────────────────────────────────────────
 t_release_update() {
@@ -323,7 +60,7 @@ t_release_signed_by_hand() {
   new_world; release 0.2.0; echo workflow_dispatch >"$S/signed-by"; poll update
   tick
   check "release: an image signed by a run started by hand is accepted" reported ok
-  check "release: the push trigger was tried first" bash -c "grep '^cosign verify' '$S/calls.log' | head -1 | grep -q 'trigger push '"
+  check "release: the push trigger was tried first" bash -c "grep '^cosign verify' '$S/calls.log' | head -1 | grep 'trigger push ' >/dev/null"
   new_world; release 0.2.0; echo schedule >"$S/signed-by"; poll update
   tick
   check "release: any other trigger is refused" reported failed
@@ -454,9 +191,14 @@ t_health_wait_follows_check() {
   p=$(probes)
   check "health wait: a long wait is cut to the time the helper has left (about 70 probes, $p seen)" test "$p" -ge 60 -a "$p" -le 85
   # healthy() itself: seconds by the clock, the deadline, and a deadline that is not a number
+  # healthy reads two clocks, `date +%s` and the shell's SECONDS. Both are the test's here: date answers $now, and SECONDS,
+  # unset, is a plain number that only a probe moves. So no result depends on how long the machine takes.
+  local now=2000000000
   probe_count() { # probe_count WAIT DEADLINE PROBE_SECONDS: how many probes healthy makes
-    HW=$1 DL=$2 PS=$3 SRC_FILE="$SRC/scripts/lib/preflight.sh" bash -c '
+    HW=$1 DL=$2 PS=$3 NOW=$now SRC_FILE="$SRC/scripts/lib/preflight.sh" bash -c '
       n=0; HEALTH_WAIT=$HW; TALOUS_DEADLINE=$DL
+      unset SECONDS; SECONDS=0
+      date() { echo "$NOW"; }
       app_up() { n=$((n + 1)); SECONDS=$((SECONDS + PS)); return 1; }
       docker() { case $* in *"compose ps"*) echo cid ;; *inspect*) echo 0 ;; esac; }
       sleep() { :; }
@@ -464,12 +206,10 @@ t_health_wait_follows_check() {
       healthy || true
       echo $n' 2>/dev/null
   }
-  local now; now=$(date +%s)
   check "healthy: 120 s of instant probes is 60 probes (each turn counts its 2 s sleep)" test "$(probe_count 120 '' 0)" = 60
   check "healthy: probes that take 3 s each count as 3 s, so 120 s is 40 probes" test "$(probe_count 120 '' 3)" = 40
   check "healthy: a deadline far away changes nothing (900 s, 450 probes)" test "$(probe_count 900 $((now + 1200)) 0)" = 450
-  # the deadline is read when the check starts: a loaded machine may lose a few seconds before healthy() reads the clock
-  check "healthy: a deadline 200 s away leaves 140 s (70 probes)" bash -c "p=$(probe_count 900 $(($(date +%s) + 200)) 0); [[ \$p -ge 66 && \$p -le 70 ]]"
+  check "healthy: a deadline 200 s away leaves 140 s (70 probes)" test "$(probe_count 900 $((now + 200)) 0)" = 70
   check "healthy: a deadline already past still waits 60 s (30 probes)" test "$(probe_count 900 $((now - 100)) 0)" = 30
   check "healthy: a deadline that is not a number is ignored" test "$(probe_count 120 'soon; id' 0)" = 60
   # the bounds, on the function itself (a run at the upper bound is 450 probes)
@@ -734,7 +474,7 @@ t_real_compose_passes() { # as it is, and with the tunnel image at latest or pin
   new_world; setenv TALOUS_CHANNEL=source
   [[ -x /usr/bin/docker ]] && /usr/bin/docker compose version >/dev/null 2>&1 || { fail "compose policy: needs docker compose on this machine"; return; }
   local i; for i in '' latest 2026.9.1 "2026.9.1@sha256:$(printf %064d 0)"; do [[ -z $i ]] || sed -i "s#image: cloudflare/cloudflared.*#image: cloudflare/cloudflared:$i#" "$W/seed/docker-compose.yml"; src_commit
-    check "source: the project's own docker-compose.yml passes the policy check${i:+ with the tunnel image at $i}" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/ops-helper.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep -q 'image: cloudflare/cloudflared.*$i\$' && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
+    check "source: the project's own docker-compose.yml passes the policy check${i:+ with the tunnel image at $i}" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/ops-helper.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep 'image: cloudflare/cloudflared.*$i\$' >/dev/null && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
   done
 }
 make_signers() {
@@ -777,7 +517,7 @@ t_rt_tag_bypasses_signers() {
   git -C "$W/seed" add -A; git -C "$W/seed" commit -qm "unsigned"; git -C "$W/seed" tag v0.9.0
   git -C "$W/seed" push -q origin side v0.9.0 2>/dev/null; git -C "$W/seed" checkout -q main
   echo "0.9.0|$(git -C "$W/seed" rev-parse v0.9.0)|1" >"$S/registry/0.9.0"
-  echo 404 >"$S/release.status"
+  setenv TALOUS_CHANNEL=source # GitHub saying "no release" with a release tag in the folder is no answer (channel.test.sh)
   git -C "$CL" fetch -q --tags origin 2>/dev/null
   poll update; tick
   check "tag bypass: the signed main commit is what gets installed" test "$(head_commit)" = "$good"
@@ -792,7 +532,7 @@ t_rt_source_race() {
   local good; good=$(git -C "$W/seed" rev-parse HEAD)
   printf 'cd "%s" && echo evil >>CHANGES && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm evil && git push -q origin main 2>/dev/null\n' "$W/seed" >"$S/race.sh"
   poll update; tick
-  check "source race: the late commit did land on the remote" bash -c "git -C '$W/origin.git' log --format=%s main | grep -q evil"
+  check "source race: the late commit did land on the remote" bash -c "git -C '$W/origin.git' log --format=%s main | grep evil >/dev/null"
   check "source race: exactly the checked commit is installed" test "$(head_commit)" = "$good"
   check "source race: reported ok" reported ok
 }
@@ -829,11 +569,6 @@ t_release_signers() {
   printf '{\n  "tag_name": "v0.2.0",\n  "body": "x"\n}\n' >"$S/release.json"
   poll update; tick
   check "release: a signed release commit goes through" reported ok
-}
-t_utf8_summary() {
-  local out
-  out=$(printf '\033[31m✗ Levy täynnä äöå %0200d\n' 0 | LANG=C bash -c "source <(sed -n '/^last_problem()/,/^}/p' '$SRC/scripts/ops-helper.sh'); last_problem")
-  check "summary: starts at the text and is valid UTF-8 under LANG=C" bash -c "[[ '$out' == Levy* ]] && printf '%s' '$out' | iconv -f UTF-8 -t UTF-8 >/dev/null"
 }
 t_git_config_pinned() {
   new_world; setenv TALOUS_CHANNEL=source; src_commit
@@ -990,7 +725,7 @@ t_helper_renew() {
   new_world; local policy; policy=$(cat "$CL/ops/policy")
   poll helper-renew; tick
   check "renew: reported ok" bash -c "grep -q '\"status\":\"ok\"' '$S/reports/1.json' && grep -q 'Apuri asennettu uudelleen' '$S/reports/1.json'"
-  check "renew: one cron line for this instance, in this clone, with the marker" bash -c "[[ \$(grep -c '# talous-ops:banking-app\$' '$S/crontab') = 1 ]] && grep -q 'cd $CL && ./scripts/ops-helper.sh' '$S/crontab'"
+  check "renew: one cron line for this instance, in this clone, with the marker" bash -c "[[ \$(grep -c '# talous-ops:banking-app\$' '$S/crontab') = 1 ]] && grep -q ' $W/home/.local/share/omatalous/banking-app/launcher.sh $CL >/dev/null' '$S/crontab'"
   check "renew: the policy (remote, branch) is kept, not rewritten from the clone" test "$(cat "$CL/ops/policy")" = "$policy"
   poll helper-renew "$ID2"; tick
   check "renew: a second renewal does not duplicate the line" test "$(grep -c '# talous-ops:banking-app$' "$S/crontab")" = 1
@@ -1026,6 +761,93 @@ t_heartbeat() {
   check "heartbeat: first tick after boot sends a state snapshot" grep -q '"checked_at"' "$S/state.last"
   check "heartbeat: snapshot has mode, version and the address after remote access goes off" grep -qE '"version".*"mode":"local".*"lanAddress":"http://localhost:8080"' "$S/state.last"
   check "heartbeat: no secrets or paths in the snapshot" bash -c "! grep -qE 'PASSWORD|/home|secret' '$S/state.last'"
+}
+# ── the call sites of the libs under scripts/lib. A probe replaces a lib function and logs its calls, so these scenarios
+# keep showing where the helper calls it whatever the lib does later.
+lib_add() { # lib_add LIB CODE: CODE goes to the end of scripts/lib/ops-LIB.sh in the seed and is pulled into the clone (the tree stays clean)
+  printf '%s\n' "$2" >>"$W/seed/scripts/lib/ops-$1.sh"
+  git -C "$W/seed" commit -qam "lib $1" && git -C "$W/seed" push -q origin main 2>/dev/null && git -C "$CL" pull -q --ff-only 2>/dev/null
+}
+probe() { lib_add "$1" "$2() { echo \"$2 \$*\" >>\"\$OPS_STUB_DIR/calls.log\"; return ${3:-0}; }"; } # probe LIB FUNC [RC]: FUNC logs its call and returns RC
+run_helper() { # the helper once with ARGS in the clone: its output in OUT, its status in RC
+  OUT=$(cd "$CL" && env OPS_TEST=1 OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/ops-helper.sh "$@" 2>&1); RC=$?
+}
+report_watchdog() { # report_watchdog AT FROM TO REASON: watchdog_report in the clone, loaded the way the helper loads it
+  (cd "$CL" && env OPS_STUB_DIR="$S" PATH="$S/bin:/usr/bin:/bin" OPS=ops bash -c '. scripts/lib/dbcopy.sh; . scripts/lib/ops-watchdog.sh; watchdog_report "$@"' x "$@")
+}
+t_callsite_selftest() {
+  new_world; run_helper --self-test
+  check "self-test: the helper's only argument runs self_test, which answers" test "$OUT" = "self-test ok" -a "$RC" = 0
+  run_helper --self-test now
+  check "self-test: with another argument it is a usage error" test "$RC" = 2 -a "$OUT" = "Usage: ops-helper.sh"
+  probe selftest self_test 3; : >"$S/calls.log"; run_helper --self-test
+  check "self-test: self_test is called once, with no arguments, and its status is the helper's" test "$(calls)" = "self_test " -a "$RC" = 3
+  check "self-test: no tick ran (no lock, no journal, no docker)" bash -c "[[ ! -e '$CL/ops/.lock' && ! -e '$CL/ops/journal' ]] && [[ \$(grep -c '^docker' '$S/calls.log') = 0 ]]"
+  chmod 775 "$CL/scripts/lib"; : >"$S/calls.log"; run_helper --self-test
+  check "self-test: files others can write are refused before any lib is read" test "$RC" = 1 -a "${OUT##*$'\n'}" = "self-test failed: the helper's files are not safe or do not load" -a -z "$(calls)"
+}
+t_callsite_after_update_check() {
+  new_world; probe selftest after_update_check; release 0.2.0; poll update; tick
+  check "after_update_check: called once, with no arguments, when the update went through" test "$(n_calls '^after_update_check $')" = 1 -a "$(cver)" = 0.2.0
+  check "after_update_check: after the new version was started and had answered" test "$(line_of '^after_update_check')" -gt "$(line_of '^docker compose up')" -a "$(line_of '^after_update_check')" -gt "$(grep -n 'api/health' "$S/calls.log" | tail -1 | cut -d: -f1)"
+  new_world; probe selftest after_update_check; release 0.2.0; touch "$S/bad_0.2.0"; poll update; tick
+  check "after_update_check: not called when the new version does not answer" test "$(n_calls '^after_update_check')" = 0
+}
+t_callsite_watchdog_tick() {
+  new_world; probe watchdog watchdog_tick; tick
+  check "watchdog_tick: called once a tick, with no arguments" test "$(n_calls '^watchdog_tick $')" = 1
+  rm -f "$S/running"; : >"$S/calls.log"; tick
+  check "watchdog_tick: also when the app is down, where the tick ends" test "$(n_calls '^watchdog_tick $')" = 1 -a "$(n_calls 'ops poll')" = 0
+}
+t_callsite_address_tick() {
+  new_world; probe watchdog watchdog_tick; probe address address_tick; poll backup; tick
+  check "address_tick: called once a tick, with no arguments, after watchdog_tick and before the poll" test "$(n_calls '^address_tick $')" = 1 -a "$(line_of '^watchdog_tick')" -lt "$(line_of '^address_tick')" -a "$(line_of '^address_tick')" -lt "$(line_of 'ops poll')"
+  rm -f "$S/running"; : >"$S/calls.log"; tick
+  check "address_tick: also when the app is down, where the tick ends" test "$(n_calls '^address_tick $')" = 1 -a "$(n_calls 'ops poll')" = 0
+}
+t_callsite_housekeeping() {
+  new_world; probe housekeeping housekeeping; tick
+  check "housekeeping: called once in the daily block of the first heartbeat, with no arguments" test "$(n_calls '^housekeeping $')" = 1
+  check "housekeeping: after the version check, before the snapshot goes out" test "$(line_of '^curl ')" -lt "$(line_of '^housekeeping')" -a "$(line_of '^housekeeping')" -lt "$(line_of 'ops state')"
+  tick
+  check "housekeeping: not again within the day" test "$(n_calls '^housekeeping')" = 1
+  touch -d '2 days ago' "$CL/ops/last-check"; poll backup; tick
+  check "housekeeping: not in a tick that ran a request" test "$(n_calls '^housekeeping')" = 1
+  tick
+  check "housekeeping: again once the daily check is due" test "$(n_calls '^housekeeping')" = 2
+}
+t_libs_see_the_test_hooks() {
+  new_world; lib_add watchdog 'watchdog_tick() { echo "hooks ${OPS_T_SELFTEST:-} ${OPS_T_ADDRESS:-}" >>"$OPS_STUB_DIR/calls.log"; }'
+  tick env OPS_T_SELFTEST=11 OPS_T_ADDRESS=33
+  check "hooks: OPS_T_SELFTEST and OPS_T_ADDRESS reach the libs through the clean environment" test "$(n_calls '^hooks 11 33$')" = 1
+}
+t_libs_load_or_stop() {
+  new_world; lib_add watchdog 'watchdog_tick() { if then; }'; : >"$S/calls.log"
+  tick
+  check "libs: a lib that does not load stops the tick before Docker is asked anything" test "$TICK_RC" = 1 -a "$(n_calls '^docker')" = 0
+  check "libs: and the helper log says so" grep -q 'A part of the helper does not load' "$CL/ops/helper.log"
+  run_helper --self-test
+  check "libs: the self-test says so too, and does not claim to be ok" test "$RC" = 1 -a "${OUT##*$'\n'}" = "self-test failed: the helper's files are not safe or do not load"
+}
+t_watchdog_frag() {
+  new_world; local frag=$CL/ops/watchdog.frag want_frag='{"at":"2026-01-02T00:00:00Z","from":"0.9.1","to":"0.9.0","reason":"self_test"}' bad=0 args
+  tick
+  check "watchdog_report: with no report the state has no watchdog" bash -c "! grep -q watchdog '$S/state.last'"
+  report_watchdog 20260101T120000Z 0.2.0 0.1.0 unhealthy
+  check "watchdog_report: one JSON object, the time of .last-update as an ISO time" test "$(cat "$frag")" = '{"at":"2026-01-01T12:00:00Z","from":"0.2.0","to":"0.1.0","reason":"unhealthy"}'
+  check "watchdog_report: nothing is left beside it" test "$(find "$CL/ops" -name 'watchdog*' | wc -l)" = 1
+  report_watchdog 2026-01-02T00:00:00Z 0.9.1 0.9.0 self_test
+  check "watchdog_report: an ISO time and the reason self_test are taken as they are, the file is replaced" test "$(cat "$frag")" = "$want_frag"
+  for args in "yesterday 0.9.1 0.9.0 unhealthy" "2026-01-02T00:00:00Z 0.9 0.9.0 unhealthy" "2026-01-02T00:00:00Z 0.9.1 v0.9.0 unhealthy" "2026-01-02T00:00:00Z 0.9.1 0.9.0 other" "2026-01-02T00:00:00Z 0.9.1 0.9.0" ""; do
+    report_watchdog $args && bad=1
+  done
+  check "watchdog_report: an argument of another form returns 1 and changes nothing" test "$bad" = 0 -a "$(cat "$frag")" = "$want_frag"
+  rm -f "$S/state.last" "$CL/ops/boot_id"; tick
+  check "watchdog_report: state_json sends the file as \"watchdog\", in a state that is JSON" bash -c "grep -q '\"watchdog\":$want_frag' '$S/state.last' && jq -e . '$S/state.last' >/dev/null"
+  release 0.2.0; poll update; tick
+  check "watchdog_report: an update that went through removes it, and its result does not carry it" bash -c "[[ ! -e '$frag' ]] && ! grep -q watchdog '$S/reports/1.json'"
+  new_world; release 0.2.0; report_watchdog 20260101T120000Z 0.2.0 0.1.0 unhealthy; touch "$S/bad_0.2.0"; poll update; tick
+  check "watchdog_report: an update that failed leaves it" test -s "$CL/ops/watchdog.frag"
 }
 t_no_dangerous_constructs() {
   check "helper: no eval, source, bash -c or sudo" bash -c "! grep -vE '^[[:space:]]*#' '$SRC/scripts/ops-helper.sh' | grep -nE '(^|[;&|(])[[:space:]]*(eval|source)[[:space:]]|bash -c|sudo '"

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { seedCsv } from "./csv-seed.ts";
 import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
@@ -27,7 +28,7 @@ const one = async (c: Client, merchant: string) => (await list(c)).find((i) => i
 
 async function withData() {
   const app = await setupApp();
-  const r = await app.admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+  const r = await seedCsv(app.s, app.admin, { content, accountName: "Käyttötili" });
   expect(r.status).toBe(200);
   return app;
 }
@@ -70,13 +71,13 @@ describe("GET /api/merchants", () => {
   });
 
   it("leaves transfers out", async () => {
-    const { admin } = await setupApp();
+    const { admin, s } = await setupApp();
     const rows = [
       file(`2026/09/16;-300,00;${CHECKING};${SAVINGS};LAAKSONEN MIKKO JA ANNA;OMA SIIRTO;;EUR`, `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`),
       file(`2026/09/16;300,00;${CHECKING};${SAVINGS};LAAKSONEN MIKKO JA ANNA;OMA SIIRTO;;EUR`, `2025/12/31;12,40;;${SAVINGS};;KORKO;;EUR`),
     ];
-    await admin.call("POST", "/api/import/csv", { content: rows[0], accountName: "Käyttötili" });
-    await admin.call("POST", "/api/import/csv", { content: rows[1], accountName: "Säästötili" });
+    await seedCsv(s, admin, { content: rows[0]!, accountName: "Käyttötili" });
+    await seedCsv(s, admin, { content: rows[1]!, accountName: "Säästötili" });
     const transfers: { merchant: string }[] = (await admin.call("GET", "/api/transactions?limit=50")).body.items.filter((t: { isTransfer: boolean }) => t.isTransfer);
     expect(transfers.length).toBeGreaterThan(0);
     const listed = names(await list(admin));
@@ -110,7 +111,7 @@ const spread = file(
 );
 async function withSpread() {
   const app = await setupApp();
-  expect((await app.admin.call("POST", "/api/import/csv", { content: spread, accountName: "Käyttötili" })).status).toBe(200);
+  expect((await seedCsv(app.s, app.admin, { content: spread, accountName: "Käyttötili" })).status).toBe(200);
   return app;
 }
 
@@ -142,8 +143,8 @@ describe("GET /api/merchants for a period", () => {
   });
 
   it("keeps a merchant that is only paid at 0 € a month", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content: file(`2026/09/01;2500,00;;${CHECKING};ACME OY;PALKKA;;EUR`), accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content: file(`2026/09/01;2500,00;;${CHECKING};ACME OY;PALKKA;;EUR`), accountName: "Käyttötili" });
     expect(await list(admin)).toMatchObject([{ inCents: 250000, totalCents: 0, monthlyCents: 0 }]);
   });
 });
@@ -181,9 +182,9 @@ describe("GET /api/merchants?habit=1 (Arkiostot)", () => {
 
 describe("PUT /api/merchants/category", () => {
   it("does not know a merchant that only has transfer rows", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content: file(`2026/09/16;-300,00;${CHECKING};${SAVINGS};LAAKSONEN MIKKO JA ANNA;OMA SIIRTO;;EUR`), accountName: "Käyttötili" });
-    await admin.call("POST", "/api/import/csv", { content: file(`2026/09/16;300,00;${CHECKING};${SAVINGS};LAAKSONEN MIKKO JA ANNA;OMA SIIRTO;;EUR`), accountName: "Säästötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content: file(`2026/09/16;-300,00;${CHECKING};${SAVINGS};LAAKSONEN MIKKO JA ANNA;OMA SIIRTO;;EUR`), accountName: "Käyttötili" });
+    await seedCsv(s, admin, { content: file(`2026/09/16;300,00;${CHECKING};${SAVINGS};LAAKSONEN MIKKO JA ANNA;OMA SIIRTO;;EUR`), accountName: "Säästötili" });
     const transfer = (await admin.call("GET", "/api/transactions?limit=50")).body.items.find((t: { isTransfer: boolean }) => t.isTransfer);
     expect(transfer).toBeDefined();
     const r = await admin.call("PUT", "/api/merchants/category", { merchant: transfer.merchant, category: "shopping" });
@@ -191,7 +192,7 @@ describe("PUT /api/merchants/category", () => {
   });
 
   it("moves every row of the merchant and keeps the choice as a rule", async () => {
-    const { admin } = await withData();
+    const { admin, s } = await withData();
     const r = await admin.call("PUT", "/api/merchants/category", { merchant: "Lidl", category: "shopping" });
     expect(r).toMatchObject({ status: 200, body: { changed: 3 } });
 
@@ -201,7 +202,7 @@ describe("PUT /api/merchants/category", () => {
 
     // a row that comes in later follows the rule
     const more = file(`2026/09/18;-9,00;${CHECKING};;;LIDL TIKKURILA;;EUR`);
-    await admin.call("POST", "/api/import/csv", { content: more, accountName: "Toinen tili" });
+    await seedCsv(s, admin, { content: more, accountName: "Toinen tili" });
     expect(await one(admin, "Lidl")).toMatchObject({ category: "shopping", count: 4 });
   });
 
@@ -272,7 +273,7 @@ describe("PUT /api/merchants/category", () => {
   it("touches only the signed-in user's rows and rules", async () => {
     const { admin, member, s, adminId } = await withData();
     const eero = await member("eero");
-    await eero.call("POST", "/api/import/csv", { content: file(`2026/09/05;-10,00;${CHECKING};;;LIDL TIKKURILA;;EUR`), accountName: "Eeron tili" });
+    await seedCsv(s, eero, { content: file(`2026/09/05;-10,00;${CHECKING};;;LIDL TIKKURILA;;EUR`), accountName: "Eeron tili" });
 
     // Eero cannot set a rule for a name only Aino has
     const notHis = await eero.call("PUT", "/api/merchants/category", { merchant: "Qwerty Puoti", category: "shopping" });

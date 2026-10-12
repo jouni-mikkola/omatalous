@@ -1,5 +1,5 @@
 import { dateTime } from "../../format.ts";
-import { formatSize, KIND, S } from "./ops-strings.ts";
+import { formatSize, kindLabel, S } from "./ops-strings.ts";
 import type { Backup } from "./types.ts";
 
 export function BackupList({ app, host, disabled, canDownload, onBackup, onDownload }: {
@@ -46,7 +46,7 @@ export function BackupList({ app, host, disabled, canDownload, onBackup, onDownl
                 <tr key={`${b.where}-${b.name}`}>
                   <td className="small">{b.name}</td>
                   <td>{dateTime(b.at)}</td>
-                  <td>{KIND[b.kind] ?? b.kind}</td>
+                  <td>{kindLabel(b.kind)}</td>
                   <td>{b.where}</td>
                   <td className="num">{formatSize(b.size)}</td>
                 </tr>

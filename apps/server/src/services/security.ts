@@ -5,7 +5,9 @@
  * through recordEvent too.
  */
 import type { SecurityEvent } from "../db/security-repo.ts";
+import { waitingCopy } from "../db/startup-gate.ts";
 import type { Services } from "./context.ts";
+import { type HealthProbes, healthNotices, markHealthSeen } from "./db-health.ts";
 import { INDUSTRY_NOTICE_KEY } from "./instance.ts";
 
 export const EVENT_KINDS = [
@@ -25,6 +27,13 @@ export const EVENT_KINDS = [
   "remote_access_reverted",
   "cloudflare_token_saved",
   "cloudflare_token_removed",
+  // an update the host helper took back by itself, as it is told to each admin (ops-watchdog.ts; the event is ops_watchdog)
+  "watchdog_notice",
+  // the check before the start (db/startup-gate.ts)
+  "db_damaged",
+  "db_restored",
+  // the household's data emptied from the browser (reset.ts)
+  "data_reset",
 ] as const;
 
 /** Maintenance requests and results use kinds that start with ops_. */
@@ -114,19 +123,40 @@ export interface Notice {
   text: string;
 }
 
+/**
+ * The one name of a rollback. The host helper writes the same words (scripts/lib/ops-watchdog.sh), the watchdog report
+ * builds its sentence from them (ops-watchdog.ts) and the security list gives the event this name (web Security.tsx).
+ */
+export const ROLLBACK_NAME = "Edellinen versio palautettiin";
+
 const INDUSTRY_NOTICE = INDUSTRY_NOTICE_KEY;
 const failSeenKey = (userId: string) => `notice_fail_seen:${userId}`;
 
-const fiTime = (iso: string, tz: string) =>
+export const fiTime = (iso: string, tz: string) =>
   new Intl.DateTimeFormat("fi-FI", { timeZone: tz, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
-export async function noticesFor(s: Services, user: { id: string; role: string }): Promise<Notice[]> {
+/**
+ * A database that was found damaged at start and stayed (db/startup-gate.ts). Two cases the admin must tell apart:
+ * no intact copy at all, or an intact copy that could not be put in place, which room on the disk and a restart mend.
+ */
+function damagedNotice(detail: string | null): string {
+  const copy = waitingCopy(detail);
+  // no copy in the data folder: one the household kept elsewhere is put back on the server (docs/ADVANCED.md)
+  if (!copy) return "Tietokanta on vaurioitunut, eikä ehjää varmuuskopiota löytynyt. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.";
+  return `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${copy} on tallessa, mutta sitä ei saatu käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: varmuuskopio palautetaan käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.`;
+}
+
+/** `probes`: a made disk in tests. */
+export async function noticesFor(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<Notice[]> {
   const tz = s.instance.current.timezone;
   const out: Notice[] = [];
   for (const e of await s.security.unseenNotices(user.id)) {
     if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.` });
     else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
+    else if (e.kind === "watchdog_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
+    else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Tietokanta palautettiin varmuuskopiosta"}. Sen jälkeen tehdyt muutokset menetettiin. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.` });
+    else if (e.kind === "db_damaged") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: damagedNotice(e.detail) });
   }
   const mark = await s.settings.get(failSeenKey(user.id));
   const since = mark && mark > new Date(s.now().getTime() - 86_400_000).toISOString() ? mark : new Date(s.now().getTime() - 86_400_000).toISOString();
@@ -142,15 +172,21 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
       text: "Kauppiaiden toimialahaku YTJ:stä on pois päältä. Ota se käyttöön:",
     });
   }
+  // the safety net: copies, the disk and the host helper (db-health.ts), for admins
+  out.push(...(await healthNotices(s, user, probes)));
   return out;
 }
 
-/** Marks the user's notices as read. Admin-only notices are cleared for every admin. */
-export async function dismissNotices(s: Services, user: { id: string; role: string }): Promise<void> {
+/**
+ * Marks the user's notices as read. The changed default is cleared for every admin; a notice about the safety net
+ * is marked for this admin alone and comes back when its condition does (db-health.ts).
+ */
+export async function dismissNotices(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<void> {
   const now = s.now().toISOString();
   await s.security.markSeen(user.id, now);
   await s.settings.set(failSeenKey(user.id), now);
   if (user.role === "admin") await s.settings.delete(INDUSTRY_NOTICE);
+  await markHealthSeen(s, user, probes);
 }
 
 export type { SecurityEvent };

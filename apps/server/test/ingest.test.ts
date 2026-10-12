@@ -3,7 +3,7 @@
  * a CSV over fetched data, signs and dates, and a fetch that fails halfway.
  */
 import { generateKeyPairSync, randomUUID } from "node:crypto";
-import { addDays, parseBankCsv, type RawTransaction } from "@banking/core";
+import { addDays, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { mapTransaction } from "../src/connectors/enable-banking/mapper.ts";
 import { syncUser } from "../src/connectors/sync.ts";
@@ -34,8 +34,8 @@ async function withAccount() {
   const repo = t.s.finance(t.adminId);
   await repo.upsertAccount({ id: "chk", connectionId: null, provider: "enablebanking", externalId: "u", identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
   const rows = async () => (await repo.transactionsOfAccount("chk")).map((r) => `${r.bookingDate} ${r.status} ${r.amountCents} ${r.merchant} ${r.source}`);
-  const fetchBank = (rawRows: RawTransaction[]) => ingestTransactions(repo, "chk", rawRows, "enablebanking", { replacePending: true });
-  const importCsv = (rawRows: RawTransaction[]) => ingestTransactions(repo, "chk", rawRows, "csv", { replacePending: false });
+  const fetchBank = (rawRows: RawTransaction[]) => ingestTransactions(repo, "chk", rawRows, "enablebanking");
+  const importCsv = (rawRows: RawTransaction[]) => ingestTransactions(repo, "chk", rawRows, "csv");
   return { ...t, repo, rows, fetchBank, importCsv };
 }
 
@@ -94,31 +94,6 @@ describe("a pending row that gets booked", () => {
     expect(await rows()).toHaveLength(1);
     expect((await rows())[0]).toContain("booked");
   });
-
-  it("is removed when a CSV import brings the booked row", async () => {
-    const { fetchBank, importCsv, rows, repo } = await withAccount();
-    await fetchBank([pending(), raw("2026-10-01", -4, "KIOSKI")]);
-    const [p] = (await repo.transactionsOfAccount("chk")).filter((r) => r.status === "pending");
-    await repo.setUserCategory(p!.id, "groceries");
-    await importCsv([raw("2026-10-08", -8.5, "ESPRESSO HOUSE", { description: "KORTTIOSTO" })]);
-    expect((await rows()).filter((r) => r.includes("-850"))).toEqual(["2026-10-08 booked -850 Espresso House csv"]);
-    expect((await repo.transactionsOfAccount("chk")).find((r) => r.amountCents === -850)).toMatchObject({ category: "groceries", categorySource: "user" });
-  });
-
-  it("does not take a new pending purchase for yesterday's booked one", async () => {
-    const { fetchBank, importCsv, rows } = await withAccount();
-    await fetchBank([raw("2026-10-07", -8.5, "ESPRESSO HOUSE", { externalId: "b1", description: "KORTTIOSTO" }), pending("2026-10-08")]);
-    expect(await rows()).toHaveLength(2);
-    await importCsv([raw("2026-10-07", -8.5, "ESPRESSO HOUSE", { description: "KORTTIOSTO" })]);
-    expect(await rows()).toHaveLength(2);
-  });
-
-  it("a pending row of another amount or merchant stays", async () => {
-    const { fetchBank, importCsv, rows } = await withAccount();
-    await fetchBank([pending(), raw("2026-10-08", -9, "TOINEN KAHVILA", { status: "pending" })]);
-    await importCsv([raw("2026-10-08", -8.5, "ESPRESSO HOUSE", { description: "KORTTIOSTO" })]);
-    expect((await rows()).filter((r) => r.includes("pending"))).toEqual(["2026-10-08 pending -900 Toinen Kahvila enablebanking"]);
-  });
 });
 
 describe("a CSV over fetched data", () => {
@@ -149,28 +124,22 @@ describe("a CSV over fetched data", () => {
   });
 });
 
-describe("two layouts of the same CSV purchases", () => {
-  // Nordea's current export and the older tab separated one write the same purchases with other columns, so the row ids differ
-  const current = parseBankCsv(
-    [
-      "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta",
-      "2026/09/30;-23,45;FI2112345600000785;;;K-MARKET KAMPPI;;EUR",
-      "2026/09/29;-12,90;FI2112345600000785;;;SPOTIFY;;EUR",
-      "2026/09/29;-3,50;FI2112345600000785;;;ESPRESSO HOUSE;;EUR",
-      "2026/09/29;-3,50;FI2112345600000785;;;ESPRESSO HOUSE;;EUR",
-    ].join("\n"),
-  ).transactions;
-  const olderFile = (...more: string[]) =>
-    parseBankCsv(
-      [
-        "Kirjauspäivä\tArvopäivä\tMaksupäivä\tMäärä\tSaaja/Maksaja\tTilinumero\tBIC\tTapahtuma\tViite\tMaksajan viite\tViesti\tKortinnumero\tKuitti",
-        "30.09.2026\t30.09.2026\t29.09.2026\t-23,45\tK-MARKET KAMPPI\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
-        "29.09.2026\t29.09.2026\t28.09.2026\t-12,90\tSPOTIFY\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
-        "29.09.2026\t29.09.2026\t28.09.2026\t-3,50\tESPRESSO HOUSE\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
-        "29.09.2026\t29.09.2026\t28.09.2026\t-3,50\tESPRESSO HOUSE\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
-        ...more,
-      ].join("\r\n"),
-    ).transactions;
+describe("two layouts of the same purchases from one source", () => {
+  // an export and an older layout of it write the same purchases with other columns, so the row ids differ
+  const current = [
+    raw("2026-09-30", -23.45, null, { description: "K-MARKET KAMPPI" }),
+    raw("2026-09-29", -12.9, null, { description: "SPOTIFY" }),
+    raw("2026-09-29", -3.5, null, { description: "ESPRESSO HOUSE" }),
+    raw("2026-09-29", -3.5, null, { description: "ESPRESSO HOUSE" }),
+  ];
+  const olderRow = (date: string, euros: number, name: string) => raw(date, euros, name, { description: "Korttiosto" });
+  const olderFile = (...more: RawTransaction[]) => [
+    olderRow("2026-09-30", -23.45, "K-MARKET KAMPPI"),
+    olderRow("2026-09-29", -12.9, "SPOTIFY"),
+    olderRow("2026-09-29", -3.5, "ESPRESSO HOUSE"),
+    olderRow("2026-09-29", -3.5, "ESPRESSO HOUSE"),
+    ...more,
+  ];
   const older = olderFile();
 
   it("store each purchase once, identical purchases included", async () => {
@@ -187,10 +156,7 @@ describe("two layouts of the same CSV purchases", () => {
   it("keeps what only the second layout has, and a third identical purchase", async () => {
     const { importCsv, rows } = await withAccount();
     await importCsv(current);
-    const more = olderFile(
-      "28.09.2026\t28.09.2026\t27.09.2026\t-9,90\tNETFLIX\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
-      "29.09.2026\t29.09.2026\t28.09.2026\t-3,50\tESPRESSO HOUSE\t\t\tKorttiosto\t\t\t\t4581 XXXX XXXX 1234\t",
-    );
+    const more = olderFile(olderRow("2026-09-28", -9.9, "NETFLIX"), olderRow("2026-09-29", -3.5, "ESPRESSO HOUSE"));
     expect(await importCsv(more)).toMatchObject({ inserted: 2, skipped: 4 });
     expect(await rows()).toHaveLength(6);
   });
@@ -377,7 +343,7 @@ describe("the bank code of a fetched row", () => {
 describe("rows in another currency", () => {
   const inCurrency = (currency: string, row: ReturnType<typeof ebRow>) => ({ ...row, transaction_amount: { currency, amount: row.transaction_amount.amount } });
 
-  it("a fetch skips them like a CSV import does and says how many", async () => {
+  it("a fetch skips them, as the app counts in euros, and says how many", async () => {
     const f = await connectedFeed();
     f.feed.rows = [
       ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A"),

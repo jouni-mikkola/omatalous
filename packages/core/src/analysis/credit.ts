@@ -15,8 +15,7 @@
  *   what the rows show and may be more.
  */
 import { monthEnd, monthOf } from "../dates.ts";
-import { fold } from "../merchant.ts";
-import type { Account, IsoDate, Loan } from "../types.ts";
+import type { IsoDate } from "../types.ts";
 import { isPurchaseInterestText } from "../wording.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netSpend } from "./context.ts";
 import { isBankFee } from "./fees.ts";
@@ -101,16 +100,4 @@ export function cardCosts(ctx: AnalysisContext, end: IsoDate): CardCosts {
     card.carriedMonths = card.interestByMonth.filter((m) => m.cents > 0).map((m) => m.month);
   }
   return { months, cards: [...cards.values()] };
-}
-
-const sameName = (a: string, b: string | undefined) => b !== undefined && fold(a).replace(/\s+/g, " ").trim() === fold(b).replace(/\s+/g, " ").trim();
-
-/**
- * Whether a typed loan is this connected card, so a page that shows both counts the card once and lets the connected
- * account win: its balance is the bank's own. A `Loan` names no account, so the name decides: a loan of kind `card`
- * whose name is the account's name or its bank's name for it, case and diacritics aside. A card typed in under
- * another name is not recognised.
- */
-export function isConnectedCard(loan: Pick<Loan, "kind" | "name">, card: Pick<Account, "type" | "name" | "bankName">): boolean {
-  return loan.kind === "card" && card.type === "credit_card" && (sameName(loan.name, card.name) || sameName(loan.name, card.bankName));
 }

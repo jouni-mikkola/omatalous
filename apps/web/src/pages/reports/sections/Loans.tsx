@@ -1,8 +1,11 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
 import { ACCOUNTS_LESS_DEBT, FIGURE_UNKNOWN, LOAN_REFERENCE_LABEL, type LoanRow, type LoansReport, loansWithout, type MaybeTwice, type RateScenario, SAME_DEBT_TWICE } from "@banking/core";
+import { Fragment } from "react";
+import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { intervalLabel, KIND_LABEL } from "../../../components/loans/labels.ts";
 import { Section } from "../../../components/Section.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, percent } from "../../../format.ts";
+import { hashOf } from "../../../routes.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 
@@ -88,9 +91,31 @@ const listed = (names: readonly string[], last: string) => (names.length === 1 ?
 const sides = (t: MaybeTwice, account: string, accounts: string) =>
   `tallennettu laina ${listed(t.loans.map((l) => l.name), "tai")} ja ${t.accounts.length === 1 ? account : accounts} ${listed(t.accounts.map((a) => a.name), "ja")}`;
 
-/** A debt that may be in the total twice, and what takes the second one out. No screen can tie a loan to an account. */
-function twice(t: MaybeTwice): string {
-  return `${SAME_DEBT_TWICE}: ${sides(t, "yhdistetty tili", "yhdistetyt tilit")}. Jos velka on sama, poista tallennettu laina kohdassa Asetukset > Lainat, niin se lasketaan kerran.`;
+/** A link that ends a sentence: it opens an editor in Asetukset > Lainat. */
+interface Offer {
+  label: string;
+  href: string;
+}
+
+/**
+ * What the household can do about a debt that may be twice: link a saved loan to one of its own accounts, one link for
+ * each loan beside each account. An account of another member is not offered, since only its owner's loan links to it.
+ */
+function offers(t: MaybeTwice, own: ReadonlySet<string>): Offer[] {
+  return t.loans.flatMap((l) =>
+    t.accounts
+      .filter((a) => own.has(a.id))
+      .map((a) => ({ label: `Liitä ${l.name} tiliin ${a.name}`, href: hashOf({ page: "settings", params: new URLSearchParams({ [LOAN_LINK_PARAM.loan]: l.id, [LOAN_LINK_PARAM.account]: a.id }), anchor: "lainat" }) })),
+  );
+}
+
+/**
+ * A debt that may be in the total twice, and what takes the second one out: the link of the loan to the account, which
+ * counts the pair once. With no account of the household's own to link to, removing the saved loan does it.
+ */
+function twice(t: MaybeTwice, linkable: boolean): string {
+  const fix = linkable ? "Jos velka on sama, se lasketaan kerran, kun laina liitetään tiliin." : "Jos velka on sama, poista tallennettu laina kohdassa Asetukset > Lainat, niin se lasketaan kerran.";
+  return `${SAME_DEBT_TWICE}: ${sides(t, "yhdistetty tili", "yhdistetyt tilit")}. ${fix}`;
 }
 
 /**
@@ -105,8 +130,16 @@ export function overdraftTwice(t: MaybeTwice): string {
 /** A set of saved loans is one entry of its list, so its ids are a key no other sentence has. */
 const idsOf = (t: MaybeTwice) => t.loans.map((l) => l.id).join(" ");
 
-/** Whose loans these are, what a total leaves out, and a debt that may be in a figure twice. `less`: the accounts less the debts are shown. */
-function notes(r: LoansReport, household: boolean, less: boolean): { key?: string; text: string; warn?: boolean }[] {
+interface Note {
+  key?: string;
+  text: string;
+  warn?: boolean;
+  /** Links that end the sentence. */
+  offers?: Offer[];
+}
+
+/** Whose loans these are, what a total leaves out, and a debt that may be in a figure twice. `less`: the accounts less the debts are shown. `own`: the ids of the viewer's own accounts. */
+function notes(r: LoansReport, household: boolean, less: boolean, own: ReadonlySet<string>): Note[] {
   const late = r.total.unknown.filter((u) => !u.counted).length;
   const noRate = r.withoutRate;
   const { unknown, bullets } = r.payments;
@@ -117,7 +150,10 @@ function notes(r: LoansReport, household: boolean, less: boolean): { key?: strin
     ...(noRate ? [{ text: `Koroista puuttuu ${loansWithout(noRate, "korkoa")}.` }] : []),
     ...(unknown ? [{ text: `Maksueristä puuttuu ${loansWithout(unknown, "maksuerää")}.` }] : []),
     ...(bullets ? [{ text: `${bullets === 1 ? "Kertalyhenteisen lainan" : "Kertalyhenteisten lainojen"} korot eivät ole mukana maksuerissä.` }] : []),
-    ...r.maybeTwice.map((t) => ({ key: `twice ${idsOf(t)}`, text: twice(t), warn: true })),
+    ...r.maybeTwice.map((t) => {
+      const links = offers(t, own);
+      return { key: `twice ${idsOf(t)}`, text: twice(t, links.length > 0), warn: true, offers: links };
+    }),
     ...(less ? r.overdraftTwice.map((t) => ({ key: `overdraft ${idsOf(t)}`, text: overdraftTwice(t), warn: true })) : []),
   ];
 }
@@ -137,7 +173,7 @@ function Loans({ ctx }: SectionProps) {
     ["Maksuerät kuussa", monthly],
     ...(less === undefined ? [] : [[ACCOUNTS_LESS_DEBT.label, less === null ? FIGURE_UNKNOWN : money(less, false), ACCOUNTS_LESS_DEBT.sub] as [string, string, string]]),
   ];
-  const lines = notes(r, ctx.scope === "household", less !== undefined);
+  const lines = notes(r, ctx.scope === "household", less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
   return (
     <Section id={section.id} title={section.title} sub={`Tilanne ${date(r.day)}`}>
       <div className="kv">
@@ -154,6 +190,12 @@ function Loans({ ctx }: SectionProps) {
           {lines.map((n) => (
             <li key={n.key ?? n.text} className={n.warn ? "warn" : undefined}>
               {n.text}
+              {n.offers?.map((o) => (
+                <Fragment key={o.href}>
+                  {" "}
+                  <a href={o.href}>{o.label}</a>
+                </Fragment>
+              ))}
             </li>
           ))}
         </ul>

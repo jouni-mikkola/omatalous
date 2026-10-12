@@ -6,11 +6,11 @@ import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthForecast, type MonthPace, monthForecast, monthPace } from "./forecast.ts";
-import { type DateRange, previousRange, rangeMonths, toDayRange } from "./period.ts";
+import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { isCompleteMonth } from "./usual.ts";
 
 // the pace and forecast code lives in forecast.ts; these keep the names the package index has always exported
@@ -25,16 +25,6 @@ export interface CategoryTotal {
   count: number;
   share: number;
   previousCents: number;
-}
-
-export interface MerchantStat {
-  merchant: string;
-  category: string;
-  count: number;
-  totalCents: number;
-  avgCents: number;
-  perMonth: number;
-  lastDate: IsoDate;
 }
 
 export interface DashboardData {
@@ -96,32 +86,6 @@ export function categoryTotals(current: readonly AnalysisTx[], previous: readonl
       return { category, label: c.label, group: c.group, kind: c.kind, cents: e.cents, count: e.count, share: all ? e.cents / all : 0, previousCents: prev.get(category) ?? 0 };
     })
     .sort((a, b) => b.cents - a.cents);
-}
-
-/** Consumption per merchant: how much, how often. */
-export function merchantStats(txs: readonly AnalysisTx[], range: DateRange): MerchantStat[] {
-  const months = rangeMonths(range);
-  const byMerchant = new Map<string, { category: string; count: number; total: number; last: IsoDate }>();
-  for (const t of txs) {
-    const c = netPurchase(t);
-    if (c <= 0) continue;
-    const e = byMerchant.get(t.merchant) ?? { category: t.category, count: 0, total: 0, last: t.bookingDate };
-    e.count += 1;
-    e.total += c;
-    if (t.bookingDate > e.last) e.last = t.bookingDate;
-    byMerchant.set(t.merchant, e);
-  }
-  return [...byMerchant.entries()]
-    .map(([merchant, e]) => ({
-      merchant,
-      category: e.category,
-      count: e.count,
-      totalCents: e.total,
-      avgCents: Math.round(e.total / e.count),
-      perMonth: Math.round((e.count / months) * 10) / 10,
-      lastDate: e.last,
-    }))
-    .sort((a, b) => b.totalCents - a.totalCents);
 }
 
 /** The totals of the complete months the range covers from their first day; null without one. */

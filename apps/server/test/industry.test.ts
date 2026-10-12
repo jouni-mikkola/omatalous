@@ -7,6 +7,7 @@ import { reprocess } from "../src/services/enrich.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { PRH_SEARCH_URL, parseCompany, RegistryError, searchCompanies } from "../src/providers/prh/client.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { NOW, setupApp, waitFor } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
@@ -70,7 +71,6 @@ async function withData(fetchMock: typeof fetch, env: Record<string, string> = {
       raw("2026-09-04", -20, "MAIJA NIEMINEN", { description: "SYNTYMÄPÄIVÄLAHJA" }),
     ],
     "csv",
-    { replacePending: false },
   );
   await reprocess(repo, t.s.settings);
   return { ...t, repo };
@@ -105,13 +105,12 @@ describe("industry lookup", () => {
     const repo = t.s.finance(t.adminId);
     await repo.upsertAccount({ id: "chk", connectionId: null, provider: "enablebanking", externalId: "u", identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
     // the bank's rows carry payee accounts; the CSV imported before it did not
-    await ingestTransactions(repo, "chk", [raw("2026-10-02", -900, "SAUMAUS NIEMINEN OY", { externalId: "e1", counterpartyIban: "FI4950009420028730" })], "enablebanking", { replacePending: true });
+    await ingestTransactions(repo, "chk", [raw("2026-10-02", -900, "SAUMAUS NIEMINEN OY", { externalId: "e1", counterpartyIban: "FI4950009420028730" })], "enablebanking");
     await ingestTransactions(
       repo,
       "chk",
       [raw("2026-09-01", -40, "LIISA VIRTANEN", { description: "SIIRTO" }), raw("2026-09-15", -40, "LIISA VIRTANEN", { description: "SIIRTO" })],
       "csv",
-      { replacePending: false },
     );
     await reprocess(repo, t.s.settings);
     await lookupIndustries(t.s, { pauseMs: 0 });
@@ -141,14 +140,12 @@ describe("industry lookup", () => {
         raw("2026-10-05", -25, "MOB.PAY*LANKAPUOTI RUUSU OY", { externalId: "e6", description: terminal }),
       ],
       "enablebanking",
-      { replacePending: true },
     );
     await ingestTransactions(
       repo,
       "card",
       [raw("2026-10-06", -15, "MOB.PAY*LIISA MARJATTA VIRTA", { externalId: "k1", description: terminal }), raw("2026-10-07", -60, "VIRTANEN LIISA", { externalId: "k2", description: "KORTTIOSTO" })],
       "enablebanking",
-      { replacePending: true },
     );
     await reprocess(repo, t.s.settings);
     await lookupIndustries(t.s, { pauseMs: 0 });
@@ -190,14 +187,12 @@ describe("industry lookup", () => {
         raw("2026-10-08", -45, "", { ...invoice(5), description: "SIIRTO" }),
       ],
       "enablebanking",
-      { replacePending: true },
     );
     await ingestTransactions(
       repo,
       "card",
       [raw("2026-10-09", -20, "PAYPAL *MATTIMEIKALAINEN", { externalId: "k1", description: "35314369001 LUXEMBOURG" }), raw("2026-10-10", -20, "PAYPAL *LANKAPUOTI", { externalId: "k2", description: "35314369001 LUXEMBOURG" })],
       "enablebanking",
-      { replacePending: true },
     );
     await reprocess(repo, t.s.settings);
     await lookupIndustries(t.s, { pauseMs: 0 });
@@ -218,7 +213,6 @@ describe("industry lookup", () => {
         raw("2026-09-09", -400, "MEIKALAINEN MATTI", { counterpartyIban: "FI4950009420028735", reference: "1234574" }),
       ],
       "csv",
-      { replacePending: false },
     );
     await reprocess(repo, s.settings);
     await lookupIndustries(s, { pauseMs: 0 });
@@ -275,7 +269,7 @@ describe("industry lookup", () => {
     // Eero buys at the same café. The answer is in the shared cache, but not his yet.
     const repo = s.finance(eero.id);
     await repo.upsertAccount({ id: "eero-chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Eeron tili", iban: null, currency: "EUR", type: "checking" });
-    await ingestTransactions(repo, "eero-chk", [raw("2026-09-05", -8, "PIKKU PUOTI", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+    await ingestTransactions(repo, "eero-chk", [raw("2026-09-05", -8, "PIKKU PUOTI", { description: "KORTTIOSTO" })], "csv");
     await reprocess(repo, s.settings);
     expect((await repo.allTransactions())[0]).toMatchObject({ merchant: "Pikku Puoti", categorySource: "default" });
     const list = await eero.call("GET", "/api/transactions");
@@ -315,7 +309,7 @@ describe("industry lookup", () => {
     ] as const) {
       const { fetchMock } = fakeRegister({ answer: (name) => (name === "Lyhty Puoti" ? page(total) : undefined) });
       const { s, repo } = await withData(fetchMock);
-      await ingestTransactions(repo, "chk", [raw("2026-09-06", -5, "LYHTY PUOTI", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+      await ingestTransactions(repo, "chk", [raw("2026-09-06", -5, "LYHTY PUOTI", { description: "KORTTIOSTO" })], "csv");
       await reprocess(repo, s.settings);
       await lookupIndustries(s, { pauseMs: 0 });
       expect((await repo.allTransactions()).find((t) => t.merchant === "Lyhty Puoti")?.categorySource).toBe(expected);
@@ -370,8 +364,8 @@ describe("lookups that start by themselves", () => {
 
   it("a CSV import with new rows is looked up right away", async () => {
     const { asked, fetchMock } = fakeRegister();
-    const { admin } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
-    const r = await admin.call("POST", "/api/import/csv", { content: csv(card("PIKKU PUOTI")), accountName: "Käyttötili" });
+    const { admin, s } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const r = await seedCsv(s, admin, { content: csv(card("PIKKU PUOTI")), accountName: "Käyttötili" });
     expect(r.body.inserted).toBe(1);
     await waitFor(async () => (await categoryOf(admin, "Pikku Puoti")) === "industry");
     expect(asked).toEqual(["Pikku Puoti"]);
@@ -381,30 +375,30 @@ describe("lookups that start by themselves", () => {
     const on = fakeRegister();
     const a = await setupApp({ INDUSTRY_LOOKUP: "true" }, on.fetchMock);
     const content = csv(card("PIKKU PUOTI"));
-    const first = await a.admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const first = await seedCsv(a.s, a.admin, { content, accountName: "Käyttötili" });
     await waitFor(async () => (await categoryOf(a.admin, "Pikku Puoti")) === "industry");
     // forget the answer, so the name is due again
     await a.s.db.run("DELETE FROM merchant_industry_users");
     await a.s.db.run("DELETE FROM merchant_industry");
-    const again = await a.admin.call("POST", "/api/import/csv", { content, accountId: first.body.accountId });
+    const again = await seedCsv(a.s, a.admin, { content, accountId: first.body.accountId });
     expect(again.body.inserted).toBe(0);
     await settle();
     expect(on.asked).toEqual(["Pikku Puoti"]);
 
     const off = fakeRegister();
     const b = await setupApp({ INDUSTRY_LOOKUP: "false" }, off.fetchMock);
-    await b.admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    await seedCsv(b.s, b.admin, { content, accountName: "Käyttötili" });
     await settle();
     expect(off.asked).toEqual([]);
   });
 
   it("keeps going until nothing is due, a batch at a time", async () => {
     const { asked, fetchMock } = fakeRegister();
-    const { admin } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const { admin, s } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
     const names = Array.from({ length: 31 }, (_, i) => `KAUPPA ${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))} OY`);
     vi.useFakeTimers({ toFake: ["setTimeout"] });
     try {
-      await admin.call("POST", "/api/import/csv", { content: csv(...names.map(card)), accountName: "Käyttötili" });
+      await seedCsv(s, admin, { content: csv(...names.map(card)), accountName: "Käyttötili" });
       await vi.waitFor(async () => {
         await vi.advanceTimersByTimeAsync(1000);
         // a name with no hit is also asked in a shorter form; only the full names count here
@@ -420,7 +414,7 @@ describe("lookups that start by themselves", () => {
     const { admin, s, adminId } = await setupApp({ INDUSTRY_LOOKUP: "false" }, fetchMock);
     const repo = s.finance(adminId);
     await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
-    await ingestTransactions(repo, "chk", [raw("2026-09-01", -12, "PIKKU PUOTI", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+    await ingestTransactions(repo, "chk", [raw("2026-09-01", -12, "PIKKU PUOTI", { description: "KORTTIOSTO" })], "csv");
     await reprocess(repo, s.settings);
 
     await admin.call("PUT", "/api/admin/instance", { historyDays: 365 });
@@ -432,7 +426,7 @@ describe("lookups that start by themselves", () => {
     expect(asked).toEqual(["Pikku Puoti"]);
 
     // already on, so another save changes nothing
-    await ingestTransactions(repo, "chk", [raw("2026-09-02", -9, "SAUMAUS NIEMINEN OY", { counterpartyIban: "FI4950009420028730" })], "csv", { replacePending: false });
+    await ingestTransactions(repo, "chk", [raw("2026-09-02", -9, "SAUMAUS NIEMINEN OY", { counterpartyIban: "FI4950009420028730" })], "csv");
     await admin.call("PUT", "/api/admin/instance", { industryLookup: true });
     await settle();
     expect(asked).toEqual(["Pikku Puoti"]);
@@ -492,7 +486,7 @@ describe("drainLookups", () => {
     const repo = t.s.finance(t.adminId);
     await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
     const rows = Array.from({ length: count }, (_, i) => raw("2026-09-01", -10 - i, `KAUPPA ${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))} OY`));
-    await ingestTransactions(repo, "chk", rows, "csv", { replacePending: false });
+    await ingestTransactions(repo, "chk", rows, "csv");
     await reprocess(repo, t.s.settings);
     return { ...t, asked };
   }

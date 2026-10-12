@@ -12,8 +12,10 @@
 #
 # Channels. Once the project has a release (a tag vX.Y.Z), an install follows the releases: the signed image from
 # ghcr.io is pulled, its cosign signature is verified against this project's release workflow, and the image is
-# tagged <name>:latest, so docker-compose.yml keeps naming the image as before. Until a release exists, and with
-# TALOUS_CHANNEL=source in .env, the update builds the newest source on this machine as it always has.
+# tagged <name>:latest, so docker-compose.yml keeps naming the image as before. The release is the one GitHub marks as
+# latest, not the newest tag (TALOUS_PRERELEASE=yes in .env: the newest release, a pre-release too). A folder that is
+# already at a release above that one (a pre-release) stays there. Until a release exists, and with TALOUS_CHANNEL=source
+# in .env, the update builds the newest source on this machine as it always has.
 #
 # Before the switch (after the new image is ready, right before the old container stops):
 #   • a consistent copy of the database is written inside the data volume
@@ -169,8 +171,8 @@ take_copy() {
   local snapshot="/data/backups/pre-update-$1.db"
   # shellcheck disable=SC2034 # read by record_schema_change (lib/preflight.sh)
   COPY_SNAPSHOT=$snapshot
-  # a full disk fails here, before the old container is touched
-  in_app -e "$DBCOPY_JS" exists "$snapshot" || die "Could not copy the database (is the disk full?). The old version is still running."
+  # A disk without room fails here, before the old container is touched, and DBCOPY_JS prints the sizes. room:3 because the new version takes one more copy before a migration, and whether one waits is not known yet.
+  in_app -e "$DBCOPY_JS" exists,room:3 "$snapshot" || die "Could not copy the database into the data volume $(project_name)_banking-data (/data in the container). The reason is on the line above. An update needs three times the size of the database free there: this copy, and the copy the new version takes before it changes the database. See what is free: docker compose exec banking df -h /data. The old version is still running."
   # the new version's migrations are tried on that copy, so a migration that fails costs no downtime
   local checked=0
   preflight_migrations "$snapshot" || checked=$?
@@ -267,6 +269,7 @@ rollback() {
   docker compose up -d --no-build
   healthy || die "The previous version does not start either. Logs: docker compose logs banking"
   rm -f "$STATE" # one rollback per update
+  renew_helper   # the schedule of the version now running, as after an update
   ok "Running: $(version)"
   say "${dim}The next ./scripts/update.sh tries the update again.${reset}"
 }
@@ -279,10 +282,10 @@ rollback() {
 renew_helper() {
   local out
   # shellcheck source=lib/ops-schedule.sh
-  . scripts/lib/ops-schedule.sh
+  . scripts/lib/ops-schedule.sh 2>/dev/null || return 0   # a rollback may land on a version that has none
   ops_scheduler_present "$IMAGE" || return 0
-  # install.sh takes the same per-folder lock as this script (fd 9), so ours goes first; the update is done
-  exec 9<&-
+  # install.sh takes the same per-folder lock as this script (fd 9 and 6), so ours goes first; the update is done
+  exec 9<&- 6<&-
   if out=$(./scripts/install.sh --ops-helper 2>&1); then ok "Maintenance helper renewed"
   else
     warn "Could not renew the maintenance helper. Run: ./scripts/install.sh --ops-helper"
@@ -292,9 +295,8 @@ renew_helper() {
 }
 
 main() {
-  # one run per directory (the lock is on install.sh, which takes the same one)
-  exec 9<scripts/install.sh
-  if command -v flock >/dev/null && ! flock -n 9; then
+  # one run per directory (installer_lock, lib/release.sh: install.sh takes the same one)
+  if command -v flock >/dev/null && ! installer_lock; then
     die "Another update or install is already running in this folder. Wait for it to finish."
   fi
   on_exit() {
@@ -355,19 +357,14 @@ main() {
       const d = new (require("node:sqlite").DatabaseSync)("/data/banking.db");
       const t = new Set(d.prepare("SELECT name FROM sqlite_master WHERE type = \x27table\x27").all().map((r) => r.name));
       console.log(t.has("users") || !(t.has("_migrations") || t.has("transactions")) ? "ok" : "old");' | tail -1 || true)
-    [[ $floor != old ]] || die "The database was made before version 0.1.0 and cannot be updated. Nothing was changed. Install again (docs/INSTALL.md) and import the transactions from CSV files."
+    [[ $floor != old ]] || die "The database was made before version 0.1.0 and cannot be updated. Nothing was changed. Install again (docs/INSTALL.md) and link the bank again."
   fi
 
   # Which channel: releases once one exists and this checkout is not ahead of it, else the source
   CHANNEL=source
-  local tag='' target=$upstream setting
-  [[ -z $TARGET ]] && tag=$(latest_release)
-  # the web helper names the exact release it checked (the Releases API); a tag has to exist locally
-  if [[ -n ${TALOUS_RELEASE:-} ]]; then
-    [[ $TALOUS_RELEASE =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && git rev-parse -q --verify "refs/tags/$TALOUS_RELEASE^{commit}" >/dev/null || die "Release $TALOUS_RELEASE not found."
-    tag=$TALOUS_RELEASE
-  fi
+  local target=$upstream setting tag
   setting=$(channel_setting)
+  choose_release "$TARGET" "$setting"; tag=$RELEASE_TAG # lib/release.sh: the release the helper checked, else the one GitHub names
   if [[ -n $TARGET ]]; then
     # the helper chose the commit and the channel; the .env setting may only agree
     [[ -z $setting || $setting == "$MODE" ]] || die "TALOUS_CHANNEL ($setting) does not match the maintenance helper choice ($MODE). Nothing was changed."
@@ -389,6 +386,7 @@ main() {
       if [[ -n $tag ]] && git merge-base --is-ancestor HEAD "$tag^{commit}" 2>/dev/null; then CHANNEL=release; fi ;;
     *) die "TALOUS_CHANNEL is invalid ($setting). Allowed: source, release." ;;
   esac
+  [[ -z $RELEASE_HELD ]] || { say "$RELEASE_HELD"; return 0; } # on a pre-release above the one GitHub names: stay (lib/release.sh)
   if [[ $CHANNEL == release ]]; then
     target=$(git rev-parse "$tag^{commit}")
     # a tag pushed on a side branch is not a release: its commit has to be on the branch this clone follows
@@ -472,13 +470,8 @@ main() {
   if healthy; then
     ok "Updated: $before to $(version)"
     record_schema_change
-    # keep the five newest pre-update copies; the names sort by time
-    in_app -e '
-      const fs = require("node:fs");
-      const dir = "/data/backups";
-      if (!fs.existsSync(dir)) process.exit(0);
-      const old = fs.readdirSync(dir).filter((f) => /^pre-update-[0-9TZ]+\.db$/.test(f)).sort().reverse().slice(5);
-      for (const f of old) fs.rmSync(`${dir}/${f}`);' || true
+    # keep the five newest pre-update copies (the names sort by time) and whatever DBCOPY_JS protects
+    in_app -e "$DBCOPY_JS" 'prune,keep:^pre-update-[0-9TZ]+\.db$' /data/backups || true
     renew_helper
     say "${dim}If something is wrong: ./scripts/update.sh --rollback${reset}"
     return 0

@@ -15,7 +15,7 @@ import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { bankCallbackRoute, bankRoutes } from "./routes/bank.ts";
 import { BANK_LOGO_PATH, bankLogoHeaders, bankLogoRoutes } from "./routes/bank-logos.ts";
-import { CSV_BODY_MAX, dataRoutes } from "./routes/data.ts";
+import { dataRoutes } from "./routes/data.ts";
 import { expectedBillRoutes } from "./routes/expected-bills.ts";
 import { financeRoutes } from "./routes/finance.ts";
 import { loanRoutes } from "./routes/loans.ts";
@@ -82,11 +82,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
     await next();
     c.header("Cache-Control", "no-store");
   });
-  app.use("/api/*", (c, next) => {
-    // a bank export is a few hundred KB; everything else is small JSON
-    const max = c.req.path === "/api/import/csv" ? CSV_BODY_MAX : 256 * 1024;
-    return bodyLimit({ maxSize: max, onError: (c2) => c2.json({ error: "Pyyntö on liian suuri." }, 413) })(c, next);
-  });
+  // every request body is small JSON
+  app.use("/api/*", bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: "Pyyntö on liian suuri." }, 413) }));
   app.use("/api/*", async (_c, next) => {
     // address, time zone etc. set in the browser (read once, then kept in memory; saving updates it)
     await s.instance.load();

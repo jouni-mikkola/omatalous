@@ -12,7 +12,9 @@ cd ~/omatalous
 1. Check the install. In the app, open *Asetukset > Ylläpito* and press *Tarkista järjestelmä*. If the app does not
    open at all, run `./scripts/doctor.sh` on the machine instead. Both name the problem and the command that fixes it.
 2. Restart the app with *Käynnistä sovellus uudelleen*, or `docker compose restart banking`.
-3. If the trouble began with an update, press *Palauta edellinen versio*, or run `./scripts/update.sh --rollback`.
+3. If the trouble began with an update, press *Palauta edellinen versio*, or run `./scripts/update.sh --rollback`. The
+   maintenance helper does this by itself when the app has not answered for ten minutes within an hour of an update,
+   see [the watchdog](ADVANCED.md#the-watchdog).
 4. Read the end of the log with `docker compose logs --tail 100 banking`.
 
 If none of that helps, [restore a backup](ADVANCED.md#restore-a-backup) or [start over](ADVANCED.md#start-over).
@@ -43,7 +45,7 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | "The build had no network connection" | The machine cannot reach the internet. Check that `curl -I https://registry.npmjs.org` answers, then run the installer again. |
 | "Docker Hub limits pulls from this address" | Wait an hour, then run the installer again. |
 | "Port 8080 is already in use" | Another program uses the port. Run `./scripts/install.sh --port 8085`. |
-| "Another install or update is already running in this folder" | Another install or update runs in the same folder. Wait until it ends. |
+| "Another install or update is already running in this folder" | Another install, update, restore or reset runs in the same folder; the lock is the folder itself, and it holds until that run ends, also after the run has replaced `scripts/install.sh`. The maintenance helper's address change, cleaning of old images and watchdog wait for the same lock. Wait until it ends. Run the scripts as the user who owns the folder: a run by another user, for example with `sudo`, is not seen by the lock's look at old holders. |
 | "Maintenance helper: off (...)" on the last line | The reason is in the brackets. Fix it, then run `./scripts/install.sh --ops-helper`. If the install ran as root, run it again as your normal user. |
 | "Maintenance helper: not working yet, run: sudo systemctl restart user@...service" on the last line | The systemd user manager started before your user joined the docker group, so the timer cannot reach Docker. Run the command it prints, or reboot. Nothing else is needed. |
 | "Maintenance helper: on (cron, because the systemd user manager does not have the docker group yet)" | It works, and cron keeps running it after a reboot. To move it to the systemd timer, run `./scripts/install.sh --ops-helper` after a reboot; nothing needs it. |
@@ -53,8 +55,9 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | What you see | What to do |
 |---|---|
 | The address does not open on a phone | The phone must be on your home Wi-Fi, not on a guest network. A virtual machine needs a bridged network adapter. |
-| The address stopped working after the machine or the router restarted | The machine got a new address. Run `./scripts/install.sh --bind <new address>`, using the address `hostname -I` prints. The installer saves it in the app too. Then reserve it in the router as [INSTALL.md](INSTALL.md#after-the-install) says. |
+| The address stopped working after the machine or the router restarted | The machine got a new address. With the maintenance helper on, the app moves to the new address by itself after ten minutes, and `ops/helper.log` has the line "Osoite vaihtui: http://...". [ADVANCED.md](ADVANCED.md#the-address) says when it does not follow. Then run `./scripts/install.sh --bind <new address>`, using the address `hostname -I` prints. The installer saves it in the app too. Then reserve it in the router as [INSTALL.md](INSTALL.md#after-the-install) says. |
 | You lost the setup link before creating the first user | Run `./scripts/install.sh` again. It prints a new link. |
+| "Väärä asennuskoodi." or "Asennuskoodi on vanhentunut." on the setup page | A generated setup code works for 24 hours. Run `docker compose exec banking node dist/node.js setup-code` in the install folder (a second copy's own folder for a second copy). It prints a new code. A `SETUP_CODE` kept in `.env` never expires, and the command prints that code. |
 | You forgot your password | Another admin can press *Nollaa salasana* under *Asetukset > Talouden jäsenet*. If you are the only admin, run `docker compose exec banking node dist/node.js user reset-password <username>`. It prints a temporary password. |
 | Login does not stay on an https address | Use the address shown under *Asetukset > Palvelin*. |
 
@@ -65,6 +68,7 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | The browser stays on the `github.io` page or shows an error after the bank login | Use a device on your home Wi-Fi and try again. If it still fails, copy the whole address from the browser's address bar and paste it under *Asetukset > Pankkiyhteydet > Paluusivu ei auennut?*. |
 | A message that names Enable Banking, or an account or a card that is missing | The messages and what they mean are in [Errors](ENABLE_BANKING.md#errors). |
 | "Liian monta testiä peräkkäin. Odota muutama minuutti." | A test of an Enable Banking key or Application ID sends a request to Enable Banking, so a member can run eight in ten minutes and the admin's checks share eight for the whole copy. Wait and try again. |
+| You look for the import of Nordea CSV files | It was removed in 0.9.0. Transactions come only through a bank connection, see [INSTALL.md](INSTALL.md#4-connect-a-bank). An account that an older version made from CSV files stays with its rows, and when you connect the same account through the bank, the rows move into the bank's account. |
 | A bank is missing from the list of *Lisää pankkiyhteys* | The list shows the banks your Enable Banking app offers. Check the app under *Asetukset > Palvelin*, see [Choosing a bank](ENABLE_BANKING.md#choosing-a-bank). |
 
 ## Updates
@@ -78,6 +82,32 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | "The database copy from before the update ... is missing or damaged" | A rollback checks its copy before it stops anything, so the app is still running. Restore an older copy by hand as in [ADVANCED.md](ADVANCED.md#restore-a-backup). |
 | After a rollback, what was written since the update is gone | The previous version could not read the updated database, so the rollback put back the copy from before the update. That happens when it refused the database, when it is 0.5.x or older, when the check took too long and when Docker failed. A rollback to 0.6.0 or later keeps the data when every newer migration has a compat floor at or below the previous version. The database as it was right before the rollback is saved as `pre-rollback-*.db` in `/data/backups`. Update again with `./scripts/update.sh`, then restore that copy as in [ADVANCED.md](ADVANCED.md#restore-a-backup). |
 | *Asetukset > Ylläpito* says "Ylläpitoapuri ei ole käytössä" or that the helper is out of date | Run `./scripts/install.sh --ops-helper`. |
+| "Edellinen versio palautettiin, koska sovellus ei vastannut 10 minuuttiin" | The new version did not answer for ten minutes, so the helper took the update back by itself, once. The app's last 60 log lines from before are in `ops/run/watchdog-<AT>.log` and `ops/helper.log` has lines that start with `watchdog:`. The daily check offers the version again within a day. To keep a broken version up for debugging, see [the watchdog](ADVANCED.md#the-watchdog). If the app is still down, `ops/RECOVERY.txt` has the commands. |
+| "Edellinen versio palautettiin, koska uusi ylläpitoapuri ei toiminut" | The update brought a maintenance helper that failed its self-test, so the update was taken back at once. `./scripts/ops-helper.sh --self-test` prints the reason. Try again after the next release, and report it with that output if it repeats. |
+| "Päivitetty: ..., mutta uusi ylläpitoapuri ei toimi (...). Päivitystä ei palautettu, koska tuoretta varmuuskopiota ei ole." | The new version runs and its helper does not. There was no copy from the last hour to go back to, so the update stays. Repair the helper on the machine using the reason in the message. `./scripts/update.sh --rollback` still goes back. |
+| `ops/helper.log` has "launcher: the helper of this folder cannot be run (...)" | The clone's helper is broken, for example after an update that went wrong. The last good copy runs for it, so the page still works. Press *Päivitä* or *Palauta edellinen versio*, or run `./scripts/update.sh`. `./scripts/doctor.sh` warns too, and `cat ~/.local/share/omatalous/<name>/.note` shows the reason. When the line also says that the last good copy is damaged or cannot be run, nothing runs: run `./scripts/update.sh`, then `./scripts/install.sh --ops-helper`. |
+| "Already on vX.Y.Z, newer than the latest release (vY)." | The install runs a release that is still a pre-release, and `update.sh` changed nothing. Wait until it is promoted, or set `TALOUS_PRERELEASE=yes` in `.env`, see [Updates in detail](ADVANCED.md#updates-in-detail). |
+| "Could not ask GitHub for the latest release. Nothing was changed." | `update.sh` by hand could not reach `api.github.com`, or GitHub limited it (60 requests an hour per address without a token). Try again later, or check `curl -I https://api.github.com`. It also appears when GitHub lists no release while the folder has release tags. |
+| "TALOUS_PRERELEASE in .env is invalid. Allowed: yes, no." (in `ops/helper.log`: ".env is invalid: TALOUS_PRERELEASE is invalid") | Fix the line in `.env` or remove it. The helper does nothing until `.env` is valid. |
+| "Release vX.Y.Z is not in this folder." | GitHub names a tag that `git fetch --tags` has not brought. Check the network, run `git fetch --tags` and try again. |
+
+## The database, the copies and the disk
+
+| What you see | What to do |
+|---|---|
+| The notice "Tietokanta on vaurioitunut, eikä ehjää varmuuskopiota löytynyt." | The database failed its check and the data volume holds no intact copy. The app runs on the damaged file. Put a copy you kept elsewhere on the machine and restore it, see [Restore a backup](ADVANCED.md#restore-a-backup). |
+| The notice "Tietokanta on vaurioitunut. Ehjä varmuuskopio ... on tallessa, mutta sitä ei saatu käyttöön." | Free space on the disk (`df -h`, `docker image prune -f`) and run `docker compose restart banking`. The next start puts the copy in place. |
+| The notice "Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta ..." | The app moved the damaged file to `/data/damaged` and restored the copy. What was written after the copy is lost, and the next bank fetch brings the transactions again. Delete the old file in `/data/damaged` by hand when you no longer need it. |
+| The page does not come back after *Palauta viimeisin varmuuskopio* | Docker's restart policy starts the app. If the page is not back in a minute, run `docker compose up -d` in the install folder. A request older than 15 minutes is dropped: the notice says "... mutta tiedot ovat ennallaan, koska pyyntö oli vanhentunut ennen käynnistystä", and you ask again. "... palautus epäonnistui käynnistyksessä" means the data is as it was: read the lines that start with `database:` in `docker compose logs banking`, most often the disk is full. |
+| "Toinen toiminto on kesken." | Another action runs: an update, a restore that waits for the restart, or a reset that is still ending bank connections. Wait until it ends and try again. |
+| "Tietojen haku on kesken. Yritä hetken päästä uudelleen." | *Tyhjennä kaikki tiedot* waits for a bank fetch to end. Try again in a moment. |
+| The notice "Ehjää varmuuskopiota ei ole tehty 36 tuntiin." | The daily copy fails. Check the disk with `df -h` and `docker compose logs banking` for "backup failed", then take a copy under *Asetukset > Ylläpito*. |
+| The notice "Varmuuskopio ... ei läpäissyt tarkistusta eikä sitä enää käytetä palautukseen." | The weekly check renamed the copy to `<name>.damaged` in `/data/backups`. It is neither restored from nor protected. Take a new copy, and delete the `.damaged` file by hand when you no longer need it. |
+| The notice "Palvelimen levyllä on enää ... Mt vapaata tilaa." | Press *Siivoa levy* under *Asetukset > Ylläpito* and check `df -h`. Under 128 MB the app deletes its reserve file `/data/.reserve`, and the log says "the data disk is nearly full". |
+| The notice "Ylläpitoapurista ei ole kuulunut vuorokauteen." | The helper has not reported for 24 hours. Run `./scripts/ops-helper.sh --self-test` as your normal user, and `./scripts/install.sh --ops-helper` if it fails. |
+| "not enough free space for a database copy: ..." in the log or from `backup.sh`, or "Could not copy the database into the data volume ..." from `update.sh` | A copy needs twice the size of the database and its `-wal` file free in the folder it goes to. The old version still runs. Free space on the data volume, see it with `docker compose exec banking df -h /data`. |
+| "No copy could be made before migrating, so ... did not run and the database is unchanged" | The server does not start, for the same reason: no room for the copy it takes before a migration. Free space and start the app again. |
+| "database copies are not pruned: the live database ... fails its check" | No copy is deleted while the database fails its check, so that the copy you need stays. Restart the app: a damaged file is moved and an intact copy restored. |
 
 ## Away from home and second copies
 
@@ -89,7 +119,7 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | After turning on remote access the home address no longer opens | That is meant. Open `https://<the address>` and sign in through Cloudflare. If nobody gets in within 15 minutes, the server takes the address off by itself and the home address works again, and *Asetukset > Turvallisuus* shows "Etäkäyttö poistettu, koska kukaan ei päässyt sisään". Check the address and that your email is on the list, then turn it on again. |
 | Remote access is on and the page cannot be opened | Run `./scripts/install.sh --reconfigure` on the machine and choose another way in. The helper's copy of the `.env` from before its last change is `ops/env.prev`. |
 | The Etäkäyttö page says the helper is missing or out of date | Run `./scripts/install.sh --ops-helper` on the machine. |
-| `secret rotate` stops and names the Cloudflare API token | The token saved on the Etäkäyttö page cannot be opened with the current secret, so it cannot be sealed again. Nothing was changed. Remove the token on the page, run the rotation again and save the token afterwards. |
+| `secret rotate` stops and names the Cloudflare API token | The token saved on the Etäkäyttö page cannot be opened with the current secret, so it cannot be sealed again. Nothing was changed. Save the token again on the page, which replaces it also while remote access is on, and run the rotation again. With remote access off you can remove the token instead and save it afterwards. |
 | A second copy does not start | Run its own `./scripts/doctor.sh` in its folder, for example `cd ~/isa`. |
 | A backup is missing from `backups/` | Read `backups/backup.log` and check the cron line with `crontab -l`. |
 | `backup.log` says a file "is a link, so ... was not copied" | The copy to the NAS never writes through a link on the share. Someone put a link where the backup would go. Remove it from the share. The backup itself is in `backups/`. |
@@ -105,4 +135,4 @@ safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues
 | "Lukeminen ei edennyt, joten se keskeytettiin. Yritä uudelleen tai liitä lainan tiedot tekstinä." | The reading made no progress for two minutes. Try again, or copy the loan's text from the bank's page and paste it. *Keskeytä* ends a reading earlier. |
 | The first picture takes a while | The picture reader, about 11 MB with its Finnish and English data, is fetched from the app the first time a picture arrives. It is read in the browser and nothing is sent. |
 | *Tallenna* does not work | A field marked *Tarkista* is outlined. Tick it as right, or correct it. Everything read from a picture is *Tarkista*. |
-| The debt appears twice in *Lainat* | A saved loan cannot yet be tied to a connected card or loan account. When both may be the same debt, both are counted and *Lainat* says so. Removing the saved loan fixes it. |
+| A debt may be counted twice, and *Saldot* or *Lainat* says "Sama velka voi olla summassa kahdesti" | A saved loan and a connected card or loan account may be the same debt, and until you say so both are counted. Open the loan under *Asetukset > Lainat*, choose the account in *Sama velka pankin tilillä* and save, or follow the link in the report's sentence. The debt then counts once, with the balance from the bank. |

@@ -36,6 +36,12 @@ export function openNodeSqlite(path: string, opts: OpenOptions = {}): Db & { exe
   // synchronous = FULL stays: a committed write must survive a power loss. The cache, temp store and
   // memory map only make repeated scans of a large history cheaper; the journal limit stops the WAL file
   // from staying at its largest size after a big import.
+  // mmap_size has a price: an I/O error on a mapped page kills the process (SIGBUS), where a read would
+  // return an error. It stays at 256 MB because the transaction list is over 20 % faster with it. Measured
+  // for 0.9.0 on 300 000 rows in a 229 MB file, medians, 256 MB against 0: first page 26 against 40 ms,
+  // search 28 against 45 ms, one category 27 against 43 ms, the page at row 250 000 273 against 308 ms.
+  // The overview (7.6 s both) and the reports (14.8 against 14.9 s) do not change: their time goes to the
+  // analysis. Measure again before changing the value.
   db.exec(
     `PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = ${Math.trunc(opts.busyTimeoutMs ?? 5000)}; PRAGMA secure_delete = ON;
      PRAGMA cache_size = -65536; PRAGMA temp_store = MEMORY; PRAGMA mmap_size = 268435456; PRAGMA journal_size_limit = 67108864;`,

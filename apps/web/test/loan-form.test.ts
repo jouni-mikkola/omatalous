@@ -1,8 +1,9 @@
 import { type Loan, parseLoanText } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { checksLeft, defaultName, emptyForm, formOfDraft, formOfLoan, interestOverPayment, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "../src/components/loans/form.ts";
+import { checksLeft, defaultName, emptyForm, formOfDraft, formOfLoan, interestOverPayment, linkChoices, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "../src/components/loans/form.ts";
 import { pdfLines } from "../src/components/loans/pdf-lines.ts";
 import { tidyPictureText } from "../src/components/loans/picture-text.ts";
+import type { Account } from "../src/types.ts";
 
 const TODAY = "2026-10-12";
 
@@ -229,5 +230,50 @@ describe("the text of a picture", () => {
 
   it("leaves words of one letter and short words alone", () => {
     for (const text of ["A loan of 5 000 €", "I have a loan", "Luokka L tai M", "Laina 1 P 2026", "OP Koti"]) expect(tidyPictureText(text)).toBe(text);
+  });
+});
+
+describe("the link of a loan to a card or loan account", () => {
+  const account = (id: string, name: string, type: Account["type"], over: Partial<Account> = {}): Account =>
+    ({ id, userId: "u1", name, bankName: name, customName: null, holder: null, cardMask: null, creditLimitCents: null, iban: null, currency: "EUR", type, provider: "demo", connectionId: null, balanceCents: -100_000, balanceAt: TODAY, lastSyncedAt: null, ...over }) as Account;
+  const saved = (id: string, accountId?: string): Loan => ({
+    id, name: `Laina ${id}`, lender: "ESIMERKKIRAHOITUS OY", kind: "card", grantedCents: null, balanceCents: 100_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null,
+    repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 300_000, seriesKey: null, ...(accountId ? { accountId } : {}),
+  });
+  const accounts = [account("chk", "Käyttötili", "checking"), account("card", "Esimerkkikortti", "credit_card"), account("home", "Asuntolaina", "loan"), account("sav", "Säästötili", "savings")];
+
+  it("offers the household's cards and loan accounts, and no other account", () => {
+    expect(linkChoices(accounts, [], null).map((c) => c.id)).toEqual(["card", "home"]);
+    expect(linkChoices([accounts[0]!, accounts[3]!], [], null)).toEqual([]);
+  });
+
+  it("does not offer an account another loan holds, but keeps the one the edited loan holds", () => {
+    const loans = [saved("a", "card"), saved("b", "home")];
+    expect(linkChoices(accounts, loans, null)).toEqual([]);
+    expect(linkChoices(accounts, loans, "a").map((c) => c.id)).toEqual(["card"]);
+    expect(linkChoices(accounts, loans, "b").map((c) => c.id)).toEqual(["home"]);
+  });
+
+  it("tells two accounts of one name apart by their kind and card number", () => {
+    const twins = [account("c1", "Gold", "credit_card", { cardMask: "•••• 1234" }), account("c2", "Gold", "credit_card", { cardMask: "•••• 5678" }), account("l1", "Gold", "loan")];
+    expect(linkChoices(twins, [], null).map((c) => c.label)).toEqual(["Gold (Luottokortti, •••• 1234)", "Gold (Luottokortti, •••• 5678)", "Gold (Laina)"]);
+    expect(linkChoices(accounts, [], null).map((c) => c.label)).toEqual(["Esimerkkikortti", "Asuntolaina"]);
+  });
+
+  it("a saved loan's link is in its form and goes back with it, and a loan without one sends none", () => {
+    const form = formOfLoan(saved("a", "card"));
+    expect(form.accountId).toBe("card");
+    expect(readForm(form).body).toMatchObject({ accountId: "card" });
+    expect(formOfLoan(saved("b")).accountId).toBe("");
+    expect("accountId" in readForm(formOfLoan(saved("b"))).body!).toBe(false);
+    // letting go of the link: PUT replaces the loan, so the body leaves the field out
+    expect("accountId" in readForm({ ...form, accountId: "" }).body!).toBe(false);
+  });
+
+  it("a typed form and a draft start with no link, and the link is a choice of its own that needs no check", () => {
+    expect(emptyForm(TODAY).accountId).toBe("");
+    expect(draftOf(LISTING).accountId).toBe("");
+    const form = setKind(draftOf(LISTING), "mortgage");
+    expect(checksLeft({ ...form, accountId: "home" })).toEqual(checksLeft(form));
   });
 });

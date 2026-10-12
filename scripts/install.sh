@@ -4,7 +4,7 @@
 #
 #   ./scripts/install.sh                       install or re-run in this directory, no questions
 #   ./scripts/install.sh --reconfigure         the access menu (home network / this machine / tunnel / domain)
-#   ./scripts/install.sh --new-instance NAME   clone this repository to ../NAME and install it there
+#   ./scripts/install.sh --new-instance NAME   clone this repository to ../NAME, at this clone's release, and install it
 #   ./scripts/install.sh --ops-helper          (re)install the maintenance helper only (--ops-helper-off removes it)
 #
 #   • binds to this machine's home-network address (the default-route address, only if it is private:
@@ -20,7 +20,7 @@
 #
 #   --access lan|local|tunnel|domain   TALOUS_ACCESS        how the app is reached (default lan, see above)
 #   --domain talous.example.com        TALOUS_DOMAIN        for domain and tunnel
-#   --access-emails a@x.fi,b@x.fi      TALOUS_ACCESS_EMAILS for tunnel: who Cloudflare Access lets in (see scripts/lib/cloudflare.sh)
+#   --access-emails a@example.fi,b@example.fi   TALOUS_ACCESS_EMAILS for tunnel: who Cloudflare Access lets in (see scripts/lib/cloudflare.sh)
 #   --email you@example.com            TALOUS_EMAIL         for domain (Let's Encrypt)
 #   (no flag, so it stays out of ps)   TALOUS_TUNNEL_TOKEN  for tunnel
 #   --port 8080                        TALOUS_PORT          default: the first free port from 8080
@@ -95,6 +95,8 @@ IMAGE=${INSTANCE_NAME:-$DEFAULT_INSTANCE}
 . scripts/lib/cloudflare.sh
 # shellcheck source=lib/install-host.sh
 . scripts/lib/install-host.sh
+# shellcheck source=lib/host-addr.sh
+. scripts/lib/host-addr.sh
 
 # ask VAR "Question" "default" [preset]: sets VAR (keeps default on empty answer or end of input).
 # A preset (from a flag) is used without asking, and --yes takes the default.
@@ -154,7 +156,9 @@ setup_ops_helper() {
     printf 'REMOTE_URL=%s\nBRANCH=%s\nDOCKER=%s\n' "$url" "$branch" "$dockerbin" >ops/policy.new && chmod 600 ops/policy.new && mv -f ops/policy.new ops/policy
     [[ -n $url && -n $branch ]] || warn "The git remote or branch is missing, so updating from the browser does not work until they are set. Fix that and run: ./scripts/install.sh --ops-helper --ops-policy"
   fi
+  # the schedule runs the launcher, a copy of scripts/ops-launcher.sh outside this folder that keeps the last helper that worked
   ops_scheduler_install "$INSTANCE" "$ROOT" || true
+  [[ $OPS_KIND == none || -n ${OPS_LAUNCHER:-} ]] || warn "The helper's launcher could not be put into $(ops_launcher_dir "$INSTANCE" || echo "the home folder"), so the schedule runs the helper of this folder itself. Make that folder writable and run: ./scripts/install.sh --ops-helper"
   # a path another user owns cannot be fixed from here, and the helper refuses every tick while it stays
   unsafe=$(ops_unsafe_paths | head -n 3 | tr '\n' ' ' || true)
   [[ -z $unsafe ]] || warn "The helper refuses to run while these are owned by someone else or writable by others: ${unsafe% }. Run: sudo chown -R $(id -un) .   and then: ./scripts/install.sh --ops-helper"
@@ -245,26 +249,12 @@ port_taken() {
   done
   return 1
 }
-# global addresses of this host, one per line (no loopback, link-local or Docker bridges)
-host_addrs() { ip -o addr show scope global 2>/dev/null | awk '$2 !~ /^(docker|br-|veth)/ {split($4, a, "/"); print a[1]}'; }
-# the source address of the default route (what other devices on the network reach this machine by)
-default_route_addr() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}' || true; }
 # home-network ranges only: 10/8, 172.16/12, 192.168/16
 is_private_v4() {
   local a=${1:-} o1 o2
   [[ $a =~ ^([0-9]{1,3})\.([0-9]{1,3})\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
   o1=$((10#${BASH_REMATCH[1]})); o2=$((10#${BASH_REMATCH[2]}))
   ((o1 == 10)) || ((o1 == 172 && o2 >= 16 && o2 <= 31)) || ((o1 == 192 && o2 == 168))
-}
-host_has_addr() {
-  local want; want=$(norm_addr "$1")
-  local a addrs
-  # no pipe into grep -q: it exits at the first match and the writer gets SIGPIPE, which fails under pipefail
-  addrs=$(host_addrs)
-  while IFS= read -r a; do
-    [[ -n $a && $(norm_addr "$a") == "$want" ]] && return 0
-  done <<<"$addrs"
-  return 1
 }
 # project of a container that holds 80 or 443 on all addresses (a Caddy without CADDY_ADDRESS), if any
 wildcard_caddy_owner() {
@@ -294,6 +284,7 @@ new_instance() {
   step "Cloning $branch into $target"
   say "${dim}Only what has been pushed to the remote repository (origin/$branch) comes along.${reset}"
   git clone -b "$branch" "$origin" "$target"
+  pin_new_clone "$target" "$branch"
   grep -q -- '--name' "$target/scripts/install.sh" || die "The install script on branch $branch does not know this feature yet. Push your changes (git push) and try again. The folder $target was left in place."
   exec "$target/scripts/install.sh" --name "$name" --from-clone ${PASS[@]+"${PASS[@]}"}
 }
@@ -342,12 +333,12 @@ case ${A_ACCESS,,} in
 esac
 [[ -z $A_PORT ]] || { [[ $A_PORT =~ ^[1-9][0-9]{3,4}$ ]] && ((A_PORT >= 1024 && A_PORT <= 65535)) || die "The port must be 1024-65535."; }
 
-# One run per directory. The lock is on this script file, so update.sh (which takes the same lock) and a
-# second install.sh wait for each other. It goes away with the process, a Ctrl-C leaves nothing behind.
-exec 9<"$ROOT/scripts/install.sh"
-if command -v flock >/dev/null && ! flock -n 9; then
+# One run per directory: installer_lock (lib/release.sh), which update.sh and a second install.sh take too. It goes away
+# with the process, a Ctrl-C leaves nothing behind. Then a new install asks which release is out (lib/install-host.sh).
+if command -v flock >/dev/null && ! installer_lock; then
   die "Another install or update is already running in this folder. Wait until it finishes, then run this again."
 fi
+confirm_release
 
 # What the user sees when the run stops half way. Nothing is left in a state a re-run cannot continue from.
 on_exit() {
@@ -397,7 +388,7 @@ as_root() {
   elif command -v sudo >/dev/null; then if $YES; then sudo -n "$@"; else sudo "$@"; fi
   else return 1; fi
 }
-in_docker_group() { getent group docker 2>/dev/null | cut -d: -f4 | tr , '\n' | grep -qx "${USER:-$(id -un)}"; }
+in_docker_group() { getent group docker 2>/dev/null | cut -d: -f4 | tr , '\n' | grep -x "${USER:-$(id -un)}" >/dev/null; }
 # Docker is checked here and fixed here (a missing group, a stopped service), because the questions below look at what
 # Docker already runs. A Docker that is missing is installed after the last answer (prep_host): the long step then runs
 # without anyone at the keyboard, and its yes/no questions are asked now.
@@ -688,9 +679,10 @@ fi
 # ── write .env ───────────────────────────────────────────────────────────────
 step "Writing .env"
 umask 077
-# optional settings the questions above do not cover survive a re-run (ACCESS_LAN_BIND: scripts/lib/ops-access.sh)
+# optional settings the questions above do not cover survive a re-run (ACCESS_LAN_BIND: scripts/lib/ops-access.sh;
+# TALOUS_CHANNEL and TALOUS_PRERELEASE: the release channel, which the block below and update.sh read and never write)
 KEEP=()
-for key in TZ SETUP_CODE INDUSTRY_LOOKUP ACCESS_LAN_BIND; do
+for key in TZ SETUP_CODE INDUSTRY_LOOKUP ACCESS_LAN_BIND TALOUS_CHANNEL TALOUS_PRERELEASE; do
   value=$(existing "$key")
   [[ -n $value ]] && KEEP+=("$key=$value")
 done

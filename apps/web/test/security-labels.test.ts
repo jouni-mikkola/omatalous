@@ -18,4 +18,10 @@ describe("Asetukset > Turvallisuus: event names", () => {
     expect(KIND_LABEL.remote_access_on).toBe("Etäkäyttö otettu käyttöön");
     expect(KIND_LABEL.remote_access_reverted).toBe("Etäkäyttö poistettu, koska kukaan ei päässyt sisään");
   });
+
+  it("a rollback has one name in the list, the one the notice and the host helper use", () => {
+    expect(KIND_LABEL.ops_watchdog).toBe("Edellinen versio palautettiin");
+    expect(KIND_LABEL.watchdog_notice?.startsWith("Edellinen versio palautettiin")).toBe(true);
+    for (const text of Object.values(KIND_LABEL)) expect(text).not.toMatch(/palautti päivityksen|päivityksen palautuksesta/);
+  });
 });

@@ -663,6 +663,16 @@ describe("ops: backup download", () => {
     for (let i = 0; i < 5; i++) expect((await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD })).status).toBe(200);
     expect((await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD })).status).toBe(429);
   });
+
+  it("after a restore hands out the copy a restore would take, never the database that was just replaced", async () => {
+    const dir = await backups({ "auto-2026-10-08.db": { body: "last-night", age: 86_400_000 }, "pre-restore-20261009T093000.db": { body: "replaced", age: 60_000 } });
+    const { admin } = await setupApp({}, undefined, { backupDir: dir });
+    const ok = await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD });
+    expect(ok.status).toBe(200);
+    expect(ok.res.headers.get("content-disposition")).toBe('attachment; filename="auto-2026-10-08.db"');
+    expect(Number(ok.res.headers.get("content-length"))).toBe(statSync(join(dir, "auto-2026-10-08.db")).size);
+    expect((await admin.call("GET", "/api/ops/audit")).body.events[0].outcome).toBe("ladattu (auto-2026-10-08.db)");
+  });
 });
 
 describe("ops: the prepared change of remote access", () => {

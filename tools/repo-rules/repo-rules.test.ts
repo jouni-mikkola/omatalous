@@ -1,7 +1,8 @@
 /**
  * The repo rules: invariants of CLAUDE.md and the structure plan that no compiler checks. They read the working
  * tree (the tracked files, parsed with the TypeScript API that is already a dev dependency), change nothing and run
- * with `pnpm test` and in CI. Stage a new file before running them: an untracked file is not looked at.
+ * with `pnpm test` and in CI. They look at the tracked files and at the untracked ones that are not ignored, so a new
+ * file meets them before its commit.
  *
  * One test file on purpose: vitest runs each file in its own worker, and every worker would load the compiler
  * and parse the same sources again. Here they load once and share the parse cache, which keeps all rules together
@@ -29,6 +30,11 @@
  *   rule 19  historyCovers only in usual.ts and context.ts      code-rules.ts
  *   rule 21  keyword lists only in the dialect files          dialect.ts
  *   rule 22  text a copy pass removed stays out of the UI      text-rules.ts
+ *   rule 23  every job names a fixed runner image             runners.ts
+ *   rule 24  an export of core or the server has a reader     exports.ts
+ *   rule 25  no shell file or workflow pipes into grep -q     shell.ts
+ *   rule 26  a function defined in scripts/ is named twice    shell.ts
+ *   rule 27  the lines that keep a secret out stay ignored    shell.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */
@@ -39,3 +45,6 @@ import "./boundaries.ts";
 import "./parity.ts";
 import "./size.ts";
 import "./timeouts.ts";
+import "./runners.ts";
+import "./exports.ts";
+import "./shell.ts";

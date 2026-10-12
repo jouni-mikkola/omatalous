@@ -311,7 +311,10 @@ describe("the blocks of each state", () => {
     expect(warning).toBeGreaterThan(0);
     expect(after).toBeGreaterThan(warning);
     expect(button).toBeGreaterThan(after);
-    expect(html).toContain("Etäkäytön poistamiseen tarvitaan tunniste. Poista tunniste vasta, kun etäkäyttö on otettu pois käytöstä.");
+    // the token stays while remote access is on: the server refuses its removal, so the button is not offered
+    expect(html).toContain("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.");
+    expect(html).not.toContain(">Poista tunniste</button>");
+    expect(html).toContain("Vaihda tunniste");
     // a confirmed address is not on trial
     expect(html).not.toContain("kokeilussa");
   });
@@ -401,6 +404,9 @@ describe("the blocks of each state", () => {
     expect(html).not.toContain("<textarea");
     expect(html).not.toContain('name="hostname"');
     expect(html).toContain(">Ota etäkäyttö pois käytöstä</button>");
+    // on is on, whoever made it: the saved token stays
+    expect(html).not.toContain(">Poista tunniste</button>");
+    expect(html).toContain("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.");
   });
 
   it("the installer's leftover in Cloudflare after an off: the server's note, as it sends it", () => {
@@ -441,13 +447,16 @@ describe("the blocks of each state", () => {
   });
 
   it("Cloudflare's side left over: the server's own note, and the way to try again or take it away", () => {
-    const note = "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja poista etäkäyttö sitten uudelleen.";
+    const note = "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä.";
     const kept = { ...ON, access: { ...ON.access, on: false, mode: "lan" as const, hostname: null, address: "http://192.168.1.10:8080" }, cloudflare: { ...ON.cloudflare, removal: "kept" as const, note } };
     const html = page(kept);
     expect(html).toContain("Cloudflaressa on osoite talous.example.fi, mutta sovellus ei ole sen takana.");
     expect(html).toContain(note);
     expect(html).toContain("Ota etäkäyttö pois käytöstä");
     expect(hostField(html)).toContain("readOnly");
+    // remote access is off here, so the token can go, and the page says what it is still needed for
+    expect(html).toContain(">Poista tunniste</button>");
+    expect(html).toContain("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.");
     const waiting = page({ ...kept, cloudflare: { ...kept.cloudflare, removal: "waiting", note: "Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista." } });
     expect(waiting).toContain("Etäkäyttö otetaan pois käytöstä.");
     expect(waiting).not.toContain(">Poista tunniste</button>");
@@ -577,7 +586,7 @@ describe("the answers of the server", () => {
   const ANSWERS: [number, string][] = [
     [400, "Virheellinen kenttä."],
     [400, "Etäkäyttö ei ole käytössä."],
-    [400, "Kun etäkäyttö poistetaan, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii."],
+    [400, "Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii."],
     [403, "Salasana ei täsmää."],
     [409, "Etäkäytön muutos on jo kesken. Odota, että se valmistuu."],
     [409, "Ylläpitoapuri ei ole vielä kertonut, onko asennus tunnelin takana. Yritä hetken päästä uudelleen."],
@@ -592,10 +601,13 @@ describe("the answers of the server", () => {
     await expect(remoteAccessCalls.turnOff(PASSWORD)).rejects.toMatchObject({ message: sentence, status });
   });
 
-  it("removing the token while a change or a removal waits: the 409 sentence as it comes", async () => {
+  it("removing the token while a change or a removal waits, or while remote access is on: the 409 sentence as it comes", async () => {
     const sentence = "Etäkäytön muutos on jo kesken. Odota, että se valmistuu.";
     stub(409, { error: sentence });
     await expect(remoteAccessCalls.removeToken(PASSWORD)).rejects.toMatchObject({ message: sentence, status: 409 });
+    const whileOn = "Ota etäkäyttö ensin pois käytöstä. Tunniste tarvitaan siihen.";
+    stub(409, { error: whileOn });
+    await expect(remoteAccessCalls.removeToken(PASSWORD)).rejects.toMatchObject({ message: whileOn, status: 409 });
     stub(403, { error: "Salasana ei täsmää." });
     await expect(remoteAccessCalls.removeToken("väärä")).rejects.toMatchObject({ message: "Salasana ei täsmää.", status: 403 });
   });
@@ -697,7 +709,7 @@ describe("the words", () => {
   });
 
   it("one phrase for the action: ota pois käytöstä", () => {
-    for (const out of texts()) expect(out).not.toMatch(/Etäkäytön poist(o|aminen)\b|[Pp]oista etäkäyttö(?! sitten)|etäkäyttö menee pois|Kytke|Sulje etäkäyttö/);
+    for (const out of texts()) expect(out).not.toMatch(/Etäkäytön poist(o|aminen)\b|[Pp]oista etäkäyttö|etäkäyttö menee pois|Kytke|Sulje etäkäyttö/);
     const on = page(ON);
     expect(on).toContain("<h4 class=\"field-label\">Ota etäkäyttö pois käytöstä</h4>");
     expect(on).toContain(">Ota etäkäyttö pois käytöstä</button>");

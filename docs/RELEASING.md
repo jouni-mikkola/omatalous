@@ -3,8 +3,14 @@
 Development happens in the private repository. Households get the app from the public repository
 `jouni-mikkola/omatalous`, which holds one commit per published snapshot. A publish exports the committed tree of
 `HEAD` there and pushes `main`, and can push the tag `vX.Y.Z` with it. The public repository's release
-workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/jouni-mikkola/omatalous`, signs it with cosign
-through GitHub OIDC and verifies the signature with the function installs run (`scripts/lib/release.sh`). The return page
+workflow runs six jobs. `plan` reads the version and the tag and checks that `version.ts`, the three `package.json` files
+and the top `CHANGELOG.md` heading agree. `verify` checks that the commit is on `main` and that only migrations were
+added since the previous release. `build` makes the amd64 and the arm64 image, each on a runner of its own processor
+with no emulation, and pushes both to `ghcr.io/jouni-mikkola/omatalous` by digest with no version tag. `smoke` pulls each
+by digest on its own runner and starts it. Only when both pass does `publish` give one index of the two the version tag,
+sign it with cosign through GitHub OIDC and verify the signature with the function installs run
+(`scripts/lib/release.sh`). `release` writes the GitHub release, as a pre-release (see Promotion below). A build or a
+smoke test that fails leaves no tag, no signature and no release. The return page
 workflow publishes `relay/` to GitHub Pages on the same tags and on every push to `main` that changes `relay/`. The
 release workflow has no approval step. It runs when a push to `main` brings a version that has no tag yet, when a tag
 is pushed, or by hand with *Run workflow* on `main`. On `main` it creates the tag on that commit itself. A push of a
@@ -28,6 +34,56 @@ the private repository first ([CONTRIBUTING.md](../CONTRIBUTING.md)).
 Snapshots are signed when git is set to sign commits. The release channel does not need that, it checks the image
 signature. An install with `ops/allowed_signers` does, so sign them before such an install updates.
 
+## The smoke test and the rehearsal
+
+On each processor the smoke test (`tools/ci/smoke-image.sh IMAGE VERSION COMMIT`) proves that the image's labels match
+the version and the commit, that a new install answers `/api/health` within 120 seconds and prints its version, and that
+a database of 0.5.0 is accepted by `migrate-check`, starts, keeps its users and ends with every migration applied. CI's
+Docker job runs the same script on every image it builds. By hand, on a machine with Docker: `docker build -t x .`, then
+`tools/ci/smoke-image.sh x unknown unknown`.
+
+A failed build or smoke test leaves nothing behind: fix and push again, or use *Re-run failed jobs* for a fault of the
+runner.
+
+The rehearsal is Actions, Release, *Run workflow* on `main` with `dry_run` ticked. The jobs `plan`, `verify` and `dry-run`
+run, the last on both runners: the images are built into each runner's own Docker and smoke tested there, and nothing is
+pushed, signed or released. `build`, `smoke`, `publish` and `release` are skipped. Use it after a change to the
+Dockerfile, the release workflow or the runner images, and before the first release with this workflow. It does not
+rehearse the push by digest of `build`, the pull by digest of `smoke`, or `publish` (the index, the platform check, the
+signature, the label check). Their first run is the release itself. A fault there leaves no tag, because the tag is made
+in `publish` after both smoke tests, but it costs a release attempt.
+
+Every job runs on `ubuntu-24.04` or `ubuntu-24.04-arm`, and a repo rule refuses a `-latest` label. Moving to a newer image
+is `RUNNERS` in `tools/repo-rules/runners.ts` and the `runs-on` lines together, then a rehearsal.
+
+## Promotion, holding and pulling
+
+Every release is created as a pre-release. GitHub's `/releases/latest`, which installs read, skips pre-releases, so an
+install is offered a release only after it is promoted: at its next check or when *Päivitä* is pressed, never by itself.
+An install with `TALOUS_PRERELEASE=yes` in its `.env` follows pre-releases too and is offered one at once.
+
+`promote.yml` (Actions, Promote) runs every six hours and by hand, in the public repository only. It looks at the highest
+version of all releases, drafts included. When that is a pre-release that is 48 hours old, above the release now marked
+latest, and its image verifies with the check installs run, it promotes it. It promotes one release per run. A run with
+nothing to do ends green and says why. A release whose signature is refused is left alone, with a warning on the run.
+
+- Hold a release, so that nobody gets it: `gh release edit vX.Y.Z --draft -R jouni-mikkola/omatalous`. A draft is never
+  promoted, and it holds every older pre-release too: while the highest version is a draft, nothing below it is promoted.
+  A draft below the highest pre-release changes nothing. To free the older ones, pull the held release.
+- Pull a release: `gh release delete vX.Y.Z --yes -R jouni-mikkola/omatalous`. The git tag stays, so the next release
+  needs a new version.
+- Promote early: `gh release edit vX.Y.Z --prerelease=false --latest -R jouni-mikkola/omatalous`, the line the workflow
+  runs. `--latest` is needed because GitHub's own latest goes by creation date, not by version.
+- After a long quiet spell look at the Actions tab. GitHub switches a scheduled workflow off after 60 days without
+  activity in the repository. A release then stays a pre-release (nothing breaks, installs are just not offered it) until
+  Promote is enabled again (Actions, Promote, Enable workflow) or the line above is run by hand.
+
+GitHub lists a draft to no unauthenticated caller, so a held release is invisible to installs, and so is a pulled one.
+Installs older than 0.9.0 are the exception: their own `update.sh`, run by hand, takes the newest git tag, which a
+pre-release has from its first minute, and a hold or a pull does not remove a tag. Their daily check and the *Päivitä*
+button read `/releases/latest` and are safe. So promote a good release by hand once its checks are green, and ship the
+fix at once when it is bad. An install that runs 0.9.0 or later follows the release GitHub marks as latest in every mode.
+
 ## When CI runs
 
 The private repository pays for its Actions minutes (2,000 a month), so a push there runs nothing. `ci.yml` skips every
@@ -36,7 +92,7 @@ every push, which is free.
 
 | Workflow | Private repository | Public repository |
 |---|---|---|
-| `ci.yml` (about 9 billed minutes) | a pull request, or `workflow_dispatch` (a release starts it for the release commit and the baseline commit) | every push and pull request, and by hand |
+| `ci.yml` (about 9 billed minutes, and about one more for the image smoke test) | a pull request, or `workflow_dispatch` (a release starts it for the release commit and the baseline commit) | every push and pull request, and by hand |
 
 A push to the private repository leaves a skipped `ci-ok` on its commit. `tools/ci/wait.sh` ignores skipped check runs,
 so only a run that did the work answers for a commit. The concurrency group of `ci.yml` names the event, so that skipped

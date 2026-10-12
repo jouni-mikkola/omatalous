@@ -56,12 +56,14 @@ test("Asetukset is a link in the header with Omat and Talous, Tietojen laatu is 
   await page.goBack();
   expect(page.url()).toMatch(/#\/overview$/);
 
-  // Palvelin, the CSV import and the bank picker keep their addresses
+  // Palvelin and the bank picker keep their addresses, and the address of the removed CSV import opens Omat
   await page.goto("/#/settings?section=server");
   await expect(tabs.getByRole("button", { name: "Talous" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { name: "Palvelin", exact: true })).toBeVisible();
   await page.goto("/#/settings?section=csv");
-  await expect(page.getByRole("heading", { name: "Tuo CSV" })).toBeVisible();
+  await expect(tabs.getByRole("button", { name: "Omat" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "Pankkiyhteydet" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tuo CSV" })).toHaveCount(0);
   await page.goto("/#/settings?add=1");
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
 
@@ -105,12 +107,18 @@ test("an ended or ending bank connection has Yhdistä uudelleen on its row and i
   let metaAnswered = 0;
   await page.route("**/api/meta", async (route) => {
     metaAsked++;
-    const response = await route.fetch();
-    const json = await response.json();
-    json.connections = [connection("old", "lapsed", null), connection("soon", "active", 9)];
-    json.bank = { ...json.bank, configured: true, redirectMode: "own" };
-    await route.fulfill({ response, json });
-    metaAnswered++;
+    try {
+      // the page reads /api/meta by itself: a read still on its way when the page reloads or the context closes has no response left to change
+      const response = await route.fetch().catch(() => null);
+      const json = await response?.json().catch(() => null);
+      if (!response || !json) return;
+      json.connections = [connection("old", "lapsed", null), connection("soon", "active", 9)];
+      json.bank = { ...json.bank, configured: true, redirectMode: "own" };
+      await route.fulfill({ response, json });
+    } finally {
+      // a read that gave up counts as answered, so the wait below does not hang on it
+      metaAnswered++;
+    }
   });
   const started: unknown[] = [];
   await page.route("**/api/connections/start", async (route) => {

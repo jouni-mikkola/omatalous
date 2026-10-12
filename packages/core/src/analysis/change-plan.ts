@@ -97,9 +97,6 @@ export function rowsComplete(ctx: AnalysisContext): { from: IsoDate | null; thro
   return out;
 }
 
-/** The last day the household's rows are complete (`rowsComplete`). */
-export const rowsCompleteThrough = (ctx: AnalysisContext): IsoDate => rowsComplete(ctx).through;
-
 /**
  * The periods of a view for `month`: the month itself (usual and season) or the month the last twelve end in (year).
  * null when the history cannot support the comparison: under three complete months before, no complete month a year

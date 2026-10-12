@@ -1,5 +1,5 @@
 /**
- * Proposed loans in Asetukset > Lainat (LN8): the form a proposal makes, the block that asks about it and the words it
+ * Proposed loans in Asetukset > Lainat: the form a proposal makes, the block that asks about it and the words it
  * uses. The page and the buttons are driven by e2e/loan-proposals.spec.ts.
  */
 import { createElement } from "react";

@@ -2,10 +2,9 @@
 import { Hono } from "hono";
 import { UserError } from "../platform/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { clientIp } from "../auth/middleware.ts";
 import { createUser, deleteUser, resetPassword, type Role } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
-import { body, optionalString } from "./shared.ts";
+import { body, optionalString, requestInfo } from "./shared.ts";
 
 const ROLES: Role[] = ["admin", "member"];
 
@@ -38,10 +37,10 @@ export function userRoutes(s: Services) {
     return c.json({ user: await s.users.get(id) });
   });
 
-  app.post("/:id/reset-password", async (c) => c.json({ temporaryPassword: await resetPassword(s, c.req.param("id"), c.get("user"), { ip: clientIp(c, s), userAgent: c.req.header("user-agent") ?? null }) }));
+  app.post("/:id/reset-password", async (c) => c.json({ temporaryPassword: await resetPassword(s, c.req.param("id"), c.get("user"), requestInfo(c, s)) }));
 
   app.delete("/:id", async (c) => {
-    const removal = await deleteUser(s, c.get("user"), c.req.param("id"), { ip: clientIp(c, s), userAgent: c.req.header("user-agent") ?? null });
+    const removal = await deleteUser(s, c.get("user"), c.req.param("id"), requestInfo(c, s));
     return c.json({ ok: true, ...removal });
   });
 

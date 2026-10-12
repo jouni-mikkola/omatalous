@@ -111,7 +111,7 @@ async function assertSupportedFloor(db: ExecDb): Promise<void> {
   // an empty database is fresh; old tables without `users` are a pre-0.1 database
   if (tables.has("users") || !(tables.has("_migrations") || tables.has("transactions"))) return;
   throw new MigrationError(
-    "The database was made before version 0.1.0 and cannot be upgraded. Install again (docs/INSTALL.md) and import the transactions from CSV files.",
+    "The database was made before version 0.1.0 and cannot be upgraded. Install again (docs/INSTALL.md) and link the bank again.",
   );
 }
 

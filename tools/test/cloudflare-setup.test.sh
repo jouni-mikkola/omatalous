@@ -238,6 +238,18 @@ t_input_checks() {
   run --help </dev/null
   check "--help: exit 0 and the flags" bash -c "[[ $RC = 0 ]] && grep -q -- '--yes' '$W/out' && grep -q -- '--domain' '$W/out'"
 }
+t_tunnel_token_form() {
+  # the token of a tunnel made by hand (scripts/lib/cloudflare.sh) has the form the app takes, so a token the app would
+  # refuse is refused by the installer, before anything is built
+  # shellcheck source=/dev/null
+  source <(sed -n '/^tunnel_token_ok()/,/^}/p' "$SRC/scripts/lib/cloudflare.sh")
+  refused() { ! tunnel_token_ok "$1"; }
+  local base=eyJhIjoiYWJjZGVmZ2hpamtsbW5vcA
+  check "a tunnel token of 20 characters, with _ - and =, is taken" tunnel_token_ok "${base:0:16}_-=="
+  check "a tunnel token with a dot is refused" refused "${base}.${base}"
+  check "a tunnel token of 19 characters is refused" refused "${base:0:19}"
+  check "a tunnel token of 2000 characters is taken, one of 2001 is refused" bash -c "$(declare -f tunnel_token_ok refused); tunnel_token_ok \$(printf 'a%.0s' \$(seq 2000)) && refused \$(printf 'a%.0s' \$(seq 2001))"
+}
 
 for t in $(declare -F | awk '{print $3}' | grep '^t_'); do
   want "$t" || continue

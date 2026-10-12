@@ -201,3 +201,159 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   expect(seen.filter((p) => !/status of 403/.test(p))).toEqual([]);
   await context.close();
 });
+
+// Palauta viimeisin varmuuskopio and Tyhjennä kaikki tiedot. A real restore stops the shared e2e server and a real reset
+// removes its users, so both POSTs are answered here and never reach it. The copy GET is answered with a made-up copy.
+const COPY = { name: "auto-2026-10-09.db", at: "2026-10-09T03:00:00.000Z", size: 3_200_000, kind: "daily" };
+const PRE_RESET = { name: "pre-reset-20261009T100000.db", at: "2026-10-09T07:00:00.000Z", size: 3_300_000, kind: "pre-reset" };
+
+test("restore the newest copy and empty everything: the dialogs, the bodies sent, and the page after each answer", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = problems(page);
+  page.on("dialog", (d) => {
+    seen.push(`unexpected dialog: ${d.message()}`);
+    void d.dismiss();
+  });
+  const restoreCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Palauta viimeisin varmuuskopio" }) });
+  const resetCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Tyhjennä kaikki tiedot" }) });
+  const openPanels = async () => {
+    // the earlier test leaves the helper working; run alone, the other controls are folded away
+    const fold = page.getByText("Muut ylläpitotoiminnot");
+    if (await fold.count()) await fold.click();
+  };
+
+  // the real server answers the first read: with a copy or with none, the card has its words either way
+  await page.goto("/#/settings?section=maintenance");
+  await openPanels();
+  await expect(restoreCard.getByText(/Ehjää varmuuskopiota ei ole\.|Uusin ehjä varmuuskopio/)).toBeVisible();
+  await expect(resetCard).toContainText("Oma tunnuksesi, palvelimen asetukset ja Enable Banking -sovellus säilyvät.");
+
+  const sent = { restore: [] as unknown[], reset: [] as unknown[] };
+  let copy: typeof COPY = COPY;
+  let reads = 0;
+  const restoreAnswers = [
+    { status: 403, json: { error: "Salasana ei täsmää." } },
+    { status: 202, json: { copy: COPY } },
+  ];
+  await page.route("**/api/ops/restore-latest", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      reads++;
+      return route.fulfill({ json: { copy, pending: false } });
+    }
+    sent.restore.push(request.postDataJSON());
+    const answer = restoreAnswers.shift()!;
+    await route.fulfill({ status: answer.status, json: answer.json });
+  });
+  const resetAnswers = [
+    { status: 409, json: { error: "Toinen toiminto on kesken." } },
+    { status: 200, json: { ok: true, copy: "pre-reset-20261009T100000.db", revoked: 1, failed: 2, message: "Tiedot on tyhjennetty. Kirjaudu sisään uudelleen." } },
+  ];
+  await page.route("**/api/ops/reset", async (route) => {
+    sent.reset.push(route.request().postDataJSON());
+    const answer = resetAnswers.shift()!;
+    // the answer takes a moment, so the button can be seen off while it is awaited
+    await new Promise((done) => setTimeout(done, 700));
+    // the real answer drops the session cookie
+    if (answer.status === 200) await context.clearCookies();
+    await route.fulfill({ status: answer.status, json: answer.json });
+  });
+  await page.reload();
+  await openPanels();
+
+  // the card shows the copy's time large, its file and what is lost; the newest copy was made before this mistake or after it
+  await expect(restoreCard.getByText("Uusin ehjä varmuuskopio")).toBeVisible();
+  await expect(restoreCard).toContainText(/9\.10\.2026 klo 6\.00/);
+  await expect(restoreCard).toContainText("auto-2026-10-09.db");
+  await expect(restoreCard).toContainText("Varmuuskopion jälkeen tehdyt muutokset häviävät. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.");
+  await expect(restoreCard).not.toContainText("juuri ennen tietojen tyhjennystä");
+  expect(reads).toBe(1);
+
+  // a word in the wrong case is stopped by the form: nothing is sent
+  await restoreCard.getByRole("button", { name: "Palauta viimeisin varmuuskopio" }).click();
+  let dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Tietokanta korvataan varmuuskopiolla ajalta")).toBeVisible();
+  await dialog.getByLabel("Salasanasi").fill("väärä-salasana-1234");
+  await dialog.getByLabel("Kirjoita PALAUTA vahvistukseksi").fill("palauta");
+  await dialog.getByRole("button", { name: "Palauta", exact: true }).click();
+  expect(sent.restore).toEqual([]);
+  // the server's own sentence for a wrong password
+  await dialog.getByLabel("Kirjoita PALAUTA vahvistukseksi").fill("PALAUTA");
+  await dialog.getByRole("button", { name: "Palauta", exact: true }).click();
+  await expect(dialog.getByText("Salasana ei täsmää.")).toBeVisible();
+  expect(sent.restore).toEqual([{ password: "väärä-salasana-1234", confirm: "PALAUTA" }]);
+
+  // the 202: the app is asked to stop, and the card waits for /api/health. The first check fails, the next one answers.
+  let checks = 0;
+  await page.route("**/api/health", (route) => (checks++ === 0 ? route.abort() : route.continue()));
+  await dialog.getByLabel("Salasanasi").fill("esimerkki-salasana-123");
+  await dialog.getByLabel("Kirjoita PALAUTA vahvistukseksi").fill("PALAUTA");
+  await dialog.getByRole("button", { name: "Palauta", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(sent.restore.at(-1)).toEqual({ password: "esimerkki-salasana-123", confirm: "PALAUTA" });
+  const asked = page.getByRole("status").filter({ hasText: "Palautus on pyydetty." });
+  await expect(asked).toContainText("Sovellus käynnistyy uudelleen ja korvaa tietokannan varmuuskopiolla ajalta");
+  await expect(restoreCard.getByRole("button", { name: "Palauta viimeisin varmuuskopio" })).toHaveCount(0);
+  // it never says the restore was done: the notice after the start tells that
+  await expect(asked).toContainText("Sivun yläreunan ilmoitus kertoo, tehtiinkö palautus.", { timeout: 20_000 });
+  await expect(asked.getByRole("button", { name: "Lataa sivu uudelleen" })).toBeVisible();
+  await expect(asked).not.toContainText(/palautettiin|palautettu|onnistui/i);
+  expect(sent.restore).toHaveLength(2);
+  await expect.poll(() => reads).toBe(2);
+
+  // the copy of a reset is named for what it does
+  copy = PRE_RESET;
+  await page.reload();
+  await openPanels();
+  await expect(restoreCard).toContainText("Tämä varmuuskopio on otettu juuri ennen tietojen tyhjennystä.");
+  await expect(restoreCard).toContainText("Sen palautus tuo tyhjennetyt tiedot takaisin.");
+
+  // on a phone: nothing runs sideways
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
+  // the reset card says before the click what goes, what stays and how it is undone
+  await resetCard.scrollIntoViewIfNeeded();
+  await expect(resetCard).toContainText("Tyhjennys poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.");
+  await expect(resetCard).toContainText("Ensin otetaan varmuuskopio.");
+  await expect(resetCard).toContainText("alle vuorokauden ajan");
+  await expect(resetCard).toContainText("vähintään 14 päivää");
+  await expect(resetCard).toContainText("Pankkiyhteydet lopetetaan.");
+  const resetButton = resetCard.locator("button", { hasText: "Tyhjennä kaikki tiedot" });
+  await resetButton.click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Salasanasi").fill("esimerkki-salasana-123");
+  await dialog.getByLabel("Kirjoita TYHJENNÄ vahvistukseksi").fill("TYHJENNA");
+  await dialog.getByRole("button", { name: "Tyhjennä", exact: true }).click();
+  expect(sent.reset).toEqual([]);
+  // the server's sentence for a refused request, then the request that goes through
+  await dialog.getByLabel("Kirjoita TYHJENNÄ vahvistukseksi").fill("TYHJENNÄ");
+  await dialog.getByRole("button", { name: "Tyhjennä", exact: true }).click();
+  await expect(dialog.getByText("Toinen toiminto on kesken.")).toBeVisible();
+  await dialog.getByLabel("Salasanasi").fill("esimerkki-salasana-123");
+  await dialog.getByLabel("Kirjoita TYHJENNÄ vahvistukseksi").fill("TYHJENNÄ");
+  await dialog.getByRole("button", { name: "Tyhjennä", exact: true }).click();
+  // off from the click until the answer
+  await expect(dialog.getByRole("button", { name: "Hetki…" })).toBeDisabled();
+  await expect(resetButton).toBeDisabled();
+  const done = page.getByRole("status").filter({ hasText: "Tiedot on tyhjennetty." });
+  await expect(done).toContainText("Tiedot on tyhjennetty. Kirjaudu sisään uudelleen.");
+  await expect(done).toContainText("Varmuuskopio ennen tyhjennystä: pre-reset-20261009T100000.db");
+  await expect(done).toContainText("2 pankkiyhteyttä jäi voimaan pankissa. Ne vanhenevat itsestään.");
+  await expect(done).toContainText("Pankit yhdistetään uudelleen kirjautumisen jälkeen.");
+  await expect(dialog).toBeHidden();
+  expect(sent.reset).toEqual([
+    { password: "esimerkki-salasana-123", confirm: "TYHJENNÄ" },
+    { password: "esimerkki-salasana-123", confirm: "TYHJENNÄ" },
+  ]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
+  // the way out is the sign-in page
+  await done.getByRole("link", { name: "Kirjaudu sisään" }).click();
+  await expect(page.getByRole("heading", { name: "Kirjaudu sisään" })).toBeVisible();
+
+  // only the answers played above were refused or cut off
+  expect(seen.filter((p) => !/status of (403|409)|ERR_FAILED/.test(p))).toEqual([]);
+  await context.close();
+});

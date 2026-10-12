@@ -38,7 +38,7 @@ Isolation does not rely on every query being written correctly. Financial data i
 | Nordea Open Banking directly | needs a PSD2 licence |
 | GoCardless Bank Account Data | no new sign-ups |
 | Tink, Plaid, Yapily | business pricing |
-| CSV from Nordea's online bank | fallback and older history |
+| CSV from Nordea's online bank | was the fallback and the source of older history; the import was removed in 0.9.0 |
 
 PSD2 limits: consent for at most 180 days, banks may limit automatic fetches to four a day per account,
 the bank decides how much history it gives (the first fetch asks for up to two years).
@@ -48,7 +48,6 @@ the bank decides how much history it gives (the first fetch asks for up to two y
 ```mermaid
 flowchart LR
   N[Nordea PSD2] --> EB[Enable Banking API] --> P
-  CSV[CSV export] --> P
   subgraph Container["Docker container"]
     P[connectors] --> I[ingest] --> DB[(SQLite)]
     DB --> E[core pipeline] --> DB
@@ -61,12 +60,15 @@ flowchart LR
 ```
 
 - Domain logic in `@banking/core` is pure, so the server and the browser share it and tests need no mocks.
-- A place transactions come from is a connector (`apps/server/src/connectors/`, listed in `registry.ts`). It owns its
-  link flow and settings and answers a pull with rows and a balance. `connectors/sync.ts` is the one loop around
-  it: the lock, the run record, the ten day overlap, balances, reprocessing and the register lookup. The stored
-  ids `enablebanking` and `csv` are connector ids, `demo` marks the demo data, and none of them ever changes.
-- A file format is an import parser in core (`packages/core/src/sources/`, listed in `registry.ts`). It turns text into
-  raw rows and says with `sniff` how well it recognises a file. `connectors/csv-import/service.ts` stores what it finds.
+- A place transactions come from is a connector (`apps/server/src/connectors/`, listed in `registry.ts`): an `id`, an
+  optional `sync` and an optional `revokeAll` (`connectors/types.ts`). It owns its link flow and settings and answers a
+  pull with rows and a balance. `connectors/sync.ts` is the one loop around it: the lock, the run record, the ten day
+  overlap, balances, reprocessing and the register lookup. The stored ids `enablebanking` and `csv` are connector ids,
+  `demo` marks the demo data, and none of them ever changes.
+- No route takes a file: the CSV import and its parser were removed in 0.9.0, and every request body is limited to
+  256 KB. The id `csv` and `connectors/csv-import/index.ts` stay for the accounts and rows that earlier versions
+  imported. They are counted like any others, and linking a bank folds a CSV account with the same IBAN into the bank's
+  account (`connectors/fold-accounts.ts`), so the sync skips what it already has.
 - All SQL is in `db/` (`*-repo.ts`, and `db/finance/` for the modules behind `FinanceRepo`) and goes through a small `Db`
   interface over node:sqlite.
 - Bank data is stored as received. Categories and transfers are derived from it again whenever something
@@ -81,8 +83,17 @@ flowchart LR
   `merchant_industry_users` records which names each user's lookups asked about. A user gets answers only
   for those names. The category is worked out from the stored TOL code at every reprocess, so a change to
   the mapping needs no new lookup. What is sent: [SECURITY.md](SECURITY.md#trade-register-lookup).
-- Loans (`packages/core/src/loans.ts`, ADR 0012): the loans a user confirmed are rows of `loans`, one list per user, and
-  every figure about them (owed on a day, the debt total, interest, payoff date, credit use) comes from that one file.
+- Loans (`packages/core/src/loans.ts`, ADR 0012): the loans a user confirmed are rows of `loans`, one list per user.
+  Every figure of one loan (owed on a day, interest, payoff date, next payment, credit use) comes from that file, and the
+  list of the household's debts behind every debt total (`householdDebts`) from `household-debts.ts`. A loan can name the
+  connected card or loan account that is the same debt (`loans.account_id`, migration 0016, cleared when the account is
+  removed). The server accepts only the owner's own card or loan account, and one loan for an account. A linked pair
+  counts once, in `connected` of `householdDebts`: the bank's balance with the saved loan's rate and payments. The link
+  holds only while the account's balance is at or below zero and is not older than the balance typed for the loan
+  (`balanceDayOf`). Otherwise, and in the months of Saldot before the account's first known balance, the saved loan
+  counts as typed, still once. The loan form reads the household's accounts and loans from the context `LoanLinks`
+  (`components/loans/LoanEditor.tsx`), and `#/settings?linkLoan=<loan id>&linkAccount=<account id>#lainat` opens a
+  loan's form with that account chosen, once.
   The page that makes them (`pages/settings/LoanIntake.tsx`) reads a pasted picture, a PDF or a text in the browser
   (`components/loans/`, Tesseract and pdf.js served from the app's own `/assets`) and core's `loan-intake/` turns the
   lines into a draft with a mark on each field; the server sees only what the household saves.
@@ -92,7 +103,7 @@ flowchart LR
   party. Nordea's is the one logo in the repository.
 - Lookups also start without waiting for the tick: `startLookup` in `services/industry.ts` works through
   everything due in batches of 30 names in the background (`drainLookups`; a tick does at most ten
-  batches), after a CSV import, after a fetch that brought new rows
+  batches), after a fetch that brought new rows
   and when an admin turns the lookup on. A failure is only logged.
 - One hourly tick (`services/schedule.ts`, run by croner): the daily database copy, bank fetches in the
   chosen hours, register lookups, removal of expired sessions and abandoned bank authorisations.
@@ -100,6 +111,7 @@ flowchart LR
   The first tick of a local day writes it, a failed one is tried again at the next tick, and the seven
   newest stay. The copy made before a migration is separate (`pre-*.db`, five kept). Every copy counts only
   after the file and its folder are flushed to disk (`platform/durable.ts`) and the copy has been opened and checked.
+  What keeps the copies safe is under [Keeping the data safe](#keeping-the-data-safe).
 - The analysis context is built once per user data version; a request only filters and adds up.
 - Alerts (`analysis/alerts.ts`, shown above the insights on the overview) are cost traps found in the
   selected period: double charges, late fees, overlapping services, spending spikes, services to review,
@@ -156,6 +168,37 @@ original is never written. The copy goes into a dot-named folder next to the fil
 removed on every way out, also on SIGINT and SIGTERM; a run killed with SIGKILL leaves it and the next run removes
 folders older than a day. A script can run it with the new image before it stops the old version.
 
+## Keeping the data safe
+
+The copies and the checks around them, each in one place:
+
+- Pruning (`db/backup-keep.ts`): the three newest copies that pass the integrity check are never deleted, whatever their
+  age or name, and nothing is deleted while the live database fails its check. A `pre-restore-` copy is not one of the
+  three, because the startup check would not restore from it, and a `pre-reset-` copy is kept 14 days however many
+  copies follow. `scripts/lib/dbcopy.sh` follows the rule of the three newest copies inline, because it runs inside old and
+  new images and cannot import the file: a change to that rule is a change in both. It deletes only the kinds its
+  caller names (`manual-`, `pre-update-`, `pre-rollback-`), so no host script deletes a `pre-reset-` copy.
+- Room: a copy starts only when its folder has twice the size of the database and its WAL free (`assertRoomForCopy`).
+  The scripts ask the same, and `update.sh` asks for three times before it switches, since the new version takes a copy
+  of its own. A copy is written under a temporary name and gets its own only when it is complete and checked, so a failed
+  copy never removes an older one of the same name.
+- The weekly check (`db/backup-check.ts`, `services/db-health.ts`): the newest copy gets a full check once a week. One
+  that fails is renamed `<name>.damaged` and is no copy to restore from. The same service works out four notices for
+  admins when the notice list is read (nothing here has a table): no intact copy for 36 hours, a copy that failed, under
+  1 GB free on the data disk, and a host helper silent for 24 hours.
+- The check before the database opens (`db/startup-gate.ts`, called by `entry/node.ts` for the server only, never for a
+  command): a database that fails SQLite's check moves to `<data>/damaged/` and the newest intact copy takes its place
+  (`db/restore.ts`). The gate never throws and ends no process, so with no intact copy the damaged file stays and the
+  app starts on it, and a start cut off between the move and the rename is finished by the next one. It deletes nothing
+  of the household's.
+- The reserve (`services/disk.ts`): `<data>/.reserve` is 64 MB of zeros, given up when under 128 MB is free so that a full
+  disk still lets an admin sign in and free space, and written again once over 1 GB is free.
+- *Palauta viimeisin varmuuskopio* (`services/db-restore.ts`): the app notes the request in `<data>/.restore-request` and
+  ends as `docker stop` does (`entry/shutdown.ts`). Docker's restart policy (`restart: unless-stopped`) starts it again
+  and the startup check puts the copy in place, so there is one restore path. A request older than 15 minutes is dropped.
+- *Tyhjennä kaikki tiedot* (`services/reset.ts`): writes a checked `pre-reset-` copy first, ends every bank consent, deletes
+  every member but the admin who asked with all their data, and signs everyone out.
+
 ## Maintenance from the browser
 
 *Asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migrations 0006 and 0007). A host
@@ -163,6 +206,31 @@ helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of ten 
 rollback, backup, restart, doctor, logs, prune, helper-renew, access) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
 [ADVANCED.md](ADVANCED.md#the-maintenance-helper).
+
+The helper is a set of shell files. `scripts/ops-helper.sh` is the tick: the lock, the heartbeat, one poll, one action
+and the report. It sources the rest from `scripts/lib/` after `check_permissions` has passed, so all of it is in memory
+before an update swaps the files on disk.
+
+- `ops-release.sh` asks GitHub for the latest release. `release.sh` (shared with `update.sh`) decides which release an
+  install follows, the latest or with `TALOUS_PRERELEASE=yes` the newest, and holds the signature check.
+- `ops-selftest.sh` is `./scripts/ops-helper.sh --self-test`, and what an update does when the helper it brought fails
+  it: the update is taken back at once when its record is under 60 minutes old.
+- `ops-watchdog.sh` looks at the app's container every minute. For one hour after an update, an app that has been
+  restarting, unhealthy by Docker's check or silent for ten minutes in a row is rolled back with
+  `update.sh --rollback --yes`, once for that update. The report reaches the app as `watchdog` in the helper's state
+  (`services/ops-watchdog.ts`): one `ops_watchdog` event and a notice to every admin.
+- `ops-address.sh` with `host-addr.sh` follows the machine's home network address when the old one has been gone for ten
+  minutes. `ops-housekeeping.sh` removes this app's old, unused images when Docker's disk has under 3 GB free (a release image
+  loses its registry tag once the update has tagged it, so an old version is unused and goes).
+  `ops-access.sh` applies the `access` action, and `ops-schedule.sh` writes the timer or the cron line.
+- `scripts/ops-launcher.sh` is what that timer or cron line runs, once a minute. It lives outside the clone, in
+  `~/.local/share/omatalous/<instance>/launcher.sh`, so an update never touches it. It runs the clone's helper and
+  keeps a copy of the helper and of `scripts/lib` in `last-good/` after a good tick, only when the helper passes its
+  self-test; one that fails is tested again every tenth tick. When the clone's helper is missing, unsafe or does not
+  parse, it runs that copy, so *Päivitä* and *Palauta edellinen versio* keep working.
+- The address step, the housekeeping and the watchdog act only when `installer_lock` (`release.sh`) is free. The lock is
+  the clone's folder, which `install.sh`, `update.sh`, `restore.sh` and `reset.sh` hold for a whole run, so an update
+  that replaces `scripts/install.sh` does not end it.
 
 *Asetukset > Palvelin > Etäkäyttö* sets up a Cloudflare Tunnel with Access from the browser. It does not use the
 request row to carry values. The routes (`routes/admin.ts`, `services/remote-access*.ts`) ask for the admin's password,
@@ -180,7 +248,7 @@ has reported, at the next read of the state or at the tick.
 Every transaction is spending, debt, savings, income or borrowing, or a neutral transfer between own
 accounts. Details and cases: [MONEY_FLOWS.md](MONEY_FLOWS.md).
 
-## Fetching and importing
+## Fetching
 
 A fetch reads the days since the newest booked bank row, less ten, so late bookings and pending rows that got
 booked are covered. The answer is stored only when it is complete: a failed page, or a list that does not end
@@ -190,12 +258,12 @@ fetch from the same day. The other accounts go on.
 - A row with a bank id keeps its id through overlapping fetches. A row without one gets an id from its day,
   amount and text, plus a number for each identical copy, so two identical purchases on a day stay two rows.
 - Pending rows are replaced on every fetch. A booked row that arrives with another id, text or date takes the
-  place of the pending row it replaces, and the category you set on the pending row. If the bank lists both, or
-  a CSV brings the booked row, the pending row goes. A booked row is matched only to a pending row dated on or
+  place of the pending row it replaces, and the category you set on the pending row. If the bank lists both, the
+  pending row goes. A booked row is matched only to a pending row dated on or
   up to a week before it, so a new pending purchase is not taken for yesterday's.
-- A CSV row is a duplicate of a bank row when the day and amount are the same and the merchants agree on
-  their first word or one text names the other. Two shops with the same amount on one day are both kept.
-  Each stored row absorbs one new row.
+- A CSV account from an earlier version and a bank account with the same IBAN are one real account. When the bank is
+  linked, the CSV rows move into the bank's account with the ids the bank's rows get, so the sync skips what it already
+  has instead of counting every payment twice (`connectors/fold-accounts.ts`).
 - Amounts are read from the digits as integer cents. The bank's debit or credit flag gives the sign, and the
   sign of the amount only when the flag is missing. A date with a time is converted to the household's time
   zone; a plain date is the bank's own day.
@@ -217,7 +285,7 @@ fetch from the same day. The other accounts go on.
 | `sync_runs` | fetch history per user |
 | `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
 | `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
-| `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit. Own rows only, bounded by `routes/loans.ts` |
+| `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit, and the connected card or loan account it is the same debt as (`account_id`, migration 0016, null when the account goes). Own rows only, bounded by `routes/loans.ts` |
 | `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
 | `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
 | `optimise_snapshots` | one snapshot of the findings per user and month, for the follow-up |
@@ -227,7 +295,8 @@ fetch from the same day. The other accounts go on.
 | `_migrations` | applied migrations with checksums and compatibility floors |
 
 Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised, and 0008 three for the
-transaction list's counts and sums and for one merchant's or one category's rows.
+transaction list's counts and sums and for one merchant's or one category's rows. Migration 0016 adds `loans.account_id`
+and an index on it. It only adds, with a compat floor of 0.8.0, so a rollback keeps the links.
 
 Every user row has `user_id` with `ON DELETE CASCADE`, so deleting a user deletes their data. `ops_requests`
 belongs to the instance and keeps the id of the admin who asked.

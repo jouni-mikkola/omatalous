@@ -1,31 +1,18 @@
-/** CSV import, CSV export and demo data for the signed-in user. */
+/** CSV export and demo data for the signed-in user. */
 import { buildReports, getCategory } from "@banking/core";
 import { Hono } from "hono";
-import { importCsv } from "../connectors/csv-import/service.ts";
 import { loadDemoData } from "../demo.ts";
 import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
 import { yieldToLoop } from "../platform/yield.ts";
-import { strictObject } from "../platform/validate.ts";
-import { body, cents, csv, csvBody, csvResponse, optionalString, parseRange } from "./shared.ts";
-
-/** Largest CSV text accepted (characters); the request body limit leaves room for the JSON escaping. */
-export const CSV_CONTENT_MAX = 5_000_000;
-export const CSV_BODY_MAX = 6 * 1024 * 1024;
+import { cents, csv, csvBody, csvResponse, parseRange } from "./shared.ts";
 
 /** An average the report has none of (no complete month in the range) is an empty cell, never a zero. */
 const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
 
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
-
-  app.post("/import/csv", async (c) => {
-    const raw = strictObject(await body(c), ["content", "accountId", "accountName", "accountType"] as const);
-    const content = optionalString(raw.content, CSV_CONTENT_MAX) ?? "";
-    const input = { content, accountId: optionalString(raw.accountId), accountName: optionalString(raw.accountName), accountType: optionalString(raw.accountType) };
-    return c.json(await importCsv(s, c.get("user").id, input));
-  });
 
   /** Same filters as the transaction list, every matching row (paged so a long history is complete). */
   app.get("/export/transactions.csv", async (c) => {

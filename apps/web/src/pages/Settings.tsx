@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
-import { ACCOUNT_TYPE_LABEL, date, dateTime, plural } from "../format.ts";
+import { dateTime, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import { periodRange } from "../period.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
-import type { AccountType, Meta, ReportsData, SyncRun } from "../types.ts";
+import type { Meta, ReportsData, SyncRun } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
 import { reportsOf, visibleSections } from "./reports/registry.ts";
 import { Accounts } from "./settings/Accounts.tsx";
@@ -19,23 +19,14 @@ import { ServerSettings } from "./settings/Server.tsx";
 import { Sharing } from "./settings/Sharing.tsx";
 import "../styles/settings.css";
 
-/** Reads a bank export as UTF-8, falling back to Windows-1252 (older Nordea TXT files). */
-async function readText(file: File): Promise<string> {
-  const buf = await file.arrayBuffer();
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
-  } catch {
-    return new TextDecoder("windows-1252").decode(buf);
-  }
-}
-
 const RUN_STATUS: Record<string, string> = { ok: "onnistui", partial: "osittain", failed: "epäonnistui", running: "käynnissä" };
 
 /**
- * Asetukset has two tabs. Omat is every member's own: bank connections, accounts and how good their data is, the CSV
- * import, sharing, signing in. Talous (admin) is the household's: members, the server, the security log and the way
- * to maintenance. `?tab=talous` opens the second; so does `?section=server`, at Palvelin. `?section=csv` and `?add=1`
- * open Omat at the import and the bank picker, and an address anchor (`#kirjautuminen`) scrolls to its card.
+ * Asetukset has two tabs. Omat is every member's own: bank connections, accounts and how good their data is, sharing,
+ * signing in. Talous (admin) is the household's: members, the server, the security log and the way to maintenance.
+ * `?tab=talous` opens the second; so does `?section=server`, at Palvelin. `?add=1` opens Omat at the bank picker, and
+ * an address anchor (`#kirjautuminen`) scrolls to its card. `?section=csv` of the removed import opens Omat and scrolls
+ * nowhere.
  */
 export function Settings({ meta, params, anchor, onChange }: { meta: Meta; params: URLSearchParams; anchor?: string; onChange: () => void }) {
   const runs = useApi<{ runs: SyncRun[] }>("/api/sync/runs");
@@ -47,12 +38,6 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
     if (error) return { tone: "warning", text: connectError(error) };
     return null;
   });
-  const [csvAccount, setCsvAccount] = useState("");
-  const [csvName, setCsvName] = useState("Käyttötili");
-  const [csvType, setCsvType] = useState<AccountType>("checking");
-  const [csvMessage, setCsvMessage] = useState<{ tone: "good" | "warning"; text: string } | null>(null);
-  // a removed account must not stay selected as the import target
-  const csvTarget = meta.accounts.some((a) => a.id === csvAccount) ? csvAccount : "";
   const hasConnection = meta.connections.some((c) => c.status === "active");
   const isAdmin = meta.user.role === "admin";
   const section = params.get("section");
@@ -73,9 +58,9 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
   const [loansLoaded, setLoansLoaded] = useState(false);
   const loansDone = useCallback(() => setLoansLoaded(true), []);
 
-  // an address names a card (#kirjautuminen, #laatu, ?section=csv from the empty month page): scroll to it once, after
-  // what sits above it has loaded, so the card does not move away after the scroll
-  const target = anchor ?? (section === "csv" ? "csv" : undefined);
+  // an address names a card (#kirjautuminen, #laatu): scroll to it once, after what sits above it has loaded, so the
+  // card does not move away after the scroll
+  const target = anchor;
   const key = target ? `${params.toString()}#${target}` : null;
   const runsLoaded = runs.data !== null || runs.error !== null;
   const qualityLoaded = !wantQuality || quality.data !== null || quality.error !== null;
@@ -196,73 +181,6 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
               {runs.error && <div className="error">{runs.error}</div>}
               {runs.data && !runs.data.runs.length && <div className="empty">Ei hakuja vielä.{hasConnection ? " Paina Hae nyt." : ""}</div>}
             </div>
-          </div>
-
-          <div className="card" id="csv">
-            <div className="card-head">
-              <div>
-                <h2>Tuo CSV</h2>
-                <div className="card-sub">Nordean verkkopankissa Tili &gt; Tapahtumat &gt; Vie tiedostoon (CSV).</div>
-              </div>
-            </div>
-            <form
-              className="form-row"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.currentTarget;
-                const file = (form.elements.namedItem("file") as HTMLInputElement).files?.[0];
-                if (!file || busy) return;
-                setBusy("csv");
-                setCsvMessage(null);
-                void (async () => {
-                  try {
-                    const content = await readText(file);
-                    const r = await api<{ inserted: number; skipped: number; updated: number; errors: string[]; firstDate?: string; lastDate?: string; daysOld?: number }>("/api/import/csv", {
-                      method: "POST",
-                      body: csvTarget ? { content, accountId: csvTarget } : { content, accountName: csvName, accountType: csvType },
-                    });
-                    setCsvMessage({ tone: "good", text: [`${plural(r.inserted, "uusi tapahtuma", "uutta tapahtumaa")}, ${r.updated + r.skipped} oli jo tallessa.`,
-                        ...(r.firstDate && r.lastDate ? [`Tiedosto kattaa ${date(r.firstDate)}–${date(r.lastDate)}.`] : []),
-                        ...(r.daysOld !== undefined && r.daysOld > 7 ? ["Uusin tapahtuma on yli viikon vanha. Vie uusi tiedosto pankista."] : []),
-                        ...r.errors,
-                      ].join(" ") });
-                    form.reset();
-                    onChange();
-                  } catch (err) {
-                    // e.g. a name that is already taken: the server says which
-                    setCsvMessage({ tone: "warning", text: (err as Error).message });
-                  } finally {
-                    setBusy(null);
-                  }
-                })();
-              }}
-            >
-              <input type="file" aria-label="CSV-tiedosto" name="file" accept=".csv,.txt,text/csv,text/plain" required />
-              <select value={csvTarget} onChange={(e) => setCsvAccount(e.target.value)} aria-label="Tili">
-                <option value="">Uusi tili…</option>
-                {meta.accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-              {!csvTarget && (
-                <>
-                  <input type="text" value={csvName} onChange={(e) => setCsvName(e.target.value)} aria-label="Tilin nimi" />
-                  <select value={csvType} onChange={(e) => setCsvType(e.target.value as AccountType)} aria-label="Tilin tyyppi">
-                    {Object.entries(ACCOUNT_TYPE_LABEL).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-              <button className="btn btn-primary" type="submit" disabled={busy !== null}>
-                {busy === "csv" ? "Tuodaan…" : "Tuo"}
-              </button>
-            </form>
-            {csvMessage && <div className={`notice ${csvMessage.tone}`} role="status">{csvMessage.text}</div>}
           </div>
 
           <Login openPassword={anchor === SETTINGS_ANCHOR.password} />

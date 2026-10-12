@@ -20,11 +20,11 @@ export interface Finding {
 
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "data", "coverage", "backups", "test-results", "playwright-report", ".claude/worktrees"]);
 
-function walkTree(dir: string, out: string[]): void {
-  for (const e of readdirSync(resolve(ROOT, dir), { withFileTypes: true })) {
+function walkTree(root: string, dir: string, out: string[]): void {
+  for (const e of readdirSync(resolve(root, dir), { withFileTypes: true })) {
     const rel = dir ? `${dir}/${e.name}` : e.name;
     if (SKIP_DIRS.has(e.name) || SKIP_DIRS.has(rel)) continue;
-    if (e.isDirectory()) walkTree(rel, out);
+    if (e.isDirectory()) walkTree(root, rel, out);
     else out.push(rel);
   }
 }
@@ -32,39 +32,43 @@ function walkTree(dir: string, out: string[]): void {
 let files: string[] | undefined;
 
 /**
- * The tracked files of the repo, regular files only (no symlink, folder or submodule), as paths from the repo root
- * with forward slashes. A file a worker has not staged yet is not seen, so stage a new file before running the
- * rules. Without a .git folder (a source tarball) the folder is walked instead. When git is there and fails, the
- * test fails with git's message: a rule that silently saw no files would pass for the wrong reason.
+ * The files of the repo at `root`: the tracked ones and the untracked ones that are not ignored (`git ls-files
+ * --cached --others --exclude-standard`), so a new file meets the rules before its commit. Regular files only (no
+ * symlink, folder or submodule), as paths from the root with forward slashes. Without a .git folder (a source
+ * tarball) the folder is walked instead. When git is there and fails, the test fails with git's message: a rule that
+ * silently saw no files would pass for the wrong reason.
  */
-export function repoFiles(): string[] {
-  if (files) return files;
+export function listFiles(root: string): string[] {
   let list: string[];
-  if (existsSync(resolve(ROOT, ".git"))) {
+  if (existsSync(resolve(root, ".git"))) {
     try {
-      list = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] })
+      list = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] })
         .toString("utf8")
         .split("\0")
         .filter(Boolean);
     } catch (err) {
       const e = err as { stderr?: Buffer; message: string };
-      throw new Error(`git ls-files failed in ${ROOT}: ${e.stderr?.toString("utf8").trim() || e.message}`);
+      throw new Error(`git ls-files failed in ${root}: ${e.stderr?.toString("utf8").trim() || e.message}`);
     }
   } else {
     list = [];
-    walkTree("", list);
+    walkTree(root, "", list);
   }
   // a file that is deleted in the working tree is still listed until the deletion is staged
-  files = [...new Set(list)]
+  return [...new Set(list)]
     .filter((f) => {
       try {
-        return lstatSync(resolve(ROOT, f)).isFile();
+        return lstatSync(resolve(root, f)).isFile();
       } catch {
         return false;
       }
     })
     .sort();
-  return files;
+}
+
+/** The files of this repo (`listFiles`), read once. */
+export function repoFiles(): string[] {
+  return (files ??= listFiles(ROOT));
 }
 
 const TEXT = new Map<string, string>();

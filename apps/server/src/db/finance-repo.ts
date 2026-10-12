@@ -67,7 +67,6 @@ export class FinanceRepo {
   upsertAccount(a: NewAccount) { return this.accounts.upsertAccount(a); }
   updateAccount(id: string, patch: AccountPatch) { return this.accounts.updateAccount(id, patch); }
   setAccountBankDetails(id: string, d: Parameters<AccountsRepo["setAccountBankDetails"]>[1]) { return this.accounts.setAccountBankDetails(id, d); }
-  setAccountIbanIfMissing(id: string, iban: string) { return this.accounts.setAccountIbanIfMissing(id, iban); }
   deleteAccount(id: string) { return this.accounts.deleteAccount(id); }
   transactionsOfAccount(accountId: string) { return this.accounts.transactionsOfAccount(accountId); }
   mergeAccountInto(from: string, to: string, newIds: ReadonlyMap<string, string>) { return this.accounts.mergeAccountInto(from, to, newIds); }
@@ -89,7 +88,6 @@ export class FinanceRepo {
   transactionKeys(accountId: string, from: string, to: string) { return this.transactions.transactionKeys(accountId, from, to); }
   latestBookingDate(accountId: string, source: string) { return this.transactions.latestBookingDate(accountId, source); }
   pendingRows(accountId: string) { return this.transactions.pendingRows(accountId); }
-  deletePendingByIdStatement(accountId: string, id: string) { return this.transactions.deletePendingByIdStatement(accountId, id); }
   deletePendingStatement(accountId: string) { return this.transactions.deletePendingStatement(accountId); }
   upsertStatements(txs: Omit<StoredTransaction, "userId">[], importedAt: string) { return this.transactions.upsertStatements(txs, importedAt); }
   unprocessedStatements(at: string) { return this.transactions.unprocessedStatements(at); }

@@ -86,7 +86,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
         id: "gap",
         tone: "warning",
         title: `Tilin ${account.name} tiedoissa on ${widest.days} päivän tauko`,
-        detail: `${formatFiDate(widest.from)}–${formatFiDate(widest.to)} ei ole tapahtumia. Hae tai tuo puuttuva jakso, jos tilillä oli liikettä.`,
+        detail: `${formatFiDate(widest.from)}–${formatFiDate(widest.to)} ei ole tapahtumia. Hae tapahtumat uudelleen, jos tilillä oli liikettä.`,
       });
     }
     const last = dates[dates.length - 1]!;
@@ -109,7 +109,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
         id: "card_bills",
         tone: "warning",
         title: `Korttilaskuja ${formatEur(total, false)} lasketaan menoiksi`,
-        detail: "Kortin ostot eivät näy kategorioittain. Yhdistä kortti tai tuo sen tapahtumat.",
+        detail: "Kortin ostot eivät näy kategorioittain. Yhdistä kortti.",
         category: "card_bill",
         cents: total,
       });
@@ -131,7 +131,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       id: "own_unconnected",
       tone: "info",
       title: `${formatEur(saved, false)} säästöjä meni tilille, jonka saldo ei näy`,
-      detail: `${largest.length ? `Suurimmat saajat: ${finnishList(largest)}. ` : ""}Yhdistä tili tai tuo sen tapahtumat.`,
+      detail: `${largest.length ? `Suurimmat saajat: ${finnishList(largest)}. ` : ""}Yhdistä tili.`,
       category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0],
       cents: saved,
     });

@@ -547,3 +547,87 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await admin.close();
   }
 });
+
+// A saved card loan and the demo household's card are one debt: the household says so once. Both tests need the demo
+// household that app.spec.ts creates (its card "Nordea Gold (demo)"), so they skip when this file runs alone.
+const demoCard = async (context: BrowserContext) => ((await (await context.request.get("/api/meta")).json()).accounts as { id: string; name: string; type: string }[]).find((a) => a.type === "credit_card");
+const cardLoan = (name: string, day: string) => ({ name, kind: "card", lender: "ESIMERKKIRAHOITUS OY", grantedCents: null, balanceCents: 100_000, balanceDate: day, rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 300_000, seriesKey: null });
+/** The debt total of the Lainat report in whole euros. */
+const owed = async (section: Locator) => Number((await section.locator(".kv > div").filter({ hasText: "Velkaa yhteensä" }).locator(".v").innerText()).replace(/\D/g, ""));
+
+test("the Lainat report offers to link a saved card to the card account, and the saved link takes the sentence and the typed balance out of the total", async ({ browser }) => {
+  const context = await administrator(browser);
+  const account = await demoCard(context);
+  test.skip(!account, "needs the demo household of app.spec.ts");
+  await clearLoans(context);
+  const day = await today(context);
+  const made = await context.request.post("/api/loans", { headers: FETCH, data: cardLoan("Esimerkkikortti", `${day.slice(0, 8)}01`) });
+  expect(made.status(), await made.text()).toBe(200);
+  const page = await context.newPage();
+  const seen = watch(page);
+
+  // both are in the total: the report names the pair and ends the sentence with the link
+  await page.goto("/#/reports#lainat");
+  const report = page.locator("#lainat");
+  const sentence = report.locator("li.warn").filter({ hasText: "Sama velka voi olla summassa kahdesti" });
+  await expect(sentence).toContainText("tallennettu laina Esimerkkikortti ja yhdistetty tili Nordea Gold (demo)");
+  const before = await owed(report);
+  await sentence.getByRole("link", { name: "Liitä Esimerkkikortti tiliin Nordea Gold (demo)" }).click();
+
+  // the editor of that loan opens with the account chosen, and the address no longer holds the request
+  const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+  await expect(dialog.getByLabel("Nimi")).toHaveValue("Esimerkkikortti");
+  await expect(dialog.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);
+  await expect(dialog.getByText("Velkana käytetään pankin saldoa niin kauan kuin pankki kertoo sellaisen.")).toBeVisible();
+  await expect(page).toHaveURL(/#\/settings#lainat$/);
+  await dialog.getByRole("button", { name: "Tallenna" }).click();
+  await expect(dialog).toHaveCount(0);
+  const card = lainat(page);
+  await said(card, "Muutokset tallennettu.");
+  // the row says which account it is linked to and that the debt is counted once
+  await expect(card.getByRole("row").filter({ hasText: "Esimerkkikortti" })).toContainText("Liitetty tiliin Nordea Gold (demo). Velkana pankin saldo, kun pankki kertoo sellaisen.");
+
+  // back at the report, with no reload by hand: the sentence is gone and the total fell by the typed balance
+  await page.goBack();
+  await expect(report.getByText("Esimerkkikortti").first()).toBeVisible();
+  await expect(report.locator("li.warn").filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
+  expect(before - (await owed(report))).toBe(1000);
+
+  expect(seen.problems).toEqual([]);
+  await clearLoans(context);
+  await context.close();
+});
+
+test("a refusal of the server stands in the form where its other errors are, and an account another loan holds is not offered", async ({ browser }) => {
+  const context = await administrator(browser);
+  const account = await demoCard(context);
+  test.skip(!account, "needs the demo household of app.spec.ts");
+  await clearLoans(context);
+  const day = `${(await today(context)).slice(0, 8)}01`;
+  for (const name of ["Esimerkkikortti A", "Esimerkkikortti B"]) expect((await context.request.post("/api/loans", { headers: FETCH, data: cardLoan(name, day) })).status()).toBe(200);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/settings");
+  const card = lainat(page);
+  await card.getByRole("button", { name: "Muokkaa lainaa Esimerkkikortti B" }).click();
+  const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+  await dialog.getByLabel("Sama velka pankin tilillä").selectOption(account!.id);
+
+  // meanwhile the card is linked to the other loan: the form still offers it, and the server says no
+  const { loans } = await (await context.request.get("/api/loans")).json();
+  const { id, ...other } = loans.find((l: { name: string }) => l.name === "Esimerkkikortti A");
+  expect((await context.request.put(`/api/loans/${id}`, { headers: FETCH, data: { ...other, accountId: account!.id } })).status()).toBe(200);
+  await dialog.getByRole("button", { name: "Tallenna" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Tähän tiliin on jo liitetty laina Esimerkkikortti A. Poista liitos siitä ensin.");
+  await expect(dialog).toBeVisible();
+
+  // with the list read again, the form does not offer the card the other loan holds, and the select is not there at all
+  await dialog.getByRole("button", { name: "Peruuta" }).click();
+  await page.reload();
+  await card.getByRole("button", { name: "Muokkaa lainaa Esimerkkikortti B" }).click();
+  await expect(page.getByRole("dialog", { name: "Muokkaa lainaa" }).getByLabel("Sama velka pankin tilillä")).toHaveCount(0);
+  // the refusal is the one 400 of the page
+  expect(seen.problems.filter((p) => !/HTTP 400: PUT .*\/api\/loans\//.test(p) && !/Failed to load resource.*400/.test(p))).toEqual([]);
+  await clearLoans(context);
+  await context.close();
+});

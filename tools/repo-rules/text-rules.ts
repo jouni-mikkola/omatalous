@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { FORMS as DASH_FORMS, isResearch } from "./em-dash-forms.mjs";
-import { type Finding, expectNoFindings, lineIn, lineOf, literals, parse, plainString, repoFiles, ROOT, sourceFiles, walk } from "./lib.ts";
+import { type Finding, expectNoFindings, lineIn, lineOf, literals, parse, plainString, repoFiles, ROOT, SQL_START, sourceFiles, walk } from "./lib.ts";
 
 describe("repo rules: text", () => {
   it("rule 4: no em dash (U+2014, also as an escape or an HTML entity) in any tracked regular text file", () => {
@@ -169,11 +169,12 @@ describe("repo rules: text", () => {
   });
 
   it("rule 12: UI text has no te-form verb, no exclamation mark, no abbreviation the style sheet bans, no rejected glossary term and no hyphen for a minus", () => {
-    // Text the browser shows: the web app, and the analysis and report code whose sentences it prints.
+    // Text the browser shows: the web app, the analysis and report code whose sentences it prints, and the server whose sentences it relays.
     const FORMS: { re: RegExp; name: string; fix: string }[] = [
       // \b is ASCII only in JavaScript, so it would not end a word that ends in "ö"
       { re: /\p{L}+tte(ko|kö)(?!\p{L})/iu, name: "te-form verb", fix: "address the reader as sinä or use the passive" },
-      { re: /!/, name: "exclamation mark", fix: "write a plain statement" },
+      // "!=" is SQL in the server's db/ folder, never a sentence
+      { re: /!(?!=)/, name: "exclamation mark", fix: "write a plain statement" },
       { re: /\bKa\/kk\b|%-yks\./i, name: "banned abbreviation", fix: 'write "keskimäärin kuussa" or "prosenttiyksikköä"' },
       // the rejected variants of the glossary: one term per thing
       { re: /(?<!\p{L})(krt|kpl|esim\.|vs\.)(?!\p{L})|(?<![/\p{L}])kk(?!\p{L})|\d\s?€?\/v(?!\p{L})|\}\/v(?!\p{L})/iu, name: "banned abbreviation", fix: 'write "kertaa", "esimerkiksi", "verrattuna", "kuussa" or "vuodessa"; €/kk only in a value cell' },
@@ -201,11 +202,14 @@ describe("repo rules: text", () => {
       if (/^\d+ kk$/.test(text)) return;
       // a regular expression built from a string ("(?<![A-Z0-9])(?:…)") is matching code, not text a user reads
       if (/\(\?(?:<?[!=]|:)/.test(text)) return;
+      // the server's db/ folder holds SQL ("ESCAPE '!'", PRAGMA lines) and the statement that ends a transaction, not sentences
+      if (file.startsWith("apps/server/") && (SQL_START.test(text) || /^\s*COMMIT\s*$/.test(text))) return;
       const form = FORMS.find((f) => f.re.test(text));
-      if (form) found.push({ file, line, why: `${form.name} (${form.fix}): ${text.replace(/\u0000/g, "…").replace(/\s+/g, " ").trim().slice(0, 80)}` });
+      if (!form) return;
+      found.push({ file, line, why: `${form.name} (${form.fix}): ${text.replace(/\u0000/g, "…").replace(/\s+/g, " ").trim().slice(0, 80)}` });
     };
     let strings = 0;
-    for (const file of sourceFiles("apps/web/src/", "packages/core/src/analysis/", "packages/core/src/reports/", "packages/core/src/optimise/")) {
+    for (const file of sourceFiles("apps/web/src/", "packages/core/src/analysis/", "packages/core/src/reports/", "packages/core/src/optimise/", "apps/server/src/")) {
       for (const lit of literals(file)) {
         strings++;
         check(file, lit.line, lit.text);

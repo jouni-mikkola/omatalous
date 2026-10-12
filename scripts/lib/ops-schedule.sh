@@ -9,6 +9,47 @@ ops_unit() { printf 'talous-ops-%s' "$1"; }
 ops_cron_marker() { printf '# talous-ops:%s' "$1"; }
 ops_unit_dir() { printf '%s/systemd/user' "${XDG_CONFIG_HOME:-$HOME/.config}"; }
 
+# The timer and the cron line run the launcher (scripts/ops-launcher.sh), which lives outside the clone, one folder per
+# instance, so an update never touches the file they run. Its last good copy of the helper is in the same folder.
+ops_launcher_dir() { # ops_launcher_dir INSTANCE: prints the folder, returns 1 when it has no safe name
+  local base=${XDG_DATA_HOME:-}
+  [[ $base == /* ]] || base=${HOME:-}/.local/share
+  [[ $1 =~ ^[a-z0-9][a-z0-9_-]*$ && $base == /* ]] || return 1
+  printf '%s/omatalous/%s' "$base" "$1"
+}
+ops_launcher_version() { awk -F= '/^LAUNCHER_VERSION=[0-9]+$/ { print $2; exit }' "$1" 2>/dev/null || true; }
+# Puts the clone's launcher into the instance's folder (both mode 700) when none is there, or when the one there has a
+# lower LAUNCHER_VERSION or does not parse. Only a file that parses is copied. Sets OPS_LAUNCHER to the installed
+# file, and returns 1 with OPS_LAUNCHER empty when there is none that can run.
+ops_launcher_install() { # ops_launcher_install INSTANCE ROOT
+  local dir src=$2/scripts/ops-launcher.sh dst have want
+  OPS_LAUNCHER=""
+  dir=$(ops_launcher_dir "$1") || return 1
+  dst=$dir/launcher.sh
+  # the path goes into a unit file and a crontab line: only plain characters
+  [[ $dst =~ ^/[A-Za-z0-9_./-]+$ ]] || return 1
+  have=$(ops_launcher_version "$dst"); want=$(ops_launcher_version "$src")
+  if [[ -n $want ]] && { [[ ! -f $dst || -z $have ]] || ((have < want)) || ! bash -n "$dst" 2>/dev/null; } && bash -n "$src" 2>/dev/null; then
+    (umask 077; mkdir -p "$dir" && cp "$src" "$dst.new" && chmod 700 "$dst.new" && mv -f "$dst.new" "$dst") 2>/dev/null || rm -f "$dst.new"
+  fi
+  [[ -f $dst ]] && chmod 700 "$dir" "$dst" 2>/dev/null && bash -n "$dst" 2>/dev/null || return 1
+  OPS_LAUNCHER=$dst
+}
+# What the timer or the cron line runs for a clone: the launcher with the clone as its argument, or the clone's helper
+# itself when no launcher could be put in place (the helper then works as before, without a last good copy).
+ops_run_line() { if [[ -n ${OPS_LAUNCHER:-} ]]; then printf '%s %s' "$OPS_LAUNCHER" "$1"; else printf '%s/scripts/ops-helper.sh' "$1"; fi; }
+# The launcher this instance's unit or crontab line runs, as it is written there (the folder was named at the install,
+# and a later shell may have another XDG_DATA_HOME). Prints nothing and returns 1 when the schedule runs the clone's
+# helper itself, as an install from before the launcher does, or when there is no schedule.
+ops_scheduled_launcher() { # ops_scheduled_launcher INSTANCE
+  local l
+  l=$(sed -n 's|^ExecStart=\(/[A-Za-z0-9_./-]*/omatalous/[a-z0-9_-]*/launcher\.sh\) .*|\1|p' "$(ops_unit_dir)/$(ops_unit "$1").service" 2>/dev/null) || true
+  if [[ -z $l ]] && ops_cron_ok; then
+    l=$(crontab -l 2>/dev/null | awk -v m="$(ops_cron_marker "$1")" '{ n = length($0) - length(m) } n >= 0 && substr($0, n + 1) == m && $6 ~ /^\/[A-Za-z0-9_.\/-]*\/omatalous\/[a-z0-9_-]+\/launcher\.sh$/ { print $6; exit }') || true
+  fi
+  [[ -n $l ]] && printf '%s\n' "$l"
+}
+
 ops_systemd_ok() { command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; }
 ops_linger() { # prints yes, no or unknown
   command -v loginctl >/dev/null 2>&1 || { echo unknown; return; }
@@ -27,15 +68,17 @@ ops_cron_without() {
 ops_scheduler_present() { # ops_scheduler_present INSTANCE
   local unit dir; unit=$(ops_unit "$1"); dir=$(ops_unit_dir)
   [[ -f $dir/$unit.timer ]] && return 0
-  ops_cron_ok && crontab -l 2>/dev/null | grep -qF "$(ops_cron_marker "$1")"
+  ops_cron_ok && crontab -l 2>/dev/null | grep -F "$(ops_cron_marker "$1")" >/dev/null
 }
 
 # Removes this instance's timer and crontab line, and nothing of any other instance. Safe to repeat.
 # With "keep-running" a tick that is running right now is left alone: the helper renews itself from inside
-# a tick (the helper-renew action), and stopping the service would kill that run before it reports.
+# a tick (the helper-renew action), and stopping the service would kill that run before it reports. The launcher's
+# folder, with the last good copy of the helper, then stays as well: without the word it is removed.
 ops_scheduler_remove() { # ops_scheduler_remove INSTANCE [keep-running]
-  local inst=$1 unit dir rest
+  local inst=$1 unit dir rest ldir was
   unit=$(ops_unit "$inst"); dir=$(ops_unit_dir)
+  was=$(ops_scheduled_launcher "$inst" || true)
   if [[ -f $dir/$unit.timer || -f $dir/$unit.service ]]; then
     if ops_systemd_ok; then
       systemctl --user disable --now "$unit.timer" >/dev/null 2>&1 || true
@@ -44,10 +87,16 @@ ops_scheduler_remove() { # ops_scheduler_remove INSTANCE [keep-running]
     rm -f "$dir/$unit.timer" "$dir/$unit.service"
     ops_systemd_ok && systemctl --user daemon-reload >/dev/null 2>&1 || true
   fi
-  if ops_cron_ok && crontab -l 2>/dev/null | grep -qF "$(ops_cron_marker "$inst")"; then
+  if ops_cron_ok && crontab -l 2>/dev/null | grep -F "$(ops_cron_marker "$inst")" >/dev/null; then
     rest=$(ops_cron_without "$inst")
     if [[ -n $rest ]]; then printf '%s\n' "$rest" | crontab - ; else crontab -r 2>/dev/null || true; fi
   fi
+  [[ ${2:-} != keep-running ]] || return 0
+  # the folder the schedule named, and the one this shell would name
+  for ldir in "${was%/launcher.sh}" "$(ops_launcher_dir "$inst" || true)"; do
+    [[ $ldir == /*/omatalous/$inst && -d $ldir ]] || continue
+    rm -rf "$ldir"; rmdir "${ldir%/*}" 2>/dev/null || true
+  done
 }
 
 # The paths ops-helper.sh (check_permissions) refuses to run on when someone else owns them or group or others can
@@ -111,8 +160,7 @@ Description=Omatalous maintenance helper ($inst)
 
 [Service]
 Type=oneshot
-WorkingDirectory=$root
-ExecStart=$root/scripts/ops-helper.sh
+ExecStart=$(ops_run_line "$root")
 TimeoutStartSec=3600
 NoNewPrivileges=yes
 PrivateTmp=yes
@@ -147,7 +195,7 @@ ops_install_cron() { # ops_install_cron INSTANCE ROOT
   rest=$(ops_cron_without "$inst")
   {
     [[ -z $rest ]] || printf '%s\n' "$rest"
-    printf '* * * * * cd %s && ./scripts/ops-helper.sh >/dev/null 2>&1 %s\n' "$root" "$(ops_cron_marker "$inst")"
+    printf '* * * * * %s >/dev/null 2>&1 %s\n' "$(ops_run_line "$root")" "$(ops_cron_marker "$inst")"
   } | crontab - || return 1
   OPS_KIND=cron; OPS_NOTE="cron (line $(ops_cron_marker "$inst"))"; OPS_LABEL="on (cron)"
 }
@@ -155,7 +203,7 @@ ops_install_cron() { # ops_install_cron INSTANCE ROOT
 # Sets OPS_KIND to systemd, cron or none, OPS_NOTE to a line for the user, OPS_LABEL to the words for the installer's
 # last line, OPS_TODO to what the user still has to do before the helper works (empty when nothing) and OPS_WHY to
 # docker-group when the choice or the todo comes from the user's systemd manager lacking the docker group.
-# Returns 1 for none.
+# OPS_LAUNCHER is the launcher the schedule runs, empty when it runs the clone's helper itself. Returns 1 for none.
 ops_scheduler_install() { # ops_scheduler_install INSTANCE ROOT
   local inst=$1 root=$2 nodocker=false
   OPS_KIND=none; OPS_NOTE=""; OPS_LABEL=off; OPS_TODO=""; OPS_WHY=""
@@ -165,6 +213,8 @@ ops_scheduler_install() { # ops_scheduler_install INSTANCE ROOT
     return 1
   fi
   ops_scheduler_remove "$inst" keep-running
+  # an old unit or line, which ran the clone's helper itself, is written again below and so gets the launcher
+  ops_launcher_install "$inst" "$root" || true
   # Cron reads the groups at every run, so with a manager that lacks the docker group cron goes first. Without cron
   # the timer is set anyway and the user is told what makes it work.
   if ops_systemd_ok && ops_manager_lacks_docker; then nodocker=true; fi

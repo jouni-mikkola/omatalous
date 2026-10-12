@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { buildDashboard, merchantStats } from "../src/analysis/dashboard.ts";
+import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { spendingChange } from "../src/analysis/change.ts";
 import { flowsOf } from "../src/analysis/flows.ts";
 import { previousRange } from "../src/analysis/period.ts";
@@ -89,11 +89,10 @@ describe("enrichTransactions", () => {
       expect([changed.get(out.id)!.category, changed.get(back.id)!.category]).toEqual(["transfer", "transfer"]);
     });
 
-    it("the purchase leaves the largest purchases and the merchant list once it came back", () => {
+    it("the purchase leaves the consumption once it came back", () => {
       const rows = run([bought({ amountCents: -30000 }), refund({ amountCents: 30000 }), tx({ merchant: "Verkkokauppa", counterparty: "VERKKOKAUPPA.COM", bookingDate: "2026-09-05", amountCents: -25000 })]);
       const ctx = createContext(rows, [checking], "2026-10-09");
       const d = buildDashboard(ctx, { from: "2026-08-01", to: "2026-09-30" });
-      expect(merchantStats(ctx.txs, { from: "2026-08-01", to: "2026-09-30" }).map((m) => m.merchant)).toEqual(["Verkkokauppa"]);
       expect(d.totals.consumptionCents).toBe(25000);
     });
   });

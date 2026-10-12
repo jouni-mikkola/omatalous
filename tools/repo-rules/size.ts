@@ -26,13 +26,13 @@ const LARGE_FILES: Record<string, number> = {
   "packages/core/src/categorize.ts": 596,
   // the installer and the maintenance helper: one script each, with their own shell suites
   "scripts/install.sh": 905,
-  "scripts/ops-helper.sh": 746,
+  "scripts/ops-helper.sh": 723,
 };
 
 /** Line caps for the test files over TEST_BUDGET today (size plus 10), shrinking in the same way. */
 const LARGE_TESTS: Record<string, number> = {
   // one scenario per function over a fake host: split by topic when next touched
-  "tools/test/ops-helper.test.sh": 1043,
+  "tools/test/ops-helper.test.sh": 877,
   "apps/server/test/optimise.test.ts": 820,
 };
 

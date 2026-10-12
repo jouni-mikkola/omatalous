@@ -3,13 +3,15 @@
 Omatalous gathers a Finnish household's bank accounts and credit cards into one view and shows where the money goes.
 It runs on your own Linux machine at home, and you use it in a browser, in Finnish.
 
-New transactions come from the bank through Enable Banking, which is free for your own accounts, or from CSV files in
-Nordea's format. Nordea works best, and OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks
-that Enable Banking offers can be connected too. Omatalous sorts the rows into spending, loan payments, saving and
+New transactions come from the bank through Enable Banking, which is free for your own accounts. Nordea works best, and
+OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks that Enable Banking offers can be
+connected too. Omatalous sorts the rows into spending, loan payments, saving and
 income, finds recurring bills and warns about double charges and late fees. A loan at a lender that is not connected can
 be added from a pasted screenshot, a PDF or text, which is read in the browser, and then counts in the reports. Each
 household member has a login of their own, and accounts can be shared read-only. Your transactions, bank keys and
-backups stay on your machine. Nothing is sent to the project.
+backups stay on your machine. Nothing is sent to the project. The app keeps daily copies of its database and starts on
+the newest intact copy if the database is damaged, and with the maintenance helper an update that leaves the app not
+answering is taken back by itself.
 
 <img src="docs/images/kuukausi.png" alt="Kuukausi, the first page of Omatalous, with demo data">
 
@@ -40,6 +42,7 @@ bank. The [install guide](docs/INSTALL.md) has the same steps with a few more wo
 | Use the app away from home | [Away from home](docs/ADVANCED.md#away-from-home) |
 | Give your parents or another household a copy of their own | [A second copy](docs/ADVANCED.md#a-second-copy-on-the-same-machine) |
 | Back up to a NAS or move to a new machine | [Backups](docs/ADVANCED.md#backups) |
+| Restore a backup, or empty the data and start over | [Restore a backup](docs/ADVANCED.md#restore-a-backup), [Start over](docs/ADVANCED.md#start-over) |
 | Know how the money is counted | [Money flows](docs/MONEY_FLOWS.md) |
 | Know what is stored, what connects where and who can see it | [Security and privacy](docs/SECURITY.md) |
 

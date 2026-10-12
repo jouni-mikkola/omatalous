@@ -82,9 +82,10 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 
 - Use a phone or computer on your home Wi-Fi. After the bank login the browser shows a page on `github.io` for a
   moment and comes back to Omatalous.
-- The first fetch brings up to two years of history in the background. For older history, export a CSV from Nordea's
-  online bank and import it under *Asetukset > Tuo CSV*. Rows already fetched are skipped. The CSV import reads
-  Nordea's format only.
+- The first fetch brings up to two years of history in the background, as much as the bank gives. Omatalous reads no
+  files, so there is no import for older history. An account that an earlier version took in from a CSV file stays with
+  its rows. When you link the same account (the same IBAN) at the bank, its rows move into the bank's account and are
+  not counted twice.
 - Check under *Asetukset > Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
   account counts as a transfer, because the purchases are already counted on the card.
 - Omatalous reads these fields of each account. The bank's `product` (Käyttötili, ASP-tili, Nordea Gold) becomes the account's name, and
@@ -111,6 +112,8 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   press *Hae nyt*. No new connection is needed.
 - After a link the button *Lisää pankkiyhteys* reads *Yhdistä toinen pankki*, so a household with two banks, or
   with Nordea and one account at a time, goes on without starting over. The wizard ends on the same page.
+- *Tyhjennä kaikki tiedot* under *Asetukset > Ylläpito* ends every bank consent at the bank. A restore of the copy it
+  made first brings the rows back and not the consents, so connect each bank again with *Lisää pankkiyhteys*.
 - After a link the server log has one line per account: `bank link <bank id>: cash_account_type=... credit_limit=...
   balance_types=...`. It holds codes and yes or no only, no account number, name or amount. It shows what a bank sends.
 

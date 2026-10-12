@@ -2,9 +2,9 @@
  * The loan form's state and rules, apart from the page so they can be tested: a draft or a saved loan as the texts the
  * inputs hold, which fields a kind of loan has, what is still to check, and the loan the server takes.
  */
-import { isRevolving, LOAN_DRAFT_WARNING_TEXT, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftPaymentKind, type LoanDraftWarning, type LoanKind, loanPeriodInterest } from "@banking/core";
-import { eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
-import type { LoanProposalRow } from "../../types.ts";
+import { DEBT_ACCOUNT_TYPES, isRevolving, LOAN_DRAFT_WARNING_TEXT, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftPaymentKind, type LoanDraftWarning, type LoanKind, loanPeriodInterest } from "@banking/core";
+import { ACCOUNT_TYPE_LABEL, eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
+import type { Account, LoanProposalRow } from "../../types.ts";
 import { KIND_LABEL } from "./labels.ts";
 
 /** Read as printed, read with doubt, or not in the text. */
@@ -39,6 +39,8 @@ export interface LoanForm {
   confirmed: readonly LoanDraftKey[];
   /** What the read payment is, until the household types one of its own. */
   paymentKind: LoanDraftPaymentKind | null;
+  /** The card or loan account that is this same debt (`Loan.accountId`), or "" for none. */
+  accountId: string;
 }
 
 export type LoanBody = Omit<Loan, "id">;
@@ -56,7 +58,7 @@ function textOf(key: LoanDraftKey, value: string | number | null): string {
 
 /** A form with nothing read: the household types the loan in. */
 export function emptyForm(today: string): LoanForm {
-  return { id: null, seriesKey: null, name: "", kind: "", values: { ...blank(), balanceDate: today }, source: null, confirmed: [], paymentKind: null };
+  return { id: null, seriesKey: null, name: "", kind: "", values: { ...blank(), balanceDate: today }, source: null, confirmed: [], paymentKind: null, accountId: "" };
 }
 
 /**
@@ -76,7 +78,7 @@ export function formOfDraft(draft: LoanDraft, today: string): LoanForm {
   }
   const payment = values.paymentCents;
   if (!values.balanceDate) values.balanceDate = today;
-  return { id: null, seriesKey: null, name: "", kind: "", values, source: { marks, lines, warnings: draft.warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null };
+  return { id: null, seriesKey: null, name: "", kind: "", values, source: { marks, lines, warnings: draft.warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null, accountId: "" };
 }
 
 /**
@@ -86,14 +88,14 @@ export function formOfDraft(draft: LoanDraft, today: string): LoanForm {
  */
 export function formOfProposal(proposal: LoanProposalRow, today: string): LoanForm {
   const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText(proposal.paymentCents), intervalMonths: "1" };
-  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, source: null, confirmed: [], paymentKind: null };
+  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, source: null, confirmed: [], paymentKind: null, accountId: "" };
 }
 
 /** A saved loan as a form, for editing. */
 export function formOfLoan(loan: Loan): LoanForm {
   const values = blank();
   for (const key of FIELD_KEYS) values[key] = textOf(key, loan[key]);
-  return { id: loan.id, seriesKey: loan.seriesKey, name: loan.name, kind: loan.kind, values, source: null, confirmed: [], paymentKind: null };
+  return { id: loan.id, seriesKey: loan.seriesKey, name: loan.name, kind: loan.kind, values, source: null, confirmed: [], paymentKind: null, accountId: loan.accountId ?? "" };
 }
 
 const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
@@ -142,6 +144,29 @@ export function toggleConfirmed(form: LoanForm, key: LoanDraftKey, on: boolean):
 }
 
 export const setKind = (form: LoanForm, kind: LoanKind | ""): LoanForm => ({ ...form, kind });
+
+/** The parameters of the address the Lainat report links to (`#/settings?linkLoan=…&linkAccount=…`): the editor of that loan opens with that account chosen. */
+export const LOAN_LINK_PARAM = { loan: "linkLoan", account: "linkAccount" } as const;
+
+/** A card or loan account a loan can be linked to, with the text the select shows for it. */
+export interface LinkChoice {
+  id: string;
+  label: string;
+}
+
+/**
+ * The accounts the household can say a loan is the same debt as: its own cards and loan accounts, but not one that
+ * another saved loan holds, since an account has one loan. `loanId` is the loan being edited, null for a new one.
+ * Two accounts of one name are told apart by their kind and card number.
+ */
+export function linkChoices(accounts: readonly Account[], loans: readonly Loan[], loanId: string | null): LinkChoice[] {
+  const held = new Set(loans.filter((l) => l.id !== loanId).map((l) => l.accountId));
+  const free = accounts.filter((a) => DEBT_ACCOUNT_TYPES.includes(a.type) && !held.has(a.id));
+  return free.map((a) => {
+    const twin = free.some((b) => b.id !== a.id && b.name === a.name);
+    return { id: a.id, label: twin ? `${a.name} (${[ACCOUNT_TYPE_LABEL[a.type], a.cardMask].filter(Boolean).join(", ")})` : a.name };
+  });
+}
 
 /**
  * A change the household made to one field. A changed field counts as checked. A payment typed here is the
@@ -211,6 +236,8 @@ export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormE
     endDate: text("endDate") || null,
     limitCents: positive(cents("limitCents")),
     seriesKey: form.seriesKey,
+    // PUT replaces every field, so a body without the link removes the one that was there (the server reads it as null)
+    ...(form.accountId ? { accountId: form.accountId } : {}),
   };
   return Object.keys(errors).length > 0 ? { body: null, errors } : { body: body as LoanBody, errors };
 }

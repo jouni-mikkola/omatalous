@@ -17,10 +17,10 @@ import {
   GATE_YEARLY_CENTS,
   inputDefOf,
   MAX_ROWS,
-  numbersIn,
 } from "../../src/optimise/index.ts";
 import { rng } from "../gen.ts";
 import { household, householdInput } from "./household.ts";
+import { numbersIn } from "./numbers.ts";
 
 const STYLE: [RegExp, string][] = [
   [/\p{L}+tte(ko|kö)(?!\p{L})/iu, "te-form"],

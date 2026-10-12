@@ -2,8 +2,8 @@
  * Loans the user typed in, and every figure told about one. This file is the one owner of each (ADR 0004, ADR 0012): the
  * balance on a day, the debt total, the interest of the next 12 months, the payoff date, a credit line's use, the
  * next payment and the payments of a month (`loanNextPayment`, `debtPaymentsPerMonth`), what a move of the reference
- * rate does to a payment and a year's interest (`loanRateScenario`), and the list of the household's debts
- * (`householdDebts`). The split of one payment into interest and amortisation is in `loan-payment-split.ts`.
+ * rate does to a payment and a year's interest (`loanRateScenario`). Which debts the household has is the list of
+ * `household-debts.ts`.
  *
  * How a loan is counted:
  * - Interest of one payment interval is balance × rate × months / 12 (`loanPeriodInterest`). Months, since the loan
@@ -127,6 +127,26 @@ function* dueDates(loan: Loan, months: number): Generator<IsoDate> {
   // in the balance date's own month the day decides whether that due date is still ahead
   while (addMonthsToDate(end, -back * months) <= loan.balanceDate) back--;
   for (let k = back, n = 0; k >= 0 && n < MAX_LOAN_PAYMENTS; k--, n++) yield addMonthsToDate(end, -k * months);
+}
+
+/**
+ * The latest due date of a loan's plan on or before a day, null when none has passed since the balance date. A loan
+ * with no payments to place has one due date, its last. A plan goes on at its interval past its last due date, for a
+ * loan that is still owed after it. Each date is counted from the one before it, as the plan of a loan whose balance
+ * is dated there counts them: no due date of that plan lies after the answer and on or before the day.
+ */
+export function loanLastDueDate(loan: Loan, day: IsoDate): IsoDate | null {
+  const plan = planOf(loan);
+  if ("missing" in plan) {
+    const end = endOf(loan);
+    return end !== null && end <= day ? end : null;
+  }
+  let last: IsoDate | null = null;
+  for (;;) {
+    const next = dueDates({ ...loan, balanceDate: last ?? loan.balanceDate }, plan.months).next();
+    if (next.done || next.value > day) return last;
+    last = next.value;
+  }
 }
 
 interface Payment {
@@ -432,48 +452,4 @@ export function loanRateScenario(loan: Loan, day: IsoDate, shiftBp: number): Rat
     interestCents += p.interestCents!;
   }
   return { ...moved, paymentCents, interestCents, unknown: null };
-}
-
-/** The account types whose balance below zero is a debt. A checking account's overdraft stays in the accounts' total. */
-const DEBT_ACCOUNT_TYPES: readonly Account["type"][] = ["credit_card", "loan"];
-
-export interface HouseholdDebts {
-  /** The day the debts are told on. */
-  day: IsoDate;
-  /** The saved loans, in the order they were saved. The accounts' total does not hold them. */
-  saved: readonly Loan[];
-  /** The connected accounts that count, as loans (`creditAccountLoan`). Their balances are in the accounts' total. */
-  connected: readonly Loan[];
-  /** `saved` then `connected`. */
-  loans: readonly Loan[];
-  /** What is owed in all on the day: `debtTotalOn` of `loans`. */
-  total: DebtFigure;
-  /** What the debt costs over the 12 months after the day: `debtInterestNext12Months` of `loans`. */
-  interest: DebtFigure;
-  /**
-   * False when the interest has no figure to tell: a loan is left out for its rate and no loan that owes is counted.
-   * Such a sum reads "ei tiedossa", never zero.
-   */
-  interestKnown: boolean;
-}
-
-/**
- * The debts of the household: the one list behind each debt total (the Lainat report, the accounts less the debts in
- * Saldot, the loan area of Säästövinkit).
- * - Every saved loan counts.
- * - A connected card or loan account that owes something counts as the bank tells it (`creditAccountLoan`).
- * - A loan names no account, so nothing here knows that a saved loan and a connected account are one debt: both
- *   count, and the Lainat report names the pairs that may be (`maybeTwice` in `reports/loans.ts`).
- */
-export function householdDebts(accounts: readonly Parameters<typeof creditAccountLoan>[0][], inputs: UserInputs, day: IsoDate): HouseholdDebts {
-  const saved = loansOf(inputs);
-  const connected = accounts.flatMap((account) => {
-    const loan = DEBT_ACCOUNT_TYPES.includes(account.type) ? creditAccountLoan(account, day) : null;
-    return loan && loan.balanceCents > 0 ? [loan] : [];
-  });
-  const loans = [...saved, ...connected];
-  const interest = debtInterestNext12Months(loans, day);
-  const out = new Set(interest.unknown.filter((u) => !u.counted).map((u) => u.loanId));
-  const interestKnown = out.size === 0 || loans.some((loan) => !out.has(loan.id) && loanBalanceOn(loan, day).cents !== 0);
-  return { day, saved, connected, loans, total: debtTotalOn(loans, day), interest, interestKnown };
 }

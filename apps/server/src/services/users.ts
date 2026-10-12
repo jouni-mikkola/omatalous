@@ -19,23 +19,53 @@ export interface RequestInfo {
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
 const SETUP_KEY = "setup_code_hash";
+/** When the code behind SETUP_KEY was made, as an ISO time. */
+const SETUP_AT_KEY = "setup_code_at";
+/** A generated setup code works this long: one left in a terminal log or a chat stops working. */
+const SETUP_CODE_MS = 24 * 3_600_000;
+
+/**
+ * True when a generated code made at `at` no longer works. A hash without a time is from before 0.9.0 and counts
+ * as expired, and so does a time more than a day ahead of the clock: the clock was wrong when the code was made.
+ */
+function setupCodeExpired(at: string | null, now: Date): boolean {
+  const made = at ? Date.parse(at) : NaN;
+  return !(Math.abs(now.getTime() - made) <= SETUP_CODE_MS);
+}
+
+async function newSetupCode(s: Services): Promise<string> {
+  const code = generatePassword();
+  // the hash first: until the time is written too, the new code has the old time, which can only refuse it
+  await s.settings.set(SETUP_KEY, await sha256(code));
+  await s.settings.set(SETUP_AT_KEY, s.now().toISOString());
+  return code;
+}
+
+async function forgetSetupCode(s: Services): Promise<void> {
+  await s.settings.delete(SETUP_KEY);
+  await s.settings.delete(SETUP_AT_KEY);
+}
 
 /**
  * While no users exist, the first admin is created in the browser with a
  * one-time setup code. It is printed to the server log (or set with
  * SETUP_CODE), so only someone with access to the server can claim the instance.
+ * A generated code works for 24 hours; one from SETUP_CODE never expires.
  * Returns the code when a new one was generated, so the caller can log it.
+ *
+ * `renewExpired` is for the start of the server: an expired code, or a hash without a time, is replaced the way a
+ * missing one is. A request leaves an expired code in place, so that the person who types it is told it expired.
  */
-export async function ensureSetupCode(s: Services): Promise<string | null> {
+export async function ensureSetupCode(s: Services, opts: { renewExpired?: boolean } = {}): Promise<string | null> {
   if ((await s.users.count()) > 0) {
-    await s.settings.delete(SETUP_KEY);
+    await forgetSetupCode(s);
     return null;
   }
   if (s.config.setupCode) return null;
-  if (await s.settings.get(SETUP_KEY)) return null;
-  const code = generatePassword();
-  await s.settings.set(SETUP_KEY, await sha256(code));
-  return code;
+  if (await s.settings.get(SETUP_KEY)) {
+    if (!opts.renewExpired || !setupCodeExpired(await s.settings.get(SETUP_AT_KEY), s.now())) return null;
+  }
+  return newSetupCode(s);
 }
 
 /**
@@ -45,25 +75,33 @@ export async function ensureSetupCode(s: Services): Promise<string | null> {
 export async function issueSetupCode(s: Services): Promise<string | null> {
   if ((await s.users.count()) > 0) return null;
   if (s.config.setupCode) return s.config.setupCode;
-  const code = generatePassword();
-  await s.settings.set(SETUP_KEY, await sha256(code));
-  return code;
+  return newSetupCode(s);
 }
 
 export async function needsSetup(s: Services): Promise<boolean> {
   return (await s.users.count()) === 0;
 }
 
-async function setupCodeMatches(s: Services, code: string): Promise<boolean> {
+async function checkSetupCode(s: Services, code: string): Promise<"ok" | "wrong" | "expired"> {
   const given = utf8.encode(await sha256(code.trim()));
-  if (s.config.setupCode) return timingSafeEqual(given, utf8.encode(await sha256(s.config.setupCode)));
+  // a code from .env never expires: the person who wrote it there chose it
+  if (s.config.setupCode) return timingSafeEqual(given, utf8.encode(await sha256(s.config.setupCode))) ? "ok" : "wrong";
+  // the time is read before the hash: `setup-code` in another process writes the hash first, so an old hash is
+  // never checked against a new time
+  const at = await s.settings.get(SETUP_AT_KEY);
   const stored = await s.settings.get(SETUP_KEY);
-  return !!stored && timingSafeEqual(given, utf8.encode(stored));
+  if (!stored) return "wrong";
+  // whatever was typed: no code works now, and saying so tells nothing about the code
+  if (setupCodeExpired(at, s.now())) return "expired";
+  return timingSafeEqual(given, utf8.encode(stored)) ? "ok" : "wrong";
 }
 
 export async function createFirstAdmin(s: Services, input: { code: string; username: string; displayName: string; password: string }): Promise<User> {
   if (!(await needsSetup(s))) throw new UserError("Sovellus on jo otettu käyttöön.");
-  if (!(await setupCodeMatches(s, input.code))) throw new UserError("Väärä asennuskoodi. Uuden saa komennolla docker compose exec banking node dist/node.js setup-code");
+  const check = await checkSetupCode(s, input.code);
+  // both sentences name the command, not install.sh: a re-run of install.sh shows no code when it comes from SETUP_CODE
+  if (check === "expired") throw new UserError("Asennuskoodi on vanhentunut. Uuden saa komennolla docker compose exec banking node dist/node.js setup-code");
+  if (check === "wrong") throw new UserError("Väärä asennuskoodi. Uuden saa komennolla docker compose exec banking node dist/node.js setup-code");
   const username = input.username.trim();
   if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa pitää olla 3–32 merkkiä (a–z, 0–9, . _ -).");
   const problem = passwordProblem(input.password);
@@ -77,7 +115,7 @@ export async function createFirstAdmin(s: Services, input: { code: string; usern
     passwordHash: await hashPassword(input.password, s.config.passwordIterations),
   });
   if (!created) throw new UserError("Sovellus on jo otettu käyttöön.");
-  await s.settings.delete(SETUP_KEY);
+  await forgetSetupCode(s);
   return (await s.users.get(id))!;
 }
 

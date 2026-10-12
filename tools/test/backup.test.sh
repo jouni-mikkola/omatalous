@@ -126,9 +126,9 @@ t_env_file() {
   envfile 'INSTANCE_NAME=banking-app' 'BACKUP_AGE_RECIPIENT=age1fromenvfile' 'HOST_PORT=8080'
   bk
   check "env file: an empty environment still encrypts with the key from .env" bash -c "[[ $RC = 0 ]] && ls '$CL/backups'/talous-*.db.gz.age >/dev/null && ls '$CL/backups'/talous-*.app_secret.age >/dev/null"
-  check "env file: no plain-text copy is left" bash -c "! ls '$CL/backups' | grep -q '\.db\.gz\$'"
+  check "env file: no plain-text copy is left" bash -c "! ls '$CL/backups' | grep '\.db\.gz\$' >/dev/null"
   check "env file: age got the key from .env" grep -qx age1fromenvfile "$S/age.log"
-  check "env file: the app secret is in an encrypted file only" bash -c "grep -q SECRET-VALUE '$CL/backups'/talous-*.app_secret.age && head -1 '$CL/backups'/talous-*.app_secret.age | grep -qx AGE-ENCRYPTED"
+  check "env file: the app secret is in an encrypted file only" bash -c "grep -q SECRET-VALUE '$CL/backups'/talous-*.app_secret.age && head -1 '$CL/backups'/talous-*.app_secret.age | grep -x AGE-ENCRYPTED >/dev/null"
   check "env file: neither the key nor the secret is printed" bash -c "! grep -q 'age1fromenvfile\|SECRET-VALUE' '$W/out'"
   check "env file: the output says encrypted" grep -q 'encrypted' "$W/out"
 
@@ -183,7 +183,7 @@ t_copy() {
   new_world; envfile "BACKUP_COPY_TO=$W/nas/a/b/c" 'BACKUP_AGE_RECIPIENT=age1abc'; mounted "$W/nas"
   bk
   check "copy: encrypted, both files go, no plain file" bash -c "[[ \$(ls -A '$W/nas/a/b/c' | wc -l) = 2 ]] && ls '$W/nas/a/b/c'/talous-*.db.gz.age '$W/nas/a/b/c'/talous-*.app_secret.age >/dev/null && cmp -s '$CL/backups'/talous-*.db.gz.age '$W/nas/a/b/c'/talous-*.db.gz.age"
-  check "copy: the copy of the secret is the encrypted one" bash -c "head -1 '$W/nas/a/b/c'/talous-*.app_secret.age | grep -qx AGE-ENCRYPTED"
+  check "copy: the copy of the secret is the encrypted one" bash -c "head -1 '$W/nas/a/b/c'/talous-*.app_secret.age | grep -x AGE-ENCRYPTED >/dev/null"
 
   new_world; envfile "BACKUP_COPY_TO=$W/share"; mounted "$W/share"; mkdir -p "$W/share"
   bk

@@ -1,6 +1,6 @@
 /**
  * The household buys a car on finance in May: from then on 289 € leaves on the 15th of every month to the car maker's
- * finance company, with the contract's number in the text. 0.8.7 (LN5): the instalments are debt whoever the lender
+ * finance company, with the contract's number in the text. Since 0.8.7 the instalments are debt whoever the lender
  * is, the series is proposed as a loan (loan-detect.test.ts), and a loan that starts is no subscription to ask about
  * and no price that rose.
  */

@@ -207,16 +207,6 @@ export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], 
   return out;
 }
 
-const NUMBER = /\d{1,2}\.\d{1,2}\.(?:\d{4})?|[\u2212-]?\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:,\d+)?|[\u2212-]?\d+(?:,\d+)?/g;
-
-/**
- * The numbers of a Finnish text as written: "1 234,56", "12", "12.3.2026", "−5". Group spaces become plain spaces.
- * Rule 5's test reads every number of a title from its calc lines with this.
- */
-export function numbersIn(text: string): string[] {
-  return (text.match(NUMBER) ?? []).map((n) => n.replace(/[\u00a0\u202f]/g, " ").replace(/^-/, "\u2212"));
-}
-
 // ── shared by several areas (an area imports no other area) ──
 
 /** Months on each side of a year-over-year comparison: six now, six a year earlier. */

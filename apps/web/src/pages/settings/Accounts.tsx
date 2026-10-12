@@ -1,7 +1,7 @@
 /**
  * Asetukset > Tilit: every account with its name, IBAN or card number, holder and
  * type (the bank's code is a guess for savings, so the type can be changed); the user's own name for any account;
- * balance and removal for the accounts the user brought in themselves (CSV, demo). A bank account's balance comes
+ * balance and removal for the accounts the user brought in themselves (an earlier CSV import, demo). A bank account's balance comes
  * from the bank. Tietojen laatu sits under the table.
  */
 import { creditAccountLoan, creditUse } from "@banking/core";
@@ -12,7 +12,7 @@ import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 
 const PROVIDER_LABEL: Record<string, string> = { enablebanking: "pankkiyhteys", csv: "CSV", demo: "demo" };
-// a bank-linked account comes back at the next link, so only an imported or demo one can be removed
+// a bank-linked account comes back at the next link, so only an earlier CSV import or a demo one can be removed
 const removable = (a: Account) => a.provider === "csv" || a.provider === "demo";
 
 type Message = { tone: "good" | "warning"; text: string };
@@ -160,7 +160,7 @@ export function Accounts({ meta, onChange, children }: { meta: Meta; onChange: (
             })}
           </tbody>
         </table>
-        {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Lisää pankkiyhteys tai tuo CSV alempana.</div>}
+        {!meta.accounts.length && <div className="empty">Ei tilejä vielä. Lisää ensin pankkiyhteys.</div>}
       </div>
       {children}
     </div>

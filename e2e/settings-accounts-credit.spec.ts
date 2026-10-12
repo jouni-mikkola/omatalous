@@ -16,9 +16,11 @@ test("Tilit shows how much of a card's limit is in use, as a line and a thin bar
   const seen = watch(page);
   let bank: { creditLimitCents: number | null; balanceCents: number | null } = { creditLimitCents: 300000, balanceCents: -124000 };
   await page.route("**/api/meta", async (route) => {
-    const response = await route.fetch();
-    const json = await response.json();
-    json.accounts = json.accounts.map((a: { type: string }) => (a.type === "credit_card" ? { ...a, ...bank } : a));
+    // the page reads /api/meta by itself: a read still on its way when the page reloads or the context closes has no response left to change
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json) return;
+    json.accounts =json.accounts.map((a: { type: string }) => (a.type === "credit_card" ? { ...a, ...bank } : a));
     await route.fulfill({ response, json });
   });
   const row = page.locator("#tilit").getByRole("row").filter({ hasText: "Nordea Gold (demo)" }).first();

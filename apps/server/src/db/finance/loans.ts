@@ -1,7 +1,7 @@
 /** Loans the user typed in and confirmed. Own rows only: sharing an account shares no loan. */
 import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, notLoanKey, notLoanMark, renamedMarkSubject } from "@banking/core";
 import { num, type Row, str } from "../rows.ts";
-import type { Statement } from "../types.ts";
+import type { SqlValue, Statement } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
 
 /** The columns a loan's own fields go to, in the order of `values`. */
@@ -21,6 +21,7 @@ const COLUMNS = [
   "end_date",
   "limit_cents",
   "series_key",
+  "account_id",
 ] as const;
 
 const values = (l: Loan) => [
@@ -39,7 +40,17 @@ const values = (l: Loan) => [
   l.endDate,
   l.limitCents,
   l.seriesKey,
+  l.accountId ?? null,
 ];
+
+/**
+ * True when no other loan of the user's names the account a loan is saved with: an account has one saved loan. It is
+ * part of the statement that writes the loan, so of two requests that name one account at the same moment one writes
+ * and the other does not. The database has no unique index to say so (migration 0016). A loan that names no account
+ * always passes. The values are `holderParams`.
+ */
+const ACCOUNT_FREE = "NOT EXISTS (SELECT 1 FROM loans AS held WHERE held.user_id = ? AND held.account_id = ? AND held.id <> ?)";
+const holderParams = (userId: string, l: Loan): SqlValue[] => [userId, l.accountId ?? null, l.id];
 
 /** A value of one of core's lists. A row a newer version wrote may hold one this code does not know: that is null. */
 const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null => ((list as readonly unknown[]).includes(v) ? (v as T) : null);
@@ -62,6 +73,8 @@ const toLoan = (r: Row): Loan => ({
   endDate: str(r.end_date),
   limitCents: num(r.limit_cents),
   seriesKey: str(r.series_key),
+  // a loan without a link has no field, so it reads as it did before the column
+  ...(r.account_id == null ? {} : { accountId: String(r.account_id) }),
 });
 
 export class LoansRepo {
@@ -72,20 +85,48 @@ export class LoansRepo {
     return (await this.ctx.db.all<Row>("SELECT * FROM loans WHERE user_id = ? ORDER BY created_at, rowid", [this.ctx.userId])).map(toLoan);
   }
 
-  async addLoan(loan: Loan, at: string): Promise<void> {
-    await this.ctx.db.run(`INSERT INTO loans (id, user_id, ${COLUMNS.join(", ")}, created_at, updated_at) VALUES (?, ?, ${COLUMNS.map(() => "?").join(", ")}, ?, ?)`, [
-      loan.id,
-      this.ctx.userId,
-      ...values(loan),
-      at,
-      at,
-    ]);
+  /**
+   * The user's other loan that names the loan's account: the one in the way of a save. Only a write past this repo
+   * makes two of them, and then it is the one saved first, the order of `listLoans`: the one the debt totals give the
+   * account to (core `householdDebts`).
+   */
+  private async holder(loan: Loan): Promise<Loan | null> {
+    const r = await this.ctx.db.first<Row>("SELECT * FROM loans WHERE user_id = ? AND account_id = ? AND id <> ? ORDER BY created_at, rowid LIMIT 1", holderParams(this.ctx.userId, loan));
+    return r ? toLoan(r) : null;
   }
 
-  /** Replaces every field of the user's loan. False when the user has no such loan, whoever else may. */
-  async updateLoan(loan: Loan, at: string): Promise<boolean> {
+  /**
+   * Saves a new loan: null when it is saved. When another loan of the user's names its account already, nothing is
+   * written and that loan is the answer (`ACCOUNT_FREE`).
+   */
+  async addLoan(loan: Loan, at: string): Promise<Loan | null> {
+    const saved = await this.ctx.db.run(
+      `INSERT INTO loans (id, user_id, ${COLUMNS.join(", ")}, created_at, updated_at) SELECT ?, ?, ${COLUMNS.map(() => "?").join(", ")}, ?, ? WHERE ${ACCOUNT_FREE}`,
+      [loan.id, this.ctx.userId, ...values(loan), at, at, ...holderParams(this.ctx.userId, loan)],
+    );
+    if (saved.changes > 0) return null;
+    // a loan in the way that let go of the account since leaves it free: the save runs again
+    return (await this.holder(loan)) ?? this.addLoan(loan, at);
+  }
+
+  /**
+   * Replaces every field of the user's loan: true when it is saved, false when the user has no such loan, whoever else
+   * may. When another loan of the user's names its account already, nothing is written and that loan is the answer
+   * (`ACCOUNT_FREE`). A loan saved again with the account it has passes: it is not in its own way.
+   */
+  async updateLoan(loan: Loan, at: string): Promise<boolean | Loan> {
     const set = COLUMNS.map((c) => `${c} = ?`).join(", ");
-    return (await this.ctx.db.run(`UPDATE loans SET ${set}, updated_at = ? WHERE user_id = ? AND id = ?`, [...values(loan), at, this.ctx.userId, loan.id])).changes > 0;
+    const saved = await this.ctx.db.run(`UPDATE loans SET ${set}, updated_at = ? WHERE user_id = ? AND id = ? AND ${ACCOUNT_FREE}`, [
+      ...values(loan),
+      at,
+      this.ctx.userId,
+      loan.id,
+      ...holderParams(this.ctx.userId, loan),
+    ]);
+    if (saved.changes > 0) return true;
+    if (!(await this.ctx.db.first<Row>("SELECT id FROM loans WHERE user_id = ? AND id = ?", [this.ctx.userId, loan.id]))) return false;
+    // as in `addLoan`: the loan is there and nothing holds its account any more, so the save runs again
+    return (await this.holder(loan)) ?? this.updateLoan(loan, at);
   }
 
   /** False when the user has no such loan, whoever else may. */

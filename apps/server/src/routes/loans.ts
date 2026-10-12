@@ -6,7 +6,7 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, loanProposals, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, loanProposals, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -16,6 +16,8 @@ import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
 
 type LoanFields = Omit<Loan, "id">;
+/** Reads the signed-in user's own accounts: another member's account is null, as one nobody has. */
+type OwnAccounts = Pick<ReturnType<Services["finance"]>, "getAccount">;
 
 const FIELDS = [
   "name",
@@ -33,6 +35,7 @@ const FIELDS = [
   "endDate",
   "limitCents",
   "seriesKey",
+  "accountId",
 ] as const satisfies readonly (keyof LoanFields)[];
 
 const MAX_NAME = 80;
@@ -52,6 +55,12 @@ const YEARS_BACK = 40;
  */
 const YEARS_AHEAD = 50;
 const MAX_SERIES_KEY = 200;
+const MAX_ACCOUNT_ID = 200;
+/**
+ * One sentence for every account a loan cannot be linked to: an id nobody has, another member's account and an account
+ * that is no debt. So the answer tells nothing about the accounts of other members.
+ */
+const NOT_LINKABLE = "Lainan voi liittää vain omaan luottokortti- tai lainatiliin.";
 /** Every request reads them all, so a runaway list stays out. */
 const MAX_LOANS = 50;
 
@@ -101,8 +110,24 @@ function parseSeriesKey(value: unknown): string {
   return value;
 }
 
-/** The fields of a loan, each checked against its range or list. Throws a UserError with a message safe to show. */
-function parseLoan(raw: unknown, today: string): LoanFields {
+/**
+ * The account a loan is linked to: one of the user's own, of a type whose balance is a debt. Every other value gets
+ * the one sentence of `NOT_LINKABLE`.
+ */
+async function parseAccountId(value: unknown, accounts: OwnAccounts): Promise<string> {
+  const account = typeof value === "string" && value && value.length <= MAX_ACCOUNT_ID ? await accounts.getAccount(value) : null;
+  if (!account || !DEBT_ACCOUNT_TYPES.includes(account.type)) throw new UserError(NOT_LINKABLE);
+  return account.id;
+}
+
+/** An account has one saved loan. The loan in the way is the user's own, so the answer names it. */
+const heldBy = (holder: Loan) => new UserError(`Tähän tiliin on jo liitetty laina ${holder.name}. Poista liitos siitä ensin.`);
+
+/**
+ * The fields of a loan, each checked against its range or list. Throws a UserError with a message safe to show.
+ * `accounts` reads the user's own accounts, for the one a loan is linked to.
+ */
+async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Promise<LoanFields> {
   const input = strictObject(raw, FIELDS);
   const oldest = addMonthsToDate(today, -12 * YEARS_BACK);
   const loan: LoanFields = {
@@ -139,6 +164,9 @@ function parseLoan(raw: unknown, today: string): LoanFields {
       );
     }
   }
+  // Read last, so a body that fails a cheaper check costs no query. A loan with no link has no field: it is saved and
+  // answered as it was before the field, and a body that leaves the field out or says null removes the link.
+  if (!absent(input.accountId)) loan.accountId = await parseAccountId(input.accountId, accounts);
   return loan;
 }
 
@@ -162,19 +190,23 @@ export function loanRoutes(s: Services) {
 
   app.post("/loans", async (c) => {
     const repo = s.finance(c.get("user").id);
-    const input = parseLoan(await body(c), s.today());
+    const input = await parseLoan(await body(c), s.today(), repo);
     if ((await repo.listLoans()).length >= MAX_LOANS) throw new UserError(`Lainoja voi olla enintään ${MAX_LOANS}. Poista ensin turhat.`);
     const loan: Loan = { id: randomToken(), ...input };
     // loans are read per request, so nothing is cached and no data version moves
-    await repo.addLoan(loan, s.now().toISOString());
+    const holder = await repo.addLoan(loan, s.now().toISOString());
+    if (holder) throw heldBy(holder);
     return c.json({ loan });
   });
 
   // the body is the whole loan: a field it leaves out is saved as not given
   app.put("/loans/:id", async (c) => {
-    const loan: Loan = { id: c.req.param("id"), ...parseLoan(await body(c), s.today()) };
+    const repo = s.finance(c.get("user").id);
+    const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(await body(c), s.today(), repo)) };
+    const saved = await repo.updateLoan(loan, s.now().toISOString());
     // another member's loan is not this user's row: the same 404 as an id that never existed
-    if (!(await s.finance(c.get("user").id).updateLoan(loan, s.now().toISOString()))) throw new NotFound("Lainaa ei löydy.");
+    if (saved === false) throw new NotFound("Lainaa ei löydy.");
+    if (saved !== true) throw heldBy(saved);
     return c.json({ loan });
   });
 

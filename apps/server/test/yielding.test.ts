@@ -150,7 +150,7 @@ describe("a big import is written in pieces", () => {
     await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Tili", iban: null, currency: "EUR", type: "checking" });
     let result: Awaited<ReturnType<typeof ingestTransactions>> | undefined;
     const turns = await turnsDuring(async () => {
-      result = await ingestTransactions(repo, "chk", raws(5200), "csv", { replacePending: false });
+      result = await ingestTransactions(repo, "chk", raws(5200), "csv");
     });
     expect(result).toMatchObject({ inserted: 5200, changed: 5200 });
     expect(turns).toBeGreaterThan(2);
@@ -168,12 +168,12 @@ describe("a big import is written in pieces", () => {
       if (++calls === 2) throw new Error("killed");
       return batch(statements);
     };
-    await expect(ingestTransactions(repo, "chk", raws(5200), "csv", { replacePending: false })).rejects.toThrow("killed");
+    await expect(ingestTransactions(repo, "chk", raws(5200), "csv")).rejects.toThrow("killed");
     repo.batch = batch;
     expect((await repo.allTransactions()).length).toBe(2000);
     expect(await repo.unprocessedMark()).not.toBeNull();
     // the same fetch again: what is stored stays, the rest comes
-    const again = await ingestTransactions(repo, "chk", raws(5200), "csv", { replacePending: false });
+    const again = await ingestTransactions(repo, "chk", raws(5200), "csv");
     expect(again).toMatchObject({ inserted: 3200, updated: 2000, changed: 3200 });
     expect(await repo.allTransactions()).toHaveLength(5200);
   });

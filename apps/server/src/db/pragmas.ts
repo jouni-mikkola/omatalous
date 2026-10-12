@@ -15,3 +15,8 @@ export async function optimizeDatabase(db: Db): Promise<void> {
     console.error("database statistics could not be refreshed:", (err as Error).message);
   }
 }
+
+/** How many rows of the open database break a foreign key. Asked through the app's own connection, so the file gets no second handle. */
+export async function foreignKeyFaults(db: Db): Promise<number> {
+  return (await db.all("PRAGMA foreign_key_check")).length;
+}

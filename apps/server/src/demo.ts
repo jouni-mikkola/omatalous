@@ -24,7 +24,7 @@ export async function loadDemoData(repo: FinanceRepo, settings: SettingsRepo, to
       currency: "EUR",
       type: a.type,
     });
-    const r = await ingestTransactions(repo, id, a.transactions, "demo", { replacePending: true });
+    const r = await ingestTransactions(repo, id, a.transactions, "demo");
     if (a.balanceCents !== null) await repo.setAccountBalance(id, a.balanceCents, new Date().toISOString());
     transactions += r.inserted;
   }

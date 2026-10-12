@@ -27,7 +27,7 @@ jobs:
   shell:
     # no Node: the checks that need no install run first and fastest
     if: ${{ github.event_name != 'push' || !github.event.repository.private }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,7 +52,7 @@ jobs:
 
   js:
     if: ${{ github.event_name != 'push' || !github.event.repository.private }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,7 +79,7 @@ jobs:
   e2e:
     # the built app in a real browser: every page at desktop and phone width, no console or network errors
     if: ${{ github.event_name != 'push' || !github.event.repository.private }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,7 +97,7 @@ jobs:
 
   docker:
     if: ${{ github.event_name != 'push' || !github.event.repository.private }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,8 +114,8 @@ jobs:
             -v ci-data:/data -v ci-secrets:/secrets -e APP_SECRET_FILE=/secrets/app_secret banking-app:ci
           for i in $(seq 1 30); do curl -fsS localhost:8080/api/health && break; sleep 1; done
           # the app created its own secret, readable by its owner only
-          docker exec app stat -c '%a %U' /secrets/app_secret | tee /dev/stderr | grep -qx '600 node'
-          docker exec app stat -c '%a %U' /secrets | tee /dev/stderr | grep -qx '700 node'
+          docker exec app stat -c '%a %U' /secrets/app_secret | tee /dev/stderr | grep -x '600 node' >/dev/null
+          docker exec app stat -c '%a %U' /secrets | tee /dev/stderr | grep -x '700 node' >/dev/null
           curl -fsS localhost:8080/api/auth/state | grep '"needsSetup":true'
           CODE=$(docker exec app node --disable-warning=ExperimentalWarning dist/node.js setup-code | tail -1)
           H=(-H 'Content-Type: application/json' -H 'X-Requested-With: fetch')
@@ -127,14 +127,18 @@ jobs:
           openssl x509 -in ci.crt -noout -subject -enddate
           if grep -q "PRIVATE KEY" ci.crt; then echo "private key leaked"; exit 1; fi
           docker logs app
+      - name: Smoke test of the release workflow
+        # the script a release runs on both images before it tags and signs. This image was built without build
+        # arguments, so its labels say unknown.
+        run: tools/ci/smoke-image.sh banking-app:ci unknown unknown
       - name: Compose file
         # the port, address and name keys resolve, also for IPv6 and an empty Caddy address
         run: |
           docker compose config -q
           INSTANCE_NAME=ci-x HOST_PORT=8085 BIND_ADDRESS=::1 docker compose config | grep -E 'container_name: ci-x|image: ci-x:latest|host_ip: ::1|published: "8085"'
-          COMPOSE_PROFILES=caddy CADDY_ADDRESS=127.0.0.2 docker compose config | grep -q 'host_ip: 127.0.0.2'
-          COMPOSE_PROFILES=caddy docker compose config | grep -q 'published: "443"'
-          COMPOSE_PROFILES=caddy CADDY_ADDRESS='[::1]' docker compose config | grep -q 'host_ip: ::1'
+          COMPOSE_PROFILES=caddy CADDY_ADDRESS=127.0.0.2 docker compose config | grep 'host_ip: 127.0.0.2' >/dev/null
+          COMPOSE_PROFILES=caddy docker compose config | grep 'published: "443"' >/dev/null
+          COMPOSE_PROFILES=caddy CADDY_ADDRESS='[::1]' docker compose config | grep 'host_ip: ::1' >/dev/null
       - name: Two instances side by side
         # the compose file twice, as two projects on one host: own container, image, volumes and port.
         # One cookie jar is logged in to both, which holds only while the cookie names differ.
@@ -166,7 +170,7 @@ jobs:
     # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (a private push).
     if: ${{ always() && (github.event_name != 'push' || !github.event.repository.private) }}
     needs: [shell, js, e2e, docker]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Every job passed

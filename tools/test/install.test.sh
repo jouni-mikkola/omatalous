@@ -109,7 +109,7 @@ t_summary_line() {
 
 # ── the Cloudflare part of a whole install ────────────────────────────────────────────────────────────────────────
 # A full install runs in the fake world with a docker that answers what the install asks, logs every call (S/docker.log)
-# and plays the app image's `cloudflare up` and `cloudflare down` (CF1's command): it answers `up` with the JSON line,
+# and plays the app image's `cloudflare up` and `cloudflare down`: it answers `up` with the JSON line,
 # or with exit 3 or 4 (S/cf-mode), and logs the emails it was given. Names and addresses are made up.
 # The process id of this run is in each token that the process list is searched for: another run of this suite or of
 # another one on the same machine (two checks at once, every scenario of a check is a job of its own) has other values,
@@ -151,7 +151,7 @@ case $1 in
       exit3) echo "Cloudflare refused: the record $host points somewhere else" >&2; exit 3 ;;
       exit4) echo "turn on Zero Trust (Free) in the dashboard" >&2; exit 4 ;;
     esac
-    # S/made: the hosts Cloudflare has a tunnel for (CF1's up --new stops on those before it writes)
+    # S/made: the hosts Cloudflare has a tunnel for (`cloudflare up --new` stops on those before it writes)
     if [[ $* == *" cloudflare down "* ]]; then sed -i "/^$host\$/d" "$S/made" 2>/dev/null; echo "Removed the tunnel of $host" >&2; exit 0; fi
     if [[ $* == *" --new" ]] && grep -qxF "$host" "$S/made" 2>/dev/null; then echo "$host is already set up in Cloudflare" >&2; exit 3; fi
     grep -qxF "$host" "$S/made" 2>/dev/null || echo "$host" >>"$S/made"
@@ -671,7 +671,7 @@ t_qr_absent_is_quiet() {
   cf_world
   cf_install --yes --access tunnel --name home --domain talous.example.fi; why
   check "no qrencode: the install succeeds and prints the setup link" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Set up: ' '$W/install.out' && grep -qF 'https://talous.example.fi/#koodi=k3f9-2mxq-8hzt-p4wa' '$W/install.out'"
-  check "one line says how to get the code, and it is no warning" bash -c "[[ \$(grep -c 'apt install qrencode' '$W/install.out') = 1 ]] && ! grep 'qrencode' '$W/install.out' | grep -q \$'\\e\\[33m'"
+  check "one line says how to get the code, and it is no warning" bash -c "[[ \$(grep -c 'apt install qrencode' '$W/install.out') = 1 ]] && ! grep 'qrencode' '$W/install.out' | grep \$'\\e\\[33m' >/dev/null"
   check "the script installs nothing for it" bash -c "! grep -qiE 'installing (qrencode|jq)' '$W/install.out' && ! grep -q qrencode '$S/docker.log'"
 }
 
@@ -684,7 +684,7 @@ t_other_run_is_not_seen() {
   bash "$HERE/install.test.sh" t_cloudflare_watcher_sees_argv >"$W/other.out" 2>&1 &
   local other=$! found=0 rc=0 _
   for _ in $(seq 1 600); do
-    if ps -eo args 2>/dev/null | grep -E 'cfapi_example_[0-9]+_0123' | grep -vF "cfapi_example_${$}_" | grep -q .; then found=1; break; fi
+    if ps -eo args 2>/dev/null | grep -E 'cfapi_example_[0-9]+_0123' | grep -vF "cfapi_example_${$}_" | grep . >/dev/null; then found=1; break; fi
     sleep 0.05
   done
   wait "$other" || rc=$?
@@ -702,6 +702,7 @@ t_tag_at_head() {
   git -C "$CL" tag v1.0.0; git -C "$CL" tag v1.0.1-rc1
   git -C "$CL" commit -q --allow-empty -m later; git -C "$CL" tag v1.1.0
   git -C "$CL" checkout -q v1.0.0
+  printf '#!/bin/sh\nexit 7\n' >"$S/bin/curl"; chmod +x "$S/bin/curl" # a first install asks GitHub which release is out: no answer here
   cf_install --yes --access local --name home
   check "HEAD is at v1.0.0, a pre-release tag is on it and v1.1.0 is newer: the release is v1.0.0" said 'Channel: release v1.0.0'
   check "the newer tag and the pre-release are not taken" bash -c "! grep -qE 'release v1\\.1\\.0|rc1' '$W/install.out'"

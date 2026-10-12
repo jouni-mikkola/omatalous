@@ -48,7 +48,7 @@ heads() { git -C "$REPO" rev-list --count HEAD 2>/dev/null || echo 0; }
 script ok
 out=$(commit -m one); rc=$?
 check "a signing server that answers commits once" test $rc -eq 0 -a "$(calls)" = 1 -a "$(heads)" = 1
-check "the commit carries a signature" git -C "$REPO" cat-file commit HEAD | grep -q '^gpgsig'
+check "the commit carries a signature" git -C "$REPO" cat-file commit HEAD | grep '^gpgsig' >/dev/null
 
 echo 2 >>"$REPO/a.txt"; git -C "$REPO" add a.txt
 script 503 503 ok

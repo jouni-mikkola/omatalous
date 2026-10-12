@@ -32,8 +32,8 @@ const LOCK_TTL_MS = 15 * 60_000;
 const OVERLAP_DAYS = 10;
 
 /**
- * The app counts in euros: another currency's amount would be added to them as if it were euros. The CSV parser
- * leaves such rows out too. The note says how many a fetch left out, in the words of the import's message.
+ * The app counts in euros: another currency's amount would be added to them as if it were euros, so such rows are
+ * left out. The note says how many a fetch left out and in which currencies.
  */
 function euroRows(raws: readonly RawTransaction[], accountName: string): { rows: RawTransaction[]; note: string | null } {
   const foreign = new Map<string, number>();
@@ -169,7 +169,7 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         const target = { id: account.id, externalId: account.externalId!, name: account.name };
         const { rows: raws, note } = euroRows(await puller.transactions(target, { dateFrom, initial: latest === null }), account.name);
         if (note) summary.messages.push(note);
-        const r = await ingestTransactions(repo, account.id, raws, connector.id, { replacePending: sync.replacePending });
+        const r = await ingestTransactions(repo, account.id, raws, connector.id);
         summary.fetched += r.fetched;
         summary.inserted += r.inserted;
         tally.rowsChanged += r.changed;

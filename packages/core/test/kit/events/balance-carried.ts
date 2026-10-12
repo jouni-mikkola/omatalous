@@ -1,7 +1,7 @@
 /**
  * From March to August the household pays 600 € of each Gold bill and leaves the rest on the card. The bank charges
  * interest on what is carried on the 1st of the next month, April to September: 6 € on the first 418 € and 54 € on the
- * last 3 600 €, 209 € in all. LN7 (0.8.7): the interest is a cost of its own and is told once; a bill paid in part is
+ * last 3 600 €, 209 € in all. Since 0.8.7 the interest is a cost of its own and is told once; a bill paid in part is
  * no change of spending and no contract that ended.
  */
 import { type LifeEvent, rows } from "../frame.ts";

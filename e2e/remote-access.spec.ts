@@ -13,7 +13,7 @@ const TOKEN = "cfp_example-token-0123456789abcdefghijkl";
 const PASSWORD = "esimerkki-salasana-1";
 const REFUSED = "Etäkäytön muutos on jo kesken. Odota, että se valmistuu.";
 const NOT_REPORTED = "Ylläpitoapuri ei ole vielä kertonut, onko asennus tunnelin takana. Yritä hetken päästä uudelleen.";
-const LOCAL_ASKED = "Kun etäkäyttö poistetaan, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii.";
+const LOCAL_ASKED = "Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii.";
 const REQUEST = "op_0123456789abcdef";
 const HOME = "http://192.168.1.10:8080";
 const REVERT_AT = new Date(Date.now() + 10 * 60_000).toISOString();
@@ -282,7 +282,9 @@ for (const width of [1280, 390]) {
       // off: the page says first where the app is found afterwards (a home network address, so no box to tick)
       await expect(section.getByText("Kun etäkäyttö otetaan pois käytöstä, etäosoitteella avattu selain menettää yhteyden.")).toBeVisible();
       await expect(section.getByText(`Tämän jälkeen Omatalous löytyy osoitteesta ${HOME}.`)).toBeVisible();
-      await expect(section.getByText("Etäkäytön poistamiseen tarvitaan tunniste.")).toBeVisible();
+      // the token stays while remote access is on
+      await expect(section.getByText("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.")).toBeVisible();
+      await expect(button("Poista tunniste")).toHaveCount(0);
       await shot(section, "on-off-button", width);
       dialog = await openAsk(page, button("Ota etäkäyttö pois käytöstä"));
       await expect(dialog.getByRole("heading", { name: "Ota etäkäyttö pois käytöstä" })).toBeVisible();
@@ -430,7 +432,7 @@ for (const width of [1280, 390]) {
       ],
       [
         "cloudflare-kept",
-        { ...LEFT, cloudflare: { ...LEFT.cloudflare, removal: "kept", note: "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja poista etäkäyttö sitten uudelleen." } },
+        { ...LEFT, cloudflare: { ...LEFT.cloudflare, removal: "kept", note: "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä." } },
         "Cloudflaressa on osoite talous.example.fi, mutta sovellus ei ole sen takana.",
       ],
       ["helper-off", { ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } }, "Ylläpitoapuri ei ole käytössä."],

@@ -20,7 +20,6 @@ import {
   inputDefOf,
   levelWithoutOneOffs,
   measureSums,
-  numbersIn,
   type OptimiseData,
   type OptimiseInput,
   optimiseEnd,
@@ -35,6 +34,7 @@ import {
 import type { Account, Transaction } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
 import { enrich } from "./household.ts";
+import { numbersIn } from "./numbers.ts";
 
 const TODAY = "2026-10-15";
 const ACCOUNTS: Account[] = [

@@ -126,7 +126,7 @@ t_jobs_that_see_each_others_processes_run_again_alone() {
     echo "# the scenarios look at the machine: $ps -eo args"
     echo 't_a() { touch "$RUNLOG.started"; bash -c "for i in \$(seq 300); do [[ -e \$RUNLOG.looked ]] && break; sleep 0.1; done" token-'"$tok"'; scenario t_a; }'
     echo 't_b() { local i seen=0; for i in $(seq 300); do [[ -e $RUNLOG.started ]] && break; sleep 0.1; done'
-    echo '  '"$ps"' -eo args | grep -q "[t]oken-'"$tok"'" && seen=1; touch "$RUNLOG.looked"'
+    echo '  '"$ps"' -eo args | grep "[t]oken-'"$tok"'" >/dev/null && seen=1; touch "$RUNLOG.looked"'
     echo '  if ((seen)); then echo "FAIL b: a token in the process list"; FAILED=$((FAILED + 1)); else scenario t_b; fi; }'
     echo 'for t in $(declare -F | awk "{print \$3}" | grep "^t_"); do want "$t" && "$t"; done'
   } >>"$f"

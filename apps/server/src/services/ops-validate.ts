@@ -8,8 +8,11 @@
  * refused. A new action needs a migration too (the CHECK on ops_requests.action lists them), an entry in ACTION_SINCE
  * and the helper's `case`.
  */
-import { UserError } from "../platform/errors.ts";
+import { HttpUserError, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
+
+/** The setting that holds when the host helper was last heard of (ISO): written at every real poll, report and state (services/ops.ts), read for the page and for the notice of a silent helper (services/db-health.ts). */
+export const HELPER_SEEN_KEY = "ops_helper_seen";
 
 export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access"] as const;
 export type OpsAction = (typeof OPS_ACTIONS)[number];
@@ -50,6 +53,24 @@ export function parseOpsRequest(input: unknown): OpsInput {
   }
   return { action: o.action as OpsAction, password: (o.password as string | undefined) ?? "", confirm: (o.confirm as string | undefined) ?? "" };
 }
+
+// ── what a request is refused for ────────────────────────
+
+/** Why a request is refused: the word for the `ops_denied` event and what the admin is told. */
+export interface Refusal {
+  why: string;
+  error: UserError;
+}
+
+/** Another change is under way. The queue, the reset and the restore all say it with this sentence. */
+export const busy = (): Refusal => ({ why: "toinen kesken", error: new HttpUserError("Toinen toiminto on kesken.", 409) });
+
+/**
+ * The word an admin types before a change that cannot be taken back (PALAUTA, TYHJENNÄ). Null when `typed` is the
+ * word, to the letter. The rollback, the restore and the reset ask here, so a wrong word is refused and recorded the
+ * same way by all three.
+ */
+export const wrongWord = (typed: unknown, word: string): Refusal | null => (typed === word ? null : { why: "vahvistus", error: new UserError(`Kirjoita ${word} vahvistukseksi.`) });
 
 /** The id the helper may use in a path: op_ and 16 lowercase hex digits. */
 export function validOpsId(id: unknown): id is string {

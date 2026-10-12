@@ -28,9 +28,9 @@ import { ACCESS_HOSTNAME, ACCESS_HOSTNAME_MAX, type AccessRequest, accessRequest
 import type { Services } from "./context.ts";
 import { checkPassword, lanAddressAfterTunnel, type PasswordProof, queueRefuses, type Req, requestOp } from "./ops.ts";
 import { helperKnows } from "./ops-validate.ts";
-import { AAD, clientFor, openToken, QUIET, readJson, type Refusal, refusalOf, SAYS, setUpForThisCopy, SHORT, type StoredToken, TOKEN_KEY, upstream } from "./remote-access-cloudflare.ts";
+import { AAD, clientFor, openToken, QUIET, readJson, type Refusal, refusalOf, SAYS, sealedBox, setUpForThisCopy, SHORT, type StoredToken, TOKEN_KEY, upstream } from "./remote-access-cloudflare.ts";
 import { parseApiToken, parseEmails, parseHostname, parsePassword } from "./remote-access-input.ts";
-import { change, copyName, exclusive, hostOf, IN_PROGRESS, inForce, type Made, type Ops, onTunnel, openTrial, type Pending, TRIAL_MS, type Trial } from "./remote-access-record.ts";
+import { change, copyName, exclusive, hostOf, IN_PROGRESS, inForce, LAST_TOLD_MS, type Made, type Ops, onTunnel, openTrial, type Pending, TRIAL_MS, type Trial } from "./remote-access-record.ts";
 import { finishRemoval, REMOVAL_NOTE, REVERTED, removeFromCloudflare, settle } from "./remote-access-settle.ts";
 import { recordEvent } from "./security.ts";
 
@@ -42,6 +42,7 @@ const LOCAL_ONLY = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/i;
 
 const INSTALLERS =
   "Tämän asennuksen etäkäyttö on tehty palvelimella asennusohjelmalla, eikä sitä voi muuttaa täältä. Muuta sitä palvelimella asennusohjelmalla (./scripts/install.sh).";
+const TOKEN_WHILE_ON = "Ota etäkäyttö ensin pois käytöstä. Tunniste tarvitaan siihen.";
 const NO_PAIR = "Cloudflare ei antanut tietoja, joilla sovellus tarkistaa kirjautumisen. Etäkäyttöä ei otettu käyttöön. Yritä hetken päästä uudelleen.";
 
 /** A DNS label of the copy's name: the cut comes first, so the label never ends in a hyphen. */
@@ -92,10 +93,14 @@ async function queueAccess(s: Services, user: User, proof: PasswordProof, req: R
 
 // ── what the page shows ──────────────────────────────────
 
-/** The last change that ended. "applied" also when its request failed but the host now runs as it asked. */
-function lastOf(rec: Made, ops: Ops) {
+/**
+ * The last change that ended, for a day from its time: after that the page tells only how things stand. The record
+ * keeps it, so nothing is stored and no timer runs to make it go. "applied" also when its request failed but the host
+ * now runs as it asked.
+ */
+function lastOf(rec: Made, ops: Ops, now: Date) {
   const last = rec.last;
-  if (!last) return null;
+  if (!last || now.getTime() - Date.parse(last.at) >= LAST_TOLD_MS) return null;
   const done = last.applied || inForce(ops, last.want, last.hostname);
   // "reverted": the server itself took a new address off, because nobody got in through it (remote-access-trial.ts)
   const outcome = !done ? ("failed" as const) : last.reverted ? ("reverted" as const) : ("applied" as const);
@@ -139,7 +144,7 @@ export async function remoteAccessState(s: Services) {
     /** Cloudflare's side as this page made it. `note` tells in Finnish why a removal has not finished. */
     cloudflare: { hostname: rec.hostname, emails: rec.emails, removal: rec.removal, note: rec.removal ? REMOVAL_NOTE[rec.removal] : null },
     pending: rec.pending && row ? pendingOf(rec.pending, row.status) : null,
-    last: lastOf(rec, ops),
+    last: lastOf(rec, ops, s.now()),
     helper: { status: ops.helper.status, version: ops.helper.version, knowsAccess: helperKnows(ops.helper.version, "access"), enableCommand: ops.helper.enableCommand },
     /** Another maintenance action is queued or running: a change would be refused. */
     busy: ops.active,
@@ -163,8 +168,7 @@ type Sent<K extends string> = Partial<Record<K, unknown>>;
 export async function saveToken(s: Services, user: User, o: Sent<"token" | "password">, req: Req) {
   const token = parseApiToken(o.token);
   const password = parsePassword(o.password);
-  const box = await s.secretBox();
-  if (!box) throw new UserError("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
+  const box = await sealedBox(s);
   // the token decides whose Cloudflare account this copy trusts, so a session alone does not replace it
   await checkPassword(s, user, password, req, TOKEN_LABEL);
   const { api } = clientFor(s, token);
@@ -192,13 +196,15 @@ export async function saveToken(s: Services, user: User, o: Sent<"token" | "pass
 
 /**
  * `{ password }`. Refused while a change waits for the helper and while Cloudflare's side waits to be removed: both
- * end with this token.
+ * end with this token. Refused while the host is behind the tunnel: turning remote access off takes the address out of
+ * Cloudflare with this token. Saving another token in its place (`saveToken`) is never refused for these.
  */
 export async function removeToken(s: Services, user: User, o: Sent<"password">, req: Req) {
   const password = parsePassword(o.password);
   await checkPassword(s, user, password, req, TOKEN_LABEL);
-  const { rec } = await settle(s);
+  const { ops, rec } = await settle(s);
   if (rec.pending || rec.removal === "waiting") throw new HttpUserError(IN_PROGRESS, 409);
+  if (onTunnel(ops)) throw new HttpUserError(TOKEN_WHILE_ON, 409);
   if (await s.settings.get(TOKEN_KEY)) {
     await s.settings.delete(TOKEN_KEY);
     await recordEvent(s, { kind: "cloudflare_token_removed", userId: user.id, ...req });
@@ -225,7 +231,7 @@ export async function turnOn(s: Services, user: User, o: Sent<"hostname" | "emai
     if (ops.state.mode === "domain") throw new UserError("Tällä asennuksella on oma verkkotunnus (Caddy), eikä etäkäyttöä oteta käyttöön sen rinnalle.");
     const behind = onTunnel(ops) ? hostOf(ops.state.address) : null;
     const current = rec.hostname ?? behind;
-    if (current && current !== hostname) throw new UserError(`Etäkäyttö on jo tehty osoitteelle ${current}. Poista se ensin käytöstä, jos haluat vaihtaa osoitteen.`);
+    if (current && current !== hostname) throw new UserError(`Etäkäyttö on jo tehty osoitteelle ${current}. Ota se ensin pois käytöstä, jos haluat vaihtaa osoitteen.`);
     await ready(s);
     const token = await openToken(s);
     if (!token) throw new UserError((await s.settings.get(TOKEN_KEY)) ? "Tallenna Cloudflaren API-tunniste uudelleen." : "Tallenna ensin Cloudflaren API-tunniste.");
@@ -290,7 +296,7 @@ export async function turnOff(s: Services, user: User, o: Sent<"password" | "loc
       await ready(s);
       const after = await lanAddressAfterTunnel(s);
       if (after && LOCAL_ONLY.test(after) && o.localOnly !== true) {
-        throw new UserError(`Kun etäkäyttö poistetaan, sovellus vastaa vain palvelimella itsellään osoitteessa ${after}. Vahvista, että tämä sopii.`);
+        throw new UserError(`Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa ${after}. Vahvista, että tämä sopii.`);
       }
     }
     const proof = await checkPassword(s, user, password, req, LABEL);

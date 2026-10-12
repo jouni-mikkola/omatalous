@@ -19,11 +19,13 @@ import { runMigrateCheck } from "../db/migrate-check.ts";
 import { optimizeDatabase } from "../db/pragmas.ts";
 import { dailyBackup, openDatabase, pruneBackupsByAge, takeSnapshot } from "../db/open.ts";
 import { RestoreError, restoreDatabase } from "../db/restore.ts";
+import { gateDatabase, gateEvent, isNews, notDoneNotice, requestOutcome } from "../db/startup-gate.ts";
 import { type BuildInfo, createServices } from "../services/context.ts";
 import { track, waitForInflight } from "../platform/inflight.ts";
 import { logLookup } from "../services/industry.ts";
 import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
 import { hourlyTick } from "../services/schedule.ts";
+import { fiTime, recordEvent } from "../services/security.ts";
 import { upgradeAndLog } from "../services/upgrade.ts";
 import { ensureSetupCode } from "../services/users.ts";
 import { APP_VERSION } from "../version.ts";
@@ -102,6 +104,10 @@ function buildInfo(): BuildInfo {
 }
 const build = buildInfo();
 
+// server mode only: the gate may move a damaged database aside and restore a copy, which a CLI call must never do
+const gate = process.argv.length > 2 ? null : gateDatabase(dbPath, new Date(), env.MIGRATIONS_DIR || undefined);
+for (const line of gate?.lines ?? []) console.error(line);
+
 let opened: Awaited<ReturnType<typeof openDatabase>>;
 try {
   opened = await openDatabase(dbPath, env.MIGRATIONS_DIR || undefined);
@@ -145,8 +151,33 @@ if (process.argv.length > 2) {
 }
 
 // ── server mode ──────────────────────────────────────────
-const app = createApp({ db, config, build, backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now) });
+const app = createApp({ db, config, build, backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
 const s = app.services;
+
+/** What the gate did at this start: an event in the security log and a notice for every admin. */
+async function reportGate(): Promise<void> {
+  if (!gate || (gate.state === "ok" && !gate.notDone)) return;
+  const users = await s.users.list();
+  const admins = users.filter((u) => u.role === "admin");
+  // who asked for a restore in the browser, when this database (after a restore, the copy) still has them
+  const known = (id: string | null | undefined) => users.find((u) => u.id === id);
+  const outcome = requestOutcome(gate);
+  if (outcome) await recordEvent(s, { kind: "ops_result", userId: known(outcome.by)?.id ?? null, detail: outcome.detail });
+  if (gate.notDone) {
+    // a request that was not done is never silent: the data the admin wanted gone is still there
+    const detail = notDoneNotice(gate.notDone, known(gate.notDone.by)?.displayName ?? null);
+    for (const u of admins) await recordEvent(s, { kind: "ops_notice", userId: u.id, detail, notify: true });
+  }
+  if (gate.state === "ok") return;
+  const { timezone } = await s.instance.load();
+  const event = gateEvent(gate, (iso) => fiTime(iso, timezone), gate.state === "restored" ? known(gate.by)?.displayName : null);
+  for (const u of admins) {
+    // a database that stays damaged: one unread notice for the admin, not one more at every start
+    if (isNews(event, await s.security.unseenNotices(u.id))) await recordEvent(s, { ...event, userId: u.id, notify: true });
+  }
+}
+// a damaged database may refuse the read or the write: the start goes on
+await reportGate().catch((err) => console.error("recording what the database check did failed:", err));
 
 const staticDir = env.STATIC_DIR ?? [resolve(here, "../public"), resolve(here, "../../web/dist")].find((p) => existsSync(p));
 if (staticDir) {
@@ -181,6 +212,7 @@ async function tick(): Promise<void> {
 
 // a process that was killed left locks, "running" fetches and unprocessed imports behind: repair them
 // before the first request, so a manual fetch is not refused for 15 minutes
+(await import("../services/disk.ts")).startReserve(s); // the 64 MB a full disk gives back; imported here to keep this to one line
 await recoverAfterCrash(s, new Date()).catch((err) => console.error("recovery at start failed:", err));
 await optimizeDatabase(s.db);
 
@@ -192,7 +224,7 @@ const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }
   if (settings.appBaseUrl.startsWith("http://") && !/localhost|127\.0\.0\.1/.test(settings.appBaseUrl)) {
     console.warn("address is plain http: use HTTPS (Caddy or Cloudflare Tunnel) for anything beyond this machine");
   }
-  const code = await ensureSetupCode(s);
+  const code = await ensureSetupCode(s, { renewExpired: true });
   if (code) {
     console.log(`\n  No users yet. Open ${settings.appBaseUrl} and create the admin with this setup code:\n\n      ${code}\n`);
     console.log("  (Get a new code with: docker compose exec banking node dist/node.js setup-code)\n");

@@ -1,5 +1,6 @@
 import { REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import { seedCsv } from "./csv-seed.ts";
 import { checkingAccount, setupApp } from "./helpers.ts";
 import { isNordeaAccount } from "../../../packages/core/src/wording.ts";
 import { todayIn } from "../src/platform/config.ts";
@@ -134,11 +135,11 @@ describe("dashboard and reports on demo data", () => {
   });
 
   it("imports a CSV once, even when imported twice", async () => {
-    const { admin } = await setupApp();
+    const { admin, s } = await setupApp();
     const content = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta\n2026/09/30;-23,45;;;;K-MARKET KAMPPI;;EUR\n2026/09/30;-23,45;;;;K-MARKET KAMPPI;;EUR\n";
-    const first = await admin.call("POST", "/api/import/csv", { content, accountName: "Vanha tili" });
+    const first = await seedCsv(s, admin, { content, accountName: "Vanha tili" });
     expect(first.body).toMatchObject({ inserted: 2, skipped: 0 });
-    const second = await admin.call("POST", "/api/import/csv", { content, accountId: first.body.accountId });
+    const second = await seedCsv(s, admin, { content, accountId: first.body.accountId });
     expect(second.body).toMatchObject({ inserted: 0, updated: 2 });
     const tx = (await admin.call("GET", "/api/transactions")).body;
     expect(tx.total).toBe(2);

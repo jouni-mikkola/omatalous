@@ -251,6 +251,13 @@ describe("cloudflare up", () => {
     }
   });
 
+  it("the addresses go to Cloudflare in lower case, as the page sends them", async () => {
+    const f = fakeCloudflare();
+    const r = await up(f, "talous.example.fi", "talous", { CLOUDFLARE_ACCESS_EMAILS: "Anna@Example.FI, PEKKA@example.fi" });
+    expect(r.code).toBe(0);
+    expect(f.policies[0]!.include).toEqual([{ email: { email: ANNA } }, { email: { email: PEKKA } }]);
+  });
+
   it("a changed email list rewrites the policy and nothing else; the order and case of the list do not count", async () => {
     const f = fakeCloudflare();
     await up(f);
@@ -365,6 +372,8 @@ describe("cloudflare up", () => {
     ["no API token", ["up", "--name", "talous", "--hostname", "talous.example.fi"], { CLOUDFLARE_API_TOKEN: "" }],
     ["no emails", ["up", "--name", "talous", "--hostname", "talous.example.fi"], { CLOUDFLARE_ACCESS_EMAILS: " , " }],
     ["a bad email", ["up", "--name", "talous", "--hostname", "talous.example.fi"], { CLOUDFLARE_ACCESS_EMAILS: `${ANNA},not-an-address` }],
+    ["an email out of the form the page takes", ["up", "--name", "talous", "--hostname", "talous.example.fi"], { CLOUDFLARE_ACCESS_EMAILS: `${ANNA},a!b@example.fi` }],
+    ["an IP address as host", ["up", "--name", "talous", "--hostname", "127.0.0.1"], {}],
     ["a URL as host", ["up", "--name", "talous", "--hostname", "https://talous.example.fi/"], {}],
     ["a host with no dot", ["up", "--name", "talous", "--hostname", "talous"], {}],
     ["a bad copy name", ["up", "--name", "Talous Two", "--hostname", "talous.example.fi"], {}],

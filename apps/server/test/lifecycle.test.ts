@@ -10,6 +10,7 @@ import { SecretBox } from "../src/security/secretbox.ts";
 import { AAD } from "../src/connectors/enable-banking/app-setup.ts";
 import { foldCsvAccounts } from "../src/connectors/fold-accounts.ts";
 import { resealAll } from "../src/services/secret-rotation.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { mockBank } from "./mock-bank.ts";
 import { NOW, setupApp, waitFor } from "./helpers.ts";
 
@@ -60,11 +61,11 @@ describe("removing a member", () => {
     const root = tmp();
     const path = join(root, "banking.db");
     const { db } = await openDatabase(path);
-    const { admin, member } = await setupApp({}, undefined, { db });
+    const { admin, s, member } = await setupApp({}, undefined, { db });
     const eero = await member("eero");
     const marker = "ZXQVMARKERKAUPPA";
     const rows = Array.from({ length: 40 }, (_, i) => `2026/09/${String((i % 28) + 1).padStart(2, "0")};-${i + 1},00;${marker} ${i}`).join("\n");
-    const imported = await eero.call("POST", "/api/import/csv", { content: `Kirjauspäivä;Määrä;Nimi\n${rows}\n`, accountName: "Tili" });
+    const imported = await seedCsv(s, eero, { content: `Kirjauspäivä;Määrä;Nimi\n${rows}\n`, accountName: "Tili" });
     expect(imported.status).toBe(200);
     expect(readFileSync(path).includes(marker) || readFileSync(`${path}-wal`).includes(marker)).toBe(true);
 
@@ -153,7 +154,7 @@ describe("a CSV account and a later bank account with the same IBAN", () => {
   async function connectAfterCsv() {
     const bank = mockBank();
     const t = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
-    const imported = await t.admin.call("POST", "/api/import/csv", { content: csvFile, accountName: "Käyttötili CSV", accountType: "checking" });
+    const imported = await seedCsv(t.s, t.admin, { content: csvFile, accountName: "Käyttötili CSV", accountType: "checking" });
     expect(imported.body).toMatchObject({ inserted: 3 });
     await t.admin.call("POST", "/api/connections/start", {});
     await t.admin.call("POST", "/api/connections/complete", callback(bank.state));
@@ -179,13 +180,13 @@ describe("a CSV account and a later bank account with the same IBAN", () => {
   });
 
   it("a later import of the same file into the merged account adds nothing", async () => {
-    const { admin, accountsAfter } = await (async () => {
+    const { admin, s, accountsAfter } = await (async () => {
       const t = await connectAfterCsv();
       const accounts = (await t.admin.call("GET", "/api/meta")).body.accounts as { id: string; iban: string | null }[];
       return { ...t, accountsAfter: accounts };
     })();
     const merged = accountsAfter.find((a) => a.iban === "FI2112345600000785")!;
-    const again = await admin.call("POST", "/api/import/csv", { content: csvFile, accountId: merged.id });
+    const again = await seedCsv(s, admin, { content: csvFile, accountId: merged.id });
     expect(again.status).toBe(200);
     expect(again.body.inserted).toBe(0);
   });
@@ -194,7 +195,7 @@ describe("a CSV account and a later bank account with the same IBAN", () => {
     const bank = mockBank();
     const t = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
     const eero = await t.member("eero");
-    const imported = await t.admin.call("POST", "/api/import/csv", { content: csvFile, accountName: "Käyttötili CSV" });
+    const imported = await seedCsv(t.s, t.admin, { content: csvFile, accountName: "Käyttötili CSV" });
     const csvId = imported.body.accountId as string;
     await t.admin.call("PUT", `/api/accounts/${csvId}/shares/${eero.id}`);
     const row = ((await t.admin.call("GET", "/api/transactions?q=k-market")).body.items as { id: string }[])[0]!;

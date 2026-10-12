@@ -9,7 +9,7 @@ import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
-import { body, optionalString } from "./shared.ts";
+import { body, optionalString, requestInfo } from "./shared.ts";
 
 export function authRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -130,7 +130,7 @@ export function authRoutes(s: Services) {
     const current = optionalString(raw.current, 1024) ?? "";
     const next = optionalString(raw.next, 1024) ?? "";
     if (!next) throw new UserError("Anna uusi salasana.");
-    await changePassword(s, user, current, next, c.get("sessionId"), { ip: clientIp(c, s), userAgent: c.req.header("user-agent") ?? null });
+    await changePassword(s, user, current, next, c.get("sessionId"), requestInfo(c, s));
     return c.json({ ok: true });
   });
 

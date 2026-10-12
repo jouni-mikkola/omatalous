@@ -770,7 +770,7 @@ describe("loans: the Lainat report and net worth", () => {
     expect(r.maybeTwice).toEqual([{ loans: [{ id: "typed", name: "kortti" }], accounts: [{ id: "card", name: "Kortti" }] }]);
   });
 
-  it("the accounts less the debts take every saved loan from the accounts, unknown before a loan was told, and no loan is tied to an account", () => {
+  it("the accounts less the debts take every saved loan from the accounts, unknown before a loan was told, and a loan linked to an account once", () => {
     const r = run([home, car, typedCard]);
     const saved = 12000000 + 1200000 + 124000;
     expect(r.balances.debt).toEqual({ day: today, cents: r.loans.total.cents, savedCents: saved });
@@ -781,11 +781,13 @@ describe("loans: the Lainat report and net worth", () => {
     expect(none.balances.accountsLessDebt).toEqual(none.balances.total);
     expect(none.balances.debt).toEqual({ day: today, cents: 80000, savedCents: 0 });
     expect(none.loans).toMatchObject({ saved: 0, total: { cents: 80000 } });
-    // nothing stores a link, so a loan that carries an account's id is a loan like any other: both stay in the sums
-    const named = run([home, { ...typedCard, accountId: "card" } as Loan]);
-    expect(named.loans.loans.map((l) => l.id)).toEqual(["home", "typed", "account:card"]);
-    expect(named.loans).not.toHaveProperty("same");
-    expect(named.balances.accountsLessDebt.at(-1)).toBe(120000 - 12000000 - 124000);
+    // a saved card linked to the connected card is that card's debt: one row under the saved id, with the bank's 800 €
+    const named = run([home, { ...typedCard, accountId: "card" }]);
+    expect(named.loans.loans.map((l) => [l.id, l.balance.cents, l.linkedAccount?.id ?? null])).toEqual([["home", 12000000, null], ["typed", 80000, "card"]]);
+    expect(named.loans).toMatchObject({ saved: 2, total: { cents: 12000000 + 80000 }, maybeTwice: [] });
+    // the typed 1 240 € is in no sum: the account's minus is in the accounts' total already
+    expect(named.balances.debt).toEqual({ day: today, cents: 12000000 + 80000, savedCents: 12000000 });
+    expect(named.balances.accountsLessDebt.at(-1)).toBe(120000 - 12000000);
     expect(debtInterestNext12Months([home], today).cents).toBe(named.loans.interest.cents);
   });
 });

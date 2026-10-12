@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
@@ -19,8 +20,8 @@ describe("merchants nothing categorised", () => {
   );
 
   it("lists the user's own uncategorised spending per merchant, biggest first", async () => {
-    const { admin, member } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s, member } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const { body } = await admin.call("GET", "/api/merchants/uncategorised");
     expect(body).toEqual({
       items: [
@@ -53,8 +54,8 @@ describe("transaction search", () => {
     (await c.call("GET", `/api/transactions?q=${encodeURIComponent(q)}${scope}`)).body.items.map((t) => t.merchant).sort();
 
   it("ignores case and the dots of ä, ö and å", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     for (const q of ["kärkkäinen", "KÄRKKÄINEN", "Karkkainen", "kÄrKkAiNeN tmi"]) expect(await search(admin, q), q).toEqual(["Kärkkäinen Tmi"]);
     for (const q of ["söderström", "SODERSTROM", "Söder"]) expect(await search(admin, q), q).toEqual(["Söderströmin Kukka"]);
     for (const q of ["ålandsbanken", "ALANDS", "Åland"]) expect((await search(admin, q)).length, q).toBe(1);
@@ -67,8 +68,8 @@ describe("transaction search", () => {
   });
 
   it("finds only the user's own rows, plus shared accounts in the household view", async () => {
-    const { admin, member } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s, member } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const eero = await member("eero");
     expect(await search(eero, "kärkkäinen")).toEqual([]);
     expect(await search(eero, "kärkkäinen", "&scope=household")).toEqual([]);
@@ -79,7 +80,7 @@ describe("transaction search", () => {
   });
 
   it("a query that reads as a euro amount also finds the amount", async () => {
-    const { admin } = await setupApp();
+    const { admin, s } = await setupApp();
     const rows = file(
       `2026/09/05;-142,30;${OWN};;;XYZZY VAKUUTUS;;EUR`,
       `2026/09/06;142,30;;${OWN};;QWERTY PALAUTUS;;EUR`,
@@ -87,7 +88,7 @@ describe("transaction search", () => {
       `2026/09/08;-1250,00;${OWN};;;SÖDERSTRÖMIN KUKKA;;EUR`,
       `2026/09/09;-14,23;${OWN};;;K-MARKET TIKKURILA;;EUR`,
     );
-    await admin.call("POST", "/api/import/csv", { content: rows, accountName: "Käyttötili" });
+    await seedCsv(s, admin, { content: rows, accountName: "Käyttötili" });
     const amounts = async (q: string) =>
       ((await admin.call("GET", `/api/transactions?q=${encodeURIComponent(q)}`)).body.items as { amountCents: number }[]).map((t) => t.amountCents).sort((a, b) => a - b);
     for (const q of ["142,30", "142.30", "142,3", " 142,30 € "]) expect(await amounts(q), q).toEqual([-14230, 14230]);
@@ -104,7 +105,7 @@ describe("transaction search", () => {
 
   it("rows stored before the search text existed are filled in by the upgrade", async () => {
     const { admin, s } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     await s.db.run("UPDATE transactions SET search_text = ''");
     expect(await search(admin, "kärkkäinen")).toEqual([]);
     await runUpgradeTasks(s, "test-build");
@@ -121,8 +122,8 @@ describe("all of this merchant", () => {
   );
 
   it("makes an exact-name rule and tells how many rows changed", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const rows = async (): Promise<Tx[]> => (await admin.call("GET", "/api/transactions?limit=50")).body.items;
     const before = await rows();
     const matti = before.filter((t) => t.merchant === "Matti Meikäläinen");
@@ -149,8 +150,8 @@ describe("all of this merchant", () => {
   });
 
   it("wins over a broader rule made earlier, and replaces an old whole-word rule for the same name", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     await admin.call("POST", "/api/rules", { field: "any", pattern: "Meikäläinen", category: "education" });
     await admin.call("POST", "/api/rules", { field: "merchant", pattern: "Matti Meikäläinen", category: "kids" });
     const matti = (await admin.call("GET", "/api/transactions?merchant=Matti%20Meik%C3%A4l%C3%A4inen")).body.items as Tx[];
@@ -163,8 +164,8 @@ describe("all of this merchant", () => {
   });
 
   it("accepts merchant_exact from the rules page", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const r = await admin.call("POST", "/api/rules", { field: "merchant_exact", pattern: "matti meikäläinen", category: "gifts_donations" });
     expect(r).toMatchObject({ status: 200, body: { changed: 3 } });
     expect((await admin.call("POST", "/api/rules", { field: "regex", pattern: "x", category: "gifts_donations" })).status).toBe(400);

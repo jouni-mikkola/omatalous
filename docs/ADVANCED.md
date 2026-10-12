@@ -6,12 +6,12 @@ Each section starts with when you need it. Run the commands on the machine, in t
 |---|---|
 | Use the app on your phone away from home | [Away from home](#away-from-home) |
 | Give your parents or another household an Omatalous of their own | [A second copy on the same machine](#a-second-copy-on-the-same-machine) |
-| Back up to a NAS, restore a backup or move to a new machine | [Backups](#backups) |
-| Delete everything and install again | [Start over](#start-over) |
+| Back up to a NAS, restore a backup, bring a damaged database back or move to a new machine | [Backups](#backups) |
+| Empty the data and keep the install, or delete everything and install again | [Start over](#start-over) |
 | Try Omatalous on your own Linux desktop | [On your own computer](#on-your-own-computer) |
 | Install from a script without any questions | [Scripted install](#scripted-install) |
 | Use a key made by Enable Banking, or give a member their own Enable Banking app | [Enable Banking options](#enable-banking-options) |
-| Fix the *Ylläpito* buttons when the helper is missing | [The maintenance helper](#the-maintenance-helper) |
+| Fix the *Ylläpito* buttons when the helper is missing, or see what the helper does by itself | [The maintenance helper](#the-maintenance-helper) |
 | Look up a command or a setting | [Commands](#commands), [Settings in .env](#settings-in-env) |
 
 ## Away from home
@@ -71,8 +71,9 @@ Access rule from Cloudflare, at the next visit to the page or within the hour. A
 in Cloudflare still leads to the address, and the page says what. An address that the installer's script made cannot
 be changed or removed on the page; use the script for it. A copy that was set up on the page can be taken back to the
 home network from the machine with `./scripts/install.sh --reconfigure`. The helper keeps the `.env` from before its
-last change as `ops/env.prev`, mode 600. [SECURITY.md](SECURITY.md#remote-access-from-the-page) says what the page and
-the helper may do.
+last change as `ops/env.prev`, mode 600. The page shows the result of the last change for 24 hours. The API token
+cannot be removed while remote access is on: save a new one to replace it, or turn remote access off first.
+[SECURITY.md](SECURITY.md#remote-access-from-the-page) says what the page and the helper may do.
 
 #### With the installer's script
 
@@ -97,7 +98,8 @@ The installer makes the tunnel, the address and the Access rule for you:
 
    The installer refuses a file that others can read or that belongs to someone else, a link, and a file in a folder
    (`~/.config` or `~/.config/omatalous`) that others can write to. The emails are the default list of each copy, see
-   below.
+   below. Each one has the form the Etäkäyttö page takes: printable ASCII, one `@` and a host name after it that is
+   no IP address, and the list holds at most 50. A list that breaks this stops the installer with exit code 2.
 4. On the machine run:
 
    ```bash
@@ -203,6 +205,12 @@ This creates the folder `~/isa` next to `~/omatalous`, installs the copy there a
 link. The copy gets the next free port, for example `http://192.168.1.50:8081`. It worked when that address shows the
 setup page and your own Omatalous still opens.
 
+The copy starts on the release this clone is at, with the signed image, so it runs what the first one runs. When the
+clone is not at a release (no tag `vX.Y.Z` at its head, or a release that is not on `origin/main`), the copy stays on
+the head of the branch, is built from source, and the installer prints one line that says so. It never takes a newer
+release by itself. The copy does not ask GitHub which release is out, as a new install in a clone made by hand does
+(see [Install](INSTALL.md#1-get-omatalous)): it takes the release the first copy runs. Update it later as any copy.
+
 The copy needs its own Enable Banking app, because it makes its own key. The person whose accounts it reads registers it
 as in [ENABLE_BANKING.md](ENABLE_BANKING.md).
 
@@ -269,6 +277,32 @@ app secret is not backed up.
 
 With several copies, run `--schedule` in each copy's folder and give each its own `BACKUP_COPY_TO` folder.
 
+### The app's own copies
+
+The app keeps its copies in the data volume, in `/data/backups`: the daily `auto-` copy, and a `pre-` copy before an
+update, a rollback, a restore, a reset or a secret rotation. *Lataa uusin* gives the newest one to your device.
+
+- The three newest copies that pass the integrity check are never deleted, whatever their age or name. A `pre-restore-`
+  copy is not one of the three, and a `pre-reset-` copy is also kept for 14 days. While the live database fails its
+  check nothing is deleted, and the log says `database copies are not pruned`.
+- A copy needs twice the size of the database and its `-wal` file free in the folder it goes to. Without that room the
+  copy is not made, and the app, `backup.sh` and `update.sh` say how much is free and how much is needed. A daily copy
+  that was refused for room is logged as `backup failed:` and tried again at the next hourly tick. If the room is
+  missing before a migration, the server does not start and the database is unchanged.
+- The file `/data/.reserve` is 64 MB of zeros. The app writes it at start and at the hourly tick when it is missing
+  and over 1 GB is free. It deletes the file when under 128 MB is free, so that signing in and freeing space still work,
+  and the log says "the data disk is nearly full". Deleting the file by hand is safe and gives 64 MB at once.
+  `backup.sh` does not include it.
+- Once a week, an hour after the daily copy, the app checks the newest copy in full (about a second and a half for a
+  200 MB database). It leaves the copies alone while any copy's file changed in the last two minutes and runs at the
+  next hourly tick. A copy that fails is renamed `<name>.damaged`. It stays in `/data/backups` until you delete it by
+  hand, is not restored from and is not protected.
+- Admins see four notices on the notice list. *Ehjää varmuuskopiota ei ole tehty 36 tuntiin.* (not in the first 36
+  hours of an install), *Varmuuskopio ... ei läpäissyt tarkistusta eikä sitä enää käytetä palautukseen.*,
+  *Palvelimen levyllä on enää ... Mt vapaata tilaa.* (under 1 GB free, or the reserve given up) and *Ylläpitoapurista
+  ei ole kuulunut vuorokauteen.* (24 hours after the helper was last seen). *Kuittaa* hides a notice until its
+  problem ends and comes back.
+
 ### Restore a backup
 
 You need this when the database is damaged or you want an earlier state back. It replaces all data with the backup.
@@ -301,6 +335,44 @@ It worked when you can log in and the newest transactions are from the day of th
 An empty or table-less `banking.db` next to saved copies is never started as a new install. The log says so and names
 the newest copy to restore.
 
+#### When the app moved a damaged database
+
+At every start of the server (not for commands such as `restore`) the app checks the database with SQLite's own check.
+A damaged file goes with its `-wal` and `-shm` files to `/data/damaged/banking-<time>.db`, and the newest intact copy
+takes its place. Nothing is deleted, and the app never empties `/data/damaged`: remove old files there by hand.
+Changes made after that copy are lost, and the next bank fetch brings the transactions again. The log lines start with
+`database:`. Every admin gets a notice, *Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta ...*, and the
+security log has the entry *Tietokanta palautettu varmuuskopiosta*.
+
+With no intact copy the app does not stop, because a stop at start would loop. It starts on the damaged file, and the
+notice reads *Tietokanta on vaurioitunut, eikä ehjää varmuuskopiota löytynyt. Palauta muualle tallennettu
+varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.* The security log
+calls it *Tietokanta vaurioitunut*. Put a copy you kept elsewhere on the machine (a file from *Lataa uusin*, a copy on
+the NAS, a `backups/talous-*.db.gz`) and restore it as above.
+
+When an intact copy exists but could not be put in place, most often for lack of room on the disk, the notice says
+*Tietokanta on vaurioitunut. Ehjä varmuuskopio ... on tallessa, mutta sitä ei saatu käyttöön.* Free space on the disk
+and run `docker compose restart banking`: the next start puts the copy in place. If that does not help, restore it by
+hand as above.
+
+#### Restore the newest copy from the browser
+
+*Asetukset > Ylläpito > Palauta viimeisin varmuuskopio* replaces the database with the newest intact copy in
+`/data/backups`. The admin gives the password and types `PALAUTA`. The app then ends by itself, as `docker stop` ends it,
+and Docker's restart policy starts it again (`restart: unless-stopped` in `docker-compose.yml`). The copy goes in at
+that start. Nothing else starts the app: with no restart policy, with `on-failure` or with a bare `node` process the
+page stays dead until you run `docker compose up -d` in the install folder. If the page does not come back in a minute,
+run that. A request waits 15 minutes. A start later than that restores nothing, removes the request and tells the
+admins that the data is as it was, and the admin asks again. Removing the file `/data/.restore-request` before the
+start cancels the request.
+
+The database that was replaced is saved as `pre-restore-<time>.db` in `/data/backups`. The button never takes that
+copy as the newest. To go back to it, use the `restore` command with its name. Changes made after the copy are lost, and
+the bank transactions come again at the next fetch. The other admins get a notice when the restore is asked, and the
+notice after the start says who restored the database (*palautti tietokannan varmuuskopiosta*) or that nothing was
+done. The log has `restore request: backups/<name> is restored at the next start. Stopping for it.` and then
+`database: restored from backups/<name>, as asked in the browser.`
+
 ### Move to a new machine
 
 1. Install Omatalous on the new machine as [INSTALL.md](INSTALL.md) says, but do not create a user.
@@ -321,14 +393,38 @@ accounts again.
 
 ## Start over
 
-You need this when you want to delete the install and all its data, for example after testing.
+You need this when you want to empty the data, or to delete the install and all its data, for example after testing.
+
+### Empty the data and keep the install
+
+*Asetukset > Ylläpito > Tyhjennä kaikki tiedot* starts again with an empty database on the same install. The admin gives
+the password and types `TYHJENNÄ`. It deletes every member except the admin who asks, and all accounts, transactions,
+rules, marks, loans, expected bills, saving tips, bank keys and bank connections. It keeps that admin's account and
+password, the server's settings, the shared bank application and the answers of the trade register about companies.
+Payee names the register did not find as a company are deleted. Everyone is signed out.
+
+A copy `pre-reset-<time>.db` is made first in `/data/backups` and kept at least 14 days. The list of copies on the
+page shows it as *ennen tyhjennystä*. Restoring it undoes the
+reset. *Palauta viimeisin varmuuskopio* does that only while this copy is the newest, which is until the next daily
+copy, less than a day later. After that restore it by its name as in [Restore a backup](#restore-a-backup). A restore
+brings the rows back and not the bank connections, so connect every bank again. The reset ends the bank consents at the
+bank first, and one that could not be ended expires there on its own.
+
+The reset removes no copy. Older `auto-` and `pre-` copies, `/data/damaged` and the archives of the host keep the data
+until they are pruned or deleted by hand. What a member saves between the copy and the delete is in neither, so empty
+the data when nobody else uses the app. The reset is refused while a bank fetch runs (*Tietojen haku on kesken. Yritä
+hetken päästä uudelleen.*) and while a restore waits for the restart or another action runs (*Toinen toiminto on
+kesken.*). A wrong word is recorded in the security log as *Ylläpitopyyntö estetty*, detail "tietojen tyhjennys:
+vahvistus".
+
+### Delete the install
 
 ```bash
 ./scripts/reset.sh
 ```
 
 It offers a backup first and asks you to type `POISTA` before it deletes anything. It removes the containers, the image of this install,
-the data, the app secret, the maintenance helper and `.env`. The `backups/` folder stays, but a backup made without
+the data, the app secret, the maintenance helper with its launcher folder and `.env`. The `backups/` folder stays, but a backup made without
 `age` can no longer open the bank keys. Install again with `./scripts/install.sh`. With several copies it removes only
 the copy of the folder it runs in.
 
@@ -420,6 +516,101 @@ the same after it succeeds, when the helper is on. The helper keeps its logs in 
 update and its rollback both fail, `ops/RECOVERY.txt` has the exact commands. What it is trusted with is in
 [SECURITY.md](SECURITY.md#updates-and-the-maintenance-helper).
 
+### What the helper does by itself
+
+Besides the buttons the helper does five things on its own. Each writes a line to `ops/helper.log`, which the
+*Ylläpito* page and `./scripts/doctor.sh` read.
+
+#### The launcher
+
+The timer or the cron line runs `~/.local/share/omatalous/<name>/launcher.sh` with the clone's folder as its only
+argument, and not the clone's own helper (`<name>` is the instance name, and `$XDG_DATA_HOME` replaces
+`~/.local/share` when it is an absolute path). The launcher lives outside the clone, so no update replaces the file the
+timer runs. It runs the clone's `scripts/ops-helper.sh` when that file and every file in `scripts/lib` parse. After a
+tick that ended well it runs the helper's self-test, and only a helper that passes keeps a copy of itself and
+`scripts/lib` in `last-good/` beside the launcher. A helper that fails the test leaves the earlier copy where it is and
+is tested again on every tenth tick, so a broken helper adds one `self-test failed` line to `ops/helper.log` in ten
+ticks and not one in every tick. The launcher refuses to run as root, and it runs no file that someone else owns or
+that group or others can write to.
+
+When the clone's helper is missing or does not parse, for example after an update that went wrong, the launcher runs
+the last good copy for the clone, so *Päivitä* and *Palauta edellinen versio* still work from the browser. `ops/helper.log`
+then has a line such as "launcher: the helper of this folder cannot be run (REASON). The last good copy of it runs
+instead; update or go back to the previous version to get a working one." The line comes once in ten minutes, and at
+once when the reason changes. The file `.note` beside the launcher holds the newest text, `launcher.log` there holds the
+lines that cannot go to `ops/helper.log`, and `./scripts/doctor.sh` warns too. Press *Päivitä* or *Palauta edellinen
+versio*, or run `./scripts/update.sh`, to get a helper that works. With no usable copy nothing runs and the line says
+so. `./scripts/install.sh --ops-helper` puts the launcher in place and replaces an older one. `./scripts/install.sh
+--ops-helper-off` and `./scripts/reset.sh` remove its folder. A tick by hand with `./scripts/ops-helper.sh` still works.
+
+#### The self-test
+
+`./scripts/ops-helper.sh --self-test`, run as your normal user and never as root, prints `self-test ok` or
+`self-test failed: <reason>`, exits 0 or 1 and changes nothing but one line in `ops/helper.log`. It checks that every
+script parses, that `timeout` and `flock` exist, that the files are safe to run, that `.env` is valid, that Docker
+answers and that the app answers its health check and tells its version. A check of Docker or the app that fails gets a
+second look after ten seconds.
+
+An update from the page tests the helper that the new version brought, once the new version answers. When the test
+fails, the helper takes the update back at once, as long as the update's record `backups/.last-update` is under 60
+minutes old. The data follows the usual rollback rule, see [Updates in detail](#updates-in-detail). The result reads
+*Edellinen versio palautettiin, koska uusi ylläpitoapuri ei toiminut* and the reason, and every admin gets a notice.
+With no fresh record the new version stays and the result says *Päivitystä ei palautettu, koska tuoretta
+varmuuskopiota ei ole.* Then repair the helper on the machine; `./scripts/update.sh --rollback` is still there. An
+update run by hand with `./scripts/update.sh` does not run the self-test. The first update it guards is the one from
+0.9.0 to the next release, because the update to 0.9.0 itself is run by the helper of the older version.
+
+#### The watchdog
+
+For one hour after an update the helper looks at the app on every tick. When the app has been restarting, unhealthy by
+Docker's health check, or running without answering `/api/health` for ten minutes in a row, the helper runs
+`./scripts/update.sh --rollback --yes` itself, once per update. It does nothing when the container was stopped or
+removed by hand, while `install.sh` or `update.sh` runs, while a request from the page runs, and when the app was
+already unhealthy before the update began. To keep a broken version up for debugging, stop the container (`docker
+compose stop`) or create the file `ops/watchdog-<AT>`, where `<AT>` is the `AT` line of `backups/.last-update`.
+
+After a rollback `ops/helper.log` has lines that start with `watchdog:`, and `ops/run/watchdog-<AT>.log` has the last 60
+log lines of the app from before the rollback and the output of `update.sh`; it is kept 30 days. The page lists the
+rollback among the checks, and every admin gets a notice that begins *Edellinen versio palautettiin, koska sovellus ei
+vastannut 10 minuuttiin*. The daily check offers the version that was taken back again, within a day. When the rollback
+does not bring the app back, `ops/RECOVERY.txt` has the commands to run by hand, and the helper does not try again.
+
+#### The address
+
+In the home network mode the helper follows the machine to a new address. It acts when the address in `BIND_ADDRESS`
+has been gone from the machine for ten minutes and the network interface that had it has exactly one private address
+now (10/8, 172.16/12 or 192.168/16). It then writes the new address to `.env` (and to `APP_BASE_URL` when that was the
+installer's own `http://` address), starts the app on it, and does so at most once an hour. The app restarts once.
+`ops/helper.log` and the journal (`journalctl --user -u talous-ops-<name>`) get one line that tells the new address,
+"Osoite vaihtui: http://10.0.0.5:8080". *Asetukset > Palvelin* may still show the old address. A reservation of the
+address in the router remains the better advice.
+
+It follows only the interface that had the address, and never a tunnel or a point-to-point link such as a VPN. It does
+nothing with a Cloudflare Tunnel or Caddy, and without the helper (`--ops-helper-off`) nothing follows, so
+`./scripts/install.sh --reconfigure` is the way. A machine carried to another network keeps its old address until you
+run the installer when it joins the other network with another interface (wired at home, wireless elsewhere) or gets
+no private address there. When the same interface gets a private address in the other network, for example a laptop's
+Wi-Fi on a guest network, the app follows it after ten minutes, because the helper cannot tell that from a new router at
+home. An install whose address was already gone when 0.9.0 arrived has no kept interface and does not follow.
+
+#### The disk
+
+When the disk Docker stores on has under 3 GB free, the helper removes this app's old images by itself, as *Siivoa
+levy* does, with two differences: only untagged images that carry this app's label (`talous.version`, set on every
+image since 0.3.0) go, and the build cache stays. The daily round looks, at most once in six hours, and one line in
+`ops/helper.log` tells the free space before and after ("housekeeping: Docker's disk (...) had N MB free; pruned this
+app's old images; now M MB free"). It never touches a volume (the data and the backups), the running version, the
+previous version or the tagged images of other software. A release image arrives with a registry tag, which the update
+removes once the image has its own tag, so that an old version is untagged and the cleaning can free it. *Siivoa levy*
+("Poistaa vanhat versiot ja välimuistin.") is unchanged and also removes the build cache.
+
+#### Files in ops/
+
+Beside the journal and `RECOVERY.txt`: `watchdog-since`, `watchdog-<AT>` and `watchdog.frag` (the watchdog's count, a
+settled update and its report), `address-if`, `address-since`, `address-at`, `address-doing` and `run/address.log` (the
+address follow-up, which also writes `env.prev` and `env.written`) and `housekeeping-at` (the time of the last cleaning
+try). Leave them alone.
+
 ## Updates in detail
 
 An update pulls the signed image from `ghcr.io` and checks its signature against the project's release workflow. It
@@ -427,7 +618,8 @@ copies the database before the new version starts, and goes back by itself if th
 `./scripts/update.sh --yes` does the same from cron.
 
 The copy taken before an update is kept for 14 days, and the newest one longer, so a rollback after a longer wait goes
-back to that newest copy.
+back to that newest copy. The three newest intact copies of any kind are never deleted, see
+[The app's own copies](#the-apps-own-copies).
 
 Before the old version stops, the update tries the new version's database changes on that copy, in a separate
 container (`node dist/node.js migrate-check`, which needs room for about twice the database in the data volume). If the
@@ -456,6 +648,18 @@ update is lost: the check refused the database, the previous image has no such c
 or the check took too long. Both ways the current database is saved first in the data volume as
 `/data/backups/pre-rollback-*.db`.
 
+Each release starts on GitHub as a pre-release, and an install follows the latest full release. The project's promotion
+workflow, which looks every six hours, promotes a release once it is 48 hours old, so an install is offered it two days
+after it came out. The daily check, *Päivitä* and `./scripts/update.sh` all wait for that, and nothing installs by
+itself. With `TALOUS_PRERELEASE=yes` in `.env` they follow the newest release instead, a pre-release too. The default is
+`no`. The key does nothing with `TALOUS_CHANNEL=source`, but a value other than `yes` or `no` is refused there too, and
+the installer keeps the key over a re-run. An install that is on a pre-release stays there when the key is off or
+removed, and `update.sh` says "Already on vX.Y.Z, newer than the latest release (vY). TALOUS_PRERELEASE=yes in .env
+follows releases during their first two days. Nothing was changed." The project holds a release back by making it a
+draft, and pulls one by deleting it; neither mode sees a draft or a pulled release. The 48 hours hold only for installs
+that already run 0.9.0. An install of 0.8.x that is updated by hand with `./scripts/update.sh` takes v0.9.0 from the first
+minute, because the script of 0.8.x takes the newest tag.
+
 `TALOUS_CHANNEL` in `.env` chooses where updates come from. Without it, an install follows the signed releases and
 builds from source only when its checkout is newer than the latest release. `release` always follows the releases and
 `source` always builds the newest source on the machine. The next update uses the new value.
@@ -465,6 +669,7 @@ builds from source only when its checkout is newer than the latest release. `rel
 | To | Run |
 |---|---|
 | Check the install | `./scripts/doctor.sh` |
+| Test the maintenance helper, as your normal user | `./scripts/ops-helper.sh --self-test` |
 | Update | `./scripts/update.sh` |
 | Go back to the previous version | `./scripts/update.sh --rollback` |
 | Back up into `backups/` | `./scripts/backup.sh` |
@@ -476,7 +681,7 @@ builds from source only when its checkout is newer than the latest release. `rel
 | Remove the copy's Cloudflare tunnel, address and Access rule | `./scripts/install.sh --cloudflare-down` |
 | Follow the log | `docker compose logs -f banking` |
 | Show the version | `docker compose exec banking node dist/node.js version` |
-| Get a new setup code, before the first user exists | `docker compose exec banking node dist/node.js setup-code` |
+| Get a new setup code, before the first user exists (a generated code works for 24 hours) | `docker compose exec banking node dist/node.js setup-code` |
 | Reset a password | `docker compose exec banking node dist/node.js user reset-password <username>` |
 | Sign everyone out | `docker compose exec banking node dist/node.js sessions revoke-all` |
 | Stop or start | `docker compose stop`, `docker compose up -d` |
@@ -497,9 +702,10 @@ The installer writes `.env`. You rarely need to change it by hand. After a chang
 | `HOST_PORT` | the port, from 8080 up |
 | `BIND_ADDRESS` | the address the port listens on, the home network address by default |
 | `CADDY_ADDRESS` | the address for Caddy's ports 80 and 443, needed only when two copies use their own domains |
-| `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail) |
+| `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
+| `TALOUS_PRERELEASE` | `yes` or `no`, default `no`. `yes` follows the newest release, a pre-release too, in its first 48 hours, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
 | `TRUST_PROXY` | `true` behind Caddy or a tunnel, so the app sees each visitor's own address. The installer sets it. |
-| `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together |
+| `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together. Each address is printable ASCII with one `@` and a host name that is no IP address, at most 50 in all. |
 | `CF_ACCESS_AUD`, `CF_ACCESS_TEAM_DOMAIN` | the Access application's audience tag and the team domain. With both set the app checks Cloudflare's signature on every request, see [Cloudflare Tunnel](#cloudflare-tunnel). Set both or neither. The installer and the Etäkäyttö page write them. |
 | `ACCESS_LAN_BIND` | the address the port had before the Etäkäyttö page moved it to `127.0.0.1`. The page puts it back when remote access is turned off. Leave it alone. |
 | `BACKUP_AGE_RECIPIENT` | the public `age` key that `backup.sh` encrypts to, see [Daily backup to a NAS](#daily-backup-to-a-nas) |

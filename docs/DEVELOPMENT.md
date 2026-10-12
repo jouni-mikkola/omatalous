@@ -12,6 +12,7 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm check` | typecheck, tests, shell lint and shell suites, short output |
 | `pnpm test` | all tests (Vitest), including `tools/repo-rules`, the invariants of CLAUDE.md as tests |
 | `pnpm test:sh` | the shell suites in `tools/test/` |
+| `pnpm lint:sh` | lint of every shell file (`tools/ci/shell-lint.sh`) |
 | `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
 | `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
@@ -23,6 +24,10 @@ In the private repository a push runs no CI, because Actions minutes are billed 
 CI and the upgrade rehearsal itself. CI also runs on a pull request and by hand
 (`gh workflow run ci.yml --ref <branch>`). The public repository runs it on every push and pull request. The table is in
 [RELEASING.md](RELEASING.md#when-ci-runs).
+
+The Docker job of CI runs `tools/ci/smoke-image.sh IMAGE VERSION COMMIT` on every image it builds: the labels match, a
+new install answers `/api/health` within 120 seconds and prints its version, and a database of 0.5.0 migrates and
+keeps its users. By hand, on a machine with Docker: `docker build -t x .`, then `tools/ci/smoke-image.sh x unknown unknown`.
 
 ## Layout
 
@@ -38,13 +43,14 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   recurring-cadence.ts       the cadence table and fitting; recurring-cost.ts a series' cost
   analysis/                  flows, analysis context (cached on the server), dashboard, insights
   reports/                   one file per report, registered in reports/index.ts
-  sources/                   import parsers, one folder each, registered in sources/registry.ts
+  loans.ts                   every figure of a loan; household-debts.ts the list of debts behind each debt total
 
 apps/server/src
   app.ts                     middleware and routes
   routes/                    thin HTTP handlers; admin.ts is the setup wizard API
   connectors/                where rows come from: registry.ts, sync.ts (the generic fetch loop), enable-banking/,
-                             csv-import/ (importCsv)
+                             fold-accounts.ts; csv-import/ is only the provider entry `csv` of the accounts that
+                             earlier versions imported
   services/                  use cases: instance, users, ingest, enrich, analysis, upgrade,
                              industry (trade register lookup), schedule (the hourly tick)
   db/finance-repo.ts         FinanceRepo: financial data, always scoped to one user; passes each call on
@@ -60,12 +66,22 @@ apps/server/src
   services/remote-access*.ts the Etäkäyttö page: token, address, emails, the 15 minute trial; access-request.ts the file the helper reads
   security/cf-access.ts      the check of Cloudflare Access's token (CF_ACCESS_AUD, CF_ACCESS_TEAM_DOMAIN)
   entry/secret-rotate.ts     the secret rotation command
+  db/startup-gate.ts         the check before the database opens; backup-keep.ts, backup-check.ts which copies pruning
+                             keeps and the deep check of a copy (ARCHITECTURE.md, "Keeping the data safe")
+  services/db-restore.ts     Palauta viimeisin varmuuskopio; reset.ts Tyhjennä kaikki tiedot; disk.ts the reserve file;
+                             db-health.ts the notices about the safety net
 
 apps/web/src
   App.tsx                    login gate, header, routing
   pages/                     pages; pages/settings/ for the settings sections; Wizard.tsx
   charts/                    own SVG charts
   banks.ts                   bank logos (files in public/banks/)
+
+scripts/                     what runs on the host: install.sh, update.sh, backup.sh, restore.sh, doctor.sh, reset.sh,
+                             ops-helper.sh and ops-launcher.sh (the maintenance helper), lib/ (ARCHITECTURE.md,
+                             "Maintenance from the browser")
+tools/                       what only developers and CI use: repo-rules/ (the invariants as tests), test/*.test.sh
+                             (shell suites; the helper's share a fake host in ops-world.sh), ci/ (smoke-image.sh, ...)
 ```
 
 How a release is made: [RELEASING.md](RELEASING.md).
@@ -84,6 +100,32 @@ How a release is made: [RELEASING.md](RELEASING.md).
 7. A message the user should see is a `UserError` (400). A failing outside service throws an `UpstreamError` (502).
    Anything else becomes a plain 500.
 8. UI text in Finnish; code, comments and docs in English. Comments explain why.
+
+### The repo rules
+
+`tools/repo-rules` holds these and more as tests. `pnpm test tools/repo-rules` runs them, the header of
+`repo-rules.test.ts` lists each rule with its file, and a failure names the rule, `file:line` and what to do. A rule reads
+the tracked files and the new files that git does not ignore, so a new file meets the rules before its commit. Some that
+a change meets:
+
+- Rule 6: import boundaries and no import cycle. Nothing under `apps/*/src` or `packages/*/src` imports from a `test` or
+  `fixtures` folder.
+- Rule 12: Finnish style (no te-form, no "!", banned words) in the web's texts and in the sentences the server sends.
+  SQL strings in the server are skipped, and `!=` is no exclamation mark.
+- Rule 23: every workflow job names a fixed runner image (`ubuntu-24.04` or `ubuntu-24.04-arm`), never a `-latest` label.
+  Moving to a newer image is `RUNNERS` in `tools/repo-rules/runners.ts` and the `runs-on` lines together, then a dry run
+  of the release workflow.
+- Rule 24: an export of `packages/core/src` or `apps/server/src` has a reader in another source file (core, the server,
+  the web app or `tools/findings`), or stands on `tools/repo-rules/unread-exports.txt`, a list that only shrinks: a line
+  goes when its export goes. A test is no reader, and neither is a line that only passes the name on (`export … from`,
+  `export *`). Names are matched by spelling, so the rule can miss an unread export but never refuses one that is read.
+- Rule 25: no shell file and no workflow pipes into `grep -q` (any `q` flag group, `--quiet`, `--silent`), also inside a
+  `bash -c` string. Under `pipefail` the writer dies of the closed pipe and a match reads as a miss. Write
+  `grep … >/dev/null`. `grep -q` on a file is allowed.
+- Rule 26: a function defined under `scripts/` is named a second time, outside comments, somewhere under `scripts/`. A
+  name that only `tools/test` uses does not count: a function that only a test calls is dead.
+- Rule 27: `git check-ignore` holds for `.env.new`, `ops/env.prev` and `.env.bak.1`, so a copy of `.env` is never
+  committed.
 
 ## Recipes
 
@@ -124,16 +166,12 @@ started.
 ### New connector
 
 A new place rows come from is a folder in `apps/server/src/connectors/` with an `index.ts` that exports a `Connector`
-(`connectors/types.ts`), listed in `connectors/registry.ts`. Its `id` is stored in `accounts.provider`,
-`connections.provider` and `transactions.source`, so it never changes. A connector that fetches by itself gives a
-`sync` (open a puller, classify errors) and the loop in `connectors/sync.ts` does the rest. `connectors.test.ts` fails
-when the folder and the registry disagree.
+(`connectors/types.ts`), listed in `connectors/registry.ts`. A `Connector` is its `id`, an optional `sync` and an optional
+`revokeAll`. The `id` is stored in `accounts.provider`, `connections.provider` and `transactions.source`, so it never
+changes. A connector that fetches by itself gives a `sync` (open a puller, classify errors) and the loop in
+`connectors/sync.ts` does the rest. `connectors.test.ts` fails when the folder and the registry disagree.
 
-### New import format
-
-A folder in `packages/core/src/sources/` with an `index.ts` that exports an `ImportParser` (`sources/types.ts`),
-listed in `sources/registry.ts`. The parser is pure: text in, `ImportResult` out. `sniff` returns 0 to 1 from the
-start of the file, and `parserFor` takes the best one.
+There is no recipe for an import format: the CSV import was removed in 0.9.0 and the app reads no files.
 
 ### Database change
 
@@ -211,8 +249,15 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
   that every row lands in one flow, flows add up to the amounts, report totals match the dashboard and no
   number is NaN, also around leap days and DST changes. A failure names the seed. A known bug is an `it.fails`
   with a comment, so the suite stays green and starts complaining when the bug is fixed.
-- Bug hunt tests: `apps/server/test/bughunt.qa.test.ts` (CSV formats, double imports, sync and import at the
-  same time, expired sessions, the hourly tick on DST days).
+- Bug hunt tests: `apps/server/test/bughunt.qa.test.ts` (rows of the old CSV kind put through the ingest twice, sync
+  and import at the same time, expired sessions, the hourly tick on DST days).
+- Rows of the old CSV kind: installs keep the accounts the import made, so tests that need such rows put them through
+  `ingestTransactions` with `apps/server/test/csv-seed.ts` and `csv-import-service.ts`. The reader of the files the tests
+  hold (`test/fixtures/nordea-csv.ts`) is strict and no parser of bank exports. Seed into an account without pending
+  rows. `csv-legacy.test.ts` pins that such rows are categorised, counted in the reports, paired with bank accounts,
+  not counted twice after a bank sync, exported and removable.
+- The shell suites (`tools/test/*.test.sh`) of the maintenance helper share one fake host, clone and set of ticks,
+  `tools/test/ops-world.sh`, and `ops-helper.test.sh` has a scenario for each place the helper calls one of its libraries.
 - A new feature gets a test. A bug fix starts with a test that shows the bug.
 
 ### End-to-end tests
@@ -244,4 +289,7 @@ before `INSTANCE_NAME` existed must keep its names whatever its directory is cal
 3. Run the new `./scripts/update.sh` after another change, and then `./scripts/update.sh --rollback`.
    `banking-app:previous` must exist and be what runs afterwards.
 4. Run `./scripts/install.sh` again. `.env` must not get an `INSTANCE_NAME` line, and the volumes stay the same.
-5. Add a second instance with `./scripts/install.sh --new-instance second`. Both log in at once in one browser.
+5. Add a second instance with `./scripts/install.sh --new-instance second`. Both log in at once in one browser. A
+   clone at a release tag that is on `origin/main` starts the copy on that release's signed image. A clone at a branch
+   head with no release tag, or at a release that is not on `origin/main`, builds the copy from source and says so in
+   one line. It never takes a newer tag.

@@ -1,11 +1,13 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.ts";
 import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
-import { parseBankCsv } from "@banking/core";
 import { checkAuthUrl, EnableBankingClient } from "../src/connectors/enable-banking/client.ts";
-import { csv } from "../src/routes/shared.ts";
+import { csv, requestInfo } from "../src/routes/shared.ts";
+import type { Services } from "../src/services/context.ts";
+import { sealedBox } from "../src/services/remote-access-cloudflare.ts";
 import { mockBank } from "./mock-bank.ts";
 import { NOW, SETUP_CODE, setupApp } from "./helpers.ts";
 
@@ -180,38 +182,6 @@ describe("password change limits", () => {
   });
 });
 
-describe("CSV import limits", () => {
-  const HEAD = "Kirjauspäivä;Määrä;Nimi\n";
-
-  it("refuses a file with too many rows", () => {
-    const r = parseBankCsv(HEAD + "2026/09/01;-1,00;X\n".repeat(100_001));
-    expect(r.transactions).toEqual([]);
-    expect(r.errors[0]).toMatch(/yli 100000 riviä/);
-  });
-
-  it("refuses a file with too many columns, also within one row", () => {
-    const r = parseBankCsv(`${HEAD}${";".repeat(200_000)}\n`);
-    expect(r.errors[0]).toMatch(/yli 50 saraketta/);
-  });
-
-  it("collects at most 50 row errors and counts the rest", () => {
-    const r = parseBankCsv(HEAD + "huono;1,00;X\n".repeat(500));
-    expect(r.errors.length).toBeLessThanOrEqual(52);
-    expect(r.errors.at(-1)).toBe("Lisäksi 450 riviä, joissa on virhe.");
-  });
-
-  it("a normal file and a tab or comma file still parse", () => {
-    expect(parseBankCsv(HEAD + "2026/09/01;-1,00;X\n").transactions).toHaveLength(1);
-    expect(parseBankCsv("Kirjauspäivä,Määrä,Nimi\n2026/09/01,\"-1,00\",X\n").transactions).toHaveLength(1);
-  });
-
-  it("the route refuses a body over the limit with 413", async () => {
-    const { admin } = await setupApp();
-    expect((await admin.call("POST", "/api/import/csv", { content: "x".repeat(7 * 1024 * 1024), accountName: "Iso" })).status).toBe(413);
-    expect((await admin.call("POST", "/api/import/csv", { content: "x".repeat(5_000_001), accountName: "Iso" })).status).toBe(400);
-  });
-});
-
 describe("CSV export formula guard", () => {
   it("covers tab, CR and leading blanks", () => {
     for (const v of ["\t=1+1", "\r=1+1", " =1+1", "\t+1", "=1", "@SUM(A1)", "-1+2"]) expect(csv([[v]])).toContain("'");
@@ -261,5 +231,47 @@ describe("Enable Banking client hardening", () => {
     const big = (async () => new Response("{}", { status: 200, headers: { "content-length": String(50 * 1024 * 1024) } })) as unknown as typeof fetch;
     const client = new EnableBankingClient({ appId: randomUUID(), privateKeyPem: pem, fetch: big });
     await expect(client.listAspsps("FI")).rejects.toThrow(/too large/);
+  });
+});
+
+/** Plumbing the routes and services once wrote twice. Each test reads the source as text, so it fails on the old shape. */
+describe("one definition each", () => {
+  const src = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+  const routes = readdirSync(new URL("../src/routes/", import.meta.url)).filter((f) => f.endsWith(".ts"));
+
+  it("a route builds the address and browser of a request only in requestInfo", () => {
+    expect(src("routes/shared.ts")).toContain("export function requestInfo(");
+    const builders = routes.filter((f) => /ip: clientIp\(/.test(src(`routes/${f}`)));
+    expect(builders).toEqual(["shared.ts"]);
+  });
+
+  it("requestInfo gives the address as the limiters count it and the browser, or null", () => {
+    const header = (value: string | undefined) => ({ req: { header: () => value } }) as unknown as Parameters<typeof requestInfo>[0];
+    const s = { config: { trustProxy: false } } as unknown as Services;
+    expect(requestInfo(header("Firefox"), s)).toEqual({ ip: "local", userAgent: "Firefox" });
+    expect(requestInfo(header(undefined), s)).toEqual({ ip: "local", userAgent: null });
+  });
+
+  it("the settings reader and the sealed box are written once and app-setup.ts reads them", () => {
+    const setup = src("connectors/enable-banking/app-setup.ts");
+    expect(setup).not.toMatch(/function read</);
+    expect(setup).not.toMatch(/function box\(/);
+    expect(setup).toMatch(/import \{ readJson, sealedBox \} from/);
+    // the sentence of a missing APP_SECRET is one string in the server
+    const files = ["connectors/enable-banking/app-setup.ts", "services/remote-access.ts", "services/remote-access-cloudflare.ts"];
+    expect(files.filter((f) => src(f).includes("salausavain (APP_SECRET) puuttuu"))).toEqual(["services/remote-access-cloudflare.ts"]);
+  });
+
+  it("the box getter tells an admin that APP_SECRET is missing, and hands over the box when it is there", async () => {
+    const none = { secretBox: async () => null } as unknown as Services;
+    await expect(sealedBox(none)).rejects.toThrow("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
+    const box = { seal: async () => "x" };
+    expect(await sealedBox({ secretBox: async () => box } as unknown as Services)).toBe(box);
+  });
+
+  it("the id of the application in use is read in activeAppId, and bankAppStatus alone has it from the app it holds already", () => {
+    const setup = src("connectors/enable-banking/app-setup.ts");
+    expect(setup.match(/\?\? s\.config\.enableBanking\?\.appId \?\? null/g)).toHaveLength(2);
+    expect(setup.match(/await activeAppId\(s\)/g)).toHaveLength(3);
   });
 });

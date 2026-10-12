@@ -18,23 +18,12 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
   return (
     <div className="card empty-start">
       <h2>Ei vielä tietoja</h2>
-      <p className="muted">Tuo tapahtumat tiedostosta tai yhdistä pankki.</p>
-      <div className="empty-options">
-        <div>
-          <h3>Tuo tiedosto</h3>
-          <p className="small muted">Lataa tapahtumat Nordean verkkopankista CSV-tiedostona.</p>
-          <button className="btn btn-primary" type="button" onClick={() => navigate("settings", { section: "csv" })}>
-            Tuo CSV
-          </button>
-        </div>
-        <div>
-          <h3>Yhdistä pankki</h3>
-          <p className="small muted">Tapahtumat haetaan automaattisesti pari kertaa päivässä.</p>
-          <button className="btn" type="button" onClick={() => navigate("settings", { add: "1" })}>
-            Lisää pankkiyhteys
-          </button>
-        </div>
-      </div>
+      <p className="muted">Yhdistä pankki, niin tapahtumat tulevat tänne. Ne haetaan automaattisesti pari kertaa päivässä.</p>
+      <p>
+        <button className="btn btn-primary" type="button" onClick={() => navigate("settings", { add: "1" })}>
+          Lisää pankkiyhteys
+        </button>
+      </p>
       <p className="small muted">
         Haluatko ensin kokeilla?{" "}
         <button className="link-btn" type="button" onClick={() => void loadDemo()} disabled={demo.busy}>

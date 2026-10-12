@@ -58,7 +58,7 @@ export interface RemoteAccessState {
     status: "queued" | "running";
     requestedAt: string;
   } | null;
-  /** The last change that ended. */
+  /** The last change that ended, for 24 hours from its end; null after that. */
   last: {
     want: "tunnel" | "lan";
     hostname: string | null;

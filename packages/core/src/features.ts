@@ -24,10 +24,6 @@ export type FeatureOverrides = Readonly<Partial<Record<FeatureId, boolean>>>;
 
 export const FEATURE_IDS = Object.keys(FEATURES) as readonly FeatureId[];
 
-export function isFeatureId(id: string): id is FeatureId {
-  return Object.hasOwn(FEATURES, id);
-}
-
 /** Every flag with the admin's choice where there is one, else its default. */
 export function resolveFeatures(overrides: FeatureOverrides = {}): FeatureState {
   return Object.fromEntries(FEATURE_IDS.map((id) => [id, overrides[id] ?? FEATURES[id].default])) as FeatureState;

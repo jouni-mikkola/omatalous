@@ -9,6 +9,8 @@ import { optimizeDatabase } from "../db/pragmas.ts";
 import { LINK_STATE_PREFIX } from "../connectors/link-state.ts";
 import { type SyncSummary, syncEveryone } from "../connectors/sync.ts";
 import type { Services } from "./context.ts";
+import { watchCopies } from "./db-health.ts";
+import { keepReserve } from "./disk.ts";
 import { drainLookups, type LookupResult } from "./industry.ts";
 import { expireStale } from "./ops.ts";
 import { finishPendingReprocess } from "./recovery.ts";
@@ -54,10 +56,13 @@ async function finishLeftovers(s: Services): Promise<void> {
 }
 
 export async function hourlyTick(s: Services): Promise<TickResult> {
+  keepReserve(s); // first: a write below that fails on a full disk ends the tick, and the reserve is what gives room back
   const settings = await s.instance.load(true);
   const hour = hourIn(settings.timezone, s.now());
   const today = todayIn(settings.timezone, s.now());
   const backup = await backupToday(s, today);
+  keepReserve(s); // and again after the copy, which is what takes the space
+  await watchCopies(s, today, backup !== null); // the weekly check of the newest copy, in a tick that wrote none
   await optimizeDatabase(s.db);
   try {
     await finishLeftovers(s);

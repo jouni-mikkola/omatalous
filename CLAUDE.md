@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Omatalous is a personal finance app for a Finnish household. Bank transactions come in via PSD2 (Enable Banking: Nordea
-and the other Finnish banks it offers) or Nordea CSV, are sorted into money flows and shown as a dashboard and reports. Multi-user (household members, per-user isolation,
+and the other Finnish banks it offers), are sorted into money flows and shown as a dashboard and reports. Multi-user (household members, per-user isolation,
 optional read-only account sharing). Runs in Docker on Linux.
 
 ## Commands
@@ -9,6 +9,7 @@ optional read-only account sharing). Runs in Docker on Linux.
 ```bash
 pnpm install          # pnpm workspaces (npm 10 cannot resolve vitest 4's peers)
 pnpm check            # what a change must pass before handing back: types, tests, shell lint, shell suites
+pnpm lint:sh          # shell lint alone
 pnpm test             # vitest, all packages and tools/repo-rules (invariants as tests), must stay green
 pnpm typecheck        # tsc for core, server, web, plus e2e, tools and root config
 pnpm build            # web (Vite) + server bundle (esbuild, apps/server/dist/node.js)
@@ -18,44 +19,55 @@ pnpm seed:demo        # demo user + data in ./data
 
 ## Layout
 
-- `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
-  rules (`categorize.ts`), the bank dialect (`wording.ts` and, for what a loan page prints, `wording-loan-pages.ts`: word lists behind named predicates, ADR 0008), trade register
-  matching and TOL and MCC codes (`industry.ts`), import parsers (`sources/*`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
-  recurring detection, money flows, analysis context, dashboard, insights, `reports/*` with a registry in
-  `reports/index.ts`. One definition per figure (ADR 0004): `analysis/usual.ts` (complete months, the usual level, usual
-  spending and usual income, the gate `gateFor`) and `commitments.ts` (fixed costs, subscriptions, expected bill dates,
-  expected charges, cancelled subscriptions); `analysis/fees.ts` (late fees, bank fees); a series' cost is its own
-  `perMonth`, `monthlyCents`, `yearlyCents`; `docs/MONEY_FLOWS.md` says them in prose.
-  `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
-  `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete months),
-  `change.ts` (what moved spending, split into causes that add up, the rises the spike alert tells included; wording in
-  `change-text.ts`), `loans.ts` (the `Loan` type and every loan figure, a connected card or loan account read as a loan included, ADR 0012), `loan-intake/` (a draft from pasted
-  text or OCR, each field `sure` or `check`), `loan-detect.ts` (payments that look like an unsaved loan),
-  `analysis/credit.ts` (what a connected card costs), `income.ts` (income by
-  type, derived on read) with `income-changes.ts`, `income-events.ts`, `income-series.ts`. `analysis/insights/` has one
-  source per file with its own gate and history rule (`shared.ts` holds the shared gates); `index.ts` only ranks them by
-  `yearlyCents`, and a dismissed insight returns when its figure moves 25 %. `optimise/` is the Optimoi page: `index.ts`
-  applies the rules every finding follows (complete months, the 120 € gate, certainty, three per area, a headline
-  without overlaps), `areas/` has one file per area, `facts/` dated outside figures that expire, `inputs.ts` what the
-  user types in, `outcome.ts` and `snapshot.ts` the follow-up, `others.ts` the insights it shows as Muut havainnot (minus
-  any a finding already tells).
+- `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation, rules
+  (`categorize.ts`), the bank dialect (`wording.ts` and, for what a loan page prints, `wording-loan-pages.ts`: word
+  lists behind named predicates, ADR 0008), trade register matching and TOL and MCC codes (`industry.ts`), transfers,
+  returns (`returns.ts`: refunds and money paid back), enrichment pipeline, recurring detection, money flows, analysis
+  context, dashboard, insights, `reports/*` with a registry in `reports/index.ts`. One definition per figure (ADR 0004):
+  `analysis/usual.ts` (complete months, the usual level, usual spending and usual income, the gate `gateFor`) and
+  `commitments.ts` (fixed costs, subscriptions, expected bill dates, expected charges, cancelled subscriptions);
+  `analysis/fees.ts` (late fees, bank fees); a series' cost is its own `perMonth`, `monthlyCents`, `yearlyCents`;
+  `docs/MONEY_FLOWS.md` says them in prose. `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
+  `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete
+  months), `change.ts` (what moved spending, split into causes that add up, the rises the spike alert tells included;
+  wording in `change-text.ts`), `loans.ts` (the `Loan` type and every loan figure, a connected card or loan account read
+  as a loan included, ADR 0012), `household-debts.ts` (the list of the household's debts behind every debt total; a
+  saved loan linked to its account counts once), `loan-intake/` (a draft from pasted text or OCR, each field `sure` or
+  `check`), `loan-detect.ts` (payments that look like an unsaved loan), `analysis/credit.ts` (what a connected card
+  costs), `income.ts` (income by type, derived on read) with `income-changes.ts`, `income-events.ts`,
+  `income-series.ts`. `analysis/insights/` has one source per file with its own gate and history rule (`shared.ts` holds
+  the shared gates); `index.ts` only ranks them by `yearlyCents`, and a dismissed insight returns when its figure moves
+  25 %. `optimise/` is the Optimoi page: `index.ts` applies the rules every finding follows (complete months, the 120 €
+  gate, certainty, three per area, a headline without overlaps), `areas/` has one file per area, `facts/` dated outside
+  figures that expire, `inputs.ts` what the user types in, `outcome.ts` and `snapshot.ts` the follow-up, `others.ts` the
+  insights it shows as Muut havainnot (minus any a finding already tells).
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
   `secret-rotation.ts` = re-sealing bank keys and the Cloudflare token, `ops.ts` = web maintenance requests,
-  `remote-access*.ts` = the Etäkäyttö page's use cases with `access-request.ts` the file the helper reads), `db/*-repo.ts` and
-  `db/finance/` (all SQL, loans included), `routes/loans.ts` (bounds every loan value), `auth/*`, `security/*` (`cf-access.ts` checks the
-  Access token), `platform/*` (config, errors, ids, input validators, `outbound.ts` what outgoing calls share), `connectors/*` (where
-  rows come from: registry, `sync.ts` loop, `enable-banking/` with `logos.ts`, `csv-import/`), `providers/prh/` (trade register
-  search), `providers/cloudflare/` (Tunnel, DNS and Access client),
-  `entry/node.ts`, `entry/secret-rotate.ts`, `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands),
+  `ops-danger.ts` = the shared mark of a reset and a restore (neither starts while the other is under way) and the one
+  way a refused request is recorded, `db-restore.ts` = Palauta viimeisin, `reset.ts` = Tyhjennä kaikki tiedot, `disk.ts`
+  = the reserve file, `db-health.ts` = the four notices about the safety net and the weekly check of a copy,
+  `ops-watchdog.ts` = the helper's report of an update it took back, `remote-access*.ts` = the Etäkäyttö page's use
+  cases with `access-request.ts` the file the helper reads), `db/*-repo.ts` and `db/finance/` (all SQL, loans included),
+  `db/startup-gate.ts` (the check before the database opens; a damaged file goes to `<data>/damaged`),
+  `db/backup-keep.ts` (the three copies pruning never deletes, the room a copy needs), `db/backup-check.ts` (the full
+  check of a copy), `routes/loans.ts` (bounds every loan value), `auth/*`, `security/*` (`cf-access.ts` checks the
+  Access token), `platform/*` (config, errors, ids, input validators, `outbound.ts` what outgoing calls share),
+  `connectors/*` (where rows come from: registry, `sync.ts` loop, `enable-banking/` with `logos.ts`, `fold-accounts.ts`
+  (an old CSV account folds into the bank's account at linking), `csv-import/` (only the provider entry `csv`)),
+  `providers/prh/` (trade register search), `providers/cloudflare/` (Tunnel, DNS and Access client), `entry/node.ts`,
+  `entry/shutdown.ts`, `entry/secret-rotate.ts`, `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands),
   `cli-cloudflare.ts` (`cloudflare up/down`, run by the installer).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `restore.sh`, `doctor.sh`, `reset.sh`, `cloudflare-setup.sh` (writes
-  `~/.config/omatalous/cloudflare.env`), `ops-helper.sh` (host helper for Asetukset > Ylläpito), `lib/` (`release.sh` signatures, `dbcopy.sh` copies, `preflight.sh` the migration check of
-  the new image before the switch, `ops-access.sh` the helper's `access` action, `install-host.sh` the Docker, re-exec and Cloudflare-file steps of install.sh; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`relay-hash.mjs`,
-  `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
-  `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image when `main` gets a new version, on a `v*` tag or by hand.
-- `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; `components/BankPicker.tsx`; bank logos on a white plate: Nordea's in `public/banks/`, the others served by
-  the server (`bankLogo` in `src/banks.ts`); `consent-notices.ts` (when a consent ends, unlinked accounts, the calendar file); loans: `components/loans/`, `pages/settings/Loans.tsx`, `pages/settings/LoanIntake.tsx`. `styles/` (tokens.css and base.css
+  `~/.config/omatalous/cloudflare.env`), `ops-helper.sh` (host helper for Asetukset > Ylläpito), `ops-launcher.sh` (what the helper's timer or cron line runs; installed outside the clone as `~/.local/share/omatalous/<instance>/launcher.sh`, with a `last-good/` copy of a helper that passed `--self-test`; a change to it needs a higher `LAUNCHER_VERSION`, 2 now, the self-test does not cover it, and it keeps its two calls: the helper with no argument and with `--root CLONE`), `lib/` (`release.sh` signatures, which release an install follows (`release_from_api`, `choose_release`) and `installer_lock` (the lock of every script that changes the install is the clone folder itself, fd 9, plus a look at /proc for an old update.sh whose `install.sh` was replaced; the helper loads the file too), `dbcopy.sh` copies, `preflight.sh` the migration check of
+  the new image before the switch, `ops-access.sh` the helper's `access` action, `install-host.sh` the Docker, re-exec and Cloudflare-file steps of install.sh and `confirm_release` (a new install in a clone made by hand that sits at a release not out yet moves to the latest one), `ops-release.sh` the update check, `ops-selftest.sh` the self-test, `ops-watchdog.sh` the rollback of an update that stops answering, `ops-address.sh` with `host-addr.sh` the follow-up of the home network address, `ops-housekeeping.sh` the cleaning of old images, `ops-schedule.sh` the timer or cron line; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`relay-hash.mjs`,
+  `test/*.test.sh` shell suites (`test/ops-world.sh` is the helper's test world), `ci/*` (`smoke-image.sh` the image smoke test, `promote-release.sh` what `promote.yml` runs, `drills.sh` ten drills in real Docker with its functions in `drills-lib.sh`)) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
+  `.github/workflows/pages.yml`. `.github/workflows/release.yml` runs six jobs (plan, verify, build for amd64 and arm64 on runners of their own, smoke, publish, release; a `dry-run` job for a dry run) when `main` gets a new version, on a `v*` tag or by hand, and creates the release as a pre-release; `.github/workflows/promote.yml` promotes it after 48 hours (a draft holds it and every older pre-release).
+- `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`;
+  `components/BankPicker.tsx`; bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
+  (`bankLogo` in `src/banks.ts`); `consent-notices.ts` (when a consent ends, unlinked accounts, the calendar file);
+  loans: `components/loans/`, `pages/settings/Loans.tsx`, `pages/settings/LoanIntake.tsx`, `LoanLinks` (in
+  `components/loans/LoanEditor.tsx`: the accounts and loans the loan form reads). `styles/` (tokens.css and base.css
   first, then one file per page area, imported by its page), `nav.ts` (nav entries, a gated one names its flag),
   `pages/reports/` (one section file each, found by `registry.ts`).
 - Each instance is a clone directory and a Compose project. `INSTANCE_NAME` names the container, image and
@@ -76,13 +88,13 @@ pnpm seed:demo        # demo user + data in ./data
 - After any change to transactions/accounts/rules call `reprocess(repo, settings)` (bumps the user's data version,
   `data_version:<user id>`, which keys the analysis cache). A change that touches only the account list, such as a
   balance, calls `settings.bumpUserDataVersion(userId)`, and sharing changes bump the owner and the viewer.
-  `settings.bumpDataVersion()` is for changes that touch everyone. A sync or import that changed no row does neither.
-  The user's marks (`user_marks`, `db/finance/marks.ts`, `PUT /api/marks`; the subject is `series:<key>`, whose key names the
-  account, so a service that moves to another account is a new series, `alert:<id>`, `loan-proposal:<key>`, or `merchant:<name>` from before 0.8.7), expected bills
-  (`expected_bills`, `/api/expected-bills`) and loans (`loans`, `db/finance/loans.ts`, `/api/loans`, whose values
-  `routes/loans.ts` bounds because core trusts them) are read per request (`requestInputs`) and are not part of the cached context. So are the
-  Optimoi inputs, decisions and snapshots (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never
-  reprocesses.
+  `settings.bumpDataVersion()` is for changes that touch everyone. A sync that changed no row does neither. The user's
+  marks (`user_marks`, `db/finance/marks.ts`, `PUT /api/marks`; the subject is `series:<key>`, whose key names the
+  account, so a service that moves to another account is a new series, `alert:<id>`, `loan-proposal:<key>`, or
+  `merchant:<name>` from before 0.8.7), expected bills (`expected_bills`, `/api/expected-bills`) and loans (`loans`,
+  `db/finance/loans.ts`, `/api/loans`, whose values `routes/loans.ts` bounds because core trusts them) are read per
+  request (`requestInputs`) and are not part of the cached context. So are the Optimoi inputs, decisions and snapshots
+  (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never reprocesses.
 - `category_source = 'user'` is never overwritten by automation. Likewise `accounts.custom_name` (the user's name for an
   account) is written only by `PATCH /accounts/:id`; `accounts.name` is the bank's and every link rewrites it.
   `StoredAccount.name` is the display name (the user's, else the bank's); matching reads the bank's (`bankName`).
@@ -114,6 +126,15 @@ pnpm seed:demo        # demo user + data in ./data
   in `ops/access-request.json` (`services/access-request.ts`), never by `POST /api/ops/request`; the one change with no
   password is the server's own return to the home network (`revertUnconfirmed`). The host helper (`scripts/ops-helper.sh`) never runs text from the DB, picks the commit itself
   and hands update.sh only that commit (`TALOUS_TARGET`).
+- Database copies: the three newest intact copies are never deleted and nothing is pruned while the live database fails
+  its check (`db/backup-keep.ts`; `scripts/lib/dbcopy.sh` follows the rule of the three newest inline, so a change is a
+  change in both, and deletes only the kinds its caller names, so no host script deletes a `pre-reset-` copy, which the
+  app keeps 14 days). A copy needs twice the database and its WAL free. The startup gate moves a damaged database to
+  `<data>/damaged` and deletes nothing of the household's; the app never empties that folder.
+- One lock for the install: `installer_lock` in `scripts/lib/release.sh`, the clone folder itself, so an update that
+  replaces `scripts/install.sh` does not end it. `install.sh`, `update.sh`, `restore.sh`, `reset.sh` and the helper's
+  address change, cleaning and watchdog take it; a new script that changes the install takes it too. The scripts run as
+  the user who owns the folder (another user's run is not seen by the look at old holders).
 - State-changing API calls need `X-Requested-With: fetch` (CSRF); the web client sends it in `api.ts`.
 - `UserError` = safe 400 message, `UpstreamError` = 502 for a failing outside service; other errors become a generic 500.
 - Core stays pure (no `Date.now()`, env or I/O) so it runs on Node and in the browser (the web app imports it).
@@ -146,8 +167,19 @@ pnpm seed:demo        # demo user + data in ./data
   random households (`quiet.test.ts`). An outside figure is a row in `optimise/facts/` only after its primary source
   was opened (`verifiedAt`); it expires and then hides its comparison. Findings never rank providers or advise a
   product, and every number in a title is a calc line.
-- New connector or import format: a folder in `apps/server/src/connectors/` or `packages/core/src/sources/`, listed in
-  its `registry.ts` (recipes in `docs/DEVELOPMENT.md`). A connector id is stored and never renamed.
-- Server tests use `apps/server/test/helpers.ts` (`setupApp()` gives a signed-in admin, `member()` more users).
+- New connector: a folder in `apps/server/src/connectors/` listed in its `registry.ts` (recipe in
+  `docs/DEVELOPMENT.md`). A `Connector` (`connectors/types.ts`) is an `id`, an optional `sync` and an optional
+  `revokeAll`, and the id is stored and never renamed. The app reads no files: there is no import format.
+- Server tests use `apps/server/test/helpers.ts` (`setupApp()` gives a signed-in admin, `member()` more users); rows of
+  the old CSV kind come from `apps/server/test/csv-seed.ts` (through `ingestTransactions`, into an account without
+  pending rows).
 - Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
   fixed category colour order from the server, tokens in `styles/tokens.css`, one theme only).
+- Repo rules (`tools/repo-rules`, listed in the header of `repo-rules.test.ts`; they read tracked files and untracked
+  files git does not ignore, so a new file meets them before `git add`): rule 6 also refuses an import from a `test` or
+  `fixtures` folder in `src`; rule 12 reads the sentences the server sends too (SQL skipped); rule 23 refuses a
+  `-latest` runner label; rule 24 an export of core or the server with no reader in another source file (a test is no
+  reader) unless it stands in `tools/repo-rules/unread-exports.txt`, a list that only shrinks (a line goes with its
+  export); rule 25 a pipe into `grep -q` in a shell file or a workflow (write `grep … >/dev/null`); rule 26 a function
+  defined under `scripts/` that nothing else under `scripts/` names; rule 27 needs `git check-ignore` to hold for
+  `.env.new`, `ops/env.prev` and `.env.bak.1`.

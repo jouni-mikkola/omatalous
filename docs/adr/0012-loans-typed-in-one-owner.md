@@ -10,10 +10,11 @@ were Optimoi's: a margin the user types and the balance of a loan account that h
 
 A loan is a `Loan` in `UserInputs`: typed, pasted or read from a picture, and confirmed by the user. It is read per
 request like marks and expected bills, so saving one never reprocesses. `packages/core/src/loans.ts` owns every figure
-told about a loan (ADR 4): the balance on a day, the debt total, the interest of 12 months, the payoff date, the next
-payment and the payments of a month (`loanNextPayment`, `debtPaymentsPerMonth`), what a move of the reference rate does
-(`loanRateScenario`), the list of the household's debts (`householdDebts`) and a credit line's use. A payment's split
-into interest and amortisation (`loan-payment-split.ts`) is read by no view in this release.
+told about a loan or a list of loans (ADR 4): the balance on a day, the debt total, the interest of 12 months, the payoff
+date, the next payment and the payments of a month (`loanNextPayment`, `debtPaymentsPerMonth`), what a move of the
+reference rate does (`loanRateScenario`) and a credit line's use. `packages/core/src/household-debts.ts` owns the list of the household's
+debts behind every debt total (`householdDebts`), since 0.9.0 the place that decides which debts count and that one
+debt counts once.
 
 - A figure that needs a field the loan lacks is null and names the field (`unknown: "rate"`). A loan whose plan lacks a
   field keeps its stated balance and says so. Nothing is estimated.
@@ -23,6 +24,9 @@ into interest and amortisation (`loan-payment-split.ts`) is read by no view in t
   the last due date falls due then.
 - `paymentCents` is the whole payment for annuity and fixed instalment, and the amortisation alone for equal principal.
 - Money flows do not read loans: an instalment is debt whether or not its loan is known.
+- A loan may name the connected card or loan account that is the same debt (`accountId`, 0.9.0). The pair counts once in
+  `householdDebts`, with the bank's balance and the loan's terms, while the account's balance is at or below zero and not
+  older than the balance typed for the loan. Money flows still read no loan.
 
 ## Consequences
 

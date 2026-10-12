@@ -189,6 +189,11 @@ export interface Loan {
   limitCents: number | null;
   /** The debt series its payments belong to, null until linked. */
   seriesKey: string | null;
+  /**
+   * The connected card or loan account that is this same debt, once the household has said so. Left out or null means
+   * none, so a loan built by hand still compiles and a loan without a link reads as it did before the field.
+   */
+  accountId?: string | null;
 }
 
 /**

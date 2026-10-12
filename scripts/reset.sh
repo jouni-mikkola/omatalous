@@ -30,9 +30,10 @@ die()  { printf '%s✗ %s%s\n' "$red" "$*" "$reset" >&2; exit 1; }
 [[ -t 0 ]] || die "Reset asks for confirmation, so it must run in a terminal."
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing (docker compose version)."
 
-# do not race an install or update in this directory (they lock scripts/install.sh)
-exec 9<scripts/install.sh
-if command -v flock >/dev/null && ! flock -n 9; then
+# do not race an install or update in this directory (installer_lock)
+# shellcheck source=lib/release.sh
+. scripts/lib/release.sh
+if command -v flock >/dev/null && ! installer_lock; then
   die "An install or update is running in this folder. Wait until it finishes."
 fi
 docker info >/dev/null 2>&1 || die "Docker does not respond."

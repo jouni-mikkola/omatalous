@@ -4,9 +4,8 @@ import { endSession } from "../auth/session.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { deviceLabel, dismissNotices, EVENT_KINDS, noticesFor, recordEvent, validKind } from "../services/security.ts";
-import { clientIp } from "../auth/middleware.ts";
 import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
-import { body, queryInt } from "./shared.ts";
+import { body, queryInt, requestInfo } from "./shared.ts";
 
 export function securityRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -22,7 +21,7 @@ export function securityRoutes(s: Services) {
     const raw = strictObject(await body(c), ["keepCurrent"] as const);
     const keepCurrent = parseOptionalBoolean(raw.keepCurrent);
     await s.users.deleteSessionsOf(user.id, keepCurrent ? c.get("sessionId") : undefined);
-    await recordEvent(s, { kind: "session_revoked", userId: user.id, ip: clientIp(c, s), userAgent: c.req.header("user-agent"), detail: keepCurrent ? "kaikki muut" : "kaikki" });
+    await recordEvent(s, { kind: "session_revoked", userId: user.id, ...requestInfo(c, s), detail: keepCurrent ? "kaikki muut" : "kaikki" });
     if (!keepCurrent) await endSession(c, s, c.get("sessionId"));
     return c.json({ ok: true });
   });
@@ -33,7 +32,7 @@ export function securityRoutes(s: Services) {
     if (!/^[A-Za-z0-9_-]{20}$/.test(id)) throw new UserError("Istuntoa ei löydy.");
     const current = (await s.users.listSessions(user.id, c.get("sessionId"))).find((x) => x.id === id)?.current ?? false;
     if (!(await s.users.deleteSessionByShortId(user.id, id))) throw new UserError("Istuntoa ei löydy.");
-    await recordEvent(s, { kind: "session_revoked", userId: user.id, ip: clientIp(c, s), userAgent: c.req.header("user-agent"), detail: "yksi" });
+    await recordEvent(s, { kind: "session_revoked", userId: user.id, ...requestInfo(c, s), detail: "yksi" });
     if (current) await endSession(c, s, c.get("sessionId"));
     return c.json({ ok: true });
   });

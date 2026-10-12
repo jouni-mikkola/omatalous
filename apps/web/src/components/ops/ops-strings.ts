@@ -1,6 +1,10 @@
+import type { RestoreState } from "./types.ts";
+
 /** Finnish wording of Asetukset > Ylläpito in one place, so it is read through once. */
 export const ENABLE_DOC = "https://github.com/jouni-mikkola/omatalous/blob/main/docs/ADVANCED.md#the-maintenance-helper";
-export const ROLLBACK_HELP = "./scripts/update.sh --rollback";
+const ROLLBACK_HELP = "./scripts/update.sh --rollback";
+/** Run in the install folder when the app does not come back after a restore request (docker-compose.yml restarts it with `restart: unless-stopped`). */
+export const START_HELP = "docker compose up -d";
 
 export const S = {
   title: "Ylläpito",
@@ -63,10 +67,77 @@ export const S = {
   renew: "Asenna apuri uudelleen",
   renewHelp: "Asentaa apurin ajastuksen ja asetukset uudelleen.",
   toolsOutdated: "Apuri ei tue näitä toimintoja. Päivitä se palvelimella:",
+
+  // Palauta viimeisin varmuuskopio. The sentences of the server (the 400, 403, 409 and 503 answers) are shown as they come.
+  restoreTitle: "Palauta viimeisin varmuuskopio",
+  restoreSub: "Korvaa tietokannan uusimmalla ehjällä varmuuskopiolla.",
+  restoreSubmit: "Palauta",
+  restoreWord: "PALAUTA",
+  restoreLoading: "Haetaan uusinta varmuuskopiota…",
+  restoreNone: "Ehjää varmuuskopiota ei ole.",
+  restorePending: "Palautus on jo pyydetty. Se tehdään, kun sovellus käynnistyy uudelleen.",
+  restoreCopyLabel: "Uusin ehjä varmuuskopio",
+  restoreLoses: "Varmuuskopion jälkeen tehdyt muutokset häviävät. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.",
+  restoreMistake: "Palautus tuo tiedot sellaisina kuin ne olivat tällöin. Jos virhe on tehty ennen tätä aikaa, se on varmuuskopiossakin.",
+  restoreUndoesReset: "Tämä varmuuskopio on otettu juuri ennen tietojen tyhjennystä. Sen palautus tuo tyhjennetyt tiedot takaisin. Pankkiyhteydet pitää silti yhdistää uudelleen.",
+  restoreDialog: (time: string) => [
+    `Tietokanta korvataan varmuuskopiolla ajalta ${time}.`,
+    "Sen jälkeen tehdyt muutokset häviävät.",
+    "Sovellus käynnistyy uudelleen, ja sivu on hetken pois käytöstä.",
+  ],
+  restoreAsked: (time: string) => `Palautus on pyydetty. Sovellus käynnistyy uudelleen ja korvaa tietokannan varmuuskopiolla ajalta ${time}.`,
+  restoreWaiting: "Odotetaan, että sovellus vastaa…",
+  restoreSlow: `Sovellus ei ole vielä vastannut. Jos sivu ei palaa, käynnistä sovellus palvelimella asennuskansiossa komennolla ${START_HELP}`,
+  restoreLate: "Pyynnöstä on kulunut yli 15 minuuttia, joten palautusta ei enää tehdä. Pyydä se uudelleen, kun sovellus on taas käynnissä.",
+  restoreBack: "Sovellus vastaa taas. Sivun yläreunan ilmoitus kertoo, tehtiinkö palautus.",
+  restoreStillPending: "Sovellus vastaa taas, mutta palautusta ei ole vielä tehty. Se tehdään, kun sovellus käynnistyy uudelleen.",
+  reload: "Lataa sivu uudelleen",
+
+  // Tyhjennä kaikki tiedot
+  resetTitle: "Tyhjennä kaikki tiedot",
+  resetSub: "Aloita alusta tyhjällä tietokannalla.",
+  resetSubmit: "Tyhjennä",
+  resetWord: "TYHJENNÄ",
+  resetGoes: "Tyhjennys poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät. Oma tunnuksesi, palvelimen asetukset ja Enable Banking -sovellus säilyvät.",
+  resetNotes: [
+    "Ensin otetaan varmuuskopio. Vanhat varmuuskopiot jäävät paikoilleen, joten tiedot säilyvät niissä.",
+    "Painike Palauta viimeisin varmuuskopio tuo tiedot takaisin alle vuorokauden ajan. Se palauttaa uusimman varmuuskopion, ja seuraava päivittäinen varmuuskopio otetaan jo tyhjennyksen jälkeen.",
+    "Tyhjennystä edeltävä varmuuskopio säilyy vähintään 14 päivää.",
+    "Pankkiyhteydet lopetetaan. Ne pitää yhdistää uudelleen myös palautuksen jälkeen.",
+  ],
+  resetDialog: ["Tämä poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.", "Ensin otetaan varmuuskopio.", "Sinut kirjataan ulos."],
+  resetCopy: (name: string) => `Varmuuskopio ennen tyhjennystä: ${name}`,
+  resetFailed: (n: number) =>
+    `${n === 1 ? "1 pankkiyhteys jäi" : `${n} pankkiyhteyttä jäi`} voimaan pankissa. ${n === 1 ? "Se vanhenee" : "Ne vanhenevat"} itsestään.`,
+  resetBanks: "Pankit yhdistetään uudelleen kirjautumisen jälkeen.",
+  signIn: "Kirjaudu sisään",
 };
 
+/** The restore request lapses 15 minutes after it was made (db/startup-gate.ts MARKER_MAX_AGE_MS). */
+export const REQUEST_LAPSES_MS = 15 * 60_000;
+/** After this long without an answer from /api/health the card says what to do. */
+export const SLOW_MS = 60_000;
+
+/** The only two fields either request carries. The server refuses any other. */
+export const confirmBody = (password: string, confirm: string): { password: string; confirm: string } => ({ password, confirm });
+
+type RestoreView = "loading" | "none" | "pending" | "copy";
+export function restoreView(state: RestoreState | null): RestoreView {
+  if (!state) return "loading";
+  if (state.pending) return "pending";
+  return state.copy ? "copy" : "none";
+}
+
+/** What the card says while it waits for the app to answer again after the request. */
+export function restoreWait(waitedMs: number): string[] {
+  if (waitedMs < SLOW_MS) return [S.restoreWaiting];
+  return waitedMs < REQUEST_LAPSES_MS ? [S.restoreSlow] : [S.restoreSlow, S.restoreLate];
+}
+
 export const LEVEL: Record<string, string> = { ok: "kunnossa", warn: "varoitus", error: "virhe" };
-export const KIND: Record<string, string> = { daily: "päivittäinen", "pre-update": "ennen päivitystä", manual: "käsin" };
+const KIND: Record<string, string> = { daily: "päivittäinen", "pre-update": "ennen päivitystä", "pre-reset": "ennen tyhjennystä", manual: "käsin" };
+/** What the list calls a copy. The server says what a copy is (db/backup-keep.ts copyKind); the page only words it. */
+export const kindLabel = (kind: string): string => KIND[kind] ?? kind;
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} t`;

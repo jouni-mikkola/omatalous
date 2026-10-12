@@ -22,7 +22,7 @@ one way was never read the other way.
 - Where two lists of one kind disagreed, the list is their union: electricity sellers and networks, earnings pension
   companies, day care words. `packages/core/test/dialect.test.ts` holds a row for each name that was on one side only.
 - Repo rule 21: an upper-case regex alternation of three or more words sits only in categorize.ts, wording.ts,
-  wording-loan-pages.ts, industry.ts, merchant.ts or sources/. The income view's benefit words and the alert's cloud
+  wording-loan-pages.ts, industry.ts or merchant.ts. The income view's benefit words and the alert's cloud
   brands are its baseline, which only shrinks.
 
 ## Consequences

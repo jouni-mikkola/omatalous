@@ -164,10 +164,6 @@ export class TransactionsRepo {
     }));
   }
 
-  deletePendingByIdStatement(accountId: string, id: string): Statement {
-    return { sql: "DELETE FROM transactions WHERE id = ? AND user_id = ? AND account_id = ? AND status = 'pending'", params: [id, this.ctx.userId, accountId] };
-  }
-
   /**
    * Inserts new transactions and refreshes bank-provided fields of existing
    * ones. Enrichment (category, transfer flag) is never overwritten here.

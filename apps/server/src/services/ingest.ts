@@ -55,20 +55,13 @@ function closest<T extends Party>(candidates: readonly T[], party: Party): T | u
  * occurrence counter (two identical coffees on the same day stay two rows).
  *
  * Pending transactions are replaced wholesale on every sync because banks
- * give them a new identity once they are booked. A booked row also removes
- * the pending row it replaces when that row is not replaced by the sync:
- * one listed in the same answer, or one left in the account when a CSV
- * brings the booked row. It takes the user's category with it.
+ * give them a new identity once they are booked. A booked row also replaces
+ * the pending row it matches, one listed in the same answer or one stored,
+ * and takes the user's category from it.
  */
-export async function ingestTransactions(
-  repo: FinanceRepo,
-  accountId: string,
-  raws: readonly RawTransaction[],
-  source: string,
-  opts: { replacePending: boolean },
-): Promise<IngestResult> {
+export async function ingestTransactions(repo: FinanceRepo, accountId: string, raws: readonly RawTransaction[], source: string): Promise<IngestResult> {
   const booked = raws.filter((r) => r.status === "booked");
-  const pending = opts.replacePending ? raws.filter((r) => r.status === "pending") : [];
+  const pending = raws.filter((r) => r.status === "pending");
   const result: IngestResult = { fetched: raws.length, inserted: 0, updated: 0, skipped: 0, changed: 0 };
 
   const dates = booked.map((r) => r.bookingDate).sort();
@@ -114,16 +107,16 @@ export async function ingestTransactions(
   const droppedPending = new Set<string>();
   const pendingEntries = entries.filter((e) => e.r.status === "pending");
   type Candidate = { r: RawTransaction; party: Party };
-  /** Stored pending rows with the row's amount and party, dated `from` to `to` days before it. */
-  const storedLike = (e: Candidate, from: number, to: number, onlyUser: boolean) =>
+  /** Stored pending rows the user categorised, with the row's amount and party, dated `from` to `to` days before it. */
+  const storedLike = (e: Candidate, from: number, to: number) =>
     stored.filter((p) => {
       const days = daysBetween(p.bookingDate, e.r.bookingDate);
-      return !takenStored.has(p.id) && (!onlyUser || p.categorySource === "user") && p.amountCents === e.r.amountCents && days >= from && days <= to && sameParty(p, e.party);
+      return !takenStored.has(p.id) && p.categorySource === "user" && p.amountCents === e.r.amountCents && days >= from && days <= to && sameParty(p, e.party);
     });
   /**
    * A new booked row replaces the pending row it is dated on or up to a week after: one in this answer
-   * (dropped) or one stored. Returns the user's category on that pending row. A sync that replaces all stored
-   * pending rows only carries the category, so a few days either way are allowed there.
+   * (dropped) or one stored. Returns the user's category on that pending row. The sync replaces all stored
+   * pending rows, so a stored one only hands its category over, and a few days either way are allowed there.
    */
   const replaceOldPending = (e: Candidate): string | null => {
     const inAnswer = closest(
@@ -137,7 +130,7 @@ export async function ingestTransactions(
     );
     if (inAnswer) droppedPending.add(inAnswer.id);
     const sameRow = inAnswer ? stored.find((p) => p.id === inAnswer.id && !takenStored.has(p.id)) : undefined;
-    const row = sameRow ?? closest(storedLike(e, opts.replacePending ? -BOOKING_DELAY_DAYS : 0, BOOKING_DELAY_DAYS, opts.replacePending), e.party);
+    const row = sameRow ?? closest(storedLike(e, -BOOKING_DELAY_DAYS, BOOKING_DELAY_DAYS), e.party);
     if (row) takenStored.add(row.id);
     return row?.categorySource === "user" ? row.category : null;
   };
@@ -166,7 +159,7 @@ export async function ingestTransactions(
       if (droppedPending.has(id)) continue;
       // a pending row sent again keeps the user's category, also when the bank changed its identity or text a little
       const same = stored.find((p) => p.id === id);
-      const moved = same ?? closest(storedLike(entry, -BOOKING_DELAY_DAYS, BOOKING_DELAY_DAYS, true), party);
+      const moved = same ?? closest(storedLike(entry, -BOOKING_DELAY_DAYS, BOOKING_DELAY_DAYS), party);
       if (moved) takenStored.add(moved.id);
       userCategory = moved?.categorySource === "user" ? moved.category : null;
     }
@@ -202,20 +195,13 @@ export async function ingestTransactions(
   const bookedRows = rows.filter((r) => r.status === "booked");
   const pendingRows = rows.filter((r) => r.status === "pending");
   const storedPending = new Map(stored.map((p) => [p.id, p.signature]));
-  const pendingChanged =
-    opts.replacePending && (pendingRows.length !== storedPending.size || pendingRows.some((r) => storedPending.get(r.id) !== bankSignature(r)));
+  const pendingChanged = pendingRows.length !== storedPending.size || pendingRows.some((r) => storedPending.get(r.id) !== bankSignature(r));
   const writes = [...bookedRows, ...(pendingChanged ? pendingRows : [])];
-  // a sync that does not replace pending rows (a CSV) removes only the ones its booked rows replace
-  const removals = opts.replacePending ? [] : [...takenStored];
-  result.changed = writes.length + removals.length + (pendingChanged ? storedPending.size : 0);
-  if (!pendingChanged && !writes.length && !removals.length) return result;
+  result.changed = writes.length + (pendingChanged ? storedPending.size : 0);
+  if (!pendingChanged && !writes.length) return result;
 
   const at = new Date().toISOString();
-  const statements = [
-    ...(pendingChanged ? [repo.deletePendingStatement(accountId)] : []),
-    ...repo.upsertStatements(writes, at),
-    ...removals.map((id) => repo.deletePendingByIdStatement(accountId, id)),
-  ];
+  const statements = [...(pendingChanged ? [repo.deletePendingStatement(accountId)] : []), ...repo.upsertStatements(writes, at)];
   // reprocess runs next; if the process dies first the mark brings it back (services/enrich.ts, hourly tick)
   if (statements.length <= WRITE_CHUNK) {
     await repo.batch([...statements, ...repo.unprocessedStatements(at)]);

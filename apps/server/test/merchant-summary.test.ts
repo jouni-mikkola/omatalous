@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optimizeDatabase } from "../src/db/pragmas.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { setupApp } from "./helpers.ts";
 
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
@@ -20,8 +21,8 @@ const summary = async (c: { call: (m: string, p: string) => Promise<{ status: nu
 
 describe("GET /api/merchants/summary", () => {
   it("adds up the whole history of one merchant", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const r = await summary(admin, "Xyzzy Tuntematon");
     expect(r.status).toBe(200);
     expect(r.body.summary).toMatchObject({
@@ -40,8 +41,8 @@ describe("GET /api/merchants/summary", () => {
   });
 
   it("shows the figure per month Kauppiaat shows: a series' own, else the complete months", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const series = ((await admin.call("GET", "/api/recurring")).body.series as { merchant: string; active: boolean; monthlyCents: number; yearlyCents: number }[]).find((r) => r.merchant === "Spotify" && r.active)!;
     const spotify = (await summary(admin, "Spotify")).body.summary;
     expect(spotify.monthly).toEqual({ monthlyCents: series.monthlyCents, yearCents: series.yearlyCents, months: 0, fromSeries: true });
@@ -51,10 +52,10 @@ describe("GET /api/merchants/summary", () => {
   });
 
   it("counts own transfers as rows but not in the sums or the category", async () => {
-    const { admin } = await setupApp();
+    const { admin, s: services } = await setupApp();
     const moved = [`2026/09/16;-300,00;${CHECKING};${SAVINGS};VIRTANEN AINO;OMA SIIRTO;;EUR`, `2026/09/22;-50,00;${CHECKING};;VIRTANEN AINO;LAINA;;EUR`];
-    await admin.call("POST", "/api/import/csv", { content: [HEADER, ...moved].join("\n"), accountName: "Käyttötili" });
-    await admin.call("POST", "/api/import/csv", { content: [HEADER, `2026/09/16;300,00;${CHECKING};${SAVINGS};VIRTANEN AINO;OMA SIIRTO;;EUR`].join("\n"), accountName: "Säästötili" });
+    await seedCsv(services, admin, { content: [HEADER, ...moved].join("\n"), accountName: "Käyttötili" });
+    await seedCsv(services, admin, { content: [HEADER, `2026/09/16;300,00;${CHECKING};${SAVINGS};VIRTANEN AINO;OMA SIIRTO;;EUR`].join("\n"), accountName: "Säästötili" });
     const rows = (await admin.call("GET", "/api/transactions?limit=50")).body.items as { merchant: string; isTransfer: boolean; amountCents: number; category: string }[];
     const transfers = rows.filter((t) => t.isTransfer);
     expect(transfers).toHaveLength(2);
@@ -68,8 +69,8 @@ describe("GET /api/merchants/summary", () => {
   });
 
   it("names the cadence and the next date of a recurring payment", async () => {
-    const { admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s: services } = await setupApp();
+    await seedCsv(services, admin, { content, accountName: "Käyttötili" });
     const s = (await summary(admin, "Spotify")).body.summary;
     expect(s.count).toBe(6);
     expect(s.outCents).toBe(5994);
@@ -77,8 +78,8 @@ describe("GET /api/merchants/summary", () => {
   });
 
   it("is empty for an unknown merchant and never reads another user's rows", async () => {
-    const { admin, member } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    const { admin, s, member } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     expect((await summary(admin, "Ei Tällaista")).body).toEqual({ summary: null });
     const eero = await member("eero");
     expect((await summary(eero, "Spotify")).body).toEqual({ summary: null });
@@ -90,7 +91,7 @@ describe("GET /api/merchants/summary", () => {
 
   it("takes the name as data and rejects what is not a name", async () => {
     const { admin, s } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     for (const name of ["'; DROP TABLE transactions; --", "../../etc/passwd", "%", "Spotify' OR '1'='1"]) {
       const r = await summary(admin, name);
       expect(r.status, name).toBe(200);
@@ -104,7 +105,7 @@ describe("GET /api/merchants/summary", () => {
 
   it("reads one merchant's rows through the merchant index", async () => {
     const { s, admin } = await setupApp();
-    await admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     await optimizeDatabase(s.db);
     const plan = (
       await s.db.all<{ detail: string }>(

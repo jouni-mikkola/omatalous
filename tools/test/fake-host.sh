@@ -128,6 +128,6 @@ gid_manager_lacks() { echo 4242 >"$S/docker-gid"; echo 4242 >"$S/shell-gid"; ech
 gid_shell_lacks() { echo 4242 >"$S/docker-gid"; rm -f "$S/shell-gid"; echo $$ >"$S/manager-pid"; }
 
 # a command of the clone with the stubs and nothing else on PATH, as the timer or a login would run it
-in_clone() { (cd "$CL" && env S="$S" HOME="$W/home" XDG_CONFIG_HOME="$W/home/.config" PATH="$S/bin:$SYS" "$@"); }
+in_clone() { (cd "$CL" && env S="$S" HOME="$W/home" XDG_CONFIG_HOME="$W/home/.config" XDG_DATA_HOME="$W/home/.local/share" PATH="$S/bin:$SYS" "$@"); }
 # group or others can write to a path of the clone: what the helper refuses
 writable_by_others() { (((8#$(stat -c %a "$CL/$1") & 8#022) != 0)); }

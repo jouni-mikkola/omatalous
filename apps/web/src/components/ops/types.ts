@@ -75,3 +75,26 @@ export interface AuditEvent {
   action: string;
   outcome: string;
 }
+
+/** `GET /api/ops/restore-latest`: the copy a restore would take now, and whether a restore already waits for the start. */
+export interface RestoreCopy {
+  name: string;
+  at: string;
+  size: number;
+  /** What the copy is, as in the list of copies. `pre-reset`: a reset made it first, and restoring it undoes the reset. */
+  kind: string;
+}
+
+export interface RestoreState {
+  copy: RestoreCopy | null;
+  pending: boolean;
+}
+
+/** `POST /api/ops/reset`, 200. `failed` counts bank connections the bank did not end; they run out at the bank. */
+export interface ResetResult {
+  ok: true;
+  copy: string;
+  revoked: number;
+  failed: number;
+  message: string;
+}

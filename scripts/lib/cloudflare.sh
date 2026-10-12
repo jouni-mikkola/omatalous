@@ -159,6 +159,10 @@ cf_guard_emails() {
     die "--access-emails changes who Cloudflare Access lets in, and this install is not reached by a tunnel. To switch: ./scripts/install.sh --access tunnel --access-emails ..."
 }
 
+# tunnel_token_ok TOKEN: the form the app takes (ACCESS_TUNNEL_TOKEN in apps/server/src/services/access-request.ts, and
+# access_read in scripts/lib/ops-access.sh): 20 to 2000 of A-Z a-z 0-9 _ = -. A token with a dot would be refused there.
+tunnel_token_ok() { local LC_ALL=C; ((${#1} >= 20 && ${#1} <= 2000)) && [[ $1 =~ ^[A-Za-z0-9_=-]+$ ]]; }
+
 # The tunnel choice (access menu 3): the address and the emails, either for Cloudflare to make (the file) or by hand.
 # The image does not exist yet, so Cloudflare is asked later (cf_up). Sets DOMAIN, TUNNEL_TOKEN, ACCESS_EMAILS and CF_AUTO.
 cf_tunnel() {
@@ -197,7 +201,7 @@ cf_tunnel() {
     if [[ -z $TUNNEL_TOKEN ]] && ! $YES; then ask_secret TUNNEL_TOKEN "Tunnel token (hidden, Enter = keep the current one)"; fi
     TUNNEL_TOKEN=${TUNNEL_TOKEN:-$(existing CLOUDFLARE_TUNNEL_TOKEN)}
     [[ -n $TUNNEL_TOKEN ]] || die "The tunnel token is missing. Give it in the environment: TALOUS_TUNNEL_TOKEN=eyJ… ./scripts/install.sh --yes --access tunnel --domain ..."
-    [[ $TUNNEL_TOKEN =~ ^[A-Za-z0-9._=-]+$ ]] || die "The token is missing or invalid."
+    tunnel_token_ok "$TUNNEL_TOKEN" || die "The token is missing or invalid."
   fi
 }
 

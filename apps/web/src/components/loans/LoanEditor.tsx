@@ -1,10 +1,22 @@
-import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type LoanDraftKey, type LoanKind } from "@banking/core";
-import { type FormEvent, type ReactNode, useId, useState } from "react";
+import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanDraftKey, type LoanKind } from "@banking/core";
+import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
 import { money } from "../../format.ts";
-import { checksLeft, defaultName, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "./form.ts";
+import type { Account } from "../../types.ts";
+import { checksLeft, defaultName, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "./form.ts";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
 
 const UNIT: Partial<Record<LoanDraftKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", rateBp: "%", marginBp: "%" };
+
+/**
+ * What the select "Sama velka pankin tilillä" offers from: the household's accounts and its saved loans (an account
+ * another loan holds is not offered). The loans card provides it to every form it holds, so the intake and the
+ * proposals need no props for it. Without a provider the select is not shown.
+ */
+export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: readonly Loan[] }>({ accounts: [], loans: [] });
+
+const LINK_HELP = "Kun laina on liitetty tiliin, velka lasketaan vain kerran ja saldo tulee pankista.";
+/** Under the balance of a linked loan: the bank's balance counts while the bank tells one, and the typed one otherwise. */
+const LINKED_BALANCE_HELP = "Velkana käytetään pankin saldoa niin kauan kuin pankki kertoo sellaisen. Muulloin käytetään tätä saldoa, joten pidä se ajan tasalla.";
 
 /** What the payment figure is, by the way the loan is paid back. */
 function paymentHelp(form: LoanForm): string | null {
@@ -37,13 +49,17 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
   const left = checksLeft(form);
   const warnings = warningsOf(form);
   const interest = interestOverPayment(form);
+  const links = useContext(LoanLinks);
+  const choices = linkChoices(links.accounts, links.loans, form.id);
+  // a stored link to an account that is not offered any more (removed, no card or loan account) is not kept by a save
+  const linked = choices.some((c) => c.id === form.accountId) ? form.accountId : "";
   const idOf = (key: string) => `${uid}-${key}`;
   const change = (key: LoanDraftKey, text: string) => setForm((f) => setValue(f, key, text));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    const { body, errors: found } = readForm(form);
+    const { body, errors: found } = readForm({ ...form, accountId: linked });
     setErrors(found);
     const stop = Object.keys(found)[0] ?? left[0] ?? (interest !== null ? "paymentCents" : null);
     if (!body || stop) {
@@ -135,7 +151,7 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
           const mark = markOf(form, key);
           const confirmed = form.confirmed.includes(key);
           const line = form.source?.lines[key];
-          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceDate" && mark === "missing" ? "Tekstissä ei ollut päivää, joten tässä on tämä päivä." : null;
+          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceDate" && mark === "missing" ? "Tekstissä ei ollut päivää, joten tässä on tämä päivä." : key === "balanceCents" && linked ? LINKED_BALANCE_HELP : null;
           const described = [mark && idOf(`${key}-mark`), line && idOf(`${key}-line`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
             <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
@@ -176,6 +192,25 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
           );
         })}
       </div>
+
+      {choices.length > 0 && (
+        <div className="loan-field">
+          <label className="field-label" htmlFor={idOf("account")}>
+            Sama velka pankin tilillä
+          </label>
+          <select id={idOf("account")} value={linked} aria-describedby={idOf("account-help")} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+            <option value="">Ei liitetty</option>
+            {choices.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <span id={idOf("account-help")} className="field-help">
+            {LINK_HELP}
+          </span>
+        </div>
+      )}
 
       {form.values.repayment === "bullet" && shown.includes("repayment") && <p className="small muted loan-note">Kertalyhenteinen laina maksetaan kerralla viimeisenä eräpäivänä, joten sillä ei ole maksuerää.</p>}
 

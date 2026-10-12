@@ -1,6 +1,6 @@
 /**
  * Command-line helpers, run inside the container:
- *   docker compose exec banking node dist/node.js setup-code      (code for creating the first admin in the browser)
+ *   docker compose exec banking node dist/node.js setup-code      (a new code for creating the first admin in the browser, good for 24 hours)
  *   docker compose exec banking node dist/node.js version
  *   docker compose exec banking node dist/node.js user create <username> [--admin] [--name "Nimi"]
  *   docker compose exec banking node dist/node.js user reset-password <username>

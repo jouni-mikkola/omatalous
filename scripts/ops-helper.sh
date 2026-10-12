@@ -26,6 +26,7 @@
 #
 #   ops-helper.sh            one tick (what the timer runs)
 #   ops-helper.sh --version  prints the protocol version
+#   ops-helper.sh --self-test  runs self_test (scripts/lib/ops-selftest.sh), the only argument it takes
 # ──────────────────────────────────────────────────────────────────────────────
 OPS_HELPER_VERSION=3
 set -u -o pipefail
@@ -47,7 +48,7 @@ if [[ ${TALOUS_OPS_CLEAN:-} != 1 ]]; then
   # test hooks, only when a test asks for them
   if [[ ${OPS_TEST:-} == 1 ]]; then
     clean+=(OPS_TEST=1 PATH="$PATH")
-    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS; do
+    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS OPS_T_SELFTEST OPS_T_ADDRESS; do
       [[ -z ${!v:-} ]] || clean+=("$v=${!v}")
     done
   fi
@@ -56,17 +57,19 @@ fi
 unset TALOUS_OPS_CLEAN
 umask 077
 
+SELF=$(readlink -f "${BASH_SOURCE[0]}"); ROOT=$(dirname "$(dirname "$SELF")"); LIB=scripts/lib; COPY=()
 case ${1:-} in
   "") ;;
   --version) echo "$OPS_HELPER_VERSION"; exit 0 ;;
+  --self-test) (($# == 1)) || { echo "Usage: ops-helper.sh" >&2; exit 2; } ;;
+  # --root DIR: this file runs for the clone DIR. Taken only by the launcher's last good copy of the helper, never by a clone's
+  # helper (scripts/ops-launcher.sh). The copy loads the libs beside itself, and check_permissions covers it and the launcher's folder.
+  --root)
+    [[ $# == 2 && $2 =~ ^/[A-Za-z0-9_./-]+$ && -d $2/scripts && -e $2/.git && $SELF =~ ^(/[A-Za-z0-9_./-]+/omatalous/[a-z0-9][a-z0-9_-]*)/last-good/scripts/ops-helper\.sh$ && -f ${BASH_REMATCH[1]}/launcher.sh ]] || { echo "Usage: ops-helper.sh" >&2; exit 2; }
+    LIB=$ROOT/scripts/lib; COPY=("${BASH_REMATCH[1]}" "${BASH_REMATCH[1]}/launcher.sh" "$ROOT" "$ROOT/scripts" "$LIB" "$LIB"/*.sh); ROOT=$(readlink -f "$2") ;;
   *) echo "Usage: ops-helper.sh" >&2; exit 2 ;;
 esac
-
-SELF=$(readlink -f "${BASH_SOURCE[0]}")
-ROOT=$(dirname "$(dirname "$SELF")")
 cd "$ROOT" || exit 1
-REPO=jouni-mikkola/omatalous
-API_URL=https://api.github.com/repos/$REPO/releases/latest
 OPS=ops
 DEFAULT_INSTANCE=banking-app
 ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew access"
@@ -75,7 +78,9 @@ NODE=(node --disable-warning=ExperimentalWarning)
 # timeouts in seconds (the spec table); a test may shorten them
 t_for() { local v=OPS_T_$2; if [[ ${OPS_TEST:-} == 1 && -n ${!v:-} ]]; then echo "${!v}"; else echo "$1"; fi; }
 T_UPDATE=$(t_for 1200 UPDATE); T_ROLLBACK=$(t_for 600 ROLLBACK); T_BACKUP=$(t_for 300 BACKUP)
-T_RESTART=$(t_for 180 RESTART); T_DOCTOR=$(t_for 120 DOCTOR); T_CHECK=$(t_for 60 CHECK)
+T_RESTART=$(t_for 180 RESTART); T_DOCTOR=$(t_for 120 DOCTOR)
+# shellcheck disable=SC2034 # read by fetch_release and check_update (lib/ops-release.sh)
+T_CHECK=$(t_for 60 CHECK)
 T_LOGS=$(t_for 60 LOGS); T_PRUNE=$(t_for 300 PRUNE); T_RENEW=$(t_for 120 RENEW)
 LOG_CAP=262144
 # what store_result keeps of a log: the last lines and bytes (the logs action holds up to three services)
@@ -127,7 +132,17 @@ check_permissions() {
     [[ -e $p ]] || continue
     if unsafe_path "$p"; then log "File permissions: $p is not safe (owner or write access). The helper does not run."; return 1; fi
   done
+  for p in ${COPY[@]+"${COPY[@]}"}; do if [[ -e $p ]] && unsafe_path "$p"; then log "File permissions: $p is not safe (owner or write access). The helper does not run."; return 1; fi; done
   return 0
+}
+# The parts of a tick that live in scripts/lib, read only after check_permissions has passed on scripts/lib. All of them are
+# loaded before anything runs, so an update that swaps the files on disk (the rollback of a failed self-test or of the
+# watchdog) leaves the running tick every function it still calls. dbcopy.sh is for atomic_write (watchdog_report).
+load_libs() {
+  local l
+  # shellcheck source=/dev/null
+  for l in release selftest watchdog address housekeeping; do . "$LIB/ops-$l.sh" || return 1; done
+  . "$LIB/dbcopy.sh"
 }
 
 ENV_ERR=""
@@ -152,12 +167,13 @@ env_check() {
   [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="INSTANCE_NAME is invalid"; return 1; }
   inst=$(env_get COMPOSE_PROJECT_NAME)
   [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="COMPOSE_PROJECT_NAME is invalid"; return 1; }
+  inst=$(env_get TALOUS_PRERELEASE)   # which release is followed (lib/release.sh)
+  [[ -z $inst || $inst == yes || $inst == no ]] || { ENV_ERR="TALOUS_PRERELEASE is invalid"; return 1; }
   return 0
 }
 
 # ── docker ──────────────────────────────────────────────────────────────────
 INSTANCE=$(env_get INSTANCE_NAME); INSTANCE=${INSTANCE:-$DEFAULT_INSTANCE}
-dc() { docker compose "$@"; }
 app_running() { [[ -n $(timeout 20 docker compose ps --status running -q banking 2>/dev/null) ]]; }
 app_up() { timeout 20 docker compose exec -T banking wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1; }
 in_app() { timeout "${APP_TIMEOUT:-60}" docker compose exec -T banking "${NODE[@]}" "$@"; }
@@ -312,11 +328,6 @@ store_result() { # store_result ID STATUS RC SUMMARY LOGFILE
     printf '}\n'
   } >"$OPS/journal/$id.result"
 }
-# the last line that says what went wrong, from a script's output
-last_problem() { # stdin: log
-  # bytes under LANG=C, so the cut is at 180 bytes and then drops a half character at the end
-  sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | grep -E '^(✗|!)' | tail -1 | sed -E 's/^(✗|!) *//' | tr -d '\000-\037' | head -c 180 | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; }
-}
 
 # ── the state snapshot the page shows ───────────────────────────────────────
 state_json() {
@@ -339,6 +350,7 @@ state_json() {
   # shellcheck source=lib/ops-access.sh # where the copy would answer after `lan` right now, by the rule `lan` uses
   if lan=$(. scripts/lib/ops-access.sh 2>/dev/null && access_lan_url) && [[ $lan =~ ^http://[][A-Za-z0-9.:]{1,110}$ ]]; then sep; printf '"lanAddress":"%s"' "$lan"; fi
   for f in check doctor backups; do if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi; done
+  if [[ -s $OPS/watchdog.frag ]]; then sep; printf '"watchdog":'; cat "$OPS/watchdog.frag"; fi # watchdog_report (lib/ops-watchdog.sh)
   printf '}'
 }
 # host backups (backup.sh) for the list on the page
@@ -355,67 +367,7 @@ write_backups_frag() {
 }
 
 # ── check for a new version ─────────────────────────────────────────────────
-REL_STATUS=""; REL_TAG=""; REL_NOTES=""
-# Asks the GitHub Releases API for the latest release. REL_STATUS: ok, none (no release yet) or error.
-fetch_release() {
-  local tmp code
-  REL_STATUS=error; REL_TAG=""; REL_NOTES=""
-  tmp=$(mktemp "$OPS/run/release.XXXXXX") || return 1
-  code=$(timeout -k 5 "$T_CHECK" curl -sS -o "$tmp" -w '%{http_code}' --max-time 30 --max-filesize 2000000 --proto '=https' --tlsv1.2 \
-    -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' -A "talous-ops/$OPS_HELPER_VERSION" "$API_URL" 2>/dev/null) || code=000
-  if [[ $code == 404 ]]; then REL_STATUS=none; rm -f "$tmp"; return 0; fi
-  if [[ $code != 200 ]]; then rm -f "$tmp"; return 1; fi
-  REL_TAG=$(grep -o '"tag_name": *"v[0-9]\+\.[0-9]\+\.[0-9]\+"' "$tmp" | head -1 | sed -E 's/.*"(v[0-9.]+)"$/\1/')
-  if [[ ! $REL_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then REL_TAG=""; rm -f "$tmp"; return 1; fi
-  # the body is a JSON string on one line: unescape it, scrub it, keep 3000 characters
-  REL_NOTES=$(sed -n -E 's/^[[:space:]]*"body": *"(([^"\\]|\\.)*)".*/\1/p' "$tmp" | head -1 | awk '{
-      s = $0; out = ""; n = length(s)
-      for (i = 1; i <= n; i++) {
-        c = substr(s, i, 1)
-        if (c == "\\") { i++; d = substr(s, i, 1)
-          if (d == "n") out = out "\n"; else if (d == "t") out = out " "; else if (d == "u") { i += 4; out = out "?" } else if (d != "r") out = out d
-        } else out = out c
-      }
-      printf "%s", out }' | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\000-\011\013-\037\177' | sed -E 's/[A-Za-z0-9_=-]{40,}/[piilotettu]/g' | head -c 3000)
-  REL_STATUS=ok
-  rm -f "$tmp"
-  return 0
-}
-CHECK_MODE=""; UPDATE_AVAILABLE=false   # CHECK_MODE: release | source
-# Writes ops/check.frag from the answer already held (REL_TAG and REL_NOTES, or the local refs), never fetching, so
-# act_update can rewrite it after the switch. A rollback has no answer to rewrite and deletes the file instead.
-write_check_frag() {
-  local cur avail=false ver commits="" n=0 line hash subj
-  if [[ $CHECK_MODE == release ]]; then
-    ver=${REL_TAG#v}; cur=$(current_version || true); [[ -n $cur ]] && semver_gt "$ver" "$cur" && avail=true
-    printf '"update_available":%s,"latest_version":"%s","release_notes":%s,"checked_at":"%s"' "$avail" "$ver" "$(json_str "$REL_NOTES")" "$(now_iso)" >"$OPS/check.frag"
-    say_log "Latest release: $ver, running: ${cur:-?}."
-  else
-    while IFS= read -r line; do
-      hash=${line%% *}; subj=${line#* }; [[ $hash =~ ^[0-9a-f]{4,40}$ ]] || continue
-      commits+="${commits:+,}{\"hash\":\"$hash\",\"subject\":$(json_str "${subj:0:100}")}"; n=$((n + 1))
-    done < <(git log --format='%h %s' -30 "HEAD..origin/$(pol_get BRANCH)" 2>/dev/null | tr -d '\000-\010\013-\037\177')
-    ((n > 0)) && avail=true
-    printf '"update_available":%s,"behind_commits":[%s],"checked_at":"%s"' "$avail" "$commits" "$(now_iso)" >"$OPS/check.frag"
-    say_log "Source channel: ${n} new changes."
-  fi
-  UPDATE_AVAILABLE=$avail
-}
-# The network part, then write_check_frag. Returns 1 when the answer could not be had (offline), nothing else changes then.
-check_update() {
-  local channel branch
-  channel=$(env_get TALOUS_CHANNEL); CHECK_MODE=source
-  if [[ $channel != source ]]; then
-    fetch_release || { say_log "Could not get release information (no network or GitHub does not answer)."; return 1; }
-    [[ $REL_STATUS == ok ]] && CHECK_MODE=release
-    if [[ $channel == release && $CHECK_MODE != release ]]; then say_log "TALOUS_CHANNEL=release but there are no releases yet."; return 1; fi
-  fi
-  if [[ $CHECK_MODE != release ]]; then
-    git_policy || { say_log "$GIT_MSG."; return 1; }; branch=$(pol_get BRANCH)
-    timeout -k 5 "$T_CHECK" git fetch --quiet --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null || { say_log "Could not check the source (no network)."; return 1; }
-  fi
-  write_check_frag
-}
+# fetch_release, write_check_frag and check_update are in scripts/lib/ops-release.sh (load_libs)
 # a line for the log of the running action (LOGF) or the helper log
 say_log() { if [[ -n ${LOGF:-} ]]; then printf '%s\n' "$*" >>"$LOGF"; else log "$*"; fi; }
 
@@ -495,6 +447,8 @@ act_update() {
       after=$(current_version || true)
       SUMMARY="Päivitetty: ${before:-?} → ${after:-?}."
       write_check_frag   # the answer from before the switch says "available", and nothing fetches again until the daily check
+      rm -f "$OPS/watchdog.frag"   # the report of an earlier rollback is old news once an update has gone through (watchdog_report)
+      after_update_check   # lib/ops-selftest.sh: no arguments; it may call fail and change SUMMARY
     else
       fail "Päivitetty sovellus ei vastaa."; recover || SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."
     fi
@@ -532,8 +486,6 @@ act_backup() {
   echo "STEP: 2/2 Kopio sovelluksen omaan kansioon" >>"$LOGF"
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   # the copy is checked after it is written and removed when it fails (scripts/lib/dbcopy.sh)
-  # shellcheck source=lib/dbcopy.sh
-  . scripts/lib/dbcopy.sh
   if run_cap "$T_BACKUP" docker compose exec -T banking "${NODE[@]}" -e "$DBCOPY_JS" 'keep:^manual-[0-9TZ]+\.db$' "/data/backups/manual-$stamp.db"; then :
   else fail "Kopio sovelluksen omaan kansioon ei onnistunut."; return; fi
   write_backups_frag
@@ -588,23 +540,27 @@ reclaimed() { # reclaimed TEXT
 }
 # Fixed commands only. docker image prune -f without -a removes images that have no tag at all, and
 # builder prune -f the build cache, so this install's :latest and :previous (which update.sh and rollback
-# need) are never candidates. They are checked before and after anyway.
+# need) are never candidates. They are checked before and after anyway. `act_prune own` (the housekeeping, lib/ops-housekeeping.sh)
+# takes only the untagged images that carry this app's label talous.version, and leaves the build cache and other software alone.
 image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
+# shellcheck disable=SC2120 # "own" is passed by housekeeping (lib/ops-housekeeping.sh)
 act_prune() {
-  local start imgs cache id_latest id_prev
+  local start imgs cache="" id_latest id_prev own=(); [[ ${1:-} == own ]] && own=(--filter label=talous.version)
   id_latest=$(image_id "$INSTANCE:latest"); id_prev=$(image_id "$INSTANCE:previous")
   echo "STEP: 1/2 Poistetaan vanhat versiot" >>"$LOGF"
   start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
-  run_cap "$T_PRUNE" docker image prune -f || { RC=$?; fail "Kuvien siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
+  run_cap "$T_PRUNE" docker image prune -f ${own[@]+"${own[@]}"} || { RC=$?; fail "Kuvien siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
   imgs=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
-  echo "STEP: 2/2 Tyhjennetään välimuisti" >>"$LOGF"
-  start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
-  run_cap "$T_PRUNE" docker builder prune -f || { RC=$?; fail "Välimuistin siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
-  cache=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
+  if [[ ${1:-} != own ]]; then
+    echo "STEP: 2/2 Tyhjennetään välimuisti" >>"$LOGF"
+    start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
+    run_cap "$T_PRUNE" docker builder prune -f || { RC=$?; fail "Välimuistin siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
+    cache=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
+  fi
   if [[ $(image_id "$INSTANCE:latest") != "$id_latest" || $(image_id "$INSTANCE:previous") != "$id_prev" ]]; then
     fail "Siivous poisti version, jonka piti jäädä."; return
   fi
-  if [[ $imgs == "0 t" && $cache == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Levyltä vapautui $imgs vanhoista versioista ja $cache välimuistista."; fi
+  if [[ $imgs == "0 t" && ${cache:-0 t} == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Levyltä vapautui $imgs vanhoista versioista${cache:+ ja $cache välimuistista}."; fi
 }
 # The script schedule and the policy are installed again from this clone, with fixed arguments. Without
 # --ops-policy an existing policy (remote, branch, docker) is kept, so a changed remote is not adopted here.
@@ -680,6 +636,7 @@ heartbeat() {
     if check_update >/dev/null 2>&1; then touch "$OPS/last-check"; else touch -d '23 hours ago' "$OPS/last-check" 2>/dev/null || touch "$OPS/last-check"; fi
     run_doctor || true
     write_backups_frag
+    housekeeping   # lib/ops-housekeeping.sh: no arguments
   fi
   if ((n % 10 == 0)) || [[ $boot != "$old_boot" ]] || [[ $stale == true ]]; then
     printf '%s\n' "$boot" >"$OPS/boot_id"
@@ -725,6 +682,7 @@ main() {
   flock -n 8 || exit 0
   if ! env_check; then log ".env is invalid: $ENV_ERR. The helper does not run until it is fixed."; exit 1; fi
   [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { log "INSTANCE_NAME is invalid"; exit 1; }
+  load_libs || { log "A part of the helper does not load (scripts/lib). The helper does not run."; exit 1; }
   now_iso >"$OPS/helper-seen"; rm -f .env.new 2>/dev/null # (left by a helper killed while it wrote .env: it holds the tunnel token)
   # the docker binary named at install goes first in PATH
   local d; d=$(pol_get DOCKER)
@@ -735,6 +693,9 @@ main() {
   local cut=""; if finish_unfinished; then cut=$(journal_action "$CUT"); fi
   # shellcheck source=lib/ops-access.sh
   case $cut in access | restart) . scripts/lib/ops-access.sh && cut_short "$CUT" "$cut" ;; esac
+  # every tick, with the app down too, each with no arguments: watchdog_tick (lib/ops-watchdog.sh), address_tick (lib/ops-address.sh)
+  watchdog_tick
+  address_tick
   if ! app_running; then case $cut in update | rollback) recover || true ;; esac; exit 0; fi
   reconcile
   if poll_once; then exit 0; fi
@@ -743,4 +704,9 @@ main() {
   [[ ! -f $OPS/RECOVERY.txt ]] || ! app_up || rm -f "$OPS/RECOVERY.txt"
   exit 0
 }
+# --self-test: the helper's only argument. No lock, no tick: the files are checked and loaded, and self_test answers.
+if [[ ${1:-} == --self-test ]]; then
+  check_permissions && load_libs || { echo "self-test failed: the helper's files are not safe or do not load"; exit 1; }
+  self_test; exit $?
+fi
 main

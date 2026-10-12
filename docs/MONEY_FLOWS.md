@@ -239,7 +239,8 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 
 The bank connection shows payment accounts only, so a loan is typed in, pasted or read from a picture, and the household
 confirms it. Its payments are still bank rows and stay in the debt flow: a known loan changes no flow. Each figure has
-one definition, in `packages/core/src/loans.ts`.
+one definition, in `packages/core/src/loans.ts`, and the list of the household's debts behind every debt total is in
+`packages/core/src/household-debts.ts`.
 
 | Figure | Means | In core |
 |---|---|---|
@@ -250,11 +251,10 @@ one definition, in `packages/core/src/loans.ts`.
 | Next payment | The next payment of the plan in full, with its interest and its amortisation. It is never more than what is owed with its interest: the last payment is what is left. A loan that owes nothing has none, and neither has a bullet loan. A payment typed for a loan without a whole plan is told as typed, at most what is owed (with one interval's interest when the rate and the interval are known), and has no parts | `loanNextPayment` |
 | Payments a month | Each loan's next payment divided by its interval in months, to the nearest cent with a half cent up, added together. A loan that owes but has no payment with an interval is counted as missing. A bullet loan is counted apart: it pays interest and no instalment | `debtPaymentsPerMonth` |
 | A move of the reference rate | The payment and the next 12 months' interest with the rate moved by a number of points. The rate falls no lower than the loan's margin, and to zero when no margin was told; the figure says how far the rate moved. An annuity gets the payment that ends the loan on the due date it ends on now, a fixed instalment keeps its payment and takes longer, equal principal pays the new interest on top. Each is read from the schedule the next payment is read from, so the last payment is what is left. Told for a loan with a Euribor reference rate that owes and has a rate, one point down and one up; a fall the rate has no room for is left out | `loanRateScenario` |
-| The household's debts | Every saved loan, and every connected card and loan account that owes something: the list behind every debt total. No link between a saved loan and an account is stored, so none is left out | `householdDebts` |
+| The household's debts | Every saved loan, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
 | Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |
 | A connected account as a loan | A connected card, or an account with a credit limit, read as a loan so that its debt and its use come from the same functions. The bank reports credit in use as a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank that reported a card's debt as a positive number would read as no debt. The id is `account:<account id>` | `creditAccountLoan` |
 | What a card cost | The bank's own charges on the card account in the complete months before a day, twelve at most. A charge worded as interest is interest, less the interest the bank took back and never below zero, and every other charge is a fee, and a late fee stays the late fee alert's. A month carried a balance when the bank charged interest in it. Nothing is scaled up for a card connected later | `cardCosts` |
-| A payment's parts | Interest is one interval's interest on what was owed the day before, and amortisation is the rest, so the two add up to the payment. Amortisation is negative when the payment did not cover the interest. No view reads it in this release; a later release links a loan to its account | `splitLoanPayment` |
 
 - Money is whole cents and a rate is hundredths of a percent. Interest of one payment interval is balance × rate ×
   months / 12, rounded to the nearest cent with a half cent up (`loanPeriodInterest`). Banks count days, each in its
@@ -270,12 +270,21 @@ one definition, in `packages/core/src/loans.ts`.
   never ending.
 - Nothing is estimated. A figure that needs a field the loan lacks is empty and names the field: no rate, no
   interest; no payment, no payoff date.
-- A saved loan cannot be tied to a connected account: no link is stored yet. Every saved loan and every connected
-  card or loan account that owes is in the sums, so a debt the household saved and the bank also shows as an account
-  is there twice. The Lainat report names each such set of saved loans once, with the accounts beside it (`maybeTwice`
-  in `reports/loans.ts`): a connected card beside every saved card and credit line that owes, whatever their names,
-  and a connected loan account beside every saved loan that is no card. It says that removing the saved loan takes the
-  second one out. Saldot and the Säästövinkit loan area point to the report.
+- A saved loan can be tied to the connected card or loan account that is the same debt, in the loan's form (*Sama velka
+  pankin tilillä*, offered when the household has such an account that no other loan holds). A linked pair counts once:
+  in the debt total of Lainat, in the accounts less the debts of Saldot and in the Säästövinkit loan area. The balance
+  is the bank's while the account's balance is at or below zero and not older than the balance typed for the loan. The
+  rate, the margin, the plan and the payments are the saved loan's, and the payoff date is counted from the bank's
+  balance on the saved loan's due days, so it does not move from one day to the next. With the account in credit, or
+  its balance older than the typed one, the saved loan counts with its typed balance, still once. In the months of
+  Saldot before the account's first known balance the saved loan counts as typed.
+- A saved loan and an account that are not linked are both in the sums, so a debt the household saved and the bank also
+  shows as an account is there twice. The Lainat report names each such set of saved loans once, with the accounts
+  beside it (`maybeTwice` in `reports/loans.ts`): a connected card beside every saved card and credit line that owes,
+  whatever their names, and a connected loan account beside every saved loan that is no card. It says that removing the
+  saved loan takes the second one out, and beside each of the household's own accounts it links to the loan's form with
+  that account chosen, which counts the pair once. A linked loan or its account is no longer named. Saldot and the
+  Säästövinkit loan area point to the report.
 - A checking account below zero is no loan: its overdraft is in the accounts' total and not in the debt total. Beside
   a saved credit line that owes it may be that credit, and then the accounts less the debts hold it twice
   (`overdraftTwice` in `reports/loans.ts`). Lainat and Saldot say so where they show that figure, and that the right
@@ -284,8 +293,8 @@ one definition, in `packages/core/src/loans.ts`.
 - The debt total is one number. The Lainat report, the accounts less the debts and the Velat lines of the
   Säästövinkit loan area all read `householdDebts` (`packages/core/test/owners.test.ts` holds them together).
 - The accounts less the debts ("Tilit miinus velat", `accountsLessDebt` of `balanceReport`) are the connected
-  accounts' total less the saved loans, each at its balance on that day. Connected cards and loan accounts are in the
-  accounts' total already. The figure holds no home, no investments and no other property, so it is not net worth and
+  accounts' total less the saved loans that are no linked account's debt, each at its balance on that day. Connected
+  cards and loan accounts, a linked loan's among them, are in the accounts' total already. The figure holds no home, no investments and no other property, so it is not net worth and
   no page calls it that: the page says what is left out. It is empty for a month that ends before a saved loan's
   balance was told, and the same as the accounts' total without saved loans. Lainat and Saldot tell it for today.
 - The Lainat report (`reports/loans.ts`) shows only when the household saved a loan. In the household view the
@@ -297,7 +306,8 @@ one definition, in `packages/core/src/loans.ts`.
   without an interval is shown without one. The date a loan ends is "Viimeinen eräpäivä". What is not known reads
   "ei tiedossa", never zero.
 - The Säästövinkit loan area reads a saved mortgage where there is one: its margin and reference rate answer for the
-  `loan_rate` question, its balance is the loan's balance today, and paying it down early is counted at its own rate
+  `loan_rate` question, its balance is the loan's balance today (the bank's balance when the mortgage is linked to its
+  loan account), and paying it down early is counted at its own rate
   instead of a range of Euribor months. A saved mortgage with a fixed rate is asked nothing, as when the household
   answers that its rate is fixed. The mortgage is the saved one linked to the payment series, else the saved
   mortgage that owes most. Without a saved mortgage the area asks and counts as before.

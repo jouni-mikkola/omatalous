@@ -28,9 +28,16 @@ It does this and nothing else:
 
 A folder `~/omatalous` that already holds a clone of Omatalous is left as it is, and its installer runs, so pasting the
 command again is safe. Anything else in that place stops the script. Options go at the end of the command, after
-`bash omatalous-install.sh`. `--dir FOLDER` clones somewhere else. `--new-instance NAME` makes a second copy in `~/NAME`
+`bash omatalous-install.sh`. `--dir FOLDER` clones somewhere else. `--new-instance NAME` makes a second copy in `~/NAME`, on the latest release
 (see [a second copy](ADVANCED.md#a-second-copy-on-the-same-machine)). The script hands every other option to the
 installer, for example `--port 8085`.
+
+If you clone the repository yourself and run `./scripts/install.sh` in the clone, the installer asks GitHub once which
+release is out. A clone of `main` can sit on the tag of a release that waits out its first two days, and then it says
+"This folder is at vX.Y.Z, which is not out yet (a release waits two days). Installing the latest release, vY.Z.W.",
+moves the folder to that release and starts again from there. When GitHub does not answer, it goes on with the release
+the folder is at and says "GitHub could not be asked which release is out, so the release this folder is at could not be
+confirmed. The install goes on with it." A folder that already has a `.env` is never asked and never moved.
 
 ## 2. Install Omatalous
 
@@ -50,7 +57,9 @@ Set up: http://192.168.1.50:8080/#koodi=k3f9-2mxq-8hzt-p4wa   (the one-time code
 ```
 
 The first line is the address of Omatalous for the whole household. Reserve that address for the machine in your
-router (DHCP reservation), so it stays the same. If `qrencode` is installed (`sudo apt install qrencode`, and run the
+router (DHCP reservation), so it stays the same. If the router hands the machine another address anyway, the
+maintenance helper moves the app to it after ten minutes, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#opening-the-app).
+The setup link works for 24 hours. If `qrencode` is installed (`sudo apt install qrencode`, and run the
 installer again), the setup link is also shown as a QR code for your phone.
 
 Choosing a Cloudflare Tunnel as the way in (see [Away from home](ADVANCED.md#cloudflare-tunnel)) without a settings file
@@ -64,6 +73,10 @@ and paste the command again. A re-run is always safe.
 
 Open the *Set up* link on a device in your home network. The part after `#` is the one-time setup code, so copy
 the whole link. The first user you create is the admin.
+
+The setup code works for 24 hours. After that the page says *Asennuskoodi on vanhentunut.* In the install folder,
+`docker compose exec banking node dist/node.js setup-code` prints a new code to type into the page. A `SETUP_CODE` kept in
+`.env` does not expire.
 
 To look around first, press *Lataa esimerkkitiedot* on the empty start page. *Asetukset > Poista demodata* removes it.
 
@@ -79,6 +92,10 @@ up to two years of history. Each connection has a button *Yhdistä uudelleen* th
 banks differ and what the error messages mean.
 
 After that Omatalous fetches at 6.15 and 18.15. Change the hours under *Asetukset > Palvelin*.
+
+A bank connection is the only way transactions come in. The import of Nordea CSV files was removed in 0.9.0. An account
+that an older version made from CSV files stays with its rows, and when you connect the same account through the bank,
+those rows move into the bank's account.
 
 ## 5. Add the household
 
@@ -99,7 +116,9 @@ picture takes a moment, because the reader is fetched from the app itself, about
 Each figure shows the line it was read from and a mark: *Varma*, *Tarkista* or *Ei löytynyt*. Everything read from a
 picture is *Tarkista*, and *Tallenna* waits until you have ticked each of those as right or corrected it. Nothing is
 saved before *Tallenna*. Above the list of loans the page also shows monthly payments to one payee that look like a loan
-nobody has saved, with *Tallenna lainaksi* and *Ei laina* for each.
+nobody has saved, with *Tallenna lainaksi* and *Ei laina* for each. When a saved loan is the same debt as a connected
+card or loan account, choose that account in *Sama velka pankin tilillä* in the loan's form. The debt then counts once,
+with the balance from the bank.
 
 A household with a saved loan gets a *Lainat* section in *Raportit* with what is owed, the interest of the next 12 months
 and the payments a month. *Saldot* shows the connected accounts less the saved loans as *Tilit miinus velat*, and
@@ -108,10 +127,14 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
 
 ## After the install
 
-- Updates show up under *Asetukset > Ylläpito*. Nothing updates before you press *Päivitä*.
+- Updates show up under *Asetukset > Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered about
+  two days after it comes out. `TALOUS_PRERELEASE=yes` in `.env` takes it at once, see
+  [Updates in detail](ADVANCED.md#updates-in-detail).
 - The app keeps a database copy from each of the last seven days on the machine. Now and then press *Lataa uusin* under
   *Asetukset > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
-  a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups).
+  a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta viimeisin varmuuskopio* in the same place
+  brings the newest copy back, and at every start the app checks its database and restores a damaged one from the
+  newest intact copy.
 - Lost the address? Run `./scripts/install.sh` again in the `omatalous` folder. It keeps the settings and data and
   prints the address.
 - To use the app away from home, a VPN is the safest. A Cloudflare Tunnel with a login in front can be set up in the

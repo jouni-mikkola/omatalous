@@ -21,6 +21,8 @@
 import { CloudflareApi } from "./providers/cloudflare/api.ts";
 import { CloudflareClient, CloudflareError } from "./providers/cloudflare/client.ts";
 import { CloudflareExit, cloudflareDown, cloudflareUp } from "./providers/cloudflare/reconcile.ts";
+import { ACCESS_HOSTNAME, ACCESS_HOSTNAME_MAX } from "./services/access-request.ts";
+import { emailOf, MAX_EMAILS } from "./services/remote-access-input.ts";
 
 export interface CloudflareIo {
   out: (line: string) => void;
@@ -30,11 +32,6 @@ export interface CloudflareIo {
 const USAGE = "Usage: node dist/node.js cloudflare up|down --name <copy> --hostname <host> [--new (up only)]  (CLOUDFLARE_API_TOKEN, and for up CLOUDFLARE_ACCESS_EMAILS, in the environment)";
 
 const NAME = /^[a-z0-9][a-z0-9_-]{0,62}$/;
-const LABEL = "[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?";
-const HOSTNAME = new RegExp(`^${LABEL}(\\.${LABEL})+$`);
-const EMAIL = /^[^\s@,<>"';]+@[^\s@,<>"';]+\.[^\s@,<>"';]+$/;
-/** Cloudflare Zero Trust Free covers 50 users. */
-const MAX_EMAILS = 50;
 
 interface Parsed {
   command: "up" | "down";
@@ -61,18 +58,19 @@ function parseArgs(args: string[]): Parsed | string {
   const hostname = values.get("--hostname")?.toLowerCase();
   if (!name || !hostname) return USAGE;
   if (!NAME.test(name)) return "--name must be the copy's name: lower case letters, digits, - and _.";
-  if (hostname.length > 253 || !HOSTNAME.test(hostname)) return "--hostname must be a plain host name such as talous.example.fi (no https://, path or port).";
+  if (hostname.length > ACCESS_HOSTNAME_MAX || !ACCESS_HOSTNAME.test(hostname)) return "--hostname must be a plain host name such as talous.example.fi (no https://, path or port).";
   return { command, name, hostname, new: isNew };
 }
 
 /** The addresses in CLOUDFLARE_ACCESS_EMAILS, or the problem. The addresses themselves are never repeated in a message. */
 function parseEmails(value: string | undefined): string[] | string {
-  const emails = (value ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+  // the form is the page's (services/remote-access-input.ts): one check, whoever gives the list
+  const emails = (value ?? "").split(",").map((e) => e.trim()).filter(Boolean).map(emailOf);
   if (!emails.length) return "CLOUDFLARE_ACCESS_EMAILS is empty: list the email addresses that may sign in, separated by commas.";
-  const bad = emails.findIndex((e) => e.length > 254 || !EMAIL.test(e));
+  const bad = emails.indexOf(null);
   if (bad >= 0) return `Entry ${bad + 1} of CLOUDFLARE_ACCESS_EMAILS is not an email address.`;
   if (emails.length > MAX_EMAILS) return `CLOUDFLARE_ACCESS_EMAILS has more than ${MAX_EMAILS} addresses, the most Zero Trust Free covers.`;
-  return emails;
+  return emails.filter((e): e is string => e !== null);
 }
 
 export async function runCloudflareCli(

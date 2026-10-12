@@ -25,7 +25,7 @@ async function withLoanRows() {
   const user = async (id: string) => {
     const repo = t.s.finance(id);
     await repo.upsertAccount({ id: `chk-${id}`, connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
-    await ingestTransactions(repo, `chk-${id}`, rows, "csv", { replacePending: false });
+    await ingestTransactions(repo, `chk-${id}`, rows, "csv");
     await reprocess(repo, t.s.settings);
   };
   await user(t.adminId);

@@ -11,7 +11,7 @@ const day = "2026-10-11";
 /** A mortgage with every figure known. Made up, like every loan here. */
 const row = (over: Partial<LoanRow> = {}): LoanRow =>
   ({
-    id: "home", name: "Kodin laina", lender: "Esimerkkipankki", kind: "mortgage", accountType: null,
+    id: "home", name: "Kodin laina", lender: "Esimerkkipankki", kind: "mortgage", accountType: null, linkedAccount: null,
     balance: { cents: 12_000_000, unknown: null }, balanceDate: day, rateBp: 325, reference: "euribor_12", repayment: "annuity",
     payment: { cents: 100_000, interestCents: 32_500, amortisationCents: 67_500, intervalMonths: 1, unknown: null },
     interest: { cents: 380_000, unknown: null }, payoff: { date: "2040-02-01", unknown: null, never: false }, scenarios: [],
@@ -150,5 +150,11 @@ describe("Raportit: Lainat", () => {
   it("in the household view the saved loans are said to be the viewer's own", () => {
     expect(html(loans, context(report([row()]), "household"))).toContain("Tallennetuista lainoista ovat mukana vain omasi.");
     expect(html(balances, context(report([row()]), "household"))).toContain("omat tallennetut lainasi 120 000,00 €.");
+  });
+
+  it("with a linked loan the Saldot line says its figure holds the loans no account holds", () => {
+    const rows = [row(), row({ id: "card", linkedAccount: { id: "a1", name: "Luottokortti" } })];
+    expect(html(balances, context(report(rows)))).toContain("tilit yhteensä 1 200,00 €, tiliin liittämättömät tallennetut lainat 120 000,00 €.");
+    expect(html(balances, context(report(rows), "household"))).toContain("omat tiliin liittämättömät tallennetut lainasi 120 000,00 €.");
   });
 });

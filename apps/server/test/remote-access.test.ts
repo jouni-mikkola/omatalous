@@ -247,7 +247,7 @@ describe("remote access: on, a change and off", () => {
     const w = await turnedOn();
     const other = await w.on([ANNA], "toinen.example.fi");
     expect(other.status).toBe(400);
-    expect(other.body.error).toBe(`Etäkäyttö on jo tehty osoitteelle ${HOST}. Poista se ensin käytöstä, jos haluat vaihtaa osoitteen.`);
+    expect(other.body.error).toBe(`Etäkäyttö on jo tehty osoitteelle ${HOST}. Ota se ensin pois käytöstä, jos haluat vaihtaa osoitteen.`);
     const r = await w.on([PEKKA, LIISA]);
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ access: { on: true, emails: [PEKKA, LIISA] }, pending: { want: "tunnel", hostname: HOST } });

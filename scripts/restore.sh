@@ -117,9 +117,10 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing (doc
 docker info >/dev/null 2>&1 || die "Docker does not respond."
 [[ -n $(docker compose ps -a -q banking 2>/dev/null) ]] || die "This folder has no installed app. Install it first: ./scripts/install.sh"
 
-# do not race an install or update (they lock scripts/install.sh) or a maintenance helper action (ops/.lock)
-exec 9<scripts/install.sh
-if command -v flock >/dev/null && ! flock -n 9; then die "An install or update is running in this folder. Wait until it finishes."; fi
+# do not race an install or update (installer_lock) or a maintenance helper action (ops/.lock)
+# shellcheck source=lib/release.sh
+. scripts/lib/release.sh
+if command -v flock >/dev/null && ! installer_lock; then die "An install or update is running in this folder. Wait until it finishes."; fi
 if [[ -f ops/.lock ]] && command -v flock >/dev/null; then
   exec 8>>ops/.lock
   flock -n 8 || die "A maintenance action is running (Asetukset > Ylläpito). Wait until it finishes."

@@ -120,9 +120,7 @@ function classify(err: unknown): SyncProblem | null {
 
 export const enableBanking: Connector = {
   id: "enablebanking",
-  label: "Enable Banking",
-  kind: "psd2",
-  sync: { replacePending: true, open, classify },
+  sync: { open, classify },
   revokeAll: revokeAllConnections,
 };
 

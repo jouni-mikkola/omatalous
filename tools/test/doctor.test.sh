@@ -29,7 +29,7 @@ t_group_writable_clone() {
   check "json: a group writable clone is a Finnish warning naming the first path and the rest" grep -Eq '"level":"warn","title":"Apuri ei käynnisty: tiedostojen oikeudet eivät kelpaa \(\., ja [0-9]+ muuta\)\."' "$W/doctor.json"
   check "json: the hint explains and gives the installer command" grep -q '"title":"Apuri ei käynnisty.*"hint":"Muut voivat kirjoittaa niihin tai ne ovat jonkun muun\. Aja: \./scripts/install\.sh --ops-helper"' "$W/doctor.json"
   check "text: the same warning in English" grep -Eq 'The helper does not run: file permissions are not safe \(\., and [0-9]+ more\)\.' "$W/doctor.txt"
-  check "text: with the fix underneath" bash -c "grep -A1 'The helper does not run' '$W/doctor.txt' | grep -q 'Run: ./scripts/install.sh --ops-helper'"
+  check "text: with the fix underneath" bash -c "grep -A1 'The helper does not run' '$W/doctor.txt' | grep 'Run: ./scripts/install.sh --ops-helper' >/dev/null"
   fix_permissions
   doctor_json
   check "json: no such warning once the installer took the write access away" bash -c "! grep -q 'Apuri ei käynnisty' '$W/doctor.json'"

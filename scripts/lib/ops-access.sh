@@ -1,8 +1,10 @@
 # shellcheck shell=bash
 # The `access` action of scripts/ops-helper.sh: applies the way of reaching this copy that the app has prepared,
-# Cloudflare Tunnel with Access ("tunnel") or the home network again ("lan"). Only the helper loads this file, after
-# its own checks and under its lock. It uses the helper's functions: in_app, env_get, run_cap, wait_healthy, fail,
-# t_for, app_running and store_result.
+# Cloudflare Tunnel with Access ("tunnel") or the home network again ("lan"). Only the helper loads this file: in
+# load_libs through ops-address.sh, after check_permissions has passed on scripts/lib (a tick holds its lock then, the
+# self-test does not), and again by its path where a tick needs one function of it. It uses the helper's functions:
+# in_app, env_get, run_cap, wait_healthy, fail, t_for, app_running and store_result, and host_addrs of host-addr.sh,
+# which ops-address.sh loads just before this file.
 #
 # The change comes from the app, and a request from outside can reach the app, so nothing of it is trusted:
 #   - it is read only as the one line `ops access` prints, at most ACCESS_MAX printable ASCII characters
@@ -80,7 +82,7 @@ access_lan_url() {
   addr=$(access_lan_bind)
   case $addr in
     127.0.0.1 | ::1) addr=localhost ;;
-    0.0.0.0 | ::) addr=$(ip -o addr show scope global 2>/dev/null | awk '$2 !~ /^(docker|br-|veth)/ {split($4, a, "/"); print a[1]}' | head -1) ;;
+    0.0.0.0 | ::) addr=$(host_addrs | head -1) ;;
   esac
   # turning remote access off must not stop at this: an address that cannot be told is this machine itself
   [[ $addr == localhost ]] || access_is_addr "$addr" || addr=localhost

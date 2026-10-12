@@ -1,4 +1,4 @@
-/** Bank logos (BL1): which address the server fetches, for whom and how often, and what the browser gets back. */
+/** Bank logos: which address the server fetches, for whom and how often, and what the browser gets back. */
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { offeredBanks } from "../src/connectors/enable-banking/app-setup.ts";

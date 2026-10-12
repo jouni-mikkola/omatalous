@@ -21,6 +21,7 @@ import { generateKeyAndCertificate } from "../../security/x509.ts";
 import { BANKS, type BankOption, DEFAULT_BANK, findAspsp, offeredFrom } from "./banks.ts";
 import type { EbAspsp } from "./types.ts";
 import type { Services } from "../../services/context.ts";
+import { readJson, sealedBox } from "../../services/remote-access-cloudflare.ts";
 import { recordEvent } from "../../services/security.ts";
 import type { RequestInfo } from "../../services/users.ts";
 import { UserError } from "../../platform/errors.ts";
@@ -68,24 +69,14 @@ export function parseAppId(value: unknown): string {
   return id.toLowerCase();
 }
 
-async function read<T>(s: Services, key: string): Promise<T | null> {
-  const raw = await s.settings.get(key);
-  try {
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function box(s: Services) {
-  const b = await s.secretBox();
-  if (!b) throw new UserError("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
-  return b;
+/** The id of the application in use: the saved one, else the one from the environment. The key stays sealed. */
+async function activeAppId(s: Services): Promise<string | null> {
+  return (await readJson<StoredApp>(s, ACTIVE))?.appId ?? s.config.enableBanking?.appId ?? null;
 }
 
 /** The instance-wide credentials in use: saved in the browser, else from the environment. */
 export async function instanceCredentials(s: Services): Promise<(EnableBankingConfig & { source: "web" | "env" }) | null> {
-  const stored = await read<StoredApp>(s, ACTIVE);
+  const stored = await readJson<StoredApp>(s, ACTIVE);
   if (stored) {
     const b = await s.secretBox();
     if (!b) console.error("shared bank app is saved but APP_SECRET is missing: it cannot be opened");
@@ -143,18 +134,17 @@ export function relayPageUrl(relayUrl: string, page: "privacy" | "terms"): strin
 
 /** True when the last test of the app now in use (same Application ID) said Enable Banking does not count it as active. */
 async function knownInactive(s: Services, appId: string | null): Promise<boolean> {
-  const checked = await read<CheckedApp>(s, CHECKED);
+  const checked = await readJson<CheckedApp>(s, CHECKED);
   return !!appId && checked?.appId === appId && checked.active === false;
 }
 
 /** The shared app is set up, but Enable Banking has said it is not active: no bank can be connected through it yet. */
 export async function instanceAppInactive(s: Services): Promise<boolean> {
-  const stored = await read<StoredApp>(s, ACTIVE);
-  return knownInactive(s, stored?.appId ?? s.config.enableBanking?.appId ?? null);
+  return knownInactive(s, await activeAppId(s));
 }
 
 export async function bankAppStatus(s: Services): Promise<BankAppStatus> {
-  const [stored, pending] = await Promise.all([read<StoredApp>(s, ACTIVE), read<PendingKey>(s, PENDING)]);
+  const [stored, pending] = await Promise.all([readJson<StoredApp>(s, ACTIVE), readJson<PendingKey>(s, PENDING)]);
   const source = stored ? "web" : s.config.enableBanking ? "env" : null;
   const appId = stored?.appId ?? s.config.enableBanking?.appId ?? null;
   return {
@@ -174,7 +164,7 @@ export async function bankAppStatus(s: Services): Promise<BankAppStatus> {
 
 /** Step 1: a new key pair; replaces an earlier pending one, never the active app. */
 export async function generatePendingKey(s: Services): Promise<{ certificatePem: string }> {
-  const b = await box(s);
+  const b = await sealedBox(s);
   const host = new URL(s.instance.current.appBaseUrl).hostname;
   const { privateKeyPem, certificatePem } = await generateKeyAndCertificate({ commonName: `talous ${host}`.slice(0, 64), now: s.now() });
   const pending: PendingKey = { keyEnc: await b.seal(privateKeyPem, AAD), certificatePem, createdAt: s.now().toISOString() };
@@ -184,9 +174,9 @@ export async function generatePendingKey(s: Services): Promise<{ certificatePem:
 
 /** The certificate to upload to Enable Banking: the pending one first. */
 export async function downloadableCertificate(s: Services): Promise<string | null> {
-  const pending = await read<PendingKey>(s, PENDING);
+  const pending = await readJson<PendingKey>(s, PENDING);
   if (pending) return pending.certificatePem;
-  return (await read<StoredApp>(s, ACTIVE))?.certificatePem ?? null;
+  return (await readJson<StoredApp>(s, ACTIVE))?.certificatePem ?? null;
 }
 
 export interface ActivationResult {
@@ -202,7 +192,7 @@ export interface ActivationResult {
 export async function activateBankApp(s: Services, input: unknown): Promise<ActivationResult> {
   const o = strictObject(input, ["appId", "privateKeyPem"] as const);
   const appId = parseAppId(o.appId);
-  const b = await box(s);
+  const b = await sealedBox(s);
 
   let stored: StoredApp;
   if (o.privateKeyPem !== undefined) {
@@ -215,9 +205,9 @@ export async function activateBankApp(s: Services, input: unknown): Promise<Acti
     }
     stored = { appId, keyEnc: await b.seal(pem, AAD), certificatePem: null, savedAt: s.now().toISOString() };
   } else {
-    const pending = await read<PendingKey>(s, PENDING);
+    const pending = await readJson<PendingKey>(s, PENDING);
     // no new key: a mistyped Application ID is corrected on the key already in use
-    const active = pending ? null : await read<StoredApp>(s, ACTIVE);
+    const active = pending ? null : await readJson<StoredApp>(s, ACTIVE);
     const key = pending ?? active;
     if (!key) throw new UserError("Luo ensin avain tai valitse Enable Bankingin lataama .pem-tiedosto.");
     stored = { appId, keyEnc: key.keyEnc, certificatePem: key.certificatePem, savedAt: s.now().toISOString() };
@@ -345,7 +335,7 @@ async function atMost(pending: Promise<void> | null, ms: number): Promise<void> 
  */
 export async function offeredBanks(s: Services): Promise<BankOption[]> {
   // the id without opening the key, as instanceAppInactive reads it: this runs on every page load
-  const appId = (await read<StoredApp>(s, ACTIVE))?.appId ?? s.config.enableBanking?.appId ?? null;
+  const appId = await activeAppId(s);
   if (!appId || (await knownInactive(s, appId))) return [DEFAULT_BANK];
   let list = bankLists.get(s);
   if (list?.appId !== appId) list = undefined;
@@ -367,7 +357,7 @@ export async function offeredBanks(s: Services): Promise<BankOption[]> {
  * the list (the logos of routes/bank-logos.ts) can live exactly as long as it does.
  */
 export async function knownBankList(s: Services): Promise<readonly EbAspsp[] | null> {
-  const appId = (await read<StoredApp>(s, ACTIVE))?.appId ?? s.config.enableBanking?.appId ?? null;
+  const appId = await activeAppId(s);
   const list = bankLists.get(s);
   return appId && list?.appId === appId && !(await knownInactive(s, appId)) ? list.aspsps : null;
 }
@@ -426,9 +416,9 @@ export async function checkAppId(s: Services, input: unknown): Promise<Activatio
       throw err;
     }
   } else {
-    const key = (await read<PendingKey>(s, PENDING)) ?? (await read<StoredApp>(s, ACTIVE));
+    const key = (await readJson<PendingKey>(s, PENDING)) ?? (await readJson<StoredApp>(s, ACTIVE));
     if (!key) throw new UserError("Luo ensin avain tai valitse Enable Bankingin lataama .pem-tiedosto.");
-    pem = await (await box(s)).open(key.keyEnc, AAD);
+    pem = await (await sealedBox(s)).open(key.keyEnc, AAD);
   }
   return probe(s, appId, pem, false);
 }

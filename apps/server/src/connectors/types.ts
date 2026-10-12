@@ -59,10 +59,8 @@ export interface Puller {
   details?(account: PullAccount): Promise<AccountDetails>;
 }
 
-/** Only a connector that fetches by itself has this. A file import does not. */
+/** Only a connector that fetches by itself has this. */
 export interface SyncSupport {
-  /** Pending rows of an answer replace the stored ones (banks give a booked row a new identity). */
-  readonly replacePending: boolean;
   /** May throw a UserError: the loop ends the run with its message. */
   open(c: ConnectorContext): Promise<Puller>;
   classify(err: unknown): SyncProblem | null;
@@ -71,8 +69,6 @@ export interface SyncSupport {
 export interface Connector {
   /** Stored in accounts.provider, connections.provider and transactions.source. Never renamed. */
   readonly id: string;
-  readonly label: string;
-  readonly kind: "psd2" | "file";
   readonly sync?: SyncSupport;
   /** Ends every active consent of a member who is being removed, best effort. */
   revokeAll?(s: Services, userId: string): Promise<{ revoked: number; failed: number }>;

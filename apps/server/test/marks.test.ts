@@ -1,7 +1,9 @@
 import { seriesMarkSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { loadDemoData } from "../src/demo.ts";
+import type { Services } from "../src/services/context.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { NOW, setupApp } from "./helpers.ts";
 import { normalizeMerchant, seriesId } from "@banking/core";
 
@@ -287,8 +289,8 @@ describe("a mark belongs to one series", () => {
   ].join("\n");
 
   /** Imports the two subscriptions and returns them, the cheaper first. */
-  async function twoSeries(c: Call): Promise<[Series, Series]> {
-    expect((await c.call("POST", "/api/import/csv", { content: twoSeriesCsv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+  async function twoSeries(s: Services, c: Call & { id?: string }): Promise<[Series, Series]> {
+    expect((await seedCsv(s, c, { content: twoSeriesCsv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
     const series: Series[] = (await c.call("GET", "/api/recurring")).body.series;
     expect(series.map((x) => [x.merchant, x.typicalAmountCents])).toEqual([["Netflix", 1299], ["Netflix", 799]]);
     return [series[1]!, series[0]!];
@@ -301,7 +303,7 @@ describe("a mark belongs to one series", () => {
 
   it("two series of one merchant, one marked: the other still shows, is still asked about and still warns", async () => {
     const { admin, s, adminId } = await setupApp();
-    const [small, large] = await twoSeries(admin);
+    const [small, large] = await twoSeries(s, admin);
     expect(await fixed(admin)).toBe(799 + 1299);
     expect((await alertsOf(admin, "forgotten")).map((a) => plain(a.title))).toEqual(["Netflix 12,99 €/kk, 156 € vuodessa", "Netflix 7,99 €/kk, 96 € vuodessa"]);
 
@@ -327,7 +329,7 @@ describe("a mark belongs to one series", () => {
 
   it("an old mark on the merchant covers both", async () => {
     const { admin, s, adminId } = await setupApp();
-    await twoSeries(admin);
+    await twoSeries(s, admin);
     await s.db.run("INSERT INTO user_marks (user_id, subject, mark, marked_at) VALUES (?, ?, 'cancelled', ?)", [adminId, "merchant:Netflix", "2026-09-10T08:00:00+03:00"]);
     expect(await fixed(admin)).toBe(0);
     expect(await alertsOf(admin, "forgotten")).toEqual([]);
@@ -340,8 +342,8 @@ describe("a mark belongs to one series", () => {
   });
 
   it("a mark for a series that no longer exists is ignored and can be removed", async () => {
-    const { admin } = await setupApp();
-    const [small] = await twoSeries(admin);
+    const { admin, s } = await setupApp();
+    const [small] = await twoSeries(s, admin);
     const before = (await admin.call("GET", "/api/dashboard")).body;
     const gone = seriesMarkSubject(small).replace("#799", "#299");
     const other = seriesMarkSubject(small).replace("Netflix", "Viaplay");
@@ -354,10 +356,10 @@ describe("a mark belongs to one series", () => {
   });
 
   it("another user's marks are never read", async () => {
-    const { admin, member } = await setupApp();
+    const { admin, s, member } = await setupApp();
     const eero = await member("eero");
-    const [small] = await twoSeries(admin);
-    const [his] = await twoSeries(eero);
+    const [small] = await twoSeries(s, admin);
+    const [his] = await twoSeries(s, eero);
     // each has the series on an account of their own, so the subjects differ
     expect(seriesMarkSubject(his)).not.toBe(seriesMarkSubject(small));
 

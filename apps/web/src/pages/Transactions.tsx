@@ -342,7 +342,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
           )}
           {data && !data.items.length && (
             <div className="empty">
-              {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla." : "Tapahtumia ei ole vielä. Yhdistä pankki tai tuo CSV kohdassa Asetukset."}
+              {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla." : "Tapahtumia ei ole vielä. Yhdistä pankki kohdassa Asetukset."}
             </div>
           )}
         </div>

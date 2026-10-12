@@ -1,6 +1,6 @@
 /**
- * The bank picker (BA2): one bank, three, seventeen, the search, an empty list and a renewal that finds its bank by
- * name. And the logos the server serves (BL1): where a bank's picture comes from and what the plate shows meanwhile.
+ * The bank picker: one bank, three, seventeen, the search, an empty list and a renewal that finds its bank by
+ * name. And the logos the server serves: where a bank's picture comes from and what the plate shows meanwhile.
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

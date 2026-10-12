@@ -1,7 +1,18 @@
 import { isReportId, type ReportId } from "@banking/core";
 import type { Context } from "hono";
+import { clientIp } from "../auth/middleware.ts";
 import { UserError } from "../platform/errors.ts";
 import { isIsoDate } from "../platform/validate.ts";
+import type { Services } from "../services/context.ts";
+import type { RequestInfo } from "../services/users.ts";
+
+/**
+ * Where a request came from, for the security event and the service that records it: the address as the limiters count
+ * it (auth/middleware.ts `clientIp`) and the browser. Every route that passes a request on builds it here.
+ */
+export function requestInfo(c: Context, s: Services): RequestInfo {
+  return { ip: clientIp(c, s), userAgent: c.req.header("user-agent") ?? null };
+}
 
 /** `?from=&to=` with the current month as default. */
 export function parseRange(c: Context, today: string): { from: string; to: string } {

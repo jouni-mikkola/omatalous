@@ -107,8 +107,9 @@ STUB
 
 new_world() {
   W=$(mktemp -d "$ROOT/w.XXXX"); CL=$W/clone; S=$W/stub; V=$W/vol
-  mkdir -p "$CL/scripts" "$S" "$V/data" "$V/secrets" "$V/tmp" "$W/home" "$W/files"
+  mkdir -p "$CL/scripts/lib" "$S" "$V/data" "$V/secrets" "$V/tmp" "$W/home" "$W/files"
   cp "$SRC/scripts/restore.sh" "$CL/scripts/"; echo '# lock' >"$CL/scripts/install.sh"
+  cp "$SRC/scripts/lib/release.sh" "$CL/scripts/lib/" # installer_lock
   printf 'INSTANCE_NAME=banking-app\nAPP_BASE_URL=https://talous.example.test\n' >"$CL/.env"
   stubs "$S"; touch "$S/running" "$S/log"
   mkdb "$V/data/banking.db" CURRENT

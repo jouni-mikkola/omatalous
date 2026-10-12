@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { type AnalysisContext, createContext } from "../src/analysis/context.ts";
-import { CARD_COST_MONTHS, cardCosts, isConnectedCard } from "../src/analysis/credit.ts";
+import { CARD_COST_MONTHS, cardCosts } from "../src/analysis/credit.ts";
 import { isBankFee } from "../src/analysis/fees.ts";
 import { type Insight, insightInputOf, rankInsights } from "../src/analysis/insights/index.ts";
 import type { DateRange } from "../src/analysis/period.ts";
@@ -245,16 +245,5 @@ describe("card interest is told once", () => {
     expect(plain(plan.title)).toBe("Klarna: osamaksuja 45 € kuussa");
     // 24 € over 12 months; with the card's 135 € it would read 13 € a month
     expect(plain(plan.detail)).toBe("Sama erä vähintään kolmena kuukautena peräkkäin; korkoja ja luottokuluja 2 € kuussa.");
-  });
-});
-
-describe("a typed loan and a connected card", () => {
-  it("a typed loan is the connected card when it is a card of the same name", () => {
-    const account = { type: "credit_card", name: "Nordea Gold", bankName: "NORDEA GOLD MASTERCARD" } as const;
-    expect(isConnectedCard({ kind: "card", name: "nordea  gold" }, account)).toBe(true);
-    expect(isConnectedCard({ kind: "card", name: "Nordea Gold Mastercard" }, account)).toBe(true);
-    expect(isConnectedCard({ kind: "card", name: "Bank Norwegian" }, account)).toBe(false);
-    expect(isConnectedCard({ kind: "credit_line", name: "Nordea Gold" }, account)).toBe(false);
-    expect(isConnectedCard({ kind: "card", name: "Käyttötili" }, { type: "checking", name: "Käyttötili" })).toBe(false);
   });
 });

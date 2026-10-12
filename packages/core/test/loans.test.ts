@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates.ts";
-import { splitLoanPayment } from "../src/loan-payment-split.ts";
 import {
   creditAccountLoan,
   creditUse,
@@ -51,14 +50,6 @@ describe("the rounding rule", () => {
     expect(loanPeriodInterest(100_000, 0, 1)).toBe(0);
   });
 
-  it("splits any payment into parts that add up to it", () => {
-    const l = loan({ rateBp: 1200, repayment: "annuity", intervalMonths: 1, paymentCents: 20_000 });
-    for (const paid of [1, 999, 1000, 1001, 20_000, 123_457]) {
-      const split = splitLoanPayment(l, paid, "2026-02-15");
-      expect(split.interestCents).toBe(1000);
-      expect(split.interestCents! + split.amortisationCents!).toBe(paid);
-    }
-  });
 });
 
 describe("an annuity", () => {
@@ -85,9 +76,8 @@ describe("an annuity", () => {
     for (const [date, interest, amortisation, after] of schedule) {
       expect(loanBalanceOn(l, dayBefore(date))).toEqual({ cents: owed, unknown: null });
       expect(loanBalanceOn(l, date)).toEqual({ cents: after, unknown: null });
-      const paid = Math.min(20_000, owed + interest);
-      expect(splitLoanPayment(l, paid, date)).toEqual({ interestCents: interest, amortisationCents: amortisation, unknown: null });
-      expect(interest + amortisation).toBe(paid);
+      expect(loanPeriodInterest(owed, 1200, 1)).toBe(interest);
+      expect(Math.min(20_000, owed + interest) - interest).toBe(amortisation);
       owed = after;
     }
     expect(schedule.reduce((sum, row) => sum + row[2], 0)).toBe(100_000);
@@ -111,7 +101,7 @@ describe("an annuity", () => {
   it("counts a year's interest as the 12 payments due in it", () => {
     // 150 000,00 € at 3,25 %, 850,00 € a month: 406,25 of the first payment is interest, 405,05 of the second
     const mortgage = loan({ kind: "mortgage", balanceCents: 15_000_000, rateBp: 325, repayment: "annuity", intervalMonths: 1, paymentCents: 85_000 });
-    expect(splitLoanPayment(mortgage, 85_000, "2026-02-15")).toEqual({ interestCents: 40_625, amortisationCents: 44_375, unknown: null });
+    expect(loanPeriodInterest(15_000_000, 325, 1)).toBe(40_625);
     expect(loanBalanceOn(mortgage, "2026-03-15").cents).toBe(15_000_000 - 44_375 - (85_000 - 40_505));
     let owed = 15_000_000;
     let interest = 0;
@@ -134,8 +124,6 @@ describe("equal principal", () => {
     expect(loanBalanceOn(l, "2026-04-10").cents).toBe(80_000);
     expect(loanBalanceOn(l, "2026-07-10").cents).toBe(40_000);
     expect(loanBalanceOn(l, "2026-10-10").cents).toBe(0);
-    expect(splitLoanPayment(l, 41_200, "2026-04-10")).toEqual({ interestCents: 1200, amortisationCents: 40_000, unknown: null });
-    expect(splitLoanPayment(l, 40_800, "2026-07-10")).toEqual({ interestCents: 800, amortisationCents: 40_000, unknown: null });
     expect(loanInterestNext12Months(l, "2026-01-10")).toEqual({ cents: 2400, unknown: null });
     expect(loanPayoffDate(l).date).toBe("2026-10-10");
   });
@@ -152,7 +140,6 @@ describe("equal principal", () => {
     expect(loanBalanceOn(bare, "2026-07-10")).toEqual({ cents: 40_000, unknown: null });
     expect(loanPayoffDate(bare).date).toBe("2026-10-10");
     expect(loanInterestNext12Months(bare, "2026-01-10")).toEqual({ cents: null, unknown: "rate" });
-    expect(splitLoanPayment(bare, 41_200, "2026-04-10")).toEqual({ interestCents: null, amortisationCents: null, unknown: "rate" });
   });
 });
 
@@ -197,7 +184,6 @@ describe("a last due date", () => {
     expect(loanBalanceOn(l, "2027-01-05").cents).toBe(0);
     expect(loanPayoffDate(l).date).toBe("2027-01-05");
     expect(loanInterestNext12Months(l, "2026-10-12").cents).toBe(2500 + 2463 + 2425);
-    expect(splitLoanPayment(l, 487_388, "2027-01-05")).toEqual({ interestCents: 2425, amortisationCents: 484_963, unknown: null });
   });
 
   it("counts quarterly due dates back from it, and leaves out one on or before the balance date", () => {
@@ -248,12 +234,6 @@ describe("what a loan does not say", () => {
     expect(loanInterestNext12Months({ ...full, rateBp: null }, "2026-01-15")).toEqual({ cents: null, unknown: "rate" });
     expect(loanInterestNext12Months(loan({ rateBp: 325 }), "2026-01-15")).toEqual({ cents: 3250, unknown: "repayment" });
   });
-
-  it("splits a payment on the stated balance when the plan is missing, and not at all without a rate or an interval", () => {
-    expect(splitLoanPayment(loan({ rateBp: 1200, intervalMonths: 1 }), 5000, "2026-03-01")).toEqual({ interestCents: 1000, amortisationCents: 4000, unknown: "repayment" });
-    expect(splitLoanPayment(loan({ rateBp: 1200 }), 5000, "2026-03-01").unknown).toBe("interval");
-    expect(splitLoanPayment(loan({ intervalMonths: 1 }), 5000, "2026-03-01").unknown).toBe("rate");
-  });
 });
 
 describe("the balance date", () => {
@@ -263,8 +243,6 @@ describe("the balance date", () => {
     expect(loanBalanceOn(l, "2026-10-12")).toEqual({ cents: null, unknown: "before_balance_date" });
     expect(loanInterestNext12Months(l, "2026-10-12")).toEqual({ cents: null, unknown: "before_balance_date" });
     expect(creditUse({ ...l, limitCents: 200_000 }, "2026-10-12").unknown).toBe("before_balance_date");
-    // a payment on the balance date: the stated balance does not say whether it holds it
-    expect(splitLoanPayment(l, 20_000, "2026-11-01")).toEqual({ interestCents: null, amortisationCents: null, unknown: "before_balance_date" });
     expect(loanBalanceOn(l, "2026-11-01")).toEqual({ cents: 100_000, unknown: null });
     expect(loanPayoffDate(l).date).toBe("2027-05-01");
   });
@@ -290,7 +268,6 @@ describe("a rate of zero", () => {
     expect(loanBalanceOn(l, "2026-04-15").cents).toBe(10_000);
     expect(loanPayoffDate(l).date).toBe("2026-05-15");
     expect(loanInterestNext12Months(l, "2026-01-15")).toEqual({ cents: 0, unknown: null });
-    expect(splitLoanPayment(l, 30_000, "2026-02-15")).toEqual({ interestCents: 0, amortisationCents: 30_000, unknown: null });
   });
 });
 
@@ -302,7 +279,6 @@ describe("a payment smaller than the interest", () => {
     expect(loanBalanceOn(l, "2026-02-15").cents).toBe(1_002_000);
     // 100,20 of interest on 10 020,00
     expect(loanBalanceOn(l, "2026-03-15").cents).toBe(1_004_020);
-    expect(splitLoanPayment(l, 8000, "2026-02-15")).toEqual({ interestCents: 10_000, amortisationCents: -2000, unknown: null });
     expect(loanPayoffDate(l)).toEqual({ date: null, unknown: null, never: true });
   });
 

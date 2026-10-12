@@ -110,7 +110,8 @@ maintenance helper is current. The installer's script path does the same and sta
   `ops/access-request.json` of the data volume (mode 600, folder mode 700). Only `ops access` reads it. It is deleted
   when the helper has reported, when the change is withdrawn and when it expires, at the latest at the hourly tick.
 - Saving the token, removing it, turning remote access on, changing who may sign in and turning it off each ask for the
-  admin's password again. A wrong password is counted by the same limiter as the *Ylläpito* page and recorded as an event.
+  admin's password again. Removing the token is refused (409) while remote access is on, and saving a new one is not.
+  A wrong password is counted by the same limiter as the *Ylläpito* page and recorded as an event.
   Only one change runs at a time, and a changing request can be made once a minute.
 - A change of who may sign in, made through the tunnel, must keep the address the admin is signed in with through
   Access. The app refuses a list without it and names the address, since such a change has no trial. A request that
@@ -139,7 +140,9 @@ maintenance helper is current. The installer's script path does the same and sta
   report that says the copy is on the tunnel before it touches Cloudflare, so Cloudflare's side is never removed from
   under a copy that still depends on it.
 - What the helper reports about an `access` request is shown without the app secret, the tunnel token, the audience tag
-  and the host name of the Access team.
+  and the host name of the Access team. A report that comes after the 30 minute timeout, when the request file with
+  these values is gone, is cleaned by form instead and hides any run of 20 or more token characters. The page shows the
+  result of the last change for 24 hours.
 
 ## Login
 
@@ -164,8 +167,10 @@ maintenance helper is current. The installer's script path does the same and sta
 - Behind a proxy (`TRUST_PROXY=true`) the client address comes from `CF-Connecting-IP` or the last
   `X-Forwarded-For` entry, the parts the proxy wrote itself. Caddy removes a `CF-Connecting-IP` sent by the
   client.
-- The first admin is created in the browser with a one-time setup code that only the server can show. A fixed
-  `SETUP_CODE` must have at least 16 characters; a shorter one is not used and a generated code works instead.
+- The first admin is created in the browser with a one-time setup code that only the server can show. A generated code
+  works for 24 hours, and the page then says *Asennuskoodi on vanhentunut.* A new one comes from the command
+  `setup-code` in the app container. A fixed `SETUP_CODE` from `.env` does not expire and must have at least 16
+  characters; a shorter one is not used and a generated code works instead.
 - New members get a temporary password that must be changed before anything else.
 
 ## Who sees what
@@ -202,9 +207,9 @@ without it.
 
 A token saved on the Etäkäyttö page has the same reach and is a second sealed secret of the app, beside the bank keys.
 Anyone who holds a database copy and `app_secret` can open it. Remove it on the page, and in the Cloudflare dashboard to
-revoke it. A token that no longer opens, because `app_secret` was replaced, is removed on the page before `secret
-rotate`, which otherwise stops and names the token. With a token saved and remote access on, Cloudflare's side can be
-removed only while the token is there.
+revoke it. A token that no longer opens, because `app_secret` was replaced, is saved again on the page before `secret
+rotate`, which otherwise stops and names the token. With remote access off it can be removed instead. With a token
+saved and remote access on, Cloudflare's side can be removed only while the token is there.
 
 ## Settings entered in the browser
 
@@ -244,8 +249,8 @@ found gives the category. An unclear match is left alone.
 
 - Only the merchant name is sent, and only for rows that show they are a business (core `isBusinessRow`):
   a card purchase (a merchant code, a card account or the text a card terminal leaves, on a row with no payee
-  account number), a shop that was paid at least twice without a payee account and not by MobilePay (CSV rows
-  carry no card text), an e-invoice, direct payment or card text in the description, a payee name that starts or
+  account number), a shop that was paid at least twice without a payee account and not by MobilePay (the rows of
+  the removed CSV import, which old accounts still hold, carry no card text), an e-invoice, direct payment or card text in the description, a payee name that starts or
   ends with a company form such as Oy or ry, or an invoice: a payee account, a reference number and a payee name
   with a business word such as kauppa or liike and at most one name on either side of it. A plain transfer is
   never enough, and neither is a reference number alone, since a private landlord gives one too. A MobilePay or
@@ -261,7 +266,7 @@ found gives the category. An unclear match is left alone.
   (AB ESIMERKKI) reads as a person's name, so it is not looked up and the register gives it no category.
 - The request goes to one fixed address. Redirects are not followed, so the name cannot end up at
   another host. The answer is read up to 2 MB and refused if it is longer.
-- It runs at the hourly tick, never at start, and right after a CSV import or a fetch that brought new
+- It runs at the hourly tick, never at start, and right after a fetch that brought new
   rows. A batch sends at most 30 names, one second apart, and stops after 3 errors. A name of three or
   more words that finds nothing is searched once more without its last word, and then only a company with
   exactly that name counts.
@@ -301,7 +306,7 @@ found gives the category. An unclear match is left alone.
 ## Data
 
 - CSV export: cells starting with `= + - @` are written as text, so spreadsheets do not run them.
-- Request size limit: 256 KB (CSV import 6 MB).
+- Request size limit: 256 KB for every request.
 - Backups can be encrypted with `age` (`BACKUP_AGE_RECIPIENT`). Backup files are mode 600.
 - The copy to a NAS (`BACKUP_COPY_TO`) never writes through a link on the share. Each file goes in under a hidden
   temporary name and gets its final name only after it matches the original. A link at the temporary name is replaced,
@@ -309,6 +314,32 @@ found gives the category. An unclear match is left alone.
 - `restore.sh --secret` tries the given secret file on the restored database before it replaces the app secret. A file
   that does not open the stored bank keys is refused and the current secret stays.
 - The app's own copies are plain SQLite files, see [Copies and how long they live](#copies-and-how-long-they-live).
+
+## A damaged database, restore and reset
+
+- At every server start the app checks the database with SQLite's own check before it opens it. A damaged file moves
+  with its `-wal` and `-shm` files to `/data/damaged`, and the newest intact copy takes its place. Nothing is deleted. A
+  healthy file, a locked one or one the check could not look at is never moved. With no intact copy the app starts on the
+  damaged file, because a stop at start would loop. Both cases are security events (*Tietokanta palautettu
+  varmuuskopiosta*, *Tietokanta vaurioitunut*) and a notice to every admin. The app never empties `/data/damaged`, and
+  the files in it hold transactions in plain text.
+- *Palauta viimeisin varmuuskopio* and *Tyhjennä kaikki tiedot* in *Asetukset > Ylläpito* change the database itself.
+  Each asks for the admin's password again and a typed word (`PALAUTA`, `TYHJENNÄ`), and is recorded as a security event
+  with the asker's name. Neither goes through the host helper. A restore writes a marker, `/data/.restore-request`, which
+  holds the file name of a copy in `/data/backups` and the asker's id. The app then ends itself as `docker stop` does,
+  Docker's restart policy starts it, and the start puts the copy in place. A marker older than 15 minutes is dropped with
+  a notice, so a start days later does not bring back a copy chosen long before. The database it replaced is kept as
+  `pre-restore-<time>.db`.
+- A reset deletes every member but the asker, and all accounts, transactions, rules, marks, loans, expected bills,
+  saving tips, bank keys and bank connections. It keeps the asker's account and password, the server's settings, the
+  shared bank application and the trade register's answers about companies. A checked copy `pre-reset-<time>.db` comes
+  first. The bank consents are ended at the bank, and one that cannot be ended expires there on its own. The reset is
+  refused while another action or a bank fetch runs and for a session that has ended, and a wrong word is recorded as
+  *Ylläpitopyyntö estetty*.
+- Neither removes the copies. Older copies, `/data/damaged` and the host's archives keep the data until they are pruned
+  or deleted by hand, see [Copies and how long they live](#copies-and-how-long-they-live). What a member saves between
+  the reset's copy and its delete is in neither, so a reset is done when nobody else uses the app. The steps are in
+  [ADVANCED.md](ADVANCED.md#empty-the-data-and-keep-the-install).
 
 ## Updates and the maintenance helper
 
@@ -330,7 +361,26 @@ Remote access is changed on its own page, with the password for every change, se
   puts the earlier one back. To put it back by hand, copy `ops/env.prev` over `.env`, keep its mode 600, and run
   `docker compose up -d`. The maintenance route refuses `access`, so only the remote access routes, behind the
   password, can queue it. Port changes are not among the actions.
-- A release install takes a version the GitHub Releases API names, only a semver step up from the running one. The image
+- The timer runs a launcher that lives outside the clone, `~/.local/share/omatalous/<name>/launcher.sh`, so that no
+  update replaces the file the timer runs. It refuses to run as root, takes one argument (the clone) and nothing from a
+  request or the database, uses a fixed `PATH`, and runs no file, of the clone or of its last good copy of the helper,
+  that someone else owns or that group or others can write to. It checks owner and mode before `bash -n` and before
+  running, and a symbolic link never passes. The helper accepts `--root` only from the launcher's copy, and its own
+  permission check then covers the copy and its folder. It keeps a copy as the last good one only after a tick that
+  ended well and the helper's self-test passed. The copy holds scripts and no data.
+- Three things happen without a request, each on fixed input. The watchdog takes an update back once, within an hour, when
+  the app stays unhealthy for ten minutes. The self-test takes an update back at once when the helper it brought fails.
+  The address step follows the machine to a new home network address: it takes nothing from the app, reads `.env` and
+  this machine's interfaces, refuses every address outside RFC 1918 and every mode but the plain home network one,
+  never follows a tunnel or a point-to-point link, and holds the installer's lock. The disk step removes only untagged
+  images that carry this app's label and never touches a volume.
+- A release install takes a version the GitHub Releases API names, only a semver step up from the running one. The answer
+  chooses only a tag: the latest full release, or with `TALOUS_PRERELEASE=yes` the newest, a pre-release too. The tag
+  must be `vX.Y.Z`, exist in the folder, be an ancestor of the branch the clone follows and pass the helper's signer and
+  compose checks, and its image must pass the cosign check for the commit the tag names. The address of the API is
+  fixed and no environment variable replaces it. A release is a pre-release for its first 48 hours, until a workflow of
+  the public repository promotes it after it verified the image with the check installs run, and the project holds a
+  release back by making it a draft or pulls it by deleting it. The image
   comes from `ghcr.io`, and `update.sh` checks its cosign signature against the release workflow's identity (a run for a version tag, or a run on `main`
   started by a push of a new version or by hand) and the commit the run built, plus the
   image's labels against the compose file. A source install uses the remote and branch pinned in `ops/policy`, moves only
@@ -356,7 +406,8 @@ Remote access is changed on its own page, with the password for every change, se
 
 What remains:
 
-- Someone with the admin password and a session can start an update to a signed version, a rollback or a restart. A
+- Someone with the admin password and a session can start an update to a signed version, a rollback or a restart, and
+  with the typed word restore the newest copy or empty all data (the reset leaves a copy to undo it). A
   rollback loses data written since the update only when the previous version refuses the updated database, and the
   database is copied first. To ask, the previous image runs its `migrate-check` on the data volume, with no network and
   no secrets volume.
@@ -374,21 +425,28 @@ What remains:
 |---|---|---|
 | The database and its `-wal` file | volume `banking-data` | until reset. Deleted rows can stay in free pages until overwritten. |
 | Daily copy `auto-YYYY-MM-DD.db` | same volume, mode 700 | 7 newest, none older than 14 days |
-| `pre-*` copies before a migration, update, rollback or secret rotation | same | none older than 14 days except the newest one |
+| `pre-*` copies before a migration, update, rollback, restore, reset or secret rotation | same | none older than 14 days except the newest one. A `pre-reset-` copy is also kept for 14 days. |
+| The three newest intact copies a restore would take, of any kind | same | never deleted, whatever their age. Nothing is deleted while the live database fails its check. |
+| `damaged/banking-<time>.db` with its `-wal` and `-shm`, a database the app moved aside at start | same volume | until you delete it. The app never empties the folder. |
+| `<name>.damaged`, a copy that failed the weekly check | same, in `backups/` | until you delete it |
+| `.reserve` (64 MB of zeros) and `.restore-request` (a copy's file name and an admin's id) | same volume, mode 600 | the reserve until the disk runs low, the marker until the next start |
 | `backups/talous-*.db.gz` from `backup.sh` | the clone's folder, mode 600 | 30 days. Not touched by the pruning above. Encrypted only with `BACKUP_AGE_RECIPIENT`. The copies on a NAS (`BACKUP_COPY_TO`) stay until you delete them. |
 | The file from *Lataa uusin* | the admin's device | until the admin deletes it. Unencrypted. |
 | `app_secret`, and `app_secret.prev-<time>` after a rotation | volume `banking-secrets` | the old one until deleted by hand |
 | `.env` | the clone's folder, mode 600 | holds the tunnel token and the setup code |
 | `ops/` journal and run logs | the clone's folder, mode 700 | 30 days |
 | `ops/env.prev`, the `.env` from before the last remote access change | the clone's folder, mode 600 | until the next change. Holds the earlier tunnel token. |
+| `~/.local/share/omatalous/<name>/`: the launcher, `last-good/` (the helper and `scripts/lib`), `.note` and `launcher.log` | the helper user's home, mode 700 | until `--ops-helper-off` or `reset.sh`. Scripts and log lines, no data. |
 | `ops/access-request.json` | the data volume, mode 600 | from the request until the helper has reported, the change is withdrawn or it expires. Holds the tunnel token. |
 | Docker logs | the host | until the container is removed. They hold counts and short errors, no amounts. |
 | Cookie, scope choice, exported CSV files | the member's device | the session lasts 30 days. Exported CSV files are unencrypted. |
 
-All of them except the secret hold transactions in plain text. Disk encryption covers them.
+All of them except the secret, the reserve, the marker and the launcher folder hold transactions in plain text. Disk
+encryption covers them.
 
 Removing a member deletes their accounts, transactions, rules, shares and sessions at once, and ends their bank consents at
-Enable Banking first. Their rows leave the app's own copies within 14 days. Copies in `backups/` and copies you made
+Enable Banking first. Their rows leave the app's own copies within 14 days, as long as new copies are made, since the
+three newest intact copies stay whatever their age. Files in `damaged/`, copies in `backups/` and copies you made
 elsewhere keep them until you delete those. Free pages in the database file are overwritten over time.
 
 ## Third parties

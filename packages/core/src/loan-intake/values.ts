@@ -3,9 +3,6 @@
  * A reader returns null when the text holds no value, two different ones, or a number it cannot place. `clean` says
  * the text held nothing but the value. `doubt` says the value came through a repair or an unusual form (an OCR letter
  * for a digit, a lost comma, a decimal point, a minus, no unit). The caller turns either into `check`.
- *
- * `parseAmount` and `parseDate` of sources/nordea-csv/parser.ts are not used here: they give the value and do not tell
- * the form it was printed in, and the printed form is what decides `sure`.
  */
 import { daysInMonth } from "../dates.ts";
 import type { IsoDate } from "../types.ts";

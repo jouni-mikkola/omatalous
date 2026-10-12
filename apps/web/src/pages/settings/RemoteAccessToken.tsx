@@ -22,6 +22,8 @@ export interface TokenBlockProps {
 
 export function TokenBlock({ s, field, hasToken, replacing, onTyped, onReplace, onCancelReplace, onSave, onRemove }: TokenBlockProps) {
   const showForm = !s.token.saved || !s.token.usable || replacing;
+  // the server refuses a removal while remote access is on (409): the off takes the address out of Cloudflare with the token
+  const removable = canRemoveToken(s) && !s.access.on;
   return (
     <div className="remote-block">
       <h4 className="field-label">Cloudflaren API-tunniste (API Token)</h4>
@@ -30,12 +32,12 @@ export function TokenBlock({ s, field, hasToken, replacing, onTyped, onReplace, 
           <p>
             Tallennettu {dateTime(s.token.savedAt)}. {zonesSentence(s.token.zones)}
           </p>
-          {tokenNeededForOff(s) && <p className="small muted">Etäkäytön poistamiseen tarvitaan tunniste. Poista tunniste vasta, kun etäkäyttö on otettu pois käytöstä.</p>}
+          {(s.access.on || tokenNeededForOff(s)) && <p className="small muted">Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.</p>}
           <div className="form-row">
             <button className="btn" type="button" onClick={onReplace}>
               Vaihda tunniste
             </button>
-            {canRemoveToken(s) && (
+            {removable && (
               <button className="btn btn-danger" type="button" onClick={onRemove}>
                 Poista tunniste
               </button>

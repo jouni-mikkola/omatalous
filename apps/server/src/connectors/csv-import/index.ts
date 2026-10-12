@@ -1,8 +1,6 @@
 import type { Connector } from "../types.ts";
 
-/** Files the user uploads. Nothing is fetched, so there is no `sync`. */
+/** Nothing imports or fetches any more. The entry stays because the fold of an old CSV account into a linked bank account reads its id (fold-accounts.ts), and installed databases store that id. */
 export const csvImport: Connector = {
   id: "csv",
-  label: "CSV",
-  kind: "file",
 };

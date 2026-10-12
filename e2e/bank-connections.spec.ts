@@ -56,8 +56,10 @@ async function open(browser: Browser, answer: (read: number) => { connections: u
   const seen = watch(page);
   const state = { reads: 0 };
   await page.route("**/api/meta", async (route) => {
-    const response = await route.fetch();
-    const json = await response.json();
+    // the page reads /api/meta by itself: a read still on its way when the page reloads or the context closes has no response left to change
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json) return;
     const { connections, accounts } = answer(state.reads++);
     json.connections = connections;
     json.accounts = accounts;

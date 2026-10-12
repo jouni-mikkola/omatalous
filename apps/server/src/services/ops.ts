@@ -4,19 +4,23 @@
  * scripts and reports back. Every attempt is written to security_events with an ops_ kind.
  */
 import { randomBytes } from "node:crypto";
-import { createReadStream, lstatSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { quickFileCheck, verifyDatabaseFile } from "../db/backup-check.ts";
+import { createReadStream } from "node:fs";
+import { quickFileCheck } from "../db/backup-check.ts";
+import { COPY_NAME, copiesNewestFirst, copyKind, type CopyKind, restorableCopyName } from "../db/backup-keep.ts";
 import { atOrAbove } from "../db/migrate.ts";
 import type { OpsRequest } from "../db/ops-repo.ts";
+import { newestIntactCopy } from "../db/restore.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
 import { deleteAccessRequest, readAccessRequest, writeAccessRequest } from "./access-request.ts";
 import type { Services } from "./context.ts";
 import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
+import { refuser } from "./ops-danger.ts";
 import {
+  busy,
   HELPER_MIN_VERSION,
+  HELPER_SEEN_KEY,
   helperHasTools,
   helperKnows,
   helperOutdated,
@@ -31,6 +35,7 @@ import {
   parseOpsRequest,
   parseSteps,
   READ_ONLY,
+  type Refusal,
   REQUEST_EXPIRY_MS,
   ROLLBACK_WORD,
   RUNNING_TIMEOUT_MS,
@@ -39,11 +44,12 @@ import {
   sanitiseOutput,
   scrub,
   validOpsId,
+  wrongWord,
   XYZ,
 } from "./ops-validate.ts";
+import { takeWatchdog } from "./ops-watchdog.ts";
 import { recordEvent } from "./security.ts";
 
-const SEEN_KEY = "ops_helper_seen";
 const VERSION_KEY = "ops_helper_version";
 const STATE_KEY = "ops_state";
 
@@ -74,10 +80,17 @@ export interface Req {
 }
 
 const secretsOf = (s: Services): string[] => (s.config.appSecret ? [s.config.appSecret] : []);
-/** What a helper's words are cleaned of: the app secret, and for `access` the tunnel token and the Access pair that wait in the request file. */
-function secretsFor(s: Services, action: string): string[] {
+/** What looks like a team's host name or a tunnel token (an audience tag looks like one too), by the forms of access-request.ts. */
+const ACCESS_LOOKS = /[a-z0-9-]+\.cloudflareaccess\.com|[A-Za-z0-9_=-]{20,}/gi;
+/**
+ * What a helper's words are cleaned of: the app secret, and for `access` the tunnel token and the Access pair that wait
+ * in the request file. `byLooks`: the file is gone, as it is for a report that comes after the timeout, so the words
+ * are cleaned of whatever looks like one of the three.
+ */
+function secretsFor(s: Services, action: string): { secrets: string[]; byLooks: boolean } {
   const sent = action === "access" ? readAccessRequest(s) : null;
-  return sent?.want === "tunnel" ? [...secretsOf(s), sent.tunnelToken, sent.accessAud, sent.teamDomain] : secretsOf(s);
+  const secrets = sent?.want === "tunnel" ? [...secretsOf(s), sent.tunnelToken, sent.accessAud, sent.teamDomain] : secretsOf(s);
+  return { secrets, byLooks: action === "access" && !sent };
 }
 
 // ── state ────────────────────────────────────────────────
@@ -93,11 +106,12 @@ async function loadSnapshot(s: Services): Promise<OpsState> {
 }
 
 async function touchHelper(s: Services, version: string | undefined): Promise<void> {
-  await s.settings.set(SEEN_KEY, s.now().toISOString());
+  await s.settings.set(HELPER_SEEN_KEY, s.now().toISOString());
   if (version && /^[0-9A-Za-z._-]{1,20}$/.test(version)) await s.settings.set(VERSION_KEY, version);
 }
 
 async function storeState(s: Services, input: unknown): Promise<void> {
+  await takeWatchdog(s, input);
   const next = normaliseState(input, secretsOf(s));
   if (!Object.keys(next).length) return;
   await s.settings.set(STATE_KEY, JSON.stringify(mergeState(await loadSnapshot(s), next)));
@@ -110,7 +124,7 @@ async function storeState(s: Services, input: unknown): Promise<void> {
 export const lanAddressAfterTunnel = async (s: Services): Promise<string | null> => (await loadSnapshot(s)).lanAddress ?? null;
 
 export async function helperInfo(s: Services) {
-  const seenAt = await s.settings.get(SEEN_KEY);
+  const seenAt = await s.settings.get(HELPER_SEEN_KEY);
   const version = await s.settings.get(VERSION_KEY);
   const { status, reason } = helperStatus(seenAt, s.now());
   return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
@@ -118,40 +132,31 @@ export async function helperInfo(s: Services) {
 
 // ── backups kept by the app ──────────────────────────────
 
-const BACKUP_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,98}\.db$/;
-
 interface AppBackup {
   name: string;
   size: number;
   at: string;
-  kind: "daily" | "pre-update" | "manual";
+  kind: CopyKind;
 }
 
 /**
- * The database copies in <data>/backups, newest first. Regular files only; an empty, cut-short or
- * non-database file is left out (the copy code removes those, this covers one left by a killed process).
+ * The database copies in <data>/backups, newest first (the one listing of db/backup-keep.ts), what a restore saved
+ * among them. An empty, cut-short or non-database file is left out (the copy code removes those, this covers one
+ * left by a killed process).
  */
 export function listAppBackups(s: Services): AppBackup[] {
   if (!s.backupDir) return [];
-  let names: string[];
-  try {
-    names = readdirSync(s.backupDir);
-  } catch {
-    return [];
-  }
-  const out: (AppBackup & { t: number })[] = [];
-  for (const name of names) {
-    if (!BACKUP_FILE.test(name)) continue;
+  const whole = (file: string): boolean => {
     try {
-      const st = lstatSync(join(s.backupDir, name));
-      if (!st.isFile()) continue;
-      if (quickFileCheck(join(s.backupDir, name)) !== null) continue;
-      out.push({ name, size: st.size, at: st.mtime.toISOString(), kind: name.startsWith("auto-") ? "daily" : name.startsWith("pre-update-") ? "pre-update" : "manual", t: st.mtimeMs });
+      return quickFileCheck(file) === null;
     } catch {
-      // removed meanwhile
+      return false; // removed meanwhile
     }
-  }
-  return out.sort((a, b) => b.t - a.t).slice(0, 30).map(({ t: _t, ...b }) => b);
+  };
+  return copiesNewestFirst(s.backupDir, (name) => COPY_NAME.test(name))
+    .filter((c) => whole(c.file))
+    .slice(0, 30)
+    .map(({ name, size, at }) => ({ name, size, at, kind: copyKind(name) }));
 }
 
 // ── what the page shows ──────────────────────────────────
@@ -257,15 +262,8 @@ const newId = () => `op_${randomBytes(8).toString("hex")}`;
 
 // ── what the queue refuses ───────────────────────────────
 
-/** Why the queue does not take a request: the word for the `ops_denied` event and what the admin is told. */
-interface QueueRefusal {
-  why: string;
-  error: UserError;
-}
-const BUSY = (): QueueRefusal => ({ why: "toinen kesken", error: new HttpUserError("Toinen toiminto on kesken.", 409) });
-
 /** No helper, or one that does not know the action: asked before the password. */
-async function helperRefusal(s: Services, action: OpsAction): Promise<QueueRefusal | null> {
+async function helperRefusal(s: Services, action: OpsAction): Promise<Refusal | null> {
   if ((await helperInfo(s)).status === "off") return { why: "apuri ei käytössä", error: new HttpUserError("Ylläpitoapuri ei ole käytössä.", 409) };
   // an older helper would not answer an action it does not know, and the request would sit claimed until it times out
   if (helperKnows(await s.settings.get(VERSION_KEY), action)) return null;
@@ -273,10 +271,10 @@ async function helperRefusal(s: Services, action: OpsAction): Promise<QueueRefus
 }
 
 /** Another change under way, one a minute, and the hour's cap: asked after the password. */
-async function slotRefusal(s: Services, action: OpsAction): Promise<QueueRefusal | null> {
+async function slotRefusal(s: Services, action: OpsAction): Promise<Refusal | null> {
   const mutating = !READ_ONLY.includes(action);
   const since = (ms: number) => new Date(s.now().getTime() - ms).toISOString();
-  if (mutating && (await s.ops.hasActiveMutating(READ_ONLY))) return BUSY();
+  if (mutating && (await s.ops.hasActiveMutating(READ_ONLY))) return busy();
   if (mutating && (await s.ops.countSince(since(MUTATING_PER_MINUTE_MS), READ_ONLY)) > 0) return { why: "liian tiheään", error: new TooManyAttempts("Odota hetki ennen seuraavaa toimintoa.", 60) };
   if ((await s.ops.countSince(since(3600_000))) >= PER_HOUR) return { why: "tuntiraja", error: new TooManyAttempts("Liian monta pyyntöä tunnissa. Yritä myöhemmin.", 3600) };
   return null;
@@ -300,29 +298,15 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req,
   const input = parseOpsRequest(raw);
   const { action } = input;
   const label = ACTION_LABEL[action];
-  const deny = async (why: string) => void (await recordEvent(s, { kind: "ops_denied", userId: user.id, ...req, detail: `${label}: ${why}` }));
+  const refuse = refuser(s, user.id, req, label);
   const checked = proof !== undefined && proofs.has(proof) && proof.userId === user.id;
-  if (action === "access" && !checked) {
-    await deny("pyydetty ylläpidosta");
-    throw new UserError("Etäkäyttöä muutetaan kohdassa Asetukset > Palvelin > Etäkäyttö.");
-  }
+  if (action === "access" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Etäkäyttöä muutetaan kohdassa Asetukset > Palvelin > Etäkäyttö.") });
   await expireStale(s);
-  const refuse = async (no: QueueRefusal | null) => {
-    if (!no) return;
-    await deny(no.why);
-    throw no.error;
-  };
 
   await refuse(await helperRefusal(s, action));
   if (action === "rollback") {
-    if (input.confirm !== ROLLBACK_WORD) {
-      await deny("vahvistus");
-      throw new UserError(`Kirjoita ${ROLLBACK_WORD} vahvistukseksi.`);
-    }
-    if (!(await loadSnapshot(s)).can_rollback) {
-      await deny("ei palautettavaa");
-      throw new UserError("Edellistä versiota ei ole tallessa.");
-    }
+    await refuse(wrongWord(input.confirm, ROLLBACK_WORD));
+    if (!(await loadSnapshot(s)).can_rollback) await refuse({ why: "ei palautettavaa", error: new UserError("Edellistä versiota ei ole tallessa.") });
   }
   if (NEEDS_PASSWORD.includes(action) && !checked) await checkPassword(s, user, input.password, req, label);
 
@@ -330,7 +314,7 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req,
 
   const id = newId();
   // the insert is the last word on the one active request: two calls at once both pass the look above
-  if (!(await s.ops.insert({ id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(BUSY());
+  if (!(await s.ops.insert({ id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(busy());
   await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${label}: jonossa` });
   if (NOTIFY.includes(action)) await notifyAdmins(s, user, `${user.displayName} käynnisti toiminnon: ${label}`);
   return view((await s.ops.get(id))!);
@@ -377,17 +361,17 @@ export async function backupForDownload(s: Services, user: User, password: strin
   if (attempt.wait) throw new TooManyAttempts("Liian monta latausta tunnissa. Yritä myöhemmin.", attempt.wait);
   await checkPassword(s, user, password, req, "varmuuskopion lataus");
   const copies = listAppBackups(s);
-  if (!copies.length || !s.backupDir) throw new UserError("Varmuuskopiota ei ole vielä. Ota ensin varmuuskopio.");
-  // the full check runs on the file that is about to leave the machine; a broken newest copy is skipped
-  const newest = copies.find((b) => {
-    const check = verifyDatabaseFile(join(s.backupDir!, b.name));
-    if (!check.ok) console.error(`backup download: ${b.name} failed its check and is skipped: ${check.reason}`);
-    return check.ok;
-  });
+  if (!s.backupDir || !copies.length) throw new UserError("Varmuuskopiota ei ole vielä. Ota ensin varmuuskopio.");
+  // the copy a restore would take (db/restore.ts): the full check runs on the file that is about to leave the
+  // machine, and what a restore saved of the database it replaced (pre-restore-*) is never handed out as the newest
+  const newest = newestIntactCopy(s.backupDir);
+  for (const b of copies.slice(0, Math.max(0, copies.findIndex((c) => c.name === newest?.name)))) {
+    if (restorableCopyName(b.name)) console.error(`backup download: ${b.name} failed its check and is skipped`);
+  }
   if (!newest) throw new UserError("Varmuuskopiot eivät läpäisseet tarkistusta. Ota uusi varmuuskopio.");
   await recordEvent(s, { kind: "ops_download", userId: user.id, ...req, detail: `varmuuskopion lataus: ladattu (${newest.name})`, notify: false });
   await notifyAdmins(s, user, `${user.displayName} latasi tietokannan varmuuskopion`);
-  return { stream: createReadStream(join(s.backupDir, newest.name)), name: newest.name, size: newest.size };
+  return { stream: createReadStream(newest.file), name: newest.name, size: newest.size };
 }
 
 // ── expiry (hourly tick, ops poll and every state read) ──
@@ -416,7 +400,12 @@ export interface PolledRequest {
   secret: null;
 }
 
-export async function pollOps(s: Services, opts: { helper?: string; done: string[] }): Promise<PolledRequest | null> {
+export async function pollOps(s: Services, opts: { helper?: string; done: string[]; dry?: boolean }): Promise<PolledRequest | null> {
+  // `ops poll --dry`, the helper's self-test: the database answers one read, and nothing is written, expired or handed out
+  if (opts.dry) {
+    await s.ops.oldestQueued([]);
+    return null;
+  }
   await touchHelper(s, opts.helper);
   await expireStale(s);
   const done = opts.done.filter(validOpsId).slice(0, 100);
@@ -453,15 +442,18 @@ export async function reportOps(s: Services, payload: unknown, helper?: string):
   await touchHelper(s, helper);
   const row = await s.ops.get(o.id);
   if (row) {
-    const secrets = secretsFor(s, row.action);
+    const { secrets, byLooks } = secretsFor(s, row.action);
+    // scrubbed first, so a look-alike is found whole: scrub joins what a colour code or a control character had split
+    const said = (text: unknown) => (typeof text !== "string" ? "" : byLooks ? scrub(text, secrets).replace(ACCESS_LOOKS, "[piilotettu]") : text);
+    const output = said(o.output);
     // steps from the whole text, before the output is cut to its tail
-    const steps = parseSteps(scrub((o.output as string | undefined) ?? "", secrets));
+    const steps = parseSteps(scrub(output, secrets));
     const done = await s.ops.finish(o.id, {
       status: o.status,
       at: s.now().toISOString(),
       exitCode: (o.exit_code as number | null | undefined) ?? null,
-      summary: oneLine((o.summary as string | undefined) || (o.status === "ok" ? "Valmis." : "Epäonnistui."), 200, secrets),
-      output: sanitiseOutput((o.output as string | undefined) ?? "", secrets, row.action === "logs" ? { lines: LOGS_MAX_LINES, bytes: LOGS_MAX_BYTES } : undefined),
+      summary: oneLine(said(o.summary) || (o.status === "ok" ? "Valmis." : "Epäonnistui."), 200, secrets),
+      output: sanitiseOutput(output, secrets, row.action === "logs" ? { lines: LOGS_MAX_LINES, bytes: LOGS_MAX_BYTES } : undefined),
       steps: JSON.stringify(steps),
     });
     if (done) await resultEvent(s, row, o.status === "ok" ? "valmis" : "epäonnistui");

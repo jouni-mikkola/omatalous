@@ -26,7 +26,7 @@ async function withUnprocessedImport() {
   await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Tili", iban: null, currency: "EUR", type: "checking" });
   const before = await t.s.settings.dataVersionOf([t.adminId]);
   // the process is killed here: rows are stored, reprocess never runs
-  await ingestTransactions(repo, "chk", [raw("2026-10-01", -42, "K-MARKET HERTTONIEMI"), raw("2026-10-02", 2500, "TYÖNANTAJA OY")], "csv", { replacePending: false });
+  await ingestTransactions(repo, "chk", [raw("2026-10-01", -42, "K-MARKET HERTTONIEMI"), raw("2026-10-02", 2500, "TYÖNANTAJA OY")], "csv");
   return { ...t, repo, before };
 }
 

@@ -1,6 +1,7 @@
 /** Users, sessions and per-user bank credentials. */
 import { type Role, type Row, toUser, type User } from "./rows.ts";
-import type { Db } from "./types.ts";
+import { bumpDataVersionStatement } from "./settings-repo.ts";
+import type { Db, SqlValue } from "./types.ts";
 
 export interface SessionInfo {
   /** First 20 characters of the stored id: enough to pick one session, useless as a credential. */
@@ -81,6 +82,36 @@ export class UsersRepo {
     await this.db.first("PRAGMA wal_checkpoint(TRUNCATE)");
     await this.db.run("VACUUM");
     await this.db.first("PRAGMA wal_checkpoint(TRUNCATE)");
+  }
+
+  /** The file of the open database, as SQLite names it. Null for a database in memory. */
+  async databaseFile(): Promise<string | null> {
+    const main = (await this.db.all<{ name: string; file: string | null }>("PRAGMA database_list")).find((d) => d.name === "main");
+    return main?.file || null;
+  }
+
+  /**
+   * Starting over (services/reset.ts): one transaction deletes every user, and through ON DELETE CASCADE all of
+   * their data, and inserts the row of the admin `keepId` again as it was read, every column of it. With the users
+   * go the rows that no cascade reaches. Returns false, with nothing changed, when `keepId` is not an admin now.
+   */
+  async deleteAllBut(keepId: string, at: string): Promise<boolean> {
+    const row = await this.db.first<Record<string, SqlValue>>("SELECT * FROM users WHERE id = ?", [keepId]);
+    if (!row || row.role !== "admin") return false;
+    const columns = Object.keys(row);
+    const quoted = (column: string) => `"${column.replace(/"/g, '""')}"`;
+    await this.db.batch([
+      // a settings row of one user holds that user's id in its key (data_version:<id>, sync_lock:<id>, ...)
+      { sql: "DELETE FROM settings WHERE EXISTS (SELECT 1 FROM users u WHERE instr(settings.key, u.id) > 0)" },
+      // events without a user do not cascade and may name a member (user_deleted); the maintenance log stays
+      { sql: "DELETE FROM security_events WHERE user_id IS NULL AND kind NOT LIKE 'ops!_%' ESCAPE '!'" },
+      // a payee the register did not find as one company may be a person; a company's public record stays
+      { sql: "DELETE FROM merchant_industry WHERE status <> 'found'" },
+      { sql: "DELETE FROM users" },
+      { sql: `INSERT INTO users (${columns.map(quoted).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`, params: columns.map((c) => row[c] ?? null) },
+      bumpDataVersionStatement(at),
+    ]);
+    return true;
   }
 
   async countAdmins(): Promise<number> {

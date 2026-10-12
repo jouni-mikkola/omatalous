@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // Raportit > Lainat of a household that saved two loans: a mortgage with its plan and a card it knows only the
-// balance of. The loans belong to a member of their own, so the demo household of the administrator that the other
-// specs read stays as it is. The member is removed at the end, and one a broken run left behind is removed first.
+// balance of. The loans belong to a member of their own, with the demo accounts less the demo card (a connected card
+// that owes is a debt of its own and would stand beside the two), so the demo household of the administrator that the
+// other specs read stays as it is. The member is removed at the end, and one a broken run left behind is removed first.
 // Run alone, the spec creates the administrator itself. With E2E_SHOTS set the section is saved there as a picture
 // at each width.
 const DIR = process.env.E2E_DIR ?? ".";
@@ -21,22 +22,6 @@ const FETCH = { "X-Requested-With": "fetch" };
 let today = "";
 /** The member made here, removed in the end. */
 let memberId = "";
-
-/** The first day of the month `back` months before the server's, as the bank's file writes it. */
-function day(back: number, d: number): string {
-  const [y, m] = today.split("-").map(Number);
-  const at = new Date(Date.UTC(y!, m! - 1 - back, 1));
-  return `${at.getUTCFullYear()}/${String(at.getUTCMonth() + 1).padStart(2, "0")}/${String(d).padStart(2, "0")}`;
-}
-
-const csv = () =>
-  [
-    "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta",
-    `${day(1, 20)};-1000,00;;;ESIMERKKIPANKKI;ASUNTOLAINA LYHENNYS;;EUR`,
-    `${day(1, 5)};-60,00;;;K-MARKET ESIMERKKI;;;EUR`,
-    `${day(1, 3)};3000,00;;;ESIMERKKI OY;PALKKA;;EUR`,
-    `${day(2, 25)};-40,00;;;K-MARKET ESIMERKKI;;;EUR`,
-  ].join("\n");
 
 const NOT_GIVEN = { lender: null, grantedCents: null, rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: null };
 
@@ -73,7 +58,14 @@ async function household(browser: Browser): Promise<void> {
   await post(member, "/api/auth/password", { current: temporaryPassword, next: "e2e-lainat-123456" });
   today = ((await (await member.request.get(`${BASE}/api/meta`, { headers: FETCH })).json()) as { today: string }).today;
   expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  await post(member, "/api/import/csv", { content: csv(), accountName: "Käyttötili", accountType: "checking" });
+  await post(member, "/api/demo", {});
+  const meta = (await (await member.request.get(`${BASE}/api/meta`, { headers: FETCH })).json()) as { accounts: { id: string; type: string; provider: string }[] };
+  const cards = meta.accounts.filter((a) => a.provider === "demo" && a.type === "credit_card");
+  expect(cards, "the demo household has its card").toHaveLength(1);
+  for (const card of cards) {
+    const gone = await member.request.delete(`${BASE}/api/accounts/${card.id}`, { headers: FETCH });
+    expect(gone.ok(), `DELETE /api/accounts answered ${gone.status()}`).toBe(true);
+  }
   for (const loan of loans()) await post(member, "/api/loans", loan);
   await member.storageState({ path: MEMBER });
   await member.close();
