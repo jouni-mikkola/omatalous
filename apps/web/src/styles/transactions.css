@@ -82,5 +82,5 @@
   /* the answer to a category change: the row is far from the top of the card, so it floats above the list */
   .tx-feedback { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 5; }
   .tx-feedback .notice, .tx-feedback .error { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 0; }
-  .tx-feedback .error { padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--bad); border-radius: 6px; background: var(--surface); }
+  .tx-feedback .error { padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--bad); border-radius: var(--radius-s); background: var(--surface); }
 }

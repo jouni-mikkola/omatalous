@@ -6,7 +6,7 @@
 .bridge-track { display: grid; gap: 3px; }
 /* where the money of the bar came from, on the bar's own axis: there when the income was not all of it */
 .bridge-from { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
-.bridge-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; }
+.bridge-bar { display: flex; height: 28px; border-radius: var(--radius-s); overflow: hidden; }
 /* the 2px between two parts is cut from the part itself, so an edge of the strip stands over the same edge of the bar.
    The colour comes as background-color: the shorthand would reset the clip. */
 .bridge-seg { display: block; box-sizing: border-box; height: 100%; min-width: 4px; border-right: 2px solid transparent; background-clip: padding-box; }

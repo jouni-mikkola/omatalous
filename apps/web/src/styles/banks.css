@@ -1,7 +1,7 @@
 /* Bank logos. The bank picker is in bank-picker.css. */
 
 /* official logos keep their own colours: always on a white plate */
-.bank-logo { display: inline-grid; place-items: center; background: var(--plate); border-radius: 8px; box-shadow: inset 0 0 0 1px var(--plate-edge); flex: none; overflow: hidden; }
+.bank-logo { display: inline-grid; place-items: center; background: var(--plate); border-radius: var(--radius-m); box-shadow: inset 0 0 0 1px var(--plate-edge); flex: none; overflow: hidden; }
 /* a wide wordmark and a square mark keep their shape: the picture is fitted inside the plate, never stretched */
 .bank-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
 /* a picture is drawn once it has loaded (BankLogo.tsx) */

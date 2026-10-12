@@ -21,9 +21,30 @@ export function watch(page: Page): { problems: string[] } {
   return seen;
 }
 
-/** How far the page scrolls sideways, in pixels. */
+/**
+ * How far the page scrolls sideways, in pixels, once the layout has caught up. A chart is as wide as its container was until
+ * its ResizeObserver has run and React has drawn again, so a read right after `setViewportSize` can see a chart stick out of
+ * the narrower page for a frame or two. This waits for the fonts and two animation frames, then reads once a frame until two
+ * reads in a row agree, two seconds at most (a page that really scrolls sideways agrees at once, with its real figure).
+ */
 export async function overflow(page: Page): Promise<number> {
-  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  return page.evaluate(async () => {
+    const read = () => document.documentElement.scrollWidth - document.documentElement.clientWidth;
+    // a page that draws no frames (a hidden one) must not hang the test: 100 ms is the longest one frame is waited for
+    const frame = () => new Promise<void>((done) => { requestAnimationFrame(() => done()); setTimeout(done, 100); });
+    await document.fonts.ready;
+    await frame();
+    await frame();
+    const end = performance.now() + 2000;
+    let last = read();
+    while (performance.now() < end) {
+      await frame();
+      const now = read();
+      if (now === last) return now;
+      last = now;
+    }
+    return last;
+  });
 }
 
 async function post(context: BrowserContext, path: string, data: object): Promise<Record<string, any>> {

@@ -43,7 +43,7 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 
 .setup-form { display: flex; flex-direction: column; gap: 14px; }
 .setup-form label { display: flex; flex-direction: column; gap: 4px; }
-.setup-form input[type="url"] { font-size: 15px; padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; }
+.setup-form input[type="url"] { font-size: 15px; padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-m); }
 .field-label { color: var(--text-2); font-size: 13px; font-weight: 550; }
 .field-help { color: var(--muted); font-size: 12px; }
 .setup-form label.check { flex-direction: row; align-items: flex-start; gap: 8px; }
@@ -54,8 +54,8 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .hour-picker legend { padding: 0; margin-bottom: 6px; }
 .hours { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
 @media (max-width: 520px) { .hours { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-.hours button { border: 1px solid var(--border); background: var(--surface); border-radius: 7px; padding: 6px 0; cursor: pointer; font-variant-numeric: tabular-nums; color: var(--text-2); }
-.hours button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); font-weight: 500; }
+.hours button { border: 1px solid var(--border); background: var(--surface); border-radius: calc(var(--radius-pill) + 1px); padding: 6px 0; cursor: pointer; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.hours button[aria-pressed="true"] { background: var(--fill); border-color: var(--fill); color: var(--on-fill); font-weight: 500; }
 .hours button:disabled { opacity: 0.4; cursor: default; }
 .setup-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
 .setup-steps li::marker { color: var(--muted); font-weight: 600; }

@@ -13,7 +13,7 @@
 
 /* a finding: the words on the left, the euros on the right, on a phone one under the other */
 .findings { display: flex; flex-direction: column; gap: 12px; }
-.finding, .other { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--surface); min-width: 0; }
+.finding, .other { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; background: var(--surface); min-width: 0; }
 /* Muut havainnot: an insight's tone is its card's left edge, as it was on the overview */
 .other.good { border-left: 3px solid var(--good); }
 .other.warning { border-left: 3px solid var(--warn); }
@@ -39,7 +39,7 @@
 .finding-actions { margin-top: 10px; }
 .finding-actions .form-row { margin: 0; gap: 6px; }
 /* the form that opens under the buttons: a date, a reason, a delay or a number */
-.decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; padding: 10px; background: var(--surface-2); border-radius: 6px; }
+.decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; padding: 10px; background: var(--surface-2); border-radius: var(--radius-s); }
 .decide-form label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .decide-form.refine { align-items: flex-start; }
 .decide-form .input-form { flex: 1 1 100%; }

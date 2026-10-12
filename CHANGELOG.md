@@ -3,6 +3,18 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.16.0
+
+- Nothing on the pages changes in this release. It makes the work behind the app faster: the release command runs its two longest local steps side by side, and a page test that failed now and then no longer stops a release.
+- The stylesheets every page shares read both looks from one set of tokens, so the night look can be switched on for the whole app in the next release.
+
+For developers
+
+- The release command runs the gate and the local proof side by side, and the gate runs `pnpm check` and `pnpm e2e` side by side after the build.
+- A red `pnpm e2e` in the release gate is repeated once on its failed tests alone: green passes and names each test as flaky, red again fails.
+- Landing a wave of branches, cutting a release, looking at the state and watching the workers are one command each, and each prints only what needs a decision.
+- The page tests' sideways-scroll check waits for the layout to settle before it reads, so a chart still one frame behind a window resize no longer fails a run now and then.
+
 ## 0.15.0
 
 - The first page shows what the money goes to. Menot kategorioittain is a table of the main classes (Ruoka, Asuminen, Auto and so on) over the last twelve complete months: a figure a month, a figure a year and the change from the year before. A class opens to its lines, and large purchases stand apart under the table.

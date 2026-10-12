@@ -8,7 +8,7 @@
 .wizard-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
 .wizard-steps li.done { color: var(--text-2); }
 .step-no { width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
-.wizard-steps li[aria-current="step"] .step-no { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.wizard-steps li[aria-current="step"] .step-no { background: var(--fill); color: var(--on-fill); box-shadow: none; }
 .wizard-steps li.done .step-no { background: var(--good-bg); color: var(--good); }
 .wizard-section, .subhead { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
 .wizard-nav { margin-top: 20px; }
