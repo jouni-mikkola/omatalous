@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-vKLP/q6wfDYOfLc/F6JG2Pmf33HulMekwSju1t/NRV8='; style-src 'sha256-LbWXM3vFItaK5awfpEKZLFZqObMSwyJR9FIdTfJjGtw='; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Paluu Omatalouteen</title>
+<style>
+body{font:16px/1.5 system-ui,sans-serif;margin:0;padding:24px 16px;background:#fff;color:#1b1f23}
+main{max-width:34rem;margin:8vh auto 0}
+h1{font-size:1.25rem;margin:0 0 .5rem}
+code{overflow-wrap:anywhere}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin:1rem 0}
+a.btn,button{font:inherit;padding:.5rem 1rem;border-radius:6px;border:1px solid #6b7280;background:#fff;color:inherit;text-decoration:none;cursor:pointer}
+a.btn{background:#14532d;border-color:#14532d;color:#fff}
+small{color:#4b5563}
+@media (prefers-color-scheme:dark){body{background:#111418;color:#e6e8eb}button{background:#111418}small{color:#9ca3af}}
+</style>
+</head>
+<body>
+<main>
+<h1 id="title">Palataan Omatalouteen</h1>
+<p id="where"></p>
+<div class="row" id="actions" hidden>
+<a class="btn" id="go" href="#">Jatka</a>
+<button type="button" id="copy">Kopioi osoite</button>
+</div>
+<p id="note"><small>Tämä sivu ei tallenna mitään. Pankki palauttaa selaimen tähän, ja sivu siirtää sen osoitteeseen, jonka Omatalous antoi pankille.</small></p>
+</main>
+<script>
+"use strict";
+// Keep parseLocalOrigin in step with packages/core/src/local-origin.ts. test/local-origin.test.ts runs both over one table.
+var SUFFIXES = [".local", ".lan", ".home.arpa", ".internal"];
+var LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+function privateIpv4(host) {
+  var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  var o = m.slice(1).map(Number);
+  if (o.some(function (n) { return n > 255; })) return false;
+  return o[0] === 127 || o[0] === 10 || (o[0] === 172 && o[1] >= 16 && o[1] <= 31) || (o[0] === 192 && o[1] === 168);
+}
+
+function localName(host) {
+  if (host.length > 253) return false;
+  var labels = host.split(".");
+  if (!labels.every(function (l) { return LABEL.test(l); })) return false;
+  if (labels.length === 1) return host === "localhost";
+  return SUFFIXES.some(function (s) { return host.slice(-s.length) === s; });
+}
+
+function parseLocalOrigin(value) {
+  if (typeof value !== "string" || value.length > 120 || /[\s\x00-\x1f\x7f\\%]/.test(value)) return null;
+  var url;
+  try { url = new URL(value); } catch (e) { return null; }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.username || url.password || url.search || url.hash || url.pathname !== "/") return null;
+  if (value !== url.origin && value !== url.origin + "/") return null;
+  if (url.port === "0") return null;
+  var host = url.hostname, ok;
+  if (host.charAt(0) === "[") {
+    var v6 = host.slice(1, -1);
+    ok = v6 === "::1" || /^f[cd][0-9a-f]{2}:/.test(v6);
+  } else {
+    ok = /^[0-9.]+$/.test(host) ? privateIpv4(host) : localName(host);
+  }
+  return ok ? url.origin : null;
+}
+
+function originFromState(state) {
+  if (typeof state !== "string" || state.length > 300) return null;
+  var dot = state.lastIndexOf(".");
+  if (dot < 1) return null;
+  var b64 = state.slice(dot + 1);
+  if (!/^[A-Za-z0-9_-]+$/.test(b64)) return null;
+  try { return parseLocalOrigin(atob(b64.replace(/-/g, "+").replace(/_/g, "/"))); } catch (e) { return null; }
+}
+
+// Only code (or error) and state go on, never error_description or anything else in the query.
+function returnTarget(search) {
+  var q = new URLSearchParams(search);
+  var state = q.get("state");
+  var origin = originFromState(state);
+  if (!origin) return null;
+  var out = new URLSearchParams();
+  var error = q.get("error");
+  var code = q.get("code");
+  if (error) out.set("error", error.slice(0, 80));
+  else if (code) out.set("code", code);
+  else return null;
+  out.set("state", state);
+  return { origin: origin, url: origin + "/api/connections/callback?" + out.toString() };
+}
+
+function paluu(loc, doc, nav) {
+  var target = returnTarget(loc.search);
+  var where = doc.getElementById("where");
+  if (!target) {
+    doc.getElementById("title").textContent = "Paluuosoite ei kelpaa";
+    where.textContent = "Avaa Omatalous sen omasta osoitteesta ja yhdistä pankki uudelleen.";
+    return null;
+  }
+  where.textContent = "Palataan Omatalouteen: " + target.origin;
+  var go = doc.getElementById("go");
+  go.setAttribute("href", target.url);
+  doc.getElementById("actions").hidden = false;
+  doc.getElementById("copy").addEventListener("click", function () {
+    if (nav.clipboard) nav.clipboard.writeText(target.url);
+  });
+  loc.assign(target.url);
+  return target;
+}
+
+if (typeof document !== "undefined" && document.getElementById("where")) paluu(location, document, navigator);
+</script>
+</body>
+</html>
