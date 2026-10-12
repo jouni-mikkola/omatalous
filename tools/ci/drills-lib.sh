@@ -45,6 +45,7 @@ login() {
 # stopped process too, and gives the container its restart policy back.
 fresh() {
   SAW=""
+  rm -f "$CLOCK/stopped"
   until_ok 6 app_ok && return 0
   dc restart -t 2 banking >/dev/null 2>&1 || dc up -d banking >/dev/null 2>&1
   until_ok 150 app_ok || die "the app does not answer at the start of the drill" "docker ps: $(docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}' 2>&1 | head -n 4 | tr '\n' ';')"
@@ -80,6 +81,24 @@ restore_api() {
 }
 
 # ── the helper on this install: a clock that can be set ahead, a policy, one tick ──
+# The helper looks at the app with `timeout 20 docker compose exec -T banking wget ...` (app_up in scripts/ops-helper.sh),
+# and a look at an app that SIGSTOP has stopped can only end by that timeout: drill 3 makes several of them with the app
+# stopped, 20 s each. timeout_shim DIR REAL writes a `timeout` for the front of
+# the helper's PATH that, while the file DIR/stopped is there, gives that one call LOOK_WAIT seconds instead; every other
+# call goes on to the real timeout (REAL) as it came. A look at a stopped app fails after 5 s as it does after 20, and the
+# watchdog reads only that it failed. If the helper ever asks in other words, the call is not matched and only the time
+# comes back.
+LOOK_WAIT=5
+timeout_shim() {
+  cat >"$1/timeout" <<EOF
+#!/bin/bash
+if [[ -e "$1/stopped" && \$1 == 20 && "\${*:2:6}" == "docker compose exec -T banking wget" ]]; then set -- $LOOK_WAIT "\${@:2}"; fi
+exec "$2" "\$@"
+EOF
+  chmod 755 "$1/timeout"
+}
+# stop_app: SIGSTOP for the app, and the mark that makes the helper's looks short (timeout_shim); fresh takes the mark away
+stop_app() { docker kill -s STOP banking-app >/dev/null && : >"$CLOCK/stopped"; }
 prep_ops() {
   [[ -f $LOGS/ops-ready ]] && return 0
   git -C "$DIR" remote set-url origin "file://$REMOTE" || return 1
@@ -94,7 +113,8 @@ off=\$(cat "$CLOCK/offset" 2>/dev/null || echo 0)
 for a in "\$@"; do [[ \$a == -d || \$a == --date* ]] && exec /bin/date "\$@"; done
 exec /bin/date -d "@\$(( \$(/bin/date +%s) + off ))" "\$@"
 EOF
-  chmod 755 "$CLOCK/date" && touch "$LOGS/ops-ready"
+  chmod 755 "$CLOCK/date" || return 1
+  timeout_shim "$CLOCK" "$(command -v timeout)" && touch "$LOGS/ops-ready"
 }
 # tick OFFSET: one tick of this checkout's helper, with the clock OFFSET seconds ahead
 tick() {
@@ -105,8 +125,9 @@ tick() {
   (cd "$DIR" && exec env OPS_TEST=1 PATH="$CLOCK:$PATH" timeout -k 10 "$t" ./scripts/ops-helper.sh) >>"$LOGS/tick.out" 2>&1
 }
 # tick_at V: one tick with the helper's clock V seconds after CLOCK0 (the drill sets it to $SECONDS) when the tick starts.
-# The real seconds since CLOCK0 are taken off the offset: a look at an app that does not answer takes the helper 20 s, and
-# with a plain offset two looks "179 s apart" were 199 s apart, over WATCHDOG_GAP, so the watchdog counted nothing.
+# The real seconds since CLOCK0 are taken off the offset: a look at an app that does not answer takes the helper up to 20 s
+# (LOOK_WAIT with the mark of stop_app), and with a plain offset two looks "179 s apart" were 199 s apart, over
+# WATCHDOG_GAP, so the watchdog counted nothing.
 tick_at() {
   local off=$(($1 - (SECONDS - CLOCK0)))
   ((off >= 0)) || off=0

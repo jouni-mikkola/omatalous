@@ -1,7 +1,7 @@
 /* Reports page: section nav, key figures, pivot and heat tables. */
 
 .report-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-.report-nav a { font-size: 12px; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); text-decoration: none; }
+.report-nav a { font-size: 12px; padding: 3px 9px; border-radius: calc(var(--radius-pill) - 1px); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); text-decoration: none; }
 .report-nav a:hover { color: var(--text); border-color: var(--axis); }
 /* a phone: one row that scrolls sideways instead of nine chips on three rows before any content */
 @media (max-width: 640px) {
@@ -40,7 +40,7 @@ details.group > summary { cursor: pointer; }
 .pivot-list > li { border-bottom: 1px solid var(--grid); }
 .pivot-list summary, .pivot-sum { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 8px 0; cursor: pointer; list-style: none; }
 .pivot-list summary::-webkit-details-marker { display: none; }
-.pivot-sum { cursor: default; background: var(--surface-2); font-weight: 600; padding-inline: 8px; border-radius: 6px; margin-top: 4px; }
+.pivot-sum { cursor: default; background: var(--surface-2); font-weight: 600; padding-inline: 8px; border-radius: var(--radius-s); margin-top: 4px; }
 .pivot-total { text-align: right; font-variant-numeric: tabular-nums; }
 .pivot-avg { grid-column: 1 / -1; font-size: 12px; }
 .pivot-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 0 0 10px; }

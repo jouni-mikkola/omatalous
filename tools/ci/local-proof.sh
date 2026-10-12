@@ -15,17 +15,26 @@
 #   upgrade from REF   check-migrations.sh, compose-compat.sh and upgrade-run.sh, once for each baseline
 #   drills             tools/ci/drills.sh, on the install that the rehearsal from the first baseline left up
 #
-# One line a leg when it ends, with its seconds. A failed leg does not stop the others (only a failed image or smoke
-# test does); at the end the failed ones are named with their logs and the exit code is 1. Exit 2 means it refused
-# before it ran anything. A commit that passed gets a stamp in the git folder, with the baselines it was proved from,
-# and the next run for the same commit ends at once (remove the file `local-proof` there to run it again).
+# Everything but the drills starts at once: the image and then the smoke test in a chain of their own, the signature,
+# and the rehearsals in their lanes. They share nothing: a rehearsal builds its own images from the baseline and from
+# the commit (never banking-app:ci), the smoke test publishes no port and names its containers after its own pid, and
+# the signature only reads. The drills start when all of those have ended. With one job the image and the smoke test run
+# first and alone, and a red one ends the proof before any other leg starts.
+#
+# One line a leg when it ends, with its seconds. A failed leg does not stop the others, so that one proof shows every
+# failure; a failed image or smoke test is the exception, since every rehearsal builds the same Dockerfile: it stops the
+# legs that are running (each takes its install down), the drills do not run, and the line "stopped" stands for each
+# leg that was cut. At the end the failed ones are named with their logs and the exit code is 1. Exit 2 means it
+# refused before it ran anything. A commit that passed gets a stamp in the git folder, with the baselines it was proved
+# from, and the next run for the same commit ends at once (remove the file `local-proof` there to run it again).
 #
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
 # the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/. Otherwise the
 # oldest, the first public release (the ref under the comment line that says "first public release") and the last
 # three. --all takes the whole list.
 #
-# --jobs N (default 4) is how many rehearsals run at once, each in a lane. Lane 0 has port 8080 and the names
+# --jobs N (default 4, or PROOF_JOBS; the flag wins) is how many rehearsals run at once, each in a lane. A machine too
+# small for that sets PROOF_JOBS=1 (also through release.sh), and the rehearsals run one after another. Lane 0 has port 8080 and the names
 # docker-compose.yml gives without a key. Lane N has port 8080+N and the project proof-N (UPGRADE_PORT and
 # UPGRADE_PROJECT of upgrade-run.sh). Three rehearsals stay one at a time, in lane 0:
 #   - from a baseline whose docker-compose.yml fixes the port and the names (the ones before 0.4.0),
@@ -46,6 +55,8 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 JOBS=4
 ALL=0
+# jobs_are NAME VALUE: the number of rehearsals at once, from the flag or from the environment
+jobs_are() { [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "$1 needs a number from 1 to 99."; JOBS=$2; }
 PROVED=0
 LIST=''
 PROOF_USER=${PROOF_USER:-1}
@@ -57,11 +68,12 @@ unset UPGRADE_PORT UPGRADE_PROJECT UPGRADE_WORK UPGRADE_KEEP_UP
 
 refuse() { printf 'Error: %s\n' "$*" >&2; exit 2; }
 
+[[ -z ${PROOF_JOBS:-} ]] || jobs_are PROOF_JOBS "$PROOF_JOBS"
 while (($#)); do
   case $1 in
     --all) ALL=1 ;;
     --proved) PROVED=1 ;;
-    --jobs) [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "--jobs needs a number from 1 to 99."; JOBS=$2; shift ;;
+    --jobs) jobs_are --jobs "${2:-}"; shift ;;
     -h | --help) sed -n '2,/^set /{/^#/p}' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) refuse "Unknown option: $1 ($USAGE)" ;;
     *) [[ -z $LIST ]] || refuse "Give one list of baselines ($USAGE)."; LIST=$1 ;;
@@ -215,6 +227,8 @@ leg() {
   rm -f "$RUNNING/$name"
   if ((rc == 0)); then
     echo "ok      $label ($((SECONDS - t0)) s)"
+  elif ((rc == 143)) && [[ -e $WORK/halt ]]; then
+    echo "stopped $label ($((SECONDS - t0)) s)" # cut by halt: not a fault of its own
   else
     echo "FAILED  $label ($((SECONDS - t0)) s): $LOGS/$name.log"
     echo "$name" >>"$WORK/failed"
@@ -244,11 +258,18 @@ drop_kept() {
 }
 tidy() { rm -rf "$SRC" "${WORK:?}/home" "$RUNNING" "$WORK"/upgrade-* 2>/dev/null; }
 
-stop() {
-  trap '' INT TERM
+# end_legs: no leg starts from now on, and the ones that run get TERM (each takes its install down)
+end_legs() {
   : >"$WORK/stop"
   local f
   for f in "$RUNNING"/*; do [[ ! -e $f ]] || kill -TERM -- "-$(<"$f")" 2>/dev/null; done
+}
+# halt: the image or the smoke test failed. The legs that run are cut, and the drills will not run.
+halt() { : >"$WORK/halt"; end_legs; }
+
+stop() {
+  trap '' INT TERM
+  end_legs
   wait
   drop_kept
   tidy
@@ -275,8 +296,15 @@ report() {
   exit 1
 }
 
-leg image "the image builds" docker build -t banking-app:ci . || report "The other legs did not run."
-leg smoke "smoke test of the image" tools/ci/smoke-image.sh banking-app:ci unknown unknown || report "The other legs did not run."
+image_and_smoke() {
+  leg image "the image builds" docker build -t banking-app:ci . \
+    && leg smoke "smoke test of the image" tools/ci/smoke-image.sh banking-app:ci unknown unknown
+}
+if ((JOBS == 1)); then
+  image_and_smoke || report "The other legs did not run."
+else
+  (trap : INT TERM; image_and_smoke || halt) &
+fi
 
 KEPT=$WORK/upgrade-${FIRST//[^A-Za-z0-9._-]/_}
 for ((k = 0; k < JOBS; k++)); do
@@ -294,6 +322,10 @@ done
 (trap : INT TERM; leg signature "signature of the newest release" tools/ci/verify-release.sh) &
 wait
 
+if [[ -e $WORK/halt ]]; then
+  drop_kept
+  report "The legs still running were stopped, and the drills did not run."
+fi
 if [[ -d $KEPT/talous ]]; then
   leg drills "drills" env "UPGRADE_WORK=$KEPT" tools/ci/drills.sh
 else

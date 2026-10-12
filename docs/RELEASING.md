@@ -3,14 +3,16 @@
 Development happens in the private repository. Households get the app from the public repository
 `jouni-mikkola/omatalous`, which holds one commit per published snapshot. A publish exports the committed tree of
 `HEAD` there and pushes `main`, and can push the tag `vX.Y.Z` with it. The public repository's release
-workflow runs six jobs. `plan` reads the version and the tag and checks that `version.ts`, the three `package.json` files
-and the top `CHANGELOG.md` heading agree. `verify` checks that the commit is on `main` and that only migrations were
-added since the previous release. `build` makes the amd64 and the arm64 image, each on a runner of its own processor
-with no emulation, and pushes both to `ghcr.io/jouni-mikkola/omatalous` by digest with no version tag. `smoke` pulls each
-by digest on its own runner and starts it. Only when both pass does `publish` give one index of the two the version tag,
-sign it with cosign through GitHub OIDC and verify the signature with the function installs run
-(`scripts/lib/release.sh`). `release` writes the GitHub release, as a pre-release (see Promotion below). A build or a
-smoke test that fails leaves no tag, no signature and no release. The return page
+workflow starts with `plan`, which reads the version and the tag and checks that `version.ts`, the three `package.json`
+files and the top `CHANGELOG.md` heading agree. Then five jobs run side by side, since none needs another. `verify`
+checks that the commit is on `main` and that only migrations were added since the previous release. `typecheck` runs
+`pnpm typecheck` and `pnpm build`. `test` runs `pnpm test` in three shards, each on a runner of its own. `build` makes the
+amd64 and the arm64 image, each on a runner of its own processor with no emulation, and pushes both to
+`ghcr.io/jouni-mikkola/omatalous` by digest with no version tag. `smoke` pulls each by digest on its own runner and starts
+it. Only when every check, both builds and both smoke tests have passed does `publish` give one index of the two the
+version tag, sign it with cosign through GitHub OIDC and verify the signature with the function installs run
+(`scripts/lib/release.sh`). `release` writes the GitHub release, as a pre-release (see Promotion below). A check, a build
+or a smoke test that fails leaves no tag, no signature and no release. The return page
 workflow publishes `relay/` to GitHub Pages on the same tags and on every push to `main` that changes `relay/`. The
 release workflow has no approval step. It runs when a push to `main` brings a version that has no tag yet, when a tag
 is pushed, or by hand with *Run workflow* on `main`. On `main` it creates the tag on that commit itself. A push of a
@@ -42,16 +44,18 @@ a database of 0.5.0 is accepted by `migrate-check`, starts, keeps its users and 
 Docker job runs the same script on every image it builds. By hand, on a machine with Docker: `docker build -t x .`, then
 `tools/ci/smoke-image.sh x unknown unknown`.
 
-A failed build or smoke test leaves nothing behind: fix and push again, or use *Re-run failed jobs* for a fault of the
-runner.
+A red run leaves untagged image digests in `ghcr.io/jouni-mikkola/omatalous` and nothing an install can see: no tag on an
+image, no signature, no GitHub release. `publish` and `release` need every check, both builds and both smoke tests, and
+the build, which runs beside the checks, pushes by digest only. A fault of the runner or the network is repeated with
+*Re-run failed jobs*, which keeps the push and the jobs that passed; a fault in the code is fixed in a new commit.
 
-The rehearsal is Actions, Release, *Run workflow* on `main` with `dry_run` ticked. The jobs `plan`, `verify` and `dry-run`
-run, the last on both runners: the images are built into each runner's own Docker and smoke tested there, and nothing is
-pushed, signed or released. `build`, `smoke`, `publish` and `release` are skipped. Use it after a change to the
-Dockerfile, the release workflow or the runner images, and before the first release with this workflow. It does not
-rehearse the push by digest of `build`, the pull by digest of `smoke`, or `publish` (the index, the platform check, the
-signature, the label check). Their first run is the release itself. A fault there leaves no tag, because the tag is made
-in `publish` after both smoke tests, but it costs a release attempt.
+The rehearsal is Actions, Release, *Run workflow* on `main` with `dry_run` ticked. The jobs `plan`, `verify`, `typecheck`,
+`test` and `dry-run` run, the last on both runners beside the checks: the images are built into each runner's own Docker
+and smoke tested there, and nothing is pushed, signed or released. `build`, `smoke`, `publish` and `release` are skipped.
+Use it after a change to the Dockerfile, the release workflow or the runner images, and before the first release with this
+workflow. It does not rehearse the push by digest of `build`, the pull by digest of `smoke`, or `publish` (the index, the
+platform check, the signature, the label check). Their first run is the release itself. A fault there leaves no tag,
+because the tag is made in `publish` after every check and both smoke tests, but it costs a release attempt.
 
 Every job runs on `ubuntu-24.04` or `ubuntu-24.04-arm`, and a repo rule refuses a `-latest` label. Moving to a newer image
 is `RUNNERS` in `tools/repo-rules/runners.ts` and the `runs-on` lines together, then a rehearsal.

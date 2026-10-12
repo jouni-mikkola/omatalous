@@ -3,6 +3,21 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.17.0
+
+- The whole app has the new dark look on every page, and its panels have a lit top edge, a faint glow inside and a deep shadow.
+- The work behind a release is arranged side by side: the run on GitHub starts its checks, tests and image builds together, and the local proof builds the image beside the upgrade rehearsals.
+
+Look
+
+- In the night look, panels have a lit top edge, a faint glow inside and a deep shadow.
+- The whole app has the new dark look, on every page from the first page to Settings and the sign-in.
+
+For developers
+
+- The release run on GitHub starts the type check, the tests (in three shards) and both image builds together instead of one after another, and a test of the workflow reads that no tag, signature or release is made before all of them have passed.
+- The local proof of a release builds the image and runs the smoke test beside the upgrade rehearsals instead of before them, waits 5 s instead of 20 s for the helper's look at a stopped app in the watchdog drill, and takes `PROOF_JOBS=1` to run its legs one after another on a machine that is too small.
+
 ## 0.16.0
 
 - Nothing on the pages changes in this release. It makes the work behind the app faster: the release command runs its two longest local steps side by side, and a page test that failed now and then no longer stops a release.

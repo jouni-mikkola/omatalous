@@ -27,6 +27,8 @@
 # The watchdog's ten minutes are not waited for: the helper runs with OPS_TEST=1 and a `date` first in PATH that is
 # ahead of the real clock by a file's number of seconds (ops-watchdog.sh has no OPS_T_ override for its wait). tick_at
 # sets that number so that the helper's clock reads a chosen time when a tick starts, whatever the tick before it took.
+# Nor is its 20 s wait for an app that SIGSTOP has stopped: while the app is stopped, a `timeout` first in PATH gives the
+# helper's look at it 5 s (timeout_shim in drills-lib.sh). The look fails either way, and nothing else is shortened.
 #
 # Every drill on the rehearsal's install begins with `fresh`: an earlier drill that failed may have left the app stopped.
 # DRILLS_GH_TOKEN (the workflow's read-only token) serves drill 10 alone, and only when GitHub refuses the plain request.
@@ -230,7 +232,7 @@ drill_watchdog() {
   cp "$DIR/backups/.last-update" "$LOGS/last-update.saved"
   saw_with watchdog_saw
   step "the app stops answering (SIGSTOP); five ticks 160 s apart on the helper's clock: 480 s of it by the fourth, 640 s by the fifth"
-  docker kill -s STOP banking-app >/dev/null || die "the app could not be stopped"
+  stop_app || die "the app could not be stopped"
   clock_start
   n=0
   for v in 2 162 322 482 642; do
@@ -239,6 +241,7 @@ drill_watchdog() {
     echo "tick $n at +$v s: ops/watchdog-since (START SECONDS LAST JOURNAL) = $(since)"
     if ((n < 5)); then compgen -G "$DIR/ops/watchdog-*Z" >/dev/null && die "the update was rolled back at tick $n, before ten minutes"; fi
   done
+  rm -f "$CLOCK/stopped" # the rollback of the fifth tick has put a running app in its place
   step "after the fifth tick: rolled back, once, reported"
   compgen -G "$DIR/ops/watchdog-*Z" >/dev/null || die "no ops/watchdog-<AT> mark: the watchdog did not roll back"
   helper_log_has 'watchdog: the app has been unhealthy for 10 minutes' || die "helper.log has no 'watchdog: the app has been unhealthy' line"
@@ -255,13 +258,14 @@ drill_watchdog() {
   step "a second bad period: the same update's record put back, the app stopped again, five ticks"
   cp "$LOGS/last-update.saved" "$DIR/backups/.last-update" && chmod 600 "$DIR/backups/.last-update" || die "the record could not be put back"
   n=$(started_at)
-  docker kill -s STOP banking-app >/dev/null || die "the app could not be stopped"
+  stop_app || die "the app could not be stopped"
   for v in 1000 1160 1320 1480 1640; do
     tick_at "$v" || die "a tick of the second period ended with $?"
     echo "tick at +$v s: ops/watchdog-since = $(since)"
   done
   [[ $(grep -c 'watchdog: the app has been unhealthy for 10 minutes' "$DIR/ops/helper.log") == 1 ]] || die "a second rollback was started"
   [[ $(started_at) == "$n" ]] || die "the container was recreated in the second period"
+  rm -f "$CLOCK/stopped"
   docker kill -s CONT banking-app >/dev/null || true
   until_ok 60 app_ok || die "the app does not answer after SIGCONT"
   rm -f "$DIR/backups/.last-update"

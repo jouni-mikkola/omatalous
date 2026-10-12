@@ -43,7 +43,7 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 
 .setup-form { display: flex; flex-direction: column; gap: 14px; }
 .setup-form label { display: flex; flex-direction: column; gap: 4px; }
-.setup-form input[type="url"] { font-size: 15px; padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-m); }
+.setup-form input[type="url"] { font-size: 15px; padding: 8px 10px; border: 1px solid var(--control-edge); background: var(--control); border-radius: var(--radius-m); }
 .field-label { color: var(--text-2); font-size: 13px; font-weight: 550; }
 .field-help { color: var(--muted); font-size: 12px; }
 .setup-form label.check { flex-direction: row; align-items: flex-start; gap: 8px; }

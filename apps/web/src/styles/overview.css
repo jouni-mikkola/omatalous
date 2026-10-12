@@ -22,7 +22,7 @@
 .category-table th:first-child { width: 12rem; }
 .category-table .st-num { width: 6.5rem; }
 .category-table td.category-bar { vertical-align: middle; }
-.category-bar span { display: block; height: 8px; min-width: 2px; background: var(--accent); }
+.category-bar span { display: block; height: 8px; min-width: 2px; background: var(--series-1); }
 /* where the card is narrow the bar goes and the name takes its room */
 @media (max-width: 600px) {
   .category-table .category-bar { display: none; }

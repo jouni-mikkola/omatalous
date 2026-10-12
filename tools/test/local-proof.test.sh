@@ -104,6 +104,12 @@ if [[ -e $PROOF_PLAY/gate ]]; then
   fi
 fi
 hold "$ref"
+# with the file meet-image, the first rehearsal in tells the image build (which waits for it) and then holds, if the file
+# hold-meeting is there
+if [[ -e $PROOF_PLAY/meet-image ]] && mkdir "$PROOF_PLAY/met" 2>/dev/null; then
+  timeout 30 bash -c 'echo go >"$1"' _ "$PROOF_PLAY/meet.fifo" # the 30 s are for a proof whose image build never reads
+  hold meeting
+fi
 rmdir "$PROOF_PLAY/port-$port" "$PROOF_PLAY/project-$project" 2>/dev/null
 broken "$ref"
 [[ ${UPGRADE_KEEP_UP:-} != 1 ]] || mkdir -p "$UPGRADE_WORK/talous"
@@ -138,7 +144,12 @@ stub "$BIN/docker" <<'STUB'
 if [[ ${1:-} == build ]]; then echo "docker $* cwd=$PWD" >>"$PROOF_CALLS"; else echo "docker $*" >>"$PROOF_CALLS"; fi
 case ${1:-} in
   info) [[ ! -e $PROOF_PLAY/no-docker ]] || exit 1 ;;
-  build) [[ ! -e $PROOF_PLAY/fail-image ]] || { echo "the image leg broke"; exit 1; } ;;
+  kill) [[ ! -e $PROOF_PLAY/fail-kill ]] || exit 1 ;;
+  build)
+    # with the file image-waits, the build stays until a rehearsal is inside (the 30 s are for a proof that never starts one)
+    [[ ! -e $PROOF_PLAY/image-waits ]] || timeout 30 head -n 1 "$PROOF_PLAY/meet.fifo" >/dev/null
+    echo "image-end" >>"$PROOF_CALLS"
+    [[ ! -e $PROOF_PLAY/fail-image ]] || { echo "the image leg broke"; exit 1; } ;;
 esac
 exit 0
 STUB
@@ -280,6 +291,18 @@ out=$(proof --jobs 1 baselines.txt); rc=$?
 has "--jobs 1 says so" "$out" "1 at a time."
 check "--jobs 1: every rehearsal on the defaults" test $rc -eq 0 -a "$(called '^rehearsal .* port= project= ')" -eq 8
 lacks "--jobs 1: one at a time" "$(calls)" "CLASH"
+check "--jobs 1: the image and the smoke test come before the first rehearsal" test "$(grep -n '^smoke ' "$CALLS" | cut -d: -f1)" -lt "$(grep -n '^rehearsal ' "$CALLS" | head -1 | cut -d: -f1)"
+
+reset
+out=$(PROOF_JOBS=1 proof baselines.txt); rc=$?
+has "PROOF_JOBS=1 says so" "$out" "1 at a time."
+check "PROOF_JOBS=1: every rehearsal on the defaults" test $rc -eq 0 -a "$(called '^rehearsal .* port= project= ')" -eq 8
+reset
+out=$(PROOF_JOBS=1 proof --jobs 2 baselines.txt)
+has "the flag wins over PROOF_JOBS" "$out" "2 at a time."
+reset
+out=$(PROOF_JOBS='' proof baselines.txt)
+has "an empty PROOF_JOBS is the default" "$out" "4 at a time."
 
 # ── a leg that fails ──
 reset
@@ -317,15 +340,45 @@ check "and the exit is 1 with no stamp" test $rc -eq 1 -a -z "$(stamp)"
 
 reset
 touch "$PLAY/fail-image"
-out=$(proof baselines.txt); rc=$?
-has "an image that does not build" "$out" "FAILED  the image builds ("
+out=$(proof --jobs 1 baselines.txt); rc=$?
+has "one job, an image that does not build" "$out" "FAILED  the image builds ("
 has "stops the proof" "$out" "1 of 12 legs. The other legs did not run. Nothing is stamped."
 check "before any other leg" test $rc -eq 1 -a "$(called '^smoke\|^rehearsal\|^signature\|^drills')" -eq 0 -a -z "$(stamp)"
 reset
 touch "$PLAY/fail-smoke"
-out=$(proof baselines.txt); rc=$?
-has "a failed smoke test" "$out" "FAILED  smoke test of the image ("
+out=$(proof --jobs 1 baselines.txt); rc=$?
+has "one job, a failed smoke test" "$out" "FAILED  smoke test of the image ("
 check "stops the proof too" test $rc -eq 1 -a "$(called '^rehearsal\|^signature\|^drills')" -eq 0 -a -z "$(stamp)"
+
+# The image is built while the rehearsals run. This image build stays until a rehearsal is inside; that rehearsal holds,
+# and the image then fails, so the proof is red with a rehearsal in the middle of its work.
+reset
+touch "$PLAY/fail-image" "$PLAY/image-waits" "$PLAY/meet-image" "$PLAY/hold-meeting"
+mkfifo "$PLAY/meet.fifo" "$PLAY/never"
+out=$(proof baselines.txt); rc=$?
+has "an image that fails beside the rehearsals" "$out" "FAILED  the image builds ("
+check "a rehearsal was inside when it failed, and got the stop" test "$(called '^stopped meeting')" -eq 1
+has "the cut rehearsal is a stopped leg" "$out" "stopped upgrade from "
+lacks "and not a failed one" "$out" "FAILED  upgrade from"
+has "the end says what was cut" "$out" "1 of 12 legs. The legs still running were stopped, and the drills did not run. Nothing is stamped."
+check "the drills did not run, nothing is stamped, the exit is 1" test $rc -eq 1 -a "$(called '^drills')" -eq 0 -a -z "$(stamp)"
+check "the image build ended after a rehearsal began" test "$(grep -n '^rehearsal ' "$CALLS" | head -1 | cut -d: -f1)" -lt "$(grep -n '^image-end' "$CALLS" | cut -d: -f1)"
+check "no clone and no install is left" test ! -e "$(dirname "$(logs)")/src" -a -z "$(ls -d "$(dirname "$(logs)")"/upgrade-* 2>/dev/null)"
+
+# The same meeting with a good image: the image build and a rehearsal are in at once, and the proof passes.
+reset
+touch "$PLAY/image-waits" "$PLAY/meet-image"
+mkfifo "$PLAY/meet.fifo"
+out=$(proof baselines.txt); rc=$?
+check "an image built while a rehearsal runs: the proof passes" test $rc -eq 0 -a -n "$(stamp)"
+check "the image build ended after a rehearsal began" test "$(grep -n '^rehearsal ' "$CALLS" | head -1 | cut -d: -f1)" -lt "$(grep -n '^image-end' "$CALLS" | cut -d: -f1)"
+check "the drills still ran last" test "$(tail -1 "$CALLS" | cut -d' ' -f1)" = drills
+reset
+touch "$PLAY/fail-smoke"
+out=$(proof baselines.txt); rc=$?
+has "a failed smoke test beside the rehearsals" "$out" "FAILED  smoke test of the image ("
+check "is red, with no drills and no stamp" test $rc -eq 1 -a "$(called '^drills')" -eq 0 -a -z "$(stamp)"
+lacks "and no rehearsal is called failed" "$out" "FAILED  upgrade from"
 
 # ── started as root ──
 reset
@@ -392,6 +445,9 @@ refused "an unknown option" "Unknown option: --fast" proof --fast baselines.txt
 refused "--jobs 0" "--jobs needs a number from 1 to 99" proof --jobs 0 baselines.txt
 refused "--jobs with a word" "--jobs needs a number from 1 to 99" proof --jobs many baselines.txt
 refused "--jobs with nothing" "--jobs needs a number from 1 to 99" proof baselines.txt --jobs
+proof_jobs() { local j=$1; shift; PROOF_JOBS=$j proof "$@"; }
+refused "PROOF_JOBS 0" "PROOF_JOBS needs a number from 1 to 99" proof_jobs 0 baselines.txt
+refused "PROOF_JOBS with a word" "PROOF_JOBS needs a number from 1 to 99" proof_jobs many baselines.txt
 touch "$PLAY/no-docker"
 refused "a Docker that does not answer" "Docker does not answer (docker info)" proof baselines.txt
 reset
@@ -476,6 +532,34 @@ has "a baseline that can move its port but not its name refuses a project" "$out
 check "before any Docker call too" test $rc -eq 1 -a ! -s "$CALLS" -a ! -e "$W/talous"
 out=$(rehearse "$fixed"); rc=$?
 check "a baseline with fixed names runs on the defaults" test "$(called '^docker compose up -d --build ')" -eq 1 -a "$(cat "$W/talous/.env")" = "$BASE_ENV"
+
+# ── the helper's look at an app that is stopped (tools/ci/drills-lib.sh) ──
+# timeout_shim writes the `timeout` that goes first in the helper's PATH. The real one is a stand-in that says what it got.
+reset
+T=$TMP/look
+mkdir -p "$T"
+stub "$T/real-timeout" <<'STUB'
+#!/usr/bin/env bash
+echo "real $*"
+STUB
+(. "$REPO/tools/ci/drills-lib.sh" && timeout_shim "$T" "$T/real-timeout")
+look() { "$T/timeout" "$@"; }
+probe=(20 docker compose exec -T banking wget -qO- http://127.0.0.1:8080/api/health)
+check "the shim is there and can run" test -x "$T/timeout"
+has "no mark: the helper's look keeps its 20 s" "$(look "${probe[@]}")" "real 20 docker compose exec -T banking wget -qO- http://127.0.0.1:8080/api/health"
+(CLOCK=$T; PATH=$BIN:$PATH; . "$REPO/tools/ci/drills-lib.sh"; stop_app)
+check "stop_app stops the app and makes the mark" test -e "$T/stopped" -a "$(called '^docker kill -s STOP banking-app')" -eq 1
+has "marked: the same look waits 5 s" "$(look "${probe[@]}")" "real 5 docker compose exec -T banking wget -qO- http://127.0.0.1:8080/api/health"
+has "a longer wait of the same call is the helper's own" "$(look 30 docker compose exec -T banking wget -qO- x)" "real 30 docker compose exec -T banking wget"
+has "another command of 20 s keeps it" "$(look 20 docker compose ps -a -q banking)" "real 20 docker compose ps -a -q banking"
+has "another exec of 20 s keeps it" "$(look 20 docker compose exec -T banking node -e x)" "real 20 docker compose exec -T banking node -e x"
+has "another service keeps it" "$(look 20 docker compose exec -T caddy wget -qO- x)" "real 20 docker compose exec -T caddy"
+has "the options of timeout reach the real one as they came" "$(look -k 10 600 ./scripts/update.sh --rollback --yes)" "real -k 10 600 ./scripts/update.sh --rollback --yes"
+rm "$T/stopped"
+has "no mark again: 20 s again" "$(look "${probe[@]}")" "real 20 docker compose exec"
+touch "$PLAY/fail-kill"
+(CLOCK=$T; PATH=$BIN:$PATH; . "$REPO/tools/ci/drills-lib.sh"; stop_app)
+check "a kill that fails leaves no mark" test ! -e "$T/stopped"
 
 echo
 echo "$PASS passed, $FAILED failed"

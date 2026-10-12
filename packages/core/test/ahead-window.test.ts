@@ -46,11 +46,11 @@ const cut = (rows: readonly Transaction[], account: string, part: Part): Transac
   rows.map((t) => (t.accountId === account ? { ...t, amountCents: partCents(t.amountCents, part), wholeCents: t.amountCents } : t));
 const bal = (a: Account, balanceCents: number | null, extra: Partial<BalanceInput> = {}): BalanceInput => ({ id: a.id, name: a.name, type: a.type, balanceCents, ownerName: null, balanceAt: `${TODAY}T06:00:00Z`, ...extra });
 
-/** Ten euros a day on the card, and its bill paid from the own account on the 20th: March's first. */
+/** Ten euros a day on the card, and its bill paid from the own account on the 20th (or on `day`): March's first. */
 const BILLS = [30_000, 31_000, 29_000, 30_500, 29_500, 30_000, 30_000];
-const cardRows = (bills: readonly number[] = BILLS, until: IsoDate = TODAY, first = 0): Transaction[] => [
+const cardRows = (bills: readonly number[] = BILLS, until: IsoDate = TODAY, first = 0, day = 20): Transaction[] => [
   ...everyDay(until, (d) => [tx({ accountId: "card", bookingDate: d, amountCents: -1000, merchant: "Kahvila", category: "restaurants" })]),
-  ...monthly(20).flatMap((d, i) => (i >= first && bills[i] ? move(own, card, d, bills[i]!) : [])),
+  ...monthly(day).flatMap((d, i) => (i >= first && bills[i] ? move(own, card, d, bills[i]!) : [])),
 ];
 /** What is left of the balance after the payments of the window, added up from the rows. */
 const freeOf = (d: ReturnType<typeof cashAhead>) => d.balance!.startCents + d.rows.filter((r) => r.cents < 0).reduce((sum, r) => sum + r.cents, 0);
@@ -285,5 +285,83 @@ describe("what is free is the balance less the payments of the window", () => {
     expect(of(d, "card")).toEqual([{ date: "2026-11-10", name: "Nordea Gold", category: "transfer", cents: -owed, source: "card", basis: "balance" }]);
     expect(d.totals.cardCents).toBe(owed);
     expect(d.balance!.freeCents).toBe(freeOf(d));
+  });
+});
+
+describe("the window and Laskut's first group: a loan's instalment, a bill and a card's bill before the pay", () => {
+  type Ahead = ReturnType<typeof cashAhead>;
+  const LOAN = "Esimerkkipankki Lainat";
+  /** Twelve instalments of 250,00 to a lender, the last one in September; the next is on `day` of October, or November when October's is paid. */
+  const instalments = (account: string, day: number): Transaction[] =>
+    ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]
+      .map((m) => `${m}-${String(day).padStart(2, "0")}`)
+      .filter((d) => d <= TODAY)
+      .map((bookingDate) => tx({ accountId: account, bookingDate, amountCents: -25_000, merchant: LOAN, category: "loans" }));
+  const power = monthly(11).map((d) => tx({ accountId: "own", bookingDate: d, amountCents: -8000, merchant: "Sähköyhtiö", category: "utilities" }));
+  const pay = monthly(15).map((d) => tx({ accountId: "own", bookingDate: d, amountCents: 300_000, merchant: "ESIMERKKI OY", category: "salary" }));
+  /** The household's view, and Matti Meikäläinen's own: the joint account at a half, the card's bill paid from his account on the 13th. */
+  const views = (loan: Transaction[], extra: Transaction[] = []): { household: Ahead; mine: Ahead } => {
+    const rows = [...home(), ...cardRows(BILLS, TODAY, 0, 13), ...loan, ...power, ...pay, ...extra];
+    return {
+      household: cashAhead(createContext(rows, [own, joint, card], TODAY), [bal(own, 200_000), bal(joint, 50_000), bal(card, -41_200)], NO_INPUTS),
+      mine: cashAhead(createContext(cut(rows, "joint", HALF), [own, joint, card], TODAY), [bal(own, 200_000, { part: WHOLE }), bal(joint, 25_000, { part: HALF }), bal(card, -41_200)], NO_INPUTS),
+    };
+  };
+  /** What Laskut lists under "Palkkapäivään asti": what the accounts pay up to the window's last day. */
+  const firstGroup = (d: Ahead) => d.upcoming.filter((r) => !r.onCard && r.date <= d.to && !r.withPay);
+  const owed = (rows: readonly { cents: number }[]) => rows.reduce((sum, r) => sum - r.cents, 0);
+
+  it("the loan paid from the account the window counts is in both lists; the card's bill is only in the window, and the window's due is Laskut's group and the card's bill", () => {
+    const { household, mine } = views(instalments("own", 12));
+    for (const [d, start] of [[household, 250_000], [mine, 200_000]] as const) {
+      expect(d).toMatchObject({ to: "2026-10-14", reason: "payday", payday: { date: "2026-10-15" } });
+      expect(d.rows.map((r) => [r.date, r.name, r.cents])).toEqual([["2026-10-11", "Sähköyhtiö", -8000], ["2026-10-12", LOAN, -25_000], ["2026-10-13", "Luottokortti", -41_200]]);
+      expect(firstGroup(d).map((r) => [r.date, r.name, r.cents])).toEqual([["2026-10-11", "Sähköyhtiö", -8000], ["2026-10-12", LOAN, -25_000]]);
+      expect(owed(firstGroup(d)) + d.totals.cardCents + d.totals.transferCents).toBe(d.totals.dueCents);
+      expect(d.balance).toMatchObject({ startCents: start, freeCents: start - 8000 - 25_000 - 41_200, shortCents: 0, shortOn: null });
+    }
+  });
+
+  it("money in is in no payment: other pay is a row of the window only, and a refund from the lender changes no figure", () => {
+    const benefit = monthly(13).map((d) => tx({ accountId: "own", bookingDate: d, amountCents: 20_000, merchant: "Kela", category: "benefits" }));
+    const refund = [tx({ accountId: "own", bookingDate: "2026-09-20", amountCents: 25_000, merchant: LOAN, category: "loans" })];
+    const plain = views(instalments("own", 12));
+    for (const extra of [benefit, refund]) {
+      const { household, mine } = views(instalments("own", 12), extra);
+      for (const [d, was] of [[household, plain.household], [mine, plain.mine]] as const) {
+        expect(d.rows.filter((r) => r.cents < 0)).toEqual(was.rows.filter((r) => r.cents < 0));
+        expect(d.upcoming).toEqual(was.upcoming);
+        expect(d.totals.dueCents).toBe(was.totals.dueCents);
+        expect(d.balance).toEqual(was.balance);
+      }
+    }
+    expect(of(views(instalments("own", 12), benefit).mine, "income").map((r) => [r.date, r.name, r.cents])).toEqual([["2026-10-13", "Kela", 20_000]]);
+  });
+
+  it.each([
+    [5, "2026-11-05", false],
+    [12, "2026-10-12", true],
+    [14, "2026-10-14", true],
+    [15, "2026-10-15", false],
+    [16, "2026-10-16", false],
+  ])("an instalment on the %ith: Laskut lists it on %s, and it is in the window only when it falls before the payday: %s", (day, date, inWindow) => {
+    const { household, mine } = views(instalments("own", day));
+    for (const [d, start] of [[household, 250_000], [mine, 200_000]] as const) {
+      expect(d.upcoming.find((r) => r.name === LOAN)).toMatchObject({ date, cents: -25_000 });
+      expect(d.rows.some((r) => r.name === LOAN)).toBe(inWindow);
+      expect(firstGroup(d).some((r) => r.name === LOAN)).toBe(inWindow);
+      expect(d.balance!.freeCents).toBe(start - 8000 - 41_200 - (inWindow ? 25_000 : 0));
+    }
+  });
+
+  it("the loan paid from the joint account: the household view counts it; the member's own view leaves the account out of its figures and Laskut lists it at the member's part", () => {
+    const { household, mine } = views(instalments("joint", 12));
+    expect(household.rows.map((r) => r.name)).toEqual(["Sähköyhtiö", LOAN, "Luottokortti"]);
+    expect(household.balance).toMatchObject({ counts: "all", startCents: 250_000, freeCents: 250_000 - 8000 - 25_000 - 41_200 });
+    expect(mine.balance).toMatchObject({ counts: "own", startCents: 200_000, freeCents: 200_000 - 8000 - 41_200 });
+    expect(mine.rows.map((r) => r.name)).toEqual(["Sähköyhtiö", "Luottokortti"]);
+    expect(firstGroup(mine).map((r) => [r.name, r.cents])).toEqual([["Sähköyhtiö", -8000], [LOAN, -12_500]]);
+    // the day before the payday, on it, and after it: the joint account's instalment is never a row of the member's window
+    for (const day of [14, 15, 16]) expect(views(instalments("joint", day)).mine.rows.some((r) => r.name === LOAN)).toBe(false);
   });
 });

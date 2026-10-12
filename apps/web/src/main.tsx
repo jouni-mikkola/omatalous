@@ -8,6 +8,7 @@ import "@fontsource/ibm-plex-sans/latin-600.css";
 // tokens, base and the shell come before every page, whose files may override base
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/glass.css";
 import "./styles/shell.css";
 import { App } from "./App.tsx";
 

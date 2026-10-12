@@ -23,7 +23,7 @@
 .loan-tip { margin: 12px 0 0; max-width: 62ch; }
 
 /* one read loan: a form of its own inside the card */
-.loan-draft { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-top: 12px; }
+.loan-draft { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; margin-top: 12px; }
 .loan-draft h3 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 
 .loan-form { display: flex; flex-direction: column; gap: 14px; }
@@ -38,7 +38,7 @@
 .loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn-bg), 0 0 0 3px var(--warn); }
 .loan-source { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .loan-confirm { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; align-self: flex-start; cursor: pointer; }
-.loan-confirm input { margin: 0; accent-color: var(--ink); }
+.loan-confirm input { margin: 0; accent-color: var(--fill); }
 .loan-warnings { padding-left: 28px; }
 .loan-warnings li + li { margin-top: 4px; }
 .loan-interest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -54,7 +54,7 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 .loans-tile-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .loans-notes { list-style: none; margin: 0 0 14px; padding: 0; color: var(--muted); font-size: 13px; }
 .loans-notes li + li { margin-top: 4px; }
-.loans-notes li.warn { color: inherit; background: var(--warn-bg); border-left: 3px solid var(--warn); border-radius: var(--radius); padding: 6px 10px; }
+.loans-notes li.warn { color: inherit; background: var(--warn-bg); border-left: 3px solid var(--warn); border-radius: var(--radius-m); padding: 6px 10px; }
 
 .loan-list { list-style: none; margin: 0; padding: 0; }
 .loan-list > li { border-top: 1px solid var(--border); padding: 12px 0; }
