@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { clientIp } from "../auth/middleware.ts";
 import { endSession, startSession } from "../auth/session.ts";
 import { DUMMY_HASH, verifyPassword } from "../security/password.ts";
-import { addressKey, RateLimiter } from "../security/rate-limit.ts";
+import { addressKey } from "../security/rate-limit.ts";
 import { TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
 import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
@@ -13,9 +13,6 @@ import { body, optionalString } from "./shared.ts";
 
 export function authRoutes(s: Services) {
   const app = new Hono<AppEnv>();
-  // failed logins per user name from any address, 30 per 15 minutes: more addresses buy no more guesses at one
-  // name, and one address alone (10 per name) cannot lock a name out
-  const nameLimiter = new RateLimiter(30, 15 * 60_000);
 
   app.get("/state", async (c) => {
     const setup = await needsSetup(s);
@@ -56,9 +53,12 @@ export function authRoutes(s: Services) {
     const ipKey = addressKey(ip);
     const userAgent = c.req.header("user-agent") ?? null;
     const refuse = (wait: number) => c.json({ error: tooManyMessage(wait) }, 429, { "Retry-After": String(wait) });
+    // a login succeeded from this address lately. It changes one thing: when a limiter below is full of locked
+    // keys and refuses every new key, this attempt is counted in that limiter's spare, under the same limit.
+    const remembered = limits.remembered.has(ipKey);
     // every attempt is counted before the slow password hash runs: parallel guesses cannot slip past a
     // check that only looks at earlier failures. A successful login gives its attempt back.
-    const ipTry = limits.ip.consume(ipKey);
+    const ipTry = limits.ip.consume(ipKey, remembered);
     if (ipTry.wait) {
       if (ipTry.first) await recordEvent(s, { kind: "lockout", ip, userAgent, detail: "osoite" });
       return refuse(ipTry.wait);
@@ -72,13 +72,13 @@ export function authRoutes(s: Services) {
       const known = await s.users.findForLogin(username);
       await recordEvent(s, { kind: "lockout", userId: known?.id ?? null, ip, userAgent, detail });
     };
-    const userTry = limits.user.consume(userKey);
+    const userTry = limits.user.consume(userKey, remembered);
     if (userTry.wait) {
       limits.ip.release(ipKey);
       if (userTry.first) await lockout(username.trim());
       return refuse(userTry.wait);
     }
-    const nameTry = nameLimiter.consume(name);
+    const nameTry = limits.name.consume(name, remembered);
     if (nameTry.wait) {
       limits.ip.release(ipKey);
       limits.user.release(userKey);
@@ -89,7 +89,7 @@ export function authRoutes(s: Services) {
     if (!s.hashGate.tryEnter()) {
       limits.ip.release(ipKey);
       limits.user.release(userKey);
-      nameLimiter.release(name);
+      limits.name.release(name);
       return c.json({ error: "Palvelin on kiireinen. Yritä hetken päästä uudelleen." }, 429, { "Retry-After": "2" });
     }
     let record: Awaited<ReturnType<typeof s.users.findForLogin>>;
@@ -108,7 +108,9 @@ export function authRoutes(s: Services) {
     limits.user.reset(userKey);
     limits.ip.release(ipKey);
     // given back, not cleared: a correct password must not refill a stranger's guesses at the name
-    nameLimiter.release(name);
+    limits.name.release(name);
+    // the only place an address is remembered: after a correct password
+    limits.remembered.add(ipKey);
     await recordLogin(s, record.id, ip, userAgent);
     await startSession(c, s, record.id);
     const { passwordHash: _hash, ...user } = record;

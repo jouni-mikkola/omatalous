@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { accountNumber, creditLine, formatIban } from "../src/format.ts";
+import { accountNumber, formatIban } from "../src/format.ts";
 import { Accounts } from "../src/pages/settings/Accounts.tsx";
 import { BankConnections, fetchedText } from "../src/pages/settings/BankConnections.tsx";
 import type { Account, Connection, Meta } from "../src/types.ts";
@@ -25,20 +25,6 @@ describe("accountNumber", () => {
     expect(accountNumber({ iban: "FI7412345600000801", cardMask: null })).toBe("FI74 1234 5600 0008 01");
     expect(accountNumber({ iban: null, cardMask: "•••• 1144" })).toBe("•••• 1144");
     expect(accountNumber({ iban: null })).toBe("");
-  });
-});
-
-describe("creditLine", () => {
-  it("says the limit, and how much of it is used once the balance is below zero", () => {
-    expect(creditLine({ creditLimitCents: 200000, balanceCents: null })?.replace(/\s/g, " ")).toBe("Luottoraja 2 000 €");
-    expect(creditLine({ creditLimitCents: 200000, balanceCents: 15000 })?.replace(/\s/g, " ")).toBe("Luottoraja 2 000 €");
-    expect(creditLine({ creditLimitCents: 200000, balanceCents: -34000 })?.replace(/\s/g, " ")).toBe("Luottoraja 2 000 €, käytössä 340 €");
-  });
-
-  it("is null without a limit", () => {
-    expect(creditLine({ creditLimitCents: null, balanceCents: -500 })).toBeNull();
-    expect(creditLine({ creditLimitCents: 0, balanceCents: -500 })).toBeNull();
-    expect(creditLine({ balanceCents: -500 })).toBeNull();
   });
 });
 
@@ -121,6 +107,16 @@ describe("Tilit: what tells accounts apart", () => {
     ]);
     expect(out).toContain("Yhteinen tili FI21 1234 5600 0007 85 · pankkiyhteys Pankin nimi: Käyttötili Testi Esimerkki, Maija Mallikas");
     expect(out).toContain("Nordea Gold •••• 1144 · pankkiyhteys Testi Esimerkki Luottoraja 2 000 €, käytössä 340 €");
+    expect(out).not.toContain("yli luottorajan");
+  });
+
+  it("says in words that a card is over its limit and by how much: the bar tells it by colour and is hidden from a screen reader", () => {
+    const card = (balanceCents: number) => account({ id: "a2", name: "Nordea Gold", bankName: "Nordea Gold", type: "credit_card", creditLimitCents: 300000, balanceCents });
+    expect(render([card(-320000)])).toContain("Luottoraja 3 000 €, käytössä 3 200 €, yli luottorajan 200 €");
+    // at the limit nothing is over
+    const full = render([card(-300000)]);
+    expect(full).toContain("Luottoraja 3 000 €, käytössä 3 000 €");
+    expect(full).not.toContain("yli luottorajan");
   });
 
   it("does not say the holder twice when the bank gave no product and the name is the holder", () => {

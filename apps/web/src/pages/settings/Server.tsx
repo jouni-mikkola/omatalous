@@ -5,6 +5,7 @@ import type { InstanceState } from "../../types.ts";
 import { FeatureFlags, SWITCHABLE } from "./Features.tsx";
 import { BankAppSetup } from "./BankAppSetup.tsx";
 import { GeneralForm } from "./InstanceForms.tsx";
+import { RemoteAccess } from "./RemoteAccess.tsx";
 
 export function ServerSettings({ focus, onChange, onLoaded }: { focus: boolean; onChange: () => void; onLoaded?: () => void }) {
   const loaded = useApi<InstanceState>("/api/admin/instance");
@@ -46,6 +47,7 @@ export function ServerSettings({ focus, onChange, onLoaded }: { focus: boolean; 
             <h3 className="subhead">Enable Banking -sovellus</h3>
             <BankAppSetup state={current} onState={update} compact />
           </div>
+          <RemoteAccess />
           {SWITCHABLE.length > 0 && (
             <div>
               <h3 className="subhead">Kokeiltavat toiminnot</h3>

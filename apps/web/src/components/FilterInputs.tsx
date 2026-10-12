@@ -26,6 +26,18 @@ export function SearchBox({ value, onSearch, label }: { value: string; onSearch:
 }
 
 /**
+ * The one button that holds the filters on a phone. It says how many are on, so a closed panel
+ * is not mistaken for an unfiltered list.
+ */
+export function FilterToggle({ count, open, onToggle, controls }: { count: number; open: boolean; onToggle: () => void; controls: string }) {
+  return (
+    <button type="button" className={`btn filter-toggle${count ? " on" : ""}`} aria-expanded={open} aria-controls={controls} onClick={onToggle}>
+      {count ? `Rajaa (${count})` : "Rajaa"}
+    </button>
+  );
+}
+
+/**
  * A date input that changes the filter only once the date is complete.
  * While the year is being typed the browser reports "0002-03-15" and then
  * "", and navigating on each of those would wipe the field.

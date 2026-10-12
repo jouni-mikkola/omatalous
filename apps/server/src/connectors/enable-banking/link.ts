@@ -6,9 +6,9 @@ import type { Services } from "../../services/context.ts";
 import { foldCsvAccounts } from "../fold-accounts.ts";
 import { consumeLinkState, dropLinkState, issueLinkState, LinkFailure } from "../link-state.ts";
 import { instanceAppInactive, testBankApp } from "./app-setup.ts";
-import { bankById, DEFAULT_BANK } from "./banks.ts";
+import { bankById, bankIdForAspsp, DEFAULT_BANK, findAspsp } from "./banks.ts";
 import { type EnableBankingClient, EnableBankingError } from "./client.ts";
-import { enableBanking } from "./connector.ts";
+import { enableBanking, noteLinkedAccount } from "./connector.ts";
 import { clientFor } from "./credentials.ts";
 import { accountHolder, accountName, accountType, cardMask, creditLimitCents } from "./mapper.ts";
 import type { EbAspsp } from "./types.ts";
@@ -24,7 +24,8 @@ export async function startConnection(s: Services, userId: string, bankId: unkno
   if (await stillInactive(s, userId)) throw new LinkFailure("inactive");
   let aspsp: EbAspsp | undefined;
   try {
-    aspsp = (await client.listAspsps(country)).find((a) => a.name.toLowerCase() === bank.aspspName.toLowerCase());
+    // matched as the offered list matches it (banks.ts), and started with the name the live list writes
+    aspsp = findAspsp(bank, await client.listAspsps(country));
   } catch (err) {
     throw linkFailure(err);
   }
@@ -120,6 +121,7 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
       currency: a.currency ?? "EUR",
       type: accountType(a),
     });
+    noteLinkedAccount(s, bankIdForAspsp(session.aspsp.name), a);
   }
 
   await foldCsvAccounts(repo);

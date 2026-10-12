@@ -8,6 +8,7 @@
 # when another copy (a second folder or machine with the same file) has it. The copy's own list of
 # emails is kept in its .env (CLOUDFLARE_ACCESS_EMAILS); --access-emails changes it later. Without the file, or with
 # TALOUS_TUNNEL_TOKEN, the tunnel is the one made by hand in the dashboard. --cloudflare-down removes what was made.
+# What Cloudflare answers also turns on the app's own check of Access (cf_access_from and cf_up below).
 #
 # The file holds an API token, so it is read by this user only. It is parsed, never sourced, and its values reach the
 # app image's command through the environment of docker run, never through an argument list (ps shows those).
@@ -103,19 +104,50 @@ cf_fail() {
   esac
 }
 
-# env_set KEY [VALUE]: replaces the line KEY=... in .env (or adds it), or without VALUE removes it, whole or not at all.
-# Only builtins see the value.
+# env_set ITEM...: KEY=VALUE replaces the line KEY=... in .env (or adds it), a bare KEY removes it. Every item goes in
+# with one rename, so a stop leaves all of them or none: half an Access pair is a .env the app refuses to start with
+# (platform/config.ts). Only builtins see the values.
 env_set() {
-  local key=$1 line found=false
+  local line item key mine found=" "
   umask 077
   {
     while IFS= read -r line || [[ -n $line ]]; do
-      if [[ $line != "$key="* ]]; then printf '%s\n' "$line"
-      elif (($# > 1)); then printf '%s=%s\n' "$key" "$2"; found=true; fi
+      mine=""
+      for item in "$@"; do
+        key=${item%%=*}
+        [[ $line == "$key="* ]] || continue
+        mine=$key
+        [[ $item != *=* ]] || { printf '%s\n' "$item"; found+="$key "; }
+        break
+      done
+      [[ -n $mine ]] || printf '%s\n' "$line"
     done <"$ENV_FILE"
-    $found || (($# < 2)) || printf '%s=%s\n' "$key" "$2"
+    for item in "$@"; do
+      [[ $item != *=* || $found == *" ${item%%=*} "* ]] || printf '%s\n' "$item"
+    done
   } >"$ENV_FILE.new"
   chmod 600 "$ENV_FILE.new"; mv -f "$ENV_FILE.new" "$ENV_FILE"
+}
+
+# The pair CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN in .env turns on the app's own check of Cloudflare Access
+# (docs/SECURITY.md): the Access application's audience tag and the team's host. Both lines or neither.
+# cf_access_from LINE: prints "AUD TEAM" from the JSON line of `cloudflare up`, each value only in the form the app
+# accepts at start (platform/config.ts). Prints nothing unless the line has both: half a pair is no pair.
+cf_access_from() {
+  local aud="" team=""
+  [[ $1 =~ \"accessAud\":\"([0-9a-f]{64})\" ]] && aud=${BASH_REMATCH[1]}
+  [[ $1 =~ \"teamDomain\":\"([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com)\" ]] && team=${BASH_REMATCH[1]}
+  [[ -z $aud || -z $team ]] || printf '%s %s' "$aud" "$team"
+}
+# cf_access_kept: the lines of the pair that a rewrite of .env carries over. Only a tunnel made by hand whose address
+# stays keeps them: its user wrote the pair, and dropping it would turn the check off without a word. Where Cloudflare
+# makes the tunnel, cf_up writes the pair from its answer, and every other way in has no Access and gets no pair.
+cf_access_kept() {
+  local key value
+  [[ $ACCESS == 3 ]] && ! $CF_AUTO && [[ $DOMAIN == "$(existing DOMAIN)" ]] || return 0
+  for key in CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN; do
+    value=$(existing "$key"); [[ -z $value ]] || printf '%s=%s\n' "$key" "$value"
+  done
 }
 
 # the host label of a copy: its name with the underscores a host name does not allow turned into hyphens
@@ -170,10 +202,11 @@ cf_tunnel() {
 }
 
 # cf_up: after the build and before the containers start. Has Cloudflare make (or confirm) the tunnel, the address and the
-# Access rule, then puts the tunnel token in .env. Also finishes a run that stopped here before: .env then holds the
-# address and the copy's emails but no token (the run is "resumed", which the installer needs to know).
+# Access rule, then puts the tunnel token in .env, and with it the pair for the app's own check of Access. Also finishes
+# a run that stopped here before: .env then holds the address and the copy's emails but no token (the run is "resumed",
+# which the installer needs to know).
 cf_up() {
-  local out rc=0 token changed=""
+  local out rc=0 token changed="" aud="" team=""
   if ! $CF_AUTO; then
     [[ $KEEP_ALL == true && $ACCESS == 3 && -z $TUNNEL_TOKEN && -n $DOMAIN ]] && cf_load || return 0
     ACCESS_EMAILS=$(existing CLOUDFLARE_ACCESS_EMAILS); ACCESS_EMAILS=${ACCESS_EMAILS:-$CF_EMAILS}
@@ -192,11 +225,20 @@ cf_up() {
   [[ $out =~ \"tunnelToken\":\"([A-Za-z0-9._=+/-]+)\" ]] || die "Cloudflare answered without a tunnel token. Run this again. If the error comes back: ./scripts/doctor.sh"
   token=${BASH_REMATCH[1]}
   [[ $out =~ \"changed\":\[([^]]*)\] ]] && changed=${BASH_REMATCH[1]//\"/}
+  read -r aud team <<<"$(cf_access_from "$out")" || true
   # the host is this copy's from here on (first, so a stop before the token leaves a run that finishes without --new)
   ! $CF_NEW || env_set CLOUDFLARE_NEW_HOST
-  env_set CLOUDFLARE_TUNNEL_TOKEN "$token"
+  # the pair goes in with the token, or off with it (the app then runs without the check): .env never holds half a
+  # pair, or a token whose tunnel would run without the check while a plain re-run asks Cloudflare nothing
+  if [[ -n $aud && -n $team ]]; then env_set "CF_ACCESS_AUD=$aud" "CF_ACCESS_TEAM_DOMAIN=$team" "CLOUDFLARE_TUNNEL_TOKEN=$token"
+  else env_set CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN "CLOUDFLARE_TUNNEL_TOKEN=$token"; fi
   TUNNEL_TOKEN=$token
   if [[ -n $changed ]]; then ok "Cloudflare changed: ${changed//,/, }."; else ok "Cloudflare had it all in place already. Nothing changed."; fi
+  if [[ -n $aud && -n $team ]]; then
+    ok "The app checks the signature of Cloudflare Access itself: it answers only through $DOMAIN, and port $HOST_PORT of this machine gets 403."
+  else
+    warn "Cloudflare gave no audience tag and team domain the app can use, so the app does not check the signature of Access itself. Access still guards $DOMAIN."
+  fi
 }
 
 # the last lines of the install for a tunnel: what Access does and the redirect URL, or what is left to do by hand
@@ -224,9 +266,14 @@ cf_down() {
   docker image inspect "$INSTANCE:latest" >/dev/null 2>&1 || die "The image $INSTANCE:latest is missing. Start the copy once (docker compose up -d), then run this again."
   step "Removing the Cloudflare tunnel of $INSTANCE"
   cf_run down "$INSTANCE" "$DOMAIN" || rc=$?
+  # exit 3: Cloudflare refused a step, or something that can still lead to the address was left and Access was kept
+  # (the command's line says which). The address is not taken down, so .env keeps it as this copy's and a second run
+  # finishes the removal.
+  ((rc != 3)) || die "Cloudflare still has something of $DOMAIN (see above), so the address is still this copy's and .env was left as it is. Fix what the line above names, then run this again."
   ((rc == 0)) || cf_fail "$rc"
-  # the host is not this copy's any more: a later install asks for it with --new
-  env_set CLOUDFLARE_NEW_HOST "$DOMAIN"
+  # the host is not this copy's any more: a later install asks for it with --new. The Access application is gone and
+  # its audience tag with it, so the pair goes too.
+  env_set "CLOUDFLARE_NEW_HOST=$DOMAIN" CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN
   ok "Cloudflare has no tunnel, address or Access rule of $DOMAIN from this install any more."
   say "${dim}The app cannot be reached by that address now. To choose another way in: ./scripts/install.sh --reconfigure${reset}"
   exit 0

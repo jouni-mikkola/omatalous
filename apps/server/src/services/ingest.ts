@@ -184,6 +184,7 @@ export async function ingestTransactions(
       description: r.description,
       reference: r.reference,
       mcc: r.mcc,
+      bankTxnCode: r.bankTxnCode ?? null,
       merchant: party.merchant,
       // placeholders (enrichment runs right after ingestion), unless the user had chosen
       category: userCategory ?? (r.amountCents >= 0 ? "income" : "other"),

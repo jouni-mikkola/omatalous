@@ -8,11 +8,12 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, MarkKind, Transaction } from "@banking/core";
+import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, Loan, MarkKind, Transaction } from "@banking/core";
 import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
+import { LoansRepo } from "./finance/loans.ts";
 import { MarksRepo } from "./finance/marks.ts";
 import { type MerchantFilter, MerchantsRepo } from "./finance/merchants.ts";
 import { OptimiseRepo } from "./finance/optimise.ts";
@@ -39,6 +40,7 @@ export class FinanceRepo {
   private readonly marks: MarksRepo;
   private readonly syncRuns: SyncRunsRepo;
   private readonly expectedBills: ExpectedBillsRepo;
+  private readonly loans: LoansRepo;
   private readonly optimise: OptimiseRepo;
 
   constructor(
@@ -55,6 +57,7 @@ export class FinanceRepo {
     this.marks = new MarksRepo(ctx);
     this.syncRuns = new SyncRunsRepo(ctx);
     this.expectedBills = new ExpectedBillsRepo(ctx);
+    this.loans = new LoansRepo(ctx);
     this.optimise = new OptimiseRepo(ctx);
   }
 
@@ -96,6 +99,7 @@ export class FinanceRepo {
   batchInChunks(statements: Statement[]) { return this.transactions.batchInChunks(statements); }
   updateEnrichment(txs: Pick<Transaction, "id" | "category" | "categorySource" | "isTransfer">[]) { return this.transactions.updateEnrichment(txs); }
   updateMerchants(changes: { id: string; merchant: string }[]) { return this.transactions.updateMerchants(changes); }
+  fillBankCodes(source: string, path: string, codeOf: (field: unknown) => string | null) { return this.transactions.fillBankCodes(source, path, codeOf); }
   refreshSearchText() { return this.transactions.refreshSearchText(); }
   writeSearchText(rows: readonly { id: string; merchant: string; counterparty: string | null; description: string | null; searchText: string | null }[]) {
     return this.transactions.writeSearchText(rows);
@@ -148,6 +152,12 @@ export class FinanceRepo {
   listExpectedBills() { return this.expectedBills.listExpectedBills(); }
   addExpectedBill(bill: ExpectedBill, createdAt: string) { return this.expectedBills.addExpectedBill(bill, createdAt); }
   deleteExpectedBill(id: string) { return this.expectedBills.deleteExpectedBill(id); }
+
+  // ── loans (finance/loans.ts) ─────────────────────────────
+  listLoans() { return this.loans.listLoans(); }
+  addLoan(loan: Loan, at: string) { return this.loans.addLoan(loan, at); }
+  updateLoan(loan: Loan, at: string) { return this.loans.updateLoan(loan, at); }
+  deleteLoan(id: string) { return this.loans.deleteLoan(id); }
 
   // ── optimise (finance/optimise.ts) ───────────────────────
   listInputs() { return this.optimise.listInputs(); }

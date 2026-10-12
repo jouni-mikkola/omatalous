@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # A fake host for install.test.sh and doctor.test.sh. Sourced by them, not a suite of its own (check.sh runs *.test.sh).
+# ops-access.test.sh takes only the counters and `unprivileged` from here: it has a stub docker of its own.
 # A clone of this repository's scripts under Ubuntu's umask 002, and stubs for what the maintenance helper's
 # scheduling asks the host: systemctl, loginctl, crontab, getent, id, jq and docker. Nothing touches the real host.
 #
@@ -11,6 +12,7 @@
 #   linger           loginctl says Linger=yes (set by new_host)
 #   cron             a crontab command exists (kept in S/crontab)
 #   docker-gid GID   the group getent knows as docker       shell-gid GID   `id -G` of the shell lists GID too
+#   docker-members   the members getent lists for docker (a user name)
 #   manager-pid PID  user@UID.service has this MainPID (its groups are the ones of that process)
 #   foreign          lists the paths (as the scripts name them) that stat reports as owned by root
 
@@ -37,11 +39,12 @@ host_init() {
   trap 'rm -rf "$TMPBASE"' EXIT
   export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
   export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
-  # The system tools without the ones a test decides about, so that "no crontab" is a command that does not exist.
+  # The system tools without the ones a test decides about, so that "no crontab" is a command that does not exist (sg,
+  # newgrp, sudo, usermod and qrencode too: Ubuntu 26.04.1 has no sg, and a test adds the stubs it wants).
   SYS=$TMPBASE/sys; mkdir -p "$SYS"
   local f
   for f in /usr/bin/* /usr/sbin/*; do
-    case ${f##*/} in crontab | systemctl | loginctl | getent | id | jq | docker) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
+    case ${f##*/} in crontab | systemctl | loginctl | getent | id | jq | docker | sg | newgrp | sudo | usermod | qrencode) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
   done
 }
 
@@ -71,7 +74,7 @@ EOF
 #!/usr/bin/env bash
 if [[ ${1:-} == group && ${2:-} == docker ]]; then
   [[ -e $S/docker-gid ]] || exit 2
-  echo "docker:x:$(cat "$S/docker-gid"):"; exit 0
+  echo "docker:x:$(cat "$S/docker-gid"):$(cat "$S/docker-members" 2>/dev/null || true)"; exit 0
 fi
 exec /usr/bin/getent "$@"
 EOF

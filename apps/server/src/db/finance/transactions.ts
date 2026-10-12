@@ -41,9 +41,10 @@ export function bankSignature(t: {
   description: string | null;
   reference: string | null;
   mcc: string | null;
+  bankTxnCode?: string | null;
   merchant: string;
 }): string {
-  return JSON.stringify([t.bookingDate, t.valueDate, t.amountCents, t.status, t.counterparty, t.counterpartyIban, t.description, t.reference, t.mcc, t.merchant]);
+  return JSON.stringify([t.bookingDate, t.valueDate, t.amountCents, t.status, t.counterparty, t.counterpartyIban, t.description, t.reference, t.mcc, t.merchant, t.bankTxnCode ?? null]);
 }
 
 const signatureOf = (r: Row) =>
@@ -57,8 +58,18 @@ const signatureOf = (r: Row) =>
     description: str(r.description),
     reference: str(r.reference),
     mcc: str(r.mcc),
+    bankTxnCode: str(r.bank_txn_code),
     merchant: String(r.merchant),
   });
+
+/** An object or array SQLite's json_extract gave as text; a plain string that is no JSON gives null. */
+const parsedJson = (text: string): unknown => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
 
 const partyOf = (r: Row) => ({ merchant: String(r.merchant), counterparty: str(r.counterparty), description: str(r.description) });
 
@@ -120,7 +131,7 @@ export class TransactionsRepo {
   async transactionKeys(accountId: string, from: string, to: string): Promise<StoredParty[]> {
     return (
       await this.ctx.db.all<Row>(
-        "SELECT id, booking_date, value_date, amount_cents, status, source, merchant, counterparty, counterparty_iban, description, reference, mcc FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked' AND booking_date BETWEEN ? AND ?",
+        "SELECT id, booking_date, value_date, amount_cents, status, source, merchant, counterparty, counterparty_iban, description, reference, mcc, bank_txn_code FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked' AND booking_date BETWEEN ? AND ?",
         [this.ctx.userId, accountId, from, to],
       )
     ).map((r) => ({ id: String(r.id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents), source: String(r.source), ...partyOf(r), signature: signatureOf(r) }));
@@ -138,7 +149,7 @@ export class TransactionsRepo {
   /** The account's pending rows: a booked row replaces one, and a category the user set on it moves along. */
   async pendingRows(accountId: string): Promise<(StoredParty & { category: string; categorySource: string })[]> {
     const rows = await this.ctx.db.all<Row>(
-      "SELECT id, booking_date, value_date, amount_cents, status, source, merchant, counterparty, counterparty_iban, description, reference, mcc, category, category_source FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'pending'",
+      "SELECT id, booking_date, value_date, amount_cents, status, source, merchant, counterparty, counterparty_iban, description, reference, mcc, bank_txn_code, category, category_source FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'pending'",
       [this.ctx.userId, accountId],
     );
     return rows.map((r) => ({
@@ -163,16 +174,16 @@ export class TransactionsRepo {
    */
   upsertStatements(txs: Omit<StoredTransaction, "userId">[], importedAt: string): Statement[] {
     return txs.map((t) => ({
-      sql: `INSERT INTO transactions (${TX_COLUMNS}, search_text, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      sql: `INSERT INTO transactions (${TX_COLUMNS}, search_text, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET booking_date = excluded.booking_date, value_date = excluded.value_date,
               amount_cents = excluded.amount_cents, status = excluded.status, counterparty = excluded.counterparty,
               counterparty_iban = excluded.counterparty_iban, description = excluded.description,
-              reference = excluded.reference, mcc = excluded.mcc, merchant = excluded.merchant, raw = excluded.raw,
-              search_text = excluded.search_text
+              reference = excluded.reference, mcc = excluded.mcc, bank_txn_code = excluded.bank_txn_code,
+              merchant = excluded.merchant, raw = excluded.raw, search_text = excluded.search_text
             WHERE transactions.user_id = excluded.user_id`,
       params: [
         t.id, this.ctx.userId, t.accountId, t.bookingDate, t.valueDate, t.amountCents, t.currency, t.status, t.counterparty,
-        t.counterpartyIban, t.description, t.reference, t.mcc, t.merchant, t.category, t.categorySource,
+        t.counterpartyIban, t.description, t.reference, t.mcc, t.bankTxnCode ?? null, t.merchant, t.category, t.categorySource,
         t.isTransfer ? 1 : 0, t.source, t.raw, searchText(t), importedAt,
       ],
     }));
@@ -255,6 +266,34 @@ export class TransactionsRepo {
     return this.writeSearchText(
       rows.map((r) => ({ id: String(r.id), merchant: String(r.merchant), counterparty: str(r.counterparty), description: str(r.description), searchText: str(r.search_text) })),
     );
+  }
+
+  /**
+   * Rows of one source fetched before `bank_txn_code` was stored: fills the column from one field of the bank's stored
+   * payload, a page at a time. Only that field (`path`, a JSON path into `raw`) leaves the database and goes to
+   * `codeOf`, so the payload is neither returned nor logged. A row whose field gives no code, or whose payload does
+   * not parse, stays as it is. Returns how many rows got a code.
+   */
+  async fillBankCodes(source: string, path: string, codeOf: (field: unknown) => string | null): Promise<number> {
+    let filled = 0;
+    let after = "";
+    for (;;) {
+      const rows = await this.ctx.db.all<Row>(
+        `SELECT id, CASE WHEN json_valid(raw) THEN json_extract(raw, ?) END AS field FROM transactions
+         WHERE user_id = ? AND source = ? AND bank_txn_code IS NULL AND raw IS NOT NULL AND id > ? ORDER BY id LIMIT ?`,
+        [path, this.ctx.userId, source, after, HISTORY_PAGE],
+      );
+      const writes: Statement[] = [];
+      for (const r of rows) {
+        const code = r.field == null ? null : codeOf(parsedJson(String(r.field)));
+        if (code) writes.push({ sql: "UPDATE transactions SET bank_txn_code = ? WHERE id = ? AND user_id = ? AND bank_txn_code IS NULL", params: [code, String(r.id), this.ctx.userId] });
+      }
+      await this.batchInChunks(writes);
+      filled += writes.length;
+      if (rows.length < HISTORY_PAGE) return filled;
+      after = String(rows[rows.length - 1]!.id);
+      await yieldToLoop();
+    }
   }
 
   /** The same for rows a caller has read already (the upgrade tasks read a history once). */

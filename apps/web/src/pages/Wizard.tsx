@@ -7,8 +7,6 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
-import { bankLogo } from "../banks.ts";
-import { BankLogo } from "../components/BankLogo.tsx";
 import { useApi } from "../hooks.ts";
 import type { InstanceState, Meta } from "../types.ts";
 import { BankAppSetup } from "./settings/BankAppSetup.tsx";
@@ -89,8 +87,7 @@ export function WizardDone({ current, finishing, onBack, onFinish }: { current: 
           Siirry sovellukseen
         </button>
         {current.bankApp.source && (
-          <button className="btn btn-primary btn-with-logo" type="button" disabled={finishing} onClick={() => onFinish("connect")}>
-            <BankLogo src={bankLogo("nordea-fi")} name="Nordea" size="sm" />
+          <button className="btn btn-primary" type="button" disabled={finishing} onClick={() => onFinish("connect")}>
             Lisää pankkiyhteys
           </button>
         )}

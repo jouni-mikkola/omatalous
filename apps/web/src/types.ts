@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, Category, CategoryRule, DashboardData, FeatureState, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { AccountType, Category, CategoryRule, DashboardData, FeatureState, LoanProposal, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, DashboardData, RecurringSeries, ReportsData };
 
@@ -87,7 +87,7 @@ export interface Meta {
     /** The household's app is set up but its last test found it not active yet (no member key of one's own). */
     inactive?: boolean;
     source: "user" | "instance" | null;
-    /** Banks that can be connected (server registry); only Nordea for now. */
+    /** Banks the server offers: its registry, narrowed to what the household's Enable Banking application lists. */
     banks: BankOption[];
     redirectUrl: string;
     /** The pages beside the return page that Enable Banking's registration form asks for. */
@@ -110,6 +110,8 @@ export interface BankOption {
   id: string;
   name: string;
   country: string;
+  /** The server serves this bank's logo at /api/bank/logos/<id>. Only `bankLogo` (banks.ts) builds that address. */
+  logo?: boolean;
 }
 
 // ── instance setup (admin) ──
@@ -160,6 +162,9 @@ export interface TransactionItem extends Transaction {
 }
 
 export type Recurring = Omit<RecurringSeries, "transactionIds">;
+
+/** What `GET /api/loans/proposals` tells of a proposed loan: no row ids, account or payment reference. */
+export type LoanProposalRow = Pick<LoanProposal, "key" | "payee" | "paymentCents" | "months" | "firstDate" | "lastDate" | "kind">;
 
 /** own = my accounts; household = mine + accounts shared with me. */
 export type Scope = "own" | "household";

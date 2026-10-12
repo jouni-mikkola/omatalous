@@ -55,8 +55,9 @@ export async function enrichTransactionsPausing(
 const CHUNK = 4000;
 
 /**
- * What a rule says depends on the row's names, its card code and the direction of the money only, and a long
- * history repeats the same shop, text and code thousands of times: each distinct combination is decided once.
+ * What a rule says depends on the row's names, its card code, the bank's own transaction code and the direction of
+ * the money only, and a long history repeats the same shop, text and codes thousands of times: each distinct
+ * combination is decided once.
  */
 function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule[]): Generator<void, { next: Transaction[]; byUserRule: Set<string> }, void> {
   const rules = compileRules(userRules);
@@ -70,7 +71,7 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
       next[i] = { ...t, isTransfer: t.category === "transfer" };
       continue;
     }
-    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}`;
+    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}`;
     let result = decided.get(key);
     if (!result) decided.set(key, (result = categorize(t, rules)));
     const { category, source, byUser } = result;

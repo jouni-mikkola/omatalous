@@ -22,7 +22,7 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   // any account can have a name of its own, bank-linked or not; the original stays on a line of its own
   await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili (demo)" }).click();
   await page.getByLabel("Oma nimi").fill("Yhteinen tili");
-  await page.getByRole("button", { name: "Tallenna" }).click();
+  await page.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(tilit.getByText("Tallennettu.").first()).toBeVisible();
   await expect(row("Yhteinen tili")).toContainText("Pankin nimi: Käyttötili (demo)");
   await expect(row("Yhteinen tili")).toContainText("FI21 1234 5600 0007 85");
@@ -32,7 +32,7 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   await page.getByRole("button", { name: "Muokkaa tiliä Yhteinen tili" }).click();
   await expect(page.getByLabel("Oma nimi")).toHaveValue("Yhteinen tili");
   await page.getByLabel("Oma nimi").fill("");
-  await page.getByRole("button", { name: "Tallenna" }).click();
+  await page.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(row("Käyttötili (demo)")).toBeVisible();
   await expect(tilit.getByText("Pankin nimi:")).toHaveCount(0);
 

@@ -1,6 +1,8 @@
 import type { RawTransaction } from "@banking/core";
 import { UpstreamError } from "../../platform/errors.ts";
+import { addressOn, readCappedText } from "../../platform/outbound.ts";
 import { importPrivateKey, type SigningKey } from "../../security/rsa-key.ts";
+import { BANKS } from "./banks.ts";
 import { signJwt } from "./jwt.ts";
 import { mapTransaction } from "./mapper.ts";
 import type { EbAccount, EbApplication, EbAspsp, EbBalance, EbSession, EbTransactionsPage } from "./types.ts";
@@ -78,44 +80,21 @@ const REQUEST_TIMEOUT_MS = 30_000;
 /** Largest answer read (a page of transactions is well under 1 MB). */
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
-/** Where the browser is sent to give consent: Enable Banking's own pages, and the bank's. */
-export const AUTH_HOSTS = ["enablebanking.com", "nordea.com", "nordea.fi"] as const;
+/**
+ * Where the browser is sent to give consent: Enable Banking's own pages, and the sign-in hosts of the banks of
+ * banks.ts. Each entry stands for the host and its subdomains, so it is a domain the bank itself holds, never a
+ * shared suffix.
+ */
+export const AUTH_HOSTS: readonly string[] = [...new Set(["enablebanking.com", ...BANKS.flatMap((b) => b.authHosts)])];
 
 /**
- * The consent URL comes from an API answer and is followed by the browser, so it must be https on
- * a known host. Anything else is refused here instead of being passed on.
+ * The consent URL comes from an API answer and is followed by the browser, so it must be https on a known host
+ * (the rule of platform/outbound.ts `addressOn`). Anything else is refused here instead of being passed on.
  */
 export function checkAuthUrl(value: unknown, extraHosts: readonly string[] = []): string {
-  let url: URL;
-  try {
-    url = new URL(String(value));
-  } catch {
-    throw new EnableBankingError(502, "", "auth url");
-  }
-  const host = url.hostname.toLowerCase();
-  const ok = url.protocol === "https:" && !url.username && !url.password && [...AUTH_HOSTS, ...extraHosts].some((h) => host === h || host.endsWith(`.${h}`));
-  if (!ok) throw new EnableBankingError(502, "", "auth url");
-  return url.toString();
-}
-
-async function readCapped(res: Response): Promise<string> {
-  const length = Number(res.headers.get("content-length") ?? 0);
-  if (length > MAX_BODY_BYTES) throw new Error("Enable Banking response too large");
-  if (!res.body) return res.text();
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_BODY_BYTES) {
-      await reader.cancel();
-      throw new Error("Enable Banking response too large");
-    }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
+  const url = addressOn(value, [...AUTH_HOSTS, ...extraHosts]);
+  if (url === null) throw new EnableBankingError(502, "", "auth url");
+  return url;
 }
 
 export class EnableBankingClient {
@@ -145,7 +124,8 @@ export class EnableBankingClient {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-    const text = await readCapped(res);
+    const text = await readCappedText(res, MAX_BODY_BYTES);
+    if (text === null) throw new Error("Enable Banking response too large");
     if (!res.ok) throw new EnableBankingError(res.status, text, path);
     return (text ? JSON.parse(text) : {}) as T;
   }
@@ -155,8 +135,14 @@ export class EnableBankingClient {
     return this.request<EbApplication>("GET", "/application");
   }
 
+  /**
+   * The banks the application can reach in a country. An entry without a name is left out: callers match by it. An
+   * answer without a list is a failed call, not an empty list: an empty list would offer no bank at all.
+   */
   async listAspsps(country: string): Promise<EbAspsp[]> {
-    return (await this.request<{ aspsps: EbAspsp[] }>("GET", `/aspsps?country=${encodeURIComponent(country)}&service=AIS`)).aspsps;
+    const { aspsps } = await this.request<{ aspsps?: unknown }>("GET", `/aspsps?country=${encodeURIComponent(country)}&service=AIS`);
+    if (!Array.isArray(aspsps)) throw new EnableBankingError(502, "", "/aspsps");
+    return aspsps.filter((a): a is EbAspsp => typeof (a as EbAspsp | null)?.name === "string");
   }
 
   /** Returns the bank URL the user must open to give consent. */

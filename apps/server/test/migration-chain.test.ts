@@ -230,6 +230,30 @@ describe("0007 widens the ops_requests action list", () => {
   });
 });
 
+describe("0015 stores the bank's transaction code", () => {
+  it("a database of 0.8.5 gets the column empty, and the upgrade fills it from the bank's payload", async () => {
+    // the last frozen database without the column: a later one has the migration applied already
+    const file = fromFixture("0.8.5.sql");
+    // a row as that release stored one from the bank: the code is in the payload only
+    const old = new DatabaseSync(file);
+    const row = old.prepare("SELECT id FROM transactions WHERE amount_cents > 0 AND category_source != 'user' ORDER BY id LIMIT 1").get() as { id: string };
+    old.prepare("UPDATE transactions SET source = 'enablebanking', raw = ? WHERE id = ?").run(JSON.stringify({ bank_transaction_code: { code: "PMNT", sub_code: "RCDT-SALA" } }), row.id);
+    old.close();
+
+    const { db, applied } = await openDatabase(file);
+    expect(applied).toContain("0015_bank_txn_code.sql");
+    expect(await db.all("SELECT DISTINCT bank_txn_code FROM transactions")).toEqual([{ bank_txn_code: null }]);
+    const { createApp } = await import("../src/app.ts");
+    const { loadConfig } = await import("../src/platform/config.ts");
+    const config = loadConfig({ APP_SECRET: "test-secret-that-is-long-enough-0123456789", INDUSTRY_LOOKUP: "false", APP_BASE_URL: "http://localhost:8080" });
+    const app = createApp({ db, config, now: () => new Date("2026-10-09T10:00:00Z") });
+    const { runUpgradeTasks } = await import("../src/services/upgrade.ts");
+    expect(await runUpgradeTasks(app.services, `${APP_VERSION}+codes`)).toMatchObject({ bankCodes: 1 });
+    expect(await db.all("SELECT id, bank_txn_code, category FROM transactions WHERE bank_txn_code IS NOT NULL")).toEqual([{ id: row.id, bank_txn_code: "PMNT-RCDT-SALA", category: "salary" }]);
+    db.close();
+  });
+});
+
 describe("migration lint", () => {
   const dir = findMigrationsDir();
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();

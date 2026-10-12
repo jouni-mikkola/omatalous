@@ -3,15 +3,21 @@
 .bridge { margin: 0 0 18px; }
 .bridge-head { margin-bottom: 8px; }
 .bridge-title { font-size: 14px; font-weight: 600; margin: 0; }
-.bridge-track { position: relative; }
-.bridge-bar { display: flex; gap: 2px; height: 28px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
-.bridge-seg { display: block; height: 100%; min-width: 2px; }
-/* where the income ends when the money spent and saved is more than the income */
-.bridge-mark { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px solid var(--text); }
+.bridge-track { display: grid; gap: 3px; }
+/* where the money of the bar came from, on the bar's own axis: there when the income was not all of it */
+.bridge-from { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
+.bridge-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; }
+/* the 2px between two parts is cut from the part itself, so an edge of the strip stands over the same edge of the bar.
+   The colour comes as background-color: the shorthand would reset the clip. */
+.bridge-seg { display: block; box-sizing: border-box; height: 100%; min-width: 4px; border-right: 2px solid transparent; background-clip: padding-box; }
+.bridge-seg:last-child { border-right: 0; }
 .bridge-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 16px; margin-top: 12px; }
 .bridge-legend > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .bridge-legend .k { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
 .bridge-legend .v { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .bridge-legend small { color: var(--muted); font-size: 12px; }
-.bridge-over { color: var(--bad); font-weight: 600; margin: 10px 0 0; }
+/* how a gap was paid: a fact about the period, so it wears the text colour and no status colour */
+.bridge-gap { margin: 12px 0 0; }
+.bridge-drawn { margin: 6px 0 0; font-size: 13px; color: var(--text-2); }
+.bridge-drawn .swatch { margin-right: 6px; }
 .bridge-table { max-width: 520px; }

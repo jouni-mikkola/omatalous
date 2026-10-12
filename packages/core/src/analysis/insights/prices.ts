@@ -14,7 +14,7 @@ import type { IsoDate } from "../../types.ts";
 import { isRent } from "../../wording.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { answeredSubscriptions, capitalise, countWord, isLender, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
+import { answeredSubscriptions, answerOf, capitalise, countWord, isLender, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 import { isMunicipality } from "../../wording.ts";
 
@@ -91,7 +91,7 @@ export function priceRises({ ctx, end, inputs }: InsightArgs): Insight[] {
   const answered = answeredSubscriptions(inputs, ctx.today);
   const rises = priceRiseItems(ctx, end)
     // a cancelled one is being dropped, and one marked in use after the change is kept at its new price
-    .filter((r) => !notAPrice(ctx, r.series) && !settledBy(answered.get(r.series.merchant), r.series.priceChange!.date))
+    .filter((r) => !notAPrice(ctx, r.series) && !settledBy(answerOf(answered, r.series), r.series.priceChange!.date))
     .map((r) => ({ s: r.series, yearly: r.yearlyCents }));
   if (!rises.length || rises.reduce((sum, r) => sum + r.yearly, 0) < 12 * ITEM_GATE_MONTHLY_CENTS) return [];
   const rows = rises.flatMap(({ s }) => s.transactionIds.slice(-2));

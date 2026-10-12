@@ -1,3 +1,5 @@
+import type { LoanReference } from "./optimise/types.ts";
+
 /** ISO date, YYYY-MM-DD. */
 export type IsoDate = string;
 
@@ -11,6 +13,8 @@ export interface Account {
   name: string;
   /** The bank's own name for the account. A credit card is matched to its bills by this name, so renaming it changes nothing. */
   bankName?: string;
+  /** The bank the account's connection was made with ("Nordea"), on an account that came through one. A card has no IBAN to tell it. */
+  bank?: string | null;
   iban: string | null;
   currency: string;
   type: AccountType;
@@ -35,6 +39,8 @@ export interface RawTransaction {
   description: string | null;
   reference: string | null;
   mcc: string | null;
+  /** The bank's own code for the kind of transaction, when it sends one: ISO 20022 domain, family and sub-family ("PMNT-CCRD-POSD"). */
+  bankTxnCode?: string | null;
   raw?: unknown;
 }
 
@@ -57,6 +63,8 @@ export interface Transaction {
   counterpartyIban: string | null;
   description: string | null;
   mcc: string | null;
+  /** The bank's own code for the kind of transaction, as on the raw row ("PMNT-CCRD-POSD"). The rules read it where no wording decides. */
+  bankTxnCode?: string | null;
   merchant: string;
   category: string;
   categorySource: CategorySource;
@@ -99,7 +107,10 @@ export interface BalanceInput {
 /** What the user said about a subscription or an alert: still in use, cancelled, or not to be shown again. */
 export type MarkKind = "in_use" | "cancelled" | "dismissed";
 
-/** A mark on a subject: `merchant:<name>` or `alert:<id>`. */
+/**
+ * A mark on a subject: `series:<key>` for one subscription (`seriesMarkSubject`), `alert:<id>`, or `merchant:<name>`
+ * for a mark stored before marks named a series, which covers every series of the merchant.
+ */
 export interface UserMark {
   subject: string;
   mark: MarkKind;
@@ -123,13 +134,72 @@ export interface ExpectedBill {
   category: string | null;
 }
 
+/** What kind of debt a loan is. The user picks it and no figure depends on it. */
+export const LOAN_KINDS = ["mortgage", "consumer", "car", "student", "credit_line", "card", "instalment", "other"] as const;
+export type LoanKind = (typeof LOAN_KINDS)[number];
+
+/** A card or a credit line: drawn and paid as its holder likes, so it has a limit and no repayment plan. */
+export const isRevolving = (kind: LoanKind): boolean => kind === "card" || kind === "credit_line";
+
+/** The longest gap between two payments a loan can name, in months: a payment once a year. */
+export const MAX_LOAN_INTERVAL_MONTHS = 12;
+
 /**
- * What the user typed in, next to the bank history: marks and expected bills. The server reads them per request and
- * hands them to core, so they are not part of the cached analysis context and a change needs no data version bump.
+ * How a loan is paid back. annuity and fixed_instalment: the payment holds the interest. equal_principal: the payment
+ * is the amortisation and the interest comes on top. bullet: all of it on the last due date.
+ */
+export const LOAN_REPAYMENTS = ["annuity", "equal_principal", "fixed_instalment", "bullet"] as const;
+export type LoanRepayment = (typeof LOAN_REPAYMENTS)[number];
+
+/** The reference rates a loan can name: the ids the Optimoi `loan_rate` input offers. */
+export const LOAN_REFERENCES = ["euribor_12", "euribor_6", "euribor_3", "fixed"] as const satisfies readonly LoanReference[];
+
+/**
+ * A loan the user typed in, pasted or read from a picture, and confirmed: the bank connection shows payment accounts
+ * only. Money is what is owed, positive, in cents. Rates are hundredths of a percent (325 is 3,25 %). A field the
+ * source did not give is null, and a figure that needs it is left untold (`loans.ts`).
+ */
+export interface Loan {
+  id: string;
+  /** What the user calls it. */
+  name: string;
+  /** Who lent. */
+  lender: string | null;
+  kind: LoanKind;
+  /** The amount granted. */
+  grantedCents: number | null;
+  /** What is owed on `balanceDate`. */
+  balanceCents: number;
+  balanceDate: IsoDate;
+  /** The whole rate a year, reference and margin together. */
+  rateBp: number | null;
+  reference: LoanReference | null;
+  marginBp: number | null;
+  repayment: LoanRepayment | null;
+  /** Months between payments. */
+  intervalMonths: number | null;
+  /**
+   * What is paid each interval. With annuity and fixed_instalment the whole payment, interest in it. With
+   * equal_principal the amortisation alone: the interest comes on top and shrinks with the loan. A bullet has none.
+   */
+  paymentCents: number | null;
+  /** The last due date: whatever is left falls due then. */
+  endDate: IsoDate | null;
+  /** The limit of a credit line or card. */
+  limitCents: number | null;
+  /** The debt series its payments belong to, null until linked. */
+  seriesKey: string | null;
+}
+
+/**
+ * What the user typed in, next to the bank history: marks, expected bills and loans. The server reads them per request
+ * and hands them to core, so they are not part of the cached analysis context and a change needs no data version bump.
  */
 export interface UserInputs {
   marks: readonly UserMark[];
   expectedBills: readonly ExpectedBill[];
+  /** Left out means none, so a caller that builds its inputs by hand still compiles. Read with `loansOf` (`loans.ts`). */
+  loans?: readonly Loan[];
 }
 
-export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [] };
+export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [], loans: [] };

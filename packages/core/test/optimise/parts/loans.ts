@@ -7,7 +7,7 @@ import { createContext } from "../../../src/analysis/context.ts";
 import { addDays, addMonths } from "../../../src/dates.ts";
 import type { InputValues, LoanReference } from "../../../src/optimise/types.ts";
 import { bufferReport } from "../../../src/reports/buffer.ts";
-import type { Account, BalanceInput, Transaction } from "../../../src/types.ts";
+import type { Account, BalanceInput, Loan, Transaction } from "../../../src/types.ts";
 import { baseRows, enrich, type Frame, type Part, type PartHousehold } from "../household.ts";
 
 const LOAN: Account = { id: "l-loan", name: "Asuntolaina", iban: "FI5512345600000123", currency: "EUR", type: "loan" };
@@ -94,6 +94,20 @@ function usualWith(frame: Frame, txs: readonly Transaction[], accounts: readonly
   const sorted = [...baseRows(frame), ...txs].sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || (a.id < b.id ? -1 : 1));
   return bufferReport(createContext(enrich(sorted, all), all, frame.today), []).usualSpendCents!;
 }
+
+/**
+ * The hit with its mortgage saved as a loan and no `loan_rate` typed in: 150 000 € on the day before today at 3,60 %,
+ * 1,10 % over 12 month Euribor, an annuity of 900 € a month. The loan account is not connected, so the debt is told
+ * once. `over` changes fields of the saved loan.
+ */
+export const savedMortgage = (frame: Frame, over: Partial<Loan> = {}): PartHousehold => {
+  const h = hit(frame);
+  const mortgage: Loan = {
+    id: "saved-mortgage", name: "Asuntolaina", lender: "Nordea", kind: "mortgage", grantedCents: 20000000, balanceCents: 15000000, balanceDate: addDays(frame.today, -1),
+    rateBp: 360, reference: "euribor_12", marginBp: 110, repayment: "annuity", intervalMonths: 1, paymentCents: 90000, endDate: null, limitCents: null, seriesKey: null, ...over,
+  };
+  return { ...h, balances: h.balances!.filter((b) => b.id !== LOAN.id), values: {}, inputs: { marks: [], expectedBills: [], loans: [mortgage] } };
+};
 
 export const hit: Part["hit"] = (frame) => mortgaged(frame, { mortgage: true, card: true, interest: true, marginBp: 110, reference: "euribor_12", sav: 1500000 });
 

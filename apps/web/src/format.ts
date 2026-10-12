@@ -34,6 +34,20 @@ export function parseEuros(text: string): number | null {
   return m[1] ? -cents : cents;
 }
 
+/** 12345678 as "123 456,78": the text of an amount input, with plain spaces. */
+export const eurosText = (cents: number): string => money(cents).replace(/[\s\u00a0\u202f]*€$/, "").replace(/[\u00a0\u202f]/g, " ");
+
+/** 325 as "3,25": the text of a rate input. */
+export const rateText = (bp: number): string => `${Math.floor(bp / 100)},${String(bp % 100).padStart(2, "0")}`;
+
+/** "3,25", "3.255 %" as hundredths of a percent, a half up; null when the text is no rate. Read as text, so no float decides a half. */
+export function parseRate(text: string): number | null {
+  const m = /^(\d{1,4})(?:[.,](\d+))?$/.exec(text.replace(/[\s\u00a0\u202f%]/g, ""));
+  if (!m) return null;
+  const decimals = (m[2] ?? "").padEnd(3, "0");
+  return Number(m[1]) * 100 + Number(decimals.slice(0, 2)) + (decimals[2]! >= "5" ? 1 : 0);
+}
+
 /** "1 tapahtuma", "3 tapahtumaa" */
 export function plural(n: number, one: string, many: string): string {
   return `${num0.format(n)} ${n === 1 ? one : many}`;
@@ -56,7 +70,12 @@ export function count(n: number): string {
   return num1.format(n);
 }
 
-export function percent(x: number): string {
+/** A share as a percent: 0.25 → "25 %". With decimals the fraction has that many digits: percent(0.0325, 2) → "3,25 %". */
+export function percent(x: number, decimals = 0): string {
+  if (decimals > 0) {
+    const digits = Math.abs(x * 100).toLocaleString("fi-FI", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    return `${x < 0 ? "−" : ""}${digits} %`;
+  }
   const p = Math.round(x * 100);
   return `${p < 0 ? "−" : ""}${Math.abs(p)} %`;
 }
@@ -128,11 +147,4 @@ export function formatIban(iban: string | null | undefined): string {
 /** What tells accounts of one holder apart: the IBAN in groups of four, else a card's masked number, else "". */
 export function accountNumber(a: { iban: string | null; cardMask?: string | null }): string {
   return a.iban ? formatIban(a.iban) : (a.cardMask ?? "");
-}
-
-/** "Luottoraja 2 000 €, käytössä 340 €"; the used part only when the balance is below zero. Null without a limit. */
-export function creditLine(a: { creditLimitCents?: number | null; balanceCents: number | null }): string | null {
-  if (!a.creditLimitCents || a.creditLimitCents <= 0) return null;
-  const used = a.balanceCents !== null && a.balanceCents < 0 ? `, käytössä ${money(-a.balanceCents, false)}` : "";
-  return `Luottoraja ${money(a.creditLimitCents, false)}${used}`;
 }

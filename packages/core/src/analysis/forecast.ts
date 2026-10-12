@@ -1,7 +1,7 @@
 /**
  * Where the running month is heading: the pace curve against the usual month and the forecast to the month's end.
  */
-import { cancelledMerchants, expectedCharges, expectedDates } from "../commitments.ts";
+import { cancelledSubjects, expectedCharges, expectedDates } from "../commitments.ts";
 import { addMonths, dateIn, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
@@ -220,7 +220,7 @@ function forecastRange(ctx: AnalysisContext, asOf: IsoDate, forecast: ForecastPa
  */
 export function monthForecast(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): MonthForecast {
   const month = monthOf(ctx.today);
-  const parts = forecastAsOf(ctx, ctx.today, cancelledMerchants(inputs), inputs.expectedBills);
+  const parts = forecastAsOf(ctx, ctx.today, cancelledSubjects(inputs), inputs.expectedBills);
   const usualMonths = completeMonthsBefore(ctx, month);
   return {
     month,

@@ -1,10 +1,11 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
 import { openDatabase } from "../src/db/open.ts";
+import { type AccessRequest, accessRequestPath, checkAccessRequest, deleteAccessRequest, readAccessRequest, writeAccessRequest } from "../src/services/access-request.ts";
 import {
   ACTION_SINCE,
   HELPER_MIN_VERSION,
@@ -55,9 +56,10 @@ const ROUTES: [string, string, unknown?][] = [
 ];
 
 describe("ops: validation", () => {
-  it("accepts the nine actions and nothing else", () => {
-    for (const action of ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew"]) expect(parseOpsRequest({ action }).action).toBe(action);
-    for (const bad of [{ action: "logs", params: { service: "banking" } }, { action: "prune", params: { all: true } }, { action: "helper-renew", params: { args: "--ops-policy" } }, { action: "Logs" }, { action: "helper_renew" },{ action: "access" }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
+  it("accepts the ten actions and nothing else", () => {
+    for (const action of ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access"]) expect(parseOpsRequest({ action }).action).toBe(action);
+    // access takes no parameters either: what to apply waits in the app's own file
+    for (const bad of [{ action: "logs", params: { service: "banking" } }, { action: "prune", params: { all: true } }, { action: "helper-renew", params: { args: "--ops-policy" } }, { action: "Logs" }, { action: "helper_renew" }, { action: "access", params: { want: "lan" } }, { action: "access", params: { hostname: "koti.example.fi" } }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
       expect(() => parseOpsRequest(bad), JSON.stringify(bad)).toThrow();
     }
   });
@@ -84,6 +86,9 @@ describe("ops: validation", () => {
     }
     expect(helperHasTools("1")).toBe(false);
     expect(helperHasTools("2")).toBe(true);
+    // remote access came with version 3
+    for (const old of [null, "1", "2", "garbage"]) expect(helperKnows(old, "access"), String(old)).toBe(false);
+    expect(helperKnows("3", "access")).toBe(true);
   });
 
   it("the read-only set is one list: the index that keeps one mutating request active names the same actions", async () => {
@@ -300,6 +305,17 @@ describe("ops: requests", () => {
     expect((await admin.call("POST", "/api/ops/request", { action: "logs" })).status).toBe(200);
   });
 
+  it("access is asked for on the remote access page only, which writes what the helper reads; port stays refused", async () => {
+    const { admin, s } = await setupApp();
+    await helperOn(s, "3");
+    const r = await admin.call("POST", "/api/ops/request", { action: "access", password: PASSWORD });
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe("Etäkäyttöä muutetaan kohdassa Asetukset > Palvelin > Etäkäyttö.");
+    expect(await s.ops.recent(5)).toEqual([]);
+    expect((await admin.call("POST", "/api/ops/request", { action: "port", password: PASSWORD })).status).toBe(400);
+    expect(await s.db.first("SELECT id FROM ops_requests WHERE action = 'port'")).toBeFalsy();
+  });
+
   it("helper-renew follows a finished prune, and a stored row of each new action is accepted by the table", async () => {
     const { admin, s, adminId } = await setupApp();
     await helperOn(s);
@@ -476,6 +492,24 @@ describe("ops: the helper's CLI", () => {
     expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toEqual({ request: { id: again, action: "prune", params: {}, secret: null } });
   });
 
+  it("a version 2 helper is never handed access, and a version 3 one gets the usual shape", async () => {
+    const { s, adminId } = await setupApp();
+    // as the remote access page queues it
+    const queued = async (id: string) => {
+      expect(await s.ops.insert({ id, action: "access", requestedBy: adminId, at: s.now().toISOString() })).toBe(true);
+      return id;
+    };
+    await helperOn(s, "3");
+    const id = await queued("op_00000000000000a1");
+    // the helper went back to version 2 with the checkout
+    expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toEqual({ request: null });
+    expect((await s.ops.get(id))!).toMatchObject({ status: "failed", summary: "Apuri ei tue tätä toimintoa." });
+    await s.db.run("DELETE FROM ops_requests");
+    await helperOn(s, "3");
+    const again = await queued("op_00000000000000a2");
+    expect(await cli(s, ["poll", "--helper", "3", "--done", ""])).toEqual({ request: { id: again, action: "access", params: {}, secret: null } });
+  });
+
   it("a restored database does not bring a handled request back to life", async () => {
     const t = clock();
     const { admin, s } = await setupApp({}, undefined, { now: t.now });
@@ -628,5 +662,121 @@ describe("ops: backup download", () => {
     const { admin } = await setupApp({}, undefined, { backupDir: dir });
     for (let i = 0; i < 5; i++) expect((await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD })).status).toBe(200);
     expect((await admin.call("POST", "/api/ops/backups/latest", { password: PASSWORD })).status).toBe(429);
+  });
+});
+
+describe("ops: the prepared change of remote access", () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+  // made-up values in the forms of the protocol
+  const TOKEN = "tunneltokenTESTVALUE".repeat(8);
+  const TUNNEL = { want: "tunnel", hostname: "koti.example.fi", tunnelToken: TOKEN, accessAud: "a1b2c3d4".repeat(8), teamDomain: "tiimi.cloudflareaccess.com" } as const satisfies AccessRequest;
+  /** An app that knows its data folder, as the container does. */
+  async function world() {
+    const dir = mkdtempSync(join(tmpdir(), "talous-access-"));
+    dirs.push(dir);
+    const { s } = await setupApp({}, undefined, { backupDir: join(dir, "backups") });
+    return { s, file: join(dir, "ops", "access-request.json") };
+  }
+
+  it("ops access prints the request as one exact line, and only to a helper that knows the action", async () => {
+    const { s, file } = await world();
+    expect(accessRequestPath(s)).toBe(file);
+    expect(await cli(s, ["access", "--helper", "3"])).toEqual({ want: null });
+    // the keys come in any order: the line always has the order the helper matches as text
+    writeAccessRequest(s, { teamDomain: TUNNEL.teamDomain, accessAud: TUNNEL.accessAud, tunnelToken: TOKEN, hostname: TUNNEL.hostname, want: "tunnel" });
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(readdirSync(dirname(file))).toEqual(["access-request.json"]);
+    expect(JSON.stringify(await cli(s, ["access", "--helper", "3"]))).toBe(`{"want":"tunnel","hostname":"koti.example.fi","tunnelToken":"${TOKEN}","accessAud":"${TUNNEL.accessAud}","teamDomain":"tiimi.cloudflareaccess.com"}`);
+    // an older helper has no use for the token
+    for (const old of [["--helper", "2"], ["--helper", "1"], ["--helper", "x"], []]) expect(await cli(s, ["access", ...old]), old.join(" ")).toEqual({ want: null });
+    writeAccessRequest(s, { want: "lan" });
+    expect(readFileSync(file, "utf8")).toBe('{"want":"lan"}\n');
+    expect(JSON.stringify(await cli(s, ["access", "--helper", "3"]))).toBe('{"want":"lan"}');
+    deleteAccessRequest(s);
+    expect(existsSync(file)).toBe(false);
+    expect(await cli(s, ["access", "--helper", "3"])).toEqual({ want: null });
+    deleteAccessRequest(s); // nothing to remove is not an error
+  });
+
+  it("a file with anything but a valid request in it is no request", async () => {
+    const { s, file } = await world();
+    mkdirSync(dirname(file), { recursive: true });
+    const bad: unknown[] = [
+      { ...TUNNEL, tunnelToken: `${TOKEN}\nAPP_BASE_URL=https://paha.example` },
+      { ...TUNNEL, tunnelToken: `${TOKEN} TRUST_PROXY=false` },
+      { ...TUNNEL, tunnelToken: `${TOKEN}$(id)` },
+      { ...TUNNEL, tunnelToken: "short-token" },
+      { ...TUNNEL, tunnelToken: "a".repeat(2001) },
+      { ...TUNNEL, hostname: "Koti.example.fi" },
+      { ...TUNNEL, hostname: "koti" },
+      { ...TUNNEL, hostname: "-koti.example.fi" },
+      { ...TUNNEL, hostname: "koti.example.fi/x" },
+      { ...TUNNEL, hostname: `${"abcdefghij.".repeat(23)}example.fi` },
+      // an address is no hostname: the last label holds a letter
+      { ...TUNNEL, hostname: "127.0.0.1" },
+      { ...TUNNEL, hostname: "169.254.169.254" },
+      { ...TUNNEL, hostname: "koti.example.123" },
+      { ...TUNNEL, teamDomain: "tiimi.example.com" },
+      { ...TUNNEL, teamDomain: "tiimi.cloudflareaccess.com.paha.example" },
+      { ...TUNNEL, accessAud: TUNNEL.accessAud.toUpperCase() },
+      { ...TUNNEL, accessAud: TUNNEL.accessAud.slice(1) },
+      { ...TUNNEL, extra: "1" },
+      { ...TUNNEL, hostname: 5 },
+      { want: "tunnel" },
+      { want: "lan", hostname: "koti.example.fi" },
+      { want: "domain" },
+      { want: null },
+      ["lan"],
+      "lan",
+      null,
+    ];
+    for (const b of bad) {
+      expect(checkAccessRequest(b), JSON.stringify(b).slice(0, 90)).toBeNull();
+      writeFileSync(file, JSON.stringify(b));
+      expect(await cli(s, ["access", "--helper", "3"])).toEqual({ want: null });
+    }
+    // digits are fine anywhere else, and in a last label that also has a letter (an IDN ending is xn--…)
+    for (const hostname of ["1.koti.example.fi", "koti.123.fi", "koti.example.f1", "koti.xn--p1ai"]) expect(checkAccessRequest({ ...TUNNEL, hostname }), hostname).toEqual({ ...TUNNEL, hostname });
+    // empty, cut short, or far longer than a request can be
+    for (const raw of ["", "{", `${JSON.stringify(TUNNEL)}${" ".repeat(9000)}`]) {
+      writeFileSync(file, raw);
+      expect(await cli(s, ["access", "--helper", "3"])).toEqual({ want: null });
+    }
+    // a link in the file's place is not followed
+    rmSync(file);
+    writeFileSync(`${file}.real`, JSON.stringify({ want: "lan" }));
+    symlinkSync(`${file}.real`, file);
+    expect(await cli(s, ["access", "--helper", "3"])).toEqual({ want: null });
+  });
+
+  it("storing refuses what the helper would refuse, without repeating the value, and needs the data folder", async () => {
+    const { s, file } = await world();
+    let message = "";
+    try {
+      writeAccessRequest(s, { ...TUNNEL, tunnelToken: `${TOKEN}\nAPP_BASE_URL=https://paha.example` });
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toBe("Etäkäytön asetukset eivät ole kelvolliset.");
+    expect(existsSync(file)).toBe(false);
+    // a valid one replaces what was there, whole
+    writeAccessRequest(s, TUNNEL);
+    expect(readAccessRequest(s)).toEqual(TUNNEL);
+    writeAccessRequest(s, { want: "lan" });
+    expect(readAccessRequest(s)).toEqual({ want: "lan" });
+    // a process that was not told the data folder reads nothing and cannot store
+    const { s: bare } = await setupApp();
+    expect(accessRequestPath(bare)).toBeNull();
+    expect(await cli(bare, ["access", "--helper", "3"])).toEqual({ want: null });
+    expect(() => writeAccessRequest(bare, { want: "lan" })).toThrow("data folder");
+    deleteAccessRequest(bare);
+  });
+
+  it("the helper's CLI is told the data folder, or `ops access` could never find the file", () => {
+    const entry = readFileSync(new URL("../src/entry/node.ts", import.meta.url), "utf8");
+    expect(entry).toMatch(/const cliServices = createServices\(\{[^}]*backupDir: join\(dirname\(dbPath\), "backups"\)[^}]*\}\);/);
   });
 });

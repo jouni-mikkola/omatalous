@@ -208,7 +208,6 @@ describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
     const OWNERS = new Set(["packages/core/src/analysis/usual.ts", "packages/core/src/analysis/context.ts"]);
     // today's other callers and how many calls each; a count may only go down
     const BASELINE: Record<string, number> = {
-      "packages/core/src/analysis/alerts.ts": 2,
       "packages/core/src/analysis/dashboard.ts": 1,
       "packages/core/src/analysis/income-changes.ts": 1,
       "packages/core/src/analysis/income-events.ts": 3,
@@ -281,14 +280,14 @@ describe("repo rules: request bodies and marks", () => {
     expectNoFindings("request bodies", found, "wrap the body: strictObject(await body(c), [...keys]) or a parse*(await body(c)) function in platform/validate.ts or the route (CLAUDE.md: browser input is validated against allowlists).");
   });
 
-  it("rule 15: the web app does not parse mark subjects or filter on a next date (core's cancelledMerchants and expectedCharges own them)", () => {
+  it("rule 15: the web app does not parse mark subjects or filter on a next date (core's cancelledSubjects and expectedCharges own them)", () => {
     const found: Finding[] = [];
     for (const file of sourceFiles("apps/web/src/")) {
       const sf = parse(file);
       walk(sf, (n) => {
         if (!ts.isCallExpression(n) || !ts.isPropertyAccessExpression(n.expression) || n.expression.name.text !== "startsWith") return;
         const arg = n.arguments[0] && plainString(n.arguments[0]);
-        if (arg !== undefined && /^(merchant|alert):/.test(arg)) found.push({ file, line: lineOf(sf, n), why: `parses the mark subject "${arg}"` });
+        if (arg !== undefined && /^(series|merchant|alert):/.test(arg)) found.push({ file, line: lineOf(sf, n), why: `parses the mark subject "${arg}"` });
       });
       // a filter on a series' next date picks the coming charges by hand: one date per series, unlike the forecast
       walk(sf, (n) => {
@@ -300,7 +299,7 @@ describe("repo rules: request bodies and marks", () => {
         }
       });
     }
-    expectNoFindings("mark subjects and next dates in web", found, "call cancelledMerchants() or expectedCharges() from @banking/core, or look the mark up by its whole subject.");
+    expectNoFindings("mark subjects and next dates in web", found, "call cancelledSubjects() or expectedCharges() from @banking/core, or look the mark up by its whole subject.");
   });
 });
 

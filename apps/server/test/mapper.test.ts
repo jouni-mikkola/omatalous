@@ -1,5 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { accountType, mapTransaction, pickBalance } from "../src/connectors/enable-banking/mapper.ts";
+import { accountType, bankTxnCode, mapTransaction, pickBalance } from "../src/connectors/enable-banking/mapper.ts";
+
+describe("the bank's own transaction code", () => {
+  it.each([
+    [{ code: "CCRD", sub_code: "POSD" }, "CCRD-POSD"],
+    [{ code: "PMNT", sub_code: "CCRD-POSD" }, "PMNT-CCRD-POSD"],
+    [{ code: "PMNT-RCDT-SALA" }, "PMNT-RCDT-SALA"],
+    [{ code: " pmnt/rcdt ", sub_code: "sala" }, "PMNT-RCDT-SALA"],
+    [{ description: "Korttiosto", code: "CCRD", sub_code: "POSD" }, "CCRD-POSD"],
+    // a family without its sub-family, free text, a bank's own numbering, too many parts, nothing
+    [{ code: "CCRD", sub_code: null }, null],
+    [{ code: "Pano" }, null],
+    [{ code: "Korttiosto" }, null],
+    [{ code: "Käteisnosto", sub_code: "Otto" }, null],
+    [{ code: "710" }, null],
+    [{ code: "PMNT-CCRD-POSD-XTRA" }, null],
+    [{ code: "PMNT", sub_code: "CCRD-POSD-XTRA" }, null],
+    [{ code: 721 as unknown as string }, null],
+    [{ description: "Korttiosto" }, null],
+    [{}, null],
+    [null, null],
+    [undefined, null],
+  ])("%j → %s", (code, expected) => expect(bankTxnCode(code)).toBe(expected));
+
+  it("is kept on the row beside the description, and a row without one has null", () => {
+    const row = { transaction_amount: { currency: "EUR", amount: "60.00" }, credit_debit_indicator: "DBIT" as const, status: "BOOK" as const, booking_date: "2026-09-30" };
+    const coded = mapTransaction({ ...row, bank_transaction_code: { description: "Nosto", code: "PMNT", sub_code: "CCRD-CWDL" } });
+    expect(coded).toMatchObject({ description: "Nosto", bankTxnCode: "PMNT-CCRD-CWDL", amountCents: -6000 });
+    expect(mapTransaction({ ...row, remittance_information: ["Korttiosto"], bank_transaction_code: { description: "Korttiosto" } })!.bankTxnCode).toBeNull();
+    expect(mapTransaction(row)!.bankTxnCode).toBeNull();
+  });
+});
 
 describe("Enable Banking mapping", () => {
   it("maps a card purchase", () => {

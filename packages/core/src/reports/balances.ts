@@ -2,7 +2,8 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { dayNumber, fromDayNumber, fromMonthIndex, monthEnd } from "../dates.ts";
-import type { AccountType, BalanceInput, IsoDate } from "../types.ts";
+import { debtTotalOn, householdDebts } from "../loans.ts";
+import { type AccountType, type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 /** Defined in types.ts, below analysis and reports, because the dashboard reads balances too. */
@@ -35,6 +36,19 @@ export interface BalanceReport {
    * has a value yet.
    */
   total: (number | null)[];
+  /**
+   * The money on the accounts less the debts at each month end: `total` less the saved loans (`householdDebts`), each
+   * at its balance on that day (`loanBalanceOn`). Connected cards and loan accounts are in `total` already. No home,
+   * no investments and no other property are in it, so it is no net worth. Null where `total` is, and in a month that
+   * ends before a saved loan's balance was told. The same as `total` for a household without saved loans. A saved loan
+   * that is also a connected account is taken twice (`maybeTwice` and `overdraftTwice` of the Lainat report name them).
+   */
+  accountsLessDebt: (number | null)[];
+  /**
+   * What the household owes today, the one debt total (`householdDebts`), and the part of it that is saved loans:
+   * what today's `accountsLessDebt` takes from `total`.
+   */
+  debt: { day: IsoDate; cents: number; savedCents: number };
 }
 
 /** One account's balance on any day, walked from the balance the bank last gave. */
@@ -98,8 +112,11 @@ export function lowestDayBalance(walks: readonly BalanceWalk[], fromDay: number,
   return low;
 }
 
-/** Month-end balances from the day walk (`balanceWalk`) of each account with a balance. */
-export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: readonly BalanceInput[]): BalanceReport {
+/**
+ * Month-end balances from the day walk (`balanceWalk`) of each account with a balance, and net worth: the accounts
+ * less the loans the user saved (`inputs`), which no account holds.
+ */
+export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: readonly BalanceInput[], inputs: UserInputs = NO_INPUTS): BalanceReport {
   const months = rangeMonthIndexes(range);
   const monthEnds = months.map((i) => {
     const m = fromMonthIndex(i);
@@ -123,5 +140,13 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
     }
     return any ? sum : null;
   });
-  return { months: monthLabels(months), accounts: series, total };
+  const debts = householdDebts(accounts, inputs, ctx.today);
+  const accountsLessDebt = monthEnds.map((end, m) => {
+    if (total[m] === null) return null;
+    const saved = debtTotalOn(debts.saved, fromDayNumber(Math.min(end, ctx.todayDay)));
+    // a loan that is left out was not told yet on that day: what was owed then is not known
+    return saved.unknown.some((u) => !u.counted) ? null : total[m]! - saved.cents;
+  });
+  const debt = { day: debts.day, cents: debts.total.cents, savedCents: debtTotalOn(debts.saved, debts.day).cents };
+  return { months: monthLabels(months), accounts: series, total, accountsLessDebt, debt };
 }

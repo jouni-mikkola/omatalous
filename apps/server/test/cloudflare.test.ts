@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,6 +32,10 @@ function fakeCloudflare() {
     ] as Rec[],
     /** "off": the account has no organization, answered the way the test names it */
     zeroTrust: "on" as "on" | "404" | "message" | "empty",
+    /** The organization's auth_domain. */
+    authDomain: "example.cloudflareaccess.com",
+    /** The audience tag of a new application: 64 hex characters as Cloudflare makes it, none, or something else. */
+    audTag: "hex" as "hex" | "none" | "odd",
     tunnels: [] as Rec[],
     records: [] as Rec[],
     idps: [] as Rec[],
@@ -73,7 +78,7 @@ function fakeCloudflare() {
         case "GET /accounts/:id/access/organizations":
           if (f.zeroTrust === "404") return fail(404, "Not found");
           if (f.zeroTrust === "message") return fail(400, "access.api.error.not_enabled: Zero Trust is not enabled", 12130);
-          return ok(f.zeroTrust === "empty" ? null : { auth_domain: "example.cloudflareaccess.com", name: "Example" });
+          return ok(f.zeroTrust === "empty" ? null : { auth_domain: f.authDomain, name: "Example" });
         case "GET /accounts/:id/cfd_tunnel":
           return ok(by(mine(f.tunnels), "name", q.get("name")).map((t) => ({ ...t, deleted_at: null })));
         case "POST /accounts/:id/cfd_tunnel": {
@@ -135,7 +140,9 @@ function fakeCloudflare() {
         case "GET /accounts/:id/access/apps":
           return ok(mine(f.apps).map((a) => ({ ...a, session_duration: "24h0m0s" })));
         case "POST /accounts/:id/access/apps": {
-          const a = { id: id("app"), account, aud: "x", ...body };
+          const appId = id("app");
+          const aud = f.audTag === "none" ? {} : { aud: f.audTag === "odd" ? "not-an-audience-tag" : createHash("sha256").update(appId).digest("hex") };
+          const a = { id: appId, account, ...aud, ...body };
           f.apps.push(a);
           return ok(a);
         }
@@ -176,7 +183,7 @@ describe("cloudflare up", () => {
     expect(r.code).toBe(0);
     expect(r.out).toHaveLength(1);
     const tunnel = f.tunnels[0]!;
-    expect(JSON.parse(r.out[0]!)).toEqual({ hostname: "talous.example.fi", tunnelToken: `token-of-${tunnel.id}`, changed: ["tunnel", "dns", "access"] });
+    expect(JSON.parse(r.out[0]!)).toEqual({ hostname: "talous.example.fi", tunnelToken: `token-of-${tunnel.id}`, changed: ["tunnel", "dns", "access"], accessAud: f.apps[0]!.aud, teamDomain: "example.cloudflareaccess.com" });
     expect(tunnel).toMatchObject({ name: "omatalous-talous-example-fi", config_src: "cloudflare", account: "acc-main" });
     expect((tunnel.config as any).ingress.map(({ originRequest, ...rule }: any) => rule)).toEqual([{ hostname: "talous.example.fi", service: "http://banking:8080" }, { service: "http_status:404" }]);
     expect(f.records).toEqual([expect.objectContaining({ type: "CNAME", name: "talous.example.fi", content: `${tunnel.id}.cfargotunnel.com`, proxied: true, zone: "zone-main" })]);
@@ -208,6 +215,40 @@ describe("cloudflare up", () => {
     expect(f.calls.slice(before).filter((c) => c.method !== "GET")).toEqual([]);
     expect(second.err.at(-1)).toBe("Nothing changed.");
     expect([f.tunnels.length, f.records.length, f.idps.length, f.policies.length, f.apps.length]).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it("gives the Access application's audience tag and the team domain, for the app's own check of Access", async () => {
+    const f = fakeCloudflare();
+    const first = JSON.parse((await up(f)).out[0]!);
+    expect(first.accessAud).toMatch(/^[0-9a-f]{64}$/);
+    expect(first).toMatchObject({ accessAud: f.apps[0]!.aud, teamDomain: "example.cloudflareaccess.com" });
+    // the installer reads the line by key; the three older keys stay first
+    expect(Object.keys(first)).toEqual(["hostname", "tunnelToken", "changed", "accessAud", "teamDomain"]);
+    // another host is another application with a tag of its own, in the same team
+    const other = JSON.parse((await up(f, "mummola.example.fi", "mummola")).out[0]!);
+    expect(other.teamDomain).toBe(first.teamDomain);
+    expect(other.accessAud).toMatch(/^[0-9a-f]{64}$/);
+    expect(other.accessAud).not.toBe(first.accessAud);
+    // a team domain in capitals is the same host
+    f.authDomain = "Example.CloudflareAccess.com";
+    expect(JSON.parse((await up(f)).out[0]!)).toMatchObject({ accessAud: first.accessAud, teamDomain: "example.cloudflareaccess.com" });
+  });
+
+  it.each([
+    ["no audience tag in Cloudflare's answer", (f: ReturnType<typeof fakeCloudflare>) => void (f.audTag = "none")],
+    ["an audience tag that is not 64 hex characters", (f: ReturnType<typeof fakeCloudflare>) => void (f.audTag = "odd")],
+    ["a team domain outside cloudflareaccess.com", (f: ReturnType<typeof fakeCloudflare>) => void (f.authDomain = "example.cloudflareaccess.com.example.fi")],
+    ["a team domain with a path", (f: ReturnType<typeof fakeCloudflare>) => void (f.authDomain = "example.fi/x.cloudflareaccess.com")],
+  ])("leaves both out and says so, and still sets up the tunnel: %s", async (_name, set) => {
+    const f = fakeCloudflare();
+    set(f);
+    // the first run reads the tag from the answer to its POST, the second from the list
+    for (const changed of [["tunnel", "dns", "access"], []]) {
+      const r = await up(f);
+      expect(r.code).toBe(0);
+      expect(JSON.parse(r.out[0]!)).toEqual({ hostname: "talous.example.fi", tunnelToken: `token-of-${f.tunnels[0]!.id}`, changed });
+      expect(r.err.at(-1)).toContain("the app's own check of Access stays off");
+    }
   });
 
   it("a changed email list rewrites the policy and nothing else; the order and case of the list do not count", async () => {
@@ -364,19 +405,16 @@ describe("cloudflare down", () => {
     const before = f.calls.length;
     const again = await down(f);
     expect(again.code).toBe(0);
-    expect(again.err.at(-1)).toBe("Nothing to remove for talous.example.fi.");
+    expect(again.err).toEqual(["Nothing to remove for talous.example.fi."]);
     expect(f.calls.slice(before).filter((c) => c.method !== "GET")).toEqual([]);
   });
 
-  it("leaves a record that does not point at its tunnel, and clears connections that block the tunnel", async () => {
+  it("clears connections that block the tunnel", async () => {
     const f = fakeCloudflare();
     await up(f);
-    f.records[0]!.content = "elsewhere.example.net";
     f.busyTunnels.add(f.tunnels[0]!.id);
     const r = await down(f);
     expect(r.code).toBe(0);
-    expect(r.stderr).toContain("was left as it is");
-    expect(f.records).toHaveLength(1);
     expect(f.tunnels).toEqual([]);
     expect(f.writes().some((c) => c.method === "DELETE" && c.path.endsWith("/connections"))).toBe(true);
   });
@@ -596,6 +634,90 @@ describe("cloudflare down: Access goes last", () => {
     const again = await down(f);
     expect(again.code).toBe(0);
     expect([f.tunnels.length, f.records.length, f.apps.length, f.policies.length]).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("cloudflare down: Access stays while something can still route the host", () => {
+  const HOST = "talous.example.fi";
+  const counts = (f: ReturnType<typeof fakeCloudflare>) => [f.tunnels.length, f.records.length, f.apps.length, f.policies.length];
+  const writesSince = (f: ReturnType<typeof fakeCloudflare>, from: number) => f.calls.slice(from).filter((c) => c.method !== "GET");
+
+  it("a tunnel that also routes a second host name is left, Access is kept and the exit code is 3", async () => {
+    const f = fakeCloudflare();
+    await up(f);
+    // what the owner does in the dashboard: a second public host name on the copy's tunnel
+    const ingress = (f.tunnels[0]!.config as { ingress: object[] }).ingress;
+    ingress.splice(-1, 0, { hostname: "muu.example.fi", service: "http://localhost:3000" });
+    const before = f.calls.length;
+    const r = await down(f);
+    expect(r.code).toBe(3);
+    expect(r.out).toEqual([]);
+    // nothing was written: the routes, the record, the application and the policy are as they were
+    expect(writesSince(f, before)).toEqual([]);
+    expect(routes(f.tunnels[0]!, HOST)).toBe(true);
+    expect(counts(f)).toEqual([1, 1, 1, 1]);
+    // one line says what is still there and that Access was kept
+    expect(r.err.filter((line) => line.includes("Access"))).toHaveLength(1);
+    expect(r.err.at(-1)).toContain("the tunnel omatalous-talous-example-fi, which also routes muu.example.fi");
+    expect(r.err.at(-1)).toContain(`nothing of Access for ${HOST} was removed`);
+    expect(r.stderr).not.toContain("Removed");
+
+    // a wildcard record can lead to the tunnel as well: the tunnel alone keeps Access
+    f.records = [];
+    expect((await down(f)).code).toBe(3);
+    expect(counts(f)).toEqual([1, 0, 1, 1]);
+
+    // the owner takes the second host name off the tunnel: the next run removes the rest, Access last
+    ingress.splice(-2, 1);
+    const again = await down(f);
+    expect(again.code).toBe(0);
+    expect(again.err.at(-1)).toBe("Removed: tunnel, Access application, Access policy.");
+    expect(counts(f)).toEqual([0, 0, 0, 0]);
+  });
+
+  it.each([
+    ["CNAME", "elsewhere.example.net"],
+    ["A", "192.0.2.7"],
+    ["AAAA", "2001:db8::7"],
+  ])("a record of the host that points elsewhere (%s) is left, Access is kept and the exit code is 3", async (type, content) => {
+    const f = fakeCloudflare();
+    await up(f);
+    Object.assign(f.records[0]!, { type, content });
+    const before = f.calls.length;
+    const r = await down(f);
+    expect(r.code).toBe(3);
+    // the host's own tunnel is closed and gone, the record is not this copy's to remove, Access is still in front
+    expect(counts(f)).toEqual([0, 1, 1, 1]);
+    expect(writesSince(f, before).filter((c) => c.path.includes("/access/"))).toEqual([]);
+    expect(r.err.slice(-2)).toEqual([
+      "Removed: tunnel.",
+      `Left as it is: the DNS record ${HOST} (${type} ${content}). ${HOST} may still answer that way, so nothing of Access for ${HOST} was removed. Remove what was left in the Cloudflare dashboard, then run this again.`,
+    ]);
+
+    // the owner removes the record: the next run takes Access away
+    f.records = [];
+    const again = await down(f);
+    expect(again.code).toBe(0);
+    expect(again.err).toEqual(["Removed: Access application, Access policy."]);
+    expect(counts(f)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("a tunnel of the same name with no routes yet is another host's, and down leaves it", async () => {
+    // a-b.example.fi and a.b.example.fi both make omatalous-a-b-example-fi; the up of the first stopped before its routes
+    const f = fakeCloudflare();
+    f.deny.add("PUT /accounts/:id/cfd_tunnel/:id/configurations");
+    expect((await up(f, "a-b.example.fi", "one")).code).toBe(3);
+    f.deny.clear();
+    expect(f.tunnels.map((t) => [t.name, t.config])).toEqual([["omatalous-a-b-example-fi", null]]);
+    const before = f.calls.length;
+    const d = await down(f, "a.b.example.fi", "two");
+    expect(d.code).toBe(0);
+    expect(writesSince(f, before)).toEqual([]);
+    expect(d.stderr).toContain("The tunnel omatalous-a-b-example-fi does not route a.b.example.fi");
+    // the first one's rerun finishes on the tunnel it made
+    expect((await up(f, "a-b.example.fi", "one")).code).toBe(0);
+    expect(f.tunnels).toHaveLength(1);
+    expect(routes(f.tunnels[0]!, "a-b.example.fi")).toBe(true);
   });
 });
 

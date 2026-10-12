@@ -6,16 +6,21 @@
  * list), Tilaukset with the marks, the table of price changes under it, Sopimukset ja laskut, the savings plans, the rare
  * bills of the next twelve months, and the series that have ended. Every figure comes from one definition in core
  * (`isSubscription`, `isContract`, `isSavingsPlan`), so Tilaukset and Sopimukset ja laskut add up to the line on top, and
- * a merchant marked as cancelled is out of every total.
+ * a subscription marked as cancelled is out of every total. A mark is on one series (`seriesMarkSubject`); an old one on
+ * a merchant still covers every series of it.
  */
 import {
-  cancelledMerchants,
+  cancelledSubjects,
+  countingMark,
   fixedSplit,
-  inUseQuietsQuestion,
+  isCancelled,
   isContract,
   isSavingsPlan,
   isSubscription,
+  type MarkKind,
+  marksBySubject,
   NO_INPUTS,
+  seriesMarkSubject,
   subscriptionsMonthlyCents,
   type UserMark,
 } from "@banking/core";
@@ -44,7 +49,7 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   const dashboard = useApi<DashboardData>(`/api/dashboard${query({ ...range, scope })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
   const failed = [recurring, reports, dashboard].find((r) => r.error && !r.data);
   if (failed) {
@@ -64,40 +69,39 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   const { series } = recurring.data;
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
   const markList = saved ?? recurring.data.marks;
-  const marks = new Map(markList.map((m) => [m.subject, m]));
-  const cancelled = cancelledMerchants({ ...NO_INPUTS, marks: markList });
+  const marks = marksBySubject(markList);
+  const cancelled = cancelledSubjects({ ...NO_INPUTS, marks: markList });
+  const save = (subject: string, mark: MarkKind | null) => {
+    setBusy(true);
+    setMarkError(null);
+    api<{ marks: UserMark[] }>("/api/marks", { method: "PUT", body: { subject, mark } })
+      .then((res) => {
+        setSaved(res.marks);
+        // a subscription marked as cancelled leaves the list of what is coming
+        dashboard.reload();
+      })
+      .catch((e: Error) => setMarkError(e.message))
+      .finally(() => setBusy(false));
+  };
+  // a new mark is on the one series; a mark is taken away under its own subject, which for an old one is the merchant
   const controls: MarkControls = {
-    markOf: (merchant) => {
-      const m = marks.get(`merchant:${merchant}`);
-      return m && (m.mark === "cancelled" || inUseQuietsQuestion(m, meta.today)) ? m : null;
-    },
+    markOf: (s) => countingMark(marks, s, meta.today),
     busy,
-    set: (merchant, mark) => {
-      const subject = `merchant:${merchant}`;
-      setBusy(merchant);
-      setMarkError(null);
-      api<{ marks: UserMark[] }>("/api/marks", { method: "PUT", body: { subject, mark } })
-        .then((res) => {
-          setSaved(res.marks);
-          // a merchant marked as cancelled leaves the list of what is coming
-          dashboard.reload();
-        })
-        .catch((e: Error) => setMarkError(e.message))
-        .finally(() => setBusy(null));
-    },
+    set: (s, mark) => save(seriesMarkSubject(s), mark),
+    clear: (mark) => save(mark.subject, null),
   };
 
-  // what leaves for good, savings and card bills not included; a merchant marked as cancelled is out
+  // what leaves for good, savings and card bills not included; a series marked as cancelled is out
   const fixed = fixedSplit(series, cancelled);
   const fixedTotal = fixed.consumptionCents + fixed.debtCents;
   // one definition of a subscription and one total: the line on top, the card header and the rows below all come from these
   const allSubs = series.filter(isSubscription);
-  const subs = allSubs.filter((s) => !cancelled.has(s.merchant));
-  const stopped = allSubs.filter((s) => cancelled.has(s.merchant));
+  const subs = allSubs.filter((s) => !isCancelled(cancelled, s));
+  const stopped = allSubs.filter((s) => isCancelled(cancelled, s));
   const subsMonthly = subscriptionsMonthlyCents(series, cancelled);
   const byCost = (a: Series, b: Series) => b.monthlyCents - a.monthlyCents;
-  const contracts = series.filter((s) => isContract(s) && !cancelled.has(s.merchant)).sort(byCost);
-  const savings = series.filter((s) => isSavingsPlan(s) && !cancelled.has(s.merchant)).sort(byCost);
+  const contracts = series.filter((s) => isContract(s) && !isCancelled(cancelled, s)).sort(byCost);
+  const savings = series.filter((s) => isSavingsPlan(s) && !isCancelled(cancelled, s)).sort(byCost);
   const ended = series.filter(hasEnded);
 
   // a typed-in bill or a mark changes what the reports and the next 30 days hold

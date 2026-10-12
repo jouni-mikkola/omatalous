@@ -700,14 +700,11 @@ t_source_remote_types() {
   check "source: no fetch or build from a refused scheme" test "$(n_calls '^docker (compose build|pull)')" = 0
 }
 # inject ANCHOR_REGEX TEXT: TEXT after the first line of the seed's compose file that matches
-inject() {
-  awk -v re="$1" -v add="$2" '{print} $0 ~ re && !d {print add; d=1}' "$W/seed/docker-compose.yml" >"$W/seed/dc.new" && mv "$W/seed/dc.new" "$W/seed/docker-compose.yml"
-}
+inject() { awk -v re="$1" -v add="$2" '{print} $0 ~ re && !d {print add; d=1}' "$W/seed/docker-compose.yml" >"$W/seed/dc.new" && mv "$W/seed/dc.new" "$W/seed/docker-compose.yml"; }
 # policy_case NAME CMD...: a fresh seed at the first commit, CMD changes it, one source update must be refused
 policy_case() {
   local name=$1; shift
-  git -C "$W/seed" fetch -q origin 2>/dev/null; git -C "$W/seed" reset -q --hard "$C1"; git -C "$W/seed" clean -qfd; git -C "$W/seed" push -q -f origin main 2>/dev/null
-  git -C "$CL" fetch -q origin 2>/dev/null
+  git -C "$W/seed" fetch -q origin 2>/dev/null; git -C "$W/seed" reset -q --hard "$C1"; git -C "$W/seed" clean -qfd; git -C "$W/seed" push -q -f origin main 2>/dev/null; git -C "$CL" fetch -q origin 2>/dev/null
   "$@"
   git -C "$W/seed" add -A; git -C "$W/seed" commit -qm "evil compose"; git -C "$W/seed" push -q origin main 2>/dev/null
   rm -f "$S/reports"/*; : >"$S/calls.log"; poll update; tick
@@ -731,11 +728,14 @@ t_source_compose_policy() {
   policy_case "extra capability-free key (devices)" inject '^  banking:$' "    devices: [/dev/sda:/dev/sda]"
   policy_case "a compose.yaml next to it" bash -c "printf 'services: {}\n' >'$W/seed/compose.yaml'"
   policy_case "an override file" bash -c "printf 'services: {}\n' >'$W/seed/docker-compose.override.yml'"
+  local i h; h=$(printf %064d 0); for i in evil/cloudflared:2026.9.1 "evil/cloudflared:latest@sha256:$h" ghcr.io/cloudflare/cloudflared:2026.9.1 cloudflare/cloudflared:2026.9.1-arm64 cloudflare/cloudflared:2026.9 "cloudflare/cloudflared:2026.9.1@sha256:${h:1}" "cloudflare/cloudflared@sha256:$h" "cloudflare/cloudflared:latest@sha256:$h"; do policy_case "tunnel image $i" sed -i "s#image: cloudflare/cloudflared.*#image: $i#" "$W/seed/docker-compose.yml"; done
 }
-t_real_compose_passes() {
-  new_world; setenv TALOUS_CHANNEL=source; src_commit
+t_real_compose_passes() { # as it is, and with the tunnel image at latest or pinned to a cloudflared release, with and without a digest
+  new_world; setenv TALOUS_CHANNEL=source
   [[ -x /usr/bin/docker ]] && /usr/bin/docker compose version >/dev/null 2>&1 || { fail "compose policy: needs docker compose on this machine"; return; }
-  check "source: the project's own docker-compose.yml passes the policy check" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/ops-helper.sh) && OPS=ops && git fetch -q origin && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
+  local i; for i in '' latest 2026.9.1 "2026.9.1@sha256:$(printf %064d 0)"; do [[ -z $i ]] || sed -i "s#image: cloudflare/cloudflared.*#image: cloudflare/cloudflared:$i#" "$W/seed/docker-compose.yml"; src_commit
+    check "source: the project's own docker-compose.yml passes the policy check${i:+ with the tunnel image at $i}" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/ops-helper.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep -q 'image: cloudflare/cloudflared.*$i\$' && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
+  done
 }
 make_signers() {
   ssh-keygen -q -t ed25519 -N '' -f "$W/key1" -C k1; ssh-keygen -q -t ed25519 -N '' -f "$W/key2" -C k2
@@ -880,7 +880,7 @@ t_poll_unknown_action() {
   # answers failed at once instead of leaving it for 30 minutes. Nothing is run for it.
   new_world
   local a n=0
-  for a in access reindex; do
+  for a in port reindex; do
     n=$((n + 1)); : >"$S/calls.log"
     poll "$a" "op_00000000000000a$n"; tick
     check "unknown action $a: reported failed at once" grep -q '"status":"failed"' <<<"$(report)"
@@ -1024,7 +1024,7 @@ t_scrub() {
 t_heartbeat() {
   new_world; release 0.2.0; tick
   check "heartbeat: first tick after boot sends a state snapshot" grep -q '"checked_at"' "$S/state.last"
-  check "heartbeat: snapshot has mode and version" grep -qE '"mode":"local".*"version"|"version".*"mode":"local"' "$S/state.last"
+  check "heartbeat: snapshot has mode, version and the address after remote access goes off" grep -qE '"version".*"mode":"local".*"lanAddress":"http://localhost:8080"' "$S/state.last"
   check "heartbeat: no secrets or paths in the snapshot" bash -c "! grep -qE 'PASSWORD|/home|secret' '$S/state.last'"
 }
 t_no_dangerous_constructs() {

@@ -1,6 +1,13 @@
 type Entry = { count: number; resetAt: number; announced: boolean };
 
 /**
+ * What consume() answers: `wait` is the seconds to wait (0 = allowed and counted), `first` is true for the first
+ * refusal of a window. `full` marks a refusal that is about the limiter and not the key: the key has no entry and
+ * could not get one, because every key held is over its limit.
+ */
+export type Attempt = { wait: number; first: boolean; full: boolean };
+
+/**
  * In-memory fixed-window limiter for login attempts. Per process, which is
  * enough to make online password guessing impractical for a household app;
  * the strong password hash does the rest.
@@ -13,7 +20,7 @@ type Entry = { count: number; resetAt: number; announced: boolean };
  * without bound. A new key makes room by dropping ended windows, then the
  * oldest key that is under its limit. A key over its limit is never dropped
  * early, and when every key held is over its limit a new key is refused, not
- * waved through.
+ * waved through. The login limits have a spare for that case (LoginLimiter).
  */
 export class RateLimiter {
   // in the order the windows started (a new window is set at the back), so ended windows are at the front
@@ -32,30 +39,36 @@ export class RateLimiter {
     return entry.count >= this.limit ? Math.ceil((entry.resetAt - now) / 1000) : 0;
   }
 
+  /** True while the key has a window running here, whatever its count. */
+  holds(key: string, now = Date.now()): boolean {
+    const entry = this.hits.get(key);
+    return entry !== undefined && entry.resetAt > now;
+  }
+
   /**
    * Counts an attempt unless the key is over its limit. `wait` is the seconds
    * to wait (0 = allowed and counted); `first` is true for the first refusal
    * of a window, so a lockout is reported once.
    */
-  consume(key: string, now = Date.now()): { wait: number; first: boolean } {
+  consume(key: string, now = Date.now()): Attempt {
     const entry = this.hits.get(key);
     if (entry && entry.resetAt > now) {
       if (entry.count >= this.limit) {
         const first = !entry.announced;
         entry.announced = true;
-        return { wait: Math.ceil((entry.resetAt - now) / 1000), first };
+        return { wait: Math.ceil((entry.resetAt - now) / 1000), first, full: false };
       }
       entry.count += 1;
-      return { wait: 0, first: false };
+      return { wait: 0, first: false, full: false };
     }
     if (entry) this.hits.delete(key);
     else if (!this.makeRoom(now)) {
       // every key held is over its limit: dropping one would end its lockout early. Not announced, a full
       // map would otherwise write an event per request.
-      return { wait: this.oldestWait(now), first: false };
+      return { wait: this.oldestWait(now), first: false, full: true };
     }
     this.hits.set(key, { count: 1, resetAt: now + this.windowMs, announced: false });
-    return { wait: 0, first: false };
+    return { wait: 0, first: false, full: false };
   }
 
   /** Gives one counted attempt back (a successful login must not use up the address limit). */
@@ -97,6 +110,100 @@ export class RateLimiter {
     let soonest = Number.POSITIVE_INFINITY;
     for (const v of this.hits.values()) soonest = Math.min(soonest, v.resetAt);
     return Math.max(1, Math.ceil((soonest - now) / 1000));
+  }
+}
+
+/**
+ * One login limit with a spare for remembered addresses (RememberedAddresses). The main limiter refuses every new
+ * key while all the keys it holds are over their limit, so a flood of made-up names from many addresses could keep
+ * the household from signing in. An attempt from a remembered address is then counted in the spare. The spare has
+ * the same limit and window and takes new keys only from such attempts, so the flood cannot fill it.
+ *
+ * The spare gives no key a second count and ends no lockout. A key has one entry, in the main limiter or in the
+ * spare: a key the main limiter holds is counted and refused there, for a remembered address too, and a key the
+ * spare holds is counted there for every caller until its window ends. While the main limiter has room the spare
+ * is not used at all.
+ */
+export class LoginLimiter {
+  private readonly main: RateLimiter;
+  private readonly spare: RateLimiter;
+
+  constructor(limit: number, windowMs: number, maxKeys = 10_000, spareKeys = 1_000) {
+    this.main = new RateLimiter(limit, windowMs, maxKeys);
+    this.spare = new RateLimiter(limit, windowMs, spareKeys);
+  }
+
+  /** As RateLimiter.consume. `remembered` tells that the attempt comes from a remembered address. */
+  consume(key: string, remembered: boolean, now = Date.now()): Attempt {
+    if (this.spare.holds(key, now)) return this.spare.consume(key, now);
+    // an ended window may still lie in the spare: dropped, so a clock set back cannot wake a second count for the key
+    this.spare.reset(key);
+    const attempt = this.main.consume(key, now);
+    // `full` is the one refusal the spare answers: the key has no entry in the main limiter and could not get one
+    if (!attempt.full || !remembered) return attempt;
+    return this.spare.consume(key, now);
+  }
+
+  /** Seconds to wait, or 0. Does not count. */
+  check(key: string, now = Date.now()): number {
+    return this.holder(key, now).check(key, now);
+  }
+
+  /** Gives one counted attempt back, where it was counted. */
+  release(key: string, now = Date.now()): void {
+    this.holder(key, now).release(key, now);
+  }
+
+  reset(key: string): void {
+    this.main.reset(key);
+    this.spare.reset(key);
+  }
+
+  /** Keys held by the main limiter. */
+  get size(): number {
+    return this.main.size;
+  }
+
+  /** Keys held by the spare. */
+  get spareSize(): number {
+    return this.spare.size;
+  }
+
+  private holder(key: string, now: number): RateLimiter {
+    return this.spare.holds(key, now) ? this.spare : this.main;
+  }
+}
+
+/**
+ * The addresses (as addressKey, so IPv6 by /64) a login succeeded from in the last `ttlMs`: at most `max`, the one
+ * that signed in longest ago goes first. Kept in memory only, so a restart empties it. The login route adds an
+ * address after a correct password and nowhere else, so nobody can put an address here without one.
+ */
+export class RememberedAddresses {
+  // in the order of the last successful login, oldest first
+  private readonly seen = new Map<string, number>();
+
+  constructor(
+    private readonly max = 100,
+    private readonly ttlMs = 30 * 24 * 3600_000,
+  ) {}
+
+  has(key: string, now = Date.now()): boolean {
+    const at = this.seen.get(key);
+    return at !== undefined && now - at < this.ttlMs;
+  }
+
+  add(key: string, now = Date.now()): void {
+    this.seen.delete(key);
+    this.seen.set(key, now);
+    for (const [k, at] of this.seen) {
+      if (this.seen.size <= this.max && now - at < this.ttlMs) break;
+      this.seen.delete(k);
+    }
+  }
+
+  get size(): number {
+    return this.seen.size;
   }
 }
 

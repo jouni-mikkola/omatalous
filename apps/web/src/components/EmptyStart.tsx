@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { bankLogo } from "../banks.ts";
 import { navigate } from "../hooks.ts";
-import { BankLogo } from "./BankLogo.tsx";
 
 /**
  * Shown on every data page while the user has no accounts, so nobody meets a
@@ -32,8 +30,7 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
         <div>
           <h3>Yhdistä pankki</h3>
           <p className="small muted">Tapahtumat haetaan automaattisesti pari kertaa päivässä.</p>
-          <button className="btn btn-with-logo" type="button" onClick={() => navigate("settings", { add: "1" })}>
-            <BankLogo src={bankLogo("nordea-fi")} name="Nordea" size="sm" />
+          <button className="btn" type="button" onClick={() => navigate("settings", { add: "1" })}>
             Lisää pankkiyhteys
           </button>
         </div>

@@ -1,7 +1,9 @@
+import { seriesMarkSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { loadDemoData } from "../src/demo.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { NOW, setupApp } from "./helpers.ts";
+import { normalizeMerchant, seriesId } from "@banking/core";
 
 /** NOW is 10:00 UTC; the instance time zone is Helsinki (UTC+3 in October), and a mark carries the local time with its offset. */
 const NOW_LOCAL = "2026-10-09T13:00:00+03:00";
@@ -56,6 +58,21 @@ describe("marks on subscriptions and alerts", () => {
       { subject: "shop:Elixia", mark: "in_use" },
       { subject: `merchant:${"x".repeat(201)}`, mark: "in_use" },
       { subject: "merchant:Eli\nxia", mark: "in_use" },
+      // a series is named by direction, account and merchant, as core reads it back
+      { subject: "series:Netflix", mark: "in_use" },
+      { subject: "series:", mark: "in_use" },
+      { subject: "series:out::Netflix#799", mark: "in_use" },
+      { subject: "series:up:acc-1:Netflix#799", mark: "in_use" },
+      { subject: "series:out:acc-1:", mark: "in_use" },
+      { subject: `series:out:acc-1:${"x".repeat(191)}`, mark: "in_use" },
+      { subject: "series:out:acc-1:Net\u0000flix", mark: "in_use" },
+      { subject: "Series:out:acc-1:Netflix", mark: "in_use" },
+      // "Ei laina" names the series of the proposal the same way
+      { subject: "loan-proposal:", mark: "dismissed" },
+      { subject: "loan-proposal:Nordea Bank Abp", mark: "dismissed" },
+      { subject: "loan-proposal:out::Nordea Bank Abp#60000", mark: "dismissed" },
+      { subject: "loan-proposal:series:out:acc-1:Nordea Bank Abp#60000", mark: "dismissed" },
+      { subject: "loan:out:acc-1:Nordea Bank Abp#60000", mark: "dismissed" },
       { subject: 42, mark: "in_use" },
       { mark: "in_use" },
       { subject: "merchant:Elixia", mark: "forgotten" },
@@ -72,7 +89,33 @@ describe("marks on subscriptions and alerts", () => {
     }
     // the longest subject is accepted
     expect((await admin.call("PUT", "/api/marks", { subject: `merchant:${"x".repeat(200)}`, mark: "in_use" })).status).toBe(200);
-    expect((await admin.call("GET", "/api/recurring")).body.marks).toHaveLength(1);
+    // and so is a series in each form its key takes: a price, none (a bill of varying size), everyday purchases
+    for (const subject of ["series:out:acc-1:Netflix#799", "series:out:acc-1:Helen", "series:out:acc-1:Prisma#habit", `series:out:acc-1:${"x".repeat(190)}`]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "in_use" })).status, subject).toBe(200);
+    }
+    // "Ei laina" on a proposed loan is a mark of its own beside the one Laskut keeps for the same series
+    for (const subject of ["series:out:acc-1:Nordea Bank Abp#60000", "loan-proposal:out:acc-1:Nordea Bank Abp#60000"]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" })).status, subject).toBe(200);
+    }
+    expect((await admin.call("PUT", "/api/marks", { subject: "series:out:acc-1:Nordea Bank Abp#60000", mark: "in_use" })).status).toBe(200);
+    const marks: { subject: string; mark: string }[] = (await admin.call("GET", "/api/recurring")).body.marks;
+    expect(marks).toHaveLength(7);
+    expect(marks.find((m) => m.subject === "loan-proposal:out:acc-1:Nordea Bank Abp#60000")?.mark).toBe("dismissed");
+    await admin.call("PUT", "/api/marks", { subject: "loan-proposal:out:acc-1:Nordea Bank Abp#60000", mark: null });
+    expect((await admin.call("GET", "/api/recurring")).body.marks).toHaveLength(6);
+  });
+
+  it("a series of the longest stored name can be marked, and answered Ei laina", async () => {
+    const { admin } = await setupApp();
+    // a derived name is cut at 40 characters (core normalizeMerchant) and no other name is stored
+    const name = normalizeMerchant("KIINTEISTOHUOLTOPALVELUOSUUSKUNTAPOHJANMAANRANNIKKO", null);
+    expect(name).toHaveLength(40);
+    // with the longest account id (csv- and 24 hex) and the longest price a number can be
+    const key = seriesId({ direction: "out", accountId: `csv-${"a".repeat(24)}`, merchant: name, product: -Number.MAX_SAFE_INTEGER });
+    expect(key.length).toBeLessThan(100);
+    for (const subject of [`series:${key}`, `loan-proposal:${key}`]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" })).status, subject).toBe(200);
+    }
   });
 
   it("needs a signed-in user and the CSRF header", async () => {
@@ -186,5 +229,145 @@ describe("a mark follows a merchant whose name is derived again", () => {
 
     await runUpgradeTasks(s, "0.7.0+rename");
     expect((await repo.listMarks()).map((m) => `${m.subject}=${m.mark}`)).toEqual(["merchant:Wolt=in_use"]);
+  });
+
+  it("moves a mark on one series the same way, with its account and its price", async () => {
+    const { s, adminId, admin } = await setupApp();
+    const repo = s.finance(adminId);
+    await loadDemoData(repo, s.settings, s.today());
+    await s.db.run("UPDATE transactions SET merchant = 'WOLT OLD NAME' WHERE user_id = ? AND merchant = 'Wolt'", [adminId]);
+    await admin.call("PUT", "/api/marks", { subject: "series:out:acc-1:WOLT OLD NAME#1299", mark: "cancelled" });
+    await admin.call("PUT", "/api/marks", { subject: "series:out:acc-1:WOLT OLD NAME#799", mark: "in_use" });
+    await admin.call("PUT", "/api/marks", { subject: "series:out:acc-1:Wolt#799", mark: "cancelled" });
+    await admin.call("PUT", "/api/marks", { subject: "series:out:acc-1:Spotify#1099", mark: "in_use" });
+
+    await runUpgradeTasks(s, "0.7.0+rename");
+    // the mark the new name already had stays, the stale one on the same series is dropped
+    expect((await repo.listMarks()).map((m) => `${m.subject}=${m.mark}`).sort()).toEqual(["series:out:acc-1:Spotify#1099=in_use", "series:out:acc-1:Wolt#1299=cancelled", "series:out:acc-1:Wolt#799=cancelled"]);
+  });
+
+  it("moves an Ei laina answer and the series of a saved loan the same way, and only the user's own", async () => {
+    const { s, adminId, admin, member } = await setupApp();
+    const repo = s.finance(adminId);
+    await loadDemoData(repo, s.settings, s.today());
+    await s.db.run("UPDATE transactions SET merchant = 'WOLT OLD NAME' WHERE user_id = ? AND merchant = 'Wolt'", [adminId]);
+    const eero = await member("eero");
+    const OLD = "out:acc-1:WOLT OLD NAME#25000";
+    const notLoan = (key: string) => ({ subject: `loan-proposal:${key}`, mark: "dismissed" });
+    const loan = (name: string, seriesKey: string | null) => ({ name, kind: "consumer", balanceCents: 500_000, balanceDate: "2026-10-01", seriesKey });
+    for (const user of [admin, eero]) {
+      expect((await user.call("PUT", "/api/marks", notLoan(OLD))).status).toBe(200);
+      for (const body of [loan("Vanha nimi", OLD), loan("Toinen saaja", "out:acc-1:Spotify#1099"), loan("Ei sarjaa", null)]) expect((await user.call("POST", "/api/loans", body)).status).toBe(200);
+    }
+    await admin.call("PUT", "/api/marks", notLoan("out:acc-1:Spotify#1099"));
+
+    await runUpgradeTasks(s, "0.8.7+rename");
+    const NEW = "out:acc-1:Wolt#25000";
+    expect((await repo.listMarks()).map((m) => m.subject).sort()).toEqual([notLoan("out:acc-1:Spotify#1099").subject, notLoan(NEW).subject]);
+    expect((await repo.listLoans()).map((l) => `${l.name}: ${l.seriesKey}`)).toEqual([`Vanha nimi: ${NEW}`, "Toinen saaja: out:acc-1:Spotify#1099", "Ei sarjaa: null"]);
+    // Eero has no row of that name: his answer and his loan keep the key they were saved with
+    const theirs = s.finance(eero.id);
+    expect((await theirs.listMarks()).map((m) => m.subject)).toEqual([notLoan(OLD).subject]);
+    expect((await theirs.listLoans()).map((l) => l.seriesKey)).toEqual([OLD, "out:acc-1:Spotify#1099", null]);
+  });
+});
+
+describe("a mark belongs to one series", () => {
+  type Series = Parameters<typeof seriesMarkSubject>[0] & { merchant: string; monthlyCents: number };
+  type Alert = { kind: string; title: string; detail: string };
+  type Call = { call: (method: string, path: string, body?: unknown) => Promise<{ status: number; body: any }> };
+
+  /** A year of two subscriptions from one merchant on one account: 7,99 on the 3rd and 12,99 on the 17th. NOW is 9.10.2026. */
+  const twoSeriesCsv = [
+    "Kirjauspäivä;Määrä;Nimi;Otsikko",
+    ...Array.from({ length: 12 }, (_, i) => {
+      const month = `${i < 2 ? 2025 : 2026}/${String(((i + 10) % 12) + 1).padStart(2, "0")}`;
+      return [`${month}/03;-7,99;;NETFLIX.COM`, `${i === 11 ? "2025/10" : month}/17;-12,99;;NETFLIX.COM`];
+    }).flat(),
+  ].join("\n");
+
+  /** Imports the two subscriptions and returns them, the cheaper first. */
+  async function twoSeries(c: Call): Promise<[Series, Series]> {
+    expect((await c.call("POST", "/api/import/csv", { content: twoSeriesCsv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+    const series: Series[] = (await c.call("GET", "/api/recurring")).body.series;
+    expect(series.map((x) => [x.merchant, x.typicalAmountCents])).toEqual([["Netflix", 1299], ["Netflix", 799]]);
+    return [series[1]!, series[0]!];
+  }
+  const fixed = async (c: Call): Promise<number> => (await c.call("GET", "/api/dashboard")).body.fixedMonthlyCents;
+  /** The alerts of the running month, or of September and October with `SINCE_SEPTEMBER`. */
+  const alertsOf = async (c: Call, kind: string, query = ""): Promise<Alert[]> => (await c.call("GET", `/api/dashboard${query}`)).body.alerts.filter((a: Alert) => a.kind === kind);
+  const SINCE_SEPTEMBER = "?from=2026-09-01&to=2026-10-09";
+  const plain = (text: string) => text.replace(/\s/g, " ");
+
+  it("two series of one merchant, one marked: the other still shows, is still asked about and still warns", async () => {
+    const { admin, s, adminId } = await setupApp();
+    const [small, large] = await twoSeries(admin);
+    expect(await fixed(admin)).toBe(799 + 1299);
+    expect((await alertsOf(admin, "forgotten")).map((a) => plain(a.title))).toEqual(["Netflix 12,99 €/kk, 156 € vuodessa", "Netflix 7,99 €/kk, 96 € vuodessa"]);
+
+    const subject = seriesMarkSubject(small);
+    expect(subject).toMatch(/^series:out:[^:]+:Netflix#799$/);
+    const saved = await admin.call("PUT", "/api/marks", { subject, mark: "cancelled" });
+    expect(saved).toMatchObject({ status: 200, body: { marks: [{ subject, mark: "cancelled" }] } });
+    expect(await fixed(admin)).toBe(1299);
+    expect((await alertsOf(admin, "forgotten")).map((a) => plain(a.title))).toEqual(["Netflix 12,99 €/kk, 156 € vuodessa"]);
+    // marked today, so nothing was charged after it
+    expect(await alertsOf(admin, "cancelled")).toEqual([]);
+
+    // an earlier mark: the charge of 3.10. came after it, and the 12,99 of 17.9. is not its series
+    await s.db.run("UPDATE user_marks SET marked_at = ? WHERE user_id = ? AND subject = ?", ["2026-09-10T08:00:00+03:00", adminId, subject]);
+    expect((await alertsOf(admin, "cancelled", SINCE_SEPTEMBER)).map((a) => [plain(a.title), plain(a.detail)])).toEqual([["Netflix veloitti 3.10.2026, vaikka merkitsit sen lopetetuksi.", "7,99 €"]]);
+
+    // taken away, both are back
+    await admin.call("PUT", "/api/marks", { subject, mark: null });
+    expect(await fixed(admin)).toBe(799 + 1299);
+    expect(await alertsOf(admin, "forgotten")).toHaveLength(2);
+    expect(seriesMarkSubject(large)).not.toBe(subject);
+  });
+
+  it("an old mark on the merchant covers both", async () => {
+    const { admin, s, adminId } = await setupApp();
+    await twoSeries(admin);
+    await s.db.run("INSERT INTO user_marks (user_id, subject, mark, marked_at) VALUES (?, ?, 'cancelled', ?)", [adminId, "merchant:Netflix", "2026-09-10T08:00:00+03:00"]);
+    expect(await fixed(admin)).toBe(0);
+    expect(await alertsOf(admin, "forgotten")).toEqual([]);
+    // every charge of the merchant after the mark, whatever its series
+    expect((await alertsOf(admin, "cancelled", SINCE_SEPTEMBER)).map((a) => plain(a.detail))).toEqual(["2 veloitusta, yhteensä 20,98 €"]);
+    // nothing rewrote the stored row, and it is taken away under its own subject
+    expect((await admin.call("GET", "/api/recurring")).body.marks.map((m: { subject: string }) => m.subject)).toEqual(["merchant:Netflix"]);
+    expect((await admin.call("PUT", "/api/marks", { subject: "merchant:Netflix", mark: null })).body.marks).toEqual([]);
+    expect(await fixed(admin)).toBe(799 + 1299);
+  });
+
+  it("a mark for a series that no longer exists is ignored and can be removed", async () => {
+    const { admin } = await setupApp();
+    const [small] = await twoSeries(admin);
+    const before = (await admin.call("GET", "/api/dashboard")).body;
+    const gone = seriesMarkSubject(small).replace("#799", "#299");
+    const other = seriesMarkSubject(small).replace("Netflix", "Viaplay");
+    for (const subject of [gone, other]) expect((await admin.call("PUT", "/api/marks", { subject, mark: "cancelled" })).status).toBe(200);
+    expect((await admin.call("GET", "/api/dashboard")).body).toEqual(before);
+
+    const left = await admin.call("PUT", "/api/marks", { subject: gone, mark: null });
+    expect(left.body.marks.map((m: { subject: string }) => m.subject)).toEqual([other]);
+    expect((await admin.call("PUT", "/api/marks", { subject: other, mark: null })).body.marks).toEqual([]);
+  });
+
+  it("another user's marks are never read", async () => {
+    const { admin, member } = await setupApp();
+    const eero = await member("eero");
+    const [small] = await twoSeries(admin);
+    const [his] = await twoSeries(eero);
+    // each has the series on an account of their own, so the subjects differ
+    expect(seriesMarkSubject(his)).not.toBe(seriesMarkSubject(small));
+
+    await eero.call("PUT", "/api/marks", { subject: seriesMarkSubject(his), mark: "cancelled" });
+    // a mark that names the other user's series does nothing for either of them
+    await eero.call("PUT", "/api/marks", { subject: seriesMarkSubject(small), mark: "cancelled" });
+    expect(await fixed(eero)).toBe(1299);
+    expect(await fixed(admin)).toBe(799 + 1299);
+    expect(await alertsOf(admin, "forgotten")).toHaveLength(2);
+    expect((await admin.call("GET", "/api/recurring")).body.marks).toEqual([]);
+    expect((await admin.call("GET", "/api/recurring?scope=household")).body.marks).toEqual([]);
   });
 });

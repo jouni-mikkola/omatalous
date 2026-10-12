@@ -62,6 +62,16 @@ describe("Cloudflare client", () => {
   it("refuses an answer that is too large", async () => {
     const big = client(() => new Response("x".repeat(5_000_001), { status: 200 })).client;
     await expect(big.call("list the zones", "GET", "/zones")).rejects.toThrow("too large");
+    // an answer that says no length is read only as far as the limit: 40 chunks of 1 MB against 5 MB
+    let chunks = 0;
+    const long = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (++chunks > 40) controller.close();
+        else controller.enqueue(new Uint8Array(1_000_000).fill(0x20));
+      },
+    });
+    await expect(client(() => new Response(long, { status: 200 })).client.call("list the zones", "GET", "/zones")).rejects.toThrow("too large");
+    expect(chunks).toBeLessThan(10);
   });
 });
 

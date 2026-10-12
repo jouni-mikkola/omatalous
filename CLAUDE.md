@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Omatalous is a personal finance app for a Finnish household. Nordea transactions come in via PSD2 (Enable Banking) or CSV,
-are sorted into money flows and shown as a dashboard and reports. Multi-user (household members, per-user isolation,
+Omatalous is a personal finance app for a Finnish household. Bank transactions come in via PSD2 (Enable Banking: Nordea
+and the other Finnish banks it offers) or Nordea CSV, are sorted into money flows and shown as a dashboard and reports. Multi-user (household members, per-user isolation,
 optional read-only account sharing). Runs in Docker on Linux.
 
 ## Commands
@@ -19,16 +19,19 @@ pnpm seed:demo        # demo user + data in ./data
 ## Layout
 
 - `packages/core`: pure domain logic, no I/O. Categories (`kind` + `group`), merchant normalisation,
-  rules (`categorize.ts`), the bank dialect (`wording.ts`: word lists behind named predicates, ADR 0008), trade register
+  rules (`categorize.ts`), the bank dialect (`wording.ts` and, for what a loan page prints, `wording-loan-pages.ts`: word lists behind named predicates, ADR 0008), trade register
   matching and TOL and MCC codes (`industry.ts`), import parsers (`sources/*`), transfers, returns (`returns.ts`: refunds and money paid back), enrichment pipeline,
   recurring detection, money flows, analysis context, dashboard, insights, `reports/*` with a registry in
   `reports/index.ts`. One definition per figure (ADR 0004): `analysis/usual.ts` (complete months, the usual level, usual
   spending and usual income, the gate `gateFor`) and `commitments.ts` (fixed costs, subscriptions, expected bill dates,
-  expected charges, cancelled merchants); `analysis/fees.ts` (late fees, bank fees); a series' cost is its own
+  expected charges, cancelled subscriptions); `analysis/fees.ts` (late fees, bank fees); a series' cost is its own
   `perMonth`, `monthlyCents`, `yearlyCents`; `docs/MONEY_FLOWS.md` says them in prose.
   `forecast.ts` (month forecast and its range), `ahead.ts` (next 30 days),
   `subscription-alerts.ts` (alerts that read the user's marks), `bridge.ts` (where the income went, from complete months),
-  `change.ts` (what moved spending, split into causes that add up; wording in `change-text.ts`), `income.ts` (income by
+  `change.ts` (what moved spending, split into causes that add up, the rises the spike alert tells included; wording in
+  `change-text.ts`), `loans.ts` (the `Loan` type and every loan figure, a connected card or loan account read as a loan included, ADR 0012), `loan-intake/` (a draft from pasted
+  text or OCR, each field `sure` or `check`), `loan-detect.ts` (payments that look like an unsaved loan),
+  `analysis/credit.ts` (what a connected card costs), `income.ts` (income by
   type, derived on read) with `income-changes.ts`, `income-events.ts`, `income-series.ts`. `analysis/insights/` has one
   source per file with its own gate and history rule (`shared.ts` holds the shared gates); `index.ts` only ranks them by
   `yearlyCents`, and a dismissed insight returns when its figure moves 25 %. `optimise/` is the Optimoi page: `index.ts`
@@ -38,18 +41,21 @@ pnpm seed:demo        # demo user + data in ./data
   any a finding already tells).
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin; `admin.ts` = setup wizard API), `services/*` (use cases;
   `industry.ts` = trade register lookup, `schedule.ts` = hourly tick, `security.ts` = security events and notices,
-  `secret-rotation.ts` = re-sealing bank keys, `ops.ts` = web maintenance requests), `db/*-repo.ts` and `db/finance/` (all SQL),
-  `auth/*`, `security/*`, `platform/*` (config, errors, ids, input validators), `connectors/*` (where rows come from: registry,
-  `sync.ts` loop, `enable-banking/`, `csv-import/`), `providers/prh/` (trade register search), `providers/cloudflare/` (Tunnel, DNS and Access client),
+  `secret-rotation.ts` = re-sealing bank keys and the Cloudflare token, `ops.ts` = web maintenance requests,
+  `remote-access*.ts` = the Etäkäyttö page's use cases with `access-request.ts` the file the helper reads), `db/*-repo.ts` and
+  `db/finance/` (all SQL, loans included), `routes/loans.ts` (bounds every loan value), `auth/*`, `security/*` (`cf-access.ts` checks the
+  Access token), `platform/*` (config, errors, ids, input validators, `outbound.ts` what outgoing calls share), `connectors/*` (where
+  rows come from: registry, `sync.ts` loop, `enable-banking/` with `logos.ts`, `csv-import/`), `providers/prh/` (trade register
+  search), `providers/cloudflare/` (Tunnel, DNS and Access client),
   `entry/node.ts`, `entry/secret-rotate.ts`, `cli.ts`, `cli-ops.ts` (the helper's poll, report and state commands),
   `cli-cloudflare.ts` (`cloudflare up/down`, run by the installer).
 - `scripts/`: `install.sh`, `update.sh`, `backup.sh`, `restore.sh`, `doctor.sh`, `reset.sh`, `cloudflare-setup.sh` (writes
   `~/.config/omatalous/cloudflare.env`), `ops-helper.sh` (host helper for Asetukset > Ylläpito), `lib/` (`release.sh` signatures, `dbcopy.sh` copies, `preflight.sh` the migration check of
-  the new image before the switch; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`relay-hash.mjs`,
-  `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, published to GitHub Pages by
+  the new image before the switch, `ops-access.sh` the helper's `access` action, `install-host.sh` the Docker, re-exec and Cloudflare-file steps of install.sh; update.sh exit 3 = that check failed and nothing changed). `tools/` holds what only developers and CI use (`relay-hash.mjs`,
+  `test/*.test.sh` shell suites, `ci/*`) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` builds and signs the image when `main` gets a new version, on a `v*` tag or by hand.
-- `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; bank logos
-  (official artwork, white plate) in `public/banks/` mapped in `src/banks.ts`. `styles/` (tokens.css and base.css
+- `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`; `components/BankPicker.tsx`; bank logos on a white plate: Nordea's in `public/banks/`, the others served by
+  the server (`bankLogo` in `src/banks.ts`); `consent-notices.ts` (when a consent ends, unlinked accounts, the calendar file); loans: `components/loans/`, `pages/settings/Loans.tsx`, `pages/settings/LoanIntake.tsx`. `styles/` (tokens.css and base.css
   first, then one file per page area, imported by its page), `nav.ts` (nav entries, a gated one names its flag),
   `pages/reports/` (one section file each, found by `registry.ts`).
 - Each instance is a clone directory and a Compose project. `INSTANCE_NAME` names the container, image and
@@ -71,8 +77,10 @@ pnpm seed:demo        # demo user + data in ./data
   `data_version:<user id>`, which keys the analysis cache). A change that touches only the account list, such as a
   balance, calls `settings.bumpUserDataVersion(userId)`, and sharing changes bump the owner and the viewer.
   `settings.bumpDataVersion()` is for changes that touch everyone. A sync or import that changed no row does neither.
-  The user's marks (`user_marks`, `db/finance/marks.ts`, `PUT /api/marks`) and expected bills (`expected_bills`,
-  `/api/expected-bills`) are read per request (`requestInputs`) and are not part of the cached context. So are the
+  The user's marks (`user_marks`, `db/finance/marks.ts`, `PUT /api/marks`; the subject is `series:<key>`, whose key names the
+  account, so a service that moves to another account is a new series, `alert:<id>`, `loan-proposal:<key>`, or `merchant:<name>` from before 0.8.7), expected bills
+  (`expected_bills`, `/api/expected-bills`) and loans (`loans`, `db/finance/loans.ts`, `/api/loans`, whose values
+  `routes/loans.ts` bounds because core trusts them) are read per request (`requestInputs`) and are not part of the cached context. So are the
   Optimoi inputs, decisions and snapshots (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never
   reprocesses.
 - `category_source = 'user'` is never overwritten by automation. Likewise `accounts.custom_name` (the user's name for an
@@ -82,12 +90,18 @@ pnpm seed:demo        # demo user + data in ./data
   transfer. A card bill is a transfer when that card's account is connected. See `docs/MONEY_FLOWS.md`.
 - The app secret is a file (`APP_SECRET_FILE`, created on first start by `entry/app-secret.ts`, Docker volume
   `banking-secrets`). Bank keys live in the DB AES-GCM sealed: users' with the user id as AAD, the shared app's with
-  `instance:enablebanking`. Never log or return secrets, private keys or `raw` bank payloads (only the certificate).
-- Only merchant names of business rows (core `isBusinessRow`) are sent to the trade register; never amounts, dates,
-  account numbers or names of people.
+  `instance:enablebanking`, and the Cloudflare API token of the Etäkäyttö page (settings key `instance_cloudflare`) with
+  `instance:cloudflare`. Never log or return secrets, private keys, that token or `raw` bank payloads (only the certificate).
+- Only merchant names of business rows (core `isBusinessRow`) are sent to the trade register, and only if core
+  `isLookupName` accepts them (never a name shaped like a person's); never amounts, dates, account numbers or names of
+  people.
+- The bank logo fetch (`connectors/enable-banking/logos.ts`) calls only an https address on `enablebanking.com` taken from
+  the cached bank list, follows no redirect, reads at most 300 kB and serves the picture with its own CSP; the request
+  names a registry bank id and nothing else.
 - Admin-editable settings (address, time zone, sync hours, register lookup, shared bank app) live in the DB via
   `services/instance.ts` and `connectors/enable-banking/app-setup.ts`; env only seeds defaults. Browser input is validated against
-  allowlists (`strictObject` + `parse*` in `platform/validate.ts`), never reaches the filesystem or a command; uploaded keys are re-encoded
+  allowlists (`strictObject` + `parse*` in `platform/validate.ts`), never reaches the filesystem or a command, with one exception: the
+  Etäkäyttö address reaches `.env` through `ops/access-request.json` and the helper, form-checked on both sides; uploaded keys are re-encoded
   (`security/private-key.ts`). Banks can only be started by id from `connectors/enable-banking/banks.ts`.
 - Security-relevant events (logins, lockouts, key changes, `ops_*` requests) are written with `recordEvent` in
   `services/security.ts` to `security_events` (90 days, with IP and user agent); never log them elsewhere. Password
@@ -96,7 +110,9 @@ pnpm seed:demo        # demo user + data in ./data
 - The app secret changes only through secret rotation (`entry/secret-rotate.ts`, `services/secret-rotation.ts`), which
   re-seals every stored key and keeps the old file as `.prev-<stamp>`. Replacing the file by hand loses the bank keys.
 - A web maintenance request names only an allowlisted action (`services/ops.ts`, `services/ops-validate.ts`) and takes
-  no free parameters. The host helper (`scripts/ops-helper.sh`) never runs text from the DB, picks the commit itself
+  no free parameters. `access` is queued only by `services/remote-access.ts`, after the admin's password and with its values
+  in `ops/access-request.json` (`services/access-request.ts`), never by `POST /api/ops/request`; the one change with no
+  password is the server's own return to the home network (`revertUnconfirmed`). The host helper (`scripts/ops-helper.sh`) never runs text from the DB, picks the commit itself
   and hands update.sh only that commit (`TALOUS_TARGET`).
 - State-changing API calls need `X-Requested-With: fetch` (CSRF); the web client sends it in `api.ts`.
 - `UserError` = safe 400 message, `UpstreamError` = 502 for a failing outside service; other errors become a generic 500.

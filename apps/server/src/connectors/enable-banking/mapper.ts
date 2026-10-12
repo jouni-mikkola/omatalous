@@ -47,6 +47,17 @@ export function bankDate(value: string | null | undefined, timeZone = "Europe/He
   }
 }
 
+/**
+ * The bank's own transaction code as ISO 20022 names it, the parts joined in order: "PMNT-CCRD-POSD", or "CCRD-POSD"
+ * from a bank that leaves the domain out. Banks split the parts over `code` and `sub_code` in their own ways, so both
+ * are read. A code is two or three parts of four characters each: free text in these fields, a bank's own numbering
+ * or a family without its sub-family is no code, and gives null.
+ */
+export function bankTxnCode(c: EbTransaction["bank_transaction_code"]): string | null {
+  const parts = [c?.code, c?.sub_code].flatMap((x) => (typeof x === "string" ? x.toUpperCase().split(/[^\p{L}\p{N}]+/u) : [])).filter(Boolean);
+  return (parts.length === 2 || parts.length === 3) && parts.every((p) => /^[A-Z0-9]{4}$/.test(p)) ? parts.join("-") : null;
+}
+
 export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransaction | null {
   const status = t.status === "BOOK" ? "booked" : t.status === "PDNG" ? "pending" : null;
   // the first of the bank's dates that is a date, so one garbled field does not hide the row
@@ -74,6 +85,7 @@ export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransact
     description: description || t.bank_transaction_code?.description || null,
     reference: t.reference_number ?? null,
     mcc: t.merchant_category_code ?? null,
+    bankTxnCode: bankTxnCode(t.bank_transaction_code),
     raw: t,
   };
 }

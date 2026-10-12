@@ -5,7 +5,7 @@ import "../styles/overview.css";
 
 type Alert = DashboardData["alerts"][number];
 
-/** What the household said about an alert: the alert it hides, and the mark to store (`alert:<id>` or `merchant:<name>`). */
+/** What the household said about an alert: the alert it hides, and the mark to store (`alert:<id>`, or the subject of the series the question is about). */
 export type OnMark = (alertId: string, subject: string, mark: MarkKind) => void;
 
 /**
@@ -24,6 +24,8 @@ export function Alerts({ alerts, range, onMark, busy }: { alerts: Alert[]; range
     <ul className="alerts" aria-label="Huomiot">
       {alerts.map((a) => {
         const to = target(a);
+        // an answer to the question about a forgotten service is a mark on that one series
+        const subject = a.kind === "forgotten" ? a.markSubject : undefined;
         const body = (
           <>
             <span className="sr-only">{a.tone === "warning" ? "Huomio" : "Tiedoksi"}: </span>
@@ -35,12 +37,12 @@ export function Alerts({ alerts, range, onMark, busy }: { alerts: Alert[]; range
           <li key={a.id} className={`alert ${a.tone}`}>
             {to ? <a href={`#/transactions${query(to)}`}>{body}</a> : <span className="alert-body">{body}</span>}
             <div className="alert-actions">
-              {a.kind === "forgotten" && a.merchant && (
+              {subject && a.merchant && (
                 <>
-                  <button className="btn btn-small" type="button" disabled={busy} aria-label={`Käytössä: ${a.merchant}`} onClick={() => onMark(a.id, `merchant:${a.merchant}`, "in_use")}>
+                  <button className="btn btn-small" type="button" disabled={busy} aria-label={`Käytössä: ${a.merchant}`} onClick={() => onMark(a.id, subject, "in_use")}>
                     Käytössä
                   </button>
-                  <button className="btn btn-small" type="button" disabled={busy} aria-label={`Lopetettu: ${a.merchant}`} onClick={() => onMark(a.id, `merchant:${a.merchant}`, "cancelled")}>
+                  <button className="btn btn-small" type="button" disabled={busy} aria-label={`Lopetettu: ${a.merchant}`} onClick={() => onMark(a.id, subject, "cancelled")}>
                     Lopetettu
                   </button>
                 </>

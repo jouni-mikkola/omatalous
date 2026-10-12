@@ -2,7 +2,7 @@
  * Asetukset > Ylläpito (admin): update, rollback, backup, restart, doctor, logs, prune and helper renewal through the host
  * helper. Without the helper every one of them is off, so the page shows what the helper is and the version, and folds the rest.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, apiDownload, ApiError } from "../../api.ts";
 import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
@@ -13,47 +13,14 @@ import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
 import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
+import { usePolled } from "../../components/ops/use-polled.ts";
 import { dateTime } from "../../format.ts";
 import "../../styles/ops.css";
 
 /** Polls every 3 s while something runs, every 60 s otherwise. A failing fetch (the app restarts) backs off. */
 function useOpsState() {
-  const [data, setData] = useState<OpsState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [downSince, setDownSince] = useState<number | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const failures = useRef(0);
-  const alive = useRef(true);
-  const load = useCallback(async () => {
-    clearTimeout(timer.current);
-    let delay: number;
-    try {
-      const d = await api<OpsState>("/api/ops/state");
-      if (!alive.current) return;
-      failures.current = 0;
-      setDownSince(null);
-      setError(null);
-      setData(d);
-      delay = d.active || d.readOnlyActive ? 3000 : 60_000;
-    } catch (err) {
-      if (!alive.current) return;
-      failures.current += 1;
-      setDownSince((t) => t ?? Date.now());
-      setError((err as Error).message);
-      // a refused request (403, 401) will not get better by asking faster
-      delay = Math.min(3000 * 1.6 ** failures.current, 60_000);
-    }
-    timer.current = setTimeout(() => void load(), delay);
-  }, []);
-  useEffect(() => {
-    alive.current = true;
-    void load();
-    return () => {
-      alive.current = false;
-      clearTimeout(timer.current);
-    };
-  }, [load]);
-  return { data, error, downSince, reload: load };
+  const { data, error, downSince, reload } = usePolled<OpsState>("/api/ops/state", (d) => (d.active || d.readOnlyActive ? 3000 : 60_000));
+  return { data, error, downSince, reload };
 }
 
 type Dialog = "update" | "rollback" | "download" | null;

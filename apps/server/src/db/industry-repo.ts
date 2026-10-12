@@ -104,6 +104,22 @@ export class IndustryRepo {
     });
   }
 
+  /**
+   * Deletes every stored name `keep` refuses, with its answer and with every user's asking, and leaves the rest. The
+   * rule is the caller's (core `isLookupName`, at an upgrade): one rule for all users, since the answers are shared.
+   */
+  async keepOnly(keep: (merchant: string) => boolean): Promise<void> {
+    const rows = await this.db.all<{ merchant: string }>("SELECT merchant FROM merchant_industry UNION SELECT merchant FROM merchant_industry_users");
+    const refused = rows.map((r) => r.merchant).filter((m) => !keep(m));
+    const statements: Statement[] = [];
+    for (let i = 0; i < refused.length; i += CHUNK) {
+      const chunk = refused.slice(i, i + CHUNK);
+      const marks = chunk.map(() => "?").join(", ");
+      statements.push({ sql: `DELETE FROM merchant_industry WHERE merchant IN (${marks})`, params: chunk }, { sql: `DELETE FROM merchant_industry_users WHERE merchant IN (${marks})`, params: chunk });
+    }
+    if (statements.length) await this.db.batch(statements);
+  }
+
   async save(merchant: string, m: IndustryMatch, now: Date): Promise<void> {
     await this.db.run(
       `INSERT INTO merchant_industry (merchant, status, business_id, company_name, industry_code, code_set, industry_label, checked_at)

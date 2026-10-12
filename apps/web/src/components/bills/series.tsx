@@ -29,11 +29,13 @@ export function SeriesHead({ ended }: { ended?: boolean }) {
   );
 }
 
-export function SeriesRow({ s, label, ended, actions }: { s: Series; label: (id: string) => string; ended?: boolean; actions?: ReactNode }) {
+/** `priced` says the price after the name: the merchant has several rows in the table, and a phone hides the Summa column. */
+export function SeriesRow({ s, label, ended, actions, priced }: { s: Series; label: (id: string) => string; ended?: boolean; actions?: ReactNode; priced?: boolean }) {
   return (
     <tr>
       <td>
         <a href={`#/transactions?merchant=${encodeURIComponent(s.merchant)}`}>{s.merchant}</a>
+        {priced && <span className="muted"> {money(s.typicalAmountCents)}</span>}
         {s.priceChange && (
           <span className={`badge ${s.priceChange.toCents > s.priceChange.fromCents ? "warn" : "good"}`}>
             {money(s.priceChange.fromCents)} → {money(s.priceChange.toCents)}

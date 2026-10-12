@@ -16,7 +16,8 @@ import { chmodSync, copyFileSync, existsSync, readFileSync, renameSync } from "n
 import { dirname } from "node:path";
 import { fsyncDir, fsyncFile, writeNewFileDurable } from "../platform/durable.ts";
 import type { Services } from "../services/context.ts";
-import { databaseOpensWith, resealAll } from "../services/secret-rotation.ts";
+import { databaseOpensWith, resealAll, tokenStops, triedAgainstToken } from "../services/secret-rotation.ts";
+import { isAppSecret } from "./app-secret.ts";
 
 export interface RotateOptions {
   secretFile: string;
@@ -34,7 +35,7 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   let newSecret: string;
   if (existsSync(next)) {
     newSecret = readFileSync(next, "utf8").trim();
-    if (newSecret.length < 32) throw new Error(`${next} is too short. Delete it and run the command again.`);
+    if (!isAppSecret(newSecret)) throw new Error(`${next} is too short. Delete it and run the command again.`);
     lines.push("The previous run was interrupted, continuing from it.");
   } else {
     newSecret = randomBytes(48).toString("base64url");
@@ -48,6 +49,7 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   } else if (await databaseOpensWith(s, newSecret)) {
     lines.push("The keys are already sealed with the new secret.");
   } else {
+    if (await triedAgainstToken(s)) throw new Error(tokenStops("opens with neither the old nor the new secret"));
     throw new Error("The keys in the database open with neither the old nor the new secret. Nothing was changed.");
   }
 
@@ -81,7 +83,7 @@ export async function finishInterruptedRotation(s: Services, secretFile: string)
   if (!existsSync(next)) return null;
   const current = s.config.appSecret;
   const candidate = readFileSync(next, "utf8").trim();
-  if (!current || candidate.length < 32) return null;
+  if (!current || !isAppSecret(candidate)) return null;
   if (await databaseOpensWith(s, current)) return null; // not committed: running the command again continues it
   if (!(await databaseOpensWith(s, candidate))) {
     console.error(`${next} exists but the stored keys open with neither it nor ${secretFile}. Nothing was changed. See docs/ADVANCED.md.`);

@@ -143,7 +143,8 @@ describe("enrichIsland and the trade register's shops", () => {
 
   it("falls back when two purchases are a shop only if the account carries payee accounts elsewhere", () => {
     const input = {
-      rows: [lyhty("2026-09-01"), lyhty("2026-09-15")],
+      // one row shows a card purchase; whether the other is the same shop's depends on the account's other rows
+      rows: [lyhty("2026-09-01"), { ...lyhty("2026-09-15"), description: "KORTTIOSTO RUSKEA LYHTY" }],
       before: new Map(),
       accounts: [chk],
       rules: [],

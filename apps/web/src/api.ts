@@ -1,3 +1,5 @@
+import { type Loan, notLoanMark } from "@banking/core";
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -69,3 +71,15 @@ export async function apiDownload(path: string, body: unknown): Promise<{ blob: 
   const name = /filename="([A-Za-z0-9._-]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1];
   return { blob: await res.blob(), filename: name ?? "varmuuskopio.db" };
 }
+
+/**
+ * The writes of Asetukset > Lainat (`GET /api/loans` lists them). A body is every field of a loan but its id: PUT
+ * replaces the whole loan, so an edit sends back also what its form does not show.
+ */
+export const loanCalls = {
+  add: (body: Omit<Loan, "id">) => api<{ loan: Loan }>("/api/loans", { method: "POST", body }),
+  replace: (id: string, body: Omit<Loan, "id">) => api<{ loan: Loan }>(`/api/loans/${encodeURIComponent(id)}`, { method: "PUT", body }),
+  remove: (id: string) => api<{ ok: true }>(`/api/loans/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** "Ei laina" on a proposal (`GET /api/loans/proposals`): the mark that keeps the series from being proposed again. */
+  notLoan: (key: string) => api<unknown>("/api/marks", { method: "PUT", body: notLoanMark({ key }) }),
+};

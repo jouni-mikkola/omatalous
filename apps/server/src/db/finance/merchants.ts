@@ -114,10 +114,12 @@ export class MerchantsRepo {
     return rows.filter((r) => !inside.has(String(r.merchant))).map((r) => ({ accountId: String(r.account_id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents) }));
   }
 
-  /** Spending rows nothing categorised: the input of the trade register lookup. */
-  async uncategorisedSpending(): Promise<Pick<Transaction, "accountId" | "amountCents" | "isTransfer" | "categorySource" | "merchant" | "mcc" | "counterparty" | "counterpartyIban" | "description" | "source">[]> {
+  /** Spending rows nothing categorised: the input of the trade register lookup. The reference number tells an invoice from a transfer (core `isBusinessRow`). */
+  async uncategorisedSpending(): Promise<
+    (Pick<Transaction, "accountId" | "amountCents" | "isTransfer" | "categorySource" | "merchant" | "mcc" | "counterparty" | "counterpartyIban" | "description" | "source"> & { reference: string | null })[]
+  > {
     const rows = await this.ctx.db.all<Row>(
-      `SELECT account_id, source, amount_cents, merchant, mcc, counterparty, counterparty_iban, description FROM transactions
+      `SELECT account_id, source, amount_cents, merchant, mcc, counterparty, counterparty_iban, description, reference FROM transactions
        WHERE user_id = ? AND category_source = 'default' AND amount_cents < 0 AND is_transfer = 0`,
       [this.ctx.userId],
     );
@@ -132,6 +134,7 @@ export class MerchantsRepo {
       counterparty: r.counterparty === null ? null : String(r.counterparty),
       counterpartyIban: r.counterparty_iban === null ? null : String(r.counterparty_iban),
       description: r.description === null ? null : String(r.description),
+      reference: r.reference === null ? null : String(r.reference),
     }));
   }
 

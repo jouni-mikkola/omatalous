@@ -41,7 +41,8 @@ export interface EbTransaction {
   creditor_account?: { iban?: string | null } | null;
   debtor?: { name?: string | null } | null;
   debtor_account?: { iban?: string | null } | null;
-  bank_transaction_code?: { description?: string | null } | null;
+  /** ISO 20022: `code` and `sub_code` hold the domain, family and sub-family codes, split as the bank likes. */
+  bank_transaction_code?: { description?: string | null; code?: string | null; sub_code?: string | null } | null;
   credit_debit_indicator: "CRDT" | "DBIT";
   status: "BOOK" | "PDNG" | "CNCL" | "HOLD" | "OTHR" | "RJCT" | "SCHD";
   booking_date?: string | null;
@@ -74,4 +75,6 @@ export interface EbAspsp {
   country: string;
   maximum_consent_validity?: number;
   psu_types?: string[];
+  /** Where the bank's logo is. It comes from an API answer: only `logoAddress` (logos.ts) decides whether it is used. */
+  logo?: string;
 }

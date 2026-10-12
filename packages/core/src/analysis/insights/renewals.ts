@@ -9,7 +9,7 @@ import type { RecurringSeries } from "../../recurring.ts";
 import type { UserInputs } from "../../types.ts";
 import type { AnalysisContext } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { answeredSubscriptions, capitalise, countWord, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
+import { answeredSubscriptions, answerOf, capitalise, countWord, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 const RENEW_DAYS = 45;
@@ -33,7 +33,7 @@ export function renewalItems(
   const until = addDays(ctx.today, days);
   return ctx.recurring
     .filter((s) => filter(s) && s.nextDate && s.nextDate >= ctx.today && s.nextDate <= until)
-    .filter((s) => !settledBy(answered.get(s.merchant)))
+    .filter((s) => !settledBy(answerOf(answered, s)))
     .sort((a, b) => a.nextDate!.localeCompare(b.nextDate!) || a.merchant.localeCompare(b.merchant));
 }
 

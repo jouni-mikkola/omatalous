@@ -7,17 +7,16 @@
 # oldest row through `docker compose exec ... ops poll`, checks it against a fixed list, runs one of our own
 # scripts and reports the result back through `ops report`. Nothing from the database reaches a shell: the
 # row is accepted only if the whole poll answer matches one exact shape, and the action is picked by a
-# `case` with a refusing default. Version 1 knows nine actions: check-update, update, rollback, backup,
-# restart, doctor, logs, prune and helper-renew. None takes parameters. Access and port changes are not done here.
+# `case` with a refusing default. Version 3 knows ten actions: check-update, update, rollback, backup, restart,
+# doctor, logs, prune, helper-renew and access (scripts/lib/ops-access.sh). None takes parameters. No port changes.
 #
-# Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what
-# matters. A release install takes only a version the GitHub Releases API names, only if it is a semver step
-# up from the running one, and scripts/update.sh pulls that image, checks its cosign signature against this
-# project's release workflow, takes the database copy right before the switch, health-checks and goes back by
-# itself on failure. A source install (no release yet, or TALOUS_CHANNEL=source) runs the same update.sh on the
-# source, after checks here: the remote and branch are the ones pinned in ops/policy, history only moves
-# forward, the tree is clean, the new docker-compose.yml passes a policy check, and when ops/allowed_signers
-# exists the new commit must be signed by one of its keys.
+# Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what matters.
+# A release install takes only a version the GitHub Releases API names, only if it is a semver step up from the running
+# one, and scripts/update.sh pulls that image, checks its cosign signature against this project's release workflow,
+# takes the database copy right before the switch, health-checks and goes back by itself on failure. A source install
+# (no release yet, or TALOUS_CHANNEL=source) runs the same update.sh on the source, after checks here: the remote and
+# branch are the ones pinned in ops/policy, history only moves forward, the tree is clean, the new docker-compose.yml
+# passes a policy check, and when ops/allowed_signers exists the new commit must be signed by one of its keys.
 #
 # Refuses to run as root, and when this script, scripts/, ops/ or the clone are writable by others. The
 # environment is rebuilt from scratch. .env is read as data and refused if it holds anything odd. One run at
@@ -28,7 +27,7 @@
 #   ops-helper.sh            one tick (what the timer runs)
 #   ops-helper.sh --version  prints the protocol version
 # ──────────────────────────────────────────────────────────────────────────────
-OPS_HELPER_VERSION=2
+OPS_HELPER_VERSION=3
 set -u -o pipefail
 set +x
 
@@ -48,7 +47,7 @@ if [[ ${TALOUS_OPS_CLEAN:-} != 1 ]]; then
   # test hooks, only when a test asks for them
   if [[ ${OPS_TEST:-} == 1 ]]; then
     clean+=(OPS_TEST=1 PATH="$PATH")
-    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW; do
+    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS; do
       [[ -z ${!v:-} ]] || clean+=("$v=${!v}")
     done
   fi
@@ -70,7 +69,7 @@ REPO=jouni-mikkola/omatalous
 API_URL=https://api.github.com/repos/$REPO/releases/latest
 OPS=ops
 DEFAULT_INSTANCE=banking-app
-ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew"
+ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew access"
 NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
@@ -229,7 +228,7 @@ git_policy() {
 COMPOSE_JQ='
   ["banking","caddy","tunnel"] as $names
   | ["build","cap_drop","command","container_name","depends_on","entrypoint","environment","image","mem_limit","networks","pids_limit","ports","profiles","read_only","restart","security_opt","stop_grace_period","tmpfs","volumes"] as $keys
-  | {"banking":"banking-app:latest","caddy":"caddy:2","tunnel":"cloudflare/cloudflared:latest"} as $images
+  | {"banking":"banking-app:latest","caddy":"caddy:2","tunnel":"cloudflare/cloudflared:latest"} as $images | "^cloudflare/cloudflared:[0-9]{4}[.][0-9]{1,2}[.][0-9]+(@sha256:[0-9a-f]{64})?\\z" as $pin # the tunnel may also be pinned: a cloudflared release tag, with or without its digest
   | (.volumes // {}) as $named
   | [
       (keys_unsorted[] | select(IN("name","services","networks","volumes","x-talous-compat") | not) | "ylätason avain \(.)"),
@@ -238,7 +237,7 @@ COMPOSE_JQ='
       ((.services // {}) | to_entries[] | .key as $n | .value as $s
         | (if ($names | index($n)) then empty else "palvelu \($n)" end),
           ($s | keys_unsorted[] | select(IN($keys[]) | not) | "\($n): avain \(.)"),
-          (if ($images[$n] // "") != ($s.image // "") then "\($n): image \($s.image)" else empty end),
+          (($s.image // "") as $i | if $i == ($images[$n] // "") or ($n == "tunnel" and ($i | test($pin))) then empty else "\($n): image \($s.image)" end),
           (if $s.entrypoint != null then "\($n): entrypoint" else empty end),
           (if $s.command != null and ($n != "tunnel" or $s.command != ["tunnel","--no-autoupdate","run"]) then "\($n): command" else empty end),
           (($s.security_opt // [])[] | select(. != "no-new-privileges:true") | "\($n): security_opt \(.)"),
@@ -321,7 +320,7 @@ last_problem() { # stdin: log
 
 # ── the state snapshot the page shows ───────────────────────────────────────
 state_json() {
-  local v commit mode prof bind port url first=1 f
+  local v commit mode prof bind port url lan first=1 f
   v=$(current_version || true)
   commit=$(docker image inspect -f '{{index .Config.Labels "talous.commit"}}' "$INSTANCE:latest" 2>/dev/null || true)
   prof=$(env_get COMPOSE_PROFILES); bind=$(env_get BIND_ADDRESS); bind=${bind:-127.0.0.1}
@@ -334,12 +333,12 @@ state_json() {
   sep; printf '"can_rollback":%s' "$([[ -f backups/.last-update ]] && echo true || echo false)"
   # update.sh records whether the update changed the schema; only an explicit "no" is believed (older ones write none)
   sep; printf '"schema_changed":%s' "$([[ -f backups/.last-update ]] && ! grep -qx 'SCHEMA_CHANGED=no' backups/.last-update && echo true || echo false)"
-  sep; printf '"mode":"%s"' "$mode"
-  if [[ $port =~ ^[0-9]{2,5}$ ]]; then sep; printf '"port":%s' "$port"; fi
-  if [[ -n $url && $url =~ ^[A-Za-z0-9:/._\[\]-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
-  for f in check doctor backups; do
-    if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi
-  done
+  sep; printf '"mode":"%s"' "$mode"; if [[ $port =~ ^[0-9]{2,5}$ ]]; then sep; printf '"port":%s' "$port"; fi
+  # ] and [ (an IPv6 address) lead the set: a backslash does not quote them inside one
+  if [[ -n $url && $url =~ ^[][A-Za-z0-9:/._-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
+  # shellcheck source=lib/ops-access.sh # where the copy would answer after `lan` right now, by the rule `lan` uses
+  if lan=$(. scripts/lib/ops-access.sh 2>/dev/null && access_lan_url) && [[ $lan =~ ^http://[][A-Za-z0-9.:]{1,110}$ ]]; then sep; printf '"lanAddress":"%s"' "$lan"; fi
+  for f in check doctor backups; do if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi; done
   printf '}'
 }
 # host backups (backup.sh) for the list on the page
@@ -566,8 +565,7 @@ act_doctor() {
   else fail "Tarkistus ei onnistunut."; fi
 }
 
-# The last 100 lines of each running service of this install. Redaction happens in store_result (scrub_out)
-# and again in the app.
+# The last 100 lines of each running service of this install. Redaction happens in store_result (scrub_out) and in the app.
 act_logs() {
   local svc shown=""
   echo "STEP: 1/1 Luetaan palvelujen lokit" >>"$LOGF"
@@ -612,9 +610,10 @@ act_prune() {
 # --ops-policy an existing policy (remote, branch, docker) is kept, so a changed remote is not adopted here.
 act_helper_renew() {
   echo "STEP: 1/1 Asennetaan apuri uudelleen tästä kansiosta" >>"$LOGF"
-  if run_cap "$T_RENEW" ./scripts/install.sh --ops-helper; then SUMMARY="Apuri asennettu uudelleen."
-  else RC=$?; fail "Apurin uusinta ei onnistunut. Syy on lokissa." "$RC"; fi
+  if run_cap "$T_RENEW" ./scripts/install.sh --ops-helper; then SUMMARY="Apuri asennettu uudelleen."; else RC=$?; fail "Apurin uusinta ei onnistunut. Syy on lokissa." "$RC"; fi
 }
+# shellcheck source=lib/ops-access.sh
+act_access() { if . scripts/lib/ops-access.sh; then access_apply "$1"; else fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; fi; } # the change of remote access the app prepared, checked there
 
 # runs one request that passed validation
 run_request() { # run_request ID ACTION
@@ -634,6 +633,7 @@ run_request() { # run_request ID ACTION
     logs) act_logs ;;
     prune) act_prune ;;
     helper-renew) act_helper_renew ;;
+    access) act_access "$id" ;;
     *) fail "Tuntematon toiminto." ;;
   esac
   [[ -n $SUMMARY ]] || SUMMARY=$([[ $STATUS == ok ]] && echo "Valmis." || echo "Epäonnistui.")
@@ -643,7 +643,7 @@ run_request() { # run_request ID ACTION
 }
 
 # ── a tick ──────────────────────────────────────────────────────────────────
-# Requests the helper started and never finished (it was killed): finish them as failed, then recover.
+# Requests the helper started and never finished (it was killed): finish them as failed. CUT is the id, for main.
 finish_unfinished() {
   local f id any=1
   for f in "$OPS"/journal/op_*.json; do
@@ -654,7 +654,7 @@ finish_unfinished() {
     grep -q '"reported":false' "$f" || continue
     LOGF=$OPS/run/$id.log; [[ -f $LOGF ]] || : >"$LOGF"
     store_result "$id" failed 1 "Apuri keskeytyi kesken toiminnon." "$LOGF"
-    LOGF=""; any=0
+    LOGF=""; any=0; CUT=$id
     log "interrupted request $id marked as failed"
   done
   return $any
@@ -725,17 +725,17 @@ main() {
   flock -n 8 || exit 0
   if ! env_check; then log ".env is invalid: $ENV_ERR. The helper does not run until it is fixed."; exit 1; fi
   [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { log "INSTANCE_NAME is invalid"; exit 1; }
-  now_iso >"$OPS/helper-seen"
+  now_iso >"$OPS/helper-seen"; rm -f .env.new 2>/dev/null # (left by a helper killed while it wrote .env: it holds the tunnel token)
   # the docker binary named at install goes first in PATH
   local d; d=$(pol_get DOCKER)
   if [[ -n $d && $d =~ ^/[A-Za-z0-9_./-]+/docker$ && -x $d && ! -w $(dirname "$d") ]]; then PATH=$(dirname "$d"):$PATH; export PATH; fi
   docker info >/dev/null 2>&1 || { log "Docker does not respond"; exit 0; }
-  if ! app_running; then
-    # the app is down: a request cut short by a kill is finished as failed and the previous version restored
-    if finish_unfinished; then recover || true; fi
-    exit 0
-  fi
-  finish_unfinished || true
+  # A request cut short by a kill is finished as failed. An `access` or a `restart` then starts the containers again
+  # (cut_short, lib/ops-access.sh). Only an update or a rollback, with the app down, goes back to the previous version.
+  local cut=""; if finish_unfinished; then cut=$(journal_action "$CUT"); fi
+  # shellcheck source=lib/ops-access.sh
+  case $cut in access | restart) . scripts/lib/ops-access.sh && cut_short "$CUT" "$cut" ;; esac
+  if ! app_running; then case $cut in update | rollback) recover || true ;; esac; exit 0; fi
   reconcile
   if poll_once; then exit 0; fi
   heartbeat

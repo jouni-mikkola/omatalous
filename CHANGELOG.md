@@ -3,7 +3,200 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.8.7
+
+- Loans: paste a screenshot or the text of a loan, drop a PDF or type the figures under Asetukset > Lainat, and the app reads the lender, what is owed, the rate and the payment into a form to check. The reports then count the debt and show the interest of the next 12 months.
+- Sixteen more Finnish banks and card issuers can be connected besides Nordea, picked from a list with their logos, and each connection can be renewed with one button before it ends.
+- Remote access is set up in the browser, under Asetukset > Palvelin > Etäkäyttö, with a Cloudflare API token, an address and the emails that may sign in. A new address that nobody gets in through is taken off again after 15 minutes.
+- One pasted command installs Omatalous on a fresh Ubuntu machine, checks the script's hash first and asks its questions before it installs anything.
+- A copy on the internet is harder to attack: the app checks Cloudflare Access's signature itself, a flood of made-up sign-ins cannot lock the household out, and a person's name is never sent to the trade register.
+
+Money and reports
+
+- The warning about a category that cost more than usual (Kuukausi) takes its amount and its usual level from the Menojen muutos report, so the two always say the same. It uses the report's months, leaves one-off purchases out of the usual level and warns only when the report shows the category as risen.
+- In a month that has not ended the warning compares the same days of the usual months and reads "Tavallisesti tähän mennessä". It says nothing in the first week of a month. When an account's transactions end some days ago, the warning names the day its figures reach, for example "201 € 10.10. mennessä".
+- The warning speaks of the same month as the report on every period: 3 kk and Vuosi show what Kuukausi shows for the running month. They used to show the last full month's warning, which now shows when that month is selected.
+- A new subscription, a bill that grew or came twice, one large purchase and a loan payment no longer raise the warning. The report names those causes.
+- A category that settles on a higher level is warned about in its first month only. A month that was as far above usual a year ago is a season and gets no warning.
+- A mark on Laskut (Käytössä, Lopetettu) now belongs to one subscription. When a merchant charges for two services, marking one as ended leaves the other in the fixed costs, in the list of what is coming and in the forecast, and the warning about a charge after Lopetettu counts only that subscription's charges.
+- A merchant with several subscriptions shows the price on each row and in each button, so it is clear which one is answered.
+- Marks made in earlier versions still cover every subscription of their merchant. Such a row says so, and Kumoa on it removes the mark from all of them. Each can then be marked on its own.
+- Yli jäi now counts credit drawn to an account, so it is what stayed on the accounts. A household that bought a car with a loan no longer sees a loss the size of the car when its accounts hardly moved. Borrowed money is still never income.
+- Mihin tulot menivät tells how a month that took more than its income was paid for: Katettu luotolla, Katettu säästöistä and Tileiltä tai kortilta, each with its sum, and a strip over the bar shows where the money came from. The third names both, since the totals cannot tell money that was on an account from more owed on a credit card. The red line "Menoja enemmän kuin tuloja" is gone.
+- When credit was drawn, the bridge shows it at once with the debt service of the period ("Luottoa nostettiin 20 000 €, velanhoitoon meni 1 200 €"). When no debt was paid in the period, it also says how much of the credit is in Yli jäi.
+- The table of the bridge lists what came in and what went out, and the rows add up to Yli jäi.
+- A period with no income, or one where refunds were larger than purchases, has no bar: it shows the table with Yli jäi and the sentence on how it was paid. Before, a period with no income showed only "Jaksolla ei ole tuloja".
+- Nothing changes for a month in which the household borrowed nothing, drew no savings and lived within its income, with one exception: the rare month where refunds are larger than purchases now shows the table.
+- Loans get a model of their own, for the debt a bank connection cannot show. One place works out what is owed on a day, the debt total, the interest of the next 12 months, the payoff date, how much of a credit line is in use and how a payment splits into interest and amortisation.
+- A loan figure that needs a missing field, such as the rate, is left empty and says which field. Nothing is estimated.
+- The server keeps the loans a user has confirmed, one list per user. Another member never sees or changes them, and sharing an account shares no loan.
+- A loan is checked when it is saved: amounts and rates are whole numbers within a range, the balance date is not in the future, a card or a credit line has no repayment plan, a bullet loan has no payment, and a payment that holds the interest must cover it. A value outside its range is refused with a message that names the field.
+- Core can read a loan from pasted text: `parseLoanText` takes text copied from a bank's loan page, the positive credit register's listing or a SECCI form, or OCR of a screenshot, and returns one draft per loan. Each field carries its value, the source line and `sure` or `check`. Nothing is saved from it yet; the page that shows the draft comes with the loan pages.
+- A figure with no label is left out. A repaired OCR digit, a lost comma, a label over two lines or a failed cross-check (rate against reference plus margin, balance against the granted amount, payment against the annuity) gives `check`, never `sure`. So do a rate or a margin above 25 % and an amount of three digit groups with no unit and no cents (`5 000 200`).
+- A value on the line below its label is `sure` only inside the run of labels and values that proves the page puts values below. A page that prints its main figures above their captions and a list of details under them no longer gets the wrong figure as `sure`.
+- Where a word that can name another figure (`Korko`) and the register's own label (`Kokonaiskorko`) both give a value, the register's label has the field. A draft with a payment says whether it is the whole payment or the amortisation alone (`paymentKind`).
+- Asetukset has a new card, Lainat. Paste a screenshot or the text of a loan into its box (Ctrl+V, or the phone's paste), drop or pick a picture or a PDF, or type. The app reads the lender, what is owed, the rate, the payment and the last due date into a form, one form per loan it finds. Lisää käsin opens an empty form.
+- Each figure shows the line it was read from and a mark: Varma, Tarkista or Ei löytynyt. A Tarkista field is outlined, and Tallenna waits until it is ticked as right or corrected. Everything read from a picture is to check. Nothing is saved before Tallenna.
+- The picture, the PDF and the text are read in the browser and sent nowhere. The picture reader with its Finnish and English data (about 11 MB) comes from the app itself the first time a picture arrives. In a phone-sized browser at a quarter of the processor speed, a screenshot of three loans took about four seconds.
+- A read stops with Keskeytä, when a newer picture, file or text arrives, and by itself when it makes no progress for two minutes, with a sentence that says what to do next. A picture of over 40 million pixels is refused before it is opened, so a huge file cannot fill a phone's memory. A clipboard that holds a picture and text, as Word and Excel give, is read as the text.
+- A status line tells a screen reader when a read ends and how many loans it found, focus moves to the first form, and a field's error is read with the field. After Tallenna or Hylkää the focus goes to the next form or back to the box.
+- The licences of the software that reads pictures and PDFs are in THIRD-PARTY-LICENSES.txt, served with the app.
+- The card lists the saved loans with name, lender, what is owed, rate, payment and end date, each with Muokkaa and Poista. A member sees only their own loans.
+- A payment smaller than the interest of its interval is pointed out before saving, with a button that empties the payment for a loan on a payment holiday.
+- A tip under the box says that one screenshot of the positive credit register's page brings every lender at once.
+- More loan payments count as debt. A row that names OP or Pohjola finance, or Toyota or Volkswagen finance, is a loan payment, and so is a row with a word such as JOUSTOLUOTTO, AUTOLAINA or LUOTONLYHENNYS, which the earlier rule missed. A lease, a bond bought through a bank, a refund from a finance company and a housing company's charge for its own loan stay what they were.
+- A purchase paid in parts through Klarna, Walley, Riverty or Anyday counts as debt when the row says it is an instalment. A purchase paid at once through them stays shopping, and so does a refund.
+- Money a peer-lending service such as Mintos, Estateguru or Tessin Nordic pays back is the household's own money coming home, so it lowers what was saved and no longer shows as income. Money sent to such a service counts as saved. A row from such a service that names a loan or a credit is the household's own borrowing, as before.
+- Behind the loans page: the app works out which monthly payments look like a loan nobody has saved. It takes three or more payments of at least 20 € about a month apart to one payee with one payment reference, still running. Rent, own transfers, card bills, a lease, an insurer's bill, a housing company's charge and subscriptions are never proposed, and neither is a series answered "Ei laina" or one a saved loan is linked to. "Ei laina" is an answer of its own, so marking the same payment on the bills page does not undo it. A proposal has the payee, the usual payment and the months seen. It has no balance and no rate.
+- Raportit has a new Lainat section for a household that has saved a loan. It shows what is owed in all, the interest of the next 12 months and the payments a month, and for each loan the balance today, the rate, the next payment split into interest and amortisation, the interest of the next 12 months and the date of the last payment.
+- A payment is never more than what is still owed with its interest. A loan that is paid has no payment and is not in the payments a month.
+- A loan with a Euribor reference rate gets a line that tells its payment and the interest of the next 12 months if the reference rate falls or rises by one percentage point. The rate falls no lower than the loan's margin. A loan without a payment plan tells the interest alone.
+- What the app does not know about a loan reads "ei tiedossa", never zero. A total that leaves loans out says how many.
+- Lainat and Saldot show "Tilit miinus velat": the connected accounts less the saved loans today. It leaves out the value of a home and of investments, and says so.
+- A saved loan cannot be tied to a connected account yet. When a connected card or loan account may be the same debt as a saved loan, both are counted. Lainat says that the debt may be in the total twice and that removing the saved loan fixes it, and Saldot and Säästövinkit point there. An account below zero beside a saved credit line may be one debt too: Lainat and Saldot say so beside "Tilit miinus velat", the one figure that would hold it twice.
+- In the household view the saved loans are the viewer's own, and the section says so.
+- Säästövinkit reads a saved mortgage instead of asking for the loan's margin again, uses the loan's own balance and rate, and shows the same debt total as the Lainat section. A saved fixed-rate mortgage is not asked for a margin.
+- A household with no saved loans sees no change.
+- New observation: what the interest on a connected credit card cost over the last 12 complete months, with the card and the number of months interest was charged in. It shows from 120 € and ranks by its sum like the other observations. A card paid in full every month is charged no interest and gets no observation.
+- The interest is told once: on a period where the bank fees alert shows, the alert holds it and the observation stays out, and on Säästövinkit the card interest tip holds it.
+- Asetukset > Tilit shows a thin bar under an account's credit limit line: how much of the limit is in use, in the warning colour when the balance is over the limit. An account without a limit, or with nothing owed, has no bar.
+- Asetukset > Lainat shows the monthly payments that look like a loan nobody has saved, above the list of loans. Each row has the payee, the monthly sum, since when it has been paid, and the question "Onko tämä lainan maksu?" with two buttons. Tallenna lainaksi opens the loan form with the lender, the kind, the payment and a one-month interval filled in; the balance and the rate are left to you. After saving, the row is gone.
+- Ei laina ends the question for that payment. The payee can be a bank, a finance company, a housing company or a private person, so the block says that a payment that is something else is an Ei laina. An answer can be changed by saving the loan by hand.
+- Nothing is shown while there is nothing to ask, and there is no count or badge elsewhere in the app. The proposals are worked out for each request from your own rows, so a saved loan or an Ei laina takes effect at once. New route `GET /api/loans/proposals`.
+
+Fetching and importing
+
+- The app can now start a consent at 16 more Finnish banks, not only Nordea: OP, Danske Bank, S-Pankki, Säästöpankki, Oma Säästöpankki, POP Pankki, Aktia, Ålandsbanken, Bank Norwegian, Resurs Bank, Morrow Bank, Eurocard, Finnair Plus Mastercard, SAS EuroBonus Mastercard, Holvi and Revolut.
+- The server offers a bank only when the household's own Enable Banking application lists it. It asks Enable Banking once a day. With no application yet, or when Enable Banking does not answer, the list is Nordea alone.
+- The connection test in Asetukset > Palvelin passes when the application lists any bank the app knows, not only Nordea.
+- After a bank is linked the server log gets one line per account with the bank, the account type code, whether a credit limit came and the balance type codes. It has no account number, name or amount.
+- The bank picker in Asetukset > Pankkiyhteydet lists the banks the household's Enable Banking application offers. The bank used last is first, a bank without a logo shows its name on a plain plate, and a search field appears when there are more than eight banks. With no bank on the list the picker says so and points to the application in Asetukset > Palvelin.
+- A line under the picker says that the rows of a bank other than Nordea are sorted by the bank's own codes, so the first month's categories need a look.
+- The setup texts and the bank buttons in the wizard and on the empty start no longer name Nordea as the only bank.
+- The bank list of the day before stays while Enable Banking is slow or fails, and an answer without a list counts as a failed call.
+- The server log line written after a link shows a code only when it is four capital letters.
+- The Enable Banking guide covers every bank: the steps once, and a section for the banks whose steps differ.
+- Payments to Resurs that change from month to month are card bills, as with the other card issuers. A fixed instalment to Resurs stays a loan.
+- Morrow Bank, the new name of Komplett Bank, is known as a card issuer.
+- A bank connection now stores the bank's own code of each row, and the categories read it. Pay is salary when the bank says so, also from an employer the app knows as a shop or a hospital and with no word of pay in the text. Cash from an ATM or a shop's till is cash. A move between your own accounts is a transfer, or saving when the other account is not connected. Benefits and pensions stay benefits. Your own rules decide first, and a category you set yourself never changes.
+- Rows fetched before this update get their code on the first start, from what the bank sent with them, and are sorted again. Rows from a file have no code.
+- Optimoi compares fees with Nordea's price list only on Nordea's accounts. A card connected from another bank is left out.
+- Money to or from a savings account at Bank Norwegian or Morrow Bank is saving. It was a card bill on the way out and borrowed money on the way in.
+- Every connection under Asetukset > Pankkiyhteydet has the button Yhdistä uudelleen, also long before the consent ends. It starts the same bank at once, with no picker.
+- The connections table says when a consent ends in words, for example "voimassa 14.1.2027 asti, vielä 93 päivää", in one column with the state.
+- Muistutus kalenteriin under the end date downloads a calendar file with one all-day event seven days before the consent ends, "Omatalous: pankkiyhteys vanhenee 14.1.2027". The browser makes the file. It holds the bank's name, the end date and the address of Omatalous, and no account detail.
+- After a link, the page lists the accounts the bank handed over that Enable Banking does not let Omatalous read, each by the bank's name for it and its last four digits, with the one step that fixes it: link them under Link accounts in the Control Panel, then press Hae nyt. The page looks again for a minute after a link, so the list appears when the first fetch has run, and a fetch that works takes an account off it.
+- After a link the button Lisää pankkiyhteys reads Yhdistä toinen pankki, so a household with two banks, or one that adds Nordea an account at a time, goes on without starting over.
+- A member's test of their own Enable Banking key is counted per member before the key is read: eight tests in a window of ten minutes that starts with the member's first test. The ninth is refused with a Finnish message before anything is sent to Enable Banking, and the first refusal of a window is written to the security log as a lockout. The administrator's test of the shared application counts one window for the whole instance with the same figures.
+- The Enable Banking guide covers renewing, the calendar file and the list of accounts that are not linked.
+
+Look
+
+- The bank picker and the list of bank connections show each bank's logo. A bank whose logo cannot be fetched keeps its name on the plate.
+- The server fetches the logos from Enable Banking's website and serves them from your own address, so your browser still calls no third party.
+- Tapahtumat on a phone lists the rows under day headers, newest first. Each row shows the merchant, the category and the amount on two lines, and the category can still be changed in place.
+- On a phone the filters are behind one button, Rajaa, which shows how many are on. The search field stays in view, and the rows start on the first screen.
+- On a phone the answer to a category change appears at the bottom of the screen, where the row is, instead of at the top of the list.
+
+Reliability
+
+- A name is no longer looked up in the trade register when a word of it has a digit glued on (Meikäläinen2 Matti) or holds a character nobody sees, such as the soft hyphen of a copied page. A shop named so with no company form (Kioski24 Esimerkki) gets no category from the register: set it by hand or with a rule.
+- A MobilePay payment counts as one between people by the same rule of a name's shape. A name with an initial or a comma (Laine, Helen J.) is a person's also when one word of it is a brand. SE, SA and AS at the end of a name no longer make it a company's, so a MobilePay payment to "Zalando SE" lands in Maksut henkilöille: set its category by hand or with a rule.
+- The loan pages and the messages the server gives for a loan use one word for each thing: jäljellä, maksuerä, viimeinen eräpäivä, laji, luottolimiitti and kokonaiskorko.
+- The loan form no longer asks for Ctrl+V on a phone.
+- Saldot and Optimoi say "Sama velka voi olla summassa kahdesti" in the same words as the Lainat report.
+- When an update changes a merchant's name, an answer "Ei laina" to a proposed loan and a saved loan's link to its payments follow the new name. Earlier the question could come back and the loan lose its payments.
+- The lead of the spending change report names the day its figures are cut at ("Lokakuu on 10.10. mennessä 176 € tavallista kalliimpi") when a card's rows end before today, as the spike alert already did. It no longer says "tähän asti" for a day that is not today.
+- The Tämä kuu line on the overview names the credit drawn last month (luotonnostot) beside the savings rate, when there was some.
+- Säästövinkit > Luottokortin korot counts a card's interest the way the card interest insight does, so both tell one sum. Interest the bank took back is taken off, and an interest row sorted under bank fees is counted. The sum can differ from before by those rows.
+- The insight "Luottokortin korot maksoivat ..." was hidden whenever the bank fees alert showed, also when that alert was about other charges. It is now hidden only when over half of its interest rows are in the period the alert sums.
+- The same insight no longer links to the transaction list. The list showed other interest too and did not add up to the figure.
+- The instalments insight ("osamaksuja ... kuussa") leaves a connected card's interest out of "korkoja ja luottokuluja". The card interest insight tells it, so it is told once.
+- Asetukset > Tilit says in words when a card or a credit line is over its limit, for example "yli luottorajan 200 €". Before, only the colour of the bar told it, and a screen reader did not read the bar.
+- A person's name is no longer sent to the trade register. Earlier versions could send one: the name of a person paid twice by a transfer the bank delivers without a payee account, or paid through MobilePay or PayPal on a card. Only the name went, never an amount or an account number.
+- A name is looked up only when its rows say it is a business: a card purchase, an e-invoice or a direct payment, or a company form (Oy, Tmi, ry) in the name. A name shaped like a first name and a surname is never looked up, whatever the row says, and neither is the name of a way to pay (Siirto, Maksu, Verkkopankki).
+- An invoice paid with a reference number is looked up when the payee's name has a word such as kauppa, liike or kerho and at most one name on either side of that word. A reference number alone is not enough: a private landlord gives one too.
+- Fewer shops get a category from the register: a shop named like a person, and a shop paid through MobilePay or PayPal whose name has no company form and no word such as kauppa, liike or palvelu. Set the category by hand or with a rule.
+- A company whose name begins with its company form ("AB ESIMERKKI") and is paid by a plain transfer is not looked up either: the name has the shape of two initials and a surname.
+- After the update a row can lose a category that came from the register, where the row no longer counts as a payment to a business.
+- The update removes the stored register answers of names that are no longer looked up.
+- A copy behind a Cloudflare Tunnel can check Cloudflare Access itself. With `CF_ACCESS_AUD` and `CF_ACCESS_TEAM_DOMAIN` in `.env`, every request must carry the token Access signs for that copy, or it gets 403. A deleted Access application, a Bypass policy or a second host name on the tunnel then no longer shows the app's login page to anyone.
+- The installer writes both values when Cloudflare makes the tunnel (`cloudflare up` returns them), and removes them with `--cloudflare-down` or when the copy gets another way in. With the check on, the app's port on the machine itself answers 403 too; only `GET /api/health` is open.
+- The app refuses to start when only one of the two values is set, or when either has the wrong form.
+- A flood of sign-in attempts with made-up user names can no longer keep the household from signing in. When a sign-in limit is full, an address someone signed in from in the last 30 days is counted in a spare of its own, under the same limits. The app remembers at most 100 such addresses, in memory only.
+- `./scripts/install.sh --cloudflare-down` removes the Access rule only after nothing in Cloudflare leads to the address any more. When the copy's tunnel also routes another host name, or the address has a DNS record that points somewhere else, the command leaves that as it is, keeps the Access rule, says in one line what is still there, and stops with an error. `.env` stays as it was. Remove what the line names in the Cloudflare dashboard and run the command again. Before, the Access rule went all the same, the command reported success, and the copy could answer at its address with only its own login in front.
+- `cloudflare down` exits 3 in that case. It also leaves a tunnel of the same name that has no route for the address: `a-b.example.fi` and `a.b.example.fi` share a tunnel name.
+- The daily backup copy to a NAS no longer writes through a link someone placed on the share. The write test uses a new random name, a link at the temporary name is replaced, and a link at a file's final name stops the copy with a warning.
+- `restore.sh --secret` tries the secret file on the restored database before it replaces the app secret. A wrong file, such as another copy's secret, is refused and the current secret stays. A database with no saved bank keys takes any secret, as before.
+
+Maintenance
+
+- A new install is one pasted command. It downloads a small script, checks the script's sha256 against the one in the command and runs it only when they match. The script puts Omatalous in `~/omatalous` at the newest release, and only when that release is part of the `main` branch, then starts the installer. A second copy: add `--new-instance NAME`.
+- The install script and its hash are published with the return page. Publishing stops when the script, its hash file or the hash in the README and the install guide disagree.
+- The server can now put its own copy behind Cloudflare for Asetukset > Palvelin > Etäkäyttö: an admin saves a Cloudflare API token, picks an address and lists the email addresses that may sign in, and the app makes the tunnel, the DNS record and the Access login in Cloudflare. No shell on the server is needed.
+- Every change asks for the admin's password, removing the API token included. The API token is checked against Cloudflare before it is saved, is kept encrypted and is never shown again. It cannot be removed while a change is still under way.
+- A new remote address is on trial for 15 minutes. The first visit that comes in through the Cloudflare login keeps it. If nobody gets in, for example because of a mistyped email address, the server turns remote access off by itself, removes the Cloudflare side and says so in the page and in the security events. The home address works again without anyone opening a shell.
+- An address that could not work is refused before anything changes: a domain that is not yet active in Cloudflare, and an address with more than one part in front of the domain. The message shows the form to use.
+- The same place changes who may sign in and turns remote access off. Turning it off first takes the server out of the tunnel and only then removes the Cloudflare side. If something else in Cloudflare still leads to the address, the Access login is left in place and the app says so.
+- Before remote access is turned off the app tells where it will answer afterwards. When that is the server itself only (localhost), turning off asks for a separate yes.
+- An address that is already in use in Cloudflare and was not made by this copy is refused, the same way `./scripts/install.sh` refuses it. Remote access that the installer set up on the server is left to the installer, and the app says so.
+- When Cloudflare refuses something the app tells which kind of problem it is in Finnish: a token that is not accepted, a missing permission, Zero Trust not turned on, an address that is taken, an address outside the token's domains, or no connection.
+- The security events list shows when remote access was turned on or off, when the server took it off by itself, when a change failed and when the API token was saved or removed.
+- `secret rotate` re-encrypts the saved API token with the new secret. When the token cannot be opened, the message names it and tells to remove it in Asetukset > Palvelin > Etäkäyttö and run the rotation again.
+- Security: a copy that is put behind Cloudflare from the app answers on its port from the server itself only (`BIND_ADDRESS=127.0.0.1`), as a tunnel install made by the installer does. Cloudflare's connector reaches the app inside Docker and never needs that port, so no other device on the home network can reach the app past Cloudflare Access or tell it which address a visitor comes from.
+- Turning remote access off puts the earlier home network address back. The helper keeps it in `.env` as `ACCESS_LAN_BIND` while the tunnel is on, and a later change of the tunnel does not lose it.
+- The helper's report now tells where the copy would answer once remote access is off, in every mode (`lanAddress` of its state). This lets the app warn an admin before a copy that answers on the server itself only is taken out of the tunnel.
+- The helper on the server can now change how the copy is reached: Cloudflare Tunnel with Access, or the home network again. This is its tenth action, `access` (etäkäyttö), and it asks for the admin's password, like an update. The page that asks for it is Asetukset > Palvelin > Etäkäyttö.
+- The helper checks every value itself before it writes anything, rewrites `.env` in one step with mode 600, starts the containers again and waits for the app to answer. When the app does not answer, it puts the old `.env` back and says so in the result.
+- The old `.env` of the last change stays on the server as `ops/env.prev` (mode 600), one generation. The helper puts it back only over the file it wrote itself: a `.env` edited by hand in between is left as it is, and the result says where the old settings are.
+- An address is not accepted as the hostname: the last part of the name must hold a letter.
+- The tunnel token is never on a command line, in the helper's journal, in `helper.log` or in the result. The result names only the new address. A half-written `.env.new` left by a helper that was killed is removed at its next run, and git ignores that file.
+- A copy with its own domain (Caddy) is refused: the helper changes nothing there.
+- Fixed: a helper killed in the middle of a restart, with the app down at its next run, went back to the previous version of the app. Now only an update or a rollback cut short does that. A restart cut short starts the containers again, and a remote access change cut short starts them, waits for the app and puts the old `.env` back when the app does not answer.
+- Fixed: the helper never reported the copy's address, because the pattern that checked it matched nothing. The update panel now shows the address beside the version.
+- Asetukset > Palvelin has a new part, Etäkäyttö, for the admin. It shows whether remote access is on, the address and who may sign in, and it turns remote access on, changes the allowed email addresses and turns it off, with no shell on the server.
+- Turning on starts by saving Cloudflare's API token, with a short guide in Finnish for making it, the permissions it needs, the domain being active in Cloudflare and Zero Trust being on. The token is typed once, asks for the admin's password and is never shown again; the page shows only that it is saved and which domains it sees. Removing the token asks for the password too, and is not offered while a change or a removal from Cloudflare waits.
+- Before remote access is turned on, and before the list of allowed emails changes while it is on, the page shows the address and every email back and asks for a yes. It says that the home network address stops answering once remote access is on. A page that was open at the home address then points to the remote address instead of going blank.
+- A new address is on trial. It has to be opened once through Cloudflare's sign-in before the clock time the page shows, otherwise the server turns remote access off by itself. The page then says that this happened, for which address, and what to check (the email addresses and the domain's DNS in Cloudflare).
+- Before the off button the page shows the address where the app is found afterwards, and says that a browser that came in through the remote address loses the app. When the copy would answer on the server machine alone, the page says so and takes remote access off only after an explicit choice. The server's own refusals are shown as they come.
+- A change that waits for the maintenance helper is shown as waiting and can be withdrawn while it is queued. The page reads the state again every few seconds until the helper has done it, then shows remote access on or the helper's reason for failing.
+- An address made by the server's installer cannot be changed from the page, which says so and offers only the off. If something else in Cloudflare still leads to an address, or the installer made it, the page shows the server's reason and the Access login stays.
+- With no maintenance helper, or one too old for this, the page says so, shows the command that enables it and links to the guide for the installer route.
+- Security: a sign-in list for remote access that leaves out the address the admin is signed in with through Cloudflare Access is refused, and the answer names the address. A change of the list behind an address in use has no trial, so such a list locked the admin out at once.
+- Turning remote access off through the tunnel now waits for the helper's next report when the last one is from before a turning on that was cut short. Cloudflare's side was removed at once in that case, which left a copy nobody could reach.
+- A server that starts again in the middle of the 15 minute trial of a new address takes an unproven address off when the 15 minutes are up. It could take up to 15 minutes longer than the page said.
+- The host name of the Access team is removed from what the helper reports about a remote access change, as the tunnel token and the audience tag already were.
+- The installer writes the Access pair and the tunnel token to `.env` in one step, and takes the pair off with the host in one step. A run that stopped in between could leave half a pair, which the app refuses to start with.
+- Remote access takes up to 50 sign-in addresses in the app, as the installer does. The app stopped at 20.
+- A remote access change that the maintenance queue would refuse (no helper, an old helper, another action under way, too many requests) is refused in the same words as on the maintenance page, and the hour's limit is now asked before anything changes in Cloudflare.
+- The installer asks everything first (Docker's install, the docker group, the name, how the app is reached, the address, the port) and then installs Docker and builds without waiting for an answer.
+- On Ubuntu 26.04.1, which has neither `sg` nor `newgrp`, the installer carries on in a new session through `sudo` after it adds your user to the docker group. If no way works it says to close the SSH connection and open it again, then run the script again. The update and doctor scripts say the same.
+- Cloudflare Tunnel as the access choice: without a Cloudflare settings file the installer offers to run `./scripts/cloudflare-setup.sh` itself, and shows where Cloudflare's token is made and which permissions it needs. A refusal or a failure leaves the tunnel token question as before.
+- The setup link at the end is also printed as a QR code when `qrencode` is installed (`sudo apt install qrencode`; the installer never installs it).
+- An install from a checkout that sits on a release tag (the one-line install) takes that release instead of the newest tag, so a pre-release tag no longer makes it build from source.
+- The maintenance helper accepts a pinned tunnel image: `cloudflare/cloudflared:<release>`, such as `2026.9.1`, with or without a `@sha256:` digest. The image is still `cloudflare/cloudflared:latest` in this release. A later release can pin it, and installs that have this version can then update to it from Asetukset > Ylläpito.
+
+Upgrade
+
+- Migration 0015 adds the column `bank_txn_code` to `transactions` on the first start, after the usual copy. It only adds a column, so 0.8.0 or later still opens the database after a rollback and keeps the codes. The first start then reads the codes of older fetched rows from the stored bank data and sorts those rows again. Some categories of older rows change with it.
+- New `.env` key `ACCESS_LAN_BIND`, written and removed by the maintenance helper. A copy whose tunnel the installer made has none: it stays on `127.0.0.1` when remote access goes off, and the helper's report says so beforehand.
+- The host helper is version 3. It runs from the copy's folder, so it is version 3 from its first run after the update and nothing needs installing. Until that run the app refuses the remote access change.
+- Migration 0014 adds the table `loans` on the first start, after the usual copy. It only adds a table, so 0.8.0 or later still opens the database after a rollback and keeps the loans saved since the update.
+- The Content-Security-Policy has `'wasm-unsafe-eval'` in `script-src`, which the picture reader needs. The web files grow from 0.7 MB to 17 MB, because the reader and its language data come with the app; a browser fetches about 11 MB of them, once, when the first picture is read.
+- The app's own check of Cloudflare Access is off until `.env` has both values. Where the installer made the tunnel, run `./scripts/install.sh --access tunnel` once after the update. For a tunnel made by hand, add `CF_ACCESS_AUD` and `CF_ACCESS_TEAM_DOMAIN` to `.env` yourself (`.env.example` says where to find them) and run `docker compose up -d`.
+- If you ran `--cloudflare-down` on 0.8.6 for a copy whose tunnel had a second host name, or whose address had a DNS record you made yourself, look in the Cloudflare dashboard: a tunnel or a record may still lead to the address, with no Access rule in front of it. Remove what is left there.
+
 ## 0.8.6
+
+Highlights
+
+- A copy can be reached from anywhere behind Cloudflare Access, set up by the installer: the tunnel, the address and
+  the email login are made for you (Cloudflare's free Zero Trust plan). Each copy has its own allowed addresses.
+- The figures agree across pages: own transfers no longer swell the sums, a merchant costs the same on every page,
+  and Säästövinkit tells each euro once.
+- Connecting the bank takes fewer clicks. Backups can run on a schedule, encrypted, and copy themselves to a NAS; a
+  restore is one command.
+- Logins hold against a client that keeps changing its address, for copies on the internet.
 
 Money and reports
 

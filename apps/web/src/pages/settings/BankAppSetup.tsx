@@ -324,13 +324,13 @@ export function BankAppSetup({
               <div className="small muted">Paina lopuksi Register.</div>
               {app.redirectMode === "paste" && (
                 <div className="small muted">
-                  Kun Nordea näyttää lopuksi virhesivun, liitä sen osoite kohtaan Asetukset &gt; Pankkiyhteydet.
+                  Kun pankki näyttää lopuksi virhesivun, liitä sen osoite kohtaan Asetukset &gt; Pankkiyhteydet.
                 </div>
               )}
             </li>
             <li>
-              Linkitä tilit. Paina <em>Activate by linking accounts</em>, valitse Finland, Nordea ja Personal ja kirjaudu. Lisää muut tilit ja luottokortit
-              yksi kerrallaan kohdasta <em>Link accounts</em>.
+              Linkitä tilit. Paina <em>Activate by linking accounts</em>, valitse Finland, oma pankkisi ja Personal. Kirjaudu pankkiin. Lisää muut tilit ja
+              luottokortit yksi kerrallaan kohdasta <em>Link accounts</em>.
             </li>
             <li>
               {configured

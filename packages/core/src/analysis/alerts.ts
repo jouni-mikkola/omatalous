@@ -1,18 +1,16 @@
 import { getCategory } from "../categories.ts";
-import { addDays, DAYS_PER_MONTH, dayNumber, daysBetween, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
+import { addDays, DAYS_PER_MONTH, dayNumber, daysBetween, monthIndex } from "../dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import { NO_INPUTS, type UserInputs } from "../types.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, netPurchase, recurringAt } from "./context.ts";
-import { LEVEL, oneOffs } from "./one-offs.ts";
+import { categoryRises } from "./change.ts";
+import { changeMonths, cutWords } from "./change-text.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, netPurchase, recurringAt } from "./context.ts";
 import { isBankFee, isLateFee } from "./fees.ts";
 import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
-import { monthlyNoise, monthStandsOut } from "./signal.ts";
-import { chargedAfterCancelling, dismissedIds, forgotten, marksByMerchant } from "./subscription-alerts.ts";
-
-export { inUseQuietsQuestion } from "./subscription-alerts.ts";
+import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
 
 export type AlertKind = "double_charge" | "late_fee" | "cancelled" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
 
@@ -27,6 +25,8 @@ export interface Alert {
   /** Where a click should go: a merchant or a category in the transactions list. */
   merchant?: string;
   category?: string;
+  /** On a question about a forgotten service: the subject an answer is stored under, which names that one series. */
+  markSubject?: string;
 }
 
 const MAX_ALERTS = 6;
@@ -36,18 +36,18 @@ const MAX_ALERTS = 6;
  * "forgotten" is about now, so it shows when the period reaches today.
  * Order: double_charge, late_fee, cancelled, overlap, spike, forgotten, fees, habit.
  * `inputs` carries the user's marks: a dismissed alert is left out, a subscription marked in use or cancelled is not
- * asked about, and a charge after a merchant was marked cancelled is a warning of its own.
+ * asked about, and a charge after a subscription was marked cancelled is a warning of its own.
  */
 export function buildAlerts(ctx: AnalysisContext, range: DateRange, inputs: UserInputs = NO_INPUTS): Alert[] {
   const current = inDays(ctx, toDayRange(range));
   const recurring = recurringAt(ctx, range.to);
   const overlaps = overlapAlerts(recurring);
-  const merchantMarks = marksByMerchant(inputs.marks);
+  const merchantMarks = marksBySubject(inputs.marks);
   return pick(
     [
       ...doubleCharges(ctx, current, recurring, range),
       ...lateFees(current),
-      ...chargedAfterCancelling(current.filter(isCharge), merchantMarks),
+      ...chargedAfterCancelling(current.filter(isCharge), merchantMarks, ctx.recurring),
       ...overlaps.alerts,
       ...spikes(ctx, range),
       ...(range.to >= ctx.today ? forgotten(ctx.recurring, overlaps.merchants, merchantMarks, ctx.today) : []),
@@ -296,12 +296,11 @@ function overlapAlerts(recurring: readonly RecurringSeries[]): { alerts: Alert[]
 
 // ── spending spikes ──────────────────────────────────────
 
+/** The rise in purchases lifts the category this far over its usual level, by at least this much, from at least this many purchases. */
 const SPIKE_RATIO = 1.5;
 const SPIKE_MIN_CENTS = 5000;
-const SPIKE_MIN_TXS = 3;
-const SPIKE_BASE_MONTHS = 6;
-/** Months that show a category's noise: a busy month comes a few times a year, so six months cannot show it (ADR 0011). */
-const SPIKE_NOISE_MONTHS = 24;
+const SPIKE_MIN_PURCHASES = 3;
+const MAX_SPIKES = 2;
 const CHRISTMAS = new Set(["shopping", "home", "kids", "gifts_donations", "groceries", "alcohol"]);
 const SUMMER = new Set(["travel", "entertainment"]);
 /** Months (1–12) when a category is high every year in Finland: Christmas, the summer holiday. */
@@ -312,79 +311,46 @@ const SEASONAL = new Map<number, ReadonlySet<string>>([
   [8, SUMMER],
 ]);
 
-/** The selected month, or the range's last complete month. */
-function spikeMonth(ctx: AnalysisContext, range: DateRange): number | null {
-  const first = monthIndex(range.from);
-  const last = monthIndex(range.to);
-  if (first === last) return last;
-  for (let m = last; m >= first; m--) {
-    const label = fromMonthIndex(m);
-    const end = monthEnd(label);
-    if (`${label}-01` >= range.from && end <= range.to && end < ctx.today) return m;
-  }
-  return null;
-}
-
+/**
+ * A spike is told from the usual view of the spending change (`categoryRises`, ADR 0013): the category, what it cost
+ * and its usual level are the report's, and so are the month (`changeMonths`: the one the period ends in, the running
+ * month for a period that reaches today), the base months, the one-offs, the gate and the noise test. The alert
+ * decides the rest: how large a rise in purchases is worth a warning, and that a month which is high every year is
+ * none.
+ */
 function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
-  const target = spikeMonth(ctx, range);
-  if (target === null) return [];
-  const noiseMonths: number[] = [];
-  for (let m = target - SPIKE_NOISE_MONTHS; m < target; m++) if (historyCovers(ctx, `${fromMonthIndex(m)}-01`)) noiseMonths.push(m);
-  const base = noiseMonths.filter((m) => m >= target - SPIKE_BASE_MONTHS);
-  if (base.length < 3) return [];
-  const lastYear = target - 12;
-  const lastYearCovered = historyCovers(ctx, `${fromMonthIndex(lastYear)}-01`);
-  const { fromDay, toDay } = toDayRange(range);
-
-  // one-offs by the level policy over the months the spike is read from, as every view strikes them
-  const struck = oneOffs(ctx.txs.filter((t) => t.month >= noiseMonths[0]! && t.month <= target), LEVEL, ctx.fixedIds);
-  const per = new Map<string, { now: number; count: number; oneOffs: number; fixed: number; months: Map<number, number> }>();
-  for (const t of ctx.txs) {
-    if (!t.spend || t.category === "other") continue;
-    const inTarget = t.month === target && t.day >= fromDay && t.day <= toDay;
-    if (!inTarget && t.month !== lastYear && (t.month < noiseMonths[0]! || t.month >= target)) continue;
-    const e = per.get(t.category) ?? { now: 0, count: 0, oneOffs: 0, fixed: 0, months: new Map<number, number>() };
-    if (inTarget) {
-      e.now += t.spend;
-      e.count += 1;
-      if (struck.has(t.id)) e.oneOffs += t.spend;
-      if (ctx.fixedIds.has(t.id)) e.fixed += t.spend;
-    } else if (t.month !== target) {
-      e.months.set(t.month, (e.months.get(t.month) ?? 0) + t.spend);
-    }
-    per.set(t.category, e);
-  }
-
-  const out: (Alert & { diff: number })[] = [];
-  const season = SEASONAL.get(Number(fromMonthIndex(target).slice(5, 7)));
-  for (const [category, e] of per) {
-    const baseValues = base.map((m) => e.months.get(m) ?? 0);
-    const typical = median(baseValues);
-    if (e.count < SPIKE_MIN_TXS || e.now <= SPIKE_RATIO * typical || e.now - typical < SPIKE_MIN_CENTS) continue;
-    // a busy month of a frequent category, or one more purchase in a rare one, is the household's own noise
-    if (!monthStandsOut(e.now - typical, monthlyNoise(noiseMonths.map((m) => e.months.get(m) ?? 0)), base.length)) continue;
-    // bills paid late or early land two in one month: the late fee alert covers that
-    if (e.fixed >= 0.8 * e.now) continue;
-    // a spike is more of the same, not one big purchase (a doctor's visit, a sofa, a car repair): it
-    // must hold without its one-offs, and beyond every month before (fuel swings from 60 € to 330 €)
-    const rest = e.now - e.oneOffs;
-    if (rest <= SPIKE_RATIO * typical || rest - typical < SPIKE_MIN_CENTS || rest <= Math.max(...baseValues)) continue;
-    // the same month a year ago was as high: Christmas or a season fee, not a surprise
-    if (lastYearCovered && (e.months.get(lastYear) ?? 0) >= 0.8 * e.now) continue;
-    // without a year of history, Christmas presents and summer trips are still no surprise
-    if (!lastYearCovered && season?.has(category)) continue;
-    const label = getCategory(category).label;
-    out.push({
-      id: `spike:${category}:${fromMonthIndex(target)}`,
-      kind: "spike",
-      tone: "warning",
-      title: `${label} ${formatEur(e.now, false)} ${monthInessive(fromMonthIndex(target))}`,
-      detail: typical >= 100 ? `Tavallisesti noin ${formatEur(roundTo(typical, 100), false)}/kk` : "Tavallisesti ei lainkaan",
-      category,
-      diff: e.now - typical,
+  const { month } = changeMonths(ctx, range);
+  const found = categoryRises(ctx, month);
+  if (!found) return [];
+  const season = SEASONAL.get(Number(month.slice(5, 7)));
+  // the rows end before today (a sync that lags): the report cuts both figures at that day, and the alert names it
+  const cutAt = cutWords(found.running, found.through, ctx.today);
+  return found.rises
+    .filter((r) => {
+      // uncategorised rows are no category to act on, and a loan payment is no purchase
+      if (r.category === "other" || getCategory(r.category).kind === "debt") return false;
+      // a spike is more of the same: several purchases, most of what the category rose by, and beyond every usual
+      // month (fuel swings from 60 € to 330 €; a new level is told in its first month and then by the report)
+      if (r.purchases < SPIKE_MIN_PURCHASES || 2 * r.moreCents < r.changeCents || !r.peak) return false;
+      // on its own it is worth a line in the report, 50 € and half as much again as usual
+      if (r.moreCents < Math.max(SPIKE_MIN_CENTS, found.gateCents) || r.usualCents + r.moreCents <= SPIKE_RATIO * r.usualCents) return false;
+      // the same month a year ago moved as far; without a year of history, Christmas presents and summer trips are still no surprise
+      return !r.season && (r.yearAgoCents !== null || !season?.has(r.category));
+    })
+    .sort((a, b) => b.moreCents - a.moreCents || a.category.localeCompare(b.category))
+    .slice(0, MAX_SPIKES)
+    .map((r) => {
+      const usual = r.usualCents >= 100 ? `noin ${formatEur(roundTo(r.usualCents, 100), false)}` : "ei lainkaan";
+      return {
+        id: `spike:${r.category}:${month}`,
+        kind: "spike" as const,
+        tone: "warning" as const,
+        title: `${r.label} ${formatEur(r.nowCents, false)} ${cutAt ?? monthInessive(month)}`,
+        // a running month is set against the same days of its usual months, as the report sets it
+        detail: cutAt ? `Tavallisesti siihen mennessä ${usual}` : found.running ? `Tavallisesti tähän mennessä ${usual}` : `Tavallisesti ${usual}${r.usualCents >= 100 ? "/kk" : ""}`,
+        category: r.category,
+      };
     });
-  }
-  return out.sort((a, b) => b.diff - a.diff).slice(0, 2).map(({ diff: _diff, ...a }) => a);
 }
 
 // ── bank fees ────────────────────────────────────────────

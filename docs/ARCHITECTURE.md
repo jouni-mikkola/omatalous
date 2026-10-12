@@ -75,11 +75,21 @@ flowchart LR
   (MCC), the category most of the same merchant's other rows got, the merchant's industry from the trade
   register. Otherwise a default.
 - Industry lookup (`services/industry.ts`, `providers/prh`): merchants nothing recognises, from business
-  rows only, are searched by name in the Finnish trade register. Core `industry.ts` picks the matching
+  rows only and never under a name shaped like a person's (`isLookupName`), are searched by name in the Finnish trade
+  register. Core `industry.ts` picks the matching
   company. Answers are kept per merchant name in `merchant_industry`, so a name is looked up once, and
   `merchant_industry_users` records which names each user's lookups asked about. A user gets answers only
   for those names. The category is worked out from the stored TOL code at every reprocess, so a change to
   the mapping needs no new lookup. What is sent: [SECURITY.md](SECURITY.md#trade-register-lookup).
+- Loans (`packages/core/src/loans.ts`, ADR 0012): the loans a user confirmed are rows of `loans`, one list per user, and
+  every figure about them (owed on a day, the debt total, interest, payoff date, credit use) comes from that one file.
+  The page that makes them (`pages/settings/LoanIntake.tsx`) reads a pasted picture, a PDF or a text in the browser
+  (`components/loans/`, Tesseract and pdf.js served from the app's own `/assets`) and core's `loan-intake/` turns the
+  lines into a draft with a mark on each field; the server sees only what the household saves.
+  `loan-detect.ts` proposes loans from payments, and `GET /api/loans/proposals` works them out for each request.
+- Bank logos: `connectors/enable-banking/logos.ts` fetches the logo of a bank on the household's list from Enable
+  Banking's website and `routes/bank-logos.ts` serves it from the app's own address, so the browser calls no third
+  party. Nordea's is the one logo in the repository.
 - Lookups also start without waiting for the tick: `startLookup` in `services/industry.ts` works through
   everything due in batches of 30 names in the background (`drainLookups`; a tick does at most ten
   batches), after a CSV import, after a fetch that brought new rows
@@ -97,7 +107,7 @@ flowchart LR
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
   the range. The registry has `summary`, `cashflow`, `categories`, `pivot`, `fixedVariable`, `priceChanges`,
-  `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift`, `buffer`, `spendingChange`, `income` and `insights`.
+  `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift`, `buffer`, `spendingChange`, `income`, `insights` and `loans`.
 - Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
   file per area in `areas/` returns findings (title, action, a euro range with its assumption, calc lines, evidence
   rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months
@@ -149,10 +159,21 @@ folders older than a day. A script can run it with the new image before it stops
 ## Maintenance from the browser
 
 *Asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migrations 0006 and 0007). A host
-helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of nine fixed actions (check-update, update,
-rollback, backup, restart, doctor, logs, prune, helper-renew) and reports the result. Requests only name an allowlisted action, and the helper never
+helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of ten fixed actions (check-update, update,
+rollback, backup, restart, doctor, logs, prune, helper-renew, access) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
 [ADVANCED.md](ADVANCED.md#the-maintenance-helper).
+
+*Asetukset > Palvelin > Etäkäyttö* sets up a Cloudflare Tunnel with Access from the browser. It does not use the
+request row to carry values. The routes (`routes/admin.ts`, `services/remote-access*.ts`) ask for the admin's password,
+call Cloudflare's API in process with the saved token (`providers/cloudflare/`, the logic of the installer's
+`cloudflare up`), write the values to `<data>/ops/access-request.json` (`services/access-request.ts`) and queue the
+action `access`. The helper reads the file through `cli-ops.ts` (`ops access`), checks every value again, rewrites `.env`
+(`scripts/lib/ops-access.sh`) and reports. The record of the change (pending, last outcome, the address and emails) is a
+JSON value in `settings`, kept under a lock row. A new address is on trial for 15 minutes: the first request that passes
+the app's Access check (`security/cf-access.ts`) confirms it, and a timer and the hourly tick queue the return to the
+home network when nobody has got in. Turning it off asks the helper first and removes Cloudflare's side when the helper
+has reported, at the next read of the state or at the tick.
 
 ## Money flows
 
@@ -189,19 +210,20 @@ fetch from the same day. The other accounts go on.
 | `connections` | bank consents per user, validity, status |
 | `accounts` | type, IBAN, `identity` (the same real account seen by two users), balance, the bank's `name`; migration 0013 adds the user's own `custom_name`, the `holder`, a card's last four digits (`card_mask`) and `credit_limit_cents` |
 | `account_shares` | which account is shared with whom (read-only) |
-| `transactions` | bank fields plus `merchant`, `category`, `category_source`, `is_transfer`, `search_text` (folded text for search, migration 0003), raw payload |
+| `transactions` | bank fields plus `merchant`, `category`, `category_source`, `is_transfer`, `search_text` (folded text for search, migration 0003), `bank_txn_code` (the bank's own code of the row, migration 0015), raw payload |
 | `category_rules` | users' own rules, including the per-merchant rules from *Tapahtumat > Kauppiaat* |
 | `merchant_industry` | trade register answers per merchant name: business id, company, industry code and label. No user id |
 | `merchant_industry_users` | which merchant names each user's register lookups asked about |
 | `sync_runs` | fetch history per user |
 | `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
 | `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
+| `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit. Own rows only, bounded by `routes/loans.ts` |
 | `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
 | `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
 | `optimise_snapshots` | one snapshot of the findings per user and month, for the follow-up |
 | `security_events` | logins, lockouts, new devices, password changes and resets, ended sessions, added and deleted users, `ops_*` requests and results: time, user, IP, user agent. A `notify` event is shown once to its user. Kept 90 days, at most 2,000 |
 | `ops_requests` | maintenance requests from *Asetukset > Ylläpito*: the action, its status, who asked, the helper's summary, output and steps. The newest 200 finished ones are kept |
-| `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted) |
+| `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted), the Cloudflare API token of the Etäkäyttö page (encrypted) and its record |
 | `_migrations` | applied migrations with checksums and compatibility floors |
 
 Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised, and 0008 three for the

@@ -2,7 +2,7 @@
  * HTTP application: middleware stack and route modules. entry/node.ts
  * serves it with the static web UI and runs the hourly scheduler.
  *
- * In order: security headers, no-store, body limit, instance settings,
+ * In order: security headers, the check of Cloudflare Access (when set), no-store, body limit, instance settings,
  * session, CSRF guard, public routes (health, auth, bank callback), login
  * required, admin routes, user routes.
  */
@@ -14,9 +14,11 @@ import { csrfGuard, gated, requireAdmin, requireUser, sessionMiddleware } from "
 import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { bankCallbackRoute, bankRoutes } from "./routes/bank.ts";
+import { BANK_LOGO_PATH, bankLogoHeaders, bankLogoRoutes } from "./routes/bank-logos.ts";
 import { CSV_BODY_MAX, dataRoutes } from "./routes/data.ts";
 import { expectedBillRoutes } from "./routes/expected-bills.ts";
 import { financeRoutes } from "./routes/finance.ts";
+import { loanRoutes } from "./routes/loans.ts";
 import { marksRoutes } from "./routes/marks.ts";
 import { optimiseRoutes } from "./routes/optimise.ts";
 import { securityRoutes } from "./routes/security.ts";
@@ -24,8 +26,10 @@ import { opsRoutes } from "./routes/ops.ts";
 import { merchantRoutes } from "./routes/merchants.ts";
 import { userRoutes } from "./routes/users.ts";
 import { HttpUserError, NotFound, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
+import { cfAccess } from "./security/cf-access.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
 import { checkHealth } from "./services/health.ts";
+import { confirmAccess, watchTrial } from "./services/remote-access-trial.ts";
 
 export type { AppDeps } from "./services/context.ts";
 
@@ -47,12 +51,14 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
     return c.json({ error: "Jokin meni vikaan. Yritä uudelleen." }, 500);
   });
 
+  // first, so it is the last to touch the answer: a served bank logo carries headers of its own (routes/bank-logos.ts)
+  app.use(`${BANK_LOGO_PATH}/*`, bankLogoHeaders);
   app.use(
     "*",
     secureHeaders({
       contentSecurityPolicy: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:"],
         connectSrc: ["'self'"],
@@ -65,6 +71,13 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
       strictTransportSecurity: "max-age=31536000",
     }),
   );
+  // With CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN set, only a request that came through Cloudflare Access gets past
+  // this line (and GET /api/health). Registered before every route, and before the static files of entry/node.ts.
+  if (s.config.access) {
+    // a request that passes is the proof a newly turned on remote access waits for (services/remote-access-trial.ts)
+    app.use("*", cfAccess(s, s.config.access, () => confirmAccess(s)));
+    watchTrial(s);
+  }
   app.use("/api/*", async (c, next) => {
     await next();
     c.header("Cache-Control", "no-store");
@@ -104,10 +117,12 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", financeRoutes(s));
   app.route("/api", marksRoutes(s));
   app.route("/api", expectedBillRoutes(s));
+  app.route("/api", loanRoutes(s));
   // its own prefix: a guard mounted at /api/* would gate every route registered after it
   app.route("/api/optimise", gated(s, "optimise", optimiseRoutes(s)));
   app.route("/api", merchantRoutes(s));
   app.route("/api", bankRoutes(s));
+  app.route(BANK_LOGO_PATH, bankLogoRoutes(s));
   app.route("/api", dataRoutes(s));
   app.all("/api/*", (c) => c.json({ error: "Ei löydy." }, 404));
 

@@ -7,7 +7,7 @@ import { addMonthsToDate, dayNumber, fromDayNumber } from "../dates.ts";
 import { formatFiDate } from "../analysis/format.ts";
 import type { IsoDate } from "../types.ts";
 import { isSubject } from "./common.ts";
-import type { AreaId, InputKey, InputValue, InputValueMap, InputValues, StoredInput } from "./types.ts";
+import type { AreaId, InputKey, InputValue, InputValueMap, InputValues, LoanReference, StoredInput } from "./types.ts";
 
 export type InputKind = "integer" | "cents" | "date" | "choice" | "loan_rate";
 
@@ -35,12 +35,15 @@ export interface InputDef {
   perSubject: boolean;
 }
 
-const LOAN_REFERENCES = [
-  { id: "euribor_12", label: "12 kuukauden Euribor" },
-  { id: "euribor_6", label: "6 kuukauden Euribor" },
-  { id: "euribor_3", label: "3 kuukauden Euribor" },
-  { id: "fixed", label: "Kiinteä korko" },
-] as const;
+/** The Finnish name of each reference rate: the one list every page and finding reads. */
+export const LOAN_REFERENCE_LABEL: Record<LoanReference, string> = {
+  euribor_12: "12 kuukauden Euribor",
+  euribor_6: "6 kuukauden Euribor",
+  euribor_3: "3 kuukauden Euribor",
+  fixed: "Kiinteä korko",
+};
+
+const LOAN_REFERENCES = (Object.keys(LOAN_REFERENCE_LABEL) as LoanReference[]).map((id) => ({ id, label: LOAN_REFERENCE_LABEL[id] }));
 
 export const INPUT_DEFS: { readonly [K in InputKey]: InputDef & { key: K } } = {
   loan_rate: {

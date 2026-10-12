@@ -1,5 +1,6 @@
 /** Bank credentials, consents and synchronisation for the signed-in user. */
 import { Hono } from "hono";
+import { clientIp } from "../auth/middleware.ts";
 import { forgetConnection, removeConnection } from "../connectors/enable-banking/connector.ts";
 import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
 import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
@@ -68,7 +69,7 @@ export function bankRoutes(s: Services) {
   app.put("/bank/credentials", async (c) => {
     const { appId, privateKeyPem } = strictObject(await body(c), ["appId", "privateKeyPem"] as const);
     // the test of the pair comes back too: a key can be saved while the application is still inactive
-    return c.json({ ok: true, result: await saveCredentials(s, c.get("user").id, appId, privateKeyPem) });
+    return c.json({ ok: true, result: await saveCredentials(s, c.get("user").id, appId, privateKeyPem, { ip: clientIp(c, s), userAgent: c.req.header("user-agent") ?? null }) });
   });
 
   app.delete("/bank/credentials", async (c) => {

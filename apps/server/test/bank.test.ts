@@ -4,7 +4,7 @@ import { originFromRelayState, relayState } from "@banking/core";
 import { pastedParams } from "../src/routes/bank.ts";
 import { syncEveryone } from "../src/connectors/sync.ts";
 import { mockBank } from "./mock-bank.ts";
-import { setupApp, waitFor } from "./helpers.ts";
+import { NOW, setupApp, waitFor } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 
@@ -208,5 +208,26 @@ describe("bank return modes", () => {
     expect((await admin.call("POST", "/api/admin/bank-app/check", { appId })).body.message).toContain("Activate by linking accounts");
     expect((await admin.call("POST", "/api/admin/bank-app/check", { appId: "x" })).status).toBe(400);
     expect(s).toBeTruthy();
+  });
+
+  it("refuses the ninth test of an application id in ten minutes, on a count apart from the administrator's own key tests", async () => {
+    let clock = NOW.getTime();
+    const bank = mockBank();
+    const { admin } = await setupApp({}, bank.fetchMock, { now: () => new Date(clock) });
+    await admin.call("POST", "/api/admin/bank-app/key");
+    const check = () => admin.call("POST", "/api/admin/bank-app/check", { appId: randomUUID() });
+    expect((await admin.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem })).status).toBe(200);
+    for (let i = 0; i < 8; i++) expect((await check()).status, `test ${i + 1}`).toBe(200);
+    const calls = bank.calls.length;
+
+    const refused = await check();
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toBe("Liian monta testiä peräkkäin. Odota muutama minuutti.");
+    expect(bank.calls.length).toBe(calls);
+    // the member's count is still their own
+    expect((await admin.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem })).status).toBe(200);
+
+    clock += 10 * 60_000 + 1000;
+    expect((await check()).status).toBe(200);
   });
 });

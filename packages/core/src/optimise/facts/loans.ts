@@ -9,6 +9,7 @@
  * Margin: the sample offers Taloustaito got from nine banks for a 150 000 € mortgage, published 16.9.2026. They are
  * examples, not an offer to this household, so they are kind `sample` and cost a certainty step.
  */
+import { LOAN_REFERENCE_LABEL } from "../inputs.ts";
 import type { LoanReference } from "../types.ts";
 import type { Fact } from "./index.ts";
 
@@ -49,18 +50,19 @@ const EURIBOR: readonly [string, number, number, number][] = [
   ["2026-09", 2.635, 2.922, 3.247],
 ];
 
-const TENORS: readonly [Exclude<LoanReference, "fixed">, number, string][] = [
-  ["euribor_3", 1, "3 kuukauden Euribor"],
-  ["euribor_6", 2, "6 kuukauden Euribor"],
-  ["euribor_12", 3, "12 kuukauden Euribor"],
+/** The Euribor references and their column in `EURIBOR`; the names are the one list of `LOAN_REFERENCE_LABEL`. */
+const TENORS: readonly [Exclude<LoanReference, "fixed">, number][] = [
+  ["euribor_3", 1],
+  ["euribor_6", 2],
+  ["euribor_12", 3],
 ];
 
 const euribor: Fact[] = EURIBOR.flatMap((row) =>
-  TENORS.map(([reference, column, label]): Fact => {
+  TENORS.map(([reference, column]): Fact => {
     const month = row[0];
     return {
       id: `${reference}:${month}`,
-      label: `${label} ${Number(month.slice(5, 7))}/${month.slice(0, 4)}`,
+      label: `${LOAN_REFERENCE_LABEL[reference]} ${Number(month.slice(5, 7))}/${month.slice(0, 4)}`,
       value: row[column] as number,
       unit: "%",
       kind: "rate",

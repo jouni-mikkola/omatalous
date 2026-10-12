@@ -8,7 +8,7 @@ Every transaction lands in exactly one flow, so nothing is counted twice or left
 | Velanhoito (debt) | loan payments, financing, interest, collection | part of Menot, own group in reports |
 | Säästöt (savings) | savings accounts, funds, shares, crypto, gold, pension savings | savings rate, cash flow |
 | Tulot (income) | salary, benefits, dividends, sales, refunds of costs | Tulot |
-| Luotonnostot (borrowing) | credit drawn to an account, loan payouts | cash flow only, never income |
+| Luotonnostot (borrowing) | credit drawn to an account, loan payouts | cash flow and *Yli jäi*, never income |
 | Siirto (transfer) | money between your own connected accounts | not counted |
 
 ## Definitions
@@ -21,7 +21,8 @@ A figure has one definition, in `packages/core`, and the month page, the reports
 | *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. A month's usual spending is the median of those months' totals, on the same days for a running month: the forecast, the pace chart and *Menojen muutos* say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
 | *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
-| *Yli jäi* | Income − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on | `PeriodTotals.leftCents` |
+| *Yli jäi* | Income + credit drawn − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on. See *Yli jäi and borrowed money* | `PeriodTotals.leftCents`, summed in `totalsOf` in `analysis/flows.ts` and nowhere else |
+| *Katettu luotolla*, *Katettu säästöistä*, *Tileiltä tai kortilta* | How a period that took more than its income was paid for: with credit drawn in the period, with money taken out of savings, and the rest from the accounts or a connected card, which the totals cannot tell apart. `coverOf` also gives what the drawn money left (`creditLeftCents`, `savingsLeftCents`), so no view subtracts | `coverOf` in `analysis/flows.ts` |
 | *Kuussa*, *vuodessa* (a series) | What a subscription or bill costs: its typical charge times the charges it makes in a year, and a twelfth of that a month. A monthly series with a year of history counts its own charges of the last twelve months (11 for day care that is free in July), and a bill that varies (electricity) is what its last twelve charges came to. Fixed costs, new subscriptions, renewals and price rises read these figures, and so does Säästövinkit: its 120 € gate for a renewal is the series' own year, and its follow-up counts the series' own charges a year | `RecurringSeries.perMonth`, `monthlyCents`, `yearlyCents` in `recurring.ts` |
 | *Kiinteät menot* | An active subscription or bill, per month: its spending and its debt service (a loan instalment). The credit card bill is left out, since it pays everyday purchases, and so is a monthly saving | `isFixedCost`, `fixedSplit`, `fixedMonthlyCents` in `commitments.ts` |
 | *Tilaus* | An active fixed-amount series in subscriptions, fitness, entertainment, education, shopping or other. Telecom, insurance, housing, utilities, memberships and loans are contracts: they are fixed costs and are not subscriptions | `isSubscription`, `subscriptionsMonthlyCents` in `commitments.ts` |
@@ -37,6 +38,41 @@ names the sum and the largest payees, so a missing connection shows.
 
 Tapahtumat's *maksettu* and *saatu* leave own transfers out, and so do a merchant summary's sums and its category. The
 row count still includes them, and the page says the transfers are not in the sums.
+
+## Yli jäi and borrowed money
+
+*Yli jäi* is what a period left on the accounts: income + credit drawn − spending − debt service − saved (ADR 0014).
+`totalsOf` holds the sum, and the month page and the cash flow report read `leftCents` from it. The figure is the same
+number the rows give with no flow in between: the sum of every row on an account that is not a loan, less the transfer
+rows (a pair cancels itself, so this takes away the legs with no other half in the period), less the money moved into
+savings accounts, which is *Säästöön*. A card account is in the sum, since a card purchase is spending on the day it is
+made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, the seeded households and random rows.
+
+Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Yli jäi* and in no income figure,
+savings rate or margin (`netCents`). A household that buys a car for 13 000 € with a pay of 3 000 € and a credit of
+20 000 € has *Yli jäi* 10 000 €, and the bridge says the 10 000 € is credit.
+
+When a period took more than its income, `coverOf` says how the gap was paid. Money has no label, so the order is a
+rule: the income pays first, then the credit drawn in the period (*Katettu luotolla*, at most the credit drawn), then
+money taken out of savings (*Katettu säästöistä*), then the accounts and the connected cards (*Tileiltä tai kortilta*,
+which is how far *Yli jäi* is below zero). The third cover never says that money on an account paid: an account may
+have grown while a card owed more, and `PeriodTotals` holds no balance of either, so the tile and the sentence ("Ero
+katettiin tileillä olleilla rahoilla tai luottokortilla.") name both. Credit goes before savings so that a month paid
+with both never shows less borrowing than there was. Drawn money that paid for nothing is in *Yli jäi*. The bridge (`SurplusBridge`, its parts in
+`components/month-parts.ts`) is one sum, and its strip, bar, figures and table are parts of it:
+
+    income + credit drawn + savings drawn + from the accounts = spending + debt service + saved + credit paid back + Yli jäi above zero
+
+Its sentence names the covers with sums the figures show, and a credit line gives the credit drawn with the debt
+service of the period under the tile's own word ("Luottoa nostettiin 20 000 €, velanhoitoon meni 1 200 €."). How much
+of the credit is in *Yli jäi* is said only when no debt was paid in the period: with a payment beside it, the split is
+true by the order rule alone. Neither calls borrowed money income, and neither says more was spent than earned
+without saying how the difference was paid.
+
+The bar is drawn only when there is income and no part is below zero (`bridgeDraws`): then every part of the strip and
+the bar is zero or above and the two are one sum on one axis. A period with no income, with refunds above purchases or
+with income taken back is told by the table alone, every row signed and the last row *Yli jäi*, with the same
+sentences under it and nothing told as a share of the income.
 
 ## Cases
 
@@ -54,6 +90,7 @@ row count still includes them, and the page says the transfers are not in the su
 | Mortgage payment | debt ("Asuntolaina") | |
 | Loan payment text (*lainanmaksu*, *lyhennys*) to a bank that lends mortgages (Nordea, OP, Danske, S-Pankki, Aktia and others) | debt ("Asuntolaina") | other lenders' loans are "Kulutusluotot" |
 | Mortgage account connected | its own rows are not counted; the payment from the current account stays debt | the loan account only mirrors the payment |
+| A housing company's charge for its own loan (*rahoitusvastike*, *yhtiölaina*, or a loan named by its purpose such as *remonttilaina*) | spending (housing); debt when the text says *lyhennys* or *lainaosuus* | the company owes the loan and the shareholder pays a charge, so it is never proposed as a loan to save |
 | Student loan, collection, late interest | debt | |
 | Loan paid out to an account | borrowing | |
 | To your own connected savings account | transfer, counted as saved on the savings side | |
@@ -123,7 +160,7 @@ that may be going to waste. Clicking one opens the transactions behind it.
 | *Sama veloitus kahdesti* | The same merchant, amount and day twice on one account, at least 20 €. A merchant that does this often (two cinema tickets) is left out. A monthly bill paid twice within a week counts too |
 | *Myöhästymiskuluja* | A payment text with *muistutusmaksu*, *viivästyskorko*, *perintäkulu* or *karhumaksu*. Shows the total and the merchants |
 | *Kaksi äänikirjapalvelua* and the like | Two or more active subscriptions of the same kind: audiobooks, music, cloud storage, video. Video is shown as information only, the others as a warning |
-| Category spike | A category's spending in the month is over 1.5 times the median of the previous six months and at least 50 € above it, over three or more purchases. Without its largest purchase it must still be above every one of those months, so a sofa or a car repair is not a spike. Mostly fixed bills and a month that was as high a year ago do not count. Before a year of history, December gifts and shopping and summer trips and outings do not count either |
+| Category spike | A category that rose in the month against its usual level in the *Menojen muutos* report, by the report's gate or more and out of its own noise, with the report's amount and usual level (ADR 0013). Every category is read, also one the report's table folds into *Muut*. The month is the report's: the one the period ends in, so Kuukausi, 3 kk and Vuosi that reach today all tell the running month, and last month's spike shows when that month is selected. The rise in purchases that are no one-off and no bill or subscription of a month or longer must be at least 50 €, over half the usual level, from three or more purchases, most of the category's rise and above every usual month, so a sofa, a car repair, a new subscription or a bigger bill is not a spike. A running month is set against the same days of the usual months (*Tavallisesti tähän mennessä*); when the rows end before today, the alert names the day both figures are cut at (*10.10. mennessä*). A month that was as far above usual a year ago does not count. Before a year of history, December gifts and shopping and summer trips and outings do not count either. Uncategorised rows and loan payments never alert |
 | *Käytätkö vielä: …?* | An active subscription that the recurring detection marks for review: a service of 3–15 € a month (a gym up to 60 €) that has run for half a year. Shown when the period reaches today, two at most |
 | *Pankkikuluja … vuodessa* | Bank fees and interest add up to over 100 € a year, judged over at least six months and 150 days of data. Reminder fees and late interest have their own alert |
 | *… kertaa kuussa* | A merchant with at least eight small purchases a month (median under 10 €) over the last 90 days, with the yearly sum. Fixed costs, cash and payments to people are left out |
@@ -197,6 +234,73 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   where to add one.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
+
+## Loans
+
+The bank connection shows payment accounts only, so a loan is typed in, pasted or read from a picture, and the household
+confirms it. Its payments are still bank rows and stay in the debt flow: a known loan changes no flow. Each figure has
+one definition, in `packages/core/src/loans.ts`.
+
+| Figure | Means | In core |
+|---|---|---|
+| Balance on a day | The stated balance moved forward from its date by the repayment plan, one payment at a time. A loan whose plan lacks a field keeps the stated balance and names the field. Before the balance date there is no figure | `loanBalanceOn` |
+| Debt total | The sum of those balances. The loans left out or counted at their stated balance are listed with it | `debtTotalOn` |
+| Interest over 12 months | The interest parts of the payments due in the 12 months after the day. A loan whose balance stays (no plan, or a bullet loan) owes its rate on that balance for the days before its last due date; a whole year is balance × rate. Without a rate there is no figure, except that a loan that owes nothing costs nothing | `loanInterestNext12Months`, `debtInterestNext12Months` |
+| Payoff date | The due date that brings the balance to zero, at the latest the last due date. None when a payment does not cover its interest or a field is missing | `loanPayoffDate` |
+| Next payment | The next payment of the plan in full, with its interest and its amortisation. It is never more than what is owed with its interest: the last payment is what is left. A loan that owes nothing has none, and neither has a bullet loan. A payment typed for a loan without a whole plan is told as typed, at most what is owed (with one interval's interest when the rate and the interval are known), and has no parts | `loanNextPayment` |
+| Payments a month | Each loan's next payment divided by its interval in months, to the nearest cent with a half cent up, added together. A loan that owes but has no payment with an interval is counted as missing. A bullet loan is counted apart: it pays interest and no instalment | `debtPaymentsPerMonth` |
+| A move of the reference rate | The payment and the next 12 months' interest with the rate moved by a number of points. The rate falls no lower than the loan's margin, and to zero when no margin was told; the figure says how far the rate moved. An annuity gets the payment that ends the loan on the due date it ends on now, a fixed instalment keeps its payment and takes longer, equal principal pays the new interest on top. Each is read from the schedule the next payment is read from, so the last payment is what is left. Told for a loan with a Euribor reference rate that owes and has a rate, one point down and one up; a fall the rate has no room for is left out | `loanRateScenario` |
+| The household's debts | Every saved loan, and every connected card and loan account that owes something: the list behind every debt total. No link between a saved loan and an account is stored, so none is left out | `householdDebts` |
+| Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |
+| A connected account as a loan | A connected card, or an account with a credit limit, read as a loan so that its debt and its use come from the same functions. The bank reports credit in use as a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank that reported a card's debt as a positive number would read as no debt. The id is `account:<account id>` | `creditAccountLoan` |
+| What a card cost | The bank's own charges on the card account in the complete months before a day, twelve at most. A charge worded as interest is interest, less the interest the bank took back and never below zero, and every other charge is a fee, and a late fee stays the late fee alert's. A month carried a balance when the bank charged interest in it. Nothing is scaled up for a card connected later | `cardCosts` |
+| A payment's parts | Interest is one interval's interest on what was owed the day before, and amortisation is the rest, so the two add up to the payment. Amortisation is negative when the payment did not cover the interest. No view reads it in this release; a later release links a loan to its account | `splitLoanPayment` |
+
+- Money is whole cents and a rate is hundredths of a percent. Interest of one payment interval is balance × rate ×
+  months / 12, rounded to the nearest cent with a half cent up (`loanPeriodInterest`). Banks count days, each in its
+  own way, so a statement can differ by cents, and by up to 1.4 % of the interest where the bank divides by 360 days.
+- With *annuity* and *fixed instalment* the payment holds the interest. With *equal principal* the payment is the
+  amortisation alone and the interest comes on top. A *bullet* loan keeps its balance until its last due date.
+- Due dates count back from the last due date. Without one the first payment is counted a whole interval after the
+  balance date, the latest it can be, so the balance is never told too low. The balance stays between due dates, and
+  each payment carries a whole interval's interest.
+- On the last due date whatever is left falls due: a bullet loan, or a car loan with a larger last instalment. A last
+  due date on or before the balance date is ignored.
+- A payment that does not cover its interest grows the balance. A plan that is not paid in 1 200 payments counts as
+  never ending.
+- Nothing is estimated. A figure that needs a field the loan lacks is empty and names the field: no rate, no
+  interest; no payment, no payoff date.
+- A saved loan cannot be tied to a connected account: no link is stored yet. Every saved loan and every connected
+  card or loan account that owes is in the sums, so a debt the household saved and the bank also shows as an account
+  is there twice. The Lainat report names each such set of saved loans once, with the accounts beside it (`maybeTwice`
+  in `reports/loans.ts`): a connected card beside every saved card and credit line that owes, whatever their names,
+  and a connected loan account beside every saved loan that is no card. It says that removing the saved loan takes the
+  second one out. Saldot and the Säästövinkit loan area point to the report.
+- A checking account below zero is no loan: its overdraft is in the accounts' total and not in the debt total. Beside
+  a saved credit line that owes it may be that credit, and then the accounts less the debts hold it twice
+  (`overdraftTwice` in `reports/loans.ts`). Lainat and Saldot say so where they show that figure, and that the right
+  figure is then larger by the saved loan. They advise no step: removing the saved loan would take the debt out of the
+  debt total, which holds it once.
+- The debt total is one number. The Lainat report, the accounts less the debts and the Velat lines of the
+  Säästövinkit loan area all read `householdDebts` (`packages/core/test/owners.test.ts` holds them together).
+- The accounts less the debts ("Tilit miinus velat", `accountsLessDebt` of `balanceReport`) are the connected
+  accounts' total less the saved loans, each at its balance on that day. Connected cards and loan accounts are in the
+  accounts' total already. The figure holds no home, no investments and no other property, so it is not net worth and
+  no page calls it that: the page says what is left out. It is empty for a month that ends before a saved loan's
+  balance was told, and the same as the accounts' total without saved loans. Lainat and Saldot tell it for today.
+- The Lainat report (`reports/loans.ts`) shows only when the household saved a loan. In the household view the
+  accounts are the household's and the saved loans are the viewer's own, and the section says so. Its interest total
+  leaves out the loans that owe and have no rate (`loansWithoutRate`, the count Säästövinkit reads too), and its
+  payments a month leave out the loans without a payment and an interval and a loan whose balance is dated after
+  today: each says how many. The line of a move of the reference rate names the payment only when the move has one,
+  and a move with no figure has no line. A payment made less often than monthly is spread over its interval, and a payment
+  without an interval is shown without one. The date a loan ends is "Viimeinen eräpäivä". What is not known reads
+  "ei tiedossa", never zero.
+- The Säästövinkit loan area reads a saved mortgage where there is one: its margin and reference rate answer for the
+  `loan_rate` question, its balance is the loan's balance today, and paying it down early is counted at its own rate
+  instead of a range of Euribor months. A saved mortgage with a fixed rate is asked nothing, as when the household
+  answers that its rate is fixed. The mortgage is the saved one linked to the payment series, else the saved
+  mortgage that owes most. Without a saved mortgage the area asks and counts as before.
 
 ## Säästövinkit
 

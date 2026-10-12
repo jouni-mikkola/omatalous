@@ -9,7 +9,8 @@ import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports } from "../src/reports/index.ts";
 import { fullMonths } from "../src/reports/shared.ts";
 import { addDays, addMonths, monthIndex } from "../src/dates.ts";
-import type { Account, ExpectedCadence, Transaction } from "../src/types.ts";
+import { debtInterestNext12Months, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "../src/loans.ts";
+import type { Account, ExpectedCadence, Loan, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
 // test helpers put every transaction on account "acc-1"
@@ -469,7 +470,7 @@ describe("a running month in the cash flow", () => {
     const ctx = createContext(dataset().filter((t) => t.bookingDate >= "2025-09-20"), [checking], today);
     const cash = buildReports({ ctx, range: { from: "2025-09-01", to: today }, balances: [] }).cashflow;
     expect(cash.rows.map((x) => x.complete)).toEqual([false, ...Array<boolean>(12).fill(true), false]);
-    for (const x of cash.rows) expect(x.leftCents).toBe(x.incomeCents - x.consumptionCents - x.debtCents - x.savedCents);
+    for (const x of cash.rows) expect(x.leftCents).toBe(x.incomeCents + x.borrowedCents - x.consumptionCents - x.debtCents - x.savedCents);
     expect(cash.rows.reduce((s, x) => s + x.leftCents, 0)).toBe(cash.totals.leftCents);
     const whole = cash.rows.filter((x) => x.complete);
     expect(cash.closed!.incomeCents).toBe(whole.reduce((s, x) => s + x.incomeCents, 0));
@@ -727,5 +728,64 @@ describe("balances and the total of the accounts", () => {
     const r = run([], [empty], [given(empty, 50000, "2026-10-05T08:00:00.000Z")], { from: "2026-09-01", to: "2026-10-09" });
     expect(r.accounts[0]!.values).toEqual([null, 50000]);
     expect(r.total).toEqual([null, 50000]);
+  });
+});
+
+describe("loans: the Lainat report and net worth", () => {
+  const card: Account = { id: "card", name: "Kortti", iban: null, currency: "EUR", type: "credit_card" };
+  const given = (account: Account, balanceCents: number): BalanceInput => ({ id: account.id, name: account.name, type: account.type, balanceCents, ownerName: null, balanceAt: null });
+  const loan = (p: Partial<Loan> & Pick<Loan, "id" | "kind" | "balanceCents">): Loan => ({
+    name: p.id, lender: null, grantedCents: null, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: null, ...p,
+  });
+  // 120 000 € at 4 % paid 1 000 € a month, 12 000 € at a fixed 6 % paid 500 € and its interest, and a card typed in under the connected card's name
+  const home = loan({ id: "home", kind: "mortgage", balanceCents: 12000000, rateBp: 400, reference: "euribor_12", marginBp: 60, repayment: "annuity", intervalMonths: 1, paymentCents: 100000 });
+  const car = loan({ id: "car", kind: "car", balanceCents: 1200000, rateBp: 600, reference: "fixed", repayment: "equal_principal", intervalMonths: 1, paymentCents: 50000 });
+  const typedCard = loan({ id: "typed", name: "kortti", kind: "card", balanceCents: 124000 });
+  const balances = [given(checking, 200000), given(card, -80000)];
+  const run = (loans: Loan[], range = { from: "2026-08-01", to: "2026-10-09" }) =>
+    buildReports({ ctx: createContext(monthlyOn("2026-08", 3, 3, () => -50000, { accountId: "acc-1" }), [checking, card], today), range, balances, inputs: { marks: [], expectedBills: [], loans } });
+
+  it("tells each debt once, every figure the one loans.ts gives, and the totals are the sums of the rows", () => {
+    const r = run([home, car, typedCard]).loans;
+    expect(r.loans.map((l) => l.id)).toEqual(["home", "car", "typed", "account:card"]);
+    expect(r.total.cents).toBe(12000000 + 1200000 + 124000 + 80000);
+    expect(r.total.cents).toBe(r.loans.reduce((s, l) => s + l.balance.cents!, 0));
+    for (const [row, l] of [[r.loans[0]!, home], [r.loans[1]!, car]] as const) {
+      expect(row.balance).toEqual(loanBalanceOn(l, today));
+      expect(row.interest).toEqual(loanInterestNext12Months(l, today));
+      expect(row.payoff).toEqual(loanPayoffDate(l));
+      expect(row.payment.interestCents! + row.payment.amortisationCents!).toBe(row.payment.cents);
+    }
+    // a month of 4 % on 120 000 € is 400 €; the car's 500 € is amortisation and a month of 6 % on 12 000 € comes on top
+    expect(r.loans[0]!.payment).toEqual({ cents: 100000, interestCents: 40000, amortisationCents: 60000, intervalMonths: 1, unknown: null });
+    expect(r.loans[1]!.payment).toEqual({ cents: 56000, interestCents: 6000, amortisationCents: 50000, intervalMonths: 1, unknown: null });
+    // unknown is null with its reason, never zero: the cards have no rate and no payment
+    for (const row of r.loans.slice(2)) expect(row).toMatchObject({ payment: { cents: null, unknown: "repayment" }, interest: { cents: null, unknown: "rate" }, payoff: { date: null, unknown: "repayment" } });
+    // a move of the reference rate is told for the loan it moves: one point down and one up
+    expect(r.loans.map((l) => l.scenarios.map((x) => x.rateBp))).toEqual([[300, 500], [], [], []]);
+    expect(r.interest.cents).toBe(r.loans[0]!.interest.cents! + r.loans[1]!.interest.cents!);
+    expect(r.interest.unknown.filter((u) => !u.counted).map((u) => u.loanId)).toEqual(["typed", "account:card"]);
+    expect(r.payments).toEqual({ monthlyCents: 156000, counted: 2, unknown: 2, bullets: 0 });
+    // nothing proves the typed card is the connected one: both are counted and the pair is named
+    expect(r.maybeTwice).toEqual([{ loans: [{ id: "typed", name: "kortti" }], accounts: [{ id: "card", name: "Kortti" }] }]);
+  });
+
+  it("the accounts less the debts take every saved loan from the accounts, unknown before a loan was told, and no loan is tied to an account", () => {
+    const r = run([home, car, typedCard]);
+    const saved = 12000000 + 1200000 + 124000;
+    expect(r.balances.debt).toEqual({ day: today, cents: r.loans.total.cents, savedCents: saved });
+    expect(r.balances.total).toEqual([300000, 250000, 120000]);
+    expect(r.balances.accountsLessDebt).toEqual([null, null, 120000 - saved]);
+    // a household without saved loans: the figure is the accounts' total and the connected card is the only debt
+    const none = run([]);
+    expect(none.balances.accountsLessDebt).toEqual(none.balances.total);
+    expect(none.balances.debt).toEqual({ day: today, cents: 80000, savedCents: 0 });
+    expect(none.loans).toMatchObject({ saved: 0, total: { cents: 80000 } });
+    // nothing stores a link, so a loan that carries an account's id is a loan like any other: both stay in the sums
+    const named = run([home, { ...typedCard, accountId: "card" } as Loan]);
+    expect(named.loans.loans.map((l) => l.id)).toEqual(["home", "typed", "account:card"]);
+    expect(named.loans).not.toHaveProperty("same");
+    expect(named.balances.accountsLessDebt.at(-1)).toBe(120000 - 12000000 - 124000);
+    expect(debtInterestNext12Months([home], today).cents).toBe(named.loans.interest.cents);
   });
 });

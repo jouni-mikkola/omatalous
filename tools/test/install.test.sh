@@ -111,30 +111,35 @@ t_summary_line() {
 # A full install runs in the fake world with a docker that answers what the install asks, logs every call (S/docker.log)
 # and plays the app image's `cloudflare up` and `cloudflare down` (CF1's command): it answers `up` with the JSON line,
 # or with exit 3 or 4 (S/cf-mode), and logs the emails it was given. Names and addresses are made up.
-API_TOKEN=cfapi_example_0123456789abcdefghij
-TUN_TOKEN=eyJhIjoiZXhhbXBsZSIsInQiOiJleGFtcGxlLXR1bm5lbCIsInMiOiJleGFtcGxlIn0=
-MANUAL_TOKEN=eyJtYW51YWwiOiJ0b2tlbiJ9
+# The process id of this run is in each token that the process list is searched for: another run of this suite or of
+# another one on the same machine (two checks at once, every scenario of a check is a job of its own) has other values,
+# so it cannot show them. t_cloudflare_watcher_sees_argv puts one in an argument list on purpose, and every check that
+# compares .env with a token has it in a bash -c argument. The form is the same as before (letters, digits, _ and =).
+API_TOKEN=cfapi_example_$$_0123456789abcdefghij
+TUN_TOKEN=$(printf '{"a":"example","t":"example-tunnel","s":"example%s"}' "$$" | base64 -w0)
+MANUAL_TOKEN=$(printf '{"manual":"token%s"}' "$$" | base64 -w0)
 EMAILS="anna@example.fi,pekka@example.fi"   # the file's list, the default of every copy
+# what `cloudflare up` adds for the app's own check of Access: the application's audience tag and the team's host
+AUD_TAG=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+TEAM_DOMAIN=kotitiimi.cloudflareaccess.com
 XENV=(); INPUT=/dev/null
 cf_file() { echo "$W/home/.config/omatalous/cloudflare.env"; }
-cf_world() { # a first install: no .env yet, the Cloudflare file (mode 600), a docker for the whole install
-  new_host; rm -f "$CL/.env"; XENV=(); INPUT=/dev/null
-  mkdir -p "$W/home/.config/omatalous"; chmod 755 "$W/home/.config"; chmod 700 "$W/home/.config/omatalous"
-  printf '# made up\nCLOUDFLARE_API_TOKEN=%s\nCLOUDFLARE_ACCESS_EMAILS=%s\nCLOUDFLARE_BASE_DOMAIN=example.fi\n' "$API_TOKEN" "$EMAILS" >"$(cf_file)"
-  chmod 600 "$(cf_file)"
-  printf '%s' "$API_TOKEN" >"$S/api-token"; printf '%s' "$TUN_TOKEN" >"$S/tunnel-token"
-  printf 'CLOUDFLARE_TUNNEL_TOKEN=%s\n' "$TUN_TOKEN" >"$S/envline"; printf '%s\n%s\n' "$API_TOKEN" "$TUN_TOKEN" >"$W/secrets"
+# the stub docker of the whole install, in S/bin/docker
+write_docker() {
   cat >"$S/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$S/docker.log"
 case $1 in
   version) echo 27.0.0 ;;
+  info) if [[ -e $S/no-access && ! -e $S/group-applied ]]; then echo "permission denied while trying to connect to the Docker daemon socket" >&2; exit 1; fi ;;
   container) exit 1 ;;
   compose)
     case $2 in
       version) echo 2.29.0 ;;
-      up) if grep -qxFf "$S/envline" .env; then echo "up: .env has the tunnel token" >>"$S/docker.log"; else echo "up: .env has no tunnel token" >>"$S/docker.log"; fi ;;
+      up) if grep -qxFf "$S/envline" .env; then echo "up: .env has the tunnel token" >>"$S/docker.log"; else echo "up: .env has no tunnel token" >>"$S/docker.log"; fi
+          if grep -q '^CF_ACCESS_AUD=.' .env && grep -q '^CF_ACCESS_TEAM_DOMAIN=.' .env; then echo "up: .env has the Access pair" >>"$S/docker.log"; else echo "up: .env has no Access pair" >>"$S/docker.log"; fi ;;
       ps) [[ -e $S/container ]] && echo abc123 ;;
+      exec) [[ $* == *" setup-code" ]] && echo k3f9-2mxq-8hzt-p4wa ;;
     esac ;;
   run)
     [[ $* == "run --rm --log-driver none -e CLOUDFLARE_API_TOKEN -e CLOUDFLARE_ACCESS_EMAILS "* ]] || { echo "stub: wrong docker run flags" >&2; exit 2; }
@@ -151,11 +156,22 @@ case $1 in
     if [[ $* == *" --new" ]] && grep -qxF "$host" "$S/made" 2>/dev/null; then echo "$host is already set up in Cloudflare" >&2; exit 3; fi
     grep -qxF "$host" "$S/made" 2>/dev/null || echo "$host" >>"$S/made"
     echo "Tunnel ready for $host" >&2
-    printf '{"hostname":"%s","tunnelToken":"%s","changed":["tunnel","dns","access"]}\n' "$host" "$(cat "$S/tunnel-token")" ;;
+    printf '{"hostname":"%s","tunnelToken":"%s","changed":["tunnel","dns","access"]%s}\n' "$host" "$(cat "$S/tunnel-token")" "$(cat "$S/access-pair" 2>/dev/null)" ;;
 esac
 exit 0
 EOF
   chmod +x "$S/bin/docker"
+}
+cf_world() { # a first install: no .env yet, the Cloudflare file (mode 600), a docker for the whole install
+  new_host; rm -f "$CL/.env"; XENV=(); INPUT=/dev/null
+  mkdir -p "$W/home/.config/omatalous"; chmod 755 "$W/home/.config"; chmod 700 "$W/home/.config/omatalous"
+  printf '# made up\nCLOUDFLARE_API_TOKEN=%s\nCLOUDFLARE_ACCESS_EMAILS=%s\nCLOUDFLARE_BASE_DOMAIN=example.fi\n' "$API_TOKEN" "$EMAILS" >"$(cf_file)"
+  chmod 600 "$(cf_file)"
+  printf '%s' "$API_TOKEN" >"$S/api-token"; printf '%s' "$TUN_TOKEN" >"$S/tunnel-token"
+  # S/access-pair: what the JSON line of `up` has after "changed" (without the file: the line of an image before 0.8.7)
+  printf ',"accessAud":"%s","teamDomain":"%s"' "$AUD_TAG" "$TEAM_DOMAIN" >"$S/access-pair"
+  printf 'CLOUDFLARE_TUNNEL_TOKEN=%s\n' "$TUN_TOKEN" >"$S/envline"; printf '%s\n%s\n' "$API_TOKEN" "$TUN_TOKEN" >"$W/secrets"
+  write_docker
 }
 # the secrets in any process's argument list while the install runs (ps shows arguments, not the environment)
 watch_ps() { rm -f "$W/ps.stop"; : >"$W/ps.hits"; ( while [[ ! -e $W/ps.stop ]]; do ps -eo args 2>/dev/null | grep -F -f "$W/secrets" >>"$W/ps.hits"; sleep 0.01; done ) & WATCH=$!; }
@@ -179,6 +195,9 @@ down_line() { echo "run --rm --log-driver none -e CLOUDFLARE_API_TOKEN -e CLOUDF
 before() { local a b; a=$(grep -n -m1 -- "^$1" "$S/docker.log" | cut -d: -f1); b=$(grep -n -m1 -- "^$2" "$S/docker.log" | cut -d: -f1); [[ -n $a && -n $b ]] && ((a < b)); }
 order_ok() { before 'compose build' 'run ' && before 'run ' 'compose up'; }
 env_mode_600() { [[ $(stat -c %a "$CL/.env") = 600 && ! -e "$CL/.env.new" ]]; }
+# the pair that turns on the app's own check of Access: both lines as `up` gave them, or no line of either
+has_pair() { env_has "CF_ACCESS_AUD=$AUD_TAG" && env_has "CF_ACCESS_TEAM_DOMAIN=$TEAM_DOMAIN" && [[ $(grep -c '^CF_ACCESS_' "$CL/.env") = 2 ]]; }
+no_pair() { ! grep -q '^CF_ACCESS_' "$CL/.env"; }
 
 t_cloudflare_watcher_sees_argv() {
   cf_world
@@ -335,9 +354,11 @@ t_cloudflare_refused_then_resumed() {
 t_cloudflare_reconfigure() {
   cf_world
   cf_install --yes --access tunnel --name home --domain talous.example.fi --access-emails "mother@example.fi"; touch "$S/container"; : >"$S/docker.log"
+  echo "ACCESS_LAN_BIND=192.168.1.20" >>"$CL/.env" # what the helper remembers of a copy the app put behind the tunnel
   cf_install --reconfigure --yes --access tunnel; why
   check "--reconfigure keeps the address and the copy's list, and asks Cloudflare again (idempotent)" bash -c "grep -qxF '$(up_line home talous.example.fi)' '$S/docker.log' && grep -qxF 'emails: mother@example.fi' '$S/docker.log'"
   check "the token and the list are in .env after it" bash -c "grep -qx 'CLOUDFLARE_TUNNEL_TOKEN=$TUN_TOKEN' '$CL/.env' && grep -qx 'CLOUDFLARE_ACCESS_EMAILS=mother@example.fi' '$CL/.env'"
+  check "the home network bind the helper remembered is in .env after it" env_has "ACCESS_LAN_BIND=192.168.1.20"
   : >"$S/docker.log"
   cf_install --reconfigure --yes --access tunnel --domain home.example.fi
   check "--domain gives the address instead of the default" logged "$(up_line home home.example.fi --new)"
@@ -349,7 +370,8 @@ t_cloudflare_down() {
   cf_install --cloudflare-down; why
   check "--cloudflare-down succeeds" installed
   check "it runs cloudflare down for the copy and its address, and nothing else that makes or changes anything" bash -c "[[ \$(grep -c '^run ' '$S/docker.log') = 1 ]] && grep -qxF '$(down_line home talous.example.fi)' '$S/docker.log' && ! grep -q '^compose' '$S/docker.log'"
-  check ".env is left as it is, but for the line that says the host is not this copy's any more" bash -c "diff <(grep -v '^CLOUDFLARE_NEW_HOST=' '$CL/.env') '$W/env.before' && grep -qx 'CLOUDFLARE_NEW_HOST=talous.example.fi' '$CL/.env'"
+  check ".env is left as it is, but for the line that says the host is not this copy's any more and the pair of the app's own Access check" bash -c "diff <(grep -v '^CLOUDFLARE_NEW_HOST=' '$CL/.env') <(grep -v '^CF_ACCESS_' '$W/env.before') && grep -qx 'CLOUDFLARE_NEW_HOST=talous.example.fi' '$CL/.env'"
+  check "the pair was there before and is gone after: the Access application it names is removed" bash -c "[[ \$(grep -c '^CF_ACCESS_' '$W/env.before') = 2 ]] && ! grep -q '^CF_ACCESS_' '$CL/.env'"
   : >"$S/docker.log"
   cf_install --cloudflare-down
   check "a second --cloudflare-down removes nothing: the host may be another copy's by now" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'is not this copy' '$W/install.out' && ! grep -q '^run ' '$S/docker.log'"
@@ -362,8 +384,78 @@ t_cloudflare_down() {
   cf_install --cloudflare-down
   check "a file others can read is refused here too" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'can be read by others' '$W/install.out' && ! grep -q '^run ' '$S/docker.log' 2>/dev/null"
   cf_world; printf 'INSTANCE_NAME=home\nCOMPOSE_PROFILES=tunnel\nDOMAIN=talous.example.fi\nCLOUDFLARE_ACCESS_EMAILS=a@example.fi\n' >"$CL/.env"; chmod 600 "$CL/.env"; echo exit3 >"$S/cf-mode"
+  cp "$CL/.env" "$W/env.before"
   cf_install --cloudflare-down
   check "a refusal from Cloudflare fails the command" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'Cloudflare refused' '$W/install.out'"
+  # exit 3 is also what down answers when something still routes the address and it kept Access
+  check "after exit 3 there is no line that says the address is gone, and .env is as it was" bash -c "! grep -qF 'any more' '$W/install.out' && ! grep -qF 'cannot be reached' '$W/install.out' && cmp -s '$CL/.env' '$W/env.before'"
+  check "it says the address is still the copy's and to run it again, and does not blame the API token" bash -c "grep -qF 'is still this copy' '$W/install.out' && grep -qF 'run this again' '$W/install.out' && ! grep -qF 'needs the permissions' '$W/install.out'"
+}
+t_cloudflare_access_check() {
+  # CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN in .env turn on the app's own check of Cloudflare Access
+  cf_world
+  cf_install --yes --access tunnel --name home --domain talous.example.fi; why
+  check "a first install writes the audience tag and the team domain that cloudflare up returned" has_pair
+  check "the containers start with the pair and the token already in .env" bash -c "grep -qx 'up: .env has the Access pair' '$S/docker.log' && grep -qx 'up: .env has the tunnel token' '$S/docker.log'"
+  check "the output says the app checks Access itself and that the port of the machine gets 403" said 'checks the signature of Cloudflare Access itself' 'only through talous.example.fi' 'gets 403'
+  check ".env stays mode 600 and no .env.new is left" env_mode_600
+  # an answer without the pair, as an image from before the check gives
+  touch "$S/container"; rm -f "$S/access-pair"; : >"$S/docker.log"
+  cf_install --yes --access tunnel; why
+  check "an answer without the pair: the install succeeds with the token, leaves no pair and says the app does not check Access itself" bash -c "[[ $INSTALL_RC = 0 ]] && ! grep -q '^CF_ACCESS_' '$CL/.env' && grep -qx 'CLOUDFLARE_TUNNEL_TOKEN=$TUN_TOKEN' '$CL/.env' && grep -qF 'does not check the signature of Access itself' '$W/install.out' && grep -qx 'up: .env has no Access pair' '$S/docker.log'"
+  # that is also an install made before the check existed: the tunnel and its token, no pair. A plain re-run asks
+  # Cloudflare nothing (t_cloudflare_refused_then_resumed), so the check comes on with --access tunnel.
+  printf ',"accessAud":"%s","teamDomain":"%s"' "$AUD_TAG" "$TEAM_DOMAIN" >"$S/access-pair"; : >"$S/docker.log"
+  cf_install --yes --access tunnel; why
+  check "--access tunnel on an install without the pair asks Cloudflare again for the same host and writes the pair" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qxF '$(up_line home talous.example.fi)' '$S/docker.log' && grep -qx 'up: .env has the Access pair' '$S/docker.log'"
+  check "the pair is there once, with the token" bash -c "[[ \$(grep -c '^CF_ACCESS_' '$CL/.env') = 2 ]] && grep -qx 'CF_ACCESS_AUD=$AUD_TAG' '$CL/.env' && grep -qx 'CF_ACCESS_TEAM_DOMAIN=$TEAM_DOMAIN' '$CL/.env' && grep -qx 'CLOUDFLARE_TUNNEL_TOKEN=$TUN_TOKEN' '$CL/.env'"
+  # a move away from tunnel access
+  : >"$S/docker.log"
+  cf_install --reconfigure --yes --access local; why
+  check "another way in removes the pair: the install succeeds and the app starts without it" bash -c "[[ $INSTALL_RC = 0 ]] && ! grep -q '^CF_ACCESS_' '$CL/.env' && grep -qx 'COMPOSE_PROFILES=' '$CL/.env' && grep -qx 'up: .env has no Access pair' '$S/docker.log'"
+  check "no secret in the output, the docker calls or the process list" test "$(leaks)" = 0
+}
+# what cf_up takes from a JSON line of `cloudflare up`, from the lib itself
+pair_from() { bash -c "source '$SRC/scripts/lib/cloudflare.sh'; cf_access_from \"\$1\"" _ "{\"hostname\":\"talous.example.fi\",\"tunnelToken\":\"$TUN_TOKEN\",\"changed\":[]$1}"; }
+t_cloudflare_access_pair_form() {
+  check "a line with both values gives the pair" test "$(pair_from ",\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"$TEAM_DOMAIN\"")" = "$AUD_TAG $TEAM_DOMAIN"
+  check "a line of an image before the check gives nothing" test -z "$(pair_from "")"
+  # half a pair is no pair, and a value the app would refuse at start never reaches .env
+  local bad
+  for bad in "\"accessAud\":\"$AUD_TAG\"" "\"teamDomain\":\"$TEAM_DOMAIN\"" "\"accessAud\":\"\",\"teamDomain\":\"$TEAM_DOMAIN\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"\"" \
+    "\"accessAud\":\"${AUD_TAG:1}\",\"teamDomain\":\"$TEAM_DOMAIN\"" "\"accessAud\":\"${AUD_TAG}0\",\"teamDomain\":\"$TEAM_DOMAIN\"" "\"accessAud\":\"${AUD_TAG^^}\",\"teamDomain\":\"$TEAM_DOMAIN\"" \
+    "\"accessAud\":\"${AUD_TAG:1}g\",\"teamDomain\":\"$TEAM_DOMAIN\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"$TEAM_DOMAIN.example.fi\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"example.fi/$TEAM_DOMAIN\"" \
+    "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"a.$TEAM_DOMAIN\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"https://$TEAM_DOMAIN\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"$TEAM_DOMAIN:8443\"" \
+    "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"${TEAM_DOMAIN^^}\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"-koti.cloudflareaccess.com\"" "\"accessAud\":\"$AUD_TAG\",\"teamDomain\":\"kotitiimi.example.fi\""; do
+    check "no pair from ${bad//\"/}" test -z "$(pair_from ",$bad")"
+  done
+}
+# env_set from the lib itself, on a file of its own, with every rename counted
+env_set_run() { bash -c "source '$SRC/scripts/lib/cloudflare.sh'; ENV_FILE=\$1; shift; mv() { echo x >>\"\$ENV_FILE.renames\"; command mv \"\$@\"; }; env_set \"\$@\"" _ "$@"; }
+t_cloudflare_env_one_rename() {
+  local f; f=$(mktemp "$TMPBASE/env.XXXXXX")
+  printf 'A=1\nCF_ACCESS_AUD=old\nB=2\nCLOUDFLARE_NEW_HOST=x.example.fi\n' >"$f"
+  env_set_run "$f" "CF_ACCESS_AUD=$AUD_TAG" "CF_ACCESS_TEAM_DOMAIN=$TEAM_DOMAIN" "CLOUDFLARE_TUNNEL_TOKEN=a=b=" CLOUDFLARE_NEW_HOST
+  check "several keys are set and one is removed: a line that was there keeps its place, a new one goes last" \
+    test "$(cat "$f")" = "$(printf 'A=1\nCF_ACCESS_AUD=%s\nB=2\nCF_ACCESS_TEAM_DOMAIN=%s\nCLOUDFLARE_TUNNEL_TOKEN=a=b=' "$AUD_TAG" "$TEAM_DOMAIN")"
+  check "all of it in one rename: a stop leaves every change or none, never half an Access pair" test "$(wc -l <"$f.renames" 2>/dev/null)" = 1
+  check "the file stays the owner's alone" test "$(stat -c %a "$f")" = 600
+  rm -f "$f.renames"; env_set_run "$f" CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN "B="
+  check "the pair is removed in one rename, and a key set to nothing keeps its line" bash -c "! grep -q '^CF_ACCESS_' '$f' && grep -qx 'B=' '$f' && [[ \$(wc -l <'$f.renames') = 1 ]]"
+  check "the installer writes the pair with the tunnel token, and takes the pair off with the host, in one call each" \
+    bash -c "[[ \$(grep -c '^ *\(if\|else\).* env_set .*CF_ACCESS_AUD.*CF_ACCESS_TEAM_DOMAIN.*CLOUDFLARE_TUNNEL_TOKEN=' '$SRC/scripts/lib/cloudflare.sh') = 2 && \$(grep -c '^ *env_set .CLOUDFLARE_NEW_HOST=.*CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN' '$SRC/scripts/lib/cloudflare.sh') = 1 ]]"
+  rm -f "$f" "$f.renames"
+}
+t_cloudflare_access_check_by_hand() {
+  # a tunnel made by hand: the installer asks Cloudflare nothing, so the pair is the user's own lines in .env
+  cf_world; rm -f "$(cf_file)"; XENV=("TALOUS_TUNNEL_TOKEN=$MANUAL_TOKEN")
+  cf_install --yes --access tunnel --domain talous.example.fi --name home; why
+  check "a tunnel made by hand gets no pair from the installer" bash -c "[[ $INSTALL_RC = 0 ]] && ! grep -q '^CF_ACCESS_' '$CL/.env'"
+  touch "$S/container"; printf 'CF_ACCESS_AUD=%s\nCF_ACCESS_TEAM_DOMAIN=%s\n' "$AUD_TAG" "$TEAM_DOMAIN" >>"$CL/.env"; XENV=()
+  cf_install --reconfigure --yes --access tunnel --domain talous.example.fi; why
+  check "the pair its user wrote stays through a rewrite of .env while the address stays" bash -c "[[ $INSTALL_RC = 0 && \$(grep -c '^run ' '$S/docker.log' 2>/dev/null) = 0 ]] && grep -qx 'CF_ACCESS_AUD=$AUD_TAG' '$CL/.env' && grep -qx 'CF_ACCESS_TEAM_DOMAIN=$TEAM_DOMAIN' '$CL/.env' && [[ \$(grep -c '^CF_ACCESS_' '$CL/.env') = 2 ]] && grep -qx 'CLOUDFLARE_TUNNEL_TOKEN=$MANUAL_TOKEN' '$CL/.env'"
+  cf_install --reconfigure --yes --access tunnel --domain koti.example.fi; why
+  check "another address is another Access application: the pair is dropped" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qx 'DOMAIN=koti.example.fi' '$CL/.env' && ! grep -q '^CF_ACCESS_' '$CL/.env'"
 }
 t_cloudflare_host_of_another_copy() {
   # a second folder or machine with the same file: it must not take over the first copy's host
@@ -406,6 +498,221 @@ t_cloudflare_file_and_its_folders() {
   cf_install --yes --access tunnel --name home --domain talous.example.fi
   check "a pipe in the file's place is refused without waiting on it" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'cloudflare.env is not a plain file' '$W/install.out'"
   check "the file is opened once and read from that descriptor, never again by its path" bash -c "[[ \$(grep -c '<\"\$CF_FILE\"' '$SRC/scripts/lib/cloudflare.sh') = 1 ]] && grep -q 'exec {fd}<\"\$CF_FILE\"' '$SRC/scripts/lib/cloudflare.sh' && grep -q 'read -r -u \"\$fd\" line' '$SRC/scripts/lib/cloudflare.sh'"
+}
+
+# ── the first install: questions first, the docker group without sg, the settings file, the QR code ─────────────────────
+# The host-level commands a first install meets. sudo logs what it was asked (S/sudo.log) and runs it; "-u USER" is a new
+# login, so the docker group applies from there (S/group-applied: the stub docker lets `info` through once it exists).
+ME=${USER:-$(id -un)}
+stub_sudo() {
+  cat >"$S/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >>"$S/sudo.log"
+[[ -e $S/sudo-refuses ]] && exit 1
+while [[ ${1:-} == -* ]]; do case $1 in -u) touch "$S/group-applied"; shift 2 ;; *) shift ;; esac; done
+exec "$@"
+EOF
+  printf '#!/bin/sh\necho "$*" >>"$S/usermod.log"\n' >"$S/bin/usermod"
+  chmod +x "$S/bin/sudo" "$S/bin/usermod"
+}
+stub_sg() { # sg docker -c COMMAND: the command runs with the group
+  cat >"$S/bin/sg" <<'EOF'
+#!/bin/sh
+echo "$*" >>"$S/sg.log"
+touch "$S/group-applied"
+exec sh -c "$3"
+EOF
+  chmod +x "$S/bin/sg"
+}
+# Docker is not on the host. Docker's install script comes from a stub curl and puts the stub docker in place; it also
+# notes whether the last answer was given and the .env was not written yet (S/order.log).
+no_docker() {
+  mv "$S/bin/docker" "$S/docker-real"
+  cat >"$S/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+out=""; url=""
+while (($#)); do case $1 in -o) out=$2; shift ;; http*) url=$1 ;; esac; shift; done
+echo "curl $url" >>"$S/curl.log"
+[[ $url == https://get.docker.com ]] || exit 22
+cat >"$out" <<'INNER'
+echo docker-install >>"$S/order.log"
+if grep -qF 'Address: ' "$S/../install.out"; then echo asked-before >>"$S/order.log"; else echo asked-after >>"$S/order.log"; fi
+if [ -e "$S/../clone/.env" ]; then echo env-before >>"$S/order.log"; fi
+cp "$S/docker-real" "$S/bin/docker"
+INNER
+EOF
+  chmod +x "$S/bin/curl"
+}
+temp_dir() { mkdir -p "$W/tmp"; XENV=("TMPDIR=$W/tmp"); }   # where mktemp puts the answers file: it must be gone at the end
+temp_left() { ls "$W/tmp" 2>/dev/null | wc -l; }
+
+t_questions_before_docker() {
+  cf_world; stub_sudo; no_docker; touch "$S/no-access"; temp_dir
+  # Docker's install, the docker group, the access choice, the address and the emails: all asked before anything is installed
+  printf 'y\ny\n3\ntalous.example.fi\nmother@example.fi\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --reconfigure --name home; why
+  check "no Docker on the host, every answer given: the install succeeds" installed
+  check "Docker's install script ran once, after the last answer and before .env was written" bash -c "[[ \$(grep -c '^docker-install\$' '$S/order.log') = 1 ]] && grep -qx asked-before '$S/order.log' && ! grep -qx env-before '$S/order.log'"
+  check "it came from get.docker.com, over curl, once" test "$(grep -c '^curl https://get.docker.com$' "$S/curl.log")" = 1
+  check "the docker group was agreed to with the other answers: one usermod" bash -c "[[ \$(wc -l <'$S/usermod.log') = 1 ]] && grep -qx -- '-aG docker $ME' '$S/usermod.log'"
+  check "the second run, started by sudo as the user, took the answers along: nothing was asked twice" bash -c "grep -qE '^-u $ME env TALOUS_REEXEC=1 TALOUS_ANSWERS=[^ ]+ $CL/scripts/install.sh --reconfigure --name home\$' '$S/sudo.log' && grep -qx 'DOMAIN=talous.example.fi' '$CL/.env' && grep -qx 'CLOUDFLARE_ACCESS_EMAILS=mother@example.fi' '$CL/.env' && grep -qx 'COMPOSE_PROFILES=tunnel' '$CL/.env'"
+  check "the answers file is gone" test "$(temp_left)" = 0
+  check "no secret in the output, the docker calls or the process list" test "$(leaks)" = 0
+  check "no hint names newgrp" bash -c "! grep -qi newgrp '$W/install.out'"
+  # a no to the install, and a no to the group
+  cf_world; stub_sudo; no_docker; printf 'n\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --reconfigure --name home
+  check "no to Docker's install: it stops with the manual command and runs nothing" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'Docker is missing. Install it:' '$W/install.out' && [[ ! -e '$S/order.log' ]]"
+  cf_world; stub_sudo; no_docker; printf 'y\nn\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --reconfigure --name home
+  check "no to the group: it stops before Docker is installed and says what to run" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'without the docker group' '$W/install.out' && [[ ! -e '$S/order.log' ]]"
+}
+t_docker_group_without_sg() {
+  cf_world; stub_sudo; touch "$S/no-access"; temp_dir
+  check "world: the host has no sg" bash -c "! PATH='$S/bin:$SYS' command -v sg"
+  cf_install --yes --access local --name home; why
+  check "no sg, the user not in the docker group: the install succeeds" installed
+  check "the user is added to the group with sudo -n" grep -qx -- "-n usermod -aG docker $ME" "$S/sudo.log"
+  check "the second run is sudo -n -u USER env TALOUS_REEXEC=1 <script> <args>" bash -c "grep -qE '^-n -u $ME env TALOUS_REEXEC=1 TALOUS_ANSWERS=[^ ]+ $CL/scripts/install.sh --yes --access local --name home\$' '$S/sudo.log'"
+  check "the output says it goes on in a new session, and the app is started there" said 'Continuing in a new session with the docker group' 'The app is running.'
+  check "the answers file is gone" test "$(temp_left)" = 0
+  # with sg the old way stays: sg docker -c, and sudo only adds the group
+  cf_world; stub_sudo; stub_sg; touch "$S/no-access"
+  cf_install --yes --access local --name home; why
+  check "with sg: the second run is sg docker -c <script and args>" bash -c "[[ \$(wc -l <'$S/sg.log') = 1 ]] && grep -qE '^docker -c .*install.sh --yes --access local --name home' '$S/sg.log' && ! grep -q -- ' -u ' '$S/sudo.log'"
+  check "with sg: the install succeeds" installed
+}
+t_no_newgrp_hint() {
+  check "no script names newgrp" bash -c "! grep -n newgrp '$SRC/scripts/install.sh' '$SRC/scripts/update.sh' '$SRC/scripts/doctor.sh'"
+  check "update.sh and doctor.sh say to open the SSH connection again" bash -c "grep -qF 'close the SSH connection and open it again' '$SRC/scripts/update.sh' && grep -qF 'close the SSH connection and open it again' '$SRC/scripts/doctor.sh' && grep -qF 'sulje SSH-yhteys' '$SRC/scripts/doctor.sh'"
+  # a member of the group whose login lacks it, and no way to start a new session: neither sg nor sudo
+  cf_world; touch "$S/no-access"; echo "$ME" >"$S/docker-members"; echo 4242 >"$S/docker-gid"; temp_dir
+  cf_install --yes --access local --name home
+  check "no way works: the install stops and says to open the SSH connection again, then to run it again" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'Close the SSH connection and open it again (or log out and in), then run ./scripts/install.sh again.' '$W/install.out'"
+  check "the message names no newgrp" bash -c "! grep -qi newgrp '$W/install.out'"
+  # sudo is there and refuses: the same message, nothing left behind
+  cf_world; stub_sudo; touch "$S/no-access" "$S/sudo-refuses"; echo "$ME" >"$S/docker-members"; echo 4242 >"$S/docker-gid"; temp_dir
+  cf_install --yes --access local --name home
+  check "sudo refuses: the same message" bash -c "[[ $INSTALL_RC != 0 ]] && grep -qF 'Close the SSH connection and open it again' '$W/install.out' && ! grep -qi newgrp '$W/install.out'"
+  check "sudo refuses: the answers file is removed" test "$(temp_left)" = 0
+  check "sudo refuses: it was asked once, and nothing was started" bash -c "[[ \$(grep -c . '$S/sudo.log') = 1 ]] && ! grep -q '^compose up' '$S/docker.log'"
+}
+t_answers_file_only_for_a_reexec() {
+  cf_world; temp_dir; printf 'PORT=8123\nACCESS=2\n' >"$W/answers.in"
+  XENV+=("TALOUS_ANSWERS=$W/answers.in")
+  cf_install --yes --access local --name home; why
+  check "TALOUS_ANSWERS without TALOUS_REEXEC is not read: the port is not 8123 and the file stays" bash -c "! grep -qx 'HOST_PORT=8123' '$CL/.env' && [[ -s '$W/answers.in' ]]"
+  cf_world; temp_dir; printf 'PORT=8123\n' >"$W/real.in"; ln -s "$W/real.in" "$W/answers.in"
+  XENV+=("TALOUS_REEXEC=1" "TALOUS_ANSWERS=$W/answers.in")
+  cf_install --yes --access local --name home; why
+  check "a link is not read either" bash -c "! grep -qx 'HOST_PORT=8123' '$CL/.env' && [[ -s '$W/real.in' ]]"
+  cf_world; temp_dir; printf 'PORT=8123\nOPS_HELPER=false\nBOGUS=1\n' >"$W/answers.in"
+  XENV+=("TALOUS_REEXEC=1" "TALOUS_ANSWERS=$W/answers.in")
+  cf_install --yes --name home --access local; why
+  check "a re-exec reads its file once, takes the names it knows and deletes it" bash -c "grep -qx 'HOST_PORT=8123' '$CL/.env' && [[ ! -e '$W/answers.in' ]]"
+}
+
+# the settings file made by the installer: a cloudflare-setup.sh that logs and, unless S/setup-fails, writes the file the
+# way the real one does (the real one has its own suite)
+cf_setup_stub() {
+  cp "$(cf_file)" "$S/cf-saved"; rm -f "$(cf_file)"
+  cat >"$CL/scripts/cloudflare-setup.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "setup ran: $*" >>"$S/setup.log"
+[[ ! -e $S/setup-fails ]] || { echo "stub: the setup failed" >&2; exit 1; }
+mkdir -p "$HOME/.config/omatalous"; cp "$S/cf-saved" "$HOME/.config/omatalous/cloudflare.env"; chmod 600 "$HOME/.config/omatalous/cloudflare.env"
+EOF
+  chmod +x "$CL/scripts/cloudflare-setup.sh"
+}
+t_cloudflare_setup_runs_when_missing() {
+  cf_world; cf_setup_stub
+  printf 'y\n\nmother@example.fi\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --access tunnel --name home; why
+  check "no settings file, choice 3: the installer runs cloudflare-setup.sh, once, without arguments" bash -c "[[ \$(grep -c . '$S/setup.log') = 1 ]] && grep -qx 'setup ran: ' '$S/setup.log'"
+  check "it shows where Cloudflare's token is made and lists the permissions" said 'https://dash.cloudflare.com/profile/api-tokens' 'Cloudflare Tunnel Edit' 'Zone: Zone Read'
+  check "the link promises no filled-in form" bash -c "! grep -q permissionGroupKeys '$W/install.out'"
+  check "it goes on with the file it made: Cloudflare makes the tunnel for the answers" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qxF '$(up_line home talous.example.fi --new)' '$S/docker.log' && grep -qxF 'emails: mother@example.fi' '$S/docker.log'"
+  check ".env has the token the command returned" env_has "CLOUDFLARE_TUNNEL_TOKEN=$TUN_TOKEN"
+  check "no secret in the output, the docker calls or the process list" test "$(leaks)" = 0
+  # refused: the manual path as it was
+  cf_world; cf_setup_stub; printf 'n\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --access tunnel --name home --domain talous.example.fi
+  check "a no: the setup is not run and the manual path asks for the tunnel token" bash -c "[[ ! -e '$S/setup.log' && $INSTALL_RC != 0 ]] && grep -qF 'The tunnel token is missing' '$W/install.out'"
+  # failed: the same
+  cf_world; cf_setup_stub; touch "$S/setup-fails"; printf 'y\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --access tunnel --name home --domain talous.example.fi
+  check "a failed setup: it says so and the manual path goes on" bash -c "[[ \$(grep -c . '$S/setup.log') = 1 && $INSTALL_RC != 0 ]] && grep -qF 'The Cloudflare setup did not finish' '$W/install.out' && grep -qF 'The tunnel token is missing' '$W/install.out'"
+  # nothing is asked with --yes, and a tunnel made by hand does not want the file
+  cf_world; cf_setup_stub
+  cf_install --yes --access tunnel --name home --domain talous.example.fi
+  check "--yes: the setup is not run" bash -c "[[ ! -e '$S/setup.log' && $INSTALL_RC != 0 ]]"
+  cf_world; cf_setup_stub; printf 'y\n' >"$W/answers"; INPUT=$W/answers; XENV=("TALOUS_TUNNEL_TOKEN=$MANUAL_TOKEN")
+  cf_install --access tunnel --name home --domain talous.example.fi
+  check "a tunnel token given: the setup is not run" bash -c "[[ ! -e '$S/setup.log' && $INSTALL_RC = 0 ]]"
+  # a file that is there is the file's business (cf_load), not the setup's
+  cf_world; cf_setup_stub; cp "$S/cf-saved" "$(cf_file)"; chmod 600 "$(cf_file)"; printf '\n\n' >"$W/answers"; INPUT=$W/answers
+  cf_install --access tunnel --name home
+  check "the file exists: the setup is not run" bash -c "[[ ! -e '$S/setup.log' && $INSTALL_RC = 0 ]]"
+}
+
+stub_qrencode() { # records its arguments and what it was given on stdin
+  printf '#!/usr/bin/env bash\necho "$*" >>"$S/qr.args"\ncat >"$S/qr.in"\necho QR-BLOCK\n' >"$S/bin/qrencode"
+  chmod +x "$S/bin/qrencode"
+}
+t_qr_when_qrencode() {
+  cf_world; stub_qrencode
+  cf_install --yes --access tunnel --name home --domain talous.example.fi; why
+  check "the install succeeds and prints the setup link" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Set up: ' '$W/install.out'"
+  check "qrencode is run once, with the setup link on its standard input" bash -c "[[ \$(grep -c . '$S/qr.args') = 1 ]] && [[ \$(cat '$S/qr.in') = 'https://talous.example.fi/#koodi=k3f9-2mxq-8hzt-p4wa' ]]"
+  check "the one-time code is not in qrencode's arguments, so not in the process list" bash -c "! grep -q 'k3f9' '$S/qr.args'"
+  check "the code is printed after the link, and no hint to install qrencode is shown" bash -c "grep -qF QR-BLOCK '$W/install.out' && ! grep -qF 'apt install qrencode' '$W/install.out'"
+}
+t_qr_absent_is_quiet() {
+  cf_world
+  cf_install --yes --access tunnel --name home --domain talous.example.fi; why
+  check "no qrencode: the install succeeds and prints the setup link" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Set up: ' '$W/install.out' && grep -qF 'https://talous.example.fi/#koodi=k3f9-2mxq-8hzt-p4wa' '$W/install.out'"
+  check "one line says how to get the code, and it is no warning" bash -c "[[ \$(grep -c 'apt install qrencode' '$W/install.out') = 1 ]] && ! grep 'qrencode' '$W/install.out' | grep -q \$'\\e\\[33m'"
+  check "the script installs nothing for it" bash -c "! grep -qiE 'installing (qrencode|jq)' '$W/install.out' && ! grep -q qrencode '$S/docker.log'"
+}
+
+pid_in_tokens() { [[ $API_TOKEN == *_$$_* && $(printf '%s' "$TUN_TOKEN" | base64 -d) == *example$$* && $(printf '%s' "$MANUAL_TOKEN" | base64 -d) == *token$$* ]]; }
+# a second copy of the suite runs while this one watches the process list: its token is in an argument list on purpose
+# (t_cloudflare_watcher_sees_argv) and this run's check must not match it
+t_other_run_is_not_seen() {
+  cf_world
+  watch_ps
+  bash "$HERE/install.test.sh" t_cloudflare_watcher_sees_argv >"$W/other.out" 2>&1 &
+  local other=$! found=0 rc=0 _
+  for _ in $(seq 1 600); do
+    if ps -eo args 2>/dev/null | grep -E 'cfapi_example_[0-9]+_0123' | grep -vF "cfapi_example_${$}_" | grep -q .; then found=1; break; fi
+    sleep 0.05
+  done
+  wait "$other" || rc=$?
+  unwatch_ps
+  check "the other run's token was in the process list while this run watched" test "$found" = 1
+  check "this run's watcher did not match it" test ! -s "$W/ps.hits"
+  check "the other run passed" test "$rc" = 0
+  check "the tokens differ between runs: the pid is in each" pid_in_tokens
+}
+
+# the release an install builds: the vX.Y.Z tag at HEAD when the checkout sits on one (a bootstrap clone holds every tag,
+# a pre-release among them), else the newest tag as before
+t_tag_at_head() {
+  cf_world
+  git -C "$CL" tag v1.0.0; git -C "$CL" tag v1.0.1-rc1
+  git -C "$CL" commit -q --allow-empty -m later; git -C "$CL" tag v1.1.0
+  git -C "$CL" checkout -q v1.0.0
+  cf_install --yes --access local --name home
+  check "HEAD is at v1.0.0, a pre-release tag is on it and v1.1.0 is newer: the release is v1.0.0" said 'Channel: release v1.0.0'
+  check "the newer tag and the pre-release are not taken" bash -c "! grep -qE 'release v1\\.1\\.0|rc1' '$W/install.out'"
+}
+t_newest_tag_when_not_at_head() {
+  cf_world
+  git -C "$CL" commit -q --allow-empty -m later; git -C "$CL" tag v1.1.0
+  git -C "$CL" checkout -q HEAD~1
+  cf_install --yes --access local --name home; why
+  check "HEAD carries no tag: the newest tag decides as before (this folder is older than it)" said 'This folder is older than release v1.1.0'
+  check "and the source is built here, not a release pulled" bash -c "[[ $INSTALL_RC = 0 ]] && ! grep -qF 'Channel: release' '$W/install.out' && grep -qx 'compose build banking' '$S/docker.log'"
 }
 
 for t in $(declare -F | awk '{print $3}' | grep '^t_'); do

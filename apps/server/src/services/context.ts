@@ -13,7 +13,7 @@ import { SettingsRepo } from "../db/settings-repo.ts";
 import type { Db } from "../db/types.ts";
 import { UsersRepo } from "../db/users-repo.ts";
 import type { User } from "../db/rows.ts";
-import { Gate, RateLimiter } from "../security/rate-limit.ts";
+import { Gate, LoginLimiter, RateLimiter, RememberedAddresses } from "../security/rate-limit.ts";
 import { SecretBox } from "../security/secretbox.ts";
 import { APP_VERSION } from "../version.ts";
 import { AnalysisCache } from "./analysis.ts";
@@ -54,11 +54,18 @@ export interface Services {
   readonly instance: InstanceStore;
   readonly analysis: AnalysisCache;
   /**
-   * Failed logins per user name and per client address. Members of one
-   * household often share an address, so the address limit is higher: one
-   * member's typos must not lock the others out.
+   * Failed logins per client address (`ip`), per user name from one address (`user`) and per user name from all
+   * addresses (`name`). Members of one household often share an address, so the address limit is higher: one
+   * member's typos must not lock the others out. `name` is there so that more addresses buy no more guesses at
+   * one name, and one address alone (10 per name) cannot reach it. `remembered` holds the addresses a login
+   * succeeded from: the three limiters count those in a spare when they are full (security/rate-limit.ts).
    */
-  readonly loginLimiter: { readonly user: RateLimiter; readonly ip: RateLimiter };
+  readonly loginLimiter: {
+    readonly ip: LoginLimiter;
+    readonly user: LoginLimiter;
+    readonly name: LoginLimiter;
+    readonly remembered: RememberedAddresses;
+  };
   /** Wrong current passwords on password change, per user. */
   readonly passwordLimiter: RateLimiter;
   /** First-run setup attempts per client address. */
@@ -72,6 +79,11 @@ export interface Services {
   readonly opsLimiter: RateLimiter;
   /** Backup downloads per admin and hour. */
   readonly opsDownloadLimiter: RateLimiter;
+  /**
+   * Tests of an Enable Banking key: eight in ten minutes per user for a member's own key (countKeyTest), and eight in
+   * ten minutes for the whole instance for an application id (checkAppId), both in connectors/enable-banking/app-setup.ts.
+   */
+  readonly keyTestLimiter: RateLimiter;
   readonly backupDir?: string;
   readonly fetch?: typeof fetch;
   readonly backup?: (day: string) => string;
@@ -103,8 +115,14 @@ export function createServices(deps: AppDeps): Services {
     industry: new IndustryRepo(deps.db),
     instance,
     analysis: new AnalysisCache(),
-    // per 15 minutes: 10 failed logins per user name and address, 50 per address
-    loginLimiter: { user: new RateLimiter(10, 15 * 60_000), ip: new RateLimiter(50, 15 * 60_000) },
+    // per 15 minutes: 50 failed logins per address, 10 per user name and address, 30 per user name from all
+    // addresses. Each keeps 10 000 keys and a spare of 1 000 for the 100 addresses remembered for 30 days.
+    loginLimiter: {
+      ip: new LoginLimiter(50, 15 * 60_000),
+      user: new LoginLimiter(10, 15 * 60_000),
+      name: new LoginLimiter(30, 15 * 60_000),
+      remembered: new RememberedAddresses(),
+    },
     passwordLimiter: new RateLimiter(5, 15 * 60_000),
     setupLimiter: new RateLimiter(10, 15 * 60_000),
     hashGate: new Gate(4),
@@ -112,6 +130,7 @@ export function createServices(deps: AppDeps): Services {
     ops: new OpsRepo(deps.db),
     opsLimiter: new RateLimiter(5, 15 * 60_000),
     opsDownloadLimiter: new RateLimiter(5, 3600_000),
+    keyTestLimiter: new RateLimiter(8, 10 * 60_000),
     backupDir: deps.backupDir,
     fetch: deps.fetch,
     backup: deps.backup,

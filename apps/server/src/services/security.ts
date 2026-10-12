@@ -18,6 +18,13 @@ export const EVENT_KINDS = [
   "session_revoked",
   "user_created",
   "user_deleted",
+  // Asetukset > Palvelin > Etäkäyttö (remote-access.ts)
+  "remote_access_on",
+  "remote_access_off",
+  "remote_access_failed",
+  "remote_access_reverted",
+  "cloudflare_token_saved",
+  "cloudflare_token_removed",
 ] as const;
 
 /** Maintenance requests and results use kinds that start with ops_. */

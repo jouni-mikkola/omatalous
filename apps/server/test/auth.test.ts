@@ -98,7 +98,10 @@ describe("sessions and login", () => {
   it("sends security headers", async () => {
     const { admin } = await setupApp();
     const r = await admin.call("GET", "/api/meta");
-    expect(r.res.headers.get("content-security-policy")).toContain("default-src 'self'");
+    // the whole policy, so a source added later (a CDN, blob:, 'unsafe-eval') fails here; 'wasm-unsafe-eval' is the loan reader's
+    expect(r.res.headers.get("content-security-policy")).toBe(
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'",
+    );
     expect(r.res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(r.res.headers.get("cache-control")).toBe("no-store");
   });

@@ -1,19 +1,24 @@
 /**
  * Lainat: the mortgage margin against sample offers, prepaying the mortgage from savings beyond a three-month buffer,
- * and card interest paid in months when the checking account could have paid the whole bill. Rates come from the
- * user's `loan_rate` input and the Euribor facts; the deposit yield is the household's own (`savingsYield`).
+ * and card interest paid in months when the checking account could have paid the whole bill. A mortgage the household
+ * saved gives its own margin, reference rate, rate and balance (`loans.ts`), so nothing is asked again; without one the
+ * rates come from the user's `loan_rate` input and the Euribor facts. The deposit yield is the household's own
+ * (`savingsYield`). With saved loans the area also tells the debt total, the one of `householdDebts`, and says when
+ * a debt may be in it twice (`maybeTwice` of the Lainat report).
  */
 import type { AnalysisTx } from "../../analysis/context.ts";
+import { cardCosts } from "../../analysis/credit.ts";
 import { formatFiDate } from "../../analysis/format.ts";
 import { addMonths, monthOf } from "../../dates.ts";
+import { householdDebts, loanBalanceOn, loansOf } from "../../loans.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { BalanceWalk } from "../../reports/balances.ts";
-import type { BalanceInput } from "../../types.ts";
-import { annualise, eur, findingId, MAX_ROWS, monthEndDays, netCost, ownAccounts, pct, rowsById, savingsYield, usualSpend, walksOf } from "../common.ts";
+import { FIGURE_UNKNOWN, loansWithout, loansWithoutRate, maybeTwice, SAME_DEBT_TWICE } from "../../reports/loans.ts";
+import type { BalanceInput, Loan } from "../../types.ts";
+import { annualise, eur, findingId, MAX_ROWS, monthEndDays, ownAccounts, pct, rowsById, savingsYield, usualSpend, walksOf } from "../common.ts";
 import { type Fact, factOn, isSampleFact } from "../facts/index.ts";
-import { valueOf } from "../inputs.ts";
-import type { Area, AreaInput, Check, FindingDraft, LoanReference, LoanRateValue } from "../types.ts";
-import { isPurchaseInterestText } from "../../wording.ts";
+import { LOAN_REFERENCE_LABEL, valueOf } from "../inputs.ts";
+import type { Area, AreaInput, AreaSummary, Check, FindingDraft, LoanReference } from "../types.ts";
 
 /** The margin finding needs a margin this far over the offers' top: 0,2 percentage points, in hundredths of a percent. */
 const MARGIN_OVER_TOP_BP = 20;
@@ -105,26 +110,58 @@ function referenceRange(reference: Exclude<LoanReference, "fixed">, endMonth: st
 
 const rangeText = (low: number, high: number, format: (x: number) => string) => (format(low) === format(high) ? format(low) : `${format(low).replace(/\u00a0%$/, "")}–${format(high)}`);
 
-/** The rate the user typed, or the outcome that says what is missing. */
-function loanInputs(a: AreaInput, kind: "margin" | "prepay"): { series: RecurringSeries; rate: LoanRateValue & { reference: Exclude<LoanReference, "fixed"> } } | Outcome {
+/** A mortgage the household saved, and what is owed on it today. */
+interface SavedMortgage {
+  loan: Loan;
+  /** Positive cents from `loanBalanceOn`, null when today is before the day the balance was told. */
+  balanceCents: number | null;
+}
+
+/** The saved loan the mortgage series pays: the saved mortgage linked to the series, else the one that owes most. */
+function savedMortgage(a: AreaInput, series: RecurringSeries): SavedMortgage | null {
+  const mortgages = loansOf(a.inputs).filter((l) => l.kind === "mortgage");
+  if (!mortgages.length) return null;
+  const owed = (loan: Loan) => loanBalanceOn(loan, a.today).cents;
+  const loan = mortgages.find((l) => l.seriesKey === series.id) ?? [...mortgages].sort((x, y) => (owed(y) ?? 0) - (owed(x) ?? 0) || x.id.localeCompare(y.id))[0]!;
+  return { loan, balanceCents: owed(loan) };
+}
+
+interface Mortgage {
+  series: RecurringSeries;
+  rate: { marginBp: number; reference: Exclude<LoanReference, "fixed"> };
+  /** Owed today in positive cents: the saved mortgage's balance, else the connected loan account's. Null when neither tells it. */
+  balance: number | null;
+  /** The whole rate of the saved mortgage in hundredths of a percent, null when it is not saved. */
+  rateBp: number | null;
+}
+
+/**
+ * The mortgage's rate and balance, or the outcome that says what is missing. A saved mortgage with a fixed rate, or
+ * with a margin and a reference rate, answers for the `loan_rate` input, which is asked only without one.
+ */
+function loanInputs(a: AreaInput, kind: "margin" | "prepay"): Mortgage | Outcome {
   const series = mortgageSeries(a);
   if (!series) return checkOf(kind, "clear");
   if (!a.months.length) return checkOf(kind, "no_data");
-  const rate = valueOf(a.values, "loan_rate", a.today);
+  const saved = savedMortgage(a, series);
+  // a fixed rate cannot be moved to a new margin, and prepaying it usually costs a fee: a saved one needs no margin to say so
+  if (saved?.loan.reference === "fixed") return checkOf(kind, "clear");
+  const rate = saved && saved.loan.marginBp !== null && saved.loan.reference !== null ? { marginBp: saved.loan.marginBp, reference: saved.loan.reference } : valueOf(a.values, "loan_rate", a.today);
   if (!rate) return checkOf(kind, "needs_input", { input: "loan_rate" });
-  // a fixed rate cannot be moved to a new margin, and prepaying it usually costs a fee
+  // the same for a fixed rate typed as the answer
   if (rate.reference === "fixed") return checkOf(kind, "clear");
-  return { series, rate: { marginBp: rate.marginBp, reference: rate.reference } };
+  // a saved mortgage with nothing owed is paid: there is no margin to move and nothing to prepay
+  if (saved && saved.balanceCents === 0) return checkOf(kind, "clear");
+  return { series, rate: { marginBp: rate.marginBp, reference: rate.reference }, balance: saved ? saved.balanceCents : loanBalance(a, series), rateBp: saved?.loan.rateBp ?? null };
 }
 
 function marginFinding(a: AreaInput): Outcome {
   const inputs = loanInputs(a, "margin");
   if ("check" in inputs) return inputs;
-  const { series, rate } = inputs;
+  const { series, rate, balance } = inputs;
   const low = factOn("mortgage_margin_sample_low", a.today);
   const high = factOn("mortgage_margin_sample_high", a.today);
   if (!low || !high) return checkOf("margin", "no_data", { hint: FACTS_OLD });
-  const balance = loanBalance(a, series);
   if (balance === null) return checkOf("margin", "no_data", { hint: ADD_LOAN_BALANCE });
   const lowBp = Math.round(low.value * 100);
   const highBp = Math.round(high.value * 100);
@@ -164,11 +201,11 @@ function marginFinding(a: AreaInput): Outcome {
 function prepayFinding(a: AreaInput): Outcome {
   const inputs = loanInputs(a, "prepay");
   if ("check" in inputs) return inputs;
-  const { series, rate } = inputs;
-  const balance = loanBalance(a, series);
+  const { series, rate, balance, rateBp } = inputs;
   if (balance === null) return checkOf("prepay", "no_data", { hint: ADD_LOAN_BALANCE });
-  const reference = referenceRange(rate.reference, monthOf(a.end), a.today);
-  if (!reference) return checkOf("prepay", "no_data", { hint: FACTS_OLD });
+  // the rate of a saved mortgage is the household's own figure: the Euribor months are read only without it
+  const reference = rateBp === null ? referenceRange(rate.reference, monthOf(a.end), a.today) : null;
+  if (rateBp === null && !reference) return checkOf("prepay", "no_data", { hint: FACTS_OLD });
   const yieldOf = savingsYield(a);
   if (!yieldOf) return checkOf("prepay", "no_data", { hint: "Säästötilin tuotto lasketaan säästötilin saldosta ja 12 kuukauden koroista." });
   const usual = usualSpend(a);
@@ -177,17 +214,17 @@ function prepayFinding(a: AreaInput): Outcome {
   const savingsCents = yieldOf.walks.reduce((s, w) => s + w.at(todayDay)!, 0);
   const buffer = BUFFER_MONTHS * usual;
   const excess = savingsCents - buffer;
-  // percent: the loan's rate at each end of the reference range against the yield already after tax
+  // percent: the loan's rate, saved or at each end of the reference range, against the yield already after tax
   const margin100 = rate.marginBp / 100;
   const yieldPct = yieldOf.rate * 100;
-  const spread = { low: reference.low + margin100 - yieldPct, mid: reference.mid + margin100 - yieldPct, high: reference.high + margin100 - yieldPct };
+  const loanPct = reference ? { low: reference.low + margin100, mid: reference.mid + margin100, high: reference.high + margin100 } : { low: rateBp! / 100, mid: rateBp! / 100, high: rateBp! / 100 };
+  const spread = { low: loanPct.low - yieldPct, mid: loanPct.mid - yieldPct, high: loanPct.high - yieldPct };
   if (excess < PREPAY_MIN_CENTS || spread.low < PREPAY_MIN_SPREAD) return checkOf("prepay", "clear");
   const principal = Math.min(excess, balance);
   const yearly = (points: number) => round10((principal * points) / 100);
-  const loanRate = rangeText((reference.low + margin100) / 100, (reference.high + margin100) / 100, pct);
-  const refName = { euribor_12: "12 kuukauden Euribor", euribor_6: "6 kuukauden Euribor", euribor_3: "3 kuukauden Euribor" }[rate.reference];
-  const first = reference.facts[0]!.period!;
-  const last = reference.facts[reference.facts.length - 1]!.period!;
+  const loanRate = rangeText(loanPct.low / 100, loanPct.high / 100, pct);
+  const refName = LOAN_REFERENCE_LABEL[rate.reference];
+  const period = (f: Fact) => `${Number(f.period!.slice(5))}/${f.period!.slice(0, 4)}`;
   const rows = [...seriesRows(a, series).map((t) => t.id), ...yieldOf.rows].slice(-MAX_ROWS);
   const draft: FindingDraft = {
     id: findingId("loans", "prepay"),
@@ -199,15 +236,19 @@ function prepayFinding(a: AreaInput): Outcome {
     effort: "tunti",
     euros: { lowCents: yearly(spread.low), midCents: yearly(spread.mid), highCents: yearly(spread.high), assumption: "Kolmen kuukauden menot jäävät säästötilille." },
     decideBy: null,
-    weaknesses: [{ id: "estimate", reason: "Lainan korko on arvio, koska koron tarkistuspäivää ei tiedetä." }],
+    weaknesses: reference ? [{ id: "estimate", reason: "Lainan korko on arvio, koska koron tarkistuspäivää ei tiedetä." }] : [],
     shared: false,
     calc: [
       { label: "Säästötilien saldo", value: eur(savingsCents) },
       { label: "Kolmen kuukauden menot", value: eur(buffer) },
       { label: "Ylimääräiset säästöt", value: eur(excess) },
       { label: "Lainan saldo", value: eur(balance) },
-      { label: `${refName} ${Number(first.slice(5))}/${first.slice(0, 4)}–${Number(last.slice(5))}/${last.slice(0, 4)}`, value: rangeText(reference.low / 100, reference.high / 100, pct) },
-      { label: "Marginaali", value: margin(rate.marginBp) },
+      ...(reference
+        ? [
+            { label: `${refName} ${period(reference.facts[0]!)}–${period(reference.facts[reference.facts.length - 1]!)}`, value: rangeText(reference.low / 100, reference.high / 100, pct) },
+            { label: "Marginaali", value: margin(rate.marginBp) },
+          ]
+        : []),
       { label: "Lainan korko", value: loanRate },
       { label: "Säästötilien tuotto", value: pct(yieldOf.rate) },
       { label: "Lyhennys", value: eur(principal) },
@@ -217,28 +258,21 @@ function prepayFinding(a: AreaInput): Outcome {
     // the same loan as the margin finding: the headline counts the larger of the two, never both
     claims: [`series:${series.id}`],
     measure: { kind: "series", keys: [series.id], perYear: 12 },
-    facts: reference.facts.map((f) => f.id),
+    facts: reference ? reference.facts.map((f) => f.id) : [],
   };
   return { check: { id: "loans:prepay", label: LABELS.prepay, status: "finding" }, draft };
 }
 
 const CARD_SIGNALS = ["gap", "stale", "own_unconnected"] as const;
-/**
- * Purchase interest only: the `interest` category also holds withdrawal fees and late interest, which paying the bill
- * in full does not save (late interest is the late-fee alert's, rule 8).
- */
-const isPurchaseInterest = (t: AnalysisTx) => {
-  const text = `${t.description ?? ""} ${t.merchant} ${t.counterparty ?? ""}`;
-  return isPurchaseInterestText(text);
-};
 
 function cardInterestFinding(a: AreaInput): Outcome {
   const cards = ownAccounts(a, "credit_card");
   if (!cards.length || !a.months.length) return checkOf("card_interest", "clear");
-  const from = `${a.months[0]}-01`;
   const cardIds = new Set(cards.map((b) => b.id));
-  const interest = a.ctx.txs.filter((t) => cardIds.has(t.accountId) && !t.isTransfer && t.category === "interest" && isPurchaseInterest(t) && t.bookingDate >= from && t.bookingDate <= a.end);
-  if (!interest.length) return checkOf("card_interest", "clear");
+  // Which rows are a card's interest and what they come to is `cardCosts`' to say (ADR 0004): purchase interest only,
+  // less what the bank took back. From today its months are the window's.
+  const costs = cardCosts(a.ctx, a.today).cards.filter((c) => cardIds.has(c.accountId));
+  if (!costs.some((c) => c.carriedMonths.length)) return checkOf("card_interest", "clear");
   const checking = ownAccounts(a, "checking");
   const walksChecking = checking.length ? walksOf(a, checking) : null;
   const walksCard = walksOf(a, cards);
@@ -256,20 +290,30 @@ function cardInterestFinding(a: AreaInput): Outcome {
   });
   const covered = position.map((p) => p !== null && p.cash >= p.debt);
   const index = new Map(a.months.map((m, i) => [m, i]));
+  /** The window month the checking accounts covered at both ends, as its place in the window. */
+  const coveredMonth = (month: string) => {
+    const i = index.get(month);
+    return i !== undefined && covered[i] && covered[i + 1] ? i : null;
+  };
   const byMonth = a.months.map(() => 0);
-  const counted: AnalysisTx[] = [];
-  for (const t of interest) {
-    const i = index.get(monthOf(t.bookingDate))!;
-    if (!covered[i] || !covered[i + 1]) continue;
-    byMonth[i]! += netCost(t);
-    counted.push(t);
+  // the places of the covered months in which a card paid interest
+  const months = new Set<number>();
+  for (const { month, cents } of costs.flatMap((c) => c.interestByMonth)) {
+    const i = coveredMonth(month);
+    if (i === null) continue;
+    byMonth[i]! += cents;
+    if (cents > 0) months.add(i);
   }
-  const months = new Set(counted.map((t) => monthOf(t.bookingDate)));
-  if (!counted.length) return checkOf("card_interest", "clear");
+  const paid = byMonth.reduce((s, x) => s + x, 0);
+  if (!months.size || paid <= 0) return checkOf("card_interest", "clear");
   const yearly = annualise(byMonth);
   if (!yearly) return checkOf("card_interest", "no_data");
-  const paid = byMonth.reduce((s, x) => s + x, 0);
-  const at = [...months].map((m) => index.get(m)! + 1);
+  const byId = rowsById(a.ctx);
+  const counted = costs
+    .flatMap((c) => c.interestRows.map((id) => byId.get(id)!))
+    .filter((t) => coveredMonth(monthOf(t.bookingDate)) !== null)
+    .sort((x, y) => x.bookingDate.localeCompare(y.bookingDate) || x.id.localeCompare(y.id));
+  const at = [...months].map((i) => i + 1);
   const maxDebt = Math.max(...at.flatMap((i) => [position[i - 1]!.debt, position[i]!.debt]));
   const minCash = Math.min(...at.flatMap((i) => [position[i - 1]!.cash, position[i]!.cash]));
   const draft: FindingDraft = {
@@ -300,11 +344,33 @@ function cardInterestFinding(a: AreaInput): Outcome {
   return { check: { id: "loans:card_interest", label: LABELS.card_interest, status: "finding" }, draft };
 }
 
+/**
+ * What the household owes in all and what it costs a year, for a household that saved a loan: the same list and the
+ * same sums as the Lainat report (`householdDebts`), and the same word when a debt may be in the total twice.
+ */
+function debtSummary(a: AreaInput): AreaSummary | null {
+  if (!loansOf(a.inputs).length) return null;
+  const debts = householdDebts(a.balances, a.inputs, a.today);
+  // loans that owe and have no rate: left out of the interest, and said so
+  const out = loansWithoutRate(debts.interest);
+  const left = !debts.interestKnown || out === 0 ? "" : ` (ilman ${loansWithout(out, "korkoa", true)})`;
+  return {
+    title: "Velat",
+    lines: [
+      { label: "Velkaa yhteensä", value: eur(debts.total.cents) },
+      // no loan that owes has a rate: there is no figure, and none is printed as zero
+      { label: `Korot 12 kuukaudessa${left}`, value: debts.interestKnown ? eur(debts.interest.cents) : FIGURE_UNKNOWN },
+      ...(maybeTwice(a.balances, debts).length ? [{ label: SAME_DEBT_TWICE, value: "katso Raportit > Lainat" }] : []),
+    ],
+  };
+}
+
 export const loans: Area = {
   id: "loans",
   label: "Lainat",
   assess: (a) => {
     const outcomes = [marginFinding(a), prepayFinding(a), cardInterestFinding(a)];
-    return { findings: outcomes.flatMap((o) => (o.draft ? [o.draft] : [])), checks: outcomes.map((o) => o.check) };
+    const summary = debtSummary(a);
+    return { findings: outcomes.flatMap((o) => (o.draft ? [o.draft] : [])), checks: outcomes.map((o) => o.check), ...(summary ? { summary } : {}) };
   },
 };

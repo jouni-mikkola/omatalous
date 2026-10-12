@@ -317,7 +317,7 @@ main() {
   docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing. Install: sudo apt install docker-compose-plugin"
   if ! docker info >/dev/null 2>&1; then
     if [[ $(docker info 2>&1 >/dev/null | head -3) == *"permission denied"* ]]; then
-      die "Your user has no permission to use Docker. Run: sudo usermod -aG docker \$USER   then log out and in (or: newgrp docker)."
+      die "Your user has no permission to use Docker. Run: sudo usermod -aG docker \$USER   then close the SSH connection and open it again (or log out and in)."
     fi
     die "The Docker service does not respond. Run: sudo systemctl start docker   then this again. Cause: sudo journalctl -u docker -n 30"
   fi

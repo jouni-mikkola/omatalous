@@ -25,6 +25,8 @@ export interface Zone {
   id: string;
   name: string;
   accountId: string;
+  /** Cloudflare serves the zone. False while its name servers are not yet moved (pending) and after it has left. */
+  active: boolean;
 }
 export interface Tunnel {
   id: string;
@@ -70,6 +72,8 @@ export interface AccessApp {
   allowedIdps: string[];
   autoRedirect: boolean;
   policyIds: string[];
+  /** Audience tag: the `aud` of the tokens Access signs for this application. Null when the answer has none. */
+  aud: string | null;
 }
 
 /** What an Access application is made with (the API wants the session as a Go duration). */
@@ -128,6 +132,22 @@ export class CloudflareApi {
     return a.result;
   }
 
+  // ── the token itself ──────────────────────────────────
+  /**
+   * What Cloudflare says of the token that asks: "active", "disabled" or "expired". A user's token is asked without an
+   * account, an account's own token with its account. Null when Cloudflare refuses the question (the other kind of
+   * token, or one it does not know): the caller's next call then tells whether the token works at all.
+   */
+  async tokenStatus(accountId?: string): Promise<string | null> {
+    try {
+      const a = await this.c.call("verify the API token", "GET", accountId ? `/accounts/${accountId}/tokens/verify` : "/user/tokens/verify");
+      return isObject(a.result) ? (text(a.result.status, 40)?.toLowerCase() ?? null) : null;
+    } catch (e) {
+      if (e instanceof CloudflareError && e.status >= 400 && e.status < 500) return null;
+      throw e;
+    }
+  }
+
   // ── zones ─────────────────────────────────────────────
   async listZones(): Promise<Zone[]> {
     const zones: Zone[] = [];
@@ -136,20 +156,25 @@ export class CloudflareApi {
       const id = text(z.id, 64);
       const name = text(z.name, 253);
       const accountId = text(account.id, 64);
-      if (id && name && accountId) zones.push({ id, name: name.toLowerCase(), accountId });
+      if (id && name && accountId) zones.push({ id, name: name.toLowerCase(), accountId, active: z.status === "active" });
     }
     return zones;
   }
 
   // ── Zero Trust ────────────────────────────────────────
-  async hasZeroTrust(accountId: string): Promise<boolean> {
+  /** The team's host (`auth_domain`, `<team>.cloudflareaccess.com`), or null when the account has no Zero Trust organization. */
+  async teamDomain(accountId: string): Promise<string | null> {
     try {
       const a = await this.c.call("check that Zero Trust is on", "GET", `/accounts/${accountId}/access/organizations`, { needs: PERMISSION.identity });
-      return isObject(a.result) && text(a.result.auth_domain) !== null;
+      return isObject(a.result) ? (text(a.result.auth_domain)?.toLowerCase() ?? null) : null;
     } catch (e) {
-      if (e instanceof CloudflareError && saysNoOrganization(e)) return false;
+      if (e instanceof CloudflareError && saysNoOrganization(e)) return null;
       throw e;
     }
+  }
+
+  async hasZeroTrust(accountId: string): Promise<boolean> {
+    return (await this.teamDomain(accountId)) !== null;
   }
 
   async listIdentityProviders(accountId: string): Promise<IdentityProvider[]> {
@@ -306,6 +331,7 @@ export class CloudflareApi {
         allowedIdps: Array.isArray(p.allowed_idps) ? p.allowed_idps.filter((x): x is string => typeof x === "string") : [],
         autoRedirect: p.auto_redirect_to_identity === true,
         policyIds: list(p.policies).flatMap((x) => (text(x.id, 64) ? [x.id as string] : [])),
+        aud: text(p.aud, 64),
       });
     }
     return out;
@@ -324,8 +350,10 @@ export class CloudflareApi {
     };
   }
 
-  async createApp(accountId: string, spec: AppSpec): Promise<void> {
-    await this.c.call("create the Access application", "POST", `/accounts/${accountId}/access/apps`, { body: this.appBody(spec), needs: PERMISSION.access });
+  /** Returns the new application's audience tag, or null when the answer has none. */
+  async createApp(accountId: string, spec: AppSpec): Promise<string | null> {
+    const a = await this.c.call("create the Access application", "POST", `/accounts/${accountId}/access/apps`, { body: this.appBody(spec), needs: PERMISSION.access });
+    return isObject(a.result) ? text(a.result.aud, 64) : null;
   }
 
   async updateApp(accountId: string, appId: string, spec: AppSpec): Promise<void> {

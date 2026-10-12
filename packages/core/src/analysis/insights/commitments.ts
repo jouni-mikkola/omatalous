@@ -4,7 +4,7 @@
  * rise counts against the rise); usual income is `usualIncome`, the one the buffer report and the overview use. The
  * detail gives both sides, so it shows whether costs or income moved.
  */
-import { cancelledMerchants, fixedMonthlyCents, isFixedCost } from "../../commitments.ts";
+import { cancelledSubjects, fixedMonthlyCents, isFixedCost } from "../../commitments.ts";
 import { addDays, daysBetween, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { IsoDate, UserInputs } from "../../types.ts";
@@ -39,7 +39,7 @@ export function commitmentsShareOf(ctx: AnalysisContext, end: IsoDate, inputs: U
   const series = recurringAt(ctx, end);
   const share = (fixedCents: number, incomeCents: number | null): FixedShare | null =>
     incomeCents && incomeCents > 0 ? { fixedCents, incomeCents, pct: Math.round((fixedCents / incomeCents) * 100) } : null;
-  const now = share(fixedMonthlyCents(series, cancelledMerchants(inputs)), usualIncome(ctx, monthOf(end)));
+  const now = share(fixedMonthlyCents(series, cancelledSubjects(inputs)), usualIncome(ctx, monthOf(end)));
   // a quarterly bill needs half a year of rows before it shows as a series: without them a year ago looks cheaper
   if (!historyCovers(ctx, addDays(yearAgo, -183))) return { now, then: null, series };
   // a year ago seen from today: a contract that had just started then (a new electricity company, a yearly plan paid

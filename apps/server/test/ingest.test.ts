@@ -330,6 +330,50 @@ describe("a fetch that fails or is cut short", () => {
   });
 });
 
+describe("the bank code of a fetched row", () => {
+  type Code = { code?: string; sub_code?: string; description?: string };
+  const coded = (ref: string, date: string, euros: string, dir: "CRDT" | "DBIT", name: string, code?: Code) => ({
+    ...ebRow(ref, date, euros, dir, name),
+    remittance_information: ["TILISIIRTO"],
+    ...(code ? { bank_transaction_code: code } : {}),
+  });
+  const SALARY: Code = { code: "PMNT", sub_code: "RCDT-SALA" };
+
+  it("bank code: a fetch stores it with the row, the rules read it, and the next fetch of the same rows writes nothing", async () => {
+    const f = await connectedFeed();
+    f.feed.rows = [
+      coded("pay", "2026-10-01", "2500.00", "CRDT", "HUS-YHTYMÄ", SALARY),
+      coded("atm", "2026-10-02", "60.00", "DBIT", "K-MARKET KAMPPI", { code: "PMNT-CCRD-CWDL" }),
+      coded("txt", "2026-10-03", "12.00", "DBIT", "KAUPPA A", { description: "Korttiosto" }),
+      coded("non", "2026-10-04", "2500.00", "CRDT", "HUS-YHTYMÄ"),
+    ];
+    expect(await syncUser(f.s, f.adminId, "manual")).toMatchObject({ status: "ok", inserted: 4 });
+    const read = async () => (await f.repo.allTransactions()).map((t) => `${t.bookingDate} ${t.bankTxnCode} ${t.category}`);
+    const first = await read();
+    // pay from an employer a merchant rule knows is pay and cash from a shop's till is cash; the same pay without a code stays the merchant's
+    expect(first).toEqual(["2026-10-01 PMNT-RCDT-SALA salary", "2026-10-02 PMNT-CCRD-CWDL cash", "2026-10-03 null other", "2026-10-04 null health"]);
+    const version = await f.s.settings.get(`data_version:${f.adminId}`);
+    expect(await syncUser(f.s, f.adminId, "manual")).toMatchObject({ status: "ok", inserted: 0 });
+    expect(await read()).toEqual(first);
+    // no row was written: the user's data version did not move
+    expect(await f.s.settings.get(`data_version:${f.adminId}`)).toBe(version);
+  });
+
+  it("bank code: a row stored without one is written once when the bank sends it again with its code", async () => {
+    const { fetchBank, repo } = await withAccount();
+    const pay = (code?: Code) => mapTransaction({ ...coded("pay", "2026-10-01", "2500.00", "CRDT", "HUS-YHTYMÄ", code), status: "BOOK" })!;
+    const codes = async () => (await repo.allTransactions()).map((t) => t.bankTxnCode);
+    expect(await fetchBank([pay()])).toMatchObject({ inserted: 1, changed: 1 });
+    expect(await codes()).toEqual([null]);
+    expect(await fetchBank([pay(SALARY)])).toMatchObject({ inserted: 0, updated: 1, changed: 1 });
+    expect(await codes()).toEqual(["PMNT-RCDT-SALA"]);
+    expect(await fetchBank([pay(SALARY)])).toMatchObject({ inserted: 0, updated: 1, changed: 0 });
+    // a code that changes is a change of the row, like any other field of the bank's
+    expect(await fetchBank([pay({ code: "PMNT", sub_code: "RCDT-ESCT" })])).toMatchObject({ changed: 1 });
+    expect(await codes()).toEqual(["PMNT-RCDT-ESCT"]);
+  });
+});
+
 describe("rows in another currency", () => {
   const inCurrency = (currency: string, row: ReturnType<typeof ebRow>) => ({ ...row, transaction_amount: { currency, amount: row.transaction_amount.amount } });
 

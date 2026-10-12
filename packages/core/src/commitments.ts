@@ -1,16 +1,34 @@
 /**
  * What a household has committed to: fixed costs, subscriptions, the charges its series are expected to bring and the
- * bills it typed in, without the merchants it marked as cancelled. One definition each, used by the overview, the
+ * bills it typed in, without the subscriptions it marked as cancelled. One definition each, used by the overview, the
  * recurring page and the reports (docs/MONEY_FLOWS.md).
  */
 import type { AnalysisContext } from "./analysis/context.ts";
+import { covers, type MarkedSeries, marksBySubject } from "./analysis/subscription-alerts.ts";
 import { completeMonthsBefore } from "./analysis/usual.ts";
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
 import { addMonthsToDate, monthIndex, monthOf } from "./dates.ts";
 import { projectDates, type RecurringSeries } from "./recurring.ts";
 import type { ExpectedBill, IsoDate, UserInputs } from "./types.ts";
 
-type FixedInput = Pick<RecurringSeries, "active" | "kind" | "category" | "monthlyCents"> & { merchant?: string };
+/** What a mark can find a series by. A caller may pass less than a whole series, and then only a mark on its merchant covers it. */
+type Markable = Pick<RecurringSeries, "kind"> & Partial<Omit<MarkedSeries, "kind">>;
+
+type FixedInput = Pick<RecurringSeries, "active" | "category" | "monthlyCents"> & Markable;
+
+/**
+ * Whether the household marked a series as cancelled: a mark on the series itself, or an old one on its merchant, which
+ * covers every series of the merchant. `cancelled` comes from `cancelledSubjects`; a set of merchant names works too.
+ */
+export function isCancelled(cancelled: ReadonlySet<string>, s: Markable): boolean {
+  const { id, merchant, typicalAmountCents } = s;
+  if (merchant === undefined || !cancelled.size) return false;
+  if (cancelled.has(merchant)) return true;
+  if (id === undefined || typicalAmountCents === undefined) return false;
+  const series = { id, merchant, kind: s.kind, typicalAmountCents, priceChange: s.priceChange ?? null };
+  for (const key of cancelled) if (covers(key, series)) return true;
+  return false;
+}
 
 /**
  * An active subscription or bill that is a fixed cost. The credit card bill
@@ -23,14 +41,14 @@ export function isFixedCost(s: Pick<RecurringSeries, "active" | "kind" | "catego
 
 /**
  * Monthly cost of active subscriptions and bills by what they are: spending,
- * debt service (loan instalments) or saving (a monthly fund saving). A merchant the user marked as cancelled is
- * left out when the caller passes the set: its series stays active until the last charge is old enough, and the
- * household has already acted on it.
+ * debt service (loan instalments) or saving (a monthly fund saving). A series the user marked as cancelled is
+ * left out when the caller passes the set (`cancelledSubjects`): it stays active until the last charge is old enough,
+ * and the household has already acted on it.
  */
 export function fixedSplit(series: readonly FixedInput[], cancelled: ReadonlySet<string> = new Set()): { consumptionCents: number; debtCents: number; savingsCents: number } {
   const out = { consumptionCents: 0, debtCents: 0, savingsCents: 0 };
   for (const s of series) {
-    if (!isFixedCost(s) || (s.merchant !== undefined && cancelled.has(s.merchant))) continue;
+    if (!isFixedCost(s) || isCancelled(cancelled, s)) continue;
     const kind = getCategory(s.category).kind;
     if (kind === "expense") out.consumptionCents += s.monthlyCents;
     else if (kind === "debt") out.debtCents += s.monthlyCents;
@@ -66,15 +84,15 @@ export function isSubscription(s: Pick<RecurringSeries, "active" | "kind" | "cat
 }
 
 /**
- * Subscriptions per month. A merchant the user marked as cancelled is not counted: the series stays active until
- * its last charge is old enough, and the household has already acted on it.
+ * Subscriptions per month. A series the user marked as cancelled is not counted: it stays active until its last
+ * charge is old enough, and the household has already acted on it.
  */
 export function subscriptionsMonthlyCents(
   series: readonly (FixedInput & Pick<RecurringSeries, "merchant">)[],
   cancelled: ReadonlySet<string> = new Set(),
 ): number {
   let sum = 0;
-  for (const s of series) if (isSubscription(s) && !cancelled.has(s.merchant)) sum += s.monthlyCents;
+  for (const s of series) if (isSubscription(s) && !isCancelled(cancelled, s)) sum += s.monthlyCents;
   return sum;
 }
 
@@ -140,10 +158,13 @@ export function expectedDates(bill: Pick<ExpectedBill, "dueDate" | "cadence">, f
   return out;
 }
 
-/** The merchants the household marked as cancelled (`merchant:<name>`): the series stays active until its last charge is old. */
-export function cancelledMerchants(inputs: UserInputs): ReadonlySet<string> {
-  const prefix = "merchant:";
-  return new Set(inputs.marks.filter((m) => m.mark === "cancelled" && m.subject.startsWith(prefix)).map((m) => m.subject.slice(prefix.length)));
+/**
+ * What the household marked as cancelled, for `isCancelled` and the totals here: the keys of `marksBySubject`, so the
+ * whole subject of a mark on one series, and the merchant's name for an old mark on a merchant (the name of this
+ * function is from when every mark was one). A marked series stays active until its last charge is old.
+ */
+export function cancelledSubjects(inputs: UserInputs): ReadonlySet<string> {
+  return new Set([...marksBySubject(inputs.marks)].filter(([, m]) => m.mark === "cancelled").map(([key]) => key));
 }
 
 /** A subscription or bill charge the forecast expects on a date. */
@@ -158,7 +179,7 @@ export interface ExpectedCharge {
 /**
  * The charges the forecast expects between `from` and `until`: active subscriptions and bills that are not overdue,
  * each at its typical amount on its projected dates. A date before `from` is a charge a few days late, expected on
- * `from`. A merchant in `cancelled` is left out. Savings plans leave the checking account but are not spending, so
+ * `from`. A series `cancelled` covers is left out (`isCancelled`). Savings plans leave the checking account but are not spending, so
  * they come only with `savings`. Date ascending, the larger first.
  */
 export function expectedCharges(
@@ -169,7 +190,7 @@ export function expectedCharges(
 ): ExpectedCharge[] {
   const out: ExpectedCharge[] = [];
   for (const s of series) {
-    if (!s.active || s.overdue || (s.kind !== "subscription" && s.kind !== "bill") || opts.cancelled?.has(s.merchant)) continue;
+    if (!s.active || s.overdue || (s.kind !== "subscription" && s.kind !== "bill") || (opts.cancelled && isCancelled(opts.cancelled, s))) continue;
     const kind = getCategory(s.category).kind;
     if (kind !== "expense" && kind !== "debt" && !(opts.savings && kind === "savings")) continue;
     for (const d of projectDates(s, until)) out.push({ merchant: s.merchant, category: s.category, amountCents: s.typicalAmountCents, date: d < from ? from : d });

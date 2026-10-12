@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { type Alert, buildAlerts, inUseQuietsQuestion } from "../src/analysis/alerts.ts";
+import { type Alert, buildAlerts } from "../src/analysis/alerts.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { inUseQuietsQuestion } from "../src/analysis/subscription-alerts.ts";
 import { fixedMonthlyCents, fixedSplit, isSubscription, subscriptionsMonthlyCents } from "../src/commitments.ts";
 import type { Account, Transaction, UserInputs, UserMark } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";

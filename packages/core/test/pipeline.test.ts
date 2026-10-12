@@ -302,6 +302,17 @@ describe("previousRange", () => {
 });
 
 describe("the enrichment with its rule memo and pauses", () => {
+  it("two rows with the same text and different bank transaction codes are decided apart, in either order", async () => {
+    const { enrichTransactionsReference } = await import("./pipeline-reference.ts");
+    const pay = (id: string, bankTxnCode: string | null) => tx({ id, accountId: "chk", bookingDate: "2026-09-10", amountCents: 250000, merchant: "Acme Oy", counterparty: "ACME OY", description: "TILISIIRTO", category: "income", bankTxnCode });
+    const rows = [pay("plain", null), pay("salary", "PMNT-RCDT-SALA"), pay("transfer", "PMNT-RCDT-ESCT")];
+    for (const input of [rows, [...rows].reverse()]) {
+      const changed = enrichTransactions(input, [checking], []);
+      expect(changed.map((t) => `${t.id}:${t.category}`)).toEqual(["salary:salary"]);
+      expect(changed).toEqual(enrichTransactionsReference(input, [checking], [], new Map()));
+    }
+  });
+
   it("gives the same rows as the plain version on random histories", async () => {
     const { enrichTransactionsReference } = await import("./pipeline-reference.ts");
     const { enrichTransactionsPausing } = await import("../src/pipeline.ts");

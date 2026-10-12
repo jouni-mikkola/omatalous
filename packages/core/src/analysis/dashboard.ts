@@ -1,6 +1,6 @@
 import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
-import { cancelledMerchants, fixedMonthlyCents } from "../commitments.ts";
+import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
@@ -164,7 +164,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     settled,
     bridge: buildBridge(ctx, range, running, totals, settled),
     // the fixed costs as they were at the end of the period; a subscription the household marked as cancelled has left them
-    fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to), cancelledMerchants(inputs)),
+    fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to), cancelledSubjects(inputs)),
     categories,
     pace: monthPace(ctx, toMonth, ctx.today < range.to ? ctx.today : range.to),
     forecast: range.from <= ctx.today && ctx.today <= range.to ? monthForecast(ctx, inputs) : null,

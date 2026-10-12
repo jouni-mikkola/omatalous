@@ -71,6 +71,12 @@ export interface User {
   createdAt: string;
 }
 
+/**
+ * A select column: the bank the account's connection was made with (`connections.institution`), null for an account
+ * without a connection. `a` is the name or alias of the accounts table in the query.
+ */
+export const accountBank = (a: string) => `(SELECT c.institution FROM connections c WHERE c.id = ${a}.connection_id AND c.user_id = ${a}.user_id) AS bank`;
+
 export function toAccount(r: Row): StoredAccount {
   return {
     id: String(r.id),
@@ -81,6 +87,8 @@ export function toAccount(r: Row): StoredAccount {
     identity: str(r.identity),
     name: str(r.custom_name) ?? String(r.name),
     bankName: String(r.name),
+    // selected with accountBank(); a query without it leaves the bank unknown
+    bank: str(r.bank),
     customName: str(r.custom_name),
     holder: str(r.holder),
     cardMask: str(r.card_mask),
@@ -109,7 +117,7 @@ export function toConnection(r: Row): Connection {
 }
 
 export const TX_COLUMNS =
-  "id, user_id, account_id, booking_date, value_date, amount_cents, currency, status, counterparty, counterparty_iban, description, reference, mcc, merchant, category, category_source, is_transfer, source, raw";
+  "id, user_id, account_id, booking_date, value_date, amount_cents, currency, status, counterparty, counterparty_iban, description, reference, mcc, bank_txn_code, merchant, category, category_source, is_transfer, source, raw";
 /** For loading whole histories: everything but the bank's raw JSON, which nothing reads back. */
 export const TX_COLUMNS_LIGHT = TX_COLUMNS.replace(", raw", "");
 
@@ -128,6 +136,7 @@ export function toTransaction(r: Row): StoredTransaction {
     description: str(r.description),
     reference: str(r.reference),
     mcc: str(r.mcc),
+    bankTxnCode: str(r.bank_txn_code),
     merchant: String(r.merchant),
     category: String(r.category),
     categorySource: String(r.category_source) as CategorySource,

@@ -4,7 +4,7 @@
  * they stand (`fixedSplit`), so an early repayment or a loan paid off at once is not counted as a monthly burden.
  * Usual income is the median of six complete months; with fewer months nothing is judged.
  */
-import { cancelledMerchants, fixedSplit } from "../../commitments.ts";
+import { cancelledSubjects, fixedSplit, isCancelled } from "../../commitments.ts";
 import { getCategory } from "../../categories.ts";
 import { monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
@@ -38,8 +38,8 @@ export interface DebtShare {
 export function debtShareOf(ctx: AnalysisContext, end: IsoDate, inputs: UserInputs): DebtShare | null {
   const months = lastCompleteMonths(ctx, end, MONTHS);
   if (months.length < MONTHS) return null;
-  const cancelled = cancelledMerchants(inputs);
-  const series = recurringAt(ctx, end).filter((s) => getCategory(s.category).kind === "debt" && !cancelled.has(s.merchant));
+  const cancelled = cancelledSubjects(inputs);
+  const series = recurringAt(ctx, end).filter((s) => getCategory(s.category).kind === "debt" && !isCancelled(cancelled, s));
   const debtCents = fixedSplit(series, cancelled).debtCents;
   // six months give a usual income, so it is never null here
   const incomeCents = usualIncome(ctx, monthOf(end))!;

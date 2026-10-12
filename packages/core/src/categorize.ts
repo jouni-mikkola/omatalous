@@ -1,14 +1,14 @@
 import { getCategory } from "./categories.ts";
-import { hasCompanyForm } from "./industry.ts";
 import { fold, namesUnknownMerchant } from "./merchant.ts";
 import type { CategoryRule, CategorySource, RuleField } from "./types.ts";
-import { CARD_ISSUER_WORDS, companyForms, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, LANDLORD_WORDS, MOBILEPAY_WORDS, OTHER_TAX_WORDS, PENSION_PAYER_WORDS, REFUND_WORDS, RESIDUAL_TAX_WORDS } from "./wording.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isNoCreditText, isOwnTransferCode, isPersonShaped, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
   counterparty: string | null;
   description: string | null;
   mcc: string | null;
+  bankTxnCode?: string | null;
   amountCents: number;
 }
 
@@ -35,15 +35,13 @@ function w(alternatives: string): RegExp {
 }
 
 /** Banks that lend mortgages. Nordea's finance company (Nordea Rahoitus) lends for cars and cards instead. */
-const MORTGAGE_BANK = w(
-  String.raw`NORDEA(?! RAHOITUS| FINANCE)|OP|[A-Z]*OSUUSPANKKI|DANSKE|S-PANKKI|AKTIA|[A-Z]*SAASTOPANKKI|POP PANKKI|HANDELSBANKEN|ALANDSBANKEN`,
-);
+const MORTGAGE_BANK = w(String.raw`(?!${NORDEA_FINANCE_WORDS})NORDEA|OP|[A-Z]*OSUUSPANKKI|DANSKE|S-PANKKI|AKTIA|[A-Z]*SAASTOPANKKI|POP PANKKI|HANDELSBANKEN|ALANDSBANKEN`);
 
 /**
  * Built-in rules for Finnish merchants and payment texts. Matched against the
  * folded (upper-case, ä→a, ö→o) merchant + counterparty + description.
- * First match wins: purpose-of-payment rules (debt, card bills, savings)
- * come before merchant rules, and generic fallbacks (refunds, MobilePay) last.
+ * First match wins: purpose-of-payment rules (debt, card bills, savings), then the bank's own code (CODE_RULES),
+ * then merchant rules, and generic fallbacks (refunds, MobilePay) last.
  */
 const PURPOSE_RULES: readonly BuiltinRule[] = [
   // ── income ──
@@ -52,6 +50,8 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
     direction: "in",
     re: w(String.raw`PALKKA|PALKAN|PALKKAERA|LOMARAHA|LOMAPALKKA|LOMAKORVAUS|PALKKIO|KOKOUSPALKKIO|TYOKORVAUS|SALARY|LONEUTBETALNING|PAYROLL`),
   },
+  // a peer-lending service pays back the loan given, interest and all: money that was saved comes home
+  { category: "investments", direction: "in", re: w(PEER_LENDING_WORDS), when: (text) => !namesLoanOrCredit(text) },
   { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO|KORKO|KORKOHYVITYS`) },
   {
     category: "benefits",
@@ -65,21 +65,20 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "income", direction: "in", re: w(String.raw`VUOKRA(?:T|TULO[A-Z]*|TILITYS|NMAKSU)?`) },
 
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
-  // Bank Norwegian also lends: its texts that mention LAINA are loan payments (loans, below)
+  // The issuers that are banks also lend and take deposits: LAINA in the text is a loan payment (loans, below), SÄÄSTÖTILI is saving
+  { category: "savings", re: w(CARD_ISSUER_BANK_WORDS), when: isSavingsAccountText },
   {
     category: "card_bill",
     direction: "out",
     re: w(
-      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|NORDEA GOLD|NORDEA PLATINUM|(?:GOLD|PLATINUM)-?KORTTI|NORDEA CREDIT|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|NORDEA RAHOITUS[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|BANK NORWEGIAN(?!.*LAINA)|ENTERCARD|RE:?MEMBER|KOMPLETT BANK`,
+      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|(?:${CARD_ISSUER_BANK_WORDS})(?!.*LAINA)|${CARD_BRAND_WORDS}`,
     ),
   },
   // money in from a credit line (a card's "luoton siirto omalle tilille", financing payouts, a card issuer)
   {
     category: "credit_draw",
     direction: "in",
-    re: w(
-      String.raw`LUOTON ?NOSTO|LUOTONNOSTO|LUOTON SIIRTO|NOSTO LUOTOLTA|LUOTTOTILI|${CARD_ISSUER_WORDS}|NORDEA GOLD|NORDEA PLATINUM|NORDEA CREDIT`,
-    ),
+    re: w(String.raw`LUOTON ?NOSTO|LUOTONNOSTO|LUOTON SIIRTO|NOSTO LUOTOLTA|LUOTTOTILI|${CARD_ISSUER_WORDS}|${NORDEA_CARD_WORDS}`),
   },
 
   // ── debt service (money in from a lender becomes credit_draw, see categorize()) ──
@@ -94,19 +93,18 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   // money in from enforcement is a refund or a share of a debt collected for the user, not a loan
   { category: "collection", direction: "out", re: w(String.raw`ULOSOTTO[A-Z]*`) },
   { category: "interest", re: w(String.raw`KORKO|KORKOKULU|LUOTONKORKO|LUOTTOKORKO|VIIVASTYSKORKO|LUOTTOKULU[A-Z]*|LUOTTOKUSTANNUS|NOSTOPALKKIO`) },
-  {
-    category: "loans",
-    re: w(
-      String.raw`NORDEA RAHOITUS[A-Z ]*|NORDEA FINANCE[A-Z ]*|OSAMAKSU[A-Z]*|RAHOITUSSOPIMUS|KULUTUSLUOTTO|LAINA[A-Z]*|LYHENNYS|LAINANHOITO|LUOTTO|RESURS|SANTANDER|BANK NORWEGIAN|SVEA BANK|SVEA EKONOMI|COLLECTOR BANK|INSTABANK|TF BANK|IKANO|NORDAX|NOBA|AVIDA|NORTHMILL|FERRATUM|MONEYGO|EUROLOAN|AXO FINANS|SAMBLA|LENDO|ZMARTA`,
-    ),
-  },
+  { category: "loans", re: w(String.raw`(?:${NORDEA_FINANCE_WORDS})[A-Z ]*|${LOAN_WORDS}|LUOTTO|${RESURS_WORDS}|${CARD_ISSUER_BANK_WORDS}|${CONSUMER_LENDER_WORDS}`) },
+  // credit named by a compound, and the finance companies; a lease, a bond, a housing company's own loan and a refund stay what the rules below make them
+  { category: "loans", re: w(`${CREDIT_WORDS}|${FINANCE_LENDER_WORDS}`), when: (text, input) => !isNoCreditText(text) && !isHousingCompanyName(fold(input.counterparty ?? "")) && !(input.amountCents > 0 && isRefundText(text)) },
+  // a purchase paid in parts through a payment service; one paid at once is shopping, and so is a refund (below)
+  { category: "loans", direction: "out", re: w(INSTALMENT_SERVICE_WORDS), when: (text) => isInstalmentPlanText(text) },
 
   // ── savings & investments (both directions: money back from them reduces savings) ──
   { category: "pension", re: w(String.raw`ELAKEVAKUUTUS|ELAKESAASTO[A-Z]*|PS-TILI|PITKAAIKAISSAASTO[A-Z]*|VAPAAEHTOINEN ELAKE`) },
   {
     category: "investments",
     re: w(
-      String.raw`NORDNET|RAHASTO[A-Z]*|NORDEA RAHASTO[A-Z]*|SAASTOSOPIMUS|KUUKAUSISAASTO[A-Z]*|OSAKESAASTOTILI|OST|ARVOPAPERI[A-Z]*|SIJOITUS[A-Z]*|SELIGSON|EVLI|EQ|SAXO|DEGIRO|INTERACTIVE BROKERS|LYNX|TRADE REPUBLIC|LIGHTYEAR|MONTHIO|TITAN|ESTATEGURU|FELLOW FINANCE|INVESDOR|COINBASE|BITSTAMP|KRAKEN|BINANCE|NORTHCRYPTO|COINMOTION|TAVEX|SIJOITUSKULTA|KULTAHARKKO|HOPEAHARKKO|JALOMETALLI[A-Z]*|GOLD BULLION`,
+      String.raw`NORDNET|RAHASTO[A-Z]*|NORDEA RAHASTO[A-Z]*|SAASTOSOPIMUS|KUUKAUSISAASTO[A-Z]*|OSAKESAASTOTILI|OST|ARVOPAPERI[A-Z]*|SIJOITUS[A-Z]*|SELIGSON|EVLI|EQ|SAXO|DEGIRO|INTERACTIVE BROKERS|LYNX|TRADE REPUBLIC|LIGHTYEAR|MONTHIO|TITAN|${PEER_LENDING_WORDS}|COINBASE|BITSTAMP|KRAKEN|BINANCE|NORTHCRYPTO|COINMOTION|TAVEX|SIJOITUSKULTA|KULTAHARKKO|HOPEAHARKKO|JALOMETALLI[A-Z]*|GOLD BULLION`,
     ),
   },
   {
@@ -169,9 +167,8 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
       String.raw`${ELECTRICITY_SELLER_WORDS}|ALVA(?: OY|-YHTIOT)|SAVON VOIMA|${ELECTRICITY_NETWORK_WORDS}|PKS|SAHKO(?!ASENN|ASENT|TYO|URAKOINTI|LIIKE|PALVELU)[A-Z]*|[A-Z]*ENERGIA|KAUKOLAMPO|TAMPEREEN SAHKOLAITOS|GASUM|VESIHUOLTO|VESILAITOS|VESIOSUUSKUNTA|VESIMAKSU|[A-Z]+N VESI|HSY|JATEHUOLTO[A-Z]*|JATEMAKSU|LASSILA & TIKANOJA|L&T|REMEO|URBASER|KIERTOKAPULA|ROSK'?N ?ROLL|KIERTOKAARI|JATEKUKKO|PUHAS|NUOHOUS[A-Z]*`,
     ),
   },
-  // Finnish compounds (KOTIVAKUUTUS, VAHINKOVAKUUTUS) need a plain substring match
   // premiums only: money in from an insurer is a claim payout (reimbursements, below)
-  { category: "insurance", direction: "out", re: /VAKUUTUS|LAHITAPIOLA|FENNIA|\bIF P&C\b|\bTURVA\b|POHJOLA VAKUUTUS|\bMANDATUM\b|\bPOHJANTAHTI\b|\bFOLKSAM\b|\bALANDIA\b|\bEUROP ASSISTANCE\b/ },
+  { category: "insurance", direction: "out", re: new RegExp(INSURER_WORDS) },
   // before memberships: a donation to an association is not a membership fee
   { category: "gifts_donations", re: w(String.raw`LAHJOITUS|KERAYS|KOLEHTI`) },
   // union and unemployment fund fees, associations (charity unions are donations, below)
@@ -258,7 +255,7 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
   {
     category: "shopping",
     re: w(
-      String.raw`ZALANDO|H&M|HM|LINDEX|KAPPAHL|ZARA|GINA TRICOT|BIK BOK|CUBUS|MANGO|PEPCO|NEW YORKER|RESERVED|STADIUM|XXL|NIKE|ADIDAS|PUMA|SPORTS ?DIRECT|DECATHLON|HALENS|ANTTILA|INTERSPORT|DRESSMANN|CARLINGS|KOOKENKA|FOOTWAY|NILSON SHOES|DIN SKO|STOCKMANN|SOKOS|TOKMANNI|J\. ?KARKKAINEN|KARKKAINEN OY|AMAZON|AMZN|ALIEXPRESS|TEMU|SHEIN|ETSY|EBAY|NORMAL|FLYING TIGER|SOSTRENE GRENE|HALPA-HALLI|TOKYO|IITTALA|MARIMEKKO|FINLAYSON|PENTIK|KLARNA|WALLEY|RIVERTY|AFTERPAY|BOOZT|ELLOS|VERO MODA|JACK & JONES|NAKKI|BRANDOS|ADLIBRIS|AKATEEMINEN|SUOMALAINEN KIRJAKAUPPA|KIRJAKAUPPA|ANTIKVARIAATTI|KIRPPUTORI|KIERRATYSKESKUS|UFF|FIDA LAHETYSTORI`,
+      String.raw`ZALANDO|H&M|HM|LINDEX|KAPPAHL|ZARA|GINA TRICOT|BIK BOK|CUBUS|MANGO|PEPCO|NEW YORKER|RESERVED|STADIUM|XXL|NIKE|ADIDAS|PUMA|SPORTS ?DIRECT|DECATHLON|HALENS|ANTTILA|INTERSPORT|DRESSMANN|CARLINGS|KOOKENKA|FOOTWAY|NILSON SHOES|DIN SKO|STOCKMANN|SOKOS|TOKMANNI|J\. ?KARKKAINEN|KARKKAINEN OY|AMAZON|AMZN|ALIEXPRESS|TEMU|SHEIN|ETSY|EBAY|NORMAL|FLYING TIGER|SOSTRENE GRENE|HALPA-HALLI|TOKYO|IITTALA|MARIMEKKO|FINLAYSON|PENTIK|${INSTALMENT_SERVICE_WORDS}|BOOZT|ELLOS|VERO MODA|JACK & JONES|NAKKI|BRANDOS|ADLIBRIS|AKATEEMINEN|SUOMALAINEN KIRJAKAUPPA|KIRJAKAUPPA|ANTIKVARIAATTI|KIRPPUTORI|KIERRATYSKESKUS|UFF|FIDA LAHETYSTORI`,
     ),
   },
   {
@@ -276,13 +273,18 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
 const FALLBACK_RULES: readonly BuiltinRule[] = [
   // a city or municipality without a more specific purpose (daycare and health care are matched above)
   { category: "taxes", direction: "out", re: w(String.raw`[A-Z]+N KAUPUNKI|[A-Z]+N KUNTA|KAUPUNGINKANSLIA`) },
-  { category: "reimbursements", direction: "in", re: w(String.raw`VAKUUTUSKORVAUS|KORVAUS|KULUKORVAUS|MATKALASKU|${REFUND_WORDS}`) },
+  { category: "reimbursements", direction: "in", re: w(REIMBURSEMENT_WORDS) },
   // a company paid or paying with MobilePay is not a person (TIKKURILAN TIIKERIT RY)
-  { category: "p2p_in", direction: "in", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLTA`), when: (_text, input) => !hasCompanyForm(input.counterparty ?? "") },
-  { category: "p2p", direction: "out", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLLE`), when: (_text, input) => !hasCompanyForm(input.counterparty ?? "") },
+  { category: "p2p_in", direction: "in", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLTA`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) },
+  { category: "p2p", direction: "out", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLLE`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) },
 ];
 
-const BUILTIN_RULES: readonly BuiltinRule[] = [...PURPOSE_RULES, ...MERCHANT_RULES, ...FALLBACK_RULES];
+// An employer may be a shop too, so a code (lists in wording.ts) decides before a merchant's name. COAT is as the words OMA SIIRTO.
+const CODE_RULES: readonly CompiledRule[] = [
+  { category: "salary", income: true, field: "any", direction: "in", test: (text, input) => isSalaryCode(input.bankTxnCode) && !isReimbursementText(text) },
+  { category: "cash", income: false, field: "any", direction: "out", test: (_text, input) => isCashWithdrawalCode(input.bankTxnCode) },
+  { category: "savings", income: false, field: "any", test: (_text, input) => isOwnTransferCode(input.bankTxnCode) },
+];
 
 /**
  * Merchant category codes (ISO 18245) → category, for card transactions.
@@ -365,39 +367,30 @@ export function categoryForMcc(mcc: string | null): string | null {
 }
 
 const P2P_MARKER = w(`${MOBILEPAY_WORDS}|SIIRTO HENKILO(?:LLE|LTA)`);
-const COMPANY_MARKER = w([...companyForms("person")].join("|"));
 
 /**
  * Whether a merchant rule recognises the name as a business: a trade word
  * that the rules also find inside a compound (KESÄKAHVILA, LÄHIAPTEEKKI), or
- * a brand of several words. A brand of one word is not enough: first names
- * and surnames are often brand words too (Elisa, Helen, Silja, Asko, Virta).
+ * a brand of several words, or one with a digit or a hyphen in it (FITNESS24, K-RAUTA). A brand of one plain word
+ * is not enough: first names and surnames are often brand words too (Elisa, Helen, Silja, Asko, Virta).
  */
 function namedLikeBusiness(name: string): boolean {
   return MERCHANT_RULES.some((r) => {
     // "Q" + word matches only through a "[A-Z]*" prefix, which the rules give trade words
     if (name.split(" ").some((word) => r.re.test(`Q${word}`))) return true;
-    return r.re.exec(name)?.[0].includes(" ") ?? false;
+    return /[ \d-]/.test(r.re.exec(name)?.[0] ?? "");
   });
 }
 
 /**
- * MobilePay to or from a person. Checked before the merchant rules, because
- * first names and surnames are often merchant words too. A person is 2–4
- * words of letters, none of them a company form or a trade word, and no
- * chain-style prefix like "K-" or "S-".
+ * MobilePay to or from a person. Checked before the merchant rules, because first names and surnames are often
+ * merchant words too. A person has the shape of a name, by the rule that keeps a name from the trade register
+ * (isPersonShaped), no company form at either end and no trade word.
  */
 function personViaMobilePay(input: CategorizeInput): boolean {
   const name = fold(input.counterparty ?? "").trim();
-  if (!name || !P2P_MARKER.test(fold([input.counterparty, input.description].filter(Boolean).join(" ")))) return false;
-  const words = name.split(/\s+/);
-  return (
-    words.length >= 2 &&
-    words.length <= 4 &&
-    !COMPANY_MARKER.test(name) &&
-    words.every((x) => /^[A-Z]{2,}(?:-[A-Z]{2,})?$/.test(x)) &&
-    !namedLikeBusiness(words.join(" "))
-  );
+  if (!P2P_MARKER.test(fold([input.counterparty, input.description].filter(Boolean).join(" ")))) return false;
+  return isPersonShaped(name) && !hasPayeeForm(name) && !namedLikeBusiness(name);
 }
 
 export interface CompiledRule {
@@ -537,7 +530,7 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
       byUser: true,
       test: r.field === "merchant_exact" ? exactPattern(r.pattern) : compilePattern(r.pattern),
     }));
-  const builtin = BUILTIN_RULES.map<CompiledRule>((r) => ({
+  const builtin = (rules: readonly BuiltinRule[]) => rules.map<CompiledRule>((r) => ({
     category: r.category,
     income: isIncome(r.category),
     field: "any",
@@ -548,7 +541,7 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
     { category: "p2p_in", income: false, field: "any", direction: "in", test: (_text, input) => personViaMobilePay(input) },
     { category: "p2p", income: false, field: "any", direction: "out", test: (_text, input) => personViaMobilePay(input) },
   ];
-  return [...user, ...people, ...builtin];
+  return [...user, ...people, ...builtin(PURPOSE_RULES), ...CODE_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
 }
 
 function fieldText(input: CategorizeInput, field: RuleField): string {

@@ -1,5 +1,5 @@
-/** Marks on subscriptions and alerts of the signed-in user. Own rows only. */
-import type { MarkKind } from "@banking/core";
+/** Marks on subscriptions, alerts and proposed loans of the signed-in user. Own rows only. */
+import { type MarkKind, notLoanKey, seriesOfMarkSubject } from "@banking/core";
 import { Hono } from "hono";
 import { isoIn } from "../platform/config.ts";
 import { UserError } from "../platform/errors.ts";
@@ -9,14 +9,26 @@ import { body } from "./shared.ts";
 
 const MARK_KINDS: readonly MarkKind[] = ["in_use", "cancelled", "dismissed"];
 
-/** `merchant:<name>` or `alert:<id>`, 1 to 200 characters after the prefix and no control characters. */
-const SUBJECT = /^(?:merchant|alert):[^\p{Cc}]{1,200}$/u;
+/**
+ * `series:<key>` (one subscription), `alert:<id>`, `loan-proposal:<key>` ("Ei laina" on a proposed loan, a subject of
+ * its own so that a mark Laskut puts on the same series never replaces it), or `merchant:<name>` (every subscription of
+ * a merchant: what a mark was before it named a series, kept so that those are still stored and taken away): 1 to 200
+ * characters after the prefix and no control characters. A series key of the longest stored name is under 100: a
+ * direction, an account id of at most 28 characters, a name of at most 40 (core `normalizeMerchant`) and a price.
+ */
+const SUBJECT = /^(series|merchant|alert|loan-proposal):[^\p{Cc}]{1,200}$/u;
 
 /** A user marks a handful of subscriptions and dismisses a few alerts; the cap only stops a script from filling the table. */
 const MAX_MARKS = 2000;
 
 function parseSubject(value: unknown): string {
-  if (typeof value !== "string" || !SUBJECT.test(value)) throw new UserError("Virheellinen kohde.");
+  const form = typeof value === "string" ? SUBJECT.exec(value)?.[1] : undefined;
+  if (typeof value !== "string" || form === undefined) throw new UserError("Virheellinen kohde.");
+  // a series is named the way core reads it back: a direction, an account and a merchant. Whether the user has such a
+  // series is not asked: a mark on one that is gone covers nothing and can still be taken away.
+  if (form === "series" && !seriesOfMarkSubject(value)?.accountId) throw new UserError("Virheellinen kohde.");
+  // a proposed loan is named by the key of its series, read the same way
+  if (form === "loan-proposal" && notLoanKey(value) === null) throw new UserError("Virheellinen kohde.");
   return value;
 }
 

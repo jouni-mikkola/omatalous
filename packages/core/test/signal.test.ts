@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearlyAbove, meansApart, MIN_T, monthlyNoise, monthStandsOut } from "../src/analysis/signal.ts";
+import { clearlyAbove, meansApart, MIN_T, monthlyNoise, monthT } from "../src/analysis/signal.ts";
 
 describe("a change stands out from the household's own noise", () => {
   it("a step between two months is one range, so a step inside a window does not hide itself", () => {
@@ -18,11 +18,12 @@ describe("a change stands out from the household's own noise", () => {
   });
 
   it("one month against its usual level counts the level's own error", () => {
-    // noise 100: a month 4 noises above a median of six months is under MIN_T standard errors, 5 noises above is over
-    expect(monthStandsOut(MIN_T * 100, 100, 6)).toBe(false);
-    expect(monthStandsOut(5 * 100, 100, 6)).toBe(true);
-    // without noise any rise stands out, and no fall does
-    expect(monthStandsOut(1, 0, 6)).toBe(true);
-    expect(monthStandsOut(-1, 0, 6)).toBe(false);
+    // noise 100 and a median of six months: the error is 100 × √(1 + π/12) = 112,3, so 4 noises above is 3,56 errors
+    expect(monthT(400, 100, 6)).toBeCloseTo(3.561, 3);
+    expect(monthT(500, 100, 6)).toBeGreaterThan(MIN_T);
+    // without noise any rise is infinitely clear, and so is any fall the other way
+    expect(monthT(1, 0, 6)).toBe(Infinity);
+    expect(monthT(-1, 0, 6)).toBe(-Infinity);
+    expect(monthT(0, 0, 6)).toBe(0);
   });
 });

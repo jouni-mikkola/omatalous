@@ -3,13 +3,19 @@
  * Every body is a strict JSON object (unknown keys are refused) and every
  * value is validated against an allowlist in platform/validate.ts or
  * connectors/enable-banking/app-setup.ts before anything is stored.
+ * For remote access (the /remote-access routes) the route checks the keys of
+ * the body, and services/remote-access.ts checks each value and asks for the
+ * admin's password on each change.
  */
 import { Hono } from "hono";
+import { clientIp } from "../auth/middleware.ts";
 import { activateBankApp, bankAppStatus, checkAppId, downloadableCertificate, generatePendingKey, removeBankApp, testBankApp } from "../connectors/enable-banking/app-setup.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
+import { accessEmail } from "../security/cf-access.ts";
 import { startLookup } from "../services/industry.ts";
+import { remoteAccessState, removeToken, saveToken, turnOff, turnOn } from "../services/remote-access.ts";
 import { body } from "./shared.ts";
 
 export function adminRoutes(s: Services) {
@@ -86,6 +92,23 @@ export function adminRoutes(s: Services) {
     await removeBankApp(s);
     return c.json(await state());
   });
+
+  // ── remote access through Cloudflare (services/remote-access.ts): every answer is the state the page shows ──
+  const from = (c: Parameters<typeof clientIp>[0]) => ({ ip: clientIp(c, s), userAgent: c.req.header("user-agent") });
+
+  app.get("/remote-access", async (c) => c.json(await remoteAccessState(s)));
+
+  /** `{ token, password }`: Cloudflare's API token, tried against Cloudflare and kept sealed. Never sent back. */
+  app.put("/remote-access/token", async (c) => c.json(await saveToken(s, c.get("user"), strictObject(await body(c), ["token", "password"] as const), from(c))));
+
+  /** `{ password }` */
+  app.delete("/remote-access/token", async (c) => c.json(await removeToken(s, c.get("user"), strictObject(await body(c), ["password"] as const), from(c))));
+
+  /** `{ hostname, emails, password }`: on, or a new list of who may sign in. The address Access verified for this call must stay on it. */
+  app.post("/remote-access/on", async (c) => c.json(await turnOn(s, c.get("user"), strictObject(await body(c), ["hostname", "emails", "password"] as const), from(c), accessEmail(c))));
+
+  /** `{ password, localOnly? }`: `localOnly` is the yes to a copy that answers on the server alone afterwards. */
+  app.post("/remote-access/off", async (c) => c.json(await turnOff(s, c.get("user"), strictObject(await body(c), ["password", "localOnly"] as const), from(c))));
 
   return app;
 }

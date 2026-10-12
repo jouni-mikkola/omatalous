@@ -41,10 +41,45 @@ Cloudflare Zero Trust has a free plan (up to 50 users) that covers the tunnel an
 Access emails a one-time PIN to the addresses you allow, and then Omatalous asks for its own login. No port is opened and
 there is no password for Access to keep.
 
+You can set it up in the browser or with the installer's script. Both need Zero Trust and a Cloudflare API token, which
+steps 1 and 2 of the script below make. The browser needs the maintenance helper, and the script works on any install.
+
+#### From the browser
+
+You need the maintenance helper in its current version (if *Asetukset > Ylläpito* or the page says it is missing or out
+of date, run `./scripts/install.sh --ops-helper`), a copy that is reached at a home network address and does not use
+its own domain with Caddy, and steps 1 and 2 of the script below.
+
+1. As an admin open *Asetukset > Palvelin > Etäkäyttö*. Paste the token (*Cloudflaren API-tunniste*), press
+   *Tallenna API-tunniste* and give your password. The app checks the token with Cloudflare and keeps it encrypted. It
+   refuses a token that sees no active domain.
+2. Give the address, for example `talous.example.fi`, with at most one label before the domain the token sees, and up to
+   50 email addresses that may sign in. The page shows the address and every email back, and says that the home address
+   stops answering. Confirm with *Kyllä, ota käyttöön* and your password.
+3. The app makes the tunnel, the DNS record and the Access rule at Cloudflare, and the helper, which looks for work once a
+   minute, switches the copy over. The page shows where the change stands.
+4. From then on the home address answers 403 with the text *Pääsy estetty.* Open `https://talous.example.fi`, with
+   Wi-Fi off on the phone, sign in through Cloudflare's one-time PIN and then to Omatalous. This has to happen within 15
+   minutes. If nobody gets in by then, the server takes the new address off by itself and the home address works again.
+5. Add the redirect URL under *Asetukset > Palvelin*, `https://talous.example.fi/api/connections/callback`, to your
+   app's Redirect URLs in the Enable Banking Control Panel.
+
+Changing who may sign in, and turning remote access off (*Ota etäkäyttö pois käytöstä*), are on the same page and ask
+for the password. Turning it off shows where the app will answer afterwards. If that is the server itself only, you tick that you
+understand it first. The page then takes the copy out of the tunnel and removes the tunnel, the DNS record and the
+Access rule from Cloudflare, at the next visit to the page or within the hour. Access stays while something else
+in Cloudflare still leads to the address, and the page says what. An address that the installer's script made cannot
+be changed or removed on the page; use the script for it. A copy that was set up on the page can be taken back to the
+home network from the machine with `./scripts/install.sh --reconfigure`. The helper keeps the `.env` from before its
+last change as `ops/env.prev`, mode 600. [SECURITY.md](SECURITY.md#remote-access-from-the-page) says what the page and
+the helper may do.
+
+#### With the installer's script
+
 The installer makes the tunnel, the address and the Access rule for you:
 
 1. In the Cloudflare dashboard, turn on Zero Trust (choose the Free plan). The domain you want to use must be on the same
-   Cloudflare account.
+   Cloudflare account, and active there.
 2. Under *My Profile > API Tokens* make a token with these permissions: Account: Cloudflare Tunnel Edit; Account: Access:
    Apps and Policies Edit; Account: Access: Organizations, Identity Providers, and Groups Edit; Zone: DNS Edit; Zone: Zone
    Read.
@@ -92,6 +127,11 @@ To remove the tunnel, the address and the Access rule that the installer made fo
 by that address. Choose another way with `./scripts/install.sh --reconfigure`. The token's reach and how to revoke it are in
 [SECURITY.md](SECURITY.md#keys-and-secrets).
 
+The Access rule goes last, and only when nothing in Cloudflare leads to the address any more. If you added a second
+host name to the copy's tunnel, or the address has a DNS record that points somewhere else, the command leaves that as
+it is, keeps the Access rule, names what is still there and stops with an error. Remove it in the Cloudflare dashboard
+and run the command again.
+
 Without the file, or with `TALOUS_TUNNEL_TOKEN` given, you make the tunnel by hand:
 
 1. In Zero Trust, open *Networks > Tunnels* and create a tunnel of the Cloudflared type. Copy its token. It starts with
@@ -111,6 +151,16 @@ Without the file, or with `TALOUS_TUNNEL_TOKEN` given, you make the tunnel by ha
 
 From now on the household uses the https address at home too. The old `http://` address stops working. Cloudflare sees
 the traffic unencrypted on its way through.
+
+The app can also check Cloudflare Access's signature on every request, so that a deleted Access application or a Bypass
+policy shows nobody the login page. It does so when `.env` has `CF_ACCESS_AUD` and `CF_ACCESS_TEAM_DOMAIN`. Where the
+installer or the page makes the tunnel, they are written for you, and `./scripts/install.sh --cloudflare-down` and a
+change to another way in remove them. An install from 0.8.6 gets them by running `./scripts/install.sh --access tunnel`
+once. For a tunnel made by hand, copy the Application Audience (AUD) Tag from the Access application and the team domain
+(`<team>.cloudflareaccess.com`) from the Zero Trust settings into `.env`, then run `docker compose up -d`. The
+installer keeps the pair while the address stays. With the check on, `http://localhost:<port>` on the machine answers 403
+too, and only the Cloudflare address works. If everything answers 403 after you set the values by hand, one of them is
+wrong: fix it, or remove both lines and run `docker compose up -d`.
 
 ### Own domain
 
@@ -209,7 +259,9 @@ and then. Set up the daily backup below when you want copies on a NAS without pr
    the same files are on the NAS. `backups/backup.log` has the output of each run.
 
 The copy goes to the NAS only while the share is mounted and writable. Otherwise the log says so and the backup stays in
-`backups/`. Nothing is deleted on the NAS.
+`backups/`. Nothing is deleted on the NAS. Each file goes in under a hidden temporary name and gets its final name only
+after it matches the original. The copy never writes through a link on the share: a link at the temporary name is
+replaced, and a link at a file's final name stops the copy with a warning.
 
 `backup.sh` keeps 30 days in `backups/`. The `.app_secret.age` file holds the key that opens the saved bank keys, so a
 restore on a new machine keeps the bank connections. Without `BACKUP_AGE_RECIPIENT` the files are not encrypted and the
@@ -258,7 +310,9 @@ the newest copy to restore.
    ./scripts/restore.sh talous-20261009-033000.db.gz.age --secret talous-20261009-033000.app_secret.age
    ```
 
-   The new machine's own secret stays in the secrets volume as `app_secret.prev-<time>`.
+   The new machine's own secret stays in the secrets volume as `app_secret.prev-<time>`. The script first tries the
+   file on the restored database. A file that does not open the saved bank keys, such as another copy's secret, is
+   refused and the current secret stays.
 3. Log in at the new address. The script set *Sovelluksen osoite* from `.env`.
 
 Without the app secret your users, transactions and settings come back, but the saved bank keys stay locked. Set
@@ -354,9 +408,11 @@ buttons on that page work through a small helper on the machine, which the insta
 It needs a normal user, never root, and `jq`. It runs once a minute from a systemd user timer, or from cron where a timer
 cannot keep running. `./scripts/install.sh --ops-helper-off` removes it.
 
-The app only writes a request. The helper checks it against a fixed list of nine actions (check for updates, update, roll
-back, back up, restart, check the install, read the logs, free disk space and renew itself) and runs one of the project's
-own scripts. Nothing from the database reaches a shell, and the address and port are never changed from the browser.
+The app only writes a request. The helper checks it against a fixed list of ten actions (check for updates, update, roll
+back, back up, restart, check the install, read the logs, free disk space, renew itself and change how the copy is
+reached) and runs one of the project's own scripts. Nothing from the database reaches a shell, and the port is never
+changed from the browser. The last action belongs to the Etäkäyttö page, see [Cloudflare Tunnel](#cloudflare-tunnel):
+it rewrites `.env` from a request file the app checked and the helper checks again, and *Ylläpito* has no button for it.
 None of them takes a parameter. The logs are the last 100 lines of each running service with keys and tokens hidden. Freeing
 disk space runs `docker image prune -f` and `docker builder prune -f`, which leave the running and the previous version
 alone. Renewing runs `./scripts/install.sh --ops-helper` again, which keeps the saved remote and branch. An update does
@@ -444,6 +500,8 @@ The installer writes `.env`. You rarely need to change it by hand. After a chang
 | `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail) |
 | `TRUST_PROXY` | `true` behind Caddy or a tunnel, so the app sees each visitor's own address. The installer sets it. |
 | `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together |
+| `CF_ACCESS_AUD`, `CF_ACCESS_TEAM_DOMAIN` | the Access application's audience tag and the team domain. With both set the app checks Cloudflare's signature on every request, see [Cloudflare Tunnel](#cloudflare-tunnel). Set both or neither. The installer and the Etäkäyttö page write them. |
+| `ACCESS_LAN_BIND` | the address the port had before the Etäkäyttö page moved it to `127.0.0.1`. The page puts it back when remote access is turned off. Leave it alone. |
 | `BACKUP_AGE_RECIPIENT` | the public `age` key that `backup.sh` encrypts to, see [Daily backup to a NAS](#daily-backup-to-a-nas) |
 | `BACKUP_COPY_TO` | a folder on a mounted NAS that `backup.sh` copies each backup to |
 

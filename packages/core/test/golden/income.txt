@@ -21,11 +21,11 @@ income · plain:3 · income:windfall:other_pay:2025-10-23
   | payer Työnantaja Oy
   rows 2
 
-income · plain:4 · income:variable:salary|TYONANTAJA OY
+income · plain:4 · income:variable:salary|HUS-YHTYMA
   Palkka vaihteli 3 161–13 263 € kuussa
   = -3544.41 € a month, 42532.92 € a year
-  | Työnantaja Oy, 9 kuukautta; pienin toukokuussa 3 161 €.
-  | payer Työnantaja Oy
+  | HUS-yhtymä, 9 kuukautta; pienin toukokuussa 3 161 €.
+  | payer HUS-yhtymä
   rows 20
 
 income · plain:5 · income:windfall:other_pay:2025-10-18

@@ -3,7 +3,7 @@
  * account only when its owner shared it (account_shares); sharing is
  * read-only and per account.
  */
-import { type Row, type StoredAccount, type StoredTransaction, TX_COLUMNS_LIGHT, toAccount, toTransaction } from "./rows.ts";
+import { accountBank, type Row, type StoredAccount, type StoredTransaction, TX_COLUMNS_LIGHT, toAccount, toTransaction } from "./rows.ts";
 import type { Db } from "./types.ts";
 
 export interface AccountShare {
@@ -14,10 +14,13 @@ export interface AccountShare {
 export class HouseholdRepo {
   constructor(private readonly db: Db) {}
 
-  /** Accounts other members shared with `userId`, with the owner's display name. */
+  /**
+   * Accounts other members shared with `userId`, with the owner's display name. Each carries the bank of its own
+   * connection for the analysis (whose price list applies to a card). A response leaves it out (routes/finance.ts).
+   */
   async sharedWith(userId: string): Promise<(StoredAccount & { ownerName: string })[]> {
     const rows = await this.db.all<Row>(
-      `SELECT a.*, u.display_name AS owner_name FROM account_shares s
+      `SELECT a.*, ${accountBank("a")}, u.display_name AS owner_name FROM account_shares s
        JOIN accounts a ON a.id = s.account_id JOIN users u ON u.id = a.user_id
        WHERE s.user_id = ? AND a.user_id != ? ORDER BY u.display_name, a.name`,
       [userId, userId],

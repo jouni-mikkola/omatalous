@@ -15,6 +15,8 @@ import { finishPendingReprocess } from "./recovery.ts";
 import { upgradeAndLog } from "./upgrade.ts";
 import { pruneEvents } from "./security.ts";
 import { isSyncHour } from "./instance.ts";
+import { remoteAccessState } from "./remote-access.ts";
+import { revertUnconfirmed } from "./remote-access-trial.ts";
 
 export interface TickResult {
   /** Path of the copy written by this tick, once a day. */
@@ -61,6 +63,14 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     await finishLeftovers(s);
   } catch (err) {
     console.error("finishing leftover work failed:", err);
+  }
+  try {
+    // takes back a remote access nobody got in through, ends a change nobody was looking at and finishes a removal
+    // from Cloudflare that waits
+    await revertUnconfirmed(s);
+    await remoteAccessState(s);
+  } catch (err) {
+    console.error("settling remote access failed:", err);
   }
   let synced: TickResult["synced"] = null;
   // when clocks go forward an hour does not exist: a fetch chosen for it happens in the hour that follows

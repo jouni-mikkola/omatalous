@@ -11,6 +11,7 @@ import { atOrAbove } from "../db/migrate.ts";
 import type { OpsRequest } from "../db/ops-repo.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
+import { deleteAccessRequest, readAccessRequest, writeAccessRequest } from "./access-request.ts";
 import type { Services } from "./context.ts";
 import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -56,21 +57,28 @@ export const ACTION_LABEL: Record<OpsAction, string> = {
   logs: "lokien luku",
   prune: "levyn siivous",
   "helper-renew": "apurin uusinta",
+  access: "etäkäyttö",
 };
 
 /** These also reach the other admins as a notice. */
-const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart"];
+const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart", "access"];
 
 export const ENABLE_COMMAND = "./scripts/install.sh --ops-helper";
 const MUTATING_PER_MINUTE_MS = 60_000;
 const PER_HOUR = 20;
 
-interface Req {
+/** Where a call came from, for the security events. */
+export interface Req {
   ip: string | null;
   userAgent: string | null | undefined;
 }
 
 const secretsOf = (s: Services): string[] => (s.config.appSecret ? [s.config.appSecret] : []);
+/** What a helper's words are cleaned of: the app secret, and for `access` the tunnel token and the Access pair that wait in the request file. */
+function secretsFor(s: Services, action: string): string[] {
+  const sent = action === "access" ? readAccessRequest(s) : null;
+  return sent?.want === "tunnel" ? [...secretsOf(s), sent.tunnelToken, sent.accessAud, sent.teamDomain] : secretsOf(s);
+}
 
 // ── state ────────────────────────────────────────────────
 
@@ -94,6 +102,12 @@ async function storeState(s: Services, input: unknown): Promise<void> {
   if (!Object.keys(next).length) return;
   await s.settings.set(STATE_KEY, JSON.stringify(mergeState(await loadSnapshot(s), next)));
 }
+
+/**
+ * Where the copy answers once it has left the tunnel, by the helper's stored state (`lanAddress`, its form checked in
+ * ops-validate.ts). Null from a helper that does not say, and for a value out of form: the page shows it in a sentence.
+ */
+export const lanAddressAfterTunnel = async (s: Services): Promise<string | null> => (await loadSnapshot(s)).lanAddress ?? null;
 
 export async function helperInfo(s: Services) {
   const seenAt = await s.settings.get(SEEN_KEY);
@@ -199,9 +213,19 @@ export async function opsAudit(s: Services) {
 
 // ── requests from the browser ────────────────────────────
 
-async function checkPassword(s: Services, user: User, password: string, req: Req, what: string): Promise<void> {
+/** Made only by checkPassword: the admin's password was right in this call. */
+export interface PasswordProof {
+  readonly userId: string;
+}
+const proofs = new WeakSet<PasswordProof>();
+
+/**
+ * The admin's password in front of a change to the host: one limiter key, one gate and one `ops_denied` event for
+ * maintenance requests and for remote access (remote-access.ts). The proof lets requestOp queue without a second hash.
+ */
+export async function checkPassword(s: Services, user: User, password: string, req: Req, what: string): Promise<PasswordProof> {
   const key = `ops:${user.id}`;
-  const deny = async () => {
+  const deny = async (): Promise<never> => {
     await recordEvent(s, { kind: "ops_denied", userId: user.id, ...req, detail: `${what}: salasana` });
     throw new HttpUserError("Salasana ei täsmää.", 403);
   };
@@ -224,24 +248,72 @@ async function checkPassword(s: Services, user: User, password: string, req: Req
   }
   if (!ok) return deny();
   s.opsLimiter.reset(key);
+  const proof = { userId: user.id };
+  proofs.add(proof);
+  return proof;
 }
 
-export async function requestOp(s: Services, user: User, raw: unknown, req: Req) {
+const newId = () => `op_${randomBytes(8).toString("hex")}`;
+
+// ── what the queue refuses ───────────────────────────────
+
+/** Why the queue does not take a request: the word for the `ops_denied` event and what the admin is told. */
+interface QueueRefusal {
+  why: string;
+  error: UserError;
+}
+const BUSY = (): QueueRefusal => ({ why: "toinen kesken", error: new HttpUserError("Toinen toiminto on kesken.", 409) });
+
+/** No helper, or one that does not know the action: asked before the password. */
+async function helperRefusal(s: Services, action: OpsAction): Promise<QueueRefusal | null> {
+  if ((await helperInfo(s)).status === "off") return { why: "apuri ei käytössä", error: new HttpUserError("Ylläpitoapuri ei ole käytössä.", 409) };
+  // an older helper would not answer an action it does not know, and the request would sit claimed until it times out
+  if (helperKnows(await s.settings.get(VERSION_KEY), action)) return null;
+  return { why: "apuri vanhentunut", error: new HttpUserError(`Ylläpitoapurista on uudempi versio. Päivitä se palvelimella: ${ENABLE_COMMAND}`, 409) };
+}
+
+/** Another change under way, one a minute, and the hour's cap: asked after the password. */
+async function slotRefusal(s: Services, action: OpsAction): Promise<QueueRefusal | null> {
+  const mutating = !READ_ONLY.includes(action);
+  const since = (ms: number) => new Date(s.now().getTime() - ms).toISOString();
+  if (mutating && (await s.ops.hasActiveMutating(READ_ONLY))) return BUSY();
+  if (mutating && (await s.ops.countSince(since(MUTATING_PER_MINUTE_MS), READ_ONLY)) > 0) return { why: "liian tiheään", error: new TooManyAttempts("Odota hetki ennen seuraavaa toimintoa.", 60) };
+  if ((await s.ops.countSince(since(3600_000))) >= PER_HOUR) return { why: "tuntiraja", error: new TooManyAttempts("Liian monta pyyntöä tunnissa. Yritä myöhemmin.", 3600) };
+  return null;
+}
+
+/**
+ * Throws what requestOp would refuse `action` for right now, with no event. For a caller with work to do before it
+ * queues (remote-access.ts asks Cloudflare first). requestOp asks again when it queues.
+ */
+export async function queueRefuses(s: Services, action: OpsAction): Promise<void> {
+  await expireStale(s);
+  const no = (await helperRefusal(s, action)) ?? (await slotRefusal(s, action));
+  if (no) throw no.error;
+}
+
+/**
+ * `proof`: the caller checked the password in this same call (remote access does, before it asks Cloudflare anything).
+ * `access` is queued only that way: its request file is written by the remote access page, never by this route.
+ */
+export async function requestOp(s: Services, user: User, raw: unknown, req: Req, proof?: PasswordProof) {
   const input = parseOpsRequest(raw);
   const { action } = input;
   const label = ACTION_LABEL[action];
   const deny = async (why: string) => void (await recordEvent(s, { kind: "ops_denied", userId: user.id, ...req, detail: `${label}: ${why}` }));
+  const checked = proof !== undefined && proofs.has(proof) && proof.userId === user.id;
+  if (action === "access" && !checked) {
+    await deny("pyydetty ylläpidosta");
+    throw new UserError("Etäkäyttöä muutetaan kohdassa Asetukset > Palvelin > Etäkäyttö.");
+  }
   await expireStale(s);
+  const refuse = async (no: QueueRefusal | null) => {
+    if (!no) return;
+    await deny(no.why);
+    throw no.error;
+  };
 
-  if ((await helperInfo(s)).status === "off") {
-    await deny("apuri ei käytössä");
-    throw new HttpUserError("Ylläpitoapuri ei ole käytössä.", 409);
-  }
-  if (!helperKnows(await s.settings.get(VERSION_KEY), action)) {
-    // an older helper would not answer an action it does not know, and the request would sit claimed until it times out
-    await deny("apuri vanhentunut");
-    throw new HttpUserError(`Ylläpitoapurista on uudempi versio. Päivitä se palvelimella: ${ENABLE_COMMAND}`, 409);
-  }
+  await refuse(await helperRefusal(s, action));
   if (action === "rollback") {
     if (input.confirm !== ROLLBACK_WORD) {
       await deny("vahvistus");
@@ -252,31 +324,35 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req)
       throw new UserError("Edellistä versiota ei ole tallessa.");
     }
   }
-  if (NEEDS_PASSWORD.includes(action)) await checkPassword(s, user, input.password, req, label);
+  if (NEEDS_PASSWORD.includes(action) && !checked) await checkPassword(s, user, input.password, req, label);
 
-  const mutating = !READ_ONLY.includes(action);
-  const now = s.now();
-  if (mutating && (await s.ops.hasActiveMutating(READ_ONLY))) {
-    await deny("toinen kesken");
-    throw new HttpUserError("Toinen toiminto on kesken.", 409);
-  }
-  if (mutating && (await s.ops.countSince(new Date(now.getTime() - MUTATING_PER_MINUTE_MS).toISOString(), READ_ONLY)) > 0) {
-    await deny("liian tiheään");
-    throw new TooManyAttempts("Odota hetki ennen seuraavaa toimintoa.", 60);
-  }
-  if ((await s.ops.countSince(new Date(now.getTime() - 3600_000).toISOString())) >= PER_HOUR) {
-    await deny("tuntiraja");
-    throw new TooManyAttempts("Liian monta pyyntöä tunnissa. Yritä myöhemmin.", 3600);
-  }
+  await refuse(await slotRefusal(s, action));
 
-  const id = `op_${randomBytes(8).toString("hex")}`;
-  if (!(await s.ops.insert({ id, action, requestedBy: user.id, at: now.toISOString() }))) {
-    await deny("toinen kesken");
-    throw new HttpUserError("Toinen toiminto on kesken.", 409);
-  }
+  const id = newId();
+  // the insert is the last word on the one active request: two calls at once both pass the look above
+  if (!(await s.ops.insert({ id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(BUSY());
   await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${label}: jonossa` });
   if (NOTIFY.includes(action)) await notifyAdmins(s, user, `${user.displayName} käynnisti toiminnon: ${label}`);
   return view((await s.ops.get(id))!);
+}
+
+/**
+ * The one request queued with no admin's password: the server itself takes back a remote access nobody got in through
+ * (remote-access-trial.ts, from its timer and the hourly tick; no route leads here). It writes the request file itself,
+ * so `lan` is all it can ask of the helper. `userId` is the admin who turned remote access on. Null when the helper is
+ * away or the queue is taken: the caller looks again later.
+ */
+export async function queueOwnLan(s: Services, userId: string): Promise<string | null> {
+  await expireStale(s);
+  if ((await helperInfo(s)).status === "off" || !helperKnows(await s.settings.get(VERSION_KEY), "access") || (await s.ops.hasActiveMutating(READ_ONLY))) return null;
+  const id = newId();
+  writeAccessRequest(s, { want: "lan" });
+  if (!(await s.ops.insert({ id, action: "access", requestedBy: userId, at: s.now().toISOString() }))) {
+    deleteAccessRequest(s);
+    return null;
+  }
+  await recordEvent(s, { kind: "ops_request", userId, detail: `${ACTION_LABEL.access}: jonossa, palvelin perui etäkäytön itse` });
+  return id;
 }
 
 /** Every other admin sees a one-time notice (services/security.ts renders it). */
@@ -351,7 +427,7 @@ export async function pollOps(s: Services, opts: { helper?: string; done: string
   for (;;) {
     const r = await s.ops.oldestQueued(done);
     if (!r) return null;
-    // the table also accepts access and port, and a row could be written by anything with file access
+    // the table also accepts port, and a row could be written by anything with file access
     if (!validOpsId(r.id) || !(OPS_ACTIONS as readonly string[]).includes(r.action) || r.params !== "{}") {
       if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Virheellinen pyyntö." })) await resultEvent(s, r, "epäonnistui");
       continue;
@@ -377,7 +453,7 @@ export async function reportOps(s: Services, payload: unknown, helper?: string):
   await touchHelper(s, helper);
   const row = await s.ops.get(o.id);
   if (row) {
-    const secrets = secretsOf(s);
+    const secrets = secretsFor(s, row.action);
     // steps from the whole text, before the output is cut to its tail
     const steps = parseSteps(scrub((o.output as string | undefined) ?? "", secrets));
     const done = await s.ops.finish(o.id, {

@@ -27,7 +27,7 @@ interface SecurityEvent {
   detail: string | null;
 }
 
-const KIND_LABEL: Record<string, string> = {
+export const KIND_LABEL: Record<string, string> = {
   login_ok: "Kirjautuminen",
   login_fail: "Epäonnistunut kirjautuminen",
   lockout: "Kirjautuminen estetty hetkeksi",
@@ -42,6 +42,12 @@ const KIND_LABEL: Record<string, string> = {
   ops_result: "Ylläpitopyynnön tulos",
   ops_download: "Varmuuskopion lataus",
   ops_notice: "Ylläpidon ilmoitus",
+  remote_access_on: "Etäkäyttö otettu käyttöön",
+  remote_access_off: "Etäkäyttö poistettu käytöstä",
+  remote_access_failed: "Etäkäytön muutos epäonnistui",
+  remote_access_reverted: "Etäkäyttö poistettu, koska kukaan ei päässyt sisään",
+  cloudflare_token_saved: "Cloudflaren API-tunniste tallennettu",
+  cloudflare_token_removed: "Cloudflaren API-tunniste poistettu",
 };
 
 const kindLabel = (kind: string) => KIND_LABEL[kind] ?? (kind.startsWith("ops_") ? `Ylläpito: ${kind.slice(4).replace(/_/g, " ")}` : kind);

@@ -6,7 +6,8 @@ import type { EnableBankingConfig } from "../../platform/config.ts";
 import { UserError } from "../../platform/errors.ts";
 import { canonicalPrivateKey, KeyProblem } from "../../security/private-key.ts";
 import type { Services } from "../../services/context.ts";
-import { type ActivationResult, instanceCredentials, parseAppId, testOwnKey } from "./app-setup.ts";
+import type { RequestInfo } from "../../services/users.ts";
+import { type ActivationResult, countKeyTest, instanceCredentials, parseAppId, testOwnKey } from "./app-setup.ts";
 import { EnableBankingClient } from "./client.ts";
 
 export interface ResolvedCredentials extends EnableBankingConfig {
@@ -28,9 +29,10 @@ export async function resolveCredentials(s: Services, userId: string): Promise<R
  * Validates and stores a member's own Enable Banking app id + private key (encrypted, re-encoded), after trying the
  * pair against Enable Banking. A pair it refuses (401) is not saved, so a working key is not replaced by a wrong one.
  * Any other outcome saves the key and says what the test found: the app may still be inactive, or Enable Banking
- * out of reach for a moment.
+ * out of reach for a moment. Each call is counted per user first, before the key is imported (app-setup.ts countKeyTest).
  */
-export async function saveCredentials(s: Services, userId: string, appIdInput: unknown, privateKeyInput: unknown): Promise<ActivationResult> {
+export async function saveCredentials(s: Services, userId: string, appIdInput: unknown, privateKeyInput: unknown, req: RequestInfo): Promise<ActivationResult> {
+  await countKeyTest(s, userId, req);
   const box = await s.secretBox();
   if (!box) throw new UserError("Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
   const appId = parseAppId(appIdInput);

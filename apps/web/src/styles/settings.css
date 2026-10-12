@@ -11,6 +11,10 @@
 /* settings: the lines under an account's name (IBAN, holder, limit), and the accounts a connection reads, wrap instead of being cut */
 td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-space: normal; overflow: visible; }
 .conn-accounts { margin-top: 2px; }
+/* settings: how much of an account's credit limit is in use, under the line that says it */
+.credit-bar { height: 4px; margin-top: 4px; max-width: 14rem; border-radius: 2px; background: var(--surface-2); }
+.credit-bar span { display: block; height: 100%; border-radius: 2px; background: var(--series-1); }
+.credit-bar.over span { background: var(--warn); }
 @media (max-width: 600px) {
   .accounts-table .acc-type { display: none; }
   .acc-type-phone { display: block; margin-top: 4px; }
@@ -60,3 +64,19 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 #salasana .auth-form { max-width: 420px; }
 /* Asetukset: Omat | Talous */
 .settings-tabs { align-self: flex-start; }
+
+/* Pankkiyhteydet: the accounts Enable Banking does not let the app read, and the reminder button under a consent's end date */
+.unlinked p { margin: 0; }
+.unlinked ul { margin: 4px 0 6px; padding-left: 20px; }
+.text-button { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.text-button:hover { text-decoration-thickness: 2px; }
+/* a phone: each consent, and each earlier one under Aiemmat yhteydet, is a block of its own, so its buttons are on the screen and not behind a sideways scroll */
+@media (max-width: 600px) {
+  .conn-table, .conn-table tbody, .conn-table tr, .conn-table td { display: block; width: 100%; box-sizing: border-box; }
+  .conn-table thead { display: none; }
+  .conn-table tr { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .conn-table td { padding: 3px 0; border: 0; }
+  .conn-table td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
+  .conn-table td.num { text-align: left; padding-top: 8px; }
+  .conn-table .row-actions { justify-content: flex-start; }
+}

@@ -20,7 +20,7 @@ Each figure has one owner. Views compose the owner and never derive the figure a
 | A series' cost | `perMonth`, `monthlyCents`, `yearlyCents` of `RecurringSeries` (`recurring.ts`, worked out in `recurring-cost.ts`) |
 | Gate | `gateFor`, `GATE_SHARE`, `GATE_FLOOR_CENTS` in `analysis/usual.ts` |
 
-A definition a second caller needs moves to its owner's module (`cancelledMerchants` and `expectedCharges` to
+A definition a second caller needs moves to its owner's module (`cancelledSubjects` and `expectedCharges` to
 `commitments.ts`, the fee predicates to `analysis/fees.ts`) and keeps no re-export under the old path.
 
 ## Consequences

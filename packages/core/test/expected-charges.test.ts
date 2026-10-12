@@ -3,7 +3,7 @@
  * the package index, as the web app does.
  */
 import { describe, expect, it } from "vitest";
-import { cancelledMerchants, detectRecurring, expectedCharges, NO_INPUTS } from "../src/index.ts";
+import { cancelledSubjects, detectRecurring, expectedCharges, NO_INPUTS } from "../src/index.ts";
 import { series } from "./helpers.ts";
 
 const today = "2026-10-09";
@@ -22,7 +22,7 @@ describe("expectedCharges", () => {
 
   it("leaves out a merchant the household marked as cancelled", () => {
     const [s] = detectRecurring(series("2026-05-01", 7, 23, -1250, { merchant: "Viikkolehti", category: "subscriptions" }), today);
-    const cancelled = cancelledMerchants({ ...NO_INPUTS, marks: [{ subject: "merchant:Viikkolehti", mark: "cancelled", markedAt: "2026-10-05T10:00:00+03:00" }] });
+    const cancelled = cancelledSubjects({ ...NO_INPUTS, marks: [{ subject: "merchant:Viikkolehti", mark: "cancelled", markedAt: "2026-10-05T10:00:00+03:00" }] });
     expect(expectedCharges([s!], "2026-10-01", "2026-10-31", { cancelled })).toEqual([]);
   });
 });

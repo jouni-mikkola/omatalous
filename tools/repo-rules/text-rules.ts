@@ -7,25 +7,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { FORMS as DASH_FORMS, isResearch } from "./em-dash-forms.mjs";
 import { type Finding, expectNoFindings, lineIn, lineOf, literals, parse, plainString, repoFiles, ROOT, sourceFiles, walk } from "./lib.ts";
 
 describe("repo rules: text", () => {
   it("rule 4: no em dash (U+2014, also as an escape or an HTML entity) in any tracked regular text file", () => {
-    // Every form is built from parts, so this file holds none of them and is scanned like every other file.
-    const BS = "\\";
-    const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const FORMS: { re: RegExp; name: string }[] = [
-      { re: new RegExp(escape(String.fromCharCode(0x2014))), name: "em dash" },
-      { re: new RegExp(escape(`${BS}u2014`), "i"), name: "escaped em dash (JS string)" },
-      { re: new RegExp(escape(`${BS}u{2014}`), "i"), name: "escaped em dash (JS code point)" },
-      { re: new RegExp(`${escape(`${BS}2014`)}(?![0-9a-f])`, "i"), name: "escaped em dash (CSS)" },
-      { re: new RegExp(escape(`&${"mdash"};`), "i"), name: "HTML entity for the em dash" },
-      { re: new RegExp(escape(`&#${"8212"};`)), name: "numeric entity for the em dash" },
-      { re: new RegExp(escape(`&#x${"2014"};`), "i"), name: "hex entity for the em dash" },
-    ];
-    // Audit material and its prototypes, in the research folders under .claude/: tools/style-lint.mjs there names the
-    // character on purpose, and the notes are not part of the product or its docs. Nothing else is excluded.
-    const isResearch = (file: string) => file.startsWith(".claude/") && file.includes("/research/");
+    // The forms and the research folders are in em-dash-forms.mjs, which tools/commit.sh loads as well.
     const found: Finding[] = [];
     let scanned = 0;
     for (const file of repoFiles()) {
@@ -35,9 +22,9 @@ describe("repo rules: text", () => {
       scanned++;
       // a cheap test for the whole file first: the lines are looked at only when something may match
       const text = buf.toString("utf8");
-      if (!FORMS.some((f) => f.re.test(text))) continue;
+      if (!DASH_FORMS.some((f) => f.re.test(text))) continue;
       text.split("\n").forEach((line, i) => {
-        const form = FORMS.find((f) => f.re.test(line));
+        const form = DASH_FORMS.find((f) => f.re.test(line));
         if (form) found.push({ file, line: i + 1, why: `${form.name}: ${line.trim().slice(0, 80)}` });
       });
     }

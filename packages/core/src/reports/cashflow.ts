@@ -14,7 +14,7 @@ export interface CashflowRow {
   savedCents: number;
   borrowedCents: number;
   netCents: number;
-  /** income − spending − saved: what stayed on the accounts (negative when the accounts were drawn on). */
+  /** Yli jäi of the month, `PeriodTotals.leftCents` as `totalsOf` gives it: this report holds no sum of its own. */
   leftCents: number;
   savingsRate: number | null;
   /** The month has ended and the history covers it from the 1st. A row that is not complete reads "vajaa". */

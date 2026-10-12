@@ -1,12 +1,13 @@
 import { UNKNOWN_MERCHANT } from "@banking/core";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
-import { CategoryPicker, CategorySelect } from "../components/CategorySelect.tsx";
-import { DateFilter, SearchBox } from "../components/FilterInputs.tsx";
+import { CategorySelect } from "../components/CategorySelect.tsx";
+import { DateFilter, FilterToggle, SearchBox } from "../components/FilterInputs.tsx";
 import { CADENCE_LABEL, date, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Category, Meta, Scope, TransactionItem } from "../types.ts";
 import { Merchants, monthsBasis } from "./Merchants.tsx";
+import { byDay, dayHeading, TxItem, TxRow, usePhone } from "./TransactionRows.tsx";
 import "../styles/transactions.css";
 
 interface MerchantHistory {
@@ -121,6 +122,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const [saveError, setSaveError] = useState<string | null>(null);
   const [changed, setChanged] = useState<{ count: number; merchant: string; category: string; rule: boolean } | null>(null);
   const [edits, setEdits] = useState(0);
+  const phone = usePhone();
+  const [panel, setPanel] = useState(false);
   const { data, error, loading, reload } = useApi<{ total: number; inCents: number; outCents: number; items: TransactionItem[] }>(`/api/transactions${query({ ...filters, scope, limit })}`);
   const anyOwn = data?.items.some((t) => t.own) ?? false;
   const transferIds = useRef(new Set<string>());
@@ -168,6 +171,56 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   useEffect(() => {
     if (!loading) setSaving(null);
   }, [loading]);
+  // on a phone the answer to a change floats above the list (it would be off screen at the top), so it leaves by itself
+  useEffect(() => {
+    if (!phone || !changed) return;
+    const timer = window.setTimeout(() => setChanged(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [phone, changed]);
+
+  const anyFilter = Object.values(filters).some(Boolean);
+  // the search box and the merchant badge are always in view, so only the filters behind the button count
+  const active = [filters.category, filters.accountId, filters.from, filters.to].filter(Boolean).length;
+  const fields = (
+    <>
+      <CategorySelect categories={meta.categories} value={filters.category} onChange={(category) => set({ category })} allowEmpty />
+      <select value={filters.accountId} onChange={(e) => set({ accountId: e.target.value })} aria-label="Tili">
+        <option value="">Kaikki tilit</option>
+        {accounts.map((a) => (
+          <option key={a.id} value={a.id}>
+            {accountName(a.id)}
+          </option>
+        ))}
+      </select>
+      <DateFilter value={filters.from} onCommit={(from) => set({ from })} label="Alkaen" />
+      <DateFilter value={filters.to} onCommit={(to) => set({ to })} label="Asti" />
+    </>
+  );
+  const merchantFilter = (
+    <span className="badge">
+      {filters.merchant}{" "}
+      <button className="icon-btn" onClick={() => set({ merchant: "" })} aria-label="Poista kauppiassuodatin">
+        ×
+      </button>
+    </span>
+  );
+  const clear = anyFilter && (
+    <button className="btn btn-small" onClick={() => navigate("transactions")}>
+      Tyhjennä
+    </button>
+  );
+  const csv = (
+    <a className="btn btn-small" href={`/api/export/transactions.csv${query({ ...filters, from: filters.from || "2000-01-01", to: filters.to || meta.today, scope })}`} download>
+      Lataa CSV
+    </a>
+  );
+  const rowProps = (t: TransactionItem) => ({
+    t,
+    categories: meta.categories,
+    categoryLabel: categoryLabel(t.category),
+    pending: saving?.id === t.id ? saving.category : null,
+    onCategory: recategorize,
+  });
 
   return (
     <div className="stack">
@@ -181,36 +234,28 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       )}
       <div className="filters">
         <SearchBox value={filters.q} onSearch={(q) => set({ q })} label="Hae kauppiasta tai viestiä" />
-        <CategorySelect categories={meta.categories} value={filters.category} onChange={(category) => set({ category })} allowEmpty />
-        <select value={filters.accountId} onChange={(e) => set({ accountId: e.target.value })} aria-label="Tili">
-          <option value="">Kaikki tilit</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {accountName(a.id)}
-            </option>
-          ))}
-        </select>
-        <DateFilter value={filters.from} onCommit={(from) => set({ from })} label="Alkaen" />
-        <DateFilter value={filters.to} onCommit={(to) => set({ to })} label="Asti" />
-        {filters.merchant && (
-          <span className="badge">
-            {filters.merchant}{" "}
-            <button className="icon-btn" onClick={() => set({ merchant: "" })} aria-label="Poista kauppiassuodatin">
-              ×
-            </button>
-          </span>
-        )}
-        {Object.values(filters).some(Boolean) && (
-          <button className="btn btn-small" onClick={() => navigate("transactions")}>
-            Tyhjennä
-          </button>
+        {phone ? (
+          <>
+            <FilterToggle count={active} open={panel} onToggle={() => setPanel((v) => !v)} controls="tx-filter-panel" />
+            {filters.merchant && <div className="filter-line">{merchantFilter}</div>}
+            <div id="tx-filter-panel" className="filter-panel" hidden={!panel}>
+              {fields}
+              {clear}
+            </div>
+          </>
+        ) : (
+          <>
+            {fields}
+            {filters.merchant && merchantFilter}
+            {clear}
+          </>
         )}
       </div>
 
-      <div className={`card ${loading ? "loading" : ""}`}>
-        <div className="card-head">
+      <div className={`card tx-card ${loading ? "loading" : ""}`}>
+        <div className="card-head tx-head">
           <div>
-            <h2>Tapahtumat</h2>
+            <h2 className={phone ? "sr-only" : undefined}>Tapahtumat</h2>
             <div className="card-sub">
               {data ? plural(data.total, "tapahtuma", "tapahtumaa") : "…"}
               {/* every matching row, loaded or not: maksettu and saatu apart, a net of both says little; an own
@@ -230,126 +275,95 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
                 <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Käytä samaa kategoriaa kauppiaan muissa tapahtumissa
               </label>
             )}
-            <a className="btn btn-small" href={`/api/export/transactions.csv${query({ ...filters, from: filters.from || "2000-01-01", to: filters.to || meta.today, scope })}`} download>
-              Lataa CSV
-            </a>
+            {!phone && csv}
           </div>
         </div>
-        {(error ?? saveError) && (
+        {error && (
           <div className="error" role="alert">
-            {error ?? saveError}{" "}
-            {error && (
-              <button className="btn btn-small" type="button" onClick={reload}>
-                Yritä uudelleen
-              </button>
-            )}
+            {error}{" "}
+            <button className="btn btn-small" type="button" onClick={reload}>
+              Yritä uudelleen
+            </button>
           </div>
         )}
-        {changed !== null && !saveError && (
-          <div className="notice good" role="status">
-            {changed.rule && changed.merchant
-              ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}, samoin tulevat.`
-              : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
-          </div>
-        )}
+        {/* on a phone this floats at the bottom of the screen: the row that was changed is far from the top of the card */}
+        <div className="tx-feedback">
+          {saveError && (
+            <div className="error" role="alert">
+              {saveError}
+              {phone && (
+                <button className="icon-btn" type="button" onClick={() => setSaveError(null)} aria-label="Sulje">
+                  ×
+                </button>
+              )}
+            </div>
+          )}
+          {changed !== null && !saveError && (
+            <div className="notice good" role="status">
+              {changed.rule && changed.merchant
+                ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}, samoin tulevat.`
+                : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
+              {phone && (
+                <button className="icon-btn" type="button" onClick={() => setChanged(null)} aria-label="Sulje">
+                  ×
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         <div className="table-wrap">
-          <table className="tx-table">
-            <thead>
-              <tr>
-                <th>Päivä</th>
-                <th>Kauppias</th>
-                <th className="tx-category">Kategoria</th>
-                <th className="num">Summa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.items.map((t) => (
-                <TxRow
-                  key={t.id}
-                  t={t}
-                  account={accountName(t.accountId)}
-                  categories={meta.categories}
-                  categoryLabel={categoryLabel(t.category)}
-                  pending={saving?.id === t.id ? saving.category : null}
-                  onCategory={recategorize}
-                />
-              ))}
-            </tbody>
-          </table>
+          {phone ? (
+            byDay(data?.items ?? []).map((d) => (
+              <div key={d.day} className="tx-day">
+                <h3>{dayHeading(d.day, meta.today)}</h3>
+                <ul>
+                  {d.items.map((t) => (
+                    <TxItem key={t.id} {...rowProps(t)} />
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <table className="tx-table">
+              <thead>
+                <tr>
+                  <th>Päivä</th>
+                  <th>Kauppias</th>
+                  <th className="tx-category">Kategoria</th>
+                  <th className="num">Summa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.items.map((t) => (
+                  <TxRow key={t.id} {...rowProps(t)} account={accountName(t.accountId)} />
+                ))}
+              </tbody>
+            </table>
+          )}
           {data && !data.items.length && (
             <div className="empty">
               {Object.values(filters).some(Boolean) ? "Ei tapahtumia näillä rajauksilla." : "Tapahtumia ei ole vielä. Yhdistä pankki tai tuo CSV kohdassa Asetukset."}
             </div>
           )}
         </div>
-        {data && data.total > data.items.length && (
+        {(phone || (data && data.total > data.items.length)) && (
           <div className="form-row">
-            <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + PAGE })} disabled={loading || limit >= MAX_ROWS}>
-              Näytä lisää
-            </button>
-            {limit >= MAX_ROWS && <span className="small muted">Näytetään enintään {MAX_ROWS}. Rajaa hakua.</span>}
+            {data && data.total > data.items.length && (
+              <>
+                <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + PAGE })} disabled={loading || limit >= MAX_ROWS}>
+                  Näytä lisää
+                </button>
+                {limit >= MAX_ROWS && <span className="small muted">Näytetään enintään {MAX_ROWS}. Rajaa hakua.</span>}
+              </>
+            )}
+            {/* the table's head has it on a wider screen; here the head is only the summary */}
+            {phone && csv}
           </div>
         )}
       </div>
     </div>
   );
 }
-
-const TxRow = memo(function TxRow({
-  t,
-  account,
-  categories,
-  categoryLabel,
-  pending,
-  onCategory,
-}: {
-  t: TransactionItem;
-  account: string;
-  categories: Category[];
-  categoryLabel: string;
-  pending: string | null;
-  onCategory: (id: string, category: string) => void;
-}) {
-  const detail = [t.counterparty, t.description].filter(Boolean).join(" · ");
-  const company = t.industry ? [t.industry.companyName, t.industry.businessId, t.industry.label].filter(Boolean).join(", ") : null;
-  // rendered twice: in its own column, and under the merchant on a phone where that column is hidden (transactions.css)
-  const category = (
-    <>
-      {t.own ? (
-        <CategoryPicker categories={categories} value={pending ?? t.category} onChange={(c) => onCategory(t.id, c)} ariaLabel={`Kategoria: ${t.merchant}`} disabled={pending !== null} />
-      ) : (
-        <span title="Jaettu tili, vain omistaja voi muuttaa">{categoryLabel}</span>
-      )}
-      {t.categorySource === "user" && <span className="badge">käsin</span>}
-      {t.categorySource === "match" && (
-        <span className="badge" title="Palautus aiemmasta maksusta. Pienentää menoja, ei ole tuloa.">
-          palautus
-        </span>
-      )}
-      {company && (
-        <span className="badge" title={company}>
-          YTJ
-        </span>
-      )}
-    </>
-  );
-  return (
-    <tr>
-      <td style={{ whiteSpace: "nowrap" }}>{date(t.bookingDate)}</td>
-      <td>
-        <a href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>{t.merchant}</a>
-        {t.status === "pending" && <span className="badge warn">varaus</span>}
-        {t.isTransfer && <span className="badge">oma siirto</span>}
-        <div className="sub" title={detail}>
-          {detail || "–"} · {account}
-        </div>
-        <div className="tx-category-phone">{category}</div>
-      </td>
-      <td className="tx-category">{category}</td>
-      <td className={`num ${t.amountCents > 0 ? "amount-in" : ""}`}>{money(t.amountCents)}</td>
-    </tr>
-  );
-});
 
 interface UncategorisedItem {
   merchant: string;

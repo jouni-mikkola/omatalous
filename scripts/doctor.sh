@@ -74,7 +74,7 @@ else
     DOCKER_OK=true
     ok "$(t "The Docker service responds (Docker $(docker version --format '{{.Server.Version}}' 2>/dev/null))" "Docker-palvelu vastaa (Docker $(docker version --format '{{.Server.Version}}' 2>/dev/null))")"
   elif [[ $err == *"permission denied"* ]]; then
-    bad "$(t "User $(id -un) has no permission to use Docker." "Käyttäjällä $(id -un) ei ole oikeutta Dockeriin.")" "$(t "sudo usermod -aG docker \$USER   then log out and in (or run: newgrp docker)" "sudo usermod -aG docker \$USER   ja kirjaudu ulos ja sisään (tai aja: newgrp docker)")"
+    bad "$(t "User $(id -un) has no permission to use Docker." "Käyttäjällä $(id -un) ei ole oikeutta Dockeriin.")" "$(t "sudo usermod -aG docker \$USER   then close the SSH connection and open it again (or log out and in)" "sudo usermod -aG docker \$USER   sulje SSH-yhteys ja avaa se uudelleen (tai kirjaudu ulos ja sisään)")"
   else
     bad "$(t "The Docker service does not respond." "Docker-palvelu ei vastaa.")" "$(t "sudo systemctl start docker   (if that does not help: sudo journalctl -u docker -n 30)" "sudo systemctl start docker   (jos ei auta: sudo journalctl -u docker -n 30)")"
   fi

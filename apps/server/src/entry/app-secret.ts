@@ -25,12 +25,18 @@ function ensureDir(dir: string): void {
   for (const d of missing.reverse()) mkdirSync(d, { mode: 0o700 });
 }
 
+/**
+ * Whether a text, trimmed as every reader of the secret trims it, can be the app secret: under 32 characters is too
+ * weak to derive an encryption key from. The one statement of the rule for the server.
+ */
+export const isAppSecret = (text: string): boolean => text.length >= 32;
+
 export type AppSecretResult = { secret: string; created: boolean } | { secret: null; problem: string };
 
 export function loadOrCreateAppSecret(path: string): AppSecretResult {
   try {
     const secret = readFileSync(path, "utf8").trim();
-    if (secret.length < 32) return { secret: null, problem: `${path} is too short (at least 32 characters)` };
+    if (!isAppSecret(secret)) return { secret: null, problem: `${path} is too short (at least 32 characters)` };
     if (process.platform !== "win32" && statSync(path).mode & 0o077) {
       console.warn(`${path}: the file is readable by others, set its mode to 600`);
     }

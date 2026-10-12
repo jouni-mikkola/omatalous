@@ -12,7 +12,8 @@ one way was never read the other way.
 ## Decision
 
 - Word lists live in `wording.ts` behind named predicates (`isElectricitySeller`, `isNetworkCompany`, `isDaycareText`,
-  `isPurchaseInterestText`, `isCardIssuerText`, `isNordeaAccount` and so on). Industry (TOL) and card (MCC) codes
+  `isPurchaseInterestText`, `isCardIssuerText`, `isNordeaAccount` and so on); what a loan page prints, which only
+  loan-intake/ reads, is in `wording-loan-pages.ts`. Industry (TOL) and card (MCC) codes
   live in `industry.ts` (`electricityRoleOf`, `deductibleWorkOf`, `mccKind`). `categorize.ts` keeps its rule table
   and `merchant.ts` its brands and places.
 - When a rule of `categorize.ts` reads the same names as a predicate, both use one exported constant
@@ -21,8 +22,8 @@ one way was never read the other way.
 - Where two lists of one kind disagreed, the list is their union: electricity sellers and networks, earnings pension
   companies, day care words. `packages/core/test/dialect.test.ts` holds a row for each name that was on one side only.
 - Repo rule 21: an upper-case regex alternation of three or more words sits only in categorize.ts, wording.ts,
-  industry.ts, merchant.ts or sources/. The income view's benefit words and the alert's cloud brands are its baseline,
-  which only shrinks.
+  wording-loan-pages.ts, industry.ts, merchant.ts or sources/. The income view's benefit words and the alert's cloud
+  brands are its baseline, which only shrinks.
 
 ## Consequences
 

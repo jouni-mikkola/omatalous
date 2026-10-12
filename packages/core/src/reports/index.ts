@@ -18,6 +18,7 @@ import { driftReport } from "./drift.ts";
 import { fixedVariableReport } from "./fixed-variable.ts";
 import { incomeReport } from "./income.ts";
 import { insightsReport } from "./insights.ts";
+import { loansReport } from "./loans.ts";
 import { pivotReport } from "./pivot.ts";
 import { spendingChangeReport } from "./spending-change.ts";
 import { priceChangesReport } from "./price-changes.ts";
@@ -29,7 +30,7 @@ export interface ReportInput {
   ctx: AnalysisContext;
   range: DateRange;
   balances: readonly BalanceInput[];
-  /** Marks and expected bills of the user, read per request and kept out of the cached context. */
+  /** Marks, expected bills and loans of the user, read per request and kept out of the cached context. */
   inputs: UserInputs;
 }
 
@@ -42,13 +43,14 @@ export const REPORTS = {
   priceChanges: ({ ctx, range }: ReportInput) => priceChangesReport(ctx, range),
   dataQuality: ({ ctx, range, balances }: ReportInput) => dataQualityReport(ctx, range, balances),
   yearOverYear: ({ ctx, range }: ReportInput) => yearOverYearReport(ctx, range),
-  balances: ({ ctx, range, balances }: ReportInput) => balanceReport(ctx, range, balances),
+  balances: ({ ctx, range, balances, inputs }: ReportInput) => balanceReport(ctx, range, balances, inputs),
   upcoming: ({ ctx, inputs }: ReportInput) => upcomingReport(ctx, inputs),
   drift: ({ ctx, range }: ReportInput) => driftReport(ctx, range),
   buffer: ({ ctx, balances, inputs }: ReportInput) => bufferReport(ctx, balances, inputs),
   spendingChange: ({ ctx, range }: ReportInput) => spendingChangeReport(ctx, range),
   income: ({ ctx, range, balances }: ReportInput) => incomeReport(ctx, range, balances),
   insights: ({ ctx, range, inputs }: ReportInput) => insightsReport(ctx, range, inputs),
+  loans: ({ ctx, balances, inputs }: ReportInput) => loansReport(ctx, balances, inputs),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;
@@ -75,6 +77,8 @@ export type { DriftItem, DriftReport } from "./drift.ts";
 export type { FixedVariableReport, FixedVariableRow } from "./fixed-variable.ts";
 export type { IncomeMember, IncomeMonth, IncomePayDay, IncomePayerRow, IncomeReport, IncomeStability, IncomeTypeRow } from "./income.ts";
 export type { IncomeChange, IncomeChangeKind } from "../analysis/income-changes.ts";
+export type { LoanRow, LoansReport, MaybeTwice } from "./loans.ts";
+export { ACCOUNTS_LESS_DEBT, FIGURE_UNKNOWN, loansWithout, SAME_DEBT_TWICE } from "./loans.ts";
 export type { PivotReport, PivotRow } from "./pivot.ts";
 export type { PriceChangeItem, PriceChangesReport } from "./price-changes.ts";
 export type { SummaryCategory, SummaryChange, SummaryReport } from "./summary.ts";

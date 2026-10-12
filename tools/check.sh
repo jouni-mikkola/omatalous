@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # The gate before handing work back: what CI runs, with the output cut to what a failure needs.
 #   tools/check.sh [--changed [base]] [types] [tests] [lint] [sh]     (pnpm check; no argument runs all four steps)
-# types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/
-# with the maintenance helper's scenarios run CHECK_JOBS (default 4) at a time.
+# types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/.
+# A suite whose scenarios are t_ functions behind a `want` filter (install, backup, ops-helper, ...) runs one job per
+# scenario, the other suites one job each, CHECK_JOBS of them at a time (default 8 on a machine with 16 CPUs or more, else 4).
 # --changed [base] is for the loop while working: tsc runs incrementally, vitest only on the packages the diff touches
-# (tools/check/scope.mjs says which) and the shell steps only when it touches shell. The base defaults to the commit that
-# .git/worker-base holds, else origin/main. CI and a plain `pnpm check` run everything.
+# and on the files that name a changed script (tools/check/scope.mjs says which), and the shell steps only when it
+# touches shell: then only the suites that name the changed script, or a script that sources it. A changed script that
+# nothing names runs everything. The base defaults to the commit that .git/worker-base holds, else origin/main. CI and
+# a plain `pnpm check` run everything.
 # CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
@@ -22,8 +25,10 @@ unset npm_config_loglevel npm_config_reporter
 # the .rc file, so one failing scenario cannot stop the others.
 if [[ ${1:-} == __job ]]; then
   id=$2; shift 2
+  t0=${EPOCHREALTIME/./}
   bash "$@" >"$CHECK_LOG/sh-$id.log" 2>&1
   echo $? >"$CHECK_LOG/sh-$id.rc"
+  echo $(((${EPOCHREALTIME/./} - t0) / 1000)) >"$CHECK_LOG/sh-$id.ms"
   exit 0
 fi
 
@@ -52,8 +57,8 @@ if [[ -z ${CHECK_SLOT_HELD:-} && -z ${CI:-} && " ${steps[*]} " != " lint " ]]; t
   CHECK_SLOT_HELD=1 exec bash "$ROOT/tools/slots.sh" --label check -- bash "$SELF" "${ORIG[@]}"
 fi
 
-# the scope of --changed: SCOPE_TESTS stays empty when vitest runs everything
-SCOPE_TESTS=()
+# the scope of --changed: SCOPE_TESTS stays empty when vitest runs everything, SCOPE_SUITES when every shell suite runs
+SCOPE_TESTS=() SCOPE_SUITES=()
 if ((CHANGED)); then
   base=$BASE
   [[ -n $base ]] || base=$(cat "$(git rev-parse --git-dir 2>/dev/null)/worker-base" 2>/dev/null)
@@ -73,14 +78,20 @@ if ((CHANGED)); then
     skipped=$((${#steps[@]} - ${#kept[@]}))
     steps=("${kept[@]}")
     [[ ${sc[full]} == 1 ]] || read -ra SCOPE_TESTS <<<"${sc[tests]}"
-    echo "check: scoped to ${base:0:12} (${sc[files]} files): vitest ${SCOPE_TESTS[*]:-everything}${sc[why]:+ (${sc[why]})}, types incremental$( ((skipped)) && echo ", shell steps skipped")"
+    [[ ${sc[suites]:-all} == all ]] || read -ra SCOPE_SUITES <<<"${sc[suites]}"
+    shell=""
+    if ((skipped)); then shell=", shell steps skipped"
+    elif ((${#SCOPE_SUITES[@]})); then shell=", shell suites $(for s in "${SCOPE_SUITES[@]}"; do s=${s##*/}; printf '%s ' "${s%.test.sh}"; done)"; shell=${shell% }
+    fi
+    echo "check: scoped to ${base:0:12} (${sc[files]} files): vitest ${SCOPE_TESTS[*]:-everything}${sc[why]:+ (${sc[why]})}, types incremental$shell"
     ((${#steps[@]})) || { echo "check: nothing to run"; exit 0; }
   fi
 fi
 
 CHECK_LOG=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX")
 export CHECK_LOG
-JOBS=${CHECK_JOBS:-4}
+cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
+JOBS=${CHECK_JOBS:-$((cpus >= 16 ? 8 : 4))}
 failed=()
 trap '((${#failed[@]})) || rm -rf "$CHECK_LOG"' EXIT
 
@@ -114,7 +125,7 @@ step_types() {
     done
     wait
     cat "$log".[0-9] >"$log"
-    cat "$log".rc* | grep -qvx 0 && bad=1
+    cat "$log".rc* | grep -vx 0 >/dev/null && bad=1
     if ((bad == 0)); then finish types 0 "tsc incremental in each package"; return; fi
   else
     pnpm typecheck >"$log" 2>&1
@@ -161,41 +172,71 @@ step_lint() {
   strip <"$log" | head -n 15 | indent
 }
 
+# shard_names SUITE: the scenario filters of a suite whose scenarios are t_ functions behind a `want` filter, one per
+# line. Nothing for a suite that has to run whole.
+shard_names() {
+  local f=$1 names=() n m
+  grep -qE '^want\(\)' "$f" && grep -qF 'FILTER=${1:-}' "$f" || return 0
+  mapfile -t names < <(grep -oE '^t_[A-Za-z0-9_]+[[:space:]]*\(\)' "$f" | tr -d '() \t')
+  ((${#names[@]})) || return 0
+  # a scenario written another way would be skipped by the shards, so then the suite runs whole in one job
+  [[ ${#names[@]} == $(grep -cE '^[[:space:]]*(function[[:space:]]+t_[A-Za-z0-9_]+|t_[A-Za-z0-9_]+[[:space:]]*\(\))' "$f") ]] || return 0
+  # backup.test.sh lists its scenarios without the prefix and calls "t_$t"
+  ! grep -qF '"t_$t"' "$f" || names=("${names[@]#t_}")
+  # The filter is a substring match: a scenario whose name holds another's is run by that one's job, so it needs none.
+  for n in "${names[@]}"; do
+    for m in "${names[@]}"; do [[ $m != "$n" && $n == *"$m"* ]] && continue 2; done
+    echo "$n"
+  done
+}
+
 step_sh() {
-  local dir=tools/test suites=() list=() n=0 id f j name line scen=0 bad=0 rc
+  local dir=tools/test files=() list=() whole=() shards=() scenarios=() watchers=() alone=0 names n=0 id f j name line bad=0 rc ms slowest=0 slow_line=
   [[ -d $dir ]] || { finish sh 0 "no tools/test"; return; }
-  # The helper suite is 42 scenarios that share nothing, so each one is a job of its own. The other suites are one
-  # job each. An xargs pool keeps CHECK_JOBS of them running.
-  for f in "$dir"/*.test.sh; do
+  if ((${#SCOPE_SUITES[@]})); then files=("${SCOPE_SUITES[@]}"); else files=("$dir"/*.test.sh); fi
+  # A suite of independent scenarios is one job per scenario, the others one job each. An xargs pool keeps CHECK_JOBS of
+  # them running. The suites that run whole come first: they cannot be split, so they should start at once.
+  for f in "${files[@]}"; do
     [[ -e $f ]] || continue
-    names=()
-    [[ ${f##*/} == ops-helper.test.sh ]] && mapfile -t names < <(grep -oE '^t_[A-Za-z0-9_]+[[:space:]]*\(\)' "$f" | tr -d '() \t')
-    # a scenario written another way would be skipped by the shards, so then the suite runs whole in one job
-    if ((${#names[@]})) && [[ ${#names[@]} == $(grep -cE '^[[:space:]]*(function[[:space:]]+)?t_[A-Za-z0-9_]+' "$f") ]]; then
-      for name in "${names[@]}"; do
-        n=$((n + 1)); scen=$((scen + 1))
-        printf -v id '%02d' "$n"; list+=("$id $f $name")
-      done
+    mapfile -t names < <(shard_names "$f")
+    if ((${#names[@]})); then
+      shards+=("$f")
+      # install.test.sh greps the machine's process table for its tokens, and one scenario puts a token in an argument
+      # list on purpose, so its jobs can fail by each other's processes: a failed job of such a suite is run again alone
+      ! grep -qE '[[:space:]]ps -e' "$f" || watchers+=("$f")
+      for name in "${names[@]}"; do scenarios+=("$f $name"); done
     else
-      n=$((n + 1)); printf -v id '%02d' "$n"
-      list+=("$id $f"); suites+=("$f")
+      whole+=("$f")
     fi
+  done
+  for line in "${whole[@]}" "${scenarios[@]}"; do
+    n=$((n + 1)); printf -v id '%02d' "$n"; list+=("$id $line")
   done
   ((${#list[@]})) && printf '%s\n' "${list[@]}" | xargs -P "$JOBS" -L1 bash "$SELF" __job
   for line in "${list[@]}"; do
-    id=${line%% *}
+    name=""
+    read -r id f name <<<"$line"
     rc=$(cat "$CHECK_LOG/sh-$id.rc" 2>/dev/null || echo 1)
+    ms=$(cat "$CHECK_LOG/sh-$id.ms" 2>/dev/null || echo 0)
+    ((ms > slowest)) && { slowest=$ms; slow_line=${line#* }; }
+    if ((rc != 0)) && [[ -n $name && " ${watchers[*]:-} " == *" $f "* ]]; then
+      bash "$f" "$name" >"$CHECK_LOG/sh-$id.log" 2>&1 && { rc=0; alone=$((alone + 1)); }
+    fi
+    # a filter that matched no scenario ends in 0 passed, 0 failed: that must not pass for a green job
+    if ((rc == 0)) && [[ -n $name ]] && ! grep -qE '^(ok|FAIL) ' "$CHECK_LOG/sh-$id.log"; then
+      rc=1; echo "check: the filter $name matched no scenario, so the job ran nothing" >>"$CHECK_LOG/sh-$id.log"
+    fi
     if ((rc != 0)); then
       bad=$((bad + 1))
       if ((bad <= 8)); then
-        j=$(awk '/^FAIL/ { print; if ((getline nxt) > 0 && nxt ~ /^[[:space:]]/) print nxt }' "$CHECK_LOG/sh-$id.log" | head -n 6 | indent)
+        j=$(awk '/^FAIL/ { print; detail = 1; next } detail && /^[[:space:]]/ { print } { detail = 0 }' "$CHECK_LOG/sh-$id.log" | head -n 6 | indent)
         [[ -n $j ]] || j=$(strip <"$CHECK_LOG/sh-$id.log" | tail -n 5 | indent)
         failed_lines+=("  ${line#* }" "$j")
       fi
     fi
   done
   if ((bad == 0)); then
-    finish sh 0 "$scen helper scenarios, ${#suites[@]} other suites, $JOBS at a time"
+    finish sh 0 "${#scenarios[@]} scenario jobs from ${#shards[@]} suites, ${#whole[@]} suites whole, $JOBS at a time; longest job $((slowest / 1000)).$((slowest % 1000 / 100)) s: ${slow_line#tools/test/}$( ((alone)) && echo ", $alone passed when run again alone")"
   else
     finish sh 1 "$bad of ${#list[@]} jobs failed"
     printf '%s\n' "${failed_lines[@]}"

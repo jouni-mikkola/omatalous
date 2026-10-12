@@ -52,10 +52,13 @@ apps/server/src
                              rules, sync-runs) over one { db, userId }
   db/migrate.ts, open.ts     migrations and the pre-migration copy; migrate-check.ts tries them on a copy
   auth/, security/           sessions, CSRF, password hashing, AES-GCM, X.509, key checks
-  providers/                 prh (trade register search)
+  providers/                 prh (trade register search), cloudflare (Tunnel, DNS and Access client)
   entry/node.ts              server entry point: HTTP, static UI, hourly scheduler
-  cli.ts, cli-ops.ts         setup-code, version, user management, sessions revoke-all, secret rotate, ops poll/report/state
+  cli.ts, cli-ops.ts         setup-code, version, user management, sessions revoke-all, secret rotate, secret check <file>
+                             (0 opens the stored keys, 4 does not, 1 could not be tried), ops poll/report/state/access
   services/security.ts       security events (90 days), services/ops.ts maintenance requests
+  services/remote-access*.ts the Etäkäyttö page: token, address, emails, the 15 minute trial; access-request.ts the file the helper reads
+  security/cf-access.ts      the check of Cloudflare Access's token (CF_ACCESS_AUD, CF_ACCESS_TEAM_DOMAIN)
   entry/secret-rotate.ts     the secret rotation command
 
 apps/web/src

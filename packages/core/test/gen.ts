@@ -36,7 +36,18 @@ export interface HistoryOptions {
    * every third seed, a card account that stopped syncing two months before the end.
    */
   settled?: boolean;
+  /**
+   * The household's bank says pay in its own transaction code and not in the text: the rows come from an employer that
+   * the merchant rules know as a hospital, with the salary code and no word of pay.
+   */
+  coded?: boolean;
 }
+
+/** What a pay row says: the word PALKKA, or (`HistoryOptions.coded`) only the bank's code. */
+const payRow = (coded: boolean): Pick<Transaction, "merchant" | "counterparty" | "description" | "bankTxnCode"> =>
+  coded
+    ? { merchant: "HUS-yhtymä", counterparty: "HUS-YHTYMÄ", description: null, bankTxnCode: "PMNT-RCDT-SALA" }
+    : { merchant: "Työnantaja Oy", counterparty: "TYÖNANTAJA OY", description: "PALKKA" };
 
 /** A mixed history with every kind of row the pipeline treats specially: ids are unique, ties are common. */
 export function randomHistory(seed: number, count: number, opts: HistoryOptions = {}): { txs: Transaction[]; accounts: Account[]; rules: CategoryRule[] } {
@@ -46,6 +57,7 @@ export function randomHistory(seed: number, count: number, opts: HistoryOptions 
   const span = opts.months ? daysBetween(start, HISTORY_END) : 300;
   const day = () => addDays(start, Math.floor(r() * span));
   const settled = opts.settled ?? false;
+  const coded = opts.coded ?? false;
   const txs: Transaction[] = [];
   let n = 0;
   const add = (p: Partial<Transaction> & Pick<Transaction, "bookingDate" | "amountCents" | "merchant">) => {
@@ -104,7 +116,7 @@ export function randomHistory(seed: number, count: number, opts: HistoryOptions 
       for (let m = 0; m < 4 && n < count; m++) add({ bookingDate: addDays(d, m * 30), amountCents: -pick([999, 1299, 4900]), merchant: s, description: s.toUpperCase(), accountId: "chk" });
     } else if (x < 0.84) {
       const amountCents = 300000 + Math.floor(r() * 50000);
-      if (!settled) add({ bookingDate: d, amountCents, merchant: "Työnantaja Oy", counterparty: "TYÖNANTAJA OY", description: "PALKKA", accountId: "chk" });
+      if (!settled) add({ bookingDate: d, amountCents, ...payRow(coded), accountId: "chk" });
     } else if (x < 0.88) {
       const amountCents = -Math.round(40000 + r() * 100);
       if (!settled) add({ bookingDate: d, amountCents, merchant: "Nordea", description: "LAINANLYHENNYS", accountId: "chk", counterpartyIban: "FI5512345600000123" });
@@ -116,7 +128,7 @@ export function randomHistory(seed: number, count: number, opts: HistoryOptions 
       add({ bookingDate: d, amountCents: pick([1, -1]) * Math.round(100 + r() * 30000), merchant: pick(UNKNOWN), accountId: pick(["chk", "sav", "card"]), counterpartyIban: pick([null, null, "FI2112345600000785", "FI1410093000123458", "FI9900000000000009"]) });
     }
   }
-  if (settled) settle(seed, start, add);
+  if (settled) settle(seed, start, add, coded);
   // a card account that stopped syncing: its rows end two months before the rest
   const kept = settled && seed % 3 === 0 ? txs.filter((t) => t.accountId !== "card" || t.bookingDate < "2025-09-01") : txs;
   // the order the server reads: date, then id
@@ -131,7 +143,7 @@ export function randomHistory(seed: number, count: number, opts: HistoryOptions 
 type Add = (p: Partial<Transaction> & Pick<Transaction, "bookingDate" | "amountCents" | "merchant">) => void;
 
 /** The settled household's regular rows (`HistoryOptions.settled`), from their own generator so the noise stays the same. */
-function settle(seed: number, start: string, add: Add): void {
+function settle(seed: number, start: string, add: Add, coded: boolean): void {
   const r = rng(seed * 7919 + 13);
   const months: string[] = [];
   for (let m = start.slice(0, 7); `${m}-28` <= HISTORY_END; m = addMonths(m, 1)) months.push(m);
@@ -145,7 +157,7 @@ function settle(seed: number, start: string, add: Add): void {
   const gymEnds = 6 + Math.floor(r() * 6);
   for (const [i, m] of months.entries()) {
     // pay day moves a day or two earlier when the 25th is a weekend
-    add({ bookingDate: on(m, 25 - Math.floor(r() * 3)), amountCents: pay + Math.round(r() * 3000), merchant: "Työnantaja Oy", counterparty: "TYÖNANTAJA OY", description: "PALKKA", accountId: "chk" });
+    add({ bookingDate: on(m, 25 - Math.floor(r() * 3)), amountCents: pay + Math.round(r() * 3000), ...payRow(coded), accountId: "chk" });
     add({ bookingDate: on(m, 2), amountCents: rent, merchant: "Vuokranantaja Oy", counterparty: "VUOKRANANTAJA OY", description: "VUOKRA", accountId: "chk" });
     add({ bookingDate: on(m, 20), amountCents: loan, merchant: "Nordea", description: "LAINANLYHENNYS", accountId: "chk", counterpartyIban: "FI5512345600000123" });
     add({ bookingDate: on(m, 8), amountCents: -1199, merchant: "Spotify", description: "SPOTIFY", accountId: "card" });

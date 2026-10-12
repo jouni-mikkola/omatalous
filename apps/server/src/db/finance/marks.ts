@@ -1,7 +1,8 @@
 /** What the user said about a subscription or an alert: in use, cancelled, dismissed. Own rows only. */
-import type { MarkKind, UserMark } from "@banking/core";
+import { type MarkKind, renamedMarkSubject, type UserMark } from "@banking/core";
 import type { Row } from "../rows.ts";
 import { type FinanceContext, writeBatch } from "./context.ts";
+import { LoansRepo } from "./loans.ts";
 
 export class MarksRepo {
   constructor(private readonly ctx: FinanceContext) {}
@@ -25,16 +26,23 @@ export class MarksRepo {
   }
 
   /**
-   * A merchant's name was derived again: its mark follows. When the new name has a mark already, that one stays and
-   * the old one is dropped.
+   * A merchant's name was derived again: its marks follow, the old one on the merchant, the ones on its series and an
+   * "Ei laina" answer on one (core `renamedMarkSubject` knows the subjects). When the new name has that mark already,
+   * that one stays and the old one is dropped. A saved loan linked to one of its series gets the new key in the same
+   * transaction (finance/loans.ts `seriesKeyMoves`).
    */
   async renameMerchantMarks(renames: ReadonlyMap<string, string>): Promise<void> {
-    await writeBatch(
-      this.ctx.db,
-      [...renames].flatMap(([from, to]) => [
-        { sql: "UPDATE OR IGNORE user_marks SET subject = ? WHERE user_id = ? AND subject = ?", params: [`merchant:${to}`, this.ctx.userId, `merchant:${from}`] },
-        { sql: "DELETE FROM user_marks WHERE user_id = ? AND subject = ?", params: [this.ctx.userId, `merchant:${from}`] },
+    if (!renames.size) return;
+    const moves = (await this.listMarks()).flatMap((m) => {
+      const to = renamedMarkSubject(m.subject, renames);
+      return to === null ? [] : [{ from: m.subject, to }];
+    });
+    await writeBatch(this.ctx.db, [
+      ...moves.flatMap(({ from, to }) => [
+        { sql: "UPDATE OR IGNORE user_marks SET subject = ? WHERE user_id = ? AND subject = ?", params: [to, this.ctx.userId, from] },
+        { sql: "DELETE FROM user_marks WHERE user_id = ? AND subject = ?", params: [this.ctx.userId, from] },
       ]),
-    );
+      ...(await new LoansRepo(this.ctx).seriesKeyMoves(renames)),
+    ]);
   }
 }

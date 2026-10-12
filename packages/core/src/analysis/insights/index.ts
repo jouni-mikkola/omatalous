@@ -12,6 +12,7 @@ import { totalsOf } from "../flows.ts";
 import { type DateRange, toDayRange } from "../period.ts";
 import { borrowing } from "./borrowing.ts";
 import { commitmentsShare } from "./commitments.ts";
+import { cardInterest } from "./credit.ts";
 import { spendingOutgrowsIncome } from "./growth.ts";
 import { incomeChangesSource } from "./income.ts";
 import { instalments } from "./instalments.ts";
@@ -40,6 +41,7 @@ const SOURCES: readonly InsightSource[] = [
   spendingOutgrowsIncome,
   commitmentsShare,
   borrowing,
+  cardInterest,
   incomeChangesSource,
   spendingChanges,
 ];

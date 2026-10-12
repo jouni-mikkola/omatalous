@@ -10,7 +10,7 @@ import type { AnalysisTx } from "../../analysis/context.ts";
 import { finnishList, formatEur, formatFiDate } from "../../analysis/format.ts";
 import { notAPrice, PLAN_CATEGORIES, priceRiseItems } from "../../analysis/insights/prices.ts";
 import { renewalItems } from "../../analysis/insights/renewals.ts";
-import { answeredSubscriptions, type SubscriptionAnswer, settledBy } from "../../analysis/insights/shared.ts";
+import { answeredSubscriptions, answerOf, type SubscriptionAnswer, settledBy } from "../../analysis/insights/shared.ts";
 import { addDays } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { findingId, GATE_YEARLY_CENTS, rowsById } from "../common.ts";
@@ -41,7 +41,7 @@ function rises(a: AreaInput, answered: Answers): FindingDraft[] {
   const byId = rowsById(a.ctx);
   return priceRiseItems(a.ctx, a.end)
     // phone and broadband beside the subscription set: contracts whose price the household can negotiate
-    .filter(({ series: s, yearlyCents }) => PLAN_CATEGORIES.has(s.category) && yearlyCents >= GATE_YEARLY_CENTS && !settledBy(answered.get(s.merchant), s.priceChange!.date) && recognised(s, byId))
+    .filter(({ series: s, yearlyCents }) => PLAN_CATEGORIES.has(s.category) && yearlyCents >= GATE_YEARLY_CENTS && !settledBy(answerOf(answered, s), s.priceChange!.date) && recognised(s, byId))
     .filter(({ series: s }) => !notAPrice(a.ctx, s))
     .map(({ series: s, yearlyCents }) => {
       const { fromCents, toCents, date } = s.priceChange!;
@@ -82,12 +82,12 @@ function rises(a: AreaInput, answered: Answers): FindingDraft[] {
 function overlaps(a: AreaInput, answered: Answers): FindingDraft[] {
   return overlapGroups(a.ctx.recurring).flatMap((g): FindingDraft[] => {
     // a service the user marked cancelled is already being dropped
-    const matched = g.matched.filter((m) => answered.get(m.s.merchant)?.mark !== "cancelled");
+    const matched = g.matched.filter((m) => answerOf(answered, m.s)?.mark !== "cancelled");
     const brands = new Map<string, RecurringSeries[]>();
     for (const m of matched) brands.set(m.brand, [...(brands.get(m.brand) ?? []), m.s]);
     if (brands.size < 2) return [];
     // every service left marked in use: the household keeps them all, which answers the choice
-    if (matched.every((m) => settledBy(answered.get(m.s.merchant)))) return [];
+    if (matched.every((m) => settledBy(answerOf(answered, m.s)))) return [];
     const monthly = [...brands.values()].map((list) => list.reduce((sum, s) => sum + s.monthlyCents, 0)).sort((x, y) => x - y);
     const total = monthly.reduce((sum, x) => sum + x, 0);
     // dropping the cheapest saves the least; keeping only the dearest is the most a rotation saves for sure

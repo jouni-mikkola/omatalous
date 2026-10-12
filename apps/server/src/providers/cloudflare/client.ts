@@ -6,6 +6,7 @@
  * api.cloudflare.com), and a failure becomes a `CloudflareError` whose message never holds the token or the
  * request body. Tests replace `fetch`; nothing here reaches the network on its own.
  */
+import { readCappedText } from "../../platform/outbound.ts";
 
 export const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 
@@ -109,11 +110,10 @@ export class CloudflareClient {
     throw new CloudflareError(`Cloudflare could not ${what} (HTTP ${res.status})${detail}`, res.ok ? 200 : res.status, faults);
   }
 
-  /** The body as JSON, or null when it is empty or not JSON (the status then decides). Cut off beyond MAX_BYTES. */
+  /** The body as JSON, or null when it is empty or not JSON (the status then decides). Reading stops at MAX_BYTES. */
   private async readJson(res: Response, what: string): Promise<unknown> {
-    if (Number(res.headers.get("content-length")) > MAX_BYTES) throw new CloudflareError(`Cloudflare's answer was too large while trying to ${what}`, 200);
-    const text = await res.text();
-    if (text.length > MAX_BYTES) throw new CloudflareError(`Cloudflare's answer was too large while trying to ${what}`, 200);
+    const text = await readCappedText(res, MAX_BYTES);
+    if (text === null) throw new CloudflareError(`Cloudflare's answer was too large while trying to ${what}`, 200);
     try {
       return JSON.parse(text) as unknown;
     } catch {

@@ -8,7 +8,9 @@
  * repository on a clean tree, read the diff, then commit.
  *
  * A fragment starts with `section: <name>`. Its other lines are entries for that section, `upgrade: <line>` lines go
- * to the Upgrade list (changelog.d/README.md).
+ * to the Upgrade list (changelog.d/README.md). The entries of `section: Internal` go last in the version, inside a
+ * private block that the public CHANGELOG never gets. changelog.d/_highlights.md is not a fragment: its lines become
+ * a short list right under the version heading, and a release of five or more fragments is refused without it.
  *
  * It refuses a version that is not above the newest v* tag and the current version, an Unreleased heading in
  * CHANGELOG.md, and a release that adds migration files since the last release without an `upgrade:` line. The last
@@ -37,6 +39,14 @@ import { join } from "node:path";
 
 /** The order of the sections in CHANGELOG.md. */
 const SECTIONS = ["Money and reports", "Fetching and importing", "Look", "Reliability", "Maintenance", "For developers"];
+/** The section only the maintainers read. It comes last in the version, after the Upgrade list, in a private block. */
+const INTERNAL = "Internal";
+const PRIVATE_OPEN = "<!-- private -->";
+const PRIVATE_CLOSE = "<!-- /private -->";
+/** The lines of the highlights file become the short list under the version heading. It is no fragment. */
+const HIGHLIGHTS = "_highlights.md";
+/** A release of this many fragments or more needs the highlights file. */
+const HIGHLIGHTS_FROM = 5;
 
 const VERSION_FILE = "apps/server/src/version.ts";
 const PACKAGES = ["apps/server/package.json", "apps/web/package.json", "packages/core/package.json"];
@@ -77,6 +87,15 @@ function git(root, args) {
 }
 
 /**
+ * Adds one line to a list of entries: an indented line continues the entry before it, a leading "- " is dropped.
+ * @param {string[]} entries @param {string} line
+ */
+function addEntry(entries, line) {
+  if (/^\s/.test(line) && entries.length) entries[entries.length - 1] += ` ${line.trim()}`;
+  else entries.push(line.replace(/^[-*]\s+/, "").trim());
+}
+
+/**
  * One fragment: the section, the entries and the upgrade lines.
  * @param {string} name
  * @param {string} text
@@ -101,32 +120,53 @@ function parseFragment(name, text) {
       upgrade.push(up[1].trim());
     } else if (section === undefined) {
       throw new Fail(`${name}: "${line}" comes before the section line`);
-    } else if (/^\s/.test(line) && entries.length) {
-      // an indented line continues the entry before it
-      entries[entries.length - 1] += ` ${line.trim()}`;
     } else {
-      entries.push(line.replace(/^[-*]\s+/, "").trim());
+      addEntry(entries, line);
     }
   }
-  if (!section) throw new Fail(`${name}: no "section: <name>" line. Sections: ${SECTIONS.join(", ")}`);
-  if (!SECTIONS.includes(section)) throw new Fail(`${name}: unknown section "${section}". Sections: ${SECTIONS.join(", ")}`);
+  const known = [...SECTIONS, INTERNAL];
+  if (!section) throw new Fail(`${name}: no "section: <name>" line. Sections: ${known.join(", ")}`);
+  if (!known.includes(section)) throw new Fail(`${name}: unknown section "${section}". Sections: ${known.join(", ")}`);
   if (!entries.length && !upgrade.length) throw new Fail(`${name}: no text under the section line`);
   return { name, section, entries, upgrade };
 }
 
 /**
- * The text of the new CHANGELOG section.
+ * The highlights file: one line per highlight, in the format of the entries of a fragment, with no section line.
+ * @param {string} name
+ * @param {string} text
+ */
+function parseHighlights(name, text) {
+  /** @type {string[]} */
+  const entries = [];
+  for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
+    const line = raw.trimEnd();
+    if (!line.trim()) continue;
+    if (/^(section|upgrade):/.test(line)) throw new Fail(`${name}: "${line}" does not belong here. The highlights are plain lines, with no section: or upgrade: line.`);
+    addEntry(entries, line);
+  }
+  if (!entries.length) throw new Fail(`${name} has no lines. Write 2 to 5 lines that say what is new for a household, or remove the file.`);
+  return entries;
+}
+
+/**
+ * The text of the new CHANGELOG section: the highlights, the sections, the Upgrade list and last the Internal section
+ * in a private block.
  * @param {string} version
  * @param {ReturnType<typeof parseFragment>[]} fragments
+ * @param {string[]} highlights
  */
-function buildSection(version, fragments) {
+function buildSection(version, fragments, highlights) {
   let out = `## ${version}\n\n`;
+  if (highlights.length) out += `${highlights.map((e) => `- ${e}`).join("\n")}\n\n`;
   for (const section of SECTIONS) {
     const entries = fragments.filter((f) => f.section === section).flatMap((f) => f.entries);
     if (entries.length) out += `${section}\n\n${entries.map((e) => `- ${e}`).join("\n")}\n\n`;
   }
   const upgrade = fragments.flatMap((f) => f.upgrade);
   if (upgrade.length) out += `Upgrade\n\n${upgrade.map((e) => `- ${e}`).join("\n")}\n\n`;
+  const internal = fragments.filter((f) => f.section === INTERNAL).flatMap((f) => f.entries);
+  if (internal.length) out += `${PRIVATE_OPEN}\n${INTERNAL}\n\n${internal.map((e) => `- ${e}`).join("\n")}\n${PRIVATE_CLOSE}\n\n`;
   return out;
 }
 
@@ -333,9 +373,20 @@ function prepare(argv, cwd = process.cwd()) {
   if (newest && compare(version, newest.slice(1)) <= 0) throw new Fail(`${version} is not above the newest release ${newest}.`);
   if (compare(version, current) <= 0) throw new Fail(`${version} is not above the current version ${current}.`);
 
-  const fileNames = existsSync(join(root, FRAGMENTS)) ? readdirSync(join(root, FRAGMENTS)).filter((f) => f.endsWith(".md") && f !== "README.md").sort() : [];
+  const fileNames = existsSync(join(root, FRAGMENTS)) ? readdirSync(join(root, FRAGMENTS)).filter((f) => f.endsWith(".md") && f !== "README.md" && f !== HIGHLIGHTS).sort() : [];
   if (!fileNames.length) throw new Fail(`No fragments in ${FRAGMENTS}/. A release needs at least one.`);
   const fragments = fileNames.map((f) => parseFragment(`${FRAGMENTS}/${f}`, read(`${FRAGMENTS}/${f}`)));
+
+  // what is new for a household, in the words of whoever releases: needed from HIGHLIGHTS_FROM fragments
+  const highlightsFile = `${FRAGMENTS}/${HIGHLIGHTS}`;
+  const hasHighlights = existsSync(join(root, highlightsFile));
+  if (!hasHighlights && fileNames.length >= HIGHLIGHTS_FROM) {
+    throw new Fail(
+      `${fileNames.length} fragments and no ${highlightsFile}. A release of ${HIGHLIGHTS_FROM} or more fragments needs it: write 2 to 5 lines in plain English ` +
+        `that say what is new for a household, one per line (a leading "- " is optional), commit the file and run this again (${FRAGMENTS}/README.md).`,
+    );
+  }
+  const highlights = hasHighlights ? parseHighlights(highlightsFile, read(highlightsFile)) : [];
 
   // new migrations since the last release need a line for the installer
   let base = opts.since ?? newest;
@@ -389,7 +440,7 @@ function prepare(argv, cwd = process.cwd()) {
   const first = lines.findIndex((l) => l.startsWith("## "));
   if (first >= 0 && /^## unreleased\b/i.test(lines[first] ?? "")) throw new Fail(`${CHANGELOG} has an Unreleased section. Move its lines into fragments first.`);
   if (lines.some((l) => l.split(" ")[0] === "##" && l.split(" ")[1] === version)) throw new Fail(`${CHANGELOG} has a ${version} section already.`);
-  const section = buildSection(version, fragments);
+  const section = buildSection(version, fragments, highlights);
   const preamble = lines.slice(0, first < 0 ? lines.length : first).join("\n").replace(/\n*$/, "");
   const newChangelog = `${preamble ? `${preamble}\n\n` : ""}${first < 0 ? `${section.trimEnd()}\n` : `${section}${lines.slice(first).join("\n")}`}`;
   /** @type {Record<string, string>} */
@@ -406,7 +457,9 @@ function prepare(argv, cwd = process.cwd()) {
   const notes = newChangelog.split("\n");
   const at = notes.findIndex((l) => l.startsWith("## ") && l.split(" ")[1] === version);
   const end = notes.findIndex((l, i) => i > at && l.startsWith("## "));
-  if (!notes.slice(at + 1, end < 0 ? undefined : end).join("").trim()) problems.push(`${CHANGELOG} has no text for ${version}`);
+  // the public CHANGELOG has no private block, and its section must still say something
+  const shown = notes.slice(at + 1, end < 0 ? undefined : end).join("\n").replace(new RegExp(`^${PRIVATE_OPEN}\\n[\\s\\S]*?^${PRIVATE_CLOSE}\\n`, "gm"), "");
+  if (!shown.trim()) problems.push(`the public ${CHANGELOG} would have no text for ${version} (every entry is Internal: write ${highlightsFile} or add an entry of another section)`);
   if (problems.length) throw new Fail(`The result would fail the release checks: ${problems.join(", ")}.`);
 
   if (opts.checkDocs && !opts.dryRun) {
@@ -425,7 +478,8 @@ function prepare(argv, cwd = process.cwd()) {
   const wrote = missing.length ? writeContract(root, version, make, source) : [];
   for (const [p, text] of Object.entries(files)) writeFileSync(join(root, p), text);
   for (const f of fileNames) unlinkSync(join(root, FRAGMENTS, f));
-  console.log(`${current} -> ${version}: ${[VERSION_FILE, ...PACKAGES, CHANGELOG].join(", ")}; ${fileNames.length} fragments merged and removed.`);
+  if (hasHighlights) unlinkSync(join(root, highlightsFile));
+  console.log(`${current} -> ${version}: ${[VERSION_FILE, ...PACKAGES, CHANGELOG].join(", ")}; ${fileNames.length} fragments${hasHighlights ? " and the highlights" : ""} merged and removed.`);
   if (added.length) console.log(`New migrations: ${added.map((f) => f.split("/").pop()).join(", ")}.${missing.length ? "" : ` ${CONTRACTS}/${version} and ${fixtureFile} are in place.`}`);
   for (const n of wrote) console.log(n);
   console.log(`Next: read the diff and CHANGELOG.md, then git add -A && git commit -m "Release ${version}".`);

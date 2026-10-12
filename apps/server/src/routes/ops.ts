@@ -5,6 +5,7 @@ import { clientIp } from "../auth/middleware.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { strictObject } from "../platform/validate.ts";
 import { backupForDownload, cancelOp, opsAudit, opsState, requestOp } from "../services/ops.ts";
+import { settleRemoteAccess } from "../services/remote-access.ts";
 import { body } from "./shared.ts";
 
 export function opsRoutes(s: Services) {
@@ -25,6 +26,8 @@ export function opsRoutes(s: Services) {
 
   app.post("/cancel/:id", async (c) => {
     await cancelOp(s, c.get("user"), c.req.param("id"), req(c));
+    // a withdrawn remote access change leaves no request file behind
+    await settleRemoteAccess(s);
     return c.json({ ok: true });
   });
 

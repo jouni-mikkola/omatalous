@@ -5,6 +5,8 @@
  * stored in the database and these values are its defaults, see
  * services/instance.ts.
  */
+import { isAppSecret } from "../entry/app-secret.ts";
+
 export interface EnableBankingConfig {
   appId: string;
   privateKeyPem: string;
@@ -23,8 +25,23 @@ export interface InstanceSettings {
   industryLookup: boolean;
 }
 
+/** The app's own check of Cloudflare Access (security/cf-access.ts). */
+export interface AccessConfig {
+  /** Audience tag of the Access application in front of this copy. */
+  aud: string;
+  /** The Zero Trust team's host: the issuer of the tokens and the only host their keys are fetched from. */
+  teamDomain: string;
+}
+
+/** An Access application's audience tag: 64 hex characters, lower case as Cloudflare writes it. */
+export const ACCESS_AUD = /^[0-9a-f]{64}$/;
+/** `<team>.cloudflareaccess.com`: one label and the fixed suffix, so the value can name no other host, port or path. */
+export const ACCESS_TEAM_DOMAIN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com$/;
+
 export interface Config {
   defaults: InstanceSettings;
+  /** Set by CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN together; null means the check is off. */
+  access: AccessConfig | null;
   /**
    * Encrypts the bank keys stored in the database. Lives in a file outside
    * the database (Docker: /secrets/app_secret, created on first start).
@@ -71,10 +88,10 @@ function hours(value: string | undefined, fallback: number[]): number[] {
   return valid.length ? valid : fallback;
 }
 
-/** Shorter than 32 characters is too weak to derive an encryption key from: treated as missing. */
+/** A text that is no app secret (too short, entry/app-secret.ts) is treated as missing. */
 function validSecret(secret: string): string | null {
   if (!secret) return null;
-  if (secret.length < 32) {
+  if (!isAppSecret(secret)) {
     console.warn("APP_SECRET is shorter than 32 characters and is not used. Bank keys cannot be stored until it is fixed.");
     return null;
   }
@@ -103,6 +120,21 @@ function cookieName(instance: string | undefined): string {
   return `talous_${name || "banking-app"}`;
 }
 
+/**
+ * CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN turn on the check of Cloudflare Access's signature. Half a pair or a value
+ * of the wrong form stops the start: a copy that ran without the check its `.env` asks for would hide the mistake.
+ * Letter case is not a mistake (host names and hex have none), so both are lowered first.
+ */
+function accessConfig(env: Env): AccessConfig | null {
+  const aud = (env.CF_ACCESS_AUD ?? "").trim().toLowerCase();
+  const teamDomain = (env.CF_ACCESS_TEAM_DOMAIN ?? "").trim().toLowerCase();
+  if (!aud && !teamDomain) return null;
+  if (!aud || !teamDomain) throw new Error("CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN go together: set both in .env, or neither.");
+  if (!ACCESS_AUD.test(aud)) throw new Error("CF_ACCESS_AUD is not an Access application's audience tag (64 hex characters).");
+  if (!ACCESS_TEAM_DOMAIN.test(teamDomain)) throw new Error("CF_ACCESS_TEAM_DOMAIN is not of the form <team>.cloudflareaccess.com (no https://, port or path).");
+  return { aud, teamDomain };
+}
+
 export function normalizePem(pem: string): string {
   return pem.replace(/\\n/g, "\n").trim();
 }
@@ -118,6 +150,7 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
       historyDays: int(env.HISTORY_DAYS, 730),
       industryLookup: env.INDUSTRY_LOOKUP !== "false",
     },
+    access: accessConfig(env),
     appSecret: validSecret((files.appSecret ?? env.APP_SECRET ?? "").trim()),
     sessionDays: int(env.SESSION_DAYS, 30),
     sessionCookie: cookieName(env.INSTANCE_NAME),

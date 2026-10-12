@@ -18,8 +18,11 @@ import type { EnableBankingConfig } from "../../platform/config.ts";
 import { EnableBankingClient, EnableBankingError } from "./client.ts";
 import { canonicalPrivateKey, KeyProblem } from "../../security/private-key.ts";
 import { generateKeyAndCertificate } from "../../security/x509.ts";
-import { DEFAULT_BANK } from "./banks.ts";
+import { BANKS, type BankOption, DEFAULT_BANK, findAspsp, offeredFrom } from "./banks.ts";
+import type { EbAspsp } from "./types.ts";
 import type { Services } from "../../services/context.ts";
+import { recordEvent } from "../../services/security.ts";
+import type { RequestInfo } from "../../services/users.ts";
 import { UserError } from "../../platform/errors.ts";
 import { strictObject } from "../../platform/validate.ts";
 import { DEFAULT_RELAY_URL, type RedirectMode, redirectModeOf } from "../../services/instance.ts";
@@ -238,7 +241,7 @@ function probeProblem(err: unknown, saved: boolean, own: boolean): ActivationRes
       return { verified: false, keyRefused: true, message };
     }
     if (err.status === 403) {
-      return { verified: false, message: "Enable Banking ei vielä päästä sovellusta pankkeihin (403). Paina Control Panelissa Activate by linking accounts ja valitse Nordea." };
+      return { verified: false, message: "Enable Banking ei vielä päästä sovellusta pankkeihin (403). Paina Control Panelissa Activate by linking accounts ja valitse pankkisi." };
     }
     return { verified: false, message: `Enable Banking vastasi virheellä ${err.status}.${kept} Yritä myöhemmin uudelleen.` };
   }
@@ -266,14 +269,107 @@ async function probe(s: Services, appId: string, privateKeyPem: string, saved: b
     const active = await applicationActive(client);
     if (active === false) return { verified: false, active, message: INACTIVE_MESSAGE };
     const banks = await client.listAspsps(DEFAULT_BANK.country);
-    const found = banks.some((a) => a.name.toLowerCase() === DEFAULT_BANK.aspspName.toLowerCase());
+    // the saved application's own list is the one the picker offers banks from
+    if (saved) bankLists.set(s, { appId, at: s.now().getTime(), aspsps: banks, ok: true, pending: null });
+    const found = BANKS.some((bank) => findAspsp(bank, banks));
     const flag = active === undefined ? {} : { active };
     return found
       ? { verified: true, ...flag, message: "Yhteys toimii." }
-      : { verified: false, ...flag, message: `Yhteys toimii, mutta ${DEFAULT_BANK.name} ei ole sovelluksen pankkilistalla.` };
+      : { verified: false, ...flag, message: "Yhteys toimii, mutta sovelluksen pankkilistalla ei ole yhtään pankkia, jonka Omatalous osaa yhdistää." };
   } catch (err) {
     return probeProblem(err, saved, own);
   }
+}
+
+/** A good answer is kept for a day: banks come and go rarely, and the list is read on every page load. */
+const BANK_LIST_MS = 24 * 3600_000;
+/** A failed call is tried again after this, not on every page load. */
+const BANK_LIST_RETRY_MS = 10 * 60_000;
+/** A page load waits this long for Enable Banking. A slower answer is used by the next one. */
+const BANK_LIST_WAIT_MS = 3000;
+
+/**
+ * The live bank list of one application. `aspsps` is the last good answer: null before there was one, and kept while a
+ * refresh runs and after one that failed, so a slow or failing Enable Banking does not take the banks away. `ok` says
+ * whether the last call answered, which decides how long the entry counts as fresh.
+ */
+interface BankList {
+  appId: string;
+  at: number;
+  aspsps: EbAspsp[] | null;
+  ok: boolean;
+  pending: Promise<void> | null;
+}
+const bankLists = new WeakMap<object, BankList>();
+
+/** Asks Enable Banking for the application's bank list. The promise never rejects: a failed call keeps `previous`'s answer. */
+function askBankList(s: Services, appId: string, privateKeyPem: string, previous?: BankList): BankList {
+  const list: BankList = { appId, at: s.now().getTime(), aspsps: previous?.appId === appId ? previous.aspsps : null, ok: false, pending: null };
+  list.pending = new EnableBankingClient({ appId, privateKeyPem, fetch: s.fetch })
+    .listAspsps(DEFAULT_BANK.country)
+    .then(
+      (aspsps) => {
+        list.aspsps = aspsps;
+        list.ok = true;
+      },
+      (err) => {
+        // a key or an application Enable Banking refuses is told by the setup test; any other failure gets a line
+        const refused = err instanceof EnableBankingError && (err.status === 401 || err.status === 403);
+        if (!refused) console.error("bank list:", err instanceof EnableBankingError ? err.message : "no answer from Enable Banking");
+      },
+    )
+    .then(() => {
+      list.at = s.now().getTime();
+      list.pending = null;
+    });
+  bankLists.set(s, list);
+  return list;
+}
+
+/** Waits for a promise that never rejects, at most this long. */
+async function atMost(pending: Promise<void> | null, ms: number): Promise<void> {
+  if (!pending) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<void>((done) => {
+    timer = setTimeout(done, ms);
+  });
+  await Promise.race([pending, late]);
+  clearTimeout(timer);
+}
+
+/**
+ * The banks the picker offers: those of BANKS that the instance's own application lists at Enable Banking, each
+ * named as that list writes it (banks.ts). Nordea alone with no application, with one that is not active yet and
+ * when Enable Banking gives no answer, as before the other banks were added. Starting a bank does not read this
+ * list: it takes an id of BANKS and asks Enable Banking itself (link.ts).
+ */
+export async function offeredBanks(s: Services): Promise<BankOption[]> {
+  // the id without opening the key, as instanceAppInactive reads it: this runs on every page load
+  const appId = (await read<StoredApp>(s, ACTIVE))?.appId ?? s.config.enableBanking?.appId ?? null;
+  if (!appId || (await knownInactive(s, appId))) return [DEFAULT_BANK];
+  let list = bankLists.get(s);
+  if (list?.appId !== appId) list = undefined;
+  const fresh = list && !list.pending && s.now().getTime() - list.at < (list.ok ? BANK_LIST_MS : BANK_LIST_RETRY_MS);
+  if (!fresh) {
+    if (!list?.pending) {
+      const creds = await instanceCredentials(s);
+      if (!creds) return [DEFAULT_BANK];
+      list = askBankList(s, appId, creds.privateKeyPem, list);
+    }
+    await atMost(list.pending, BANK_LIST_WAIT_MS);
+  }
+  return list?.aspsps ? offeredFrom(list.aspsps) : [DEFAULT_BANK];
+}
+
+/**
+ * The live list `offeredBanks` reads, as last answered and without asking for it: null with no application, with one
+ * that is not active and before the first answer. The same array as long as that answer is kept, so what hangs on
+ * the list (the logos of routes/bank-logos.ts) can live exactly as long as it does.
+ */
+export async function knownBankList(s: Services): Promise<readonly EbAspsp[] | null> {
+  const appId = (await read<StoredApp>(s, ACTIVE))?.appId ?? s.config.enableBanking?.appId ?? null;
+  const list = bankLists.get(s);
+  return appId && list?.appId === appId && !(await knownInactive(s, appId)) ? list.aspsps : null;
 }
 
 /** A member's own Application ID and key tried against Enable Banking before they are saved (credentials.ts). */
@@ -295,9 +391,22 @@ export async function testBankApp(s: Services): Promise<ActivationResult> {
   return result;
 }
 
-const CHECK_WINDOW_MS = 10 * 60_000;
-const CHECK_MAX = 8;
-const recentChecks = new WeakMap<object, number[]>();
+const TOO_MANY_TESTS = "Liian monta testiä peräkkäin. Odota muutama minuutti.";
+/** The key checkAppId counts under on `s.keyTestLimiter`: one window for the whole instance. No user id reads like it. */
+const APP_ID_CHECKS = "app-id";
+
+/**
+ * Counts a member's test of their own key (credentials.ts) on `s.keyTestLimiter`: per user, eight in a window of ten
+ * minutes that starts with the member's first test. It runs before the key is imported, so a refused test costs no
+ * signature and no call to Enable Banking, and the count is made in one step, so parallel requests cannot all pass
+ * before the first is counted. The first refusal of a window is a `lockout` event, as with the other limits.
+ */
+export async function countKeyTest(s: Services, userId: string, req: RequestInfo): Promise<void> {
+  const attempt = s.keyTestLimiter.consume(userId, s.now().getTime());
+  if (attempt.wait <= 0) return;
+  if (attempt.first) await recordEvent(s, { kind: "lockout", userId, ...req, detail: "avaimen testi" });
+  throw new UserError(TOO_MANY_TESTS);
+}
 
 /**
  * Tries a pasted Application ID with the pending key (or an uploaded one) before anything is saved, so the
@@ -306,10 +415,7 @@ const recentChecks = new WeakMap<object, number[]>();
 export async function checkAppId(s: Services, input: unknown): Promise<ActivationResult> {
   const o = strictObject(input, ["appId", "privateKeyPem"] as const);
   const appId = parseAppId(o.appId);
-  const now = s.now().getTime();
-  const recent = (recentChecks.get(s) ?? []).filter((t) => now - t < CHECK_WINDOW_MS);
-  if (recent.length >= CHECK_MAX) throw new UserError("Liian monta testiä peräkkäin. Odota muutama minuutti.");
-  recentChecks.set(s, [...recent, now]);
+  if (s.keyTestLimiter.consume(APP_ID_CHECKS, s.now().getTime()).wait > 0) throw new UserError(TOO_MANY_TESTS);
 
   let pem: string;
   if (o.privateKeyPem !== undefined) {
@@ -331,4 +437,5 @@ export async function removeBankApp(s: Services): Promise<void> {
   await s.settings.delete(ACTIVE);
   await s.settings.delete(PENDING);
   await s.settings.delete(CHECKED);
+  bankLists.delete(s);
 }

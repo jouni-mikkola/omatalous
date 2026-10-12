@@ -14,7 +14,10 @@
 #   • installs the maintenance helper (systemd user timer, else cron) for Asetukset > Ylläpito
 #   • prints the address and a setup link with the one-time code filled in
 #
-# Nothing is asked by default. Answers are flags or environment variables; --reconfigure shows the access menu:
+# Nothing is asked by default. Answers are flags or environment variables; --reconfigure shows the access menu.
+# Every question (Docker's install, the docker group, the name, the access choice, the address, the port) comes before
+# Docker is installed and before anything is built, so the long steps run without waiting for a person.
+#
 #   --access lan|local|tunnel|domain   TALOUS_ACCESS        how the app is reached (default lan, see above)
 #   --domain talous.example.com        TALOUS_DOMAIN        for domain and tunnel
 #   --access-emails a@x.fi,b@x.fi      TALOUS_ACCESS_EMAILS for tunnel: who Cloudflare Access lets in (see scripts/lib/cloudflare.sh)
@@ -50,11 +53,13 @@ NODE="node --disable-warning=ExperimentalWarning dist/node.js"
 DEFAULT_INSTANCE=banking-app
 NAME_RE='^[a-z0-9][a-z0-9_-]{0,40}$'
 PRESET_NAME=${TALOUS_NAME:-}
+# shellcheck disable=SC2034  # read in lib/install-host.sh (reexec_with_group)
 ORIG_ARGS=("$@")
 YES=false; RECONFIGURE=false; INSTALL_DOCKER=false; FROM_CLONE=false; NEW_INSTANCE=""; CF_DOWN=false
 OPS_ONLY=""; OPS_POLICY=false; OPS_HELPER=true; [[ ${TALOUS_OPS_HELPER:-1} != 0 ]] || OPS_HELPER=false
 A_ACCESS=${TALOUS_ACCESS:-}; A_DOMAIN=${TALOUS_DOMAIN:-}; A_EMAIL=${TALOUS_EMAIL:-}
 A_PORT=${TALOUS_PORT:-}; A_BIND=${TALOUS_BIND:-}; A_TOKEN=${TALOUS_TUNNEL_TOKEN:-}; A_ACCESS_EMAILS=${TALOUS_ACCESS_EMAILS:-}
+A_URL_ADDR=""   # only a re-exec sets it (reexec_with_group): the address answer of choice 1 with all addresses
 LOG=""
 PASS=()   # flags handed on to a new instance's install.sh
 REPORTED=false
@@ -88,6 +93,8 @@ IMAGE=${INSTANCE_NAME:-$DEFAULT_INSTANCE}
 . scripts/lib/release.sh
 # shellcheck source=lib/cloudflare.sh
 . scripts/lib/cloudflare.sh
+# shellcheck source=lib/install-host.sh
+. scripts/lib/install-host.sh
 
 # ask VAR "Question" "default" [preset]: sets VAR (keeps default on empty answer or end of input).
 # A preset (from a flag) is used without asking, and --yes takes the default.
@@ -169,9 +176,12 @@ project_name() {
 }
 # a directory label as Compose saw it: compare the plain and the symlink-resolved path
 same_dir() { [[ -n $1 && ( $1 == "$ROOT" || $1 == "$PHYS" ) ]]; }
+# Docker may still be missing while the questions are asked (prep_host installs it after the last answer): nothing
+# is running then, so what these ask about is empty.
+have_docker() { command -v docker >/dev/null 2>&1; }
 # working directories of the containers of a Compose project, one per line
-project_dirs() { docker ps -a --filter "label=com.docker.compose.project=$1" --format '{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | sort -u; }
-project_volumes() { docker volume ls -q --filter "label=com.docker.compose.project=$1" 2>/dev/null; }
+project_dirs() { have_docker || return 0; docker ps -a --filter "label=com.docker.compose.project=$1" --format '{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | sort -u; }
+project_volumes() { have_docker || return 0; docker volume ls -q --filter "label=com.docker.compose.project=$1" 2>/dev/null; }
 # does the project have containers, and are they all from this directory?  prints: none | mine | other
 project_owner() {
   local d any=0 foreign=0
@@ -258,6 +268,7 @@ host_has_addr() {
 }
 # project of a container that holds 80 or 443 on all addresses (a Caddy without CADDY_ADDRESS), if any
 wildcard_caddy_owner() {
+  have_docker || return 0
   docker ps --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.service"}}|{{.Ports}}|{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null \
     | awk -F'|' '$3 ~ /(^|, )(0\.0\.0\.0|\[::\]):(80|443)->/ && $2 == "caddy" && $1 != "" {print $1 "|" $4; exit}'
 }
@@ -316,6 +327,7 @@ while (($#)); do
   esac
   shift
 done
+load_answers
 [[ -z $NEW_INSTANCE ]] || new_instance "$NEW_INSTANCE"
 if [[ -n $PRESET_NAME ]]; then
   [[ $PRESET_NAME =~ $NAME_RE ]] || die "Invalid name: $PRESET_NAME"
@@ -386,74 +398,30 @@ as_root() {
   else return 1; fi
 }
 in_docker_group() { getent group docker 2>/dev/null | cut -d: -f4 | tr , '\n' | grep -qx "${USER:-$(id -un)}"; }
-# the docker group may be new to this login: run the script again with it (no logout needed)
-reexec_with_group() {
-  [[ -z ${TALOUS_REEXEC:-} ]] && command -v sg >/dev/null || return 1
-  say "Opening a new session with the docker group and continuing."
-  export TALOUS_REEXEC=1
-  exec 9<&-   # the new process takes the lock again
-  exec sg docker -c "$(printf '%q ' "$ROOT/scripts/install.sh" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
-}
-
+# Docker is checked here and fixed here (a missing group, a stopped service), because the questions below look at what
+# Docker already runs. A Docker that is missing is installed after the last answer (prep_host): the long step then runs
+# without anyone at the keyboard, and its yes/no questions are asked now.
+DOCKER_TODO=false   # Docker is installed after the questions
+GROUP_OK=false      # the docker group was agreed to with the other questions
 if ! command -v docker >/dev/null; then
   can_install=false
   [[ -r /etc/os-release ]] && command -v curl >/dev/null && { ((EUID == 0)) || command -v sudo >/dev/null; } && can_install=true
   if $can_install && { $INSTALL_DOCKER || { ! $YES && confirm "Docker is missing. Install it now with Docker's own install script (get.docker.com)?" y; }; }; then
-    step "Installing Docker"
-    installer=$(mktemp)
-    curl -fsSL https://get.docker.com -o "$installer" || { rm -f "$installer"; die "Could not download the Docker installer. Check the network connection (curl -I https://get.docker.com) and run this again."; }
-    as_root sh "$installer" || { rm -f "$installer"; die "The Docker install failed. See the error above. Install guide: docs/INSTALL.md."; }
-    rm -f "$installer"
-    as_root systemctl enable --now docker >/dev/null 2>&1 || true
+    # shellcheck disable=SC2034  # read in lib/install-host.sh
+    DOCKER_TODO=true
+    say "Docker is installed after the questions below."
+    # Docker's install script leaves the user out of the docker group, so that is agreed to now as well
+    if ((EUID != 0)) && ! $YES && ! in_docker_group && ! confirm "Add your user to the docker group after the install (sudo usermod -aG docker ${USER:-$(id -un)})?" y; then
+      die "The install cannot continue without the docker group. Run: sudo usermod -aG docker \$USER   after installing Docker, then close the SSH connection and open it again (or log out and in)."
+    fi
+    # shellcheck disable=SC2034  # read in lib/install-host.sh
+    GROUP_OK=true
   else
     die "Docker is missing. Install it: curl -fsSL https://get.docker.com | sudo sh   (or run this script again with --install-docker). More: docs/INSTALL.md."
   fi
+else
+  docker_ready
 fi
-docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing. Install it: sudo apt install docker-compose-plugin"
-if ! docker info >/dev/null 2>&1; then
-  derr=$(docker info 2>&1 >/dev/null | head -3 || true)
-  if [[ $derr == *"permission denied"* ]]; then
-    if ! in_docker_group; then
-      if ! $YES && ! confirm "Your user has no access to Docker. Add it to the docker group (sudo usermod -aG docker $USER)?" y; then
-        die "The install cannot continue without the docker group. Run: sudo usermod -aG docker \$USER   and log out and in again."
-      fi
-      as_root usermod -aG docker "${USER:-$(id -un)}" || die "Could not add the group. Run: sudo usermod -aG docker \$USER   and log out and in again."
-    fi
-    reexec_with_group || true
-    die "Your user has no access to Docker in this session yet. Log out and in (or run: newgrp docker) and run this again."
-  else
-    # the daemon is installed but not running
-    if command -v systemctl >/dev/null && as_root systemctl start docker >/dev/null 2>&1; then
-      for _ in $(seq 1 20); do docker info >/dev/null 2>&1 && break; sleep 1; done
-    fi
-    docker info >/dev/null 2>&1 || die "The Docker service does not start. Run: sudo systemctl start docker   and see why: sudo journalctl -u docker -n 30. Then run this again."
-  fi
-fi
-ok "Docker $(docker version --format '{{.Server.Version}}'), Compose $(docker compose version --short)"
-# after a reboot the app returns by itself only if the Docker service starts with the machine
-if command -v systemctl >/dev/null && systemctl cat docker.service >/dev/null 2>&1 && [[ $(systemctl is-enabled docker 2>/dev/null) != enabled ]]; then
-  if as_root systemctl enable docker >/dev/null 2>&1; then ok "Docker now starts with the machine."
-  else warn "Docker does not start with the machine, so the app does not come back by itself after a reboot. Run: sudo systemctl enable docker"; fi
-fi
-# the maintenance helper needs jq; install it without asking when apt and root rights are there, else the helper note stays
-if $OPS_HELPER && ! command -v jq >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1 && { ((EUID == 0)) || command -v sudo >/dev/null; }; then
-  step "Installing jq"
-  if as_root apt-get install -y jq >/dev/null 2>&1 || { as_root apt-get update >/dev/null 2>&1 && as_root apt-get install -y jq >/dev/null 2>&1; }; then
-    ok "jq installed."
-  else
-    warn "Could not install jq. The maintenance helper needs it: sudo apt install jq"
-  fi
-fi
-# a build needs about 2 GB; stopping half way on a full disk helps nobody
-droot=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || true)
-if [[ -n $droot && -d $droot ]]; then
-  free_kb=$(df -Pk "$droot" 2>/dev/null | awk 'NR==2 {print $4}')
-  if [[ -n ${free_kb:-} ]]; then
-    ((free_kb >= 1024 * 1024)) || die "Only $((free_kb / 1024)) MB free on the disk ($droot), the build needs about 2 GB. Free some space (docker image prune -f; docker builder prune -f; df -h) and run this again."
-    ((free_kb >= 2048 * 1024)) || warn "Only $((free_kb / 1024)) MB free on the disk. The build may stop half way if the space runs out."
-  fi
-fi
-
 say ""
 say "${bold}Omatalous install${reset}"
 say "${dim}Nothing is asked. The other settings are made in the browser.${reset}"
@@ -685,13 +653,14 @@ case $ACCESS in
     fi
     ;;
   3)
+    cf_setup_if_missing
     cf_tunnel
     APP_BASE_URL="https://$DOMAIN"; PROFILES=tunnel; TRUST_PROXY=true
     ;;
   1)
     url_addr=$BIND_ADDRESS
     if [[ $BIND_ADDRESS == 0.0.0.0 ]]; then
-      ask url_addr "Address the app is reached by (IP or name)" "$(host_addrs | head -1)"
+      ask url_addr "Address the app is reached by (IP or name)" "$(host_addrs | head -1)" "$A_URL_ADDR"
     fi
     [[ $url_addr =~ ^[A-Za-z0-9.:-]+$ ]] || die "Invalid address: $url_addr"
     APP_BASE_URL="http://$(url_host "$url_addr"):$HOST_PORT"
@@ -700,7 +669,13 @@ case $ACCESS in
 esac
 APP_BASE_URL=${APP_BASE_URL%/}
 ok "Address: $APP_BASE_URL  ${dim}(can be changed in the browser)${reset}"
+settle_answers
+fi
 
+# ── the last answer is in: Docker, the long steps ────────────────────────────────
+prep_host
+
+if ! $KEEP_ALL; then
 # A home network address can appear after Docker starts at boot. Without this setting Docker cannot bind it then and the app stays down.
 if is_private_v4 "$BIND_ADDRESS" && [[ $(cat /proc/sys/net/ipv4/ip_nonlocal_bind 2>/dev/null) != 1 || ! -f /etc/sysctl.d/90-omatalous.conf ]]; then
   if echo "net.ipv4.ip_nonlocal_bind=1" | as_root tee /etc/sysctl.d/90-omatalous.conf >/dev/null 2>&1 && as_root sysctl -q -w net.ipv4.ip_nonlocal_bind=1 >/dev/null 2>&1; then
@@ -713,9 +688,9 @@ fi
 # ── write .env ───────────────────────────────────────────────────────────────
 step "Writing .env"
 umask 077
-# optional settings the questions above do not cover survive a re-run
+# optional settings the questions above do not cover survive a re-run (ACCESS_LAN_BIND: scripts/lib/ops-access.sh)
 KEEP=()
-for key in TZ SETUP_CODE INDUSTRY_LOOKUP; do
+for key in TZ SETUP_CODE INDUSTRY_LOOKUP ACCESS_LAN_BIND; do
   value=$(existing "$key")
   [[ -n $value ]] && KEEP+=("$key=$value")
 done
@@ -752,6 +727,9 @@ DOMAIN=$DOMAIN
 ACME_EMAIL=$ACME_EMAIL
 CLOUDFLARE_TUNNEL_TOKEN=$TUNNEL_TOKEN
 ENV
+  # CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN (the app's own check of Cloudflare Access): cf_up writes them after
+  # `cloudflare up`; a tunnel made by hand keeps its own; any other way in leaves them out (scripts/lib/cloudflare.sh)
+  cf_access_kept
   [[ -z $ACCESS_EMAILS ]] || echo "CLOUDFLARE_ACCESS_EMAILS=$ACCESS_EMAILS"
   # not this copy's in Cloudflare until `cloudflare up --new` made it (scripts/lib/cloudflare.sh, cf_mine)
   ! $CF_NEW || echo "CLOUDFLARE_NEW_HOST=$DOMAIN"
@@ -774,7 +752,10 @@ GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo unknown); export GIT_COMMIT
 # (a clone ahead of the newest release, no release yet, or TALOUS_CHANNEL=source). update.sh uses the same rule.
 CHANNEL=source; UP_FLAGS=""; LOG=$(mktemp)
 if [[ ${TALOUS_CHANNEL:-$(existing TALOUS_CHANNEL)} != source ]]; then
-  REL_TAG=$(latest_release)
+  # the release this checkout is at (a bootstrap clone sits on one and holds every tag, a pre-release among them),
+  # else the newest tag as before
+  REL_TAG=$(git tag --points-at HEAD 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+  [[ -n $REL_TAG ]] || REL_TAG=$(latest_release)
   if [[ -n $REL_TAG ]]; then
     REL_COMMIT=$(git rev-parse "$REL_TAG^{commit}")
     if [[ $REL_COMMIT == "$(git rev-parse HEAD 2>/dev/null)" ]]; then CHANNEL=release
@@ -888,6 +869,13 @@ say ""
 say "${bold}${green}Omatalous is running:${reset} ${bold}$APP_BASE_URL${reset}   ${dim}(instance $INSTANCE)${reset}"
 if [[ $CODE =~ ^[a-z0-9]{4}(-[a-z0-9]{4}){3}$ ]]; then
   say "Set up: ${bold}$APP_BASE_URL/#koodi=$CODE${reset}   ${dim}(the one-time code is in the link)${reset}"
+  # the same link as a QR code for a phone. qrencode is never installed from here. The link goes in through stdin: the
+  # code stays out of the process list.
+  if command -v qrencode >/dev/null 2>&1; then
+    printf '%s' "$APP_BASE_URL/#koodi=$CODE" | qrencode -t ANSIUTF8 -m 1 || true
+  else
+    say "${dim}A QR code of this link for your phone: sudo apt install qrencode, then run ./scripts/install.sh again.${reset}"
+  fi
 else
   say "Open the address and sign in."
 fi

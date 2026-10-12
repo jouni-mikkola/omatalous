@@ -126,9 +126,10 @@ warn() { printf '%s backup%s warning: %s\n' "$(date '+%F %T')" "$TAG" "$*" >&2; 
 # Copies this run's files to BACKUP_COPY_TO, once the backup is good. A drive that is not mounted leaves an ordinary
 # folder on the local disk, so the target has to be on a mount point (the target or a parent, not /) and writable.
 # Each file is copied under a hidden name, compared and renamed, so a full share never leaves a cut-short backup
-# behind. Returns 1 with a warning when it could not; the caller keeps the local backup either way.
+# behind. Nothing is written through a link on the share (see the loop). Returns 1 with a warning when it could not;
+# the caller keeps the local backup either way.
 copy_out() {
-  local dest d f base n=0 mounted=0 files=()
+  local dest d f base part probe n=0 mounted=0 files=()
   for f in "$TARGET.gz" "$TARGET.gz.age" "$SECRET_TARGET"; do [[ ! -e $f ]] || files+=("$f"); done
   [[ $BACKUP_COPY_TO == /* ]] || { warn "BACKUP_COPY_TO has to be a full path starting with / (got: $BACKUP_COPY_TO). Nothing was copied, the backup is in $OUT_DIR."; return 1; }
   command -v mountpoint >/dev/null || { warn "mountpoint is missing (sudo apt install util-linux), so nothing was copied to $BACKUP_COPY_TO. The backup is in $OUT_DIR."; return 1; }
@@ -139,16 +140,26 @@ copy_out() {
     d=$(dirname "$d")
   done
   ((mounted)) || { warn "$dest is not on a mounted drive (is the NAS mounted?), so nothing was copied. The backup is in $OUT_DIR."; return 1; }
-  if ! timeout 60 mkdir -p -- "$dest" 2>/dev/null || ! timeout 60 touch -- "$dest/.talous-write-test" 2>/dev/null; then
+  # The write test is a file mktemp makes under a new random name (created exclusively), so a link someone put at a
+  # fixed name on the share is never written through.
+  if ! timeout 60 mkdir -p -- "$dest" 2>/dev/null || ! probe=$(timeout 60 mktemp -- "$dest/.talous-write-test.XXXXXX" 2>/dev/null); then
     warn "$dest is not writable, so nothing was copied. The backup is in $OUT_DIR."; return 1
   fi
-  rm -f -- "$dest/.talous-write-test"
+  rm -f -- "$probe"
   for f in "${files[@]}"; do
     base=${f##*/}
-    if timeout 120 cp -- "$f" "$dest/.$base.part" 2>/dev/null && cmp -s -- "$f" "$dest/.$base.part" && mv -f -- "$dest/.$base.part" "$dest/$base"; then
+    part=$dest/.$base.part
+    # Whoever can write to the share may have put a link at a name this script uses (the names follow from the time).
+    # A link at the final name is refused. cp --remove-destination unlinks the part name first and creates the file
+    # exclusively, so a link there is removed and never followed. mv -fT renames onto the final name and never moves
+    # into a folder a link points to; a rename replaces a link and does not write through it.
+    if [[ -L $dest/$base ]]; then
+      warn "$dest/$base is a link, so $base was not copied. The backup is in $OUT_DIR."; return 1
+    fi
+    if timeout 120 cp -T --remove-destination -- "$f" "$part" 2>/dev/null && [[ -f $part && ! -L $part ]] && cmp -s -- "$f" "$part" && mv -fT -- "$part" "$dest/$base"; then
       n=$((n + 1))
     else
-      rm -f -- "$dest/.$base.part"
+      rm -f -- "$part"
       warn "could not copy $base to $dest (is the share full?). The backup is in $OUT_DIR."; return 1
     fi
   done

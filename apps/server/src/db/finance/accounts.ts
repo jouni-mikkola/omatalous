@@ -1,6 +1,6 @@
 /** The user's accounts: the list, the bank's fields, balances, and removing or merging an account with its rows. */
 import type { AccountType } from "@banking/core";
-import { type Row, type StoredAccount, type StoredTransaction, toAccount, toTransaction, TX_COLUMNS_LIGHT } from "../rows.ts";
+import { accountBank, type Row, type StoredAccount, type StoredTransaction, toAccount, toTransaction, TX_COLUMNS_LIGHT } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
 
 /**
@@ -20,11 +20,11 @@ export class AccountsRepo {
   constructor(private readonly ctx: FinanceContext) {}
 
   async listAccounts(): Promise<StoredAccount[]> {
-    return (await this.ctx.db.all<Row>("SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at", [this.ctx.userId])).map(toAccount);
+    return (await this.ctx.db.all<Row>(`SELECT accounts.*, ${accountBank("accounts")} FROM accounts WHERE user_id = ? ORDER BY created_at`, [this.ctx.userId])).map(toAccount);
   }
 
   async getAccount(id: string): Promise<StoredAccount | null> {
-    const r = await this.ctx.db.first<Row>("SELECT * FROM accounts WHERE id = ? AND user_id = ?", [id, this.ctx.userId]);
+    const r = await this.ctx.db.first<Row>(`SELECT accounts.*, ${accountBank("accounts")} FROM accounts WHERE id = ? AND user_id = ?`, [id, this.ctx.userId]);
     return r ? toAccount(r) : null;
   }
 

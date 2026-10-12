@@ -7,12 +7,12 @@
  * instalments.ts and are left out here.
  */
 import { getCategory } from "../../categories.ts";
-import { cancelledMerchants, isSubscription } from "../../commitments.ts";
+import { cancelledSubjects, isCancelled, isSubscription } from "../../commitments.ts";
 import { addDays, daysBetween } from "../../dates.ts";
 import { parseSeriesId, type RecurringSeries } from "../../recurring.ts";
 import { historyCovers, netPurchase, recurringAt } from "../context.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { answeredSubscriptions, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
+import { answeredSubscriptions, answerOf, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 /** A charge that started this many days before the end is new. */
@@ -30,7 +30,7 @@ const YEAR_HISTORY_DAYS = 365 + 75;
 const price = (cents: number) => formatEur(cents, cents % 100 !== 0);
 
 export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[] {
-  const cancelled = cancelledMerchants(inputs);
+  const cancelled = cancelledSubjects(inputs);
   // a new charge the household answered (Lopetettu or Käytössä) is known to them
   const answered = answeredSubscriptions(inputs, ctx.today);
   const now = recurringAt(ctx, end);
@@ -39,7 +39,7 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
 
   if (historyCovers(ctx, addDays(end, -YEAR_HISTORY_DAYS))) {
     const yearAgo = addDays(end, -365);
-    const subs = now.filter((s) => isSubscription(s) && !cancelled.has(s.merchant) && !isLender(s.merchant));
+    const subs = now.filter((s) => isSubscription(s) && !isCancelled(cancelled, s) && !isLender(s.merchant));
     const before = recurringAt(ctx, yearAgo).filter((s) => isSubscription(s) && !isLender(s.merchant));
     const known = new Set(before.map((s) => s.merchant));
     // a yearly subscription paid once by then had no series yet, but it ran: it counts a year ago, not as new
@@ -84,7 +84,7 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     );
   };
   for (const s of now) {
-    if (!isNew(s) || told.has(s.id) || settledBy(answered.get(s.merchant), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS || movedFrom(s)) continue;
+    if (!isNew(s) || told.has(s.id) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS || movedFrom(s)) continue;
     if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
     const trial = ctx.txs.find(
       (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,

@@ -3,17 +3,19 @@
  * sends back. The helper repeats the action list and the scrub in bash (`ACTIONS` and `scrub_out` in
  * scripts/ops-helper.sh); tools/repo-rules/parity.ts fails when the action lists differ.
  *
- * None of the nine actions takes parameters. `access` and `port` are in the table but refused. A new action needs
- * a migration too (the CHECK on ops_requests.action lists them), an entry in ACTION_SINCE and the helper's `case`.
+ * None of the ten actions takes parameters. `access` applies the change of remote access the app has prepared in a
+ * file of its own (services/access-request.ts); the request itself says nothing about it. `port` is in the table but
+ * refused. A new action needs a migration too (the CHECK on ops_requests.action lists them), an entry in ACTION_SINCE
+ * and the helper's `case`.
  */
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 
-export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew"] as const;
+export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access"] as const;
 export type OpsAction = (typeof OPS_ACTIONS)[number];
 
 /** Reserved for a later release. */
-const RESERVED = ["access", "port"];
+const RESERVED = ["port"];
 
 /**
  * Read-only: they may run beside another request and need no password. This is the one list. The queries in
@@ -22,7 +24,7 @@ const RESERVED = ["access", "port"];
  */
 export const READ_ONLY: readonly OpsAction[] = ["doctor", "check-update", "logs"];
 /** Need the admin's password again. */
-export const NEEDS_PASSWORD: readonly OpsAction[] = ["update", "rollback"];
+export const NEEDS_PASSWORD: readonly OpsAction[] = ["update", "rollback", "access"];
 
 export const ROLLBACK_WORD = "PALAUTA";
 
@@ -135,6 +137,7 @@ export const ACTION_SINCE: Record<OpsAction, number> = {
   logs: 2,
   prune: 2,
   "helper-renew": 2,
+  access: 3,
 };
 
 export type HelperStatus = "ok" | "slow" | "off";
@@ -186,6 +189,8 @@ export interface OpsState {
   mode?: string;
   port?: number;
   address?: string;
+  /** Where the copy would answer after remote access goes off, by the rule the helper's `lan` uses. Absent until a helper that knows the field has reported. */
+  lanAddress?: string;
   doctor?: { at: string; items: { id: string; level: "ok" | "warn" | "error"; title: string; detail: string; hint: string }[] };
   backups?: { name: string; size: number; at: string; kind: string }[];
 }
@@ -194,6 +199,15 @@ export interface OpsState {
 export const XYZ = /^\d+\.\d+\.\d+$/;
 const isoOrNull = (v: unknown): string | undefined => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$/.test(v) && !Number.isNaN(Date.parse(v)) ? v : undefined);
 const text = (v: unknown, max: number, secrets: readonly string[]): string | undefined => (typeof v === "string" ? oneLine(v, max, secrets) : undefined);
+/** An http or https URL of a host (a name, an IPv4 address or an IPv6 address in brackets) and an optional port. */
+const LAN_ADDRESS = /^https?:\/\/(?:[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?|\[[0-9A-Fa-f:.]*:[0-9A-Fa-f:.]*\])(?::(\d{1,5}))?$/;
+/** lanAddress is shown to an admin as the way in after the tunnel: whole and unchanged, or not at all (never cut or scrubbed into another address). */
+function lanAddress(v: unknown, secrets: readonly string[]): string | undefined {
+  if (typeof v !== "string" || v.length > 120) return undefined;
+  const hit = LAN_ADDRESS.exec(v);
+  if (!hit || (hit[1] !== undefined && (Number(hit[1]) < 1 || Number(hit[1]) > 65535))) return undefined;
+  return scrub(v, secrets) === v ? v : undefined;
+}
 
 /**
  * The snapshot is data from outside: every field is checked, cut and scrubbed, unknown keys are dropped.
@@ -214,6 +228,7 @@ export function normaliseState(input: unknown, secrets: readonly string[] = []):
   if (isoOrNull(o.checked_at)) out.checked_at = isoOrNull(o.checked_at);
   if (str("mode", 20)) out.mode = str("mode", 20);
   if (str("address", 120)) out.address = str("address", 120);
+  if (lanAddress(o.lanAddress, secrets)) out.lanAddress = lanAddress(o.lanAddress, secrets);
   if (Number.isInteger(o.port) && (o.port as number) >= 1 && (o.port as number) <= 65535) out.port = o.port as number;
   if (Array.isArray(o.behind_commits)) {
     out.behind_commits = o.behind_commits

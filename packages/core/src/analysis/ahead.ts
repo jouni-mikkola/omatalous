@@ -5,7 +5,7 @@
  * and with a checking balance the balance each day after the usual everyday spending.
  */
 import { getCategory } from "../categories.ts";
-import { cancelledMerchants, expectedCharges } from "../commitments.ts";
+import { cancelledSubjects, expectedCharges } from "../commitments.ts";
 import { addDays, dateIn, fromMonthIndex, monthIndex, monthOf, weekdayOf } from "../dates.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
@@ -94,7 +94,7 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
     const past = s.transactionIds.map((id) => dayOf.get(id)).filter((d): d is IsoDate => !!d);
     for (const d of payDates(s, past, to)) rows.push({ date: d < from ? from : d, name: s.merchant, category: s.category, cents: s.typicalAmountCents, source: "income" });
   }
-  for (const c of expectedCharges(ctx.recurring, from, to, { cancelled: cancelledMerchants(inputs), savings: true })) {
+  for (const c of expectedCharges(ctx.recurring, from, to, { cancelled: cancelledSubjects(inputs), savings: true })) {
     rows.push({ date: c.date, name: c.merchant, category: c.category, cents: -c.amountCents, source: "recurring" });
   }
   for (const b of expectedBillRows(ctx, inputs.expectedBills, from, to)) {

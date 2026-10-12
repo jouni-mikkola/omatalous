@@ -83,7 +83,7 @@ export function dataRoutes(s: Services) {
     if (kind === "cashflow") {
       const rows = [
         ["Kuukausi", "Tulot €", "Kulutus €", "Velanhoito €", "Säästöt €", "Luotonnostot €", "Erotus €", "Säästöaste %", "Yli jäi €"],
-        ...reports.cashflow.rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.netCents - r.savedCents)]),
+        ...reports.cashflow.rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.leftCents)]),
       ];
       return csvResponse(c, `kassavirta_${range.from}_${range.to}.csv`, csv(rows));
     }

@@ -1,4 +1,4 @@
-export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew";
+export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew" | "access";
 
 export interface OpsRequestView {
   id: string;

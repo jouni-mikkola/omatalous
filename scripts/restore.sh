@@ -10,7 +10,8 @@
 #
 # Order, so that a bad file costs nothing: the file is checked and copied into the data volume while the app runs,
 # then the app stops, `node dist/node.js restore` checks it again and swaps it in (the current database stays as
-# backups/pre-restore-<time>.db in the volume), --secret puts the app secret back keeping the old one as
+# backups/pre-restore-<time>.db in the volume), --secret is tried on the restored database (`secret check`) and only a
+# secret that opens its saved bank keys (or a database with none) is put back, keeping the old one as
 # app_secret.prev-<time> the way secret rotation does, the app starts, and `address set` writes APP_BASE_URL from .env
 # (a database from another machine has that machine's address). Any failure after the stop starts the app again.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -184,21 +185,44 @@ ok "Database restored."
 
 PREV_SECRET=""
 if [[ -n $SECRET ]]; then
-  # as secret rotation does: the old file stays as .prev-<stamp>, the new one comes in by a flushed rename
+  # The secret reaches the container on stdin and waits in its /tmp (a memory disk that goes with the container) while
+  # the app tries it on the restored database: `secret check` exits 0 when it opens the saved bank keys (or none are
+  # saved), 4 when it does not, and prints nothing secret. Only then, as secret rotation does: the old file stays as
+  # .prev-<stamp>, the new one comes in by a flushed rename. Exit 4 = the secret does not open the keys (the command's
+  # own status, passed on), 5 = the check could not run (any other status); nothing in /secrets has changed by then.
+  # The candidate is not put at /secrets/app_secret.next, which the app finishes as an interrupted rotation when it starts.
   SECRET_SH='set -e
 umask 077
 f=/secrets/app_secret
-cat > "$f.next"
-if [ -f "$f" ] && [ "$(cat "$f")" = "$(cat "$f.next")" ]; then rm -f "$f.next"; echo same; exit 0; fi
+c=/tmp/app_secret.candidate
+cleanup() { rm -f "$c"; }
+trap cleanup EXIT
+cat > "$c"
+if [ -f "$f" ] && [ "$(cat "$f")" = "$(cat "$c")" ]; then echo same; exit 0; fi
+rc=0
+out=$(node --disable-warning=ExperimentalWarning dist/node.js secret check "$c" 2>&1 </dev/null) || rc=$?
+if [ "$rc" != 0 ]; then
+  echo "$out" | tail -1
+  if [ "$rc" = 4 ]; then exit 4; fi
+  exit 5
+fi
+cat "$c" > "$f.next"
 if [ -f "$f" ]; then cp "$f" "$f.prev-$1"; chmod 600 "$f.prev-$1"; sync "$f.prev-$1"; fi
 chmod 600 "$f.next"
 sync "$f.next"
 mv "$f.next" "$f"
 sync /secrets
 if [ -f "$f.prev-$1" ]; then echo "prev app_secret.prev-$1"; else echo new; fi'
-  if ! sec_out=$(printf '%s\n' "$SECRET" | docker compose run --rm --no-deps -T --entrypoint sh banking -c "$SECRET_SH" sh "$STAMP" 2>&1); then
-    die "The database was restored, but the app secret could not be written ($(printf '%s' "$sec_out" | tail -1)). The saved bank keys stay locked until it is: run this again with --secret."
-  fi
+  set +e
+  sec_out=$(printf '%s\n' "$SECRET" | docker compose run --rm --no-deps -T --entrypoint sh banking -c "$SECRET_SH" sh "$STAMP" 2>&1)
+  sec_rc=$?
+  set -e
+  case $sec_rc in
+    0) ;;
+    4) die "$(basename "$SECRET_FILE") does not open the saved bank keys of this database, so the app secret was not changed. The database was restored and the saved bank keys stay locked until the secret of this backup is put back: run this again with --secret <that file>." ;;
+    5) die "The database was restored, but the app secret could not be tried on it ($(printf '%s' "$sec_out" | tail -1)). The app secret was not changed. Run this again with --secret." ;;
+    *) die "The database was restored, but the app secret could not be written ($(printf '%s' "$sec_out" | tail -1)). The saved bank keys stay locked until it is: run this again with --secret." ;;
+  esac
   case $sec_out in
     *same*) ok "The app secret is already this one." ;;
     *prev*) PREV_SECRET=${sec_out##*prev }; ok "App secret put back." ;;

@@ -1,23 +1,19 @@
-/* Bank logos and the bank picker. */
+/* Bank logos. The bank picker is in bank-picker.css. */
 
 /* official logos keep their own colours: always on a white plate */
 .bank-logo { display: inline-grid; place-items: center; background: #fff; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(11, 11, 11, 0.08); flex: none; overflow: hidden; }
+/* a wide wordmark and a square mark keep their shape: the picture is fitted inside the plate, never stretched */
 .bank-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* a picture is drawn once it has loaded (BankLogo.tsx) */
+.bank-logo img[hidden] { display: none; }
 .bank-logo-md { width: 112px; height: 48px; }
 .bank-logo-sm { width: 52px; height: 22px; border-radius: 5px; }
+/* bundled artwork has clear space of its own; a logo the server serves may be cut to its edges, so it keeps off the plate's */
+.bank-logo-md img[src^="/api/bank/logos/"] { padding: 6px 10px; box-sizing: border-box; }
+.bank-logo-sm img[src^="/api/bank/logos/"] { padding: 3px 5px; box-sizing: border-box; }
+/* the picker's plate fills its cell; the logo keeps clear of the edge */
+.bank-logo-tile { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); width: 100%; height: 60px; padding: 8px 12px; box-sizing: border-box; }
+.bank-logo-tile img { width: auto; height: auto; max-width: 100%; max-height: 100%; }
 .bank-logo-text { color: #0b0b0b; font-size: 11px; font-weight: 600; padding: 0 4px; }
-.btn-with-logo { display: inline-flex; align-items: center; gap: 8px; padding-left: 6px; }
+.bank-logo-tile.bank-logo-text { font-size: 14px; line-height: 1.2; text-align: center; padding: 6px 10px; overflow-wrap: anywhere; }
 .bank-cell { display: inline-flex; align-items: center; gap: 8px; }
-.bank-picker { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; background: var(--surface-2); }
-.bank-picker-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.bank-picker-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
-.bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; margin-bottom: 10px; }
-.bank-tile { display: flex; align-items: center; gap: 14px; text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 10px 14px 10px 10px; cursor: pointer; color: var(--text); }
-.bank-tile:hover:not(:disabled) { border-color: var(--ink); }
-.bank-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 4px var(--surface); }
-/* a disabled tile dims its text only: the logo keeps the bank's own colours */
-.bank-tile:disabled { cursor: default; }
-.bank-tile:disabled .bank-tile-text, .bank-tile:disabled .bank-tile-go { opacity: 0.55; }
-.bank-tile-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.bank-tile-text .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bank-tile-go { color: var(--muted); font-size: 18px; }

@@ -1,6 +1,7 @@
 import { REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { checkingAccount, setupApp } from "./helpers.ts";
+import { isNordeaAccount } from "../../../packages/core/src/wording.ts";
 import { todayIn } from "../src/platform/config.ts";
 import { requestInputs, type ScopeAccount } from "../src/services/analysis.ts";
 
@@ -261,5 +262,42 @@ describe("bank connection status", () => {
     expect(byId.get("ended")).toMatchObject({ status: "expired", state: "lapsed", daysLeft: null });
     expect(byId.get("last-day")).toMatchObject({ status: "active", state: "active", daysLeft: 0 });
     expect((await repo.listConnections()).every((c) => c.status === "active")).toBe(true);
+  });
+
+  it("an account carries the bank of its connection, and none without a connection", async () => {
+    const { s, adminId } = await setupApp();
+    const repo = s.finance(adminId);
+    const consent = (id: string, institution: string) =>
+      repo.upsertConnection({ id, provider: "enablebanking", institution, country: "FI", status: "active", validUntil: "2027-01-01T00:00:00Z", createdAt: "2026-04-01T00:00:00Z", lastSyncedAt: null });
+    await consent("c-nordea", "Nordea");
+    await consent("c-other", "Bank Norwegian");
+    const card = (id: string, connectionId: string | null) =>
+      repo.upsertAccount({ id, connectionId, provider: connectionId ? "enablebanking" : "csv", externalId: null, identity: id, name: id, iban: null, currency: "EUR", type: "credit_card" });
+    await card("card-nordea", "c-nordea");
+    await card("card-other", "c-other");
+    await card("card-file", null);
+    const bankOf = new Map((await repo.listAccounts()).map((a) => [a.id, a.bank]));
+    expect([bankOf.get("card-nordea"), bankOf.get("card-other"), bankOf.get("card-file")]).toEqual(["Nordea", "Bank Norwegian", null]);
+    expect((await repo.getAccount("card-other"))!.bank).toBe("Bank Norwegian");
+    // what Optimoi asks of the stored accounts: the card from another bank's connection is not Nordea's
+    expect((await repo.listAccounts()).filter((a) => isNordeaAccount(a)).map((a) => a.id).sort()).toEqual(["card-file", "card-nordea"]);
+  });
+
+  it("the API gives an account's bank to its owner, and a member the account is shared with learns nothing new from it", async () => {
+    const { s, admin, adminId, member } = await setupApp();
+    const repo = s.finance(adminId);
+    await repo.upsertConnection({ id: "c-other", provider: "enablebanking", institution: "Bank Norwegian", country: "FI", status: "active", validUntil: "2027-01-01T00:00:00Z", createdAt: "2026-04-01T00:00:00Z", lastSyncedAt: null });
+    await repo.upsertAccount({ id: "card-other", connectionId: "c-other", provider: "enablebanking", externalId: null, identity: "card-other", name: "Platinum", iban: null, currency: "EUR", type: "credit_card" });
+    const eero = await member("eero", "Eero");
+    expect((await admin.call("PUT", `/api/accounts/card-other/shares/${eero.id}`)).status).toBe(200);
+    const own = (await admin.call("GET", "/api/meta")).body.accounts[0];
+    expect(own).toMatchObject({ id: "card-other", bank: "Bank Norwegian" });
+    const shared = (await eero.call("GET", "/api/meta")).body.sharedAccounts[0];
+    expect(shared).toMatchObject({ id: "card-other", name: "Platinum", ownerName: "Aino" });
+    // the member's copy has the keys of the owner's and the owner's name, and no bank: a card has no IBAN to tell it
+    expect(Object.keys(shared).sort()).toEqual([...Object.keys(own).filter((k) => k !== "problem" && k !== "bank"), "ownerName"].sort());
+    // the analysis of the household view has it, so the member's Optimoi does not take the card for Nordea's
+    const inView = await s.household.sharedWith(eero.id);
+    expect(inView.map((a) => [a.id, a.bank, isNordeaAccount(a)])).toEqual([["card-other", "Bank Norwegian", false]]);
   });
 });

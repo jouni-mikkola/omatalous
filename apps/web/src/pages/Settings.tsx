@@ -11,6 +11,7 @@ import { Accounts } from "./settings/Accounts.tsx";
 import { BankConnections, connectedMessage, connectError } from "./settings/BankConnections.tsx";
 import { BankKey } from "./settings/BankKey.tsx";
 import { syncHoursLabel } from "./settings/InstanceForms.tsx";
+import { Loans } from "./settings/Loans.tsx";
 import { Maintenance } from "./settings/Maintenance.tsx";
 import { Members } from "./settings/Members.tsx";
 import { Login, SecurityLog } from "./settings/Security.tsx";
@@ -68,6 +69,9 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
   // Talous: the cards above the one an address names load their own data, so the scroll waits for them
   const [talousParts, setTalousParts] = useState(0);
   const partLoaded = useCallback(() => setTalousParts((n) => n + 1), []);
+  // Omat: the loans card sits above cards an address names and loads its own list
+  const [loansLoaded, setLoansLoaded] = useState(false);
+  const loansDone = useCallback(() => setLoansLoaded(true), []);
 
   // an address names a card (#kirjautuminen, #laatu, ?section=csv from the empty month page): scroll to it once, after
   // what sits above it has loaded, so the card does not move away after the scroll
@@ -75,7 +79,7 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
   const key = target ? `${params.toString()}#${target}` : null;
   const runsLoaded = runs.data !== null || runs.error !== null;
   const qualityLoaded = !wantQuality || quality.data !== null || quality.error !== null;
-  const settled = talous ? talousParts >= 2 : runsLoaded && qualityLoaded;
+  const settled = talous ? talousParts >= 2 : runsLoaded && qualityLoaded && loansLoaded;
   const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
     if (!key || !settled || scrolledFor.current === key) return;
@@ -139,6 +143,8 @@ export function Settings({ meta, params, anchor, onChange }: { meta: Meta; param
           <Accounts meta={meta} onChange={onChange}>
             {qualityNotes}
           </Accounts>
+
+          <Loans meta={meta} onLoaded={loansDone} />
 
           <Sharing meta={meta} onChange={onChange} />
 

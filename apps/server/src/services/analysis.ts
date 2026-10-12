@@ -4,7 +4,7 @@
  * it was built from are unchanged (the user's own, the owners' of shared
  * accounts in view, and the instance's), so a dashboard request after the
  * first one only filters and sums. The cache holds the context only: the dashboard and the reports are built for
- * each request, with the balances and the user's marks and expected bills from `requestInputs`, so those need no
+ * each request, with the balances and the user's marks, expected bills and loans from `requestInputs`, so those need no
  * data version.
  */
 import { type Account, type AnalysisContext, type BalanceInput, createContext, detectTransfers, type UserInputs } from "@banking/core";
@@ -144,11 +144,12 @@ async function loadScope(s: Services, userId: string, scope: Scope, today: strin
 
 /**
  * What a dashboard or report request needs next to the cached context: the balances of the accounts in view and the
- * user's own marks and expected bills (the household view uses the viewer's). Read for each request, never cached.
+ * user's own marks, expected bills and loans (the household view uses the viewer's). Read for each request, never
+ * cached.
  */
 export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
   const repo = s.finance(userId);
-  const [marks, expectedBills] = await Promise.all([repo.listMarks(), repo.listExpectedBills()]);
+  const [marks, expectedBills, loans] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), repo.listLoans()]);
   // the books count local days: a balance given at 1.30 already holds that morning's rows
   const timezone = s.instance.current.timezone;
   const localDay = (at: string | null) => {
@@ -164,7 +165,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     balanceAt: localDay(a.balanceAt),
     ...(a.joint ? { joint: true } : {}),
   }));
-  return { balances, inputs: { marks, expectedBills } };
+  return { balances, inputs: { marks, expectedBills, loans } };
 }
 
 /**

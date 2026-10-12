@@ -6,6 +6,7 @@ import { fold, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 import { matchReturns } from "../src/returns.ts";
 import { detectTransfers, normalizeIban } from "../src/transfers.ts";
 import type { Account, CategoryRule, Transaction } from "../src/types.ts";
+import { isCardIssuerText } from "../src/wording.ts";
 
 /**
  * Re-derives category and transfer flags for every transaction. Categories
@@ -78,8 +79,8 @@ export function enrichTransactionsReference(
   });
 }
 
-/** Card issuers whose bills come as plain e-invoices that the loans rule takes for a loan. */
-const CARD_ISSUER = /(?<![A-Z0-9])(?:NORDEA RAHOITUS|NORDEA FINANCE|BANK NORWEGIAN|ENTERCARD|RE:?MEMBER|KOMPLETT BANK)(?![A-Z0-9])/;
+// The card issuers are the pipeline's own list (wording.ts `isCardIssuerText`), as the rules are its own `categorize`: this
+// copy is the oracle for the order of the steps, the memo and the pauses, and a second list of names would only drift.
 /** Texts that name a loan: such a payment stays a loan whatever its amount. */
 const LOAN_TEXT = /(?<![A-Z0-9])(?:OSAMAKSU[A-Z]*|LAINA[A-Z]*|LYHENNYS|LAINANHOITO|RAHOITUSSOPIMUS|SOPIMUS|KULUTUSLUOTTO)(?![A-Z0-9])/;
 
@@ -94,7 +95,7 @@ function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
   for (const t of txs) {
     if (t.category !== "loans" || t.categorySource !== "rule" || t.amountCents >= 0) continue;
     const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-    if (!CARD_ISSUER.test(text) || LOAN_TEXT.test(text)) continue;
+    if (!isCardIssuerText(text) || LOAN_TEXT.test(text)) continue;
     const key = `${t.accountId}|${t.merchant}`;
     const group = groups.get(key);
     if (group) group.push(t);

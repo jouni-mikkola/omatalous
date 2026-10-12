@@ -6,13 +6,14 @@
  *
  * Format: "v1.<iv>.<ciphertext+tag>" (base64url).
  */
+import { isAppSecret } from "../entry/app-secret.ts";
 import { fromBase64Url, randomBytes, toBase64Url, utf8 } from "./encoding.ts";
 
 export class SecretBox {
   private constructor(private readonly key: CryptoKeyLike) {}
 
   static async fromSecret(secret: string): Promise<SecretBox> {
-    if (secret.length < 32) throw new Error("APP_SECRET must be at least 32 characters");
+    if (!isAppSecret(secret)) throw new Error("APP_SECRET must be at least 32 characters");
     const material = await crypto.subtle.importKey("raw", utf8.encode(secret), "HKDF", false, ["deriveKey"]);
     const key = await crypto.subtle.deriveKey(
       { name: "HKDF", hash: "SHA-256", salt: utf8.encode("banking-app/secretbox"), info: utf8.encode("v1") },

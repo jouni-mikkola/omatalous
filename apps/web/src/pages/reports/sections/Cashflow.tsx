@@ -76,7 +76,11 @@ function Cashflow({ ctx }: SectionProps) {
       ) : (
         <DivergingColumns
           months={r.rows.map((x) => x.month)}
-          up={{ key: "income", label: "Tulot", color: "var(--series-1)", values: r.rows.map((x) => x.incomeCents) }}
+          up={[
+            { key: "income", label: "Tulot", color: "var(--series-1)", values: r.rows.map((x) => x.incomeCents) },
+            // the table's column; credit drawn is money in that is no income, in the colour the bridge gives it
+            ...(t.borrowedCents !== 0 ? [{ key: "borrowed", label: "Luotonnostot", color: "var(--series-4)", values: r.rows.map((x) => Math.max(0, x.borrowedCents)) }] : []),
+          ]}
           down={[
             { key: "consumption", label: "Kulutus", color: "var(--series-2)", values: r.rows.map((x) => x.consumptionCents) },
             { key: "debt", label: "Velanhoito", color: "var(--series-7)", values: r.rows.map((x) => x.debtCents) },

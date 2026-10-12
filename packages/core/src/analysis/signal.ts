@@ -52,8 +52,3 @@ export function monthT(excess: number, noise: number, months: number): number {
   const se = noise * Math.sqrt(1 + Math.PI / (2 * Math.max(1, months)));
   return se > 0 ? excess / se : excess > 0 ? Infinity : excess < 0 ? -Infinity : 0;
 }
-
-/** Whether one month stands MIN_T standard errors above its usual level (`monthT`). */
-export function monthStandsOut(excess: number, noise: number, months: number): boolean {
-  return monthT(excess, noise, months) >= MIN_T;
-}

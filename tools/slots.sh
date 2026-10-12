@@ -1,48 +1,45 @@
 #!/usr/bin/env bash
 # Runs a command while holding one of N slots, so a few workers on one machine do not all run their checks at once
 # (four at once made seeded tests time out). Used by tools/check.sh.
-#   tools/slots.sh [--dir DIR] [--slots N] [--wait SECONDS] [--label NAME] -- command [args...]
+#   tools/slots.sh [--dir DIR] [--pool NAME] [--slots N] [--wait SECONDS] [--label NAME] -- command [args...]
 # A slot is a directory in DIR (default: check-slots in the git common dir, shared by all worktrees) that holds
-# the owner's pid and start time. A slot whose owner is gone is taken over, so a killed run does not block anyone.
+# the owner's pid and start time. --pool NAME picks another default directory, <NAME>-slots, so a caller can have slots
+# of its own: the lead's landing and the release gate use --pool lead --slots 1 and never wait behind the workers' two.
+# A slot whose owner is gone is taken over, so a killed run does not block anyone.
 # After --wait seconds (default 1800) the command runs without a slot, so a stuck holder cannot block for ever.
 # CHECK_SLOTS, CHECK_SLOT_WAIT and CHECK_SLOT_POLL (seconds between tries, default 1) set the defaults.
 set -uo pipefail
 
 die() { echo "slots: $*" >&2; exit 2; }
-DIR="" SLOTS=${CHECK_SLOTS:-2} WAIT=${CHECK_SLOT_WAIT:-1800} POLL=${CHECK_SLOT_POLL:-1} LABEL=run
+DIR="" POOL=check SLOTS=${CHECK_SLOTS:-2} WAIT=${CHECK_SLOT_WAIT:-1800} POLL=${CHECK_SLOT_POLL:-1} LABEL=run
 while (($#)); do
   case $1 in
     --dir) (($# >= 2)) || die "--dir needs a value"; DIR=$2; shift ;;
+    --pool) (($# >= 2)) || die "--pool needs a value"; POOL=$2; shift ;;
     --slots) (($# >= 2)) || die "--slots needs a value"; SLOTS=$2; shift ;;
     --wait) (($# >= 2)) || die "--wait needs a value"; WAIT=$2; shift ;;
     --label) (($# >= 2)) || die "--label needs a value"; LABEL=$2; shift ;;
     --) shift; break ;;
-    *) die "unknown option $1 (usage: slots.sh [--dir DIR] [--slots N] [--wait S] -- command...)" ;;
+    *) die "unknown option $1 (usage: slots.sh [--dir DIR] [--pool NAME] [--slots N] [--wait S] -- command...)" ;;
   esac
   shift
 done
 (($#)) || die "no command"
 [[ $SLOTS =~ ^[0-9]+$ && $WAIT =~ ^[0-9]+$ ]] || die "--slots and --wait are whole numbers"
+[[ $POOL =~ ^[a-z][a-z0-9-]*$ ]] || die "--pool is a short lower-case name"
 ((SLOTS > 0)) || exec "$@"
 if [[ -z $DIR ]]; then
-  common=$(git rev-parse --git-common-dir 2>/dev/null) && DIR=$(cd "$common" && pwd)/check-slots || DIR=${TMPDIR:-/tmp}/omatalous-slots-$(id -u)
+  suffix=-$POOL; [[ $POOL != check ]] || suffix=
+  common=$(git rev-parse --git-common-dir 2>/dev/null) && DIR=$(cd "$common" && pwd)/$POOL-slots || DIR=${TMPDIR:-/tmp}/omatalous-slots$suffix-$(id -u)
 fi
 mkdir -p "$DIR" || die "cannot create $DIR"
 
-start_of() { # the start time of a process, so a reused pid is not taken for its old owner
-  local s
-  if [[ -r /proc/$1/stat ]]; then s=$(</proc/$1/stat) && s=${s##*) } && set -- $s && echo "${20:-}"; else ps -o lstart= -p "$1" 2>/dev/null | tr -s ' '; fi
-}
-alive() { kill -0 "$1" 2>/dev/null || { [[ -d /proc/self ]] && [[ -d /proc/$1 ]]; } || { [[ ! -d /proc/self ]] && ps -p "$1" >/dev/null 2>&1; }; }
-old() { [[ -n $(find "$1" -maxdepth 0 -mmin +1 2>/dev/null) ]]; } # older than a minute (a claim that never wrote its owner)
+. "$(dirname "${BASH_SOURCE[0]}")/lib/owner.sh" # start_of, old, owner_gone: shared with the landing queue
 
 stale() { # slot dir: true when its owner is gone
-  local pid st cur
+  local pid st
   if ! read -r pid st <"$1/owner" 2>/dev/null || [[ ! $pid =~ ^[0-9]+$ ]]; then old "$1"; return; fi
-  alive "$pid" || return 0
-  cur=$(start_of "$pid")
-  [[ -z $st || -z $cur || $st == "$cur" ]] || return 0
-  return 1
+  owner_gone "$pid" "$st"
 }
 
 reap() { # remove a stale slot; one reaper at a time, so a slot that was just taken again is never removed

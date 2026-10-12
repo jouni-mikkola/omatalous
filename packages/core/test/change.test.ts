@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { type ChangeView, type SpendingChange, spendingChange } from "../src/analysis/change.ts";
+import { categoryRises, type ChangeView, type SpendingChange, spendingChange } from "../src/analysis/change.ts";
 import { spendingInsights } from "../src/analysis/insights/spending.ts";
 import { spendingChangeReport } from "../src/reports/spending-change.ts";
 import { completeMonthsBefore, spendingThrough, usualSpending } from "../src/analysis/usual.ts";
@@ -398,6 +398,81 @@ describe("spendingChange", () => {
     expect(usual.change.pieces.map((p) => p.kind).sort()).toEqual(["new", "stopped"]);
     expect(usual.bars).toEqual([]);
     for (let seed = 1; seed <= 20; seed++) for (const v of spendingChangeReport(ctxOf(household(seed)), { from: "2026-10-01", to: today }).views) expect(v.bars.some((b) => b.kind === "spread")).toBe(false);
+  });
+
+  it("the bars are the four categories that moved most with a cause over the gate, each with its row's change and its causes by name", () => {
+    const september = (m: string) => m === "2026-09";
+    // a usual month of 764,90 €, so the gate is 15,30 €
+    const steady = [
+      ...pay("2026-03", "2026-10"),
+      ...shop("2026-03", "2026-09", "Prisma", "groceries", () => [25000, 25000]),
+      ...shop("2026-03", "2026-09", "Tokmanni", "shopping", () => [3000]),
+      ...shop("2026-03", "2026-09", "Apteekki", "health", () => [2000]),
+    ];
+    // September: restaurants 150 € for 50 €, pet shop 150 € for 60 €, a phone bill of 89,90 € for 29,90 €, no bus pass of 60 €, a film 5 € dearer
+    const moved = [
+      ...shop("2026-03", "2026-09", "Ravintola A", "restaurants", (m) => Array.from({ length: september(m) ? 6 : 2 }, () => 2500)),
+      ...shop("2026-03", "2026-09", "Musti ja Mirri", "pets", (m) => Array.from({ length: september(m) ? 5 : 2 }, () => 3000)),
+      ...monthRange("2026-03", "2026-09").map((m) => tx({ bookingDate: day(m, 11), amountCents: september(m) ? -8990 : -2990, merchant: "Elisa", category: "telecom" })),
+      ...shop("2026-03", "2026-08", "HSL", "transport", () => [6000]),
+      ...shop("2026-03", "2026-09", "Finnkino", "entertainment", (m) => [september(m) ? 2000 : 1500]),
+    ];
+    const usualOf = (rows: Transaction[]) => spendingChangeReport(ctxOf([...steady, ...moved, ...rows]), { from: "2026-09-01", to: "2026-09-30" }).views.find((v) => v.view === "usual")!;
+    const bar = (category: string | null, label: string, kind: string, cents: number, cause: string) => ({ category, label, kind, cents, season: false, cause });
+    // four categories over the gate, largest first and a tie by name; the film's 5 € is under the gate and stays in the rest
+    const four = usualOf([]);
+    expect(four.change).toMatchObject({ baseCents: 76490, gateCents: 1530, changeCents: 19500 });
+    expect(four.bars).toEqual([
+      bar("restaurants", "Ravintolat ja kahvilat", "volume", 10000, "useammin"),
+      bar("pets", "Lemmikit", "volume", 9000, "useammin"),
+      bar("telecom", "Puhelin ja netti", "price", 6000, "suurempi lasku"),
+      bar("transport", "Joukkoliikenne ja taksit", "stopped", -6000, "ostot jääneet pois"),
+      bar(null, "Muut muutokset", "rest", 500, ""),
+    ]);
+    // a dentist of 600 € and three purchases of 135 € at a new shop push the phone bill and the bus pass into the rest
+    const six = usualOf([...shop("2026-09", "2026-09", "Hammaslääkäri", "health", () => [60000]), ...shop("2026-09", "2026-09", "Zara", "shopping", () => [4000, 4500, 5000])]);
+    expect(six.bars).toEqual([
+      bar("health", "Terveys ja apteekki", "oneoff", 60000, "kertaosto"),
+      bar("shopping", "Vaatteet ja ostokset", "new", 13500, "uudet kaupat"),
+      bar("restaurants", "Ravintolat ja kahvilat", "volume", 10000, "useammin"),
+      bar("pets", "Lemmikit", "volume", 9000, "useammin"),
+      bar(null, "Muut muutokset", "rest", 500, ""),
+    ]);
+
+    // on seeded households: at most four, largest first, each the change of its row in the table
+    let bars = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const ctx = ctxOf(household(seed));
+      for (const month of monthRange("2025-11", "2026-10")) {
+        const usual = spendingChangeReport(ctx, { from: `${month}-01`, to: month === "2026-10" ? today : day(month, 28) }).views.find((v) => v.view === "usual");
+        if (!usual) continue;
+        const shown = usual.bars.filter((b) => b.kind !== "rest");
+        expect(shown.length).toBeLessThanOrEqual(4);
+        expect(shown.map((b) => Math.abs(b.cents))).toEqual(shown.map((b) => Math.abs(b.cents)).sort((a, b) => b - a));
+        for (const b of shown) expect(usual.change.categories.find((r) => r.category === b.category)).toMatchObject({ kind: "category", changeCents: b.cents, standsOut: true });
+        bars += shown.length;
+      }
+    }
+    expect(bars).toBeGreaterThan(10);
+  });
+
+  it("a rise is the report's row with the part that is more purchases: no one-off, no bill or subscription of a month or longer", () => {
+    const elisa = (cents: (m: string) => number) => monthRange("2026-03", "2026-09").map((m) => tx({ bookingDate: day(m, 11), amountCents: -cents(m), merchant: "Elisa", category: "telecom" }));
+    const cases = shop("2026-09", "2026-09", "Kuorikauppa", "telecom", () => [4000, 4500, 5000]);
+    const rest = [...pay("2026-03", "2026-10"), ...shop("2026-03", "2026-09", "Prisma", "groceries", () => [25000, 25000])];
+    const month = (rows: Transaction[]) => categoryRises(ctxOf([...rest, ...rows]), "2026-09")!;
+    // three phone cases on top of the phone bill: the row is the whole category, the rise the cases
+    const bought = month([...elisa(() => 2990), ...cases]);
+    expect(bought).toMatchObject({ running: false, through: "2026-09-30", gateCents: 1060 });
+    expect(bought.rises).toEqual([{ category: "telecom", label: "Puhelin ja netti", nowCents: 16490, usualCents: 2990, changeCents: 13500, moreCents: 13500, purchases: 3, peak: true, season: false, yearAgoCents: null }]);
+    // with a bill that also grew by 60 €, the rise in purchases is still the cases
+    expect(month([...elisa((m) => (m === "2026-09" ? 8990 : 2990)), ...cases]).rises).toMatchObject([{ nowCents: 22490, usualCents: 2990, changeCents: 19500, moreCents: 13500, purchases: 3 }]);
+    // the bigger bill alone, a phone bought once, or a category that fell: no rise
+    expect(month(elisa((m) => (m === "2026-09" ? 8990 : 2990))).rises).toEqual([]);
+    expect(month([...elisa(() => 2990), ...shop("2026-09", "2026-09", "Gigantti", "telecom", () => [69900])]).rises).toEqual([]);
+    expect(month([...elisa(() => 2990), ...shop("2026-03", "2026-08", "Kuorikauppa", "telecom", () => [4000, 4500, 5000])]).rises).toEqual([]);
+    // a view the history does not support has no rises
+    expect(categoryRises(ctxOf([...pay("2026-08", "2026-10"), ...cases]), "2026-09")).toBeNull();
   });
 
   it("a purchase and its return in the same period are no cause; a part that stays is", () => {

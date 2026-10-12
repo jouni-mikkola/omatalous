@@ -1,11 +1,12 @@
 // Decision: is the change in spending a reason to act, and where
-import { type BucketKind, bucketLabel, type ChangeView, type SpendingChange, spendingChange } from "../analysis/change.ts";
+import { type BucketKind, bucketLabel, type ChangeView, namedCauses, type SpendingChange, spendingChange } from "../analysis/change.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
-import { changeMonths, monthName, signed, spanLabel, upper } from "../analysis/change-text.ts";
+import { changeMonths, cutWords, monthName, signed, spanLabel, upper } from "../analysis/change-text.ts";
 import { formatEur } from "../analysis/format.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { addMonths, monthOf } from "../dates.ts";
+import type { IsoDate } from "../types.ts";
 
 /** One bar of the bridge: a cause in a category, or the causes that stay under the gate together. */
 export interface ChangeBar {
@@ -51,8 +52,9 @@ const REST_LABEL = "Muut muutokset";
 function barsOf(c: SpendingChange): ChangeBar[] {
   const top = c.categories
     .flatMap((r) => {
-      const named = r.buckets.filter((b) => b.kind !== "spread");
-      return r.kind === "category" && r.category !== null && named.length && r.standsOut && Math.abs(r.changeCents) >= c.gateCents ? [{ r, named }] : [];
+      // the rows the spike alert may tell as well (ADR 0013)
+      const named = namedCauses(c, r);
+      return named.length ? [{ r, named }] : [];
     })
     .sort((a, b) => Math.abs(b.r.changeCents) - Math.abs(a.r.changeCents) || a.r.category!.localeCompare(b.r.category!))
     .slice(0, MAX_BARS - 1);
@@ -77,12 +79,14 @@ const callsTotal = (c: SpendingChange) => c.standsOut && Math.abs(c.changeCents)
 /** The sentence states the totals only: no total and no category change stands out. */
 const isQuiet = (c: SpendingChange, bars: readonly ChangeBar[]) => !callsTotal(c) && !bars.some((b) => b.kind !== "rest");
 
-function sentenceOf(c: SpendingChange, subject: string, baseLabel: string, bars: readonly ChangeBar[]): string {
+function sentenceOf(c: SpendingChange, subject: string, baseLabel: string, bars: readonly ChangeBar[], today: IsoDate): string {
   const abs = formatEur(Math.abs(c.changeCents), false);
   const up = c.changeCents > 0;
+  // a running month says the day its figures are cut at when the rows end before today, as the spike alert does
+  const upTo = cutWords(c.running, c.target.to, today) ?? (c.running ? "tähän asti" : null);
   let lead: string;
   if (!callsTotal(c)) lead = `${subject}: menot ${formatEur(c.nowCents, false)}, ${c.view === "usual" ? "tavallisesti" : baseLabel} ${formatEur(c.baseCents, false)}`;
-  else if (c.view === "usual") lead = `${subject} on ${c.running ? "tähän asti " : ""}${abs} tavallista ${up ? "kalliimpi" : "halvempi"}`;
+  else if (c.view === "usual") lead = `${subject} on ${upTo ? `${upTo} ` : ""}${abs} tavallista ${up ? "kalliimpi" : "halvempi"}`;
   else lead = `${subject}: menot ${abs} ${up ? "suuremmat" : "pienemmät"} kuin ${baseLabel}`;
   if (isQuiet(c, bars) || !bars.length) return `${lead}.`;
   const parts = bars.map((b) => (b.kind === "rest" ? `${REST_LABEL.toLowerCase()} ${signed(b.cents)}` :`${b.label} ${signed(b.cents)}${b.cause ? ` (${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""})` : ""}`));
@@ -108,7 +112,7 @@ export function spendingChangeReport(ctx: AnalysisContext, range: DateRange): Sp
     const periodLabel = view === "usual" ? upper(monthName(m)) : upper(spanLabel(change.target.months));
     const baseLabel = view === "usual" ? "tavallisesti" : spanLabel(change.base.months);
     const bars = barsOf(change);
-    const sentence = sentenceOf(change, view === "season" ? `${upper(monthName(m))} ${m.slice(0, 4)}` : periodLabel, baseLabel, bars);
+    const sentence = sentenceOf(change, view === "season" ? `${upper(monthName(m))} ${m.slice(0, 4)}` : periodLabel, baseLabel, bars, ctx.today);
     views.push({ view, title, sentence, quiet: isQuiet(change, bars), periodLabel, baseLabel, bars, change });
   }
   return { views };

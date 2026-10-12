@@ -3,7 +3,7 @@ import type { AnalysisContext } from "../analysis/context.ts";
 import { spanLabel } from "../analysis/change-text.ts";
 import { formatEur, formatFiDate } from "../analysis/format.ts";
 import { completeMonthsBefore, usualFrom, usualIncome, usualSpending } from "../analysis/usual.ts";
-import { cancelledMerchants, fixedMonthlyCents } from "../commitments.ts";
+import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 
 /** A buffer of three months of spending is the usual advice. */
@@ -42,7 +42,7 @@ export interface BufferReport {
  */
 export function bufferReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs = NO_INPUTS): BufferReport {
   // a subscription the household marked as cancelled is no longer a fixed cost, as on the overview
-  const fixed = fixedMonthlyCents(ctx.recurring, cancelledMerchants(inputs));
+  const fixed = fixedMonthlyCents(ctx.recurring, cancelledSubjects(inputs));
 
   // the complete months before this one, the same yardstick as every "usually" (analysis/usual.ts)
   const month = ctx.today.slice(0, 7);

@@ -6,7 +6,10 @@ import { normalizeMerchant } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { MigrationError } from "../src/db/migrate.ts";
 import { findMigrationsDir, openDatabase, takeSnapshot } from "../src/db/open.ts";
+import { mapTransaction } from "../src/connectors/enable-banking/mapper.ts";
 import { loadDemoData } from "../src/demo.ts";
+import { reprocess } from "../src/services/enrich.ts";
+import { ingestTransactions } from "../src/services/ingest.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { APP_VERSION } from "../src/version.ts";
 import { setupApp } from "./helpers.ts";
@@ -164,6 +167,61 @@ describe("after a version change", () => {
     expect((await admin.call("GET", "/api/dashboard?from=2025-10-01&to=2026-10-09")).body.totals).toEqual(before);
 
     expect(await runUpgradeTasks(s, "0.3.0+abc+again")).toBeNull(); // once per build
+  });
+
+  it("fills the bank code of rows fetched before it was stored from the bank's payload, on every upgrade run, and leaves file rows alone", async () => {
+    const { s, adminId } = await setupApp();
+    const repo = s.finance(adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "enablebanking", externalId: "u", identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+    const eb = (ref: string, euros: string, dir: "CRDT" | "DBIT", name: string, code?: { code?: string; sub_code?: string; description?: string }) =>
+      mapTransaction({
+        entry_reference: ref,
+        transaction_amount: { currency: "EUR", amount: euros },
+        credit_debit_indicator: dir,
+        status: "BOOK",
+        booking_date: "2026-10-01",
+        ...(dir === "DBIT" ? { creditor: { name } } : { debtor: { name } }),
+        remittance_information: ["TILISIIRTO"],
+        ...(code ? { bank_transaction_code: code } : {}),
+      })!;
+    const SALARY = { code: "PMNT", sub_code: "RCDT-SALA" };
+    const fetched = [
+      eb("pay", "2500.00", "CRDT", "HUS-YHTYMÄ", SALARY),
+      eb("pinned", "2400.00", "CRDT", "HUS-YHTYMÄ", SALARY),
+      eb("broken", "2300.00", "CRDT", "HUS-YHTYMÄ", SALARY),
+      eb("atm", "60.00", "DBIT", "K-MARKET KAMPPI", { code: "PMNT-CCRD-CWDL" }),
+      eb("text", "12.00", "DBIT", "KAUPPA A", { description: "Korttiosto" }),
+      eb("none", "7.00", "DBIT", "KAUPPA B"),
+    ];
+    await ingestTransactions(repo, "chk", fetched, "enablebanking", { replacePending: true });
+    // a file's row is not the bank's payload, whatever it holds
+    await ingestTransactions(repo, "chk", [{ ...eb("file", "2200.00", "CRDT", "HUS-YHTYMÄ", SALARY), externalId: null, bookingDate: "2026-10-02" }], "csv", { replacePending: false });
+    // as the version before stored them: no code, the categories the wording alone gives, and one payload that does not parse
+    const id = async (cents: number) => (await repo.allTransactions()).find((t) => t.amountCents === cents)!.id;
+    await s.db.run("UPDATE transactions SET bank_txn_code = NULL WHERE user_id = ?", [adminId]);
+    await s.db.run("UPDATE transactions SET raw = '{not json' WHERE id = ? AND user_id = ?", [await id(230000), adminId]);
+    await reprocess(repo, s.settings);
+    await repo.setUserCategory(await id(240000), "gifts_in");
+    const read = async () => Object.fromEntries((await repo.allTransactions()).map((t) => [t.amountCents, `${t.bankTxnCode} ${t.category} ${t.categorySource}`]));
+    expect(await read()).toMatchObject({ 250000: "null health rule", [-6000]: "null groceries rule", 220000: "null health rule" });
+
+    expect(await runUpgradeTasks(s, "0.8.7+codes")).toMatchObject({ users: 1, bankCodes: 3 });
+    expect(await read()).toEqual({
+      250000: "PMNT-RCDT-SALA salary rule",
+      // the household's own category stays, the code is the bank's
+      240000: "PMNT-RCDT-SALA gifts_in user",
+      230000: "null health rule",
+      220000: "null health rule",
+      [-6000]: "PMNT-CCRD-CWDL cash rule",
+      [-1200]: "null other default",
+      [-700]: "null other default",
+    });
+
+    // every run: rows an older version fetched after a rollback have no code, and the next update gives it to them
+    await s.db.run("UPDATE transactions SET bank_txn_code = NULL WHERE user_id = ?", [adminId]);
+    expect(await runUpgradeTasks(s, "0.8.8+later")).toMatchObject({ users: 1, bankCodes: 3 });
+    // a row that has its code is not read again
+    expect(await runUpgradeTasks(s, "0.8.9+later")).toMatchObject({ users: 1, bankCodes: 0 });
   });
 
   it("the version constant matches package.json", () => {

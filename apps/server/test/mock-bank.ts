@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { crc32, deflateSync } from "node:zlib";
 
 /** The made-up holder and valid test IBAN of the fake bank's checking account. */
 export const HOLDER = "Testi Esimerkki";
@@ -17,10 +18,64 @@ const CARD = {
   credit_limit: { currency: "EUR", amount: "2000.00" },
 };
 
+function pngChunk(type: string, data: Buffer): Buffer {
+  const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+  const out = Buffer.alloc(body.length + 8);
+  out.writeUInt32BE(data.length, 0);
+  body.copy(out, 4);
+  out.writeUInt32BE(crc32(body), body.length + 4);
+  return out;
+}
+
+/** A PNG of one colour, made here: the tests hold no artwork file. */
+export function png(width: number, height: number, rgb: readonly [number, number, number]): Uint8Array<ArrayBuffer> {
+  const head = Buffer.alloc(13);
+  head.writeUInt32BE(width, 0);
+  head.writeUInt32BE(height, 4);
+  head.set([8, 2, 0, 0, 0], 8);
+  // each row: filter byte 0, then the pixels
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, Buffer.from(rgb))]);
+  const pixels = Buffer.concat(Array.from({ length: height }, () => row));
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return new Uint8Array(Buffer.concat([signature, pngChunk("IHDR", head), pngChunk("IDAT", deflateSync(pixels)), pngChunk("IEND", Buffer.alloc(0))]));
+}
+
+/** Where the fake bank list says its logos are. */
+export const BRANDS = "https://enablebanking.com/brands/FI/";
+/** The pictures the fake bank serves: a wide one, a square one and an SVG. */
+export const WIDE_PNG = png(240, 60, [0, 60, 120]);
+export const SQUARE_PNG = png(64, 64, [200, 30, 40]);
+export const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><rect width="120" height="40" fill="#0a6"/></svg>';
+
+/**
+ * A bank list with logo addresses, for `bank.answers["GET /aspsps"]`: OP has the wide picture, Danske Bank the square
+ * one and S-Pankki the SVG. Aktia's address is broken (it answers 404) and Nordea has none.
+ */
+export const LIST_WITH_LOGOS = {
+  aspsps: [
+    { name: "Nordea", country: "FI" },
+    { name: "OP", country: "FI", logo: `${BRANDS}op/` },
+    { name: "Danske Bank", country: "FI", logo: `${BRANDS}danske/` },
+    { name: "S-Pankki", country: "FI", logo: `${BRANDS}s-pankki/` },
+    { name: "Aktia", country: "FI", logo: `${BRANDS}aktia/` },
+  ],
+};
+
+/** An answer with a picture, as a logo address gives it. */
+export const picture = (body: ConstructorParameters<typeof Response>[0], type: string, headers: Record<string, string> = {}) => new Response(body, { status: 200, headers: { "Content-Type": type, ...headers } });
+
 /** A fake Enable Banking API with a checking account and a Nordea Gold card. */
 export function mockBank() {
   const bank = {
     calls: [] as string[],
+    /** Every call that is not to the API: the address and what was sent with it. A logo is the only such call. */
+    pictureCalls: [] as { url: string; init: RequestInit | undefined }[],
+    /** What each logo address answers. An address that is not here answers 404. */
+    pictures: {
+      [`${BRANDS}op/`]: () => picture(WIDE_PNG, "image/png"),
+      [`${BRANDS}danske/`]: () => picture(SQUARE_PNG, "image/png"),
+      [`${BRANDS}s-pankki/`]: () => picture(SVG, "image/svg+xml; charset=utf-8"),
+    } as Record<string, (init?: RequestInit) => Response | Promise<Response>>,
     state: "",
     redirectUrl: "",
     /** Set to make POST /auth fail with this status and body, as for an unregistered redirect URL. */
@@ -38,6 +93,10 @@ export function mockBank() {
   };
   bank.fetchMock = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(String(input));
+    if (url.hostname !== "api.enablebanking.com") {
+      bank.pictureCalls.push({ url: url.href, init });
+      return bank.pictures[url.href]?.(init) ?? new Response("not found", { status: 404 });
+    }
     const route = `${init?.method ?? "GET"} ${url.pathname}`;
     bank.calls.push(`${route}${url.search}`);
     const auth = new Headers(init?.headers).get("Authorization") ?? "";

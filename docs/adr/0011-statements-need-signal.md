@@ -15,6 +15,7 @@ variance counts a step inside the window. Optimoi's food and habit areas use the
 level adds the level's own error; two independent years each carry `MIN_T / √2`. A detector chooses the months that
 show the noise, on the series it measures: a spike two years of the category, a season the eleven months before it
 with their one-offs struck, a grocery comparison every month from the first compared to the last.
+Superseded in part by ADR 0013: the spike alert has no test of its own, it passes the change report's.
 
 Steps that change what is bought are told by one rule, `notAPrice` in `insights/prices.ts`: a phone or subscription
 step over 30 % is a plan or line change, a rent step over 10 % (`isRent` in `wording.ts`, never a vastike, storage or

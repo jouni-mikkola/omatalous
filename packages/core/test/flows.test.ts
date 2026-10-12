@@ -387,8 +387,14 @@ describe("mortgage paid to a bank", () => {
 
 describe("card bills told from loans by their amounts", () => {
   const issuer = "NORDEA RAHOITUS SUOMI OY";
-  const bills = (amounts: number[], description = "E-LASKU", day = 10) =>
-    amounts.map((euros, i) => row("chk", `2026-${String(i + 3).padStart(2, "0")}-${day}`, -euros, `${description} ${i + 1}`, issuer));
+  const bills = (amounts: number[], description = "E-LASKU", day = 10, payee = issuer) =>
+    amounts.map((euros, i) => row("chk", `2026-${String(i + 3).padStart(2, "0")}-${day}`, -euros, `${description} ${i + 1}`, payee));
+
+  it("Resurs issues cards too: its varying bills are card bills, its fixed instalment stays a loan", () => {
+    const resurs = (amounts: number[]) => run(bills(amounts, "E-LASKU", 10, "RESURS BANK AB"), [checking]).final.map((t) => t.category);
+    expect(resurs([412.3, 655.1, 389, 702.45])).toEqual(Array(4).fill("card_bill"));
+    expect(resurs([289, 289, 289, 289])).toEqual(Array(4).fill("loans"));
+  });
 
   it("payments to the card issuer that change every month are card bills, counted as consumption", () => {
     const { final, totals } = run(bills([412.3, 655.1, 389, 702.45, 530.2]), [checking]);
@@ -756,5 +762,39 @@ describe("money that comes back is not income", () => {
       const edited = first.map((t) => (t.id === "a" ? { ...t, category: "kids", categorySource: "user" as const } : t));
       expect(apply(edited).find((t) => t.id === "e")!.category).toBe("kids");
     });
+  });
+});
+
+describe("the bank's own transaction codes, on rows whose wording decides nothing", () => {
+  const coded = (bankTxnCode: string, euros: number, description: string, counterparty: string | null = null, accountId = "chk") =>
+    row(accountId, "2026-09-10", euros, description, counterparty, { bankTxnCode });
+
+  it("pay, a cash withdrawal and an own transfer are recognised by their codes", () => {
+    const rows = [coded("PMNT-RCDT-SALA", 2500, "TILISIIRTO", "HUS-YHTYMÄ"), coded("CCRD-CWDL", -60, "NOSTO 4417"), coded("PMNT-ICCN-COAT", -300, "SIIRTO 77", "MATTI MEIKALAINEN")];
+    const { final, totals } = run(rows, [checking]);
+    expect(final.map((t) => t.category)).toEqual(["salary", "cash", "savings"]);
+    expect(totals).toMatchObject({ incomeCents: 250000, consumptionCents: 6000, savedCents: 30000 });
+  });
+
+  it("an own transfer by its code is a transfer when the other account is connected", () => {
+    const { final } = run([coded("ICCN-COAT", -300, "SIIRTO 77"), coded("RCCN-COAT", 300, "SIIRTO 78", null, "sav")], [checking, savingsAcc]);
+    expect(final.map((t) => t.isTransfer)).toEqual([true, true]);
+  });
+
+  it.each([
+    ["wording that names another purpose wins over a salary code", "RCDT-SALA", 140, "LAPSILISA", "KELA", "benefits"],
+    ["a cash code wins over a merchant's name: cash from a shop's till", "CCRD-CWDL", -45, "K-MARKET KAMPPI", null, "cash"],
+    ["a card bill's wording wins over an own transfer code", "ICCN-COAT", -120, "NORDEA GOLD LASKU", "NORDEA RAHOITUS SUOMI OY", "card_bill"],
+    ["a code the lists do not have decides nothing", "PMNT-RCDT-ESCT", 900, "TILISIIRTO", "ACME OY", "income"],
+    ["a transfer inside one bank (BOOK) is no own transfer", "PMNT-ICDT-BOOK", -300, "TILISIIRTO", "ACME OY", "other"],
+    ["a cash code on money that comes back is no withdrawal", "CCRD-CWDL", 60, "NOSTO 4417", null, "income"],
+    ["a salary code on money going out is no pay", "RCDT-SALA", -2500, "TILISIIRTO", "ACME OY", "other"],
+  ])("%s", (_name, code, euros, description, counterparty, category) => expect(run([coded(code, euros, description, counterparty)], [checking]).final[0]!.category).toBe(category));
+
+  it("a card payment code leaves the purchase to its merchant, and the refund with the same code to its purchase", () => {
+    const refund = { ...coded("CCRD-POSD", 79, "OSTO 4417", "NURKKAKAUPPA OY"), bookingDate: "2026-09-24" };
+    const { final, totals } = run([coded("CCRD-POSD", -79, "OSTO 4417", "NURKKAKAUPPA OY"), refund], [checking]);
+    expect(final.map((t) => t.categorySource)).toEqual(["default", "match"]);
+    expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
   });
 });

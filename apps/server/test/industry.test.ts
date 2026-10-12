@@ -1,10 +1,11 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import type { RawTransaction } from "@banking/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { drainLookups, lookupIndustries } from "../src/services/industry.ts";
+import { askRegister, drainLookups, lookupIndustries } from "../src/services/industry.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { reprocess } from "../src/services/enrich.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
+import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { PRH_SEARCH_URL, parseCompany, RegistryError, searchCompanies } from "../src/providers/prh/client.ts";
 import { NOW, setupApp, waitFor } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
@@ -18,7 +19,7 @@ const company = (businessId: string, names: string[], code: string, codeSet = "T
 });
 
 const REGISTER: Record<string, unknown[]> = {
-  "Pikku Ilona": [company("1234567-1", ["Ilona Ravintolat Oy", "Pikku Ilona"], "56300")],
+  "Pikku Puoti": [company("1234567-1", ["Ilona Ravintolat Oy", "Pikku Puoti"], "56300")],
   "Saumaus Nieminen Oy": [company("2345678-2", ["Saumaus Nieminen Oy"], "43340", "TOIMI3")],
 };
 
@@ -62,7 +63,7 @@ async function withData(fetchMock: typeof fetch, env: Record<string, string> = {
     repo,
     "chk",
     [
-      raw("2026-09-01", -12, "PIKKU ILONA", { description: "KORTTIOSTO" }),
+      raw("2026-09-01", -12, "PIKKU PUOTI", { description: "KORTTIOSTO" }),
       raw("2026-09-02", -90, "SAUMAUS NIEMINEN OY", { counterpartyIban: "FI4950009420028730" }),
       // people: by account transfer, or a CSV row without an account number. Never sent anywhere.
       raw("2026-09-03", -50, "LIISA VIRTANEN", { counterpartyIban: "FI4950009420028731" }),
@@ -82,16 +83,16 @@ describe("industry lookup", () => {
 
     const r = await lookupIndustries(s, { pauseMs: 0 });
     expect(r).toMatchObject({ looked: 2, categorised: 2 });
-    expect(asked.sort()).toEqual(["Pikku Ilona", "Saumaus Nieminen Oy"]);
+    expect(asked.sort()).toEqual(["Pikku Puoti", "Saumaus Nieminen Oy"]);
 
     const byMerchant = new Map((await repo.allTransactions()).map((t) => [t.merchant, t]));
-    expect(byMerchant.get("Pikku Ilona")).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    expect(byMerchant.get("Pikku Puoti")).toMatchObject({ category: "restaurants", categorySource: "industry" });
     expect(byMerchant.get("Saumaus Nieminen Oy")).toMatchObject({ category: "home", categorySource: "industry" });
     expect(byMerchant.get("Liisa Virtanen")).toMatchObject({ category: "other", categorySource: "default" });
 
     // the list says where the category came from
-    const list = await admin.call("GET", "/api/transactions?merchant=Pikku%20Ilona");
-    expect(list.body.items[0].industry).toEqual({ companyName: "Pikku Ilona", businessId: "1234567-1", label: "Toimiala 56300" });
+    const list = await admin.call("GET", "/api/transactions?merchant=Pikku%20Puoti");
+    expect(list.body.items[0].industry).toEqual({ companyName: "Pikku Puoti", businessId: "1234567-1", label: "Toimiala 56300" });
 
     // answers are kept: the next run asks nothing
     expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 0 });
@@ -117,12 +118,122 @@ describe("industry lookup", () => {
     expect(asked).toEqual(["Saumaus Nieminen Oy"]);
   });
 
+  it("does not ask about a person the bank delivers without a payee account, behind a MobilePay prefix or with card text", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const t = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "enablebanking", externalId: "u", identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+    await repo.upsertAccount({ id: "card", connectionId: null, provider: "enablebanking", externalId: "c", identity: null, name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" });
+    const terminal = "483920 HELSINKI";
+    await ingestTransactions(
+      repo,
+      "chk",
+      [
+        // the bank's rows carry payee accounts
+        raw("2026-10-02", -900, "SAUMAUS NIEMINEN OY", { externalId: "e1", counterpartyIban: "FI4950009420028730" }),
+        // a transfer to a person, twice: surname first, no payee account, a free message
+        raw("2026-10-03", -40, "MEIKALAINEN MATTI", { externalId: "e2", description: "KIITOS" }),
+        raw("2026-10-10", -40, "MEIKALAINEN MATTI", { externalId: "e3", description: "KIITOS" }),
+        // MobilePay booked as a card purchase, the name cut at the field's length
+        raw("2026-10-04", -15, "MOB.PAY*MATTI JUHANI MEIKAL", { externalId: "e4", description: terminal }),
+        raw("2026-10-11", -15, "MOB.PAY*MATTI JUHANI MEIKAL", { externalId: "e5", description: terminal }),
+        // a company behind the same prefix
+        raw("2026-10-05", -25, "MOB.PAY*LANKAPUOTI RUUSU OY", { externalId: "e6", description: terminal }),
+      ],
+      "enablebanking",
+      { replacePending: true },
+    );
+    await ingestTransactions(
+      repo,
+      "card",
+      [raw("2026-10-06", -15, "MOB.PAY*LIISA MARJATTA VIRTA", { externalId: "k1", description: terminal }), raw("2026-10-07", -60, "VIRTANEN LIISA", { externalId: "k2", description: "KORTTIOSTO" })],
+      "enablebanking",
+      { replacePending: true },
+    );
+    await reprocess(repo, t.s.settings);
+    await lookupIndustries(t.s, { pauseMs: 0 });
+    // the company's name is also asked in a shorter form when the full one has no hit
+    expect(asked.filter((name) => name.endsWith(" Oy")).sort()).toEqual(["Lankapuoti Ruusu Oy", "Saumaus Nieminen Oy"]);
+    expect(asked.filter((name) => /meik|matti|liisa|virta/i.test(name))).toEqual([]);
+    expect(await t.s.db.all("SELECT merchant FROM merchant_industry_users WHERE merchant NOT LIKE '% Oy'")).toEqual([]);
+  });
+
+  it("the door to the register refuses a person's name and the name of a way to pay without a request", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    for (const name of ["Matti Meikäläinen", "Meikäläinen Matti", "M. Meikäläinen", "Osk. Meikäläinen", "Siirto", "Pikasiirto", "Tuntematon"]) {
+      expect(await askRegister(fetchMock, name), name).toEqual({ companies: [], complete: true });
+    }
+    expect(asked).toEqual([]);
+    expect((await askRegister(fetchMock, "Pikku Puoti")).companies).toHaveLength(1);
+    expect(asked).toEqual(["Pikku Puoti"]);
+  });
+
+  it("asks a company named after a person whole or not at all, and never a name behind PayPal or typed on an invoice", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const t = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "enablebanking", externalId: "u", identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
+    await repo.upsertAccount({ id: "card", connectionId: null, provider: "enablebanking", externalId: "c", identity: null, name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" });
+    const invoice = (n: number) => ({ externalId: `i${n}`, counterpartyIban: `FI495000942002874${n}`, reference: "1234561" });
+    await ingestTransactions(
+      repo,
+      "chk",
+      [
+        // the register knows neither company: the full name gets no hit, and the name without its last word is a person's
+        raw("2026-10-02", -900, "MATTI KIVISTÖ OY", { externalId: "e1", counterpartyIban: "FI4950009420028730" }),
+        raw("2026-10-03", -300, "TMI MATTI ESIMERKKI", { externalId: "e2", counterpartyIban: "FI4950009420028731" }),
+        // invoices: a private landlord gives a reference number too, and the payer typed the name
+        raw("2026-10-04", -700, "MEIKÄLÄINEN", invoice(1)),
+        raw("2026-10-05", -700, "M.MEIKÄLÄINEN", invoice(2)),
+        raw("2026-10-06", -45, "ESIMERKIN TANSSIKERHO VILLE MEIKÄLÄINEN", invoice(3)),
+        raw("2026-10-07", -45, "", { ...invoice(4), description: "TANSSIKERHO VILLE MEIKÄLÄINEN SYKSY" }),
+        raw("2026-10-08", -45, "", { ...invoice(5), description: "SIIRTO" }),
+      ],
+      "enablebanking",
+      { replacePending: true },
+    );
+    await ingestTransactions(
+      repo,
+      "card",
+      [raw("2026-10-09", -20, "PAYPAL *MATTIMEIKALAINEN", { externalId: "k1", description: "35314369001 LUXEMBOURG" }), raw("2026-10-10", -20, "PAYPAL *LANKAPUOTI", { externalId: "k2", description: "35314369001 LUXEMBOURG" })],
+      "enablebanking",
+      { replacePending: true },
+    );
+    await reprocess(repo, t.s.settings);
+    await lookupIndustries(t.s, { pauseMs: 0 });
+    expect([...asked].sort()).toEqual(["Lankapuoti", "Matti Kivistö Oy", "Tmi Matti Esimerkki"]);
+    expect((await t.s.db.all<{ merchant: string }>("SELECT merchant FROM merchant_industry_users ORDER BY merchant")).map((row) => row.merchant)).toEqual(["Lankapuoti", "Matti Kivistö Oy", "Tmi Matti Esimerkki"]);
+  });
+
+  it("asks about an invoice's payee whose name says it is a business: a payee account and a reference number", async () => {
+    const { asked, fetchMock } = fakeRegister({ answer: (name) => (name === "Autoliike Esimerkki" ? Response.json({ totalResults: 1, companies: [company("4567890-4", ["Autoliike Esimerkki Oy"], "45110", "TOIMI3")] }) : undefined) });
+    const { s, repo } = await withData(fetchMock);
+    await ingestTransactions(
+      repo,
+      "chk",
+      [
+        raw("2026-09-07", -120, "AUTOLIIKE ESIMERKKI", { counterpartyIban: "FI4950009420028733", reference: "1234561" }),
+        // a transfer with a message, and an invoice from a person
+        raw("2026-09-08", -30, "LANKALIIKE ESIMERKKI", { counterpartyIban: "FI4950009420028734", description: "KIITOS" }),
+        raw("2026-09-09", -400, "MEIKALAINEN MATTI", { counterpartyIban: "FI4950009420028735", reference: "1234574" }),
+      ],
+      "csv",
+      { replacePending: false },
+    );
+    await reprocess(repo, s.settings);
+    await lookupIndustries(s, { pauseMs: 0 });
+    expect(asked).toContain("Autoliike Esimerkki");
+    expect(asked.filter((name) => /lankaliike|meik|matti/i.test(name))).toEqual([]);
+    // the answer is used on the invoice row
+    expect((await repo.allTransactions()).find((t) => t.merchant === "Autoliike Esimerkki")).toMatchObject({ category: "car", categorySource: "industry" });
+  });
+
   it("a user's own rule still wins over the register", async () => {
     const { fetchMock } = fakeRegister();
     const { s, repo } = await withData(fetchMock);
-    await repo.addRule({ field: "merchant", pattern: "Pikku Ilona", category: "gifts_donations", priority: 10 });
+    await repo.addRule({ field: "merchant", pattern: "Pikku Puoti", category: "gifts_donations", priority: 10 });
     await lookupIndustries(s, { pauseMs: 0 });
-    const row = (await repo.allTransactions()).find((t) => t.merchant === "Pikku Ilona");
+    const row = (await repo.allTransactions()).find((t) => t.merchant === "Pikku Puoti");
     expect(row).toMatchObject({ category: "gifts_donations", categorySource: "rule" });
   });
 
@@ -149,7 +260,7 @@ describe("industry lookup", () => {
     await lookupIndustries(s, { pauseMs: 0 });
     const rows = await s.db.all<{ user_id: string; merchant: string }>("SELECT user_id, merchant FROM merchant_industry_users ORDER BY merchant");
     expect(rows).toEqual([
-      { user_id: adminId, merchant: "Pikku Ilona" },
+      { user_id: adminId, merchant: "Pikku Puoti" },
       { user_id: adminId, merchant: "Saumaus Nieminen Oy" },
     ]);
   });
@@ -164,9 +275,9 @@ describe("industry lookup", () => {
     // Eero buys at the same café. The answer is in the shared cache, but not his yet.
     const repo = s.finance(eero.id);
     await repo.upsertAccount({ id: "eero-chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Eeron tili", iban: null, currency: "EUR", type: "checking" });
-    await ingestTransactions(repo, "eero-chk", [raw("2026-09-05", -8, "PIKKU ILONA", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+    await ingestTransactions(repo, "eero-chk", [raw("2026-09-05", -8, "PIKKU PUOTI", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
     await reprocess(repo, s.settings);
-    expect((await repo.allTransactions())[0]).toMatchObject({ merchant: "Pikku Ilona", categorySource: "default" });
+    expect((await repo.allTransactions())[0]).toMatchObject({ merchant: "Pikku Puoti", categorySource: "default" });
     const list = await eero.call("GET", "/api/transactions");
     expect(list.body.items[0].industry).toBeUndefined();
 
@@ -177,18 +288,37 @@ describe("industry lookup", () => {
     expect((await repo.allTransactions())[0]).toMatchObject({ category: "restaurants", categorySource: "industry" });
   });
 
+  it("an update removes the stored answers of names that are no longer looked up, every user's by the same rule", async () => {
+    const { fetchMock } = fakeRegister();
+    const { s, adminId, member } = await withData(fetchMock);
+    await lookupIndustries(s, { pauseMs: 0 });
+    const eero = await member("eero");
+    // as an earlier version stored them: a person's name and the name of a way to pay, each with the register's answer
+    const none = { status: "none", businessId: null, companyName: null, code: null, codeSet: null, label: null, category: null } as const;
+    for (const name of ["Liisa Virtanen", "MobilePay"]) await s.industry.save(name, none, NOW);
+    await s.industry.recordRequests(adminId, ["Liisa Virtanen"]);
+    await s.industry.recordRequests(eero.id, ["Liisa Virtanen", "MobilePay", "Pikku Puoti"]);
+
+    await runUpgradeTasks(s, "0.8.7+refused");
+    expect((await s.db.all<{ merchant: string }>("SELECT merchant FROM merchant_industry ORDER BY merchant")).map((r) => r.merchant)).toEqual(["Pikku Puoti", "Saumaus Nieminen Oy"]);
+    const asked = (await s.db.all<{ user_id: string; merchant: string }>("SELECT user_id, merchant FROM merchant_industry_users")).map((r) => `${r.user_id} ${r.merchant}`);
+    expect(asked.sort()).toEqual([`${adminId} Pikku Puoti`, `${adminId} Saumaus Nieminen Oy`, `${eero.id} Pikku Puoti`].sort());
+    // the answers that stayed still give their category
+    expect((await s.finance(adminId).allTransactions()).find((t) => t.merchant === "Pikku Puoti")).toMatchObject({ category: "restaurants", categorySource: "industry" });
+  });
+
   it("trusts only an exact name when the register returned one page of a longer list", async () => {
-    const page = (total: number) => Response.json({ totalResults: total, companies: [company("3456789-3", ["Ruskea Lyhty Kallio Oy"], "56300")] });
+    const page = (total: number) => Response.json({ totalResults: total, companies: [company("3456789-3", ["Lyhty Puoti Kallio Oy"], "56300")] });
     for (const [total, expected] of [
       [120, "default"],
       [1, "industry"],
     ] as const) {
-      const { fetchMock } = fakeRegister({ answer: (name) => (name === "Ruskea Lyhty" ? page(total) : undefined) });
+      const { fetchMock } = fakeRegister({ answer: (name) => (name === "Lyhty Puoti" ? page(total) : undefined) });
       const { s, repo } = await withData(fetchMock);
-      await ingestTransactions(repo, "chk", [raw("2026-09-06", -5, "RUSKEA LYHTY", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+      await ingestTransactions(repo, "chk", [raw("2026-09-06", -5, "LYHTY PUOTI", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
       await reprocess(repo, s.settings);
       await lookupIndustries(s, { pauseMs: 0 });
-      expect((await repo.allTransactions()).find((t) => t.merchant === "Ruskea Lyhty")?.categorySource).toBe(expected);
+      expect((await repo.allTransactions()).find((t) => t.merchant === "Lyhty Puoti")?.categorySource).toBe(expected);
     }
   });
 
@@ -201,7 +331,7 @@ describe("industry lookup", () => {
     const r = await lookupIndustries(s, { pauseMs: 0 });
     expect(r).toMatchObject({ looked: 1, categorised: 1 });
     const byMerchant = new Map((await repo.allTransactions()).map((t) => [t.merchant, t]));
-    expect(byMerchant.get("Pikku Ilona")).toMatchObject({ categorySource: "industry" });
+    expect(byMerchant.get("Pikku Puoti")).toMatchObject({ categorySource: "industry" });
     expect(byMerchant.get("Saumaus Nieminen Oy")).toMatchObject({ categorySource: "default" });
     expect(await s.db.first("SELECT status FROM merchant_industry WHERE merchant = ?", ["Saumaus Nieminen Oy"])).toEqual({ status: "error" });
     const logged = JSON.stringify([...errors.mock.calls, ...warnings.mock.calls]);
@@ -241,25 +371,25 @@ describe("lookups that start by themselves", () => {
   it("a CSV import with new rows is looked up right away", async () => {
     const { asked, fetchMock } = fakeRegister();
     const { admin } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
-    const r = await admin.call("POST", "/api/import/csv", { content: csv(card("PIKKU ILONA")), accountName: "Käyttötili" });
+    const r = await admin.call("POST", "/api/import/csv", { content: csv(card("PIKKU PUOTI")), accountName: "Käyttötili" });
     expect(r.body.inserted).toBe(1);
-    await waitFor(async () => (await categoryOf(admin, "Pikku Ilona")) === "industry");
-    expect(asked).toEqual(["Pikku Ilona"]);
+    await waitFor(async () => (await categoryOf(admin, "Pikku Puoti")) === "industry");
+    expect(asked).toEqual(["Pikku Puoti"]);
   });
 
   it("an import that brings nothing new, or with the setting off, asks nothing", async () => {
     const on = fakeRegister();
     const a = await setupApp({ INDUSTRY_LOOKUP: "true" }, on.fetchMock);
-    const content = csv(card("PIKKU ILONA"));
+    const content = csv(card("PIKKU PUOTI"));
     const first = await a.admin.call("POST", "/api/import/csv", { content, accountName: "Käyttötili" });
-    await waitFor(async () => (await categoryOf(a.admin, "Pikku Ilona")) === "industry");
+    await waitFor(async () => (await categoryOf(a.admin, "Pikku Puoti")) === "industry");
     // forget the answer, so the name is due again
     await a.s.db.run("DELETE FROM merchant_industry_users");
     await a.s.db.run("DELETE FROM merchant_industry");
     const again = await a.admin.call("POST", "/api/import/csv", { content, accountId: first.body.accountId });
     expect(again.body.inserted).toBe(0);
     await settle();
-    expect(on.asked).toEqual(["Pikku Ilona"]);
+    expect(on.asked).toEqual(["Pikku Puoti"]);
 
     const off = fakeRegister();
     const b = await setupApp({ INDUSTRY_LOOKUP: "false" }, off.fetchMock);
@@ -290,7 +420,7 @@ describe("lookups that start by themselves", () => {
     const { admin, s, adminId } = await setupApp({ INDUSTRY_LOOKUP: "false" }, fetchMock);
     const repo = s.finance(adminId);
     await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" });
-    await ingestTransactions(repo, "chk", [raw("2026-09-01", -12, "PIKKU ILONA", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
+    await ingestTransactions(repo, "chk", [raw("2026-09-01", -12, "PIKKU PUOTI", { description: "KORTTIOSTO" })], "csv", { replacePending: false });
     await reprocess(repo, s.settings);
 
     await admin.call("PUT", "/api/admin/instance", { historyDays: 365 });
@@ -298,14 +428,14 @@ describe("lookups that start by themselves", () => {
     expect(asked).toEqual([]);
 
     expect((await admin.call("PUT", "/api/admin/instance", { industryLookup: true })).status).toBe(200);
-    await waitFor(async () => (await categoryOf(admin, "Pikku Ilona")) === "industry");
-    expect(asked).toEqual(["Pikku Ilona"]);
+    await waitFor(async () => (await categoryOf(admin, "Pikku Puoti")) === "industry");
+    expect(asked).toEqual(["Pikku Puoti"]);
 
     // already on, so another save changes nothing
     await ingestTransactions(repo, "chk", [raw("2026-09-02", -9, "SAUMAUS NIEMINEN OY", { counterpartyIban: "FI4950009420028730" })], "csv", { replacePending: false });
     await admin.call("PUT", "/api/admin/instance", { industryLookup: true });
     await settle();
-    expect(asked).toEqual(["Pikku Ilona"]);
+    expect(asked).toEqual(["Pikku Puoti"]);
   });
 
   /** A bank whose card has one purchase at a name the register knows, and the register, behind one fetch. */
@@ -318,7 +448,7 @@ describe("lookups that start by themselves", () => {
       credit_debit_indicator: "DBIT",
       status: "BOOK",
       booking_date: "2026-10-05",
-      remittance_information: ["PIKKU ILONA"],
+      remittance_information: ["PIKKU PUOTI"],
     };
     const fetchMock = ((input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
@@ -336,7 +466,7 @@ describe("lookups that start by themselves", () => {
     await admin.call("POST", "/api/connections/start", {});
     await admin.call("POST", "/api/connections/complete", { url: `https://x.example/cb?code=abc&state=${bank.state}` });
     // the first fetch runs in the background after connecting; the lookup follows it
-    await waitFor(async () => asked.includes("Pikku Ilona"));
+    await waitFor(async () => asked.includes("Pikku Puoti"));
   });
 
   it("the hourly tick looks up once, after its own fetch", async () => {
@@ -351,7 +481,7 @@ describe("lookups that start by themselves", () => {
     expect(tick.synced?.[adminId]).toMatchObject({ status: "ok" });
     expect(tick.synced?.[adminId]?.inserted).toBeGreaterThan(0);
     expect(tick.lookup).toMatchObject({ looked: 1 });
-    expect(asked).toEqual(["Pikku Ilona"]);
+    expect(asked).toEqual(["Pikku Puoti"]);
   });
 });
 

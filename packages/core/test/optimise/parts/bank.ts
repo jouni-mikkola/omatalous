@@ -2,7 +2,8 @@
  * Pankkikulut. The hit: a connected Nordea Platinum card charged 16,99 € a month with purchases on it (168 € a year
  * against the Credit card's 2,99 €) and four reminder fees of 35 € in the year (140 €). Near misses: a Gold card,
  * a Platinum fee charged five times, a Platinum-priced fee on the checking account, a Platinum card without purchases,
- * a second 16,99 fee beside a Credit card's 2,99 and two reminder fees under the gate.
+ * a second 16,99 fee beside a Credit card's 2,99, two reminder fees under the gate and a Platinum-priced card that came
+ * through another bank's connection.
  */
 import { addMonths, daysInMonth, monthRange } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
@@ -10,6 +11,7 @@ import type { Account, Transaction } from "../../../src/types.ts";
 import type { Frame, Part, PartHousehold } from "../household.ts";
 
 export const CARD: Account = { id: "h-card", name: "Nordea Platinum", iban: null, currency: "EUR", type: "credit_card" };
+const OTHER_BANK_CARD: Account = { ...CARD, name: "Platinum", bank: "Bank Norwegian" };
 
 function rows(prefix: string) {
   const out: Transaction[] = [];
@@ -67,6 +69,8 @@ export const nearMiss: Part["nearMiss"] = (frame): PartHousehold[] => [
   // a Credit card paying 2,99 with a second fee of 16,99 beside it
   { txs: [...card(frame, "bank-two", 299), ...card(frame, "bank-extra", 1699, { purchases: false })], accounts: [{ ...CARD, name: "Nordea Credit" }] },
   { txs: reminders("bank-few", ["2026-02-20", "2026-08-20"], 500) },
+  // another bank's card at Platinum's price: it has no IBAN either, and its connection names the bank
+  { txs: card(frame, "bank-other", 1699), accounts: [OTHER_BANK_CARD] },
 ];
 
 export const neutralValues: InputValues = {};

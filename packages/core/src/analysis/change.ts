@@ -18,6 +18,10 @@
  * usual month is the median of the month totals (`usualSpendingOver`, the one usual total of ADR 0004). The categories'
  * own levels add up to more or less than it (their one-offs are struck), and the difference is a spread in the row of
  * the smaller categories, which can be negative.
+ *
+ * The usual view also owns what a category cost against its usual level for the spike alert (ADR 0013):
+ * `categoryRises` gives the categories that rose over the gate and stand out, and whose ordinary purchases stand out
+ * on their own, with the report's own figures, and the alert tells nothing else.
  */
 import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex } from "../dates.ts";
@@ -27,7 +31,7 @@ import { normalizeIban } from "../transfers.ts";
 import type { IsoDate } from "../types.ts";
 import { type Plan, planOf, rowsComplete, windowOf } from "./change-plan.ts";
 import { floorsOf, monthSeries, type SignalInput, standsOut } from "./change-signal.ts";
-import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, type Merch, MIN_BASE_ROWS, netReturns, purchases, RARE, type Split, spendOf, splitMerchant, sum } from "./change-split.ts";
+import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, isMonthlyOrLonger, type Merch, MIN_BASE_ROWS, netReturns, purchases, RARE, type Split, spendOf, splitMerchant, sum } from "./change-split.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { LEVEL, oneOffs } from "./one-offs.ts";
 import { gateFor, isCompleteMonth, usualCents, usualSpendingOver } from "./usual.ts";
@@ -118,6 +122,41 @@ export interface SpendingChange {
   standsOut: boolean;
   categories: CategoryChange[];
   pieces: ChangePiece[];
+}
+
+/**
+ * A category that rose in the usual view (`moved`), whose ordinary purchases stand out on their own: what the spike
+ * alert may tell (alerts.ts). The figures are the report's, so the two cannot disagree (ADR 0013).
+ */
+export interface CategoryRise {
+  category: string;
+  label: string;
+  /** The category's row of the report: the month's spending and its usual level, both to the same day in a running month. */
+  nowCents: number;
+  usualCents: number;
+  changeCents: number;
+  /**
+   * The rise in ordinary purchases: rows that are no one-off and no bill or subscription of a month or longer
+   * (`isMonthlyOrLonger`), against the usual level of the same rows. A sofa, a new subscription, a bigger bill and a
+   * bill that came twice are not in it.
+   */
+  moreCents: number;
+  /** Ordinary purchases in the month. */
+  purchases: number;
+  /** The month's ordinary purchases are over those of every base month: a peak. A new level is over them only in its first month. */
+  peak: boolean;
+  /** The report's season mark, and the same month a year ago (null when the history does not reach it). */
+  season: boolean;
+  yearAgoCents: number | null;
+}
+
+export interface MonthRises {
+  /** The month has not ended, or its rows do not reach its end: every figure is cut at the same day of the month. */
+  running: boolean;
+  /** The last day the figures count, the end of the report's window: before today when the rows lag. */
+  through: IsoDate;
+  gateCents: number;
+  rises: CategoryRise[];
 }
 
 const MAX_CATEGORIES = 8;
@@ -332,6 +371,39 @@ function totalStandsOut(r: Rows, categories: readonly CategoryChange[], nowTotal
   return (Math.sign(moved) === Math.sign(change) && standsOut(r.signal, null, moved)) || categories.some((c) => c.standsOut && Math.abs(c.changeCents) >= r.gate && Math.sign(c.changeCents) === Math.sign(change));
 }
 
+/** Whether a row moved: a category whose change is over the gate and stands out from its own noise. */
+const moved = (gateCents: number, row: CategoryChange) => row.kind === "category" && row.category !== null && row.standsOut && Math.abs(row.changeCents) >= gateCents;
+
+/**
+ * The causes the report names for a row: those over the gate, the spread left out (it is no cause). None when the row
+ * did not move (`moved`): the report then gives the figures and calls nothing moved.
+ */
+export function namedCauses(c: Pick<SpendingChange, "gateCents">, row: CategoryChange): Bucket[] {
+  return moved(c.gateCents, row) ? row.buckets.filter((b) => b.kind !== "spread") : [];
+}
+
+/**
+ * The rise of a category that moved up (`moved`), when its ordinary purchases rose and stand out without the rest
+ * (`CategoryRise`). A cause over the gate is not asked for: a rise split over a new shop, more visits and dearer
+ * tickets is a rise all the same, and the alert sizes it by `moreCents`. The ordinary rows are read from the same
+ * months, days, one-offs and returns as the row itself.
+ */
+function riseOf(r: Rows, row: CategoryChange): CategoryRise[] {
+  const id = row.category;
+  if (id === null || row.changeCents <= 0 || !moved(r.gate, row)) return [];
+  const ordinary = (rows: readonly AnalysisTx[]) => rows.filter((t) => t.category === id && !r.struck.has(t.id) && !isMonthlyOrLonger(r.seriesOf.get(t.id)));
+  const now = ordinary(r.target);
+  const months = r.baseByMonth.map((rows) => spendOf(ordinary(rows)));
+  const moreCents = spendOf(now) - (usualCents(months) ?? 0);
+  if (moreCents <= 0 || !standsOut(r.signal, id, moreCents)) return [];
+  return [{ category: id, label: row.label, nowCents: row.nowCents, usualCents: row.baseCents, changeCents: row.changeCents, moreCents, purchases: purchases(now).length, peak: spendOf(now) > Math.max(...months), season: row.season, yearAgoCents: row.yearAgoCents }];
+}
+
+interface Analysis {
+  change: SpendingChange;
+  rises: CategoryRise[];
+}
+
 /**
  * The change of spending (consumption + debt) in a view, split into causes. `month` is the month the view is about:
  * the month itself for "usual" and "season", the last month of the twelve for "year". null when the history does not
@@ -341,6 +413,19 @@ function totalStandsOut(r: Rows, categories: readonly CategoryChange[], nowTotal
  * categories' levels leave of it goes to the row of the smaller categories.
  */
 export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: string): SpendingChange | null {
+  return analyse(ctx, view, month)?.change ?? null;
+}
+
+/**
+ * The categories of `month` that rose by more of the same, read from the usual view the report shows for that month.
+ * null when the history gives the month no usual view.
+ */
+export function categoryRises(ctx: AnalysisContext, month: string): MonthRises | null {
+  const a = analyse(ctx, "usual", month);
+  return a && { running: a.change.running, through: a.change.target.to, gateCents: a.change.gateCents, rises: a.rises };
+}
+
+function analyse(ctx: AnalysisContext, view: ChangeView, month: string): Analysis | null {
   const plan = planOf(ctx, view, month);
   if (!plan) return null;
   const base = rowsFor(ctx, plan);
@@ -369,7 +454,7 @@ export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: st
   const rest = ranked.filter((c) => !rows.includes(c));
   if (rest.length || gap) rows.push(smallerRow(rest, pieces, r.gate, gap));
 
-  return {
+  const change: SpendingChange = {
     view,
     target: windowOf(ctx, plan.target, plan.running ? plan.cap : null),
     base: windowOf(ctx, plan.base, plan.running ? plan.cap : null),
@@ -382,4 +467,6 @@ export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: st
     categories: rows,
     pieces,
   };
+  // every category, also those the table folds into its row of smaller ones: a rise ranked ninth is a rise
+  return { change, rises: plan.mean ? categories.flatMap((row) => riseOf(r, row)) : [] };
 }

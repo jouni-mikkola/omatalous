@@ -6,6 +6,7 @@ import type { RecurringSeries } from "../recurring.ts";
 import type { Bucket, BucketKind, CategoryChange } from "./change.ts";
 import type { Plan } from "./change-plan.ts";
 import type { AnalysisTx } from "./context.ts";
+import { MONTHLY_OR_LONGER } from "./insights/shared.ts";
 
 export const MIN_PRICE_VISITS = 3;
 export const MIN_BASE_ROWS = 4;
@@ -13,6 +14,12 @@ export const MIN_BASE_ROWS = 4;
 const PRESENCE = 2 / 3;
 /** Bills that come less often than every month: in an ordinary month they are not expected. */
 export const RARE = new Set(["quarterly", "semiannual", "yearly"]);
+/**
+ * A bill or subscription that comes once a month or less often (`MONTHLY_OR_LONGER`): its change is a new one, a
+ * moved amount or a payment that came early or late. A charge that comes more often is a habit of purchases, however
+ * even its amounts, and more of it is more purchases.
+ */
+export const isMonthlyOrLonger = (s: RecurringSeries | undefined): boolean => MONTHLY_OR_LONGER.has(s?.cadence ?? "");
 
 export const dayOfMonth = (t: Pick<AnalysisTx, "bookingDate">) => Number(t.bookingDate.slice(8, 10));
 export const sum = (xs: readonly number[]) => xs.reduce((s, v) => s + v, 0);

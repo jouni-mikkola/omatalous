@@ -23,4 +23,9 @@ upgrade: Migration 0009 runs on the first start, after the usual copy.
   refuses a release that adds a migration and has no `upgrade:` line.
 - Fragments are merged in file name order, so entries of one section follow the order of the file names.
 
+Before a release, the person who prepares it writes `changelog.d/_highlights.md`: two to five plain lines, in English,
+that say what is new for a household. `prepare.mjs` makes them a short list right under `## X.Y.Z`, before the
+sections, and removes the file with the fragments. It is not a fragment (no `section:` line), and a release of five or
+more fragments is refused without it.
+
 A fragment that only repeats the commit message is noise. A change nobody outside the code would notice needs none.

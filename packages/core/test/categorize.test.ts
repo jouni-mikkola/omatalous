@@ -133,8 +133,35 @@ describe("categorize", () => {
     ["SUOMEN URHEILUOPISTO", null, "other"],
     ["BANK NORWEGIAN", "KORTTILASKU 09/2026", "card_bill"],
     ["BANK NORWEGIAN", "LAINAN LYHENNYS", "loans"],
+    ["MORROW BANK ASA", "LASKU 09/2026", "card_bill"],
+    ["MORROW BANK ASA", "LAINAN LYHENNYS", "loans"],
+    ["KOMPLETT BANK", "LAINA 1234", "loans"],
+    // one list of the issuers that are banks (ADR 0008): a loan named inside a longer word is a loan at each of them
+    ["BANK NORWEGIAN", "ERIKOISLAINA 12", "loans"],
+    ["KOMPLETT BANK", "ERIKOISLAINA 12", "loans"],
+    ["MORROW BANK ASA", "ERIKOISLAINA 12", "loans"],
+    // Nordea's finance company by either of its names: a card word behind it is the card's bill, the name alone a loan
+    ["NORDEA RAHOITUS SUOMI GOLD", null, "card_bill"],
+    ["NORDEA FINANCE FINLAND GOLD", null, "card_bill"],
+    ["NORDEA RAHOITUS SUOMI OY", null, "loans"],
+    ["NORDEA FINANCE FINLAND LTD", null, "loans"],
+    ["NORDEA RAHOITUSYHTIO", null, "loans"],
+    ["NORDEA", "LAINANLYHENNYS", "mortgage"],
+    ["NORDEA FINANCE", "LAINANLYHENNYS", "loans"],
+    ["ESIMERKKI", "RAHOITUSSOPIMUS 123", "loans"],
+    ["ESIMERKKI", "SOPIMUS 123", "other"],
+    // one list of the payment services (ADR 0008): a purchase paid at once is shopping. Anyday sells only payment in parts
+    ["AFTERPAY", null, "shopping"],
+    ["ANYDAY", null, "loans"],
+    ["RESURS BANK AB", "LASKU 09/2026", "loans"],
+    // Resurs lends by its whole name: a company with the word in its name is paid like any other
+    ["HR RESURS AB", "LASKU 09/2026", "other"],
   ])("rule order: %s / %s → %s", (counterparty, description, expected) => {
     expect(categorize({ merchant: counterparty, counterparty, description, mcc: null, amountCents: -2000 }, rules).category).toBe(expected);
+  });
+
+  it("money back from a payment service is shopping's, from each service of the one list", () => {
+    for (const service of ["KLARNA", "ANYDAY"]) expect(categorize({ merchant: service, counterparty: service, description: null, mcc: null, amountCents: 2000 }, rules).category, service).toBe("shopping");
   });
 
   it("money in: rent received is income, pensions and allowances are benefits", () => {
@@ -151,7 +178,22 @@ describe("categorize", () => {
     const money = (counterparty: string, description: string | null) => categorize({ merchant: counterparty, counterparty, description, mcc: null, amountCents: 150000 }, rules).category;
     expect(money("BANK NORWEGIAN", null)).toBe("credit_draw");
     expect(money("ENTERCARD", "SIIRTO")).toBe("credit_draw");
+    expect(money("MORROW BANK ASA", "SIIRTO")).toBe("credit_draw");
+    expect(money("RESURS BANK AB", "SIIRTO")).toBe("credit_draw");
     expect(money("ULOSOTTOLAITOS", "PALAUTUS")).toBe("reimbursements");
+  });
+
+  it.each(["NORDEA GOLD", "NORDEA PLATINUM", "NORDEA CREDIT"])("%s names a card: money out is its bill, money in a draw on its credit", (card) => {
+    const money = (amountCents: number) => categorize({ merchant: card, counterparty: card, description: null, mcc: null, amountCents }, rules).category;
+    expect(money(-42000)).toBe("card_bill");
+    expect(money(42000)).toBe("credit_draw");
+  });
+
+  it("a savings account at a card issuer that is a bank is saving in both directions: no card bill, no loan and no borrowing", () => {
+    for (const bank of ["BANK NORWEGIAN", "MORROW BANK ASA", "KOMPLETT BANK"])
+      for (const text of ["SÄÄSTÖTILI", "Säästötili 4417", "TALLETUS"])
+        for (const amountCents of [-30000, 30000])
+          expect(categorize({ merchant: bank, counterparty: bank, description: text, mcc: null, amountCents }, rules), `${bank} ${text} ${amountCents}`).toEqual({ category: "savings", source: "rule" });
   });
 
   it("recognises salary only for money in", () => {
@@ -167,6 +209,84 @@ describe("categorize", () => {
     expect(categorize(tx("Jokin Pikkukauppa", -500, { mcc: "5411" }), rules)).toEqual({ category: "groceries", source: "mcc" });
     expect(categorize(tx("Matti Meikäläinen", -500), rules)).toEqual({ category: "other", source: "default" });
     expect(categorize(tx("Matti Meikäläinen", 500), rules)).toEqual({ category: "income", source: "default" });
+  });
+
+  describe("the bank's own transaction code (ISO 20022)", () => {
+    const coded = (bankTxnCode: string | null, amountCents: number, merchant = "Matti Meikäläinen", mcc: string | null = null) =>
+      categorize({ merchant, counterparty: null, description: merchant, mcc, bankTxnCode, amountCents }, rules);
+
+    it.each([
+      ["PMNT-RCDT-SALA", 250000, "salary"],
+      ["RCDT-XBSA", 250000, "salary"],
+      ["PMNT-RRCT-SALA", 250000, "salary"],
+      ["RRCT-XBSA", 250000, "salary"],
+      ["PMNT-CCRD-CWDL", -6000, "cash"],
+      ["CCRD-XBCW", -6000, "cash"],
+      ["PMNT-CNTR-CWDL", -6000, "cash"],
+      ["CNTR-BCWD", -6000, "cash"],
+      ["PMNT-ICCN-COAT", -30000, "savings"],
+      ["RCCN-COAT", 30000, "savings"],
+    ])("%s on %i cents is %s, decided as a rule", (code, cents, category) => expect(coded(code, cents)).toEqual({ category, source: "rule" }));
+
+    it.each([
+      // the payer's side of a salary, the merchant's side of a card payment, deposits, any transfer inside one bank
+      ["PMNT-ICDT-SALA", 250000],
+      ["PMNT-MCRD-POSC", 250000],
+      ["PMNT-CCRD-CDPT", 6000],
+      ["PMNT-CNTR-CDPT", 6000],
+      ["PMNT-RCDT-BOOK", 30000],
+      ["PMNT-RCCN-ICCT", 30000],
+      // another domain, half a code, lower case, nothing
+      ["CAMT-RCDT-SALA", 250000],
+      ["SALA", 250000],
+      ["PMNT-SALA", 250000],
+      ["pmnt-rcdt-sala", 250000],
+      ["", 250000],
+      [null, 250000],
+    ])("%s decides nothing", (code, cents) => {
+      expect(coded(code, cents)).toEqual({ category: "income", source: "default" });
+      expect(coded(code, -cents)).toEqual({ category: "other", source: "default" });
+    });
+
+    it("a card payment code names no category: the merchant, the card's MCC or nothing decides, as without it", () => {
+      for (const code of ["PMNT-CCRD-POSD", "CCRD-POSC", "CCRD-XBCP", "CCRD-SMRT"]) {
+        expect(coded(code, -500, "K-Market Kamppi")).toEqual({ category: "groceries", source: "rule" });
+        expect(coded(code, -500, "Jokin Pikkukauppa", "5411")).toEqual({ category: "groceries", source: "mcc" });
+        expect(coded(code, -500)).toEqual({ category: "other", source: "default" });
+        expect(coded(code, 500)).toEqual({ category: "income", source: "default" });
+      }
+    });
+
+    it("the direction of the money must fit the code", () => {
+      expect(coded("RCDT-SALA", -250000).category).toBe("other");
+      expect(coded("CCRD-CWDL", 6000).category).toBe("income");
+    });
+
+    it("a purpose in the wording decides before a code, and a code before a merchant's name: an employer may be a shop or a hospital", () => {
+      for (const payer of ["Kela", "Keva", "Varma", "Ilmarinen", "Verohallinto"]) expect(coded("RCDT-SALA", 14000, payer).category, payer).toBe("benefits");
+      for (const employer of ["Zalando", "HUS-yhtymä", "Lidl Suomi Ky", "VR-Yhtymä Oyj", "Elisa Oyj", "Helsingin yliopisto"])
+        expect(coded("RCDT-SALA", 250000, employer), employer).toEqual({ category: "salary", source: "rule" });
+      // a staffing company with a lender's word in its name pays wages: no money borrowed
+      expect(coded("RCDT-SALA", 250000, "Resurs Bemanning AB")).toEqual({ category: "salary", source: "rule" });
+      // cash from a shop's till carries the shop's name
+      expect(coded("CCRD-CWDL", -2000, "K-Market Kamppi")).toEqual({ category: "cash", source: "rule" });
+      expect(coded("CCRD-CWDL", -2000, "HSL Automaatti").category).toBe(categorize(tx("HSL Automaatti", -2000), rules).category);
+      expect(coded("ICCN-COAT", -2000, "Nordnet").category).toBe("investments");
+      const own = compileRules([{ field: "merchant", pattern: "Matti Meikäläinen", category: "p2p_in", priority: 10 }]);
+      expect(categorize({ ...tx("Matti Meikäläinen", 500), bankTxnCode: "RCDT-SALA" }, own)).toMatchObject({ category: "p2p_in", byUser: true });
+    });
+
+    it("money back for a cost is no pay, though it came in the payroll batch", () => {
+      const paid = (payer: string, description: string) => categorize({ merchant: payer, counterparty: payer, description, mcc: null, bankTxnCode: "PMNT-RCDT-SALA", amountCents: 12300 }, rules).category;
+      for (const text of ["MATKALASKU 09/2026", "KULUKORVAUS", "KORVAUS", "HYVITYS", "PALAUTUS"]) expect(paid("ACME OY", text), text).toBe("reimbursements");
+      expect(paid("LÄHITAPIOLA", "VAKUUTUSKORVAUS")).toBe("reimbursements");
+      // where the wording names no purpose the code is trusted
+      expect(paid("MATTI MEIKÄLÄINEN", "RUOKARAHAT")).toBe("salary");
+    });
+
+    it("a code decides before the card's MCC", () => {
+      expect(coded("CCRD-CWDL", -6000, "Jokin Pikkukauppa", "5411")).toEqual({ category: "cash", source: "rule" });
+    });
   });
 
   it("matches plain user text as whole words", () => {
@@ -347,6 +467,34 @@ describe("people vs merchants", () => {
       expect(cat(name, "MOBILEPAY", 2000)).toBe("p2p_in");
     },
   );
+
+  // the shape of a name is the one the register lookup reads (wording isPersonShaped): an initial, a comma, an apostrophe
+  it.each(["HELEN J. LAINE", "LAINE, HELEN", "H. LAINE", "ELISA O'ESIMERKKI", "ELISA2 VIRTANEN"])("MobilePay with %s is a payment between people", (name) => {
+    expect(cat(name, "MOBILEPAY", -2000)).toBe("p2p");
+    expect(cat(name, "MOBILEPAY", 2000)).toBe("p2p_in");
+  });
+
+  it("SA, SE and AS are words of a name, as they are to the register", () => {
+    expect(cat("ELISA DE SA", "MOBILEPAY", -2000)).toBe("p2p");
+    expect(cat("HELEN SE JIN", "MOBILEPAY", -2000)).toBe("p2p");
+    // the cost: a company named by one brand word and such a form reads as a person too
+    expect(cat("ZALANDO SE", "MOBILEPAY", -2000)).toBe("p2p");
+    expect(cat("ZALANDO SE", "KORTTIOSTO", -2000)).toBe("shopping");
+  });
+
+  it("a brand with a chain's letter and hyphen or with a digit is no first name", () => {
+    expect(cat("S-MARKET ESIMERKKI", "MOBILEPAY", -1500)).toBe("groceries");
+    expect(cat("K-RAUTA ESIMERKKI", "MOBILEPAY", -1500)).toBe("home");
+    expect(cat("R-KIOSKI ESIMERKKI", "MOBILEPAY", -1500)).toBe("groceries");
+    expect(cat("FITNESS24 SEVEN", "MOBILEPAY", -1000)).toBe("fitness");
+    expect(cat("ANNA-LIISA HELEN", "MOBILEPAY", -1500)).toBe("p2p");
+  });
+
+  it("a company form at either end is a company's to the rules, also one a first name begins with", () => {
+    expect(cat("AB ESIMERKKI", "MOBILEPAY", -1000)).toBe("other");
+    expect(cat("KY HELEN", "MOBILEPAY", -1000)).toBe("utilities");
+    expect(cat("HELEN LAINE OY", "MOBILEPAY", -1000)).toBe("utilities");
+  });
 
   // since 2022 the app is Vipps MobilePay, and the bank text says Vipps (or both words) on rows of the new brand
   it.each(["VIPPS", "VIPPS MOBILEPAY", "Vipps MobilePay Oy"])("a %s payment to or from a person is a payment between people", (description) => {

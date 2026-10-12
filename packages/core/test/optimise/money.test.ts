@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../../src/analysis/context.ts";
+import { cardCosts } from "../../src/analysis/credit.ts";
 import { dayNumber, monthRange } from "../../src/dates.ts";
 import { loans } from "../../src/optimise/areas/loans.ts";
 import { savings } from "../../src/optimise/areas/savings.ts";
@@ -231,6 +232,34 @@ describe("loans", () => {
       expect(draft(r2, "card_interest"), cardCharge).toBeUndefined();
       expect(status(r2, "card_interest")?.status).toBe("clear");
     }
+  });
+
+  it("reads the card's interest from its owner: one sum for a card whose rows a second definition would sum otherwise", () => {
+    // beside the 15 € of LUOTTOKORKO a month, all in months the checking account covered the card's debt
+    const made = assess({
+      ...LOANS,
+      extra: (add) => {
+        // interest the household sorted under bank fees: interest by the bank's word, whatever the category
+        add({ bookingDate: "2026-03-12", amountCents: -2200, merchant: "Nordea", description: "KORKO", accountId: "card", category: "fees", categorySource: "user" });
+        // 10 € of June's interest the bank took back
+        add({ bookingDate: "2026-06-20", amountCents: 1000, merchant: "Nordea", description: "KORKO", accountId: "card" });
+        // a bank fee in the interest category that is no interest
+        add({ bookingDate: "2026-04-12", amountCents: -300, merchant: "Nordea", description: "NOSTOPALKKIO", accountId: "card" });
+      },
+    });
+    const a = areaInputOf(made.input);
+    const costs = cardCosts(a.ctx, a.today);
+    expect(costs.months).toEqual(a.months);
+    const [card] = costs.cards;
+    // 12 × 15 € + 22 € − 10 €; the same rows by category `interest` alone sum to 180 €
+    expect(card!.interestCents).toBe(19200);
+    expect(card!.feeCents).toBe(300);
+    const f = draft(made.loans, "card_interest")!;
+    expect(calc(f)["Korot näinä kuukausina"]).toBe("192 €");
+    expect(calc(f).Kuukausia).toBe("12");
+    expect(euros(f)).toEqual([19200, 19200, 19200]);
+    expect(f.rows).toEqual(card!.interestRows);
+    expect(f.rows).toHaveLength(13);
   });
 
   it("sums the margin or the prepayment in the headline, never both: they are the same loan", () => {

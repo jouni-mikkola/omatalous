@@ -69,9 +69,12 @@ export function demoHousehold(today: IsoDate = DEMO_TODAY): Household {
   return { name: "demo", today, txs: byDateAndId(txs), accounts, balances, rules: [], inputs: NO_INPUTS, values: {}, industry: new Map() };
 }
 
+/** The plain seed whose bank says pay only in its own transaction code (`HistoryOptions.coded`), so the golden files cover the codes. */
+const CODED_SEED = 4;
+
 /** A seeded history of the property tests: `randomHistory(seed, 600)`, or settled with 30 months as in the quiet tests. */
 export function seededHousehold(seed: number, settled: boolean): Household {
-  const { txs, accounts, rules } = settled ? randomHistory(seed, 1500, { months: 30, settled: true }) : randomHistory(seed, 600);
+  const { txs, accounts, rules } = settled ? randomHistory(seed, 1500, { months: 30, settled: true }) : randomHistory(seed, 600, { coded: seed === CODED_SEED });
   const balances = accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, balanceCents: a.type === "loan" ? null : 150000, ownerName: null, balanceAt: SEED_TODAY }));
   return { name: `${settled ? "settled" : "plain"}:${seed}`, today: SEED_TODAY, txs, accounts, balances, rules, inputs: NO_INPUTS, values: {}, industry: new Map() };
 }

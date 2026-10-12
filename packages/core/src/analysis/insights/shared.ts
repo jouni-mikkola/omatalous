@@ -6,7 +6,7 @@ import { monthOneOffs } from "../one-offs.ts";
 import { completeMonthsBefore, gateFor, GATE_FLOOR_CENTS, usualSpending } from "../usual.ts";
 import { isLenderName } from "../../wording.ts";
 import type { IsoDate, UserInputs } from "../../types.ts";
-import { inUseQuietsQuestion, marksByMerchant } from "../subscription-alerts.ts";
+import { coveringMark, inUseQuietsQuestion, type MarkedSeries, marksBySubject } from "../subscription-alerts.ts";
 
 const COUNT_WORDS = ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"];
 
@@ -110,24 +110,30 @@ export function evenlySpaced(ctx: AnalysisContext, s: Pick<RecurringSeries, "tra
 /** Payment services that sell instalment plans: their charges are instalments (instalments.ts), not subscriptions or prices. */
 export const isLender = (merchant: string) => isLenderName(fold(merchant));
 
-/** What the household said about a merchant's subscription, and on which day. */
+/** What the household said about a subscription, and on which day. */
 export interface SubscriptionAnswer {
   mark: "cancelled" | "in_use";
   day: IsoDate;
 }
 
 /**
- * The household's answers on subscriptions by merchant (`user_marks`): Lopetettu, or Käytössä within the last 12 months,
- * the rule that quiets the forgotten-service question. Säästövinkit tells no subscription finding or insight about an
- * answered merchant again.
+ * The household's answers on subscriptions (`user_marks`): Lopetettu, or Käytössä within the last 12 months, the rule
+ * that quiets the forgotten-service question. Säästövinkit tells no subscription finding or insight about an answered
+ * series again. Keyed as `marksBySubject` keys the marks (a series' subject, or the merchant's name for an old mark on
+ * a merchant): read it with `answerOf`.
  */
 export function answeredSubscriptions(inputs: UserInputs, today: IsoDate): ReadonlyMap<string, SubscriptionAnswer> {
   const out = new Map<string, SubscriptionAnswer>();
-  for (const [merchant, m] of marksByMerchant(inputs.marks)) {
+  for (const [key, m] of marksBySubject(inputs.marks)) {
     // the server stores the mark in the instance's time zone, so its date part is the local day
-    if (m.mark === "cancelled" || (m.mark === "in_use" && inUseQuietsQuestion(m, today))) out.set(merchant, { mark: m.mark, day: m.markedAt.slice(0, 10) });
+    if (m.mark === "cancelled" || (m.mark === "in_use" && inUseQuietsQuestion(m, today))) out.set(key, { mark: m.mark, day: m.markedAt.slice(0, 10) });
   }
   return out;
+}
+
+/** The answer on a series: its own, or an old one on its merchant, which covers every series of the merchant. */
+export function answerOf(answered: ReadonlyMap<string, SubscriptionAnswer>, s: MarkedSeries): SubscriptionAnswer | undefined {
+  return coveringMark(answered, s, (a) => a.day);
 }
 
 /**

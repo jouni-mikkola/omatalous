@@ -31,6 +31,7 @@ const CARD_LINES: ReadonlySet<string> = new Set(["debit", "credit", "gold", "pla
 
 const priceFact = (line: string, today: string) => factOn(`nordea_price:${line}`, today);
 
+/** Nordea's price list applies: by the IBAN, and for a card, which has none, by the bank of its connection. */
 const isNordea = (a: Account | undefined) => !!a && isNordeaAccount(a);
 
 const listDate = (f: Fact) => formatFiDate(f.validFrom);

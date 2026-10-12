@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Tests for scripts/backup.sh with stub docker, age, crontab, mountpoint and a cp that can fail. Nothing touches the real
-# Docker, the real crontab or a real mount. It covers what the helper's empty environment needs (settings from .env), the
-# copy to BACKUP_COPY_TO and --schedule / --unschedule.
+# Tests for scripts/backup.sh with stub docker, age, crontab, mountpoint, a cp that can fail, a date that can stand still
+# and a cmp that can plant a link. Nothing touches the real Docker, the real crontab or a real mount. It covers what the
+# helper's empty environment needs (settings from .env), the copy to BACKUP_COPY_TO (also when someone has put links on
+# the share) and --schedule / --unschedule.
 #
 #   tools/test/backup.test.sh [name-filter]
 set -u
@@ -16,7 +17,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 # The system tools without the ones a test decides about, so that "no age" and "no crontab" are commands that do not exist.
 SYS=$T/sys; mkdir -p "$SYS" "$T/bin" "$T/agebin" "$T/cronbin"
 for f in /usr/bin/* /usr/sbin/*; do
-  case ${f##*/} in crontab | docker | age | mountpoint | cp) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
+  case ${f##*/} in crontab | docker | age | mountpoint | cp | cmp | date) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
 done
 # a database that passes backup.sh's own checks: the header, 8192 bytes
 { printf 'SQLite format 3\0'; head -c 8176 /dev/zero; } >"$T/fixture.db"
@@ -43,6 +44,23 @@ cat >"$T/bin/cp" <<'EOF'
 #!/usr/bin/env bash
 if [[ -e $STUB/cpfail && ${*: -1} == *.part ]]; then echo "cp: no space left on device" >&2; exit 1; fi
 exec /usr/bin/cp "$@"
+EOF
+# the run's stamp (the part of every file name that follows from the time) can be fixed, so a test can put links at the
+# names the script will use
+cat >"$T/bin/date" <<'EOF'
+#!/usr/bin/env bash
+if [[ ${1:-} == +%Y%m%d-%H%M%S && -e $STUB/stamp ]]; then cat "$STUB/stamp"; exit 0; fi
+exec /usr/bin/date "$@"
+EOF
+# cmp runs between the copy and the rename: with STUB/plant-final it puts a link to that folder at the final name, the
+# way someone on the share could in that moment (the name is the part file's, without the dot and the .part)
+cat >"$T/bin/cmp" <<'EOF'
+#!/usr/bin/env bash
+if [[ -e $STUB/plant-final ]]; then
+  last=${*: -1}; b=${last##*/}; b=${b#.}; b=${b%.part}
+  ln -s "$(cat "$STUB/plant-final")" "${last%/*}/$b"
+fi
+exec /usr/bin/cmp "$@"
 EOF
 cat >"$T/agebin/age" <<'EOF'
 #!/usr/bin/env bash
@@ -208,6 +226,48 @@ t_copy_refused() {
   check "full share: the local backup stays" bash -c "gzip -t '$CL/backups'/talous-*.db.gz"
 }
 
+# Whoever can write to the share may put links at the names the copy uses. The run's time is fixed, so the names are known.
+LINK_STAMP=20261012-030000
+LINK_GZ=talous-$LINK_STAMP.db.gz
+link_world() { # link_world: a share with a folder, a fixed stamp and a file on the "host" that a link would reach
+  new_world; envfile "BACKUP_COPY_TO=$W/nas/omatalous"; mounted "$W/nas"
+  echo "$LINK_STAMP" >"$S/stamp"; mkdir -p "$W/nas/omatalous" "$W/host"; echo HOST-FILE >"$W/host/env"
+  NAS=$W/nas/omatalous
+}
+t_copy_links() {
+  link_world; ln -s "$W/host/env" "$NAS/.$LINK_GZ.part"
+  bk
+  check "link at the part name: exit 0 and the copy is reported" bash -c "[[ $RC = 0 ]] && grep -q '1 file(s) copied' '$W/out'"
+  check "link at the part name: the file it points to is unchanged" bash -c "[[ \$(cat '$W/host/env') = HOST-FILE ]]"
+  check "link at the part name: the copy is a plain file with the backup, no part left" bash -c "[[ -f '$NAS/$LINK_GZ' && ! -L '$NAS/$LINK_GZ' ]] && cmp -s '$CL/backups/$LINK_GZ' '$NAS/$LINK_GZ' && [[ \$(ls -A '$NAS' | wc -l) = 1 ]]"
+
+  link_world; ln -s "$W/host/created" "$NAS/.talous-write-test"
+  bk
+  check "link at the old write-test name: nothing is created through it" bash -c "[[ ! -e '$W/host/created' ]]"
+  check "link at the old write-test name: the copy still works and leaves no test file" bash -c "[[ $RC = 0 ]] && cmp -s '$CL/backups/$LINK_GZ' '$NAS/$LINK_GZ' && ! compgen -G '$NAS/.talous-write-test.*' >/dev/null"
+
+  link_world; ln -s "$W/host/env" "$NAS/$LINK_GZ"
+  bk
+  check "link at the final name: refused with a warning, exit 0" bash -c "[[ $RC = 0 ]] && grep -q 'talous-$LINK_STAMP.db.gz is a link' '$W/out' && ! grep -q 'file(s) copied' '$W/out'"
+  check "link at the final name: the file it points to is unchanged and the link is left" bash -c "[[ \$(cat '$W/host/env') = HOST-FILE && -L '$NAS/$LINK_GZ' ]]"
+  check "link at the final name: no part file is left and the local backup stays" bash -c "[[ \$(ls -A '$NAS' | wc -l) = 1 ]] && gzip -t '$CL/backups/$LINK_GZ'"
+
+  link_world; ln -s "$W/hostdir" "$NAS/$LINK_GZ"; mkdir "$W/hostdir"
+  bk
+  check "link to a folder at the final name: refused, nothing goes into the folder" bash -c "[[ $RC = 0 ]] && grep -q 'is a link' '$W/out' && [[ -z \$(ls -A '$W/hostdir') ]]"
+
+  # without -T cp follows a link to a folder at the part name and leaves the backup inside that folder
+  link_world; mkdir "$W/hostdir"; ln -s "$W/hostdir" "$NAS/.$LINK_GZ.part"
+  bk
+  check "link to a folder at the part name: nothing goes into the folder and the copy is made" bash -c "[[ $RC = 0 ]] && [[ -z \$(ls -A '$W/hostdir') ]] && [[ -f '$NAS/$LINK_GZ' && ! -L '$NAS/$LINK_GZ' ]]"
+
+  # the link appears after the check, between the copy and the rename (cmp plants it)
+  link_world; mkdir "$W/hostdir"; echo "$W/hostdir" >"$S/plant-final"
+  bk
+  check "link planted before the rename: nothing goes into the folder it points to" bash -c "[[ $RC = 0 ]] && [[ -z \$(ls -A '$W/hostdir') ]]"
+  check "link planted before the rename: the final name is the plain file with the backup" bash -c "[[ -f '$NAS/$LINK_GZ' && ! -L '$NAS/$LINK_GZ' ]] && cmp -s '$CL/backups/$LINK_GZ' '$NAS/$LINK_GZ' && [[ \$(ls -A '$NAS' | wc -l) = 1 ]]"
+}
+
 t_schedule() {
   local line
   new_world
@@ -304,7 +364,7 @@ t_doctor_hint() {
   check "doctor: the old 'schedule it' hint is gone" bash -c "! grep -q 'and schedule it\|ja ajasta se:' '$SRC/scripts/doctor.sh'"
 }
 
-for t in plain env_file env_file_forms age_missing not_running copy copy_refused schedule schedule_messages schedule_other_lines schedule_refused cron_line_runs doctor_hint; do
+for t in plain env_file env_file_forms age_missing not_running copy copy_refused copy_links schedule schedule_messages schedule_other_lines schedule_refused cron_line_runs doctor_hint; do
   want "$t" && "t_$t"
 done
 

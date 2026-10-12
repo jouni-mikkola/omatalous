@@ -7,6 +7,7 @@
  * for type and length, before anything else sees it.
  */
 import type { IndustryCodeSet, RegistryCompany } from "@banking/core";
+import { readCappedText } from "../../platform/outbound.ts";
 
 export const PRH_SEARCH_URL = "https://avoindata.prh.fi/opendata-ytj-api/v3/companies";
 
@@ -52,32 +53,6 @@ export interface SearchResult {
   complete: boolean;
 }
 
-/** Reads at most MAX_BYTES of the body; a longer answer is cut off and refused. */
-async function readBody(res: Response): Promise<string> {
-  const declared = Number(res.headers.get("content-length"));
-  if (declared > MAX_BYTES) throw new RegistryError("register answer too large");
-  if (!res.body) {
-    const text = await res.text();
-    if (text.length > MAX_BYTES) throw new RegistryError("register answer too large");
-    return text;
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let bytes = 0;
-  let text = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    if (bytes > MAX_BYTES) {
-      await reader.cancel().catch(() => {});
-      throw new RegistryError("register answer too large");
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  return text + decoder.decode();
-}
-
 export async function searchCompanies(fetchFn: typeof fetch, name: string, timeoutMs = 10_000): Promise<SearchResult> {
   const url = `${PRH_SEARCH_URL}?${new URLSearchParams({ name })}`;
   let res: Response;
@@ -92,13 +67,13 @@ export async function searchCompanies(fetchFn: typeof fetch, name: string, timeo
   }
   if (res.status === 404) return { companies: [], complete: true };
   if (!res.ok) throw new RegistryError(`register answered ${res.status}`);
-  let text: string;
+  let text: string | null;
   try {
-    text = await readBody(res);
+    text = await readCappedText(res, MAX_BYTES);
   } catch (err) {
-    if (err instanceof RegistryError) throw err;
     throw new RegistryError(`register answer could not be read: ${(err as Error).name}`);
   }
+  if (text === null) throw new RegistryError("register answer too large");
   let body: unknown;
   try {
     body = JSON.parse(text);

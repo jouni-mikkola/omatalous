@@ -6,7 +6,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { INACTIVE_MESSAGE, relayPageUrl } from "../src/connectors/enable-banking/app-setup.ts";
-import { setupApp } from "./helpers.ts";
+import { type Client, NOW, setupApp } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
 type Reply = "active" | "inactive" | "no flag" | "gone";
@@ -144,11 +144,11 @@ describe("the shared app must be active before a bank can be connected", () => {
 
 describe("a member's own key is tried before it is saved", () => {
   const pem = () => generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-  async function own(reply: Reply = "active") {
+  async function own(reply: Reply = "active", deps: { now?: () => Date } = {}) {
     const bank = mockBank();
     const { app, fetchMock } = withApplication(bank);
     app.reply = reply;
-    const t = await setupApp({}, fetchMock);
+    const t = await setupApp({}, fetchMock, deps);
     const eero = await t.member("eero");
     return { ...t, eero, bank, app };
   }
@@ -201,6 +201,47 @@ describe("a member's own key is tried before it is saved", () => {
     expect((await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: "not a key" })).status).toBe(400);
     expect((await eero.call("PUT", "/api/bank/credentials", { appId: "not-an-id", privateKeyPem: pem() })).status).toBe(400);
     expect(bank.calls).toEqual([]);
+  });
+
+  it("the ninth key test of a member in ten minutes is refused before the key is imported or Enable Banking called", async () => {
+    let clock = NOW.getTime();
+    const { eero, admin, bank, s } = await own("active", { now: () => new Date(clock) });
+    const key = pem();
+    const put = (who: Client, privateKeyPem: string = key) => who.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem });
+    for (let i = 0; i < 8; i++) expect((await put(eero)).status, `test ${i + 1}`).toBe(200);
+    const calls = bank.calls.length;
+    expect(calls).toBeGreaterThan(0);
+
+    // the ninth, with a key that is not a key too: the count comes before the key is read
+    for (const refused of [await put(eero), await put(eero, "not a key")]) {
+      expect(refused.status).toBe(400);
+      expect(refused.body.error).toBe("Liian monta testiä peräkkäin. Odota muutama minuutti.");
+    }
+    expect(bank.calls.length).toBe(calls);
+
+    // the first refusal of the window is a lockout event, the second adds none (as with the other limits)
+    const lockouts = await s.security.list({ kind: "lockout", limit: 50 });
+    expect(lockouts).toHaveLength(1);
+    expect(lockouts[0]).toMatchObject({ kind: "lockout", userId: eero.id, detail: "avaimen testi" });
+
+    // the count is the member's own: the administrator tests a key of theirs at once
+    expect((await put(admin)).status).toBe(200);
+    expect(bank.calls.length).toBeGreaterThan(calls);
+
+    // after the ten minutes it works again
+    clock += 10 * 60_000 + 1000;
+    expect((await put(eero)).status).toBe(200);
+  });
+
+  it("parallel key tests of one member cannot get past the limit together", async () => {
+    const { eero, bank, app } = await own();
+    const key = pem();
+    const answers = await Promise.all(Array.from({ length: 12 }, () => eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: key })));
+    expect(answers.filter((a) => a.status === 200)).toHaveLength(8);
+    expect(answers.filter((a) => a.status === 400)).toHaveLength(4);
+    // each test that was allowed asked for the application and the bank list, the others asked for nothing
+    expect(app.calls).toBe(8);
+    expect(bank.calls).toEqual(Array(8).fill("GET /aspsps?country=FI&service=AIS"));
   });
 
   it("the meta carries the privacy and terms addresses beside the redirect URL", async () => {

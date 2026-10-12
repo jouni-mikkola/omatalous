@@ -1,10 +1,12 @@
 // Decision: is the buffer growing and the debt shrinking
+import { ACCOUNTS_LESS_DEBT, SAME_DEBT_TWICE } from "@banking/core";
 import { useState } from "react";
 import { LineChart } from "../../../charts/LineChart.tsx";
 import { date, money, monthLabel, monthLong } from "../../../format.ts";
 import { TableToggle } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
+import { overdraftTwice } from "./Loans.tsx";
 
 const TOTAL_LABEL = "Yhdistetyt tilit yhteensä, arvio";
 
@@ -20,6 +22,15 @@ function Balances({ ctx }: SectionProps) {
     : "Kuukauden lopussa";
   return (
     <Section id={section.id} title={section.title} sub={sub} actions={<TableToggle table={table} onToggle={() => setTable((v) => !v)} />}>
+      {/* told for today only, as the debts are, and only to a household that saved a loan; with cents, so the three figures subtract */}
+      {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
+        <p className="muted">
+          {ACCOUNTS_LESS_DEBT.label} tänään {money(r.accountsLessDebt[last]!)}: tilit yhteensä {money(r.total[last]!)},{" "}
+          {ctx.scope === "household" ? "omat tallennetut lainasi" : "tallennetut lainat"} {money(r.debt.savedCents)}. {ACCOUNTS_LESS_DEBT.sub}
+          {ctx.data.loans.maybeTwice.length > 0 && ` ${SAME_DEBT_TWICE}: katso Lainat.`}
+          {ctx.data.loans.overdraftTwice.map((t) => ` ${overdraftTwice(t)}`).join("")}
+        </p>
+      )}
       {table ? (
         <div className="table-wrap">
           <table>
@@ -74,7 +85,7 @@ export const section: ReportSection = {
   title: "Saldot",
   order: 110,
   page: "reports",
-  reports: ["balances"],
+  reports: ["balances", "loans"],
   visible: (ctx) => ctx.data.balances.accounts.length > 0,
   Component: Balances,
 };

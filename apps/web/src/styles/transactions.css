@@ -3,27 +3,13 @@
 /* a select is as wide as its longest option; the cap leaves the room to the merchant */
 .tx-table td select, .tx-table td .select-lite { max-width: 11rem; }
 
-.tx-category-phone { display: none; }
 /* tablets keep four columns: the second line gives up the room the category column needs */
 @media (min-width: 601px) and (max-width: 960px) { .tx-table td .sub { max-width: calc(100vw - 500px); } }
-/* phones: date, merchant and amount take the whole width, so the category moves under the merchant */
-@media (max-width: 600px) {
-  .tx-table .tx-category { display: none; }
-  /* rows are three lines tall now: date and amount line up with the merchant name */
-  .tx-table td { vertical-align: top; }
-  .tx-category-phone { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; }
-  .tx-category-phone .badge { margin-left: 0; }
-  /* nothing in the merchant cell may set its width: the select and the second line fill what is left */
-  .tx-category-phone select { width: 100%; max-width: none; }
-  .tx-category-phone .select-lite { display: flex; width: 0; min-width: 100%; max-width: none; }
-  .tx-table td .sub { width: 0; min-width: 100%; max-width: none; }
-  .tx-table td a { overflow-wrap: anywhere; }
-}
 .amount-in { color: var(--good); }
 
 /* transactions: filters keep their visible labels, also on a phone */
 .date-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
-.filters input[type="search"] { width: 9rem; }
+.filters input[type="search"] { width: 9rem; min-width: 14rem; }
 .uncat-list { list-style: none; margin: 0; padding: 0; }
 .uncat-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 13rem); gap: 4px 14px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--grid); }
 .uncat-list li:last-child { border-bottom: none; }
@@ -37,8 +23,48 @@
   .uncat-list select { grid-column: 1 / -1; }
 }
 
-.filters input[type="search"] { min-width: 14rem; }
-@media (max-width: 520px) { .filters input[type="search"] { min-width: 0; width: 100%; } .filters form { flex: 1 1 100%; } }
-
 /* the two views of the page sit at their own width, not across the whole row */
 .view-tabs { align-self: flex-start; }
+
+/*
+ * Phones (the width Transactions.tsx asks matchMedia for): the search field and one button, Rajaa, that opens the
+ * rest of the filters, then the rows under day headers, two lines each.
+ */
+@media (max-width: 600px) {
+  .filters { margin: 0; }
+  .filters form { flex: 1 1 0; min-width: 0; }
+  .filters input[type="search"] { width: 100%; min-width: 0; }
+  .filter-toggle { flex: none; }
+  .filter-toggle.on { border-color: var(--accent); color: var(--accent-ink); }
+  .filter-toggle[aria-expanded="true"] { background: var(--surface-2); }
+  .filter-line { flex: 1 1 100%; }
+  .filter-line .badge { margin-left: 0; }
+  .filter-panel { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .filter-panel[hidden] { display: none; }
+  .filter-panel select { grid-column: 1 / -1; width: 100%; }
+  .filter-panel .date-filter { flex-direction: column; align-items: stretch; gap: 2px; }
+  .filter-panel input[type="date"] { min-width: 0; }
+  .filter-panel .btn { grid-column: 1 / -1; justify-self: start; }
+
+  .tx-card { padding: 12px 14px; }
+  .tx-head { margin-bottom: 4px; }
+  .tx-head .form-row { margin: 6px 0 0; }
+  .tx-day h3 { margin: 12px 0 0; padding-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .tx-day:first-child h3 { margin-top: 8px; }
+  .tx-day ul { list-style: none; margin: 0; padding: 0; }
+  .tx-item { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-main { display: flex; align-items: baseline; gap: 6px; }
+  .tx-main a { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; }
+  .tx-main .badge { flex: none; margin-left: 0; }
+  .tx-amount { flex: none; margin-left: auto; padding-left: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tx-cat { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; color: var(--muted); font-size: 13px; }
+  .tx-cat .select-lite { max-width: 100%; padding: 4px 0; border-color: transparent; background: none; color: inherit; }
+  .tx-cat select { max-width: 100%; }
+  .tx-cat .badge { margin-left: 0; }
+
+  /* the answer to a category change: the row is far from the top of the card, so it floats above the list */
+  .tx-feedback { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 5; }
+  .tx-feedback .notice, .tx-feedback .error { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 0; }
+  .tx-feedback .error { padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--bad); border-radius: 6px; background: var(--surface); }
+}

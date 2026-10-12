@@ -25,6 +25,13 @@ describe("Raportit: Tulot ja menot", () => {
     expect(out).not.toContain("Säästöaste");
   });
 
+  it("the chart has the table's Luotonnostot series when the period borrowed, and not otherwise", () => {
+    const legend = /<i class="swatch" style="background:var\(--series-4\)"><\/i>Luotonnostot/;
+    expect(html(cashflow, context(cashflowData()))).not.toMatch(legend);
+    const borrowed = { ...totals, borrowedCents: 40_000, leftCents: 140_000 };
+    expect(html(cashflow, context(cashflowData({ totals: borrowed, rows: [{ ...row, ...borrowed }] })))).toMatch(legend);
+  });
+
   it("a running range with no complete month has no bar, so the totals stand in its place", () => {
     const out = html(cashflow, context(cashflowData({ running: true, closed: null })));
     expect(out).not.toContain("Mihin tulot menivät");
@@ -69,6 +76,7 @@ describe("the page of a section", () => {
       drift: { items: [{}] },
       upcoming: { advice: "Varaa 47 € kuussa, harvinaiset laskut ovat 565 € vuodessa.", manual: [] },
       priceChanges: { items: [{}] },
+      loans: { saved: 1 },
     }, [{}]);
   const ids = (page: "month" | "bills" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
 

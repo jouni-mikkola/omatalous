@@ -10,6 +10,7 @@ import type { Connector, ConnectorContext, PullWindow, Puller, SyncProblem } fro
 import { EnableBankingClient, EnableBankingError } from "./client.ts";
 import { clientFor } from "./credentials.ts";
 import { accountDetails, amountToCents, pickBalance } from "./mapper.ts";
+import type { EbAccount, EbBalance } from "./types.ts";
 
 /**
  * Shorter windows to ask for when the bank refuses the period. Nordea keeps two years of an account's rows but
@@ -44,12 +45,57 @@ async function fetchTransactions(client: EnableBankingClient, uid: string, windo
   }
 }
 
+/** What a just-linked account's own answer had, kept until its first balances answer: one log line then tells both. */
+interface LinkedShape {
+  bank: string;
+  type: string;
+  limit: boolean;
+}
+const linked = new WeakMap<object, Map<string, LinkedShape>>();
+/** A link that is never fetched must not grow the map: past this the oldest note goes. */
+const LINKED_MAX = 100;
+
+/**
+ * A code of the bank's answer as the log may show it: four capital letters, the shape of every code Enable Banking
+ * documents for both fields (CACC, CARD, CLBD, ITAV). Never a name, a number or free text.
+ */
+function logCode(value: unknown): string {
+  if (value === null || value === undefined) return "none";
+  return typeof value === "string" && /^[A-Z]{4}$/.test(value) ? value : "other";
+}
+
+/**
+ * Remembers what the bank sent for an account at link, by the account's uid (new with every consent). The line is
+ * written when the first fetch reads the balances (logLinkedAccount), so linking costs no extra call to the bank.
+ */
+export function noteLinkedAccount(s: Services, bankId: string | null, a: EbAccount): void {
+  const notes = linked.get(s) ?? new Map<string, LinkedShape>();
+  linked.set(s, notes);
+  if (notes.size >= LINKED_MAX) notes.delete(notes.keys().next().value!);
+  notes.set(a.uid, { bank: bankId ?? "unknown", type: logCode(a.cash_account_type), limit: a.credit_limit !== null && a.credit_limit !== undefined });
+}
+
+/**
+ * One line per account after a link, to learn what each bank sends: the bank's id, `cash_account_type`, whether a
+ * `credit_limit` came and the balance types. Codes and yes or no only: never an IBAN, a name, an amount or the answer itself.
+ */
+function logLinkedAccount(s: Services, uid: string, balances: unknown): void {
+  const notes = linked.get(s);
+  const note = notes?.get(uid);
+  if (!notes || !note) return;
+  notes.delete(uid);
+  const types = Array.isArray(balances) ? [...new Set(balances.map((b: EbBalance | null) => logCode(b?.balance_type)))].sort() : [];
+  console.log(`bank link ${note.bank}: cash_account_type=${note.type} credit_limit=${note.limit ? "yes" : "no"} balance_types=${types.join(",") || "none"}`);
+}
+
 async function open({ s, repo }: ConnectorContext): Promise<Puller> {
   const client = await clientFor(s, repo.userId);
   return {
     transactions: (account, window) => fetchTransactions(client, account.externalId, window, s.today()),
     async balance(account) {
-      const balance = pickBalance(await client.balances(account.externalId));
+      const balances = await client.balances(account.externalId);
+      logLinkedAccount(s, account.externalId, balances);
+      const balance = pickBalance(balances);
       return balance ? amountToCents(balance.balance_amount.amount) : null;
     },
     async details(account) {

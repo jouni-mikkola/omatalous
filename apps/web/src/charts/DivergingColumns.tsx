@@ -16,16 +16,18 @@ const MARGIN = { top: 8, right: 4, bottom: 24, left: 60 };
 const GAP = 2;
 
 /**
- * Money in above the baseline, money out stacked below it. One axis,
+ * Money in stacked above the baseline, money out stacked below it. One axis,
  * polarity carried by position. Used for the monthly cash flow.
  */
-export function DivergingColumns({ months, up, down, height = 300 }: { months: string[]; up: DivergingSeries; down: DivergingSeries[]; height?: number }) {
+export function DivergingColumns({ months, up, down, height = 300 }: { months: string[]; up: DivergingSeries[]; down: DivergingSeries[]; height?: number }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
-  const downTotals = months.map((_, i) => down.reduce((s, d) => s + Math.max(0, d.values[i] ?? 0), 0));
-  const upMax = Math.max(...up.values, 0);
+  const totalsOf = (stack: DivergingSeries[]) => months.map((_, i) => stack.reduce((s, d) => s + Math.max(0, d.values[i] ?? 0), 0));
+  const upTotals = totalsOf(up);
+  const downTotals = totalsOf(down);
+  const upMax = Math.max(...upTotals, 0);
   const downMax = Math.max(...downTotals, 0);
   const { ticks, max } = niceTicks(Math.max(upMax, downMax, 1), 3);
   const total = 2 * max;
@@ -38,7 +40,7 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
   return (
     <div className="chart" ref={ref}>
       <div className="legend" aria-hidden="true">
-        {[up, ...down].map((s) => (
+        {[...up, ...down].map((s) => (
           <span key={s.key}>
             <i className="swatch" style={{ background: s.color }} />
             {s.label}
@@ -59,11 +61,19 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
             {months.map((m, i) => {
               const x = band * i + (band - barW) / 2;
               const dim = hover !== null && hover !== i;
-              const upH = scale(Math.max(0, up.values[i] ?? 0));
               let acc = 0;
+              let accUp = 0;
               return (
                 <g key={m} opacity={dim ? 0.45 : 1}>
-                  {upH > 0 && <path d={roundedTop(x, zeroY - upH, barW, upH - 1)} fill={up.color} />}
+                  {up.map((u, ui) => {
+                    const v = Math.max(0, u.values[i] ?? 0);
+                    if (!v) return null;
+                    const y1 = zeroY - 1 - scale(accUp) - (accUp ? GAP : 0);
+                    accUp += v;
+                    const h = Math.max(0, y1 - (zeroY - scale(accUp)));
+                    // rounded data-end at the top of the last segment
+                    return up.slice(ui + 1).some((n) => (n.values[i] ?? 0) > 0) ? <rect key={u.key} x={x} y={y1 - h} width={barW} height={h} fill={u.color} /> : <path key={u.key} d={roundedTop(x, y1 - h, barW, h)} fill={u.color} />;
+                  })}
                   {down.map((d, di) => {
                     const v = Math.max(0, d.values[i] ?? 0);
                     if (!v) return null;
@@ -96,7 +106,7 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
                 width={band}
                 height={innerH}
                 tabIndex={0}
-                aria-label={`${monthLong(m)}: tulot ${money(up.values[i] ?? 0, false)}, menot ${money(downTotals[i] ?? 0, false)}`}
+                aria-label={`${monthLong(m)}: ${up.map((u) => `${u.label.toLowerCase()} ${money(u.values[i] ?? 0, false)}`).join(", ")}, menot ${money(downTotals[i] ?? 0, false)}`}
                 onPointerEnter={() => setHover(i)}
                 onPointerLeave={() => setHover(null)}
                 onFocus={() => setHover(i)}
@@ -109,11 +119,13 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
       {hover !== null && (
         <Tooltip x={MARGIN.left + band * hover + band / 2} y={MARGIN.top + 16} containerWidth={width}>
           <div className="tooltip-title">{monthLong(months[hover]!)}</div>
-          <TooltipRow color={up.color} name={up.label} value={money(up.values[hover] ?? 0, false)} />
+          {up.map((u) => (
+            <TooltipRow key={u.key} color={u.color} name={u.label} value={money(u.values[hover] ?? 0, false)} />
+          ))}
           {down.map((d) => (
             <TooltipRow key={d.key} color={d.color} name={d.label} value={money(d.values[hover] ?? 0, false)} />
           ))}
-          <TooltipRow name="Erotus" value={money((up.values[hover] ?? 0) - (downTotals[hover] ?? 0), false)} />
+          <TooltipRow name="Erotus" value={money((upTotals[hover] ?? 0) - (downTotals[hover] ?? 0), false)} />
         </Tooltip>
       )}
     </div>

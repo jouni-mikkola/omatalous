@@ -38,6 +38,8 @@ services:
       # names the session cookie (talous_<name>), so instances on one host do not log each other out
       INSTANCE_NAME: ${INSTANCE_NAME:-banking-app}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
       TZ: ${TZ:-Europe/Helsinki}
       SETUP_CODE: ${SETUP_CODE:-}
       # trade register lookup until an admin changes it in Asetukset > Palvelin; false = off

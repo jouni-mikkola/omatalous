@@ -6,7 +6,7 @@
  * does around them, in what order, and what it does when they fail.
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -115,6 +115,13 @@ function fragment(dir: string, name: string, text: string) {
 function commitAll(dir: string, msg = "work") {
   git(dir, "add", "-A");
   git(dir, "commit", "-q", "-m", msg);
+}
+/** A repository at 0.5.1 with one committed fragment per text, A1, A2 and so on. */
+function repoWith(texts: string[]): string {
+  const dir = repo();
+  texts.forEach((t, i) => fragment(dir, `A${i + 1}`, t));
+  commitAll(dir, "fragments");
+  return dir;
 }
 function runEnv(dir: string, env: Record<string, string>, args: string[]) {
   const r = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, ...env } });
@@ -483,5 +490,150 @@ describe("tools/release/prepare.mjs", () => {
     put(dir, "apps/web/package.json", '{\n  "version": "0.5.0"\n}\n');
     commitAll(dir);
     expect(run(dir, "0.6.0").err).toContain("apps/web/package.json is 0.5.0");
+  });
+
+  it("puts an Internal fragment last in the version, after the Upgrade list, in a private block", () => {
+    const dir = repo();
+    // named first, but it goes last: the section decides, not the file name
+    fragment(dir, "A0", "section: Internal\n- Worker setup is faster.\n- Landing takes one step.\n  It checks the lanes.\n");
+    fragment(dir, "A1", "section: Look\n- The page is calmer.\n");
+    fragment(dir, "A2", "section: For developers\nRepo tools are faster.\nupgrade: Run the update once.\n");
+    fragment(dir, "A3", "section: Internal\n- The release list has a new step.\n");
+    commitAll(dir);
+    expect(run(dir, "0.6.0").code).toBe(0);
+    expect(read(dir, "CHANGELOG.md")).toBe(
+      [
+        "# Changes\n\nUpdate with the script.\n\n## 0.6.0\n\n",
+        "Look\n\n- The page is calmer.\n\n",
+        "For developers\n\n- Repo tools are faster.\n\n",
+        "Upgrade\n\n- Run the update once.\n\n",
+        "<!-- private -->\nInternal\n\n- Worker setup is faster.\n- Landing takes one step. It checks the lanes.\n- The release list has a new step.\n<!-- /private -->\n\n",
+        "## 0.5.1\n\n- An old entry.\n",
+      ].join(""),
+    );
+    expect(existsSync(join(dir, "changelog.d/A0.md"))).toBe(false);
+
+    // the heading is still the first one, which the release commands read
+    expect(bash(dir, `sed -n 's/^## \\([^ ]*\\).*/\\1/p' CHANGELOG.md | head -1`).trim()).toBe("0.6.0");
+  });
+
+  it("an Internal fragment alone leaves the public CHANGELOG with no text, so the release is refused until something is public", () => {
+    const dir = repoWith(["section: Internal\n- Only for us.\n"]);
+    for (const args of [["0.6.0"], ["0.6.0", "--dry-run"], ["0.6.0", "--check-docs"]]) {
+      const r = run(dir, ...args);
+      expect(r.code, args.join(" ")).toBe(1);
+      expect(r.err).toContain("the public CHANGELOG.md would have no text for 0.6.0");
+      expect(r.err).toContain("changelog.d/_highlights.md");
+    }
+    expect(git(dir, "status", "--porcelain")).toBe("");
+    // a highlight, or an entry of another section, makes it public text
+    fragment(dir, "_highlights", "- Nothing changes for you, the app is steadier.\n");
+    commitAll(dir);
+    expect(run(dir, "0.6.0", "--check-docs").code).toBe(0);
+  });
+
+  it("writes the highlights file as a list right under the version heading, before the sections, and removes it", () => {
+    const dir = repoWith(["section: Look\n- The page is calmer.\n", "section: Reliability\n- A full disk is told in Finnish.\nupgrade: Run the update once.\n"]);
+    fragment(dir, "_highlights", "\n- A refund cancels its payment.\nThe page is calmer,\n  also at night.\n\n");
+    commitAll(dir);
+
+    const dry = run(dir, "0.6.0", "--dry-run");
+    expect(dry.code).toBe(0);
+    expect(dry.out).toContain("## 0.6.0\n\n- A refund cancels its payment.\n- The page is calmer, also at night.\n\nLook\n\n");
+    expect(dry.out).toContain("Dry run: 0.5.1 -> 0.6.0, 2 fragments, nothing written.");
+    expect(existsSync(join(dir, "changelog.d/_highlights.md"))).toBe(true);
+
+    const r = run(dir, "0.6.0");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("2 fragments and the highlights merged and removed");
+    expect(read(dir, "CHANGELOG.md")).toBe(
+      [
+        "# Changes\n\nUpdate with the script.\n\n## 0.6.0\n\n",
+        "- A refund cancels its payment.\n- The page is calmer, also at night.\n\n",
+        "Look\n\n- The page is calmer.\n\n",
+        "Reliability\n\n- A full disk is told in Finnish.\n\n",
+        "Upgrade\n\n- Run the update once.\n\n",
+        "## 0.5.1\n\n- An old entry.\n",
+      ].join(""),
+    );
+    // the highlights file is no fragment: gone with them, the README stays
+    expect(existsSync(join(dir, "changelog.d/_highlights.md"))).toBe(false);
+    expect(existsSync(join(dir, "changelog.d/README.md"))).toBe(true);
+    // the release notes (the lines under the heading) start with them
+    expect(bash(dir, `awk -v v=0.6.0 '/^## /{p = ($2 == v); next} p' CHANGELOG.md | sed -n '2p'`).trim()).toBe("- A refund cancels its payment.");
+  });
+
+  it("refuses a release of five fragments without highlights, --dry-run and --check-docs too, and passes at four", () => {
+    const entry = (i: number) => `section: Look\n- Entry ${i}.\n`;
+    const dir = repoWith([1, 2, 3, 4, 5].map(entry));
+    for (const args of [["0.6.0"], ["0.6.0", "--dry-run"], ["0.6.0", "--check-docs"]]) {
+      const r = run(dir, ...args);
+      expect(r.code, args.join(" ")).toBe(1);
+      expect(r.err).toContain("5 fragments and no changelog.d/_highlights.md.");
+      expect(r.err).toContain("needs it: write 2 to 5 lines in plain English that say what is new for a household, one per line");
+      expect(r.err).toContain("commit the file and run this again");
+    }
+    expect(git(dir, "status", "--porcelain")).toBe("");
+    expect(read(dir, "apps/server/src/version.ts")).toContain('"0.5.1"');
+    expect(existsSync(join(dir, "changelog.d/A5.md"))).toBe(true);
+
+    // the highlights file is not a fragment: four fragments and the file are four fragments, and the file is not needed
+    git(dir, "rm", "-q", "changelog.d/A5.md");
+    commitAll(dir, "four");
+    for (const args of [["0.6.0", "--check-docs"], ["0.6.0", "--dry-run"], ["0.6.0"]]) expect(run(dir, ...args).code, args.join(" ")).toBe(0);
+    expect(read(dir, "CHANGELOG.md")).toContain("## 0.6.0\n\nLook\n\n- Entry 1.\n- Entry 2.\n- Entry 3.\n- Entry 4.\n\n## 0.5.1");
+
+    // six fragments pass with the file
+    const five = repoWith([1, 2, 3, 4, 5, 6].map(entry));
+    fragment(five, "_highlights", "- The page is calmer.\n");
+    commitAll(five, "highlights");
+    expect(run(five, "0.6.0", "--check-docs").code).toBe(0);
+  });
+
+  it("refuses a highlights file that is empty or has a section or upgrade line", () => {
+    const dir = repoWith(["section: Look\n- x\n"]);
+    for (const [text, why] of [
+      ["\n  \n", "has no lines"],
+      ["section: Look\n- x\n", "does not belong here"],
+      ["- x\nupgrade: Run it.\n", "does not belong here"],
+    ] as const) {
+      fragment(dir, "_highlights", text);
+      commitAll(dir, "highlights");
+      const r = run(dir, "0.6.0", "--check-docs");
+      expect(r.code, text).toBe(1);
+      expect(r.err, text).toContain("changelog.d/_highlights.md");
+      expect(r.err, text).toContain(why);
+    }
+  });
+
+  // The publish script is left out of the public repo, so this public file does not name it: the test runs where the
+  // script is, and is skipped in a tree without it.
+  const TOOLS = fileURLToPath(new URL("../", import.meta.url));
+  const PUBLISH = readdirSync(TOOLS).find((f) => /^publish-.*\.sh$/.test(f));
+  it.skipIf(!PUBLISH)("the public export of a release leaves the Internal section out and keeps the highlights", () => {
+    const dir = repoWith([
+      "section: Look\n- The page is calmer.\nupgrade: Run the update once.\n",
+      "section: Internal\n- INTERNAL-NOTE-ONE\n- INTERNAL-NOTE-TWO\n",
+    ]);
+    fragment(dir, "_highlights", "- A refund cancels its payment.\n");
+    commitAll(dir);
+    expect(run(dir, "0.6.0").code).toBe(0);
+    expect(read(dir, "CHANGELOG.md")).toContain("INTERNAL-NOTE-ONE");
+    // the publish tool runs from the private repository's own tools folder
+    put(dir, `tools/${PUBLISH}`, readFileSync(join(TOOLS, PUBLISH as string), "utf8"));
+    commitAll(dir, "Release 0.6.0");
+
+    const out = join(mkdtempSync(join(tmpdir(), "prepare-public-")), "tree");
+    dirs.push(dirname(out));
+    const r = spawnSync("bash", [`tools/${PUBLISH}`, "--export", out], { cwd: dir, encoding: "utf8", env: ENV });
+    expect(r.stderr).toBe("");
+    expect(r.status).toBe(0);
+    const published = readFileSync(join(out, "CHANGELOG.md"), "utf8");
+    expect(published).toBe(
+      "# Changes\n\nUpdate with the script.\n\n## 0.6.0\n\n- A refund cancels its payment.\n\nLook\n\n- The page is calmer.\n\nUpgrade\n\n- Run the update once.\n\n## 0.5.1\n\n- An old entry.\n",
+    );
+    for (const word of ["Internal", "INTERNAL-NOTE", "private"]) expect(published).not.toContain(word);
+    // the private repository's file keeps it
+    expect(read(dir, "CHANGELOG.md")).toContain("<!-- private -->\nInternal\n\n- INTERNAL-NOTE-ONE\n- INTERNAL-NOTE-TWO\n<!-- /private -->\n\n## 0.5.1");
   });
 });

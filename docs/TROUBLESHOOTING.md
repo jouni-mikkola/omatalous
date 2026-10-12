@@ -21,13 +21,23 @@ The tables below list the usual cases. Messages from the scripts are in English,
 
 ## During the install
 
-Running `./scripts/install.sh` again after a fix is always safe. It continues where it stopped.
+Pasting the install command from [step 1 of the install guide](INSTALL.md#1-get-omatalous) again after a fix is always
+safe, and so is `./scripts/install.sh` in the folder `~/omatalous`. It continues where it stopped. If you gave `--dir` or
+`--new-instance` the first time, paste the command with the same option, or it starts another install in `~/omatalous`.
 
 | What you see | What to do |
 |---|---|
-| `git: command not found` | Run `sudo apt update && sudo apt install -y git`, then continue from [step 1 of the install guide](INSTALL.md#1-get-omatalous). |
+| `curl: command not found` | Run `sudo apt update && sudo apt install -y curl`, then paste the install command again. |
+| `omatalous-install.sh: FAILED` and "computed checksum did NOT match" | The downloaded file differs from the hash in the command, so nothing ran. The page can take ten minutes to update after a release: wait, then paste the command again. If it fails again, do not run the file, and report it as [SECURITY.md](../SECURITY.md) says. |
+| "Run this as your normal user, not as root" | Log in as your normal user and paste the command again. The installer asks for `sudo` when it needs it. |
+| `git: command not found` or "git is missing" | The script offers to install git. If you said no, run `sudo apt update && sudo apt install -y git`, then paste the install command again. |
+| "Omatalous has no release yet", "GitHub did not answer" or "GitHub answered with HTTP ..." | Wait a few minutes and paste the command again. The message also prints the commands that install without the script. |
+| "... is not a clone of Omatalous" | The folder (`~/omatalous` unless you gave `--dir`) holds something else, and the script leaves it alone. Add `--dir FOLDER` with a new folder to the end of the command. |
+| "... is not on the main branch" | The newest release is not part of the project's main branch, so the script refused it and installed nothing. Do not install it by hand, and report it as [SECURITY.md](../SECURITY.md) says. |
 | "Docker is missing" or `docker: command not found` | Run `./scripts/install.sh --install-docker`. It installs Docker and carries on with the install. |
-| "Your user has no access to Docker" or `permission denied ... docker.sock` | Type `exit`, log in again and run `./scripts/install.sh --install-docker` again. The installer gave your user the Docker right, and logging in again makes it take effect. |
+| "Your user has no access to Docker" or `permission denied ... docker.sock` | Close the SSH connection and open it again (or log out and in on the machine itself), then paste the install command again. The installer gave your user the Docker right, and a new login makes it take effect. The installer tries to carry on in a new session by itself first, with `sg` or, where that is missing (Ubuntu 26.04.1), with `sudo`. |
+| "Make it now with ./scripts/cloudflare-setup.sh?" | Choice 3 (Cloudflare Tunnel) found no settings file. Answer `y` and the installer runs that script: it asks for an API token (the installer shows where the token is made and which permissions it needs), the domain and the emails Access lets in. If you answer `n` or the script fails, the installer asks for a tunnel token from the Cloudflare dashboard instead. |
+| No QR code under the setup link | Install `qrencode` (`sudo apt install qrencode`) and run `./scripts/install.sh` again. The installer never installs it by itself. |
 | "Only ... MB free on the disk" or "The disk filled up during the build" | Free disk space with `docker image prune -f && docker builder prune -f`, then run the installer again. |
 | The build stops and the machine has less than 2 GB of memory | Give the machine more memory, then run the installer again. |
 | "The build had no network connection" | The machine cannot reach the internet. Check that `curl -I https://registry.npmjs.org` answers, then run the installer again. |
@@ -52,8 +62,10 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 
 | What you see | What to do |
 |---|---|
-| The browser stays on the `github.io` page or shows an error after the Nordea login | Use a device on your home Wi-Fi and try again. If it still fails, copy the whole address from the browser's address bar and paste it under *Asetukset > Pankkiyhteydet > Paluusivu ei auennut?*. |
+| The browser stays on the `github.io` page or shows an error after the bank login | Use a device on your home Wi-Fi and try again. If it still fails, copy the whole address from the browser's address bar and paste it under *Asetukset > Pankkiyhteydet > Paluusivu ei auennut?*. |
 | A message that names Enable Banking, or an account or a card that is missing | The messages and what they mean are in [Errors](ENABLE_BANKING.md#errors). |
+| "Liian monta testiä peräkkäin. Odota muutama minuutti." | A test of an Enable Banking key or Application ID sends a request to Enable Banking, so a member can run eight in ten minutes and the admin's checks share eight for the whole copy. Wait and try again. |
+| A bank is missing from the list of *Lisää pankkiyhteys* | The list shows the banks your Enable Banking app offers. Check the app under *Asetukset > Palvelin*, see [Choosing a bank](ENABLE_BANKING.md#choosing-a-bank). |
 
 ## Updates
 
@@ -73,5 +85,24 @@ Running `./scripts/install.sh` again after a fix is always safe. It continues wh
 |---|---|
 | Your own domain has no certificate | Check that the DNS record points to your public address and that ports 80 and 443 are forwarded to the machine, then read `docker compose logs caddy`. |
 | The Cloudflare address shows an error page | Read `docker compose logs tunnel`. Check that the tunnel's service is `http://banking:8080`. |
+| Every page answers "Pääsy estetty." | The app checks the Cloudflare Access token itself and refuses a request without a valid one. Open the app at its Cloudflare address, not at the home address or `http://localhost:<port>`, which are closed once the check is on. If the Cloudflare address answers it too, `CF_ACCESS_AUD` or `CF_ACCESS_TEAM_DOMAIN` in `.env` is wrong. Fix it, or remove both lines and run `docker compose up -d`. Ten failed checks from one address within 15 minutes also close that address for the rest of the window. |
+| After turning on remote access the home address no longer opens | That is meant. Open `https://<the address>` and sign in through Cloudflare. If nobody gets in within 15 minutes, the server takes the address off by itself and the home address works again, and *Asetukset > Turvallisuus* shows "Etäkäyttö poistettu, koska kukaan ei päässyt sisään". Check the address and that your email is on the list, then turn it on again. |
+| Remote access is on and the page cannot be opened | Run `./scripts/install.sh --reconfigure` on the machine and choose another way in. The helper's copy of the `.env` from before its last change is `ops/env.prev`. |
+| The Etäkäyttö page says the helper is missing or out of date | Run `./scripts/install.sh --ops-helper` on the machine. |
+| `secret rotate` stops and names the Cloudflare API token | The token saved on the Etäkäyttö page cannot be opened with the current secret, so it cannot be sealed again. Nothing was changed. Remove the token on the page, run the rotation again and save the token afterwards. |
 | A second copy does not start | Run its own `./scripts/doctor.sh` in its folder, for example `cd ~/isa`. |
 | A backup is missing from `backups/` | Read `backups/backup.log` and check the cron line with `crontab -l`. |
+| `backup.log` says a file "is a link, so ... was not copied" | The copy to the NAS never writes through a link on the share. Someone put a link where the backup would go. Remove it from the share. The backup itself is in `backups/`. |
+| `restore.sh` says a file "does not open the saved bank keys of this database" | The `--secret` file is not the app secret of that backup, for example another copy's. The database was restored and the current app secret stays, so the saved bank keys stay locked. Run the restore again with the right `.app_secret.age` file, see [Restore a backup](ADVANCED.md#restore-a-backup). |
+
+## Loans
+
+| What you see | What to do |
+|---|---|
+| "PDF on suojattu salasanalla. Liitä lainasta kuvakaappaus tai teksti." | The reader cannot open a PDF that has a password. Paste a screenshot or the text of the loan instead. |
+| "PDF-tiedostossa on pelkkä kuva. Ota siitä kuvakaappaus ja liitä se." | The PDF holds a picture and no text. Take a screenshot of it and paste that. |
+| "Kuva on liian suuri, yli 40 miljoonaa pikseliä. Ota lainan tiedoista kuvakaappaus." or "Tiedosto on liian suuri. Ota lainan tiedoista kuvakaappaus." | The file is refused before it is opened, so a huge file cannot fill the phone's memory. A screenshot of the loan page is small enough. |
+| "Lukeminen ei edennyt, joten se keskeytettiin. Yritä uudelleen tai liitä lainan tiedot tekstinä." | The reading made no progress for two minutes. Try again, or copy the loan's text from the bank's page and paste it. *Keskeytä* ends a reading earlier. |
+| The first picture takes a while | The picture reader, about 11 MB with its Finnish and English data, is fetched from the app the first time a picture arrives. It is read in the browser and nothing is sent. |
+| *Tallenna* does not work | A field marked *Tarkista* is outlined. Tick it as right, or correct it. Everything read from a picture is *Tarkista*. |
+| The debt appears twice in *Lainat* | A saved loan cannot yet be tied to a connected card or loan account. When both may be the same debt, both are counted and *Lainat* says so. Removing the saved loan fixes it. |

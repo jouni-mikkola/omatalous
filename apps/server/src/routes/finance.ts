@@ -2,8 +2,7 @@
 import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
 import { parseScope, requestInputs, sharedInView } from "../services/analysis.ts";
-import { hasInstanceCredentials, instanceAppInactive, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
-import { BANKS } from "../connectors/enable-banking/banks.ts";
+import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
@@ -24,7 +23,7 @@ export function financeRoutes(s: Services) {
     const user = c.get("user");
     const repo = repoOf(user.id);
     const accounts = await repo.listAccounts();
-    const [connections, runs, sharedAccounts, members, creds, shared, inactive] = await Promise.all([
+    const [connections, runs, sharedAccounts, members, creds, shared, inactive, banks] = await Promise.all([
       repo.listConnections(),
       repo.listSyncRuns(1),
       // the household view's own list: a joint account linked by both partners is shown once
@@ -33,6 +32,8 @@ export function financeRoutes(s: Services) {
       s.users.getBankCredentials(user.id),
       hasInstanceCredentials(s),
       instanceAppInactive(s),
+      // the banks the instance's own application lists, asked once a day (app-setup.ts)
+      offeredBanks(s),
     ]);
     const today = s.today();
     const { privacyUrl, termsUrl } = registrationUrls(s);
@@ -42,7 +43,8 @@ export function financeRoutes(s: Services) {
       categories: CATEGORIES,
       kinds: KIND_LABEL,
       accounts: await accountsView(s, user.id, accounts),
-      sharedAccounts,
+      // without the bank of the owner's connection: the member sees the account by its name, and a card has no IBAN that tells more
+      sharedAccounts: sharedAccounts.map(({ bank: _bank, ...account }) => account),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
       connections: connections.map((conn) => connectionView(conn, today, accounts, connections)),
@@ -53,7 +55,8 @@ export function financeRoutes(s: Services) {
         // why it is off: the picker says the app is not active yet instead of asking to set it up
         inactive: !creds && !!shared && inactive,
         source: creds ? "user" : shared ? "instance" : null,
-        banks: BANKS.map(({ id, name, country }) => ({ id, name, country })),
+        // `logo` says the server serves the bank's logo (routes/bank-logos.ts); the address itself stays on the server
+        banks: banks.map(({ id, name, country, logo }) => ({ id, name, country, logo })),
         redirectUrl: s.redirectUrl(),
         // a member making their own app types these into the Control Panel's form
         privacyUrl,

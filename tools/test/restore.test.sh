@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests for scripts/restore.sh with docker and age stubbed. A world is a clone with the script, a .env, and a fake
 # data and secrets volume. The docker stub runs the `sh -c` scripts on the fake volumes (paths mapped), plays
-# `node dist/node.js restore` the way db/restore.ts answers, and logs every call to S/log for order checks.
+# `node dist/node.js restore` the way db/restore.ts answers, plays `secret check` against the secret the restored
+# database is sealed with (V/sealed-with, no file = no bank keys stored), and logs every call to S/log for order checks.
 #
 #   tools/test/restore.test.sh [name-filter]
 set -u
@@ -23,7 +24,7 @@ stubs() { # stubs DIR
 S=$(cd "$(dirname "$0")" && pwd); V=$S/../vol
 printf 'docker %s\n' "$*" >>"$S/log"
 flag() { [[ -e $S/flag-$1 ]]; }
-map() { local a=$1; a=${a//\/secrets/$V/secrets}; a=${a//\/data/$V/data}; printf '%s' "$a"; }
+map() { local a=$1; a=${a//\/tmp/$V/tmp}; a=${a//\/secrets/$V/secrets}; a=${a//\/data/$V/data}; printf '%s' "$a"; }
 [[ $1 == compose ]] || exit 0
 shift
 case $1 in
@@ -84,13 +85,29 @@ else
 fi
 tail -n +3 "$f"
 STUB
+  # node dist/node.js secret check FILE: exit 0 when the file holds the secret the restored database is sealed with (or
+  # none is stored), 4 when it holds another, 1 when the check could not run: the statuses of cli.ts. The sentences are
+  # the stub's own, since restore.sh reads the status and only shows the last line. Never prints the secret.
+  cat >"$1/node" <<'STUB'
+#!/usr/bin/env bash
+S=$(cd "$(dirname "$0")" && pwd); V=$S/../vol
+printf 'node %s\n' "$*" >>"$S/log"
+[[ " $* " == *" secret check "* ]] || exit 2
+[[ -e $S/running ]] && echo "CHECK WHILE RUNNING" >>"$S/log"
+grep -aq BACKUP "$V/data/banking.db" || echo "CHECK BEFORE THE SWAP" >>"$S/log"
+if [[ -e $S/flag-check-crashes ]]; then echo "Could not open the database. disk I/O error" >&2; exit 1; fi
+f=${*: -1}
+[[ -r $f ]] || { echo "The secret file cannot be read. Give its path: secret check <file>" >&2; exit 1; }
+if [[ ! -e $V/sealed-with || $(tr -d '\n' <"$f") == "$(tr -d '\n' <"$V/sealed-with")" ]]; then echo "The secret fits the stored bank keys."; exit 0; fi
+echo "Not the secret of this database." >&2; exit 4
+STUB
   printf '#!/bin/sh\nexit 0\n' >"$1/sleep"
-  chmod +x "$1/docker" "$1/age" "$1/sleep"
+  chmod +x "$1/docker" "$1/age" "$1/node" "$1/sleep"
 }
 
 new_world() {
   W=$(mktemp -d "$ROOT/w.XXXX"); CL=$W/clone; S=$W/stub; V=$W/vol
-  mkdir -p "$CL/scripts" "$S" "$V/data" "$V/secrets" "$W/home" "$W/files"
+  mkdir -p "$CL/scripts" "$S" "$V/data" "$V/secrets" "$V/tmp" "$W/home" "$W/files"
   cp "$SRC/scripts/restore.sh" "$CL/scripts/"; echo '# lock' >"$CL/scripts/install.sh"
   printf 'INSTANCE_NAME=banking-app\nAPP_BASE_URL=https://talous.example.test\n' >"$CL/.env"
   stubs "$S"; touch "$S/running" "$S/log"
@@ -191,16 +208,52 @@ t_secret_kept_as_prev() {
   check "--secret: the old secret is kept as .prev-<stamp> (rotation's form)" bash -c "[[ '$prev' =~ app_secret\\.prev-[0-9]{8}T[0-9]{6}\$ ]] && grep -q old-secret '$prev'"
   check "--secret: both files are mode 600" bash -c "[[ \$(stat -c %a '$V/secrets/app_secret') == 600 && \$(stat -c %a '$prev') == 600 ]]"
   check "--secret: no .next left" bash -c "[[ ! -e '$V/secrets/app_secret.next' ]]"
-  check "--secret: written after the restore, before the start" bash -c "$(declare -f before); S='$S'; before ' restore /data/restore-' 'cat > \"\$f.next\"' && before 'cat > \"\$f.next\"' 'compose start banking'"
+  check "--secret: tried on the restored database, then written, all before the start" bash -c "$(declare -f before); S='$S'; before ' restore /data/restore-' 'secret check' && before 'secret check' 'compose start banking' && ! grep -q 'CHECK WHILE RUNNING\|CHECK BEFORE THE SWAP' '$S/log'"
+  check "--secret: a database with no saved bank keys takes any well-formed secret" bash -c "[[ ! -e '$V/sealed-with' ]] && grep -q '^node .*secret check' '$S/log'"
+  check "--secret: the secret does not stay in the container's /tmp" bash -c "[[ -z \$(ls -A '$V/tmp') ]]"
   check "--secret: the summary names the old secret" out_has "The previous app secret is in the secrets volume as app_secret.prev-"
   check "--secret: no hint to add --secret" bash -c "! grep -q 'add --secret' '$W/out'"
   check "--secret: the plain secret never lands in the folders" bash -c "! grep -rq new-secret '$CL' '$W/home' 2>/dev/null"
   new_world; mkdb "$W/files/a.db" BACKUP; printf 'old-secret-0123456789abcdefghijklmnopqrstuvwxyz\n' >"$W/files/same"
   run_restore a.db --secret same
-  check "the same secret again: no .prev- file" bash -c "[[ \$(cat '$W/rc') == 0 ]] && ! compgen -G '$V/secrets/app_secret.prev-*' >/dev/null && grep -q 'already this one' '$W/out'"
+  check "the same secret again: no .prev- file, nothing to try" bash -c "[[ \$(cat '$W/rc') == 0 ]] && ! compgen -G '$V/secrets/app_secret.prev-*' >/dev/null && grep -q 'already this one' '$W/out' && ! grep -q '^node ' '$S/log'"
   new_world; mkdb "$W/files/a.db" BACKUP; echo short >"$W/files/short"
   run_restore a.db --secret short
   check "a short secret: refused before anything changes" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'is not an app secret' '$W/out' && ! grep -q 'compose stop' '$S/log' && grep -aq CURRENT '$V/data/banking.db'"
+}
+# The database's bank keys are sealed with a secret (V/sealed-with). Only a secret that opens them replaces the app secret.
+t_secret_checked() {
+  new_world; mkdb "$W/files/a.db" BACKUP
+  printf 'sealed-secret-0123456789abcdefghijklmnopqrstuvwxyz\n' >"$V/sealed-with"
+  printf 'another-copys-secret-0123456789abcdefghijklmnopqrs\n' >"$W/files/wrong"
+  run_restore a.db --secret wrong
+  check "a wrong secret: refused with the reason, exit is not 0" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'wrong does not open the saved bank keys of this database' '$W/out' && grep -q 'the app secret was not changed' '$W/out'"
+  check "a wrong secret: the old app secret stays, nothing else is left in the secrets volume" bash -c "grep -q '^old-secret-' '$V/secrets/app_secret' && [[ \$(ls -A '$V/secrets') = app_secret ]]"
+  check "a wrong secret: the candidate is gone from the container's /tmp" bash -c "[[ -z \$(ls -A '$V/tmp') ]]"
+  check "a wrong secret: the secret is not printed" bash -c "! grep -q 'another-copys-secret' '$W/out' && ! grep -q 'sealed-secret' '$W/out'"
+  check "a wrong secret: the database was restored and the app runs again" bash -c "grep -aq BACKUP '$V/data/banking.db' && [[ -e '$S/running' ]] && grep -q 'The app was started again' '$W/out'"
+  check "a wrong secret: tried after the restore and before the start" bash -c "$(declare -f before); S='$S'; before ' restore /data/restore-' 'secret check' && before 'secret check' 'compose start banking' && ! grep -q 'CHECK WHILE RUNNING\|CHECK BEFORE THE SWAP' '$S/log'"
+
+  new_world; mkdb "$W/files/a.db" BACKUP
+  printf 'sealed-secret-0123456789abcdefghijklmnopqrstuvwxyz\n' >"$V/sealed-with"
+  cp "$V/sealed-with" "$W/files/right"
+  run_restore a.db --secret right
+  check "the right secret: exit 0, installed, the old one kept as .prev-" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q '^sealed-secret-' '$V/secrets/app_secret' && grep -q old-secret \"\$(compgen -G '$V/secrets/app_secret.prev-*' | head -1)\" && grep -q 'App secret put back' '$W/out'"
+  check "the right secret: tried on the restored database before it was installed" bash -c "$(declare -f before); S='$S'; before ' restore /data/restore-' 'secret check' && before 'secret check' 'compose start banking'"
+  check "the right secret: no .next and no candidate left" bash -c "[[ ! -e '$V/secrets/app_secret.next' && -z \$(ls -A '$V/tmp') ]]"
+
+  new_world; mkdb "$W/files/a.db" BACKUP; touch "$S/flag-check-crashes"
+  printf 'new-secret-0123456789abcdefghijklmnopqrstuvwxyz\n' >"$W/files/s"
+  run_restore a.db --secret s
+  check "a check that cannot run: refused, says so with its last line, the old secret stays" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'could not be tried on it (Could not open the database' '$W/out' && grep -q '^old-secret-' '$V/secrets/app_secret' && ! compgen -G '$V/secrets/app_secret.prev-*' >/dev/null"
+  check "a check that cannot run: the database was restored and the app runs again" bash -c "grep -aq BACKUP '$V/data/banking.db' && [[ -e '$S/running' ]]"
+
+  # an age-encrypted secret file is tried the same way, after age has opened it
+  new_world; mkdb "$W/files/a.db" BACKUP
+  printf 'sealed-secret-0123456789abcdefghijklmnopqrstuvwxyz\n' >"$V/sealed-with"
+  printf 'another-copys-secret-0123456789abcdefghijklmnopqrs\n' >"$W/s"; agefile "$W/files/talous-20261009-033000.app_secret.age" "$W/s"
+  run_restore a.db --secret talous-20261009-033000.app_secret.age
+  check "an encrypted wrong secret: refused, the old secret stays" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'does not open the saved bank keys' '$W/out' && grep -q '^old-secret-' '$V/secrets/app_secret'"
 }
 t_wrong_file_refused() {
   new_world; echo "just some notes" >"$W/files/notes.db"
@@ -248,7 +301,7 @@ t_refusals_before_change() {
   fi
 }
 
-for t in t_plain_db t_gz t_age t_age_without_key t_failed_restore_starts_app t_secret_kept_as_prev t_wrong_file_refused \
+for t in t_plain_db t_gz t_age t_age_without_key t_failed_restore_starts_app t_secret_kept_as_prev t_secret_checked t_wrong_file_refused \
   t_app_does_not_come_up t_address t_refusals_before_change; do
   want "$t" && "$t"
 done

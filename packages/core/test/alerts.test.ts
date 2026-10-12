@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { contextOf, seededHousehold } from "../../../tools/findings/households.ts";
 import { type Alert, buildAlerts } from "../src/analysis/alerts.ts";
 import { createContext } from "../src/analysis/context.ts";
-import { addDays } from "../src/dates.ts";
+import { formatEur, monthInessive } from "../src/analysis/format.ts";
+import { addDays, addMonths, monthEnd, monthOf, monthRange } from "../src/dates.ts";
+import { spendingChangeReport } from "../src/reports/spending-change.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
@@ -120,12 +123,50 @@ describe("alerts", () => {
   describe("spike", () => {
     const march = { from: "2026-03-01", to: "2026-03-31" };
     const wolt = (date: string, cents = -3400) => tx({ merchant: "Wolt", category: "food_delivery", bookingDate: date, amountCents: cents });
-    const usual = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-04"].flatMap((m) => [5, 14, 23].map((d) => wolt(`${m}-${String(d).padStart(2, "0")}`)));
+    /** Three orders on the 5th, 14th and 23rd, or more on every second day from the 2nd. */
+    const orders = (month: string, n: number) => Array.from({ length: n }, (_, i) => wolt(`${month}-${String(n > 3 ? i * 2 + 2 : 5 + i * 9).padStart(2, "0")}`));
+    const usual = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-04"].flatMap((m) => orders(m, 3));
+    /** The usual view of the change report for the same rows and period: the alert may only repeat it (ADR 0013). */
+    const reportOf = (rows: Transaction[], range: { from: string; to: string }, now = today) => spendingChangeReport(createContext(rows, [checking], now), range).views.find((v) => v.view === "usual")!;
 
     it("a category far above its usual months", () => {
-      const spike = Array.from({ length: 12 }, (_, i) => wolt(`2026-03-${String(i * 2 + 2).padStart(2, "0")}`));
-      const [a] = ofKind(alertsOf([...household(), ...usual, ...spike], march), "spike");
+      const [a] = ofKind(alertsOf([...household(), ...usual, ...orders("2026-03", 12)], march), "spike");
       expect(a).toMatchObject({ id: "spike:food_delivery:2026-03", tone: "warning", title: "Ruoan kotiinkuljetus 408 € maaliskuussa", detail: "Tavallisesti noin 102 €/kk", category: "food_delivery" });
+    });
+
+    it("the amount and the usual level are the change report's: one-offs struck from the usual months, a returned order counted at nothing", () => {
+      // a party order in three of the five usual months lifts their median to 252 €; struck, the usual level is 102 €
+      const catering = (merchant: string, date: string, cents: number) => tx({ merchant, category: "food_delivery", bookingDate: date, amountCents: cents });
+      const parties = ["2025-11", "2025-12", "2026-01"].map((m) => catering(`Pitopalvelu ${m}`, `${m}-18`, -15000));
+      // an order of 300 € cancelled and paid back in March
+      const returned = [catering("Kotipizza", "2026-03-07", -30000), catering("Kotipizza", "2026-03-09", 30000)];
+      const rows = [...household(), ...usual, ...parties, ...orders("2026-03", 12), ...returned];
+      const report = reportOf(rows, march);
+      expect(report.change.categories.find((c) => c.category === "food_delivery")).toMatchObject({ nowCents: 40800, baseCents: 10200 });
+      expect(plain(report.sentence)).toContain("Ruoan kotiinkuljetus +306 € (useammin)");
+      expect(ofKind(alertsOf(rows, march), "spike")).toMatchObject([{ title: "Ruoan kotiinkuljetus 408 € maaliskuussa", detail: "Tavallisesti noin 102 €/kk" }]);
+    });
+
+    it("on seeded households every spike is a row of the report that rose over the gate and stands out, with the row's amount and usual level", () => {
+      let spikes = 0;
+      for (const h of [seededHousehold(1, true), seededHousehold(2, true), seededHousehold(4, true)]) {
+        const ctx = contextOf(h);
+        for (let m = monthOf(ctx.dataFrom!); m < monthOf(h.today); m = addMonths(m, 1)) {
+          const range = { from: `${m}-01`, to: monthEnd(m) };
+          const found = buildAlerts(ctx, range).filter((a) => a.kind === "spike");
+          if (!found.length) continue;
+          const { change } = spendingChangeReport(ctx, range).views.find((v) => v.view === "usual")!;
+          for (const a of found) {
+            const row = change.categories.find((c) => c.category === a.category)!;
+            expect(row).toMatchObject({ kind: "category", standsOut: true });
+            expect(row.changeCents).toBeGreaterThanOrEqual(change.gateCents);
+            expect(a.title).toBe(`${row.label} ${formatEur(row.nowCents, false)} ${monthInessive(m)}`);
+            expect(a.detail).toBe(row.baseCents >= 100 ? `Tavallisesti noin ${formatEur(Math.round(row.baseCents / 100) * 100, false)}/kk` : "Tavallisesti ei lainkaan");
+            spikes++;
+          }
+        }
+      }
+      expect(spikes).toBeGreaterThanOrEqual(5);
     });
 
     it("near misses: one big order, too few orders, a small rise, uncategorised", () => {
@@ -133,17 +174,19 @@ describe("alerts", () => {
       expect(ofKind(alertsOf([...household(), ...usual, ...big], march), "spike")).toEqual([]);
       const two = [wolt("2026-03-03", -20000), wolt("2026-03-10", -20000)];
       expect(ofKind(alertsOf([...household(), ...usual, ...two], march), "spike")).toEqual([]);
-      const small = [3, 9, 15, 21, 27].map((d) => wolt(`2026-03-${String(d).padStart(2, "0")}`));
+      // four orders are 34 € over the usual three: under 50 €
+      const small = [3, 9, 15, 21].map((d) => wolt(`2026-03-${String(d).padStart(2, "0")}`));
       expect(ofKind(alertsOf([...household(), ...usual, ...small], march), "spike")).toEqual([]);
-      const other = [...usual, ...Array.from({ length: 12 }, (_, i) => wolt(`2026-03-${String(i * 2 + 2).padStart(2, "0")}`))].map((t) => ({ ...t, category: "other" }));
+      const other = [...usual, ...orders("2026-03", 12)].map((t) => ({ ...t, category: "other" }));
       expect(ofKind(alertsOf([...household(), ...other], march), "spike")).toEqual([]);
     });
 
-    it("near miss: the same twelve orders after months that swing from none to seven", () => {
+    it("near miss: the same twelve orders after months that swing from none to seven, which the report does not name either", () => {
       const counts: [string, number][] = [["2025-10", 0], ["2025-11", 7], ["2025-12", 1], ["2026-01", 6], ["2026-02", 2]];
       const swinging = counts.flatMap(([m, n]) => Array.from({ length: n }, (_, i) => wolt(`${m}-${String(2 + i * 4).padStart(2, "0")}`)));
-      const spike = Array.from({ length: 12 }, (_, i) => wolt(`2026-03-${String(i * 2 + 2).padStart(2, "0")}`));
-      expect(ofKind(alertsOf([...household(), ...swinging, ...spike], march), "spike")).toEqual([]);
+      const rows = [...household(), ...swinging, ...orders("2026-03", 12)];
+      expect(ofKind(alertsOf(rows, march), "spike")).toEqual([]);
+      expect(reportOf(rows, march).bars.map((b) => b.category)).not.toContain("food_delivery");
     });
 
     it("near miss: a car repair on top of fuel that is as high as some months before", () => {
@@ -152,6 +195,24 @@ describe("alerts", () => {
       const usualFuel = Object.entries(months).flatMap(([m, n]) => fuel(m, n));
       const june = [...fuel("2026-06", 4), tx({ merchant: "Autokorjaamo", category: "car", bookingDate: "2026-06-10", amountCents: -61240 })];
       expect(ofKind(alertsOf([...household(), ...usualFuel, ...june], { from: "2026-06-01", to: "2026-06-30" }), "spike")).toEqual([]);
+    });
+
+    it("near miss: new subscriptions and bigger bills are the report's to tell, with no spike on top", () => {
+      const charge = (merchant: string, category: string, start: string, cents: number) => monthly(start, 13, cents, { merchant, category });
+      const old = [charge("Netflix", "subscriptions", "2025-10-04", -1599), charge("Spotify", "subscriptions", "2025-10-11", -1199), charge("HBO Max", "subscriptions", "2025-10-19", -999)].flat();
+      const started: [string, string, number][] = [["Disney+", "2026-03-06", -1399], ["Viaplay", "2026-03-13", -1799], ["Ruutu", "2026-03-20", -2999]];
+      const subscribed = [...household(), ...old, ...started.flatMap(([name, start, cents]) => charge(name, "subscriptions", start, cents))];
+      expect(reportOf(subscribed, march).bars[0]).toMatchObject({ category: "subscriptions", cents: 6197, cause: "uudet kaupat" });
+      expect(ofKind(alertsOf(subscribed, march), "spike")).toEqual([]);
+      // the same three charges once, with no contract behind them, are more purchases
+      const once = [...household(), ...old, ...started.map(([name, start, cents]) => tx({ merchant: name, category: "subscriptions", bookingDate: start, amountCents: cents }))];
+      expect(ofKind(alertsOf(once, march), "spike")).toMatchObject([{ title: "Tilaukset ja suoratoisto 100 € maaliskuussa", detail: "Tavallisesti noin 38 €/kk" }]);
+
+      // three bills that double for a month
+      const bills: [string, string, number][] = [["Helen", "2025-10-08", -6000], ["HSY", "2025-10-15", -4000], ["Fortum", "2025-10-22", -5000]];
+      const dearer = [...household(), ...bills.flatMap(([name, start, cents]) => charge(name, "utilities", start, cents).map((t, i) => ({ ...t, amountCents: t.bookingDate.startsWith("2026-03") ? 2 * cents : cents - (i % 3) * 200 })))];
+      expect(reportOf(dearer, march).bars[0]).toMatchObject({ category: "utilities", cause: "suurempi lasku" });
+      expect(ofKind(alertsOf(dearer, march), "spike")).toEqual([]);
     });
 
     it("near miss: Christmas presents in the first year of history", () => {
@@ -164,6 +225,117 @@ describe("alerts", () => {
       expect(spikes([...usualShops, ...five("2025-12")], "2025-12", "2026-01-05")).toEqual([]);
       // the same five purchases in October are a spike
       expect(spikes([...usualShops.filter((t) => t.bookingDate < "2025-10"), ...five("2025-10")], "2025-10", "2025-11-05").map((a) => a.category)).toEqual(["shopping"]);
+    });
+
+    it("near miss: a month that moved as far a year ago is a season", () => {
+      const visits = (m: string, n: number) => Array.from({ length: n }, (_, i) => tx({ merchant: "Puuilo", category: "home", bookingDate: `${m}-${String(3 + i * 3).padStart(2, "0")}`, amountCents: -4500 }));
+      const july = { from: "2026-07-01", to: "2026-07-31" };
+      const spikes = (lastJuly: number) => ofKind(alertsOf(monthRange("2025-05", "2026-09").flatMap((m) => visits(m, m === "2026-07" ? 8 : m === "2025-07" ? lastJuly : 2)), july), "spike");
+      expect(spikes(6)).toEqual([]);
+      expect(spikes(2)).toMatchObject([{ title: "Koti ja elektroniikka 360 € heinäkuussa", detail: "Tavallisesti noin 90 €/kk" }]);
+    });
+
+    it("a new level is a spike in its first month, and the report's to tell after that", () => {
+      const rows = [...household(), ...["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"].flatMap((m) => orders(m, 3)), ...orders("2026-04", 12), ...orders("2026-05", 12)];
+      expect(ofKind(alertsOf(rows, { from: "2026-04-01", to: "2026-04-30" }), "spike").map((a) => a.id)).toEqual(["spike:food_delivery:2026-04"]);
+      const may = { from: "2026-05-01", to: "2026-05-31" };
+      expect(ofKind(alertsOf(rows, may), "spike")).toEqual([]);
+      expect(reportOf(rows, may).bars.map((b) => b.category)).toContain("food_delivery");
+    });
+
+    it("a running month is set against the same days of its usual months, and says nothing in its first week", () => {
+      const at = (now: string) => {
+        const rows = [...household(), ...usual, ...orders("2026-03", 12)].filter((t) => t.bookingDate <= now);
+        const range = { from: "2026-03-01", to: now };
+        const row = reportOf(rows, range, now).change.categories.find((c) => c.category === "food_delivery")!;
+        return { row: [row.nowCents, row.baseCents], spikes: buildAlerts(createContext(rows, [checking], now), range).filter((a) => a.kind === "spike").map((a) => [plain(a.title), plain(a.detail)]) };
+      };
+      // ten orders by the 20th against the two a usual month has had by then
+      expect(at("2026-03-20")).toEqual({ row: [34000, 6800], spikes: [["Ruoan kotiinkuljetus 340 € maaliskuussa", "Tavallisesti tähän mennessä noin 68 €"]] });
+      expect(at("2026-03-06").spikes).toEqual([]);
+    });
+
+    it("the month is the report's: a period that ends today shows the running month's alert, last month's spike shows when that month is selected", () => {
+      const spikesAt = (now: string, range: { from: string; to: string }) => {
+        const rows = [...household(), ...usual, ...orders("2026-03", 12)].filter((t) => t.bookingDate <= now);
+        expect(reportOf(rows, range, now).periodLabel).toBe(now < "2026-04" || range.to < "2026-04" ? "Maaliskuu" : "Huhtikuu");
+        return buildAlerts(createContext(rows, [checking], now), range).filter((a) => a.kind === "spike").map((a) => [plain(a.title), plain(a.detail)]);
+      };
+      // on 20.3. Kuukausi, 3 kk and Vuosi all end in the running March
+      const running = [["Ruoan kotiinkuljetus 340 € maaliskuussa", "Tavallisesti tähän mennessä noin 68 €"]];
+      expect(spikesAt("2026-03-20", { from: "2026-03-01", to: "2026-03-31" })).toEqual(running);
+      expect(spikesAt("2026-03-20", { from: "2026-01-01", to: "2026-03-31" })).toEqual(running);
+      expect(spikesAt("2026-03-20", { from: "2025-04-01", to: "2026-03-20" })).toEqual(running);
+      // on 10.4. the same periods end in April, which has one order so far; March tells its spike when it is selected
+      expect(spikesAt("2026-04-10", { from: "2026-02-01", to: "2026-04-30" })).toEqual([]);
+      expect(spikesAt("2026-04-10", { from: "2025-05-01", to: "2026-04-10" })).toEqual([]);
+      expect(spikesAt("2026-04-10", march)).toEqual([["Ruoan kotiinkuljetus 408 € maaliskuussa", "Tavallisesti noin 102 €/kk"]]);
+      // a period that ended in March before today reads March as well
+      expect(spikesAt("2026-04-10", { from: "2026-01-01", to: "2026-03-31" })).toEqual([["Ruoan kotiinkuljetus 408 € maaliskuussa", "Tavallisesti noin 102 €/kk"]]);
+    });
+
+    it("a rise whose causes each stay under the gate still alerts, with the row's figures", () => {
+      // usual spending 2 612 €/kk makes the gate 52 €. Restaurants are 50 €/kk, then September is 150 €:
+      // 50 € at a new restaurant and 50 € from two more visits to the old one
+      const now = "2026-10-12";
+      const months = monthRange("2025-10", "2026-10");
+      const eat = (merchant: string, date: string, cents = 2500) => tx({ merchant, category: "restaurants", bookingDate: date, amountCents: -cents });
+      const rows = [
+        ...months.map((m) => tx({ merchant: "Acme Oy", category: "salary", bookingDate: `${m}-25`, amountCents: 400000 })),
+        ...months.map((m) => tx({ merchant: "Sato", category: "housing", bookingDate: `${m}-02`, amountCents: -180000 })),
+        ...series("2025-10-01", 7, 54, (i) => -(15000 + (i % 5) * 1700), { merchant: "Prisma", category: "groceries" }),
+        ...months.filter((m) => m < "2026-09").flatMap((m, i) => [eat("Sea Horse", `${m}-0${5 + (i % 3)}`, 2400 + (i % 3) * 100), eat("Sea Horse", `${m}-${19 + (i % 4)}`, 2600 - (i % 3) * 100)]),
+        ...["05", "12", "19", "26"].map((d) => eat("Sea Horse", `2026-09-${d}`)),
+        ...["09", "23"].map((d) => eat("Kuu", `2026-09-${d}`)),
+      ].filter((t) => t.bookingDate <= now);
+      const september = { from: "2026-09-01", to: "2026-09-30" };
+      const { change } = reportOf(rows, september, now);
+      expect(change).toMatchObject({ baseCents: 261150, gateCents: 5223 });
+      expect(change.categories.find((c) => c.category === "restaurants")).toMatchObject({ nowCents: 15000, baseCents: 5000, changeCents: 10000, standsOut: true, buckets: [], restCents: 10000 });
+      const spikes = buildAlerts(createContext(rows, [checking], now), september).filter((a) => a.kind === "spike");
+      expect(spikes.map((a) => [plain(a.title), plain(a.detail)])).toEqual([["Ravintolat ja kahvilat 150 € syyskuussa", "Tavallisesti noin 50 €/kk"]]);
+    });
+
+    it("a rise ranked ninth, under the eight rows of the report's table, still alerts", () => {
+      // one larger purchase in each of eight categories fills the table; restaurants rise from two visits to six
+      const eat = (m: string, days: number[]) => days.map((d) => tx({ merchant: "Sea Horse", category: "restaurants", bookingDate: `${m}-${String(d).padStart(2, "0")}`, amountCents: -2500 }));
+      const larger = ["home", "health", "shopping", "kids", "pets", "entertainment", "travel", "education"];
+      const rows = [
+        ...household(),
+        ...monthRange("2025-10", "2026-08").flatMap((m) => eat(m, [6, 20])),
+        ...eat("2026-09", [4, 8, 12, 18, 22, 26]),
+        ...larger.map((category, i) => tx({ merchant: `Kauppa ${i}`, category, bookingDate: `2026-09-${String(3 + i * 3).padStart(2, "0")}`, amountCents: -(40000 + i * 5000) })),
+      ];
+      const september = { from: "2026-09-01", to: "2026-09-30" };
+      expect(reportOf(rows, september).change.categories.map((c) => c.category)).toEqual([...larger.reverse(), null]);
+      expect(ofKind(alertsOf(rows, september), "spike")).toMatchObject([{ title: "Ravintolat ja kahvilat 150 € syyskuussa", detail: "Tavallisesti noin 50 €/kk", category: "restaurants" }]);
+    });
+
+    it("when a card's rows lag, the alert names the day its figures are cut at", () => {
+      // the card's rows end on 10.10. and today is the 20th: the report compares the first ten days of the month
+      const now = "2026-10-20";
+      const card: Account = { id: "acc-2", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const rows = monthRange("2025-10", "2026-10")
+        .flatMap((m, i) => [
+          tx({ merchant: "Acme Oy", category: "salary", bookingDate: `${m}-25`, amountCents: 400000 }),
+          tx({ merchant: "Sato", category: "housing", bookingDate: `${m}-02`, amountCents: -120000 }),
+          // groceries on the card nearly every day
+          ...Array.from({ length: 27 }, (_, d) => tx({ accountId: "acc-2", merchant: "Prisma", category: "groceries", bookingDate: `${m}-${pad(d + 1)}`, amountCents: -(1800 + ((d + i) % 5) * 300) })).filter((t) => t.bookingDate <= "2026-10-10"),
+          // restaurants from the checking account: two visits in a usual month, in October eight by the 10th and four after it
+          ...(m === "2026-10" ? [1, 2, 4, 5, 6, 8, 9, 10, 12, 14, 16, 18] : [6 + (i % 3), 20 + (i % 4)]).map((d) => tx({ merchant: "Sea Horse", category: "restaurants", bookingDate: `${m}-${pad(d)}`, amountCents: -(2400 + (d % 3) * 100) })),
+        ])
+        .filter((t) => t.bookingDate <= now);
+      const ctx = createContext(rows, [checking, card], now);
+      const october = { from: "2026-10-01", to: "2026-10-31" };
+      const { change, sentence } = spendingChangeReport(ctx, october).views.find((v) => v.view === "usual")!;
+      expect(change).toMatchObject({ running: true, target: { to: "2026-10-10" } });
+      // the report's lead says the same words as the alert, not "tähän asti"
+      expect(sentence.replace(/\s/g, " ")).toBe("Lokakuu on 10.10. mennessä 176 € tavallista kalliimpi: Ravintolat ja kahvilat +176 € (useammin).");
+      expect(change.categories.find((c) => c.category === "restaurants")).toMatchObject({ nowCents: 20100, baseCents: 2500 });
+      // the page's rows of the category add up to 300 € by the 20th, so neither figure may read as today's
+      const spikes = buildAlerts(ctx, october).filter((a) => a.kind === "spike");
+      expect(spikes.map((a) => [plain(a.title), plain(a.detail)])).toEqual([["Ravintolat ja kahvilat 201 € 10.10. mennessä", "Tavallisesti siihen mennessä noin 25 €"]]);
     });
   });
 

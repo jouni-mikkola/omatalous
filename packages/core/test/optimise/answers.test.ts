@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { answeredInsights, type Insight, insightDismissSubject, insightInputOf } from "../../src/analysis/insights/index.ts";
+import { seriesMarkSubject } from "../../src/analysis/subscription-alerts.ts";
 import { allFindings, buildOptimise, coveredBy, type FindingState, type OptimiseInput } from "../../src/optimise/index.ts";
 import type { MarkKind, UserMark } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
@@ -113,6 +114,25 @@ describe("subscription findings read the household's marks", () => {
   it("Käytössä on every overlapping service answers the overlap; on one of them it does not", () => {
     expect(kinds(inputOf([SUBS], [mark("merchant:Spotify", "in_use", "2026-10-01")]))).toEqual(["overlap", "renewal", "rise"]);
     expect(kinds(inputOf([SUBS], [mark("merchant:Spotify", "in_use", "2026-10-01"), mark("merchant:Tidal", "in_use", "2026-10-01")]))).toEqual(["renewal", "rise"]);
+  });
+
+  it("a mark on one series answers for that series, and a mark on another price of the merchant does not", () => {
+    const subjectOf = (merchant: string) => seriesMarkSubject(inputOf([SUBS]).ctx.recurring.find((s) => s.merchant === merchant)!);
+    expect(kinds(inputOf([SUBS], [mark(subjectOf("Elisa"), "cancelled", "2026-10-01")]))).toEqual(["overlap", "renewal"]);
+    expect(kinds(inputOf([SUBS], [mark(subjectOf("Elisa"), "in_use", "2026-04-02")]))).toEqual(["overlap", "renewal"]);
+    expect(kinds(inputOf([SUBS], [mark(subjectOf("Elisa"), "in_use", "2026-02-01")]))).toEqual(["overlap", "renewal", "rise"]);
+    expect(kinds(inputOf([SUBS], [mark(subjectOf("Tidal"), "cancelled", "2026-10-01")]))).toEqual(["renewal", "rise"]);
+    expect(kinds(inputOf([SUBS], [mark(subjectOf("Storytel"), "in_use", "2026-01-10")]))).toEqual(["overlap", "rise"]);
+    expect(kinds(inputOf([SUBS], [mark(subjectOf("Spotify"), "in_use", "2026-10-01"), mark("merchant:Tidal", "in_use", "2026-10-01")]))).toEqual(["renewal", "rise"]);
+    // the merchant has no series at that price: the mark is on a series that is gone
+    const elsewhere = (merchant: string) => subjectOf(merchant).replace(/(#\d+)?$/, "#150");
+    for (const merchant of ["Elisa", "Tidal", "Storytel"]) expect(kinds(inputOf([SUBS], [mark(elsewhere(merchant), "cancelled", "2026-10-01")])), merchant).toEqual(["overlap", "renewal", "rise"]);
+
+    expect(ids(insightsOf(inputOf([NEW_SERVICE], [mark("series:out:h-chk:Viaplay#1299", "in_use", "2026-10-01")])).map((a) => a.insight))).not.toContain(NEW_ID);
+    expect(ids(insightsOf(inputOf([NEW_SERVICE], [mark("series:out:h-chk:Viaplay#1299", "cancelled", "2026-10-01")])).map((a) => a.insight))).not.toContain(NEW_ID);
+    expect(ids(insightsOf(inputOf([NEW_SERVICE], [mark("series:out:h-chk:Viaplay#299", "cancelled", "2026-10-01")])).map((a) => a.insight))).toContain(NEW_ID);
+    expect(ids(insightsOf(inputOf([SUBS], [mark(subjectOf("Elisa"), "in_use", "2026-04-02")])).map((a) => a.insight))).not.toContain(ELISA);
+    expect(ids(insightsOf(inputOf([SUBS], [mark(elsewhere("Elisa"), "in_use", "2026-04-02")])).map((a) => a.insight))).toContain(ELISA);
   });
 
   it("the insights of an answered service go too: a new charge and a price rise", () => {

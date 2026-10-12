@@ -5,13 +5,14 @@
  * scheduler as a backstop. A few names at a time with a pause between, so the
  * public API is not hammered.
  *
- * Only the merchant's name leaves the server, and only for names of
- * businesses (core industryCandidates): card purchases, direct debits and
- * payees with a company form in the name. Admins can turn it off
- * (Asetukset > Palvelin).
+ * Only the merchant's name leaves the server, and only a name whose rows
+ * say it is a business (core industryCandidates): a card purchase, a direct
+ * debit, an invoice to a payee named like a business, a company form or a
+ * business word in the name. A person's name never goes: every string sent
+ * passes askRegister. Admins can turn the lookup off (Asetukset > Palvelin).
  */
-import { categoryForIndustry, type IndustryCodeSet, industryCandidates, type IndustryMatch, isIndustryCodeSet, matchCompany, shorterQuery } from "@banking/core";
-import { RegistryError, searchCompanies } from "../providers/prh/client.ts";
+import { categoryForIndustry, type IndustryCodeSet, industryCandidates, type IndustryMatch, isIndustryCodeSet, isLookupName, matchCompany, shorterQuery } from "@banking/core";
+import { RegistryError, type SearchResult, searchCompanies } from "../providers/prh/client.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
 
@@ -31,6 +32,13 @@ const BATCH = 30;
 /** Stop early when the register keeps failing; the names are retried next hour. */
 const MAX_FAILURES = 3;
 
+/**
+ * The one door to the register: the name and its shorter form both go through here. A name core's isLookupName
+ * refuses (a person's name, the name of a way to pay) makes no request and has no hits.
+ */
+export async function askRegister(fetchFn: typeof fetch, name: string): Promise<SearchResult> {
+  return isLookupName(name) ? searchCompanies(fetchFn, name) : { companies: [], complete: true };
+}
 
 /**
  * One batch of names. With `deferred` the users whose rows now have a category are added to the set and not
@@ -78,11 +86,11 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
         if (i > 0 && pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
         let match: IndustryMatch;
         try {
-          const first = await searchCompanies(fetchFn, merchant);
+          const first = await askRegister(fetchFn, merchant);
           // one page of a long hit list may miss the right company: then only an exact name counts
           match = matchCompany(merchant, first.companies, { exactOnly: !first.complete });
           const shorter = match.status === "none" ? shorterQuery(merchant) : null;
-          if (shorter) match = matchCompany(shorter, (await searchCompanies(fetchFn, shorter)).companies, { exactOnly: true });
+          if (shorter) match = matchCompany(shorter, (await askRegister(fetchFn, shorter)).companies, { exactOnly: true });
         } catch (err) {
           await s.industry.saveError(merchant, s.now());
           // the error's own text only: a merchant name is not written to the log

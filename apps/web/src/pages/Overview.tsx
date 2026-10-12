@@ -1,4 +1,4 @@
-import { type MarkKind, MIN_COMPARE_MONTHS } from "@banking/core";
+import { coverOf, type MarkKind, MIN_COMPARE_MONTHS } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { api, query } from "../api.ts";
 import { PaceChart } from "../charts/PaceChart.tsx";
@@ -209,15 +209,18 @@ export function Overview({
 
 /**
  * Tämä kuu's line on last month's income: the month, partial while the history has no complete month, its income and
- * savings rate, and a link to Viime kuu, where the split is.
+ * savings rate, the credit drawn when there was some (`coverOf`, as the table of Tulot ja menot names it), and a link
+ * to Viime kuu, where the split is.
  */
-function BridgeLine({ b }: { b: DashboardData["bridge"] }) {
+export function BridgeLine({ b }: { b: DashboardData["bridge"] }) {
   const { incomeCents: income, savingsRate } = b.totals;
+  const credit = coverOf(b.totals).creditDrawnCents;
   return (
     <p className="bridge-fixed">
       {capitalize(monthLong(b.month!).split(" ")[0]!)}
       {b.basis === "partial" ? " (vajaa)" : ""}: tulot <strong>{money(income, false)}</strong>
-      {savingsRate !== null && `, säästöön ${percent(savingsRate)}`} · <a href={`#/overview${query({ period: "last-month" })}`}>Mihin tulot menivät</a>
+      {savingsRate !== null && `, säästöön ${percent(savingsRate)}`}
+      {credit > 0 && `, luotonnostot ${money(credit, false)}`} · <a href={`#/overview${query({ period: "last-month" })}`}>Mihin tulot menivät</a>
     </p>
   );
 }

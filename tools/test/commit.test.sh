@@ -99,5 +99,70 @@ COMMIT_BACKOFF="1 1 1" out=$(commit -m three); rc=$?
 check "refuses when the index changed between tries" test $rc -ne 0 -a "$(calls)" = 1 -a "$(heads)" = 3
 [[ $out == *"index changed"* ]] && pass "says so" || fail "says so" "$out"
 
+# the text rules on the Markdown the commit takes. The forms come from tools/repo-rules/em-dash-forms.mjs, so the dash is
+# written here as bytes and the other forms are built from parts: this file holds none of them.
+git -C "$REPO" reset -q --hard HEAD; git -C "$REPO" clean -fdq
+script ok
+DASH=$(printf '\342\200\224')
+ENTITY=$(printf '&%s;' mdash)
+base=$(heads)
+mkdir -p "$REPO/docs" "$REPO/.claude/audit/research"
+md() { printf '%b' "$2" >"$REPO/$1"; git -C "$REPO" add "$1"; }
+md docs/plan.md "fine\nsecond $DASH line\n"
+out=$(commit -m md); rc=$?
+check "refuses staged Markdown with an em dash before it asks to sign" test $rc -ne 0 -a "$(calls)" = 0 -a "$(heads)" = "$base"
+[[ $out == *"docs/plan.md:2  em dash: second"* ]] && pass "names file, line and form" || fail "names file, line and form" "$out"
+[[ $out == *"CLAUDE.md"* && $out == *"Nothing was committed"* ]] && pass "says how to fix it" || fail "says how to fix it" "$out"
+md docs/plan.md "a $ENTITY b\n"
+out=$(commit -m md); rc=$?
+check "the other forms of the rule are refused too" test $rc -ne 0 -a "$(calls)" = 0
+[[ $out == *"docs/plan.md:1  HTML entity"* ]] && pass "names the form" || fail "names the form" "$out"
+md docs/other.md "$DASH\n"
+out=$(commit -m md); rc=$?
+[[ $out == *"docs/other.md:1"* && $out == *"docs/plan.md:1"* ]] && pass "lists every file" || fail "lists every file" "$out"
+out=$(cd "$REPO/docs" && bash "$COMMIT_SH" -m md 2>&1); rc=$?
+check "also from a folder below the root" test $rc -ne 0 -a "$(calls)" = 0
+[[ $out == *"docs/other.md:1"* ]] && pass "paths are from the root" || fail "paths are from the root" "$out"
+git -C "$REPO" rm -q -f --cached docs/other.md; rm -f "$REPO/docs/other.md"
+md docs/plan.md "clean\n"
+out=$(commit -m md); rc=$?
+check "Markdown without an em dash is committed" test $rc -eq 0 -a "$(calls)" = 1 -a "$(heads)" = $((base + 1))
+
+# the index is what the commit takes, and with -a the working tree
+md docs/plan.md "bad $DASH\n"; printf 'good\n' >"$REPO/docs/plan.md"
+out=$(commit -m md); rc=$?
+check "a dash in the index counts although the working tree is fixed" test $rc -ne 0 -a "$(calls)" = 1 -a "$(heads)" = $((base + 1))
+md docs/plan.md "staged\n"; printf 'work %s\n' "$DASH" >"$REPO/docs/plan.md"
+script ok
+out=$(commit -a -m md); rc=$?
+check "-a refuses a dash in the working tree" test $rc -ne 0 -a "$(calls)" = 0
+out=$(commit -am md); rc=$?
+check "-am too" test $rc -ne 0 -a "$(calls)" = 0
+out=$(commit -m md); rc=$?
+check "without -a an unstaged dash is not looked at" test $rc -eq 0 -a "$(calls)" = 1 -a "$(heads)" = $((base + 2))
+git -C "$REPO" checkout -q -- docs/plan.md
+
+# what is not looked at
+script ok
+md notes.txt "text $DASH\n"
+out=$(COMMIT_RULES_FILE=$TMP/none.mjs commit -m txt); rc=$?
+check "a commit with no Markdown commits" test $rc -eq 0 -a "$(calls)" = 1
+[[ $out != *"text rules"* ]] && pass "and does not even load the rule" || fail "and does not even load the rule" "$out"
+md .claude/audit/research/notes.md "text $DASH\n"
+out=$(commit -m research); rc=$?
+check "a research note is left out, as the rule leaves it out" test $rc -eq 0 -a "$(calls)" = 2
+
+# the rule cannot be loaded: say so and go on
+script ok
+md docs/plan.md "more\n"
+out=$(COMMIT_RULES_FILE=$TMP/none.mjs commit -m md); rc=$?
+check "a missing rule file does not stop the commit" test $rc -eq 0 -a "$(calls)" = 1
+[[ $out == *"text rules are not run"* && $out == *none.mjs* ]] && pass "and says so" || fail "and says so" "$out"
+echo "export {};" >"$TMP/shape.mjs"
+md docs/plan.md "more again\n"
+out=$(COMMIT_RULES_FILE=$TMP/shape.mjs commit -m md); rc=$?
+check "a rule file of another shape does not stop the commit" test $rc -eq 0 -a "$(calls)" = 2
+[[ $out == *"text rules are not run"* && $out == *"rule 4"* ]] && pass "and says what it did not find" || fail "and says what it did not find" "$out"
+
 echo "$PASS passed, $FAILED failed"
 ((FAILED == 0))

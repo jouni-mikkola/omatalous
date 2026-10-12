@@ -4,6 +4,8 @@ data/
 *.db
 *.db-*
 .env
+# the maintenance helper writes .env beside itself: one killed there leaves this file, with the tunnel token in it
+.env.new
 secrets/
 *.pem
 coverage/

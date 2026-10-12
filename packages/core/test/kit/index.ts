@@ -11,9 +11,12 @@
  * left out ("ostot jääneet pois"). It goes to known.ts, and its entry names the wrong cause.
  */
 import type { Household } from "../../../../tools/findings/households.ts";
+import { balanceCarried } from "./events/balance-carried.ts";
+import { carLoan } from "./events/car-loan.ts";
 import { cardClosed } from "./events/card-closed.ts";
 import { cardConnectedLate } from "./events/card-connected-late.ts";
 import { cardReplaced } from "./events/card-replaced.ts";
+import { creditDrawn } from "./events/credit-drawn.ts";
 import { cadenceMonthlyToYearly } from "./events/cadence-monthly-to-yearly.ts";
 import { cadenceQuarterlyToMonthly } from "./events/cadence-quarterly-to-monthly.ts";
 import { daycareHours } from "./events/daycare-hours.ts";
@@ -67,6 +70,9 @@ export const EVENTS: readonly LifeEvent[] = [
   cardClosed,
   cardReplaced,
   cardConnectedLate,
+  balanceCarried,
+  creditDrawn,
+  carLoan,
 ];
 
 /** The kit's base household (`kit:base`), or the base with `event` applied (`kit:<event id>`). */

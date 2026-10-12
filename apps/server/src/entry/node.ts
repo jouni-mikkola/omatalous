@@ -126,7 +126,8 @@ if (applied.length) note(`migrations applied: ${applied.join(", ")}`);
 
 // ── CLI mode ─────────────────────────────────────────────
 if (process.argv.length > 2) {
-  const cliServices = createServices({ db, config, build });
+  // the data folder too: `ops access` reads the prepared change of remote access from it (services/access-request.ts)
+  const cliServices = createServices({ db, config, build, backupDir: join(dirname(dbPath), "backups") });
   const code = await runCli(cliServices, process.argv.slice(2), {
     secretFile,
     readStdin: async () => {

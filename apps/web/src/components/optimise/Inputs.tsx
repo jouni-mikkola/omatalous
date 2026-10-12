@@ -2,7 +2,7 @@
 import { addMonthsToDate, type AreaView, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate, type NeededInput } from "@banking/core";
 import { type FormEvent, useState } from "react";
 import { api, query } from "../../api.ts";
-import { date, money, parseEuros } from "../../format.ts";
+import { date, eurosText, money, parseEuros, rateText } from "../../format.ts";
 import type { Scope } from "../../types.ts";
 import { Section } from "../Section.tsx";
 import { type Changed, subjectName } from "./shared.tsx";
@@ -43,11 +43,11 @@ function startText(def: InputDef, value: InputValue | undefined): { text: string
       return { text: String(value), reference };
     case "cents": {
       const cents = value as number;
-      return { text: cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace(".", ","), reference };
+      return { text: cents % 100 === 0 ? String(cents / 100) : eurosText(cents), reference };
     }
     case "loan_rate": {
       const rate = value as { marginBp: number; reference: string };
-      return { text: (rate.marginBp / 100).toFixed(2).replace(".", ","), reference: rate.reference };
+      return { text: rateText(rate.marginBp), reference: rate.reference };
     }
     default:
       return { text: String(value), reference };

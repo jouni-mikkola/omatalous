@@ -1,18 +1,19 @@
 /**
  * The member's bank consents: "Lisää pankkiyhteys" opens a bank picker
- * (the banks the server offers, each with its official logo), the list
+ * (components/BankPicker.tsx: the banks the server offers), the list
  * shows each consent's validity and the accounts it reads (name and IBAN, so two consents of one holder differ),
- * and a fallback finishes a consent whose redirect page did not open.
+ * and a fallback finishes a consent whose redirect page did not open. Every consent has "Yhdistä uudelleen", which starts
+ * the same bank again, and a calendar file with a reminder before it ends. After a link the page lists the accounts
+ * the bank handed over that Enable Banking does not let the app read, and offers the next bank.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
-import { bankIdForInstitution, bankLogo, logoForInstitution } from "../../banks.ts";
+import { bankIdForInstitution, logoForInstitution } from "../../banks.ts";
 import { BankLogo } from "../../components/BankLogo.tsx";
-import { WARN_DAYS } from "../../consent-notices.ts";
+import { BankPicker, lastUsedBank } from "../../components/BankPicker.tsx";
+import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText, WARN_DAYS } from "../../consent-notices.ts";
 import { accountNumber, date, dateTime, plural } from "../../format.ts";
-import type { Account, Connection, Meta } from "../../types.ts";
-
-const COUNTRY: Record<string, string> = { FI: "Suomi" };
+import type { Account, BankOption, Connection, Meta } from "../../types.ts";
 
 /**
  * The bank callback sends only these codes (routes/bank.ts). The link reasons have the same words as LINK_FAILURES in
@@ -68,21 +69,64 @@ export function connectedMessage(accounts: number): { tone: "good" | "warning"; 
     : { tone: "warning", text: "Pankki ei antanut tilejä. Linkitä tilit Enable Bankingissa (Link accounts) ja yritä uudelleen." };
 }
 
+/**
+ * What a renewal starts: the consent's own bank at once, found by the name the bank reported. Null opens the picker:
+ * the bank is no longer offered, or no application can start a bank yet.
+ */
+export function renewalBank(banks: readonly BankOption[], institution: string, canStart: boolean): string | null {
+  return canStart ? bankIdForInstitution(banks, institution) : null;
+}
+
+/** The small logo beside the name a consent carries; nothing for a bank without one. */
+function InstitutionLogo({ name, banks }: { name: string; banks: readonly BankOption[] }) {
+  const src = logoForInstitution(name, banks);
+  return src ? <BankLogo src={src} name={name} size="sm" /> : null;
+}
+
+/** How many accounts the bank brought when the browser came back from it (`?connected=2` in the address), else null. */
+function connectedInAddress(): number | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("connected");
+  return value !== null && /^\d+$/.test(value) ? Number(value) : null;
+}
+
+/** Hands a text to the browser as a file. */
+function saveFile(filename: string, text: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export function BankConnections({
   meta,
   pickerOpen,
+  connected,
   onChange,
   onMessage,
 }: {
   meta: Meta;
   pickerOpen: boolean;
+  /** The accounts a bank brought just now. Without it the address of the page tells (`?connected=`). */
+  connected?: number | null;
   onChange: () => void;
   onMessage: (m: { tone: "good" | "warning"; text: string }) => void;
 }) {
   const [picking, setPicking] = useState(pickerOpen);
+  // a bank was linked on this visit: the next one is offered straight away
+  const [linked, setLinked] = useState(() => ((connected === undefined ? connectedInAddress() : connected) ?? 0) > 0);
+  const [focusSignal, setFocusSignal] = useState(0);
+  const openPicker = () => {
+    setPicking(true);
+    setFocusSignal((n) => n + 1);
+  };
   // the banner of an ended consent links here (#/settings?add=1) while the page may already be open
   useEffect(() => {
-    if (pickerOpen) setPicking(true);
+    if (pickerOpen) openPicker();
   }, [pickerOpen]);
   const [busy, setBusy] = useState<string | null>(null);
   const [pasted, setPasted] = useState("");
@@ -95,6 +139,35 @@ export function BankConnections({
   // an app that reads Inactive is not held back here: starting a connection tests it again and says what is wrong
   const canStart = meta.bank.configured || !!meta.bank.inactive;
   const accountsOf = (connectionId: string) => meta.accounts.filter((a) => a.connectionId === connectionId);
+  // the accounts the bank handed over that Enable Banking does not let the app read: Control Panel > Link accounts
+  const unlinked = unlinkedAccounts(meta.connections, meta.accounts);
+  const canFix = isAdmin || meta.bank.source === "user";
+
+  // The first fetch of a new connection runs after the bank sent the browser back. Until every account of an active
+  // consent has an answer (fetched, or what stopped it) the page looks again, for a minute at most.
+  const activeIds = new Set(current.filter((c) => c.state === "active").map((c) => c.id));
+  const waiting = linked && meta.accounts.some((a) => a.connectionId !== null && activeIds.has(a.connectionId) && !a.lastSyncedAt && !a.problem);
+  const reload = useRef(onChange);
+  reload.current = onChange;
+  useEffect(() => {
+    if (!waiting) return;
+    let looked = 0;
+    const timer = setInterval(() => (++looked > 12 ? clearInterval(timer) : reload.current()), 5000);
+    return () => clearInterval(timer);
+  }, [waiting]);
+
+  // Set when this page is on its way to the bank: busy then stays set, so a late second press starts no second consent.
+  const leaving = useRef(false);
+  useEffect(() => {
+    // the back button can restore this page as it was left, with the bank behind it
+    const restored = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      leaving.current = false;
+      setBusy(null);
+    };
+    window.addEventListener("pageshow", restored);
+    return () => window.removeEventListener("pageshow", restored);
+  }, []);
 
   const run = async (key: string, fn: () => Promise<string | void>) => {
     setBusy(key);
@@ -105,7 +178,7 @@ export function BankConnections({
     } catch (err) {
       onMessage({ tone: "warning", text: (err as Error).message });
     } finally {
-      setBusy(null);
+      if (!leaving.current) setBusy(null);
     }
   };
 
@@ -120,7 +193,10 @@ export function BankConnections({
           tab.opener = null;
           tab.location.href = url;
           setPasteOpen(true);
-        } else window.location.href = url;
+        } else {
+          leaving.current = true;
+          window.location.href = url;
+        }
       } catch (err) {
         tab?.close();
         throw err;
@@ -128,15 +204,23 @@ export function BankConnections({
     });
   };
 
-  // a consent that ended or ends soon is renewed with the same bank: one click, no picker. A bank that is not on the
-  // list, or no Enable Banking application yet, opens the picker, which says what is missing.
+  // Yhdistä uudelleen is on every consent, before it ends too: it starts the same bank again, one click, no picker. A bank
+  // that is not on the list, or no Enable Banking application yet, opens the picker, which says what is missing.
   const reconnect = (c: Connection) => {
-    const bank = bankIdForInstitution(meta.bank.banks, c.institution);
-    if (bank && canStart) void connect(bank);
-    else setPicking(true);
+    const bank = renewalBank(meta.bank.banks, c.institution, canStart);
+    if (bank) void connect(bank);
+    else openPicker();
   };
-  const canReconnect = (c: Connection) =>
-    c.state === "lapsed" || c.state === "broken" || (c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS);
+  const canReconnect = (c: Connection) => c.state !== "removed";
+  // the reminder is offered while its day has not passed
+  const reminderOf = (c: Connection) => {
+    const day = c.state === "active" ? reminderDay(c.validUntil) : null;
+    return day && day >= (meta.today ?? "") ? day : null;
+  };
+  const saveReminder = (c: Connection) => {
+    const reminder = renewalReminder(c, window.location.origin, new Date());
+    if (reminder) saveFile(reminder.filename, reminder.ics, "text/calendar;charset=utf-8");
+  };
 
   return (
     <div className="card" id="pankkiyhteydet">
@@ -145,41 +229,23 @@ export function BankConnections({
           <h2>Pankkiyhteydet</h2>
         </div>
         {!picking && (
-          <button className="btn btn-primary" type="button" onClick={() => setPicking(true)}>
-            Lisää pankkiyhteys
+          <button className="btn btn-primary" type="button" onClick={openPicker}>
+            {linked ? "Yhdistä toinen pankki" : "Lisää pankkiyhteys"}
           </button>
         )}
       </div>
 
       {picking && (
-        <section className="bank-picker" aria-labelledby="bank-picker-title">
-          <div className="bank-picker-head">
-            <h3 id="bank-picker-title">Valitse pankki</h3>
-            <button className="btn btn-small" type="button" onClick={() => setPicking(false)}>
-              Sulje
-            </button>
-          </div>
-          <div className="bank-grid">
-            {meta.bank.banks.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className="bank-tile"
-                disabled={!canStart || busy !== null}
-                onClick={() => void connect(b.id)}
-                aria-label={`Yhdistä ${b.name}`}
-              >
-                <BankLogo src={bankLogo(b.id)} name={b.name} />
-                <span className="bank-tile-text">
-                  <strong>{b.name}</strong>
-                  <span className="small muted">Henkilöasiakkaat · {COUNTRY[b.country] ?? b.country}</span>
-                </span>
-                <span className="bank-tile-go" aria-hidden="true">
-                  {busy === `connect-${b.id}` ? "…" : "›"}
-                </span>
-              </button>
-            ))}
-          </div>
+        <BankPicker
+          banks={meta.bank.banks}
+          lastUsed={lastUsedBank(meta.connections, meta.bank.banks)}
+          starting={busy?.startsWith("connect-") ? busy.slice("connect-".length) : null}
+          disabled={!canStart || busy !== null}
+          isAdmin={isAdmin}
+          focusSignal={focusSignal}
+          onPick={(id) => void connect(id)}
+          onClose={() => setPicking(false)}
+        >
           {meta.bank.configured ? (
             <p className="small muted">Lisää jokainen tili ja luottokortti erikseen.</p>
           ) : meta.bank.inactive ? (
@@ -193,27 +259,48 @@ export function BankConnections({
           ) : (
             <div className="notice warning">Ylläpitäjän pitää ensin ottaa pankkiyhteydet käyttöön.</div>
           )}
-        </section>
+        </BankPicker>
+      )}
+
+      {unlinked.length > 0 && (
+        <div className="notice warning unlinked" role="status">
+          <p>{unlinkedTitle(unlinked.length)}</p>
+          <ul>
+            {unlinked.map((a) => (
+              <li key={a.id}>{[new Set(unlinked.map((u) => u.institution)).size > 1 ? a.institution : "", a.name, a.number].filter(Boolean).join(" · ")}</li>
+            ))}
+          </ul>
+          <p>
+            {unlinkedStep(unlinked.length, canFix)}
+            {canFix && (
+              <>
+                {" "}
+                <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
+                  Avaa Control Panel
+                </a>
+              </>
+            )}
+          </p>
+        </div>
       )}
 
       {current.length > 0 ? (
         <div className="table-wrap">
-          <table>
+          <table className="conn-table" role="table">
             <thead>
               <tr>
                 <th>Pankki</th>
                 <th>Tila</th>
-                <th>Voimassa</th>
                 <th>Haettu</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {current.map((c) => (
-                <tr key={c.id}>
-                  <td>
+                <tr key={c.id} role="row">
+                  <td role="cell">
                     <span className="bank-cell">
-                      <BankLogo src={logoForInstitution(c.institution)} name={c.institution} size="sm" />
+                      <InstitutionLogo name={c.institution} banks={meta.bank.banks} />
                       {c.institution}
                     </span>
                     {/* two consents of one bank are told apart by their accounts: the name and the IBAN or card number */}
@@ -225,16 +312,20 @@ export function BankConnections({
                       ))}
                     </div>
                   </td>
-                  <td>
-                    {connectionStateText(c)}
+                  <td role="cell" data-label="Tila">
+                    {validityText(c) || connectionStateText(c)}
                     {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">vanhenee pian</span>}
+                    {reminderOf(c) && (
+                      <div className="small">
+                        <button className="text-button" type="button" onClick={() => saveReminder(c)}>
+                          Muistutus kalenteriin
+                        </button>{" "}
+                        <span className="muted">{date(reminderOf(c))}</span>
+                      </div>
+                    )}
                   </td>
-                  <td>
-                    {c.state === "active" ? date(c.validUntil) : "–"}
-                    {c.state === "active" && c.daysLeft !== null && c.daysLeft > 0 && <span className="muted small"> ({c.daysLeft} pv)</span>}
-                  </td>
-                  <td>{fetchedText(c, meta.accounts)}</td>
-                  <td className="num">
+                  <td role="cell" data-label="Haettu">{fetchedText(c, meta.accounts)}</td>
+                  <td role="cell" className="num">
                     <span className="row-actions">
                       {canReconnect(c) && (
                         <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => reconnect(c)}>
@@ -270,7 +361,7 @@ export function BankConnections({
         <details className="connection-history">
           <summary className="small muted">Aiemmat yhteydet ({history.length})</summary>
           <div className="table-wrap">
-            <table>
+            <table className="conn-table" role="table">
               <thead>
                 <tr>
                   <th>Pankki</th>
@@ -281,11 +372,11 @@ export function BankConnections({
               </thead>
               <tbody>
                 {history.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.institution}</td>
-                    <td>{date(c.createdAt)}</td>
-                    <td>{dateTime(c.lastSyncedAt)}</td>
-                    <td className="num">
+                  <tr key={c.id} role="row">
+                    <td role="cell">{c.institution}</td>
+                    <td role="cell" data-label="Yhdistetty">{date(c.createdAt)}</td>
+                    <td role="cell" data-label="Haettu">{dateTime(c.lastSyncedAt)}</td>
+                    <td role="cell" className="num">
                       <button
                         className="btn btn-small"
                         type="button"
@@ -309,7 +400,7 @@ export function BankConnections({
 
       {meta.bank.configured && (
         <details open={pasteOpen || undefined} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
-          <summary className="small muted">{mode === "paste" ? "Jos pankki näyttää virhesivun" : "Jos paluusivu ei aukea"}</summary>
+          <summary className="small muted">{mode === "paste" ? "Liitä pankin viimeisen sivun osoite" : "Viimeistele yhteys osoitteella"}</summary>
           <form
             className="form-row"
             onSubmit={(e) => {
@@ -318,6 +409,7 @@ export function BankConnections({
                 const r = await api<{ accounts: number }>("/api/connections/complete", { method: "POST", body: { url: pasted } });
                 setPasted("");
                 setPasteOpen(false);
+                if (r.accounts > 0) setLinked(true);
                 onMessage(connectedMessage(r.accounts));
               });
             }}

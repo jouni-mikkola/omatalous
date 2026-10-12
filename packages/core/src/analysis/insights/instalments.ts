@@ -2,10 +2,12 @@
  * H-insights 16: instalment plans with payment services (Klarna and the like). A plan is the same amount, give or take a
  * euro, paid to one service in three months in a row, the last within 45 days of the end; a single payment or a
  * 30-day invoice of varying amount is never a plan. Interest of the last 12 months goes into the detail, the bank fees
- * alert tells the rest of the credit costs.
+ * alert tells the rest of the credit costs. The rows `cardCosts` counts as a connected card's interest are left out:
+ * the card interest insight tells them (insights/credit.ts), and no euro is told twice.
  */
 import { addDays, monthIndex } from "../../dates.ts";
 import { type AnalysisTx, inDays } from "../context.ts";
+import { cardCosts } from "../credit.ts";
 import { finnishList, formatEur } from "../format.ts";
 import { toDayRange } from "../period.ts";
 import { capitalise, countWord, isLender } from "./shared.ts";
@@ -62,7 +64,8 @@ export function instalments({ ctx, end, gateMonthlyCents }: InsightArgs): Insigh
   if (!plans.length || monthly < Math.max(MIN_MONTHLY, gateMonthlyCents)) return [];
   const services = [...new Set(plans.map((p) => p.merchant))].sort();
   const yearAgo = addDays(end, -365);
-  const interest = inDays(ctx, toDayRange({ from: yearAgo, to: end })).filter((t) => t.category === "interest").reduce((sum, t) => sum + t.spend, 0);
+  const cardInterest = new Set(cardCosts(ctx, end).cards.flatMap((c) => c.interestRows));
+  const interest = inDays(ctx, toDayRange({ from: yearAgo, to: end })).filter((t) => t.category === "interest" && !cardInterest.has(t.id)).reduce((sum, t) => sum + t.spend, 0);
   const months = Math.min(12, monthIndex(end) - monthIndex(ctx.dataFrom ?? end) + 1);
   const interestMonthly = months > 0 ? Math.round(interest / months) : 0;
   const one = services.length === 1;

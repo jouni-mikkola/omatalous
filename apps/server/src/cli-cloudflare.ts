@@ -6,13 +6,17 @@
  *
  * Handled in entry/node.ts before the database or the app secret is touched: it only talks to Cloudflare. The API
  * token and the emails come from the environment, never from the command line (a command line is readable by every
- * user of the machine). `up` is idempotent and prints one JSON line on stdout, `{"hostname","tunnelToken","changed"}`;
+ * user of the machine). `up` is idempotent and prints one JSON line on stdout, `{"hostname","tunnelToken","changed"}`
+ * with `"accessAud"` and `"teamDomain"` after them when Cloudflare gave both (the installer writes those to `.env` as
+ * CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN, which turns on the app's own check of Access, security/cf-access.ts);
  * everything for people goes to stderr in English, with the token and the tunnel token left out. `down` removes what
  * `up` made and prints nothing on stdout. `up --new` is for a host that is not yet this copy's: it stops with exit 3,
  * before writing anything, when a tunnel or an Access application for the host exists already (another copy's).
  *
  * Exit codes: 0 done, 1 Cloudflare could not be reached or answered in an unexpected way, 2 bad input, 3 Cloudflare
- * refused (the message names the missing permission or the record in the way), 4 Zero Trust is not on.
+ * refused (the message names the missing permission or the record in the way), 4 Zero Trust is not on. `down` also
+ * exits 3 when it left a tunnel or a DNS record that can still lead to the host: it has then kept Access, the host is
+ * not taken down yet, and the caller must not treat it as removed.
  */
 import { CloudflareApi } from "./providers/cloudflare/api.ts";
 import { CloudflareClient, CloudflareError } from "./providers/cloudflare/client.ts";
