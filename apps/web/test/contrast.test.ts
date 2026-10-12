@@ -187,6 +187,19 @@ describe.each(sets)("tokens.css contrast, $look set", (set) => {
     expect([...below(1.5, ["border"], ["surface"]), ...below(1.3, ["grid"], ["surface"]), ...below(3, ["axis"], ["surface"])]).toEqual([]);
   });
 
+  it("night set: text reads on the lit top of a panel and on its violet glow, and a control edge and the axis show at 3 to 1", () => {
+    if (!dark) return;
+    // glass.css lays up to 5 % white and 4 % of the violet glow over --surface; both are mixed over it here
+    const mix = (top: string, alpha: number): string => "#" + [0, 1, 2].map((i) => Math.round(parseInt(hex("surface").slice(1 + 2 * i, 3 + 2 * i), 16) * (1 - alpha) + parseInt(top.slice(1 + 2 * i, 3 + 2 * i), 16) * alpha).toString(16).padStart(2, "0")).join("");
+    const lit = measure({ ...set, values: new Map([...set.values, ["lit", mix("#ffffff", 0.05)], ["glow", mix("#6a5cf0", 0.04)]]) });
+    expect([...lit.below(7, ["text", "text-2"], ["lit", "glow"]), ...lit.below(4.5, ["muted", "accent", "good", "bad", "warn"], ["lit", "glow"])]).toEqual([]);
+    expect([...below(3, ["control-edge"], ["control", "surface"]), ...below(3, ["axis"], ["surface", "page"])]).toEqual([]);
+  });
+
+  it("text reads on the three tinted backgrounds at 7 to 1 in the night set", () => {
+    expect(below(dark ? 7 : 0, ["text"], TINTS)).toEqual([]);
+  });
+
   it("neighbouring series differ by 1.2 to 1 in luminance or by 60 degrees of hue", () => {
     const order = SERIES.slice(0, 8);
     const alike = order.slice(1).flatMap((b, i) => {

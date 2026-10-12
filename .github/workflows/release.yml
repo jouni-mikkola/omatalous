@@ -1,10 +1,12 @@
 name: Release
 
 # A push to main that brings a version with no tag yet, or a tag vX.Y.Z, builds the image for amd64 and for arm64, each
-# on a runner of its own processor, and pushes both to ghcr.io by digest with no tag. The build runs beside the checks
-# (the commit and the migrations, the types, the tests in three shards), which take as long as it does. Each image is
-# then pulled and started on its runner, as a new install and on a database of 0.5.0 (tools/ci/smoke-image.sh). When
-# every check, both builds and both smoke tests have passed, one index of the two gets the version tag, is signed by
+# on a runner of its own processor, and pushes both to ghcr.io by digest with no tag. This run does only what GitHub
+# alone can do: say that the commit is on main, build the image with provenance and SBOM, smoke test it, sign it, make
+# the tags and write the release. Every other check (the types, the build, the tests, the migrations against every
+# baseline) is run before the push, on the machine of the maintainer, on the tree that this repository holds. Each image
+# is pulled and started on its runner, as a new install and on a database of 0.5.0 (tools/ci/smoke-image.sh). When the
+# commit check, both builds and both smoke tests have passed, one index of the two gets the version tag, is signed by
 # digest (keyless, through GitHub OIDC) and verified with the check installs run, and the release is written. A check
 # or a smoke test that fails leaves no tag, no signature and no release, only untagged digests that nothing can find.
 # On main the version comes from the tree and the release creates the tag vX.Y.Z on that commit; a push to main
@@ -137,10 +139,10 @@ jobs:
             echo "new_tag=$new_tag"
           } >>"$GITHUB_OUTPUT"
 
-  # The checks. Each one needs only plan and runs beside the build; publish needs every one of them (a test of the
+  # The one check that only GitHub can make. It needs only plan and runs beside the build; publish needs it (a test of the
   # workflow's shape reads that). A dry run asks the same.
   verify:
-    # the commit is on main and migrations were only added
+    # the commit is on main
     needs: plan
     if: github.repository == 'jouni-mikkola/omatalous' && (needs.plan.outputs.release == 'true' || needs.plan.outputs.dry_run == 'true')
     runs-on: ubuntu-24.04
@@ -156,60 +158,6 @@ jobs:
         run: |
           git fetch --no-tags origin main
           git merge-base --is-ancestor HEAD origin/main || { echo "The commit is not on main"; exit 1; }
-      - name: Migrations only added since the previous release
-        env:
-          TAG: ${{ needs.plan.outputs.tag }}
-        run: |
-          prev=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
-          if [[ -n $prev ]]; then tools/ci/check-migrations.sh "$prev"; else echo "first release, nothing to compare"; fi
-
-  typecheck:
-    # the types of every package, and the build of the web app and the server
-    needs: plan
-    if: github.repository == 'jouni-mikkola/omatalous' && (needs.plan.outputs.release == 'true' || needs.plan.outputs.dry_run == 'true')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm build
-
-  test:
-    # pnpm test in three shards, one runner each. vitest cuts the list of test files by a hash of each path, so the three
-    # together are the whole of pnpm test, and a shard that finds no file to run fails (vitest's default, which nothing
-    # here changes; a test of the workflow's shape reads that).
-    needs: plan
-    if: github.repository == 'jouni-mikkola/omatalous' && (needs.plan.outputs.release == 'true' || needs.plan.outputs.dry_run == 'true')
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test --shard ${{ matrix.shard }}/3
 
   build:
     # Each image is built on a runner of its own processor. The arm64 half used to run under QEMU, which once crashed and
@@ -279,7 +227,7 @@ jobs:
 
   dry-run:
     # The rehearsal: each image is built on a runner of its own processor, loaded into that runner's Docker and smoke
-    # tested there, beside the checks. The job may read the repository and nothing else, so no part of a dry run holds a
+    # tested there, beside the commit check. The job may read the repository and nothing else, so no part of a dry run holds a
     # right to push.
     needs: plan
     if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.dry_run == 'true'
@@ -365,7 +313,7 @@ jobs:
   publish:
     # Every check passed and both images were built and started. One index of the two gets the version tag and is signed
     # by its digest. This job and release are the only ones that make a tag, a signature or a release.
-    needs: [plan, verify, typecheck, test, build, smoke]
+    needs: [plan, verify, build, smoke]
     if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

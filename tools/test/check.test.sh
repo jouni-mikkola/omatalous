@@ -144,6 +144,9 @@ t_jobs_follow_the_cpus() {
   printf '%s\n' '#!/bin/sh' 'echo 15' >"$W/bin/nproc"
   run_check sh
   check "jobs: 4 at a time on 15" grep -q '4 at a time' "$W/out"
+  printf '%s\n' '#!/bin/sh' 'echo 24' >"$W/bin/nproc"
+  run_check sh
+  check "jobs: 12 at a time on 24" grep -q '12 at a time' "$W/out"
   printf '%s\n' '#!/bin/sh' 'echo 64' >"$W/bin/nproc"
   (cd "$W" && env -u CHECK_LOG CHECK_JOBS=3 CHECK_SLOT_HELD=1 PATH="$W/bin:$PATH" bash tools/check.sh sh) >"$W/out" 2>&1
   check "jobs: CHECK_JOBS wins" grep -q '3 at a time' "$W/out"

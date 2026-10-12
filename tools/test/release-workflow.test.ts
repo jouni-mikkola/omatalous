@@ -2,16 +2,18 @@
  * The shape of the release workflow (.github/workflows/release.yml), read from its YAML.
  *
  * The line it holds: no step that makes a tag on the image, a signature, a GitHub release or anything else a user's
- * install can see runs in a job that does not need every check, both builds and both smoke tests. The checks, the
- * build and the smoke tests run side by side to save time, so this line is what keeps the speed from costing safety.
- * Besides it: the permissions of each job, the pins of the actions, the shards of the tests, and the rows of what a
- * run checks, signs and publishes (a cut that drops a row fails here).
+ * install can see runs in a job that does not need the commit check, both builds and both smoke tests. The types, the
+ * build and the tests are not here: the local gate runs them on the public tree before the push (the last tests below).
+ * Besides it: the permissions of each job, the pins of the actions, and the rows of what a run checks, signs and
+ * publishes (a cut that drops a row fails here).
  *
  * `violations` reads the workflow text, so each test below also feeds it a text with one fault put in and expects the
  * fault to be named: a guard that nothing can trip would pass for ever.
  */
 import { describe, expect, it } from "vitest";
-import { readText } from "../repo-rules/lib.ts";
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { ROOT, readText } from "../repo-rules/lib.ts";
 
 // ── the YAML this repository writes workflows in ──────────────────────────────────────────────────────────────────
 // Block mappings and lists, `[a, b]` and `{}`, quoted and plain scalars, `|` blocks and `#` comments, every scalar a
@@ -157,8 +159,8 @@ interface Workflow {
   jobs: Record<string, Job>;
 }
 
-/** Jobs that must have passed before anything public is made: every check, both builds, both smoke tests. */
-const GATES = ["verify", "typecheck", "test", "build", "smoke"];
+/** Jobs that must have passed before anything public is made: the commit check, both builds, both smoke tests. */
+const GATES = ["verify", "build", "smoke"];
 /** The jobs that are neither a gate nor a publisher. The dry run builds and smoke tests, and makes nothing. */
 const OTHERS = ["plan", "dry-run"];
 const RANK: Record<string, number> = { none: 0, read: 1, write: 2 };
@@ -210,10 +212,6 @@ const textOf = (s: Step) => [s.run ?? "", s.uses ?? "", ...Object.values(s.with 
 const ROWS: [string, RegExp, string[]][] = [
   ["the version, the tag and the agreement of the tree", /CHANGELOG top heading is/, ["plan"]],
   ["the commit is on main", /merge-base --is-ancestor HEAD origin\/main/, ["verify"]],
-  ["migrations are only added", /check-migrations\.sh/, ["verify"]],
-  ["types", /^pnpm typecheck$/m, ["typecheck"]],
-  ["the build of the web app and the server", /^pnpm build$/m, ["typecheck"]],
-  ["tests", /^pnpm test --shard /m, ["test"]],
   ["the compose layout number", /x-talous-compat missing/, ["build", "dry-run"]],
   ["each image pushed by digest", /push-by-digest=true/, ["build"]],
   ["the smoke test of each pushed image", /smoke-image\.sh "\$IMAGE@\$DIGEST"/, ["smoke"]],
@@ -275,14 +273,6 @@ function violations(text: string): string[] {
     }
   }
 
-  // the shards of the tests: 1 to N, and each runs `pnpm test` cut into N
-  const shards = jobs.test?.strategy?.matrix?.shard ?? [];
-  const n = shards.length;
-  if (n < 2 || shards.join() !== Array.from({ length: n }, (_, i) => i + 1).join()) out.push(`the test shards are [${shards.join(", ")}], not 1 to N with N of 2 or more`);
-  const cmds = (jobs.test?.steps ?? []).map((s) => s.run).filter((r): r is string => /^pnpm test\b/.test(r ?? ""));
-  if (cmds.join("|") !== `pnpm test --shard \${{ matrix.shard }}/${n}`) out.push(`the test job runs "${cmds.join('", "')}", not pnpm test --shard \${{ matrix.shard }}/${n}`);
-  if (/passWithNoTests/.test(text)) out.push("a shard that runs no test must fail, so passWithNoTests stays out");
-
   // no row disappears
   for (const [what, pattern, where] of ROWS) {
     const found = ids.filter((id) => jobs[id]?.steps.some((s) => pattern.test(textOf(s)))).sort();
@@ -293,7 +283,7 @@ function violations(text: string): string[] {
 
 // ── the tests ────────────────────────────────────────────────────────────────────────────────────────────────────
 const WORKFLOW = readText(".github/workflows/release.yml");
-const PUBLISH_NEEDS = "needs: [plan, verify, typecheck, test, build, smoke]";
+const PUBLISH_NEEDS = "needs: [plan, verify, build, smoke]";
 
 /** The text with `from` replaced by `to`, inside the block of one job. Throws when the workflow has no such text. */
 function change(id: string, from: string | RegExp, to: string): string {
@@ -312,7 +302,7 @@ describe("release workflow", () => {
     // the jobs that make something public are these two, and the second needs the first
     const publishers = Object.keys(w.jobs).filter((id) => (w.jobs[id] as Job).steps.some((s) => madePublic(s).length > 0));
     expect(publishers.sort()).toEqual(["publish", "release"]);
-    expect([...closure(w.jobs, "release")].sort()).toEqual(["build", "plan", "publish", "smoke", "test", "typecheck", "verify"]);
+    expect([...closure(w.jobs, "release")].sort()).toEqual(["build", "plan", "publish", "smoke", "verify"]);
   });
 
   it("names the job that lacks a gate, whichever gate it is", () => {
@@ -330,10 +320,10 @@ describe("release workflow", () => {
   it("keeps the build to pushing by digest, and calls a tag or a signature made anywhere else public", () => {
     const tagged = change("build", "push-by-digest=true,name-canonical=true,push=true", "name-canonical=true,push=true");
     expect(violations(tagged).join("\n")).toMatch(/build makes a tag on an image and does not need verify/);
-    const extra = (run: string) => change("test", "      - run: pnpm install --frozen-lockfile\n", `      - run: pnpm install --frozen-lockfile\n      - run: ${run}\n`);
-    expect(violations(extra('cosign sign --yes "$IMAGE@$D"')).join("\n")).toMatch(/test makes a signature/);
-    expect(violations(extra('gh release create "$TAG"')).join("\n")).toMatch(/test makes a release or a git tag/);
-    expect(violations(extra('docker buildx imagetools create --tag "$IMAGE:$V" a b')).join("\n")).toMatch(/test makes a tag on an image/);
+    const extra = (run: string) => change("verify", `"The commit is not on main"; exit 1; }\n`, `"The commit is not on main"; exit 1; }\n      - run: ${run}\n`);
+    expect(violations(extra('cosign sign --yes "$IMAGE@$D"')).join("\n")).toMatch(/verify makes a signature/);
+    expect(violations(extra('gh release create "$TAG"')).join("\n")).toMatch(/verify makes a release or a git tag/);
+    expect(violations(extra('docker buildx imagetools create --tag "$IMAGE:$V" a b')).join("\n")).toMatch(/verify makes a tag on an image/);
     // near misses: a read of the API and a read of the tags make nothing
     expect(violations(extra('gh api "repos/$GH_REPO/releases/tags/$TAG"'))).toEqual([]);
     expect(violations(extra("git tag --list 'v*'"))).toEqual([]);
@@ -345,12 +335,12 @@ describe("release workflow", () => {
       expect(violations(change("publish", ifOf, `if: ${status} && needs.plan.outputs.release == 'true'`)).join("\n"), status).toMatch(/publish runs after a red job/);
     }
     expect(violations(change("publish", ifOf, `if: success() && needs.plan.outputs.release == 'true'`))).toEqual([]);
-    expect(violations(change("test", "timeout-minutes: 15", "timeout-minutes: 15\n    continue-on-error: true")).join("\n")).toMatch(/continue-on-error/);
+    expect(violations(change("verify", "timeout-minutes: 15", "timeout-minutes: 15\n    continue-on-error: true")).join("\n")).toMatch(/continue-on-error/);
   });
 
   it("gives no job a wider permission than it has today, and every job names its own", () => {
-    expect(violations(change("typecheck", "contents: read", "contents: write")).join("\n")).toMatch(/typecheck holds contents: write/);
-    expect(violations(change("test", "contents: read", "contents: read\n      id-token: write")).join("\n")).toMatch(/test holds id-token: write/);
+    expect(violations(change("verify", "contents: read", "contents: write")).join("\n")).toMatch(/verify holds contents: write/);
+    expect(violations(change("dry-run", "contents: read", "contents: read\n      id-token: write")).join("\n")).toMatch(/dry-run holds id-token: write/);
     expect(violations(change("build", "packages: write", "packages: write\n      id-token: write")).join("\n")).toMatch(/build holds id-token: write/);
     expect(violations(change("publish", "contents: read", "contents: write")).join("\n")).toMatch(/publish holds contents: write/);
     expect(violations(change("release", "contents: write", "contents: write\n      packages: write")).join("\n")).toMatch(/release holds packages: write/);
@@ -366,33 +356,71 @@ describe("release workflow", () => {
     expect(violations(WORKFLOW.replace(/docker\/login-action@[0-9a-f]{40}/, "docker/login-action@main")).join("\n")).toMatch(/docker\/login-action@main/);
   });
 
-  it("starts the checks, the rehearsal and the build as soon as plan is done, and the smoke tests as soon as the build is", () => {
+  it("starts the commit check, the rehearsal and the build as soon as plan is done, and the smoke tests as soon as the build is", () => {
     const w = parseYaml(WORKFLOW) as unknown as Workflow;
-    for (const id of ["verify", "typecheck", "test", "build", "dry-run"]) expect(needsOf(w.jobs[id] as Job), id).toEqual(["plan"]);
+    for (const id of ["verify", "build", "dry-run"]) expect(needsOf(w.jobs[id] as Job), id).toEqual(["plan"]);
     expect(needsOf(w.jobs.smoke as Job).sort()).toEqual(["build", "plan"]);
-    // the checks also run when only a rehearsal is asked for
-    for (const id of ["verify", "typecheck", "test"]) expect((w.jobs[id] as Job).if, id).toMatch(/release == 'true' \|\| .*dry_run == 'true'/);
+    // the commit check also runs when only a rehearsal is asked for
+    expect((w.jobs.verify as Job).if).toMatch(/release == 'true' \|\| .*dry_run == 'true'/);
   });
 
-  it("runs the tests in shards 1 to N whose command cuts pnpm test into N, and a shard with no test fails", () => {
+  it("leaves the types, the build and the tests to the local gate: no job for them, and publish needs exactly plan, verify, build and smoke", () => {
     const w = parseYaml(WORKFLOW) as unknown as Workflow;
-    expect(w.jobs.test?.strategy?.matrix?.shard).toEqual(["1", "2", "3"]);
-    expect(w.jobs.test?.steps.map((s) => s.run)).toContain("pnpm test --shard ${{ matrix.shard }}/3");
-    // two shards under a command that cuts into three leave a third of the tests out
-    expect(violations(change("test", "shard: [1, 2, 3]", "shard: [1, 2]")).join("\n")).toMatch(/the test job runs .*\/3", not .*\/2/);
-    expect(violations(change("test", "shard: [1, 2, 3]", "shard: [1, 3]")).join("\n")).toMatch(/test shards are \[1, 3\]/);
-    expect(violations(change("test", "/3", "/2")).join("\n")).toMatch(/the test job runs "pnpm test --shard \$\{\{ matrix.shard \}\}\/2", not .*\/3/);
-    // vitest ends with an error when a shard has no file to run, unless asked to pass: nothing asks
-    const asked = change("test", "/3", "/3 --passWithNoTests");
-    expect(violations(asked).join("\n")).toMatch(/passWithNoTests/);
-    for (const file of ["vitest.config.ts", "package.json"]) expect(readText(file), file).not.toMatch(/passWithNoTests/);
+    expect(Object.keys(w.jobs).sort()).toEqual(["build", "dry-run", "plan", "publish", "release", "smoke", "verify"]);
+    expect(needsOf(w.jobs.publish as Job).sort()).toEqual(["build", "plan", "smoke", "verify"]);
+    expect(JSON.stringify(w)).not.toMatch(/pnpm (typecheck|test|install)|check-migrations|--shard/);
   });
 
   it("keeps every row of what a run checks, signs and publishes", () => {
     expect(violations(change("publish", "run: cosign sign --yes", "run: echo")).join("\n")).toMatch(/the signature by digest: made in no job/);
-    expect(violations(change("typecheck", "      - run: pnpm typecheck\n", "")).join("\n")).toMatch(/types: made in no job/);
-    expect(violations(change("verify", "tools/ci/check-migrations.sh", "tools/ci/other.sh")).join("\n")).toMatch(/migrations are only added: made in no job/);
+    expect(violations(change("verify", "merge-base --is-ancestor HEAD origin/main", "merge-base --is-ancestor HEAD HEAD")).join("\n")).toMatch(/the commit is on main: made in no job/);
     // a row that moves to another job is named too
-    expect(violations(change("typecheck", "      - run: pnpm build", "      - run: pnpm build\n      - run: pnpm test --shard 1/3")).join("\n")).toMatch(/tests: made in test, typecheck, expected test/);
+    expect(violations(change("smoke", "      - uses: docker/login-action", "      - run: gh release create \"$TAG\"\n      - uses: docker/login-action")).join("\n")).toMatch(/smoke makes a release or a git tag/);
+  });
+});
+
+// ── the public tree leg of the local gate ────────────────────────────────────────────────────────────────────────
+// The checks of the types, the build and the tests run once, before the push, on the tree that this repository holds
+// (the private one less its excluded paths and blocks). The script of the gate is in the private tree only: a tree
+// without it has nothing to read here, and these tests are skipped.
+const GATE = readdirSync(resolve(ROOT, "tools/release")).find((f) => f.endsWith("-gate.sh"));
+const LEG_COMMANDS = ["pnpm install --frozen-lockfile --offline", "pnpm typecheck", "pnpm build", "pnpm test"];
+
+/** Everything wrong with the public tree leg of the gate script, in words. Empty when it holds. */
+function gateViolations(text: string): string[] {
+  const out: string[] = [];
+  const leg = /^public_tree\(\) \(\n([\s\S]*?)\n\)$/m.exec(text)?.[1];
+  if (leg === undefined) return ["the gate has no public_tree leg"];
+  const cmds = leg.replace(/\\\n/g, " ").split(/\s*&&\s*/).map((c) => c.trim());
+  const all = cmds.filter((c) => c.startsWith("pt_run ")).map((c) => c.slice("pt_run ".length));
+  if (all.filter((c) => /^git init\b/.test(c)).length !== 1 || !all.some((c) => /^git add -A$/.test(c)) || !all.some((c) => /^git .*\bcommit\b/.test(c))) out.push("the folder is not made a git repository with one commit");
+  const run = all.filter((c) => !c.startsWith("git "));
+  if (!/^"\$ROOT\/tools\/[\w-]+\.sh" --export "\$1"$/.test(run[0] ?? "")) out.push("the leg does not start with the export of HEAD into its folder");
+  if (cmds[1] !== 'cd "$1"') out.push("the commands do not run in the exported folder");
+  if (run.slice(1).join("|") !== LEG_COMMANDS.join("|")) out.push(`the leg runs "${run.slice(1).join('", "')}", not "${LEG_COMMANDS.join('", "')}"`);
+  if (!/GATE_LABEL="public tree" bg gate_run public-tree public_tree "\$GATE_PT_DIR"/.test(text)) out.push("the leg is not started beside check and e2e as the public tree");
+  if (!/GATE_PT_DIR=\$\(mktemp -d "\$\{TMPDIR:-\/tmp\}\/[\w.-]+\.XXXXXX"\)/.test(text)) out.push("the folder is not made under the temp folder");
+  if (!/trap 'rm -rf "\$GATE_PT_DIR"' EXIT/.test(text) || !/trap 'exit 130' INT/.test(text) || !/trap 'exit 143' TERM/.test(text)) out.push("the folder is not removed when the gate ends or is signalled");
+  return out;
+}
+
+describe("release gate, public tree leg", () => {
+  const gate = GATE === undefined ? "" : readText(`tools/release/${GATE}`);
+  /** The gate text with the line of one command taken out. */
+  const without = (cmd: string) => gate.replace(new RegExp(`^\\s*&& pt_run ${cmd}( \\\\)?\\n`, "m"), "");
+
+  it.skipIf(GATE === undefined)("installs offline, then typechecks, builds and tests the exported tree in a folder under the temp folder", () => {
+    expect(gateViolations(gate)).toEqual([]);
+  });
+
+  it.skipIf(GATE === undefined)("names the leg that lost a command, ran them in another order, or left its folder behind", () => {
+    for (const cmd of LEG_COMMANDS) expect(gateViolations(without(cmd)).join("\n"), cmd).toMatch(/the leg runs/);
+    expect(gateViolations(gate.replace(" --offline", "")).join("\n")).toMatch(/the leg runs "pnpm install --frozen-lockfile", /);
+    expect(gateViolations(gate.replace("pt_run pnpm typecheck", "pt_run pnpm @").replace("pt_run pnpm build", "pt_run pnpm typecheck").replace("pt_run pnpm @", "pt_run pnpm build")).join("\n")).toMatch(/the leg runs/);
+    expect(gateViolations(gate.replace('--export "$1" && cd "$1"', '--export "$1"')).join("\n")).toMatch(/do not run in the exported folder/);
+    expect(gateViolations(without("git init -q")).join("\n")).toMatch(/not made a git repository with one commit/);
+    expect(gateViolations(gate.replace('"${TMPDIR:-/tmp}/gate-public', '"$ROOT/gate-public')).join("\n")).toMatch(/not made under the temp folder/);
+    expect(gateViolations(gate.replace(`trap 'rm -rf "$GATE_PT_DIR"' EXIT`, "")).join("\n")).toMatch(/not removed when the gate ends or is signalled/);
+    expect(gateViolations(gate.replace("GATE_LABEL=\"public tree\" bg ", "")).join("\n")).toMatch(/not started beside check and e2e/);
   });
 });

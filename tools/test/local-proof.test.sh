@@ -137,13 +137,19 @@ for i in 3 4 5 6 7; do echo "$i" >"$R/docs/notes.md"; commit "$R" "b$i"; git -C 
 printf '%s\n' '# the oldest supported' b0 b1 '' '# 0.3.0' '  b2  ' '# 0.4.0, the first public release' b3 b4 b5 b5 b6 '# the last release' b7 >"$R/baselines.txt"
 printf '%s\n' '# no ref yet' '' >"$R/empty.txt"
 printf '%s\n' b0 nope >"$R/ghost.txt"
+printf '%s\n' b0 b7 >"$R/two.txt"
 commit "$R" "the lists"
 
 stub "$BIN/docker" <<'STUB'
 #!/usr/bin/env bash
-if [[ ${1:-} == build ]]; then echo "docker $* cwd=$PWD" >>"$PROOF_CALLS"; else echo "docker $*" >>"$PROOF_CALLS"; fi
+case ${1:-} in
+  build) echo "docker $* cwd=$PWD" >>"$PROOF_CALLS" ;;
+  image | rmi) echo "docker $*" >>"$PROOF_PLAY/images" ;; # after the drills: not among the calls of the legs
+  *) echo "docker $*" >>"$PROOF_CALLS" ;;
+esac
 case ${1:-} in
   info) [[ ! -e $PROOF_PLAY/no-docker ]] || exit 1 ;;
+  image) [[ ${2:-} != ls ]] || cat "$PROOF_PLAY/kept" 2>/dev/null ;; # the tags of the kept images, one a line
   kill) [[ ! -e $PROOF_PLAY/fail-kill ]] || exit 1 ;;
   build)
     # with the file image-waits, the build stays until a rehearsal is inside (the 30 s are for a proof that never starts one)
@@ -170,6 +176,12 @@ STUB
 stub "$BIN/chown" <<'STUB'
 #!/usr/bin/env bash
 echo "chown $*" >>"$PROOF_CALLS"
+STUB
+stub "$BIN/nproc" <<'STUB'
+#!/usr/bin/env bash
+n=$(cat "$PROOF_PLAY/cpus" 2>/dev/null || echo 16)
+[[ $n != none ]] || exit 1 # a machine that cannot say
+echo "$n"
 STUB
 stub "$BIN/getent" <<'STUB'
 #!/usr/bin/env bash
@@ -219,6 +231,29 @@ has "the drills are the last leg, on that install" "$(tail -1 "$CALLS")" "drills
 check "no setpriv and no chown for a user that is not root" test "$(called '^setpriv\|^chown')" -eq 0
 check "only the logs stay in the work folder" test "$(ls "$TMP"/work/local-proof.*)" = logs
 check "a log for each leg" test "$(ls "$(logs)" | tr '\n' ' ')" = "clone.log drills.log image.log signature.log smoke.log upgrade-b0.log upgrade-b3.log upgrade-b5.log upgrade-b6.log upgrade-b7.log "
+
+# ── the kept baseline images: only a green proof removes the ones the list no longer names ──
+# $PLAY/kept is what `docker image ls proof-baseline` prints, one tag a line; $PLAY/images is what was asked of Docker about them
+h0=$(git -C "$R" rev-parse b0); h1=$(git -C "$R" rev-parse b1); stranger=$(printf 'd%.0s' {1..40})
+reset
+printf '%s\n' "$stranger" >"$PLAY/kept"
+out=$(proof ghost.txt)
+has "a ref that names no commit here leaves every image alone, and says so" "$out" "baseline images: nope names no commit here, so none is removed"
+lacks "and nothing is removed" "$(cat "$PLAY/images" 2>/dev/null)" "docker rmi"
+reset
+printf '%s\n' "$stranger" >"$PLAY/kept"
+touch "$PLAY/fail-b3"
+out=$(proof baselines.txt); rc=$?
+check "a proof with a red rehearsal exits 1" test $rc -eq 1
+lacks "a red proof removes no image and does not count them" "$out$(cat "$PLAY/images" 2>/dev/null)" "baseline images"
+reset
+printf '%s\n' "$h0" "$h1" "$stranger" latest >"$PLAY/kept"
+out=$(proof baselines.txt)
+has "a green proof says how many images are kept and how many it removed" "$out" "baseline images kept for the next proof: 2 (1 removed, no longer in baselines.txt)"
+has "an image that no ref names is removed, by its full hash" "$(cat "$PLAY/images")" "docker rmi proof-baseline:$stranger"
+lacks "an image of a baseline the list names is kept, though this proof did not rehearse it" "$(cat "$PLAY/images")" "docker rmi proof-baseline:$h1"
+lacks "so is the one that was rehearsed" "$(cat "$PLAY/images")" "docker rmi proof-baseline:$h0"
+lacks "a tag that is no commit hash is not ours to remove" "$(cat "$PLAY/images")" "docker rmi proof-baseline:latest"
 
 # ── the stamp ──
 : >"$CALLS"
@@ -303,6 +338,16 @@ has "the flag wins over PROOF_JOBS" "$out" "2 at a time."
 reset
 out=$(PROOF_JOBS='' proof baselines.txt)
 has "an empty PROOF_JOBS is the default" "$out" "4 at a time."
+# without a flag the lanes come from the CPUs: one for every 4, at least 4, at most the rehearsals
+lanes() { local cpus=$1; shift; reset; echo "$cpus" >"$PLAY/cpus"; proof "$@" | sed -n 1p; }
+has "28 CPUs: 7 lanes" "$(lanes 28 baselines.txt)" "8 baselines (scripts/install.sh changed since b7), 7 at a time."
+has "no more lanes than rehearsals" "$(lanes 100 baselines.txt)" "8 at a time."
+has "a small machine still gets 4" "$(lanes 4 baselines.txt)" "4 at a time."
+has "a list of two rehearsals gets two lanes" "$(lanes 28 two.txt)" "2 baselines (scripts/install.sh changed since b7), 2 at a time."
+has "a machine that cannot count its CPUs gets 4" "$(lanes none baselines.txt)" "4 at a time."
+reset
+out=$(echo 28 >"$PLAY/cpus"; PROOF_JOBS=3 proof baselines.txt)
+has "PROOF_JOBS wins over the CPUs" "$out" "3 at a time."
 
 # ── a leg that fails ──
 reset
@@ -499,6 +544,9 @@ stub "$TMP/ubin/docker" <<'STUB'
 # no Docker here: `compose up` fails, and every call says which install it would have reached
 echo "docker $* | HOST_PORT=${HOST_PORT:-} INSTANCE_NAME=${INSTANCE_NAME:-} COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-} cwd=${PWD##*/}" >>"$PROOF_CALLS"
 [[ " $* " != *" up "* ]] || exit 1
+# the image the compose file names (one line a file `compose-images`) and the images that are here (one name a line, `have`)
+[[ $* != "compose config --images" ]] || { cat "$PROOF_PLAY/compose-images" 2>/dev/null; exit 0; }
+[[ $* != "image inspect "* ]] || { grep -qx -- "$3" "$PROOF_PLAY/have" 2>/dev/null; exit; }
 STUB
 # rehearse REF [NAME=VALUE...]: the real rehearsal from REF, which ends at its first `compose up`
 rehearse() {
@@ -514,12 +562,12 @@ fixed=$(git -C "$U" rev-parse --short fixed)
 half=$(git -C "$U" rev-parse --short half)
 keys=$(git -C "$U" rev-parse --short keys)
 out=$(rehearse "$keys"); rc=$?
-check "the rehearsal reaches Docker and stops there" test $rc -ne 0 -a "$(called '^docker compose up -d --build ')" -eq 1
+check "the rehearsal reaches Docker and stops there" test $rc -ne 0 -a "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker compose up -d ')" -eq 1
 check "with no setting the install has no key of a port or a name" test "$(cat "$W/talous/.env")" = "$BASE_ENV"
-has "and Docker gets none" "$(calls)" "docker compose up -d --build | HOST_PORT= INSTANCE_NAME= COMPOSE_PROJECT_NAME= cwd=talous"
+has "and Docker gets none" "$(calls)" "docker compose build | HOST_PORT= INSTANCE_NAME= COMPOSE_PROJECT_NAME= cwd=talous"
 out=$(rehearse "$keys" UPGRADE_PORT=8082 UPGRADE_PROJECT=proof-2); rc=$?
 check "a port and a project: the keys are in the .env of the install" test "$(cat "$W/talous/.env")" = "$BASE_ENV"$'\n''HOST_PORT=8082'$'\n''INSTANCE_NAME=proof-2'$'\n''COMPOSE_PROJECT_NAME=proof-2'
-has "and in the environment of every Docker call" "$(calls)" "docker compose up -d --build | HOST_PORT=8082 INSTANCE_NAME=proof-2 COMPOSE_PROJECT_NAME=proof-2 cwd=talous"
+has "and in the environment of every Docker call" "$(calls)" "docker compose build | HOST_PORT=8082 INSTANCE_NAME=proof-2 COMPOSE_PROJECT_NAME=proof-2 cwd=talous"
 has "the teardown of a failed run reaches that project, not the default one" "$(calls)" "docker compose down -v | HOST_PORT=8082 INSTANCE_NAME=proof-2 COMPOSE_PROJECT_NAME=proof-2 cwd=talous"
 out=$(rehearse "$keys" UPGRADE_PORT=8090); rc=$?
 check "a port alone: one key" test "$(cat "$W/talous/.env")" = "$BASE_ENV"$'\n''HOST_PORT=8090'
@@ -531,7 +579,45 @@ out=$(rehearse "$half" UPGRADE_PROJECT=proof-2); rc=$?
 has "a baseline that can move its port but not its name refuses a project" "$out" "FAIL: the docker-compose.yml of $half does not read INSTANCE_NAME"
 check "before any Docker call too" test $rc -eq 1 -a ! -s "$CALLS" -a ! -e "$W/talous"
 out=$(rehearse "$fixed"); rc=$?
-check "a baseline with fixed names runs on the defaults" test "$(called '^docker compose up -d --build ')" -eq 1 -a "$(cat "$W/talous/.env")" = "$BASE_ENV"
+check "a baseline with fixed names runs on the defaults" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker compose up -d ')" -eq 1 -a "$(cat "$W/talous/.env")" = "$BASE_ENV"
+
+# ── the image of a baseline, kept by the full hash of its commit ──
+# The rehearsal ends at its first `compose up`, so what is tested is which image it starts from and the phase line
+full=$(git -C "$U" rev-parse "$keys")
+other=$(git -C "$U" rev-parse "$half")
+name=proof-baseline:$full
+echo 'banking-app:latest' >"$PLAY/compose-images"
+out=$(rehearse "$keys"); rc=$?
+check "no kept image: the baseline is built, and no image is tagged" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
+has "the phase line says built" "$out" "phase baseline image: "
+has "and where the image came from" "$out" "s (built)"
+echo "$name" >"$PLAY/have"
+out=$(rehearse "$keys"); rc=$?
+check "an image kept under the hash of the baseline: nothing is built" test "$(called '^docker compose build ')" -eq 0 -a "$(called '^docker compose up -d ')" -eq 1
+has "it is the image the install runs" "$(calls)" "docker tag $name banking-app:latest"
+has "the phase line says kept" "$out" "s (kept)"
+check "a ref's own name is no claim: the clone's hash is what is asked" test "$(called "^docker image inspect $name ")" -eq 1 -a "$(called "^docker image inspect proof-baseline:$keys ")" -eq 0
+echo 'proof-2:latest' >"$PLAY/compose-images"
+out=$(rehearse "$keys" UPGRADE_PORT=8082 UPGRADE_PROJECT=proof-2)
+has "in a lane of its own the kept image gets the lane's name" "$(calls)" "docker tag $name proof-2:latest"
+echo 'banking-app:latest' >"$PLAY/compose-images"
+echo "proof-baseline:$other" >"$PLAY/have"
+out=$(rehearse "$keys")
+check "an image kept for another commit is not used" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
+echo 'banking-app:latest' >"$PLAY/compose-images"
+printf '%s\n' "proof-baseline:${full:0:12}" "$keys" "proof-baseline:latest" >"$PLAY/have"
+out=$(rehearse "$keys")
+check "nor is one named by a short hash, a ref or a word" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
+echo "$name" >"$PLAY/have"
+out=$(rehearse "$keys" PROOF_FRESH=1)
+check "PROOF_FRESH=1 builds though the image is kept" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
+printf 'banking-app:latest\ncaddy:2\n' >"$PLAY/compose-images"
+out=$(rehearse "$keys")
+check "a compose file with more than one image builds as before and keeps nothing" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
+: >"$PLAY/compose-images"
+out=$(rehearse "$keys")
+check "a compose file that names no image builds as before" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
+rm -f "$PLAY/compose-images" "$PLAY/have"
 
 # ── the helper's look at an app that is stopped (tools/ci/drills-lib.sh) ──
 # timeout_shim writes the `timeout` that goes first in the helper's PATH. The real one is a stand-in that says what it got.

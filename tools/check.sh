@@ -3,13 +3,14 @@
 #   tools/check.sh [--changed [base]] [types] [tests] [lint] [sh]     (pnpm check; no argument runs all four steps)
 # types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/.
 # A suite whose scenarios are t_ functions behind a `want` filter (install, backup, ops-helper, ...) runs one job per
-# scenario, the other suites one job each, CHECK_JOBS of them at a time (default 8 on a machine with 16 CPUs or more, else 4).
+# scenario, the other suites one job each, CHECK_JOBS of them at a time (default 12 on 24 CPUs or more, 8 from 16, else 4).
 # --changed [base] is for the loop while working: tsc runs incrementally, vitest only on the packages the diff touches
 # and on the files that name a changed script (tools/check/scope.mjs says which), and the shell steps only when it
 # touches shell: then only the suites that name the changed script, or a script that sources it. A changed script that
 # nothing names runs everything. The base defaults to the commit that .git/worker-base holds, else origin/main. CI and
 # a plain `pnpm check` run everything.
-# CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
+# The steps run side by side, their lines printed in the order above; CHECK_SERIAL=1 runs them one after the other, for
+# a small machine. CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -91,7 +92,7 @@ fi
 CHECK_LOG=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX")
 export CHECK_LOG
 cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
-JOBS=${CHECK_JOBS:-$((cpus >= 16 ? 8 : 4))}
+JOBS=${CHECK_JOBS:-$((cpus >= 24 ? 12 : cpus >= 16 ? 8 : 4))}
 failed=()
 trap '((${#failed[@]})) || rm -rf "$CHECK_LOG"' EXIT
 
@@ -245,7 +246,21 @@ step_sh() {
 }
 
 failed_lines=()
-for s in "${steps[@]}"; do "step_$s"; done
+if ((${#steps[@]} > 1)) && [[ ${CHECK_SERIAL:-0} != 1 ]]; then
+  # side by side: each step prints into a file of its own, and its seconds are its own. The lines are then printed in
+  # the order of the steps, so the output reads as the serial run does.
+  pids=()
+  for s in "${steps[@]}"; do
+    ( t0=$SECONDS; "step_$s" >"$CHECK_LOG/out-$s" 2>&1; ((${#failed[@]} == 0)) ) &
+    pids+=($!)
+  done
+  for i in "${!steps[@]}"; do
+    wait "${pids[$i]}" || failed+=("${steps[$i]}")
+    cat "$CHECK_LOG/out-${steps[$i]}"
+  done
+else
+  for s in "${steps[@]}"; do "step_$s"; done
+fi
 
 if ((${#failed[@]})); then
   echo "check: ${#failed[@]} of ${#steps[@]} steps failed (${failed[*]}). Logs: $CHECK_LOG"

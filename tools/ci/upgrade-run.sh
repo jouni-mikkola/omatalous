@@ -16,6 +16,12 @@
 # (tools/ci/local-proof.sh). A baseline whose docker-compose.yml reads no such key is refused before anything is
 # installed. The drills stand on the defaults, so the rehearsal they follow takes neither.
 #
+# The baseline's image is kept after the install has come up, under proof-baseline:<the full hash of the commit the clone
+# is on>, and a later run on the same commit starts from it and builds nothing (PROOF_FRESH=1 builds it anew and keeps the new
+# one). The hash comes from the clone after the reset, never from the ref, and an image that does not start is removed. The
+# build of the commit under proof is update.sh's own and is always done. One line a phase says where the seconds went:
+# "phase baseline image: 13 s (built)", then start, data, new image, update and checks.
+#
 # UPGRADE_BUILD_SHIM=<script>: run in the install directory before every update or build (argument "baseline" for
 # the first build, "next" before an update), for machines that need build settings that are not part of the
 # repository (a proxy certificate, say). UPGRADE_WORK must be set then; the remote is $UPGRADE_WORK/remote.git.
@@ -39,6 +45,7 @@ MOVED=()
 [[ $PORT == 8080 ]] || MOVED+=("HOST_PORT=$PORT")
 [[ -z $PROJECT ]] || MOVED+=("INSTANCE_NAME=$PROJECT" "COMPOSE_PROJECT_NAME=$PROJECT")
 NODE=(node --disable-warning=ExperimentalWarning)
+KEPT_REPO=proof-baseline
 export GIT_AUTHOR_NAME=ci GIT_AUTHOR_EMAIL=ci@example.invalid GIT_COMMITTER_NAME=ci GIT_COMMITTER_EMAIL=ci@example.invalid
 PASS='ci-salasana-123456'
 
@@ -49,6 +56,12 @@ PASS='ci-salasana-123456'
 # log and fail end the run on the spot; the drills' step and die also keep what a drill saw for its result line
 log()  { printf '\n== %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+# phase NAME [SECONDS [NOTE]]: one line with the seconds since the last phase (or the given ones), so that a release is
+# measured from the logs and not guessed
+PH0=$SECONDS
+phase() { printf 'phase %s: %d s%s\n' "$1" "${2:-$((SECONDS - PH0))}" "${3:+ ($3)}"; PH0=$SECONDS; }
+# kept_is NAME: that image is here, and the hash in its name is the commit the install folder is on
+kept_is() { [[ ${1#"$KEPT_REPO":} == "$(git -C "$DIR" rev-parse HEAD)" ]] && docker image inspect "$1" >/dev/null 2>&1; }
 cleanup() {
   local rc=$?
   if ((rc != 0)) && [[ -d $DIR ]]; then dc logs --tail 80 banking >&2 || true; fi
@@ -143,11 +156,20 @@ if ((${#MOVED[@]})); then
   printf '%s\n' "${MOVED[@]}" >>"$DIR/.env"
   export "${MOVED[@]}"
 fi
-shim baseline
-dc up -d --build
-wait_up
+# what docker-compose.yml names the one image of the install; anything else builds as before and keeps nothing
+OLD_IMAGE=$(dc config --images 2>/dev/null) || OLD_IMAGE=''
+KEEP_AS=$KEPT_REPO:$OLD_COMMIT
+[[ $OLD_COMMIT =~ ^[0-9a-f]{40}$ && -n $OLD_IMAGE && $OLD_IMAGE != *$'\n'* ]] || KEEP_AS=''
+IMAGE_FROM=built
+if [[ -n $KEEP_AS && ${PROOF_FRESH:-} != 1 ]] && kept_is "$KEEP_AS" && docker tag "$KEEP_AS" "$OLD_IMAGE"; then IMAGE_FROM=kept; fi
+if [[ $IMAGE_FROM == built ]]; then shim baseline; dc build; fi
+phase "baseline image" "" "$IMAGE_FROM"
+dc up -d
+until_ok 180 app_ok || { [[ $IMAGE_FROM != kept ]] || docker rmi "$KEEP_AS" >/dev/null 2>&1; fail "the app did not come up"; }
 OLD_VERSION=$(app_version)
 echo "installed version $OLD_VERSION"
+[[ $IMAGE_FROM == kept || -z $KEEP_AS ]] || docker tag "$OLD_IMAGE" "$KEEP_AS"
+phase start
 
 log "load data through the API"
 api -d '{"code":"ci-setup-code-12345","username":"ci-admin","displayName":"CI","password":"'"$PASS"'"}' "$URL/api/auth/setup" >/dev/null
@@ -160,11 +182,23 @@ read -r JOINT ADMIN_ID <<<"$(seed_joint)" # empty for a baseline whose accounts 
 GOLD0=$(golden)
 echo "$GOLD0"
 [[ $GOLD0 == *"user-row"* && $GOLD0 == *"tx ci-admin"* ]] || fail "the data was not loaded"
+phase data
 
 log "update from $B to $(git -C "$SRC" rev-parse --short HEAD) the way a user of that version does"
+UPDATE0=$(date +%s)
 if [[ -f $DIR/scripts/update.sh ]]; then run_update >/dev/null # the baseline's own script, as it is
 else shim; (cd "$DIR" && git pull -q --ff-only && docker compose up -d --build); fi
 wait_up
+# the new image is done when its configuration was made, which the image says
+BUILT_AT=$(date -d "$(docker image inspect -f '{{.Created}}' "$NAME:latest" 2>/dev/null)" +%s 2>/dev/null) || BUILT_AT=0
+TOOK=$((SECONDS - PH0))
+if ((BUILT_AT >= UPDATE0 && BUILT_AT - UPDATE0 <= TOOK)); then
+  phase "new image" $((BUILT_AT - UPDATE0))
+  phase update $((TOOK - BUILT_AT + UPDATE0))
+else
+  echo "phase new image: not measured (the image was made before the update began)"
+  phase update
+fi
 NEW_VERSION=$(app_version)
 [[ $NEW_VERSION == "$(head_version)" ]] || fail "version is $NEW_VERSION, expected $(head_version)"
 expect_equal "the data" "$GOLD0" "$(golden)"
@@ -277,5 +311,6 @@ if run_update --yes >/dev/null; then fail "a failing migration must not succeed"
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "rollback after the failed migration did not bring the old version back"
 expect_equal "the data after the failed migration" "$GOLD1" "$(golden)"
+phase checks
 echo
 echo "upgrade rehearsal from $B passed"

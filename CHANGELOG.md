@@ -3,6 +3,23 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.19.0
+
+- The night look is lighter and easier to read: the page and its panels are a deep blue-grey instead of near-black, with clearer steps between them, and every text and state colour is checked for contrast against the surface under it.
+- Releases are checked on this machine before anything is public: the public tree's type check, build and tests are part of the local gate, and the run on GitHub only builds, tests and signs the image and publishes.
+
+Look
+
+- The night look is lighter: a deep blue-grey instead of near-black, with clearer steps between the page, the panels and their edges, and panels with a softer glow and shadow. Text, state colours, charts and input edges keep their contrast against the new surfaces.
+
+For developers
+
+- The release gate now also exports the public tree to a temporary folder and runs the offline install, the type check, the build and the tests there, beside the private tree's checks, so a test that only fails in the public tree is caught before the push.
+- `pnpm check` runs its four steps side by side (`CHECK_SERIAL=1` keeps the old order), and the shell suites use 12 jobs on a machine with 24 CPUs or more.
+- `pnpm e2e` defaults to a third of the CPUs as workers (3 to 8) and, as root, runs in a network of its own, so a container starting beside it cannot break a page test.
+- The local release proof starts a baseline's install from a kept image, named by the full hash of the baseline's commit, instead of building it every time (`PROOF_FRESH=1` builds it anew), and it runs one lane for every 4 CPUs by default.
+- Each rehearsal of the proof logs the seconds of its phases, and every drill logs its own.
+
 ## 0.18.0
 
 - Varallisuus on the first page shows accounts, loans and cards side by side. A card's face tilts toward the pointer, and a card with a limit has an arc of the share of its credit that is used.

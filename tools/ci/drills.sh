@@ -203,7 +203,7 @@ lock_says() {
   ) 2>&1 | tail -n 1
 }
 drill_watchdog() {
-  local prev new upid v n=0 rc=0
+  local prev new upid v n=0 rc=0 t3=$SECONDS
   fresh
   prep_ops || die "the helper's folders could not be made"
   login || die "sign-in failed"
@@ -220,7 +220,7 @@ drill_watchdog() {
     if (flock -n 9) 9<"$DIR"; then
       note_result 7 "install.sh lock" "failed: update.sh was running after the merge and a second shell took the installer's lock (the clone folder); installer_lock of the merged scripts/lib/release.sh says: $(lock_says)"
     else
-      note_result 7 "install.sh lock" "ok"
+      note_result 7 "install.sh lock" "ok ($((SECONDS - t3)) s into drill 3)"
     fi
   else
     note_result 7 "install.sh lock" "failed: update.sh was over before the lock could be tried (see drill 3 log)"
@@ -253,7 +253,7 @@ drill_watchdog() {
   if migrations | grep '^9999_drill_watchdog' >/dev/null; then
     note_result 8 "unreadable database" "failed: the rolled back database still has the migration the previous version cannot read"
   else
-    note_result 8 "unreadable database" "ok"
+    note_result 8 "unreadable database" "ok ($((SECONDS - t3)) s into drill 3)"
   fi
   step "a second bad period: the same update's record put back, the app stopped again, five ticks"
   cp "$LOGS/last-update.saved" "$DIR/backups/.last-update" && chmod 600 "$DIR/backups/.last-update" || die "the record could not be put back"

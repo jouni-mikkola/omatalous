@@ -314,7 +314,7 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
 1. While you work, run the one test file you are changing: `pnpm test path/to/file.test.ts`.
 2. Before you commit, run `pnpm check --changed <base>` once, with the commit your work started from (without a base it
    is `origin/main`). It runs the type check everywhere, the tests of the packages the diff touches and the shell suites
-   only if shell changed, and ends in a few lines. A plain `pnpm check` runs everything, as CI does.
+   only if shell changed, and ends in a few lines. A plain `pnpm check` runs everything, as CI does, with the four steps side by side (`CHECK_SERIAL=1` runs them one after the other).
 3. Run `pnpm build` and `pnpm e2e` once, and only when the change touches the web app or a route. Never a subset of the
    specs: a page that breaks shows in another page's spec.
 4. Stage your files first (`git add -A`): the repo rules read the index and the new files that git does not ignore.
@@ -375,10 +375,12 @@ to the colour of the header band (`--ink`), so the two move together.
 
 ### End-to-end tests
 
-`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default 3). Each is a copy of the
+`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default a third of the CPUs, from 3 to 8). Each is a copy of the
 build in a temp directory, on a free port, with a data directory and a fake bank of its own (see below), and the
 Playwright specs in `e2e/` run with one worker for each server. The data directories are deleted at the end.
-`E2E_WORKERS=1` runs the specs one after the other.
+`E2E_WORKERS=1` runs the specs one after the other. As root with `unshare` on the PATH the runner starts itself again in
+a network of its own with only the loopback up, so a container or VPN changing the machine's interfaces cannot drop a
+request of the browser; `E2E_NETNS=0` keeps the machine's network.
 
 Every one of these servers starts with the administrator made and the demo household loaded, and the specs sign in as
 that administrator. `app.spec.ts` runs the setup form and the demo through the page, on a server of its own. The specs

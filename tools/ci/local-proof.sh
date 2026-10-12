@@ -16,10 +16,19 @@
 #   drills             tools/ci/drills.sh, on the install that the rehearsal from the first baseline left up
 #
 # Everything but the drills starts at once: the image and then the smoke test in a chain of their own, the signature,
-# and the rehearsals in their lanes. They share nothing: a rehearsal builds its own images from the baseline and from
-# the commit (never banking-app:ci), the smoke test publishes no port and names its containers after its own pid, and
-# the signature only reads. The drills start when all of those have ended. With one job the image and the smoke test run
-# first and alone, and a red one ends the proof before any other leg starts.
+# and the rehearsals in their lanes. They share nothing: a rehearsal makes its own images (never banking-app:ci), the
+# smoke test publishes no port and names its containers after its own pid, and the signature only reads. The drills start
+# when all of those have ended. With one job the image and the smoke test run first and alone, and a red one ends the
+# proof before any other leg starts.
+#
+# Images that are kept: the image of a baseline is the same one in every proof, so a rehearsal keeps it under the name
+# proof-baseline:<the full hash of the baseline's commit> once its install has come up, and a later proof starts from it
+# instead of building it (upgrade-run.sh; the name is the only claim, and the hash is read from the clone, never from a ref).
+# PROOF_FRESH=1 builds every baseline image anew and keeps the new one. At the end of a green proof the kept images whose
+# commit the list no longer names are removed, and one line says how many are kept. The image of the commit under proof is
+# not shared by name: every rehearsal's update.sh builds it, as a user's update does (that build is part of what is proved),
+# and the layers the image leg builds at the same time are the Docker cache it reuses. What the builds and the other
+# phases take is in each rehearsal's log, one line a phase ("phase update: 31 s"), and the drills' log has a line a drill.
 #
 # One line a leg when it ends, with its seconds. A failed leg does not stop the others, so that one proof shows every
 # failure; a failed image or smoke test is the exception, since every rehearsal builds the same Dockerfile: it stops the
@@ -33,8 +42,9 @@
 # oldest, the first public release (the ref under the comment line that says "first public release") and the last
 # three. --all takes the whole list.
 #
-# --jobs N (default 4, or PROOF_JOBS; the flag wins) is how many rehearsals run at once, each in a lane. A machine too
-# small for that sets PROOF_JOBS=1 (also through release.sh), and the rehearsals run one after another. Lane 0 has port 8080 and the names
+# --jobs N (or PROOF_JOBS; the flag wins) is how many rehearsals run at once, each in a lane. Without either it is one
+# lane for every 4 CPUs, at least 4 and at most the number of rehearsals. A machine too small for that sets PROOF_JOBS=1
+# (also through release.sh), and the rehearsals run one after another. Lane 0 has port 8080 and the names
 # docker-compose.yml gives without a key. Lane N has port 8080+N and the project proof-N (UPGRADE_PORT and
 # UPGRADE_PROJECT of upgrade-run.sh). Three rehearsals stay one at a time, in lane 0:
 #   - from a baseline whose docker-compose.yml fixes the port and the names (the ones before 0.4.0),
@@ -53,7 +63,7 @@
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-JOBS=4
+JOBS='' # from the flag or PROOF_JOBS, else from the CPUs once the baselines are picked
 ALL=0
 # jobs_are NAME VALUE: the number of rehearsals at once, from the flag or from the environment
 jobs_are() { [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "$1 needs a number from 1 to 99."; JOBS=$2; }
@@ -91,6 +101,7 @@ TEXT=$(git show "$SHA:$LIST" 2>/dev/null) || refuse "$LIST is not a file of the 
 # pick_baselines TEXT: the baselines this proof runs, into PICK in the order of the list, and why into WHY. The one
 # place for the rule in the header.
 PICK=()
+ALLREFS=() # every ref of the list, picked or not
 WHY=''
 pick_baselines() {
   local refs=() marked='' above='' l last changed i n
@@ -108,6 +119,7 @@ pick_baselines() {
   done <<<"$1"
   n=${#refs[@]}
   ((n)) || return 1
+  ALLREFS=("${refs[@]}")
   last=${refs[n - 1]}
   if ((ALL)); then PICK=("${refs[@]}"); WHY="--all"; return 0; fi
   # a last ref that is no commit here cannot say that nothing changed
@@ -139,6 +151,13 @@ fi
 if proved; then
   echo "local proof: $SHORT is proved already from ${PICK[*]} (the stamp is $STAMP). Nothing ran."
   exit 0
+fi
+
+if [[ -z $JOBS ]]; then
+  JOBS=$(($(nproc 2>/dev/null || echo 4) / 4))
+  ((JOBS >= 4)) || JOBS=4
+  ((JOBS <= ${#PICK[@]})) || JOBS=${#PICK[@]}
+  ((JOBS <= 99)) || JOBS=99
 fi
 
 for c in docker setsid; do command -v "$c" >/dev/null 2>&1 || refuse "$c is not installed."; done
@@ -278,6 +297,23 @@ stop() {
 }
 trap stop INT TERM
 
+# keep_images: the kept baseline images (proof-baseline:<hash>) whose commit the list no longer names are removed; one line
+# says how many are kept. A ref that names no commit here leaves every image alone: it cannot say what is still named.
+keep_images() {
+  local named=' ' ref c tag kept=0 gone=0
+  for ref in "${ALLREFS[@]}"; do
+    c=$(git -C "$ROOT" rev-parse --verify -q "$ref^{commit}") || { echo "baseline images: $ref names no commit here, so none is removed"; return 0; }
+    named+="$c "
+  done
+  while IFS= read -r tag; do
+    [[ $tag =~ ^[0-9a-f]{40}$ ]] || continue
+    if [[ $named == *" $tag "* ]]; then kept=$((kept + 1))
+    elif docker rmi "proof-baseline:$tag" >/dev/null 2>&1; then gone=$((gone + 1))
+    else kept=$((kept + 1)); fi
+  done < <(docker image ls --format '{{.Tag}}' proof-baseline 2>/dev/null)
+  echo "baseline images kept for the next proof: $kept ($gone removed, no longer in $LIST)"
+}
+
 # report [NOTE]: the last lines, the stamp when every leg passed, and the exit code
 report() {
   local failed=() name
@@ -285,6 +321,7 @@ report() {
   tidy
   if ((${#failed[@]} == 0)); then
     printf '%s\n%s\n' "$SHA" "${PICK[*]}" >"$STAMP"
+    keep_images
     echo "local proof passed for $SHORT in $((SECONDS - T0)) s: the image, the smoke test, the signature, ${#PICK[@]} baselines and the drills. Logs: $LOGS"
     exit 0
   fi
