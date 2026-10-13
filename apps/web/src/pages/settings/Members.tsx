@@ -50,12 +50,14 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
   const [secret, setSecret] = useState<{ who: string; password: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [doing, setDoing] = useState("");
   const [removing, setRemoving] = useState<User | null>(null);
   const [removed, setRemoved] = useState<string | null>(null);
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<void>, key = "") => {
     if (busy) return;
     setBusy(true);
+    setDoing(key);
     setError(null);
     try {
       await fn();
@@ -148,12 +150,13 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
                       <button
                         className="btn btn-small"
                         disabled={busy}
+                        aria-busy={(busy && doing === `reset-${u.id}`) || undefined}
                         onClick={() => {
                           if (!window.confirm(`Nollataanko käyttäjän ${u.displayName} salasana? Hänet kirjataan ulos kaikilta laitteilta.`)) return;
                           void run(async () => {
                             const r = await api<{ temporaryPassword: string }>(`/api/users/${u.id}/reset-password`, { method: "POST" });
                             setSecret({ who: u.username, password: r.temporaryPassword });
-                          });
+                          }, `reset-${u.id}`);
                         }}
                       >
                         Nollaa salasana

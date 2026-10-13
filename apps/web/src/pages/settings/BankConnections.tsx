@@ -235,7 +235,7 @@ export function BankConnections({
         </div>
         <div className="form-row" style={{ margin: 0 }}>
           {sync && meta.connections.some((c) => c.status === "active") && (
-            <button className="btn" type="button" disabled={sync.disabled} onClick={sync.start}>
+            <button className="btn" type="button" disabled={sync.disabled} aria-busy={sync.busy || undefined} onClick={sync.start}>
               {sync.busy ? "Haetaan…" : "Hae nyt"}
             </button>
           )}
@@ -340,7 +340,7 @@ export function BankConnections({
                   <td role="cell" className="num">
                     <span className="row-actions">
                       {canReconnect(c) && (
-                        <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => reconnect(c)}>
+                        <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={busy === `connect-${renewalBank(meta.bank.banks, c.institution, canStart)}` || undefined} onClick={() => reconnect(c)}>
                           Yhdistä uudelleen
                         </button>
                       )}
@@ -348,6 +348,7 @@ export function BankConnections({
                         <button
                           className="btn btn-small btn-danger"
                           disabled={busy !== null}
+                          aria-busy={busy === `del-${c.id}` || undefined}
                           onClick={() =>
                             run(`del-${c.id}`, async () => {
                               await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
@@ -396,7 +397,7 @@ export function BankConnections({
               onChange={(e) => setPasted(e.target.value)}
               required
             />
-            <button className="btn" type="submit" disabled={busy !== null}>
+            <button className="btn" type="submit" disabled={busy !== null} aria-busy={busy === "paste" || undefined}>
               Viimeistele
             </button>
           </form>

@@ -1,6 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
@@ -11,7 +10,7 @@ import { newestIntactCopy } from "../src/db/restore.ts";
 import { gateDatabase, gateEvent, isNews, restoreRequestPath } from "../src/db/startup-gate.ts";
 import { fiTime, noticesFor, recordEvent } from "../src/services/security.ts";
 import { loadFixture } from "./fixture-db.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 const ENTRY = fileURLToPath(new URL("../src/entry/node.ts", import.meta.url));
 // the sources are TypeScript with syntax Node cannot strip, so the entry runs under tsx as `pnpm dev` does
@@ -29,7 +28,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "talous-gate-"));
+  const d = scratchDir("talous-gate-");
   dirs.push(d);
   return d;
 };

@@ -22,7 +22,8 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
   const [editing, setEditing] = useState<string | null>(null);
   // the passing "Tallennettu." under a select: which select of which account
   const [saved, setSaved] = useState<{ what: "type" | "use"; id: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  // the account whose removal is on its way
+  const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canFix = meta.user.role === "admin" || meta.bank.source === "user";
@@ -51,7 +52,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
 
   const remove = async (a: Account) => {
     if (!window.confirm(`Poistetaanko tili ${a.name} ja sen tapahtumat?`)) return;
-    setBusy(true);
+    setBusy(a.id);
     setMessage(null);
     try {
       await api(`/api/accounts/${encodeURIComponent(a.id)}`, { method: "DELETE" });
@@ -61,7 +62,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     } catch (err) {
       setMessage({ tone: "warning", text: (err as Error).message });
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -176,7 +177,8 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                     <td colSpan={5}>
                       <AccountForm
                         account={a}
-                        busy={busy}
+                        busy={busy !== null}
+                        removing={busy === a.id}
                         canRemove={removable(a)}
                         onCancel={() => setEditing(null)}
                         onSaved={() => {
@@ -230,6 +232,7 @@ function FetchProblem({ account, connection, canFix }: { account: Account; conne
 function AccountForm({
   account,
   busy,
+  removing,
   canRemove,
   onCancel,
   onSaved,
@@ -237,6 +240,8 @@ function AccountForm({
 }: {
   account: Account;
   busy: boolean;
+  /** This account's removal is on its way. */
+  removing: boolean;
   canRemove: boolean;
   onCancel: () => void;
   onSaved: () => void;
@@ -294,7 +299,7 @@ function AccountForm({
         </button>
         <span className="spacer" />
         {canRemove && (
-          <button className="btn btn-danger" type="button" disabled={saving || busy} onClick={onRemove}>
+          <button className="btn btn-danger" type="button" disabled={saving || busy} aria-busy={removing || undefined} onClick={onRemove}>
             Poista tili
           </button>
         )}

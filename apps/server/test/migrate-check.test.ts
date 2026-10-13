@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -9,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { migrateCheck, removeOnSignal, runMigrateCheck } from "../src/db/migrate-check.ts";
 import { findMigrationsDir, openDatabase } from "../src/db/open.ts";
 import { loadFixture } from "./fixture-db.ts";
+import { scratchDir } from "./helpers.ts";
 
 const ENTRY = fileURLToPath(new URL("../src/entry/node.ts", import.meta.url));
 // the sources are TypeScript with syntax Node cannot strip, so the entry runs under tsx as `pnpm dev` does
@@ -24,7 +24,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "talous-mcheck-"));
+  const d = scratchDir("talous-mcheck-");
   dirs.push(d);
   return d;
 };

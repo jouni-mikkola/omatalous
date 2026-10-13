@@ -3,8 +3,7 @@
  * up equal to the reports', nothing of an account somebody else uses alone, and nothing at all of an account the
  * member may not see. The household view counts every account whole.
  */
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { } from "node:fs";
 import { join } from "node:path";
 import { type AccountType, buildDashboard, buildReports, createContext, type Part, partCents, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
@@ -18,7 +17,7 @@ import { requestInputs, type Scope, type ScopeData } from "../src/services/analy
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { loadFixture } from "./fixture-db.ts";
-import { type Client, NOW, setupApp } from "./helpers.ts";
+import { type Client, NOW, setupApp, scratchDir } from "./helpers.ts";
 
 const AINO = "MEIKALAINEN AINO";
 const EERO = "KORHONEN EERO";
@@ -522,7 +521,7 @@ describe("a household where nobody uses an account together", () => {
   });
 
   it("the frozen database of 0.10.0: the rows and figures of that release, but for the half of the account with two holders", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "talous-own-view-")), "banking.db");
+    const file = join(scratchDir("talous-own-view-"), "banking.db");
     loadFixture(file, "0.10.0.sql");
     const { db } = await openDatabase(file);
     const config = loadConfig({ APP_SECRET: "test-secret-that-is-long-enough-0123456789", INDUSTRY_LOOKUP: "false", APP_BASE_URL: "http://localhost:8080" });

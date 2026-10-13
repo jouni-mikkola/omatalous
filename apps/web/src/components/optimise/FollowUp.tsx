@@ -63,7 +63,7 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
           <span>
             Merkitäänkö vinkki {short} tehdyksi {date(proposal.date)} alkaen?
           </span>
-          <button className="btn btn-small btn-primary" type="button" disabled={busy} onClick={confirm}>
+          <button className="btn btn-small btn-primary" type="button" disabled={busy} aria-busy={busy || undefined} onClick={confirm}>
             Merkitse tehdyksi
           </button>
           <button className="btn btn-small" type="button" onClick={() => setAsking(false)}>

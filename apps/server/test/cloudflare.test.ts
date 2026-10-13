@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { runCloudflareCli } from "../src/cli-cloudflare.ts";
 import { CLOUDFLARE_API } from "../src/providers/cloudflare/client.ts";
+import { scratchDir } from "./helpers.ts";
 
 /** An in-memory Cloudflare: the routes `cloudflare up|down` uses, answering as the API does. Nothing leaves the process. */
 interface Rec {
@@ -732,7 +732,7 @@ describe("cloudflare down: Access stays while something can still route the host
 
 describe("cloudflare in the entry point", () => {
   it("runs before the database and the app secret: a bad command line exits 2 and creates nothing", () => {
-    const root = mkdtempSync(join(tmpdir(), "talous-cf-"));
+    const root = scratchDir("talous-cf-");
     try {
       const dataDir = join(root, "data");
       const entry = fileURLToPath(new URL("../src/entry/node.ts", import.meta.url));

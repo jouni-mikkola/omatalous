@@ -69,6 +69,7 @@ export function Proposals({ proposals, today, onAnswered }: { proposals: readonl
                 today={today}
                 open={opened === proposal.key}
                 busy={busy !== null}
+                waiting={busy === proposal.key}
                 onOpen={() => setOpened(proposal.key)}
                 onClose={() => setOpened(null)}
                 onNotLoan={() => void notLoan(proposal)}
@@ -85,11 +86,13 @@ export function Proposals({ proposals, today, onAnswered }: { proposals: readonl
   );
 }
 
-function ProposalRow({ proposal, today, open, busy, onOpen, onClose, onNotLoan, onSaved }: {
+function ProposalRow({ proposal, today, open, busy, waiting, onOpen, onClose, onNotLoan, onSaved }: {
   proposal: LoanProposalRow;
   today: string;
   open: boolean;
   busy: boolean;
+  /** This row's own "Ei laina" is on its way. */
+  waiting: boolean;
   onOpen: () => void;
   onClose: () => void;
   onNotLoan: () => void;
@@ -108,7 +111,7 @@ function ProposalRow({ proposal, today, open, busy, onOpen, onClose, onNotLoan, 
             <button className="btn btn-small" type="button" disabled={open} onClick={onOpen} aria-label={`Tallenna lainaksi: ${proposal.payee}`}>
               Tallenna lainaksi
             </button>
-            <button className="btn btn-small" type="button" disabled={busy} onClick={onNotLoan} aria-label={`Ei laina: ${proposal.payee}`}>
+            <button className="btn btn-small" type="button" disabled={busy} aria-busy={waiting || undefined} onClick={onNotLoan} aria-label={`Ei laina: ${proposal.payee}`}>
               Ei laina
             </button>
           </span>

@@ -1,7 +1,6 @@
 /** POST /api/ops/reset (services/reset.ts): the household's data goes, the admin's account and the install stay. */
 import { generateKeyPairSync, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CHECKED } from "../src/connectors/enable-banking/app-setup.ts";
@@ -17,7 +16,7 @@ import { dangerUnderWay } from "../src/services/ops-danger.ts";
 import { resetData } from "../src/services/reset.ts";
 import { seedCsv } from "./csv-seed.ts";
 import { mockBank } from "./mock-bank.ts";
-import { setupApp, waitFor } from "./helpers.ts";
+import { scratchDir, setupApp, waitFor } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const APP_SECRET = "test-secret-that-is-long-enough-0123456789";
@@ -28,6 +27,7 @@ const MARK = "MERKKIKAUPPA-7F3A91";
 const dirs: string[] = [];
 const open: { close(): void }[] = [];
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   for (const db of open.splice(0)) {
     try {
@@ -62,7 +62,7 @@ async function dump(db: Db): Promise<Record<string, unknown[]>> {
 
 /** A household on a database file: the admin Aino, a second admin Eero and the member Liisa, each with rows, two with a bank consent (or none). */
 async function household(consent = true) {
-  const dir = mkdtempSync(join(tmpdir(), "talous-reset-"));
+  const dir = scratchDir("talous-reset-");
   dirs.push(dir);
   const dbPath = join(dir, "banking.db");
   const { db } = await openDatabase(dbPath);
@@ -325,11 +325,13 @@ describe("the reset from the browser", () => {
     const held = new Promise<never>((_, reject) => (release = () => reject(new Error("pankki ei vastaa"))));
     const revoke = vi.spyOn(enableBanking, "revokeAll").mockImplementation(() => held);
     vi.spyOn(console, "error").mockImplementation(() => {});
-    // a restore that got through would stop the process 100 ms after its answer
+    // a restore that got through would stop the process 100 ms after its answer: the timers are fake from the first
+    // request that could ask for it, and the clock is moved on at the end instead of waiting for it
     const kill = vi.spyOn(process, "kill").mockImplementation(() => true);
 
     const resetting = reset(h.admin);
     await waitFor(async () => revoke.mock.calls.length > 0);
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
     expect(dangerUnderWay(h.s)).toBe("reset");
     // the copy is written and intact: without the refusal the restore would take it and stop the server under the reset
     expect(listAppBackups(h.s).map((b) => [b.name, b.kind])).toEqual([["pre-reset-20261009T100000.db", "pre-reset"]]);
@@ -347,16 +349,26 @@ describe("the reset from the browser", () => {
     expect(r.body).toMatchObject({ ok: true, copy: "pre-reset-20261009T100000.db", revoked: 0 });
     expect((await h.db.first<{ c: number }>("SELECT COUNT(*) AS c FROM transactions"))!.c).toBe(0);
     expect(dangerUnderWay(h.s)).toBe(null);
-    await new Promise((done) => setTimeout(done, 150));
+    vi.advanceTimersByTime(1000);
+    vi.useRealTimers();
     expect(kill).not.toHaveBeenCalled();
   });
 
   it("answers one of two requests sent at once, and the copy holds the household", async () => {
-    // no bank consent: nothing in the first reset waits for anything
     const h = await household(false);
     const session = (await h.db.first<{ id: string }>("SELECT id FROM sessions WHERE user_id = ?", [h.adminId]))!.id;
     const asker = (await h.s.users.get(h.adminId))!;
-    const both = await Promise.all([reset(h.admin), reset(h.admin)]);
+    // the first reset is held at the bank, after the copy and before anything is emptied, until the other has its answer
+    let release!: () => void;
+    const held = new Promise<{ revoked: number; failed: number }>((done) => (release = () => done({ revoked: 0, failed: 0 })));
+    const revoke = vi.spyOn(enableBanking, "revokeAll").mockImplementation(() => held);
+    const sent = [reset(h.admin), reset(h.admin)];
+    await waitFor(async () => revoke.mock.calls.length > 0);
+    // only the one that is not held can answer now
+    const answered = await Promise.race(sent.map((p, i) => p.then((r) => ({ i, r }))));
+    release();
+    const both = answered.i === 0 ? [answered.r, await sent[1]!] : [await sent[0]!, answered.r];
+    expect(answered.r.status).toBe(409);
     expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
     expect(both.find((r) => r.status === 409)!.body.error).toBe("Toinen toiminto on kesken.");
     const whole = () => {

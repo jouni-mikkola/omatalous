@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +9,7 @@ import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import { RestoreError, restoreDatabase } from "../src/db/restore.ts";
 import { UserError } from "../src/platform/errors.ts";
 import { backupForDownload, listAppBackups } from "../src/services/ops.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -18,7 +17,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "talous-dur-"));
+  const d = scratchDir("talous-dur-");
   dirs.push(d);
   return d;
 };

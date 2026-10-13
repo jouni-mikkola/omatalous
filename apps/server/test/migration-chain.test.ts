@@ -1,5 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
@@ -8,12 +7,12 @@ import { findMigrationsDir, openDatabase, readMigrations } from "../src/db/open.
 import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import { APP_VERSION } from "../src/version.ts";
 import { loadFixture } from "./fixture-db.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 const FIXTURES = new URL("./fixtures/db/", import.meta.url);
 // in version order, so 0.10.0 comes after 0.9.0
 const fixtureNames = readdirSync(FIXTURES).filter((f) => f.endsWith(".sql")).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
-const tmp = () => mkdtempSync(join(tmpdir(), "talous-chain-"));
+const tmp = () => scratchDir("talous-chain-");
 
 /** A data dir holding a database made by loading a frozen fixture, as an old release left it. */
 function fromFixture(name: string): string {

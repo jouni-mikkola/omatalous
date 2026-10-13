@@ -1,6 +1,5 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
@@ -12,12 +11,12 @@ import { foldCsvAccounts } from "../src/connectors/fold-accounts.ts";
 import { resealAll } from "../src/services/secret-rotation.ts";
 import { seedCsv } from "./csv-seed.ts";
 import { mockBank } from "./mock-bank.ts";
-import { NOW, setupApp, waitFor } from "./helpers.ts";
+import { NOW, setupApp, waitFor, scratchDir } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const dirs: string[] = [];
 const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "talous-life-"));
+  const d = scratchDir("talous-life-");
   dirs.push(d);
   return d;
 };

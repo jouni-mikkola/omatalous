@@ -101,7 +101,16 @@ log() {
 }
 
 # ── data helpers: .env, ops/policy and backups/.last-update (update.sh's record of its update) are read, never sourced ──
-kv_get() { [[ -f $1 ]] && grep -E "^$2=" "$1" | tail -1 | cut -d= -f2- || true; } # kv_get FILE KEY
+kv_get() { # kv_get FILE KEY: the value after the first = of the last line that starts with KEY=. KEY is a plain name, matched as text
+  [[ -f $1 ]] || return 0
+  local all='' line v found=0
+  # a file with a NUL byte in it reads as nothing (grep took it for binary data and printed no line); read -d '' stops at a NUL
+  ! IFS= read -r -d '' all <"$1" || return 0
+  while IFS= read -r line; do
+    [[ $line == "$2="* ]] && { v=${line#*=}; found=1; }
+  done <<<"$all"
+  ((found == 0)) || printf '%s\n' "$v"; return 0
+}
 env_get() { kv_get .env "$1"; }
 pol_get() { kv_get "$OPS/policy" "$1"; }
 last_update() { kv_get backups/.last-update "$1"; }
@@ -123,20 +132,25 @@ scrub_out() {
 }
 
 # ── checks before anything is read or run ───────────────────────────────────
-# owned by this user, and not writable by group or others
-unsafe_path() {
-  local o m
-  read -r o m < <(stat -c '%u %a' "$1" 2>/dev/null) || return 0
-  [[ $o == "$(id -u)" ]] || return 0
-  (((8#$m & 8#022) != 0))
-}
+# Every path of the list that exists (a missing one is skipped) must be owned by this user and not writable by group or
+# others. One stat for all of them, each record ended by NUL so that no file name can pass for another path's record.
+# A path stat printed no record for (it vanished, or cannot be read) is unsafe, and the first unsafe path in list order is
+# the one named. The user id comes from id, not from $EUID: bash takes EUID from the environment when one is passed.
 check_permissions() {
-  local p
+  local p me o m n r rec i=0 ex=() recs=()
+  me=$(id -u)
   for p in . .git .git/config scripts "$SELF" scripts/*.sh scripts/lib scripts/lib/*.sh "$OPS" .env "$OPS/policy" "$OPS/journal" "$OPS/run" backups/.last-update; do
-    [[ -e $p ]] || continue
-    if unsafe_path "$p"; then log "File permissions: $p is not safe (owner or write access). The helper does not run."; return 1; fi
+    [[ -e $p ]] && ex+=("$p")
   done
-  for p in ${COPY[@]+"${COPY[@]}"}; do if [[ -e $p ]] && unsafe_path "$p"; then log "File permissions: $p is not safe (owner or write access). The helper does not run."; return 1; fi; done
+  for p in ${COPY[@]+"${COPY[@]}"}; do [[ -e $p ]] && ex+=("$p"); done
+  ((${#ex[@]})) || return 0
+  while IFS= read -r -d '' rec; do recs+=("$rec"); done < <(stat --printf '%u %a %n\0' -- "${ex[@]}" 2>/dev/null)
+  for p in "${ex[@]}"; do
+    rec=${recs[i++]-}; o=${rec%% *}; r=${rec#* }; m=${r%% *}; n=${r#* }
+    # a name that starts with a dash was refused before (stat took it for an option), and still is
+    if [[ $p != -* && $o =~ ^[0-9]+$ && $m =~ ^[0-7]+$ && $n == "$p" && $o == "$me" ]] && (((8#$m & 8#022) == 0)); then continue; fi
+    log "File permissions: $p is not safe (owner or write access). The helper does not run."; return 1
+  done
   return 0
 }
 # The parts of a tick that live in scripts/lib, read only after check_permissions has passed on scripts/lib. All of them are

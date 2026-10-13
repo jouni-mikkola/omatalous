@@ -84,9 +84,10 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
     document.getElementById(RULES_ANCHOR)?.scrollIntoView({ block: "start" });
   }, [anchor, loaded]);
 
-  const edit = async (m: MerchantItem, fn: () => Promise<{ changed: number }>, patch: Partial<MerchantItem>) => {
+  // `what` and the merchant name the button that was pressed: a category change and a removed rule are two actions on one row
+  const edit = async (m: MerchantItem, what: "category" | "rule", fn: () => Promise<{ changed: number }>, patch: Partial<MerchantItem>) => {
     if (busy) return;
-    setBusy(m.merchant);
+    setBusy(`${what}:${m.merchant}`);
     setError(null);
     setChanged(null);
     try {
@@ -102,12 +103,12 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
   };
 
   const setCategoryOf = (m: MerchantItem, next: string) =>
-    edit(m, () => api<{ changed: number }>("/api/merchants/category", { method: "PUT", body: { merchant: m.merchant, category: next } }), {
+    edit(m, "category", () => api<{ changed: number }>("/api/merchants/category", { method: "PUT", body: { merchant: m.merchant, category: next } }), {
       category: next,
       rule: { id: m.rule?.id ?? 0, category: next },
     });
   const removeRule = (m: MerchantItem) =>
-    edit(m, () => api<{ changed: number }>("/api/merchants/rule", { method: "DELETE", body: { merchant: m.merchant } }), { rule: null });
+    edit(m, "rule", () => api<{ changed: number }>("/api/merchants/rule", { method: "DELETE", body: { merchant: m.merchant } }), { rule: null });
 
   const err = error ?? loadError;
   const categoryLabel = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
@@ -190,7 +191,7 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
                         {m.rule && (
                           <>
                             <span className="badge">Sääntö</span>
-                            <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => void removeRule(m)} aria-label={`Poista sääntö: ${m.merchant}`}>
+                            <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={busy === `rule:${m.merchant}` || undefined} onClick={() => void removeRule(m)} aria-label={`Poista sääntö: ${m.merchant}`}>
                               Poista sääntö
                             </button>
                           </>

@@ -21,12 +21,14 @@ export function Rules({ meta }: { meta: Meta }) {
   const [category, setCategory] = useState("groceries");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [doing, setDoing] = useState("");
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
 
   // one request at a time: a double click must not create the rule twice
-  const run = async (fn: () => Promise<unknown>) => {
+  const run = async (fn: () => Promise<unknown>, key = "") => {
     if (busy) return;
     setBusy(true);
+    setDoing(key);
     setError(null);
     try {
       await fn();
@@ -98,8 +100,9 @@ export function Rules({ meta }: { meta: Meta }) {
                     <button
                       className="btn btn-small btn-danger"
                       disabled={busy}
+                      aria-busy={(busy && doing === `del-${r.id}`) || undefined}
                       aria-label={`Poista sääntö: ${r.pattern}`}
-                      onClick={() => void run(() => api(`/api/rules/${r.id}`, { method: "DELETE" }))}
+                      onClick={() => void run(() => api(`/api/rules/${r.id}`, { method: "DELETE" }), `del-${r.id}`)}
                     >
                       Poista
                     </button>

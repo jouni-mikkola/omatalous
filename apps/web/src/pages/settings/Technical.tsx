@@ -106,11 +106,11 @@ export function Technical({ meta, params, anchor, onChange }: { meta: Meta; para
               <h2>Esimerkkitiedot</h2>
             </div>
             <div className="form-row" style={{ margin: 0 }}>
-              <button className="btn" disabled={busy !== null} onClick={() => run("demo", async () => { await api("/api/demo", { method: "POST" }); return "Esimerkkitiedot ladattu."; })}>
+              <button className="btn" disabled={busy !== null} aria-busy={busy === "demo" || undefined} onClick={() => run("demo", async () => { await api("/api/demo", { method: "POST" }); return "Esimerkkitiedot ladattu."; })}>
                 {hasDemo ? "Lataa uudelleen" : "Lataa esimerkkitiedot"}
               </button>
               {hasDemo && (
-                <button className="btn btn-danger" disabled={busy !== null} onClick={() => run("demo-del", async () => { await api("/api/demo", { method: "DELETE" }); return "Esimerkkitiedot poistettu."; })}>
+                <button className="btn btn-danger" disabled={busy !== null} aria-busy={busy === "demo-del" || undefined} onClick={() => run("demo-del", async () => { await api("/api/demo", { method: "DELETE" }); return "Esimerkkitiedot poistettu."; })}>
                   Poista esimerkkitiedot
                 </button>
               )}

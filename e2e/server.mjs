@@ -39,7 +39,9 @@ function freePort() {
 
 /** @returns {Promise<{ base: string, dir: string, setupCode: string, fakeBank: string, log: () => string, stop: () => void }>} */
 export async function startServer() {
-  const built = { bundle: join(root, "apps/server/dist/node.js"), web: join(root, "apps/web/dist") };
+  // `pnpm e2e` builds a run that may stamp into a folder of its own and names it here: the tree's `dist` is not touched
+  const own = process.env.E2E_BUILD;
+  const built = own ? { bundle: join(own, "node.js"), web: join(own, "web") } : { bundle: join(root, "apps/server/dist/node.js"), web: join(root, "apps/web/dist") };
   if (!existsSync(built.bundle) || !existsSync(join(built.web, "index.html"))) throw new Error("No build found. Run `pnpm build` first.");
   const dir = mkdtempSync(join(tmpdir(), "banking-e2e-"));
   let server;

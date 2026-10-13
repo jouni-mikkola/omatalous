@@ -1,5 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { normalizeMerchant } from "@banking/core";
@@ -12,11 +11,11 @@ import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { APP_VERSION } from "../src/version.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 /** A data dir and a copy of the real migrations that a test can add "future" migrations to. */
 function workspace() {
-  const root = mkdtempSync(join(tmpdir(), "talous-upgrade-"));
+  const root = scratchDir("talous-upgrade-");
   const migrations = join(root, "migrations");
   cpSync(findMigrationsDir(), migrations, { recursive: true });
   mkdirSync(join(root, "data"));

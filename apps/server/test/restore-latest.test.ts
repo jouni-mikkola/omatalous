@@ -1,5 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +7,7 @@ import { gateDatabase, gateEvent, notDoneNotice, requestOutcome, restoreRequestP
 import { track } from "../src/platform/inflight.ts";
 import { dangerUnderWay } from "../src/services/ops-danger.ts";
 import { noticesFor, recordEvent } from "../src/services/security.ts";
-import { NOW, setupApp, waitFor } from "./helpers.ts";
+import { NOW, setupApp, waitFor, scratchDir } from "./helpers.ts";
 
 const PASSWORD = "aino-salasana-123";
 const URL = "/api/ops/restore-latest";
@@ -20,7 +19,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "talous-restore-"));
+  const d = scratchDir("talous-restore-");
   dirs.push(d);
   return d;
 };

@@ -88,7 +88,7 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
               Näytä tapahtumat
             </a>
           )}
-          <button className="btn btn-small" type="button" disabled={busy} aria-describedby={titleId} onClick={dismiss}>
+          <button className="btn btn-small" type="button" disabled={busy} aria-busy={busy || undefined} aria-describedby={titleId} onClick={dismiss}>
             Ei koske meitä
           </button>
         </div>

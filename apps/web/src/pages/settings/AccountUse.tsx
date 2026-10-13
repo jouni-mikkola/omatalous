@@ -80,9 +80,12 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
   const [fields, setFields] = useState(() => fieldsOf(people, use));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // which save is on its way: the form, the proposal or the even split
+  const [doing, setDoing] = useState<"fields" | "proposal" | "even" | null>(null);
   const { data } = useApi<Suggestion>(`${useUrl(account)}/suggestion`);
 
-  const save = async (users: Said[]) => {
+  const save = async (users: Said[], what: "fields" | "proposal" | "even") => {
+    setDoing(what);
     setBusy(true);
     setError(null);
     try {
@@ -98,7 +101,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
   const saveFields = () => {
     const read = readFields(people, fields);
     if ("problem" in read) setError(read.problem);
-    else void save(read.users);
+    else void save(read.users, "fields");
   };
   const share = async (userId: string) => {
     try {
@@ -119,7 +122,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
       {isJoint(use) && (
         <>
           <div className="segmented" role="group" aria-label={`Tilin ${account.name} osuudet`}>
-            <button type="button" aria-pressed={!own} disabled={busy} onClick={() => (isEqual(use) ? setOwn(false) : void save(usersFor(JOINT, account, meta)))}>
+            <button type="button" aria-pressed={!own} disabled={busy} onClick={() => (isEqual(use) ? setOwn(false) : void save(usersFor(JOINT, account, meta), "even"))}>
               Tasan
             </button>
             <button type="button" aria-pressed={own} onClick={() => setOwn(true)}>
@@ -152,7 +155,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
               <span className="use-total" role="status">
                 {sharesText(typed)}
               </span>
-              <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
+              <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy && doing === "fields" ? true : undefined}>
                 Tallenna
               </button>
               <div className="field-help use-help">Jako sen mukaan, paljonko kukin maksaa tilille.</div>
@@ -161,7 +164,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
           {proposal && (
             <div className="use-line small">
               <span>Viime kuukausina {proposalText(proposal, people)} kuussa.</span>
-              <button className="btn btn-small" type="button" disabled={busy} onClick={() => void save(proposal.filter((w) => w.weight > 0))}>
+              <button className="btn btn-small" type="button" disabled={busy} aria-busy={(busy && doing === "proposal") || undefined} onClick={() => void save(proposal.filter((w) => w.weight > 0), "proposal")}>
                 Käytä näitä
               </button>
             </div>
@@ -232,7 +235,7 @@ export function LinkQuestion({ meta, onChange, onSaved }: { meta: Meta; onChange
         </table>
       </div>
       <div className="form-row">
-        <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void save()}>
+        <button className="btn btn-primary" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void save()}>
           {busy ? "Tallennetaan…" : "Tallenna"}
         </button>
       </div>

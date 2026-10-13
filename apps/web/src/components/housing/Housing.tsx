@@ -179,7 +179,7 @@ export function Housing({ housing, reportAnchor, onAnswered }: { housing: NonNul
             <a className="btn btn-small" href={SETTINGS_LOANS}>
               Lisää asuntolaina
             </a>
-            <button type="button" className="btn btn-small" disabled={busy} onClick={answer}>
+            <button type="button" className="btn btn-small" disabled={busy} aria-busy={busy || undefined} onClick={answer}>
               Ei asuntolainaa
             </button>
           </span>

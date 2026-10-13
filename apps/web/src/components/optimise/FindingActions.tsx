@@ -39,14 +39,16 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
   const [panel, setPanel] = useState<Panel | null>(null);
   const [day, setDay] = useState<string>(today);
   const [busy, setBusy] = useState(false);
+  const [doing, setDoing] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const toggle = (next: Panel) => {
     setError(null);
     setPanel((p) => (p === next ? null : next));
   };
-  const send = (body: Record<string, unknown>, said: string) => {
+  const send = (body: Record<string, unknown>, said: string, key = "") => {
     setBusy(true);
+    setDoing(key);
     setError(null);
     api(`/api/optimise/findings/${encodeURIComponent(finding.id)}${query({ scope })}`, { method: "PUT", body })
       .then(() => onChanged(said))
@@ -94,7 +96,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
       {panel === "dismiss" && (
         <div className="decide-form" role="group" aria-label="Syy">
           {DISMISS_REASONS.map((reason) => (
-            <button key={reason} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "dismissed", reason }, "Vinkki siirrettiin kohtaan Päätetyt.")}>
+            <button key={reason} className="btn btn-small" type="button" disabled={busy} aria-busy={(busy && doing === reason) || undefined} onClick={() => send({ status: "dismissed", reason }, "Vinkki siirrettiin kohtaan Päätetyt.", reason)}>
               {REASON_TEXT[reason]}
             </button>
           ))}
@@ -104,7 +106,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
       {panel === "snooze" && (
         <div className="decide-form" role="group" aria-label="Muistutus">
           {snoozeChoices(finding, today).map((c) => (
-            <button key={c.label} className="btn btn-small" type="button" disabled={busy} onClick={() => send({ status: "snoozed", until: c.until }, `Vinkki palaa ${date(c.until)}.`)}>
+            <button key={c.label} className="btn btn-small" type="button" disabled={busy} aria-busy={(busy && doing === c.label) || undefined} onClick={() => send({ status: "snoozed", until: c.until }, `Vinkki palaa ${date(c.until)}.`, c.label)}>
               {c.label}
             </button>
           ))}

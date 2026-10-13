@@ -2,8 +2,7 @@
  * A saved loan names the connected account that is the same debt (migration 0016, routes/loans.ts). The link is the
  * user's own to make: to an own card or loan account only, one loan to an account, and it goes when the account goes.
  */
-import { mkdirSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { AccountType } from "@banking/core";
@@ -12,7 +11,7 @@ import { foldCsvAccounts } from "../src/connectors/fold-accounts.ts";
 import { FinanceRepo } from "../src/db/finance-repo.ts";
 import { openDatabase } from "../src/db/open.ts";
 import { loadFixture } from "./fixture-db.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 const NOT_LINKABLE = "Lainan voi liittää vain omaan luottokortti- tai lainatiliin.";
 const HELD = "Tähän tiliin on jo liitetty laina Korttiluotto. Poista liitos siitä ensin.";
@@ -201,7 +200,7 @@ describe("migration 0016 on a 0.8.7 database", () => {
   const FIXTURE = "0.8.7.sql";
 
   it("keeps every loan row, and a loan saved before it reads with no link and can be given one", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "talous-loan-link-")), "data", "banking.db");
+    const file = join(scratchDir("talous-loan-link-"), "data", "banking.db");
     mkdirSync(join(file, ".."), { recursive: true });
     loadFixture(file, FIXTURE);
     const old = new DatabaseSync(file, { readOnly: true });

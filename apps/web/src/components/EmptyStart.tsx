@@ -24,7 +24,7 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
         <button className="btn btn-primary" type="button" onClick={() => navigate("settings", { add: "1" })}>
           Yhdistä pankki
         </button>
-        <button className="btn" type="button" onClick={() => void loadDemo()} disabled={demo.busy}>
+        <button className="btn" type="button" onClick={() => void loadDemo()} disabled={demo.busy} aria-busy={demo.busy || undefined}>
           {demo.busy ? "Ladataan…" : "Lataa esimerkkitiedot"}
         </button>
       </div>

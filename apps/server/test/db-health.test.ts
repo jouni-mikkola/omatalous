@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,7 +9,7 @@ import { checkNewestCopy, COPY_CHECK_KEY, watchCopies, weekOf } from "../src/ser
 import { pollOps } from "../src/services/ops.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
 import { dismissNotices, noticesFor } from "../src/services/security.ts";
-import { NOW, setupApp } from "./helpers.ts";
+import { NOW, setupApp, scratchDir } from "./helpers.ts";
 
 const HOUR = 3600_000;
 const HEALTH = new Set(["copy_missing", "copy_check_failed", "disk_low", "helper_silent"]);
@@ -38,7 +37,7 @@ afterEach(() => {
  * first user was made then. Filler rows are written last, so the last pages of a copy hold only them and `damage` hits those.
  */
 async function household() {
-  const dir = mkdtempSync(join(tmpdir(), "talous-health-"));
+  const dir = scratchDir("talous-health-");
   dirs.push(dir);
   const backups = join(dir, "backups");
   const clock = { now: new Date(NOW) };
@@ -193,7 +192,7 @@ describe("the weekly check of the newest copy", () => {
   });
 
   it("is run by the hourly tick: the tick that writes the copy leaves it, the next one checks that copy", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "talous-health-"));
+    const dir = scratchDir("talous-health-");
     dirs.push(dir);
     const backups = join(dir, "backups");
     const app = await setupApp({}, undefined, { backupDir: backups, backup: (day) => copyDatabase(app.db, backups, `auto-${day}.db`) });

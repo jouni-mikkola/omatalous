@@ -1,11 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dailyBackup } from "../src/db/open.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -15,7 +14,7 @@ afterEach(() => {
 
 /** An app whose daily copy goes to a temp directory and whose clock the test moves. */
 async function withBackup(start: string, backup?: (day: string, write: (day: string) => string) => string) {
-  const root = mkdtempSync(join(tmpdir(), "talous-backup-"));
+  const root = scratchDir("talous-backup-");
   dirs.push(root);
   const dbPath = join(root, "banking.db");
   const backups = join(root, "backups");

@@ -4,8 +4,7 @@
  * After each test nothing the app kept or said may hold a token or Cloudflare's own words.
  */
 import { createHash, createSign, generateKeyPairSync } from "node:crypto";
-import { mkdtempSync, rmSync, utimesSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import { createApp } from "../src/app.ts";
@@ -13,7 +12,7 @@ import { loadConfig } from "../src/platform/config.ts";
 import { CLOUDFLARE_API } from "../src/providers/cloudflare/client.ts";
 import { pollOps, reportOps, stateOps } from "../src/services/ops.ts";
 import { TOKEN_KEY } from "../src/services/remote-access-cloudflare.ts";
-import { NOW, SETUP_CODE, setupApp } from "./helpers.ts";
+import { NOW, SETUP_CODE, setupApp, scratchDir } from "./helpers.ts";
 
 export const PASSWORD = "aino-salasana-123";
 export const API_TOKEN = "cfut_0123456789abcdefghijABCDEFGHIJ0123456789";
@@ -155,7 +154,7 @@ const worlds: { s: Awaited<ReturnType<typeof setupApp>>["s"]; answers: string[];
 
 /** An app with its admin, a fake Cloudflare behind its fetch, a data folder and a clock the test moves. */
 export async function world(env: Record<string, string> = {}) {
-  const dir = mkdtempSync(join(tmpdir(), "remote-access-"));
+  const dir = scratchDir("remote-access-");
   const cf = fakeCloudflare();
   let at = NOW.getTime();
   // through `cf`, so a test can put its own fetch in front of the fake

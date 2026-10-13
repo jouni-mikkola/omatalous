@@ -97,11 +97,13 @@ export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
   const sessions = useApi<{ sessions: Session[] }>("/api/security/sessions");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [doing, setDoing] = useState("");
   useReportLoaded(sessions.data !== null || sessions.error !== null, onLoaded);
 
-  const act = async (fn: () => Promise<unknown>, signsOut = false) => {
+  const act = async (key: string, fn: () => Promise<unknown>, signsOut = false) => {
     if (busy) return;
     setBusy(true);
+    setDoing(key);
     setError(null);
     try {
       await fn();
@@ -123,10 +125,10 @@ export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
           <h2>Omat istunnot</h2>
         </div>
         <div className="form-row" style={{ margin: 0 }}>
-          <button className="btn" disabled={busy || others === 0} onClick={() => void act(() => api("/api/security/sessions/revoke-all", { method: "POST", body: { keepCurrent: true } }))}>
+          <button className="btn" disabled={busy || others === 0} aria-busy={(busy && doing === "others") || undefined} onClick={() => void act("others", () => api("/api/security/sessions/revoke-all", { method: "POST", body: { keepCurrent: true } }))}>
             Kirjaa ulos muut laitteet
           </button>
-          <button className="btn btn-danger" disabled={busy} onClick={() => void act(() => api("/api/security/sessions/revoke-all", { method: "POST", body: {} }), true)}>
+          <button className="btn btn-danger" disabled={busy} aria-busy={(busy && doing === "all") || undefined} onClick={() => void act("all", () => api("/api/security/sessions/revoke-all", { method: "POST", body: {} }), true)}>
             Kirjaa ulos kaikki
           </button>
         </div>
@@ -152,7 +154,7 @@ export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
                 <td className="hide-phone">{dateTime(s.createdAt)}</td>
                 <td>{dateTime(s.lastSeenAt)}</td>
                 <td className="num">
-                  <button className="btn btn-small" disabled={busy} onClick={() => void act(() => api(`/api/security/sessions/${s.id}`, { method: "DELETE" }), s.current)}>
+                  <button className="btn btn-small" disabled={busy} aria-busy={(busy && doing === `end-${s.id}`) || undefined} onClick={() => void act(`end-${s.id}`, () => api(`/api/security/sessions/${s.id}`, { method: "DELETE" }), s.current)}>
                     Kirjaa ulos
                   </button>
                 </td>

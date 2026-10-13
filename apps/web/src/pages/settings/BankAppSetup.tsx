@@ -201,7 +201,7 @@ export function BankAppSetup({
             </div>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <button className="btn" type="button" disabled={busy !== null} onClick={() => run("test", () => api<InstanceState>("/api/admin/bank-app/test", { method: "POST" }))}>
+            <button className="btn" type="button" disabled={busy !== null} aria-busy={busy === "test" || undefined} onClick={() => run("test", () => api<InstanceState>("/api/admin/bank-app/test", { method: "POST" }))}>
               {busy === "test" ? "Testataan…" : "Testaa yhteys"}
             </button>
             {app.hasCertificate && !app.pendingSince && (
@@ -219,6 +219,7 @@ export function BankAppSetup({
                 className="btn btn-danger"
                 type="button"
                 disabled={busy !== null}
+                aria-busy={busy === "remove" || undefined}
                 onClick={() => {
                   if (window.confirm("Poistetaanko Enable Banking -sovellus? Pankkiyhteydet lakkaavat toimimasta.")) {
                     void run("remove", () => api<InstanceState>("/api/admin/bank-app", { method: "DELETE" }));
@@ -257,6 +258,7 @@ export function BankAppSetup({
                         className="btn btn-small"
                         type="button"
                         disabled={busy !== null}
+                        aria-busy={busy === "key" || undefined}
                         onClick={() => {
                           // the certificate already uploaded to Enable Banking stops matching
                           if (!window.confirm("Uusi avain korvaa nykyisen, ja Enable Bankingiin pitää ladata uusi varmenne. Jatketaanko?")) return;
@@ -267,7 +269,7 @@ export function BankAppSetup({
                       </button>
                     </>
                   ) : (
-                    <button className="btn btn-primary" type="button" disabled={busy !== null} onClick={() => void makeKey()}>
+                    <button className="btn btn-primary" type="button" disabled={busy !== null} aria-busy={busy === "key" || undefined} onClick={() => void makeKey()}>
                       {busy === "key" ? "Luodaan…" : "Luo avain"}
                     </button>
                   )}
@@ -351,7 +353,7 @@ export function BankAppSetup({
                 {mode === "upload" && (
                   <input ref={fileInput} type="file" accept=".pem,.key" onChange={(e) => void readKey(e.target.files?.[0])} aria-label="Yksityinen avain (.pem)" aria-invalid={fileError ? true : undefined} />
                 )}
-                <button className="btn btn-primary" type="submit" disabled={busy !== null || (mode === "generate" && !app.pendingSince)}>
+                <button className="btn btn-primary" type="submit" disabled={busy !== null || (mode === "generate" && !app.pendingSince)} aria-busy={busy === "activate" || undefined}>
                   {busy === "activate" ? "Tallennetaan…" : "Tallenna ja testaa"}
                 </button>
                 {changing && (
@@ -390,7 +392,7 @@ export function BankAppSetup({
       {configured && !showSetup && app.redirectMode === "paste" && (
         <div className="notice">
           Lisää <code>{app.relayUrl}</code> Enable Bankingin sovelluksen Redirect URLs -kohtaan ja ota sitten paluusivu käyttöön.{" "}
-          <button className="btn btn-small" type="button" disabled={busy !== null} onClick={() => run("relay", () => api<InstanceState>("/api/admin/instance/redirect-mode", { method: "PUT", body: { mode: "relay" } }))}>
+          <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={busy === "relay" || undefined} onClick={() => run("relay", () => api<InstanceState>("/api/admin/instance/redirect-mode", { method: "PUT", body: { mode: "relay" } }))}>
             Ota käyttöön
           </button>
         </div>

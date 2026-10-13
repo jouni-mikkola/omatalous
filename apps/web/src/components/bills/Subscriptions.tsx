@@ -1,4 +1,5 @@
 import { type MarkKind, seriesOfMarkSubject, type UserMark } from "@banking/core";
+import { useEffect, useState } from "react";
 import { money } from "../../format.ts";
 import type { Recurring as Series } from "../../types.ts";
 import { COLUMNS, SeriesHead, SeriesRow, SeriesTotal, seriesMarks, TitleBlock } from "./series.tsx";
@@ -76,6 +77,12 @@ export function Subscriptions({
 /** The saving, and what to say about this subscription. A mark that counts shows as a badge with an undo. */
 function MarkButtons({ s, controls, priced }: { s: Series; controls: MarkControls; priced: boolean }) {
   const mark = controls.markOf(s);
+  // the button of this row that was pressed; only it shows the wait
+  const [pressed, setPressed] = useState<"clear" | MarkKind | null>(null);
+  useEffect(() => {
+    if (!controls.busy) setPressed(null);
+  }, [controls.busy]);
+  const waits = (what: "clear" | MarkKind) => (controls.busy && pressed === what) || undefined;
   const name = priced ? `${s.merchant} ${money(s.typicalAmountCents)}` : s.merchant;
   if (mark) {
     // a mark from before marks named one subscription is on the merchant: it covers every row of it, and Kumoa takes it from all
@@ -84,7 +91,10 @@ function MarkButtons({ s, controls, priced }: { s: Series; controls: MarkControl
       <div className="sub-actions">
         <span className={`badge ${mark.mark === "cancelled" ? "warn" : "good"}`}>{mark.mark === "cancelled" ? "Lopetettu" : "Käytössä"}</span>
         {priced && onMerchant && <span className="muted small">Koskee kaikkia kauppiaan tilauksia.</span>}
-        <button className="btn btn-small" type="button" disabled={controls.busy} aria-label={`Kumoa: ${onMerchant ? s.merchant : name}`} onClick={() => controls.clear(mark)}>
+        <button className="btn btn-small" type="button" disabled={controls.busy} aria-busy={waits("clear")} aria-label={`Kumoa: ${onMerchant ? s.merchant : name}`} onClick={() => {
+            setPressed("clear");
+            controls.clear(mark);
+          }}>
           Kumoa
         </button>
       </div>
@@ -92,10 +102,16 @@ function MarkButtons({ s, controls, priced }: { s: Series; controls: MarkControl
   }
   return (
     <div className="sub-actions">
-      <button className="btn btn-small" type="button" disabled={controls.busy} aria-label={`Käytössä: ${name}`} onClick={() => controls.set(s, "in_use")}>
+      <button className="btn btn-small" type="button" disabled={controls.busy} aria-busy={waits("in_use")} aria-label={`Käytössä: ${name}`} onClick={() => {
+          setPressed("in_use");
+          controls.set(s, "in_use");
+        }}>
         Käytössä
       </button>
-      <button className="btn btn-small" type="button" disabled={controls.busy} aria-label={`Lopetettu: ${name}`} onClick={() => controls.set(s, "cancelled")}>
+      <button className="btn btn-small" type="button" disabled={controls.busy} aria-busy={waits("cancelled")} aria-label={`Lopetettu: ${name}`} onClick={() => {
+          setPressed("cancelled");
+          controls.set(s, "cancelled");
+        }}>
         Lopetettu
       </button>
     </div>

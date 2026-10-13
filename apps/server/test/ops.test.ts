@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -21,7 +20,7 @@ import {
   READ_ONLY,
   sanitiseOutput,
 } from "../src/services/ops-validate.ts";
-import { NOW, setupApp } from "./helpers.ts";
+import { NOW, setupApp, scratchDir } from "./helpers.ts";
 
 const PASSWORD = "aino-salasana-123";
 const XSS = ['<script>alert(1)</script>', '<img src=x onerror=alert(1)>', "javascript:alert(1)", '"><svg onload=alert(1)>'];
@@ -614,7 +613,7 @@ describe("ops: backup download", () => {
   });
   /** Real database copies (a download is checked before it leaves); a body that is not a .db name stays text. */
   async function backups(files: Record<string, { body: string; age: number }>) {
-    const dir = mkdtempSync(join(tmpdir(), "talous-ops-"));
+    const dir = scratchDir("talous-ops-");
     dirs.push(dir);
     const { db } = await openDatabase(join(dir, "template.db"));
     for (const [name, f] of Object.entries(files)) {
@@ -685,7 +684,7 @@ describe("ops: the prepared change of remote access", () => {
   const TUNNEL = { want: "tunnel", hostname: "koti.example.fi", tunnelToken: TOKEN, accessAud: "a1b2c3d4".repeat(8), teamDomain: "tiimi.cloudflareaccess.com" } as const satisfies AccessRequest;
   /** An app that knows its data folder, as the container does. */
   async function world() {
-    const dir = mkdtempSync(join(tmpdir(), "talous-access-"));
+    const dir = scratchDir("talous-access-");
     dirs.push(dir);
     const { s } = await setupApp({}, undefined, { backupDir: join(dir, "backups") });
     return { s, file: join(dir, "ops", "access-request.json") };

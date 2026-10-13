@@ -1,6 +1,29 @@
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll } from "vitest";
 import { type AppDeps, createApp } from "../src/app.ts";
 import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
+
+/**
+ * Where a household's database file lives in a test. The server commits with synchronous = FULL, so every write waits
+ * for the disk to confirm it: a household of a few hundred writes took ~100 ms of waiting alone and many seconds when
+ * another job was writing (the 5 s limit of a test then ran out). Memory has nothing to confirm; a test about a write
+ * surviving a power loss, a full disk or a folder's permissions makes its folder in tmpdir() itself.
+ */
+const SCRATCH = existsSync("/dev/shm") ? "/dev/shm" : tmpdir();
+const made: string[] = [];
+afterAll(() => {
+  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+/** A new empty folder in memory-backed storage; the file's last test removes it (memory is not cleaned by the system). */
+export function scratchDir(prefix: string): string {
+  const dir = mkdtempSync(join(SCRATCH, prefix));
+  made.push(dir);
+  return dir;
+}
 
 export const NOW = new Date("2026-10-09T10:00:00Z");
 export const SETUP_CODE = "test-setup-code-0001";

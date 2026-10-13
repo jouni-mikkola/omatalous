@@ -26,7 +26,7 @@ function Undo({ title, take, onChanged }: { title: string; take: () => Promise<u
   };
   return (
     <div className="decided-undo">
-      <button className="btn btn-small" type="button" aria-label={`Peruuta päätös: ${title}`} disabled={busy} onClick={undo}>
+      <button className="btn btn-small" type="button" aria-label={`Peruuta päätös: ${title}`} disabled={busy} aria-busy={busy || undefined} onClick={undo}>
         Peruuta
       </button>
       {error && (

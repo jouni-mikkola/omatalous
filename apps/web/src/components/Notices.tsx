@@ -1,5 +1,5 @@
 import type { MarkKind } from "@banking/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
 import type { DashboardData } from "../types.ts";
@@ -9,7 +9,10 @@ import "../styles/notices.css";
 /** What the household said about a row: the id it hides, the subject to store and the mark. */
 type OnAnswer = (id: string, subject: string, mark: MarkKind) => void;
 
-function Row({ notice: n, onPress, busy }: { notice: Notice; onPress: (n: Notice, send: Send) => void; busy: boolean }) {
+/** The key of one answer button: the row and the answer. */
+const pressKey = (n: Notice, label: string) => `${n.kind}:${n.id}:${label}`;
+
+function Row({ notice: n, onPress, busy, doing }: { notice: Notice; onPress: (n: Notice, send: Send, label: string) => void; busy: boolean; doing: string | null }) {
   const text = (
     <>
       <span className="sr-only">{n.read}: </span>
@@ -38,7 +41,7 @@ function Row({ notice: n, onPress, busy }: { notice: Notice; onPress: (n: Notice
             </a>
           )}
           {n.answers.map((a) => (
-            <button key={a.label} className={a.label === "Kuittaa" ? "btn btn-small" : "link-btn"} type="button" disabled={busy} aria-label={a.name} onClick={() => onPress(n, a.send)}>
+            <button key={a.label} className={a.label === "Kuittaa" ? "btn btn-small" : "link-btn"} type="button" disabled={busy} aria-busy={doing === pressKey(n, a.label) || undefined} aria-label={a.name} onClick={() => onPress(n, a.send, a.label)}>
               {a.label}
             </button>
           ))}
@@ -78,10 +81,17 @@ export function Notices({
   const security = useApi<{ notices: SecurityNotice[] }>("/api/security/notices");
   const [reading, setReading] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
+  // the answer button that was pressed; only it shows the wait
+  const [pressed, setPressed] = useState<string | null>(null);
+  const waiting = busy || reading;
+  useEffect(() => {
+    if (!waiting) setPressed(null);
+  }, [waiting]);
   const { rows, total } = noticesOf(data, { range, answered, insights, security: security.data?.notices ?? [] });
   if (!rows.length) return null;
 
-  const press = (n: Notice, send: Send) => {
+  const press = (n: Notice, send: Send, label: string) => {
+    setPressed(pressKey(n, label));
     if (send !== "seen") {
       onAnswer(n.id, send.subject, send.mark);
       return;
@@ -108,7 +118,7 @@ export function Notices({
       </div>
       <ul className="st-rows notice-list" aria-labelledby="notices-h">
         {rows.map((n) => (
-          <Row key={`${n.kind}:${n.id}`} notice={n} onPress={press} busy={busy || reading} />
+          <Row key={`${n.kind}:${n.id}`} notice={n} onPress={press} busy={waiting} doing={waiting ? pressed : null} />
         ))}
       </ul>
       {failed && (

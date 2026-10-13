@@ -3,6 +3,24 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.25.0
+
+- The waiting mark is on every button that waits for its own request. In a list only the button that was pressed carries it; the others are just held.
+- The maintenance helper's run each minute is lighter: it starts about a third of the processes it did.
+
+Look
+
+- The waiting mark is now on every button that waits for its action.
+
+Maintenance
+
+- The maintenance helper checks the permissions of its files and reads .env and its policy with a few processes instead of several hundred, so each minute's run is quicker; it refuses the same files with the same message.
+
+For developers
+
+- `pnpm check` no longer runs a step that already ran green on exactly the same files: types, lint, the core, web and server tests, each other test file under `tools/` and each shell suite leave a stamp keyed by the content of the files they read, on a clean tree only. a step with a skipped test, a changed install or a file touched during the run leaves none. `CHECK_FRESH=1` runs everything; the release gate does.
+- `pnpm e2e` no longer runs a whole page test run that already passed on exactly the same files: it prints one line from the stamp. A run that can be stamped builds the app itself first, and a stamp is written only when every test passed on its first try and none was skipped. A run with an argument reads and writes none, and `CHECK_FRESH=1` reads none. The run builds into a folder of its own that it removes at the end, so a check beside it never sees a half-built `dist`; a run without a spec argument fails on a committed `.only`.
+
 ## 0.24.0
 
 - Tapahtumat: the readouts above the list stand in three even columns, and the controls of the filter row sit on one line.

@@ -1,5 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -12,7 +11,7 @@ import type { Services } from "../src/services/context.ts";
 import { diskState, keepReserve, RESERVE_BYTES, RESERVE_FILE, startReserve } from "../src/services/disk.ts";
 import { listAppBackups } from "../src/services/ops.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
-import { NOW, setupApp } from "./helpers.ts";
+import { NOW, setupApp, scratchDir } from "./helpers.ts";
 
 // the tick's call is counted, the reserve itself stays real
 vi.mock("../src/services/disk.ts", async (importOriginal) => {
@@ -38,7 +37,7 @@ const dirs: string[] = [];
 /** One migrated database with a user; every test copies the file instead of migrating again. */
 let template = "";
 beforeAll(async () => {
-  const dir = mkdtempSync(join(tmpdir(), "talous-keep-template-"));
+  const dir = scratchDir("talous-keep-template-");
   template = join(dir, "template.db");
   const { db } = await openDatabase(join(dir, "source.db"));
   db.exec("INSERT INTO users (id, username, display_name, password_hash, role, created_at) VALUES ('u-aino', 'aino', 'X', 'h', 'admin', '2026-01-01')");
@@ -54,7 +53,7 @@ afterEach(() => {
 
 /** A data folder: the live database and an empty backups/. */
 function dataDir() {
-  const dir = mkdtempSync(join(tmpdir(), "talous-keep-"));
+  const dir = scratchDir("talous-keep-");
   dirs.push(dir);
   copyFileSync(template, join(dir, "banking.db"));
   mkdirSync(join(dir, "backups"));

@@ -225,7 +225,7 @@ function GivenRow({ row, today, scope, onChanged }: { row: InputRow; today: IsoD
           <button className="btn btn-small" type="button" aria-label={`Muuta: ${label}`} onClick={() => setEditing(true)}>
             Muuta
           </button>
-          <button className="btn btn-small" type="button" aria-label={`Poista: ${label}`} disabled={busy} onClick={remove}>
+          <button className="btn btn-small" type="button" aria-label={`Poista: ${label}`} disabled={busy} aria-busy={busy || undefined} onClick={remove}>
             Poista
           </button>
         </div>

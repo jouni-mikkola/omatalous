@@ -234,8 +234,17 @@ EOF
 }
 
 # a world: stub state, a bare remote with one commit (0.1.0), a clone with the helper, a running 0.1.0
+# The git work (init, two clones, a commit, a push) is most of the cost, so it is done once per suite process, into a
+# template; every scenario gets a copy. The copy is a whole, separate world: the one place the template's own path is
+# written is rewritten (the clones' origin and ops/policy point at the remote).
 new_world() {
-  W=$(mktemp -d "$TMPBASE/w.XXXXXX"); S=$W/stub
+  if [[ -z ${WORLD_T:-} ]]; then build_world "$(mktemp -d "$TMPBASE/t.XXXXXX")"; WORLD_T=$W; WORLD_C1=$C1; fi
+  W=$(mktemp -d "$TMPBASE/w.XXXXXX"); cp -a "$WORLD_T/." "$W/"
+  sed -i "s|$WORLD_T|$W|g" "$W/clone/ops/policy" "$W/clone/.git/config" "$W/seed/.git/config" "$W"/clone/.git/logs/HEAD "$W"/clone/.git/logs/refs/heads/main "$W"/clone/.git/logs/refs/remotes/origin/HEAD
+  S=$W/stub; CL=$W/clone; C1=$WORLD_C1
+}
+build_world() { # build_world DIR: the template
+  W=$1; S=$W/stub
   mkdir -p "$S"/{bin,images,registry,reports,root,byid} "$W/home"
   write_stubs
   git init -q --bare -b main "$W/origin.git"

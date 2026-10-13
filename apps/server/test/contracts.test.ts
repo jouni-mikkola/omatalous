@@ -6,8 +6,7 @@
  * To regenerate the schema dump of a version that has not shipped yet:
  *   UPDATE_CONTRACT=0.6.0 pnpm test apps/server/test/contracts.test.ts
  */
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -17,7 +16,7 @@ import { openDatabase } from "../src/db/open.ts";
 import { normaliseState } from "../src/services/ops-validate.ts";
 import { APP_VERSION } from "../src/version.ts";
 import { loadFixture } from "./fixture-db.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, scratchDir } from "./helpers.ts";
 
 const CONTRACTS = fileURLToPath(new URL("../../../contracts/", import.meta.url));
 const FIXTURES = new URL("./fixtures/db/", import.meta.url);
@@ -28,7 +27,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "talous-contract-"));
+  const d = scratchDir("talous-contract-");
   dirs.push(d);
   return d;
 };

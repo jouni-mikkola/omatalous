@@ -1,5 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
@@ -8,8 +7,9 @@ import { findMigrationsDir, openDatabase, readMigrations } from "../src/db/open.
 import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import { restoreDatabase } from "../src/db/restore.ts";
 import { loadFixture } from "./fixture-db.ts";
+import { scratchDir } from "./helpers.ts";
 
-const tmp = () => mkdtempSync(join(tmpdir(), "talous-compat-"));
+const tmp = () => scratchDir("talous-compat-");
 
 /** A data dir holding the database of a frozen release. */
 function fromFixture(name: string): string {
