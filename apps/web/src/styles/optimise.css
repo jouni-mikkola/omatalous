@@ -44,6 +44,8 @@
 
 .finding-actions { margin-top: var(--sp-12); }
 .finding-actions .form-row { margin: 0; gap: 6px; }
+/* a phone: the keys stand in two columns (the widest of each), so four keys are two and two and none stands alone */
+@media (max-width: 640px) { .finding-actions .form-row { display: grid; grid-template-columns: repeat(2, max-content); justify-content: start; } }
 /* the form that opens under the buttons: a date, a reason, a delay or a number */
 .decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; padding: var(--sp-12); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); }
 .decide-form label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }

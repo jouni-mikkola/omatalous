@@ -3,6 +3,16 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.33.0
+
+- Tapahtumat: a category you open to change is as wide as the name it shows, so the row stays where it was.
+- Säästövinkit on a phone: a finding's four buttons stand two and two instead of three and one.
+
+Look
+
+- On Tapahtumat, a category you open to change is as wide as the name it shows, so the row stays where it was.
+- On Säästövinkit on a phone, a finding's four buttons stand two and two instead of three and one.
+
 ## 0.32.0
 
 - Laskut: in the form of Lisää lasku every field shows its whole value: the choice of Toistuu and the date are no longer cut on a wide screen.

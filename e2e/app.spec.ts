@@ -615,6 +615,12 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(smallRise.getByText("Hinta ennen")).toBeVisible();
     await expect(smallRise.getByRole("img", { name: "Menot kuukausittain" })).toBeVisible();
     await fitsScreen(small, "an open calculation at 390px");
+    // the finding's keys stand two and two, none alone on a row
+    const keyRows = await smallRise.locator(".finding-actions .form-row > button").evaluateAll((keys) => {
+      const tops = keys.map((k) => Math.round(k.getBoundingClientRect().top));
+      return [...new Set(tops)].map((t) => tops.filter((x) => x === t).length);
+    });
+    expect(keyRows).toEqual([2, 2]);
     const more = smallRise.getByRole("button", { name: /^Näytä kaikki / });
     if (await more.count()) await more.click();
     await smallRise.getByRole("button", { name: "Taulukko" }).click();

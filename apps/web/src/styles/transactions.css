@@ -6,6 +6,8 @@
 /* from 640px the 11rem cut the longest name with 50px free beside it */
 @media (min-width: 640px) { .tx-table td select, .tx-table td .select-lite { max-width: 14rem; } }
 @media (min-width: 1000px) { .tx-table td select, .tx-table td .select-lite { max-width: 15rem; } }
+/* the opened category stands on the key's place: the select is as wide as the name it shows, not as its longest option (the list still opens as wide as the longest; a very long name is cut by the cap above) */
+.tx-table td select, .tx-cat select { field-sizing: content; }
 
 /* what stands under a payee's name: the bank's text in the text colour, one line cut with an ellipsis (its title holds all of it) */
 .tx-under { display: flex; flex-direction: column; align-items: flex-start; font-size: 12px; }
