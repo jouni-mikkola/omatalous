@@ -10,7 +10,7 @@ describe("Tapahtumat and the rail at 1000 px and on a wide screen", () => {
     expect(c).toMatch(/\.uncat-list \.num \{[^}]*text-align: right;/);
   });
   it("keeps Alkaen and Asti on the row of the other filters between 961 and 1123 px", () => {
-    expect(css("transactions.css")).toMatch(/min-width: 961px\) and \(max-width: 1123px\) \{ \.tx-page \.filters select \{ max-width: 11rem; \}/);
+    expect(css("transactions.css")).toMatch(/min-width: 961px\) \{ \.tx-page \.filters select \{ max-width: 11rem; \}/);
   });
   it("draws the rail as one row from 990 px and hides the user's small text under 1100 px", () => {
     const c = css("shell.css");

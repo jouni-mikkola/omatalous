@@ -62,6 +62,7 @@ describe("Laskut: the two figures on top", () => {
   it("stand as two cells from 641 px, not from 1040 px", () => {
     const bills = css("bills.css");
     expect(media(bills, "min-width: 641px")).toContain(".bills-top .st-row + .st-row");
-    expect(bills).not.toContain("min-width: 1040px");
+    expect(media(bills, "min-width: 1040px")).not.toContain(".bills-top");
+    expect(media(bills, "min-width: 1040px")).toContain(".bill-fields");
   });
 });

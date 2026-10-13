@@ -54,6 +54,14 @@ describe("the page that did not come", () => {
   it("lets the category select, the search of Kauppiaat and the rule field read whole", () => {
     expect(css("transactions.css")).toMatch(/min-width: 1000px\) \{ \.tx-table td select, \.tx-table td \.select-lite \{ max-width: 15rem; \}/);
     expect(css("transactions.css")).toMatch(/\.filters:not\(:has\(\.filter-toggle\)\) form \{ flex: 1 1 100%; \}/);
-    expect(css("categories.css")).toMatch(/\.rule-form input\[type="text"\] \{ flex: 1 1 18rem; min-width: 0; \}/);
+    expect(css("categories.css")).toMatch(/\.rule-form input\[type="text"\] \{ flex: 1 1 18rem; max-width: 24rem; min-width: 0; \}/);
+  });
+
+  it("gives a calculation without a chart a measure, its heads flush, and the merchant's cells four to a row", () => {
+    expect(css("optimise.css")).toMatch(/\.evidence-part:not\(:has\(\.chart\)\) \{ max-width: 36rem; \}/);
+    expect(css("optimise.css")).toMatch(/\.evidence-rows th \{ padding-left: 0; \}/);
+    expect(css("transactions.css")).toMatch(/\.kv:has\(> :nth-child\(7\)\) \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \}/);
+    expect(css("categories.css")).toMatch(/\.rule-form \{ display: grid; grid-template-columns: minmax\(0, 1fr\); \}/);
+    expect(css("transactions.css")).toMatch(/\.filters \.badge \{ max-width: 100%; white-space: normal; overflow-wrap: anywhere;/);
   });
 });

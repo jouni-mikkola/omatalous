@@ -32,6 +32,8 @@
 .loan-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-16); }
 .loan-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .loan-field input:not([type="checkbox"]), .loan-field select { width: 100%; }
+/* the select of the linked account has a measure of its own: its value is short and the choices are one line each */
+.loan-form select { max-width: 24rem; }
 .loan-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .loan-field-head .badge { margin-left: 0; }
 /* a field the reading was not sure of, until the household ticks or changes it */

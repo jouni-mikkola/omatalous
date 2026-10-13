@@ -40,9 +40,9 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
                    other holder, a third each
   --loan           needs --member. The second member saves the mortgage the joint account's payments propose, so the first member
                    sees a loan another member typed in
-  --name label     in the file names: <route>-<label>-<width>.png, so that two states do not overwrite each other
-  --only "x"       one part of the page at full size, 16 px around it: a CSS selector or the text of a panel's heading, <route>-<name or slug>-<width>.png;
-                   exit 1 when nothing matches. Example: --only "Säännöt" or --only "#saannot"
+  --name label     in the file names: <route>-<label>-<width>.png, so two states do not overwrite each other
+  --only "x"       a CSS selector or heading text, found on the page the steps end on: a second picture of that part (with what stands outside it, no sticky bar)
+                   beside the whole page: <route>-<label>-<slug of x>-<width>.png; exit 1 when nothing matches. E.g. --only "Säännöt" or "#saannot"
   --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
 Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
@@ -122,6 +122,11 @@ export function shotName(/** @type {string} */ route, /** @type {string | null} 
   return `${[route.replace(/[?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
 }
 
+/** The file of a `--only` picture: like the whole page's, with the slug of the selector or heading between the label and the width. */
+export function partName(/** @type {string} */ route, /** @type {string | null} */ name, /** @type {string} */ only, /** @type {number} */ width) {
+  return shotName(route, [name, onlySlug(only)].filter(Boolean).join("-"), width);
+}
+
 /** The part of a file name that stands for a `--only` selector or heading text: letters and digits, the rest as single dashes. */
 export function onlySlug(/** @type {string} */ only) {
   return only.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "part";
@@ -158,6 +163,8 @@ export function markOnly(/** @type {string} */ only) {
  */
 export function readyForPicture() {
   window.scrollTo(0, 0);
+  // an animation a step or a late draw started (a chart's wipe) is run to its end, as the screenshot's own option does later
+  for (const a of document.getAnimations()) if (a.effect?.getComputedTiming().iterations !== Infinity) a.finish();
   let room = 0;
   for (const e of Array.from(document.body.querySelectorAll("*"))) {
     if (getComputedStyle(e).position !== "fixed") continue;
@@ -165,6 +172,47 @@ export function readyForPicture() {
     if (r.height > 0 && r.height <= 120 && r.width >= window.innerWidth * 0.9 && r.bottom >= window.innerHeight - 1) room = Math.max(room, Math.ceil(r.height));
   }
   if (room) document.body.style.paddingBottom = `calc(${getComputedStyle(document.body).paddingBottom} + ${room}px)`;
+}
+
+/**
+ * The box of the marked `--only` part, in page coordinates: the element together with its visible descendants that stand outside
+ * it (an opened menu is positioned out of its element). What a scrolling or clipping descendant holds beyond its own edge is left out.
+ * @returns {{ x: number, y: number, width: number, height: number } | null}
+ */
+export function partBox() {
+  const root = document.querySelector("[data-shots-only]");
+  if (!root) return null;
+  const r0 = root.getBoundingClientRect();
+  let [left, top, right, bottom] = [r0.left, r0.top, r0.right, r0.bottom];
+  /** @param {Element} e */
+  const walk = (e) => {
+    for (const c of Array.from(e.children)) {
+      const s = getComputedStyle(c);
+      if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) === 0) continue;
+      const r = c.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        left = Math.min(left, r.left);
+        top = Math.min(top, r.top);
+        right = Math.max(right, r.right);
+        bottom = Math.max(bottom, r.bottom);
+      }
+      if (s.overflowX === "visible" && s.overflowY === "visible") walk(c);
+    }
+  };
+  walk(root);
+  return { x: left + window.scrollX, y: top + window.scrollY, width: right - left, height: bottom - top };
+}
+
+/**
+ * Before a part picture: what sticks to the screen (the top bar, the phone's tab bar) and is not the part, nor holds it, nor sits in
+ * it, is taken out of sight, so that it is not drawn across the middle of a part that is taller than the screen.
+ */
+export function hideStuck() {
+  const root = document.querySelector("[data-shots-only]");
+  for (const e of Array.from(document.body.querySelectorAll("*"))) {
+    const p = getComputedStyle(e).position;
+    if ((p === "sticky" || p === "fixed") && root && !root.contains(e) && !e.contains(root)) /** @type {HTMLElement} */ (e).style.visibility = "hidden";
+  }
 }
 
 /**
@@ -262,7 +310,8 @@ async function main() {
   let browser;
   let bad = 0;
   try {
-    browser = await chromium.launch(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {});
+    // the browser's own chrome (the date field's mm/dd/yyyy) takes its language from the environment, not from the context's locale
+    browser = await chromium.launch({ env: { ...process.env, LANG: "fi_FI.UTF-8", LANGUAGE: "fi" }, ...(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {}) });
     const context = await browser.newContext({ locale: "fi-FI", timezoneId: "Europe/Helsinki", baseURL: app.base });
     const call = async (/** @type {string} */ path, /** @type {object} */ data = {}) => {
       const r = await context.request.post(`${app.base}${path}`, { data, headers: { "X-Requested-With": "fetch" } });
@@ -350,17 +399,23 @@ async function main() {
         const twin = landedAt.get(`${width} ${landed}`);
         landedAt.set(`${width} ${landed}`, twin ?? route);
         await page.evaluate(readyForPicture);
-        const file = join(out, shotName(route, o.name ?? (o.only ? onlySlug(o.only) : null), width));
+        const file = join(out, shotName(route, o.name, width));
         // a click in a step leaves the pointer on its key, and a key under the pointer is drawn in its hover colour
         await page.mouse.move(0, 0);
+        // the whole page first: with --only the part is a second file, and the bar is hidden only for it
+        await page.screenshot(pictureOptions(file));
+        let shown = file;
         if (o.only) {
-          if (!(await page.evaluate(markOnly, o.only))) throw new Error(`--only "${o.only}": nothing on ${route} at ${width}px matches it as a CSS selector or as the text of a heading`);
-          const box = await page.locator("[data-shots-only]").first().boundingBox();
-          if (!box) throw new Error(`--only "${o.only}": the part on ${route} at ${width}px has no size`);
+          // the part is looked for on the page the steps ended on
+          if (!(await page.evaluate(markOnly, o.only))) throw new Error(`--only "${o.only}": nothing on ${route} at ${width}px (the page ${page.url().split("#")[1] ?? ""}) matches it as a CSS selector or as the text of a heading`);
+          const box = await page.evaluate(partBox);
+          if (!box || box.width <= 0 || box.height <= 0) throw new Error(`--only "${o.only}": the part on ${route} at ${width}px has no size`);
+          await page.evaluate(hideStuck);
+          shown = join(out, partName(route, o.name, o.only, width));
           const x = Math.max(0, box.x - 16);
           const y = Math.max(0, box.y - 16);
-          await page.screenshot({ ...pictureOptions(file), clip: { x, y, width: box.x + box.width + 16 - x, height: box.y + box.height + 16 - y } });
-        } else await page.screenshot(pictureOptions(file));
+          await page.screenshot({ ...pictureOptions(shown), clip: { x, y, width: box.x + box.width + 16 - x, height: box.y + box.height + 16 - y } });
+        }
         const m = await page.evaluate(() => ({
           over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           tables: Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length,
@@ -368,7 +423,7 @@ async function main() {
         const ok = m.over <= 1 && m.tables === 0;
         if (!ok) bad++;
         if (twin && twin !== route && !o.only) console.log(`shots: ${route} at ${width}px is the same page as ${twin}: the app sent both to ${landed}; --only takes the part that differs`);
-        console.log(`shots: ${route} at ${width}px ${file} ${ok ? "no horizontal scroll" : `SCROLLS SIDEWAYS (${m.over}px over, ${m.tables} tables wider than the screen)`}`);
+        console.log(`shots: ${route} at ${width}px ${shown === file ? file : `${file} and the part ${shown}`} ${ok ? "no horizontal scroll" : `SCROLLS SIDEWAYS (${m.over}px over, ${m.tables} tables wider than the screen)`}`);
         await page.close();
       }
     }

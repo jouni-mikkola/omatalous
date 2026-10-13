@@ -31,11 +31,14 @@
 .bill-line .btn { align-self: center; }
 .bill-list .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-.bill-form { margin-top: 8px; }
+/* the form ends on a rule and a step of the scale, as a nested section does, and the table under it begins there */
+.bill-form { margin-top: var(--sp-8); margin-bottom: var(--sp-16); padding-bottom: var(--sp-8); border-bottom: 1px solid var(--border); }
 .bill-fields { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; }
 .bill-fields label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .bill-fields .field-label { color: var(--text-2); font-size: 13px; font-weight: 550; }
 .bill-fields input, .bill-fields select { width: 100%; box-sizing: border-box; }
+/* the panel is a half of the page from 1040 px: four fields would cut the chosen value of Toistuu and the date, so two rows of two */
+@media (min-width: 1040px) { .bill-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .bill-fields { grid-template-columns: minmax(0, 1fr); } }
 
 /* the marks on subscriptions and the tables on a phone */

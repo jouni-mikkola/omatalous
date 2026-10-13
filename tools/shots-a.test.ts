@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { answerTable, applyLook, onlySlug, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
+import { answerTable, applyLook, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, ROOT } from "./shots-kit.ts";
 
 describe("pnpm shots arguments", () => {
@@ -79,6 +79,13 @@ describe("pnpm shots file names", () => {
     expect(onlySlug("Säännöt")).toBe("säännöt");
     expect(onlySlug("#saannot > .card")).toBe("saannot-card");
     expect(shotName("transactions", onlySlug("Säännöt"), 1000)).toBe("transactions-säännöt-1000.png");
+  });
+
+  it("leaves the whole page and the part of --only under two names, with or without --name", () => {
+    expect(shotName("overview", "menu", 390)).toBe("overview-menu-390.png");
+    expect(partName("overview", "menu", ".user-menu", 390)).toBe("overview-menu-user-menu-390.png");
+    expect(partName("transactions", null, "Säännöt", 1000)).toBe("transactions-säännöt-1000.png");
+    expect(partName("overview", "menu", "menu", 390)).not.toBe(shotName("overview", "menu", 390));
   });
 
   it("keeps the route and the width for the plain case and puts the label of --name between them", () => {

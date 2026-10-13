@@ -8,7 +8,14 @@
 .m-category .btn { margin-left: 6px; }
 .m-name a { overflow-wrap: anywhere; }
 /* Säännöt: the search word takes the room left, so its placeholder reads whole */
-.rule-form input[type="text"] { flex: 1 1 18rem; min-width: 0; }
+.rule-form input[type="text"] { flex: 1 1 18rem; max-width: 24rem; min-width: 0; }
+/* a phone: the fields of the rule stand in one column on one measure, the key under them */
+@media (max-width: 600px) {
+  .rule-form { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .rule-form input[type="text"] { max-width: none; }
+  .rule-form select, .rule-form .select-lite { width: 100%; max-width: none; }
+  .rule-form .btn { justify-self: start; }
+}
 /* the second line starts under the name, past the ordinal (24px and its 8px margin) */
 .merchant-table.ranked .m-name .sub { padding-left: 32px; }
 /* M15: the ordinal is drawn for the eye only. The alternative text is empty, so a reader says the name and not "1." before it

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
 import { SurplusBridge } from "../../../components/SurplusBridge.tsx";
-import { money, monthLong, percent } from "../../../format.ts";
+import { money, monthLabel, monthLong, percent } from "../../../format.ts";
 import { ExportLink, Kv, TableToggle } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -12,7 +12,6 @@ function Cashflow({ ctx }: SectionProps) {
   const [table, setTable] = useState(false);
   const t = r.totals;
   // a month that has not ended, or that the history does not cover from the 1st, is partial
-  const monthLabelOf = (x: { month: string; complete: boolean }) => `${monthLong(x.month)}${x.complete ? "" : " (vajaa)"}`;
   // the month in progress has its bills but maybe not its salary: the margin is told from the complete months
   const settled = r.running ? r.closed : t;
   const whole = r.running ? ", valmiit kuukaudet" : "";
@@ -57,7 +56,13 @@ function Cashflow({ ctx }: SectionProps) {
             <tbody>
               {r.rows.map((x) => (
                 <tr key={x.month}>
-                  <td>{monthLabelOf(x)}</td>
+                  <td>
+                    <span className="month-name">
+                      <span className="month-long">{monthLong(x.month)}</span>
+                      <span className="month-short">{monthLabel(x.month, true)}</span>
+                    </span>
+                    {x.complete ? "" : " (vajaa)"}
+                  </td>
                   <td className="num">{money(x.incomeCents, false)}</td>
                   <td className="num">{money(x.consumptionCents, false)}</td>
                   <td className="num">{money(x.debtCents, false)}</td>

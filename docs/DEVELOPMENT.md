@@ -338,9 +338,12 @@ Write no spec to take pictures: the options show what a spec would.
   as typed in by another member. The pictures are the first member's.
 - `--scope own|household` sets the view switch, which shows when the household has a shared account. `--name label` adds
   the label to the file names, so that two states do not overwrite each other.
-- `--only "<css selector or heading text>"` takes one part of the page at full size, with 16 px around it, instead of the
+- `--only "<css selector or heading text>"` takes one part of the page at full size, with 16 px around it, besides the
   whole page (a tall page read whole is scaled down): `pnpm shots transactions --demo --only "Säännöt" --widths 1000`
-  writes `transactions-säännöt-1000.png`. It exits 1 when nothing matches. Whole-page pictures are taken from the top of
+  writes `transactions-1000.png` and `transactions-säännöt-1000.png` (with `--name x`: `transactions-x-1000.png` and
+  `transactions-x-säännöt-1000.png`). The part is looked for on the page the steps end on, its box holds what stands outside
+  the element (an opened menu), and the bars that stick to the screen are not drawn over it. The browser runs in a Finnish
+  locale and time zone, as a household's does. It exits 1 when nothing matches. Whole-page pictures are taken from the top of
   the page, and the phone's tab bar gets room under the page. Two routes the app sends to one address (the old
   `categories?tab=rules` and `categories?tab=merchants`) give the same picture, and the tool says so.
 

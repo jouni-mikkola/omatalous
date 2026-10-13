@@ -3,6 +3,25 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.32.0
+
+- Laskut: in the form of Lisää lasku every field shows its whole value: the choice of Toistuu and the date are no longer cut on a wide screen.
+- Asetukset: the password form has the measures of the other settings forms, and in Uusi laina the choice of the linked account is no longer as wide as the page.
+- Raportit on a phone: in the table of Tulot ja menot the month stays in sight while the figures move sideways, and an opened row of Kuukausitaulukko has the same mark as the other folds.
+- Tapahtumat of one merchant: the controls stand on one row, a long name wraps inside its chip, and the summary's cells fill their rows.
+- Säästövinkit and Kauppiaat: the calculation of a finding and the field of a rule have a measure instead of the width of the page.
+
+Look
+
+- The form for adding a bill shows every field whole: two fields a row, and a rule closes it above the table.
+- The password form in Settings has the size of the other settings forms.
+- The account choice in the new loan form is no longer as wide as the page.
+- On a phone the table of Tulot ja menot keeps the month in view while the figures move, prints the month short on one line, and shows more columns at once.
+- The months list of Kuukausitaulukko opens with the same chevron as the other folds, and the open row has a bold name.
+- On a merchant's page the filter controls and the merchant's chip stand on one row, and the summary cells stand four to a row.
+- In a saving tip's calculation the labels stand next to their figures and the column heads stand over their cells.
+- In Kauppiaat the text field of a rule has a sensible width, and on a phone the rule's fields share one width.
+
 ## 0.31.0
 
 - Säästövinkit: in Tiedot, joita tarvitaan a label, its field and the key stand together, instead of the label at the left edge and the field at the right.
