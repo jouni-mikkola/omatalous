@@ -129,7 +129,7 @@ describe("the trade register's class for the sale of motor vehicles", () => {
   });
 
   it("alone is enough: a payee whose name says nothing is a dealer by its class, and the sum tells the car from its upkeep", () => {
-    const industries = new Map([["Esimerkki Oy", categoryForIndustry("45112", "TOL2008")!]]);
+    const industries = new Map([["Esimerkki", categoryForIndustry("45112", "TOL2008")!]]);
     const rows = [row("Esimerkki Oy", -1_890_000), row("Esimerkki Oy", -24_000, { bookingDate: "2026-07-02" }), row("Esimerkki Oy", -150_000, { bookingDate: "2026-08-02" })];
     expect(enriched(rows).map((t) => t.category)).toEqual(["other", "other", "other"]);
     expect(enriched(rows, [], industries).map((t) => [t.category, t.categorySource])).toEqual([

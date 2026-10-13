@@ -127,4 +127,37 @@ describe("a merchant renamed by the card account's wording", () => {
     // the rows the upgrade holds in memory get the same answer as the stored ones
     expect(before.map((t) => settled(t))).toEqual(["gifts", undefined, "gifts", undefined, undefined, "salary", undefined]);
   });
+
+  it("makes one payee of three spellings of a company and keeps the household's category on the rows it chose it for", async () => {
+    const { s, adminId, admin } = await setupApp();
+    const repo = s.finance(adminId);
+    const spellings = [
+      ["VEIKKAUS OY", "Veikkaus Oy"],
+      ["VEIKKAUS OY PELITILI", "Veikkaus Oy Pelitili"],
+      ["VEIKKAUS.FI", "Veikkaus.Fi"],
+    ] as const;
+    const csv = ["Kirjauspäivä;Määrä;Nimi;Otsikko", ...spellings.flatMap(([text], i) => [1, 2].map((n) => `2026/09/0${i * 2 + n};-${10 + i * 2 + n},00;;${text}`))].join("\n");
+    expect((await seedCsv(s, admin, { content: csv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+    // the rows as the version before stored them, one spelling each; the household sorted the first spelling
+    for (const [text, old] of spellings) {
+      await s.db.run("UPDATE transactions SET merchant = ?, category = 'other', category_source = 'default' WHERE user_id = ? AND description LIKE ?", [old, adminId, `%${text}%`]);
+    }
+    await repo.setMerchantRule(spellings[0][1], "gifts");
+    await s.db.run("UPDATE transactions SET category = 'gifts', category_source = 'rule' WHERE user_id = ? AND merchant = ?", [adminId, spellings[0][1]]);
+    const state = async () => (await repo.allTransactions()).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)).map((t) => `${t.merchant} ${t.category}/${t.categorySource}`);
+
+    expect(await runUpgradeTasks(s, "0.14.0+veikkaus")).toMatchObject({ users: 1, merchantsRenamed: 6 });
+
+    const after = await state();
+    // one payee, and the two rows the household sorted keep what it chose
+    expect(new Set(after.map((line) => line.split(" ")[0]))).toEqual(new Set(["Veikkaus"]));
+    expect(after.slice(0, 2)).toEqual(["Veikkaus gifts/user", "Veikkaus gifts/user"]);
+    expect(await repo.listRules()).toEqual([]);
+
+    // a second run finds nothing to change
+    expect(await runUpgradeTasks(s, "0.14.0+veikkaus again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
+    expect(await state()).toEqual(after);
+    // the other spellings were never sorted by the household: they take the automatic category of the one payee
+    expect(after.slice(2)).toEqual(Array(4).fill("Veikkaus gambling/rule"));
+  });
 });

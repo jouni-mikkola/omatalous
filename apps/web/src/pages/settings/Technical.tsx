@@ -41,7 +41,7 @@ export function RunsTable({ runs }: { runs: SyncRun[] }) {
         {runs.map((r) => (
           <tr key={r.id}>
             <td className="run-when">{dateTime(r.startedAt)}</td>
-            <td className="run-when">{r.trigger === "schedule" ? "ajastettu" : r.trigger === "connect" ? "uusi yhteys" : "käsin"}</td>
+            <td className="run-when">{r.trigger === "schedule" ? "ajastettu" : r.trigger === "connect" ? "uusi yhteys" : r.trigger === "open" || r.trigger === "open-bare" ? "avattaessa" : "käsin"}</td>
             <td>{RUN_STATUS[r.status] ?? r.status}</td>
             <td className="num">{r.inserted}</td>
             {hasMessage && <td className="small muted">{r.message ?? ""}</td>}

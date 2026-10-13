@@ -42,7 +42,7 @@ describe("loan proposals", () => {
       proposals: [
         {
           key: expect.stringMatching(/^out:chk-.+:.+#25000$/),
-          payee: "Esimerkkirahoitus Oy",
+          payee: "Esimerkkirahoitus",
           paymentCents: 25000,
           months: 7,
           firstDate: "2026-04-05",

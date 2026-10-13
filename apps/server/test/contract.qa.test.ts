@@ -236,7 +236,7 @@ describe("data versions", () => {
   // Moves the instance version (data_version): every member's household view may have shown the removed member's accounts. Run below.
   const MOVES_EVERYONE = ["DELETE /api/users/:id"];
   // Moves it only when a row changed (CLAUDE.md: a sync that changed nothing does not): sync.ts decides.
-  const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync"];
+  const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync", "POST /api/sync/open"];
   // Read for each request (requestInputs), never cached: saving them moves no version. optimise.test.ts checks the Optimoi ones.
   const PER_REQUEST = [
     "PUT /api/marks",

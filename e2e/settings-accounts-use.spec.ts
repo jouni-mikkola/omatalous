@@ -109,7 +109,9 @@ test("the question after a link, the parts of the joint account, the bank's answ
     await expect(use).toBeVisible();
     const card = tilit.locator(".table-wrap");
     expect(await card.evaluate((el) => el.scrollWidth - el.clientWidth), `Tilit at ${width} px scrolls sideways in its card`).toBeLessThanOrEqual(1);
-    await expect(tilit.getByRole("button", { name: "Muokkaa tiliä Yhteistili" })).toBeInViewport({ ratio: 1 });
+    const edit = tilit.getByRole("button", { name: "Muokkaa tiliä Yhteistili" });
+    await edit.scrollIntoViewIfNeeded(); // the window's bottom may cut it; the check is about the sides
+    await expect(edit).toBeInViewport({ ratio: 1 });
   }
 
   // a phone: the select sits under the name, and nothing scrolls sideways

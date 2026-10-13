@@ -152,9 +152,9 @@ describe("industry lookup", () => {
     await reprocess(repo, t.s.settings);
     await lookupIndustries(t.s, { pauseMs: 0 });
     // the company's name is also asked in a shorter form when the full one has no hit
-    expect(asked.filter((name) => name.endsWith(" Oy")).sort()).toEqual(["Lankapuoti Ruusu Oy", "Saumaus Nieminen Oy"]);
+    expect(asked.filter((name) => name.includes(" ") && /^(?:Lankapuoti|Saumaus)/.test(name)).sort()).toEqual(["Lankapuoti Ruusu", "Saumaus Nieminen Oy"]);
     expect(asked.filter((name) => /meik|matti|liisa|virta/i.test(name))).toEqual([]);
-    expect(await t.s.db.all("SELECT merchant FROM merchant_industry_users WHERE merchant NOT LIKE '% Oy'")).toEqual([]);
+    expect(await t.s.db.all("SELECT merchant FROM merchant_industry_users WHERE merchant NOT IN ('Lankapuoti Ruusu', 'Saumaus Nieminen Oy')")).toEqual([]);
   });
 
   it("the door to the register refuses a person's name and the name of a way to pay without a request", async () => {
@@ -399,14 +399,14 @@ describe("lookups that start by themselves", () => {
   it("keeps going until nothing is due, a batch at a time", async () => {
     const { asked, fetchMock } = fakeRegister();
     const { admin, s } = await setupApp({ INDUSTRY_LOOKUP: "true" }, fetchMock);
-    const names = Array.from({ length: 31 }, (_, i) => `KAUPPA ${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))} OY`);
+    const names = Array.from({ length: 31 }, (_, i) => `KAUPPA X${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))} OY`);
     vi.useFakeTimers({ toFake: ["setTimeout"] });
     try {
       await seedCsv(s, admin, { content: csv(...names.map(card)), accountName: "Käyttötili" });
       await vi.waitFor(async () => {
         await vi.advanceTimersByTimeAsync(1000);
         // a name with no hit is also asked in a shorter form; only the full names count here
-        expect(new Set(asked.filter((n) => n.endsWith(" Oy"))).size).toBe(31);
+        expect(new Set(asked.filter((n) => /^Kauppa X[a-z]{2}$/.test(n))).size).toBe(31);
       }, { timeout: 5000, interval: 5 });
     } finally {
       vi.useRealTimers();

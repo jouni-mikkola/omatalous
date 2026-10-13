@@ -58,10 +58,10 @@ describe("transaction search", () => {
   it("ignores case and the dots of ä, ö and å", async () => {
     const { admin, s } = await setupApp();
     await seedCsv(s, admin, { content, accountName: "Käyttötili" });
-    for (const q of ["kärkkäinen", "KÄRKKÄINEN", "Karkkainen", "kÄrKkAiNeN tmi"]) expect(await search(admin, q), q).toEqual(["Kärkkäinen Tmi"]);
+    for (const q of ["kärkkäinen", "KÄRKKÄINEN", "Karkkainen", "kÄrKkAiNeN tmi"]) expect(await search(admin, q), q).toEqual(["Kärkkäinen"]);
     for (const q of ["söderström", "SODERSTROM", "Söder"]) expect(await search(admin, q), q).toEqual(["Söderströmin Kukka"]);
     for (const q of ["ålandsbanken", "ALANDS", "Åland"]) expect((await search(admin, q)).length, q).toBe(1);
-    expect(await search(admin, "lasku")).toEqual(["Kärkkäinen Tmi"]); // the description counts too
+    expect(await search(admin, "lasku")).toEqual(["Kärkkäinen"]); // the description counts too
     expect(await search(admin, "k-market")).toHaveLength(1);
     // LIKE wildcards are plain characters
     expect(await search(admin, "%")).toEqual([]);
@@ -78,7 +78,7 @@ describe("transaction search", () => {
     const accountId = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
     await admin.call("PUT", `/api/accounts/${accountId}/shares/${eero.id}`);
     expect(await search(eero, "kärkkäinen")).toEqual([]);
-    expect(await search(eero, "KARKKAINEN", "&scope=household")).toEqual(["Kärkkäinen Tmi"]);
+    expect(await search(eero, "KARKKAINEN", "&scope=household")).toEqual(["Kärkkäinen"]);
   });
 
   it("a query that reads as a euro amount also finds the amount", async () => {
@@ -111,7 +111,7 @@ describe("transaction search", () => {
     await s.db.run("UPDATE transactions SET search_text = ''");
     expect(await search(admin, "kärkkäinen")).toEqual([]);
     await runUpgradeTasks(s, "test-build");
-    expect(await search(admin, "kärkkäinen")).toEqual(["Kärkkäinen Tmi"]);
+    expect(await search(admin, "kärkkäinen")).toEqual(["Kärkkäinen"]);
   });
 });
 

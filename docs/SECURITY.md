@@ -58,6 +58,9 @@ flowchart LR
   serves them from its own address, so your browser calls no third party for a logo. That request carries no key and
   none of your data. A logo is at most 300 kB and of a known picture type. The name is accepted as written: the app does
   not check which IP address it resolves to, and relies on Enable Banking's DNS and its https certificate.
+- When a member opens the app from outside the home network, the fetch that follows passes that member's public IP
+  address and browser name to Enable Banking and the bank, as a fetch made with the user present must; on the home
+  network they are not sent.
 - Strict headers on every response: a Content-Security-Policy that allows only the app's own files,
   `frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, HSTS, and `Cache-Control: no-store` on the API.
   Its `script-src` has `'wasm-unsafe-eval'` so that the picture reader of Asetukset > Lainat, a WebAssembly module

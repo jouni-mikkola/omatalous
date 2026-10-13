@@ -82,8 +82,8 @@ test("a tenant's block: the rent and the electricity as the table Asumiskulut, o
   await expect(block.getByRole("table", { name: "Asumiskulut", exact: true })).toBeVisible();
   expect(await chargesOf(block).locator("thead th").allInnerTexts()).toEqual(["Kulu", "Saaja", "Kuukaudessa"]);
   const rows = await chargeRows(block);
-  expect(rows.map((r) => [r[0], r[1]]), "the rent is the larger, so it comes first").toEqual([["Vuokra", "Sato Oyj"], ["Sähkö", "Helen"]]);
-  await expect(block.getByRole("link", { name: "Sato Oyj" })).toHaveAttribute("href", "#/transactions?merchant=Sato+Oyj");
+  expect(rows.map((r) => [r[0], r[1]]), "the rent is the larger, so it comes first").toEqual([["Vuokra", "Sato"], ["Sähkö", "Helen"]]);
+  await expect(block.getByRole("link", { name: "Sato" })).toHaveAttribute("href", "#/transactions?merchant=Sato");
   await expect(block.getByRole("link", { name: "Helen" })).toHaveAttribute("href", "#/transactions?merchant=Helen");
 
   // only charges: the total alone, and it is the rows' sum

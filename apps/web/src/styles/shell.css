@@ -1,6 +1,10 @@
 /* App.tsx: the rail, the phone's tab bar, user menu, skip link. */
 
 .app { max-width: var(--container); margin: 0 auto; padding: 0 16px 48px; }
+/* when the rows were last fetched: right on a wide screen, left and wrapping on a phone; empty it takes no room */
+.sync-line { margin: 0 0 var(--sp-8); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+.sync-line:empty { display: none; }
+@media (max-width: 640px) { .sync-line { text-align: left; } }
 
 /* the band runs the full width of the window in --ink; what is in it is as wide as the page below */
 .topbar { background: var(--ink); color: var(--on-ink); margin-bottom: 20px; box-shadow: inset 0 -1px 0 var(--bar-edge); }

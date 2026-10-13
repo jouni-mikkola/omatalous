@@ -31,11 +31,11 @@ It runs on your own Linux machine at home and you use it in a browser, in Finnis
 
 <table>
 <tr>
-<td><img src="docs/images/tilit.png" alt="Tilit, the accounts of a household, with example data"></td>
+<td><img src="docs/images/tilit.png" alt="Tilit, a joint account and its monthly table, with example data"></td>
 <td><img src="docs/images/raportit.png" alt="Raportit, the reports, with example data"></td>
 </tr>
 <tr>
-<td>Tilit: the connected accounts and how a joint account is shared.</td>
+<td>Tilit: a joint account, month by month: what each member paid in and their share of the costs.</td>
 <td>Raportit: where the money went, month by month.</td>
 </tr>
 <tr>

@@ -42,16 +42,16 @@ describe("GET /api/merchants", () => {
       { merchant: "Lidl", category: "groceries", count: 3, totalCents: 7215, inCents: 0, monthlyCents: 7215, lastDate: "2026-09-14", rule: null, otherCategories: [] },
       { merchant: "Qwerty Puoti", category: "other", count: 1, totalCents: 5550, inCents: 0, monthlyCents: 5550, lastDate: "2026-09-10", rule: null, otherCategories: [] },
       { merchant: "Xyzzy Tuntematon", category: "other", count: 3, totalCents: 4200, inCents: 3500, monthlyCents: 4200, lastDate: "2026-09-20", rule: null, otherCategories: [{ category: "income", count: 1, totalCents: 0, inCents: 3500 }] },
-      { merchant: "Kärkkäinen Tmi", category: "other", count: 1, totalCents: 700, inCents: 0, monthlyCents: 700, lastDate: "2026-09-15", rule: null, otherCategories: [] },
+      { merchant: "Kärkkäinen", category: "other", count: 1, totalCents: 700, inCents: 0, monthlyCents: 700, lastDate: "2026-09-15", rule: null, otherCategories: [] },
     ]);
   });
 
   it("filters by category and by the folded name, and limits the list", async () => {
     const { admin } = await withData();
     expect(names(await list(admin, "?category=groceries"))).toEqual(["Lidl"]);
-    expect(names(await list(admin, "?category=other"))).toEqual(["Qwerty Puoti", "Xyzzy Tuntematon", "Kärkkäinen Tmi"]);
+    expect(names(await list(admin, "?category=other"))).toEqual(["Qwerty Puoti", "Xyzzy Tuntematon", "Kärkkäinen"]);
     expect(await list(admin, "?category=no_such_category")).toEqual([]);
-    for (const q of ["karkkainen", "KÄRKKÄINEN", "kärk"]) expect(names(await list(admin, `?q=${encodeURIComponent(q)}`)), q).toEqual(["Kärkkäinen Tmi"]);
+    for (const q of ["karkkainen", "KÄRKKÄINEN", "kärk"]) expect(names(await list(admin, `?q=${encodeURIComponent(q)}`)), q).toEqual(["Kärkkäinen"]);
     expect(names(await list(admin, "?q=tikkurila&category=other"))).toEqual([]);
     // q matches the merchant name only
     expect(await list(admin, "?q=lasku")).toEqual([]);

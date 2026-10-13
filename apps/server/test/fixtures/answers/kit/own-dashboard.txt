@@ -421,7 +421,7 @@
   "reason": "payday",
   "payday": {
    "date": "2026-10-23",
-   "name": "Acme Oy",
+   "name": "Acme",
    "pay": {
     "count": 12,
     "lowCents": 352000,
@@ -436,7 +436,7 @@
   "rows": [
    {
     "date": "2026-10-18",
-    "name": "Sanoma Media Finland Oy",
+    "name": "Sanoma Media Finland",
     "category": "subscriptions",
     "cents": -3290,
     "source": "recurring"
@@ -452,7 +452,7 @@
   "upcoming": [
    {
     "date": "2026-10-18",
-    "name": "Sanoma Media Finland Oy",
+    "name": "Sanoma Media Finland",
     "category": "subscriptions",
     "cents": -3290,
     "source": "recurring"
@@ -466,7 +466,7 @@
    },
    {
     "date": "2026-11-02",
-    "name": "Sato Oyj",
+    "name": "Sato",
     "category": "housing",
     "cents": -105000,
     "source": "recurring"
@@ -636,9 +636,9 @@
   ],
   "charges": [
    {
-    "seriesId": "out:chk:Sato Oyj",
+    "seriesId": "out:chk:Sato",
     "label": "Vuokra",
-    "payee": "Sato Oyj",
+    "payee": "Sato",
     "monthlyCents": 105000
    },
    {

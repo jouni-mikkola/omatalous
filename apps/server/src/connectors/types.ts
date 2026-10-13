@@ -10,6 +10,11 @@ import type { Services } from "../services/context.ts";
 export interface ConnectorContext {
   s: Services;
   repo: FinanceRepo;
+  /**
+   * Headers of the member's own request, set only when the member is present (a fetch started by opening the app).
+   * A source that wants them passes them on as they are; they are never stored or logged.
+   */
+  userHeaders?: Readonly<Record<string, string>>;
 }
 
 /** One account of an active connection, as the loop hands it to the connector. */
@@ -39,7 +44,7 @@ export type SyncProblem =
   /** The source does not let the app read this one account. The message says who fixes it and where. */
   | { kind: "not_linked"; message: string }
   /** The source answered with an error. The message is short and safe to show. */
-  | { kind: "upstream"; message: string };
+  | { kind: "upstream"; message: string; /** The source says the app has fetched as often as it allows (bank-limit.ts). */ rateLimited?: boolean };
 
 /** What a source says about an account itself, as the link reads it. A field the source does not give is null. */
 export interface AccountDetails {

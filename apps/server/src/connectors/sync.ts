@@ -13,6 +13,7 @@ import { connectionState } from "../services/accounts.ts";
 import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
+import { markRateLimited } from "./bank-limit.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
 import type { Connector, PullAccount, Puller } from "./types.ts";
@@ -27,7 +28,7 @@ export interface SyncSummary {
   messages: string[];
 }
 
-const LOCK_TTL_MS = 15 * 60_000;
+export const LOCK_TTL_MS = 15 * 60_000;
 /** Late bookings, and pending rows that got booked, show up in rows this far before the latest stored one. */
 const OVERLAP_DAYS = 10;
 
@@ -60,6 +61,8 @@ interface Tally {
   /** Per account, what its fetch ran into (fetch-problems.ts); a fetch that works takes its entry away. */
   problems: FetchProblems;
   problemsChanged: boolean;
+  /** A source answered that the app has fetched as often as it allows. */
+  rateLimited: boolean;
 }
 
 /**
@@ -67,12 +70,12 @@ interface Tally {
  * active consents, then re-runs categorisation. PSD2 lets banks cap
  * unattended fetches at 4 a day per account, so schedule 1–4 runs a day.
  */
-export function syncUser(s: Services, userId: string, trigger: string): Promise<SyncSummary> {
+export function syncUser(s: Services, userId: string, trigger: string, userHeaders?: Readonly<Record<string, string>>): Promise<SyncSummary> {
   // a stop signal waits for a fetch in progress (entry/shutdown.ts)
-  return track(fetchForUser(s, userId, trigger));
+  return track(fetchForUser(s, userId, trigger, userHeaders));
 }
 
-async function fetchForUser(s: Services, userId: string, trigger: string): Promise<SyncSummary> {
+async function fetchForUser(s: Services, userId: string, trigger: string, userHeaders?: Readonly<Record<string, string>>): Promise<SyncSummary> {
   const lockKey = `sync_lock:${userId}`;
   if (!(await s.settings.tryLock(lockKey, LOCK_TTL_MS))) {
     return { status: "skipped", fetched: 0, inserted: 0, messages: ["Haku on jo käynnissä."] };
@@ -80,15 +83,16 @@ async function fetchForUser(s: Services, userId: string, trigger: string): Promi
   const repo = s.finance(userId);
   const runId = await repo.startSyncRun(trigger);
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
-  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, accountsChanged: false, problems: {}, problemsChanged: false };
+  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, accountsChanged: false, problems: {}, problemsChanged: false, rateLimited: false };
 
   try {
     tally.problems = await readFetchProblems(s, userId);
     const active = (await repo.listConnections()).filter((c) => c.status === "active");
     for (const connector of CONNECTORS) {
       const connections = active.filter((c) => c.provider === connector.id);
-      if (connector.sync && connections.length) await pullConnector(s, repo, connector, connections, summary, tally);
+      if (connector.sync && connections.length) await pullConnector(s, repo, connector, connections, summary, tally, userHeaders);
     }
+    if (tally.rateLimited) await markRateLimited(s, userId);
     if (tally.problemsChanged) await writeFetchProblems(s, userId, tally.problems, (await repo.listAccounts()).map((a) => a.id));
 
     // a fetch that found nothing new leaves the history and everyone's cached analyses alone
@@ -141,10 +145,10 @@ function setProblem(tally: Tally, accountId: string, problem: FetchProblem | nul
  * Every account of the connector's active connections, one after another. A failing account does not stop the
  * others; only a consent that ended stops the rest of its own accounts.
  */
-async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally): Promise<void> {
+async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally, userHeaders?: Readonly<Record<string, string>>): Promise<void> {
   const sync = connector.sync!;
   const today = s.today();
-  const puller = await sync.open({ s, repo });
+  const puller = await sync.open({ s, repo, userHeaders });
   const accounts = await repo.listAccounts();
   const say = (message: string) => {
     // a key the source refuses fails every account with the same words: once is enough
@@ -201,6 +205,7 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
           say(`${account.name}: ${problem.message}`);
           continue;
         }
+        if (problem?.kind === "upstream" && problem.rateLimited) tally.rateLimited = true;
         // the details go to the log; the source's response text is not for the user's screen
         console.error(`sync ${account.id}:`, err);
         const message = `${problem ? problem.message : "haku epäonnistui"}.`;

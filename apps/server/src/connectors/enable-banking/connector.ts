@@ -27,16 +27,16 @@ function refused(err: unknown): err is EnableBankingError {
  * The window the loop asks for, then shorter ones when the bank refuses a period that reaches back too far. Rows
  * the bank does not keep are lost either way; a refusal would also lose the ones it does.
  */
-async function fetchTransactions(client: EnableBankingClient, uid: string, window: PullWindow, today: string) {
+async function fetchTransactions(client: EnableBankingClient, uid: string, window: PullWindow, today: string, userHeaders?: Readonly<Record<string, string>>) {
   try {
-    return await client.transactions(uid, window.dateFrom, window.initial ? "longest" : "default");
+    return await client.transactions(uid, window.dateFrom, window.initial ? "longest" : "default", userHeaders);
   } catch (err) {
     if (!refused(err)) throw err;
     for (const days of FALLBACK_DAYS) {
       const dateFrom = addDays(today, -days);
       if (dateFrom <= window.dateFrom) continue;
       try {
-        return await client.transactions(uid, dateFrom, "default");
+        return await client.transactions(uid, dateFrom, "default", userHeaders);
       } catch (retry) {
         if (!refused(retry)) throw retry;
       }
@@ -88,12 +88,12 @@ function logLinkedAccount(s: Services, uid: string, balances: unknown): void {
   console.log(`bank link ${note.bank}: cash_account_type=${note.type} credit_limit=${note.limit ? "yes" : "no"} balance_types=${types.join(",") || "none"}`);
 }
 
-async function open({ s, repo }: ConnectorContext): Promise<Puller> {
+async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller> {
   const client = await clientFor(s, repo.userId);
   return {
-    transactions: (account, window) => fetchTransactions(client, account.externalId, window, s.today()),
+    transactions: (account, window) => fetchTransactions(client, account.externalId, window, s.today(), userHeaders),
     async balance(account) {
-      const balances = await client.balances(account.externalId);
+      const balances = await client.balances(account.externalId, userHeaders);
       logLinkedAccount(s, account.externalId, balances);
       const balance = pickBalance(balances);
       return balance ? amountToCents(balance.balance_amount.amount) : null;
@@ -115,7 +115,7 @@ function classify(err: unknown): SyncProblem | null {
   }
   if (err.consentExpired) return { kind: "consent_expired" };
   // the bank's response text is not for the user's screen, only its status
-  return { kind: "upstream", message: `pankki vastasi virheellä ${err.status}${err.code ? ` (${err.code})` : ""}` };
+  return { kind: "upstream", message: `pankki vastasi virheellä ${err.status}${err.code ? ` (${err.code})` : ""}`, rateLimited: err.rateLimited };
 }
 
 export const enableBanking: Connector = {

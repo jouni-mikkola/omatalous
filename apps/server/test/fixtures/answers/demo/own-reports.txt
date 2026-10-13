@@ -525,7 +525,7 @@
       "diffCents": null,
       "payees": [
        {
-        "name": "Sato Oyj",
+        "name": "Sato",
         "values": [
          105000
         ],
@@ -2528,7 +2528,7 @@
     "share": 0.9913725490196078,
     "payers": [
      {
-      "payer": "Acme Oy",
+      "payer": "Acme",
       "totalCents": 4740000,
       "payments": 12,
       "usualCents": 395000,
@@ -2876,7 +2876,7 @@
   "payDays": [
    {
     "label": "Palkka",
-    "payer": "Acme Oy",
+    "payer": "Acme",
     "text": "25. päivä tai sitä edeltävä pankkipäivä",
     "nextDate": "2026-10-23",
     "usualCents": 395000

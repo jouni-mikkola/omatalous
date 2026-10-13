@@ -3,6 +3,21 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.42.0
+
+- The app fetches new transactions when you open it, and the top of every page tells when they were last fetched. Until now rows came only at the sync hours (6 and 18 by default), so a bill paid in the evening could stand as unpaid until the next morning. The bank allows only a few fetches a day without the user present, and the app stays inside that.
+- One payee is one payee: payment services such as Trustly and Zimpler are seen through to the company that was paid, and a company is the same payee whatever its spelling or company form. Old transactions are moved at the update.
+
+Money and reports
+
+- Payment services such as Trustly and Zimpler are seen through to the real payee, and a payment that names only the service has one payee for it.
+- One company is one payee whatever the spelling or company form, and old transactions are moved at the update.
+
+Fetching and importing
+
+- The app fetches new transactions when you open it, within what the bank allows, and no longer only at the sync hours.
+- The top of every page tells when the transactions were last fetched from the bank, and new ones appear without a reload.
+
 ## 0.41.0
 
 - The maintenance page tells what a request is doing: how long it has waited and run, when the helper next looks for work, the steps of an update with their numbers, and how long the whole thing took. After an update restarts the app the page notices it within seconds, not up to a minute later.

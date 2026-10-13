@@ -194,7 +194,7 @@ describe("the household's own names are never asked about, whatever the row says
     never("TMI PEKKA MEIKAELAEINEN");
     const accounts = [{ ...own, holder: "MÖTTÖNEN ANNA" }, card];
     expect(industryCandidates([rent(), row("MOETTOENEN KULJETUS OY", CARD)], accounts)).toEqual([]);
-    expect(industryCandidates([rent(), row("MOETTOENEN KULJETUS OY", CARD)], [own, card])).toEqual(["Moettoenen Kuljetus Oy"]);
+    expect(industryCandidates([rent(), row("MOETTOENEN KULJETUS OY", CARD)], [own, card])).toEqual(["Moettoenen Kuljetus"]);
   });
 
   it("a letter the cleaning does not know stays a letter of the name", () => {
@@ -230,7 +230,7 @@ describe("the words of the household's names (householdWords, namesHousehold)", 
     expect([...householdWords(["ESIMERKKI CONSULTING OY", "Matti ja Elisa", "TMI M MEIKALAINEN"])].sort()).toEqual(["CONSULTING", "ELISA", "ESIMERKKI", "MATTI", "MEIKALAINEN"]);
     // so a firm's account does not keep every company out, and an initial keeps out no shop with a letter in its name
     const firm = [{ ...own, holder: "ESIMERKKI CONSULTING OY, MEIKALAINEN MATTI K" }, card];
-    expect(industryCandidates([rent(), row("PIKKUPUOTI OY", CARD), row("K-PUOTI ILO", CARD), row("ESIMERKKI HUOLTO", CARD)], firm)).toEqual(["Pikkupuoti Oy", "K-Puoti Ilo"]);
+    expect(industryCandidates([rent(), row("PIKKUPUOTI OY", CARD), row("K-PUOTI ILO", CARD), row("ESIMERKKI HUOLTO", CARD)], firm)).toEqual(["Pikkupuoti", "K-Puoti Ilo"]);
   });
 
   it("match a word, one of five letters or more at either end of a longer word, and the start of one as the last word", () => {

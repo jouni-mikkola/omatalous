@@ -247,7 +247,7 @@ describe("the incremental path and a card's channel", () => {
     expect(before.find((t) => t.id === "june")!.category).toBe("other");
     // the user takes the choice back
     const after = before.map((t) => (t.id === "pay" ? { ...t, category: "other", categorySource: "default" as const } : t));
-    expect(island(after, "Esimerkkipankki Oyj", [["pay", byHand]]).ok).toBe(false);
+    expect(island(after, "Esimerkkipankki", [["pay", byHand]]).ok).toBe(false);
     expect(categories(after, [CHK, CARD])).toMatchObject({ pay: "transfer", june: "card_bill" });
   });
 

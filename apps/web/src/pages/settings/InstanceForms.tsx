@@ -25,7 +25,7 @@ function timeZones(): string[] {
 const hh = (h: number) => `${String(h).padStart(2, "0")}.15`;
 
 export function syncHoursLabel(hours: number[]): string {
-  return hours.length ? hours.map(hh).join(", ") : "vain käsin";
+  return hours.length ? hours.map(hh).join(", ") : "ei kellonaikoja";
 }
 
 /** Same rule as the server (parseBaseUrl): http or https, a host, no path. */

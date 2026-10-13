@@ -599,7 +599,7 @@ describe("money that comes back is not income", () => {
 
     it("takes the category the purchase got from a rule or the trade register", () => {
       const rows = [shop("2026-09-01", -79), shop("2026-09-15", 79)];
-      const changed = new Map(enrichTransactions(rows, [checking], [], new Map([["Nurkkakauppa Oy", "home"]])).map((t) => [t.id, t]));
+      const changed = new Map(enrichTransactions(rows, [checking], [], new Map([["Nurkkakauppa", "home"]])).map((t) => [t.id, t]));
       expect(changed.get(rows[0]!.id)!.category).toBe("home");
       expect(changed.get(rows[1]!.id)).toMatchObject({ category: "home", categorySource: "match" });
     });

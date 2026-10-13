@@ -3,8 +3,11 @@ import { Hono } from "hono";
 import { removeConnection } from "../connectors/enable-banking/connector.ts";
 import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
 import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
+import { psuHeaders } from "../connectors/enable-banking/psu.ts";
 import { LinkFailure, returnedWithError } from "../connectors/link-state.ts";
+import { openSync } from "../connectors/open-sync.ts";
 import { syncUser } from "../connectors/sync.ts";
+import { clientIp } from "../auth/middleware.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import type { AppEnv, Services } from "../services/context.ts";
@@ -106,6 +109,8 @@ export function bankRoutes(s: Services) {
 
   // ── sync ───────────────────────────────────────────
   app.post("/sync", async (c) => c.json(await syncUser(s, c.get("user").id, "manual")));
+  // a member opened the app: fetch their own connections if the rows are old, with their address and browser when those can be given
+  app.post("/sync/open", async (c) => c.json(await openSync(s, c.get("user").id, psuHeaders(clientIp(c, s), (name) => c.req.header(name)))));
   app.get("/sync/runs", async (c) => c.json({ runs: await s.finance(c.get("user").id).listSyncRuns(20) }));
 
   return app;

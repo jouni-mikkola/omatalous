@@ -52,6 +52,11 @@ export class EnableBankingError extends UpstreamError {
     return /(?:EXPIRED|CLOSED|REVOKED|INVALID|UNKNOWN)_SESSION|SESSION_(?:EXPIRED|CLOSED|REVOKED|NOT_FOUND|DOES_NOT_EXIST)|(?:EXPIRED|REVOKED)_CONSENT|CONSENT_(?:EXPIRED|REVOKED|INVALID)|ACCESS_EXPIRED/i.test(this.body);
   }
 
+  /** The bank (or Enable Banking for it) says this application has fetched as often as the bank allows. */
+  get rateLimited(): boolean {
+    return this.status === 429 || this.code === "ASPSP_RATE_LIMIT_EXCEEDED";
+  }
+
   /** The application may not read this account: it is not linked to a restricted application. */
   get notLinked(): boolean {
     return NOT_LINKED_CODES.includes(this.code);
@@ -117,10 +122,11 @@ export class EnableBankingClient {
     return `Bearer ${this.token.value}`;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /** `userHeaders` are the Psu-* headers of a member who is present (psu.ts); they go out as given and are never logged. */
+  private async request<T>(method: string, path: string, body?: unknown, userHeaders?: Readonly<Record<string, string>>): Promise<T> {
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
       method,
-      headers: { Authorization: await this.authHeader(), "Content-Type": "application/json", Accept: "application/json" },
+      headers: { ...userHeaders, Authorization: await this.authHeader(), "Content-Type": "application/json", Accept: "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -186,19 +192,19 @@ export class EnableBankingClient {
     await this.request("DELETE", `/sessions/${encodeURIComponent(sessionId)}`);
   }
 
-  async balances(accountUid: string): Promise<EbBalance[]> {
-    return (await this.request<{ balances: EbBalance[] }>("GET", `/accounts/${encodeURIComponent(accountUid)}/balances`)).balances;
+  async balances(accountUid: string, userHeaders?: Readonly<Record<string, string>>): Promise<EbBalance[]> {
+    return (await this.request<{ balances: EbBalance[] }>("GET", `/accounts/${encodeURIComponent(accountUid)}/balances`, undefined, userHeaders)).balances;
   }
 
   /** All transactions since `dateFrom`, following continuation keys. */
-  async transactions(accountUid: string, dateFrom: string, strategy: "default" | "longest" = "default"): Promise<RawTransaction[]> {
+  async transactions(accountUid: string, dateFrom: string, strategy: "default" | "longest" = "default", userHeaders?: Readonly<Record<string, string>>): Promise<RawTransaction[]> {
     const out: RawTransaction[] = [];
     let continuationKey: string | null | undefined;
     for (let page = 0; page < MAX_PAGES; page++) {
       const params = new URLSearchParams({ date_from: dateFrom });
       if (strategy !== "default") params.set("strategy", strategy);
       if (continuationKey) params.set("continuation_key", continuationKey);
-      const r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`);
+      const r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`, undefined, userHeaders);
       for (const t of r.transactions ?? []) {
         const mapped = mapTransaction(t, this.opts.timeZone);
         if (mapped) out.push(mapped);

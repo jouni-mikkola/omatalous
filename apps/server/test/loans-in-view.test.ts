@@ -19,7 +19,7 @@ import { type Client, NOW, setupApp } from "./helpers.ts";
 const AINO = "MEIKALAINEN AINO";
 const EERO = "KORHONEN EERO";
 const LIISA = "VIRTANEN LIISA";
-const LENDER = "Esimerkkirahoitus Oy";
+const LENDER = "Esimerkkirahoitus";
 
 type App = Awaited<ReturnType<typeof setupApp>>;
 type Member = Client & { id: string };

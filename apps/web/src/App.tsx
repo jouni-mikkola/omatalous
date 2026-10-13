@@ -8,6 +8,7 @@ import { api, setUnauthenticatedHandler } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
 import { date } from "./format.ts";
 import { navigate, useApi, useHashRoute } from "./hooks.ts";
+import { lineText } from "./open-sync.ts";
 import { SETTINGS, visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
 import { ErrorCard } from "./components/ErrorCard.tsx";
@@ -22,6 +23,7 @@ import { Settings } from "./pages/Settings.tsx";
 import { Transactions } from "./pages/Transactions.tsx";
 import { Wizard } from "./pages/Wizard.tsx";
 import { viewsParts } from "./part.ts";
+import { useOpenSync } from "./use-open-sync.ts";
 import { periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { SETTINGS_ANCHOR } from "./routes.ts";
 import type { Meta, Scope, User } from "./types.ts";
@@ -76,6 +78,21 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const [loadedBuild, setLoadedBuild] = useState<string | null>(null);
   const reloadMeta = meta.reload;
   const userMenu = useRef<HTMLDetailsElement>(null);
+  // rows that arrived while the page was open: the open page is drawn again from new requests (a new key)
+  const [pageKey, setPageKey] = useState(0);
+  const [arrived, setArrived] = useState(0);
+  const showArrived = () => {
+    setArrived(0);
+    setPageKey((k) => k + 1);
+    reloadMeta();
+  };
+  const openSync = useOpenSync((inserted) => {
+    // not under the user's hands: a field or an open dialog keeps what is typed until the user asks
+    const at = document.activeElement;
+    if (at?.closest("input, textarea, select, dialog[open]") || document.querySelector("dialog[open]")) setArrived((n) => n + inserted);
+    else showArrived();
+  });
+  const syncLine = lineText(openSync, new Date());
 
   // the tab title tells which page is open (history, screen readers, many tabs)
   useEffect(() => {
@@ -241,6 +258,9 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
       </header>
 
       <div className="app">
+        <div className="sync-line muted" aria-live="polite">
+          {syncLine}
+        </div>
         {meta.error && <div className="notice warning">Ei yhteyttä palvelimeen. Tiedot voivat olla vanhoja.</div>}
         {signOutError && <div className="notice warning">{signOutError}</div>}
         <SecurityNotices />
@@ -249,6 +269,14 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
             Uusi versio {m.version.app}.{" "}
             <button className="btn btn-small" type="button" onClick={() => window.location.reload()}>
               Päivitä sivu
+            </button>
+          </div>
+        )}
+        {arrived > 0 && (
+          <div className="notice good">
+            Uusia tapahtumia: {arrived}.{" "}
+            <button className="btn btn-small" type="button" onClick={showArrived}>
+              Näytä
             </button>
           </div>
         )}
@@ -283,7 +311,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           </div>
         )}
 
-        <div className="sheet">
+        <div className="sheet" key={pageKey}>
         {page === "overview" && (
           <Overview
             meta={m}

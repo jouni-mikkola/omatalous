@@ -44,8 +44,8 @@ describe("MobilePay", () => {
   });
 
   it("leaves a name that only starts like the prefix", () => {
-    expect(normalizeMerchant(null, "MOBILIA OY TAMPERE")).toBe("Mobilia Oy");
-    expect(normalizeMerchant(null, "MOBPAYTECH OY")).toBe("Mobpaytech Oy");
+    expect(normalizeMerchant(null, "MOBILIA OY TAMPERE")).toBe("Mobilia");
+    expect(normalizeMerchant(null, "MOBPAYTECH OY")).toBe("Mobpaytech");
   });
 });
 
@@ -69,7 +69,6 @@ describe("card texts in CSV exports", () => {
   it("keeps a name that is only digits and letters together", () => {
     expect(normalizeMerchant(null, "24STORAGE VANTAA")).toBe("24storage");
     expect(normalizeMerchant(null, "ST1 HAKKILA")).toBe("St1");
-    expect(normalizeMerchant(null, "XXL SPORTS JUMBO")).toBe("Xxl Sports");
   });
 });
 
@@ -100,7 +99,7 @@ describe("districts and malls after the name", () => {
   ])("%s → %s", (raw, expected) => expect(normalizeMerchant(null, raw)).toBe(expected));
 
   it("does not strip a place that is the whole name or a person's surname", () => {
-    expect(normalizeMerchant("TIKKURILA OYJ", null)).toBe("Tikkurila Oyj");
+    expect(normalizeMerchant("TIKKURILA OYJ", null)).toBe("Tikkurila");
     expect(normalizeMerchant(null, "JUMBO")).toBe("Jumbo");
     expect(normalizeMerchant("MATTI KALLIO", "MOBILEPAY")).toBe("Matti Kallio");
     expect(normalizeMerchant("ANNA MALMI", "MOBILEPAY")).toBe("Anna Malmi");

@@ -80,7 +80,7 @@ describe("dashboard and reports on demo data", () => {
     expect(byMerchant("OpenAI")[0]).toMatchObject({ kind: "subscription", active: true });
     expect(byMerchant("Apple").map((s: { typicalAmountCents: number }) => s.typicalAmountCents).sort((a: number, b: number) => a - b)).toEqual([99, 1299]);
     expect(byMerchant("Wolt")[0].kind).toBe("habit");
-    expect(byMerchant("Acme Oy")[0].kind).toBe("income");
+    expect(byMerchant("Acme")[0].kind).toBe("income");
   });
 
   it("the transaction list sums money in and out over every matching row, not only the page, own transfers left out", async () => {

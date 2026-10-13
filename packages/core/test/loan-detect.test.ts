@@ -80,9 +80,9 @@ describe("a loan proposed from its payments", () => {
     const [p, ...rest] = proposalsOf([...pay, ...carLoan()]);
     expect(rest).toEqual([]);
     expect(p).toEqual({
-      key: "out:chk:Toyota Finance Finland Oy#25000",
-      seriesId: "out:chk:Toyota Finance Finland Oy",
-      payee: "Toyota Finance Finland Oy",
+      key: "out:chk:Toyota Finance Finland#25000",
+      seriesId: "out:chk:Toyota Finance Finland",
+      payee: "Toyota Finance Finland",
       accountId: "chk",
       paymentCents: 25000,
       months: 6,
@@ -108,7 +108,7 @@ describe("a loan proposed from its payments", () => {
     const all = proposalsOf([...mortgage(), ...second, ...carLoan()]);
     expect(all.map((p) => [p.payee, p.paymentCents])).toEqual([
       ["Nordea Bank Abp", 61240],
-      ["Toyota Finance Finland Oy", 25000],
+      ["Toyota Finance Finland", 25000],
       ["Nordea Bank Abp", 18000],
     ]);
     expect(new Set(all.map((p) => p.key)).size).toBe(3);
@@ -119,7 +119,7 @@ describe("a loan proposed from its payments", () => {
   });
 
   it("a car maker's finance company is a car loan without a car word in the text", () => {
-    expect(proposalsOf(monthly(6, 250, { counterparty: "TOYOTA FINANCE FINLAND OY", description: "LASKU 44512" }))).toMatchObject([{ payee: "Toyota Finance Finland Oy", category: "loans", kind: "car" }]);
+    expect(proposalsOf(monthly(6, 250, { counterparty: "TOYOTA FINANCE FINLAND OY", description: "LASKU 44512" }))).toMatchObject([{ payee: "Toyota Finance Finland", category: "loans", kind: "car" }]);
   });
 
   it("the payee can be a person, also one named Laina when the text names the loan", () => {
@@ -187,7 +187,7 @@ describe("what is never proposed", () => {
 
   it("the near misses beside a real loan leave the loan alone", () => {
     const rent = monthly(8, 1050, { counterparty: "SATO-ASUNNOT OY", description: "VUOKRA" });
-    expect(proposalsOf([...pay, ...rent, ...carLoan()]).map((p) => p.payee)).toEqual(["Toyota Finance Finland Oy"]);
+    expect(proposalsOf([...pay, ...rent, ...carLoan()]).map((p) => p.payee)).toEqual(["Toyota Finance Finland"]);
   });
 });
 
@@ -200,7 +200,7 @@ describe("what the household already answered", () => {
   it("a series marked \"Ei laina\" is not proposed again, and taking the mark away brings the proposal back", () => {
     const rows = carLoan();
     const inputs = marked(rows);
-    expect(inputs.marks).toEqual([{ subject: "loan-proposal:out:chk:Toyota Finance Finland Oy#25000", mark: "dismissed", markedAt: "2026-10-10T09:00:00" }]);
+    expect(inputs.marks).toEqual([{ subject: "loan-proposal:out:chk:Toyota Finance Finland#25000", mark: "dismissed", markedAt: "2026-10-10T09:00:00" }]);
     expect(proposalsOf(rows, inputs)).toEqual([]);
     expect(proposalsOf(rows, { ...inputs, marks: [] })).toHaveLength(1);
   });
@@ -218,11 +218,11 @@ describe("what the household already answered", () => {
     const at = { markedAt: "2026-10-10T09:00:00" };
     const others: UserInputs["marks"] = [
       { subject: "loan-proposal:out:chk:Santander#25000", mark: "dismissed", ...at },
-      { subject: "loan-proposal:out:chk:Toyota Finance Finland Oy#25000", mark: "in_use", ...at },
-      { subject: "series:out:chk:Toyota Finance Finland Oy#25000", mark: "dismissed", ...at },
-      { subject: "series:out:chk:Toyota Finance Finland Oy#25000", mark: "in_use", ...at },
-      { subject: "merchant:Toyota Finance Finland Oy", mark: "dismissed", ...at },
-      { subject: "alert:forgotten:out:chk:Toyota Finance Finland Oy", mark: "dismissed", ...at },
+      { subject: "loan-proposal:out:chk:Toyota Finance Finland#25000", mark: "in_use", ...at },
+      { subject: "series:out:chk:Toyota Finance Finland#25000", mark: "dismissed", ...at },
+      { subject: "series:out:chk:Toyota Finance Finland#25000", mark: "in_use", ...at },
+      { subject: "merchant:Toyota Finance Finland", mark: "dismissed", ...at },
+      { subject: "alert:forgotten:out:chk:Toyota Finance Finland", mark: "dismissed", ...at },
     ];
     for (const mark of others) expect(proposalsOf(carLoan(), { ...NO_INPUTS, marks: [mark] }), mark.subject).toHaveLength(1);
   });
@@ -230,7 +230,7 @@ describe("what the household already answered", () => {
   it("\"Ei laina\" has a subject of its own: a mark made on Laskut neither replaces it nor is replaced by it", () => {
     const rows = carLoan();
     const context = createContext(rows.map((t) => ({ ...t, category: "loans" })), [checking], TODAY);
-    const series = context.recurring.find((s) => s.merchant === "Toyota Finance Finland Oy")!;
+    const series = context.recurring.find((s) => s.merchant === "Toyota Finance Finland")!;
     const [proposal] = loanProposals(context, NO_INPUTS);
     const answer = { ...notLoanMark(proposal!), markedAt: "2026-10-10T09:00:00" };
     // a fixed payment is a subscription to the marks of Laskut, whose subject carries the same key
@@ -245,8 +245,8 @@ describe("what the household already answered", () => {
   });
 
   it("the subject names a series key, which is what the marks route asks before it stores one", () => {
-    expect(notLoanKey("loan-proposal:out:chk:Toyota Finance Finland Oy#25000")).toBe("out:chk:Toyota Finance Finland Oy#25000");
-    for (const subject of ["series:out:chk:Toyota Finance Finland Oy#25000", "loan-proposal:", "loan-proposal:Toyota Finance Finland Oy", "loan-proposal:out::Toyota", "merchant:Toyota", "alert:loan-proposal:out:chk:Toyota"]) {
+    expect(notLoanKey("loan-proposal:out:chk:Toyota Finance Finland#25000")).toBe("out:chk:Toyota Finance Finland#25000");
+    for (const subject of ["series:out:chk:Toyota Finance Finland#25000", "loan-proposal:", "loan-proposal:Toyota Finance Finland", "loan-proposal:out::Toyota", "merchant:Toyota", "alert:loan-proposal:out:chk:Toyota"]) {
       expect(notLoanKey(subject), subject).toBeNull();
     }
   });
@@ -258,15 +258,15 @@ describe("what the household already answered", () => {
   });
 
   it("a saved loan that is linked to nothing, or to another series, hides nothing", () => {
-    expect(proposalsOf(carLoan(), { ...NO_INPUTS, loans: [savedLoan(null), savedLoan("out:chk:Santander#25000"), savedLoan("out:gold:Toyota Finance Finland Oy#25000")] })).toHaveLength(1);
+    expect(proposalsOf(carLoan(), { ...NO_INPUTS, loans: [savedLoan(null), savedLoan("out:chk:Santander#25000"), savedLoan("out:gold:Toyota Finance Finland#25000")] })).toHaveLength(1);
   });
 
   it("a link made with the bare series id covers the payee's series", () => {
-    expect(proposalsOf(carLoan(), { ...NO_INPUTS, loans: [savedLoan("out:chk:Toyota Finance Finland Oy")] })).toEqual([]);
+    expect(proposalsOf(carLoan(), { ...NO_INPUTS, loans: [savedLoan("out:chk:Toyota Finance Finland")] })).toEqual([]);
   });
 
   it("a series marked as ended is not proposed", () => {
-    const inputs: UserInputs = { ...NO_INPUTS, marks: [{ subject: "series:out:chk:Toyota Finance Finland Oy#25000", mark: "cancelled", markedAt: "2026-10-10T09:00:00" }] };
+    const inputs: UserInputs = { ...NO_INPUTS, marks: [{ subject: "series:out:chk:Toyota Finance Finland#25000", mark: "cancelled", markedAt: "2026-10-10T09:00:00" }] };
     expect(proposalsOf(carLoan(), inputs)).toEqual([]);
   });
 });
