@@ -2,7 +2,7 @@
  * tools/release/prepare.mjs against throwaway git repositories: the files it writes, the checks release.yml and
  * the publish step run on the result, and each refusal. The real CHANGELOG.md and version files are never touched.
  * The contracts folder and the frozen database are written by a stand-in `pnpm` and a stand-in tools/release/fixture.mjs
- * (the real ones are tested in apps/server/test/contracts.test.ts and fixture.test.ts): these tests check what prepare
+ * (the real ones are tested in apps/server/test/contracts.test.ts and fixture-a.test.ts): these tests check what prepare
  * does around them, in what order, and what it does when they fail.
  */
 import { execFileSync, spawnSync } from "node:child_process";

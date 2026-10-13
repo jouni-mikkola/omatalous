@@ -77,7 +77,7 @@ test("the line over the figures names the payday, the three figures are the API'
   // two groups: the figures at the left under the line of the window, the tables at the right from the block's second column on
   const [left, right, whole] = await Promise.all([card.locator("dl.st-rows"), table, card].map(async (l) => (await l.boundingBox())!));
   expect(left!.x + left!.width).toBeLessThan(right!.x);
-  expect(Math.abs(right!.x - 18 - (whole!.x + whole!.width / 3)), "the tables start on the line of the second column").toBeLessThanOrEqual(2);
+  expect(Math.abs(right!.x - 20 - (whole!.x + whole!.width / 3)), "the tables start on the line of the second column").toBeLessThanOrEqual(2);
 
   // what is to arrive has its own table: other pay of the window, and as its last row the pay the window waits for
   const arriving = card.getByRole("table", { name: "Saapuvat maksut" });

@@ -362,16 +362,18 @@ source. They are output and never edited by hand. `golden.test.ts` fails when th
 
 ### The contrast test
 
-`apps/web/test/contrast.test.ts` reads `apps/web/src/styles/tokens.css` as text and measures every `#rrggbb` token with
-the WCAG 2 formulas: text tokens at 4.5 to 1 on the page and both surfaces and on the three tints, text and second text
-at 7 to 1, muted at 6 to 1 on the surface, the status colours at 4.5 on it, the text of the header band (`--on-ink`
-and `--on-ink-2` on `--ink`) at 7 to 1, series colours and the two darkest heat steps at 3 to 1 on the surface, the
-border at 1.5 to 1, the grid at 1.3 and the axis at 3, and neighbouring series at 1.2 to 1 in luminance or 60 degrees of
-hue apart. It also keeps the surface at least 1.10 to 1 brighter than the page, so a card stands out. A failure names
-the pair and its figure (`muted on surface-2: 4.31 < 4.5`). When a new token fails, move the colour, not the test:
-darken or lighten it in linear light by the smallest step that passes, plus a little margin, so its hue stays. A new
-text or series token goes on its list in the test. The test also holds the theme colour in `apps/web/index.html` equal
-to the colour of the header band (`--ink`), so the two move together.
+`apps/web/test/contrast.test.ts` reads `apps/web/src/styles/tokens.css` as text and measures every `#rrggbb` token of both
+sets (`:root` is the light look, the default; `:root[data-look="night"]` is the night look, reached only by the attribute,
+for pictures and tests) with the WCAG 2 formulas: text tokens at 4.5 to 1 on the page, both surfaces, the well and the four
+tints, text and second text at 7 to 1, muted at 6 to 1 on the surface, the status colours at 4.5 on it, the text of the
+header band (`--on-ink` and `--on-ink-2` on `--ink`) at 7 to 1, series colours and the two darkest heat steps at 3 to 1 on
+the surface, the border at 1.5 to 1, the grid at 1.3, and the lines that carry meaning (`--axis`, `--corner`,
+`--control-edge`, `--pop-edge`) at 3 on the page and every surface. Neighbouring series are 1.2 to 1 in luminance or 60
+degrees of hue apart, and the surface stands at least 1.10 to 1 off the page. A failure names the pair and its figure
+(`muted on surface-2: 4.31 < 4.5`). When a new token fails, move the colour, not the test: darken or lighten it in linear
+light by the smallest step that passes, plus a little margin, so its hue stays. A new text or series token goes on its
+list in the test. The test also holds `theme-color` and `color-scheme` in `apps/web/index.html` equal to the band colour
+(`--ink`) and the scheme of the set the page selects. `pnpm shots --look night|light` takes a picture in either look.
 
 ### End-to-end tests
 

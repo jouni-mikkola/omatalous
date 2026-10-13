@@ -1,0 +1,34 @@
+/* Measures that are the same in both looks: spacing, type, motion, z-order. Not read by the both-sets test. */
+:root {
+  /* spacing: a 4 px step; 2 px only inside a control */
+  --sp-2: 2px; --sp-4: 4px; --sp-8: 8px; --sp-12: 12px; --sp-16: 16px; --sp-20: 20px; --sp-24: 24px; --sp-32: 32px; --sp-48: 48px;
+  --pad: 20px;            /* inside a panel; every full-bleed rule uses calc(-1 * var(--pad)) */
+  --gap: 16px;            /* between panels and between grid columns */
+  --container: 1240px;    /* .app and .topbar-in */
+  --rail-h: 48px;
+  --tabbar-h: 56px;
+  --control-h: 32px;      /* button, field, select; 44 px on a coarse pointer */
+  --row-h: 32px;          /* 7 + 18 + 7 */
+  --frame-k: 10px;        /* the leg of a corner mark */
+  /* type: two weights only */
+  --font-code: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", monospace;
+  --w-regular: 400; --w-strong: 600;
+  --fs-tick: 11px;   --lh-tick: 14px;    /* chart axis labels only */
+  --fs-label: 12px;  --lh-label: 16px;   /* column head, sub line, badge, panel name */
+  --fs-ui: 13px;     --lh-ui: 16px;      /* the label of a button, a tab, a field's label */
+  --fs-body: 14px;   --lh-body: 18px;    /* rows; prose uses 14/20 */
+  --fs-fig-s: 16px;  --lh-fig-s: 20px;
+  --fs-fig-m: 22px;  --lh-fig-m: 28px;
+  --fs-fig-l: 30px;  --lh-fig-l: 36px;
+  --track-name: 0.08em;   /* the panel name in capitals */
+  --track-fig: -0.01em;   /* figures of 16 px and over */
+  /* motion */
+  --t-press: 80ms; --t-state: 140ms; --t-open: 200ms; --t-draw: 400ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  /* z-order; a dialog is in the browser's top layer and needs none */
+  --z-rail: 10; --z-tabbar: 20; --z-pop: 30; --z-toast: 40; --z-skip: 50;
+}
+@media (max-width: 640px) { :root { --pad: 16px; --gap: 12px; } }
+@media (min-width: 1600px) { :root { --container: 1400px; } }
+@media (pointer: coarse) { :root { --control-h: 44px; } }

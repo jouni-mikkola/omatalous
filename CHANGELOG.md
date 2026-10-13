@@ -3,6 +3,21 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.20.0
+
+- A new look, light by default: a calm mid-light page with framed panels, capital panel names, typeset figures and a double rule under totals. Nothing glows and nothing blurs, and every text, line and state colour is checked for contrast against the surface under it.
+- The checks that guard a release run faster on this machine: lint and type checks side by side, shell suites on more cores, the longest test files split.
+
+Look
+
+- The app is light by default: a calm grey bench, paper-coloured panels with a hairline frame, corner marks and a name strip in capitals, flat tabs and sunk fields. The night colours remain for pictures and tests only.
+- The light look is a step darker: the page, panels and lines sit a little lower, so the screen is less pale and text and lines read more firmly.
+
+For developers
+
+- `pnpm check` runs the four type checks side by side, lints shell files in parallel and starts more shell jobs on a large machine.
+- A check waits while a release is being cut and runs afterwards.
+
 ## 0.19.0
 
 - The night look is lighter and easier to read: the page and its panels are a deep blue-grey instead of near-black, with clearer steps between them, and every text and state colour is checked for contrast against the surface under it.

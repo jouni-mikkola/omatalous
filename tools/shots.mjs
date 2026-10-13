@@ -40,13 +40,13 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --loan           needs --member. The second member saves the mortgage the joint account's payments propose, so the first member
                    sees a loan another member typed in
   --name label     in the file names: <route>-<label>-<width>.png, so that two states do not overwrite each other
-  --look classic|c classic puts data-look="classic" on <html>, c takes it away (before the steps and the picture); without it the page is as served
+  --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
 Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
 /**
  * @typedef {{ help: boolean, routes: string[], widths: number[], demo: boolean, fakeBank: boolean, answers: string | null,
  *   steps: string | null, scope: "own" | "household" | null, name: string | null, member: boolean, parts: [number, number] | null,
- *   loan: boolean, look: "classic" | "c" | null }} Options
+ *   loan: boolean, look: "night" | "light" | null }} Options
  */
 
 /**
@@ -93,7 +93,7 @@ export function parseArgs(argv) {
       o.name = v;
     } else if (flag === "--look") {
       const v = value();
-      if (v !== "classic" && v !== "c") throw new Error(`--look takes classic or c (got: ${v})`);
+      if (v !== "night" && v !== "light") throw new Error(`--look takes night or light (got: ${v})`);
       o.look = v;
     } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (pnpm shots --help lists them)`);
     else {
@@ -155,10 +155,10 @@ function stale() {
   return ["apps/web/src", "apps/web/public", "apps/server/src", "packages/core/src"].some((d) => newest(join(ROOT, d)) > oldest) || statSync(join(ROOT, "apps/web/index.html")).mtimeMs > oldest;
 }
 
-/** What `--look` does inside the page: `classic` puts the attribute on <html>, `c` is the look without it. */
-export function applyLook(/** @type {"classic" | "c"} */ look) {
+/** What `--look` does inside the page: `night` puts the attribute on <html>, `light` is the look without it. */
+export function applyLook(/** @type {"night" | "light"} */ look) {
   const root = document.documentElement;
-  if (look === "classic") root.setAttribute("data-look", "classic");
+  if (look === "night") root.setAttribute("data-look", "night");
   else root.removeAttribute("data-look");
 }
 

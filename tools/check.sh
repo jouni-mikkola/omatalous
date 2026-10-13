@@ -3,7 +3,7 @@
 #   tools/check.sh [--changed [base]] [types] [tests] [lint] [sh]     (pnpm check; no argument runs all four steps)
 # types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/.
 # A suite whose scenarios are t_ functions behind a `want` filter (install, backup, ops-helper, ...) runs one job per
-# scenario, the other suites one job each, CHECK_JOBS of them at a time (default 12 on 24 CPUs or more, 8 from 16, else 4).
+# scenario, the other suites one job each, CHECK_JOBS of them at a time (default the CPUs less 8, at least 4, so vitest keeps cores).
 # --changed [base] is for the loop while working: tsc runs incrementally, vitest only on the packages the diff touches
 # and on the files that name a changed script (tools/check/scope.mjs says which), and the shell steps only when it
 # touches shell: then only the suites that name the changed script, or a script that sources it. A changed script that
@@ -11,6 +11,8 @@
 # a plain `pnpm check` run everything.
 # The steps run side by side, their lines printed in the order above; CHECK_SERIAL=1 runs them one after the other, for
 # a small machine. CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
+# Unless CUT_LOCK_HELD or CI is set, a run holds a shared lock on $(git rev-parse --git-common-dir)/cut.lock, which a
+# release holds exclusively while it cuts: the check then waits (up to CHECK_CUT_WAIT, default 1800 s) and runs later.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -53,6 +55,18 @@ if [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then
   [[ -d node_modules ]] || { echo "check: node_modules is missing, run pnpm install first" >&2; exit 1; }
 fi
 
+# A release cuts under an exclusive lock on cut.lock; a check holds it shared, so the two never run at once. The run
+# starts again under the lock, which every child inherits, with CUT_LOCK_HELD set for what it starts.
+if [[ -z ${CUT_LOCK_HELD:-} && -z ${CI:-} ]] && lock=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+  lock=$lock/cut.lock
+  : >>"$lock"
+  flock -s -n "$lock" true || echo "check: waiting for the cut"
+  CUT_LOCK_HELD=1 flock -s -w "${CHECK_CUT_WAIT:-1800}" -E 97 "$lock" bash "$SELF" "${ORIG[@]}"
+  rc=$?
+  ((rc != 97)) || { echo "check: the cut still holds $lock after ${CHECK_CUT_WAIT:-1800} s, so the check did not run" >&2; rc=1; }
+  exit "$rc"
+fi
+
 # wait for a free slot, so workers checking at the same time do not make each other's seeded tests time out
 if [[ -z ${CHECK_SLOT_HELD:-} && -z ${CI:-} && " ${steps[*]} " != " lint " ]]; then
   CHECK_SLOT_HELD=1 exec bash "$ROOT/tools/slots.sh" --label check -- bash "$SELF" "${ORIG[@]}"
@@ -92,7 +106,7 @@ fi
 CHECK_LOG=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX")
 export CHECK_LOG
 cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
-JOBS=${CHECK_JOBS:-$((cpus >= 24 ? 12 : cpus >= 16 ? 8 : 4))}
+JOBS=${CHECK_JOBS:-$((cpus > 12 ? cpus - 8 : 4))}
 failed=()
 trap '((${#failed[@]})) || rm -rf "$CHECK_LOG"' EXIT
 
@@ -113,25 +127,21 @@ finish() {
 }
 
 step_types() {
-  local log=$CHECK_LOG/types.log n d i=0 bad=0 cache=$ROOT/node_modules/.cache/tsc
-  if ((CHANGED)); then
-    # the packages and the root config in parallel, each with its build info outside the source folders
-    mkdir -p "$cache"
-    for d in packages/core apps/server apps/web .; do
-      i=$((i + 1))
-      (
-        cd "$d" && "$ROOT/node_modules/.bin/tsc" -p . --incremental --tsBuildInfoFile "$cache/$i.tsbuildinfo" 2>&1 | sed "/error TS/ s|^|${d#.}/|; s|^/||"
-        echo "${PIPESTATUS[0]}" >"$log.rc$i"
-      ) >"$log.$i" 2>&1 &
-    done
-    wait
-    cat "$log".[0-9] >"$log"
-    cat "$log".rc* | grep -vx 0 >/dev/null && bad=1
-    if ((bad == 0)); then finish types 0 "tsc incremental in each package"; return; fi
-  else
-    pnpm typecheck >"$log" 2>&1
-    if (($? == 0)); then finish types 0 "tsc in each package"; return; fi
-  fi
+  local log=$CHECK_LOG/types.log n d i=0 bad=0 cache=$ROOT/node_modules/.cache/tsc inc=()
+  # the packages and the root config in parallel; with --changed each keeps its build info outside the source folders
+  if ((CHANGED)); then mkdir -p "$cache"; fi
+  for d in packages/core apps/server apps/web .; do
+    i=$((i + 1))
+    ((CHANGED)) && inc=(--incremental --tsBuildInfoFile "$cache/$i.tsbuildinfo")
+    (
+      cd "$d" && "$ROOT/node_modules/.bin/tsc" -p . "${inc[@]}" 2>&1 | sed "/error TS/ s|^|${d#.}/|; s|^/||"
+      echo "${PIPESTATUS[0]}" >"$log.rc$i"
+    ) >"$log.$i" 2>&1 &
+  done
+  wait
+  cat "$log".[0-9] >"$log"
+  cat "$log".rc* | grep -vx 0 >/dev/null && bad=1
+  if ((bad == 0)); then finish types 0 "tsc $( ((CHANGED)) && echo 'incremental ')in each package"; return; fi
   n=$(strip <"$log" | grep -c 'error TS')
   finish types 1 "$n errors"
   if ((n > 0)); then

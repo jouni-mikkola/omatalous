@@ -12,17 +12,17 @@
 .st-rows > .st-row:last-child { border-bottom: 0; }
 /* a name is cut, never wrapped; the whole name goes in `title` */
 .st-name { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-num { flex: none; margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st-num { flex: none; margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .st-strong { font-weight: 600; }
 /* the 12 px line under a name, in the row's own width */
-.st-sub { flex: 0 0 100%; margin: 0; font-size: 12px; line-height: 16px; color: var(--muted); }
+.st-sub { flex: 0 0 100%; margin: 0; font-size: 12px; line-height: 16px; color: var(--text-2); }
 /* a total: 600 and the axis above it, which takes the place of the row's hairline above */
 .st-total { font-weight: 600; border-top: 1px solid var(--axis); }
 .st-row:has(+ .st-total) { border-bottom: 0; }
 /* the 12 px line under a table or a group */
-.st-note { margin: 12px 0 0; font-size: 12px; line-height: 16px; color: var(--muted); }
+.st-note { margin: 12px 0 0; font-size: 12px; line-height: 16px; color: var(--text-2); }
 /* h3 of a group */
-.st-cap { margin: 0 0 4px; font-size: 13px; line-height: 18px; font-weight: 600; }
+.st-cap { margin: 0 0 4px; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text); }
 .st-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }
 
 /*
@@ -34,7 +34,7 @@
 .st-table :is(th, td) { padding: 7px 0; border-bottom: 1px solid var(--grid); vertical-align: top; text-align: left; font-weight: 400; }
 .st-table :is(th, td) + :is(th, td) { padding-left: 16px; }
 /* an empty cell of the head keeps the head's rule */
-.st-table thead tr > :is(th, td) { padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--grid); vertical-align: bottom; font-size: 12px; line-height: 16px; color: var(--text-2); }
+.st-table thead tr > :is(th, td) { padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--axis); font-weight: 600; vertical-align: bottom; font-size: 12px; line-height: 16px; color: var(--text-2); }
 .st-table tbody th { font-size: inherit; color: inherit; white-space: normal; }
 .st-table tbody tr:last-child > * { border-bottom: 0; }
 .st-table .st-num { text-align: right; }
@@ -44,9 +44,9 @@
 .st-table .st-cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* a part of a block across the card, under a rule that runs to the card's edges */
-.st-part { margin: 0 -18px; padding: 14px 18px 16px; border-top: 1px solid var(--border); }
+.st-part { margin: 0 calc(-1 * var(--pad)); padding: 14px var(--pad) 16px; border-top: 1px solid var(--border); }
 /* the last part of a block ends on the card's bottom edge */
-.st-block > :is(.st-part, .st-cols):last-child { margin-bottom: -18px; }
+.st-block > :is(.st-part, .st-cols):last-child { margin-bottom: calc(-1 * var(--pad)); }
 
 /*
  * The groups of a block: side by side from 900 px, under each other below with a hairline between. `.st-cols-3` holds
@@ -54,8 +54,8 @@
  * of them two (`.st-wide`), so its rule stands on a rule of the block above. The groups run to the edges of the card,
  * so the hairlines do.
  */
-.st-cols { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 -18px; border-top: 1px solid var(--border); }
-.st-cols > * { min-width: 0; padding: 14px 18px 16px; }
+.st-cols { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 calc(-1 * var(--pad)); border-top: 1px solid var(--border); }
+.st-cols > * { min-width: 0; padding: 14px var(--pad) 16px; }
 .st-cols > * + * { border-top: 1px solid var(--border); }
 @media (min-width: 900px) {
   .st-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -68,3 +68,7 @@
   .st-cols-3 > * + * { border-top: 0; border-left: 1px solid var(--border); }
   .st-cols-3 > .st-wide { grid-column: span 2; }
 }
+
+/* the name strip of a block is the last thing above its first part: no gap, and no rule twice */
+.st-block > .card-head { margin-bottom: 0; }
+.st-block > .card-head + :is(.st-part, .st-cols) { border-top: 0; }

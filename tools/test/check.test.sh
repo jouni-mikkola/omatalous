@@ -138,18 +138,91 @@ t_jobs_that_see_each_others_processes_run_again_alone() {
 
 t_jobs_follow_the_cpus() {
   world; fake_plain
-  printf '%s\n' '#!/bin/sh' 'echo 16' >"$W/bin/nproc"; chmod +x "$W/bin/nproc"
-  run_check sh
-  check "jobs: 8 at a time on 16 CPUs" grep -q '8 at a time' "$W/out"
-  printf '%s\n' '#!/bin/sh' 'echo 15' >"$W/bin/nproc"
-  run_check sh
-  check "jobs: 4 at a time on 15" grep -q '4 at a time' "$W/out"
-  printf '%s\n' '#!/bin/sh' 'echo 24' >"$W/bin/nproc"
-  run_check sh
-  check "jobs: 12 at a time on 24" grep -q '12 at a time' "$W/out"
-  printf '%s\n' '#!/bin/sh' 'echo 64' >"$W/bin/nproc"
+  local n
+  for n in "28 20" "24 16" "16 8" "13 5" "12 4" "8 4"; do
+    set -- $n
+    printf '%s
+' '#!/bin/sh' "echo $1" >"$W/bin/nproc"; chmod +x "$W/bin/nproc"
+    run_check sh
+    check "jobs: $2 at a time on $1 CPUs" grep -q "[ ]$2 at a time" "$W/out"
+  done
+  printf '%s
+' '#!/bin/sh' 'echo 64' >"$W/bin/nproc"
   (cd "$W" && env -u CHECK_LOG CHECK_JOBS=3 CHECK_SLOT_HELD=1 PATH="$W/bin:$PATH" bash tools/check.sh sh) >"$W/out" 2>&1
   check "jobs: CHECK_JOBS wins" grep -q '3 at a time' "$W/out"
+}
+
+# The cut lock: a world in a repository of its own, so that its lock file is W/.git/cut.lock. The suite blocks on a
+# fifo while it runs, so the test reads the lock from inside a running check. Nothing waits on the clock.
+lock_world() {
+  world
+  git -C "$W" init -q -b main
+  mkfifo "$W/in" "$W/go" "$W/held" "$W/rel" "$W/first"
+  suite_head "$W/tools/test/plain.test.sh"
+  echo 'echo "held=${CUT_LOCK_HELD:-}" >"$IN"; read -r _ <"$GO"; scenario plain' >>"$W/tools/test/plain.test.sh"
+  suite_tail "$W/tools/test/plain.test.sh"
+  LOCK=$W/.git/cut.lock; export IN=$W/in GO=$W/go
+}
+# lock_run [VAR=value ...]: check.sh sh without the cut variables, its output into the fifo "first", its code into rc
+lock_run() {
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CI CHECK_SLOT_HELD=1 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/first" 2>&1; echo $? >"$W/rc") &
+  RUNPID=$!
+}
+# the cut: an exclusive holder that says so and lets go when told
+lock_cut() {
+  (flock -x "$LOCK" bash -c 'echo held >"$1"; read -r _ <"$2"' _ "$W/held" "$W/rel") &
+  CUTPID=$!
+  read -r _ <"$W/held"
+}
+
+t_check_holds_the_lock_shared() {
+  lock_world; : >>"$LOCK"
+  lock_run
+  exec 4<"$W/first"
+  read -r seen <"$W/in"
+  check "lock: what the check starts sees CUT_LOCK_HELD" test "$seen" = "held=1"
+  check "lock: a release cannot take the lock while a check runs" bash -c "! flock -x -n '$LOCK' true"
+  check "lock: another check can" flock -s -n "$LOCK" true
+  echo >"$W/go"; wait "$RUNPID"; cat <&4 >"$W/out"; exec 4<&-
+  check "lock: the check ran green, without waiting" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'waiting for the cut' '$W/out' && grep -q 'sh ok' '$W/out'"
+}
+
+t_check_waits_for_the_cut() {
+  lock_world
+  lock_cut
+  lock_run
+  exec 4<"$W/first"
+  read -r line <&4
+  check "lock: the check says it waits for the cut" test "$line" = "check: waiting for the cut"
+  check "lock: nothing ran while the cut held the lock" test -z "$(ran)"
+  echo >"$W/rel"; wait "$CUTPID"
+  read -r seen <"$W/in"
+  echo >"$W/go"; wait "$RUNPID"; cat <&4 >"$W/out"; exec 4<&-
+  check "lock: after the cut the check ran, green" bash -c "[[ \$(cat '$W/rc') = 0 ]] && grep -q 'sh ok' '$W/out'"
+  check "lock: and ran the suite" test "$(ran)" = "plain.test.sh plain,"
+}
+
+t_check_ends_red_when_the_cut_does_not_end() {
+  lock_world
+  lock_cut
+  lock_run CHECK_CUT_WAIT=0
+  exec 4<"$W/first"
+  cat <&4 >"$W/out"; wait "$RUNPID"; exec 4<&-
+  echo >"$W/rel"; wait "$CUTPID"
+  check "lock: red after the wait, naming the lock file" bash -c "[[ \$(cat '$W/rc') = 1 ]] && grep -q 'the cut still holds .*/.git/cut.lock' '$W/out'"
+  check "lock: nothing ran" test -z "$(ran)"
+}
+
+t_check_inside_the_cut_does_not_wait() {
+  lock_world
+  lock_cut
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CI CUT_LOCK_HELD=1 CHECK_SLOT_HELD=1 PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/out" 2>&1; echo $? >"$W/rc") &
+  RUNPID=$!
+  read -r seen <"$W/in"
+  check "lock: the release's own check starts at once, with the variable as it was" test "$seen" = "held=1"
+  echo >"$W/go"; wait "$RUNPID"
+  echo >"$W/rel"; wait "$CUTPID"
+  check "lock: it ran green and did not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'waiting' '$W/out'"
 }
 
 # A history with two scripts, each named by a suite of its own, and one that no suite names.

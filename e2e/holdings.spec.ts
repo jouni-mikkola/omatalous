@@ -138,9 +138,9 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   expect(Math.abs(cards!.y - accounts!.y)).toBeLessThanOrEqual(1);
   // of two groups the first has five parts and the second seven
   const whole = (await holdings.boundingBox())!;
-  const inner = whole.width - 2 * 19;
-  expect(Math.abs(cards!.x - (whole.x + 19 + (inner - 48) * (5 / 12) + 48)), "the second group starts where its seven parts do").toBeLessThanOrEqual(2);
-  expect(Math.abs(cards!.x + cards!.width - (whole.x + whole.width - 19)), "and runs to the right edge of the block's content").toBeLessThanOrEqual(2);
+  const inner = whole.width - 2 * 21;
+  expect(Math.abs(cards!.x - (whole.x + 21 + (inner - 48) * (5 / 12) + 48)), "the second group starts where its seven parts do").toBeLessThanOrEqual(2);
+  expect(Math.abs(cards!.x + cards!.width - (whole.x + whole.width - 21)), "and runs to the right edge of the block's content").toBeLessThanOrEqual(2);
 
   expect(seen.problems).toEqual([]);
   await context.close();

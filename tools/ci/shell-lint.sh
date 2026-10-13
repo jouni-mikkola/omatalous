@@ -11,10 +11,16 @@ cd "$(dirname "$0")/../.."
 shopt -s nullglob
 files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/*/*.sh .claude/hooks/*.sh)
 
-for f in "${files[@]}"; do bash -n "$f"; done
+# The files go to xargs in groups of six, one group per child, as many children as CPUs. A red child makes xargs exit 123.
+lint() { printf '%s\n' "${files[@]}" | xargs -d '\n' -n 6 -P "$(nproc)" "$@"; }
+lint bash -c 'for f; do bash -n "$f" || exit 1; done' _
 
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -S warning "${files[@]}"
+  # A script that sources a library uses its variables: shellcheck only knows that when the library is in the same run,
+  # so every group carries the libraries.
+  libs=()
+  for f in "${files[@]}"; do [[ $f == scripts/lib/* || $f == *lib.sh ]] && libs+=("$f"); done
+  LIBS="${libs[*]}" lint bash -c 'shellcheck -S warning "$@" $LIBS' _
   echo "${#files[@]} files, bash -n and shellcheck $(shellcheck --version | sed -n 's/^version: //p')"
 elif [[ -n ${CI:-} ]]; then
   echo "shellcheck is missing and CI is set." >&2

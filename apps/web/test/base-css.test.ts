@@ -63,10 +63,10 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
     expect(inkRules(css)).toEqual([".a", ".b"]);
   });
 
-  it("draws a fill from --fill: --ink and --on-ink stay in the band and in the bank tile's ring", () => {
+  it("draws a fill from --fill: --ink and --on-ink stay in the band (its focus ring included) and in the bank tile's ring", () => {
     const perSheet = NAMES.map((n): [string, string[]] => [n, inkRules(sheet(n))]);
     const left = Object.fromEntries(perSheet.filter(([n, selectors]) => n !== "shell" && selectors.length > 0));
-    expect(left).toEqual({ "bank-picker": [".bank-tile:hover:not(:disabled) .bank-logo"] });
+    expect(left).toEqual({ base: [".topbar :focus-visible"], "bank-picker": [".bank-tile:hover:not(:disabled) .bank-logo"] });
     expect(inkRules(sheet("shell")).length).toBeGreaterThan(0);
   });
 
@@ -79,7 +79,7 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
     const perSheet = NAMES.map((n): [string, string[]] => [n, literalRadii(sheet(n))]);
     const literal = Object.fromEntries(perSheet.filter(([, radii]) => radii.length > 0));
     expect(literal).toEqual({
-      base: [".brand-mark: 5px", ".brand-mark i: 1px", ".badge: 4px", "code: 5px"],
+      base: [".card:not(.skeleton)::before, dialog.confirm::before: inherit", ".notice.good::before: 50%"],
       shell: [".avatar: 50%", ".menu: 10px"],
       charts: [".swatch: 3px", ".line-key: 1px", ".tooltip: 10px"],
       settings: [".credit-bar: 2px", ".credit-bar span: 2px", ".secret-box: 10px", ".bank-app-status: 10px"],

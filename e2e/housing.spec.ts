@@ -158,7 +158,7 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   const [left, right] = [(await chargesOf(block).boundingBox())!, (await block.locator(".housing-sums").boundingBox())!];
   expect(left.x + left.width).toBeLessThan(right.x);
   const card = (await block.boundingBox())!;
-  expect(Math.abs(right.x - 18 - (card.x + (card.width * 2) / 3)), "the sums start on the line of the third column").toBeLessThanOrEqual(2);
+  expect(Math.abs(right.x - 20 - (card.x + (card.width * 2) / 3)), "the sums start on the line of the third column").toBeLessThanOrEqual(2);
 
   // the name opens the loans of Raportit
   await block.getByRole("link", { name: "Kodin laina" }).click();
@@ -233,7 +233,7 @@ test("a household with a charge and no home loan is asked in one row, Asuntolain
   expect(add!.x + add!.width).toBeLessThan(no!.x);
   expect(Math.abs(add!.y - no!.y)).toBeLessThanOrEqual(1);
   const card = (await block.boundingBox())!;
-  expect(Math.abs(no!.x + no!.width - (card.x + card.width - 18)), "the last button ends where the block's figures end").toBeLessThanOrEqual(2);
+  expect(Math.abs(no!.x + no!.width - (card.x + card.width - 20)), "the last button ends where the block's figures end").toBeLessThanOrEqual(2);
   for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
 
   await addLink(block).click();

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/** One rule of tokens.css: the look it holds (`c` on the bare :root, else the name in `data-look`), its color-scheme and its custom properties as written. */
+/** One rule of tokens.css: the look it holds (`light` on the bare :root, else the name in `data-look`), its color-scheme and its custom properties as written. */
 interface TokenSet {
   look: string;
   scheme: string | undefined;
@@ -12,7 +12,7 @@ interface TokenSet {
 function readSets(css: string): TokenSet[] {
   const rules = css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/:root(?:\[data-look="([a-z]+)"\])?\s*\{([^}]*)\}/g);
   return [...rules].map((m) => ({
-    look: m[1] ?? "c",
+    look: m[1] ?? "light",
     scheme: /color-scheme:\s*([a-z]+)\s*;/.exec(m[2] ?? "")?.[1],
     values: new Map([...(m[2] ?? "").matchAll(/--([a-z0-9-]+):\s*([^;]+?)\s*;/g)].map((d) => [d[1] ?? "", d[2] ?? ""] as const)),
   }));
@@ -64,42 +64,20 @@ const css = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "
 const sets = readSets(css);
 
 /**
- * What the classic set holds: the values `:root` had before the file held two sets, pinned here token by token, and then
- * the tokens added with the second set, each with the value of the rule it stands for. Every name is also required in the
- * night set, so this is the list of tokens the sets share.
+ * What the light set holds: the design's values, pinned here token by token (the page, panel and well are the design's `#d9dde3`, `#f0f1ee` and `#f7f7f4` lowered together by one step, then the mid-light step: the page, panel, well and lines a little lower still).
+ * Every name is also required in the night set, so this is the list of tokens the sets share.
  */
-const CLASSIC: Record<string, string> = {
-  "page": "#c8cdd6", "surface": "#d8dce2", "surface-2": "#c4cad3",
-  "text": "#131b29", "text-2": "#2a3444", "muted": "#414b5c",
-  "grid": "#b4bbc6", "axis": "#6f7683", "border": "#a7afbb",
-  "ink": "#1b2f54", "on-ink": "#f2f4f7", "ink-2": "#2a4170", "on-ink-2": "#cfd8e8",
-  "accent": "#2456a6", "accent-ink": "#1d4a90",
-  "good": "#1a5a38", "bad": "#912a2b", "warn": "#6e4306",
-  "warn-bg": "#e0d3ab", "good-bg": "#c6dccd", "info-bg": "#c5d3e8",
-  "series-1": "#2f6db5", "series-2": "#c2501a", "series-3": "#12796d", "series-4": "#946600",
-  "series-5": "#bf3f74", "series-6": "#2e5e2e", "series-7": "#58389e", "series-rest": "#6a7280", "series-avg": "#6a7280",
-  "heat-1": "#9db8d9", "heat-2": "#6f98cc", "heat-3": "#2f6db5", "heat-4": "#1d4a8a",
-  "heat-ink-1": "#131b29", "heat-ink-2": "#131b29", "heat-ink-3": "#ffffff", "heat-ink-4": "#ffffff",
-  "plate": "#ffffff", "plate-ink": "#0b0b0b", "plate-edge": "rgb(11 11 11 / 0.14)",
-  "pop-shadow": "0 8px 28px rgb(19 27 41 / 0.28)", "backdrop": "rgb(19 27 41 / 0.55)", "shadow": "none", "radius": "10px",
-  // new: a filled button is --ink on --on-ink; a button, an input and a select are --surface with a --border edge that goes to --axis under the pointer
-  "fill": "#1b2f54", "on-fill": "#f2f4f7",
-  "control": "#d8dce2", "control-hover": "#d8dce2", "control-edge": "#a7afbb", "control-edge-hover": "#6f7683",
-  // new: a menu has the --border edge; the band's own colour leaves no line under it; a bar is one --accent; a curve ends in --accent with the surface as its halo
-  "pop-edge": "#a7afbb", "bar-edge": "#1b2f54",
-  "spectrum-1": "#2456a6", "spectrum-2": "#2456a6", "spectrum-3": "#2456a6", "spectrum-4": "#2456a6",
-  "dot": "#2456a6", "dot-halo": "rgb(216 220 226 / 1)",
-  // new: a button is 6px round, a link of the band and a box in a card 8px, an input, a select and a notice 6px
-  "radius-pill": "6px", "radius-m": "8px", "radius-s": "6px",
+const LIGHT: Record<string, string> = {
+  
 };
 
 describe("tokens.css sets", () => {
-  it("holds the night look on :root and the classic look on :root[data-look=\"classic\"], each with its own color-scheme", () => {
-    expect(sets.map((s) => [s.look, s.scheme]).sort()).toEqual([["c", "dark"], ["classic", "light"]]);
+  it("holds the light look on :root and the night look on :root[data-look=\"night\"], each with its own color-scheme", () => {
+    expect(sets.map((s) => [s.look, s.scheme]).sort()).toEqual([["light", "light"], ["night", "dark"]]);
   });
 
   it("has every token in both sets, and none in one set only", () => {
-    const missing = sets.flatMap((s) => Object.keys(CLASSIC).filter((name) => !s.values.has(name)).map((name) => `--${name} is missing from the ${s.look} set`));
+    const missing = sets.flatMap((s) => Object.keys(LIGHT).filter((name) => !s.values.has(name)).map((name) => `--${name} is missing from the ${s.look} set`));
     expect(missing).toEqual([]);
     expect(onlyInOne(sets)).toEqual([]);
   });
@@ -108,18 +86,18 @@ describe("tokens.css sets", () => {
     expect(notRrggbb(sets)).toEqual([]);
   });
 
-  it("keeps the classic set at the values the screen had before the two sets, token by token", () => {
-    const classic = sets.find((s) => s.look === "classic");
-    const differing = Object.entries(CLASSIC).filter(([name, value]) => classic?.values.get(name) !== value).map(([name, value]) => `--${name}: ${classic?.values.get(name)} is not ${value}`);
+  it("keeps the light set at the values of the design, token by token", () => {
+    const light = sets.find((s) => s.look === "light");
+    const differing = Object.entries(LIGHT).filter(([name, value]) => light?.values.get(name) !== value).map(([name, value]) => `--${name}: ${light?.values.get(name)} is not ${value}`);
     expect(differing).toEqual([]);
   });
 
   it("is checked by what it checks: a name in one set only, and a hex that is not #rrggbb, are found; complete sets are not", () => {
-    const sample = (night: string, classic: string) => readSets(`:root { color-scheme: dark; ${night} } :root[data-look="classic"] { color-scheme: light; ${classic} }`);
-    expect(onlyInOne(sample("--a: #000000; --b: #111111;", "--a: #ffffff;"))).toEqual(["--b is in the c set only"]);
-    expect(onlyInOne(sample("--a: #000000;", "--a: #ffffff; --b: 4px;"))).toEqual(["--b is in the classic set only"]);
+    const sample = (light: string, night: string) => readSets(`:root { color-scheme: light; ${light} } :root[data-look="night"] { color-scheme: dark; ${night} }`);
+    expect(onlyInOne(sample("--a: #000000; --b: #111111;", "--a: #ffffff;"))).toEqual(["--b is in the light set only"]);
+    expect(onlyInOne(sample("--a: #000000;", "--a: #ffffff; --b: 4px;"))).toEqual(["--b is in the night set only"]);
     expect(onlyInOne(sample("--a: #000000; --b: 4px;", "--a: #ffffff; --b: 6px;"))).toEqual([]);
-    expect(notRrggbb(sample("--a: #ABCDEF; --b: #abc;", "--a: #abcdef; --b: rgb(0 0 0 / 0.5);"))).toEqual(["--a in the c set is #ABCDEF", "--b in the c set is #abc"]);
+    expect(notRrggbb(sample("--a: #ABCDEF; --b: #abc;", "--a: #abcdef; --b: rgb(0 0 0 / 0.5);"))).toEqual(["--a in the light set is #ABCDEF", "--b in the light set is #abc"]);
   });
 });
 
@@ -229,9 +207,10 @@ describe.each(sets)("tokens.css contrast, $look set", (set) => {
 describe("index.html", () => {
   it("the colour the browser draws around the page (theme-color) is the colour of the header band, --ink, of the set the page selects", () => {
     const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-    const look = /<html\b[^>]*\sdata-look="([a-z]+)"/i.exec(html)?.[1] ?? "c";
+    const look = /<html\b[^>]*\sdata-look="([a-z]+)"/i.exec(html)?.[1] ?? "light";
     const selected = sets.find((s) => s.look === look);
     expect(selected, `index.html selects the look ${look}, tokens.css has no such set`).toBeDefined();
     expect(html.match(/<meta name="theme-color" content="(#[0-9a-f]{6})"/i)?.[1]).toBe(selected && measure(selected).hex("ink"));
+    expect(html.match(/<meta name="color-scheme" content="([a-z ]+)"/i)?.[1]).toBe(selected?.scheme);
   });
 });
