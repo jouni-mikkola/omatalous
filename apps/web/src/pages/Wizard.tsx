@@ -172,9 +172,9 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
         {error && <div className="error">{error}</div>}
         {!current ? (
           loaded.error ? (
-            <div className="notice warning">
-              {loaded.error}{" "}
-              <button className="btn btn-small" type="button" onClick={loaded.reload}>
+            <div className="card error" role="alert">
+              <p>{loaded.error}</p>
+              <button className="btn" type="button" onClick={loaded.reload}>
                 Yritä uudelleen
               </button>
             </div>

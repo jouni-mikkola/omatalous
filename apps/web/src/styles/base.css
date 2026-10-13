@@ -187,7 +187,7 @@ a.btn-primary { color: var(--on-fill); }
 .empty-start { max-width: 720px; }
 
 /* loading: an empty dashed frame and a 96 px accent run along its top edge, five times, then nothing moves */
-.skeleton { position: relative; overflow: hidden; min-height: 96px; background: var(--surface); border: 1px dashed var(--border); box-shadow: none; animation: none; }
+.skeleton { position: relative; overflow: hidden; min-height: 96px; background: var(--surface); border: 1px dashed var(--axis); box-shadow: none; animation: none; }
 .skeleton::after { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 2px;
   background: linear-gradient(90deg, transparent calc(50% - 48px), var(--accent) calc(50% - 48px) calc(50% + 48px), transparent calc(50% + 48px));
   transform: translateX(-60%); animation: load-run 1.2s var(--ease-inout) 5 forwards; }

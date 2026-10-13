@@ -3,6 +3,21 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.31.0
+
+- Säästövinkit: in Tiedot, joita tarvitaan a label, its field and the key stand together, instead of the label at the left edge and the field at the right.
+- Asetukset: in Tilit an account without a number no longer gets a line with a lone dash, and the line about an account's use keeps a readable measure; on a wide screen the columns of Talouden jäsenet stand close together.
+- While a page loads, its frames are drawn first, with an edge that can be seen, and the word Ladataan… comes below them.
+- The first-run wizard shows a failed step as the same error card as the rest of the app.
+
+Look
+
+- The data a check asks for now keeps its name, its field and its save button together.
+- An account with no number no longer shows a lone dash, and the sentence about a joint account's shares is no longer a very long line.
+- On a wide screen the household members' table keeps its columns close enough to read a row as one.
+- The loading frames of a page have an edge you can see, and the first screen shows the frames instead of a lone "Ladataan…".
+- The first-run wizard shows a failed step in the same red card as every page.
+
 ## 0.30.0
 
 - A wide screen is used: from 1600 px Tulot stands beside Kategoriat on Raportit and the two panels of findings stand side by side on Säästövinkit, on columns of exactly 100 px, instead of every row growing longer.

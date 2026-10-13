@@ -131,9 +131,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                 <tr key={a.id}>
                   <td>
                     {a.name}
-                    <div className="sub acc-line">
-                      {accountNumber(a) || "–"}
-                    </div>
+                    {accountNumber(a) && <div className="sub acc-line">{accountNumber(a)}</div>}
                     {a.customName && <div className="sub acc-line">Pankin nimi: {a.bankName}</div>}
                     {holder && <div className="sub acc-line">{holder}</div>}
                     {credit && <div className="sub acc-line">{credit}</div>}

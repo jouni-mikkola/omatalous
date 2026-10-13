@@ -22,6 +22,18 @@ describe("the page that did not come", () => {
     expect(html).not.toContain("grid two");
   });
 
+  it("draws the loading frames with a visible edge, and shows the frames, not the word alone, before the meta is known", () => {
+    expect(css("base.css")).toMatch(/\.skeleton \{[^}]*border: 1px dashed var\(--axis\)/);
+    const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+    expect(app).not.toMatch(/<div className="empty" role="status">Ladataan…<\/div>/);
+    expect(app.match(/<Loading \/>/g)).toHaveLength(2);
+  });
+
+  it("shows the wizard's failed step as the error card every page uses", () => {
+    const wizard = readFileSync(new URL("../src/pages/Wizard.tsx", import.meta.url), "utf8");
+    expect(wizard).toMatch(/<div className="card error" role="alert">\s*<p>\{loaded\.error\}<\/p>\s*<button className="btn" type="button" onClick=\{loaded\.reload\}>/);
+  });
+
   it("keeps the error card's sentence level with its edges", () => {
     expect(css("base.css")).toMatch(/\.card\.error > p \{[^}]*margin: 0 0 var\(--sp-12\)/);
   });

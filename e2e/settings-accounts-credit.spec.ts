@@ -53,7 +53,7 @@ test("Tilit shows how much of a card's limit is in use, as a line and a thin bar
   // the bank gave no limit: no line and no bar, whatever is owed
   bank = { creditLimitCents: null, balanceCents: -124000 };
   await page.reload();
-  await expect(row.locator(".acc-line").first()).toHaveText("–");
+  await expect(row.locator(".acc-line")).toHaveCount(0);
   await expect(row).not.toContainText("Luottoraja");
   await expect(bar).toHaveCount(0);
 

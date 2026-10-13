@@ -16,8 +16,8 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
 
   await expect(row("Käyttötili (esimerkki)")).toContainText("FI21 1234 5600 0007 85");
   await expect(row("Säästötili (esimerkki)")).toContainText("FI14 1009 3000 1234 58");
-  // no IBAN and no card number: a dash, as before
-  await expect(row("Nordea Gold (esimerkki)").locator(".acc-line").first()).toHaveText("–");
+  // no IBAN and no card number: no line under the name
+  await expect(row("Nordea Gold (esimerkki)").locator(".acc-line")).toHaveCount(0);
   // the provider is not named after the number
   await expect(row("Nordea Gold (esimerkki)")).not.toContainText("demo");
 

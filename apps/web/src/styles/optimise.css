@@ -74,7 +74,9 @@
 .decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .decided, .needed { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-8) var(--sp-16); min-height: var(--row-h); box-sizing: border-box; padding: 7px 0; border-bottom: 1px solid var(--grid); }
 .decided:last-child, .needed:last-child { border-bottom: none; }
-.needed { align-items: flex-start; }
+.needed { align-items: flex-start; justify-content: flex-start; }
+/* a row's label, its field and its key stand together: the label has a measure of its own, the field follows it */
+.needed > .needed-text { flex: 0 1 20rem; }
 .decided-text, .needed-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 18rem; min-width: 0; overflow-wrap: anywhere; }
 .decided-title { font-weight: 500; }
 .needed > .input-form { flex: 0 1 24rem; min-width: 0; }

@@ -35,6 +35,8 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .use-input input { width: 6.5rem; }
 .use-total { min-width: 7rem; font-variant-numeric: tabular-nums; }
 .use-help { flex-basis: 100%; }
+/* the sentence beside "Käytä näitä" is running text: it has a measure */
+.use-line > span { max-width: 70ch; text-wrap: pretty; }
 .use-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .shared-list { margin: 2px 0 0; padding-left: 20px; }
 .account-form .form-row { margin: 0; flex: 1 1 260px; }
@@ -101,4 +103,13 @@ td .btn-small { white-space: nowrap; }
   .conn-table td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
   .conn-table td.num { text-align: left; padding-top: 8px; }
   .conn-table .row-actions { justify-content: flex-start; }
+}
+/* from 1600 px the members' columns keep measures of their own, so a row reads as one row and the table does not spread its few words over the card */
+@media (min-width: 1600px) {
+  .members-table { table-layout: fixed; }
+  .members-table th:nth-child(1) { width: 18rem; }
+  .members-table th:nth-child(2) { width: 12rem; }
+  .members-table th:nth-child(3) { width: 9rem; }
+  .members-table th:nth-child(4) { width: 9rem; }
+  .members-table td { overflow-wrap: anywhere; }
 }

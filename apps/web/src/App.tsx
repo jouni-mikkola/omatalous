@@ -11,6 +11,7 @@ import { navigate, useApi, useHashRoute } from "./hooks.ts";
 import { SETTINGS, visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
 import { ErrorCard } from "./components/ErrorCard.tsx";
+import { Loading } from "./components/Loading.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
 import { Bills } from "./pages/Bills.tsx";
 import { ChangePassword, Login, Setup } from "./pages/Auth.tsx";
@@ -39,7 +40,7 @@ export function App() {
   }, []);
 
   if (error) return <div className="app"><div className="card error" style={{ marginTop: 24 }}>Palvelimeen ei saada yhteyttä: {error}</div></div>;
-  if (!auth) return <div className="app"><div className="empty" role="status">Ladataan…</div></div>;
+  if (!auth) return <div className="app"><Loading /></div>;
   if (auth.needsSetup) return <Setup onDone={(user) => setAuth({ needsSetup: false, user })} />;
   if (!auth.user) return <Login onDone={(user) => setAuth({ needsSetup: false, user })} />;
   if (auth.user.mustChangePassword) {
@@ -129,7 +130,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
         {meta.error ? (
           <ErrorCard message={meta.error} onRetry={reloadMeta} />
         ) : (
-          <div className="empty" role="status">Ladataan…</div>
+          <Loading />
         )}
       </div>
     );
