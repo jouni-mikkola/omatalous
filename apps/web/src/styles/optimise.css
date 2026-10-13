@@ -7,7 +7,8 @@
 .optimise-none { margin: 0; }
 .kv.optimise-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(120px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-16) 0 0; }
 .kv.optimise-facts > div { border-left: 1px solid var(--border); padding: 0 var(--sp-16); min-width: 0; }
-@media (max-width: 1039px) { .kv.optimise-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* between a phone and the wide page the facts stand in one row, whatever their count: no row of one */
+@media (min-width: 641px) and (max-width: 1039px) { .kv.optimise-facts { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; } .kv.optimise-facts > div { padding: 0 var(--sp-8); } .optimise .kv.optimise-facts .k { overflow-wrap: anywhere; } }
 @media (max-width: 640px) { .kv.optimise-facts { grid-template-columns: minmax(0, 1fr); } }
 .optimise-facts dt, .optimise-facts dd { margin: 0; }
 .optimise .kv.optimise-facts .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
@@ -20,14 +21,16 @@
 /* Muut havainnot: an insight's tone is a badge above its words */
 .other-tone { margin: 0 0 var(--sp-4); }
 /* the words in columns 1-8, the euros in 9-12 */
-.finding-top { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--sp-8) var(--gap); align-items: start; }
-.finding-main { grid-column: 1 / 9; min-width: 0; overflow-wrap: anywhere; }
+.finding-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-8) var(--gap); align-items: start; }
+.finding-main { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
 .finding-main p, .finding-money { margin: 0; }
 .finding-title { font-weight: 600; }
 .finding-title .badge { margin-left: 8px; vertical-align: 1px; }
 .finding-action { color: var(--text-2); }
-.finding-money { grid-column: 9 / 13; display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.finding-money { grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .finding-euros { font-weight: 600; }
+/* the word after a figure ("vuodessa") is read at the label step, not under it */
+.finding-euros .fig-unit { font-size: var(--fs-label); }
 .finding-range { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; }
 .finding-certainty { margin: 8px 0 0; }
 .finding-certainty .badge { margin-left: 0; }

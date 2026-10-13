@@ -33,3 +33,21 @@ export function labelPrinted(unit: number, regular: boolean, drops: ReadonlySet<
   if (drops.has(unit)) return true;
   return regular && ![...drops].some((d) => Math.abs(d - unit) <= 2);
 }
+
+/** Pixels a printed label takes per character, and the air kept between two labels. */
+export const LABEL_CHAR_W = 6.5;
+export const LABEL_GAP = 8;
+
+/**
+ * The units of a category axis whose label is printed, by room in pixels: the units a last value falls on (`drops`) print
+ * first, then every unit from the last to the first whose label clears each printed one by `LABEL_GAP`. Two printed
+ * labels never touch, and a unit with room always has its label.
+ */
+export function labelsWithRoom(texts: readonly string[], pitch: number, drops: ReadonlySet<number>): Set<number> {
+  const half = (i: number) => (texts[i]!.length * LABEL_CHAR_W) / 2;
+  const printed = new Set<number>();
+  const fits = (i: number) => [...printed].every((j) => Math.abs(i - j) * pitch >= half(i) + half(j) + LABEL_GAP);
+  for (const d of drops) if (d < texts.length) printed.add(d);
+  for (let i = texts.length - 1; i >= 0; i--) if (!printed.has(i) && fits(i)) printed.add(i);
+  return printed;
+}

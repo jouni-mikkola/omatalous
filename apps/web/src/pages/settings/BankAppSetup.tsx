@@ -290,7 +290,7 @@ export function BankAppSetup({
                   .
                 </span>
               </div>
-              <ul className="small">
+              <ul>
                 <li>
                   <span className="eb-label">Environment</span>: <strong>Production</strong>
                 </li>
@@ -348,7 +348,7 @@ export function BankAppSetup({
                   aria-label="Application ID"
                   spellCheck={false}
                   autoComplete="off"
-                  style={{ flex: "1 1 260px" }}
+                  style={{ flex: "1 1 260px", maxWidth: "24rem" }}
                 />
                 {mode === "upload" && (
                   <input ref={fileInput} type="file" accept=".pem,.key" onChange={(e) => void readKey(e.target.files?.[0])} aria-label="Yksityinen avain (.pem)" aria-invalid={fileError ? true : undefined} />

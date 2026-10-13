@@ -3,7 +3,7 @@
  * and which labels give way to the day a last value belongs to.
  */
 import { describe, expect, it } from "vitest";
-import { crisp, dashOf, keyStyle, labelPrinted, LABEL_Y, TICK, TICK_L } from "../src/charts/draw.ts";
+import { crisp, dashOf, keyStyle, labelPrinted, labelsWithRoom, LABEL_Y, TICK, TICK_L } from "../src/charts/draw.ts";
 import { barTicks, niceTicks, roundedTop, valueAxis, wholeTicks } from "../src/charts/scale.ts";
 
 describe("a 1 px line", () => {
@@ -90,5 +90,25 @@ describe("the ticks of an axis", () => {
 describe("a column's data end", () => {
   it("has a 1 px radius", () => {
     expect(roundedTop(0, 0, 10, 20)).toBe("M0,20V1Q0,0 1,0H9Q10,0 10,1V20Z");
+  });
+});
+
+describe("the labels of a category axis by room in pixels", () => {
+  const months = ["loka", "marras", "joulu", "tammi 2026", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys"];
+
+  it("prints every label where the ticks are far apart, the last one included", () => {
+    const shown = labelsWithRoom(months, 99, new Set([11]));
+    expect([...shown].sort((a, b) => a - b)).toEqual(months.map((_, i) => i));
+  });
+
+  it("never lets two printed labels touch where the ticks are close", () => {
+    for (const pitch of [20, 28, 40, 60]) {
+      const shown = [...labelsWithRoom(months, pitch, new Set([11]))].sort((a, b) => a - b);
+      expect(shown).toContain(11);
+      shown.slice(1).forEach((i, k) => {
+        const j = shown[k]!;
+        expect((i - j) * pitch).toBeGreaterThanOrEqual((months[i]!.length + months[j]!.length) * 3.25);
+      });
+    }
   });
 });

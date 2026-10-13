@@ -2,7 +2,7 @@ import { useState } from "react";
 import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { CategoryTick, ValueAxis } from "./Axes.tsx";
-import { crisp, dashOf, keyStyle, LABEL_Y, labelPrinted } from "./draw.ts";
+import { crisp, dashOf, keyStyle, LABEL_Y, labelsWithRoom } from "./draw.ts";
 import { valueAxis, wholeTicks } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
@@ -45,11 +45,11 @@ export function LineChart({ labels, series, height = 240, format = (v: number) =
     });
     return d;
   };
-  const labelEvery = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(innerW / 56))));
   const lastOf = (s: LineSeries) => s.values.reduce<number>((acc, v, i) => (v !== null ? i : acc), -1);
-  // the days the drop lines end at: printed whatever the regular labels do, which give way within two days of one
+  // the units the drop lines end at print their label first; the others print where the pixels leave room
   const drops = new Set(series.map(lastOf).filter((i) => i >= 0));
-  const printed = (i: number) => labelPrinted(i, i % labelEvery === (n - 1) % labelEvery, drops);
+  const room = labelsWithRoom(labels, n > 1 ? innerW / (n - 1) : innerW, drops);
+  const printed = (i: number) => room.has(i);
 
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect();

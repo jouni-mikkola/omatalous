@@ -3,6 +3,8 @@
 /* a select is as wide as its longest option; the cap leaves the room to the merchant */
 .tx-table td select, .tx-table td .select-lite { max-width: 11rem; }
 /* where the table has room (the page is 1000px or more) the longest category name reads whole */
+/* from 640px the 11rem cut the longest name with 50px free beside it */
+@media (min-width: 640px) { .tx-table td select, .tx-table td .select-lite { max-width: 14rem; } }
 @media (min-width: 1000px) { .tx-table td select, .tx-table td .select-lite { max-width: 15rem; } }
 
 /* what stands under a payee's name: the bank's text in the text colour, one line cut with an ellipsis (its title holds all of it) */
@@ -90,7 +92,7 @@
   .tx-main .badge { flex: none; margin-left: 0; }
   .tx-amount { flex: none; margin-left: auto; padding-left: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tx-cat { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; color: var(--muted); font-size: 13px; }
-  .tx-cat .select-lite { max-width: 100%; padding: 4px 0; border-color: transparent; background: none; color: inherit; }
+  .tx-cat .select-lite { max-width: 100%; padding: 4px 0; border-color: transparent; background: none; box-shadow: none; color: inherit; }
   .tx-cat select { max-width: 100%; }
   .tx-cat .badge { margin-left: 0; }
 

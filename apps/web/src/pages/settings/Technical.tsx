@@ -23,6 +23,35 @@ const RUN_STATUS: Record<string, string> = { ok: "onnistui", partial: "osittain"
 /** The cards that load their own data above the maintenance cards: the devices, and for an admin the server and the log. */
 const ADMIN_PARTS = 3;
 
+/** The fetch runs. A column with nothing in any row is not drawn; one message brings it back. */
+export function RunsTable({ runs }: { runs: SyncRun[] }) {
+  const hasMessage = runs.some((r) => !!r.message);
+  return (
+    <table className="ruled run-table">
+      <thead>
+        <tr>
+          <th>Aloitettu</th>
+          <th>Tapa</th>
+          <th>Tila</th>
+          <th className="num">Uusia</th>
+          {hasMessage && <th>Viesti</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {runs.map((r) => (
+          <tr key={r.id}>
+            <td className="run-when">{dateTime(r.startedAt)}</td>
+            <td className="run-when">{r.trigger === "schedule" ? "ajastettu" : r.trigger === "connect" ? "uusi yhteys" : "käsin"}</td>
+            <td>{RUN_STATUS[r.status] ?? r.status}</td>
+            <td className="num">{r.inserted}</td>
+            {hasMessage && <td className="small muted">{r.message ?? ""}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export function Technical({ meta, params, anchor, onChange }: { meta: Meta; params: URLSearchParams; anchor?: string; onChange: () => void }) {
   const isAdmin = meta.user.role === "admin";
   const hasConnection = meta.connections.some((c) => c.status === "active");
@@ -65,28 +94,7 @@ export function Technical({ meta, params, anchor, onChange }: { meta: Meta; para
           </div>
         </div>
         <div className="table-wrap">
-          <table className="ruled">
-            <thead>
-              <tr>
-                <th>Aloitettu</th>
-                <th>Tapa</th>
-                <th>Tila</th>
-                <th className="num">Uusia</th>
-                <th>Viesti</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.data?.runs.map((r) => (
-                <tr key={r.id}>
-                  <td>{dateTime(r.startedAt)}</td>
-                  <td>{r.trigger === "schedule" ? "ajastettu" : r.trigger === "connect" ? "uusi yhteys" : "käsin"}</td>
-                  <td>{RUN_STATUS[r.status] ?? r.status}</td>
-                  <td className="num">{r.inserted}</td>
-                  <td className="small muted">{r.message ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {runs.data && <RunsTable runs={runs.data.runs} />}
           {runs.error && <div className="error">{runs.error}</div>}
           {runs.data && !runs.data.runs.length && <div className="empty">Ei hakuja.</div>}
         </div>

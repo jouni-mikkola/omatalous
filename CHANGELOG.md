@@ -3,6 +3,27 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.29.0
+
+- Raportit: the balance chart labels every month that has room, the total of Kuukausitaulukko carries the same double rule as the total of Kategoriat, and Tulojen käyttö stands on one row on a mid-width screen.
+- Säästövinkit: the five figures of Tilanne stand on one row, and a finding's text uses the width beside its figure.
+- Tekniset asetukset: Tietojen laatu is a plain list on the panel's edge, Haku pankista shows no empty column, and the fields have measures instead of running the width of the page.
+- Tapahtumat and Laskut: the category shows its longest name whole on a mid-width screen, and a payee's name no longer leaves its last word alone on a line.
+
+Look
+
+- Säästövinkit: the facts at the top stay in one row on a tablet, a finding's text uses the width beside its figure, and the word after a figure is no smaller than a label.
+- Tapahtumat: the category shows its longest name whole on a tablet, and on a phone it has no faint frame.
+- Laskut: a name in Sopimukset ja laskut is no longer broken to leave its last word alone on a tablet.
+- The balance chart in Reports prints a month's label whenever it has room, and two labels never touch.
+- The total of the monthly table has the same double rule as the category total, in the table and in the list.
+- In the monthly table's list, the average line starts under the name, not under the arrow.
+- On a tablet the income-use figures stay on one row instead of leaving one alone.
+- Technical settings: the data quality list stands on the panel's left edge without bullets.
+- Technical settings: the fetch table leaves out the message column while no run has a message, and the number of new transactions stands at the right edge.
+- Technical settings: the server address, time zone, history and Application ID fields are no wider than their content needs.
+- Technical settings: the bank setup lines you copy are in the normal text size, and on a phone a copied address breaks only where the line is full, "Kirjaa ulos" stays on one line and a run's date stays together.
+
 ## 0.28.0
 
 - Shares printed side by side (Kiinteät ja muuttuvat, Kategoriat, Tulolajit, Tulojen käyttö) now add up to 100 % as printed, and the sum bracket stands on a column of whole euros only when the printed rows add up to the printed total.

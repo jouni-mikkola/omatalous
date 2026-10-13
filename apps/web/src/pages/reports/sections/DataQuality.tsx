@@ -9,7 +9,7 @@ function DataQuality({ ctx }: SectionProps) {
   const r = ctx.data.dataQuality;
   return (
     <Section id={section.id} title={section.title}>
-      <ul className="plain">
+      <ul className="loans-notes">
         {r.signals.map((s) => (
           <li key={s.id} style={{ margin: "0 0 10px" }}>
             <strong>{s.title}</strong>

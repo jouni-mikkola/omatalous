@@ -71,6 +71,9 @@ tr:has(+ tr.foot-row) > * { border-bottom: 0; }
 /* a day with its source shape stays on one line */
 .coming-table .due-col { white-space: nowrap; }
 
+/* a name wraps balanced, so its last word ("... Oy") does not stand alone; no width can grow */
+@media (min-width: 601px) { .series-table td:first-child { text-wrap: balance; } }
+
 /* a panel of six columns has no room for the cadence next to four figures */
 .span-6 { container-type: inline-size; }
 @container (max-width: 620px) { .series-table :is(th, td):nth-child(2) { display: none; } }

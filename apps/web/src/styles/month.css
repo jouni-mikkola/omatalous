@@ -21,3 +21,8 @@
 .bridge-drawn { margin: 6px 0 0; font-size: 13px; color: var(--text-2); }
 .bridge-drawn .swatch { margin-right: 6px; }
 .bridge-table { max-width: 520px; }
+/* a tablet: the cells stay on one row, so none stands alone on a second */
+@media (min-width: 641px) and (max-width: 999px) {
+  .bridge-legend { display: flex; gap: 10px 12px; }
+  .bridge-legend > div { flex: 1 1 0; }
+}
