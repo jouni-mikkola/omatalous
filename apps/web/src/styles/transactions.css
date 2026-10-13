@@ -35,6 +35,8 @@
 /* transactions: filters keep their visible labels, also on a phone */
 .date-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
 .filters input[type="search"] { width: 9rem; min-width: 14rem; }
+/* from 961px to 1123px the longest category and account names would push Asti alone onto a second row: the pair stays with the rest */
+@media (min-width: 961px) and (max-width: 1123px) { .tx-page .filters select { max-width: 11rem; } }
 /* the controls of the filter row stand on one baseline: their bottom edges meet, whatever a label adds above */
 .filters:has(.date-filter) { align-items: flex-end; }
 /* the three readouts above the list stand in three equal columns (4|4|4 of the twelve) on a wide page */
@@ -42,10 +44,10 @@
   .tx-card > .kv, section.card[aria-label^="Yhteenveto:"] > .kv { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .uncat-list { list-style: none; margin: 0; padding: 0; }
-.uncat-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 13rem); gap: 4px 14px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.uncat-list li { display: grid; grid-template-columns: minmax(0, 20rem) 7rem minmax(0, 13rem); justify-content: start; gap: 4px 14px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--grid); }
 .uncat-list li:last-child { border-bottom: none; }
 .uncat-list + .btn { margin-top: 8px; }
-.uncat-list .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.uncat-list .num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
 .uncat-list a { overflow-wrap: anywhere; }
 .uncat-list select, .uncat-list .select-lite { width: 100%; }
 @media (max-width: 600px) {

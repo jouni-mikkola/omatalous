@@ -3,6 +3,30 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.30.0
+
+- A wide screen is used: from 1600 px Tulot stands beside Kategoriat on Raportit and the two panels of findings stand side by side on Säästövinkit, on columns of exactly 100 px, instead of every row growing longer.
+- Raportit: the charts no longer stretch on a wide screen, the five figures of Kiinteät ja muuttuvat stand on one line, and on a mid-width screen Kuukausitaulukko lists its rows in two columns.
+- Tapahtumat: in Luokittelematta a name and its sum stand close together, and the date range stays on one row with the other controls.
+- The top bar is one row from 990 px, and the switch between Oma and Koko talous never breaks into two lines.
+
+Look
+
+- On a screen 1600 px wide or more, Raportit puts Tulot beside Kategoriat, Asetukset puts Salasana beside Tekniset asetukset, and Säästövinkit puts the panels of findings side by side; narrower screens are unchanged.
+- On a screen 1600 px wide or more the page columns are a whole 100 px, so the register's marks fall on whole pixels.
+- Laskut shows its two figures on top side by side from 641 px instead of 1040 px.
+- In Raportit the five key figures of fixed and variable costs stand on one line, even when a label takes two lines.
+- On a wide screen the columns of the monthly charts stay slim instead of floating apart, and the balance chart grows taller with its width.
+- The balance chart's January label shows the year under the month, as the column charts do.
+- Between a phone and a wide screen the monthly table list of Raportit runs in two columns with the total across both.
+- On Transactions, an uncategorised item's name and its sum now stand close together on a wide screen instead of far apart.
+- On Transactions, the From and To dates stay on the same row as the other filters on a tablet-width window.
+- The top bar is one row from 990 px wide, with the pages beside the view switch.
+
+For developers
+
+- `pnpm shots --only "<selector or panel heading>"` takes one part of a page at full size. A whole-page picture is taken from the top of the page and keeps the phone tab bar off the last lines.
+
 ## 0.29.0
 
 - Raportit: the balance chart labels every month that has room, the total of Kuukausitaulukko carries the same double rule as the total of Kategoriat, and Tulojen käyttö stands on one row on a mid-width screen.

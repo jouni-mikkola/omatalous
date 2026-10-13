@@ -36,7 +36,7 @@ function Categories({ ctx }: SectionProps) {
   });
   const text = (units: number | null | undefined) => (units == null ? "–" : shareText(units));
   return (
-    <Section id={section.id} title={section.title} sub={r.comparable ? "Muutos edellisestä jaksosta" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
+    <Section id={section.id} title={section.title} half sub={r.comparable ? "Muutos edellisestä jaksosta" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
       <div className="table-wrap">
         <table className="ruled">
           <thead>

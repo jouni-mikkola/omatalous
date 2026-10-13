@@ -1,7 +1,7 @@
 /* The Laskut page: the list of what is coming, the subscription marks, the tables, the twelve months and the form for a typed-in bill. The rows on top are the statement rows of statement.css. */
 
 /* the two figures on top: one panel, two cells split by a rule where the page has room; below that, two rows */
-@media (min-width: 1040px) {
+@media (min-width: 641px) {
   .bills-top .st-rows { display: grid; grid-template-columns: 1fr 1fr; }
   .bills-top .st-row { padding-right: var(--pad); border-bottom: 0; }
   .bills-top .st-row + .st-row { padding-left: var(--pad); border-left: 1px solid var(--border); }

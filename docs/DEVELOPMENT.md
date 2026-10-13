@@ -338,6 +338,11 @@ Write no spec to take pictures: the options show what a spec would.
   as typed in by another member. The pictures are the first member's.
 - `--scope own|household` sets the view switch, which shows when the household has a shared account. `--name label` adds
   the label to the file names, so that two states do not overwrite each other.
+- `--only "<css selector or heading text>"` takes one part of the page at full size, with 16 px around it, instead of the
+  whole page (a tall page read whole is scaled down): `pnpm shots transactions --demo --only "Säännöt" --widths 1000`
+  writes `transactions-säännöt-1000.png`. It exits 1 when nothing matches. Whole-page pictures are taken from the top of
+  the page, and the phone's tab bar gets room under the page. Two routes the app sends to one address (the old
+  `categories?tab=rules` and `categories?tab=merchants`) give the same picture, and the tool says so.
 
 ```bash
 pnpm shots overview "reports?tab=income" --demo --widths 1280,390

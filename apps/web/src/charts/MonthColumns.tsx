@@ -44,7 +44,8 @@ export function MonthColumns({
   const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
   const innerH = height - MARGIN.top - MARGIN.bottom - (hasYearLine(months, labelEvery) ? YEAR_LINE : 0);
   const { ticks, max } = barTicks(Math.max(...values, average ?? 0, 0));
-  const barW = Math.min(36, band * 0.66);
+  // 36 px at most on a narrow slot; on a wide one a bar stays 40 % of its slot
+  const barW = Math.min(band * 0.66, Math.max(36, band * 0.4));
   // a length is rounded to the nearest whole pixel
   const y = (v: number) => innerH - Math.round((Math.max(0, v) / max) * innerH);
   // value labels on every column when they fit, otherwise on the active one only

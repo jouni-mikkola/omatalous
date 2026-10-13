@@ -102,10 +102,10 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
   );
 }
 
-export function Others({ others, onChanged }: { others: readonly Insight[]; onChanged: Changed }) {
+export function Others({ others, onChanged, half = false }: { others: readonly Insight[]; onChanged: Changed; half?: boolean }) {
   if (!others.length) return null;
   return (
-    <Section id="muut-havainnot" title="Muut havainnot">
+    <Section id="muut-havainnot" title="Muut havainnot" half={half}>
       <div className="findings">
         {others.map((i) => (
           <OtherCard key={i.id} insight={i} onChanged={onChanged} />

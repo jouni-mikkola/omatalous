@@ -35,5 +35,6 @@
   --z-rail: 10; --z-tabbar: 20; --z-pop: 30; --z-toast: 40; --z-skip: 50;
 }
 @media (max-width: 640px) { :root { --pad: 16px; --gap: 12px; } }
-@media (min-width: 1600px) { :root { --container: 1400px; } }
+/* 1408 px less the page margins is 1376: twelve columns of 100 px and eleven gutters of 16 */
+@media (min-width: 1600px) { :root { --container: 1408px; } }
 @media (pointer: coarse) { :root { --control-h: 44px; } }

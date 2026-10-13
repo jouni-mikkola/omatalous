@@ -41,6 +41,8 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --loan           needs --member. The second member saves the mortgage the joint account's payments propose, so the first member
                    sees a loan another member typed in
   --name label     in the file names: <route>-<label>-<width>.png, so that two states do not overwrite each other
+  --only "x"       one part of the page at full size, 16 px around it: a CSS selector or the text of a panel's heading, <route>-<name or slug>-<width>.png;
+                   exit 1 when nothing matches. Example: --only "Säännöt" or --only "#saannot"
   --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
 Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
@@ -49,7 +51,7 @@ Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture s
 /**
  * @typedef {{ help: boolean, routes: string[], widths: number[], demo: boolean, fakeBank: boolean, answers: string | null,
  *   steps: string | null, scope: "own" | "household" | null, name: string | null, member: boolean, parts: [number, number] | null,
- *   loan: boolean, look: "night" | "light" | null }} Options
+ *   loan: boolean, only: string | null, look: "night" | "light" | null }} Options
  */
 
 /**
@@ -58,7 +60,7 @@ Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture s
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { help: false, routes: [], widths: WIDTHS, demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, look: null };
+  const o = { help: false, routes: [], widths: WIDTHS, demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null, look: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? "";
     const eq = a.startsWith("--") ? a.indexOf("=") : -1;
@@ -94,6 +96,10 @@ export function parseArgs(argv) {
       const v = value();
       if (!/^[\w-]+$/.test(v)) throw new Error(`--name takes letters, digits, - and _ (got: ${v})`);
       o.name = v;
+    } else if (flag === "--only") {
+      const v = value().trim();
+      if (!v || v.startsWith("--")) throw new Error(`--only takes a CSS selector or the text of a panel's heading (got: ${v || "nothing"})`);
+      o.only = v;
     } else if (flag === "--look") {
       const v = value();
       if (v !== "night" && v !== "light") throw new Error(`--look takes night or light (got: ${v})`);
@@ -114,6 +120,51 @@ export function parseArgs(argv) {
 /** The file of one picture: the route, the label of `--name` when there is one, and the width. */
 export function shotName(/** @type {string} */ route, /** @type {string | null} */ name, /** @type {number} */ width) {
   return `${[route.replace(/[?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
+}
+
+/** The part of a file name that stands for a `--only` selector or heading text: letters and digits, the rest as single dashes. */
+export function onlySlug(/** @type {string} */ only) {
+  return only.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "part";
+}
+
+/**
+ * Marks the element `--only` means and returns whether there is one: the first match of the text as a CSS selector, else the card
+ * (or section) of the first heading whose text is the text (else one that contains it, case aside).
+ */
+export function markOnly(/** @type {string} */ only) {
+  document.querySelectorAll("[data-shots-only]").forEach((e) => e.removeAttribute("data-shots-only"));
+  /** @type {Element | null} */
+  let hit = null;
+  try {
+    hit = document.querySelector(only);
+  } catch {
+    hit = null;
+  }
+  if (!hit) {
+    const want = only.trim().toLowerCase();
+    const heads = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6, .card-name, .card-head"));
+    const text = (/** @type {Element} */ e) => (e.textContent ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    const head = heads.find((e) => text(e) === want) ?? heads.find((e) => text(e).includes(want));
+    hit = head ? (head.closest(".card, section, article") ?? head) : null;
+  }
+  hit?.setAttribute("data-shots-only", "");
+  return hit !== null;
+}
+
+/**
+ * Makes the page ready for a whole-page picture, in the tool's browser only: the page is at its top (an address with an anchor
+ * scrolls it, and a sticky rail would be drawn where it stopped), and what is fixed to the bottom of the screen (the phone form's
+ * bar) gets its height as room under the page, so the page's end is not hidden under it.
+ */
+export function readyForPicture() {
+  window.scrollTo(0, 0);
+  let room = 0;
+  for (const e of Array.from(document.body.querySelectorAll("*"))) {
+    if (getComputedStyle(e).position !== "fixed") continue;
+    const r = e.getBoundingClientRect();
+    if (r.height > 0 && r.height <= 120 && r.width >= window.innerWidth * 0.9 && r.bottom >= window.innerHeight - 1) room = Math.max(room, Math.ceil(r.height));
+  }
+  if (room) document.body.style.paddingBottom = `calc(${getComputedStyle(document.body).paddingBottom} + ${room}px)`;
 }
 
 /**
@@ -280,6 +331,8 @@ async function main() {
         await route.fulfill({ response, json: (await change(answer)) ?? answer });
       });
     }
+    /** The address each picture ended at, by width: two routes that end at one address are one page. */
+    const landedAt = new Map();
     for (const route of o.routes) {
       for (const width of o.widths) {
         const page = await context.newPage();
@@ -292,16 +345,29 @@ async function main() {
           await steps(page, route);
           await settle(page, () => heldAsks, holding);
         }
-        const file = join(out, shotName(route, o.name, width));
+        // the app may have sent the route to another address (the rules are a part of Tapahtumat): a second route that ends at the same address is the same page
+        const landed = new URL(page.url()).hash.slice(1).split("#")[0];
+        const twin = landedAt.get(`${width} ${landed}`);
+        landedAt.set(`${width} ${landed}`, twin ?? route);
+        await page.evaluate(readyForPicture);
+        const file = join(out, shotName(route, o.name ?? (o.only ? onlySlug(o.only) : null), width));
         // a click in a step leaves the pointer on its key, and a key under the pointer is drawn in its hover colour
         await page.mouse.move(0, 0);
-        await page.screenshot(pictureOptions(file));
+        if (o.only) {
+          if (!(await page.evaluate(markOnly, o.only))) throw new Error(`--only "${o.only}": nothing on ${route} at ${width}px matches it as a CSS selector or as the text of a heading`);
+          const box = await page.locator("[data-shots-only]").first().boundingBox();
+          if (!box) throw new Error(`--only "${o.only}": the part on ${route} at ${width}px has no size`);
+          const x = Math.max(0, box.x - 16);
+          const y = Math.max(0, box.y - 16);
+          await page.screenshot({ ...pictureOptions(file), clip: { x, y, width: box.x + box.width + 16 - x, height: box.y + box.height + 16 - y } });
+        } else await page.screenshot(pictureOptions(file));
         const m = await page.evaluate(() => ({
           over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           tables: Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length,
         }));
         const ok = m.over <= 1 && m.tables === 0;
         if (!ok) bad++;
+        if (twin && twin !== route && !o.only) console.log(`shots: ${route} at ${width}px is the same page as ${twin}: the app sent both to ${landed}; --only takes the part that differs`);
         console.log(`shots: ${route} at ${width}px ${file} ${ok ? "no horizontal scroll" : `SCROLLS SIDEWAYS (${m.over}px over, ${m.tables} tables wider than the screen)`}`);
         await page.close();
       }

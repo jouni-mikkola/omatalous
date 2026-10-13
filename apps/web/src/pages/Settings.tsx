@@ -73,7 +73,7 @@ function Plain({ meta, params, anchor, onChange }: PageProps) {
 
       <Password openPassword={anchor === SETTINGS_ANCHOR.password} />
 
-      <div className="card">
+      <div className="card half">
         <div className="card-head">
           <div>
             <h2>Tekniset asetukset</h2>

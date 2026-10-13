@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { crisp, dashOf, keyStyle, labelPrinted, labelsWithRoom, LABEL_Y, TICK, TICK_L } from "../src/charts/draw.ts";
+import { splitYear } from "../src/charts/Axes.tsx";
 import { barTicks, niceTicks, roundedTop, valueAxis, wholeTicks } from "../src/charts/scale.ts";
 
 describe("a 1 px line", () => {
@@ -110,5 +111,13 @@ describe("the labels of a category axis by room in pixels", () => {
         expect((i - j) * pitch).toBeGreaterThanOrEqual((months[i]!.length + months[j]!.length) * 3.25);
       });
     }
+  });
+});
+
+describe("a label that carries its year", () => {
+  it("splits the year of a January onto a second line and leaves other labels whole", () => {
+    expect(splitYear("Tammi 2026")).toEqual(["Tammi", "2026"]);
+    expect(splitYear("Helmi")).toEqual(["Helmi", null]);
+    expect(splitYear("tänään")).toEqual(["tänään", null]);
   });
 });

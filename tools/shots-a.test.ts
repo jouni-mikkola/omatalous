@@ -3,12 +3,12 @@ import { chmodSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { answerTable, applyLook, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
+import { answerTable, applyLook, onlySlug, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, ROOT } from "./shots-kit.ts";
 
 describe("pnpm shots arguments", () => {
   it("takes a route, widths and --demo, and without more asks for the four widths of a phone to a desktop", () => {
-    expect(parseArgs(["overview"])).toEqual({ help: false, routes: ["overview"], widths: [1280, 1000, 700, 390], demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, look: null });
+    expect(parseArgs(["overview"])).toEqual({ help: false, routes: ["overview"], widths: [1280, 1000, 700, 390], demo: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null, look: null });
     expect(parseArgs(["#/reports?tab=income", "--widths", "320,768", "--demo"])).toMatchObject({ routes: ["reports?tab=income"], widths: [320, 768], demo: true });
     expect(parseArgs(["optimise", "--widths=500"]).widths).toEqual([500]);
   });
@@ -44,8 +44,8 @@ describe("pnpm shots arguments", () => {
 
   it("lists every option in --help, which needs no route", () => {
     expect(parseArgs(["--help"]).help).toBe(true);
-    for (const option of ["--widths", "--demo", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--look"]) expect(USAGE).toContain(option);
-    expect(USAGE.split("\n").length).toBeLessThanOrEqual(24);
+    for (const option of ["--widths", "--demo", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only", "--look"]) expect(USAGE).toContain(option);
+    expect(USAGE.split("\n").length).toBeLessThanOrEqual(26);
   });
 
   it("refuses what is no route, a bad width, an unknown option, a missing route and a bad value", () => {
@@ -73,6 +73,14 @@ describe("pnpm shots arguments", () => {
 });
 
 describe("pnpm shots file names", () => {
+  it("names a part picture after --name, else after a slug of --only", () => {
+    expect(parseArgs(["overview", "--only", "Säännöt"]).only).toBe("Säännöt");
+    expect(() => parseArgs(["overview", "--only"])).toThrow(/--only takes/);
+    expect(onlySlug("Säännöt")).toBe("säännöt");
+    expect(onlySlug("#saannot > .card")).toBe("saannot-card");
+    expect(shotName("transactions", onlySlug("Säännöt"), 1000)).toBe("transactions-säännöt-1000.png");
+  });
+
   it("keeps the route and the width for the plain case and puts the label of --name between them", () => {
     expect(shotName("overview", null, 390)).toBe("overview-390.png");
     expect(shotName("reports?tab=income", null, 1280)).toBe("reports-tab-income-1280.png");

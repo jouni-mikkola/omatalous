@@ -36,17 +36,27 @@ export function hasYearLine(months: string[], every: number): boolean {
   return every === 1 && months.some((m) => m.endsWith("-01"));
 }
 
-/** The label of one month under the axis at `base`; the year of a January stands as a second line, never beside the month. */
-export function MonthLabel({ month, x, base, withYear, className }: { month: string; x: number; base: number; withYear: boolean; className?: string }) {
-  const year = withYear && month.endsWith("-01") ? month.slice(0, 4) : null;
+/** A category label under the axis at `base`, with an optional second line (the year of a January) centred under it. */
+export function TwoLineLabel({ text, second, x, base, className }: { text: string; second: string | null; x: number; base: number; className?: string }) {
   return (
     <text className={className} x={x} y={base + LABEL_Y} textAnchor="middle">
-      <tspan x={x}>{monthLabel(month)}</tspan>
-      {year && (
+      <tspan x={x}>{text}</tspan>
+      {second && (
         <tspan x={x} dy={YEAR_LINE}>
-          {year}
+          {second}
         </tspan>
       )}
     </text>
   );
+}
+
+/** Splits a label that ends in a four-digit year ("Tammi 2026") into the word and the year; a label without one has no second line. */
+export function splitYear(label: string): [string, string | null] {
+  const m = /^(.+) (\d{4})$/.exec(label);
+  return m ? [m[1]!, m[2]!] : [label, null];
+}
+
+/** The label of one month under the axis at `base`; the year of a January stands as a second line, never beside the month. */
+export function MonthLabel({ month, x, base, withYear, className }: { month: string; x: number; base: number; withYear: boolean; className?: string }) {
+  return <TwoLineLabel text={monthLabel(month)} second={withYear && month.endsWith("-01") ? month.slice(0, 4) : null} x={x} base={base} className={className} />;
 }

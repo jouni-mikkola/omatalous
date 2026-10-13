@@ -67,6 +67,12 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
   .kpis .tile-value { font-size: 21px; }
 }
 .stack { display: flex; flex-direction: column; gap: var(--gap); }
+/* from 1600 px a page that stacks its panels stands on the page's twelve columns, and two `.half` panels in a row take six each; a half with no half beside it stays whole */
+@media (min-width: 1600px) {
+  .stack:has(> .half) { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+  .stack:has(> .half) > * { grid-column: 1 / -1; }
+  .stack > .half:is(:has(+ .half), .half + .half) { grid-column: span 6; }
+}
 /* one grid of 12 columns: every split is 5|7, 6|6 and so on, so a rule in one panel stands on a rule of the panel above */
 .page-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
 .page-grid > * { grid-column: 1 / -1; }

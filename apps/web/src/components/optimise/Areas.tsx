@@ -23,11 +23,11 @@ function Summary({ area }: { area: AreaView }) {
 }
 
 /** An area with findings: a card per finding that is not already under Seuraavat 60 päivää, then the area's figures. */
-function AreaCard({ area, above, today, scope, onChanged }: { area: AreaView; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed }) {
+function AreaCard({ area, above, today, scope, onChanged, half }: { area: AreaView; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed; half: boolean }) {
   const here = area.findings.filter((f) => !above.has(f.id));
   if (!here.length && !area.summary) return null;
   return (
-    <Section id={`alue-${area.id}`} title={area.label}>
+    <Section id={`alue-${area.id}`} title={area.label} half={half}>
       <div className="findings">
         {here.map((f) => (
           <FindingCard key={f.id} finding={f} today={today} scope={scope} onChanged={onChanged} />
@@ -39,13 +39,14 @@ function AreaCard({ area, above, today, scope, onChanged }: { area: AreaView; ab
 }
 
 /** `above` holds the ids of findings already shown under Seuraavat 60 päivää, so none appears twice. */
-export function Areas({ areas, above, today, scope, onChanged }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed }) {
+/** `halves` is how many of the first panels are half-width on a wide screen: an even number, so none is left alone on a row. */
+export function Areas({ areas, above, today, scope, onChanged, halves = 0 }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed; halves?: number }) {
   return (
     <>
       {areas
         .filter((a) => a.findings.length > 0)
-        .map((a) => (
-          <AreaCard key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} />
+        .map((a, i) => (
+          <AreaCard key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} half={i < halves} />
         ))}
     </>
   );

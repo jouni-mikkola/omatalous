@@ -70,7 +70,7 @@ export function Password({ openPassword }: { openPassword: boolean }) {
   }
 
   return (
-    <div className="card" id={SETTINGS_ANCHOR.password}>
+    <div className="card half" id={SETTINGS_ANCHOR.password}>
       <div className="card-head">
         <div>
           <h2>Salasana</h2>

@@ -19,6 +19,16 @@ import { useApi } from "../hooks.ts";
 import type { Scope } from "../types.ts";
 import "../styles/optimise.css";
 
+/**
+ * Which panels of findings are half-width on a wide screen: the panels of the areas, then Muut havainnot, in pairs, so
+ * none is left alone on a row (the last of an odd count stays whole).
+ */
+export function halfPanels(areas: number, hasOthers: boolean): { areas: number; others: boolean } {
+  const total = areas + (hasOthers ? 1 : 0);
+  const paired = total - (total % 2);
+  return { areas: Math.min(areas, paired), others: hasOthers && total % 2 === 0 && total > 0 };
+}
+
 export function Optimise({ scope }: { scope: Scope }) {
   const { data: response, error, loading, reload } = useApi<OptimiseResponse>(`/api/optimise${query({ scope })}`);
   // what the last save did, said once and kept until the next one
@@ -43,6 +53,8 @@ export function Optimise({ scope }: { scope: Scope }) {
   const outcomes = new Map(followUp.outcomes.map((o) => [o.findingId, o.outcome]));
   // changes compare with the newest older snapshot, which the line holds just before this month's point
   const since = followUp.line.length >= 2 ? followUp.line[followUp.line.length - 2]!.month : null;
+
+  const halves = halfPanels(data.areas.filter((a) => a.findings.length > 0).length, data.others.length > 0);
 
   return (
     <div className={`stack optimise ${loading ? "loading" : ""}`}>
@@ -70,9 +82,9 @@ export function Optimise({ scope }: { scope: Scope }) {
 
       {!young && <Situation data={data} />}
       <Changes changes={changes} since={since} areas={data.areas} titles={titles} />
-      <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} />
+      <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} halves={halves.areas} />
       {/* the insights the overview and Raportit told while this page was off: answered here like the findings */}
-      <Others others={data.others} onChanged={changed} />
+      <Others others={data.others} onChanged={changed} half={halves.others} />
       <FollowUp followUp={followUp} areas={data.areas} titles={titles} scope={scope} onChanged={changed} />
       <Decided data={data} states={states} outcomes={outcomes} scope={scope} onChanged={changed} />
       <InputsCard needed={data.needed} given={inputs} today={data.today} scope={scope} onChanged={changed} />

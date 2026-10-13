@@ -22,3 +22,16 @@ describe("Säästövinkit, Tapahtumat and Laskut: the lines left at 700 and 390 
     expect(css("bills.css")).toMatch(/min-width: 601px\) \{ \.series-table td:first-child \{ text-wrap: balance; \}/);
   });
 });
+
+describe("Raportit: figures on one line, the list in two columns", () => {
+  it("sets the figure of a key-figure cell at the foot of the cell", () => {
+    expect(css("reports.css")).toMatch(/\.kv > div \{[^}]*display: flex; flex-direction: column; justify-content: space-between;/);
+  });
+  it("puts the pivot list in two columns between a phone and the table, rows whole, the total across both", () => {
+    const c = css("reports.css");
+    expect(c).toMatch(/min-width: 641px\) and \(max-width: 1039px\) \{\s*\.pivot-narrow \{ columns: 2;/);
+    expect(c).toMatch(/\.pivot-list > li \{ break-inside: avoid; \}/);
+    expect(c).toMatch(/\.pivot-list > \.pivot-sum \{ column-span: all; \}/);
+  });
+});
+

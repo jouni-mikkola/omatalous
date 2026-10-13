@@ -201,7 +201,7 @@ function Income({ ctx }: SectionProps) {
   const r = { ...ctx.data.income, months: fromHistory(ctx.data.income.months) };
   const change = r.earnedChange;
   return (
-    <Section id={section.id} title={section.title}>
+    <Section id={section.id} title={section.title} half>
       <Kv
         items={[
           // what reached the accounts, after tax: not the gross ansiotulo of taxation

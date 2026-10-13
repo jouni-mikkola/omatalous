@@ -38,7 +38,8 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
   const zeroY = Math.round(innerH / 2);
   // a length is rounded to the nearest whole pixel
   const scale = (v: number) => Math.round((v / total) * innerH);
-  const barW = Math.round(Math.min(24, band * 0.62));
+  // 24 px at most on a narrow slot; on a wide one a bar stays 40 % of its slot instead of floating in air
+  const barW = Math.round(Math.min(band * 0.62, Math.max(24, band * 0.4)));
 
   return (
     <div className="chart" ref={ref}>

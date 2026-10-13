@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { CategoryTick, ValueAxis } from "./Axes.tsx";
-import { crisp, dashOf, keyStyle, LABEL_Y, labelsWithRoom } from "./draw.ts";
+import { CategoryTick, splitYear, TwoLineLabel, ValueAxis, YEAR_LINE } from "./Axes.tsx";
+import { crisp, dashOf, keyStyle, labelsWithRoom } from "./draw.ts";
 import { valueAxis, wholeTicks } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
@@ -21,11 +21,15 @@ const RING = 3.5;
  * Multi-series line chart with a crosshair: 2px lines (the second dashed `6 3`, the third `2 3`), the last point a
  * ring, and from it a drop line to the day it belongs to. Negative values are supported (credit card balances).
  */
-export function LineChart({ labels, series, height = 240, format = (v: number) => money(v, false) }: { labels: string[]; series: LineSeries[]; height?: number; format?: (v: number) => string }) {
+/** Where a wide chart stops being 240 px tall: a fifth of its width, at most this tall, so one line keeps a shape a reader can follow. */
+const TALLEST = 320;
+
+export function LineChart({ labels, series, height: minHeight = 240, format = (v: number) => money(v, false) }: { labels: string[]; series: LineSeries[]; height?: number; format?: (v: number) => string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
-  const innerH = height - MARGIN.top - MARGIN.bottom;
+  const parts = labels.map(splitYear);
+  const height = Math.round(Math.max(minHeight, Math.min(TALLEST, width * 0.22)));
   const axis = valueAxis(series.flatMap((s) => s.values.filter((v): v is number => v !== null)));
   const ticks = wholeTicks(axis.ticks);
   const { at } = axis;
@@ -48,8 +52,11 @@ export function LineChart({ labels, series, height = 240, format = (v: number) =
   const lastOf = (s: LineSeries) => s.values.reduce<number>((acc, v, i) => (v !== null ? i : acc), -1);
   // the units the drop lines end at print their label first; the others print where the pixels leave room
   const drops = new Set(series.map(lastOf).filter((i) => i >= 0));
-  const room = labelsWithRoom(labels, n > 1 ? innerW / (n - 1) : innerW, drops);
+  const room = labelsWithRoom(parts.map((p) => p[0]), n > 1 ? innerW / (n - 1) : innerW, drops);
   const printed = (i: number) => room.has(i);
+  // the year of a January stands under its month: the plot gives that line up its room
+  const withYear = parts.some((p, i) => p[1] !== null && printed(i));
+  const innerH = height - MARGIN.top - MARGIN.bottom - (withYear ? YEAR_LINE : 0);
 
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
@@ -75,11 +82,7 @@ export function LineChart({ labels, series, height = 240, format = (v: number) =
             {labels.map((l, i) => (
               <g key={l + i}>
                 <CategoryTick x={x(i)} base={innerH} long={printed(i)} />
-                {printed(i) && (
-                  <text x={crisp(x(i))} y={innerH + LABEL_Y} textAnchor="middle">
-                    {l}
-                  </text>
-                )}
+                {printed(i) && <TwoLineLabel text={parts[i]![0]} second={parts[i]![1]} x={crisp(x(i))} base={innerH} />}
               </g>
             ))}
             <g className="draw">
