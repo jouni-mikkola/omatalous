@@ -1,15 +1,15 @@
 /* Spending change section of the Reports page: tabs, the bridge of causes and the category drill. */
 
-.change-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.change-tabs { margin: 0 0 12px; }
 .change-sentence { margin: 0 0 14px; max-width: 70ch; }
 .change-bars { display: grid; gap: 8px; }
 .change-bar { display: grid; grid-template-columns: minmax(110px, 1.3fr) 3fr minmax(64px, auto); gap: 10px; align-items: center; font-size: 13px; }
 .change-bar .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.change-cause { display: block; color: var(--muted); font-size: 12px; }
+.change-cause { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 /* one axis: zero is the middle line, more spending grows to the right and less to the left */
-.change-track { position: relative; height: 16px; background: var(--surface-2); border-radius: 4px; }
+.change-track { position: relative; height: var(--bar-h); background: var(--surface-2); }
 .change-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; border-left: 1px solid var(--text-2); }
-.change-fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.change-fill { position: absolute; top: 0; bottom: 0; }
 .change-fill.up { left: 50%; background: var(--bad); }
 .change-fill.down { right: 50%; background: var(--good); }
 .change-sub > td { background: var(--surface-2); padding: 8px 10px; }

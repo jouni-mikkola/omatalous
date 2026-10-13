@@ -2,7 +2,7 @@
 
 /* settings: an account's own edit row */
 .edit-row td { background: var(--surface-2); }
-.account-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; padding: 4px 0; }
+.account-form { max-width: 640px; display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; padding: 4px 0; }
 .account-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; max-width: 260px; }
 .acc-type-phone, .acc-use-phone { display: none; }
 /* settings: what an account's last fetch ran into, wrapped (td .sub cuts a line short) */
@@ -11,8 +11,10 @@
 td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-space: normal; overflow: visible; }
 .conn-accounts { margin-top: 2px; }
 /* settings: how much of an account's credit limit is in use, under the line that says it */
-.credit-bar { height: 4px; margin-top: 4px; max-width: 14rem; border-radius: 2px; background: var(--surface-2); }
-.credit-bar span { display: block; height: 100%; border-radius: 2px; background: var(--series-1); }
+.credit-bar { position: relative; height: 8px; margin: 4px 0 8px; max-width: 14rem; background: var(--surface-2); box-shadow: var(--sink); }
+.credit-bar span { display: block; height: 100%; background: var(--series-1); }
+/* the quarter scale: ticks at 0, 25, 50, 75 and 100 % of the limit */
+.credit-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 3px; background: linear-gradient(90deg, var(--axis) 0 1px, transparent 1px) 0 0 / 25% 100% repeat-x, linear-gradient(var(--axis), var(--axis)) 100% 0 / 1px 100% no-repeat; }
 .credit-bar.over span { background: var(--warn); }
 /* the type and the user move under the name while the five columns would not fit the card (about 700 px of screen) */
 @media (max-width: 760px) {
@@ -38,14 +40,11 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .account-form .form-row { margin: 0; flex: 1 1 260px; }
 .account-form .error { flex-basis: 100%; }
 
-.secret-box { background: var(--warn-bg); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.secret-box { background: var(--warn-bg); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 10px 12px; margin: 8px 0; }
 .secret-box code { font-size: 15px; user-select: all; }
 
-.setup-form { display: flex; flex-direction: column; gap: 14px; }
+.setup-form { max-width: 640px; display: flex; flex-direction: column; gap: 14px; }
 .setup-form label { display: flex; flex-direction: column; gap: 4px; }
-.setup-form input[type="url"] { font-size: 15px; padding: 8px 10px; border: 1px solid var(--control-edge); background: var(--control); border-radius: var(--radius-m); }
-.field-label { color: var(--text-2); font-size: 13px; font-weight: 550; }
-.field-help { color: var(--muted); font-size: 12px; }
 .setup-form label.check { flex-direction: row; align-items: flex-start; gap: 8px; }
 .setup-form label.check > span { display: flex; flex-direction: column; gap: 2px; }
 .setup-form label.check input { margin-top: 3px; }
@@ -54,9 +53,11 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .hour-picker legend { padding: 0; margin-bottom: 6px; }
 .hours { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
 @media (max-width: 520px) { .hours { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-.hours button { border: 1px solid var(--border); background: var(--surface); border-radius: calc(var(--radius-pill) + 1px); padding: 6px 0; cursor: pointer; font-variant-numeric: tabular-nums; color: var(--text-2); }
-.hours button[aria-pressed="true"] { background: var(--fill); border-color: var(--fill); color: var(--on-fill); font-weight: 500; }
-.hours button:disabled { opacity: 0.4; cursor: default; }
+/* a key of the buttons; the chosen one is raised with the accent foot, as the switch's */
+.hours button { min-height: var(--control-h); padding: 0; border: 1px solid var(--control-edge); border-radius: var(--radius-m); background: var(--control); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2); cursor: pointer; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.hours button:hover:not(:disabled) { background: var(--control-hover); border-color: var(--control-edge-hover); color: var(--text); }
+.hours button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2), inset 0 -2px 0 var(--accent); }
+.hours button:disabled { cursor: default; background: transparent; border-color: var(--border); color: var(--muted); box-shadow: none; }
 .setup-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
 .setup-steps li::marker { color: var(--muted); font-weight: 600; }
 .setup-steps li > .small.muted { margin-top: 6px; }
@@ -67,7 +68,7 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .checklist li::before { content: "○ "; }
 .checklist li.done { color: var(--text); }
 .checklist li.done::before { content: "✓ "; color: var(--good, currentColor); }
-.bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 10px 12px; }
 .bank-app-status code { overflow-wrap: anywhere; }
 
 /* a connection row with a reconnect and a remove button */

@@ -105,9 +105,9 @@ function SpendingChange({ ctx }: SectionProps) {
   const { change } = view;
   return (
     <Section id={section.id} title={section.title} sub={`${view.periodLabel} verrattuna ${view.view === "usual" ? "tavalliseen kuukauteen" : "vuotta aiempaan"}`}>
-      <div className="change-tabs" role="tablist">
+      <div className="change-tabs segmented" role="tablist">
         {views.map((v) => (
-          <button key={v.view} className="btn btn-small" role="tab" aria-selected={v.view === view.view} aria-pressed={v.view === view.view} onClick={() => { setActive(v.view); setOpen(null); }}>
+          <button key={v.view} role="tab" aria-selected={v.view === view.view} aria-pressed={v.view === view.view} onClick={() => { setActive(v.view); setOpen(null); }}>
             {v.title}
           </button>
         ))}
@@ -116,7 +116,7 @@ function SpendingChange({ ctx }: SectionProps) {
       {/* no category stands out: no bars, the table below totals the change */}
       {view.bars.length > 0 && <Bridge view={view} />}
       <div className="table-wrap">
-        <table className="change-table">
+        <table className="change-table ruled">
           <thead>
             <tr>
               <th>Kategoria</th>

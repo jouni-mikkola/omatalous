@@ -8,7 +8,7 @@ function AuthCard({ title, intro, children }: { title: string; intro?: ReactNode
   return (
     <div className="auth-wrap">
       <div className="card auth-card">
-        <div className="brand" style={{ marginBottom: 16 }}>
+        <div className="brand card-head">
           <span className="brand-mark" aria-hidden="true">
             <i style={{ height: 6 }} />
             <i style={{ height: 10 }} />

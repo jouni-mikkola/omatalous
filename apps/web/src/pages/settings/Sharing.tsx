@@ -33,7 +33,7 @@ export function Sharing({ meta, onChange }: { meta: Meta; onChange: () => void }
         </div>
       </div>
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Oma tili</th>

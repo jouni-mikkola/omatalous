@@ -121,7 +121,7 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
         </ConfirmDialog>
       )}
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Nimi</th>

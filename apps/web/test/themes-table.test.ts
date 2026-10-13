@@ -298,7 +298,7 @@ describe("Menot kategorioittain: a narrow screen", () => {
 describe("Menot kategorioittain: the bracket and the ruler", () => {
   const html = (r: Themes) => draw(r, new Set());
 
-  it("draws the bracket from the first theme to the last row before Yhteensä when every column adds up", () => {
+  it("draws the bracket from the first theme to the last theme when every column adds up", () => {
     const out = html(report(typical));
     expect(out).toContain('<tbody class="adds-up">');
     const classes = rowsOf(out).map((r) => r.cls);
@@ -307,11 +307,13 @@ describe("Menot kategorioittain: the bracket and the ruler", () => {
     expect(classes.at(-1)).toBe("themes-total");
   });
 
-  it("ends it on the last line of the last theme when that theme is open", () => {
+  it("ends it on the last theme row even when that theme is open: its lines stand in a gap, with the gutter and no cell of the bracket", () => {
     const out = draw(report(typical), new Set(["insurance", "car"]));
     expect(rowsOf(out).filter((r) => r.cls.includes("part-last")).map((r) => r.cls)).toEqual(["themes-row part-last"]);
     const open = draw(report([housing, food, car, spec("transport", "Liikkuminen", [["a", "Liikkuminen", 7_400], ["b", "Metro", 100]])]), new Set(["transport"]));
-    expect(rowsOf(open).filter((r) => r.cls.includes("part-last")).map((r) => r.cls)).toEqual(["themes-line part-last"]);
+    expect(rowsOf(open).filter((r) => r.cls.includes("part-last")).map((r) => r.cls)).toEqual(["themes-row part-last"]);
+    expect(open).not.toMatch(/themes-line[^]*?themes-month sum"/);
+    expect(open).toContain("themes-month sum-pad");
   });
 
   it("draws none when the months are one cent off, or the years are", () => {

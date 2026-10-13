@@ -48,7 +48,7 @@ describe("Raportit: Kiinteät ja muuttuvat", () => {
   });
   const parts = { fixedCents: 120_000, habitCents: 30_000, variableCents: 50_000, debtCents: 0 };
   /** The figures of the card: label and value of each tile, in order. */
-  const tiles = (out: string) => [...out.replace(/[  ]/g, " ").matchAll(/<div class="k">([^<]*)<\/div><div class="v">([^<]*)<\/div>/g)].map((m) => `${m[1]}: ${m[2]}`);
+  const tiles = (out: string) => [...out.replace(/[  ]/g, " ").matchAll(/<div class="k">([^<]*)<\/div><div class="v">((?:<[^>]*>|[^<])*?)<\/div>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
 
   it("hides a part the period has none of", () => {
     const out = html(fixedVariable, context(fixedData({ fixedCents: 120_000, habitCents: 30_000, variableCents: 50_000, debtCents: 0 })));

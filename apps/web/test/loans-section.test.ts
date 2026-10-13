@@ -2,6 +2,7 @@ import type { LoanRow, LoansReport } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { Figure } from "../src/components/Figure.tsx";
 import { percent } from "../src/format.ts";
 import { section as balances } from "../src/pages/reports/sections/Balances.tsx";
 import { section as loans } from "../src/pages/reports/sections/Loans.tsx";
@@ -28,7 +29,10 @@ const balanceData = {
 const context = (data: unknown, scope = "own", balances: unknown = balanceData, running = "2026-10"): ReportContext =>
   ({ data: { loans: data, balances }, meta: { today: day, accounts: [] }, running, scope, exportHref: () => "" }) as unknown as ReportContext;
 /** The section as text a test can read: plain spaces and a plain minus. */
-const html = (s: ReportSection, ctx: ReportContext) => renderToStaticMarkup(createElement(s.Component, { ctx })).replace(/[  ]/g, " ").replace(/−/g, "-");
+const html0 = (e: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(e).replace(/[  ]/g, " ").replace(/−/g, "-");
+const html = (s: ReportSection, ctx: ReportContext) => html0(createElement(s.Component, { ctx }));
+/** A total as the section prints it: the label and the figure split by `Figure`. */
+const tile = (label: string, text: string) => `<div class="k">${label}</div><div class="v">${html0(createElement(Figure, { text, size: "m" }))}</div>`;
 const figure = (label: string, value: string) => `<dt>${label}</dt><dd>${value}</dd>`;
 /** The same context with the accounts the viewer can see. */
 const withAccounts = (data: unknown, accounts: object[]): ReportContext => ({ ...context(data), meta: { today: day, accounts } }) as unknown as ReportContext;
@@ -79,7 +83,7 @@ describe("Raportit: Lainat", () => {
     const out = html(loans, context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 } })));
     expect(out).toContain("<dd>Kertalyhennys<small>maksetaan kerralla lopussa</small></dd>");
     expect(out).toContain("Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 5 100 €.");
-    expect(out).toContain('<div class="k">Maksuerät kuussa</div><div class="v">ei maksueriä</div>');
+    expect(out).toContain(`${tile("Maksuerät kuussa", "ei maksueriä")}`);
     expect(out).not.toContain("korot eivät ole mukana");
   });
 
@@ -87,8 +91,8 @@ describe("Raportit: Lainat", () => {
     const near = row({ scenarios: [{ shiftBp: -100, movedBp: -50, rateBp: 275, paymentCents: 97_000, interestCents: 320_000, unknown: null }] });
     const out = html(loans, context(report([near], { interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
     expect(out).toContain("Jos viitekorko laskee 0,5 prosenttiyksikköä: maksuerä 970,00 €, korot 12 kuukaudessa 3 200 €.");
-    expect(out).toContain('<div class="k">Korot 12 kuukaudessa</div><div class="v">–</div>');
-    expect(out).toContain('<div class="k">Maksuerät kuussa</div><div class="v">–</div>');
+    expect(out).toContain(`${tile("Korot 12 kuukaudessa", "–")}`);
+    expect(out).toContain(`${tile("Maksuerät kuussa", "–")}`);
     expect(out).not.toContain("ei tiedossa");
     expect(out).not.toContain("puuttuu");
   });
@@ -115,7 +119,7 @@ describe("Raportit: Lainat", () => {
   it("an overdraft beside a saved credit line is told where the accounts less the debts are, and nowhere else", () => {
     const sentence = "Sama velka voi olla luvussa Tilit miinus velat kahdesti: tallennettu laina Tililuotto ja miinuksella oleva yhdistetty tili Käyttötili. Jos velka on sama, oikea luku on tallennetun lainan verran suurempi.";
     const over = report([row()], { overdraftTwice: [{ loans: [{ id: "cl", name: "Tililuotto" }], accounts: [{ id: "a", name: "Käyttötili" }] }] });
-    expect(html(loans, context(over))).toContain(`<li class="warn">${sentence}</li>`);
+    expect(html(loans, context(over))).toContain(`<li class="notice warning">${sentence}</li>`);
     expect(html(balances, context(over))).toContain(`<li class="warn">${sentence}</li>`);
     // the debt total holds it once: nothing says "summassa", and Saldot does not send the reader to Lainat for it
     expect(html(loans, context(over)) + html(balances, context(over))).not.toMatch(/summassa|katso Lainat/);
@@ -142,14 +146,14 @@ describe("Raportit: Lainat", () => {
   it("a figure nothing is known of is a dash in the totals, and no sentence says which loans a total leaves out for it", () => {
     const later = { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } as const;
     const out = html(loans, context(report([row()], { interest: later, interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
-    expect(out).toContain('<div class="k">Maksuerät kuussa</div><div class="v">–</div>');
-    expect(out).toContain('<div class="k">Korot 12 kuukaudessa</div><div class="v">–</div>');
+    expect(out).toContain(`${tile("Maksuerät kuussa", "–")}`);
+    expect(out).toContain(`${tile("Korot 12 kuukaudessa", "–")}`);
     expect(html(loans, context(report([row()], { withoutRate: 2 })))).not.toContain("puuttuu");
   });
 
   it("the accounts less the debts are called what they are, say what they leave out where the figure is, and are not net worth", () => {
     const own = html(loans, context(report([row()]))) + html(balances, context(report([row()])));
-    expect(own).toContain('<div class="k">Tilit miinus velat</div><div class="v">-118 800 €</div><div class="loans-tile-sub">Asunnon ja sijoitusten arvo ei ole mukana.</div>');
+    expect(own).toContain(`${tile("Tilit miinus velat", "-118 800 €")}<div class="loans-tile-sub">Asunnon ja sijoitusten arvo ei ole mukana.</div>`);
     // Saldot holds the three figures as rows and no sentence
     const saldot = html(balances, context(report([row()])));
     expect(rowsOf(saldot)).toEqual(["Tilit yhteensä 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);

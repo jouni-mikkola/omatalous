@@ -31,7 +31,7 @@ export function BackupList({ app, host, disabled, canDownload, onBackup, onDownl
         <div className="empty">{S.noBackups}</div>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="ruled">
             <thead>
               <tr>
                 <th>Nimi</th>

@@ -10,9 +10,9 @@
 }
 
 /* the box: a dashed edge says "drop here", as file boxes do */
-.loan-box { display: flex; flex-direction: column; gap: 6px; border: 1px dashed var(--axis); border-radius: var(--radius); padding: 12px; }
+.loan-box { display: flex; flex-direction: column; gap: 6px; border: 1px dashed var(--axis); border-radius: var(--radius-m); background: var(--surface); padding: 12px; }
 .loan-box.over { border-color: var(--accent); background: var(--info-bg); }
-.loan-box textarea { min-height: 96px; resize: vertical; font-family: inherit; font-size: 14px; }
+.loan-box textarea { min-height: 96px; resize: vertical; font-family: inherit; font-size: var(--fs-body); }
 .loan-box .form-row { margin: 2px 0; }
 .loan-box p { margin: 0; }
 /* the status line is mounted all the time (a screen reader hears what is put into it) and takes room only when it says something */
@@ -23,21 +23,21 @@
 .loan-tip { margin: 12px 0 0; max-width: 62ch; }
 
 /* one read loan: a form of its own inside the card */
-.loan-draft { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; margin-top: 12px; }
-.loan-draft h3 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+.loan-draft { border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface); padding: var(--sp-16); margin-top: 12px; }
+.loan-draft h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: 0 0 12px; }
 
-.loan-form { display: flex; flex-direction: column; gap: 14px; }
+.loan-form { display: flex; flex-direction: column; gap: var(--sp-16); }
 .loan-form .notice, .loan-form p { margin: 0; }
 .loan-form .form-row { margin: 0; }
-.loan-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.loan-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-16); }
 .loan-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .loan-field input:not([type="checkbox"]), .loan-field select { width: 100%; }
 .loan-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .loan-field-head .badge { margin-left: 0; }
 /* a field the reading was not sure of, until the household ticks or changes it */
-.loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn-bg), 0 0 0 3px var(--warn); }
-.loan-source { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.loan-confirm { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; align-self: flex-start; cursor: pointer; }
+.loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); }
+.loan-source { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
+.loan-confirm { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-ui); align-self: flex-start; cursor: pointer; }
 .loan-confirm input { margin: 0; accent-color: var(--fill); }
 .loan-warnings { padding-left: 28px; }
 .loan-warnings li + li { margin-top: 4px; }
@@ -49,31 +49,31 @@ dialog.loan-dialog h2 { margin-bottom: 14px; }
 dialog.loan-dialog .loan-form p { color: inherit; }
 dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0; }
 
-/* Reports > Lainat: the totals, what they leave out, each debt with its figures side by side, and a move of the reference rate. */
+/* Reports > Lainat: the totals (.kv), what they leave out (.notice.warning), each debt with its figures side by side, and a move of the reference rate. */
 
-.loans-tile-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
-.loans-notes { list-style: none; margin: 0 0 14px; padding: 0; color: var(--muted); font-size: 13px; }
-.loans-notes li + li { margin-top: 4px; }
-.loans-notes li.warn { color: inherit; background: var(--warn-bg); border-left: 3px solid var(--warn); border-radius: var(--radius-m); padding: 6px 10px; }
+.loans-tile-sub { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); margin-top: 2px; }
+.loans-notes { list-style: none; margin: 0 0 var(--sp-16); padding: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
+.loans-notes li + li { margin-top: var(--sp-8); }
+.loans-notes li.notice { margin-bottom: 0; }
 
 .loan-list { list-style: none; margin: 0; padding: 0; }
-.loan-list > li { border-top: 1px solid var(--border); padding: 12px 0; }
-.loan-list > li:last-child { padding-bottom: 0; }
-.loan-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-bottom: 8px; }
-.loan-head span { color: var(--muted); font-size: 13px; }
+.loan-list > li + li { margin-top: var(--sp-16); }
+.loan-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding-bottom: 6px; margin-bottom: var(--sp-8); border-bottom: 1px solid var(--border); }
+.loan-head strong { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+.loan-head span { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 
 /* the same five columns on every loan, so a figure can be read down the list */
 .loan-figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px 14px; margin: 0; }
-.loan-figures dt { color: var(--muted); font-size: 12px; }
-.loan-figures dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.loan-figures dd small { display: block; color: var(--muted); font-size: 12px; }
+.loan-figures dt { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.loan-figures dd { margin: 2px 0 0; font-size: var(--fs-body); line-height: var(--lh-body); font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; }
+.loan-figures dd small { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .loan-figures dd.unknown { color: var(--muted); }
 /* the parts a figure is made of: label at the left, value at the right, in the body size */
 .loan-figures .loan-parts { margin: 4px 0 0; }
 .loan-figures .loan-parts > div { display: flex; justify-content: space-between; gap: 8px; }
-.loan-figures .loan-parts dt { color: inherit; font-size: inherit; }
+.loan-figures .loan-parts dt { color: inherit; font-size: inherit; line-height: inherit; }
 .loan-figures .loan-parts dd { margin: 0; }
 .loan-mend { display: inline-block; margin-top: 8px; }
-.loan-scenario { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.loan-scenario { margin: 8px 0 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
 
 @media (max-width: 700px) { .loan-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

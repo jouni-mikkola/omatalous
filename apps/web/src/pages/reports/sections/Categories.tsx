@@ -1,6 +1,7 @@
 // Decision: where to cut
 import { query } from "../../../api.ts";
 import { money, percent, signedMoney } from "../../../format.ts";
+import { addsUp } from "../../../marks.ts";
 import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -22,10 +23,13 @@ function Categories({ ctx }: SectionProps) {
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.groups.some((g) => g.categories.some((c) => c.monthlyAvgCents !== null));
   const negative = r.groups.some((g) => g.totalCents < 0 || g.categories.some((c) => c.totalCents < 0));
+  // the groups are the parts of the printed Yhteensä: the bracket stands only when they add up to it to the cent
+  const sums = addsUp(r.groups.map((g) => g.totalCents), r.totalCents);
+  const lastGroup = r.groups.length - 1;
   return (
     <Section id={section.id} title={section.title} sub={r.comparable ? "Muutos edellisestä jaksosta" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Kategoria</th>
@@ -35,11 +39,11 @@ function Categories({ ctx }: SectionProps) {
               {r.comparable && <th className="num">Muutos</th>}
             </tr>
           </thead>
-          <tbody>
-            {r.groups.map((g) => [
-              <tr key={g.group} className="group-row">
+          <tbody className={sums ? "adds-up" : undefined}>
+            {r.groups.map((g, gi) => [
+              <tr key={g.group} className={`group-row${sums && gi === 0 ? " part-first" : ""}${sums && gi === lastGroup ? " part-last" : ""}`}>
                 <td>{g.group}</td>
-                <td className="num">{money(g.totalCents, false)}</td>
+                <td className={`num${sums ? " sum" : ""}`}>{money(g.totalCents, false)}</td>
                 <td className="num">{g.totalCents < 0 ? "–" : percent(g.share)}</td>
                 {hasAverage && <td className="num hide-phone">{money(g.categories.reduce((s, c) => s + (c.monthlyAvgCents ?? 0), 0), false)}</td>}
                 {r.comparable && (
@@ -53,7 +57,7 @@ function Categories({ ctx }: SectionProps) {
                   <td style={{ paddingLeft: 20 }}>
                     <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>
                   </td>
-                  <td className="num">{money(c.totalCents, false)}</td>
+                  <td className={`num${sums ? " sum-pad" : ""}`}>{money(c.totalCents, false)}</td>
                   <td className="num">{c.totalCents < 0 ? "–" : percent(c.share)}</td>
                   {hasAverage && <td className="num hide-phone">{c.monthlyAvgCents === null ? "–" : money(c.monthlyAvgCents, false)}</td>}
                   {r.comparable && (
@@ -67,9 +71,9 @@ function Categories({ ctx }: SectionProps) {
           </tbody>
           {r.groups.length > 0 && (
             <tfoot>
-              <tr>
+              <tr className="foot-row">
                 <td>Yhteensä</td>
-                <td className="num">{money(r.totalCents, false)}</td>
+                <td className={`num${sums ? " sum-pad" : ""}`}>{money(r.totalCents, false)}</td>
                 <td className="num">{percent(r.totalCents ? 1 : 0)}</td>
                 {hasAverage && <td className="num hide-phone">{money(r.groups.reduce((s, g) => s + g.categories.reduce((t, c) => t + (c.monthlyAvgCents ?? 0), 0), 0), false)}</td>}
                 {r.comparable && (

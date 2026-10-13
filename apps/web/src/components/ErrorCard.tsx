@@ -3,7 +3,7 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry: () =
   return (
     <div className="card error" role="alert">
       <p>Tietojen haku epäonnistui. {message}</p>
-      <button className="btn btn-small" type="button" onClick={onRetry}>
+      <button className="btn" type="button" onClick={onRetry}>
         Yritä uudelleen
       </button>
     </div>

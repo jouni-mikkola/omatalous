@@ -104,7 +104,13 @@ td { padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: mid
 tr:last-child td { border-bottom: none; }
 
 td.num, th.num { text-align: right; white-space: nowrap; }
-td.num, th.num, .st-num, .fig { font-variant-numeric: tabular-nums lining-nums; }
+td.num, th.num, .st-num { font-variant-numeric: tabular-nums lining-nums; }
+/* the typeset figure (Figure.tsx): whole part full size, decimals and unit smaller and quieter */
+.fig { font-variant-numeric: tabular-nums lining-nums; font-weight: 600; white-space: nowrap; color: var(--text); }
+.fig-s { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); letter-spacing: var(--track-fig); }
+.fig-m { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); letter-spacing: var(--track-fig); }
+.fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); letter-spacing: var(--track-fig); }
+.fig-dec, .fig-unit { font-size: 0.68em; font-weight: 400; letter-spacing: 0; color: var(--text-2); }
 /* a cell with two figures ("12,99 € → 14,99 €") wraps on a phone; one amount stays whole through its no-break space */
 @media (max-width: 600px) { td.num { white-space: normal; } }
 td .sub { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); max-width: 32rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

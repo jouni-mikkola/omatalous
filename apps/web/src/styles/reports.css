@@ -1,19 +1,23 @@
 /* Reports page: section nav, key figures, pivot and heat tables. */
 
 .report-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-.report-nav a { font-size: 12px; padding: 3px 9px; border-radius: calc(var(--radius-pill) - 1px); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); text-decoration: none; }
-.report-nav a:hover { color: var(--text); border-color: var(--axis); }
+.report-nav a { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-m); background: none; color: var(--text-2); font-size: var(--fs-label); font-weight: 600; text-decoration: none; }
+.report-nav a:hover { color: var(--text); border-color: var(--control-edge); }
 /* a phone: one row that scrolls sideways instead of nine chips on three rows before any content */
 @media (max-width: 640px) {
   .report-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -12px; padding-inline: 12px; }
   .report-nav::-webkit-scrollbar { display: none; }
-  .report-nav a { flex: none; white-space: nowrap; padding: 7px 12px; }
+  .report-nav a { flex: none; white-space: nowrap; min-height: 44px; padding: 0 12px; }
 }
-.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px 0; margin: 4px 0 18px; }
-.kv > div { border-left: 1px solid var(--border); padding: 0 14px; }
+/* the readouts: five across at most (a cell is a fifth of the row or 120 px), two across on a phone */
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(120px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
+.kv > div { border-left: 1px solid var(--border); padding: 0 var(--sp-16); }
 .kv dt, .kv dd { margin: 0; }
-.kv .k { color: var(--muted); font-size: 12px; }
-.kv .v { font-size: 20px; font-weight: 500; margin-top: 2px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kv .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.kv .v { margin-top: 2px; }
+@media (max-width: 640px) { .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* a total printed under a bracket keeps its figure in line with the rows above it, which the bracket's gap moved */
+td.sum-pad { padding-right: var(--mark-gap); }
 /* Saldot: the accounts, the saved loans and what is left, as rows of the statement look; a label is told whole */
 .balance-rows { max-width: 420px; margin-bottom: 12px; }
 .balance-rows .st-name { overflow: visible; white-space: normal; }
@@ -21,8 +25,6 @@
 .heat-table th { font-size: 11px; padding: 5px 6px; }
 .heat-table td.cell { border-radius: 0; }
 .group-row td { background: var(--surface-2); font-weight: 600; }
-.trend-up { color: var(--bad); }
-.trend-down { color: var(--good); }
 details.group > summary { cursor: pointer; }
 
 /* pivot heat cells: one blue ramp; ink flips where the fill gets dark */
@@ -47,5 +49,6 @@ details.group > summary { cursor: pointer; }
 .pivot-months > div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 8px; border-radius: 4px; }
 .pivot-months dt, .pivot-months dd { margin: 0; }
 .pivot-months dd { font-variant-numeric: tabular-nums; }
-.pivot-list summary .pivot-name::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); }
-.pivot-list details[open] summary .pivot-name::before { content: "▾"; }
+/* the arrow is a 6 px triangle cut by clip-path, so nothing turns or moves */
+.pivot-list summary .pivot-name::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 var(--sp-8) 1px 2px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.pivot-list details[open] summary .pivot-name::before { clip-path: polygon(0 0, 100% 0, 50% 100%); }

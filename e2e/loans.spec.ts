@@ -631,7 +631,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   // both are in the total: the report names the pair and ends the sentence with the link
   await page.goto("/#/reports#lainat");
   const report = page.locator("#lainat");
-  const sentence = report.locator("li.warn").filter({ hasText: "Sama velka voi olla summassa kahdesti" });
+  const sentence = report.locator("li.notice.warning").filter({ hasText: "Sama velka voi olla summassa kahdesti" });
   await expect(sentence).toContainText("tallennettu laina Esimerkkikortti ja yhdistetty tili Nordea Gold (esimerkki)");
   const before = await owed(report);
   await sentence.getByRole("link", { name: "Liitä Esimerkkikortti tiliin Nordea Gold (esimerkki)" }).click();
@@ -652,7 +652,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   // back at the report, with no reload by hand: the sentence is gone and the total fell by the typed balance
   await page.goBack();
   await expect(report.getByText("Esimerkkikortti").first()).toBeVisible();
-  await expect(report.locator("li.warn").filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
+  await expect(report.locator("li.notice.warning").filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
   expect(before - (await owed(report))).toBe(1000);
 
   expect(seen.problems).toEqual([]);

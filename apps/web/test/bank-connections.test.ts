@@ -119,7 +119,7 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
 
   it("gives the phone layout to the table, with a label on every cell that has a column head", () => {
     const out = html([conn("a", "active", 93)]);
-    expect(out.match(/<table class="conn-table"/g)).toHaveLength(1);
+    expect(out.match(/<table class="conn-table ruled"/g)).toHaveLength(1);
     expect(out).toContain('data-label="Tila"');
     expect(out).toContain('data-label="Haettu"');
   });
@@ -131,7 +131,7 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     expect(out).not.toContain("Poista listalta");
     expect(out).not.toContain("Aktia");
     expect(out).not.toContain("Holvi");
-    expect(out.match(/<table class="conn-table"/g)).toHaveLength(1);
+    expect(out.match(/<table class="conn-table ruled"/g)).toHaveLength(1);
     // the one that still owns its accounts shows its end and the way to renew
     expect(out).toContain("vanhentui 1.9.2026");
     expect(renews(out)).toBe(1);

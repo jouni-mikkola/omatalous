@@ -74,7 +74,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
       </div>
       {message && <div className={`notice ${message.tone}`}>{message.text}</div>}
       <div className="table-wrap">
-        <table className="accounts-table">
+        <table className="accounts-table ruled">
           <thead>
             <tr>
               <th>Tili</th>

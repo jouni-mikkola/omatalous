@@ -1,73 +1,77 @@
 /* Optimoi: the situation, the findings with their calculation, the decided ones and the inputs. */
 
-.optimise .card h3 { font-size: 15px; font-weight: 600; margin: 0; }
-.optimise h4 { margin: 0; font-size: 13px; font-weight: 600; }
+.optimise .card h3 { font-size: 14px; line-height: 18px; font-weight: 600; margin: 0; }
+.optimise h4 { margin: 0; font-size: 14px; line-height: 18px; font-weight: 600; color: var(--text); }
 
 /* Tilanne: the euros found with their range, then four facts, side by side */
 .optimise-none { margin: 0; }
-.optimise-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 14px 0; margin: 14px 0 0; }
-.optimise-facts > div { border-left: 1px solid var(--border); padding: 0 14px; min-width: 0; }
+.kv.optimise-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-16) 0; margin: var(--sp-16) 0 0; }
+.kv.optimise-facts > div { border-left: 1px solid var(--border); padding: 0 var(--sp-16); min-width: 0; }
+@media (max-width: 1039px) { .kv.optimise-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .kv.optimise-facts { grid-template-columns: minmax(0, 1fr); } }
 .optimise-facts dt, .optimise-facts dd { margin: 0; }
-.optimise .optimise-facts .k { color: var(--text-2); font-size: inherit; }
-.optimise-facts dd.v { font-size: 20px; font-weight: 500; margin: 2px 0; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.optimise .kv.optimise-facts .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.optimise .kv.optimise-facts dd.v { margin: var(--sp-2) 0 0; font-size: inherit; font-weight: inherit; letter-spacing: 0; overflow-wrap: anywhere; }
 
 /* a finding: the words on the left, the euros on the right, on a phone one under the other */
-.findings { display: flex; flex-direction: column; gap: 12px; }
-.finding, .other { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; background: var(--surface); min-width: 0; }
-/* Muut havainnot: an insight's tone is its card's left edge, as it was on the overview */
-.other.good { border-left: 3px solid var(--good); }
-.other.warning { border-left: 3px solid var(--warn); }
-.other.info { border-left: 3px solid var(--accent); }
-.finding-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 20px; }
-.finding-main { flex: 1 1 20rem; min-width: 0; overflow-wrap: anywhere; }
+.findings { display: flex; flex-direction: column; gap: var(--sp-12); }
+/* an inner frame (no corner marks, no shadow) */
+.finding, .other { border: 1px solid var(--border); border-radius: var(--radius-m); padding: var(--sp-16); background: var(--surface); min-width: 0; }
+/* Muut havainnot: an insight's tone is a badge above its words */
+.other-tone { margin: 0 0 var(--sp-4); }
+/* the words in columns 1-8, the euros in 9-12 */
+.finding-top { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--sp-8) var(--gap); align-items: start; }
+.finding-main { grid-column: 1 / 9; min-width: 0; overflow-wrap: anywhere; }
 .finding-main p, .finding-money { margin: 0; }
 .finding-title { font-weight: 600; }
 .finding-title .badge { margin-left: 8px; vertical-align: 1px; }
 .finding-action { color: var(--text-2); }
-.finding-money { flex: 0 1 15rem; display: flex; flex-direction: column; gap: 1px; text-align: right; min-width: 0; overflow-wrap: anywhere; }
-.finding-euros { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.finding-range { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.finding-money { grid-column: 9 / 13; display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.finding-euros { font-weight: 600; }
+.finding-range { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; }
 .finding-certainty { margin: 8px 0 0; }
 .finding-certainty .badge { margin-left: 0; }
 /* an insight's figure is a cost or a change, not a saving: plain weight, beside its words, and what to do under them */
-.other-figure { font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.other-figure { color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
 .finding-main p.other-todo { margin-top: 6px; color: var(--text-2); }
-@media (max-width: 600px) {
-  .finding-money { flex-basis: 100%; text-align: left; }
+@media (max-width: 640px) {
+  .finding-main, .finding-money { grid-column: 1 / -1; }
+  .finding-money { align-items: flex-start; text-align: left; }
 }
 
-.finding-actions { margin-top: 10px; }
+.finding-actions { margin-top: var(--sp-12); }
 .finding-actions .form-row { margin: 0; gap: 6px; }
 /* the form that opens under the buttons: a date, a reason, a delay or a number */
-.decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; padding: 10px; background: var(--surface-2); border-radius: var(--radius-s); }
+.decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; padding: var(--sp-12); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); }
 .decide-form label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .decide-form.refine { align-items: flex-start; }
 .decide-form .input-form { flex: 1 1 100%; }
 
 /* the calculation */
-.evidence { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 16px; min-width: 0; }
+.evidence { margin-top: var(--sp-16); padding-top: var(--sp-16); border-top: 1px solid var(--border); display: grid; gap: 16px; min-width: 0; }
 .evidence-part { min-width: 0; }
-.evidence-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
+.evidence-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: var(--sp-8); }
 .calc { margin: 0; }
-.calc > div { display: flex; justify-content: space-between; gap: 4px 16px; padding: 4px 0; border-bottom: 1px solid var(--grid); }
+.calc > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 16px; min-height: var(--row-h); padding: 7px 0; box-sizing: border-box; border-bottom: 1px solid var(--grid); }
 .calc > div:last-child { border-bottom: none; }
 .calc dt { color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
-.calc dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; max-width: 55%; }
+.calc dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; max-width: 55%; }
 .calc .struck dt, .calc .struck dd { color: var(--muted); }
 .evidence-rows th:first-child { padding-left: 0; }
 .evidence-rows th.num { padding-right: 0; }
 .evidence-rows td.when { white-space: nowrap; }
 .evidence-rows tr.struck td { color: var(--muted); }
 .evidence-check { margin: 0; }
-@media (max-width: 600px) { .calc dd { max-width: 50%; } }
+@media (max-width: 640px) { .calc dd { max-width: 50%; } }
 
 /* an area: its figures under its findings */
 .area-summary { margin-top: 12px; }
 
 /* Päätetyt and the inputs */
-.decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.decided, .needed { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; padding-bottom: 10px; border-bottom: 1px solid var(--grid); }
-.decided:last-child, .needed:last-child { border-bottom: none; padding-bottom: 0; }
+.decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.decided, .needed { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-8) var(--sp-16); min-height: var(--row-h); box-sizing: border-box; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.decided:last-child, .needed:last-child { border-bottom: none; }
+.needed { align-items: flex-start; }
 .decided-text, .needed-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 18rem; min-width: 0; overflow-wrap: anywhere; }
 .decided-title { font-weight: 500; }
 .needed > .input-form { flex: 0 1 24rem; min-width: 0; }
@@ -76,8 +80,8 @@
 .input-line select { max-width: 100%; }
 .input-form .form-row { margin: 6px 0 0; }
 .stale { color: var(--warn); }
-.optimise-subhead { margin: 16px 0 8px; font-size: 13px; color: var(--text-2); }
-@media (max-width: 600px) { .needed > .input-form { flex-basis: 100%; } }
+.optimise-subhead { margin: var(--sp-16) 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+@media (max-width: 640px) { .needed > .input-form { flex-basis: 100%; } }
 
 /* Seuranta: a done decision's verdict, effect and reason under its row */
 .outcome { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 4px 0 0; }

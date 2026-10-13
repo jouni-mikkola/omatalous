@@ -47,7 +47,8 @@ td.share { min-width: var(--share-w); }
 .adds-up > .st-row:not(.st-total), .adds-up > tr:not(.group-head, .foot-row) > td.sum { box-shadow: inset -1px 0 0 var(--axis); background-repeat: no-repeat; background-size: 4px 1px; }
 .adds-up > .part-first:where(:not(tr)), .adds-up > .part-first > td.sum { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 0; }
 .adds-up > .part-last:where(:not(tr)), .adds-up > .part-last > td.sum { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 100%; }
-.adds-up > tr > td.sum { padding-right: var(--mark-gap); }
+/* the break: a cell of the column that is not a part of the sum (an opened theme's line, a category under its group) carries .sum-pad, keeps the gutter and draws no line */
+.adds-up > tr > td:is(.sum, .sum-pad) { padding-right: var(--mark-gap); }
 
 /* M13 column rules: the ledger's ruling between two columns of figures */
 @media (min-width: 641px) {

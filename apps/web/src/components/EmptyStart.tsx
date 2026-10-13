@@ -17,7 +17,9 @@ export function EmptyStart({ onDemo }: { onDemo: () => Promise<void> }) {
   };
   return (
     <div className="card empty-start">
-      <h2>Ei vielä tietoja</h2>
+      <div className="card-head">
+        <h2>Ei vielä tietoja</h2>
+      </div>
       <div className="form-row">
         <button className="btn btn-primary" type="button" onClick={() => navigate("settings", { add: "1" })}>
           Yhdistä pankki

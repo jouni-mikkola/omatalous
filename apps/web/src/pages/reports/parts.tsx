@@ -1,3 +1,5 @@
+import { Figure } from "../../components/Figure.tsx";
+
 /** Under a table of expense categories when one of them totals below zero (Categories and Pivot say it alike). */
 export const NEGATIVE_TOTAL_NOTE = "Miinuksella olevassa kategoriassa palautuksia oli jaksolla enemmän kuin menoja.";
 
@@ -23,7 +25,9 @@ export function Kv({ items }: { items: [string, string][] }) {
       {items.map(([k, v]) => (
         <div key={k}>
           <div className="k">{k}</div>
-          <div className="v">{v}</div>
+          <div className="v">
+            <Figure text={v} size="m" />
+          </div>
         </div>
       ))}
     </div>

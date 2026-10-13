@@ -3,6 +3,7 @@ import { ACCOUNTS_LESS_DEBT, belowWhole, cardLimitCents, LOAN_REFERENCE_LABEL, t
 import { Fragment } from "react";
 import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { intervalLabel, KIND_LABEL } from "../../../components/loans/labels.ts";
+import { Figure } from "../../../components/Figure.tsx";
 import { Section } from "../../../components/Section.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, percent } from "../../../format.ts";
 import { typedByText } from "../../../part.ts";
@@ -13,7 +14,7 @@ import "../../../styles/loans.css";
 /** A figure the loan has no value for: nothing is due, nothing was drawn, or the household has not told it. */
 const DASH = "–";
 
-interface FigureProps {
+interface LoanFigureProps {
   label: string;
   /** Null when the figure is not known: a dash. */
   value: string | null;
@@ -22,7 +23,7 @@ interface FigureProps {
   parts?: readonly (readonly [label: string, value: string])[];
 }
 
-function Figure({ label, value, sub, parts }: FigureProps) {
+function LoanFigure({ label, value, sub, parts }: LoanFigureProps) {
   return (
     <div>
       <dt>{label}</dt>
@@ -44,7 +45,7 @@ function Figure({ label, value, sub, parts }: FigureProps) {
   );
 }
 
-function payment(l: LoanRow): Pick<FigureProps, "value" | "sub" | "parts"> {
+function payment(l: LoanRow): Pick<LoanFigureProps, "value" | "sub" | "parts"> {
   const p = l.payment;
   if (p.cents === null) {
     // the amortisation of an equal principal loan is known also when the interest on top of it is not
@@ -98,7 +99,7 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
     : [unlessName(KIND_LABEL[l.kind], l.name), l.lender].filter(Boolean).join(" · ");
   const about = [kind, typedByText(l.typedBy)].filter(Boolean).join(" · ");
   const moves = l.scenarios.map(scenario).filter((line): line is string => line !== null);
-  const figures: FigureProps[] = card
+  const figures: LoanFigureProps[] = card
     ? [{ label: "Käytetty luotto", value: l.balance.cents !== null ? money(l.balance.cents) : null }, ...(limitCents !== null ? [{ label: "Luottoraja", value: money(limitCents) }] : [])]
     : [
         // a balance no plan moved forward is the one that was told, with its day
@@ -119,7 +120,7 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
       </div>
       <dl className="loan-figures">
         {figures.map((f) => (
-          <Figure key={f.label} {...f} />
+          <LoanFigure key={f.label} {...f} />
         ))}
       </dl>
       {moves.length > 0 && <p className="loan-scenario">{moves.join(" ")}</p>}
@@ -232,7 +233,7 @@ function Loans({ ctx }: SectionProps) {
         {items.map(([label, value, sub]) => (
           <div key={label}>
             <div className="k">{label}</div>
-            <div className="v">{value}</div>
+            <div className="v"><Figure text={value} size="m" /></div>
             {sub && <div className="loans-tile-sub">{sub}</div>}
           </div>
         ))}
@@ -240,7 +241,7 @@ function Loans({ ctx }: SectionProps) {
       {lines.length > 0 && (
         <ul className="loans-notes">
           {lines.map((n) => (
-            <li key={n.key ?? n.text} className={n.warn ? "warn" : undefined}>
+            <li key={n.key ?? n.text} className={n.warn ? "notice warning" : undefined}>
               {n.text}
               {n.offers?.map((o) => (
                 <Fragment key={o.href}>

@@ -116,7 +116,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
       <Proposals proposals={proposed.data?.proposals ?? []} today={meta.today} onAnswered={done} />
       {loans.length > 0 && (
         <div className="table-wrap">
-          <table className="loans-table">
+          <table className="loans-table ruled">
             <thead>
               <tr>
                 <th>Laina</th>

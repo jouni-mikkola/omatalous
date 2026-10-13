@@ -215,7 +215,7 @@ export function LinkQuestion({ meta, onChange, onSaved }: { meta: Meta; onChange
         </div>
       </div>
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <tbody>
             {accounts.map((a) => (
               <tr key={a.id}>

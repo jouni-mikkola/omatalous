@@ -53,7 +53,7 @@ function Types({ r }: { r: IncomeReport }) {
   };
   return (
     <div className="table-wrap">
-      <table className="income-types">
+      <table className="income-types ruled">
         <thead>
           <tr>
             <th>Tulolaji</th>
@@ -127,7 +127,7 @@ function Year({ r }: { r: IncomeReport }) {
     <div className="income-year">
       <h3>Kuukausittain</h3>
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Kuukausi</th>

@@ -133,7 +133,7 @@ export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
       </div>
       {(error ?? sessions.error) && <div className="error">{error ?? sessions.error}</div>}
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Laite</th>
@@ -187,7 +187,7 @@ export function SecurityLog({ onLoaded }: { onLoaded?: () => void }) {
       </div>
       {events.error && <div className="error">{events.error}</div>}
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Aika</th>

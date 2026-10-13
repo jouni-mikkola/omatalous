@@ -11,7 +11,7 @@
 .link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
 .link-button[aria-expanded="true"] { font-weight: 600; }
 .income-types tr.income-payer td:first-child { padding-left: 20px; }
-.income-note { display: block; color: var(--muted); font-size: 12px; }
+.income-note { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .income-rows ul { list-style: none; margin: 0 0 6px 20px; padding: 0; max-width: 280px; }
 .income-rows li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
 .income-rows a { margin-left: 20px; font-size: 13px; }
@@ -19,7 +19,7 @@
 .income-year { margin-top: 16px; }
 /* the long names of the groups wrap, so the table is not wider than the card */
 .income-year th { white-space: normal; }
-.income-caption { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.income-caption { color: var(--text-2); font-size: var(--fs-label); margin: 6px 0 0; }
 
 .income-paydays { margin: 0; padding-left: 18px; }
 .income-paydays li { margin-bottom: 4px; }

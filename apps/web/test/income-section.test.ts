@@ -21,7 +21,7 @@ const report = (over: Partial<IncomeReport> = {}): IncomeReport =>
 const context = (r: IncomeReport): ReportContext => ({ data: { income: r }, meta: { today: "2026-10-11", accounts: [] }, exportHref: () => "" }) as unknown as ReportContext;
 /** The section as text a test can read: plain spaces. */
 const html = (r: IncomeReport) => renderToStaticMarkup(createElement(income.Component, { ctx: context(r) })).replace(/[  ]/g, " ");
-const tiles = (out: string) => [...out.matchAll(/<div class="k">([^<]*)<\/div><div class="v">([^<]*)<\/div>/g)].map((m) => `${m[1]}: ${m[2]}`);
+const tiles = (out: string) => [...out.matchAll(/<div class="k">([^<]*)<\/div><div class="v">((?:<[^>]*>|[^<])*?)<\/div>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
 
 describe("Raportit: Tulot", () => {
   it("is left out until the history can split the income into types", () => {

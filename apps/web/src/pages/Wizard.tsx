@@ -145,7 +145,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
   return (
     <div className="wizard-wrap">
       <div className="card wizard">
-        <div className="wizard-head">
+        <div className="card-head wizard-head">
           <div className="brand">
             <span className="brand-mark" aria-hidden="true">
               <i style={{ height: 6 }} />
@@ -154,21 +154,20 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
             </span>
             Omatalous
           </div>
+          <ol className="wizard-steps" aria-label="Vaiheet">
+            {STEPS.map((label, i) => (
+              <li key={label} aria-current={i === step ? "step" : undefined} className={i < step ? "done" : undefined}>
+                <span className="step-no">{i + 1}</span>
+                {label}
+              </li>
+            ))}
+          </ol>
           <button className="btn btn-small" type="button" disabled={finishing} onClick={() => void finish("overview")}>
             Tee myöhemmin
           </button>
         </div>
         <h1 className="auth-title">Käyttöönotto</h1>
         <p className="muted">Kaiken voi muuttaa myöhemmin kohdassa Asetukset &gt; Palvelin.</p>
-
-        <ol className="wizard-steps" aria-label="Vaiheet">
-          {STEPS.map((label, i) => (
-            <li key={label} aria-current={i === step ? "step" : undefined} className={i < step ? "done" : undefined}>
-              <span className="step-no">{i + 1}</span>
-              {label}
-            </li>
-          ))}
-        </ol>
 
         {error && <div className="error">{error}</div>}
         {!current ? (

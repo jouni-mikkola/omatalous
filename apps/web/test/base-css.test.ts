@@ -81,10 +81,7 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
     expect(literal).toEqual({
       base: [".card:not(.skeleton)::before, dialog.confirm::before: inherit", ".notice.good::before: 50%"],
       charts: [".swatch: 1px", ".line-key: 0", ".tooltip: 10px"],
-      settings: [".credit-bar: 2px", ".credit-bar span: 2px", ".secret-box: 10px", ".bank-app-status: 10px"],
-      wizard: [".step-no: 50%"],
       banks: [".bank-logo-sm: 5px"],
-      "bank-picker": [".bank-picker: 10px"],
       month: [".bridge-from: 4px"],
       ops: [".ops-command: 4px"],
     });

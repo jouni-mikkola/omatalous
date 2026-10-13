@@ -7,14 +7,13 @@
 .remote-block { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 14px; }
 .remote-block .form-row { margin: 0; }
 .remote-block .notice { margin-bottom: 0; }
-.remote-access .setup-form input[type="text"], .remote-access .setup-form input[type="password"] { font-size: 15px; padding: 8px 10px; border: 1px solid var(--control-edge); background: var(--control); border-radius: var(--radius-m); }
-.remote-access .setup-form input[readonly] { background: var(--surface-2); color: var(--text-2); }
-.remote-access textarea { font-family: inherit; font-size: 15px; min-height: 96px; padding: 8px 10px; }
+.remote-access .setup-form input[readonly] { background: var(--surface-2); color: var(--text-2); box-shadow: none; }
+.remote-access textarea { min-height: 96px; }
 .remote-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 6px 0 0; }
 .remote-facts dt { color: var(--muted); }
 .remote-facts dd { margin: 0; overflow-wrap: anywhere; }
 .remote-emails { margin: 0; padding-left: 18px; }
-.remote-guide { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 10px 12px; }
+.remote-guide { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-m); padding: 10px 12px; }
 .remote-guide > summary { cursor: pointer; }
 .remote-guide[open] > summary { margin-bottom: 10px; }
 .remote-guide > p { margin-bottom: 10px; }

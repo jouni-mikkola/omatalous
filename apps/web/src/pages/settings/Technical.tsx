@@ -65,7 +65,7 @@ export function Technical({ meta, params, anchor, onChange }: { meta: Meta; para
           </div>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="ruled">
             <thead>
               <tr>
                 <th>Aloitettu</th>

@@ -48,7 +48,7 @@ function Balances({ ctx }: SectionProps) {
       )}
       {table ? (
         <div className="table-wrap">
-          <table>
+          <table className="ruled">
             <thead>
               <tr>
                 <th>Kuukausi</th>

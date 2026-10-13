@@ -22,7 +22,7 @@ function Toggle({ id, label, open, onToggle }: Folding & { id: string; label: st
   );
 }
 
-/** The ends of the bracket: its first cap on the first theme, its last on the last row that is drawn before Yhteensä. */
+/** The ends of the bracket: its caps on the first and the last theme; an opened theme's lines are parts of that theme, so they stand in a gap. */
 const bracket = (adds: boolean, first: boolean, last: boolean) => (adds ? `${first ? " part-first" : ""}${last ? " part-last" : ""}` : "");
 
 /**
@@ -63,7 +63,7 @@ export function ThemesTable({ report, open, onToggle }: { report: NonNullable<Da
         <tbody className={view.adds ? "adds-up" : undefined}>
           {view.rows.map((row, i) => (
             <Fragment key={row.key}>
-              <tr className={`themes-row${bracket(view.adds, i === 0, i === view.rows.length - 1 && !(open.has(row.key) && row.lines.length > 0))}`}>
+              <tr className={`themes-row${bracket(view.adds, i === 0, i === view.rows.length - 1)}`}>
                 <th scope="row" className="st-cut" title={row.label}>
                   {row.toggle ? <Toggle id={row.key} label={row.label} open={open} onToggle={onToggle} /> : <span className="themes-plain">{row.href ? <a href={row.href}>{row.label}</a> : row.label}</span>}
                 </th>
@@ -73,13 +73,13 @@ export function ThemesTable({ report, open, onToggle }: { report: NonNullable<Da
                 {view.change && <td className="st-num themes-change">{row.change}</td>}
               </tr>
               {open.has(row.key) &&
-                row.lines.map((line, k) => (
-                  <tr className={`themes-line${bracket(view.adds, false, i === view.rows.length - 1 && k === row.lines.length - 1)}`} key={line.key}>
+                row.lines.map((line) => (
+                  <tr className="themes-line" key={line.key}>
                     <th scope="row" className="st-cut" title={line.label}>
                       {line.href ? <a href={line.href}>{line.label}</a> : line.label}
                     </th>
                     <td className="category-bar themes-bar" />
-                    <td className="st-num themes-month sum">{line.monthly}</td>
+                    <td className={`st-num themes-month${view.adds ? " sum-pad" : ""}`}>{line.monthly}</td>
                     {view.year && <td className="st-num themes-year">{line.year}</td>}
                     {view.change && <td className="st-num themes-change">{line.change}</td>}
                   </tr>

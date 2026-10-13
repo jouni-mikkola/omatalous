@@ -3,6 +3,22 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.22.0
+
+- Raportit, Lainat and Säästövinkit are drawn in the same measured look as the front page: ruled tables, readouts in one row, a bracket where the rows of a table add up to its total, and findings in frames with their euros in a column of their own.
+- Asetukset, the sign-in page and the first-start wizard follow the same look: ruled tables, forms of a readable width, a credit bar with a quarter scale, and the wizard's steps numbered in its title strip.
+- A large sum is typeset: the whole euros at full size, the cents and the unit smaller and quieter.
+- A sum bracket no longer runs past the rows of an opened category: it stands only beside the rows that add up to the total.
+
+Look
+
+- Asetukset: tables ruled like the other pages, hour buttons as keys, and the credit-limit bar is taller with a quarter scale.
+- The sign-in page, the first-run wizard and the loading, empty and error states follow the new look.
+- Raportit: the readouts, tables and tabs follow the new look, with column rules, and a bracket on a printed total only when the rows above it add up to the cent.
+- The Lainat report and the loans in Asetukset have the new look: totals as figures, a warning in its own box, each loan under a rule.
+- Säästövinkit: each finding sits in its own frame with the euros at the right, the situation figures use the new type, and the tone of an observation is a badge instead of a coloured edge.
+- Sums in large type now show their decimals and unit smaller on Yhteenveto, Laskut and Raportit, and the sum bracket of the category tables stops beside an opened theme's own lines.
+
 ## 0.21.0
 
 - The front page, Laskut and Tapahtumat are drawn as measured sheets: every panel has a title block, rows that add up to a printed total carry a bracket and a share mark, category bars stand under a ruler, and charts have tick marks and a drop line at the newest value. A mark is shown only when the figures behind it hold to the cent; otherwise it is left out.

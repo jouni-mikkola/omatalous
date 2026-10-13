@@ -32,7 +32,7 @@ test("Tilit shows how much of a card's limit is in use, as a line and a thin bar
   await expect(bar).toBeVisible();
   await expect(bar).not.toHaveClass(/over/);
   expect(await filled(bar)).toBeCloseTo(0.41, 2);
-  expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(4);
+  expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(8);
   // an account without a limit has no bar
   await expect(page.locator("#tilit .credit-bar")).toHaveCount(1);
 

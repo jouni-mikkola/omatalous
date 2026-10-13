@@ -298,7 +298,7 @@ export function BankConnections({
 
       {current.length > 0 ? (
         <div className="table-wrap">
-          <table className="conn-table" role="table">
+          <table className="conn-table ruled" role="table">
             <thead>
               <tr>
                 <th>Pankki</th>

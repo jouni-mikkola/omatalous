@@ -1,5 +1,6 @@
 // Decision: find the month a category jumped
 import { money, monthLabel, monthLong } from "../../../format.ts";
+import { addsUp } from "../../../marks.ts";
 import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -29,10 +30,12 @@ function Pivot({ ctx }: SectionProps) {
   const r = ctx.data.pivot;
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.averageCents !== null;
+  // the column of row totals is the part of the printed grand total: the bracket stands only when the rows add up to it
+  const sums = addsUp(r.rows.map((x) => x.totalCents), r.totalCents);
   return (
     <Section id={section.id} title={section.title} actions={<ExportLink href={ctx.exportHref("pivot")} />}>
       <div className="table-wrap pivot-wide">
-        <table className="heat-table">
+        <table className="heat-table ruled">
           <thead>
             <tr>
               <th>Kategoria</th>
@@ -46,18 +49,18 @@ function Pivot({ ctx }: SectionProps) {
               {hasAverage && <th className="num">Keskimäärin kuussa</th>}
             </tr>
           </thead>
-          <tbody>
-            {r.rows.map((row) => {
+          <tbody className={sums ? "adds-up" : undefined}>
+            {r.rows.map((row, ri) => {
               const levels = cellLevels(r, row);
               return (
-                <tr key={row.category}>
+                <tr key={row.category} className={sums ? `${ri === 0 ? "part-first" : ""} ${ri === r.rows.length - 1 ? "part-last" : ""}`.trim() || undefined : undefined}>
                   <td style={{ whiteSpace: "nowrap" }}>{row.label}</td>
                   {row.values.map((v, i) => (
                     <td key={i} className={`num cell heat-l${levels[i]}${r.complete[i] ? "" : " partial-cell"}`} title={`${row.label}, ${monthLong(r.months[i]!)}: ${money(v)}`}>
                       {v ? money(v, false) : ""}
                     </td>
                   ))}
-                  <td className="num">
+                  <td className={`num${sums ? " sum" : ""}`}>
                     <strong>{money(row.totalCents, false)}</strong>
                   </td>
                   {hasAverage && <td className="num">{row.averageCents === null ? "–" : money(row.averageCents, false)}</td>}
@@ -71,7 +74,7 @@ function Pivot({ ctx }: SectionProps) {
                   {money(v, false)}
                 </td>
               ))}
-              <td className="num">{money(r.totalCents, false)}</td>
+              <td className={`num${sums ? " sum-pad" : ""}`}>{money(r.totalCents, false)}</td>
               {hasAverage && <td className="num">{money(r.averageCents!, false)}</td>}
             </tr>
           </tbody>

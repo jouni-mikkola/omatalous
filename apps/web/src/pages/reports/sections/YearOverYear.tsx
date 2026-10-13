@@ -36,7 +36,7 @@ function YearOverYear({ ctx }: SectionProps) {
       {changes.length > 0 && (
         <>
           <h3 className="subhead">Suurimmat muutokset samasta jaksosta vuotta aiemmin</h3>
-          <table className="compact">
+          <table className="compact ruled">
             <tbody>
               {changes.map((c) => (
                 <tr key={c.category}>

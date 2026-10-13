@@ -9,8 +9,10 @@ import { money, signedMoney } from "../../format.ts";
 import { Section } from "../Section.tsx";
 import type { Changed } from "./shared.tsx";
 
-/** The tone shows as the card's left edge; screen readers get it as a word. */
+/** The tone shows as a badge with its word; the badge takes the colour of the tone. */
 const TONE: Record<Insight["tone"], string> = { good: "Hyvä", warning: "Huomio", info: "Tiedoksi" };
+
+const TONE_BADGE: Record<Insight["tone"], string> = { good: "good", warning: "warn", info: "" };
 
 /** A change of spending shows with its sign, any other figure as it is. */
 const figureOf = (i: Pick<Insight, "direction" | "yearlyCents">) => (i.direction ? signedMoney(i.direction * i.yearlyCents) : money(i.yearlyCents, false));
@@ -66,10 +68,10 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
       .finally(() => setBusy(false));
   };
   return (
-    <article className={`other ${i.tone}`} aria-labelledby={titleId}>
+    <article className="other" aria-labelledby={titleId}>
       <div className="finding-top">
         <div className="finding-main">
-          <span className="sr-only">{TONE[i.tone]}: </span>
+          <span className={`badge other-tone ${TONE_BADGE[i.tone]}`}>{TONE[i.tone]}</span>
           <p className="finding-title" id={titleId}>
             {i.title}
           </p>

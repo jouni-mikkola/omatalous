@@ -157,3 +157,21 @@ test("the sum bracket of the themes table paints no row and stands on Kuukaudess
   expect(Math.abs(cell!.x + cell!.width - (head!.x + head!.width)), "the bracket is on the right edge of Kuukaudessa").toBeLessThanOrEqual(2);
   await context.close();
 });
+
+test("the themes bracket stops at an opened theme's lines: a line's Kuukaudessa cell has no bracket line, the themes keep it", async ({ browser }) => {
+  const context = await administrator(browser);
+  const page = await context.newPage();
+  await page.goto("/#/overview");
+  const table = page.locator("table.themes-table");
+  await expect(table).toBeVisible();
+  const themes = table.locator("tbody.adds-up > tr.themes-row");
+  test.skip((await themes.count()) === 0, "the demo's themes do not add up to Yhteensä, so no bracket is drawn");
+  await themes.first().locator("button.themes-toggle").click();
+  const line = table.locator("tr.themes-line").first();
+  await expect(line).toBeVisible();
+  expect(await line.locator("td.themes-month").evaluate((el) => getComputedStyle(el).boxShadow), "a line of an opened theme is not a part of Yhteensä").toBe("none");
+  for (const theme of await themes.all()) {
+    expect(await theme.locator("td.sum").evaluate((el) => getComputedStyle(el).boxShadow), "a theme row keeps the line").not.toBe("none");
+  }
+  await context.close();
+});

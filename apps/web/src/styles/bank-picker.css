@@ -1,6 +1,6 @@
 /* The bank picker (components/BankPicker.tsx): a grid of plates, each the bank's logo or its name. */
 
-.bank-picker { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; background: var(--surface-2); }
+.bank-picker { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 12px; margin-bottom: 12px; background: var(--surface); }
 .bank-picker-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .bank-picker-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
 /* the heading takes the focus when the section opens, so the keyboard starts there: it is no control, so no ring */

@@ -41,7 +41,7 @@ function Cashflow({ ctx }: SectionProps) {
       {settled && <SurplusBridge totals={settled} title={`Tulojen käyttö${whole}`} />}
       {table ? (
         <div className="table-wrap">
-          <table>
+          <table className="ruled">
             <thead>
               <tr>
                 <th>Kuukausi</th>

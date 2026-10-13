@@ -20,7 +20,7 @@ function Drift({ ctx }: SectionProps) {
     <Section id={section.id} title={section.title} sub={`Tavallista kalliimpi kolme kuukautta peräkkäin, ${monthSpan(r.months)}`}>
       <p className="lead">{r.advice}</p>
       <div className="table-wrap">
-        <table>
+        <table className="ruled">
           <thead>
             <tr>
               <th>Kategoria</th>

@@ -116,7 +116,7 @@ export function Maintenance() {
           <div className="empty">{S.noEvents}</div>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="ruled">
               <thead>
                 <tr>
                   <th>Aika</th>

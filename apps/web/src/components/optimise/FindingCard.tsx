@@ -2,6 +2,7 @@
 import type { Finding, IsoDate } from "@banking/core";
 import { useId, useState } from "react";
 import { date, money } from "../../format.ts";
+import { Figure } from "../Figure.tsx";
 import type { Scope } from "../../types.ts";
 import { Evidence } from "./Evidence.tsx";
 import { FindingActions } from "./FindingActions.tsx";
@@ -28,11 +29,11 @@ export function FindingCard({ finding: f, today, scope, onChanged }: { finding: 
         <div className="finding-money">
           {f.euros ? (
             <>
-              <strong className="finding-euros">{money(f.euros.midCents, false)} vuodessa</strong>
+              <strong className="finding-euros"><Figure text={`${money(f.euros.midCents, false)} vuodessa`} size="s" /></strong>
               {range && <span className="finding-range">Vaihteluväli {range}</span>}
             </>
           ) : (
-            <strong className="finding-euros">Määräaika {date(f.decideBy)}</strong>
+            <strong className="finding-euros"><Figure text={`Määräaika ${date(f.decideBy)}`} size="s" /></strong>
           )}
         </div>
       </div>
