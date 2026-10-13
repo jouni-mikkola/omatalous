@@ -3,6 +3,14 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.34.0
+
+- Nothing changes in the app or for an install. For developers: the release workflow can now also build and smoke test a release's images ahead of time, on a branch `candidate/X.Y.Z-...`; such a run signs, tags and releases nothing.
+
+For developers
+
+- The release workflow also runs on a branch `candidate/X.Y.Z-...`: it builds both images, smoke tests them and records their digests, and signs, tags and releases nothing. A push to `main` still builds, signs and releases in one run.
+
 ## 0.33.0
 
 - Tapahtumat: a category you open to change is as wide as the name it shows, so the row stays where it was.

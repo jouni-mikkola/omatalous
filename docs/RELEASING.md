@@ -50,6 +50,10 @@ image, no signature, no GitHub release. `publish` and `release` need `verify`, b
 the build, which runs beside `verify`, pushes by digest only. A fault of the runner or the network is repeated with
 *Re-run failed jobs*, which keeps the push and the jobs that passed; a fault in the code is fixed in a new commit.
 
+The images of a release can be built and smoke tested ahead, by a run of the release workflow on a branch
+`candidate/X.Y.Z-...` that holds the exact commit `main` later moves to. That run signs nothing and gives the images no
+tag. Until the promotion half lands, the run on `main` builds its own.
+
 The rehearsal is Actions, Release, *Run workflow* on `main` with `dry_run` ticked. The jobs `plan`, `verify`
 and `dry-run` run, the last on both runners beside `verify`: the images are built into each runner's own Docker
 and smoke tested there, and nothing is pushed, signed or released. `build`, `smoke`, `publish` and `release` are skipped.
