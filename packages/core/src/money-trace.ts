@@ -60,6 +60,8 @@ export interface RowParts {
   what: "in" | "one" | "all" | "pool";
   /** The person a `one` row was for. */
   to?: Owner;
+  /** A refund of a `one` row: the person the refunded row was for. What it gives back is what that row took. */
+  refundFor?: Owner;
   pending?: true;
   /** Positive cents that add up to the row, in the order of the parts. */
   parts: SourcePart[];
@@ -476,7 +478,9 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
     const rec = recs.get(r.key)!;
     const what = r.cents >= 0 ? "in" : r.to === "pool" ? "pool" : typeof r.to === "object" ? "one" : "all";
     const parts = [...rec.parts].sort(byPart).map((p): SourcePart => ({ owner: p.owner, kind: p.kind, cents: p.cents, ...(p.passed ? { passed: true as const } : {}) }));
-    return { key: r.key, ids: r.ids, day: r.day, cents: r.cents, what, ...(typeof r.to === "object" ? { to: r.to.owner } : {}), ...(r.pending ? { pending: true as const } : {}), parts };
+    const refunded = typeof r.from === "object" && "refundOf" in r.from ? byKey.get(r.from.refundOf) : undefined;
+    const refundFor = r.cents > 0 && refunded && refunded.cents < 0 && !refunded.unmatched && typeof refunded.to === "object" ? refunded.to.owner : undefined;
+    return { key: r.key, ids: r.ids, day: r.day, cents: r.cents, what, ...(typeof r.to === "object" ? { to: r.to.owner } : {}), ...(refundFor !== undefined ? { refundFor } : {}), ...(r.pending ? { pending: true as const } : {}), parts };
   });
   const lots = [...[...buckets.values()].flatMap((b) => b.lots.slice(b.head, b.tail)), ...[...kept.values()].flat()]
     .filter((l) => l.cents > 0)

@@ -6,6 +6,7 @@ import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registration
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
+import { accountSources } from "../services/account-sources.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
@@ -264,6 +265,9 @@ export function financeRoutes(s: Services) {
     await takeBackAnswer(s, await ownKey(s, user.id, c.req.param("id")), kind, key);
     return c.json({ ok: true });
   });
+
+  // what each member paid in, bore and moved, month by month, for a member who sees the account
+  app.get("/accounts/:id/sources", async (c) => c.json(await accountSources(s, c.get("user").id, c.req.param("id"))));
 
   // the members the use names who cannot see the account: asked by who linked it
   app.get("/accounts/:id/use/suggestion", async (c) => c.json(await suggestAccountUse(s, c.get("user").id, c.req.param("id"))));

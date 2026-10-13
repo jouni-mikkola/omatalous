@@ -210,11 +210,15 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
 
   // the first money out of every payee: money back is a payee the pool has paid before
   const firstPaid = new Map<string, number>();
+  const paidTo = new Map<string, { key: string; day: number }[]>();
   for (const r of booked) {
     const name = fold((r.tx.counterparty ?? "").trim());
     if (r.tx.amountCents >= 0 || !name) continue;
     const day = dayNumber(r.tx.bookingDate);
     if (day < (firstPaid.get(name) ?? Infinity)) firstPaid.set(name, day);
+    const list = paidTo.get(name);
+    if (list) list.push({ key: r.key, day });
+    else paidTo.set(name, [{ key: r.key, day }]);
   }
 
   type Source = TraceRow["from"];
@@ -276,7 +280,19 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     const purchase = returns.get(UNSEEN + r.key);
     if (purchase !== undefined) return { ...base, from: { refundOf: purchase.slice(1) }, group };
     const name = fold((tx.counterparty ?? "").trim());
-    if (name && tx.status !== "pending" && (firstPaid.get(name) ?? Infinity) <= day) return { ...base, from: "back", group };
+    if (name && tx.status !== "pending" && (firstPaid.get(name) ?? Infinity) <= day) {
+      // a payee the pool paid only in rows for one and the same person gives back what the latest of them took; rows for
+      // different persons cannot say whose the money is, and it stays back by the mix
+      const before = (paidTo.get(name) ?? []).filter((p) => p.day <= day);
+      const latest = before.reduce<{ key: string; day: number } | undefined>((a, p) => (!a || p.day > a.day || (p.day === a.day && cmp(p.key, a.key) > 0) ? p : a), undefined);
+      const forOne = (p: { key: string }) => {
+        const to = outs.get(p.key);
+        const first = outs.get(before[0]!.key);
+        return typeof to === "object" && typeof first === "object" && to.owner === first.owner;
+      };
+      if (latest && before.every(forOne)) return { ...base, from: { refundOf: latest.key }, group };
+      return { ...base, from: "back", group };
+    }
     return { ...base, group };
   });
 }

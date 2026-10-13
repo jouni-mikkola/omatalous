@@ -54,3 +54,4 @@ export * from "./loan-intake/index.ts";
 export * from "./money-trace.ts";
 export * from "./money-trace-answers.ts";
 export * from "./money-trace-rows.ts";
+export * from "./money-sources.ts";

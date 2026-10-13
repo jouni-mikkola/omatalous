@@ -3,6 +3,15 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.40.0
+
+- Under a joint account in Asetukset > Tilit, "Maksut ja menot kuukausittain" shows month by month what each of you paid in, which costs each of you bore, what was moved away and whose money is left. Each figure opens that month's rows of the account in Tapahtumat.
+- Money that comes back from a payee the joint account paid only for one person, such as a card company returning part of that person's card bill, is taken off that person's transfers and not off the shared costs.
+
+Money and reports
+
+- Under a joint account in Asetukset > Tilit, "Maksut ja menot kuukausittain" shows for each month what each of you paid in, bore of the costs and moved away, what each took of the other's money, and what is left of whose. Each figure opens the account's rows of that month in Tapahtumat; the newest three months are open. A holder of the account who has no login of their own has a column too, and a refund of money moved to a member's own account comes off what it was counted in, not off the costs.
+
 ## 0.39.0
 
 - A joint account can now be cut by who paid into it: a bill paid from it is the cost of the one whose money was in the account, money the other takes out is a transfer, and each member's spending, balance and lists follow that. Asetukset > Tilit offers the three ways to cut a joint account: by who paid, equally, or by percents.

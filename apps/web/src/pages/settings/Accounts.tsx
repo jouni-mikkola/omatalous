@@ -11,6 +11,7 @@ import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, parseEuros } from 
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 import { isJoint, namesOther, optionsOf } from "./account-use.ts";
+import { AccountSources, hasSources } from "./AccountSources.tsx";
 import { UseParts, UseSelect } from "./AccountUse.tsx";
 
 // a bank-linked account comes back at the next link, so only an earlier CSV import or a demo one can be removed
@@ -170,6 +171,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                     </td>
                   </tr>
                 ),
+                hasSources(a) && <AccountSources key={`${a.id}-sources`} account={a} meta={meta} />,
                 editing === a.id && (
                   <tr key={`${a.id}-edit`} className="edit-row">
                     <td colSpan={5}>
