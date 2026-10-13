@@ -31,6 +31,22 @@ describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
     expect(lost.stdout).not.toMatch(/answer for .*\/api\/dashboard/);
   }, 180_000);
 
+  it("a failed answer gives the page the server's error, and a held answer leaves it loading without waiting for it to go quiet", () => {
+    const answers = join(tmp, "answers-fail.mjs");
+    const text = join(tmp, "text.txt");
+    const look = join(tmp, "steps-text.mjs");
+    writeFileSync(look, `import { writeFileSync } from "node:fs";\nexport default async (page) => writeFileSync(${JSON.stringify(text)}, await page.locator("body").innerText());\n`);
+    writeFileSync(answers, `export default { "/api/dashboard": { fail: { status: 500, body: { error: "Esimerkkivirhe." } } } };\n`);
+    const failed = run("overview", "--demo", "--widths", "390", "--answers", answers, "--steps", look);
+    expect(failed.status, failed.stdout + failed.stderr).toBe(0);
+    expect(readFileSync(text, "utf8")).toContain("Esimerkkivirhe.");
+
+    writeFileSync(answers, `export default { "/api/dashboard": { hold: true } };\n`);
+    const held = run("overview", "--demo", "--widths", "390", "--answers", answers, "--steps", look);
+    expect(held.status, held.stdout + held.stderr).toBe(0);
+    expect(readFileSync(text, "utf8")).not.toMatch(/Esimerkkivirhe|epäonnistui/);
+  }, 180_000);
+
   it("runs the steps for every route and width after the page has loaded, and sets the scope before it loads", () => {
     const r = run("overview", "settings", "--demo", "--widths", "700,390", "--steps", steps, "--scope", "household", "--name", "s");
     expect(r.status, r.stdout + r.stderr).toBe(0);

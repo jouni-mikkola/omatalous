@@ -73,7 +73,8 @@
   .filter-panel .btn { grid-column: 1 / -1; justify-self: start; }
 
   .tx-card { padding: 12px 14px; }
-  .tx-head { margin-bottom: 4px; }
+  /* the card here is padded 12 px 14 px, so its head is pulled out by that and not by --pad */
+  .tx-head { margin: -12px -14px 4px; }
   .tx-head .form-row { margin: 6px 0 0; }
   .tx-day h3 { margin: 12px 0 0; padding-bottom: 4px; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--axis); }
   .tx-day:first-child h3 { margin-top: 8px; }

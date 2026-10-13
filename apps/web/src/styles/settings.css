@@ -64,10 +64,11 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .setup-steps ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .copyable { cursor: copy; overflow-wrap: anywhere; }
 .eb-label { color: var(--muted); }
-.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.9rem; color: var(--muted); }
-.checklist li::before { content: "○ "; }
+.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--fs-ui); color: var(--muted); }
+/* a square, not a ring: a ring on Yhteenveto means an estimate, and here nothing can be pressed */
+.checklist li::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border: 1px solid var(--axis); box-sizing: border-box; }
 .checklist li.done { color: var(--text); }
-.checklist li.done::before { content: "✓ "; color: var(--good, currentColor); }
+.checklist li.done::before { background: var(--good); border-color: var(--good); }
 .bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 10px 12px; }
 .bank-app-status code { overflow-wrap: anywhere; }
 

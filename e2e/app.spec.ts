@@ -635,6 +635,8 @@ test("sign out and back in", async ({ page }) => {
   await page.getByLabel("Salasana").fill("väärä-salasana-1234");
   await page.getByRole("button", { name: "Kirjaudu" }).click();
   await expect(page.getByText("Väärä käyttäjätunnus tai salasana.")).toBeVisible();
+  await expect(page.getByLabel("Käyttäjätunnus")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("Salasana")).toHaveAttribute("aria-invalid", "true");
   await page.getByLabel("Salasana").fill(ADMIN.password);
   await page.getByRole("button", { name: "Kirjaudu" }).click();
   await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();

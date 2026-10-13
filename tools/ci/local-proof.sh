@@ -3,7 +3,9 @@
 # What the Docker job of CI and the upgrade workflow prove, on this machine, as one command and with no billed minute:
 #
 #   tools/ci/local-proof.sh [--all] [--jobs N] BASELINES     prove the commit that is checked out
-#   tools/ci/local-proof.sh --proved [--all] BASELINES       exit 0 when that commit is proved already; runs nothing
+#   tools/ci/local-proof.sh --proved [--all] [--commit SHA] BASELINES
+#                                                            exit 0 when that commit (SHA, else the one checked out) is proved
+#                                                            already, from its baselines too; runs nothing. The one reader of the stamp
 #
 # BASELINES is the list of upgrade baselines: a file of the repository with one ref a line, the oldest first, which
 # the upgrade workflow reads too. It is read from the commit, like everything else: the legs run in a fresh clone of
@@ -47,6 +49,7 @@
 # so. At the end the failed ones are named with their logs and the exit code is 1.
 # Exit 2 means it refused before it ran anything. A commit that passed gets a stamp in the git folder, with the baselines it was proved
 # from, and the next run for the same commit ends at once (remove the file `local-proof` there to run it again).
+# The folder is the repository's common git dir, so the stamp of one worktree is read by the others.
 #
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
 # the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/. Otherwise the
@@ -82,11 +85,12 @@ ALL=0
 jobs_are() { [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "$1 needs a number from 1 to 99."; JOBS=$2; }
 PROVED=0
 LIST=''
+COMMIT=''
 PROOF_USER=${PROOF_USER:-1}
 DRILL_USER=${PROOF_DRILL_USER:-2}
 # what an update runs through: a change here since the last release is proved from every baseline
 PATHS=(apps/server/migrations scripts 'docker-compose*.yml' Dockerfile tools/ci)
-USAGE="usage: local-proof.sh [--all] [--jobs N] BASELINES, or --proved [--all] BASELINES"
+USAGE="usage: local-proof.sh [--all] [--jobs N] BASELINES, or --proved [--all] [--commit SHA] BASELINES"
 # a rehearsal takes these from the lane it runs in and from nowhere else
 unset UPGRADE_PORT UPGRADE_PROJECT UPGRADE_WORK UPGRADE_KEEP_UP UPGRADE_UNTIL DRILLS_ONLY
 
@@ -97,6 +101,7 @@ while (($#)); do
   case $1 in
     --all) ALL=1 ;;
     --proved) PROVED=1 ;;
+    --commit) [[ -n ${2:-} ]] || refuse "--commit needs a commit."; COMMIT=$2; shift ;;
     --jobs) jobs_are --jobs "${2:-}"; shift ;;
     -h | --help) sed -n '2,/^set /{/^#/p}' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) refuse "Unknown option: $1 ($USAGE)" ;;
@@ -105,11 +110,13 @@ while (($#)); do
   shift
 done
 [[ -n $LIST ]] || refuse "Which list of baselines? ($USAGE)"
+((PROVED)) || [[ -z $COMMIT ]] || refuse "--commit goes with --proved."
 
 cd "$ROOT" || exit 2
-SHA=$(git rev-parse --verify -q HEAD) || refuse "$ROOT is not a git checkout with a commit."
+git rev-parse --git-dir >/dev/null 2>&1 || refuse "$ROOT is not a git checkout."
+SHA=$(git rev-parse --verify -q "${COMMIT:-HEAD}^{commit}") || refuse "${COMMIT:-HEAD} is not a commit of $ROOT."
 SHORT=${SHA:0:7}
-STAMP=$(git rev-parse --git-path local-proof)
+STAMP=$(cd "$(git rev-parse --git-common-dir)" && pwd)/local-proof # the common git dir: every worktree of the repository reads it
 TEXT=$(git show "$SHA:$LIST" 2>/dev/null) || refuse "$LIST is not a file of the commit $SHORT (name it from the root of the repository)."
 
 # pick_baselines TEXT: the baselines this proof runs, into PICK in the order of the list, and why into WHY. The one
@@ -163,7 +170,7 @@ if ((PROVED)); then
   exit 1
 fi
 if proved; then
-  echo "local proof: $SHORT is proved already from ${PICK[*]} (the stamp is $STAMP). Nothing ran."
+  echo "local proof: $SHORT is proved already from ${PICK[*]} (the stamp is ${STAMP#"$ROOT"/}). Nothing ran."
   exit 0
 fi
 

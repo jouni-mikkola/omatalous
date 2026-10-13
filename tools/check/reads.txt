@@ -8,14 +8,14 @@
 
 # tools/ci/shell-lint.sh lints scripts/**/*.sh, tools/*.sh, tools/*/*.sh and .claude/hooks/*.sh, and reads the shellcheck
 # settings and the libraries a script sources (they are scripts too)
-lint: scripts tools/*.sh .claude/hooks .shellcheckrc
+lint: scripts tools/*.sh .claude/hooks *.shellcheckrc
 
 # `env: NAME NAME ...` is no step: the environment variables a test reads that can change what it runs or what it accepts
-# (how many seeds, whether a browser is used, which contract file is rewritten). The value of each, an unset one as empty,
+# (how many seeds, whether a browser is used, which contract file is rewritten). The value of each, an unset one told from an empty one,
 # is in every key. The variables only a debug print reads (ISLAND_DEBUG, INCREMENTAL_DEBUG), the ones `pnpm e2e` sets for
 # the page specs (E2E_BASE_URL, E2E_DIR, E2E_FAKE_BANK) and PATH (which tool is found: node's version is in the key already)
 # are left out. The cut's shares change how fast the page tests run, not what they find. E2E_WORKERS is in: it decides which
-# spec files share a server. So are the time zone and the names the app reads (instance name, session and history days,
+# spec files share a server. So are the time zone and some names the app reads (instance name, session and history days,
 # password iterations, proxy and Cloudflare Access settings: the page server takes the caller's whole environment). The page tests
 # (step e2e, no line here: the whole tree) add the names of the installed Chromium folders; a run with SHOTS_DIR, E2E_SHOTS
 # or FAKE_BANK_PORT, NODE_ENV, PWDEBUG or PW_TEST_CONNECT_WS_ENDPOINT set, or with any argument, reads and writes no stamp.

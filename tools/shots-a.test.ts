@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { answerTable, applyLook, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
+import { answerTable, applyLook, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, ROOT } from "./shots-kit.ts";
 
 describe("pnpm shots arguments", () => {
@@ -106,6 +106,12 @@ describe("pnpm shots look", () => {
   });
 });
 
+describe("pnpm shots picture", () => {
+  it("is taken with finite animations run to their end, so a change of look is not caught half way", () => {
+    expect(pictureOptions("/x/a.png")).toEqual({ path: "/x/a.png", fullPage: true, animations: "disabled" });
+  });
+});
+
 describe("pnpm shots modules", () => {
   it("takes the answers of an object of functions on paths of the API and says which part is wrong", () => {
     const change = () => ({});
@@ -115,6 +121,19 @@ describe("pnpm shots modules", () => {
     expect(() => answerTable({ default: { dashboard: change } }, "a.mjs")).toThrow(/a\.mjs: "dashboard" is no path/);
     expect(() => answerTable({ default: { "/api/dashboard?from=2026-01-01": change } })).toThrow(/is no path/);
     expect(() => answerTable({ default: { "/api/dashboard": { totals: 1 } } })).toThrow(/function from the answer/);
+  });
+
+  it("takes a failed answer with a status and the server's error body, and a held answer", () => {
+    const failed = { fail: { status: 503, body: { error: "Palvelin ei vastaa." } } };
+    expect(answerTable({ default: { "/api/dashboard": failed, "/api/meta": { hold: true } } })).toEqual({ "/api/dashboard": failed, "/api/meta": { hold: true } });
+    // near misses: a status that is no error, no body, a body that is no object, a hold that is not true
+    expect(() => answerTable({ default: { "/api/dashboard": { fail: { status: 200, body: {} } } } })).toThrow(/status from 400 to 599/);
+    expect(() => answerTable({ default: { "/api/dashboard": { fail: { status: 600, body: {} } } } })).toThrow(/status from 400 to 599/);
+    expect(() => answerTable({ default: { "/api/dashboard": { fail: { status: 500 } } } })).toThrow(/takes the body/);
+    expect(() => answerTable({ default: { "/api/dashboard": { fail: { status: 500, body: "x" } } } })).toThrow(/takes the body/);
+    expect(() => answerTable({ default: { "/api/dashboard": { hold: false } } })).toThrow(/hold: true/);
+    expect(USAGE).toMatch(/fail: \{ status/);
+    expect(USAGE).toMatch(/hold: true/);
   });
 
   it("takes a function as the steps and refuses anything else", () => {

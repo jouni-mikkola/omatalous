@@ -83,7 +83,7 @@ export function WizardDone({ current, finishing, onBack, onFinish }: { current: 
           Takaisin
         </button>
         <span className="spacer" />
-        <button className="btn" type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => onFinish("overview")}>
+        <button className={current.bankApp.source ? "btn" : "btn btn-primary"} type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => onFinish("overview")}>
           Siirry sovellukseen
         </button>
         {current.bankApp.source && (

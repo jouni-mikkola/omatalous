@@ -450,6 +450,20 @@ t_stamps_a_part_or_suite_with_a_skipped_test_has_no_stamp() {
   check "stamps: near miss: with the skip gone the part is stamped" test -d "$SD/tests:core"
 }
 
+# the local day is in every key: a test that depends on today is not a hit on another day (date +%F is faked, date otherwise is real)
+t_stamps_a_stamp_is_a_hit_on_its_own_day_only() {
+  stamp_world
+  printf '#!/usr/bin/env bash
+if [[ ${1:-} == +%%F ]]; then cat "%s/day"; else exec /usr/bin/date "$@"; fi
+' "$BIN" >"$BIN/date"; chmod +x "$BIN/date"
+  echo 2031-01-01 >"$BIN/day"; srun
+  check "stamps: the first run ran everything" test "$(ranlog)" = "$ALL_RAN"
+  srun
+  check "stamps: near miss: the same day takes all from stamps" test "$(ranlog)" = "$RULES_RAN"
+  echo 2031-01-02 >"$BIN/day"; srun
+  check "stamps: the next day runs every step again" test "$(ranlog)" = "$ALL_RAN"
+}
+
 t_stamps_a_variable_the_tests_read_is_in_the_key() {
   stamp_world; srun
   srun ISLAND_SEEDS=1
@@ -459,7 +473,9 @@ t_stamps_a_variable_the_tests_read_is_in_the_key() {
   srun INCREMENTAL_SEEDS=1 UPDATE_CONTRACT=1
   check "stamps: also INCREMENTAL_SEEDS and UPDATE_CONTRACT" test "$(ranlog)" = "$ALL_RAN"
   srun ISLAND_SEEDS=
-  check "stamps: near miss: a variable that is set and empty is an unset one: the plain stamps" test "$(ranlog)" = "$RULES_RAN"
+  check "stamps: a variable that is set and empty is not an unset one: it takes nothing from the plain stamps" test "$(ranlog)" = "$ALL_RAN"
+  srun ISLAND_SEEDS=
+  check "stamps: but takes its own, the second time" test "$(ranlog)" = "$RULES_RAN"
   srun SOME_OTHER_VARIABLE=1
   check "stamps: and a variable no test reads is in no key" test "$(ranlog)" = "$RULES_RAN"
 }

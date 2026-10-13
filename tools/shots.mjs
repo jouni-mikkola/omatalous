@@ -27,6 +27,7 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
                    an ESIMERKKIPANKKI card with a 3 000 EUR limit and its bill. With --demo the demo's accounts are there as well
   --answers f.mjs  default export { "/api/dashboard": (answer) => changed answer }: the page shows the changed answer, so a state no
                    household has can be shown. Fails when nothing asked for a path. Example: tools/shots-examples/answers.mjs
+                   Or { fail: { status: 503, body: { error: "..." } } } (the server's error) or { hold: true } (never answered: loading)
   --steps f.mjs    default export async (page, route) => {}, run for every picture after the page has loaded, before the picture
                    (open a row, pick a month, switch a view). Example: tools/shots-examples/steps.mjs
   --scope own|household
@@ -42,6 +43,8 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --name label     in the file names: <route>-<label>-<width>.png, so that two states do not overwrite each other
   --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
 Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
+
+/** @typedef {((answer: any) => unknown) | { fail: { status: number, body: object } } | { hold: true }} AnswerSpec */
 
 /**
  * @typedef {{ help: boolean, routes: string[], widths: number[], demo: boolean, fakeBank: boolean, answers: string | null,
@@ -115,17 +118,27 @@ export function shotName(/** @type {string} */ route, /** @type {string | null} 
 
 /**
  * The paths of the API and what changes their answers, from the default export of an `--answers` module.
+ * A value is a function from the answer to the one to show, `{ fail: { status, body } }` (an error answer) or `{ hold: true }`.
  * @param {unknown} mod
- * @returns {Record<string, (answer: any) => unknown>}
+ * @returns {Record<string, AnswerSpec>}
  */
 export function answerTable(mod, file = "the answers module") {
   const table = /** @type {{ default?: unknown }} */ (mod)?.default;
   if (!table || typeof table !== "object" || Array.isArray(table)) throw new Error(`${file}: the default export is an object from an API path to a function, like { "/api/dashboard": (answer) => answer }`);
   for (const [path, change] of Object.entries(table)) {
     if (!/^\/api\/[\w/.-]+$/.test(path)) throw new Error(`${file}: "${path}" is no path of the API (like /api/dashboard, without the query)`);
-    if (typeof change !== "function") throw new Error(`${file}: the value of ${path} is a function from the answer to the answer to show`);
+    if (typeof change === "function") continue;
+    const spec = /** @type {any} */ (change);
+    const failing = spec && typeof spec === "object" && "fail" in spec;
+    if (failing) {
+      const { status, body } = spec.fail ?? {};
+      if (!Number.isInteger(status) || status < 400 || status > 599) throw new Error(`${file}: fail of ${path} takes a status from 400 to 599, like { fail: { status: 503, body: { error: "..." } } }`);
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error(`${file}: fail of ${path} takes the body the server sends, an object like { error: "..." }`);
+    } else if (!(spec && typeof spec === "object" && spec.hold === true)) {
+      throw new Error(`${file}: the value of ${path} is a function from the answer to the answer to show, { fail: { status, body } } or { hold: true }`);
+    }
   }
-  return /** @type {Record<string, (answer: any) => unknown>} */ (table);
+  return /** @type {Record<string, AnswerSpec>} */ (table);
 }
 
 /**
@@ -162,8 +175,18 @@ export function applyLook(/** @type {"night" | "light"} */ look) {
   else root.removeAttribute("data-look");
 }
 
-/** Waits for the page to stop loading: the requests are done and the "Ladataan…" text is gone. */
-async function settle(/** @type {import("@playwright/test").Page} */ page) {
+/** How a picture is taken: finite animations and transitions are run to their end (a button that is moving from one look to the other is not a state), infinite ones stand at their start. */
+export function pictureOptions(/** @type {string} */ path) {
+  return { path, fullPage: true, animations: /** @type {const} */ ("disabled") };
+}
+
+/** Waits for the page to stop loading: the requests are done and the "Ladataan…" text is gone; with a held answer, until the page has asked for it and drawn what it draws meanwhile. */
+async function settle(/** @type {import("@playwright/test").Page} */ page, held = () => 0, wanted = 0) {
+  if (wanted) {
+    await page.waitForLoadState("load");
+    for (let i = 0; i < 150 && held() < wanted; i++) await page.waitForTimeout(100);
+    return void (await page.waitForTimeout(500));
+  }
   await page.waitForLoadState("networkidle");
   await page.getByText("Ladataan…").waitFor({ state: "detached", timeout: 15_000 }).catch(() => {});
 }
@@ -235,6 +258,8 @@ async function main() {
       }
     }
     if (o.scope) await setScope(context, user.id, o.scope);
+    const holding = Object.values(answers ?? {}).filter((c) => typeof c !== "function" && "hold" in c).length;
+    let heldAsks = 0;
     /** The paths whose answer was changed at least once. */
     const changed = new Set();
     if (answers) {
@@ -242,6 +267,12 @@ async function main() {
         const path = new URL(route.request().url()).pathname;
         const change = Object.hasOwn(answers, path) ? answers[path] : undefined;
         if (!change) return route.fallback();
+        if (typeof change !== "function") {
+          changed.add(path);
+          // a held answer is left pending: the page closes with the picture
+          if ("hold" in change) heldAsks++;
+          return "hold" in change ? undefined : route.fulfill({ status: change.fail.status, json: change.fail.body });
+        }
         const response = await route.fetch();
         const answer = await response.json().catch(() => undefined);
         if (answer === undefined) return route.fulfill({ response });
@@ -253,15 +284,18 @@ async function main() {
       for (const width of o.widths) {
         const page = await context.newPage();
         await page.setViewportSize({ width, height: 900 });
+        heldAsks = 0;
         await page.goto(`/#/${route}`);
-        await settle(page);
+        await settle(page, () => heldAsks, holding);
         if (o.look) await page.evaluate(applyLook, o.look);
         if (steps) {
           await steps(page, route);
-          await settle(page);
+          await settle(page, () => heldAsks, holding);
         }
         const file = join(out, shotName(route, o.name, width));
-        await page.screenshot({ path: file, fullPage: true });
+        // a click in a step leaves the pointer on its key, and a key under the pointer is drawn in its hover colour
+        await page.mouse.move(0, 0);
+        await page.screenshot(pictureOptions(file));
         const m = await page.evaluate(() => ({
           over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           tables: Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length,

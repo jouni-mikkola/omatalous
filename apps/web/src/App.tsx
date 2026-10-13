@@ -10,6 +10,7 @@ import { date } from "./format.ts";
 import { navigate, useApi, useHashRoute } from "./hooks.ts";
 import { SETTINGS, visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
+import { ErrorCard } from "./components/ErrorCard.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
 import { Bills } from "./pages/Bills.tsx";
 import { ChangePassword, Login, Setup } from "./pages/Auth.tsx";
@@ -126,12 +127,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
     return (
       <div className="app">
         {meta.error ? (
-          <div className="card error" style={{ marginTop: 24 }}>
-            {meta.error}{" "}
-            <button className="btn btn-small" type="button" onClick={reloadMeta}>
-              Yritä uudelleen
-            </button>
-          </div>
+          <ErrorCard message={meta.error} onRetry={reloadMeta} />
         ) : (
           <div className="empty" role="status">Ladataan…</div>
         )}

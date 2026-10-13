@@ -51,11 +51,11 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
       <form className="auth-form" onSubmit={submit}>
         <label>
           Käyttäjätunnus
-          <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
+          <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} aria-invalid={error ? true : undefined} required autoFocus />
         </label>
         <label>
           Salasana
-          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={error ? true : undefined} required />
         </label>
         {error && <div className="error">{error}</div>}
         <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>

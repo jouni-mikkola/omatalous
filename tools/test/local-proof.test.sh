@@ -445,6 +445,9 @@ cp "$R/baselines.txt" "$R/loose.txt"
 refused "a list that is only in the working tree" "loose.txt is not a file of the commit" proof loose.txt
 rm "$R/loose.txt"
 refused "a list with no ref" "empty.txt names no baseline" proof empty.txt
+refused "--commit with an empty value" "--commit needs a commit" proof --proved --commit "" baselines.txt
+refused "--commit as the last word" "--commit needs a commit" proof --proved baselines.txt --commit
+refused "--commit with a word that is no commit" "nonsense is not a commit of" proof --proved --commit nonsense baselines.txt
 refused "an unknown option" "Unknown option: --fast" proof --fast baselines.txt
 refused "--jobs 0" "--jobs needs a number from 1 to 99" proof --jobs 0 baselines.txt
 refused "--jobs with a word" "--jobs needs a number from 1 to 99" proof --jobs many baselines.txt
@@ -497,7 +500,7 @@ echo y >"$TMP/wt/docs/y.md"; commit "$TMP/wt" "on no branch"
 out=$(cd "$TMP" && TMPDIR=$TMP/work PATH=$BIN:$PATH "$TMP/wt/tools/ci/local-proof.sh" baselines.txt 2>&1); rc=$?
 check "a commit on no branch, in a linked worktree, is proved" test $rc -eq 0
 has "its legs ran" "$out" "ok      drills 3, 4, 7, 8 ("
-check "the stamp is the worktree's own" test "$(head -1 "$R/.git/worktrees/wt/local-proof" 2>/dev/null)" = "$(git -C "$TMP/wt" rev-parse HEAD)" -a -z "$(stamp)"
+check "the stamp is in the common git dir, where every worktree reads it" test "$(head -1 "$R/.git/local-proof" 2>/dev/null)" = "$(git -C "$TMP/wt" rev-parse HEAD)" -a ! -e "$R/.git/worktrees/wt/local-proof"
 
 # ── the rehearsal: a port and a project of its own ──
 U=$TMP/up

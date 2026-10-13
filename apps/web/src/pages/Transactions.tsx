@@ -2,6 +2,7 @@ import { UNKNOWN_MERCHANT } from "@banking/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
+import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Loading } from "../components/Loading.tsx";
 import { FilterChip } from "../components/FilterChip.tsx";
 import { DateFilter, FilterToggle, SearchBox } from "../components/FilterInputs.tsx";
@@ -230,7 +231,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   });
 
   return (
-    <div className="stack">
+    <div className="stack tx-page">
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} categoryLabel={categoryLabel} />}
       {!filters.merchant && !filters.q && (
         <Uncategorised
@@ -260,119 +261,124 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         )}
       </div>
 
-      <div className={`card tx-card ${loading ? "loading" : ""}`}>
-        {/* a wide screen gets the title block: the name and the tools; a phone has only the summary, the name is for readers */}
-        <div className={`card-head tx-head ${phone ? "" : "tb"}`}>
-          {phone ? <h2 className="sr-only">Tapahtumat</h2> : <div className="card-name"><h2>Tapahtumat</h2></div>}
+      {error && !data ? (
+        <ErrorCard message={error} onRetry={reload} />
+      ) : (
+        <div className={`card tx-card ${loading ? "loading" : ""}`}>
+          {/* a wide screen gets the title block: the name and the tools; a phone has the name for readers, and a head only when it has a tool */}
+          {phone && <h2 className="sr-only">Tapahtumat</h2>}
           {(anyOwn || !phone) && (
-            <div className={phone ? undefined : "card-tool"}>
-              <div className="form-row" style={{ margin: 0 }}>
-                {anyOwn && (
-                  <label>
-                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Sama kategoria kauppiaan muille tapahtumille
-                  </label>
-                )}
-                {!phone && csv}
+            <div className={`card-head tx-head ${phone ? "" : "tb"}`}>
+              {!phone && <div className="card-name"><h2>Tapahtumat</h2></div>}
+              <div className={phone ? undefined : "card-tool"}>
+                <div className="form-row" style={{ margin: 0 }}>
+                  {anyOwn && (
+                    <label>
+                      <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Sama kategoria kauppiaan muille tapahtumille
+                    </label>
+                  )}
+                  {!phone && csv}
+                </div>
               </div>
             </div>
           )}
-        </div>
-        {facts.length > 0 && <Facts facts={facts} />}
-        {error && (
-          <div className="error" role="alert">
-            {error}{" "}
-            <button className="btn btn-small" type="button" onClick={reload}>
-              Yritä uudelleen
-            </button>
-          </div>
-        )}
-        {/* on a phone this floats at the bottom of the screen: the row that was changed is far from the top of the card */}
-        <div className="tx-feedback">
-          {saveError && (
+          {facts.length > 0 && <Facts facts={facts} />}
+          {error && (
             <div className="error" role="alert">
-              {saveError}
-              {phone && (
-                <button className="icon-btn" type="button" onClick={() => setSaveError(null)} aria-label="Sulje">
-                  ×
-                </button>
-              )}
+              {error}{" "}
+              <button className="btn btn-small" type="button" onClick={reload}>
+                Yritä uudelleen
+              </button>
             </div>
           )}
-          {changed !== null && !saveError && (
-            <div className="notice good" role="status">
-              {changed.rule && changed.merchant
-                ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}, samoin tulevat.`
-                : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
-              {phone && (
-                <button className="icon-btn" type="button" onClick={() => setChanged(null)} aria-label="Sulje">
-                  ×
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="table-wrap">
-          {/* before the first answer the page is loading, not empty */}
-          {!data && !error && <Loading />}
-          {phone ? (
-            byDay(data?.items ?? []).map((d) => (
-              <div key={d.day} className="tx-day">
-                <h3>{dayHeading(d.day, meta.today)}</h3>
-                <ul>
-                  {d.items.map((t) => (
-                    <TxItem key={t.id} {...rowProps(t)} />
-                  ))}
-                </ul>
+          {/* on a phone this floats at the bottom of the screen: the row that was changed is far from the top of the card */}
+          <div className="tx-feedback">
+            {saveError && (
+              <div className="error" role="alert">
+                {saveError}
+                {phone && (
+                  <button className="icon-btn" type="button" onClick={() => setSaveError(null)} aria-label="Sulje">
+                    ×
+                  </button>
+                )}
               </div>
-            ))
-          ) : (
-            <table className="tx-table">
-              <thead>
-                <tr>
-                  <th>Päivä</th>
-                  <th>Saaja/maksaja</th>
-                  <th className="tx-account">Tili</th>
-                  <th className="tx-category">Kategoria</th>
-                  <th className="num">Summa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.items.map((t) => (
-                  <TxRow key={t.id} {...rowProps(t)} account={accountName(t.accountId)} />
-                ))}
-              </tbody>
-            </table>
-          )}
-          {data && !data.items.length && (
-            <div className="empty">
-              {anyFilter ? (
-                "Ei tapahtumia näillä rajauksilla."
-              ) : (
+            )}
+            {changed !== null && !saveError && (
+              <div className="notice good" role="status">
+                {changed.rule && changed.merchant
+                  ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}, samoin tulevat.`
+                  : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
+                {phone && (
+                  <button className="icon-btn" type="button" onClick={() => setChanged(null)} aria-label="Sulje">
+                    ×
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="table-wrap">
+            {/* before the first answer the page is loading, not empty */}
+            {!data && !error && <Loading />}
+            {phone ? (
+              byDay(data?.items ?? []).map((d) => (
+                <div key={d.day} className="tx-day">
+                  <h3>{dayHeading(d.day, meta.today)}</h3>
+                  <ul>
+                    {d.items.map((t) => (
+                      <TxItem key={t.id} {...rowProps(t)} />
+                    ))}
+                  </ul>
+                </div>
+              ))
+            ) : (
+              <table className="tx-table">
+                <thead>
+                  <tr>
+                    <th>Päivä</th>
+                    <th>Saaja/maksaja</th>
+                    <th className="tx-account">Tili</th>
+                    <th className="tx-category">Kategoria</th>
+                    <th className="num">Summa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.items.map((t) => (
+                    <TxRow key={t.id} {...rowProps(t)} account={accountName(t.accountId)} />
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {data && !data.items.length && (
+              <div className="empty">
+                {anyFilter ? (
+                  "Ei tapahtumia näillä rajauksilla."
+                ) : (
+                  <>
+                    Ei tapahtumia. <a href="#/settings?add=1">Yhdistä pankki</a>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {(phone || (data && data.total > data.items.length)) && (
+            <div className="form-row">
+              {data && data.total > data.items.length && (
                 <>
-                  Ei tapahtumia. <a href="#/settings?add=1">Yhdistä pankki</a>
+                  <span className="cut-mark">
+                    1–{count(data.items.length)} / {count(data.total)}
+                  </span>
+                  <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + PAGE })} disabled={loading || limit >= MAX_ROWS}>
+                    Näytä lisää
+                  </button>
+                  {limit >= MAX_ROWS && <span className="small muted">Näytetään enintään {MAX_ROWS}. Rajaa hakua.</span>}
                 </>
               )}
+              {/* the table's head has it on a wider screen; here the head is only the summary */}
+              {phone && csv}
             </div>
           )}
         </div>
-        {(phone || (data && data.total > data.items.length)) && (
-          <div className="form-row">
-            {data && data.total > data.items.length && (
-              <>
-                <span className="cut-mark">
-                  1–{count(data.items.length)} / {count(data.total)}
-                </span>
-                <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + PAGE })} disabled={loading || limit >= MAX_ROWS}>
-                  Näytä lisää
-                </button>
-                {limit >= MAX_ROWS && <span className="small muted">Näytetään enintään {MAX_ROWS}. Rajaa hakua.</span>}
-              </>
-            )}
-            {/* the table's head has it on a wider screen; here the head is only the summary */}
-            {phone && csv}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,25 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.26.0
+
+- A page whose data did not load looks the same everywhere now: one card with the reason and a retry button. Tapahtumat no longer shows an empty table head or a download link for rows that did not come.
+- The loading page and the first-run pages were checked in pictures and tidied: the frames stand in one column, the wizard's last step has a clear main button, and a refused sign-in marks its fields.
+- The README's picture shows the look of today.
+
+Look
+
+- A page that cannot load its data now shows one card with the reason and a retry button, the same on every page. Transactions no longer draws an empty table or offers a CSV file for rows that did not come.
+- The loading page is one column of dashed frames, like the overview, and the column ticks above and below a page show only where the page stands on them.
+- The last step of the first-run wizard now has the main key where you go on, and its two status labels line up with the values above them.
+- The steps of the Enable Banking checklist start with a small square, empty or filled, instead of a ring; after a wrong password both sign-in fields are marked.
+
+For developers
+
+- `pnpm shots` takes a picture with finite animations run to their end, so a night picture no longer catches a button half way between the two looks.
+- `pnpm shots --answers` can fail a path with the server's error (`{ fail: { status, body } }`) or hold it back (`{ hold: true }`), so the error and loading states of a page can be pictured; `tools/shots-examples/` has a module for each state of the first-run form, sign-in, the password change and the first-run wizard.
+- The picture of Yhteenveto in the README shows today's look, and the unused first-run picture is gone.
+
 ## 0.25.0
 
 - The waiting mark is on every button that waits for its own request. In a list only the button that was pressed carries it; the others are just held.

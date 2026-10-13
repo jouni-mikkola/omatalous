@@ -144,6 +144,7 @@ table.compact td.num { padding: 5px 0 5px 8px; }
 .notice.good { background: var(--good-bg); }
 .notice.good::before { background: var(--good); border-radius: 50%; }
 .card.error { --corner: var(--bad); border-color: var(--bad); background: var(--bad-bg); color: var(--text); }
+.card.error > p { margin: 0 0 var(--sp-12); }
 .form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
 .muted { color: var(--muted); }
 .lead { margin: 0 0 12px; max-width: 62ch; }

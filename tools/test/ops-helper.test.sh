@@ -284,16 +284,16 @@ t_rollback_restore_is_flushed() {
 }
 # A rollback whose migration history differs from the pre-update copy (the update changed the schema) asks the previous
 # image whether it opens the database as it is. Only then does the data written since the update stay.
-t_rollback_asks_the_previous_image() {
-  # a rollback after a schema change ("restore-needed" makes the stub's comparison differ), the previous image's check ending in CODE
-  roll() { # roll [CODE [APPLIED [STUBFILE]]]: the exit code of the check, what its JSON lists as applied, a stub file to create
-    new_world; release 0.2.0; poll update; tick
-    : >"$S/calls.log"; rm -f "$S/reports"/*
-    touch "$S/restore-needed"; [[ -z ${1:-} ]] || echo "$1" >"$S/previous-check"
-    [[ -z ${2:-} ]] || echo "$2" >"$S/previous-applied"; [[ -z ${3:-} ]] || touch "$S/$3"
-    poll rollback "$ID2"; tick
-  }
-  restored() { grep -q 'Database restored: /data/backups/pre-update-' <<<"$(report)"; }
+# a rollback after a schema change ("restore-needed" makes the stub's comparison differ), the previous image's check ending in CODE
+roll() { # roll [CODE [APPLIED [STUBFILE]]]: the exit code of the check, what its JSON lists as applied, a stub file to create
+  new_world; release 0.2.0; poll update; tick
+  : >"$S/calls.log"; rm -f "$S/reports"/*
+  touch "$S/restore-needed"; [[ -z ${1:-} ]] || echo "$1" >"$S/previous-check"
+  [[ -z ${2:-} ]] || echo "$2" >"$S/previous-applied"; [[ -z ${3:-} ]] || touch "$S/$3"
+  poll rollback "$ID2"; tick
+}
+restored() { grep -q 'Database restored: /data/backups/pre-update-' <<<"$(report)"; }
+t_rollback_asks_the_previous_image_accepts() {
   # (a) the previous image accepts the database: it stays, after a copy
   roll
   check "rollback keeps: reported ok, the old version is back" bash -c "[[ \$(cat '$S/cver') = 0.1.0 ]] && grep -q '\"status\":\"ok\"' '$S/reports/1.json'"
@@ -306,6 +306,8 @@ t_rollback_asks_the_previous_image() {
   check "rollback keeps: the pre-rollback copy comes after the check" test "$(line_of '^PREVIOUS_CHECK ')" -lt "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')"
   check "rollback keeps: and before the old version starts" test "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')" -lt "$(line_of '^docker compose up')"
   check "rollback keeps: the previous image became :latest and the state file is spent" bash -c "grep -q '^docker image tag banking-app:previous banking-app:latest' '$S/calls.log' && [[ ! -e '$CL/backups/.last-update' ]]"
+}
+t_rollback_asks_the_previous_image_restores() {
   # (b) the previous image refuses the database (its check exits 1): the copy is restored as before
   roll 1
   check "rollback restores: the check ran once and refused" test "$(n_calls '^PREVIOUS_CHECK ')" = 1
@@ -314,6 +316,8 @@ t_rollback_asks_the_previous_image() {
   check "rollback restores: the pre-update copy replaces the database" restored
   check "rollback restores: what is overwritten is saved first" test "$(line_of '^SNAPSHOT /data/backups/pre-rollback-')" -lt "$(line_of 'entrypoint sh banking -c')"
   check "rollback restores: no word of the data staying" bash -c "! grep -q 'data written since the update stays' '$S/reports/1.json'"
+}
+t_rollback_asks_the_previous_image_without_the_command() {
   # (c) an image without the command, a docker error and a usage answer: the same restore
   new_world; release 0.2.0; poll update; tick
   : >"$S/calls.log"; rm -f "$S/reports"/*
@@ -322,16 +326,22 @@ t_rollback_asks_the_previous_image() {
   check "rollback, image without migrate-check: the copy is restored" restored
   roll 125
   check "rollback, docker error (exit 125): the copy is restored" restored
+}
+t_rollback_asks_the_previous_image_exit_zero_with_work() {
   # exit 0 is not enough: the check's JSON has to say that nothing is applied to the database
   roll 0 '["0009_x.sql"]'
   check "rollback, exit 0 with a migration to apply: the copy is restored and the message says why" bash -c "grep -q 'Database restored: /data/backups/pre-update-' '$S/reports/1.json' && grep -q 'changes of its own' '$S/reports/1.json'"
   roll 0 '' previous-nojson
   check "rollback, exit 0 without the JSON line: the copy is restored" restored
+}
+t_rollback_asks_the_previous_image_killed_or_usage() {
   # the client was killed (137) or timed out (124): the container is removed by name and the message names the time
   roll 137
   check "rollback, a killed check (exit 137): the copy is restored, the container removed, the time named" bash -c "grep -q '^docker rm -f banking-app-rollback-check' '$S/calls.log' && grep -q 'took longer than' '$S/reports/1.json' && ! grep -q 'could not be asked' '$S/reports/1.json'"
   roll 2
   check "rollback, a usage answer (exit 2) is no yes: the copy is restored" restored
+}
+t_rollback_asks_the_previous_image_same_history() {
   # (d) the same migration history: nothing to ask, the database stays
   new_world; release 0.2.0; poll update; tick
   : >"$S/calls.log"; rm -f "$S/reports"/*; poll rollback "$ID2"; tick
@@ -339,6 +349,8 @@ t_rollback_asks_the_previous_image() {
   check "rollback, same history: the previous image is not run for a check" test "$(n_calls '^docker run .*banking-app:previous')" = 0
   check "rollback, same history: the database stays, as it always did" grep -qF 'The database is unchanged, so the data stays.' "$S/reports/1.json"
   check "rollback, same history: no restore and no pre-rollback copy" test "$(n_calls 'pre-rollback-|entrypoint sh banking -c')" = 0
+}
+t_rollback_asks_the_previous_image_copy_fails() {
   # a copy that cannot be made stops a rollback that would keep the database too: the current version starts again, nothing changed
   new_world; release 0.2.0; poll update; tick
   : >"$S/calls.log"; rm -f "$S/reports"/*

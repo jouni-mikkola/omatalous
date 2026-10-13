@@ -48,9 +48,9 @@ write_stubs() {
   cat >"$b/docker" <<'EOF'
 #!/usr/bin/env bash
 S=$OPS_STUB_DIR
-printf 'docker %s\n' "$(printf '%s ' "$@" | tr '\n' ' ' | cut -c1-420)" >>"$S/calls.log"
-key() { printf '%s' "$1" | tr '/:@' '___'; }
-ver_of() { [[ -f $S/images/$(key "$1") ]] && cut -d'|' -f1 "$S/images/$(key "$1")"; }
+printf -v line '%s ' "$@"; line=${line//$'\n'/ }; printf 'docker %s\n' "${line:0:420}" >>"$S/calls.log"
+key() { printf '%s' "${1//[\/:@]/_}"; }
+ver_of() { local v; [[ -f $S/images/$(key "$1") ]] && { IFS='|' read -r v _ <"$S/images/$(key "$1")"; printf '%s\n' "$v"; }; }
 healthy() { [[ -e $S/running ]] && [[ ! -e $S/bad_$(cat "$S/cver" 2>/dev/null) ]]; }
 last_arg() { eval "printf '%s' \"\${$#}\""; }
 case ${1:-} in
@@ -226,7 +226,7 @@ EOF
 c=${0%/*}/../clock
 [[ -e $c ]] || exec /bin/date "$@"
 for a in "$@"; do case $a in -d* | --date*) exec /bin/date "$@" ;; esac; done
-exec /bin/date -d "@$(cat "$c")" "$@"
+read -r t <"$c"; exec /bin/date -d "@$t" "$@"
 EOF
   # sync only records what it was asked to flush (and fails when a test says so)
   printf '#!/bin/sh\necho "sync $*" >>"$OPS_STUB_DIR/calls.log"\n[ -e "$OPS_STUB_DIR/sync-fail" ] && exit 1\n[ -e "$OPS_STUB_DIR/sync-fail-paths" ] && [ $# -gt 0 ] && exit 1\nexit 0\n' >"$b/sync"

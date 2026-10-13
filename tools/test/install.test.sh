@@ -146,7 +146,15 @@ case $1 in
     [[ ${CLOUDFLARE_API_TOKEN:-} == "$(cat "$S/api-token")" ]] || { echo "stub: no API token in the environment" >&2; exit 2; }
     echo "emails: ${CLOUDFLARE_ACCESS_EMAILS:-}" >>"$S/docker.log"
     host=""; prev=""; for a in "$@"; do [[ $prev == --hostname ]] && host=$a; prev=$a; done
-    sleep 1
+    # stay alive until the process watcher has finished a sample that began after this start (a line in ps.started per sample begun, one in ps.done per sample ended)
+    W=${S%/stub}
+    if [[ -e $W/ps.started ]]; then
+      mapfile -t lines <"$W/ps.started"; began=${#lines[@]}; exec 8<>"$W/ps.nap"
+      while [[ ! -e $W/ps.stop ]]; do
+        mapfile -t lines <"$W/ps.done"; ((${#lines[@]} > began)) && break
+        read -r -t 0.01 -u 8 || :
+      done
+    fi
     case $(cat "$S/cf-mode" 2>/dev/null || echo ok) in
       exit3) echo "Cloudflare refused: the record $host points somewhere else" >&2; exit 3 ;;
       exit4) echo "turn on Zero Trust (Free) in the dashboard" >&2; exit 4 ;;
@@ -178,13 +186,17 @@ cf_world() { # a first install: no .env yet, the Cloudflare file (mode 600), a d
 # says by another that a sample began after ps.begun was written (ps.seen), so a command that writes ps.begun can wait for
 # it. unwatch_ps takes the stop flag first, then the watcher takes one more sample and ends. No sleep decides what is seen.
 watch_ps() {
-  rm -f "$W"/ps.{stop,first,begun,seen}; : >"$W/ps.hits"
-  ( while :; do
+  rm -f "$W"/ps.{stop,first,begun,seen,nap,started,done}; : >"$W/ps.hits" "$W/ps.started" "$W/ps.done"
+  # a sample is one grep over the argument lists in /proc (ps and a pipe cost three starts); the pause between two is a read on a fifo
+  mkfifo "$W/ps.nap"
+  ( exec 9<>"$W/ps.nap"
+    while :; do
       stop=0; seen=0; [[ ! -e $W/ps.stop ]] || stop=1; [[ ! -e $W/ps.begun ]] || seen=1
-      ps -eo args 2>/dev/null | grep -F -f "$W/secrets" >>"$W/ps.hits"
-      : >"$W/ps.first"; ((seen == 0)) || : >"$W/ps.seen"
+      echo >>"$W/ps.started"
+      grep -ahoF -f "$W/secrets" /proc/[0-9]*/cmdline 2>/dev/null >>"$W/ps.hits"
+      echo >>"$W/ps.done"; : >"$W/ps.first"; ((seen == 0)) || : >"$W/ps.seen"
       ((stop == 0)) || break
-      sleep 0.01
+      read -r -t 0.01 -u 9 || :
     done ) &
   WATCH=$!
   while [[ ! -e $W/ps.first ]] && kill -0 "$WATCH" 2>/dev/null; do sleep 0.01; done

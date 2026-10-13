@@ -16,10 +16,15 @@ lint() { printf '%s\n' "${files[@]}" | xargs -d '\n' -n 6 -P "$(nproc)" "$@"; }
 lint bash -c 'for f; do bash -n "$f" || exit 1; done' _
 
 if command -v shellcheck >/dev/null 2>&1; then
-  # A script that sources a library uses its variables: shellcheck only knows that when the library is in the same run,
-  # so every group carries the libraries.
+  # A script that sources a library uses its variables, and a library uses the variables of the script that sources it:
+  # the checker only knows that when both are in the same run, so every group carries the libraries. A library is a file
+  # under scripts/lib, one named *lib.sh, or any file another script names after `.` or `source`; the set is a function
+  # of the files and not of how they fall into groups.
+  sourced=$(grep -hE '(^|[;&|(])[[:space:]]*(\.|source)[[:space:]]+[^[:space:]]' "${files[@]}" | sed 's/$/ /' || true)
   libs=()
-  for f in "${files[@]}"; do [[ $f == scripts/lib/* || $f == *lib.sh ]] && libs+=("$f"); done
+  for f in "${files[@]}"; do
+    [[ $f == scripts/lib/* || $f == *lib.sh || $sourced == *[/\"\ ]"${f##*/}"[\"\ \;]* ]] && libs+=("$f")
+  done
   LIBS="${libs[*]}" lint bash -c 'shellcheck -S warning "$@" $LIBS' _
   echo "${#files[@]} files, bash -n and shellcheck $(shellcheck --version | sed -n 's/^version: //p')"
 elif [[ -n ${CI:-} ]]; then

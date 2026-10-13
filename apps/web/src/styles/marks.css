@@ -24,6 +24,8 @@
     background: repeating-linear-gradient(90deg, var(--axis) 0 1px, transparent 1px calc(var(--c) - 1px), var(--axis) calc(var(--c) - 1px) var(--c), transparent var(--c) calc(var(--c) + var(--gap))); }
   .sheet::before { top: calc(-1 * var(--sp-12)); }
   .sheet::after { bottom: calc(-1 * var(--sp-12)); }
+  /* it registers splits: a page with one card (the error card, the loading frames) or a table's own columns has none */
+  .sheet:has(.card.error, .skeleton, .tx-page)::before, .sheet:has(.card.error, .skeleton, .tx-page)::after { content: none; }
 }
 /* the centre of the gutter after column n, from the frame's inner edge, for a panel that spans the 12 columns */
 .card { --col-w: calc((100% + 2px - 11 * var(--gap)) / 12);

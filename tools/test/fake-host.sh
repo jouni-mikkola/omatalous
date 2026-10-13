@@ -42,10 +42,14 @@ host_init() {
   # The system tools without the ones a test decides about, so that "no crontab" is a command that does not exist (sg,
   # newgrp, sudo, usermod and qrencode too: Ubuntu 26.04.1 has no sg, and a test adds the stubs it wants).
   SYS=$TMPBASE/sys; mkdir -p "$SYS"
-  local f
+  # one ln for all of them (a name in both folders is taken from the later, /usr/sbin)
+  local f b
+  declare -A pick=()
   for f in /usr/bin/* /usr/sbin/*; do
-    case ${f##*/} in crontab | systemctl | loginctl | getent | id | jq | docker | sg | newgrp | sudo | usermod | qrencode) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
+    b=${f##*/}
+    case $b in crontab | systemctl | loginctl | getent | id | jq | docker | sg | newgrp | sudo | usermod | qrencode) ;; *) pick[$b]=$f ;; esac
   done
+  ln -sf -t "$SYS" "${pick[@]}" 2>/dev/null
 }
 
 write_stubs() {
@@ -91,6 +95,8 @@ p=${*: -1}; [[ $p == /dev/fd/* ]] && p=$(readlink -f -- "$p")
 if [[ ${1:-} == -c && -e $S/foreign ]] && grep -qxF -- "$p" "$S/foreign"; then exec /usr/bin/stat "${L[@]}" -c "${2//%u/0}" "${@: -1}"; fi
 exec /usr/bin/stat "${all[@]}"
 EOF
+  # The scripts' waits (a poll once a second, a retry after two) return at once, the way ops-world's sleep does.
+  printf '#!/bin/sh\nexec /bin/sleep 0.01\n' >"$b/sleep"
   printf '#!/bin/sh\nexit 0\n' >"$b/jq"
   printf '#!/bin/sh\nexit 1\n' >"$b/docker"
   # A scenario that lets a script reach the network writes its own $S/bin/curl over this one. Without it a call is the

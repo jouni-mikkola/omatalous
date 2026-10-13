@@ -23,3 +23,5 @@
 .summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0 0 8px; }
 .summary dt { color: var(--muted); }
 .summary dd { margin: 0; overflow-wrap: anywhere; }
+/* a badge alone in the value column starts on the column, not 6 px right of it */
+.summary .badge { margin-left: 0; }
