@@ -6,7 +6,7 @@ import { FigureRow } from "../../../components/holdings/FigureRow.tsx";
 import { money, monthLabel, monthLong } from "../../../format.ts";
 import { ownPart, partText } from "../../../part.ts";
 import "../../../styles/statement.css";
-import { TableToggle } from "../parts.tsx";
+import { TableToggle } from "../../../components/TableToggle.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { overdraftTwice } from "./Loans.tsx";
@@ -22,7 +22,7 @@ function Balances({ ctx }: SectionProps) {
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
   const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
   return (
-    <Section id={section.id} title="Tilien saldo kuukauden lopussa (arvio)" actions={<TableToggle table={table} onToggle={() => setTable((v) => !v)} />}>
+    <Section id={section.id} title="Tilien saldo kuukauden lopussa (arvio)" actions={<TableToggle table={table} onChange={setTable} />}>
       {/* told for today only, as the debts are, and only to a household that saved a loan; with cents, so the three figures subtract */}
       {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
         <>

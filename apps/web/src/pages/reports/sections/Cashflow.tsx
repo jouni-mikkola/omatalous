@@ -3,7 +3,8 @@ import { useState } from "react";
 import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
 import { SurplusBridge } from "../../../components/SurplusBridge.tsx";
 import { money, monthLabel, monthLong, percent } from "../../../format.ts";
-import { ExportLink, Kv, TableToggle } from "../parts.tsx";
+import { TableToggle } from "../../../components/TableToggle.tsx";
+import { ExportLink, Kv } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -21,7 +22,7 @@ function Cashflow({ ctx }: SectionProps) {
       title={section.title}
       actions={
         <>
-          <TableToggle table={table} onToggle={() => setTable((v) => !v)} />
+          <TableToggle table={table} onChange={setTable} />
           <ExportLink href={ctx.exportHref("cashflow")} />
         </>
       }

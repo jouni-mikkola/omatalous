@@ -11,14 +11,6 @@ export function ExportLink({ href }: { href: string }) {
   );
 }
 
-export function TableToggle({ table, onToggle }: { table: boolean; onToggle: () => void }) {
-  return (
-    <button className="btn btn-small" onClick={onToggle} aria-pressed={table}>
-      {table ? "Kaavio" : "Taulukko"}
-    </button>
-  );
-}
-
 export function Kv({ items }: { items: [string, string][] }) {
   return (
     <div className="kv">

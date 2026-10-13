@@ -3,6 +3,16 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.35.0
+
+- Raportit: Kaavio and Taulukko are one switch with both choices in view, the same in every part that has a table.
+- Raportit on a phone: the months under an opened row of Kuukausitaulukko stand in one block.
+
+Look
+
+- Reports, income and spending: the chart and table choice is one switch with both choices in view.
+- Reports, monthly table on a phone: the months under an opened row stand in one block.
+
 ## 0.34.0
 
 - Nothing changes in the app or for an install. For developers: the release workflow can now also build and smoke test a release's images ahead of time, on a branch `candidate/X.Y.Z-...`; such a run signs, tags and releases nothing.

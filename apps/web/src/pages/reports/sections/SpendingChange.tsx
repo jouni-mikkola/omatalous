@@ -2,7 +2,7 @@
 import { bucketLabel } from "@banking/core";
 import { Fragment, useState } from "react";
 import { money, signedMoney } from "../../../format.ts";
-import { TableToggle } from "../parts.tsx";
+import { TableToggle } from "../../../components/TableToggle.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/change.css";
@@ -27,7 +27,7 @@ function Bridge({ view }: { view: View }) {
         <h3 className="bridge-title">
           {money(view.change.baseCents, false)} → {money(view.change.nowCents, false)}
         </h3>
-        <TableToggle table={table} onToggle={() => setTable((v) => !v)} />
+        <TableToggle table={table} onChange={setTable} />
       </div>
       {table ? (
         <div className="table-wrap">

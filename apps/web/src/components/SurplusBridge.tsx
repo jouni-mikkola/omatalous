@@ -2,6 +2,7 @@
 import { type ReactNode, useState } from "react";
 import { money, percent, roundedShares, shareText } from "../format.ts";
 import { type DrawnLine, type BridgePart, type BridgeTotals, bridgeDraws, bridgeFigures, bridgeParts, bridgeRows, bridgeSources, bridgeText } from "./month-parts.ts";
+import { TableToggle } from "./TableToggle.tsx";
 import "../styles/charts.css";
 import "../styles/month.css";
 
@@ -91,9 +92,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
         <div className="bridge-head">
           {head || <span />}
           {draws && (
-            <button className="btn btn-small" onClick={() => setTable((v) => !v)} aria-pressed={table}>
-              {table ? "Kaavio" : "Taulukko"}
-            </button>
+            <TableToggle table={table} onChange={setTable} />
           )}
         </div>
       )}
