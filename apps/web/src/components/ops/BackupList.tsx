@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { dateTime } from "../../format.ts";
 import { formatSize, kindLabel, S } from "./ops-strings.ts";
 import type { Backup } from "./types.ts";
+
+/** The newest copies shown before the rest open. */
+const SHOWN = 5;
 
 export function BackupList({ app, host, disabled, canDownload, onBackup, onDownload }: {
   app: Backup[];
@@ -10,7 +14,9 @@ export function BackupList({ app, host, disabled, canDownload, onBackup, onDownl
   onBackup: () => void;
   onDownload: () => void;
 }) {
+  const [all, setAll] = useState(false);
   const rows = [...app.map((b) => ({ ...b, where: "sovellus" })), ...host.map((b) => ({ ...b, where: "kone" }))].sort((a, b) => b.at.localeCompare(a.at));
+  const shown = all ? rows : rows.slice(0, SHOWN);
   return (
     <div className="card">
       <div className="card-head">
@@ -42,7 +48,7 @@ export function BackupList({ app, host, disabled, canDownload, onBackup, onDownl
               </tr>
             </thead>
             <tbody>
-              {rows.map((b) => (
+              {shown.map((b) => (
                 <tr key={`${b.where}-${b.name}`}>
                   <td className="small">{b.name}</td>
                   <td>{dateTime(b.at)}</td>
@@ -53,6 +59,16 @@ export function BackupList({ app, host, disabled, canDownload, onBackup, onDownl
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {rows.length > SHOWN && (
+        <div className="form-row">
+          <span className="cut-mark">
+            1–{shown.length} / {rows.length}
+          </span>
+          <button className="btn btn-small" type="button" onClick={() => setAll((v) => !v)} aria-expanded={all}>
+            {all ? "Näytä vähemmän" : "Näytä lisää"}
+          </button>
         </div>
       )}
     </div>

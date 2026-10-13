@@ -28,7 +28,10 @@ echo "docker $*" >>"$STUB/calls.log"
 case " $* " in
   " compose version "*) exit 0 ;;
   *" compose ps "*) [[ -e $STUB/down ]] || echo abc123; exit 0 ;;
-  *" compose cp "*) /usr/bin/cp "$STUB/fixture.db" "${@: -1}"; exit $? ;;
+  *" compose cp "*) /usr/bin/cp "$STUB/fixture.db" "${@: -1}" || exit $?
+    # a copy that carries an old time (gzip keeps it on the .gz)
+    [[ ! -e $STUB/oldcopy ]] || touch -d "60 days ago" "${@: -1}"
+    exit 0 ;;
   *'statSync("/data/backup.db").size'*) echo 8192; exit 0 ;;
   *"cat /secrets/app_secret"*) printf 'SECRET-VALUE-XYZ'; exit 0 ;;
 esac
@@ -364,7 +367,107 @@ t_doctor_hint() {
   check "doctor: the old 'schedule it' hint is gone" bash -c "! grep -q 'and schedule it\|ja ajasta se:' '$SRC/scripts/doctor.sh'"
 }
 
-for t in plain env_file env_file_forms age_missing not_running copy copy_refused copy_links schedule schedule_messages schedule_other_lines schedule_refused cron_line_runs doctor_hint; do
+# The prune after a good run. Files get their age with touch -d (there is no clock to move). aged NAME "TIME AGO" makes a
+# file in the clone's backups/; kept NAME says whether it is still there.
+aged() { mkdir -p "$CL/backups/$(dirname "$1")"; echo x >"$CL/backups/$1"; touch -d "$2" "$CL/backups/$1"; }
+kept() { [[ -e $CL/backups/$1 ]]; }
+gone() { [[ ! -e $CL/backups/$1 ]]; }
+OLD_GZ=talous-20260101-033000.db.gz
+
+t_prune_default() {
+  new_world; mkdir -p "$CL/backups"
+  aged talous-a.db.gz "6 days ago"; aged talous-b.db.gz "9 days ago"; aged talous-c.db.gz "20 days ago"
+  bk
+  check "prune default: a good run exits 0" test "$RC" = 0
+  check "prune default: 7 days is the default, 6 days stays and 9 and 20 days go" bash -c "$(declare -f kept gone); CL='$CL'; kept talous-a.db.gz && gone talous-b.db.gz && gone talous-c.db.gz"
+  check "prune default: this run's own copy is there" bash -c "[[ \$(ls '$CL/backups'/talous-2*.db.gz | wc -l) -ge 1 ]] && gzip -t '$CL'/backups/talous-2*-*.db.gz"
+}
+
+t_prune_setting() {
+  new_world; mkdir -p "$CL/backups"
+  aged talous-a.db.gz "20 days ago"; aged talous-b.db.gz "31 days ago"
+  bk KEEP_DAYS=30
+  check "prune setting: KEEP_DAYS=30 in the shell keeps 20 days and deletes 31" bash -c "$(declare -f kept gone); CL='$CL'; kept talous-a.db.gz && gone talous-b.db.gz"
+
+  new_world; envfile 'KEEP_DAYS=30'; aged talous-a.db.gz "20 days ago"; aged talous-b.db.gz "31 days ago"
+  bk
+  check "prune setting: KEEP_DAYS=30 in .env, with an empty environment, keeps 20 days and deletes 31" bash -c "$(declare -f kept gone); CL='$CL'; kept talous-a.db.gz && gone talous-b.db.gz"
+
+  new_world; envfile 'KEEP_DAYS=30'; aged talous-a.db.gz "3 days ago"; aged talous-b.db.gz "1 day ago"
+  bk KEEP_DAYS=2
+  check "prune setting: the shell wins over .env" bash -c "$(declare -f kept gone); CL='$CL'; gone talous-a.db.gz && kept talous-b.db.gz"
+
+  new_world; envfile 'KEEP_DAYS=  30 # a month'; aged talous-a.db.gz "20 days ago"
+  bk
+  check "prune setting: a comment and spaces in .env are read like the other settings" bash -c "$(declare -f kept gone); CL='$CL'; kept talous-a.db.gz"
+
+  new_world; envfile 'KEEP_DAYS=30d'; aged talous-a.db.gz "40 days ago"
+  bk
+  check "prune setting: a value that is no whole number deletes nothing and warns, the run still exits 0" bash -c "$(declare -f kept gone); CL='$CL'; [[ $RC = 0 ]] && kept talous-a.db.gz && grep -q 'not a whole number' '$W/out'"
+}
+
+# find -mtime +7 counts whole 24 hour periods: a file of 192 hours (8 days) goes, one of 191 hours 50 minutes stays
+t_prune_edge() {
+  new_world; mkdir -p "$CL/backups"
+  aged talous-new.db.gz "1 hour ago"; aged talous-d7.db.gz "10080 minutes ago"; aged talous-d7b.db.gz "11510 minutes ago"
+  aged talous-d8.db.gz "11530 minutes ago"; aged talous-d9.db.gz "9 days ago"
+  bk
+  check "prune edge: 1 hour, exactly 7 days and 191 hours 50 minutes stay" bash -c "$(declare -f kept gone); CL='$CL'; kept talous-new.db.gz && kept talous-d7.db.gz && kept talous-d7b.db.gz"
+  check "prune edge: 192 hours 10 minutes and 9 days go" bash -c "$(declare -f kept gone); CL='$CL'; gone talous-d8.db.gz && gone talous-d9.db.gz"
+}
+
+t_prune_forms() {
+  new_world; mkdir -p "$CL/backups"; envfile 'BACKUP_AGE_RECIPIENT=age1abc'
+  aged talous-20260101-033000.db.gz.age "9 days ago"; aged talous-20260101-033000.app_secret.age "9 days ago"
+  aged talous-20261001-033000.db.gz.age "2 days ago"; aged talous-20261001-033000.app_secret.age "2 days ago"
+  bk
+  check "prune forms: the encrypted copy and the secret's file follow the same days" bash -c "$(declare -f kept gone); CL='$CL'; gone talous-20260101-033000.db.gz.age && gone talous-20260101-033000.app_secret.age && kept talous-20261001-033000.db.gz.age && kept talous-20261001-033000.app_secret.age"
+}
+
+t_prune_other_kinds() {
+  local f
+  new_world; mkdir -p "$CL/backups"
+  for f in backup.log .last-update manual-20260101T000000Z.db pre-update-20260101T000000Z.db auto-2026-01-01.db pre-reset-20260101T000000Z.db \
+    pre-restore-20260101T000000Z.db omatalous-20260101.db.gz talous-20260101.db talous-20260101.db.age old/talous-20260101-033000.db.gz notes.txt; do
+    aged "$f" "100 days ago"
+  done
+  aged "$OLD_GZ" "100 days ago"
+  mkdir -p "$W/nas"; mounted "$W/nas"; envfile "BACKUP_COPY_TO=$W/nas"; echo x >"$W/nas/$OLD_GZ"; touch -d "100 days ago" "$W/nas/$OLD_GZ"
+  bk
+  check "prune other kinds: the log, the update record, the copies of the app's own rules, other names and a subfolder stay" bash -c "$(declare -f kept gone); CL='$CL'; for f in backup.log .last-update manual-20260101T000000Z.db pre-update-20260101T000000Z.db auto-2026-01-01.db pre-reset-20260101T000000Z.db pre-restore-20260101T000000Z.db omatalous-20260101.db.gz talous-20260101.db talous-20260101.db.age old/talous-20260101-033000.db.gz notes.txt; do kept \$f || { echo \"gone: \$f\"; exit 1; }; done"
+  check "prune other kinds: near miss, an old talous-*.db.gz in the same folder does go" bash -c "$(declare -f gone); CL='$CL'; gone $OLD_GZ"
+  check "prune other kinds: the folder of BACKUP_COPY_TO is not pruned" test -e "$W/nas/$OLD_GZ"
+}
+
+t_prune_failed_run() {
+  local how
+  for how in down badheader noage; do
+    new_world; mkdir -p "$CL/backups"; aged "$OLD_GZ" "40 days ago"; aged talous-20260102-033000.db.gz.age "40 days ago"; aged talous-20260102-033000.app_secret.age "40 days ago"
+    case $how in
+      down) touch "$S/down" ;;
+      badheader) head -c 8192 /dev/zero >"$S/fixture.db" ;; # fails after the copy came out of the container
+      noage) envfile 'BACKUP_AGE_RECIPIENT=age1abc'; PATHX=$T/bin:$T/cronbin:$SYS ;;
+    esac
+    bk
+    check "prune failed run ($how): the run fails and every old file stays" bash -c "$(declare -f kept gone); CL='$CL'; [[ $RC != 0 ]] && kept $OLD_GZ && kept talous-20260102-033000.db.gz.age && kept talous-20260102-033000.app_secret.age"
+  done
+  new_world; mkdir -p "$CL/backups"; aged "$OLD_GZ" "40 days ago"
+  bk
+  check "prune failed run: near miss, the same files after a good run: the old one goes" bash -c "$(declare -f gone); CL='$CL'; [[ $RC = 0 ]] && gone $OLD_GZ"
+}
+
+t_prune_newest_survives() {
+  new_world; mkdir -p "$CL/backups"; aged "$OLD_GZ" "60 days ago"
+  touch "$S/oldcopy" # the copy that comes out of the container carries an old time, which gzip keeps
+  echo 20261012-030000 >"$S/stamp"
+  bk
+  check "prune newest: this run's copy survives its own prune even with a time 60 days old; the old one goes" bash -c "$(declare -f kept gone); CL='$CL'; [[ $RC = 0 ]] && kept talous-20261012-030000.db.gz && gzip -t '$CL/backups/talous-20261012-030000.db.gz' && gone $OLD_GZ"
+  new_world; mkdir -p "$CL/backups"; aged "$OLD_GZ" "21 days ago"; touch "$S/down"
+  bk
+  check "prune newest: a machine that was off for three weeks keeps its old copy until a run makes a new one" bash -c "$(declare -f kept); CL='$CL'; [[ $RC != 0 ]] && kept $OLD_GZ"
+}
+
+for t in plain env_file env_file_forms age_missing not_running copy copy_refused copy_links schedule schedule_messages schedule_other_lines schedule_refused cron_line_runs doctor_hint prune_default prune_setting prune_edge prune_forms prune_other_kinds prune_failed_run prune_newest_survives; do
   want "$t" && "t_$t"
 done
 

@@ -271,8 +271,10 @@ The copy goes to the NAS only while the share is mounted and writable. Otherwise
 after it matches the original. The copy never writes through a link on the share: a link at the temporary name is
 replaced, and a link at a file's final name stops the copy with a warning.
 
-`backup.sh` keeps 30 days in `backups/`. The `.app_secret.age` file holds the key that opens the saved bank keys, so a
-restore on a new machine keeps the bank connections. Without `BACKUP_AGE_RECIPIENT` the files are not encrypted and the
+`backup.sh` keeps 7 days in `backups/`: after each good backup it deletes the `talous-*` files that are 8 days old or
+older, and never the files it has just made. To keep a month, put the line `KEEP_DAYS=30` in `.env` (a value in the
+shell wins over it). The folder of `BACKUP_COPY_TO` is never pruned. The `.app_secret.age` file holds the key that opens
+the saved bank keys, so a restore on a new machine keeps the bank connections. Without `BACKUP_AGE_RECIPIENT` the files are not encrypted and the
 app secret is not backed up.
 
 With several copies, run `--schedule` in each copy's folder and give each its own `BACKUP_COPY_TO` folder.

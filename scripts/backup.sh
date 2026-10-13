@@ -10,17 +10,19 @@
 # instances, run it in each one, for example from a loop (docs/ADVANCED.md#backups).
 #
 # Takes a consistent snapshot while the app runs (SQLite VACUUM INTO), copies
-# it out of the container, compresses it and keeps the last $KEEP_DAYS days.
+# it out of the container, compresses it and keeps the last $KEEP_DAYS days (7 without a setting; KEEP_DAYS=30 in
+# .env keeps a month).
 # If BACKUP_AGE_RECIPIENT is set (an age public key), `age` must be installed:
 # the backup is encrypted and only the encrypted file is kept.
 # If BACKUP_COPY_TO is set (a folder, for example a mounted NAS share), the new files are copied there after a good
 # backup, but only when the folder is on a mounted drive and writable. Otherwise the script warns and the local
 # backup stays; the exit status is still 0.
 #
-# Both settings come from the shell, or from this folder's .env when the shell has none. The scheduled run and the
+# These settings come from the shell, or from this folder's .env when the shell has none. The scheduled run and the
 # Ylläpito button run with an empty environment, so .env is where they find them:
 #   BACKUP_AGE_RECIPIENT=age1...
 #   BACKUP_COPY_TO=/mnt/nas/omatalous
+#   KEEP_DAYS=30
 #
 # --schedule writes one crontab line for this folder, ending in `# talous-backup:<folder>`. A second run replaces it and
 # the lines of other folders and of the user stay.
@@ -108,7 +110,8 @@ esac
 
 BACKUP_AGE_RECIPIENT=$(setting BACKUP_AGE_RECIPIENT)
 BACKUP_COPY_TO=$(setting BACKUP_COPY_TO)
-KEEP_DAYS=${KEEP_DAYS:-30}
+KEEP_DAYS=$(setting KEEP_DAYS)
+KEEP_DAYS=${KEEP_DAYS:-7}
 OUT_DIR=${BACKUP_DIR:-backups}
 STAMP=$(date +%Y%m%d-%H%M%S)
 TARGET="$OUT_DIR/talous-$STAMP.db"
@@ -220,4 +223,12 @@ fsync_path "$OUT_DIR"
 # the local backup is good: a copy that fails is a warning and changes neither the files nor the exit status
 if [[ -n $BACKUP_COPY_TO ]]; then copy_out || true; fi
 
-find "$OUT_DIR" \( -name 'talous-*.db.gz*' -o -name 'talous-*.app_secret.age' \) -mtime +"$KEEP_DAYS" -delete
+# Only now, with this run's good copy in place: a run that failed above never gets here, and a machine that was off for
+# weeks keeps its old files until a new one is made. Only plain files of this folder, in the names this script writes;
+# this run's own files are never candidates. -mtime +N counts whole 24 hour periods and rounds down, so +7 deletes a
+# file at 192 hours (8 days) and keeps one of 191 hours 59 minutes. The folder of BACKUP_COPY_TO is not pruned.
+if [[ $KEEP_DAYS =~ ^[0-9]+$ ]]; then
+  find "$OUT_DIR" -maxdepth 1 -type f \( -name 'talous-*.db.gz*' -o -name 'talous-*.app_secret.age' \) ! -name "talous-$STAMP.*" -mtime +"$KEEP_DAYS" -delete
+else
+  warn "KEEP_DAYS is '$KEEP_DAYS', not a whole number of days, so no old backup was deleted."
+fi

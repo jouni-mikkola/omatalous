@@ -196,7 +196,9 @@ a.btn-primary { color: var(--on-fill); }
 .skeleton-tall { min-height: 220px; }
 
 /* confirmation dialog (member removal): a panel one depth up, with the same name strip and corner marks */
-dialog.confirm { padding: var(--pad); max-width: min(440px, calc(100vw - 32px)); border: 1px solid var(--pop-edge); border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: var(--pop-shadow); }
+dialog.confirm { padding: var(--pad); max-width: min(440px, calc(100vw - 32px)); border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--pop-edge), var(--pop-shadow); }
+/* the edge is a ring, not a border: the frame's marks at inset -1px would reach past the padding box and make the dialog scroll by a pixel */
+dialog.confirm::before { inset: 0; }
 dialog.confirm::backdrop { background: var(--backdrop); }
 dialog.confirm h2 { margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) var(--sp-16); padding: 12px var(--pad); border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 35%, var(--surface)); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; letter-spacing: var(--track-name); text-transform: uppercase; }

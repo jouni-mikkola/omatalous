@@ -105,8 +105,10 @@ check "the stamp of another commit proves nothing" test $rc -eq 1 -a ! -s "$CALL
 
 # ── which baselines ──
 has "a change outside what an update runs through: the short list" "$out" "5 baselines (nothing an update runs through changed since b7)"
-tried() { # tried FILE: what the rule says of a commit that changes FILE
-  mkdir -p "$R/$(dirname "$1")"; echo change >>"$R/$1"; commit "$R" "a change"
+tried() { # tried FILE...: what the rule says of a commit that changes FILE...
+  local f
+  for f in "$@"; do mkdir -p "$R/$(dirname "$f")"; echo change >>"$R/$f"; done
+  commit "$R" "a change"
   proof --proved baselines.txt
   git -C "$R" reset -q --hard HEAD~1
 }
@@ -115,6 +117,26 @@ for f in apps/server/migrations/0002_more.sql scripts/update.sh docker-compose.y
 done
 for f in apps/server/src/app.ts tools/test/some.test.sh scripts.md; do
   has "a change of $f: the short list" "$(tried "$f")" "5 baselines (nothing"
+done
+# the files only the release workflow's jobs run (NOT_RUN): a change of them alone is no reason for the whole list
+NOT_RUN=$(sed -n 's/^NOT_RUN=(\(.*\))$/\1/p' "$REPO/tools/ci/local-proof.sh")
+check "the script names the files it leaves out" test -n "$NOT_RUN"
+for f in $NOT_RUN; do
+  has "a change of $f alone: the short list, for the old reason" "$(tried "$f")" "5 baselines (nothing an update runs through changed since b7)"
+  has "a change of $f and of tools/ci/new.sh: the whole list, for the file that counts" "$(tried "$f" tools/ci/new.sh)" "8 baselines (tools/ci/new.sh changed since b7)"
+  has "a change of $f and of a migration: the whole list" "$(tried "$f" apps/server/migrations/0002_more.sql)" "8 baselines (apps/server/migrations/0002_more.sql changed since b7)"
+  has "the same name in another folder of tools/ci counts" "$(tried "tools/ci/sub/${f##*/}")" "8 baselines (tools/ci/sub/${f##*/} changed since b7)"
+  has "a file that only starts with the name counts" "$(tried "$f.bak")" "8 baselines ($f.bak changed since b7)"
+done
+has "all the named files together: the short list" "$(tried $NOT_RUN)" "5 baselines (nothing an update runs through changed since b7)"
+has "the other files of tools/ci still count: lib.sh" "$(tried tools/ci/lib.sh)" "8 baselines (tools/ci/lib.sh changed since b7)"
+has "so does a script an update runs, with the named ones changed too" "$(tried tools/ci/upgrade-run.sh $NOT_RUN)" "8 baselines (tools/ci/upgrade-run.sh changed since b7)"
+# the list stays honest: a name is no file that an install or a leg of the proof runs or mentions
+for f in $NOT_RUN; do
+  hits=$(cd "$REPO" && { grep -rlF "${f##*/}" scripts Dockerfile docker-compose*.yml tools/ci/proof-drills.sh tools/ci/upgrade-run.sh tools/ci/drills.sh tools/ci/smoke-image.sh tools/ci/verify-release.sh 2>/dev/null
+    [[ $(grep -vF "NOT_RUN" tools/ci/local-proof.sh | grep -cF "${f##*/}") -eq 0 ]] || echo tools/ci/local-proof.sh; } | tr '\n' ' ')
+  check "$f is read by nothing an update or the proof runs (else take the name off NOT_RUN in tools/ci/local-proof.sh)" test -z "$hits"
+  [[ -z $hits ]] || echo "       read by: $hits"
 done
 has "a last ref that is no commit: the whole list" "$(proof --proved ghost.txt)" "2 baselines (no diff from nope, the last of the list, could be read)"
 

@@ -476,7 +476,7 @@ What remains:
 | `damaged/banking-<time>.db` with its `-wal` and `-shm`, a database the app moved aside at start | same volume | until you delete it. The app never empties the folder. |
 | `<name>.damaged`, a copy that failed the weekly check | same, in `backups/` | until you delete it |
 | `.reserve` (64 MB of zeros) and `.restore-request` (a copy's file name and an admin's id) | same volume, mode 600 | the reserve until the disk runs low, the marker until the next start |
-| `backups/talous-*.db.gz` from `backup.sh` | the clone's folder, mode 600 | 30 days. Not touched by the pruning above. Encrypted only with `BACKUP_AGE_RECIPIENT`. The copies on a NAS (`BACKUP_COPY_TO`) stay until you delete them. |
+| `backups/talous-*.db.gz` from `backup.sh` | the clone's folder, mode 600 | 7 days (`KEEP_DAYS` in `.env`). Not touched by the pruning above. Encrypted only with `BACKUP_AGE_RECIPIENT`. The copies on a NAS (`BACKUP_COPY_TO`) stay until you delete them. |
 | The file from *Lataa uusin* | the admin's device | until the admin deletes it. Unencrypted. |
 | `app_secret`, and `app_secret.prev-<time>` after a rotation | volume `banking-secrets` | the old one until deleted by hand |
 | `.env` | the clone's folder, mode 600 | holds the tunnel token and the setup code |

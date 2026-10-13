@@ -108,6 +108,8 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   // a wrong password is explained in the dialog and queues nothing
   await page.getByRole("button", { name: "Päivitä", exact: true }).click();
   const dialog = page.getByRole("dialog");
+  // the content fits the frame: no scrollbar either way
+  expect(await dialog.evaluate((d) => [d.scrollWidth - d.clientWidth, d.scrollHeight - d.clientHeight])).toEqual([0, 0]);
   await dialog.getByLabel("Salasanasi").fill("väärä-salasana-1234");
   await dialog.getByRole("button", { name: "Päivitä" }).click();
   await expect(dialog.getByText("Salasana ei täsmää.")).toBeVisible();

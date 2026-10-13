@@ -267,6 +267,9 @@ jobs:
       contents: read
       packages: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -278,22 +281,11 @@ jobs:
           AMD64: ${{ needs.build.outputs.amd64 }}
           ARM64: ${{ needs.build.outputs.arm64 }}
           RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          INDEX_FILE: index.json
         run: |
-          for d in "$AMD64" "$ARM64"; do
-            [[ $d =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "A build gave no digest: amd64 \"$AMD64\", arm64 \"$ARM64\""; exit 1; }
-          done
-          manifest=$(docker buildx imagetools create --dry-run "$IMAGE@$AMD64" "$IMAGE@$ARM64")
-          jq -e '.mediaType | endswith("index.v1+json") or endswith("manifest.list.v2+json")' <<<"$manifest" >/dev/null || { echo "The index of the two images is not an index: $manifest"; exit 1; }
-          # attestation manifests carry the platform unknown/unknown and do not count
-          platforms=$(jq -r '[.manifests[]? | select(.platform.os != "unknown") | "\(.platform.os)/\(.platform.architecture)"] | sort | join(" ")' <<<"$manifest")
-          [[ $platforms == "linux/amd64 linux/arm64" ]] || { echo "The index holds \"$platforms\", not linux/amd64 and linux/arm64"; exit 1; }
-          attestations=$(jq '[.manifests[]? | select(.platform.os == "unknown")] | length' <<<"$manifest")
-          [[ $attestations == 2 ]] || echo "::warning::The index holds $attestations attestation manifests, not one for each image."
-          digest=sha256:$(printf '%s' "$manifest" | sha256sum | cut -d' ' -f1)
-          jq -n --arg version "$VERSION" --arg sha "$GITHUB_SHA" --arg digest "$digest" --arg amd64 "$AMD64" --arg arm64 "$ARM64" --arg run "$RUN_ID" \
-            '{schema: 1, version: $version, sha: $sha, digest: $digest, amd64: $amd64, arm64: $arm64, run_id: $run}' >candidate.json
-          cat candidate.json
-          echo "Candidate $VERSION at $GITHUB_SHA: index $digest of $AMD64 and $ARM64" >>"$GITHUB_STEP_SUMMARY"
+          docker buildx imagetools create --dry-run "$IMAGE@$AMD64" "$IMAGE@$ARM64" >"$INDEX_FILE"
+          tools/ci/candidate-index.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: candidate

@@ -52,9 +52,10 @@
 # The folder is the repository's common git dir, so the stamp of one worktree is read by the others.
 #
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
-# the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/. Otherwise the
-# oldest, the first public release (the ref under the comment line that says "first public release") and the last
-# three. --all takes the whole list.
+# the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/, except the few files
+# of tools/ci that only the release workflow's own jobs run (NOT_RUN in the script; a test keeps that list honest).
+# Otherwise the oldest, the first public release (the ref under the comment line that says "first public release") and
+# the last three. --all takes the whole list.
 #
 # --jobs N (or PROOF_JOBS; the flag wins) is how many rehearsals run at once, each in a lane. Without either it is one
 # lane for every 4 CPUs, at least 4 and at most the number of rehearsals. A machine too small for that sets PROOF_JOBS=1
@@ -88,7 +89,9 @@ LIST=''
 COMMIT=''
 PROOF_USER=${PROOF_USER:-1}
 DRILL_USER=${PROOF_DRILL_USER:-2}
-# what an update runs through: a change here since the last release is proved from every baseline
+# what an update runs through: a change here since the last release is proved from every baseline, except in the
+# files NOT_RUN names, which no install and no leg of the proof runs (a name may be of a file that does not exist yet)
+NOT_RUN=(tools/ci/release-plan.sh tools/ci/candidate-index.sh)
 PATHS=(apps/server/migrations scripts 'docker-compose*.yml' Dockerfile tools/ci)
 USAGE="usage: local-proof.sh [--all] [--jobs N] BASELINES, or --proved [--all] [--commit SHA] BASELINES"
 # a rehearsal takes these from the lane it runs in and from nowhere else
@@ -125,7 +128,8 @@ PICK=()
 ALLREFS=() # every ref of the list, picked or not
 WHY=''
 pick_baselines() {
-  local refs=() marked='' above='' l last changed i n
+  local refs=() marked='' above='' l last changed i n f spec=("${PATHS[@]}")
+  for f in "${NOT_RUN[@]}"; do spec+=(":(exclude)$f"); done
   while IFS= read -r l; do
     l=${l#"${l%%[![:space:]]*}"}
     l=${l%"${l##*[![:space:]]}"}
@@ -144,7 +148,7 @@ pick_baselines() {
   last=${refs[n - 1]}
   if ((ALL)); then PICK=("${refs[@]}"); WHY="--all"; return 0; fi
   # a last ref that is no commit here cannot say that nothing changed
-  if ! changed=$(git diff --name-only "$last" "$SHA" -- "${PATHS[@]}" 2>/dev/null); then
+  if ! changed=$(git diff --name-only "$last" "$SHA" -- "${spec[@]}" 2>/dev/null); then
     PICK=("${refs[@]}"); WHY="no diff from $last, the last of the list, could be read"; return 0
   fi
   if [[ -n $changed ]]; then PICK=("${refs[@]}"); WHY="${changed%%$'\n'*} changed since $last"; return 0; fi

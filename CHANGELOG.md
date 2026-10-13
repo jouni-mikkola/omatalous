@@ -3,6 +3,21 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.36.0
+
+- Päivitä sovellus: the dialog no longer shows scrollbars when everything in it fits.
+- Tekniset asetukset: Varmuuskopiot shows the five newest copies; the rest open with Näytä lisää.
+- The scheduled backup of the host keeps its copies for 7 days by default (it was 30); set KEEP_DAYS to keep more.
+
+Look
+
+- The window that opens from Päivitä sovellus no longer shows scrollbars when its content fits.
+- Varmuuskopiot shows the five newest copies and opens the rest from Näytä lisää, with the number of all copies beside it.
+
+Maintenance
+
+- The daily backup in `backups/` is kept for 7 days instead of 30; to keep a month, put `KEEP_DAYS=30` in `.env`. The older backups of an install are deleted at its next scheduled run.
+
 ## 0.35.0
 
 - Raportit: Kaavio and Taulukko are one switch with both choices in view, the same in every part that has a table.

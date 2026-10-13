@@ -225,9 +225,9 @@ const ROWS: [string, RegExp, string[]][] = [
   ["the smoke test of each pushed image", /smoke-image\.sh "\$IMAGE@\$DIGEST"/, ["smoke"]],
   ["the smoke test of the rehearsal", /smoke-image\.sh omatalous:dry-run/, ["dry-run"]],
   ["the index under the version tag", /imagetools create --tag/, ["publish"]],
-  ["the platforms of the index", /linux\/amd64 linux\/arm64/, ["index", "publish"]],
+  ["the platforms of the index", /linux\/amd64 linux\/arm64/, ["publish"]],
   ["the index of a candidate, printed and not pushed", /imagetools create --dry-run/, ["index"]],
-  ["the record of a candidate", /candidate\.json/, ["index"]],
+  ["the check and the record of a candidate (its script)", /tools\/ci\/candidate-index\.sh/, ["index"]],
   ["the signature by digest", /cosign sign --yes/, ["publish"]],
   ["the signature that the check installs run accept", /verify_signature/, ["publish"]],
   ["the labels of the image", /talous\.compose says/, ["publish"]],
@@ -506,10 +506,8 @@ describe("release workflow on a candidate branch", () => {
     expect(run).toMatch(/imagetools create --dry-run "\$IMAGE@\$AMD64" "\$IMAGE@\$ARM64"/);
     expect(run).not.toMatch(/--tag|docker push|imagetools create(?![^\n]*--dry-run)/);
     expect(index.steps.flatMap(madePublic)).toEqual([]);
-    expect(run).toMatch(/linux\/amd64 linux\/arm64/);
-    expect(run).toMatch(/attestation manifests/);
-    // the fields the local command reads: sha, version, digest, amd64, arm64 (and the run)
-    for (const f of ["version", "sha", "digest", "amd64", "arm64", "run_id"]) expect(run, f).toMatch(new RegExp(`\\b${f}: \\$`));
+    // the check of the index, its digest and the record are in the script, which candidate-index.test.ts runs
+    expect(run).toMatch(/^tools\/ci\/candidate-index\.sh$/m);
     const upload = index.steps.find((s) => s.uses?.startsWith("actions/upload-artifact@"));
     expect(upload?.with).toMatchObject({ name: "candidate", path: "candidate.json", "retention-days": "3", "if-no-files-found": "error" });
   });
