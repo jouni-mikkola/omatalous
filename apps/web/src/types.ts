@@ -40,6 +40,32 @@ export interface Account {
   use?: AccountUse;
   /** The viewer's part of it (their own accounts and those shared with them). */
   part?: Part;
+  /** The account is cut by who paid it: it has a money trace (a joint account with a split row). */
+  traced?: boolean;
+  /** Who set the split by who paid, and when. */
+  split?: { by: "app" | "user"; at: string };
+  /** Only to the member who linked the account: the payers and the opening whose owner is not told, largest first. */
+  questions?: AccountQuestion[];
+  /** The answers given, with the label of what they answer. */
+  answers?: AccountAnswer[];
+  /** The split of the payments to the account when it differs from the weights, in whole percents. */
+  offer?: { userId: string | null; percent: number }[];
+}
+
+/** A payer of a joint account, or its opening, that nobody has said whose money was. `label` of the opening is its day. */
+export interface AccountQuestion {
+  kind: "in" | "opening";
+  key: string;
+  label: string;
+  openCents: number;
+}
+
+/** An answer: `owner` is `u:<id>` (`u:` for the holders who are no member), `all` or `none`. */
+export interface AccountAnswer {
+  kind: "in" | "opening";
+  key: string;
+  label: string;
+  owner: string;
 }
 
 export interface SharedAccount extends Account {

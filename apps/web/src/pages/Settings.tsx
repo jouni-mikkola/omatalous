@@ -2,6 +2,7 @@ import { api } from "../api.ts";
 import { plural } from "../format.ts";
 import { onTechnicalPage, SETTINGS_ANCHOR } from "../routes.ts";
 import type { Meta } from "../types.ts";
+import { About } from "./settings/About.tsx";
 import { Accounts } from "./settings/Accounts.tsx";
 import { BankConnections, connectedMessage, connectError } from "./settings/BankConnections.tsx";
 import { Loans } from "./settings/Loans.tsx";
@@ -83,6 +84,8 @@ function Plain({ meta, params, anchor, onChange }: PageProps) {
           </a>
         </div>
       </div>
+
+      <About version={meta.version.app} />
     </div>
   );
 }

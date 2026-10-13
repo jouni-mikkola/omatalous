@@ -5,15 +5,24 @@
  * and a test proves the two equal to the cent on random rows. What a row counts as is decided in core too
  * (`applyUse`): the statements here are handed its answer by row id and decide nothing.
  */
-import { isNone, isWhole, type Part, type Transaction } from "@banking/core";
+import { isNone, isWhole, type Part, type RowShare, type Transaction } from "@banking/core";
 import type { SqlValue } from "../types.ts";
+
+/**
+ * The viewer's part of an account. For an account cut by who paid it, `viewer` is the viewer's owner key (`u:<id>`): the
+ * rows that have stored parts (`tx_part`) are the viewer's own cents of them and their part of the unknown ones, and the
+ * rows that have none are cut by the part.
+ */
+export type ViewPart = Part & { viewer?: string };
 
 /** What the own view changes in the rows a list or a sum reads. The household view changes nothing: both are empty. */
 export interface OwnRows {
   /** The viewer's own accounts somebody else uses alone: none of their rows is read. */
   left: readonly string[];
-  /** The viewer's part of each account counted at less than the whole, by account id. */
-  parts: ReadonlyMap<string, Part>;
+  /** The viewer's part of each account counted at less than the whole, and of each account cut by who paid it, by account id. */
+  parts: ReadonlyMap<string, ViewPart>;
+  /** The viewer's own cents of the rows of an account cut by who paid it, by row id: what a list shows beside the bank's amount. */
+  shares?: ReadonlyMap<string, Pick<RowShare, "cents" | "openCents">>;
   /**
    * The rows the view counts otherwise than they are stored, by row id: money between two members is a transfer,
    * money to an account the viewer has no part in is money to a person. Every other row counts as it is stored.
@@ -42,15 +51,24 @@ function checked(part: Part): Part {
 /**
  * The viewer's part of `column` (an amount in cents) for the row's account: the part where `parts` names the account,
  * the amount itself elsewhere. With no part below the whole it is the column and binds nothing. The params bind in
- * the order the expression stands in the statement, once for each time it is written.
+ * the order the expression stands in the statement, once for each time it is written. Of an account cut by who paid
+ * it a row with stored parts is the viewer's own cents of them plus the viewer's part of the parts nobody owns (`?`
+ * and `-`), with the row's sign: the same sum as `shareOf` in core. A row with none is cut by the part.
  */
-export function partSql(parts: ReadonlyMap<string, Part>, column: string): Sql {
-  const cut = [...parts].filter(([, part]) => !isWhole(checked(part)));
+export function partSql(parts: ReadonlyMap<string, ViewPart>, column: string): Sql {
+  const cut = [...parts].filter(([, part]) => part.viewer !== undefined || !isWhole(checked(part)));
   if (!cut.length) return { sql: column, params: [] };
-  const abs = `ABS(${column})`;
-  const cents = ({ from, to, of }: Part) => (from === 0 ? centsUpTo(abs, to, of) : `(${centsUpTo(abs, to, of)} - ${centsUpTo(abs, from, of)})`);
-  const whens = cut.map(([, part]) => ` WHEN ? THEN ${isNone(part) ? "0" : `(CASE WHEN ${column} < 0 THEN 0 - ${cents(part)} ELSE ${cents(part)} END)`}`);
-  return { sql: `(CASE account_id${whens.join("")} ELSE ${column} END)`, params: cut.map(([id]) => id) };
+  const cents = ({ from, to, of }: Part, abs: string) => (from === 0 ? centsUpTo(abs, to, of) : `(${centsUpTo(abs, to, of)} - ${centsUpTo(abs, from, of)})`);
+  const plain = (part: Part) => (isNone(part) ? "0" : `(CASE WHEN ${column} < 0 THEN 0 - ${cents(part, `ABS(${column})`)} ELSE ${cents(part, `ABS(${column})`)} END)`);
+  const traced = (part: Part) =>
+    `(SELECT (1 - 2 * (${column} < 0)) * (mine + ${cents(part, "loose")}) FROM (SELECT COALESCE(SUM(CASE WHEN owner = ? THEN cents END), 0) AS mine, COALESCE(SUM(CASE WHEN owner IN ('?', '-') THEN cents END), 0) AS loose FROM tx_part WHERE tx_id = id))`;
+  const whens = cut.flatMap(([, part]) => {
+    checked(part);
+    return part.viewer === undefined
+      ? [{ sql: ` WHEN ? THEN ${plain(part)}`, params: [] as string[] }]
+      : [{ sql: ` WHEN ? THEN (CASE WHEN EXISTS (SELECT 1 FROM tx_part WHERE tx_id = id) THEN ${traced(part)} ELSE ${plain(part)} END)`, params: [part.viewer] }];
+  });
+  return { sql: `(CASE account_id${whens.map((w) => w.sql).join("")} ELSE ${column} END)`, params: cut.flatMap(([id, part], i) => [id, ...whens[i]!.params]) };
 }
 
 /** The condition that keeps the rows of the accounts left out of the view from being read; empty when there is none. */

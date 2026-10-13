@@ -3,6 +3,32 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.39.0
+
+- A joint account can now be cut by who paid into it: a bill paid from it is the cost of the one whose money was in the account, money the other takes out is a transfer, and each member's spending, balance and lists follow that. Asetukset > Tilit offers the three ways to cut a joint account: by who paid, equally, or by percents.
+- When the app cannot name who paid money into a joint account, it asks once under "Kenen rahaa?", and an answer can be taken back under "Vastaukset". Ilmoitukset tells when a split was set, when the payments no longer match it and when payers are unnamed.
+- Asetukset ends with a Tietoja block: the version, who made the app, the source code and the licence.
+
+Money and reports
+
+- A joint account that one of you pays into is cut by who paid: a bill is the payer's own cost, money the other takes out is a transfer, and the spending, balances and lists of each of you follow it. The app sets this once for an account nobody has said a use of, when its rows show it clearly.
+- Money in from someone the account cannot name is asked about once, and an answer moves no other cent.
+- A use typed in euros a month keeps those euros, and a joint account nobody pays into alone is cut as before. The proposal of euros a month from the account's rows is gone.
+- Under a joint account, Asetukset > Tilit offers three ways to cut it: by who paid into it, equally, or by percents. "Prosentit" has a field for each user, the last one filled with the rest of 100.
+- When the payments to a joint account show a split other than the one set, Tilit offers it in one row, and Ilmoitukset tells it.
+- "Kenen rahaa?" lists the payers and the opening balance nobody has named, largest first, with the answers as buttons; "Vastaukset" lists the answers and takes them back.
+- Ilmoitukset tells when the app set a joint account's split, when the payments no longer match it and when payers are unnamed, each with a link to Tilit that you can close.
+- On Yhteenveto a joint account cut by who paid says "Yhteinen tili" with no percent, and a row of Tapahtumat with an unnamed payer links to its account with "Kenen?".
+
+Look
+
+- Asetukset has a Tietoja block with the version, who made the app, the source code and the licence.
+- Under it one line says the app is free, with a link for those who want to support its development.
+
+Upgrade
+
+- A joint account's figures change when it is cut by who paid. Migration 0020 adds four tables; the build before refuses the new database, so keep the copy the upgrade makes.
+
 ## 0.38.0
 
 - The first page no longer shows a coming pay as one sure sum: a pay that hardly varies reads "noin", a pay that varies (commission, shifts) reads as a range with the smallest, largest and most usual of the last pays, and only the low end is counted when the page says whether money runs short.

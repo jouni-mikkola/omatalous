@@ -5,7 +5,7 @@
  */
 import { } from "node:fs";
 import { join } from "node:path";
-import { type AccountType, buildDashboard, buildReports, createContext, type Part, partCents, type RawTransaction } from "@banking/core";
+import { type AccountType, buildDashboard, buildReports, createContext, type Part, partCents, type RawTransaction, type SourcePart, shareOf } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { rng } from "../../../packages/core/test/gen.ts";
 import { createApp } from "../src/app.ts";
@@ -129,6 +129,55 @@ describe("the part of a row in SQL", () => {
     const added = await db.all<{ account_id: string; total: number }>(`SELECT account_id, SUM(${part.sql}) AS total FROM rows_of_test GROUP BY account_id`, part.params);
     for (const a of added) expect(Number(a.total), a.account_id).toBe(rows.filter((r) => r.account === a.account_id).reduce((n, r) => n + partCents(r.amount, parts.get(r.account) ?? { from: 0, to: 1, of: 1 }), 0));
     expect(Number(added.find((a) => a.account_id === "left")!.total)).toBe(0);
+  });
+
+  it("of an account cut by who paid it equals core's share on 3 000 random rows, to the cent; a row with no stored part is cut by the part", async () => {
+    const { db } = await openDatabase(":memory:");
+    await db.run("PRAGMA foreign_keys = OFF");
+    await db.run("CREATE TABLE rows_of_test (id INTEGER PRIMARY KEY, account_id TEXT NOT NULL, amount_cents INTEGER NOT NULL)");
+    const me = "u:me";
+    const sets = [[1, 1], [60000, 40000], [100_000_000, 99_999_999, 1]];
+    const parts = new Map<string, Part & { viewer?: string }>();
+    sets.forEach((weights, set) => {
+      const of = weights.reduce((n, w) => n + w, 0);
+      weights.reduce((from, weight, user) => (parts.set(`s${set}-u${user}`, { from, to: from + weight, of, viewer: me }), from + weight), 0);
+    });
+    parts.set("plain", { from: 1, to: 3, of: 5 });
+    const accounts = [...parts.keys()];
+    const random = rng(20261013);
+    const owners = [me, "u:other", "?", "-", "u:", "?"];
+    const rows = Array.from({ length: 3000 }, (_, i) => {
+      const size = [100, 100_000, 100_000_000, 100_000_000_000][i % 4]!;
+      const amount = Math.round((random() * 2 - 1) * size) || 1;
+      let left = Math.abs(amount);
+      const stored: SourcePart[] = [];
+      // every tenth row has no stored part; the others are cut in up to four pieces by owner
+      for (let n = 0; i % 10 !== 0 && left > 0; n++) {
+        const piece = n === 3 || random() < 0.3 ? left : Math.floor(random() * left) + 1;
+        stored.push({ owner: owners[Math.floor(random() * owners.length)]!, kind: "own", cents: piece });
+        left -= piece;
+      }
+      return { id: i + 1, account: accounts[Math.floor(random() * accounts.length)]!, amount, stored };
+    });
+    await db.batch(rows.map((r) => ({ sql: "INSERT INTO rows_of_test (id, account_id, amount_cents) VALUES (?, ?, ?)", params: [r.id, r.account, r.amount] })));
+    // the table keeps a part of an owner once: pieces of one owner are summed, as the build sums them
+    const summed = (stored: readonly SourcePart[]) => [...new Set(owners)].flatMap((owner) => (stored.some((p) => p.owner === owner) ? [{ owner, kind: "own" as const, cents: stored.filter((p) => p.owner === owner).reduce((n, p) => n + p.cents, 0) }] : []));
+    const sums = rows.flatMap((r) => summed(r.stored).map((p) => ({ id: r.id, owner: p.owner, cents: p.cents })));
+    await db.batch(sums.map((p) => ({ sql: "INSERT INTO tx_part (tx_id, owner, kind, grp, cents, passed) VALUES (?, ?, 'own', '', ?, 0)", params: [String(p.id), p.owner, p.cents] })));
+
+    const part = partSql(parts, "amount_cents");
+    const read = await db.all<{ id: number; part: number }>(`SELECT id, ${part.sql} AS part FROM rows_of_test ORDER BY id`, part.params);
+    const expected = rows.map((r) => {
+      const own = parts.get(r.account)!;
+      const cut = own.viewer === undefined || !r.stored.length;
+      const share = cut ? partCents(r.amount, own) : shareOf({ key: "k", ids: [], day: 0, cents: r.amount, what: "all", parts: summed(r.stored) }, me, own, () => false).cents;
+      return { id: r.id, part: share };
+    });
+    expect(read.map((r) => ({ id: Number(r.id), part: Number(r.part) }))).toEqual(expected);
+    // the rows with no stored part, the ones with and money in and out are all there; the viewer's cents are what is read
+    expect([rows.some((r) => !r.stored.length && parts.get(r.account)!.viewer), rows.some((r) => r.stored.length && r.amount > 0), rows.some((r) => r.stored.length && r.amount < 0)]).toEqual([true, true, true]);
+    // the params bind the account and the viewer in the order they stand
+    expect(part.params.filter((p) => p === me)).toHaveLength([...parts.values()].filter((p) => p.viewer).length);
   });
 
   it("with no part below the whole it is the column itself, and it refuses numbers that are no part", () => {

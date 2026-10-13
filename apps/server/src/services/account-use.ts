@@ -6,17 +6,18 @@
  * A member is matched to a holder by the name their own accounts give. Those names stay here: a response carries
  * display names, and a holder's name only on the account whose own line of holders already shows it.
  */
-import { type AccountUse, type AccountUser, deriveUse, holdersIn, OTHER_HOLDER, type Part, partOf, saidUse, suggestWeights, type UseMember, userNameOf } from "@banking/core";
+import { type AccountUse, type AccountUser, deriveUse, holdersIn, OTHER_HOLDER, type Part, partOf, saidUse, type UseMember, userNameOf } from "@banking/core";
 import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import type { Services } from "./context.ts";
 
-/** The use of an account and the viewer's part of it. */
+/** The use of an account and the viewer's part of it; `traced` when its rows are cut by who paid them (it has a trace and a split). */
 interface UseInView {
   use: AccountUse;
   part: Part;
+  traced?: true;
 }
 
 /** What a member says of one user: a user of the instance, or null for the holders who are none, and their weight. */
@@ -26,6 +27,9 @@ type SaidUser = Pick<AccountUser, "userId" | "weight">;
 const MAX_USERS = 8;
 /** A million euros a month in cents: more than a part is ever typed as, and small enough that eight of them add up exactly. */
 const MAX_WEIGHT = 100_000_000;
+
+/** Whether an account has two users or more: a pool, whose rows can be cut by who paid them. */
+export const isPool = (use: AccountUse | undefined): use is AccountUse => !!use && use.users.filter((u) => u.weight > 0).length >= 2;
 
 /**
  * The line of holders read for a real account: of its copies' lines the one that names the most holders, and of
@@ -43,10 +47,10 @@ function fullestLine(lines: readonly (string | null)[]): string | null {
  */
 export async function usesInView(s: Services, userId: string, accounts: readonly Pick<StoredAccount, "id" | "identity" | "holder">[]): Promise<Map<string, UseInView>> {
   if (!accounts.length) return new Map();
-  const [said, held, users] = await Promise.all([s.household.useRows(accounts.map(accountKey)), s.household.heldAccounts(), s.users.list()]);
+  const [said, held, users, splits] = await Promise.all([s.household.useRows(accounts.map(accountKey)), s.household.heldAccounts(), s.users.list(), s.household.splitRows(accounts.map(accountKey))]);
   const members: UseMember[] = users.map((u) => ({ id: u.id, label: u.displayName, name: userNameOf(held.filter((a) => a.userId === u.id)) }));
-  return new Map(
-    accounts.map((account) => {
+  const entries = await Promise.all(
+    accounts.map(async (account): Promise<[string, UseInView]> => {
       const key = accountKey(account);
       const copies = held.filter((a) => a.key === key);
       const linkedBy = [...new Set(copies.map((a) => a.userId))].sort();
@@ -55,9 +59,14 @@ export async function usesInView(s: Services, userId: string, accounts: readonly
       const use = saidUse(rows, { holder }, linkedBy, members) ?? deriveUse({ holder }, linkedBy, members);
       // a holder's name is shown only where the viewer's own copy of the line has it
       const shown = holder === account.holder ? use : { ...use, users: use.users.map((u) => (u.userId === null ? { ...u, label: OTHER_HOLDER } : u)) };
-      return [account.id, { use: shown, part: partOf(use, userId) }];
+      // a split of an account with fewer than two users cuts nothing: it is no pool, so it serves no mode
+      const source = isPool(use) && splits.some((row) => row.key === key);
+      const state = source ? await s.household.partsState(key) : null;
+      const traced = !!state && state.lots !== "null";
+      return [account.id, { use: source ? { ...shown, mode: "source" } : shown, part: partOf(use, userId), ...(traced ? { traced: true as const } : {}) }];
     }),
   );
+  return new Map(entries);
 }
 
 /** The users a request names, checked: at most eight rows, each user once, whole weights, one of them above zero. */
@@ -83,12 +92,12 @@ async function ownAccount(s: Services, userId: string, accountId: string): Promi
 }
 
 /** The real account behind an account the member linked. */
-async function ownKey(s: Services, userId: string, accountId: string): Promise<string> {
+export async function ownKey(s: Services, userId: string, accountId: string): Promise<string> {
   return accountKey(await ownAccount(s, userId, accountId));
 }
 
 /** A use changes the figures of everyone who sees the account, and of nobody else. */
-async function bumpSeers(s: Services, key: string): Promise<void> {
+export async function bumpSeers(s: Services, key: string): Promise<void> {
   await Promise.all((await s.household.seenBy(key)).map((id) => s.settings.bumpUserDataVersion(id)));
 }
 
@@ -98,6 +107,8 @@ export async function sayAccountUse(s: Services, userId: string, accountId: stri
   const known = new Set((await s.users.list()).map((u) => u.id));
   if (users.some((u) => u.userId !== null && !known.has(u.userId))) throw new UserError("Käyttäjää ei löydy.");
   await s.household.setUse(key, users, userId, s.now().toISOString());
+  // weights said are weights: the account is no longer cut by who paid it
+  await s.household.clearSplit(key);
   await bumpSeers(s, key);
 }
 
@@ -108,30 +119,36 @@ export async function clearAccountUse(s: Services, userId: string, accountId: st
   await bumpSeers(s, key);
 }
 
+/** Cuts an account the member linked by who paid it. The users said stay; an account with fewer than two users is cut by nothing. */
+export async function chooseAccountSource(s: Services, userId: string, accountId: string): Promise<void> {
+  const key = await ownKey(s, userId, accountId);
+  await s.household.setSplit(key, userId, s.now().toISOString(), true);
+  await bumpSeers(s, key);
+}
+
 /**
- * What the page needs beside an account's use: the weights the bank's rows propose (null when the account has fewer than
- * two users, or its rows tell no habit), and the members the use names who cannot see the account (neither linked it nor
- * were given it), so the page can offer the share. Asked by the member who linked the account; no name leaves here.
+ * Cuts an account by its weights again. An account with a split whose use nobody said gets the weights it has now said,
+ * so that the app, which sets the split of an account nobody has said a use of, does not set it again. An account with
+ * no split has nothing to leave, and nothing is said of it.
  */
-export async function suggestAccountUse(s: Services, userId: string, accountId: string): Promise<{ weights: SaidUser[] | null; unseen: string[] }> {
+export async function leaveAccountSource(s: Services, userId: string, accountId: string): Promise<void> {
   const account = await ownAccount(s, userId, accountId);
   const key = accountKey(account);
+  if ((await s.household.splitRows([key])).length && !(await s.household.useRows([key])).length) {
+    const { use } = (await usesInView(s, userId, [account])).get(account.id)!;
+    await s.household.setUse(key, use.users.map(({ userId: id, weight }) => ({ userId: id, weight })), userId, s.now().toISOString());
+  }
+  await s.household.clearSplit(key);
+  await bumpSeers(s, key);
+}
+
+/**
+ * The members the use names who cannot see the account (neither linked it nor were given it), so the page can offer the
+ * share. Asked by the member who linked the account; no name leaves here.
+ */
+export async function suggestAccountUse(s: Services, userId: string, accountId: string): Promise<{ unseen: string[] }> {
+  const account = await ownAccount(s, userId, accountId);
   const use = (await usesInView(s, userId, [account])).get(account.id)!.use;
-  const using = use.users.filter((u) => u.weight > 0);
-  const seen = new Set(await s.household.seenBy(key));
-  const unseen = using.flatMap((u) => (u.userId !== null && !seen.has(u.userId) ? [u.userId] : []));
-  if (using.length < 2) return { weights: null, unseen };
-  const [held, own, shared] = await Promise.all([s.household.heldAccounts(), s.finance(userId).listAccounts(), s.household.sharedWith(userId)]);
-  // the accounts in view a user pays from: the member's own, and those shared with the member; never this account itself
-  const inView = [...own, ...shared].filter((a) => accountKey(a) !== key);
-  const payers = use.users.map((u) => {
-    // a holder who is no member has no accounts here: the bank's line of holders is the only name, when it is one person's
-    const holders = u.userId === null && u.label !== OTHER_HOLDER ? holdersIn(u.label) : [];
-    return {
-      userId: u.userId,
-      name: u.userId === null ? (holders.length === 1 ? holders[0]!.name : null) : userNameOf(held.filter((a) => a.userId === u.userId)),
-      ibans: inView.flatMap((a) => (a.userId === u.userId && a.iban ? [a.iban] : [])),
-    };
-  });
-  return { weights: suggestWeights(await s.finance(userId).transactionsOfAccount(account.id), account, payers, s.today()), unseen };
+  const seen = new Set(await s.household.seenBy(accountKey(account)));
+  return { unseen: use.users.filter((u) => u.weight > 0).flatMap((u) => (u.userId !== null && !seen.has(u.userId) ? [u.userId] : [])) };
 }

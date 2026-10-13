@@ -282,3 +282,109 @@ test("at 390 px the pages that say a part do not scroll sideways, in either view
     }
   }
 });
+
+/** The three ways to cut the joint account, on Tilit of the first partner's page. */
+const splitGroup = (page: Page) => page.locator("#tilit").getByRole("group", { name: "Tilin Yhteistili osuudet" });
+/** A press that saves: waits for the server's answer, so the next page does not cut the request. */
+async function press(page: Page, button: Locator, route = "/api/accounts/") {
+  const done = page.waitForResponse((r) => r.request().method() !== "GET" && r.url().includes(route));
+  await button.click();
+  await done;
+}
+
+test("each way to cut the joint account moves the figure of its row on Yhteenveto, and who paid names it Yhteinen tili alone", async ({ browser }) => {
+  const first = await open(browser, members[0]!, "/#/settings");
+  const group = splitGroup(first.page);
+  const tilit = first.page.locator("#tilit");
+  const own = await open(browser, members[0]!, "/#/overview");
+  const at60 = await jointCents(own.page);
+  await own.context.close();
+
+  // Prosentit: 70 and the rest to the other, the row says 70 % and its sum is 70 / 60 of what 60 % was
+  await group.getByRole("button", { name: "Prosentit" }).click();
+  await tilit.getByLabel(`${NAMES[0]} %`).fill("70");
+  await expect(tilit.getByLabel(`${NAMES[1]} %`)).toHaveValue("30");
+  await press(first.page, tilit.getByRole("button", { name: "Tallenna", exact: true }));
+  const seventy = await open(browser, members[0]!, "/#/overview");
+  await expect(jointRow(seventy.page)).toContainText("osuutesi 70 %");
+  expect(Math.abs((await jointCents(seventy.page)) - Math.round((at60 * 70) / 60))).toBeLessThanOrEqual(1);
+  await seventy.context.close();
+
+  // Tasan: half of the account
+  await press(first.page, group.getByRole("button", { name: "Tasan" }));
+  const equal = await open(browser, members[0]!, "/#/overview");
+  await expect(jointRow(equal.page)).toContainText("osuutesi 50 %");
+  expect(Math.abs((await jointCents(equal.page)) - Math.round((at60 * 50) / 60))).toBeLessThanOrEqual(1);
+  await equal.context.close();
+
+  // who paid: no percent is told, the row is the account alone
+  await press(first.page, group.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" }));
+  await expect(group.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" })).toHaveAttribute("aria-pressed", "true");
+  const paid = await open(browser, members[0]!, "/#/overview");
+  await expect(jointRow(paid.page)).toContainText("Yhteinen tili");
+  await expect(jointRow(paid.page)).not.toContainText(/osuutesi|%/);
+  await paid.context.close();
+
+  // at 390 px Tilit with the choice and its rows does not scroll sideways
+  await first.page.setViewportSize({ width: 390, height: 844 });
+  expect(await overflow(first.page)).toBeLessThanOrEqual(0);
+  expect(first.seen.problems).toEqual([]);
+  await first.context.close();
+  // the first partner's 60 and 40 are said again for the specs after this one
+  const again = await browser.newContext({ storageState: members[0]!.state });
+  await sayJointUse(again, members.map((m, i) => ({ userId: m.id, weight: PARTS[i]! * 100 })));
+  await again.close();
+});
+
+test("a payer nobody has named is a question: answered on Tilit and taken back, told on Yhteenveto and Tapahtumat", async ({ browser }) => {
+  const first = await open(browser, members[0]!, "/#/settings");
+  const group = splitGroup(first.page);
+  const tilit = first.page.locator("#tilit");
+  await press(first.page, group.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" }));
+  const question = tilit.getByRole("heading", { name: "Kenen rahaa?" });
+  await expect(question).toBeVisible();
+  const row = tilit.locator(".use-row", { hasText: "KORHONEN ELISA" }).filter({ has: first.page.getByRole("button", { name: /^Yhteistä: / }) });
+  await expect(row).toContainText("€");
+  await expect(row.getByRole("button")).toHaveText([NAMES[0], NAMES[1], "Yhteistä", "En tiedä"]);
+
+  // the question is a row of Ilmoitukset on Yhteenveto, and a row of Tapahtumat carries Kenen?
+  const overview = await open(browser, members[0]!, "/#/overview");
+  const notice = overview.page.locator(".notice-item", { hasText: "Kenen rahaa tilillä Yhteistili on?" });
+  await expect(notice).toBeVisible();
+  await expect(notice.getByRole("link", { name: /^Katso/ })).toHaveAttribute("href", /^#\/settings#tili-/);
+  const listed = await open(browser, members[0]!, "/#/transactions");
+  await expect(listed.page.getByRole("link", { name: "Kenen?" }).first()).toBeVisible();
+  await listed.context.close();
+
+  // an answer settles it: the question and the notice go, the answer is listed with Poista
+  await press(first.page, row.getByRole("button", { name: /^Yhteistä: / }));
+  await expect(question).toHaveCount(0);
+  const answers = tilit.getByRole("heading", { name: "Vastaukset" });
+  await expect(answers).toBeVisible();
+  const answered = tilit.locator(".use-row", { hasText: "KORHONEN ELISA" });
+  await expect(answered).toContainText("Yhteistä");
+  await overview.page.reload();
+  await expect(overview.page.locator(".notice-item", { hasText: "Kenen rahaa tilillä" })).toHaveCount(0);
+
+  // taking it back brings the question back
+  await press(first.page, answered.getByRole("button", { name: "Poista" }));
+  await expect(answers).toHaveCount(0);
+  await expect(question).toBeVisible();
+  await overview.page.reload();
+  await expect(notice).toBeVisible();
+
+  // Kuittaa closes the notice for this member, and the question stays on Tilit
+  await press(overview.page, notice.getByRole("button", { name: /^Kuittaa/ }), "/api/marks");
+  await overview.page.reload();
+  await expect(overview.page.locator(".notice-item", { hasText: "Kenen rahaa tilillä" })).toHaveCount(0);
+  await first.page.reload();
+  await expect(question).toBeVisible();
+
+  expect(first.seen.problems).toEqual([]);
+  expect(overview.seen.problems).toEqual([]);
+  await first.context.close();
+  await overview.context.close();
+  const again = await browser.newContext({ storageState: members[0]!.state });
+  await sayJointUse(again, members.map((m, i) => ({ userId: m.id, weight: PARTS[i]! * 100 })));
+  await again.close();
+});

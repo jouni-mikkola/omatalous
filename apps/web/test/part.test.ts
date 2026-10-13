@@ -31,6 +31,18 @@ describe("the words on a row of a part", () => {
   });
 });
 
+describe("the words on a traced account", () => {
+  it("are Yhteinen tili with no percent, whatever the part is", () => {
+    for (const part of [HALF, THREE_FIFTHS, NONE, WHOLE, undefined]) {
+      expect(partText(part, "account", true)).toBe("Yhteinen tili");
+    }
+    // near misses: an account not traced keeps its percent, and a debt never says it is a joint account
+    expect(plain(partText(HALF, "account", false) ?? "")).toBe("Yhteinen tili, osuutesi 50 %");
+    expect(plain(partText(HALF, "debt", true) ?? "")).toBe("osuutesi 50 %");
+    expect(partText(WHOLE, "account", false)).toBeNull();
+  });
+});
+
 describe("whether the viewer has a part below the whole", () => {
   it("is so for an own account at a part, also at no part", () => {
     expect(viewsParts(meta([account("a", ONE, WHOLE), account("j", TWO, HALF)]))).toBe(true);

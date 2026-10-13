@@ -3,9 +3,9 @@
 Omatalous gathers a Finnish household's bank accounts and credit cards into one view and shows where the money goes.
 It runs on your own Linux machine at home, and you use it in a browser, in Finnish.
 
-New transactions come from the bank through Enable Banking, which is free for your own accounts. Nordea works best, and
-OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks that Enable Banking offers can be
-connected too. Omatalous sorts the rows into spending, loan payments, saving and
+New transactions come from the bank through Enable Banking, which is free for your own accounts. Omatalous has been
+built and tested mainly with Nordea data, so Nordea works best. OP, Danske Bank, S-Pankki, the savings banks, Aktia and
+the other Finnish banks that Enable Banking offers can be connected too, but they are less tested. Omatalous sorts the rows into spending, loan payments, saving and
 income, finds recurring bills and warns about double charges and late fees. The first page, Yhteenveto, opens with what the
 household has and owes: each account with its balance, each credit card with how much of its limit is used, and each loan
 with what is left and the payment a month. Below it a card shows what the month has cost so far against the month
@@ -55,6 +55,13 @@ bank. The [install guide](docs/INSTALL.md) has the same steps with a few more wo
 
 For developers: [development](docs/DEVELOPMENT.md), [architecture](docs/ARCHITECTURE.md), [releasing](docs/RELEASING.md)
 and the [changes](CHANGELOG.md) in each version. Report a vulnerability as [SECURITY.md](SECURITY.md) says. Issues and pull requests: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Author
+
+Built and maintained by [Jouni Mikkola](https://www.linkedin.com/in/jouni-mikkola).
+
+Omatalous is free and open source. If you find it useful, you can
+[help cover its development costs](https://buymeacoffee.com/jouni.mikkola).
 
 ## Licence
 

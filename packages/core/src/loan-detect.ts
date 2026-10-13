@@ -21,7 +21,7 @@
  * holds the part (one of a lender's several series): a key is the same in every view.
  */
 import { billCents } from "./account-use.ts";
-import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, standingOf } from "./analysis/context.ts";
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
 import { cancelledSubjects, isCancelled } from "./commitments.ts";
@@ -144,10 +144,10 @@ export function notLoanMark(proposal: Pick<LoanProposal, "key">): Pick<UserMark,
  * The loans to propose today, the largest payment first. A series the household marked "Ei laina" or cancelled, and one
  * a saved loan is linked to, is left out.
  */
-export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring">, inputs: UserInputs): LoanProposal[] {
+export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing">, inputs: UserInputs): LoanProposal[] {
   const candidates = ctx.recurring.filter((s) => s.active && s.cadence === "monthly" && (s.kind === "bill" || s.kind === "subscription") && LOAN_CATEGORIES.has(s.category));
   if (!candidates.length) return [];
-  const byId = new Map(ctx.txs.map((t) => [t.id, t]));
+  const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));
   const taken = takenSeries(inputs);
   const cancelled = cancelledSubjects(inputs);
 

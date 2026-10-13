@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { choiceOf, fieldsOf, isEqual, JOINT, optionsOf, peopleOf, proposalText, questionOf, readFields, sameShares, sharedUseText, sharesText, usersFor } from "../src/pages/settings/account-use.ts";
+import { answerCall, answerLabel, choiceOf, fieldsChanged, JOINT, offerText, openQuestions, optionsOf, ownerOf, ownersOf, peopleOf, percentFieldsOf, questionLabel, questionOf, readPercents, restText, sharedUseText, splitOf, takeBackCall, usersFor } from "../src/pages/settings/account-use.ts";
 import type { Account, Connection, Meta, SharedAccount } from "../src/types.ts";
 
 const MATTI = "u-matti";
@@ -50,54 +50,95 @@ describe("what a choice sends", () => {
   });
 });
 
-describe("the fields of Omat osuudet", () => {
-  const people = peopleOf(account(joint()), meta);
+describe("the button that is pressed", () => {
+  const said = (...weights: number[]) => ({ users: weights.map((w, i) => user(i ? null : MATTI, i ? "KORHONEN ELISA" : "Matti", w)), source: "said" as const });
 
-  it("600 and 400 send 60000 and 40000", () => {
-    expect(readFields(people, { [MATTI]: "600", "": "400" })).toEqual({ users: [{ userId: MATTI, weight: 60000 }, { userId: null, weight: 40000 }] });
-    expect(readFields(people, { [MATTI]: "1 234,5", "": "0,05" })).toEqual({ users: [{ userId: MATTI, weight: 123450 }, { userId: null, weight: 5 }] });
+  it("is who paid for a split the app set and for one a member chose", () => {
+    expect(splitOf({ ...joint(), mode: "source" })).toBe("source");
+    expect(splitOf({ ...said(600, 400), mode: "source" })).toBe("source");
   });
 
-  it("an empty field and 0 drop the user", () => {
-    expect(readFields(people, { [MATTI]: "600", "": "0" })).toEqual({ users: [{ userId: MATTI, weight: 60000 }] });
-    expect(readFields(people, { [MATTI]: "600" })).toEqual({ users: [{ userId: MATTI, weight: 60000 }] });
-  });
-
-  it("nothing above zero, or text that is no amount, is refused before a request is made", () => {
-    expect(readFields(people, { [MATTI]: "0", "": "" })).toEqual({ problem: "Ainakin yhdellä käyttäjällä pitää olla osuus." });
-    expect(readFields(people, {})).toEqual({ problem: "Ainakin yhdellä käyttäjällä pitää olla osuus." });
-    expect(readFields(people, { [MATTI]: "kuusisataa", "": "400" })).toEqual({ problem: "Anna osuus euroina, esimerkiksi 600." });
-    expect(readFields(people, { [MATTI]: "-5", "": "400" })).toEqual({ problem: "Anna osuus euroina, esimerkiksi 600." });
-  });
-
-  it("starts empty for equal parts and from the euros of a said use", () => {
-    expect(isEqual(joint())).toBe(true);
-    expect(fieldsOf(people, joint())).toEqual({ [MATTI]: "", "": "" });
-    expect(fieldsOf(people, joint([60000, 40050]))).toEqual({ [MATTI]: "600", "": "400,50" });
-  });
-
-  it("says what the euros come to in percents that add up to 100", () => {
-    expect(sharesText([60000, 40000])).toBe("60 % ja 40 %");
-    expect(sharesText([1, 1, 1])).toBe("34 %, 33 % ja 33 %");
-    expect(sharesText([500, 300, 200])).toBe("50 %, 30 % ja 20 %");
-    expect(sharesText([60000, 0])).toBe("100 %");
-    expect(sharesText([0, 0])).toBe("");
+  it("is Tasan when nothing is said or 1 and 1 are, Prosentit for 600 and 400", () => {
+    expect(splitOf(joint())).toBe("equal");
+    expect(splitOf(said(1, 1))).toBe("equal");
+    expect(splitOf(said(600, 400))).toBe("percent");
+    expect(splitOf(said(60000, 40000))).toBe("percent");
   });
 });
 
-describe("the proposal", () => {
+describe("the fields of Prosentit", () => {
   const people = peopleOf(account(joint()), meta);
-  const proposal = [{ userId: MATTI, weight: 60000 }, { userId: null, weight: 40000 }];
+  const trio = [...people, { userId: ELISA, label: "Elisa" }];
 
-  it("names each user with the euros a month", () => {
-    expect(proposalText(proposal, people).replace(/\s/g, " ")).toBe("Matti on maksanut tilille keskimäärin 600 € ja KORHONEN ELISA 400 €");
+  it("fills the last field with the rest of 100 as the others are typed", () => {
+    expect(restText(people, { [MATTI]: "70" })).toBe("30");
+    expect(restText(people, { [MATTI]: "70,5" })).toBe("29,5");
+    expect(restText(trio, { [MATTI]: "20", "": "35,5" })).toBe("44,5");
+    expect(restText(people, { [MATTI]: "100" })).toBe("0");
   });
 
-  it("is not offered again once the use gives the same shares, whatever the unit", () => {
-    expect(sameShares(proposal, joint([60000, 40000]).users)).toBe(true);
-    expect(sameShares(proposal, joint([3, 2]).users)).toBe(true);
-    expect(sameShares(proposal, joint().users)).toBe(false);
-    expect(sameShares(proposal, joint([60000, 0]).users)).toBe(false);
+  it("sends the percents as weights, a user with nothing left out", () => {
+    expect(readPercents(people, { [MATTI]: "70" })).toEqual({ users: [{ userId: MATTI, weight: 700 }, { userId: null, weight: 300 }] });
+    expect(readPercents(people, { [MATTI]: "70,5" })).toEqual({ users: [{ userId: MATTI, weight: 705 }, { userId: null, weight: 295 }] });
+    expect(readPercents(people, { [MATTI]: "100" })).toEqual({ users: [{ userId: MATTI, weight: 1000 }] });
+    expect(readPercents(people, { [MATTI]: "0" })).toEqual({ users: [{ userId: null, weight: 1000 }] });
+  });
+
+  it("refuses 101, a letter, a second decimal and an empty first field before any request, naming the field", () => {
+    for (const text of ["101", "70a", "abc", "70,55", "-5", ""]) expect(readPercents(people, { [MATTI]: text })).toEqual({ problem: MATTI });
+    expect(restText(people, { [MATTI]: "101" })).toBe("");
+    // near misses: 100 and one decimal pass
+    expect(readPercents(people, { [MATTI]: "100,0" })).toEqual({ users: [{ userId: MATTI, weight: 1000 }] });
+    expect(readPercents(people, { [MATTI]: "0,1" })).toEqual({ users: [{ userId: MATTI, weight: 1 }, { userId: null, weight: 999 }] });
+    // three users: the sum may not pass 100 either, the field that takes it over is named
+    expect(readPercents(trio, { [MATTI]: "60", "": "50" })).toEqual({ problem: "" });
+    expect(readPercents(trio, { [MATTI]: "60", "": "40" })).toEqual({ users: [{ userId: MATTI, weight: 600 }, { userId: null, weight: 400 }] });
+  });
+
+  it("opens with the percents of the weights and is unchanged until a field is: 61050 and 40000 stay exact", () => {
+    const stored = { users: [user(MATTI, "Matti", 61050), user(null, "KORHONEN ELISA", 40000)], source: "said" as const };
+    const initial = percentFieldsOf(people, stored);
+    expect(initial).toEqual({ [MATTI]: "60,4", "": "39,6" });
+    expect(fieldsChanged(people, initial, initial)).toBe(false);
+    // the last field is the rest and never counts as typed
+    expect(fieldsChanged(people, { ...initial, "": "1" }, initial)).toBe(false);
+    expect(fieldsChanged(people, { ...initial, [MATTI]: "60,5" }, initial)).toBe(true);
+    expect(percentFieldsOf(people, joint())).toEqual({ [MATTI]: "50", "": "50" });
+    expect(percentFieldsOf(trio, { users: [user(MATTI, "Matti", 1), user(null, "E", 1), user(ELISA, "Elisa", 1)], source: "said" })).toEqual({ [MATTI]: "33,3", "": "33,3", [ELISA]: "33,4" });
+  });
+
+  it("names the offer with each user's percent", () => {
+    expect(offerText([{ userId: MATTI, percent: 96 }, { userId: null, percent: 4 }], people).replace(/\s/g, " ")).toBe("Matti 96 % ja KORHONEN ELISA 4 %");
+  });
+});
+
+describe("the questions and the answers", () => {
+  const q = (kind: "in" | "opening", key: string, openCents: number, label = key) => ({ kind, key, label, openCents });
+
+  it("lists the questions largest first, the opening by its day", () => {
+    const list = openQuestions({ questions: [q("in", "g:text:A", 20000), q("opening", "o", 55219, "2026-07-01"), q("in", "g:text:B", 90000)] });
+    expect(list.map((x) => x.openCents)).toEqual([90000, 55219, 20000]);
+    expect(questionLabel(list[1]!)).toBe("Saldo ennen 1.7.2026");
+    expect(questionLabel(list[0]!)).toBe("g:text:B");
+    expect(openQuestions({})).toEqual([]);
+  });
+
+  it("sends the kind, the key and the owner of an answer, and the delete of taking it back", () => {
+    expect(answerCall("a1", q("in", "g:iban:FI01", 1), "u:u-matti")).toEqual({ path: "/api/accounts/a1/answers", method: "PUT", body: { kind: "in", key: "g:iban:FI01", owner: "u:u-matti" } });
+    expect(answerCall("a1", q("opening", "o", 1), "all").body).toEqual({ kind: "opening", key: "o", owner: "all" });
+    expect(answerCall("a1", q("in", "g:text:X", 1), "none").body.owner).toBe("none");
+    expect(ownerOf(null)).toBe("u:");
+    expect(takeBackCall("a/1", q("in", "g:iban:FI01", 1))).toEqual({ path: "/api/accounts/a%2F1/answers", method: "DELETE", body: { kind: "in", key: "g:iban:FI01" } });
+  });
+
+  it("names an answer by the user, Yhteistä or En tiedä, and offers the answers to the users with a part only", () => {
+    const people = peopleOf(account(joint()), meta);
+    expect(answerLabel("u:u-matti", people)).toBe("Matti");
+    expect(answerLabel("u:", people)).toBe("KORHONEN ELISA");
+    expect(answerLabel("all", people)).toBe("Yhteistä");
+    expect(answerLabel("none", people)).toBe("En tiedä");
+    expect(ownersOf(account(joint([600, 0])), meta).map((p) => p.label)).toEqual(["Matti"]);
+    expect(ownersOf(account(joint()), meta).map((p) => p.label)).toEqual(["Matti", "KORHONEN ELISA"]);
   });
 });
 

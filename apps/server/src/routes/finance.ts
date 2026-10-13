@@ -1,13 +1,14 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, isKnownCategory, KIND_LABEL, partCents, patternProblem, type RuleField } from "@banking/core";
+import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, fromDayNumber, isKnownCategory, KIND_LABEL, partCents, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
-import { parseScope, requestInputs, rowsInView, sharedInView } from "../services/analysis.ts";
+import { parseScope, requestInputs, rowsInView, sharedInView, usesWithTraces } from "../services/analysis.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
-import { clearAccountUse, parseSaidUsers, sayAccountUse, suggestAccountUse, usesInView } from "../services/account-use.ts";
+import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
+import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
 import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
 import { body, optionalString, parseRange, parseReportIds, queryInt } from "./shared.ts";
 
@@ -15,6 +16,28 @@ const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "
 
 /** A balance typed in by hand: whole cents, at most a billion euros either way. */
 const MAX_BALANCE_CENTS = 100_000_000_000;
+
+/** The question a viewer is asked, and the answer given, with the text their own row of that payer shows (the opening: its day). */
+async function tracedFields(s: Services, key: string, split: { by: "app" | "user"; at: string } | undefined, asker: boolean) {
+  const t = asker ? await settledTrace(s, key) : null;
+  const label = (kind: "in" | "opening", answerKey: string) => (kind === "opening" ? (t ? fromDayNumber(t.raw.openingDay) : "") : (t?.labels.get(answerKey) ?? ""));
+  const answers = (t?.answers ?? []).map((a) => ({ kind: a.kind, key: a.key, label: label(a.kind, a.key), owner: a.owner })).filter((a) => a.label);
+  return {
+    ...(split ? { split } : {}),
+    ...(t?.questions.length ? { questions: t.questions.map((q) => ({ ...q, label: label(q.kind, q.key) })) } : {}),
+    ...(answers.length ? { answers } : {}),
+    ...(t?.offer ? { offer: t.offer } : {}),
+  };
+}
+
+/** The answer a request names: what was asked, whose money it was. */
+function parseAnswer(value: unknown, withOwner: boolean): { kind: "in" | "opening"; key: string; owner: string } {
+  const raw = strictObject(value, withOwner ? (["kind", "key", "owner"] as const) : (["kind", "key"] as const)) as { kind?: unknown; key?: unknown; owner?: unknown };
+  if (raw.kind !== "in" && raw.kind !== "opening") throw new UserError("Kysymystä ei löydy.");
+  if (typeof raw.key !== "string" || !raw.key || raw.key.length > 300) throw new UserError("Kysymystä ei löydy.");
+  if (withOwner && (typeof raw.owner !== "string" || !raw.owner || raw.owner.length > 100)) throw new UserError("Valitse yksi tilin käyttäjistä.");
+  return { kind: raw.kind, key: raw.key, owner: withOwner ? (raw.owner as string) : "" };
+}
 
 export function financeRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -39,15 +62,20 @@ export function financeRoutes(s: Services) {
     const today = s.today();
     const { privacyUrl, termsUrl } = registrationUrls(s);
     // who uses each account in view, and the viewer's part of it
-    const uses = await usesInView(s, user.id, [...accounts, ...sharedAccounts]);
+    const { uses, traces } = await usesWithTraces(s, user.id, [...accounts, ...sharedAccounts]);
+    // the facts of a split: served for what the viewer sees; the questions and answers only to the member who linked the account
+    const split = async (a: { id: string }, own: boolean) => {
+      const facts = traces.get(a.id);
+      return facts ? tracedFields(s, facts.key, facts.split, own) : {};
+    };
     return c.json({
       today,
       user,
       categories: CATEGORIES,
       kinds: KIND_LABEL,
-      accounts: (await accountsView(s, user.id, accounts)).map((account) => ({ ...account, ...uses.get(account.id) })),
+      accounts: await Promise.all((await accountsView(s, user.id, accounts)).map(async (account) => ({ ...account, ...uses.get(account.id), ...(await split(account, true)) }))),
       // without the bank of the owner's connection: the member sees the account by its name, and a card has no IBAN that tells more
-      sharedAccounts: sharedAccounts.map(({ bank: _bank, ...account }) => ({ ...account, ...uses.get(account.id) })),
+      sharedAccounts: await Promise.all(sharedAccounts.map(async ({ bank: _bank, ...account }) => ({ ...account, ...uses.get(account.id), ...(await split(account, false)) }))),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
       connections: connections.map((conn) => connectionView(conn, today, accounts, connections)),
@@ -133,10 +161,11 @@ export function financeRoutes(s: Services) {
       outCents,
       items: items.map((t) => {
         const part = own.parts.get(t.accountId);
+        const share = own.shares?.get(t.id);
         return {
           ...publicTx(t),
           own: t.userId === user.id,
-          ...(part ? { partCents: partCents(t.amountCents, part) } : {}),
+          ...(share ? { partCents: share.cents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) } : part ? { partCents: partCents(t.amountCents, part) } : {}),
           ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}),
         };
       }),
@@ -208,7 +237,35 @@ export function financeRoutes(s: Services) {
     return c.json({ ok: true });
   });
 
-  // the weights the account's rows propose, and the named members who cannot see it: asked by who linked it
+  // an account cut by who paid it, or by its weights again: chosen by a member who linked it, for the real account
+  app.put("/accounts/:id/split", async (c) => {
+    const raw = strictObject(await body(c), ["mode"] as const);
+    if (raw.mode !== "source") throw new UserError("Virheellinen jako.");
+    await chooseAccountSource(s, c.get("user").id, c.req.param("id"));
+    return c.json({ ok: true });
+  });
+
+  app.delete("/accounts/:id/split", async (c) => {
+    await leaveAccountSource(s, c.get("user").id, c.req.param("id"));
+    return c.json({ ok: true });
+  });
+
+  // whose money a payer's was, or the opening: said by a member who linked the account, for the real account
+  app.put("/accounts/:id/answers", async (c) => {
+    const user = c.get("user");
+    const { kind, key, owner } = parseAnswer(await body(c), true);
+    await sayAnswer(s, await ownKey(s, user.id, c.req.param("id")), { kind, key, owner }, user.id);
+    return c.json({ ok: true });
+  });
+
+  app.delete("/accounts/:id/answers", async (c) => {
+    const user = c.get("user");
+    const { kind, key } = parseAnswer(await body(c), false);
+    await takeBackAnswer(s, await ownKey(s, user.id, c.req.param("id")), kind, key);
+    return c.json({ ok: true });
+  });
+
+  // the members the use names who cannot see the account: asked by who linked it
   app.get("/accounts/:id/use/suggestion", async (c) => c.json(await suggestAccountUse(s, c.get("user").id, c.req.param("id"))));
 
   return app;

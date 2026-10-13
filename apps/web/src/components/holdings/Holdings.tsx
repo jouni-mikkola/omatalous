@@ -106,7 +106,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
       <h3 className="st-cap">Tilit</h3>
       <ul className={adds ? "st-rows adds-up" : "st-rows"}>
         {accounts.map((a, i) => {
-          const part = partText(a.part, "account");
+          const part = partText(a.part, "account", meta.accounts.find((m) => m.id === a.id)?.traced);
           const since = sinceLine(a.balanceAt, meta.today);
           const track = tracks?.[i];
           const classes = ["st-row", "holding-account", track ? "share" : "", adds && i === known[0] ? "part-first" : "", adds && i === known[known.length - 1] ? "part-last" : ""];

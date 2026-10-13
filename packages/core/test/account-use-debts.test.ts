@@ -1,12 +1,11 @@
 /**
- * Debts, a loan's payments, the split of income per person and the proposed weights of a joint account, by parts. A
+ * Debts, a loan's payments, and the split of income per person, by parts. A
  * member's own view is built by hand as the server hands it: an account's balance and limit at the viewer's part with
  * `part` set, and rows cut to the part with the bank's amount in `wholeCents`. The household's view holds every
  * account whole. Made-up names and sums only.
  */
 import { describe, expect, it } from "vitest";
 import { partCents, partOf, WHOLE } from "../src/account-use.ts";
-import { suggestWeights } from "../src/account-use-suggest.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { addMonths } from "../src/dates.ts";
 import { buildHoldings } from "../src/holdings.ts";
@@ -14,15 +13,12 @@ import { householdDebts, paidFrom } from "../src/household-debts.ts";
 import { loanProposals } from "../src/loan-detect.ts";
 import { creditUse, loanBalanceOn } from "../src/loans.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
-import { nameOf } from "../src/person-names.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { incomeReport } from "../src/reports/income.ts";
 import { type LoanRow, loansReport } from "../src/reports/loans.ts";
 import { type Account, type AccountUse, type BalanceInput, type Loan, NO_INPUTS, type Part, type Transaction, type UserInputs } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
-import { JOINT_PAYERS, jointMortgage } from "./kit/events/joint-mortgage.ts";
-import { KIT_TODAY, kitHousehold } from "./kit/index.ts";
 
 const TODAY = "2026-10-15";
 const OTHER = "Muu tilinomistaja";
@@ -278,59 +274,5 @@ describe("the split per person in Tulot", () => {
     // an account with no use told is its owner's, and a joint one stays one line, as before
     const untold = [account("joint", "checking", 0, { joint: true }), account("own", "checking", 0, { ownerName: "Eero" })];
     expect(incomeReport(ctx, range, untold).members?.map((m) => [m.label, m.earnedCents])).toEqual([["Yhteinen tili", 12 * 500_001], ["Eero", 12 * 300_000]]);
-  });
-});
-
-describe("the proposed weights of a joint account", () => {
-  const [matti, maija] = JOINT_PAYERS.map((p) => p.name) as [string, string];
-  const users = [
-    { userId: "u-matti", name: nameOf("Matti Meikäläinen"), ibans: ["FI21 1234 5600 0007 85"] },
-    { userId: "u-maija", name: nameOf("Maija Meikäläinen"), ibans: [] },
-  ];
-  const MONTHS = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
-  const row = (month: string, cents: number, counterparty: string | null, more: Partial<Transaction> = {}) =>
-    tx({ accountId: "joint", bookingDate: `${month}-01`, amountCents: cents, counterparty, description: "SIIRTO-MAKSU", merchant: counterparty ?? "", ...more });
-  const each = (months: readonly string[], his: number, hers: number) => months.flatMap((m) => [row(m, his, matti), row(m, hers, maija)]);
-  const weights = (rows: Transaction[], who = users) => suggestWeights(rows, { id: "joint" }, who, TODAY)?.map((u) => u.weight) ?? null;
-
-  it("600 and 400 a month for six months give 60000 and 40000, from the kit's household too", () => {
-    expect(suggestWeights(each(MONTHS, 60_000, 40_000), { id: "joint" }, users, TODAY)).toEqual([{ userId: "u-matti", weight: 60_000 }, { userId: "u-maija", weight: 40_000 }]);
-    expect(suggestWeights(kitHousehold(jointMortgage).txs, { id: "chk" }, users, KIT_TODAY)).toEqual([{ userId: "u-matti", weight: 60_000 }, { userId: "u-maija", weight: 40_000 }]);
-  });
-
-  it("needs three months with money from two users, and counts from the first month somebody paid in", () => {
-    expect(weights(each(MONTHS.slice(-2), 60_000, 40_000))).toBeNull();
-    expect(weights(each(MONTHS.slice(-3), 60_000, 40_000))).toEqual([60_000, 40_000]);
-    // six months of his and two of hers: one user alone tells no habit of two
-    expect(weights([...MONTHS.map((m) => row(m, 60_000, matti)), ...MONTHS.slice(-2).map((m) => row(m, 40_000, maija))])).toBeNull();
-    // she pays every other month, twice the sum: three months of two users, six months counted
-    expect(weights([...MONTHS.map((m) => row(m, 60_000, matti)), ...[MONTHS[1]!, MONTHS[3]!, MONTHS[5]!].map((m) => row(m, 80_000, maija))])).toEqual([60_000, 40_000]);
-  });
-
-  it("sums within 5 % of each other are equal parts and no proposal", () => {
-    expect(weights(each(MONTHS, 50_000, 50_000))).toBeNull();
-    expect(weights(each(MONTHS, 50_000, 47_500))).toBeNull();
-    expect(weights(each(MONTHS, 50_000, 47_499))).toEqual([50_000, 47_499]);
-  });
-
-  it("counts only money in from rows that name their payer, at the bank's amount", () => {
-    const base = each(MONTHS, 60_000, 40_000);
-    const beside = [
-      // pay, a row of another account, the month in progress and a month before the six
-      ...MONTHS.map((m) => row(m, 300_000, "ESIMERKKI OY")),
-      ...MONTHS.map((m) => row(m, 90_000, maija, { accountId: "own" })),
-      row("2026-10", 500_000, maija),
-      row("2026-03", 500_000, maija),
-    ];
-    expect(weights([...base, ...beside])).toEqual([60_000, 40_000]);
-    // money out to a user is not read, be it a transfer to their savings or a sum sent back
-    expect(weights([...base, ...MONTHS.map((m) => row(m, -30_000, matti))])).toEqual([60_000, 40_000]);
-    expect(weights([...base, row("2026-09", -600_000, maija)])).toEqual([60_000, 40_000]);
-    // a payer account in view names its user with no name on the row
-    expect(weights([...MONTHS.map((m) => row(m, 60_000, null, { counterpartyIban: "FI2112345600000785" })), ...MONTHS.map((m) => row(m, 40_000, maija))])).toEqual([60_000, 40_000]);
-    // rows cut to a part are read whole
-    expect(weights(each(MONTHS, 60_000, 40_000).map((t) => ({ ...t, amountCents: partCents(t.amountCents, AINO), wholeCents: t.amountCents })))).toEqual([60_000, 40_000]);
-    // two users of one name: a row by that name tells neither
-    expect(weights(base, [users[0]!, { ...users[0]!, userId: "u-other", ibans: [] }, users[1]!])).toBeNull();
   });
 });

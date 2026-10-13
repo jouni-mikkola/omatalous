@@ -35,6 +35,43 @@ interface HeldAccount {
   holder: string | null;
 }
 
+/** A real account cut by who paid it: `setBy` null means the app set it. */
+interface SplitRow {
+  key: string;
+  setBy: string | null;
+  setAt: string;
+}
+
+/** What the household said of whose money a payer's (`kind` "in") or the opening's (`kind` "opening", key "") was. */
+export interface AnswerRow {
+  key: string;
+  kind: "in" | "opening";
+  answerKey: string;
+  owner: string;
+}
+
+/** One stored part of a row: see migration 0020. */
+export interface PartRow {
+  owner: string;
+  kind: string;
+  grp: string;
+  cents: number;
+  passed: boolean;
+}
+
+/** What a real account's parts were built from, and its lots (JSON). */
+interface PartsState {
+  key: string;
+  signature: string;
+  builtAt: string;
+  lots: string;
+}
+
+const partKeyOf = (p: PartRow): string => `${p.owner}\u0000${p.kind}\u0000${p.grp}`;
+/** The parts of one row as a list that compares equal when the parts do. */
+const partsText = (parts: readonly PartRow[]): string =>
+  JSON.stringify([...parts].sort((a, b) => (partKeyOf(a) < partKeyOf(b) ? -1 : 1)).map((p) => [p.owner, p.kind, p.grp, p.cents, p.passed ? 1 : 0]));
+
 export class HouseholdRepo {
   constructor(private readonly db: Db) {}
 
@@ -116,7 +153,7 @@ export class HouseholdRepo {
    * are no user (made if there is none), so the ratio that was said stays. A weight of nothing moves nothing. Where
    * the member had the only row, the statement goes with them and the use is derived again. What was said of a real
    * account that nobody holds a copy of now (the member's was the last) goes too, so the next member who links it
-   * starts without a statement. One transaction.
+   * starts without a statement. The answers that name the member as the owner of some money go too. One transaction.
    */
   async removeMember(userId: string): Promise<void> {
     await this.db.batch([
@@ -129,6 +166,7 @@ export class HouseholdRepo {
         params: [userId, userId],
       },
       { sql: "DELETE FROM users WHERE id = ?", params: [userId] },
+      { sql: "DELETE FROM owner_answer WHERE owner = ?", params: [`u:${userId}`] },
       { sql: `DELETE FROM account_use WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE ${keyOf("a")} = account_use.account_key)` },
     ]);
   }
@@ -145,6 +183,104 @@ export class HouseholdRepo {
       key: String(r.account_key),
       holder: str(r.holder),
     }));
+  }
+
+  /** Every account of the instance, whoever linked it: the payers of a joint account are found among them by IBAN (services/money-trace.ts). */
+  async allAccounts(): Promise<StoredAccount[]> {
+    return (await this.db.all<Row>(`SELECT a.*, ${accountBank("a")} FROM accounts a ORDER BY a.id`)).map(toAccount);
+  }
+
+  /** The accounts cut by who paid them, by real account. */
+  async splitRows(keys: readonly string[]): Promise<SplitRow[]> {
+    if (!keys.length) return [];
+    const marks = keys.map(() => "?").join(",");
+    return (await this.db.all<Row>(`SELECT account_key, set_by, set_at FROM account_split WHERE account_key IN (${marks}) ORDER BY account_key`, [...keys])).map((r) => ({
+      key: String(r.account_key),
+      setBy: str(r.set_by),
+      setAt: String(r.set_at),
+    }));
+  }
+
+  /** Cuts an account by who paid it. `replace` false leaves a row that is there (the app sets it once); returns whether a row was written. */
+  async setSplit(key: string, setBy: string | null, at: string, replace: boolean): Promise<boolean> {
+    const keep = replace ? "ON CONFLICT (account_key) DO UPDATE SET set_by = excluded.set_by, set_at = excluded.set_at" : "ON CONFLICT (account_key) DO NOTHING";
+    return (await this.db.run(`INSERT INTO account_split (account_key, mode, set_by, set_at) VALUES (?, 'source', ?, ?) ${keep}`, [key, setBy, at])).changes > 0;
+  }
+
+  async clearSplit(key: string): Promise<void> {
+    await this.db.run("DELETE FROM account_split WHERE account_key = ?", [key]);
+  }
+
+  async answerRows(key: string): Promise<AnswerRow[]> {
+    return (await this.db.all<Row>("SELECT kind, key, owner FROM owner_answer WHERE account_key = ? ORDER BY kind, key", [key])).map((r) => ({
+      key,
+      kind: String(r.kind) as AnswerRow["kind"],
+      answerKey: String(r.key),
+      owner: String(r.owner),
+    }));
+  }
+
+  /** Says whose money a payer's or the opening was; saying it again replaces it. */
+  async setAnswer(key: string, kind: AnswerRow["kind"], answerKey: string, owner: string, saidBy: string, at: string): Promise<void> {
+    await this.db.run(
+      `INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (account_key, kind, key) DO UPDATE SET owner = excluded.owner, said_by = excluded.said_by, said_at = excluded.said_at`,
+      [key, kind, answerKey, owner, saidBy, at],
+    );
+  }
+
+  async deleteAnswer(key: string, kind: AnswerRow["kind"], answerKey: string): Promise<void> {
+    await this.db.run("DELETE FROM owner_answer WHERE account_key = ? AND kind = ? AND key = ?", [key, kind, answerKey]);
+  }
+
+  async partsState(key: string): Promise<PartsState | null> {
+    const r = await this.db.first<Row>("SELECT account_key, signature, built_at, lots FROM tx_part_state WHERE account_key = ?", [key]);
+    return r ? { key: String(r.account_key), signature: String(r.signature), builtAt: String(r.built_at), lots: String(r.lots) } : null;
+  }
+
+  /** The stored parts of the rows of these accounts, by row id. */
+  async partsOf(accountIds: readonly string[]): Promise<Map<string, PartRow[]>> {
+    const out = new Map<string, PartRow[]>();
+    if (!accountIds.length) return out;
+    const marks = accountIds.map(() => "?").join(",");
+    const rows = await this.db.all<Row>(
+      `SELECT p.tx_id, p.owner, p.kind, p.grp, p.cents, p.passed FROM tx_part p JOIN transactions t ON t.id = p.tx_id WHERE t.account_id IN (${marks}) ORDER BY p.tx_id, p.owner, p.kind, p.grp`,
+      [...accountIds],
+    );
+    for (const r of rows) {
+      const part: PartRow = { owner: String(r.owner), kind: String(r.kind), grp: String(r.grp), cents: Number(r.cents), passed: Number(r.passed) === 1 };
+      const list = out.get(String(r.tx_id));
+      if (list) list.push(part);
+      else out.set(String(r.tx_id), [part]);
+    }
+    return out;
+  }
+
+  /**
+   * Writes the parts a real account was built with: only the rows whose parts changed, the rows that have none now
+   * cleared, and the state, in one transaction, so a read never sees half of a build. `built` is by row id; `had` is
+   * what `partsOf` gave before. Returns how many rows were written.
+   */
+  async writeParts(built: ReadonlyMap<string, readonly PartRow[]>, had: ReadonlyMap<string, readonly PartRow[]>, state: PartsState): Promise<number> {
+    const changed = [...built].filter(([id, parts]) => partsText(parts) !== partsText(had.get(id) ?? []));
+    const gone = [...had.keys()].filter((id) => !built.has(id));
+    await this.db.batch([
+      ...[...changed.map(([id]) => id), ...gone].map((id) => ({ sql: "DELETE FROM tx_part WHERE tx_id = ?", params: [id] })),
+      ...changed.flatMap(([id, parts]) =>
+        parts.map((p) => ({ sql: "INSERT INTO tx_part (tx_id, owner, kind, grp, cents, passed) VALUES (?, ?, ?, ?, ?, ?)", params: [id, p.owner, p.kind, p.grp, p.cents, p.passed ? 1 : 0] })),
+      ),
+      {
+        sql: `INSERT INTO tx_part_state (account_key, signature, built_at, lots) VALUES (?, ?, ?, ?)
+              ON CONFLICT (account_key) DO UPDATE SET signature = excluded.signature, built_at = excluded.built_at, lots = excluded.lots`,
+        params: [state.key, state.signature, state.builtAt, state.lots],
+      },
+    ]);
+    return changed.length + gone.length;
+  }
+
+  /** Forgets the parts of a real account that is no pool (any more): their rows (by id) and the state. */
+  async clearParts(key: string, rowIds: readonly string[]): Promise<void> {
+    await this.db.batch([...rowIds.map((id) => ({ sql: "DELETE FROM tx_part WHERE tx_id = ?", params: [id] })), { sql: "DELETE FROM tx_part_state WHERE account_key = ?", params: [key] }]);
   }
 
   /** Everyone whose figures hold a real account: the members who linked it and the members it is shared with. */

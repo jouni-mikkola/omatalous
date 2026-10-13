@@ -224,6 +224,10 @@ describe("data versions", () => {
     "DELETE /api/accounts/:id/shares/:userId",
     "PUT /api/accounts/:id/use",
     "DELETE /api/accounts/:id/use",
+    "PUT /api/accounts/:id/split",
+    "DELETE /api/accounts/:id/split",
+    "PUT /api/accounts/:id/answers",
+    "DELETE /api/accounts/:id/answers",
     "DELETE /api/accounts/:id",
     "DELETE /api/demo",
     // the new accounts are written before the first fetch; run with the mock bank below
@@ -292,6 +296,10 @@ describe("data versions", () => {
     const use = { users: [{ userId: adminId, weight: 3 }, { userId: m.id, weight: 2 }] };
     await step("PUT /api/accounts/:id/use", () => admin.call("PUT", `/api/accounts/${accountId}/use`, use), true, [adminId, m.id]);
     await step("DELETE /api/accounts/:id/use", () => admin.call("DELETE", `/api/accounts/${accountId}/use`), true, [adminId, m.id]);
+    // the split of an account and the answers about its money in change the same figures, for the same members
+    await step("PUT /api/accounts/:id/split", () => admin.call("PUT", `/api/accounts/${accountId}/split`, { mode: "source" }), true, [adminId, m.id]);
+    await step("DELETE /api/accounts/:id/split", () => admin.call("DELETE", `/api/accounts/${accountId}/split`), true, [adminId, m.id]);
+    await step("DELETE /api/accounts/:id/answers", () => admin.call("DELETE", `/api/accounts/${accountId}/answers`, { kind: "opening", key: "o" }), true, [adminId, m.id]);
     await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
 
     await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);
@@ -307,7 +315,7 @@ describe("data versions", () => {
     const everyone = await s.settings.get("data_version");
     expect((await admin.call("DELETE", `/api/users/${m.id}`)).status, "DELETE /api/users/:id").toBe(200);
     expect(await s.settings.get("data_version"), "DELETE /api/users/:id").not.toBe(everyone);
-    expect(MOVES.filter((k) => !ran.has(k) && k !== "POST /api/connections/complete"), "every route on MOVES ran").toEqual([]);
+    expect(MOVES.filter((k) => !ran.has(k) && k !== "POST /api/connections/complete" && k !== "PUT /api/accounts/:id/answers"), "every route on MOVES ran").toEqual([]);
   });
 
   it("completing a bank connection moves the user's version, and removing one does not", async () => {

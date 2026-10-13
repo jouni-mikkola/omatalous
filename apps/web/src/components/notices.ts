@@ -2,7 +2,8 @@
 import { type Insight, insightDismissSubject, type MarkKind, OVERVIEW_INSIGHTS } from "@banking/core";
 import { query } from "../api.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
-import type { DashboardData } from "../types.ts";
+import { partAnchor } from "../part.ts";
+import type { Account, DashboardData } from "../types.ts";
 
 /** The most rows the list shows; the link to Säästövinkit holds the rest. */
 export const MAX_ROWS = 4;
@@ -29,7 +30,7 @@ interface Answer {
 export interface Notice {
   /** What `answered` holds for the row: the alert's or the insight's own id, and the security notice's. */
   id: string;
-  kind: "security" | "quality" | "alert" | "insight";
+  kind: "security" | "quality" | "account" | "alert" | "insight";
   title: string;
   detail: string;
   /** "Huomio", "Tiedoksi" or "Hyvä", read before the title. */
@@ -100,6 +101,40 @@ function alertNotice(a: Alert, range: { from: string; to: string }): Notice {
   return { id: a.id, kind: "alert", title: a.title, detail: a.detail, read: READ[a.tone], warning: a.tone === "warning", href: filter && `#/transactions${query(filter)}`, ...link, answers };
 }
 
+/** What /meta tells of an account that a notice about its split is built from. */
+type Noted = Pick<Account, "id" | "name" | "split" | "offer" | "questions">;
+
+/** A short fixed-length digest of a text (FNV-1a), for a subject that must stay under the mark's length whatever the keys are. */
+function digest(text: string): string {
+  let h = 0x811c9dc5;
+  for (const c of text) h = Math.imul(h ^ c.codePointAt(0)!, 0x01000193) >>> 0;
+  return h.toString(16);
+}
+
+/**
+ * The three notices about an account's split, each closed by the member's mark on its subject. The subject holds the figure
+ * the notice is about, so a changed figure is another subject and the row comes back: the day the app set the split, the
+ * percents of the offer, the keys of the open questions. A mark is `alert:`-prefixed, the form the marks route takes.
+ */
+function accountNotices(accounts: readonly Noted[]): Notice[] {
+  const notice = (a: Noted, subject: string, title: string): Notice => ({
+    id: subject,
+    kind: "account",
+    title,
+    detail: "",
+    read: READ.info,
+    warning: false,
+    href: `#/settings#${partAnchor(a.id)}`,
+    link: "Katso",
+    answers: [dismiss(title, { subject, mark: "dismissed" })],
+  });
+  return accounts.flatMap((a) => [
+    ...(a.split?.by === "app" ? [notice(a, `alert:split:${a.id}:${a.split.at}`, `Tilin ${a.name} jako muuttui`)] : []),
+    ...(a.offer ? [notice(a, `alert:offer:${a.id}:${a.offer.map((o) => `${o.userId ?? ""}=${o.percent}`).join(",")}`, `Tilin ${a.name} jako ei vastaa maksuja`)] : []),
+    ...(a.questions?.length ? [notice(a, `alert:questions:${a.id}:${digest(a.questions.map((q) => `${q.kind}:${q.key}`).sort().join(","))}`, `Kenen rahaa tilillä ${a.name} on?`)] : []),
+  ]);
+}
+
 /** Core decides when a changed figure brings a dismissed insight back (`insightDismissSubject`). */
 function insightNotice(i: Insight): Notice {
   return {
@@ -115,7 +150,8 @@ function insightNotice(i: Insight): Notice {
 }
 
 /**
- * The rows in one order: the notices of the server (a new sign-in first), the data-quality warning, the alerts in core's
+ * The rows in one order: the notices of the server (a new sign-in first), the data-quality warning, the notices of an
+ * account's split (those the member has not closed with a mark), the alerts in core's
  * order (six at most), the insights (three at most, and only while Säästövinkit is switched off: with it on, Muut havainnot
  * tells them; one that only tells good news is no row). What the household has answered is left out before the cut, so
  * the next one takes its place. `rows` are the first `MAX_ROWS`, `total` is how many there are, the link to the rest
@@ -123,7 +159,15 @@ function insightNotice(i: Insight): Notice {
  */
 export function noticesOf(
   data: Pick<DashboardData, "dataNotice" | "alerts" | "insights">,
-  options: { range: { from: string; to: string }; answered: ReadonlySet<string>; insights: boolean; security?: readonly SecurityNotice[] },
+  options: {
+    range: { from: string; to: string };
+    answered: ReadonlySet<string>;
+    insights: boolean;
+    security?: readonly SecurityNotice[];
+    /** The member's own accounts as /meta tells them, and the subjects of their marks. */
+    accounts?: readonly Noted[];
+    marked?: ReadonlySet<string>;
+  },
 ): { rows: Notice[]; total: number } {
   const { range, answered } = options;
   const banners = new Set(bannersOf(options.security ?? []));
@@ -133,6 +177,7 @@ export function noticesOf(
     : [];
   const alerts = data.alerts.filter((a) => !answered.has(a.id)).slice(0, MAX_ALERTS);
   const insights = options.insights ? data.insights.filter((i) => i.tone !== "good" && !answered.has(i.id)).slice(0, OVERVIEW_INSIGHTS) : [];
-  const all = [...security.map(securityNotice), ...quality, ...alerts.map((a) => alertNotice(a, range)), ...insights.map(insightNotice)];
+  const split = accountNotices(options.accounts ?? []).filter((n) => !answered.has(n.id) && !options.marked?.has(n.id));
+  const all = [...security.map(securityNotice), ...quality, ...split, ...alerts.map((a) => alertNotice(a, range)), ...insights.map(insightNotice)];
   return { rows: all.slice(0, MAX_ROWS), total: all.length };
 }

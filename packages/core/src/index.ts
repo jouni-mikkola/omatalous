@@ -11,7 +11,6 @@
  */
 export * from "./types.ts";
 export * from "./account-use.ts";
-export { suggestWeights } from "./account-use-suggest.ts";
 export { holdersIn, userNameOf } from "./person-names.ts";
 export * from "./dates.ts";
 export * from "./stats.ts";
@@ -52,3 +51,6 @@ export * from "./features.ts";
 export * from "./optimise/index.ts";
 export * from "./optimise/outcome.ts";
 export * from "./loan-intake/index.ts";
+export * from "./money-trace.ts";
+export * from "./money-trace-answers.ts";
+export * from "./money-trace-rows.ts";

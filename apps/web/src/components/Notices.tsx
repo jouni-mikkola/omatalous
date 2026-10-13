@@ -1,8 +1,8 @@
-import type { MarkKind } from "@banking/core";
+import type { MarkKind, UserMark } from "@banking/core";
 import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
-import type { DashboardData } from "../types.ts";
+import type { DashboardData, Meta } from "../types.ts";
 import { MAX_ROWS, type Notice, noticesOf, type SecurityNotice, type Send } from "./notices.ts";
 import "../styles/notices.css";
 
@@ -54,7 +54,7 @@ function Row({ notice: n, onPress, busy, doing }: { notice: Notice; onPress: (n:
 /**
  * Ilmoitukset: what the user must act on, as one card at the foot of Yhteenveto, at most four rows of one line each: the
  * title and its detail, and at the right Kuittaa where the row can be set aside. The row's text is its link; a row
- * that names what to do (Luokittele) has those words as its link at the right, and its text is plain. A warning has a
+ * that names what to do (Luokittele, Katso) has those words as its link at the right, and its text is plain. A warning has a
  * triangle before its title; nothing else is coloured. With more than four, the head links to Säästövinkit (while it is
  * switched on) with the count. The notices of the server (a sign-in from a new device) are read here: Kuittaa on one
  * of them reads them all. With nothing to show there is no card. A failed answer shows the server's sentence under the
@@ -79,6 +79,9 @@ export function Notices({
   error: string | null;
 }) {
   const security = useApi<{ notices: SecurityNotice[] }>("/api/security/notices");
+  // the notices about an account's split are built from /meta, and closed by the member's own marks (the recurring answer carries them)
+  const meta = useApi<Pick<Meta, "accounts">>("/api/meta");
+  const marks = useApi<{ marks: UserMark[] }>("/api/recurring?scope=own");
   const [reading, setReading] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
   // the answer button that was pressed; only it shows the wait
@@ -87,7 +90,15 @@ export function Notices({
   useEffect(() => {
     if (!waiting) setPressed(null);
   }, [waiting]);
-  const { rows, total } = noticesOf(data, { range, answered, insights, security: security.data?.notices ?? [] });
+  const { rows, total } = noticesOf(data, {
+    range,
+    answered,
+    insights,
+    security: security.data?.notices ?? [],
+    // none until both answers are there, so a closed row is not drawn for a moment
+    accounts: meta.data && marks.data ? meta.data.accounts : [],
+    marked: new Set(marks.data?.marks.map((m) => m.subject)),
+  });
   if (!rows.length) return null;
 
   const press = (n: Notice, send: Send, label: string) => {

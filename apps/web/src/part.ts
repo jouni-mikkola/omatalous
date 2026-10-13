@@ -15,9 +15,11 @@ const share = (part: Part): string => percent((part.to - part.from) / part.of);
 
 /**
  * The words on a row of a figure the viewer has a part of: "Yhteinen tili, osuutesi 60 %" for an account, "osuutesi
- * 60 %" for a card or a loan. null for a row that is all the viewer's.
+ * 60 %" for a card or a loan. null for a row that is all the viewer's. A traced account is cut by who paid, so it has
+ * no share to name: it says "Yhteinen tili" alone.
  */
-export function partText(part: Part | undefined, kind: "account" | "debt"): string | null {
+export function partText(part: Part | undefined, kind: "account" | "debt", traced?: boolean): string | null {
+  if (traced && kind === "account") return "Yhteinen tili";
   if (!belowWhole(part)) return null;
   return kind === "account" ? `Yhteinen tili, osuutesi ${share(part)}` : `osuutesi ${share(part)}`;
 }
@@ -41,3 +43,6 @@ export const viewsParts = (meta: Pick<Meta, "accounts">): boolean => meta.accoun
 /** Some account in view has more than one user, so a split of its income or its parts is there to be told. */
 export const hasJointAccount = (meta: Pick<Meta, "accounts" | "sharedAccounts">): boolean =>
   [...meta.accounts, ...meta.sharedAccounts].some((a) => ((a as Told).use?.users.length ?? 0) > 1);
+
+/** The anchor of an account's parts on Tilit, where "Kenen?" and the notices of a split lead. */
+export const partAnchor = (accountId: string): string => `tili-${accountId}`;

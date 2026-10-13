@@ -48,6 +48,18 @@ export interface AccountUser {
 export interface AccountUse {
   users: AccountUser[];
   source: "said" | "bank" | "owner";
+  /** "source": the rows of the account are cut by who paid them, not by the weights. Left out, the weights decide. */
+  mode?: "source";
+}
+
+/**
+ * The viewer's own cents of one row, signed like the row: what `applyUse` counts of it when it is handed one. `openCents`
+ * is the part of them that is not settled yet, `transfer` whether the viewer's cents are money between their own pockets.
+ */
+export interface RowShare {
+  cents: number;
+  openCents: number;
+  transfer: boolean;
 }
 
 export type TransactionStatus = "booked" | "pending";
@@ -108,6 +120,8 @@ export interface Transaction {
    * the row is whole. `applyUse` fills it, for the rows of a member's own view. Read it through `billCents`.
    */
   wholeCents?: number;
+  /** The part of `amountCents` that is not settled yet, on a row cut to the viewer's own cents. Left out, nothing is open. */
+  openCents?: number;
 }
 
 /** merchant_exact: the whole merchant name, so "Matti Meikäläinen" does not catch "Mobilepay Matti Meikäläinen". */
@@ -149,6 +163,8 @@ export interface BalanceInput {
   use?: AccountUse;
   /** The viewer's part of the account, set in the own view only: the household view counts every account whole. Left out, the account counts whole. */
   part?: Part;
+  /** The account's rows are cut by who paid them: its balance in the own view is not cut by `part`. Left out, the weights decide. */
+  traced?: true;
 }
 
 /** What the user said about a subscription or an alert: still in use, cancelled, or not to be shown again. */

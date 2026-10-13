@@ -119,16 +119,16 @@ describe("Tilit: what tells accounts apart", () => {
     expect(full).not.toContain("yli luottorajan");
   });
 
-  it("has a column of users only when some account has a choice to make, and a row under a joint account for its parts", () => {
+  it("has a column of users only when some account has a choice to make, and a row under a joint account for its split", () => {
     const alone = render([account({})]);
     expect(alone).not.toContain("Käyttäjä");
-    expect(alone).not.toContain("Omat osuudet");
+    expect(alone).not.toContain("Prosentit");
     const use = { users: [{ userId: "u1", label: "Matti", weight: 1 }, { userId: null, label: "Maija Mallikas", weight: 1 }], source: "bank" as const };
     const joint = render([account({ use })]);
     expect(joint).toContain("Käyttäjä");
-    expect(joint).toContain("Tasan Omat osuudet");
+    expect(joint).toContain("Sen mukaan, kuka tilille on maksanut Tasan Prosentit");
     // near miss: the same two holders but one user's part is 0, so the account is one user's and has no parts to open
-    expect(render([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("Omat osuudet");
+    expect(render([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("Prosentit");
   });
 
   it("does not say the holder twice when the bank gave no product and the name is the holder", () => {

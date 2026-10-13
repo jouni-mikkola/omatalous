@@ -7,6 +7,7 @@ import { bannersOf, MAX_ROWS, type Notice, noticesOf, type SecurityNotice } from
 import type { DashboardData } from "../src/types.ts";
 
 type Data = Pick<DashboardData, "dataNotice" | "alerts" | "insights">;
+type Noted = Parameters<typeof noticesOf>[1] extends { accounts?: readonly (infer A)[] } ? A : never;
 type Alert = Data["alerts"][number];
 type Insight = Data["insights"][number];
 
@@ -254,5 +255,52 @@ describe("the card", () => {
     expect(html).toContain("Hälytys a");
     expect(html.indexOf("</ul>")).toBeLessThan(html.indexOf("Tallennus ei onnistunut."));
     expect(draw(data({ alerts: [alert("a")] }))).not.toContain('role="alert"');
+  });
+});
+
+describe("the notices about an account's split", () => {
+  const SET = { by: "app", at: "2026-10-01T08:00:00.000Z" } as const;
+  const OFFER = [{ userId: "u1", percent: 96 }, { userId: null, percent: 4 }];
+  const question = (key: string, over: Partial<NonNullable<Noted["questions"]>[number]> = {}) => ({ kind: "in" as const, key, label: key, openCents: 55_219, ...over });
+  const account = (over: Partial<Noted> = {}): Noted => ({ id: "a1", name: "Yhteistili", ...over });
+  const split = (accounts: Noted[], marked: ReadonlySet<string> = NONE, answered: ReadonlySet<string> = NONE) => noticesOf(data(), { range: RANGE, answered, insights: true, accounts, marked }).rows;
+
+  it("each appears on its condition and not without it", () => {
+    expect(split([account()])).toEqual([]);
+    expect(split([account({ split: SET })]).map((n) => n.title)).toEqual(["Tilin Yhteistili jako muuttui"]);
+    expect(split([account({ offer: OFFER })]).map((n) => n.title)).toEqual(["Tilin Yhteistili jako ei vastaa maksuja"]);
+    expect(split([account({ questions: [question("g:text:A")] })]).map((n) => n.title)).toEqual(["Kenen rahaa tilillä Yhteistili on?"]);
+    // near misses: a split a member chose, and no open question, tell nothing
+    expect(split([account({ split: { by: "user", at: SET.at }, questions: [] })])).toEqual([]);
+  });
+
+  it("is one row with the link Katso to the account on Tilit, closed by Kuittaa on its subject", () => {
+    const [n] = split([account({ split: SET })]);
+    expect(n).toMatchObject({ kind: "account", link: "Katso", href: "#/settings#tili-a1", warning: false });
+    expect(n!.answers).toEqual([{ label: "Kuittaa", name: `Kuittaa: ${n!.title}`, send: { subject: `alert:split:a1:${SET.at}`, mark: "dismissed" } }]);
+  });
+
+  it("stays closed by a mark, and comes back with another day, other percents or another question key", () => {
+    const open = account({ split: SET, offer: OFFER, questions: [question("g:text:A")] });
+    const closed = new Set(split([open]).map((n) => n.id));
+    expect(closed.size).toBe(3);
+    expect(split([open], closed)).toEqual([]);
+    expect(split([open], NONE, closed)).toEqual([]);
+    expect(split([account({ ...open, split: { by: "app", at: "2026-10-02T08:00:00.000Z" } })], closed).map((n) => n.title)).toEqual(["Tilin Yhteistili jako muuttui"]);
+    expect(split([account({ ...open, offer: [{ userId: "u1", percent: 90 }, { userId: null, percent: 10 }] })], closed).map((n) => n.title)).toEqual(["Tilin Yhteistili jako ei vastaa maksuja"]);
+    expect(split([account({ ...open, questions: [question("g:text:A"), question("o", { kind: "opening" })] })], closed).map((n) => n.title)).toEqual(["Kenen rahaa tilillä Yhteistili on?"]);
+    // the sum of a question is not its subject: only the keys are, in any order
+    expect(split([account({ ...open, questions: [question("g:text:A", { openCents: 1 })] })], closed)).toEqual([]);
+  });
+
+  it("keeps a subject of a mark short however long the keys are", () => {
+    const [n] = split([account({ questions: [question(`g:iban:${"FI".repeat(120)}`)] })]);
+    expect(n!.id.length).toBeLessThan(80);
+  });
+
+  it("comes before the alerts, and the four-row cut counts it", () => {
+    const list = noticesOf(data({ alerts: [alert("a")] }), { range: RANGE, answered: NONE, insights: true, accounts: [account({ split: SET })] });
+    expect(ids(list.rows)).toEqual([`account:alert:split:a1:${SET.at}`, "alert:a"]);
+    expect(list.total).toBe(2);
   });
 });

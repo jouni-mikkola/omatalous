@@ -7,7 +7,7 @@ import { partText } from "../src/part.ts";
 import type { DashboardData, Meta } from "../src/types.ts";
 
 type Answer = DashboardData["holdings"];
-const meta = { today: "2026-10-12", bank: { banks: [] } } as unknown as Meta;
+const meta = { today: "2026-10-12", accounts: [], bank: { banks: [] } } as unknown as Meta;
 const account = (id: string, name: string, balanceCents: number | null, mask: string | null = null): Answer["accounts"][number] => ({
   id, name, type: "checking", bank: null, ownerName: null, balanceCents, balanceAt: balanceCents === null ? null : "2026-10-12", mask,
 });
@@ -106,6 +106,14 @@ describe("Holdings", () => {
       expect(text(markup)).toContain("Kodin laina Esimerkkirahoitus Oy Lainaa jäljellä 120 000,00 € Kuukausierä 1 000,00 €");
       expect(text(markup)).toContain("Autolaina Lainaa jäljellä 8 000,00 € Lainat yhteensä 128 000,00 €");
       expect(text(markup.slice(markup.indexOf("Autolaina")))).not.toContain("Kuukausierä");
+    });
+
+    it("an account cut by who paid says Yhteinen tili with no percent, one cut by weights says its part", () => {
+      const held = (traced: boolean) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a1", "Yhteistili", 100_000), part: { from: 1, to: 2, of: 2 } }], accountsCents: 100_000 }), meta: { ...meta, accounts: [{ id: "a1", traced }] } as unknown as Meta }));
+      expect(text(held(true))).toContain("Yhteinen tili Tilit yhteensä");
+      expect(text(held(true))).not.toContain("osuutesi");
+      expect(text(held(true))).not.toContain("%");
+      expect(text(held(false))).toContain("Yhteinen tili, osuutesi 50 %");
     });
 
     it("a loan another member typed in says who under the lender and the part, and the viewer's own says nothing", () => {
@@ -243,7 +251,7 @@ describe("Holdings", () => {
     });
 
     it("shows the bank's logo on the face from the same place as Asetukset does: bundled, served by the server, else the bank's name", () => {
-      const withBanks = (bank: string, banks: unknown[]) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ bank })] }), meta: { today: "2026-10-12", bank: { banks } } as unknown as Meta }));
+      const withBanks = (bank: string, banks: unknown[]) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ bank })] }), meta: { today: "2026-10-12", accounts: [], bank: { banks } } as unknown as Meta }));
       expect(withBanks("Nordea", [])).toContain('<img src="/banks/nordea.png" alt="Nordea"');
       expect(withBanks("OP", [{ id: "op-fi", logo: true }])).toContain('<img src="/api/bank/logos/op-fi" alt="OP"');
       const named = withBanks("OP", [{ id: "op-fi", logo: false }]);

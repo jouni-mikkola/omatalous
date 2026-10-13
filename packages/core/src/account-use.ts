@@ -5,7 +5,7 @@
  */
 import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
 import { normalizeIban, pairTransfers } from "./transfers.ts";
-import type { Account, AccountUse, AccountUser, Part, Transaction } from "./types.ts";
+import type { Account, AccountUse, AccountUser, Part, RowShare, Transaction } from "./types.ts";
 
 /** All of an account. */
 export const WHOLE: Part = Object.freeze({ from: 0, to: 1, of: 1 });
@@ -160,13 +160,20 @@ export const billCents = (t: Pick<Transaction, "amountCents" | "wholeCents">): n
  *
  * What a member's categorisation decided of that member's rows stays: a stored transfer keeps its other leg, and two
  * rows it left unpaired are never paired here. A category set by hand stays. When every account of `accounts` counts
- * whole the rows come back as they were given, the same array.
+ * whole the rows come back as they were given, the same array, whatever `shares` holds.
+ *
+ * `shares` holds the viewer's own cents of a row by its id, where the account's money is told by who paid it. A row
+ * with one counts those cents, signed: `amountCents` is the share's, `wholeCents` the bank's, and `openCents` is set
+ * when the share has some open. A share that is a transfer makes the row one, unless the category was set by hand, and
+ * the reading of the other end of a movement does not apply to it; a share that is none leaves the category as the row
+ * has it. A share of 0 drops the row. A row without one is cut by the part, on the same account too.
  */
 export function applyUse<T extends Transaction>(
   txs: readonly T[],
   accounts: readonly Account[],
   parts: ReadonlyMap<string, Part>,
   owners: ReadonlyMap<string, string> = new Map(),
+  shares?: ReadonlyMap<string, RowShare>,
 ): readonly T[] {
   const partIn = (accountId: string): Part => parts.get(accountId) ?? WHOLE;
   // a part of an account that is not in the view cuts nothing in it
@@ -232,6 +239,13 @@ export function applyUse<T extends Transaction>(
 
   const out: T[] = [];
   for (const t of txs) {
+    const share = shares?.get(t.id);
+    if (share !== undefined) {
+      if (share.cents === 0) continue;
+      const row = share.transfer && t.categorySource !== "user" ? transfer(t) : t;
+      out.push({ ...row, amountCents: share.cents, wholeCents: t.amountCents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) });
+      continue;
+    }
     const part = partIn(t.accountId);
     if (isNone(part)) continue;
     const joint = !isWhole(part);

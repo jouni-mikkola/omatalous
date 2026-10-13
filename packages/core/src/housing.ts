@@ -24,7 +24,7 @@
  * It stands beside `holdings.ts`, below analysis, as the dashboard reads both.
  */
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
-import { inDays } from "./analysis/context.ts";
+import { inDays, standingOf } from "./analysis/context.ts";
 import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
 import { dayNumber } from "./dates.ts";
 import type { Debt } from "./debt-part.ts";
@@ -109,7 +109,7 @@ export interface Housing {
 /** The rows of a series from a day on, oldest first. The context's rows are in day order, so only the days asked are walked. */
 function rowsOf(ctx: AnalysisContext, s: RecurringSeries, from: IsoDate): AnalysisTx[] {
   const ids = new Set(s.transactionIds);
-  return inDays(ctx, { fromDay: dayNumber(from), toDay: dayNumber(s.lastDate) }).filter((t) => ids.has(t.id));
+  return inDays(standingOf(ctx), { fromDay: dayNumber(from), toDay: dayNumber(s.lastDate) }).filter((t) => ids.has(t.id));
 }
 
 /** What the bank charges for a loan at one payment, whole: the plan's next payment, else the payment as typed. Null where none is typed. */

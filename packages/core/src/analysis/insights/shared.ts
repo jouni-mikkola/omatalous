@@ -1,7 +1,7 @@
 import { monthIndex, monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
 import type { RecurringSeries } from "../../recurring.ts";
-import { type AnalysisContext, type AnalysisTx, netSpend } from "../context.ts";
+import { type AnalysisContext, type AnalysisTx, netSpend, standingOf } from "../context.ts";
 import { monthOneOffs } from "../one-offs.ts";
 import { completeMonthsBefore, gateFor, GATE_FLOOR_CENTS, usualSpending } from "../usual.ts";
 import { isLenderName } from "../../wording.ts";
@@ -102,7 +102,7 @@ const dayOfId = new WeakMap<AnalysisContext, Map<string, number>>();
  */
 export function evenlySpaced(ctx: AnalysisContext, s: Pick<RecurringSeries, "transactionIds" | "intervalDays">): boolean {
   let days = dayOfId.get(ctx);
-  if (!days) dayOfId.set(ctx, (days = new Map(ctx.txs.map((t) => [t.id, t.day]))));
+  if (!days) dayOfId.set(ctx, (days = new Map(standingOf(ctx).txs.map((t) => [t.id, t.day]))));
   const sorted = s.transactionIds.map((id) => days.get(id)!).sort((a, b) => a - b);
   return sorted.every((d, i) => i === 0 || d - sorted[i - 1]! >= s.intervalDays / 2);
 }

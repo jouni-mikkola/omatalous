@@ -15,7 +15,7 @@ import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
 import { type Counted, countedAccounts, expectedMoves } from "./ahead-moves.ts";
 import { balanceWalk } from "./balance-walk.ts";
-import type { AnalysisContext, AnalysisTx } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, standingOf } from "./context.ts";
 import { everydayPerDay, expectedBillRows } from "./forecast.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, nextPayDate, payDayOf } from "./income.ts";
 import { type PayEstimate, payEstimate } from "./pay-estimate.ts";
@@ -205,11 +205,11 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   const wanted = new Set(incomes.flatMap((s) => s.transactionIds));
   const dayOf = new Map<string, IsoDate>();
   const rowsOf = new Map<string, AnalysisTx>();
-  for (const t of ctx.txs) if (wanted.has(t.id)) (dayOf.set(t.id, t.bookingDate), rowsOf.set(t.id, t));
+  for (const t of standingOf(ctx).txs) if (wanted.has(t.id)) (dayOf.set(t.id, t.bookingDate), rowsOf.set(t.id, t));
   // the estimate of a series' next pay: from its regular pays only, holiday pay and other pay left out
   let types: Map<string, IncomeType> | null = null;
   const payOf = (s: RecurringSeries, due: IsoDate): PayEstimate | null => {
-    types ??= incomeTypes(ctx.txs);
+    types ??= incomeTypes(standingOf(ctx).txs);
     const regular = s.transactionIds.flatMap((id) => {
       const t = rowsOf.get(id);
       return t && t.amountCents > 0 && INCOME_TYPES[types!.get(id) ?? "other_income"].regular ? [{ date: t.bookingDate, cents: t.amountCents }] : [];

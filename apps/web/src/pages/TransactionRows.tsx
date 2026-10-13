@@ -2,6 +2,7 @@ import { fold } from "@banking/core";
 import { memo, useSyncExternalStore } from "react";
 import { CategoryPicker } from "../components/CategorySelect.tsx";
 import { date, money } from "../format.ts";
+import { partAnchor } from "../part.ts";
 import type { Category, TransactionItem } from "../types.ts";
 
 // The rows of Tapahtumat: a table row for a wide screen, a two-line row under a day header for a phone.
@@ -31,6 +32,9 @@ export function byDay(items: TransactionItem[]): { day: string; items: Transacti
 
 /** A row as /api/transactions gives it. In the own view a row of a joint account also carries the viewer's part of the bank's amount. */
 export type ListedRow = TransactionItem & { partCents?: number };
+
+/** The link of a row whose payer is not told: to the account's parts on Tilit, where the question is answered. null for a row with none open. */
+export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string | null => (t.openCents ? `#/settings#${partAnchor(t.accountId)}` : null);
 
 /** The viewer's part of a joint account's row, told beside the bank's amount; null for a row that is all theirs. */
 const partOfRow = (t: ListedRow): string | null => (t.partCents === undefined || t.partCents === t.amountCents ? null : `osuutesi ${money(t.partCents)}`);
@@ -83,6 +87,7 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
   const { t } = row;
   const text = bankText(t);
   const part = partOfRow(t);
+  const owner = ownerLink(t);
   return (
     <tr>
       <td style={{ whiteSpace: "nowrap" }}>{date(t.bookingDate)}</td>
@@ -106,6 +111,11 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
       <td className={`num ${t.amountCents > 0 ? "amount-in" : ""}`}>
         {money(t.amountCents)}
         {part && <div className="sub tx-part">{part}</div>}
+        {owner && (
+          <div className="sub tx-part">
+            <a href={owner}>Kenen?</a>
+          </div>
+        )}
       </td>
     </tr>
   );
@@ -115,6 +125,7 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
 export const TxItem = memo(function TxItem(row: RowProps) {
   const { t } = row;
   const part = partOfRow(t);
+  const owner = ownerLink(t);
   return (
     <li className="tx-item">
       <div className="tx-main">
@@ -126,6 +137,11 @@ export const TxItem = memo(function TxItem(row: RowProps) {
       <div className="tx-cat">
         <RowCategory {...row} phone />
         {part && <span className="tx-part">{part}</span>}
+        {owner && (
+          <a className="tx-part" href={owner}>
+            Kenen?
+          </a>
+        )}
       </div>
     </li>
   );

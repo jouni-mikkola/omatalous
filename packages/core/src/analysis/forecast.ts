@@ -8,7 +8,7 @@ import { fold } from "../merchant.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { median } from "../stats.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
-import { type AnalysisContext, inDays } from "./context.ts";
+import { type AnalysisContext, inDays, standingOf } from "./context.ts";
 import { completeMonthsBefore, spendingThrough } from "./usual.ts";
 
 export interface MonthPace {
@@ -83,7 +83,7 @@ export function everydayPerDay(ctx: AnalysisContext, month: string, accounts?: R
   const whole = Math.min(USUAL_WEEKS, Math.floor((end - dayNumber(ctx.dataFrom!) + 1) / 7));
   if (whole < MIN_USUAL_WEEKS) return 0;
   const weeks = new Array<number>(whole).fill(0);
-  for (const t of inDays(ctx, { fromDay: end - 7 * whole + 1, toDay: end })) {
+  for (const t of inDays(standingOf(ctx), { fromDay: end - 7 * whole + 1, toDay: end })) {
     if (ctx.fixedIds.has(t.id) || (accounts && !accounts.has(t.accountId))) continue;
     weeks[Math.floor((end - t.day) / 7)]! += t.spend;
   }
@@ -108,7 +108,7 @@ const PAID_EARLY_DAYS = 31;
 function lastCharge(ctx: AnalysisContext, s: RecurringSeries): number {
   const ids = new Set(s.transactionIds);
   const day = dayNumber(s.lastDate);
-  return inDays(ctx, { fromDay: day, toDay: day }).reduce((sum, t) => (ids.has(t.id) ? sum + Math.abs(billCents(t)) : sum), 0);
+  return inDays(standingOf(ctx), { fromDay: day, toDay: day }).reduce((sum, t) => (ids.has(t.id) ? sum + Math.abs(billCents(t)) : sum), 0);
 }
 
 /**
@@ -133,7 +133,7 @@ export function expectedBillRows(ctx: AnalysisContext, bills: readonly ExpectedB
     for (const date of expectedDates(b, from, until)) {
       const early = addDays(date, -PAID_EARLY_DAYS);
       if (carriers.some((s) => [s.lastDate, ...projectDates(s, addDays(date, PAID_EARLY_DAYS))].some((d) => d >= early))) continue;
-      const paid = inDays(ctx, { fromDay: dayNumber(early), toDay: ctx.todayDay }).some(
+      const paid = inDays(standingOf(ctx), { fromDay: dayNumber(early), toDay: ctx.todayDay }).some(
         (t) => t.amountCents < 0 && !t.isTransfer && !inSeries.has(t.id) && (fold(t.merchant) === name || near(-billCents(t))),
       );
       if (!paid) out.push({ date, name: b.name, category: b.category, amountCents: b.amountCents });

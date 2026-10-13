@@ -64,9 +64,23 @@ export interface AnalysisContext {
   fixedIds: ReadonlySet<string>;
   /** Transaction ids in habit series. */
   habitIds: ReadonlySet<string>;
+  /**
+   * Set when an account is cut by who paid: the same context over the rows cut by the stable part, whose series the
+   * three fields above are. A series' rows are looked up here (`standingOf`), not in `txs`, where a row can be missing.
+   */
+  standing?: AnalysisContext;
 }
 
-export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate): AnalysisContext {
+/** The context to look up the rows of a series (and read what is ahead) in: the stable cut when there is one. */
+export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(ctx: C): C | AnalysisContext => ctx.standing ?? ctx;
+
+/**
+ * `standing`: the same rows cut by the part of each account instead of by who paid, given only when a pool is cut by who
+ * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money
+ * will be in the account next month.
+ */
+export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[]): AnalysisContext {
+  const cut = standing && createContext(standing, accounts, today);
   const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
   const loanIds = new Set(accounts.filter((a) => a.type === "loan").map((a) => a.id));
   const txs = transactions
@@ -110,10 +124,10 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     returns.set(id, first.id);
   }
 
-  const recurring = detectRecurring(txs, today);
+  const recurring = cut ? cut.recurring : detectRecurring(txs, today);
   const fixedIds = new Set<string>();
   const habitIds = new Set<string>();
-  for (const s of recurring) {
+  for (const s of cut ? [] : recurring) {
     const target = s.kind === "subscription" || s.kind === "bill" ? fixedIds : s.kind === "habit" ? habitIds : null;
     if (target) for (const id of s.transactionIds) target.add(id);
   }
@@ -126,7 +140,10 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     .slice(0, 7)
     .map(([c]) => c);
 
-  return { today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder, fixedIds, habitIds };
+  return {
+    today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder,
+    fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
+  };
 }
 
 /** Bank exports start on a weekday with bookings: a history from the 3rd still covers a month from the 1st. */
@@ -150,7 +167,7 @@ export function recurringAt(ctx: AnalysisContext, date: IsoDate): readonly Recur
   if (!cache) pastRecurring.set(ctx, (cache = new Map()));
   let found = cache.get(date);
   if (!found) {
-    found = detectRecurring(ctx.txs.filter((t) => t.bookingDate <= date), date);
+    found = detectRecurring(standingOf(ctx).txs.filter((t) => t.bookingDate <= date), date);
     if (cache.size > 16) cache.delete(cache.keys().next().value!);
     cache.set(date, found);
   }

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import { linkFakeBank, makeMember, overflow, removeMember, watch } from "./helpers.ts";
 
 // Asetukset > Tilit says who uses an account: the question after a link, the choice in a row, the parts of a joint account
@@ -32,53 +32,64 @@ test("the question after a link, the parts of the joint account, the bank's answ
   await question.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(question).toHaveCount(0);
 
-  // saved as shown: the row has "Yhteinen tili" and "Tasan"
+  // saved as shown: the row has "Yhteinen tili" and the three ways to cut it, of which one is pressed
   const tilit = page.locator("#tilit");
   const use = tilit.getByRole("combobox", { name: "Tilin Yhteistili käyttäjä" });
   await expect(use).toHaveValue("joint");
   const parts = tilit.getByRole("group", { name: "Tilin Yhteistili osuudet" });
-  await expect(parts.getByRole("button", { name: "Tasan" })).toHaveAttribute("aria-pressed", "true");
-  await expect(parts.getByRole("button", { name: "Omat osuudet" })).toHaveAttribute("aria-pressed", "false");
+  await expect(parts.getByRole("button")).toHaveText(["Sen mukaan, kuka tilille on maksanut", "Tasan", "Prosentit"]);
+  await expect(parts.getByRole("button", { pressed: true })).toHaveCount(1);
   // an own account has the same select, with nothing under it
   await expect(tilit.getByRole("combobox", { name: "Tilin Käyttötili käyttäjä" })).toHaveValue(`user:${member.id}`);
   await expect(tilit.getByRole("group")).toHaveCount(1);
 
-  // the bank's rows propose the parts: 600 and 400 euros a month
-  const proposal = tilit.locator(".use-line").filter({ hasText: "on maksanut tilille keskimäärin" });
-  await expect(proposal).toContainText(/600\s€ ja KORHONEN ELISA 400\s€ kuussa/);
+  // nothing said and no payers to go by: the account is cut equally
+  await expect(parts.getByRole("button", { name: "Tasan" })).toHaveAttribute("aria-pressed", "true");
 
-  // typing the euros shows what they come to, and a reload keeps them
-  await parts.getByRole("button", { name: "Omat osuudet" }).click();
-  await tilit.getByLabel(`${USERNAME} € kuussa`).fill("600");
-  await tilit.getByLabel("KORHONEN ELISA € kuussa").fill("400");
-  await expect(tilit.locator(".use-total")).toHaveText("60 % ja 40 %");
-  await tilit.getByRole("button", { name: "Tallenna", exact: true }).click();
-  await expect(tilit.getByRole("status").filter({ hasText: "Tallennettu." })).toBeVisible();
+  // Prosentit: one field for each user, the last one the rest of 100 as the first is typed; Tallenna waits for a change
+  await parts.getByRole("button", { name: "Prosentit" }).click();
+  const [mine, hers] = [tilit.getByLabel(`${USERNAME} %`), tilit.getByLabel("KORHONEN ELISA %")];
+  const save = tilit.getByRole("button", { name: "Tallenna", exact: true });
+  // a press that saves: waits for the answer of the server, so a reload does not cut the request
+  const press = async (button: Locator) => {
+    const done = page.waitForResponse((r) => r.request().method() !== "GET" && r.url().includes("/api/accounts/"));
+    await button.click();
+    await done;
+  };
+  await expect(mine).toHaveValue("50");
+  await expect(save).toBeDisabled();
+  await mine.fill("70,5");
+  await expect(hers).toHaveValue("29,5");
+  await expect(save).toBeEnabled();
+  // 101 and a letter are refused before a request is made: Tallenna stays off
+  for (const text of ["101", "x"]) {
+    await mine.fill(text);
+    await expect(mine).toHaveAttribute("aria-invalid", "true");
+    await expect(save).toBeDisabled();
+  }
+  await mine.fill("70");
+  await expect(hers).toHaveValue("30");
+  await press(save);
   await page.reload();
-  await expect(tilit.getByLabel(`${USERNAME} € kuussa`)).toHaveValue("600");
-  await expect(tilit.getByLabel("KORHONEN ELISA € kuussa")).toHaveValue("400");
-  await expect(tilit.locator(".use-total")).toHaveText("60 % ja 40 %");
-  // the proposal is taken: it is not offered again
-  await expect(proposal).toHaveCount(0);
+  await expect(parts.getByRole("button", { name: "Prosentit" })).toHaveAttribute("aria-pressed", "true");
+  await expect(mine).toHaveValue("70");
+  await expect(hers).toHaveValue("30");
+  // opening the fields of other weights and leaving them changes nothing
+  await parts.getByRole("button", { name: "Tasan" }).click();
+  await parts.getByRole("button", { name: "Prosentit" }).click();
+  await expect(save).toBeDisabled();
 
-  // nothing above zero is refused before a request is made
-  await tilit.getByLabel(`${USERNAME} € kuussa`).fill("0");
-  await tilit.getByLabel("KORHONEN ELISA € kuussa").fill("");
-  await tilit.getByRole("button", { name: "Tallenna", exact: true }).click();
-  await expect(tilit.getByText("Ainakin yhdellä käyttäjällä pitää olla osuus.")).toBeVisible();
-
-  // the bank's answer comes back
+  // who paid is pressed at once, and the bank's answer comes back
+  await press(parts.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" }));
+  await page.reload();
+  await expect(parts.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" })).toHaveAttribute("aria-pressed", "true");
+  await parts.getByRole("button", { name: "Prosentit" }).click();
+  await mine.fill("70");
+  await press(save);
   await page.reload();
   await tilit.getByRole("button", { name: "Palauta pankin tiedoista" }).click();
   await expect(tilit.getByRole("button", { name: "Palauta pankin tiedoista" })).toHaveCount(0);
-  await expect(parts.getByRole("button", { name: "Tasan" })).toHaveAttribute("aria-pressed", "true");
   await expect(use).toHaveValue("joint");
-
-  // the proposal is one press
-  await proposal.getByRole("button", { name: "Käytä näitä" }).click();
-  await expect(proposal).toHaveCount(0);
-  await expect(parts.getByRole("button", { name: "Omat osuudet" })).toHaveAttribute("aria-pressed", "true");
-  await expect(tilit.getByLabel("KORHONEN ELISA € kuussa")).toHaveValue("400");
 
   // another member uses the account but cannot see it: the share is offered beside it and shares nothing by itself
   const meta = await (await context.request.get("/api/meta")).json();

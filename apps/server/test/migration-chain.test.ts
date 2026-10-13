@@ -268,12 +268,12 @@ describe("0018 adds the table of who uses an account", () => {
     // the frozen household has a joint account of two holders, which is what the table is for
     expect(before.accounts!.rows.find((r) => r.id === "a-5")).toMatchObject({ identity: "idn-5", holder: "MEIKALAINEN MATTI, KORHONEN ELISA" });
     const { db, applied } = await openDatabase(file);
-    // 0019 follows on the way to today's schema
-    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql"]);
+    // 0019 and 0020 follow on the way to today's schema
+    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql"]);
     expect(await db.all("SELECT * FROM account_use")).toEqual([]);
     db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use"].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use", "account_split", "owner_answer", "tx_part", "tx_part_state"].sort());
     expectAdditive(before, after, "0018_account_use.sql");
 
     // what the household says is held to one row for each user of a real account, the user with no id included
@@ -326,10 +326,10 @@ describe("0019 adds the review day of a loan's rate", () => {
     expect(before.loans!.rows).toHaveLength(5);
     expect(before.loans!.columns).not.toContain("rate_review_date");
     const first = await openDatabase(file);
-    expect(first.applied).toEqual(["0019_loan_rate_review.sql"]);
+    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql"]);
     first.db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual(Object.keys(before));
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state"].sort());
     expect(after.loans!.columns).toEqual([...before.loans!.columns, "rate_review_date"]);
     expect(after.loans!.rows.map((r) => r.rate_review_date)).toEqual([null, null, null, null, null]);
     expectAdditive(before, after, "0019_loan_rate_review.sql");
@@ -368,6 +368,59 @@ describe("0019 adds the review day of a loan's rate", () => {
     expect(await again.db.all("SELECT id, rate_review_date FROM loans WHERE rate_review_date IS NOT NULL")).toEqual([{ id: MORTGAGE, rate_review_date: "2027-03-14" }]);
     expect(await again.db.all("SELECT count(*) AS n FROM loans")).toEqual([{ n: 6 }]);
     again.db.close();
+  });
+});
+
+describe("0020 adds who paid a joint account", () => {
+  const AT = "2026-10-13T08:00:00.000Z";
+
+  it("a database of 0.12.0 gets four empty tables and keeps every row; the build before refuses it, whatever its version", async () => {
+    const file = fromFixture("0.12.0.sql");
+    const before = dump(file);
+    const { applied, db } = await openDatabase(file);
+    expect(applied).toEqual(["0020_account_split.sql"]);
+    for (const table of ["account_split", "owner_answer", "tx_part", "tx_part_state"]) expect(await db.all(`SELECT * FROM ${table}`), table).toEqual([]);
+    db.close();
+    const after = dump(file);
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state"].sort());
+    expectAdditive(before, after, "0020_account_split.sql");
+
+    // no floor: a build that lacks the file refuses the database, also at the version it was released as, so a rollback restores the copy taken before
+    const dir = tmp();
+    cpSync(findMigrationsDir(), dir, { recursive: true });
+    rmSync(join(dir, "0020_account_split.sql"));
+    for (const appVersion of ["0.12.0", APP_VERSION]) {
+      await expect(openDatabase(file, dir, undefined, { appVersion })).rejects.toThrow(/upgraded by a newer app version \(0020_account_split\.sql\)/);
+    }
+    const copy = fromFixture("0.12.0.sql");
+    const old = await openDatabase(copy, dir, undefined, { appVersion: "0.12.0" });
+    expect(old.applied).toEqual([]);
+    old.db.close();
+  });
+
+  it("holds what it promises: one split mode, one answer a key, one part a key, parts that go with their row", async () => {
+    const file = fromFixture("0.12.0.sql");
+    const { db } = await openDatabase(file);
+    const tx = (await db.first<{ id: string }>("SELECT id FROM transactions LIMIT 1"))!.id;
+    await db.run("INSERT INTO account_split (account_key, mode, set_by, set_at) VALUES ('k', 'source', NULL, ?)", [AT]);
+    await expect(db.run("INSERT INTO account_split (account_key, mode, set_by, set_at) VALUES ('k', 'source', NULL, ?)", [AT])).rejects.toThrow(/UNIQUE/);
+    await expect(db.run("INSERT INTO account_split (account_key, mode, set_by, set_at) VALUES ('j', 'weights', NULL, ?)", [AT])).rejects.toThrow(/CHECK/);
+    const answer = (kind: string, key: string) => db.run("INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES ('k', ?, ?, 'all', 'u', ?)", [kind, key, AT]);
+    await answer("in", "g:text:x");
+    await answer("opening", "");
+    await expect(answer("in", "g:text:x")).rejects.toThrow(/UNIQUE|PRIMARY/);
+    await expect(answer("other", "")).rejects.toThrow(/CHECK/);
+    const part = (id: string, owner: string, grp = "") => db.run("INSERT INTO tx_part (tx_id, owner, kind, grp, cents) VALUES (?, ?, 'own', ?, 100)", [id, owner, grp]);
+    await part(tx, "u:aino");
+    await part(tx, "u:ville");
+    await part(tx, "?", "g:text:x");
+    await expect(part(tx, "u:aino")).rejects.toThrow(/UNIQUE|PRIMARY/);
+    await expect(part("no-such-row", "u:aino")).rejects.toThrow(/FOREIGN KEY/);
+    expect(await db.all("SELECT passed FROM tx_part")).toEqual([{ passed: 0 }, { passed: 0 }, { passed: 0 }]);
+    // the parts go with their row
+    await db.run("DELETE FROM transactions WHERE id = ?", [tx]);
+    expect(await db.all("SELECT * FROM tx_part")).toEqual([]);
+    db.close();
   });
 });
 
