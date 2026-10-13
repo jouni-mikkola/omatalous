@@ -17,13 +17,14 @@ import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
 import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
+import { restartWait } from "../../components/ops/ops-elapsed.ts";
 import { usePolled } from "../../components/ops/use-polled.ts";
 import { dateTime } from "../../format.ts";
 import "../../styles/ops.css";
 
 /** Polls every 3 s while something runs, every 60 s otherwise. A failing fetch (the app restarts) backs off. */
 function useOpsState() {
-  const { data, error, downSince, reload } = usePolled<OpsState>("/api/ops/state", (d) => (d.active || d.readOnlyActive ? 3000 : 60_000));
+  const { data, error, downSince, reload } = usePolled<OpsState>("/api/ops/state", (d) => (d.active || d.readOnlyActive ? 3000 : 60_000), undefined, restartWait);
   return { data, error, downSince, reload };
 }
 
@@ -153,7 +154,7 @@ export function Maintenance() {
         {data && <HelperStatus helper={data.helper} />}
         {message && <div className="notice warning" role="alert">{message}</div>}
         {data && latest && (
-          <OpsProgress request={latest} down={downSince !== null && data.active} downMs={downSince ? Date.now() - downSince : 0} onCancel={(id) => void cancel(id)} />
+          <OpsProgress request={latest} down={downSince !== null && data.active} downSince={downSince} helperSeenAt={data.helper.seenAt ? Date.parse(data.helper.seenAt) : null} onCancel={(id) => void cancel(id)} />
         )}
         {downSince !== null && data && !data.active && <div className="notice warning" role="status">{S.restarting}</div>}
       </div>

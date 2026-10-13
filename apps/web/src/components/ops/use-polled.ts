@@ -3,11 +3,18 @@ import { api, ApiError } from "../../api.ts";
 
 /**
  * Reads a JSON route again and again: soon while the answer says something is under way (`nextDelay` picks the wait
- * from the last answer), slowly otherwise. A failing fetch (the app restarts) backs off, up to a minute. `stopOn`
+ * from the last answer), slowly otherwise. A failing fetch (the app restarts) backs off, up to a minute, unless `failDelay` names the wait. `stopOn`
  * names the refusals that will not get better by asking again (a 403): the poll then ends. `set` takes an answer a
  * change returned and schedules the next read from it, so a page that changes something does not wait for the timer.
  */
-export function usePolled<T>(path: string, nextDelay: (data: T) => number, stopOn?: (status: number) => boolean) {
+export type FailDelay<T> = (last: T | null, failures: number) => number | undefined;
+
+/** The wait after a failed fetch: what `failDelay` says, else the back-off of 3 s x 1.6^n up to a minute. */
+export function failWait<T>(failDelay: FailDelay<T> | undefined, last: T | null, failures: number): number {
+  return failDelay?.(last, failures) ?? Math.min(3000 * 1.6 ** failures, 60_000);
+}
+
+export function usePolled<T>(path: string, nextDelay: (data: T) => number, stopOn?: (status: number) => boolean, failDelay?: FailDelay<T>) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
@@ -19,8 +26,11 @@ export function usePolled<T>(path: string, nextDelay: (data: T) => number, stopO
   const latest = useRef(0);
   const delayOf = useRef(nextDelay);
   const stopWhen = useRef(stopOn);
+  const failWhen = useRef(failDelay);
+  const last = useRef<T | null>(null);
   delayOf.current = nextDelay;
   stopWhen.current = stopOn;
+  failWhen.current = failDelay;
 
   const load = useCallback(async () => {
     clearTimeout(timer.current);
@@ -33,6 +43,7 @@ export function usePolled<T>(path: string, nextDelay: (data: T) => number, stopO
       setDownSince(null);
       setError(null);
       setErrorStatus(null);
+      last.current = d;
       setData(d);
       delay = delayOf.current(d);
     } catch (err) {
@@ -44,7 +55,7 @@ export function usePolled<T>(path: string, nextDelay: (data: T) => number, stopO
       setErrorStatus(status);
       if (stopWhen.current?.(status)) return;
       // a refused request (403, 401) will not get better by asking faster
-      delay = Math.min(3000 * 1.6 ** failures.current, 60_000);
+      delay = failWait(failWhen.current, last.current, failures.current);
     }
     timer.current = setTimeout(() => void load(), delay);
   }, [path]);
@@ -58,6 +69,7 @@ export function usePolled<T>(path: string, nextDelay: (data: T) => number, stopO
       setError(null);
       setErrorStatus(null);
       setData(d);
+      last.current = d;
       timer.current = setTimeout(() => void load(), delayOf.current(d));
     },
     [load],

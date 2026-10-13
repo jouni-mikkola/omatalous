@@ -44,7 +44,7 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --only "x"       a CSS selector or heading text, found on the page the steps end on: a second picture of that part (with what stands outside it, no sticky bar)
                    beside the whole page: <route>-<label>-<slug of x>-<width>.png; exit 1 when nothing matches. E.g. --only "Säännöt" or "#saannot"
   --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
-Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
+Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots); $SHOTS_DISPLAY_NAME is the administrator's name on the page (default Shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
 /** @typedef {((answer: any) => unknown) | { fail: { status: number, body: object } } | { hold: true }} AnswerSpec */
 
@@ -318,7 +318,7 @@ async function main() {
       if (!r.ok()) throw new Error(`POST ${path} answered ${r.status()}: ${(await r.text()).slice(0, 200)}`);
       return r.json().catch(() => null);
     };
-    const { user } = await call("/api/auth/setup", { code: app.setupCode, username: "shots", displayName: "Shots", password: "shots-salasana-123456" });
+    const { user } = await call("/api/auth/setup", { code: app.setupCode, username: "shots", displayName: process.env.SHOTS_DISPLAY_NAME || "Shots", password: "shots-salasana-123456" });
     await call("/api/admin/instance/complete");
     if (o.demo) await call("/api/demo");
     if (o.fakeBank) {

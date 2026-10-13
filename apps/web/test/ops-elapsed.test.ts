@@ -1,0 +1,75 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { elapsed, queuedSentence, restartWait, startTicker } from "../src/components/ops/ops-elapsed.ts";
+import { OpsProgress } from "../src/components/ops/OpsProgress.tsx";
+import { failWait } from "../src/components/ops/use-polled.ts";
+import type { OpsRequestView, OpsState } from "../src/components/ops/types.ts";
+
+const NOW = Date.parse("2026-10-13T10:00:00.000Z");
+const ago = (ms: number) => new Date(NOW - ms).toISOString();
+const req = (over: Partial<OpsRequestView> = {}): OpsRequestView => ({
+  id: "r1", action: "update", label: "päivitys", status: "queued", by: null, requestedAt: ago(30_000), finishedAt: null, summary: null, output: null, steps: [], ...over,
+});
+const html = (request: OpsRequestView, seenAgo: number | null = null, downSince: number | null = null) =>
+  renderToStaticMarkup(createElement(OpsProgress, { request, down: downSince !== null, downSince, helperSeenAt: seenAgo === null ? null : NOW - seenAgo, onCancel: () => {} }));
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(NOW);
+});
+afterEach(() => vi.useRealTimers());
+
+describe("elapsed", () => {
+  it("counts seconds under a minute and minutes after", () => {
+    expect(elapsed(0)).toBe("0 s");
+    expect(elapsed(59_999)).toBe("59 s");
+    expect(elapsed(60_000)).toBe("1 min 0 s");
+    expect(elapsed(72_000)).toBe("1 min 12 s");
+    expect(elapsed(-5000)).toBe("0 s");
+  });
+});
+
+describe("the queued sentence", () => {
+  it("names the next look of the helper, rounded up to 5 s", () => {
+    expect(html(req(), 20_000)).toContain("noin 40 s kuluttua");
+    expect(queuedSentence(NOW - 17_000, NOW)).toContain("noin 45 s kuluttua");
+  });
+  it("is the short one when the moment has passed or the time is missing", () => {
+    expect(html(req(), 90_000)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Odotettu 30 s.");
+    expect(html(req(), null)).not.toContain("kuluttua");
+  });
+});
+
+describe("a live and a finished request", () => {
+  it("shows the time a running request has taken", () => {
+    expect(html(req({ status: "running", requestedAt: ago(72_000) }))).toContain("Käynnissä, aikaa kulunut 1 min 12 s.");
+  });
+  it("counts a down app from when the page lost it", () => {
+    expect(html(req({ status: "running" }), null, NOW - 12_000)).toContain("Sovellus käynnistyy uudelleen… Odotettu 12 s.");
+  });
+  it("stops the timer when the request is done, and shows the duration", () => {
+    const stop = startTicker(() => {});
+    expect(vi.getTimerCount()).toBe(1);
+    stop();
+    expect(vi.getTimerCount()).toBe(0);
+    const out = html(req({ status: "ok", requestedAt: ago(80_000), finishedAt: ago(1000), summary: "Valmis." }));
+    expect(out).toContain("Kesto 1 min 19 s.");
+    expect(out).not.toContain("Käynnissä");
+  });
+  it("numbers a step", () => {
+    expect(html(req({ status: "ok", steps: [{ n: 2, m: 4, text: "Rakennus" }] }))).toContain('Vaihe 2/4:</span> <span>Rakennus</span>');
+  });
+});
+
+describe("the wait after a failed poll", () => {
+  const st = (active: boolean) => ({ active }) as OpsState;
+  it("is short while a request is live", () => {
+    expect([1, 2, 3].map((n) => failWait(restartWait, st(true), n))).toEqual([2000, 2000, 2000]);
+    expect(failWait(restartWait, st(true), 4)).toBe(5000);
+  });
+  it("still grows to a minute when nothing is live", () => {
+    expect(failWait(restartWait, st(false), 1)).toBeCloseTo(4800);
+    expect(failWait(restartWait, null, 20)).toBe(60_000);
+  });
+});

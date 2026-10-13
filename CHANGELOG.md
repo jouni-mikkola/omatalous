@@ -3,6 +3,20 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.41.0
+
+- The maintenance page tells what a request is doing: how long it has waited and run, when the helper next looks for work, the steps of an update with their numbers, and how long the whole thing took. After an update restarts the app the page notices it within seconds, not up to a minute later.
+- The README is rewritten: a short opening, what the app does, pictures of the main pages, the banks, your data and a diagram of how it is built. The pictures are made from today's app by one command, `pnpm docs:shots`, so they no longer go stale.
+
+Look
+
+- The maintenance page shows how long a request has waited and run and how long it took, numbers the steps and says when the helper next looks for work.
+- While an update restarts the app, the page notices the new version within seconds.
+
+For developers
+
+- `pnpm docs:shots` remakes the pictures of the README and the docs (Yhteenveto, Tilit, Raportit, Tapahtumat, a phone) from the example household.
+
 ## 0.40.0
 
 - Under a joint account in Asetukset > Tilit, "Maksut ja menot kuukausittain" shows month by month what each of you paid in, which costs each of you bore, what was moved away and whose money is left. Each figure opens that month's rows of the account in Tapahtumat.

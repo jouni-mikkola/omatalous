@@ -22,6 +22,7 @@
     "where": "node tools/where.mjs",
     "strings": "node tools/ui-strings.mjs",
     "shots": "node tools/shots.mjs",
+    "docs:shots": "node tools/docs-shots.mjs",
     "gen": "node tools/gen/registry.mjs",
     "findings": "node --experimental-strip-types --disable-warning=ExperimentalWarning tools/findings/cli.ts",
     "typecheck": "pnpm -r typecheck && tsc -p .",

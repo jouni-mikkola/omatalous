@@ -1,26 +1,76 @@
 # Omatalous
 
-Omatalous gathers a Finnish household's bank accounts and credit cards into one view and shows where the money goes.
-It runs on your own Linux machine at home, and you use it in a browser, in Finnish.
+Omatalous shows a Finnish household's bank accounts, cards and loans in one view, with who paid what and what is coming.
+It runs on your own Linux machine at home and you use it in a browser, in Finnish. Your data stays on that machine.
 
-New transactions come from the bank through Enable Banking, which is free for your own accounts. Omatalous has been
-built and tested mainly with Nordea data, so Nordea works best. OP, Danske Bank, S-Pankki, the savings banks, Aktia and
-the other Finnish banks that Enable Banking offers can be connected too, but they are less tested. Omatalous sorts the rows into spending, loan payments, saving and
-income, finds recurring bills and warns about double charges and late fees. The first page, Yhteenveto, opens with what the
-household has and owes: each account with its balance, each credit card with how much of its limit is used, and each loan
-with what is left and the payment a month. Below it a card shows what the month has cost so far against the month
-before on the same day, and a card counts the days to your next payday and shows the bills before it, your usual
-everyday spending for those days and what should be left on the account the day before the pay. Without a regular pay
-the card looks 30 days ahead and says why. A loan at a lender that is not connected can
-be added from a pasted screenshot, a PDF or text, which is read in the browser, and then counts in the reports. Each
-household member has a login of their own, and accounts can be shared read-only. A joint account is counted at each
-member's part in their own view, and a member sees of another only the names of an account's users and the loans paid
-from an account they can see ([Security and privacy](docs/SECURITY.md#who-sees-what)). Your transactions, bank keys and
-backups stay on your machine. Nothing is sent to the project. The app keeps daily copies of its database and starts on
-the newest intact copy if the database is damaged, and with the maintenance helper an update that leaves the app not
-answering is taken back by itself.
+![Yhteenveto, the overview page of Omatalous, with example data](docs/images/yhteenveto.png)
 
-<img src="docs/images/yhteenveto.png" alt="Yhteenveto, the first page of Omatalous, with example data">
+## What it does
+
+- **Accounts, cards and loans at a glance.** Yhteenveto (the overview) lists each account with its balance and each
+  card with how much of its limit is used. Each loan shows what is left and the payment a month. A card compares the
+  month's costs so far with the month before on the same day.
+- **Where the money goes.** Transactions are sorted into spending, loan payments, saving and income, and into
+  categories you can change by hand. Raportit (reports) shows spending by theme, food, income and the findings of
+  Säästövinkit (saving tips).
+- **Bills ahead and what is left.** Erääntyvät maksut (payments due) counts the days to your next payday and lists
+  the bills before it. It adds your usual daily spending and shows what should be left the day before the pay.
+  Without a regular pay it looks 30 days ahead and says why.
+- **Joint accounts.** Each member's own view counts their part of a joint account. In Asetukset (settings) > Tilit
+  you choose how the account is split: by who paid into it, equally or by percentages. A monthly table shows what
+  each member paid in and their share of the costs.
+- **Recurring bills and cost traps.** The app finds subscriptions and bills that repeat. It warns about double charges
+  and late fees.
+- **Loans from a statement.** A loan at a lender that is not connected is added from a pasted screenshot, a PDF or
+  text. The browser reads it, and the loan counts in the reports.
+- **Members and what each sees.** Each household member has a login of their own. Accounts can be shared read-only,
+  and a member sees only what is shared with them.
+- **Backups and updates.** The app copies its database every day and starts from the newest intact copy if the
+  database is damaged. With the maintenance helper, Asetukset > Tekniset asetukset > Ylläpito updates
+  the app or rolls it back, and an update that leaves the app not answering is taken back by itself.
+
+<table>
+<tr>
+<td><img src="docs/images/tilit.png" alt="Tilit, the accounts of a household, with example data"></td>
+<td><img src="docs/images/raportit.png" alt="Raportit, the reports, with example data"></td>
+</tr>
+<tr>
+<td>Tilit: the connected accounts and how a joint account is shared.</td>
+<td>Raportit: where the money went, month by month.</td>
+</tr>
+<tr>
+<td><img src="docs/images/tapahtumat.png" alt="Tapahtumat, the list of transactions, with example data"></td>
+<td><img src="docs/images/yhteenveto-puhelin.png" alt="Yhteenveto on a phone, with example data" width="240"></td>
+</tr>
+<tr>
+<td>Tapahtumat: the transactions, each with its category.</td>
+<td>Yhteenveto on a phone.</td>
+</tr>
+</table>
+
+## Banks
+
+New transactions come from the bank through [Enable Banking](https://enablebanking.com), which is free for your own
+accounts. The app only reads: the bank consent covers transactions and balances for at most 180 days, and the app cannot
+make payments.
+
+| Bank | Status |
+|---|---|
+| Nordea | Built and tested mainly with Nordea data, so it works best. |
+| OP, Danske Bank, S-Pankki, the savings banks, Aktia and other Finnish banks that Enable Banking offers | Can be connected. Less tested: check the categories of the first month. |
+
+[Connecting a bank](docs/ENABLE_BANKING.md) lists the banks and explains the setup.
+
+## Your data
+
+- Transactions, bank keys and backups stay on your machine. Nothing is sent to the project.
+- The app asks Enable Banking for your transactions. It can also look up business names in the Finnish trade register,
+  and an admin can turn that off.
+- Each member logs in separately. A member sees of another only the names of an account's users and the loans paid from
+  an account they can see.
+- The database is copied daily to the machine's disk.
+
+[Security and privacy](docs/SECURITY.md) lists what is stored and what connects where.
 
 ## Install
 
@@ -34,27 +84,49 @@ curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/insta
 The command downloads a small script, checks its sha256 against the one in the command and runs it only when they
 match. The script is [relay/install.sh](relay/install.sh) in this repository. It puts Omatalous in `~/omatalous` at the
 newest release and starts the installer. On a new machine the installer installs Docker and `jq` and gives your user
-the Docker right, asking once. If it says your user has no access to Docker, close the SSH connection, open it again and
-paste the command again, with the same options if you gave any. It then prints a link, also as a QR code when `qrencode`
+the Docker right, asking once. If it says your user has no access to Docker, reconnect over SSH and paste the
+command again, with the same options if you gave any. It then prints a link, also as a QR code when `qrencode`
 is installed. Open it on a device in your home network, create the admin user and follow the setup for connecting your
 bank. The [install guide](docs/INSTALL.md) has the same steps with a few more words.
 
-## More
+## How it is built
 
-| When you want to | Read |
+```mermaid
+flowchart LR
+  browser["Browser"] <--> app
+  subgraph machine["Your Linux machine"]
+    app["Omatalous<br/>one container: page and server"] --> db[("Database<br/>on the disk")]
+    helper["Maintenance helper"] -->|"polls for requests"| app
+  end
+  app --> eb["Enable Banking"] --> banks["Banks"]
+  helper --> gh["GitHub Releases"]
+```
+
+One container holds the page and the server, and the database is a file on the machine's disk. The helper on the host
+runs updates, backups and rollbacks, and takes updates from GitHub Releases. See [Architecture](docs/ARCHITECTURE.md).
+
+## Documentation
+
+| Document | What is in it |
 |---|---|
-| Install step by step, and update later | [Install](docs/INSTALL.md) |
-| Choose a bank, understand the two Nordea links, or read an error message | [Connecting a bank](docs/ENABLE_BANKING.md) |
-| Fix something that does not work | [Troubleshooting](docs/TROUBLESHOOTING.md) |
-| Use the app away from home | [Away from home](docs/ADVANCED.md#away-from-home) |
-| Give your parents or another household a copy of their own | [A second copy](docs/ADVANCED.md#a-second-copy-on-the-same-machine) |
-| Back up to a NAS or move to a new machine | [Backups](docs/ADVANCED.md#backups) |
-| Restore a backup, or empty the data and start over | [Restore a backup](docs/ADVANCED.md#restore-a-backup), [Start over](docs/ADVANCED.md#start-over) |
-| Know how the money is counted | [Money flows](docs/MONEY_FLOWS.md) |
-| Know what is stored, what connects where and who can see it | [Security and privacy](docs/SECURITY.md) |
+| [Install](docs/INSTALL.md) | The install step by step, and how to update later. |
+| [Connecting a bank](docs/ENABLE_BANKING.md) | Choosing a bank, the two Nordea links, and what the error messages mean. |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Fixes for what does not work. |
+| [Advanced setups](docs/ADVANCED.md) | Use away from home, a second copy for another household, backups and restore, starting over. |
+| [Money flows](docs/MONEY_FLOWS.md) | How each transaction is counted. |
+| [Security and privacy](docs/SECURITY.md) | What is stored, what connects where and who can see it. |
+| [Architecture](docs/ARCHITECTURE.md) | The decisions and the structure of the code. |
+| [Development](docs/DEVELOPMENT.md) | Running and testing the code. |
+| [Releasing](docs/RELEASING.md) | How a release is made. |
+| [Changes](CHANGELOG.md) | What changed in each version. |
 
-For developers: [development](docs/DEVELOPMENT.md), [architecture](docs/ARCHITECTURE.md), [releasing](docs/RELEASING.md)
-and the [changes](CHANGELOG.md) in each version. Report a vulnerability as [SECURITY.md](SECURITY.md) says. Issues and pull requests: [CONTRIBUTING.md](CONTRIBUTING.md).
+To report a vulnerability, follow [SECURITY.md](SECURITY.md). For issues and pull requests, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Releases
+
+Releases and the changelog are on the [releases page](https://github.com/jouni-mikkola/omatalous/releases) and in
+[CHANGELOG.md](CHANGELOG.md). The app offers an update on its maintenance page when the helper is on.
 
 ## Author
 

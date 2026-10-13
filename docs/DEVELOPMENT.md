@@ -327,6 +327,10 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
 and fails when a picture scrolls sideways or has a table wider than the screen. `pnpm shots --help` lists the options.
 Write no spec to take pictures: the options show what a spec would.
 
+`pnpm docs:shots` remakes the pictures of the README and the docs in `docs/images/` (`yhteenveto`, `tilit`, `raportit`,
+`tapahtumat` at 1280 x 800 and `yhteenveto-puhelin` at 390 x 844) from the example household. Run it before a release
+when a page changed, and read the pictures. A picture a document names that nobody makes turns `pnpm test` red.
+
 - `--demo` loads the demo household; `--fake-bank` links the fake bank (a joint account, a card with a limit and a
   possible loan from the payments, see [the fake bank](#the-fake-bank)). With both, the household holds both.
 - `--answers file.mjs` changes what the API answers: the default export maps a path (`/api/dashboard`) to a function from
