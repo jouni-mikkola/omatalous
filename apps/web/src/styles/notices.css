@@ -17,3 +17,7 @@ a.notice-text:hover .notice-title { text-decoration: underline; }
 .notice-actions { display: flex; flex: none; align-items: center; gap: 12px; }
 .notice-actions .btn { font-weight: 400; }
 .notice-error { margin: 12px 0 0; }
+/* where the line is narrow beside its links and key the detail wraps: its unit is never cut off */
+@media (max-width: 1039px) {
+  .notice-item .notice-text { overflow: visible; text-overflow: clip; white-space: normal; }
+}

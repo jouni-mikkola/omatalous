@@ -1,7 +1,7 @@
-import { money, moneyTick, monthLabel, monthLong } from "../format.ts";
+import { money, moneyTick, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { CategoryTick, ValueAxis } from "./Axes.tsx";
-import { crisp, LABEL_Y } from "./draw.ts";
+import { CategoryTick, hasYearLine, MonthLabel, ValueAxis, YEAR_LINE } from "./Axes.tsx";
+import { crisp } from "./draw.ts";
 import { barTicks, roundedTop } from "./scale.ts";
 import "../styles/charts.css";
 
@@ -40,13 +40,13 @@ export function MonthColumns({
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
-  const innerH = height - MARGIN.top - MARGIN.bottom;
-  const { ticks, max } = barTicks(Math.max(...values, average ?? 0, 0));
   const band = months.length ? innerW / months.length : 0;
+  const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
+  const innerH = height - MARGIN.top - MARGIN.bottom - (hasYearLine(months, labelEvery) ? YEAR_LINE : 0);
+  const { ticks, max } = barTicks(Math.max(...values, average ?? 0, 0));
   const barW = Math.min(36, band * 0.66);
   // a length is rounded to the nearest whole pixel
   const y = (v: number) => innerH - Math.round((Math.max(0, v) / max) * innerH);
-  const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
   // value labels on every column when they fit, otherwise on the active one only
   const allValues = band >= 52;
 
@@ -84,10 +84,7 @@ export function MonthColumns({
                   )}
                   <CategoryTick x={band * i + band / 2} base={innerH} long={i % labelEvery === (months.length - 1) % labelEvery} />
                   {i % labelEvery === (months.length - 1) % labelEvery && (
-                    <text className={isActive ? "month-active" : undefined} x={crisp(band * i + band / 2)} y={innerH + LABEL_Y} textAnchor="middle">
-                      {/* "tammi 2026" is wider than a narrow column band: the year only when every month has room */}
-                      {monthLabel(m, labelEvery === 1 && m.endsWith("-01"))}
-                    </text>
+                    <MonthLabel month={m} x={crisp(band * i + band / 2)} base={innerH} withYear={labelEvery === 1} className={isActive ? "month-active" : undefined} />
                   )}
                 </g>
               );

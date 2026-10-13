@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { money, moneyTick, monthLabel, monthLong } from "../format.ts";
+import { money, moneyTick, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { CategoryTick, ValueAxis } from "./Axes.tsx";
-import { crisp, LABEL_Y } from "./draw.ts";
+import { CategoryTick, hasYearLine, MonthLabel, ValueAxis, YEAR_LINE } from "./Axes.tsx";
+import { crisp } from "./draw.ts";
 import { barTicks, roundedTop } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
@@ -25,7 +25,9 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
-  const innerH = height - MARGIN.top - MARGIN.bottom;
+  const band = months.length ? innerW / months.length : 0;
+  const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
+  const innerH = height - MARGIN.top - MARGIN.bottom - (hasYearLine(months, labelEvery) ? YEAR_LINE : 0);
   const totalsOf = (stack: DivergingSeries[]) => months.map((_, i) => stack.reduce((s, d) => s + Math.max(0, d.values[i] ?? 0), 0));
   const upTotals = totalsOf(up);
   const downTotals = totalsOf(down);
@@ -36,9 +38,7 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
   const zeroY = Math.round(innerH / 2);
   // a length is rounded to the nearest whole pixel
   const scale = (v: number) => Math.round((v / total) * innerH);
-  const band = months.length ? innerW / months.length : 0;
   const barW = Math.round(Math.min(24, band * 0.62));
-  const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
 
   return (
     <div className="chart" ref={ref}>
@@ -92,10 +92,7 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
                   })}
                   <CategoryTick x={band * i + band / 2} base={innerH} long={i % labelEvery === (months.length - 1) % labelEvery} />
                   {i % labelEvery === (months.length - 1) % labelEvery && (
-                    <text x={crisp(band * i + band / 2)} y={innerH + LABEL_Y} textAnchor="middle">
-                      {/* "tammi 2026" is wider than a narrow column band: the year only when every month has room */}
-                      {monthLabel(m, labelEvery === 1 && m.endsWith("-01"))}
-                    </text>
+                    <MonthLabel month={m} x={crisp(band * i + band / 2)} base={innerH} withYear={labelEvery === 1} />
                   )}
                 </g>
               );

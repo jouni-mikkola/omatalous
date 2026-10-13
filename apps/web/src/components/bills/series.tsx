@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { CADENCE_LABEL, date, money } from "../../format.ts";
-import { addsUp, shares } from "../../marks.ts";
+import { addsUpPrinted, shares } from "../../marks.ts";
 import type { Recurring as Series } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 
@@ -117,16 +117,13 @@ export function SeriesTable({ rows, label, ended }: { rows: readonly Series[]; l
 /** What a list of series costs a month. */
 export const monthlyOf = (rows: readonly Series[]): number => rows.reduce((sum, r) => sum + r.monthlyCents, 0);
 
-/** A whole euro as the page prints it (`money(c, false)`): the nearest, halves away from zero. */
-export const printedEuroCents = (cents: number): number => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100;
-
 /**
  * The marks of a table of series that ends in a row Yhteensä: the bracket when the euros printed in Kuussa add up to the
  * euros printed in Yhteensä (rounded rows can miss by a euro), and the cells of the share track from the exact cents.
  */
 export function seriesMarks(rows: readonly Series[]): { bracket: boolean; tracks: ({ from: number; part: number } | null)[] | null } {
   const total = monthlyOf(rows);
-  const bracket = addsUp(rows.map((r) => printedEuroCents(r.monthlyCents)), printedEuroCents(total));
+  const bracket = addsUpPrinted(rows.map((r) => r.monthlyCents), total);
   const parts = shares(rows.map((r) => r.monthlyCents), total);
   let from = 0;
   const tracks = parts ? parts.map((p) => { const t = { from, part: p ?? 0 }; from += p ?? 0; return t; }) : null;

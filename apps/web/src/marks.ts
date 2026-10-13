@@ -19,6 +19,18 @@ export function addsUp(parts: readonly Cents[], total: number): boolean {
   return ps.reduce((a, b) => a + b, 0) === total;
 }
 
+/** A whole euro as the page prints it (`money(c, false)`): the nearest, halves away from zero. */
+export const printedEuroCents = (cents: number): number => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100;
+
+/**
+ * `addsUp` for a column printed in whole euros: the bracket asserts that the figures a reader adds give the total
+ * printed under them, so it is the euros as printed that are compared. Rows that add up to the cent can miss by a euro
+ * (three of 0,40 € print 0 € under 1 €), and rows that miss to the cent can add up as printed.
+ */
+export function addsUpPrinted(parts: readonly Cents[], total: number): boolean {
+  return addsUp(parts.map((p) => (p == null ? p : printedEuroCents(p))), printedEuroCents(total));
+}
+
 /**
  * Whole percents by the largest remainder, so they add up to exactly 100, one per part (null for a part that is not
  * known). Null, no track on any row, unless every known part is zero or more, `total > 0` and the parts add up to

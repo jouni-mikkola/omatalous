@@ -10,10 +10,10 @@ import { usePolled } from "../../components/ops/use-polled.ts";
 import "../../styles/remote-access.css";
 import "../../styles/settings.css";
 import { REMOTE_ACCESS_PATH, type RemoteAccessState, remoteAccessCalls, saveTokenFrom } from "./remote-access-api.ts";
-import { canTurnOff, canTurnOn, helperProblem, homeStoppedAnswering, needsLocalChoice, pollDelay, stageOf, startEmails, startHostname } from "./remote-access-model.ts";
+import { canTurnOff, canTurnOn, homeStoppedAnswering, needsLocalChoice, pollDelay, stageOf, startEmails, startHostname } from "./remote-access-model.ts";
 import { AfterOff, OffAsk, OnAsk, RemoveTokenAsk } from "./RemoteAccessAsk.tsx";
 import { TurnOnForm } from "./RemoteAccessForm.tsx";
-import { HelperMissing, Status } from "./RemoteAccessStatus.tsx";
+import { Status } from "./RemoteAccessStatus.tsx";
 import { TokenBlock } from "./RemoteAccessToken.tsx";
 import { HomeBlocked } from "./RemoteAccessTrial.tsx";
 
@@ -127,7 +127,7 @@ function Panel({ s, poll, now }: { s: RemoteAccessState; poll: RemoteAccessPoll;
         />
       )}
 
-      {helperProblem(s) !== null && stage !== "domain" && <HelperMissing s={s} />}
+      {/* a helper that is missing or too old, and the command that sets it up, stand in Ylläpito (HelperStatus) */}
       {canTurnOn(s) && (
         <TurnOnForm
           key={`${stage}|${startHostname(s).host}|${startEmails(s).join(",")}`}

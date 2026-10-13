@@ -3,6 +3,29 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.28.0
+
+- Shares printed side by side (Kiinteät ja muuttuvat, Kategoriat, Tulolajit, Tulojen käyttö) now add up to 100 % as printed, and the sum bracket stands on a column of whole euros only when the printed rows add up to the printed total.
+- The pages were measured on a mid-width screen, between a phone and a desktop, and ten faults were fixed: the figures of Raportit no longer overlap, Kuukausitaulukko turns into its list instead of a cut table, Kauppiaat shows the columns that fit with every sum whole, and a notice on Yhteenveto wraps instead of losing its unit.
+- Asetukset and Tekniset asetukset: account numbers stay on one line, the maintenance warning stands once, and Versio has no lone dash.
+
+Money and reports
+
+- Shares of one whole that stand side by side (Kiinteät ja muuttuvat, Kategoriat, Tulolajit, Tulojen käyttö) now add up to 100 % as printed, not 101 % or 99 %.
+- The bracket beside a column of whole euros (Kategoriat, Kuukausitaulukko) is drawn only when the euros printed add up to the total printed.
+
+Look
+
+- Reports: on a mid-width screen the figures of fixed and variable costs each keep their own cell.
+- Reports: the monthly table turns into the list whenever its twelve months and total would not fit, and the list shows each category's name beside its total again.
+- Reports: the year of January stands under the month on the month charts, so the labels never run together.
+- Merchants on a middle-width screen show the columns that fit, with every sum ending in its euro sign.
+- A notice on the overview wraps its detail instead of cutting off its unit.
+- The housing charges' share bar is drawn for every row, not only the first and the last.
+- Settings: on a narrow screen the bank connections no longer split an account or card number over two lines.
+- Technical settings: the maintenance helper warning with its command shows once, under Maintenance, not again under remote access.
+- Technical settings: Version has no lone dash before the first check for updates.
+
 ## 0.27.0
 
 - Laskut, Kauppiaat, Raportit, Säästövinkit and Asetukset were measured from pictures against the design, and twelve faults were fixed: no empty panels or empty halves, no text cut by its own frame, folds that open with the same arrow everywhere.

@@ -86,3 +86,20 @@ describe("the switch for new versions", () => {
     expect(html).not.toContain(S.prereleaseHelp);
   });
 });
+
+describe("Versio with nothing to show", () => {
+  const bare = {} as OpsSnapshot;
+  it("is the head alone: no body, no dash", () => {
+    const html = panel(bare, null);
+    expect(html).toContain("<h2>Versio</h2>");
+    expect(html).not.toContain("–");
+    expect(html).not.toContain('class="form-row"');
+    expect(html).not.toContain('class="muted"');
+  });
+  it("keeps its body once there is a check, an update, a rollback or the switch", () => {
+    expect(panel({ checked_at: "2026-03-01T10:00:00.000Z" } as OpsSnapshot, null)).toContain('class="muted"');
+    expect(panel({ update_available: true } as OpsSnapshot, null)).toContain('class="form-row"');
+    expect(panel({ can_rollback: true } as OpsSnapshot, null)).toContain('class="form-row"');
+    expect(panel(bare, { on: false, onChange: () => {} })).toContain('role="switch"');
+  });
+});

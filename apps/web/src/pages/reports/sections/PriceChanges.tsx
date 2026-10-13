@@ -1,9 +1,8 @@
 // Decision: cancel or renegotiate a contract that got dearer
 import { query } from "../../../api.ts";
 import { date, money, signedMoney } from "../../../format.ts";
-import { printedEuroCents } from "../../../components/bills/series.tsx";
 import { Section } from "../../../components/Section.tsx";
-import { addsUp } from "../../../marks.ts";
+import { addsUp, printedEuroCents } from "../../../marks.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/bills.css";
 

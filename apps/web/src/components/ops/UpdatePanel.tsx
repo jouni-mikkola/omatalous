@@ -49,20 +49,23 @@ export function UpdatePanel({ version, build, state, disabled, prerelease, onChe
           )}
         </>
       ) : (
-        <p className="muted">{state.checked_at ? S.upToDate(dateTime(state.checked_at)) : "–"}</p>
+        // before the first check there is nothing to say: no dash, and with nothing else the head stands alone
+        state.checked_at && <p className="muted">{S.upToDate(dateTime(state.checked_at))}</p>
       )}
-      <div className="form-row">
-        {state.update_available && (
-          <button className="btn btn-primary" type="button" disabled={disabled} onClick={onUpdate}>
-            {S.update}
-          </button>
-        )}
-        {state.can_rollback && (
-          <button className="btn btn-danger" type="button" disabled={disabled} onClick={onRollback}>
-            {S.rollback}
-          </button>
-        )}
-      </div>
+      {(state.update_available || state.can_rollback) && (
+        <div className="form-row">
+          {state.update_available && (
+            <button className="btn btn-primary" type="button" disabled={disabled} onClick={onUpdate}>
+              {S.update}
+            </button>
+          )}
+          {state.can_rollback && (
+            <button className="btn btn-danger" type="button" disabled={disabled} onClick={onRollback}>
+              {S.rollback}
+            </button>
+          )}
+        </div>
+      )}
       {prerelease && (
         // drawn as Features.tsx draws a checkbox with its label and help: the input first, the words and the help beside it, and the whole row is the label
         <div className="setup-form">

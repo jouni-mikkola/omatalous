@@ -1,7 +1,7 @@
 // Decision: where to cut
 import { query } from "../../../api.ts";
-import { money, percent, signedMoney } from "../../../format.ts";
-import { addsUp } from "../../../marks.ts";
+import { money, percent, roundedShares, shareText, signedMoney } from "../../../format.ts";
+import { addsUpPrinted } from "../../../marks.ts";
 import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -23,9 +23,18 @@ function Categories({ ctx }: SectionProps) {
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.groups.some((g) => g.categories.some((c) => c.monthlyAvgCents !== null));
   const negative = r.groups.some((g) => g.totalCents < 0 || g.categories.some((c) => c.totalCents < 0));
-  // the groups are the parts of the printed Yhteensä: the bracket stands only when they add up to it to the cent
-  const sums = addsUp(r.groups.map((g) => g.totalCents), r.totalCents);
+  // the groups are the parts of the printed Yhteensä: the bracket stands only when the euros printed add up to it
+  const sums = addsUpPrinted(r.groups.map((g) => g.totalCents), r.totalCents);
   const lastGroup = r.groups.length - 1;
+  // the shares are of the categories that net above zero (core's base). Rounded together, the groups add up to the
+  // 100 % they are parts of, and the categories of a group to the share their group prints
+  const base = r.groups.reduce((s, g) => g.categories.reduce((t, c) => t + Math.max(0, c.totalCents), s), 0);
+  const groupUnits = roundedShares(r.groups.map((g) => g.totalCents), base);
+  const categoryUnits = r.groups.map((g, gi) => {
+    const own = g.categories.reduce((s, c) => s + c.totalCents, 0) === g.totalCents && groupUnits[gi] != null ? groupUnits[gi]! : undefined;
+    return roundedShares(g.categories.map((c) => c.totalCents), base, 0, own);
+  });
+  const text = (units: number | null | undefined) => (units == null ? "–" : shareText(units));
   return (
     <Section id={section.id} title={section.title} sub={r.comparable ? "Muutos edellisestä jaksosta" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
       <div className="table-wrap">
@@ -44,7 +53,7 @@ function Categories({ ctx }: SectionProps) {
               <tr key={g.group} className={`group-row${sums && gi === 0 ? " part-first" : ""}${sums && gi === lastGroup ? " part-last" : ""}`}>
                 <td>{g.group}</td>
                 <td className={`num${sums ? " sum" : ""}`}>{money(g.totalCents, false)}</td>
-                <td className="num">{g.totalCents < 0 ? "–" : percent(g.share)}</td>
+                <td className="num">{text(groupUnits[gi])}</td>
                 {hasAverage && <td className="num hide-phone">{money(g.categories.reduce((s, c) => s + (c.monthlyAvgCents ?? 0), 0), false)}</td>}
                 {r.comparable && (
                   <td className="num">
@@ -52,13 +61,13 @@ function Categories({ ctx }: SectionProps) {
                   </td>
                 )}
               </tr>,
-              ...g.categories.map((c) => (
+              ...g.categories.map((c, ci) => (
                 <tr key={c.category}>
                   <td style={{ paddingLeft: 20 }}>
                     <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>
                   </td>
                   <td className={`num${sums ? " sum-pad" : ""}`}>{money(c.totalCents, false)}</td>
-                  <td className="num">{c.totalCents < 0 ? "–" : percent(c.share)}</td>
+                  <td className="num">{text(categoryUnits[gi]![ci])}</td>
                   {hasAverage && <td className="num hide-phone">{c.monthlyAvgCents === null ? "–" : money(c.monthlyAvgCents, false)}</td>}
                   {r.comparable && (
                     <td className="num">

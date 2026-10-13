@@ -110,3 +110,13 @@ describe("Oma Enable Banking -sovellus", () => {
     expect(out).toContain("Tallenna ja testaa");
   });
 });
+
+describe("Oma Enable Banking -sovellus: its name strip", () => {
+  const meta = { user: { role: "member" }, bank: { source: "user", canStoreOwnKeys: true, redirectUrl: "https://example.test/a", privacyUrl: "https://example.test/b", termsUrl: "https://example.test/c" } } as unknown as Meta;
+  it("has the name strip every panel has, with the state under the name", () => {
+    const out = renderToStaticMarkup(createElement(BankKey, { meta, onChange: () => {} }));
+    expect(out).toContain('<summary class="card-head">');
+    expect(out).toContain("<h2>Oma Enable Banking -sovellus</h2>");
+    expect(out).toContain('<div class="card-sub">käytössä oma avain</div>');
+  });
+});

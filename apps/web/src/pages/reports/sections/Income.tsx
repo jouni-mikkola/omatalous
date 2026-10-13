@@ -1,7 +1,7 @@
 // Decision: is our income changing, and does the buffer match how it moves
 import type { IncomeChange, IncomeReport, IncomeTypeRow } from "@banking/core";
 import { Fragment, useState } from "react";
-import { date, money, monthLong, percent, plural } from "../../../format.ts";
+import { date, money, monthLong, percent, plural, roundedShares, shareText } from "../../../format.ts";
 import { hasJointAccount } from "../../../part.ts";
 import "../../../styles/income.css";
 import { Kv } from "../parts.tsx";
@@ -51,6 +51,8 @@ function Types({ r }: { r: IncomeReport }) {
     setOpenType((v) => (v === t.type ? null : t.type));
     setOpenPayer(null);
   };
+  // the shares of the earned types are parts of the earned income: rounded together they add up to the 100 % it is
+  const units = roundedShares(r.types.map((t) => (t.share === null ? null : t.totalCents)), r.earnedCents);
   return (
     <div className="table-wrap">
       <table className="income-types ruled">
@@ -63,7 +65,7 @@ function Types({ r }: { r: IncomeReport }) {
           </tr>
         </thead>
         <tbody>
-          {r.types.map((t) => (
+          {r.types.map((t, ti) => (
             <Fragment key={t.type}>
               <tr>
                 <td>
@@ -73,7 +75,7 @@ function Types({ r }: { r: IncomeReport }) {
                 </td>
                 <td className="num">{money(t.totalCents, false)}</td>
                 <td className="num">{t.monthlyCents === null ? "–" : money(t.monthlyCents, false)}</td>
-                <td className="num">{t.share === null ? "–" : percent(t.share)}</td>
+                <td className="num">{t.share === null ? "–" : units[ti] == null ? percent(t.share) : shareText(units[ti]!)}</td>
               </tr>
               {openType === t.type &&
                 t.payers.map((p) => {

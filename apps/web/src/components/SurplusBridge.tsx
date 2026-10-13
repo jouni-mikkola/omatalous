@@ -1,6 +1,6 @@
 // Decision: move money to savings
 import { type ReactNode, useState } from "react";
-import { money, percent } from "../format.ts";
+import { money, percent, roundedShares, shareText } from "../format.ts";
 import { type DrawnLine, type BridgePart, type BridgeTotals, bridgeDraws, bridgeFigures, bridgeParts, bridgeRows, bridgeSources, bridgeText } from "./month-parts.ts";
 import "../styles/charts.css";
 import "../styles/month.css";
@@ -67,7 +67,14 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
   const parts = bridgeParts(totals);
   const sources = bridgeSources(totals);
   const figures = bridgeFigures(totals);
-  const share = (cents: number) => percent(cents / totals.incomeCents);
+  // the parts of the income that are told as shares are rounded together, so the table and the legend both add up to
+  // the 100 % they are parts of; the income's own row is that whole
+  const ofIncome = rows.filter((r) => r.ofIncome && r.key !== "income");
+  const units = new Map<string, number | null>(roundedShares(ofIncome.map((r) => r.cents), totals.incomeCents).map((u, i) => [ofIncome[i]!.key, u]));
+  const share = (key: string, cents: number) => {
+    const u = units.get(key);
+    return u == null ? percent(cents / totals.incomeCents) : shareText(u);
+  };
   const shares = rows.some((r) => r.ofIncome);
   const said = [
     `Tulot ${money(totals.incomeCents, false)}: ${parts
@@ -108,7 +115,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
                   <tr key={r.key}>
                     <td>{cell(r.label)}</td>
                     <td className="num">{cell(money(r.cents, false))}</td>
-                    {shares && <td className="num">{r.ofIncome ? share(r.cents) : "–"}</td>}
+                    {shares && <td className="num">{r.ofIncome ? share(r.key, r.cents) : "–"}</td>}
                   </tr>
                 );
               })}
@@ -135,7 +142,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
                   {f.label}
                 </span>
                 <span className="v">{money(f.cents, false)}</span>
-                {f.ofIncome && <small>{share(f.cents)} tuloista</small>}
+                {f.ofIncome && <small>{share(f.key, f.cents)} tuloista</small>}
               </div>
             ))}
           </div>

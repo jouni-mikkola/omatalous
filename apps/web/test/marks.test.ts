@@ -1,6 +1,6 @@
 /** The helpers of the marks: when the parts add up, a row's share of its block, the ruler along a column of bars. */
 import { describe, expect, it } from "vitest";
-import { addsUp, barScale, shares } from "../src/marks.ts";
+import { addsUp, addsUpPrinted, barScale, shares } from "../src/marks.ts";
 
 describe("addsUp", () => {
   it("holds for money out and money in that add up to the cent", () => {
@@ -63,5 +63,26 @@ describe("barScale", () => {
   it("is null with no longest row, and when under two ticks are left", () => {
     expect(barScale(0)).toBeNull();
     expect(barScale(-5_00)).toBeNull();
+  });
+});
+
+describe("addsUpPrinted", () => {
+  it("holds when the whole euros a reader adds give the whole euros printed, money out and in", () => {
+    expect(addsUpPrinted([70_00, 30_00], 100_00)).toBe(true);
+    expect(addsUpPrinted([-70_20, -29_90], -100_10)).toBe(true);
+  });
+  it("holds for rows that add up as printed and not to the cent", () => {
+    // 1,49 + 1,51 is 3,00 and prints 1 + 2 under 3; 0,60 + 0,60 is 1,20 and prints 1 + 1 under 1
+    expect(addsUpPrinted([149, 151], 300)).toBe(true);
+    expect(addsUp([149, 151], 301)).toBe(false);
+    expect(addsUpPrinted([149, 151], 301)).toBe(true);
+  });
+  it("does not hold for rows that add up to the cent and not as printed: three of 0,40 print 0 under 1", () => {
+    expect(addsUp([40, 40, 40], 120)).toBe(true);
+    expect(addsUpPrinted([40, 40, 40], 120)).toBe(false);
+  });
+  it("keeps the rules of addsUp: two known parts at least, a part that is not known is left out", () => {
+    expect(addsUpPrinted([100_00], 100_00)).toBe(false);
+    expect(addsUpPrinted([60_00, null, 40_00], 100_00)).toBe(true);
   });
 });

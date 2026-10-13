@@ -14,6 +14,11 @@
 /* M15: the ordinal is drawn for the eye only. The alternative text is empty, so a reader says the name and not "1." before it
    (the first declaration is for a browser that does not know the slash); the order of the rows is the table's own. */
 .ranked tbody tr > :first-child::before { content: counter(rank) "."; content: counter(rank) "." / ""; }
+/* between the phone list and the full table the columns that fit are drawn, whole: Kuussa and Viimeksi wait for the width */
+@media (min-width: 601px) and (max-width: 960px) {
+  .merchant-table :is(th, td):nth-child(n+5) { display: none; }
+  .merchant-table td select, .merchant-table td .select-lite { max-width: 11rem; }
+}
 @media (max-width: 600px) {
   .merchant-table thead { display: none; }
   .merchant-table, .merchant-table tbody { display: block; }

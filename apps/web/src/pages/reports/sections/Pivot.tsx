@@ -1,6 +1,6 @@
 // Decision: find the month a category jumped
 import { money, monthLabel, monthLong } from "../../../format.ts";
-import { addsUp } from "../../../marks.ts";
+import { addsUpPrinted } from "../../../marks.ts";
 import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -30,8 +30,8 @@ function Pivot({ ctx }: SectionProps) {
   const r = ctx.data.pivot;
   // a running month is no monthly figure: without a complete month in the range the column is left out
   const hasAverage = r.averageCents !== null;
-  // the column of row totals is the part of the printed grand total: the bracket stands only when the rows add up to it
-  const sums = addsUp(r.rows.map((x) => x.totalCents), r.totalCents);
+  // the column of row totals is the part of the printed grand total: the bracket stands only when the euros printed add up to it
+  const sums = addsUpPrinted(r.rows.map((x) => x.totalCents), r.totalCents);
   return (
     <Section id={section.id} title={section.title} actions={<ExportLink href={ctx.exportHref("pivot")} />}>
       <div className="table-wrap pivot-wide">

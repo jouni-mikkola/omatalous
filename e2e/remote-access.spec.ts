@@ -438,8 +438,8 @@ for (const width of [1280, 390]) {
         { ...LEFT, cloudflare: { ...LEFT.cloudflare, removal: "kept", note: "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä." } },
         "Cloudflaressa on osoite talous.example.fi, mutta sovellus ei ole sen takana.",
       ],
-      ["helper-off", { ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } }, "Ota ylläpitoapuri käyttöön palvelimella:"],
-      ["helper-old", { ...OFF, token: SAVED, helper: { ...OFF.helper, knowsAccess: false } }, "Ota ylläpitoapuri käyttöön palvelimella:"],
+      ["helper-off", { ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } }, "Etäkäyttö ei ole käytössä."],
+      ["helper-old", { ...OFF, token: SAVED, helper: { ...OFF.helper, knowsAccess: false } }, "Etäkäyttö ei ole käytössä."],
       ["domain", { ...OFF, access: { ...OFF.access, mode: "domain" } }, "Tällä asennuksella on oma verkkotunnus (Caddy)"],
     ];
 

@@ -41,11 +41,13 @@ export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }
 
   return (
     <details className="card">
-      <summary>
-        <strong>Oma Enable Banking -sovellus</strong>{" "}
-        <span className="muted small">
-          {meta.bank.source === "user" ? "· käytössä oma avain" : meta.bank.source === "instance" ? "· käytössä talouden yhteinen sovellus" : "· ei määritetty"}
-        </span>
+      <summary className="card-head">
+        <div>
+          <h2>Oma Enable Banking -sovellus</h2>
+          <div className="card-sub">
+            {meta.bank.source === "user" ? "käytössä oma avain" : meta.bank.source === "instance" ? "käytössä talouden yhteinen sovellus" : "ei määritetty"}
+          </div>
+        </div>
       </summary>
       <p className="small muted">Vain jos et käytä yhteistä sovellusta. Enable Bankingin rekisteröintilomake kysyy nämä osoitteet:</p>
       <ul className="small">

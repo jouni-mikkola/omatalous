@@ -9,8 +9,8 @@
   .report-nav::-webkit-scrollbar { display: none; }
   .report-nav a { flex: none; white-space: nowrap; min-height: 44px; padding: 0 12px; }
 }
-/* the readouts: five across at most (a cell is a fifth of the row or 120 px), two across on a phone */
-.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(120px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
+/* the readouts: five across at most (a cell is a fifth of the row, 184 px at least so a sum with its share fits), two across on a phone */
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(184px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
 .kv > div { border-left: 1px solid var(--border); padding: 0 var(--sp-16); }
 .kv dt, .kv dd { margin: 0; }
 .kv .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
@@ -33,15 +33,17 @@ details.group > summary { cursor: pointer; }
 .heat-l3 { background: var(--heat-3); color: var(--heat-ink-3); }
 .heat-l4 { background: var(--heat-4); color: var(--heat-ink-4); }
 
-/* the pivot on a phone: a list with the months behind a tap, not twelve columns */
+/* the pivot where twelve months and the total do not fit (a table at 1000 px still cuts the total): a list with the months behind a tap */
 .pivot-narrow { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 1039px) {
   .pivot-wide { display: none; }
   .pivot-narrow { display: block; list-style: none; margin: 0; padding: 0; }
 }
 .pivot-list > li { border-bottom: 1px solid var(--grid); }
 .pivot-list summary, .pivot-sum { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 8px 0; cursor: pointer; list-style: none; }
 .pivot-list summary::-webkit-details-marker { display: none; }
+/* the name carries its own arrow (below); the page-wide one would take a grid cell of its own and push the name aside */
+.pivot-list li > details > summary::before { display: none; }
 .pivot-sum { cursor: default; background: var(--surface-2); font-weight: 600; padding-inline: 8px; border-radius: var(--radius-s); margin-top: 4px; }
 .pivot-total { text-align: right; font-variant-numeric: tabular-nums; }
 .pivot-avg { grid-column: 1 / -1; font-size: 12px; }

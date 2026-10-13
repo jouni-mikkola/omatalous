@@ -16,9 +16,6 @@ export const TOKEN_PERMISSIONS = [
 /** The page where a token is made. No query string: nothing of the copy goes to Cloudflare. */
 export const TOKEN_PAGE = "https://dash.cloudflare.com/profile/api-tokens";
 
-/** Where the installer route is written down, for a host whose helper cannot do this. */
-export const TUNNEL_GUIDE = "https://github.com/jouni-mikkola/omatalous/blob/main/docs/ADVANCED.md#cloudflare-tunnel";
-
 /** A change waits, Cloudflare is removing its side or a new address is on trial: look again soon. Otherwise now and then. */
 export function pollDelay(s: RemoteAccessState): number {
   return s.pending !== null || s.cloudflare.removal === "waiting" || onTrial(s) ? 3000 : 60_000;

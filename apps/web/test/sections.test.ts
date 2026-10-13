@@ -77,6 +77,22 @@ describe("Raportit: Kiinteät ja muuttuvat", () => {
   });
 });
 
+describe("Raportit: Kiinteät ja muuttuvat, the shares of the spending", () => {
+  const shareOf = (out: string, label: string) => tilesOf(out).find((t) => t.startsWith(`${label}:`))!.split("·")[1]!.trim();
+  const tilesOf = (out: string) => [...out.replace(/[  ]/g, " ").matchAll(/<div class="k">([^<]*)<\/div><div class="v">((?:<[^>]*>|[^<])*?)<\/div>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
+  const data = (t: Record<string, number>) => ({ fixedVariable: { totals: t, rows: [] }, buffer: { fixedMonthlyCents: 130_000, fixedShare: 0.4 } });
+
+  it("prints 48, 38 and 14 for parts of 47,6, 37,8 and 14,6 percent, which add up to 100 and not to 101", () => {
+    const out = html(fixedVariable, context(data({ fixedCents: 47_600, habitCents: 37_800, variableCents: 14_600, debtCents: 0 })));
+    expect([shareOf(out, "Kiinteät"), shareOf(out, "Arkiostot"), shareOf(out, "Satunnaiset")]).toEqual(["48 %", "38 %", "14 %"]);
+  });
+
+  it("prints 34, 33 and 33 for three equal thirds, the first row taking the extra unit", () => {
+    const out = html(fixedVariable, context(data({ fixedCents: 10_000, habitCents: 10_000, variableCents: 10_000, debtCents: 0 })));
+    expect([shareOf(out, "Kiinteät"), shareOf(out, "Arkiostot"), shareOf(out, "Satunnaiset")]).toEqual(["34 %", "33 %", "33 %"]);
+  });
+});
+
 describe("Raportit: Nousseet menot", () => {
   it("is shown only when a category rose", () => {
     expect(drift.visible?.(context({ drift: { items: [] } }))).toBe(false);

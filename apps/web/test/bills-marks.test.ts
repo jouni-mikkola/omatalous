@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { printedEuroCents, seriesMarks } from "../src/components/bills/series.tsx";
+import { seriesMarks } from "../src/components/bills/series.tsx";
+import { printedEuroCents } from "../src/marks.ts";
 import type { Recurring } from "../src/types.ts";
 
 const series = (...monthly: number[]) => monthly.map((monthlyCents) => ({ monthlyCents }) as Recurring);

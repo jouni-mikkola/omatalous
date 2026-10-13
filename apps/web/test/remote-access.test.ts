@@ -465,14 +465,14 @@ describe("the blocks of each state", () => {
     expect(hostField(waiting)).toBe("");
   });
 
-  it("a helper that is missing or too old: the one line, the command and the guide, and no token form, no line about the token and no fold", () => {
+  it("a helper that is missing or too old: the one line of state and no command (it stands in Ylläpito), no token form, no line about the token and no fold", () => {
     for (const helper of [{ ...OFF.helper, status: "off" as const, knowsAccess: false }, { ...OFF.helper, knowsAccess: false }]) {
       for (const token of [SAVED, OFF.token]) {
         const html = page({ ...OFF, token, helper, suggestedHostname: "talous.example.fi" });
-        expect(html).toContain("Ota ylläpitoapuri käyttöön palvelimella:");
-        expect(html).toContain("./scripts/install.sh --ops-helper");
-        expect(html).toMatch(/href="[^"]*docs\/ADVANCED\.md#cloudflare-tunnel"/);
-        expect(html).toContain(">Ohje</a>");
+        expect(html).toContain("Etäkäyttö ei ole käytössä.");
+        expect(html).not.toContain("Ota ylläpitoapuri käyttöön palvelimella:");
+        expect(html).not.toContain("./scripts/install.sh --ops-helper");
+        expect(html).not.toContain(">Ohje</a>");
         expect(html).not.toContain('name="hostname"');
         expect(html).not.toContain('name="cloudflare-api-token"');
         expect(html).not.toContain("Tallenna tunniste");

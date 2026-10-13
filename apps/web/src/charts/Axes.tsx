@@ -1,4 +1,5 @@
-import { crisp, TICK, TICK_L } from "./draw.ts";
+import { monthLabel } from "../format.ts";
+import { crisp, LABEL_Y, TICK, TICK_L } from "./draw.ts";
 
 /**
  * The value axis: its line at the left edge, and for each labelled value a grid line (the axis line at zero),
@@ -25,4 +26,27 @@ export function ValueAxis({ ticks, y, width, height, label }: { ticks: number[];
 export function CategoryTick({ x, base, long }: { x: number; base: number; long: boolean }) {
   const cx = crisp(x);
   return <line className="tick" x1={cx} x2={cx} y1={base} y2={base + (long ? TICK_L : TICK)} />;
+}
+
+/** Height of the second line that carries a year under its month. */
+export const YEAR_LINE = 12;
+
+/** Whether a row of month labels prints the year of a January: only when every month has a label (`every` is 1). */
+export function hasYearLine(months: string[], every: number): boolean {
+  return every === 1 && months.some((m) => m.endsWith("-01"));
+}
+
+/** The label of one month under the axis at `base`; the year of a January stands as a second line, never beside the month. */
+export function MonthLabel({ month, x, base, withYear, className }: { month: string; x: number; base: number; withYear: boolean; className?: string }) {
+  const year = withYear && month.endsWith("-01") ? month.slice(0, 4) : null;
+  return (
+    <text className={className} x={x} y={base + LABEL_Y} textAnchor="middle">
+      <tspan x={x}>{monthLabel(month)}</tspan>
+      {year && (
+        <tspan x={x} dy={YEAR_LINE}>
+          {year}
+        </tspan>
+      )}
+    </text>
+  );
 }
