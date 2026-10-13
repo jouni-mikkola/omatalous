@@ -3,6 +3,12 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.23.0
+
+- Tapahtumat: the readouts above the list stand in three even columns, and the controls of the filter row sit on one line.
+- A button that waits for its request is marked with a hatch, and a screen reader is told that it is busy.
+- The last of the old animations are gone: the pictures of the front page no longer draw themselves in.
+
 ## 0.22.0
 
 - Raportit, Lainat and Säästövinkit are drawn in the same measured look as the front page: ruled tables, readouts in one row, a bracket where the rows of a table add up to its total, and findings in frames with their euros in a column of their own.

@@ -7,6 +7,9 @@
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC=$(cd "$HERE/../.." && pwd)
+# A check inside a release cut runs this suite with the cut's shares of the cores: none reaches a scenario that does not set it.
+# shellcheck source=cut-env.sh
+. "$HERE/cut-env.sh"
 FILTER=${1:-}
 PASS=0; FAILED=0
 pass() { PASS=$((PASS + 1)); echo "ok   $1"; }

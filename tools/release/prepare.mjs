@@ -30,6 +30,9 @@
  * --check-docs is the check the release command runs before it starts: every check above, those two stops
  * included. It writes nothing and prints one line. --dry-run also checks them and prints what it would write.
  *
+ * `prepare.mjs --check-fragment FILE...` reads single files (paths from the repository root) with the same code and
+ * prints the first sentence a bad one earns: the landing of a branch uses it.
+ *
  * Imports Node built-ins only. Writing the contracts folder needs `pnpm install` (pnpm runs the contracts test) and
  * Node 22.18 or newer (fixture.mjs).
  */
@@ -485,8 +488,25 @@ function prepare(argv, cwd = process.cwd()) {
   console.log(`Next: read the diff and CHANGELOG.md, then git add -A && git commit -m "Release ${version}".`);
 }
 
+/**
+ * `--check-fragment FILE...`: the check of --check-docs for single files, so a landing can refuse a bad one at once.
+ * The highlights file is read as highlights, any other file as a fragment; the first bad file stops it with its sentence.
+ * @param {string[]} files
+ */
+function checkFragments(files, cwd = process.cwd()) {
+  if (!files.length) throw new Fail("Usage: prepare.mjs --check-fragment FILE...");
+  for (const f of files) {
+    const text = readFileSync(join(cwd, f), "utf8");
+    if (f.split("/").pop() === HIGHLIGHTS) parseHighlights(f, text);
+    else parseFragment(f, text);
+  }
+  console.log(`${files.length} fragment file(s) pass.`);
+}
+
 try {
-  prepare(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  if (args[0] === "--check-fragment") checkFragments(args.slice(1));
+  else prepare(args);
 } catch (e) {
   if (!(e instanceof Fail)) throw e;
   console.error(`Error: ${e.message}`);

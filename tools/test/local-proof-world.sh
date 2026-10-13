@@ -11,7 +11,8 @@ export PROOF_CALLS=$CALLS PROOF_PLAY=$PLAY
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com
 # A release cut hands its children their shares of the cores (PROOF_JOBS among them): the stand-in proof takes none.
-unset CUT_LOCK_HELD CUT_LOCK_WAIT CUT_CPUS CHECK_JOBS E2E_WORKERS PROOF_JOBS VITEST_MAX_WORKERS npm_config_workspace_concurrency
+# shellcheck source=cut-env.sh
+. "$(dirname "${BASH_SOURCE[0]}")/cut-env.sh"
 stub() { cat >"$1"; chmod +x "$1"; }
 commit() { git -C "$1" add -A && git -C "$1" commit -q -m "$2"; }
 
