@@ -13,6 +13,7 @@ import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
+import { buildQuestions, type Questions } from "./questions.ts";
 import { type ThemesReport, themesReport } from "./themes-report.ts";
 import { isCompleteMonth } from "./usual.ts";
 
@@ -72,6 +73,8 @@ export interface DashboardData {
   holdings: Holdings;
   /** What the home costs a month and the terms of its loan, today whatever the range. null when the view has no home loan, no charge of a home and nothing to ask. */
   housing: Housing | null;
+  /** How much of the last 365 days' money is classified, and the payees and loan payments that would mend it most. */
+  questions: Questions;
   /** Category ids that own colour slots 1–7 (slot 8 is "Muut"). */
   colorOrder: string[];
 }
@@ -152,6 +155,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
     holdings: buildHoldings(ctx, balances, inputs),
     housing: buildHousing(ctx, balances, inputs),
+    questions: buildQuestions(ctx, range, inputs),
     colorOrder: [...ctx.colorOrder],
   };
 }

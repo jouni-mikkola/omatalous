@@ -301,9 +301,32 @@ t_refusals_before_change() {
     check "an install or update running: refused, nothing stopped" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'install or update is running' '$W/out' && ! grep -q 'compose stop' '$S/log'"
   fi
 }
+# a tick of the maintenance helper holds ops/.lock while it waits for a press: restore waits for it, and refuses only after the wait.
+# The holder lets go when the file $W/release appears; the test makes it appear when restore has said it is waiting.
+hold_lock() { # hold_lock: in the background, ops/.lock held until $W/release exists
+  mkdir -p "$CL/ops"; : >"$CL/ops/.lock"; rm -f "$W/release" "$W/held"
+  ( exec 9>>"$CL/ops/.lock"; flock 9; : >"$W/held"; until [[ -e $W/release ]]; do sleep 0.1; done ) &
+  until [[ -e $W/held ]]; do sleep 0.1; done
+}
+t_helper_lock() {
+  command -v flock >/dev/null || return 0
+  local i
+  new_world; mkdb "$W/files/a.db" BACKUP; hold_lock
+  run_restore a.db &
+  for ((i = 0; i < 100; i++)); do out_has "Waiting for the maintenance helper" 2>/dev/null && break; sleep 0.1; done
+  touch "$W/release"; wait
+  check "a tick holds the lock and lets go: restore said it waited, then went on" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'Waiting for the maintenance helper (at most a minute)' '$W/out' && ! grep -q 'A maintenance action is running' '$W/out' && [[ \$(grep -c 'Waiting for the maintenance helper' '$W/out') == 1 ]]"
+  new_world; mkdb "$W/files/a.db" BACKUP; hold_lock
+  RESTORE_LOCK_WAIT=1 run_restore a.db
+  touch "$W/release"; wait
+  check "the lock held throughout: the wait, then today's sentence, nothing stopped" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'Waiting for the maintenance helper' '$W/out' && grep -q 'A maintenance action is running (Asetukset > Ylläpito). Wait until it finishes.' '$W/out' && ! grep -q 'compose stop' '$S/log'"
+  new_world; mkdb "$W/files/a.db" BACKUP; mkdir -p "$CL/ops"; : >"$CL/ops/.lock"
+  run_restore a.db
+  check "the lock free: no waiting, restored" bash -c "[[ \$(cat '$W/rc') == 0 ]] && ! grep -q 'Waiting for the maintenance helper' '$W/out'"
+}
 
 for t in t_plain_db t_gz t_age t_age_without_key t_failed_restore_starts_app t_secret_kept_as_prev t_secret_checked t_wrong_file_refused \
-  t_app_does_not_come_up t_address t_refusals_before_change; do
+  t_app_does_not_come_up t_address t_refusals_before_change t_helper_lock; do
   want "$t" && "$t"
 done
 echo "restore.test.sh: $PASS passed, $FAILED failed"

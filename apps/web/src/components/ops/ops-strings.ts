@@ -34,6 +34,7 @@ export const S = {
   cancel: "Peruuta",
   working: "Hetki…",
   queued: "Jonossa. Apuri hakee pyynnöt kerran minuutissa.",
+  queuedWake: "Jonossa. Apuri aloittaa muutamassa sekunnissa.",
   queuedNext: (t: string) => `Jonossa. Apuri hakee pyynnöt kerran minuutissa, seuraavan kerran noin ${t} kuluttua.`,
   waited: (t: string) => `Odotettu ${t}.`,
   runningFor: (t: string) => `Käynnissä, aikaa kulunut ${t}.`,

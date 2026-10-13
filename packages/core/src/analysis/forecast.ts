@@ -6,6 +6,7 @@ import { expectedDates } from "../commitments.ts";
 import { addDays, addMonths, dayNumber, daysInMonth, monthEnd, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
+import { PAID_EARLY_DAYS } from "../recurring-settled.ts";
 import { median } from "../stats.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { type AnalysisContext, inDays, standingOf } from "./context.ts";
@@ -101,8 +102,6 @@ export interface ExpectedBillRow {
 
 /** How far a booked amount may sit from a typed-in one and still be that bill, in percent. */
 const PAID_TOLERANCE_PERCENT = 5;
-/** A payment up to this many days before the due date counts as paying it (an early or a late due date). */
-const PAID_EARLY_DAYS = 31;
 
 /** A series' latest charge as the bank booked it, positive: on a joint account in a member's own view the series' own sums are that member's part. */
 function lastCharge(ctx: AnalysisContext, s: RecurringSeries): number {

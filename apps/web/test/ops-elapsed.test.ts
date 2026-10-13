@@ -11,8 +11,8 @@ const ago = (ms: number) => new Date(NOW - ms).toISOString();
 const req = (over: Partial<OpsRequestView> = {}): OpsRequestView => ({
   id: "r1", action: "update", label: "päivitys", status: "queued", by: null, requestedAt: ago(30_000), finishedAt: null, summary: null, output: null, steps: [], ...over,
 });
-const html = (request: OpsRequestView, seenAgo: number | null = null, downSince: number | null = null) =>
-  renderToStaticMarkup(createElement(OpsProgress, { request, down: downSince !== null, downSince, helperSeenAt: seenAgo === null ? null : NOW - seenAgo, onCancel: () => {} }));
+const html = (request: OpsRequestView, seenAgo: number | null = null, downSince: number | null = null, helperWakes = false) =>
+  renderToStaticMarkup(createElement(OpsProgress, { request, down: downSince !== null, downSince, helperSeenAt: seenAgo === null ? null : NOW - seenAgo, helperWakes, onCancel: () => {} }));
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -38,6 +38,16 @@ describe("the queued sentence", () => {
   it("is the short one when the moment has passed or the time is missing", () => {
     expect(html(req(), 90_000)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Odotettu 30 s.");
     expect(html(req(), null)).not.toContain("kuluttua");
+  });
+  it("promises seconds only from a helper that wakes and polled under 50 s ago", () => {
+    expect(html(req(), 20_000, null, true)).toContain("Jonossa. Apuri aloittaa muutamassa sekunnissa. Odotettu 30 s.");
+    expect(html(req(), 49_000, null, true)).toContain("muutamassa sekunnissa");
+    // polled 50 s ago or more: the earlier sentences, as they were
+    expect(html(req(), 50_000, null, true)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa, seuraavan kerran noin 10 s kuluttua.");
+    expect(html(req(), 90_000, null, true)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Odotettu 30 s.");
+    // an older helper never promises it, however fresh its last look
+    expect(html(req(), 5_000, null, false)).toContain("seuraavan kerran noin 55 s kuluttua");
+    expect(html(req(), null, null, true)).not.toContain("sekunnissa");
   });
 });
 

@@ -655,6 +655,24 @@
   "atPart": false,
   "ask": false
  },
+ "questions": {
+  "share": 1,
+  "outCents": 3918215,
+  "inCents": 4414300,
+  "outUnknownCents": 0,
+  "inUnknownCents": 0,
+  "cardBillCents": 0,
+  "items": [
+   {
+    "kind": "loan",
+    "key": "out:chk:Nordea Bank Abp#61240",
+    "payee": "Nordea Bank Abp",
+    "paymentCents": 61240,
+    "cents": 734880
+   }
+  ],
+  "total": 1
+ },
  "colorOrder": [
   "housing",
   "groceries",

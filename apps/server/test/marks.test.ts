@@ -120,6 +120,22 @@ describe("marks on subscriptions and alerts", () => {
     }
   });
 
+  it("takes a payee set aside under question:payee:<merchant>, mark dismissed only, and no other name under question", async () => {
+    const { admin } = await setupApp();
+    for (const subject of ["question:payee:", "question:payee", "question:Payee:Acme", `question:payee:${"x".repeat(201)}`, "question:payee:Ac\nme","question:other"]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" })).status, subject).toBe(400);
+    }
+    for (const mark of ["in_use", "cancelled"]) expect((await admin.call("PUT", "/api/marks", { subject: "question:payee:Acme", mark })).status, mark).toBe(400);
+    expect((await admin.call("GET", "/api/recurring")).body.marks).toEqual([]);
+
+    for (const subject of ["question:payee:Acme", `question:payee:${"x".repeat(200)}`]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" })).status, subject).toBe(200);
+    }
+    expect((await admin.call("GET", "/api/recurring")).body.marks.map((m: { subject: string }) => m.subject)).toContain("question:payee:Acme");
+    // taken back like any other
+    expect((await admin.call("PUT", "/api/marks", { subject: "question:payee:Acme", mark: null })).body.marks).toHaveLength(1);
+  });
+
   it("takes the answer to the question about a home loan under its one subject, stores it as any mark, and takes no other question", async () => {
     const { admin } = await setupApp();
     const bad = ["question:other", "question:", "question", "question:Mortgage", "question:mortgage ", "question:mortgage:2", `question:${"x".repeat(201)}`, "Question:mortgage"];

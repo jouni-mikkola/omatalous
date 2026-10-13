@@ -113,6 +113,21 @@ describe("holdings of the balance report", () => {
     expect(owed(holdings)).toBe(report.debt.cents);
   });
 
+  it("a loan account with no saved loan is one loan in the holdings, the dashboard's holdings and the housing block, as the bank tells it", () => {
+    const { holdings, report, dashboard } = household([input("loan-acc", "Asuntolaina", "loan", -14_912_345)]);
+    const row = { id: "account:loan-acc", name: "Asuntolaina", kind: "mortgage", source: "account", leftCents: 14_912_345, monthlyPaymentCents: null, maybeTwice: false };
+    expect(holdings.loans).toMatchObject([row]);
+    expect(dashboard.holdings.loans).toMatchObject([row]);
+    expect(report.debt.cents).toBe(14_912_345);
+    // the block of the home lists it with the figures it cannot know left empty
+    expect(dashboard.housing?.loans).toMatchObject([{ id: "account:loan-acc", name: "Asuntolaina", monthlyCents: null, rateBp: null, reference: null, marginBp: null, referenceBp: null }]);
+    expect(dashboard.housing?.partial).toBe(true);
+    // a name that does not say home loan stays out of the home block, in the loans
+    const other = household([input("loan-acc", "Lainatili", "loan", -14_912_345)]);
+    expect(other.holdings.loans).toMatchObject([{ kind: "other", leftCents: 14_912_345 }]);
+    expect(other.dashboard.housing?.loans ?? []).toEqual([]);
+  });
+
   it("a saved loan linked to a card is that card's use, and the card is not a loan too", () => {
     const typed = loan({ id: "cardloan", name: "Korttiluotto", kind: "card", balanceCents: 123_456, limitCents: 400_000, accountId: "card" });
     const { holdings, report } = household([input("card", "Esimerkkikortti", "credit_card", -80_000, { creditLimitCents: 500_000 })], [typed]);

@@ -12,7 +12,7 @@ import type { OpsRequest } from "../db/ops-repo.ts";
 import { newestIntactCopy } from "../db/restore.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
-import { deleteAccessRequest, readAccessRequest, writeAccessRequest } from "./access-request.ts";
+import { clearWake, deleteAccessRequest, readAccessRequest, touchWake, writeAccessRequest } from "./access-request.ts";
 import type { Services } from "./context.ts";
 import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -25,6 +25,7 @@ import {
   helperKnows,
   helperOutdated,
   helperStatus,
+  helperWakes,
   mergeState,
   NEEDS_PASSWORD,
   normaliseState,
@@ -113,6 +114,13 @@ async function touchHelper(s: Services, version: string | undefined): Promise<vo
   if (version && /^[0-9A-Za-z._-]{1,20}$/.test(version)) await s.settings.set(VERSION_KEY, version);
 }
 
+/** The one place a request is queued: the helper's wait is woken once the row has committed (an insert that lost is not). */
+async function insertQueued(s: Services, row: Parameters<Services["ops"]["insert"]>[0]): Promise<boolean> {
+  const queued = await s.ops.insert(row);
+  if (queued) touchWake(s);
+  return queued;
+}
+
 async function storeState(s: Services, input: unknown): Promise<void> {
   await takeWatchdog(s, input);
   const next = normaliseState(input, secretsOf(s));
@@ -130,7 +138,7 @@ export async function helperInfo(s: Services) {
   const seenAt = await s.settings.get(HELPER_SEEN_KEY);
   const version = await s.settings.get(VERSION_KEY);
   const { status, reason } = helperStatus(seenAt, s.now());
-  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), knowsPrerelease: helperKnows(version, "prerelease-on"), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
+  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), wakes: helperWakes(version), knowsPrerelease: helperKnows(version, "prerelease-on"), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
 }
 
 // ── backups kept by the app ──────────────────────────────
@@ -317,7 +325,7 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req,
 
   const id = newId();
   // the insert is the last word on the one active request: two calls at once both pass the look above
-  if (!(await s.ops.insert({ id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(busy());
+  if (!(await insertQueued(s, { id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(busy());
   await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${label}: jonossa` });
   if (NOTIFY.includes(action)) await notifyAdmins(s, user, `${user.displayName} käynnisti toiminnon: ${label}`);
   return view((await s.ops.get(id))!);
@@ -334,7 +342,7 @@ export async function queueOwnLan(s: Services, userId: string): Promise<string |
   if ((await helperInfo(s)).status === "off" || !helperKnows(await s.settings.get(VERSION_KEY), "access") || (await s.ops.hasActiveMutating(READ_ONLY))) return null;
   const id = newId();
   writeAccessRequest(s, { want: "lan" });
-  if (!(await s.ops.insert({ id, action: "access", requestedBy: userId, at: s.now().toISOString() }))) {
+  if (!(await insertQueued(s, { id, action: "access", requestedBy: userId, at: s.now().toISOString() }))) {
     deleteAccessRequest(s);
     return null;
   }
@@ -409,6 +417,8 @@ export async function pollOps(s: Services, opts: { helper?: string; done: string
     await s.ops.oldestQueued([]);
     return null;
   }
+  // the wake goes first: a request queued after this line leaves its own wake, and the look below may even find it
+  clearWake(s);
   await touchHelper(s, opts.helper);
   await expireStale(s);
   const done = opts.done.filter(validOpsId).slice(0, 100);

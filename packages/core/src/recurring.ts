@@ -26,6 +26,15 @@ export interface PriceChange {
   date: IsoDate;
 }
 
+/** A bill that was paid another way: the date the series expected it, and the row that paid it. */
+export interface SettledOccurrence {
+  due: IsoDate;
+  paidOn: IsoDate;
+  /** The paying row; it is not one of the series' own. */
+  id: string;
+  pending: boolean;
+}
+
 export interface RecurringSeries {
   id: string;
   merchant: string;
@@ -50,9 +59,12 @@ export interface RecurringSeries {
   perMonth: number;
   /** Calendar months from the first charge to the last, both included. */
   monthsActive: number;
+  /** Still charging: the latest charge, a payment made elsewhere that settled an occurrence included, is not older than the cadence allows. */
   active: boolean;
   /** Active, but the next charge is more than 5 days late. */
   overdue: boolean;
+  /** Occurrences of a bill that a payment from another account, or under another payee name, settled (recurring-settled.ts). Absent when none. */
+  settled?: SettledOccurrence[];
   /** A small service that has run for half a year or more: worth asking whether it is still used. */
   review: boolean;
   confidence: number;
@@ -104,7 +116,11 @@ const NEVER_RECURRING = new Set(["p2p", "p2p_in", "cash"]);
 
 const monthsBetween = (first: IsoDate, last: IsoDate) => monthIndex(last) - monthIndex(first) + 1;
 /** Active, and the next charge is more than five days late. */
-const isOverdue = (active: boolean, nextDate: IsoDate, today: IsoDate) => active && daysBetween(nextDate, today) > OVERDUE_DAYS;
+export const isOverdue = (active: boolean, nextDate: IsoDate, today: IsoDate) => active && daysBetween(nextDate, today) > OVERDUE_DAYS;
+
+/** Is a series with this cadence still charging, `last` being its latest charge (or the occurrence a payment elsewhere settled)? */
+export const isActiveAt = (cadence: Pick<CadenceDef, "days" | "tolerance">, last: IsoDate, today: IsoDate) =>
+  daysBetween(last, today) <= cadence.days + cadence.tolerance * 2;
 
 function buildSeries(
   id: string,
@@ -131,9 +147,8 @@ function buildSeries(
       : Math.round(median(occ.slice(-3).map((o) => o.cents)));
   const perYear = chargesPerYear(occ, cadence);
   const yearly = yearlyCostOf(occ, cadence, kind, typical, perYear);
-  const since = daysBetween(last.date, today);
   const nextDate = nextDateOf(occ, cadence);
-  const active = since <= cadence.days + cadence.tolerance * 2;
+  const active = isActiveAt(cadence, last.date, today);
   return {
     id,
     merchant,
@@ -237,7 +252,9 @@ function needsReview(s: RecurringSeries, otherPurchases: number): boolean {
  * Detects subscriptions, bills, habits and regular income from transaction
  * history up to `today`. Pure and deterministic: same input, same output.
  * Each account is its own series, so two family members paying the same
- * service on the same day are two subscriptions, not a price change.
+ * service on the same day are two subscriptions, not a price change. A series
+ * knows only its own rows: a bill paid from another account or under another
+ * payee name is settled afterwards by recurring-settled.ts.
  */
 export function detectRecurring(txs: readonly SeriesInput[], today: IsoDate): RecurringSeries[] {
   const groups = new Map<string, { id: string; merchant: string; direction: "in" | "out"; txs: SeriesInput[] }>();
@@ -346,7 +363,8 @@ function mostCommon(values: readonly string[]): string {
 
 /**
  * Expected charge dates after the last one, up to `until` (inclusive): the next date of the series and the steps of
- * its cadence from there. Empty for habits, which have no schedule.
+ * its cadence from there. Empty for habits, which have no schedule. `lastDate` stays the series' own last row, also
+ * when a payment elsewhere moved `nextDate` on (recurring-settled.ts).
  */
 export function projectDates(s: Pick<RecurringSeries, "cadence" | "lastDate" | "nextDate" | "follows">, until: IsoDate): IsoDate[] {
   if (!s.cadence || !s.nextDate) return [];

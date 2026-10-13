@@ -165,6 +165,9 @@ export const ACTION_SINCE: Record<OpsAction, number> = {
   "prerelease-off": 4,
 };
 
+/** The first helper version that waits for the app's wake (WAKE_WAIT in scripts/ops-helper.sh): it starts a request within seconds. */
+const WAKE_SINCE = 5;
+
 export type HelperStatus = "ok" | "slow" | "off";
 
 /** Section 1.7 of the spec. "off" covers never seen and silent for more than a day: buttons stay disabled. */
@@ -190,6 +193,12 @@ export function helperKnows(version: string | null | undefined, action: OpsActio
 /** The page shows its Huolto panel (logs, prune, helper-renew) when the helper knows all three. */
 export function helperHasTools(version: string | null): boolean {
   return (["logs", "prune", "helper-renew"] as const).every((a) => helperKnows(version, a));
+}
+
+/** True when the helper waits for the app's wake. The version comes with every poll, so this is never stale as a snapshot field would be. */
+export function helperWakes(version: string | null): boolean {
+  const n = version === null ? NaN : Number.parseInt(version, 10);
+  return n >= WAKE_SINCE;
 }
 
 /** True when the helper's version is older than this server expects. Unreadable versions count as old. */

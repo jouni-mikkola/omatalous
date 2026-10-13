@@ -821,6 +821,24 @@
   "atPart": false,
   "ask": false
  },
+ "questions": {
+  "share": 1,
+  "outCents": 3745796,
+  "inCents": 4793417,
+  "outUnknownCents": 0,
+  "inUnknownCents": 0,
+  "cardBillCents": 0,
+  "items": [
+   {
+    "kind": "loan",
+    "key": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy#28900",
+    "payee": "Nordea Rahoitus Suomi Oy",
+    "paymentCents": 28900,
+    "cents": 346800
+   }
+  ],
+  "total": 1
+ },
  "colorOrder": [
   "housing",
   "groceries",

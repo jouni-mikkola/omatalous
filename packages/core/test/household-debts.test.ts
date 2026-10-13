@@ -46,6 +46,24 @@ describe("the household's debts without a link", () => {
     expect(householdDebts([account("acc-1", "Käyttötili", "checking", -5_000), account("card", "Kortti", "credit_card", 100)], inputsOf([]), today)).toMatchObject({ loans: [], sources: [], total: { cents: 0 } });
   });
 
+  it("a loan account at the bank's balance with no saved loan is one debt, a mortgage by its name, in the list", () => {
+    const debts = householdDebts([loanAccount], inputsOf([]), today);
+    expect(debts.saved).toEqual([]);
+    expect(debts.connected).toMatchObject([{ id: "account:loan-acc", name: "Asuntolaina", kind: "mortgage", balanceCents: 14_912_345, rateBp: null, paymentCents: null }]);
+    expect(debts.loans).toHaveLength(1);
+    expect(debts.total.cents).toBe(14_912_345);
+    // at a plus (a type changed by hand after a sync) the reader still takes the convention: nothing owed
+    expect(householdDebts([{ ...loanAccount, balanceCents: 14_912_345 }], inputsOf([]), today).loans).toEqual([]);
+  });
+
+  it("the loan saved from a proposal, linked to the loan account, replaces the account's row: one debt, not two", () => {
+    const saved = loan({ id: "from-payments", name: "Asuntolaina", kind: "mortgage", balanceCents: 15_000_000, seriesKey: "out:chk:esimerkkipankki oy#90000", accountId: "loan-acc" });
+    const debts = householdDebts([loanAccount], inputsOf([saved]), today);
+    expect(debts.loans.map((l) => l.id)).toEqual(["from-payments"]);
+    expect(debts.sources).toEqual([{ loanId: "from-payments", accountId: "loan-acc", linked: true, typed: saved }]);
+    expect(debts.total.cents).toBe(14_912_345);
+  });
+
   it("a link that cannot hold changes nothing: the account is gone, is no card or loan account any more, or has no balance", () => {
     const cases: [string, BalanceInput[]][] = [
       ["the account is not among the accounts", [checking, loanAccount]],

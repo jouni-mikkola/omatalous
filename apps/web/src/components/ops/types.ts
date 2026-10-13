@@ -58,6 +58,8 @@ export interface HelperInfo {
   tools: boolean;
   /** The helper knows prerelease-on and prerelease-off. */
   knowsPrerelease: boolean;
+  /** The helper waits for the app's wake and starts a request within seconds. */
+  wakes: boolean;
   enableCommand: string;
 }
 

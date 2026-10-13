@@ -13,6 +13,7 @@ import { connectionState } from "../services/accounts.ts";
 import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
+import { storedBalanceCents } from "./balance-sign.ts";
 import { markRateLimited } from "./bank-limit.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
@@ -178,8 +179,9 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         summary.inserted += r.inserted;
         tally.rowsChanged += r.changed;
 
-        const cents = await puller.balance(target);
-        if (cents !== null) {
+        const told = await puller.balance(target);
+        if (told !== null) {
+          const cents = storedBalanceCents(account.type, told);
           if (account.balanceCents !== cents) tally.balanceChanged = true;
           await repo.setAccountBalance(account.id, cents, s.now().toISOString());
         }

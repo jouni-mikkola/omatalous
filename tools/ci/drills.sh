@@ -327,7 +327,8 @@ drill_symlink() {
   out=$(cd / && env OPS_TEST=1 PATH="$PATH" "$WORK/linked-helper.sh" --self-test 2>&1); [[ $out == *"self-test ok"* ]] || die "through the helper's link: $out"
   step "a tick through the clone's link works on the real folder"
   seen=$(stat -c %Y "$DIR/ops/helper-seen" 2>/dev/null || echo 0); sleep 1
-  (cd "$WORK/linked-clone" && env OPS_TEST=1 PATH="$PATH" timeout -k 10 120 ./scripts/ops-helper.sh) >>"$LOGS/tick.out" 2>&1 || die "the tick through the link ended with $?"
+  # the one place a real container runs the wait for a press: five seconds of it, not 45
+  (cd "$WORK/linked-clone" && env OPS_TEST=1 OPS_T_WAKE=5 PATH="$PATH" timeout -k 10 120 ./scripts/ops-helper.sh) >>"$LOGS/tick.out" 2>&1 || die "the tick through the link ended with $?"
   (($(stat -c %Y "$DIR/ops/helper-seen") > seen)) || die "ops/helper-seen of the real folder did not change"
   [[ ! -e $WORK/linked-clone/../ops ]] || die "an ops folder was made beside the link"
 }

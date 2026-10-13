@@ -340,6 +340,19 @@ describe("a connected account as a loan", () => {
     expect(creditAccountLoan({ id: "chk", name: "Käyttötili", type: "checking", balanceCents: -5_000, creditLimitCents: 100_000 }, day)).toMatchObject({ id: "account:chk", kind: "credit_line", balanceCents: 5_000 });
   });
 
+  it("an account of type loan owes its balance and takes its kind from its name, never card or credit line", () => {
+    const kindOf = (name: string) => creditAccountLoan({ id: "l", name, type: "loan", balanceCents: -14_912_345 }, day);
+    expect(kindOf("Asuntolaina")).toMatchObject({ id: "account:l", name: "Asuntolaina", kind: "mortgage", balanceCents: 14_912_345, limitCents: null, rateBp: null, paymentCents: null, repayment: null });
+    expect(["Asuntolaina 2", "ASP-laina", "Asuntoluotto"].map((n) => kindOf(n)?.kind)).toEqual(["mortgage", "mortgage", "mortgage"]);
+    expect(["Opintolaina", "OPINTOLAINA Kela"].map((n) => kindOf(n)?.kind)).toEqual(["student", "student"]);
+    expect(["Autolaina", "Toyota Financial Services"].map((n) => kindOf(n)?.kind)).toEqual(["car", "car"]);
+    // a name that says nothing, and one that names a card or a credit line
+    expect(["Laina", "Lainatili 4455", "Luottokortti", "Joustoluotto"].map((n) => kindOf(n)?.kind)).toEqual(["other", "other", "other", "other"]);
+    // the name decides for a loan account alone: a checking account with a limit is a credit line whatever it is called
+    expect(creditAccountLoan({ id: "c", name: "Asuntolaina", type: "checking", balanceCents: -5_000, creditLimitCents: 100_000 }, day)?.kind).toBe("credit_line");
+    expect(isRevolving(kindOf("Joustoluotto")!.kind)).toBe(false);
+  });
+
   it("is revolving, as are exactly a card and a credit line", () => {
     expect(creditAccountLoan(card, day)?.kind).toBe("card");
     expect(LOAN_KINDS.filter(isRevolving)).toEqual(["credit_line", "card"]);

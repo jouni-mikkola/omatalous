@@ -159,7 +159,6 @@ packages/core/src/analysis/forecast.ts  ExpectedBillRow
 packages/core/src/analysis/income-changes.ts  IncomeInsight
 packages/core/src/analysis/income.ts  IncomeRow
 packages/core/src/analysis/income.ts  IncomeTypeDef
-packages/core/src/analysis/income.ts  incomeTypeOf
 packages/core/src/analysis/insights/borrowing.ts  DebtShare
 packages/core/src/analysis/insights/commitments.ts  CommitmentsShare
 packages/core/src/analysis/insights/commitments.ts  FixedShare

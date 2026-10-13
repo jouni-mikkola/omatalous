@@ -89,6 +89,7 @@ const ALLOWED_ENV: Record<string, string> = {
   CLOUDFLARE_ACCESS_EMAILS: "the install suite sets it for the script it runs, to made-up addresses",
   APP_VERSION: "the default of the maintenance world, which each suite sets for itself when it matters",
   GIT_COMMIT: "the default of the maintenance world, which each suite sets for itself when it matters",
+  OPS_T_WAKE: "how long the maintenance world's docker waits for the helper's wake; the suite that waits sets it for the one tick",
 };
 
 /** The steps check.sh can run that read the whole tree on purpose (no line in reads.txt), each with the reason. */

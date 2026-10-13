@@ -107,7 +107,7 @@ interface HouseholdDebts {
  *   date does not move with the day the debts are read on.
  * - The link holds only for an account that is in `accounts`, is a card or a loan account today (its type can be
  *   changed after the link was made) and has a balance at or below zero. Otherwise both sides count as if no link
- *   was made: a loan account the bank tells with a plus is no debt, and the typed loan is.
+ *   was made: a loan account at a plus (the sync stores a bank's plus on a loan account as a minus, so this is a type changed by hand) is no debt, and the typed loan is.
  * - An account balance given before the loan's balance date (`balanceDayOf`) is the older word of the two: the pair
  *   keeps the typed balance and still counts once.
  * - No index in the database holds an account to one loan, so this does not trust it: the first saved loan that names

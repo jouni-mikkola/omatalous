@@ -119,7 +119,8 @@ interface SavedMortgage {
 /**
  * The saved loan the mortgage series pays: the saved mortgage linked to the series, else the one that owes most. The
  * mortgages are those of the household's debts (`householdDebts`): a saved one linked to its loan account is there
- * with the account's balance, and a connected account alone is a card or a credit line, never a mortgage.
+ * with the account's balance, and a connected loan account alone is a mortgage when its name says a home loan, with no
+ * rate of its own.
  */
 function savedMortgage(a: AreaInput, series: RecurringSeries): SavedMortgage | null {
   const mortgages = householdDebts(a.balances, a.inputs, a.today).loans.filter((l) => l.kind === "mortgage");

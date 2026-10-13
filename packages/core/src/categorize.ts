@@ -4,6 +4,7 @@ import { type Holders, holdersOf, noCard, peopleRules } from "./categorize-peopl
 import { fold, namesUnknownMerchant } from "./merchant.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
 import { isCarDealerName, isCarTradeName } from "./wording-car.ts";
+import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
 import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, words } from "./wording.ts";
 
 export interface CategorizeInput {
@@ -88,8 +89,8 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   },
 
   // ── debt service (money in from a lender becomes credit_draw, see categorize()) ──
-  { category: "mortgage", re: w(String.raw`ASUNTOLAINA[A-Z]*|ASUNTOLUOTTO|ASP-LAINA[A-Z]*`) },
-  { category: "student_loan", re: w(String.raw`OPINTOLAINA[A-Z]*`) },
+  { category: "mortgage", re: w(HOME_LOAN_WORDS) },
+  { category: "student_loan", re: w(STUDENT_LOAN_WORDS) },
   // a loan payment to a bank is the mortgage; other lenders' loans are consumer credit (loans, below)
   { category: "mortgage", re: w(String.raw`LAINANMAKSU|LAINAN ?LYHENNYS|LAINANLYHENNYS|LAINANHOITO`), when: (text) => MORTGAGE_BANK.test(text) },
   {

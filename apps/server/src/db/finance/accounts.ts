@@ -115,6 +115,15 @@ export class AccountsRepo {
     await this.ctx.db.run("UPDATE accounts SET balance_cents = ?, balance_at = ? WHERE id = ? AND user_id = ?", [cents, at, id, this.ctx.userId]);
   }
 
+  /**
+   * Accounts of type loan stored at a plus take it as a minus (`storedBalanceCents`, connectors/balance-sign.ts): what
+   * an earlier version stored as the bank told it. Returns how many were turned; none is above zero after one run.
+   */
+  async negateLoanBalances(): Promise<number> {
+    const r = await this.ctx.db.run("UPDATE accounts SET balance_cents = -balance_cents WHERE user_id = ? AND type = 'loan' AND balance_cents > 0", [this.ctx.userId]);
+    return r.changes;
+  }
+
   async markAccountSynced(id: string, at: string): Promise<void> {
     await this.ctx.db.run("UPDATE accounts SET last_synced_at = ? WHERE id = ? AND user_id = ?", [at, id, this.ctx.userId]);
   }

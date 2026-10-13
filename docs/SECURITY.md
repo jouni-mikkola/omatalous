@@ -464,6 +464,8 @@ What remains:
   it can write its own request file and queue the action with no password, so it can point the copy at a tunnel and
   an Access team of a Cloudflare account of its own, turn the Access check off and replace an address set by hand. It
   gains no other key and no command.
+- A compromised container can make the helper look for work up to six times a minute and run two requests in a minute, the
+  second only after a version check. The actions it can ask for are the same fixed ones.
 - Whoever controls the GitHub account or the release workflow can ship code to every install. Protect the account with a
   hardware key.
 - Local users in the `docker` group own the host regardless of this feature.

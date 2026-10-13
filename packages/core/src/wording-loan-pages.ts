@@ -4,7 +4,8 @@
  */
 import type { LoanReference } from "./optimise/types.ts";
 import { type LoanKind, type LoanRepayment, MAX_LOAN_INTERVAL_MONTHS } from "./types.ts";
-import { words } from "./wording.ts";
+import { fold } from "./merchant.ts";
+import { isCarFinanceText, words } from "./wording.ts";
 
 // A label is a plain phrase with no regex syntax, because it is also matched with the letters OCR mixes up collapsed.
 // Labels match as whole words, so KORKO reads neither VIITEKORKO nor TODELLINEN VUOSIKORKO.
@@ -207,3 +208,22 @@ const HOME_LENDER = words("[A-Z]*KIINNITYSLUOTTOPANKKI[A-Z]*");
 export const loanKindHeading = (folded: string): LoanKind | null => LOAN_KIND_HEADING.find(([, re]) => re.test(folded))?.[0] ?? null;
 /** "mortgage" for a line that names a mortgage bank ("... Kiinnitysluottopankki"), or null. */
 export const loanKindOfLender = (folded: string): LoanKind | null => (HOME_LENDER.test(folded) ? "mortgage" : null);
+
+/**
+ * A home loan and a student loan by their own names, as regex alternations. One list for both readers: the mortgage and
+ * student-loan rules of categorize.ts, and `loanKindOfName` for the kind of a loan account.
+ */
+export const HOME_LOAN_WORDS = String.raw`ASUNTOLAINA[A-Z]*|ASUNTOLUOTTO|ASP-LAINA[A-Z]*`;
+export const STUDENT_LOAN_WORDS = String.raw`OPINTOLAINA[A-Z]*`;
+
+const HOME_LOAN = words(HOME_LOAN_WORDS);
+const STUDENT_LOAN = words(STUDENT_LOAN_WORDS);
+/**
+ * The kind a loan account's name tells (any case), by the words the proposal of a loan from the payments reads (`loan-detect.ts`):
+ * a home loan, a student loan, a car loan. "other" where the name says nothing: an account of type loan is never a
+ * card or a credit line, whatever its name.
+ */
+export const loanKindOfName = (name: string): LoanKind => {
+  const folded = fold(name);
+  return HOME_LOAN.test(folded) ? "mortgage" : STUDENT_LOAN.test(folded) ? "student" : isCarFinanceText(folded) ? "car" : "other";
+};

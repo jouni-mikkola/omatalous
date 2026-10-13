@@ -1,0 +1,21 @@
+/*
+ * Luokittelemattomat, the second block of Yhteenveto: a line of what share is classified, then the answers that would mend
+ * it most, as the statement's rows (`.st-rows`, `.st-row`). A row is its payee, the sum, the count and the answers; where
+ * they do not fit in one line the answers go under the payee, from its left edge.
+ */
+.question-line { margin: 0; padding: 7px 0 0; }
+.question-line + .question-line { padding-top: 0; }
+.question-list { margin-top: 8px; border-top: 1px solid var(--grid); }
+.question-row { align-items: center; row-gap: 6px; box-sizing: border-box; min-height: 40px; padding: 6px 0; }
+.question-row .st-name { flex: 1 1 10rem; }
+.question-count { flex: none; min-width: 6.5rem; }
+.question-actions { display: flex; flex: none; align-items: center; gap: 12px; }
+.question-actions select { width: 13rem; max-width: 100%; }
+.question-actions .btn { font-weight: 400; }
+.question-error { margin: 12px 0 0; }
+@media (max-width: 700px) {
+  .question-row .st-name { flex-basis: 8rem; }
+  .question-count { min-width: 0; }
+  .question-actions { flex: 1 0 100%; }
+  .question-actions select { flex: 1 1 auto; width: auto; min-width: 0; }
+}

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { money } from "../../format.ts";
 import type { LoanProposalRow } from "../../types.ts";
 import { formOfProposal } from "./form.ts";
-import { LoanEditor } from "./LoanEditor.tsx";
+import { LoanEditor, LoanLinks } from "./LoanEditor.tsx";
 
 /**
  * Decision: the household answers once for each monthly payment the bank rows show and nobody has explained: this is a
@@ -22,7 +22,7 @@ export const notLoanText = (proposal: Pick<LoanProposalRow, "payee">): string =>
 
 /**
  * The block above the saved loans. "Tallenna lainaksi" opens the loan form under the row with what the rows show
- * filled in; the balance and the rate are left to the household. "Ei laina" sets the mark. `onAnswered` reloads the
+ * filled in; the balance and the rate are left to the household, except the balance of the one loan account no saved loan holds. "Ei laina" sets the mark. `onAnswered` reloads the
  * page's lists, so the answered row goes.
  */
 export function Proposals({ proposals, today, onAnswered }: { proposals: readonly LoanProposalRow[]; today: string; onAnswered: (text: string) => void }) {
@@ -98,6 +98,7 @@ function ProposalRow({ proposal, today, open, busy, waiting, onOpen, onClose, on
   onNotLoan: () => void;
   onSaved: (name: string) => void;
 }) {
+  const links = useContext(LoanLinks);
   return (
     <>
       <tr>
@@ -124,7 +125,7 @@ function ProposalRow({ proposal, today, open, busy, waiting, onOpen, onClose, on
               <h3>Tallenna laina: {proposal.payee}</h3>
               <p className="small muted">{EDITOR_HELP}</p>
               <LoanEditor
-                initial={formOfProposal(proposal, today)}
+                initial={formOfProposal(proposal, today, links.accounts, links.loans)}
                 today={today}
                 cancelLabel="Peruuta"
                 onSave={async (body) => {

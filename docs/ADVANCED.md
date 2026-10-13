@@ -503,8 +503,8 @@ buttons on that page work through a small helper on the machine, which the insta
 ./scripts/install.sh --ops-helper
 ```
 
-It needs a normal user, never root, and `jq`. It runs once a minute from a systemd user timer, or from cron where a timer
-cannot keep running. `./scripts/install.sh --ops-helper-off` removes it.
+It needs a normal user, never root, and `jq`. It starts once a minute from a systemd user timer, or from cron where a timer
+cannot keep running, and then waits for a press for most of that minute, so a request starts within seconds. `./scripts/install.sh --ops-helper-off` removes it.
 
 The app only writes a request. The helper checks it against a fixed list of twelve actions (check for updates, update, roll
 back, back up, restart, check the install, read the logs, free disk space, renew itself, change how the copy is

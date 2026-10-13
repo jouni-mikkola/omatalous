@@ -154,7 +154,7 @@ export function Maintenance() {
         {data && <HelperStatus helper={data.helper} />}
         {message && <div className="notice warning" role="alert">{message}</div>}
         {data && latest && (
-          <OpsProgress request={latest} down={downSince !== null && data.active} downSince={downSince} helperSeenAt={data.helper.seenAt ? Date.parse(data.helper.seenAt) : null} onCancel={(id) => void cancel(id)} />
+          <OpsProgress request={latest} down={downSince !== null && data.active} downSince={downSince} helperSeenAt={data.helper.seenAt ? Date.parse(data.helper.seenAt) : null} helperWakes={data.helper.wakes} onCancel={(id) => void cancel(id)} />
         )}
         {downSince !== null && data && !data.active && <div className="notice warning" role="status">{S.restarting}</div>}
       </div>

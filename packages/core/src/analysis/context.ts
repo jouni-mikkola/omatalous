@@ -3,6 +3,7 @@ import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
 import { isMobilePay } from "../industry.ts";
 import { fold } from "../merchant.ts";
 import { detectRecurring, type RecurringSeries } from "../recurring.ts";
+import { settlePaidElsewhere } from "../recurring-settled.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
 import { hasPayeeForm } from "../wording.ts";
@@ -124,12 +125,14 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     returns.set(id, first.id);
   }
 
-  const recurring = cut ? cut.recurring : detectRecurring(txs, today);
+  const recurring = cut ? cut.recurring : recurringOf(txs, today, accounts);
   const fixedIds = new Set<string>();
   const habitIds = new Set<string>();
   for (const s of cut ? [] : recurring) {
     const target = s.kind === "subscription" || s.kind === "bill" ? fixedIds : s.kind === "habit" ? habitIds : null;
     if (target) for (const id of s.transactionIds) target.add(id);
+    // a payment from another account that settled a bill is a fixed cost too
+    for (const paid of s.settled ?? []) fixedIds.add(paid.id);
   }
 
   const allTime = new Map<string, number>();
@@ -144,6 +147,11 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
+}
+
+/** The series of the rows, with the bills that a payment from another account or under another payee name settled: the one place that does it. */
+function recurringOf(txs: readonly AnalysisTx[], today: IsoDate, accounts: readonly Account[]): RecurringSeries[] {
+  return settlePaidElsewhere(detectRecurring(txs, today), txs, today, accounts);
 }
 
 /** Bank exports start on a weekday with bookings: a history from the 3rd still covers a month from the 1st. */
@@ -167,7 +175,7 @@ export function recurringAt(ctx: AnalysisContext, date: IsoDate): readonly Recur
   if (!cache) pastRecurring.set(ctx, (cache = new Map()));
   let found = cache.get(date);
   if (!found) {
-    found = detectRecurring(standingOf(ctx).txs.filter((t) => t.bookingDate <= date), date);
+    found = recurringOf(standingOf(ctx).txs.filter((t) => t.bookingDate <= date), date, ctx.accounts);
     if (cache.size > 16) cache.delete(cache.keys().next().value!);
     cache.set(date, found);
   }

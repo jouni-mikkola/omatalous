@@ -3,6 +3,30 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.43.0
+
+- The front page asks what mends the picture most: a new block right under the accounts tells how much of the last twelve months' income and spending is classified and lists the five largest payees nobody has classified, each with a category to choose on the spot. A loan the app found from the payments is asked there too.
+- A connected loan account shows as a loan. Banks tell a loan's balance as a positive amount and the app read only a negative balance as debt, so a connected loan stood in no loan list. Old data is mended at the update.
+- A bill paid another way is no longer falling due: paid from another account of the household, or by hand under another name with the bill's reference or the payee's account number, it counts as paid and the next one is expected a step later.
+- Maintenance starts within seconds: after a press in Asetukset > Ylläpito the helper on the host begins in a few seconds instead of at the next full minute.
+
+Money and reports
+
+- A bill paid from another account of the household, or by hand under another name with the bill's reference or the payee's account number, no longer stands as falling due.
+- The next one is expected a step later.
+- A connected loan account now shows as a loan with the balance the bank tells, also where the bank tells it with a plus. Balances stored before are mended when the update starts.
+- A loan found from the payments opens in Asetukset > Lainat with the loan account and its balance already filled in, when exactly one loan account has no saved loan.
+
+Look
+
+- The front page has a new block, Luokittelemattomat, right after Varallisuus. It says how much of the last twelve months' money is classified.
+- The block asks the few things that would mend it most: a category for a payee, or Ohita; a monthly payment that may be a loan, saved or marked Ei laina.
+
+Maintenance
+
+- A press on the maintenance page starts within seconds, no longer at the helper's next minute.
+- "Tarkista päivitykset" and then "Päivitä" no longer wait a minute each.
+
 ## 0.42.0
 
 - The app fetches new transactions when you open it, and the top of every page tells when they were last fetched. Until now rows came only at the sync hours (6 and 18 by default), so a bill paid in the evening could stand as unpaid until the next morning. The bank allows only a few fetches a day without the user present, and the app stays inside that.

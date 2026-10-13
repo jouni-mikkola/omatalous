@@ -73,6 +73,7 @@ export class FinanceRepo {
   transactionsOfAccount(accountId: string) { return this.accounts.transactionsOfAccount(accountId); }
   mergeAccountInto(from: string, to: string, newIds: ReadonlyMap<string, string>) { return this.accounts.mergeAccountInto(from, to, newIds); }
   setAccountBalance(id: string, cents: number, at: string) { return this.accounts.setAccountBalance(id, cents, at); }
+  negateLoanBalances() { return this.accounts.negateLoanBalances(); }
   markAccountSynced(id: string, at: string) { return this.accounts.markAccountSynced(id, at); }
   deleteProviderData(provider: string) { return this.accounts.deleteProviderData(provider); }
 

@@ -25,6 +25,7 @@ import { partCents } from "./account-use.ts";
 import { addMonthsToDate, daysBetween, monthIndex, monthOf } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import type { Account, IsoDate, Loan, UserInputs } from "./types.ts";
+import { loanKindOfName } from "./wording-loan-pages.ts";
 
 /** What a figure could not know: a field the loan lacks, or a day before the day its balance was told. */
 export type LoanUnknown = "repayment" | "interval" | "payment" | "rate" | "end_date" | "limit" | "before_balance_date";
@@ -269,13 +270,13 @@ export function creditUse(loan: Debt, day: IsoDate): CreditUse {
 }
 
 /**
- * A connected account with credit as a loan, so its use and its debt come from the functions of this file: a card, or
- * an account with a credit limit (kind `credit_line`). The bank reports credit in use as a balance below zero: what is
- * owed is that balance with its sign turned, and nothing when the account is in credit. The sign is the bank's: the
- * Enable Banking connector (`balance()` in `connectors/enable-banking/connector.ts`) stores the amount as given, so a
- * bank that reported a card's debt as a positive number would read here as no debt. The balance is the bank's latest,
- * read as owed on `day`. Null when the bank gave no balance. The id is `account:<account id>`, which no typed loan
- * has, so a list that holds both tells them apart.
+ * A connected account with credit as a loan, so its use and its debt come from the functions of this file: a card, an
+ * account with a credit limit (kind `credit_line`), or an account of type loan (the kind its name tells, never a card
+ * or a credit line, and no rate, payment or plan until a saved loan is linked to it). Credit in use is a balance below
+ * zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. The sync stores a
+ * loan account's plus as a minus (`storedBalanceCents`, server), since a bank tells what is owed there with either
+ * sign; a card's plus is money the bank owes the holder. The balance is the bank's latest, read as owed on `day`. Null
+ * when the bank gave no balance. The id is `account:<account id>`, which no typed loan has.
  */
 export function creditAccountLoan(
   account: { id: string; name: string; type: Account["type"]; balanceCents: number | null; creditLimitCents?: number | null },
@@ -286,7 +287,7 @@ export function creditAccountLoan(
     id: `account:${account.id}`,
     name: account.name,
     lender: null,
-    kind: account.type === "credit_card" ? "card" : "credit_line",
+    kind: account.type === "credit_card" ? "card" : account.type === "loan" ? loanKindOfName(account.name) : "credit_line",
     grantedCents: null,
     balanceCents: Math.max(0, -account.balanceCents),
     balanceDate: day,

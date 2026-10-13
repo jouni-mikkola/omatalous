@@ -10,7 +10,7 @@ const RESULT: Record<string, string> = { ok: S.ok, failed: S.failed, expired: S.
  * The newest request: waiting, running (the app may restart meanwhile) or its result with the steps and the
  * log. Everything from the host is shown as text.
  */
-export function OpsProgress({ request, down, downSince, helperSeenAt, onCancel }: { request: OpsRequestView; down: boolean; downSince: number | null; helperSeenAt: number | null; onCancel: (id: string) => void }) {
+export function OpsProgress({ request, down, downSince, helperSeenAt, helperWakes = false, onCancel }: { request: OpsRequestView; down: boolean; downSince: number | null; helperSeenAt: number | null; helperWakes?: boolean; onCancel: (id: string) => void }) {
   // the logs action exists to show its log, so that one opens by itself
   const [log, setLog] = useState(request.action === "logs");
   useEffect(() => setLog(request.action === "logs"), [request.id, request.action]);
@@ -32,7 +32,7 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, onCancel }
       <span className="muted small"> {dateTime(request.requestedAt)}{request.by ? `, ${request.by}` : ""}</span>
       {live && (
         <p style={{ margin: "4px 0" }}>
-          {down ? `${S.restarting} ${S.waited(elapsed(downMs))}` : request.status === "queued" ? `${queuedSentence(helperSeenAt, now)} ${S.waited(elapsed(now - since))}` : S.runningFor(elapsed(now - since))}
+          {down ? `${S.restarting} ${S.waited(elapsed(downMs))}` : request.status === "queued" ? `${queuedSentence(helperSeenAt, now, helperWakes)} ${S.waited(elapsed(now - since))}` : S.runningFor(elapsed(now - since))}
           {down && downMs > 180_000 && <span> {S.restartingLong}</span>}
         </p>
       )}

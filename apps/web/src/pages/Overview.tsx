@@ -8,6 +8,7 @@ import { ErrorCard } from "../components/ErrorCard.tsx";
 import { EmptyStart } from "../components/EmptyStart.tsx";
 import { NextDays } from "../components/NextDays.tsx";
 import { Notices } from "../components/Notices.tsx";
+import { Questions } from "../components/Questions.tsx";
 import { IncomeSpending } from "../components/overview/IncomeSpending.tsx";
 import { useApi } from "../hooks.ts";
 import { periodRange, periodsOf } from "../period.ts";
@@ -22,7 +23,8 @@ import "../styles/statement.css";
 
 /**
  * Yhteenveto, a statement of blocks in one order, each the width of the page: what the household has and owes
- * (Varallisuus), what is due before the next pay (Erääntyvät maksut), what the home costs (Asuminen), what came in and
+ * (Varallisuus), how much of the money is classified and what to answer to mend it (Luokittelemattomat), what is due
+ * before the next pay (Erääntyvät maksut), what the home costs (Asuminen), what came in and
  * went out in the chosen month (Tulot ja menot), what needs the user (Ilmoitukset), and one line on what the figures
  * rest on. A block is drawn by its own answer alone, never inside another's condition.
  * The blocks before "Tulot ja menot" always tell today, so a month that has ended makes a second request for the month
@@ -111,6 +113,9 @@ export function Overview({
   return (
     <div className={`page-grid${loading ? " loading" : ""}`}>
       <Holdings holdings={today.holdings} meta={meta} />
+
+      {/* the share of the last twelve months that is classified, whatever month is chosen below */}
+      <Questions questions={today.questions} categories={meta.categories} onAnswered={now.reload} />
 
       {today.ahead && <NextDays ahead={today.ahead} />}
 

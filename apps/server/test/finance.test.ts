@@ -147,6 +147,29 @@ describe("dashboard and reports on demo data", () => {
   });
 });
 
+describe("the questions of the first page", () => {
+  it("rides on the dashboard, and a payee set aside leaves the list and not the share", async () => {
+    const { admin, s } = await setupApp();
+    // a payee in letters no rule knows, paid twice, and a salary the rules know
+    const header = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
+    const own = "FI12 1234 5600 0785 41";
+    const content = [header, `2026/09/03;-12,50;${own};;;XQAZ KAUPPA;;EUR`, `2026/09/10;-20,00;${own};;;XQAZ KAUPPA;;EUR`, `2026/09/25;2500,00;;;ESIMERKKI OY;PALKKA;;EUR`].join("\n");
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const before = (await admin.call("GET", "/api/dashboard")).body.questions;
+    expect(before).toMatchObject({ share: expect.any(Number), outCents: expect.any(Number), inCents: expect.any(Number), outUnknownCents: expect.any(Number), inUnknownCents: expect.any(Number), cardBillCents: expect.any(Number), items: expect.any(Array), total: expect.any(Number) });
+    expect(before.share).toBeGreaterThanOrEqual(0);
+    expect(before.share).toBeLessThanOrEqual(1);
+    expect(before.items.length).toBeLessThanOrEqual(5);
+    const payee = before.items.find((i: { kind: string }) => i.kind !== "loan");
+    expect(payee, "the demo household has a payee without a category").toBeTruthy();
+    await admin.call("PUT", "/api/marks", { subject: `question:payee:${payee.merchant}`, mark: "dismissed" });
+    const after = (await admin.call("GET", "/api/dashboard")).body.questions;
+    expect(after.items.some((i: { kind: string; merchant?: string }) => i.kind === payee.kind && i.merchant === payee.merchant)).toBe(false);
+    expect(after.total).toBe(before.total - 1);
+    expect({ ...after, items: [], total: 0 }).toEqual({ ...before, items: [], total: 0 });
+  });
+});
+
 describe("isolation between household members", () => {
   it("a member sees none of another member's data and cannot change it", async () => {
     const { admin, member } = await setupApp();

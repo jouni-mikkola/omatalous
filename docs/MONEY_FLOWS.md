@@ -389,9 +389,17 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 
 ## The first page
 
-Yhteenveto opens with the card *Varallisuus*, then the blocks *Erääntyvät maksut* to the payday, *Asuminen*, *Tulot ja menot*
-and last *Ilmoitukset*. The figures of *Varallisuus* and of the running month's spending are core's and the page shows them
+Yhteenveto opens with the card *Varallisuus*, then the blocks *Luokittelemattomat*, *Erääntyvät maksut* to the payday,
+*Asuminen*, *Tulot ja menot* and last *Ilmoitukset*. The figures of *Varallisuus* and of the running month's spending are core's and the page shows them
 as given.
+
+**Luokittelemattomat** is `buildQuestions` (`analysis/questions.ts`): of the 365 days up to the period's end it tells how
+much of the money is classified, and the five answers that would mend it most. Classified is money that is not spending
+the default left in Muut menot (by what the purchase cost in the end), not income the default left in Muut tulot, and not a
+card bill (purchases the app cannot see); a transfer is no money, and a refund lowers the spending it took back. The share is
+`1 - unknown / (spending + income)` and the page rounds it down to a whole percent. An answer is a payee without a category
+(a category for it, or *Ohita*, which keeps its money among the unknown) or a monthly payment that looks like a loan (the
+proposals of Asetukset > Lainat). The block is drawn when something is asked or under 95 % is classified.
 
 **Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out. In a member's own view a joint account, a card
 or a loan that other members use is counted at the member's part, and its row says so (*osuutesi 60 %*, see *Joint
@@ -619,7 +627,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 | A move of the reference rate | The payment and the next 12 months' interest with the rate moved by a number of points. The rate falls no lower than the loan's margin, and to zero when no margin was told. The figure says how far the rate moved. An annuity gets the payment that ends the loan on the due date it ends on now, a fixed instalment keeps its payment and takes longer, equal principal pays the new interest on top. Each is read from the schedule the next payment is read from, so the last payment is what is left. Told for a loan with a Euribor reference rate that owes and has a rate, one point down and one up. A fall the rate has no room for is left out | `loanRateScenario` |
 | The household's debts | Every saved loan the view holds, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
 | Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |
-| A connected account as a loan | A connected card, or an account with a credit limit, read as a loan so that its debt and its use come from the same functions. The bank reports credit in use as a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank that reported a card's debt as a positive number would read as no debt. The id is `account:<account id>` | `creditAccountLoan` |
+| A connected account as a loan | A connected card, an account with a credit limit, or an account of type loan, read as a loan so that its debt and its use come from the same functions. Credit in use is a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank tells what is owed on a loan account with either sign, so the sync stores a loan account's plus as a minus (`storedBalanceCents`) and an update mends the balances stored before; a card's plus is money the bank owes the holder and stays. A loan account's kind comes from its name (home loan, student loan, car loan, else other loan), never card or credit line, and it has no rate, payment or plan until a saved loan is linked to it. The id is `account:<account id>` | `creditAccountLoan` |
 | What a card cost | The bank's own charges on the card account in the complete months before a day, twelve at most. A charge worded as interest is interest, less the interest the bank took back and never below zero, and every other charge is a fee, and a late fee stays the late fee alert's. A month carried a balance when the bank charged interest in it. Nothing is scaled up for a card connected later | `cardCosts` |
 
 - Money is whole cents and a rate is hundredths of a percent. Interest of one payment interval is balance × rate ×

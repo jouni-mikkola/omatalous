@@ -42,6 +42,8 @@ cd "$(dirname "$0")/.."
 
 NODE=(node --disable-warning=ExperimentalWarning dist/node.js)
 HEALTH_WAIT=${RESTORE_HEALTH_WAIT:-120}
+# how long to wait for the maintenance helper's lock (it holds it while it waits for a press, up to 45 s of its minute)
+LOCK_WAIT=${RESTORE_LOCK_WAIT:-60}; [[ $LOCK_WAIT =~ ^[0-9]{1,3}$ ]] || LOCK_WAIT=60
 # the same form secret rotation gives its .prev- files (toISOString without separators)
 STAMP=$(date -u +%Y%m%dT%H%M%S)
 NAME=$(basename "$FILE")
@@ -117,13 +119,17 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing (doc
 docker info >/dev/null 2>&1 || die "Docker does not respond."
 [[ -n $(docker compose ps -a -q banking 2>/dev/null) ]] || die "This folder has no installed app. Install it first: ./scripts/install.sh"
 
-# do not race an install or update (installer_lock) or a maintenance helper action (ops/.lock)
+# do not race an install or update (installer_lock) or a maintenance helper action (ops/.lock; a tick of the helper holds it
+# while it waits for a press too, so this waits for it)
 # shellcheck source=lib/release.sh
 . scripts/lib/release.sh
 if command -v flock >/dev/null && ! installer_lock; then die "An install or update is running in this folder. Wait until it finishes."; fi
 if [[ -f ops/.lock ]] && command -v flock >/dev/null; then
   exec 8>>ops/.lock
-  flock -n 8 || die "A maintenance action is running (Asetukset > Ylläpito). Wait until it finishes."
+  if ! flock -n 8; then
+    say "Waiting for the maintenance helper (at most a minute)…"
+    flock -w "$LOCK_WAIT" 8 || die "A maintenance action is running (Asetukset > Ylläpito). Wait until it finishes."
+  fi
 fi
 
 BASE_URL=""

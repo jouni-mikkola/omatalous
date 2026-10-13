@@ -7,8 +7,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { emptyForm, formOfProposal, readForm, setValue } from "../src/components/loans/form.ts";
 import { EDITOR_HELP, monthlyText, notLoanText, PROPOSAL_QUESTION, PROPOSALS_TITLE, Proposals } from "../src/components/loans/Proposals.tsx";
-import { money } from "../src/format.ts";
-import type { LoanProposalRow } from "../src/types.ts";
+import { eurosText, money } from "../src/format.ts";
+import type { Account, LoanProposalRow } from "../src/types.ts";
+import type { Loan } from "@banking/core";
 
 const TODAY = "2026-10-12";
 const KEY = "out:chk-1:esimerkkirahoitus oy#25000";
@@ -17,6 +18,46 @@ const proposal: LoanProposalRow = { key: KEY, payee: "Esimerkkirahoitus Oy", pay
 const person: LoanProposalRow = { key: "out:chk-1:pekka virtanen#40000", payee: "Pekka Virtanen", paymentCents: 40_000, months: 12, firstDate: "2025-11-01", lastDate: "2026-10-01", kind: "consumer" };
 
 const html = (proposals: LoanProposalRow[]) => renderToStaticMarkup(createElement(Proposals, { proposals, today: TODAY, onAnswered: () => undefined }));
+
+describe("the form of a proposal beside the household's loan accounts", () => {
+  const account = (id: string, type: Account["type"], balanceCents: number | null, over: Partial<Account> = {}) =>
+    ({ id, name: id, bankName: id, customName: null, cardMask: null, type, balanceCents, balanceAt: "2026-10-08T09:30:00.000Z", ...over }) as Account;
+  const saved = (accountId: string | null) => ({ id: "s1", name: "Laina", kind: "consumer", balanceCents: 100_000, balanceDate: "2026-10-01", accountId }) as Loan;
+  const home = account("home", "loan", -14_912_345);
+  const plain = formOfProposal(proposal, TODAY);
+
+  it("with one loan account no saved loan holds, chooses it and fills the balance the bank tells, as owed, on its day", () => {
+    const form = formOfProposal(proposal, TODAY, [account("chk", "checking", 200_000), account("card", "credit_card", -80_000), home], []);
+    expect(form.accountId).toBe("home");
+    expect(form.values).toMatchObject({ balanceCents: eurosText(14_912_345), balanceDate: "2026-10-08", lender: "Esimerkkirahoitus Oy", paymentCents: "250,00" });
+    // nothing else of the form moved, and nothing is left to type but the rate
+    expect({ ...form, accountId: plain.accountId, values: { ...form.values, balanceCents: "", balanceDate: TODAY } }).toEqual(plain);
+    const { body, errors } = readForm(form);
+    expect(errors).toEqual({});
+    expect(body).toMatchObject({ balanceCents: 14_912_345, balanceDate: "2026-10-08", accountId: "home", seriesKey: KEY });
+  });
+
+  it("with none, or with the only one held by a saved loan, is as it was", () => {
+    expect(formOfProposal(proposal, TODAY, [], [])).toEqual(plain);
+    expect(formOfProposal(proposal, TODAY, [account("chk", "checking", 200_000), account("card", "credit_card", -80_000)], [])).toEqual(plain);
+    expect(formOfProposal(proposal, TODAY, [home], [saved("home")])).toEqual(plain);
+    // the one that is free is counted, not the one that is held
+    expect(formOfProposal(proposal, TODAY, [home, account("car", "loan", -900_000)], [saved("home")]).accountId).toBe("car");
+  });
+
+  it("with several free loan accounts does not choose one", () => {
+    expect(formOfProposal(proposal, TODAY, [home, account("car", "loan", -900_000)], [])).toEqual(plain);
+  });
+
+  it("with the one free loan account telling no debt (no balance, zero, a plus) chooses nothing and fills nothing", () => {
+    for (const balance of [null, 0, 14_912_345]) expect(formOfProposal(proposal, TODAY, [account("home", "loan", balance)], []), String(balance)).toEqual(plain);
+  });
+
+  it("dates the balance today when the bank gave no day, and never after today", () => {
+    expect(formOfProposal(proposal, TODAY, [account("home", "loan", -1_000, { balanceAt: null })], []).values.balanceDate).toBe(TODAY);
+    expect(formOfProposal(proposal, TODAY, [account("home", "loan", -1_000, { balanceAt: "2026-12-31T00:00:00Z" })], []).values.balanceDate).toBe(TODAY);
+  });
+});
 
 describe("the form of a proposal", () => {
   it("holds the lender, the guessed kind, the payment, a one-month interval and the series key", () => {

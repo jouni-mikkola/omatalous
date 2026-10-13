@@ -129,6 +129,17 @@ case ${1:-} in
           *"dist/node.js version"*) echo "$(cat "$S/cver") (test)"; exit 0 ;;
           # update.sh compares the migration names of the live database with the pre-update copy
           *group_concat*) [[ -e $S/schema-fail ]] && exit 1; echo "SCHEMA_CHECK $(last_arg "$@")" >>"$S/calls.log"; if [[ -e $S/schema-changed ]]; then echo yes; else echo no; fi; exit 0 ;;
+          # the helper's wait for a press (wake_wait). The file $S/wake stands for the app's /data/ops/wake: there, it answers 0 and
+          # takes it away (wake-keep leaves it, poll-after-wake becomes the next poll); not there, it waits OPS_T_WAKE seconds for it
+          # (none unless a suite sets them, so no other suite waits) and answers 1. wake-hang is a client that never answers.
+          *"/data/ops/wake"*)
+            [[ ! -e /proc/$$/fd/8 ]] || echo "LOCK-FD-LEAKED" >>"$S/calls.log" # the helper's lock must not reach the client
+            [[ -e $S/wake-hang ]] && exec /bin/sleep 1000
+            for ((i = 0; i < ${OPS_T_WAKE:-0} * 5; i++)); do [[ -e $S/wake ]] && break; /bin/sleep 0.2; done
+            [[ -e $S/wake ]] || exit 1
+            [[ -e $S/wake-keep ]] || rm -f "$S/wake"
+            [[ ! -f $S/poll-after-wake ]] || mv "$S/poll-after-wake" "$S/poll"
+            exit 0 ;;
           *" -e "*) [[ -e $S/fail-snapshot ]] && exit 1; echo "SNAPSHOT $(last_arg "$@")" >>"$S/calls.log"; echo same; exit 0 ;;
         esac; exit 0 ;;
       run)

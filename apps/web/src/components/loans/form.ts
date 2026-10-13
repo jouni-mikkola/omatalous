@@ -2,7 +2,7 @@
  * The loan form's state and rules, apart from the page so they can be tested: a draft or a saved loan as the texts the
  * inputs hold, which fields a kind of loan has, what is still to check, and the loan the server takes.
  */
-import { DEBT_ACCOUNT_TYPES, isRevolving, LOAN_DRAFT_WARNING_TEXT, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftPaymentKind, type LoanDraftWarning, type LoanKind, loanPeriodInterest } from "@banking/core";
+import { balanceDayOf, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_DRAFT_WARNING_TEXT, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftPaymentKind, type LoanDraftWarning, type LoanKind, loanPeriodInterest } from "@banking/core";
 import { ACCOUNT_TYPE_LABEL, eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
 import type { Account, LoanProposalRow } from "../../types.ts";
 import { KIND_LABEL, type LoanFieldKey } from "./labels.ts";
@@ -88,11 +88,16 @@ export function formOfDraft(draft: LoanDraft, today: string): LoanForm {
 /**
  * A proposed loan as a form: the payee as the lender, the kind the detector guessed (changeable), the usual payment, a
  * one-month interval and the proposal's series key, which links the saved loan to its payments. The bank rows show
- * neither the balance nor the rate, so those stay empty for the household to type.
+ * neither the balance nor the rate, so those stay empty for the household to type, except where one connected loan
+ * account is held by no saved loan: that account is the same debt, so it is chosen, and the balance is what the bank
+ * tells on it (as an amount owed, on the day it told it). With none, several, or one that tells no debt: as without.
  */
-export function formOfProposal(proposal: LoanProposalRow, today: string): LoanForm {
+export function formOfProposal(proposal: LoanProposalRow, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = []): LoanForm {
   const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText(proposal.paymentCents), intervalMonths: "1" };
-  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, source: null, confirmed: [], paymentKind: null, accountId: "" };
+  const free = freeAccounts(accounts, loans, null).filter((a) => a.type === "loan");
+  const told = free.length === 1 && free[0]!.balanceCents !== null && free[0]!.balanceCents < 0 ? free[0]! : null;
+  if (told) Object.assign(values, { balanceCents: eurosText(-told.balanceCents!), balanceDate: balanceDayOf(told.balanceAt, today) });
+  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, source: null, confirmed: [], paymentKind: null, accountId: told?.id ?? "" };
 }
 
 /** A saved loan as a form, for editing. */
@@ -160,14 +165,19 @@ interface LinkChoice {
   label: string;
 }
 
+/** The cards and loan accounts that no saved loan other than `loanId` holds. */
+const freeAccounts = (accounts: readonly Account[], loans: readonly Loan[], loanId: string | null): Account[] => {
+  const held = new Set(loans.filter((l) => l.id !== loanId).map((l) => l.accountId));
+  return accounts.filter((a) => DEBT_ACCOUNT_TYPES.includes(a.type) && !held.has(a.id));
+};
+
 /**
  * The accounts the household can say a loan is the same debt as: its own cards and loan accounts, but not one that
  * another saved loan holds, since an account has one loan. `loanId` is the loan being edited, null for a new one.
  * Two accounts of one name are told apart by their kind and card number.
  */
 export function linkChoices(accounts: readonly Account[], loans: readonly Loan[], loanId: string | null): LinkChoice[] {
-  const held = new Set(loans.filter((l) => l.id !== loanId).map((l) => l.accountId));
-  const free = accounts.filter((a) => DEBT_ACCOUNT_TYPES.includes(a.type) && !held.has(a.id));
+  const free = freeAccounts(accounts, loans, loanId);
   return free.map((a) => {
     const twin = free.some((b) => b.id !== a.id && b.name === a.name);
     return { id: a.id, label: twin ? `${a.name} (${[ACCOUNT_TYPE_LABEL[a.type], a.cardMask].filter(Boolean).join(", ")})` : a.name };

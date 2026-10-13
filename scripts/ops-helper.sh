@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────────────
-# Omatalous maintenance helper. Runs on the host, once a minute (systemd user timer or cron, set up by
-# ./scripts/install.sh), one per instance, in the clone directory.
+# Omatalous maintenance helper. Runs on the host, starts once a minute (systemd user timer or cron, set up by
+# ./scripts/install.sh) and waits for a press for most of it, so a request starts within seconds. One per instance, in the clone.
 #
 # The app only writes rows ("update", "backup", ...) into its database. This script asks the app for the
 # oldest row through `docker compose exec ... ops poll`, checks it against a fixed list, runs one of our own
 # scripts and reports the result back through `ops report`. Nothing from the database reaches a shell: the
 # row is accepted only if the whole poll answer matches one exact shape, and the action is picked by a
-# `case` with a refusing default. Version 4 knows twelve actions: check-update, update, rollback, backup, restart, doctor,
+# `case` with a refusing default. Version 5 knows twelve actions: check-update, update, rollback, backup, restart, doctor,
 # logs, prune, helper-renew, access (scripts/lib/ops-access.sh), prerelease-on and prerelease-off. None takes parameters.
 #
 # Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what matters.
@@ -28,7 +28,7 @@
 #   ops-helper.sh --version  prints the protocol version
 #   ops-helper.sh --self-test  runs self_test (scripts/lib/ops-selftest.sh), the only argument it takes
 # ──────────────────────────────────────────────────────────────────────────────
-OPS_HELPER_VERSION=4
+OPS_HELPER_VERSION=5
 set -u -o pipefail
 set +x
 
@@ -48,7 +48,7 @@ if [[ ${TALOUS_OPS_CLEAN:-} != 1 ]]; then
   # test hooks, only when a test asks for them
   if [[ ${OPS_TEST:-} == 1 ]]; then
     clean+=(OPS_TEST=1 PATH="$PATH")
-    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS OPS_T_SELFTEST OPS_T_ADDRESS; do
+    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS OPS_T_SELFTEST OPS_T_ADDRESS OPS_T_WAKE OPS_T_WAKEEND; do
       [[ -z ${!v:-} ]] || clean+=("$v=${!v}")
     done
   fi
@@ -162,7 +162,7 @@ check_permissions() {
 load_libs() {
   local l
   # shellcheck source=/dev/null
-  for l in release selftest watchdog address housekeeping; do . "$LIB/ops-$l.sh" || return 1; done
+  for l in release selftest watchdog address housekeeping wake; do . "$LIB/ops-$l.sh" || return 1; done
   # shellcheck source=lib/ops-access.sh
   ACCESS_LIB=""; . "$LIB/ops-access.sh" 2>/dev/null && ACCESS_LIB=1
   # shellcheck source=/dev/null
@@ -659,10 +659,11 @@ heartbeat() {
   # old journal entries and logs go after 30 days
   find "$OPS/journal" "$OPS/run" -type f -mtime +30 -delete 2>/dev/null || true
 }
-# One poll. The answer must be exactly one of two shapes (R3). Anything else is dropped.
+# One poll. The answer must be exactly one of two shapes (R3). Anything else is dropped. poll_once [SECONDS]: its time limit. LAST_RAN: the action run.
+# shellcheck disable=SC2120,SC2034 # wake_loop (lib/ops-wake.sh) passes the time limit and reads LAST_RAN
 poll_once() {
-  local out id action
-  out=$(timeout 30 docker compose exec -T banking "${NODE[@]}" dist/node.js ops poll --helper "$OPS_HELPER_VERSION" --done "$(done_ids)" 2>/dev/null | head -c 8193) || true
+  local out id action secs=${1:-30}; LAST_RAN=""
+  out=$(timeout -k 5 "$secs" docker compose exec -T banking "${NODE[@]}" dist/node.js ops poll --helper "$OPS_HELPER_VERSION" --done "$(done_ids)" 2>/dev/null | head -c 8193) || true
   if ((${#out} > 8192)); then log "bad poll: the answer is too long"; return 0; fi
   out=${out%$'\n'}
   [[ -n $out ]] || return 1
@@ -682,7 +683,7 @@ poll_once() {
     send_report "$id" || true
     return 0
   fi
-  run_request "$id" "$action"
+  LAST_RAN=$action; run_request "$id" "$action"
   return 0
 }
 
@@ -691,7 +692,7 @@ main() {
   check_permissions || exit 1
   mkdir -p "$OPS/journal" "$OPS/run" && chmod 700 "$OPS" "$OPS/journal" "$OPS/run"
   check_permissions || exit 1
-  # one run at a time: an update in progress holds this lock, and the ticks during it do nothing
+  # one run at a time: an update in progress holds this lock, and so does the wait for a press; the ticks during it do nothing
   exec 8>"$OPS/.lock"
   flock -n 8 || exit 0
   if ! env_check; then log ".env is invalid: $ENV_ERR. The helper does not run until it is fixed."; exit 1; fi
@@ -709,10 +710,9 @@ main() {
   address_tick
   if ! app_running; then case $cut in update | rollback) recover || true ;; esac; exit 0; fi
   reconcile
-  if poll_once; then exit 0; fi
-  heartbeat
-  # an old RECOVERY.txt is stale once the app answers again
-  [[ ! -f $OPS/RECOVERY.txt ]] || ! app_up || rm -f "$OPS/RECOVERY.txt"
+  local runs=0; poll_once && runs=1
+  if ((runs == 0)); then heartbeat; [[ ! -f $OPS/RECOVERY.txt ]] || ! app_up || rm -f "$OPS/RECOVERY.txt"; fi # a RECOVERY.txt is stale once the app answers
+  wake_loop "$runs" # lib/ops-wake.sh: the wait for a press, for the rest of the tick
   exit 0
 }
 # --self-test: the helper's only argument. No lock, no tick: the files are checked and loaded, and self_test answers.

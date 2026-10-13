@@ -59,5 +59,15 @@ touch "$PLAY/fail-kill"
 check "a kill that fails leaves no mark" test ! -e "$T/stopped"
 
 echo
+
+# ── tick passes OPS_T_WAKE=0, so an idle drill tick does not wait for a press ──
+mkdir -p "$TMP/clone/scripts" "$TMP/clock"
+stub "$TMP/clone/scripts/ops-helper.sh" <<'STUB'
+#!/usr/bin/env bash
+echo "test=$OPS_TEST wake=${OPS_T_WAKE-unset}"
+STUB
+tick_out=$( (. "$REPO/tools/ci/drills-lib.sh"; DIR=$TMP/clone CLOCK=$TMP/clock LOGS=$TMP; DEADLINE=$((SECONDS + 100)); tick 0; cat "$TMP/tick.out") )
+has "tick runs the helper with OPS_T_WAKE=0 (and OPS_TEST=1)" "$tick_out" "test=1 wake=0"
+
 echo "$PASS passed, $FAILED failed"
 [[ $FAILED -eq 0 ]]

@@ -134,7 +134,7 @@ t_tunnel_on_from_lan() {
   check "tunnel on: the tunnel runs" test -e "$S/tunnel-up"
   check "tunnel on: the old .env is kept (600)" bash -c "cmp -s '$CL/ops/env.prev' '$W/env.before' && [[ \$(stat -c %a '$CL/ops/env.prev') == 600 ]]"
   check "tunnel on: the report tells the new mode and address" bash -c "grep -q '\"mode\":\"tunnel\"' '$S/report.json' && grep -q '\"address\":\"https://$HOST\"' '$S/report.json'"
-  check "tunnel on: the request was read as version 4" test "$(n_calls 'dist/node.js ops access --helper 4$')" = 1
+  check "tunnel on: the request was read as version 5" test "$(n_calls 'dist/node.js ops access --helper 5$')" = 1
   check "tunnel on: the journal says reported" grep -q '"reported":true' "$CL/ops/journal/$ID.json"
   check "tunnel on: no token in the journal, the logs, the output, the report or a command line" test -z "$(token_in)"
 }
@@ -466,9 +466,9 @@ t_files_beside_env() {
 }
 
 t_version_and_constructs() {
-  check "the helper is version 4" test "$("$SRC/scripts/ops-helper.sh" --version)" = 4
+  check "the helper is version 5" test "$("$SRC/scripts/ops-helper.sh" --version)" = 5
   lan_world; traced; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; tick
-  check "the helper polls as version 4" test "$(n_calls 'dist/node.js ops poll --helper 4 ')" = 1
+  check "the helper polls as version 5" test "$(n_calls 'dist/node.js ops poll --helper 5 ')" = 1
   # Every command of that tick, as bash expanded it. The token may only be in a test, an assignment, the pairs handed
   # to access_env_write and by it to the writer of .env (envfile_stage, a function like it), and the printf builtin that
   # writes its line of .env: any other command had it as an argument.

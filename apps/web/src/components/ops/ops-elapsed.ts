@@ -7,9 +7,16 @@ export function elapsed(ms: number): string {
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
 }
 
-/** The helper asks for work once a minute; the wait is named while the next look is still ahead, rounded up to 5 s. */
-export function queuedSentence(seenAt: number | null, now: number): string {
+/** A helper that waits for the app's wake polled again within this, or is still in its wait, so a request starts in seconds. */
+const WAKE_FRESH_MS = 50_000;
+
+/**
+ * The helper asks for work once a minute; the wait is named while the next look is still ahead, rounded up to 5 s.
+ * A helper that wakes (`wakes`) and polled under 50 s ago starts a request within seconds instead.
+ */
+export function queuedSentence(seenAt: number | null, now: number, wakes = false): string {
   if (seenAt === null || Number.isNaN(seenAt)) return S.queued;
+  if (wakes && now - seenAt < WAKE_FRESH_MS) return S.queuedWake;
   const left = seenAt + 60_000 - now;
   return left > 0 ? S.queuedNext(elapsed(Math.ceil(left / 5000) * 5000)) : S.queued;
 }

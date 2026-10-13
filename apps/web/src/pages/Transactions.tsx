@@ -2,6 +2,7 @@ import { UNKNOWN_MERCHANT } from "@banking/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
+import { PayeeCategorySelect, usePayeeCategory } from "../components/PayeeCategory.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Loading } from "../components/Loading.tsx";
 import { FilterChip } from "../components/FilterChip.tsx";
@@ -411,27 +412,14 @@ function Uncategorised({
     seen.current = refresh;
     reload();
   }, [refresh, reload]);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, save } = usePayeeCategory(() => {
+    reload();
+    onSaved();
+  });
   const [more, setMore] = useState(false);
   if (!data?.items.length) return null;
   // the list below is what the page is for: the card starts short
   const rows = data.items.slice(0, more ? 10 : 5);
-
-  const save = async (merchant: string, category: string) => {
-    if (!category || busy) return;
-    setBusy(merchant);
-    setError(null);
-    try {
-      await api("/api/rules", { method: "POST", body: { field: "merchant_exact", pattern: merchant, category } });
-      reload();
-      onSaved();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
 
   return (
     <div className="card">
@@ -447,15 +435,7 @@ function Uncategorised({
           <li key={m.merchant}>
             <a href={`#/transactions${query({ merchant: m.merchant })}`}>{m.merchant}</a>
             <span className="num">{money(m.totalCents)}</span>
-            <CategorySelect
-              categories={categories.filter((c) => c.id !== "other")}
-              value=""
-              allowEmpty
-              emptyLabel="Valitse kategoria"
-              ariaLabel={`Kategoria: ${m.merchant}`}
-              disabled={busy !== null}
-              onChange={(c) => void save(m.merchant, c)}
-            />
+            <PayeeCategorySelect categories={categories} merchant={m.merchant} disabled={busy !== null} onPick={(c) => void save(m.merchant, c)} />
           </li>
         ))}
       </ul>

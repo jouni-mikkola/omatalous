@@ -14,6 +14,7 @@ const helper = (over: Partial<HelperInfo> = {}): HelperInfo => ({
   outdated: false,
   tools: true,
   knowsPrerelease: true,
+  wakes: false,
   enableCommand: "./scripts/install.sh --ops-helper",
   ...over,
 });

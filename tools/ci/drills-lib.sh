@@ -122,7 +122,8 @@ tick() {
   printf '%s\n' "$1" >"$CLOCK/offset"
   ((t > 10)) || return 124
   ((t > 420)) && t=420
-  (cd "$DIR" && exec env OPS_TEST=1 PATH="$CLOCK:$PATH" timeout -k 10 "$t" ./scripts/ops-helper.sh) >>"$LOGS/tick.out" 2>&1
+  # OPS_T_WAKE=0: no wait for a press in an idle tick. A drill proves the actions; the wait has its own suite, tools/test/ops-wake.test.sh
+  (cd "$DIR" && exec env OPS_TEST=1 OPS_T_WAKE=0 PATH="$CLOCK:$PATH" timeout -k 10 "$t" ./scripts/ops-helper.sh) >>"$LOGS/tick.out" 2>&1
 }
 # tick_at V: one tick with the helper's clock V seconds after CLOCK0 (the drill sets it to $SECONDS) when the tick starts.
 # The real seconds since CLOCK0 are taken off the offset: a look at an app that does not answer takes the helper up to 20 s
