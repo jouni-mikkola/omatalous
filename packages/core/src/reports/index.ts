@@ -14,6 +14,7 @@ import { bufferReport } from "./buffer.ts";
 import { cashflowReport } from "./cashflow.ts";
 import { categoryReport } from "./categories.ts";
 import { dataQualityReport } from "../analysis/data-quality.ts";
+import { foodReport } from "../analysis/food.ts";
 import { driftReport } from "./drift.ts";
 import { fixedVariableReport } from "./fixed-variable.ts";
 import { incomeReport } from "./income.ts";
@@ -51,6 +52,7 @@ export const REPORTS = {
   income: ({ ctx, range, balances }: ReportInput) => incomeReport(ctx, range, balances),
   insights: ({ ctx, range, inputs }: ReportInput) => insightsReport(ctx, range, inputs),
   loans: ({ ctx, balances, inputs }: ReportInput) => loansReport(ctx, balances, inputs),
+  food: ({ ctx }: ReportInput) => foodReport(ctx),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;

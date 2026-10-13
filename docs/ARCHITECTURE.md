@@ -129,13 +129,18 @@ flowchart LR
   bank fees and small habits. At most six are shown, one of each kind first. What the user sees:
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
-  the range. The registry has `summary`, `cashflow`, `categories`, `pivot`, `fixedVariable`, `priceChanges`,
-  `dataQuality`, `yearOverYear`, `balances`, `upcoming`, `drift`, `buffer`, `spendingChange`, `income`, `insights` and `loans`.
+  the range. The keys of the registry are the list; the repo rules check that each report is shown by a section of the page.
+- Feature modules (`packages/core/src/features/`): a feature is a folder `<kind>/<id>/` with `index.ts` (it exports `module`,
+  written with `define` from `features/contract.ts`), `index.test.ts` and `fixture.ts`; a view is a folder under
+  `apps/web/src/features/view/<id>/`. `pnpm gen` writes the registry of each kind, `features/<kind>/registry.gen.ts`, one
+  export line a module; the file is tracked and merges by union (`.gitattributes`), and `pnpm check` fails when its lines
+  differ from the folders. A module imports its own folder, the contract and `features/kit/` only, and only a registry
+  imports a module. The rules are 29 to 33 in `tools/repo-rules/modules.ts`.
 - Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
   file per area in `areas/` returns findings (title, action, a euro range, calc lines, evidence
   rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months
   only (under three only deadlines, under six no euros), the 120 € gate, certainty from weaknesses (`common.ts`), the
-  user's states (`state.ts`), three findings per area and a headline that skips overlapping findings. An outside figure
+  user's states (`state.ts`), every finding of an area (the page opens three) and a headline that skips overlapping findings. An outside figure
   comes only from a dated row in `optimise/facts/`; an expired row hides its comparison. A typed input (`inputs.ts`)
   goes stale and then counts as missing. The price rise, renewal, fixed-cost share and debt share detectors are
   exported from the insights, so Säästövinkit and the overview tell the same numbers. Inputs and decisions are the user's

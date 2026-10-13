@@ -113,7 +113,7 @@ export interface FindingDraft {
 /** A finding as the page gets it. */
 export interface Finding extends Omit<FindingDraft, "weaknesses"> {
   certainty: Certainty;
-  /** Every weakness the certainty counted, area's and frame's, in `WEAKNESS_ORDER`. */
+  /** Every weakness the certainty counted (the area's and the frame's, not the household's), in `WEAKNESS_ORDER`. */
   weaknesses: readonly Weakness[];
   /** A dismissed finding that came back because its mid grew over 50 % and over 100 €. */
   reopened?: boolean;
@@ -135,6 +135,10 @@ export interface Check {
   status: CheckStatus;
   /** The input key that would let the check run (status `needs_input`). */
   input?: string;
+  /** What the check found a month, in cents: the column Kuukaudessa of Tarkistettu. Empty until an area fills it. */
+  cents?: number;
+  /** How many things the check counted and what they are called ("3", "maksunsaajaa"). Empty until an area fills it. */
+  count?: { n: number; noun: string };
   /** One Finnish sentence, set by the Lapset area only; no page shows it. */
   hint?: string;
 }
@@ -272,10 +276,8 @@ export interface Headline {
 export interface AreaView {
   id: AreaId;
   label: string;
-  /** Active findings, at most three, korkea and keskitaso before matala. */
+  /** Every active finding, korkea and keskitaso before matala. */
   findings: Finding[];
-  /** Active findings left out by the cap of three. */
-  more: number;
   checks: Check[];
   summary?: AreaSummary;
   /** The order key: mid times the certainty weight, summed. */
@@ -304,6 +306,8 @@ export interface OptimiseData {
   accounts: number;
   situation: SituationFact[];
   headline: Headline;
+  /** The household's faults counted on no finding (`uncategorised`, `own_unconnected`), once each: the page prints them above the findings. */
+  household: Weakness[];
   /** Ordered by `weightCents`, largest first. */
   areas: AreaView[];
   /** Active korkea and keskitaso findings with `decideBy` within 60 days, soonest first. */

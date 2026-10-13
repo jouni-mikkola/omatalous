@@ -493,6 +493,28 @@ test("the Laskut tables fit a phone: the date of the next charge is inside the c
   await context.close();
 });
 
+test("Menot kuukausittain opens to lines and payees, keeps the CSV, the old table is behind Taulukko, and 390 px does not scroll sideways", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/reports");
+  const card = page.locator("#kuukaudet", { has: page.getByRole("heading", { name: "Menot kuukausittain" }) });
+  await expect(card.getByRole("button", { name: "Kaavio" })).toHaveAttribute("aria-pressed", "true");
+  const rows = card.locator(".months-table tbody tr");
+  const closed = await rows.count();
+  await card.locator(".months-table .themes-toggle").first().click();
+  const opened = await rows.count();
+  await card.locator(".months-table .months-depth-1 .themes-toggle").first().click();
+  expect([opened > closed, (await rows.count()) > opened], "a theme opens to its lines and a line to its payees").toEqual([true, true]);
+  expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the new view fits its card at 390px").toBe(true);
+  await card.getByRole("button", { name: "Taulukko" }).click();
+  await expect(card.locator(".pivot-list summary").first()).toBeVisible();
+  await expect(card.getByRole("link", { name: "Lataa CSV" })).toBeVisible();
+  expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the old table fits its card at 390px").toBe(true);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
 /** The page is no wider than the screen, and no table sticks out of it or scrolls sideways inside its card. */
 async function fitsScreen(page: Page, what: string): Promise<void> {
   expect(await overflow(page), `${what} scrolls sideways`).toBeLessThanOrEqual(1);
@@ -519,8 +541,8 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     const found = situation.locator(".optimise-facts > div", { has: page.getByText("Säästömahdollisuus vuodessa (arvio)", { exact: true }) }).locator("dd");
     await expect(found).toHaveText(/^\d[\d\s]*€$/);
     for (const fact of ["Säästöaste", "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista"]) await expect(situation.getByText(fact, { exact: true })).toBeVisible();
-    // what the numbers rest on, what was checked and what waits are not told on the page, and no area is a list of nothing
-    for (const gone of [/^Tiedot \d+\.\d+\.\d{4} asti/, /^Laskettu /, /^Tarkistett/, /^Odottaa tietoja/]) await expect(page.getByText(gone)).toHaveCount(0);
+    // what the numbers rest on and what waits are not told on the page, and no area is a list of nothing
+    for (const gone of [/^Tiedot \d+\.\d+\.\d{4} asti/, /^Laskettu /, /^Odottaa tietoja/]) await expect(page.getByText(gone)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Tietojen laatu" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Alueet", exact: true })).toHaveCount(0);
     await expect(page.locator("details", { has: page.locator("summary", { hasText: /Tarkistet|ilman vinkkejä|Odottaa/ }) })).toHaveCount(0);

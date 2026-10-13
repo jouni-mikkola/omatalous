@@ -8,7 +8,7 @@ import { cleanup, NOTE_ROWS, release, run } from "./fixture-kit.ts";
 
 afterAll(cleanup);
 
-// every test runs fixture.mjs and the migrations in a child process: seconds each, more on a busy machine
+// every test runs fixture.mjs and the migrations in a child process that works in memory (see run): about a second each
 describe("tools/release/fixture.mjs", { timeout: 30_000 }, () => {
   it("refuses a new table without seed rows, an empty seed file and a seed for a table that is not there", async () => {
     let r = await release();

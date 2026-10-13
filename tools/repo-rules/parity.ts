@@ -1,6 +1,6 @@
 /**
  * Rules 7, 8 and 11 of the repo rules: lists that must agree and live in different files or languages, and the
- * comment every report carries. Nothing links the lists at build time, so a test reads each list and compares.
+ * comment every report carries. Rule 8 reads both layouts: the `REPORTS` registry and the section modules of features/section/. Nothing links the lists at build time, so a test reads each list and compares.
  */
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -64,10 +64,9 @@ describe("repo rules: parity", () => {
     expectNoFindings("ops action list", found, "make the three lists equal. OPS_ACTIONS is the source: add the action there, to ACTIONS and the dispatch in scripts/ops-helper.sh, and to OpsAction in apps/web/src/components/ops/types.ts.");
   });
 
-  it("rule 8: every report in packages/core/src/reports is registered in reports/index.ts and shown by a section of the web page, and every registry key is in docs/ARCHITECTURE.md", () => {
+  it("rule 8: every report in packages/core/src/reports is registered in reports/index.ts and shown by a section of the web page (a section module of features/section/ is registered by its folder and shown by a view that names it in `needs`)", () => {
     const DIR = "packages/core/src/reports/";
     const INDEX = `${DIR}index.ts`;
-    const DOC = "docs/ARCHITECTURE.md";
     // files of that folder that are not reports
     const NOT_REPORTS = new Set(["index.ts", "shared.ts"]);
     const found: Finding[] = [];
@@ -94,13 +93,16 @@ describe("repo rules: parity", () => {
         }
       }
     });
-    if (!registry) throw new Error(`${INDEX}: no REPORTS object literal found; the parity rule needs updating to where the registry moved`);
+    // the second layout: a section module is a folder of features/section/ and is shown by a view that names it in `needs`
+    const modules = repoFiles().flatMap((f) => /^packages\/core\/src\/features\/section\/([^/]+)\/index\.ts$/.exec(f)?.[1] ?? []);
+    if (!registry && modules.length === 0) throw new Error(`${INDEX}: no REPORTS object literal found; the parity rule needs updating to where the registry moved`);
     const keys: string[] = [];
     const used = new Set<string>();
-    for (const p of registry.properties) {
+    for (const p of registry?.properties ?? []) {
       if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) keys.push(p.name.text);
       walk(p, (n) => void (ts.isIdentifier(n) && used.add(n.text)));
     }
+    keys.push(...modules);
     expect(keys.length, "the registry has its keys").toBeGreaterThan(5);
 
     const reportFiles = repoFiles().filter((f) => f.startsWith(DIR) && /^[^/]+\.ts$/.test(f.slice(DIR.length)) && !NOT_REPORTS.has(f.slice(DIR.length)));
@@ -162,27 +164,16 @@ describe("repo rules: parity", () => {
         }
       }
     }
+    for (const file of repoFiles().filter((f) => /^apps\/web\/src\/features\/view\/[^/]+\/meta\.ts$/.test(f))) {
+      for (const [, list] of readText(file).matchAll(/needs:\s*\[([^\]]*)\]/g)) for (const [, name] of list!.matchAll(/"([^"]+)"/g)) shown.add(name!);
+    }
     for (const key of keys) {
       if (!shown.has(key) && !NO_SECTION.has(key)) {
         found.push({ file: INDEX, line: registryLine, why: `the report "${key}" is read by no section in ${SECTIONS} (add a file there, or list the key in \`reports\` of the section that shows it; a report the page leaves out goes in NO_SECTION in tools/repo-rules/parity.ts)` });
       }
     }
 
-    // A key counts when it is in the bullet that lists the registry ("- Reports are a registry ..."), not anywhere in
-    // the document: the word `summary` or `balances` may well appear in another section.
-    const lines = readText(DOC).split("\n");
-    const start = lines.findIndex((l) => /^- Reports are a registry/i.test(l));
-    if (start < 0) {
-      found.push({ file: DOC, line: 1, why: 'has no bullet that starts with "Reports are a registry": the parity rule reads the report list from it' });
-    } else {
-      let end = start + 1;
-      while (end < lines.length && /^\s+\S/.test(lines[end]!)) end++;
-      const bullet = lines.slice(start, end).join("\n");
-      for (const key of keys) {
-        if (!bullet.includes(`\`${key}\``)) found.push({ file: DOC, line: start + 1, why: `the registry key \`${key}\` (${INDEX}:${registryLine}) is not in the "Reports are a registry" bullet; add it to its list` });
-      }
-    }
-    expectNoFindings("reports registry", found, "register the report in packages/core/src/reports/index.ts (see its header comment for the other places a report goes), give it a section file in apps/web/src/pages/reports/sections/ and list its key in docs/ARCHITECTURE.md.");
+    expectNoFindings("reports registry", found, "register the report in packages/core/src/reports/index.ts (see its header comment for the other places a report goes), give it a section file in apps/web/src/pages/reports/sections/ and name it in the docs (docs/ARCHITECTURE.md).");
   });
 
   it("rule 11: every report and every report section says what the household decides with it (a `Decision:` comment)", () => {

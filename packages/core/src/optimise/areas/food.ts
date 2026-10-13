@@ -7,15 +7,13 @@
  * Payments to people are never food, even when a MobilePay to a friend was filed under restaurants.
  */
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
-import { netPurchase } from "../../analysis/context.ts";
+import { netPurchase, paidToPerson } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { capitalise, monthSpan } from "../../analysis/insights/shared.ts";
 import { clearlyAbove } from "../../analysis/signal.ts";
 import { monthOf } from "../../dates.ts";
-import { isMobilePay } from "../../industry.ts";
-import { fold, UNKNOWN_MERCHANT } from "../../merchant.ts";
+import { UNKNOWN_MERCHANT } from "../../merchant.ts";
 import { median } from "../../stats.ts";
-import { hasPayeeForm } from "../../wording.ts";
 import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS, mean, YEAR_OVER_YEAR_SIDE, yearOverYear } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
 
@@ -26,9 +24,6 @@ const MIN_RISE_MONTHLY = 3000;
 const MIN_EATING_OUT_YEARLY = 30000;
 const MIN_ORDER_RISE_SHARE = 0.5;
 const MIN_ORDER_RISE = 3;
-
-/** A MobilePay or Pivo payment to a person: never food, whatever category it was given. */
-const paidToPerson = (t: AnalysisTx): boolean => isMobilePay(t) && !t.mcc && !hasPayeeForm(fold(t.counterparty ?? ""));
 
 /** Eating-out rows of the months on accounts that existed before them, payments to people left out. */
 function eatingOutRows(ctx: AnalysisContext, months: readonly string[]): AnalysisTx[] {

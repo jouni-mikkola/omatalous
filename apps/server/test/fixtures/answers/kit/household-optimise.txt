@@ -1,0 +1,315 @@
+{
+ "data": {
+  "today": "2026-10-15",
+  "end": "2026-09-30",
+  "months": 12,
+  "historyMonths": 30,
+  "dataTo": "2026-10-14",
+  "accounts": 4,
+  "situation": [
+   {
+    "id": "savings_rate",
+    "label": "Säästöaste",
+    "value": 0.081553134132252,
+    "unit": "share",
+    "text": "8 %"
+   },
+   {
+    "id": "fixed_share",
+    "label": "Kiinteät menot tuloista",
+    "value": 0.6035795454545455,
+    "unit": "share",
+    "text": "60 %"
+   },
+   {
+    "id": "buffer",
+    "label": "Puskuri",
+    "value": 6.401347307836949,
+    "unit": "months",
+    "text": "6,4 kuukautta"
+   },
+   {
+    "id": "debt_share",
+    "label": "Velanhoito tuloista",
+    "value": 0.17397727272727273,
+    "unit": "share",
+    "text": "17 %"
+   }
+  ],
+  "headline": {
+   "lowCents": 0,
+   "midCents": 0,
+   "highCents": 0,
+   "count": 0
+  },
+  "household": [],
+  "areas": [
+   {
+    "id": "loans",
+    "label": "Lainat",
+    "findings": [],
+    "checks": [
+     {
+      "id": "loans:margin",
+      "label": "Asuntolainan marginaali",
+      "status": "needs_input",
+      "input": "loan_rate"
+     },
+     {
+      "id": "loans:prepay",
+      "label": "Lainan lyhentäminen säästöillä",
+      "status": "needs_input",
+      "input": "loan_rate"
+     },
+     {
+      "id": "loans:card_interest",
+      "label": "Luottokortin korot",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "savings",
+    "label": "Säästöt",
+    "findings": [],
+    "checks": [
+     {
+      "id": "savings:idle_cash",
+      "label": "Käyttötilin ylimääräinen saldo",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "subscriptions",
+    "label": "Puhelin ja tilaukset",
+    "findings": [],
+    "checks": [
+     {
+      "id": "subscriptions:rise",
+      "label": "Sopimusten ja tilausten hinnat",
+      "status": "clear"
+     },
+     {
+      "id": "subscriptions:overlap",
+      "label": "Päällekkäiset palvelut",
+      "status": "clear"
+     },
+     {
+      "id": "subscriptions:renewal",
+      "label": "Uusiutuvat tilaukset",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "bank",
+    "label": "Pankkikulut",
+    "findings": [],
+    "checks": [
+     {
+      "id": "bank:card_tier",
+      "label": "Kortin hintataso",
+      "status": "clear"
+     },
+     {
+      "id": "bank:late_fees",
+      "label": "Myöhästymiskulut",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "electricity",
+    "label": "Sähkö",
+    "findings": [],
+    "checks": [
+     {
+      "id": "electricity:price",
+      "label": "Sähkön hinta",
+      "status": "no_data"
+     },
+     {
+      "id": "electricity:contract_end",
+      "label": "Sähkösopimuksen päättyminen",
+      "status": "needs_input",
+      "input": "electricity_contract_end"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "housing",
+    "label": "Asuminen",
+    "findings": [],
+    "checks": [
+     {
+      "id": "housing:rise",
+      "label": "Asumismenojen nousu",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "insurance",
+    "label": "Vakuutukset",
+    "findings": [],
+    "checks": [
+     {
+      "id": "insurance:rise",
+      "label": "Vakuutusmaksujen nousu",
+      "status": "clear"
+     },
+     {
+      "id": "insurance:renewal",
+      "label": "Vakuutusten uusiutuminen",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "food",
+    "label": "Ruoka",
+    "findings": [],
+    "checks": [
+     {
+      "id": "food:eating_out",
+      "label": "Ravintolat ja kotiinkuljetus",
+      "status": "clear"
+     },
+     {
+      "id": "food:delivery",
+      "label": "Ruoan kotiinkuljetus",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "habits",
+    "label": "Pienet tavat",
+    "findings": [],
+    "checks": [
+     {
+      "id": "habits:repeat",
+      "label": "Arkiostot",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "seasons",
+    "label": "Vuosimenot",
+    "findings": [],
+    "checks": [
+     {
+      "id": "seasons:month",
+      "label": "Kalliit kuukaudet",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "tax",
+    "label": "Verot",
+    "findings": [],
+    "checks": [
+     {
+      "id": "tax:household_deduction",
+      "label": "Kotitalousvähennys",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "kids",
+    "label": "Lapset",
+    "findings": [],
+    "checks": [
+     {
+      "id": "kids:daycare",
+      "label": "Päivähoitomaksun nousu",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "car",
+    "label": "Auto",
+    "findings": [],
+    "checks": [
+     {
+      "id": "car:per_km",
+      "label": "Auton menot kilometriä kohden",
+      "status": "needs_input",
+      "input": "car_km"
+     }
+    ],
+    "summary": {
+     "title": "Auton menot 12 kuukaudessa",
+     "lines": [
+      {
+       "label": "Polttoaine",
+       "value": "1 451 €"
+      },
+      {
+       "label": "Yhteensä",
+       "value": "1 451 €"
+      }
+     ]
+    },
+    "weightCents": 0
+   }
+  ],
+  "soon": [],
+  "done": [],
+  "dismissed": [],
+  "snoozed": [],
+  "others": [],
+  "othersDismissed": [],
+  "needed": [
+   {
+    "key": "loan_rate",
+    "def": "loan_rate",
+    "subject": null,
+    "old": null
+   },
+   {
+    "key": "electricity_contract_end",
+    "def": "electricity_contract_end",
+    "subject": null,
+    "old": null
+   },
+   {
+    "key": "car_km",
+    "def": "car_km",
+    "subject": null,
+    "old": null
+   }
+  ],
+  "checked": {
+   "total": 21,
+   "findings": 0,
+   "unavailable": 5,
+   "noRows": 0
+  }
+ },
+ "inputs": [],
+ "states": [],
+ "changes": [],
+ "followUp": {
+  "outcomes": [],
+  "proposals": [],
+  "line": []
+ }
+}

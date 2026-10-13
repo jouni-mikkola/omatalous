@@ -21,6 +21,11 @@ describe("check --changed: scope of a diff", () => {
     expect(s).toMatchObject({ full: false, tests: ["apps/server", "apps/web", "packages/core", RULES, UI_STRINGS], lint: false, sh: false });
   });
 
+  it("a feature module's folder and its generated registry run core, its dependents and the repo rules; its test file is a vitest file", () => {
+    const s = scopeOf(["packages/core/src/features/insight/price-rises/index.ts", "packages/core/src/features/insight/registry.gen.ts"]);
+    expect(s).toMatchObject({ full: false, tests: ["apps/server", "apps/web", "packages/core", RULES, UI_STRINGS], sh: false });
+    expect(scopeOf(["apps/web/src/features/view/prices/View.test.ts"]).tests).toEqual(["apps/web", RULES, UI_STRINGS]);  });
+
   it("a server or web change leaves core's tests out", () => {
     expect(scopeOf(["apps/server/src/routes/admin.ts"]).tests).toEqual(["apps/server", RULES, UI_STRINGS]);
     expect(scopeOf(["apps/web/src/pages/Wizard.tsx", "apps/web/src/styles/tokens.css"]).tests).toEqual(["apps/web", RULES, UI_STRINGS]);

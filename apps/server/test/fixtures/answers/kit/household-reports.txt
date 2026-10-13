@@ -1,0 +1,3461 @@
+{
+ "summary": {
+  "comparable": true,
+  "incomeCents": 0,
+  "spendingCents": 257670,
+  "savedCents": 0,
+  "netCents": -257670,
+  "topCategories": [
+   {
+    "category": "housing",
+    "label": "Vuokra ja vastike",
+    "cents": 105000
+   },
+   {
+    "category": "mortgage",
+    "label": "Asuntolaina",
+    "cents": 61240
+   },
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "cents": 34763
+   }
+  ],
+  "changes": [
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "cents": 34763,
+    "previousCents": 18738
+   },
+   {
+    "category": "food_delivery",
+    "label": "Ruoan kotiinkuljetus",
+    "cents": 0,
+    "previousCents": 14510
+   },
+   {
+    "category": "shopping",
+    "label": "Vaatteet ja ostokset",
+    "cents": 6688,
+    "previousCents": 0
+   }
+  ]
+ },
+ "cashflow": {
+  "rows": [
+   {
+    "month": "2026-10",
+    "incomeCents": 0,
+    "consumptionCents": 196430,
+    "debtCents": 61240,
+    "savedCents": 0,
+    "borrowedCents": 0,
+    "netCents": -257670,
+    "leftCents": -257670,
+    "savingsRate": null,
+    "complete": false
+   }
+  ],
+  "totals": {
+   "incomeCents": 0,
+   "consumptionCents": 196430,
+   "debtCents": 61240,
+   "expenseCents": 257670,
+   "savedCents": 0,
+   "borrowedCents": 0,
+   "netCents": -257670,
+   "leftCents": -257670,
+   "savingsRate": null
+  },
+  "running": true,
+  "closed": null,
+  "average": null
+ },
+ "categories": {
+  "comparable": true,
+  "totalCents": 257670,
+  "previousTotalCents": 244645,
+  "incomeCents": 0,
+  "groups": [
+   {
+    "group": "Asuminen",
+    "totalCents": 109088,
+    "share": 0.42336321651725073,
+    "incomeShare": null,
+    "previousCents": 109763,
+    "categories": [
+     {
+      "category": "housing",
+      "label": "Vuokra ja vastike",
+      "group": "Asuminen",
+      "kind": "expense",
+      "totalCents": 105000,
+      "share": 0.40749796251018744,
+      "incomeShare": null,
+      "count": 1,
+      "avgTxCents": 105000,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 105000,
+      "trend": null
+     },
+     {
+      "category": "utilities",
+      "label": "Sähkö, vesi ja lämpö",
+      "group": "Asuminen",
+      "kind": "expense",
+      "totalCents": 4088,
+      "share": 0.015865254007063297,
+      "incomeShare": null,
+      "count": 1,
+      "avgTxCents": 4088,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 4763,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Velanhoito",
+    "totalCents": 61240,
+    "share": 0.23766833546784646,
+    "incomeShare": null,
+    "previousCents": 61240,
+    "categories": [
+     {
+      "category": "mortgage",
+      "label": "Asuntolaina",
+      "group": "Velanhoito",
+      "kind": "debt",
+      "totalCents": 61240,
+      "share": 0.23766833546784646,
+      "incomeShare": null,
+      "count": 1,
+      "avgTxCents": 61240,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 61240,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Ruoka",
+    "totalCents": 35636,
+    "share": 0.13830092754298134,
+    "incomeShare": null,
+    "previousCents": 36299,
+    "categories": [
+     {
+      "category": "groceries",
+      "label": "Ruokakauppa",
+      "group": "Ruoka",
+      "kind": "expense",
+      "totalCents": 34763,
+      "share": 0.13491287305468236,
+      "incomeShare": null,
+      "count": 7,
+      "avgTxCents": 4966,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 20284,
+      "trend": null
+     },
+     {
+      "category": "restaurants",
+      "label": "Ravintolat ja kahvilat",
+      "group": "Ruoka",
+      "kind": "expense",
+      "totalCents": 873,
+      "share": 0.003388054488298987,
+      "incomeShare": null,
+      "count": 2,
+      "avgTxCents": 437,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 9869,
+      "trend": null
+     },
+     {
+      "category": "food_delivery",
+      "label": "Ruoan kotiinkuljetus",
+      "group": "Ruoka",
+      "kind": "expense",
+      "totalCents": 0,
+      "share": 0,
+      "incomeShare": null,
+      "count": 0,
+      "avgTxCents": 0,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 0,
+      "previousCents": 6146,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Perhe ja lemmikit",
+    "totalCents": 27990,
+    "share": 0.10862731400628711,
+    "incomeShare": null,
+    "previousCents": 27990,
+    "categories": [
+     {
+      "category": "kids",
+      "label": "Lapset",
+      "group": "Perhe ja lemmikit",
+      "kind": "expense",
+      "totalCents": 27990,
+      "share": 0.10862731400628711,
+      "incomeShare": null,
+      "count": 1,
+      "avgTxCents": 27990,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 27990,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Vakuutukset ja verot",
+    "totalCents": 14230,
+    "share": 0.05522567625257112,
+    "incomeShare": null,
+    "previousCents": 0,
+    "categories": [
+     {
+      "category": "insurance",
+      "label": "Vakuutukset",
+      "group": "Vakuutukset ja verot",
+      "kind": "expense",
+      "totalCents": 14230,
+      "share": 0.05522567625257112,
+      "incomeShare": null,
+      "count": 1,
+      "avgTxCents": 14230,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 0,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Ostokset",
+    "totalCents": 6688,
+    "share": 0.025955679745410798,
+    "incomeShare": null,
+    "previousCents": 0,
+    "categories": [
+     {
+      "category": "shopping",
+      "label": "Vaatteet ja ostokset",
+      "group": "Ostokset",
+      "kind": "expense",
+      "totalCents": 6688,
+      "share": 0.025955679745410798,
+      "incomeShare": null,
+      "count": 1,
+      "avgTxCents": 6688,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 0,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Viestintä ja tilaukset",
+    "totalCents": 2798,
+    "share": 0.010858850467652423,
+    "incomeShare": null,
+    "previousCents": 2798,
+    "categories": [
+     {
+      "category": "subscriptions",
+      "label": "Tilaukset ja suoratoisto",
+      "group": "Viestintä ja tilaukset",
+      "kind": "expense",
+      "totalCents": 2798,
+      "share": 0.010858850467652423,
+      "incomeShare": null,
+      "count": 2,
+      "avgTxCents": 1399,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 1,
+      "previousCents": 2798,
+      "trend": null
+     }
+    ]
+   },
+   {
+    "group": "Liikkuminen",
+    "totalCents": 0,
+    "share": 0,
+    "incomeShare": null,
+    "previousCents": 6555,
+    "categories": [
+     {
+      "category": "car",
+      "label": "Auto, polttoaine ja pysäköinti",
+      "group": "Liikkuminen",
+      "kind": "expense",
+      "totalCents": 0,
+      "share": 0,
+      "incomeShare": null,
+      "count": 0,
+      "avgTxCents": 0,
+      "monthlyAvgCents": null,
+      "medianMonthCents": null,
+      "minMonthCents": null,
+      "maxMonthCents": null,
+      "monthsActive": 0,
+      "previousCents": 6555,
+      "trend": null
+     }
+    ]
+   }
+  ]
+ },
+ "pivot": {
+  "months": [
+   "2026-10"
+  ],
+  "complete": [
+   false
+  ],
+  "rows": [
+   {
+    "category": "housing",
+    "label": "Vuokra ja vastike",
+    "group": "Asuminen",
+    "values": [
+     105000
+    ],
+    "totalCents": 105000,
+    "averageCents": null
+   },
+   {
+    "category": "mortgage",
+    "label": "Asuntolaina",
+    "group": "Velanhoito",
+    "values": [
+     61240
+    ],
+    "totalCents": 61240,
+    "averageCents": null
+   },
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "group": "Ruoka",
+    "values": [
+     34763
+    ],
+    "totalCents": 34763,
+    "averageCents": null
+   },
+   {
+    "category": "kids",
+    "label": "Lapset",
+    "group": "Perhe ja lemmikit",
+    "values": [
+     27990
+    ],
+    "totalCents": 27990,
+    "averageCents": null
+   },
+   {
+    "category": "insurance",
+    "label": "Vakuutukset",
+    "group": "Vakuutukset ja verot",
+    "values": [
+     14230
+    ],
+    "totalCents": 14230,
+    "averageCents": null
+   },
+   {
+    "category": "shopping",
+    "label": "Vaatteet ja ostokset",
+    "group": "Ostokset",
+    "values": [
+     6688
+    ],
+    "totalCents": 6688,
+    "averageCents": null
+   },
+   {
+    "category": "utilities",
+    "label": "Sähkö, vesi ja lämpö",
+    "group": "Asuminen",
+    "values": [
+     4088
+    ],
+    "totalCents": 4088,
+    "averageCents": null
+   },
+   {
+    "category": "subscriptions",
+    "label": "Tilaukset ja suoratoisto",
+    "group": "Viestintä ja tilaukset",
+    "values": [
+     2798
+    ],
+    "totalCents": 2798,
+    "averageCents": null
+   },
+   {
+    "category": "restaurants",
+    "label": "Ravintolat ja kahvilat",
+    "group": "Ruoka",
+    "values": [
+     873
+    ],
+    "totalCents": 873,
+    "averageCents": null
+   }
+  ],
+  "monthTotals": [
+   257670
+  ],
+  "totalCents": 257670,
+  "averageCents": null,
+  "themes": [
+   {
+    "id": "housing",
+    "label": "Asuminen",
+    "values": [
+     170328
+    ],
+    "totalCents": 170328,
+    "usualCents": null,
+    "diffCents": null,
+    "lines": [
+     {
+      "id": "housing",
+      "label": "Vuokra ja vastike",
+      "category": "housing",
+      "values": [
+       105000
+      ],
+      "totalCents": 105000,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Sato Oyj",
+        "values": [
+         105000
+        ],
+        "totalCents": 105000
+       }
+      ],
+      "other": null
+     },
+     {
+      "id": "mortgage",
+      "label": "Asuntolaina",
+      "category": "mortgage",
+      "values": [
+       61240
+      ],
+      "totalCents": 61240,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Nordea Bank Abp",
+        "values": [
+         61240
+        ],
+        "totalCents": 61240
+       }
+      ],
+      "other": null
+     },
+     {
+      "id": "utilities",
+      "label": "Sähkö, vesi ja lämpö",
+      "category": "utilities",
+      "values": [
+       4088
+      ],
+      "totalCents": 4088,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Helen",
+        "values": [
+         4088
+        ],
+        "totalCents": 4088
+       }
+      ],
+      "other": null
+     }
+    ]
+   },
+   {
+    "id": "food",
+    "label": "Ruoka",
+    "values": [
+     35636
+    ],
+    "totalCents": 35636,
+    "usualCents": null,
+    "diffCents": null,
+    "lines": [
+     {
+      "id": "groceries",
+      "label": "Ruokakauppa",
+      "category": "groceries",
+      "values": [
+       34763
+      ],
+      "totalCents": 34763,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Lidl",
+        "values": [
+         16957
+        ],
+        "totalCents": 16957
+       },
+       {
+        "name": "K-Citymarket",
+        "values": [
+         13302
+        ],
+        "totalCents": 13302
+       },
+       {
+        "name": "S-Market",
+        "values": [
+         4504
+        ],
+        "totalCents": 4504
+       }
+      ],
+      "other": null
+     },
+     {
+      "id": "restaurants",
+      "label": "Ravintolat ja kahvilat",
+      "category": "restaurants",
+      "values": [
+       873
+      ],
+      "totalCents": 873,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Espresso House",
+        "values": [
+         488
+        ],
+        "totalCents": 488
+       },
+       {
+        "name": "Robert's Coffee",
+        "values": [
+         385
+        ],
+        "totalCents": 385
+       }
+      ],
+      "other": null
+     }
+    ]
+   },
+   {
+    "id": "kids",
+    "label": "Lapset",
+    "values": [
+     27990
+    ],
+    "totalCents": 27990,
+    "usualCents": null,
+    "diffCents": null,
+    "lines": [
+     {
+      "id": "kids",
+      "label": "Lapset",
+      "category": "kids",
+      "values": [
+       27990
+      ],
+      "totalCents": 27990,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Helsingin Kaupunki",
+        "values": [
+         27990
+        ],
+        "totalCents": 27990
+       }
+      ],
+      "other": null
+     }
+    ]
+   },
+   {
+    "id": "insurance",
+    "label": "Vakuutukset",
+    "values": [
+     14230
+    ],
+    "totalCents": 14230,
+    "usualCents": null,
+    "diffCents": null,
+    "lines": [
+     {
+      "id": "insurance",
+      "label": "Vakuutukset",
+      "category": "insurance",
+      "values": [
+       14230
+      ],
+      "totalCents": 14230,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "If Vahinkovakuutus Oy",
+        "values": [
+         14230
+        ],
+        "totalCents": 14230
+       }
+      ],
+      "other": null
+     }
+    ]
+   },
+   {
+    "id": "shopping",
+    "label": "Ostokset",
+    "values": [
+     6688
+    ],
+    "totalCents": 6688,
+    "usualCents": null,
+    "diffCents": null,
+    "lines": [
+     {
+      "id": "shopping",
+      "label": "Vaatteet ja ostokset",
+      "category": "shopping",
+      "values": [
+       6688
+      ],
+      "totalCents": 6688,
+      "usualCents": null,
+      "diffCents": null,
+      "payees": [
+       {
+        "name": "Kappahl",
+        "values": [
+         6688
+        ],
+        "totalCents": 6688
+       }
+      ],
+      "other": null
+     }
+    ]
+   }
+  ],
+  "rest": {
+   "values": [
+    2798
+   ],
+   "totalCents": 2798,
+   "usualCents": null,
+   "diffCents": null,
+   "themes": [
+    {
+     "id": "media",
+     "label": "Viestintä ja tilaukset",
+     "values": [
+      2798
+     ],
+     "totalCents": 2798,
+     "usualCents": null,
+     "diffCents": null,
+     "lines": [
+      {
+       "id": "subscriptions",
+       "label": "Tilaukset ja suoratoisto",
+       "category": "subscriptions",
+       "values": [
+        2798
+       ],
+       "totalCents": 2798,
+       "usualCents": null,
+       "diffCents": null,
+       "payees": [
+        {
+         "name": "Netflix",
+         "values": [
+          1599
+         ],
+         "totalCents": 1599
+        },
+        {
+         "name": "Spotify",
+         "values": [
+          1199
+         ],
+         "totalCents": 1199
+        }
+       ],
+       "other": null
+      }
+     ]
+    }
+   ]
+  },
+  "large": null,
+  "peakRows": [],
+  "last": null,
+  "strip": [],
+  "peak": null
+ },
+ "fixedVariable": {
+  "rows": [
+   {
+    "month": "2026-10",
+    "fixedCents": 215346,
+    "habitCents": 35636,
+    "variableCents": 6688,
+    "debtCents": 0
+   }
+  ],
+  "totals": {
+   "fixedCents": 215346,
+   "habitCents": 35636,
+   "variableCents": 6688,
+   "debtCents": 0
+  }
+ },
+ "priceChanges": {
+  "items": [],
+  "totalYearlyEffectCents": 0,
+  "debtYearlyEffectCents": 0
+ },
+ "dataQuality": {
+  "signals": []
+ },
+ "yearOverYear": {
+  "year": 2026,
+  "current": [
+   380726,
+   312484,
+   385934,
+   335776,
+   335439,
+   311327,
+   279784,
+   299744,
+   300263,
+   257670,
+   null,
+   null
+  ],
+  "previous": [
+   361896,
+   311845,
+   330100,
+   338742,
+   320871,
+   331714,
+   284652,
+   287877,
+   324432,
+   337115,
+   307444,
+   332734
+  ],
+  "comparableFromMonth": 1,
+  "comparableMonths": 9,
+  "comparable": true,
+  "partialMonth": 10,
+  "ytdCents": 3199147,
+  "previousYtdCents": 3150354,
+  "incomeYtdCents": 3344000,
+  "previousIncomeYtdCents": 3344000
+ },
+ "balances": {
+  "months": [
+   "2026-10"
+  ],
+  "accounts": [
+   {
+    "accountId": "chk",
+    "name": "Käyttötili",
+    "type": "checking",
+    "ownerName": null,
+    "balanceAt": "2026-10-15",
+    "asOf": "2026-10-15",
+    "values": [
+     240000
+    ]
+   },
+   {
+    "accountId": "sav",
+    "name": "Säästötili",
+    "type": "savings",
+    "ownerName": null,
+    "balanceAt": "2026-10-15",
+    "asOf": "2026-10-15",
+    "values": [
+     1717500
+    ]
+   },
+   {
+    "accountId": "card",
+    "name": "Nordea Gold",
+    "type": "credit_card",
+    "ownerName": null,
+    "balanceAt": "2026-10-15",
+    "asOf": "2026-10-15",
+    "values": [
+     -45122
+    ]
+   }
+  ],
+  "total": [
+   1912378
+  ],
+  "accountsLessDebt": [
+   1912378
+  ],
+  "debt": {
+   "day": "2026-10-15",
+   "cents": 45122,
+   "savedCents": 0
+  },
+  "holdings": {
+   "accounts": [
+    {
+     "id": "chk",
+     "name": "Käyttötili",
+     "type": "checking",
+     "bank": null,
+     "ownerName": null,
+     "balanceCents": 240000,
+     "balanceAt": "2026-10-15",
+     "mask": "0785",
+     "use": {
+      "users": [
+       {
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "label": "Aino",
+        "weight": 1
+       }
+      ],
+      "source": "owner"
+     }
+    },
+    {
+     "id": "sav",
+     "name": "Säästötili",
+     "type": "savings",
+     "bank": null,
+     "ownerName": null,
+     "balanceCents": 1717500,
+     "balanceAt": "2026-10-15",
+     "mask": "3458",
+     "use": {
+      "users": [
+       {
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "label": "Aino",
+        "weight": 1
+       }
+      ],
+      "source": "owner"
+     }
+    }
+   ],
+   "accountsCents": 1957500,
+   "cards": [
+    {
+     "id": "card",
+     "name": "Nordea Gold",
+     "bank": null,
+     "ownerName": null,
+     "mask": null,
+     "limitCents": null,
+     "usedCents": 45122,
+     "freeCents": null,
+     "overCents": null,
+     "balanceAt": "2026-10-15",
+     "use": {
+      "users": [
+       {
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "label": "Aino",
+        "weight": 1
+       }
+      ],
+      "source": "owner"
+     }
+    }
+   ],
+   "cardsCents": 45122,
+   "loans": [],
+   "loansCents": null,
+   "debtCents": 45122
+  }
+ },
+ "upcoming": {
+  "from": "2026-10-15",
+  "to": "2027-01-15",
+  "items": [
+   {
+    "merchant": "If Vahinkovakuutus Oy",
+    "category": "insurance",
+    "cadence": "quarterly",
+    "amountCents": 14230,
+    "source": "detected",
+    "date": "2027-01-05"
+   }
+  ],
+  "totalCents": 14230,
+  "reserveMonthlyCents": 4743,
+  "yearlyCents": 56920,
+  "months": [
+   {
+    "month": "2026-10",
+    "cents": 14230,
+    "names": [
+     "If Vahinkovakuutus Oy"
+    ],
+    "paid": [
+     {
+      "merchant": "If Vahinkovakuutus Oy",
+      "date": "2026-10-05"
+     }
+    ]
+   },
+   {
+    "month": "2026-11",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2026-12",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2027-01",
+    "cents": 14230,
+    "names": [
+     "If Vahinkovakuutus Oy"
+    ],
+    "paid": []
+   },
+   {
+    "month": "2027-02",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2027-03",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2027-04",
+    "cents": 14230,
+    "names": [
+     "If Vahinkovakuutus Oy"
+    ],
+    "paid": []
+   },
+   {
+    "month": "2027-05",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2027-06",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2027-07",
+    "cents": 14230,
+    "names": [
+     "If Vahinkovakuutus Oy"
+    ],
+    "paid": []
+   },
+   {
+    "month": "2027-08",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   },
+   {
+    "month": "2027-09",
+    "cents": 0,
+    "names": [],
+    "paid": []
+   }
+  ],
+  "manual": []
+ },
+ "drift": {
+  "months": [
+   "2026-07",
+   "2026-08",
+   "2026-09"
+  ],
+  "items": [],
+  "advice": "",
+  "checked": 6,
+  "minLevelCents": 2000,
+  "neededMonths": 9,
+  "readyFrom": "2025-01-01"
+ },
+ "buffer": {
+  "fixedMonthlyCents": 212460,
+  "incomeMonthlyCents": 352000,
+  "fixedShare": 0.6035795454545455,
+  "usualSpendCents": 305795,
+  "cashCents": 1957500,
+  "bufferMonths": 6.401347307836949
+ },
+ "spendingChange": {
+  "views": [
+   {
+    "view": "usual",
+    "title": "Tavallisesti",
+    "sentence": "Lokakuu: menot 2 577 €, tavallisesti 2 574 €.",
+    "quiet": true,
+    "periodLabel": "Lokakuu",
+    "baseLabel": "tavallisesti",
+    "bars": [],
+    "change": {
+     "view": "usual",
+     "target": {
+      "months": [
+       "2026-10"
+      ],
+      "from": "2026-10-01",
+      "to": "2026-10-15"
+     },
+     "base": {
+      "months": [
+       "2026-04",
+       "2026-05",
+       "2026-06",
+       "2026-07",
+       "2026-08",
+       "2026-09"
+      ],
+      "from": "2026-04-01",
+      "to": "2026-09-15"
+     },
+     "running": true,
+     "nowCents": 257670,
+     "baseCents": 257352,
+     "changeCents": 318,
+     "gateCents": 5147,
+     "standsOut": false,
+     "categories": [
+      {
+       "kind": "category",
+       "category": "insurance",
+       "label": "Vakuutukset",
+       "nowCents": 14230,
+       "baseCents": 0,
+       "changeCents": 14230,
+       "buckets": [
+        {
+         "kind": "timing",
+         "cents": 14230
+        }
+       ],
+       "restCents": 0,
+       "restCount": 0,
+       "visitsNow": 1,
+       "visitsBase": 0.3,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": 14230,
+       "season": true,
+       "standsOut": false,
+       "bills": true,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "If Vahinkovakuutus Oy",
+         "nowCents": 14230,
+         "baseCents": 0,
+         "changeCents": 14230,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": 14230,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "timing",
+           "cents": 14230
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "car",
+       "label": "Auto, polttoaine ja pysäköinti",
+       "nowCents": 0,
+       "baseCents": 7709,
+       "changeCents": -7709,
+       "buckets": [
+        {
+         "kind": "stopped",
+         "cents": -9427
+        }
+       ],
+       "restCents": 1718,
+       "restCount": 1,
+       "visitsNow": 0,
+       "visitsBase": 1.5,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": 5743,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "Neste",
+         "nowCents": 0,
+         "baseCents": 7514,
+         "changeCents": -7514,
+         "visitsNow": 0,
+         "visitsBase": 1.2,
+         "ticketNowCents": null,
+         "ticketBaseCents": 6441,
+         "buckets": [
+          {
+           "kind": "stopped",
+           "cents": -7514
+          }
+         ]
+        },
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 0,
+         "baseCents": 1913,
+         "changeCents": -1913,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "stopped",
+           "cents": -1913
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": 1718,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": 1718
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "food_delivery",
+       "label": "Ruoan kotiinkuljetus",
+       "nowCents": 0,
+       "baseCents": 6418,
+       "changeCents": -6418,
+       "buckets": [
+        {
+         "kind": "stopped",
+         "cents": -5758
+        }
+       ],
+       "restCents": -660,
+       "restCount": 1,
+       "visitsNow": 0,
+       "visitsBase": 1.8,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": 14510,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "Wolt",
+         "nowCents": 0,
+         "baseCents": 5758,
+         "changeCents": -5758,
+         "visitsNow": 0,
+         "visitsBase": 1.8,
+         "ticketNowCents": null,
+         "ticketBaseCents": 3141,
+         "buckets": [
+          {
+           "kind": "stopped",
+           "cents": -5758
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": -660,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": -660
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "groceries",
+       "label": "Ruokakauppa",
+       "nowCents": 34763,
+       "baseCents": 28381,
+       "changeCents": 6382,
+       "buckets": [
+        {
+         "kind": "volume",
+         "cents": 7859
+        }
+       ],
+       "restCents": -1477,
+       "restCount": 2,
+       "visitsNow": 7,
+       "visitsBase": 5.8,
+       "sameShopsNowCents": 34763,
+       "sameShopsBaseCents": 28482,
+       "sameShopsVisitsNow": 7,
+       "sameShopsVisitsBase": 5.8,
+       "yearAgoCents": 18738,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (3)",
+         "nowCents": 34763,
+         "baseCents": 28482,
+         "changeCents": 6281,
+         "visitsNow": 7,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": 7859
+          },
+          {
+           "kind": "price",
+           "cents": -1578
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": 101,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": 101
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "restaurants",
+       "label": "Ravintolat ja kahvilat",
+       "nowCents": 873,
+       "baseCents": 5316,
+       "changeCents": -4443,
+       "buckets": [],
+       "restCents": -4443,
+       "restCount": 3,
+       "visitsNow": 2,
+       "visitsBase": 2.8,
+       "sameShopsNowCents": 873,
+       "sameShopsBaseCents": 1356,
+       "sameShopsVisitsNow": 2,
+       "sameShopsVisitsBase": 1.8,
+       "yearAgoCents": 3169,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (4)",
+         "nowCents": 873,
+         "baseCents": 5497,
+         "changeCents": -4624,
+         "visitsNow": 2,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "stopped",
+           "cents": -4141
+          },
+          {
+           "kind": "price",
+           "cents": -483
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": 181,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": 181
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "shopping",
+       "label": "Vaatteet ja ostokset",
+       "nowCents": 6688,
+       "baseCents": 5295,
+       "changeCents": 1393,
+       "buckets": [],
+       "restCents": 1393,
+       "restCount": 2,
+       "visitsNow": 1,
+       "visitsBase": 0.7,
+       "sameShopsNowCents": 6688,
+       "sameShopsBaseCents": 4064,
+       "sameShopsVisitsNow": 1,
+       "sameShopsVisitsBase": 0.7,
+       "yearAgoCents": 0,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 6688,
+         "baseCents": 4064,
+         "changeCents": 2624,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "price",
+           "cents": 2624
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": -1231,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": -1231
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "health",
+       "label": "Terveys ja apteekki",
+       "nowCents": 0,
+       "baseCents": 813,
+       "changeCents": -813,
+       "buckets": [],
+       "restCents": -813,
+       "restCount": 2,
+       "visitsNow": 0,
+       "visitsBase": 1,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": 0,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 0,
+         "baseCents": 1872,
+         "changeCents": -1872,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "stopped",
+           "cents": -1872
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": 1059,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": 1059
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "utilities",
+       "label": "Sähkö, vesi ja lämpö",
+       "nowCents": 4088,
+       "baseCents": 4832,
+       "changeCents": -744,
+       "buckets": [],
+       "restCents": -744,
+       "restCount": 2,
+       "visitsNow": 1,
+       "visitsBase": 1,
+       "sameShopsNowCents": 4088,
+       "sameShopsBaseCents": 4792,
+       "sameShopsVisitsNow": 1,
+       "sameShopsVisitsBase": 1,
+       "yearAgoCents": 4807,
+       "season": false,
+       "standsOut": false,
+       "bills": true,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 4088,
+         "baseCents": 4792,
+         "changeCents": -704,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "price",
+           "cents": -704
+          }
+         ]
+        },
+        {
+         "kind": "spread",
+         "label": "Kuukausien vaihtelu",
+         "nowCents": 0,
+         "baseCents": 0,
+         "changeCents": -40,
+         "visitsNow": 0,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "spread",
+           "cents": -40
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "smaller",
+       "category": null,
+       "label": "Muut (4)",
+       "nowCents": 197028,
+       "baseCents": 198588,
+       "changeCents": -1560,
+       "visitsNow": 5,
+       "visitsBase": 4.8,
+       "sameShopsNowCents": 197028,
+       "sameShopsBaseCents": 192363,
+       "sameShopsVisitsNow": 5,
+       "sameShopsVisitsBase": 4.8,
+       "buckets": [
+        {
+         "kind": "spread",
+         "cents": -6225
+        }
+       ],
+       "restCents": 4665,
+       "restCount": 1,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": []
+      }
+     ],
+     "pieces": [
+      {
+       "category": "insurance",
+       "kind": "timing",
+       "cents": 14230,
+       "season": true
+      },
+      {
+       "category": "car",
+       "kind": "stopped",
+       "cents": -9427,
+       "season": false
+      },
+      {
+       "category": "groceries",
+       "kind": "volume",
+       "cents": 7859,
+       "season": false
+      },
+      {
+       "category": "food_delivery",
+       "kind": "stopped",
+       "cents": -5758,
+       "season": false
+      },
+      {
+       "category": "kids",
+       "kind": "price",
+       "cents": 4665,
+       "season": false
+      },
+      {
+       "category": "kids",
+       "kind": "spread",
+       "cents": -4665,
+       "season": false
+      },
+      {
+       "category": "restaurants",
+       "kind": "stopped",
+       "cents": -4141,
+       "season": false
+      },
+      {
+       "category": "shopping",
+       "kind": "price",
+       "cents": 2624,
+       "season": false
+      },
+      {
+       "category": "health",
+       "kind": "stopped",
+       "cents": -1872,
+       "season": false
+      },
+      {
+       "category": "car",
+       "kind": "spread",
+       "cents": 1718,
+       "season": false
+      },
+      {
+       "category": "groceries",
+       "kind": "price",
+       "cents": -1578,
+       "season": false
+      },
+      {
+       "category": null,
+       "kind": "spread",
+       "cents": -1560,
+       "season": false
+      },
+      {
+       "category": "shopping",
+       "kind": "spread",
+       "cents": -1231,
+       "season": false
+      },
+      {
+       "category": "health",
+       "kind": "spread",
+       "cents": 1059,
+       "season": false
+      },
+      {
+       "category": "utilities",
+       "kind": "price",
+       "cents": -704,
+       "season": false
+      },
+      {
+       "category": "food_delivery",
+       "kind": "spread",
+       "cents": -660,
+       "season": false
+      },
+      {
+       "category": "restaurants",
+       "kind": "price",
+       "cents": -483,
+       "season": false
+      },
+      {
+       "category": "restaurants",
+       "kind": "spread",
+       "cents": 181,
+       "season": false
+      },
+      {
+       "category": "groceries",
+       "kind": "spread",
+       "cents": 101,
+       "season": false
+      },
+      {
+       "category": "utilities",
+       "kind": "spread",
+       "cents": -40,
+       "season": false
+      }
+     ]
+    }
+   },
+   {
+    "view": "year",
+    "title": "Vuosi vuodelta",
+    "sentence": "Lokakuu 2025–syyskuu 2026: menot 39 188 €, lokakuu 2024–syyskuu 2025 39 146 €.",
+    "quiet": true,
+    "periodLabel": "Lokakuu 2025–syyskuu 2026",
+    "baseLabel": "lokakuu 2024–syyskuu 2025",
+    "bars": [],
+    "change": {
+     "view": "year",
+     "target": {
+      "months": [
+       "2025-10",
+       "2025-11",
+       "2025-12",
+       "2026-01",
+       "2026-02",
+       "2026-03",
+       "2026-04",
+       "2026-05",
+       "2026-06",
+       "2026-07",
+       "2026-08",
+       "2026-09"
+      ],
+      "from": "2025-10-01",
+      "to": "2026-09-30"
+     },
+     "base": {
+      "months": [
+       "2024-10",
+       "2024-11",
+       "2024-12",
+       "2025-01",
+       "2025-02",
+       "2025-03",
+       "2025-04",
+       "2025-05",
+       "2025-06",
+       "2025-07",
+       "2025-08",
+       "2025-09"
+      ],
+      "from": "2024-10-01",
+      "to": "2025-09-30"
+     },
+     "running": false,
+     "nowCents": 3918770,
+     "baseCents": 3914597,
+     "changeCents": 4173,
+     "gateCents": 78288,
+     "standsOut": false,
+     "categories": [
+      {
+       "kind": "category",
+       "category": "groceries",
+       "label": "Ruokakauppa",
+       "nowCents": 853533,
+       "baseCents": 884180,
+       "changeCents": -30647,
+       "buckets": [],
+       "restCents": -30647,
+       "restCount": 2,
+       "visitsNow": 179,
+       "visitsBase": 188,
+       "sameShopsNowCents": 853533,
+       "sameShopsBaseCents": 884180,
+       "sameShopsVisitsNow": 179,
+       "sameShopsVisitsBase": 188,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (3)",
+         "nowCents": 853533,
+         "baseCents": 884180,
+         "changeCents": -30647,
+         "visitsNow": 179,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": -41241
+          },
+          {
+           "kind": "price",
+           "cents": 10594
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "restaurants",
+       "label": "Ravintolat ja kahvilat",
+       "nowCents": 171164,
+       "baseCents": 145967,
+       "changeCents": 25197,
+       "buckets": [],
+       "restCents": 25197,
+       "restCount": 2,
+       "visitsNow": 98,
+       "visitsBase": 94,
+       "sameShopsNowCents": 171164,
+       "sameShopsBaseCents": 145967,
+       "sameShopsVisitsNow": 98,
+       "sameShopsVisitsBase": 94,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (4)",
+         "nowCents": 171164,
+         "baseCents": 145967,
+         "changeCents": 25197,
+         "visitsNow": 98,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": 28019
+          },
+          {
+           "kind": "price",
+           "cents": -2822
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "shopping",
+       "label": "Vaatteet ja ostokset",
+       "nowCents": 44076,
+       "baseCents": 25120,
+       "changeCents": 18956,
+       "buckets": [],
+       "restCents": 18956,
+       "restCount": 2,
+       "visitsNow": 8,
+       "visitsBase": 5,
+       "sameShopsNowCents": 44076,
+       "sameShopsBaseCents": 25120,
+       "sameShopsVisitsNow": 8,
+       "sameShopsVisitsBase": 5,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (2)",
+         "nowCents": 44076,
+         "baseCents": 25120,
+         "changeCents": 18956,
+         "visitsNow": 8,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": 17467
+          },
+          {
+           "kind": "price",
+           "cents": 1489
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "car",
+       "label": "Auto, polttoaine ja pysäköinti",
+       "nowCents": 145094,
+       "baseCents": 155390,
+       "changeCents": -10296,
+       "buckets": [],
+       "restCents": -10296,
+       "restCount": 2,
+       "visitsNow": 23,
+       "visitsBase": 25,
+       "sameShopsNowCents": 145094,
+       "sameShopsBaseCents": 155390,
+       "sameShopsVisitsNow": 23,
+       "sameShopsVisitsBase": 25,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (2)",
+         "nowCents": 145094,
+         "baseCents": 155390,
+         "changeCents": -10296,
+         "visitsNow": 23,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": -13330
+          },
+          {
+           "kind": "price",
+           "cents": 3034
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "utilities",
+       "label": "Sähkö, vesi ja lämpö",
+       "nowCents": 93610,
+       "baseCents": 87458,
+       "changeCents": 6152,
+       "buckets": [],
+       "restCents": 6152,
+       "restCount": 1,
+       "visitsNow": 12,
+       "visitsBase": 12,
+       "sameShopsNowCents": 93610,
+       "sameShopsBaseCents": 87458,
+       "sameShopsVisitsNow": 12,
+       "sameShopsVisitsBase": 12,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": true,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 93610,
+         "baseCents": 87458,
+         "changeCents": 6152,
+         "visitsNow": 12,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "price",
+           "cents": 6152
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "food_delivery",
+       "label": "Ruoan kotiinkuljetus",
+       "nowCents": 121590,
+       "baseCents": 125101,
+       "changeCents": -3511,
+       "buckets": [],
+       "restCents": -3511,
+       "restCount": 2,
+       "visitsNow": 39,
+       "visitsBase": 41,
+       "sameShopsNowCents": 121590,
+       "sameShopsBaseCents": 125101,
+       "sameShopsVisitsNow": 39,
+       "sameShopsVisitsBase": 41,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 121590,
+         "baseCents": 125101,
+         "changeCents": -3511,
+         "visitsNow": 39,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": -6102
+          },
+          {
+           "kind": "price",
+           "cents": 2591
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "health",
+       "label": "Terveys ja apteekki",
+       "nowCents": 28787,
+       "baseCents": 31545,
+       "changeCents": -2758,
+       "buckets": [],
+       "restCents": -2758,
+       "restCount": 2,
+       "visitsNow": 15,
+       "visitsBase": 17,
+       "sameShopsNowCents": 28787,
+       "sameShopsBaseCents": 31545,
+       "sameShopsVisitsNow": 15,
+       "sameShopsVisitsBase": 17,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 28787,
+         "baseCents": 31545,
+         "changeCents": -2758,
+         "visitsNow": 15,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": -3711
+          },
+          {
+           "kind": "price",
+           "cents": 953
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "taxes",
+       "label": "Verot, maksut ja sakot",
+       "nowCents": 4290,
+       "baseCents": 3210,
+       "changeCents": 1080,
+       "buckets": [],
+       "restCents": 1080,
+       "restCount": 1,
+       "visitsNow": 1,
+       "visitsBase": 1,
+       "sameShopsNowCents": 4290,
+       "sameShopsBaseCents": 3210,
+       "sameShopsVisitsNow": 1,
+       "sameShopsVisitsBase": 1,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 4290,
+         "baseCents": 3210,
+         "changeCents": 1080,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "other",
+           "cents": 1080
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "smaller",
+       "category": null,
+       "label": "Muut (6)",
+       "nowCents": 2456626,
+       "baseCents": 2456626,
+       "changeCents": 0,
+       "visitsNow": 87,
+       "visitsBase": 87,
+       "sameShopsNowCents": 2456626,
+       "sameShopsBaseCents": 2456626,
+       "sameShopsVisitsNow": 87,
+       "sameShopsVisitsBase": 87,
+       "buckets": [],
+       "restCents": 0,
+       "restCount": 2,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": []
+      }
+     ],
+     "pieces": [
+      {
+       "category": "groceries",
+       "kind": "volume",
+       "cents": -41241,
+       "season": false
+      },
+      {
+       "category": "restaurants",
+       "kind": "volume",
+       "cents": 28019,
+       "season": false
+      },
+      {
+       "category": "kids",
+       "kind": "timing",
+       "cents": -27990,
+       "season": false
+      },
+      {
+       "category": "kids",
+       "kind": "volume",
+       "cents": 27990,
+       "season": false
+      },
+      {
+       "category": "shopping",
+       "kind": "volume",
+       "cents": 17467,
+       "season": false
+      },
+      {
+       "category": "car",
+       "kind": "volume",
+       "cents": -13330,
+       "season": false
+      },
+      {
+       "category": "groceries",
+       "kind": "price",
+       "cents": 10594,
+       "season": false
+      },
+      {
+       "category": "utilities",
+       "kind": "price",
+       "cents": 6152,
+       "season": false
+      },
+      {
+       "category": "food_delivery",
+       "kind": "volume",
+       "cents": -6102,
+       "season": false
+      },
+      {
+       "category": "health",
+       "kind": "volume",
+       "cents": -3711,
+       "season": false
+      },
+      {
+       "category": "car",
+       "kind": "price",
+       "cents": 3034,
+       "season": false
+      },
+      {
+       "category": "restaurants",
+       "kind": "price",
+       "cents": -2822,
+       "season": false
+      },
+      {
+       "category": "food_delivery",
+       "kind": "price",
+       "cents": 2591,
+       "season": false
+      },
+      {
+       "category": "shopping",
+       "kind": "price",
+       "cents": 1489,
+       "season": false
+      },
+      {
+       "category": "taxes",
+       "kind": "other",
+       "cents": 1080,
+       "season": false
+      },
+      {
+       "category": "health",
+       "kind": "price",
+       "cents": 953,
+       "season": false
+      }
+     ]
+    }
+   },
+   {
+    "view": "season",
+    "title": "Sama kuukausi vuotta aiemmin",
+    "sentence": "Lokakuu 2026: menot 2 577 €, lokakuu 2025 2 582 €.",
+    "quiet": true,
+    "periodLabel": "Lokakuu 2026",
+    "baseLabel": "lokakuu 2025",
+    "bars": [],
+    "change": {
+     "view": "season",
+     "target": {
+      "months": [
+       "2026-10"
+      ],
+      "from": "2026-10-01",
+      "to": "2026-10-15"
+     },
+     "base": {
+      "months": [
+       "2025-10"
+      ],
+      "from": "2025-10-01",
+      "to": "2025-10-15"
+     },
+     "running": true,
+     "nowCents": 257670,
+     "baseCents": 258225,
+     "changeCents": -555,
+     "gateCents": 5165,
+     "standsOut": false,
+     "categories": [
+      {
+       "kind": "category",
+       "category": "groceries",
+       "label": "Ruokakauppa",
+       "nowCents": 34763,
+       "baseCents": 18738,
+       "changeCents": 16025,
+       "buckets": [
+        {
+         "kind": "volume",
+         "cents": 15069
+        }
+       ],
+       "restCents": 956,
+       "restCount": 1,
+       "visitsNow": 7,
+       "visitsBase": 4,
+       "sameShopsNowCents": 34763,
+       "sameShopsBaseCents": 18738,
+       "sameShopsVisitsNow": 7,
+       "sameShopsVisitsBase": 4,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "Lidl",
+         "nowCents": 16957,
+         "baseCents": 7353,
+         "changeCents": 9604,
+         "visitsNow": 3,
+         "visitsBase": 1,
+         "ticketNowCents": 5652,
+         "ticketBaseCents": 7353,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": 9604
+          }
+         ]
+        },
+        {
+         "kind": "merchant",
+         "label": "K-Citymarket",
+         "nowCents": 13302,
+         "baseCents": 7837,
+         "changeCents": 5465,
+         "visitsNow": 3,
+         "visitsBase": 2,
+         "ticketNowCents": 4434,
+         "ticketBaseCents": 3919,
+         "buckets": [
+          {
+           "kind": "volume",
+           "cents": 5465
+          }
+         ]
+        },
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 4504,
+         "baseCents": 3548,
+         "changeCents": 956,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "price",
+           "cents": 956
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "food_delivery",
+       "label": "Ruoan kotiinkuljetus",
+       "nowCents": 0,
+       "baseCents": 14510,
+       "changeCents": -14510,
+       "buckets": [
+        {
+         "kind": "stopped",
+         "cents": -14510
+        }
+       ],
+       "restCents": 0,
+       "restCount": 0,
+       "visitsNow": 0,
+       "visitsBase": 4,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "Wolt",
+         "nowCents": 0,
+         "baseCents": 14510,
+         "changeCents": -14510,
+         "visitsNow": 0,
+         "visitsBase": 4,
+         "ticketNowCents": null,
+         "ticketBaseCents": 3628,
+         "buckets": [
+          {
+           "kind": "stopped",
+           "cents": -14510
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "shopping",
+       "label": "Vaatteet ja ostokset",
+       "nowCents": 6688,
+       "baseCents": 0,
+       "changeCents": 6688,
+       "buckets": [
+        {
+         "kind": "other",
+         "cents": 6688
+        }
+       ],
+       "restCents": 0,
+       "restCount": 0,
+       "visitsNow": 1,
+       "visitsBase": 0,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "Kappahl",
+         "nowCents": 6688,
+         "baseCents": 0,
+         "changeCents": 6688,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": 6688,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "other",
+           "cents": 6688
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "car",
+       "label": "Auto, polttoaine ja pysäköinti",
+       "nowCents": 0,
+       "baseCents": 5743,
+       "changeCents": -5743,
+       "buckets": [
+        {
+         "kind": "other",
+         "cents": -5743
+        }
+       ],
+       "restCents": 0,
+       "restCount": 0,
+       "visitsNow": 0,
+       "visitsBase": 1,
+       "sameShopsNowCents": 0,
+       "sameShopsBaseCents": 0,
+       "sameShopsVisitsNow": 0,
+       "sameShopsVisitsBase": 0,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "merchant",
+         "label": "St1",
+         "nowCents": 0,
+         "baseCents": 5743,
+         "changeCents": -5743,
+         "visitsNow": 0,
+         "visitsBase": 1,
+         "ticketNowCents": null,
+         "ticketBaseCents": 5743,
+         "buckets": [
+          {
+           "kind": "other",
+           "cents": -5743
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "restaurants",
+       "label": "Ravintolat ja kahvilat",
+       "nowCents": 873,
+       "baseCents": 3169,
+       "changeCents": -2296,
+       "buckets": [],
+       "restCents": -2296,
+       "restCount": 1,
+       "visitsNow": 2,
+       "visitsBase": 2,
+       "sameShopsNowCents": 385,
+       "sameShopsBaseCents": 518,
+       "sameShopsVisitsNow": 1,
+       "sameShopsVisitsBase": 1,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (3)",
+         "nowCents": 873,
+         "baseCents": 3169,
+         "changeCents": -2296,
+         "visitsNow": 2,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "other",
+           "cents": -2296
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "category",
+       "category": "utilities",
+       "label": "Sähkö, vesi ja lämpö",
+       "nowCents": 4088,
+       "baseCents": 4807,
+       "changeCents": -719,
+       "buckets": [],
+       "restCents": -719,
+       "restCount": 1,
+       "visitsNow": 1,
+       "visitsBase": 1,
+       "sameShopsNowCents": 4088,
+       "sameShopsBaseCents": 4807,
+       "sameShopsVisitsNow": 1,
+       "sameShopsVisitsBase": 1,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": true,
+       "merchants": [
+        {
+         "kind": "smaller",
+         "label": "Muut (1)",
+         "nowCents": 4088,
+         "baseCents": 4807,
+         "changeCents": -719,
+         "visitsNow": 1,
+         "visitsBase": 0,
+         "ticketNowCents": null,
+         "ticketBaseCents": null,
+         "buckets": [
+          {
+           "kind": "other",
+           "cents": -719
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "smaller",
+       "category": null,
+       "label": "Muut (5)",
+       "nowCents": 211258,
+       "baseCents": 211258,
+       "changeCents": 0,
+       "visitsNow": 6,
+       "visitsBase": 6,
+       "sameShopsNowCents": 211258,
+       "sameShopsBaseCents": 211258,
+       "sameShopsVisitsNow": 6,
+       "sameShopsVisitsBase": 6,
+       "buckets": [],
+       "restCents": 0,
+       "restCount": 0,
+       "yearAgoCents": null,
+       "season": false,
+       "standsOut": false,
+       "bills": false,
+       "merchants": []
+      }
+     ],
+     "pieces": [
+      {
+       "category": "groceries",
+       "kind": "volume",
+       "cents": 15069,
+       "season": false
+      },
+      {
+       "category": "food_delivery",
+       "kind": "stopped",
+       "cents": -14510,
+       "season": false
+      },
+      {
+       "category": "shopping",
+       "kind": "other",
+       "cents": 6688,
+       "season": false
+      },
+      {
+       "category": "car",
+       "kind": "other",
+       "cents": -5743,
+       "season": false
+      },
+      {
+       "category": "restaurants",
+       "kind": "other",
+       "cents": -2296,
+       "season": false
+      },
+      {
+       "category": "groceries",
+       "kind": "price",
+       "cents": 956,
+       "season": false
+      },
+      {
+       "category": "utilities",
+       "kind": "other",
+       "cents": -719,
+       "season": false
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "income": {
+  "months": [
+   {
+    "month": "2025-10",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2025-11",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2025-12",
+    "complete": true,
+    "totalCents": 366300,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 14300,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-01",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-02",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-03",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-04",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-05",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-06",
+    "complete": true,
+    "totalCents": 528000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 176000,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-07",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-08",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-09",
+    "complete": true,
+    "totalCents": 352000,
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   }
+  ],
+  "completeMonths": 12,
+  "enough": true,
+  "earnedCents": 4414300,
+  "notEarnedCents": 0,
+  "previousEarnedCents": 4410700,
+  "earnedChange": 0.0008161969755367629,
+  "needs": {
+   "compositionMonths": 3,
+   "stabilityMonths": 12,
+   "previousYearMonths": 24,
+   "steadySpread": 0.03
+  },
+  "types": [
+   {
+    "type": "salary",
+    "label": "Palkka",
+    "group": "salary",
+    "regular": true,
+    "earned": true,
+    "totalCents": 4224000,
+    "monthlyCents": 352000,
+    "share": 0.9568901071517568,
+    "payers": [
+     {
+      "payer": "Acme Oy",
+      "totalCents": 4224000,
+      "payments": 12,
+      "usualCents": 352000,
+      "lastDate": "2026-09-25",
+      "nextDate": "2026-10-23",
+      "rows": [
+       {
+        "id": "9554df90b63adddca4591e99",
+        "date": "2026-09-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "6c11e1da7515148b4f877455",
+        "date": "2026-08-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "7cbde1633ce7680f277ec6dd",
+        "date": "2026-07-24",
+        "amountCents": 352000
+       },
+       {
+        "id": "93c7714d00e0406d1dae30ba",
+        "date": "2026-06-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "8a6d3be53156eb361b3db315",
+        "date": "2026-05-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "7eae3ac44a8dfbafca2ffac0",
+        "date": "2026-04-24",
+        "amountCents": 352000
+       },
+       {
+        "id": "15f789839a131fcbfadd2449",
+        "date": "2026-03-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "17b8b0d47f237d96ec30af26",
+        "date": "2026-02-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "fa1e684f851c1f496276ea80",
+        "date": "2026-01-23",
+        "amountCents": 352000
+       },
+       {
+        "id": "accecbd97292b29049450b2c",
+        "date": "2025-12-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "c90e4d673b29daf40951643d",
+        "date": "2025-11-25",
+        "amountCents": 352000
+       },
+       {
+        "id": "a2e887fdc57a61fe1128500b",
+        "date": "2025-10-24",
+        "amountCents": 352000
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "type": "holiday_pay",
+    "label": "Lomaraha",
+    "group": "extra_pay",
+    "regular": false,
+    "earned": true,
+    "totalCents": 176000,
+    "monthlyCents": 14667,
+    "share": 0.0398704211313232,
+    "payers": [
+     {
+      "payer": "Acme Oy",
+      "totalCents": 176000,
+      "payments": 1,
+      "usualCents": 176000,
+      "lastDate": "2026-06-25",
+      "nextDate": null,
+      "rows": [
+       {
+        "id": "a7db8d327a3926d3f2b3f3f4",
+        "date": "2026-06-25",
+        "amountCents": 176000
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "type": "investment",
+    "label": "Osingot ja korot",
+    "group": "other",
+    "regular": false,
+    "earned": true,
+    "totalCents": 14300,
+    "monthlyCents": 1192,
+    "share": 0.00323947171692001,
+    "payers": [
+     {
+      "payer": "Korko",
+      "totalCents": 14300,
+      "payments": 1,
+      "usualCents": 14300,
+      "lastDate": "2025-12-31",
+      "nextDate": null,
+      "rows": [
+       {
+        "id": "9e7158a09206ff8027174740",
+        "date": "2025-12-31",
+        "amountCents": 14300
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "groups": [
+   {
+    "id": "salary",
+    "label": "Palkka"
+   },
+   {
+    "id": "extra_pay",
+    "label": "Lomaraha ja muu palkka"
+   },
+   {
+    "id": "kela",
+    "label": "Kela"
+   },
+   {
+    "id": "fund",
+    "label": "Ansiosidonnainen"
+   },
+   {
+    "id": "pension",
+    "label": "Työeläke"
+   },
+   {
+    "id": "other",
+    "label": "Muut tulot"
+   },
+   {
+    "id": "not_earned",
+    "label": "Maksut henkilöiltä ja hyvitykset"
+   }
+  ],
+  "projection": [
+   {
+    "month": "2026-10",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-11",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2026-12",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-01",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-02",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-03",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-04",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-05",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-06",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-07",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-08",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   },
+   {
+    "month": "2027-09",
+    "byGroup": {
+     "salary": 352000,
+     "extra_pay": 0,
+     "kela": 0,
+     "fund": 0,
+     "pension": 0,
+     "other": 0,
+     "not_earned": 0
+    }
+   }
+  ],
+  "markers": [
+   {
+    "month": "2027-06",
+    "label": "Lomaraha",
+    "cents": 176000
+   }
+  ],
+  "changes": [],
+  "stability": {
+   "medianCents": 352000,
+   "spread": 0,
+   "steady": true,
+   "lowCents": 352000,
+   "lowMonth": "2025-10",
+   "lowShare": 0,
+   "worstRunCents": 0,
+   "worstRunWeeks": 0
+  },
+  "payDays": [
+   {
+    "label": "Palkka",
+    "payer": "Acme Oy",
+    "text": "25. päivä tai sitä edeltävä pankkipäivä",
+    "nextDate": "2026-10-23",
+    "usualCents": 352000
+   }
+  ],
+  "members": null
+ },
+ "insights": {
+  "items": [],
+  "months": 30
+ },
+ "loans": {
+  "day": "2026-10-15",
+  "saved": 0,
+  "loans": [
+   {
+    "id": "account:card",
+    "name": "Nordea Gold",
+    "lender": null,
+    "kind": "card",
+    "accountType": "credit_card",
+    "linkedAccount": null,
+    "balance": {
+     "cents": 45122,
+     "unknown": "repayment"
+    },
+    "balanceDate": "2026-10-15",
+    "rateBp": null,
+    "reference": null,
+    "repayment": null,
+    "payment": {
+     "cents": null,
+     "interestCents": null,
+     "amortisationCents": null,
+     "intervalMonths": null,
+     "date": null,
+     "unknown": "repayment"
+    },
+    "interest": {
+     "cents": null,
+     "unknown": "rate"
+    },
+    "payoff": {
+     "date": null,
+     "unknown": "repayment",
+     "never": false
+    },
+    "scenarios": []
+   }
+  ],
+  "total": {
+   "cents": 45122,
+   "unknown": [
+    {
+     "loanId": "account:card",
+     "unknown": "repayment",
+     "counted": true
+    }
+   ]
+  },
+  "interest": {
+   "cents": 0,
+   "unknown": [
+    {
+     "loanId": "account:card",
+     "unknown": "rate",
+     "counted": false
+    }
+   ]
+  },
+  "interestKnown": false,
+  "withoutRate": 1,
+  "payments": {
+   "monthlyCents": 0,
+   "counted": 0,
+   "unknown": 1,
+   "bullets": 0
+  },
+  "maybeTwice": [],
+  "overdraftTwice": []
+ },
+ "food": {
+  "window": {
+   "first": "2025-10",
+   "last": "2026-09",
+   "months": 12,
+   "days": 365
+  },
+  "lines": [
+   {
+    "id": "groceries",
+    "heading": "Ruokakauppa",
+    "cents": 853533,
+    "monthlyCents": 71128,
+    "monthCents": [
+     56507,
+     64444,
+     67592,
+     111619,
+     77878,
+     111678,
+     78819,
+     84577,
+     49993,
+     51245,
+     46537,
+     52644
+    ],
+    "dearest": 5,
+    "weekCents": 16369,
+    "purchases": 179,
+    "meanCents": 4768,
+    "perMonth": 14.9,
+    "payees": [
+     {
+      "payee": "K-Citymarket",
+      "cents": 288016
+     },
+     {
+      "payee": "S-Market",
+      "cents": 286917
+     },
+     {
+      "payee": "Lidl",
+      "cents": 278600
+     }
+    ],
+    "otherCents": 0,
+    "weekdays": [
+     25,
+     28,
+     27,
+     19,
+     31,
+     30,
+     19
+    ],
+    "changeCents": null
+   },
+   {
+    "id": "restaurants",
+    "heading": "Ravintolat ja kahvilat",
+    "cents": 171164,
+    "monthlyCents": 14264,
+    "monthCents": [
+     23656,
+     8862,
+     20746,
+     8796,
+     14542,
+     24351,
+     1882,
+     19297,
+     17873,
+     10349,
+     10131,
+     10679
+    ],
+    "dearest": 5,
+    "weekCents": 3283,
+    "purchases": 98,
+    "meanCents": 1747,
+    "perMonth": 8.2,
+    "payees": [
+     {
+      "payee": "Hesburger",
+      "cents": 70110
+     },
+     {
+      "payee": "Ravintola Savotta",
+      "cents": 51852
+     },
+     {
+      "payee": "Espresso House",
+      "cents": 26671
+     },
+     {
+      "payee": "Robert's Coffee",
+      "cents": 22531
+     }
+    ],
+    "otherCents": 0,
+    "weekdays": [
+     13,
+     15,
+     12,
+     14,
+     12,
+     18,
+     14
+    ],
+    "changeCents": null
+   },
+   {
+    "id": "food_delivery",
+    "heading": "Ruoan kotiinkuljetus",
+    "cents": 121590,
+    "monthlyCents": 10132,
+    "monthCents": [
+     16996,
+     10421,
+     10116,
+     16409,
+     2124,
+     5826,
+     9530,
+     3428,
+     14815,
+     7683,
+     10248,
+     13994
+    ],
+    "dearest": 0,
+    "weekCents": 2332,
+    "purchases": 39,
+    "meanCents": 3118,
+    "perMonth": 3.3,
+    "payees": [
+     {
+      "payee": "Wolt",
+      "cents": 121590
+     }
+    ],
+    "otherCents": 0,
+    "weekdays": null,
+    "changeCents": null
+   },
+   {
+    "id": "alcohol",
+    "heading": "Alko",
+    "cents": 0,
+    "monthlyCents": 0,
+    "monthCents": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "dearest": null,
+    "weekCents": null,
+    "purchases": 0,
+    "meanCents": null,
+    "perMonth": null,
+    "payees": [],
+    "otherCents": 0,
+    "weekdays": null,
+    "changeCents": null
+   }
+  ],
+  "cents": 1146287,
+  "monthlyCents": 95524,
+  "cardBills": null,
+  "basket": {
+   "now": {
+    "purchases": 30,
+    "meanCents": 5014,
+    "perMonth": 10
+   },
+   "before": {
+    "purchases": 42,
+    "meanCents": 5081,
+    "perMonth": 14
+   }
+  }
+ }
+}

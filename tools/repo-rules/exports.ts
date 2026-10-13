@@ -93,13 +93,21 @@ export function unreadExports(files: readonly string[], sf: (file: string) => ts
   for (const file of under(owners)) {
     const seen = new Set<string>();
     for (const { name, line } of ownExports(sf(file))) {
-      if (seen.has(name)) continue;
+      if (seen.has(name) || exempt(file, name)) continue;
       seen.add(name);
       if (![...read].some(([other, names]) => other !== file && names.has(name))) out.push({ key: `${file}  ${name}`, file, line });
     }
   }
   return out;
 }
+
+/**
+ * Exports that are read where no source reader looks: `module` by the generated line of its registry (a re-export
+ * passes a name on and reads nothing), `cases` by the test of its module, and the contract by the modules to come.
+ */
+const FEATURES = /^packages\/core\/src\/features\//;
+const exempt = (file: string, name: string) =>
+  file === "packages/core/src/features/contract.ts" || (FEATURES.test(file) && ((name === "module" && /\/[^/]+\/[^/]+\/index\.ts$/.test(file)) || (name === "cases" && file.endsWith("/fixture.ts"))));
 
 const listed = () => readText(LIST).split("\n").filter(Boolean);
 

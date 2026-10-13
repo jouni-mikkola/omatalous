@@ -3,7 +3,6 @@
  * käynnin jälkeen (`changesSince`) and the found side of the follow-up line (`followUpOf` in outcome.ts). Pure.
  */
 import { parseFindingId } from "./common.ts";
-import { FINDINGS_PER_AREA } from "./index.ts";
 import { AREA_IDS, type AreaId, type CertaintyLevel, type Finding, type FindingState, type FindingStatus, type OptimiseData } from "./types.ts";
 
 export type SnapshotStatus = "active" | FindingStatus;
@@ -87,22 +86,18 @@ export function parseSnapshot(raw: unknown): SnapshotEntry[] {
 const ORDER: readonly ChangeKind[] = ["new", "grown", "shrunk", "resolved"];
 
 /**
- * Active findings now against the last snapshot. The page shows three findings an area, so an area that showed three
- * may have hidden more: a finding that appears there is not called new, and one that leaves an area that hides some
- * now is not called resolved.
+ * Active findings now against the last snapshot. The page shows every finding, so one that appears is new and one that
+ * leaves is resolved.
  */
-export function changesSince(previous: readonly SnapshotEntry[], current: readonly SnapshotEntry[], data: Pick<OptimiseData, "areas">): FindingChange[] {
+export function changesSince(previous: readonly SnapshotEntry[], current: readonly SnapshotEntry[]): FindingChange[] {
   const before = new Map(previous.map((e) => [e.id, e]));
   const now = new Map(current.map((e) => [e.id, e]));
-  const hidingNow = new Set(data.areas.filter((a) => a.more > 0).map((a) => a.id));
-  const shownBefore = new Map<AreaId, number>();
-  for (const e of previous) if (e.status === "active") shownBefore.set(e.area, (shownBefore.get(e.area) ?? 0) + 1);
   const out: FindingChange[] = [];
   for (const e of current) {
     if (e.status !== "active") continue;
     const then = before.get(e.id);
     if (!then) {
-      if ((shownBefore.get(e.area) ?? 0) < FINDINGS_PER_AREA) out.push({ id: e.id, area: e.area, change: "new", midCents: e.midCents, previousCents: null });
+      out.push({ id: e.id, area: e.area, change: "new", midCents: e.midCents, previousCents: null });
       continue;
     }
     if (then.status !== "active" || then.midCents === null || e.midCents === null || then.midCents <= 0) continue;
@@ -110,7 +105,7 @@ export function changesSince(previous: readonly SnapshotEntry[], current: readon
     else if (e.midCents <= then.midCents * (1 - CHANGE_SHARE)) out.push({ id: e.id, area: e.area, change: "shrunk", midCents: e.midCents, previousCents: then.midCents });
   }
   for (const e of previous) {
-    if (e.status === "active" && !now.has(e.id) && !hidingNow.has(e.area)) out.push({ id: e.id, area: e.area, change: "resolved", midCents: null, previousCents: e.midCents });
+    if (e.status === "active" && !now.has(e.id)) out.push({ id: e.id, area: e.area, change: "resolved", midCents: null, previousCents: e.midCents });
   }
   return out.sort((a, b) => ORDER.indexOf(a.change) - ORDER.indexOf(b.change) || (b.midCents ?? b.previousCents ?? 0) - (a.midCents ?? a.previousCents ?? 0) || a.id.localeCompare(b.id));
 }

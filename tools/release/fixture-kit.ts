@@ -4,7 +4,7 @@
  * table). The repository's fixtures, contracts and migrations are only read.
  */
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,8 +27,15 @@ export const scratch = () => {
   return d;
 };
 
+/**
+ * fixture.mjs loads the previous fixture into a database file in its temporary folder, one statement at a time, and a
+ * disk waits for every one of them to be written: 0.7 s alone, 30 s when a build keeps the disk busy. The same work in
+ * memory (a RAM folder where there is one) takes 0.06 s and cannot be slowed by another job's disk.
+ */
+const MEMORY = existsSync("/dev/shm") ? "/dev/shm" : tmpdir();
+
 export function run(...args: string[]) {
-  const r = spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+  const r = spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8", env: { ...process.env, TMPDIR: MEMORY } });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
 

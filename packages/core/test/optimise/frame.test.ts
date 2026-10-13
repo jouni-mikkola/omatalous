@@ -132,11 +132,12 @@ const state = (findingId: string, s: Partial<FindingState>): FindingState => ({
 });
 
 describe("optimise frame: what is shown", () => {
-  it("shows three findings per area, largest weighted mid first, and counts the rest", () => {
+  it("shows every finding of an area, largest weighted mid first: five give five", () => {
     const drafts = [150, 500, 300, 200, 400].map((e, i) => draft({ subject: `S${i}`, mid: e * 100 }));
     const data = run(CTX12, area(drafts));
-    expect(ids(data.areas[0]!.findings)).toEqual(["subscriptions:rise:S1", "subscriptions:rise:S4", "subscriptions:rise:S2"]);
-    expect(data.areas[0]!.more).toBe(2);
+    expect(ids(data.areas[0]!.findings)).toEqual(["subscriptions:rise:S1", "subscriptions:rise:S4", "subscriptions:rise:S2", "subscriptions:rise:S3", "subscriptions:rise:S0"]);
+    expect(data.areas[0]!.weightCents).toBe(155000);
+    expect(data.headline).toMatchObject({ midCents: 155000, count: 5 });
     expect(data.checked).toEqual({ total: 2, findings: 5, unavailable: 0, noRows: 0 });
     expect(data.areas[0]!.checks.find((c) => c.id === "subscriptions:rise")!.status).toBe("finding");
   });
@@ -175,14 +176,20 @@ describe("optimise frame: what is shown", () => {
     expect(data.areas[0]!.checks.map((c) => c.status)).toEqual(["clear", "finding"]);
   });
 
-  it("steps certainty down per weakness, names the first in rule order and hides at three", () => {
+  it("steps certainty down per weakness, names the first in rule order and never goes below matala", () => {
     expect(certaintyOf([])).toEqual({ level: "korkea", reason: "Laskettu omista tiedoista." });
     expect(certaintyOf([weak("wide_range"), weak("estimate")])).toEqual({ level: "matala", reason: "Heikkous estimate." });
-    expect(certaintyOf([weak("estimate"), weak("estimate")])?.level).toBe("keskitaso");
-    const data = run(CTX12, area([draft({ weaknesses: [weak("estimate"), weak("sample"), weak("gap")] })], [{ ...CHECKS[0]!, status: "finding" }]));
-    expect(shown(data)).toEqual([]);
-    expect(data.areas[0]!.checks[0]!.status).toBe("no_data");
-    expect(data.checked.unavailable).toBe(1);
+    expect(certaintyOf([weak("estimate"), weak("estimate")]).level).toBe("keskitaso");
+    expect(certaintyOf([weak("estimate"), weak("sample"), weak("gap"), weak("stale")])).toEqual({ level: "matala", reason: "Heikkous estimate." });
+  });
+
+  it("keeps a finding with three weaknesses at matala: it stays on the page, its check is a finding and the headline leaves it out", () => {
+    const data = run(CTX12, area([draft({ weaknesses: [weak("estimate"), weak("sample"), weak("gap")] })], [{ ...CHECKS[0]!, status: "clear" }]));
+    expect(shown(data).map((f) => [f.id, f.certainty.level])).toEqual([["subscriptions:rise:Elisa", "matala"]]);
+    expect(shown(data)[0]!.weaknesses.map((w) => w.id)).toEqual(["estimate", "sample", "gap"]);
+    expect(data.areas[0]!.checks[0]!.status).toBe("finding");
+    expect(data.checked).toMatchObject({ findings: 1, unavailable: 0 });
+    expect(data.headline.count).toBe(0);
   });
 
   it("adds a step for a range wider than mid", () => {
@@ -425,18 +432,28 @@ describe("optimise frame: evidence and common helpers", () => {
     const cardRows = ctx.txs.filter((t) => t.accountId === "card").slice(-5).map((t) => t.id);
     const unknownRow = ctx.txs.filter((t) => t.merchant === "Xyzzy Tuntematon" && t.categorySource === "default").map((t) => t.id);
     expect(unknownRow).toHaveLength(1);
-    const data = run(ctx, area([draft({ subject: "Kortti", rows: cardRows }), draft({ subject: "Tuntematon", rows: unknownRow })]));
+    const shopRows = ctx.txs.filter((t) => t.accountId === "acc-1" && t.merchant === "K-Market Kamppi").slice(-5).map((t) => t.id);
+    const data = run(ctx, area([draft({ subject: "Kortti", rows: cardRows }), draft({ subject: "Tuntematon", rows: unknownRow }), draft({ subject: "Kauppa", rows: shopRows })]));
     const by = (s: string) => shown(data).find((f) => f.subject === s)!;
     expect(by("Kortti").certainty).toEqual({ level: "keskitaso", reason: "Tilin Luottokortti tiedoissa on tauko." });
     expect(by("Tuntematon").weaknesses.map((w) => w.id)).toEqual(["uncertain_rows"]);
-    // over 5 % of the window's spending uncategorised lowers every finding with rows
+    // near miss: the gap is on the card, the rows of this finding are on the checking account
+    expect(by("Kauppa").weaknesses).toEqual([]);
+    expect(by("Kauppa").certainty.level).toBe("korkea");
+  });
+
+  it("counts the household's own faults on no finding and says them once in `household`", () => {
+    // over 5 % of the window's spending uncategorised
     const messy = ctxWith(12, [tx({ bookingDate: "2026-09-10", amountCents: -40000, merchant: "Xyzzy Tuntematon" })]);
     const groceries = messy.txs.filter((t) => t.merchant === "K-Market Kamppi").slice(-3).map((t) => t.id);
-    const f = shown(run(messy, area([draft({ rows: groceries }), draft({ subject: "Ilman", rows: [] })])));
-    expect(f.map((x) => [x.subject, x.weaknesses.map((w) => w.reason)])).toEqual([
-      ["Ilman", []],
-      ["Elisa", ["12\u00a0% menoista on luokittelematta."]],
+    const data = run(messy, area([draft({ rows: groceries }), draft({ subject: "Ilman", rows: [] })]));
+    expect(shown(data).map((x) => [x.subject, x.certainty.level, x.weaknesses.map((w) => w.id)])).toEqual([
+      ["Elisa", "korkea", []],
+      ["Ilman", "korkea", []],
     ]);
+    expect(data.household).toEqual([{ id: "uncategorised", reason: "12\u00a0% menoista on luokittelematta." }]);
+    // near miss: a household with nothing wrong says nothing
+    expect(run(CTX12, area([draft()])).household).toEqual([]);
   });
 
   it("caps the rows at 60 and keeps struck rows among them", () => {

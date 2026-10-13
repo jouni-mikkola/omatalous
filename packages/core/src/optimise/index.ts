@@ -1,7 +1,7 @@
 /**
  * Optimoi: the household's decisions with a price or a deadline. Each area (`areas/*.ts`) returns its findings and what
  * it checked; this frame applies the rules every finding follows: complete months only, the gate, certainty from
- * weaknesses, the user's states, three findings per area, the order of areas and the headline without overlaps. The
+ * weaknesses, the user's states, every finding of an area, the order of areas and the headline without overlaps. The
  * insights no finding covers come along as Muut havainnot (`others.ts`). Pure: `ctx.today` is the only clock.
  */
 import type { AnalysisContext } from "../analysis/context.ts";
@@ -26,6 +26,7 @@ import {
   certaintyOf,
   evidenceWeakness,
   GATE_YEARLY_CENTS,
+  householdWeakness,
   MAX_ROWS,
   qualityOf,
   shortHistoryWeakness,
@@ -53,8 +54,6 @@ export const AREAS: readonly Area[] = [loans, savings, subscriptions, bank, elec
 
 /** A finding with `decideBy` this many days ahead or fewer lands in Seuraavat 60 päivää. */
 export const SOON_DAYS = 60;
-/** Active findings shown per area; the rest are counted in `more`. */
-export const FINDINGS_PER_AREA = 3;
 /** Rule 2: under this many complete months only deadlines... */
 export const MIN_MONTHS_ANY = 3;
 /** ...and under this many no euro figure. */
@@ -96,7 +95,7 @@ export function areaInputOf(input: OptimiseInput): AreaInput {
   };
 }
 
-type Dropped = "history" | "facts" | "gate" | "certainty";
+type Dropped = "history" | "facts" | "gate";
 
 /** Rules 2, 3, 4 and 7 on one draft: the finding as shown, or why it is not. */
 function settle(draft: FindingDraft, a: AreaInput): Finding | Dropped {
@@ -114,9 +113,7 @@ function settle(draft: FindingDraft, a: AreaInput): Finding | Dropped {
   weaknesses.push(...evidenceWeakness(a.ctx, rows, a.quality));
   if (draft.euros && draft.euros.highCents - draft.euros.lowCents > draft.euros.midCents) weaknesses.push(WIDE_RANGE);
   const sorted = sortWeaknesses(weaknesses);
-  const certainty = certaintyOf(sorted);
-  if (!certainty) return "certainty";
-  return { ...draft, rows, struck: draft.struck.filter((id) => kept.has(id)), weaknesses: sorted, certainty };
+  return { ...draft, rows, struck: draft.struck.filter((id) => kept.has(id)), weaknesses: sorted, certainty: certaintyOf(sorted) };
 }
 
 const weightOf = (f: Finding) => (f.euros ? f.euros.midCents * CERTAINTY_WEIGHT[f.certainty.level] : 0);
@@ -171,7 +168,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
   const done: OptimiseData["done"] = [];
   const dismissed: OptimiseData["dismissed"] = [];
   const snoozed: OptimiseData["snoozed"] = [];
-  const views: (AreaView & { all: Finding[] })[] = [];
+  const views: AreaView[] = [];
   // the rows of every finding the page knows, shown or decided: an insight about the same rows is left to it
   const findingRows: (readonly string[])[] = [];
 
@@ -208,21 +205,18 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
       const kind = c.id.slice(c.id.indexOf(":") + 1);
       if (kinds.has(kind) || decided.has(kind)) return { ...c, status: "finding" };
       const why = dropped.get(kind);
-      if ((why === "history" || why === "facts" || why === "certainty") && (c.status === "clear" || c.status === "finding")) return { ...c, status: "no_data" };
+      if ((why === "history" || why === "facts") && (c.status === "clear" || c.status === "finding")) return { ...c, status: "no_data" };
       return c.status === "finding" ? { ...c, status: "clear" } : c;
     });
     shown.sort(byRank);
     active.push(...shown);
-    const findings = shown.slice(0, FINDINGS_PER_AREA);
     views.push({
       id: area.id,
       label: area.label,
-      findings,
-      more: shown.length - findings.length,
+      findings: shown,
       checks,
       ...(result.summary ? { summary: result.summary } : {}),
-      weightCents: Math.round(findings.reduce((s, f) => s + weightOf(f), 0)),
-      all: shown,
+      weightCents: Math.round(shown.reduce((s, f) => s + weightOf(f), 0)),
     });
   }
 
@@ -234,7 +228,6 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
   for (const s of input.states ?? []) if (placeOf(s, { euros: null }, today) === "snoozed" && !snoozedIds.has(s.findingId)) snoozed.push({ state: s, finding: null });
 
   views.sort((x, y) => y.weightCents - x.weightCents || Number(!x.findings.length) - Number(!y.findings.length) || order.get(x.id)! - order.get(y.id)!);
-  const shownFindings = views.flatMap((v) => v.findings);
   const until = addDays(today, SOON_DAYS);
   const soon = active
     .filter((f) => f.certainty.level !== "matala" && f.decideBy !== null && f.decideBy >= today && f.decideBy <= until)
@@ -249,8 +242,9 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     dataTo: ctx.txs.length ? ctx.txs[ctx.txs.length - 1]!.bookingDate : null,
     accounts: ctx.accounts.length,
     situation: situationOf(ctx, a.months, input.balances, a.inputs),
-    headline: headlineOf(shownFindings),
-    areas: views.map(({ all: _all, ...view }) => view),
+    headline: headlineOf(active),
+    household: householdWeakness(a.quality),
+    areas: views,
     soon,
     done,
     dismissed,
@@ -267,7 +261,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
 }
 
 /** The inputs the checks wait for and the findings would sharpen with, once each, with the stale value if any. */
-function neededOf(views: readonly (AreaView & { all: readonly Finding[] })[], values: InputValues, today: IsoDate): NeededInput[] {
+function neededOf(views: readonly AreaView[], values: InputValues, today: IsoDate): NeededInput[] {
   const out = new Map<string, NeededInput>();
   const add = (key: string) => {
     const found = inputDefOf(key);
@@ -278,7 +272,7 @@ function neededOf(views: readonly (AreaView & { all: readonly Finding[] })[], va
   };
   for (const v of views) {
     for (const c of v.checks) if (c.status === "needs_input" && c.input) add(c.input);
-    for (const f of v.all) for (const key of f.needs ?? []) add(key);
+    for (const f of v.findings) for (const key of f.needs ?? []) add(key);
   }
   return [...out.values()];
 }

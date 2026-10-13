@@ -68,7 +68,7 @@ export function ThemesTable({ report, open, onToggle }: { report: NonNullable<Da
                   {row.toggle ? <Toggle id={row.key} label={row.label} open={open} onToggle={onToggle} /> : <span className="themes-plain">{row.href ? <a href={row.href}>{row.label}</a> : row.label}</span>}
                 </th>
                 <td className="category-bar themes-bar">{row.share > 0 && <span style={{ width: `${row.share}%` }} />}</td>
-                <td className="st-num themes-month sum">{row.monthly}</td>
+                <td className="st-num themes-month sum">{row.key === "food" ? <a href="#/reports#ruoka">{row.monthly}</a> : row.monthly}</td>
                 {view.year && <td className="st-num themes-year">{row.year}</td>}
                 {view.change && <td className="st-num themes-change">{row.change}</td>}
               </tr>

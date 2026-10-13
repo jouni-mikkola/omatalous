@@ -32,7 +32,7 @@ const SHELL = /^(scripts\/|tools\/test\/|tools\/ci\/)|\.sh$/;
 const SUITE_INPUTS = /^docker-compose\.yml$/;
 const SUITE = /^tools\/test\/[^/]+\.test\.sh$/;
 /** The files vitest runs (the `include` of vitest.config.ts). */
-const VITEST_FILE = /^((packages|apps)\/[^/]+\/test\/.+|tools\/.+)\.test\.ts$/;
+const VITEST_FILE = /^((packages|apps)\/[^/]+\/(test|src\/features)\/.+|tools\/.+)\.test\.ts$/;
 
 /** @typedef {{ dir: string, name: string, deps: string[] }} Pkg */
 /** Every shell file and every vitest file with its text. @typedef {{ shell: Record<string, string>, vitest: Record<string, string> }} Corpus */

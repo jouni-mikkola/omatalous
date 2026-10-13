@@ -3,6 +3,24 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.37.0
+
+- Raportit has a new part, Ruoka: groceries, restaurants and cafés, food delivery and Alko each on a line of its own, with the sum a month, the average purchase, the times a month, the largest payees and the weekdays.
+- Raportit: Menot kuukausittain replaces the wide category table. It is by theme, shows the last twelve months, the usual level and the difference, and a row opens to its lines and payees. The old table is behind Taulukko.
+- Säästövinkit shows every finding and lists what it checked (Tarkistettu); findings with low certainty are no longer left out.
+
+Money and reports
+
+- Säästövinkit shows every finding of an area (three open, the rest from "Näytä lisää"), and a finding with several weak points is shown at certainty "matala" with its reason instead of being left out.
+- Säästövinkit ends with Tarkistettu: a row for every check that found nothing, with one word for why (nothing to note, information missing, too few months, no rows).
+- Uncategorised spending and an own account that moves money to an unconnected one are said once above the findings and no longer lower each finding. Findings that this lifted from matala to keskitaso, and findings that used to stand fourth or later in an area, now count in "Säästömahdollisuus vuodessa (arvio)" and in the follow-up's sum of what was found, so those sums can rise with no new finding. In the demo and the test households none moves.
+- Reports has a new part, Ruoka: groceries, restaurants and cafés, food delivery and Alko, each with its sum a month, its share, a week, the average shop and visits a month. A line opens to its months, its five biggest payees, the weekdays of the purchases and, for groceries, the basket now and before. Card bills are a row of their own, so the lines never read as all the food money.
+- On the front page the food sum in the table of themes links to it.
+
+Look
+
+- Reports: the month table is now "Menot kuukausittain". It shows the spending by theme, each row opening to its lines and a line to its five largest payees, with the newest complete month beside its usual level and the difference. A strip of the last twelve complete months marks the highest one and names the three rows it went to. The table of every category by month is still there behind "Taulukko".
+
 ## 0.36.0
 
 - Päivitä sovellus: the dialog no longer shows scrollbars when everything in it fits.

@@ -122,8 +122,11 @@ interface Coverage {
  * one's too: the account was in the data from that older row on, with nothing to show. A card vouches for a card and
  * a deposit account for a deposit account, never one for the other, since banks give cards a shorter history. An
  * account without a bank is vouched for by none and vouches for none.
+ *
+ * A reader may rely on `covers(account, month)` (the account was in the data from the 1st of the month) and on
+ * `began(account)` (the month index of its first row, infinity without one); how the first day is guessed may change.
  */
-function coverage(ctx: AnalysisContext): Coverage {
+export function coverage(ctx: AnalysisContext): Coverage {
   const first = new Map<string, IsoDate>();
   for (const t of ctx.txs) if (!first.has(t.accountId)) first.set(t.accountId, t.bookingDate);
   const from = new Map(first);
@@ -168,8 +171,12 @@ function newestRun(months: readonly number[], covered: (month: number) => boolea
   return [];
 }
 
-/** `cents` each divided by `n`, in whole cents that add up to `total` (the sum of `cents` divided by `n`, rounded). */
-function sharedOut(cents: readonly number[], n: number, total: number): number[] {
+/**
+ * `cents` each divided by `n`, in whole cents that add up to `total` (the sum of `cents` divided by `n`, rounded).
+ * The cents the rounding down left go to the lines that lost most of one, the earlier first; a reader may rely on the
+ * sum being `total` and on each share being within a cent of its own.
+ */
+export function sharedOut(cents: readonly number[], n: number, total: number): number[] {
   const over = cents.map((c) => ((c % n) + n) % n);
   const out = cents.map((c, i) => (c - over[i]!) / n);
   let left = total - sum(out);
@@ -214,10 +221,37 @@ function sumsOf(ctx: AnalysisContext, rows: readonly AnalysisTx[], cars: Paramet
 }
 
 /**
- * The themes of the last twelve complete months before today; null under three months that every account with
- * spending in them covers from their first day and every paying account has rows in.
+ * What `themeWindow` works out. Others may rely on `months`, `rows`, `cars` and `large`: the window's months as month
+ * indexes, the rows in them, the answer on cars that places them and the large purchases (`largePurchases`). The rest
+ * is the evidence `themesReport` needs for the year before, and may change with it.
  */
-export function themesReport(ctx: AnalysisContext): ThemesReport | null {
+export interface ThemeWindow {
+  /** The consecutive complete months of the window, 3 to 12, oldest first. */
+  months: readonly number[];
+  /** The rows of those months, from the 1st of the first to the end of the last. */
+  rows: AnalysisTx[];
+  /** The answer on cars that `themeOf` places the rows by: the fuel bought in the window stands in for it. */
+  cars: Parameters<typeof themeOf>[2];
+  /** The ids of the large purchases (`largePurchases`). */
+  large: ReadonlySet<string>;
+  /** Up to twenty-four complete months before today, oldest first. */
+  complete: readonly number[];
+  /** The accounts with spending in the twelve newest complete months. */
+  spending: readonly string[];
+  /** The accounts whose month without a row is missing data. */
+  paying: readonly string[];
+  /** The `account|month` pairs that have a row among the twelve newest complete months. */
+  seen: ReadonlySet<string>;
+  covers: Coverage["covers"];
+  began: Coverage["began"];
+}
+
+/**
+ * The months, rows, cars and large purchases the themes of `themesReport` are summed over; null when there is no
+ * window (under three months that every account with spending covers from their first day and every paying account
+ * has rows in). Whoever sums these rows by `themeOf` with these `cars` gets the report's own figures.
+ */
+export function themeWindow(ctx: AnalysisContext): ThemeWindow | null {
   const complete = completeMonthsBefore(ctx, monthOf(ctx.today), 2 * YEAR).map(monthIndex);
   const latest = complete.slice(-YEAR);
   if (latest.length < MIN_COMPARE_MONTHS) return null;
@@ -235,11 +269,21 @@ export function themesReport(ctx: AnalysisContext): ThemesReport | null {
   const n = months.length;
   if (!n) return null;
   const rows = latestRows.filter((t) => t.month >= months[0]! && t.month <= months[n - 1]!);
-
-  const large = largePurchases(ctx);
   // The household is not asked how many cars it has, so the fuel it bought in the window stands in for the answer.
   // The year before is placed by the same answer: a theme is compared with itself.
   const cars = { answer: null, purchases: fuelPurchases(rows) };
+  return { months, rows, cars, large: largePurchases(ctx), complete, spending, paying, seen, covers, began };
+}
+
+/**
+ * The themes of the last twelve complete months before today; null under three months that every account with
+ * spending in them covers from their first day and every paying account has rows in.
+ */
+export function themesReport(ctx: AnalysisContext): ThemesReport | null {
+  const w = themeWindow(ctx);
+  if (!w) return null;
+  const { complete, months, rows, cars, large, spending, paying, seen, covers, began } = w;
+  const n = months.length;
   const now = sumsOf(ctx, rows, cars, large);
 
   let before: Sums["themes"] | null = null;

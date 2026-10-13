@@ -38,6 +38,9 @@ export function spendingBase(txs: readonly Pick<AnalysisTx, "spend" | "category"
   return base;
 }
 
+/** A row of a card bill that counts as spending: the rows the card_bills signal adds up. */
+export const isCardBill = (t: Pick<AnalysisTx, "category" | "spend">): boolean => t.category === "card_bill" && t.spend > 0;
+
 const GAP_DAYS = 14;
 const STALE_DAYS = 7;
 /** A card is used less often than a checking account: three weeks of quiet is ordinary. */
@@ -116,7 +119,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
 
   // with a card connected the bills are of the months before its rows, or of a card that is not connected
   const hasCardAccount = ctx.accounts.some((a) => a.type === "credit_card");
-  const billTotal = inRange.filter((t) => t.category === "card_bill" && t.spend > 0).reduce((s, t) => s + t.spend, 0);
+  const billTotal = inRange.filter(isCardBill).reduce((s, t) => s + t.spend, 0);
   if (billTotal > 0) {
     signals.push({
       id: "card_bills",

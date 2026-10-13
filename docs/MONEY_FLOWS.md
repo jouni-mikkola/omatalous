@@ -499,10 +499,11 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
 - The spending of a range has one owner, `totalsOf` in `analysis/flows.ts`: the expense of *Tulot ja menot*, every
   row's spending with the refunds taken off. Three readers show that total and nothing else. *Kategoriat* divides every
   share by `spendingBase` (`analysis/data-quality.ts`, the same sum over the range's rows), and so does the notice of
-  uncategorised rows for the share of *Muut menot*. *Kuukausitaulukko* has the month totals and the total as sums of all
-  its rows. `packages/core/test/reports-totals.test.ts` holds the three to the cent for the seeded households.
-- A category whose refunds were greater than its spending in the range stays in *Kategoriat* and *Kuukausitaulukko* as a
-  row with its minus, last in the order. Its share is negative, the shares add up to 100 %, and the page shows "–" for
+  uncategorised rows for the share of *Muut menot*. *Menot kuukausittain* has the month totals and the total as sums of all
+  its rows: the themes, *Loput yhteensä* and the large purchases add up to them to the cent, and so does the table of
+  every category behind *Taulukko*. `packages/core/test/reports-totals.test.ts` holds the three to the cent for the seeded households.
+- A category whose refunds were greater than its spending in the range stays in *Kategoriat* and in the table behind *Taulukko* of *Menot kuukausittain* as a
+  row with its minus, last in the order (in the view by theme its theme is under *Loput yhteensä*). Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
   first page's list *Menot kategorioittain* of the month, which a household with themes (see *Themes*) sees as their
   table instead, has such a category as a row with its minus too, and the categories after the ninth are one row,

@@ -14,6 +14,33 @@
 .optimise .kv.optimise-facts .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .optimise .kv.optimise-facts dd.v { margin: var(--sp-2) 0 0; font-size: inherit; font-weight: inherit; letter-spacing: 0; overflow-wrap: anywhere; }
 
+.optimise-household { margin-top: var(--sp-16); }
+
+/* an area with more than three findings: the count of all and the key under the third */
+.findings-more { margin-top: var(--sp-12); }
+
+/* Tarkistettu: a check, its two figures (empty until an area fills them) and one word; the empty cells take no room */
+.checked { width: 100%; border-collapse: collapse; }
+.checked th, .checked td { padding: 7px var(--sp-8) 7px 0; text-align: left; vertical-align: baseline; border-bottom: 1px solid var(--grid); }
+.checked tr:last-child > * { border-bottom: none; }
+.checked th.checked-label { color: var(--text); font-weight: 400; overflow-wrap: anywhere; }
+.checked :is(td, th):empty { padding: 0; }
+.checked .num { text-align: right; }
+.checked td.checked-status { color: var(--text-2); text-align: right; padding-right: 0; }
+.checked thead th { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
+/* a phone: a check is a label, and under it its word and its figures, so the long words wrap in the whole width */
+@media (max-width: 640px) {
+  .checked thead { display: none; }
+  .checked, .checked tbody { display: block; }
+  .checked tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-12); padding: 7px 0; border-bottom: 1px solid var(--grid); }
+  .checked tr:last-child { border-bottom: none; }
+  .checked th, .checked td { display: block; padding: 0; border-bottom: none; text-align: left; }
+  .checked th.checked-label { flex: 1 1 100%; }
+  .checked td.checked-status { order: 1; text-align: left; color: var(--text-2); }
+  .checked td:empty { display: none; }
+  .checked td.checked-cents::after { content: " kuukaudessa"; color: var(--text-2); }
+}
+
 /* a finding: the words on the left, the euros on the right, on a phone one under the other */
 .findings { display: flex; flex-direction: column; gap: var(--sp-12); }
 /* an inner frame (no corner marks, no shadow) */

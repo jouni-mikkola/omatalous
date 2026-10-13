@@ -112,7 +112,7 @@ export async function optimisePage(s: Services, userId: string, scope: Scope): P
   const { ctx, data, inputRows, states } = await compute(s, userId, scope);
   const entries = snapshotOf(data, states);
   const { previous, line } = scope === "own" ? await snapshots(s, userId, entries) : { previous: null, line: [] };
-  const changes = previous ? changesSince(previous.entries, entries, data) : [];
+  const changes = previous ? changesSince(previous.entries, entries) : [];
   return { data, inputs: inputRows, states, changes, followUp: followUpOf(ctx, data, line) };
 }
 

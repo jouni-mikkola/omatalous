@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type AnalysisContext, createContext } from "../../src/analysis/context.ts";
 import { addDays, monthRange } from "../../src/dates.ts";
-import { type Area, buildOptimise, findingId, type FindingDraft, type FindingState, type Measure, type OptimiseData } from "../../src/optimise/index.ts";
+import { type Area, buildOptimise, findingId, type FindingDraft, type FindingState, type Measure } from "../../src/optimise/index.ts";
 import {
   changesSince,
   followUpOf,
@@ -320,27 +320,24 @@ describe("snapshots and changes", () => {
     certainty: status === "active" ? "korkea" : null,
     status,
   });
-  const areas = (more: Partial<Record<SnapshotEntry["area"], number>> = {}) =>
-    ({ areas: Object.entries({ subscriptions: 0, food: 0, ...more }).map(([id, n]) => ({ id, more: n })) }) as unknown as Pick<OptimiseData, "areas">;
-
   it("lists new, grown 25 % or more, shrunk 25 % or more and resolved, and nothing for smaller moves", () => {
     const previous = [entry("subscriptions:a:1", 20000), entry("subscriptions:a:2", 20000), entry("food:b", 40000, "active", "food"), entry("subscriptions:a:3", 20000)];
     const current = [entry("subscriptions:a:1", 25000), entry("subscriptions:a:2", 15000), entry("food:b", 39000, "active", "food"), entry("food:c", 13000, "active", "food")];
-    expect(changesSince(previous, current, areas())).toEqual([
+    expect(changesSince(previous, current)).toEqual([
       { id: "food:c", area: "food", change: "new", midCents: 13000, previousCents: null },
       { id: "subscriptions:a:1", area: "subscriptions", change: "grown", midCents: 25000, previousCents: 20000 },
       { id: "subscriptions:a:2", area: "subscriptions", change: "shrunk", midCents: 15000, previousCents: 20000 },
       { id: "subscriptions:a:3", area: "subscriptions", change: "resolved", midCents: null, previousCents: 20000 },
     ]);
-    expect(changesSince(previous, [entry("subscriptions:a:1", 24900)], areas()).filter((c) => c.change !== "resolved")).toEqual([]);
+    expect(changesSince(previous, [entry("subscriptions:a:1", 24900)]).filter((c) => c.change !== "resolved")).toEqual([]);
   });
 
-  it("an area that showed three may have hidden more: no new there, and no resolved from an area that hides some now", () => {
+  it("every finding is shown, so a fourth in an area is new and one that leaves is resolved", () => {
     const three = [entry("subscriptions:a:1", 20000), entry("subscriptions:a:2", 20000), entry("subscriptions:a:3", 20000)];
-    expect(changesSince(three, [...three, entry("subscriptions:a:4", 30000)], areas())).toEqual([]);
-    expect(changesSince(three, three.slice(0, 2), areas({ subscriptions: 1 }))).toEqual([]);
+    expect(changesSince(three, [...three, entry("subscriptions:a:4", 30000)])).toEqual([{ id: "subscriptions:a:4", area: "subscriptions", change: "new", midCents: 30000, previousCents: null }]);
+    expect(changesSince(three, three.slice(0, 2))).toEqual([{ id: "subscriptions:a:3", area: "subscriptions", change: "resolved", midCents: null, previousCents: 20000 }]);
     // a decision is the household's own move, not a change in the data
-    expect(changesSince(three, [entry("subscriptions:a:1", 20000, "done"), ...three.slice(1)], areas())).toEqual([]);
+    expect(changesSince(three, [entry("subscriptions:a:1", 20000, "done"), ...three.slice(1)])).toEqual([]);
   });
 
   it("the snapshot holds id, area, mid, certainty and status and nothing else, and a damaged one reads as entries it can trust", () => {

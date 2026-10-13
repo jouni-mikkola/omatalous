@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { section as categories } from "../src/pages/reports/sections/Categories.tsx";
+import { HeatTable } from "../src/components/reports/HeatTable.tsx";
 import { section as pivot } from "../src/pages/reports/sections/Pivot.tsx";
 import type { ReportContext, ReportSection } from "../src/pages/reports/types.ts";
 
@@ -61,7 +62,7 @@ describe("Raportit: the shares of Kategoriat add up to the whole they are parts 
   });
 });
 
-describe("Raportit: the sum bracket of Kuukausitaulukko", () => {
+describe("Raportit: the sum bracket of the table of every category by month", () => {
   const data = (rows: number[], totalCents: number) => ({
     pivot: {
       months: ["2026-08"],
@@ -73,20 +74,85 @@ describe("Raportit: the sum bracket of Kuukausitaulukko", () => {
     },
   });
 
+  /** The table behind Taulukko, drawn as it is. */
+  const heat = (d: ReturnType<typeof data>) => renderToStaticMarkup(createElement(HeatTable, { r: d.pivot as never }));
+
   it("stands on the column of row totals when the rows add up to the grand total", () => {
-    const out = html(pivot, data([70_000, 30_000], 100_000));
+    const out = heat(data([70_000, 30_000], 100_000));
     expect(out).toContain('<tbody class="adds-up">');
     expect(out.match(/class="num sum"/g)).toHaveLength(2);
   });
 
   it("is absent when the rows add up to the cent but not as printed", () => {
-    const out = html(pivot, data([40, 40, 40], 120));
+    const out = heat(data([40, 40, 40], 120));
     expect(out).not.toContain("adds-up");
   });
 
   it("is absent when the rows miss the grand total by a whole euro", () => {
-    const out = html(pivot, data([70_000, 30_000], 100_100));
+    const out = heat(data([70_000, 30_000], 100_100));
     expect(out).not.toContain("adds-up");
     expect(out).not.toMatch(/class="num sum/);
+  });
+});
+
+describe("Raportit: Menot kuukausittain", () => {
+  const line = (id: string, label: string, v: number) => ({ id, label, category: id, values: [v], totalCents: v, usualCents: null, diffCents: null, payees: [{ name: "ESIMERKKI OY", values: [v], totalCents: v }], other: null });
+  const theme = (id: string, label: string, v: number) => ({ id, label, values: [v], totalCents: v, usualCents: 40_000, diffCents: 12_000, lines: [line(id, label, v)] });
+  const months = (extra: Record<string, unknown> = {}) => ({
+    pivot: {
+      months: ["2026-08"],
+      complete: [true],
+      rows: [{ category: "groceries", label: "Ruokakauppa", group: "Ruoka", values: [52_000], totalCents: 52_000, averageCents: 52_000 }],
+      monthTotals: [52_000],
+      totalCents: 52_000,
+      averageCents: 52_000,
+      themes: [theme("food", "Ruoka", 52_000)],
+      rest: null,
+      large: null,
+      last: 0,
+      strip: [],
+      peak: null,
+      peakRows: [],
+      ...extra,
+    },
+  });
+  const shown = (extra?: Record<string, unknown>) => html(pivot, months(extra));
+
+  it("is the default view: the theme rows with the month, the usual level and the difference, and the CSV link", () => {
+    const out = shown();
+    expect(out).toContain("months-table");
+    expect(out).not.toContain("heat-table");
+    expect(out).toContain('aria-pressed="true">Kaavio');
+    expect(out).toContain("Lataa CSV");
+    expect(out.match(/<th scope="col" class="st-num">[^<]*</g)!.map((x) => x.replace(/<th[^>]*>|</g, ""))).toEqual(["Elokuu", "Tavallisesti", "Ero", "Yhteensä"]);
+    expect(out).toContain("+120");
+  });
+
+  it("with no complete month has the total alone", () => {
+    const out = shown({ last: null, complete: [false], themes: [{ ...theme("food", "Ruoka", 52_000), usualCents: null, diffCents: null }] });
+    expect(out.match(/<th scope="col"/g)).toHaveLength(1);
+    expect(out).not.toContain("Tavallisesti");
+  });
+
+  it("puts the card bills first when the report has them, and the rest and the large purchases after the themes", () => {
+    const out = shown({ cardBills: [9_000], rest: { ...theme("rest", "x", 3_000), themes: [theme("pets", "Lemmikit", 3_000)] }, large: { values: [8_000], totalCents: 8_000, usualCents: null, diffCents: null, count: 2 } });
+    const at = (s: string) => out.indexOf(s);
+    expect(at("Luottokortin laskut")).toBeGreaterThan(-1);
+    expect([at("Luottokortin laskut"), at("Ruoka"), at("Loput yhteensä"), at("Suuret hankinnat (2)")].every((x, i, xs) => i === 0 || x > xs[i - 1]!)).toBe(true);
+    expect(shown()).not.toContain("Luottokortin laskut");
+  });
+
+  it("marks the highest month in the strip and links its largest rows to the rows of the month", () => {
+    const out = shown({ strip: [0], peak: 0, peakRows: [{ key: "food/groceries", label: "Ruokakauppa", cents: 52_000, category: "groceries" }, { key: "large", label: "Suuret hankinnat", cents: 8_000, category: null }] });
+    expect(out).toContain('class="is-peak"');
+    expect(out).toContain('href="#/transactions?category=groceries&amp;from=2026-08-01&amp;to=2026-08-31"');
+    expect(out).toContain("Suuret hankinnat");
+    expect(out).not.toMatch(/<a [^>]*>Suuret hankinnat/);
+  });
+
+  it("the table behind Taulukko keeps every figure the old one had", () => {
+    const out = renderToStaticMarkup(createElement(HeatTable, { r: months().pivot as never }));
+    expect(out).toContain("heat-table");
+    for (const word of ["Kategoria", "Ruokakauppa", "520", "Keskimäärin kuussa", "pivot-list", "pivot-narrow"]) expect(out, word).toContain(word);
   });
 });

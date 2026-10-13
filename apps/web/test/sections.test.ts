@@ -113,6 +113,7 @@ describe("the page of a section", () => {
       priceChanges: { items: [{}] },
       loans: { saved: 1 },
       dataQuality: { signals: [{}] },
+      food: {},
     }, [{}]);
   const ids = (page: "month" | "bills" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
 

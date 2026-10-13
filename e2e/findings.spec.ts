@@ -79,3 +79,21 @@ test("the insights are Muut havainnot on Säästövinkit, Ei koske meitä lists 
   }
   await context.close();
 });
+
+test("Säästövinkit ends with Tarkistettu: a row a check that is not a finding, one of four words, and no sideways scroll at 390px", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/optimise");
+  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+  const checked = page.getByRole("region", { name: "Tarkistettu" });
+  await expect(checked).toBeVisible();
+  const rows = checked.locator("tbody tr");
+  expect(await rows.count()).toBeGreaterThan(0);
+  const words = /Ei huomautettavaa|Tietoja puuttuu|Tapahtumia liian lyhyeltä ajalta|Ei tapahtumia/;
+  for (const text of await rows.locator(".checked-status").allInnerTexts()) expect(text).toMatch(words);
+  await page.waitForLoadState("networkidle");
+  expect(await overflow(page), "Tarkistettu scrolls sideways at 390px").toBeLessThanOrEqual(1);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});

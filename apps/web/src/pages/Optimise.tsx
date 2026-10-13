@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { query } from "../api.ts";
 import { Areas } from "../components/optimise/Areas.tsx";
 import { Changes } from "../components/optimise/Changes.tsx";
+import { Checked } from "../components/optimise/Checked.tsx";
 import { Decided } from "../components/optimise/Decided.tsx";
 import { FindingCard } from "../components/optimise/FindingCard.tsx";
 import { FollowUp } from "../components/optimise/FollowUp.tsx";
@@ -85,6 +86,7 @@ export function Optimise({ scope }: { scope: Scope }) {
       <Areas areas={data.areas} above={above} today={data.today} scope={scope} onChanged={changed} halves={halves.areas} />
       {/* the insights the overview and Raportit told while this page was off: answered here like the findings */}
       <Others others={data.others} onChanged={changed} half={halves.others} />
+      <Checked areas={data.areas} young={young} />
       <FollowUp followUp={followUp} areas={data.areas} titles={titles} scope={scope} onChanged={changed} />
       <Decided data={data} states={states} outcomes={outcomes} scope={scope} onChanged={changed} />
       <InputsCard needed={data.needed} given={inputs} today={data.today} scope={scope} onChanged={changed} />

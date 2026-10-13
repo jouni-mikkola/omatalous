@@ -31,6 +31,16 @@ export function Situation({ data }: { data: OptimiseData }) {
           </div>
         ))}
       </dl>
+      {/* what is wrong with the household's data as a whole: said once here, counted on no finding */}
+      {data.household.length > 0 && (
+        <ul className="needed-list optimise-household">
+          {data.household.map((w) => (
+            <li key={w.id} className="needed">
+              <div className="needed-text">{w.reason}</div>
+            </li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

@@ -294,10 +294,9 @@ describe("decisions on findings", () => {
     expect(after.data.done.map((d: { state: { findingId: string } }) => d.state.findingId)).toEqual([finding!.id]);
     expect(after.data.done[0].finding.id).toBe(finding!.id);
     expect((await shown(admin)).map((f) => f.id)).not.toContain(finding!.id);
-    // the fourth finding of the area takes the place it left
-    expect((await shown(admin)).length).toBe(3);
-    expect(before.data.areas[0].more).toBe(1);
-    expect(after.data.areas[0].more).toBe(0);
+    // the area shows every finding: four before, the three that are left after
+    expect(before.data.areas[0].findings).toHaveLength(4);
+    expect(after.data.areas[0].findings).toHaveLength(3);
     expect(after.states).toEqual(res.body.states);
   });
 
@@ -444,19 +443,14 @@ describe("decisions on findings", () => {
     expect((await decide(admin, two!.id, { status: "dismissed" })).status).toBe(200);
   });
 
-  it("a finding past the three an area shows has no card to decide on until one of them goes", async () => {
+  it("the fourth finding of an area has its card and can be decided on, a finding that is not shown cannot", async () => {
     const { admin } = await setup();
-    const active = (await admin.call("GET", "/api/recurring")).body.series.filter((r: { active: boolean; kind: string }) => r.active && r.kind === "subscription");
     const ids = (await shown(admin)).map((f) => f.id);
-    expect(ids).toHaveLength(3);
-    // the test area makes four findings and the frame shows the best three
-    const fourth = active.slice(0, 4).map((r: { id: string }) => `subscriptions:test:${r.id}`).find((id: string) => !ids.includes(id));
-    expect(fourth).toBeDefined();
-    expect(await decide(admin, fourth!, { status: "dismissed" })).toMatchObject({ status: 404 });
-
-    await decide(admin, ids[0]!, { status: "dismissed" });
-    expect((await shown(admin)).map((f) => f.id)).toContain(fourth);
-    expect((await decide(admin, fourth!, { status: "dismissed" })).status).toBe(200);
+    // the test area makes four findings and the frame shows all of them
+    expect(ids).toHaveLength(4);
+    expect(await decide(admin, "subscriptions:test:nope", { status: "dismissed" })).toMatchObject({ status: 404 });
+    expect((await decide(admin, ids[3]!, { status: "dismissed" })).status).toBe(200);
+    expect((await shown(admin)).map((f) => f.id)).not.toContain(ids[3]);
   });
 });
 
@@ -704,11 +698,11 @@ describe("the follow-up: snapshots, changes and outcomes", () => {
     const { admin, db, adminId } = await setup();
     const first = await page(admin);
     expect(first.changes).toEqual([]);
-    expect(first.followUp).toEqual({ outcomes: [], proposals: [], line: [{ month: "2026-10", foundCents: 3 * 36000, confirmedCents: 0 }] });
+    expect(first.followUp).toEqual({ outcomes: [], proposals: [], line: [{ month: "2026-10", foundCents: 4 * 36000, confirmedCents: 0 }] });
     const rows = await snapshotRows(db, adminId);
     expect(rows.map((r) => [r.month, r.created_at])).toEqual([["2026-10", DECIDED_AT]]);
     const entries = JSON.parse(rows[0]!.data);
-    expect(entries).toHaveLength(3);
+    expect(entries).toHaveLength(4);
     type Card = { id: string; area: string; euros: { midCents: number }; certainty: { level: string } };
     expect(entries).toEqual(first.data.areas[0].findings.map((f: Card) => ({ id: f.id, area: f.area, midCents: f.euros.midCents, certainty: f.certainty.level, status: "active" })));
     for (const e of entries) expect(Object.keys(e).sort()).toEqual(["area", "certainty", "id", "midCents", "status"]);
@@ -721,7 +715,7 @@ describe("the follow-up: snapshots, changes and outcomes", () => {
 
   it("lists what changed against the last snapshot before this month", async () => {
     const { admin, s, adminId } = await setup();
-    const [done, ...rest] = await shown(admin);
+    const [done] = await shown(admin);
     await decide(admin, done!.id, { status: "done" });
     const now = await shown(admin);
     expect(now).toHaveLength(3);
@@ -732,13 +726,12 @@ describe("the follow-up: snapshots, changes and outcomes", () => {
 
     const body = await page(admin);
     expect(body.changes).toEqual([
+      { id: now[2]!.id, area: "subscriptions", change: "new", midCents: 36000, previousCents: null },
       { id: now[0]!.id, area: "subscriptions", change: "grown", midCents: 36000, previousCents: 28000 },
       { id: now[1]!.id, area: "subscriptions", change: "shrunk", midCents: 36000, previousCents: 50000 },
       { id: "subscriptions:test:gone", area: "subscriptions", change: "resolved", midCents: null, previousCents: 20000 },
     ]);
-    // the fourth finding was behind the cap of three last time; the area showed three then, so it is not called new
-    expect(rest.map((f) => f.id)).not.toContain(now[2]!.id);
-    expect(body.changes.map((c: { id: string }) => c.id)).not.toContain(now[2]!.id);
+    // a finding that is on the page and was not in the last snapshot is new, whichever place it stands in
     expect(body.followUp.line.map((p: { month: string }) => p.month)).toEqual(["2026-07", "2026-09", "2026-10"]);
   });
 
@@ -749,7 +742,7 @@ describe("the follow-up: snapshots, changes and outcomes", () => {
     try {
       const res = await admin.call("GET", "/api/optimise");
       expect(res.status).toBe(200);
-      expect(res.body.data.areas[0].findings).toHaveLength(3);
+      expect(res.body.data.areas[0].findings).toHaveLength(4);
       expect(await snapshotRows(db, adminId)).toEqual([]);
       await page(admin);
       expect((await snapshotRows(db, adminId)).map((r) => r.month)).toEqual(["2026-10"]);

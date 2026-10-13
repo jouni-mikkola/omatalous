@@ -1,5 +1,6 @@
-/** The areas that have findings: a card each, with up to three findings and the area's own figures. A quiet area has no card. */
+/** The areas that have findings: a card each, with three findings, the rest behind Näytä lisää, and the area's own figures. A quiet area has no card. */
 import type { AreaView, IsoDate } from "@banking/core";
+import { useState } from "react";
 import type { Scope } from "../../types.ts";
 import { Section } from "../Section.tsx";
 import { FindingCard } from "./FindingCard.tsx";
@@ -22,17 +23,32 @@ function Summary({ area }: { area: AreaView }) {
   );
 }
 
+/** Findings an area's card shows before Näytä lisää. */
+const SHOWN_PER_AREA = 3;
+
 /** An area with findings: a card per finding that is not already under Seuraavat 60 päivää, then the area's figures. */
 function AreaCard({ area, above, today, scope, onChanged, half }: { area: AreaView; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed; half: boolean }) {
+  const [all, setAll] = useState(false);
   const here = area.findings.filter((f) => !above.has(f.id));
   if (!here.length && !area.summary) return null;
+  const shown = all ? here : here.slice(0, SHOWN_PER_AREA);
   return (
     <Section id={`alue-${area.id}`} title={area.label} half={half}>
       <div className="findings">
-        {here.map((f) => (
+        {shown.map((f) => (
           <FindingCard key={f.id} finding={f} today={today} scope={scope} onChanged={onChanged} />
         ))}
       </div>
+      {here.length > SHOWN_PER_AREA && (
+        <div className="form-row findings-more">
+          <span className="cut-mark">
+            1–{shown.length} / {here.length}
+          </span>
+          <button className="btn btn-small" type="button" onClick={() => setAll((v) => !v)} aria-expanded={all}>
+            {all ? "Näytä vähemmän" : "Näytä lisää"}
+          </button>
+        </div>
+      )}
       <Summary area={area} />
     </Section>
   );

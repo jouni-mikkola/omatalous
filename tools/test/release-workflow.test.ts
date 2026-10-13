@@ -556,7 +556,8 @@ describe("release workflow on a candidate branch", () => {
 // The checks of the types, the build and the tests run once, before the push, on the tree that this repository holds
 // (the private one less its excluded paths and blocks). The script of the gate is in the private tree only: a tree
 // without it has nothing to read here, and these tests are skipped.
-const GATE = readdirSync(resolve(ROOT, "tools/release")).find((f) => f.endsWith("-gate.sh"));
+// found by its full name, not by a pattern: `pnpm check --changed` runs a test only when the test names the script it reads
+const GATE = readdirSync(resolve(ROOT, "tools/release")).find((f) => f === "release-gate.sh");
 // the chain: the install and the build, one after the other; then the type check and the tests side by side (pt_side)
 const LEG_COMMANDS = ["pnpm install --frozen-lockfile --offline", "pnpm build"];
 const SIDE_COMMANDS = ["typecheck", "test"];

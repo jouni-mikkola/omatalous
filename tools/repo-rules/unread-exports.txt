@@ -172,6 +172,8 @@ packages/core/src/analysis/insights/stopped.ts  newPayeeIn
 packages/core/src/analysis/insights/types.ts  InsightLink
 packages/core/src/analysis/insights/types.ts  InsightTone
 packages/core/src/analysis/one-offs.ts  OneOffPolicy
+packages/core/src/analysis/themes-report.ts  ThemeWindow
+packages/core/src/analysis/themes-report.ts  coverage
 packages/core/src/analysis/usual.ts  GATE_SHARE
 packages/core/src/categorize.ts  CategorizeResult
 packages/core/src/categorize.ts  categoryForMcc

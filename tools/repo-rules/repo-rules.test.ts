@@ -36,6 +36,11 @@
  *   rule 26  a function defined in scripts/ is named twice    shell.ts
  *   rule 27  the lines that keep a secret out stay ignored    shell.ts
  *   rule 28  the UI text keeps the fixes of a Finnish pass    finnish.ts
+ *   rule 29  feature registries, identity, files, needs         modules.ts
+ *   rule 30  only a registry imports a module                     modules.ts
+ *   rule 31  a module folder and its files stay small             modules.ts
+ *   rule 32  a module exports `module`; its fixture, three cases   modules.ts
+ *   rule 33  no loop in `uses`; the type-import group has a ceiling modules.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */
@@ -49,3 +54,4 @@ import "./timeouts.ts";
 import "./runners.ts";
 import "./exports.ts";
 import "./shell.ts";
+import "./modules.ts";

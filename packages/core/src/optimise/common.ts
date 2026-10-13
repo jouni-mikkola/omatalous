@@ -142,11 +142,12 @@ export function sortWeaknesses(weaknesses: readonly Weakness[]): Weakness[] {
   return unique.sort((a, b) => WEAKNESS_ORDER.indexOf(a.id) - WEAKNESS_ORDER.indexOf(b.id));
 }
 
-/** Rule 7: korkea, one step keskitaso, two steps matala, three or more hidden (null). */
-export function certaintyOf(weaknesses: readonly Weakness[]): Certainty | null {
+const LEVELS = ["korkea", "keskitaso", "matala"] as const;
+
+/** Rule 7: korkea, one step keskitaso, two steps or more matala. A finding is never hidden for its certainty. */
+export function certaintyOf(weaknesses: readonly Weakness[]): Certainty {
   const sorted = sortWeaknesses(weaknesses);
-  const level = (["korkea", "keskitaso", "matala"] as const)[sorted.length];
-  return level ? { level, reason: sorted[0]?.reason ?? NO_WEAKNESS } : null;
+  return { level: LEVELS[Math.min(2, sorted.length)]!, reason: sorted[0]?.reason ?? NO_WEAKNESS };
 }
 
 const ACCOUNT_SIGNALS: ReadonlySet<QualitySignal["id"]> = new Set(["gap", "stale", "own_unconnected"]);
@@ -177,16 +178,28 @@ export function rowsById(ctx: AnalysisContext): ReadonlyMap<string, AnalysisTx> 
   return map;
 }
 
-const ACCOUNT_REASON: Record<"gap" | "stale" | "own_unconnected", (name: string) => string> = {
+const ACCOUNT_REASON: Record<"gap" | "stale", (name: string) => string> = {
   gap: (name) => `Tilin ${name} tiedoissa on tauko.`,
   stale: (name) => `Tilin ${name} uusimpia tapahtumia ei ole haettu.`,
-  own_unconnected: (name) => `Tililtä ${name} siirretään rahaa tilille, jota ei ole yhdistetty.`,
 };
 
 /**
- * Rule 7 weaknesses of the evidence: a gap, stale or own_unconnected signal on an account the rows are on (one step
- * per kind), over 5 % of spending uncategorised, over 30 % of the rows categorised by default or industry. Nothing
- * for a finding without rows.
+ * What is wrong with the household's data as a whole, counted on no finding: over 5 % of spending uncategorised and an
+ * own account that moves money to one that is not connected. The page prints them once, above the findings.
+ */
+export function householdWeakness(quality: EvidenceQuality): Weakness[] {
+  const out: Weakness[] = [];
+  for (const id of ["uncategorised", "own_unconnected"] as const) {
+    const signal = quality.signals.find((s) => s.id === id);
+    if (signal) out.push({ id, reason: `${signal.title}.` });
+  }
+  return sortWeaknesses(out);
+}
+
+/**
+ * Rule 7 weaknesses of the evidence: a gap or stale signal on an account the rows are on (one step per kind) and over
+ * 30 % of the rows categorised by default or industry. Nothing for a finding without rows. The household's own faults
+ * are in `householdWeakness`, not here.
  */
 export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], quality: EvidenceQuality): Weakness[] {
   const byId = rowsById(ctx);
@@ -194,12 +207,10 @@ export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], 
   if (!txs.length) return [];
   const out: Weakness[] = [];
   const accounts = [...new Set(txs.map((t) => t.accountId))];
-  for (const kind of ["gap", "stale", "own_unconnected"] as const) {
+  for (const kind of ["gap", "stale"] as const) {
     const hit = accounts.find((id) => quality.byAccount[id]?.includes(kind));
     if (hit) out.push({ id: kind, reason: ACCOUNT_REASON[kind](ctx.accounts.find((a) => a.id === hit)?.name ?? hit) });
   }
-  const uncategorised = quality.signals.find((s) => s.id === "uncategorised");
-  if (uncategorised) out.push({ id: "uncategorised", reason: `${uncategorised.title}.` });
   const uncertain = txs.filter((t) => t.categorySource === "default" || t.categorySource === "industry").length / txs.length;
   if (uncertain > UNCERTAIN_ROW_SHARE) {
     out.push({ id: "uncertain_rows", reason: `${Math.round(uncertain * 100)}\u00a0% laskelman tapahtumista on luokiteltu toimialan mukaan tai oletuksena.` });

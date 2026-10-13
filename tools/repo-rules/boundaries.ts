@@ -21,6 +21,10 @@ interface Rule {
   from: RegExp;
   /** What it imports: a path from the repo root, or `ext:<specifier>` for a package or a Node module. */
   deny: RegExp;
+  /** An import that `deny` matches but the rule allows (the own folder of a module, which a pattern cannot name). */
+  except?: (from: string, to: string) => boolean;
+  /** The rule is for a folder that may still be empty: it needs no file today (rule 6c). */
+  idle?: boolean;
 }
 
 const SERVER = "apps/server/src";
@@ -117,6 +121,22 @@ const RULES: Rule[] = [
     from: /^(apps|packages)\/[^/]+\/src\//,
     deny: /(^|\/)(test|fixtures)\//,
   },
+  {
+    id: "core-module-is-closed",
+    why: "a feature module imports its own folder, features/contract.ts and features/kit/ and nothing else (the contract and the kit re-export what a module needs)",
+    from: new RegExp(`^${CORE}/features/(insight|check|section|payee|question|notice)/[^/]+/`),
+    deny: new RegExp(`^(?!${CORE}/features/(contract\\.ts$|kit/))`),
+    except: (from, to) => to.startsWith(`${from.split("/").slice(0, 6).join("/")}/`),
+    idle: true,
+  },
+  {
+    id: "view-is-closed",
+    why: "a view imports its own folder, features/contract.ts, charts/, components/Section.tsx, format.ts and hooks.ts; the rest of its data comes in props",
+    from: /^apps\/web\/src\/features\/view\/[^/]+\//,
+    deny: /^apps\/web\/src\/(?!features\/contract\.ts$|charts\/|components\/Section\.tsx$|format\.ts$|hooks\.ts$)/,
+    except: (from, to) => to.startsWith(`${from.split("/").slice(0, 6).join("/")}/`),
+    idle: true,
+  },
 ];
 
 /**
@@ -160,7 +180,7 @@ function edges(): { all: Edge[]; matched: Map<string, number> } {
     // the token scanner finds the specifiers; the syntax tree is built only for a file that breaks a rule, to name the line
     const hits = [...new Set(specifiersOf(file))].flatMap((spec) => {
       const to = target(file, spec, known);
-      return rules.filter((rule) => rule.deny.test(to)).map((rule) => ({ spec, to, rule }));
+      return rules.filter((rule) => rule.deny.test(to) && !rule.except?.(file, to)).map((rule) => ({ spec, to, rule }));
     });
     if (hits.length === 0) continue;
     const refs = importsOf(file);
@@ -261,7 +281,7 @@ describe("repo rules: import boundaries (rule 6)", () => {
 
   it("rule 6c: every boundary rule still applies to at least one file", () => {
     const { matched } = scan();
-    const found: Finding[] = RULES.filter((r) => (matched.get(r.id) ?? 0) === 0).map((r) => ({ file: SELF, line: lineIn(SELF, `id: "${r.id}"`), why: `rule "${r.id}" matches no file: its folder moved or was renamed` }));
+    const found: Finding[] = RULES.filter((r) => !r.idle && (matched.get(r.id) ?? 0) === 0).map((r) => ({ file: SELF, line: lineIn(SELF, `id: "${r.id}"`), why: `rule "${r.id}" matches no file: its folder moved or was renamed` }));
     expectNoFindings("import boundary rules", found, "update the `from` pattern of the rule to the folder's new path, or delete the rule if the layer is gone.");
     expect(new Set(RULES.map((r) => r.id)).size, "rule ids are unique").toBe(RULES.length);
   });

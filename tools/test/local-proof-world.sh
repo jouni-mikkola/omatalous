@@ -26,10 +26,18 @@ cat >"$R/tools/ci/play.sh" <<'PLAY_SH'
 said() { echo "$*" >>"$PROOF_CALLS"; }
 # broken NAME: with the file fail-NAME in the play folder, a line for the log and exit 1
 broken() { [[ ! -e $PROOF_PLAY/fail-$1 ]] || { echo "the $1 leg broke"; exit 1; }; }
-# hold NAME: with the file hold-NAME, say so on the FIFO `started` and stay until TERM comes
+# hold NAME [COMMAND...]: with the file hold-NAME, arm the stop first, then run COMMAND (the others may now act on this leg,
+# and a TERM that comes at once is still answered), say so on the FIFO `started` and stay until TERM comes. Without the
+# file, only COMMAND runs.
 hold() {
-  [[ -e $PROOF_PLAY/hold-$1 ]] || return 0
-  trap 'kill $! 2>/dev/null; said "stopped '"$1"'"; exit 143' TERM
+  local name=$1
+  shift
+  if [[ ! -e $PROOF_PLAY/hold-$name ]]; then
+    "$@"
+    return 0
+  fi
+  trap 'kill $! 2>/dev/null; said "stopped '"$name"'"; exit 143' TERM
+  "$@"
   echo started >"$PROOF_PLAY/started"
   cat "$PROOF_PLAY/never" &
   wait $!
@@ -119,8 +127,9 @@ hold "$ref"
 # with the file meet-image, the first rehearsal in tells the image build (which waits for it) and then holds, if the file
 # hold-meeting is there
 if [[ -e $PROOF_PLAY/meet-image ]] && mkdir "$PROOF_PLAY/met" 2>/dev/null; then
-  timeout 30 bash -c 'echo go >"$1"' _ "$PROOF_PLAY/meet.fifo" # the 30 s are for a proof whose image build never reads
-  hold meeting
+  # the stop is armed before the image build is told: it fails at once and the proof stops this rehearsal in that instant
+  # the 30 s are for a proof whose image build never reads
+  hold meeting timeout 30 bash -c 'echo go >"$1"' _ "$PROOF_PLAY/meet.fifo"
 fi
 rmdir "$PROOF_PLAY/port-$port" "$PROOF_PLAY/project-$project" 2>/dev/null
 # with the file kill-ppid-REF, the shell of the lane that started this leg is killed, and the leg fails

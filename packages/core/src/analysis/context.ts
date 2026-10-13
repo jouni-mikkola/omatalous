@@ -1,8 +1,11 @@
 import { type CategoryKind, getCategory } from "../categories.ts";
 import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
+import { isMobilePay } from "../industry.ts";
+import { fold } from "../merchant.ts";
 import { detectRecurring, type RecurringSeries } from "../recurring.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
+import { hasPayeeForm } from "../wording.ts";
 import { type Flows, flowsOf, incomeOf } from "./flows.ts";
 import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
@@ -31,6 +34,9 @@ export interface AnalysisTx extends Transaction {
 export function netPurchase(t: Pick<AnalysisTx, "flows" | "refunded">): number {
   return Math.max(0, t.flows.consumption - t.refunded);
 }
+
+/** A MobilePay or Pivo payment to a person: never food, whatever category it was given. */
+export const paidToPerson = (t: AnalysisTx): boolean => isMobilePay(t) && !t.mcc && !hasPayeeForm(fold(t.counterparty ?? ""));
 
 /** What a row of spending (consumption + debt) cost in the end, less what came back, never below zero. */
 export function netSpend(t: Pick<AnalysisTx, "spend" | "refunded">): number {

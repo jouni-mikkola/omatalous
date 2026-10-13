@@ -11,9 +11,10 @@ import { applyUse } from "../src/account-use.ts";
 import { type AnalysisContext, createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { largePurchases } from "../src/analysis/large.ts";
-import { type ThemesReport, themesReport } from "../src/analysis/themes-report.ts";
+import { coverage, sharedOut, type ThemesReport, themeWindow, themesReport } from "../src/analysis/themes-report.ts";
 import { addMonths, dateIn, monthEnd, monthIndex } from "../src/dates.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
+import { themeOf } from "../src/themes.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
@@ -677,5 +678,56 @@ describe("the themes and the large purchases add up to the spending of the windo
     // the same purchases on a new account id: the answer of the household whose card was not replaced
     expect(r).toEqual(themesReport(views("kit:base")["Koko talous"]!));
     expect(changes(r)).toMatchObject({ shopping: 75 });
+  });
+});
+
+describe("what the report gives to others", () => {
+  const h = kitHousehold(null);
+  const ctx = createContext(enrich(h.txs, h.accounts, h.rules), h.accounts, h.today);
+  const report = themesReport(ctx)!;
+  const w = themeWindow(ctx)!;
+  const apart = (t: (typeof w.rows)[number]) => w.large.has(ctx.returns.get(t.id) ?? t.id) || (t.spend < 0 && t.category === "vehicle_purchase" && !ctx.returns.has(t.id));
+  /** The window's rows by theme and line, as a reader of `themeWindow` places them. */
+  const placed = () => {
+    const by = new Map<string, Map<string, number>>();
+    for (const t of w.rows) {
+      if (!t.spend || apart(t)) continue;
+      const p = themeOf(ctx, t, w.cars);
+      const lines = by.get(p.theme) ?? new Map<string, number>();
+      by.set(p.theme, lines.set(p.line, (lines.get(p.line) ?? 0) + t.spend));
+    }
+    return by;
+  };
+
+  it("themeWindow: its months and the sum of its rows are the report's own figures, to the cent", () => {
+    expect(w.months.length).toBe(12);
+    expect([w.months[0], w.months[11]]).toEqual([monthIndex(report.window.first), monthIndex(report.window.last)]);
+    const by = placed();
+    for (const t of report.themes) {
+      expect(sum([...by.get(t.id)!.values()]), t.heading).toBe(t.yearCents);
+      for (const l of t.lines) expect(by.get(t.id)!.get(l.id), `${t.heading} / ${l.heading}`).toBe(l.yearCents);
+    }
+    expect(sum([...by.values()].flatMap((m) => [...m.values()]))).toBe(report.totalCents);
+    expect(sum(w.rows.filter(apart).map((t) => t.spend))).toBe(report.large.cents);
+    expect(themeWindow(createContext([], [], h.today))).toBeNull();
+  });
+
+  it("sharedOut: the shares of a theme's lines are the report's cents a month, adding up to the theme's", () => {
+    for (const t of report.themes) {
+      const shares = sharedOut(t.lines.map((l) => l.yearCents!), 12, t.monthlyCents);
+      expect(shares, t.heading).toEqual(t.lines.map((l) => l.monthlyCents));
+      expect(sum(shares), t.heading).toBe(t.monthlyCents);
+    }
+  });
+
+  it("coverage: every account with spending in the report's window covers each of its months from the 1st", () => {
+    const { covers, began } = coverage(ctx);
+    const accounts = new Set(w.rows.filter((t) => t.spend).map((t) => t.accountId));
+    expect(accounts.size).toBeGreaterThan(0);
+    for (const a of accounts) {
+      expect(began(a), a).toBeLessThanOrEqual(monthIndex(report.window.first));
+      for (const m of w.months) expect(covers(a, m), `${a} ${m}`).toBe(true);
+    }
+    expect(began("no-such-account")).toBe(Number.POSITIVE_INFINITY);
   });
 });
