@@ -264,6 +264,20 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   await expect(rows.first()).toBeVisible();
   await expect(rows.first().locator(".m-name a")).toHaveAttribute("href", new RegExp(`#/transactions\\?merchant=.*&from=${today.slice(0, 4)}-01-01$`));
 
+  // a row of money in only carries no number and does not count: the other rows keep the counter
+  await page.goto("/#/transactions?view=merchants");
+  await expect(rows.first()).toBeVisible();
+  const ordinals = await rows.evaluateAll((trs) =>
+    trs.map((tr) => ({
+      unranked: tr.classList.contains("unranked"),
+      moneyIn: (tr.querySelector('td[data-label="Yhteensä"]')?.textContent ?? "").startsWith("+"),
+      mark: getComputedStyle(tr.firstElementChild as Element, "::before").content,
+    })),
+  );
+  expect(ordinals.every((r) => r.unranked === r.moneyIn), "only a row of money in is unranked").toBe(true);
+  ordinals.filter((r) => !r.unranked).forEach((r, i) => expect(r.mark, `row ${i + 1}`).toContain("counter(rank)"));
+  for (const r of ordinals.filter((x) => x.unranked)) expect(r.mark).toBe('""');
+
   // Arkiostot are the everyday purchases of the recurring detection
   const series: { merchant: string; kind: string; active: boolean }[] = (await (await context.request.get("/api/recurring")).json()).series;
   const habits = new Set(series.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant));

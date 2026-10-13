@@ -56,7 +56,7 @@ export function Rules({ meta }: { meta: Meta }) {
             <h2>Säännöt</h2>
           </div>
         </div>
-        <form className="form-row" onSubmit={add}>
+        <form className="form-row rule-form" onSubmit={add}>
           <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])} aria-label="Kenttä">
             {Object.entries(FIELD_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
@@ -73,6 +73,7 @@ export function Rules({ meta }: { meta: Meta }) {
         </form>
         {(error ?? loadError) && <div className="error">{error ?? loadError}</div>}
         <div className="table-wrap">
+          {!!data?.rules.length && (
           <table>
             <thead>
               <tr>
@@ -111,6 +112,7 @@ export function Rules({ meta }: { meta: Meta }) {
               ))}
             </tbody>
           </table>
+          )}
           {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
         </div>
       </div>

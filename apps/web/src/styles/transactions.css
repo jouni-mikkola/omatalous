@@ -2,6 +2,8 @@
 
 /* a select is as wide as its longest option; the cap leaves the room to the merchant */
 .tx-table td select, .tx-table td .select-lite { max-width: 11rem; }
+/* where the table has room (the page is 1000px or more) the longest category name reads whole */
+@media (min-width: 1000px) { .tx-table td select, .tx-table td .select-lite { max-width: 15rem; } }
 
 /* what stands under a payee's name: the bank's text in the text colour, one line cut with an ellipsis (its title holds all of it) */
 .tx-under { display: flex; flex-direction: column; align-items: flex-start; font-size: 12px; }
@@ -59,6 +61,8 @@
 @media (max-width: 600px) {
   .filters { margin: 0; }
   .filters form { flex: 1 1 0; min-width: 0; }
+  /* the filters of Kauppiaat have no Rajaa: the search takes the first row */
+  .filters:not(:has(.filter-toggle)) form { flex: 1 1 100%; }
   .filters input[type="search"] { width: 100%; min-width: 0; }
   .filter-toggle { flex: none; }
   .filter-toggle.on { border-color: var(--accent); color: var(--accent-ink); }

@@ -3,6 +3,28 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.27.0
+
+- Laskut, Kauppiaat, Raportit, Säästövinkit and Asetukset were measured from pictures against the design, and twelve faults were fixed: no empty panels or empty halves, no text cut by its own frame, folds that open with the same arrow everywhere.
+- Kauppiaat ranks only money out: a payer of income no longer gets a rank after the smallest shop.
+- Säästövinkit shows a figure like "7,7 kuukautta" whole, and Tilanne stands on one row.
+
+Look
+
+- Kauppiaat no longer numbers a shop that only paid you money; a shop with a refund keeps its number.
+- The tick rows above and below a page show only on pages laid out in the twelve columns (Yhteenveto and Laskut).
+- The category of a row in Tapahtumat, the search of Kauppiaat on a phone and the hint of a new rule read whole instead of being cut.
+- Säännöt shows no column heads while it has no rules.
+- The second line of a shop in Kauppiaat starts under its name.
+- Panels that hold only their name (Salasana, Tekniset asetukset) no longer have an empty ruled body under it.
+- Laskut has no empty half beside Sopimukset ja laskut: the half-width panels stand as two columns.
+- Folds open with a chevron instead of the browser's triangle, and Päättyneet maksut has a name strip like the other panels.
+- Harvinaiset laskut on a phone keeps dates and names on one line and shows the paid state under the payee.
+- Säästövinkit shows a figure such as 7,7 kuukautta whole, in the size of the other figures.
+- Raportit: Tulot ja menot has one name strip, and the table key stands beside its heading.
+- Säästövinkit: the figures of Tilanne stand in one row on a wide screen.
+- Tapahtumat prints the number of transactions the same way in the summary and under the list.
+
 ## 0.26.0
 
 - A page whose data did not load looks the same everywhere now: one card with the reason and a retry button. Tapahtumat no longer shows an empty table head or a download link for rows that did not come.

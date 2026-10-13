@@ -22,6 +22,12 @@ describe("Figure", () => {
     expect(render("246 €/kk")).toContain(`<span class="fig-unit"> €/kk</span>`);
     expect(render(percent(0.19))).toBe(`<span class="fig fig-m"><span class="fig-int">19</span><span class="fig-unit"> %</span></span>`);
   });
+  it("keeps a number that is no money whole when asked, and splits money as before", () => {
+    const whole = (text: string) => renderToStaticMarkup(createElement(Figure, { text, size: "m", whole: true }));
+    expect(whole("7,7 kuukautta")).toBe(`<span class="fig fig-m"><span class="fig-int">7,7</span><span class="fig-unit"> kuukautta</span></span>`);
+    expect(whole("12 %")).toContain(`<span class="fig-int">12</span>`);
+    expect(render("7,7 kuukautta")).toContain(`<span class="fig-dec">,7</span>`);
+  });
   it("passes a dash for a missing value through whole", () => {
     expect(render("–")).toBe(`<span class="fig fig-m">–</span>`);
   });

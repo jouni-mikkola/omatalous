@@ -1,7 +1,7 @@
 /* The surplus bridge (SurplusBridge). */
 
 .bridge { margin: 0 0 18px; }
-.bridge-head { margin-bottom: 8px; }
+.bridge-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 8px; }
 .bridge-title { font-size: 14px; font-weight: 600; margin: 0; }
 .bridge-track { display: grid; gap: 3px; }
 /* where the money of the bar came from, on the bar's own axis: there when the income was not all of it */

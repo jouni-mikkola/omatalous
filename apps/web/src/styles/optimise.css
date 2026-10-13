@@ -5,7 +5,7 @@
 
 /* Tilanne: the euros found with their range, then four facts, side by side */
 .optimise-none { margin: 0; }
-.kv.optimise-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-16) 0; margin: var(--sp-16) 0 0; }
+.kv.optimise-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(120px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-16) 0 0; }
 .kv.optimise-facts > div { border-left: 1px solid var(--border); padding: 0 var(--sp-16); min-width: 0; }
 @media (max-width: 1039px) { .kv.optimise-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .kv.optimise-facts { grid-template-columns: minmax(0, 1fr); } }

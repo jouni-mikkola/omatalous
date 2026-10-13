@@ -24,8 +24,9 @@
     background: repeating-linear-gradient(90deg, var(--axis) 0 1px, transparent 1px calc(var(--c) - 1px), var(--axis) calc(var(--c) - 1px) var(--c), transparent var(--c) calc(var(--c) + var(--gap))); }
   .sheet::before { top: calc(-1 * var(--sp-12)); }
   .sheet::after { bottom: calc(-1 * var(--sp-12)); }
-  /* it registers splits: a page with one card (the error card, the loading frames) or a table's own columns has none */
-  .sheet:has(.card.error, .skeleton, .tx-page)::before, .sheet:has(.card.error, .skeleton, .tx-page)::after { content: none; }
+  /* it registers splits: only a page whose layout stands on the twelve columns (the page grid) has it; the error card and the loading frames have none */
+  .sheet:not(:has(.page-grid))::before, .sheet:not(:has(.page-grid))::after,
+  .sheet:has(.card.error, .skeleton)::before, .sheet:has(.card.error, .skeleton)::after { content: none; }
 }
 /* the centre of the gutter after column n, from the frame's inner edge, for a panel that spans the 12 columns */
 .card { --col-w: calc((100% + 2px - 11 * var(--gap)) / 12);
@@ -58,10 +59,13 @@ td.share { min-width: var(--share-w); }
   .ruled :is(.group-row, .group-head, .edit-row) > * { border-left-color: transparent; }
 }
 
-/* M15 the ordinal: the browser counts the rows that are there; only on a table sorted by its own figure column */
+/* M15 the ordinal: the browser counts the rows that are there; only on a table sorted by its own figure column.
+   A row marked .unranked is outside that ranking: it takes no number and does not count (the indent stays). */
 .ranked { counter-reset: rank; }
 .ranked tbody tr { counter-increment: rank; }
 .ranked tbody tr > :first-child::before { content: counter(rank) "."; display: inline-block; min-width: 24px; margin-right: var(--sp-8); text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+.ranked tbody tr.unranked { counter-increment: none; }
+.ranked tbody tr.unranked > :first-child::before { content: ""; }
 
 /* M16 the source shape: a disc when the bank or the user gave the day and sum, a ring when the app estimates them */
 .src { display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-8); border-radius: 50%; background: var(--text-2); }

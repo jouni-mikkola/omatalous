@@ -145,7 +145,8 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
           </div>
         )}
         <div className="table-wrap">
-          {/* the server sends the merchants largest sum first and an edit keeps the rows where they are: a ranking, so `ranked` */}
+          {/* the server sends the merchants largest money out first and an edit keeps the rows where they are: a ranking, so `ranked`.
+              A row that shows only money in (`unranked`) is not in that ranking and carries no number. */}
           <table className="merchant-table ruled ranked">
             <thead>
               <tr>
@@ -159,7 +160,7 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
             </thead>
             <tbody>
               {items?.map((m) => (
-                <tr key={m.merchant}>
+                <tr key={m.merchant} className={!m.totalCents && m.inCents ? "unranked" : undefined}>
                   <td className="m-name">
                     {/* the rows open for the period the figures add up */}
                     <a href={`#/transactions${query({ merchant: m.merchant, from, to })}`}>{m.merchant}</a>

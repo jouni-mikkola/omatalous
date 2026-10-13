@@ -13,10 +13,15 @@
 
 /* the first column of a table of due dates is as wide as its text (a day has no space to break at, a month wraps on a phone); the payee takes the rest */
 .st-table .due-col { width: 1%; }
-/* above a phone the month stands on one line: width 1% alone would break it at its space */
-@media (min-width: 601px) { .rare-table .due-col { white-space: nowrap; } }
-/* four columns on a phone: a narrower gap between them leaves the payee its width */
-@media (max-width: 600px) { .rare-table :is(th, td) + :is(th, td) { padding-left: 8px; } }
+/* the month stands on one line: width 1% alone would break it at its space */
+.rare-table .due-col { white-space: nowrap; }
+/* the state of a month ("Maksettu 5.10.") is a column above a phone and a second line under the payee on one; the headless column is not drawn there */
+.rare-table .paid-sub { display: none; }
+@media (max-width: 640px) {
+  .rare-table .paid-col { display: none; }
+  .rare-table .paid-sub { display: block; max-width: none; white-space: normal; overflow: visible; }
+  .rare-table :is(th, td) + :is(th, td) { padding-left: 8px; }
+}
 
 /* the typed-in bills: name and amount, the rest below. No table, so a phone needs no side scroll. */
 .bill-list { list-style: none; margin: 0; padding: 0; max-width: 640px; }

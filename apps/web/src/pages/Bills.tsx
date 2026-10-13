@@ -44,6 +44,29 @@ import "../styles/statement.css";
 /** The width of the report sections that stand beside the cards of this page. */
 const SECTION_SPAN: Record<string, 6 | undefined> = { tulevat: 6, hinnat: 6 };
 
+type Part = { order: number; span?: 5 | 6 | 7; node: ReactNode };
+
+/**
+ * Runs of half-width panels (`span: 6`) as two columns that stand side by side, so a short panel does not leave
+ * an empty half beside a long one: the first of the run is the left column, the rest stack in the right one.
+ * The parts keep their order in the page, so a phone and a screen reader still get them one after another.
+ */
+export function placeParts(parts: Part[]): (Part | { columns: [Part[], Part[]] })[] {
+  const out: (Part | { columns: [Part[], Part[]] })[] = [];
+  for (let i = 0; i < parts.length; ) {
+    let end = i;
+    while (end < parts.length && parts[end]!.span === 6) end++;
+    if (end - i < 2) {
+      out.push(parts[i]!);
+      i++;
+    } else {
+      out.push({ columns: [[parts[i]!], parts.slice(i + 1, end)] });
+      i = end;
+    }
+  }
+  return out;
+}
+
 /** What has ended and is not pay or a shop habit: those have no place on a page about bills. */
 const hasEnded = (s: Series) => !s.active && s.kind !== "habit" && s.kind !== "income";
 
@@ -118,7 +141,7 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
 
   // the numbers share one scale with the `order` of the sections that are shown on this page
   // `span` is the panel's width in the twelve columns above a tablet: 5|7 for the list and Tilaukset, 6|6 below, the rest whole
-  const parts: { order: number; span?: 5 | 6 | 7; node: ReactNode }[] = [
+  const parts: Part[] = [
     { order: 10, span: 5, node: <Coming key="coming" ahead={dashboard.data.ahead} today={meta.today} onAdded={refresh} /> },
     { order: 20, span: 7, node: <Subscriptions key="subs" subs={subs} stopped={stopped} total={subsMonthly} controls={controls} label={label} /> },
     { order: 40, span: 6, node: <Contracts key="contracts" rows={contracts} label={label} /> },
@@ -155,7 +178,19 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
           {markError}
         </div>
       )}
-      {parts.map((p) => (p.span ? <div key={p.order} className={`span-${p.span}`}>{p.node}</div> : p.node))}
+      {placeParts(parts).map((p) =>
+        "columns" in p ? (
+          p.columns.map((col, i) => (
+            <div key={`col-${i}`} className="span-6 stack">
+              {col.map((c) => c.node)}
+            </div>
+          ))
+        ) : p.span ? (
+          <div key={p.order} className={`span-${p.span}`}>{p.node}</div>
+        ) : (
+          p.node
+        ),
+      )}
       {!series.length && <div className="card empty">Ei toistuvia maksuja.</div>}
     </div>
   );
@@ -188,8 +223,8 @@ function Ended({ rows, label }: { rows: Series[]; label: (id: string) => string 
   if (!rows.length) return null;
   return (
     <details className="card">
-      <summary>
-        <strong>Päättyneet maksut</strong>
+      <summary className="card-head">
+        <h2>Päättyneet maksut</h2>
       </summary>
       <SeriesTable rows={rows} label={label} ended />
     </details>

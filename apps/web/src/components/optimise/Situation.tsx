@@ -27,7 +27,7 @@ export function Situation({ data }: { data: OptimiseData }) {
         {data.situation.map((fact) => (
           <div key={fact.id}>
             <dt className="k">{fact.label}</dt>
-            <dd className="v"><Figure text={fact.text || "–"} size="m" /></dd>
+            <dd className="v"><Figure text={fact.text || "–"} size="m" whole={!fact.text.includes("€")} /></dd>
           </div>
         ))}
       </dl>

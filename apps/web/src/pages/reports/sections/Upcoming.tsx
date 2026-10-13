@@ -15,6 +15,8 @@ import "../../../styles/statement.css";
  * household typed in, which can be removed here. A bill is found after two charges, so a yearly one is typed in
  * (Erääntyvät maksut > Lisää lasku) for its first two years. The bills of the next 30 days are in Erääntyvät maksut, not here.
  */
+const paidText = (count: number, p: { merchant: string; date: string }) => `Maksettu ${dayMonth(p.date)}${count > 1 ? ` (${p.merchant})` : ""}`;
+
 function Upcoming({ ctx }: SectionProps) {
   const r = ctx.data.upcoming;
   const [error, setError] = useState<string | null>(null);
@@ -45,21 +47,26 @@ function Upcoming({ ctx }: SectionProps) {
               <th scope="col" className="st-num">
                 Summa
               </th>
-              <th scope="col" />
+              <th scope="col" className="paid-col" />
             </tr>
           </thead>
           <tbody>
             {months.map((m) => (
               <tr key={m.month}>
                 <td className="due-col">{monthLong(m.month)}</td>
-                <td>{m.names.join(", ")}</td>
-                <td className="st-num">{money(m.cents, false)}</td>
                 <td>
+                  {m.names.join(", ")}
+                  {/* on a phone the state stands under the payee: the fourth column is not drawn there */}
                   {m.paid.map((p) => (
-                    <div key={`${p.merchant}-${p.date}`}>
-                      Maksettu {dayMonth(p.date)}
-                      {m.paid.length > 1 && ` (${p.merchant})`}
+                    <div key={`${p.merchant}-${p.date}`} className="sub paid-sub">
+                      {paidText(m.paid.length, p)}
                     </div>
+                  ))}
+                </td>
+                <td className="st-num">{money(m.cents, false)}</td>
+                <td className="paid-col">
+                  {m.paid.map((p) => (
+                    <div key={`${p.merchant}-${p.date}`}>{paidText(m.paid.length, p)}</div>
                   ))}
                 </td>
               </tr>

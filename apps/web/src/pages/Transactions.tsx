@@ -190,7 +190,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   // viewer's parts of a joint account's rows (the server's). With a merchant filter the merchant's card states them.
   const facts: [string, string][] = [];
   if (data && data.total > 0 && !filters.merchant) {
-    facts.push(["Tapahtumia", String(data.total)]);
+    facts.push(["Tapahtumia", count(data.total)]);
     if (data.outCents > 0) facts.push(["Maksettu yhteensä", money(data.outCents)]);
     if (data.inCents > 0) facts.push(["Saatu yhteensä", money(data.inCents)]);
   }

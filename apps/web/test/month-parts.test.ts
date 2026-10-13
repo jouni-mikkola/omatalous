@@ -28,6 +28,11 @@ const usual = period({ income: 4000, consumption: 2500, debt: 400, saved: 500 })
 const car = { income: 3000, consumption: 13_000 };
 
 describe("the surplus bridge", () => {
+  it("stands its head in the body, not as a second name strip", () => {
+    const out = html(usual);
+    expect(out).toContain('<div class="bridge-head">');
+    expect(out).not.toContain("card-head");
+  });
   it("keeps the order and gives every part a colour of its own", () => {
     const parts = bridgeParts(usual);
     expect(parts.map((p) => p.label)).toEqual(["Kulutus", "Velanhoito", "Säästöön", "Yli jäi"]);

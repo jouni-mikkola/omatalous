@@ -58,7 +58,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
   if (rows.every((r) => r.cents === 0)) {
     return (
       <div className="bridge">
-        {head && <div className="card-head bridge-head">{head}</div>}
+        {head && <div className="bridge-head">{head}</div>}
         {none}
       </div>
     );
@@ -81,7 +81,7 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
   return (
     <div className="bridge">
       {(head || draws) && (
-        <div className="card-head bridge-head">
+        <div className="bridge-head">
           {head || <span />}
           {draws && (
             <button className="btn btn-small" onClick={() => setTable((v) => !v)} aria-pressed={table}>

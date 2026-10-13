@@ -146,11 +146,11 @@ describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
     ];
     const out = flat(html(upcomingSection, context(upcoming({ months }))));
     expect(out).toContain('<div class="card-datum"><span class="fig fig-s"><span class="fig-int">47</span><span class="fig-unit"> €/kk</span></span></div>');
-    expect(out).toContain('<th scope="col" class="due-col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="st-num">Summa</th>');
-    expect(out).toContain('<td class="due-col">lokakuu 2026</td><td>If, Lähitapiola</td><td class="st-num">141 €</td><td><div>Maksettu 5.10.</div></td>');
+    expect(out).toContain('<th scope="col" class="due-col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="st-num">Summa</th><th scope="col" class="paid-col"></th>');
+    expect(out).toContain('<td class="due-col">lokakuu 2026</td><td>If, Lähitapiola<div class="sub paid-sub">Maksettu 5.10.</div></td><td class="st-num">141 €</td><td class="paid-col"><div>Maksettu 5.10.</div></td>');
     // a month with nothing due is no row; one with nothing paid has an empty fourth cell
     expect(out).not.toContain("marraskuu 2026");
-    expect(out).toContain('<td class="due-col">joulukuu 2026</td><td>Ajoneuvovero</td><td class="st-num">312 €</td><td></td>');
+    expect(out).toContain('<td class="due-col">joulukuu 2026</td><td>Ajoneuvovero</td><td class="st-num">312 €</td><td class="paid-col"></td>');
     expect(out).not.toContain("vuodessa eli");
     expect(out).not.toContain('class="lead"');
   });
@@ -158,7 +158,7 @@ describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
   it("when two bills of a month are paid each paid day names its payee, and with nothing found there is no table and no figure", () => {
     const paid = [{ merchant: "If", date: "2026-10-05" }, { merchant: "Lähitapiola", date: "2026-10-09" }];
     const out = flat(html(upcomingSection, context(upcoming({ months: [{ month: "2026-10", cents: 20_000, names: ["If", "Lähitapiola"], paid }] }))));
-    expect(out).toContain("<div>Maksettu 5.10. (If)</div><div>Maksettu 9.10. (Lähitapiola)</div>");
+    expect(out).toContain('<td class="paid-col"><div>Maksettu 5.10. (If)</div><div>Maksettu 9.10. (Lähitapiola)</div>');
     const typedOnly = flat(html(upcomingSection, context(upcoming({ yearlyCents: 0, manual: [typed] }))));
     expect(typedOnly).toContain("Poista lasku Ajoneuvovero");
     expect(typedOnly).not.toContain("<table");
