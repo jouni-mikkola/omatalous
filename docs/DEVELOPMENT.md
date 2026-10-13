@@ -315,8 +315,9 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
 2. Before you commit, run `pnpm check --changed <base>` once, with the commit your work started from (without a base it
    is `origin/main`). It runs the type check everywhere, the tests of the packages the diff touches and the shell suites
    only if shell changed, and ends in a few lines. A plain `pnpm check` runs everything, as CI does, with the four steps side by side (`CHECK_SERIAL=1` runs them one after the other).
-3. Run `pnpm build` and `pnpm e2e` once, and only when the change touches the web app or a route. Never a subset of the
-   specs: a page that breaks shows in another page's spec.
+3. Run `pnpm build` and `pnpm e2e` once, and only when the change touches the web app or a route. A task that works beside
+   others runs the specs of its own pages (`pnpm e2e <spec files>`); the landing runs every spec on the merged tree,
+   since a page that breaks shows in another page's spec.
 4. Stage your files first (`git add -A`): the repo rules read the index and the new files that git does not ignore.
 
 ### Pictures of a page

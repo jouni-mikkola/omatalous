@@ -71,7 +71,7 @@ describe("cash ahead", () => {
   it("a salary lands on its usual day, the Friday before at a weekend, and the window ends the day before it", () => {
     const d = cashAhead(ctx, [balance(200_000)], NO_INPUTS);
     // the 25th of October 2026 is a Sunday
-    expect(d.payday).toEqual({ date: "2026-10-23", name: "Acme Oy", cents: 300_000 });
+    expect(d.payday).toEqual({ date: "2026-10-23", name: "Acme Oy", pay: expect.objectContaining({ usualCents: 300_000, kind: "steady" }) });
     expect(d.to).toBe("2026-10-22");
     // Spotify on the 11th is due before the pay, the rent of 2.11. is not
     expect(d.rows.map((r) => r.name)).toEqual(["Spotify"]);

@@ -500,7 +500,16 @@
   "payday": {
    "date": "2026-10-23",
    "name": "Acme Oy",
-   "cents": 395000
+   "pay": {
+    "count": 12,
+    "lowCents": 395000,
+    "highCents": 395000,
+    "usualCents": 395000,
+    "floorCents": 395000,
+    "ceilCents": 395000,
+    "kind": "steady",
+    "baseCents": 395000
+   }
   },
   "rows": [
    {

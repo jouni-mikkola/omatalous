@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
 import { billLine, endCents, isWeekend, zeroY } from "../src/components/next-days-line.ts";
 import type { Ahead } from "../src/components/next-days.ts";
+import { steady } from "./pay-fixture.ts";
 
 type Row = Ahead["rows"][number];
 
@@ -22,7 +23,7 @@ function ahead(rows: Row[], over: Partial<Ahead> = {}): Ahead {
     to: "2026-10-22",
     days: 10,
     reason: "payday",
-    payday: { date: "2026-10-23", name: "Esimerkki Oy", cents: 300_000 },
+    payday: { date: "2026-10-23", name: "Esimerkki Oy", pay: steady(300_000) },
     rows,
     upcoming: rows.filter((r) => r.cents < 0),
     everydayPerDayCents: 0,
@@ -58,26 +59,26 @@ describe("the days of the line", () => {
   });
 
   it("are two when the pay is tomorrow and one when it is today, with the payment of today on the first", () => {
-    const tomorrow = ahead([row({ date: "2026-10-12" })], { to: "2026-10-12", days: 0, payday: { date: "2026-10-13", name: "Esimerkki Oy", cents: 300_000 } });
+    const tomorrow = ahead([row({ date: "2026-10-12" })], { to: "2026-10-12", days: 0, payday: { date: "2026-10-13", name: "Esimerkki Oy", pay: steady(300_000) } });
     expect(billLine(tomorrow)!.axis.map((d) => [d.day, d.payday])).toEqual([
       [12, false],
       [13, true],
     ]);
     expect(billLine(tomorrow)!.bills[0]!.column).toBe(0);
     expect(billLine(tomorrow)!.pays.map((p) => p.column)).toEqual([1]);
-    const today = ahead([row({ date: "2026-10-12" })], { to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", cents: 300_000 } });
+    const today = ahead([row({ date: "2026-10-12" })], { to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", pay: steady(300_000) } });
     expect(billLine(today)!.axis.map((d) => [d.day, d.payday])).toEqual([[12, true]]);
     expect(billLine(today)!.pays.map((p) => p.column)).toEqual([0]);
   });
 
   it("have no line when no payment is due, whatever else the window holds", () => {
     expect(billLine(ahead([]))).toBeNull();
-    expect(billLine(ahead([row({ date: "2026-10-14", name: "Pieni Esimerkki Oy", cents: 80_000, source: "income" })]))).toBeNull();
+    expect(billLine(ahead([row({ date: "2026-10-14", name: "Pieni Esimerkki Oy", cents: 80_000, source: "income", pay: steady(80_000) })]))).toBeNull();
     expect(billLine(ahead([], NONE))).toBeNull();
   });
 
   it("put a pay that is behind its day on no day: it is not on the axis, and its row is in the table", () => {
-    const behind = ahead([row({})], { to: "2026-11-05", days: 24, payday: { date: "2026-10-12", expected: "2026-10-09", next: "2026-11-06", name: "Esimerkki Oy", cents: 300_000 } });
+    const behind = ahead([row({})], { to: "2026-11-05", days: 24, payday: { date: "2026-10-12", expected: "2026-10-09", next: "2026-11-06", name: "Esimerkki Oy", pay: steady(300_000) } });
     const line = billLine(behind)!;
     expect(line.axis.at(-1)).toMatchObject({ iso: "2026-11-06", payday: true });
     expect(line.pays).toEqual([]);
@@ -99,7 +100,7 @@ describe("the scale of the steps", () => {
     expect(endCents(line)).toBe(200_000 - 4_500 - 105_000);
     expect(endCents(billLine(ahead([row({})], { balance: null }))!)).toBeNull();
     // a pay is a mark and is never added
-    expect(endCents(billLine(ahead([row({}), row({ date: "2026-10-16", cents: 50_000, source: "income" })]))!)).toBe(200_000 - 4_500);
+    expect(endCents(billLine(ahead([row({}), row({ date: "2026-10-16", cents: 50_000, source: "income", pay: steady(50_000) })]))!)).toBe(200_000 - 4_500);
   });
   it("puts zero where the straight scale crosses it, only when a step goes below it and inside the field", () => {
     // 1 000 at y 10 down to -1 000 at y 90: zero is in the middle
@@ -168,9 +169,9 @@ describe("a dot's name", () => {
     expect(plain(billLine(ahead([CARD]))!.bills[0]!.label)).toBe("Esimerkkipankki Gold, 642,30 €, to 15.10.");
   });
 
-  it("of a pay says it arrives and tells no estimate", () => {
+  it("of a pay says it arrives and is an estimate", () => {
     const line = billLine(ahead([row({})]))!;
-    expect(plain(line.pays[0]!.label)).toBe("Saapuva maksu, Esimerkki Oy, 3 000,00 €, pe 23.10.");
+    expect(plain(line.pays[0]!.label)).toBe("Saapuva maksu, Esimerkki Oy, arvio, noin 3 000 €, pe 23.10.");
   });
 });
 
@@ -205,7 +206,7 @@ describe("the line as the page shows it", () => {
     expect(count(out, "nd-pay")).toBe(1);
     // the typed bill and the card's own sum are full dots, the bill of the history is hollow
     expect(count(out, " nd-est")).toBe(1);
-    expect(labels(out)).toEqual(["Sähköyhtiö Esimerkki, arvio, 45,00 €, to 15.10.", "Esimerkkipankki Gold, 642,30 €, to 15.10.", "Vuokra Esimerkki, 1 050,00 €, ti 20.10.", "Saapuva maksu, Esimerkki Oy, 3 000,00 €, pe 23.10."]);
+    expect(labels(out)).toEqual(["Sähköyhtiö Esimerkki, arvio, 45,00 €, to 15.10.", "Esimerkkipankki Gold, 642,30 €, to 15.10.", "Vuokra Esimerkki, 1 050,00 €, ti 20.10.", "Saapuva maksu, Esimerkki Oy, arvio, noin 3 000 €, pe 23.10."]);
   });
 
   it("is one tab stop, the first dot: the arrows go on from there", () => {

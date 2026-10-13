@@ -11,7 +11,7 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 interface Ahead {
   reason: "payday" | "late" | "none";
-  payday: { name: string; cents: number } | null;
+  payday: { name: string; pay: { kind: "steady" | "varies"; floorCents: number; ceilCents: number; usualCents: number } | null } | null;
   rows: { date: string; name: string; cents: number; source: string; basis?: string }[];
   upcoming: { cents: number; onCard?: boolean }[];
   totals: { dueCents: number; cardCents: number; transferCents: number };
@@ -81,10 +81,15 @@ test("the line over the figures names the payday, the three figures are the API'
 
   // what is to arrive has its own table: other pay of the window, and as its last row the pay the window waits for
   const arriving = card.getByRole("table", { name: "Saapuvat maksut" });
-  expect(await namesOf(arriving)).toEqual([...ahead.rows.filter((r) => r.cents > 0).map((r) => r.name), ahead.payday!.name]);
+  expect(await namesOf(arriving)).toEqual([...ahead.rows.filter((r) => r.source === "income").map((r) => r.name), ahead.payday!.name]);
   const pay = arriving.locator("tbody tr").last();
   await expect(pay.locator("td:nth-child(2)")).toHaveText(/acme/i);
-  expect(cents(await pay.locator("td:last-child").innerText())).toBe(ahead.payday!.cents);
+  // a coming pay is never a bare sum: "noin" its usual sum when steady, the range of the estimate when it varies, a dash without
+  // an estimate, and the sentence of the pays that came under the table only for a pay that varies
+  const [sum, kind] = [(await pay.locator("td:last-child").innerText()).replace(/\s/g, " "), ahead.payday!.pay?.kind];
+  expect(sum).toMatch(kind === "steady" ? /^noin \d[\d ]* €$/ : kind === "varies" ? /^\d[\d ]*–\d[\d ]* €$/ : /^–$/);
+  await expect(card.locator(".ahead-pay-note")).toHaveCount(kind === "varies" ? 1 : 0);
+  if (kind === "varies") await expect(card.locator(".ahead-pay-note")).toContainText(/^Palkka vaihtelee: \d+ viime palkkaa /);
 
   // the line of days: only when a payment is due, a dot for each payment of the table in its order, each named by the payee,
   // the sum and the day. A row the app estimates is a hollow dot and says so in its name; a bill the household typed in is a full dot

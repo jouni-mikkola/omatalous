@@ -471,11 +471,22 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
   count. The payday itself is no row. With a checking balance it gives three figures: the balance today
   (`startCents`, as Saldot has it: the bank's balance with the rows booked since), the payments due in the window
   (`totals.dueCents`: bills, typed bills, card bills and own transfers) and the balance less them (`freeCents`). No
-  day's balance is modelled and pay in the window is in no figure. The figures need the balance of every counted
-  account. `shortOn` is the day of the first payment that the balance and the pay dated before that day do not cover,
-  and `shortCents` the most the account lacks at a payment. The usual spending of a day (`everydayPerDayCents`) is the
+  day's balance is modelled and pay in the window is in none of those three. The figures need the balance of every counted
+  account. `shortOn` is the day of the first payment that the balance and the pay dated before that day (as much as it
+  is at least: `floorCents` of its estimate, 0 without one) do not cover, and `shortCents` the most the account lacks at
+  a payment. The usual spending of a day (`everydayPerDayCents`) is the
   median of the last 13 whole weeks before the running month, without fixed costs, divided by seven, and 0 under
   eight whole weeks; it is in the answer, on no page and taken off no figure.
+- **A coming pay is an estimate, never a bare sum** (`payEstimate` in `analysis/pay-estimate.ts`). It rests on the
+  series' regular pays only (holiday pay and other pay are left out), the newest twelve after the newest step in the
+  level (`levelStep`: a new tax card or a raise makes older pays no evidence), and on three at least; with fewer the row
+  has its day and no sum. A pay whose largest and smallest differ by at most 2 % of the median is *steady*: the page says
+  *noin* and the median. Any other is *varies*: the page says the range of the estimate, the 25th percentile
+  rounded down to whole euros (`floorCents`) to the 75th rounded up (`ceilCents`), and under the table one sentence of the pays that
+  came (*Palkka vaihtelee: ... tavallisin ...*, with *Vähintään on tullut* the smallest level when six pays exist and the
+  smallest three are within 2 %). A calendar month that two earlier years paid over 10 % above (or below) the year's
+  median moves the estimate by the smaller of the two ratios (`season`). The only sum of a pay that any figure adds is
+  `floorCents`.
 - **A card's bill** is a row on the median day of the month of its last three bills (`expectedMoves` in
   `analysis/ahead-moves.ts`). Its sum is what the card owes today when the last bill was paid in full, that is when it
   is not late and covered what the card owed after the bill before it; the row is the card's name with the line

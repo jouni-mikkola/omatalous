@@ -187,7 +187,7 @@ const listed = (r: AheadRow): string => r.name + (r.source === "card" ? CARD_NOT
 /** The rows of the table of the payments, in the window's order. */
 const due = (a: Ahead): AheadRow[] => a.rows.filter((r) => r.cents < 0);
 /** The names in the table Saapuvat maksut: other pay of the window, and the pay it waits for last. */
-const arriving = (a: Ahead): string[] => [...a.rows.filter((r) => r.cents > 0).map((r) => r.name), ...(a.reason === "payday" && a.payday ? [a.payday.name] : [])];
+const arriving = (a: Ahead): string[] => [...a.rows.filter((r) => r.source === "income").map((r) => r.name), ...(a.reason === "payday" && a.payday ? [a.payday.name] : [])];
 const bills = (a: Ahead): number => a.totals.recurringCents + a.totals.typedCents + a.totals.cardCents + a.totals.transferCents;
 const COUNTS = { own: "Omat käyttötilit, ilman yhteistä tiliä", part: "Osuutesi yhteisestä tilistä" };
 

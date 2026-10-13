@@ -6,12 +6,13 @@ import { Coming } from "../src/components/bills/Coming.tsx";
 import { Subscriptions } from "../src/components/bills/Subscriptions.tsx";
 import { NextDays } from "../src/components/NextDays.tsx";
 import type { DashboardData, Recurring } from "../src/types.ts";
+import { steady } from "./pay-fixture.ts";
 
 type Ahead = NonNullable<DashboardData["ahead"]>;
 type Row = Ahead["rows"][number];
 
 const sum = (rows: Row[], source: Row["source"]) => rows.filter((r) => r.source === source).reduce((total, r) => total + Math.abs(r.cents), 0);
-const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Palkka", category: "salary", cents: 395_000, source: "income", ...over });
+const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Palkka", category: "salary", cents: 395_000, source: "income", pay: steady(395_000), ...over });
 /** A 30-day answer as the dashboard gives it: a pay day, two bills of the history and one the household typed in. */
 const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö", category: "utilities", cents: -8_900, source: "recurring" }), row({ date: "2026-10-20", name: "Netflix", category: "subscriptions", cents: -1_599, source: "recurring" }), row({ date: "2026-11-03", name: "Ajoneuvovero", category: null, cents: -31_250, source: "expected" })]): Ahead => ({
   from: "2026-10-11",
@@ -34,7 +35,7 @@ const coming = (a: Ahead | null) => flat(renderToStaticMarkup(createElement(Comi
 const nextDays = (a: Ahead) => flat(renderToStaticMarkup(createElement(NextDays, { ahead: a })));
 
 /** The same answer with a pay to wait for on Thu 15.10.: the window ends the day before it. */
-const beforePay = (a: Ahead, date = "2026-10-15"): Ahead => ({ ...a, reason: "payday", payday: { date, name: "Palkka", cents: 395_000 }, to: "2026-10-14", days: 3 });
+const beforePay = (a: Ahead, date = "2026-10-15"): Ahead => ({ ...a, reason: "payday", payday: { date, name: "Palkka", pay: steady(395_000) }, to: "2026-10-14", days: 3 });
 /** The head rows of the groups, each as its name and its sum. */
 const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="st-num">(.*?)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
 
@@ -121,7 +122,7 @@ describe("Laskut: Erääntyvät maksut", () => {
   });
 
   it("a pay behind its day with no pay to come is one group of the 30 days, and with one to come the group names that day", () => {
-    const behind = { date: "2026-10-11", expected: "2026-10-09", name: "Palkka", cents: 395_000 };
+    const behind = { date: "2026-10-11", expected: "2026-10-09", name: "Palkka", pay: steady(395_000) };
     expect(groupHeads(coming({ ...ahead(), reason: "payday", payday: behind }))).toEqual(["Seuraavat 30 päivää: 417,49 €"]);
     const next = { ...ahead(), reason: "payday" as const, payday: { ...behind, next: "2026-10-15" }, to: "2026-10-14", days: 3 };
     expect(groupHeads(coming(next))).toEqual(["Palkkapäivään asti, to 15.10. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.: 89,00 €", "Palkkapäivän jälkeen: 328,49 €"]);

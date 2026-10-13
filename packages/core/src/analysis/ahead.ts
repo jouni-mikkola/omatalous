@@ -15,9 +15,10 @@ import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
 import { type Counted, countedAccounts, expectedMoves } from "./ahead-moves.ts";
 import { balanceWalk } from "./balance-walk.ts";
-import type { AnalysisContext } from "./context.ts";
+import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { everydayPerDay, expectedBillRows } from "./forecast.ts";
-import { nextPayDate, payDayOf } from "./income.ts";
+import { INCOME_TYPES, type IncomeType, incomeTypes, nextPayDate, payDayOf } from "./income.ts";
+import { type PayEstimate, payEstimate } from "./pay-estimate.ts";
 
 /** How many days after today the window runs when no payday sets it. */
 const AHEAD_DAYS = 30;
@@ -34,7 +35,10 @@ export interface AheadRow {
   name: string;
   /** "transfer" on a card's bill and on a transfer: they move a balance and are spending nowhere. */
   category: string | null;
-  /** Money in is positive, everything that leaves the counted accounts negative. */
+  /**
+   * Money in is positive, everything that leaves the counted accounts negative. On a pay day: the least the pay is
+   * expected to be (`pay.floorCents`), 0 when it has no estimate. It is the only sum of a pay that any figure adds.
+   */
   cents: number;
   /**
    * "income": a pay day. "recurring": a subscription or bill the history shows. "expected": a bill the household typed
@@ -48,6 +52,8 @@ export interface AheadRow {
    * yet: it is paid from that pay, so it is no row of the window and Laskut lists it after the payday.
    */
   withPay?: boolean;
+  /** On a pay day: the estimate of the pay from the pays that came, null when they are too few to say a sum. */
+  pay?: PayEstimate | null;
   /**
    * In `upcoming` only: the series is charged to a credit card, so no account pays it. It is in the card's bill, and
    * Laskut lists it in a group of its own, outside the sums of what the accounts pay.
@@ -89,8 +95,8 @@ interface Payday {
   next?: IsoDate;
   /** The payer. */
   name: string;
-  /** The usual amount of the series. */
-  cents: number;
+  /** What the pay is expected to be, from the regular pays of the series; null under three pays. */
+  pay: PayEstimate | null;
 }
 
 /** What the window holds, each in positive cents. */
@@ -105,7 +111,7 @@ interface AheadTotals {
   transferCents: number;
   /** Everything that leaves the counted accounts in the window: the four above added up. */
   dueCents: number;
-  /** Other pay that lands inside the window; the payday itself is no part of it. */
+  /** The least of the other pay that lands inside the window (the floor of each estimate); the payday itself is no part of it. */
   incomeCents: number;
 }
 
@@ -176,8 +182,9 @@ const chargeRow = (c: ExpectedCharge): AheadRow => ({ date: c.date, name: c.merc
  *
  * What is due and what is free hold the payments and nothing else: what is free is the balance less what is due. The
  * day the balance runs short is the day of the first payment that the balance and the pay dated before that day do
- * not cover: other pay of the window is a row, and it is money only for what is due after it. The figures need the
- * balance of every counted account, since the rows are those of all of them.
+ * not cover: other pay of the window is a row, and it is money only for what is due after it, as much as its estimate
+ * says it is at least (`PayEstimate.floorCents`, 0 without an estimate). The figures need the balance of every counted
+ * account, since the rows are those of all of them.
  *
  * The payday is that of the whole view, whatever account the pay lands on. Everything else follows the counted
  * accounts: other pay is a row when one of them gets it, a charge when one of them pays it (a series is one account's,
@@ -195,9 +202,20 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   const top = incomes.reduce<RecurringSeries | null>((best, s) => (!best || s.typicalAmountCents > best.typicalAmountCents ? s : best), null);
   // a late income is no row and no payday to wait for
   const coming = incomes.filter((s) => !s.overdue);
-  const wanted = new Set(coming.flatMap((s) => s.transactionIds));
+  const wanted = new Set(incomes.flatMap((s) => s.transactionIds));
   const dayOf = new Map<string, IsoDate>();
-  for (const t of ctx.txs) if (wanted.has(t.id)) dayOf.set(t.id, t.bookingDate);
+  const rowsOf = new Map<string, AnalysisTx>();
+  for (const t of ctx.txs) if (wanted.has(t.id)) (dayOf.set(t.id, t.bookingDate), rowsOf.set(t.id, t));
+  // the estimate of a series' next pay: from its regular pays only, holiday pay and other pay left out
+  let types: Map<string, IncomeType> | null = null;
+  const payOf = (s: RecurringSeries, due: IsoDate): PayEstimate | null => {
+    types ??= incomeTypes(ctx.txs);
+    const regular = s.transactionIds.flatMap((id) => {
+      const t = rowsOf.get(id);
+      return t && t.amountCents > 0 && INCOME_TYPES[types!.get(id) ?? "other_income"].regular ? [{ date: t.bookingDate, cents: t.amountCents }] : [];
+    });
+    return payEstimate(regular, from, due);
+  };
   const reach = addDays(from, MAX_PAYDAY_DAYS);
   const pays = coming.map((s) => {
     const past = s.transactionIds.map((id) => dayOf.get(id)).filter((d): d is IsoDate => !!d);
@@ -217,13 +235,14 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   let payday: Payday | null = null;
   if (top?.overdue) {
     reason = "late";
-    payday = { date: top.nextDate ?? top.lastDate, name: top.merchant, cents: top.typicalAmountCents };
+    const due = top.nextDate ?? top.lastDate;
+    payday = { date: due, name: top.merchant, pay: payOf(top, due) };
   } else if (behind) {
     reason = "payday";
-    payday = { date: from, expected: behind.expected[0]!, ...(next ? { next: next.day } : {}), name: behind.s.merchant, cents: behind.s.typicalAmountCents };
+    payday = { date: from, expected: behind.expected[0]!, ...(next ? { next: next.day } : {}), name: behind.s.merchant, pay: payOf(behind.s, behind.expected[0]!) };
   } else if (next) {
     reason = "payday";
-    payday = { date: next.day, name: next.s.merchant, cents: next.s.typicalAmountCents };
+    payday = { date: next.day, name: next.s.merchant, pay: payOf(next.s, next.day) };
   }
   const to = !next ? addDays(from, AHEAD_DAYS) : next.day > from ? addDays(next.day, -1) : from;
   const days = daysBetween(from, to);
@@ -239,7 +258,8 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
     dates.forEach((d, i) => {
       // the pay that ends the window lands after it, and a pay to wait for whose day has gone by has not come
       if (d > to || (s === next?.s && d === next.day) || (waited.has(s) && due[i]! < from)) return;
-      all.push({ date: d, name: s.merchant, category: s.category, cents: s.typicalAmountCents, source: "income" });
+      const pay = payOf(s, due[i]!);
+      all.push({ date: d, name: s.merchant, category: s.category, cents: pay?.floorCents ?? 0, source: "income", pay });
     });
   }
   const expected = { cancelled: cancelledSubjects(inputs), savings: true };

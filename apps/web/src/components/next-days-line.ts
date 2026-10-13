@@ -1,7 +1,7 @@
 // Decision: does the account cover what is due before the next pay (the line of days over the payments' table)
 import { addDays, daysBetween } from "@banking/core";
 import { dayHeading, money } from "../format.ts";
-import { type Ahead, arrivals, isEstimate, paymentRows, rowName, windowPayday } from "./next-days.ts";
+import { type Ahead, arrivals, isEstimate, paymentRows, paySum, rowName, windowPayday } from "./next-days.ts";
 
 /** A day of the line's axis. */
 interface Axis {
@@ -39,7 +39,6 @@ interface Pay {
   row: number;
   column: number;
   name: string;
-  cents: number;
   label: string;
   when: string;
 }
@@ -101,7 +100,8 @@ export function billLine(ahead: Ahead): BillLine | null {
   const pays = arrivals(ahead).flatMap((a, row): Pay[] => {
     if (a.date < from || a.date > last) return [];
     const day = dayHeading(a.date, from);
-    return [{ row, column: daysBetween(from, a.date), name: a.name, cents: a.cents, label: `Saapuva maksu, ${a.name}, ${money(a.cents)}, ${day}`, when: `${day} · ${money(a.cents)}` }];
+    const sum = paySum(a.pay);
+    return [{ row, column: daysBetween(from, a.date), name: a.name, label: `Saapuva maksu, ${a.name}, arvio, ${sum ? `${sum}, ` : ""}${day}`, when: `${day}${sum ? ` · ${sum}` : ""} · arvio` }];
   });
   return { axis, bills, pays, startCents: start };
 }

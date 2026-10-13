@@ -45,7 +45,7 @@ const FIRST_PAGE_DAYS = 120;
 /** Banking days after the pay day before pay counts as missing: a weekend, a holiday, a slow sync. */
 const PAY_GRACE_BANKING_DAYS = 2;
 
-function levelStep(p: readonly Period[]): { base: number; level: number; start: Period; run: number; basePeriods: number } | null {
+export function levelStep(p: readonly Period[]): { base: number; level: number; start: Period; run: number; basePeriods: number } | null {
   const n = p.length;
   if (n < 5) return null;
   const last = p[n - 1]!.cents;

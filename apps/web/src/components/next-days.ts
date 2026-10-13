@@ -106,6 +106,8 @@ interface Line {
   cents: number;
   /** The app estimates its day and sum: the row carries a ring where a given one carries a disc. */
   estimate: boolean;
+  /** A pay's sum as the table prints it ("noin 2 480 €", "2 100–2 900 €"), null when the pay has none; a bill's is its cents. */
+  sum?: string | null;
 }
 
 /** What a row is called: a card is called as Varallisuus calls it, without the type the bank adds in brackets. */
@@ -119,12 +121,14 @@ export const paymentRows = (ahead: Ahead): Row[] => ahead.rows.filter((r) => r.c
 /** The payments of the window as table lines. */
 export const payments = (ahead: Ahead): Line[] => paymentRows(ahead).map(lineOf);
 
+type Pay = NonNullable<Row["pay"]>;
+
 /** What is to arrive, as the table lists it. */
 interface Arrival {
   date: string;
   name: string;
-  /** Positive. */
-  cents: number;
+  /** The estimate of the pay, null when too few pays came to say a sum. */
+  pay: Pay | null;
 }
 
 /**
@@ -133,13 +137,40 @@ interface Arrival {
  */
 export function arrivals(ahead: Ahead): Arrival[] {
   const { payday, reason } = ahead;
-  const list = ahead.rows.filter((r) => r.cents > 0).map((r) => ({ date: r.date, name: r.name, cents: r.cents }));
-  if (reason === "payday" && payday) list.push({ date: payday.expected ?? payday.date, name: payday.name, cents: payday.cents });
+  const list = ahead.rows.filter((r) => r.source === "income").map((r) => ({ date: r.date, name: r.name, pay: r.pay ?? null }));
+  if (reason === "payday" && payday) list.push({ date: payday.expected ?? payday.date, name: payday.name, pay: payday.pay });
   return list;
 }
 
-/** The arrivals as the lines of the second table. */
-export const incoming = (ahead: Ahead): Line[] => arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.cents, estimate: false }));
+/** Whole euros as a figure without the sign of the currency: 210000 -> "2 100". */
+const figure = (cents: number): string => money(cents, false).replace(/[\s ]*€$/, "");
+
+/** The range of a figure: "2 100–2 900 €". */
+const range = (low: number, high: number): string => `${figure(low)}–${money(high, false)}`;
+
+/**
+ * A coming pay is never a bare sum: a steady one is "noin" its usual sum, one that varies is the range of the estimate,
+ * floor to ceiling. Null without an estimate: the row has its day and no sum.
+ */
+export function paySum(pay: Pay | null): string | null {
+  if (!pay) return null;
+  return pay.kind === "steady" ? `noin ${money(pay.usualCents, false)}` : range(pay.floorCents, pay.ceilCents);
+}
+
+/**
+ * The one sentence under the table of what is to arrive, when the pay the window waits for varies: the facts of the
+ * pays that came, and with a base the least that has come. Null for a steady pay and for one with no estimate.
+ */
+export function payNote({ payday, reason }: Ahead): string | null {
+  const pay = reason === "payday" ? payday?.pay : null;
+  if (!pay || pay.kind !== "varies") return null;
+  const facts = `Palkka vaihtelee: ${pay.count} viime palkkaa ${range(pay.lowCents, pay.highCents)}, tavallisin ${money(pay.usualCents, false)}.`;
+  return pay.baseCents === undefined ? facts : `${facts} Vähintään on tullut ${money(pay.baseCents, false)}.`;
+}
+
+/** The arrivals as the lines of the second table: every one is projected from the pays that came, so every one is an estimate. */
+export const incoming = (ahead: Ahead): Line[] =>
+  arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.pay?.floorCents ?? 0, estimate: true, sum: paySum(a.pay) }));
 
 /** What the table of the payments is about, for a reader of the page that has no eyes for it. */
 export function paymentsCaption(ahead: Ahead): string {

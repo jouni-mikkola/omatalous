@@ -18,7 +18,7 @@
 .ahead-table .st-sub { white-space: normal; }
 
 /* the note over the line says the hollow dots and the days are estimates: it is the first thing of its group */
-.ahead-estimates { margin: 0 0 4px; }
+.ahead-estimates, .ahead-pay-note { margin: 0 0 4px; }
 
 /*
  * The line of days: the payments of the window as dots over an axis of days, under it the balance in steps. A dot is

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
 import { type Ahead, figures, incoming, payments } from "../src/components/next-days.ts";
+import { steady } from "./pay-fixture.ts";
 
 type Row = Ahead["rows"][number];
 type Balance = NonNullable<Ahead["balance"]>;
@@ -18,7 +19,7 @@ const ALL: Row[] = [
   row({ date: "2026-10-16", name: "Vuokra Esimerkki", cents: -105_000, source: "expected" }),
   CARD,
   MOVE,
-  row({ date: "2026-10-21", name: "Pieni Esimerkki Oy", category: "income", cents: 20_000, source: "income" }),
+  row({ date: "2026-10-21", name: "Pieni Esimerkki Oy", category: "income", cents: 20_000, source: "income", pay: steady(20_000) }),
 ];
 
 const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 300_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", freeCents: 65_500, shortCents: 0, shortOn: null, ...over });
@@ -32,7 +33,7 @@ function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
     to: "2026-10-22",
     days: 10,
     reason: "payday",
-    payday: { date: "2026-10-23", name: "Esimerkki Oy", cents: 300_000 },
+    payday: { date: "2026-10-23", name: "Esimerkki Oy", pay: steady(300_000) },
     rows,
     upcoming: rows.filter((r) => r.source === "recurring" || r.source === "expected"),
     everydayPerDayCents: 3_000,

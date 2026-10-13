@@ -7,7 +7,7 @@ import "../styles/ahead.css";
 import "../styles/statement.css";
 import { type Active, NextDaysLine } from "./NextDaysLine.tsx";
 import { billLine } from "./next-days-line.ts";
-import { type Ahead, figures, incoming, payments, paymentsCaption, warning, windowLine } from "./next-days.ts";
+import { type Ahead, figures, incoming, payNote, payments, paymentsCaption, warning, windowLine } from "./next-days.ts";
 
 type Line = ReturnType<typeof payments>[number];
 
@@ -22,6 +22,7 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
   const short = warning(ahead);
   const due = payments(ahead);
   const coming = incoming(ahead);
+  const varies = payNote(ahead);
   const line = billLine(ahead);
   const [active, setActive] = useState<Active>(null);
 
@@ -64,6 +65,7 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
           {line && <NextDaysLine line={line} active={active} onActive={setActive} />}
           <Lines caption={paymentsCaption(ahead)} hidden head={["Eräpäivä", "Saaja"]} lines={due} kind="bill" active={active} onActive={setActive} />
           {coming.length > 0 && <Lines caption="Saapuvat maksut" head={["Päivä", "Maksaja"]} lines={coming} kind="pay" active={active} onActive={setActive} />}
+          {varies && <p className="st-note ahead-pay-note">{varies}</p>}
           <p className="st-links">
             <a href="#/bills">Laskut</a>
             <a href="#/bills">Lisää lasku</a>
@@ -118,14 +120,14 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive }:
             onBlur={() => onActive(null)}
           >
             <td>
-              {kind === "bill" && <span className={l.estimate ? "src src-est" : "src"} aria-hidden="true" />}
+              {(kind === "bill" || l.estimate) && <span className={l.estimate ? "src src-est" : "src"} aria-hidden="true" />}
               {l.day}
             </td>
             <td title={l.name}>
               {l.merchant ? <a href={`#/transactions${query({ merchant: l.merchant })}`}>{l.name}</a> : l.name}
               {l.note && <div className="st-sub">{l.note}</div>}
             </td>
-            <td className="st-num">{money(l.cents)}</td>
+            <td className="st-num">{l.sum === undefined ? money(l.cents) : (l.sum ?? "–")}</td>
           </tr>
         ))}
         {lines.length === 0 && (

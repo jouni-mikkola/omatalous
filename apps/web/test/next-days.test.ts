@@ -2,8 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
-import { type Ahead, figures, incoming, payments, paymentsCaption, warning, windowLine } from "../src/components/next-days.ts";
+import { type Ahead, figures, incoming, payments, payNote, paymentsCaption, warning, windowLine } from "../src/components/next-days.ts";
 import { SETTINGS_ANCHOR } from "../src/routes.ts";
+import { steady, varies } from "./pay-fixture.ts";
 
 type Row = Ahead["rows"][number];
 type Balance = NonNullable<Ahead["balance"]>;
@@ -13,7 +14,7 @@ const plain = (s: string) => s.replace(/[  ]/g, " ").replace(/−/g, "-");
 
 const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Sähköyhtiö Esimerkki", category: "utilities", cents: -4_500, source: "recurring", ...over });
 const BILLS = [row({}), row({ date: "2026-10-20", name: "Esimerkkivakuutus", cents: -14_230 }), row({ date: "2026-10-21", name: "Vuokra Esimerkki", cents: -105_000, source: "expected" })];
-const OTHER_PAY = row({ date: "2026-10-14", name: "Pieni Esimerkki Oy", category: "salary", cents: 80_000, source: "income" });
+const OTHER_PAY = row({ date: "2026-10-14", name: "Pieni Esimerkki Oy", category: "salary", cents: 80_000, source: "income", pay: steady(80_000) });
 
 const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 200_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", freeCents: 76_270, shortCents: 0, shortOn: null, ...over });
 
@@ -26,7 +27,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
     to: "2026-10-22",
     days: 10,
     reason: "payday",
-    payday: { date: "2026-10-23", name: "Esimerkki Oy", cents: 300_000 },
+    payday: { date: "2026-10-23", name: "Esimerkki Oy", pay: steady(300_000) },
     rows,
     upcoming: rows.filter((r) => r.cents < 0),
     everydayPerDayCents: 3_849,
@@ -37,7 +38,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
   };
 }
 const NONE: Partial<Ahead> = { reason: "none", payday: null, days: 30, to: "2026-11-11" };
-const LATE: Partial<Ahead> = { reason: "late", payday: { date: "2026-10-09", name: "Esimerkki Oy", cents: 300_000 }, days: 30, to: "2026-11-11" };
+const LATE: Partial<Ahead> = { reason: "late", payday: { date: "2026-10-09", name: "Esimerkki Oy", pay: steady(300_000) }, days: 30, to: "2026-11-11" };
 
 const html = (a: Ahead) => plain(renderToStaticMarkup(createElement(NextDays, { ahead: a })));
 /** The names of the rows of every table on the page, in order. */
@@ -46,16 +47,16 @@ const names = (out: string) => [...out.matchAll(/<td title="([^"]+)">/g)].map((m
 describe("the line under the heading, by what the window waits for", () => {
   it("names the payday with its weekday", () => {
     expect(windowLine(ahead())).toBe("Palkkapäivään asti, pe 23.10.");
-    expect(windowLine(ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-13", name: "Esimerkki Oy", cents: 300_000 } }))).toBe("Palkkapäivään asti, ti 13.10.");
+    expect(windowLine(ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-13", name: "Esimerkki Oy", pay: steady(300_000) } }))).toBe("Palkkapäivään asti, ti 13.10.");
   });
 
   it("a pay whose day has gone by and that is not late yet: the line names the next pay's day, the second sentence the day the pay was expected, and its row keeps that day", () => {
     // core names such a pay for today and lets the window run on to the next pay, whose day it gives
-    const behind = { date: "2026-10-12", expected: "2026-10-09", name: "Esimerkki Oy", cents: 300_000 };
+    const behind = { date: "2026-10-12", expected: "2026-10-09", name: "Esimerkki Oy", pay: steady(300_000) };
     const waited = ahead({ to: "2026-11-05", days: 24, payday: { ...behind, next: "2026-11-06" } }, []);
     expect(windowLine(waited)).toBe("Palkkapäivään asti, pe 6.11. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.");
     expect(paymentsCaption(waited)).toBe("Erääntyvät maksut ennen palkkapäivää");
-    expect(incoming(waited)).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000, estimate: false }]);
+    expect(incoming(waited).map((l) => ({ ...l, sum: plain(l.sum ?? "") }))).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000, estimate: true, sum: "noin 3 000 €" }]);
     // the next pay is another salary's and it is today: the window is today alone, and no day gone by is named as its end
     const today = ahead({ to: "2026-10-12", days: 0, payday: { ...behind, next: "2026-10-12" } }, []);
     expect(windowLine(today)).toBe("Palkkapäivään asti, ma 12.10. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.");
@@ -64,14 +65,14 @@ describe("the line under the heading, by what the window waits for", () => {
     expect(windowLine(alone)).toBe("Seuraavat 30 päivää. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.");
     expect(paymentsCaption(alone)).toBe("Erääntyvät maksut seuraavan 30 päivän aikana");
     // near miss: the same pay due today has one day, and it is today
-    const due = ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", cents: 300_000 } }, []);
+    const due = ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", pay: steady(300_000) } }, []);
     expect([windowLine(due), incoming(due)[0]!.day]).toEqual(["Palkkapäivään asti, ma 12.10.", "12.10."]);
   });
 
   it("a pay that is behind ends no window: the payment due tomorrow is listed and warned of, and the pay is still the last to arrive", () => {
     // core's answer on Wednesday 7.10.: the pay of Monday 5.10. has not come, the next one is on the 23rd, and a bill of 900 is due tomorrow
     const bill = row({ date: "2026-10-08", name: "Esimerkkivakuutus", cents: -90_000, source: "expected" });
-    const pay = { date: "2026-10-07", expected: "2026-10-05", next: "2026-10-23", name: "Toinen Esimerkki Oy", cents: 210_000 };
+    const pay = { date: "2026-10-07", expected: "2026-10-05", next: "2026-10-23", name: "Toinen Esimerkki Oy", pay: steady(210_000) };
     const out = html(ahead({ from: "2026-10-07", to: "2026-10-22", days: 15, payday: pay, balance: balance({ startCents: 40_000, freeCents: -50_000, shortCents: 50_000, shortOn: "2026-10-08" }) }, [bill]));
     expect(out).toContain("Palkkapäivään asti, pe 23.10. Palkka ei ole vielä tullut, sen piti tulla ma 5.10.");
     expect(out).not.toContain("Ei erääntyviä maksuja");
@@ -82,7 +83,7 @@ describe("the line under the heading, by what the window waits for", () => {
   it("a late pay with another salary coming: the window is the days to that salary, and nothing warns of a payment after it", () => {
     // core's answer on 29.9.: the pay of 23.9. is late and the other salary comes on 5.10., so the window ends on 4.10.
     const rent = row({ date: "2026-10-02", name: "Vuokra Esimerkki", cents: -90_000 });
-    const late = ahead({ from: "2026-09-29", to: "2026-10-04", days: 5, reason: "late", payday: { date: "2026-09-23", name: "Esimerkki Oy", cents: 278_000 }, balance: balance({ startCents: 150_000, freeCents: 60_000 }) }, [rent]);
+    const late = ahead({ from: "2026-09-29", to: "2026-10-04", days: 5, reason: "late", payday: { date: "2026-09-23", name: "Esimerkki Oy", pay: steady(278_000) }, balance: balance({ startCents: 150_000, freeCents: 60_000 }) }, [rent]);
     expect(windowLine(late)).toBe("Seuraavat 5 päivää. Palkka on myöhässä, sen piti tulla ke 23.9.");
     const out = html(late);
     expect(out).not.toContain("Tilin kate ei riitä");
@@ -206,7 +207,7 @@ describe("the two tables", () => {
     expect(names(out)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkivakuutus", "Vuokra Esimerkki", "Pieni Esimerkki Oy", "Esimerkki Oy"]);
     expect(out).toContain('<caption class="st-cap">Saapuvat maksut</caption>');
     expect(out).toContain('<th scope="col">Päivä</th><th scope="col">Maksaja</th><th scope="col" class="st-num">Summa</th>');
-    expect(out).toContain('<td class="st-num">3 000,00 €</td>');
+    expect(out).toContain('<td class="st-num">noin 3 000 €</td>');
     expect(out.indexOf("Saapuvat maksut")).toBeGreaterThan(out.indexOf("</table>"));
   });
 
@@ -272,5 +273,52 @@ describe("what stands in place of the payments, and under the tables", () => {
     for (const gone of ["<canvas", "<button", "Kaavio", "Taulukko", "Alin saldo", "Lähtösaldo"]) expect(out, gone).not.toContain(gone);
     // no payment: the block is its figures and its tables, with no empty axis
     for (const a of [ahead({}, []), ahead({}, [OTHER_PAY]), ahead(NONE, [])]) for (const gone of ["nd-line", "<svg", "nd-axis"]) expect(html(a), gone).not.toContain(gone);
+  });
+});
+
+describe("the coming pay is an estimate", () => {
+  const pay = (p: Ahead["payday"]) => ahead({ payday: p });
+  const sumsOf = (a: Ahead) => incoming(a).map((l) => l.sum && plain(l.sum));
+
+  it("says a steady pay as noin its usual sum, marked an estimate", () => {
+    const a = pay({ date: "2026-10-23", name: "Esimerkki Oy", pay: steady(248_000) });
+    expect(sumsOf(a)).toEqual(["noin 2 480 €"]);
+    expect(incoming(a)[0]).toMatchObject({ estimate: true });
+    const out = html(a);
+    expect(out).toContain('<span class="src src-est" aria-hidden="true"></span>23.10.');
+    expect(out).not.toContain("Palkka vaihtelee");
+  });
+
+  it("says a pay that varies as the range of the estimate, with one sentence of the pays that came", () => {
+    const a = pay({ date: "2026-10-23", name: "Esimerkki Oy", pay: varies({ baseCents: 195_000 }) });
+    expect(sumsOf(a)).toEqual(["2 100–2 900 €"]);
+    expect(plain(payNote(a)!)).toBe("Palkka vaihtelee: 12 viime palkkaa 1 950–3 240 €, tavallisin 2 480 €. Vähintään on tullut 1 950 €.");
+    const out = html(a);
+    expect(out).toContain('<td class="st-num">2 100–2 900 €</td>');
+    expect(out.indexOf("Palkka vaihtelee")).toBeGreaterThan(out.indexOf("Saapuvat maksut"));
+    // the sum of no figure of the block moves with the estimate
+    expect(figures(a)!.map((f) => f.cents)).toEqual(figures(ahead())!.map((f) => f.cents));
+  });
+
+  it("leaves the base sentence out without a base", () => {
+    const a = pay({ date: "2026-10-23", name: "Esimerkki Oy", pay: varies() });
+    expect(plain(payNote(a)!)).toBe("Palkka vaihtelee: 12 viime palkkaa 1 950–3 240 €, tavallisin 2 480 €.");
+  });
+
+  it("shows a pay with no estimate as its day and a dash, and says nothing of a sum", () => {
+    const a = pay({ date: "2026-10-23", name: "Esimerkki Oy", pay: null });
+    expect(incoming(a)[0]).toMatchObject({ day: "23.10.", cents: 0, sum: null });
+    expect(payNote(a)).toBeNull();
+    const out = html(a);
+    expect(out).toContain('<td class="st-num">–</td>');
+    expect(out).not.toContain("noin");
+    expect(out).not.toContain("vaihtelee");
+  });
+
+  it("gives other pay that varies its range too, and only the pay of the window a sentence", () => {
+    const other = row({ date: "2026-10-14", name: "Pieni Esimerkki Oy", category: "salary", cents: 210_000, source: "income", pay: varies() });
+    const a = ahead({}, [...BILLS, other]);
+    expect(sumsOf(a)).toEqual(["2 100–2 900 €", "noin 3 000 €"]);
+    expect(payNote(a)).toBeNull();
   });
 });

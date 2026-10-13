@@ -3,6 +3,14 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.38.0
+
+- The first page no longer shows a coming pay as one sure sum: a pay that hardly varies reads "noin", a pay that varies (commission, shifts) reads as a range with the smallest, largest and most usual of the last pays, and only the low end is counted when the page says whether money runs short.
+
+Money and reports
+
+- Erääntyvät maksut tells a coming pay as an estimate: "noin 2 480 €" for a pay that hardly varies, and a range with a sentence of the last pays for one that does (commission, shifts). A pay with fewer than three pays behind it shows its day and no sum, and only the least a pay is expected to be counts towards the day the balance runs short.
+
 ## 0.37.0
 
 - Raportit has a new part, Ruoka: groceries, restaurants and cafés, food delivery and Alko each on a line of its own, with the sum a month, the average purchase, the times a month, the largest payees and the weekdays.
