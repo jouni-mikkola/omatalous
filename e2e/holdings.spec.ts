@@ -112,6 +112,8 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   expect(edges[2]! - edges[0]!, "the bracket's gutter").toBe(8);
 
   // a row of an account is 54 px with its hairline: room for the curve that will stand between the name and the sum
+  // (measured once the page's entry has ended: it reads 53.99998 while it runs)
+  await page.locator("#root").evaluate((e) => Promise.all(e.getAnimations({ subtree: true }).map((a) => a.finished)));
   const row = (await tilit.locator("li.st-row", { hasText: "Säästötili (esimerkki)" }).boundingBox())!;
   expect(row.height).toBeGreaterThanOrEqual(54);
   expect(row.height).toBeLessThanOrEqual(55);

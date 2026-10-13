@@ -92,7 +92,7 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
           <option value="member">Jäsen</option>
           <option value="admin">Ylläpitäjä</option>
         </select>
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           Lisää jäsen
         </button>
       </form>

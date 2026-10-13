@@ -81,10 +81,8 @@
 .credit-arc { display: block; width: 64px; height: 64px; }
 .credit-arc circle { fill: none; stroke-width: 7; stroke-linecap: round; }
 .credit-arc-track { stroke: var(--grid); }
-.credit-arc-fill { animation: credit-arc-draw 1.2s 0.35s cubic-bezier(0.3, 0.6, 0.2, 1) backwards; }
 .credit-arc-over .credit-arc-fill { stroke: var(--bad); }
 .credit-arc text { fill: var(--text); font-size: 14px; font-weight: 600; }
-@keyframes credit-arc-draw { from { stroke-dasharray: 0 999; } }
 
 /* The picture of a card, drawn here: a real card's proportions (85.6 by 54 mm), a ground of five stops in the tone's colours and a
    texture of fine lines and arcs over it (::before). It is an object, not a part of the page: its colours are its own and the same
@@ -108,9 +106,6 @@
     repeating-linear-gradient(115deg, rgb(255 255 255 / 0.06) 0 1px, transparent 1px 4px),
     radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 0.26), transparent 55%),
     radial-gradient(circle at 88% 130%, transparent 0 46%, rgb(255 255 255 / 0.16) 46.4% 47%, transparent 47.4% 56%, rgb(255 255 255 / 0.11) 56.4% 57%, transparent 57.4% 66%, rgb(255 255 255 / 0.07) 66.4% 67%, transparent 67.4%);
-}
-@media (prefers-reduced-motion: reduce) {
-  .credit-arc-fill { animation: none; }
 }
 
 /* the parts of the picture stand where a real card has them, in percent of it, so they keep their places at any size; text on

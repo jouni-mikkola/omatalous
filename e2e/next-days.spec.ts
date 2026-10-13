@@ -208,7 +208,7 @@ test("a dot is reached with the keys and lights its row, a row lights its dot, E
   await context.close();
 });
 
-test("the line eases and draws itself in only when the reader has not asked for less motion", async ({ browser }) => {
+test("the line draws nothing in, and its dots fade only when the reader has not asked for less motion", async ({ browser }) => {
   const motion = async (preference: "reduce" | "no-preference") => {
     const { context, card } = await open(browser, 1280, preference);
     const dot = card.locator(".nd-dot").first();
@@ -220,7 +220,7 @@ test("the line eases and draws itself in only when the reader has not asked for 
   const [calm, lively] = [await motion("reduce"), await motion("no-preference")];
   if (calm && lively) {
     expect(calm).toEqual(["none", "0s"]);
-    expect(lively[0]).toBe("nd-wipe");
+    expect(lively[0]).toBe("none");
     expect(lively[1]).not.toBe("0s");
   }
 });

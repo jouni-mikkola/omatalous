@@ -232,7 +232,7 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
         </div>
       )}
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           {busy ? "Tallennetaan…" : "Tallenna"}
         </button>
         <button className="btn" type="button" disabled={busy} onClick={onCancel}>

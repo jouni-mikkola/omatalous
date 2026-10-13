@@ -152,7 +152,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
               <span className="use-total" role="status">
                 {sharesText(typed)}
               </span>
-              <button className="btn btn-primary" type="submit" disabled={busy}>
+              <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
                 Tallenna
               </button>
               <div className="field-help use-help">Jako sen mukaan, paljonko kukin maksaa tilille.</div>

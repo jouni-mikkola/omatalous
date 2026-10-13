@@ -182,7 +182,7 @@ export function GeneralForm({
 
       {error && <div className="error">{error}</div>}
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           {busy ? "Tallennetaan…" : submitLabel}
         </button>
         {saved && !error && <span className="small muted">Tallennettu.</span>}

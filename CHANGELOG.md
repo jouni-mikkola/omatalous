@@ -3,11 +3,20 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
-## 0.23.0
+## 0.24.0
 
 - Tapahtumat: the readouts above the list stand in three even columns, and the controls of the filter row sit on one line.
 - A button that waits for its request is marked with a hatch, and a screen reader is told that it is busy.
 - The last of the old animations are gone: the pictures of the front page no longer draw themselves in.
+
+Look
+
+- Nothing draws itself in any more (the next-days line, the credit arc); a button that waits shows a still hatch and says it is busy.
+- On Tapahtumat the three readouts stand in equal columns on a wide page and the filter row's controls share a baseline.
+
+## 0.23.0
+
+- Nothing a user sees changed in this release. Its notes first named three changes of the look (the readouts of Tapahtumat, the mark of a waiting button, the old animations) by mistake: they were not in it, and come in 0.24.0.
 
 ## 0.22.0
 

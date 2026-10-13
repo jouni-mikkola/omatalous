@@ -156,7 +156,7 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
         </label>
       )}
       <div className="form-row">
-        <button className="btn btn-small btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-small btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           Tallenna
         </button>
         {onCancel && (

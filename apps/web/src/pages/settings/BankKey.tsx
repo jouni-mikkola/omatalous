@@ -67,7 +67,7 @@ export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }
           <input type="file" accept=".pem,.key,text/plain" onChange={(e) => void readFile(e.target.files?.[0])} aria-label="Yksityinen avain tiedostona" />
           <textarea placeholder="Liitä avain tai valitse tiedosto" value={pem} onChange={(e) => setPem(e.target.value)} required aria-label="Yksityinen avain" spellCheck={false} />
           <div className="form-row">
-            <button className="btn btn-primary" type="submit" disabled={busy}>
+            <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
               {busy ? "Testataan…" : "Tallenna ja testaa"}
             </button>
             {meta.bank.source === "user" && (

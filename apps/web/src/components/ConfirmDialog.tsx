@@ -23,7 +23,7 @@ export function ConfirmDialog({ title, children, confirmLabel, busy, onConfirm, 
         <button className="btn" type="button" autoFocus onClick={onCancel}>
           Peruuta
         </button>
-        <button className="btn btn-danger" type="button" disabled={busy} onClick={onConfirm}>
+        <button className="btn btn-danger" type="button" disabled={busy} aria-busy={busy || undefined} onClick={onConfirm}>
           {confirmLabel}
         </button>
       </div>

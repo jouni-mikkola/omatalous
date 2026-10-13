@@ -31,6 +31,12 @@
 /* transactions: filters keep their visible labels, also on a phone */
 .date-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
 .filters input[type="search"] { width: 9rem; min-width: 14rem; }
+/* the controls of the filter row stand on one baseline: their bottom edges meet, whatever a label adds above */
+.filters:has(.date-filter) { align-items: flex-end; }
+/* the three readouts above the list stand in three equal columns (4|4|4 of the twelve) on a wide page */
+@media (min-width: 1100px) {
+  .tx-card > .kv, section.card[aria-label^="Yhteenveto:"] > .kv { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .uncat-list { list-style: none; margin: 0; padding: 0; }
 .uncat-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 13rem); gap: 4px 14px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--grid); }
 .uncat-list li:last-child { border-bottom: none; }

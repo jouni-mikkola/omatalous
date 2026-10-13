@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
-import { billLine, endCents, isWeekend, startY, zeroY } from "../src/components/next-days-line.ts";
+import { billLine, endCents, isWeekend, zeroY } from "../src/components/next-days-line.ts";
 import type { Ahead } from "../src/components/next-days.ts";
 
 type Row = Ahead["rows"][number];
@@ -100,11 +100,6 @@ describe("the scale of the steps", () => {
     expect(endCents(billLine(ahead([row({})], { balance: null }))!)).toBeNull();
     // a pay is a mark and is never added
     expect(endCents(billLine(ahead([row({}), row({ date: "2026-10-16", cents: 50_000, source: "income" })]))!)).toBe(200_000 - 4_500);
-  });
-  it("reads the start's height from the path, and only from a path that begins so", () => {
-    expect(startY("M0,12.5H40V30")).toBe(12.5);
-    expect(startY("M0,7H40")).toBe(7);
-    expect(startY("H40")).toBeNull();
   });
   it("puts zero where the straight scale crosses it, only when a step goes below it and inside the field", () => {
     // 1 000 at y 10 down to -1 000 at y 90: zero is in the middle

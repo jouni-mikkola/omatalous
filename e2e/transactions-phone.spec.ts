@@ -249,3 +249,28 @@ for (const width of [1366, 1000, 700, 601]) {
     await context.close();
   });
 }
+
+for (const width of [1280, 390]) {
+  test(`${width} px: the filter row's controls stand on one baseline${width >= 1100 ? ", and the three readouts in equal columns" : ""}`, async ({ browser }) => {
+    const context = await signedIn(browser, width, 844);
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.goto("/#/transactions");
+    await expect(page.locator(".tx-card dl.kv dt").first()).toBeVisible();
+
+    // the bottom edges of what the row shows (its labels sit above or beside their inputs, the button beside them)
+    const bottoms = await page.locator(".filters > *:visible").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().bottom * 10) / 10));
+    expect(bottoms.length, "search, filters and button").toBeGreaterThanOrEqual(2);
+    expect(Math.max(...bottoms) - Math.min(...bottoms), `bottom edges ${bottoms.join(", ")}`).toBeLessThanOrEqual(0.5);
+
+    if (width >= 1100) {
+      const cells = await page.locator(".tx-card dl.kv > div").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
+      expect(cells.length).toBe(3);
+      expect(new Set(cells.map((c) => Math.round(c.width))).size, "equal columns").toBe(1);
+      expect(cells[1]!.left, "side by side").toBeGreaterThan(cells[0]!.right - 1);
+      expect(cells[2]!.left, "side by side").toBeGreaterThan(cells[1]!.right - 1);
+    }
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
+}

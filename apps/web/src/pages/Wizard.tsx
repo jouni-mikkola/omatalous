@@ -83,11 +83,11 @@ export function WizardDone({ current, finishing, onBack, onFinish }: { current: 
           Takaisin
         </button>
         <span className="spacer" />
-        <button className="btn" type="button" disabled={finishing} onClick={() => onFinish("overview")}>
+        <button className="btn" type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => onFinish("overview")}>
           Siirry sovellukseen
         </button>
         {current.bankApp.source && (
-          <button className="btn btn-primary" type="button" disabled={finishing} onClick={() => onFinish("connect")}>
+          <button className="btn btn-primary" type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => onFinish("connect")}>
             Yhdistä pankki
           </button>
         )}
@@ -162,7 +162,7 @@ export function Wizard({ onDone }: { onDone: (next: "overview" | "connect") => v
               </li>
             ))}
           </ol>
-          <button className="btn btn-small" type="button" disabled={finishing} onClick={() => void finish("overview")}>
+          <button className="btn btn-small" type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => void finish("overview")}>
             Tee myöhemmin
           </button>
         </div>

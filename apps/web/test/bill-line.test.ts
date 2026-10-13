@@ -202,6 +202,12 @@ describe("the balance in steps", () => {
     expect(refund.path).toBe(flat.path);
   });
 
+  it("gives the height the path starts at beside the path", () => {
+    const s = stepLine(600, 6, 100_000, [{ column: 2, cents: 30_000 }]);
+    expect(s.path.startsWith(`M0,${s.startY}H`)).toBe(true);
+    expect(stepLine(600, 6, 100_000, []).startY).toBe(STEPS_HEIGHT / 2);
+  });
+
   it("one day: a point in the middle of the line", () => {
     const s = stepLine(600, 1, 100_000, [{ column: 0, cents: 30_000 }]);
     expect(s.at).toHaveLength(1);

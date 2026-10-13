@@ -65,7 +65,7 @@ export function Rules({ meta }: { meta: Meta }) {
           <input type="text" placeholder="esimerkiksi Lidl tai Lidl|Prisma" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Hakusana" required />
           <span className="muted">kategoriaan</span>
           <CategorySelect categories={meta.categories} value={category} onChange={setCategory} />
-          <button className="btn btn-primary" type="submit" disabled={busy}>
+          <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
             Lisää
           </button>
         </form>

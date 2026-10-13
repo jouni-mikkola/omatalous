@@ -61,7 +61,7 @@ export function PasswordDialog({ title, children, submitLabel, confirmWord, dang
           <button className="btn" type="button" onClick={onCancel}>
             {S.cancel}
           </button>
-          <button className={`btn ${danger ? "btn-danger" : "btn-primary"}`} type="submit" disabled={busy}>
+          <button className={`btn ${danger ? "btn-danger" : "btn-primary"}`} type="submit" disabled={busy} aria-busy={busy || undefined}>
             {busy ? S.working : submitLabel}
           </button>
         </div>

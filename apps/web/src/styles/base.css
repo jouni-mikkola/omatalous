@@ -20,8 +20,7 @@ a { color: var(--accent-ink); }
 .btn:hover:not(:disabled) { background: var(--control-hover); border-color: var(--control-edge-hover); }
 .btn:active:not(:disabled) { transform: translateY(1px); box-shadow: var(--sink); }
 .btn:disabled, .btn[aria-disabled="true"] { cursor: default; background: transparent; border-color: var(--border); color: var(--muted); box-shadow: none; }
-.btn[aria-busy="true"] { cursor: progress; background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--row-hover) 6px 12px); animation: btn-busy 0.6s linear 10; }
-@keyframes btn-busy { to { background-position: 17px 0; } }
+.btn[aria-busy="true"] { cursor: progress; background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--row-hover) 6px 12px); }
 .btn-primary { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
 .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill) 86%, var(--on-fill)); border-color: var(--fill); }
 .btn-danger { color: var(--bad); }

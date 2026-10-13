@@ -111,12 +111,6 @@ export function endCents({ startCents, bills }: BillLine): number | null {
   return startCents === null ? null : startCents - bills.reduce((sum, b) => sum + b.cents, 0);
 }
 
-/** The height at which the steps start, read from the path they are drawn by (it begins `M0,<y>`); null when it does not. */
-export function startY(path: string): number | null {
-  const m = /^M0,(-?\d+(?:\.\d+)?)/.exec(path);
-  return m ? Number(m[1]) : null;
-}
-
 /**
  * The height of zero among the steps, from the two heights the scale gives its start and its end: the scale is a straight
  * line, so zero stands where it crosses. Null unless a step is below zero (start or end under it), start and end differ

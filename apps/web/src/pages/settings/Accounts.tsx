@@ -286,7 +286,7 @@ function AccountForm({
         </label>
       )}
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={saving || busy}>
+        <button className="btn btn-primary" type="submit" disabled={saving || busy} aria-busy={saving || busy || undefined}>
           {saving ? "Tallennetaan…" : "Tallenna"}
         </button>
         <button className="btn" type="button" onClick={onCancel}>

@@ -108,6 +108,8 @@ interface Steps {
   area: string;
   /** The place of the balance at the left edge's level and after each day's payments: `at[column]`, for every column. */
   at: { x: number; y: number }[];
+  /** The height the line starts at on the left edge, the one the path begins with. */
+  startY: number;
 }
 
 /**
@@ -126,12 +128,13 @@ export function stepLine(width: number, columns: number, startCents: number, dro
     left -= cents;
     return { x: columnX(width, columns, c), y: y(left) };
   });
-  let path = `M0,${round(y(startCents))}`;
+  const startY = round(y(startCents));
+  let path = `M0,${startY}`;
   dropOn.forEach((cents, c) => {
     if (cents > 0) path += `H${round(at[c]!.x)}V${round(at[c]!.y)}`;
   });
   path += `H${round(at[columns - 1]!.x)}`;
-  return { path, area: `${path}V${STEPS_HEIGHT}H0Z`, at };
+  return { path, area: `${path}V${STEPS_HEIGHT}H0Z`, at, startY };
 }
 
 const round = (v: number) => Math.round(v * 10) / 10;

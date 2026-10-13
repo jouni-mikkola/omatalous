@@ -3,7 +3,7 @@ import { columnX, type DotIn, labelled, nextDot, placeDots, STEPS_HEIGHT, stepLi
 import { money } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import "../styles/charts.css";
-import { type BillLine, endCents, startY, zeroY } from "./next-days-line.ts";
+import { type BillLine, endCents, zeroY } from "./next-days-line.ts";
 
 /** The dot or the mark that is lit, and the row of its table that lights with it. */
 export type Active = { kind: "bill" | "pay"; row: number } | null;
@@ -55,7 +55,7 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
   const els = useRef<(HTMLSpanElement | null)[]>([]);
   // the scale of the steps: the balance at the start and at the end, and zero when a step goes below it
   const end = endCents(line);
-  const yStart = steps ? startY(steps.path) : null;
+  const yStart = steps ? steps.startY : null;
   const yEnd = steps ? steps.at[columns - 1]!.y : null;
   const yZero = startCents !== null && end !== null && yStart !== null && yEnd !== null ? zeroY(startCents, end, yStart, yEnd, STEPS_HEIGHT) : null;
   const dim = axis[columns - 1]?.payday === true;

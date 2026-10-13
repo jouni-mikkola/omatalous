@@ -58,7 +58,7 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
           <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         {error && <div className="error">{error}</div>}
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           {busy ? "Kirjaudutaan…" : "Kirjaudu"}
         </button>
       </form>
@@ -141,7 +141,7 @@ export function Setup({ onDone }: { onDone: (user: User) => void }) {
         {field("password", "Salasana (vähintään 12 merkkiä)", { type: "password", autoComplete: "new-password" })}
         {field("confirm", "Salasana uudelleen", { type: "password", autoComplete: "new-password" })}
         {errors.form && <div className="error">{errors.form}</div>}
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           {busy ? "Luodaan…" : "Luo ja kirjaudu"}
         </button>
       </form>
@@ -176,7 +176,7 @@ export function PasswordForm({ forced, onDone, onCancel }: { forced?: boolean; o
       </label>
       {error && <div className="error">{error}</div>}
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={busy}>
+        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
           Vaihda salasana
         </button>
         {onCancel && (

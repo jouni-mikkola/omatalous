@@ -85,7 +85,7 @@ export function FindingActions({ finding, describedBy, today, scope, open, onTog
             Muutoksen päivä
             <input type="date" value={day} min={addDays(today, -YEAR)} max={addDays(today, YEAR)} required onChange={(e) => setDay(e.target.value)} />
           </label>
-          <button className="btn btn-small btn-primary" type="submit" disabled={busy}>
+          <button className="btn btn-small btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
             Tallenna
           </button>
           {cancel}

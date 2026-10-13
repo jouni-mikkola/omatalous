@@ -86,4 +86,10 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
       ops: [".ops-command: 4px"],
     });
   });
+
+  it("shows a busy button as a still hatch: no animation, opacity is the only thing that may move", () => {
+    const busy = rules(readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8")).find((r) => r.selector === '.btn[aria-busy="true"]');
+    expect(busy?.body).toContain("repeating-linear-gradient");
+    expect(busy?.body).not.toContain("animation");
+  });
 });

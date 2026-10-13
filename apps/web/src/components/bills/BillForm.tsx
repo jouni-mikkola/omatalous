@@ -68,7 +68,7 @@ export function BillForm({ today, onAdded }: { today: string; onAdded: (name: st
       </div>
       <p className="muted small">Toistuva lasku erääntyy aina samana päivänä.</p>
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={saving}>
+        <button className="btn btn-primary" type="submit" disabled={saving} aria-busy={saving || undefined}>
           {saving ? "Lisätään…" : "Lisää lasku"}
         </button>
       </div>
