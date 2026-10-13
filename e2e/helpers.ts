@@ -156,3 +156,9 @@ export async function setScope(context: BrowserContext, userId: string, choice: 
 export const plain = (s: string) => s.replace(/[\s  ]+/g, " ").replace(/−/g, "-").trim();
 /** "1 058,40 €" → 105840 */
 export const cents = (s: string) => Math.round(Number(plain(s).replace(/[ €]/g, "").replace(",", ".")) * 100);
+
+/** The x of the page's column line n (4, 5 or 8): the centre of the gutter after column n of a panel across the 12 columns, as `--split-n` puts it. */
+export async function columnLine(page: Page, card: { x: number; width: number }, n: number): Promise<number> {
+  const gap = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gap")));
+  return card.x + (n * (card.width - 11 * gap)) / 12 + (n - 0.5) * gap;
+}

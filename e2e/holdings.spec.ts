@@ -4,7 +4,7 @@ import { cents, overflow, plain, watch } from "./helpers.ts";
 
 // Varallisuus: the names of accounts, cards and loans are links, the sums of a group stand on one right edge, Tilit and
 // Lainat stand side by side from 900 px with the cards in a row under them (a household with no loan has Tilit and its
-// cards side by side), a card's face leans toward the pointer and its arc shows what is used. The demo household of the
+// cards side by side), a card's face stays flat and its arc shows what is used. The demo household of the
 // administrator (e2e/run.mjs) has a checking and a savings account and a card with no limit and no last digits; the
 // loan this spec saves is removed again, so the specs after it find the household as they expect.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -107,7 +107,9 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const tilit = groupOf(page, "Tilit");
   const edges = await rights(tilit.locator(".st-num"));
   expect(edges.length, "the total and two accounts").toBe(3);
-  expect(new Set(edges).size, `the sums of Tilit end at ${edges.join(", ")}`).toBe(1);
+  // the accounts add up to the total, so the bracket takes 8 px right of their sums (--mark-gap); the total's own sum stands past it
+  expect(new Set(edges.slice(0, -1)).size, `the sums of the accounts end at ${edges.join(", ")}`).toBe(1);
+  expect(edges[2]! - edges[0]!, "the bracket's gutter").toBe(8);
 
   // a row of an account is 54 px with its hairline: room for the curve that will stand between the name and the sum
   const row = (await tilit.locator("li.st-row", { hasText: "Säästötili (esimerkki)" }).boundingBox())!;
@@ -138,9 +140,11 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   expect(Math.abs(cards!.y - accounts!.y)).toBeLessThanOrEqual(1);
   // of two groups the first has five parts and the second seven
   const whole = (await holdings.boundingBox())!;
-  const inner = whole.width - 2 * 21;
-  expect(Math.abs(cards!.x - (whole.x + 21 + (inner - 48) * (5 / 12) + 48)), "the second group starts where its seven parts do").toBeLessThanOrEqual(2);
-  expect(Math.abs(cards!.x + cards!.width - (whole.x + whole.width - 21)), "and runs to the right edge of the block's content").toBeLessThanOrEqual(2);
+  // the groups run to the frame's edges; the rule between them is the register's split after the fifth column (--split-5)
+  const gap = await holdings.evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--gap")));
+  const column = (whole.width - 2 - 11 * gap) / 12;
+  expect(Math.abs(cards!.x - (whole.x + 1 + 5 * column + 4.5 * gap - 1)), "the second group starts on the split after five columns").toBeLessThanOrEqual(2);
+  expect(Math.abs(cards!.x + cards!.width - (whole.x + whole.width - 1)), "and runs to the frame's right edge").toBeLessThanOrEqual(2);
 
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -193,7 +197,7 @@ test("every card has its face at the left of its unit, drawn by the app and hidd
   expect(await arcPaint(4), "over the limit the arc is in the colour of what is wrong").toBe(await units.nth(4).locator(".holding-bad").evaluate((el) => getComputedStyle(el).color));
   expect(await arcPaint(2), "within it the arc is not").not.toBe(await arcPaint(4));
 
-  for (const [width, face] of [[1280, 196], [1000, 196], [700, 196], [390, 196], [360, 140]] as const) {
+  for (const [width, face] of [[1280, 196], [1000, 196], [700, 196], [390, 148], [360, 148]] as const) {
     await page.setViewportSize({ width, height: 900 });
     for (let i = 0; i < 5; i++) {
       const [box, head, unit] = await Promise.all([units.nth(i).locator(".card-face").boundingBox(), units.nth(i).locator(".holding-unit-head").boundingBox(), units.nth(i).boundingBox()]);
@@ -261,7 +265,8 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   // the foot runs across the groups, under all three
   const [footBox, accounts, loans, cards] = await Promise.all([foot.boundingBox(), groupOf(page, "Tilit").boundingBox(), lainat.boundingBox(), groupOf(page, "Luottokortit").boundingBox()]);
   expect(footBox!.y).toBeGreaterThanOrEqual(Math.max(accounts!.y + accounts!.height, loans!.y + loans!.height, cards!.y + cards!.height) - 1);
-  expect(footBox!.width).toBeGreaterThan(loans!.x + loans!.width - accounts!.x - 2);
+  // the groups run to the frame, the foot stays inside its padding (21 px a side)
+  expect(footBox!.width).toBeGreaterThan(loans!.x + loans!.width - accounts!.x - 2 * 21 - 2);
 
   // a loan is its name and lines at the left and its two figures at the right, two rows tall; its figures grow in rows
   const unit = lainat.locator(".holding-unit").first();
@@ -279,7 +284,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
     if (side) {
       expect(l!.x, `at ${width} px Lainat is at the right of Tilit`).toBeGreaterThanOrEqual(t!.x + t!.width - 2);
       expect(Math.abs(l!.y - t!.y)).toBeLessThanOrEqual(1);
-      expect(c!.width, "the cards run across both").toBeGreaterThan(t!.width + l!.width);
+      expect(c!.width, "the cards run across both").toBeGreaterThanOrEqual(t!.width + l!.width - 1);
     } else {
       expect(l!.y, `at ${width} px Lainat is under Tilit`).toBeGreaterThanOrEqual(t!.y + t!.height - 2);
     }
@@ -296,7 +301,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   await context.close();
 });
 
-test("a card's face leans toward the pointer with its light, stays flat for reduced motion and for the keyboard, and nothing around it moves", async ({ browser }) => {
+test("a card's face stays where it is under the pointer, and the keyboard's ring is on it", async ({ browser }) => {
   for (const reduced of [false, true]) {
     const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, reducedMotion: reduced ? "reduce" : "no-preference" });
     const page = await context.newPage();
@@ -307,34 +312,14 @@ test("a card's face leans toward the pointer with its light, stays flat for redu
     const face = link.locator(".card-face");
     await expect(face).toBeVisible();
     const transform = () => face.evaluate((el) => getComputedStyle(el).transform);
-    // a face with no turn is "none" or the identity: the browser writes rotations of nothing as the second
+    // a face with no turn is "none" or the identity
     const flat = (t: string) => t === "none" || t === "matrix(1, 0, 0, 1, 0, 0)";
-    // the boxes of what is around the face, which a lean must leave where they are
-    const around = () => Promise.all([holdings.boundingBox(), holdings.locator(".holding-unit-head").first().boundingBox(), link.boundingBox(), holdings.locator(".holding-unit .st-rows").last().boundingBox()]);
-    const before = await around();
+    const box = (await link.boundingBox())!;
     expect(flat(await transform()), "flat before the pointer comes").toBe(true);
-
-    const box = before[2]!;
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await page.mouse.move(box.x + box.width * 0.92, box.y + box.height * 0.12);
-    if (reduced) {
-      await expect(link).not.toHaveClass(/card-face-tilt/);
-      expect(flat(await transform()), "no lean for a person who asked for less motion").toBe(true);
-    } else {
-      await expect(link).toHaveClass(/card-face-tilt/);
-      await expect.poll(async () => flat(await transform()), "the face has turned").toBe(false);
-      const [rx, ry, gx] = await Promise.all(["--face-rx", "--face-ry", "--face-gx"].map((name) => link.evaluate((el, n) => parseFloat(el.style.getPropertyValue(n)), name)));
-      expect(rx, "toward the right").toBeGreaterThan(8);
-      expect(ry, "toward the top").toBeGreaterThan(6);
-      expect(gx, "the light is at the pointer").toBeGreaterThan(85);
-      await expect.poll(() => face.evaluate((el) => getComputedStyle(el, "::after").opacity), "the light shows").toBe("1");
-    }
-    expect(await around(), "nothing around the face moved").toEqual(before);
-
-    // the pointer leaves: the face is flat again and the custom properties are gone
-    await page.mouse.move(2, 2);
-    await expect(link).not.toHaveClass(/card-face-tilt/);
-    await expect.poll(async () => flat(await transform()), "the face is flat again").toBe(true);
+    expect(flat(await transform()), "no lean under the pointer").toBe(true);
+    expect(await link.boundingBox(), "the face did not move").toEqual(box);
     expect(await link.getAttribute("style") ?? "").not.toContain("--face-");
 
     // the keyboard: the ring is on the face, the face does not lean

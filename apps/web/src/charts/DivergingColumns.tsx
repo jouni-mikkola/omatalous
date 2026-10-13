@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { money, moneyTick, monthLabel, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { niceTicks, roundedTop } from "./scale.ts";
+import { CategoryTick, ValueAxis } from "./Axes.tsx";
+import { crisp, LABEL_Y } from "./draw.ts";
+import { barTicks, roundedTop } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
 
@@ -29,12 +31,13 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
   const downTotals = totalsOf(down);
   const upMax = Math.max(...upTotals, 0);
   const downMax = Math.max(...downTotals, 0);
-  const { ticks, max } = niceTicks(Math.max(upMax, downMax, 1), 3);
+  const { ticks, max } = barTicks(Math.max(upMax, downMax), 3);
   const total = 2 * max;
-  const zeroY = innerH / 2;
-  const scale = (v: number) => (v / total) * innerH;
+  const zeroY = Math.round(innerH / 2);
+  // a length is rounded to the nearest whole pixel
+  const scale = (v: number) => Math.round((v / total) * innerH);
   const band = months.length ? innerW / months.length : 0;
-  const barW = Math.min(24, band * 0.62);
+  const barW = Math.round(Math.min(24, band * 0.62));
   const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
 
   return (
@@ -50,16 +53,15 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
       {width > 0 && (
         <svg width={width} height={height} role="img" aria-label="Tulot ja menot kuukausittain">
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-            {[...ticks.slice(1).map((t) => -t), ...ticks].map((t) => (
-              <g key={t} transform={`translate(0,${zeroY - scale(t)})`}>
-                <line className={t === 0 ? "axis-line" : "grid-line"} x1={0} x2={innerW} />
-                <text x={-8} dy="0.32em" textAnchor="end">
-                  {t < 0 ? `−${moneyTick(-t)}` : moneyTick(t)}
-                </text>
-              </g>
-            ))}
+            <ValueAxis
+              ticks={[...ticks.slice(1).map((t) => -t), ...ticks]}
+              y={(t) => zeroY - scale(t)}
+              width={innerW}
+              height={innerH}
+              label={(t) => (t < 0 ? `−${moneyTick(-t)}` : moneyTick(t))}
+            />
             {months.map((m, i) => {
-              const x = band * i + (band - barW) / 2;
+              const x = Math.round(band * i + (band - barW) / 2);
               const dim = hover !== null && hover !== i;
               let acc = 0;
               let accUp = 0;
@@ -72,7 +74,7 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
                     accUp += v;
                     const h = Math.max(0, y1 - (zeroY - scale(accUp)));
                     // rounded data-end at the top of the last segment
-                    return up.slice(ui + 1).some((n) => (n.values[i] ?? 0) > 0) ? <rect key={u.key} x={x} y={y1 - h} width={barW} height={h} fill={u.color} /> : <path key={u.key} d={roundedTop(x, y1 - h, barW, h)} fill={u.color} />;
+                    return up.slice(ui + 1).some((n) => (n.values[i] ?? 0) > 0) ? <rect key={u.key} className="seg" x={x} y={y1 - h} width={barW} height={h} fill={u.color} /> : <path key={u.key} className="seg" d={roundedTop(x, y1 - h, barW, h)} fill={u.color} />;
                   })}
                   {down.map((d, di) => {
                     const v = Math.max(0, d.values[i] ?? 0);
@@ -83,13 +85,14 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
                     const last = !down.slice(di + 1).some((n) => (n.values[i] ?? 0) > 0);
                     // rounded data-end at the bottom of the last segment
                     return last ? (
-                      <path key={d.key} d={roundedTop(x, y0, barW, h)} transform={`translate(0 ${2 * y0 + h}) scale(1 -1)`} fill={d.color} />
+                      <path key={d.key} className="seg" d={roundedTop(x, y0, barW, h)} transform={`translate(0 ${2 * y0 + h}) scale(1 -1)`} fill={d.color} />
                     ) : (
-                      <rect key={d.key} x={x} y={y0} width={barW} height={h} fill={d.color} />
+                      <rect key={d.key} className="seg" x={x} y={y0} width={barW} height={h} fill={d.color} />
                     );
                   })}
+                  <CategoryTick x={band * i + band / 2} base={innerH} long={i % labelEvery === (months.length - 1) % labelEvery} />
                   {i % labelEvery === (months.length - 1) % labelEvery && (
-                    <text x={band * i + band / 2} y={innerH + 16} textAnchor="middle">
+                    <text x={crisp(band * i + band / 2)} y={innerH + LABEL_Y} textAnchor="middle">
                       {/* "tammi 2026" is wider than a narrow column band: the year only when every month has room */}
                       {monthLabel(m, labelEvery === 1 && m.endsWith("-01"))}
                     </text>

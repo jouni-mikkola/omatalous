@@ -1,5 +1,13 @@
 /* The Laskut page: the list of what is coming, the subscription marks, the tables, the twelve months and the form for a typed-in bill. The rows on top are the statement rows of statement.css. */
 
+/* the two figures on top: one panel, two cells split by a rule where the page has room; below that, two rows */
+@media (min-width: 1040px) {
+  .bills-top .st-rows { display: grid; grid-template-columns: 1fr 1fr; }
+  .bills-top .st-row { padding-right: var(--pad); border-bottom: 0; }
+  .bills-top .st-row + .st-row { padding-left: var(--pad); border-left: 1px solid var(--border); }
+  .bills-top .st-row:last-child { padding-right: 0; }
+}
+
 .bills-head { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
 .bills-head .muted { font-weight: 400; font-size: 12px; margin-left: 6px; }
 
@@ -54,3 +62,13 @@ tr.foot-row + tr.foot-row > * { border-top: 0; }
 tr:has(+ tr.foot-row) > * { border-bottom: 0; }
 /* the head of the price table is allowed two lines on a phone */
 @media (max-width: 600px) { #hinnat th { white-space: normal; } }
+
+/* a day with its source shape stays on one line */
+.coming-table .due-col { white-space: nowrap; }
+
+/* a panel of six columns has no room for the cadence next to four figures */
+.span-6 { container-type: inline-size; }
+@container (max-width: 620px) { .series-table :is(th, td):nth-child(2) { display: none; } }
+
+/* a share track needs 100 px in its cell: on a phone the payee's name would be left under 150 */
+@media (max-width: 640px) { .series-table td.share { min-width: 0; background-image: none; } }

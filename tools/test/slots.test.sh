@@ -21,6 +21,8 @@ stop() { local p; [[ -s $1 ]] || return 0; p=$(<"$1"); kill "$p" 2>/dev/null; rm
 cleanup() { local f; for f in "$TMP"/*.pid; do stop "$f"; done; rm -rf "$TMP"; }
 trap cleanup EXIT
 export CHECK_SLOT_POLL=0.1
+# a wait is logged: the suite's waits go to a file of its own, not to the lead-logs of the repository it runs in
+export SLOTS_LOG=$TMP/slots.log
 D=$TMP/slots
 
 # wait_for FILE: until the file has something in it (up to 30 s), in place of a sleep that hopes it is there
@@ -87,10 +89,16 @@ kill "$zparent" 2>/dev/null; wait "$zparent" 2>/dev/null; rm -f "$TMP/z.pid"
 # a holder that stays alive blocks until --wait is over, then the command runs without a slot
 bash "$SLOTS_SH" --dir "$D" --slots 1 -- bash "$TMP/hold.sh" "$TMP/h2.pid" "$HOLD" & holder=$!
 wait_for "$TMP/h2.pid"
-out=$(run 1 --wait 1 -- echo ran 2>&1); rc=$?
+out=$(SLOTS_LOG=$TMP/lead-logs/w.log run 1 --wait 1 --label held -- echo ran 2>&1); rc=$?
 check "waiting is bounded by --wait" test $rc -eq 0
 [[ $out == *"running without one"* && $out == *ran ]] && pass "says it ran without a slot" || fail "says it ran without a slot" "$out"
+# the wait left a line: label, seconds waited, date. A slot taken at once leaves none. The folder is made.
+logged=$(cat "$TMP/lead-logs/w.log" 2>/dev/null)
+[[ $(wc -l <<<"$logged") -eq 1 && $logged =~ ^held\ [1-9][0-9]*\ [0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] && pass "a wait appends one line: label, seconds waited, date" || fail "a wait appends one line: label, seconds waited, date" "$logged"
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -f "$TMP/h2.pid"
+rm -rf "$D"
+SLOTS_LOG=$TMP/free.log run 1 -- echo ran >/dev/null 2>&1
+check "a slot that was free leaves no line" test ! -e "$TMP/free.log"
 
 # the two waiters of one stale slot do not both get it
 mkdir -p "$D/slot-0"; echo "999999 1" >"$D/slot-0/owner"
@@ -119,8 +127,9 @@ SECONDS=0
 out=$(cd "$TMP/gr" && bash "$SLOTS_SH" --pool lead --slots 1 --wait 20 -- echo ran 2>&1); rc=$?
 check "a pool of its own has a free slot while the default pool is held" test $rc -eq 0 -a "$out" = ran -a $SECONDS -lt 5
 check "its slots are a folder of their own next to the default one" test -d "$TMP/gr/.git/lead-slots" -a -d "$TMP/gr/.git/check-slots"
-out=$(cd "$TMP/gr" && bash "$SLOTS_SH" --slots 1 --wait 1 -- echo ran 2>&1)
+out=$(cd "$TMP/gr" && env -u SLOTS_LOG bash "$SLOTS_SH" --slots 1 --wait 1 --label gate -- echo ran 2>&1)
 check "and the default pool was held all the time" has_text "$out" "running without one"
+check "the wait is logged in lead-logs of the git common dir by default" grep -qE '^gate [1-9][0-9]* [0-9]{4}-' "$TMP/gr/.git/lead-logs/slots.log"
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -f "$TMP/h4.pid"
 out=$(cd "$TMP/gr" && bash "$SLOTS_SH" --pool "Bad Name" -- echo ran 2>&1); rc=$?
 check "a pool name that is not a short lower-case word is refused" test $rc -eq 2

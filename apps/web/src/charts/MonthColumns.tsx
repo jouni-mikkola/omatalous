@@ -1,6 +1,8 @@
 import { money, moneyTick, monthLabel, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { niceTicks, roundedTop } from "./scale.ts";
+import { CategoryTick, ValueAxis } from "./Axes.tsx";
+import { crisp, LABEL_Y } from "./draw.ts";
+import { barTicks, roundedTop } from "./scale.ts";
 import "../styles/charts.css";
 
 const MARGIN = { top: 18, right: 4, bottom: 24, left: 56 };
@@ -39,10 +41,11 @@ export function MonthColumns({
   const [ref, width] = useWidth<HTMLDivElement>();
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
-  const { ticks, max } = niceTicks(Math.max(...values, average ?? 0, 0));
+  const { ticks, max } = barTicks(Math.max(...values, average ?? 0, 0));
   const band = months.length ? innerW / months.length : 0;
   const barW = Math.min(36, band * 0.66);
-  const y = (v: number) => innerH - (Math.max(0, v) / max) * innerH;
+  // a length is rounded to the nearest whole pixel
+  const y = (v: number) => innerH - Math.round((Math.max(0, v) / max) * innerH);
   const labelEvery = band >= 36 ? 1 : band >= 20 ? 2 : 3;
   // value labels on every column when they fit, otherwise on the active one only
   const allValues = band >= 52;
@@ -58,21 +61,14 @@ export function MonthColumns({
             </pattern>
           </defs>
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-            {ticks.map((t) => (
-              <g key={t} transform={`translate(0,${y(t)})`}>
-                <line className={t === 0 ? "axis-line" : "grid-line"} x1={0} x2={innerW} />
-                <text x={-8} dy="0.32em" textAnchor="end">
-                  {moneyTick(t)}
-                </text>
-              </g>
-            ))}
+            <ValueAxis ticks={ticks} y={y} width={innerW} height={innerH} label={moneyTick} />
             {months.map((m, i) => {
               const v = values[i] ?? 0;
               const h = innerH - y(v);
               const cls = ["bar", inPeriod(m) ? "" : "bar-out", complete[i] ? "" : "bar-partial", i === active ? "bar-active" : ""].filter(Boolean).join(" ");
-              return h > 0 ? <path key={m} className={cls} d={roundedTop(band * i + (band - barW) / 2, y(v), barW, h)} /> : null;
+              return h > 0 ? <path key={m} className={cls} d={roundedTop(Math.round(band * i + (band - barW) / 2), y(v), Math.round(barW), h)} /> : null;
             })}
-            {average !== null && average > 0 && <line className="avg-line" x1={0} x2={innerW} y1={y(average)} y2={y(average)} />}
+            {average !== null && average > 0 && <line className="avg-line" x1={0} x2={innerW} y1={crisp(y(average))} y2={crisp(y(average))} />}
             {months.map((m, i) => {
               const v = values[i] ?? 0;
               const isActive = i === active;
@@ -86,8 +82,9 @@ export function MonthColumns({
                       {allValues ? moneyTick(v).replace(" €", "") : moneyTick(v)}
                     </text>
                   )}
+                  <CategoryTick x={band * i + band / 2} base={innerH} long={i % labelEvery === (months.length - 1) % labelEvery} />
                   {i % labelEvery === (months.length - 1) % labelEvery && (
-                    <text className={isActive ? "month-active" : undefined} x={band * i + band / 2} y={innerH + 16} textAnchor="middle">
+                    <text className={isActive ? "month-active" : undefined} x={crisp(band * i + band / 2)} y={innerH + LABEL_Y} textAnchor="middle">
                       {/* "tammi 2026" is wider than a narrow column band: the year only when every month has room */}
                       {monthLabel(m, labelEvery === 1 && m.endsWith("-01"))}
                     </text>

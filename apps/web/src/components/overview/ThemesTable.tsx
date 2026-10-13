@@ -1,6 +1,7 @@
 // Decision: what the money goes to over the last complete months, told once
 import { Fragment } from "react";
 import type { DashboardData } from "../../types.ts";
+import { BarRuler, rulerStyle } from "./BarRuler.tsx";
 import { themesTableView } from "./themes-table.ts";
 import "../../styles/statement.css";
 import "../../styles/overview.css";
@@ -21,6 +22,9 @@ function Toggle({ id, label, open, onToggle }: Folding & { id: string; label: st
   );
 }
 
+/** The ends of the bracket: its first cap on the first theme, its last on the last row that is drawn before Yhteensä. */
+const bracket = (adds: boolean, first: boolean, last: boolean) => (adds ? `${first ? " part-first" : ""}${last ? " part-last" : ""}` : "");
+
 /**
  * "Menot kategorioittain" over the last complete months: the themes with the month's and the year's sum and the change,
  * each opening to its lines; the large purchases of the window under the table as a row of their own, because their sum
@@ -36,11 +40,11 @@ export function ThemesTable({ report, open, onToggle }: { report: NonNullable<Da
         </h3>
         <span className="st-num">{view.period}</span>
       </div>
-      <table className="st-table themes-table" aria-labelledby="themes-h">
+      <table className="st-table themes-table ruled" style={rulerStyle(view.ruler)} aria-labelledby="themes-h">
         <thead>
           <tr>
             <td />
-            <td className="category-bar themes-bar" />
+            <BarRuler ruler={view.ruler} className="themes-bar" />
             <th scope="col" className="st-num themes-month">
               Kuukaudessa
             </th>
@@ -56,26 +60,26 @@ export function ThemesTable({ report, open, onToggle }: { report: NonNullable<Da
             )}
           </tr>
         </thead>
-        <tbody>
-          {view.rows.map((row) => (
+        <tbody className={view.adds ? "adds-up" : undefined}>
+          {view.rows.map((row, i) => (
             <Fragment key={row.key}>
-              <tr className="themes-row">
+              <tr className={`themes-row${bracket(view.adds, i === 0, i === view.rows.length - 1 && !(open.has(row.key) && row.lines.length > 0))}`}>
                 <th scope="row" className="st-cut" title={row.label}>
                   {row.toggle ? <Toggle id={row.key} label={row.label} open={open} onToggle={onToggle} /> : <span className="themes-plain">{row.href ? <a href={row.href}>{row.label}</a> : row.label}</span>}
                 </th>
                 <td className="category-bar themes-bar">{row.share > 0 && <span style={{ width: `${row.share}%` }} />}</td>
-                <td className="st-num themes-month">{row.monthly}</td>
+                <td className="st-num themes-month sum">{row.monthly}</td>
                 {view.year && <td className="st-num themes-year">{row.year}</td>}
                 {view.change && <td className="st-num themes-change">{row.change}</td>}
               </tr>
               {open.has(row.key) &&
-                row.lines.map((line) => (
-                  <tr className="themes-line" key={line.key}>
+                row.lines.map((line, k) => (
+                  <tr className={`themes-line${bracket(view.adds, false, i === view.rows.length - 1 && k === row.lines.length - 1)}`} key={line.key}>
                     <th scope="row" className="st-cut" title={line.label}>
                       {line.href ? <a href={line.href}>{line.label}</a> : line.label}
                     </th>
                     <td className="category-bar themes-bar" />
-                    <td className="st-num themes-month">{line.monthly}</td>
+                    <td className="st-num themes-month sum">{line.monthly}</td>
                     {view.year && <td className="st-num themes-year">{line.year}</td>}
                     {view.change && <td className="st-num themes-change">{line.change}</td>}
                   </tr>

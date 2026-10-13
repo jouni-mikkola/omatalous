@@ -48,7 +48,7 @@ test("a mark is on one subscription: of a merchant's two, Lopetettu takes one ou
     await page.goto("/#/bills");
     const subs = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset", exact: true }) });
     const row = (price: string) => subs.locator("tr", { has: page.getByRole("link", { name: "Apple", exact: true }) }).filter({ has: page.locator(".muted", { hasText: price }) });
-    const total = async () => euros(await subs.locator(".card-head strong").innerText());
+    const total = async () => euros(await subs.locator(".card-head .card-datum").innerText());
     const inLine = async () => euros(await page.locator(".st-row", { hasText: "Tilaukset kuukaudessa" }).locator(".st-num").innerText());
     await expect(row("0,99")).toHaveCount(1);
     await expect(row("12,99")).toHaveCount(1);
@@ -123,4 +123,37 @@ test("a mark is on one subscription: of a merchant's two, Lopetettu takes one ou
     await admin.request.delete(`/api/users/${user.id}`, { headers: FETCH });
     await admin.close();
   }
+});
+
+test("the sum bracket of a table paints no row and stands on the column that adds up, Kuussa in Tilaukset", async ({ browser }) => {
+  const context = await administrator(browser);
+  const page = await context.newPage();
+  await page.goto("/#/bills");
+  const subs = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset", exact: true }) });
+  const first = subs.locator("tbody.adds-up > tr.part-first").first();
+  await expect(first).toBeVisible();
+  expect(await first.evaluate((el) => getComputedStyle(el).backgroundImage), "a bracket cap must not paint the row").toBe("none");
+  const mark = first.locator("td.sum");
+  expect(await mark.evaluate((el) => getComputedStyle(el).boxShadow), "the cell carries the bracket's line").not.toBe("none");
+  const head = await subs.locator("thead th", { hasText: "Kuussa" }).boundingBox();
+  const cell = await mark.boundingBox();
+  expect(Math.abs(cell!.x + cell!.width - (head!.x + head!.width)), "the bracket is on the right edge of Kuussa").toBeLessThanOrEqual(2);
+  await context.close();
+});
+
+test("the sum bracket of the themes table paints no row and stands on Kuukaudessa, not on Muutos at the far right", async ({ browser }) => {
+  const context = await administrator(browser);
+  const page = await context.newPage();
+  await page.goto("/#/overview");
+  const table = page.locator("table.themes-table");
+  await expect(table).toBeVisible();
+  const first = table.locator("tbody.adds-up > tr.part-first").first();
+  test.skip((await first.count()) === 0, "the demo's themes do not add up to Yhteensä, so no bracket is drawn");
+  expect(await first.evaluate((el) => getComputedStyle(el).backgroundImage), "a bracket cap must not paint the row").toBe("none");
+  const mark = first.locator("td.sum");
+  expect(await mark.evaluate((el) => getComputedStyle(el).boxShadow), "the cell carries the bracket's line").not.toBe("none");
+  const head = await table.locator("thead th.themes-month").boundingBox();
+  const cell = await mark.boundingBox();
+  expect(Math.abs(cell!.x + cell!.width - (head!.x + head!.width)), "the bracket is on the right edge of Kuukaudessa").toBeLessThanOrEqual(2);
+  await context.close();
 });

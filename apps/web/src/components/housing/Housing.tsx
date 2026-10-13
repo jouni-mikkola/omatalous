@@ -6,7 +6,7 @@
  * place, and the answer is stored as a mark of the signed-in member.
  */
 import { MORTGAGE_QUESTION } from "@banking/core";
-import { Fragment, useState } from "react";
+import { type CSSProperties, Fragment, useState } from "react";
 import { api, query } from "../../api.ts";
 import { money } from "../../format.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
@@ -86,7 +86,7 @@ function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: stri
   );
 }
 
-function Charges({ rows }: { rows: View["charges"] }) {
+function Charges({ rows, addsUp }: { rows: View["charges"]; addsUp: boolean }) {
   return (
     <>
       <h3 className="st-cap" id="housing-charges-h">
@@ -102,9 +102,9 @@ function Charges({ rows }: { rows: View["charges"] }) {
             </th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key}>
+        <tbody className={addsUp ? "adds-up" : undefined}>
+          {rows.map((row, i) => (
+            <tr key={row.key} className={addsUp ? (i === 0 ? "part-first" : i === rows.length - 1 ? "part-last" : undefined) : undefined}>
               <td>
                 {row.kind}
                 {row.part && <span className="st-sub">{row.part}</span>}
@@ -112,7 +112,9 @@ function Charges({ rows }: { rows: View["charges"] }) {
               <td className="st-cut" title={row.payee}>
                 <a href={paymentsOf(row.payee)}>{row.payee}</a>
               </td>
-              <td className="st-num">{money(row.cents)}</td>
+              <td className={`st-num sum${row.share ? " share" : ""}`} style={row.share ? ({ "--from": row.share.from, "--part": row.share.part } as CSSProperties) : undefined}>
+                {money(row.cents)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -124,9 +126,9 @@ function Charges({ rows }: { rows: View["charges"] }) {
 function Sums({ view }: { view: View }) {
   return (
     <>
-      <dl className="st-rows housing-sums">
-        {view.sums.map((sum) => (
-          <div key={sum.label} className={sum.total ? "st-row st-total" : "st-row"}>
+      <dl className={`st-rows housing-sums${view.sumsAddUp ? " adds-up" : ""}`}>
+        {view.sums.map((sum, i) => (
+          <div key={sum.label} className={sum.total ? "st-row st-total" : `st-row${view.sumsAddUp ? (i === 0 ? " part-first" : " part-last") : ""}`}>
             <dt className="st-name">{sum.label}</dt>
             <dd className="st-num">{sum.cents === null ? DASH : money(sum.cents)}</dd>
           </div>
@@ -165,8 +167,10 @@ export function Housing({ housing, reportAnchor, onAnswered }: { housing: NonNul
 
   return (
     <section className="card st-block housing" aria-labelledby="housing-h">
-      <div className="card-head">
-        <h2 id="housing-h">Asuminen</h2>
+      <div className="card-head tb">
+        <div className="card-name">
+          <h2 id="housing-h">Asuminen</h2>
+        </div>
       </div>
       {ask && (
         <div className="st-part housing-ask">
@@ -190,7 +194,7 @@ export function Housing({ housing, reportAnchor, onAnswered }: { housing: NonNul
       {view.charges.length > 0 ? (
         <div className="st-cols st-cols-3">
           <div className="st-wide">
-            <Charges rows={view.charges} />
+            <Charges rows={view.charges} addsUp={view.chargesAddUp} />
           </div>
           <div className="housing-total">
             <Sums view={view} />

@@ -9,14 +9,16 @@
  * left out, and every account has its row, in the order core gives. The name of an account, a card or a loan is a link:
  * to the rows of the account in Tapahtumat, to the report Lainat.
  */
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { daysBetween, SAME_DEBT_TWICE } from "@banking/core";
 import { query } from "../../api.ts";
 import { logoForInstitution } from "../../banks.ts";
 import { date, money } from "../../format.ts";
+import { addsUp, shares } from "../../marks.ts";
 import { partText, typedByText } from "../../part.ts";
 import { LOANS_REPORT_ANCHOR } from "../../routes.ts";
 import type { DashboardData, Meta } from "../../types.ts";
+import { Figure } from "../Figure.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
@@ -44,13 +46,15 @@ function Name({ name, href, mask }: { name: string; href: string; mask: string |
   );
 }
 
-/** The last row of a group: its total, bold over a rule. */
+/** The last row of a group: its total, bold over a rule, set as a figure of the middle size. */
 function Total({ label, cents, note }: { label: string; cents: number | null; note?: string | undefined }) {
   return (
     <dl className="st-rows">
       <div className="st-row st-total">
         <dt className="st-name">{label}</dt>
-        <dd className="st-num">{figure(cents)}</dd>
+        <dd className="st-num">
+          <Figure text={figure(cents)} size="m" />
+        </dd>
         {note && <dd className="st-sub">{note}</dd>}
       </div>
     </dl>
@@ -86,15 +90,28 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { accounts, accountsCents } = holdings;
   const masks = maskedNames(accounts);
   const missing = accounts.filter((a) => a.balanceCents === null).length;
+  // the marks assert arithmetic: a bracket when the rows add up to the total, a track on each when each is a part of it
+  const parts = accounts.map((a) => a.balanceCents);
+  const adds = accountsCents !== null && addsUp(parts, accountsCents);
+  const percents = accountsCents !== null ? shares(parts, accountsCents) : null;
+  const known = accounts.flatMap((a, i) => (a.balanceCents === null ? [] : [i]));
+  let from = 0;
+  const tracks = percents?.map((p) => {
+    const at = from;
+    from += p ?? 0;
+    return p === null ? null : { at, p };
+  });
   return (
     <section>
       <h3 className="st-cap">Tilit</h3>
-      <ul className="st-rows">
-        {accounts.map((a) => {
+      <ul className={adds ? "st-rows adds-up" : "st-rows"}>
+        {accounts.map((a, i) => {
           const part = partText(a.part, "account");
           const since = sinceLine(a.balanceAt, meta.today);
+          const track = tracks?.[i];
+          const classes = ["st-row", "holding-account", track ? "share" : "", adds && i === known[0] ? "part-first" : "", adds && i === known[known.length - 1] ? "part-last" : ""];
           return (
-            <li key={a.id} className="st-row holding-account">
+            <li key={a.id} className={classes.filter(Boolean).join(" ")} style={track ? ({ "--from": track.at, "--part": track.p } as CSSProperties) : undefined}>
               <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
               <span className="st-num">{figure(a.balanceCents)}</span>
               {part && <span className="st-sub">{part}</span>}
@@ -118,7 +135,9 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
         {cards.length > 1 && (
           <dl className="holding-inline">
             <dt>Luottokortit yhteensä</dt>
-            <dd>{figure(cardsCents)}</dd>
+            <dd>
+              <Figure text={figure(cardsCents)} size="s" />
+            </dd>
           </dl>
         )}
       </header>
@@ -184,8 +203,10 @@ export function Holdings({ holdings, meta }: { holdings: Answer; meta: Meta }) {
 
   return (
     <section className="card holdings" aria-labelledby="holdings-h">
-      <div className="card-head">
-        <h2 id="holdings-h">Varallisuus</h2>
+      <div className="card-head tb">
+        <div className="card-name">
+          <h2 id="holdings-h">Varallisuus</h2>
+        </div>
       </div>
       <div className={columns}>
         {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} />}

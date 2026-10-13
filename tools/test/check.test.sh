@@ -165,7 +165,7 @@ lock_world() {
 }
 # lock_run [VAR=value ...]: check.sh sh without the cut variables, its output into the fifo "first", its code into rc
 lock_run() {
-  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CI CHECK_SLOT_HELD=1 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/first" 2>&1; echo $? >"$W/rc") &
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CUT_LOCK_WAIT -u CI CHECK_SLOT_HELD=1 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/first" 2>&1; echo $? >"$W/rc") &
   RUNPID=$!
 }
 # the cut: an exclusive holder that says so and lets go when told
@@ -211,6 +211,36 @@ t_check_ends_red_when_the_cut_does_not_end() {
   echo >"$W/rel"; wait "$CUTPID"
   check "lock: red after the wait, naming the lock file" bash -c "[[ \$(cat '$W/rc') = 1 ]] && grep -q 'the cut still holds .*/.git/cut.lock' '$W/out'"
   check "lock: nothing ran" test -z "$(ran)"
+}
+
+# The queue: A (another check) holds cut.lock shared, and the cut waits for it holding cut.wait exclusive, as the release does.
+# B, this check, arrives then and stands behind the cut: it says so, and it runs only after A has ended, the cut has had the
+# lock and let it go. Everything is told by fifos, so nothing waits on the clock.
+t_check_stands_behind_a_cut_that_waits() {
+  lock_world; : >>"$LOCK"; : >>"$W/.git/cut.wait"
+  mkfifo "$W/a_held" "$W/a_rel" "$W/cut_waiting" "$W/cut_got" "$W/cut_rel"
+  cat >"$W/cut.sh" <<'EOF'
+exec 8>"$1/cut.wait" 9>"$1/cut.lock"
+flock -x 8; echo waiting >"$2"; flock -x 9; echo got >"$3"; read -r _ <"$4"
+EOF
+  (flock -s "$LOCK" bash -c 'echo held >"$1"; read -r _ <"$2"' _ "$W/a_held" "$W/a_rel") &
+  APID=$!
+  read -r _ <"$W/a_held"
+  bash "$W/cut.sh" "$W/.git" "$W/cut_waiting" "$W/cut_got" "$W/cut_rel" &
+  CPID=$!
+  read -r _ <"$W/cut_waiting"
+  lock_run
+  exec 4<"$W/first"
+  read -r line <&4
+  check "queue: a check that arrives while the cut waits says it waits for the cut, although the lock is only held shared" test "$line" = "check: waiting for the cut"
+  echo >"$W/a_rel"; wait "$APID"
+  read -r _ <"$W/cut_got"
+  check "queue: the cut got the lock when A ended, and the check did not run before it" test -z "$(ran)"
+  echo >"$W/cut_rel"; wait "$CPID"
+  read -r seen <"$W/in"
+  echo >"$W/go"; wait "$RUNPID"; cat <&4 >"$W/out"; exec 4<&-
+  check "queue: after the cut the check ran, green" bash -c "[[ \$(cat '$W/rc') = 0 ]] && grep -q 'sh ok' '$W/out'"
+  check "queue: with the lock held, as before" test "$seen" = "held=1"
 }
 
 t_check_inside_the_cut_does_not_wait() {

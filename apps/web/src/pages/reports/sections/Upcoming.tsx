@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { api } from "../../../api.ts";
 import { cadenceLabel } from "../../../components/bills/BillForm.tsx";
+import { Figure } from "../../../components/Figure.tsx";
 import { date, dayMonth, money, monthLong } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -9,7 +10,7 @@ import "../../../styles/bills.css";
 import "../../../styles/statement.css";
 
 /**
- * Rare bills: what to set aside each month, at the right of the heading; the months of the next twelve that have bills,
+ * Rare bills: what to set aside each month, in the datum of the heading; the months of the next twelve that have bills,
  * as a table of the month, its payees and its sum (a bill paid this month is marked with its day); and the bills the
  * household typed in, which can be removed here. A bill is found after two charges, so a yearly one is typed in
  * (Erääntyvät maksut > Lisää lasku) for its first two years. The bills of the next 30 days are in Erääntyvät maksut, not here.
@@ -31,7 +32,7 @@ function Upcoming({ ctx }: SectionProps) {
   // a month without bills says nothing; the year still counts all twelve
   const months = r.months.filter((m) => m.cents > 0);
   return (
-    <Section id={section.id} title={section.title} actions={r.yearlyCents > 0 ? <strong>{money(r.reserveMonthlyCents, false)}/kk</strong> : undefined}>
+    <Section id={section.id} title={section.title} datum={r.yearlyCents > 0 ? <Figure text={`${money(r.reserveMonthlyCents, false)}/kk`} size="s" /> : undefined}>
       {r.yearlyCents > 0 && (
         <table className="st-table rare-table">
           <caption className="sr-only">Seuraavat 12 kuukautta</caption>

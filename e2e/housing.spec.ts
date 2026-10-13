@@ -1,6 +1,6 @@
 import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { cents, linkFakeBank, makeMember, overflow, plain, removeMember, sayJointUse, setScope, waitForSync, watch } from "./helpers.ts";
+import { cents, columnLine, linkFakeBank, makeMember, overflow, plain, removeMember, sayJointUse, setScope, waitForSync, watch } from "./helpers.ts";
 
 // The block Asuminen of Yhteenveto. The demo household of the administrator (e2e/run.mjs made it) pays rent and electricity, so
 // it is a tenant's; a loan saved here gives it a mortgage's row and goes at the end. The question about a home loan needs a
@@ -154,11 +154,11 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   await expect(block.getByText(/Summasta puuttuu/)).toHaveCount(0);
   for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
 
-  // the sums are the block's third column: the charges end where they begin
+  // the sums are the block's last four columns: the charges end where they begin
   const [left, right] = [(await chargesOf(block).boundingBox())!, (await block.locator(".housing-sums").boundingBox())!];
   expect(left.x + left.width).toBeLessThan(right.x);
   const card = (await block.boundingBox())!;
-  expect(Math.abs(right.x - 20 - (card.x + (card.width * 2) / 3)), "the sums start on the line of the third column").toBeLessThanOrEqual(2);
+  expect(Math.abs(right.x - 20 - (await columnLine(page, card, 8))), "the sums start on the page's column line").toBeLessThanOrEqual(2);
 
   // the name opens the loans of Raportit
   await block.getByRole("link", { name: "Kodin laina" }).click();

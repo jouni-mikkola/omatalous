@@ -24,6 +24,10 @@
 }
 .amount-in { color: var(--good); }
 
+/* M14 the cut mark: the range of rows shown and the whole, at the left of the button that shows more */
+.cut-mark { margin-right: auto; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.cut-mark + .btn { margin-left: 0; }
+
 /* transactions: filters keep their visible labels, also on a phone */
 .date-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
 .filters input[type="search"] { width: 9rem; min-width: 14rem; }
@@ -65,7 +69,7 @@
   .tx-card { padding: 12px 14px; }
   .tx-head { margin-bottom: 4px; }
   .tx-head .form-row { margin: 6px 0 0; }
-  .tx-day h3 { margin: 12px 0 0; padding-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .tx-day h3 { margin: 12px 0 0; padding-bottom: 4px; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--axis); }
   .tx-day:first-child h3 { margin-top: 8px; }
   .tx-day ul { list-style: none; margin: 0; padding: 0; }
   .tx-item { padding: 7px 0; border-bottom: 1px solid var(--grid); }
@@ -80,7 +84,7 @@
   .tx-cat .badge { margin-left: 0; }
 
   /* the answer to a category change: the row is far from the top of the card, so it floats above the list */
-  .tx-feedback { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 5; }
+  .tx-feedback { position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom)); z-index: var(--z-toast); }
   .tx-feedback .notice, .tx-feedback .error { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 0; }
   .tx-feedback .error { padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--bad); border-radius: var(--radius-s); background: var(--surface); }
 }

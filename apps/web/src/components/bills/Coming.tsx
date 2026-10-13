@@ -3,7 +3,9 @@ import { useState } from "react";
 import { query } from "../../api.ts";
 import { dayMonth, money } from "../../format.ts";
 import type { DashboardData } from "../../types.ts";
-import { windowLine, windowPayday } from "../next-days.ts";
+import { addsUp } from "../../marks.ts";
+import { Figure } from "../Figure.tsx";
+import { isEstimate, windowLine, windowPayday } from "../next-days.ts";
 import { BillForm } from "./BillForm.tsx";
 
 type Ahead = NonNullable<DashboardData["ahead"]>;
@@ -42,19 +44,23 @@ export function Coming({ ahead, today, onAdded }: { ahead: Ahead | null; today: 
 
   return (
     <div className="card" id="tulossa">
-      <div className="card-head">
-        <h2>Erääntyvät maksut</h2>
-        <button
-          className="btn btn-small"
-          type="button"
-          aria-expanded={adding}
-          onClick={() => {
-            setAdding((v) => !v);
-            setAdded(null);
-          }}
-        >
-          {adding ? "Peruuta" : "Lisää lasku"}
-        </button>
+      <div className="card-head tb">
+        <div className="card-name">
+          <h2>Erääntyvät maksut</h2>
+        </div>
+        <div className="card-tool">
+          <button
+            className="btn btn-small"
+            type="button"
+            aria-expanded={adding}
+            onClick={() => {
+              setAdding((v) => !v);
+              setAdded(null);
+            }}
+          >
+            {adding ? "Peruuta" : "Lisää lasku"}
+          </button>
+        </div>
       </div>
       {adding && (
         <BillForm
@@ -87,17 +93,26 @@ export function Coming({ ahead, today, onAdded }: { ahead: Ahead | null; today: 
               </th>
             </tr>
           </thead>
-          {groups.map((g) => (
-            <tbody key={g.title}>
+          {groups.map((g) => {
+            const sum = g.rows.reduce((total, r) => total - r.cents, 0);
+            // the sum stands above its rows: the bracket runs up into the head's rule only when they add up to it
+            const bracket = addsUp(g.rows.map((r) => -r.cents), sum);
+            return (
+            <tbody key={g.title} className={bracket ? "adds-up" : undefined}>
               <tr className="group-head">
                 <th colSpan={2} scope="rowgroup">
                   {g.title}
                 </th>
-                <td className="st-num">{money(g.rows.reduce((sum, r) => sum - r.cents, 0))}</td>
+                <td className="st-num">
+                  <Figure text={money(sum)} size="s" />
+                </td>
               </tr>
               {g.rows.map((r, i) => (
-                <tr key={`${r.date}-${r.name}-${i}`}>
-                  <td className="due-col">{dayMonth(r.date)}</td>
+                <tr key={`${r.date}-${r.name}-${i}`} className={bracket ? (i === 0 ? "part-first" : i === g.rows.length - 1 ? "part-last" : undefined) : undefined}>
+                  <td className="due-col">
+                    <span className={isEstimate(r) ? "src src-est" : "src"} aria-hidden="true" />
+                    {dayMonth(r.date)}
+                  </td>
                   <td>
                     {r.source === "expected" ? (
                       <>
@@ -107,11 +122,12 @@ export function Coming({ ahead, today, onAdded }: { ahead: Ahead | null; today: 
                       <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
                     )}
                   </td>
-                  <td className="st-num">{money(-r.cents)}</td>
+                  <td className="st-num sum">{money(-r.cents)}</td>
                 </tr>
               ))}
             </tbody>
-          ))}
+            );
+          })}
         </table>
       )}
     </div>

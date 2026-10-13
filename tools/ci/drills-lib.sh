@@ -1,6 +1,6 @@
 # shellcheck shell=bash disable=SC2034
-# What the drills of tools/ci/drills.sh stand on, sourced by it after its variables are set (DIR, LOGS, URL, JAR, PASS,
-# NODE, CLOCK, REMOTE, DEV, DEADLINE): the bookkeeping of a drill (step, die, skip, fresh), the app's API on the
+# What the drills of tools/ci/drills.sh stand on, sourced by it after its variables are set (DIR, LOGS, URL, NAME, JAR, PASS,
+# NODE, CLOCK, REMOTE, DEV, DEADLINE; NAME is the container's): the bookkeeping of a drill (step, die, skip, fresh), the app's API on the
 # rehearsal's install, and the maintenance helper with a clock that can be set ahead and the releases the drills push.
 # It defines functions and runs nothing. The drills themselves are in drills.sh. What upgrade-run.sh needs as well (dc, shim,
 # app_version, migrations, golden_rows, api, until_ok, push_release) is in lib.sh.
@@ -27,7 +27,7 @@ newest() { local f r=""; for f in "$@"; do [[ -e $f ]] && [[ -z $r || $f -nt $r 
 note_result() { local r=${3//$'\n'/ }; printf '%s|%s|%s\n' "$1" "$2" "$r" >>"$LOGS/results"; printf 'drill %s %s: %s\n' "$1" "$2" "$r"; }
 
 # ── the app ─────────────────────────────────────────────────────────────────
-started_at() { docker inspect -f '{{.State.StartedAt}}' banking-app; }
+started_at() { docker inspect -f '{{.State.StartedAt}}' "$NAME"; }
 restarted() { [[ $(started_at) != "$1" ]]; }
 # login: signs in as the admin. On a refusal SAW holds the answer, for die
 login() {
@@ -36,7 +36,7 @@ login() {
   code=$(curl -sS --max-time 60 -o "$LOGS/body" -w '%{http_code}' -c "$JAR" -H 'Content-Type: application/json' -H 'X-Requested-With: fetch' \
     -d "{\"username\":\"ci-admin\",\"password\":\"$PASS\"}" "$URL/api/auth/login" 2>"$LOGS/curl.err") || code="no answer ($(head -c 200 "$LOGS/curl.err"))"
   [[ $code == 2?? ]] && return 0
-  SAW="POST /api/auth/login: $code $(body); the container is $(docker inspect -f '{{.State.Status}}, started {{.State.StartedAt}}' banking-app 2>&1)"
+  SAW="POST /api/auth/login: $code $(body); the container is $(docker inspect -f '{{.State.Status}}, started {{.State.StartedAt}}' "$NAME" 2>&1)"
   return 1
 }
 # fresh: a drill's own clean start. An earlier drill that failed may have left the app stopped (SIGSTOP) or down.
@@ -68,7 +68,7 @@ make_copy() {
   # shellcheck source=../../scripts/lib/dbcopy.sh
   ( . "$DIR/scripts/lib/dbcopy.sh" && dc exec -T banking "${NODE[@]}" -e "$DBCOPY_JS" 'keep:^manual-[0-9TZ]+\.db$' "/data/backups/$COPY" )
 }
-data_volume() { docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' banking-app; }
+data_volume() { docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$NAME"; }
 # restore_api: Palauta viimeisin through the API, then waits for the app to restart by itself; sets RESTORED
 restore_api() {
   local before
@@ -76,7 +76,7 @@ restore_api() {
   code=$(post /api/ops/restore-latest "{\"password\":\"$PASS\",\"confirm\":\"PALAUTA\"}")
   [[ $code == 202 ]] || die "POST restore-latest answered $code: $(body)"
   RESTORED=$(sed -n 's/.*"name":"\([^"]*\)".*/\1/p' "$LOGS/body")
-  until_ok 60 restarted "$before" || die "the app did not restart by itself within 60 s (restart policy: $(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' banking-app))"
+  until_ok 60 restarted "$before" || die "the app did not restart by itself within 60 s (restart policy: $(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$NAME"))"
   until_ok 150 app_ok || die "the app did not answer after its restart"
 }
 
@@ -98,7 +98,7 @@ EOF
   chmod 755 "$1/timeout"
 }
 # stop_app: SIGSTOP for the app, and the mark that makes the helper's looks short (timeout_shim); fresh takes the mark away
-stop_app() { docker kill -s STOP banking-app >/dev/null && : >"$CLOCK/stopped"; }
+stop_app() { docker kill -s STOP "$NAME" >/dev/null && : >"$CLOCK/stopped"; }
 prep_ops() {
   [[ -f $LOGS/ops-ready ]] && return 0
   git -C "$DIR" remote set-url origin "file://$REMOTE" || return 1
@@ -144,7 +144,7 @@ watchdog_saw() {
   for f in "$DIR"/ops/watchdog-*Z "$DIR/ops/RECOVERY.txt"; do [[ -e $f ]] && echo "ops/${f##*/}: $(head -c 200 "$f" | tr '\n' ' ')"; done
   if (flock -n 9) 9<"$DIR"; then f=free; else f=held; fi
   echo "the installer's lock (the clone folder) is $f; update.sh or install.sh running: $(pgrep -u "$EUID" -af '(update|install)\.sh' | cut -c1-100 | tr '\n' ';')"
-  echo "container: $(docker inspect -f '{{.State.Status}} {{.Config.Image}} started {{.State.StartedAt}}' banking-app 2>&1), version $(app_version)"
+  echo "container: $(docker inspect -f '{{.State.Status}} {{.Config.Image}} started {{.State.StartedAt}}' "$NAME" 2>&1), version $(app_version)"
   f=$(newest "$DIR"/ops/run/watchdog-*.log); [[ -z $f ]] || { echo "the end of ops/run/${f##*/}:"; tail -n 4 "$f"; }
   echo "the end of the ticks' output:"; tail -n 4 "$LOGS/tick.out" 2>/dev/null
 }

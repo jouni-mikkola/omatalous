@@ -11,6 +11,9 @@ import "./styles/scale.css";
 import "./styles/base.css";
 import "./styles/shell.css";
 import { App } from "./App.tsx";
+// after the pages: a mark rule has to win over the page rule it sits beside
+import "./styles/marks.css";
+import "./styles/motion.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

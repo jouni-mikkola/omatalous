@@ -3,9 +3,9 @@
 /* Tulot ja menot: the switch in the head; the tables, the rows and the columns are the shared statement classes (statement.css) */
 .st-block .segmented button[aria-pressed="true"], .st-block .btn { font-weight: 400; }
 .st-wait { margin: 0; }
-/* on a phone the switch is under the heading, two equal buttons the width of the card */
-@media (max-width: 600px) {
-  .st-block .card-head .segmented { flex: 1 0 100%; display: grid; grid-template-columns: 1fr 1fr; }
+/* on a phone the switch is the second line of the title block, two equal keys the width of the card */
+@media (max-width: 640px) {
+  .st-block .card-tool .segmented { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; }
   .st-block .segmented button { padding: 7px 10px; }
 }
 
@@ -19,10 +19,11 @@
 
 /* Menot kategorioittain: the name and the sums take what they need, the bar takes the rest; one colour, the length is the sum */
 .category-table { table-layout: fixed; }
-.category-table th:first-child { width: 12rem; }
+.category-table th:first-child { width: 12rem; padding-right: 16px; }
+.category-table .category-bar { padding-left: 0; }
 .category-table .st-num { width: 6.5rem; }
 .category-table td.category-bar { vertical-align: middle; }
-.category-bar span { display: block; height: 8px; min-width: 2px; background: var(--series-1); }
+.category-bar span { display: block; height: var(--bar-h); min-width: 1px; background: var(--series-1); }
 /* where the card is narrow the bar goes and the name takes its room */
 @media (max-width: 600px) {
   .category-table .category-bar { display: none; }

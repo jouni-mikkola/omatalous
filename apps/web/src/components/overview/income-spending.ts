@@ -1,6 +1,7 @@
 // Decision: where the month's money went, told once
 import { dayMonth, money, monthLong, percent, signedMoney } from "../../format.ts";
 import type { DashboardData } from "../../types.ts";
+import { type Ruler, rulerOf } from "./ruler.ts";
 
 /** "2026-10" gives "lokakuu": the month's name alone, as it stands after a label. */
 const monthWord = (month: string) => monthLong(month).replace(/ \d+$/, "");
@@ -48,6 +49,8 @@ export interface IncomeSpendingView {
   chart: boolean;
   /** The nine largest categories and the rest as one; none when the month has no spending. */
   categories: Category[];
+  /** The ruler over the category bars, for the longest; null where there is none. */
+  ruler: Ruler | null;
   /** What the table of categories says as its one row when it has no category. */
   empty: string | null;
 }
@@ -70,12 +73,13 @@ function changeOf(cents: number): string {
  * to compare with. The rest is a row whenever it is not zero, also below zero (a refund larger than the small
  * categories), so the rows add up to "Menot"; a row below zero has its sum and no bar.
  */
-function categoriesOf(data: DashboardData): Category[] {
+function categoriesOf(data: DashboardData): { rows: Category[]; longest: number } {
   const named = data.categories.slice(0, NAMED);
   const rest = data.categories.slice(NAMED).reduce((s, c) => s + c.cents, 0);
-  const longest = Math.max(rest, ...named.map((c) => c.cents), 1);
-  const share = (cents: number) => Math.max(0, Math.round((cents / longest) * 100));
-  return [
+  const longest = Math.max(rest, ...named.map((c) => c.cents), 0);
+  // the bar is the row's sum against the longest as a percent to two decimals, the ruler's own precision
+  const share = (cents: number) => (cents > 0 && longest > 0 ? Math.round((cents / longest) * 10000) / 100 : 0);
+  const rows = [
     ...named.map((c) => ({
       key: c.category,
       label: c.label,
@@ -86,6 +90,7 @@ function categoriesOf(data: DashboardData): Category[] {
     })),
     ...(rest !== 0 ? [{ key: "rest", label: `Muut (${data.categories.length - NAMED})`, category: null, share: share(rest), text: money(rest), change: "" }] : []),
   ];
+  return { rows, longest };
 }
 
 /**
@@ -106,7 +111,7 @@ export function incomeSpendingView(data: DashboardData): IncomeSpendingView {
   const { totals, previousTotals, range, running } = data;
   const state = running ? "running" : "ended";
   const noRows = totals.incomeCents === 0 && totals.expenseCents === 0 && totals.savedCents === 0 && totals.borrowedCents === 0;
-  const categories = noRows ? [] : categoriesOf(data);
+  const { rows: categories, longest } = noRows ? { rows: [], longest: 0 } : categoriesOf(data);
   const before = (cents: number) => (data.comparable ? money(cents) : null);
   return {
     month: monthName(range.from.slice(0, 7)),
@@ -119,6 +124,7 @@ export function incomeSpendingView(data: DashboardData): IncomeSpendingView {
     fixed: data.fixedMonthlyCents > 0 ? money(data.fixedMonthlyCents) : null,
     chart: running && totals.expenseCents > 0,
     categories,
+    ruler: rulerOf(longest),
     empty: categories.length > 0 ? null : (noRows ? NO_ROWS : NO_SPENDING)[state],
   };
 }

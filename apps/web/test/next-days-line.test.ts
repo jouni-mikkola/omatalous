@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
-import { billLine } from "../src/components/next-days-line.ts";
+import { billLine, endCents, isWeekend, startY, zeroY } from "../src/components/next-days-line.ts";
 import type { Ahead } from "../src/components/next-days.ts";
 
 type Row = Ahead["rows"][number];
@@ -45,8 +45,8 @@ describe("the days of the line", () => {
   it("run from today to the payday, both days among them, and name the payday", () => {
     const line = billLine(ahead([row({})]))!;
     expect(line.axis).toHaveLength(12);
-    expect(line.axis[0]).toEqual({ iso: "2026-10-12", weekday: "ma", day: 12, payday: false });
-    expect(line.axis[11]).toEqual({ iso: "2026-10-23", weekday: "pe", day: 23, payday: true });
+    expect(line.axis[0]).toEqual({ iso: "2026-10-12", weekday: "ma", day: 12, payday: false, weekend: false });
+    expect(line.axis[11]).toEqual({ iso: "2026-10-23", weekday: "pe", day: 23, payday: true, weekend: false });
     expect(line.axis.filter((d) => d.payday)).toHaveLength(1);
   });
 
@@ -81,6 +81,70 @@ describe("the days of the line", () => {
     const line = billLine(behind)!;
     expect(line.axis.at(-1)).toMatchObject({ iso: "2026-11-06", payday: true });
     expect(line.pays).toEqual([]);
+  });
+});
+
+describe("the weekend of the axis", () => {
+  it("is Saturday and Sunday and no other day", () => {
+    const axis = billLine(ahead([row({})]))!.axis;
+    expect(axis.filter((d) => d.weekend).map((d) => d.iso)).toEqual(["2026-10-17", "2026-10-18"]);
+    expect(isWeekend("2026-10-16")).toBe(false);
+    expect(isWeekend("2026-10-19")).toBe(false);
+  });
+});
+
+describe("the scale of the steps", () => {
+  it("ends at the balance less every payment, and has no end without a balance", () => {
+    const line = billLine(ahead([row({}), TYPED]))!;
+    expect(endCents(line)).toBe(200_000 - 4_500 - 105_000);
+    expect(endCents(billLine(ahead([row({})], { balance: null }))!)).toBeNull();
+    // a pay is a mark and is never added
+    expect(endCents(billLine(ahead([row({}), row({ date: "2026-10-16", cents: 50_000, source: "income" })]))!)).toBe(200_000 - 4_500);
+  });
+  it("reads the start's height from the path, and only from a path that begins so", () => {
+    expect(startY("M0,12.5H40V30")).toBe(12.5);
+    expect(startY("M0,7H40")).toBe(7);
+    expect(startY("H40")).toBeNull();
+  });
+  it("puts zero where the straight scale crosses it, only when a step goes below it and inside the field", () => {
+    // 1 000 at y 10 down to -1 000 at y 90: zero is in the middle
+    expect(zeroY(100_000, -100_000, 10, 90, 96)).toBe(50);
+    // a step that stops exactly at zero is not below it
+    expect(zeroY(100_000, 0, 10, 90, 96)).toBeNull();
+    expect(zeroY(100_000, 50_000, 10, 50, 96)).toBeNull();
+    expect(zeroY(100_000, 100_000, 10, 10, 96)).toBeNull();
+    // one cent under: zero is drawn, at the foot of the scale
+    expect(zeroY(100_000, -1, 10, 90, 96)).toBeCloseTo(90, 0);
+    // outside the field
+    expect(zeroY(100_000, -100_000, 10, 200, 96)).toBeNull();
+  });
+});
+
+describe("the marks of the block", () => {
+  it("names the days it covers in the title block", () => {
+    expect(html(ahead([row({})]))).toContain('<div class="card-datum">12.10.–22.10.</div>');
+  });
+  it("measures the days to the payday on a dimension line, and only when the window ends at a payday", () => {
+    expect(html(ahead([row({})]))).toContain("<span>11 pv</span>");
+    expect(html(ahead([row({})], NONE))).not.toContain("nd-dim");
+  });
+  it("gives a weekend column its band, the steps their two values and the zero line only when a step is below zero", () => {
+    const out = html(ahead([row({})]));
+    expect(count(out, 'class="nd-we"')).toBe(2);
+    expect(out).toContain(">1 955 €<");
+    expect(out).not.toContain(">0 €<");
+    const short = html(ahead([row({ cents: -250_000 })]));
+    expect(short).toContain(">0 €<");
+    // no balance, no scale
+    expect(html(ahead([row({})], { balance: null }))).not.toContain("nd-val");
+  });
+  it("shows the shape of the source: a disc for a typed bill, a ring for an estimate, and the sentence only while a ring is shown", () => {
+    const typed = html(ahead([TYPED]));
+    expect(typed).toContain('<span class="src" aria-hidden="true"></span>20.10.');
+    expect(typed).not.toContain("Eräpäivät ja summat ovat arvioita.");
+    const mixed = html(ahead([TYPED, row({})]));
+    expect(mixed).toContain('<span class="src src-est" aria-hidden="true"></span>15.10.');
+    expect(mixed).toContain("Eräpäivät ja summat ovat arvioita.");
   });
 });
 

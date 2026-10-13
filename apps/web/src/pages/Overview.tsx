@@ -109,7 +109,7 @@ export function Overview({
   const busy = marking || loading;
 
   return (
-    <div className={`stack ${loading ? "loading" : ""}`}>
+    <div className={`page-grid${loading ? " loading" : ""}`}>
       <Holdings holdings={today.holdings} meta={meta} />
 
       {today.ahead && <NextDays ahead={today.ahead} />}

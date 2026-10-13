@@ -8,6 +8,7 @@
 # A slot whose owner is gone is taken over, so a killed run does not block anyone.
 # After --wait seconds (default 1800) the command runs without a slot, so a stuck holder cannot block for ever.
 # CHECK_SLOTS, CHECK_SLOT_WAIT and CHECK_SLOT_POLL (seconds between tries, default 1) set the defaults.
+# A wait appends one line to lead-logs/slots.log in the git common dir: the label, the seconds waited and the date.
 set -uo pipefail
 
 die() { echo "slots: $*" >&2; exit 2; }
@@ -33,6 +34,12 @@ if [[ -z $DIR ]]; then
   common=$(git rev-parse --git-common-dir 2>/dev/null) && DIR=$(cd "$common" && pwd)/$POOL-slots || DIR=${TMPDIR:-/tmp}/omatalous-slots$suffix-$(id -u)
 fi
 mkdir -p "$DIR" || die "cannot create $DIR"
+# SLOTS_LOG: where a wait is written (default lead-logs/slots.log in the git common dir; empty: nowhere)
+if [[ -z ${SLOTS_LOG+x} ]]; then
+  common=$(git rev-parse --git-common-dir 2>/dev/null) && LOG=$(cd "$common" && pwd)/lead-logs/slots.log || LOG=''
+else
+  LOG=$SLOTS_LOG
+fi
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib/owner.sh" # start_of, old, owner_gone: shared with the landing queue
 
@@ -63,15 +70,21 @@ try_slot() {
   MINE=$d
 }
 
-t0=$SECONDS told=$SECONDS
+t0=$SECONDS told=$SECONDS waited=0
 until [[ -n $MINE ]]; do
   for ((n = 0; n < SLOTS; n++)); do try_slot "$n" && break; done
   [[ -z $MINE ]] || break
+  waited=1
   if ((SECONDS - t0 >= WAIT)); then echo "$LABEL: no free slot after ${WAIT}s, running without one" >&2; break; fi
   if ((SECONDS - told >= 60 || SECONDS == t0)); then echo "$LABEL: all $SLOTS slots are taken, waiting for one (CHECK_SLOTS=$SLOTS)" >&2; told=$SECONDS; fi
   sleep "$POLL"
 done
 ((SECONDS - t0 < 2)) || echo "$LABEL: waited $((SECONDS - t0))s for a slot" >&2
+# every wait leaves a line (label, seconds waited, date) in the lead's logs, so that a queue shows afterwards: the line above
+# goes to stderr, which workers cut off with tail. A slot taken at once is not a wait.
+if ((waited)) && [[ -n $LOG ]]; then
+  mkdir -p "${LOG%/*}" 2>/dev/null && printf '%s %s %s\n' "$LABEL" "$((SECONDS - t0))" "$(date '+%Y-%m-%d %H:%M:%S')" >>"$LOG" 2>/dev/null
+fi
 
 # The command runs in its own process group (set -m), so a signal sent to it reaches everything it started. A signal
 # to this script is passed on and the slot stays taken until the command has ended, then the EXIT trap gives it back.

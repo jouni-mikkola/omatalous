@@ -71,8 +71,9 @@ function rowsOf(html: string) {
     bar: /<span style="width:([\d.]+)%">/.exec(inner)?.[1] ?? null,
   }));
 }
-const themeRows = (html: string) => rowsOf(html).filter((r) => r.cls === "themes-row");
-const linesOf = (html: string) => rowsOf(html).filter((r) => r.cls === "themes-line");
+const hasClass = (r: { cls: string }, name: string) => r.cls.split(" ").includes(name);
+const themeRows = (html: string) => rowsOf(html).filter((r) => hasClass(r, "themes-row"));
+const linesOf = (html: string) => rowsOf(html).filter((r) => hasClass(r, "themes-line"));
 const totalOf = (html: string) => rowsOf(html).find((r) => r.cls === "themes-total")!;
 const centsOf = (cell: string | undefined) => parseEuros(cell ?? "")!;
 /** The text of some markup: the tags gone, one space between words. */
@@ -90,7 +91,7 @@ describe("Menot kategorioittain: the table of themes", () => {
   it("twelve months draw the label, a bar and three figure columns, and each column adds up to Yhteensä as printed", () => {
     const withChange = report([{ ...housing, pct: 4 }, food, car, transport, insurance]);
     const html = draw(withChange);
-    expect(rowsOf(html)[0]!.cells).toEqual(["", "", "Kuukaudessa", "Vuodessa", "Muutos"]);
+    expect(rowsOf(html)[0]!.cells).toEqual(["", "01 000 €", "Kuukaudessa", "Vuodessa", "Muutos"]);
     const themes = themeRows(html);
     expect(themes.map((r) => r.cells[0])).toEqual(["Asuminen", "Ruoka", "Auto", "Liikkuminen", "Vakuutukset"]);
     expect(themes[0]!.cells).toEqual(["Asuminen", "", "1 107,00 €", "13 284,00 €", "+4 %"]);
@@ -108,7 +109,7 @@ describe("Menot kategorioittain: the table of themes", () => {
   it("seven months draw no Vuodessa: no head, no cell, no dash", () => {
     const html = draw(report(typical, { months: 7 }));
     expect(html).not.toContain("Vuodessa");
-    expect(rowsOf(html)[0]!.cells).toEqual(["", "", "Kuukaudessa"]);
+    expect(rowsOf(html)[0]!.cells).toEqual(["", "01 000 €", "Kuukaudessa"]);
     for (const row of rowsOf(html).slice(1)) expect(row.cells, row.cls).toHaveLength(3);
     expect(html).not.toContain("–</td>");
     expect(totalOf(html).cells).toEqual(["Yhteensä", "", "2 403,00 €"]);
@@ -203,13 +204,13 @@ describe("Menot kategorioittain: the table of themes", () => {
     const back = spec("kids", "Lapset", [["kids", "Lapset", -4_400]]);
     const html = draw(report([housing, food, car, back]));
     // 1 107 €, 953 € and 222 € against the first
-    expect(themeRows(html).map((r) => r.bar)).toEqual(["100", "86", "20", null]);
+    expect(themeRows(html).map((r) => r.bar)).toEqual(["100", "86.09", "20.05", null]);
     expect(themeRows(html).at(-1)!.cells.slice(2)).toEqual(["-44,00 €", "-528,00 €"]);
     // a line has no bar, nor has the total
     expect(linesOf(html).every((r) => r.bar === null)).toBe(true);
     expect(totalOf(html).bar).toBeNull();
-    // a theme with a few cents has a bar still: it is a sum, and the bar's rule gives it its two pixels
-    expect(themeRows(draw(report([housing, spec("pets", "Lemmikit", [["pets", "Lemmikit", 40]])]))).map((r) => r.bar)).toEqual(["100", "1"]);
+    // a theme with a few cents has a bar still: it is a sum, and the stylesheet gives any bar above zero its pixel
+    expect(themeRows(draw(report([housing, spec("pets", "Lemmikit", [["pets", "Lemmikit", 40]])]))).map((r) => r.bar)).toEqual(["100", "0.04"]);
   });
 
   it("a category line is a link to Tapahtumat with that category and the window's days, and the lines of Auto are no links", () => {
@@ -284,12 +285,51 @@ describe("Menot kategorioittain: a narrow screen", () => {
   const narrow = css.slice(css.indexOf("@media (max-width: 600px)"));
 
   it("keeps the label and the two sums: the bar and the change are the cells the rule for a phone hides", () => {
-    expect(narrow).toContain(".themes-table .themes-bar, .themes-table .themes-change { display: none; }");
+    expect(narrow).toContain(".themes-table .themes-bar, .themes-table .themes-change, .themes-table th.bar-ruler { display: none; }");
     const html = draw(report([{ ...housing, pct: 4 }, food]));
     // every row of the table has its bar cell and its change cell under those classes, and its sums under the others
     for (const row of rowsOf(html)) {
       const classes = [...row.html.matchAll(/<t[hd]([^>]*)>/g)].map(([, attrs = ""]) => (/class="([^"]*)"/.exec(attrs)?.[1] ?? "").split(" ").filter((c) => c.startsWith("themes-")).join(" "));
       expect(classes.slice(1), row.cls).toEqual(["themes-bar", "themes-month", "themes-year", "themes-change"]);
     }
+  });
+});
+
+describe("Menot kategorioittain: the bracket and the ruler", () => {
+  const html = (r: Themes) => draw(r, new Set());
+
+  it("draws the bracket from the first theme to the last row before Yhteensä when every column adds up", () => {
+    const out = html(report(typical));
+    expect(out).toContain('<tbody class="adds-up">');
+    const classes = rowsOf(out).map((r) => r.cls);
+    expect(classes.filter((c) => c.includes("part-first"))).toEqual(["themes-row part-first"]);
+    expect(classes.filter((c) => c.includes("part-last"))).toEqual(["themes-row part-last"]);
+    expect(classes.at(-1)).toBe("themes-total");
+  });
+
+  it("ends it on the last line of the last theme when that theme is open", () => {
+    const out = draw(report(typical), new Set(["insurance", "car"]));
+    expect(rowsOf(out).filter((r) => r.cls.includes("part-last")).map((r) => r.cls)).toEqual(["themes-row part-last"]);
+    const open = draw(report([housing, food, car, spec("transport", "Liikkuminen", [["a", "Liikkuminen", 7_400], ["b", "Metro", 100]])]), new Set(["transport"]));
+    expect(rowsOf(open).filter((r) => r.cls.includes("part-last")).map((r) => r.cls)).toEqual(["themes-line part-last"]);
+  });
+
+  it("draws none when the months are one cent off, or the years are", () => {
+    const base = report(typical);
+    expect(html({ ...base, totalMonthlyCents: base.totalMonthlyCents + 1 })).not.toContain("adds-up");
+    expect(html({ ...base, totalYearCents: base.totalYearCents! + 1 })).not.toContain("adds-up");
+    // seven months have no year to add up
+    expect(html(report(typical, { months: 7 }))).toContain("adds-up");
+    // one theme is no sum
+    expect(html(report([housing]))).not.toContain("adds-up");
+  });
+
+  it("gives the table its step and the head cell its ruler, and none for a window with no spending", () => {
+    const out = html(report(typical));
+    expect(out).toMatch(/<table class="st-table themes-table ruled" style="--bar-step:\d+(\.\d+)?%"/);
+    expect(out).toContain('class="category-bar bar-ruler themes-bar"');
+    const none = html(report([spec("housing", "Asuminen", [["housing", "Vuokra", 0]])]));
+    expect(none).not.toContain("bar-ruler");
+    expect(none).not.toContain("--bar-step");
   });
 });

@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
-import { cents, overflow, plain, watch } from "./helpers.ts";
+import { cents, columnLine, overflow, plain, watch } from "./helpers.ts";
 
 // The first page (Yhteenveto) opens with what the household has and owes: accounts, cards, loans. The demo household of
 // the administrator that e2e/run.mjs made has a checking and a savings account and a card with no limit, and no saved
@@ -267,7 +267,7 @@ for (const width of [1280, 390]) {
     const notices = page.getByRole("heading", { name: "Ilmoitukset", exact: true });
     if ((await notices.count()) > 0) expect((await notices.boundingBox())!.y).toBeGreaterThanOrEqual(boxes[3]!.y + boxes[3]!.height);
     // the first thing in the page's column is the card Varallisuus: no line, strip or notice stands above it
-    const first = page.locator("main .stack").first().locator("> *").first();
+    const first = page.locator("main .page-grid").first().locator("> *").first();
     await expect(first).toContainText("Varallisuus");
     // no line of when the data was fetched or how many accounts it holds, on the page or in the header
     await expect(page.locator(".data-scope")).toHaveCount(0);
@@ -276,10 +276,10 @@ for (const width of [1280, 390]) {
       // one grid of three columns: the right group of Erääntyvät maksut and of Tulot ja menot start on its first line, the sums of Asuminen on its second
       const wide = async (block: Locator) => (await block.locator(".st-cols-3 > .st-wide").boundingBox())!;
       const [due, home, month] = [await wide(blocks[1]!), await wide(blocks[2]!), await wide(blocks[3]!)];
-      const line = (n: number) => boxes[0]!.x + (boxes[0]!.width * n) / 3;
+      // the page's column line: the split after column 4 and after column 8
       expect(due.x).toBe(month.x);
-      expect(Math.abs(due.x - line(1))).toBeLessThanOrEqual(2);
-      expect(Math.abs(home.x + home.width - line(2))).toBeLessThanOrEqual(2);
+      expect(Math.abs(due.x - (await columnLine(page, boxes[0]!, 4)))).toBeLessThanOrEqual(2);
+      expect(Math.abs(home.x + home.width - (await columnLine(page, boxes[0]!, 8)))).toBeLessThanOrEqual(2);
       // the first two groups of Varallisuus stand side by side, in the five parts and seven of its own grid (e2e/holdings.spec.ts)
       const starts = await blocks[0]!.locator(".holding-groups > section").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().x));
       expect(starts.length).toBeGreaterThan(1);
@@ -331,7 +331,7 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
   expect(plain(await block.locator(".themes-head").innerText())).toBe(`Menot kategorioittain ${monthYear(span.first)}–${monthYear(span.last)}`);
   const hasChange = themes.some((t) => t.changePct !== null || t.lines.some((l) => l.changePct !== null));
-  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa", ...(span.months === 12 ? ["Vuodessa"] : []), ...(hasChange ? ["Muutos"] : [])]);
+  expect((await categories.locator("thead th:not(.bar-ruler)").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa", ...(span.months === 12 ? ["Vuodessa"] : []), ...(hasChange ? ["Muutos"] : [])]);
   // the seven largest themes as the answer has them and the rest in one row; every sum is the answer's
   const named = themes.slice(0, 7);
   const rest = themes.slice(7);
@@ -349,7 +349,7 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   // the bar is one colour on theme rows only, as long as the theme against the largest
   const bars = await categories.locator(".category-bar span").evaluateAll((els) => els.map((el) => ({ colour: getComputedStyle(el).backgroundColor, width: el.getBoundingClientRect().width, row: el.closest("tr")!.className })));
   expect(new Set(bars.map((b) => b.colour)).size, "one bar colour").toBe(1);
-  expect(bars.every((b) => b.row === "themes-row")).toBe(true);
+  expect(bars.every((b) => b.row.split(" ").includes("themes-row"))).toBe(true);
   expect(bars).toHaveLength(named.filter((t) => t.monthlyCents > 0).length);
   expect(bars[1]!.width / bars[0]!.width, "the second bar against the first").toBeCloseTo(named[1]!.monthlyCents / named[0]!.monthlyCents, 1);
   await expect(categories.locator(".legend-swatch, .swatch, .dot")).toHaveCount(0);
@@ -458,7 +458,7 @@ test("Menot kategorioittain: Muutos, Muut and Suuret hankinnat draw what the ans
   const { context, page, seen, answer } = await withThemes(browser, 1280, rich);
   const block = monthOf(page);
   const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
-  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa", ...(answer.window.months === 12 ? ["Vuodessa"] : []), "Muutos"]);
+  expect((await categories.locator("thead th:not(.bar-ruler)").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa", ...(answer.window.months === 12 ? ["Vuodessa"] : []), "Muutos"]);
   const change = categories.locator("tbody tr.themes-row td.themes-change");
   const rest = answer.themes.slice(7);
   expect((await change.allInnerTexts()).map(plain), "a row without a change has an empty cell, and so has the rest row").toEqual([...answer.themes.slice(0, 7).map((t, i) => { const pct = pctOf(t.id, i); return pct === null ? "" : `${pct > 0 ? "+" : "-"}${Math.abs(pct)} %`; }), ...(rest.length ? [""] : [])]);
@@ -508,7 +508,7 @@ test("Menot kategorioittain: a window of seven months has no Vuodessa", async ({
   const block = monthOf(page);
   const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
   expect(plain(await block.locator(".themes-head").innerText())).toBe("Menot kategorioittain 3/2026–9/2026");
-  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa"]);
+  expect((await categories.locator("thead th:not(.bar-ruler)").allInnerTexts()).map(plain)).toEqual(["Kuukaudessa"]);
   await expect(block.getByText("Vuodessa")).toHaveCount(0);
   await expect(categories.locator("td.themes-year")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
@@ -521,7 +521,7 @@ test("Menot kategorioittain draws the month's list when core has no themes", asy
   const month = plain(await block.locator(".month-table thead th").first().innerText());
   await expect(block.locator(".themes-table, .themes-head, .themes-large")).toHaveCount(0);
   const categories = block.getByRole("table", { name: "Menot kategorioittain", exact: true });
-  expect((await categories.locator("thead th").allInnerTexts()).map(plain)).toEqual(["Kategoria", month, "Muutos"]);
+  expect((await categories.locator("thead th:not(.bar-ruler)").allInnerTexts()).map(plain)).toEqual(["Kategoria", month, "Muutos"]);
   const bars = await categories.locator(".category-bar span").evaluateAll((els) => els.map((el) => ({ colour: getComputedStyle(el).backgroundColor, width: el.getBoundingClientRect().width })));
   expect(new Set(bars.map((b) => b.colour)).size, "one bar colour").toBe(1);
   expect(bars[0]!.width, "the first row is the largest, and its bar the longest of the named").toBeGreaterThanOrEqual(Math.max(...bars.slice(0, 9).map((b) => b.width)));
@@ -552,7 +552,7 @@ for (const width of [1000, 700, 390]) {
     await expect(cut).toHaveAttribute("title", LONG);
     // a phone has the label and two sums: no bar and no change
     const phone = width < 600;
-    const shown = await categories.locator("thead th").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().width > 0).map((el) => el.textContent!.trim()));
+    const shown = await categories.locator("thead th:not(.bar-ruler)").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().width > 0).map((el) => el.textContent!.trim()));
     expect(shown, "the columns").toEqual(phone ? ["Kuukaudessa", "Vuodessa"] : ["Kuukaudessa", ...(answer.window.months === 12 ? ["Vuodessa"] : []), "Muutos"]);
     expect(await categories.locator("td.category-bar").first().isVisible(), "the bar").toBe(!phone);
     // no figure is cut by its column

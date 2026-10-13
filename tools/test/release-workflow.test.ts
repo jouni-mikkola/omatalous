@@ -384,7 +384,9 @@ describe("release workflow", () => {
 // (the private one less its excluded paths and blocks). The script of the gate is in the private tree only: a tree
 // without it has nothing to read here, and these tests are skipped.
 const GATE = readdirSync(resolve(ROOT, "tools/release")).find((f) => f.endsWith("-gate.sh"));
-const LEG_COMMANDS = ["pnpm install --frozen-lockfile --offline", "pnpm typecheck", "pnpm build", "pnpm test"];
+// the chain: the install and the build, one after the other; then the type check and the tests side by side (pt_side)
+const LEG_COMMANDS = ["pnpm install --frozen-lockfile --offline", "pnpm build"];
+const SIDE_COMMANDS = ["typecheck", "test"];
 
 /** Everything wrong with the public tree leg of the gate script, in words. Empty when it holds. */
 function gateViolations(text: string): string[] {
@@ -398,6 +400,14 @@ function gateViolations(text: string): string[] {
   if (!/^"\$ROOT\/tools\/[\w-]+\.sh" --export "\$1"$/.test(run[0] ?? "")) out.push("the leg does not start with the export of HEAD into its folder");
   if (cmds[1] !== 'cd "$1"') out.push("the commands do not run in the exported folder");
   if (run.slice(1).join("|") !== LEG_COMMANDS.join("|")) out.push(`the leg runs "${run.slice(1).join('", "')}", not "${LEG_COMMANDS.join('", "')}"`);
+  if (cmds[cmds.length - 1] !== "pt_side") out.push("the leg does not end in the type check and the tests side by side (pt_side)");
+  const side = /^pt_side\(\) \{[^\n]*\n([\s\S]*?)\n\}$/m.exec(text)?.[1];
+  if (side === undefined) out.push("the gate has no pt_side");
+  else {
+    const lists = [...side.matchAll(/for cmd in ([a-z ]+); do/g)].map((m) => m[1]);
+    if (lists.length < 2 || lists.some((l) => l !== SIDE_COMMANDS.join(" "))) out.push(`the side by side part loops over "${lists.join('", "')}", not "${SIDE_COMMANDS.join(" ")}"`);
+    if (!side.includes('pt_run pnpm "$cmd" >"$d.$cmd" &')) out.push("the side by side part does not run each command in the background with a log of its own");
+  }
   if (!/GATE_LABEL="public tree" bg gate_run public-tree public_tree "\$GATE_PT_DIR"/.test(text)) out.push("the leg is not started beside check and e2e as the public tree");
   if (!/GATE_PT_DIR=\$\(mktemp -d "\$\{TMPDIR:-\/tmp\}\/[\w.-]+\.XXXXXX"\)/.test(text)) out.push("the folder is not made under the temp folder");
   if (!/trap 'rm -rf "\$GATE_PT_DIR"' EXIT/.test(text) || !/trap 'exit 130' INT/.test(text) || !/trap 'exit 143' TERM/.test(text)) out.push("the folder is not removed when the gate ends or is signalled");
@@ -409,14 +419,21 @@ describe("release gate, public tree leg", () => {
   /** The gate text with the line of one command taken out. */
   const without = (cmd: string) => gate.replace(new RegExp(`^\\s*&& pt_run ${cmd}( \\\\)?\\n`, "m"), "");
 
-  it.skipIf(GATE === undefined)("installs offline, then typechecks, builds and tests the exported tree in a folder under the temp folder", () => {
+  it.skipIf(GATE === undefined)("installs offline and builds the exported tree, then typechecks and tests it side by side, in a folder under the temp folder", () => {
     expect(gateViolations(gate)).toEqual([]);
   });
 
   it.skipIf(GATE === undefined)("names the leg that lost a command, ran them in another order, or left its folder behind", () => {
     for (const cmd of LEG_COMMANDS) expect(gateViolations(without(cmd)).join("\n"), cmd).toMatch(/the leg runs/);
     expect(gateViolations(gate.replace(" --offline", "")).join("\n")).toMatch(/the leg runs "pnpm install --frozen-lockfile", /);
-    expect(gateViolations(gate.replace("pt_run pnpm typecheck", "pt_run pnpm @").replace("pt_run pnpm build", "pt_run pnpm typecheck").replace("pt_run pnpm @", "pt_run pnpm build")).join("\n")).toMatch(/the leg runs/);
+    expect(gateViolations(gate.replace("pt_run pnpm build", "pt_run pnpm @").replace("pt_run pnpm install --frozen-lockfile --offline", "pt_run pnpm build").replace("pt_run pnpm @", "pt_run pnpm install --frozen-lockfile --offline")).join("\n")).toMatch(/the leg runs/);
+    // the side by side part: a name dropped from either list, the background left out, the chain not ending in it
+    const loop = `for cmd in ${SIDE_COMMANDS.join(" ")}; do`;
+    const nth = (n: number) => gate.split(loop).reduce((acc, part, i) => (i === 0 ? part : acc + (i === n ? "for cmd in typecheck; do" : loop) + part), "");
+    expect(gateViolations(nth(1)).join("\n")).toMatch(/side by side part loops over/);
+    expect(gateViolations(nth(2)).join("\n")).toMatch(/side by side part loops over/);
+    expect(gateViolations(gate.replace('>"$d.$cmd" &', '>"$d.$cmd"')).join("\n")).toMatch(/in the background with a log of its own/);
+    expect(gateViolations(gate.replace("    && pt_side", "")).join("\n")).toMatch(/does not end in the type check and the tests side by side/);
     expect(gateViolations(gate.replace('--export "$1" && cd "$1"', '--export "$1"')).join("\n")).toMatch(/do not run in the exported folder/);
     expect(gateViolations(without("git init -q")).join("\n")).toMatch(/not made a git repository with one commit/);
     expect(gateViolations(gate.replace('"${TMPDIR:-/tmp}/gate-public', '"$ROOT/gate-public')).join("\n")).toMatch(/not made under the temp folder/);

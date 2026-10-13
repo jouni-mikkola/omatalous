@@ -1,7 +1,7 @@
 import { type MarkKind, seriesOfMarkSubject, type UserMark } from "@banking/core";
 import { money } from "../../format.ts";
 import type { Recurring as Series } from "../../types.ts";
-import { COLUMNS, SeriesHead, SeriesRow, SeriesTotal } from "./series.tsx";
+import { COLUMNS, SeriesHead, SeriesRow, SeriesTotal, seriesMarks, TitleBlock } from "./series.tsx";
 
 /** What one subscription row can do next to the mark it already has. */
 export interface MarkControls {
@@ -39,19 +39,21 @@ export function Subscriptions({
   const asked = subs.filter((s) => s.review && !controls.markOf(s));
   const rows = [...subs, ...stopped];
   const priced = (s: Series) => rows.some((o) => o !== s && o.merchant === s.merchant);
-  const row = (s: Series) => <SeriesRow key={s.id} s={s} label={label} priced={priced(s)} actions={<MarkButtons s={s} controls={controls} priced={priced(s)} />} />;
+  const row = (s: Series, className?: string, share?: { from: number; part: number } | null) => (
+    <SeriesRow key={s.id} s={s} label={label} priced={priced(s)} className={className} share={share} actions={<MarkButtons s={s} controls={controls} priced={priced(s)} />} />
+  );
+  // the order of the rows as listed, so the bracket and the track run down the same rows; the stopped are no part of Yhteensä
+  const listed = [...asked, ...subs.filter((s) => !asked.includes(s))];
+  const marks = seriesMarks(listed);
   return (
     <div className="card">
-      <div className="card-head">
-        <h2>Tilaukset</h2>
-        <strong>{money(total, false)}/kk</strong>
-      </div>
+      <TitleBlock title="Tilaukset" total={total} />
       <div className="table-wrap">
-        <table className="series-table">
+        <table className="series-table ruled">
           <SeriesHead />
           {subs.length > 0 && (
-            <tbody>
-              {[...asked, ...subs.filter((s) => !asked.includes(s))].map(row)}
+            <tbody className={marks.bracket ? "adds-up" : undefined}>
+              {listed.map((s, i) => row(s, marks.bracket ? (i === 0 ? "part-first" : i === listed.length - 1 ? "part-last" : undefined) : undefined, marks.tracks?.[i]))}
               <SeriesTotal rows={subs} />
             </tbody>
           )}
@@ -62,7 +64,7 @@ export function Subscriptions({
                   Merkitty lopetetuksi
                 </th>
               </tr>
-              {stopped.map(row)}
+              {stopped.map((s) => row(s))}
             </tbody>
           )}
         </table>

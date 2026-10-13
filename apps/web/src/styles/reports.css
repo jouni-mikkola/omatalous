@@ -5,7 +5,7 @@
 .report-nav a:hover { color: var(--text); border-color: var(--axis); }
 /* a phone: one row that scrolls sideways instead of nine chips on three rows before any content */
 @media (max-width: 640px) {
-  .report-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
+  .report-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -12px; padding-inline: 12px; }
   .report-nav::-webkit-scrollbar { display: none; }
   .report-nav a { flex: none; white-space: nowrap; padding: 7px 12px; }
 }

@@ -14,7 +14,11 @@
 # COMPOSE_PROJECT_NAME in its .env. This script carries them in its own environment too, so that a baseline script
 # that lost a key could not reach the install of another rehearsal. Several rehearsals then run at once
 # (tools/ci/local-proof.sh). A baseline whose docker-compose.yml reads no such key is refused before anything is
-# installed. The drills stand on the defaults, so the rehearsal they follow takes neither.
+# installed.
+#
+# UPGRADE_UNTIL=update: the run ends after the first update to this checkout and the checks of its result (the version,
+# the data, the names, a clean tree), and none of the rollbacks, next releases and broken builds that follow. With
+# UPGRADE_KEEP_UP=1 that leaves the install the drills (tools/ci/drills.sh) stand on, in some 20 seconds.
 #
 # The baseline's image is kept after the install has come up, under proof-baseline:<the full hash of the commit the clone
 # is on>, and a later run on the same commit starts from it and builds nothing (PROOF_FRESH=1 builds it anew and keeps the new
@@ -132,6 +136,8 @@ run_update() {
 }
 said() { grep -qi -- "$1" "$WORK/update.log"; }
 
+[[ -z ${UPGRADE_UNTIL:-} || $UPGRADE_UNTIL == update ]] || fail "UPGRADE_UNTIL knows only 'update' (it is '$UPGRADE_UNTIL')"
+
 # Before the install folder exists: the cleanup of a run that failed takes down the Compose project of that folder,
 # and a baseline that cannot take the keys would be the project of the defaults, which another rehearsal may be running.
 if ((${#MOVED[@]})); then
@@ -212,6 +218,8 @@ docker volume ls -q | grep -x "$VOLUME" >/dev/null || fail "volume name changed"
 # an install with the default names has no such line; a named one was given it above
 [[ -n $PROJECT ]] || ! grep -q '^INSTANCE_NAME=' "$DIR/.env" || fail "INSTANCE_NAME was written into .env"
 git -C "$DIR" diff --quiet || fail "the working tree is dirty"
+# UPGRADE_UNTIL=update: this is the install the drills need, so the run ends here (see the header)
+if [[ ${UPGRADE_UNTIL:-} == update ]]; then phase checks "" "ended after the update, as UPGRADE_UNTIL says"; echo; exit 0; fi
 
 # What the baseline stored of a joint account reads as one, and a use said through the route is stored as two rows
 # (the member at 60000, the holders who are no member at 40000, a part of 3 of 5 for the member).

@@ -1,15 +1,18 @@
-import { type KeyboardEvent, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useRef, useState } from "react";
 import { columnX, type DotIn, labelled, nextDot, placeDots, STEPS_HEIGHT, stepLine } from "../charts/bill-line.ts";
 import { money } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import "../styles/charts.css";
-import type { BillLine } from "./next-days-line.ts";
+import { type BillLine, endCents, startY, zeroY } from "./next-days-line.ts";
 
 /** The dot or the mark that is lit, and the row of its table that lights with it. */
 export type Active = { kind: "bill" | "pay"; row: number } | null;
 
 /** The width the line is laid out for before it is measured. */
 const UNMEASURED = 600;
+/** What the dimension line takes between the axis and the steps (its 16 px and the margin above), and the margin above the steps. */
+const DIM_ROOM = 24;
+const STEPS_GAP = 8;
 /** A pay's mark: its own size, and the room it takes so that no dot is under it. */
 const MARK = 14;
 const MARK_ROOM = 20;
@@ -50,6 +53,13 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
   const [stop, setStop] = useState(0);
   const tabStop = stop < items.length ? stop : (order[0] ?? 0);
   const els = useRef<(HTMLSpanElement | null)[]>([]);
+  // the scale of the steps: the balance at the start and at the end, and zero when a step goes below it
+  const end = endCents(line);
+  const yStart = steps ? startY(steps.path) : null;
+  const yEnd = steps ? steps.at[columns - 1]!.y : null;
+  const yZero = startCents !== null && end !== null && yStart !== null && yEnd !== null ? zeroY(startCents, end, yStart, yEnd, STEPS_HEIGHT) : null;
+  const dim = axis[columns - 1]?.payday === true;
+  const band = { "--nd-top": `${height}px`, "--nd-bottom": `${(dim ? DIM_ROOM : 0) + (steps ? STEPS_GAP + STEPS_HEIGHT : 0)}px` } as CSSProperties;
   const lit = active ? items.findIndex((i) => i.kind === active.kind && i.row === active.row) : -1;
   const litItem = items[lit];
   const litDot = dots[lit];
@@ -66,7 +76,7 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
   const flip = litDot !== undefined && litDot.x > width - 200;
 
   return (
-    <div ref={ref} className={lit >= 0 ? "nd-line has-on" : "nd-line"} role="group" aria-labelledby="ahead-h">
+    <div ref={ref} className={lit >= 0 ? "nd-line has-on" : "nd-line"} role="group" aria-labelledby="ahead-h" style={band}>
       <div className="nd-dots" style={{ height }}>
         {items.map((item, i) => {
           const dot = dots[i]!;
@@ -105,7 +115,7 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
       </div>
       <ol className="nd-axis" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {axis.map((d, k) => (
-          <li key={d.iso} className={d.payday ? "nd-pd" : undefined}>
+          <li key={d.iso} className={[d.payday ? "nd-pd" : "", d.weekend ? "nd-we" : ""].filter(Boolean).join(" ") || undefined}>
             {shows(k) && (
               <>
                 <span>{d.weekday}</span>
@@ -115,23 +125,34 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
           </li>
         ))}
       </ol>
+      {dim && (
+        <div className="nd-dim" style={{ "--n": columns } as CSSProperties} aria-hidden="true">
+          <span>{columns - 1} pv</span>
+        </div>
+      )}
       {steps && (
         <div className="nd-steps" style={{ height: STEPS_HEIGHT }} aria-hidden="true">
           <svg viewBox={`0 0 ${width} ${STEPS_HEIGHT}`} width={width} height={STEPS_HEIGHT}>
-            <defs>
-              <linearGradient id="nd-stroke" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={STEPS_HEIGHT}>
-                <stop offset="0" className="nd-stop-1" />
-                <stop offset="0.5" className="nd-stop-2" />
-                <stop offset="1" className="nd-stop-3" />
-              </linearGradient>
-              <linearGradient id="nd-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" className="nd-stop-2" stopOpacity="0.26" />
-                <stop offset="1" className="nd-stop-2" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d={steps.area} fill="url(#nd-fill)" />
-            <path d={steps.path} className="nd-curve" stroke="url(#nd-stroke)" />
+            <path d={steps.area} className="nd-area" />
+            <path d={steps.path} className="nd-curve" />
+            {yStart !== null && <line className="nd-rule" x1={0} x2={8} y1={Math.round(yStart) + 0.5} y2={Math.round(yStart) + 0.5} />}
+            {yZero !== null && <line className="nd-rule" x1={0} x2={width} y1={Math.round(yZero) + 0.5} y2={Math.round(yZero) + 0.5} />}
           </svg>
+          {startCents !== null && yStart !== null && (
+            <span className="nd-val" style={{ left: 4, top: Math.round(yStart) + 4 }}>
+              {money(startCents, false)}
+            </span>
+          )}
+          {end !== null && end !== startCents && (
+            <span className="nd-val" style={{ right: Math.max(0, width - steps.at[columns - 1]!.x - 4), top: Math.round(steps.at[columns - 1]!.y) + 8 }}>
+              {money(end, false)}
+            </span>
+          )}
+          {yZero !== null && (
+            <span className="nd-val" style={{ left: 4, top: Math.round(yZero) - 20 }}>
+              0 €
+            </span>
+          )}
           <i className="nd-end" style={{ left: steps.at[columns - 1]!.x, top: steps.at[columns - 1]!.y }} />
           {litAt && <i className="nd-point" style={{ left: litAt.x, top: litAt.y }} />}
         </div>

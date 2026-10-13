@@ -20,7 +20,7 @@ const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][numb
 const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
-const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
+const text = (markup: string) => markup.replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
 const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
 const links = (markup: string) => [...markup.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]);
 
@@ -44,7 +44,7 @@ describe("Holdings", () => {
       expect(text(markup).startsWith(" Varallisuus Tilit Käyttötili")).toBe(true);
       expect(text(markup)).not.toContain("Ilman");
       // the total is the last row of the group, in the form of a total
-      expect(markup).toMatch(/<div class="st-row st-total"><dt class="st-name">Tilit yhteensä<\/dt><dd class="st-num">[^<]*<\/dd><\/div><\/dl><\/section>/);
+      expect(markup).toMatch(/<div class="st-row st-total"><dt class="st-name">Tilit yhteensä<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><\/div><\/dl><\/section>/);
     });
 
     it("tells how many accounts are left out of the total for want of a balance, and shows a dash for a total with none", () => {
@@ -66,8 +66,37 @@ describe("Holdings", () => {
       const markup = html(answer({ accounts: tiny, accountsCents: 120_102 }));
       expect(markup).not.toContain("<details");
       expect(markup).not.toContain("Muut tilit");
-      expect(markup.match(/<li class="st-row holding-account">/g)).toHaveLength(6);
+      expect(markup.match(/<li class="st-row holding-account/g)).toHaveLength(6);
       expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili 0,50 € Vanha tili 0,00 € Toinen tili −0,99 € Rahastotili 1,00 € Kuudes tili 0,01 € Tilit yhteensä 1 201,02 €");
+    });
+  });
+
+  describe("the marks of Tilit", () => {
+    const rows = (...cents: (number | null)[]) => cents.map((c, i) => account(`m${i}`, `Tili ${i}`, c));
+    const total = (...cents: (number | null)[]) => cents.reduce<number>((a, b) => a + (b ?? 0), 0);
+    const marks = (cents: (number | null)[], accountsCents: number) => html(answer({ accounts: rows(...cents), accountsCents }));
+
+    it("draws the bracket and a track on each row when the rows add up to the total, the tracks tiling 100 px", () => {
+      const out = marks([60_000, 30_000, 10_000], 100_000);
+      expect(out).toContain('<ul class="st-rows adds-up">');
+      expect(out).toContain('holding-account share part-first" style="--from:0;--part:60"');
+      expect(out).toContain('holding-account share" style="--from:60;--part:30"');
+      expect(out).toContain('holding-account share part-last" style="--from:90;--part:10"');
+    });
+    it("keeps the bracket and draws no track when an account is overdrawn: a negative part adds like any other", () => {
+      const out = marks([150_000, -50_000], 100_000);
+      expect(out).toContain("adds-up");
+      expect(out).not.toContain("share");
+    });
+    it("draws neither when the rows miss the total by one cent, and none for a single account", () => {
+      expect(marks([60_000, 30_000, 10_000], 100_001)).not.toMatch(/adds-up|share/);
+      expect(marks([60_000, 30_000, 10_000], 99_999)).not.toMatch(/adds-up|share/);
+      expect(marks([100_000], 100_000)).not.toMatch(/adds-up|share/);
+    });
+    it("leaves a row without a balance out of both: no track on it, and the bracket runs over the rest", () => {
+      const out = marks([70_000, null, 30_000], total(70_000, null, 30_000));
+      expect(out).toContain("adds-up");
+      expect(out.match(/ share/g)).toHaveLength(2);
     });
   });
 
@@ -100,7 +129,7 @@ describe("Holdings", () => {
       const total = (over: Partial<Answer>) => text(html(answer({ loans: [loan(), loan({ id: "l2", leftCents: null })], debtCents: 0, ...over })));
       // the sum is core's, so a loan without a balance changes nothing here
       expect(total({ loansCents: 12_000_000 })).toContain("Lainaa jäljellä – Kuukausierä 1 000,00 € Lainat yhteensä 120 000,00 €");
-      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num">[^<]*<\/dd><\/div><\/dl><\/section>/);
+      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><\/div><\/dl><\/section>/);
       expect(total({ loansCents: null })).not.toContain("yhteensä");
     });
 

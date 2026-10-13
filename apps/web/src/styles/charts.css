@@ -1,15 +1,15 @@
 /* Charts: legend, SVG chart parts, tooltip. */
 
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); margin-bottom: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
-.line-key { width: 14px; height: 2px; border-radius: 1px; display: inline-block; flex: none; }
+.swatch { width: 10px; height: 10px; border-radius: 1px; display: inline-block; flex: none; }
+.line-key { width: 16px; height: 2px; border-radius: 0; display: inline-block; flex: none; }
 
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; overflow: visible; }
-.chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart text { fill: var(--text-2); font-size: var(--fs-tick); font-variant-numeric: tabular-nums lining-nums; }
 .chart .grid-line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
-.chart .axis-line { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .axis-line, .chart .tick { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
 .chart .hit { fill: transparent; cursor: default; outline: none; }
 .chart .hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
 .chart .hit-pick { cursor: pointer; }
@@ -21,20 +21,30 @@
 .chart .bar-partial { fill: url(#month-hatch); }
 .chart .bar-running-bg { fill: var(--series-1); fill-opacity: 0.22; }
 .chart .bar-running-line { stroke: var(--series-1); }
-.chart .bar-value { fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .bar-value { fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .chart .bar-value.active, .chart .month-active { fill: var(--text); font-weight: 600; }
-.chart .avg-line { stroke: var(--text-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .avg-line { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 5 4; shape-rendering: crispEdges; }
 .swatch-in { background: var(--series-1); }
 .swatch-out { background: var(--series-1); opacity: 0.36; }
 .swatch-hatch { background: repeating-linear-gradient(45deg, var(--series-1) 0 2px, transparent 2px 4px); outline: 1px solid var(--series-1); outline-offset: -1px; }
 .avg-key { width: 16px; height: 0; border-top: 2px dashed var(--text-2); display: inline-block; flex: none; }
 
 .tooltip {
-  position: absolute; pointer-events: none; z-index: 5; min-width: 150px; max-width: 260px;
+  position: absolute; pointer-events: none; z-index: var(--z-pop); min-width: 150px; max-width: 260px;
   background: var(--surface); border: 1px solid var(--pop-edge); border-radius: 10px; padding: 8px 10px;
-  box-shadow: var(--pop-shadow); font-size: 12px;
+  box-shadow: var(--pop-shadow); font-size: var(--fs-label); line-height: var(--lh-label);
 }
-.tooltip-title { color: var(--text-2); margin-bottom: 4px; }
+.tooltip-title { color: var(--text); font-weight: 600; margin-bottom: 4px; }
 .tooltip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .tooltip-row .name { color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; }
-.tooltip-row strong { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.tooltip-row strong { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+
+/* Motion: lengths fade in at their true size (they do not grow), a line is wiped in from the left. */
+@media (prefers-reduced-motion: no-preference) {
+  .chart .bar, .chart .seg { animation: chart-fade var(--t-open) var(--ease-out) backwards; }
+  .chart .draw { animation: chart-wipe var(--t-draw) var(--ease-out) backwards; }
+  @keyframes chart-fade { from { opacity: 0; } }
+  @keyframes chart-wipe { from { clip-path: inset(-6px 100% -6px 0); } to { clip-path: inset(-6px -6px -6px 0); } }
+  .tooltip { transition: opacity var(--t-open) var(--ease-out), transform var(--t-open) var(--ease-out); }
+  @starting-style { .tooltip { opacity: 0; transform: translateY(4px); } }
+}

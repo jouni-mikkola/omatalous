@@ -112,7 +112,8 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         await expect(page.getByText(/Jokin meni vikaan|Palvelimeen ei saada yhteyttä/)).toHaveCount(0);
         await page.waitForLoadState("networkidle");
         // a page that rendered nothing but its frame is a failure too
-        expect((await page.locator("main, .app").first().innerText()).length, `${id} is empty`).toBeGreaterThan(200);
+        // (polled: a page may draw its frame a moment before its rows arrive)
+        await expect.poll(async () => (await page.locator("main, .app").first().innerText()).length, { message: `${id} is empty` }).toBeGreaterThan(200);
         expect(await overflow(page), `${id} scrolls sideways at ${viewport.width}px`).toBeLessThanOrEqual(1);
         // no table is wider than the screen, also one that sits in a card that scrolls
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
@@ -404,7 +405,7 @@ test("a subscription marked as in use stays marked after a reload, and the mark 
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/bills");
-  const total = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset" }) }).locator(".card-head strong");
+  const total = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset" }) }).locator(".card-head .card-datum");
   await expect(total).toBeVisible();
   // the row "Tilaukset kuukaudessa" on top of the page and the card header are one figure
   const row = page.locator(".st-row", { hasText: "Tilaukset kuukaudessa" });
@@ -672,7 +673,7 @@ test("an expected bill is added in the list of what falls due on Laskut, is stil
   const remove = (p: Page) => p.locator("#tulevat").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   await expect(remove(page)).toBeVisible();
   // the monthly figure stands beside the heading, and there is no sentence about it
-  await expect(rare.locator(".card-head strong")).toHaveText(/^\d[\d\s]*\s€\/kk$/);
+  await expect(rare.locator(".card-head .card-datum")).toHaveText(/^\d[\d\s]*\s€\/kk$/);
   await expect(rare.getByText(/vuodessa eli/)).toHaveCount(0);
 
   await page.reload();

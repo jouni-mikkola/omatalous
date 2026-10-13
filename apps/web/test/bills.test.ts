@@ -36,7 +36,7 @@ const nextDays = (a: Ahead) => flat(renderToStaticMarkup(createElement(NextDays,
 /** The same answer with a pay to wait for on Thu 15.10.: the window ends the day before it. */
 const beforePay = (a: Ahead, date = "2026-10-15"): Ahead => ({ ...a, reason: "payday", payday: { date, name: "Palkka", cents: 395_000 }, to: "2026-10-14", days: 3 });
 /** The head rows of the groups, each as its name and its sum. */
-const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="st-num">([^<]*)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]}`);
+const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="st-num">(.*?)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
 
 describe("Laskut: Erääntyvät maksut", () => {
   it("with no pay known lists the bills of the next 30 days in one group, the typed-in one marked, and no pay day", () => {
@@ -58,7 +58,7 @@ describe("Laskut: Erääntyvät maksut", () => {
     const out = coming(ahead());
     const heads = [...out.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]);
     expect(heads).toEqual(["Eräpäivä", "Saaja", "Summa"]);
-    expect(out).toMatch(/<td class="due-col">12\.10\.<\/td><td><a href="[^"]*">Sähkö<\/a><\/td><td class="st-num">89,00 €<\/td>/);
+    expect(out).toMatch(/<td class="due-col"><span class="src[^"]*" aria-hidden="true"><\/span>12\.10\.<\/td><td><a href="[^"]*">Sähkö<\/a><\/td><td class="st-num sum">89,00 €<\/td>/);
     // the category of a row is not said: the label of "utilities" is not in the markup
     expect(out).not.toContain("Sähkö ja vesi");
     expect(out).not.toContain('class="sub"');
@@ -151,6 +151,24 @@ describe("Laskut: Erääntyvät maksut", () => {
   });
 });
 
+describe("Laskut: the marks of Erääntyvät maksut", () => {
+  it("brackets the rows of a group of two or more, which add up to its sum, and the group of one has none", () => {
+    const out = coming(ahead());
+    expect(out).toContain('<tbody class="adds-up">');
+    expect(out).toContain('<tr class="part-first">');
+    expect(out).toContain('<tr class="part-last">');
+    const one = coming(ahead([row({ date: "2026-10-12", name: "Sähkö", category: "utilities", cents: -8_900, source: "recurring" })]));
+    expect(one).not.toContain("adds-up");
+    expect(one).not.toContain("part-first");
+  });
+
+  it("puts a disc before the day of a typed bill and a ring before an estimated one", () => {
+    const out = coming(ahead());
+    expect(out).toMatch(/<span class="src" aria-hidden="true"><\/span>\d+\.\d+\.<\/td><td>Ajoneuvovero/);
+    expect(out).toMatch(/<span class="src src-est" aria-hidden="true"><\/span>12\.10\.<\/td><td><a[^>]*>Sähkö/);
+  });
+});
+
 describe("Yhteenveto: Erääntyvät maksut", () => {
   it("lists the bills before the pay and links to Laskut", () => {
     const out = nextDays(ahead());
@@ -232,7 +250,7 @@ describe("Laskut: Tilaukset and a mark on one subscription", () => {
     expect(marked).not.toContain("Kumoa: Apple 12,99 €");
     expect(marked).not.toContain("Koskee kaikkia");
     // the header counts what is left: 12,99 + 10,99
-    expect(marked).toContain("<strong>24 €/kk</strong>");
+    expect(marked).toContain('<div class="card-datum"><span class="fig fig-s"><span class="fig-int">24</span><span class="fig-unit"> €/kk</span></span></div>');
   });
 
   it("an old mark on the merchant shows on every row of it, says so, and is undone for the merchant", () => {
@@ -278,6 +296,21 @@ describe("Laskut: Tilaukset and a mark on one subscription", () => {
     expect(foot).toContain('<td class="num hide-phone">384 €</td>');
   });
 
+  it("brackets Kuussa to Yhteensä and tracks each row's share only when they add up, and not when the rounded rows miss by a euro", () => {
+    const out = card([storage, music, spotify], []);
+    // 8 + 13 + 11 = 32; 7,99 + 12,99 + 10,99 is 25 %, 41 % and 34 % of 31,97
+    expect(out).toContain('<tbody class="adds-up">');
+    expect(out).toContain('<tr class="part-first">');
+    expect(out).toContain('<tr class="part-last">');
+    expect(out.match(/<td class="num share sum" style="--from:\d+;--part:\d+">/g)).toHaveLength(3);
+    // 1,49 + 1,49 = 2,98: 1 + 1 under 3 prints a bracket that is false, the tracks still add up to 100
+    const a = sub({ id: "out:acc-1:A", merchant: "A", monthlyCents: 149 });
+    const b = sub({ id: "out:acc-1:B", merchant: "B", monthlyCents: 149 });
+    const near = card([a, b], []);
+    expect(near).not.toContain("adds-up");
+    expect(near).toContain("num share sum");
+  });
+
   it("leaves a stopped subscription out of the row Yhteensä, and lists it below that row under its head", () => {
     const out = card([storage, music, spotify], [mark(seriesMarkSubject(storage), "cancelled")]);
     // 12,99 + 10,99 = 23,98 a month; 155,88 + 131,88 = 287,76 a year
@@ -285,7 +318,7 @@ describe("Laskut: Tilaukset and a mark on one subscription", () => {
     expect(foot).toContain('<td class="num">24 €</td>');
     expect(foot).toContain('<td class="num hide-phone">288 €</td>');
     // the figure of the foot is the figure of the card header
-    expect(out).toContain("<strong>24 €/kk</strong>");
+    expect(out).toContain('<div class="card-datum"><span class="fig fig-s"><span class="fig-int">24</span><span class="fig-unit"> €/kk</span></span></div>');
     expect(out.indexOf("Yhteensä")).toBeLessThan(out.indexOf("Merkitty lopetetuksi"));
     expect(out.indexOf("Merkitty lopetetuksi")).toBeLessThan(out.indexOf("Kumoa: Apple 7,99 €"));
     // near miss: a card with nothing stopped has no such group

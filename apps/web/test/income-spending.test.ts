@@ -136,7 +136,7 @@ describe("Tulot ja menot: the categories", () => {
     const v = view(many, "2026-10-01", today);
     // the rest (36 €) is longer than any named row: it is the measure, and no bar is over it
     expect(v.categories.at(-1)!.share).toBe(100);
-    expect(v.categories[0]!.share).toBe(Math.round((2_200 / 3_600) * 100));
+    expect(v.categories[0]!.share).toBe(Math.round((2_200 / 3_600) * 10_000) / 100);
     expect(v.categories.every((c) => c.share > 0 && c.share <= 100)).toBe(true);
     const two = view([buy("2026-10-03", 4_000), buy("2026-10-04", 1_000, "restaurants")], "2026-10-01", today);
     expect(two.categories.map((c) => c.share)).toEqual([100, 25]);
@@ -216,7 +216,7 @@ describe("Tulot ja menot: the month's list or the table of themes", () => {
     expect(data.themes).toBeNull();
     const html = draw(data);
     expect(html).toContain('class="st-table category-table"');
-    expect(text(html)).toContain("Kategoria Lokakuu Muutos");
+    expect(text(html)).toMatch(/Kategoria .*Lokakuu Muutos/);
     expect(html).not.toContain("Kuukaudessa");
     expect(html).not.toContain("themes-table");
     expect(text(html)).toContain("Kauppiaat Menot kuukausittain");
@@ -230,9 +230,9 @@ describe("Tulot ja menot: the month's list or the table of themes", () => {
       const html = draw(data);
       expect(html).toContain("themes-table");
       expect(html).not.toContain("category-table");
-      expect(text(html)).toContain("Menot kategorioittain 7/2026–9/2026 Kuukaudessa");
+      expect(text(html)).toMatch(/Menot kategorioittain 7\/2026–9\/2026 .*Kuukaudessa/);
       expect(text(html)).not.toContain("Kategoria ");
-      tables.push(/<table class="st-table themes-table".*?<\/table>/.exec(html)![0]);
+      tables.push(/<table class="st-table themes-table[^"]*".*?<\/table>/.exec(html)![0]);
       // the months' figures, the chart's place and the links stay
       expect(html).toContain("month-table");
       expect(text(html)).toContain("Kauppiaat Menot kuukausittain");

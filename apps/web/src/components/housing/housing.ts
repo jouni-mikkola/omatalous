@@ -1,6 +1,7 @@
 // Decision: what the home costs a month and on what terms its loan runs, told as a statement
 import { type DashboardData, type HousingCharge, type HousingLoan, LOAN_REFERENCE_LABEL } from "@banking/core";
 import { date, dayMonth, money, rateText } from "../../format.ts";
+import { addsUp, shares } from "../../marks.ts";
 import { partText } from "../../part.ts";
 
 type Answer = NonNullable<DashboardData["housing"]>;
@@ -88,6 +89,8 @@ interface ChargeRow {
   payee: string;
   part: string | null;
   cents: number;
+  /** The row's slice of the 100 px track on its rule (`--from`, `--part`), only while the charges add up to the total. */
+  share: { from: number; part: number } | null;
 }
 
 /** A row of the sums: null cents where no row tells a sum. The last one is the block's total. */
@@ -105,6 +108,10 @@ interface HousingView {
   /** The sentence under the total when a loan tells no payment. */
   missing: string | null;
   ask: boolean;
+  /** The charges add up, to the cent, to the total: their column has the bracket and the tracks. */
+  chargesAddUp: boolean;
+  /** The loans' payments and the charges add up to the total: the two rows above it have the bracket. */
+  sumsAddUp: boolean;
 }
 
 function loanRow(loan: HousingLoan): LoanRow {
@@ -129,6 +136,7 @@ const chargeRow = (charge: HousingCharge): ChargeRow => ({
   payee: charge.payee,
   part: partText(charge.part, "debt"),
   cents: charge.monthlyCents,
+  share: null,
 });
 
 /** The sums are core's: the loans' known payments, the charges, and the two together. A sum no row tells is not a zero. */
@@ -143,11 +151,25 @@ function sumsOf({ loans, charges, loansMonthlyCents, chargesMonthlyCents, totalM
 /** The block from core's answer: the loans in core's order, the charges in core's order, the sums as core gives them. */
 export function housingView(housing: Answer): HousingView {
   const unpaid = housing.loans.filter((loan) => loan.monthlyCents === null).length;
+  const sums = sumsOf(housing);
+  const total = sums.find((sum) => sum.total)?.cents ?? null;
+  const charges = housing.charges.map(chargeRow);
+  // a bracket and a track claim that the rows are the total: they are drawn only when they are, to the cent
+  const chargesAddUp = total !== null && addsUp(charges.map((c) => c.cents), total);
+  const slices = chargesAddUp ? shares(charges.map((c) => c.cents), total) : null;
+  let from = 0;
+  slices?.forEach((part, i) => {
+    charges[i]!.share = { from, part: part ?? 0 };
+    from += part ?? 0;
+  });
+  const paid = sums.length === 3 ? [sums[0]!.cents, sums[1]!.cents] : [];
   return {
     loans: housing.loans.map(loanRow),
-    charges: housing.charges.map(chargeRow),
-    sums: sumsOf(housing),
+    charges,
+    sums,
     missing: housing.partial ? `Summasta puuttuu ${unpaid} lainan maksuerä.` : null,
     ask: housing.ask,
+    chargesAddUp,
+    sumsAddUp: total !== null && addsUp(paid, total),
   };
 }

@@ -104,12 +104,14 @@ interface Line {
   merchant: string | null;
   /** Positive, whichever way the money goes: the table says which. */
   cents: number;
+  /** The app estimates its day and sum: the row carries a ring where a given one carries a disc. */
+  estimate: boolean;
 }
 
 /** What a row is called: a card is called as Varallisuus calls it, without the type the bank adds in brackets. */
 export const rowName = (r: Row): string => (r.source === "card" ? cardName(r.name) : r.name);
 
-const lineOf = (r: Row): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents) });
+const lineOf = (r: Row): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r) });
 
 /** The rows of the payments' table, in core's order: by day, the larger of a day first. */
 export const paymentRows = (ahead: Ahead): Row[] => ahead.rows.filter((r) => r.cents < 0);
@@ -137,7 +139,7 @@ export function arrivals(ahead: Ahead): Arrival[] {
 }
 
 /** The arrivals as the lines of the second table. */
-export const incoming = (ahead: Ahead): Line[] => arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.cents }));
+export const incoming = (ahead: Ahead): Line[] => arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.cents, estimate: false }));
 
 /** What the table of the payments is about, for a reader of the page that has no eyes for it. */
 export function paymentsCaption(ahead: Ahead): string {

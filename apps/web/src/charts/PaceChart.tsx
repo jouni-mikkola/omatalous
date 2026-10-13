@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { money, moneyTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
-import { valueAxis } from "./scale.ts";
+import { CategoryTick, ValueAxis } from "./Axes.tsx";
+import { crisp, dashOf, keyStyle, LABEL_Y, labelPrinted } from "./draw.ts";
+import { valueAxis, wholeTicks } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
 
 const MARGIN = { top: 12, right: 64, bottom: 24, left: 56 };
+const RING = 3.5;
 const CURRENT = "var(--series-1)";
 const PREVIOUS = "var(--series-avg)";
 
@@ -31,14 +34,22 @@ export function PaceChart({
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = height - MARGIN.top - MARGIN.bottom;
   // the axis holds the lowest point too: a month that starts with a refund runs below zero, inside the frame
-  const { ticks, at } = valueAxis([...(previous ?? []), ...current.filter((v): v is number => v !== null)]);
+  const axis = valueAxis([...(previous ?? []), ...current.filter((v): v is number => v !== null)]);
+  const ticks = wholeTicks(axis.ticks);
+  const { at } = axis;
   const x = (i: number) => (days > 1 ? (i / (days - 1)) * innerW : 0);
   const y = (v: number) => innerH - at(v) * innerH;
   const path = (vals: (number | null)[]) =>
     vals.reduce((d, v, i) => (v === null ? d : `${d}${d ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`), "");
   const lastIdx = current.reduce<number>((last, v, i) => (v !== null ? i : last), -1);
   const lastVal = lastIdx >= 0 ? current[lastIdx]! : null;
+  const lastDay = lastIdx + 1;
+  // a regular label within two days of the last value's own day gives way to it; its tick stays, short
   const dayTicks = [1, 5, 10, 15, 20, 25, days].filter((d, i, a) => d <= days && a.indexOf(d) === i && !(d === 25 && days - 25 < 3));
+  const drops = new Set(lastIdx >= 0 ? [lastDay] : []);
+  const printed = (d: number) => labelPrinted(d, dayTicks.includes(d), drops);
+  const ringX = lastIdx >= 0 ? crisp(x(lastIdx)) : 0;
+  const ringY = lastVal !== null ? y(lastVal) : 0;
 
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
@@ -50,12 +61,12 @@ export function PaceChart({
     <div className="chart" ref={ref}>
       <div className="legend" aria-hidden="true">
         <span>
-          <i className="line-key" style={{ background: CURRENT }} />
+          <i className="line-key" style={keyStyle(CURRENT)} />
           {names.current}
         </span>
         {previous && (
           <span>
-            <i className="line-key" style={{ background: PREVIOUS }} />
+            <i className="line-key" style={keyStyle(PREVIOUS, dashOf(1))} />
             {names.previous}
           </span>
         )}
@@ -63,34 +74,35 @@ export function PaceChart({
       {width > 0 && (
         <svg width={width} height={height} role="img" aria-label={previous ? "Kuukauden kertyvät menot verrattuna edelliseen kuukauteen" : "Kuukauden kertyvät menot"}>
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-            {ticks.map((t) => (
-              <g key={t} transform={`translate(0,${y(t)})`}>
-                <line className={t === 0 ? "axis-line" : "grid-line"} x1={0} x2={innerW} />
-                <text x={-8} dy="0.32em" textAnchor="end">
-                  {moneyTick(t)}
-                </text>
+            <ValueAxis ticks={ticks} y={y} width={innerW} height={innerH} label={moneyTick} />
+            {Array.from({ length: days }, (_, i) => i + 1).map((d) => (
+              <g key={d}>
+                <CategoryTick x={x(d - 1)} base={innerH} long={printed(d)} />
+                {printed(d) && (
+                  <text x={crisp(x(d - 1))} y={innerH + LABEL_Y} textAnchor="middle">
+                    {d}.
+                  </text>
+                )}
               </g>
             ))}
-            {dayTicks.map((d) => (
-              <text key={d} x={x(d - 1)} y={innerH + 16} textAnchor="middle">
-                {d}.
-              </text>
-            ))}
-            {previous && <path d={path(previous)} fill="none" stroke={PREVIOUS} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
-            <path d={path(current)} fill="none" stroke={CURRENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-            {lastVal !== null && (
-              <>
-                <circle cx={x(lastIdx)} cy={y(lastVal)} r={4} fill={CURRENT} stroke="var(--surface)" strokeWidth={2} />
-                <text x={x(lastIdx) + 8} y={y(lastVal)} dy="0.32em" style={{ fill: "var(--text)", fontWeight: 600 }}>
-                  {money(lastVal, false)}
-                </text>
-              </>
-            )}
+            <g className="draw">
+              {previous && <path d={path(previous)} fill="none" stroke={PREVIOUS} strokeWidth={2} strokeLinejoin="round" strokeDasharray={dashOf(1)} />}
+              <path d={path(current)} fill="none" stroke={CURRENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+              {lastVal !== null && (
+                <>
+                  {ringY + RING + 4 < innerH && <line className="tick" x1={ringX} x2={ringX} y1={ringY + RING + 4} y2={innerH} />}
+                  <circle cx={ringX} cy={ringY} r={RING} fill="var(--surface)" stroke={CURRENT} strokeWidth={2} />
+                  <text x={ringX + 8} y={ringY} dy="0.32em" style={{ fill: "var(--text)", fontWeight: 600 }}>
+                    {money(lastVal, false)}
+                  </text>
+                </>
+              )}
+            </g>
             {hover !== null && (
               <g pointerEvents="none">
-                <line className="axis-line" x1={x(hover)} x2={x(hover)} y1={0} y2={innerH} />
-                {previous?.[hover] != null && <circle cx={x(hover)} cy={y(previous[hover]!)} r={4} fill={PREVIOUS} stroke="var(--surface)" strokeWidth={2} />}
-                {current[hover] != null && <circle cx={x(hover)} cy={y(current[hover]!)} r={4} fill={CURRENT} stroke="var(--surface)" strokeWidth={2} />}
+                <line className="axis-line" x1={crisp(x(hover))} x2={crisp(x(hover))} y1={0} y2={innerH} />
+                {previous?.[hover] != null && <circle cx={crisp(x(hover))} cy={y(previous[hover]!)} r={4} fill={PREVIOUS} stroke="var(--surface)" strokeWidth={2} />}
+                {current[hover] != null && <circle cx={crisp(x(hover))} cy={y(current[hover]!)} r={4} fill={CURRENT} stroke="var(--surface)" strokeWidth={2} />}
               </g>
             )}
             <rect
@@ -117,7 +129,7 @@ export function PaceChart({
         <Tooltip x={MARGIN.left + x(hover)} y={MARGIN.top + 8} containerWidth={width}>
           <div className="tooltip-title">{hover + 1}. päivä</div>
           {current[hover] != null && <TooltipRow color={CURRENT} name={names.current} value={money(current[hover]!, false)} />}
-          {previous?.[hover] != null && <TooltipRow color={PREVIOUS} name={names.previous} value={money(previous[hover]!, false)} />}
+          {previous?.[hover] != null && <TooltipRow color={PREVIOUS} dash={dashOf(1)} name={names.previous} value={money(previous[hover]!, false)} />}
         </Tooltip>
       )}
     </div>

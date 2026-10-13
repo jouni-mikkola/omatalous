@@ -69,3 +69,9 @@
 .housing-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; line-height: 18px; }
 .housing-ask .st-name { flex: 1 0 auto; }
 .housing-answers { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* the figure cell holds the track and, on the first and last row, the bracket's cap: both are its background */
+.housing-charges .adds-up > tr > td.share { --track: linear-gradient(90deg, transparent calc(var(--from) * 1px), var(--axis) 0 calc((var(--from) + var(--part)) * 1px), transparent 0);
+  background-image: var(--track); background-size: var(--share-w) 2px; background-position: right var(--mark-gutter) bottom 0; background-repeat: no-repeat; }
+.housing-charges .adds-up > tr.part-first > td.share { background-image: linear-gradient(var(--axis), var(--axis)), var(--track); background-size: 4px 1px, var(--share-w) 2px; background-position: 100% 0, right var(--mark-gutter) bottom 0; }
+.housing-charges .adds-up > tr.part-last > td.share { background-image: linear-gradient(var(--axis), var(--axis)), var(--track); background-size: 4px 1px, var(--share-w) 2px; background-position: 100% 100%, right var(--mark-gutter) bottom 0; }

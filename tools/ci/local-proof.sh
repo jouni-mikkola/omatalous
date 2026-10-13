@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034 # DRILL_REF, KEPT, DROOT and the like are read in proof-drills.sh, which shellcheck does not follow
 # What the Docker job of CI and the upgrade workflow prove, on this machine, as one command and with no billed minute:
 #
 #   tools/ci/local-proof.sh [--all] [--jobs N] BASELINES     prove the commit that is checked out
@@ -13,13 +14,20 @@
 #   signature          tools/ci/verify-release.sh: the newest release verifies with the install scripts of this commit
 #                      and of every baseline
 #   upgrade from REF   check-migrations.sh, compose-compat.sh and upgrade-run.sh, once for each baseline
-#   drills             tools/ci/drills.sh, on the install that the rehearsal from the first baseline left up
+#   drills             tools/ci/drills.sh in two parts: drills 3, 4, 7 and 8 (the helper) on the install with the default
+#                      names and port 8080 that lane 0 leaves up after its last rehearsal, the newest, in lane 0 after it;
+#                      drills 1, 2, 5, 6, 9 and 10 on an install of their own (project "drills", port 8280), made by
+#                      upgrade-run.sh from the oldest baseline that can take a port and a name, up to its update
 #
-# Everything but the drills starts at once: the image and then the smoke test in a chain of their own, the signature,
-# and the rehearsals in their lanes. They share nothing: a rehearsal makes its own images (never banking-app:ci), the
-# smoke test publishes no port and names its containers after its own pid, and the signature only reads. The drills start
-# when all of those have ended. With one job the image and the smoke test run first and alone, and a red one ends the
-# proof before any other leg starts.
+# Everything starts at once: the image and then the smoke test in a chain of their own, the signature, the rehearsals in
+# their lanes, and the drills' install with its drills after it. They share nothing: a rehearsal makes its own images
+# (never banking-app:ci), the smoke test publishes no port, the signature only reads, and the drills' install has a name and
+# a port that no lane has. What they would share is the watchdog, which counts every update.sh and install.sh of the same
+# user on the machine. So, with a proof started as root and more than one job, lane 0 and the drills' install run as
+# another user than the other lanes (PROOF_DRILL_USER, default 2), and drills 3 and 4 wait until the drills' install has
+# been made, the last update.sh of that user beside them (the other drills start none). In any other case the three parts
+# run one at a time when every other leg has ended: drills 3 and 4, then the making of the install, then its drills. With
+# one job the image and the smoke test run first and alone, and a red one ends the proof before any other leg starts.
 #
 # Images that are kept: the image of a baseline is the same one in every proof, so a rehearsal keeps it under the name
 # proof-baseline:<the full hash of the baseline's commit> once its install has come up, and a later proof starts from it
@@ -28,13 +36,16 @@
 # commit the list no longer names are removed, and one line says how many are kept. The image of the commit under proof is
 # not shared by name: every rehearsal's update.sh builds it, as a user's update does (that build is part of what is proved),
 # and the layers the image leg builds at the same time are the Docker cache it reuses. What the builds and the other
-# phases take is in each rehearsal's log, one line a phase ("phase update: 31 s"), and the drills' log has a line a drill.
+# phases take is in each rehearsal's log, one line a phase ("phase update: 31 s"), and a drills log has a line a drill.
 #
 # One line a leg when it ends, with its seconds. A failed leg does not stop the others, so that one proof shows every
 # failure; a failed image or smoke test is the exception, since every rehearsal builds the same Dockerfile: it stops the
 # legs that are running (each takes its install down), the drills do not run, and the line "stopped" stands for each
-# leg that was cut. At the end the failed ones are named with their logs and the exit code is 1. Exit 2 means it
-# refused before it ran anything. A commit that passed gets a stamp in the git folder, with the baselines it was proved
+# leg that was cut. The last lines before the verdict say where the time went: a line a leg with its seconds, the longest
+# first, then one for each lane and one for the drills' install and drills, so that the next cut shows the long path. The
+# proof passes, and is stamped, only when every leg said ok: a leg whose shell was lost leaves no line, and the end says
+# so. At the end the failed ones are named with their logs and the exit code is 1.
+# Exit 2 means it refused before it ran anything. A commit that passed gets a stamp in the git folder, with the baselines it was proved
 # from, and the next run for the same commit ends at once (remove the file `local-proof` there to run it again).
 #
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
@@ -46,19 +57,21 @@
 # lane for every 4 CPUs, at least 4 and at most the number of rehearsals. A machine too small for that sets PROOF_JOBS=1
 # (also through release.sh), and the rehearsals run one after another. Lane 0 has port 8080 and the names
 # docker-compose.yml gives without a key. Lane N has port 8080+N and the project proof-N (UPGRADE_PORT and
-# UPGRADE_PROJECT of upgrade-run.sh). Three rehearsals stay one at a time, in lane 0:
+# UPGRADE_PROJECT of upgrade-run.sh). Two kinds of rehearsal stay one at a time, in lane 0:
 #   - from a baseline whose docker-compose.yml fixes the port and the names (the ones before 0.4.0),
-#   - from the newest baseline, so that the update most installs make runs with the default names,
-#   - from the first baseline, last, because its install stays up for the drills.
-# The drills run when every other leg has ended: they stand on the ports 8080 and 18080 and on the default names, and
-# their watchdog counts every update.sh of the same user, so a rehearsal beside them could keep a drill from its
-# rollback. For the same reasons one proof runs on a machine at a time.
+#   - from the newest baseline, last, so that the update most installs make runs with the default names; its install is
+#     left up for drills 3 and 4 in lane 0. Lane 0 is weighed with those drills as one more rehearsal (they take about
+#     three quarters of one) when the others are shared out, so that it does not become the longest part.
 #
-# The maintenance helper refuses root, so no leg runs as root. Started as root, the script hands the clone and its
-# work folder to user 1 (PROOF_USER names another uid) and starts each leg as that user with the group `docker`
-# (setpriv). No test install may run as that user at the same time. Started as another user, the legs run as that user.
-# INT or TERM stops the legs, each of which takes its install down, and proves nothing.
-# Needs git, a running Docker and setsid, and what the legs need (curl, node, jq, the network for the signature). The
+# The maintenance helper refuses root, so no leg runs as root. Started as root, the script hands the clone and its work
+# folder to user 1 (PROOF_USER) and starts each leg as that user with the group `docker` (setpriv); lane 0 and the drills'
+# install get a clone, a folder and a home of their own, as user 2 (PROOF_DRILL_USER, which must differ). Started as another
+# user, the legs run as that user. No test install may run as those users at the same time, and one proof runs on a machine
+# at a time (a lock on TMPDIR/local-proof-running.lock; a second proof ends at once, naming it). Drills 3 and 4 wait for the drills' install
+# at most PROOF_SETUP_WAIT seconds (default 900). A killed proof leaves the drills' install, its image, drill 5's containers and volumes and its folder; the next
+# proof removes them at its start by their fixed names and says so in one line, and never touches the default install or a
+# lane's. INT or TERM stops the legs, each of which takes its install down, and proves nothing.
+# Needs git, a running Docker, setsid and flock, and what the legs need (curl, node, jq, the network for the signature). The
 # work folder is a new one under TMPDIR (/tmp); its logs stay, the rest is removed.
 set -uo pipefail
 
@@ -70,11 +83,12 @@ jobs_are() { [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "$1 needs a number from 1 t
 PROVED=0
 LIST=''
 PROOF_USER=${PROOF_USER:-1}
+DRILL_USER=${PROOF_DRILL_USER:-2}
 # what an update runs through: a change here since the last release is proved from every baseline
 PATHS=(apps/server/migrations scripts 'docker-compose*.yml' Dockerfile tools/ci)
 USAGE="usage: local-proof.sh [--all] [--jobs N] BASELINES, or --proved [--all] BASELINES"
 # a rehearsal takes these from the lane it runs in and from nowhere else
-unset UPGRADE_PORT UPGRADE_PROJECT UPGRADE_WORK UPGRADE_KEEP_UP
+unset UPGRADE_PORT UPGRADE_PROJECT UPGRADE_WORK UPGRADE_KEEP_UP UPGRADE_UNTIL DRILLS_ONLY
 
 refuse() { printf 'Error: %s\n' "$*" >&2; exit 2; }
 
@@ -160,30 +174,50 @@ if [[ -z $JOBS ]]; then
   ((JOBS <= 99)) || JOBS=99
 fi
 
-for c in docker setsid; do command -v "$c" >/dev/null 2>&1 || refuse "$c is not installed."; done
+for c in docker setsid flock; do command -v "$c" >/dev/null 2>&1 || refuse "$c is not installed."; done
 docker info >/dev/null 2>&1 || refuse "Docker does not answer (docker info). Start it, for example with: systemctl start docker. Then run again."
 DOCKER_GID=''
 if [[ $(id -u) == 0 ]]; then
   command -v setpriv >/dev/null 2>&1 || refuse "setpriv is not installed (util-linux), and the legs cannot run as root."
   DOCKER_GID=$(getent group docker | cut -d: -f3)
   [[ -n $DOCKER_GID ]] || refuse "This machine has no group docker, so user $PROOF_USER could not reach Docker. Run the proof as a user that can."
+  [[ $DRILL_USER != "$PROOF_USER" ]] || refuse "PROOF_DRILL_USER and PROOF_USER are both $PROOF_USER: the watchdog of the drills counts the updates of every rehearsal of the same user, so the drills need another one."
 fi
+
+# shellcheck source=proof-drills.sh
+. "$ROOT/tools/ci/proof-drills.sh" || exit 2
+# One proof at a time on a machine: a lock that the legs inherit, so that it is held as long as any part of a proof runs. A
+# second proof does not wait and removes nothing; leftovers below would take a running proof's drills folder otherwise.
+LOCK=${TMPDIR:-/tmp}/local-proof-running.lock
+[[ -e $LOCK ]] || : >"$LOCK" 2>/dev/null
+exec 7<"$LOCK" || refuse "The lock file $LOCK cannot be opened."
+flock -n 7 || refuse "Another local proof is running on this machine ($LOCK is held). One proof at a time; this one removed nothing."
+leftovers
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/local-proof.XXXXXX") || refuse "No work folder could be made under ${TMPDIR:-/tmp}."
 SRC=$WORK/src
 LOGS=$WORK/logs
 RUNNING=$WORK/running
-KEPT='' # the work folder of the rehearsal whose install stays up for the drills
-mkdir -p "$LOGS" "$RUNNING" "$WORK/home"
-# the words that start a command as the user of the legs
+DROOT=$WORK/drills # the drills' own folder: their clone (as root), their home, lane 0 (as root) and their install
+mkdir -p "$LOGS" "$RUNNING" "$WORK/home" "$DROOT"
+# the words that start a command as the user of the legs, and as the user of the drills with the clone they run in
 AS=()
-[[ -z $DOCKER_GID ]] || AS=(setpriv "--reuid=$PROOF_USER" "--regid=$PROOF_USER" "--groups=$DOCKER_GID" env "HOME=$WORK/home")
+DRILL_AS=()
+DSRC=$SRC
+if [[ -n $DOCKER_GID ]]; then
+  AS=(setpriv "--reuid=$PROOF_USER" "--regid=$PROOF_USER" "--groups=$DOCKER_GID" env "HOME=$WORK/home")
+  DRILL_AS=(setpriv "--reuid=$DRILL_USER" "--regid=$DRILL_USER" "--groups=$DOCKER_GID" env "HOME=$DROOT/home")
+  DSRC=$DROOT/src
+  mkdir -p "$DROOT/home"
+fi
 
-# Every branch comes along, as a checkout with the whole history brings it, and the commit itself in any case.
+# Every branch comes along, as a checkout with the whole history brings it, and the commit itself in any case. The drills'
+# user gets a clone of that clone: git refuses a folder of another owner.
 if ! {
   git clone -q --no-hardlinks --no-checkout "$ROOT" "$SRC" \
     && { git -C "$SRC" cat-file -e "$SHA^{commit}" 2>/dev/null || git push -q "$SRC" "$SHA:refs/heads/proved"; } \
-    && git -C "$SRC" checkout -q --detach "$SHA"
+    && git -C "$SRC" checkout -q --detach "$SHA" \
+    && { [[ $DSRC == "$SRC" ]] || git clone -q --no-hardlinks "$SRC" "$DSRC"; }
 } >"$LOGS/clone.log" 2>&1 </dev/null; then
   why=$(tail -n 2 "$LOGS/clone.log" | tr '\n' ' ')
   rm -rf "$WORK"
@@ -197,17 +231,16 @@ movable() {
   c=$(git show "$1:docker-compose.yml" 2>/dev/null) || return 1
   [[ $c == *"\${HOST_PORT"* && $c == *"\${INSTANCE_NAME"* ]]
 }
-FIRST=${PICK[0]}
 NEWEST=${PICK[${#PICK[@]} - 1]}
 LANES=() # the refs of each lane, in the order they run
 for ((k = 0; k < JOBS; k++)); do LANES+=(''); done
 legs_of() { local w; read -ra w <<<"$1"; echo "${#w[@]}"; }
 for ref in "${PICK[@]}"; do
-  [[ $ref != "$FIRST" ]] || continue
   k=0
   if [[ $ref != "$NEWEST" ]] && movable "$ref"; then
-    # the lane with the fewest legs; lane 0 counts the first baseline, which it runs last
-    least=$(($(legs_of "${LANES[0]}") + 1))
+    # the lane with the fewest legs; lane 0 counts the newest baseline, which it runs last, and drills 3 and 4 after it
+    # (74 s of the drills' 105 s, about three quarters of a rehearsal's 100 s, counted as one)
+    least=$(($(legs_of "${LANES[0]}") + 2))
     for ((j = 1; j < JOBS; j++)); do
       n=$(legs_of "${LANES[j]}")
       if ((n < least)); then least=$n; k=$j; fi
@@ -215,27 +248,51 @@ for ref in "${PICK[@]}"; do
   fi
   LANES[k]+=" $ref"
 done
-LANES[0]+=" $FIRST"
+# the baseline the drills' own install is made from: the oldest that can take a port and a name of its own, the state that
+# the oldest installs have after one update
+DRILL_REF=''
+for ((k = 0; k < ${#PICK[@]}; k++)); do
+  if movable "${PICK[k]}"; then DRILL_REF=${PICK[k]}; break; fi
+done
+# Started as root, lane 0 and the drills' install run as the drills' user (see the header). Beside the other lanes only
+# with more than one lane; otherwise, and for a proof of one user, the drills come after every other leg, one at a time.
+BESIDE=0
+((${#AS[@]} && JOBS > 1)) && BESIDE=1
+LANE0_ROOT=$WORK # where lane 0 makes its installs
+((${#AS[@]} == 0)) || LANE0_ROOT=$DROOT
+KEPT=$LANE0_ROOT/upgrade-${NEWEST//[^A-Za-z0-9._-]/_} # the install that the newest rehearsal leaves up for drills 3 and 4
 
 if ((${#AS[@]})); then
   chown -R "$PROOF_USER:$PROOF_USER" "$WORK"
+  chown -R "$DRILL_USER:$DRILL_USER" "$DROOT"
+  chmod 711 "$WORK" # the drills' user enters it to reach its own folder
   if ! "${AS[@]}" test -r "$SRC/tools/ci/upgrade-run.sh"; then
     rm -rf "$WORK"
     refuse "User $PROOF_USER cannot read $SRC. Set TMPDIR to a folder that user can enter (TMPDIR=/tmp) and run again."
   fi
+  if ! "${DRILL_AS[@]}" test -r "$DSRC/tools/ci/upgrade-run.sh"; then
+    rm -rf "$WORK"
+    refuse "User $DRILL_USER cannot read $DSRC. Set TMPDIR to a folder that user can enter (TMPDIR=/tmp) and run again."
+  fi
 fi
 
 T0=$SECONDS
-LEGS=$((${#PICK[@]} + 4))
+LEGS=$((${#PICK[@]} + 6)) # the image, the smoke test, the signature, a rehearsal each, the drills' install and two drills parts
 echo "local proof of $SHORT: ${#PICK[@]} baselines ($WHY), $JOBS at a time. Logs: $LOGS"
+
+# part SECONDS NOTE LABEL: one line of the list that closes the proof (see parts). Written by many processes at once, one
+# short line each.
+part() { printf '%d|%s|%s\n' "$1" "$2" "$3" >>"$WORK/parts"; }
 
 # leg NAME LABEL COMMAND...: one leg, started in the clone, in a session of its own so that a stop reaches all of it,
 # as the user of the legs, with its output in logs/NAME.log. One line when it ends; a failed one is noted in the file
-# `failed`.
+# `failed`. LEG_AS=drill (a plain variable of the caller's shell, not exported) starts the leg as the user of the drills, in
+# their clone; LEG_NOTE goes beside the leg's seconds in the closing list.
 leg() {
-  local name=$1 label=$2 t0=$SECONDS rc=0 pid
+  local name=$1 label=$2 t0=$SECONDS rc=0 pid dir=$SRC who=("${AS[@]}")
   shift 2
-  (cd "$SRC" && exec setsid "${AS[@]}" "$@") </dev/null >"$LOGS/$name.log" 2>&1 &
+  if [[ ${LEG_AS:-} == drill ]]; then dir=$DSRC; who=("${DRILL_AS[@]}"); fi
+  (cd "$dir" && exec setsid "${who[@]}" "$@") </dev/null >"$LOGS/$name.log" 2>&1 &
   pid=$!
   echo "$pid" >"$RUNNING/$name"
   # a stop that came between the start and the line above did not see this leg
@@ -244,7 +301,9 @@ leg() {
   # a signal that this shell catches ends `wait` early: the leg has ended only when it is gone
   while ((rc > 128)) && kill -0 "$pid" 2>/dev/null; do wait "$pid"; rc=$?; done
   rm -f "$RUNNING/$name"
+  part $((SECONDS - t0)) "${LEG_NOTE:-}" "$label"
   if ((rc == 0)); then
+    echo "$name" >>"$WORK/passed" # the proof passes only when every leg is in this file (see report)
     echo "ok      $label ($((SECONDS - t0)) s)"
   elif ((rc == 143)) && [[ -e $WORK/halt ]]; then
     echo "stopped $label ($((SECONDS - t0)) s)" # cut by halt: not a fault of its own
@@ -256,26 +315,34 @@ leg() {
 }
 
 # upgrade_leg REF LANE [keep]: the three steps of the upgrade workflow for one baseline. The rehearsal is the leg's own
-# process (exec), so the leg has ended only when its install is down.
+# process (exec), so the leg has ended only when its install is down, unless keep leaves it up (the newest rehearsal, for
+# drills 3 and 4). Lane 0 runs as the drills' user when the proof was started as root (the other lanes are never that user).
 upgrade_leg() {
-  local ref=$1 lane=$2 name set=()
+  local ref=$1 lane=$2 name set=() root=$WORK
   name=upgrade-${ref//[^A-Za-z0-9._-]/_}
   ((lane == 0)) || set=("UPGRADE_PORT=$((8080 + lane))" "UPGRADE_PROJECT=proof-$lane")
   [[ ${3:-} != keep ]] || set+=(UPGRADE_KEEP_UP=1)
-  if leg "$name" "upgrade from $ref" env "UPGRADE_WORK=$WORK/$name" "${set[@]}" bash -c \
+  if ((lane == 0 && ${#AS[@]})); then LEG_AS=drill; root=$DROOT; fi
+  LEG_NOTE="lane $lane"
+  if leg "$name" "upgrade from $ref" env "UPGRADE_WORK=$root/$name" "${set[@]}" bash -c \
     'tools/ci/check-migrations.sh "$1" && tools/ci/compose-compat.sh "$1" && exec tools/ci/upgrade-run.sh "$1"' leg "$ref" \
     && [[ ${3:-} == keep ]]; then
     return 0
   fi
-  rm -rf "${WORK:?}/$name" 2>/dev/null
+  rm -rf "${root:?}/$name" 2>/dev/null
 }
 
-# the install that the rehearsal from the first baseline left up, when no drills will take it down
-drop_kept() {
-  [[ -n $KEPT && -d $KEPT/talous ]] || return 0
-  (cd "$KEPT/talous" && "${AS[@]}" docker compose down -v) >>"$LOGS/drills.log" 2>&1
+tidy() { rm -rf "$SRC" "${WORK:?}/home" "$RUNNING" "$DROOT" "$WORK"/upgrade-* "$WORK/parts" "$WORK/passed" "$WORK/setup.lock" 2>/dev/null; }
+
+# parts: where the time went, the longest first: a line a leg with its seconds, and a line for each lane and for the drills
+parts() {
+  [[ -s $WORK/parts ]] || return 0
+  echo "where the time went, the longest first:"
+  {
+    cat "$WORK/parts"
+    awk -F'|' '$2 ~ /^lane / { t[$2] += $1 } END { for (k in t) printf "%d||%s, all its rehearsals\n", t[k], k }' "$WORK/parts"
+  } | sort -t'|' -k1,1nr -s | while IFS='|' read -r s note label; do printf '  %4d s  %s%s\n' "$s" "$label" "${note:+ ($note)}"; done
 }
-tidy() { rm -rf "$SRC" "${WORK:?}/home" "$RUNNING" "$WORK"/upgrade-* 2>/dev/null; }
 
 # end_legs: no leg starts from now on, and the ones that run get TERM (each takes its install down)
 end_legs() {
@@ -316,14 +383,22 @@ keep_images() {
 
 # report [NOTE]: the last lines, the stamp when every leg passed, and the exit code
 report() {
-  local failed=() name
+  local failed=() passed=() name
   [[ ! -f $WORK/failed ]] || mapfile -t failed <"$WORK/failed"
+  [[ ! -f $WORK/passed ]] || mapfile -t passed <"$WORK/passed"
+  drop_kept # an install that is still up (a lane lost its shell before the drills): no folder removal leaves it running
+  parts
   tidy
-  if ((${#failed[@]} == 0)); then
+  # a leg whose shell was lost leaves no line in either file: the proof passes only when every leg said ok
+  if ((${#failed[@]} == 0 && ${#passed[@]} == LEGS)); then
     printf '%s\n%s\n' "$SHA" "${PICK[*]}" >"$STAMP"
     keep_images
     echo "local proof passed for $SHORT in $((SECONDS - T0)) s: the image, the smoke test, the signature, ${#PICK[@]} baselines and the drills. Logs: $LOGS"
     exit 0
+  fi
+  if ((${#failed[@]} == 0)); then
+    echo "local proof FAILED for $SHORT: ${#passed[@]} of $LEGS legs reported ok, the others ended without a result.${1:+ $1} Nothing is stamped."
+    exit 1
   fi
   echo "local proof FAILED for $SHORT: ${#failed[@]} of $LEGS legs.${1:+ $1} Nothing is stamped."
   for name in "${failed[@]}"; do
@@ -343,7 +418,14 @@ else
   (trap : INT TERM; image_and_smoke || halt) &
 fi
 
-KEPT=$WORK/upgrade-${FIRST//[^A-Za-z0-9._-]/_}
+if ((BESIDE)); then
+  # the lock that drills 3 and 4 wait for (lane0_drills) is taken before the install of the drills starts, held by it, and
+  # let go of by the main shell before any lane starts, so that no lane holds it
+  exec 8>"$WORK/setup.lock"
+  flock 8
+  (trap : INT TERM; own_chain) &
+  exec 8>&-
+fi
 for ((k = 0; k < JOBS; k++)); do
   read -ra refs <<<"${LANES[k]}"
   ((${#refs[@]})) || continue
@@ -352,8 +434,9 @@ for ((k = 0; k < JOBS; k++)); do
     trap : INT TERM
     for ref in "${refs[@]}"; do
       [[ ! -e $WORK/stop ]] || break
-      if [[ $ref == "$FIRST" ]]; then upgrade_leg "$ref" "$k" keep; else upgrade_leg "$ref" "$k"; fi
+      if [[ $k == 0 && $ref == "$NEWEST" ]]; then upgrade_leg "$ref" "$k" keep; else upgrade_leg "$ref" "$k"; fi
     done
+    if ((k == 0 && BESIDE)); then lane0_drills; fi
   ) &
 done
 (trap : INT TERM; leg signature "signature of the newest release" tools/ci/verify-release.sh) &
@@ -363,11 +446,9 @@ if [[ -e $WORK/halt ]]; then
   drop_kept
   report "The legs still running were stopped, and the drills did not run."
 fi
-if [[ -d $KEPT/talous ]]; then
-  leg drills "drills" env "UPGRADE_WORK=$KEPT" tools/ci/drills.sh
-else
-  echo "FAILED  drills: not run, the rehearsal from $FIRST that they stand on failed"
-  echo "not run: the rehearsal from $FIRST failed, so there is no install to drill" >"$LOGS/drills.log"
-  echo drills >>"$WORK/failed"
+if ((!BESIDE)); then
+  # one job, or a proof of one user: after every other leg, one at a time (drills 3 and 4, the drills' install, its drills)
+  [[ -e $WORK/stop ]] || drills_default
+  own_chain
 fi
 report

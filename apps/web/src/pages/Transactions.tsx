@@ -2,6 +2,7 @@ import { UNKNOWN_MERCHANT } from "@banking/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
+import { Loading } from "../components/Loading.tsx";
 import { FilterChip } from "../components/FilterChip.tsx";
 import { DateFilter, FilterToggle, SearchBox } from "../components/FilterInputs.tsx";
 import { CADENCE_LABEL, date, dayHeading, money, plural } from "../format.ts";
@@ -74,6 +75,9 @@ function Facts({ facts }: { facts: [string, string][] }) {
     </dl>
   );
 }
+
+/** A count of rows with its thousands set apart, as the cut mark prints it. */
+const count = (n: number): string => n.toLocaleString("fi-FI");
 
 const PAGE = 100;
 const MAX_ROWS = 500;
@@ -257,16 +261,21 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       </div>
 
       <div className={`card tx-card ${loading ? "loading" : ""}`}>
-        <div className="card-head tx-head">
-          <h2 className={phone ? "sr-only" : undefined}>Tapahtumat</h2>
-          <div className="form-row" style={{ margin: 0 }}>
-            {anyOwn && (
-              <label>
-                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Sama kategoria kauppiaan muille tapahtumille
-              </label>
-            )}
-            {!phone && csv}
-          </div>
+        {/* a wide screen gets the title block: the name and the tools; a phone has only the summary, the name is for readers */}
+        <div className={`card-head tx-head ${phone ? "" : "tb"}`}>
+          {phone ? <h2 className="sr-only">Tapahtumat</h2> : <div className="card-name"><h2>Tapahtumat</h2></div>}
+          {(anyOwn || !phone) && (
+            <div className={phone ? undefined : "card-tool"}>
+              <div className="form-row" style={{ margin: 0 }}>
+                {anyOwn && (
+                  <label>
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Sama kategoria kauppiaan muille tapahtumille
+                  </label>
+                )}
+                {!phone && csv}
+              </div>
+            </div>
+          )}
         </div>
         {facts.length > 0 && <Facts facts={facts} />}
         {error && (
@@ -303,6 +312,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
           )}
         </div>
         <div className="table-wrap">
+          {/* before the first answer the page is loading, not empty */}
+          {!data && !error && <Loading />}
           {phone ? (
             byDay(data?.items ?? []).map((d) => (
               <div key={d.day} className="tx-day">
@@ -348,6 +359,9 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
           <div className="form-row">
             {data && data.total > data.items.length && (
               <>
+                <span className="cut-mark">
+                  1–{count(data.items.length)} / {count(data.total)}
+                </span>
                 <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + PAGE })} disabled={loading || limit >= MAX_ROWS}>
                   Näytä lisää
                 </button>

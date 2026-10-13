@@ -28,8 +28,22 @@ export function valueAxis(values: readonly number[], target = 4): { ticks: numbe
   return { ticks, at: (v) => (v - min) / (max - min) };
 }
 
-/** Column with a 4px rounded data-end and a square base. */
-export function roundedTop(x: number, y: number, w: number, h: number, r = 4): string {
+/**
+ * The ticks that can be printed: whole cents. A tiny maximum (a cent, nothing) gives the axis a step of a quarter
+ * of a cent, whose ticks would all be printed as the same amount.
+ */
+export function wholeTicks(ticks: readonly number[]): number[] {
+  return ticks.filter((t) => Number.isInteger(t));
+}
+
+/** The ticks of a bar axis (see `niceTicks`): with nothing above zero to measure, the zero line alone. */
+export function barTicks(dataMax: number, target = 4): { ticks: number[]; max: number } {
+  const { ticks, max } = niceTicks(dataMax, target);
+  return { ticks: dataMax > 0 ? wholeTicks(ticks) : [0], max };
+}
+
+/** Column with a square-cornered data-end (a 1 px radius) and a square base. */
+export function roundedTop(x: number, y: number, w: number, h: number, r = 1): string {
   const rr = Math.max(0, Math.min(r, w / 2, h));
   return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`;
 }

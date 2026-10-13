@@ -64,7 +64,8 @@
   .st-cols-3 > * + * { border-top: 1px solid var(--border); border-left: 0; }
 }
 @media (min-width: 1040px) {
-  .st-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 4 | 4 | 4 on the page's columns (--split-n, marks.css): a wide group is 4 | 8 or 8 | 4 and its rule stands on the register */
+  .st-cols-3 { grid-template-columns: var(--split-4) calc(var(--split-8) - var(--split-4)) minmax(0, 1fr); column-gap: 0; }
   .st-cols-3 > * + * { border-top: 0; border-left: 1px solid var(--border); }
   .st-cols-3 > .st-wide { grid-column: span 2; }
 }

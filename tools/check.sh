@@ -12,7 +12,8 @@
 # The steps run side by side, their lines printed in the order above; CHECK_SERIAL=1 runs them one after the other, for
 # a small machine. CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
 # Unless CUT_LOCK_HELD or CI is set, a run holds a shared lock on $(git rev-parse --git-common-dir)/cut.lock, which a
-# release holds exclusively while it cuts: the check then waits (up to CHECK_CUT_WAIT, default 1800 s) and runs later.
+# release holds exclusively while it cuts: the check then waits (up to CUT_LOCK_WAIT, the name the release and the page tests use too; CHECK_CUT_WAIT still works; default 1800 s) and runs later,
+# behind a cut that is already waiting (cut.wait, below).
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -55,15 +56,18 @@ if [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then
   [[ -d node_modules ]] || { echo "check: node_modules is missing, run pnpm install first" >&2; exit 1; }
 fi
 
-# A release cuts under an exclusive lock on cut.lock; a check holds it shared, so the two never run at once. The run
+# A release cuts under an exclusive lock on cut.lock; a check holds it shared, so the two never run at once. cut.wait is
+# the cut's place in the queue: the release holds it exclusive while it waits for cut.lock, and a check takes it shared for
+# a moment first, so a check that arrives while the cut waits stands behind it. Both waits share one limit. The run
 # starts again under the lock, which every child inherits, with CUT_LOCK_HELD set for what it starts.
 if [[ -z ${CUT_LOCK_HELD:-} && -z ${CI:-} ]] && lock=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
-  lock=$lock/cut.lock
-  : >>"$lock"
-  flock -s -n "$lock" true || echo "check: waiting for the cut"
-  CUT_LOCK_HELD=1 flock -s -w "${CHECK_CUT_WAIT:-1800}" -E 97 "$lock" bash "$SELF" "${ORIG[@]}"
-  rc=$?
-  ((rc != 97)) || { echo "check: the cut still holds $lock after ${CHECK_CUT_WAIT:-1800} s, so the check did not run" >&2; rc=1; }
+  cutwait=$lock/cut.wait lock=$lock/cut.lock limit=${CUT_LOCK_WAIT:-${CHECK_CUT_WAIT:-1800}} t0=$SECONDS rc=0
+  : >>"$lock"; : >>"$cutwait" 2>/dev/null
+  { flock -s -n "$lock" true && { [[ ! -w $cutwait ]] || flock -s -n "$cutwait" true; }; } || echo "check: waiting for the cut"
+  if [[ -w $cutwait ]]; then flock -s -w "$limit" -E 97 "$cutwait" true; rc=$?; fi
+  left=$((limit - (SECONDS - t0))); ((left > 0)) || left=0
+  ((rc != 0)) || { CUT_LOCK_HELD=1 flock -s -w "$left" -E 97 "$lock" bash "$SELF" "${ORIG[@]}"; rc=$?; }
+  ((rc != 97)) || { echo "check: the cut still holds $lock after $limit s, so the check did not run" >&2; rc=1; }
   exit "$rc"
 fi
 

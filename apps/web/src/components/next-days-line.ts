@@ -12,6 +12,8 @@ interface Axis {
   day: number;
   /** The day the window ends before: the pay is expected on it. */
   payday: boolean;
+  /** Saturday or Sunday: the line draws a band behind the column. */
+  weekend: boolean;
 }
 
 /** A payment of the window: row `row` of the payments' table. */
@@ -50,6 +52,12 @@ export interface BillLine {
   startCents: number | null;
 }
 
+/** Whether a day of the calendar is a Saturday or a Sunday. */
+export function isWeekend(iso: string): boolean {
+  const weekday = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return weekday === 0 || weekday === 6;
+}
+
 /** The weekday as `dayHeading` writes it, the first two letters of "ma 12.10.". */
 const weekdayOf = (iso: string, today: string) => dayHeading(iso, today).slice(0, 2);
 
@@ -69,7 +77,7 @@ export function billLine(ahead: Ahead): BillLine | null {
   const columnOf = (iso: string) => Math.min(columns - 1, Math.max(0, daysBetween(from, iso)));
   const axis = Array.from({ length: columns }, (_, k): Axis => {
     const iso = addDays(from, k);
-    return { iso, weekday: weekdayOf(iso, from), day: Number(iso.slice(8, 10)), payday: iso === payday };
+    return { iso, weekday: weekdayOf(iso, from), day: Number(iso.slice(8, 10)), payday: iso === payday, weekend: isWeekend(iso) };
   });
   const start = balance ? balance.startCents : null;
   const bills = rows.map((r, row): Bill => {
@@ -96,4 +104,26 @@ export function billLine(ahead: Ahead): BillLine | null {
     return [{ row, column: daysBetween(from, a.date), name: a.name, cents: a.cents, label: `Saapuva maksu, ${a.name}, ${money(a.cents)}, ${day}`, when: `${day} · ${money(a.cents)}` }];
   });
   return { axis, bills, pays, startCents: start };
+}
+
+/** What the balance is after the last payment of the line, the value its last step is drawn from; null without a balance. */
+export function endCents({ startCents, bills }: BillLine): number | null {
+  return startCents === null ? null : startCents - bills.reduce((sum, b) => sum + b.cents, 0);
+}
+
+/** The height at which the steps start, read from the path they are drawn by (it begins `M0,<y>`); null when it does not. */
+export function startY(path: string): number | null {
+  const m = /^M0,(-?\d+(?:\.\d+)?)/.exec(path);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * The height of zero among the steps, from the two heights the scale gives its start and its end: the scale is a straight
+ * line, so zero stands where it crosses. Null unless a step is below zero (start or end under it), start and end differ
+ * and zero lies inside the field of `height` pixels.
+ */
+export function zeroY(startCents: number, endCents: number, yStart: number, yEnd: number, height: number): number | null {
+  if (startCents === endCents || Math.min(startCents, endCents) >= 0) return null;
+  const y = yStart + ((yEnd - yStart) * startCents) / (startCents - endCents);
+  return y >= 0 && y <= height ? y : null;
 }

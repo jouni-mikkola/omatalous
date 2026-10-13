@@ -6,6 +6,12 @@
 #
 #   UPGRADE_WORK=<the rehearsal's folder> tools/ci/drills.sh
 #
+# On an install with a port and a name of its own the same UPGRADE_PORT and UPGRADE_PROJECT go to this script as to
+# upgrade-run.sh that made it (the defaults are 8080 and banking-app; drill 5's second instance is 10000 above the port).
+# DRILLS_ONLY="3 4" runs only those drills (7 and 8 ride on 3), so that two installs can share the ten: tools/ci/local-proof.sh
+# runs 3 and 4, which need the default install, on the one that lane 0 leaves, and the others on one of their own. No drill reads the name or the port
+# except through NAME and PORT.
+#
 # One line per drill: "drill N <name>: ok (Ns)" or "drill N <name>: failed: <reason> (Ns)", and the script goes on to the
 # next. A failed drill also prints what it saw (the answer's body, the list it searched, a command's exit code and last
 # lines), within 30 lines, so that the log tells the cause without another run. Exit 1 if any failed. Drill 10 reads
@@ -43,11 +49,25 @@ REMOTE=$WORK/remote.git
 DEV=$WORK/drills-dev
 LOGS=$WORK/drills
 CLOCK=$LOGS/clock
-URL=http://127.0.0.1:8080
+# The install's port and name are the defaults, or the ones given to upgrade-run.sh that made it (UPGRADE_PORT, UPGRADE_PROJECT).
+PORT=${UPGRADE_PORT:-8080}
+NAME=${UPGRADE_PROJECT:-banking-app}
+DISK_PORT=$((PORT + 10000)) # drill 5's second instance
+URL=http://127.0.0.1:$PORT
 JAR=$LOGS/jar
 NODE=(node --disable-warning=ExperimentalWarning)
 PASS='ci-salasana-123456'
-IMG=banking-app:latest
+IMG=$NAME:latest
+# the drills this run is for: DRILLS_ONLY="3 4" runs drill 3 (with 7 and 8, which ride on it) and drill 4; all by default
+ONLY=${DRILLS_ONLY:-1 2 3 4 5 6 9 10}
+for n in $ONLY; do
+  [[ " 1 2 3 4 5 6 9 10 " == *" $n "* ]] || { echo "drills: DRILLS_ONLY names '$n', and there is no such drill (1 2 3 4 5 6 9 10; 7 and 8 come with 3)" >&2; exit 1; }
+done
+if [[ -n ${UPGRADE_PROJECT:-} ]]; then
+  # the keys of the install's .env, in this environment too, as upgrade-run.sh has them: a script of the install that lost
+  # one could not reach the install of the defaults
+  export INSTANCE_NAME=$NAME COMPOSE_PROJECT_NAME=$NAME HOST_PORT=$PORT
+fi
 LIMIT=${DRILLS_LIMIT:-600}
 T0=$SECONDS
 DEADLINE=$((T0 + LIMIT))
@@ -154,7 +174,7 @@ disk_saw() {
   echo "the end of the second instance's log:"; docker logs --tail 6 "${DISK[0]}" 2>&1 | cut -c1-240
 }
 drill_disk() {
-  local c=${DISK[0]} u=http://127.0.0.1:18080 free kb size leave out rc j=$LOGS/jar-disk
+  local c=${DISK[0]} u=http://127.0.0.1:$DISK_PORT free kb size leave out rc j=$LOGS/jar-disk
   disk_clean
   step "a second instance on a 1200 MB tmpfs volume (the reserve is written only with over 1 GB free)"
   docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=size=1200m,uid=1000,gid=1000 "${DISK[1]}" >/dev/null || die "the tmpfs volume was not made"
@@ -163,7 +183,7 @@ drill_disk() {
   # over the restart below.
   docker run -d --name "${DISK[3]}" --network none --entrypoint node -v "${DISK[1]}:/data" "$IMG" -e 'setInterval(() => {}, 60000)' >/dev/null || die "the container that keeps the volume mounted did not start"
   saw_with disk_saw
-  docker run -d --name "$c" -p 127.0.0.1:18080:8080 -e DATA_DIR=/data -e APP_SECRET_FILE=/secrets/app_secret -e "APP_BASE_URL=$u" \
+  docker run -d --name "$c" -p 127.0.0.1:$DISK_PORT:8080 -e DATA_DIR=/data -e APP_SECRET_FILE=/secrets/app_secret -e "APP_BASE_URL=$u" \
     -e SETUP_CODE=ci-setup-code-12345 -e INDUSTRY_LOOKUP=false --read-only --tmpfs /tmp:noexec,nosuid,nodev,size=16m --cap-drop ALL \
     --security-opt no-new-privileges:true -v "${DISK[1]}:/data" -v "${DISK[2]}:/secrets" "$IMG" >/dev/null || die "the second instance did not start"
   until_ok 120 curl -fsS --max-time 5 "$u/api/health" || die "the second instance did not answer"
@@ -266,7 +286,7 @@ drill_watchdog() {
   [[ $(grep -c 'watchdog: the app has been unhealthy for 10 minutes' "$DIR/ops/helper.log") == 1 ]] || die "a second rollback was started"
   [[ $(started_at) == "$n" ]] || die "the container was recreated in the second period"
   rm -f "$CLOCK/stopped"
-  docker kill -s CONT banking-app >/dev/null || true
+  docker kill -s CONT "$NAME" >/dev/null || true
   until_ok 60 app_ok || die "the app does not answer after SIGCONT"
   rm -f "$DIR/backups/.last-update"
 }
@@ -391,14 +411,14 @@ finish() {
   trap - EXIT
   if [[ -f $LOGS/current ]]; then note_result "?" "$(cat "$LOGS/current")" "failed: stopped at the time limit"; fi
   if [[ -n ${TIMER:-} ]]; then pkill -TERM -P "$TIMER" 2>/dev/null; kill "$TIMER" 2>/dev/null; fi
-  docker kill -s CONT banking-app >/dev/null 2>&1
+  docker kill -s CONT "$NAME" >/dev/null 2>&1
   disk_clean
   dc down -v >/dev/null 2>&1
   echo; echo "== drills (${SECONDS}s of $LIMIT)"
   sort -t'|' -k1,1n "$LOGS/results" | while IFS='|' read -r n title res; do printf 'drill %s %s: %s\n' "$n" "$title" "$res"; done
   grep -vE '^[^|]*\|[^|]*\|(ok|skipped)' "$LOGS/results" >/dev/null && bad=1
   [[ -s $LOGS/results ]] || bad=1
-  [[ -n $WORK ]] && rm -rf "$WORK"
+  [[ -n $WORK ]] && rm -rf "$WORK" 2>/dev/null
   ((rc != 0 || bad != 0)) && exit 1
   exit 0
 }
@@ -410,11 +430,6 @@ trap 'pkill -TERM -P $$ 2>/dev/null; exit 1' TERM
 TIMER=$!
 disown "$TIMER"
 
-run_drill 1 drill_gate
-run_drill 2 drill_restore
-run_drill 6 drill_reset
-run_drill 5 drill_disk
-run_drill 9 drill_symlink
-run_drill 10 drill_release
-run_drill 3 drill_watchdog
-run_drill 4 drill_selftest
+for n in 1:gate 2:restore 6:reset 5:disk 9:symlink 10:release 3:watchdog 4:selftest; do
+  [[ " $ONLY " != *" ${n%%:*} "* ]] || run_drill "${n%%:*}" "drill_${n#*:}"
+done

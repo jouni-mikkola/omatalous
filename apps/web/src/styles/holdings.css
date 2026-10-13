@@ -1,14 +1,21 @@
 /* The first page's holdings: accounts, credit cards and loans (components/holdings/). */
 
-/* The groups. Two stand side by side from 900 px, in five parts and seven. Of three, the first two stand side by side and the
-   cards have a row of their own under them, across the card, under a hairline. Below 900 px they stand under each other, the
-   cards under a hairline too. */
-.holding-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 48px; }
-.holding-groups > .holding-cards:not(:first-child) { padding-top: 18px; border-top: 1px solid var(--bar-edge); }
+/* The groups, ruled as the columns of a block (statement.css .st-cols): to the card's edges, a rule between them. Two stand
+   side by side from 900 px, in five parts and seven, from 1040 px on the register's own split (--split-5). Of three, the first two
+   stand side by side and the cards have a row of their own under them, across the card. Below 900 px they stand under each other. */
+.holdings > .card-head { margin-bottom: 0; }
+.holding-groups { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 calc(-1 * var(--pad)); }
+.holding-groups > * { min-width: 0; padding: 14px var(--pad) 16px; }
+.holding-groups > * + * { border-top: 1px solid var(--border); }
+.holdings > .holding-groups:last-child { margin-bottom: calc(-1 * var(--pad)); }
 @media (min-width: 900px) {
   .holding-groups-2, .holding-groups-3 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
   .holding-groups-3 > .holding-cards { grid-column: 1 / -1; }
-  .holding-groups-2 > .holding-cards:not(:first-child) { padding-top: 0; border-top: 0; }
+  .holding-groups-2 > * + * { border-top: 0; border-left: 1px solid var(--border); }
+  .holding-groups-3 > :nth-child(2) { border-top: 0; border-left: 1px solid var(--border); }
+}
+@media (min-width: 1040px) {
+  .holding-groups-2, .holding-groups-3 { grid-template-columns: var(--split-5) minmax(0, 1fr); }
 }
 
 /* a name is a link in the accent colour, underlined when pointed at or focused; the box has room for the focus ring, which
@@ -26,6 +33,8 @@
    the two later without the row growing or the balance moving; a line under the name (a part, an old balance) spans the row */
 .holdings .holding-account { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 54px; padding: 10px 0; box-sizing: border-box; }
 .holdings .holding-account .st-sub { grid-column: 1 / -1; }
+/* M7: the track lies on the row's own rule, so the box it is drawn in reaches the border */
+.holdings .holding-account.share { background-origin: border-box; }
 
 /* a unit: a card or a loan, its name and lines and then its figures as rows */
 .holding-units { list-style: none; margin: 0; padding: 0; }
@@ -48,12 +57,13 @@
 .holding-cards-head .st-cap { margin: 0; }
 .holding-inline { display: flex; gap: 14px; margin: 0; font-size: 14px; line-height: 18px; }
 .holding-inline dt { color: var(--text-2); }
-.holding-inline dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.holding-inline dd { margin: 0; }
 .holding-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 24px 40px; }
 
 /* a credit card: its picture at the left, its name and the arc at the right, its figures as rows across the unit. The body
    is no box of its own, so the name and the arc are cells of the unit's grid beside the picture */
 .holdings { --face-w: 196px; }
+@media (max-width: 480px) { .holdings { --face-w: 148px; } .holding-unit-faced .holding-unit-head .st-name { overflow-wrap: anywhere; } }
 .holding-unit-faced { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 20px; row-gap: 8px; align-items: start; }
 .holding-unit-faced > .card-face-link { grid-row: span 2; }
 .holding-unit-faced .holding-unit-body { display: contents; }
@@ -65,7 +75,6 @@
 .holding-unit-faced > .holding-unit-body > .st-rows { border-top: 1px solid var(--bar-edge); }
 /* the keyboard's focus is on the name; the picture shows it too, as every focus on the page is shown, and does not lean */
 .holding-unit-faced:has(.holding-name a:focus-visible) .card-face { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 380px) { .holdings { --face-w: 140px; } }
 
 /* the arc of what is used: a track of three quarters of a circle and the fill on it, the share in the middle. It is drawn from
    the lower left, and its colours run from mint to violet along the fill */
@@ -77,20 +86,17 @@
 .credit-arc text { fill: var(--text); font-size: 14px; font-weight: 600; }
 @keyframes credit-arc-draw { from { stroke-dasharray: 0 999; } }
 
-/* The picture of a card, drawn here: a real card's proportions (85.6 by 54 mm), a ground of five stops in the tone's colours,
-   a texture of fine lines and arcs over it (::before) and a band of light (::after) that follows the pointer. It is an object,
-   not a part of the page: its colours are its own and the same in every look of the page, and it reads no token. The link
-   around it carries the perspective; the picture turns inside it, so nothing around it moves. */
-.card-face-link { display: block; width: var(--face-w, 196px); perspective: 640px; border-radius: 13px; }
+/* The picture of a card, drawn here: a real card's proportions (85.6 by 54 mm), a ground of five stops in the tone's colours and a
+   texture of fine lines and arcs over it (::before). It is an object, not a part of the page: its colours are its own and the same
+   in every look of the page, and it reads no token. It stands still: the one light is straight above, so its shadow falls straight down. */
+.card-face-link { display: block; width: var(--face-w, 196px); border-radius: 13px; }
 .card-face-link:hover { text-decoration: none; }
 .card-face {
   --face-chip-1: #f3dc96; --face-chip-2: #b0832a; --face-chip-line: #5d480f;
   position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 1.586; overflow: hidden; border-radius: 12px;
   font-size: calc(var(--face-w, 196px) * 0.0765); line-height: 1.2; font-weight: 400; color: #eef0fb;
   background-color: #2a3260; background-image: linear-gradient(135deg, #46509a 0%, #2a3260 48%, #1a2040 100%);
-  transform: rotateX(calc(var(--face-ry, 0) * 1deg)) rotateY(calc(var(--face-rx, 0) * 1deg));
-  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.4s;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 -1px 0 rgb(0 0 0 / 0.3), 0 16px 28px -14px rgb(0 0 0 / 0.85);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 -1px 0 rgb(0 0 0 / 0.3), 0 10px 18px -12px rgb(20 28 43 / 0.45);
 }
 .card-face-gold { color: #1d1503; background-color: #cfa94a; background-image: linear-gradient(135deg, #f3dc96 0%, #d6b150 30%, #b0832a 56%, #e2c670 78%, #9c7120 100%); }
 .card-face-platinum { color: #12162a; background-color: #b3bad2; background-image: linear-gradient(135deg, #eef1f9 0%, #c4cae0 30%, #8f98b8 58%, #d4d9ea 80%, #7e87a8 100%); }
@@ -103,17 +109,8 @@
     radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 0.26), transparent 55%),
     radial-gradient(circle at 88% 130%, transparent 0 46%, rgb(255 255 255 / 0.16) 46.4% 47%, transparent 47.4% 56%, rgb(255 255 255 / 0.11) 56.4% 57%, transparent 57.4% 66%, rgb(255 255 255 / 0.07) 66.4% 67%, transparent 67.4%);
 }
-.card-face::after {
-  content: ""; position: absolute; inset: -30% -60%; opacity: 0; mix-blend-mode: screen;
-  background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 0.55) 49%, rgb(255 255 255 / 0.14) 54%, transparent 61%);
-  transform: translateX(calc((var(--face-gx, 150) - 50) * 0.62%));
-  transition: opacity 0.35s, transform 0.4s;
-}
-/* while the pointer is over it: the quick follow, the light and a shadow that moves against the turn */
-.card-face-tilt .card-face { transition-duration: 0.08s; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 -1px 0 rgb(0 0 0 / 0.3), calc(var(--face-rx) * -1.1px) calc(var(--face-ry) * 1.1px + 26px) 36px -16px rgb(0 0 0 / 0.9); }
-.card-face-tilt .card-face::after { opacity: 1; transition-duration: 0.08s; }
 @media (prefers-reduced-motion: reduce) {
-  .card-face, .card-face::after, .credit-arc-fill { transform: none; transition: none; animation: none; }
+  .credit-arc-fill { animation: none; }
 }
 
 /* the parts of the picture stand where a real card has them, in percent of it, so they keep their places at any size; text on

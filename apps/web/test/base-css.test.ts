@@ -80,8 +80,7 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
     const literal = Object.fromEntries(perSheet.filter(([, radii]) => radii.length > 0));
     expect(literal).toEqual({
       base: [".card:not(.skeleton)::before, dialog.confirm::before: inherit", ".notice.good::before: 50%"],
-      shell: [".avatar: 50%", ".menu: 10px"],
-      charts: [".swatch: 3px", ".line-key: 1px", ".tooltip: 10px"],
+      charts: [".swatch: 1px", ".line-key: 0", ".tooltip: 10px"],
       settings: [".credit-bar: 2px", ".credit-bar span: 2px", ".secret-box: 10px", ".bank-app-status: 10px"],
       wizard: [".step-no: 50%"],
       banks: [".bank-logo-sm: 5px"],

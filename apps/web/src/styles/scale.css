@@ -9,7 +9,12 @@
   --tabbar-h: 56px;
   --control-h: 32px;      /* button, field, select; 44 px on a coarse pointer */
   --row-h: 32px;          /* 7 + 18 + 7 */
-  --frame-k: 10px;        /* the leg of a corner mark */
+  --frame-k: 12px;        /* the leg of a corner mark, on the 4 px step */
+  --tick: 4px;            /* one unit of a real axis */
+  --tick-l: 8px;          /* a unit that carries a label */
+  --bar-h: 8px;           /* every bar that is a length */
+  --share-w: 100px;       /* the share track: 1 px is 1 % */
+  --mark-gap: 8px;        /* from a figure to the mark that measures it */
   /* type: two weights only */
   --font-code: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", monospace;
   --w-regular: 400; --w-strong: 600;

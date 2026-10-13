@@ -1,0 +1,68 @@
+/*
+ * The marks: geometry that measures something real (see the helpers in marks.ts) or stands on a line the layout has.
+ * Each rule says in its comment what it measures. Imported after the pages' styles so a mark wins over the rule it sits
+ * beside. A mark carries no word of its own.
+ */
+
+/* M2 the title block of a panel: NAME | DATUM | TOOL, as in a drawing; a cell without content is not drawn */
+.card-head.tb { align-items: stretch; flex-wrap: nowrap; gap: 0; padding: 0; }
+.card-head.tb > * { display: flex; align-items: center; min-height: 40px; padding: 4px var(--sp-12); }
+.card-head.tb > .card-name { flex: 1 1 auto; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; padding-left: var(--pad); }
+.card-head.tb > :is(.card-datum, .card-tool) { flex: 0 0 auto; border-left: 1px solid var(--border); }
+.card-head.tb > :last-child { padding-right: var(--pad); }
+.card-datum { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+@media (max-width: 640px) {
+  .card-head.tb { flex-wrap: wrap; }
+  .card-head.tb > .card-tool { flex: 1 0 100%; border-left: 0; border-top: 1px solid var(--border); padding-left: var(--pad); }
+}
+
+/* M3 the column register: the two edges of each of the twelve columns, from the same two tokens as the grid */
+.sheet { position: relative; }
+@media (min-width: 1040px) {
+  .sheet::before, .sheet::after { content: ""; position: absolute; left: 0; right: 0; height: var(--tick); pointer-events: none;
+    --c: calc((100% - 11 * var(--gap)) / 12);
+    background: repeating-linear-gradient(90deg, var(--axis) 0 1px, transparent 1px calc(var(--c) - 1px), var(--axis) calc(var(--c) - 1px) var(--c), transparent var(--c) calc(var(--c) + var(--gap))); }
+  .sheet::before { top: calc(-1 * var(--sp-12)); }
+  .sheet::after { bottom: calc(-1 * var(--sp-12)); }
+}
+/* the centre of the gutter after column n, from the frame's inner edge, for a panel that spans the 12 columns */
+.card { --col-w: calc((100% + 2px - 11 * var(--gap)) / 12);
+  --split-4: calc(var(--col-w) * 4 + 3.5 * var(--gap) - 1px);
+  --split-5: calc(var(--col-w) * 5 + 4.5 * var(--gap) - 1px);
+  --split-8: calc(var(--col-w) * 8 + 7.5 * var(--gap) - 1px); }
+
+/* M4 the sheet foot: release, view, day */
+.sheet-foot { display: flex; justify-content: space-between; gap: var(--sp-16); margin-top: var(--sp-24); padding-top: var(--sp-8); border-top: 1px solid var(--axis);
+  font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+
+/* M7 the share track: the last 100 px of a row's rule, 1 px a percent; --from and --part come from shares() */
+.share { background-image: linear-gradient(90deg, transparent calc(var(--from) * 1px), var(--axis) 0 calc((var(--from) + var(--part)) * 1px), transparent 0);
+  background-size: var(--share-w) 2px; background-position: right var(--mark-gutter, 0px) bottom 0; background-repeat: no-repeat; }
+td.share { min-width: var(--share-w); }
+
+/* M12 the sum bracket: these rows add up, to the cent, to the sum it runs into (addsUp) */
+.adds-up { --mark-gutter: var(--mark-gap); }
+.adds-up > .st-row { padding-right: var(--mark-gap); }
+/* the bracket is drawn on the .st-row itself, or in a table on the cell that carries .sum; a table row is never painted */
+.adds-up > .st-row:not(.st-total), .adds-up > tr:not(.group-head, .foot-row) > td.sum { box-shadow: inset -1px 0 0 var(--axis); background-repeat: no-repeat; background-size: 4px 1px; }
+.adds-up > .part-first:where(:not(tr)), .adds-up > .part-first > td.sum { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 0; }
+.adds-up > .part-last:where(:not(tr)), .adds-up > .part-last > td.sum { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 100%; }
+.adds-up > tr > td.sum { padding-right: var(--mark-gap); }
+
+/* M13 column rules: the ledger's ruling between two columns of figures */
+@media (min-width: 641px) {
+  .ruled :is(td, th):is(.num, .st-num) + :is(td, th):is(.num, .st-num) { border-left: 1px solid var(--grid); }
+  .ruled :is(.group-row, .group-head, .edit-row) > * { border-left-color: transparent; }
+}
+
+/* M15 the ordinal: the browser counts the rows that are there; only on a table sorted by its own figure column */
+.ranked { counter-reset: rank; }
+.ranked tbody tr { counter-increment: rank; }
+.ranked tbody tr > :first-child::before { content: counter(rank) "."; display: inline-block; min-width: 24px; margin-right: var(--sp-8); text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+
+/* M16 the source shape: a disc when the bank or the user gave the day and sum, a ring when the app estimates them */
+.src { display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-8); border-radius: 50%; background: var(--text-2); }
+.src-est { background: none; box-shadow: inset 0 0 0 2px var(--text-2); }
+
+/* M17 the day a balance is true of, under the figure, right-aligned */
+.st-sub.st-day { text-align: right; font-variant-numeric: tabular-nums lining-nums; }

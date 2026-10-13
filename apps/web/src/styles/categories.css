@@ -7,6 +7,9 @@
 .m-category .badge { margin-left: 8px; }
 .m-category .btn { margin-left: 6px; }
 .m-name a { overflow-wrap: anywhere; }
+/* M15: the ordinal is drawn for the eye only. The alternative text is empty, so a reader says the name and not "1." before it
+   (the first declaration is for a browser that does not know the slash); the order of the rows is the table's own. */
+.ranked tbody tr > :first-child::before { content: counter(rank) "."; content: counter(rank) "." / ""; }
 @media (max-width: 600px) {
   .merchant-table thead { display: none; }
   .merchant-table, .merchant-table tbody { display: block; }

@@ -55,7 +55,7 @@ describe("the line under the heading, by what the window waits for", () => {
     const waited = ahead({ to: "2026-11-05", days: 24, payday: { ...behind, next: "2026-11-06" } }, []);
     expect(windowLine(waited)).toBe("Palkkapäivään asti, pe 6.11. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.");
     expect(paymentsCaption(waited)).toBe("Erääntyvät maksut ennen palkkapäivää");
-    expect(incoming(waited)).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000 }]);
+    expect(incoming(waited)).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000, estimate: false }]);
     // the next pay is another salary's and it is today: the window is today alone, and no day gone by is named as its end
     const today = ahead({ to: "2026-10-12", days: 0, payday: { ...behind, next: "2026-10-12" } }, []);
     expect(windowLine(today)).toBe("Palkkapäivään asti, ma 12.10. Palkka ei ole vielä tullut, sen piti tulla pe 9.10.");
@@ -101,7 +101,7 @@ describe("the line under the heading, by what the window waits for", () => {
 
   it("is the head of the three figures, in the left group of the block Erääntyvät maksut", () => {
     const out = html(ahead());
-    expect(out).toContain('<section class="card st-block" aria-labelledby="ahead-h"><div class="card-head"><h2 id="ahead-h">Erääntyvät maksut</h2></div>');
+    expect(out).toContain('<section class="card st-block" aria-labelledby="ahead-h"><div class="card-head tb"><div class="card-name"><h2 id="ahead-h">Erääntyvät maksut</h2></div><div class="card-datum">12.10.–22.10.</div></div>');
     expect(out).toContain('<div class="st-cols st-cols-3"><div><h3 class="st-cap ahead-window">Palkkapäivään asti, pe 23.10.</h3><dl class="st-rows">');
     // the note, the line of days, the tables and the links are the right group, which takes two of the three columns
     expect(out.indexOf('<div class="st-wide"><p class="st-note ahead-estimates">')).toBeGreaterThan(out.indexOf("</dl>"));
@@ -183,7 +183,7 @@ describe("the two tables", () => {
     const out = html(ahead());
     expect(out).toContain('<caption class="sr-only">Erääntyvät maksut ennen palkkapäivää</caption>');
     expect(out).toContain('<th scope="col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="st-num">Summa</th>');
-    expect(out).toContain('<tr><td>15.10.</td><td title="Sähköyhtiö Esimerkki"><a href="#/transactions?merchant=S%C3%A4hk%C3%B6yhti%C3%B6+Esimerkki">Sähköyhtiö Esimerkki</a></td><td class="st-num">45,00 €</td></tr>');
+    expect(out).toContain('<tr><td><span class="src src-est" aria-hidden="true"></span>15.10.</td><td title="Sähköyhtiö Esimerkki"><a href="#/transactions?merchant=S%C3%A4hk%C3%B6yhti%C3%B6+Esimerkki">Sähköyhtiö Esimerkki</a></td><td class="st-num">45,00 €</td></tr>');
   });
 
   it("the payments on the page add up to the figure of what is due", () => {

@@ -3,7 +3,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CardFace } from "../src/components/holdings/CardFace.tsx";
-import { tiltAt } from "../src/components/holdings/card-tilt.ts";
 
 type Props = Parameters<typeof CardFace>[0];
 const face = (card: Partial<Props["card"]> = {}, logo: string | null = null) =>
@@ -79,34 +78,6 @@ describe("CardFace", () => {
   });
 });
 
-describe("tiltAt", () => {
-  const box = { left: 100, top: 50, width: 200, height: 100 };
-  const mouse = (clientX: number, clientY: number, pointerType = "mouse") => ({ pointerType, clientX, clientY });
-
-  it("is flat in the middle and leans toward the pointer at the edges, up to 12 degrees across and 10 up and down", () => {
-    expect(tiltAt(mouse(200, 100), box, false)).toEqual({ rx: 0, ry: 0, gx: 50 });
-    expect(tiltAt(mouse(300, 50), box, false)).toEqual({ rx: 12, ry: 10, gx: 100 });
-    expect(tiltAt(mouse(100, 150), box, false)).toEqual({ rx: -12, ry: -10, gx: 0 });
-  });
-
-  it("reads a pointer outside the box at its nearest edge, so the lean never passes its limits", () => {
-    expect(tiltAt(mouse(5000, -400), box, false)).toEqual({ rx: 12, ry: 10, gx: 100 });
-    expect(tiltAt(mouse(-5000, 4000), box, false)).toEqual({ rx: -12, ry: -10, gx: 0 });
-  });
-
-  it("stays flat for a finger, for a person who asked for less motion, and for a box with no size; a pen leans as a mouse does", () => {
-    expect(tiltAt(mouse(250, 60, "touch"), box, false)).toBeNull();
-    expect(tiltAt(mouse(250, 60), box, true)).toBeNull();
-    expect(tiltAt(mouse(250, 60), { ...box, width: 0 }, false)).toBeNull();
-    expect(tiltAt(mouse(250, 60), { ...box, height: 0 }, false)).toBeNull();
-    expect(tiltAt(mouse(250, 60, "pen"), box, false)).not.toBeNull();
-  });
-
-  it("rounds to a tenth, so the style the pointer writes is short", () => {
-    expect(tiltAt(mouse(133, 61), box, false)).toEqual({ rx: -8, ry: 7.8, gx: 16.5 });
-  });
-});
-
 describe("the face in holdings.css", () => {
   const css = readFileSync(new URL("../src/styles/holdings.css", import.meta.url), "utf8").replace(/\/\*[^]*?\*\//g, "");
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim(), body: m[2]! }));
@@ -131,7 +102,9 @@ describe("the face in holdings.css", () => {
     for (const rule of faceRules) expect(rule.body, rule.selector).not.toMatch(/url\(|@import|@font-face|image-set\(/);
   });
 
-  it("holds the face flat for a person who asked for less motion, whatever the pointer does", () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.card-face[^}]*transform: none; transition: none/);
+  it("holds the face still: no turn, no perspective, no light that follows the pointer", () => {
+    for (const rule of faceRules) expect(rule.body, rule.selector).not.toMatch(/transform|perspective|transition/);
+    expect(css).not.toContain("card-face-tilt");
   });
+
 });

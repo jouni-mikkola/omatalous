@@ -1,7 +1,7 @@
 // Decision: does the account cover what is due before the next pay
 import { useState } from "react";
 import { query } from "../api.ts";
-import { money } from "../format.ts";
+import { dayMonth, money } from "../format.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
 import "../styles/ahead.css";
 import "../styles/statement.css";
@@ -27,8 +27,13 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
 
   return (
     <section className="card st-block" aria-labelledby="ahead-h">
-      <div className="card-head">
-        <h2 id="ahead-h">Erääntyvät maksut</h2>
+      <div className="card-head tb">
+        <div className="card-name">
+          <h2 id="ahead-h">Erääntyvät maksut</h2>
+        </div>
+        <div className="card-datum">
+          {dayMonth(ahead.from)}–{dayMonth(ahead.to)}
+        </div>
       </div>
       {short && <p className="notice warning ahead-warning">{short}</p>}
       <div className="st-cols st-cols-3">
@@ -55,7 +60,7 @@ export function NextDays({ ahead }: { ahead: Ahead }) {
           )}
         </div>
         <div className="st-wide">
-          {due.length > 0 && <p className="st-note ahead-estimates">Eräpäivät ja summat ovat arvioita.</p>}
+          {due.some((l) => l.estimate) && <p className="st-note ahead-estimates">Eräpäivät ja summat ovat arvioita.</p>}
           {line && <NextDaysLine line={line} active={active} onActive={setActive} />}
           <Lines caption={paymentsCaption(ahead)} hidden head={["Eräpäivä", "Saaja"]} lines={due} kind="bill" active={active} onActive={setActive} />
           {coming.length > 0 && <Lines caption="Saapuvat maksut" head={["Päivä", "Maksaja"]} lines={coming} kind="pay" active={active} onActive={setActive} />}
@@ -112,7 +117,10 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive }:
             onFocus={() => onActive({ kind, row: i })}
             onBlur={() => onActive(null)}
           >
-            <td>{l.day}</td>
+            <td>
+              {kind === "bill" && <span className={l.estimate ? "src src-est" : "src"} aria-hidden="true" />}
+              {l.day}
+            </td>
             <td title={l.name}>
               {l.merchant ? <a href={`#/transactions${query({ merchant: l.merchant })}`}>{l.name}</a> : l.name}
               {l.note && <div className="st-sub">{l.note}</div>}

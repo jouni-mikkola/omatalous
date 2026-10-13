@@ -286,6 +286,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           </div>
         )}
 
+        <div className="sheet">
         {page === "overview" && (
           <Overview
             meta={m}
@@ -300,7 +301,13 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
         {page === "transactions" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Transactions meta={m} params={params} scope={effectiveScope} anchor={route.anchor} />)}
         {page === "bills" && (noData ? <EmptyStart onDemo={loadDemo} /> : <Bills meta={m} range={range} scope={effectiveScope} />)}
         {page === "settings" && <Settings meta={m} params={params} anchor={route.anchor} onChange={meta.reload} />}
+        </div>
         </main>
+        <footer className="sheet-foot">
+          <span>Omatalous {m.version.app}</span>
+          {hasHousehold && <span>{effectiveScope === "own" ? "Oma" : "Koko talous"}</span>}
+          <span>{date(m.today)}</span>
+        </footer>
       </div>
     </>
   );

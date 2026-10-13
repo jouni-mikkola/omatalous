@@ -127,11 +127,15 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
         )}
       </div>
       <div className="card">
-        <div className="card-head">
-          <h2>Kauppiaat</h2>
-          <button className="btn btn-small" type="button" onClick={() => document.getElementById(RULES_ANCHOR)?.scrollIntoView({ block: "start" })}>
-            Säännöt
-          </button>
+        <div className="card-head tb">
+          <div className="card-name">
+            <h2>Kauppiaat</h2>
+          </div>
+          <div className="card-tool">
+            <button className="btn btn-small" type="button" onClick={() => document.getElementById(RULES_ANCHOR)?.scrollIntoView({ block: "start" })}>
+              Säännöt
+            </button>
+          </div>
         </div>
         {err && <div className="error">{err}</div>}
         {changed !== null && !error && (
@@ -140,7 +144,8 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
           </div>
         )}
         <div className="table-wrap">
-          <table className="merchant-table">
+          {/* the server sends the merchants largest sum first and an edit keeps the rows where they are: a ranking, so `ranked` */}
+          <table className="merchant-table ruled ranked">
             <thead>
               <tr>
                 <th>Kauppias</th>

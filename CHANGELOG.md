@@ -3,6 +3,36 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.21.0
+
+- The front page, Laskut and Tapahtumat are drawn as measured sheets: every panel has a title block, rows that add up to a printed total carry a bracket and a share mark, category bars stand under a ruler, and charts have tick marks and a drop line at the newest value. A mark is shown only when the figures behind it hold to the cent; otherwise it is left out.
+- On a phone the pages are reached from a tab bar at the foot of the screen, and every page ends with a sheet foot that says which version and which view it is.
+- Tapahtumat shows a loading state while its rows are fetched, and the card picture on the front page no longer tilts.
+- Movement on the pages is a short fade only; nothing slides or grows.
+- A release now holds a lock while it is checked, so other checks on the same machine wait instead of slowing it down.
+
+Look
+
+- Varallisuus and Erääntyvät maksut are measured: each account shows its share of the total and a bracket when the accounts add up to it; the line of days has ticks, weekend bands, a scale for the balance and the days to payday; a card picture no longer tilts.
+- Yhteenveto's housing, income and spending, and notices blocks get ruled title blocks, a euro ruler over the category bars, column rules, and sum brackets and share tracks that appear only when the figures add up to the cent.
+- The navigation is a rail that stays at the top of the screen; on a phone the pages are a tab bar at the foot. Every page ends with a line giving the release, the view and the day.
+- Charts have ticks on every axis, square columns, a line from the last value down to its day, and dashed lines for the second and third series.
+- Laskut is laid out in two columns on a wide screen: the bills next to the subscriptions, each table with ruled figure columns, sum brackets and share tracks where the figures add up, and a disc or ring before each due day.
+- Tapahtumat shows how many rows of all are on screen beside "Näytä lisää"; Kauppiaat numbers its merchants by sum and rules its figure columns; on a phone the answer to a category change stands above the tab bar.
+- Pages fade in when they open, a figure that changes eases in, and dialogs and opened rows appear softly. Nothing moves if your system asks for reduced motion.
+- The sum bracket in Laskut's subscription table now stands beside the Kuussa figures it adds up, and no table row is painted dark by it.
+- The head of a panel is a ruled title block: the name, then room for a date or a total, then the panel's own control.
+
+For developers
+
+- `pnpm e2e` waits while a release cut holds the repository lock, and says so, instead of running beside the cut's checks.
+- A release cut holds an exclusive lock on `cut.lock` (and `cut.wait`, its place in the queue) in the git common dir while the gate and the proof run, and tells its children so; `tools/check.sh` stands behind a waiting cut.
+- The gate, the page tests, the proof and the public tree are each told a share of the cores, and the shares add up to at most the cores.
+- The public tree's type check and tests run side by side in the gate, after its build, and both logs are kept.
+- A wait for a check slot is written to `lead-logs/slots.log` in the git common dir.
+- The release and gate shell suites are split into scenarios, so the check runs each as a job of its own.
+- The local proof before a release runs drills 1, 2, 5, 6, 9 and 10 beside the upgrade rehearsals, on an install of their own (port 8280), and drills 3 and 4 in lane 0 on the default install of the newest rehearsal. It ends with a list of where the time went, and is green only when every leg said ok. `UPGRADE_UNTIL=update` ends an upgrade rehearsal after its first update, `DRILLS_ONLY` picks the drills.
+
 ## 0.20.0
 
 - A new look, light by default: a calm mid-light page with framed panels, capital panel names, typeset figures and a double rule under totals. Nothing glows and nothing blurs, and every text, line and state colour is checked for contrast against the surface under it.

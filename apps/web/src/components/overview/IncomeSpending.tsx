@@ -6,6 +6,7 @@ import { navigate } from "../../hooks.ts";
 import type { PeriodPreset } from "../../period.ts";
 import type { DashboardData } from "../../types.ts";
 import { type IncomeSpendingView, incomeSpendingView, monthName } from "./income-spending.ts";
+import { BarRuler, rulerStyle } from "./BarRuler.tsx";
 import { ThemesTable } from "./ThemesTable.tsx";
 import { OPEN_AT_FIRST, toggled } from "./themes-table.ts";
 import "../../styles/overview.css";
@@ -27,14 +28,18 @@ export function IncomeSpending({ data, period, presets, anchors }: { data: Dashb
   const [open, setOpen] = useState(OPEN_AT_FIRST);
   return (
     <section className="card st-block" aria-labelledby="income-spending-h">
-      <div className="card-head">
-        <h2 id="income-spending-h">Tulot ja menot</h2>
-        <div className="segmented" role="group" aria-label="Kuukausi">
-          {presets.map((p) => (
-            <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate("overview", { period: p.id })}>
-              {p.label}
-            </button>
-          ))}
+      <div className="card-head tb">
+        <div className="card-name">
+          <h2 id="income-spending-h">Tulot ja menot</h2>
+        </div>
+        <div className="card-tool">
+          <div className="segmented" role="group" aria-label="Kuukausi">
+            {presets.map((p) => (
+              <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate("overview", { period: p.id })}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       {data ? <Month data={data} anchors={anchors} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
@@ -57,7 +62,7 @@ function Month({ data, anchors, open, onToggle }: { data: DashboardData; anchors
   return (
     <div className="st-cols st-cols-3">
       <div>
-        <table className="st-table month-table">
+        <table className="st-table month-table ruled">
           <thead>
             <tr>
               <td />
@@ -134,11 +139,11 @@ function MonthCategories({ view, from, to }: { view: IncomeSpendingView; from: s
       <h3 className="st-cap" id="categories-h">
         Menot kategorioittain
       </h3>
-      <table className="st-table category-table" aria-labelledby="categories-h">
+      <table className="st-table category-table" style={rulerStyle(view.ruler)} aria-labelledby="categories-h">
         <thead>
           <tr>
             <th scope="col">Kategoria</th>
-            <td className="category-bar" />
+            <BarRuler ruler={view.ruler} />
             <th scope="col" className="st-num">
               {view.month}
             </th>

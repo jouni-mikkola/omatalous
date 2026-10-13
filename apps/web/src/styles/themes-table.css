@@ -11,11 +11,25 @@
 
 /* the name and the figures take what they need, the bar takes the rest */
 .themes-table { table-layout: fixed; }
-.themes-table th:first-child { width: 14rem; }
+.themes-table th:first-child { width: 14rem; padding-right: 16px; }
+.themes-table .themes-bar { padding-left: 0; }
 .themes-table .themes-month { width: 7rem; }
 .themes-table .themes-year { width: 7.5rem; }
 .themes-table .themes-change { width: 5rem; }
 .themes-table td.category-bar { vertical-align: middle; }
+
+/*
+ * The bar ruler: the head cell of the bar column holds the first and last value of `barScale`, with a tick of 4 px at every
+ * step and one of 8 px at the two values; the lines go down the column's rows, so every bar is read against them. The cell
+ * has no padding at the sides, so a percent of it is a percent of the longest bar, and its lines run the whole height of the row. A table without a ruler has no
+ * `--bar-step`, and its lines are not drawn. The head rule is the datum the ticks stand on.
+ */
+.category-bar { background-repeat: no-repeat; }
+.st-table th.bar-ruler { position: relative; height: 32px; padding-top: 0; padding-bottom: 0; font-weight: 400;
+  background-image: repeating-linear-gradient(90deg, var(--axis) 0 1px, transparent 1px var(--bar-step)); background-size: 100% var(--tick); background-position: 0 100%; }
+th.bar-ruler i { position: absolute; bottom: var(--tick-l); padding-left: 4px; font-style: normal; font-weight: 400; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); }
+th.bar-ruler i::before { content: ""; position: absolute; left: 0; bottom: calc(-1 * var(--tick-l)); width: 1px; height: var(--tick-l); background: var(--axis); }
+td.category-bar { background-image: repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px var(--bar-step)); }
 
 /* a label that opens its lines: a button that reads as the text, with an arrow that turns when it is open */
 .themes-toggle { display: flex; align-items: baseline; width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -39,7 +53,7 @@
 
 /* where the card is narrow the bar and the change go and the name takes its room */
 @media (max-width: 600px) {
-  .themes-table .themes-bar, .themes-table .themes-change { display: none; }
+  .themes-table .themes-bar, .themes-table .themes-change, .themes-table th.bar-ruler { display: none; }
   .themes-table th:first-child { width: auto; }
   .themes-table .themes-month { width: 5.5rem; }
   .themes-table .themes-year { width: 6rem; }

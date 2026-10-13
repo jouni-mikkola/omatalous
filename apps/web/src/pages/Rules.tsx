@@ -49,8 +49,10 @@ export function Rules({ meta }: { meta: Meta }) {
   return (
     <div className="stack">
       <div className="card" id={RULES_ANCHOR}>
-        <div className="card-head">
-          <h2>Säännöt</h2>
+        <div className="card-head tb">
+          <div className="card-name">
+            <h2>Säännöt</h2>
+          </div>
         </div>
         <form className="form-row" onSubmit={add}>
           <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])} aria-label="Kenttä">

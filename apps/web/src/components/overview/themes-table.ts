@@ -2,7 +2,9 @@
 import { CATEGORIES, monthEnd } from "@banking/core";
 import { query } from "../../api.ts";
 import { date, money } from "../../format.ts";
+import { addsUp } from "../../marks.ts";
 import type { DashboardData } from "../../types.ts";
+import { type Ruler, rulerOf } from "./ruler.ts";
 
 /** The report of core on the themes: the table draws it as it comes and computes none of its figures but the rest row's. */
 type Themes = NonNullable<DashboardData["themes"]>;
@@ -72,6 +74,10 @@ interface ThemesTableView {
   year: boolean;
   /** Muutos is a column only when some row has a change to tell. */
   change: boolean;
+  /** The ruler over the bars, for the longest row; null where there is none. */
+  ruler: Ruler | null;
+  /** The rows add up, to the cent, to Yhteensä in every column of sums: the table has the bracket. */
+  adds: boolean;
   rows: Row[];
   total: Figures;
   large: Large | null;
@@ -93,8 +99,14 @@ export function themesTableView(report: Themes): ThemesTableView {
   const hasYear = window.months === 12;
   const year = (cents: number | null) => (hasYear && cents !== null ? money(cents) : "");
   const figures = (f: { monthlyCents: number; yearCents: number | null; changePct: number | null }): Figures => ({ monthly: money(f.monthlyCents), year: year(f.yearCents), change: changeText(f.changePct) });
-  const largest = Math.max(...themes.map((t) => t.monthlyCents), 1);
-  const share = (cents: number) => (cents > 0 ? Math.max(1, Math.round((cents / largest) * 100)) : 0);
+  const top = Math.max(0, ...themes.map((t) => t.monthlyCents));
+  const largest = Math.max(top, 1);
+  // the bar is the row's sum against the longest as a percent to two decimals, the ruler's own precision
+  const share = (cents: number) => (cents > 0 ? Math.round((cents / largest) * 10000) / 100 : 0);
+  const yearsKnown = themes.every((t) => t.yearCents !== null);
+  const adds =
+    addsUp(themes.map((t) => t.monthlyCents), report.totalMonthlyCents) &&
+    (!hasYear || (yearsKnown && report.totalYearCents !== null && addsUp(themes.map((t) => t.yearCents), report.totalYearCents)));
 
   const rows: Row[] = themes.slice(0, NAMED).map((t) => {
     // the lines of Auto say what a car row was for: their ids are not categories even where a word is the same
@@ -132,6 +144,8 @@ export function themesTableView(report: Themes): ThemesTableView {
   return {
     period: `${monthYear(window.first)}–${monthYear(window.last)}`,
     year: hasYear,
+    ruler: rulerOf(top),
+    adds,
     change: themes.some((t) => changeText(t.changePct) !== "" || t.lines.some((l) => changeText(l.changePct) !== "")),
     rows,
     total: { monthly: money(report.totalMonthlyCents), year: year(report.totalYearCents), change: "" },

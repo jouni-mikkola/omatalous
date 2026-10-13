@@ -197,3 +197,47 @@ describe("the sums", () => {
     expect(housingView(answer({ loans: [saved({ monthlyCents: null })], partial: true })).sums).toEqual([{ label: "Asuminen yhteensä kuukaudessa", cents: null, total: true }]);
   });
 });
+
+describe("the bracket and the tracks of the charges", () => {
+  const rent = charge("a", "Vuokra", "ESIMERKKI KIINTEISTOT OY", 105_000);
+  const power = charge("b", "Sähkö", "Esimerkki Sahko Oy", 9_821);
+  const heat = charge("c", "Sähkö", "Helen", 5_697);
+  const sumOf = (...cs: number[]) => cs.reduce((a, b) => a + b, 0);
+  const only = (charges: HousingCharge[], total = sumOf(...charges.map((c) => c.monthlyCents))) => housingView(answer({ charges, chargesMonthlyCents: total, totalMonthlyCents: total }));
+
+  it("are drawn when the charges add up to the total, each row in its place on the 100 px of the track", () => {
+    const view = only([rent, power, heat]);
+    expect(view.chargesAddUp).toBe(true);
+    expect(view.charges.map((c) => c.share)).toEqual([
+      { from: 0, part: 87 },
+      { from: 87, part: 8 },
+      { from: 95, part: 5 },
+    ]);
+  });
+
+  it("are not drawn for one charge, a total one cent off, or a refund that still adds up the other way", () => {
+    expect(only([rent]).chargesAddUp).toBe(false);
+    const off = only([rent, power], 105_000 + 9_821 + 1);
+    expect(off.chargesAddUp).toBe(false);
+    expect(off.charges.every((c) => c.share === null)).toBe(true);
+    // a refund adds like any part, but a track is for parts of zero or more: the bracket is there, the tracks are not
+    const refund = only([rent, charge("d", "Palautus", "Helen", -2_000)]);
+    expect(refund.chargesAddUp).toBe(true);
+    expect(refund.charges.every((c) => c.share === null)).toBe(true);
+  });
+
+  it("are not drawn when a loan's month is in the total: the charges alone are not the total", () => {
+    const view = housingView(answer({ loans: [saved()], charges: [rent, power], loansMonthlyCents: 91_240, chargesMonthlyCents: 114_821, totalMonthlyCents: 206_061 }));
+    expect(view.chargesAddUp).toBe(false);
+    // the two rows over the total do add up to it
+    expect(view.sumsAddUp).toBe(true);
+  });
+
+  it("bracket the two rows over the total only when they add up to it, to the cent", () => {
+    const base = { loans: [saved()], charges: [rent, power], loansMonthlyCents: 91_240, chargesMonthlyCents: 114_821 };
+    expect(housingView(answer({ ...base, totalMonthlyCents: 206_062 })).sumsAddUp).toBe(false);
+    expect(housingView(answer({ ...base, loans: [saved({ monthlyCents: null })], partial: true, totalMonthlyCents: 114_821 })).sumsAddUp).toBe(false);
+    // the total alone has no rows over it
+    expect(only([rent, power]).sumsAddUp).toBe(false);
+  });
+});
