@@ -122,6 +122,13 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   // the helper picks it up and reports a result whose log holds hostile text
   const polled = helper(["poll", "--helper", "2", "--done", ""]);
   expect(polled.request).toMatchObject({ action: "update", params: {}, secret: null });
+  // while it runs, the steps the helper tells are on the page at once, a hostile one as text, and the report keeps them
+  helper(["progress"], JSON.stringify({ id: polled.request.id, step: { n: 1, m: 2, text: "Varmuuskopio" } }));
+  helper(["progress"], JSON.stringify({ id: polled.request.id, step: { n: 2, m: 2, text: `Käynnistys ${XSS[1]}` } }));
+  await expect(page.locator(".ops-steps li")).toHaveCount(2, { timeout: 20_000 });
+  await expect(page.locator(".ops-steps")).toContainText(`Käynnistys ${XSS[1]}`);
+  await expect(page.locator(".ops-steps li").last()).toContainText(/ \d+ s$/);
+  expect(await page.locator(".ops-steps img").count()).toBe(0);
   helper(
     ["report"],
     JSON.stringify({
@@ -129,12 +136,15 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
       status: "ok",
       exit_code: 0,
       summary: "Päivitetty versioon 0.4.0",
-      output: `STEP: 1/2 Varmuuskopio\nSTEP: 2/2 Käynnistys\n${XSS.join("\n")}\nTUNNEL_TOKEN=${"x".repeat(50)}`,
+      output: `STEP: 1/2 Varmuuskopio\nSTEP-AT: 1/2 0\nSTEP: 2/2 Käynnistys ${XSS[1]}\nSTEP-AT: 2/2 3\n${XSS.join("\n")}\nTUNNEL_TOKEN=${"x".repeat(50)}`,
       state: { version: "0.4.0", update_available: false, behind_commits: [], can_rollback: true },
     }),
   );
   await expect(page.getByText("Päivitetty versioon 0.4.0")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Varmuuskopio", { exact: true })).toBeVisible();
+  // the report replaced the stored steps with the same two, text unchanged
+  await expect(page.locator(".ops-steps li")).toHaveCount(2);
+  await expect(page.locator(".ops-steps")).toContainText(`Käynnistys ${XSS[1]}`);
   await page.getByRole("button", { name: "Näytä loki" }).click();
   const log = page.locator(".ops-log");
   await expect(log).toContainText("<script>window.__xss = 1</script>");

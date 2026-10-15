@@ -169,6 +169,44 @@ describe("traceRows", () => {
     expect(far!.to).toBeUndefined();
   });
 
+  describe("a bill paid to a card account, which has no IBAN", () => {
+    const cards = [...accounts, ...["aino-card", "joint-card", "ville-card"].map((id): Account => ({ ...account(id, null), type: "credit_card" }))];
+    const card = (over: Partial<Payers> = {}) => who({ accounts: cards, aloneAccount: new Map([["aino-card", AINO], ["ville-card", VILLE]]), ...over });
+    const bill = (id: string, date: string, cents: number, over: Partial<Transaction> = {}) => at(id, date, -cents, { counterparty: "ESIMERKKI PANKKI", counterpartyIban: "FI9900000000000009", ...over });
+    const leg = (id: string, date: string, cents: number, accountId: string) => at(id, date, cents, { counterparty: "ESIMERKKI PANKKI" }, accountId);
+
+    it("is for the one member who uses the card alone, by the account and not by an IBAN", () => {
+      const others = [leg("l1", "2025-08-12", 12000, "aino-card")];
+      expect(read([bill("b", "2025-08-12", 12000)], card({ others }))[0]!.to).toEqual({ owner: AINO });
+      // the card of the other member, and the day that is too far from the bill
+      expect(read([bill("b", "2025-08-12", 12000)], card({ others: [leg("l1", "2025-08-12", 12000, "ville-card")] }))[0]!.to).toEqual({ owner: VILLE });
+      expect(read([bill("b", "2025-08-12", 12000)], card({ others: [leg("l1", "2025-08-20", 12000, "aino-card")] }))[0]!.to).toBeUndefined();
+      // without the account keyed (what the payers were before): a cost for all
+      expect(read([bill("b", "2025-08-12", 12000)], who({ accounts: cards, others }))[0]!.to).toBeUndefined();
+    });
+
+    it("stays a cost for all when the card is shared, or its holder is not a member with a login, or no leg is found", () => {
+      const joint = [leg("l1", "2025-08-12", 12000, "joint-card")];
+      expect(read([bill("b", "2025-08-12", 12000)], card({ others: joint }))[0]!.to).toBeUndefined();
+      expect(read([bill("b", "2025-08-12", 12000)], card())[0]!.to).toBeUndefined();
+    });
+
+    it("gives the same answer when the bill's text names the holder", () => {
+      const others = [leg("l1", "2025-08-12", 12000, "aino-card")];
+      const named = bill("b", "2025-08-12", 12000, { counterparty: "AINO KORHONEN", counterpartyIban: null });
+      expect(read([named], card({ others }))[0]!.to).toEqual({ owner: AINO });
+      expect(read([named], who({ accounts: cards }))[0]!.to).toEqual({ owner: AINO });
+    });
+
+    it("counts a card the member also pays from their own account once: only the pool's own bill is a row of the pool", () => {
+      const from = at("o1", "2025-08-12", -12000, { counterparty: "ESIMERKKI PANKKI", counterpartyIban: "FI9900000000000009" }, "aino-own");
+      const others = [from, leg("l1", "2025-08-12", 12000, "aino-card"), leg("l2", "2025-08-13", 3000, "aino-card")];
+      const rows = read([bill("b", "2025-08-12", 12000), bill("c", "2025-08-13", 3000)], card({ others }));
+      expect(rows.map((r) => r.to)).toEqual([{ owner: AINO }, { owner: AINO }]);
+      expect(rows).toHaveLength(2);
+    });
+  });
+
   it("reads the own name at an unlinked bank as hers, by name", () => {
     const [byName, backwards, onePerson, oneWord] = read([
       at("1", "2025-08-01", 5000, { counterparty: "Aino Korhonen" }),

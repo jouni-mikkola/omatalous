@@ -5,7 +5,7 @@
  * from that: a use never lets anybody see an account.
  */
 import { accountBank, type Row, type StoredAccount, type StoredTransaction, str, TX_COLUMNS_LIGHT, toAccount, toTransaction } from "./rows.ts";
-import type { Db } from "./types.ts";
+import type { Db, Statement } from "./types.ts";
 
 export interface AccountShare {
   accountId: string;
@@ -18,7 +18,25 @@ export interface AccountShare {
  */
 export const accountKey = (a: Pick<StoredAccount, "id" | "identity">): string => a.identity ?? a.id;
 /** The same key in SQL, for the accounts table named or aliased `a`. */
-const keyOf = (a: string) => `COALESCE(${a}.identity, ${a}.id)`;
+export const keyOf = (a: string) => `COALESCE(${a}.identity, ${a}.id)`;
+
+/**
+ * The tables keyed by a real account (`account_key`) that no foreign key reaches: what they hold goes when no account holds the key.
+ * Only the fetch notes go: `account_balances`, `foreign_rows` and `account_agreement` (the user's own answer) cannot all be fetched again, and an account can be gone for a while (a consent that
+ * ended, an unlinked account linked again under the same identity), so its rows stay and a reader ignores a key with no account.
+ */
+const KEYED_TABLES = ["account_fetch"] as const;
+
+/**
+ * Deletes what hangs on a real account that no `accounts` row holds now: the rows of the tables keyed by it, and the
+ * history of an account that is gone. A joint account stays held while either member has a copy, so removing one member
+ * deletes nothing of it. Run after anything that deletes accounts, and once per build at start-up (the sweep also clears
+ * what an older build's deletes left, which cannot know these tables).
+ */
+export const SWEEP_UNHELD_KEYS: readonly Statement[] = [
+  ...KEYED_TABLES.map((table) => ({ sql: `DELETE FROM ${table} WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE ${keyOf("a")} = ${table}.account_key)` })),
+  { sql: "DELETE FROM account_history WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE a.id = account_history.account_id)" },
+];
 
 /** One user of a real account as the household said it. `userId` null: the holders who are no user of this instance. */
 interface UseRow {
@@ -168,7 +186,20 @@ export class HouseholdRepo {
       { sql: "DELETE FROM users WHERE id = ?", params: [userId] },
       { sql: "DELETE FROM owner_answer WHERE owner = ?", params: [`u:${userId}`] },
       { sql: `DELETE FROM account_use WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE ${keyOf("a")} = account_use.account_key)` },
+      ...SWEEP_UNHELD_KEYS,
     ]);
+  }
+
+  /** Drops the notes of calls to the bank made before `before` (an ISO instant), whoever made them: the ones of a removed member have no user. */
+  async pruneFetchNotes(before: string): Promise<void> {
+    await this.db.run("DELETE FROM account_fetch WHERE at < ?", [before]);
+  }
+
+  /** Deletes what hangs on real accounts nobody holds (`SWEEP_UNHELD_KEYS`). Returns how many rows went. */
+  async sweepUnheldKeys(): Promise<number> {
+    let n = 0;
+    for (const st of SWEEP_UNHELD_KEYS) n += (await this.db.run(st.sql)).changes;
+    return n;
   }
 
   /**

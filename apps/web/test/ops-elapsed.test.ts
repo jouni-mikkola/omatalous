@@ -70,6 +70,24 @@ describe("a live and a finished request", () => {
   it("numbers a step", () => {
     expect(html(req({ status: "ok", steps: [{ n: 2, m: 4, text: "Rakennus" }] }))).toContain('Vaihe 2/4:</span> <span>Rakennus</span>');
   });
+  it("shows a finished step's own duration after its text, and the running step's clock", () => {
+    const steps = [{ n: 1, m: 3, text: "Tarkistetaan", at: 0 }, { n: 2, m: 3, text: "Haetaan", at: 12 }];
+    const out = html(req({ status: "running", startedAt: ago(40_000), steps }));
+    expect(out).toContain('<span>Tarkistetaan</span><span class="muted"> 12 s</span>');
+    expect(out).toContain('<span>Haetaan</span><span class="muted"> 28 s</span>');
+  });
+  it("shows the last step of a finished request up to its end, and none where the host gave no seconds", () => {
+    const steps = [{ n: 1, m: 2, text: "Yksi", at: 0 }, { n: 2, m: 2, text: "Kaksi", at: 20 }];
+    const done = html(req({ status: "ok", startedAt: ago(100_000), finishedAt: ago(50_000), summary: "Valmis.", steps }));
+    expect(done).toContain('<span>Yksi</span><span class="muted"> 20 s</span>');
+    expect(done).toContain('<span>Kaksi</span><span class="muted"> 30 s</span>');
+    // a closing step that took under a second shows no duration, and a step without `at` none
+    const quick = html(req({ status: "ok", startedAt: ago(100_000), finishedAt: ago(79_500), summary: "Valmis.", steps }));
+    expect(quick).not.toContain("<span>Kaksi</span><span");
+    const plain = html(req({ status: "running", startedAt: ago(40_000), steps: [{ n: 1, m: 2, text: "Yksi" }, { n: 2, m: 2, text: "Kaksi" }] }));
+    expect(plain).toContain("<span>Yksi</span></li>");
+    expect(plain).toContain("<span>Kaksi</span></li>");
+  });
 });
 
 describe("the wait after a failed poll", () => {

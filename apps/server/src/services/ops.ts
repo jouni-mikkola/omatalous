@@ -179,6 +179,7 @@ const view = (r: OpsRequest) => ({
   status: r.status,
   by: r.requestedByName,
   requestedAt: r.requestedAt,
+  startedAt: r.claimedAt,
   finishedAt: r.finishedAt,
   exitCode: r.exitCode,
   summary: r.summary,

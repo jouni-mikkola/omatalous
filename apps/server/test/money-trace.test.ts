@@ -440,3 +440,36 @@ describe("the parts heal from what changed", () => {
     expect((await db.all<{ lots: string }>("SELECT lots FROM tx_part_state")).map((r) => r.lots)).toEqual(["null"]);
   });
 });
+
+describe("a bill paid from the pool to a card account, which has no IBAN", () => {
+  const BILL: R = ["2026-09-12", -120, "ESIMERKKI PANKKI", "FI9900000000000009"];
+  const rows: R[] = [fromAino("2026-09-01", 600), fromVille("2026-09-02", 600), BILL];
+
+  /** The pool, and a card account with the given holder line that took the bill's money in. */
+  async function withCard(holder: string | null, type: Parameters<typeof link>[6]) {
+    return world(
+      one(rows, 0, {
+        extra: async (w) => {
+          await link(w, w.aino, "the-card", holder, null, "idn-card", type);
+          await ingestTransactions(w.s.finance(w.aino), "the-card", [raw(["2026-09-12", 120, "ESIMERKKI PANKKI"])], "enablebanking");
+        },
+      }),
+    );
+  }
+  const billOf = async (w: World) => rowAt((await settledTrace(w.s, KEY))!, "2026-09-12", -120);
+
+  it("is for the member who uses the card alone: her own money pays it", async () => {
+    const w = await withCard(AINO, "credit_card");
+    const row = await billOf(w);
+    expect(row).toMatchObject({ what: "one", to: A(w) });
+    expect(row.parts.filter((p) => p.owner === A(w)).reduce((n, p) => n + p.cents, 0)).toBe(12000);
+  });
+
+  it("keeps a card of both members, of a holder with no login, and an account that is no card, a cost for all", async () => {
+    for (const [holder, type] of [[`${AINO}, ${VILLE}`, "credit_card"], [`${AINO}, ESIMERKKI LIISA`, "credit_card"], [AINO, "other"]] as const) {
+      const row = await billOf(await withCard(holder, type));
+      expect(row.what, `${holder} ${type}`).toBe("all");
+      expect(row.parts.map((p) => [p.owner.slice(0, 2), p.cents])).toEqual([["u:", 6000], ["u:", 6000]]);
+    }
+  });
+});

@@ -65,7 +65,18 @@ const DATA_STEPS: readonly DataStep[] = [
     floor: FROM_START,
     run: (repo) => repo.negateLoanBalances(),
   },
+  {
+    // The balance an account holds today is the first row of its history: one `account_balances` row from the stored
+    // balance, of type OTHR with no reference day, so nothing reads it as the bank's word for a day. A balance already
+    // recorded stays, and an account in another currency has none (its stored figure is not known to be euros).
+    name: "balanceSeed",
+    floor: "0.46.0",
+    run: (repo) => repo.seedBalancesFromAccounts(),
+  },
 ];
+
+/** The release from which every build clears what hangs on a real account that nobody holds any more. */
+const SWEEP_FLOOR = "0.46.0";
 
 /** The release a build id names: "0.45.0+3fa9c1" and "0.45.0" are 0.45.0. */
 const releaseOf = (buildId: string): string => buildId.split("+")[0]!;
@@ -78,6 +89,8 @@ export interface UpgradeResult {
   bankCodes: number;
   /** Loan accounts whose stored balance was a plus and became a minus. */
   loanBalances: number;
+  /** Rows of the tables keyed by a real account that no account held, deleted (zero below the sweep's floor). */
+  unheldKeysSwept: number;
   /** What each step that ran changed, by name (the two above are in it as well). */
   steps: Record<string, number>;
   /** The steps this build left alone because its release is below their floor. */
@@ -92,13 +105,15 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
     return null;
   }
   try {
-    const result: UpgradeResult = { users: 0, merchantsRenamed: 0, recategorised: 0, bankCodes: 0, loanBalances: 0, steps: {}, skipped: [] };
+    const result: UpgradeResult = { users: 0, merchantsRenamed: 0, recategorised: 0, bankCodes: 0, loanBalances: 0, unheldKeysSwept: 0, steps: {}, skipped: [] };
     const release = releaseOf(buildId);
     const due = steps.filter((step) => atOrAbove(release, step.floor));
     result.skipped = steps.filter((step) => !due.includes(step)).map((step) => step.name);
     // A name an earlier version sent to the trade register and this one refuses (a person's name, the name of a way to
     // pay) must not stay stored with its answer. The answers are shared, so this runs once, before any user's reprocess.
     await s.industry.keepOnly(isLookupName);
+    // a build before these tables deletes accounts without knowing them: what hangs on such a key goes once per build
+    if (atOrAbove(release, SWEEP_FLOOR)) result.unheldKeysSwept = await s.household.sweepUnheldKeys();
     for (const user of await s.users.list()) {
       // finished by an earlier run of this build that was cut short
       if ((await s.settings.get(`${BUILD_KEY}:${user.id}`)) === buildId) continue;

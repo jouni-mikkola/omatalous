@@ -3,6 +3,29 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.46.0
+
+- Balance history is kept from this version: every fetch stores the balances the bank sends, and nothing of it is removed at start-up.
+- A card bill paid from a joint account to one member's card counts as that member's own spending in who paid, not as a cost of everyone.
+- While an update runs, the page shows each step as it starts and how long it took; a new version is on offer within the hour without pressing Tarkista päivitykset.
+
+Money and reports
+
+- A card bill paid from a joint account to the card of one member now counts as that member's own spending in the split of who paid, not as a cost of everyone.
+
+Fetching and importing
+
+- Balance history is kept from this version: every fetch stores the balances the bank sends, for the history views to come.
+
+Maintenance
+
+- While an update or another maintenance action runs, the page shows each step as it starts, and each step's own time.
+- A new version is looked for once an hour, so Päivitä is on offer without pressing Tarkista päivitykset. A version that was taken back is not offered again for a day.
+
+Upgrade
+
+- Migration 0021 adds the tables the next releases fill and two empty columns on expected bills. Version 0.45.0 can still open the database after it, so a rollback keeps what was recorded.
+
 ## 0.45.0
 
 - A balance in another currency is no longer added to the euro total as euros: an account in dollars shows its balance with its currency on Tilit and stays out of every euro total.

@@ -22,6 +22,12 @@ function fromFixture(name: string): string {
   return file;
 }
 
+/** What 0021 adds, which every database that is upgraded to today's schema gets on its way. */
+const TABLES_0021 = [
+  "account_balances", "account_history", "account_fetch", "statement_bill", "statement_rows", "foreign_rows", "payer_role", "household_member",
+  "account_agreement", "user_factor", "valued_asset", "contract_terms", "access_token",
+];
+
 type Row = Record<string, unknown>;
 /** Every table with its rows, ordered by the first column, as a plain structure to compare. */
 function dump(file: string): Record<string, { columns: string[]; rows: Row[] }> {
@@ -268,12 +274,12 @@ describe("0018 adds the table of who uses an account", () => {
     // the frozen household has a joint account of two holders, which is what the table is for
     expect(before.accounts!.rows.find((r) => r.id === "a-5")).toMatchObject({ identity: "idn-5", holder: "MEIKALAINEN MATTI, KORHONEN ELISA" });
     const { db, applied } = await openDatabase(file);
-    // 0019 and 0020 follow on the way to today's schema
-    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql"]);
+    // 0019, 0020 and 0021 follow on the way to today's schema
+    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql"]);
     expect(await db.all("SELECT * FROM account_use")).toEqual([]);
     db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use", "account_split", "owner_answer", "tx_part", "tx_part_state"].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use", "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021].sort());
     expectAdditive(before, after, "0018_account_use.sql");
 
     // what the household says is held to one row for each user of a real account, the user with no id included
@@ -326,10 +332,10 @@ describe("0019 adds the review day of a loan's rate", () => {
     expect(before.loans!.rows).toHaveLength(5);
     expect(before.loans!.columns).not.toContain("rate_review_date");
     const first = await openDatabase(file);
-    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql"]);
+    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql"]);
     first.db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state"].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021].sort());
     expect(after.loans!.columns).toEqual([...before.loans!.columns, "rate_review_date"]);
     expect(after.loans!.rows.map((r) => r.rate_review_date)).toEqual([null, null, null, null, null]);
     expectAdditive(before, after, "0019_loan_rate_review.sql");
@@ -378,11 +384,11 @@ describe("0020 adds who paid a joint account", () => {
     const file = fromFixture("0.12.0.sql");
     const before = dump(file);
     const { applied, db } = await openDatabase(file);
-    expect(applied).toEqual(["0020_account_split.sql"]);
+    expect(applied).toEqual(["0020_account_split.sql", "0021_household_stores.sql"]);
     for (const table of ["account_split", "owner_answer", "tx_part", "tx_part_state"]) expect(await db.all(`SELECT * FROM ${table}`), table).toEqual([]);
     db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state"].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021].sort());
     expectAdditive(before, after, "0020_account_split.sql");
 
     // no floor: a build that lacks the file refuses the database, also at the version it was released as, so a rollback restores the copy taken before
@@ -392,6 +398,8 @@ describe("0020 adds who paid a joint account", () => {
     for (const appVersion of ["0.12.0", APP_VERSION]) {
       await expect(openDatabase(file, dir, undefined, { appVersion })).rejects.toThrow(/upgraded by a newer app version \(0020_account_split\.sql\)/);
     }
+    // the build before 0020 knows no later file either
+    rmSync(join(dir, "0021_household_stores.sql"));
     const copy = fromFixture("0.12.0.sql");
     const old = await openDatabase(copy, dir, undefined, { appVersion: "0.12.0" });
     expect(old.applied).toEqual([]);

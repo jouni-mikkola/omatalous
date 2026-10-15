@@ -1,6 +1,7 @@
 /** The user's accounts: the list, the bank's fields, balances, and removing or merging an account with its rows. */
 import type { AccountType } from "@banking/core";
 import { accountBank, type Row, type StoredAccount, type StoredTransaction, toAccount, toTransaction, TX_COLUMNS_LIGHT } from "../rows.ts";
+import { SWEEP_UNHELD_KEYS } from "../household-repo.ts";
 import type { FinanceContext } from "./context.ts";
 
 /**
@@ -75,6 +76,7 @@ export class AccountsRepo {
     await this.ctx.db.batch([
       { sql: "DELETE FROM transactions WHERE user_id = ? AND account_id = ?", params: [this.ctx.userId, id] },
       { sql: "DELETE FROM accounts WHERE id = ? AND user_id = ?", params: [id, this.ctx.userId] },
+      ...SWEEP_UNHELD_KEYS,
     ]);
   }
 
@@ -137,7 +139,19 @@ export class AccountsRepo {
         params: [to, this.ctx.userId, from, this.ctx.userId, to],
       },
       { sql: "DELETE FROM transactions WHERE user_id = ? AND account_id = ?", params: [this.ctx.userId, from] },
+      // how far back the app asked for the account's rows goes to the kept account, the earlier of the two; the other's row goes with the sweep
+      {
+        sql: `INSERT INTO account_history (account_id, asked_from, first_row_day, source, recorded_at)
+              SELECT ?, asked_from, first_row_day, source, recorded_at FROM account_history WHERE account_id = ? AND EXISTS (SELECT 1 FROM accounts WHERE id = ? AND user_id = ?)
+              ON CONFLICT (account_id) DO UPDATE SET
+                asked_from = MIN(account_history.asked_from, excluded.asked_from),
+                first_row_day = CASE WHEN account_history.first_row_day IS NULL THEN excluded.first_row_day
+                                     WHEN excluded.first_row_day IS NULL THEN account_history.first_row_day
+                                     ELSE MIN(account_history.first_row_day, excluded.first_row_day) END`,
+        params: [to, from, to, this.ctx.userId],
+      },
       { sql: "DELETE FROM accounts WHERE id = ? AND user_id = ?", params: [from, this.ctx.userId] },
+      ...SWEEP_UNHELD_KEYS,
     ]);
   }
 
@@ -163,6 +177,7 @@ export class AccountsRepo {
     await this.ctx.db.batch([
       { sql: "DELETE FROM transactions WHERE user_id = ? AND account_id IN (SELECT id FROM accounts WHERE user_id = ? AND provider = ?)", params: [this.ctx.userId, this.ctx.userId, provider] },
       { sql: "DELETE FROM accounts WHERE user_id = ? AND provider = ?", params: [this.ctx.userId, provider] },
+      ...SWEEP_UNHELD_KEYS,
     ]);
   }
 }

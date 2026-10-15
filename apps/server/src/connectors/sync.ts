@@ -5,6 +5,7 @@
  */
 import { addDays, type RawTransaction } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
+import { accountKey } from "../db/household-repo.ts";
 import type { Connection, StoredAccount } from "../db/rows.ts";
 import { UserError } from "../platform/errors.ts";
 import { track } from "../platform/inflight.ts";
@@ -13,11 +14,11 @@ import { connectionState } from "../services/accounts.ts";
 import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
-import { balanceFitsAccount, balanceStamp, storedBalanceCents } from "./balance-sign.ts";
+import { balanceFitsAccount, balanceStamp, isEuro, storedBalanceCents } from "./balance-sign.ts";
 import { markRateLimited } from "./bank-limit.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
-import type { Connector, PullAccount, Puller } from "./types.ts";
+import type { BalanceReading, Connector, PullAccount, Puller } from "./types.ts";
 
 /** "2026-09-30" → "30.9.2026" */
 const finnishDate = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
@@ -32,6 +33,8 @@ export interface SyncSummary {
 export const LOCK_TTL_MS = 15 * 60_000;
 /** Late bookings, and pending rows that got booked, show up in rows this far before the latest stored one. */
 const OVERLAP_DAYS = 10;
+/** The notes of calls to the bank (`account_fetch`) older than this are of no use for counting a day's fetches. */
+const FETCH_NOTES_KEEP_DAYS = 8;
 
 /**
  * The app counts in euros: another currency's amount would be added to them as if it were euros, so such rows are
@@ -91,7 +94,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string, userHe
     const active = (await repo.listConnections()).filter((c) => c.status === "active");
     for (const connector of CONNECTORS) {
       const connections = active.filter((c) => c.provider === connector.id);
-      if (connector.sync && connections.length) await pullConnector(s, repo, connector, connections, summary, tally, userHeaders);
+      if (connector.sync && connections.length) await pullConnector(s, repo, connector, connections, summary, tally, trigger, userHeaders);
     }
     if (tally.rateLimited) await markRateLimited(s, userId);
     if (tally.problemsChanged) await writeFetchProblems(s, userId, tally.problems, (await repo.listAccounts()).map((a) => a.id));
@@ -146,9 +149,10 @@ function setProblem(tally: Tally, accountId: string, problem: FetchProblem | nul
  * Every account of the connector's active connections, one after another. A failing account does not stop the
  * others; only a consent that ended stops the rest of its own accounts.
  */
-async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally, userHeaders?: Readonly<Record<string, string>>): Promise<void> {
+async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally, trigger: string, userHeaders?: Readonly<Record<string, string>>): Promise<void> {
   const sync = connector.sync!;
   const today = s.today();
+  await keepRecord("fetch notes", () => s.household.pruneFetchNotes(new Date(s.now().getTime() - FETCH_NOTES_KEEP_DAYS * 86_400_000).toISOString()));
   const puller = await sync.open({ s, repo, userHeaders });
   const accounts = await repo.listAccounts();
   const say = (message: string) => {
@@ -172,23 +176,28 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         const latest = stored && stored > today ? today : stored;
         const dateFrom = latest ? addDays(latest, -OVERLAP_DAYS) : addDays(today, -s.instance.current.historyDays);
         const target = { id: account.id, externalId: account.externalId!, name: account.name };
+        // the call counts for the account's key from here on: a refusal or a failure after it is a call as well
+        await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), trigger.startsWith("open") ? "open" : trigger));
         const { rows: raws, note } = euroRows(await puller.transactions(target, { dateFrom, initial: latest === null }), account.name);
         if (note) summary.messages.push(note);
         const r = await ingestTransactions(repo, account.id, raws, connector.id);
         summary.fetched += r.fetched;
         summary.inserted += r.inserted;
         tally.rowsChanged += r.changed;
+        await keepRecord("history", () => repo.recordHistory(account.id, dateFrom, "default", s.now().toISOString()));
 
         const told = await puller.balance(target);
         // The balance is the account's own money in the account's own currency, or it is not stored: a figure in
         // another currency would be read as euros, or as this account's.
-        if (told !== null && balanceFitsAccount(told, account.currency)) {
-          const cents = storedBalanceCents(account.type, told.cents);
-          const at = balanceStamp(told, s.now(), today);
+        const shown = told[0];
+        if (shown !== undefined && balanceFitsAccount(shown, account.currency)) {
+          const cents = storedBalanceCents(account.type, shown.cents);
+          const at = balanceStamp(shown, s.now(), today);
           // the walk starts from the day the balance stands for, so a new day with the same sum is a change as well
-          if (account.balanceCents !== cents || (told.referenceDay !== null && account.balanceAt !== at)) tally.balanceChanged = true;
+          if (account.balanceCents !== cents || (shown.referenceDay !== null && account.balanceAt !== at)) tally.balanceChanged = true;
           await repo.setAccountBalance(account.id, cents, at);
         }
+        await keepRecord("balances", () => repo.recordBalances(accountKey(account), today, s.now().toISOString(), recordable(told, account)));
         await repo.markAccountSynced(account.id, s.now().toISOString());
         setProblem(tally, account.id, null);
         await readDetails(repo, puller, account, target, tally);
@@ -220,6 +229,22 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
       }
     }
     await repo.markConnectionSynced(conn.id, s.now().toISOString());
+  }
+}
+
+/** The balances of a fetch that may be recorded: named in euros and the account's own currency, signed as the account stores one. */
+function recordable(told: readonly BalanceReading[], account: StoredAccount) {
+  return told
+    .filter((b) => isEuro(b.currency) && balanceFitsAccount(b, account.currency))
+    .map((b) => ({ cents: storedBalanceCents(account.type, b.cents), type: b.type, referenceDay: b.referenceDay }));
+}
+
+/** What a fetch leaves behind to keep (the balances, the days asked for, the calls) is best effort: a failure to write it is logged and does not fail the fetch. */
+async function keepRecord(what: string, write: () => Promise<void>): Promise<void> {
+  try {
+    await write();
+  } catch (err) {
+    console.error(`recording ${what} failed:`, err);
   }
 }
 

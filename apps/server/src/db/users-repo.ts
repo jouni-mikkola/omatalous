@@ -1,6 +1,7 @@
 /** Users, sessions and per-user bank credentials. */
 import { type Role, type Row, toUser, type User } from "./rows.ts";
 import { bumpDataVersionStatement } from "./settings-repo.ts";
+import { SWEEP_UNHELD_KEYS } from "./household-repo.ts";
 import type { Db, SqlValue } from "./types.ts";
 
 export interface SessionInfo {
@@ -103,6 +104,7 @@ export class UsersRepo {
       // a payee the register did not find as one company may be a person; a company's public record stays
       { sql: "DELETE FROM merchant_industry WHERE status <> 'found'" },
       { sql: "DELETE FROM users" },
+      ...SWEEP_UNHELD_KEYS,
       { sql: `INSERT INTO users (${columns.map(quoted).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`, params: columns.map((c) => row[c] ?? null) },
       bumpDataVersionStatement(at),
     ]);

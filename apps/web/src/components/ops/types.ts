@@ -7,10 +7,20 @@ export interface OpsRequestView {
   status: "queued" | "running" | "ok" | "failed" | "expired" | "cancelled";
   by: string | null;
   requestedAt: string;
+  /** When the helper took the request; the steps' `at` counts from it. */
+  startedAt?: string | null;
   finishedAt: string | null;
   summary: string | null;
   output: string | null;
-  steps: { n: number; m: number; text: string }[];
+  steps: OpsStepView[];
+}
+
+/** `at`: seconds since the helper took the request, absent where the host did not say. */
+export interface OpsStepView {
+  n: number;
+  m: number;
+  text: string;
+  at?: number;
 }
 
 export interface DoctorItem {

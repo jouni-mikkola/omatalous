@@ -89,7 +89,7 @@ nothing to do ends green and says why. A release whose signature is refused is l
 
 GitHub lists a draft to no unauthenticated caller, so a held release is invisible to installs, and so is a pulled one.
 Installs older than 0.9.0 are the exception: their own `update.sh`, run by hand, takes the newest git tag, which a
-pre-release has from its first minute, and a hold or a pull does not remove a tag. Their daily check and the *Päivitä*
+pre-release has from its first minute, and a hold or a pull does not remove a tag. Their hourly check and the *Päivitä*
 button read `/releases/latest` and are safe. So promote a good release by hand once its checks are green, and ship the
 fix at once when it is bad. An install that runs 0.9.0 or later follows the release GitHub marks as latest in every mode.
 

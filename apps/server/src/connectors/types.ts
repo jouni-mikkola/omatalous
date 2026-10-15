@@ -69,8 +69,11 @@ export interface BalanceReading {
 /** One sync run's access to a source. Created once per run, after the loop knows there is something to fetch. */
 export interface Puller {
   transactions(account: PullAccount, window: PullWindow): Promise<RawTransaction[]>;
-  /** The balance the source tells for display (its best pick), or null when it reports none. */
-  balance(account: PullAccount): Promise<BalanceReading | null>;
+  /**
+   * Every balance the source tells for the account, as it sent them. The first is the one to show (the source's best
+   * pick); the loop stores that one on the account and records them all. Empty when the source reports none.
+   */
+  balance(account: PullAccount): Promise<BalanceReading[]>;
   /** What the source says about the account, for one linked before these fields were stored. May throw: the loop goes on. */
   details?(account: PullAccount): Promise<AccountDetails>;
 }

@@ -70,7 +70,7 @@ rollback_run() {
   local up=no
   ROLLBACK_RC=0
   run_cap "$T_ROLLBACK" ./scripts/update.sh --rollback --yes || ROLLBACK_RC=$?
-  if ((ROLLBACK_RC == 0)) && [[ -n ${2:-} ]]; then echo "$2" >>"$LOGF"; fi
+  if ((ROLLBACK_RC == 0)) && [[ -n ${2:-} ]]; then step_say "$2"; fi
   if ((ROLLBACK_RC == 0)) || [[ $1 == wait ]]; then if wait_healthy 15; then up=yes; fi
   elif [[ $1 == look ]]; then if app_up; then up=yes; fi; fi
   if [[ $up == no ]]; then write_recovery; return 1; fi
@@ -190,9 +190,10 @@ watchdog_rollback() {
     log "watchdog: the rollback ended with $ROLLBACK_RC, and the app answers. Nothing is reported. Its output: $ROOT/$LOGF"
     exit 0
   fi
-  # The stored answer about a new version is from before the rollback. The daily check asks again. ops/last-check stays,
-  # because that check also runs doctor, which writes its result again without the item below.
-  rm -f "$OPS/watchdog-since" "$OPS/check.frag"
+  # The stored answer about a new version is from before the rollback. The next check asks again, but the heartbeat's checks
+  # do not offer the version taken back for 24 hours (taken_back_mark, lib/ops-hourly.sh). ops/last-check stays, because that
+  # check also runs doctor, which writes its result again without the item below.
+  rm -f "$OPS/watchdog-since" "$OPS/check.frag"; taken_back_mark "$from"
   [[ -n $to ]] || to=$(current_version || true)
   log "watchdog: version ${to:-?} is running again. The app's last log lines and the rollback's output: $ROOT/$LOGF"
   if watchdog_report "$at" "$from" "$to" unhealthy; then

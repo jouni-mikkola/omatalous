@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { dateTime } from "../../format.ts";
-import { elapsed, queuedSentence, startTicker } from "./ops-elapsed.ts";
+import { elapsed, queuedSentence, startTicker, stepTime } from "./ops-elapsed.ts";
 import { S } from "./ops-strings.ts";
 import type { OpsRequestView } from "./types.ts";
 
@@ -43,9 +43,12 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, helperWake
       )}
       {request.steps.length > 0 && (
         <ol className="ops-steps">
-          {request.steps.map((s) => (
-            <li key={`${s.n}-${s.text}`}><span className="muted">{S.stepNo(s.n, s.m)}</span> <span>{s.text}</span></li>
-          ))}
+          {request.steps.map((s, i) => {
+            const ms = stepTime(request, i, now);
+            return (
+              <li key={`${s.n}-${s.text}`}><span className="muted">{S.stepNo(s.n, s.m)}</span> <span>{s.text}</span>{ms !== null && <span className="muted"> {elapsed(ms)}</span>}</li>
+            );
+          })}
         </ol>
       )}
       <div className="form-row">

@@ -113,6 +113,18 @@ export class OpsRepo {
   }
 
   /**
+   * Adds one step (a JSON object) to a row that is running and has fewer than `max`. Nothing else changes: not the
+   * status, not the times the expiry reads. False for any other row.
+   */
+  async addStep(id: string, step: string, max: number): Promise<boolean> {
+    const r = await this.db.run(
+      "UPDATE ops_requests SET steps = json_insert(COALESCE(steps, '[]'), '$[#]', json(?)) WHERE id = ? AND status = 'running' AND json_array_length(COALESCE(steps, '[]')) < ?",
+      [step, id, max],
+    );
+    return r.changes > 0;
+  }
+
+  /**
    * Ends a queued or running row. A row the app gave up on after 30 minutes ("Ei vastausta") still takes
    * the helper's late report. Returns false when the row is unknown or already finished (a repeated report).
    */

@@ -17,12 +17,9 @@ export const ASK_LIMIT = 10000;
 /** How many days apart the two legs of a person's movement may be booked. */
 export const PAIR_DAYS = 3;
 /** Changes when a rule of the trace changes: a trace kept anywhere is built again. */
-export const TRACE_VERSION = 1;
+export const TRACE_VERSION = 2;
 
-/**
- * `u:<user id>` a member; `u:` the holder with no login; `g:<key>` money in that nobody could name (one group per
- * payer); `o` the opening balance; `c` credit.
- */
+/** `u:<id>` a member; `u:` a holder with no login; `g:<key>` money in nobody could name (a group per payer); `o` the opening; `c` credit. */
 export type Owner = string;
 type LotKind = "own" | "payment" | "pool" | "refund" | "back" | "unknown" | "opening" | "credit" | "before";
 /** `passed`: a row for one person took this from another member's money. */
@@ -62,6 +59,8 @@ export interface RowParts {
   to?: Owner;
   /** A refund of a `one` row: the person the refunded row was for. What it gives back is what that row took. */
   refundFor?: Owner;
+  /** A refund: the key of the row it gives back (of any kind, whether or not it took anything). */
+  refundOf?: string;
   pending?: true;
   /** Positive cents that add up to the row, in the order of the parts. */
   parts: SourcePart[];
@@ -480,7 +479,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
     const parts = [...rec.parts].sort(byPart).map((p): SourcePart => ({ owner: p.owner, kind: p.kind, cents: p.cents, ...(p.passed ? { passed: true as const } : {}) }));
     const refunded = typeof r.from === "object" && "refundOf" in r.from ? byKey.get(r.from.refundOf) : undefined;
     const refundFor = r.cents > 0 && refunded && refunded.cents < 0 && !refunded.unmatched && typeof refunded.to === "object" ? refunded.to.owner : undefined;
-    return { key: r.key, ids: r.ids, day: r.day, cents: r.cents, what, ...(typeof r.to === "object" ? { to: r.to.owner } : {}), ...(refundFor !== undefined ? { refundFor } : {}), ...(r.pending ? { pending: true as const } : {}), parts };
+    return { key: r.key, ids: r.ids, day: r.day, cents: r.cents, what, ...(typeof r.to === "object" ? { to: r.to.owner } : {}), ...(refundFor !== undefined ? { refundFor } : {}), ...(typeof r.from === "object" && "refundOf" in r.from ? { refundOf: r.from.refundOf } : {}), ...(r.pending ? { pending: true as const } : {}), parts };
   });
   const lots = [...[...buckets.values()].flatMap((b) => b.lots.slice(b.head, b.tail)), ...[...kept.values()].flat()]
     .filter((l) => l.cents > 0)

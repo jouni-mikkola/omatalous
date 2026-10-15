@@ -13,6 +13,8 @@ if ! git show "$base:scripts/ops-helper.sh" >"$work/helper.sh" 2>/dev/null; then
   echo "$base has no maintenance helper, nothing to check"
   exit 0
 fi
+# a baseline from after the helper's split keeps the policy in scripts/lib/ops-git.sh, an older one in the helper itself
+git show "$base:scripts/lib/ops-git.sh" >>"$work/helper.sh" 2>/dev/null || true
 # the policy and its check function, cut out of the old helper as they are
 {
   awk "/^COMPOSE_JQ='/{f=1} f{print} f&&/^'\$/{exit}" "$work/helper.sh"

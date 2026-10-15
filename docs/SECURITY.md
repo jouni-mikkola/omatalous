@@ -27,7 +27,7 @@ flowchart LR
   browser -->|"http, home network only"| app
   app -->|"HTTPS: your transactions and balances, bank logos"| eb["Enable Banking API"]
   app -.->|"HTTPS: business names only, can be turned off"| prh["PRH trade register"]
-  helper -.->|"HTTPS: daily version check, update when you press Päivitä"| gh["GitHub and ghcr.io<br/>signed releases"]
+  helper -.->|"HTTPS: hourly version check, update when you press Päivitä"| gh["GitHub and ghcr.io<br/>signed releases"]
   browser -->|"bank login, every 180 days"| bank["Nordea login<br/>via Enable Banking"]
   bank -->|"after the login"| relay["Return page<br/>github.io"]
   relay -->|"forwards to your home address"| browser
@@ -451,6 +451,10 @@ Remote access is changed on its own page, with the password for every change, se
   reads the app secret. A failed check leaves the old version running.
 - It refuses to run as root or when its files are writable by others, rebuilds its environment from scratch, runs one
   request at a time with timeouts, and keeps a journal in `ops/` that a restored database cannot rewind. Output is scrubbed.
+- What the helper may tell the app is `ops poll`, `ops report`, `ops state`, `ops access` and `ops progress`. The last one
+  gives a step's number and text while an action runs, the helper's own fixed strings and nothing read from the container,
+  and the app stores it only on the request that is running, at most 20 steps, 100 characters each. One call at a time,
+  cut after 10 seconds, and not again in that request after the first one that fails.
 - The systemd unit leaves out `ProtectSystem`, because the helper has to write the clone and run Docker.
 
 What remains:
@@ -504,8 +508,9 @@ elsewhere keep them until you delete those. Free pages in the database file are 
 
 - Enable Banking and Nordea hold the consent and their own logs, for up to 180 days.
 - The Finnish trade register (PRH) sees the names of businesses you pay and your IP address, unless the lookup is off.
-- GitHub sees your IP address when the helper checks for a release once a day, and `ghcr.io` and Sigstore when an image is
-  pulled and checked. GitHub Pages sees the request for the return page.
+- GitHub sees your IP address when the helper checks for a release once an hour (an install that follows its source
+  branch runs a `git fetch` against its remote at the same hourly check, and that remote sees the address instead), and
+  `ghcr.io` and Sigstore when an image is pulled and checked. GitHub Pages sees the request for the return page.
 - Enable Banking's website sees your server's IP address and which bank's logo is asked for. The app asks once per bank
   for as long as the bank list is kept (a day, and again after a restart and when the admin tests the application), and
   no sooner than ten minutes after a failure.

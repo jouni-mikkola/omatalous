@@ -36,6 +36,8 @@ export interface Payers {
   others: readonly Transaction[];
   /** The accounts one person uses alone: IBAN to that person. */
   alone: ReadonlyMap<string, Owner>;
+  /** The card accounts one person uses alone: account id to that person. A card account has no IBAN, so it is keyed by the account. */
+  aloneAccount?: ReadonlyMap<string, Owner>;
   /** The IBANs of the pools. */
   pools: ReadonlySet<string>;
   /** Every user's name. */
@@ -171,7 +173,7 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
   }
   const aloneOf = (tx: Transaction, leg: Transaction | undefined): Owner | undefined => {
     const byIban = who.alone.get(normalizeIban(tx.counterpartyIban) ?? "");
-    return byIban ?? (leg ? who.alone.get(ibanOf.get(leg.accountId) ?? "") : undefined);
+    return byIban ?? (leg ? (who.alone.get(ibanOf.get(leg.accountId) ?? "") ?? who.aloneAccount?.get(leg.accountId)) : undefined);
   };
 
   // the legs on another pool: the same cents, the money out on the same day or up to PAIR_DAYS before the money in, and

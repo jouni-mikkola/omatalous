@@ -615,3 +615,41 @@ describe("release gate, public tree leg", () => {
     expect(gateViolations(gate.replace("GATE_LABEL=\"public tree\" bg ", "")).join("\n")).toMatch(/not started beside check and e2e/);
   });
 });
+
+// ── the private repository bills its Actions minutes: every job of every workflow ends at once there ────────────────
+const PUBLIC_ONLY = "github.repository == 'jouni-mikkola/omatalous'";
+/** Workflows a lead's tool starts by hand in the private repository (release.sh --github, the branch cleanup). */
+const BY_HAND = ["ci.yml", "upgrade.yml", "branches.yml"];
+
+/** The jobs of a workflow text whose `if:` does not name the public repository, or that name it only as an alternative to something else. */
+function unguarded(file: string, text: string): string[] {
+  const jobs = (parseYaml(text) as unknown as Workflow).jobs;
+  const hand = "github.event_name == 'workflow_dispatch'";
+  const out: string[] = [];
+  for (const [id, job] of Object.entries(jobs)) {
+    const cond = job.if ?? "";
+    if (!cond.includes(PUBLIC_ONLY)) out.push(`${file}: job ${id} has no guard on ${PUBLIC_ONLY}`);
+    else if (cond.includes("!= 'jouni-mikkola/omatalous'")) out.push(`${file}: job ${id} runs elsewhere than the public repository`);
+    else if (cond.includes(hand) && !BY_HAND.includes(file)) out.push(`${file}: job ${id} may run by hand in the private repository`);
+    else if (/\|\|/.test(cond.replace(`${PUBLIC_ONLY} || ${hand}`, "")) && !/&&/.test(cond.split("||")[0] ?? "")) out.push(`${file}: job ${id} has an alternative to the guard`);
+  }
+  return out;
+}
+
+describe("workflows in the private repository", () => {
+  const dir = resolve(ROOT, ".github/workflows");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".yml"));
+
+  it("every job of every workflow carries the public-repository guard", () => {
+    expect(files.length).toBeGreaterThan(0);
+    for (const f of files) expect(unguarded(f, readText(`.github/workflows/${f}`))).toEqual([]);
+  });
+
+  it("names a job that lacks the guard, and passes a near miss", () => {
+    const ci = readText(".github/workflows/ci.yml");
+    const guard = `${PUBLIC_ONLY} || github.event_name == 'workflow_dispatch'`;
+    expect(unguarded("ci.yml", ci.replace(guard, "github.event_name != 'push'"))).toEqual([expect.stringContaining("job shell has no guard")]);
+    expect(unguarded("pages.yml", ci)).not.toEqual([]); // the hand-start alternative is only for the three workflows a tool starts
+    expect(unguarded("ci.yml", ci.replace(guard, PUBLIC_ONLY))).toEqual([]); // near miss: the plain guard passes
+  });
+});

@@ -151,7 +151,7 @@ access_back() { # access_back ID WHY
 
 access_apply() { # access_apply ID
   local id=$1 url bind pairs=()
-  echo "STEP: 1/3 Luetaan valmisteltu muutos" >>"$LOGF"
+  step_say "1/3 Luetaan valmisteltu muutos"
   access_read || { fail "$A_ERR"; return; }
   # (a .env that is a link never gets here: the helper's check_permissions stops the tick first)
   [[ -f .env ]] || { fail "Asennuksen .env-tiedostoa ei ole. Mitään ei muutettu."; return; }
@@ -166,7 +166,7 @@ access_apply() { # access_apply ID
     url=$(access_lan_url) || { fail "Portti (HOST_PORT) tiedostossa .env ei ole kelvollinen. Mitään ei muutettu."; return; }
     pairs=("APP_BASE_URL=$url" "BIND_ADDRESS=$bind")
   fi
-  echo "STEP: 2/3 Kirjoitetaan asetukset ja käynnistetään sovellus" >>"$LOGF"
+  step_say "2/3 Kirjoitetaan asetukset ja käynnistetään sovellus"
   access_env_keep || { fail "Aiempia asetuksia ei saatu talteen. Mitään ei muutettu."; return; }
   # back to the home network: the tunnel goes first, so it never leads to an app that has dropped its Access check
   if [[ $A_WANT == lan ]] && ! access_tunnel_off; then access_not_made "Tunnelia ei saatu pysäytettyä."; return; fi
@@ -178,7 +178,7 @@ access_apply() { # access_apply ID
   A_TOKEN=""; pairs=()
   # `up` and not `restart`: only a container made again reads the new .env. It also starts the tunnel service.
   if run_cap "$T_ACCESS" docker compose up -d --no-build; then
-    echo "STEP: 3/3 Odotetaan että sovellus vastaa" >>"$LOGF"
+    step_say "3/3 Odotetaan että sovellus vastaa"
     if wait_healthy 45; then
       # shellcheck disable=SC2034 # SUMMARY is read by the helper's run_request
       if [[ $A_WANT == tunnel ]]; then SUMMARY="Etäkäyttö on päällä. Uusi osoite: $url"; else SUMMARY="Etäkäyttö on pois päältä. Uusi osoite: $url"; fi

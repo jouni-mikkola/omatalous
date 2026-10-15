@@ -575,7 +575,7 @@ compose stop`) or create the file `ops/watchdog-<AT>`, where `<AT>` is the `AT` 
 After a rollback `ops/helper.log` has lines that start with `watchdog:`, and `ops/run/watchdog-<AT>.log` has the last 60
 log lines of the app from before the rollback and the output of `update.sh`; it is kept 30 days. The page lists the
 rollback among the checks, and every admin gets a notice that begins *Edellinen versio palautettiin, koska sovellus ei
-vastannut 10 minuuttiin*. The daily check offers the version that was taken back again, within a day. When the rollback
+vastannut 10 minuuttiin*. The hourly check does not offer the version that was taken back until a day has passed (*Tarkista päivitykset* shows it at once). When the rollback
 does not bring the app back, `ops/RECOVERY.txt` has the commands to run by hand, and the helper does not try again.
 
 #### The address
@@ -612,8 +612,9 @@ previous one. *Siivoa levy* ("Poistaa vanhat versiot ja välimuistin.") is uncha
 
 Beside the journal and `RECOVERY.txt`: `watchdog-since`, `watchdog-<AT>` and `watchdog.frag` (the watchdog's count, a
 settled update and its report), `address-if`, `address-since`, `address-at`, `address-doing` and `run/address.log` (the
-address follow-up, which also writes `env.prev` and `env.written`) and `housekeeping-at` (the time of the last cleaning
-try). Leave them alone.
+address follow-up, which also writes `env.prev` and `env.written`), `housekeeping-at` (the time of the last cleaning
+try), `last-check` (the daily round: doctor, backups list and cleaning), `last-hourly` (the version check, once an hour) and
+`taken-back` (the version the watchdog took back, and when). Leave them alone.
 
 ## Updates in detail
 
@@ -661,7 +662,7 @@ or the check took too long. Both ways the current database is saved first in the
 
 Each release starts on GitHub as a pre-release, and an install follows the latest full release. The project's promotion
 workflow, which looks every six hours, promotes a release once it is 48 hours old, so an install is offered it two days
-after it came out. The daily check, *Päivitä* and `./scripts/update.sh` all wait for that, and nothing installs by
+after it came out. The hourly check, *Päivitä* and `./scripts/update.sh` all wait for that, and nothing installs by
 itself. With the switch *Tarjoa uudet versiot heti* under *Asetukset > Tekniset asetukset > Ylläpito* on, they follow the newest release
 instead, a pre-release too. The maintenance helper then sets the line `TALOUS_PRERELEASE=yes` in `.env`, or `no` when
 the switch is turned off, leaves every other line as it was and checks for a new version at once. An install without

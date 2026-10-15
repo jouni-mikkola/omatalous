@@ -1,10 +1,27 @@
 import { S } from "./ops-strings.ts";
-import type { OpsState } from "./types.ts";
+import type { OpsRequestView, OpsState } from "./types.ts";
 
 /** `34 s` under a minute, `1 min 12 s` from a minute on. A clock that is behind gives `0 s`. */
 export function elapsed(ms: number): string {
   const s = Math.floor(Math.max(0, ms) / 1000);
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
+
+/**
+ * How long step `i` took (it is over), or has been going (it is the last one of a request that runs), in ms. A step
+ * ends where the next begins; the last one of a finished request ends with the request. Null where the host gave no
+ * `at`, or for the last step of a finished request when it lasted under a second (the closing "Valmis" step).
+ */
+export function stepTime(request: OpsRequestView, i: number, now: number): number | null {
+  const at = request.steps[i]?.at;
+  if (at === undefined) return null;
+  const next = request.steps[i + 1];
+  if (next) return next.at === undefined ? null : Math.max(0, next.at - at) * 1000;
+  const began = request.startedAt ? Date.parse(request.startedAt) : NaN;
+  if (Number.isNaN(began)) return null;
+  if (request.status === "running") return Math.max(0, now - began - at * 1000);
+  const ms = (request.finishedAt ? Date.parse(request.finishedAt) : NaN) - began - at * 1000;
+  return Number.isNaN(ms) || ms < 1000 ? null : ms;
 }
 
 /** A helper that waits for the app's wake polled again within this, or is still in its wait, so a request starts in seconds. */

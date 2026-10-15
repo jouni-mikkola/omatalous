@@ -126,6 +126,14 @@ case ${1:-} in
           *"ops poll"*) if [[ -f $S/poll ]]; then cat "$S/poll"; [[ -e $S/poll-keep ]] || rm -f "$S/poll"; else echo '{"request":null}'; fi; exit 0 ;;
           *"ops report"*) n=$(ls "$S/reports" | wc -l); cat >"$S/reports/$((n + 1)).json"; echo '{"ok":true}'; exit 0 ;;
           *"ops state"*) cat >"$S/state.last"; echo '{"ok":true}'; exit 0 ;;
+          # the helper's step for the page (step_tell): the line it was given goes to calls.log. progress-refuse is an app that
+          # does not know the command (usage line, exit 1) and progress-hang one that never answers
+          *"ops progress"*)
+            [[ ! -e /proc/$$/fd/8 ]] || echo "LOCK-FD-LEAKED" >>"$S/calls.log"
+            [[ -e $S/progress-hang ]] && exec /bin/sleep 1000
+            echo "PROGRESS $(cat)" >>"$S/calls.log"
+            [[ -e $S/progress-refuse ]] && { echo "Usage: ops poll" >&2; exit 1; }
+            echo '{"ok":true}'; exit 0 ;;
           *"dist/node.js version"*) echo "$(cat "$S/cver") (test)"; exit 0 ;;
           # update.sh compares the migration names of the live database with the pre-update copy
           *group_concat*) [[ -e $S/schema-fail ]] && exit 1; echo "SCHEMA_CHECK $(last_arg "$@")" >>"$S/calls.log"; if [[ -e $S/schema-changed ]]; then echo yes; else echo no; fi; exit 0 ;;

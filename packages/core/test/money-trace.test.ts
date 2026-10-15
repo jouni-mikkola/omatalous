@@ -436,6 +436,28 @@ describe("money both ways: refunds on every rule", () => {
     expect(sum(parts.map((p) => p.cents))).toBe(5000);
   });
 
+  it("says which purchase a refund gives back, for a row for all, a row for one, and one that is not there", () => {
+    const shop = row("shop", "2025-07-03", -3000);
+    const gift = row("gift", "2025-07-03", -2000, forOne(AINO));
+    const t = replay([
+      ...funded,
+      shop,
+      gift,
+      row("r-shop", "2025-07-04", 1000, { from: { refundOf: shop.key } }),
+      row("r-gift", "2025-07-04", 500, { from: { refundOf: gift.key } }),
+      row("r-none", "2025-07-05", 100, { from: { refundOf: "no such row" } }),
+    ]);
+    expect(rowOf(t, "r-shop").refundOf).toBe(shop.key);
+    expect(rowOf(t, "r-shop").refundFor).toBeUndefined();
+    expect(rowOf(t, "r-gift").refundOf).toBe(gift.key);
+    expect(rowOf(t, "r-gift").refundFor).toBe(AINO);
+    expect(rowOf(t, "r-none").refundOf).toBe("no such row");
+    // money back, a deposit and a purchase are not refunds
+    for (const label of ["aino", "shop", "gift"]) expect(rowOf(t, label)).not.toHaveProperty("refundOf");
+    const back = replay([...funded, row("back", "2025-07-05", 100, { from: "back", group: "g:text:KAUPPA" })]);
+    expect(rowOf(back, "back")).not.toHaveProperty("refundOf");
+  });
+
   it("splits a second refund over what the first left", () => {
     const purchase = row("shop", "2025-07-03", -3001);
     const rows = [...funded, purchase, row("r1", "2025-07-04", 1000, { from: { refundOf: purchase.key } }), row("r2", "2025-07-05", 2001, { from: { refundOf: purchase.key } })];

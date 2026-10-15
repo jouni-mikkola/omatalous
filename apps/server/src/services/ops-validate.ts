@@ -126,12 +126,43 @@ export function oneLine(text: string, max: number, secrets: readonly string[] = 
   return scrub(text, secrets).replace(/\s+/g, " ").trim().slice(0, max);
 }
 
-/** `STEP: n/m text` lines the helper's scripts print, for the progress list. */
-export function parseSteps(output: string): { n: number; m: number; text: string }[] {
-  const steps: { n: number; m: number; text: string }[] = [];
+interface OpsStep {
+  n: number;
+  m: number;
+  text: string;
+  /** Seconds since the request began; absent where the helper's line is missing or malformed. */
+  at?: number;
+}
+/** The most steps a request keeps, from the final report and from `ops progress` alike. */
+export const MAX_STEPS = 20;
+const STEP_LINE = /^STEP:\s*(\d{1,2})\/(\d{1,2})\s+(.{1,100})$/;
+const STEP_AT_LINE = /^STEP-AT:\s*(\d{1,2})\/(\d{1,2})\s+(\d{1,6})$/;
+
+/** The one check of a step: `STEP: n/m text`, as the helper's scripts print it and as `ops progress` is given it. */
+function parseStepLine(line: string): OpsStep | null {
+  const hit = STEP_LINE.exec(line.trim());
+  return hit ? { n: Number(hit[1]), m: Number(hit[2]), text: hit[3]!.trim() } : null;
+}
+
+/** The step `ops progress` was given: exactly n, m and text, through the same check as a line of the report. */
+export function parseStepObject(v: unknown): OpsStep | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (Object.keys(o).sort().join() !== "m,n,text" || typeof o.text !== "string" || !Number.isInteger(o.n) || !Number.isInteger(o.m)) return null;
+  return parseStepLine(`STEP: ${o.n}/${o.m} ${o.text}`);
+}
+
+/** `STEP: n/m text` lines the helper's scripts print, for the progress list. A `STEP-AT: n/m seconds` line right after a step gives its `at`. */
+export function parseSteps(output: string): OpsStep[] {
+  const steps: OpsStep[] = [];
+  let last: OpsStep | null = null;
   for (const line of output.split("\n")) {
-    const hit = /^STEP:\s*(\d{1,2})\/(\d{1,2})\s+(.{1,100})$/.exec(line.trim());
-    if (hit && steps.length < 20) steps.push({ n: Number(hit[1]), m: Number(hit[2]), text: hit[3]!.trim() });
+    const at = STEP_AT_LINE.exec(line.trim());
+    if (at && last && last.n === Number(at[1]) && last.m === Number(at[2])) last.at = Number(at[3]);
+    last = null;
+    if (at) continue;
+    const step = parseStepLine(line);
+    if (step && steps.length < MAX_STEPS) steps.push((last = step));
   }
   return steps;
 }

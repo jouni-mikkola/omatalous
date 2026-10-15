@@ -42,6 +42,7 @@ write_check_frag() {
   local cur avail=false ver commits="" n=0 line hash subj
   if [[ $CHECK_MODE == release ]]; then
     ver=${REL_TAG#v}; cur=$(current_version || true); [[ -n $cur ]] && semver_gt "$ver" "$cur" && avail=true
+    if [[ $avail == true ]] && taken_back_holds "$ver"; then avail=false; say_log "Version $ver was taken back less than a day ago: not offered yet."; fi
     printf '"update_available":%s,"latest_version":"%s","release_notes":%s,"checked_at":"%s"' "$avail" "$ver" "$(json_str "$REL_NOTES")" "$(now_iso)" >"$OPS/check.frag"
     say_log "Latest release: $ver, running: ${cur:-?}."
   else
@@ -49,6 +50,7 @@ write_check_frag() {
       hash=${line%% *}; subj=${line#* }; [[ $hash =~ ^[0-9a-f]{4,40}$ ]] || continue
       commits+="${commits:+,}{\"hash\":\"$hash\",\"subject\":$(json_str "${subj:0:100}")}"; n=$((n + 1))
     done < <(git log --format='%h %s' -30 "HEAD..origin/$(pol_get BRANCH)" 2>/dev/null | tr -d '\000-\010\013-\037\177')
+    if ((n > 0)) && taken_back_holds "" "$(git rev-parse --verify -q "refs/remotes/origin/$(pol_get BRANCH)" 2>/dev/null)"; then n=0; commits=""; say_log "This change was taken back less than a day ago: not offered yet."; fi
     ((n > 0)) && avail=true
     printf '"update_available":%s,"behind_commits":[%s],"checked_at":"%s"' "$avail" "$commits" "$(now_iso)" >"$OPS/check.frag"
     say_log "Source channel: ${n} new changes."
@@ -88,7 +90,7 @@ check_update() {
 # setting stands and the daily check is due again at the next idle tick.
 act_prerelease() { # act_prerelease yes|no
   local want=$1 rc=0 mode=latest
-  echo "STEP: 1/2 Tallennetaan asetus" >>"$LOGF"
+  step_say "1/2 Tallennetaan asetus"
   [[ -f .env ]] || { fail "Asennuksen .env-tiedostoa ei ole. Mitään ei muutettu."; return; }
   if ! env_check; then say_log ".env is invalid: $ENV_ERR."; fail "Tiedosto .env ei ole kelvollinen. Mitään ei muutettu."; return; fi
   if [[ $(env_get TALOUS_CHANNEL) == source ]]; then fail "Tämä asennus päivittyy lähdekoodista eikä julkaistuista versioista. Mitään ei muutettu."; return; fi
@@ -104,7 +106,7 @@ act_prerelease() { # act_prerelease yes|no
     return
   fi
   say_log "TALOUS_PRERELEASE=$want is the setting in .env."
-  echo "STEP: 2/2 Tarkistetaan uusi versio" >>"$LOGF"
+  step_say "2/2 Tarkistetaan uusi versio"
   if [[ $want == yes ]]; then SUMMARY="Uudet versiot tarjotaan heti."; else SUMMARY="Uudet versiot tarjotaan kaksi päivää julkaisun jälkeen."; fi
   if check_update; then [[ $UPDATE_AVAILABLE != true ]] || SUMMARY+=" Uusi versio on saatavilla."
   else rm -f "$OPS/last-check"; SUMMARY+=" Uutta versiota ei voitu tarkistaa."; fi

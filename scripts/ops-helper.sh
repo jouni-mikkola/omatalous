@@ -48,7 +48,7 @@ if [[ ${TALOUS_OPS_CLEAN:-} != 1 ]]; then
   # test hooks, only when a test asks for them
   if [[ ${OPS_TEST:-} == 1 ]]; then
     clean+=(OPS_TEST=1 PATH="$PATH")
-    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS OPS_T_SELFTEST OPS_T_ADDRESS OPS_T_WAKE OPS_T_WAKEEND; do
+    for v in OPS_STUB_DIR OPS_T_UPDATE OPS_T_ROLLBACK OPS_T_BACKUP OPS_T_RESTART OPS_T_DOCTOR OPS_T_CHECK OPS_T_LOGS OPS_T_PRUNE OPS_T_RENEW OPS_T_ACCESS OPS_T_SELFTEST OPS_T_ADDRESS OPS_T_WAKE OPS_T_WAKEEND OPS_T_PROGRESS; do
       [[ -z ${!v:-} ]] || clean+=("$v=${!v}")
     done
   fi
@@ -77,13 +77,23 @@ NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
 t_for() { local v=OPS_T_$2; if [[ ${OPS_TEST:-} == 1 && -n ${!v:-} ]]; then echo "${!v}"; else echo "$1"; fi; }
-T_UPDATE=$(t_for 1200 UPDATE); T_BACKUP=$(t_for 300 BACKUP)
-T_RESTART=$(t_for 180 RESTART); T_DOCTOR=$(t_for 120 DOCTOR)
+T_UPDATE=$(t_for 1200 UPDATE)
+# shellcheck disable=SC2034 # read by act_backup (lib/ops-actions.sh)
+T_BACKUP=$(t_for 300 BACKUP)
+# shellcheck disable=SC2034 # read by act_restart (lib/ops-actions.sh)
+T_RESTART=$(t_for 180 RESTART)
+# shellcheck disable=SC2034 # read by run_doctor (lib/ops-actions.sh)
+T_DOCTOR=$(t_for 120 DOCTOR)
 # shellcheck disable=SC2034 # read by fetch_release and check_update (lib/ops-release.sh)
 T_CHECK=$(t_for 60 CHECK)
 # shellcheck disable=SC2034 # read by rollback_run (lib/ops-watchdog.sh)
 T_ROLLBACK=$(t_for 600 ROLLBACK)
-T_LOGS=$(t_for 60 LOGS); T_PRUNE=$(t_for 300 PRUNE); T_RENEW=$(t_for 120 RENEW)
+# shellcheck disable=SC2034 # read by act_logs (lib/ops-actions.sh)
+T_LOGS=$(t_for 60 LOGS)
+# shellcheck disable=SC2034 # read by act_prune (lib/ops-actions.sh)
+T_PRUNE=$(t_for 300 PRUNE)
+# shellcheck disable=SC2034 # read by act_helper_renew (lib/ops-actions.sh)
+T_RENEW=$(t_for 120 RENEW)
 LOG_CAP=262144
 # what store_result keeps of a log: the last lines and bytes (the logs action holds up to three services)
 KEEP_LINES=200; KEEP_BYTES=16384
@@ -162,7 +172,7 @@ check_permissions() {
 load_libs() {
   local l
   # shellcheck source=/dev/null
-  for l in release selftest watchdog address housekeeping wake; do . "$LIB/ops-$l.sh" || return 1; done
+  for l in release selftest watchdog address housekeeping wake git actions step hourly; do . "$LIB/ops-$l.sh" || return 1; done
   # shellcheck source=lib/ops-access.sh
   ACCESS_LIB=""; . "$LIB/ops-access.sh" 2>/dev/null && ACCESS_LIB=1
   # shellcheck source=/dev/null
@@ -246,80 +256,7 @@ export GIT_CONFIG_COUNT=6 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/de
   GIT_CONFIG_KEY_5=core.askPass GIT_CONFIG_VALUE_5=""
 # Compose reads this file only, never compose.yaml or an override file
 export COMPOSE_FILE=docker-compose.yml
-
-# The remote and branch are the ones fixed at install (ops/policy), not whatever the clone says now.
-git_policy() {
-  local url want_url branch want_branch
-  want_url=$(pol_get REMOTE_URL); want_branch=$(pol_get BRANCH)
-  [[ -n $want_url && -n $want_branch ]] || { GIT_MSG="Ylläpitoapurin asetukset puuttuvat (aja ./scripts/install.sh --ops-helper)"; return 1; }
-  url=$(git remote get-url origin 2>/dev/null || true)
-  [[ $url == "$want_url" ]] || { GIT_MSG="Päivityslähde on muuttunut"; return 1; }
-  case $url in
-    https://* | ssh://* | git@*:*) ;;
-    file://*) [[ ${OPS_TEST:-} == 1 ]] || { GIT_MSG="Päivityslähteen osoite ei ole sallittu"; return 1; } ;;
-    *) GIT_MSG="Päivityslähteen osoite ei ole sallittu"; return 1 ;;
-  esac
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  [[ $branch == "$want_branch" ]] || { GIT_MSG="Päivityslähteen versiolinja on muuttunut"; return 1; }
-  git diff --quiet && git diff --cached --quiet || { GIT_MSG="Asennuskansion tiedostoja on muutettu käsin"; return 1; }
-  return 0
-}
-# Policy check of the docker-compose.yml that is about to be used (R13). Compose itself resolves the file (quoted
-# keys, merges, flow style, long-form mounts), and the resulting JSON is checked against an allowlist. It guards
-# against a privileged container, a host mount or a secret from the host, not against a hostile Dockerfile.
-COMPOSE_JQ='
-  ["banking","caddy","tunnel"] as $names
-  | ["build","cap_drop","command","container_name","depends_on","entrypoint","environment","image","mem_limit","networks","pids_limit","ports","profiles","read_only","restart","security_opt","stop_grace_period","tmpfs","volumes"] as $keys
-  | {"banking":"banking-app:latest","caddy":"caddy:2","tunnel":"cloudflare/cloudflared:latest"} as $images | "^cloudflare/cloudflared:[0-9]{4}[.][0-9]{1,2}[.][0-9]+(@sha256:[0-9a-f]{64})?\\z" as $pin # the tunnel may also be pinned: a cloudflared release tag, with or without its digest
-  | (.volumes // {}) as $named
-  | [
-      (keys_unsorted[] | select(IN("name","services","networks","volumes","x-talous-compat") | not) | "ylätason avain \(.)"),
-      ((.networks // {}) | to_entries[] | select(.key != "default" or (((.value | keys_unsorted) - ["name","ipam"]) | length > 0)) | "verkko \(.key)"),
-      ($named | to_entries[] | select(((.value | keys_unsorted) - ["name"]) | length > 0) | "taltio \(.key)"),
-      ((.services // {}) | to_entries[] | .key as $n | .value as $s
-        | (if ($names | index($n)) then empty else "palvelu \($n)" end),
-          ($s | keys_unsorted[] | select(IN($keys[]) | not) | "\($n): avain \(.)"),
-          (($s.image // "") as $i | if $i == ($images[$n] // "") or ($n == "tunnel" and ($i | test($pin))) then empty else "\($n): image \($s.image)" end),
-          (if $s.entrypoint != null then "\($n): entrypoint" else empty end),
-          (if $s.command != null and ($n != "tunnel" or $s.command != ["tunnel","--no-autoupdate","run"]) then "\($n): command" else empty end),
-          (($s.security_opt // [])[] | select(. != "no-new-privileges:true") | "\($n): security_opt \(.)"),
-          (($s.networks // {}) | keys_unsorted[] | select(. != "default") | "\($n): verkko \(.)"),
-          (($s.tmpfs // [])[] | select((startswith("/tmp:") or . == "/tmp") | not) | "\($n): tmpfs \(.)"),
-          (if $s.build != null and ($n != "banking" or ((($s.build | keys_unsorted) - ["context","dockerfile","args"]) | length > 0) or $s.build.context != $dir or ($s.build.dockerfile // "Dockerfile") != "Dockerfile") then "\($n): build" else empty end),
-          (($s.volumes // [])[]
-            | select(
-                ((.type == "volume") and ((.source // "") as $v | ($named | has($v))) and (((.volume // {}) | keys_unsorted - ["nocopy"]) | length == 0))
-                or ($n == "caddy" and .type == "bind" and .source == ($dir + "/deploy/Caddyfile") and .target == "/etc/caddy/Caddyfile" and .read_only == true)
-                | not)
-            | "\($n): liitos \(.source // .target)"))
-    ] | .[]
-'
-compose_policy_ok() { # compose_policy_ok COMMIT: the commit's compose file, as Compose resolves it
-  local dir out names rc=0
-  command -v jq >/dev/null || { POLICY_MSG="jq puuttuu"; return 1; }
-  # other files Compose or .env would read next to it
-  names=$(git ls-tree --name-only "$1" 2>/dev/null) || { POLICY_MSG="versiota ei löydy"; return 1; }
-  if grep -qiE '^(compose\.ya?ml|docker-compose\.yaml|\.env|.*override.*)$' <<<"$names"; then POLICY_MSG="ylimääräinen asetustiedosto"; return 1; fi
-  dir=$(mktemp -d "$OPS/run/policy.XXXXXX") || { POLICY_MSG="väliaikaiskansio puuttuu"; return 1; }
-  dir=$(cd "$dir" && pwd -P)
-  git show "$1:docker-compose.yml" >"$dir/docker-compose.yml" 2>/dev/null || { rm -rf "$dir"; POLICY_MSG="docker-compose.yml puuttuu"; return 1; }
-  out=$(cd "$dir" && timeout 30 env -i PATH="$PATH" HOME="${HOME:-/}" docker compose -f docker-compose.yml --env-file /dev/null --profile '*' config --format json 2>/dev/null) || rc=$?
-  if ((rc != 0)) || [[ -z $out ]]; then rm -rf "$dir"; POLICY_MSG="asetustiedostoa ei voi lukea"; return 1; fi
-  POLICY_MSG=$(jq -r --arg dir "$dir" "$COMPOSE_JQ" <<<"$out" 2>&1 | head -3 | paste -sd';' -)
-  rm -rf "$dir"
-  [[ -z $POLICY_MSG ]]
-}
-# signers_ok COMMIT: when ops/allowed_signers exists, every commit between HEAD and COMMIT must be signed by one
-# of its keys (a signed tip vouches only for itself). The file is the one fixed at install, never the checkout's.
-signers_ok() {
-  [[ -f $OPS/allowed_signers ]] || return 0
-  local c n=0
-  while IFS= read -r c; do
-    n=$((n + 1)); ((n <= 200)) || return 1
-    git -c gpg.format=ssh -c "gpg.ssh.allowedSignersFile=$ROOT/$OPS/allowed_signers" verify-commit "$c" >/dev/null 2>&1 || return 1
-  done < <(git rev-list "HEAD..$1" 2>/dev/null)
-  ((n > 0))
-}
+# git_policy, compose_policy_ok (with COMPOSE_JQ) and signers_ok, the checks of an update, are in scripts/lib/ops-git.sh (load_libs)
 
 # ── journal and reporting ───────────────────────────────────────────────────
 done_ids() { local f; for f in $(ls -t "$OPS"/journal/op_*.json 2>/dev/null | head -50); do f=${f##*/}; printf '%s\n' "${f%.json}"; done | paste -sd, -; }
@@ -417,14 +354,14 @@ fail() { STATUS=failed; RC=${2:-1}; SUMMARY=$1; }
 # version. It returns 1 when the app is left down. RECOVER_VERSION is the version that answers when that is not BEFORE.
 
 act_check_update() {
-  echo "STEP: 1/1 Tarkistetaan uusi versio" >>"$LOGF"
+  step_say "1/1 Tarkistetaan uusi versio"
   if check_update; then
     if [[ $UPDATE_AVAILABLE == true ]]; then SUMMARY="Uusi versio on saatavilla."; else SUMMARY="Uusin versio on käytössä."; fi
   else fail "Uutta versiota ei voitu tarkistaa."; fi
 }
 act_update() {
   local before after
-  echo "STEP: 1/4 Tarkistetaan" >>"$LOGF"
+  step_say "1/4 Tarkistetaan"
   check_disk || { fail "$DISK_MSG"; return; }
   git_policy || { fail "$GIT_MSG"; return; }
   before=$(current_version || true)
@@ -452,15 +389,15 @@ act_update() {
   compose_policy_ok "$target" || { fail "Uuden version asetukset eivät täytä turvasääntöjä (${POLICY_MSG:-?}). Mikään ei muuttunut."; return; }
   # update.sh installs exactly this commit and does not fetch or choose anything itself
   export TALOUS_TARGET=$target TALOUS_MODE=$CHECK_MODE
-  echo "STEP: 2/4 Haetaan ja vaihdetaan versio" >>"$LOGF"
+  step_say "2/4 Haetaan ja vaihdetaan versio"
   # TALOUS_DEADLINE: when this run ends the update, so that its wait for the new version stays inside the timeout
   if TALOUS_DEADLINE=$(($(date +%s) + T_UPDATE)) run_cap "$T_UPDATE" ./scripts/update.sh --yes; then
-    echo "STEP: 3/4 Tarkistetaan että sovellus vastaa" >>"$LOGF"
+    step_say "3/4 Tarkistetaan että sovellus vastaa"
     if wait_healthy 15; then
-      echo "STEP: 4/4 Valmis" >>"$LOGF"
+      step_say "4/4 Valmis"
       after=$(current_version || true)
       SUMMARY="Päivitetty: ${before:-?} → ${after:-?}."
-      write_check_frag   # the answer from before the switch says "available", and nothing fetches again until the daily check
+      write_check_frag   # the answer from before the switch says "available", and nothing fetches again until the next check (within the hour)
       rm -f "$OPS/watchdog.frag"   # the report of an earlier rollback is old news once an update has gone through (watchdog_report)
       after_update_check   # lib/ops-selftest.sh: no arguments; it may call fail and change SUMMARY
     else
@@ -482,113 +419,24 @@ act_update() {
   fi
 }
 act_rollback() {
-  echo "STEP: 1/2 Palautetaan edellinen versio" >>"$LOGF"
-  if rollback_run look "STEP: 2/2 Tarkistetaan että sovellus vastaa"; then
+  step_say "1/2 Palautetaan edellinen versio"
+  if rollback_run look "2/2 Tarkistetaan että sovellus vastaa"; then
     SUMMARY="Edellinen versio palautettu: $(current_version || echo '?')."; rm -f "$OPS/check.frag" "$OPS/last-check"
   elif ((ROLLBACK_RC == 0)); then fail "Palautettu sovellus ei vastaa."
   else fail "Palautus ei onnistunut. Syy on lokissa." "$ROLLBACK_RC"; fi
 }
-act_backup() {
-  local stamp
-  echo "STEP: 1/2 Varmuuskopio kansioon backups" >>"$LOGF"
-  check_disk || { fail "$DISK_MSG"; return; }
-  run_cap "$T_BACKUP" ./scripts/backup.sh || { RC=$?; fail "Varmuuskopio ei onnistunut. Syy on lokissa." "$RC"; return; }
-  # one more copy inside the data volume, where the page can offer it for download
-  echo "STEP: 2/2 Kopio sovelluksen omaan kansioon" >>"$LOGF"
-  stamp=$(date -u +%Y%m%dT%H%M%SZ)
-  # the copy is checked after it is written and removed when it fails (scripts/lib/dbcopy.sh)
-  if run_cap "$T_BACKUP" docker compose exec -T banking "${NODE[@]}" -e "$DBCOPY_JS" 'keep:^manual-[0-9TZ]+\.db$' "/data/backups/manual-$stamp.db"; then :
-  else fail "Kopio sovelluksen omaan kansioon ei onnistunut."; return; fi
-  write_backups_frag
-  SUMMARY="Varmuuskopio otettu."
-}
-act_restart() {
-  echo "STEP: 1/2 Käynnistetään sovellus uudelleen" >>"$LOGF"
-  run_cap "$T_RESTART" docker compose restart banking || { RC=$?; fail "Uudelleenkäynnistys ei onnistunut." "$RC"; return; }
-  echo "STEP: 2/2 Odotetaan että sovellus vastaa" >>"$LOGF"
-  if wait_healthy 45; then SUMMARY="Sovellus käynnistyi uudelleen."; else fail "Sovellus ei vastaa uudelleenkäynnistyksen jälkeen."; fi
-}
-# Runs doctor.sh --json and keeps its answer for the page. Exit 1 and 2 mean findings, not a failed run.
-run_doctor() {
-  local out rc=0
-  out=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json 2>/dev/null | head -c 60000) || rc=$?
-  if [[ $out =~ ^\{\"at\":\"[0-9TZ:.-]+\",\"items\":\[.*\]\}$ && $out != *$'\n'* ]]; then
-    printf '"doctor":%s' "$out" >"$OPS/doctor.frag"
-    DOCTOR_PROBLEMS=$(grep -o '"level":"error"' <<<"$out" | wc -l); DOCTOR_WARNINGS=$(grep -o '"level":"warn"' <<<"$out" | wc -l)
-    return 0
-  fi
-  return 1
-}
-act_doctor() {
-  echo "STEP: 1/1 Tarkistetaan asennus" >>"$LOGF"
-  if run_doctor; then
-    if ((DOCTOR_PROBLEMS > 0)); then SUMMARY="Tarkistus: $DOCTOR_PROBLEMS ongelmaa, $DOCTOR_WARNINGS varoitusta."
-    elif ((DOCTOR_WARNINGS > 0)); then SUMMARY="Tarkistus: ei ongelmia, $DOCTOR_WARNINGS varoitusta."
-    else SUMMARY="Tarkistus: kaikki kunnossa."; fi
-  else fail "Tarkistus ei onnistunut."; fi
-}
-
-# The last 100 lines of each running service of this install. Redaction happens in store_result (scrub_out) and in the app.
-act_logs() {
-  local svc shown=""
-  echo "STEP: 1/1 Luetaan palvelujen lokit" >>"$LOGF"
-  KEEP_LINES=320; KEEP_BYTES=49152
-  for svc in banking caddy tunnel; do
-    [[ -n $(timeout 20 docker compose ps --status running -q "$svc" 2>/dev/null) ]] || continue
-    printf '== %s ==\n' "$svc" >>"$LOGF"
-    run_cap "$T_LOGS" docker compose logs --no-color --tail 100 "$svc" || { RC=$?; fail "Lokien luku ei onnistunut (palvelu $svc)." "$RC"; return; }
-    shown+="${shown:+, }$svc"
-  done
-  SUMMARY="Luettu: $shown."
-}
-# "Total reclaimed space: 1.2GB" from a prune's output, in Finnish units for the summary
-reclaimed() { # reclaimed TEXT
-  local v
-  v=$(sed -n 's/^Total reclaimed space: *//p' <<<"$1" | tail -1 | tr -cd '0-9.A-Za-z' | head -c 12)
-  [[ $v =~ ^[0-9.]+(B|kB|MB|GB|TB)$ ]] || v=0B
-  v=${v/./,}
-  sed -E 's/([0-9])(TB|GB|MB|kB|B)$/\1 \2/; s/ TB$/ Tt/; s/ GB$/ Gt/; s/ MB$/ Mt/; s/ kB$/ kt/; s/ B$/ t/' <<<"$v"
-}
-# Fixed commands only. docker image prune -f without -a removes images that have no tag at all, and
-# builder prune -f the build cache, so this install's :latest and :previous (which update.sh and rollback
-# need) are never candidates. They are checked before and after anyway. `act_prune own` (the housekeeping, lib/ops-housekeeping.sh)
-# takes only the untagged images that carry this app's label talous.version, and leaves the build cache and other software alone.
-image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
-# shellcheck disable=SC2120 # "own" is passed by housekeeping (lib/ops-housekeeping.sh)
-act_prune() {
-  local start imgs cache="" id_latest id_prev own=(); [[ ${1:-} == own ]] && own=(--filter label=talous.version)
-  id_latest=$(image_id "$INSTANCE:latest"); id_prev=$(image_id "$INSTANCE:previous")
-  echo "STEP: 1/2 Poistetaan vanhat versiot" >>"$LOGF"
-  start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
-  run_cap "$T_PRUNE" docker image prune -f ${own[@]+"${own[@]}"} || { RC=$?; fail "Kuvien siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
-  imgs=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
-  if [[ ${1:-} != own ]]; then
-    echo "STEP: 2/2 Tyhjennetään välimuisti" >>"$LOGF"
-    start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
-    run_cap "$T_PRUNE" docker builder prune -f || { RC=$?; fail "Välimuistin siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
-    cache=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
-  fi
-  if [[ $(image_id "$INSTANCE:latest") != "$id_latest" || $(image_id "$INSTANCE:previous") != "$id_prev" ]]; then
-    fail "Siivous poisti version, jonka piti jäädä."; return
-  fi
-  if [[ $imgs == "0 t" && ${cache:-0 t} == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Levyltä vapautui $imgs vanhoista versioista${cache:+ ja $cache välimuistista}."; fi
-}
-# The script schedule and the policy are installed again from this clone, with fixed arguments. Without
-# --ops-policy an existing policy (remote, branch, docker) is kept, so a changed remote is not adopted here.
-act_helper_renew() {
-  echo "STEP: 1/1 Asennetaan apuri uudelleen tästä kansiosta" >>"$LOGF"
-  if run_cap "$T_RENEW" ./scripts/install.sh --ops-helper; then SUMMARY="Apuri asennettu uudelleen."; else RC=$?; fail "Apurin uusinta ei onnistunut. Syy on lokissa." "$RC"; fi
-}
+# backup, restart, doctor, logs, prune and helper-renew (act_backup ... act_helper_renew) are in scripts/lib/ops-actions.sh (load_libs)
 # the change of remote access the app prepared, checked there (access_apply, lib/ops-access.sh)
 act_access() { if [[ -n ${ACCESS_LIB:-} ]]; then access_apply "$1"; else fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; fi; }
 
 # runs one request that passed validation
+# shellcheck disable=SC2034 # STEP_T0, STEP_OFF and STEP_ID are read by lib/ops-step.sh
 run_request() { # run_request ID ACTION
   local id=$1 action=$2 started
   started=$(now_iso)
   journal_write "$id" "$action" "$started" false   # before anything is done (R20)
   LOGF=$OPS/run/$id.log; : >"$LOGF"; chmod 600 "$LOGF"
-  SUMMARY=""; STATUS=ok; RC=0; KEEP_LINES=200; KEEP_BYTES=16384
+  SUMMARY=""; STATUS=ok; RC=0; KEEP_LINES=200; KEEP_BYTES=16384; STEP_T0=$SECONDS; STEP_OFF=0; STEP_ID=$id # lib/ops-step.sh
   log "request $id: $action"
   case $action in
     update) act_update ;;
@@ -607,7 +455,7 @@ run_request() { # run_request ID ACTION
   esac
   [[ -n $SUMMARY ]] || SUMMARY=$([[ $STATUS == ok ]] && echo "Valmis." || echo "Epäonnistui.")
   store_result "$id" "$STATUS" "$RC" "$SUMMARY" "$LOGF"
-  LOGF=""
+  LOGF=""; STEP_ID=""
   send_report "$id" || log "report $id is left waiting (the app does not respond)"
 }
 
@@ -638,21 +486,21 @@ reconcile() {
     send_report "$id" || true
   done
 }
-# every 10th tick, and the first after boot, a snapshot; once a day the version check and doctor
+# every 10th tick, and the first after boot, a snapshot; once a day the doctor and the housekeeping, once an hour the version check (lib/ops-hourly.sh)
 heartbeat() {
-  local n boot old_boot stale=false
+  local n boot old_boot stale=false fresh=false
   n=$(cat "$OPS/tick" 2>/dev/null || echo 0); [[ $n =~ ^[0-9]+$ ]] || n=0
   n=$((n + 1)); printf '%s\n' "$n" >"$OPS/tick"
   # the helper's version is part of the mark: the first tick of a renewed helper sends its snapshot, with the fields it adds
   boot="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo none) $OPS_HELPER_VERSION"; old_boot=$(cat "$OPS/boot_id" 2>/dev/null || true)
   if [[ ! -f $OPS/last-check ]] || [[ -n $(find "$OPS/last-check" -mmin +1440 2>/dev/null) ]]; then stale=true; fi
   if [[ $stale == true ]]; then
-    if check_update >/dev/null 2>&1; then touch "$OPS/last-check"; else touch -d '23 hours ago' "$OPS/last-check" 2>/dev/null || touch "$OPS/last-check"; fi
+    if held_check; then touch "$OPS/last-check"; else touch -d '23 hours ago' "$OPS/last-check" 2>/dev/null || touch "$OPS/last-check"; fi
     run_doctor || true
     write_backups_frag
     housekeeping   # lib/ops-housekeeping.sh: no arguments
-  fi
-  if ((n % 10 == 0)) || [[ $boot != "$old_boot" ]] || [[ $stale == true ]]; then
+  elif hourly_due; then held_check && fresh=true; fi # an hourly check that found an answer is sent at once
+  if ((n % 10 == 0)) || [[ $boot != "$old_boot" ]] || [[ $stale == true || $fresh == true ]]; then
     printf '%s\n' "$boot" >"$OPS/boot_id"
     send_state
   fi

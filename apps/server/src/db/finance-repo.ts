@@ -10,6 +10,7 @@
  */
 import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, Loan, MarkKind, Transaction } from "@banking/core";
 import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
+import { BalanceRecordRepo } from "./finance/balance-record.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
@@ -34,6 +35,7 @@ export { bankSignature, type StoredParty, searchText } from "./finance/transacti
 
 export class FinanceRepo {
   private readonly accounts: AccountsRepo;
+  private readonly balanceRecord: BalanceRecordRepo;
   private readonly connections: ConnectionsRepo;
   private readonly transactions: TransactionsRepo;
   private readonly list: TransactionListRepo;
@@ -51,6 +53,7 @@ export class FinanceRepo {
   ) {
     const ctx: FinanceContext = { db, userId };
     this.accounts = new AccountsRepo(ctx);
+    this.balanceRecord = new BalanceRecordRepo(ctx);
     this.connections = new ConnectionsRepo(ctx);
     this.transactions = new TransactionsRepo(ctx);
     this.list = new TransactionListRepo(ctx);
@@ -74,6 +77,10 @@ export class FinanceRepo {
   mergeAccountInto(from: string, to: string, newIds: ReadonlyMap<string, string>) { return this.accounts.mergeAccountInto(from, to, newIds); }
   setAccountBalance(id: string, cents: number, at: string) { return this.accounts.setAccountBalance(id, cents, at); }
   negateLoanBalances() { return this.accounts.negateLoanBalances(); }
+  recordBalances(...args: Parameters<BalanceRecordRepo["recordBalances"]>) { return this.balanceRecord.recordBalances(...args); }
+  seedBalancesFromAccounts() { return this.balanceRecord.seedBalancesFromAccounts(); }
+  recordHistory(...args: Parameters<BalanceRecordRepo["recordHistory"]>) { return this.balanceRecord.recordHistory(...args); }
+  recordFetch(...args: Parameters<BalanceRecordRepo["recordFetch"]>) { return this.balanceRecord.recordFetch(...args); }
   markAccountSynced(id: string, at: string) { return this.accounts.markAccountSynced(id, at); }
   deleteProviderData(provider: string) { return this.accounts.deleteProviderData(provider); }
 

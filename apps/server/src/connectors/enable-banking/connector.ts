@@ -95,8 +95,9 @@ async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller>
     async balance(account) {
       const balances = await client.balances(account.externalId, userHeaders);
       logLinkedAccount(s, account.externalId, balances);
-      const balance = pickBalance(balances);
-      return balance ? balanceReading(balance) : null;
+      // every balance the bank sent, the one it shows first
+      const shown = pickBalance(balances);
+      return [...(shown ? [shown] : []), ...balances.filter((b) => b !== shown)].flatMap((b) => balanceReading(b) ?? []);
     },
     async details(account) {
       return accountDetails(await client.accountDetails(account.externalId));

@@ -129,6 +129,7 @@ t_watchdog_report() {
   check "report: its detail names both versions" test "$(jq -r '.doctor.items[0].detail' "$S/state.last")" = "Ylläpitoapuri vaihtoi itse version 0.2.0 takaisin versioon 0.1.0. Rivi poistuu seuraavassa tarkistuksessa."
   check "report: its hint names the log on the host" test "$(jq -r '.doctor.items[0].hint' "$S/state.last")" = "Loki ajalta ennen palautusta on palvelimella: ops/run/watchdog-$AT0.log"
   check "report: doctor's own items stay after it" test "$(jq -r '[.doctor.items[].id] | join(" ")' "$S/state.last")" = "watchdog x-1"
+  check "report: the rollback marks the version it took back, for the heartbeat's checks" grep -qE '^[0-9]+ 0\.2\.0 ' "$CL/ops/taken-back"
   check "report: the answer about a new version from before the rollback is not sent" bash -c "! grep -q update_available '$S/state.last'"
   # the files on disk are the previous release's now, so the tick ends with the state
   check "report: the tick of the rollback takes no request" test "$(n_calls '^backup.sh ran')" = 0

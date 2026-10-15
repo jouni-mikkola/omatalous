@@ -3,8 +3,8 @@ name: CI
 # shell, js, e2e and docker run side by side. ci-ok is the one check that says whether all of them passed, so a job
 # added or renamed here changes nothing outside this file.
 #
-# The public repository runs CI on every push, which is free. The private one pays for its minutes, so a push there
-# skips every job, ci-ok included. It runs CI on a pull request and by hand (workflow_dispatch). A release there starts
+# The public repository runs CI on every push and pull request, which is free. The private one pays for its minutes, so
+# a push or pull request there skips every job, ci-ok included. It runs CI only by hand (workflow_dispatch). A release there starts
 # it only when it is asked for a clean runner: it runs the same checks and tools/ci/local-proof.sh (the image, the
 # smoke test and the upgrade rehearsal) on its own machine, and the public repository runs all of this file again for
 # free when the release is published. A change has passed the same checks locally before it lands.
@@ -19,7 +19,7 @@ permissions:
 
 # A newer push to a branch or pull request makes the older run pointless, so it is cancelled. Every push to main runs
 # to the end: the run id in its group name keeps two pushes from queueing behind each other, where GitHub would drop
-# the older one. The event is in the name too: in the private repository a push to the branch starts a skipped run that
+# the older one. The event is in the name too: in the private repository a push to the branch starts a run that ends at once that
 # would otherwise cancel the dispatched run of the same branch.
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   shell:
     # no Node: the checks that need no install run first and fastest
-    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -53,7 +53,7 @@ jobs:
           done
 
   js:
-    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -80,7 +80,7 @@ jobs:
 
   e2e:
     # the built app in a real browser: every page at desktop and phone width, no console or network errors
-    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -98,7 +98,7 @@ jobs:
       - run: pnpm e2e
 
   docker:
-    if: ${{ github.event_name != 'push' || !github.event.repository.private }}
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -169,8 +169,8 @@ jobs:
           INSTANCE_NAME=ci-b COMPOSE_PROJECT_NAME=ci-b HOST_PORT=8082 docker compose down -v
 
   ci-ok:
-    # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (a private push).
-    if: ${{ always() && (github.event_name != 'push' || !github.event.repository.private) }}
+    # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (the private repo).
+    if: ${{ always() && (github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch') }}
     needs: [shell, js, e2e, docker]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
