@@ -1,12 +1,12 @@
 import type { AccountType, RawTransaction } from "@banking/core";
-import type { AccountDetails } from "../types.ts";
+import type { AccountDetails, BalanceReading } from "../types.ts";
 import type { EbAccount, EbBalance, EbTransaction } from "./types.ts";
 
 /**
  * "12.50", "-12.5", "12,50" → cents, read from the digits so no float error creeps in. Null when the text is
  * not a plain decimal number: a made-up amount is worse than a missing row.
  */
-export function amountToCents(amount: string): number | null {
+function amountToCents(amount: string): number | null {
   const m = /^\s*([+-])?(\d{1,13})(?:[.,](\d+))?\s*$/.exec(String(amount));
   if (!m) return null;
   const fraction = (m[3] ?? "").padEnd(3, "0");
@@ -152,6 +152,21 @@ export function creditLimitCents(a: EbAccount): number | null {
 /** What an account resource says about the account itself: the name, the holder, a card's number and a limit. */
 export function accountDetails(a: EbAccount): AccountDetails {
   return { name: nameOf(a), holder: accountHolder(a), cardMask: cardMask(a), creditLimitCents: creditLimitCents(a) };
+}
+
+/**
+ * A balance with what says what it is: its code as sent, the day the bank says it stands for (null when it sends none or
+ * something that is no date) and its currency in upper case. Null when the amount is no number.
+ */
+export function balanceReading(b: EbBalance): BalanceReading | null {
+  const cents = amountToCents(b.balance_amount.amount);
+  if (cents === null) return null;
+  return {
+    cents,
+    type: b.balance_type?.trim() || null,
+    referenceDay: bankDate(b.reference_date),
+    currency: b.balance_amount.currency?.trim().toUpperCase() || null,
+  };
 }
 
 /** Prefers booked/closing balance types, falls back to whatever the bank gives. */

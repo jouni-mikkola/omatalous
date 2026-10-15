@@ -7,7 +7,7 @@
 import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, parseEuros } from "../../format.ts";
+import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, moneyIn, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 import { isJoint, namesOther, optionsOf } from "./account-use.ts";
@@ -147,7 +147,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                   </td>
                   <td className="acc-type">{type}</td>
                   {showUse && <td className="acc-use">{users}</td>}
-                  <td className="num">{a.balanceCents === null ? "–" : money(a.balanceCents)}</td>
+                  <td className="num">{a.balanceCents === null ? "–" : moneyIn(a.balanceCents, a.currency)}</td>
                   <td className="num">
                     {editing !== a.id && (
                       <button className="btn btn-small" type="button" onClick={() => setEditing(a.id)} aria-label={`Muokkaa tiliä ${a.name}`}>

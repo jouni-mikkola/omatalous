@@ -111,4 +111,18 @@ describe("loan proposals", () => {
     expect(await t.proposals()).toEqual([]);
     expect((await t.proposals(pekka)).map((p) => p.key)).toEqual([mine!.key]);
   });
+
+  it("names on the front page, in either view, only what the list of proposals shows", async () => {
+    const t = await withLoanRows();
+    const named = async (scope: string) => {
+      const items = (await t.admin.call("GET", `/api/dashboard?scope=${scope}`)).body.questions.items as { kind: string; key?: string }[];
+      return items.filter((i) => i.kind === "loan").map((i) => i.key);
+    };
+    const [proposal] = await t.proposals();
+    expect(await named("own")).toEqual([proposal!.key]);
+    expect(await named("household")).toEqual([proposal!.key]);
+    const { subject, mark } = notLoanMark({ key: proposal!.key });
+    await t.admin.call("PUT", "/api/marks", { subject, mark });
+    expect(await named("household")).toEqual([]);
+  });
 });

@@ -42,6 +42,7 @@ import {
   type Transaction,
   userNameOf,
 } from "@banking/core";
+import { isEuro } from "../connectors/balance-sign.ts";
 import { type AnswerRow, accountKey, type PartRow } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
@@ -196,7 +197,8 @@ function prepare(h: Household, key: string): Prepared | null {
     const account = h.accounts.find((a) => a.id === joined.accountId)!;
     const mine = new Set((h.byKey.get(key) ?? []).map((a) => a.id));
     const others = h.accounts.filter((a) => !mine.has(a.id)).flatMap((a) => (h.rows.get(a.id) ?? []).filter((t) => t.status !== "pending"));
-    if (account.balanceCents !== null && joined.rows.some((r) => !r.unmatched && r.tx.status !== "pending")) result = { account, joined, payers: { ...payersOf(h, key), others } };
+    // a balance in another currency is no figure to trace euro rows from
+    if (account.balanceCents !== null && isEuro(account.currency) && joined.rows.some((r) => !r.unmatched && r.tx.status !== "pending")) result = { account, joined, payers: { ...payersOf(h, key), others } };
   }
   h.prepared.set(key, result);
   return result;

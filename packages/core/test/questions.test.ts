@@ -126,6 +126,15 @@ describe("what would mend it most", () => {
     expect(buildQuestions(ctx, range, marked).items.some((i) => i.kind === "loan")).toBe(false);
   });
 
+  it("names the proposals it is given and none it finds itself", () => {
+    const rows: Transaction[] = Array.from({ length: 6 }, (_, i) =>
+      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "AUTORAHOITUS 44512", counterparty: "TOYOTA FINANCE FINLAND OY", merchant: normalizeMerchant("TOYOTA FINANCE FINLAND OY", "AUTORAHOITUS 44512") }),
+    );
+    const ctx = createContext(enrichTransactions([...rows, ...base()], [checking], []), [checking], today);
+    expect(buildQuestions(ctx, range, NO_INPUTS, []).items.some((i) => i.kind === "loan")).toBe(false);
+    expect(buildQuestions(ctx, range, NO_INPUTS).items.some((i) => i.kind === "loan")).toBe(true);
+  });
+
   it("differs by scope where a row is on a member's own account", () => {
     const joint = [...base(), unknownOut(100, "Kioski Oy")];
     const second: Account = { id: "acc-2", name: "Oma", iban: null, currency: "EUR", type: "checking" };

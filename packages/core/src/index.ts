@@ -31,6 +31,7 @@ export * from "./loan-detect.ts";
 export * from "./pipeline.ts";
 export * from "./returns.ts";
 export * from "./analysis/flows.ts";
+export { isCardBill } from "./analysis/data-quality.ts";
 export * from "./analysis/period.ts";
 export * from "./analysis/format.ts";
 export * from "./analysis/context.ts";

@@ -3,6 +3,7 @@ import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { buildHousing, type Housing } from "../housing.ts";
+import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { dataQualityReport, type QualitySignal, spendingBase } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
@@ -118,7 +119,7 @@ function settledTotals(ctx: AnalysisContext, range: DateRange, current: readonly
  * `balances` and `inputs` are what the cached context does not hold: the
  * account balances and the user's marks and expected bills, read per request.
  */
-export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS): DashboardData {
+export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): DashboardData {
   // a running period is compared with the same days of the previous one, or the
   // salary on the 15th makes the first nine days look like a loss of income
   const running = range.from <= ctx.today && ctx.today <= range.to;
@@ -155,7 +156,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
     holdings: buildHoldings(ctx, balances, inputs),
     housing: buildHousing(ctx, balances, inputs),
-    questions: buildQuestions(ctx, range, inputs),
+    questions: buildQuestions(ctx, range, inputs, proposals),
     colorOrder: [...ctx.colorOrder],
   };
 }

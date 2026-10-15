@@ -735,6 +735,7 @@
     "ownerName": null,
     "balanceCents": 787543,
     "balanceAt": "2026-10-09",
+    "foreign": null,
     "mask": "0785",
     "use": {
      "users": [
@@ -755,6 +756,7 @@
     "ownerName": null,
     "balanceCents": 810000,
     "balanceAt": "2026-10-09",
+    "foreign": null,
     "mask": "3458",
     "use": {
      "users": [

@@ -13,7 +13,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { daysBetween, SAME_DEBT_TWICE } from "@banking/core";
 import { query } from "../../api.ts";
 import { logoForInstitution } from "../../banks.ts";
-import { date, money } from "../../format.ts";
+import { date, money, moneyIn } from "../../format.ts";
 import { addsUp, shares } from "../../marks.ts";
 import { partText, typedByText } from "../../part.ts";
 import { LOANS_REPORT_ANCHOR } from "../../routes.ts";
@@ -29,7 +29,8 @@ import "../../styles/holdings.css";
 type Answer = DashboardData["holdings"];
 
 /** A figure of the answer, or the dash for one the bank did not give. */
-const figure = (cents: number | null): string => (cents === null ? "–" : money(cents));
+const figure = (cents: number | null, foreign?: { currency: string; cents: number } | null): string =>
+  foreign ? moneyIn(foreign.cents, foreign.currency) : cents === null ? "–" : money(cents);
 
 /** The line that dates a balance the bank gave more than a day ago; nothing for a fresh one. */
 function sinceLine(balanceAt: string | null, today: string): string | null {
@@ -89,7 +90,8 @@ function Unit({ name, href, mask, lines, note, face, arc, children }: { name: st
 function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { accounts, accountsCents } = holdings;
   const masks = maskedNames(accounts);
-  const missing = accounts.filter((a) => a.balanceCents === null).length;
+  // an account in another currency has a balance: it is shown with its currency and is in no total, so it is not missing
+  const missing = accounts.filter((a) => a.balanceCents === null && !a.foreign).length;
   // the marks assert arithmetic: a bracket when the rows add up to the total, a track on each when each is a part of it
   const parts = accounts.map((a) => a.balanceCents);
   const adds = accountsCents !== null && addsUp(parts, accountsCents);
@@ -113,7 +115,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           return (
             <li key={a.id} className={classes.filter(Boolean).join(" ")} style={track ? ({ "--from": track.at, "--part": track.p } as CSSProperties) : undefined}>
               <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
-              <span className="st-num">{figure(a.balanceCents)}</span>
+              <span className="st-num">{figure(a.balanceCents, a.foreign)}</span>
               {part && <span className="st-sub">{part}</span>}
               {since && <span className="st-sub">{since}</span>}
             </li>

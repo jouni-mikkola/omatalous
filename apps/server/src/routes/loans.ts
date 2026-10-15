@@ -11,7 +11,7 @@ import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
 import { isIsoDate, strictObject } from "../platform/validate.ts";
-import { requestInputs } from "../services/analysis.ts";
+import { proposalsFor, requestInputs } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
 
@@ -188,10 +188,7 @@ export function loanRoutes(s: Services) {
    * at once and moves no data version. A row id, the account and the payment reference stay on the server.
    */
   app.get("/loans/proposals", async (c) => {
-    const userId = c.get("user").id;
-    const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-    const { inputs } = await requestInputs(s, userId, accounts);
-    const proposals = loanProposals(ctx, inputs).map(({ key, payee, paymentCents, months, firstDate, lastDate, kind }) => ({ key, payee, paymentCents, months, firstDate, lastDate, kind }));
+    const proposals = (await proposalsFor(s, c.get("user").id)).map(({ key, payee, paymentCents, months, firstDate, lastDate, kind }) => ({ key, payee, paymentCents, months, firstDate, lastDate, kind }));
     return c.json({ proposals });
   });
 

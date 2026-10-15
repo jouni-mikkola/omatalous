@@ -21,11 +21,14 @@ import {
   isNone,
   isUserOwner,
   isWhole,
+  type LoanProposal,
+  loanProposals,
   type Part,
   partCents,
   type RowShare,
   type UserInputs,
 } from "@banking/core";
+import { isCurrencyCode, isEuro } from "../connectors/balance-sign.ts";
 import type { OwnRows } from "../db/finance-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
@@ -326,11 +329,14 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
   const repo = s.finance(userId);
   const [marks, expectedBills, loans] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts)]);
   const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
+  // The totals and the walks count in euros: an account in another currency tells its balance beside them, never in them.
+  // A balance stored before the currency was kept is the account's currency's: one whose currency is unknown is a dash.
   const balances = accounts.map((a): BalanceInput => ({
     id: a.id,
     name: a.ownerName ? `${a.name} (${a.ownerName})` : a.name,
     type: a.type,
-    balanceCents: a.traced && a.tracedCents !== undefined && a.balanceCents !== null ? a.tracedCents : counted(a.balanceCents, a),
+    balanceCents: !isEuro(a.currency) ? null : a.traced && a.tracedCents !== undefined && a.balanceCents !== null ? a.tracedCents : counted(a.balanceCents, a),
+    ...(!isEuro(a.currency) && isCurrencyCode(a.currency) && a.balanceCents !== null ? { foreign: { currency: a.currency.trim().toUpperCase(), cents: counted(a.balanceCents, a)! } } : {}),
     ownerName: a.ownerName,
     balanceAt: localDay(s, a.balanceAt),
     // another member's account carries no bank, as the account lists leave it out (routes/finance.ts); its mask and limit
@@ -345,6 +351,17 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.traced ? { traced: true as const } : {}),
   }));
   return { balances, inputs: { marks, expectedBills, loans } };
+}
+
+/**
+ * The loans to propose to the viewer: worked out from the viewer's own rows, marks and loans, whatever view a page
+ * is in. The list in Asetukset > Lainat and the question on the front page both read this one, so the front page
+ * names no proposal the list leaves out.
+ */
+export async function proposalsFor(s: Services, userId: string): Promise<LoanProposal[]> {
+  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+  const { inputs } = await requestInputs(s, userId, accounts);
+  return loanProposals(ctx, inputs);
 }
 
 /**

@@ -3,6 +3,30 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.45.0
+
+- A balance in another currency is no longer added to the euro total as euros: an account in dollars shows its balance with its currency on Tilit and stays out of every euro total.
+- Saldot starts from the day the bank's balance refers to, not from the day it was fetched, so the rows between those days are no longer missing from the figure.
+- Linking a bank account to a file account with the same number works again when a row has a split: the split, a category you set and the transfer mark move to the bank's row, and a row the bank already had is no longer kept twice.
+- A card bill row on Tapahtumat says that its purchases are not shown.
+- The front page and Asetukset > Lainat list the same loan proposals.
+
+Money and reports
+
+- An account in another currency than the euro shows its balance with its currency and is no longer added into Tilit yhteensä as euros.
+- Saldot and Tilit walk the balance from the day the bank says it stands for, not from the day it was fetched, so the rows of the days between no longer move the figure.
+
+Fetching and importing
+
+- Linking a bank no longer fails when a file account of the same IBAN has rows with a stored split of who paid: the split moves with the rows.
+- A file account folded into a bank account no longer leaves a second copy of a row the bank account already has: the file copy is dropped.
+- A folded file copy's split and hand-set category (with its transfer flag) move to the bank row that has none of its own.
+
+Look
+
+- A card bill row on Tapahtumat says "Korttilasku: ostot eivät näy".
+- The front page names only the loan proposals that Asetukset > Lainat lists, also in Koko talous.
+
 ## 0.44.0
 
 - A bill paid another way counts as paid everywhere: the year of rare bills keeps its figure when the payment arrives, and a bill whose payment is still pending shows "varaus" after the payee, with the same sum on Yhteenveto and Laskut.

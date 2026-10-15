@@ -1,7 +1,7 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
 import { ACCOUNT_TYPES, type AccountType, buildDashboard, buildReports, CATEGORIES, fromDayNumber, isKnownCategory, KIND_LABEL, partCents, patternProblem, type RuleField } from "@banking/core";
 import { Hono } from "hono";
-import { parseScope, requestInputs, rowsInView, sharedInView, usesWithTraces } from "../services/analysis.ts";
+import { parseScope, proposalsFor, requestInputs, rowsInView, sharedInView, usesWithTraces } from "../services/analysis.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
@@ -109,7 +109,7 @@ export function financeRoutes(s: Services) {
   app.get("/dashboard", async (c) => {
     const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
-    return c.json(buildDashboard(ctx, parseRange(c, s.today()), balances, inputs));
+    return c.json(buildDashboard(ctx, parseRange(c, s.today()), balances, inputs, await proposalsFor(s, c.get("user").id)));
   });
 
   app.get("/reports", async (c) => {

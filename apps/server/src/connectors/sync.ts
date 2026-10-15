@@ -13,7 +13,7 @@ import { connectionState } from "../services/accounts.ts";
 import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
-import { storedBalanceCents } from "./balance-sign.ts";
+import { balanceFitsAccount, balanceStamp, storedBalanceCents } from "./balance-sign.ts";
 import { markRateLimited } from "./bank-limit.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
@@ -180,10 +180,14 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         tally.rowsChanged += r.changed;
 
         const told = await puller.balance(target);
-        if (told !== null) {
-          const cents = storedBalanceCents(account.type, told);
-          if (account.balanceCents !== cents) tally.balanceChanged = true;
-          await repo.setAccountBalance(account.id, cents, s.now().toISOString());
+        // The balance is the account's own money in the account's own currency, or it is not stored: a figure in
+        // another currency would be read as euros, or as this account's.
+        if (told !== null && balanceFitsAccount(told, account.currency)) {
+          const cents = storedBalanceCents(account.type, told.cents);
+          const at = balanceStamp(told, s.now(), today);
+          // the walk starts from the day the balance stands for, so a new day with the same sum is a change as well
+          if (account.balanceCents !== cents || (told.referenceDay !== null && account.balanceAt !== at)) tally.balanceChanged = true;
+          await repo.setAccountBalance(account.id, cents, at);
         }
         await repo.markAccountSynced(account.id, s.now().toISOString());
         setProblem(tally, account.id, null);

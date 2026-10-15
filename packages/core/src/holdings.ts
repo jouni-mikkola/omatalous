@@ -55,6 +55,8 @@ export interface Holdings {
     balanceCents: number | null;
     /** The local day the bank gave the balance, null when unknown. */
     balanceAt: string | null;
+    /** An account not in euros: its balance in its own currency. `balanceCents` is null then, and no total holds it. Null for an account in euros. */
+    foreign: { currency: string; cents: number } | null;
     /** The last four characters of the account number, null when the account has none. The page shows it after the name when two accounts share one. */
     mask: string | null;
   })[];
@@ -134,7 +136,7 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
   const numberOf = new Map(ctx.accounts.map((a) => [a.id, a.iban]));
   const accounts = balances.flatMap((b): Holdings["accounts"] =>
     b.type !== "credit_card" && b.type !== "loan"
-      ? [{ id: b.id, name: b.name, type: b.type, bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt, mask: accountMask(numberOf.get(b.id)), ...usedOf(b) }]
+      ? [{ id: b.id, name: b.name, type: b.type, bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt, foreign: b.foreign ?? null, mask: accountMask(numberOf.get(b.id)), ...usedOf(b) }]
       : [],
   );
 

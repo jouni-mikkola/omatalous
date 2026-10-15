@@ -147,6 +147,11 @@ export interface BalanceInput {
   name: string;
   type: AccountType;
   balanceCents: number | null;
+  /**
+   * The balance of an account that is not in euros, as the bank told it in `currency`. Left out for an account in euros.
+   * Such an account has `balanceCents` null: no euro figure, no walk and no total holds it.
+   */
+  foreign?: { currency: string; cents: number };
   /** The owner's name when the account is shared with the viewer, null for the viewer's own. */
   ownerName: string | null;
   /** The local day the balance was given (YYYY-MM-DD, in the app's time zone), null when unknown. */

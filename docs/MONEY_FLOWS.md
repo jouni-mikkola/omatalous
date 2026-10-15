@@ -412,6 +412,10 @@ accounts*).
   in the order core gives. The last row is *Tilit yhteensä*, `accountsCents`: the known balances of the accounts added
   together. An account the bank gave no balance shows a dash and is left out of the sum, which says so in the small line
   under it (*Ilman 2 tilin saldoa*); with no known balance at all the total is a dash, never 0.
+  The totals count in euros: an account in another currency shows its balance with its currency code (*540,00 USD*)
+  beside them, is in no total and is not counted as missing a balance; one whose currency is not known shows a dash. A
+  balance is stored only in the account's own currency. The day walk starts from the day the bank says the balance
+  stands for (its reference day), and from the day of the fetch when the bank sends none.
 - **Luottokortit.** Each connected credit card has its face at the left of its name and its rows: a card the app draws
   itself, in the tone the card's name gives (gold, platinum, black, silver or plain), with the bank's logo or name, the
   last four digits of the number and the tone's word. *Käytetty luotto* is what is

@@ -55,11 +55,22 @@ export interface AccountDetails {
   creditLimitCents: number | null;
 }
 
+/** What a source says an account holds: the amount with the facts that say what it is a balance of. */
+export interface BalanceReading {
+  cents: number;
+  /** The source's own code for the kind of balance ("CLBD", "ITBD", "OPBD" ...), as sent; null when it names none. */
+  type: string | null;
+  /** The day (YYYY-MM-DD) the source says the balance stands for; null when it sends none. Never guessed from the day of the fetch. */
+  referenceDay: string | null;
+  /** The currency code, upper case, as sent; null when the source names none. */
+  currency: string | null;
+}
+
 /** One sync run's access to a source. Created once per run, after the loop knows there is something to fetch. */
 export interface Puller {
   transactions(account: PullAccount, window: PullWindow): Promise<RawTransaction[]>;
-  /** The balance in cents, or null when the source reports none. */
-  balance(account: PullAccount): Promise<number | null>;
+  /** The balance the source tells for display (its best pick), or null when it reports none. */
+  balance(account: PullAccount): Promise<BalanceReading | null>;
   /** What the source says about the account, for one linked before these fields were stored. May throw: the loop goes on. */
   details?(account: PullAccount): Promise<AccountDetails>;
 }

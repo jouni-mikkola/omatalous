@@ -9,7 +9,7 @@ import type { DashboardData, Meta } from "../src/types.ts";
 type Answer = DashboardData["holdings"];
 const meta = { today: "2026-10-12", accounts: [], bank: { banks: [] } } as unknown as Meta;
 const account = (id: string, name: string, balanceCents: number | null, mask: string | null = null): Answer["accounts"][number] => ({
-  id, name, type: "checking", bank: null, ownerName: null, balanceCents, balanceAt: balanceCents === null ? null : "2026-10-12", mask,
+  id, name, type: "checking", bank: null, ownerName: null, balanceCents, balanceAt: balanceCents === null ? null : "2026-10-12", foreign: null, mask,
 });
 const card = (over: Partial<Answer["cards"][number]> = {}): Answer["cards"][number] => ({
   id: "k1", name: "Esimerkkikortti", bank: null, ownerName: null, mask: null, limitCents: 300_000, usedCents: 0, freeCents: 300_000, overCents: 0, balanceAt: "2026-10-12", ...over,
@@ -52,6 +52,16 @@ describe("Holdings", () => {
       expect(text(one)).toContain("Tilit yhteensä 1 200,50 € Ilman 1 tilin saldoa");
       const two = html(answer({ accounts: [account("a", "Käyttötili", null), account("b", "Säästötili", null)], accountsCents: null }));
       expect(text(two)).toContain("Tilit yhteensä – Ilman 2 tilin saldoa");
+    });
+
+    it("shows an account in another currency with its currency, leaves it out of the total, and does not count it as missing a balance", () => {
+      const usd = { ...account("u", "Dollaritili", null), balanceAt: "2026-10-12", foreign: { currency: "USD", cents: 54_000 } };
+      const markup = html(answer({ accounts: [account("a", "Käyttötili", 120_050), usd], accountsCents: 120_050 }));
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Dollaritili 540,00 USD Tilit yhteensä 1 200,50 €");
+      expect(text(markup)).not.toContain("Ilman");
+      // a EUR account without a balance beside it is still counted as missing, and the dollar one is not
+      const both = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", null), usd], accountsCents: 120_050 }));
+      expect(text(both)).toContain("Tilit yhteensä 1 200,50 € Ilman 1 tilin saldoa");
     });
 
     it("adds the last four characters after the name of accounts that share one, and after no other", () => {

@@ -1,5 +1,5 @@
 import { dayNumber } from "../dates.ts";
-import { loanProposals } from "../loan-detect.ts";
+import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import type { IsoDate, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netSpend } from "./context.ts";
@@ -79,7 +79,7 @@ const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
  * bills. Transfers are no money in or out; a refund lowers the spending it took back, as the reports net it. A payee
  * the household set aside keeps its money in the sums and has no question.
  */
-export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: UserInputs): Questions {
+export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): Questions {
   const toDay = dayNumber(range.to);
   const rows = inDays(ctx, { fromDay: toDay - WINDOW_DAYS + 1, toDay }).filter((t) => t.status === "booked" && !t.isTransfer);
   const dismissed = new Set(inputs.marks.filter((m) => m.mark === "dismissed" && m.subject.startsWith(QUESTION_PAYEE)).map((m) => m.subject.slice(QUESTION_PAYEE.length)));
@@ -110,7 +110,7 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   for (const [kind, groups] of [["payee_out", out], ["payee_in", inn]] as const) {
     for (const [merchant, g] of groups) if (g.cents > 0 && !dismissed.has(merchant)) items.push({ kind, merchant, cents: g.cents, count: g.count, lastDate: g.lastDate });
   }
-  for (const p of loanProposals(ctx, inputs)) items.push({ kind: "loan", key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: 12 * p.paymentCents });
+  for (const p of proposals) items.push({ kind: "loan", key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: 12 * p.paymentCents });
   items.sort((a, b) => b.cents - a.cents || compare(a.kind, b.kind) || compare(nameOf(a), nameOf(b)));
 
   const money = outCents + inCents;

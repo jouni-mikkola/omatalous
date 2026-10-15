@@ -10,6 +10,13 @@ export function money(cents: number, decimals = true): string {
   return (decimals ? eur : eur0).format(cents / 100);
 }
 
+const plain = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** An amount in the account's own currency: 54000 USD → "540,00 USD". The euro keeps its sign (`money`). */
+export function moneyIn(cents: number, currency: string): string {
+  return currency.toUpperCase() === "EUR" ? money(cents) : `${plain.format(cents / 100)} ${currency.toUpperCase()}`;
+}
+
 /** Axis ticks: 150000 → "1 500 €" */
 export function moneyTick(cents: number): string {
   return `${num0.format(cents / 100)} €`;

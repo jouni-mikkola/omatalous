@@ -9,7 +9,7 @@ import type { Services } from "../../services/context.ts";
 import type { Connector, ConnectorContext, PullWindow, Puller, SyncProblem } from "../types.ts";
 import { EnableBankingClient, EnableBankingError } from "./client.ts";
 import { clientFor } from "./credentials.ts";
-import { accountDetails, amountToCents, pickBalance } from "./mapper.ts";
+import { accountDetails, balanceReading, pickBalance } from "./mapper.ts";
 import type { EbAccount, EbBalance } from "./types.ts";
 
 /**
@@ -96,7 +96,7 @@ async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller>
       const balances = await client.balances(account.externalId, userHeaders);
       logLinkedAccount(s, account.externalId, balances);
       const balance = pickBalance(balances);
-      return balance ? amountToCents(balance.balance_amount.amount) : null;
+      return balance ? balanceReading(balance) : null;
     },
     async details(account) {
       return accountDetails(await client.accountDetails(account.externalId));

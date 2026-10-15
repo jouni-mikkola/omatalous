@@ -1,4 +1,4 @@
-import { fold } from "@banking/core";
+import { fold, isCardBill } from "@banking/core";
 import { memo, useSyncExternalStore } from "react";
 import { CategoryPicker } from "../components/CategorySelect.tsx";
 import { date, money } from "../format.ts";
@@ -49,6 +49,10 @@ const bankText = (t: ListedRow): string | null => {
   return parts.length ? parts.join(" · ") : null;
 };
 
+/** The label of a card bill row: the purchases it pays are no rows of Tapahtumat, as the bill is all the account shows. */
+const CARD_BILL_LABEL = "Korttilasku: ostot eivät näy";
+const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
+
 interface RowProps {
   t: ListedRow;
   categories: Category[];
@@ -95,6 +99,7 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
         <a href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>{t.merchant}</a>
         {t.status === "pending" && <span className="badge warn">varaus</span>}
         {t.isTransfer && <span className="badge">oma siirto</span>}
+        {cardBill(t) && <span className="badge">{CARD_BILL_LABEL}</span>}
         <div className="tx-under">
           {text && (
             <span className="tx-text" title={text}>
@@ -132,6 +137,7 @@ export const TxItem = memo(function TxItem(row: RowProps) {
         <a href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>{t.merchant}</a>
         {t.status === "pending" && <span className="badge warn">varaus</span>}
         {t.isTransfer && <span className="badge">oma siirto</span>}
+        {cardBill(t) && <span className="badge">{CARD_BILL_LABEL}</span>}
         <span className={`tx-amount ${t.amountCents > 0 ? "amount-in" : ""}`}>{money(t.amountCents)}</span>
       </div>
       <div className="tx-cat">
