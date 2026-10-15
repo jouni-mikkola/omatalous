@@ -106,6 +106,8 @@ interface Line {
   cents: number;
   /** The app estimates its day and sum: the row carries a ring where a given one carries a disc. */
   estimate: boolean;
+  /** The bill is paid and the bank has not booked the payment yet: the name carries the word Tapahtumat gives such a row. */
+  pending?: boolean;
   /** A pay's sum as the table prints it ("noin 2 480 €", "2 100–2 900 €"), null when the pay has none; a bill's is its cents. */
   sum?: string | null;
 }
@@ -113,7 +115,7 @@ interface Line {
 /** What a row is called: a card is called as Varallisuus calls it, without the type the bank adds in brackets. */
 export const rowName = (r: Row): string => (r.source === "card" ? cardName(r.name) : r.name);
 
-const lineOf = (r: Row): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r) });
+const lineOf = (r: Row): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r), ...(r.pending ? { pending: true } : {}) });
 
 /** The rows of the payments' table, in core's order: by day, the larger of a day first. */
 export const paymentRows = (ahead: Ahead): Row[] => ahead.rows.filter((r) => r.cents < 0);

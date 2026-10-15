@@ -7,6 +7,7 @@ import "../styles/ahead.css";
 import "../styles/statement.css";
 import { type Active, NextDaysLine } from "./NextDaysLine.tsx";
 import { billLine } from "./next-days-line.ts";
+import { PendingPayee } from "./PendingPayee.tsx";
 import { type Ahead, figures, incoming, payNote, payments, paymentsCaption, warning, windowLine } from "./next-days.ts";
 
 type Line = ReturnType<typeof payments>[number];
@@ -110,7 +111,9 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive }:
         </tr>
       </thead>
       <tbody>
-        {lines.map((l, i) => (
+        {lines.map((l, i) => {
+          const payee = l.merchant ? <a href={`#/transactions${query({ merchant: l.merchant })}`}>{l.name}</a> : l.name;
+          return (
           <tr
             key={`${l.day}-${l.name}-${i}`}
             className={active?.kind === kind && active.row === i ? "on" : undefined}
@@ -124,12 +127,13 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive }:
               {l.day}
             </td>
             <td title={l.name}>
-              {l.merchant ? <a href={`#/transactions${query({ merchant: l.merchant })}`}>{l.name}</a> : l.name}
+              {l.pending ? <PendingPayee>{payee}</PendingPayee> : payee}
               {l.note && <div className="st-sub">{l.note}</div>}
             </td>
             <td className="st-num">{l.sum === undefined ? money(l.cents) : (l.sum ?? "–")}</td>
           </tr>
-        ))}
+          );
+        })}
         {lines.length === 0 && (
           <tr>
             <td colSpan={3}>Ei erääntyviä maksuja.</td>

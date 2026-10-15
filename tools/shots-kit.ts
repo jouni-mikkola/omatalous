@@ -1,10 +1,10 @@
 /** Helpers of the tests of tools/shots.mjs (shots-a, shots-b and shots-c). */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { tempDir } from "./lib/tmp-kit.ts";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
-import { afterAll, expect } from "vitest";
+import { expect } from "vitest";
 
 export const ROOT = join(import.meta.dirname, "..");
 export const BUILT = existsSync(join(ROOT, "apps/server/dist/node.js"));
@@ -13,13 +13,13 @@ export const NO_BROWSER = !BUILT || !existsSync(process.env.E2E_CHROMIUM ?? chro
 
 /** The folder, the step module and the runner of the real runs: call it inside the describe that uses it. */
 export function stateKit() {
-  const tmp = mkdtempSync(join(tmpdir(), "shots-test-"));
-  afterAll(() => rmSync(tmp, { recursive: true, force: true }));
+  // the describe body runs even when the suite is skipped (no browser), and a skipped suite removes nothing
+  const tmp = NO_BROWSER ? join(ROOT, "no-browser") : tempDir("shots-test-");
   const probe = join(tmp, "probe.jsonl");
   const out = join(tmp, "out");
   // saves what the page knows when the step runs: its address, its width, the accounts of the household and the browser's storage
   const steps = join(tmp, "steps.mjs");
-  writeFileSync(
+  if (!NO_BROWSER) writeFileSync(
     steps,
     `import { appendFileSync } from "node:fs";
 export default async (page, route) => {

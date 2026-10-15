@@ -112,6 +112,7 @@ sentences under it and nothing told as a share of the income.
 | Cash withdrawal | spending ("Käteisnostot") | |
 | Bank fees | spending ("Pankkikulut") | |
 | Pending card payment | counted, replaced by the booked row on the next fetch | your own category choice moves with it |
+| A bill paid from another account, or under a payee name typed by hand | the series' bill of that date is paid: it is no row of what is due, and the year of rare bills counts it as paid in its month. The paying row keeps its payee, category and account | the same payee and about the bill's sum, or the bill's payment reference, or the creditor's IBAN that the series' earlier rows carry; never the sum alone. See *Bills paid another way* |
 | Money between members in the *Koko talous* view | transfer | it stays in the household. In a member's own view a movement to or from an account the member has no part of is money between people, see *Joint accounts* |
 | Joint account connected by both | one copy in the *Koko talous* view, the viewer's own, whole. In a member's own view it is counted at the member's part | the copies are the same real account when the bank gives them one identity (its own hash, else the IBAN). See *Joint accounts* |
 
@@ -382,7 +383,9 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   series as the block, whatever the block's window is and whichever account pays them. Its groups are what the accounts
   pay to the payday, what they pay after it, and last what a credit card is charged (*Kortilta veloitettavat*,
   `onCard`), so the first group's sum is the block's figure without a card's bill and an own transfer. It has no pay,
-  no card bill and no transfer.
+  no card bill and no transfer. A bill of a series is no row once it is paid: by the series' own row, or by a row the
+  rule for a bill paid another way takes (`recurring-settled.ts`, *Bills paid another way*), except while that row is
+  pending on a counted account: then the bill is listed, marked *varaus*, as in the block.
 - Insights say what changed in the period. A month is compared with its usual level (the median of the
   six months before) and shown only when it is outside all of them. A longer period is compared with the
   previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.
@@ -476,7 +479,11 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
   pay (one that the history shows as a series is left out, and so is one for which a row of about the same amount,
   within 5 %, was booked from 31 days before its date up to today: `expectedBillRows` in `analysis/forecast.ts`), other
   pay that lands inside it, the bill of a connected card and a regular transfer to an account the window does not
-  count. The payday itself is no row. With a checking balance it gives three figures: the balance today
+  count. The payday itself is no row. A bill that a payment from another account settled is no row once the bank has
+  booked that payment. While the payment is pending on a counted account, the balance read from the bank does not hold
+  it yet and the bill's money is still in it, so the bill stays a row, marked `pending` (the page says *varaus* after
+  the payee), and stays in `dueCents`: the list and the sum always agree. A pending payment on an account the balance
+  does not count, a credit card among them, leaves no row. With a checking balance it gives three figures: the balance today
   (`startCents`, as Saldot has it: the bank's balance with the rows booked since), the payments due in the window
   (`totals.dueCents`: bills, typed bills, card bills and own transfers) and the balance less them (`freeCents`). No
   day's balance is modelled and pay in the window is in none of those three. The figures need the balance of every counted
@@ -537,7 +544,9 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
 - *Harvinaiset laskut* on Laskut sums the bills that do not come every month (every second month,
   quarterly, half yearly, yearly) for each of the next twelve months, from the recurring detection. It
   shows the monthly figure to set aside at the right of its heading and a table with a row for each month
-  that has a bill due: the due month, the payees and the sum, and the day a paid bill was paid. Pet food,
+  that has a bill due: the due month, the payees and the sum, and the day a paid bill was paid. A bill paid another
+  way (*Bills paid another way*) counts as paid in the month it fell due, at the series' usual sum, so the year's
+  figure is the same before and after the paying row arrives. Pet food,
   shops and clinics are purchases and are not listed. It is always about today.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
@@ -715,6 +724,29 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   after. Electricity bills are compared with the same months a year earlier and are at most likely, never confirmed, because
   the use behind them is a typed figure.
 
+## Bills paid another way
+
+A series knows only its own rows: one account, one payee name. A bill the household paid from another account, or by
+hand under another payee name, would stand as falling due. `settlePaidElsewhere` in `recurring-settled.ts` reads the
+view's rows once, when the analysis context is built, and marks the occurrences of a bill that such a payment settled
+(`settled` on the series). Nothing is stored: when the paying row goes away or its booked twin arrives, the answer
+follows the rows.
+
+- A row settles an occurrence of a subscription or bill when it is money out, no transfer, booked or pending, dated
+  today or before, a row of no series of its own, and dated from 31 days before the occurrence's date to the cadence's
+  tolerance after it, and not nearer the series' previous charge. The series' next date moves a step past it.
+- With the series' payee name, the sum must be the bill's usual one (a bill by use: inside the range of its last six,
+  widened by 10 %). Under another payee name the row needs proof as well: the bill's payment reference (one reference
+  every invoice shares, or invoices numbered on from a prefix) with a sum within 25 % of the usual one, or the
+  creditor's IBAN that the series' own rows have carried twice or more with the usual sum. Never the sum alone.
+- A series on a credit card is left as it is. A row on the series' own account that is no row of it is a purchase, not
+  another way of paying, unless it is pending.
+- The paying row keeps its payee, category and account, and counts as a fixed cost with the series.
+- One row settles one occurrence of one series, the one nearest its date. While the payment is pending on a counted
+  account, the bill stays a row of the window and of Laskut's list, marked *varaus* (*What the window holds*).
+- Accepted miss: the first charge of a second contract at one payee, paid from another account, can hide the first
+  contract's bill until the first contract's own charge comes.
+
 ## Joint accounts
 
 A joint account is a real account that more than one member of the household uses. A member's own view (*Oma talous*)
@@ -752,6 +784,9 @@ view holds.
   it, and the transaction export has the bank's amounts.
 - The balance and the credit limit of a joint account or a card are the member's part, so *Yhteensä* of Varallisuus and
   a card's used and free credit follow.
+- A view settles a bill only by the rows it holds: a bill another member paid from an account the viewer does not see
+  stays due in the own view and is paid in *Koko talous*. Sums are compared as the bank booked them (`billCents`), so
+  a bill the member's part of a joint account paid is settled by the bank's whole sum of the row.
 - Money a user pays into a joint account is a transfer: it pays for that user's part of what the account pays. Another
   movement to or from an account of the household that the member has no part of is money between people (*Maksut
   henkilöille*, *Maksut henkilöiltä*). A category set by hand is never changed, and two rows of one member that the

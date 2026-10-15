@@ -178,8 +178,9 @@ export interface ExpectedCharge {
 
 /**
  * The charges the forecast expects between `from` and `until`: active subscriptions and bills that are not overdue,
- * each at its typical amount on its projected dates. A date before `from` is a charge a few days late, expected on
- * `from`. A series `cancelled` covers is left out (`isCancelled`). Savings plans leave the checking account but are not spending, so
+ * each at its typical amount on its projected dates, which start at the series' next date: an occurrence that a
+ * payment from another account settled is no charge (`settled`). A date before `from` is a charge a few days late,
+ * expected on `from`. A series `cancelled` covers is left out (`isCancelled`). Savings plans leave the checking account but are not spending, so
  * they come only with `savings`. Date ascending, the larger first.
  */
 export function expectedCharges(

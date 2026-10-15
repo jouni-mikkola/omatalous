@@ -52,6 +52,12 @@ export interface AheadRow {
    * yet: it is paid from that pay, so it is no row of the window and Laskut lists it after the payday.
    */
   withPay?: boolean;
+  /**
+   * On a bill of a series that a payment from another account, or under another payee name, has settled while the bank has
+   * not booked that payment yet, on an account the balance counts: the bill is paid, but its money is still in the balance
+   * the window starts from, so it stays in the rows and in `dueCents` until the payment is booked. Laskut's list (`upcoming`) holds it too, marked the same.
+   */
+  pending?: true;
   /** On a pay day: the estimate of the pay from the pays that came, null when they are too few to say a sum. */
   pay?: PayEstimate | null;
   /**
@@ -190,6 +196,10 @@ const chargeRow = (c: ExpectedCharge): AheadRow => ({ date: c.date, name: c.merc
  * accounts: other pay is a row when one of them gets it, a charge when one of them pays it (a series is one account's,
  * the account in its id), and the usual day is their own, so a card's purchases are in the card's bill and not in it.
  * A typed-in bill names no account and always counts.
+ *
+ * A bill that a payment from another account, or under another payee name, settled is no row once that payment is
+ * booked. While the bank has not booked it (`pending`) the bill stays a row, marked, when the payment is on a counted
+ * account, because the balance still holds its money; a payment on an account the balance does not count leaves no row.
  */
 export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): AheadData {
   const from = ctx.today;
@@ -269,6 +279,18 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   const awaited = next?.day === from ? payDayOf(next.past) : null;
   const withPay = (s: RecurringSeries) => !!awaited && s.follows?.day === awaited.day && s.follows.rule === awaited.rule && s.nextDate === from;
   const paying = ctx.recurring.filter(onCounted);
+  // a bill settled by a payment the bank has not booked: the balance read from the bank does not hold that payment yet, so
+  // the bill's money is still in it and the bill stays due until the payment is booked. Payments of an account the balance
+  // does not count are in no figure of it.
+  const pendingIds = new Set(paying.flatMap((s) => (s.settled ?? []).filter((o) => o.pending).map((o) => o.id)));
+  const heldBy = new Map<string, string>();
+  if (pendingIds.size) for (const t of standingOf(ctx).txs) if (pendingIds.has(t.id)) heldBy.set(t.id, t.accountId);
+  for (const s of paying) {
+    for (const o of s.settled ?? []) {
+      if (!o.pending || (counted && !counted.ids.has(heldBy.get(o.id) ?? ""))) continue;
+      for (const c of expectedCharges([{ ...s, nextDate: o.due }], from, o.due, expected)) if (c.date <= reachPayments) all.push({ ...chargeRow(c), pending: true });
+    }
+  }
   for (const c of expectedCharges(paying.filter((s) => !withPay(s)), from, reachPayments, expected)) all.push(chargeRow(c));
   for (const c of expectedCharges(paying.filter(withPay), from, reachPayments, expected)) all.push(c.date === from ? { ...chargeRow(c), withPay: true } : chargeRow(c));
   for (const b of expectedBillRows(ctx, inputs.expectedBills, from, reachPayments)) {

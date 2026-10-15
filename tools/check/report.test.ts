@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
+import { tempDir } from "../lib/tmp-kit.ts";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { report, SLOW_MS, slowTests } from "./report.mjs";
@@ -66,9 +66,9 @@ describe("check: the vitest step's report", () => {
 
   it("prints nothing and exits 2 for a result file that is not there, so check.sh says vitest did not run", () => {
     const run = (path: string) => spawnSync(process.execPath, [join(import.meta.dirname, "report.mjs"), path], { encoding: "utf8" });
-    const missing = run(join(mkdtempSync(join(tmpdir(), "report-")), "none.json"));
+    const missing = run(join(tempDir("report-"), "none.json"));
     expect(missing).toMatchObject({ status: 2, stdout: "" });
-    const ok = join(mkdtempSync(join(tmpdir(), "report-")), "r.json");
+    const ok = join(tempDir("report-"), "r.json");
     writeFileSync(ok, JSON.stringify(result([file("/x.test.ts", [test("one", 10)])])));
     expect(run(ok)).toMatchObject({ status: 0, stdout: "1 tests in 1 files\n" });
   });

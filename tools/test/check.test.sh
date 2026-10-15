@@ -19,6 +19,7 @@ want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
 
 ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
+mkdir "$ROOT/tmp"; export TMPDIR=$ROOT/tmp # the logs of red checks, which check.sh keeps for a human, go with the test
 export RUNLOG
 
 world() { # world: an empty folder in W with check.sh, and the log of the scenarios that ran

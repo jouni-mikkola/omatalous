@@ -121,6 +121,16 @@ describe("Laskut: Erääntyvät maksut", () => {
     expect(groupHeads(coming({ ...today, upcoming: [rent, debit] }))).toEqual(["Palkkapäivään asti, su 11.10.: 29,90 €", "Palkkapäivän jälkeen: 900,00 €"]);
   });
 
+  it("a bill that is paid and not booked yet carries varaus after its payee, and the group's sum holds it", () => {
+    const paid = row({ date: "2026-10-13", name: "Vakuutus", category: null, cents: -14_230, source: "recurring", pending: true });
+    const other = row({ date: "2026-10-14", name: "Puhelin", category: null, cents: -2_990, source: "recurring" });
+    const out = coming({ ...beforePay(ahead([])), upcoming: [paid, other] });
+    expect(out.match(/<span class="badge warn">varaus<\/span>/g)).toHaveLength(1);
+    expect(out).toMatch(/Vakuutus<\/a><\/span><span class="badge warn">varaus<\/span>/);
+    expect(groupHeads(out)).toEqual(["Palkkapäivään asti, to 15.10.: 172,20 €"]);
+    expect(coming({ ...beforePay(ahead([])), upcoming: [other] })).not.toContain("varaus");
+  });
+
   it("a pay behind its day with no pay to come is one group of the 30 days, and with one to come the group names that day", () => {
     const behind = { date: "2026-10-11", expected: "2026-10-09", name: "Palkka", pay: steady(395_000) };
     expect(groupHeads(coming({ ...ahead(), reason: "payday", payday: behind }))).toEqual(["Seuraavat 30 päivää: 417,49 €"]);

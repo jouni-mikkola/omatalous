@@ -119,6 +119,69 @@ test("the line over the figures names the payday, the three figures are the API'
   await context.close();
 });
 
+test("a bill that is paid and waits to be booked carries the word varaus after its payee on Yhteenveto and on Laskut, with one sum on both", async ({ browser }) => {
+  // The demo has no bill paid another way: the answer is changed on its way, as joint-account.spec.ts does for a card's
+  // bill. A pending-paid bill is added to the window and to Laskut's list, and the sums follow as core has them. Core's
+  // tests hold when a row is made; this holds what the two pages make of it, on every day.
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const NAME = "Esimerkki Vakuutusyhtiö Pohjoismaat Henkilövakuutus Oy";
+  let stub: Ahead | null = null;
+  await page.route(/\/api\/dashboard(\?|$)/, async (route) => {
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json) return;
+    const added = { date: json.ahead.from as string, name: NAME, category: "insurance", cents: -14_230, source: "recurring", pending: true };
+    const byDay = (a: { date: string; cents: number }, b: { date: string; cents: number }) => a.date.localeCompare(b.date) || a.cents - b.cents;
+    json.ahead.rows = [...json.ahead.rows, added].sort(byDay);
+    json.ahead.upcoming = [...json.ahead.upcoming, added].sort(byDay);
+    json.ahead.totals.dueCents += 14_230;
+    json.ahead.totals.recurringCents += 14_230;
+    json.ahead.balance.freeCents -= 14_230;
+    stub = json.ahead;
+    await route.fulfill({ response, json });
+  });
+  await page.goto("/#/overview");
+  const card = page.locator(".card", { has: page.getByRole("heading", { name: "Erääntyvät maksut", exact: true }) });
+  await expect(card).toBeVisible();
+  const table = card.getByRole("table", { name: /^Erääntyvät maksut / });
+  const mine = table.locator("tbody tr", { hasText: NAME });
+  await expect(mine).toHaveCount(1);
+  await expect(table.locator(".badge")).toHaveCount(1);
+  await expect(mine.locator("td:nth-child(2) .payee-pending .badge")).toHaveText("varaus");
+  await expect(mine.locator("td:nth-child(2)")).toHaveText(`${NAME}varaus`);
+  const due = cents(await card.locator("dl .st-row", { hasText: "Erääntyvät maksut" }).locator("dd.st-num").innerText());
+  expect(due).toBe(stub!.totals.dueCents);
+
+  await page.goto("/#/bills");
+  const list = page.locator("#tulossa");
+  const row = list.locator("tbody tr", { hasText: NAME });
+  await expect(row).toHaveCount(1);
+  await expect(list.locator(".badge", { hasText: "varaus" })).toHaveCount(1);
+  await expect(row.locator(".payee-pending .badge")).toHaveText("varaus");
+  // the first group of Laskut is the figure of Yhteenveto without a card's bill and an own transfer: the paid bill is in both
+  const first = cents(await list.locator(".group-head").first().locator("td").innerText());
+  expect(first).toBe(due - stub!.totals.cardCents - stub!.totals.transferCents);
+
+  // on a phone the long name is cut with an ellipsis and the word keeps its line inside the cell, on both pages
+  await page.setViewportSize({ width: 390, height: 900 });
+  const phone = async (cell: Locator) => {
+    const [cellBox, badge, link] = await Promise.all([cell.boundingBox(), cell.locator(".badge").boundingBox(), cell.locator(".payee-pending > span").first().boundingBox()]);
+    expect(badge!.x + badge!.width, "the word stays inside its cell").toBeLessThanOrEqual(cellBox!.x + cellBox!.width + 1);
+    expect(badge!.height, "the word is on one line").toBeLessThan(28);
+    expect(link!.x + link!.width, "the name ends before the word").toBeLessThanOrEqual(badge!.x + 1);
+    expect(await cell.locator(".payee-pending > span").first().evaluate((n) => n.scrollWidth > n.clientWidth), "the name is cut").toBe(true);
+    expect(await overflow(page), "the page scrolls sideways at 390 px").toBeLessThanOrEqual(1);
+  };
+  await phone(row.locator("td:has(.payee-pending)"));
+  await page.goto("/#/overview");
+  await expect(mine).toHaveCount(1);
+  await phone(mine.locator("td:has(.payee-pending)"));
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
 test("on a phone nothing scrolls sideways, the figures come before the tables and a row keeps its three cells", async ({ browser }) => {
   const { context, page, seen, card } = await open(browser, 390);
   expect(await overflow(page), "the page scrolls sideways at 390 px").toBeLessThanOrEqual(1);

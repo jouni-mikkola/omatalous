@@ -6,6 +6,7 @@ import type { DashboardData } from "../../types.ts";
 import { addsUp } from "../../marks.ts";
 import { Figure } from "../Figure.tsx";
 import { isEstimate, windowLine, windowPayday } from "../next-days.ts";
+import { PendingPayee } from "../PendingPayee.tsx";
 import { BillForm } from "./BillForm.tsx";
 
 type Ahead = NonNullable<DashboardData["ahead"]>;
@@ -118,6 +119,10 @@ export function Coming({ ahead, today, onAdded }: { ahead: Ahead | null; today: 
                       <>
                         {r.name} <span className="badge">lisätty käsin</span>
                       </>
+                    ) : r.pending ? (
+                      <PendingPayee>
+                        <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
+                      </PendingPayee>
                     ) : (
                       <a href={`#/transactions${query({ merchant: r.name })}`}>{r.name}</a>
                     )}

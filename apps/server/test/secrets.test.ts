@@ -1,6 +1,5 @@
 import { X509Certificate } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
@@ -10,8 +9,9 @@ import { openDatabase } from "../src/db/open.ts";
 import { loadOrCreateAppSecret } from "../src/entry/app-secret.ts";
 import { generateKeyAndCertificate } from "../src/security/x509.ts";
 import { isSyncHour } from "../src/services/instance.ts";
+import { scratchDir } from "./helpers.ts";
 
-const tmp = () => mkdtempSync(join(tmpdir(), "talous-secret-"));
+const tmp = () => scratchDir("talous-secret-");
 
 describe("app secret file", () => {
   it("is created once with mode 600 and reused afterwards", () => {

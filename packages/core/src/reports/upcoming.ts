@@ -89,7 +89,7 @@ interface Occurrence {
   inYear: boolean;
   /** Listed as coming: not paid, not past and not from a series that has stopped on time. */
   ahead: boolean;
-  /** The last charge of a found bill, booked on `date`. */
+  /** The last charge of a found bill, booked on `date`, or an occurrence that a payment elsewhere settled, dated by the day it fell due. */
   paid: boolean;
 }
 
@@ -111,8 +111,9 @@ function rareSeries(ctx: AnalysisContext): RecurringSeries[] {
  * or typed in by the user (a yearly bill needs two charges before it is found). The monthly ones are in the forecast
  * and on the recurring page; these are the ones that surprise. Always about today, whatever period the page shows.
  *
- * The year runs over whole calendar months from this one and counts what was already paid this month, so the
- * figure does not change when a bill is paid or goes overdue and stays the same all month. A one-off bill is not a
+ * The year runs over whole calendar months from this one and counts what was already paid this month, by the series'
+ * own row or by a payment from another account that settled the bill, so the figure does not change when a bill is paid
+ * or goes overdue and stays the same all month. A one-off bill is not a
  * yearly cost: it adds to the year, and its amount is spread over the months from this one to the month it is due.
  */
 export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): UpcomingReport {
@@ -128,6 +129,10 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
   for (const s of found) {
     const base = { merchant: s.merchant, category: s.category, cadence: s.cadence!, amountCents: s.typicalAmountCents, source: "detected" as const };
     if (s.lastDate >= windowStart) occurrences.push({ ...base, date: s.lastDate, inYear: true, ahead: false, paid: true });
+    // an occurrence that a payment from another account, or under another payee name, settled is paid in the month it fell
+    // due: the series' next date has moved on, so without this the year would lose the bill when the payment arrives
+    // (a payment made last month for a bill due in this one counts here: the next date is a step on from the due date)
+    for (const o of s.settled ?? []) if (o.due >= windowStart && o.due <= windowEnd) occurrences.push({ ...base, date: o.due, inYear: true, ahead: false, paid: true });
     // a charge a few days late is still ahead of us: it shows as today. An overdue series may have stopped, so it is
     // not listed, but its charges stay in the year. A charge late from last month is no part of this year's twelve.
     for (const d of projectDates(s, windowEnd)) occurrences.push({ ...base, date: d < from ? from : d, inYear: d >= windowStart, ahead: !s.overdue, paid: false });

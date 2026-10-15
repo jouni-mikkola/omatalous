@@ -3,6 +3,22 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.44.0
+
+- A bill paid another way counts as paid everywhere: the year of rare bills keeps its figure when the payment arrives, and a bill whose payment is still pending shows "varaus" after the payee, with the same sum on Yhteenveto and Laskut.
+- A loan proposal asks only for what is still empty: when the loan account's balance is known, only the rate is asked.
+- After a bank link the page keeps looking for the new accounts even when the first fetch has not listed any yet, so the question about who uses an account appears without a reload.
+- The roadmap is public: docs/ROADMAP.md says where the app is going, release by release, and what 1.0 means as checks that pass.
+
+Money and reports
+
+- A bill paid another way, from another account or under another payee name, counts as paid in the year of rare bills, and stays in what is due before payday only until the bank has booked the payment, marked "varaus".
+
+Look
+
+- The help under "Tallenna lainaksi" asks only for what is still empty: the rate when the balance is filled in, else the balance and the rate.
+- After a bank is linked, Asetukset looks again for the new accounts also when the bank has listed none yet.
+
 ## 0.43.0
 
 - The front page asks what mends the picture most: a new block right under the accounts tells how much of the last twelve months' income and spending is classified and lists the five largest payees nobody has classified, each with a category to choose on the spot. A loan the app found from the payments is asked there too.

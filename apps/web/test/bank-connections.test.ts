@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../src/banks.ts";
-import { BankConnections } from "../src/pages/settings/BankConnections.tsx";
+import { BankConnections, waitsForFirstFetch } from "../src/pages/settings/BankConnections.tsx";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
 const BANKS = [{ id: "nordea-fi", name: "Nordea", country: "FI" }];
@@ -234,5 +234,20 @@ describe("Pankkiyhteydet: the add button", () => {
     const none = html([conn("a", "active", 90)], true, [], 0);
     expect(none).toContain("Yhdistä pankki");
     expect(none).not.toContain("Yhdistä toinen pankki");
+  });
+});
+
+describe("Pankkiyhteydet: when the page looks again after a link", () => {
+  const conn = (id: string, state: Connection["state"] = "active") => ({ id, state });
+  const acc = (connectionId: string, over: Partial<Pick<Account, "lastSyncedAt" | "problem">> = {}) => ({ connectionId, lastSyncedAt: null, problem: null, ...over });
+  it("waits for an active consent that lists no account yet, or one not fetched", () => {
+    expect(waitsForFirstFetch([conn("a")], [])).toBe(true);
+    expect(waitsForFirstFetch([conn("a")], [acc("a")])).toBe(true);
+  });
+  it("stops once every account has an answer, and for a consent that is not active", () => {
+    expect(waitsForFirstFetch([conn("a")], [acc("a", { lastSyncedAt: "2026-10-08T09:30:00.000Z" })])).toBe(false);
+    expect(waitsForFirstFetch([conn("a")], [acc("a", { problem: { kind: "failed", message: "x" } })])).toBe(false);
+    expect(waitsForFirstFetch([conn("a", "lapsed")], [])).toBe(false);
+    expect(waitsForFirstFetch([], [])).toBe(false);
   });
 });

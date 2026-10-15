@@ -13,7 +13,10 @@ import { LoanEditor, LoanLinks } from "./LoanEditor.tsx";
  */
 export const PROPOSALS_TITLE = "Mahdolliset lainat";
 export const PROPOSAL_QUESTION = "Onko tämä lainan maksu?";
-export const EDITOR_HELP = "Maksuerä ja lyhennysväli on täytetty tilin tapahtumien mukaan. Lisää vielä, paljonko lainaa on jäljellä ja mikä sen korko on.";
+export const HELP_RATE = "Lisää vielä lainan korko.";
+export const HELP_BALANCE_AND_RATE = "Lisää vielä jäljellä oleva laina ja korko.";
+/** The help asks only for what the proposal's form leaves empty: the balance is filled when the loan account tells it. */
+export const editorHelp = (form: { values: { balanceCents: string } }): string => (form.values.balanceCents === "" ? HELP_BALANCE_AND_RATE : HELP_RATE);
 
 /** The monthly payment, as the phone's second line says it. */
 export const monthlyText = (proposal: Pick<LoanProposalRow, "paymentCents">): string => `${money(proposal.paymentCents)} kuukaudessa`;
@@ -99,6 +102,7 @@ function ProposalRow({ proposal, today, open, busy, waiting, onOpen, onClose, on
   onSaved: (name: string) => void;
 }) {
   const links = useContext(LoanLinks);
+  const initial = formOfProposal(proposal, today, links.accounts, links.loans);
   return (
     <>
       <tr>
@@ -123,9 +127,9 @@ function ProposalRow({ proposal, today, open, busy, waiting, onOpen, onClose, on
           <td colSpan={3}>
             <section className="loan-draft" aria-label={`Tallenna laina: ${proposal.payee}`}>
               <h3>Tallenna laina: {proposal.payee}</h3>
-              <p className="small muted">{EDITOR_HELP}</p>
+              <p className="small muted">{editorHelp(initial)}</p>
               <LoanEditor
-                initial={formOfProposal(proposal, today, links.accounts, links.loans)}
+                initial={initial}
                 today={today}
                 cancelLabel="Peruuta"
                 onSave={async (body) => {

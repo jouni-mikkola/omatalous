@@ -1,4 +1,7 @@
+import type { RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import { reprocess } from "../src/services/enrich.ts";
+import { ingestTransactions } from "../src/services/ingest.ts";
 import { setupApp } from "./helpers.ts";
 
 // the test clock is 2026-10-09, so the accepted due dates run from 2026-09-08 to 2027-11-13
@@ -117,6 +120,49 @@ describe("expected bills", () => {
 
     await admin.call("DELETE", `/api/expected-bills/${added.id}`);
     expect(await reports()).toEqual(before);
+  });
+
+  it("a typed-in bill of the name of a series whose bill another account paid is counted once, and not at all for the paid date", async () => {
+    // the test clock is 2026-10-09: the series is due on the 15th, and the insurance is paid from the other account on the 8th
+    const { admin, adminId, s, db } = await setupApp();
+    const repo = s.finance(adminId);
+    for (const id of ["acc-a", "acc-b"]) {
+      await repo.upsertAccount({ id, connectionId: null, provider: "enablebanking", externalId: null, identity: `idn-${id}`, name: id, holder: "MEIKALAINEN AINO", iban: null, currency: "EUR", type: "checking" });
+    }
+    await db.run("UPDATE accounts SET balance_cents = 100000");
+    const charge = (bookingDate: string, status: RawTransaction["status"] = "booked"): RawTransaction => ({
+      externalId: null, bookingDate, valueDate: null, amountCents: -5000, currency: "EUR", status,
+      counterparty: "ESIMERKKI VAKUUTUS OY", counterpartyIban: null, description: null, reference: null, mcc: null,
+    });
+    const book = async (account: string, rows: RawTransaction[]) => {
+      await ingestTransactions(repo, account, rows, "enablebanking");
+      await reprocess(repo, s.settings);
+    };
+    await book("acc-a", ["2026-04-15", "2026-05-15", "2026-06-15", "2026-07-15", "2026-08-15", "2026-09-15"].map((d) => charge(d)));
+    const [series] = (await admin.call("GET", "/api/recurring")).body.series as { merchant: string; nextDate: string }[];
+    expect(series).toMatchObject({ nextDate: "2026-10-15" });
+    expect((await admin.call("POST", "/api/expected-bills", { name: series!.merchant, amountCents: 5000, dueDate: "2026-10-15", cadence: "once", category: "insurance" })).status).toBe(200);
+
+    const window = async () => {
+      const { ahead } = (await admin.call("GET", "/api/dashboard")).body;
+      return { due: ahead.rows.filter((r: { name: string }) => r.name === series!.merchant), dueCents: ahead.totals.dueCents as number };
+    };
+    // nobody paid it: the series' bill is the one, the typed-in one is the same bill
+    const before = await window();
+    expect(before.due.map((r: { source: string; date: string }) => [r.date, r.source])).toEqual([["2026-10-15", "recurring"]]);
+    expect(before.dueCents).toBe(5000);
+
+    // the other account paid it, the bank has not booked it: one row, marked, and the sum holds it once
+    await book("acc-b", [charge("2026-10-08", "pending")]);
+    const pending = await window();
+    expect(pending.due).toMatchObject([{ date: "2026-10-15", source: "recurring", pending: true }]);
+    expect(pending.dueCents).toBe(5000);
+
+    // booked: the bill is paid and neither the series nor the typed-in bill brings it back
+    await book("acc-b", [charge("2026-10-08")]);
+    const booked = await window();
+    expect(booked.due).toEqual([]);
+    expect(booked.dueCents).toBe(0);
   });
 
   it("needs a signed-in user and the CSRF header", async () => {

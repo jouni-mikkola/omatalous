@@ -47,6 +47,19 @@ export function connectionStateText(c: Pick<Connection, "state" | "validUntil">)
 }
 
 /**
+ * True while an active consent has no answer yet: an account not fetched (and with no stopping problem), or no account
+ * at all, which is how a consent looks before its first fetch has listed them. The page looks again while this holds.
+ */
+export function waitsForFirstFetch(connections: readonly Pick<Connection, "id" | "state">[], accounts: readonly Pick<Account, "connectionId" | "lastSyncedAt" | "problem">[]): boolean {
+  return connections
+    .filter((c) => c.state === "active")
+    .some((c) => {
+      const own = accounts.filter((a) => a.connectionId === c.id);
+      return own.length === 0 || own.some((a) => !a.lastSyncedAt && !a.problem);
+    });
+}
+
+/**
  * The Haettu column: when the accounts of a consent were last fetched, or, while none was, why. A consent that ended
  * keeps the date of its last run.
  */
@@ -149,8 +162,7 @@ export function BankConnections({
 
   // The first fetch of a new connection runs after the bank sent the browser back. Until every account of an active
   // consent has an answer (fetched, or what stopped it) the page looks again, for a minute at most.
-  const activeIds = new Set(current.filter((c) => c.state === "active").map((c) => c.id));
-  const waiting = linked && meta.accounts.some((a) => a.connectionId !== null && activeIds.has(a.connectionId) && !a.lastSyncedAt && !a.problem);
+  const waiting = linked && waitsForFirstFetch(meta.connections, meta.accounts);
   const reload = useRef(onChange);
   reload.current = onChange;
   useEffect(() => {

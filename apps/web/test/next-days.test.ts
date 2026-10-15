@@ -227,6 +227,15 @@ describe("the two tables", () => {
     expect(names(html(ahead({}, [card])))).toEqual(["Esimerkkipankki Gold", "Esimerkki Oy"]);
   });
 
+  it("a bill that is paid and not booked yet carries Tapahtumat's word for such a row after the payee, and no other row does", () => {
+    const rows = [{ ...BILLS[0]!, pending: true as const }, BILLS[1]!];
+    expect(payments(ahead({}, rows)).map((l) => [l.name, l.pending ?? false])).toEqual([["Sähköyhtiö Esimerkki", true], ["Esimerkkivakuutus", false]]);
+    const out = html(ahead({}, rows));
+    expect(out.match(/<span class="badge warn">varaus<\/span>/g)).toHaveLength(1);
+    expect(out).toContain('<div class="payee-pending"><span><a href="#/transactions?merchant=S%C3%A4hk%C3%B6yhti%C3%B6+Esimerkki">Sähköyhtiö Esimerkki</a></span><span class="badge warn">varaus</span></div></td>');
+    expect(html(ahead())).not.toContain("varaus");
+  });
+
   it("names the table of the payments for a reader that has no eyes for it", () => {
     expect(paymentsCaption(ahead())).toBe("Erääntyvät maksut ennen palkkapäivää");
     expect(paymentsCaption(ahead(NONE))).toBe("Erääntyvät maksut seuraavan 30 päivän aikana");

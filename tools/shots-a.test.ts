@@ -1,8 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chmodSync, readdirSync, writeFileSync } from "node:fs";
+import { tempDir } from "./lib/tmp-kit.ts";
 import { join } from "node:path";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { answerTable, applyLook, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, ROOT } from "./shots-kit.ts";
 
@@ -161,8 +161,7 @@ describe("pnpm shots modules", () => {
 
 // needs the build that pnpm shots otherwise makes, so it is skipped on a fresh clone
 describe.skipIf(!BUILT)("pnpm shots cleans up", () => {
-  const tmp = mkdtempSync(join(tmpdir(), "shots-test-"));
-  afterAll(() => rmSync(tmp, { recursive: true, force: true }));
+  const tmp = tempDir("shots-test-");
   const env = (chrome: string) => ({ ...process.env, TMPDIR: tmp, SHOTS_DIR: join(tmp, "out"), E2E_CHROMIUM: chrome });
   const left = () => readdirSync(tmp).filter((f) => f.startsWith("banking-e2e-"));
 
