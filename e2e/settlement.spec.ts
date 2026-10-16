@@ -74,7 +74,7 @@ async function figure(scope: Locator, label: string): Promise<number | null> {
 /** What a member paid over (positive) or under (negative) the share, and the share, in the block of the pool. */
 async function standing(page: Page, name: string): Promise<{ paid: number; owed: number; over: number }> {
   const block = poolOf(page).getByRole("group", { name, exact: true });
-  const over = (await figure(block, "Maksanut yli osuutensa")) ?? -(await figure(block, "Maksanut alle osuutensa") ?? 0);
+  const over = (await figure(block, "Maksanut enemmän kuin osuutensa")) ?? -(await figure(block, "Maksanut vähemmän kuin osuutensa") ?? 0);
   return { paid: (await figure(block, "Maksanut"))!, owed: (await figure(block, "Osuus"))!, over };
 }
 async function showMonth(page: Page, month: string) {
@@ -109,7 +109,7 @@ test("a new split from a day: the closed month stays, the month after names the 
   const change = async (day: string) => {
     await split.getByRole("button", { name: "Muuta jakoa" }).click();
     const form = page.getByRole("form", { name: "Muuta tilin Yhteistili jakoa" });
-    await form.getByLabel("Jaon tapa").selectOption("share");
+    await form.getByLabel("Miten jaetaan").selectOption("share");
     await form.getByLabel(`${NAMES[0]} osuus`).fill("75");
     await form.getByLabel(`${NAMES[1]} osuus`).fill("25");
     await form.getByLabel("Voimassa alkaen").fill(day);
@@ -117,7 +117,7 @@ test("a new split from a day: the closed month stays, the month after names the 
     return form;
   };
   await change(`${LAST}-01`);
-  await expect(split).toContainText("Osuuksin");
+  await expect(split).toContainText("Osuuksina");
   await expect(split).toContainText(`${NAMES[0]} 75 %`);
   await expect(split.getByRole("form")).toHaveCount(0);
   // the same day again: the server's line stands under the form
@@ -135,7 +135,7 @@ test("a new split from a day: the closed month stays, the month after names the 
   expect(await standing(reports.page, NAMES[1])).toEqual(lastMonth.b);
   // the current month carries the correction and names the month it corrects
   await showMonth(reports.page, monthBack(0));
-  const line = poolOf(reports.page).locator(".st-row").filter({ hasText: "Korjaus kuukaudelta" });
+  const line = poolOf(reports.page).locator(".st-row").filter({ hasText: "Korjaus aiempaan kuukauteen" });
   await expect(line).toHaveCount(1);
   expect(await figure(poolOf(reports.page), (await line.locator("span").first().innerText()).trim())).not.toBe(0);
   expect(reports.seen.problems).toEqual([]);
@@ -152,7 +152,7 @@ test("an income split waits for the other user: she accepts it, or he takes it b
     const { context, page, split } = await jako(members[0]!);
     await split.getByRole("button", { name: "Muuta jakoa" }).click();
     const form = page.getByRole("form", { name: "Muuta tilin Yhteistili jakoa" });
-    await form.getByLabel("Jaon tapa").selectOption("income");
+    await form.getByLabel("Miten jaetaan").selectOption("income");
     await form.getByLabel("Voimassa alkaen").fill(day);
     await form.getByRole("button", { name: "Tallenna" }).click();
     await expect(split).toContainText(`Odottaa hyväksyntää: ${NAMES[1]}`);
@@ -163,7 +163,7 @@ test("an income split waits for the other user: she accepts it, or he takes it b
   const first = await propose(`${today}-01`);
   await expect(first.split.getByRole("button", { name: "Peruuta ehdotus" })).toBeVisible();
   await expect(first.split.getByRole("button", { name: "Hyväksy" })).toHaveCount(0);
-  await expect(first.split).toContainText("Osuuksin");
+  await expect(first.split).toContainText("Osuuksina");
   await first.split.getByRole("button", { name: "Peruuta ehdotus" }).click();
   await expect(first.split).not.toContainText("Odottaa hyväksyntää");
   await first.context.close();
@@ -212,11 +212,11 @@ test("the administrator adds a member without a login and takes her away", async
   const page = await context.newPage();
   await page.goto("/#/settings");
   const card = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Jäsenet ilman tunnusta", level: 2 }) });
-  await card.getByLabel("Nimi ilman tunnusta").fill("Liisa Esimerkki");
+  await card.getByLabel("Nimi", { exact: true }).fill("Liisa Esimerkki");
   await card.getByRole("button", { name: "Lisää", exact: true }).click();
   await expect(card.getByRole("listitem")).toContainText("Liisa Esimerkki");
   // the same name twice is refused by the server
-  await card.getByLabel("Nimi ilman tunnusta").fill("liisa esimerkki");
+  await card.getByLabel("Nimi", { exact: true }).fill("liisa esimerkki");
   await card.getByRole("button", { name: "Lisää", exact: true }).click();
   await expect(card.locator(".error")).toHaveText("Sama nimi on kahdesti.");
   page.once("dialog", (d) => void d.accept());

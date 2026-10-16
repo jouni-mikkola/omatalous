@@ -137,7 +137,7 @@ export function financeRoutes(s: Services) {
     const ids = c.req.query("accounts");
     const accountIds = ids ? ids.split(",", MAX_ACCOUNTS + 1) : undefined;
     if (accountIds && (accountIds.length > MAX_ACCOUNTS || accountIds.some((id) => !id))) throw new UserError("Tuntematon raportti.");
-    return c.json(await explainFigure(s, c.get("user").id, { figure, scope: parseScope(c.req.query("scope")), range: parseRange(c, s.today()), accountIds, category: c.req.query("category") }));
+    return c.json(await explainFigure(s, c.get("user").id, { figure, scope: parseScope(c.req.query("scope")), range: parseRange(c, s.today()), accountIds, category: c.req.query("category"), rowId: c.req.query("row") }));
   });
 
   app.get("/recurring", async (c) => {

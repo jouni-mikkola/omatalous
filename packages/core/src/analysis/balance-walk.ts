@@ -1,8 +1,11 @@
 // Decision: what an account holds on any day, walked from the balance the bank last gave. Saldot and the first page read this one answer.
-import { dayNumber } from "../dates.ts";
+import { dayNumber, fromDayNumber } from "../dates.ts";
 import { balanceDayOf } from "../household-debts.ts";
 import type { BalanceInput } from "../types.ts";
-import type { AnalysisContext } from "./context.ts";
+import type { AnalysisContext, AnalysisTx } from "./context.ts";
+
+/** The rows a balance is walked over: the account's booked rows (pending rows are left out, as the bank leaves them out of the balance). */
+const bookedRows = (ctx: AnalysisContext, accountId: string): AnalysisTx[] => ctx.txs.filter((t) => t.accountId === accountId && t.status === "booked");
 
 /** One account's balance on any day, walked from the balance the bank last gave. */
 export interface BalanceWalk {
@@ -31,7 +34,7 @@ export interface BalanceWalk {
  */
 export function balanceWalk(ctx: AnalysisContext, account: BalanceInput): BalanceWalk | null {
   if (account.balanceCents === null) return null;
-  const txs = ctx.txs.filter((t) => t.accountId === account.id && t.status === "booked");
+  const txs = bookedRows(ctx, account.id);
   // running sums by position: cumulative[k] is what the first k transactions add up to
   const cumulative = [0];
   for (const t of txs) cumulative.push(cumulative[cumulative.length - 1]! + t.amountCents);
@@ -57,4 +60,17 @@ export function balanceWalk(ctx: AnalysisContext, account: BalanceInput): Balanc
     at: (day) => (day < firstDay || day < foreignDay ? null : base + sumUpTo(day)),
     blanked: (day) => day < foreignDay,
   };
+}
+
+/**
+ * What a balance at the end of `day` adds up: the balance the bank gave, standing for `openingDay`, and the booked rows
+ * between that day and `day`, each at the cents it moves the balance (a row after `day` and up to the given day takes
+ * its cents off the given balance, a row after the given day adds them). The opening and the cents add up to
+ * `balanceWalk(...).at(day)`. Null where the walk has no balance on that day.
+ */
+export function balanceRows(ctx: AnalysisContext, account: BalanceInput, day: number): { openingCents: number; openingDay: string; rows: { tx: AnalysisTx; cents: number }[] } | null {
+  const walk = balanceWalk(ctx, account);
+  if (!walk || walk.at(day) === null) return null;
+  const rows = bookedRows(ctx, account.id).flatMap((tx) => (day < tx.day && tx.day <= walk.asOfDay ? [{ tx, cents: -tx.amountCents }] : walk.asOfDay < tx.day && tx.day <= day ? [{ tx, cents: tx.amountCents }] : []));
+  return { openingCents: account.balanceCents!, openingDay: fromDayNumber(walk.asOfDay), rows };
 }

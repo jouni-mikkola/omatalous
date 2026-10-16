@@ -49,6 +49,9 @@ export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, lo
   }
 }
 
+/** Yli jäi of one row: what it adds to income + borrowed − expenses − saved. The sum over rows is `PeriodTotals.leftCents`. */
+export const leftOf = (f: Flows): number => f.income + f.borrowed - f.consumption - f.debt - f.saved;
+
 export interface PeriodTotals {
   incomeCents: number;
   consumptionCents: number;
@@ -74,7 +77,9 @@ export function totalsOf(flows: Iterable<Flows>): PeriodTotals {
   let saved = 0;
   let income = 0;
   let borrowed = 0;
+  let left = 0;
   for (const f of flows) {
+    left += leftOf(f);
     consumption += f.consumption;
     debt += f.debt;
     saved += f.saved;
@@ -90,7 +95,7 @@ export function totalsOf(flows: Iterable<Flows>): PeriodTotals {
     savedCents: saved,
     borrowedCents: borrowed,
     netCents: income - expense,
-    leftCents: income + borrowed - expense - saved,
+    leftCents: left,
     savingsRate: income > 0 ? saved / income : null,
   };
 }

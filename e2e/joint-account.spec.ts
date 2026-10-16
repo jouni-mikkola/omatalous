@@ -124,7 +124,7 @@ test("Tapahtumat shows the bank's amount and the part beside it on a row of the 
   const rows = page.locator("table tbody tr");
   const joint = rows.filter({ hasText: "Yhteistili" }).filter({ has: page.locator(".tx-part") }).first();
   await expect(joint).toBeVisible();
-  const [amount, part] = (await joint.locator("td.num").innerText()).split("\n").map(plain);
+  const [amount, part] = (await joint.locator("td.num").innerText()).replace(" Miksi?", "").split("\n").map(plain);
   expect(part, "the part is told with its word").toMatch(/^osuutesi /);
   // the bank's amount stays, and the part is 60 % of it, to the cent
   const share = cents(part!.replace("osuutesi ", ""));

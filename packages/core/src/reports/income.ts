@@ -110,7 +110,9 @@ export interface IncomeReport {
 
 const zeroGroups = (): Record<IncomeGroup, number> => Object.fromEntries(INCOME_GROUPS.map((g) => [g.id, 0])) as Record<IncomeGroup, number>;
 const MIN_COMPOSITION_MONTHS = 3;
-const STABILITY_MONTHS = 12;
+/** The months a usual regular income is the median of: the twelve the report reads, all of them complete. */
+export const USUAL_INCOME_MONTHS = 12;
+const STABILITY_MONTHS = USUAL_INCOME_MONTHS;
 /** The comparison with the year before needs this year's twelve months and the twelve before them. */
 const PREVIOUS_YEAR_MONTHS = 24;
 /** A median month-to-month change under 3 % reads as steady income. */
@@ -120,11 +122,17 @@ const WEEKS_PER_MONTH = 52 / 12;
 /** A regular series still pays when its last payment is within its usual gap plus ten days. */
 const stillPaying = (b: IncomeBase, s: IncomeBase["series"][number]) => dayNumber(b.end) - s.rows[s.rows.length - 1]!.day <= s.gapDays + 10;
 
-function stabilityOf(values: readonly { month: string; cents: number }[]): IncomeStability | null {
-  if (values.length < STABILITY_MONTHS) return null;
-  const cents = values.map((v) => v.cents);
+/** The usual regular income of a month: the median of the twelve months, null under twelve or when it is not above 0. */
+export function usualRegularCents(cents: readonly number[]): number | null {
+  if (cents.length < STABILITY_MONTHS) return null;
   const mid = median(cents);
-  if (mid <= 0) return null;
+  return mid > 0 ? Math.round(mid) : null;
+}
+
+function stabilityOf(values: readonly { month: string; cents: number }[]): IncomeStability | null {
+  const cents = values.map((v) => v.cents);
+  if (usualRegularCents(cents) === null) return null;
+  const mid = median(cents);
   const changes = cents.slice(1).map((c, i) => Math.abs(c - cents[i]!));
   const low = values.reduce((a, v) => (v.cents < a.cents ? v : a));
   let run = 0;
@@ -159,12 +167,46 @@ function membersOf(a: BalanceInput): { label: string; part: Part }[] {
   return users.map((u) => ({ label: u.label, part: partOf(use, u.userId) }));
 }
 
-export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): IncomeReport {
+/** The twelve months a report of `range` reads, and its payments, each as one part or two. */
+function windowOf(ctx: AnalysisContext, range: DateRange) {
   const end = range.to < ctx.today ? range.to : ctx.today;
-  const today = end === ctx.today;
   const b = incomeBase(ctx, end);
+  const labels = Array.from({ length: 12 }, (_, i) => addMonths(b.anchor, i - 11));
+  // a payment is one part, or two when a regular payer's only payment stands above the usual level
+  const parts = b.rows.flatMap((t) => payPieces(b, t).map((p) => ({ t, ...p })));
+  return { end, today: end === ctx.today, b, labels, parts };
+}
+
+type Window = ReturnType<typeof windowOf>;
+interface RegularMonth {
+  month: string;
+  cents: number;
+  /** The payments of the month's pay period, each as much of it as is regular income. */
+  rows: { id: string; day: IsoDate; cents: number; whole: number }[];
+}
+
+/** The complete months of the window with their regular income by pay period: the months "Tavalliset tulot" is the median of. */
+function regularMonthsOf({ b, labels, parts }: Window, ctx: AnalysisContext): RegularMonth[] {
+  const byMonth = new Map(labels.filter((m) => isCompleteMonth(ctx, m)).map((m) => [m, { month: m, cents: 0, rows: [] as RegularMonth["rows"] }]));
+  for (const { t, type, cents } of parts) {
+    // by pay period: pay for the 1st booked on the 31st is that month's pay, so a flat salary has no gap month
+    const r = byMonth.get(b.periodMonth.get(t.id) ?? monthOf(t.bookingDate));
+    if (!r || !INCOME_TYPES[type].regular) continue;
+    r.cents += cents;
+    const row = r.rows.find((x) => x.id === t.id);
+    if (row) row.cents += cents;
+    else r.rows.push({ id: t.id, day: t.bookingDate, cents, whole: t.amountCents });
+  }
+  return [...byMonth.values()];
+}
+
+/** What the page's "Tavalliset tulot kuukaudessa" is the median of, for the report of `range`; its median is `incomeReport(...).stability.medianCents`. */
+export const regularIncomeMonths = (ctx: AnalysisContext, range: DateRange): RegularMonth[] => regularMonthsOf(windowOf(ctx, range), ctx);
+
+export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): IncomeReport {
+  const window = windowOf(ctx, range);
+  const { today, b, labels, parts } = window;
   const anchor = b.anchor;
-  const labels = Array.from({ length: 12 }, (_, i) => addMonths(anchor, i - 11));
   const inWindow = new Set(labels);
   const typeOf = (id: string) => b.types.get(id)!;
 
@@ -173,8 +215,6 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const prevLabels = new Set(labels.map((m) => addMonths(m, -12)));
   let previous = 0;
   const typeRows = new Map<IncomeType, { total: number; complete: number; payers: Map<string, IncomeRowRef[] & { payer?: string }> }>();
-  // a payment is one part, or two when a regular payer's only payment stands above the usual level
-  const parts = b.rows.flatMap((t) => payPieces(b, t).map((p) => ({ t, ...p })));
   for (const { t, type, cents } of parts) {
     const month = monthOf(t.bookingDate);
     if (prevLabels.has(month) && INCOME_TYPES[type].earned) previous += cents;
@@ -246,13 +286,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
         }, [])
     : [];
 
-  const regularByMonth = months.filter((m) => m.complete).map((m) => ({ month: m.month, cents: 0 }));
-  const regularIndex = new Map(regularByMonth.map((r) => [r.month, r]));
-  for (const { t, type, cents } of parts) {
-    // by pay period: pay for the 1st booked on the 31st is that month's pay, so a flat salary has no gap month
-    const r = regularIndex.get(b.periodMonth.get(t.id) ?? monthOf(t.bookingDate));
-    if (r && INCOME_TYPES[type].regular) r.cents += cents;
-  }
+  const regularByMonth = regularMonthsOf(window, ctx);
 
   const payDays: IncomePayDay[] = activeSeries
     .filter((s) => s.payDay)

@@ -35,7 +35,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
 
   // an account: the link is in the accent colour, not the colour of the other words of the row, and underlined when hovered
   const account = holdings.getByRole("link", { name: "Käyttötili (esimerkki)" });
-  const plainText = await colour(holdings.getByText("Tilit yhteensä", { exact: true }));
+  const plainText = await colour(holdings.locator(".st-total .st-name", { hasText: "Tilit yhteensä" }));
   const underline = (el: Locator) => el.evaluate((node) => getComputedStyle(node).textDecorationLine);
   expect(await colour(account), "a name is a link in the colour of one").not.toBe(plainText);
   expect(await underline(account)).toBe("none");

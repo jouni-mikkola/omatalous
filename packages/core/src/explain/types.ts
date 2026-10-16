@@ -4,7 +4,8 @@
  * Every parameter of a reason is an id, a day, cents, a count or a part: never a name, an IBAN or a bank's text; the
  * page maps an id to a display name.
  */
-import type { IsoDate } from "../types.ts";
+import type { DateRange } from "../analysis/period.ts";
+import type { AccountUse, BalanceInput, IsoDate, UserInputs } from "../types.ts";
 
 /** The figures that can be explained: the front page and Raportit. */
 export type FigureId =
@@ -94,4 +95,24 @@ export interface WhyCollector {
   /** Takes back the reasons of one rule: a later step changed what the row is. */
   drop(id: string, rule: RuleId): void;
   of(id: string): readonly Reason[];
+}
+
+/** What `explain` is asked: the view, the range, and what the figure needs besides. */
+export interface ExplainArgs {
+  /** Own or household: `ctx` is that view's, and so is `why`. */
+  view: "own" | "household";
+  range: DateRange;
+  /** Where the page restricts the figure to accounts, their keys: a figure of one account is a figure of its own. `balance.account`: the one account. */
+  accountIds?: readonly string[];
+  /** `spend.category`: the category. */
+  category?: string;
+  why?: WhyCollector;
+  /** `balance.*` and `forecast.month`: the balances of the accounts in the view, as the reports read them. */
+  balances?: readonly BalanceInput[];
+  /** `forecast.month`: the household's marks and typed-in bills. */
+  inputs?: UserInputs;
+  /** `share.part`: the row, the use of its account (its users in the order of the parts) and the viewing user (null: the user with no id). */
+  rowId?: string;
+  use?: AccountUse;
+  viewerId?: string | null;
 }

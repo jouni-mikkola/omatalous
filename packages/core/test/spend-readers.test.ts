@@ -51,8 +51,8 @@ const BILL_WHOLE = [
   "analysis/money-in.ts",
   "analysis/one-offs.ts",
   "analysis/statement-explain.ts",
-  "analysis/usual.ts",
-  // names the figure "usual.spend" only
+  // name the figure "usual.spend" only
+  "explain/explain.ts",
   "explain/types.ts",
   "optimise/areas/bank.ts",
   "optimise/areas/electricity.ts",

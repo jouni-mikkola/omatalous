@@ -53,7 +53,7 @@ test("the line over the figures names the payday, the three figures are the API'
 
   // the three figures in their order, each the API's own, and the third is the first less the second
   const figures = card.locator("dl .st-row");
-  await expect(figures.locator("dt")).toHaveText(["Saldo", "Erääntyvät maksut", "Käytettävissä"]);
+  await expect(figures.locator("dt")).toHaveText(["Saldo", "Erääntyvät maksut", /^Käytettävissä( Miksi[?])?$/]);
   const [balance, due, free] = (await figures.locator("dd.st-num").allInnerTexts()).map(cents);
   expect([balance, due, free]).toEqual([ahead.balance!.startCents, ahead.totals.dueCents, ahead.balance!.freeCents]);
   expect(free).toBe(balance! - due!);
@@ -95,7 +95,7 @@ test("the line over the figures names the payday, the three figures are the API'
   // the sum and the day. A row the app estimates is a hollow dot and says so in its name; a bill the household typed in is a full dot
   const line = card.locator(".nd-line");
   await expect(line).toHaveCount(paid.length > 0 ? 1 : 0);
-  await expect(card.locator("canvas, button")).toHaveCount(0);
+  await expect(card.locator("canvas, button:not(.why-open)")).toHaveCount(0);
   if (paid.length > 0) {
     const dots = line.locator(".nd-dot:not(.nd-pay)");
     await expect(dots).toHaveCount(paid.length);

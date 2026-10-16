@@ -1,28 +1,36 @@
 // Decision: "Miksi?" opens the rows of a figure in a panel; the names come from the list the page already reads
 import { type Explanation, type FigureId, type Reason, sentenceOf } from "@banking/core";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { query } from "../api.ts";
-import { dayMonth, money } from "../format.ts";
+import { dayMonth, money, monthLong } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import type { Meta, Scope, TransactionItem } from "../types.ts";
+import { estimateLines } from "./why-text.ts";
 import "../styles/why.css";
 
 /** The rows shown before "Näytä kaikki". */
 const FIRST_ROWS = 50;
 
+/** The figures the panel can open. */
+export type WhyFigureId = Exclude<FigureId, "settlement.over">;
+
 interface WhyFigure {
-  figure: Extract<FigureId, "spend.month" | "spend.category" | "income.month" | "income.earned">;
+  figure: WhyFigureId;
   /** The name of the figure, as its row says it. */
   title: string;
   range: { from: string; to: string };
   scope: Scope;
   accounts?: readonly string[];
   category?: string;
+  /** `share.part`: the row whose part the figure is. */
+  row?: string;
 }
 
-/** "Täsmää", or the difference when the rows do not add up to the figure: a difference is never left out. */
-function checkText(check: Explanation["check"]): string {
-  return check.kind === "n/a" || check.diffCents === 0 ? "Täsmää" : `Ero ${money(check.diffCents)}`;
+/** "Täsmää" when a sum adds up, the difference when it does not (never left out); a median or an estimate has no such line. */
+function checkText(check: Explanation["check"]): string | null {
+  if (check.kind === "n/a") return null;
+  if (check.diffCents === 0) return check.kind === "sum" ? "Täsmää" : null;
+  return `Ero ${money(check.diffCents)}`;
 }
 
 type Line = Explanation["lines"][number];
@@ -48,6 +56,22 @@ function reasonOf(why: readonly Reason[]): string | undefined {
   return undefined;
 }
 
+/** What names a row of a part: the fraction of the user's part, and the cent no one could share. */
+function shareNote(why: readonly Reason[]): string | undefined {
+  const use = why.find((r) => r.rule === "part.use");
+  const cent = why.find((r) => r.rule === "rounding.cent");
+  const parts = [use ? `Osuus ${Number(use.to) - Number(use.from)}/${use.of}` : null, cent ? sentenceOf(cent) : null].filter(Boolean);
+  return parts.length ? parts.join(". ") : undefined;
+}
+
+/** The names the answer's ids stand for, read from the lists the page has. */
+interface Names {
+  rows: Map<string, TransactionItem>;
+  labels: Map<string, string>;
+  accounts: Map<string, string>;
+  members: Map<string, string>;
+}
+
 /** The button that opens the panel of one figure. */
 export function Why(props: WhyFigure) {
   const [open, setOpen] = useState(false);
@@ -61,7 +85,81 @@ export function Why(props: WhyFigure) {
   );
 }
 
-function WhyPanel({ figure, title, range, scope, accounts, category, onClose }: WhyFigure & { onClose: () => void }) {
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Whom or what a line of the answer is about. */
+function nameOf(l: Line, figure: WhyFigureId, names: Names, accounts?: readonly string[]): string {
+  if (figure === "balance.view") return names.accounts.get(l.id) ?? "–";
+  if (figure === "balance.account" && l.id === accounts?.[0]) return "Pankin saldo";
+  if (figure === "share.part") return l.id.startsWith("u:") ? (names.members.get(l.id.slice(2)) ?? "–") : l.why[0] ? sentenceOf(l.why[0]) : "–";
+  return names.rows.get(l.id)?.merchant ?? "–";
+}
+
+interface Shown {
+  figure: WhyFigureId;
+  names: Names;
+  accounts?: readonly string[];
+}
+
+/** One line of the answer as two table rows: the day, the name and the cents, then what is said under them. */
+function lineRows(l: Line, key: string, shown: Shown, kind: "counted" | "left" | "plain"): ReactNode[] {
+  const { figure, names } = shown;
+  const tx = names.rows.get(l.id);
+  const category = kind === "counted" && tx ? (names.labels.get(tx.category) ?? tx.category) : undefined;
+  const reason = figure === "share.part" ? shareNote(l.why) : kind === "plain" ? undefined : reasonOf(l.why);
+  const mark = kind === "left" ? { "data-why-left": l.id } : kind === "counted" ? { "data-why-row": l.id } : {};
+  return [
+    <tr key={key} {...mark}>
+      <td>{dayMonth(l.day)}</td>
+      <td>{nameOf(l, figure, names, shown.accounts)}</td>
+      <td className="num">{money(l.cents)}</td>
+    </tr>,
+    ...(category || reason || (l.whole !== undefined && figure !== "share.part")
+      ? [
+          <tr key={`${key}-why`} className="why-more">
+            <td colSpan={3}>
+              {category && <div>{category}</div>}
+              {reason && <div className="why-reason">{reason}</div>}
+              {l.whole !== undefined && figure !== "share.part" && <div className="why-reason">Pankin ilmoittama saldo {money(l.whole)}</div>}
+            </td>
+          </tr>,
+        ]
+      : []),
+  ];
+}
+
+const head = (who: string) => (
+  <thead>
+    <tr>
+      <th scope="col">Päivä</th>
+      <th scope="col">{who}</th>
+      <th scope="col" className="num">
+        Summa
+      </th>
+    </tr>
+  </thead>
+);
+
+/** A month of a median: its figure, and its rows once it is opened. */
+function Month({ label, cents, lines, shown }: { label: string; cents: number; lines: Line[]; shown: Shown }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="why-month" data-why-month={label} onToggle={(ev) => setOpen(ev.currentTarget.open)}>
+      <summary>
+        <span>{capital(monthLong(label))}</span>
+        <span className="num">{money(cents)}</span>
+      </summary>
+      {open && (
+        <table className="why-rows">
+          {head("Saaja")}
+          <tbody>{lines.filter((l) => l.cents !== 0).flatMap((l) => lineRows(l, l.id, shown, "counted"))}</tbody>
+        </table>
+      )}
+    </details>
+  );
+}
+
+function WhyPanel({ figure, title, range, scope, accounts, category, row, onClose }: WhyFigure & { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [all, setAll] = useState(false);
   useEffect(() => {
@@ -69,51 +167,32 @@ function WhyPanel({ figure, title, range, scope, accounts, category, onClose }: 
     if (dialog && !dialog.open) dialog.showModal();
     return () => dialog?.close();
   }, []);
-  const why = useApi<Explanation>(`/api/explain${query({ figure, ...range, scope, accounts: accounts?.join(","), category })}`);
-  // the answer holds ids only: a row is named by the list of rows the page reads for the same days
-  const rows = useApi<{ items: TransactionItem[] }>(`/api/transactions${query({ ...range, scope, limit: 5000 })}`);
-  const meta = useApi<Pick<Meta, "categories">>("/api/meta");
-  const names = new Map((rows.data?.items ?? []).map((t) => [t.id, t]));
-  const labels = new Map((meta.data?.categories ?? []).map((c) => [c.id, c.label]));
+  const why = useApi<Explanation>(`/api/explain${query({ figure, ...range, scope, accounts: accounts?.join(","), category, row })}`);
   const e = why.data;
-  // a row the figure left out counts nothing: it stands in the closed group at the foot, never between the counted rows
-  const counted = e ? e.lines.filter((l) => l.cents !== 0) : [];
-  const left = e ? e.lines.filter((l) => l.cents === 0) : [];
-  const shownRows = all ? counted : counted.slice(0, FIRST_ROWS);
-  const row = (l: Line, key: string, withCategory: boolean) => {
-    const t = names.get(l.id);
-    const category = withCategory && t ? labels.get(t.category) ?? t.category : undefined;
-    const reason = reasonOf(l.why);
-    return [
-      <tr key={key} {...{ [withCategory ? "data-why-row" : "data-why-left"]: l.id }}>
-        <td>{dayMonth(l.day)}</td>
-        <td>{t?.merchant ?? "–"}</td>
-        <td className="num">{money(l.cents)}</td>
-      </tr>,
-      ...(category || reason || l.whole !== undefined
-        ? [
-            <tr key={`${key}-why`} className="why-more">
-              <td colSpan={3}>
-                {category && <div>{category}</div>}
-                {reason && <div className="why-reason">{reason}</div>}
-                {l.whole !== undefined && <div className="why-reason">Pankin summa {money(l.whole)}</div>}
-              </td>
-            </tr>,
-          ]
-        : []),
-    ];
+  // the answer holds ids only: a row is named by the list of rows the page reads for the same days; a balance and a usual
+  // level reach back before the range, so their list waits for the answer to tell how far
+  const waits = figure.startsWith("balance") || figure.startsWith("usual");
+  const needsRows = figure !== "share.part" && figure !== "forecast.month" && figure !== "balance.view";
+  const earliest = e ? [range.from, ...e.lines.map((l) => l.day), ...(e.method?.kind === "median" ? e.method.values.map((v) => `${v.label}-01`) : [])].sort()[0]! : range.from;
+  const rows = useApi<{ items: TransactionItem[] }>(needsRows && (e || !waits) ? `/api/transactions${query({ from: earliest, to: range.to, scope, limit: 5000, accountId: figure === "balance.account" ? accounts?.[0] : undefined })}` : null);
+  const meta = useApi<Pick<Meta, "categories" | "accounts" | "sharedAccounts" | "members">>("/api/meta");
+  const names: Names = {
+    rows: new Map((rows.data?.items ?? []).map((t) => [t.id, t])),
+    labels: new Map((meta.data?.categories ?? []).map((c) => [c.id, c.label])),
+    accounts: new Map([...(meta.data?.accounts ?? []), ...(meta.data?.sharedAccounts ?? [])].map((a) => [a.id, a.name])),
+    members: new Map((meta.data?.members ?? []).map((m) => [m.id, m.displayName])),
   };
-  const head = (
-    <thead>
-      <tr>
-        <th scope="col">Päivä</th>
-        <th scope="col">Saaja</th>
-        <th scope="col" className="num">
-          Summa
-        </th>
-      </tr>
-    </thead>
-  );
+  const shown: Shown = { figure, names, accounts };
+  // a row the figure left out counts nothing: it stands in the closed group at the foot, never between the counted rows
+  const splits = e?.kind === "sum" && !figure.startsWith("balance");
+  const counted = e ? (splits ? e.lines.filter((l) => l.cents !== 0) : e.lines) : [];
+  const left = e && splits ? e.lines.filter((l) => l.cents === 0) : [];
+  const shownRows = all ? counted : counted.slice(0, FIRST_ROWS);
+  const kind = splits ? "counted" : "plain";
+  const check = e ? checkText(e.check) : null;
+  const method = e?.method;
+  const whole = figure === "share.part" ? e?.lines[0]?.whole : undefined;
+  const inputs = method?.kind === "estimate" ? estimateLines(method) : null;
   return (
     <dialog
       ref={ref}
@@ -130,35 +209,69 @@ function WhyPanel({ figure, title, range, scope, accounts, category, onClose }: 
       {e && (
         <>
           <div className="why-scroll">
-            <table className="why-rows">
-              {head}
-              <tbody>{shownRows.flatMap((l) => row(l, l.id, true))}</tbody>
-            </table>
-            {counted.length > FIRST_ROWS && !all && (
-              <button type="button" className="btn btn-small" onClick={() => setAll(true)}>
-                Näytä kaikki
-              </button>
+            {method?.kind === "median" && (
+              <>
+                {method.values.map((v) => (
+                  <Month key={v.label} label={v.label} cents={v.cents} lines={v.explain?.lines ?? []} shown={shown} />
+                ))}
+                <p className="why-reason">{e.cents === null ? capital(method.rule) : `${method.rule}. ${method.tie}`}</p>
+              </>
+            )}
+            {inputs && (
+              <>
+                <ul className="why-list">
+                  {inputs.inputs.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+                <ul className="why-list">
+                  {inputs.assumptions.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {!method && (
+              <>
+                <table className="why-rows">
+                  {head(figure === "balance.view" ? "Tili" : "Saaja")}
+                  <tbody>{shownRows.flatMap((l) => lineRows(l, l.id, shown, kind))}</tbody>
+                </table>
+                {counted.length > FIRST_ROWS && !all && (
+                  <button type="button" className="btn btn-small" onClick={() => setAll(true)}>
+                    Näytä kaikki
+                  </button>
+                )}
+              </>
             )}
             {left.length > 0 && (
               <details className="why-left">
-                <summary>{`Ei mukana: ${left.length === 1 ? "1 tapahtuma" : `${left.length} tapahtumaa`}`}</summary>
+                <summary>{`Ei laskettu mukaan: ${left.length === 1 ? "1 tapahtuma" : `${left.length} tapahtumaa`}`}</summary>
                 <table className="why-rows">
-                  {head}
-                  <tbody>{left.flatMap((l) => row(l, `left-${l.id}`, false))}</tbody>
+                  {head("Saaja")}
+                  <tbody>{left.flatMap((l) => lineRows(l, `left-${l.id}`, shown, "left"))}</tbody>
                 </table>
               </details>
             )}
           </div>
           <div className="why-foot">
+            {whole !== undefined && (
+              <div className="why-total">
+                <span>Pankin ilmoittama saldo</span>
+                <span className="num">{money(whole)}</span>
+              </div>
+            )}
             <div className="why-total">
-              <span>Yhteensä</span>
+              <span>{method ? title : "Yhteensä"}</span>
               <span className="num" data-why-total>
-                {money(e.cents ?? 0)}
+                {e.cents === null ? "–" : money(e.cents)}
               </span>
             </div>
-            <p className={e.check.kind === "sum" && e.check.diffCents !== 0 ? "why-check why-differs" : "why-check"} role="status">
-              {checkText(e.check)}
-            </p>
+            {check && (
+              <p className={e.check.kind !== "n/a" && e.check.diffCents !== 0 ? "why-check why-differs" : "why-check"} role="status">
+                {check}
+              </p>
+            )}
           </div>
         </>
       )}

@@ -53,10 +53,10 @@ export function NamelessMembers({ meta }: { meta: Meta }) {
         </div>
       </div>
       <form className="form-row" onSubmit={add}>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Nimi ilman tunnusta" placeholder="Nimi" />
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Nimi" placeholder="Nimi" />
         {holders.length > 0 && (
-          <select value="" aria-label="Pankin nimi" onChange={(e) => e.target.value && setName(e.target.value)}>
-            <option value="">Pankin nimi</option>
+          <select value="" aria-label="Nimi pankin tiedoissa" onChange={(e) => e.target.value && setName(e.target.value)}>
+            <option value="">Nimi pankin tiedoissa</option>
             {holders.map((h) => (
               <option key={h} value={h}>
                 {h}

@@ -38,7 +38,7 @@ function Cashflow({ ctx }: SectionProps) {
           ]}
         />
       )}
-      {settled && <SurplusBridge totals={settled} title={`Tulojen käyttö${whole}`} />}
+      {settled && <SurplusBridge totals={settled} title={`Tulojen käyttö${whole}`} leftWhy={r.running ? undefined : { range: ctx.range, scope: ctx.scope }} />}
       {table ? (
         <div className="table-wrap">
           <table className="ruled">

@@ -50,7 +50,7 @@ test("the month's spending opens its rows, they add up to the figure and the foo
   const group = panel.locator("details.why-left");
   if (await group.count()) {
     await expect(group).not.toHaveAttribute("open", "");
-    await expect(group.locator("summary")).toHaveText(/^Ei mukana: (1 tapahtuma|\d+ tapahtumaa)$/);
+    await expect(group.locator("summary")).toHaveText(/^Ei laskettu mukaan: (1 tapahtuma|\d+ tapahtumaa)$/);
     await group.locator("summary").click();
     for (const t of await group.locator("tr[data-why-left] td.num").allInnerTexts()) expect(cents(t)).toBe(0);
   }
@@ -121,9 +121,98 @@ test.describe("a joint account", () => {
     await total.getByRole("button", { name: /^Miksi\?/ }).click();
     const panel = page.getByRole("dialog");
     await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    expect(plain(await panel.innerText())).toContain("Pankin summa");
+    expect(plain(await panel.innerText())).toContain("Pankin ilmoittama saldo");
     expect(Math.round((await rowsSum(panel)) / 100)).toBe(figure / 100);
     await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
+    await context.close();
+  });
+});
+
+/** The opened panel at both widths, for the pictures. */
+async function shoot(page: Page, name: string) {
+  if (!SHOTS) return;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: join(SHOTS, `${name}-1280.png`) });
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.screenshot({ path: join(SHOTS, `${name}-390.png`) });
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+
+test.describe("figures that are not a sum of one range", () => {
+  test("an account's balance opens the bank's balance and the rows after it, and adds up to the figure on the row", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await ready(page, "/#/overview");
+    const row = page.locator("li.holding-account").first();
+    const figure = cents(await row.locator(".st-num").first().innerText());
+    await row.getByRole("button", { name: /^Miksi\?/ }).click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    await expect(panel.getByText("Pankin saldo", { exact: true })).toBeVisible();
+    expect(cents(await panel.locator("[data-why-total]").innerText())).toBe(figure);
+    await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
+    await shoot(page, "balance");
+    await context.close();
+  });
+
+  test("Tilit yhteensä opens the accounts the page adds, no card, and a difference the server finds is told as Ero", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await ready(page, "/#/overview");
+    const total = page.locator(".st-row.st-total", { has: page.getByRole("button", { name: "Miksi? Tilit yhteensä" }) });
+    const figure = cents(await total.locator(".st-num").first().innerText());
+    const accounts = await page.locator("li.holding-account").count();
+    const panel = await openPanel(page, "Tilit yhteensä");
+    expect(cents(await panel.locator("[data-why-total]").innerText())).toBe(figure);
+    await expect(panel.locator("tbody tr")).toHaveCount(accounts);
+    await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    // the same figure when the server's check finds a difference: the panel says so and does not tick
+    await page.route("**/api/explain?**", async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({ response, json: { ...body, check: { kind: "sum", diffCents: 500 } } });
+    });
+    const off = await openPanel(page, "Tilit yhteensä");
+    await expect(off.getByRole("status")).toHaveText(/^Ero 5,00/);
+    await expect(off.getByText("Täsmää")).toHaveCount(0);
+    await context.close();
+  });
+
+  test("the usual income opens its months, a month opens its rows, and no Täsmää is said", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await ready(page, "/#/reports?period=12m");
+    const usual = page.getByRole("button", { name: "Miksi? Tavalliset tulot kuukaudessa" });
+    await usual.scrollIntoViewIfNeeded();
+    const figure = cents(await page.locator(".kv > div", { has: usual }).locator(".v").innerText());
+    await usual.click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    const months = panel.locator("details.why-month");
+    expect(await months.count()).toBeGreaterThanOrEqual(3);
+    expect(Math.round(cents(await panel.locator("[data-why-total]").innerText()) / 100)).toBe(figure / 100);
+    await months.last().locator("summary").click();
+    await expect(months.last().locator("tr[data-why-row]").first()).toBeVisible();
+    await expect(panel.getByText("Täsmää")).toHaveCount(0);
+    await shoot(page, "median");
+    await context.close();
+  });
+
+  test("the forecast says what it read and assumes, in words, and has no Täsmää", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await ready(page, "/#/overview");
+    const row = page.locator(".st-row.st-total", { has: page.getByRole("button", { name: "Miksi? Käytettävissä" }) });
+    const figure = cents(await row.locator(".st-num").first().innerText());
+    await page.getByRole("button", { name: "Miksi? Käytettävissä" }).click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    expect(cents(await panel.locator("[data-why-total]").innerText())).toBe(figure);
+    await expect(panel.getByText("Seuraavaa palkkaa ei ole laskettu mukaan")).toBeVisible();
+    await expect(panel.getByText(/^Jakso \d/)).toBeVisible();
+    expect(plain(await panel.innerText())).not.toMatch(/Täsmää|window|rows\./);
+    await shoot(page, "estimate");
     await context.close();
   });
 });

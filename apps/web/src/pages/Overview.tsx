@@ -112,12 +112,12 @@ export function Overview({
 
   return (
     <div className={`page-grid${loading ? " loading" : ""}`}>
-      <Holdings holdings={today.holdings} meta={meta} />
+      <Holdings holdings={today.holdings} meta={meta} scope={scope} />
 
       {/* the share of the last twelve months that is classified, whatever month is chosen below */}
       <Questions questions={today.questions} categories={meta.categories} onAnswered={now.reload} />
 
-      {today.ahead && <NextDays ahead={today.ahead} />}
+      {today.ahead && <NextDays ahead={today.ahead} scope={scope} />}
 
       {today.housing && <Housing housing={today.housing} reportAnchor={loansSection.id} onAnswered={now.reload} />}
 

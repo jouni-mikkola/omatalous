@@ -2,6 +2,7 @@ import { fold, isCardBill } from "@banking/core";
 import { memo, useSyncExternalStore } from "react";
 import { CategoryPicker } from "../components/CategorySelect.tsx";
 import { date, money } from "../format.ts";
+import { Why } from "../components/Why.tsx";
 import { partAnchor } from "../part.ts";
 import type { Category, TransactionItem } from "../types.ts";
 
@@ -136,7 +137,7 @@ export const TxRow = memo(function TxRow({ account, explained, onStatement, ...r
       </td>
       <td className={`num ${t.amountCents > 0 ? "amount-in" : ""}`}>
         {money(t.amountCents)}
-        {part && <div className="sub tx-part">{part}</div>}
+        {part && <div className="sub tx-part">{part} <Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} /></div>}
         {owner && (
           <div className="sub tx-part">
             <a href={owner}>Kenen?</a>
@@ -163,7 +164,7 @@ export const TxItem = memo(function TxItem({ explained, onStatement, ...row }: R
       </div>
       <div className="tx-cat">
         <RowCategory {...row} phone />
-        {part && <span className="tx-part">{part}</span>}
+        {part && <span className="tx-part">{part} <Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} /></span>}
         {owner && (
           <a className="tx-part" href={owner}>
             Kenen?

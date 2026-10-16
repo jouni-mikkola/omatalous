@@ -1,8 +1,10 @@
 // Decision: is our income changing, and does the buffer match how it moves
 import type { IncomeChange, IncomeReport, IncomeTypeRow } from "@banking/core";
-import { Fragment, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { date, money, monthLong, percent, plural, roundedShares, shareText } from "../../../format.ts";
 import { hasJointAccount } from "../../../part.ts";
+import { Why } from "../../../components/Why.tsx";
+import type { ReportContext } from "../types.ts";
 import "../../../styles/income.css";
 import { Kv } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
@@ -166,10 +168,11 @@ function Year({ r }: { r: IncomeReport }) {
 }
 
 /** The usual income and how much it moves; with too short a history there is nothing to tell, and nothing is drawn. */
-function Stability({ r }: { r: IncomeReport }) {
+function Stability({ r, ctx }: { r: IncomeReport; ctx: ReportContext }) {
   const s = r.stability;
   if (!s) return null;
-  const usual: [string, string] = ["Tavalliset tulot kuukaudessa", money(s.medianCents, false)];
+  // the usual level of the month the period ends in, from the months before it
+  const usual: [string, string, ReactNode] = ["Tavalliset tulot kuukaudessa", money(s.medianCents, false), <Why key="why" figure="usual.income" title="Tavalliset tulot kuukaudessa" range={ctx.range} scope={ctx.scope} />];
   const weeks = s.worstRunWeeks.toLocaleString("fi-FI", { maximumFractionDigits: 1 });
   return (
     <>
@@ -233,7 +236,7 @@ function Income({ ctx }: SectionProps) {
           </ul>
         </>
       )}
-      <Stability r={r} />
+      <Stability r={r} ctx={ctx} />
       {r.members && (
         <>
           <h3>Jäsenittäin</h3>

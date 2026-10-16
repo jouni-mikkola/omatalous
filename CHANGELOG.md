@@ -3,6 +3,16 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.57.0
+
+- "Miksi?" now also opens each account balance and "Tilit yhteensä" on Yhteenveto, "Käytettävissä" in Erääntyvät maksut, your share of a joint row on Tapahtumat, "Tavalliset tulot kuukaudessa" and the "Yli jäi" row in Raportit. Each panel shows exactly the number beside it: the rows behind a sum, the months behind a median, or what a forecast reads and assumes.
+- Plainer Finnish in the Miksi? panels, in Yhteiset menot and in the Jako form.
+
+Money and reports
+
+- A "Miksi?" button now stands beside the figures that Yhteenveto and Raportit tell: it opens the rows behind the figure and says whether they add up. It covers sums and balances, the usual income (month by month), the part of a joint account's row, "Yli jäi" and what is left to use before payday. An estimate says in plain words what it read and what it leaves out.
+- Plainer Finnish on Yhteiset menot and in the Jako form.
+
 ## 0.56.0
 
 - Settlement between partners. Under Asetukset > Tilit each joint account and shared card has "Jako": equal, by shares, in proportion to income or a fixed sum with the rest split another way, valid from a day you choose, earlier agreements kept below. A split in proportion to income waits until every named partner has accepted it ("Hyväksy"); a partner can turn it down ("Hylkää") and the one who proposed it can take it back ("Peruuta ehdotus").

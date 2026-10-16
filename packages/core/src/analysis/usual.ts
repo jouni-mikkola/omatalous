@@ -7,7 +7,8 @@
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, historyCovers } from "./context.ts";
-import { earnedOf, earnedSelect, sumOf } from "./counted.ts";
+import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
+import type { DayRange } from "./period.ts";
 
 /** The usual level is the median of this many complete months at most. */
 export const USUAL_MONTHS = 6;
@@ -50,23 +51,29 @@ interface MonthSums {
 }
 
 const ZERO: MonthSums = { through: new Array<number>(31).fill(0) };
-const sums = new WeakMap<AnalysisContext, Map<number, MonthSums>>();
+const sums = new WeakMap<AnalysisContext, Map<string, MonthSums>>();
 const earnedSums = new WeakMap<AnalysisContext, Map<string, number>>();
 
-/** A month's spending, summed once per context. */
+/** The days of a month. */
+const monthDays = (month: string): DayRange => ({ fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) });
+
+/** A month's spending, summed once per context from the rows `bookedSpendSelect` counts. */
 function monthSums(ctx: AnalysisContext, month: string): MonthSums {
   let byMonth = sums.get(ctx);
-  if (!byMonth) {
-    byMonth = new Map();
-    for (const t of ctx.txs) {
-      let e = byMonth.get(t.month);
-      if (!e) byMonth.set(t.month, (e = { through: new Array<number>(31).fill(0) }));
-      e.through[Number(t.bookingDate.slice(8, 10)) - 1]! += t.spend;
+  if (!byMonth) sums.set(ctx, (byMonth = new Map()));
+  let e = byMonth.get(month);
+  if (!e) {
+    const r = monthDays(month);
+    const rows = bookedSpendSelect(ctx, r).counted;
+    if (!rows.length) e = ZERO;
+    else {
+      e = { through: new Array<number>(31).fill(0) };
+      for (const t of rows) e.through[Number(t.bookingDate.slice(8, 10)) - 1]! += spendOf(t);
+      for (let d = 1; d < 31; d++) e.through[d]! += e.through[d - 1]!;
     }
-    for (const e of byMonth.values()) for (let d = 1; d < 31; d++) e.through[d]! += e.through[d - 1]!;
-    sums.set(ctx, byMonth);
+    byMonth.set(month, e);
   }
-  return byMonth.get(monthIndex(month)) ?? ZERO;
+  return e;
 }
 
 /** A month's earned income (`isEarnedIncome`): what `usualIncome` is the median of. */
@@ -75,7 +82,7 @@ export function earnedIncome(ctx: AnalysisContext, month: string): number {
   if (!cache) earnedSums.set(ctx, (cache = new Map()));
   let cents = cache.get(month);
   if (cents === undefined) {
-    cents = sumOf(earnedSelect(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) }).counted, earnedOf);
+    cents = sumOf(earnedSelect(ctx, monthDays(month)).counted, earnedOf);
     cache.set(month, cents);
   }
   return cents;

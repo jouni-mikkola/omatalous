@@ -121,7 +121,7 @@ describe("explain: the sum figures on the demo household", () => {
   });
 
   it("refuses a figure that is not a sum here, and a category figure with no category", () => {
-    expect(() => explain("usual.spend", plain, argsOf(months[0]!))).toThrow("not a sum figure");
+    expect(() => explain("settlement.over", plain, argsOf(months[0]!))).toThrow("not a sum figure");
     expect(() => explain("spend.category", plain, argsOf(months[0]!))).toThrow("needs a category");
     expect(explain("spend.category", plain, { ...argsOf(months[0]!), category: "no_such_category" }).lines).toEqual([]);
   });
@@ -144,7 +144,7 @@ describe("explain: the worked cases", () => {
     expect(oct.cents).toBe(-4000);
     expect(oct.lines).toEqual([{ id: "back", day: "2026-10-03", cents: -4000, why: [{ rule: "refund.net", purchase: "buy", months: 1, cents: 4000 }] }]);
     expect(diffOf(oct)).toBe(0);
-    expect(sentenceOf(oct.lines[0]!.why[0]!)).toBe("Palautus pienentää 1 kuukautta aiemmin tehtyä ostoa");
+    expect(sentenceOf(oct.lines[0]!.why[0]!)).toBe("Palautus vähennetty edellisen kuukauden ostosta");
     // the same month: the line says so
     const same = tx({ id: "same", bookingDate: "2026-09-29", amountCents: 2500, merchant: "ESIMERKKI OY" });
     const w2 = createWhy("own");
@@ -160,7 +160,7 @@ describe("explain: the worked cases", () => {
     expect(e.lines).toEqual([{ id: "rent", day: "2026-09-05", cents: 6001, whole: 10001, why: [{ rule: "part.use", from: 0, to: 3, of: 5 }] }]);
     expect(e.cents).toBe(6001);
     expect(diffOf(e)).toBe(0);
-    expect(sentenceOf(e.lines[0]!.why[0]!)).toBe("Osuutesi on 3/5 tilin rahoista");
+    expect(sentenceOf(e.lines[0]!.why[0]!)).toBe("Osuutesi tilin rahoista on 3/5");
     const w2 = createWhy("own");
     const whole = applyUse([row], [account], new Map([["acc-1", { from: 0, to: 1, of: 1 }]]), new Map(), undefined, w2);
     expect(explain("spend.month", createContext(whole, [account], TODAY), argsOf("2026-09", { why: w2 })).lines).toEqual([{ id: "rent", day: "2026-09-05", cents: 10001, why: [] }]);
@@ -195,7 +195,13 @@ describe("explain: the worked cases", () => {
       const reason: Reason = { rule, source: "mcc", months: 2, from: 0, to: 1, of: 2, valid_from: "1.1.2026", mine: true };
       expect(sentenceOf(reason).length, rule).toBeGreaterThan(5);
     }
-    expect(sentenceOf({ rule: "category.builtin", source: "industry" })).toBe("Luokka tuli kauppiaan toimialasta");
+    expect(sentenceOf({ rule: "category.builtin", source: "industry" })).toBe("Luokiteltu kaupan toimialan mukaan");
+    // an agreement date is written d.m.yyyy, never ISO
+    expect(sentenceOf({ rule: "agree.dated", valid_from: "2026-10-01" })).toBe("Sopimus on voimassa 1.10.2026 alkaen");
+    expect(sentenceOf({ rule: "agree.dated", valid_from: "2026-12-15" })).toBe("Sopimus on voimassa 15.12.2026 alkaen");
+    // a refund two months on and one with a same-month purchase
+    expect(sentenceOf({ rule: "refund.net", months: 2 })).toBe("Palautus vähennetty ostosta, joka tehtiin 2 kuukautta aiemmin");
+    expect(sentenceOf({ rule: "refund.net", months: 0 })).toBe("Palautus vähennetty saman kuukauden ostosta");
   });
 });
 
@@ -277,7 +283,7 @@ describe("explain: what each rule says it is", () => {
     const [row] = applyUse([out], accounts, new Map([["chk", { from: 0, to: 1, of: 1 }], ["sav", { from: 0, to: 0, of: 1 }]]), new Map(), undefined, w);
     expect(row).toMatchObject({ id: "out", category: "p2p", isTransfer: false });
     expect(w.of("out")).toEqual([{ rule: "transfer.pair", people: true, other: "in" }]);
-    expect(sentenceOf(w.of("out")[0]!)).toBe("Rahaa ihmisten välillä");
+    expect(sentenceOf(w.of("out")[0]!)).toBe("Rahansiirto henkilöiden välillä");
   });
 
   it("a collector belongs to one view: another view's explanation refuses it", () => {

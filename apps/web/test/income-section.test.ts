@@ -18,10 +18,10 @@ const report = (over: Partial<IncomeReport> = {}): IncomeReport =>
     previousEarnedCents: null, earnedChange: null, needs: { compositionMonths: 3, stabilityMonths: 12, previousYearMonths: 24, steadySpread: 0.03 },
     types: [type()], groups, projection: [], markers: [], changes: [], stability: null, payDays: [], members: null, ...over,
   }) as unknown as IncomeReport;
-const context = (r: IncomeReport): ReportContext => ({ data: { income: r }, meta: { today: "2026-10-11", accounts: [] }, exportHref: () => "" }) as unknown as ReportContext;
+const context = (r: IncomeReport): ReportContext => ({ data: { income: r }, meta: { today: "2026-10-11", accounts: [] }, range: { from: "2026-07-01", to: "2026-09-30" }, scope: "own", exportHref: () => "" }) as unknown as ReportContext;
 /** The section as text a test can read: plain spaces. */
 const html = (r: IncomeReport) => renderToStaticMarkup(createElement(income.Component, { ctx: context(r) })).replace(/[  ]/g, " ");
-const tiles = (out: string) => [...out.matchAll(/<div class="k">([^<]*)<\/div><div class="v">((?:<[^>]*>|[^<])*?)<\/div>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
+const tiles = (out: string) => [...out.matchAll(/<div class="k">((?:<[^>]*>|[^<])*?)<\/div><div class="v">((?:<[^>]*>|[^<])*?)<\/div>/g)].map((m) => `${m[1]!.replace(/<[^>]*>/g, "").replace(/ Miksi\?$/, "")}: ${m[2]!.replace(/<[^>]*>/g, "")}`);
 
 describe("Raportit: Tulot", () => {
   it("is left out until the history can split the income into types", () => {

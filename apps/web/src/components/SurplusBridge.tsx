@@ -3,6 +3,8 @@ import { type ReactNode, useState } from "react";
 import { money, percent, roundedShares, shareText } from "../format.ts";
 import { type DrawnLine, type BridgePart, type BridgeTotals, bridgeDraws, bridgeFigures, bridgeParts, bridgeRows, bridgeSources, bridgeText } from "./month-parts.ts";
 import { TableToggle } from "./TableToggle.tsx";
+import type { Scope } from "../types.ts";
+import { Why } from "./Why.tsx";
 import "../styles/charts.css";
 import "../styles/month.css";
 
@@ -42,7 +44,7 @@ function Segments({ parts }: { parts: BridgePart[] }) {
  * (`bridgeDraws`). The caller gives the totals of months that are over (the running month has its bills but often not
  * its salary).
  */
-export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: { totals: BridgeTotals; title?: string; heading?: "h2" | "h3"; sub?: ReactNode }) {
+export function SurplusBridge({ totals, title, heading: Heading = "h3", sub, leftWhy }: { totals: BridgeTotals; title?: string; heading?: "h2" | "h3"; sub?: ReactNode; leftWhy?: { range: { from: string; to: string }; scope: Scope } }) {
   const [table, setTable] = useState(false);
   const draws = bridgeDraws(totals);
   const rows = bridgeRows(totals);
@@ -112,7 +114,10 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub }: {
                 const cell = (v: string) => (r.side === "stayed" ? <strong>{v}</strong> : v);
                 return (
                   <tr key={r.key}>
-                    <td>{cell(r.label)}</td>
+                    <td>
+                      {cell(r.label)}
+                      {leftWhy && r.key === "left" && <> <Why figure="yli_jai.month" title={r.label} range={leftWhy.range} scope={leftWhy.scope} /></>}
+                    </td>
                     <td className="num">{cell(money(r.cents, false))}</td>
                     {shares && <td className="num">{r.ofIncome ? share(r.key, r.cents) : "–"}</td>}
                   </tr>

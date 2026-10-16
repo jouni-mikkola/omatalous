@@ -15,7 +15,7 @@ const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, curre
 const months = monthRange("2026-02", "2026-09");
 const rows = [
   ...months.map((m) => tx({ bookingDate: `${m}-01`, amountCents: 300000, merchant: "Acme Oy", category: "salary" })),
-  ...months.flatMap((m) => [3, 10, 17, 24].map((d) => tx({ bookingDate: `${m}-${d}`, amountCents: -4000 - d * 10, merchant: "Sotka", category: "home" }))),
+  ...months.flatMap((m) => [3, 10, 17, 24].map((d) => tx({ bookingDate: `${m}-${String(d).padStart(2, "0")}`, amountCents: -4000 - d * 10, merchant: "Sotka", category: "home" }))),
   tx({ id: "sofa", bookingDate: "2026-08-12", amountCents: -89000, merchant: "Sotka", category: "home" }),
 ];
 const ctx = createContext(rows, [checking], "2026-10-11");

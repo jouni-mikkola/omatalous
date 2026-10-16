@@ -29,15 +29,15 @@ function monthsOf(from: string, to: string): string[] {
 
 /** What an unknown source is called on the page: the words of the payer's own rows where the answer has them. */
 function unknownName(owner: string, labels: Record<string, string>): string {
-  if (owner === "u:") return "Tilinomistaja ilman tunnusta";
+  if (owner === "u:") return "Tilin omistaja, jolla ei ole tunnusta";
   if (owner.startsWith("g:iban:")) return "Tuntemattomalta tililtä";
   if (owner === "o") return "Alkusaldo";
-  if (owner === "c") return "Luotolla maksettu";
+  if (owner === "c") return "Maksettu luotolla";
   return labels[owner] ?? "Tuntematon maksaja";
 }
 
 /** The line of a member who paid more or less than the share; nothing when it came out even. */
-const overLine = (over: number): { label: string; cents: number } | null => (over === 0 ? null : { label: over > 0 ? "Maksanut yli osuutensa" : "Maksanut alle osuutensa", cents: Math.abs(over) });
+const overLine = (over: number): { label: string; cents: number } | null => (over === 0 ? null : { label: over > 0 ? "Maksanut enemmän kuin osuutensa" : "Maksanut vähemmän kuin osuutensa", cents: Math.abs(over) });
 
 function Pool({ pool }: { pool: Answer["pools"][number] }) {
   const s = pool.settlement;
@@ -96,7 +96,7 @@ function Pool({ pool }: { pool: Answer["pools"][number] }) {
         <div className="st-rows">
           {late.map((l) => (
             <div key={`${l.key}:${l.day}`} className="st-row">
-              <span className="st-name">Korjaus kuukaudelta {monthLong(l.key)}</span>
+              <span className="st-name">Korjaus aiempaan kuukauteen: {monthLong(l.key)}</span>
               <span className="st-num">{signedMoney(l.cents)}</span>
             </div>
           ))}
@@ -110,7 +110,7 @@ function Month({ month }: { month: string }) {
   const { data: answer, error } = useApi<Answer>(`/api/settlement?month=${month}`);
   if (error) return <div className="error">{error}</div>;
   if (!answer) return <div className="empty">Ladataan…</div>;
-  if (!answer.pools.length) return <div className="empty">Ei yhteisiä menoja.</div>;
+  if (!answer.pools.length) return <div className="empty">Ei yhteisiä menoja tältä kuukaudelta.</div>;
   return (
     <>
       {answer.pools.map((p) => (

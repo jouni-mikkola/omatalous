@@ -26,7 +26,7 @@ interface Answer {
   agreements: Row[];
 }
 
-const KIND_LABEL: Record<Kind, string> = { equal: "Tasan", share: "Osuuksin", income: "Tulojen suhteessa", fixed: "Kiinteä summa" };
+const KIND_LABEL: Record<Kind, string> = { equal: "Tasan", share: "Osuuksina", income: "Tulojen suhteessa", fixed: "Kiinteä summa" };
 const REST_KINDS = ["equal", "income"] as const;
 
 /** The values of one agreement as a line: the names with their parts. */
@@ -115,7 +115,7 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
         {current ? line(current) : (
           // with no row the account's own shares (Osuudet in its use) cut the costs: core's rule for an account without an agreement
           <li className="use-row">
-            <span className="use-label">Ei sopimusta: jako tilin osuuksien mukaan</span>
+            <span className="use-label">Jakoa ei ole sovittu. Menot jaetaan tilin käyttäjien osuuksien mukaan.</span>
           </li>
         )}
         {waiting.map(waits)}
@@ -149,7 +149,7 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
 function SplitForm({ account, users, card, today, onCancel, onSaved }: { account: Account; users: Answer["users"]; card: boolean; today: string; onCancel: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState<Kind>("equal");
   const [who, setWho] = useState<string[]>(users.map((u) => u.owner));
-  // the figure of each user: parts for "Osuuksin", euros for "Kiinteä summa" (empty: not listed)
+  // the figure of each user: parts for "Osuuksina", euros for "Kiinteä summa" (empty: not listed)
   const [fields, setFields] = useState<Record<string, string>>({});
   const [rest, setRest] = useState<(typeof REST_KINDS)[number]>("equal");
   const [from, setFrom] = useState(today);
@@ -198,7 +198,7 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
   return (
     <form className="use-fields" onSubmit={(e) => void save(e)} aria-label={`Muuta tilin ${account.name} jakoa`}>
       <label className="use-field">
-        <span className="field-label">Jaon tapa</span>
+        <span className="field-label">Miten jaetaan</span>
         <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
           {kinds.map((k) => (
             <option key={k} value={k}>
@@ -209,9 +209,9 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
       </label>
       {(kind === "equal" || kind === "income") &&
         users.map((u) => (
-          <label key={u.owner} className="use-field">
-            <span className="field-label">{u.name}</span>
+          <label key={u.owner} className="use-check">
             <input type="checkbox" checked={who.includes(u.owner)} onChange={(e) => setWho(e.target.checked ? [...who, u.owner] : who.filter((o) => o !== u.owner))} />
+            <span>{u.name}</span>
           </label>
         ))}
       {(kind === "share" || kind === "fixed") &&
@@ -223,7 +223,7 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
         ))}
       {kind === "fixed" && (
         <label className="use-field">
-          <span className="field-label">Loput</span>
+          <span className="field-label">Loput jaetaan</span>
           <select value={rest} onChange={(e) => setRest(e.target.value as (typeof REST_KINDS)[number])}>
             {REST_KINDS.map((k) => (
               <option key={k} value={k}>
