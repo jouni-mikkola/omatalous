@@ -389,7 +389,7 @@ describe("access and use are two matters", () => {
   it("the export keeps the bank's amounts and its columns in the own view", async () => {
     const { aino } = await household();
     const csv: string = await get(aino, `/api/export/transactions.csv?${SEPTEMBER}`);
-    expect(csv.split("\n")[0]!.replace(/^﻿/, "").trim()).toBe("Päivä;Tili;Kauppias;Saaja/maksaja;Viesti;Kategoria;Ryhmä;Summa €;Tila;Siirto");
+    expect(csv.split("\n")[0]!.replace(/^﻿/, "").trim()).toBe("Päivä;Tili;Kauppias;Saaja/maksaja;Viesti;Kategoria;Ryhmä;Summa €;Tila;Lähde;Siirto");
     expect(csv).toContain("-733,33");
     expect(csv).toContain("3000,01");
   });

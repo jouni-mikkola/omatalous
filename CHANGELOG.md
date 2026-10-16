@@ -3,6 +3,17 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.48.0
+
+- Asetukset > Tiedot has "Vie kaikki tiedot": one file with your own data and what is shared with you, without passwords, tokens or the bank's raw data. A member and an administrator each get what they see in the app.
+- The transactions CSV has a Lähde column: pankki, tiedosto or esimerkki.
+- Under the hood: time limits for the whole-history recalculation and for opening the front page now fail the tests when they slow down.
+
+Maintenance
+
+- Asetukset > Tiedot has "Vie kaikki tiedot": one JSON file with your own data and what is shared with you (accounts, transactions, rules, answers, loans, bills and the rest), with no password, token, bank session or raw bank payload; a member and an administrator get what they see in the app. The format is in `docs/DATA_EXPORT.md`.
+- The transactions CSV has a Lähde column (pankki, tiedosto or esimerkki).
+
 ## 0.47.0
 
 - Rows the bank books in another currency are no longer dropped: they are kept in the bank's own figure and listed under their account on Asetukset > Tilit, marked "ei mukana euromäärissä".

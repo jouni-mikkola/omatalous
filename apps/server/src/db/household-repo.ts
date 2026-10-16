@@ -5,7 +5,7 @@
  * from that: a use never lets anybody see an account.
  */
 import { accountBank, type Row, type StoredAccount, type StoredTransaction, str, TX_COLUMNS_LIGHT, toAccount, toTransaction } from "./rows.ts";
-import type { Db, Statement } from "./types.ts";
+import type { Db, SqlValue, Statement } from "./types.ts";
 
 export interface AccountShare {
   accountId: string;
@@ -92,6 +92,23 @@ const partsText = (parts: readonly PartRow[]): string =>
 
 export class HouseholdRepo {
   constructor(private readonly db: Db) {}
+
+  /** The columns of one table, in the table's order (the export reads them to leave some out). */
+  async tableColumns(table: string): Promise<string[]> {
+    return (await this.db.all<{ name: string }>(`SELECT name FROM pragma_table_info(?)`, [table])).map((c) => c.name);
+  }
+
+  /** The names of the tables and the rows of each read (the columns, the owner's username, the rows wanted), in one read transaction: one snapshot. */
+  async exportSnapshot(
+    reads: readonly { table: string; columns: readonly string[]; owner: boolean; where?: { sql: string; params: SqlValue[] }; order: string }[],
+  ): Promise<{ tables: string[]; rows: Record<string, SqlValue>[][] }> {
+    const statements = reads.map((r): Statement => {
+      const select = [...r.columns.map((c) => `"${c}"`), ...(r.owner ? [`(SELECT username FROM users WHERE users.id = ${r.table}.user_id) AS owner_username`] : [])];
+      return { sql: `SELECT ${select.join(", ")} FROM ${r.table}${r.where ? ` WHERE ${r.where.sql}` : ""} ORDER BY ${r.order}`, params: r.where?.params ?? [] };
+    });
+    const [tables, ...rows] = await this.db.readMany([{ sql: "SELECT name FROM sqlite_master WHERE type = 'table'" }, ...statements]);
+    return { tables: tables!.map((t) => String(t.name)), rows };
+  }
 
   /**
    * Accounts other members shared with `userId`, with the owner's display name. Each carries the bank of its own

@@ -24,6 +24,10 @@ wake_wait() { # 0 only when the container says the file is there. Its output is 
 wake_loop() {
   local runs=$1 empty=0 left
   WAKE_UNTIL=$(t_for 45 WAKE); WAKE_END=$(t_for 58 WAKEEND) # a test may shorten them (OPS_T_WAKE, OPS_T_WAKEEND)
+  # a shortened one counts from here, not from the helper's start: how long the helper took before this point (seconds, on a
+  # loaded machine) must not eat the test's few seconds
+  [[ ${OPS_TEST:-} == 1 && -n ${OPS_T_WAKE:-} ]] && WAKE_UNTIL=$((WAKE_UNTIL + SECONDS))
+  [[ ${OPS_TEST:-} == 1 && -n ${OPS_T_WAKEEND:-} ]] && WAKE_END=$((WAKE_END + SECONDS))
   # a version check does not end the tick: the update the owner presses next is the one more request it may run
   ((runs == 0)) || [[ $LAST_RAN == check-update ]] || return 0
   while ((runs < 2 && empty < 5)) && wake_wait; do

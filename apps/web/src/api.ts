@@ -54,7 +54,7 @@ export function query(params: Record<string, string | number | undefined | null>
 }
 
 /**
- * A file from a POST (the password goes in the body, not in an address). Returns the bytes and the
+ * A file from a POST (a password goes in the body, not in an address; the export of the data has an empty body). Returns the bytes and the
  * file name the server chose.
  */
 export async function apiDownload(path: string, body: unknown): Promise<{ blob: Blob; filename: string }> {
@@ -70,6 +70,16 @@ export async function apiDownload(path: string, body: unknown): Promise<{ blob: 
   }
   const name = /filename="([A-Za-z0-9._-]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1];
   return { blob: await res.blob(), filename: name ?? "varmuuskopio.db" };
+}
+
+/** Hands bytes to the browser as a file of the given name. */
+export function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /**

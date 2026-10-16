@@ -6,6 +6,7 @@ import { About } from "./settings/About.tsx";
 import { Accounts } from "./settings/Accounts.tsx";
 import { BankConnections, connectedMessage, connectError } from "./settings/BankConnections.tsx";
 import { Loans } from "./settings/Loans.tsx";
+import { DataExport } from "./settings/DataExport.tsx";
 import { Members } from "./settings/Members.tsx";
 import { Password } from "./settings/Security.tsx";
 import { Sharing } from "./settings/Sharing.tsx";
@@ -22,8 +23,8 @@ interface PageProps {
 
 /**
  * Asetukset is two pages. The plain one is what a household sets: bank connections, accounts, the members (admin), how
- * accounts are shared, loans and the password, then the way to the technical page. The technical page is
- * `?section=technical`; `?section=server` and `?section=maintenance` open it at their card. `?add=1` opens the plain page
+ * accounts are shared, loans, Tiedot (the file of the user's own data) and the password, then the way to the technical page.
+ * The technical page is `?section=technical`; `?section=server` and `?section=maintenance` open it at their card. `?add=1` opens the plain page
  * at the bank picker, and an address anchor (`#lainat`) scrolls to its card. `?section=csv` of the removed import opens
  * the plain page and scrolls nowhere.
  */
@@ -71,6 +72,8 @@ function Plain({ meta, params, anchor, onChange }: PageProps) {
       <Sharing meta={meta} onChange={onChange} />
 
       <Loans meta={meta} onLoaded={partLoaded} />
+
+      <DataExport />
 
       <Password openPassword={anchor === SETTINGS_ANCHOR.password} />
 

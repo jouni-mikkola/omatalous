@@ -14,7 +14,7 @@
 # file, no assume-unchanged flag) and CHECK_FRESH is empty, and WRITTEN only when, besides, the whole step ran green
 # without a rerun of a failed job and with no skipped test, the tree is still clean when all the steps have ended, the key
 # is still the one computed before them and no tracked file was touched since the run began (a file changed and changed back
-# is clean and has the same key, but its ctime is later). --changed and CI use none.
+# is clean and has the same key, but its ctime is another). --changed and CI use none.
 # The callers' words in a message are STAMP_WHO (default check).
 
 STAMPS="" STAMP_ON=0 FRESH=0 IDS=() MARK=
@@ -48,6 +48,10 @@ read_keys() {
 # leaves IDS as it was
 stamps_collect() { :; }
 
+# ctimes: one line per tracked file, its name and the nanosecond ctime, sorted. Two lists are compared, never a ctime with the
+# clock: a loaded WSL machine steps its clock back, and a file written a moment ago then has a ctime later than "now".
+ctimes() { git ls-files -z | xargs -0 -r stat --printf '%n %z\n' 2>/dev/null | LC_ALL=C sort; }
+
 # stamps_start: decides whether this run reads and writes stamps, and takes the keys before any step runs
 stamps_start() {
   local top
@@ -58,7 +62,7 @@ stamps_start() {
   # what is installed must be what the lockfile says, or a stamp would name packages the run did not use
   cmp -s "$ROOT/pnpm-lock.yaml" "$ROOT/node_modules/.pnpm/lock.yaml" || { echo "$STAMP_WHO: node_modules is not the install of this pnpm-lock.yaml, so no stamp is read or written"; return 0; }
   MARK=$CHECK_LOG/stamp-mark
-  : >"$MARK" || return 0
+  ctimes >"$MARK" || return 0
   clean_tree || { echo "$STAMP_WHO: the tree is not clean, so no stamp is read or written"; return 0; }
   stamps_collect
   ((${#IDS[@]})) && read_keys KEY || { IDS=(); KEY=(); return 0; }
@@ -92,8 +96,8 @@ stamps_write() {
   [[ -e ${cands[0]} ]] || return 0
   declare -A NOW=()
   if ! clean_tree || ! read_keys NOW; then echo "$STAMP_WHO: no stamp written, the tree changed while the steps ran"; return 0; fi
-  touched=$(git ls-files -z | xargs -0 -r bash -c 'find "$@" -maxdepth 0 -cnewer "$0" -print' "$MARK" 2>/dev/null | head -n 1)
-  if [[ -n $touched ]]; then echo "$STAMP_WHO: no stamp written, $touched was touched while the steps ran"; return 0; fi
+  touched=$(comm -13 "$MARK" <(ctimes) | head -n 1)
+  if [[ -n $touched ]]; then echo "$STAMP_WHO: no stamp written, ${touched%% *} was touched while the steps ran"; return 0; fi
   commit=$(git rev-parse --short=12 HEAD 2>/dev/null) || return 0
   wt=$(basename "$ROOT" | tr -c 'A-Za-z0-9._\n-' '_')
   now=$(date +%Y-%m-%dT%H:%M:%S%z)

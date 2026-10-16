@@ -6,7 +6,7 @@ import { linkFakeBank, makeMember, overflow, removeMember, waitForSync, watch } 
 // of a bank connection that ended. The server has the administrator and the demo household already (e2e/run.mjs makes
 // them). A member lives in the household for the length of the file: Tilien jakaminen is a card only beside a second member.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const PLAIN = ["Pankkiyhteydet", "Tilit", "Talouden jäsenet", "Tilien jakaminen", "Lainat", "Salasana", "Tekniset asetukset", "Tietoja"];
+const PLAIN = ["Pankkiyhteydet", "Tilit", "Talouden jäsenet", "Tilien jakaminen", "Lainat", "Tiedot", "Salasana", "Tekniset asetukset", "Tietoja"];
 const MEMBER_PLAIN = PLAIN.filter((h) => h !== "Talouden jäsenet");
 
 let member: { state: string; id: string };
@@ -155,7 +155,7 @@ test("every address of Asetukset lands on the card it names, on the page that ha
   await context.close();
 });
 
-test("a member's plain page has six cards, the technical page has none of the admin's, and Hae nyt is a row of Haku pankista", async ({ browser }) => {
+test("a member's plain page has the plain cards, the technical page has none of the admin's, and Hae nyt is a row of Haku pankista", async ({ browser }) => {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 800 } });
   // without a connection there is nothing to fetch: no button, no sentence about it
   const before = await context.newPage();

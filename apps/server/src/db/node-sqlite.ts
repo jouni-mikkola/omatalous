@@ -65,6 +65,25 @@ export function openNodeSqlite(path: string, opts: OpenOptions = {}): Db & { exe
     async run(sql: string, params?: SqlValue[]) {
       return guard(() => ({ changes: Number(db.prepare(sql).run(...args(params)).changes) }));
     },
+    async readMany(statements: Statement[]) {
+      return guard(() => {
+        db.exec("BEGIN");
+        let answers: Record<string, SqlValue>[][];
+        try {
+          answers = statements.map((s) => db.prepare(s.sql).all(...args(s.params)) as Record<string, SqlValue>[]);
+        } catch (err) {
+          // the first error is the one thrown, whatever the rollback says
+          try {
+            db.exec("ROLLBACK");
+          } catch {
+            /* the transaction is gone already */
+          }
+          throw err;
+        }
+        db.exec("COMMIT");
+        return answers;
+      });
+    },
     async batch(statements: Statement[]) {
       guard(() => {
         db.exec("BEGIN");

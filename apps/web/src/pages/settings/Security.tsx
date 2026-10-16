@@ -42,6 +42,7 @@ export const KIND_LABEL: Record<string, string> = {
   ops_denied: "Ylläpitopyyntö estetty",
   ops_result: "Ylläpitopyynnön tulos",
   ops_download: "Varmuuskopio ladattu",
+  ops_export: "Tiedot viety tiedostoon",
   ops_notice: "Ylläpidon ilmoitus",
   ops_watchdog: "Edellinen versio palautettiin",
   watchdog_notice: "Edellinen versio palautettiin, ilmoitus ylläpitäjälle",

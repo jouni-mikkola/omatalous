@@ -1,18 +1,40 @@
 /** CSV export and demo data for the signed-in user. */
 import { buildReports, getCategory } from "@banking/core";
 import { Hono } from "hono";
+import { recordEvent } from "../services/security.ts";
 import { loadDemoData } from "../demo.ts";
+import { exportEverything } from "../services/data-export.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
 import { yieldToLoop } from "../platform/yield.ts";
-import { cents, csv, csvBody, csvResponse, parseRange } from "./shared.ts";
+import { cents, csv, csvBody, csvResponse, parseRange, requestInfo } from "./shared.ts";
 
 /** An average the report has none of (no complete month in the range) is an empty cell, never a zero. */
 const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
 
+/** Where a row came from, in the words of the pages: the bank itself, a file the household imported, the example data. */
+const SOURCE_WORDS: Record<string, string> = { enablebanking: "pankki", csv: "tiedosto", demo: "esimerkki" };
+
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
+
+  /**
+   * What the signed-in user sees, one JSON file (docs/DATA_EXPORT.md): their own data and what is shared with them, for a
+   * member and an administrator alike. A POST, so it passes the CSRF guard of every other write: a link from another site
+   * cannot start it. A GET (and the HEAD Hono answers from it) builds nothing and writes no event. Never cached.
+   */
+  app.get("/data/export", (c) => c.json({ error: "Virheellinen pyyntö. Lataa sivu uudelleen.", code: "method" }, 405, { Allow: "POST" }));
+  app.post("/data/export", async (c) => {
+    const user = c.get("user");
+    const body = await exportEverything(s, user, s.build.version);
+    await recordEvent(s, { kind: "ops_export", userId: user.id, ...requestInfo(c, s), detail: "tietojen vienti: tiedosto ladattu", notify: false });
+    return c.body(body, 200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="omatalous-${s.today()}.json"`,
+      "Cache-Control": "no-store",
+    });
+  });
 
   /**
    * Same filters and the same accounts as the transaction list, every matching row with the amount the bank booked
@@ -27,7 +49,7 @@ export function dataRoutes(s: Services) {
     const filter = { ...range, accountId: q.accountId, category: q.category, merchant: q.merchant, q: q.q?.slice(0, 100), own };
     const accounts = new Map([...(await repo.listAccounts()), ...shared].map((a) => [a.id, a.name]));
     const pieces = [
-      csv([["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Siirto"]]),
+      csv([["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Lähde", "Siirto"]]),
     ];
     // pages by the last row seen (no OFFSET, no count), and the loop gives way between pages so other requests are served
     const PAGE = 2000;
@@ -39,7 +61,7 @@ export function dataRoutes(s: Services) {
             page.map((stored) => {
               const t = { ...stored, ...own.told.get(stored.id) };
               const cat = getCategory(t.category);
-              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat.label, cat.group, cents(t.amountCents), t.status === "pending" ? "varaus" : "kirjattu", t.isTransfer ? "kyllä" : ""];
+              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat.label, cat.group, cents(t.amountCents), t.status === "pending" ? "varaus" : "kirjattu", SOURCE_WORDS[t.source] ?? t.source, t.isTransfer ? "kyllä" : ""];
             }),
           ),
         );

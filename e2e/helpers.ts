@@ -116,7 +116,9 @@ export async function linkFakeBank(page: Page, options: { dollars?: boolean } = 
   await page.goto("/#/settings");
   await page.getByRole("button", { name: /^Yhdistä (toinen )?pankki$/ }).click();
   await page.getByRole("button", { name: "Yhdistä Nordea" }).click();
-  await expect(page.locator(".notice").filter({ hasText: "Pankki yhdistetty" })).toBeVisible();
+  // The notice comes after the app's own round trips to the bank (token, accounts), so it takes longer than a page does to
+  // draw on a busy machine: wait for the event, not for the usual few seconds.
+  await expect(page.locator(".notice").filter({ hasText: "Pankki yhdistetty" })).toBeVisible({ timeout: 30_000 });
 }
 
 /** Waits for the sync that a link starts to finish, so that every account of the member signed in in `context` has its balance. */

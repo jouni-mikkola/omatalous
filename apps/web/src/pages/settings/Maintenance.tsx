@@ -4,7 +4,7 @@
  * version and the reset of the data; the other cards are not drawn. The cards are a fragment: the page holds them.
  */
 import { useEffect, useState } from "react";
-import { api, apiDownload, ApiError } from "../../api.ts";
+import { api, apiDownload, ApiError, saveFile } from "../../api.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
@@ -62,12 +62,7 @@ export function Maintenance() {
   };
   const download = async (password: string) => {
     const { blob, filename } = await apiDownload("/api/ops/backups/latest", { password });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    saveFile(blob, filename);
     setDialog(null);
     await reload();
   };

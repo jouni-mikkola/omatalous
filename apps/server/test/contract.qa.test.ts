@@ -250,10 +250,10 @@ describe("data versions", () => {
     "PUT /api/optimise/findings/:id",
   ];
   // Nothing the analysis reads: sign-in, members (removal aside), the instance, maintenance, security events, bank keys, a
-  // consent not yet given, and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
+  // consent not yet given, the export of the user's own file (it reads and writes a security event), and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
   // (connector.ts removeConnection), and /api/meta reads the connection list for each request. Run below for the last one.
   const NO_ANALYSIS =
-    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
+    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/export$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
 
   it("every non-GET route is on exactly one named list", async () => {
     const { routes } = await rig();

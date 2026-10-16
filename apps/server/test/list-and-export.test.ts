@@ -127,7 +127,7 @@ describe("transaction list and export paging", () => {
     const res = await setup.admin.call("GET", "/api/export/transactions.csv?from=2026-01-01&to=2026-12-31");
     expect(res.status).toBe(200);
     const lines = String(res.body).replace(/^﻿/, "").trimEnd().split("\r\n");
-    expect(lines[0]).toBe("Päivä;Tili;Kauppias;Saaja/maksaja;Viesti;Kategoria;Ryhmä;Summa €;Tila;Siirto");
+    expect(lines[0]).toBe("Päivä;Tili;Kauppias;Saaja/maksaja;Viesti;Kategoria;Ryhmä;Summa €;Tila;Lähde;Siirto");
     expect(lines).toHaveLength(4301);
     expect(new Set(lines.slice(1).map((l) => l.split(";").slice(0, 8).join(";"))).size).toBe(lines.length - 1);
     const dates = lines.slice(1).map((l) => l.split(";")[0]!);
