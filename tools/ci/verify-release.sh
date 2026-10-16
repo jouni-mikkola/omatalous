@@ -99,10 +99,17 @@ for trigger in "${SIGN_TRIGGERS[@]}"; do
 done
 
 failed=0
+# a copy of the check that is the same file as one already run has that one's verdict (same image, same commit, same code): 70
+# baselines hold 4 different copies, and each run is a cosign call over the network (about 4 s each, 5 minutes in all)
+declare -A verdict=()
 for c in "${checks[@]}"; do
-  # each copy in its own shell, so one version's variables never leak into the next
-  # shellcheck source=/dev/null
-  if (. "$work/$c.sh" && verify_signature "$ref" "$commit"); then
+  sum=$(sha256sum <"$work/$c.sh" | cut -c1-64)
+  if [[ -z ${verdict[$sum]:-} ]]; then
+    # each copy in its own shell, so one version's variables never leak into the next
+    # shellcheck source=/dev/null
+    if (. "$work/$c.sh" && verify_signature "$ref" "$commit"); then verdict[$sum]=accepts; else verdict[$sum]=refuses; fi
+  fi
+  if [[ ${verdict[$sum]} == accepts ]]; then
     echo "$c: accepts $tag"
   else
     echo "$c: refuses $tag. Installs with this version cannot update to it."

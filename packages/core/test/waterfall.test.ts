@@ -135,7 +135,71 @@ describe("the month waterfall", () => {
 
   it("a month with pay alone has income as its only bar", () => {
     const w = monthOnly(createContext([by("salary", "2026-09-25", 300000)], accounts, today), "2026-09")!;
-    expect(w.bars).toEqual([{ key: "income", cents: 300000 }]);
+    expect(w.bars).toEqual([{ key: "income", cents: 300000, parts: [{ key: "payee:ESIMERKKI salary", cents: 300000 }] }]);
     expect(w.leftCents).toBe(300000);
+  });
+});
+
+describe("what a bar is made of", () => {
+  const parts = (w: NonNullable<ReturnType<typeof dashboardWaterfall>>, key: string) => w.bars.find((b) => b.key === key)!.parts.map((p) => [p.key, p.cents, p.count]);
+  const addsUp = (w: NonNullable<ReturnType<typeof dashboardWaterfall>>) => {
+    for (const b of w.bars) expect(b.parts.reduce((n, p) => n + p.cents, 0)).toBe(b.cents);
+  };
+
+  it("adds every bar's parts up to the bar, in a month with savings, credit drawn and an unclassified row", () => {
+    addsUp(monthOnly(ctx, "2026-09")!);
+  });
+
+  it("lists a category's payees largest first, eight at most, the rest as one row with its count", () => {
+    const shops = Array.from({ length: 11 }, (_, i) => by("groceries", "2026-09-03", -(1000 + i * 100), { merchant: `ESIMERKKI KAUPPA ${i + 1}` }));
+    const w = monthOnly(createContext([by("salary", "2026-09-25", 300000), ...shops, by("groceries", "2026-09-04", -500, { merchant: "ESIMERKKI KAUPPA 11" })], accounts, today), "2026-09")!;
+    const list = w.bars.find((b) => b.key === "category:groceries")!.parts;
+    expect(list).toHaveLength(9);
+    expect(list.slice(0, 3).map((p) => p.key)).toEqual(["payee:ESIMERKKI KAUPPA 11", "payee:ESIMERKKI KAUPPA 10", "payee:ESIMERKKI KAUPPA 9"]);
+    // the eleventh shop was paid at twice: one payee, 2 000 + 500
+    expect(list[0]!.cents).toBe(-2500);
+    expect(list[8]).toEqual({ key: "rest", cents: -(1000 + 1100 + 1200), count: 3 });
+    addsUp(w);
+  });
+
+  it("nets a refund into its payee: the payee shows what is left, a payee that nets to nothing is not listed", () => {
+    const rows = [by("salary", "2026-09-25", 300000), by("shopping", "2026-09-02", -6000, { merchant: "ESIMERKKI A" }), by("shopping", "2026-09-03", -9000, { merchant: "ESIMERKKI B" }), by("shopping", "2026-09-04", 9000, { merchant: "ESIMERKKI B" }), by("shopping", "2026-09-05", 2000, { merchant: "ESIMERKKI A" })];
+    const w = monthOnly(createContext(rows, accounts, today), "2026-09")!;
+    expect(parts(w, "category:shopping")).toEqual([["payee:ESIMERKKI A", -4000, undefined]]);
+    addsUp(w);
+  });
+
+  it("lists the payers of income, and what the rest of the spending folds as its categories", () => {
+    const rows = [by("salary", "2026-09-25", 250000, { merchant: "ESIMERKKI OY" }), by("salary", "2026-09-26", 50000, { merchant: "ESIMERKKI OY" }), by("income", "2026-09-11", 1000, { merchant: "MATTI MEIKALAINEN", categorySource: "default" })];
+    const small = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"].map((x, i) => by(`${x}`, "2026-09-05", -(100 + i), { merchant: `ESIMERKKI ${x}` }));
+    const w = monthOnly(createContext([...rows, ...small], accounts, today), "2026-09")!;
+    expect(parts(w, "income")).toEqual([["payee:ESIMERKKI OY", 300000, undefined], ["payee:MATTI MEIKALAINEN", 1000, undefined]]);
+    const other = w.bars.find((b) => b.key === "other")!;
+    expect(other.parts).toHaveLength(other.count!);
+    expect(other.parts.every((p) => p.key.startsWith("category:"))).toBe(true);
+    addsUp(w);
+  });
+
+  it("splits savings and credit into what was saved and what was drawn", () => {
+    const w = monthOnly(ctx, "2026-09")!;
+    expect(parts(w, "transfers")).toEqual([["saved", -50000, undefined], ["borrowed", 10000, undefined]]);
+    // a refund of the savings account's money back (a drawn saving) is a plus on saved
+    const back = monthOnly(createContext([...september, by("transfer", "2026-09-20", -5000, { isTransfer: true, accountId: "acc-2" })], accounts, today), "2026-09")!;
+    expect(parts(back, "transfers")).toEqual([["saved", -45000, undefined], ["borrowed", 10000, undefined]]);
+    addsUp(back);
+  });
+
+  it("has no part for a read card statement: its purchases are spending in their month and the bill leaves nothing in the transfers", () => {
+    const cards: Account[] = [{ id: "chk", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" }, { id: "card", name: "Esimerkki Kortti", iban: null, currency: "EUR", type: "credit_card" }];
+    const bill = tx({ id: "bill", accountId: "chk", bookingDate: "2026-03-10", amountCents: -42000, category: "card_bill", merchant: "ESIMERKKI KORTTI", counterparty: "ESIMERKKI KORTTI", categorySource: "rule" });
+    const rows = [{ id: "r1", day: "2026-02-03", cents: 6150, text: "K-MARKET ESIMERKKI", category: "groceries" }, { id: "r2", day: "2026-02-09", cents: 8000, text: "ESIMERKKI POLTTOAINE", category: "car" }, { id: "r3", day: "2026-02-20", cents: 15000, text: "VERKKOKAUPPA ESIMERKKI", category: "shopping" }];
+    const pay = (id: string, bookingDate: string) => tx({ id, accountId: "chk", bookingDate, amountCents: 300000, category: "salary", categorySource: "rule", merchant: "ESIMERKKI TYÖNANTAJA OY" });
+    const c = createContext([pay("p1", "2026-02-25"), pay("p2", "2026-03-25"), bill], cards, "2026-04-01", undefined, [], [], [{ billId: "bill", periodFrom: "2026-02-01", periodTo: "2026-02-28", rows }]);
+    const feb = dashboardWaterfall(c, { from: "2026-02-01", to: "2026-02-28" })!;
+    expect(feb.bars.some((b) => b.key === "transfers")).toBe(false);
+    addsUp(feb);
+    const mar = dashboardWaterfall(c, { from: "2026-03-01", to: "2026-03-28" })!;
+    addsUp(mar);
+    expect(mar.bars.some((b) => b.key === "transfers")).toBe(false);
   });
 });

@@ -31,14 +31,16 @@ async function rowsSum(panel: ReturnType<Page["getByRole"]>): Promise<number> {
   return texts.reduce((sum, t) => sum + cents(t), 0);
 }
 
-test("the month's spending opens its rows, they add up to the figure and the foot says Täsmää", async ({ browser }) => {
+test("a category of the month opens its rows, they add up to the figure and the foot says Täsmää", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
   await ready(page, "/#/overview?period=last-month");
-  const row = page.locator(".month-table tbody tr", { has: page.getByRole("link", { name: "Menot", exact: true }) });
-  const figure = cents(await row.locator("td.st-num").first().innerText());
-  const panel = await openPanel(page, "Menot");
+  // the largest category: the first falling row of the waterfall, its figure with the minus the bar draws
+  const row = page.locator(".wf-row.wf-down").first();
+  const title = (await row.locator(".wf-label").innerText()).trim();
+  const figure = -cents(await row.locator(".wf-fig").innerText());
+  const panel = await openPanel(page, title);
   expect(await panel.locator("tr[data-why-row]").count()).toBeGreaterThan(0);
   expect(await rowsSum(panel)).toBe(figure);
   expect(cents(await panel.locator("[data-why-total]").innerText())).toBe(figure);
@@ -56,14 +58,14 @@ test("the month's spending opens its rows, they add up to the figure and the foo
   }
   // the heading and the foot stay in view while the list scrolls
   await panel.locator(".why-scroll").evaluate((el) => el.scrollTo(0, el.scrollHeight));
-  await expect(panel.getByRole("heading", { name: "Menot" })).toBeInViewport();
+  await expect(panel.getByRole("heading", { name: title })).toBeInViewport();
   await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeInViewport();
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "explain-1280-foot.png") });
   // the keyboard closes it, and the opener is reachable again
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 800 });
-  await openPanel(page, "Menot");
+  await openPanel(page, title);
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "explain-390.png") });
   expect(seen.problems).toEqual([]);
   await context.close();

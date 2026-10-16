@@ -144,7 +144,7 @@ test("390 px: the month before on Yhteenveto and the bridge of the year fit the 
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/overview?period=last-month");
-  await expect(page.getByRole("region", { name: "Tulot ja menot", exact: true }).locator(".month-table")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Tulot ja menot", exact: true }).locator(".wf")).toBeVisible();
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
 
   await page.goto("/#/reports");

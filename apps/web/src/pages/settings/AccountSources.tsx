@@ -10,7 +10,7 @@ import { query } from "../../api.ts";
 import { money, monthLong } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { Account, Meta } from "../../types.ts";
-import { toggled } from "../../components/overview/themes-table.ts";
+import { toggled } from "../../components/toggled.ts";
 import "../../styles/statement.css";
 import "../../styles/themes-table.css";
 import "../../styles/account-sources.css";

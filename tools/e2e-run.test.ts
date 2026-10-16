@@ -410,4 +410,43 @@ ${again}`).toContain("from a stamp");
     );
     expect(e2e({ CUT_LOCK_HELD: "", CUT_LOCK_FILE: lockFile, CUT_LOCK_WAIT: "5" }).out).toContain("from a stamp");
   });
+
+  /** A stand-in tools/wait-quiet.sh that logs each call and answers 3 (busy) until it was called `BUSY_CALLS` times. */
+  function standIn() {
+    put("tools/wait-quiet.sh", `#!/usr/bin/env bash
+echo "wait-quiet $*" >>"$FAKE_LOG"
+n=$(grep -c '^wait-quiet' "$FAKE_LOG")
+(( n > \${BUSY_CALLS:-0} )) || { echo "busy: vitest (/elsewhere)"; exit 3; }
+`);
+    commit("wait-quiet"); // a dirty tree neither reads nor writes a stamp
+  }
+
+  it("waits for a quiet machine before it builds when CHECK_WAIT=1, one call at a time", () => {
+    standIn();
+    const r = e2e({ CHECK_WAIT: "1", CHECK_WAIT_CALL: "7", BUSY_CALLS: "2" });
+    expect(r.status).toBe(0);
+    expect(r.out.match(/busy: vitest/g)).toHaveLength(2);
+    expect(names()).toEqual(["wait-quiet", "wait-quiet", "wait-quiet", "build", "build", "server", "playwright"]);
+    expect(readFileSync(calls, "utf8")).toContain("wait-quiet --max 7");
+  });
+
+  it("runs anyway when the machine stays busy for CHECK_WAIT_MAX", () => {
+    standIn();
+    const r = e2e({ CHECK_WAIT: "1", BUSY_CALLS: "99", CHECK_WAIT_MAX: "0" });
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("still busy after");
+    expect(names()).toEqual(["wait-quiet", "build", "build", "server", "playwright"]);
+  });
+
+  it("does not wait inside a cut or with CHECK_WAIT=0, and a stamp hit waits for nothing", () => {
+    standIn();
+    expect(e2e({ BUSY_CALLS: "99" }).status).toBe(0); // CUT_LOCK_HELD=1 in e2e(): the default is 0
+    expect(names()).not.toContain("wait-quiet");
+    writeFileSync(calls, "");
+    expect(e2e({ CHECK_WAIT: "0", BUSY_CALLS: "99", CUT_LOCK_HELD: "" }).status).toBe(0);
+    expect(names()).not.toContain("wait-quiet");
+    writeFileSync(calls, "");
+    expect(e2e({ CHECK_WAIT: "1", BUSY_CALLS: "99" }).out).toContain("from a stamp");
+    expect(names()).toEqual([]);
+  });
 });

@@ -8,8 +8,11 @@ import {
   settlementSentences,
   summaryOf,
   waterfallRows,
+  type Before,
+  type Hrefs,
   type WaterfallRow,
 } from "./waterfall.ts";
+import "../../styles/themes-table.css";
 import "../../styles/waterfall.css";
 
 type Range = { from: string; to: string };
@@ -64,7 +67,7 @@ function trackOf(row: WaterfallRow, range: Range, scope: Scope) {
 }
 
 /**
- * One bar for each item, in the order the server gives: income up, spending down, Yli jäi last. The bar of a figure Miksi? can open is a button that opens its rows. Up is a solid bar and down
+ * One bar for each item, in the order the server gives: income up, spending down, Yli jäi last. The name of every row but Yli jäi is a button that opens what the bar is made of, one row at a time (`open` is the key of the open row, the caller's, so it can close with the month); the bar of a figure Miksi? can open is a button that opens its rows. Up is a solid bar and down
  * a hatched one, and every figure has its sign, so colour is not the only cue. The bars are for the eye; a table of the
  * same figures with the running total and one sentence are for a reader who does not see them.
  */
@@ -73,14 +76,22 @@ export function Waterfall({
   categories,
   range,
   scope,
+  hrefs,
+  before,
+  open,
+  onToggle,
 }: {
   waterfall: WaterfallAnswer | null;
   categories: ReadonlyMap<string, string>;
   range: Range;
   scope: Scope;
+  hrefs: Hrefs;
+  before: Before | null;
+  open: string | null;
+  onToggle: (key: string) => void;
 }) {
   if (!waterfall) return <p className="wf-empty">{EMPTY_MONTH}</p>;
-  const rows = waterfallRows(waterfall, categories);
+  const rows = waterfallRows(waterfall, categories, hrefs, before);
   return (
     <div className="wf">
       <p className="sr-only">{summaryOf(waterfall)}</p>
@@ -98,12 +109,40 @@ export function Waterfall({
             }
           >
             <span className="wf-name">
-              <span className="wf-label" title={r.label}>
-                {r.label}
-              </span>
+              {r.lines.length ? (
+                <button type="button" className="themes-toggle wf-toggle" aria-expanded={open === r.key} onClick={() => onToggle(r.key)}>
+                  <span className="wf-label" title={r.label}>
+                    {r.label}
+                  </span>
+                </button>
+              ) : (
+                <span className="wf-label" title={r.label}>
+                  {r.label}
+                </span>
+              )}
             </span>
             {trackOf(r, range, scope)}
             <span className="st-num wf-fig">{r.text}</span>
+            {open === r.key && r.lines.length > 0 && (
+              <div className="wf-detail">
+                <ul className="st-rows">
+                  {r.lines.map((l) => (
+                    <li className="st-row" key={l.key}>
+                      <span className="st-name" title={l.label}>
+                        {l.href ? <a href={l.href}>{l.label}</a> : l.label}
+                      </span>
+                      <span className="st-num">{l.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                {r.before && <p className="wf-before">{r.before}</p>}
+                {r.all && (
+                  <p className="st-links">
+                    <a href={r.all}>Näytä kaikki tapahtumat</a>
+                  </p>
+                )}
+              </div>
+            )}
           </li>
         ))}
       </ol>

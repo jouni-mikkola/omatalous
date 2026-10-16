@@ -701,43 +701,114 @@
   "bars": [
    {
     "key": "income",
-    "cents": 0
+    "cents": 0,
+    "parts": []
    },
    {
     "key": "category:housing",
-    "cents": -105000
+    "cents": -105000,
+    "parts": [
+     {
+      "key": "payee:Sato",
+      "cents": -105000
+     }
+    ]
    },
    {
     "key": "category:mortgage",
-    "cents": -61240
+    "cents": -61240,
+    "parts": [
+     {
+      "key": "payee:Nordea Bank Abp",
+      "cents": -61240
+     }
+    ]
    },
    {
     "key": "category:groceries",
-    "cents": -34763
+    "cents": -34763,
+    "parts": [
+     {
+      "key": "payee:Lidl",
+      "cents": -16957
+     },
+     {
+      "key": "payee:K-Citymarket",
+      "cents": -13302
+     },
+     {
+      "key": "payee:S-Market",
+      "cents": -4504
+     }
+    ]
    },
    {
     "key": "category:kids",
-    "cents": -27990
+    "cents": -27990,
+    "parts": [
+     {
+      "key": "payee:Helsingin Kaupunki",
+      "cents": -27990
+     }
+    ]
    },
    {
     "key": "category:insurance",
-    "cents": -14230
+    "cents": -14230,
+    "parts": [
+     {
+      "key": "payee:If Vahinkovakuutus Oy",
+      "cents": -14230
+     }
+    ]
    },
    {
     "key": "category:shopping",
-    "cents": -6688
+    "cents": -6688,
+    "parts": [
+     {
+      "key": "payee:Kappahl",
+      "cents": -6688
+     }
+    ]
    },
    {
     "key": "category:utilities",
-    "cents": -4088
+    "cents": -4088,
+    "parts": [
+     {
+      "key": "payee:Helen",
+      "cents": -4088
+     }
+    ]
    },
    {
     "key": "category:subscriptions",
-    "cents": -2798
+    "cents": -2798,
+    "parts": [
+     {
+      "key": "payee:Netflix",
+      "cents": -1599
+     },
+     {
+      "key": "payee:Spotify",
+      "cents": -1199
+     }
+    ]
    },
    {
     "key": "category:restaurants",
-    "cents": -873
+    "cents": -873,
+    "parts": [
+     {
+      "key": "payee:Espresso House",
+      "cents": -488
+     },
+     {
+      "key": "payee:Robert's Coffee",
+      "cents": -385
+     }
+    ]
    }
   ],
   "leftCents": -257670

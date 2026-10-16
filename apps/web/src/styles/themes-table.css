@@ -1,35 +1,12 @@
 /*
- * "Menot kategorioittain" over the last complete months (ThemesTable): the heading with the period at its right, the
- * table of the themes with the lines under the open ones, the total, and the large purchases under the table as a row of
- * their own. The rows, the figures and the cut names are the statement classes (statement.css); the bar is
- * `.category-bar` (overview.css), the one the month's list draws.
+ * The label that opens its lines (Ruoka, Menot kuukausittain, the months of a source) and the heading with the period at
+ * its right. The rows, the figures and the cut names are the statement classes (statement.css); the bar is
+ * `.category-bar` (overview.css).
  */
 
 .themes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 4px; }
 .themes-head .st-cap { margin: 0; }
 .themes-head .st-num { font-size: 14px; line-height: 18px; }
-
-/* the name and the figures take what they need, the bar takes the rest */
-.themes-table { table-layout: fixed; }
-.themes-table th:first-child { width: 14rem; padding-right: 16px; }
-.themes-table .themes-bar { padding-left: 0; }
-.themes-table .themes-month { width: 7rem; }
-.themes-table .themes-year { width: 7.5rem; }
-.themes-table .themes-change { width: 5rem; }
-.themes-table td.category-bar { vertical-align: middle; }
-
-/*
- * The bar ruler: the head cell of the bar column holds the first and last value of `barScale`, with a tick of 4 px at every
- * step and one of 8 px at the two values; the lines go down the column's rows, so every bar is read against them. The cell
- * has no padding at the sides, so a percent of it is a percent of the longest bar, and its lines run the whole height of the row. A table without a ruler has no
- * `--bar-step`, and its lines are not drawn. The head rule is the datum the ticks stand on.
- */
-.category-bar { background-repeat: no-repeat; }
-.st-table th.bar-ruler { position: relative; height: 32px; padding-top: 0; padding-bottom: 0; font-weight: 400;
-  background-image: repeating-linear-gradient(90deg, var(--axis) 0 1px, transparent 1px var(--bar-step)); background-size: 100% var(--tick); background-position: 0 100%; }
-th.bar-ruler i { position: absolute; bottom: var(--tick-l); padding-left: 4px; font-style: normal; font-weight: 400; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); }
-th.bar-ruler i::before { content: ""; position: absolute; left: 0; bottom: calc(-1 * var(--tick-l)); width: 1px; height: var(--tick-l); background: var(--axis); }
-td.category-bar { background-image: repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px var(--bar-step)); }
 
 /* a label that opens its lines: a button that reads as the text, with an arrow that turns when it is open */
 .themes-toggle { display: flex; align-items: baseline; width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -37,26 +14,11 @@ td.category-bar { background-image: repeating-linear-gradient(90deg, var(--grid)
 .themes-toggle::before { content: ""; flex: none; box-sizing: border-box; width: 6px; height: 6px; margin: 0 10px 0 2px; align-self: center; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
 .themes-toggle[aria-expanded="true"]::before { transform: rotate(45deg); }
 .themes-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* a theme with nothing to open stands where the labels with an arrow stand */
+/* a row with nothing to open stands where the labels with an arrow stand */
 .themes-plain { display: block; padding-left: 18px; overflow: hidden; text-overflow: ellipsis; }
-.themes-table .themes-line > th { padding-left: 30px; }
 
-/* the total: 600 under the axis, which takes the place of the hairline above */
-.themes-table .themes-total > * { border-top: 1px solid var(--axis); font-weight: 600; }
-.themes-table tr:has(+ .themes-total) > * { border-bottom: 0; }
-
-/* the large purchases: one sum of the whole window, a row of its own under the table */
-.themes-large { border-top: 1px solid var(--grid); }
+/* the large purchases: one sum of the whole window, a row of its own under the chart */
+.themes-large { border-top: 1px solid var(--grid); margin-top: 12px; }
 .themes-large > .st-row { border-bottom: 0; }
 .themes-large-rows { padding-left: 18px; border-top: 1px solid var(--grid); }
 .themes-large-rows .themes-date { width: 5rem; text-align: left; }
-
-/* where the card is narrow the bar and the change go and the name takes its room */
-@media (max-width: 600px) {
-  .themes-table .themes-bar, .themes-table .themes-change, .themes-table th.bar-ruler { display: none; }
-  .themes-table th:first-child { width: auto; }
-  .themes-table .themes-month { width: 5.5rem; }
-  .themes-table .themes-year { width: 6rem; }
-  .st-table.themes-table :is(th, td) + :is(th, td) { padding-left: 10px; }
-  .themes-table .themes-line > th { padding-left: 22px; }
-}

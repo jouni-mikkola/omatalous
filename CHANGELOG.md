@@ -3,6 +3,23 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.63.0
+
+- The overview's Tulot ja menot opens row by row: a category shows its payees in the month with "Näytä kaikki tapahtumat", Tulot its payers, Muut (n) the categories it folds and Säästöt ja luotot its parts; every open row adds up to its bar and names last month's sum when the months compare.
+- The panel below no longer repeats the same figures: the category bars and the income and spending rows are gone, the savings rate and fixed costs sit under Yli jäi, and Menojen kertymä keeps the large purchases and the links to Kauppiaat, Menot kuukausittain and Ruoka.
+- A finance company whose name ends with a country word ("Rahoitus Suomi Oy", "Credit Finland Oy") is known as a lender, so its steady payment is a loan without a question.
+- Development: a red check now reruns its failures alone and lands on flakes only, waiting for the machine is one tool, and a release verifies each distinct release script once.
+
+Money and reports
+
+- A steady payment to a finance company with a country in its name (such as "Rahoitus Suomi Oy" or "Credit Finland Oy") is a loan with no question on the overview.
+
+Look
+
+- Each row of the Tulot ja menot waterfall opens in place, one at a time: a category shows its payees, Tulot its payers, Muut (n) the categories it holds, Säästöt ja luotot what was saved and what was drawn.
+- The overview no longer repeats the waterfall: the table of Tulot and Menot and the Menot kategorioittain table are gone, and the savings rate and the fixed costs stand under Yli jäi.
+- The open category row and Tulot say what the month before had in one line, and the overview says once when the comparison leaves an account out; the large purchases and a link to Ruoka stay under the chart.
+
 ## 0.62.0
 
 - One figure, one value: the savings rate counts whole months only and names its window, the debt share and credit drawn read the same everywhere, "Muut menot" means only what is not yet filed, and the theme of cash, money to people and card bills is now Raha-asiat.

@@ -10,7 +10,7 @@
  * file makes them through the page on a server of its own. With `E2E_WORKERS=1` the specs run one after the other.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -50,6 +50,9 @@ function cutLock() {
   if (again.status === 99) console.error(`e2e: the cut did not end within ${wait} s: ${file}`);
   process.exit(again.status === 99 ? 1 : (again.status ?? 1));
 }
+// `CHECK_WAIT=1` waits for a quiet machine before the build and the browsers (quietWait below), `0` does not. Inside a
+// release cut (`CUT_LOCK_HELD`) and in CI, which own the machine, the default is 0; the decision goes with the restarts.
+process.env.CHECK_WAIT ??= process.env.CUT_LOCK_HELD || process.env.CI ? "0" : "1";
 cutLock();
 
 /**
@@ -129,6 +132,24 @@ function ownNetwork() {
 }
 ownNetwork();
 
+/**
+ * Calls tools/wait-quiet.sh (no vitest, playwright, tsc or check of another worktree running, load under twice the CPUs)
+ * one call at a time, each printing its own "busy:" line when it gives up, and repeats on exit 3 for `CHECK_WAIT_MAX`
+ * seconds (1800), then runs anyway. `CHECK_WAIT_CALL` is the seconds of one call (270). An agent that must keep one command
+ * under 300 s calls tools/wait-quiet.sh itself first and repeats on exit 3.
+ */
+function quietWait() {
+  const script = join(root, "tools/wait-quiet.sh");
+  if (process.env.CHECK_WAIT === "0" || !existsSync(script)) return;
+  const began = Date.now();
+  for (;;) {
+    const r = spawnSync("bash", [script, "--max", process.env.CHECK_WAIT_CALL ?? "270"], { cwd: root, stdio: "inherit" });
+    if (r.status !== 3) return;
+    const waited = Math.round((Date.now() - began) / 1000);
+    if (waited >= Number(process.env.CHECK_WAIT_MAX ?? 1800)) return console.error(`e2e: the machine is still busy after ${waited} s, running anyway`);
+  }
+}
+
 const FETCH = { "X-Requested-With": "fetch" };
 
 /** The administrator the specs sign in as (`admin-state.json`, as app.spec.ts saves it), the wizard finished, the demo loaded. */
@@ -161,6 +182,7 @@ try {
   if (!Number.isInteger(workers) || workers < 1) throw new Error(`E2E_WORKERS is "${process.env.E2E_WORKERS}": use a whole number from 1.`);
   // the servers (also app.spec.ts's, in a Playwright worker) take the build from E2E_BUILD when it is set; a value of the caller is dropped
   delete process.env.E2E_BUILD;
+  quietWait();
   if (stampDir) {
     console.error("e2e: building the app first (a run that can be stamped builds it itself)");
     built = mkdtempSync(join(tmpdir(), "e2e-build-"));

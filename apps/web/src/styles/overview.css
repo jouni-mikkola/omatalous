@@ -9,25 +9,10 @@
   .st-block .segmented button { padding: 7px 10px; }
 }
 
-/* the months' table: the day the month before is counted to stays whole, on the head's second line where the column is narrow */
-.month-table .month-by { display: inline-block; white-space: nowrap; }
-.month-table thead th { white-space: normal; }
-/* the two rows under the rule that ends the table; a label is told whole */
+/* the savings rate and the fixed costs under Yli jäi; a label is told whole */
 .month-more { border-top: 1px solid var(--axis); }
 .month-more .st-name { overflow: visible; white-space: normal; }
 .month-chart { margin-top: 20px; }
 
-/* Menot kategorioittain: the name and the sums take what they need, the bar takes the rest; one colour, the length is the sum */
-.category-table { table-layout: fixed; }
-.category-table th:first-child { width: 12rem; padding-right: 16px; }
-.category-table .category-bar { padding-left: 0; }
-.category-table .st-num { width: 6.5rem; }
-.category-table td.category-bar { vertical-align: middle; }
+/* the bar of a table of categories (Ruoka): one colour, the length is the sum */
 .category-bar span { display: block; height: var(--bar-h); min-width: 1px; background: var(--series-1); }
-/* where the card is narrow the bar goes and the name takes its room */
-@media (max-width: 600px) {
-  .category-table .category-bar { display: none; }
-  .category-table th:first-child { width: auto; }
-  .category-table .st-num { width: 5.5rem; }
-}
-

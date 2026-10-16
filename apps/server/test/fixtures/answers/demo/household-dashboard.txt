@@ -892,52 +892,143 @@
   "bars": [
    {
     "key": "income",
-    "cents": 0
+    "cents": 0,
+    "parts": []
    },
    {
     "key": "category:housing",
-    "cents": -105000
+    "cents": -105000,
+    "parts": [
+     {
+      "key": "payee:Sato",
+      "cents": -105000
+     }
+    ]
    },
    {
     "key": "category:loans",
-    "cents": -28900
+    "cents": -28900,
+    "parts": [
+     {
+      "key": "payee:Nordea Rahoitus Suomi Oy",
+      "cents": -28900
+     }
+    ]
    },
    {
     "key": "category:groceries",
-    "cents": -15605
+    "cents": -15605,
+    "parts": [
+     {
+      "key": "payee:K-Market",
+      "cents": -8244
+     },
+     {
+      "key": "payee:S-Market",
+      "cents": -3265
+     },
+     {
+      "key": "payee:Alepa",
+      "cents": -2311
+     },
+     {
+      "key": "payee:Lidl",
+      "cents": -1785
+     }
+    ]
    },
    {
     "key": "category:insurance",
-    "cents": -14230
+    "cents": -14230,
+    "parts": [
+     {
+      "key": "payee:If Vahinkovakuutus Oy",
+      "cents": -14230
+     }
+    ]
    },
    {
     "key": "category:food_delivery",
-    "cents": -10932
+    "cents": -10932,
+    "parts": [
+     {
+      "key": "payee:Wolt",
+      "cents": -10932
+     }
+    ]
    },
    {
     "key": "category:transport",
-    "cents": -6470
+    "cents": -6470,
+    "parts": [
+     {
+      "key": "payee:HSL",
+      "cents": -6470
+     }
+    ]
    },
    {
     "key": "category:fitness",
-    "cents": -5900
+    "cents": -5900,
+    "parts": [
+     {
+      "key": "payee:Elixia",
+      "cents": -5900
+     }
+    ]
    },
    {
     "key": "category:car",
-    "cents": -5784
+    "cents": -5784,
+    "parts": [
+     {
+      "key": "payee:Neste",
+      "cents": -5784
+     }
+    ]
    },
    {
     "key": "category:subscriptions",
-    "cents": -4198
+    "cents": -4198,
+    "parts": [
+     {
+      "key": "payee:OpenAI",
+      "cents": -2300
+     },
+     {
+      "key": "payee:Netflix",
+      "cents": -1799
+     },
+     {
+      "key": "payee:Apple",
+      "cents": -99
+     }
+    ]
    },
    {
     "key": "other",
     "cents": -5093,
-    "count": 2
+    "count": 2,
+    "parts": [
+     {
+      "key": "category:alcohol",
+      "cents": -3288
+     },
+     {
+      "key": "category:restaurants",
+      "cents": -1805
+     }
+    ]
    },
    {
     "key": "transfers",
-    "cents": -15000
+    "cents": -15000,
+    "parts": [
+     {
+      "key": "saved",
+      "cents": -15000
+     }
+    ]
    }
   ],
   "leftCents": -217112

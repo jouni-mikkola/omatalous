@@ -93,6 +93,34 @@ t_scenarios_run_once() {
   check "sh: the summary counts one job per scenario and the suite run whole" grep -q 'sh ok (4 scenario jobs from 2 suites, 1 suites whole' "$W/out"
 }
 
+# a red run keeps what --rerun needs, and --rerun names each failure FLAKE (passes alone) or REAL (fails alone)
+t_rerun_names_flake_and_real() {
+  world; fake_alpha
+  cp "$SRC/tools/check/rerun.mjs" "$W/tools/check/"
+  local f=$W/tools/test/mixed.test.sh dir
+  suite_head "$f"
+  # t_flaky fails on its first run only (the marker), t_real always
+  sed 's/^@//' >>"$f" <<'EOS'
+@t_flaky() { if [[ -e $FLAKE_MARK ]]; then scenario t_flaky; else : >"$FLAKE_MARK"; echo "FAIL flaky: first time"; FAILED=$((FAILED + 1)); fi; }
+@t_real() { echo "FAIL real: always"; FAILED=$((FAILED + 1)); }
+for t in $(declare -F | awk '{print $3}' | grep '^t_'); do
+  want "$t" || continue
+  "$t"
+done
+EOS
+  suite_tail "$f"
+  export FLAKE_MARK=$W/flake.mark
+  CHECK_FRESH=1 run_check sh
+  dir=$(grep -o 'Logs: /[^ ]*' "$W/out" | tail -n 1); dir=${dir#Logs: }
+  check "rerun: the red run is kept with its jobs, its failed step and its environment" bash -c "[[ -s '$dir/sh-jobs' && \$(cat '$dir/failed-steps') == sh && \$(cat '$dir/env') == CHECK_FRESH=1 ]]"
+  run_check --rerun "$dir"
+  check "rerun: exit 1 because one failure is real" test "$(cat "$W/rc")" = 1
+  check "rerun: the scenario that passes alone is a FLAKE" grep -q '^FLAKE (passes alone) sh tools/test/mixed.test.sh > t_flaky' "$W/out"
+  check "rerun: the one that fails alone is REAL" grep -q '^REAL (fails alone) sh tools/test/mixed.test.sh > t_real' "$W/out"
+  check "rerun: a scenario that passed is not run again" test "$(grep -c 'alpha.test.sh' "$RUNLOG")" = 3
+  check "rerun: it counts the kept red runs the failure was in" grep -qE 't_real \[failed in [1-9][0-9]* of [1-9][0-9]* kept red runs\]' "$W/out"
+}
+
 t_failing_scenario_is_named() {
   world; fake_alpha; fake_beta
   FAIL_TWO=1 run_check sh
@@ -257,6 +285,54 @@ t_check_inside_the_cut_does_not_wait() {
   echo >"$W/go"; wait "$RUNPID"
   echo >"$W/rel"; wait "$CUTPID"
   check "lock: it ran green and did not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'waiting' '$W/out'"
+}
+
+# The wait for a quiet machine: tools/wait-quiet.sh is copied into the world and told by a load file that the machine is
+# busy or quiet; no program on the real machine takes part (the load is the only reason in these worlds).
+quiet_world() {
+  world; fake_plain
+  mkdir -p "$W/tools/lib"; cp "$SRC/tools/wait-quiet.sh" "$W/tools/"; cp "$SRC/tools/lib/owner.sh" "$W/tools/lib/"
+  echo "99.00 99.00 99.00 1/1 1" >"$W/load"
+}
+# quiet_run [VAR=value ...]: check.sh sh with the cut variables removed, a one-second call and four seconds in all
+quiet_run() {
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CI -u CHECK_WAIT CHECK_SLOT_HELD=1 WAIT_QUIET_PATTERN="$W/never-runs-" WAIT_QUIET_LOADAVG_FILE="$W/load" WAIT_QUIET_CPUS=4 WAIT_QUIET_POLL=0.2     CHECK_WAIT_CALL=1 CHECK_WAIT_MAX=2 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/out" 2>&1; echo $? >"$W/rc") &
+  RUNPID=$!
+}
+
+t_check_waits_for_a_quiet_machine_then_runs_anyway() {
+  quiet_world
+  quiet_run; wait "$RUNPID"
+  check "wait: a busy machine prints the reason on each call, then the check runs anyway and is green" bash -c "[[ \$(cat '$W/rc') = 0 ]] && grep -q '^busy: load 99.00' '$W/out' && grep -q 'still busy after' '$W/out' && [[ \$(grep -c '^busy:' '$W/out') -ge 2 ]] && [[ '$(ran)' = 'plain.test.sh plain,' ]]"
+}
+
+t_check_waits_until_the_machine_is_quiet() {
+  quiet_world
+  quiet_run CHECK_WAIT_MAX=60
+  local i
+  for ((i = 0; i < 150; i++)); do grep -q '^busy:' "$W/out" && break; sleep 0.1; done
+  echo "0.50 0.50 0.50 1/1 1" >"$W/load"
+  wait "$RUNPID"
+  check "wait: it runs when the load drops, without the 'running anyway' line" bash -c "[[ \$(cat '$W/rc') = 0 ]] && grep -q '^busy:' '$W/out' && ! grep -q 'running anyway' '$W/out' && [[ '$(ran)' = 'plain.test.sh plain,' ]]"
+}
+
+t_check_on_a_quiet_machine_says_nothing_about_it() {
+  quiet_world
+  echo "0.50 0.50 0.50 1/1 1" >"$W/load"
+  quiet_run; wait "$RUNPID"
+  check "wait: a quiet machine adds no line" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy\|quiet' '$W/out'"
+}
+
+t_check_wait_is_off_with_CHECK_WAIT_0_inside_a_cut_and_in_ci() {
+  quiet_world
+  quiet_run CHECK_WAIT=0; wait "$RUNPID"
+  check "wait: CHECK_WAIT=0 does not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy' '$W/out'"
+  quiet_run CUT_LOCK_HELD=1; wait "$RUNPID"
+  check "wait: inside the cut it does not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy' '$W/out'"
+  quiet_run CI=1; wait "$RUNPID"
+  check "wait: in CI it does not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy' '$W/out'"
+  quiet_run CUT_LOCK_HELD=1 CHECK_WAIT=1; wait "$RUNPID"
+  check "wait: CHECK_WAIT=1 is kept inside the cut when asked for" bash -c "grep -q '^busy:' '$W/out'"
 }
 
 # A history with two scripts, each named by a suite of its own, and one that no suite names.

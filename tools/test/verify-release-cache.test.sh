@@ -86,5 +86,26 @@ out=$(run); rc=$?
 check "the same digest passes once the check does, in full" test $rc -eq 0
 lacks "and that run was not cached" "$out" "cached:"
 
+# a copy of the check that is the same file as one already run is not run again: four baselines, two different copies (and the
+# checkout's own, one of the two) are two cosign runs for the verdicts, and the two for the trigger lines
+g() { git -C "$R" -c user.name=t -c user.email=t@t "$@"; }
+B1=$BASE
+g commit -q --allow-empty -m same-copy; B2=$(git -C "$R" rev-parse --short HEAD)
+g add -A; g commit -q -m other-copy; B3=$(git -C "$R" rev-parse --short HEAD)
+g commit -q --allow-empty -m same-other-copy; B4=$(git -C "$R" rev-parse --short HEAD)
+printf '%s\n' "$B1" "$B2" "$B3" "$B4" >"$R/.github/upgrade-from.txt"
+rm -f "$TMP/cache"
+N=$(runs)
+out=$(run); rc=$?
+check "four baselines of two copies pass" test $rc -eq 0
+check "and cost two cosign runs for the copies, besides the two of the trigger lines, not four" test "$(($(runs) - N))" -eq 4
+for b in "$B1" "$B2" "$B3" "$B4"; do has "every baseline has its own line" "$out" "$b: accepts v9.9.9"; done
+# a copy that is refused is refused for every baseline that holds it
+touch "$PLAY/fail-cosign"
+rm -f "$TMP/cache"
+out=$(run); rc=$?
+check "a refused copy fails the run" test $rc -eq 1
+check "and each of the four baselines says refused" test "$(grep -c ': refuses v9.9.9' <<<"$out")" -eq 5
+
 echo "$PASS passed, $FAILED failed"
 exit $((FAILED > 0))

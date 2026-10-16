@@ -1,4 +1,4 @@
-import { type Account, buildDashboard, CATEGORIES, createContext, type Transaction } from "@banking/core";
+import { type Account, buildDashboard, createContext, type Transaction } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -43,143 +43,22 @@ const history = [
   buy("2026-10-02", 10_000),
   buy("2026-10-09", 4_500),
 ];
+const ANCHORS = { income: "tulot", food: "ruoka", months: "kuukaudet", settlement: "yhteiset-menot" };
 const answer = (rows: Transaction[], from: string, to: string) => ({ ...buildDashboard(createContext(rows, [checking], today), { from, to }), settlement: [] });
 const view = (rows: Transaction[], from: string, to: string) => incomeSpendingView(answer(rows, from, to));
-/** The rows of the months' table as they read: the label, the month's sum, the sum of the month before. */
-const figures = (v: ReturnType<typeof view>) => v.figures.map((f) => [f.label, plain(f.text), f.previous === null ? null : plain(f.previous)]);
-
-describe("Tulot ja menot: the two months", () => {
-  it("a running month stands beside the month before counted to the same day, and the head says the day", () => {
-    const v = view(history, "2026-10-01", today);
-    expect([v.month, v.previous]).toEqual(["Lokakuu", { month: "Syyskuu", by: "12.9. mennessä" }]);
-    // September to the 12th: the 120 € of the 3rd, and the salary of the 25th is not in yet
-    expect(figures(v)).toEqual([
-      ["Tulot", "0,00 €", "0,00 €"],
-      ["Menot", "145,00 €", "120,00 €"],
-    ]);
-  });
-
-  it("an ended month stands beside the whole month before, and the head names the month alone", () => {
-    const v = view(history, "2026-09-01", "2026-09-30");
-    expect([v.month, v.previous]).toEqual(["Syyskuu", { month: "Elokuu", by: null }]);
-    expect(figures(v)).toEqual([
-      ["Tulot", "3 000,00 €", "3 000,00 €"],
-      ["Menot", "200,00 €", "30,00 €"],
-    ]);
-    expect(v.chart).toBe(false);
-  });
-
-  it("a history that does not reach the month before has no second column and no change on a row", () => {
-    const v = view(history.filter((t) => t.bookingDate >= "2026-09-03"), "2026-09-01", "2026-09-30");
-    expect(v.previous).toBeNull();
-    expect(v.figures.map((f) => f.previous)).toEqual([null, null]);
-    expect(v.categories.every((c) => c.change === "")).toBe(true);
-  });
-
-  it("no history at all has one column of zeros", () => {
-    const v = view([], "2026-10-01", today);
-    expect(v.previous).toBeNull();
-    expect(figures(v)).toEqual([
-      ["Tulot", "0,00 €", null],
-      ["Menot", "0,00 €", null],
-    ]);
-  });
-});
 
 describe("Tulot ja menot: a month with little or nothing in it", () => {
-  it("a running month with no row gives zeros, no chart, and the table of categories says so in its one row", () => {
-    const v = view([buy("2026-08-10", 3_000)], "2026-10-01", today);
-    expect(figures(v).map((f) => f[1])).toEqual(["0,00 €", "0,00 €"]);
-    expect(v.empty).toBe("Ei vielä tapahtumia tässä kuussa.");
-    expect(v.chart).toBe(false);
-    expect(v.categories).toEqual([]);
+  it("a running month with no row has no chart and no links to the merchants", () => {
+    expect(view([buy("2026-08-10", 3_000)], "2026-10-01", today)).toMatchObject({ chart: false, spending: false });
   });
 
-  it("a month that has ended with no row says so without the word vielä", () => {
-    expect(view([buy("2026-08-10", 3_000)], "2026-09-01", "2026-09-30").empty).toBe("Ei tapahtumia tässä kuussa.");
-  });
-
-  it("pay in and nothing spent: the figures, no chart, and the table says nothing is spent", () => {
-    const v = view([buy("2026-08-10", 3_000), salary("2026-10-05")], "2026-10-01", today);
-    expect(figures(v).map((f) => f[1])).toEqual(["3 000,00 €", "0,00 €"]);
-    expect(v.empty).toBe("Ei vielä menoja tässä kuussa.");
-    expect(v.chart).toBe(false);
-    expect(v.categories).toEqual([]);
-    expect(view([buy("2026-07-10", 3_000), salary("2026-09-05")], "2026-09-01", "2026-09-30").empty).toBe("Ei menoja tässä kuussa.");
+  it("pay in and nothing spent: no chart and no spending", () => {
+    expect(view([buy("2026-08-10", 3_000), salary("2026-10-05")], "2026-10-01", today)).toMatchObject({ chart: false, spending: false });
   });
 
   it("the chart is there for the running month once something is spent, and never for a month that has ended", () => {
-    expect(view(history, "2026-10-01", today)).toMatchObject({ chart: true, empty: null });
-    expect(view(history, "2026-09-01", "2026-09-30").chart).toBe(false);
-  });
-});
-
-describe("Tulot ja menot: the categories", () => {
-  const expense = CATEGORIES.filter((c) => c.kind === "expense").slice(0, 12);
-  // twelve categories, the largest first; every one was bought in September too: the first for less, the second for the same
-  const before = (i: number) => (i === 0 ? 500 : i === 1 ? 2_100 : (12 - i) * 100 + 900);
-  const many = [...expense.map((c, i) => buy("2026-10-03", (12 - i) * 100 + 1_000, c.id)), ...expense.map((c, i) => buy("2026-09-03", before(i), c.id)), salary("2026-08-25")];
-
-  it("shows the nine largest and the rest as one row that names how many it holds, each sum with its cents", () => {
-    const data = answer(many, "2026-10-01", today);
-    const v = incomeSpendingView(data);
-    expect(v.categories).toHaveLength(10);
-    expect(v.categories.at(-1)).toMatchObject({ key: "rest", label: "Muut (3)", category: null, change: "" });
-    expect(v.categories.slice(0, 9).map((c) => c.category)).toEqual(data.categories.slice(0, 9).map((c) => c.category));
-    expect(plain(v.categories[0]!.text)).toBe("22,00 €");
-    // the rest is what the named rows leave of the month: 11 + 12 + 13 €
-    expect(plain(v.categories.at(-1)!.text)).toBe("36,00 €");
-    expect(data.categories.reduce((s, c) => s + c.cents, 0)).toBe(data.totals.expenseCents);
-  });
-
-  it("gives a row a bar by its sum against the longest row, the row of the rest included", () => {
-    const v = view(many, "2026-10-01", today);
-    // the rest (36 €) is longer than any named row: it is the measure, and no bar is over it
-    expect(v.categories.at(-1)!.share).toBe(100);
-    expect(v.categories[0]!.share).toBe(Math.round((2_200 / 3_600) * 10_000) / 100);
-    expect(v.categories.every((c) => c.share > 0 && c.share <= 100)).toBe(true);
-    const two = view([buy("2026-10-03", 4_000), buy("2026-10-04", 1_000, "restaurants")], "2026-10-01", today);
-    expect(two.categories.map((c) => c.share)).toEqual([100, 25]);
-  });
-
-  it("keeps the rest as a row when it is below zero, with its minus and no bar, so the rows add up to Menot; a rest of nothing is no row", () => {
-    const nine = expense.slice(0, 9).map((c, i) => buy("2026-10-03", (12 - i) * 100 + 1_000, c.id));
-    // the tenth category is 2 € spent, the eleventh money in that the user put on it by hand
-    const back = (cents: number): Transaction => ({ ...row("2026-10-05", cents, expense[10]!.id, "Esimerkkivaate Oy"), categorySource: "user" });
-    const data = answer([...nine, buy("2026-10-04", 200, expense[9]!.id), back(5_000)], "2026-10-01", today);
-    const v = incomeSpendingView(data);
-    expect(v.categories.at(-1)).toMatchObject({ key: "rest", label: "Muut (2)", category: null, share: 0 });
-    expect(plain(v.categories.at(-1)!.text)).toBe("-48,00 €");
-    const named = data.categories.slice(0, 9).reduce((s, c) => s + c.cents, 0);
-    expect(named - 4_800).toBe(data.totals.expenseCents);
-    // 22 + 21 + ... + 14 € named, less the 48 € of the rest
-    expect(plain(v.figures[1]!.text)).toBe("114,00 €");
-    // the near miss: the two small categories cancel, and a row of 0,00 € is not drawn
-    const even = incomeSpendingView(answer([...nine, buy("2026-10-04", 200, expense[9]!.id), back(200)], "2026-10-01", today));
-    expect(even.categories.map((c) => c.key)).not.toContain("rest");
-    expect(even.categories).toHaveLength(9);
-  });
-
-  it("a category below zero among the nine is a row with its minus and no bar", () => {
-    const back: Transaction = { ...row("2026-10-05", 4_495, "shopping", "Esimerkkivaate Oy"), categorySource: "user" };
-    const v = view([buy("2026-10-03", 41_250), back], "2026-10-01", today);
-    expect(v.categories.map((c) => [c.category, plain(c.text), c.share])).toEqual([
-      ["groceries", "412,50 €", 100],
-      ["shopping", "-44,95 €", 0],
-    ]);
-    expect(plain(v.figures[1]!.text)).toBe("367,55 €");
-  });
-
-  it("tells the change from the month before in whole euros, and prints nothing for a change of nothing", () => {
-    const v = view(many, "2026-10-01", today);
-    expect(plain(v.categories[0]!.change)).toBe("+17 €");
-    // bought for the same sum in both months
-    expect(v.categories[1]!.change).toBe("");
-    expect(plain(v.categories[2]!.change)).toBe("+1 €");
-    expect(JSON.stringify(v)).not.toContain("±");
-    // 99 cents more is no euro more
-    const near = view([buy("2026-10-03", 2_099), buy("2026-09-03", 2_000), salary("2026-08-25")], "2026-10-01", today);
-    expect(near.categories[0]!.change).toBe("");
+    expect(view(history, "2026-10-01", today)).toMatchObject({ chart: true, spending: true });
+    expect(view(history, "2026-09-01", "2026-09-30")).toMatchObject({ chart: false, spending: true });
   });
 });
 
@@ -204,40 +83,107 @@ describe("Tulot ja menot: the savings rate and the fixed costs", () => {
   });
 });
 
-describe("Tulot ja menot: the month's list or the table of themes", () => {
+describe("Tulot ja menot: what the block draws under the waterfall", () => {
   const draw = (data: ReturnType<typeof answer>) =>
-    renderToStaticMarkup(createElement(IncomeSpending, { data, scope: "own", period: "month", presets: periodsOf("overview", today), anchors: { income: "tulot", months: "kuukaudet", settlement: "yhteiset-menot" }, categories: new Map() }));
+    renderToStaticMarkup(createElement(IncomeSpending, { data, scope: "own", period: "month", presets: periodsOf("overview", today), anchors: ANCHORS, categories: new Map() }));
   const text = (html: string) => plain(html.replace(/<[^>]*>/g, " ")).replace(/ +/g, " ");
   // three complete months with one account that covers them: July, August and September
   const threeMonths = [buy("2026-07-02", 6_000), ...history];
 
-  it("draws the month's list when core has no themes: under three complete months", () => {
-    const data = answer(history, "2026-10-01", today);
-    expect(data.themes).toBeNull();
-    const html = draw(data);
-    expect(html).toContain('class="st-table category-table"');
-    expect(text(html)).toMatch(/Kategoria .*Lokakuu Muutos/);
-    expect(html).not.toContain("Kuukaudessa");
-    expect(html).not.toContain("themes-table");
-    expect(text(html)).toContain("Kauppiaat Menot kuukausittain");
+  it("has no table of Tulot and Menot and no list of the month's categories: the waterfall tells both", () => {
+    const html = draw(answer(history, "2026-10-01", today));
+    for (const gone of ["month-table", "category-table", "Kategoria", "categories-h"]) expect(html).not.toContain(gone);
+    expect(text(html)).not.toContain("Menot kategorioittain");
   });
 
-  it("draws the table of themes in the list's place when core has them, whichever month is chosen, and keeps the rest of the block", () => {
-    const tables: string[] = [];
+  it("puts the savings rate under Yli jäi and the chart and the links after it", () => {
+    const html = draw(answer(history, "2026-10-01", today));
+    const order = ["Yli jäi", "Säästöaste, syyskuu", "Menojen kertymä", "Kauppiaat", "Menot kuukausittain"].map((s) => text(html).indexOf(s));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+  });
+
+  it("draws no table of themes whichever month is chosen, also when core has them", () => {
     for (const [from, to] of [["2026-10-01", today], ["2026-09-01", "2026-09-30"]] as const) {
       const data = answer(threeMonths, from, to);
       expect(data.themes).not.toBeNull();
       const html = draw(data);
-      expect(html).toContain("themes-table");
-      expect(html).not.toContain("category-table");
-      expect(text(html)).toMatch(/Menot kategorioittain 7\/2026–9\/2026 .*Kuukaudessa/);
-      expect(text(html)).not.toContain("Kategoria ");
-      tables.push(/<table class="st-table themes-table[^"]*".*?<\/table>/.exec(html)![0]);
-      // the months' figures, the chart's place and the links stay
-      expect(html).toContain("month-table");
+      expect(html).not.toContain("themes-table");
+      expect(text(html)).not.toContain("Menot kategorioittain");
       expect(text(html)).toContain("Kauppiaat Menot kuukausittain");
     }
-    // the table does not follow the month: the same in both
-    expect(tables[0]).toBe(tables[1]);
+  });
+
+  it("keeps the three links under the chart: Kauppiaat, Menot kuukausittain and the existing one to Ruoka on Raportit", () => {
+    const html = draw(answer(history, "2026-10-01", today));
+    expect(text(html)).toContain("Kauppiaat Menot kuukausittain Ruoka");
+    expect(html).toContain('<a href="#/reports#ruoka">Ruoka</a>');
+  });
+
+  it("keeps the large purchases under the chart as one row that opens to each purchase, with the label and the sum core gives", () => {
+    const data = answer(threeMonths, "2026-10-01", today);
+    const large = { cents: 245_000, count: 2, rows: [{ id: "a", date: "2026-08-10", payee: "ESIMERKKI AUTOLIIKE", cents: 200_000 }, { id: "b", date: "2026-09-02", payee: "ESIMERKKI KONE", cents: 45_000 }] };
+    const withLarge = { ...data, themes: { ...data.themes!, large } };
+    const v = incomeSpendingView(withLarge);
+    expect(v.large!.label).toBe("Suuret hankinnat (2)");
+    expect(plain(v.large!.sum)).toBe("2 450,00 €");
+    expect(v.large!.rows.map((r) => [r.key, r.payee])).toEqual([["a", "ESIMERKKI AUTOLIIKE"], ["b", "ESIMERKKI KONE"]]);
+    const html = draw(withLarge);
+    expect(text(html)).toContain("Suuret hankinnat (2) 2 450,00 €");
+    expect(html).toMatch(/<button type="button" class="themes-toggle" aria-expanded="false"><span class="themes-label">Suuret hankinnat \(2\)/);
+    // closed at first: the rows are not drawn
+    expect(text(html)).not.toContain("ESIMERKKI AUTOLIIKE");
+    // near miss: no large purchases, no row; no themes at all, no row
+    expect(incomeSpendingView({ ...data, themes: { ...data.themes!, large: { cents: 0, count: 0, rows: [] } } }).large).toBeNull();
+    expect(incomeSpendingView({ ...data, themes: null }).large).toBeNull();
+  });
+});
+
+const card: Account = { id: "card-1", name: "Esimerkki Kortti", iban: null, currency: "EUR", type: "credit_card" };
+/** The same household with a card linked this month: `cents` spent on it in all. */
+const withCard = (cents: number) => {
+  const rows = [...history, ...[2, 3].map((d) => ({ ...buy(`2026-10-0${d}`, cents / 2), accountId: "card-1" }))];
+  return { ...buildDashboard(createContext(rows, [checking, card], today), { from: "2026-10-01", to: today }), settlement: [] };
+};
+const drawBlock = (data: ReturnType<typeof answer>) => renderToStaticMarkup(createElement(IncomeSpending, { data, scope: "own", period: "month", presets: periodsOf("overview", today), anchors: ANCHORS, categories: new Map() }));
+
+describe("Tulot ja menot: the month before in the open rows", () => {
+  it("tells it when the months compare: the month's name, Tulot from previousTotals and a category from previousCents", () => {
+    const data = answer(history, "2026-10-01", today);
+    expect(data.comparable).toBe(true);
+    const { before, note } = incomeSpendingView(data);
+    expect(before!.name).toBe("Syyskuu");
+    expect(before!.incomeCents).toBe(data.previousTotals.incomeCents);
+    // groceries of 1-12 September: the 120 € of the 3rd
+    expect(before!.categories.get("groceries")).toBe(12_000);
+    expect(note).toBeNull();
+  });
+
+  it("names the month before for an ended month too", () => {
+    const { before } = view(history, "2026-09-01", "2026-09-30");
+    expect(before!.name).toBe("Elokuu");
+    expect(before!.categories.get("groceries")).toBe(3_000);
+  });
+
+  it("says once, under the waterfall, that an account is left out, and still tells the month before on the accounts both have", () => {
+    const data = withCard(1_000);
+    expect(data.comparable).toBe(true);
+    const v = incomeSpendingView(data);
+    expect(v.note).toBe("Vertailu on laskettu vain samoista tileistä molemmilta jaksoilta.");
+    expect(v.before).not.toBeNull();
+    const html = drawBlock(data);
+    expect(html.match(/samoista tileistä/g)).toHaveLength(1);
+    expect(html.indexOf("samoista tileistä")).toBeGreaterThan(html.indexOf("wf-rows"));
+    // near miss: no account left out, no sentence
+    expect(drawBlock(answer(history, "2026-10-01", today))).not.toContain("samoista tileistä");
+  });
+
+  it("tells no month before when the accounts left out carry over a tenth of the spending", () => {
+    const data = withCard(100_000);
+    expect(data.comparable).toBe(false);
+    const v = incomeSpendingView(data);
+    expect(v.before).toBeNull();
+    // the sentence still names that accounts were left out
+    expect(v.note).not.toBeNull();
   });
 });

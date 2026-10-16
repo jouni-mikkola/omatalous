@@ -4,7 +4,7 @@ import { monthEnd } from "@banking/core";
 import { query } from "../../api.ts";
 import { money, monthLong } from "../../format.ts";
 import type { ReportsData } from "../../types.ts";
-import { toggled } from "../overview/themes-table.ts";
+import { toggled } from "../toggled.ts";
 import "../../styles/statement.css";
 import "../../styles/themes-table.css";
 import "../../styles/quality.css";

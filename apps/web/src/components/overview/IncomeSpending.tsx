@@ -3,20 +3,18 @@ import { useState } from "react";
 import { query } from "../../api.ts";
 import { PaceChart } from "../../charts/PaceChart.tsx";
 import { navigate } from "../../hooks.ts";
-import { Why } from "../Why.tsx";
 import type { PeriodPreset } from "../../period.ts";
 import type { DashboardData, Scope } from "../../types.ts";
 import { type IncomeSpendingView, incomeSpendingView, monthName } from "./income-spending.ts";
-import { BarRuler, rulerStyle } from "./BarRuler.tsx";
-import { ThemesTable } from "./ThemesTable.tsx";
 import { Settlement, Waterfall } from "./Waterfall.tsx";
-import { OPEN_AT_FIRST, toggled } from "./themes-table.ts";
+import { type OpenRow, openKey, toggledRow } from "./waterfall.ts";
 import "../../styles/overview.css";
 import "../../styles/statement.css";
 
 /** The sections of Raportit the block links to, by their anchors: the page that mounts the block names them. */
 interface ReportAnchors {
   income: string;
+  food: string;
   months: string;
   settlement: string;
 }
@@ -27,8 +25,8 @@ interface ReportAnchors {
  * its way: the head stays, so the switch does not flicker away.
  */
 export function IncomeSpending({ data, scope, period, presets, anchors, categories }: { data: DashboardData | null; scope: Scope; period: string; presets: readonly PeriodPreset[]; anchors: ReportAnchors; categories: ReadonlyMap<string, string> }) {
-  // the rows of the table of themes that are open stay so while the next month's answer is on its way
-  const [open, setOpen] = useState(OPEN_AT_FIRST);
+  // the one open row of the waterfall; a month switch closes it
+  const [row, setRow] = useState<OpenRow>(null);
   return (
     <section className="card st-block" aria-labelledby="income-spending-h">
       <div className="card-head tb">
@@ -38,74 +36,50 @@ export function IncomeSpending({ data, scope, period, presets, anchors, categori
         <div className="card-tool">
           <div className="segmented" role="group" aria-label="Kuukausi">
             {presets.map((p) => (
-              <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate("overview", { period: p.id })}>
+              <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => {
+                  setRow(null);
+                  navigate("overview", { period: p.id });
+                }}>
                 {p.label}
               </button>
             ))}
           </div>
         </div>
       </div>
-      {data ? <Month data={data} scope={scope} anchors={anchors} categories={categories} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
+      {data ? <Month data={data} scope={scope} anchors={anchors} categories={categories} row={row} onRow={(month, key) => setRow((was) => toggledRow(was, month, key))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
     </section>
   );
 }
 
 /**
- * The month in two groups: at the left the two months' figures as a table, two rows under a rule and the chart of the
- * running month; at the right the categories as a table. The right group takes two of the block's three columns. When
- * core has the themes of the last complete months their table takes the place of the month's list of categories.
+ * The month: the waterfall with the savings rate and the fixed costs under Yli jäi and the joint pools' sentence; under
+ * them the chart of the running month and the links to the merchants and to the months.
  */
-function Month({ data, scope, anchors, categories, open, onToggle }: { data: DashboardData; scope: Scope; anchors: ReportAnchors; categories: ReadonlyMap<string, string>; open: ReadonlySet<string>; onToggle: (id: string) => void }) {
+function Month({ data, scope, anchors, categories, row, onRow }: { data: DashboardData; scope: Scope; anchors: ReportAnchors; categories: ReadonlyMap<string, string>; row: OpenRow; onRow: (month: string, key: string) => void }) {
   const view = incomeSpendingView(data);
   const { from, to } = data.range;
-  const link = { Tulot: `#/reports#${anchors.income}`, Menot: `#/transactions${query({ from, to })}` };
   const { pace } = data;
   // the rate is the month before's while a month runs: its label opens that month, and names it once it is the one shown
   const savingsHref = data.running ? `#/overview${query({ period: "last-month" })}` : null;
+  const hrefs = { category: (category: string) => `#/transactions${query({ category, from, to })}`, income: `#/reports#${anchors.income}` };
+  const month = data.waterfall?.month ?? "";
+  const chart = view.chart && (
+    <>
+      <h3 className="st-cap month-chart">Menojen kertymä</h3>
+      <PaceChart current={pace.current} previous={pace.previous?.curve ?? null} names={{ current: monthName(pace.month), previous: pace.previous ? monthName(pace.previous.month) : "" }} />
+    </>
+  );
+  const links = view.spending && (
+    <p className="st-links">
+      <a href={`#/transactions${query({ view: "merchants", from, to })}`}>Kauppiaat</a>
+      <a href={`#/reports${query({ period: "12m" })}#${anchors.months}`}>Menot kuukausittain</a>
+      <a href={`#/reports#${anchors.food}`}>Ruoka</a>
+    </p>
+  );
   return (
     <>
       <div className="st-part">
-        <Waterfall waterfall={data.waterfall} categories={categories} range={{ from, to }} scope={scope} />
-        {data.waterfall !== null && <Settlement pools={data.settlement} anchor={anchors.settlement} />}
-      </div>
-      <div className="st-cols st-cols-3">
-      <div>
-        <table className="st-table month-table ruled">
-          <thead>
-            <tr>
-              <td />
-              <th scope="col" className="st-num">
-                {view.month}
-              </th>
-              {view.previous && (
-                <th scope="col" className="st-num">
-                  {view.previous.month}
-                  {view.previous.by && (
-                    <>
-                      {" "}
-                      <span className="month-by">{view.previous.by}</span>
-                    </>
-                  )}
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {view.figures.map((f) => (
-              <tr key={f.label}>
-                <th scope="row">
-                  <a href={link[f.label]}>{f.label}</a>
-                </th>
-                <td className="st-num st-strong">
-                  <Why figure={f.label === "Tulot" ? "income.month" : "spend.month"} title={f.label} range={{ from, to }} scope={scope} text={f.text}>
-                    {f.text}
-                  </Why>
-                </td>
-                {view.previous && <td className="st-num">{f.previous}</td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Waterfall waterfall={data.waterfall} categories={categories} range={{ from, to }} scope={scope} hrefs={hrefs} before={view.before} open={openKey(row, month)} onToggle={(key) => onRow(month, key)} />
         {view.note && <p className="st-note">{view.note}</p>}
         {(view.savings || view.fixed) && (
           <dl className="st-rows month-more">
@@ -125,69 +99,45 @@ function Month({ data, scope, anchors, categories, open, onToggle }: { data: Das
             )}
           </dl>
         )}
-        {view.chart && (
-          <>
-            <h3 className="st-cap month-chart">Menojen kertymä</h3>
-            <PaceChart current={pace.current} previous={pace.previous?.curve ?? null} names={{ current: monthName(pace.month), previous: pace.previous ? monthName(pace.previous.month) : "" }} />
-          </>
-        )}
+        {data.waterfall !== null && <Settlement pools={data.settlement} anchor={anchors.settlement} />}
       </div>
-      <div className="st-wide">
-        {data.themes ? <ThemesTable report={data.themes} open={open} onToggle={onToggle} /> : <MonthCategories view={view} from={from} to={to} empty={data.waterfall === null ? null : view.empty} />}
-        {view.categories.length > 0 && (
-          <p className="st-links">
-            <a href={`#/transactions${query({ view: "merchants", from, to })}`}>Kauppiaat</a>
-            <a href={`#/reports${query({ period: "12m" })}#${anchors.months}`}>Menot kuukausittain</a>
-          </p>
-        )}
-      </div>
-      </div>
+      {(chart || view.large || links) && (
+        <div className="st-part">
+          {chart}
+          {view.large && <LargePurchases large={view.large} />}
+          {links}
+        </div>
+      )}
     </>
   );
 }
 
-/** The month's list of categories, as the block drew it before core told the themes: the nine largest and the rest. */
-function MonthCategories({ view, from, to, empty }: { view: IncomeSpendingView; from: string; to: string; empty: string | null }) {
+/** The large purchases under the chart: a row that opens to each purchase, with its day, its payee and its sum. */
+function LargePurchases({ large }: { large: NonNullable<IncomeSpendingView["large"]> }) {
+  const [open, setOpen] = useState(false);
   return (
-    <>
-      <h3 className="st-cap" id="categories-h">
-        Menot kategorioittain
-      </h3>
-      <table className="st-table category-table" style={rulerStyle(view.ruler)} aria-labelledby="categories-h">
-        <thead>
-          <tr>
-            <th scope="col">Kategoria</th>
-            <BarRuler ruler={view.ruler} />
-            <th scope="col" className="st-num">
-              {view.month}
-            </th>
-            {view.previous && (
-              <th scope="col" className="st-num">
-                Muutos
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {view.categories.map((c) => (
-            <tr key={c.key}>
-              <th scope="row" className="st-cut" title={c.label}>
-                {c.category ? <a href={`#/transactions${query({ category: c.category, from, to })}`}>{c.label}</a> : c.label}
-              </th>
-              <td className="category-bar">
-                <span style={{ width: `${c.share}%` }} />
-              </td>
-              <td className="st-num">{c.text}</td>
-              {view.previous && <td className="st-num">{c.change}</td>}
-            </tr>
+    <div className="themes-large">
+      <div className="st-row">
+        <div className="st-name">
+          <button type="button" className="themes-toggle" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+            <span className="themes-label">{large.label}</span>
+          </button>
+        </div>
+        <span className="st-num">{large.sum}</span>
+      </div>
+      {open && (
+        <ul className="st-rows themes-large-rows">
+          {large.rows.map((r) => (
+            <li className="st-row" key={r.key}>
+              <span className="st-num themes-date">{r.date}</span>
+              <span className="st-name" title={r.payee}>
+                {r.payee}
+              </span>
+              <span className="st-num">{r.sum}</span>
+            </li>
           ))}
-          {empty && (
-            <tr>
-              <td colSpan={view.previous ? 4 : 3}>{empty}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </>
+        </ul>
+      )}
+    </div>
   );
 }

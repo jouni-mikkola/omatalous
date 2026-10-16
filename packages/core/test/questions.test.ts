@@ -120,7 +120,7 @@ describe("what would mend it most", () => {
 
   it("gives a loan proposal a row of twelve payments, and none once it is marked Ei laina", () => {
     const rows: Transaction[] = Array.from({ length: 6 }, (_, i) =>
-      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "NORDEA RAHOITUS SUOMI OY", merchant: normalizeMerchant("NORDEA RAHOITUS SUOMI OY", "LAINAN LYHENNYS 44512") }),
+      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "ESIMERKKI PALVELUT OY", merchant: normalizeMerchant("ESIMERKKI PALVELUT OY", "LAINAN LYHENNYS 44512") }),
     );
     const ctx = createContext(enrichTransactions([...rows, ...base()], [checking], []), [checking], today);
     const loan = buildQuestions(ctx, range, NO_INPUTS).items.find((i) => i.kind === "loan");
@@ -132,7 +132,7 @@ describe("what would mend it most", () => {
 
   it("names the proposals it is given and none it finds itself", () => {
     const rows: Transaction[] = Array.from({ length: 6 }, (_, i) =>
-      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "NORDEA RAHOITUS SUOMI OY", merchant: normalizeMerchant("NORDEA RAHOITUS SUOMI OY", "LAINAN LYHENNYS 44512") }),
+      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "ESIMERKKI PALVELUT OY", merchant: normalizeMerchant("ESIMERKKI PALVELUT OY", "LAINAN LYHENNYS 44512") }),
     );
     const ctx = createContext(enrichTransactions([...rows, ...base()], [checking], []), [checking], today);
     expect(buildQuestions(ctx, range, NO_INPUTS, []).items.some((i) => i.kind === "loan")).toBe(false);

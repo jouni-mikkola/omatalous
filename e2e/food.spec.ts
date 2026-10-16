@@ -3,8 +3,7 @@ import { join } from "node:path";
 import { cents, overflow, plain, watch } from "./helpers.ts";
 
 // Raportit > Ruoka of the demo household of the administrator that e2e/run.mjs made: the four lines with the figures
-// core gives, each opening to its months, payees and weekdays; no sideways scroll at 390 px; and the link to it from the
-// table of themes on Yhteenveto.
+// core gives, each opening to its months, payees and weekdays; no sideways scroll at 390 px.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 type Food = {
@@ -38,7 +37,7 @@ test("Ruoka has the four lines with core's figures, and a line opens to its mont
   expect(await section.locator(".food-bills").count()).toBe(food!.cardBills ? 1 : 0);
   if (food!.cardBills) expect(cents(await section.locator(".food-bills .food-month").innerText())).toBe(food!.cardBills.monthlyCents);
 
-  // it is the table of themes' sum: Yhteenveto's Ruoka row
+  // it is the sum core's themes give for Ruoka
   const dashboard = (await (await context.request.get("/api/dashboard")).json()) as { themes: { themes: { id: string; monthlyCents: number }[] } };
   expect(dashboard.themes.themes.find((t) => t.id === "food")!.monthlyCents).toBe(food!.monthlyCents);
 
@@ -72,14 +71,5 @@ test("Ruoka at 390 px does not scroll sideways, closed or open", async ({ browse
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await section.getByRole("button", { name: "Taulukko" }).click();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
-  await context.close();
-});
-
-test("the Ruoka row of Menot kategorioittain on Yhteenveto links to Ruoka on Raportit", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await open(context, "/");
-  await page.locator(".themes-table .themes-row", { hasText: "Ruoka" }).getByRole("link").click();
-  await expect(page).toHaveURL(/#\/reports#ruoka$/);
-  await expect(page.locator("#ruoka")).toBeInViewport();
   await context.close();
 });

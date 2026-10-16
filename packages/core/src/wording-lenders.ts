@@ -45,8 +45,10 @@ export const isBankOnlyName = (foldedPayee: string): boolean => isLenderShapedNa
 
 const FINANCE_COMPANY_END = /(?:RAHOITUS|FINANS|FINANCE|CREDIT|KREDIT)$/;
 const TRAILING_FORM = /[\s,.]+(?:OY|OYJ|AB|ABP|LTD|LIMITED|PLC|GMBH|BV|ASA|KY)$/;
-/** Whether a folded payee is a finance company by the end of its name, a company form left out ("ESIMERKKI RAHOITUS OY", "ESIMERKKIRAHOITUS", "ESIMERKKI FINANS AB"). */
-export const isFinanceCompanyName = (foldedPayee: string): boolean => FINANCE_COMPANY_END.test(foldedPayee.trim().replace(TRAILING_FORM, ""));
+/** The country or region a finance company adds to its name behind the lending word ("ESIMERKKI RAHOITUS SUOMI OY", "ESIMERKKI CREDIT FINLAND OY"). */
+const TRAILING_REGION = /[\s,.]+(?:SUOMI|FINLAND|FINNLAND|SVERIGE|SWEDEN|NORGE|NORWAY|DANMARK|DENMARK|NORDIC|NORDICS|NORDEN|EUROPE|SCANDINAVIA)$/;
+/** Whether a folded payee is a finance company by the end of its name, a company form and a country left out ("ESIMERKKI RAHOITUS OY", "ESIMERKKI RAHOITUS SUOMI OY", "ESIMERKKIRAHOITUS", "ESIMERKKI FINANS AB"). */
+export const isFinanceCompanyName = (foldedPayee: string): boolean => FINANCE_COMPANY_END.test(foldedPayee.trim().replace(TRAILING_FORM, "").replace(TRAILING_REGION, ""));
 
 /** A word of a loan in a payment's own text: the loan, the instalment, credit, a lump or a contract with its number (LÅN folds to LAN, ERÄ to ERA). */
 const LOAN_TEXT = words(String.raw`[A-Z]*(?:LAINA|LYHENNYS|LOAN|KREDIT|LUOTTO)[A-Z]*|LAN|ERA|SOPIMUS ?\d+`);

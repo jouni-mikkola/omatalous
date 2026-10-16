@@ -58,7 +58,7 @@ for (const width of [320, 360, 390]) {
     await expect(page.locator(".holding-tick-diff")).toHaveAttribute("title", "Täsmää pankin saldoon: ei täsmää");
     expect(await cut(page.locator(".holding-account .st-num, .holding-account .st-name")), "balance rows cut").toEqual([]);
     // the controls of the new parts are tapped with a thumb
-    expect(await small(page.locator("button.wf-hit, .wf-settle a")), "tap targets under 44 px").toEqual([]);
+    expect(await small(page.locator("button.wf-hit, .wf-toggle, .wf-settle a")), "tap targets under 44 px").toEqual([]);
     // and so is everything else that is tapped on the page
     expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a")), "tap targets under 44 px").toEqual([]);
     expect(seen.problems).toEqual([]);

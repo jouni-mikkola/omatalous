@@ -2,14 +2,12 @@
  * Edge cases of the overview's comparison with the period before: it is told on the accounts both periods share
  * (accountsCoverage().compare, as the summary does), hidden only when the accounts left out carry over a tenth of the
  * later period's spending, and read from spendRows on both sides. When an account is left out the view says so with
- * the existing "samoista tileistä" sentence. Made-up payees and sums only.
+ * the answer says so (`leftOutAccounts`). Made-up payees and sums only.
  *
- * This file reads the web view, so it belongs in apps/web/test. A line marked `API: adjust name` guesses a name the
- * change adds: adapt the call there, never the expectation.
+ * The overview no longer draws the comparison, but Raportit does, from the same answer: this file holds the answer.
  */
 import { type Account, buildDashboard, createContext, type StatementBill, spendRows, totalsOf, type Transaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { incomeSpendingView } from "../src/components/overview/income-spending.ts";
 
 const today = "2026-10-16";
 const A: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -51,39 +49,33 @@ const household = (): Transaction[] =>
 const october = { from: "2026-10-01", to: "2026-10-31" };
 const august = { from: "2026-08-01", to: "2026-08-31" };
 const dashboardOf = (rows: Transaction[], range = october, statements: StatementBill[] = []) => buildDashboard(createContext(rows, ACCOUNTS, today, undefined, [], [], statements), range);
-const SENTENCE = "samoista tileistä";
-const plain = (s: string) => s.replace(/\s/g, " ").replace(/−/g, "-");
 
 describe("a card linked this month", () => {
   // three grocery purchases on the new card, 45 €: under a tenth of October's spending
   const card = ["2026-10-04", "2026-10-08", "2026-10-12"].map((d) => row("card-1", d, -1_500, "groceries", "K-Market"));
   const data = dashboardOf([...household(), ...card]);
-  const view = incomeSpendingView(data);
-
   it("keeps the comparison, told on the old account", () => {
     expect(data.comparable).toBe(true);
-    expect(view.previous?.month).toBe("Syyskuu");
     // September 1-16 on the old account: rent, three grocery purchases
     expect(data.previousTotals.expenseCents).toBe(90_000 + 3 * 4_000);
-    expect(view.figures.find((f) => f.label === "Menot")?.previous).not.toBeNull();
   });
 
   it("does not tell the card's purchases as a change in groceries: the row is compared on the shared account on both sides", () => {
-    const groceries = view.categories.find((c) => c.key === "groceries")!;
+    const groceries = data.categories.find((c) => c.category === "groceries")!;
     // the row's sum is the whole month, both accounts
-    expect(plain(groceries.text)).toBe("165,00 €");
+    expect(groceries.cents).toBe(16_500);
     // the old account bought 120 € of groceries by the 16th in both months: no change to tell
-    expect(groceries.change).toBe("");
+    expect(groceries.comparedCents - groceries.previousCents).toBe(0);
   });
 
-  it("says the comparison leaves an account out, in the sentence that already exists", () => {
-    expect(JSON.stringify(view)).toContain(SENTENCE);
+  it("says the comparison leaves an account out", () => {
+    expect(data.leftOutAccounts).toBeTruthy();
   });
 
   it("near miss: without the card nothing is left out and nothing is said about it", () => {
-    const plainView = incomeSpendingView(dashboardOf(household()));
-    expect(plainView.previous).not.toBeNull();
-    expect(JSON.stringify(plainView)).not.toContain(SENTENCE);
+    const plainData = dashboardOf(household());
+    expect(plainData.comparable).toBe(true);
+    expect(plainData.leftOutAccounts).toBeFalsy();
   });
 });
 
@@ -91,11 +83,8 @@ describe("the share left out decides", () => {
   it("hides the comparison when the new card carries over a tenth of the month's spending", () => {
     const card = ["2026-10-04", "2026-10-06", "2026-10-08", "2026-10-10", "2026-10-12"].map((d) => row("card-1", d, -20_000, "groceries", "K-Market"));
     const data = dashboardOf([...household(), ...card]);
-    const view = incomeSpendingView(data);
     expect(data.comparable).toBe(false);
-    expect(view.previous).toBeNull();
-    expect(view.figures.every((f) => f.previous === null)).toBe(true);
-    expect(view.categories.every((c) => c.change === "")).toBe(true);
+    expect(data.leftOutAccounts).toBeTruthy();
   });
 
   it("near miss: just under the tenth it is told", () => {
@@ -116,7 +105,7 @@ describe("an account closed before the periods", () => {
     const old = ["2026-04-05", "2026-05-05", "2026-06-05", "2026-06-30"].map((d) => row("old", d, -5_000, "shopping", "Esimerkki Kauppa"));
     const data = dashboardOf([...household(), ...old]);
     expect(data.comparable).toBe(true);
-    expect(JSON.stringify(incomeSpendingView(data))).not.toContain(SENTENCE);
+    expect(data.leftOutAccounts).toBeFalsy();
   });
 });
 
@@ -153,7 +142,7 @@ describe("an account that ended in the earlier period", () => {
   });
 
   it("says an account was left out", () => {
-    expect(JSON.stringify(incomeSpendingView(data))).toContain(SENTENCE);
+    expect(data.leftOutAccounts).toBeTruthy();
   });
 });
 
@@ -165,6 +154,6 @@ describe("a pending row on the new card", () => {
   });
 });
 
-// Covers: card linked this month (comparison kept on the old account, no false category change, sentence shown), near miss without it.
+// Covers: card linked this month (comparison kept on the old account, no false category change, account left out), near miss without it.
 // Covers: left-out share over and just under a tenth, a refund on the new card, a pending row, an account closed before both periods.
 // Covers: an account that ended in the earlier period with a card bill read from statement rows (previousTotals and previousCents from spendRows on shared).

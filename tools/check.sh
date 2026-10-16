@@ -18,6 +18,14 @@
 # green on exactly the same tracked content is not run again; see "stamps" below and tools/check/key.sh. They are read
 # and written only on a clean tree, and not with --changed or CI. CHECK_FRESH=<anything> reads none (and still writes),
 # CHECK_STAMPS_DIR moves them from <git common dir>/check-stamps, which every worktree shares.
+# --rerun [DIR] [--e2e-log FILE] decides flake or real: it runs again, once and alone, at nice 10, with the environment the
+# red run recorded in DIR (the folder a red run keeps, named on its last line), every failed vitest file, shell job and, from
+# the output of a red `pnpm e2e` in FILE, page spec, and prints FLAKE (passes alone), REAL (fails alone) or NOT RUN (the rerun selected no test) for each with the
+# number of kept red runs (check.* beside DIR) it failed in. Exit 1 when one is REAL (tools/check/rerun.mjs).
+# Before the steps a run waits for a quiet machine (tools/wait-quiet.sh: no vitest, playwright, tsc or check of another
+# worktree running, load under twice the CPUs) for up to CHECK_WAIT_MAX seconds (1800), then runs anyway. CHECK_WAIT=0 skips
+# it; it is 0 by default inside a release cut and in CI. An agent that must keep one command under 300 s calls
+# tools/wait-quiet.sh itself first and repeats on exit 3.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -42,11 +50,13 @@ fi
 
 ALL=(types tests lint sh)
 ORIG=("$@")
-CHANGED=0 BASE=""
+CHANGED=0 BASE="" RERUN=0 RERUN_ARGS=()
 steps=()
 while (($#)); do
   case $1 in
     --changed) CHANGED=1; if [[ -n ${2:-} && $2 != -* && " ${ALL[*]} " != *" $2 "* ]]; then BASE=$2; shift; fi ;;
+    --rerun) RERUN=1; if [[ -n ${2:-} && $2 != -* ]]; then RERUN_ARGS+=("$2"); shift; fi ;;
+    --e2e-log) RERUN=1; RERUN_ARGS+=("$1" "${2:-}"); shift ;;
     *) steps+=("$1") ;;
   esac
   shift
@@ -56,9 +66,14 @@ for s in "${steps[@]}"; do
   [[ " ${ALL[*]} " == *" $s "* ]] || { echo "Unknown step: $s (steps: ${ALL[*]})" >&2; exit 2; }
 done
 # lint and sh need no node, so the CI shell job runs them before any install
-if [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then
+if ((!RERUN)) && [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then
   [[ -d node_modules ]] || { echo "check: node_modules is missing, run pnpm install first" >&2; exit 1; }
 fi
+
+# CHECK_WAIT=1 waits for a quiet machine before the heavy steps (tools/wait-quiet.sh), 0 does not. Inside a release cut
+# (CUT_LOCK_HELD) and in CI, which own the machine, the default is 0. The restarts below carry the decision; what the run
+# starts does not inherit it.
+if [[ -z ${CHECK_WAIT:-} ]]; then CHECK_WAIT=1; [[ -z ${CUT_LOCK_HELD:-}${CI:-} ]] || CHECK_WAIT=0; fi
 
 # A release cuts under an exclusive lock on cut.lock; a check holds it shared, so the two never run at once. cut.wait is
 # the cut's place in the queue: the release holds it exclusive while it waits for cut.lock, and a check takes it shared for
@@ -70,15 +85,18 @@ if [[ -z ${CUT_LOCK_HELD:-} && -z ${CI:-} ]] && lock=$(git rev-parse --path-form
   { flock -s -n "$lock" true && { [[ ! -w $cutwait ]] || flock -s -n "$cutwait" true; }; } || echo "check: waiting for the cut"
   if [[ -w $cutwait ]]; then flock -s -w "$limit" -E 97 "$cutwait" true; rc=$?; fi
   left=$((limit - (SECONDS - t0))); ((left > 0)) || left=0
-  ((rc != 0)) || { CUT_LOCK_HELD=1 flock -s -w "$left" -E 97 "$lock" bash "$SELF" "${ORIG[@]}"; rc=$?; }
+  ((rc != 0)) || { CUT_LOCK_HELD=1 CHECK_WAIT=$CHECK_WAIT flock -s -w "$left" -E 97 "$lock" bash "$SELF" "${ORIG[@]}"; rc=$?; }
   ((rc != 97)) || { echo "check: the cut still holds $lock after $limit s, so the check did not run" >&2; rc=1; }
   exit "$rc"
 fi
 
 # wait for a free slot, so workers checking at the same time do not make each other's seeded tests time out
 if [[ -z ${CHECK_SLOT_HELD:-} && -z ${CI:-} && " ${steps[*]} " != " lint " ]]; then
-  CHECK_SLOT_HELD=1 exec bash "$ROOT/tools/slots.sh" --label check -- bash "$SELF" "${ORIG[@]}"
+  CHECK_SLOT_HELD=1 CHECK_WAIT=$CHECK_WAIT exec bash "$ROOT/tools/slots.sh" --label check -- bash "$SELF" "${ORIG[@]}"
 fi
+
+# --rerun: only the failures of an earlier red run, in the lead's slot or the workers', under the same cut lock
+if ((RERUN)); then exec nice -n 10 node "$ROOT/tools/check/rerun.mjs" ${RERUN_ARGS[@]+"${RERUN_ARGS[@]}"}; fi
 
 # the scope of --changed: SCOPE_TESTS stays empty when vitest runs everything, SCOPE_SUITES when every shell suite runs
 SCOPE_TESTS=() SCOPE_SUITES=()
@@ -113,6 +131,11 @@ fi
 
 CHECK_LOG=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX")
 export CHECK_LOG
+# what a rerun (--rerun) has to run with as this run did
+for v in CHECK_FRESH CHECK_STAMPS_DIR VITEST_MAX_WORKERS E2E_WORKERS CI TZ; do
+  [[ -z ${!v:-} ]] || printf '%s=%s
+' "$v" "${!v}"
+done >"$CHECK_LOG/env"
 cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 JOBS=${CHECK_JOBS:-$((cpus > 12 ? cpus - 8 : 4))}
 failed=()
@@ -129,6 +152,7 @@ finish() {
     echo "check: $1 ok ($3, ${took}s)"
   else
     echo "check: $1 FAILED ($3, ${took}s)"
+    echo "$1" >>"$CHECK_LOG/failed-steps"
     failed+=("$1")
   fi
   t0=$SECONDS
@@ -324,6 +348,9 @@ step_sh() {
     n=$((n + 1)); printf -v id '%02d' "$n"; list+=("$id $line")
   done
   ((${#list[@]})) && printf '%s\n' "${list[@]}" | xargs -P "$JOBS" -L1 bash "$SELF" __job
+  # the jobs of this run for --rerun: id, suite, scenario filter (tab separated)
+  for line in "${list[@]}"; do read -r id f name <<<"$line"; printf '%s	%s	%s
+' "$id" "$f" "${name:-}"; done >"$CHECK_LOG/sh-jobs"
   for line in "${list[@]}"; do
     name=""
     read -r id f name <<<"$line"
@@ -337,6 +364,7 @@ step_sh() {
     if ((rc == 0)) && [[ -n $name ]] && ! grep -qE '^(ok|FAIL) ' "$CHECK_LOG/sh-$id.log"; then
       rc=1; echo "check: the filter $name matched no scenario, so the job ran nothing" >>"$CHECK_LOG/sh-$id.log"
     fi
+    echo "$rc" >"$CHECK_LOG/sh-$id.rc" # what the job finally was, for --rerun
     if ((STAMP_ON)); then
       # what a stamp of the suite says: the seconds of its jobs and the counts of their last "N passed" and "N skipped" lines
       sms[$f]=$((${sms[$f]:-0} + ms)); p=0 q=0
@@ -372,6 +400,22 @@ step_sh() {
     echo "  rerun one: bash tools/test/<suite>.test.sh [scenario name]"
   fi
 }
+
+# quiet_wait: one call of tools/wait-quiet.sh at a time (it prints its own "busy:" line when it gives up), repeated while the
+# machine stays busy, for CHECK_WAIT_MAX seconds (1800); then the steps run anyway. CHECK_WAIT_CALL is the seconds of one call.
+quiet_wait() {
+  local began=$SECONDS rc
+  [[ $CHECK_WAIT != 0 && -f $ROOT/tools/wait-quiet.sh ]] || return 0
+  while :; do
+    bash "$ROOT/tools/wait-quiet.sh" --max "${CHECK_WAIT_CALL:-270}"
+    rc=$?
+    ((rc == 3)) || return 0
+    if ((SECONDS - began >= ${CHECK_WAIT_MAX:-1800})); then echo "check: the machine is still busy after $((SECONDS - began)) s, running anyway"; return 0; fi
+  done
+}
+quiet_wait
+unset CHECK_WAIT
+t0=$SECONDS
 
 failed_lines=()
 stamps_start

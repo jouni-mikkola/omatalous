@@ -123,15 +123,10 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
           const month = page.getByRole("region", { name: "Tulot ja menot", exact: true });
           const pace = month.getByRole("heading", { name: "Menojen kertymä" });
           await expect(pace).toBeVisible();
-          await expect(month.getByText(/\d+\.\d+\. mennessä/).first()).toBeVisible();
           const ahead = page.getByRole("heading", { name: "Erääntyvät maksut", exact: true });
           await expect(ahead).toBeVisible();
           const [monthBox, aheadBox] = [await month.boundingBox(), await ahead.boundingBox()];
           expect(aheadBox!.y, "the days to the payday are above the month").toBeLessThan(monthBox!.y);
-          // on a desktop the categories stand beside the figures and the chart, on a phone they come after the chart
-          const [figures, bars] = [await month.getByRole("link", { name: "Menot", exact: true }).boundingBox(), await month.getByRole("heading", { name: "Menot kategorioittain" }).boundingBox()];
-          if (device === "desktop") expect(bars!.x, "side by side").toBeGreaterThan(figures!.x + figures!.width);
-          else expect(bars!.y, "stacked").toBeGreaterThan((await pace.boundingBox())!.y);
           // the month columns and the merchants left the page: a link each
           await expect(page.getByRole("heading", { name: "Menot kuukausittain" })).toHaveCount(0);
           await expect(page.getByRole("link", { name: "Menot kuukausittain" })).toBeVisible();

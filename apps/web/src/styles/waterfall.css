@@ -5,6 +5,14 @@
 .wf-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .wf-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wf-fig { font-weight: 600; }
+/* the name that opens the bar's parts is a button the height of the row's tap target; Yli jäi has a plain name */
+.wf-toggle { min-height: 44px; align-items: center; }
+.wf-toggle .wf-label { min-width: 0; }
+/* the open parts take the row's whole width under the bar, indented past the arrow */
+.wf-detail { grid-column: 1 / -1; padding: 0 0 8px 18px; }
+.wf-detail .wf-before { margin: 4px 0 0; font-size: 14px; line-height: 18px; color: var(--text-2); }
+.wf-detail .st-links { margin: 4px 0 0; }
+.wf-detail .st-links a { display: inline-flex; align-items: center; min-height: 44px; }
 /* the track holds the zero line; a bar stands where the running total was and runs to where it went */
 .wf-track { position: relative; display: block; height: 20px; border-radius: 3px; background: linear-gradient(90deg, transparent calc(var(--zero) - 0.5px), var(--axis) calc(var(--zero) - 0.5px), var(--axis) calc(var(--zero) + 0.5px), transparent calc(var(--zero) + 0.5px)); }
 /* a bar that opens rows is a button, 44 px high, the bar in its middle */
@@ -26,5 +34,6 @@ button.wf-hit:hover .wf-bar { filter: brightness(1.15); }
   .wf-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 0; padding-bottom: 8px; }
   .wf-track { grid-column: 1 / -1; grid-row: 2; }
   .wf-fig { grid-column: 2; grid-row: 1; }
+  .wf-detail { grid-row: 3; }
 }
 .wf { position: relative; }
