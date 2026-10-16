@@ -12,7 +12,8 @@ export function watch(page: Page): { problems: string[] } {
   page.on("pageerror", (e) => seen.problems.push(`page error: ${e.message}`));
   page.on("requestfailed", (r) => {
     // The app never aborts a request itself, so an aborted GET is one that a reload or navigation cut off.
-    if (r.method() === "GET" && r.failure()?.errorText === "net::ERR_ABORTED") return;
+    // The one POST the page starts by itself is the fetch on open: the server goes on with it whether the page waits or not.
+    if ((r.method() === "GET" || /\/api\/sync\/open$/.test(r.url())) && r.failure()?.errorText === "net::ERR_ABORTED") return;
     seen.problems.push(`request failed: ${r.method()} ${r.url()} ${r.failure()?.errorText}`);
   });
   page.on("response", (r) => {

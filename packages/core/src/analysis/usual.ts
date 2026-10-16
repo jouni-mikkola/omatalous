@@ -47,7 +47,7 @@ export function usualCents(values: readonly number[]): number | null {
 interface MonthSums {
   /** Spending (consumption + debt) on days 1 to d at index d − 1: a running month is set against the same days. */
   through: number[];
-  /** Income without money from people and refunds (`isEarnedIncome`). */
+  /** Income without money from people, refunds and own money (`isEarnedIncome`). */
   earned: number;
 }
 
@@ -100,8 +100,8 @@ export function usualSpending(ctx: AnalysisContext, month: string, day = 31): nu
 }
 
 /**
- * Tavalliset tulot: the median earned income of the complete months before `month`. Money from people and refunds
- * are left out, as the income report leaves them out. null under three complete months.
+ * Tavalliset tulot: the median earned income of the complete months before `month`. Money from people, refunds and
+ * own money are left out, as the income report leaves them out. null under three complete months.
  */
 export function usualIncome(ctx: AnalysisContext, month: string): number | null {
   return usualCents(completeMonthsBefore(ctx, month).map((m) => earnedIncome(ctx, m)));

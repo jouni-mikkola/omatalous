@@ -6,10 +6,11 @@ import { holdersOf } from "./categorize-people.ts";
 import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
+import { applyPayerRoles } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
-import type { Account, CategoryRule, Transaction } from "./types.ts";
+import type { Account, CategoryRule, PayerInput, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
@@ -20,15 +21,17 @@ import { isCardIssuerText, isLoanText } from "./wording.ts";
  * Order of evidence: the user's rules, built-in rules, the card's merchant
  * code (MCC), the same merchant's other purchases, and last the merchant's
  * industry from the trade register (`industries`: merchant → category).
- * Money that comes back (see matchReturns) takes its payment's category.
+ * Money that comes back (see matchReturns) takes its payment's category. Last, the member's payer roles (`payers`)
+ * move the rows of the payers they name (`applyPayerRoles`).
  */
 export function enrichTransactions(
   txs: readonly Transaction[],
   accounts: readonly Account[],
   userRules: readonly CategoryRule[],
   industries: ReadonlyMap<string, string> = new Map(),
+  payers?: PayerInput,
 ): Transaction[] {
-  const steps = enrichSteps(txs, accounts, userRules, industries);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers);
   let step = steps.next();
   while (!step.done) step = steps.next();
   return step.value;
@@ -44,8 +47,9 @@ export async function enrichTransactionsPausing(
   userRules: readonly CategoryRule[],
   industries: ReadonlyMap<string, string>,
   pause: () => Promise<void>,
+  payers?: PayerInput,
 ): Promise<Transaction[]> {
-  const steps = enrichSteps(txs, accounts, userRules, industries);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers);
   let step = steps.next();
   while (!step.done) {
     await pause();
@@ -148,6 +152,7 @@ function* enrichSteps(
   accounts: readonly Account[],
   userRules: readonly CategoryRule[],
   industries: ReadonlyMap<string, string>,
+  payers?: PayerInput,
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
@@ -174,6 +179,8 @@ function* enrichSteps(
 
   yield* applyMerchantEvidence(next, accounts, industries);
   applyReturns(next, returns);
+  // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
+  applyPayerRoles(next, new Set([...byUserRule, ...returns.keys(), ...returns.values()]), payers);
   return changedRows(next, txs);
 }
 
@@ -194,6 +201,8 @@ export interface IslandInput {
   industries: ReadonlyMap<string, string>;
   /** Rows outside the island that returns matched (stored source "match"): a friend's share carries its purchase's category. */
   outsideMatches: readonly Pick<Transaction, "accountId" | "bookingDate" | "amountCents">[];
+  /** The member's payer roles: a payer's median reads rows outside the island, so with any role the full run answers. */
+  payers?: PayerInput;
 }
 
 export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; reason: string };
@@ -219,6 +228,7 @@ export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; r
  */
 export function enrichIsland(input: IslandInput): IslandResult {
   const { rows, accounts, industries } = input;
+  if (input.payers?.roles.length) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
   const ownIbans = ownIbansOf(accounts);
   const holders = holdersOf(accounts);

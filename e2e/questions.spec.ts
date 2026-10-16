@@ -11,11 +11,17 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PERCENT = /^Luokiteltu (\d+) % viimeisen 12 kuukauden tuloista ja menoista\.$/;
 
 interface Item {
-  kind: "payee_out" | "payee_in";
+  kind: "payee_out" | "payee_in" | "payer";
   merchant: string;
   cents: number;
   count: number;
   lastDate: string;
+  /** A payer's question: what its answer is stored under, the answers offered, and the one proposed. */
+  key?: string;
+  options?: string[];
+  proposal?: string | null;
+  steady?: boolean;
+  offMedianCents?: number[];
 }
 interface Stub {
   items: Item[];
@@ -23,7 +29,7 @@ interface Stub {
   /** The money no one classified: a payee set aside leaves the list and keeps its money here. */
   unknownCents: number;
   cardBillCents: number;
-  posted: { rules: object[]; marks: object[] };
+  posted: { rules: object[]; marks: object[]; payers: object[] };
 }
 
 const MONEY = 200_000;
@@ -33,7 +39,7 @@ const stubOf = (over: Partial<Stub> = {}): Stub => ({
   total: 3,
   unknownCents: 50_000,
   cardBillCents: 0,
-  posted: { rules: [], marks: [] },
+  posted: { rules: [], marks: [], payers: [] },
   ...over,
 });
 
@@ -49,9 +55,14 @@ async function follow(page: Page, stub: Stub): Promise<void> {
   });
   const leave = (merchant: string, classified: boolean) => {
     if (classified) stub.unknownCents -= stub.items.find((i) => i.merchant === merchant)?.cents ?? 0;
-    stub.items = stub.items.filter((i) => i.merchant !== merchant);
+    stub.items = stub.items.filter((i) => i.merchant !== merchant && i.key !== merchant);
     stub.total -= 1;
   };
+  await page.route(/\/api\/payer-roles$/, async (route) => {
+    stub.posted.payers.push(route.request().postDataJSON());
+    leave(route.request().postDataJSON().key, false);
+    await route.fulfill({ json: { ok: true } });
+  });
   await page.route(/\/api\/rules$/, async (route) => {
     if (route.request().method() !== "POST") return route.fallback();
     const body = route.request().postDataJSON();
@@ -186,4 +197,77 @@ test("a payment that looks like a loan is a row of its own: the link to Lainat, 
   } finally {
     await removeMember(browser, member.id);
   }
+});
+
+test("a payer is asked what its money is: five answers with the proposal marked, each the member's own, Ohita sets it aside", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const payer = (merchant: string, cents: number, over: Partial<Item> = {}): Item => ({
+    ...item("payer", merchant, cents, 3),
+    key: `name:${merchant.toUpperCase()}`,
+    options: ["cost_share", "sales", "own_money", "gift", "pay"],
+    steady: true,
+    proposal: null,
+    offMedianCents: [],
+    ...over,
+  });
+  const stub = stubOf({
+    items: [
+      payer("Esimerkki Ville", 90_000, { proposal: "cost_share" }),
+      payer("Esimerkki Liisa", 60_000),
+      payer("Esimerkki Firma Oy", 50_000, { options: ["cost_share", "sales", "gift", "pay"] }),
+    ],
+    total: 3,
+  });
+  await follow(page, stub);
+  await open(page);
+
+  const block = page.getByRole("region", { name: "Luokittelemattomat", exact: true });
+  const rows = block.locator(".question-row");
+  await expect(rows).toHaveCount(3);
+  const ville = rows.filter({ hasText: "Esimerkki Ville" });
+  expect(plain(await ville.innerText())).toMatch(/^Esimerkki Ville 900,00 € 3 tapahtumaa/);
+  await expect(block.getByText("Vastaus koskee myös aiempia kuukausia. Selvästi tavallisesta poikkeavat summat jäävät ennalleen.")).toHaveCount(1);
+  await expect(block.getByLabel("Sama kaikille tällaisille")).toHaveCount(0);
+
+  // the five answers in the page's order, the proposed one marked; a company is not offered Omaa rahaa
+  const options = (label: string) => block.getByLabel(label).locator("option").evaluateAll((els) => els.map((el) => el.textContent));
+  expect(await options("Mitä nämä ovat: Esimerkki Ville")).toEqual(["Mitä nämä ovat?", "Yhteisten menojen osuus (ehdotus)", "Myynti", "Omaa rahaa", "Lahja", "Palkka tai etuus"]);
+  expect(await options("Mitä nämä ovat: Esimerkki Firma Oy")).not.toContain("Omaa rahaa");
+
+  // an answer is stored at once for the member, and the row goes
+  await block.getByLabel("Mitä nämä ovat: Esimerkki Ville").selectOption("sales");
+  await expect(rows).toHaveCount(2);
+  await block.getByLabel("Mitä nämä ovat: Esimerkki Firma Oy").selectOption("pay");
+  await expect(rows).toHaveCount(1);
+  await block.getByLabel("Mitä nämä ovat: Esimerkki Liisa").selectOption("own_money");
+  await expect(rows).toHaveCount(0);
+  expect(stub.posted.payers).toEqual([
+    { key: "name:ESIMERKKI VILLE", role: "sales" },
+    { key: "name:ESIMERKKI FIRMA OY", role: "pay" },
+    { key: "name:ESIMERKKI LIISA", role: "own_money" },
+  ]);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("a payer set aside with Ohita is a mark under the payer's key, and nothing is stored as an answer", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const stub = stubOf({
+    items: [{ ...item("payer", "Esimerkki Anna", 40_000, 3), key: "iban:FI2112345600000785", options: ["cost_share", "sales", "own_money", "gift", "pay"], steady: true, proposal: null, offMedianCents: [] }],
+    total: 1,
+  });
+  await follow(page, stub);
+  await open(page);
+  const block = page.getByRole("region", { name: "Luokittelemattomat", exact: true });
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
+  await block.getByRole("button", { name: "Ohita: Esimerkki Anna" }).click();
+  await expect(block.locator(".question-row")).toHaveCount(0);
+  expect(stub.posted.marks).toEqual([{ subject: "question:payee:iban:FI2112345600000785", mark: "dismissed" }]);
+  expect(stub.posted.payers).toEqual([]);
+  expect(seen.problems).toEqual([]);
+  await context.close();
 });

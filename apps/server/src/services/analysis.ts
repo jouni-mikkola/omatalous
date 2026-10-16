@@ -332,7 +332,7 @@ export async function rowsInView(s: Services, userId: string, scope: Scope): Pro
  */
 export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
   const repo = s.finance(userId);
-  const [marks, expectedBills, loans] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts)]);
+  const [marks, expectedBills, loans, roles] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles()]);
   const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
   // The totals and the walks count in euros: an account in another currency tells its balance beside them, never in them.
   // A balance stored before the currency was kept is the account's currency's: one whose currency is unknown is a dash.
@@ -355,7 +355,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.part ? { part: a.part } : {}),
     ...(a.traced ? { traced: true as const } : {}),
   }));
-  return { balances, inputs: { marks, expectedBills, loans } };
+  return { balances, inputs: { marks, expectedBills, loans, payers: { memberId: userId, roles } } };
 }
 
 /**

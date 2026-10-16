@@ -48,7 +48,6 @@ apps/server/src/db/startup-gate.ts  MARKER_MAX_AGE_MS
 apps/server/src/db/startup-gate.ts  NotDone
 apps/server/src/db/users-repo.ts  SessionInfo
 apps/server/src/db/users-repo.ts  SessionRecord
-apps/server/src/demo-data.ts  DemoAccount
 apps/server/src/entry/app-secret.ts  AppSecretResult
 apps/server/src/entry/secret-rotate.ts  RotateOptions
 apps/server/src/entry/shutdown.ts  ShutdownDeps

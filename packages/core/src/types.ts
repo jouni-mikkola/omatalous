@@ -89,9 +89,28 @@ export interface RawTransaction {
 /**
  * Where a category came from: the user by hand, a rule, the card's MCC, the
  * same merchant's other rows, the trade register, nothing (default),
- * transfer detection, or a payment it cancels (match: a refund, money paid back).
+ * transfer detection, a payment it cancels (match: a refund, money paid back), or the household's word about the
+ * payer (payer: a role, see payer-role.ts).
  */
-export type CategorySource = "user" | "rule" | "mcc" | "merchant" | "industry" | "default" | "transfer" | "match";
+export type CategorySource = "user" | "rule" | "mcc" | "merchant" | "industry" | "default" | "transfer" | "match" | "payer";
+
+/** What money from a payer is: a share of the common costs, a sale, the member's own money, a gift, or pay or a benefit. */
+export type PayerRole = "cost_share" | "sales" | "own_money" | "gift" | "pay";
+
+/** One answer about a payer, as the server reads it from the store: a member's own, or the household's default (userId null). */
+export interface PayerRoleRow {
+  scope: "member" | "household";
+  userId: string | null;
+  /** `iban:<IBAN>` or `name:<sorted folded words>`, see `payerKeyOf`. */
+  counterpartyKey: string;
+  role: PayerRole;
+}
+
+/** The roles of one member's run: the member's own rows and the household's (every member's rows may be in `roles`). */
+export interface PayerInput {
+  memberId: string;
+  roles: readonly PayerRoleRow[];
+}
 
 /** A stored, enriched transaction. */
 export interface Transaction {
@@ -283,6 +302,8 @@ export interface UserInputs {
   expectedBills: readonly ExpectedBill[];
   /** Left out means none, so a caller that builds its inputs by hand still compiles. Read with `loansOf` (`loans.ts`). */
   loans?: readonly Loan[];
+  /** The member's payer roles. Left out, no payer is asked about; given (even empty), the steady ones are. */
+  payers?: PayerInput;
 }
 
 export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [], loans: [] };

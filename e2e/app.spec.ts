@@ -94,7 +94,7 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
   const demo = page.getByRole("button", { name: /esimerkki|demo/i }).first();
   await expect(demo).toBeVisible();
   await demo.click();
-  await expect(page.getByText(/Ruoka|Asuminen|Palkka/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Ruoka|Asuminen|Palkka/).and(page.locator(":not(option)")).first()).toBeVisible({ timeout: 20_000 });
   expect(seen.problems).toEqual([]);
   await context.close();
 });

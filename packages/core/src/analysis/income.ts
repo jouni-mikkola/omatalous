@@ -3,14 +3,16 @@
  * the message and the payment pattern (Kela by benefit, holiday pay, a bonus). It is derived on every read and never
  * stored, so a rule change needs no migration, and a category the user set wins: the type only splits it.
  *
- * Earned income is everything but money from people and refunds, which are shown and left out of growth and stability.
+ * Earned income is everything but money from people, refunds and the member's own money (a transfer once a payer role says
+ * so), which are shown and left out of growth and stability.
  * A type the rows cannot tell apart stays at its broader type ("Kela, muu", "Muut etuudet").
  */
 import { getCategory } from "../categories.ts";
 import { addDays, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
+import { categoryUnderRole } from "../payer-role.ts";
 import { median } from "../stats.ts";
-import type { IsoDate } from "../types.ts";
+import type { IsoDate, PayerRole } from "../types.ts";
 import type { AnalysisTx } from "./context.ts";
 import { isPensionPayerName } from "../wording.ts";
 import { oneOffs, PAY } from "./one-offs.ts";
@@ -139,15 +141,19 @@ function benefitType(text: string, t: IncomeRow): IncomeType {
  * The type one row says by itself, from its category and words. Salary rows get their final type from the pattern of
  * their payer (`incomeTypes`): an extra payment in a month, or one far above the usual, is holiday pay or other pay.
  * Money in on a spending category that was no refund (`moneyIn`) is income too: from a person on Maksut henkilöille,
- * a compensation or refund on any other.
+ * a compensation or refund on any other. `role` is the payer role that applies to the row (`payerRoleOf`): the row is
+ * read as the category the role gives it, which is what the run stores (`applyPayerRoles`), so a stored row and a row
+ * with its role read the same.
  */
-export function incomeTypeOf(t: IncomeRow): IncomeType {
-  const text = textOf(t);
-  switch (t.category) {
-    case "salary":
+export function incomeTypeOf(t: IncomeRow, role: PayerRole | null = null): IncomeType {
+  const category = role ? categoryUnderRole(role, t.category) : t.category;
+  switch (category) {
+    case "salary": {
+      const text = textOf(t);
       return HOLIDAY_WORDS.test(text) ? "holiday_pay" : OTHER_PAY_WORDS.test(text) ? "other_pay" : "salary";
+    }
     case "benefits":
-      return benefitType(text, t);
+      return benefitType(textOf(t), t);
     case "investment_income":
       return "investment";
     case "sales":
@@ -158,22 +164,19 @@ export function incomeTypeOf(t: IncomeRow): IncomeType {
     case "reimbursements":
       return "refunds";
     default:
-      return getCategory(t.category).kind === "income" ? "other_income" : "refunds";
+      return getCategory(category).kind === "income" ? "other_income" : "refunds";
   }
 }
 
 /** Rows that count as income in the money flows: the same rows the cash flow report sums. */
 export const isIncomeRow = (t: Pick<AnalysisTx, "flows">) => t.flows.income !== 0;
 
-/** The categories of money from people and refunds (types `persons` and `refunds`): income in the flows, never earned. */
-const NOT_EARNED: ReadonlySet<string> = new Set(["p2p_in", "reimbursements"]);
-
 /**
- * Earned income: an income row that is not money from people or a refund, whether its category says so or it is money
- * in on a spending category (`moneyIn`). The one predicate behind every "tavalliset tulot" (`usualIncome` in usual.ts)
- * and the same split as the `earned` flag of `INCOME_TYPES`.
+ * Earned income: an income row whose type is earned (`INCOME_TYPES`): not money from people, not a refund, and not the
+ * member's own money, whether the category says so or it is money in on a spending category (`moneyIn`). The one
+ * predicate behind every "tavalliset tulot" (`usualIncome` in usual.ts) and the earned split of the income report.
  */
-export const isEarnedIncome = (t: Pick<AnalysisTx, "flows" | "category">) => isIncomeRow(t) && getCategory(t.category).kind === "income" && !NOT_EARNED.has(t.category);
+export const isEarnedIncome = (t: Pick<AnalysisTx, "flows"> & IncomeRow, role: PayerRole | null = null) => isIncomeRow(t) && INCOME_TYPES[incomeTypeOf(t, role)].earned;
 
 /** The payer a series is grouped by: the cleaned merchant name, folded. */
 export const payerKey = (t: Pick<AnalysisTx, "merchant">) => fold(t.merchant);

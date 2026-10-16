@@ -72,9 +72,9 @@ async function industryMap(repo: FinanceRepo): Promise<Map<string, string>> {
 export async function reprocessLocked(repo: FinanceRepo, settings: SettingsRepo, rows?: StoredTransaction[]): Promise<ReprocessResult> {
   // read before the rows are: an import that lands while this runs sets a new mark, and that one stays
   const mark = await repo.unprocessedMark();
-  const [txs, accounts, rules, industries] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo)]);
+  const [txs, accounts, rules, industries, roles] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles()]);
   const before = new Map(txs.map((t) => [t.id, t.category]));
-  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop);
+  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles });
   await repo.updateEnrichment(changed);
   await settings.bumpUserDataVersion(repo.userId);
   await afterHooks.get(settings)?.(repo.userId);
@@ -117,15 +117,16 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
       const names = new Set(merchants.map((m) => fold(m)));
       merchants = (await repo.merchantNames()).filter((m) => names.has(fold(m)));
     }
-    const [rows, accounts, rules, industries, outsideMatches] = await Promise.all([
+    const [rows, accounts, rules, industries, outsideMatches, roles] = await Promise.all([
       repo.transactionsOfMerchants(merchants),
       repo.listAccounts(),
       repo.listRules(),
       industryMap(repo),
       repo.matchedRowsOutside(merchants),
+      repo.payerRoles(),
     ]);
     if (rows.length > ISLAND_MAX_ROWS) return reprocessLocked(repo, settings);
-    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches });
+    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles } });
     if (!island.ok) return reprocessLocked(repo, settings);
     await repo.updateEnrichment(island.changed);
     await settings.bumpUserDataVersion(repo.userId);

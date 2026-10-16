@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { api, loanCalls, query } from "../api.ts";
+import { api, loanCalls, payerCalls, query } from "../api.ts";
 import { money, plural } from "../format.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
 import type { Category, DashboardData } from "../types.ts";
 import { PayeeCategorySelect, usePayeeCategory } from "./PayeeCategory.tsx";
-import { asks, classifiedPercent } from "./questions.ts";
+import { asks, classifiedPercent, PAYER_ROLE_LABEL } from "./questions.ts";
 import "../styles/questions.css";
 
 type Item = DashboardData["questions"]["items"][number];
 
-const keyOf = (q: Item) => (q.kind === "loan" ? `loan:${q.key}` : `${q.kind}:${q.merchant}`);
+const keyOf = (q: Item) => (q.kind === "loan" || q.kind === "payer" ? `${q.kind}:${q.key}` : `${q.kind}:${q.merchant}`);
 
 /**
  * Luokittelemattomat: how much of the last twelve months' money is classified, and the few answers that would mend it
@@ -60,7 +60,46 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
       {questions.items.length > 0 && (
         <ul className="st-rows question-list" aria-labelledby="questions-h">
           {questions.items.map((q) =>
-            q.kind === "loan" ? (
+            q.kind === "payer" ? (
+              <li key={keyOf(q)} className="st-row question-row">
+                <span className="st-name" title={q.merchant}>
+                  <a href={`#/transactions${query({ merchant: q.merchant })}`}>{q.merchant}</a>
+                </span>
+                <span className="st-num">{money(q.cents)}</span>
+                <span className="question-count">{plural(q.count, "tapahtuma", "tapahtumaa")}</span>
+                <span className="question-actions question-payer">
+                  <select
+                    aria-label={`Mitä nämä ovat: ${q.merchant}`}
+                    value=""
+                    disabled={busy}
+                    onChange={(e) => {
+                      const role = e.target.value as (typeof q.options)[number];
+                      void answer(keyOf(q), () => payerCalls.say(q.key, role));
+                    }}
+                  >
+                    <option value="" disabled>
+                      Mitä nämä ovat?
+                    </option>
+                    {q.options.map((role) => (
+                      <option key={role} value={role}>
+                        {PAYER_ROLE_LABEL[role]}
+                        {role === q.proposal ? " (ehdotus)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    disabled={busy}
+                    aria-busy={pending === keyOf(q) || undefined}
+                    aria-label={`Ohita: ${q.merchant}`}
+                    onClick={() => void answer(keyOf(q), () => api("/api/marks", { method: "PUT", body: { subject: `question:payee:${q.key}`, mark: "dismissed" } }))}
+                  >
+                    Ohita
+                  </button>
+                </span>
+              </li>
+            ) : q.kind === "loan" ? (
               <li key={keyOf(q)} className="st-row question-row">
                 <span className="st-name" title={q.payee}>
                   {q.payee}
@@ -101,6 +140,7 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
           )}
         </ul>
       )}
+      {questions.items.some((q) => q.kind === "payer") && <p className="question-line">Vastaus koskee myös aiempia kuukausia. Selvästi tavallisesta poikkeavat summat jäävät ennalleen.</p>}
       {problem && (
         <p className="error question-error" role="alert">
           {problem}

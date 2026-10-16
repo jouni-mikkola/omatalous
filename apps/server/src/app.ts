@@ -21,6 +21,7 @@ import { financeRoutes } from "./routes/finance.ts";
 import { loanRoutes } from "./routes/loans.ts";
 import { statementRoutes } from "./routes/statements.ts";
 import { marksRoutes } from "./routes/marks.ts";
+import { payerRoleRoutes } from "./routes/payer-roles.ts";
 import { optimiseRoutes } from "./routes/optimise.ts";
 import { securityRoutes } from "./routes/security.ts";
 import { opsRoutes } from "./routes/ops.ts";
@@ -114,6 +115,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api/ops", opsRoutes(s));
   app.route("/api", financeRoutes(s));
   app.route("/api", marksRoutes(s));
+  app.route("/api", payerRoleRoutes(s));
   app.route("/api", expectedBillRoutes(s));
   app.route("/api", loanRoutes(s));
   app.route("/api", statementRoutes(s));

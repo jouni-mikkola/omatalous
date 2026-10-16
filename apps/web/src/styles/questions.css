@@ -12,10 +12,12 @@
 .question-actions { display: flex; flex: none; align-items: center; gap: 12px; }
 .question-actions select { width: 13rem; max-width: 100%; }
 .question-actions .btn { font-weight: 400; }
+.question-payer { flex-wrap: wrap; }
 .question-error { margin: 12px 0 0; }
 @media (max-width: 700px) {
   .question-row .st-name { flex-basis: 8rem; }
   .question-count { min-width: 0; }
   .question-actions { flex: 1 0 100%; }
   .question-actions select { flex: 1 1 auto; width: auto; min-width: 0; }
+  .question-payer select { flex-basis: 100%; }
 }

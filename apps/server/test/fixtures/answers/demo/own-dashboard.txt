@@ -837,9 +837,31 @@
     "payee": "Nordea Rahoitus Suomi Oy",
     "paymentCents": 28900,
     "cents": 346800
+   },
+   {
+    "kind": "payer",
+    "key": "name:LIISA VIRTANEN",
+    "merchant": "Liisa Virtanen",
+    "cents": 12167,
+    "count": 6,
+    "lastDate": "2026-07-11",
+    "options": [
+     "cost_share",
+     "sales",
+     "own_money",
+     "gift",
+     "pay"
+    ],
+    "steady": true,
+    "proposal": "cost_share",
+    "offMedianCents": [
+     2889,
+     1229,
+     2891
+    ]
    }
   ],
-  "total": 1
+  "total": 2
  },
  "colorOrder": [
   "housing",

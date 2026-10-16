@@ -17,6 +17,10 @@ export interface DemoAccount {
   type: AccountType;
   /** Balance today (bank's view), so balance history can be reconstructed. */
   balanceCents: number | null;
+  /** The balance the day before the first row, so a balance for any day before today can be rebuilt from the rows. */
+  openingCents: number;
+  /** How the bank gives the balance: a booked balance of every day (CLBD), only the available one (ITAV), or none. */
+  reading: "CLBD" | "ITAV" | null;
   transactions: RawTransaction[];
 }
 
@@ -150,8 +154,8 @@ export function generateDemoData(today: string, months = 14): DemoAccount[] {
   const balance = (list: RawTransaction[], start: number) => list.filter((t) => t.status === "booked").reduce((sum, t) => sum + t.amountCents, start);
 
   return [
-    { id: "checking", name: "Käyttötili (esimerkki)", iban: CHECKING_IBAN, type: "checking", balanceCents: balance(checking, 185000), transactions: checking },
-    { id: "card", name: "Nordea Gold (esimerkki)", iban: null, type: "credit_card", balanceCents: balance(card, 0), transactions: card },
-    { id: "savings", name: "Säästötili (esimerkki)", iban: SAVINGS_IBAN, type: "savings", balanceCents: balance(savings, 420000), transactions: savings },
+    { id: "checking", name: "Käyttötili (esimerkki)", iban: CHECKING_IBAN, type: "checking", balanceCents: balance(checking, 185000), openingCents: 185000, reading: "CLBD", transactions: checking },
+    { id: "card", name: "Nordea Gold (esimerkki)", iban: null, type: "credit_card", balanceCents: balance(card, 0), openingCents: 0, reading: null, transactions: card },
+    { id: "savings", name: "Säästötili (esimerkki)", iban: SAVINGS_IBAN, type: "savings", balanceCents: balance(savings, 420000), openingCents: 420000, reading: "ITAV", transactions: savings },
   ];
 }

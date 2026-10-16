@@ -1,4 +1,4 @@
-import { type Loan, notLoanMark } from "@banking/core";
+import { type Loan, notLoanMark, type PayerRole } from "@banking/core";
 
 export class ApiError extends Error {
   constructor(
@@ -92,4 +92,9 @@ export const loanCalls = {
   remove: (id: string) => api<{ ok: true }>(`/api/loans/${encodeURIComponent(id)}`, { method: "DELETE" }),
   /** "Ei laina" on a proposal (`GET /api/loans/proposals`): the mark that keeps the series from being proposed again. */
   notLoan: (key: string) => api<unknown>("/api/marks", { method: "PUT", body: notLoanMark({ key }) }),
+};
+
+/** The answer to a payer's question on Yhteenveto: a role (the member's own answer), or null for the proposal again. */
+export const payerCalls = {
+  say: (key: string, role: PayerRole | null) => api<{ ok: true }>("/api/payer-roles", { method: "PUT", body: { key, role } }),
 };

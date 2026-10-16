@@ -2,7 +2,8 @@
  * What each fetch leaves behind about an account's balance and how far back its rows go: the balances the bank sent
  * (`account_balances`), the earliest day the app asked for (`account_history`) and the calls made (`account_fetch`).
  * The tables are keyed by the real account (`keyOf`), not the user, so a joint account fetched by both members writes
- * one row of each kind. Nothing here is read back by a page.
+ * one row of each kind. `reconcile` reads the balances, the history and the rows back (services/reconcile.ts); no page
+ * reads the tables themselves.
  */
 import { keyOf } from "../household-repo.ts";
 import type { FinanceContext } from "./context.ts";
@@ -35,6 +36,61 @@ export class BalanceRecordRepo {
         params: [accountKey, day, balanceType(b.type), b.referenceDay, b.cents, fetchedAt],
       })),
     );
+  }
+
+  /**
+   * The balances stored for the given real accounts, every source and type, by key, fetch day and type. The reader decides which
+   * of them prove anything.
+   */
+  async balancesOf(keys: readonly string[]): Promise<{ key: string; day: string; type: string; referenceDate: string | null; cents: number; fetchedAt: string; source: string }[]> {
+    if (!keys.length) return [];
+    const marks = keys.map(() => "?").join(",");
+    return (
+      await this.ctx.db.all<Record<string, unknown>>(
+        `SELECT account_key, day, type, reference_date, cents, fetched_at, source FROM account_balances WHERE account_key IN (${marks}) ORDER BY account_key, day, type`,
+        [...keys],
+      )
+    ).map((r) => ({
+      key: String(r.account_key),
+      day: String(r.day),
+      type: String(r.type),
+      referenceDate: r.reference_date === null ? null : String(r.reference_date),
+      cents: Number(r.cents),
+      fetchedAt: String(r.fetched_at),
+      source: String(r.source),
+    }));
+  }
+
+  /** The first day the app asked for of each given account row (`account_history.asked_from`); a row that has no record is left out. */
+  async askedFromOf(accountIds: readonly string[]): Promise<Map<string, string>> {
+    if (!accountIds.length) return new Map();
+    const marks = accountIds.map(() => "?").join(",");
+    const rows = await this.ctx.db.all<Record<string, unknown>>(`SELECT account_id, asked_from FROM account_history WHERE account_id IN (${marks})`, [...accountIds]);
+    return new Map(rows.map((r) => [String(r.account_id), String(r.asked_from)]));
+  }
+
+  /** The booked rows of this user's account from `from` on, as `reconcile` reads them, and the day of the oldest booked row there is (null for none). */
+  async bookedRowsFrom(accountId: string, from: string): Promise<{ rows: { bookingDate: string; amountCents: number; status: "booked"; importedAt: string | null }[]; firstDay: string | null }> {
+    const first = await this.ctx.db.first<{ d: string | null }>("SELECT MIN(booking_date) AS d FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked'", [this.ctx.userId, accountId]);
+    const rows = await this.ctx.db.all<Record<string, unknown>>(
+      "SELECT booking_date, amount_cents, imported_at FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked' AND booking_date >= ? ORDER BY booking_date",
+      [this.ctx.userId, accountId, from],
+    );
+    return {
+      rows: rows.map((r) => ({ bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents), status: "booked", importedAt: r.imported_at === null ? null : String(r.imported_at) })),
+      firstDay: first?.d ?? null,
+    };
+  }
+
+  /** Replaces the demo's balances of one real account with the given ones (source `demo`, so they prove); a balance of another source stays. */
+  async replaceDemoBalances(accountKey: string, balances: readonly { day: string; type: string; referenceDay: string; cents: number; fetchedAt: string }[]): Promise<void> {
+    await this.ctx.db.batch([
+      { sql: "DELETE FROM account_balances WHERE account_key = ? AND source = 'demo'", params: [accountKey] },
+      ...balances.map((b) => ({
+        sql: `INSERT OR IGNORE INTO account_balances (account_key, day, type, reference_date, cents, fetched_at, source) VALUES (?, ?, ?, ?, ?, ?, 'demo')`,
+        params: [accountKey, b.day, b.type, b.referenceDay, b.cents, b.fetchedAt],
+      })),
+    ]);
   }
 
   /**

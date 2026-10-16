@@ -1,9 +1,34 @@
 import type { FinanceRepo } from "./db/finance-repo.ts";
 import type { SettingsRepo } from "./db/settings-repo.ts";
-import { generateDemoData } from "./demo-data.ts";
+import { addDays } from "@banking/core";
+import { type DemoAccount, generateDemoData } from "./demo-data.ts";
+import { accountKey } from "./db/household-repo.ts";
 import { reprocess } from "./services/enrich.ts";
 import { stableId } from "./platform/ids.ts";
 import { ingestTransactions } from "./services/ingest.ts";
+
+/**
+ * What the bank would have sent for the account: for a checking account the booked balance at the end of every day
+ * from the day before its first row, fetched the day after (so it proves); for the savings account only the available
+ * balance of today (so it never does).
+ */
+function demoBalances(a: DemoAccount, today: string) {
+  if (a.reading === "ITAV") return a.balanceCents === null ? [] : [{ day: today, type: "ITAV", referenceDay: today, cents: a.balanceCents, fetchedAt: `${today}T05:00:00.000Z` }];
+  if (a.reading !== "CLBD") return [];
+  const booked = a.transactions.filter((t) => t.status === "booked");
+  if (!booked.length) return [];
+  const sums = new Map<string, number>();
+  for (const t of booked) sums.set(t.bookingDate, (sums.get(t.bookingDate) ?? 0) + t.amountCents);
+  const first = booked.reduce((day, t) => (t.bookingDate < day ? t.bookingDate : day), booked[0]!.bookingDate);
+  const out: { day: string; type: string; referenceDay: string; cents: number; fetchedAt: string }[] = [];
+  let cents = a.openingCents;
+  for (let ref = addDays(first, -1); ref < today; ref = addDays(ref, 1)) {
+    cents += sums.get(ref) ?? 0;
+    const day = addDays(ref, 1);
+    out.push({ day, type: "CLBD", referenceDay: ref, cents, fetchedAt: `${day}T05:00:00.000Z` });
+  }
+  return out;
+}
 
 /** Replaces the user's previous demo data with a fresh set ending today. */
 export async function loadDemoData(repo: FinanceRepo, settings: SettingsRepo, today: string): Promise<{ accounts: number; transactions: number }> {
@@ -12,19 +37,21 @@ export async function loadDemoData(repo: FinanceRepo, settings: SettingsRepo, to
   const accounts = generateDemoData(today);
   for (const a of accounts) {
     // ids are per user, so several members can load demo data side by side
-    const id = `demo-${stableId(`${repo.userId}|${a.id}`)}`;
+    const identity = stableId(`${repo.userId}|${a.id}`);
+    const id = `demo-${identity}`;
     await repo.upsertAccount({
       id,
       connectionId: null,
       provider: "demo",
       externalId: null,
-      identity: stableId(`${repo.userId}|${a.id}`),
+      identity,
       name: a.name,
       iban: a.iban,
       currency: "EUR",
       type: a.type,
     });
     const r = await ingestTransactions(repo, id, a.transactions, "demo");
+    await repo.replaceDemoBalances(accountKey({ id, identity }), demoBalances(a, today));
     if (a.balanceCents !== null) await repo.setAccountBalance(id, a.balanceCents, new Date().toISOString());
     transactions += r.inserted;
   }

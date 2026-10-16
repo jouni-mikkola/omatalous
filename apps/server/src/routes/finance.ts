@@ -8,6 +8,7 @@ import { UserError } from "../platform/errors.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
 import { accountSources } from "../services/account-sources.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
+import { reconcileOf } from "../services/reconcile.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
@@ -66,6 +67,8 @@ export function financeRoutes(s: Services) {
     // who uses each account in view, and the viewer's part of it
     const { uses, traces } = await usesWithTraces(s, user.id, [...accounts, ...sharedAccounts]);
     // the facts of a split: served for what the viewer sees; the questions and answers only to the member who linked the account
+    // the reconcile answer of every account the viewer sees: the own ones and those shared with them, nobody else's
+    const reconciled = await reconcileOf(s, user.id, [...accounts, ...sharedAccounts]);
     const split = async (a: { id: string }, own: boolean) => {
       const facts = traces.get(a.id);
       return facts ? tracedFields(s, facts.key, facts.split, own) : {};
@@ -75,9 +78,9 @@ export function financeRoutes(s: Services) {
       user,
       categories: CATEGORIES,
       kinds: KIND_LABEL,
-      accounts: await Promise.all((await accountsView(s, user.id, accounts)).map(async (account) => ({ ...account, ...uses.get(account.id), ...(await split(account, true)) }))),
+      accounts: await Promise.all((await accountsView(s, user.id, accounts)).map(async (account) => ({ ...account, ...uses.get(account.id), ...(await split(account, true)), reconcile: reconciled.get(account.id) ?? null }))),
       // without the bank of the owner's connection: the member sees the account by its name, and a card has no IBAN that tells more
-      sharedAccounts: await Promise.all(sharedAccounts.map(async ({ bank: _bank, ...account }) => ({ ...account, ...uses.get(account.id), ...(await split(account, false)) }))),
+      sharedAccounts: await Promise.all(sharedAccounts.map(async ({ bank: _bank, ...account }) => ({ ...account, ...uses.get(account.id), ...(await split(account, false)), reconcile: reconciled.get(account.id) ?? null }))),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
       connections: connections.map((conn) => connectionView(conn, today, accounts, connections)),

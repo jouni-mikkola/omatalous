@@ -219,6 +219,8 @@ describe("data versions", () => {
     "DELETE /api/rules/:id",
     "PUT /api/merchants/category",
     "DELETE /api/merchants/rule",
+    // an answer about a payer reprocesses the member's rows (every member's, for the household default)
+    "PUT /api/payer-roles",
     "PATCH /api/accounts/:id",
     "PUT /api/accounts/:id/shares/:userId",
     "DELETE /api/accounts/:id/shares/:userId",
@@ -295,6 +297,9 @@ describe("data versions", () => {
     await step("DELETE /api/rules/:id", () => admin.call("DELETE", `/api/rules/${ruleId}`), true);
     await step("PUT /api/merchants/category", () => admin.call("PUT", "/api/merchants/category", { merchant: tx.merchant, category: "restaurants" }), true);
     await step("DELETE /api/merchants/rule", () => admin.call("DELETE", "/api/merchants/rule", { merchant: tx.merchant }), true);
+    const payer = (await admin.call("GET", "/api/dashboard")).body.questions.items.find((q: { kind: string }) => q.kind === "payer");
+    await step("PUT /api/payer-roles", () => admin.call("PUT", "/api/payer-roles", { key: payer.key, role: "gift" }), true);
+    await step("PUT /api/payer-roles", () => admin.call("PUT", "/api/payer-roles", { key: payer.key, role: null }), true);
     await step("PATCH /api/accounts/:id", () => admin.call("PATCH", `/api/accounts/${accountId}`, { name: "Käyttötili" }), true);
     await step("PUT /api/accounts/:id/shares/:userId", () => admin.call("PUT", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
     // who uses an account changes the figures of everyone who sees it: here its owner and the member it is shared with

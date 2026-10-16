@@ -3,6 +3,15 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.52.0
+
+- Money from a steady payer gets its meaning from one answer: Yhteenveto asks "Mitä nämä ovat?" (yhteisten menojen osuus, myynti, omaa rahaa, lahja, palkka tai etuus) with the proposed answer marked, and the answer moves that payer's past and future payments in your own view. Payments clearly off the usual sum stay as they were, and "Palauta ehdotus" takes the answer back.
+- Earned income has one definition across the app: money from people, refunds and your own money moved between accounts are never counted as earned. At most three questions are asked a visit.
+
+Money and reports
+
+- Yhteenveto asks what money from a steady payer is (a share of shared costs, a sale, your own money, a gift, or pay) and your answer moves the past months too.
+
 ## 0.51.0
 
 - The bank link is set up and kept from Asetukset alone: the steps at Enable Banking each have a link and a mark when done, "Testaa paluuosoite" tells before you meet the bank whether the return address is accepted, and a consent the bank ended shows "Yhdistä uudelleen" on its row.

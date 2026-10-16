@@ -138,7 +138,7 @@ describe("a person on a plain transfer", () => {
   it("with the bank's word for a phone payment is money from a person and not earned", () => {
     const { final, flows } = month([row("own", 50, "MEIKALAINEN MAIJA", "Mobiilimaksu")], HOUSEHOLD);
     expect(final[0]!.category).toBe("p2p_in");
-    expect(isEarnedIncome({ flows: flows[0]!, category: final[0]!.category })).toBe(false);
+    expect(isEarnedIncome({ ...final[0]!, flows: flows[0]! })).toBe(false);
     expect(category("MAIJA MEIKÄLÄINEN", "Siirto-maksu", 50, {}, [])).toBe("p2p_in");
     expect(category("KORHONEN ELISA", "SIIRTO-MAKSU", -35, {}, [])).toBe("p2p");
   });

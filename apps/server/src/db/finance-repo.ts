@@ -8,7 +8,7 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, Loan, MarkKind, Transaction } from "@banking/core";
+import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, Loan, MarkKind, PayerRole, Transaction } from "@banking/core";
 import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { BalanceRecordRepo } from "./finance/balance-record.ts";
 import { ForeignRowRepo } from "./finance/foreign-rows.ts";
@@ -18,6 +18,7 @@ import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
 import { LoansRepo } from "./finance/loans.ts";
 import { MarksRepo } from "./finance/marks.ts";
+import { PayerRolesRepo } from "./finance/payer-roles.ts";
 import { type MerchantFilter, MerchantsRepo } from "./finance/merchants.ts";
 import { OptimiseRepo } from "./finance/optimise.ts";
 import type { OwnRows } from "./finance/part-sql.ts";
@@ -46,6 +47,7 @@ export class FinanceRepo {
   private readonly merchants: MerchantsRepo;
   private readonly rules: RulesRepo;
   private readonly marks: MarksRepo;
+  private readonly payerRolesRepo: PayerRolesRepo;
   private readonly syncRuns: SyncRunsRepo;
   private readonly expectedBills: ExpectedBillsRepo;
   private readonly loans: LoansRepo;
@@ -66,6 +68,7 @@ export class FinanceRepo {
     this.rules = new RulesRepo(ctx);
     this.merchants = new MerchantsRepo(ctx, this.rules, this.list);
     this.marks = new MarksRepo(ctx);
+    this.payerRolesRepo = new PayerRolesRepo(ctx);
     this.syncRuns = new SyncRunsRepo(ctx);
     this.expectedBills = new ExpectedBillsRepo(ctx);
     this.loans = new LoansRepo(ctx);
@@ -93,6 +96,10 @@ export class FinanceRepo {
   setStatementDetached(...args: Parameters<StatementRepo["setStatementDetached"]>) { return this.statements.setStatementDetached(...args); }
   rowKeyHolders(...args: Parameters<StatementRepo["rowKeyHolders"]>) { return this.statements.rowKeyHolders(...args); }
   overlappingBill(...args: Parameters<StatementRepo["overlappingBill"]>) { return this.statements.overlappingBill(...args); }
+  balancesOf(...args: Parameters<BalanceRecordRepo["balancesOf"]>) { return this.balanceRecord.balancesOf(...args); }
+  askedFromOf(...args: Parameters<BalanceRecordRepo["askedFromOf"]>) { return this.balanceRecord.askedFromOf(...args); }
+  bookedRowsFrom(...args: Parameters<BalanceRecordRepo["bookedRowsFrom"]>) { return this.balanceRecord.bookedRowsFrom(...args); }
+  replaceDemoBalances(...args: Parameters<BalanceRecordRepo["replaceDemoBalances"]>) { return this.balanceRecord.replaceDemoBalances(...args); }
   seedBalancesFromAccounts() { return this.balanceRecord.seedBalancesFromAccounts(); }
   recordHistory(...args: Parameters<BalanceRecordRepo["recordHistory"]>) { return this.balanceRecord.recordHistory(...args); }
   recordFetch(...args: Parameters<BalanceRecordRepo["recordFetch"]>) { return this.balanceRecord.recordFetch(...args); }
@@ -163,6 +170,11 @@ export class FinanceRepo {
   setMark(subject: string, mark: MarkKind, at: string) { return this.marks.setMark(subject, mark, at); }
   clearMark(subject: string) { return this.marks.clearMark(subject); }
   renameMerchantMarks(renames: ReadonlyMap<string, string>) { return this.marks.renameMerchantMarks(renames); }
+
+  // ── payer roles (finance/payer-roles.ts) ─────────────────
+  payerRoles() { return this.payerRolesRepo.payerRoles(); }
+  setPayerRole(key: string, role: PayerRole, at: string) { return this.payerRolesRepo.setPayerRole(key, role, at); }
+  clearPayerRole(key: string) { return this.payerRolesRepo.clearPayerRole(key); }
 
   // ── sync runs (finance/sync-runs.ts) ─────────────────────
   startSyncRun(trigger: string) { return this.syncRuns.startSyncRun(trigger); }

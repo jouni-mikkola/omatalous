@@ -217,25 +217,35 @@ function lowerBound(items: readonly { day: number }[], day: number): number {
   return lo;
 }
 
+/** A sum is "about the same" as a median within this share of it. */
+export const STEADY_BAND = 0.1;
+
 /**
- * Parties (account and merchant, see `partyKey`) that move about the same amount (within 10 % of their median) in
- * three or more different months, the rows being all of one direction: rent from a lodger or to a landlord, a regular
- * allowance. Money in from one is income, never a refund; money out to one is a steady payee, not a single gift.
+ * The keys whose rows move about the same amount (within `STEADY_BAND` of their median) in three or more different
+ * months, with that median. `keyOf` may leave a row out with null. The rows should be of one direction.
  */
-export function steadyParties(rows: readonly Pick<Transaction, "accountId" | "merchant" | "amountCents" | "bookingDate">[]): Set<string> {
-  const byParty = new Map<string, (typeof rows)[number][]>();
+export function steadyBy<T extends Pick<Transaction, "amountCents" | "bookingDate">>(rows: readonly T[], keyOf: (t: T) => string | null): Map<string, number> {
+  const byKey = new Map<string, T[]>();
   for (const t of rows) {
-    const key = partyKey(t);
-    const group = byParty.get(key);
+    const key = keyOf(t);
+    if (key === null) continue;
+    const group = byKey.get(key);
     if (group) group.push(t);
-    else byParty.set(key, [t]);
+    else byKey.set(key, [t]);
   }
-  const out = new Set<string>();
-  for (const [key, list] of byParty) {
+  const out = new Map<string, number>();
+  for (const [key, list] of byKey) {
     if (list.length < 3) continue;
     const typical = median(list.map((t) => t.amountCents));
-    const months = new Set(list.filter((t) => Math.abs(t.amountCents - typical) <= Math.abs(typical) * 0.1).map((t) => monthOf(t.bookingDate)));
-    if (months.size >= 3) out.add(key);
+    const months = new Set(list.filter((t) => Math.abs(t.amountCents - typical) <= Math.abs(typical) * STEADY_BAND).map((t) => monthOf(t.bookingDate)));
+    if (months.size >= 3) out.set(key, typical);
   }
   return out;
 }
+
+/**
+ * Parties (account and merchant, see `partyKey`) that move about the same amount in three or more different months,
+ * the rows being all of one direction: rent from a lodger or to a landlord, a regular allowance. Money in from one is
+ * income, never a refund; money out to one is a steady payee, not a single gift.
+ */
+export const steadyParties = (rows: readonly Pick<Transaction, "accountId" | "merchant" | "amountCents" | "bookingDate">[]): Set<string> => new Set(steadyBy(rows, partyKey).keys());
