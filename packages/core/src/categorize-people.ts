@@ -5,12 +5,13 @@
  */
 import type { CategorizeInput, CompiledRule } from "./categorize.ts";
 import { hasTerminalShape } from "./industry.ts";
+import { lexiconCategory } from "./lexicon.ts";
 import { dropCardAccountPrefix, fold } from "./merchant.ts";
 import { partyKind } from "./party-kind.ts";
 import { holdersIn, type Name, nameOf, samePerson, userNameOf } from "./person-names.ts";
 import type { Account } from "./types.ts";
 import { hasPayeeForm, INVOICE_WORDS, isBusinessPaymentText, isCardCode, isPersonShaped, isRent, MOBILEPAY_SHOP_PREFIX, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_WORDS, words } from "./wording.ts";
-import { isOrganisationName } from "./wording-lenders.ts";
+import { isOrganisationName, isPurchaseText, isWorkText } from "./wording-lenders.ts";
 
 export interface Holders {
   /** The user's own name. Null: the accounts do not tell it, and then nobody is told apart. */
@@ -45,6 +46,7 @@ const SHOP_PREFIX = new RegExp(String.raw`^(?:${MOBILEPAY_SHOP_PREFIX})\s*\*\s*`
 const BANK_PERSON_PAYMENT = words(PERSON_PAYMENT_WORDS);
 /** "LASKU 12": a glued number does not make it another word. */
 const INVOICE_TEXT = words(INVOICE_WORDS, true);
+
 /** A reference number written into a message: the word for one, an RF reference (its groups may stand apart), or six digits at least as long as a bank's (single spaces between them: references print in fives). */
 const REFERENCE_TEXT = /(?<![A-Z0-9])VIITE[A-Z]*|(?<![A-Z0-9])RF\d{2}(?: ?[A-Z0-9]){4,}|\d(?: ?\d){5}/;
 
@@ -80,7 +82,7 @@ export function peopleRules(
   // a person has the shape of a name, by the rule that keeps a name from the trade register, no company form at an end or
   // between two words ("BOSTADS AB EXEMPEL"), no word of a school or an association and no trade word, and no company by
   // partyKind (a legal form, a business id in the text, a payee the app knows)
-  const person = (name: string, text = "") => isPersonShaped(name) && !hasPayeeForm(name) && !namesBusiness(name) && !isOrganisationName(name) && !namedLikeBusiness(name) && partyKind(name, text) !== "company";
+  const person = (name: string, text = "", surnameBank = false) => isPersonShaped(name) && !hasPayeeForm(name) && !namesBusiness(name) && !isOrganisationName(name) && !namedLikeBusiness(name) && partyKind(name, text, surnameBank) !== "company";
 
   const viaMobilePay = (input: CategorizeInput): boolean => {
     const payee = payeeOf(input);
@@ -95,21 +97,26 @@ export function peopleRules(
     noCard(input) && (isCoHolder(input, holders) || (BANK_PERSON_PAYMENT.test(text) && person(payeeOf(input), input.description ?? "")));
 
   /**
-   * Money out to a person named without the bank's word: a credit transfer, which has the payee's account, with no
+   * Money to or from a person named without the bank's word: a credit transfer, which has the payee's account, with no
    * reference number. With a number the payee may be a sole trader. The absence of card evidence is not enough: a
    * card purchase from a bank that sends no code and no card text is named like a person too (a shop and its town),
-   * and has no payee account. Pay and rent from a person carry no number either, so money in is left. The message
-   * alone may still name a purchase (a word of a shop's or service's rule, or the bank's own text of a card purchase),
-   * an invoice or a reference written into the text: the payee is a trade's then and the rules that follow decide.
-   * A payee the account pays the same sum month after month (rent, a childminder, a coach) is no single gift, and the
-   * user's own name is no other person: both are read as before, and a steady payee keeps its series.
+   * and has no payee account. The message alone may still name a purchase (a word of a shop's or service's rule, a
+   * word of a purchase, or the bank's own text of a card purchase), an invoice or a reference written into the text:
+   * the payee is a trade's then and the rules that follow decide. Money in is left alone by the shop words (a friend
+   * sends the share of a lunch) but not by rent or pay for work: that is earned. A payee the account pays or is
+   * paid the same sum month after month (rent, a childminder, a coach) is no single gift, and the user's own name is
+   * no other person: both are read as before, and a steady payee keeps its series. A company the lexicon names (a
+   * brand that is the whole name) is no person.
    */
   const unreferenced = (input: CategorizeInput, holders: Holders): boolean => {
     // a row built without the field (the kit's, the demo's) says nothing, and a row without the payee's account is no credit transfer
     if (input.reference === undefined || input.reference?.trim() || !input.counterpartyIban?.trim() || !noCard(input)) return false;
     if (input.steadyPayee || isUserName(input.counterparty ?? "", holders)) return false;
     const message = fold(input.description ?? "");
-    return person(payeeOf(input), message) && !isBusinessPaymentText(message) && !INVOICE_TEXT.test(message) && !REFERENCE_TEXT.test(message) && !namesShopOrService(message);
+    const out = input.amountCents < 0;
+    if (!person(payeeOf(input), message, true) || isBusinessPaymentText(message) || INVOICE_TEXT.test(message) || REFERENCE_TEXT.test(message) || isPurchaseText(message)) return false;
+    if (out ? namesShopOrService(message) : isRent(message) || isWorkText(message)) return false;
+    return !lexiconCategory({ merchant: input.merchant, counterparty: input.counterparty, description: input.description, counterpartyIban: input.counterpartyIban });
   };
 
   const rule = (category: string, direction: "in" | "out", test: CompiledRule["test"]): CompiledRule => ({ category, income: false, field: "any", direction, test });
@@ -120,6 +127,6 @@ export function peopleRules(
       rule("p2p_in", "in", (_text, input, holders) => noCard(input) && isCoHolder(input, holders)),
     ],
     // rent paid to a person is rent: a private landlord, or the share paid to the one who pays it
-    plain: [rule("p2p_in", "in", plain), rule("housing", "out", (text, input, holders) => isRent(text) && plain(text, input, holders)), rule("p2p", "out", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders))],
+    plain: [rule("p2p_in", "in", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders)), rule("housing", "out", (text, input, holders) => isRent(text) && plain(text, input, holders)), rule("p2p", "out", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders))],
   };
 }

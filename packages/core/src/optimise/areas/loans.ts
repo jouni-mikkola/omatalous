@@ -70,7 +70,7 @@ const normalIban = (iban: string | null | undefined) => (iban ? iban.replace(/\s
  * only loan account. Null when no loan account has a balance.
  */
 function loanBalance(a: AreaInput, series: RecurringSeries): number | null {
-  const loans = a.balances.filter((b) => b.type === "loan");
+  const loans = a.balances.filter((b) => b.type === "loan" && !b.loanPayment);
   const byId = rowsById(a.ctx);
   const paidTo = new Set(series.transactionIds.map((id) => normalIban(byId.get(id)?.counterpartyIban)).filter((x): x is string => !!x));
   const target = a.ctx.accounts.find((acc) => acc.type === "loan" && paidTo.has(normalIban(acc.iban) ?? ""));

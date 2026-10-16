@@ -10,6 +10,7 @@ import { settlePaidElsewhere } from "../recurring-settled.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
 import { hasPayeeForm } from "../wording.ts";
+import { loanPaymentAccounts } from "../loan-payment.ts";
 import { type Flows, flowsOf, incomeOf, type PeriodTotals, totalsOf } from "./flows.ts";
 import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
@@ -82,6 +83,10 @@ export interface AnalysisContext {
   explained: readonly ExplainedTx[];
   /** What the rows of each bill that is read leave of its `spend`, by the bill's id. `txs` keeps the bill whole: `loweredRows` and `spendRows` apply this. */
   lowered: ReadonlyMap<string, number>;
+  /** The loan payment accounts of the view (`loanPaymentAccounts`). */
+  paymentAccounts: ReadonlySet<string>;
+  /** The year's flow of each account whose rows show a loan payment account's pattern, whether or not its balance is known (`flagLoanPayment`). */
+  paymentFlow: ReadonlyMap<string, number>;
   /** Whether the rows of each bill that has some are read, by the bill's id; a bill not in the view has no entry. */
   statements: ReadonlyMap<string, StatementState>;
   /** Per account of the view that has rows in another currency: how many and the newest day. Those rows are in no sum; the day walk reads them (`balanceWalk`). */
@@ -101,6 +106,14 @@ export interface AnalysisContext {
   standing?: AnalysisContext;
 }
 
+/** A row of a loan payment account as the household's books read it: money in is a transfer with its leg, the bank's instalment out is a loan payment. A row the user decided stays. */
+function loanPaymentRow(t: Transaction, paying: ReturnType<typeof loanPaymentAccounts>): Transaction {
+  if (t.categorySource === "user") return t;
+  if (paying.legs.has(t.id)) return { ...t, category: "transfer", categorySource: "transfer", isTransfer: true };
+  if (paying.ids.has(t.accountId) && t.amountCents < 0 && t.categorySource === "default") return { ...t, category: "loans", categorySource: "rule" };
+  return t;
+}
+
 /** The context to look up the rows of a series (and read what is ahead) in: the stable cut when there is one. */
 export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(ctx: C): C | AnalysisContext => ctx.standing ?? ctx;
 
@@ -112,8 +125,11 @@ export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(
 export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = [], why?: WhyCollector): AnalysisContext {
   const cut = standing && createContext(standing, accounts, today);
   const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
-  const loanIds = new Set(accounts.filter((a) => a.type === "loan").map((a) => a.id));
+  // a loan payment account is no loan account: its transfers in are the household's own and its instalments out are the loan's payments
+  const paying = loanPaymentAccounts(accounts, transactions, today);
+  const loanIds = new Set(accounts.filter((a) => a.type === "loan" && !paying.ids.has(a.id)).map((a) => a.id));
   const txs = transactions
+    .map((t) => loanPaymentRow(t, paying))
     .map((t): AnalysisTx => {
       const category = getCategory(t.category);
       const flows = flowsOf(t, savingsIds, loanIds);
@@ -175,7 +191,7 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     .map(([c]) => c);
 
   return {
-    today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, colorOrder, foreignRows, history,
+    today, todayDay: dayNumber(today), paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, colorOrder, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

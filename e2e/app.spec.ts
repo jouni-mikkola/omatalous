@@ -540,7 +540,7 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     const situation = page.getByRole("region", { name: "Tilanne" });
     const found = situation.locator(".optimise-facts > div", { has: page.getByText("Säästömahdollisuus vuodessa (arvio)", { exact: true }) }).locator("dd");
     await expect(found).toHaveText(/^\d[\d\s]*€$/);
-    for (const fact of ["Säästöaste", "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista"]) await expect(situation.getByText(fact, { exact: true })).toBeVisible();
+    for (const fact of [/^Säästöaste, viimeiset \d+ kuukautta$/, "Kiinteät menot tuloista", "Puskuri", "Velanhoito tuloista, viimeiset 6 kuukautta"]) await expect(situation.getByText(fact, { exact: typeof fact === "string" })).toBeVisible();
     // what the numbers rest on and what waits are not told on the page, and no area is a list of nothing
     for (const gone of [/^Tiedot \d+\.\d+\.\d{4} asti/, /^Laskettu /, /^Odottaa tietoja/]) await expect(page.getByText(gone)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Tietojen laatu" })).toHaveCount(0);

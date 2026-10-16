@@ -3,6 +3,43 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.62.0
+
+- One figure, one value: the savings rate counts whole months only and names its window, the debt share and credit drawn read the same everywhere, "Muut menot" means only what is not yet filed, and the theme of cash, money to people and card bills is now Raha-asiat.
+- The overview's month comparison is told on the accounts both months have, with a note when an account is left out, instead of disappearing when a card is linked.
+- An account the bank calls a loan but which only passes the instalments on is shown as Lainanhoitotili and is no debt; a paid-off loan says Maksettu; a loan the app cannot place is asked once.
+- Payment services are seen through: Trustly, Vipps and MobilePay rows take the category of what was bought, and MobilePay shares from friends lower the cost of the shared purchase instead of counting as income.
+- About fifty foreign brands a Finnish household pays are known from the first import (KFC, Agoda, Vinted, Notino, Zoom and more); Revolut, Wise, N26 and bunq are money moved to your own account, never spending.
+- A payer, subscription or bill on an account connected later is no longer called new because an older account has more history.
+- Money sent to a person is filed as a payment to a person instead of Muut menot; a bank's name alone no longer makes a payment a loan; a steady payment to a known finance company is a loan without a question.
+- Smaller fixes: a card's name no longer carries the bank's type word, two cards of one issuer are told apart by their last digits, a joint account's holder without a login gets a share when the split is equal, and the update's waiting time is counted on the server's clock.
+
+Money and reports
+
+- About fifty foreign brands a Finnish household pays (Agoda, Vinted, Proton, AWS, Betway, Skoda and others) now get a category from the first import.
+- Revolut and Wise rows are own transfers, not spending; a Western Union payment out is money sent to a person.
+- A one-off or occasional transfer to or from a person named like one (surname first, "Etunimi Sukunimi", a hyphenated surname, even Pankki as a surname) is a transfer between people, not other spending or income. A company form, a purchase or rent in the text, a known company or a steady same-sum payment still keeps it out.
+- A bank's name alone (Bank AB, Pankki) no longer makes a payment a loan: it takes a loan word in the text or a series of equal payments under one reference. Money with no text to the bank of a connected account is an own transfer.
+- A finance company's steady monthly payment (Rahoitus, Finance, Finans, Credit, or a known lender) is a loan without the "what loan is this" question.
+- A card payment made through PayPal, SumUp, Zettle, Klarna, Paytrail, Square, Stripe, Vipps, MobilePay and similar services shows the shop as the payee and is filed by the shop. The Trustly rows take the shop from the word beside the reference. A payment that names no shop is asked once per service.
+- MobilePay money that arrives with no sender name is set against the purchase it most likely paid a share of (0 to 7 days before), so the shares lower that spending category and are not counted as income. The panel for a row says which purchase the share belongs to and what came back to a purchase.
+- The panel names the payment service a payment went through.
+- Money from MobilePay with no sender that no purchase explains is asked once, as one group: shares of shared purchases, sales or other income. The answer holds for the rows now and the ones that come. Rows answered as shares are no income: each lowers the category of the nearest purchase in the 14 days before it, or Muut menot when there is none.
+- The savings rate is told from complete months only: the overview, the cash flow table and Tilanne no longer give a rate for a month the history covers in part, and Tilanne says "Säästöaste, viimeiset 12 kuukautta".
+- Tilanne names the window of the debt share, "Velanhoito tuloista, viimeiset 6 kuukautta"; the overview's debt row is called "Maksettu velanhoito".
+- Credit drawn is the net of its window and never below zero: the cash flow table and CSV show 0 for a month that paid credit back, and the overview finding agrees.
+- Raportit Income calls its figure "Säännölliset tulot kuukaudessa".
+- The share of spending that is not sorted is one figure on every page. It counts card bills at what their statement rows leave, and a Muut menot row you set yourself counts as sorted.
+- In the table of themes, the theme that held cash, money to people and card bills is now called Raha-asiat. Muut menot is its line for payments nothing recognised.
+- The note about savings sent to an account that is not connected now says so: "tilille, jota ei ole yhdistetty".
+- A payer, a subscription or a bill on an account connected later is no longer called new, added or risen because of an older account: each finding looks at the history of its own account.
+- The overview compares the month with the one before on the accounts both have, as the reports do, instead of hiding the comparison whenever an account joined or ended in between. It stays hidden when the accounts left out carry over a tenth of the month's spending, and says when an account is left out.
+- An account the bank types as a loan that only passes the instalments on is shown as "Lainanhoitotili" in Tilit and in Asetukset, no longer as a debt with a few cents left.
+- Money moved to such an account counts as a transfer between your own accounts, and the bank's instalments out count as the loan payments.
+- A loan with nothing left and no money in for three months says "Maksettu" instead of "Lainaa jäljellä 0 €".
+- Instalments the app cannot place are asked once on the first page, "Mikä laina tämä on?", and your answer is kept. An answer "Asuntolaina" is the home loan in Asuminen.
+- A monthly instalment over 400 € from a home owner who pays a housing company charge and no rent is read as a mortgage, and a car financer's instalment as a car loan, without asking.
+
 ## 0.61.0
 
 - Laskut tells contracts by their start and end: a lease, loan, insurance or phone contract shows since when it runs, ended contracts move under Päättyneet sopimukset with their dates and cost, and the refund at the end of a contract lowers its cost instead of counting as income.

@@ -41,6 +41,8 @@ export interface IncomeSpendingView {
    */
   previous: { month: string; by: string | null } | null;
   figures: Figure[];
+  /** Said under the table when the comparison leaves an account out (shown on the others, or hidden): null when none is left out. */
+  note: string | null;
   /** The savings rate of a whole month, with the label that names the month; null when core tells none of one. */
   savings: { label: string; text: string } | null;
   /** The fixed costs of a month, when there are any. */
@@ -58,6 +60,9 @@ export interface IncomeSpendingView {
 const NO_ROWS = { running: "Ei vielä tapahtumia tässä kuussa.", ended: "Ei tapahtumia tässä kuussa." };
 const NO_SPENDING = { running: "Ei vielä menoja tässä kuussa.", ended: "Ei menoja tässä kuussa." };
 
+/** Under the table when the comparison leaves an account out, whether it is still told or hidden. */
+const LEFT_OUT_NOTE = "Vertailu on laskettu vain samoista tileistä molemmilta jaksoilta.";
+
 const NO_CHANGE = signedMoney(0);
 /** "+17 €" or "−5 €"; a change that rounds to no euro is not told. */
 function changeOf(cents: number): string {
@@ -67,7 +72,7 @@ function changeOf(cents: number): string {
 
 /**
  * The nine largest categories, then the rest in one row; the change from the month before beside a row when there is one
- * to compare with. The rest is a row whenever it is not zero, also below zero (a refund larger than the small
+ * to compare with, told on the accounts both months have (`comparedCents` against `previousCents`). The rest is a row whenever it is not zero, also below zero (a refund larger than the small
  * categories), so the rows add up to "Menot"; a row below zero has its sum and no bar.
  */
 function categoriesOf(data: DashboardData): { rows: Category[]; longest: number } {
@@ -83,7 +88,7 @@ function categoriesOf(data: DashboardData): { rows: Category[]; longest: number 
       category: c.category,
       share: share(c.cents),
       text: money(c.cents),
-      change: data.comparable && c.previousCents ? changeOf(c.cents - c.previousCents) : "",
+      change: data.comparable && c.previousCents ? changeOf(c.comparedCents - c.previousCents) : "",
     })),
     ...(rest !== 0 ? [{ key: "rest", label: `Muut (${data.categories.length - NAMED_CATEGORIES})`, category: null, share: share(rest), text: money(rest), change: "" }] : []),
   ];
@@ -117,6 +122,7 @@ export function incomeSpendingView(data: DashboardData): IncomeSpendingView {
       { label: "Tulot", text: money(totals.incomeCents), previous: before(previousTotals.incomeCents) },
       { label: "Menot", text: money(totals.expenseCents), previous: before(previousTotals.expenseCents) },
     ],
+    note: data.leftOutAccounts ? LEFT_OUT_NOTE : null,
     savings: savingsOf(data.bridge),
     fixed: data.fixedMonthlyCents > 0 ? money(data.fixedMonthlyCents) : null,
     chart: running && totals.expenseCents > 0,

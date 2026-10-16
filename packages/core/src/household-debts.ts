@@ -30,7 +30,7 @@ export interface DebtSource {
  * viewer's part of the account. With a part below the whole the balance and the limit are that part already (the
  * request's balances are cut where they are read), so a debt the account tells is never cut a second time.
  */
-export type DebtAccount = Parameters<typeof creditAccountLoan>[0] & { balanceAt?: string | null; part?: Part };
+export type DebtAccount = Parameters<typeof creditAccountLoan>[0] & { balanceAt?: string | null; part?: Part; loanPayment?: boolean };
 
 /** A part below the whole: some of the account is another user's. */
 export const belowWhole = (part: Part | undefined): part is Part => part !== undefined && part.to - part.from < part.of;
@@ -132,7 +132,8 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
   const sources: DebtSource[] = [];
   const parts = new Map<string, Part>();
   for (const account of accounts) {
-    const told = DEBT_ACCOUNT_TYPES.includes(account.type) ? creditAccountLoan(account, day) : null;
+    // a loan payment account carries the instalments and owes nothing itself
+    const told = DEBT_ACCOUNT_TYPES.includes(account.type) && !account.loanPayment ? creditAccountLoan(account, day) : null;
     if (!told) continue;
     const part = belowWhole(account.part) ? account.part : null;
     const holder = holders.get(account.id);

@@ -13,7 +13,7 @@ const plain = (s: string) => s.replace(/[  ]/g, " ").replace(/−/g, "-");
 
 const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Sähköyhtiö Esimerkki", category: "utilities", cents: -4_500, source: "recurring", ...over });
 const TYPED = row({ date: "2026-10-20", name: "Vuokra Esimerkki", cents: -105_000, source: "expected" });
-const CARD = row({ date: "2026-10-15", name: "Esimerkkipankki Gold (credit)", category: "transfer", cents: -64_230, source: "card", basis: "balance" });
+const CARD = row({ date: "2026-10-15", name: "Esimerkkipankki Gold", category: "transfer", cents: -64_230, source: "card", basis: "balance" });
 
 /** Monday 12.10. to the pay on Friday 23.10., a balance of 2 000 euros. */
 function ahead(rows: Row[], over: Partial<Ahead> = {}): Ahead {

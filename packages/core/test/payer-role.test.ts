@@ -265,7 +265,7 @@ describe("the one-merchant run", () => {
   });
 
   /** Ville's rows are of two merchants (written two ways), so the median of the payer reads rows outside the island. */
-  const ville = (euros: number, date: string, over: Partial<Transaction>) => fromVille(euros, date, { description: "Siirto", ...over });
+  const ville = (euros: number, date: string, over: Partial<Transaction>) => fromVille(euros, date, { description: "Siirto", reference: "1234", ...over });
   const history = () => [
     anchor(),
     ville(300, "2026-08-03", { id: "v1" }),
@@ -338,8 +338,8 @@ describe("own money, money in only (C)", () => {
   it("turns the money in into Omat siirrot and never moves the money out to the same payer", () => {
     const list = rows();
     const before = settled(list, []);
-    expect(before.slice(1).map((t) => [t.category, t.categorySource])).toEqual([["p2p", "rule"], ["income", "default"]]);
-    expect(earnedIncome(ctxOf(before), "2026-12")).toBe(eur(500));
+    expect(before.slice(1).map((t) => [t.category, t.categorySource])).toEqual([["p2p", "rule"], ["p2p_in", "rule"]]);
+    expect(earnedIncome(ctxOf(before), "2026-12")).toBe(0);
     const after = settled(list, asOwn);
     expect(after[1]).toEqual(before[1]);
     expect(after[2]!).toMatchObject({ category: "transfer", categorySource: "payer", isTransfer: true });

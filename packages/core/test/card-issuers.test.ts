@@ -110,12 +110,12 @@ describe("the card bills that count as spending, by issuer", () => {
 
   it("groups the bills by issuer, with sum, count, last payment and the reason; a bill from the card's first day on is of a card not connected", () => {
     expect(missingCardPurchases(ctx, range)).toEqual([
-      { issuer: "Morrow Bank", cents: 60000, count: 3, lastDate: "2026-09-05", reason: "not_connected", since: null },
-      { issuer: "Bank Norwegian", cents: 53000, count: 3, lastDate: "2026-08-31", reason: "before_history", since: "2026-09-01" },
-      { issuer: "SEB Kort", cents: 40000, count: 2, lastDate: "2026-08-12", reason: "not_connected", since: null },
-      { issuer: "Bank Norwegian", cents: 15000, count: 2, lastDate: "2026-09-15", reason: "not_connected", since: null },
-      { issuer: "Resurs Bank", cents: 9000, count: 1, lastDate: "2026-07-02", reason: "not_connected", since: null },
-      { issuer: "Entercard", cents: 6000, count: 1, lastDate: "2026-07-15", reason: "not_connected", since: null },
+      { issuer: "Morrow Bank", label: "Morrow Bank", cents: 60000, count: 3, lastDate: "2026-09-05", reason: "not_connected", since: null },
+      { issuer: "Bank Norwegian", label: "Bank Norwegian Platinum", cents: 53000, count: 3, lastDate: "2026-08-31", reason: "before_history", since: "2026-09-01" },
+      { issuer: "SEB Kort", label: "SEB Kort", cents: 40000, count: 2, lastDate: "2026-08-12", reason: "not_connected", since: null },
+      { issuer: "Bank Norwegian", label: "Bank Norwegian", cents: 15000, count: 2, lastDate: "2026-09-15", reason: "not_connected", since: null },
+      { issuer: "Resurs Bank", label: "Resurs Bank", cents: 9000, count: 1, lastDate: "2026-07-02", reason: "not_connected", since: null },
+      { issuer: "Entercard", label: "Entercard", cents: 6000, count: 1, lastDate: "2026-07-15", reason: "not_connected", since: null },
     ]);
   });
 

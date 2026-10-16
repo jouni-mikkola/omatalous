@@ -6,6 +6,7 @@
   "previousTo": "2026-09-15"
  },
  "comparable": true,
+ "leftOutAccounts": false,
  "running": true,
  "dataFrom": "2024-04-02",
  "totals": {
@@ -56,7 +57,8 @@
    "cents": 105000,
    "count": 1,
    "share": 0.40749796251018744,
-   "previousCents": 105000
+   "previousCents": 105000,
+   "comparedCents": 105000
   },
   {
    "category": "mortgage",
@@ -66,7 +68,8 @@
    "cents": 61240,
    "count": 1,
    "share": 0.23766833546784646,
-   "previousCents": 61240
+   "previousCents": 61240,
+   "comparedCents": 61240
   },
   {
    "category": "groceries",
@@ -76,7 +79,8 @@
    "cents": 34763,
    "count": 7,
    "share": 0.13491287305468236,
-   "previousCents": 20284
+   "previousCents": 20284,
+   "comparedCents": 34763
   },
   {
    "category": "kids",
@@ -86,7 +90,8 @@
    "cents": 27990,
    "count": 1,
    "share": 0.10862731400628711,
-   "previousCents": 27990
+   "previousCents": 27990,
+   "comparedCents": 27990
   },
   {
    "category": "insurance",
@@ -96,7 +101,8 @@
    "cents": 14230,
    "count": 1,
    "share": 0.05522567625257112,
-   "previousCents": 0
+   "previousCents": 0,
+   "comparedCents": 14230
   },
   {
    "category": "shopping",
@@ -106,7 +112,8 @@
    "cents": 6688,
    "count": 1,
    "share": 0.025955679745410798,
-   "previousCents": 0
+   "previousCents": 0,
+   "comparedCents": 6688
   },
   {
    "category": "utilities",
@@ -116,7 +123,8 @@
    "cents": 4088,
    "count": 1,
    "share": 0.015865254007063297,
-   "previousCents": 4763
+   "previousCents": 4763,
+   "comparedCents": 4088
   },
   {
    "category": "subscriptions",
@@ -126,7 +134,8 @@
    "cents": 2798,
    "count": 2,
    "share": 0.010858850467652423,
-   "previousCents": 2798
+   "previousCents": 2798,
+   "comparedCents": 2798
   },
   {
    "category": "restaurants",
@@ -136,7 +145,8 @@
    "cents": 873,
    "count": 2,
    "share": 0.003388054488298987,
-   "previousCents": 9869
+   "previousCents": 9869,
+   "comparedCents": 873
   }
  ],
  "themes": {
@@ -674,16 +684,8 @@
   "inUnknownCents": 0,
   "cardBillCents": 0,
   "cardBillIssuers": [],
-  "items": [
-   {
-    "kind": "loan",
-    "key": "out:chk:Nordea Bank Abp#61240",
-    "payee": "Nordea Bank Abp",
-    "paymentCents": 61240,
-    "cents": 734880
-   }
-  ],
-  "total": 1
+  "items": [],
+  "total": 0
  },
  "colorOrder": [
   "housing",

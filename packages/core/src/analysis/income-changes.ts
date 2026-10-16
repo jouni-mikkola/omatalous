@@ -8,7 +8,8 @@ import { addDays, addMonths, dayNumber, fromDayNumber, monthOf } from "../dates.
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import type { IsoDate, UserInputs } from "../types.ts";
-import { type AnalysisContext, historyCovers } from "./context.ts";
+import type { AnalysisContext } from "./context.ts";
+import { accountCovers } from "./coverage.ts";
 import { formatEur, formatFiDate } from "./format.ts";
 import { addBankingDays, JOB_END_WORDS, nextPayDate, payerKey } from "./income.ts";
 import { newSources, residualTax, windfalls } from "./income-events.ts";
@@ -158,7 +159,7 @@ function hasEnded(b: IncomeBase, s: IncomeSeries): boolean {
 
 function hasStarted(b: IncomeBase, s: IncomeSeries): boolean {
   const first = s.rows[0]!;
-  return s.rows.length >= 2 && dayNumber(b.end) - first.day <= 120 && historyCovers(b.ctx, addDays(first.bookingDate, -92));
+  return s.rows.length >= 2 && dayNumber(b.end) - first.day <= 120 && accountCovers(b.ctx, [s.accountId], addDays(first.bookingDate, -92));
 }
 
 function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] {

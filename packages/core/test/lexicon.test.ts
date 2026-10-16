@@ -272,6 +272,8 @@ describe("what a stem or a brand must not catch", () => {
     expect(card("EPASSI KUNTOKESKUS X")).toBe("fitness");
     expect(card("EPASSI PAYMENTS KANGASALA")).toBeNull();
     expect(card("SMARTUM")).toBeNull();
+    expect(card("PAYSAFECARD RUSTA KANGASALA")).toBe("home");
+    expect(card("PAYSAFECARD")).toBeNull();
   });
 
   it("a card text with a word of credit does not stop a brand; the financing company's own name does", () => {

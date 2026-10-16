@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { elapsed, queuedSentence, restartWait, startTicker } from "../src/components/ops/ops-elapsed.ts";
+import { clockGap, elapsed, queuedSentence, restartWait, startTicker } from "../src/components/ops/ops-elapsed.ts";
 import { OpsProgress } from "../src/components/ops/OpsProgress.tsx";
 import { failWait } from "../src/components/ops/use-polled.ts";
 import type { OpsRequestView, OpsState } from "../src/components/ops/types.ts";
@@ -99,5 +99,39 @@ describe("the wait after a failed poll", () => {
   it("still grows to a minute when nothing is live", () => {
     expect(failWait(restartWait, st(false), 1)).toBeCloseTo(4800);
     expect(failWait(restartWait, null, 20)).toBe(60_000);
+  });
+});
+
+describe("the wait is counted on the server's clock", () => {
+  const withServer = (request: OpsRequestView, serverNow: string | null, helperSeenAt: number | null = null) =>
+    renderToStaticMarkup(createElement(OpsProgress, { request, down: false, downSince: null, helperSeenAt, serverNow, onCancel: () => {} }));
+
+  it("shows no false wait when the browser's clock is ahead of the server's", () => {
+    // the server wrote the request 30 s before its own now; the browser's clock reads two minutes later than the server's
+    const serverNow = new Date(NOW - 120_000).toISOString();
+    const request = req({ requestedAt: new Date(NOW - 150_000).toISOString() });
+    expect(withServer(request, serverNow)).toContain("Odotettu 30 s.");
+    // the same request on the browser's clock alone: the false wait
+    expect(withServer(request, null)).toContain("Odotettu 2 min 30 s.");
+  });
+
+  it("shows no false wait when the browser's clock is behind the server's, nor a negative one", () => {
+    const serverNow = new Date(NOW + 300_000).toISOString();
+    expect(withServer(req({ requestedAt: new Date(NOW + 270_000).toISOString() }), serverNow)).toContain("Odotettu 30 s.");
+    expect(withServer(req({ status: "running", requestedAt: new Date(NOW + 240_000).toISOString() }), serverNow)).toContain("aikaa kulunut 1 min 0 s.");
+  });
+
+  it("is the same on a browser whose clock is right, and falls back to the browser's clock without or with a bad server time", () => {
+    expect(withServer(req(), new Date(NOW).toISOString())).toContain("Odotettu 30 s.");
+    expect(withServer(req(), "not a time")).toContain("Odotettu 30 s.");
+    expect(clockGap(undefined, NOW)).toBe(0);
+    expect(clockGap("", NOW)).toBe(0);
+    expect(clockGap(new Date(NOW + 5_000).toISOString(), NOW)).toBe(5_000);
+  });
+
+  it("reads the helper's last look on the server's clock too", () => {
+    // the browser is 2 min ahead: the helper looked 20 s before the server's now, so the next look is 40 s away
+    const serverNow = new Date(NOW - 120_000).toISOString();
+    expect(withServer(req({ requestedAt: new Date(NOW - 150_000).toISOString() }), serverNow, NOW - 140_000)).toContain("noin 40 s kuluttua");
   });
 });

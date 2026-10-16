@@ -212,12 +212,14 @@ describe("a payment to a person's account with no reference number", () => {
     expect(category(counterparty, description, euros, none, [])).toBe(expected);
   });
 
-  it("is the payee's alone: a company, a card purchase and money in are not read this way", () => {
+  it("is the payee's alone: a company and a card purchase are not read this way, nor money in that says pay or rent", () => {
     expect(category("MEIKALAINEN MAIJA", "kiitos", -50, { reference: null })).toBe("other");
     expect(category("TMI MATTI MEIKALAINEN", "kiitos", -120, none)).toBe("other");
     expect(category("MEIKALAINEN MAIJA", "kiitos", -20, { ...none, bankTxnCode: "PMNT-CCRD-POSD" })).toBe("other");
-    // pay and rent from a person carry no reference either, and must stay earned: only money out is built
-    expect(category("MEIKALAINEN MAIJA", "kiitos", 50, none)).toBe("income");
+    // pay and rent from a person carry no reference either, and must stay earned: money in is a person's only when the text says nothing of either
+    expect(category("MEIKALAINEN MAIJA", "kiitos", 50, none)).toBe("p2p_in");
+    expect(category("TMI MATTI MEIKALAINEN", "kiitos", 50, none)).toBe("income");
+    expect(category("MEIKALAINEN MAIJA", "VUOKRA 10/2026", 600, none)).not.toBe("p2p_in");
     expect(category("MEIKALAINEN MAIJA", "TUNNIT VKO 12", 600, none)).toBe("income");
   });
 });

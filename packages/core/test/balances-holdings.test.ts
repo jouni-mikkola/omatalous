@@ -152,7 +152,7 @@ describe("holdings of the balance report", () => {
     const typed = loan({ id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", balanceCents: 1_000_000, balanceDate: "2026-06-01", repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 50_000, rateBp: 0 });
     const { holdings } = household([], [typed]);
     expect(holdings.loans).toEqual([
-      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, source: "typed", maybeTwice: false },
+      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, source: "typed", paidOff: false, maybeTwice: false },
     ]);
     expect(holdings.loans[0]!.leftCents).toBeLessThan(typed.balanceCents);
   });

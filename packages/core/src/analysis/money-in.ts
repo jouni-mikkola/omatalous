@@ -78,7 +78,7 @@ export function moneyIn(rows: readonly Row[], ownIbans: ReadonlySet<string>, why
   for (const t of incoming) {
     if (out.has(t.id)) continue;
     const paid = t.category === TO_PERSONS || !isNamed(t, ownIbans) ? [] : (byPayee.get(t.merchant) ?? []).filter((p) => fits(t, p));
-    out.set(t.id, refundOf(t, paid) ?? contractRefundOf(t, paid, now) ?? (t.categorySource === "user" ? [] : null));
+    out.set(t.id, refundOf(t, paid) ?? contractRefundOf(t, paid, now) ?? (t.categorySource === "user" || t.categorySource === "payer" ? [] : null));
   }
   if (why) {
     const byId = new Map(rows.map((t) => [t.id, t]));

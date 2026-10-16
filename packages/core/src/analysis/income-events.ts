@@ -5,7 +5,8 @@
 import { addDays, DAYS_PER_MONTH, dayNumber, fromDayNumber } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import type { IsoDate } from "../types.ts";
-import { type AnalysisTx, historyCovers } from "./context.ts";
+import type { AnalysisTx } from "./context.ts";
+import { accountCovers } from "./coverage.ts";
 import { formatFiDate } from "./format.ts";
 import { INCOME_TYPES, type IncomeType, payerKey } from "./income.ts";
 import { COUNT_INESSIVE, eur, type IncomeBase, type IncomeChange, inessive, isKela, passes, shortDate } from "./income-series.ts";
@@ -28,7 +29,7 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>): IncomeChan
   const endDay = dayNumber(b.end);
   for (const [key, rows] of byPayer) {
     const first = rows[0]!;
-    if (skip.has(payerKey(first)) || endDay - first.day > NEW_SOURCE_DAYS || !historyCovers(b.ctx, addDays(first.bookingDate, -182))) continue;
+    if (skip.has(payerKey(first)) || endDay - first.day > NEW_SOURCE_DAYS || !accountCovers(b.ctx, rows.map((t) => t.accountId), addDays(first.bookingDate, -182))) continue;
     const total = rows.reduce((s, t) => s + t.amountCents, 0);
     const months = Math.min(3, Math.max(1, Math.ceil((endDay - first.day + 1) / DAYS_PER_MONTH)));
     const big = b.usualMonthlyCents !== null && total >= b.usualMonthlyCents * 0.1;
@@ -62,7 +63,7 @@ export function windfalls(b: IncomeBase): IncomeChange[] {
       const total = recent.reduce((s, t) => s + t.amountCents, 0);
       const last = recent[recent.length - 1]!;
       const before = of.filter((t) => Math.abs(last.day - 365 - t.day) <= 75);
-      const knows = historyCovers(b.ctx, fromDayNumber(last.day - 365 - 75));
+      const knows = accountCovers(b.ctx, recent.map((t) => t.accountId), fromDayNumber(last.day - 365 - 75));
       const prior = before.reduce((s, t) => s + t.amountCents, 0);
       const detail = before.length ? `Viime vuonna ${eur(prior)} ${inessive(before[before.length - 1]!.bookingDate)}.` : knows ? "Viime vuonna samaan aikaan ei vastaavaa." : `${last.merchant}, ${recent.length} ${recent.length === 1 ? "maksu" : "maksua"}.`;
       if (!passes(b, total / 12)) continue;
@@ -113,7 +114,7 @@ export function residualTax(b: IncomeBase): IncomeChange | null {
   const lastRow = now.rows[now.rows.length - 1];
   if (!lastRow || now.cents < 10000 || dayNumber(b.end) - lastRow.day > 120) return null;
   const prev = sumOf(latest - 1);
-  const knows = historyCovers(b.ctx, `${latest - 1}-08-01`);
+  const knows = accountCovers(b.ctx, now.rows.map((t) => t.accountId), `${latest - 1}-08-01`);
   const parts = COUNT_INESSIVE[Math.min(now.rows.length, 4)] ?? `${now.rows.length}`;
   const detail = prev.cents >= 10000 ? `Toinen vuosi peräkkäin, viime vuonna ${eur(prev.cents)}.` : knows ? "Viime vuonna ei jäännösveroa." : `Viimeinen erä ${formatFiDate(lastRow.bookingDate)}.`;
   return {

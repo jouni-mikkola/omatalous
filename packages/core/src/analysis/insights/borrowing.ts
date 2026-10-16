@@ -10,6 +10,7 @@ import { monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { IsoDate, UserInputs } from "../../types.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
+import { coverOf } from "../flows.ts";
 import { formatEur } from "../format.ts";
 import { usualIncome } from "../usual.ts";
 import { dateSpan, lastCompleteMonths, monthRows, monthSpan } from "./shared.ts";
@@ -49,14 +50,16 @@ export function debtShareOf(ctx: AnalysisContext, end: IsoDate, inputs: UserInpu
 export function borrowing({ ctx, range, end, current, totals, inputs }: InsightArgs): Insight[] {
   const out: Insight[] = [];
   const period = dateSpan(range.from, end);
-  if (totals.borrowedCents > 0) {
+  // credit drawn is the window's net, never below zero (`coverOf`); the rows only tell how many draws made it
+  const drawn = coverOf(totals).creditDrawnCents;
+  if (drawn > 0) {
     const draws = current.filter((t) => t.flows.borrowed > 0);
     out.push({
       id: "borrowed",
       tone: "warning",
-      title: `Luottoa nostettu ${formatEur(totals.borrowedCents, false)}`,
+      title: `Luottoa nostettu ${formatEur(drawn, false)}`,
       detail: `${draws.length === 1 ? "Yksi nosto" : `${draws.length} nostoa`} ${period}.`,
-      yearlyCents: totals.borrowedCents,
+      yearlyCents: drawn,
       rows: draws.map((t) => t.id),
       link: { category: "credit_draw", from: range.from, to: end },
     });

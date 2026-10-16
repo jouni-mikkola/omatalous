@@ -30,7 +30,7 @@ import { dayNumber } from "./dates.ts";
 import type { Debt } from "./debt-part.ts";
 import { heldLoans } from "./holdings.ts";
 import { belowWhole, householdDebts } from "./household-debts.ts";
-import { fitsPayment, takenSeries } from "./loan-detect.ts";
+import { fitsPayment, loanProposals, takenSeries } from "./loan-detect.ts";
 import { endOf, hasReferenceRate, loanNextPayment, loansOf, type NextPayment } from "./loans.ts";
 import { fold } from "./merchant.ts";
 import { parseSeriesId, type RecurringSeries } from "./recurring.ts";
@@ -146,7 +146,9 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
   const debts = householdDebts(balances, inputs, today);
   const homeLoans = (of: typeof debts) => heldLoans(balances, of).filter(({ row }) => row.kind === "mortgage" && row.leftCents !== 0);
   let saved = homeLoans(debts);
-  const paid = running.filter((s) => s.category === "mortgage").map((s) => ({ s, rows: rowsOf(ctx, s, s.firstDate) }));
+  // a series the household said is its home loan, or that a home owner's big instalment places, is paid for the home as a mortgage is
+  const mortgages = new Set(loanProposals(ctx, inputs).filter((p) => p.kind === "mortgage" && p.placed).map((p) => p.seriesId));
+  const paid = running.filter((s) => s.category === "mortgage" || mortgages.has(s.id)).map((s) => ({ s, rows: rowsOf(ctx, s, s.firstDate) }));
   const spoken = takenSeries(inputs);
   let open = paid.filter((p) => !spoken(p.s, p.rows)).sort((a, b) => bySum(a.s, b.s));
   /** The series each saved loan with no link takes as its payments, by the loan's id: they are the loan's row, no row of their own. */

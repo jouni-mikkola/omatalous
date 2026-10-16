@@ -27,6 +27,8 @@ export interface Account {
   customName: string | null;
   /** Who holds the account, as the bank gives it ("A, B"). */
   holder: string | null;
+  /** A loan payment account (Lainanhoitotili): typed loan by the bank, carrying a loan's instalments, owing nothing itself. */
+  loanPayment?: true;
   /** A card's last four digits ("•••• 1234"). */
   cardMask: string | null;
   creditLimitCents: number | null;

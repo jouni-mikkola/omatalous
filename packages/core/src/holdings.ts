@@ -47,6 +47,8 @@ export interface Holdings {
     id: string;
     name: string;
     type: "checking" | "savings" | "other";
+    /** A loan payment account (Lainanhoitotili): typed loan by the bank, shown here with the accounts, never as a debt. */
+    loanPayment?: true;
     /** The bank as the app shows it. Null for an account another member shared: the account lists leave it out too. */
     bank: string | null;
     /** The owner's name when another member shared the account with the viewer, null for the viewer's own. */
@@ -104,6 +106,8 @@ export interface Holdings {
     source: "account" | "typed";
     /** The debt may be in the totals twice: no link says that a saved loan and a connected account are one (`maybeTwice`). */
     maybeTwice: boolean;
+    /** Nothing is left and the loan is quiet: a typed loan whose plan is done, or a linked account with no row for three months. The page says "Maksettu". */
+    paidOff: boolean;
   })[];
   /** The known `leftCents` of `loans` added once; a loan without a balance is not in it, as it is not in `debtCents`. Null when no loan has one. */
   loansCents: number | null;
@@ -126,6 +130,9 @@ const accountMask = (iban: string | null | undefined): string | null => {
 /** A card has a limit when the bank gave one above zero. The one place that decides it: the cards here and Asetukset > Tilit both ask. */
 export const cardLimitCents = (cents: number | null | undefined): number | null => (cents != null && cents > 0 ? cents : null);
 
+/** A loan with nothing left is paid off when its account has had no row for this many days. */
+const PAID_QUIET_DAYS = 90;
+
 /** The holdings on the context's today, from the accounts in view and the user's saved loans. */
 export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): Holdings {
   const day: IsoDate = ctx.today;
@@ -135,8 +142,8 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
 
   const numberOf = new Map(ctx.accounts.map((a) => [a.id, a.iban]));
   const accounts = balances.flatMap((b): Holdings["accounts"] =>
-    b.type !== "credit_card" && b.type !== "loan"
-      ? [{ id: b.id, name: b.name, type: b.type, bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt, foreign: b.foreign ?? null, mask: accountMask(numberOf.get(b.id)), ...usedOf(b) }]
+    (b.type !== "credit_card" && b.type !== "loan") || b.loanPayment
+      ? [{ id: b.id, name: b.name, type: b.type === "loan" || b.type === "credit_card" ? "other" : b.type, ...(b.loanPayment ? { loanPayment: true as const } : {}), bank: b.bank ?? null, ownerName: b.ownerName, balanceCents: balanceWalk(ctx, b)?.at(ctx.todayDay) ?? null, balanceAt: b.balanceAt, foreign: b.foreign ?? null, mask: accountMask(numberOf.get(b.id)), ...usedOf(b) }]
       : [],
   );
 
@@ -162,7 +169,12 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     ];
   });
 
-  const loans = heldLoans(balances, debts).map((held) => held.row);
+  const accountOfLoan = new Map(debts.sources.map((s) => [s.loanId, s.accountId]));
+  const quiet = (loanId: string) => {
+    const accountId = accountOfLoan.get(loanId);
+    return accountId === undefined || !ctx.txs.some((t) => t.accountId === accountId && t.day > ctx.todayDay - PAID_QUIET_DAYS);
+  };
+  const loans = heldLoans(balances, debts).map(({ row }) => ({ ...row, paidOff: row.leftCents === 0 && quiet(row.id) }));
   return {
     accounts,
     accountsCents: sumKnown(accounts.map((a) => a.balanceCents)),
@@ -199,6 +211,7 @@ export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<t
       monthlyPaymentCents: monthly.counted ? monthly.monthlyCents : null,
       source,
       maybeTwice: flagged,
+      paidOff: false,
       ...usedOf(account),
     };
     return { row, debt: loan };

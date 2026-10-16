@@ -934,7 +934,7 @@
    {
     "id": "own_unconnected",
     "tone": "info",
-    "title": "150 € säästöjä meni tilille, jonka saldo ei näy",
+    "title": "150 € säästöjä meni tilille, jota ei ole yhdistetty",
     "detail": "Suurimmat saajat: Nordnet Bank Ab. Yhdistä tili.",
     "category": "investments",
     "cents": 15000

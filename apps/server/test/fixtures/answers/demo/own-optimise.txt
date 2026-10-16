@@ -9,7 +9,7 @@
   "situation": [
    {
     "id": "savings_rate",
-    "label": "Säästöaste",
+    "label": "Säästöaste, viimeiset 12 kuukautta",
     "value": 0.11265450095412104,
     "unit": "share",
     "text": "11 %"
@@ -30,7 +30,7 @@
    },
    {
     "id": "debt_share",
-    "label": "Velanhoito tuloista",
+    "label": "Velanhoito tuloista, viimeiset 6 kuukautta",
     "value": 0.07316455696202531,
     "unit": "share",
     "text": "7 %"
@@ -45,7 +45,7 @@
   "household": [
    {
     "id": "own_unconnected",
-    "reason": "1 800 € säästöjä meni tilille, jonka saldo ei näy."
+    "reason": "1 800 € säästöjä meni tilille, jota ei ole yhdistetty."
    }
   ],
   "areas": [

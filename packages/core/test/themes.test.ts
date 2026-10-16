@@ -87,7 +87,7 @@ describe("the table of themes", () => {
       "Vakuutukset",
       "Verot ja maksut",
       "Lainat ja luotot",
-      "Muut menot",
+      "Raha-asiat",
     ]);
     expect(new Set(THEMES.map((t) => t.id)).size).toBe(15);
   });
@@ -97,8 +97,8 @@ describe("the table of themes", () => {
     expect(spending.length).toBeGreaterThan(30);
     for (const c of spending) {
       const lines = THEMES.flatMap((t) => t.lines.filter((l) => l.id === c.id && t.id !== "car"));
-      // Muut menot is the heading of the theme: its line for the category of that name is Muut
-      expect(lines.map((l) => l.heading), c.id).toEqual([c.id === "other" ? "Muut" : c.label]);
+      // the theme is Raha-asiat: the category Muut menot is its line of that name, as everywhere else
+      expect(lines.map((l) => l.heading), c.id).toEqual([c.label]);
     }
     for (const t of THEMES) expect(new Set(t.lines.map((l) => l.id)).size, t.heading).toBe(t.lines.length);
   });
@@ -169,7 +169,7 @@ describe("a row's theme and line", () => {
   });
 
   it("a lease is Auto whatever its category, the same payee's other bill is not", () => {
-    expect(places([lease(), paid("2026-10-08", 380, LENDER, "other", "VUOKRA")])).toEqual(["Auto / Leasing", "Muut menot / Muut"]);
+    expect(places([lease(), paid("2026-10-08", 380, LENDER, "other", "VUOKRA")])).toEqual(["Auto / Leasing", "Raha-asiat / Muut menot"]);
   });
 
   it("home insurance, property tax and a pet insurer's premium stay in the theme of their category: no word list names them yet", () => {
@@ -184,22 +184,22 @@ describe("a row's theme and line", () => {
 
   it("money to a person is never Ruoka, whatever its message says", () => {
     expect(places([paid("2026-10-09", 40, "Matti Meikalainen", "p2p", "RUOKAKAUPPA JA RAVINTOLA"), paid("2026-10-09", 40, "Esimerkkikauppa Oy", "groceries", "RUOKAKAUPPA")])).toEqual([
-      "Muut menot / Maksut henkilöille",
+      "Raha-asiat / Maksut henkilöille",
       "Ruoka / Ruokakauppa",
     ]);
   });
 
-  it("a category the table does not know is Muut menot, and a car bought is the line Auton osto", () => {
+  it("a category the table does not know is the line Muut menot of Raha-asiat, and a car bought is the line Auton osto", () => {
     const rows = [paid("2026-10-10", 50, "Esimerkki Oy", "no_such_category"), paid("2026-10-11", 9000, "Matti Meikalainen", "vehicle_purchase")];
-    expect(places(rows)).toEqual(["Muut menot / Muut", "Auto / Auton osto"]);
-    expect(places(rows, NO_CAR)).toEqual(["Muut menot / Muut", "Liikkuminen / Auton osto"]);
+    expect(places(rows)).toEqual(["Raha-asiat / Muut menot", "Auto / Auton osto"]);
+    expect(places(rows, NO_CAR)).toEqual(["Raha-asiat / Muut menot", "Liikkuminen / Auton osto"]);
   });
 });
 
 describe("the theme Auto of a household that has not said how many cars it has", () => {
   const rows = [fuel("2026-10-01"), carInsurance(), vehicleTax(), carLoan(), lease()];
   const inAuto = ["Auto / Polttoaine", "Auto / Liikenne- ja autovakuutus", "Auto / Ajoneuvovero", "Auto / Rahoitus", "Auto / Leasing"];
-  const noAuto = ["Liikkuminen / Auto, polttoaine ja pysäköinti", "Vakuutukset / Vakuutukset", "Verot ja maksut / Verot, maksut ja sakot", "Lainat ja luotot / Kulutusluotot", "Muut menot / Muut"];
+  const noAuto = ["Liikkuminen / Auto, polttoaine ja pysäköinti", "Vakuutukset / Vakuutukset", "Verot ja maksut / Verot, maksut ja sakot", "Lainat ja luotot / Kulutusluotot", "Raha-asiat / Muut menot"];
 
   it("exists with six purchases of fuel or charging in the window, and with five every row stays in the theme of its category", () => {
     expect(places(rows, notAsked(6))).toEqual(inAuto);
@@ -273,7 +273,7 @@ describe("the themes add up to Menot", () => {
       if (cars === HAS_CAR) inAuto = byTheme.get("car") ?? 0;
       if (cars !== NO_CAR) continue;
       // without Auto no words move a row: a theme is the sum of its categories, as Menot kategorioittain has them.
-      // Muut menot also has the categories the table does not know (a seeded household's own rule makes one)
+      // Raha-asiat also has the categories the table does not know (a seeded household's own rule makes one)
       for (const theme of THEMES) {
         const mine = (category: string) => (theme.id === "other" && !known.has(category)) || (theme.id !== "car" && lineIds.get(theme.id)!.has(category));
         const ofCategories = rows.reduce((sum, t) => (mine(t.category) ? sum + t.spend : sum), 0);

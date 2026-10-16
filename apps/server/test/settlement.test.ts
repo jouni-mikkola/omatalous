@@ -130,10 +130,11 @@ describe("settlement routes", () => {
     const a = `u:${w.aino}`;
     // read on 20.9. while September is open: a month that has closed is kept as it was and would not take the member in
     const before = (await get(w, w.aino))[0]!;
-    // the holder nobody names is unknown: her share is shown apart and no member carries it
-    expect(Object.keys(members(before))).toEqual([a]);
-    expect(before.settlement).toMatchObject({ unknownOwed: 40000, unknownPaid: 0 });
+    // two holders who split equally: the holder nobody names has her own half, known, and nothing reads as unknown
+    expect(Object.keys(members(before))).toEqual([a, "u:"]);
+    expect(before.settlement).toMatchObject({ unknownOwed: 0, unknownPaid: 0 });
     expect(members(before)[a]).toMatchObject({ paid: 80000, owed: 40000, over: 40000 });
+    expect(members(before)["u:"]).toMatchObject({ paid: 0, owed: 40000, over: -40000 });
 
     // only an admin names members
     const plain = w.aino === w.adminId ? w.ville : w.aino;

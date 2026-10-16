@@ -24,6 +24,7 @@ const USES_SPEND_ROWS = [
   "analysis/category-totals.ts",
   "analysis/context.ts",
   "analysis/counted.ts",
+  "analysis/dashboard.ts",
   "analysis/filed.ts",
   "analysis/food.ts",
   "analysis/questions.ts",

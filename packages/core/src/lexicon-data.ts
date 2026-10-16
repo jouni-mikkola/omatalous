@@ -2,6 +2,7 @@
  * The rows of the Finnish payee lexicon (lexicon.ts reads them): company rows by trade, then stems. A name is folded
  * (A to Z, digits, ".", "-" and a space); how it is matched is told in lexicon.ts.
  */
+import { PAYMENT_SERVICES } from "./payment-services.ts";
 
 /** What the rows of a company form: a purchase, a bill, a contract with a monthly cost, a card's bill, a payment service, or (stem) a trade word. */
 type LexiconKind = "purchase" | "bill" | "contract" | "card_bill" | "intermediary" | "stem";
@@ -24,6 +25,8 @@ const stem = (category: string, ...names: string[]): LexiconEntry => ({ category
 const stemWord = (category: string, ...names: string[]): LexiconEntry => ({ category, kind: "stem", names, whole: true });
 
 export const LEXICON: readonly LexiconEntry[] = [
+  // the payment services of payment-services.ts: their name is taken out of the text and the rest is read
+  ...PAYMENT_SERVICES.map((service) => company("other", "intermediary", ...service.names)),
   // ── companies: the brands the trade register confirmed, by trade ──
   // Not here: the payees of payees.ts (leasing, district heat, electricity, water and waste companies, among them Ayvens,
   // ALD, Oulun Energia, Lahti Energia, Vantaan Energia, Tampereen Vesi), which decide first; and Posti and PostNord,
@@ -66,7 +69,7 @@ export const LEXICON: readonly LexiconEntry[] = [
   company("gambling", "purchase", "FINTOTO"),
   company("loans", "intermediary", "AVARDA"),
   company("card_bill", "card_bill", "EUROCARD"),
-  company("other", "intermediary", "EPASSI", "EPASSI PAYMENTS", "SMARTUM", "EDENRED", "HUUTO.NET", "NEXI", "BAMBORA", "WORLDLINE"),
+  company("other", "intermediary", "EPASSI", "EPASSI PAYMENTS", "SMARTUM", "EDENRED", "HUUTO.NET", "NEXI", "BAMBORA", "WORLDLINE", "PAYSAFECARD"),
   company("health", "purchase", "MEDICOVER", "TAYS"),
   company("loans", "contract", "CREDITSTAR"),
   // a housing loan's guarantee fee

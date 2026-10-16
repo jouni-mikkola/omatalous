@@ -1,3 +1,4 @@
+import { flagLoanPayment } from "../loan-payment.ts";
 /**
  * Report registry. A report is a pure function (context, range) → data.
  * To add one: write `reports/<name>.ts`, register it here, give it a
@@ -65,7 +66,7 @@ export const isReportId = (id: string): id is ReportId => Object.hasOwn(REPORTS,
  * reports, for a page that shows a few sections (Yhteenveto reads one); the others are missing from the answer.
  */
 export function buildReports(input: Omit<ReportInput, "inputs"> & { inputs?: UserInputs }, only?: readonly ReportId[]): ReportsData {
-  const full: ReportInput = { ...input, inputs: input.inputs ?? NO_INPUTS };
+  const full: ReportInput = { ...input, balances: flagLoanPayment(input.ctx, input.balances), inputs: input.inputs ?? NO_INPUTS };
   const ids = only?.length ? (Object.keys(REPORTS) as ReportId[]).filter((id) => only.includes(id)) : (Object.keys(REPORTS) as ReportId[]);
   return Object.fromEntries(ids.map((id) => [id, REPORTS[id](full)])) as ReportsData;
 }

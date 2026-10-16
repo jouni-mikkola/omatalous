@@ -152,7 +152,7 @@ describe("what was checked adds up", () => {
 
   it("holds for every household of the optimise tests", () => {
     for (const [label, parts] of homes) adds(label, label === "every part together" ? buildOptimise(householdInput(household())) : run(...parts));
-  });
+  }, 30_000); // about 1 s alone, but the default 5 s is lost when several suites run: a red must mean a bug
 
   it("holds for random households", () => {
     for (let seed = 1; seed <= 5; seed++) {

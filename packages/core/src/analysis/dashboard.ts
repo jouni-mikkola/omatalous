@@ -1,5 +1,6 @@
 import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
+import { flagLoanPayment } from "../loan-payment.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { buildHousing, type Housing } from "../housing.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
@@ -9,8 +10,8 @@ import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
-import { sameAccounts } from "./coverage.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
+import { accountsCoverage, comparableWith } from "./coverage.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
@@ -22,13 +23,22 @@ import { isCompleteMonth } from "./usual.ts";
 
 export type { CategoryTotal } from "./category-totals.ts";
 
+/** A category of the month with what this month spent on it on the accounts both periods have, the sum its change is set against. */
+type DashboardCategory = CategoryTotal & { comparedCents: number };
+
 // the pace code lives in forecast.ts; these keep the names the package index has always exported
 export { type MonthPace, monthPace } from "./forecast.ts";
 
 export interface DashboardData {
   range: { from: IsoDate; to: IsoDate; previousFrom: IsoDate; previousTo: IsoDate };
-  /** False when the history does not reach back over the previous period: deltas and swings are hidden. */
+  /**
+   * False when the history does not reach back over the previous period on enough of the accounts (those left out may
+   * carry at most a tenth of the period's spending): deltas and swings are hidden. Otherwise `previousTotals` and the
+   * categories' `previousCents` are the sums of the accounts both periods have.
+   */
   comparable: boolean;
+  /** An account with rows in only one of the two periods is left out of the comparison (shown or hidden): the page says so. */
+  leftOutAccounts: boolean;
   /** The range reaches today (from <= today <= to). The previous period is then cut to the same days (range.previousTo). */
   running: boolean;
   /** First booking date in the history, or null. */
@@ -43,7 +53,7 @@ export interface DashboardData {
   /** The split of income the overview shows: the period's complete months, or the latest complete month while it has none. */
   bridge: Bridge;
   fixedMonthlyCents: number;
-  categories: CategoryTotal[];
+  categories: DashboardCategory[];
   /**
    * What goes where: the themes of the last twelve complete months before today, whatever the range. null under three
    * complete months that every paying account covers.
@@ -107,18 +117,28 @@ export type DashboardAnswer = Omit<DashboardData, "holdings"> & {
  * `balances` and `inputs` are what the cached context does not hold: the
  * account balances and the user's marks and expected bills, read per request.
  */
-export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): DashboardData {
+export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBalances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): DashboardData {
+  const balances = flagLoanPayment(ctx, accountBalances);
   // a running period is compared with the same days of the previous one, or the
   // salary on the 15th makes the first nine days look like a loss of income
   const running = range.from <= ctx.today && ctx.today <= range.to;
   const [previousFrom, previousTo] = previousRange(range.from, running ? ctx.today : range.to);
-  // the headline sets whole figures side by side, so no account may be left out of either
-  const comparable = sameAccounts(ctx, { from: previousFrom, to: previousTo }, range);
+  const span = { from: previousFrom, to: previousTo };
+  // the accounts both periods have the whole of: the earlier period is summed on those only, as the summary report does
+  const compared = comparableWith(ctx, span, range);
+  const shared = compared?.shared ?? null;
+  const comparable = shared !== null;
+  const leftOutAccounts = accountsCoverage(ctx).compare(span, range)?.leftOut ?? false;
+  const onShared = (rows: AnalysisTx[]) => (shared ? rows.filter((t) => shared.has(t.accountId)) : rows);
   const current = inDays(ctx, toDayRange(range));
-  const previous = inDays(ctx, toDayRange({ from: previousFrom, to: previousTo }));
+  const previous = inDays(ctx, toDayRange(span));
+  const rows = spendRows(ctx, toDayRange(range));
+  const previousRows = spendRows(ctx, toDayRange(span));
   const totals = spendTotals(ctx, toDayRange(range));
-  const previousTotals = spendTotals(ctx, toDayRange({ from: previousFrom, to: previousTo }));
-  const categories = categoryTotals(spendRows(ctx, toDayRange(range)), spendRows(ctx, toDayRange({ from: previousFrom, to: previousTo })));
+  const previousTotals = totalsOf(onShared(previousRows).map((t) => t.flows));
+  const comparedNow = new Map<string, number>();
+  for (const t of onShared(rows)) if (t.spend) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
+  const categories = categoryTotals(rows, onShared(previousRows)).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
   const alerts = buildAlerts(ctx, range, inputs);
   // one report for the notice and the count, so the two cannot disagree
   const quality = dataQualityReport(ctx, range, balances);
@@ -127,6 +147,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
   return {
     range: { from: range.from, to: range.to, previousFrom, previousTo },
     comparable,
+    leftOutAccounts,
     running,
     dataFrom: ctx.dataFrom,
     totals,

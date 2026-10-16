@@ -2,7 +2,8 @@
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { unknownSpending } from "../analysis/data-quality.ts";
 import { incomeCentsOf, incomeSelect, sumOf } from "../analysis/counted.ts";
-import { type PeriodTotals, totalsOf } from "../analysis/flows.ts";
+import { savingsRateOf } from "../analysis/bridge.ts";
+import { coverOf, type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
@@ -14,10 +15,12 @@ export interface CashflowRow {
   consumptionCents: number;
   debtCents: number;
   savedCents: number;
+  /** Credit drawn in the month, net of what was paid back and never below zero (`coverOf`). */
   borrowedCents: number;
   netCents: number;
   /** Yli jäi of the month, `PeriodTotals.leftCents` as `totalsOf` gives it: this report holds no sum of its own. */
   leftCents: number;
+  /** The month's `savingsRateOf`; null for a month that is partial or that the range cuts, which the table shows as "–". */
   savingsRate: number | null;
   /** The month has ended and the history covers it from the 1st. A row that is not complete reads "vajaa". */
   complete: boolean;
@@ -50,16 +53,18 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
   const rows = monthLabels(months).map((month, i) => {
     const inMonth = txs.filter((x) => x.month === months[i]);
     const t = totalsOf(inMonth.map((x) => x.flows));
+    // the rate is a whole month's: a month the range cuts holds only part of it
+    const wholeMonth = range.from <= `${month}-01` && range.to >= monthEnd(month);
     return {
       month,
       incomeCents: sumOf(incomeSelect(ctx, daysOf(month)).counted, incomeCentsOf),
       consumptionCents: t.consumptionCents,
       debtCents: t.debtCents,
       savedCents: t.savedCents,
-      borrowedCents: t.borrowedCents,
+      borrowedCents: coverOf(t).creditDrawnCents,
       netCents: t.netCents,
       leftCents: t.leftCents,
-      savingsRate: t.savingsRate,
+      savingsRate: wholeMonth ? savingsRateOf(ctx, [month]).rate : null,
       complete: isCompleteMonth(ctx, month),
     };
   });

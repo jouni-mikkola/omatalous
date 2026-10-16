@@ -4,11 +4,10 @@
  * income cannot raise one without cutting necessities.
  */
 import type { AnalysisContext } from "../analysis/context.ts";
-import { totalsOf } from "../analysis/flows.ts";
+import { savingsRateOf } from "../analysis/bridge.ts";
 import { debtShareOf } from "../analysis/insights/borrowing.ts";
 import { commitmentsShareOf } from "../analysis/insights/commitments.ts";
 import { MIN_COMPARE_MONTHS } from "../analysis/usual.ts";
-import { monthOf } from "../dates.ts";
 import { bufferReport } from "../reports/buffer.ts";
 import type { BalanceInput, UserInputs } from "../types.ts";
 import type { SituationFact } from "./types.ts";
@@ -18,12 +17,11 @@ const monthsText = (n: number) => `${n.toFixed(1).replace(".", ",")} kuukautta`;
 
 /** `months` are the complete months of the window, oldest first (`yearWindow`). */
 export function situationOf(ctx: AnalysisContext, months: readonly string[], balances: readonly BalanceInput[], inputs: UserInputs): SituationFact[] {
-  const inWindow = new Set(months);
-  const totals = totalsOf(ctx.txs.filter((t) => inWindow.has(monthOf(t.bookingDate))).map((t) => t.flows));
-  const rate = months.length >= MIN_COMPARE_MONTHS ? totals.savingsRate : null;
+  const saving = savingsRateOf(ctx, months);
+  const rate = saving.months.length >= MIN_COMPARE_MONTHS ? saving.rate : null;
   const savings: SituationFact = {
     id: "savings_rate",
-    label: "Säästöaste",
+    label: saving.label,
     value: rate,
     unit: "share",
     text: rate === null ? "" : pct(rate),
@@ -48,11 +46,12 @@ export function situationOf(ctx: AnalysisContext, months: readonly string[], bal
     text: buffer.bufferMonths === null ? "" : monthsText(buffer.bufferMonths),
   };
 
+  // the end the overview's insights use while a period runs: today, so the six complete months before this one
   const debt = debtShareOf(ctx, ctx.today, inputs);
   const debtValue = debt && debt.incomeCents > 0 ? debt.debtCents / debt.incomeCents : null;
   const debtFact: SituationFact = {
     id: "debt_share",
-    label: "Velanhoito tuloista",
+    label: "Velanhoito tuloista, viimeiset 6 kuukautta",
     value: debtValue,
     unit: "share",
     text: debtValue === null ? "" : pct(debtValue),

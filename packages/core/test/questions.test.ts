@@ -44,8 +44,12 @@ describe("how much of the money is classified", () => {
     const q = questionsOf(rows);
     expect(q).toMatchObject({ outCents: 110000, inCents: 105000, outUnknownCents: 10000, inUnknownCents: 5000, cardBillCents: 20000 });
     expect(q.share).toBe(1 - 35000 / 215000);
-    const noise = [known(-500, "Oma tili", "transfer", { isTransfer: true }), unknownOut(900, "Odottaa Oy", { status: "pending" })];
-    expect(questionsOf([...rows, ...noise])).toEqual(q);
+    expect(questionsOf([...rows, known(-500, "Oma tili", "transfer", { isTransfer: true })])).toEqual(q);
+    // money in waits for its booking; a pending payment is spending here as on every page, and asks no question yet
+    expect(questionsOf([...rows, unknownIn(700, "Odottaa Oy", { status: "pending" })])).toEqual(q);
+    const waiting = questionsOf([...rows, unknownOut(900, "Odottaa Oy", { status: "pending" })]);
+    expect(waiting).toMatchObject({ outCents: 200000, outUnknownCents: 100000, inCents: 105000 });
+    expect(waiting.items).toEqual(q.items);
   });
 
   it("nets a payment that came back: whole it moves nothing, in part it counts what was left", () => {
@@ -116,7 +120,7 @@ describe("what would mend it most", () => {
 
   it("gives a loan proposal a row of twelve payments, and none once it is marked Ei laina", () => {
     const rows: Transaction[] = Array.from({ length: 6 }, (_, i) =>
-      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "AUTORAHOITUS 44512", counterparty: "TOYOTA FINANCE FINLAND OY", merchant: normalizeMerchant("TOYOTA FINANCE FINLAND OY", "AUTORAHOITUS 44512") }),
+      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "NORDEA RAHOITUS SUOMI OY", merchant: normalizeMerchant("NORDEA RAHOITUS SUOMI OY", "LAINAN LYHENNYS 44512") }),
     );
     const ctx = createContext(enrichTransactions([...rows, ...base()], [checking], []), [checking], today);
     const loan = buildQuestions(ctx, range, NO_INPUTS).items.find((i) => i.kind === "loan");
@@ -128,7 +132,7 @@ describe("what would mend it most", () => {
 
   it("names the proposals it is given and none it finds itself", () => {
     const rows: Transaction[] = Array.from({ length: 6 }, (_, i) =>
-      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "AUTORAHOITUS 44512", counterparty: "TOYOTA FINANCE FINLAND OY", merchant: normalizeMerchant("TOYOTA FINANCE FINLAND OY", "AUTORAHOITUS 44512") }),
+      tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "NORDEA RAHOITUS SUOMI OY", merchant: normalizeMerchant("NORDEA RAHOITUS SUOMI OY", "LAINAN LYHENNYS 44512") }),
     );
     const ctx = createContext(enrichTransactions([...rows, ...base()], [checking], []), [checking], today);
     expect(buildQuestions(ctx, range, NO_INPUTS, []).items.some((i) => i.kind === "loan")).toBe(false);

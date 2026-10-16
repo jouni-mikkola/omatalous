@@ -84,6 +84,75 @@ describe("categorize", () => {
     ["S-ETUKORTTI VISA", "LASKU 09/2026", -42000, "card_bill"],
     ["NORDEA PLATINUM", "LASKU", -42000, "card_bill"],
     ["MONEYGO", "LYHENNYS", -12000, "loans"],
+    ["KFC TAMPERE", null, -1290, "restaurants"],
+    ["TACO BELL HELSINKI", null, -1450, "restaurants"],
+    ["SKODA SERVICE", null, -24000, "car"],
+    ["PEUGEOT", null, -9000, "car"],
+    ["RENAULT", null, -9000, "car"],
+    ["MERCEDES-BENZ", null, -9000, "car"],
+    ["MERCEDES BENZ SERVICE", null, -9000, "car"],
+    ["AUDI", null, -9000, "car"],
+    ["HONDA", null, -9000, "car"],
+    ["CITROËN", null, -9000, "car"],
+    ["AGODA.COM", null, -18000, "travel"],
+    ["TRIP.COM INTERNATIONAL", null, -18000, "travel"],
+    ["OPODO LIMITED", null, -18000, "travel"],
+    ["AEGEAN AIRLINES", null, -18000, "travel"],
+    ["RENTALCARS.COM", null, -18000, "travel"],
+    ["EUROWINGS", null, -18000, "travel"],
+    ["LOT POLISH AIRLINES", null, -18000, "travel"],
+    ["LOT.COM", null, -18000, "travel"],
+    ["ASOS.COM", null, -4900, "shopping"],
+    ["ABOUT YOU GMBH", null, -4900, "shopping"],
+    ["ABOUTYOU", null, -4900, "shopping"],
+    ["NELLY.COM", null, -4900, "shopping"],
+    ["CDON.COM", null, -4900, "shopping"],
+    ["VINTED UAB", null, -1200, "shopping"],
+    ["BUBBLEROOM", null, -4900, "shopping"],
+    ["FYNDIQ", null, -4900, "shopping"],
+    ["EVENTBRITE", null, -3500, "entertainment"],
+    ["UBISOFT STORE", null, -3500, "entertainment"],
+    ["XBOX", null, -1999, "entertainment"],
+    ["ZOOM.US", null, -1499, "subscriptions"],
+    ["ZOOM VIDEO COMM", null, -1499, "subscriptions"],
+    ["MIDJOURNEY INC", null, -1000, "subscriptions"],
+    ["PERPLEXITY", null, -2000, "subscriptions"],
+    ["OVH SAS", null, -700, "subscriptions"],
+    ["OVHCLOUD", null, -700, "subscriptions"],
+    ["AWS EMEA", null, -500, "subscriptions"],
+    ["AMAZON WEB SERVICES", null, -500, "subscriptions"],
+    ["GOOGLE *CLOUD", null, -500, "subscriptions"],
+    ["GOOGLE CLOUD EMEA", null, -500, "subscriptions"],
+    ["PROTON AG", null, -499, "subscriptions"],
+    ["PROTON.ME", null, -499, "subscriptions"],
+    ["MULLVAD VPN AB", null, -500, "subscriptions"],
+    ["ESET SPOL", null, -3000, "subscriptions"],
+    ["DISCORD.COM", null, -999, "subscriptions"],
+    ["DISCORD NITRO", null, -999, "subscriptions"],
+    ["MICROSOFT *XBOX", null, -1999, "subscriptions"],
+    ["BETWAY", null, -2000, "gambling"],
+    ["BETFAIR", null, -2000, "gambling"],
+    ["COMEON!", null, -2000, "gambling"],
+    ["MR GREEN", null, -2000, "gambling"],
+    ["BOLT FOOD", null, -2500, "food_delivery"],
+    ["BOLT.EU/F/HELSINKI", null, -2500, "food_delivery"],
+    ["BOLT", null, -1500, "transport"],
+    ["AIRALO", null, -900, "telecom"],
+    ["NOTINO", null, -3900, "personal_care"],
+    ["RITUALS COSMETICS", null, -3900, "personal_care"],
+    ["HEMTEX", null, -4900, "home"],
+    ["TOYOTA FINANCIAL SERVICES", null, -25000, "loans"],
+    ["REVOLUT BANK UAB", null, -5000, "transfer"],
+    ["REVOLUT**1234*", null, 5000, "transfer"],
+    ["WISE EUROPE SA", null, -5000, "transfer"],
+    ["WISE PAYMENTS LTD", null, 5000, "transfer"],
+    ["TRANSFERWISE", null, -5000, "transfer"],
+    ["WESTERN UNION", null, -15000, "p2p"],
+    ["WESTERN UNION", null, 15000, "p2p_in"],
+    ["N26 BANK GMBH", null, -5000, "transfer"],
+    ["N26 BANK GMBH", null, 5000, "transfer"],
+    ["BUNQ B.V.", null, -5000, "transfer"],
+    ["BUNQ B.V.", null, 5000, "transfer"],
   ])("%s / %s → %s", (counterparty, description, amountCents, expected) => {
     const input = { merchant: counterparty, counterparty, description, mcc: null, amountCents };
     expect(categorize(input, rules).category).toBe(expected);
@@ -531,5 +600,84 @@ describe("people vs merchants", () => {
     expect(cat("LÄHITAPIOLA", "VAKUUTUSKORVAUS VAHINKO 123", 200000)).toBe("reimbursements");
     expect(cat("POHJOLA VAKUUTUS OY", "KORVAUS", 50000)).toBe("reimbursements");
     expect(cat("IF VAHINKOVAKUUTUS OY", "VAKUUTUSMAKSU", -14230)).toBe("insurance");
+  });
+});
+
+describe("foreign brands a household pays", () => {
+  const cat = (merchant: string, description: string | null, cents: number, counterparty: string | null = merchant) =>
+    categorize({ merchant, counterparty, description, mcc: null, amountCents: cents }, compileRules([])).category;
+
+  it("a car maker is a car at a service's sum and a purchase from 1 500 euros, either way of the money", () => {
+    for (const brand of ["SKODA", "PEUGEOT", "RENAULT", "MERCEDES-BENZ", "AUDI", "HONDA", "CITROEN", "CITROËN"]) {
+      expect(cat(brand, null, -149_999)).toBe("car");
+      expect(cat(brand, null, -150_000)).toBe("vehicle_purchase");
+      expect(cat(brand, null, 150_000)).toBe("vehicle_purchase");
+    }
+    // service and parts are upkeep at any sum
+    expect(cat("SKODA SERVICE", null, -250_000)).toBe("car");
+    expect(cat("AUDI VARAOSAT", null, -250_000)).toBe("car");
+  });
+
+  it("a maker's lorries, finance arm and a bare given name are no car", () => {
+    expect(cat("RENAULT TRUCKS", null, -9000)).not.toBe("car");
+    expect(cat("MERCEDES-BENZ FINANCIAL SERVICES", null, -9000)).not.toBe("car");
+    expect(cat("MERCEDES", null, -9000)).toBe("other");
+    expect(cat("KIA", null, -9000)).toBe("other");
+    expect(cat("KIA FINLAND", null, -9000)).toBe("other");
+  });
+
+  it("a car brand stands whole: a street, a place or a longer word is not it", () => {
+    expect(cat("AUDIBLE", null, -999)).toBe("subscriptions");
+    expect(cat("HONDALA OY", null, -9000)).toBe("other");
+    expect(cat("SKODAN KATU 5", null, -9000)).toBe("other");
+    expect(cat("AUDITOINTI OY", null, -9000)).toBe("other");
+  });
+
+  it("a refund and a payment in from the car maker's financier is no loan payment", () => {
+    expect(cat("TOYOTA FINANCIAL SERVICES", "HYVITYS", 6000)).toBe("reimbursements");
+    expect(cat("TOYOTA FINANCIAL SERVICES", "RAHOITUS 44512", 1_200_000)).toBe("income");
+    expect(cat("TOYOTA FINANCIAL SERVICES", "ERA 10/2026", -32_000)).toBe("loans");
+    // the Finnish finance company's payout is still a loan drawn
+    expect(cat("TOYOTA FINANCE FINLAND OY", "RAHOITUS 44512", 1_200_000)).toBe("credit_draw");
+  });
+
+  it("the narrowed patterns need the whole phrase", () => {
+    for (const merchant of ["WISE", "WISE GUYS OY", "NELLY", "ABOUT YOU", "ZOOM", "PROTON", "AEGEAN", "TRIP", "DISCORD", "RITUALS", "LOT", "COME ON", "OVHAUS", "ESETTI", "XOVH"]) {
+      expect(cat(merchant, null, -2000)).toBe("other");
+    }
+  });
+
+  it("a MobilePay or transfer row to a person named like a brand is a person's", () => {
+    for (const name of ["NELLY MEIKALAINEN", "PROTON MEIKALAINEN", "WISE MEIKALAINEN", "MERCEDES MEIKALAINEN", "KIA MEIKALAINEN", "COME ON MEIKALAINEN", "AUDI MEIKALAINEN", "HONDA MEIKALAINEN"]) {
+      expect(cat(name, "MOBILEPAY", -2000)).toBe("p2p");
+      expect(cat(name, "SIIRTO HENKILOLLE", -2000)).toBe("p2p");
+      expect(cat(name, "MOBILEPAY", 2000)).toBe("p2p_in");
+    }
+    expect(cat("NELLY MEIKALAINEN", "SIIRTO", -2000)).toBe("other");
+  });
+
+  it("the specific brand wins over the broader one that holds its word", () => {
+    expect(cat("BOLT FOOD", null, -2500)).toBe("food_delivery");
+    expect(cat("BOLT.EU/R/HELSINKI", null, -1500)).toBe("transport");
+    expect(cat("AWS EMEA", null, -500)).toBe("subscriptions");
+    expect(cat("AMAZON EU SARL", null, -2500)).toBe("shopping");
+    expect(cat("GOOGLE CLOUD EMEA", null, -500)).toBe("subscriptions");
+    expect(cat("GOOGLE *YOUTUBE", null, -1299)).toBe("subscriptions");
+    expect(cat("MICROSOFT *XBOX", null, -1999)).toBe("subscriptions");
+  });
+
+  it("a brand word beside a Finnish street or place is the brand only when it stands whole", () => {
+    expect(cat("OVH HELSINKI", null, -700)).toBe("subscriptions");
+    expect(cat("ESET HELSINKI", null, -3000)).toBe("subscriptions");
+    expect(cat("OVHINTIE 5", null, -700)).toBe("other");
+    expect(cat("ESETINTIE 5 TAMPERE", null, -3000)).toBe("other");
+    expect(cat("KFC TAMPERE", null, -1290)).toBe("restaurants");
+    expect(cat("KFCKATU TAMPERE", null, -1290)).toBe("other");
+  });
+
+  it("money moved through a foreign account is a transfer, never spending, and Western Union is a person paid", () => {
+    expect(cat("REVOLUT BANK UAB", "TOP-UP", -5000)).toBe("transfer");
+    expect(cat("WISE EUROPE SA", null, 5000)).toBe("transfer");
+    expect(cat("WESTERN UNION", null, -15000)).toBe("p2p");
   });
 });

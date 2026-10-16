@@ -173,10 +173,10 @@ function Stability({ r, ctx }: { r: IncomeReport; ctx: ReportContext }) {
   if (!s) return null;
   // the usual level of the month the period ends in, from the months before it
   const usual: [string, string, (figure: ReactNode) => ReactNode] = [
-    "Tavalliset tulot kuukaudessa",
+    "Säännölliset tulot kuukaudessa",
     money(s.medianCents, false),
     (figure) => (
-      <Why figure="usual.income" title="Tavalliset tulot kuukaudessa" range={ctx.range} scope={ctx.scope} text={money(s.medianCents, false)}>
+      <Why figure="usual.income" title="Säännölliset tulot kuukaudessa" range={ctx.range} scope={ctx.scope} text={money(s.medianCents, false)}>
         {figure}
       </Why>
     ),

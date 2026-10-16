@@ -218,11 +218,10 @@ describe("the two tables", () => {
     expect(html(ahead(NONE, [OTHER_PAY]))).toContain("Saapuvat maksut");
   });
 
-  it("calls a card's bill by the card's plain name, as Varallisuus does, and no other row by anything but its own", () => {
-    const card = row({ date: "2026-10-16", name: "Esimerkkipankki Gold (credit)", category: "transfer", cents: -64_230, source: "card", basis: "balance" });
+  it("calls every row by the name core gives it: the card's plain name, and a bracket in a merchant's name stays", () => {
+    const card = row({ date: "2026-10-16", name: "Esimerkkipankki Gold", category: "transfer", cents: -64_230, source: "card", basis: "balance" });
     const lines = payments(ahead({}, [BILLS[0]!, card]));
     expect(lines.map((l) => l.name)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkipankki Gold"]);
-    // a bracket in the name of a merchant stays: only a card is named by its type
     expect(payments(ahead({}, [row({ name: "Kahvila Esimerkki (credit)" })]))[0]!.name).toBe("Kahvila Esimerkki (credit)");
     expect(names(html(ahead({}, [card])))).toEqual(["Esimerkkipankki Gold", "Esimerkki Oy"]);
   });

@@ -2,6 +2,7 @@ import { getCategory } from "./categories.ts";
 import { closedContract } from "./contract.ts";
 import { dayNumber, monthOf } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { isSharedPurchase, isUnnamedMobilePay, matchMobilePayShares } from "./mobilepay.ts";
 import { median } from "./stats.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { IsoDate, Transaction } from "./types.ts";
@@ -58,7 +59,13 @@ export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<
 
   const incoming: Incoming[] = [];
   for (const t of rows) {
-    if (t.amountCents <= 0 || !isNamed(t, ownIbans) || t.categorySource === "user" || locked.has(t.id) || regular.has(partyKey(t))) continue;
+    if (t.amountCents <= 0 || !isNamed(t, ownIbans) || t.categorySource === "user" || locked.has(t.id)) continue;
+    // MobilePay money that names no sender: a share of something the household bought, or not (decided in `pair`)
+    if (isUnnamedMobilePay(t) && ((t.category === "p2p_in" && t.categorySource === "rule") || isPlainIncome(t))) {
+      incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false, wallet: true });
+      continue;
+    }
+    if (regular.has(partyKey(t))) continue;
     if (t.category === "p2p_in" && t.categorySource === "rule") incoming.push({ t, day: dayNumber(t.bookingDate), person: true, share: true });
     else if (isPlainIncome(t)) incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false });
   }
@@ -78,6 +85,10 @@ export function pairedReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet
   const rows = sortedRows(txs);
   const incoming: Incoming[] = [];
   for (const t of rows) {
+    if (t.amountCents > 0 && isNamed(t, ownIbans) && isUnnamedMobilePay(t) && (t.categorySource === "match" || t.category === "p2p_in" || isPlainIncome(t))) {
+      incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false, wallet: true });
+      continue;
+    }
     if (t.amountCents <= 0 || !isNamed(t, ownIbans) || NOT_A_PURCHASE.has(t.category) || getCategory(t.category).kind !== "expense") continue;
     // only a row that matchReturns put there can be a share of a bill: a refund a rule recognised names its shop
     incoming.push({ t, day: dayNumber(t.bookingDate), person: t.category === "p2p", share: t.categorySource === "match" });
@@ -107,6 +118,8 @@ interface Incoming {
   person: boolean;
   /** May be one friend's share of a bill paid to a business. */
   share: boolean;
+  /** MobilePay money that names no sender: matched by `matchMobilePayShares` only. */
+  wallet?: true;
 }
 
 interface Purchase {
@@ -142,8 +155,23 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
 
   const matches = new Map<string, string>();
 
+  // MobilePay shares of the household's own purchases (not bills, not people), before anything else reads the rows
+  const wallet = incoming.filter((i) => i.wallet);
+  if (wallet.length) {
+    const byId = new Map(list.map((p) => [p.t.id, p]));
+    const shares = matchMobilePayShares(
+      list.filter((p) => isSharedPurchase(p.t.category)).map((p) => ({ id: p.t.id, day: p.day, cents: -p.t.amountCents })),
+      wallet.map((i) => ({ id: i.t.id, day: i.day, cents: i.t.amountCents })),
+    );
+    for (const [id, purchaseId] of shares) {
+      matches.set(id, purchaseId);
+      byId.get(purchaseId)!.left -= wallet.find((i) => i.t.id === id)!.t.amountCents;
+    }
+  }
+
   // refunds from the same merchant and people paying back what they were sent
   for (const inc of incoming) {
+    if (inc.wallet) continue;
     const cents = inc.t.amountCents;
     let best: Purchase | undefined;
     for (const p of purchases.get(partyKey(inc.t)) ?? []) {
@@ -172,7 +200,7 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
   }
   for (const inc of incoming) {
     const group = contracts.get(partyKey(inc.t));
-    if (inc.person || matches.has(inc.t.id) || !group || group.length < 3) continue;
+    if (inc.wallet || inc.person || matches.has(inc.t.id) || !group || group.length < 3) continue;
     const closed = closedContract(group, inc.t, today);
     if (closed) matches.set(inc.t.id, closed[closed.length - 1]!.id);
   }

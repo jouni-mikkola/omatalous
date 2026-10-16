@@ -9,6 +9,7 @@ import { billCents } from "../account-use.ts";
 import { expectedCharges } from "../commitments.ts";
 import { addMonths, dateIn, daysBetween, monthOf } from "../dates.ts";
 import { creditAccountLoan, creditUse } from "../loans.ts";
+import { cardName } from "../merchant.ts";
 import { detectRecurring } from "../recurring.ts";
 import type { SeriesInput } from "../recurring-occurrence.ts";
 import { median } from "../stats.ts";
@@ -87,6 +88,8 @@ interface PaidBill {
  */
 export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>, balances: readonly BalanceInput[], from: IsoDate, until: IsoDate): Move[] {
   const accountOf = new Map(ctx.accounts.map((a) => [a.id, a]));
+  // the bank's own text may carry the type of a card in brackets: a payee is printed without it
+  const accountName = (id: string): string => cardName(accountOf.get(id)?.name ?? id);
   const byIban = new Map(ctx.accounts.flatMap((a) => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id] as const] : [])));
   const moved = ctx.txs.filter((t) => t.isTransfer && t.status === "booked");
   // the legs that came in, by the bank's sum: a leg on a joint account is cut to the viewer's part in a member's own view
@@ -126,7 +129,7 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
   const moves: Move[] = [];
   // a monthly series takes three payments to be one (`fitCadence`): under three nothing is guessed
   const regular = detectRecurring(others, ctx.today).filter((s) => s.cadence === "monthly");
-  for (const c of expectedCharges(regular, from, until)) moves.push({ date: c.date, name: accountOf.get(c.merchant)?.name ?? c.merchant, amountCents: c.amountCents, source: "transfer" });
+  for (const c of expectedCharges(regular, from, until)) moves.push({ date: c.date, name: accountName(c.merchant), amountCents: c.amountCents, source: "transfer" });
 
   for (const [cardId, unsorted] of bills) {
     if (unsorted.length < MIN_PAYMENTS) continue;
@@ -150,7 +153,7 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
       const basis = first && owed !== null && paidWhole && date >= from ? "balance" : "usual";
       first = false;
       const amountCents = basis === "balance" ? owed! : usual;
-      if (amountCents > 0) moves.push({ date: date < from ? from : date, name: accountOf.get(cardId)!.name, amountCents, source: "card", basis });
+      if (amountCents > 0) moves.push({ date: date < from ? from : date, name: cardName(accountOf.get(cardId)!.name), amountCents, source: "card", basis });
     }
   }
   return moves;

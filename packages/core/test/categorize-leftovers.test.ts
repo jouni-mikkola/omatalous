@@ -153,7 +153,8 @@ describe("the household's own bank", () => {
   it("two payments, sums that jump, and payments with no reference are no contract", () => {
     expect(run(monthly([-152, -152], "30031"), [own]).categories).toEqual(["other", "other"]);
     expect(new Set(run(monthly([-312.4, -188.1, -540, -95.75, -410.2, -267.3], "20028"), [own]).categories)).toEqual(new Set(["other"]));
-    expect(new Set(run(monthly(Array(6).fill(-152), null), [own]).categories)).toEqual(new Set(["other"]));
+    // no reference and no text: money moved to the bank of a connected account
+    expect(new Set(run(monthly(Array(6).fill(-152), null), [own]).categories)).toEqual(new Set(["transfer"]));
   });
 
   it("money in under the same reference is no loan, and an instalment sent back takes the instalment's category", () => {
@@ -167,9 +168,9 @@ describe("the household's own bank", () => {
     expect(namesBank("ESIMERKIN SAASTOPANKKI", savingsBank)).toBe(true);
     expect(namesBank("ESIMERKKIPANKKI OYJ", { bank: "Esimerkkipankki Oyj" })).toBe(true);
     expect(namesBank("LIEDON SAASTOPANKKI", { bank: "Säästöpankki" })).toBe(true);
-    // paid with no word: the other bank is a lender by its name, the own one is not
-    expect(one("TOISEN SAASTOPANKKI OY", null, -152, {}, [{ ...checking, ...savingsBank }])).toBe("loans");
-    expect(one("ESIMERKIN SAASTOPANKKI OY", null, -152, {}, [{ ...checking, ...savingsBank }])).toBe("other");
+    // paid with no word: a bank's name alone is no loan, the other bank's or the own one's
+    expect(one("TOISEN SAASTOPANKKI OY", null, -152, {}, [{ ...checking, ...savingsBank }])).toBe("other");
+    expect(one("ESIMERKIN SAASTOPANKKI OY", null, -152, {}, [{ ...checking, ...savingsBank }])).toBe("transfer");
   });
 });
 

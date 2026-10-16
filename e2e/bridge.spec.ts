@@ -102,7 +102,7 @@ test("The demo household: Yhteenveto tells the month before by its savings rate,
   const legend = (await texts(page, ".bridge-legend > div"));
   const labels = legend.map((l) => l.replace(/ -?\d[\d ]* €.*$/, ""));
   const short = (await page.locator(".bridge-gap").count()) > 0;
-  expect(labels).toEqual(["Tulot", "Kulutus", "Velanhoito", "Säästöön", short ? "Tileiltä tai kortilta" : "Yli jäi"]);
+  expect(labels).toEqual(["Tulot", "Kulutus", "Maksettu velanhoito", "Säästöön", short ? "Tileiltä tai kortilta" : "Yli jäi"]);
   expect(legend[1]).toMatch(/ \d+ % tuloista$/);
   await expect(page.locator(".bridge-from")).toHaveCount(short ? 1 : 0);
   await expect(page.locator(".bridge-drawn")).toHaveCount(0);
@@ -120,7 +120,7 @@ test("The demo household: Yhteenveto tells the month before by its savings rate,
   // the table is the same sum: what came in less what went out is Yli jäi, up to the euro each figure is rounded to
   await bridge.getByRole("button", { name: "Taulukko" }).click();
   const rows = await texts(page, ".bridge-table tbody tr");
-  expect(rows.map((r) => r.replace(/ -?\d[\d ]* €.*$/, ""))).toEqual(["Tulot", "Kulutus", "Velanhoito", "Säästöön", "Yli jäi"]);
+  expect(rows.map((r) => r.replace(/ -?\d[\d ]* €.*$/, ""))).toEqual(["Tulot", "Kulutus", "Maksettu velanhoito", "Säästöön", "Yli jäi"]);
   const stayed = euros(rows[4]!);
   expect(rows.slice(0, 4).map(euros)).toEqual([income, spent, debt, saved]);
   expect(Math.abs(income! - spent! - debt! - saved! - stayed)).toBeLessThanOrEqual(3);

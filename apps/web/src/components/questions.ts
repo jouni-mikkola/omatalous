@@ -1,4 +1,5 @@
 import type { FiledWithoutAsking, PayerRole } from "@banking/core";
+import { money, plural } from "../format.ts";
 
 /** The whole percent of the money that is classified, rounded down: 99,6 % is "99 %", never "100 %". */
 export function classifiedPercent(share: number): number {
@@ -37,4 +38,20 @@ export const PAYER_ROLE_LABEL: Record<PayerRole, string> = {
   own_money: "Omaa rahaa",
   gift: "Lahja",
   pay: "Palkka tai etuus",
+};
+
+/** The same roles for MobilePay money that names no sender: shares of shared purchases, sales, other income. */
+export const WALLET_ROLE_LABEL: Partial<Record<PayerRole, string>> = {
+  cost_share: "Osuuksia yhteisistä ostoista",
+  sales: "Myyntituloja",
+  gift: "Muuta tuloa",
+};
+
+/** The question about MobilePay money that names no sender. */
+export const walletQuestion = (count: number, cents: number): string => `Saapuneet MobilePay-maksut, ${plural(count, "maksu", "maksua")}, yhteensä ${money(cents)}. Mitä ne ovat?`;
+
+/** The question about the payments of a service with no shop found behind it; a name of two words takes the ending as its own word ("Svea Payments -maksut"). */
+export const serviceQuestion = (service: string, count: number, cents: number): string => {
+  const ending = service.includes(" ") ? " -maksut" : "-maksut";
+  return `${service}${ending}, ${plural(count, "maksu", "maksua")}, yhteensä ${money(cents)}. Mihin ne menivät?`;
 };

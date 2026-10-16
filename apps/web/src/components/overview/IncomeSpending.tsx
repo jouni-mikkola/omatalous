@@ -106,6 +106,7 @@ function Month({ data, scope, anchors, categories, open, onToggle }: { data: Das
             ))}
           </tbody>
         </table>
+        {view.note && <p className="st-note">{view.note}</p>}
         {(view.savings || view.fixed) && (
           <dl className="st-rows month-more">
             {view.savings && (

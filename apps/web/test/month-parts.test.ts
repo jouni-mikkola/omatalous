@@ -35,7 +35,7 @@ describe("the surplus bridge", () => {
   });
   it("keeps the order and gives every part a colour of its own", () => {
     const parts = bridgeParts(usual);
-    expect(parts.map((p) => p.label)).toEqual(["Kulutus", "Velanhoito", "Säästöön", "Yli jäi"]);
+    expect(parts.map((p) => p.label)).toEqual(["Kulutus", "Maksettu velanhoito", "Säästöön", "Yli jäi"]);
     expect(new Set(parts.map((p) => p.color)).size).toBe(4);
   });
 
@@ -61,7 +61,7 @@ describe("the bridge of a period that took more than its income", () => {
     expect(bridgeSources(usual)).toEqual([]);
     expect(bridgeText(usual)).toEqual({ gap: null, drawn: [] });
     const out = html(usual);
-    expect(tiles(out)).toEqual(["Tulot 4 000 €", "Kulutus 2 500 €", "Velanhoito 400 €", "Säästöön 500 €", "Yli jäi 600 €"]);
+    expect(tiles(out)).toEqual(["Tulot 4 000 €", "Kulutus 2 500 €", "Maksettu velanhoito 400 €", "Säästöön 500 €", "Yli jäi 600 €"]);
     expect(out.match(/% tuloista/g)).toHaveLength(4);
     for (const absent of ["bridge-from", "bridge-gap", "bridge-drawn", "Katettu", "Luotto", "Jaksolla"]) expect(out).not.toContain(absent);
   });
@@ -73,7 +73,7 @@ describe("the bridge of a period that took more than its income", () => {
       "Menoihin meni 10 000 € enemmän kuin tuloja tuli. Ero katettiin luotolla. Luottoa nostettiin 20 000 €, velanhoitoon ei mennyt mitään. Luotosta 10 000 € on mukana luvussa Yli jäi.",
     );
     const out = html(t);
-    expect(tiles(out)).toEqual(["Tulot 3 000 €", "Kulutus 13 000 €", "Velanhoito 0 €", "Säästöön 0 €", "Katettu luotolla 10 000 €", "Yli jäi 10 000 €"]);
+    expect(tiles(out)).toEqual(["Tulot 3 000 €", "Kulutus 13 000 €", "Maksettu velanhoito 0 €", "Säästöön 0 €", "Katettu luotolla 10 000 €", "Yli jäi 10 000 €"]);
     expect(out).toContain("bridge-from");
     // what stayed is credit, so it is told as no share of the income
     expect(out.match(/% tuloista/g)).toHaveLength(3);
@@ -85,7 +85,7 @@ describe("the bridge of a period that took more than its income", () => {
     expect(said(t)).toBe("Menoihin meni 10 000 € enemmän kuin tuloja tuli. Ero katettiin luotolla. Luottoa nostettiin 20 000 €, velanhoitoon meni 1 200 €.");
     const out = html(t);
     expect(out).toContain("Luottoa nostettiin 20 000 €, velanhoitoon meni 1 200 €.");
-    expect(tiles(out)).toContain("Velanhoito 1 200 €");
+    expect(tiles(out)).toContain("Maksettu velanhoito 1 200 €");
     for (const absent of ["velkoja", "mukana luvussa"]) expect(out).not.toContain(absent);
   });
 
@@ -93,7 +93,7 @@ describe("the bridge of a period that took more than its income", () => {
     const t = period(car);
     expect(t.leftCents).toBe(-1_000_000);
     expect(said(t)).toBe("Menoihin meni 10 000 € enemmän kuin tuloja tuli. Ero katettiin tileillä olleilla rahoilla tai luottokortilla.");
-    expect(tiles(html(t))).toEqual(["Tulot 3 000 €", "Kulutus 13 000 €", "Velanhoito 0 €", "Säästöön 0 €", "Tileiltä tai kortilta 10 000 €"]);
+    expect(tiles(html(t))).toEqual(["Tulot 3 000 €", "Kulutus 13 000 €", "Maksettu velanhoito 0 €", "Säästöön 0 €", "Tileiltä tai kortilta 10 000 €"]);
     // the demo household's October 2025: the current account grew by 419 € and 475 € more was owed on the card
     const demo = totalsOf([{ income: 395_000, consumption: 355_601, debt: 0, saved: 45_000, borrowed: 0 }]);
     expect(demo.leftCents).toBe(-5601);
@@ -110,7 +110,7 @@ describe("the bridge of a period that took more than its income", () => {
     expect(said(t)).toBe(
       "Menoihin meni enemmän kuin tuloja tuli. Luotolla katettiin 5 000 € ja säästöistä 2 000 €. Luottoa nostettiin 5 000 €, velanhoitoon ei mennyt mitään. Säästöistä nostettiin 4 000 €, ja siitä 2 000 € on mukana luvussa Yli jäi.",
     );
-    expect(tiles(html(t))).toEqual(["Tulot 3 000 €", "Kulutus 10 000 €", "Velanhoito 0 €", "Katettu luotolla 5 000 €", "Katettu säästöistä 2 000 €", "Yli jäi 2 000 €"]);
+    expect(tiles(html(t))).toEqual(["Tulot 3 000 €", "Kulutus 10 000 €", "Maksettu velanhoito 0 €", "Katettu luotolla 5 000 €", "Katettu säästöistä 2 000 €", "Yli jäi 2 000 €"]);
   });
 
   it("a credit drawn and paid back inside the month: both sums stand side by side, and no credit is said to be in Yli jäi", () => {
@@ -132,7 +132,7 @@ describe("the bridge of a period that took more than its income", () => {
   it("savings drawn in a month the income paid for are in Yli jäi, as before", () => {
     const t = period({ income: 4000, consumption: 2500, saved: -500 });
     expect(said(t)).toBe("Säästöistä nostettiin 500 €, ja se on mukana luvussa Yli jäi.");
-    expect(tiles(html(t))).toEqual(["Tulot 4 000 €", "Kulutus 2 500 €", "Velanhoito 0 €", "Yli jäi 2 000 €"]);
+    expect(tiles(html(t))).toEqual(["Tulot 4 000 €", "Kulutus 2 500 €", "Maksettu velanhoito 0 €", "Yli jäi 2 000 €"]);
   });
 
   it("credit drawn in a month the income paid for is told as credit that stayed, unless debt was paid too", () => {
@@ -149,7 +149,7 @@ describe("the bridge of a period that took more than its income", () => {
     expect(out).toContain("Jaksolla ei ole tuloja.");
     expect(out).toContain("Menot katettiin luotolla.");
     expect(out).toContain("Luottoa nostettiin 20 000 €, velanhoitoon ei mennyt mitään. Luotosta 7 000 € on mukana luvussa Yli jäi.");
-    expect(cells(out)).toEqual(["Tulot 0 €", "Luottoa nostettu 20 000 €", "Kulutus 13 000 €", "Velanhoito 0 €", "Säästöön 0 €", "Yli jäi 7 000 €"]);
+    expect(cells(out)).toEqual(["Tulot 0 €", "Luottoa nostettu 20 000 €", "Kulutus 13 000 €", "Maksettu velanhoito 0 €", "Säästöön 0 €", "Yli jäi 7 000 €"]);
     for (const absent of ["bridge-bar", "bridge-from", "bridge-legend", "tuloista", "enemmän kuin tuloja", "<button"]) expect(out).not.toContain(absent);
     // several covers, each with its sum, and money set aside named with the spending
     expect(said(period({ consumption: 9000, saved: -1000, borrowed: 2000 }))).toContain("Menoista katettiin luotolla 2 000 €, säästöistä 1 000 € ja tileiltä tai kortilta 6 000 €.");
@@ -166,7 +166,7 @@ describe("the bridge of a period that took more than its income", () => {
     expect(t.leftCents).toBe(410_000);
     expect(bridgeDraws(t)).toBe(false);
     const out = html(t);
-    expect(cells(out)).toEqual(["Tulot 3 000 €", "Luottoa nostettu 1 000 €", "Kulutus -100 €", "Velanhoito 0 €", "Säästöön 0 €", "Yli jäi 4 100 €"]);
+    expect(cells(out)).toEqual(["Tulot 3 000 €", "Luottoa nostettu 1 000 €", "Kulutus -100 €", "Maksettu velanhoito 0 €", "Säästöön 0 €", "Yli jäi 4 100 €"]);
     for (const absent of ["bridge-bar", "bridge-from", "bridge-legend", "tuloista", "%", "<button"]) expect(out).not.toContain(absent);
     expect(bridgeDraws(period({ income: -500, consumption: 1000 }))).toBe(false);
     expect(bridgeDraws(period({ income: 3000, debt: -50 }))).toBe(false);
@@ -245,10 +245,10 @@ describe("the bridge of a period that took more than its income", () => {
 
   it("the table is the sum row by row, and its last row is Yli jäi, signed, with whether it is a share of the income", () => {
     const t = period({ ...car, borrowed: 4000 });
-    expect(bridgeRows(t).map((r) => `${r.side} ${r.label}`)).toEqual(["in Tulot", "in Luottoa nostettu", "out Kulutus", "out Velanhoito", "out Säästöön", "stayed Yli jäi"]);
+    expect(bridgeRows(t).map((r) => `${r.side} ${r.label}`)).toEqual(["in Tulot", "in Luottoa nostettu", "out Kulutus", "out Maksettu velanhoito", "out Säästöön", "stayed Yli jäi"]);
     expect(bridgeRows(t).at(-1)).toMatchObject({ cents: -600_000, ofIncome: false });
-    expect(bridgeRows(period({ income: 4000, consumption: 2500, saved: -500 })).map((r) => `${r.label} ${r.ofIncome}`)).toEqual(["Tulot true", "Säästöistä nostettu false", "Kulutus true", "Velanhoito true", "Yli jäi false"]);
-    expect(bridgeRows(usual).map((r) => `${r.label} ${r.ofIncome}`)).toEqual(["Tulot true", "Kulutus true", "Velanhoito true", "Säästöön true", "Yli jäi true"]);
+    expect(bridgeRows(period({ income: 4000, consumption: 2500, saved: -500 })).map((r) => `${r.label} ${r.ofIncome}`)).toEqual(["Tulot true", "Säästöistä nostettu false", "Kulutus true", "Maksettu velanhoito true", "Yli jäi false"]);
+    expect(bridgeRows(usual).map((r) => `${r.label} ${r.ofIncome}`)).toEqual(["Tulot true", "Kulutus true", "Maksettu velanhoito true", "Säästöön true", "Yli jäi true"]);
     // the tile and the row of Yli jäi say the same
     expect(bridgeFigures(usual).at(-1)).toMatchObject({ key: "left", ofIncome: true });
     expect(bridgeFigures(period({ ...car, borrowed: 20_000 })).at(-1)).toMatchObject({ key: "left", ofIncome: false });

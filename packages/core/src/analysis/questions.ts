@@ -2,12 +2,14 @@ import { dayNumber, fromDayNumber } from "../dates.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import { ASK_LIMIT } from "../money-trace.ts";
-import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerRoleOf, sameName, steadyPayers } from "../payer-role.ts";
+import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerRoleOf, sameName, steadyPayers, WALLET_PAYER_KEY } from "../payer-role.ts";
+import { serviceNamed } from "../payment-services.ts";
 import { nameOf, userNameOf } from "../person-names.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate, PayerInput, PayerRole, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
 import { missingCardPurchases } from "./card-bills.ts";
+import { unknownSpending } from "./data-quality.ts";
 import { incomeTypeOf } from "./income.ts";
 import type { DateRange } from "./period.ts";
 
@@ -15,6 +17,8 @@ import type { DateRange } from "./period.ts";
 export const QUESTION_PAYEE = "question:payee:";
 
 const WINDOW_DAYS = 365;
+/** The payer key of MobilePay money that names no sender, and the roles it is asked about. */
+const WALLET_ROLES: readonly PayerRole[] = ["cost_share", "sales", "gift"];
 const MAX_ITEMS = 5;
 /** With payer roles in the inputs a visit asks at most this many questions, of every kind together. */
 const MAX_ITEMS_WITH_PAYERS = 3;
@@ -27,9 +31,11 @@ interface PayeeQuestion {
   cents: number;
   count: number;
   lastDate: IsoDate;
+  /** A payment service the rows name alone (Trustly, PayPal): no shop was found behind it, so the household is asked per service. */
+  service?: string;
 }
 
-/** A monthly payment that looks like a loan: saved as one in Asetukset > Lainat, or marked "Ei laina". */
+/** A monthly payment that looks like a loan the app cannot place: "Mikä laina tämä on?", answered with `LOAN_KIND_ANSWERS`, or marked "Ei laina". One a loan's kind is known of is not asked (`LoanProposal.placed`); Asetukset > Lainat saves it. */
 interface LoanQuestion {
   kind: "loan";
   key: string;
@@ -61,6 +67,8 @@ interface PayerQuestion {
   proposal: PayerRole | null;
   /** Sums of the window's rows of a steady payer that are off its usual sum: a role of cost share or gift leaves them out. */
   offMedianCents: number[];
+  /** MobilePay money that names no sender (all of it is one payer): the page asks what it is in its own words. */
+  wallet?: true;
 }
 
 type FrontQuestion = PayeeQuestion | LoanQuestion | PayerQuestion;
@@ -68,11 +76,11 @@ type FrontQuestion = PayeeQuestion | LoanQuestion | PayerQuestion;
 export interface Questions {
   /** The part of the window's money (spending plus income) that is classified, 0 to 1; null when there was none. */
   share: number | null;
-  /** Spending of the 365 days up to the period's end: the sum the reports call menot. */
+  /** Spending of the 365 days up to the period's end: the base of `unknownSpending` (bills at what their statement rows leave). */
   outCents: number;
   /** Income of the same days. */
   inCents: number;
-  /** Spending nobody categorised: category Muut menot by the default. */
+  /** Spending nobody categorised: Muut menot that the user did not set (`unknownSpending`). */
   outUnknownCents: number;
   /** Income nobody recognised: type Muut tulot by the default. */
   inUnknownCents: number;
@@ -155,7 +163,10 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
     const largest = all.reduce((a, b) => (b.amountCents > a.amountCents ? b : a));
     const lastDate = open.reduce((d, t) => (t.bookingDate > d ? t.bookingDate : d), open[0]!.bookingDate);
     const offMedianCents = typical === undefined ? [] : open.filter((t) => isOffMedian(t.amountCents, typical)).map((t) => t.flows.income);
-    items.push({ kind: "payer", key, merchant: largest.merchant, cents, count: open.length, lastDate, options: isPerson ? PAYER_ROLES : PAYER_ROLES.filter((r) => r !== "own_money"), steady: typical !== undefined, proposal: roleProposal(largest, typical !== undefined, own, ownIbans), offMedianCents });
+    // money from the wallet with no sender is shares, sales or other income: never pay, never the member's own money
+    const wallet = key === WALLET_PAYER_KEY;
+    const options = wallet ? WALLET_ROLES : isPerson ? PAYER_ROLES : PAYER_ROLES.filter((r) => r !== "own_money");
+    items.push({ kind: "payer", key, merchant: largest.merchant, cents, count: open.length, lastDate, options, steady: typical !== undefined, proposal: roleProposal(largest, typical !== undefined, own, ownIbans), offMedianCents, ...(wallet ? { wallet: true as const } : {}) });
     for (const t of open) covered.add(t.merchant);
   }
   return { items, covered };
@@ -163,9 +174,9 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
 
 /**
  * How much of the money of the last 365 days up to the period's end is classified, and what would mend the picture
- * most. Money that is not classified is spending the default put in Muut menot (as the alert `uncategorised` and the
- * data quality signal mean it, by what the purchase cost in the end), income the default put in Muut tulot, and card
- * bills. Transfers are no money in or out; a refund lowers the spending it took back, as the reports net it. A payee
+ * most. Money that is not classified is spending in Muut menot that the user did not set (`unknownSpending`, the one
+ * figure of the data quality signal and the reports, by what the purchase cost in the end), income the default put in
+ * Muut tulot, and card bills. Transfers are no money in or out; a refund lowers the spending it took back, as the reports net it. A payee
  * the household set aside keeps its money in the sums and has no question.
  */
 export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): Questions {
@@ -173,24 +184,18 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   const rows = spendRows(ctx, { fromDay: toDay - WINDOW_DAYS + 1, toDay }).filter((t) => t.status === "booked" && !t.isTransfer);
   const dismissed = new Set(inputs.marks.filter((m) => m.mark === "dismissed" && m.subject.startsWith(QUESTION_PAYEE)).map((m) => m.subject.slice(QUESTION_PAYEE.length)));
 
-  let outCents = 0;
   let inCents = 0;
-  let outUnknownCents = 0;
   let inUnknownCents = 0;
-  // the card bills are the rows of Tietojen laatu's table over the same twelve months, so the two figures are one
+  // the spending part is the one function Tietojen laatu and the reports read, over the same twelve months; only the money in is counted here
+  const span = { from: fromDayNumber(toDay - WINDOW_DAYS + 1), to: range.to };
+  const { spendingCents: outCents, otherCents: outUnknownCents, billCents: cardBillCents } = unknownSpending(ctx, span);
   const billsBy = new Map<string, number>();
-  for (const m of missingCardPurchases(ctx, { from: fromDayNumber(toDay - WINDOW_DAYS + 1), to: range.to })) billsBy.set(m.issuer, (billsBy.get(m.issuer) ?? 0) + m.cents);
-  const cardBillCents = [...billsBy.values()].reduce((s, c) => s + c, 0);
+  for (const m of missingCardPurchases(ctx, span)) billsBy.set(m.issuer, (billsBy.get(m.issuer) ?? 0) + m.cents);
   const out = new Map<string, Group>();
   const inn = new Map<string, Group>();
   for (const t of rows) {
-    outCents += t.spend;
     inCents += t.flows.income;
-    if (t.category === "other" && t.categorySource === "default" && t.spend > 0) {
-      const cents = netSpend(t);
-      outUnknownCents += cents;
-      add(out, t, cents);
-    }
+    if (t.category === "other" && t.categorySource === "default" && t.spend > 0) add(out, t, netSpend(t));
     // a payer that has a role is never asked as a payee: what its role leaves (off the usual sum) is the role's to say
     const answered = inputs.payers !== undefined && t.amountCents > 0 && payerRoleOf(inputs.payers.roles, t, inputs.payers.memberId) !== null;
     if (!answered && t.flows.income !== 0 && t.categorySource === "default" && incomeTypeOf(t) === "other_income") {
@@ -203,9 +208,9 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   const asked = inputs.payers ? payerQuestions(ctx, rows, inputs.payers, dismissed) : { items: [], covered: new Set<string>() };
   const items: FrontQuestion[] = [...asked.items];
   for (const [kind, groups] of [["payee_out", out], ["payee_in", inn]] as const) {
-    for (const [merchant, g] of groups) if (g.cents > 0 && !dismissed.has(merchant) && !(kind === "payee_in" && asked.covered.has(merchant))) items.push({ kind, merchant, cents: g.cents, count: g.count, lastDate: g.lastDate });
+    for (const [merchant, g] of groups) if (g.cents > 0 && !dismissed.has(merchant) && !(kind === "payee_in" && asked.covered.has(merchant))) items.push({ kind, merchant, cents: g.cents, count: g.count, lastDate: g.lastDate, ...(kind === "payee_out" && serviceNamed(merchant) ? { service: serviceNamed(merchant)! } : {}) });
   }
-  for (const p of proposals) items.push({ kind: "loan", key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: 12 * p.paymentCents });
+  for (const p of proposals) if (!p.placed) items.push({ kind: "loan", key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: 12 * p.paymentCents });
   items.sort((a, b) => b.cents - a.cents || compare(a.kind, b.kind) || compare(askedName(a), askedName(b)));
 
   const money = outCents + inCents;

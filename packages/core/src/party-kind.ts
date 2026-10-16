@@ -41,11 +41,27 @@ function hasLegalForm(parts: readonly string[], folded: string): boolean {
 /** A bank or an insurer by a word of its name. A surname that only starts with one ("Pankkinen") is no such word. */
 const namesFinance = (parts: readonly string[]) => parts.some((part) => FINANCE_WORDS.has(part) || FINANCE_ENDS.some((end) => part.endsWith(end)));
 
-/** `text`: what else the bank wrote about the payment, which may hold the business id. */
-export function partyKind(name: string, text = ""): PartyKind {
+/** Words in front of PANKKI or BANK that make it a bank's name (Pop Pankki, Säästö Pankki), not a person's surname. */
+const BANK_BRANDS: ReadonlySet<string> = new Set(["POP", "SAASTO", "OSUUS", "HYPO", "ASUNTO", "SPARE", "HANDELS", "S", "OP", "SEB"]);
+
+/**
+ * A name of two words, one of them the bare word PANKKI or BANK: a person with a bank's word for a surname (Pekka
+ * Pankki). The name alone cannot tell it from a small bank's, so the caller asks it only where the row says a person
+ * (a credit transfer with no reference and no text of a purchase), and a bank's payments carry a reference.
+ */
+function bankWordIsSurname(parts: readonly string[]): boolean {
+  const others = parts.filter((part) => part !== "PANKKI" && part !== "BANK");
+  return parts.length === 2 && others.length === 1 && !BANK_BRANDS.has(others[0]!) && !FINANCE_WORDS.has(others[0]!) && !namesFinance(others);
+}
+
+/**
+ * `text`: what else the bank wrote about the payment, which may hold the business id. `surnameBank`: a bare Pankki or
+ * Bank beside one other word is read as a surname.
+ */
+export function partyKind(name: string, text = "", surnameBank = false): PartyKind {
   const folded = fold(name);
   const parts = wordsOf(folded);
-  if (BUSINESS_ID.test(`${name} ${text}`) || hasLegalForm(parts, folded) || payeeFor(folded) !== null || namesFinance(parts)) return "company";
+  if (BUSINESS_ID.test(`${name} ${text}`) || hasLegalForm(parts, folded) || payeeFor(folded) !== null || (namesFinance(parts) && !(surnameBank && bankWordIsSurname(parts)))) return "company";
   // a weak form is read as the name word it may be, so the form's own check does not refuse it
   const shape = WEAK_FORMS.has(parts[parts.length - 1] ?? "") ? [...parts.slice(0, -1), "NAME"].join(" ") : folded;
   return parts.length >= 2 && parts.length <= 3 && isPersonShaped(shape) ? "person" : "unknown";

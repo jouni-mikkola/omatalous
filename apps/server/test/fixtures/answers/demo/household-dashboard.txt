@@ -6,6 +6,7 @@
   "previousTo": "2026-09-09"
  },
  "comparable": true,
+ "leftOutAccounts": false,
  "running": true,
  "dataFrom": "2025-09-01",
  "totals": {
@@ -56,7 +57,8 @@
    "cents": 105000,
    "count": 1,
    "share": 0.5195139328689043,
-   "previousCents": 105000
+   "previousCents": 105000,
+   "comparedCents": 105000
   },
   {
    "category": "loans",
@@ -66,7 +68,8 @@
    "cents": 28900,
    "count": 1,
    "share": 0.14299002533248892,
-   "previousCents": 28900
+   "previousCents": 28900,
+   "comparedCents": 28900
   },
   {
    "category": "groceries",
@@ -76,7 +79,8 @@
    "cents": 15605,
    "count": 5,
    "share": 0.0772096659278024,
-   "previousCents": 20660
+   "previousCents": 20660,
+   "comparedCents": 15605
   },
   {
    "category": "insurance",
@@ -86,7 +90,8 @@
    "cents": 14230,
    "count": 1,
    "share": 0.07040650728309056,
-   "previousCents": 0
+   "previousCents": 0,
+   "comparedCents": 14230
   },
   {
    "category": "food_delivery",
@@ -96,7 +101,8 @@
    "cents": 10932,
    "count": 3,
    "share": 0.05408882203926536,
-   "previousCents": 6274
+   "previousCents": 6274,
+   "comparedCents": 10932
   },
   {
    "category": "transport",
@@ -106,7 +112,8 @@
    "cents": 6470,
    "count": 1,
    "share": 0.03201195376820773,
-   "previousCents": 6470
+   "previousCents": 6470,
+   "comparedCents": 6470
   },
   {
    "category": "fitness",
@@ -116,7 +123,8 @@
    "cents": 5900,
    "count": 1,
    "share": 0.029191735275490818,
-   "previousCents": 5900
+   "previousCents": 5900,
+   "comparedCents": 5900
   },
   {
    "category": "car",
@@ -126,7 +134,8 @@
    "cents": 5784,
    "count": 1,
    "share": 0.028617796073464218,
-   "previousCents": 0
+   "previousCents": 0,
+   "comparedCents": 5784
   },
   {
    "category": "subscriptions",
@@ -136,7 +145,8 @@
    "cents": 4198,
    "count": 3,
    "share": 0.020770661811272958,
-   "previousCents": 4198
+   "previousCents": 4198,
+   "comparedCents": 4198
   },
   {
    "category": "alcohol",
@@ -146,7 +156,8 @@
    "cents": 3288,
    "count": 1,
    "share": 0.01626820772640912,
-   "previousCents": 2146
+   "previousCents": 2146,
+   "comparedCents": 3288
   },
   {
    "category": "restaurants",
@@ -156,7 +167,8 @@
    "cents": 1805,
    "count": 3,
    "share": 0.008930691893603546,
-   "previousCents": 2401
+   "previousCents": 2401,
+   "comparedCents": 1805
   }
  ],
  "themes": {
@@ -389,7 +401,7 @@
    },
    {
     "id": "other",
-    "heading": "Muut menot",
+    "heading": "Raha-asiat",
     "monthlyCents": 1117,
     "yearCents": 13408,
     "changePct": null,
@@ -834,20 +846,13 @@
  },
  "questions": {
   "share": 1,
-  "outCents": 3745796,
+  "outCents": 3755801,
   "inCents": 4793417,
   "outUnknownCents": 0,
   "inUnknownCents": 0,
   "cardBillCents": 0,
   "cardBillIssuers": [],
   "items": [
-   {
-    "kind": "loan",
-    "key": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy#28900",
-    "payee": "Nordea Rahoitus Suomi Oy",
-    "paymentCents": 28900,
-    "cents": 346800
-   },
    {
     "kind": "payer",
     "key": "name:LIISA VIRTANEN",
@@ -871,7 +876,7 @@
     ]
    }
   ],
-  "total": 2
+  "total": 1
  },
  "colorOrder": [
   "housing",

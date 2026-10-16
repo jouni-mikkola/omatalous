@@ -166,13 +166,24 @@ const entriesOf = (s: Settlement, side: "paid" | "owed"): Entry[] => merge([...s
 const negate = (entries: readonly Entry[]): Entry[] => entries.map((e) => ({ owner: e.owner, cents: -e.cents }));
 
 /**
+ * Whether the share of the holder nobody names (`u:`) is known: the account has two holders and they split equally, by
+ * the use as said now and by every agreement of the pool. Then the holder is a party like a member, with a paid and an owed;
+ * with any other split the holder's share cannot be told from the rest and stays unknown.
+ */
+function holderKnown(pool: SettlementPool, agreements: readonly AgreementRow[]): boolean {
+  const users = pool.users.filter((u) => u.weight > 0);
+  return users.length === 2 && users[0]!.weight === users[1]!.weight && users.some((u) => u.owner === "u:") && agreements.every((a) => a.accountKey !== pool.key || a.kind === "equal");
+}
+
+/**
  * `agreements` are the rows of `account_agreement` (the pool's and the cards'), `members` the household members who use
  * the pool, `cards` the card accounts, `incomes` the earned income by member and month, `asOf` today (`YYYY-MM-DD`).
  * `closed` holds the snapshots of the pool's closed months: such a month is returned as it is. What it would read
  * differently today (a later answer, a member gone) lands as one `late_change` line per closed month in the first month
  * after it that has no snapshot, less what a later snapshot has taken in already. Snapshot months in order, oldest first.
  */
-export function settlement(month: string, pool: SettlementPool, agreements: readonly AgreementRow[], members: ReadonlySet<Owner>, cards: readonly CardUse[], incomes: Incomes, asOf: string, closed: readonly ClosedMonth[] = []): Settlement {
+export function settlement(month: string, pool: SettlementPool, agreements: readonly AgreementRow[], household: ReadonlySet<Owner>, cards: readonly CardUse[], incomes: Incomes, asOf: string, closed: readonly ClosedMonth[] = []): Settlement {
+  const members = holderKnown(pool, agreements) ? new Set([...household, "u:"]) : household;
   const snapshot = closed.find((c) => c.month === month);
   if (snapshot) return snapshot;
   const frozen = new Set(closed.map((c) => c.month));

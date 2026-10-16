@@ -30,6 +30,10 @@ export type RuleId =
   | "return.shop"
   | "return.person"
   | "return.share"
+  | "return.wallet"
+  | "share.back"
+  | "share.open"
+  | "via.service"
   | "refund.net"
   | "part.use"
   | "part.source"
@@ -47,7 +51,9 @@ export type RuleId =
 /**
  * One reason: the rule and its parameters. The parameters of each rule: `category.builtin` source; `transfer.pair`
  * other (the id of the other leg); `card.bill` card (an account id); `return.*` purchase (a row id); `refund.net`
- * purchase, months (the refund's month less the purchase's), cents; `part.use` from, to, of (a `Part`) and cents when
+ * purchase, months (the refund's month less the purchase's), cents; `return.wallet` purchase, day (the purchase's);
+ * `share.open` none (a share answered by the user, no purchase found); `share.back` cents, count (the shares that came back to a purchase); `via.service` service (a name of the closed
+ * list of payment services, never a payee); `part.use` from, to, of (a `Part`) and cents when
  * only the unknown parts of a traced row are cut by it; `part.source` owner (`u:<id>` and the like), kind, cents,
  * passed, mine.
  */

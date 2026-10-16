@@ -3,6 +3,7 @@
  * card is named and which tone its picture has, and when the block has a line of its own for the debts. No sum is made
  * here: every total is core's.
  */
+import { cardName } from "@banking/core";
 import type { DashboardData } from "../../types.ts";
 
 type Answer = DashboardData["holdings"];
@@ -16,20 +17,6 @@ export function maskedNames(accounts: readonly Pick<Answer["accounts"][number], 
   const count = new Map<string, number>();
   for (const a of accounts) count.set(key(a.name), (count.get(key(a.name)) ?? 0) + 1);
   return new Map(accounts.flatMap((a) => (a.mask && (count.get(key(a.name)) ?? 0) > 1 ? [[a.id, a.mask] as const] : [])));
-}
-
-/** The words a bank puts in brackets after a card's name to tell its type, in the lower case they are compared in. */
-const CARD_TYPES = ["credit", "debit", "credit card", "debit card", "luotto", "luottokortti", "debetti", "kredit"];
-const TYPE_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:${CARD_TYPES.join("|")})\s*\)`, "gi");
-
-/**
- * The bank's name for a card without the type it adds in brackets ("Nordea Gold (credit)" gives "Nordea Gold"). Only a
- * bracket that holds nothing but a type word goes: the owner's name of a shared card, "(Eero)", stays, and so does a name
- * that would be left empty.
- */
-export function cardName(name: string): string {
-  const plain = name.replace(TYPE_IN_BRACKETS, "").replace(/\s+/g, " ").trim();
-  return plain || name.trim();
 }
 
 /** The look of a card's picture on Yhteenveto: one of five tones. */

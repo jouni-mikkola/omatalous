@@ -4,7 +4,11 @@
  * "K-Market") so that spending can be grouped per merchant.
  */
 import { isCarDealerName } from "./wording-car.ts";
-import { companyForms, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
+import { PAYMENT_SERVICES } from "./payment-services.ts";
+import { companyForms, hasPayeeForm, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
+
+/** A folded service name as a pattern: a space is one or more spaces. */
+const spelled = (name: string) => name.replace(/ /g, String.raw`\s+`);
 
 // ── card issuers under one display name each: the merchant name, the card bills and the card accounts read them ──
 /** What a bank adds after its name: the legal forms of its own country ("AB", "ASA"), "Filial i Finland". Never a Finnish Oy. */
@@ -30,6 +34,20 @@ export function cardIssuerName(folded: string): string | null {
   const name = folded.trim().replace(/\s+/g, " ");
   return ISSUER_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? null;
 }
+/** The words a bank puts in brackets after a card's name to tell its type, in the lower case they are compared in. */
+const CARD_TYPES = ["credit", "debit", "credit card", "debit card", "luotto", "luottokortti", "debetti", "kredit"];
+const TYPE_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:${CARD_TYPES.join("|")})\s*\)`, "gi");
+
+/**
+ * The bank's name for a card without the type it adds in brackets ("Nordea Gold (credit)" gives "Nordea Gold"). Only a
+ * bracket that holds nothing but a type word goes: the owner's name of a shared card, "(Eero)", stays, and so does a name
+ * that would be left empty.
+ */
+export function cardName(name: string): string {
+  const plain = name.replace(TYPE_IN_BRACKETS, "").replace(/\s+/g, " ").trim();
+  return plain || name.trim();
+}
+
 const CARD_WORD = /(?<![A-Z])(?:KORT|KORTTI|CARD|EUROCARD|MASTERCARD|VISA)(?![A-Z])/;
 const ACCOUNT_ISSUERS: ReadonlyArray<readonly [(text: string) => boolean, string]> = [
   [(t) => /(?<![A-Z])(?:MORROW|KOMPLETT)(?![A-Z])/.test(t), "Morrow Bank"],
@@ -58,7 +76,7 @@ const SERVICE_GROUP = "(?:GROUP|HOLDING|EUROPE|NORDIC|NORDICS|BANK)";
  * and a word that starts with a letter after it ("PAYTRAIL OYJ KAUPPA ILO OY"). A short code is no company's name.
  */
 const PROCESSOR_PREFIX = new RegExp(
-  String.raw`^(?:PAYPAL|PP|SUMUP|ZETTLE|IZ|SQ|SP|VFI|PTL|NETS|KLARNA|MOLLIE|STRIPE|PAYTRAIL|TRUSTLY|ZIMPLER|BRITE|ADYEN|VIPPS MOBILEPAY|VIPPS|CHECKOUT|${MOBILEPAY_SHOP_PREFIX})(?:[\s_-]*\*\s*|(?<=[A-Z]{4})(?:\s+${SERVICE_GROUP}(?:\s+(?:${SERVICE_FORMS}))?|\s+(?:${SERVICE_FORMS}))\s+(?=[A-ZÄÖÅÜ]))`,
+  String.raw`^(?:${[...PAYMENT_SERVICES.flatMap((s) => [...s.names, ...(s.codes ?? [])]).map(spelled), "SP", "VFI", MOBILEPAY_SHOP_PREFIX].sort((a, b) => b.length - a.length).join("|")})(?:[\s_-]*[*/]\s*|(?<=[A-Z]{4})(?:\s+${SERVICE_GROUP}(?:\s+(?:${SERVICE_FORMS}))?|\s+(?:${SERVICE_FORMS}))(?:\s*/\s*|\s+)(?=[A-ZÄÖÅÜ]))`,
 );
 
 /**
@@ -66,11 +84,41 @@ const PROCESSOR_PREFIX = new RegExp(
  * company form, group word, place or country) has no real payee behind it: the service is the payee, under one name.
  * Where a real payee follows, PROCESSOR_PREFIX has already dropped the service.
  */
-const SERVICES: ReadonlyArray<readonly [string, string]> = [
-  ["PAYPAL", "PayPal"], ["KLARNA", "Klarna"], ["PAYTRAIL", "Paytrail"], ["SUMUP", "SumUp"], ["ZETTLE", "Zettle"],
-  ["STRIPE", "Stripe"], ["MOLLIE", "Mollie"], ["NETS", "Nets"], ["TRUSTLY", "Trustly"], ["ZIMPLER", "Zimpler"],
-  ["BRITE", "Brite"], ["ADYEN", "Adyen"], ["VIPPS(?: MOBILEPAY)?", "Vipps"],
-];
+const SERVICES: ReadonlyArray<readonly [string, string]> = PAYMENT_SERVICES.filter((s) => s.alone !== false).map((s) => [`(?:${s.names.map(spelled).join("|")})`, s.name]);
+
+/** The service a text begins with (a short code only before a star), for the line that says a payment went through it. */
+const SERVICE_LEAD = PAYMENT_SERVICES.map((s) => ({
+  name: s.name,
+  re: new RegExp(String.raw`^(?:(?:${s.names.filter((n) => n.length >= 4).map(spelled).join("|") || "(?!)"})(?![A-Z0-9])|(?:${[...s.names, ...(s.codes ?? [])].map(spelled).join("|")})[\s_-]*\*)`),
+}));
+const WALLET_ANYWHERE = /(?<![A-Z0-9])(?:(MOBILEPAY|MOB\.? ?PAY|PIVO)|VIPPS)(?![A-Z0-9])/;
+
+/**
+ * The payment service a payment went through, or null: the one the counterparty or the text begins with, else a
+ * MobilePay or Vipps word anywhere in them. It does not tell who was paid.
+ */
+export function serviceOf(counterparty: string | null, description: string | null): string | null {
+  for (const text of [counterparty, description]) {
+    if (!text?.trim()) continue;
+    const folded = fold(dropCardAccountPrefix(text.toUpperCase().trim()));
+    const hit = SERVICE_LEAD.find(({ re }) => re.test(folded));
+    if (hit) return hit.name;
+  }
+  const wallet = WALLET_ANYWHERE.exec(fold([counterparty, description].filter(Boolean).join(" ")));
+  return wallet ? (wallet[1] ? "MobilePay" : "Vipps") : null;
+}
+
+/** The services whose rows are named by the service alone and whose text holds the shop (Trustly: a reference and a word). */
+const TEXT_MERCHANT = new Set(PAYMENT_SERVICES.filter((s) => s.textMerchant).map((s) => s.name));
+const REFERENCE_WORDS = /(?<![A-Z0-9])(?:VIITE|VIITENUMERO|VIESTI|REF|REFERENCE|REFERENSSI|NRO|NUMERO|NUMBER|MAKSU|PAYMENT|ORDER|TILAUS|TILAUSNUMERO|ID)(?![A-Z0-9])/g;
+const SERVICE_WORDS = new RegExp(String.raw`(?<![A-Z0-9])(?:${PAYMENT_SERVICES.flatMap((s) => s.names).map(spelled).join("|")})(?![A-Z0-9])`, "g");
+
+/** The shop a service's text names beside the reference ("Viite 99887 Kahvila Esimerkki"), or null when it holds only the reference. */
+function shopInText(text: string): string | null {
+  const words = fold(cleanDescription(text)).replace(REFERENCE_WORDS, " ").replace(SERVICE_WORDS, " ").split(/\s+/).filter((w) => /^[A-Z]{2}[A-Z.&'-]*$/.test(w) && !COMPANY_FORMS.has(w) && !new RegExp(`^${SERVICE_GROUP}$`).test(w));
+  const name = words.length ? normalizeMerchant(null, words.join(" ")) : UNKNOWN_MERCHANT;
+  return name === UNKNOWN_MERCHANT ? null : name;
+}
 
 /** ISO 3166-1 alpha-3: how a card account writes the country of a purchase. */
 const COUNTRY_CODES = new Set(
@@ -266,15 +314,15 @@ const BRANDS: ReadonlyArray<readonly [RegExp, string]> = [
 
 export const UNKNOWN_MERCHANT = "Tuntematon";
 
-/** Upper-case and strip Nordic diacritics so "MEHILÄINEN" and "MEHILAINEN" match. */
+/** Upper-case and strip Nordic diacritics (and the Ë of Citroën) so "MEHILÄINEN" and "MEHILAINEN" match. */
 export function fold(s: string): string {
   const upper = s.toUpperCase();
   // most texts have no diacritics: skip the replace passes (this runs for every row and field)
   return FOLD_CHARS.test(upper) ? upper.replace(FOLD_CHARS_G, (c) => FOLD_MAP[c]!) : upper;
 }
-const FOLD_MAP: Record<string, string> = { Ä: "A", Å: "A", Ö: "O", Ü: "U" };
-const FOLD_CHARS = /[ÄÅÖÜ]/;
-const FOLD_CHARS_G = /[ÄÅÖÜ]/g;
+const FOLD_MAP: Record<string, string> = { Ä: "A", Ë: "E", Å: "A", Ö: "O", Ü: "U" };
+const FOLD_CHARS = /[ÄËÅÖÜ]/;
+const FOLD_CHARS_G = /[ÄËÅÖÜ]/g;
 
 /** Whether a merchant name is the placeholder every row without a name shares. */
 export function isUnknownMerchant(name: string): boolean {
@@ -306,7 +354,7 @@ export function cleanDescription(raw: string): string {
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
     .replace(/\b\d{1,2}:\d{2}\b/g, " ")
     .replace(/\b[A-Z\d]{5,}\b/g, (tok) => (isReferenceToken(tok) ? " " : tok))
-    .replace(/[^A-ZÄÖÅÜ0-9&.'+\- ]+/g, " ")
+    .replace(/[^A-ZÄËÖÅÜ0-9&.'+\- ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     // what is left of a card or terminal number before the shop's name
@@ -330,7 +378,11 @@ export function cleanDescription(raw: string): string {
  * ("PAYTRAIL OYJ TURKU ENERGIA OY") keeps its own name.
  */
 function dropProcessor(s: string): string {
-  return s.replace(PROCESSOR_PREFIX, (prefix) => (!prefix.includes("*") && SEAT_ONLY.test(fold(s.slice(prefix.length))) ? prefix : ""));
+  const dropped = s.replace(PROCESSOR_PREFIX, (prefix) => (!/[*/]/.test(prefix) && SEAT_ONLY.test(fold(s.slice(prefix.length))) ? prefix : ""));
+  if (dropped !== s) return dropped;
+  // "MOBILEPAY ESIMERKKI OY": the wallet's word stands in front of a company, whose name is the payee; a person's name keeps it
+  const wallet = /^(?:MOBILEPAY|VIPPS) +(?=\S)/.exec(s);
+  return wallet && hasPayeeForm(fold(s.slice(wallet[0].length))) ? s.slice(wallet[0].length) : s;
 }
 
 /** A city's spelling with Ä and Ö written AE and OE, as a card account does, and with them: "JYVAESKYLAE" is "JYVÄSKYLÄ". */
@@ -385,7 +437,9 @@ export function normalizeMerchant(counterparty: string | null, description: stri
     const cleaned = cleanDescription(candidate);
     if (!cleaned) continue;
     const folded = fold(cleaned);
-    for (const [pattern, name] of SERVICE_ONLY) if (pattern.test(folded)) return name;
+    for (const [pattern, name] of SERVICE_ONLY) {
+      if (pattern.test(folded)) return (TEXT_MERCHANT.has(name) && candidate === counterparty && description?.trim() ? shopInText(description) : null) ?? name;
+    }
     // one issuer under every legal suffix and word order ("MORROW", "MORROW BANK ASA", "MORROW BANK AB FILIAL")
     // "MORROW FI" is the bare name with a country the cleaning took off: the bank writes none, so it is not the bank
     const issuer = cardIssuerName(folded);

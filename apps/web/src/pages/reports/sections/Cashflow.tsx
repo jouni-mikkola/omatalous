@@ -1,4 +1,5 @@
 // Decision: spend less or save more
+import { coverOf } from "@banking/core";
 import { useState } from "react";
 import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
 import { UnknownShare } from "../../../components/UnknownShare.tsx";
@@ -13,6 +14,9 @@ function Cashflow({ ctx }: SectionProps) {
   const r = ctx.data.cashflow;
   const [table, setTable] = useState(false);
   const t = r.totals;
+  // the rows hold credit drawn net per month and never below zero, so the column is there when any month drew
+  const drew = r.rows.some((x) => x.borrowedCents > 0);
+  const drawn = coverOf(t).creditDrawnCents;
   // a month that has not ended, or that the history does not cover from the 1st, is partial
   // the month in progress has its bills but maybe not its salary: the margin is told from the complete months
   const settled = r.running ? r.closed : t;
@@ -36,7 +40,7 @@ function Cashflow({ ctx }: SectionProps) {
             ["Tulot", money(t.incomeCents, false)],
             ["Menot", money(t.expenseCents, false)],
             ["Säästöön", money(t.savedCents, false)],
-            ...(t.borrowedCents ? ([["Luotonnostot", money(t.borrowedCents, false)]] as [string, string][]) : []),
+            ...(drawn > 0 ? ([["Luotonnostot", money(drawn, false)]] as [string, string][]) : []),
           ]}
         />
       )}
@@ -51,7 +55,7 @@ function Cashflow({ ctx }: SectionProps) {
                 <th className="num">Kulutus</th>
                 <th className="num">Velanhoito</th>
                 <th className="num">Säästöön</th>
-                {t.borrowedCents !== 0 && <th className="num">Luotonnostot</th>}
+                {drew && <th className="num">Luotonnostot</th>}
                 <th className="num">Yli jäi</th>
                 <th className="num">Säästöaste</th>
               </tr>
@@ -70,7 +74,7 @@ function Cashflow({ ctx }: SectionProps) {
                   <td className="num">{money(x.consumptionCents, false)}</td>
                   <td className="num">{money(x.debtCents, false)}</td>
                   <td className="num">{money(x.savedCents, false)}</td>
-                  {t.borrowedCents !== 0 && <td className="num">{money(x.borrowedCents, false)}</td>}
+                  {drew && <td className="num">{money(x.borrowedCents, false)}</td>}
                   <td className="num">
                     <strong>{money(x.leftCents, false)}</strong>
                   </td>
@@ -86,7 +90,7 @@ function Cashflow({ ctx }: SectionProps) {
           up={[
             { key: "income", label: "Tulot", color: "var(--series-1)", values: r.rows.map((x) => x.incomeCents) },
             // the table's column; credit drawn is money in that is no income, in the colour the bridge gives it
-            ...(t.borrowedCents !== 0 ? [{ key: "borrowed", label: "Luotonnostot", color: "var(--series-4)", values: r.rows.map((x) => Math.max(0, x.borrowedCents)) }] : []),
+            ...(drew ? [{ key: "borrowed", label: "Luotonnostot", color: "var(--series-4)", values: r.rows.map((x) => x.borrowedCents) }] : []),
           ]}
           down={[
             { key: "consumption", label: "Kulutus", color: "var(--series-2)", values: r.rows.map((x) => x.consumptionCents) },

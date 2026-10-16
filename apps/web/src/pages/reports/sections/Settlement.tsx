@@ -59,10 +59,12 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
       </h3>
       {s.members.map((m) => {
         const line = overLine(m.over);
+        // the holder with no login is a party of its own where core knows their share (two holders, an equal split)
+        const name = m.owner === "u:" ? unknownName(m.owner, pool.labels, holder) : (pool.names[m.owner] ?? (pool.removed.includes(m.owner) ? "poistettu jäsen" : m.owner));
         return (
-          <div key={m.owner} className="st-rows" role="group" aria-label={pool.names[m.owner] ?? (pool.removed.includes(m.owner) ? "poistettu jäsen" : m.owner)}>
+          <div key={m.owner} className="st-rows" role="group" aria-label={name}>
             <div className="st-row">
-              <strong className="st-name">{pool.names[m.owner] ?? (pool.removed.includes(m.owner) ? "poistettu jäsen" : m.owner)}</strong>
+              <strong className="st-name">{name}</strong>
             </div>
             <div className="st-row">
               <span className="st-name">Maksanut</span>

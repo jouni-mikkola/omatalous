@@ -20,6 +20,8 @@ export interface Account {
   iban: string | null;
   currency: string;
   type: AccountType;
+  /** The bank's latest balance, where the caller has it (either sign for a loan account): a loan payment account is told by it (loan-payment.ts). */
+  balanceCents?: number | null;
 }
 
 /**
@@ -183,6 +185,8 @@ export interface BalanceInput {
   cardMask?: string | null;
   /** The limit of a card or credit line as the bank gave it, in cents. */
   creditLimitCents?: number | null;
+  /** A loan payment account (Lainanhoitotili, loan-payment.ts): typed loan, but it holds no debt and no loan reads it as one. */
+  loanPayment?: true;
   /** Who uses the account: the server fills it with the balances of a view, in both views. Left out, nothing is known of its use. */
   use?: AccountUse;
   /** The viewer's part of the account, set in the own view only: the household view counts every account whole. Left out, the account counts whole. */

@@ -46,7 +46,7 @@ themes · demo · themes:media (quiet)
   | Tilaukset ja suoratoisto: 134.60 € a month, 1615.19 € a year
 
 themes · demo · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 11.17 € a month, 134.08 € a year
   | Maksut henkilöille: 11.17 € a month, 134.08 € a year
 
@@ -154,10 +154,10 @@ themes · plain:1 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 130.65 € a month, no year
 
 themes · plain:1 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 312.38 € a month, no year
   | Maksut henkilöille: 33.76 € a month, no year
-  | Muut: 278.62 € a month, no year
+  | Muut menot: 278.62 € a month, no year
 
 themes · plain:1 · themes:shopping (quiet)
   Ostokset
@@ -201,10 +201,10 @@ themes · plain:2 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 110.30 € a month, no year
 
 themes · plain:2 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 464.76 € a month, no year
   | Maksut henkilöille: 44.47 € a month, no year
-  | Muut: 420.29 € a month, no year
+  | Muut menot: 420.29 € a month, no year
 
 themes · plain:2 · themes:shopping (quiet)
   Ostokset
@@ -248,10 +248,10 @@ themes · plain:3 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 140.63 € a month, no year
 
 themes · plain:3 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 257.92 € a month, no year
   | Maksut henkilöille: 34.11 € a month, no year
-  | Muut: 223.81 € a month, no year
+  | Muut menot: 223.81 € a month, no year
 
 themes · plain:3 · themes:shopping (quiet)
   Ostokset
@@ -295,10 +295,10 @@ themes · plain:4 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 151.73 € a month, no year
 
 themes · plain:4 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 383.20 € a month, no year
   | Maksut henkilöille: 62.25 € a month, no year
-  | Muut: 320.95 € a month, no year
+  | Muut menot: 320.95 € a month, no year
 
 themes · plain:4 · themes:shopping (quiet)
   Ostokset
@@ -342,10 +342,10 @@ themes · plain:5 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 137.31 € a month, no year
 
 themes · plain:5 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 250.64 € a month, no year
   | Maksut henkilöille: 53.42 € a month, no year
-  | Muut: 197.22 € a month, no year
+  | Muut menot: 197.22 € a month, no year
 
 themes · plain:5 · themes:shopping (quiet)
   Ostokset
@@ -390,10 +390,10 @@ themes · settled:1 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 179.33 € a month, 2151.94 € a year, +24 %
 
 themes · settled:1 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 167.10 € a month, 2005.20 € a year, +41 %
   | Maksut henkilöille: 57.37 € a month, 688.44 € a year
-  | Muut: 109.73 € a month, 1316.76 € a year, +76 %
+  | Muut menot: 109.73 € a month, 1316.76 € a year, +76 %
 
 themes · settled:1 · themes:shopping (quiet)
   Ostokset
@@ -438,10 +438,10 @@ themes · settled:2 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 193.22 € a month, 2318.59 € a year, +13 %
 
 themes · settled:2 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 84.16 € a month, 1009.94 € a year, -30 %
   | Maksut henkilöille: 49.33 € a month, 591.92 € a year, -18 %
-  | Muut: 34.83 € a month, 418.02 € a year, -42 %
+  | Muut menot: 34.83 € a month, 418.02 € a year, -42 %
 
 themes · settled:2 · themes:shopping (quiet)
   Ostokset
@@ -485,10 +485,10 @@ themes · settled:3 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 179.88 € a month, no year
 
 themes · settled:3 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 142.89 € a month, no year
   | Maksut henkilöille: 49.26 € a month, no year
-  | Muut: 93.63 € a month, no year
+  | Muut menot: 93.63 € a month, no year
 
 themes · settled:3 · themes:shopping (quiet)
   Ostokset
@@ -533,10 +533,10 @@ themes · settled:4 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 266.43 € a month, 3197.22 € a year, +53 %
 
 themes · settled:4 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 84.21 € a month, 1010.57 € a year, -40 %
   | Maksut henkilöille: 53.58 € a month, 642.93 € a year
-  | Muut: 30.63 € a month, 367.64 € a year, -66 %
+  | Muut menot: 30.63 € a month, 367.64 € a year, -66 %
 
 themes · settled:4 · themes:shopping (quiet)
   Ostokset
@@ -581,10 +581,10 @@ themes · settled:5 · themes:media (quiet)
   | Tilaukset ja suoratoisto: 171.27 € a month, 2055.22 € a year
 
 themes · settled:5 · themes:other (quiet)
-  Muut menot
+  Raha-asiat
   = 160.67 € a month, 1928.00 € a year
   | Maksut henkilöille: 41.08 € a month, 492.89 € a year
-  | Muut: 119.59 € a month, 1435.11 € a year
+  | Muut menot: 119.59 € a month, 1435.11 € a year
 
 themes · settled:5 · themes:shopping (quiet)
   Ostokset

@@ -65,6 +65,8 @@ export function financeRoutes(s: Services) {
       offeredBanks(s),
     ]);
     const today = s.today();
+    // the accounts the bank types as a loan that carry a loan's instalments only: one view of the own accounts decides it
+    const paying = accounts.some((a) => a.type === "loan") ? (await s.analysis.get(s, user.id, "own")).ctx.paymentAccounts : new Set<string>();
     const { privacyUrl, termsUrl } = registrationUrls(s);
     // who uses each account in view, and the viewer's part of it
     const { uses, traces } = await usesWithTraces(s, user.id, [...accounts, ...sharedAccounts]);
@@ -80,7 +82,7 @@ export function financeRoutes(s: Services) {
       user,
       categories: CATEGORIES,
       kinds: KIND_LABEL,
-      accounts: await Promise.all((await accountsView(s, user.id, accounts)).map(async (account) => ({ ...account, ...uses.get(account.id), ...(await split(account, true)), reconcile: reconciled.get(account.id) ?? null }))),
+      accounts: await Promise.all((await accountsView(s, user.id, accounts)).map(async (account) => ({ ...account, ...(paying.has(account.id) ? { loanPayment: true as const } : {}), ...uses.get(account.id), ...(await split(account, true)), reconcile: reconciled.get(account.id) ?? null }))),
       // without the bank of the owner's connection: the member sees the account by its name, and a card has no IBAN that tells more
       sharedAccounts: await Promise.all(sharedAccounts.map(async ({ bank: _bank, ...account }) => ({ ...account, ...uses.get(account.id), ...(await split(account, false)), reconcile: reconciled.get(account.id) ?? null }))),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),

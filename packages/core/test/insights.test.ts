@@ -103,21 +103,23 @@ describe("insights", () => {
 
   it("a subscription that moved to another card is not new, a second one running beside it is", () => {
     const sub = { merchant: "Storytel", category: "subscriptions" };
+    // the new card was connected long before its first Storytel charge, so a charge there is judged against its own history
+    const seen = tx({ bookingDate: "2025-08-02", amountCents: -1000, merchant: "K-Market", category: "groceries", accountId: "acc-2" });
     const oldCard = monthly("2025-08", 5, 12, -2999, sub);
     // the card changed: the last charge on the old account was 5.7., the first on the new one 5.8., the third on 5.10.
     const moved = monthly("2026-08", 5, 3, -2999, { ...sub, accountId: "acc-2" });
-    expect(keep(insightsOf([...household(), ...oldCard, ...moved])).some((i) => i.id.startsWith("new:"))).toBe(false);
+    expect(keep(insightsOf([...household(), seen, ...oldCard, ...moved])).some((i) => i.id.startsWith("new:"))).toBe(false);
     // both cards still pay: a second subscription of the same service
     const both = monthly("2025-08", 5, 14, -2999, sub);
-    const second = keep(insightsOf([...household(), ...both, ...moved]));
+    const second = keep(insightsOf([...household(), seen, ...both, ...moved]));
     expect(second.map((i) => plain(i.title))).toEqual(["Uusi toistuva maksu: Storytel 29,99 € kuussa"]);
     expect(second[0]!.id).toContain("acc-2");
     // the old card stopped months before: a service taken up again
     const earlier = monthly("2025-08", 5, 8, -2999, sub);
-    expect(keep(insightsOf([...household(), ...earlier, ...moved])).some((i) => i.id.startsWith("new:"))).toBe(true);
+    expect(keep(insightsOf([...household(), seen, ...earlier, ...moved])).some((i) => i.id.startsWith("new:"))).toBe(true);
     // another service on the new card, not the one that stopped
     const other = monthly("2026-08", 5, 3, -2999, { merchant: "Viaplay", category: "subscriptions", accountId: "acc-2" });
-    expect(keep(insightsOf([...household(), ...oldCard, ...other])).map((i) => plain(i.title))).toEqual(["Uusi toistuva maksu: Viaplay 29,99 € kuussa"]);
+    expect(keep(insightsOf([...household(), seen, ...oldCard, ...other])).map((i) => plain(i.title))).toEqual(["Uusi toistuva maksu: Viaplay 29,99 € kuussa"]);
   });
 
   it("subscriptions counted against a year ago", () => {

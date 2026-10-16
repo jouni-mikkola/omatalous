@@ -1,5 +1,5 @@
 import { missingCardPurchases, type MissingCardPurchases } from "./card-bills.ts";
-import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, netSpend, spendRows } from "./context.ts";
 import { type FiledWithoutAsking, filedWithoutAsking } from "./filed.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
 import { type DateRange, toDayRange } from "./period.ts";
@@ -44,17 +44,24 @@ export function spendingBase(txs: readonly Pick<AnalysisTx, "spend" | "category"
   return base;
 }
 
+/** A row of Muut menot that nobody set: the user's own choice of that category is an answer, not a gap. */
+const isUnknownOther = (t: Pick<AnalysisTx, "category" | "categorySource">): boolean => t.category === "other" && t.categorySource !== "user";
+
 /**
- * The spending of the range that nothing says what it was: card bills whose purchases are not itemised and Muut menot,
- * against the spending base. Tietojen laatu names both; the pages that draw conclusions say how much there is.
+ * The spending of the range that nothing says what it was: card bills whose purchases are not itemised and Muut menot
+ * that nobody set, against the spending base of the statement-lowered rows (`spendRows`: a bill counts at what its
+ * statement rows leave of it). `otherShare` is Muut menot alone, `share` has the bills too. Every page that says how
+ * much is uncategorised (the signal below, Raportit, Optimoi, the questions) reads this one function. A purchase counts
+ * at what it cost in the end; a Muut menot row the user chose is known.
  */
-export function unknownSpending(ctx: AnalysisContext, range: DateRange): { otherCents: number; billCents: number; spendingCents: number; share: number } {
-  const inRange = inDays(ctx, toDayRange(range));
-  const spendingCents = spendingBase(inRange);
-  const otherCents = inRange.filter((t) => t.category === "other").reduce((s, t) => s + t.spend, 0);
+export function unknownSpending(ctx: AnalysisContext, range: DateRange): { otherCents: number; billCents: number; spendingCents: number; otherShare: number; share: number } {
+  const rows = spendRows(ctx, toDayRange(range));
+  const spendingCents = spendingBase(rows);
+  const otherCents = rows.reduce((s, t) => (isUnknownOther(t) && t.spend > 0 ? s + netSpend(t) : s), 0);
   // the card bills are the table of the card_bills signal: one sum on every page
   const billCents = missingCardPurchases(ctx, range).reduce((s, m) => s + m.cents, 0);
-  return { otherCents, billCents, spendingCents, share: spendingCents > 0 ? Math.min(1, (otherCents + billCents) / spendingCents) : 0 };
+  const shareOf = (cents: number) => (spendingCents > 0 ? Math.min(1, cents / spendingCents) : 0);
+  return { otherCents, billCents, spendingCents, otherShare: shareOf(otherCents), share: shareOf(otherCents + billCents) };
 }
 
 const GAP_DAYS = 14;
@@ -88,15 +95,15 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     }
   }
 
-  const { spendingCents: spending, otherCents: other, billCents: billTotal } = unknownSpending(ctx, range);
-  if (spending > 0 && other / spending >= UNCATEGORISED_SHARE) {
+  const { otherCents: other, billCents: billTotal, otherShare } = unknownSpending(ctx, range);
+  if (otherShare >= UNCATEGORISED_SHARE) {
     const byMerchant = new Map<string, number>();
-    for (const t of inRange) if (t.category === "other" && t.spend > 0) byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + t.spend);
-    const top = [...byMerchant.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
+    for (const t of spendRows(ctx, days)) if (isUnknownOther(t) && t.spend > 0) byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + netSpend(t));
+    const top = [...byMerchant.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
     signals.push({
       id: "uncategorised",
       tone: "warning",
-      title: `${Math.round((other / spending) * 100)} % menoista on luokittelematta`,
+      title: `${Math.round(otherShare * 100)} % menoista on luokittelematta`,
       detail: `${formatEur(other, false)} on kategoriassa Muut menot${top.length ? `, suurimpina ${top.join(", ")}` : ""}. Luokittele kauppiaat, niin vertailut tarkentuvat.`,
       category: "other",
       cents: other,
@@ -133,7 +140,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
   }
 
   // the bills are of the months before a connected card's rows, or of a card that is not connected
-  const missing = missingCardPurchases(ctx, range);
+  const missing = missingCardPurchases(ctx, range, balances);
   if (billTotal > 0) {
     signals.push({
       id: "card_bills",
@@ -160,7 +167,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     signals.push({
       id: "own_unconnected",
       tone: "info",
-      title: `${formatEur(saved, false)} säästöjä meni tilille, jonka saldo ei näy`,
+      title: `${formatEur(saved, false)} säästöjä meni tilille, jota ei ole yhdistetty`,
       detail: `${largest.length ? `Suurimmat saajat: ${finnishList(largest)}. ` : ""}Yhdistä tili.`,
       category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0],
       cents: saved,

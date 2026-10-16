@@ -7,6 +7,8 @@
  * A payer is the row's IBAN when it has one, else the folded words of its counterparty. A row with neither has no payer.
  */
 import { getCategory } from "./categories.ts";
+import { dayNumber } from "./dates.ts";
+import { isSharedPurchase, isUnnamedMobilePay, nearestPurchase } from "./mobilepay.ts";
 import { nameOf, type Name, samePerson } from "./person-names.ts";
 import { steadyBy, STEADY_BAND } from "./returns.ts";
 import { normalizeIban } from "./transfers.ts";
@@ -19,13 +21,21 @@ export const PAYER_ROLES = ["cost_share", "sales", "own_money", "gift", "pay"] a
 /** A household default can be any role but `own_money`: whose own money it is only a member can say. */
 const DEFAULT_ROLES: readonly PayerRole[] = PAYER_ROLES.filter((r) => r !== "own_money");
 
-type PayerRow = Pick<Transaction, "counterparty" | "counterpartyIban">;
+type PayerRow = Pick<Transaction, "counterparty" | "counterpartyIban"> & Partial<Pick<Transaction, "description">>;
+
+/** The name MobilePay money gets when the bank names no sender: all such rows are one payer. */
+const WALLET_PAYER = "MobilePay";
+/** That payer's key. */
+export const WALLET_PAYER_KEY = "name:MOBILEPAY";
+
+/** The name a row's payer is known by: the counterparty, else for MobilePay money that names no one, the wallet's. */
+const payerNameOf = (t: PayerRow): string => (t.counterparty?.trim() ? t.counterparty : isUnnamedMobilePay(t) ? WALLET_PAYER : "");
 
 /** The payer of a row: `iban:<IBAN>`, else `name:<distinct folded words of the counterparty, sorted>`; null when it has neither. */
 export function payerKeyOf(t: PayerRow): string | null {
   const iban = normalizeIban(t.counterpartyIban);
   if (iban) return `iban:${iban}`;
-  const words = [...nameOf(t.counterparty ?? "")].sort();
+  const words = [...nameOf(payerNameOf(t))].sort();
   return words.length ? `name:${words.join(" ")}` : null;
 }
 
@@ -49,7 +59,7 @@ function roleIn(rows: readonly PayerRoleRow[], t: PayerRow): PayerRole | typeof 
     const hit = rows.find((r) => r.counterpartyKey === `iban:${iban}`);
     if (hit) return hit.role;
   }
-  const name = nameOf(t.counterparty ?? "");
+  const name = nameOf(payerNameOf(t));
   if (!name.size) return null;
   const roles = new Set(rows.filter((r) => r.counterpartyKey.startsWith("name:") && sameName(nameOfKey(r.counterpartyKey), name)).map((r) => r.role));
   return roles.size > 1 ? CONFLICT : ([...roles][0] ?? null);
@@ -69,13 +79,20 @@ function answeredRole(roles: readonly PayerRoleRow[], t: PayerRow, memberId: str
 
 type RoleRow = PayerRow & Pick<Transaction, "amountCents" | "categorySource">;
 
+/** The unnamed MobilePay rows of a payer the member answered: the answer decides them, so pairing with a purchase leaves them. */
+export function answeredWalletRows(rows: readonly (RoleRow & Pick<Transaction, "id">)[], payers: PayerInput | undefined): Set<string> {
+  if (!payers?.roles.length) return new Set();
+  const roleOf = resolver(payers.roles, payers.memberId);
+  return new Set(rows.filter((t) => t.amountCents > 0 && isUnnamedMobilePay(t) && roleOf(t)).map((t) => t.id));
+}
+
 /** The resolver behind `payerRoleOf`, deciding each distinct payer once. */
 function resolver(roles: readonly PayerRoleRow[], memberId: string): (t: RoleRow) => PayerRole | null {
   const memo = new Map<string, PayerRole | null>();
   return (t) => {
     // a category set by hand stays: no role for the row
     if (t.categorySource === "user" || t.amountCents <= 0) return null;
-    const key = `${t.counterpartyIban ?? ""}\u0000${t.counterparty ?? ""}`;
+    const key = `${t.counterpartyIban ?? ""}\u0000${payerNameOf(t)}`;
     let role = memo.get(key);
     if (role === undefined) memo.set(key, (role = answeredRole(roles, t, memberId)));
     // a role acts on money in only: what is paid to the same counterparty is never moved by it
@@ -127,19 +144,34 @@ const DECIDED = new Set(["transfer", "match"]);
  * own rules and both rows of every return. For a steady payer with `cost_share` or `gift`, a
  * row more than the band from the payer's median keeps today's reading. Changes `next` in place; no roles, no change.
  * `steady`: the medians of the whole history when `next` is only some of its rows (one merchant's); else read from `next`.
+ * MobilePay money that names no sender and is answered as shares of shared purchases (`cost_share`) is no income: it
+ * nets against the category of the nearest household purchase in the 14 days before it, else against "other". Returns
+ * those rows' purchase ids (null: none found), for the panel; the rows then read other rows, so the run is the full one.
  */
-export function applyPayerRoles(next: readonly Transaction[], locked: ReadonlySet<string>, payers: PayerInput | undefined, steady?: ReadonlyMap<string, number>): void {
-  if (!payers || !payers.roles.length) return;
+export function applyPayerRoles(next: readonly Transaction[], locked: ReadonlySet<string>, payers: PayerInput | undefined, steady?: ReadonlyMap<string, number>): Map<string, string | null> {
+  const shares = new Map<string, string | null>();
+  if (!payers || !payers.roles.length) return shares;
   const roleOf = resolver(payers.roles, payers.memberId);
   steady ??= steadyPayers(next);
+  let purchases: { id: string; day: number; cents: number; category: string }[] | undefined;
   for (const t of next) {
     if (locked.has(t.id) || DECIDED.has(t.categorySource) || t.isTransfer || t.category === "card_bill" || isRefund(t)) continue;
     const role = roleOf(t);
     if (!role) continue;
+    if (role === "cost_share" && t.amountCents > 0 && isUnnamedMobilePay(t)) {
+      purchases ??= next
+        .filter((p) => p.amountCents < 0 && !p.isTransfer && p.categorySource !== "transfer" && getCategory(p.category).kind === "expense" && isSharedPurchase(p.category))
+        .map((p) => ({ id: p.id, day: dayNumber(p.bookingDate), cents: -p.amountCents, category: p.category }));
+      const purchase = nearestPurchase(purchases, { id: t.id, day: dayNumber(t.bookingDate), cents: t.amountCents });
+      Object.assign(t, { category: purchases.find((p) => p.id === purchase?.id)?.category ?? "other", categorySource: "payer", isTransfer: false });
+      shares.set(t.id, purchase?.id ?? null);
+      continue;
+    }
     if ((role === "cost_share" || role === "gift") && t.amountCents > 0) {
       const typical = steady.get(payerKeyOf(t) ?? "");
       if (typical !== undefined && isOffMedian(t.amountCents, typical)) continue;
     }
     Object.assign(t, { category: categoryUnderRole(role, t.category), categorySource: "payer", isTransfer: role === "own_money" });
   }
+  return shares;
 }

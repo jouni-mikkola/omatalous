@@ -24,12 +24,15 @@ import { billCents } from "./account-use.ts";
 import { type AnalysisContext, type AnalysisTx, standingOf } from "./analysis/context.ts";
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
-import { cancelledSubjects, isCancelled } from "./commitments.ts";
+import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
 import { loansOf } from "./loans.ts";
+import { lexiconCategory } from "./lexicon.ts";
 import { cardIssuerName, fold } from "./merchant.ts";
 import { parseSeriesId, type RecurringSeries, seriesId } from "./recurring.ts";
+import { steadyBy } from "./returns.ts";
 import type { IsoDate, LoanKind, UserInputs, UserMark } from "./types.ts";
-import { hasPayeeForm, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
+import { isFinanceCompanyName } from "./wording-lenders.ts";
+import { CONSUMER_LENDER_WORDS, hasPayeeForm, housingCharge, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
 /** A debt series that looks like a loan nobody saved. */
 export interface LoanProposal {
@@ -52,7 +55,34 @@ export interface LoanProposal {
   kind: LoanKind;
   /** The payment reference the payments share, null when the rows carry none. */
   reference: string | null;
+  /**
+   * Whether the app can place the loan: the household said what it is (`LOAN_KIND_QUESTION`), the category says (mortgage,
+   * student loan), the payee is a car financer, or a payment over `MORTGAGE_PAYMENT_CENTS` of a home owner (a housing
+   * company charge, no rent). Otherwise `kind` is a guess and the front page asks "Mikä laina tämä on?" once.
+   */
+  placed: boolean;
 }
+
+/** What the household answers when asked what a loan is, with the loan kind each answer stands for. */
+export const LOAN_KIND_ANSWERS = ["mortgage", "car", "student", "consumer", "other"] as const satisfies readonly LoanKind[];
+
+/** The subject prefix of the answer: `question:loan-kind:<kind>:<series key>`, mark `in_use`. The latest answer for a series stands. */
+const LOAN_KIND_QUESTION = "question:loan-kind:";
+
+/** The answer's subject for a series key. */
+export const loanKindSubject = (kind: (typeof LOAN_KIND_ANSWERS)[number], key: string): string => `${LOAN_KIND_QUESTION}${kind}:${key}`;
+
+/** The kind and series key an answer's subject names, or null for any other subject and for a key no series has. The marks route asks it before it stores one. */
+export function parseLoanKindSubject(subject: string): { kind: (typeof LOAN_KIND_ANSWERS)[number]; key: string } | null {
+  if (!subject.startsWith(LOAN_KIND_QUESTION)) return null;
+  const rest = subject.slice(LOAN_KIND_QUESTION.length);
+  const kind = LOAN_KIND_ANSWERS.find((k) => rest.startsWith(`${k}:`));
+  const key = kind ? rest.slice(kind.length + 1) : "";
+  return kind && parseSeriesId(key)?.accountId ? { kind, key } : null;
+}
+
+/** A monthly instalment over this, paid by a home owner, is a mortgage. */
+const MORTGAGE_PAYMENT_CENTS = 40000;
 
 /** Under this a monthly charge is a fee or a small service, whatever its text says. */
 const MIN_LOAN_PAYMENT_CENTS = 2000;
@@ -120,11 +150,54 @@ function wholePayment(typicalCents: number, charges: readonly AnalysisTx[]): num
   return -billCents(charges.reduce((nearest, t) => (off(t) < off(nearest) ? t : nearest)));
 }
 
-function kindOf(category: string, text: string): LoanKind {
-  if (category === "mortgage") return "mortgage";
-  if (category === "student_loan") return "student";
-  if (isLenderName(text)) return "instalment";
-  return isCarFinanceText(text) ? "car" : "consumer";
+const CONSUMER_LENDER = new RegExp(String.raw`(?<![A-Z0-9])(?:${CONSUMER_LENDER_WORDS})(?![A-Z0-9])`);
+
+/**
+ * A payee the app knows as a lender: an instalment service or a consumer lender of the word lists, a finance company
+ * by the end of its name, or a company the lexicon files as credit. Its steady payment is a loan; whose it is, only
+ * the household says.
+ */
+function isKnownLender(payee: string, text: string): boolean {
+  return isLenderName(text) || CONSUMER_LENDER.test(text) || isFinanceCompanyName(payee) || lexiconCategory({ merchant: payee, counterparty: payee, description: null })?.category === "loans";
+}
+
+/** The kind the category and the words place, and whether they do. A car financer is a lender too: the car comes first. */
+function kindOf(category: string, text: string): { kind: LoanKind; placed: boolean } {
+  if (category === "mortgage") return { kind: "mortgage", placed: true };
+  if (category === "student_loan") return { kind: "student", placed: true };
+  if (isCarFinanceText(text)) return { kind: "car", placed: true };
+  return { kind: isLenderName(text) ? "instalment" : "consumer", placed: false };
+}
+
+/**
+ * The household pays a housing company's charge and no rent: the payee of a big instalment is then the lender of its
+ * home. Read as Asuminen reads the charges (`buildHousing`): the words of the latest payment of an active contract.
+ */
+function ownsHome(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing">): boolean {
+  const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));
+  let charged = false;
+  for (const s of ctx.recurring) {
+    if (s.category !== "housing" || !isContract(s)) continue;
+    const last = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t).sort((a, b) => a.day - b.day).at(-1);
+    const kind = housingCharge(fold(s.merchant), fold(`${last?.counterparty ?? ""} ${last?.description ?? ""}`), false)?.kind;
+    if (kind === "rent" || kind === "occupancy") return false;
+    if (kind === "financing" || kind === "capital" || kind === "maintenance" || kind === "charge") charged = true;
+  }
+  return charged;
+}
+
+/** What the household answered of a series, asked of the series and its charges as `takenSeries` is: the latest answer whose key names it. */
+function answeredKind(inputs: UserInputs): (s: RecurringSeries, charges: Charges) => LoanKind | null {
+  const answers = inputs.marks.flatMap((m) => {
+    const a = parseLoanKindSubject(m.subject);
+    return a ? [{ ...a, at: m.markedAt }] : [];
+  });
+  if (!answers.length) return () => null;
+  const loanKeys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
+  return (s, charges) => {
+    const amounts = amountsOf(s, charges);
+    return answers.filter((a) => names(a.key, s, amounts, loanKeys)).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))[0]?.kind ?? null;
+  };
 }
 
 /**
@@ -173,6 +246,8 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));
   const taken = takenSeries(inputs);
   const cancelled = cancelledSubjects(inputs);
+  const said = answeredKind(inputs);
+  const owner = ownsHome(ctx);
 
   const out: LoanProposal[] = [];
   for (const s of candidates) {
@@ -198,6 +273,11 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     if (taken(s, charges)) continue;
     // one of a lender's several series has its payment in the series id, and on rows cut to a part that is the part
     const cut = charges.some((t) => t.wholeCents !== undefined);
+    const told = said(s, charges);
+    const placing = kindOf(s.category, text);
+    // a known lender's payment of about one sum month after month is a loan with no question: the kind stays a guess for the form
+    const lender = steadyBy(charges, () => "series").size > 0 && isKnownLender(payee, text);
+    const home = !placing.placed && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
     out.push({
       key: seriesId({ ...parts, product: cut ? paymentCents : (parts.product ?? paymentCents) }),
       seriesId: s.id,
@@ -208,7 +288,8 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
       firstDate: s.firstDate,
       lastDate: s.lastDate,
       category: s.category,
-      kind: kindOf(s.category, text),
+      kind: told ?? (home ? "mortgage" : placing.kind),
+      placed: told !== null || home || placing.placed || lender,
       reference: [...references][0] ?? null,
     });
   }

@@ -26,7 +26,7 @@ type ExplainArgs = Parameters<typeof explain>[2];
 /** Every rule: the compiler holds this list to the union. */
 const RULES: Record<RuleId, true> = {
   "category.hand": true, "category.own_rule": true, "category.builtin": true, "transfer.pair": true, "transfer.channel": true, "card.bill": true,
-  "return.shop": true, "return.person": true, "return.share": true, "refund.net": true, "part.use": true, "part.source": true, "role.payer": true,
+  "return.shop": true, "return.person": true, "return.share": true, "return.wallet": true, "share.back": true, "share.open": true, "via.service": true, "refund.net": true, "part.use": true, "part.source": true, "role.payer": true,
   "settle.paid": true, "settle.owed": true, "settle.refund": true, "settle.credit_filled": true, "settle.unknown": true, "settle.open": true,
   "settle.closed": true, "agree.dated": true, "rounding.cent": true,
 };

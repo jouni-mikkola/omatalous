@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asks, classifiedPercent, percentText } from "../src/components/questions.ts";
+import { asks, classifiedPercent, percentText, serviceQuestion, walletQuestion } from "../src/components/questions.ts";
 
 describe("a share as the page says it", () => {
   it("is a whole percent rounded down, and alle 1 % for a share above 0 that rounds to nothing", () => {
@@ -38,5 +38,16 @@ describe("when the block is drawn", () => {
     expect(asks({ share: 0.94, items: [] })).toBe(true);
     expect(asks({ share: 0.95, items: [] })).toBe(false);
     expect(asks({ share: 1, items: [] })).toBe(false);
+  });
+});
+
+describe("the questions about MobilePay and the payment services", () => {
+  const plain = (s: string) => s.replace(/\s/g, " ");
+  it("count one payment as maksu and any other number as maksua", () => {
+    expect(plain(walletQuestion(1, 2500))).toBe("Saapuneet MobilePay-maksut, 1 maksu, yhteensä 25,00 €. Mitä ne ovat?");
+    expect(plain(walletQuestion(3, 21000))).toBe("Saapuneet MobilePay-maksut, 3 maksua, yhteensä 210,00 €. Mitä ne ovat?");
+    expect(plain(serviceQuestion("Trustly", 1, 4000))).toBe("Trustly-maksut, 1 maksu, yhteensä 40,00 €. Mihin ne menivät?");
+    expect(plain(serviceQuestion("Svea Payments", 2, 500))).toBe("Svea Payments -maksut, 2 maksua, yhteensä 5,00 €. Mihin ne menivät?");
+    expect(plain(serviceQuestion("PayPal", 3, 12000))).toBe("PayPal-maksut, 3 maksua, yhteensä 120,00 €. Mihin ne menivät?");
   });
 });

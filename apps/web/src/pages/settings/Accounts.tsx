@@ -142,6 +142,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                     {accountNumber(a) && <div className="sub acc-line">{accountNumber(a)}</div>}
                     {a.customName && <div className="sub acc-line">Pankin nimi: {a.bankName}</div>}
                     {holder && <div className="sub acc-line">{holder}</div>}
+                    {a.loanPayment && <div className="sub acc-line">Lainanhoitotili</div>}
                     {credit && <div className="sub acc-line">{credit}</div>}
                     {used > 0 && typeof use?.share === "number" && (
                       <div className={use.overCents ? "credit-bar over" : "credit-bar"} aria-hidden="true">

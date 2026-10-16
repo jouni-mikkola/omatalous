@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { dateTime } from "../../format.ts";
-import { elapsed, queuedSentence, startTicker, stepTime } from "./ops-elapsed.ts";
+import { clockGap, elapsed, queuedSentence, startTicker, stepTime, waitedMs } from "./ops-elapsed.ts";
 import { S } from "./ops-strings.ts";
 import type { OpsRequestView } from "./types.ts";
 
@@ -8,9 +8,10 @@ const RESULT: Record<string, string> = { ok: S.ok, failed: S.failed, expired: S.
 
 /**
  * The newest request: waiting, running (the app may restart meanwhile) or its result with the steps and the
- * log. Everything from the host is shown as text.
+ * log. Everything from the host is shown as text. The times the server wrote (the request's, the helper's) are measured
+ * against the server's own clock: `serverNow` is its time when it answered, so a browser clock that is off shows no false wait.
  */
-export function OpsProgress({ request, down, downSince, helperSeenAt, helperWakes = false, onCancel }: { request: OpsRequestView; down: boolean; downSince: number | null; helperSeenAt: number | null; helperWakes?: boolean; onCancel: (id: string) => void }) {
+export function OpsProgress({ request, down, downSince, helperSeenAt, helperWakes = false, serverNow = null, onCancel }: { request: OpsRequestView; down: boolean; downSince: number | null; helperSeenAt: number | null; helperWakes?: boolean; serverNow?: string | null; onCancel: (id: string) => void }) {
   // the logs action exists to show its log, so that one opens by itself
   const [log, setLog] = useState(request.action === "logs");
   useEffect(() => setLog(request.action === "logs"), [request.id, request.action]);
@@ -22,7 +23,12 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, helperWake
     setNow(Date.now());
     return startTicker(() => setNow(Date.now()));
   }, [live]);
+  // the gap between the server's clock and this browser's, taken when the answer came
+  const receivedAt = useMemo(() => Date.now(), [serverNow]);
+  const serverTime = now + clockGap(serverNow, receivedAt);
+  const waited = waitedMs(request.requestedAt, serverNow, receivedAt, now);
   const since = Date.parse(request.requestedAt);
+  // the page's own timestamp of losing the app is on the browser's clock
   const downMs = downSince ? now - downSince : 0;
   const took = request.finishedAt ? Date.parse(request.finishedAt) - since : null;
   const tone = request.status === "ok" ? "good" : live ? "" : "warning";
@@ -32,7 +38,7 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, helperWake
       <span className="muted small"> {dateTime(request.requestedAt)}{request.by ? `, ${request.by}` : ""}</span>
       {live && (
         <p style={{ margin: "4px 0" }}>
-          {down ? `${S.restarting} ${S.waited(elapsed(downMs))}` : request.status === "queued" ? `${queuedSentence(helperSeenAt, now, helperWakes)} ${S.waited(elapsed(now - since))}` : S.runningFor(elapsed(now - since))}
+          {down ? `${S.restarting} ${S.waited(elapsed(downMs))}` : request.status === "queued" ? `${queuedSentence(helperSeenAt, serverTime, helperWakes)} ${S.waited(elapsed(waited))}` : S.runningFor(elapsed(waited))}
           {down && downMs > 180_000 && <span> {S.restartingLong}</span>}
         </p>
       )}
@@ -44,7 +50,7 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, helperWake
       {request.steps.length > 0 && (
         <ol className="ops-steps">
           {request.steps.map((s, i) => {
-            const ms = stepTime(request, i, now);
+            const ms = stepTime(request, i, serverTime);
             return (
               <li key={`${s.n}-${s.text}`}><span className="muted">{S.stepNo(s.n, s.m)}</span> <span>{s.text}</span>{ms !== null && <span className="muted"> {elapsed(ms)}</span>}</li>
             );

@@ -14,7 +14,27 @@ want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
 . "$HERE/ops-world.sh"
 unprivileged ops-wake.test.sh "$@"
 
-# OPS_T_WAKE is how many seconds the stub waits for the wake, and the helper's second 45; OPS_T_WAKEEND is its second 58.
+# The helper counts its seconds with bash's $SECONDS, which follows the wall clock, and it refuses to wait when that is negative. On a
+# machine whose clock steps back by a second now and then (a shared WSL host does, about every 30 s) a tick that meets such a step
+# is not the tick the scenario describes. A tick with a step back inside it is run again from the world as it stood before it:
+# the wall clock is compared with /proc/uptime, which does not step.
+eval "$(declare -f tick | sed '1s/^tick /world_tick /')"
+clock_stepped() { awk -v w0="$1" -v w1="$2" -v m0="$3" -v m1="$4" 'BEGIN { exit !((m1 - m0) - (w1 - w0) > 0.5) }'; }
+tick() { # as the world's tick, run again (at most 4 times) when the clock stepped back during it
+  local try w0 w1 m0 m1 snap="$W.before"
+  rm -rf "$snap"; cp -a "$W" "$snap"
+  for try in 1 2 3 4; do
+    w0=$(date +%s.%N); m0=$(cut -d' ' -f1 /proc/uptime)
+    world_tick "$@"
+    w1=$(date +%s.%N); m1=$(cut -d' ' -f1 /proc/uptime)
+    clock_stepped "$w0" "$w1" "$m0" "$m1" || break
+    ((try < 4)) || break
+    rm -rf "$W"; cp -a "$snap" "$W"
+  done
+  rm -rf "$snap"
+}
+
+# OPS_T_WAKE is how many seconds the stub waits for the wake, and the helper's second 45; OPS_T_WAKEEND is its second 58.polls() { n_calls 'ops poll'; }
 polls() { n_calls 'ops poll'; }
 waits() { n_calls 'sh -c i=0;'; }
 queue_after_wake() { poll "$@"; mv "$S/poll" "$S/poll-after-wake"; } # queue_after_wake ACTION [ID]: the request the app queues while the helper waits

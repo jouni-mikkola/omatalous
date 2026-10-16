@@ -36,3 +36,13 @@ export const isCarTradeName = (folded: string) => DEALER_WORDS.test(folded) && !
 /** A folded payee name of a car dealer: of the car trade, and no garage, parts shop, car wash, inspection or car park. */
 export const isCarDealerName = (folded: string) =>
   isCarTradeName(folded) && !UPKEEP_WORDS.test(folded) && !isCarServiceText(folded) && !isInspectionText(folded) && !isParkingText(folded);
+
+/** Makes sold in Finland through a national importer. A given name is none of them: MERCEDES alone and KIA are left out. A maker's lorries and finance arm are other trades. */
+const BRANDS = words(String.raw`(?:SKODA|PEUGEOT|RENAULT|MERCEDES[- ]BENZ|AUDI|HONDA|CITRO[EË]N)(?! (?:TRUCKS|FINANCIAL|FINANCE|FINANS|RAHOITUS))`);
+
+/** A folded payee name that is a car maker's brand and no other trade or lease: a dealer's row or its upkeep, by the sum (`dealerCategory`). */
+export const isCarBrandName = (folded: string) => BRANDS.test(folded) && !OTHER_TRADE_WORDS.test(folded) && !isLeaseText(folded);
+
+/** A folded brand name that is no garage, parts shop, inspection or car park: the maker's showroom. */
+export const isCarBrandDealer = (folded: string) =>
+  isCarBrandName(folded) && !UPKEEP_WORDS.test(folded) && !isCarServiceText(folded) && !isInspectionText(folded) && !isParkingText(folded);

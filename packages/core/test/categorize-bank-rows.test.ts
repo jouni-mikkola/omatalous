@@ -68,17 +68,26 @@ describe("a lender on no list, by the shape of its name", () => {
     expect(one(payee, text, 2500)).toBe("credit_draw");
   });
 
-  // a bank, or a payment firm, is debt when it is paid; what it sends is what it was, since a bank also pays bonuses and pay
+  // a bank's name alone is no loan: it keeps accounts and takes deposits, and a payment to it is a fee, a deposit or a card; a payment firm is debt when paid
   it.each([
     ["ESIMERKKI BANK ASA", "20260115 4X1"],
     ["ESIMERKKI KORT BANK AB (PUBL), HELSINGIN SIVULIIKE", "1234 5678"],
     ["ESIMERKKI BANK A/S, SUOMEN SIVULIIKE", "88 123"],
     ["SPAREBANK ESIMERKKI AB", "88 123"],
     ["ESIMERKKI HYPOPANKKI OY", "88 123"],
-    ["ESIMERKKI FINANCIAL SERVICES LTD", "PAYOUT 5512"],
-  ])("%s is a lender when paid, and money in from it is no credit unless its text says so", (payee, text) => {
-    expect(one(payee, text, -99)).toBe("loans");
+  ])("%s with no word of a loan is other when paid, and money in from it is what it was", (payee, text) => {
+    expect(one(payee, text, -99)).toBe("other");
     expect(one(payee, text, 2500)).toBe("income");
+  });
+
+  it("a bank's name with a word of a loan in the text is a lender when paid", () => {
+    expect(one("ESIMERKKI BANK ASA", "LAINAN LYHENNYS 4411", -99)).toBe("loans");
+    expect(one("SPAREBANK ESIMERKKI AB", "SOPIMUS 880123", -99)).toBe("loans");
+  });
+
+  it("a payment firm is debt when it is paid, and money in from it is what it was", () => {
+    expect(one("ESIMERKKI FINANCIAL SERVICES LTD", "PAYOUT 5512", -99)).toBe("loans");
+    expect(one("ESIMERKKI FINANCIAL SERVICES LTD", "PAYOUT 5512", 2500)).toBe("income");
   });
 
   it("a payout from a bank whose text says loan is credit drawn, as it was", () => {
@@ -259,7 +268,8 @@ describe("the household's own bank", () => {
     ["MERKINTA 4411", -100],
   ])("%s to the bank of a connected account is what it was", (text, euros) => {
     expect(run([row(BANK_AB, text, euros)], { accounts: [own, card] }).categories).toEqual(["other"]);
-    expect(run([row(BANK_AB, text, euros)]).categories).toEqual(["loans"]);
+    // a bank's name alone is no loan, connected or not
+    expect(run([row(BANK_AB, text, euros)]).categories).toEqual(["other"]);
   });
 
   it("a card's bill paid with a reference only, to the bank of the account, is what it was", () => {
@@ -326,7 +336,7 @@ describe("the household's own bank", () => {
 
   it("a bank abroad whose account is connected is the household's own", () => {
     const n26: Account = { ...checking, bank: "N26" };
-    expect(run([row("N26 BANK GMBH", null, -500)], { accounts: [n26, card] }).categories).toEqual(["other"]);
+    expect(run([row("N26 BANK GMBH", null, -500)], { accounts: [n26, card] }).categories).toEqual(["transfer"]);
   });
 
   it("the form of a company in the bank's name names no bank", () => {

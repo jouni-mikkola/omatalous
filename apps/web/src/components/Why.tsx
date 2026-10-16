@@ -46,6 +46,9 @@ const ORDER = [
   "transfer.pair",
   "transfer.channel",
   "card.bill",
+  "return.wallet",
+  "share.open",
+  "share.back",
   "return.shop",
   "return.person",
   "return.share",
@@ -54,13 +57,20 @@ const ORDER = [
   "category.hand",
   "category.own_rule",
 ] as const;
-function reasonOf(why: readonly Reason[]): string | undefined {
+function reasonOf(why: readonly Reason[], names: Names): string | undefined {
   for (const rule of ORDER) {
     const r = why.find((x) => x.rule === rule);
-    if (r) return sentenceOf(r);
+    // the reason holds the purchase's id and day; its shop is read from the rows the page has
+    if (r) return sentenceOf(rule === "return.wallet" ? { ...r, shop: names.rows.get(String(r.purchase))?.merchant ?? "" } : r);
   }
   return undefined;
 }
+
+/** The payment service a row went through, as its own line under the row. */
+const viaOf = (why: readonly Reason[]): string | undefined => {
+  const r = why.find((x) => x.rule === "via.service");
+  return r ? sentenceOf(r) : undefined;
+};
 
 /** What names a row of a part: the fraction of the user's part, and the cent no one could share. */
 function shareNote(why: readonly Reason[]): string | undefined {
@@ -108,7 +118,8 @@ function lineRows(l: Line, key: string, shown: Shown, kind: "counted" | "left" |
   const { figure, names } = shown;
   const tx = names.rows.get(l.id);
   const category = kind === "counted" && tx ? (names.labels.get(tx.category) ?? tx.category) : undefined;
-  const reason = figure === "share.part" ? shareNote(l.why) : kind === "plain" ? undefined : reasonOf(l.why);
+  const reason = figure === "share.part" ? shareNote(l.why) : kind === "plain" ? undefined : reasonOf(l.why, names);
+  const via = figure === "share.part" || kind === "plain" ? undefined : viaOf(l.why);
   const mark = kind === "left" ? { "data-why-left": l.id } : kind === "counted" ? { "data-why-row": l.id } : {};
   return [
     <tr key={key} {...mark}>
@@ -116,12 +127,13 @@ function lineRows(l: Line, key: string, shown: Shown, kind: "counted" | "left" |
       <td>{nameOf(l, figure, names)}</td>
       <td className="num">{money(l.cents)}</td>
     </tr>,
-    ...(category || reason || (l.whole !== undefined && figure !== "share.part")
+    ...(category || reason || via || (l.whole !== undefined && figure !== "share.part")
       ? [
           <tr key={`${key}-why`} className="why-more">
             <td colSpan={3}>
               {category && <div>{category}</div>}
               {reason && <div className="why-reason">{reason}</div>}
+              {via && <div className="why-reason">{via}</div>}
               {l.whole !== undefined && figure !== "share.part" && <div className="why-reason">Tapahtuman summa {money(l.whole)}</div>}
             </td>
           </tr>,
@@ -175,7 +187,7 @@ function WhyPanel({ figure, title, range, scope, category, row, account, onClose
   // reaches back before the range, so its list waits for the answer to tell how far
   const waits = figure.startsWith("usual");
   const needsRows = figure !== "share.part";
-  const earliest = e ? [range.from, ...e.lines.map((l) => l.day), ...(e.method?.kind === "median" ? e.method.values.map((v) => `${v.label}-01`) : [])].sort()[0]! : range.from;
+  const earliest = e ? [range.from, ...e.lines.map((l) => l.day), ...e.lines.flatMap((l) => l.why.flatMap((r) => (r.rule === "return.wallet" ? [String(r.day)] : []))), ...(e.method?.kind === "median" ? e.method.values.map((v) => `${v.label}-01`) : [])].sort()[0]! : range.from;
   const rows = useApi<{ items: TransactionItem[] }>(needsRows && (e || !waits) ? `/api/transactions${query({ from: earliest, to: range.to, scope, limit: 5000 })}` : null);
   const meta = useApi<Pick<Meta, "categories" | "members" | "accounts">>("/api/meta");
   const names: Names = {

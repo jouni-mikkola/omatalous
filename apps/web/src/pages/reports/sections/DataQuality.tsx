@@ -23,7 +23,7 @@ function CardPurchases({ rows }: { rows: readonly MissingCardPurchases[] }) {
       <tbody>
         {rows.map((m) => (
           <tr key={`${m.issuer}|${m.reason}`}>
-            <th scope="row">{m.issuer}</th>
+            <th scope="row">{m.label}</th>
             <td className="st-num" data-label="Laskut 12 kuukaudelta">
               {formatEur(m.cents)}
             </td>

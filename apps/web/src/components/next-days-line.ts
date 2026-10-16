@@ -1,7 +1,7 @@
 // Decision: does the account cover what is due before the next pay (the line of days over the payments' table)
 import { addDays, daysBetween } from "@banking/core";
 import { dayHeading, money } from "../format.ts";
-import { type Ahead, arrivals, isEstimate, paymentRows, paySum, rowName, windowPayday } from "./next-days.ts";
+import { type Ahead, arrivals, isEstimate, paymentRows, paySum, windowPayday } from "./next-days.ts";
 
 /** A day of the line's axis. */
 interface Axis {
@@ -89,10 +89,10 @@ export function billLine(ahead: Ahead): BillLine | null {
     return {
       row,
       column,
-      name: rowName(r),
+      name: r.name,
       cents,
       estimate,
-      label: `${rowName(r)}, ${estimate ? "arvio, " : ""}${sum}, ${day}`,
+      label: `${r.name}, ${estimate ? "arvio, " : ""}${sum}, ${day}`,
       when: `${day} · ${sum}${estimate ? " · arvio" : ""}`,
       leftCents: start === null ? null : start - paid,
     };

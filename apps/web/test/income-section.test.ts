@@ -70,13 +70,13 @@ describe("Raportit: Tulot", () => {
 
   it("steady income is two rows and no sentence", () => {
     const out = html(report({ stability: steady }));
-    expect(tiles(out).slice(-2)).toEqual(["Tavalliset tulot kuukaudessa: 2 500 €", "Vaihtelu kuukaudesta toiseen: alle 3 %"]);
+    expect(tiles(out).slice(-2)).toEqual(["Säännölliset tulot kuukaudessa: 2 500 €", "Vaihtelu kuukaudesta toiseen: alle 3 %"]);
     expect(out).not.toMatch(/vaihtelivat|Heikoin/);
   });
 
   it("income that moves tells its weakest month, and a history too short for it draws no block and no sentence", () => {
     const moving = html(report({ stability: { ...steady, steady: false, spread: 0.12 } }));
-    expect(tiles(moving).slice(-3)).toEqual(["Tavalliset tulot kuukaudessa: 2 500 €", "Vaihtelu kuukaudesta toiseen: 12 %", "Heikoin kuukausi: maaliskuu 2026, 2 450 €"]);
+    expect(tiles(moving).slice(-3)).toEqual(["Säännölliset tulot kuukaudessa: 2 500 €", "Vaihtelu kuukaudesta toiseen: 12 %", "Heikoin kuukausi: maaliskuu 2026, 2 450 €"]);
     const short = html(report({ stability: null }));
     expect(short).not.toMatch(/Vaihtelu|lasketaan/);
   });

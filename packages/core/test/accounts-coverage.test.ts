@@ -229,10 +229,13 @@ describe("the period against the one before", () => {
     expect(dashboard([...spend("a", "2024-01-01"), ...spend("b", "2025-01-01")], "2026-09-01", "2026-09-30").comparable).toBe(true);
   });
 
-  it("is told after an account closed before both periods, not for the period it closed in", () => {
+  it("is told after an account closed before both periods, and for the period it closed in on the account left", () => {
     const rows = [...spend("a", "2024-01-01"), ...spend("b", "2024-01-01", "2026-05-31")];
-    expect(dashboard(rows, "2026-09-01", "2026-09-30").comparable).toBe(true);
-    expect(dashboard(rows, "2026-06-01", "2026-06-30").comparable).toBe(false);
+    expect(dashboard(rows, "2026-09-01", "2026-09-30")).toMatchObject({ comparable: true, leftOutAccounts: false });
+    // b has rows in May and none in June: it is left out, it carries none of June's spending, so the comparison is told on a
+    const june = dashboard(rows, "2026-06-01", "2026-06-30");
+    expect(june).toMatchObject({ comparable: true, leftOutAccounts: true });
+    expect(june.previousTotals.expenseCents).toBe(dashboard(spend("a", "2024-01-01"), "2026-06-01", "2026-06-30").previousTotals.expenseCents);
   });
 });
 

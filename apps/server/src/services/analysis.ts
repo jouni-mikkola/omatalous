@@ -316,7 +316,8 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
   }
   // the rows of card statements read in the page: of the members whose accounts are in the view, each at the viewer's part
   const statements = await statementsInView(s, accounts, [...txs, ...(standing ?? [])], parts);
-  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements, why), accounts, shares, told };
+  const ctx = createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements, why);
+  return { ctx, accounts, shares, told };
 }
 
 /**

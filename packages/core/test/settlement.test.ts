@@ -547,3 +547,32 @@ describe("a card agreement", () => {
     expect(agreementRefusal(agree("2026-01-01", "income", { who: [] }), false, [MATTI])).toBe("no_user");
   });
 });
+
+describe("the holder with no login", () => {
+  const OTHER = "u:";
+  const rows = [deposit(MATTI, "2026-09-01", 100_000), deposit(OTHER, "2026-09-01", 100_000), row("food", "2026-09-10", -40_000), row("power", "2026-09-20", -12_000)];
+  const pool = (weights: [number, number], agreements: AgreementRow[] = []) => run("2026-09", rows, { members: [MATTI], users: [{ owner: MATTI, weight: weights[0] }, { owner: OTHER, weight: weights[1] }], agreements });
+
+  it("is a party with a paid and an owed where two holders split equally, whatever way the equal split is said", () => {
+    for (const agreements of [[], [agree("2026-01-01", "equal", { who: [MATTI, OTHER] })]]) {
+      const s = identity(pool([1, 1], agreements));
+      expect([of(s, MATTI), of(s, OTHER)].map((m) => [m.paid, m.owed])).toEqual([[26_000, 26_000], [26_000, 26_000]]);
+      expect([s.unknownOwed, s.unknownPaid, s.unknownOwedBy, s.unknownPaidBy]).toEqual([0, 0, [], []]);
+    }
+  });
+
+  it("stays unknown, in one entry, where the split is not equal", () => {
+    for (const s of [pool([2, 1]), pool([1, 1], [agree("2026-01-01", "share", { weights: { [MATTI]: 3, [OTHER]: 1 } })]), pool([1, 1], [agree("2026-01-01", "fixed", { cents: { [MATTI]: 10_000 } })])]) {
+      identity(s);
+      expect(s.members.map((m) => m.owner)).toEqual([MATTI]);
+      expect(s.unknownOwedBy.map((e) => e.owner)).toEqual([OTHER]);
+    }
+  });
+
+  it("stays unknown where three share the account, or the other holder has a login", () => {
+    const three = run("2026-09", rows, { members: [MATTI, MAIJA], users: [{ owner: MATTI, weight: 1 }, { owner: MAIJA, weight: 1 }, { owner: OTHER, weight: 1 }], agreements: [] });
+    expect(identity(three).unknownOwedBy.map((e) => e.owner)).toEqual([OTHER]);
+    const both = identity(run("2026-09", rows, { members: [MATTI, MAIJA], users: BOTH, agreements: [] }));
+    expect(both.members.map((m) => m.owner)).toEqual([MATTI, MAIJA]);
+  });
+});

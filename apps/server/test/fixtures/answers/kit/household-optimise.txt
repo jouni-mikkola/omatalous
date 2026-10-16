@@ -9,7 +9,7 @@
   "situation": [
    {
     "id": "savings_rate",
-    "label": "Säästöaste",
+    "label": "Säästöaste, viimeiset 12 kuukautta",
     "value": 0.081553134132252,
     "unit": "share",
     "text": "8 %"
@@ -30,7 +30,7 @@
    },
    {
     "id": "debt_share",
-    "label": "Velanhoito tuloista",
+    "label": "Velanhoito tuloista, viimeiset 6 kuukautta",
     "value": 0.17397727272727273,
     "unit": "share",
     "text": "17 %"

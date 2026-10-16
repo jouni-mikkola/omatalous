@@ -2,7 +2,6 @@
 import { daysBetween } from "@banking/core";
 import { date, dayHeading, dayMonth, money } from "../format.ts";
 import type { DashboardData } from "../types.ts";
-import { cardName } from "./holdings/holding-rows.ts";
 
 export type Ahead = NonNullable<DashboardData["ahead"]>;
 type Balance = NonNullable<Ahead["balance"]>;
@@ -115,10 +114,7 @@ interface Line {
   sum?: string | null;
 }
 
-/** What a row is called: a card is called as Varallisuus calls it, without the type the bank adds in brackets. */
-export const rowName = (r: Row): string => (r.source === "card" ? cardName(r.name) : r.name);
-
-const lineOf = (r: Payment): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r), ...(r.pending ? { pending: true } : {}) });
+const lineOf = (r: Payment): Line => ({ day: dayMonth(r.date), name: r.name, note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r), ...(r.pending ? { pending: true } : {}) });
 
 /** The rows of the payments' table, in core's order: by day, the larger of a day first. */
 export const paymentRows = (ahead: Ahead): Payment[] => ahead.rows.filter(isPayment);

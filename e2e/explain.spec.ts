@@ -172,7 +172,7 @@ test.describe("figures that are not a sum of one range", () => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     await ready(page, "/#/reports?period=12m");
-    const usual = page.getByRole("button", { name: "Näytä rivit: Tavalliset tulot kuukaudessa" });
+    const usual = page.getByRole("button", { name: "Näytä rivit: Säännölliset tulot kuukaudessa" });
     await usual.scrollIntoViewIfNeeded();
     const figure = cents(await page.locator(".kv > div", { has: usual }).locator(".v").innerText());
     await usual.click();

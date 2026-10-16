@@ -91,6 +91,7 @@ describe("a loan proposed from its payments", () => {
       category: "loans",
       kind: "car",
       reference: "4451200019",
+      placed: true,
     });
   });
 

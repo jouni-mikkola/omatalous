@@ -37,6 +37,30 @@ export function isLenderShapedName(foldedPayee: string, moneyIn = false): boolea
   return lending && hasLenderForm(foldedPayee) && !isInsuranceText(foldedPayee) && !isHousingCompanyName(foldedPayee);
 }
 
+/**
+ * Whether a folded payee is a lender by its bank word alone: a bank's name with a form, and nothing of lending beside
+ * it. A bank takes deposits and keeps accounts too, so such a payee is no loan's without a word of a loan in the text.
+ */
+export const isBankOnlyName = (foldedPayee: string): boolean => isLenderShapedName(foldedPayee) && !LENDING_NAME.test(foldedPayee) && !FINANCIAL_NAME.test(foldedPayee);
+
+const FINANCE_COMPANY_END = /(?:RAHOITUS|FINANS|FINANCE|CREDIT|KREDIT)$/;
+const TRAILING_FORM = /[\s,.]+(?:OY|OYJ|AB|ABP|LTD|LIMITED|PLC|GMBH|BV|ASA|KY)$/;
+/** Whether a folded payee is a finance company by the end of its name, a company form left out ("ESIMERKKI RAHOITUS OY", "ESIMERKKIRAHOITUS", "ESIMERKKI FINANS AB"). */
+export const isFinanceCompanyName = (foldedPayee: string): boolean => FINANCE_COMPANY_END.test(foldedPayee.trim().replace(TRAILING_FORM, ""));
+
+/** A word of a loan in a payment's own text: the loan, the instalment, credit, a lump or a contract with its number (LÅN folds to LAN, ERÄ to ERA). */
+const LOAN_TEXT = words(String.raw`[A-Z]*(?:LAINA|LYHENNYS|LOAN|KREDIT|LUOTTO)[A-Z]*|LAN|ERA|SOPIMUS ?\d+`);
+/** Whether the text a payment carries names a loan (see `isBankOnlyName`). */
+export const hasLoanText = (foldedText: string): boolean => LOAN_TEXT.test(foldedText);
+
+const PURCHASE_TEXT = words("OSTO[A-Z]*|TILAUS[A-Z]*|ORDER|PURCHASE");
+/** A folded message with a word of a purchase ("POLKUPYORAN OSTO", "OSTOKSET", an order): a person paid for what it names is paid as a trade. */
+export const isPurchaseText = (folded: string) => PURCHASE_TEXT.test(folded);
+
+const WORK_TEXT = words("TUNNIT|TUNTI[A-Z]*|TYO[A-Z]*|PALKKIO|KEIKKA");
+/** A folded message that says pay for work: hours, a job, a fee. A person who pays for work done is an employer, and the money stays earned. */
+export const isWorkText = (folded: string) => WORK_TEXT.test(folded);
+
 const STREET_ADDRESS = /^(?:\d{4,6} )?[A-Z-]*(?:KATU|TIE|KUJA|POLKU|KAARI|TORI|AUKIO|RAITTI|VAYLA|GATAN|VAGEN) \d+(?: ?[A-Z])?(?: \d{5})?(?: [A-Z-]+){1,2}$/;
 /** A folded text that is one street address and nothing else ("40100 ASEMAKATU 1 ESIMERKKILA"): what a cash machine's row says where a payee would stand. */
 export const isStreetAddressText = (folded: string) => STREET_ADDRESS.test(folded.trim());

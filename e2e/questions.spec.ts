@@ -1,17 +1,17 @@
 import { expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { makeMember, overflow, plain, removeMember, watch } from "./helpers.ts";
+import { overflow, plain, watch } from "./helpers.ts";
 
 // Luokittelemattomat, the second block of Yhteenveto: how much of the last twelve months' money is classified, and the
 // answers that would mend it most. The demo household has no payee without a category, so the payee rows are the page's own
 // answer changed on its way (a stub of /api/dashboard that follows the answers the page sends: a rule, a mark), with
-// every payee and sum made up; core's and the server's tests hold the figures. The loan row is real: a member made here
-// has the demo household's car financing, the page asks about it, and "Ei laina" is stored.
+// every payee and sum made up; core's and the server's tests hold the figures. The loan question is stubbed the same way:
+// the demo household's financing is placed by its payee, so the page has nothing real to ask.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PERCENT = /^Luokiteltu (\d+) % viimeisen 12 kuukauden tuloista ja menoista\.$/;
 
 interface Item {
-  kind: "payee_out" | "payee_in" | "payer";
+  kind: "payee_out" | "payee_in" | "payer" | "loan";
   merchant: string;
   cents: number;
   count: number;
@@ -22,6 +22,9 @@ interface Item {
   proposal?: string | null;
   steady?: boolean;
   offMedianCents?: number[];
+  /** A loan question: the payee and the month, with the key the answer is stored under. */
+  payee?: string;
+  paymentCents?: number;
 }
 interface Stub {
   items: Item[];
@@ -75,7 +78,7 @@ async function follow(page: Page, stub: Stub): Promise<void> {
   await page.route(/\/api\/marks$/, async (route) => {
     const body = route.request().postDataJSON();
     stub.posted.marks.push(body);
-    leave(String(body.subject).replace("question:payee:", ""), false);
+    leave(String(body.subject).replace(/^(question:payee:|loan-proposal:|question:loan-kind:[a-z]+:)/, ""), false);
     await route.fulfill({ json: { marks: [] } });
   });
 }
@@ -176,33 +179,41 @@ test("on a phone the answers wrap under the payee and nothing scrolls sideways",
   await context.close();
 });
 
-test("a payment that looks like a loan is a row of its own: the link to Lainat, and Ei laina takes it away and is stored", async ({ browser }) => {
-  const member = await makeMember(browser, "e2e-luokittelu");
-  try {
-    const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 900 } });
-    expect((await context.request.post("/api/demo", { headers: { "X-Requested-With": "fetch" } })).status()).toBe(200);
-    const page = await context.newPage();
-    const seen = watch(page);
-    await open(page);
-    const block = page.getByRole("region", { name: "Luokittelemattomat", exact: true });
-    const loan = block.locator(".question-row").filter({ hasText: "Nordea Rahoitus Suomi Oy" });
-    await expect(loan).toHaveCount(1);
-    expect(plain(await loan.innerText())).toMatch(/^Nordea Rahoitus Suomi Oy toistuva maksu 289,00 €\/kk Tallenna lainaksi Ei laina$/);
-    await expect(loan.getByRole("link", { name: "Tallenna lainaksi: Nordea Rahoitus Suomi Oy" })).toHaveAttribute("href", "#/settings#lainat");
-    const before = (await (await context.request.get("/api/dashboard")).json()).questions;
-    expect(before.items.filter((i: { kind: string }) => i.kind === "loan")).toHaveLength(1);
+const LOAN_KEY = "out:acc-1:Esimerkki Rahoitus Oy#28900";
+const loanItem = (): Item => ({ ...item("loan", "Esimerkki Rahoitus Oy", 346_800, 12), key: LOAN_KEY, payee: "Esimerkki Rahoitus Oy", paymentCents: 28_900 });
 
-    await loan.getByRole("button", { name: "Ei laina: Nordea Rahoitus Suomi Oy" }).click();
-    await expect(loan).toHaveCount(0);
-    const { marks } = await (await context.request.get("/api/recurring")).json();
-    expect(marks.map((m: { subject: string; mark: string }) => [m.subject.replace(/^(loan-proposal:out:)[^:]+:/, "$1<account>:"), m.mark])).toEqual([["loan-proposal:out:<account>:Nordea Rahoitus Suomi Oy#28900", "dismissed"]]);
-    const after = (await (await context.request.get("/api/dashboard")).json()).questions;
-    expect(after.items.filter((i: { kind: string }) => i.kind === "loan")).toEqual([]);
-    expect(seen.problems).toEqual([]);
-    await context.close();
-  } finally {
-    await removeMember(browser, member.id);
-  }
+test("an instalment series the app cannot place asks Mikä laina tämä on? with the payee and the month, and the answer is stored once", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const stub = stubOf({ items: [loanItem()], total: 1, unknownCents: 0 });
+  await follow(page, stub);
+  await open(page);
+  const loan = page.getByRole("region", { name: "Luokittelemattomat", exact: true }).locator(".question-row").filter({ hasText: "Esimerkki Rahoitus Oy" });
+  await expect(loan).toHaveCount(1);
+  expect(plain(await loan.locator(".st-name").innerText())).toBe("Mikä laina tämä on? Esimerkki Rahoitus Oy · 289,00 €/kk");
+  const picker = loan.getByRole("combobox", { name: "Mikä laina tämä on: Esimerkki Rahoitus Oy" });
+  expect(await picker.locator("option").allInnerTexts()).toEqual(["Valitse", "Asuntolaina", "Autolaina", "Opintolaina", "Kulutusluotto", "Muu laina"]);
+  await picker.selectOption({ label: "Asuntolaina" });
+  await expect(loan).toHaveCount(0);
+  expect(stub.posted.marks).toEqual([{ subject: `question:loan-kind:mortgage:${LOAN_KEY}`, mark: "in_use" }]);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Ei laina on the question of a loan takes it away and is stored", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const stub = stubOf({ items: [loanItem()], total: 1, unknownCents: 0 });
+  await follow(page, stub);
+  await open(page);
+  const loan = page.getByRole("region", { name: "Luokittelemattomat", exact: true }).locator(".question-row").filter({ hasText: "Esimerkki Rahoitus Oy" });
+  await loan.getByRole("button", { name: "Ei laina: Esimerkki Rahoitus Oy" }).click();
+  await expect(loan).toHaveCount(0);
+  expect(stub.posted.marks).toEqual([{ subject: `loan-proposal:${LOAN_KEY}`, mark: "dismissed" }]);
+  expect(seen.problems).toEqual([]);
+  await context.close();
 });
 
 test("a payer is asked what its money is: five answers with the proposal marked, each the member's own, Ohita sets it aside", async ({ browser }) => {

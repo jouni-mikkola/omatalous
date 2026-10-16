@@ -10,7 +10,8 @@ import { getCategory } from "../../categories.ts";
 import { cancelledSubjects, isCancelled, isSubscription } from "../../commitments.ts";
 import { addDays, daysBetween } from "../../dates.ts";
 import { parseSeriesId, type RecurringSeries } from "../../recurring.ts";
-import { historyCovers, netPurchase, recurringAt } from "../context.ts";
+import { netPurchase, recurringAt } from "../context.ts";
+import { accountCovers } from "../coverage.ts";
 import { finnishList, formatEur, formatFiDate } from "../format.ts";
 import { answeredSubscriptions, answerOf, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
@@ -37,10 +38,17 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
   const out: Insight[] = [];
   const told = new Set<string>();
 
-  if (historyCovers(ctx, addDays(end, -YEAR_HISTORY_DAYS))) {
+  // a subscription on an account connected later has no year to compare with: it is left out of both counts
+  const yearFrom = addDays(end, -YEAR_HISTORY_DAYS);
+  const accountOf = (s: RecurringSeries) => parseSeriesId(s.id)?.accountId;
+  const hasYear = (s: RecurringSeries) => {
+    const account = accountOf(s);
+    return account !== undefined && accountCovers(ctx, [account], yearFrom);
+  };
+  {
     const yearAgo = addDays(end, -365);
-    const subs = now.filter((s) => isSubscription(s) && !isCancelled(cancelled, s) && !isLender(s.merchant));
-    const before = recurringAt(ctx, yearAgo).filter((s) => isSubscription(s) && !isLender(s.merchant));
+    const subs = now.filter((s) => isSubscription(s) && !isCancelled(cancelled, s) && !isLender(s.merchant) && hasYear(s));
+    const before = recurringAt(ctx, yearAgo).filter((s) => isSubscription(s) && !isLender(s.merchant) && hasYear(s));
     const known = new Set(before.map((s) => s.merchant));
     // a yearly subscription paid once by then had no series yet, but it ran: it counts a year ago, not as new
     const unseen = subs.filter((s) => !known.has(s.merchant));
@@ -62,7 +70,6 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     }
   }
 
-  const dataFrom = ctx.dataFrom ?? end;
   const isNew = (s: RecurringSeries) => {
     const kind = getCategory(s.category).kind;
     // a fixed amount once a month or less often: a weekly fixed sum is a habit, a new bill of varying amount is a
@@ -72,19 +79,19 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
   // the same merchant's series on another account that stopped at most MOVE_GAP intervals before this one began: the
   // service moved to a new card and keeps its history, the third charge there only makes the series
   const movedFrom = (s: RecurringSeries) => {
-    const account = parseSeriesId(s.id)?.accountId;
+    const account = accountOf(s);
     return now.some(
       (o) =>
         o.merchant === s.merchant &&
         o.kind === "subscription" &&
         MONTHLY_OR_LONGER.has(o.cadence ?? "") &&
-        parseSeriesId(o.id)?.accountId !== account &&
+        accountOf(o) !== account &&
         o.lastDate < s.firstDate &&
         daysBetween(o.lastDate, s.firstDate) <= s.intervalDays * MOVE_GAP,
     );
   };
   for (const s of now) {
-    if (!isNew(s) || told.has(s.id) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || daysBetween(dataFrom, s.firstDate) < SETTLE_DAYS || movedFrom(s)) continue;
+    if (!isNew(s) || told.has(s.id) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || !accountCovers(ctx, [accountOf(s) ?? ""], addDays(s.firstDate, -SETTLE_DAYS)) || movedFrom(s)) continue;
     if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
     const trial = ctx.txs.find(
       (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,

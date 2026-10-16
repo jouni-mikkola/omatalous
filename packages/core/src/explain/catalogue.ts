@@ -1,4 +1,4 @@
-import { formatFiDate } from "../analysis/format.ts";
+import { formatEur, formatFiDate } from "../analysis/format.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../analysis/usual.ts";
 import { USUAL_INCOME_MONTHS } from "../reports/income.ts";
 import type { Reason, RuleId } from "./types.ts";
@@ -24,6 +24,11 @@ const CATALOGUE: Record<RuleId, (r: Reason) => string> = {
   "return.shop": () => "Palautus kaupasta",
   "return.person": () => "Sama henkilö maksoi rahat takaisin",
   "return.share": () => "Toisen osuus yhteisestä ostoksesta",
+  // the page puts the purchase's shop in `shop`: a reason holds ids and days, no names
+  "return.wallet": (r) => `Osuus ostoksesta ${r.shop ? `${r.shop} ` : ""}${formatFiDate(String(r.day))}`,
+  "share.back": (r) => `Takaisin saatu ${formatEur(Number(r.cents))} (${Number(r.count) === 1 ? "1 maksu" : `${r.count} maksua`})`,
+  "share.open": () => "Osuus yhteisistä ostoista",
+  "via.service": (r) => `Maksettu palvelun ${r.service} kautta`,
   "refund.net": (r) => (Number(r.months) === 0 ? "Palautus vähennetty saman kuukauden ostosta" : Number(r.months) === 1 ? "Palautus vähennetty edellisen kuukauden ostosta" : `Palautus vähennetty ostosta, joka tehtiin ${r.months} kuukautta aiemmin`),
   "part.use": (r) => `Osuutesi tilin rahoista on ${fraction(r)}`,
   "part.source": (r) => (r.mine ? "Tämä osa maksettiin sinun rahoistasi" : "Tämä osa maksettiin toisen rahoista"),

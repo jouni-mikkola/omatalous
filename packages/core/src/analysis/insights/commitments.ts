@@ -6,9 +6,10 @@
  */
 import { cancelledSubjects, fixedMonthlyCents, isFixedCost } from "../../commitments.ts";
 import { addDays, daysBetween, monthOf } from "../../dates.ts";
-import type { RecurringSeries } from "../../recurring.ts";
+import { parseSeriesId, type RecurringSeries } from "../../recurring.ts";
 import type { IsoDate, UserInputs } from "../../types.ts";
-import { type AnalysisContext, historyCovers, recurringAt } from "../context.ts";
+import { type AnalysisContext, recurringAt } from "../context.ts";
+import { accountCovers } from "../coverage.ts";
 import { formatEur } from "../format.ts";
 import { usualIncome } from "../usual.ts";
 import type { Insight, InsightArgs } from "./types.ts";
@@ -40,11 +41,13 @@ export function commitmentsShareOf(ctx: AnalysisContext, end: IsoDate, inputs: U
   const share = (fixedCents: number, incomeCents: number | null): FixedShare | null =>
     incomeCents && incomeCents > 0 ? { fixedCents, incomeCents, pct: Math.round((fixedCents / incomeCents) * 100) } : null;
   const now = share(fixedMonthlyCents(series, cancelledSubjects(inputs)), usualIncome(ctx, monthOf(end)));
-  // a quarterly bill needs half a year of rows before it shows as a series: without them a year ago looks cheaper
-  if (!historyCovers(ctx, addDays(yearAgo, -183))) return { now, then: null, series };
   // a year ago seen from today: a contract that had just started then (a new electricity company, a yearly plan paid
   // once) had no series yet, and leaving it out would read as a rise
   const ranThen = series.filter((s) => (s.kind === "subscription" || s.kind === "bill") && s.firstDate <= yearAgo && daysBetween(s.lastDate, yearAgo) <= s.intervalDays + 5);
+  // a quarterly bill needs half a year of rows before it shows as a series: without them a year ago looks cheaper. Every
+  // account that carries a fixed cost, now or then, needs them: a card connected later would make the costs look risen
+  const carriers = new Set([...series.filter(isFixedCost), ...ranThen].map((s) => parseSeriesId(s.id)?.accountId ?? ""));
+  if (carriers.size && !accountCovers(ctx, carriers, addDays(yearAgo, -183))) return { now, then: null, series };
   const then = share(fixedMonthlyCents(ranThen.map((s) => ({ ...s, active: true }))), usualIncome(ctx, monthOf(yearAgo)));
   return { now, then, series };
 }

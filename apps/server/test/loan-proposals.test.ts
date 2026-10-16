@@ -20,12 +20,12 @@ const rows = [4, 5, 6, 7, 8, 9, 10].flatMap((month) => {
   return [raw(`2026-${m}-05`, -250, "ESIMERKKIRAHOITUS OY", "LAINAN LYHENNYS"), raw(`2026-${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")];
 });
 
-async function withLoanRows() {
+async function withLoanRows(loanRows = rows) {
   const t = await setupApp();
   const user = async (id: string) => {
     const repo = t.s.finance(id);
     await repo.upsertAccount({ id: `chk-${id}`, connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
-    await ingestTransactions(repo, `chk-${id}`, rows, "csv");
+    await ingestTransactions(repo, `chk-${id}`, loanRows, "csv");
     await reprocess(repo, t.s.settings);
   };
   await user(t.adminId);
@@ -113,7 +113,8 @@ describe("loan proposals", () => {
   });
 
   it("names on the front page, in either view, only what the list of proposals shows", async () => {
-    const t = await withLoanRows();
+    // a bank the app cannot place by its name: a finance company's steady payment is a loan with no question
+    const t = await withLoanRows(rows.map((r) => (r.amountCents < 0 ? { ...r, counterparty: "ESIMERKKIPANKKI OYJ" } : r)));
     const named = async (scope: string) => {
       const items = (await t.admin.call("GET", `/api/dashboard?scope=${scope}`)).body.questions.items as { kind: string; key?: string }[];
       return items.filter((i) => i.kind === "loan").map((i) => i.key);

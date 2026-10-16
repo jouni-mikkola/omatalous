@@ -37,7 +37,7 @@ export function bridgeParts(totals: BridgeTotals): BridgePart[] {
   const repaid = coverOf(totals).creditRepaidCents;
   return [
     { key: "consumption", label: "Kulutus", cents: totals.consumptionCents, color: "var(--series-2)" },
-    { key: "debt", label: "Velanhoito", cents: totals.debtCents, color: "var(--series-7)" },
+    { key: "debt", label: "Maksettu velanhoito", cents: totals.debtCents, color: "var(--series-7)" },
     // money taken out of savings is no part of where the money went: it is one of the sources
     { key: "saved", label: "Säästöön", cents: Math.max(0, totals.savedCents), color: SAVINGS },
     ...(repaid > 0 ? [{ key: "repaid" as const, label: "Luottoa maksettu takaisin", cents: repaid, color: "var(--series-6)" }] : []),

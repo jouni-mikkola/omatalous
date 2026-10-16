@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { LOAN_KIND_ANSWERS, loanKindSubject } from "@banking/core";
 import { api, loanCalls, payerCalls, query } from "../api.ts";
 import { money, plural } from "../format.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
 import type { Category, DashboardData } from "../types.ts";
+import { KIND_LABEL } from "./loans/labels.ts";
 import { PayeeCategorySelect, usePayeeCategory } from "./PayeeCategory.tsx";
-import { asks, classifiedPercent, PAYER_ROLE_LABEL } from "./questions.ts";
+import { asks, classifiedPercent, PAYER_ROLE_LABEL, serviceQuestion, WALLET_ROLE_LABEL, walletQuestion } from "./questions.ts";
 import "../styles/questions.css";
 
 type Item = DashboardData["questions"]["items"][number];
@@ -14,7 +16,7 @@ const keyOf = (q: Item) => (q.kind === "loan" || q.kind === "payer" ? `${q.kind}
 /**
  * Luokittelemattomat: how much of the last twelve months' money is classified, and the few answers that would mend it
  * most, largest first: a payee without a category (pick one, or Ohita), a monthly payment that looks like a loan
- * (Tallenna lainaksi in Asetukset > Lainat, or Ei laina). Every answer is stored at once and `onAnswered` reads the page's
+ * the app cannot place (Mikä laina tämä on?, or Ei laina). Every answer is stored at once and `onAnswered` reads the page's
  * answer again, so the row goes, the next comes and the percent moves. Nothing is drawn when the picture is nearly whole
  * and nothing is asked.
  */
@@ -66,10 +68,10 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
             q.kind === "payer" ? (
               <li key={keyOf(q)} className="st-row question-row">
                 <span className="st-name" title={q.merchant}>
-                  <a href={`#/transactions${query({ merchant: q.merchant })}`}>{q.merchant}</a>
+                  {q.wallet ? walletQuestion(q.count, q.cents) : <a href={`#/transactions${query({ merchant: q.merchant })}`}>{q.merchant}</a>}
                 </span>
-                <span className="st-num">{money(q.cents)}</span>
-                <span className="question-count">{plural(q.count, "tapahtuma", "tapahtumaa")}</span>
+                {!q.wallet && <span className="st-num">{money(q.cents)}</span>}
+                {!q.wallet && <span className="question-count">{plural(q.count, "tapahtuma", "tapahtumaa")}</span>}
                 <span className="question-actions question-payer">
                   <select
                     aria-label={`Mitä nämä ovat: ${q.merchant}`}
@@ -85,7 +87,7 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
                     </option>
                     {q.options.map((role) => (
                       <option key={role} value={role}>
-                        {PAYER_ROLE_LABEL[role]}
+                        {q.wallet ? WALLET_ROLE_LABEL[role] : PAYER_ROLE_LABEL[role]}
                         {role === q.proposal ? " (ehdotus)" : ""}
                       </option>
                     ))}
@@ -105,13 +107,31 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
             ) : q.kind === "loan" ? (
               <li key={keyOf(q)} className="st-row question-row">
                 <span className="st-name" title={q.payee}>
-                  {q.payee}
+                  Mikä laina tämä on?
+                  <br />
+                  <span className="sub">
+                    {q.payee} · {money(q.paymentCents)}/kk
+                  </span>
                 </span>
-                <span className="st-num">toistuva maksu {money(q.paymentCents)}/kk</span>
                 <span className="question-actions">
-                  <a className="btn btn-small" href={`#/settings#${SETTINGS_ANCHOR.loans}`} aria-label={`Tallenna lainaksi: ${q.payee}`}>
-                    Tallenna lainaksi
-                  </a>
+                  <select
+                    aria-label={`Mikä laina tämä on: ${q.payee}`}
+                    value=""
+                    disabled={busy}
+                    onChange={(e) => {
+                      const kind = e.target.value as (typeof LOAN_KIND_ANSWERS)[number];
+                      void answer(keyOf(q), () => api("/api/marks", { method: "PUT", body: { subject: loanKindSubject(kind, q.key), mark: "in_use" } }));
+                    }}
+                  >
+                    <option value="" disabled>
+                      Valitse
+                    </option>
+                    {LOAN_KIND_ANSWERS.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {KIND_LABEL[kind]}
+                      </option>
+                    ))}
+                  </select>
                   <button type="button" className="btn btn-small" disabled={busy} aria-busy={pending === keyOf(q) || undefined} aria-label={`Ei laina: ${q.payee}`} onClick={() => void answer(keyOf(q), () => loanCalls.notLoan(q.key))}>
                     Ei laina
                   </button>
@@ -120,11 +140,17 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
             ) : (
               <li key={keyOf(q)} className="st-row question-row">
                 <span className="st-name" title={q.merchant}>
-                  <a href={`#/transactions${query({ merchant: q.merchant })}`}>{q.merchant}</a>
-                  {q.kind === "payee_in" && " tulo"}
+                  {q.kind === "payee_out" && q.service ? (
+                    serviceQuestion(q.service, q.count, q.cents)
+                  ) : (
+                    <>
+                      <a href={`#/transactions${query({ merchant: q.merchant })}`}>{q.merchant}</a>
+                      {q.kind === "payee_in" && " tulo"}
+                    </>
+                  )}
                 </span>
-                <span className="st-num">{money(q.cents)}</span>
-                <span className="question-count">{plural(q.count, "tapahtuma", "tapahtumaa")}</span>
+                {!(q.kind === "payee_out" && q.service) && <span className="st-num">{money(q.cents)}</span>}
+                {!(q.kind === "payee_out" && q.service) && <span className="question-count">{plural(q.count, "tapahtuma", "tapahtumaa")}</span>}
                 <span className="question-actions">
                   <PayeeCategorySelect categories={categories} merchant={q.merchant} incomeOnly={q.kind === "payee_in"} disabled={busy} onPick={(c) => void category.save(q.merchant, c)} />
                   <button

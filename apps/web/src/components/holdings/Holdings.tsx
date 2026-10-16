@@ -10,7 +10,7 @@
  * to the rows of the account in Tapahtumat, to the report Lainat.
  */
 import type { CSSProperties, ReactNode } from "react";
-import { daysBetween, SAME_DEBT_TWICE } from "@banking/core";
+import { cardName, daysBetween, SAME_DEBT_TWICE } from "@banking/core";
 import { query } from "../../api.ts";
 import { logoForInstitution } from "../../banks.ts";
 import { date, money, moneyIn } from "../../format.ts";
@@ -22,7 +22,7 @@ import { Figure } from "../Figure.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
-import { cardMasks, cardName, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
+import { cardMasks, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../styles/statement.css";
 import "../../styles/holdings.css";
 
@@ -128,6 +128,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
                 <Tick state={a.reconcile} />
                 {figure(a.balanceCents, a.foreign)}
               </span>
+              {a.loanPayment && <span className="st-sub">Lainanhoitotili</span>}
               {part && <span className="st-sub">{part}</span>}
               {since && <span className="st-sub">{since}</span>}
             </li>
@@ -192,10 +193,10 @@ function Loans({ holdings }: { holdings: Answer }) {
             key={l.id}
             name={l.name}
             href={`#/reports#${LOANS_REPORT_ANCHOR}`}
-            lines={[l.lender, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
+            lines={[l.lender, l.paidOff ? "Maksettu" : null, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
             note={l.maybeTwice && <p className="st-note">{SAME_DEBT_TWICE}: katso Lainat.</p>}
           >
-            <FigureRow label="Lainaa jäljellä">{figure(l.leftCents)}</FigureRow>
+            {!l.paidOff && <FigureRow label="Lainaa jäljellä">{figure(l.leftCents)}</FigureRow>}
             {l.monthlyPaymentCents !== null && <FigureRow label="Kuukausierä">{money(l.monthlyPaymentCents)}</FigureRow>}
           </Unit>
         ))}

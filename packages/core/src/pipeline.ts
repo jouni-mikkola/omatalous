@@ -1,15 +1,17 @@
+import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
 import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
 import { categorize, compileRules, dealerCategory } from "./categorize.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
 import { holdersOf } from "./categorize-people.ts";
-import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
+import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, isMobilePay, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { lexiconCategory } from "./lexicon.ts";
+import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
-import { whyCategories, whyReturns } from "./explain/why.ts";
+import { whyCategories, whyReturns, whyWallet } from "./explain/why.ts";
 import type { WhyCollector } from "./explain/types.ts";
-import { applyPayerRoles, steadyPayers } from "./payer-role.ts";
+import { answeredWalletRows, applyPayerRoles, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
@@ -84,6 +86,7 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
   const next: Transaction[] = new Array(txs.length);
   // payees the account pays about the same sum in three or more months: not a single gift to a person
   const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
+  const steadyIn = steadyParties(txs.filter((t) => t.amountCents > 0 && t.merchant !== UNKNOWN_MERCHANT));
   for (let i = 0; i < txs.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = txs[i]!;
@@ -91,7 +94,7 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
       next[i] = { ...t, isTransfer: t.category === "transfer" };
       continue;
     }
-    const steadyPayee = t.amountCents < 0 && steady.has(partyKey(t));
+    const steadyPayee = (t.amountCents < 0 ? steady : steadyIn).has(partyKey(t));
     const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}\u0000${dealerCategory(t.amountCents)}`;
     let result = decided.get(key);
     if (!result) decided.set(key, (result = categorize(steadyPayee ? { ...t, steadyPayee } : t, rules, accounts)));
@@ -107,6 +110,9 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
 function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>): void {
   for (const t of cardBillsByAmount(next.filter((t) => !byUserRule.has(t.id)))) t.category = "card_bill";
 }
+
+/** Money out that the people rules read as a person by the shape of a credit transfer alone: no reference, no card and no word of the bank's for a payment between people (categorize-people.ts, `unreferenced`). */
+const isGuessedPerson = (t: Transaction): boolean => t.category === "p2p" && t.categorySource === "rule" && !!t.counterpartyIban?.trim() && referenceOf(t) === "" && !isMobilePay(t);
 
 /** Rows nothing recognised take their merchant's other purchases' category, else the lexicon's company rows (lexicon.ts), else the merchant's found register industry, else the lexicon's stems. After transfer detection, which treats such rows as possible own transfers. */
 function* applyMerchantEvidence(
@@ -124,8 +130,10 @@ function* applyMerchantEvidence(
   for (let i = 0; i < next.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = next[i]!;
-    if (t.categorySource !== "default" || t.amountCents >= 0) continue;
-    const same = lender.paid(t) ? "loans" : likeOthers.get(t.merchant);
+    // a person guessed from a transfer's shape alone gives way to a register entry of its merchant: the name is a business's
+    const guessed = isGuessedPerson(t);
+    if ((t.categorySource !== "default" && !guessed) || t.amountCents >= 0) continue;
+    const same = guessed ? undefined : lender.paid(t) ? "loans" : likeOthers.get(t.merchant);
     const registered = lender.industry(t, industries.get(t.merchant));
     // the register's class for the sale of motor vehicles names a dealer: the sum tells the car from its upkeep.
     // The class of car rental and leasing: a payment in a monthly run of equal sums is a lease, any other a rental
@@ -133,7 +141,7 @@ function* applyMerchantEvidence(
     // debt too: a collection agency's industry means debt service
     const kind = industry ? getCategory(industry).kind : null;
     // the lexicon of Finnish brands and trade words stands between the merchant's other purchases and the register; only a stem of it (a guess) gives way to a found register entry
-    const business = isBusinessRow(t, cards, shops);
+    const business = guessed || isBusinessRow(t, cards, shops);
     const listed = same ? null : business ? lexiconCategory(t) : null;
     // only on business rows: a person who shares a company's name stays a person
     const registeredCategory = industry && (kind === "expense" || kind === "debt") && business ? industry : null;
@@ -178,7 +186,7 @@ function* enrichSteps(
   yield;
 
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
-  const returns = matchReturns(next, ownIbansOf(accounts), byUserRule, today);
+  const returns = matchReturns(next, ownIbansOf(accounts), new Set([...byUserRule, ...answeredWalletRows(next, payers)]), today);
   if (why) whyReturns(why, next, returns, ownIbansOf(accounts), byUserRule);
   yield;
   const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]), why);
@@ -194,13 +202,21 @@ function* enrichSteps(
       t.categorySource = "rule";
     }
   }
+  // money into a loan payment account is the household's own transfer, as is its leg on the paying account
+  const paying = loanPaymentAccounts(accounts, next, today ?? next.reduce((day, t) => (t.bookingDate > day ? t.bookingDate : day), "0000-00-00"));
+  for (const t of next) {
+    if (t.categorySource !== "user" && paying.legs.has(t.id)) Object.assign(t, { category: "transfer", categorySource: "transfer", isTransfer: true });
+  }
   yield;
 
   yield* applyMerchantEvidence(next, accounts, industries);
   applyReturns(next, returns);
   // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
-  applyPayerRoles(next, new Set([...byUserRule, ...returns.keys(), ...returns.values()]), payers);
-  if (why) whyCategories(why, next, byUserRule);
+  const answeredShares = applyPayerRoles(next, new Set([...byUserRule, ...returns.keys(), ...returns.values()]), payers);
+  if (why) {
+    whyCategories(why, next, byUserRule);
+    whyWallet(why, next, returns, answeredShares);
+  }
   return changedRows(next, txs);
 }
 
@@ -225,7 +241,7 @@ export interface IslandInput {
   oldRules: readonly CategoryRule[];
   industries: ReadonlyMap<string, string>;
   /** Rows outside the island that returns matched (stored source "match"): a friend's share carries its purchase's category. */
-  outsideMatches: readonly Pick<Transaction, "accountId" | "bookingDate" | "amountCents">[];
+  outsideMatches: readonly (Pick<Transaction, "accountId" | "bookingDate" | "amountCents"> & { wallet?: boolean })[];
   /** The member's payer roles. */
   payers?: PayerInput;
   /**
@@ -260,6 +276,8 @@ export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; r
  */
 export function enrichIsland(input: IslandInput): IslandResult {
   const { rows, accounts, industries } = input;
+  // MobilePay money answered as shares of purchases reads the rows of other merchants: its purchase
+  if (input.payers?.roles.some((r) => r.role === "cost_share" && r.counterpartyKey === WALLET_PAYER_KEY)) return { ok: false, reason: "answered MobilePay shares read the purchases of other merchants" };
   if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
   const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
@@ -318,6 +336,8 @@ export function enrichIsland(input: IslandInput): IslandResult {
     if (oldKey !== newKey && newKey !== INERT) return { ok: false, reason: "a row may take part in transfer pairing" };
     // a payout makes its merchant a lender, and the issuer fallback spares the payments of its contract, also the ones stored as card bills here
     if (isLenderPayout(o, holders) !== isLenderPayout(n, holders)) return { ok: false, reason: "a lender's payout came or went" };
+    // friends' MobilePay shares are set against purchases that are no bill, cash or person: crossing that line moves them
+    if (o.amountCents < 0 && isSharedPurchase(o.category) !== isSharedPurchase(n.category)) return { ok: false, reason: "a purchase became one MobilePay shares may be set against, or stopped being one" };
     const oldReturn = returnKey(o, ownIbans, old.byUserRule.has(o.id));
     const newReturn = returnKey(n, ownIbans, now.byUserRule.has(n.id));
     if (oldReturn === "share" || newReturn === "share") return { ok: false, reason: "a row may be a friend's share of a bill" };
@@ -340,7 +360,10 @@ export function enrichIsland(input: IslandInput): IslandResult {
       const day = dayNumber(t.bookingDate);
       for (const m of input.outsideMatches) {
         const gap = dayNumber(m.bookingDate) - day;
-        if (m.accountId !== t.accountId || gap < 0 || gap > SHARE_WINDOW_DAYS) continue;
+        if (gap < 0 || gap > SHARE_WINDOW_DAYS) continue;
+        // a MobilePay share names no one and may be any part of the purchase, on any account: a match in its days may be this one's
+        if (m.wallet && gap <= SHARE_DAYS) return { ok: false, reason: "a share outside the merchant follows one of its purchases" };
+        if (m.accountId !== t.accountId) continue;
         // a share is one part of the bill: the whole bill is one to eight times its amount (see matchReturns)
         const total = -t.amountCents;
         const parts = Math.round(total / m.amountCents);

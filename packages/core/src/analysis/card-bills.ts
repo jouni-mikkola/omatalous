@@ -5,8 +5,8 @@
  * not read as the whole.
  */
 import { dateIn, fromMonthIndex, monthEnd } from "../dates.ts";
-import { cardIssuerName, cardIssuerOfAccountText, fold } from "../merchant.ts";
-import type { Account, IsoDate } from "../types.ts";
+import { cardIssuerName, cardIssuerOfAccountText, cardName, fold } from "../merchant.ts";
+import type { Account, BalanceInput, IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, loweredRows } from "./context.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 
@@ -18,6 +18,8 @@ const billIssuer = (t: Pick<AnalysisTx, "merchant">): string => cardIssuerName(f
 
 export interface MissingCardPurchases {
   issuer: string;
+  /** What the row is called: the issuer, and where two rows would read the same, the card the row is of (`labelled`). */
+  label: string;
   /** The bills' sum, the same cents the card_bills signal adds up. */
   cents: number;
   count: number;
@@ -44,12 +46,13 @@ function issuerOfAccount(a: Account): { listed: string | null; words: Set<string
  * history (`before_history`); a bill on or after that day, or of an issuer none of whose cards is connected, is of a
  * card that is not connected. An issuer with both has a row for each. Largest sum first. A card matches an issuer by the
  * list's name, or for an issuer outside the list by a whole word of its name that the card's bank or names also hold.
+ * `balances` give the cards' numbers for the label of a row.
  */
-export function missingCardPurchases(ctx: AnalysisContext, range: DateRange): MissingCardPurchases[] {
+export function missingCardPurchases(ctx: AnalysisContext, range: DateRange, balances: readonly Pick<BalanceInput, "id" | "cardMask">[] = []): MissingCardPurchases[] {
   const began = new Map<string, IsoDate>();
   for (const t of ctx.txs) if (t.bookingDate < (began.get(t.accountId) ?? "9999-99-99")) began.set(t.accountId, t.bookingDate);
-  const cards = ctx.accounts.filter((a) => a.type === "credit_card" && began.has(a.id)).map((a) => ({ ...issuerOfAccount(a), since: began.get(a.id)! }));
-  const sinceOf = new Map<string, IsoDate | null>();
+  const cards = ctx.accounts.filter((a) => a.type === "credit_card" && began.has(a.id)).map((a) => ({ ...issuerOfAccount(a), since: began.get(a.id)!, account: a }));
+  const sinceOf = new Map<string, { since: IsoDate; card: Account } | null>();
   const bills = new Map<string, MissingCardPurchases>();
   for (const t of loweredRows(ctx, inDays(ctx, toDayRange(range)))) {
     if (!isCardBill(t)) continue;
@@ -58,9 +61,10 @@ export function missingCardPurchases(ctx: AnalysisContext, range: DateRange): Mi
       const listed = cardIssuerName(fold(issuer)) !== null;
       const words = distinctWords(issuer);
       const own = cards.filter((c) => (listed ? c.listed === issuer : words.some((w) => c.words.has(w))));
-      sinceOf.set(issuer, own.length ? own.map((c) => c.since).sort()[0]! : null);
+      const first = own.sort((a, b) => a.since.localeCompare(b.since))[0];
+      sinceOf.set(issuer, first ? { since: first.since, card: first.account } : null);
     }
-    const since = sinceOf.get(issuer)!;
+    const since = sinceOf.get(issuer)?.since ?? null;
     const early = since !== null && t.bookingDate < since;
     const key = `${issuer}\u0000${early}`;
     const had = bills.get(key);
@@ -68,9 +72,30 @@ export function missingCardPurchases(ctx: AnalysisContext, range: DateRange): Mi
       had.cents += t.spend;
       had.count++;
       if (t.bookingDate > had.lastDate) had.lastDate = t.bookingDate;
-    } else bills.set(key, { issuer, cents: t.spend, count: 1, lastDate: t.bookingDate, reason: early ? "before_history" : "not_connected", since: early ? since : null });
+    } else bills.set(key, { issuer, label: issuer, cents: t.spend, count: 1, lastDate: t.bookingDate, reason: early ? "before_history" : "not_connected", since: early ? since : null });
   }
-  return [...bills.values()].sort((a, b) => b.cents - a.cents || a.issuer.localeCompare(b.issuer, "fi") || a.reason.localeCompare(b.reason));
+  const rows = [...bills.values()].sort((a, b) => b.cents - a.cents || a.issuer.localeCompare(b.issuer, "fi") || a.reason.localeCompare(b.reason));
+  // an issuer with two rows has one for the bank's history, which a connected card owns: that row names the card
+  for (const row of rows) {
+    const card = row.reason === "before_history" && rows.filter((r) => r.issuer === row.issuer).length > 1 ? sinceOf.get(row.issuer)?.card : undefined;
+    if (card) row.label = labelled(row.issuer, card, balances.find((b) => b.id === card.id)?.cardMask);
+  }
+  return rows;
+}
+
+/** The last four digits a bank's card number ends in ("•••• 1234", "5225********1144"), or null where it gives fewer. */
+const lastFour = (mask: string | null | undefined): string | null => {
+  const digits = (mask ?? "").replace(/\D/g, "");
+  return digits.length >= 4 ? digits.slice(-4) : null;
+};
+
+/** A card's row among rows of its issuer: the issuer and the last four digits as the account list prints them, else the card's product name. */
+function labelled(issuer: string, card: Account, mask: string | null | undefined): string {
+  const four = lastFour(mask);
+  if (four) return `${issuer} ·· ${four}`;
+  const name = cardName(card.name);
+  const product = name.toLowerCase().startsWith(issuer.toLowerCase()) ? name.slice(issuer.length).trim() : name;
+  return product ? `${issuer} ${product}` : issuer;
 }
 
 /** The cents of card bills in each of `months` (month indexes), in the order of `months`; 0 for a month without one. */

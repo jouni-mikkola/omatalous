@@ -287,6 +287,19 @@ describe("what is free is the balance less the payments of the window", () => {
     expect(d.balance!.freeCents).toBe(freeOf(d));
   });
 
+  it("names the card as its own, without the type the bank writes after it, and keeps an owner's name", () => {
+    const h = steadyHousehold(KIT_SEED, "poisson", "2026-10-27");
+    const named = (name: string) => {
+      const ctx = contextOf({ ...h, accounts: h.accounts.map((a) => (a.id === "card" ? { ...a, name } : a)) });
+      return of(cashAhead(ctx, h.balances, h.inputs), "card").map((r) => r.name);
+    };
+    expect(named("Nordea Gold (credit)")).toEqual(["Nordea Gold"]);
+    expect(named("Nordea Gold ( DEBIT )")).toEqual(["Nordea Gold"]);
+    // near misses: a bracket that is no type word stays
+    expect(named("Nordea Gold (Eero)")).toEqual(["Nordea Gold (Eero)"]);
+    expect(named("Nordea Gold")).toEqual(["Nordea Gold"]);
+  });
+
   it("Laskut's list holds the card's bill on its due date, and no transfer", () => {
     const h = steadyHousehold(KIT_SEED, "poisson", "2026-10-27");
     const d = cashAhead(contextOf(h), h.balances, h.inputs);

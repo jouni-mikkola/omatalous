@@ -1,3 +1,4 @@
+import { flagLoanPayment } from "../loan-payment.ts";
 /**
  * Optimoi: the household's decisions with a price or a deadline. Each area (`areas/*.ts`) returns its findings and what
  * it checked; this frame applies the rules every finding follows: complete months only, the gate, certainty from
@@ -88,7 +89,7 @@ export function areaInputOf(input: OptimiseInput): AreaInput {
     today: ctx.today,
     end,
     months: window.months,
-    balances: input.balances,
+    balances: flagLoanPayment(ctx, input.balances),
     inputs: input.inputs ?? NO_INPUTS,
     values: input.values ?? {},
     industry: input.industry ?? new Map(),

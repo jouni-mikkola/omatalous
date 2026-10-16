@@ -37,8 +37,22 @@ function recordedDays(ctx: AnalysisContext): Map<string, IsoDate> {
   return known;
 }
 
+interface StartDays {
+  first: Map<string, IsoDate>;
+  known: Map<string, IsoDate>;
+  from: Map<string, IsoDate>;
+}
+
+const startDaysOf = new WeakMap<AnalysisContext, StartDays>();
+
 /** The day each account's rows are known from, as `coverage` reads it (see there), with the maps it is made of. */
-function startDays(ctx: AnalysisContext): { first: Map<string, IsoDate>; known: Map<string, IsoDate>; from: Map<string, IsoDate> } {
+function startDays(ctx: AnalysisContext): StartDays {
+  let found = startDaysOf.get(ctx);
+  if (!found) startDaysOf.set(ctx, (found = computeStartDays(ctx)));
+  return found;
+}
+
+function computeStartDays(ctx: AnalysisContext): StartDays {
   const first = new Map<string, IsoDate>();
   for (const t of ctx.txs) if (!first.has(t.accountId)) first.set(t.accountId, t.bookingDate);
   const known = recordedDays(ctx);
@@ -86,6 +100,23 @@ export function coverage(ctx: AnalysisContext): Coverage {
     knownFrom: (accountId) => known.get(accountId) ?? null,
     purchasesFrom: (accountId) => (cards.has(accountId) ? (known.get(accountId) ?? null) : null),
   };
+}
+
+/**
+ * Was every one of the accounts in the data from `from` on (with the slack of `COVER_SLACK_DAYS`)? What a reader asks
+ * about a figure made of the rows of some accounts, such as one payer's income or one card's subscriptions: an account
+ * connected later than `from` has no history there, however old the oldest row of the other accounts is. False for no
+ * account, and for an account with no known first day.
+ */
+export function accountCovers(ctx: AnalysisContext, accountIds: Iterable<string>, from: IsoDate): boolean {
+  const { from: starts } = startDays(ctx);
+  let any = false;
+  for (const id of accountIds) {
+    const day = starts.get(id);
+    if (!day || dayNumber(day) > dayNumber(from) + COVER_SLACK_DAYS) return false;
+    any = true;
+  }
+  return any;
 }
 
 /** A period: its first and last day. */

@@ -210,7 +210,7 @@ describe("data quality: savings out of sight, missing balances, quiet cards", ()
       expect(expected).toBe(3 * 20000 + 3 * 5000);
       const signal = find(found, "own_unconnected")!;
       expect(signal.cents).toBe(expected);
-      expect(signal.title).toContain("säästöjä meni tilille, jonka saldo ei näy");
+      expect(signal.title).toContain("säästöjä meni tilille, jota ei ole yhdistetty");
       // the largest payee first
       expect(signal.detail.indexOf("Nordnet")).toBeGreaterThan(-1);
       expect(signal.detail.indexOf("Nordnet")).toBeLessThan(signal.detail.indexOf("Elo"));

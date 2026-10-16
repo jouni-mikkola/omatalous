@@ -35,6 +35,7 @@ export * from "./loan-detect.ts";
 export * from "./pipeline.ts";
 export * from "./payer-role.ts";
 export * from "./returns.ts";
+export { isUnnamedMobilePay } from "./mobilepay.ts";
 export * from "./analysis/flows.ts";
 export { isCardBill, type MissingCardPurchases } from "./analysis/card-bills.ts";
 export * from "./analysis/period.ts";

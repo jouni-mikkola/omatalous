@@ -4,7 +4,7 @@
  * shows take `own`: in the own view a row of a joint account adds the viewer's part, an account somebody else uses
  * alone adds nothing, and a row has the category and the transfer mark the view counts it by (`toldSql`).
  */
-import { fold, isIndustryCodeSet, type MerchantBasis, merchantMonthly, monthEnd, type RegisterAnswer, type Transaction } from "@banking/core";
+import { fold, isIndustryCodeSet, isUnnamedMobilePay, type MerchantBasis, merchantMonthly, monthEnd, type RegisterAnswer, type Transaction } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
 import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
@@ -125,11 +125,11 @@ export class MerchantsRepo {
     return (await this.ctx.db.all<{ merchant: string }>("SELECT merchant FROM transactions WHERE user_id = ? GROUP BY merchant", [this.ctx.userId])).map((r) => String(r.merchant));
   }
 
-  /** Rows that returns matched (a refund, a friend's share) outside the given merchants: where they are, not what they are. */
-  async matchedRowsOutside(merchants: readonly string[]): Promise<Pick<Transaction, "accountId" | "bookingDate" | "amountCents">[]> {
-    const rows = await this.ctx.db.all<Row>("SELECT account_id, booking_date, amount_cents, merchant FROM transactions WHERE user_id = ? AND category_source = 'match'", [this.ctx.userId]);
+  /** Rows that returns matched (a refund, a friend's share) outside the given merchants: where they are, and whether they are MobilePay money naming no sender. */
+  async matchedRowsOutside(merchants: readonly string[]): Promise<(Pick<Transaction, "accountId" | "bookingDate" | "amountCents"> & { wallet: boolean })[]> {
+    const rows = await this.ctx.db.all<Row>("SELECT account_id, booking_date, amount_cents, merchant, counterparty, description FROM transactions WHERE user_id = ? AND category_source = 'match'", [this.ctx.userId]);
     const inside = new Set(merchants);
-    return rows.filter((r) => !inside.has(String(r.merchant))).map((r) => ({ accountId: String(r.account_id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents) }));
+    return rows.filter((r) => !inside.has(String(r.merchant))).map((r) => ({ accountId: String(r.account_id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents), wallet: isUnnamedMobilePay({ counterparty: r.counterparty === null ? null : String(r.counterparty), description: r.description === null ? null : String(r.description) }) }));
   }
 
   /** Spending rows nothing categorised. The reference number tells an invoice from a transfer (core `isBusinessRow`). */
