@@ -4,10 +4,10 @@
  * three months say nothing. The usual spending, the usual income and the gate a cause must pass are defined here once
  * (ADR 0004). See docs/MONEY_FLOWS.md.
  */
-import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
+import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, historyCovers } from "./context.ts";
-import { isEarnedIncome } from "./income.ts";
+import { earnedOf, earnedSelect, sumOf } from "./counted.ts";
 
 /** The usual level is the median of this many complete months at most. */
 export const USUAL_MONTHS = 6;
@@ -47,23 +47,21 @@ export function usualCents(values: readonly number[]): number | null {
 interface MonthSums {
   /** Spending (consumption + debt) on days 1 to d at index d − 1: a running month is set against the same days. */
   through: number[];
-  /** Income without money from people, refunds and own money (`isEarnedIncome`). */
-  earned: number;
 }
 
-const ZERO: MonthSums = { through: new Array<number>(31).fill(0), earned: 0 };
+const ZERO: MonthSums = { through: new Array<number>(31).fill(0) };
 const sums = new WeakMap<AnalysisContext, Map<number, MonthSums>>();
+const earnedSums = new WeakMap<AnalysisContext, Map<string, number>>();
 
-/** A month's spending and earned income, summed once per context. */
+/** A month's spending, summed once per context. */
 function monthSums(ctx: AnalysisContext, month: string): MonthSums {
   let byMonth = sums.get(ctx);
   if (!byMonth) {
     byMonth = new Map();
     for (const t of ctx.txs) {
       let e = byMonth.get(t.month);
-      if (!e) byMonth.set(t.month, (e = { through: new Array<number>(31).fill(0), earned: 0 }));
+      if (!e) byMonth.set(t.month, (e = { through: new Array<number>(31).fill(0) }));
       e.through[Number(t.bookingDate.slice(8, 10)) - 1]! += t.spend;
-      if (isEarnedIncome(t)) e.earned += t.flows.income;
     }
     for (const e of byMonth.values()) for (let d = 1; d < 31; d++) e.through[d]! += e.through[d - 1]!;
     sums.set(ctx, byMonth);
@@ -73,7 +71,14 @@ function monthSums(ctx: AnalysisContext, month: string): MonthSums {
 
 /** A month's earned income (`isEarnedIncome`): what `usualIncome` is the median of. */
 export function earnedIncome(ctx: AnalysisContext, month: string): number {
-  return monthSums(ctx, month).earned;
+  let cache = earnedSums.get(ctx);
+  if (!cache) earnedSums.set(ctx, (cache = new Map()));
+  let cents = cache.get(month);
+  if (cents === undefined) {
+    cents = sumOf(earnedSelect(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) }).counted, earnedOf);
+    cache.set(month, cents);
+  }
+  return cents;
 }
 
 /** A month's spending (consumption + debt) on its days 1 to `day`; 31 is the whole month. */

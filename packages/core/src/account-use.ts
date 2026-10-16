@@ -3,6 +3,7 @@
  * nothing here reads that. A use is what the household said, or it is derived from the bank's holder names on every
  * read. A part is a range of the users' weights, so the users' parts of a row add up to the row, to the cent.
  */
+import type { WhyCollector } from "./explain/types.ts";
 import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
 import { normalizeIban, pairTransfers } from "./transfers.ts";
 import type { Account, AccountUse, AccountUser, Part, RowShare, Transaction } from "./types.ts";
@@ -174,6 +175,7 @@ export function applyUse<T extends Transaction>(
   parts: ReadonlyMap<string, Part>,
   owners: ReadonlyMap<string, string> = new Map(),
   shares?: ReadonlyMap<string, RowShare>,
+  why?: WhyCollector,
 ): readonly T[] {
   const partIn = (accountId: string): Part => parts.get(accountId) ?? WHOLE;
   // a part of an account that is not in the view cuts nothing in it
@@ -253,9 +255,18 @@ export function applyUse<T extends Transaction>(
     if (t.categorySource !== "user") {
       const other = otherEnd(t);
       const paidIn = joint && t.amountCents > 0;
-      if (other !== undefined && gone(other) && !paidIn) row = { ...t, category: t.amountCents > 0 ? "p2p_in" : "p2p", categorySource: "rule", isTransfer: false };
+      if (other !== undefined && gone(other) && !paidIn) {
+        row = { ...t, category: t.amountCents > 0 ? "p2p_in" : "p2p", categorySource: "rule", isTransfer: false };
+        // no longer a movement between the viewer's own accounts: money between people, counted
+        if (why) {
+          const was = why.of(t.id).find((r) => r.rule === "transfer.pair");
+          why.drop(t.id, "transfer.pair");
+          why.add(t.id, { rule: "transfer.pair", people: true, ...(typeof was?.other === "string" ? { other: was.other } : {}) });
+        }
+      }
       else if (other !== undefined || (paidIn && fromHolder(t))) row = transfer(t);
     }
+    if (joint && why) why.add(t.id, { rule: "part.use", from: part.from, to: part.to, of: part.of });
     out.push(joint ? { ...row, amountCents: partCents(row.amountCents, part), wholeCents: row.amountCents } : row);
   }
   return out;

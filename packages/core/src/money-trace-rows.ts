@@ -3,10 +3,11 @@
  * row is read for what it is (a person's own money, a payment by one person, a movement between pools, a refund,
  * money back, or unknown money) from the payers the caller gives. Nothing here reads a database or a clock.
  */
+import { type CardBook, cardHolderOf } from "./card-holder.ts";
 import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
 import type { Owner, SourcePart, TraceRow } from "./money-trace.ts";
-import { PAIR_DAYS } from "./money-trace.ts";
+import { isUserOwner, PAIR_DAYS } from "./money-trace.ts";
 import { type Name, nameOf, samePerson } from "./person-names.ts";
 import { matchReturns } from "./returns.ts";
 import { normalizeIban, pairable, pairTransfers } from "./transfers.ts";
@@ -36,8 +37,8 @@ export interface Payers {
   others: readonly Transaction[];
   /** The accounts one person uses alone: IBAN to that person. */
   alone: ReadonlyMap<string, Owner>;
-  /** The card accounts one person uses alone: account id to that person. A card account has no IBAN, so it is keyed by the account. */
-  aloneAccount?: ReadonlyMap<string, Owner>;
+  /** The card accounts (no IBAN, so keyed by the account): whose a bill paid to one is is `cardHolderOf`'s to say. */
+  cards?: CardBook;
   /** The IBANs of the pools. */
   pools: ReadonlySet<string>;
   /** Every user's name. */
@@ -171,9 +172,14 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
       if (leg) legOf.set(inId.slice(1), leg);
     }
   }
+  const cardOf = (leg: Transaction | undefined) => (leg ? who.cards?.byAccount.get(leg.accountId) : undefined);
   const aloneOf = (tx: Transaction, leg: Transaction | undefined): Owner | undefined => {
     const byIban = who.alone.get(normalizeIban(tx.counterpartyIban) ?? "");
-    return byIban ?? (leg ? (who.alone.get(ibanOf.get(leg.accountId) ?? "") ?? who.aloneAccount?.get(leg.accountId)) : undefined);
+    if (byIban !== undefined || !leg) return byIban;
+    const byLeg = who.alone.get(ibanOf.get(leg.accountId) ?? "");
+    const card = cardOf(leg);
+    const holder = card && who.cards ? cardHolderOf(card, dayNumber(tx.bookingDate), who.cards.members, who.cards.agreements) : undefined;
+    return byLeg ?? (holder?.kind === "one" ? holder.owner : undefined);
   };
 
   // the legs on another pool: the same cents, the money out on the same day or up to PAIR_DAYS before the money in, and
@@ -226,12 +232,13 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
   type Source = TraceRow["from"];
   const classified = new Map<string, { from?: Source; group?: Owner }>();
   const outs = new Map<string, TraceRow["to"]>();
+  const cardKeys = new Map<string, string>();
   // the order: an account one person uses alone, an IBAN that is another pool's (whatever name the row carries), a
   // user's name (read only where the IBAN is no account of the household), and last the other leg on another pool
   const fromPool = (pooled: Transaction | undefined, other: string | undefined): { from?: Source; group: Owner } => {
     const iban = (pooled ? ibanOf.get(pooled.accountId) : null) ?? other ?? "";
     const parts = pooled ? who.legParts?.(pooled) : undefined;
-    const from = parts ? { parts: parts.filter((p) => p.cents > 0).map((p): SourcePart => ({ owner: p.owner.startsWith("u:") || p.owner.startsWith("g:") ? p.owner : `g:iban:${iban}`, kind: "pool", cents: p.cents })) } : undefined;
+    const from = parts ? { parts: parts.filter((p) => p.cents > 0).map((p): SourcePart => ({ owner: isUserOwner(p.owner) || p.owner.startsWith("g:") ? p.owner : `g:iban:${iban}`, kind: "pool", cents: p.cents })) } : undefined;
     return { ...(from ? { from } : {}), group: `g:iban:${iban}` };
   };
   for (const r of readable) {
@@ -243,6 +250,8 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     const poolIban = rowIban && rowIban !== self && who.pools.has(rowIban) ? rowIban : undefined;
     const named = rowIban && ownIbans.has(rowIban) ? undefined : userNamed(tx.counterparty, who.names);
     if (tx.amountCents < 0) {
+      const card = cardOf(leg);
+      if (card) cardKeys.set(r.key, card.key);
       if (owner !== undefined) outs.set(r.key, { owner });
       else if (poolIban !== undefined) outs.set(r.key, "pool");
       else if (named !== undefined) outs.set(r.key, { owner: named });
@@ -273,7 +282,8 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     if (r.unmatched) return { ...base, unmatched: true };
     if (tx.amountCents < 0) {
       const to = outs.get(r.key);
-      return to ? { ...base, to } : base;
+      const cardKey = cardKeys.get(r.key);
+      return { ...base, ...(to ? { to } : {}), ...(cardKey !== undefined ? { cardKey } : {}) };
     }
     const seen = classified.get(r.key);
     const group = seen?.group ?? groupOf(tx);

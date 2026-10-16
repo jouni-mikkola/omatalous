@@ -1,6 +1,7 @@
 // Decision: where to cut
 import { CATEGORY_GROUPS, getCategory } from "../categories.ts";
-import { type AnalysisContext, historyCovers, spendRows } from "../analysis/context.ts";
+import { type AnalysisContext, historyCovers } from "../analysis/context.ts";
+import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { spendingBase } from "../analysis/data-quality.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { fromMonthIndex } from "../dates.ts";
@@ -61,16 +62,16 @@ export interface CategoryReport {
 export function categoryReport(ctx: AnalysisContext, range: DateRange): CategoryReport {
   const months = rangeMonthIndexes(range, 120, ctx);
   const firstMonth = months[0]!;
-  const current = spendRows(ctx, toDayRange(range));
+  // the rows `spendRows` gives (context.ts), and the ones that count: the select `explain` lists
+  const { rows: current, counted } = spendSelect(ctx, toDayRange(range));
   // a running period is compared with the same days of the previous one
   const [pf, pt] = previousRange(range.from, range.from <= ctx.today && ctx.today <= range.to ? ctx.today : range.to);
   const comparable = historyCovers(ctx, pf);
   // a previous period before the history starts would show every category as new
-  const previous = comparable ? spendRows(ctx, toDayRange({ from: pf, to: pt })) : [];
+  const previous = comparable ? spendSelect(ctx, toDayRange({ from: pf, to: pt })).counted : [];
 
   const perCategory = new Map<string, { monthly: number[]; total: number; count: number }>();
-  for (const t of current) {
-    if (!t.spend) continue;
+  for (const t of counted) {
     const e = perCategory.get(t.category) ?? { monthly: months.map(() => 0), total: 0, count: 0 };
     // months before the shown ones (ranges over ten years) count in the total only
     if (t.month >= firstMonth) e.monthly[t.month - firstMonth]! += t.spend;
@@ -79,7 +80,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     perCategory.set(t.category, e);
   }
   const prev = new Map<string, number>();
-  for (const t of previous) if (t.spend) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
+  for (const t of previous) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
   const averaged = fullMonths(ctx, range, months);
   const averagedAt = averaged.map((m) => m - firstMonth);
   // trend: the last three complete months against the three before them, so six complete months or none
@@ -96,7 +97,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
 
   // refunds are taken off, so the total is the expense of the cashflow report and a category with more refunds than
   // spending is a row with a minus; a share is of the categories that net above zero, so none passes 100 %
-  const total = current.reduce((s, t) => s + t.spend, 0);
+  const total = sumOf(counted, spendOf);
   const base = spendingBase(current);
   const income = totalsOf(current.map((t) => t.flows)).incomeCents;
   const ofIncome = (cents: number) => (income > 0 ? cents / income : null);

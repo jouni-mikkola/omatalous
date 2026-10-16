@@ -15,6 +15,7 @@ import {
   type AccountUse,
   type Answer,
   balanceDayOf,
+  type CardUse,
   dayNumber,
   holdersIn,
   isUserOwner,
@@ -165,14 +166,15 @@ const isCardAccount = (a: StoredAccount): boolean => !normalizeIban(a.iban) && a
 
 /**
  * The payers of a pool: this pool's users only (`u:<id>`, and `u:` for the holders who are no user), by IBAN and by name.
- * A card account is keyed by the account: a bill paid to the card of one member is that member's. A card of two users
- * is nobody's alone, so its bill stays a cost of the pool, cut once by the pool's weights; a card of a holder with no login stays so too.
+ * A card account is keyed by the account, and `cardHolderOf` says whose a bill paid to it is: the bill of a card one member
+ * uses is that member's; a card of two users is nobody's alone, so its bill stays a cost of the pool, cut once by the pool's
+ * weights; a card of a holder with no login stays so too.
  */
 function payersOf(h: Household, key: string): Omit<Payers, "legParts" | "others"> {
   const use = h.uses.get(key)!;
   const mine = new Set(weighted(use).map((u) => ownerOfUser(u.userId)));
   const alone = new Map<string, Owner>();
-  const aloneAccount = new Map<string, Owner>();
+  const byAccount = new Map<string, CardUse>();
   const pools = new Set<string>();
   for (const [k, other] of h.uses) {
     const users = weighted(other);
@@ -180,7 +182,7 @@ function payersOf(h: Household, key: string): Omit<Payers, "legParts" | "others"
     for (const a of h.byKey.get(k) ?? []) {
       const iban = normalizeIban(a.iban);
       if (!iban) {
-        if (isCardAccount(a) && only !== null && mine.has(only)) aloneAccount.set(a.id, only);
+        if (isCardAccount(a)) byAccount.set(a.id, { key: k, users: users.map((u) => ({ owner: ownerOfUser(u.userId), weight: u.weight })) });
         continue;
       }
       if (users.length >= 2) pools.add(iban);
@@ -195,7 +197,8 @@ function payersOf(h: Household, key: string): Omit<Payers, "legParts" | "others"
     const name = userNameOf(h.accounts.filter((a) => a.userId === u.userId));
     return name ? [{ owner: ownerOfUser(u.userId), name }] : [];
   });
-  return { accounts: h.accounts as Account[], alone, aloneAccount, pools, names };
+  // no agreement is stored yet: the first rule of `cardHolderOf` has nothing to read
+  return { accounts: h.accounts as Account[], alone, cards: { byAccount, members: mine, agreements: [] }, pools, names };
 }
 
 /** The joined rows of a pool and its payers; null when it has no rows, no balance, or no booked row. */

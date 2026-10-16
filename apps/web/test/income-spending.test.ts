@@ -206,7 +206,7 @@ describe("Tulot ja menot: the savings rate and the fixed costs", () => {
 
 describe("Tulot ja menot: the month's list or the table of themes", () => {
   const draw = (data: ReturnType<typeof answer>) =>
-    renderToStaticMarkup(createElement(IncomeSpending, { data, period: "month", presets: periodsOf("overview", today), anchors: { income: "tulot", months: "kuukaudet" } }));
+    renderToStaticMarkup(createElement(IncomeSpending, { data, scope: "own", period: "month", presets: periodsOf("overview", today), anchors: { income: "tulot", months: "kuukaudet" } }));
   const text = (html: string) => plain(html.replace(/<[^>]*>/g, " ")).replace(/ +/g, " ");
   // three complete months with one account that covers them: July, August and September
   const threeMonths = [buy("2026-07-02", 6_000), ...history];

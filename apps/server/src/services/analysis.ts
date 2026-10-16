@@ -26,6 +26,7 @@ import {
   type Part,
   partCents,
   type RowShare,
+  type WhyCollector,
   type UserInputs,
 } from "@banking/core";
 import { isCurrencyCode, isEuro } from "../connectors/balance-sign.ts";
@@ -232,6 +233,11 @@ async function accountsInView(s: Services, userId: string, requested: View): Pro
   return { view: "own", accounts, left, parts, traces: new Map([...traces].filter(([id, f]) => f.traced && accounts.some((a) => a.id === id))) };
 }
 
+/** A view built again, uncached, with the reasons its rows count as they do collected: what "Miksi?" reads. */
+export async function scopeWithReasons(s: Services, userId: string, requested: Scope, why: WhyCollector): Promise<ScopeData> {
+  return loadScope(s, userId, await accountsInView(s, userId, requested), s.today(), why);
+}
+
 /** A row cut to a part, as the bank booked it. */
 function uncut(t: StoredTransaction): StoredTransaction {
   if (t.wholeCents === undefined) return t;
@@ -276,7 +282,7 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
   return { accounts: counted, shares };
 }
 
-async function loadScope(s: Services, userId: string, inView: InView, today: string): Promise<ScopeData> {
+async function loadScope(s: Services, userId: string, inView: InView, today: string, why?: WhyCollector): Promise<ScopeData> {
   const { view, left, parts } = inView;
   const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today) : { accounts: inView.accounts, shares: new Map<string, RowShare>() };
   const { accounts, shares } = traced;
@@ -294,7 +300,7 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
     const owners = new Map(read.map((a) => [a.id, a.userId]));
     // what is ahead keeps the stable cut: only a view with a pool cut by who paid reads the rows cut by the parts as well
     if (shares.size) standing = applyUse(txs, read, parts, owners);
-    txs = applyUse(txs, read, parts, owners, shares);
+    txs = applyUse(txs, read, parts, owners, shares, why);
     // this is the one place that decides what a row counts as in the view: the sums read in SQL are handed the answer
     for (const { id, category, categorySource, isTransfer } of txs) {
       const was = stored.get(id)!;
@@ -309,7 +315,7 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
   }
   // the rows of card statements read in the page: of the members whose accounts are in the view, each at the viewer's part
   const statements = await statementsInView(s, accounts, [...txs, ...(standing ?? [])], parts);
-  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements), accounts, shares, told };
+  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements, why), accounts, shares, told };
 }
 
 /**

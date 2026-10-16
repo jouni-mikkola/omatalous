@@ -304,7 +304,7 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   expect(heads[0]).toMatch(/^[A-ZÄÖ][a-zäö]+kuu$/);
   expect(heads[1]).toMatch(/^[A-ZÄÖ][a-zäö]+kuu \d{1,2}\.\d{1,2}\. mennessä$/);
   const rows = months.locator("tbody tr");
-  expect(await rows.locator("th").allInnerTexts()).toEqual(["Tulot", "Menot"]);
+  expect(await rows.locator("th").allInnerTexts()).toEqual(["Tulot Miksi?", "Menot Miksi?"]);
   for (const figure of await rows.locator("td").allInnerTexts()) expect(plain(figure)).toMatch(/^[\d ]+,\d\d €$/);
   await expect(rows.locator("td")).toHaveCount(4);
   await expect(rows.getByRole("link", { name: "Tulot", exact: true })).toHaveAttribute("href", /^#\/reports#/);

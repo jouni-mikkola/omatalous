@@ -7,6 +7,7 @@ import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/va
 import { UserError } from "../platform/errors.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
 import { accountSources } from "../services/account-sources.ts";
+import { explainFigure, isExplained, MAX_ACCOUNTS } from "../services/explain.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
 import { reconcileOf } from "../services/reconcile.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
@@ -127,6 +128,16 @@ export function financeRoutes(s: Services) {
     const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
     return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs }, parseReportIds(c.req.query("reports"))));
+  });
+
+  // "Miksi?": the rows of one figure and why each counts so; the figure's own access, no names in the answer
+  app.get("/explain", async (c) => {
+    const figure = c.req.query("figure") ?? "";
+    if (!isExplained(figure)) throw new UserError("Tuntematon raportti.");
+    const ids = c.req.query("accounts");
+    const accountIds = ids ? ids.split(",", MAX_ACCOUNTS + 1) : undefined;
+    if (accountIds && (accountIds.length > MAX_ACCOUNTS || accountIds.some((id) => !id))) throw new UserError("Tuntematon raportti.");
+    return c.json(await explainFigure(s, c.get("user").id, { figure, scope: parseScope(c.req.query("scope")), range: parseRange(c, s.today()), accountIds, category: c.req.query("category") }));
   });
 
   app.get("/recurring", async (c) => {

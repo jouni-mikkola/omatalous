@@ -3,6 +3,14 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.55.0
+
+- "Miksi?" beside the month's income and spending on Yhteenveto and beside each category and the total on Raportit opens the rows behind the figure: day, payee, category, the reason the row was placed where it is (your own choice, your rule, a transfer between own accounts, your part of a joint account, a refund netted against its purchase), and at the foot "Täsmää" or the difference in euros, never hidden. Rows the figure leaves out are listed apart.
+
+Look
+
+- Yhteenveto and Raportit: "Miksi?" beside the month's income and spending, and beside each category and the total of Kategoriat, opens the rows the figure adds up, with the bank's whole sum where a row is cut to your part, and ends in "Täsmää" or the difference.
+
 ## 0.54.0
 
 - Two-step sign-in: Asetukset > Kaksivaiheinen kirjautuminen turns on a code from an authenticator app (password and one code to confirm), gives ten recovery codes shown once, and asks for the code after the password at every sign-in. An admin can remove a member's second step, and the server command `user remove-factor` brings a locked-out admin back. Works on plain http too.

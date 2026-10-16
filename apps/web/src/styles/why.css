@@ -1,0 +1,20 @@
+/* "Miksi?": the opener beside a figure and the panel of its rows, one depth up like the confirmation dialog */
+.why-open { padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+dialog.why { padding: var(--pad); width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: hidden; border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--pop-edge), var(--pop-shadow); }
+dialog.why::backdrop { background: var(--backdrop); }
+dialog.why h2 { margin: 0 0 var(--sp-16); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; text-transform: uppercase; }
+dialog.why[open] { display: flex; flex-direction: column; }
+.why-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.why-foot { flex: none; border-top: 1px solid var(--border); margin-top: 8px; }
+.why-total { display: flex; justify-content: space-between; padding: 4px 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.why-rows thead th { position: sticky; top: 0; background: var(--surface); }
+.why-reason { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.why-left { margin-top: 8px; }
+.why-left summary { cursor: pointer; font-weight: 600; }
+.why-rows { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.why-rows th, .why-rows td { padding: 4px 8px 4px 0; text-align: left; vertical-align: top; }
+.why-rows .num { text-align: right; padding-right: 0; white-space: nowrap; }
+.why-rows .why-more td { padding-top: 0; }
+.why-check { margin: 0; font-weight: 600; }
+.why-differs { color: var(--text); }
+dialog.why .form-row { justify-content: flex-end; margin: var(--sp-16) 0 0; }

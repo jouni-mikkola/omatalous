@@ -1,9 +1,10 @@
 // Decision: spend less or save more
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
+import { incomeCentsOf, incomeSelect, sumOf } from "../analysis/counted.ts";
 import { type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
-import { monthIndex, monthOf, monthRange } from "../dates.ts";
+import { monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 export interface CashflowRow {
@@ -40,12 +41,15 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
   const months = rangeMonthIndexes(range, 24, ctx);
   // a range longer than the shown months: the rows are the last 24, the totals still cover the whole range
   const all = inDays(ctx, toDayRange(range));
+  // a month's days within the range: the select of the month's income
+  const daysOf = (month: string) => toDayRange({ from: range.from > `${month}-01` ? range.from : `${month}-01`, to: range.to < monthEnd(month) ? range.to : monthEnd(month) });
   const txs = all.filter((x) => x.month >= months[0]!);
   const rows = monthLabels(months).map((month, i) => {
-    const t = totalsOf(txs.filter((x) => x.month === months[i]).map((x) => x.flows));
+    const inMonth = txs.filter((x) => x.month === months[i]);
+    const t = totalsOf(inMonth.map((x) => x.flows));
     return {
       month,
-      incomeCents: t.incomeCents,
+      incomeCents: sumOf(incomeSelect(ctx, daysOf(month)).counted, incomeCentsOf),
       consumptionCents: t.consumptionCents,
       debtCents: t.debtCents,
       savedCents: t.savedCents,

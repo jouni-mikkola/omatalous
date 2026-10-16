@@ -3,8 +3,9 @@ import { useState } from "react";
 import { query } from "../../api.ts";
 import { PaceChart } from "../../charts/PaceChart.tsx";
 import { navigate } from "../../hooks.ts";
+import { Why } from "../Why.tsx";
 import type { PeriodPreset } from "../../period.ts";
-import type { DashboardData } from "../../types.ts";
+import type { DashboardData, Scope } from "../../types.ts";
 import { type IncomeSpendingView, incomeSpendingView, monthName } from "./income-spending.ts";
 import { BarRuler, rulerStyle } from "./BarRuler.tsx";
 import { ThemesTable } from "./ThemesTable.tsx";
@@ -23,7 +24,7 @@ interface ReportAnchors {
  * because it changes this block and nothing above it. `data` is the answer for the chosen month, or null while it is on
  * its way: the head stays, so the switch does not flicker away.
  */
-export function IncomeSpending({ data, period, presets, anchors }: { data: DashboardData | null; period: string; presets: readonly PeriodPreset[]; anchors: ReportAnchors }) {
+export function IncomeSpending({ data, scope, period, presets, anchors }: { data: DashboardData | null; scope: Scope; period: string; presets: readonly PeriodPreset[]; anchors: ReportAnchors }) {
   // the rows of the table of themes that are open stay so while the next month's answer is on its way
   const [open, setOpen] = useState(OPEN_AT_FIRST);
   return (
@@ -42,7 +43,7 @@ export function IncomeSpending({ data, period, presets, anchors }: { data: Dashb
           </div>
         </div>
       </div>
-      {data ? <Month data={data} anchors={anchors} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
+      {data ? <Month data={data} scope={scope} anchors={anchors} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
     </section>
   );
 }
@@ -52,7 +53,7 @@ export function IncomeSpending({ data, period, presets, anchors }: { data: Dashb
  * running month; at the right the categories as a table. The right group takes two of the block's three columns. When
  * core has the themes of the last complete months their table takes the place of the month's list of categories.
  */
-function Month({ data, anchors, open, onToggle }: { data: DashboardData; anchors: ReportAnchors; open: ReadonlySet<string>; onToggle: (id: string) => void }) {
+function Month({ data, scope, anchors, open, onToggle }: { data: DashboardData; scope: Scope; anchors: ReportAnchors; open: ReadonlySet<string>; onToggle: (id: string) => void }) {
   const view = incomeSpendingView(data);
   const { from, to } = data.range;
   const link = { Tulot: `#/reports#${anchors.income}`, Menot: `#/transactions${query({ from, to })}` };
@@ -86,7 +87,8 @@ function Month({ data, anchors, open, onToggle }: { data: DashboardData; anchors
             {view.figures.map((f) => (
               <tr key={f.label}>
                 <th scope="row">
-                  <a href={link[f.label]}>{f.label}</a>
+                  <a href={link[f.label]}>{f.label}</a>{" "}
+                  <Why figure={f.label === "Tulot" ? "income.month" : "spend.month"} title={f.label} range={{ from, to }} scope={scope} />
                 </th>
                 <td className="st-num st-strong">{f.text}</td>
                 {view.previous && <td className="st-num">{f.previous}</td>}

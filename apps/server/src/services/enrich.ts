@@ -58,7 +58,7 @@ export async function reprocessDetailed(repo: FinanceRepo, settings: SettingsRep
   return withUserLock(repo.userId, () => reprocessLocked(repo, settings));
 }
 
-async function industryMap(repo: FinanceRepo): Promise<Map<string, string>> {
+export async function industryMap(repo: FinanceRepo): Promise<Map<string, string>> {
   // derived here rather than stored, so a new version's code table applies on the next reprocess
   const industries = new Map<string, string>();
   for (const [merchant, { code, codeSet }] of await repo.industryCodes()) {

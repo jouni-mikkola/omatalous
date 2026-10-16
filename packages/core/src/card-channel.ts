@@ -3,6 +3,7 @@
  * in such a payment need say "card" (the payee is the bank, the text a reference number), so the channel is learned
  * from the payments that paired with the card's incoming rows. It is worked out on every run and stored nowhere.
  */
+import type { WhyCollector } from "./explain/types.ts";
 import { type Holders, holdersOf, isUserName } from "./categorize-people.ts";
 import { dayNumber } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
@@ -125,8 +126,10 @@ function cardChannels(txs: readonly Transaction[], accounts: readonly Account[],
  * a flexible credit repaid in varying sums is. The key and not the name: a card's own credit moved to the account
  * names the issuer too, and that card's bills are counted from its rows.
  */
-export function settleTransfers(txs: readonly Transaction[], accounts: readonly Account[], exclude: ReadonlySet<string>): { transfers: Set<string>; cardBills: Set<string> } {
+export function settleTransfers(txs: readonly Transaction[], accounts: readonly Account[], exclude: ReadonlySet<string>, why?: WhyCollector): { transfers: Set<string>; cardBills: Set<string> } {
   const { transfers, pairs } = pairTransfers(txs, accounts, exclude);
+  // what pairing alone decided: an own account's IBAN or a pair. What the channels and the issuer add is a card's payment.
+  const own = why ? new Set(transfers) : null;
   const cardBills = new Set<string>();
   const channels = cardChannels(txs, accounts, pairs);
   const channelled = new Set([...channels.values()].flat());
@@ -149,7 +152,11 @@ export function settleTransfers(txs: readonly Transaction[], accounts: readonly 
       const starts = paid.map((card) => began.get(card)!);
       const earlier = starts.filter((start) => start <= day);
       if (day - (earlier.length ? Math.max(...earlier) : Math.min(...starts)) > BILLING_MONTH_DAYS) transfers.add(t.id);
-      else cardBills.add(t.id);
+      else {
+        cardBills.add(t.id);
+        // the card whose rows began last before the payment, as the line above counts it
+        if (why) why.add(t.id, { rule: "card.bill", card: paid.find((card) => began.get(card) === (earlier.length ? Math.max(...earlier) : Math.min(...starts))) ?? paid[0]! });
+      }
     }
   }
   const holders = holdersOf(accounts);
@@ -161,5 +168,13 @@ export function settleTransfers(txs: readonly Transaction[], accounts: readonly 
   const decided = new Set([...exclude, ...cardBills]);
   if (lent.size) for (const t of txs) if (t.amountCents < 0 && lent.has(payeeKey(t) ?? "")) decided.add(t.id);
   for (const id of billsByIssuer(txs, accounts, transfers, { exclude: decided, channelled })) transfers.add(id);
+  if (why) {
+    const other = new Map<string, string>();
+    for (const [out, into] of pairs) {
+      other.set(out, into);
+      other.set(into, out);
+    }
+    for (const id of transfers) why.add(id, !own!.has(id) ? { rule: "transfer.channel" } : other.has(id) ? { rule: "transfer.pair", other: other.get(id)! } : { rule: "transfer.pair" });
+  }
   return { transfers, cardBills };
 }

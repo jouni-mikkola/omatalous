@@ -5,7 +5,7 @@
 import { partCents } from "./account-use.ts";
 import type { Part } from "./types.ts";
 
-/** `u:<id>` a member; `u:` a holder with no login; `g:<key>` money in nobody could name (a group per payer); `o` the opening; `c` credit. */
+/** `u:<id>` a member; `m:<id>` a household member with no login; `u:` a holder nobody names; `g:<key>` money in nobody could name (a group per payer); `o` the opening; `c` credit. */
 export type Owner = string;
 export type LotKind = "own" | "payment" | "pool" | "refund" | "back" | "unknown" | "opening" | "credit" | "before";
 /** `passed`: a row for one person took this from another member's money. */
@@ -33,6 +33,15 @@ export interface TraceRow {
   from?: { owner: Owner; kind: "own" | "payment" } | { parts: readonly SourcePart[] } | { refundOf: string } | "back";
   /** Money out for one person, or to another pool; absent: for all. */
   to?: { owner: Owner } | "pool";
+  /** A bill paid to a card account: the card's account key, whoever the bill is for. */
+  cardKey?: string;
+}
+
+/** Cents of an earlier row's credit that a deposit paid for one owner. */
+export interface CreditFill {
+  key: string;
+  owner: Owner;
+  cents: number;
 }
 
 export interface RowParts {
@@ -47,6 +56,12 @@ export interface RowParts {
   refundFor?: Owner;
   /** A refund: the key of the row it gives back (of any kind, whether or not it took anything). */
   refundOf?: string;
+  /** Money out: the cents that were on credit on the row's own day, whatever a later deposit paid of them. */
+  onCredit?: number;
+  /** Money in: what it paid of earlier rows' credit, by row and payer. */
+  fills?: CreditFill[];
+  /** A bill paid to a card account: the card's account key. */
+  cardKey?: string;
   pending?: true;
   /** Positive cents that add up to the row, in the order of the parts. */
   parts: SourcePart[];
@@ -66,11 +81,11 @@ export interface Trace {
 }
 
 export const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-/** Whether an owner is a member or the holder with no login. */
-export const isUserOwner = (owner: Owner): boolean => owner.startsWith("u:");
+/** Whether an owner is a member (`u:<id>`, `m:<id>`) or the holder with no login. */
+export const isUserOwner = (owner: Owner): boolean => owner.startsWith("u:") || owner.startsWith("m:");
 export const sumCents = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 
-/** The order of the parts: members by id (as code units compare), the holder with no login, groups by key, the opening, credit. */
+/** The order of the parts: members by key (as code units compare), the holder nobody names, groups by key, the opening, credit. */
 const ownerRank = (owner: Owner): number => (isUserOwner(owner) ? (owner === "u:" ? 1 : 0) : owner.startsWith("g:") ? 2 : owner === "o" ? 3 : 4);
 export const compareOwners = (a: Owner, b: Owner): number => ownerRank(a) - ownerRank(b) || cmp(a, b);
 
@@ -116,6 +131,10 @@ export interface RowRec {
   refunded: Map<string, number>;
   /** The credit this row's shortfall opened. */
   entry?: CreditEntry;
+  /** The cents of that shortfall, as they were when the row was read. */
+  onCredit?: number;
+  /** Money in: what it paid of earlier rows' credit. */
+  fills?: CreditFill[];
   done: boolean;
 }
 

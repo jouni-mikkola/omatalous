@@ -121,7 +121,7 @@ export function Overview({
 
       {today.housing && <Housing housing={today.housing} reportAnchor={loansSection.id} onAnswered={now.reload} />}
 
-      <IncomeSpending data={data} period={period} presets={periodsOf("overview", meta.today)} anchors={{ income: incomeSection.id, months: monthsSection.id }} />
+      <IncomeSpending data={data} scope={scope} period={period} presets={periodsOf("overview", meta.today)} anchors={{ income: incomeSection.id, months: monthsSection.id }} />
 
       {monthSections.map((sec) => (
         <sec.Component key={sec.id} ctx={reportCtx!} />

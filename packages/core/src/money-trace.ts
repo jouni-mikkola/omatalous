@@ -15,6 +15,7 @@ import {
   cmp,
   compareOwners,
   type CreditEntry,
+  type CreditFill,
   cut,
   isUserOwner,
   type Lot,
@@ -33,7 +34,7 @@ import {
 import { pairMoves } from "./money-trace-pairs.ts";
 
 export { compareOwners, isUserOwner, sumCents };
-export type { Owner, RowParts, SourcePart, Trace, TraceRow };
+export type { CreditFill, Owner, RowParts, SourcePart, Trace, TraceRow };
 
 /** Unknown money in is asked about from this sum on (100,00): below it the app does not trouble the household. */
 export const ASK_LIMIT = 10000;
@@ -282,7 +283,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
   }
 
   /** The next money in fills the credit first, by its owners in proportion; the rows paid on credit get those payers. */
-  const fillCredit = (lotable: Piece[]): Piece[] => {
+  const fillCredit = (lotable: Piece[], fills: CreditFill[]): Piece[] => {
     const fill = Math.min(creditTotal, sumCents(lotable.map((p) => p.cents)));
     if (fill <= 0) return lotable;
     const shares = cut(
@@ -310,6 +311,9 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
         e.rec.parts = e.rec.parts.filter((q) => q.cents > 0);
         addPart(e.rec.parts, { owner: piece.p.owner, kind: piece.p.kind, cents: t, tier: piece.p.tier });
         e.rec.parts.sort(byPart);
+        const same = fills.find((f) => f.key === e.rec!.row.key && f.owner === piece.p.owner);
+        if (same) same.cents += t;
+        else fills.push({ key: e.rec.row.key, owner: piece.p.owner, cents: t });
       } else before.set(piece.p.owner, (before.get(piece.p.owner) ?? 0) + t);
     }
     return lotable.map((p, i) => ({ ...p, cents: p.cents - shares[i]! })).filter((p) => p.cents > 0);
@@ -338,7 +342,8 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
     else if (row.cents > 0) {
       rec.parts = sourceParts(row, true);
       const keptKey = outOf.get(row.key);
-      const lotable = fillCredit(rec.parts.filter((p) => p.owner !== "c"));
+      rec.fills = [];
+      const lotable = fillCredit(rec.parts.filter((p) => p.owner !== "c"), rec.fills);
       for (const p of lotable) {
         const lot = newLot(p.owner, p.kind, p.tier, p.cents);
         if (keptKey !== undefined) {
@@ -351,6 +356,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
       rec.parts = outParts(row, kept.get(row.key) ?? []);
       const short = rec.parts.find((p) => p.owner === "c")?.cents ?? 0;
       if (short > 0) {
+        rec.onCredit = short;
         rec.entry = { rec, left: short };
         credit.push(rec.entry);
         creditTotal += short;
@@ -366,6 +372,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
     else if (row.cents < 0) {
       journal = [];
       rec.parts = outParts(row, []);
+      rec.onCredit = rec.parts.find((p) => p.owner === "c")?.cents ?? 0;
       undo();
       journal = null;
     }
@@ -378,7 +385,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
     const parts = [...rec.parts].sort(byPart).map((p): SourcePart => ({ owner: p.owner, kind: p.kind, cents: p.cents, ...(p.passed ? { passed: true as const } : {}) }));
     const refunded = typeof r.from === "object" && "refundOf" in r.from ? byKey.get(r.from.refundOf) : undefined;
     const refundFor = r.cents > 0 && refunded && refunded.cents < 0 && !refunded.unmatched && typeof refunded.to === "object" ? refunded.to.owner : undefined;
-    return { key: r.key, ids: r.ids, day: r.day, cents: r.cents, what, ...(typeof r.to === "object" ? { to: r.to.owner } : {}), ...(refundFor !== undefined ? { refundFor } : {}), ...(typeof r.from === "object" && "refundOf" in r.from ? { refundOf: r.from.refundOf } : {}), ...(r.pending ? { pending: true as const } : {}), parts };
+    return { key: r.key, ids: r.ids, day: r.day, cents: r.cents, what, ...(typeof r.to === "object" ? { to: r.to.owner } : {}), ...(refundFor !== undefined ? { refundFor } : {}), ...(typeof r.from === "object" && "refundOf" in r.from ? { refundOf: r.from.refundOf } : {}), ...(rec.onCredit ? { onCredit: rec.onCredit } : {}), ...(rec.fills?.length ? { fills: rec.fills } : {}), ...(r.cardKey !== undefined ? { cardKey: r.cardKey } : {}), ...(r.pending ? { pending: true as const } : {}), parts };
   });
   const lots = [...[...buckets.values()].flatMap((b) => b.lots.slice(b.head, b.tail)), ...[...kept.values()].flat()]
     .filter((l) => l.cents > 0)

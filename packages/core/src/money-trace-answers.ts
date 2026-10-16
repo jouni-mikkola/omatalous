@@ -4,9 +4,11 @@
  * unanswered. See money-trace.ts for the trace itself.
  */
 import { partCents } from "./account-use.ts";
+import type { WhyCollector } from "./explain/types.ts";
 import {
   ASK_LIMIT,
   compareOwners,
+  type CreditFill,
   isUserOwner,
   type Owner,
   type RowParts,
@@ -71,9 +73,21 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
       return { owner: s.owner, kind: p.kind, cents: s.cents, ...(passed ? { passed: true as const } : {}) };
     });
   };
+  /** What a deposit paid of earlier credit, by the owners the answers name: the same cents, relabeled as its parts are. */
+  const refilled = (fills: readonly CreditFill[]): CreditFill[] => {
+    const out: CreditFill[] = [];
+    for (const f of fills) {
+      for (const p of relabel({ owner: f.owner, kind: "unknown", cents: f.cents })) {
+        const same = out.find((o) => o.key === f.key && o.owner === p.owner);
+        if (same) same.cents += p.cents;
+        else out.push({ key: f.key, owner: p.owner, cents: p.cents });
+      }
+    }
+    return out;
+  };
   return {
     ...t,
-    rows: t.rows.map((r) => ({ ...r, parts: r.parts.flatMap((p) => relabel(p, r.what === "one" ? r.to : undefined)) })),
+    rows: t.rows.map((r) => ({ ...r, parts: r.parts.flatMap((p) => relabel(p, r.what === "one" ? r.to : undefined)), ...(r.fills ? { fills: refilled(r.fills) } : {}) })),
     lots: t.lots.flatMap((l) => relabel(l).map((p) => ({ ...p, tier: l.tier }))),
     before: t.before.flatMap((p) => relabel(p)),
   };
@@ -102,7 +116,7 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
  * sign. `openCents` (signed like `cents`) is their part of the parts a question stands for. A transfer is money in from
  * a person's own account, a payment by a person or another pool, and money out for one person or to a pool.
  */
-export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: SourcePart) => boolean): { cents: number; openCents: number; transfer: boolean } {
+export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: SourcePart) => boolean, why?: WhyCollector): { cents: number; openCents: number; transfer: boolean } {
   const sign = row.cents < 0 ? -1 : 1;
   let own = 0;
   let unknown = 0;
@@ -112,6 +126,13 @@ export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: Sour
     else if (!isUserOwner(p.owner)) {
       unknown += p.cents;
       if (open(p)) asked += p.cents;
+    }
+  }
+  if (why) {
+    // the parts told by whose money they were, then the unknown ones at the viewer's part: the lines sum to `cents` below
+    for (const id of row.ids) {
+      for (const p of row.parts) if (p.owner === viewer || isUserOwner(p.owner)) why.add(id, { rule: "part.source", owner: p.owner, kind: p.kind, cents: sign * p.cents, passed: !!p.passed, mine: p.owner === viewer });
+      if (unknown) why.add(id, { rule: "part.use", from: part.from, to: part.to, of: part.of, cents: partCents(sign * unknown, part) });
     }
   }
   const moved = row.what === "in" && row.parts.length > 0 && row.parts.every((p) => p.kind === "own" || p.kind === "payment" || p.kind === "pool");

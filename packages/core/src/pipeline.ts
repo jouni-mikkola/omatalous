@@ -6,6 +6,8 @@ import { holdersOf } from "./categorize-people.ts";
 import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
+import { whyCategories, whyReturns } from "./explain/why.ts";
+import type { WhyCollector } from "./explain/types.ts";
 import { applyPayerRoles, steadyPayers } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
@@ -30,8 +32,9 @@ export function enrichTransactions(
   userRules: readonly CategoryRule[],
   industries: ReadonlyMap<string, string> = new Map(),
   payers?: PayerInput,
+  why?: WhyCollector,
 ): Transaction[] {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why);
   let step = steps.next();
   while (!step.done) step = steps.next();
   return step.value;
@@ -48,8 +51,9 @@ export async function enrichTransactionsPausing(
   industries: ReadonlyMap<string, string>,
   pause: () => Promise<void>,
   payers?: PayerInput,
+  why?: WhyCollector,
 ): Promise<Transaction[]> {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why);
   let step = steps.next();
   while (!step.done) {
     await pause();
@@ -153,6 +157,7 @@ function* enrichSteps(
   userRules: readonly CategoryRule[],
   industries: ReadonlyMap<string, string>,
   payers?: PayerInput,
+  why?: WhyCollector,
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
@@ -161,8 +166,9 @@ function* enrichSteps(
 
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
   const returns = matchReturns(next, ownIbansOf(accounts), byUserRule);
+  if (why) whyReturns(why, next, returns, ownIbansOf(accounts), byUserRule);
   yield;
-  const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]));
+  const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]), why);
   for (const t of next) {
     if (t.categorySource === "user") continue;
     if (transfers.has(t.id)) {
@@ -181,6 +187,7 @@ function* enrichSteps(
   applyReturns(next, returns);
   // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
   applyPayerRoles(next, new Set([...byUserRule, ...returns.keys(), ...returns.values()]), payers);
+  if (why) whyCategories(why, next, byUserRule);
   return changedRows(next, txs);
 }
 

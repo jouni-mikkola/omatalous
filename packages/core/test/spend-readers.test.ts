@@ -22,6 +22,7 @@ function readers(dir = SRC): string[] {
 const USES_SPEND_ROWS = [
   "analysis/card-bills.ts",
   "analysis/context.ts",
+  "analysis/counted.ts",
   "analysis/dashboard.ts",
   "analysis/data-quality.ts",
   "analysis/food.ts",
@@ -51,6 +52,8 @@ const BILL_WHOLE = [
   "analysis/one-offs.ts",
   "analysis/statement-explain.ts",
   "analysis/usual.ts",
+  // names the figure "usual.spend" only
+  "explain/types.ts",
   "optimise/areas/bank.ts",
   "optimise/areas/electricity.ts",
   "optimise/areas/housing.ts",

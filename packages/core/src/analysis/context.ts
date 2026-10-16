@@ -1,5 +1,6 @@
 import { type CategoryKind, getCategory } from "../categories.ts";
 import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
+import type { WhyCollector } from "../explain/types.ts";
 import { isMobilePay } from "../industry.ts";
 import type { ForeignDay } from "../foreign-rows.ts";
 import { fold } from "../merchant.ts";
@@ -107,7 +108,7 @@ export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(
  * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money
  * will be in the account next month.
  */
-export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = []): AnalysisContext {
+export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = [], why?: WhyCollector): AnalysisContext {
   const cut = standing && createContext(standing, accounts, today);
   const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
   const loanIds = new Set(accounts.filter((a) => a.type === "loan").map((a) => a.id));
@@ -133,7 +134,7 @@ export function createContext(transactions: readonly Transaction[], accounts: re
   const byId = new Map(txs.map((t) => [t.id, t]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
   const returns = new Map<string, string>();
-  for (const [id, refund] of moneyIn(txs, ownIbans)) {
+  for (const [id, refund] of moneyIn(txs, ownIbans, why)) {
     const t = byId.get(id)!;
     if (!refund) {
       t.flows = incomeOf(t.amountCents);

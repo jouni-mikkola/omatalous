@@ -3,6 +3,7 @@ import { query } from "../../../api.ts";
 import { money, percent, roundedShares, shareText, signedMoney } from "../../../format.ts";
 import { addsUpPrinted } from "../../../marks.ts";
 import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
+import { Why } from "../../../components/Why.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -64,7 +65,8 @@ function Categories({ ctx }: SectionProps) {
               ...g.categories.map((c, ci) => (
                 <tr key={c.category}>
                   <td style={{ paddingLeft: 20 }}>
-                    <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>
+                    <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>{" "}
+                    <Why figure="spend.category" title={c.label} range={range} scope={ctx.scope} category={c.category} />
                   </td>
                   <td className={`num${sums ? " sum-pad" : ""}`}>{money(c.totalCents, false)}</td>
                   <td className="num">{text(categoryUnits[gi]![ci])}</td>
@@ -81,7 +83,9 @@ function Categories({ ctx }: SectionProps) {
           {r.groups.length > 0 && (
             <tfoot>
               <tr className="foot-row">
-                <td>Yhteensä</td>
+                <td>
+                  Yhteensä <Why figure="spend.month" title="Menot yhteensä" range={range} scope={ctx.scope} />
+                </td>
                 <td className={`num${sums ? " sum-pad" : ""}`}>{money(r.totalCents, false)}</td>
                 <td className="num">{percent(r.totalCents ? 1 : 0)}</td>
                 {hasAverage && <td className="num hide-phone">{money(r.groups.reduce((s, g) => s + g.categories.reduce((t, c) => t + (c.monthlyAvgCents ?? 0), 0), 0), false)}</td>}

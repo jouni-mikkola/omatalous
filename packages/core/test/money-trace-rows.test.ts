@@ -171,7 +171,7 @@ describe("traceRows", () => {
 
   describe("a bill paid to a card account, which has no IBAN", () => {
     const cards = [...accounts, ...["aino-card", "joint-card", "ville-card"].map((id): Account => ({ ...account(id, null), type: "credit_card" }))];
-    const card = (over: Partial<Payers> = {}) => who({ accounts: cards, aloneAccount: new Map([["aino-card", AINO], ["ville-card", VILLE]]), ...over });
+    const card = (over: Partial<Payers> = {}) => who({ accounts: cards, cards: { byAccount: new Map([["aino-card", { key: "k-aino", users: [{ owner: AINO, weight: 1 }] }], ["ville-card", { key: "k-ville", users: [{ owner: VILLE, weight: 1 }] }], ["joint-card", { key: "k-joint", users: [{ owner: AINO, weight: 1 }, { owner: VILLE, weight: 1 }] }]]), members: new Set([AINO, VILLE]), agreements: [] }, ...over });
     const bill = (id: string, date: string, cents: number, over: Partial<Transaction> = {}) => at(id, date, -cents, { counterparty: "ESIMERKKI PANKKI", counterpartyIban: "FI9900000000000009", ...over });
     const leg = (id: string, date: string, cents: number, accountId: string) => at(id, date, cents, { counterparty: "ESIMERKKI PANKKI" }, accountId);
 
