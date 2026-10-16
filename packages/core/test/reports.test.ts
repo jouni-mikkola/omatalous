@@ -294,11 +294,12 @@ describe("data quality signals", () => {
     const bills = series("2025-09-10", 30.44, 14, -45000, { category: "card_bill", merchant: "Nordea Rahoitus Suomi Oy" });
     const signalOf = (accounts: Account[]) => buildReports({ ctx: createContext([...dataset(), ...bills], accounts, today), range, balances: [] }).dataQuality.signals.find((s) => s.id === "card_bills");
     const none = signalOf([checking]);
-    expect(none?.detail).toBe("Kortin ostot eivät näy kategorioittain. Yhdistä kortti.");
+    expect(none?.detail).toBe("Yhdistä kortti.");
     // bills of the months before the card's rows, or of a card that is not connected
     const card: Account = { id: "card", name: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" };
     const connected = signalOf([checking, card]);
-    expect(connected?.detail).toBe("Laskut ovat ajalta ennen kortin tapahtumia tai kortista, jota ei ole yhdistetty.");
+    // the card is named Nordea Gold: its bills are of Nordea's finance company, so no card of that issuer is connected
+    expect(connected?.cardPurchases).toMatchObject([{ issuer: "Nordea Rahoitus Suomi Oy", reason: "not_connected" }]);
     expect(connected?.cents).toBe(none?.cents);
   });
 

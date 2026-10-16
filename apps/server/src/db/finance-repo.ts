@@ -163,7 +163,8 @@ export class FinanceRepo {
   deleteUnknownMerchantRules() { return this.rules.deleteUnknownMerchantRules(); }
   addRule(rule: Omit<CategoryRule, "id">) { return this.rules.addRule(rule); }
   renameMerchantRules(renames: ReadonlyMap<string, string>) { return this.rules.renameMerchantRules(renames); }
-  settleMerchantRules(merchants: ReadonlySet<string>) { return this.rules.settleMerchantRules(merchants); }
+  settleMerchantRules(merchants: ReadonlySet<string>, keep?: ReadonlySet<string>) { return this.rules.settleMerchantRules(merchants, keep); }
+  copyMerchantRules(groups: ReadonlyMap<string, readonly string[]>) { return this.rules.copyMerchantRules(groups); }
   deleteRule(id: number) { return this.rules.deleteRule(id); }
 
   // ── marks (finance/marks.ts) ─────────────────────────────
@@ -171,6 +172,7 @@ export class FinanceRepo {
   setMark(subject: string, mark: MarkKind, at: string) { return this.marks.setMark(subject, mark, at); }
   clearMark(subject: string) { return this.marks.clearMark(subject); }
   renameMerchantMarks(renames: ReadonlyMap<string, string>) { return this.marks.renameMerchantMarks(renames); }
+  copyMerchantMarks(groups: ReadonlyMap<string, readonly string[]>) { return this.marks.copyMerchantMarks(groups); }
 
   // ── payer roles (finance/payer-roles.ts) ─────────────────
   payerRoles() { return this.payerRolesRepo.payerRoles(); }
@@ -205,4 +207,5 @@ export class FinanceRepo {
   getSnapshot(month: string) { return this.optimise.getSnapshot(month); }
   putSnapshot(month: string, data: unknown, createdAt: string) { return this.optimise.putSnapshot(month, data, createdAt); }
   renameMerchantStates(renames: ReadonlyMap<string, string>) { return this.optimise.renameMerchantStates(renames); }
+  copyMerchantStates(groups: ReadonlyMap<string, readonly string[]>) { return this.optimise.copyMerchantStates(groups); }
 }

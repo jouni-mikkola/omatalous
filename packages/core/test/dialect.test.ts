@@ -43,8 +43,8 @@ describe("bank dialect: whose account, whose card", () => {
   });
 
   it("the card issuers whose bills are told from loans by their amounts", () => {
-    for (const name of ["BANK NORWEGIAN", "KOMPLETT BANK", "MORROW BANK ASA", "RESURS BANK AB", "NORDEA RAHOITUS SUOMI OY"]) expect(isCardIssuerText(name), name).toBe(true);
-    for (const name of ["NORWEGIAN AIR SHUTTLE", "KOMPLETT.FI", "MORROW", "RESURSSI OY", "SANTANDER"]) expect(isCardIssuerText(name), name).toBe(false);
+    for (const name of ["BANK NORWEGIAN", "KOMPLETT BANK", "MORROW BANK ASA", "RESURS BANK AB", "NORDEA RAHOITUS SUOMI OY", "SEB KORT BANK AB"]) expect(isCardIssuerText(name), name).toBe(true);
+    for (const name of ["NORWEGIAN AIR SHUTTLE", "KOMPLETT.FI", "MORROW", "MORROW COFFEE OY", "SEB KORTTI", "RESURSSI OY", "SANTANDER"]) expect(isCardIssuerText(name), name).toBe(false);
     // Resurs is an issuer only by its whole name: a staffing company with the word in its name pays wages
     for (const name of ["RESURS BEMANNING AB", "HR RESURS AB", "RESURS"]) expect(isCardIssuerText(name), name).toBe(false);
   });

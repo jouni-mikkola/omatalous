@@ -6,7 +6,7 @@
 import type { WhyCollector } from "./explain/types.ts";
 import { type Holders, holdersOf, isUserName } from "./categorize-people.ts";
 import { dayNumber } from "./dates.ts";
-import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { cardIssuerName, fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { billsByIssuer, namesCard, normalizeIban, pairable, pairTransfers } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
 import { isCardIssuerText, isPersonShaped } from "./wording.ts";
@@ -42,7 +42,7 @@ function payeeKey(t: Transaction): string | null {
  * its holder would otherwise make that person a channel.
  */
 function teachesAlone(payee: string, card: Account): boolean {
-  return isCardIssuerText(payee) || (!isPersonShaped(payee) && namesCard(payee, card));
+  return isCardIssuerText(payee) || cardIssuerName(payee) !== null || (!isPersonShaped(payee) && namesCard(payee, card));
 }
 
 /**

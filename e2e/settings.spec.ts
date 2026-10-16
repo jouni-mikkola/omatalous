@@ -209,6 +209,38 @@ test("a member's plain page has the plain cards, the technical page has none of 
   await context.close();
 });
 
+test("Tietojen laatu tells the card bills by issuer, with the reason the purchases are missing, at 1280 and 390", async ({ browser }) => {
+  // made-up bills: the answer is changed on its way, core's tests hold how the rows are made
+  const rows = [
+    { issuer: "Morrow Bank", cents: 60_000, count: 3, lastDate: "2026-09-05", reason: "not_connected", since: null },
+    { issuer: "Bank Norwegian", cents: 50_000, count: 2, lastDate: "2026-06-20", reason: "before_history", since: "2026-09-01" },
+  ];
+  for (const width of [1280, 390]) {
+    const { context, page, seen } = await admin(browser, width, 900);
+    await page.route("**/api/reports?**", async (route) => {
+      const answer = await route.fetch();
+      const signal = { id: "card_bills", tone: "warning", title: "Korttilaskuja 1 100,00 € ilman ostoja", detail: "Yhdistä kortti.", category: "card_bill", cents: 110_000, cardPurchases: rows };
+      await route.fulfill({ response: answer, json: { ...(await answer.json()), dataQuality: { signals: [signal] } } });
+    });
+    await page.goto("/#/settings?section=technical#laatu");
+    const block = page.locator("#laatu");
+    await expect(block.locator("strong").first()).toContainText("ilman ostoja");
+    await expect(block).not.toContainText("lasketaan menoiksi");
+    const table = block.getByRole("table");
+    if (width === 1280) await expect(table.getByRole("columnheader")).toHaveText(["Kortti", "Laskut 12 kuukaudelta", "Miksi ostot puuttuvat"]);
+    const lines = await table.locator("tbody tr").evaluateAll((trs) => trs.map((tr) => (tr.textContent ?? "").replace(/\s+/g, " ")));
+    expect(lines[0]).toContain("Morrow Bank");
+    expect(lines[0]).toContain("Korttia ei ole yhdistetty.");
+    expect(lines[1]).toContain("Bank Norwegian");
+    expect(lines[1]).toContain("Pankki antaa ostot vasta 1.9.2026 alkaen.");
+    await expect(block.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings?add=1");
+    await expect(block.getByRole("link", { name: "Näytä tapahtumat" })).toBeVisible();
+    expect(await overflow(page), `the page scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  }
+});
+
 test("Tietojen laatu is a card only while the data has a note", async ({ browser }) => {
   const { context, page, seen } = await admin(browser);
   await page.route("**/api/reports?**", async (route) => {

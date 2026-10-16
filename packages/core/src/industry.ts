@@ -3,178 +3,18 @@
  * recognises. The server looks the merchant up in the Finnish trade
  * register (PRH / YTJ open data) and keeps the answer; this module only
  * decides, without I/O, which registry entry matches the merchant and what
- * its industry code (TOL) means for the household.
- *
- * The register uses two code sets while companies move over: TOL 2008
- * ("TOIMI3") and TOL 2025 ("TOIMI4", based on NACE Rev. 2.1). Most
- * prefixes mean the same in both; where they differ there is a table per set.
+ * its industry code (TOL) means for the household (the tables are in
+ * industry-codes.ts).
  */
 import { fold, isPlaceName, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { householdWords, mayBePerson, nameIn, payeeName, payeeText, TERMINAL_PREFIX } from "./payee-guard.ts";
 import { companyForms, hasBusinessWord, hasPayeeForm, isBusinessPaymentText, isPaymentMethodName, isPersonShaped, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_PREFIX } from "./wording.ts";
+import { categoryForIndustry, type IndustryCodeSet } from "./industry-codes.ts";
 import type { Account, Transaction } from "./types.ts";
 
 export { householdWords, namesHousehold } from "./payee-guard.ts";
 
-export type IndustryCodeSet = "TOL2008" | "TOL2025";
-
-/** A code set the register answers in and this file has a table for; a stored one is checked before use. */
-export const isIndustryCodeSet = (v: unknown): v is IndustryCodeSet => v === "TOL2008" || v === "TOL2025";
-
-/** Prefix → category. `null` stops the search: the industry is too broad to say (wholesale, finance). */
-type PrefixTable = Readonly<Record<string, string | null>>;
-
-const COMMON: PrefixTable = {
-  "1071": "groceries", // bakeries
-  "35": "utilities",
-  "36": "utilities",
-  "37": "utilities",
-  "38": "utilities",
-  "41": "home",
-  "42": null,
-  "43": "home",
-  "46": null,
-  "4711": "groceries",
-  "4719": "shopping", // TOL 2008 department stores
-  "4712": "shopping", // TOL 2025 department stores
-  "472": "groceries",
-  "4725": "alcohol",
-  "4726": "shopping",
-  "473": "car",
-  "474": "home",
-  "475": "home",
-  "476": "shopping",
-  "477": "shopping",
-  "4773": "health",
-  "4774": "health",
-  "4775": "personal_care",
-  "4776": "home",
-  "479": "shopping",
-  "491": "transport",
-  "493": "transport",
-  "4934": "entertainment", // TOL 2025 ski lifts
-  "4942": "home", // removals
-  "50": "travel",
-  "51": "travel",
-  "5221": "car", // parking, roads
-  "5223": "travel",
-  "5232": "transport", // TOL 2025 ride booking
-  "55": "travel",
-  "56": "restaurants",
-  "564": "food_delivery", // TOL 2025 delivery platforms
-  "5811": "shopping",
-  "581": "subscriptions",
-  "5821": "entertainment",
-  "5829": "subscriptions",
-  "59": "entertainment",
-  "60": "subscriptions",
-  "61": "telecom",
-  "62": "subscriptions",
-  "63": "subscriptions",
-  "64": null,
-  "6419": "loans", // banks; not on a card purchase (categorize-bank-rows.ts)
-  "6492": "loans", // other credit granting
-  "65": "insurance",
-  "66": null,
-  "68": "housing",
-  "75": "pets",
-  "7711": "travel",
-  "7751": "travel",
-  "7721": "entertainment",
-  "79": "travel",
-  "80": "home",
-  "81": "home",
-  "8291": "collection",
-  "84": "taxes",
-  "85": "education",
-  "8510": "kids",
-  "8551": "fitness",
-  "86": "health",
-  "87": "health",
-  "88": "health",
-  "8891": "kids",
-  "90": "entertainment",
-  "91": "entertainment",
-  "92": "gambling",
-  "931": "fitness",
-  "932": "entertainment",
-  "941": "memberships",
-  "942": "memberships",
-  "9491": "gifts_donations",
-  "9492": "gifts_donations",
-  "9499": "memberships",
-  "951": "home",
-  "952": "home",
-  "9601": "home", // TOL 2008 laundry
-  "9602": "personal_care",
-  "9604": "personal_care",
-  "961": "home", // TOL 2025 laundry
-  "962": "personal_care",
-  "9691": "home",
-};
-
-const ONLY: Readonly<Record<IndustryCodeSet, PrefixTable>> = {
-  TOL2008: {
-    "45": "car",
-    "451": "vehicle_purchase", // sale of motor vehicles: the row's sum tells the car from its upkeep (`dealerCategory`)
-    "4765": "kids", // toys
-    "47764": "pets",
-    "47783": "health", // opticians
-    "47784": "kids", // prams and baby goods
-    "478": "shopping", // market stalls
-    "4781": "groceries",
-  },
-  TOL2025: {
-    "4764": "kids", // toys
-    "47763": "pets",
-    "4671": "vehicle_purchase", // wholesale of motor vehicles
-    "478": "car", // vehicle and parts retail
-    "4781": "vehicle_purchase", // retail sale of motor vehicles
-    "953": "car", // vehicle repair
-  },
-};
-
-/** What a TOL code says about spending at the company, or null when it says nothing useful. */
-export function categoryForIndustry(code: string, codeSet: IndustryCodeSet): string | null {
-  if (!/^\d{2,5}$/.test(code)) return null;
-  for (let len = code.length; len >= 2; len--) {
-    const prefix = code.slice(0, len);
-    const own = ONLY[codeSet][prefix];
-    if (own !== undefined) return own;
-    const common = COMMON[prefix];
-    if (common !== undefined) return common;
-  }
-  return null;
-}
-
-/** What a TOL code says about an electricity bill: 35.14 trade, 35.13 distribution, "other" for another trade. Null for 35 or another 35.1 code, which say nothing. */
-export function electricityRoleOf(code: string): "seller" | "network" | "other" | null {
-  if (code.startsWith("3514")) return "seller";
-  if (code.startsWith("3513")) return "network";
-  return code === "35" || code.startsWith("351") ? null : "other";
-}
-
-/** Work the household deduction covers, by TOL code: 81.2 cleaning and 81.3 yard work are labour, 43 building trades carry materials too. */
-export function deductibleWorkOf(code: string): "cleaning" | "other" | null {
-  return code.startsWith("812") || code.startsWith("813") ? "cleaning" : code.startsWith("43") ? "other" : null;
-}
-
-/** What a card code says beyond its category, for the views that split one further (Optimoi's car, tax and kids areas). */
-export type MccKind = "parking" | "charging" | "car_service" | "fuel" | "cleaning" | "building" | "child_care";
-const MCC_KINDS: ReadonlyArray<readonly [number, number, MccKind]> = [
-  [7523, 7523, "parking"],
-  [5552, 5552, "charging"],
-  [7531, 7549, "car_service"],
-  [5541, 5542, "fuel"],
-  [7349, 7349, "cleaning"],
-  [780, 780, "cleaning"],
-  [1520, 1799, "building"],
-  [8351, 8351, "child_care"],
-];
-export function mccKind(mcc: string | null): MccKind | null {
-  const code = mcc ? Number(mcc) : Number.NaN;
-  return MCC_KINDS.find(([lo, hi]) => code >= lo && code <= hi)?.[2] ?? null;
-}
+export * from "./industry-codes.ts";
 
 // ── matching a merchant to a registry entry ──────────────
 
@@ -182,7 +22,16 @@ export interface RegistryCompany {
   businessId: string;
   /** Names in use now: the trade name, parallel names and auxiliary trade names. */
   names: string[];
+  /** In the trade register's books (status 1), not ceased or being wound up. */
+  active: boolean;
   industry: { code: string; codeSet: IndustryCodeSet; label: string | null } | null;
+}
+
+/** What the register's answer for a merchant leaves in the database: the industry of the company found and its name. */
+export interface RegisterAnswer {
+  code: string | null;
+  codeSet: IndustryCodeSet | null;
+  companyName: string | null;
 }
 
 export interface IndustryMatch {
@@ -192,11 +41,19 @@ export interface IndustryMatch {
   code: string | null;
   codeSet: IndustryCodeSet | null;
   label: string | null;
-  /** Null when the company was found but its industry is too broad. */
+  /** Null when the company was found but neither its industry nor its name says what it sells. */
   category: string | null;
 }
 
 const COMPANY_FORMS = companyForms("strip");
+
+/** The name's letters and digits as words, accents and punctuation gone, company forms kept. */
+function plainWords(name: string): string[] {
+  return fold(name.normalize("NFD").replace(/\p{M}/gu, ""))
+    .replace(/[^A-Z0-9&]+/g, " ")
+    .trim()
+    .split(" ");
+}
 
 /**
  * "Liikuntakeskus Fressi Oy" → "LIIKUNTAKESKUS FRESSI". Accents are stripped
@@ -204,10 +61,7 @@ const COMPANY_FORMS = companyForms("strip");
  * goes ("Oy Kahvila Ilo Ab", "Stockmann Oyj Abp").
  */
 export function companyKey(name: string): string {
-  const words = fold(name.normalize("NFD").replace(/\p{M}/gu, ""))
-    .replace(/[^A-Z0-9&]+/g, " ")
-    .trim()
-    .split(" ");
+  const words = plainWords(name);
   let lo = 0;
   let hi = words.length;
   while (lo < hi && COMPANY_FORMS.has(words[lo]!)) lo++;
@@ -215,9 +69,11 @@ export function companyKey(name: string): string {
   return words.slice(lo, hi).join(" ");
 }
 
-function score(query: string, name: string): number {
+/** How well a registry name fits the merchant, 0 for not at all; the merchant is `plain` as written and `query` without company forms. */
+function score(query: string, plain: string, name: string): number {
   const key = companyKey(name);
   if (!key) return 0;
+  if (plainWords(name).join(" ") === plain) return 4;
   if (key === query) return 3;
   if (key.startsWith(`${query} `)) return 2;
   return ` ${key} `.includes(` ${query} `) ? 1 : 0;
@@ -225,39 +81,60 @@ function score(query: string, name: string): number {
 
 const NONE: IndustryMatch = { status: "none", businessId: null, companyName: null, code: null, codeSet: null, label: null, category: null };
 
+interface MatchOptions {
+  /** Only a name equal to the merchant, with or without a company form: for a shortened query or a page of a longer hit list. */
+  exactOnly?: boolean;
+  /** What a company's name says by a trade word of its own (core `categoryByTradeWord`), read when its industry is too broad or missing. */
+  byName?: (name: string) => string | null;
+}
+
 /**
- * Picks the registry entry for a merchant name. An exact name beats a name
- * that starts with the merchant, which beats one that merely contains it;
- * within the best group every company must point to the same category,
- * otherwise the answer is "ambiguous" and the merchant stays uncategorised.
+ * Picks the registry entry for a merchant name. The best fit decides, in this order: a name equal to the merchant, the
+ * merchant with a company form ("Oy", "Oyj", "Ab"), a name that starts with the merchant as a whole word, one that holds
+ * it as a whole word. A match inside a word is none. A company in the books wins over a ceased one at any fit (a ceased
+ * one answers only when none is in the books, and not for a one-word merchant), and among the companies of the best fit
+ * those whose industry gives a category win over those whose does not; the trade word in a name (`byName`) gives
+ * one only when no industry does. If the rest point to different categories the answer is "ambiguous" and the merchant
+ * stays uncategorised.
  */
-export function matchCompany(merchant: string, companies: readonly RegistryCompany[], opts: { exactOnly?: boolean } = {}): IndustryMatch {
+export function matchCompany(merchant: string, companies: readonly RegistryCompany[], opts: MatchOptions = {}): IndustryMatch {
   const query = companyKey(merchant);
   if (query.length < 3) return NONE;
-  let best = 0;
-  let group: { company: RegistryCompany; name: string }[] = [];
+  const plain = plainWords(merchant).join(" ");
+  const hits: { company: RegistryCompany; name: string; tier: number }[] = [];
   for (const company of companies) {
-    let top = 0;
-    let topName = "";
-    for (const name of company.names) {
-      const sc = score(query, name);
-      if (sc > top) [top, topName] = [sc, name];
+    let tier = 0;
+    let name = "";
+    for (const n of company.names) {
+      const sc = score(query, plain, n);
+      if (sc > tier) [tier, name] = [sc, n];
     }
-    if (top === 0 || top < best) continue;
-    if (top > best) [best, group] = [top, []];
-    group.push({ company, name: topName });
+    if (tier > 0) hits.push({ company, name, tier });
   }
-  if (!group.length || (opts.exactOnly && best < 3)) return NONE;
-  // a loose match against many companies is a common word, not this merchant
+  const bestOf = (list: typeof hits) => {
+    const best = Math.max(0, ...list.map((h) => h.tier));
+    return { best, group: list.filter((h) => h.tier === best) };
+  };
+  const all = bestOf(hits);
+  if (!hits.length || (opts.exactOnly && all.best < 3)) return NONE;
+  // a loose match against many companies is a common word, not this merchant: counted with the ceased ones too
+  if (all.best < 3 && all.group.length > 3) return { ...NONE, status: "ambiguous" };
+  // a company in the books beats a ceased one whatever its fit; ceased ones answer only when none is in the books
+  const live = hits.filter((h) => h.company.active);
+  const { best, group } = bestOf(live.length ? live : hits);
+  if (opts.exactOnly && best < 3) return NONE;
   if (best < 3 && group.length > 3) return { ...NONE, status: "ambiguous" };
+  // one word that only a ceased company bears is as likely a namesake as the merchant
+  if (!live.length && !query.includes(" ")) return { ...NONE, status: "ambiguous" };
 
-  const withCategory = group.map((g) => ({ ...g, category: g.company.industry ? categoryForIndustry(g.company.industry.code, g.company.industry.codeSet) : null }));
+  const withCode = group.map((g) => ({ ...g, category: g.company.industry ? categoryForIndustry(g.company.industry.code, g.company.industry.codeSet) : null }));
+  const coded = withCode.filter((g) => g.category !== null);
+  const candidates = coded.length ? coded : withCode.map((g) => ({ ...g, category: opts.byName?.(g.name) ?? null })).filter((g) => g.category !== null);
   // a dealer and a garage of one name are both the car's: the garage is picked, so the rows stay the car's upkeep
   const upkeep = (c: string | null) => (c === "vehicle_purchase" ? "car" : c);
-  const categories = new Set(withCategory.map((g) => upkeep(g.category)).filter((c): c is string => c !== null));
-  if (categories.size > 1) return { ...NONE, status: "ambiguous" };
-  const pick = withCategory.find((g) => g.category === "car") ?? withCategory.find((g) => g.category !== null) ?? withCategory[0]!;
-  if (categories.size === 0 && group.length > 1) return { ...NONE, status: "ambiguous" };
+  if (new Set(candidates.map((g) => upkeep(g.category))).size > 1) return { ...NONE, status: "ambiguous" };
+  if (!candidates.length && group.length > 1) return { ...NONE, status: "ambiguous" };
+  const pick = candidates.find((g) => g.category === "car") ?? candidates[0] ?? withCode[0]!;
   const industry = pick.company.industry;
   return {
     status: "found",
@@ -268,6 +145,15 @@ export function matchCompany(merchant: string, companies: readonly RegistryCompa
     label: industry?.label ?? null,
     category: pick.category,
   };
+}
+
+/**
+ * The merchant with a company form for a second question to the register, when the plain one drowns the company in
+ * namesakes ("Ayvens" → "Ayvens Oy"). Null when the name has a form already or is no name to ask about.
+ */
+export function formQuery(merchant: string): string | null {
+  const withForm = `${merchant.trim()} Oy`;
+  return plainWords(merchant).join(" ") !== companyKey(merchant) || !isLookupName(merchant) || !isLookupName(withForm) ? null : withForm;
 }
 
 /**

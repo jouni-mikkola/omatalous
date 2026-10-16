@@ -14,12 +14,12 @@
  * passes askRegister. Admins can turn the lookup off (Asetukset > Palvelin).
  */
 import {
-  categoryForIndustry,
+  categoryByTradeWord,
+  categoryForCompany,
+  formQuery,
   householdWords,
-  type IndustryCodeSet,
   industryCandidates,
   type IndustryMatch,
-  isIndustryCodeSet,
   isLookupName,
   matchCompany,
   namesHousehold,
@@ -42,6 +42,8 @@ export interface LookupResult {
 const LOCK = "industry_lock";
 /** Names asked about in one run. */
 const BATCH = 30;
+/** More hits than this for a plain name, none of them equal to it: the company is lost among namesakes, ask again with a company form. */
+const MANY_HITS = 10;
 /** Stop early when the register keeps failing; the names are retried next hour. */
 const MAX_FAILURES = 3;
 
@@ -85,8 +87,8 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
     // names answered earlier (for another member) that now give someone a category
     const freshNames = [...new Set([...fresh.values()].flat())];
     const alreadyKnown = new Set<string>();
-    for (const [merchant, { code, codeSet }] of await s.industry.codes(freshNames)) {
-      if (isIndustryCodeSet(codeSet) && categoryForIndustry(code, codeSet)) alreadyKnown.add(merchant);
+    for (const [merchant, answer] of await s.industry.codes(freshNames)) {
+      if (categoryForCompany(answer)) alreadyKnown.add(merchant);
     }
 
     // take turns between users so one big history does not use up every run
@@ -103,11 +105,19 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
         if (i > 0 && pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
         let match: IndustryMatch;
         try {
-          const first = await askRegister(fetchFn, merchant, household);
+          let found = await askRegister(fetchFn, merchant, household);
+          // a short name is found inside dozens of others: ask again with the company form, whose hits hold the company itself
+          const withForm = found.companies.length > MANY_HITS && matchCompany(merchant, found.companies, { exactOnly: true }).status === "none" ? formQuery(merchant) : null;
+          if (withForm) {
+            if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
+            const second = await askRegister(fetchFn, withForm, household);
+            const ids = new Set(found.companies.map((c) => c.businessId));
+            found = { companies: [...found.companies, ...second.companies.filter((c) => !ids.has(c.businessId))], complete: found.complete && second.complete };
+          }
           // one page of a long hit list may miss the right company: then only an exact name counts
-          match = matchCompany(merchant, first.companies, { exactOnly: !first.complete });
+          match = matchCompany(merchant, found.companies, { exactOnly: !found.complete, byName: categoryByTradeWord });
           const shorter = match.status === "none" ? shorterQuery(merchant) : null;
-          if (shorter) match = matchCompany(shorter, (await askRegister(fetchFn, shorter, household)).companies, { exactOnly: true });
+          if (shorter) match = matchCompany(shorter, (await askRegister(fetchFn, shorter, household)).companies, { exactOnly: true, byName: categoryByTradeWord });
         } catch (err) {
           await s.industry.saveError(merchant, s.now());
           // the error's own text only: a merchant name is not written to the log

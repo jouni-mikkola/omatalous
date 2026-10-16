@@ -45,3 +45,19 @@
   .months-table .months-total { border-top: 1px solid var(--axis); border-bottom: 0; }
   .months-table .months-total > * { border-top: 0; }
 }
+
+/* Tietojen laatu, the card bills by issuer: the issuer, the sum of its bills, and why its purchases are missing */
+.card-purchases { width: 100%; margin: 6px 0 8px; }
+.card-purchases td.st-num { white-space: nowrap; }
+
+/* a narrow screen: an issuer's name above its sum and its reason, each under its head */
+@media (max-width: 600px) {
+  .card-purchases thead { display: none; }
+  .card-purchases, .card-purchases tbody { display: block; }
+  .card-purchases tr { display: grid; grid-template-columns: 1fr; gap: 2px 0; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+  .card-purchases tr:last-child { border-bottom: 0; }
+  .card-purchases :is(th, td) { padding: 0; border: 0; text-align: left; }
+  .st-table.card-purchases :is(th, td) + :is(th, td) { padding-left: 0; }
+  .card-purchases td.st-num { text-align: left; }
+  .card-purchases td::before { content: attr(data-label) ": "; color: var(--muted); }
+}

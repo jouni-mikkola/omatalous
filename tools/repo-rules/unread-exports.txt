@@ -171,13 +171,11 @@ packages/core/src/analysis/one-offs.ts  OneOffPolicy
 packages/core/src/analysis/themes-report.ts  ThemeWindow
 packages/core/src/analysis/usual.ts  GATE_SHARE
 packages/core/src/categorize.ts  CategorizeResult
-packages/core/src/categorize.ts  categoryForMcc
 packages/core/src/categorize.ts  compilePattern
 packages/core/src/commitments.ts  MERCHANT_MONTHS
 packages/core/src/commitments.ts  MerchantMonthly
 packages/core/src/household-debts.ts  DebtAccount
 packages/core/src/household-debts.ts  DebtSource
-packages/core/src/industry.ts  MccKind
 packages/core/src/industry.ts  companyKey
 packages/core/src/loan-intake/checks.ts  CheckInputs
 packages/core/src/loan-intake/values.ts  repairDigits

@@ -131,6 +131,71 @@ export class OptimiseRepo {
   }
 
   /**
+   * Old names that an upgrade makes one name (`groups`: the new name, and the old names with rows, the new name itself
+   * among them when it has rows): a decision on a finding and a typed-in number are copied to the new name only when every
+   * old name carries the same one, and the new name has none of its own. A name without one is a different choice. What
+   * the new name has is never changed, and the old ones stay for a rollback.
+   */
+  async copyMerchantStates(groups: ReadonlyMap<string, readonly string[]>): Promise<void> {
+    const [states, inputs] = await Promise.all([
+      this.ctx.db.all<Row>("SELECT finding_id, status, reason, until, effective_date, mid_cents, baseline, decided_at FROM optimise_states WHERE user_id = ?", [this.ctx.userId]),
+      this.ctx.db.all<Row>("SELECT key, value, as_of FROM optimise_inputs WHERE user_id = ?", [this.ctx.userId]),
+    ]);
+    const statements: Statement[] = [];
+    /** Each row under the id it would have under the new name, from every old name that has one; copied when all agree. */
+    const copy = (rows: Row[], names: readonly string[], target: string, idOf: (row: Row, renames: ReadonlyMap<string, string>) => string | null, same: string[], table: string, columns: string[]) => {
+      const have = new Set(rows.map((r) => String(r[columns[0]!])));
+      const by = new Map<string, Map<string, Row>>();
+      for (const name of names) {
+        for (const r of rows) {
+          const next = idOf(r, new Map([[name, target]]));
+          if (next !== null && !have.has(next)) by.set(next, (by.get(next) ?? new Map()).set(name, r));
+        }
+      }
+      for (const [next, from] of by) {
+        const all = names.map((name) => from.get(name));
+        if (all.some((r) => r === undefined) || new Set(all.map((r) => JSON.stringify(same.map((c) => r![c] ?? null)))).size !== 1) continue;
+        statements.push({
+          sql: `INSERT OR IGNORE INTO ${table} (user_id, ${columns.join(", ")}) VALUES (?, ${columns.map(() => "?").join(", ")})`,
+          params: [this.ctx.userId, next, ...columns.slice(1).map((c) => all[0]![c] ?? null)],
+        });
+      }
+    };
+    for (const [target, names] of groups) {
+      if (names.includes(target)) continue;
+      copy(
+        states,
+        names,
+        target,
+        (r, renames) => {
+          const parts = parseFindingId(String(r.finding_id));
+          const to = parts?.subject ? renamedSubject(parts.subject, renames) : null;
+          const next = parts && to !== null ? `${parts.area}:${parts.kind}:${to}` : null;
+          return next !== null && parseFindingId(next) ? next : null;
+        },
+        ["status", "reason", "until", "effective_date", "mid_cents", "baseline"],
+        "optimise_states",
+        ["finding_id", "status", "reason", "until", "effective_date", "mid_cents", "baseline", "decided_at"],
+      );
+      copy(
+        inputs,
+        names,
+        target,
+        (r, renames) => {
+          const found = inputDefOf(String(r.key));
+          const to = found?.subject ? renamedSubject(found.subject, renames) : null;
+          const next = found && to !== null ? `${found.def.key}:${to}` : null;
+          return next !== null && inputDefOf(next) ? next : null;
+        },
+        ["value"],
+        "optimise_inputs",
+        ["key", "value", "as_of"],
+      );
+    }
+    await writeBatch(this.ctx.db, statements);
+  }
+
+  /**
    * A merchant's name was derived again: the decisions on its findings and the insurance quotes of its series follow,
    * as marks do. When the new name has a row already, that one stays and the old one is dropped.
    */

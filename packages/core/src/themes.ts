@@ -25,7 +25,7 @@ const textOf = (t: AnalysisTx) => fold(`${t.merchant} ${t.counterparty ?? ""} ${
 export function carLineOf(t: AnalysisTx): CarLine | null {
   const text = textOf(t);
   const mcc = mccKind(t.mcc);
-  if (isLeaseText(text)) return "lease";
+  if (isLeaseText(text) || t.category === "leasing") return "lease";
   if (t.category === "insurance") return isCarInsuranceText(text) ? "insurance" : null;
   if (t.category === "taxes") return isVehicleTaxText(text) ? "tax" : null;
   if (t.category === "loans") return isCarFinanceText(text) ? "finance" : null;
@@ -88,7 +88,7 @@ export const THEMES: readonly Theme[] = [
   { id: "housing", heading: "Asuminen", lines: labelled("housing", "mortgage", "utilities") },
   { id: "food", heading: "Ruoka", lines: labelled("groceries", "restaurants", "food_delivery", "alcohol") },
   { id: "car", heading: "Auto", lines: Object.entries(CAR_LINES).map(([id, heading]) => ({ id, heading })) },
-  { id: "transport", heading: "Liikkuminen", lines: [...labelled("transport", "car"), { id: CAR_PURCHASE, heading: CAR_LINES.purchase }] },
+  { id: "transport", heading: "Liikkuminen", lines: [...labelled("transport", "car", "leasing"), { id: CAR_PURCHASE, heading: CAR_LINES.purchase }] },
   { id: "kids", heading: "Lapset", lines: labelled("kids") },
   { id: "pets", heading: "Lemmikit", lines: labelled("pets") },
   { id: "health", heading: "Terveys ja hyvinvointi", lines: labelled("health", "fitness", "personal_care") },

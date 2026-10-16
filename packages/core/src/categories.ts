@@ -32,6 +32,7 @@ export const CATEGORIES: readonly Category[] = [
   { id: "transport", label: "Joukkoliikenne ja taksit", kind: "expense", group: "Liikkuminen" },
   { id: "car", label: "Auto, polttoaine ja pysäköinti", kind: "expense", group: "Liikkuminen" },
   { id: "vehicle_purchase", label: "Auton osto", kind: "expense", group: "Liikkuminen" },
+  { id: "leasing", label: "Autoleasing", kind: "expense", group: "Liikkuminen" },
   { id: "telecom", label: "Puhelin ja netti", kind: "expense", group: "Viestintä ja tilaukset" },
   { id: "subscriptions", label: "Tilaukset ja suoratoisto", kind: "expense", group: "Viestintä ja tilaukset" },
   { id: "health", label: "Terveys ja apteekki", kind: "expense", group: "Terveys ja hyvinvointi" },

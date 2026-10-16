@@ -1,4 +1,5 @@
-import { type AnalysisContext, type AnalysisTx, inDays, loweredRows } from "./context.ts";
+import { missingCardPurchases, type MissingCardPurchases } from "./card-bills.ts";
+import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 import { daysBetween } from "../dates.ts";
@@ -15,6 +16,8 @@ export interface QualitySignal {
   cents?: number;
   /** A link target the page can offer: a category id for the transaction list. */
   category?: string;
+  /** The card bills of the `card_bills` signal by issuer: the table under its title. */
+  cardPurchases?: MissingCardPurchases[];
 }
 
 export interface DataQualityReport {
@@ -38,9 +41,6 @@ export function spendingBase(txs: readonly Pick<AnalysisTx, "spend" | "category"
   return base;
 }
 
-/** A row of a card bill that counts as spending: the rows the card_bills signal adds up. */
-export const isCardBill = (t: Pick<AnalysisTx, "category" | "spend">): boolean => t.category === "card_bill" && t.spend > 0;
-
 /**
  * The spending of the range that nothing says what it was: card bills whose purchases are not itemised and Muut menot,
  * against the spending base. Tietojen laatu names both; the pages that draw conclusions say how much there is.
@@ -49,7 +49,8 @@ export function unknownSpending(ctx: AnalysisContext, range: DateRange): { other
   const inRange = inDays(ctx, toDayRange(range));
   const spendingCents = spendingBase(inRange);
   const otherCents = inRange.filter((t) => t.category === "other").reduce((s, t) => s + t.spend, 0);
-  const billCents = loweredRows(ctx, inRange).filter(isCardBill).reduce((s, t) => s + t.spend, 0);
+  // the card bills are the table of the card_bills signal: one sum on every page
+  const billCents = missingCardPurchases(ctx, range).reduce((s, m) => s + m.cents, 0);
   return { otherCents, billCents, spendingCents, share: spendingCents > 0 ? Math.min(1, (otherCents + billCents) / spendingCents) : 0 };
 }
 
@@ -128,16 +129,17 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     }
   }
 
-  // with a card connected the bills are of the months before its rows, or of a card that is not connected
-  const hasCardAccount = ctx.accounts.some((a) => a.type === "credit_card");
+  // the bills are of the months before a connected card's rows, or of a card that is not connected
+  const missing = missingCardPurchases(ctx, range);
   if (billTotal > 0) {
     signals.push({
       id: "card_bills",
       tone: "warning",
-      title: `Korttilaskuja ${formatEur(billTotal, false)} lasketaan menoiksi`,
-      detail: hasCardAccount ? "Laskut ovat ajalta ennen kortin tapahtumia tai kortista, jota ei ole yhdistetty." : "Kortin ostot eivät näy kategorioittain. Yhdistä kortti.",
+      title: `Korttilaskuja ${formatEur(billTotal, false)} ilman ostoja`,
+      detail: missing.some((m) => m.reason === "not_connected") ? "Yhdistä kortti." : "",
       category: "card_bill",
       cents: billTotal,
+      cardPurchases: missing,
     });
   }
 

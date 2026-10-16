@@ -104,8 +104,9 @@ describe("lenders and the words for credit", () => {
     ["BIGBANK AS SUOMEN SIVULIIKE", "NOSTO", 1000, "income", { income: 100000 }],
     ["BIGBANK AS SUOMEN SIVULIIKE", "TALLETUKSEN PALAUTUS", 1000, "reimbursements", { income: 100000 }],
     // a lease is rent for the car
-    ["VOLKSWAGEN FINANCIAL SERVICES", "YKSITYISLEASING 123", -399, "other", { consumption: 39900 }],
-    ["TOYOTA FINANCE FINLAND OY", "HUOLTOLEASING", -420, "other", { consumption: 42000 }],
+    ["VOLKSWAGEN FINANCIAL SERVICES", "YKSITYISLEASING 123", -399, "leasing", { consumption: 39900 }],
+    ["TOYOTA FINANCE FINLAND OY", "HUOLTOLEASING", -420, "leasing", { consumption: 42000 }],
+    ["SANTANDER CONSUMER FINANCE OY", "LEASINGVUOKRA", -300, "leasing", { consumption: 30000 }],
     // a refund from a finance company, and of a credit named by a compound
     ["TOYOTA FINANCE FINLAND OY", "HYVITYS", 60, "reimbursements", { income: 6000 }],
     ["POHJOLA RAHOITUS OY", "PALAUTUS", 60, "reimbursements", { income: 6000 }],
@@ -130,7 +131,6 @@ describe("lenders and the words for credit", () => {
     // a row the earlier rules read as a loan stays one: the new lists and their guards move nothing decided before them
     ["LAINA KORHONEN", "VIIKKORAHA", -50, "loans", { debt: 5000 }],
     ["AS OY KOTIKATU", "LAINAOSUUS", -310, "loans", { debt: 31000 }],
-    ["SANTANDER CONSUMER FINANCE OY", "LEASINGVUOKRA", -300, "loans", { debt: 30000 }],
     ["SANTANDER CONSUMER FINANCE OY", "HYVITYS", 60, "credit_draw", { borrowed: 6000 }],
     ["KLARNA BANK AB", "OSAMAKSU HYVITYS", 80, "credit_draw", { borrowed: 8000 }],
   ])("%s / %s / %d is as it was before the new lists (%s)", (...row) => {

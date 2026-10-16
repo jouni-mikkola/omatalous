@@ -4,7 +4,7 @@
  * company data shared by all users; FinanceRepo reads one only for a user
  * whose own lookup asked about that name.
  */
-import type { IndustryMatch } from "@banking/core";
+import { isIndustryCodeSet, type IndustryMatch, type RegisterAnswer } from "@banking/core";
 import type { Db, Statement } from "./types.ts";
 
 export type IndustryStatus = IndustryMatch["status"] | "error";
@@ -69,18 +69,21 @@ export class IndustryRepo {
     return users;
   }
 
-  /** Industry codes of the names the register found, for deciding which answers give a category. */
-  async codes(merchants: readonly string[]): Promise<Map<string, { code: string; codeSet: string }>> {
-    const out = new Map<string, { code: string; codeSet: string }>();
+  /** The industry and the company name of the names the register found, for deciding which answers give a category. */
+  async codes(merchants: readonly string[]): Promise<Map<string, RegisterAnswer>> {
+    const out = new Map<string, RegisterAnswer>();
     const names = [...new Set(merchants)];
     for (let i = 0; i < names.length; i += CHUNK) {
       const chunk = names.slice(i, i + CHUNK);
-      const rows = await this.db.all<{ merchant: string; industry_code: string; code_set: string }>(
-        `SELECT merchant, industry_code, code_set FROM merchant_industry
-         WHERE status = 'found' AND industry_code IS NOT NULL AND code_set IS NOT NULL AND merchant IN (${chunk.map(() => "?").join(", ")})`,
+      const rows = await this.db.all<{ merchant: string; industry_code: string | null; code_set: string | null; company_name: string | null }>(
+        `SELECT merchant, industry_code, code_set, company_name FROM merchant_industry
+         WHERE status = 'found' AND (industry_code IS NOT NULL OR company_name IS NOT NULL) AND merchant IN (${chunk.map(() => "?").join(", ")})`,
         chunk,
       );
-      for (const r of rows) out.set(r.merchant, { code: r.industry_code, codeSet: r.code_set });
+      for (const r of rows) {
+        const known = r.industry_code !== null && isIndustryCodeSet(r.code_set);
+        out.set(r.merchant, { code: known ? r.industry_code : null, codeSet: known && isIndustryCodeSet(r.code_set) ? r.code_set : null, companyName: r.company_name });
+      }
     }
     return out;
   }

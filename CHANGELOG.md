@@ -3,6 +3,25 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.60.0
+
+- Payments the app used to leave in Muut menot are now filed by what the payee does: car leasing gets its own category Autoleasing, and energy, district heat, water, waste, housing companies, insurers, unions, shops and trades are known by name, with the trade register as the next step.
+- Card bills from the same issuer under different names are one issuer now, and Tietojen laatu lists the card bills whose purchases the app cannot see, with the reason; Laskut lists a connected card's coming bill.
+- Your own rules and choices always come first, and a rule you set on an issuer's old name keeps applying after the names are merged.
+
+Money and reports
+
+- A card issuer is one payee under every spelling (Morrow, Morrow Bank ASA, SEB Kort Bank AB), and Tietojen laatu lists the card bills without purchases by issuer, with the reason. Yhteenveto names the largest.
+- Laskut lists a connected card's bill in the group of its due date, as Yhteenveto does.
+- The trade register lookup finds the company a short or shortened name means, and files a company with a broad industry by the trade word in its name; a steady car rental and leasing payment is Autoleasing, bus stations and musical instrument shops no longer file as car and home.
+- Car leasing payments file under the new category Autoleasing and count as a contract; waste, district heat and water payees get their kind on Asuminen.
+- A name with a company form, a business id or a known trade is a company, never a person.
+- Payments to well-known Finnish brands, shops, unions and trades that used to land in Muut menot now get the right category without asking, for every household.
+
+Upgrade
+
+- The first start copies rules, marks and Optimoi decisions made on the old spellings of a card issuer's name to its new name; the old ones stay. If the old spellings chose differently, the new name gets none.
+
 ## 0.59.0
 
 - Yhteenveto's waterfall and the table under it now show the same income and spending to the cent; savings and credit get their own sentence.

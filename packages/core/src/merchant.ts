@@ -6,6 +6,47 @@
 import { isCarDealerName } from "./wording-car.ts";
 import { companyForms, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
 
+// ── card issuers under one display name each: the merchant name, the card bills and the card accounts read them ──
+/** What a bank adds after its name: the legal forms of its own country ("AB", "ASA"), "Filial i Finland". Never a Finnish Oy. */
+const ISSUER_SUFFIX = String.raw`(?:\s+(?:ASA|AB|PUBL|GROUP|SWEDEN|SVERIGE|NORGE|NORWAY))*(?:\s+FILIAL(?:\s+I(?:\s+FINLAND)?)?)?`;
+/**
+ * The card issuers under one display name each, as [the whole folded name, name]. The whole name and not a word of it:
+ * "NORWEGIAN" and "KOMPLETT" alone are an airline and a shop, so only the bank's own forms stand here. "MORROW" alone
+ * is the issuer, as it writes itself (Komplett Bank became Morrow Bank in 2023), but only with the bank's own forms
+ * behind it: "MORROW OY" is another company. "RE:MEMBER" is Entercard's own card brand (CARD_BRAND_WORDS reads it as a
+ * card already), and it too takes no Finnish form.
+ */
+const ISSUER_NAMES: ReadonlyArray<readonly [RegExp, string]> = (
+  [
+    [String.raw`MORROW(?:\s+BANK)?|KOMPLETT\s+BANK`, "Morrow Bank"],
+    [String.raw`SEB\s+KORT(?:\s+BANK)?`, "SEB Kort"],
+    [String.raw`BANK\s+NORWEGIAN|NORWEGIAN\s+BANK`, "Bank Norwegian"],
+    [String.raw`RESURS\s+BANK`, "Resurs Bank"],
+    [String.raw`ENTERCARD|RE[ :]?MEMBER`, "Entercard"],
+  ] as const
+).map(([pattern, name]) => [new RegExp(`^(?:${pattern})${ISSUER_SUFFIX}$`), name] as const);
+/** The one name of the card issuer a folded merchant name is written as, whatever its legal suffix or word order; else null. */
+export function cardIssuerName(folded: string): string | null {
+  const name = folded.trim().replace(/\s+/g, " ");
+  return ISSUER_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? null;
+}
+const CARD_WORD = /(?<![A-Z])(?:KORT|KORTTI|CARD|EUROCARD|MASTERCARD|VISA)(?![A-Z])/;
+const ACCOUNT_ISSUERS: ReadonlyArray<readonly [(text: string) => boolean, string]> = [
+  [(t) => /(?<![A-Z])(?:MORROW|KOMPLETT)(?![A-Z])/.test(t), "Morrow Bank"],
+  // SEB is a bank too: only with a card word (SEB KORT, SEB EUROCARD) is it the card issuer
+  [(t) => /(?<![A-Z])SEB(?![A-Z])/.test(t) && CARD_WORD.test(t), "SEB Kort"],
+  [(t) => /(?<![A-Z])NORWEGIAN(?![A-Z])/.test(t), "Bank Norwegian"],
+  [(t) => /(?<![A-Z])RESURS(?![A-Z])/.test(t), "Resurs Bank"],
+  [(t) => /(?<![A-Z])(?:ENTERCARD|RE[ :]?MEMBER)(?![A-Z])/.test(t), "Entercard"],
+];
+/**
+ * The issuer a card account belongs to, from the folded text of its bank and its names together: the plain words count
+ * here ("KOMPLETT", "NORWEGIAN"), since a card account is no shop. The list's name, or null.
+ */
+export function cardIssuerOfAccountText(folded: string): string | null {
+  return ACCOUNT_ISSUERS.find(([test]) => test(folded))?.[1] ?? null;
+}
+
 /** The word a payment service's group name adds ("TRUSTLY GROUP AB"). */
 /** The forms a payment service is written with, "AS" and "AB" included. */
 const SERVICE_FORMS = [...new Set([...companyForms("strip"), ...companyForms("payee")])].join("|");
@@ -344,6 +385,10 @@ export function normalizeMerchant(counterparty: string | null, description: stri
     if (!cleaned) continue;
     const folded = fold(cleaned);
     for (const [pattern, name] of SERVICE_ONLY) if (pattern.test(folded)) return name;
+    // one issuer under every legal suffix and word order ("MORROW", "MORROW BANK ASA", "MORROW BANK AB FILIAL")
+    // "MORROW FI" is the bare name with a country the cleaning took off: the bank writes none, so it is not the bank
+    const issuer = cardIssuerName(folded);
+    if (issuer && !(folded === "MORROW" && PLACE_AND_COUNTRY.test(fold(candidate).trim().replace(/^MORROW\s*/, "")))) return issuer;
     for (const [pattern, name] of BRANDS) {
       if (pattern.test(folded) && !(NAMES_TOO.has(name) && isPersonShaped(folded) && !/ (?:SUOMI|FINLAND)$/.test(folded))) return name;
     }

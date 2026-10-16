@@ -54,7 +54,7 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
       <p className="question-line">Luokiteltu {classifiedPercent(questions.share)} % viimeisen 12 kuukauden tuloista ja menoista.</p>
       {questions.cardBillCents > 0 && (
         <>
-          <p className="question-line">Korttilaskuissa on {money(questions.cardBillCents)} ostoja, joita ei ole eritelty.</p>
+          <p className="question-line">Korttilaskuissa on {money(questions.cardBillCents)} ostoja, joita ei ole eritelty.{questions.cardBillIssuers.length > 0 && ` Suurimmat: ${questions.cardBillIssuers.join(", ")}.`}</p>
           <p className="question-line">
             <a href={`#/settings#${SETTINGS_ANCHOR.quality}`}>Tietojen laatu</a>
           </p>

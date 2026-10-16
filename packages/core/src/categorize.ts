@@ -1,7 +1,11 @@
 import { getCategory } from "./categories.ts";
 import { bankRowRules } from "./categorize-bank-rows.ts";
+import { categoryForMcc } from "./categorize-mcc.ts";
 import { type Holders, holdersOf, noCard, peopleRules } from "./categorize-people.ts";
+import { categoryForIndustry, type RegisterAnswer } from "./industry.ts";
 import { fold, namesUnknownMerchant } from "./merchant.ts";
+import { payeeRules } from "./payees.ts";
+import { tradeWordCategory } from "./trade-words.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
 import { isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
@@ -168,10 +172,11 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
       String.raw`VUOKRA[A-Z]*|TAKUUVUOKRA|[A-Z]*VASTIKE|AS OY|AS\. OY|ASUNTO OY|ASUNTO-OSAKEYHTIO|KIINTEISTO OY|ISANNOINTI[A-Z]*|ASUMISOIKEUS[A-Z]*|${LANDLORD_WORDS}|SAUNAVUORO|AUTOPAIKKA|AUTOTALLI|AUTOKATOS|PIENVARASTO|SHURGARD|CITY SELF-STORAGE|24STORAGE|PELICAN SELF STORAGE`,
     ),
   },
+  ...payeeRules(fold).later,
   {
     category: "utilities",
     re: w(
-      String.raw`${ELECTRICITY_SELLER_WORDS}|ALVA(?: OY|-YHTIOT)|SAVON VOIMA|${ELECTRICITY_NETWORK_WORDS}|PKS|SAHKO(?!ASENN|ASENT|TYO|URAKOINTI|LIIKE|PALVELU)[A-Z]*|[A-Z]*ENERGIA|KAUKOLAMPO|TAMPEREEN SAHKOLAITOS|GASUM|VESIHUOLTO|VESILAITOS|VESIOSUUSKUNTA|VESIMAKSU|[A-Z]+N VESI|HSY|JATEHUOLTO[A-Z]*|JATEMAKSU|LASSILA & TIKANOJA|L&T|REMEO|URBASER|KIERTOKAPULA|ROSK'?N ?ROLL|KIERTOKAARI|JATEKUKKO|PUHAS|NUOHOUS[A-Z]*`,
+      String.raw`${ELECTRICITY_SELLER_WORDS}|SAVON VOIMA|${ELECTRICITY_NETWORK_WORDS}|PKS|SAHKO(?!ASENN|ASENT|TYO|URAKOINTI|LIIKE|PALVELU)[A-Z]*|[A-Z]*ENERGIA|KAUKOLAMPO|GASUM|JATEMAKSU|PUHAS|NUOHOUS[A-Z]*`,
     ),
   },
   // premiums only: money in from an insurer is a claim payout (reimbursements, below)
@@ -293,86 +298,6 @@ const CODE_RULES: readonly CompiledRule[] = [
   { category: "cash", income: false, field: "any", direction: "out", test: (_text, input) => isCashWithdrawalCode(input.bankTxnCode) },
   { category: "savings", income: false, field: "any", test: (_text, input) => isOwnTransferCode(input.bankTxnCode) },
 ];
-
-/**
- * Merchant category codes (ISO 18245) → category, for card transactions.
- * Single codes come before the broad ranges they sit in.
- */
-const MCC_RANGES: ReadonlyArray<readonly [number, number, string]> = [
-  [742, 742, "pets"], // veterinary
-  [780, 780, "home"], // landscaping
-  [1520, 1799, "home"], // contractors: building, plumbing, electrical
-  [4784, 4784, "car"], // tolls and bridge fees
-  [4829, 4829, "p2p"], // money transfer
-  [5047, 5047, "health"], // medical and optical equipment
-  [5122, 5122, "health"], // drugs
-  [5641, 5641, "kids"], // children's wear
-  [5921, 5921, "alcohol"],
-  [5945, 5945, "kids"], // toys & games
-  [5975, 5976, "health"], // hearing aids, orthopaedic goods
-  [5992, 5992, "home"], // florists
-  [5995, 5995, "pets"], // pet shops
-  [6051, 6051, "investments"], // quasi-cash, crypto
-  [6211, 6211, "investments"], // securities brokers
-  [6513, 6513, "housing"], // real estate agents and rentals
-  [7210, 7211, "home"], // laundry
-  [7230, 7230, "personal_care"], // beauty & barber
-  [7298, 7298, "personal_care"], // health & beauty spas
-  [7342, 7342, "home"], // pest control
-  [7349, 7349, "home"], // cleaning
-  [7911, 7911, "fitness"], // dance studios
-  [7941, 7941, "fitness"], // sports clubs
-  [7992, 7992, "fitness"], // golf courses
-  [7995, 7995, "gambling"],
-  [7997, 7997, "fitness"], // clubs, gyms
-  [8211, 8299, "education"],
-  [8351, 8351, "kids"], // child care
-  [8398, 8398, "gifts_donations"], // charities
-  [8641, 8641, "memberships"], // civic and social associations
-  [8661, 8661, "gifts_donations"], // religious organisations
-  [8675, 8675, "memberships"], // automobile associations
-  [8699, 8699, "memberships"], // membership organisations, unions
-  [3000, 3350, "travel"], // airlines
-  [3351, 3500, "travel"], // car rental
-  [3501, 3999, "travel"], // hotels
-  [4011, 4131, "transport"],
-  [4411, 4411, "travel"],
-  [4511, 4582, "travel"],
-  [4722, 4722, "travel"],
-  [4784, 4789, "transport"],
-  [4812, 4816, "telecom"],
-  [4899, 4899, "subscriptions"],
-  [4900, 4900, "utilities"],
-  [5045, 5065, "home"],
-  [5172, 5172, "car"],
-  [5200, 5261, "home"],
-  [5300, 5399, "shopping"],
-  [5411, 5499, "groceries"],
-  [5511, 5599, "car"],
-  [5600, 5699, "shopping"],
-  [5712, 5735, "home"],
-  [5811, 5814, "restaurants"],
-  [5815, 5818, "subscriptions"],
-  [5912, 5912, "health"],
-  [5940, 5999, "shopping"],
-  [6010, 6011, "cash"],
-  [6300, 6399, "insurance"],
-  [7011, 7011, "travel"],
-  [7512, 7512, "travel"],
-  [7523, 7549, "car"],
-  [7800, 7999, "entertainment"],
-  [8011, 8099, "health"],
-  [9211, 9399, "taxes"],
-];
-
-export function categoryForMcc(mcc: string | null): string | null {
-  const code = mcc ? Number.parseInt(mcc, 10) : Number.NaN;
-  if (!Number.isFinite(code)) return null;
-  for (const [lo, hi, category] of MCC_RANGES) {
-    if (code >= lo && code <= hi) return category;
-  }
-  return null;
-}
 
 /**
  * Whether a merchant rule recognises the name as a business: a trade word
@@ -520,6 +445,22 @@ function exactPattern(pattern: string): (text: string) => boolean {
 
 const isIncome = (category: string) => getCategory(category).kind === "income";
 
+/**
+ * What a company's own name says it sells, for a register entry whose industry is too broad to say (wholesale 46900) or
+ * missing: a car dealer's name (wording-car.ts) or a generic trade noun (trade-words.ts, a short list: brand words are
+ * no trade). A car dealer's name gives `vehicle_purchase`, which the sum of a row turns into the car or its upkeep.
+ */
+export function categoryByTradeWord(name: string): string | null {
+  const folded = fold(name);
+  if (isCarTradeName(folded) && !headedByOtherRule(folded)) return isCarDealerName(folded) ? "vehicle_purchase" : "car";
+  return tradeWordCategory(folded);
+}
+
+/** The category a register answer gives: its industry's, else the trade word of the company's name. */
+export function categoryForCompany({ code, codeSet, companyName }: RegisterAnswer): string | null {
+  return (code && codeSet ? categoryForIndustry(code, codeSet) : null) ?? (companyName ? categoryByTradeWord(companyName) : null);
+}
+
 /** A shop, a bus company or a school whose own name stands first keeps its rule: K-Market Autokeskus, Koiviston Auto. */
 const headedByOtherRule = (name: string) => MERCHANT_RULES.some((r) => r.category !== "car" && r.re.exec(name)?.index === 0);
 /**
@@ -553,7 +494,7 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
   }));
   // a card code of a shop: the money transfer code (p2p) is none
   const people = peopleRules(namedLikeBusiness, (mcc) => (categoryForMcc(mcc) ?? "p2p") !== "p2p", namesShopOrService);
-  return [...user, ...people.first, ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...DEALER_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
+  return [...user, ...people.first, ...builtin(payeeRules(fold).first), ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...DEALER_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
 }
 
 function fieldText(input: CategorizeInput, field: RuleField): string {

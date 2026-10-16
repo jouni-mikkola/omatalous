@@ -4,7 +4,7 @@
  * shows take `own`: in the own view a row of a joint account adds the viewer's part, an account somebody else uses
  * alone adds nothing, and a row has the category and the transfer mark the view counts it by (`toldSql`).
  */
-import { fold, type IndustryCodeSet, isIndustryCodeSet, type MerchantBasis, merchantMonthly, monthEnd, type Transaction } from "@banking/core";
+import { fold, isIndustryCodeSet, type MerchantBasis, merchantMonthly, monthEnd, type RegisterAnswer, type Transaction } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
 import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
@@ -311,16 +311,19 @@ export class MerchantsRepo {
    * accounts shared with this user that are in view). The register table is
    * shared, but an answer found for another member does not show up here.
    */
-  async industryCodes(sharedOwners: readonly string[] = []): Promise<Map<string, { code: string; codeSet: IndustryCodeSet }>> {
+  async industryCodes(sharedOwners: readonly string[] = []): Promise<Map<string, RegisterAnswer>> {
     const owners = [...new Set([this.ctx.userId, ...sharedOwners])];
-    const rows = await this.ctx.db.all<{ merchant: string; industry_code: string; code_set: string }>(
-      `SELECT m.merchant, m.industry_code, m.code_set FROM merchant_industry m
-       WHERE m.status = 'found' AND m.industry_code IS NOT NULL
+    const rows = await this.ctx.db.all<{ merchant: string; industry_code: string | null; code_set: string | null; company_name: string | null }>(
+      `SELECT m.merchant, m.industry_code, m.code_set, m.company_name FROM merchant_industry m
+       WHERE m.status = 'found' AND (m.industry_code IS NOT NULL OR m.company_name IS NOT NULL)
          AND EXISTS (SELECT 1 FROM merchant_industry_users r WHERE r.merchant = m.merchant AND r.user_id IN (${owners.map(() => "?").join(", ")}))`,
       owners,
     );
-    const out = new Map<string, { code: string; codeSet: IndustryCodeSet }>();
-    for (const r of rows) if (isIndustryCodeSet(r.code_set)) out.set(r.merchant, { code: r.industry_code, codeSet: r.code_set });
+    const out = new Map<string, RegisterAnswer>();
+    for (const r of rows) {
+      const known = r.industry_code !== null && isIndustryCodeSet(r.code_set);
+      out.set(r.merchant, { code: known ? r.industry_code : null, codeSet: known && isIndustryCodeSet(r.code_set) ? r.code_set : null, companyName: r.company_name });
+    }
     return out;
   }
 

@@ -48,3 +48,11 @@ export const hasInterestWord = (folded: string) => INTEREST_WORD.test(folded);
 const ORGANISATION_NAME = words(String.raw`[A-Z]*KOULU|[A-Z]*LUKIO|[A-Z]*OPISTO|[A-Z]*SEURA|VPK|FBK|[A-Z]*SKOLAN?|[A-Z]*FORENING(?:EN)?`);
 /** A folded payee with a word of a school or an association ("ESIMERKIN KOULU", "ESIMERKIN VPK"): two words of letters, and no person. None of the words is a first name or a surname. */
 export const isOrganisationName = (foldedPayee: string) => ORGANISATION_NAME.test(foldedPayee);
+
+const FINANCING_TEXT = words(String.raw`[A-Z]*(?:RAHOITUS|FINANCE|FINANCIAL|FINANSIERING|LEASING|CREDIT|LUOTTO)[A-Z]*`);
+/** A brand's financing company in a folded text, with no legal form to go by (BMW FINANCIAL SERVICES, VOLVO CAR RAHOITUS): a lender's, not the brand's shop. */
+export const isFinancingText = (folded: string) => FINANCING_TEXT.test(folded);
+
+const STREET_OR_PLACE_END = /(?:KATU|TIE|KUJA|POLKU|TORI|AUKIO|RANTA|VAYLA|PUISTO|GATAN|VAGEN)$/;
+/** Whether a folded word ends as the name of a street or a place does ("YLIOPISTONKATU"): what stands before such an end is no trade. */
+export const endsAsStreetOrPlace = (foldedWord: string) => STREET_OR_PLACE_END.test(foldedWord);

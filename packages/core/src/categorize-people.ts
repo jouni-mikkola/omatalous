@@ -6,6 +6,7 @@
 import type { CategorizeInput, CompiledRule } from "./categorize.ts";
 import { hasTerminalShape } from "./industry.ts";
 import { dropCardAccountPrefix, fold } from "./merchant.ts";
+import { partyKind } from "./party-kind.ts";
 import { holdersIn, type Name, nameOf, samePerson, userNameOf } from "./person-names.ts";
 import type { Account } from "./types.ts";
 import { hasPayeeForm, INVOICE_WORDS, isBusinessPaymentText, isCardCode, isPersonShaped, isRent, MOBILEPAY_SHOP_PREFIX, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_WORDS, words } from "./wording.ts";
@@ -77,8 +78,9 @@ export function peopleRules(
   namesShopOrService: (message: string) => boolean,
 ): { first: CompiledRule[]; plain: CompiledRule[] } {
   // a person has the shape of a name, by the rule that keeps a name from the trade register, no company form at an end or
-  // between two words ("BOSTADS AB EXEMPEL"), no word of a school or an association and no trade word
-  const person = (name: string) => isPersonShaped(name) && !hasPayeeForm(name) && !namesBusiness(name) && !isOrganisationName(name) && !namedLikeBusiness(name);
+  // between two words ("BOSTADS AB EXEMPEL"), no word of a school or an association and no trade word, and no company by
+  // partyKind (a legal form, a business id in the text, a payee the app knows)
+  const person = (name: string, text = "") => isPersonShaped(name) && !hasPayeeForm(name) && !namesBusiness(name) && !isOrganisationName(name) && !namedLikeBusiness(name) && partyKind(name, text) !== "company";
 
   const viaMobilePay = (input: CategorizeInput): boolean => {
     const payee = payeeOf(input);
@@ -90,7 +92,7 @@ export function peopleRules(
 
   /** A transfer to or from a person: a co-holder, or a name with the bank's own word for a payment between people. */
   const plain = (text: string, input: CategorizeInput, holders: Holders) =>
-    noCard(input) && (isCoHolder(input, holders) || (BANK_PERSON_PAYMENT.test(text) && person(payeeOf(input))));
+    noCard(input) && (isCoHolder(input, holders) || (BANK_PERSON_PAYMENT.test(text) && person(payeeOf(input), input.description ?? "")));
 
   /**
    * Money out to a person named without the bank's word: a credit transfer, which has the payee's account, with no
@@ -107,7 +109,7 @@ export function peopleRules(
     if (input.reference === undefined || input.reference?.trim() || !input.counterpartyIban?.trim() || !noCard(input)) return false;
     if (input.steadyPayee || isUserName(input.counterparty ?? "", holders)) return false;
     const message = fold(input.description ?? "");
-    return person(payeeOf(input)) && !isBusinessPaymentText(message) && !INVOICE_TEXT.test(message) && !REFERENCE_TEXT.test(message) && !namesShopOrService(message);
+    return person(payeeOf(input), message) && !isBusinessPaymentText(message) && !INVOICE_TEXT.test(message) && !REFERENCE_TEXT.test(message) && !namesShopOrService(message);
   };
 
   const rule = (category: string, direction: "in" | "out", test: CompiledRule["test"]): CompiledRule => ({ category, income: false, field: "any", direction, test });

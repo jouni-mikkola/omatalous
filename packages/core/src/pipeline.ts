@@ -3,14 +3,15 @@ import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRow
 import { categorize, compileRules, dealerCategory } from "./categorize.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
 import { holdersOf } from "./categorize-people.ts";
-import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
+import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
+import { lexiconCategory } from "./lexicon.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
 import { whyCategories, whyReturns } from "./explain/why.ts";
 import type { WhyCollector } from "./explain/types.ts";
 import { applyPayerRoles, steadyPayers } from "./payer-role.ts";
 import { median } from "./stats.ts";
-import { matchReturns, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
+import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
 import type { Account, CategoryRule, PayerInput, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
@@ -105,7 +106,7 @@ function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<st
   for (const t of cardBillsByAmount(next.filter((t) => !byUserRule.has(t.id)))) t.category = "card_bill";
 }
 
-/** Rows nothing recognised take their merchant's other purchases' category, or the merchant's industry. After transfer detection, which treats such rows as possible own transfers. */
+/** Rows nothing recognised take their merchant's other purchases' category, else the lexicon's (lexicon.ts), else the merchant's industry. After transfer detection, which treats such rows as possible own transfers. */
 function* applyMerchantEvidence(
   next: readonly Transaction[],
   accounts: readonly Account[],
@@ -116,17 +117,23 @@ function* applyMerchantEvidence(
   const cards = new Set(accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   const shops = businessMerchants(next, payeeLedgers);
   const lender = lenderEvidence(next, cards, holdersOf(accounts), accounts);
+  // for a register class of rental and leasing: the rows in a monthly run of equal sums are a lease's
+  const leased = [...industries.values()].includes(CAR_HIRE) ? monthlyRunRows(next.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT)) : null;
   for (let i = 0; i < next.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = next[i]!;
     if (t.categorySource !== "default" || t.amountCents >= 0) continue;
     const same = lender.paid(t) ? "loans" : likeOthers.get(t.merchant);
     const registered = lender.industry(t, industries.get(t.merchant));
-    // the register's class for the sale of motor vehicles names a dealer: the sum tells the car from its upkeep
-    const industry = registered === "vehicle_purchase" ? dealerCategory(t.amountCents) : registered;
+    // the register's class for the sale of motor vehicles names a dealer: the sum tells the car from its upkeep.
+    // The class of car rental and leasing: a payment in a monthly run of equal sums is a lease, any other a rental
+    const industry = registered === "vehicle_purchase" ? dealerCategory(t.amountCents) : registered === CAR_HIRE ? hireCategory(!!leased?.has(t.id)) : registered;
     // debt too: a collection agency's industry means debt service
     const kind = industry ? getCategory(industry).kind : null;
+    // the lexicon of Finnish brands and trade words stands between the merchant's other purchases and the register
+    const listed = same ? null : isBusinessRow(t, cards, shops) ? lexiconCategory(t) : null;
     if (same) Object.assign(t, { category: same, categorySource: "merchant" });
+    else if (listed) Object.assign(t, { category: listed.category, categorySource: listed.source });
     // only on business rows: a person who shares a company's name stays a person
     else if (industry && (kind === "expense" || kind === "debt") && isBusinessRow(t, cards, shops)) Object.assign(t, { category: industry, categorySource: "industry" });
   }

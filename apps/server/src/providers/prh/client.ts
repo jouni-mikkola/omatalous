@@ -43,6 +43,8 @@ export function parseCompany(raw: unknown): RegistryCompany | null {
   return {
     businessId,
     names,
+    // status 1 is a company in the register's books; the others are not yet, ceasing or ceased
+    active: String(c.tradeRegisterStatus) === "1",
     industry: code && /^\d{2,5}$/.test(code) && codeSet ? { code, codeSet, label } : null,
   };
 }

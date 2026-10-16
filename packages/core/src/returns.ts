@@ -249,3 +249,49 @@ export function steadyBy<T extends Pick<Transaction, "amountCents" | "bookingDat
  * income, never a refund; money out to one is a steady payee, not a single gift.
  */
 export const steadyParties = (rows: readonly Pick<Transaction, "accountId" | "merchant" | "amountCents" | "bookingDate">[]): Set<string> => new Set(steadyBy(rows, partyKey).keys());
+
+/** Sums within this share of the smallest of a group are "equal" for a lease. */
+const LEASE_BAND = 0.05;
+/** Days between two payments of a monthly run, and the payments that make a run. */
+const RUN_GAP = [25, 35] as const;
+const RUN_MIN = 3;
+
+/**
+ * The rows that belong to a monthly run of equal payments: of one party (see `partyKey`), sums within `LEASE_BAND` of
+ * each other, paid at gaps of 25 to 35 days, at least three in a row. Each run is judged by itself: two cars of one
+ * lessor are two runs, a rental of another sum in the same years is none. The rows should be of one direction.
+ */
+export function monthlyRunRows(rows: readonly Pick<Transaction, "id" | "accountId" | "merchant" | "amountCents" | "bookingDate">[]): Set<string> {
+  const byParty = new Map<string, (typeof rows)[number][]>();
+  for (const t of rows) byParty.set(partyKey(t), [...(byParty.get(partyKey(t)) ?? []), t]);
+  const out = new Set<string>();
+  const close = (run: typeof rows[number][]) => {
+    if (run.length >= RUN_MIN) for (const t of run) out.add(t.id);
+  };
+  const walk = (group: (typeof rows)[number][]) => {
+    const byDate = [...group].sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || a.id.localeCompare(b.id));
+    let run: typeof byDate = [];
+    for (const t of byDate) {
+      const gap = run.length ? dayNumber(t.bookingDate) - dayNumber(run[run.length - 1]!.bookingDate) : 0;
+      if (run.length && (gap < RUN_GAP[0] || gap > RUN_GAP[1])) {
+        close(run);
+        run = [];
+      }
+      run.push(t);
+    }
+    close(run);
+  };
+  for (const list of byParty.values()) {
+    const bySum = [...list].sort((a, b) => Math.abs(a.amountCents) - Math.abs(b.amountCents));
+    let group: typeof bySum = [];
+    for (const t of bySum) {
+      if (group.length && Math.abs(t.amountCents) > Math.abs(group[0]!.amountCents) * (1 + LEASE_BAND)) {
+        walk(group);
+        group = [];
+      }
+      group.push(t);
+    }
+    walk(group);
+  }
+  return out;
+}

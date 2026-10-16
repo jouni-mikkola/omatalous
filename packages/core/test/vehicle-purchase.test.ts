@@ -140,7 +140,7 @@ describe("the trade register's class for the sale of motor vehicles", () => {
   });
 
   it("does not make two companies of one name ambiguous when one sells cars and the other repairs them", () => {
-    const company = (businessId: string, name: string, code: string): RegistryCompany => ({ businessId, names: [name], industry: { code, codeSet: "TOL2008", label: null } });
+    const company = (businessId: string, name: string, code: string): RegistryCompany => ({ businessId, names: [name], active: true, industry: { code, codeSet: "TOL2008", label: null } });
     expect(matchCompany("Esimerkki", [company("1", "Esimerkki Oy", "45112")])).toMatchObject({ status: "found", category: "vehicle_purchase" });
     // the garage is picked, so the rows stay the car's upkeep
     expect(matchCompany("Esimerkki", [company("1", "Esimerkki Oy", "45112"), company("2", "Esimerkki Oy", "45201")])).toMatchObject({ status: "found", businessId: "2", category: "car" });

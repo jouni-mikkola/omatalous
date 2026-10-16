@@ -483,6 +483,14 @@
     "source": "recurring"
    },
    {
+    "date": "2026-11-10",
+    "name": "Nordea Gold",
+    "category": "transfer",
+    "cents": -45122,
+    "source": "card",
+    "basis": "balance"
+   },
+   {
     "date": "2026-11-12",
     "name": "Helen",
     "category": "utilities",
@@ -665,6 +673,7 @@
   "outUnknownCents": 0,
   "inUnknownCents": 0,
   "cardBillCents": 0,
+  "cardBillIssuers": [],
   "items": [
    {
     "kind": "loan",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { businessMerchants, categoryForIndustry, companyKey, industryCandidates, isBusinessRow, matchCompany, type RegistryCompany, shorterQuery } from "../src/industry.ts";
+import { categoryByTradeWord, categoryForCompany } from "../src/categorize.ts";
+import { businessMerchants, CAR_HIRE, categoryForIndustry, companyKey, formQuery, industryCandidates, isBusinessRow, matchCompany, type RegistryCompany, shorterQuery } from "../src/industry.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import type { Account } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -29,6 +30,18 @@ describe("categoryForIndustry", () => {
     ["94200", "TOL2025", "memberships"],
     ["61100", "TOL2025", "telecom"],
     ["35140", "TOL2008", "utilities"],
+    ["77110", "TOL2008", CAR_HIRE], // rental and leasing: the rows' rhythm tells which
+    ["77110", "TOL2025", CAR_HIRE],
+    ["64910", "TOL2025", "leasing"], // financial leasing
+    ["52211", "TOL2008", "transport"], // bus stations
+    ["52212", "TOL2025", "car"], // paid parking
+    ["52219", "TOL2008", "car"],
+    ["47595", "TOL2008", "shopping"], // musical instruments
+    ["47741", "TOL2025", "health"], // opticians in 2025
+    ["86230", "TOL2025", "health"], // dentists
+    ["96210", "TOL2025", "personal_care"],
+    ["93130", "TOL2008", "fitness"],
+    ["45201", "TOL2008", "car"], // garages
   ] as const)("%s (%s) → %s", (code, set, category) => {
     expect(categoryForIndustry(code, set)).toBe(category);
   });
@@ -38,12 +51,14 @@ describe("categoryForIndustry", () => {
     expect(categoryForIndustry("64200", "TOL2008")).toBeNull(); // holding companies: finance that lends nothing to a household
     expect(categoryForIndustry("70100", "TOL2025")).toBeNull(); // head offices
     expect(categoryForIndustry("abc", "TOL2025")).toBeNull();
+    expect(categoryForIndustry("52211", "TOL2025")).toBeNull(); // road freight terminals
   });
 });
 
-const company = (businessId: string, names: string[], code: string | null, codeSet: "TOL2008" | "TOL2025" = "TOL2025"): RegistryCompany => ({
+const company = (businessId: string, names: string[], code: string | null, codeSet: "TOL2008" | "TOL2025" = "TOL2025", active = true): RegistryCompany => ({
   businessId,
   names,
+  active,
   industry: code ? { code, codeSet, label: null } : null,
 });
 
@@ -106,6 +121,117 @@ describe("matchCompany", () => {
     // too short to be a name on its own
     expect(shorterQuery("Ab Tikkurila")).toBeNull();
     expect(shorterQuery("Ky Vantaa")).toBeNull();
+  });
+});
+
+describe("matchCompany with a short name, a brand or a broad code", () => {
+  it("finds the company among namesakes: equal name, then name with company form, then name that starts with it", () => {
+    const hits = [
+      company("1", ["Tyvensi Oy"], "47110"),
+      company("2", ["Ayvens Finance Group Oy"], "64190"),
+      company("3", ["Ayvens Oy"], "77110"),
+      company("4", ["Brayvens Oy"], "56300"),
+    ];
+    expect(matchCompany("Ayvens", hits)).toMatchObject({ status: "found", businessId: "3", category: CAR_HIRE });
+    // a name equal to the merchant as written beats the same name with a company form
+    expect(matchCompany("Ayvens", [...hits, company("5", ["Ayvens"], "77110")])).toMatchObject({ businessId: "5" });
+    expect(matchCompany("Ayvens", hits.filter((c) => c.businessId !== "3"))).toMatchObject({ businessId: "2" });
+  });
+
+  it("never matches inside a word", () => {
+    expect(matchCompany("Ayvens", [company("1", ["Brayvens Oy"], "56300"), company("2", ["Tayvensi Oy"], "56300")]).status).toBe("none");
+  });
+
+  it("takes a brand for the longer company name or for a parallel and an auxiliary name", () => {
+    expect(matchCompany("Esimerkki Gym", [company("1", ["Esimerkki Gym Fitness Oy"], "93130")])).toMatchObject({ status: "found", category: "fitness" });
+    expect(matchCompany("Esimerkki Gym", [company("1", ["Holding Esimerkki Oy", "Esimerkki Oy", "Esimerkki Gym"], "93130")])).toMatchObject({ status: "found", companyName: "Esimerkki Gym" });
+    expect(matchCompany("Esimerkki Gym", [company("1", ["Esimerkki Gym Fitness Oy"], "93130")], { exactOnly: true }).status).toBe("none");
+  });
+
+  it("prefers a company in the books to a ceased one, and one whose industry gives a category", () => {
+    const ceased = company("1", ["Pikku Kuntosali Oy"], "56300", "TOL2025", false);
+    const live = company("2", ["Pikku Kuntosali Oy"], "93130");
+    expect(matchCompany("Pikku Kuntosali", [ceased, live])).toMatchObject({ businessId: "2", category: "fitness" });
+    // a ceased company alone still answers
+    expect(matchCompany("Pikku Kuntosali", [ceased])).toMatchObject({ businessId: "1", category: "restaurants" });
+    // a namesake of a broad class does not stand in the way of the one with a category
+    expect(matchCompany("Pikku Kuntosali", [company("3", ["Pikku Kuntosali Oy"], "46900"), live])).toMatchObject({ businessId: "2" });
+    // two companies in the books with different categories: no answer
+    expect(matchCompany("Pikku Kuntosali", [company("3", ["Pikku Kuntosali Oy"], "56300"), live]).status).toBe("ambiguous");
+    // a ceased namesake with another category does not make it ambiguous
+    expect(matchCompany("Pikku Kuntosali", [company("3", ["Pikku Kuntosali Oy"], "56300", "TOL2025", false), live]).status).toBe("found");
+  });
+
+  it("a company in the books beats a ceased one at any fit, and a ceased one-word namesake answers nothing", () => {
+    const ceasedGarage = company("1", ["Linkki Oy"], "45200", "TOL2008", false);
+    const live = company("2", ["Linkki Ravintolat Oy"], "56300");
+    expect(matchCompany("Linkki", [ceasedGarage, live])).toMatchObject({ status: "found", businessId: "2", category: "restaurants" });
+    expect(matchCompany("Linkki", [ceasedGarage]).status).toBe("ambiguous");
+    // two words: a ceased company alone may be the one
+    expect(matchCompany("Linkki Pesu", [company("3", ["Linkki Pesu Oy"], "96010", "TOL2008", false)]).status).toBe("found");
+    // seven loose hits, five of them ceased: a common word, counted before the ceased ones go
+    const seven = Array.from({ length: 7 }, (_, i) => company(`${i}`, [`Arabia ${i} Oy`], i === 0 ? "45200" : "47591", "TOL2008", i < 2));
+    expect(matchCompany("Arabia", seven).status).toBe("ambiguous");
+  });
+
+  it("falls back to the trade word of the name when the code is broad or missing", () => {
+    const options = { byName: categoryByTradeWord };
+    const broad = company("1", ["Esimerkki Autokorjaamo Oy"], "46900");
+    expect(matchCompany("Esimerkki Autokorjaamo", [broad], options)).toMatchObject({ status: "found", businessId: "1", code: "46900", category: "car" });
+    expect(matchCompany("Esimerkki Autokorjaamo", [company("2", ["Esimerkki Autokorjaamo Oy"], null)], options).category).toBe("car");
+    expect(matchCompany("Esimerkki Autohuolto", [company("3", ["Esimerkki Autohuolto"], "46900")], options).category).toBe("car");
+    // the name says nothing: found, no category
+    expect(matchCompany("Gilvaria", [company("4", ["Gilvaria Oy"], "46900")], options)).toMatchObject({ status: "found", category: null });
+    // without the reader the broad code stays without one
+    expect(matchCompany("Esimerkki Autokorjaamo", [broad]).category).toBeNull();
+    // the industry wins over the name
+    expect(matchCompany("Esimerkki Autokorjaamo", [company("5", ["Esimerkki Autokorjaamo Oy"], "56300")], options).category).toBe("restaurants");
+  });
+
+  it("asks again with a company form only for a name without one", () => {
+    expect(formQuery("Ayvens")).toBe("Ayvens Oy");
+    expect(formQuery("Ayvens Oy")).toBeNull();
+    expect(formQuery("Esimerkki Gym Ab")).toBeNull();
+    // a person's name never goes to the register, with or without a form
+    expect(formQuery("Matti Meikalainen")).toBeNull();
+  });
+});
+
+describe("categoryByTradeWord", () => {
+  it.each([
+    ["Esimerkki Autokorjaamo Oy", "car"],
+    ["Esimerkki Autohuolto", "car"],
+    ["Esimerkki Katsastusasema Oy", "car"],
+    ["Esimerkki Taksi Oy", "transport"],
+    ["Esimerkki Hammasasema Oy", "health"],
+    ["Esimerkki Optiikka Oy", "health"],
+    ["Esimerkki Autoliike Oy", "vehicle_purchase"],
+    ["Kahvila Esimerkki", "restaurants"],
+    ["Esimerkin Hammaslaakari Oy", "health"],
+    ["Esimerkin Autokorjaamo Oy", "car"],
+    ["Esimerkki Frisor", "personal_care"],
+  ] as const)("%s → %s", (name, category) => {
+    expect(categoryByTradeWord(name)).toBe(category);
+  });
+
+  it("says nothing for a brand word, or a trade noun inside a word", () => {
+    for (const name of ["Power Market Oy", "Esimerkki Center Oy", "Esimerkki Shop Oy", "Esimerkki Perävaunukorjaamo Oy", "Kello Korjaamo Oy", "Puhelin Korjaamo Oy", "Esimerkki Verkstad Ab"]) expect(categoryByTradeWord(name), name).toBeNull();
+    // a broad code with such a name stays unfiled
+    expect(matchCompany("Power Market", [company("1", ["Power Market Oy"], "46900")], { byName: categoryByTradeWord })).toMatchObject({ status: "found", category: null });
+  });
+
+  it("says nothing for a name with no trade word, a lease or a bank", () => {
+    expect(categoryByTradeWord("Gilvaria Oy")).toBeNull();
+    expect(categoryByTradeWord("Esimerkki Autoleasing Oy")).toBeNull();
+    expect(categoryByTradeWord("Esimerkki Rahoitus Oy")).toBeNull();
+    expect(categoryByTradeWord("Esimerkki Linja-auto Oy")).not.toBe("vehicle_purchase");
+  });
+
+  it("gives a register answer the industry's category first, the name's after", () => {
+    expect(categoryForCompany({ code: "56300", codeSet: "TOL2025", companyName: "Esimerkki Autokorjaamo Oy" })).toBe("restaurants");
+    expect(categoryForCompany({ code: "46900", codeSet: "TOL2008", companyName: "Esimerkki Autokorjaamo Oy" })).toBe("car");
+    expect(categoryForCompany({ code: null, codeSet: null, companyName: "Esimerkki Autokorjaamo Oy" })).toBe("car");
+    expect(categoryForCompany({ code: "46900", codeSet: "TOL2008", companyName: null })).toBeNull();
   });
 });
 
@@ -239,6 +365,43 @@ describe("enrichTransactions with merchant memory and industries", () => {
     expect(byId.get(rows[0]!.id)).toMatchObject({ category: "restaurants", categorySource: "industry" });
     expect(byId.get(rows[1]!.id)).toMatchObject({ category: "income", categorySource: "default" });
     expect(byId.get(rows[2]!.id)?.categorySource ?? rows[2]!.categorySource).toBe("default");
+  });
+
+  it("files the rows of each monthly run of equal sums under Autoleasing, and every other row of the company under travel", () => {
+    const industries = new Map([["Ilmari Wheels", CAR_HIRE]]);
+    const row = (date: string, cents: number) => tx({ accountId: "card", bookingDate: date, amountCents: cents, merchant: "Ilmari Wheels", counterparty: "ILMARI WHEELS" });
+    const months = (cents: number, from: number, count: number) => Array.from({ length: count }, (_, i) => row(`2026-${String(from + i).padStart(2, "0")}-05`, cents));
+    const filed = (rows: ReturnType<typeof tx>[]) => new Map(enrichTransactions(rows, [checking, card], [], industries).map((t) => [t.id, t.category]));
+    // two cars, 400 and 600 a month: both are leases, and they stay so when a month comes in
+    const carA = months(-40000, 1, 6);
+    const carB = months(-60000, 1, 6);
+    const both = filed([...carA, ...carB]);
+    expect([...carA, ...carB].map((t) => both.get(t.id))).toEqual(Array(12).fill("leasing"));
+    const more = months(-40000, 7, 1);
+    const grown = filed([...carA, ...carB, ...more]);
+    expect([...carA, ...carB, ...more].map((t) => grown.get(t.id))).toEqual(Array(13).fill("leasing"));
+    // three holiday rentals of one sum, in months that do not follow each other: rentals
+    const holidays = [row("2026-02-10", -15000), row("2026-05-10", -15500), row("2026-09-10", -14800)];
+    const rented = filed(holidays);
+    expect(holidays.map((t) => rented.get(t.id))).toEqual(Array(3).fill("travel"));
+    // a one-off rental from a company that is leased from too
+    const oneOff = row("2026-04-20", -90000);
+    const mixed = filed([...months(-45900, 1, 6), oneOff]);
+    expect(mixed.get(oneOff.id)).toBe("travel");
+  });
+
+  it("files a car rental and leasing company's steady payment under Autoleasing and any other under travel", () => {
+    const industries = new Map([["Ilmari Wheels", CAR_HIRE]]);
+    const month = (m: number, cents: number) => tx({ accountId: "card", bookingDate: `2026-0${m}-05`, amountCents: cents, merchant: "Ilmari Wheels", counterparty: "ILMARI WHEELS" });
+    const filed = (rows: ReturnType<typeof tx>[]) => enrichTransactions(rows, [checking, card], [], industries).map((t) => [t.category, t.categorySource]);
+    // about the same sum in three months: a lease
+    expect(filed([month(1, -45900), month(2, -45900), month(3, -45900)])).toEqual(Array(3).fill(["leasing", "industry"]));
+    // two months only, or sums that wander: a rental
+    expect(filed([month(1, -45900), month(2, -45900)])).toEqual(Array(2).fill(["travel", "industry"]));
+    expect(filed([month(1, -45900), month(2, -12000), month(3, -80000)])).toEqual(Array(3).fill(["travel", "industry"]));
+    // a refund follows its purchase, it is not the register's to file
+    const refund = tx({ accountId: "card", bookingDate: "2026-03-20", amountCents: 3000, merchant: "Ilmari Wheels", counterparty: "ILMARI WHEELS" });
+    expect(filed([month(1, -45900), month(2, -45900), month(3, -45900), refund]).slice(3)).toEqual([["leasing", "match"]]);
   });
 
   it("applies the register's category to a shop's CSV card purchases once a row shows a card purchase", () => {

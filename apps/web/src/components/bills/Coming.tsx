@@ -14,7 +14,8 @@ type Ahead = NonNullable<DashboardData["ahead"]>;
 /**
  * The list in the groups of the window of Yhteenveto: what the accounts pay to the window's last day, the day before
  * the pay, under the line Yhteenveto has under its heading, then what they pay after it. So the first group's sum is the
- * bills of "Erääntyvät maksut" on Yhteenveto, which adds to them only a card's bill and an own transfer. A bill paid from
+ * bills of "Erääntyvät maksut" on Yhteenveto, which adds to them only an own transfer. A connected card's bill is a row
+ * of its due date's group, as it is on Yhteenveto. A bill paid from
  * the pay on the payday itself (`withPay`) is after the pay. With no pay that ends the window there is one group. The
  * group to the pay stays without a row too: nothing due before the pay is an answer. The one after it does not, when
  * the pay is further than the list reaches. What a credit card is charged (`onCard`) leaves no account: it is the last

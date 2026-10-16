@@ -172,8 +172,11 @@ account, so the bill must not count again. Each run works this out from the rows
   credit out: only the payments to the account and reference the credit came from are left as they were.
 - **Your rules.** The channel decides every payment that could be a transfer leg, also one that a rule of yours put in
   a debt, savings or *Muut* category. A rule to a purchase category (*Koti*) and a category set by hand on a row stay.
-- **Data quality.** The bills counted as spending show in Tietojen laatu (*Korttilaskuja … lasketaan menoiksi*), with a
-  card connected too: the bills of the months before the card's rows, and those of a card that is not connected.
+- **Data quality.** The bills counted as spending show in Tietojen laatu (*Korttilaskuja … ilman ostoja*) as a table by
+  issuer: the bills of 12 months, and why the purchases are missing: no card of that issuer is connected, or the bank
+  gives the card's purchases only from a day on. An issuer has one name under every legal suffix and word order (Morrow
+  Bank ASA, Morrow Bank AB Filial and plain Morrow are Morrow Bank; Komplett Bank, SEB Kort, Bank Norwegian, Resurs Bank
+  and Entercard likewise). The plain words *Komplett* and *Norwegian* alone stay what they are: a shop and an airline.
 - **Statement rows.** A member may type in the purchases of one bill from a card statement. The bill stays one row on
   its account (its amount, the balance, pairing and returns never see the rows). The sums of spending by category and
   month, and the totals shown beside them (*Menot*, net and saved), read the rows on their purchase days and what the

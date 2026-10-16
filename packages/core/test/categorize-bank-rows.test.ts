@@ -103,7 +103,7 @@ describe("a lender on no list, by the shape of its name", () => {
     [BANK_AB, "TALLETUSKORKO", 15, {}, "investment_income"],
     [BANK_AB, "SÄÄSTÖTILI", -200, {}, "savings"],
     // what the text says the money is: a lease, a bond, a card's credit; and a purchase through a payment service
-    ["ESIMERKKIRAHOITUS OY", "HUOLTOLEASING", -420, {}, "other"],
+    ["ESIMERKKIRAHOITUS OY", "HUOLTOLEASING", -420, {}, "leasing"],
     [BANK_AB, "JOUKKOLAINA", -1000, {}, "other"],
     [BANK_AB, "KORTTILUOTTO", -250, {}, "other"],
     ["KLARNA BANK AB", "LASKU 99887766", -250, {}, "shopping"],

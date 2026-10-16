@@ -16,6 +16,7 @@ afterEach(() => vi.restoreAllMocks());
 const company = (businessId: string, names: string[], code: string, codeSet = "TOIMI4") => ({
   businessId: { value: businessId },
   names: names.map((name, i) => ({ name, type: i === 0 ? "1" : "3" })),
+  tradeRegisterStatus: "1",
   mainBusinessLine: { type: code, typeCodeSet: codeSet, descriptions: [{ languageCode: "1", description: `Toimiala ${code}` }] },
 });
 
@@ -263,6 +264,19 @@ describe("industry lookup", () => {
     ]);
   });
 
+  it("a row that a trade word of the lexicon filed is an industry guess, with no register entry to show and no request about its name", async () => {
+    const { asked, fetchMock } = fakeRegister();
+    const { s, repo, admin } = await withData(fetchMock);
+    await ingestTransactions(repo, "chk", [raw("2026-09-07", -6, "KAHVIO ESIMERKKI OY", { description: "KORTTIOSTO" })], "csv");
+    await reprocess(repo, s.settings);
+    expect((await repo.allTransactions()).find((t) => t.merchant === "Kahvio Esimerkki Oy")).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    await lookupIndustries(s, { pauseMs: 0 });
+    expect(asked).not.toContain("Kahvio Esimerkki Oy");
+    const list = await admin.call("GET", "/api/transactions?merchant=Kahvio%20Esimerkki%20Oy");
+    expect(list.body.items[0]).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    expect(list.body.items[0].industry).toBeUndefined();
+  });
+
   it("another user sees register categories only for names their own lookup asked about", async () => {
     const { asked, fetchMock } = fakeRegister();
     const { s, member } = await withData(fetchMock);
@@ -318,6 +332,42 @@ describe("industry lookup", () => {
       await lookupIndustries(s, { pauseMs: 0 });
       expect((await repo.allTransactions()).find((t) => t.merchant === "Lyhty Puoti")?.categorySource).toBe(expected);
     }
+  });
+
+  it("asks again with the company form when a short name drowns among namesakes", async () => {
+    const namesakes = Array.from({ length: 12 }, (_, i) => company(`${String(5000000 + i)}-1`, [`Xbelvento ${i} Oy`], "56300"));
+    const own = company("3456789-3", ["Belvento Oy"], "93130");
+    for (const [plain, askedAgain, expected] of [
+      [namesakes, true, "industry"],
+      // an equal name among the hits: nothing more to ask
+      [[...namesakes, company("3456780-3", ["Belvento"], "93130")], false, "industry"],
+      // ten hits or fewer: the plain answer stands
+      [namesakes.slice(0, 10), false, "default"],
+    ] as const) {
+      const { asked, fetchMock } = fakeRegister({
+        answer: (name) => (name === "Belvento" ? Response.json({ totalResults: plain.length, companies: plain }) : name === "Belvento Oy" ? Response.json({ totalResults: 1, companies: [own] }) : undefined),
+      });
+      const { s, repo } = await withData(fetchMock);
+      await ingestTransactions(repo, "chk", [raw("2026-09-06", -5, "BELVENTO", { description: "KORTTIOSTO" })], "csv");
+      await reprocess(repo, s.settings);
+      await lookupIndustries(s, { pauseMs: 0 });
+      expect(asked.includes("Belvento Oy")).toBe(askedAgain);
+      expect((await repo.allTransactions()).find((t) => t.merchant === "Belvento")?.categorySource).toBe(expected);
+    }
+  });
+
+  it("files a company whose industry is too broad by the trade word of its name, and keeps it at the next run", async () => {
+    const { fetchMock } = fakeRegister({
+      answer: (name) => (name === "Pikku Kulma Oy" ? Response.json({ totalResults: 1, companies: [company("3456789-3", ["Pikku Kulma Autokorjaamo Oy"], "46900")] }) : undefined),
+    });
+    const { s, repo } = await withData(fetchMock);
+    await ingestTransactions(repo, "chk", [raw("2026-09-06", -90, "PIKKU KULMA OY", { description: "KORTTIOSTO" })], "csv");
+    await reprocess(repo, s.settings);
+    await lookupIndustries(s, { pauseMs: 0 });
+    const filed = async () => (await repo.allTransactions()).find((t) => t.merchant === "Pikku Kulma Oy");
+    expect(await filed()).toMatchObject({ category: "car", categorySource: "industry" });
+    await reprocess(repo, s.settings);
+    expect(await filed()).toMatchObject({ category: "car", categorySource: "industry" });
   });
 
   it("an unexpected error on one name is logged without the name and the run goes on", async () => {
@@ -519,11 +569,16 @@ describe("register answer parsing", () => {
         names: [{ name: "Old Name Oy", endDate: "2001-01-01" }, { name: "New Name Oy" }, { name: 42 }],
         mainBusinessLine: { type: "56300", typeCodeSet: "TOIMI4", descriptions: [{ languageCode: "1", description: "Baarit ja kahvilat" }] },
       }),
-    ).toEqual({ businessId: "0112038-9", names: ["New Name Oy"], industry: { code: "56300", codeSet: "TOL2025", label: "Baarit ja kahvilat" } });
+    ).toEqual({ businessId: "0112038-9", names: ["New Name Oy"], active: false, industry: { code: "56300", codeSet: "TOL2025", label: "Baarit ja kahvilat" } });
     expect(parseCompany({ businessId: { value: "x" }, names: [{ name: "A" }] })).toBeNull();
     expect(parseCompany({ businessId: { value: "0112038-9" }, names: [{ name: "Gone", endDate: "2020-01-01" }] })).toBeNull();
     expect(parseCompany({ businessId: { value: "0112038-9" }, names: [{ name: "A Oy" }], mainBusinessLine: { type: "<script>", typeCodeSet: "TOIMI4" } })?.industry).toBeNull();
     expect(parseCompany(null)).toBeNull();
+  });
+
+  it("takes a company for active when the register says it is registered", () => {
+    const status = (tradeRegisterStatus: unknown) => parseCompany({ businessId: { value: "0112038-9" }, names: [{ name: "A Oy" }], tradeRegisterStatus })?.active;
+    expect([status("1"), status(1), status("4"), status("3"), status(undefined)]).toEqual([true, true, false, false, false]);
   });
 
   it("knows only the two code sets, not object properties", () => {

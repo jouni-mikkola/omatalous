@@ -495,7 +495,8 @@ describe("a card's bill paid from a joint account both partners linked", () => {
     expect(ahead.balance).toMatchObject({ counts: "part", accounts: 1 });
     expect(ahead.rows).toMatchObject([{ date: "2026-10-13", name: "joint-card", category: "transfer", source: "card" }]);
     expect(ahead.totals).toMatchObject({ recurringCents: 0, cardCents: -ahead.rows[0].cents });
-    expect(ahead.upcoming.map((r: { name: string }) => r.name)).toEqual(["Yhteinen Matka Oy"]);
+    // Laskut lists the card's bill on its day, as the window does
+    expect(ahead.upcoming.map((r: { name: string }) => r.name)).toEqual(["joint-card", "Yhteinen Matka Oy"]);
   });
 });
 

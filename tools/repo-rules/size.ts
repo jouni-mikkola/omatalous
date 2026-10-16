@@ -23,7 +23,7 @@ const TEST_BUDGET = 800;
  */
 const LARGE_FILES: Record<string, number> = {
   // the rule table reads top to bottom; split by concern when next touched
-  "packages/core/src/categorize.ts": 596,
+  "packages/core/src/categorize.ts": 546,
   // the installer and the maintenance helper: one script each, with their own shell suites
   "scripts/install.sh": 905,
   "scripts/ops-helper.sh": 580,

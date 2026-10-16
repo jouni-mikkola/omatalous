@@ -141,8 +141,8 @@ export interface AheadData {
   rows: AheadRow[];
   /**
    * The bills, subscriptions and typed-in bills of the next 30 days, in the same order, whatever the window is and
-   * whatever account pays them: Laskut lists a subscription a card pays too, marked `onCard`. No pay, no card's bill
-   * and no transfer.
+   * whatever account pays them: Laskut lists a subscription a card pays too, marked `onCard`, and a connected card's
+   * bill on its due date, as Yhteenveto lists it. No pay and no transfer.
    */
   upcoming: AheadRow[];
   /** The usual everyday spending of the counted accounts a day, in whole cents (`everydayPerDay`): told beside the figures and taken off none. 0 under eight whole weeks of history. */
@@ -308,10 +308,11 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
     ...expectedCharges(outside.filter((s) => !onCard(s)), from, thirty, expected).map(chargeRow),
     ...expectedCharges(outside.filter(onCard), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), onCard: true })),
   ];
-  const upcoming = [...all.filter((r) => r.source !== "income" && r.date <= thirty), ...elsewhere].sort(byDay);
-  for (const m of counted ? expectedMoves(ctx, counted.ids, balances, from, to) : []) {
+  // the moves are found to the end of Laskut's 30 days: a card's bill is in the list like any bill, a transfer is not
+  for (const m of counted ? expectedMoves(ctx, counted.ids, balances, from, reachPayments) : []) {
     all.push({ date: m.date, name: m.name, category: "transfer", cents: -m.amountCents, source: m.source, ...(m.basis ? { basis: m.basis } : {}) });
   }
+  const upcoming = [...all.filter((r) => r.source !== "income" && r.source !== "transfer" && r.date <= thirty), ...elsewhere].sort(byDay);
   const rows = all.filter((r) => r.date <= to && !r.withPay).sort(byDay);
 
   const rate = everydayPerDay(ctx, monthOf(from), counted?.ids);

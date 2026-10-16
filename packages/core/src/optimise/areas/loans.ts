@@ -13,6 +13,7 @@ import { cardCosts } from "../../analysis/credit.ts";
 import { formatFiDate } from "../../analysis/format.ts";
 import { addMonths, monthOf } from "../../dates.ts";
 import { householdDebts } from "../../household-debts.ts";
+import { sameSeriesKey } from "../../loan-detect.ts";
 import { loanBalanceOn, loansOf } from "../../loans.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { FIGURE_UNKNOWN, loansWithout, loansWithoutRate, maybeTwice, SAME_DEBT_TWICE } from "../../reports/loans.ts";
@@ -126,7 +127,7 @@ function savedMortgage(a: AreaInput, series: RecurringSeries): SavedMortgage | n
   const mortgages = householdDebts(a.balances, a.inputs, a.today).loans.filter((l) => l.kind === "mortgage");
   if (!mortgages.length) return null;
   const owed = (loan: Loan) => loanBalanceOn(loan, a.today).cents;
-  const loan = mortgages.find((l) => l.seriesKey === series.id) ?? [...mortgages].sort((x, y) => (owed(y) ?? 0) - (owed(x) ?? 0) || x.id.localeCompare(y.id))[0]!;
+  const loan = mortgages.find((l) => l.seriesKey !== null && sameSeriesKey(l.seriesKey, series.id, mortgages.flatMap((m) => m.seriesKey ?? []))) ?? [...mortgages].sort((x, y) => (owed(y) ?? 0) - (owed(x) ?? 0) || x.id.localeCompare(y.id))[0]!;
   return { loan, balanceCents: owed(loan) };
 }
 

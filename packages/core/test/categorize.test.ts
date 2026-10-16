@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { categorize, categoryForMcc, compileRules, isUsablePattern, patternProblem } from "../src/categorize.ts";
+import { categorize, compileRules, isUsablePattern, patternProblem } from "../src/categorize.ts";
+import { categoryForMcc } from "../src/categorize-mcc.ts";
 import { isUnknownMerchant, namesUnknownMerchant, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 
 const rules = compileRules([]);

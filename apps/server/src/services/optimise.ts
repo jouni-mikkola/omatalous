@@ -64,7 +64,7 @@ async function compute(s: Services, userId: string, scope: Scope, without?: stri
   const values: InputValues = Object.fromEntries(inputRows.map(({ key, value, asOf }) => [key, { value, asOf }]));
   // the user's own register answers, for the merchants in view; a lookup never happens here
   const merchants = new Set(ctx.txs.map((t) => t.merchant));
-  const industry = new Map([...codes].filter(([merchant]) => merchants.has(merchant)).map(([merchant, { code }]): [string, string] => [merchant, code]));
+  const industry = new Map([...codes].filter(([merchant]) => merchants.has(merchant)).flatMap(([merchant, { code }]): [string, string][] => (code ? [[merchant, code]] : [])));
   // a state is left out when the finding it names is wanted as the frame sees it before the decision
   const data = buildOptimise({ ctx, balances, inputs, values, states: without ? states.filter((st) => st.findingId !== without) : states, industry });
   return { ctx, accounts, data, inputRows, states };

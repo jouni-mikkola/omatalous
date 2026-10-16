@@ -1,4 +1,4 @@
-import { seriesMarkSubject } from "@banking/core";
+import { categorize, compileRules, type FindingState, normalizeMerchant, seriesMarkSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { seedCsv } from "./csv-seed.ts";
@@ -72,14 +72,15 @@ describe("a merchant renamed by the card account's wording", () => {
     // the two the household never sorted stay automatic; its two choices are kept on their own purchase, as its own
     const after = ["Tori gifts/user", "Tori home/user", "Tori other/default", "Tori other/default"];
     expect(await state()).toEqual(after);
-    expect(await repo.listRules()).toEqual([]);
-    // a mark stays on the name it was made on
+    // the two rules chose differently: the new name has none, and the old names keep theirs for a rollback
+    expect((await repo.listRules()).map((r) => r.pattern).sort()).toEqual([TORI[0]![1], TORI[1]![1]].sort());
+    // a mark made on one of four names is a choice the others did not make: it stays on its own name
     expect((await repo.listMarks()).map((m) => [m.subject, m.mark])).toEqual([[`merchant:${TORI[0]![1]}`, "cancelled"]]);
 
     // a second run finds nothing to change
     expect(await runUpgradeTasks(s, "0.10.0+tori again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
     expect(await state()).toEqual(after);
-    expect(await repo.listRules()).toEqual([]);
+    expect((await repo.listRules()).map((r) => r.pattern).sort()).toEqual([TORI[0]![1], TORI[1]![1]].sort());
   });
 
   it("settles a rule only onto the rows it can describe: not a row set by hand, not a transfer, no income on money out, no debt category on money in", async () => {
@@ -149,15 +150,138 @@ describe("a merchant renamed by the card account's wording", () => {
     expect(await runUpgradeTasks(s, "0.14.0+veikkaus")).toMatchObject({ users: 1, merchantsRenamed: 6 });
 
     const after = await state();
-    // one payee, and the two rows the household sorted keep what it chose
+    // one payee; the choice on one spelling of three covers the rows of that spelling only, and the rule stays on its name
     expect(new Set(after.map((line) => line.split(" ")[0]))).toEqual(new Set(["Veikkaus"]));
-    expect(after.slice(0, 2)).toEqual(["Veikkaus gifts/user", "Veikkaus gifts/user"]);
-    expect(await repo.listRules()).toEqual([]);
+    expect(after).toEqual([...Array(2).fill("Veikkaus gifts/user"), ...Array(4).fill("Veikkaus gambling/rule")]);
+    expect((await repo.listRules()).map((r) => [r.pattern, r.category])).toEqual([["Veikkaus Oy", "gifts"]]);
 
     // a second run finds nothing to change
     expect(await runUpgradeTasks(s, "0.14.0+veikkaus again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
     expect(await state()).toEqual(after);
-    // the other spellings were never sorted by the household: they take the automatic category of the one payee
-    expect(after.slice(2)).toEqual(Array(4).fill("Veikkaus gambling/rule"));
+  });
+});
+
+describe("one card issuer under three names: what the household chose on the old names follows", () => {
+  const TEXTS = [
+    ["MORROW BANK ASA", "Morrow Bank Asa"],
+    ["MORROW BANK AB", "Morrow Bank Ab"],
+    ["MORROW BANK ASA FILIAL I FINLAND", "Morrow Bank Asa Filial I"],
+  ] as const;
+  const NEW_NAME = "Morrow Bank";
+  const CARD_CSV = ["Kirjauspäivä;Määrä;Nimi;Otsikko", ...TEXTS.flatMap(([text], i) => [1, 2].map((n) => `2026/09/0${i * 2 + n};-${100 + i * 20 + n},00;;${text}`))].join("\n");
+  /** The rows as the version before stored them, one spelling each, with the household's rules and marks on the old names. */
+  async function oldHousehold(rules: readonly (readonly [string, string])[], marks: readonly (readonly [string, "cancelled" | "dismissed"])[]) {
+    const { s, adminId, admin } = await setupApp();
+    const repo = s.finance(adminId);
+    expect((await seedCsv(s, admin, { content: CARD_CSV, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+    for (const [text, old] of TEXTS) {
+      await s.db.run("UPDATE transactions SET merchant = ?, category = 'other', category_source = 'default' WHERE user_id = ? AND description LIKE ?", [old, adminId, `%${text}`]);
+    }
+    for (const [old, category] of rules) {
+      await repo.setMerchantRule(old, category);
+      await s.db.run("UPDATE transactions SET category = ?, category_source = 'rule' WHERE user_id = ? AND merchant = ?", [category, adminId, old]);
+    }
+    for (const [old, mark] of marks) await repo.setMark(`merchant:${old}`, mark, "2026-09-05T00:00:00.000Z");
+    const rows = async () => (await repo.allTransactions()).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)).map((t) => `${t.merchant} ${t.category}/${t.categorySource}`);
+    return { s, repo, rows };
+  }
+  const decision = (name: string, until: string): FindingState => ({ findingId: `subscriptions:cheaper:${name}`, status: "snoozed", reason: null, until, effectiveDate: null, midCents: 5000, baseline: null, decidedAt: "2026-09-05T00:00:00.000Z" });
+  const ruleList = async (repo: Awaited<ReturnType<typeof oldHousehold>>["repo"]) => (await repo.listRules()).map((r) => [r.pattern, r.category]).sort();
+
+  /** Rows of made-up bills under the names the version before stored, the household's rules on names, and the run. */
+  async function seeded(rows: readonly (readonly [text: string, old: string, euros: number])[], rules: readonly (readonly [string, string])[]) {
+    const { s, adminId, admin } = await setupApp();
+    const repo = s.finance(adminId);
+    const csv = ["Kirjauspäivä;Määrä;Nimi;Otsikko", ...rows.map(([text, , euros], i) => `2026/0${(i % 8) + 1}/05;-${euros},00;;${text}`)].join("\n");
+    expect((await seedCsv(s, admin, { content: csv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+    const ids = (await repo.allTransactions()).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)).map((t) => t.id);
+    for (const [i, [, old]] of rows.entries()) {
+      await s.db.run("UPDATE transactions SET merchant = ?, category = 'other', category_source = 'default' WHERE user_id = ? AND id = ?", [old, adminId, ids[i]!]);
+    }
+    for (const [old, category] of rules) {
+      await repo.setMerchantRule(old, category);
+      await s.db.run("UPDATE transactions SET category = ?, category_source = 'rule' WHERE user_id = ? AND merchant = ?", [category, adminId, old]);
+    }
+    const state = async () => (await repo.allTransactions()).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)).map((t) => `${t.merchant} ${t.category}/${t.categorySource}`);
+    return { s, repo, state };
+  }
+  /** Runs the upgrade and again: the second run changes no row, rule, mark or decision. */
+  async function upgradeTwice({ s, repo, state }: Awaited<ReturnType<typeof seeded>>, build: string) {
+    expect(await runUpgradeTasks(s, `${build}+first`)).toMatchObject({ users: 1 });
+    const [rules, marks, states, rows] = [await ruleList(repo), await repo.listMarks(), await repo.listStates(), await state()];
+    expect(await runUpgradeTasks(s, `${build}+again`)).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
+    expect(await ruleList(repo)).toEqual(rules);
+    expect(await repo.listMarks()).toEqual(marks);
+    expect(await repo.listStates()).toEqual(states);
+    expect(await state()).toEqual(rows);
+    return rows;
+  }
+
+  it("when every old name chose the same, it is the new name's rule, mark and decision, a bill that comes later is sorted by it, and the old keys stay", async () => {
+    const h = await oldHousehold(TEXTS.map(([, old]) => [old, "gifts"] as const), TEXTS.map(([, old]) => [old, "cancelled"] as const));
+    for (const [, old] of TEXTS) await h.repo.setState(decision(old, "2027-01-01"));
+    expect(await runUpgradeTasks(h.s, "0.60.0+issuers")).toMatchObject({ users: 1, merchantsRenamed: 6 });
+    expect(await h.rows()).toEqual(Array(6).fill(`${NEW_NAME} gifts/rule`));
+    expect(await ruleList(h.repo)).toEqual([[NEW_NAME, "gifts"], ...TEXTS.map(([, old]) => [old, "gifts"])].sort());
+    expect((await h.repo.listMarks()).map((m) => m.subject).sort()).toEqual([`merchant:${NEW_NAME}`, ...TEXTS.map(([, old]) => `merchant:${old}`)].sort());
+    expect((await h.repo.listStates()).map((x) => x.findingId).sort()).toEqual([`subscriptions:cheaper:${NEW_NAME}`, ...TEXTS.map(([, old]) => `subscriptions:cheaper:${old}`)].sort());
+    // the next bill is read as the new name and meets the rule
+    const rule = (await h.repo.listRules()).find((r) => r.pattern === NEW_NAME)!;
+    expect(categorize({ merchant: normalizeMerchant(null, "MORROW BANK ASA"), counterparty: null, description: null, mcc: null, amountCents: -12_000 }, compileRules([rule])).category).toBe("gifts");
+
+    // a second run changes nothing
+    const [rulesBefore, marksBefore, statesBefore] = [await ruleList(h.repo), await h.repo.listMarks(), await h.repo.listStates()];
+    expect(await runUpgradeTasks(h.s, "0.60.0+issuers again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
+    expect(await ruleList(h.repo)).toEqual(rulesBefore);
+    expect(await h.repo.listMarks()).toEqual(marksBefore);
+    expect(await h.repo.listStates()).toEqual(statesBefore);
+    expect(await h.rows()).toEqual(Array(6).fill(`${NEW_NAME} gifts/rule`));
+  });
+
+  it("a choice on one old name only is the new name's none: it covers its own rows, and the names without it keep their category", async () => {
+    const { s, repo, rows } = await oldHousehold([[TEXTS[0][1], "gifts"]], [[TEXTS[1][1], "cancelled"]]);
+    await repo.setState(decision(TEXTS[2][1], "2027-01-01"));
+    expect(await runUpgradeTasks(s, "0.60.0+one")).toMatchObject({ users: 1, merchantsRenamed: 6 });
+    expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(4).fill(`${NEW_NAME} card_bill/rule`)]);
+    expect(await ruleList(repo)).toEqual([[TEXTS[0][1], "gifts"]]);
+    expect((await repo.listMarks()).map((m) => m.subject)).toEqual([`merchant:${TEXTS[1][1]}`]);
+    expect((await repo.listStates()).map((x) => x.findingId)).toEqual([`subscriptions:cheaper:${TEXTS[2][1]}`]);
+    const [rulesBefore, rowsBefore] = [await ruleList(repo), await rows()];
+    expect(await runUpgradeTasks(s, "0.60.0+one again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
+    expect(await ruleList(repo)).toEqual(rulesBefore);
+    expect(await rows()).toEqual(rowsBefore);
+  });
+
+  it("a rule on the plain name does not reach the bank's bills, which had none", async () => {
+    const h = await seeded([["MORROW", "Morrow", 45], ["MORROW", "Morrow", 46], ["MORROW BANK ASA", "Morrow Bank Asa", 400], ["MORROW BANK ASA", "Morrow Bank Asa", 410]], [["Morrow", "gifts"]]);
+    const rows = await upgradeTwice(h, "0.60.0+plain");
+    // the two rows the household sorted keep their category; the bills are still card bills
+    expect(rows.sort()).toEqual(["Morrow Bank card_bill/rule", "Morrow Bank card_bill/rule", "Morrow Bank gifts/user", "Morrow Bank gifts/user"]);
+    expect(await ruleList(h.repo)).toEqual([["Morrow", "gifts"]]);
+  });
+
+  it("the new name's own rule stays when an old name chose differently, and so do its rows", async () => {
+    const h = await seeded([["MORROW BANK", "Morrow Bank", 300], ["MORROW BANK", "Morrow Bank", 310], ["MORROW BANK ASA", "Morrow Bank Asa", 400], ["MORROW BANK ASA", "Morrow Bank Asa", 410]], [["Morrow Bank", "loans"], ["Morrow Bank Asa", "gifts"]]);
+    const rows = await upgradeTwice(h, "0.60.0+own");
+    expect(await ruleList(h.repo)).toEqual([["Morrow Bank", "loans"], ["Morrow Bank Asa", "gifts"]].sort());
+    expect(rows.sort()).toEqual(["Morrow Bank gifts/user", "Morrow Bank gifts/user", "Morrow Bank loans/rule", "Morrow Bank loans/rule"]);
+  });
+
+  it("old names that chose differently give the new name no rule and no mark, and each keeps its rows as the household set them", async () => {
+    const { s, repo, rows } = await oldHousehold([[TEXTS[0][1], "gifts"], [TEXTS[1][1], "home"]], [[TEXTS[0][1], "cancelled"], [TEXTS[1][1], "dismissed"]]);
+    await repo.setState(decision(TEXTS[0][1], "2027-01-01"));
+    await repo.setState(decision(TEXTS[1][1], "2027-02-01"));
+    expect(await runUpgradeTasks(s, "0.60.0+conflict")).toMatchObject({ users: 1, merchantsRenamed: 6 });
+    expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(2).fill(`${NEW_NAME} home/user`), ...Array(2).fill(`${NEW_NAME} card_bill/rule`)]);
+    // the old rules stay for a rollback; the new name has none
+    expect(await ruleList(repo)).toEqual([[TEXTS[0][1], "gifts"], [TEXTS[1][1], "home"]].sort());
+    expect((await repo.listMarks()).map((m) => m.subject).sort()).toEqual([`merchant:${TEXTS[0][1]}`, `merchant:${TEXTS[1][1]}`].sort());
+    expect((await repo.listStates()).map((x) => x.findingId).sort()).toEqual([`subscriptions:cheaper:${TEXTS[0][1]}`, `subscriptions:cheaper:${TEXTS[1][1]}`].sort());
+
+    const [rulesBefore, marksBefore, rowsBefore] = [await ruleList(repo), await repo.listMarks(), await rows()];
+    expect(await runUpgradeTasks(s, "0.60.0+conflict again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
+    expect(await ruleList(repo)).toEqual(rulesBefore);
+    expect(await repo.listMarks()).toEqual(marksBefore);
+    expect(await rows()).toEqual(rowsBefore);
   });
 });

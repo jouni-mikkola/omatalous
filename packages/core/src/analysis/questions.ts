@@ -1,4 +1,4 @@
-import { dayNumber } from "../dates.ts";
+import { dayNumber, fromDayNumber } from "../dates.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import { ASK_LIMIT } from "../money-trace.ts";
@@ -7,7 +7,7 @@ import { nameOf, userNameOf } from "../person-names.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate, PayerInput, PayerRole, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
-import { isCardBill } from "./data-quality.ts";
+import { missingCardPurchases } from "./card-bills.ts";
 import { incomeTypeOf } from "./income.ts";
 import type { DateRange } from "./period.ts";
 
@@ -78,6 +78,8 @@ export interface Questions {
   inUnknownCents: number;
   /** Card bills counted as spending: purchases the app cannot see. */
   cardBillCents: number;
+  /** The issuers of those bills, the largest two by sum. */
+  cardBillIssuers: string[];
   /** The largest questions: five, or three when the inputs carry payer roles. */
   items: FrontQuestion[];
   /** How many questions there are in all. */
@@ -175,13 +177,15 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   let inCents = 0;
   let outUnknownCents = 0;
   let inUnknownCents = 0;
-  let cardBillCents = 0;
+  // the card bills are the rows of Tietojen laatu's table over the same twelve months, so the two figures are one
+  const billsBy = new Map<string, number>();
+  for (const m of missingCardPurchases(ctx, { from: fromDayNumber(toDay - WINDOW_DAYS + 1), to: range.to })) billsBy.set(m.issuer, (billsBy.get(m.issuer) ?? 0) + m.cents);
+  const cardBillCents = [...billsBy.values()].reduce((s, c) => s + c, 0);
   const out = new Map<string, Group>();
   const inn = new Map<string, Group>();
   for (const t of rows) {
     outCents += t.spend;
     inCents += t.flows.income;
-    if (isCardBill(t)) cardBillCents += t.spend;
     if (t.category === "other" && t.categorySource === "default" && t.spend > 0) {
       const cents = netSpend(t);
       outUnknownCents += cents;
@@ -206,5 +210,5 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
 
   const money = outCents + inCents;
   const share = money === 0 ? null : Math.min(1, Math.max(0, 1 - (outUnknownCents + inUnknownCents + cardBillCents) / money));
-  return { share, outCents, inCents, outUnknownCents, inUnknownCents, cardBillCents, items: items.slice(0, inputs.payers ? MAX_ITEMS_WITH_PAYERS : MAX_ITEMS), total: items.length };
+  return { share, outCents, inCents, outUnknownCents, inUnknownCents, cardBillCents, cardBillIssuers: [...billsBy].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fi")).slice(0, 2).map(([name]) => name), items: items.slice(0, inputs.payers ? MAX_ITEMS_WITH_PAYERS : MAX_ITEMS), total: items.length };
 }

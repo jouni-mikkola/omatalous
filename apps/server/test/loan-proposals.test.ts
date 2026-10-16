@@ -126,3 +126,42 @@ describe("loan proposals", () => {
     expect(await named("household")).toEqual([]);
   });
 });
+
+describe("a loan saved under an old spelling of a card issuer's name", () => {
+  // the upgrade gave the issuer one name, so the instalments that come now carry "Morrow Bank"; the loan's key is not rewritten
+  const issuerRows = [4, 5, 6, 7, 8, 9, 10].map((month) => raw(`2026-${String(month).padStart(2, "0")}-05`, -250, "MORROW BANK ASA", "LAINAN LYHENNYS"));
+  async function withIssuerLoan(keyName: string) {
+    const t = await setupApp();
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk-issuer", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+    await ingestTransactions(repo, "chk-issuer", issuerRows, "csv");
+    await reprocess(repo, t.s.settings);
+    const proposals = async () => (await t.admin.call("GET", "/api/loans/proposals")).body.proposals as { key: string; payee: string }[];
+    const [proposal] = await proposals();
+    expect(proposal!.key).toBe("out:chk-issuer:Morrow Bank#25000");
+    const saved = await t.admin.call("POST", "/api/loans", { name: "Kulutusluotto", kind: "consumer", balanceCents: 900_000, balanceDate: "2026-10-01", paymentCents: 25000, intervalMonths: 1, seriesKey: `out:chk-issuer:${keyName}#25000` });
+    expect(saved.status).toBe(200);
+    return { proposals, key: saved.body.loan.seriesKey as string, admin: t.admin, id: saved.body.loan.id as string };
+  }
+
+  it("still reaches the new instalments, and the loan's own key stays as it was saved", async () => {
+    const t = await withIssuerLoan("Morrow Bank Asa");
+    expect(await t.proposals()).toEqual([]);
+    expect(t.key).toBe("out:chk-issuer:Morrow Bank Asa#25000");
+  });
+
+  it("another issuer's loan does not", async () => {
+    const t = await withIssuerLoan("Bank Norwegian");
+    expect((await t.proposals()).map((p) => p.key)).toEqual(["out:chk-issuer:Morrow Bank#25000"]);
+  });
+
+  it("a key with no amount matches the one name only while it is the only loan in it; two loans in one name keep to their own spellings", async () => {
+    const t = await withIssuerLoan("Morrow Bank Asa");
+    await t.admin.call("DELETE", `/api/loans/${t.id}`);
+    const save = async (seriesKey: string) => expect((await t.admin.call("POST", "/api/loans", { name: "Kulutusluotto", kind: "consumer", balanceCents: 900_000, balanceDate: "2026-10-01", paymentCents: 25000, intervalMonths: 1, seriesKey })).status).toBe(200);
+    await save("out:chk-issuer:Morrow Bank Asa");
+    expect(await t.proposals()).toEqual([]);
+    await save("out:chk-issuer:Komplett Bank Asa");
+    expect((await t.proposals()).map((p) => p.key)).toEqual(["out:chk-issuer:Morrow Bank#25000"]);
+  });
+});

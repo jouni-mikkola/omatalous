@@ -26,7 +26,7 @@ import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
 import { cancelledSubjects, isCancelled } from "./commitments.ts";
 import { loansOf } from "./loans.ts";
-import { fold } from "./merchant.ts";
+import { cardIssuerName, fold } from "./merchant.ts";
 import { parseSeriesId, type RecurringSeries, seriesId } from "./recurring.ts";
 import type { IsoDate, LoanKind, UserInputs, UserMark } from "./types.ts";
 import { hasPayeeForm, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
@@ -73,17 +73,39 @@ export function notLoanKey(subject: string): string | null {
   return parseSeriesId(key)?.accountId ? key : null;
 }
 
+/** The same payee: the same name, or two spellings of one card issuer ("Morrow Bank Asa", "Morrow Bank"), which the upgrade merged into one. */
+const sameName = (a: string, b: string): boolean => a === b || (cardIssuerName(fold(a)) !== null && cardIssuerName(fold(a)) === cardIssuerName(fold(b)));
+
+/**
+ * A key with no amount names every series of its payee. Where another saved loan's key holds the same name in another
+ * spelling, each of the two keeps to its own spelling: the one name is not theirs both.
+ */
+const spelledAlone = (key: string, others: readonly string[]): boolean =>
+  parseSeriesId(key)?.product === null && others.some((other) => other !== key && sameSeriesKey(other, key));
+
+/**
+ * Whether two series keys are one series, whatever spelling of an issuer's name each was written with. `others` are
+ * the other saved loans' keys: with one of them in the same name, a key with no amount matches its own spelling only.
+ */
+export function sameSeriesKey(a: string, b: string, others: readonly string[] = []): boolean {
+  const [x, y] = [parseSeriesId(a), parseSeriesId(b)];
+  if (a === b) return true;
+  if (x === null || y === null || x.direction !== y.direction || x.accountId !== y.accountId || x.product !== y.product) return false;
+  return spelledAlone(a, others) ? x.merchant === y.merchant : sameName(x.merchant, y.merchant);
+}
+
 /**
  * Whether a stored key (a loan's `seriesKey`, or the key of an "Ei laina" mark) names this series: the same payee,
  * account and direction, and a payment the series has charged. `covers` owns how far apart two payments of one
  * contract can be, and reads the key as a mark on the series. Every charge is asked, so a key holds after the rate has
  * moved the payment many times. A key without a payment names every series the payee has on the account.
  */
-function names(key: string, s: RecurringSeries, amounts: readonly number[]): boolean {
-  const subject = seriesMarkSubject({ id: key, kind: "bill", typicalAmountCents: 0 });
+function names(key: string, s: RecurringSeries, amounts: readonly number[], others: readonly string[] = []): boolean {
   const named = parseSeriesId(key);
   const own = parseSeriesId(s.id);
-  if (!named || !own || named.direction !== own.direction || named.accountId !== own.accountId || named.merchant !== own.merchant) return false;
+  if (!named || !own || named.direction !== own.direction || named.accountId !== own.accountId || !(spelledAlone(key, others) ? named.merchant === own.merchant : sameName(named.merchant, own.merchant))) return false;
+  // a key written under an old spelling of an issuer's name holds for the series under the one name; the key itself is not changed
+  const subject = seriesMarkSubject({ id: seriesId({ ...named, merchant: own.merchant }), kind: "bill", typicalAmountCents: 0 });
   if (typeof named.product !== "number") return named.product === null;
   return amounts.some((cents) => covers(subject, { id: s.id, merchant: s.merchant, kind: "subscription", typicalAmountCents: cents, priceChange: null }));
 }
@@ -113,10 +135,11 @@ function kindOf(category: string, text: string): LoanKind {
  */
 export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: Charges) => boolean {
   const keys = [...loansOf(inputs).map((loan) => loan.seriesKey), ...inputs.marks.filter((m) => m.mark === "dismissed").map((m) => notLoanKey(m.subject))].filter((key): key is string => !!key);
+  const loanKeys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
   return (s, charges) => {
     if (!keys.length) return false;
     const amounts = amountsOf(s, charges);
-    return keys.some((key) => names(key, s, amounts));
+    return keys.some((key) => names(key, s, amounts, loanKeys));
   };
 }
 

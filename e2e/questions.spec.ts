@@ -29,6 +29,7 @@ interface Stub {
   /** The money no one classified: a payee set aside leaves the list and keeps its money here. */
   unknownCents: number;
   cardBillCents: number;
+  cardBillIssuers: string[];
   posted: { rules: object[]; marks: object[]; payers: object[] };
 }
 
@@ -39,6 +40,7 @@ const stubOf = (over: Partial<Stub> = {}): Stub => ({
   total: 3,
   unknownCents: 50_000,
   cardBillCents: 0,
+  cardBillIssuers: [],
   posted: { rules: [], marks: [], payers: [] },
   ...over,
 });
@@ -50,7 +52,7 @@ async function follow(page: Page, stub: Stub): Promise<void> {
     const json = await response?.json().catch(() => null);
     if (!response || !json) return;
     const share = 1 - (stub.unknownCents + stub.cardBillCents) / MONEY;
-    json.questions = { share, outCents: MONEY / 2, inCents: MONEY / 2, outUnknownCents: stub.unknownCents, inUnknownCents: 0, cardBillCents: stub.cardBillCents, items: stub.items, total: stub.total };
+    json.questions = { share, outCents: MONEY / 2, inCents: MONEY / 2, outUnknownCents: stub.unknownCents, inUnknownCents: 0, cardBillCents: stub.cardBillCents, cardBillIssuers: stub.cardBillIssuers, items: stub.items, total: stub.total };
     await route.fulfill({ response, json });
   });
   const leave = (merchant: string, classified: boolean) => {
@@ -142,14 +144,18 @@ test("the block is the second of the front page; a category takes the row away a
 test("more than five are cut to five with a link to all of them, and card bills are told with a link to Tietojen laatu", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  const stub = stubOf({ items: [10, 20, 30, 40, 50].map((k, i) => item("payee_out", `Esimerkki Kauppa ${i}`, k * 100, 2)), total: 7, cardBillCents: 420_000 });
+  const stub = stubOf({ items: [10, 20, 30, 40, 50].map((k, i) => item("payee_out", `Esimerkki Kauppa ${i}`, k * 100, 2)), total: 7, cardBillCents: 420_000, cardBillIssuers: ["Morrow Bank", "SEB Kort"] });
   await follow(page, stub);
   await open(page);
   const block = page.getByRole("region", { name: "Luokittelemattomat", exact: true });
   await expect(block.locator(".question-row")).toHaveCount(5);
   await expect(block.getByRole("link", { name: "Näytä kaikki (7)" })).toHaveAttribute("href", "#/transactions?category=other");
   const bills = block.locator(".question-line").nth(1);
-  expect(plain(await bills.innerText())).toBe("Korttilaskuissa on 4 200,00 € ostoja, joita ei ole eritelty.");
+  expect(plain(await bills.innerText())).toBe("Korttilaskuissa on 4 200,00 € ostoja, joita ei ole eritelty. Suurimmat: Morrow Bank, SEB Kort.");
+  // one issuer is named alone
+  stub.cardBillIssuers = ["Morrow Bank"];
+  await page.reload();
+  expect(plain(await block.locator(".question-line").nth(1).innerText())).toBe("Korttilaskuissa on 4 200,00 € ostoja, joita ei ole eritelty. Suurimmat: Morrow Bank.");
   await expect(block.locator(".question-line").nth(2).getByRole("link", { name: "Tietojen laatu" })).toHaveAttribute("href", "#/settings#laatu");
   await context.close();
 });

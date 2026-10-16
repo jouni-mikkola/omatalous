@@ -114,9 +114,10 @@ export class RulesRepo {
    * rule is deleted, both in one batch. Call it while the rows still carry the old names. A row set by hand, or stored as
    * a transfer, keeps what it has, and a rule reaches only the money its category can describe (`directionOf`). Of two
    * rules that reach a row the lower priority number wins, as in categorising. Returns what the rows got: the category a
-   * row of the old name was given, or undefined for a row the rules left alone.
+   * row of the old name was given, or undefined for a row the rules left alone. A rule on a name of `keep` is not deleted:
+   * the old name keeps its rule for a rollback, and no row carries the name.
    */
-  async settleMerchantRules(merchants: ReadonlySet<string>): Promise<(row: SettleRow) => string | undefined> {
+  async settleMerchantRules(merchants: ReadonlySet<string>, keep: ReadonlySet<string> = new Set()): Promise<(row: SettleRow) => string | undefined> {
     const rules = (await this.listRules()).filter((r) => (r.field === "merchant" || r.field === "merchant_exact") && !namesUnknownMerchant(r) && merchants.has(r.pattern));
     await writeBatch(
       this.ctx.db,
@@ -125,10 +126,33 @@ export class RulesRepo {
           sql: `UPDATE transactions SET category = ?, category_source = 'user' WHERE user_id = ? AND merchant = ? AND category_source NOT IN ('user', 'transfer')${moneySql(r.category)}`,
           params: [r.category, this.ctx.userId, r.pattern],
         },
-        { sql: "DELETE FROM category_rules WHERE id = ? AND user_id = ?", params: [r.id!, this.ctx.userId] },
+        ...(keep.has(r.pattern) ? [] : [{ sql: "DELETE FROM category_rules WHERE id = ? AND user_id = ?", params: [r.id!, this.ctx.userId] }]),
       ]),
     );
     return (row) => rules.find((r) => r.pattern === row.merchant && settleReaches(r.category, row))?.category;
+  }
+
+  /**
+   * Old names that an upgrade makes one name (`groups`: the new name, and the old names with rows, the new name itself
+   * among them when it has rows). The household's rule is copied to the new name only when every one of those names
+   * carries the same category, and the new name has no other: a name with no rule is a different choice. Otherwise the
+   * new name gets nothing, and the rule of each old name is to be settled onto its own rows (`settleMerchantRules`,
+   * which the caller asks for the names returned). A rule the new name already has is never deleted or changed, and the
+   * old rules stay for a rollback.
+   */
+  async copyMerchantRules(groups: ReadonlyMap<string, readonly string[]>): Promise<Set<string>> {
+    const rules = (await this.listRules()).filter((r) => (r.field === "merchant" || r.field === "merchant_exact") && !namesUnknownMerchant(r));
+    const categoryOf = (name: string) => rules.find((r) => r.pattern === name)?.category;
+    const settle = new Set<string>();
+    for (const [target, names] of groups) {
+      const categories = names.map(categoryOf);
+      const own = categoryOf(target);
+      const agree = categories[0] !== undefined && categories.every((c) => c === categories[0]) && (own === undefined || own === categories[0]);
+      if (agree) {
+        if (own === undefined) await this.setMerchantRule(target, categories[0]!);
+      } else for (const name of names) if (name !== target && categoryOf(name) !== undefined) settle.add(name);
+    }
+    return settle;
   }
 
   async deleteRule(id: number): Promise<void> {

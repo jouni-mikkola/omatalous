@@ -160,9 +160,9 @@ test("a bill that is paid and waits to be booked carries the word varaus after i
   await expect(row).toHaveCount(1);
   await expect(list.locator(".badge", { hasText: "varaus" })).toHaveCount(1);
   await expect(row.locator(".payee-pending .badge")).toHaveText("varaus");
-  // the first group of Laskut is the figure of Yhteenveto without a card's bill and an own transfer: the paid bill is in both
+  // the first group of Laskut is the figure of Yhteenveto without an own transfer: the paid bill is in both
   const first = cents(await list.locator(".group-head").first().locator("td").innerText());
-  expect(first).toBe(due - stub!.totals.cardCents - stub!.totals.transferCents);
+  expect(first).toBe(due - stub!.totals.transferCents);
 
   // on a phone the long name is cut with an ellipsis and the word keeps its line inside the cell, on both pages
   await page.setViewportSize({ width: 390, height: 900 });
@@ -219,7 +219,7 @@ test("on a phone nothing scrolls sideways, the figures come before the tables an
   await context.close();
 });
 
-test("Laskut has the same payments in groups: the first group's sum is the figure of Yhteenveto without a card's bill and an own transfer, and what a card is charged is the last group", async ({ browser }) => {
+test("Laskut has the same payments in groups: the first group's sum is the figure of Yhteenveto without an own transfer, and what a card is charged is the last group", async ({ browser }) => {
   const { context, page, seen, card } = await open(browser, 1280);
   const ahead = await aheadOf(context);
   expect(ahead.reason).toBe("payday");
@@ -230,15 +230,53 @@ test("Laskut has the same payments in groups: the first group's sum is the figur
   const heads = page.locator("#tulossa .group-head");
   await expect(heads.first()).toContainText("Palkkapäivään asti");
   const groups = (await heads.evaluateAll((rows) => rows.map((r) => [r.querySelector("th")!.textContent ?? "", r.querySelector("td")!.textContent ?? ""]))).map(([title, sum]) => ({ title: title!, cents: cents(sum!) }));
-  // the first group is what the accounts pay in the window. Yhteenveto's figure adds to it only a card's bill and an
-  // own transfer, so with neither in the window the two are one figure under one line
-  expect(groups[0]!.cents).toBe(due - ahead.totals.cardCents - ahead.totals.transferCents);
+  // the first group is what the accounts pay in the window, a card's bill included. Yhteenveto's figure adds to it only an
+  // own transfer, so with none in the window the two are one figure under one line
+  expect(groups[0]!.cents).toBe(due - ahead.totals.transferCents);
   // the demo's card is charged subscriptions: they are the last group, with their own sum
   const onCard = ahead.upcoming.filter((r) => r.onCard);
   expect(onCard.length).toBeGreaterThan(0);
   expect(groups.at(-1)).toEqual({ title: "Kortilta veloitettavat", cents: onCard.reduce((sum, r) => sum - r.cents, 0) });
   // and the groups together are the whole list
   expect(groups.reduce((sum, g) => sum + g.cents, 0)).toBe(ahead.upcoming.reduce((sum, r) => sum - r.cents, 0));
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Laskut lists a card's bill due inside 30 days in the group of its day, and the group sums follow", async ({ browser }) => {
+  // The demo's card may have no bill in the window: the answer is changed on its way, with a made-up bill on every
+  // day. Core's tests hold how the row is made; this holds what the page makes of it.
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const NAME = "Esimerkki Luottokortti";
+  let stub: Ahead | null = null;
+  await page.route(/\/api\/(dashboard|ahead)(\?|$)/, async (route) => {
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json) return;
+    const added = { date: json.ahead.from as string, name: NAME, category: "transfer", cents: -41_200, source: "card", basis: "usual" };
+    const byDay = (a: { date: string; cents: number }, b: { date: string; cents: number }) => a.date.localeCompare(b.date) || a.cents - b.cents;
+    json.ahead.upcoming = [...json.ahead.upcoming.filter((r: { name: string }) => r.name !== NAME), added].sort(byDay);
+    stub = json.ahead;
+    await route.fulfill({ response, json });
+  });
+  await page.goto("/#/bills");
+  const list = page.locator("#tulossa");
+  const row = list.locator("tbody tr", { hasText: NAME });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator("td.sum")).toHaveText(/412,00/);
+  // the bill is in the group of its day: that group's sum is its own rows' sum, the card's bill among them
+  const group = row.locator("xpath=ancestor::tbody");
+  const head = cents(await group.locator(".group-head td").innerText());
+  const rows = await group.locator("tr:not(.group-head) td.sum").allInnerTexts();
+  expect(head).toBe(rows.reduce((sum, t) => sum + cents(t), 0));
+  expect(head).toBeGreaterThanOrEqual(41_200);
+  // and the groups together are the whole list
+  const sums = await list.locator(".group-head td").allInnerTexts();
+  expect(sums.reduce((sum, t) => sum + cents(t), 0)).toBe(stub!.upcoming.reduce((sum, r) => sum - r.cents, 0));
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect(await overflow(page), "the page scrolls sideways at 390 px").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

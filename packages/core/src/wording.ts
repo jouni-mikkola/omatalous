@@ -3,6 +3,9 @@
  * payment name is added once. Texts are matched folded (see `fold` in merchant.ts), so everything is upper case
  * and has no Ä, Å, Ö or Ü.
  */
+import { homeKindOf, isHeatWaterOrWaste } from "./payees.ts";
+
+export { isHeatWaterOrWaste };
 
 /**
  * The texts that mark a MobilePay, Pivo or Vipps payment, as a regex alternation. Callers add what they need around
@@ -213,8 +216,6 @@ export const isElectricitySeller = (name: string) => ELECTRICITY_SELLER.test(nam
 export const isNetworkCompany = (name: string) => NETWORK_COMPANY.test(name);
 /** A cooperative distributes and sells to its members on one bill. */
 export const isElectricityCooperative = (name: string) => /SAHKOOSUUSKUNTA/.test(name);
-/** Heat, water and waste come from the same companies and are no electricity. */
-export const isHeatWaterOrWaste = (folded: string) => /LAMPO|VESI|JATE/.test(folded);
 
 /** A card in a fee's folded text. */
 export const isCardText = (folded: string) => /KORTTI|CARD|DEBIT|CREDIT|GOLD|PLATINUM/.test(folded);
@@ -286,8 +287,9 @@ export const isLenderName = (folded: string) => LENDERS.test(folded);
  * bill, credit_draw and loans rules of categorize.ts and `isCardIssuerText` (pipeline.ts) all read these.
  * The banks among them also lend and take deposits, so a text of theirs that names a loan or a savings account is no
  * card bill. Komplett Bank has been Morrow Bank since 2023.
+ * SEB Kort issues Eurocard and the co-branded cards.
  */
-export const CARD_ISSUER_BANK_WORDS = "BANK NORWEGIAN|KOMPLETT BANK|MORROW BANK";
+export const CARD_ISSUER_BANK_WORDS = "BANK NORWEGIAN|KOMPLETT BANK|MORROW BANK|SEB KORT";
 /** Names that stand for a card and nothing else. */
 export const CARD_BRAND_WORDS = "ENTERCARD|RE:?MEMBER";
 /** Nordea's finance company lends for cars and issues the bank's cards: its name with a card word is a card bill, alone a loan. */
@@ -296,6 +298,7 @@ export const NORDEA_FINANCE_WORDS = "NORDEA RAHOITUS|NORDEA FINANCE";
 export const NORDEA_CARD_WORDS = "NORDEA GOLD|NORDEA PLATINUM|NORDEA CREDIT";
 export const CARD_ISSUER_WORDS = `${NORDEA_FINANCE_WORDS}|${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}|${RESURS_WORDS}`;
 const CARD_ISSUER = words(CARD_ISSUER_WORDS);
+
 export const isCardIssuerText = (folded: string) => CARD_ISSUER.test(folded);
 const SAVINGS_ACCOUNT = words(String.raw`SAASTOTILI[A-Z]*|SAASTO(?:ON|T)?|[A-Z]*TALLETUS[A-Z]*|SAVINGS(?: ACCOUNT)?`);
 /** A savings account or a deposit in a folded text. At an issuer that is a bank such a row is saving, in either direction. */
@@ -438,10 +441,12 @@ const HOME_CHARGES = [
   ["parking", "Autopaikka", says(CAR_PLACE_WORDS)],
   ["rent", "Vuokra", isRent],
   ["charge", "Vastike", (all, payee) => ANY_VASTIKE(all) || isHousingCompanyName(payee)],
+  // the payee list (payees.ts) names heat and waste before the sellers: Fortum's waste company sells no electricity
+  ["waste", "Jätehuolto", (all, payee) => homeKindOf(all, payee) === "waste"],
   ["grid", "Sähkönsiirto", (...row) => power(...row) === "grid"],
-  ["electricity", "Sähkö", (...row) => power(...row) === "seller"],
-  ["district_heat", "Kaukolämpö", says("KAUKOLAM(?:PO|MO)[A-Z]*")],
-  ["water", "Vesi", WATER],
+  ["electricity", "Sähkö", (all, payee, utility) => power(all, payee, utility) === "seller" || (utility && homeKindOf(all, payee) === "electricity")],
+  ["district_heat", "Kaukolämpö", (all, payee) => homeKindOf(all, payee) === "district_heat"],
+  ["water", "Vesi", (all, payee) => WATER(all) || homeKindOf(all, payee) === "water"],
 ] as const satisfies readonly (readonly [string, string, (all: string, payee: string, utility: boolean) => boolean])[];
 
 /**

@@ -1,4 +1,4 @@
-import { type CategoryRule, categoryForIndustry, enrichIsland, enrichTransactionsPausing, fold, type Transaction } from "@banking/core";
+import { type CategoryRule, categoryForCompany, enrichIsland, enrichTransactionsPausing, fold, type Transaction } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
@@ -61,8 +61,8 @@ export async function reprocessDetailed(repo: FinanceRepo, settings: SettingsRep
 export async function industryMap(repo: FinanceRepo): Promise<Map<string, string>> {
   // derived here rather than stored, so a new version's code table applies on the next reprocess
   const industries = new Map<string, string>();
-  for (const [merchant, { code, codeSet }] of await repo.industryCodes()) {
-    const category = categoryForIndustry(code, codeSet);
+  for (const [merchant, answer] of await repo.industryCodes()) {
+    const category = categoryForCompany(answer);
     if (category) industries.set(merchant, category);
   }
   return industries;

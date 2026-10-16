@@ -534,6 +534,14 @@
   ],
   "upcoming": [
    {
+    "date": "2026-10-10",
+    "name": "Nordea Gold (esimerkki)",
+    "category": "transfer",
+    "cents": -243186,
+    "source": "card",
+    "basis": "balance"
+   },
+   {
     "date": "2026-10-12",
     "name": "Spotify",
     "category": "subscriptions",
@@ -831,6 +839,7 @@
   "outUnknownCents": 0,
   "inUnknownCents": 0,
   "cardBillCents": 0,
+  "cardBillIssuers": [],
   "items": [
    {
     "kind": "loan",

@@ -140,10 +140,16 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
           else names.set(t.merchant, new Set([merchant]));
           if (merchant !== t.merchant) moved.push([t, merchant]);
         }
-        const { renames, merged } = followingNames(names);
-        // The rules of names that become one name with others are settled while the rows still carry the old names. The
+        const { renames, merged, groups } = followingNames(names);
+        // Names that become one name: their rules, marks and states are copied to it and stay on the old names too. Where
+        // the old names chose differently the new name gets no rule, and each name's rule is settled onto its own rows.
+        const conflicts = await repo.copyMerchantRules(groups);
+        const copies = new Map([...groups].flatMap(([to, from]) => from.filter((name) => name !== to).map((name) => [name, to] as const)));
+        await repo.copyMerchantMarks(groups);
+        await repo.copyMerchantStates(groups);
+        // The rules of other names that become one name with others are settled while the rows still carry the old names. The
         // in-memory rows get the same choice, so the categorising below starts from what is stored.
-        const settled = await repo.settleMerchantRules(merged);
+        const settled = await repo.settleMerchantRules(new Set([...[...merged].filter((name) => !copies.has(name)), ...conflicts]), new Set(copies.keys()));
         for (const [t, merchant] of moved) {
           const category = settled(t);
           if (category !== undefined) {
@@ -183,18 +189,28 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
  * name got the same new name and no other old name got it too. When two or more old names become one, what the
  * household chose for one of them would reach the rest and could not be told apart again: those names (`merged`) keep
  * their marks and states, and their rules are settled onto the rows instead. A name some rows keep stays as it is.
+ * `groups` lists, for each new name that old names became, those old names and the new name too when it has rows: what
+ * the household chose on them is copied to the new name when they all chose the same (`copyMerchantRules`,
+ * `copyMerchantMarks`, `copyMerchantStates`), and the old keys stay.
  */
-function followingNames(names: ReadonlyMap<string, ReadonlySet<string>>): { renames: Map<string, string>; merged: Set<string> } {
+function followingNames(names: ReadonlyMap<string, ReadonlySet<string>>): { renames: Map<string, string>; merged: Set<string>; groups: Map<string, string[]> } {
   const sources = new Map<string, number>();
   for (const to of names.values()) for (const name of to) sources.set(name, (sources.get(name) ?? 0) + 1);
   const renames = new Map<string, string>();
   const merged = new Set<string>();
+  const groups = new Map<string, string[]>();
   for (const [from, to] of names) {
     if (to.has(from)) continue;
-    if ([...to].some((name) => sources.get(name)! > 1)) merged.add(from);
-    else if (to.size === 1) renames.set(from, [...to][0]!);
+    if ([...to].some((name) => sources.get(name)! > 1)) {
+      merged.add(from);
+      // the new name itself is one of the names when it has rows of its own
+      if (to.size === 1) {
+        const target = [...to][0]!;
+        groups.set(target, [...(groups.get(target) ?? (names.has(target) ? [target] : [])), from]);
+      }
+    } else if (to.size === 1) renames.set(from, [...to][0]!);
   }
-  return { renames, merged };
+  return { renames, merged, groups };
 }
 
 /** The start-up and hourly-tick entry: runs the tasks when the build differs and says what happened. Never throws. */
