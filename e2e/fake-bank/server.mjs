@@ -12,7 +12,7 @@ const PAGE_SIZE = 40;
 const CONSENT_HOST = "consent.esimerkkipankki.example";
 
 const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki" }).format(new Date());
-const { accounts, transactions, balances } = household(today);
+const { accounts, transactions, balances, dollarAccount } = household(today);
 /** Authorisations that were started: the consent page sends the browser back to the redirect URL given there. */
 const authorizations = new Map();
 let sessions = 0;
@@ -37,6 +37,8 @@ async function handle(req, res) {
   if (consent) {
     const authorization = authorizations.get(consent[1]);
     if (!authorization) return send(res, 404, { error: "AUTHORIZATION_NOT_FOUND" });
+    // a link that asks for it (?dollars=1) also gets the account with a row in dollars; the others never see it
+    authorization.dollars = url.searchParams.get("dollars") === "1";
     const back = new URL(authorization.redirectUrl);
     back.searchParams.set("code", `code-${consent[1]}`);
     back.searchParams.set("state", authorization.state);
@@ -58,7 +60,7 @@ async function handle(req, res) {
     const { code } = await readJson(req);
     const authorization = authorizations.get(String(code).replace(/^code-/, ""));
     if (!authorization) return send(res, 422, { error: "WRONG_AUTHORIZATION_CODE" });
-    return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: "Nordea", country: "FI" }, access: { valid_until: authorization.validUntil }, accounts });
+    return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: "Nordea", country: "FI" }, access: { valid_until: authorization.validUntil }, accounts: authorization.dollars ? [...accounts, dollarAccount] : accounts });
   }
   if (req.method === "DELETE" && url.pathname.startsWith("/sessions/")) return send(res, 204);
 

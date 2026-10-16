@@ -125,5 +125,12 @@ export function household(today) {
       ...(a.card ? { credit_limit: { currency: "EUR", amount: "3000.00" } } : {}),
     };
   });
-  return { accounts, transactions, balances };
+
+  // a fifth account that only a link asking for it lists (server.mjs): one euro row and one row in dollars, as the bank sends it
+  const usd = { uid: "fb-usd", hash: "fb-hash-usd" };
+  const dollars = { ...toBank(usd.uid, { date: dayOf(today, 1, 3), cents: -2000, text: "ESIMERKKI INC", party: { name: "ESIMERKKI INC" } }, 1), transaction_amount: { currency: "USD", amount: "20.00" } };
+  transactions[usd.uid] = [dollars, toBank(usd.uid, { date: dayOf(today, 2, 3), cents: 5000, text: "TALLETUS", party: { name: "MEIKALAINEN MATTI" } }, 0)];
+  balances[usd.uid] = 5000;
+  const dollarAccount = { uid: usd.uid, identification_hash: usd.hash, account_id: { iban: "FI4012345600000843" }, name: "MEIKALAINEN MATTI", product: "Dollaritili", currency: "EUR", cash_account_type: "CACC" };
+  return { accounts, transactions, balances, dollarAccount };
 }

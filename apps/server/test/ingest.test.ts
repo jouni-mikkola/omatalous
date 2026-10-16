@@ -2,17 +2,15 @@
  * Fetch and import robustness: overlapping windows, pending rows that get booked, identical purchases,
  * a CSV over fetched data, signs and dates, and a fetch that fails halfway.
  */
-import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { addDays, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { mapTransaction } from "../src/connectors/enable-banking/mapper.ts";
 import { syncUser } from "../src/connectors/sync.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { reprocess } from "../src/services/enrich.ts";
-import { setupApp, waitFor } from "./helpers.ts";
-import { mockBank } from "./mock-bank.ts";
-
-const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+import { accountKey } from "../src/db/household-repo.ts";
+import { setupApp } from "./helpers.ts";
+import { connectedFeed, ebRow } from "./feed-bank.ts";
 
 const raw = (bookingDate: string, euros: number, counterparty: string | null, extra: Partial<RawTransaction> = {}): RawTransaction => ({
   externalId: null,
@@ -196,56 +194,6 @@ describe("amounts and dates", () => {
   });
 });
 
-/** A bank whose checking account serves the rows in `feed`, like the real API: by date_from, in pages, and it can fail. */
-function feedBank() {
-  const bank = mockBank();
-  const feed = {
-    rows: [] as Record<string, unknown>[],
-    pageSize: 100,
-    /** Fail the request for this page number (1-based). */
-    failAtPage: 0,
-    /** Always return a continuation key. */
-    endless: false,
-    fromDates: [] as string[],
-  };
-  const fetchMock = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = new URL(String(input));
-    if (url.pathname === "/accounts/u-card/transactions") return Response.json({ transactions: [] });
-    if (url.pathname !== "/accounts/u-chk/transactions") return bank.fetchMock(input, init);
-    const from = url.searchParams.get("date_from")!;
-    feed.fromDates.push(from);
-    const page = Number(url.searchParams.get("continuation_key") ?? "1");
-    if (feed.failAtPage === page) return new Response("boom", { status: 500 });
-    const visible = feed.rows.filter((r) => String(r.booking_date) >= from);
-    const slice = visible.slice((page - 1) * feed.pageSize, page * feed.pageSize);
-    const more = feed.endless || page * feed.pageSize < visible.length;
-    return Response.json({ transactions: slice, ...(more ? { continuation_key: String(page + 1) } : {}) });
-  }) as typeof fetch;
-  return { bank, feed, fetchMock };
-}
-
-const ebRow = (ref: string, date: string, euros: string, dir: "CRDT" | "DBIT", name: string, status = "BOOK") => ({
-  entry_reference: ref,
-  transaction_amount: { currency: "EUR", amount: euros },
-  credit_debit_indicator: dir,
-  status,
-  booking_date: date,
-  ...(dir === "DBIT" ? { creditor: { name } } : { debtor: { name } }),
-  remittance_information: ["KORTTIOSTO"],
-});
-
-async function connectedFeed() {
-  const f = feedBank();
-  const app = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, f.fetchMock);
-  await app.admin.call("POST", "/api/connections/start", {});
-  await app.admin.call("POST", "/api/connections/complete", { url: `https://x.example/cb?code=abc&state=${f.bank.state}` });
-  await waitFor(async () => (await app.admin.call("GET", "/api/sync/runs")).body.runs.every((r: { status: string }) => r.status !== "running"));
-  const repo = app.s.finance(app.adminId);
-  const chk = (await repo.listAccounts()).find((a) => a.externalId === "u-chk")!;
-  const stored = async () => (await repo.transactionsOfAccount(chk.id)).map((r) => `${r.bookingDate} ${r.status} ${r.amountCents} ${r.merchant}`).sort();
-  return { ...f, ...app, repo, chk, stored };
-}
-
 describe("a fetch that fails or is cut short", () => {
   it("leaves the earlier rows, including pending ones, and the next fetch brings what was missed", async () => {
     const f = await connectedFeed();
@@ -343,7 +291,7 @@ describe("the bank code of a fetched row", () => {
 describe("rows in another currency", () => {
   const inCurrency = (currency: string, row: ReturnType<typeof ebRow>) => ({ ...row, transaction_amount: { currency, amount: row.transaction_amount.amount } });
 
-  it("a fetch skips them, as the app counts in euros, and says how many", async () => {
+  it("a fetch keeps them apart from the euro rows, and says nothing of rows it kept", async () => {
     const f = await connectedFeed();
     f.feed.rows = [
       ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A"),
@@ -352,20 +300,19 @@ describe("rows in another currency", () => {
       inCurrency("USD", ebRow("d", "2026-10-04", "20.00", "DBIT", "AMAZON")),
     ];
     const r = await syncUser(f.s, f.adminId, "manual");
-    expect(r).toMatchObject({ status: "ok", fetched: 1, inserted: 1 });
-    expect(r.messages).toEqual(["Käyttötili: ohitettu 3 riviä, joiden valuutta ei ole EUR (SEK, USD)."]);
+    expect(r).toMatchObject({ status: "ok", fetched: 1, inserted: 1, messages: [] });
     expect(await f.stored()).toEqual(["2026-10-01 booked -1000 Kauppa A"]);
-    // the same count on the next run, and the rows stay out
-    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual(["Käyttötili: ohitettu 3 riviä, joiden valuutta ei ole EUR (SEK, USD)."]);
+    expect((await f.repo.foreignRowsOf([accountKey(f.chk)])).map((x) => `${x.currency} ${x.amountMinor}/${x.scale}`).sort()).toEqual(["SEK -50000/2", "SEK -8000/2", "USD -2000/2"]);
+    // the same rows on the next run: still one euro row, no message
+    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);
     expect(await f.stored()).toHaveLength(1);
   });
 
-  it("says nothing when every row is in euros, and names a single row in the singular", async () => {
+  it("counts a pending row in another currency in the note and does not keep it", async () => {
     const f = await connectedFeed();
-    f.feed.rows = [ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A")];
-    expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);
-    f.feed.rows.push(inCurrency("NOK", ebRow("b", "2026-10-02", "99.00", "DBIT", "KIWI OSLO")));
+    f.feed.rows = [ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A"), inCurrency("NOK", ebRow("b", "2026-10-02", "99.00", "DBIT", "KIWI OSLO", "PDNG"))];
     expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual(["Käyttötili: ohitettu 1 rivi, jonka valuutta ei ole EUR (NOK)."]);
+    expect(await f.repo.foreignRowsOf([accountKey(f.chk)])).toEqual([]);
   });
 });
 
@@ -377,11 +324,11 @@ describe("an account entirely in another currency", () => {
     expect(f.feed.fromDates[0]).toBe(addDays(f.s.today(), -f.s.instance.current.historyDays));
     f.feed.rows = [sek("a", "2026-10-01"), sek("b", "2026-10-02")];
     for (let run = 0; run < 2; run++) {
-      const r = await syncUser(f.s, f.adminId, "manual");
-      expect(r.messages).toEqual(["Käyttötili: ohitettu 2 riviä, joiden valuutta ei ole EUR (SEK)."]);
-      // no row is stored, so the window comes from the last fetch: ten days before it
+      expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);
+      // no euro row is stored, so the window comes from the last fetch: ten days before it
       expect(f.feed.fromDates.at(-1)).toBe(addDays(f.s.today(), -10));
     }
     expect(await f.stored()).toEqual([]);
+    expect(await f.repo.foreignRowsOf([accountKey(f.chk)])).toHaveLength(2);
   });
 });

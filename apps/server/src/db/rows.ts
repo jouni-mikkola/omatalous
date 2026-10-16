@@ -169,3 +169,13 @@ export function toUser(r: Row): User {
     createdAt: String(r.created_at),
   };
 }
+
+/** A row in another currency to keep: the bank's own figure in its own currency, as `parseForeignAmount` read it. */
+export interface ForeignRowInput {
+  rawKey: string;
+  bookingDate: string;
+  amountMinor: number;
+  scale: number;
+  currency: string;
+  text: string | null;
+}

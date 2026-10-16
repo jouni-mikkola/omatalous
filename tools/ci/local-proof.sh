@@ -315,7 +315,7 @@ leg() {
   part $((SECONDS - t0)) "${LEG_NOTE:-}" "$label"
   if ((rc == 0)); then
     echo "$name" >>"$WORK/passed" # the proof passes only when every leg is in this file (see report)
-    echo "ok      $label ($((SECONDS - t0)) s)"
+    echo "ok      $label ($((SECONDS - t0)) s)$(grep -q '^cached: ' "$LOGS/$name.log" 2>/dev/null && echo ', cached')"
   elif ((rc == 143)) && [[ -e $WORK/halt ]]; then
     echo "stopped $label ($((SECONDS - t0)) s)" # cut by halt: not a fault of its own
   else

@@ -7,6 +7,7 @@ import { parseIsoDate, parseOptionalBoolean, strictObject } from "../platform/va
 import { UserError } from "../platform/errors.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
 import { accountSources } from "../services/account-sources.ts";
+import { foreignRowsView } from "../services/foreign-rows.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
@@ -104,6 +105,13 @@ export function financeRoutes(s: Services) {
       // the web app hides the nav entry of a module that is off
       features: s.instance.features(),
     });
+  });
+
+  // the rows in another currency, per account of the viewer, for Asetukset > Tilit
+  app.get("/foreign-rows", async (c) => {
+    const userId = c.get("user").id;
+    const own = await repoOf(userId).listAccounts();
+    return c.json(await foreignRowsView(s, userId, [...own, ...(await sharedInView(s, userId, own))]));
   });
 
   app.get("/dashboard", async (c) => {

@@ -65,6 +65,31 @@ done < <(grep -vE '^\s*(#|$)' .github/upgrade-from.txt)
 # shellcheck source=scripts/lib/release.sh
 . "$work/HEAD.sh"
 ref=$REGISTRY_IMAGE:${tag#v}
+
+# The verdict is kept by the image's digest: what the registry says the tag is now, the commit, the identity rule, the
+# tool that checks and every copy of the check that runs (a change to any of them is a new key and the full check). A
+# failed check is never kept, and without a digest nothing is kept or read.
+host=${REGISTRY_IMAGE%%/*}
+name=${REGISTRY_IMAGE#*/}
+digest=
+token=$(curl -fsS "https://$host/token?service=$host&scope=repository:$name:pull" | jq -r '.token // empty') || token=
+if [[ -n $token ]]; then
+  digest=$(curl -fsSI -H "Authorization: Bearer $token" \
+    -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+    "https://$host/v2/$name/manifests/${tag#v}" | tr -d '\r' \
+    | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: *\(sha256:[0-9a-f]\{64\}\).*/\1/p' | head -1) || digest=
+fi
+cache=${VERIFY_RELEASE_CACHE:-$(cd "$(git rev-parse --git-common-dir)" && pwd)/verify-release-cache}
+key=
+if [[ -n $digest ]]; then
+  key=$({ echo "$digest $commit $SIGN_IDENTITY_REGEXP $SIGN_ISSUER ${SIGN_TRIGGERS[*]} ${COSIGN_IMAGE:-}"
+    for c in "${checks[@]}"; do echo "$c $(sha256sum <"$work/$c.sh" | cut -c1-64)"; done; } | sha256sum | cut -c1-64)
+  if [[ -f $cache ]] && grep -qx "$key" "$cache"; then
+    echo "cached: $tag ($digest) was verified before with the same identity rule and the same checks (${#checks[@]} copies)."
+    exit 0
+  fi
+fi
+
 for trigger in "${SIGN_TRIGGERS[@]}"; do
   if cosign_verify "$ref" --certificate-github-workflow-sha "$commit" --certificate-github-workflow-trigger "$trigger"; then
     echo "$tag: signed by a run started by $trigger"
@@ -84,4 +109,7 @@ for c in "${checks[@]}"; do
     failed=1
   fi
 done
+if ((!failed)) && [[ -n $key ]]; then
+  { [[ ! -f $cache ]] || tail -n 19 "$cache"; echo "$key"; } >"$work/cache.new" && cat "$work/cache.new" >"$cache"
+fi
 exit "$failed"

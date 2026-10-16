@@ -17,6 +17,7 @@ export * from "./stats.ts";
 export * from "./categories.ts";
 export { fuelPurchases, themeOf, THEMES } from "./themes.ts";
 export * from "./merchant.ts";
+export * from "./foreign-rows.ts";
 export * from "./local-origin.ts";
 export * from "./categorize.ts";
 export * from "./industry.ts";

@@ -7,12 +7,14 @@
 import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
+import { useApi } from "../../hooks.ts";
 import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, moneyIn, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 import { isJoint, namesOther, optionsOf } from "./account-use.ts";
 import { AccountSources, hasSources } from "./AccountSources.tsx";
 import { UseParts, UseSelect } from "./AccountUse.tsx";
+import { type ForeignCurrency, ForeignRows } from "./ForeignRows.tsx";
 
 // a bank-linked account comes back at the next link, so only an earlier CSV import or a demo one can be removed
 const removable = (a: Account) => a.provider === "csv" || a.provider === "demo";
@@ -66,6 +68,9 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
       setBusy(null);
     }
   };
+
+  // the rows in another currency, by account: none of them is in a euro figure
+  const { data: foreign } = useApi<Record<string, ForeignCurrency[]>>("/api/foreign-rows");
 
   return (
     <div className="card" id="tilit">
@@ -142,6 +147,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                       </div>
                     )}
                     <FetchProblem account={a} connection={meta.connections.find((c) => c.id === a.connectionId)} canFix={canFix} />
+                    {foreign?.[a.id] && <ForeignRows currencies={foreign[a.id]!} />}
                     <div className="acc-type-phone">{type}</div>
                     {showUse && <div className="acc-use-phone">{users}</div>}
                   </td>

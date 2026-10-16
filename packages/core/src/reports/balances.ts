@@ -95,7 +95,9 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
     const values = monthEnds.map((end) => walk.at(Math.min(end, ctx.todayDay)));
     return [{ accountId: a.id, name: a.name, type: a.type, ownerName: a.ownerName, balanceAt: a.balanceAt, asOf: fromDayNumber(walk.asOfDay), values }];
   });
-  const total = monthEnds.map((_, m) => {
+  const total = monthEnds.map((end, m) => {
+    // an account blanked by a row in another currency makes the day's total unknown: a total without it would read as the whole
+    if (series.some((s) => walks.get(s.accountId)!.blanked(Math.min(end, ctx.todayDay)))) return null;
     let sum = 0;
     let any = false;
     for (const s of series) {

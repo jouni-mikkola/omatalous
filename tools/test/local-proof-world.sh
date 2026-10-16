@@ -64,6 +64,7 @@ stub "$R/tools/ci/verify-release.sh" <<'LEG'
 #!/usr/bin/env bash
 . "$(dirname "$0")/play.sh"
 said "signature cwd=$PWD"
+[[ ! -e $PROOF_PLAY/cached-signature ]] || echo "cached: v0.0.0 was verified before"
 broken signature
 LEG
 stub "$R/tools/ci/drills.sh" <<'LEG'

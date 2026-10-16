@@ -13,14 +13,21 @@ export interface BalanceWalk {
   firstDay: number;
   /** The days of the booked rows, ascending (a day repeats per row): the balance changes only on these. */
   days: readonly number[];
-  /** The balance at the end of `day` (a day number); null before `firstDay`. */
+  /** The balance at the end of `day` (a day number); null before `firstDay`, and before the newest day of a row in another currency. */
   at: (day: number) => number | null;
+  /**
+   * Whether `day` is unknown because of a row in another currency: the balance of a day is the given one less the rows after it, and a
+   * later row in another currency moved the bank's euro balance by an amount the app does not know. A day before `firstDay` with no
+   * such row after it is not blanked (the account was not known yet, which is not a hole).
+   */
+  blanked: (day: number) => boolean;
 }
 
 /**
  * The day walk: the balance at the end of a day is the given balance minus the booked rows after that day, up to the
  * day it was given, plus the ones booked since then (an import newer than the balance). Pending rows are left out,
- * as the bank leaves them out of the balance. Null for an account without a balance.
+ * as the bank leaves them out of the balance. A row in another currency is not in `txs`, but the bank's balance may hold its
+ * euro value: every day before the newest such row is unknown. Null for an account without a balance.
  */
 export function balanceWalk(ctx: AnalysisContext, account: BalanceInput): BalanceWalk | null {
   if (account.balanceCents === null) return null;
@@ -43,5 +50,11 @@ export function balanceWalk(ctx: AnalysisContext, account: BalanceInput): Balanc
   const base = account.balanceCents - sumUpTo(asOfDay);
   // an account with no transactions is known from the day its balance was given
   const firstDay = txs[0]?.day ?? asOfDay;
-  return { accountId: account.id, asOfDay, firstDay, days: txs.map((t) => t.day), at: (day) => (day < firstDay ? null : base + sumUpTo(day)) };
+  const foreign = ctx.foreignRows.find((f) => f.accountId === account.id);
+  const foreignDay = foreign ? dayNumber(foreign.newestDay) : -Infinity;
+  return {
+    accountId: account.id, asOfDay, firstDay, days: txs.map((t) => t.day),
+    at: (day) => (day < firstDay || day < foreignDay ? null : base + sumUpTo(day)),
+    blanked: (day) => day < foreignDay,
+  };
 }

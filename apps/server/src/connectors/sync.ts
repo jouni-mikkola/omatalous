@@ -3,7 +3,7 @@
  * categorisation. The loop is the same for every source: the lock, the run record, the overlap window, the
  * balance, reprocessing and the register lookup. A connector only answers what a pull returns (types.ts).
  */
-import { addDays, type RawTransaction } from "@banking/core";
+import { addDays } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import type { Connection, StoredAccount } from "../db/rows.ts";
@@ -16,6 +16,7 @@ import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
 import { balanceFitsAccount, balanceStamp, isEuro, storedBalanceCents } from "./balance-sign.ts";
 import { markRateLimited } from "./bank-limit.ts";
+import { skippedNote, splitByCurrency } from "./foreign-split.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
 import type { BalanceReading, Connector, PullAccount, Puller } from "./types.ts";
@@ -35,23 +36,6 @@ export const LOCK_TTL_MS = 15 * 60_000;
 const OVERLAP_DAYS = 10;
 /** The notes of calls to the bank (`account_fetch`) older than this are of no use for counting a day's fetches. */
 const FETCH_NOTES_KEEP_DAYS = 8;
-
-/**
- * The app counts in euros: another currency's amount would be added to them as if it were euros, so such rows are
- * left out. The note says how many a fetch left out and in which currencies.
- */
-function euroRows(raws: readonly RawTransaction[], accountName: string): { rows: RawTransaction[]; note: string | null } {
-  const foreign = new Map<string, number>();
-  const rows = raws.filter((r) => {
-    const currency = (r.currency || "EUR").toUpperCase();
-    if (currency === "EUR") return true;
-    foreign.set(currency, (foreign.get(currency) ?? 0) + 1);
-    return false;
-  });
-  const skipped = [...foreign.values()].reduce((a, b) => a + b, 0);
-  const note = skipped ? `${accountName}: ohitettu ${skipped === 1 ? "1 rivi, jonka" : `${skipped} riviä, joiden`} valuutta ei ole EUR (${[...foreign.keys()].join(", ")}).` : null;
-  return { rows, note };
-}
 
 /** What one run adds up, across connectors. */
 interface Tally {
@@ -170,20 +154,23 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
     for (const account of accounts.filter((a) => a.connectionId === conn.id && a.externalId)) {
       tally.attempts++;
       try {
-        // An account whose rows were all left out (another currency) or that has none yet stores nothing, so the
-        // window follows its last completed fetch. Only an account never fetched before asks for the longest history.
+        // An account whose rows are all in another currency (kept apart, not among the euro rows) or that has none yet
+        // has no euro row, so the window follows its last completed fetch. Only an account never fetched before asks for the longest history.
         const stored = (await repo.latestBookingDate(account.id, connector.id)) ?? account.lastSyncedAt?.slice(0, 10) ?? null;
         const latest = stored && stored > today ? today : stored;
         const dateFrom = latest ? addDays(latest, -OVERLAP_DAYS) : addDays(today, -s.instance.current.historyDays);
         const target = { id: account.id, externalId: account.externalId!, name: account.name };
         // the call counts for the account's key from here on: a refusal or a failure after it is a call as well
         await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), trigger.startsWith("open") ? "open" : trigger));
-        const { rows: raws, note } = euroRows(await puller.transactions(target, { dateFrom, initial: latest === null }), account.name);
+        const split = splitByCurrency(await puller.transactions(target, { dateFrom, initial: latest === null }), accountKey(account));
+        const note = skippedNote(split.skipped, account.name);
         if (note) summary.messages.push(note);
-        const r = await ingestTransactions(repo, account.id, raws, connector.id);
+        const r = await ingestTransactions(repo, account.id, split.euro, connector.id);
         summary.fetched += r.fetched;
         summary.inserted += r.inserted;
         tally.rowsChanged += r.changed;
+        // rows in another currency are kept in the bank's own figure; only a new or changed one moves the data version
+        tally.rowsChanged += await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString());
         await keepRecord("history", () => repo.recordHistory(account.id, dateFrom, "default", s.now().toISOString()));
 
         const told = await puller.balance(target);

@@ -415,7 +415,9 @@ accounts*).
   The totals count in euros: an account in another currency shows its balance with its currency code (*540,00 USD*)
   beside them, is in no total and is not counted as missing a balance; one whose currency is not known shows a dash. A
   balance is stored only in the account's own currency. The day walk starts from the day the bank says the balance
-  stands for (its reference day), and from the day of the fetch when the bank sends none.
+  stands for (its reference day), and from the day of the fetch when the bank sends none. A row the bank books in another currency is kept apart in its own figure (`foreign_rows`), listed under its
+  account in Asetukset > Tilit and in no euro sum; the bank's euro balance may hold its euro value, so the walk of that account
+  is unknown for every day before the newest such row, and a day total with such an account is a dash.
 - **Luottokortit.** Each connected credit card has its face at the left of its name and its rows: a card the app draws
   itself, in the tone the card's name gives (gold, platinum, black, silver or plain), with the bank's logo or name, the
   last four digits of the number and the tone's word. *Käytetty luotto* is what is

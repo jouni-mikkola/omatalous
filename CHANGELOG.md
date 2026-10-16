@@ -3,6 +3,15 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.47.0
+
+- Rows the bank books in another currency are no longer dropped: they are kept in the bank's own figure and listed under their account on Asetukset > Tilit, marked "ei mukana euromäärissä".
+- No euro figure counts them. On Saldot, a day an account's balance cannot be known because of such a row shows a dash, also in the month's total, instead of a total that leaves the account out.
+
+Fetching and importing
+
+- Rows the bank books in another currency than the euro are kept in the bank's own figure and listed under the account in Settings > Accounts; no euro figure counts them, and the balance history starts after the newest of them.
+
 ## 0.46.0
 
 - Balance history is kept from this version: every fetch stores the balances the bank sends, and nothing of it is removed at start-up.

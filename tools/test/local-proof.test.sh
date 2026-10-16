@@ -261,6 +261,16 @@ has "a failed signature is a failed leg" "$out" "FAILED  signature of the newest
 has "failed drills are a failed leg" "$out" "FAILED  drills 3, 4, 7, 8 ("
 has "of either install" "$out" "FAILED  drills 1, 2, 5, 6, 9, 10 ("
 check "and the exit is 1 with no stamp" test $rc -eq 1 -a -z "$(stamp)"
+
+reset
+touch "$PLAY/cached-signature"
+out=$(proof baselines.txt); rc=$?
+check "a cached signature passes" test $rc -eq 0
+has "the leg's line says cached" "$out" "ok      signature of the newest release ("
+has "with the word after the seconds" "$out" " s), cached"
+reset
+out=$(proof baselines.txt)
+lacks "a signature that ran in full does not say cached" "$out" ", cached"
 reset
 touch "$PLAY/fail-drills-own"
 out=$(proof baselines.txt); rc=$?

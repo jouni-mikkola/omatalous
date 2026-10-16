@@ -100,7 +100,7 @@ export function fakeBank(): { url: string; consentHost: string; appId: string; p
  * the bank is picked, the consent page answers, and the page comes back linked. Only the host of the consent page does not
  * exist here; every other request goes where it would in production.
  */
-export async function linkFakeBank(page: Page): Promise<void> {
+export async function linkFakeBank(page: Page, options: { dollars?: boolean } = {}): Promise<void> {
   const bank = fakeBank();
   const context = page.context();
   const saved = await context.request.put("/api/bank/credentials", { data: { appId: bank.appId, privateKeyPem: bank.privateKeyPem }, headers: FETCH });
@@ -109,7 +109,7 @@ export async function linkFakeBank(page: Page): Promise<void> {
   // of a plain-http install; the browser would not follow a second answered hop, so that page's job is done here: it
   // sends the browser on to the app with the same query.
   await context.route(`https://${bank.consentHost}/**`, async (route) => {
-    const answer = await route.fetch({ url: `${bank.url}${new URL(route.request().url()).pathname}`, maxRedirects: 0 });
+    const answer = await route.fetch({ url: `${bank.url}${new URL(route.request().url()).pathname}${options.dollars ? "?dollars=1" : ""}`, maxRedirects: 0 });
     const back = new URL(answer.headers().location ?? "");
     await route.fulfill({ status: 302, headers: { location: `${process.env.E2E_BASE_URL}/api/connections/callback${back.search}` } });
   });
