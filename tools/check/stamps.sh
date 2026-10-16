@@ -86,6 +86,8 @@ stamp_hit() {
 stamp_cand() {
   ((STAMP_ON)) || return 0
   [[ $4 == 0 ]] || return 0
+  # a clock stepped back under load makes the difference of two readings negative: the stamp line wants digits only
+  (($2 >= 0)) || set -- "$1" 0 "$3" "$4"
   echo "$1 $2 $3 $4" >"$CHECK_LOG/cand-${1//\//%}"
 }
 

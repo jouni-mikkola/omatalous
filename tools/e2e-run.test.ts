@@ -325,11 +325,28 @@ describe("pnpm e2e and its stamp", { timeout: 60_000 }, () => {
     const keyed = ["E2E_WORKERS", "TZ", "INSTANCE_NAME", "SESSION_DAYS", "HISTORY_DAYS", "PASSWORD_ITERATIONS", "TRUST_PROXY", "CF_ACCESS_AUD", "CF_ACCESS_TEAM_DOMAIN"];
     e2e();
     for (const name of keyed) {
-      expect(e2e({ [name]: "2" }).out, name).not.toContain("from a stamp");
-      expect(e2e({ [name]: "2" }).out, name).toContain("from a stamp");
+      const first = e2e({ [name]: "2" }).out;
+      expect(first, name).not.toContain("from a stamp");
+      const again = e2e({ [name]: "2" }).out;
+      expect(again, `${name}
+${first}
+--
+${again}`).toContain("from a stamp");
     }
     expect(stampFiles()).toHaveLength(keyed.length + 1);
-    expect(e2e().out).toContain("from a stamp");
+    const plain = e2e().out;
+    expect(plain, plain).toContain("from a stamp");
+  });
+
+  it("writes a whole stamp also when the clock stepped back and the run took a negative time", () => {
+    const state = mkdtempSync(join(dir, "state-"));
+    const sh = (...args: string[]) => spawnSync("bash", [join(world, "tools/check/stamps.sh"), ...args], { cwd: world, env: { ...process.env, CHECK_FRESH: "", CHECK_STAMPS_DIR: stamps }, encoding: "utf8" }); // the gate runs with CHECK_FRESH=1, which reads no stamp
+    expect(sh("start", state, "e2e", "e2e").status).toBe(0);
+    expect(sh("write", state, "e2e", "-1", "3", "0").status).toBe(0);
+    expect(stampFiles()).toHaveLength(1);
+    expect(readFileSync(join(stamps, "e2e", stampFiles()[0]!), "utf8")).toMatch(STAMP_LINE);
+    expect(sh("start", state, "e2e", "e2e").status).toBe(0);
+    expect(sh("hit", state, "e2e").stdout).toMatch(/ 0 3 0$/m);
   });
 
   it("passes --forbid-only to a run without a spec argument, also with options, and not to one with a spec argument", () => {

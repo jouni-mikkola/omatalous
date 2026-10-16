@@ -19,6 +19,7 @@ import { dataRoutes } from "./routes/data.ts";
 import { expectedBillRoutes } from "./routes/expected-bills.ts";
 import { financeRoutes } from "./routes/finance.ts";
 import { loanRoutes } from "./routes/loans.ts";
+import { statementRoutes } from "./routes/statements.ts";
 import { marksRoutes } from "./routes/marks.ts";
 import { optimiseRoutes } from "./routes/optimise.ts";
 import { securityRoutes } from "./routes/security.ts";
@@ -115,6 +116,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", marksRoutes(s));
   app.route("/api", expectedBillRoutes(s));
   app.route("/api", loanRoutes(s));
+  app.route("/api", statementRoutes(s));
   // its own prefix: a guard mounted at /api/* would gate every route registered after it
   app.route("/api/optimise", gated(s, "optimise", optimiseRoutes(s)));
   app.route("/api", merchantRoutes(s));

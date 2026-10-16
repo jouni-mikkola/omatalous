@@ -18,7 +18,7 @@
 import { dateIn, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fuelPurchases, themeOf, THEMES } from "../themes.ts";
 import type { IsoDate } from "../types.ts";
-import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
 import { type Coverage, coverage } from "./coverage.ts";
 import { totalsOf } from "./flows.ts";
 import { largePurchases } from "./large.ts";
@@ -96,7 +96,7 @@ const sum = (cents: Iterable<number>) => [...cents].reduce((a, b) => a + b, 0);
 
 /** The rows of consecutive months, the first to the last. */
 function rowsOf(ctx: AnalysisContext, months: readonly number[]): AnalysisTx[] {
-  return inDays(ctx, toDayRange({ from: dateIn(fromMonthIndex(months[0]!), 1), to: monthEnd(fromMonthIndex(months[months.length - 1]!)) }));
+  return spendRows(ctx, toDayRange({ from: dateIn(fromMonthIndex(months[0]!), 1), to: monthEnd(fromMonthIndex(months[months.length - 1]!)) }));
 }
 
 /** The accounts whose rows the sums count: one with spending or money back among `rows`. */

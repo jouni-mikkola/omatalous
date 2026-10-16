@@ -8,9 +8,10 @@ import { settlePaidElsewhere } from "../recurring-settled.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
 import { hasPayeeForm } from "../wording.ts";
-import { type Flows, flowsOf, incomeOf } from "./flows.ts";
+import { type Flows, flowsOf, incomeOf, type PeriodTotals, totalsOf } from "./flows.ts";
 import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
+import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
 
 /**
  * A transaction with everything the reports need precomputed once. `category` is the stored one, except on a refund
@@ -72,6 +73,15 @@ export interface AnalysisContext {
   /** Money in that takes a payment back (`moneyIn`): the returning row's id to the payment whose category it lowers. */
   returns: ReadonlyMap<string, string>;
   recurring: readonly RecurringSeries[];
+  /**
+   * The rows read off card statements, as spending on their own days (`statement-explain.ts`). They are in none of `txs`,
+   * `returns` or `recurring`: only `spendRows`, which the sums of spending by category and month read, adds them.
+   */
+  explained: readonly ExplainedTx[];
+  /** What the rows of each bill that is read leave of its `spend`, by the bill's id. `txs` keeps the bill whole: `loweredRows` and `spendRows` apply this. */
+  lowered: ReadonlyMap<string, number>;
+  /** Whether the rows of each bill that has some are read, by the bill's id; a bill not in the view has no entry. */
+  statements: ReadonlyMap<string, StatementState>;
   /** Per account of the view that has rows in another currency: how many and the newest day. Those rows are in no sum; the day walk reads them (`balanceWalk`). */
   foreignRows: readonly ForeignDay[];
   /** What was recorded of the history asked for each account of the view; an account linked before the record has none. */
@@ -97,7 +107,7 @@ export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(
  * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money
  * will be in the account next month.
  */
-export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = []): AnalysisContext {
+export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = []): AnalysisContext {
   const cut = standing && createContext(standing, accounts, today);
   const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
   const loanIds = new Set(accounts.filter((a) => a.type === "loan").map((a) => a.id));
@@ -152,8 +162,10 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     for (const paid of s.settled ?? []) fixedIds.add(paid.id);
   }
 
+  // after the series and the returns: a statement row is in none of them
+  const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
   const allTime = new Map<string, number>();
-  for (const t of txs) if (t.spend) allTime.set(t.category, (allTime.get(t.category) ?? 0) + t.spend);
+  for (const t of [...txs, ...explained]) if (t.spend) allTime.set(t.category, (allTime.get(t.category) ?? 0) + t.spend);
   const colorOrder = [...allTime.entries()]
     .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1])
@@ -161,7 +173,7 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     .map(([c]) => c);
 
   return {
-    today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder, foreignRows, history,
+    today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, colorOrder, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }
@@ -212,4 +224,33 @@ export function inDays(ctx: AnalysisContext, r: DayRange): AnalysisTx[] {
   const out: AnalysisTx[] = [];
   for (let i = lo; i < list.length && list[i]!.day <= r.toDay; i++) out.push(list[i]!);
   return out;
+}
+
+/** `rows` with each card bill whose statement rows are read at what they leave of it: the same objects when the context has none. */
+export function loweredRows<T extends AnalysisTx>(ctx: Pick<AnalysisContext, "lowered">, rows: readonly T[]): T[] {
+  // the bill's `spend` falls by what its rows explain, and so does its consumption: the rows bring the rest on their own days
+  const lowerFlows = (t: T, spend: number): Flows => ({ ...t.flows, consumption: t.flows.consumption - (t.spend - spend) });
+  return ctx.lowered.size ? rows.map((t) => (ctx.lowered.has(t.id) ? { ...t, spend: ctx.lowered.get(t.id)!, flows: lowerFlows(t, ctx.lowered.get(t.id)!) } : t)) : [...rows];
+}
+
+/**
+ * The rows of a range for the sums of spending by category and month: `inDays` with the card bills at what their
+ * statement rows leave of them, and the statement rows of the range. The statement rows have no flows (the bill carries
+ * the cash), so a sum of flows reads `inDays`; a sum of `spend` that is to show what a bill paid for reads this. Every
+ * other reader of `spend` sees the bill whole, as before there were statements. A context with no statement rows gives
+ * the rows of `inDays`.
+ */
+export function spendRows(ctx: AnalysisContext, r: DayRange): AnalysisTx[] {
+  const rows = loweredRows(ctx, inDays(ctx, r));
+  const extra = ctx.explained.filter((t) => t.day >= r.fromDay && t.day <= r.toDay);
+  return extra.length ? [...rows, ...extra].sort((a, b) => a.day - b.day) : rows;
+}
+
+/**
+ * The totals of a range as they stand beside the categories: the same rows as `spendRows`, so the spending total is the
+ * sum of its categories (more when a row has none). Income, savings and credit are cash and come out as in `inDays`;
+ * spending follows the purchase day of a statement row and the booking day of what a bill leaves.
+ */
+export function spendTotals(ctx: AnalysisContext, r: DayRange): PeriodTotals {
+  return totalsOf(spendRows(ctx, r).map((t) => t.flows));
 }

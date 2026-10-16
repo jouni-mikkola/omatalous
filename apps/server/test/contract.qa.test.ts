@@ -234,6 +234,9 @@ describe("data versions", () => {
     "POST /api/data/import/:id/commit",
     // the new accounts are written before the first fetch; run with the mock bank below
     "POST /api/connections/complete",
+    // run in statement-rows.test.ts, which needs a booked card bill
+    "PUT /api/statements/:billId",
+    "DELETE /api/statements/:billId",
   ];
   // Moves the instance version (data_version): every member's household view may have shown the removed member's accounts. Run below.
   const MOVES_EVERYONE = ["DELETE /api/users/:id"];
@@ -326,7 +329,7 @@ describe("data versions", () => {
     });
     expect(staged.status).toBe(200);
     await step("POST /api/data/import/:id/commit", () => admin.call("POST", `/api/data/import/${sid}/commit`), true);
-    expect(MOVES.filter((k) => !ran.has(k) && k !== "POST /api/connections/complete" && k !== "PUT /api/accounts/:id/answers"), "every route on MOVES ran").toEqual([]);
+    expect(MOVES.filter((k) => !ran.has(k) && k !== "POST /api/connections/complete" && !k.endsWith("/api/statements/:billId") && k !== "PUT /api/accounts/:id/answers"), "every route on MOVES ran").toEqual([]);
   });
 
   it("completing a bank connection moves the user's version, and removing one does not", async () => {

@@ -9,7 +9,7 @@ import { dataQualityReport, type QualitySignal, spendingBase } from "./data-qual
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
@@ -107,11 +107,11 @@ export function categoryTotals(current: readonly AnalysisTx[], previous: readonl
 }
 
 /** The totals of the complete months the range covers from their first day; null without one. */
-function settledTotals(ctx: AnalysisContext, range: DateRange, current: readonly AnalysisTx[]): PeriodTotals | null {
+function settledTotals(ctx: AnalysisContext, range: DateRange): PeriodTotals | null {
   // a range from the 15th holds half of that month, as fullMonths says
   const covered = (m: string) => `${m}-01` >= range.from && isCompleteMonth(ctx, m);
   const months = new Set(monthRange(monthOf(range.from), monthOf(range.to)).filter(covered).map(monthIndex));
-  return months.size ? totalsOf(current.filter((t) => months.has(t.month)).map((t) => t.flows)) : null;
+  return months.size ? totalsOf(spendRows(ctx, toDayRange(range)).filter((t) => months.has(t.month)).map((t) => t.flows)) : null;
 }
 
 /**
@@ -127,13 +127,13 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
   const comparable = historyCovers(ctx, previousFrom);
   const current = inDays(ctx, toDayRange(range));
   const previous = inDays(ctx, toDayRange({ from: previousFrom, to: previousTo }));
-  const totals = totalsOf(current.map((t) => t.flows));
-  const previousTotals = totalsOf(previous.map((t) => t.flows));
-  const categories = categoryTotals(current, previous);
+  const totals = spendTotals(ctx, toDayRange(range));
+  const previousTotals = spendTotals(ctx, toDayRange({ from: previousFrom, to: previousTo }));
+  const categories = categoryTotals(spendRows(ctx, toDayRange(range)), spendRows(ctx, toDayRange({ from: previousFrom, to: previousTo })));
   const alerts = buildAlerts(ctx, range, inputs);
   // one report for the notice and the count, so the two cannot disagree
   const quality = dataQualityReport(ctx, range, balances);
-  const settled = running ? settledTotals(ctx, range, current) : null;
+  const settled = running ? settledTotals(ctx, range) : null;
 
   return {
     range: { from: range.from, to: range.to, previousFrom, previousTo },

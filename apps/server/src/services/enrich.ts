@@ -4,6 +4,16 @@ import type { StoredTransaction } from "../db/rows.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 
+const afterHooks = new WeakMap<SettingsRepo, (userId: string) => Promise<void>>();
+
+/**
+ * Names what runs for a user after a reprocess has written its rows and bumped the data version, for the services that
+ * hold `settings`: the one place every write path of the rows passes (import, sync, rule, account change, upgrade).
+ */
+export function afterReprocess(settings: SettingsRepo, hook: (userId: string) => Promise<void>): void {
+  afterHooks.set(settings, hook);
+}
+
 export interface ReprocessResult {
   /** Rows written: a new category, category source or transfer flag. */
   changed: number;
@@ -67,6 +77,7 @@ export async function reprocessLocked(repo: FinanceRepo, settings: SettingsRepo,
   const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop);
   await repo.updateEnrichment(changed);
   await settings.bumpUserDataVersion(repo.userId);
+  await afterHooks.get(settings)?.(repo.userId);
   await repo.clearUnprocessedMark(mark);
   return summarise(changed, before);
 }
@@ -118,6 +129,7 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
     if (!island.ok) return reprocessLocked(repo, settings);
     await repo.updateEnrichment(island.changed);
     await settings.bumpUserDataVersion(repo.userId);
+    await afterHooks.get(settings)?.(repo.userId);
     return { ...summarise(island.changed, new Map(rows.map((t) => [t.id, t.category]))), incremental: true };
   });
 }

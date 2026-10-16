@@ -1,7 +1,6 @@
 // Decision: is the household spending more than a year ago
 import { getCategory } from "../categories.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays } from "../analysis/context.ts";
-import { totalsOf } from "../analysis/flows.ts";
+import { type AnalysisContext, type AnalysisTx, historyCovers, spendRows, spendTotals } from "../analysis/context.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { addMonthsToDate } from "../dates.ts";
 
@@ -38,9 +37,8 @@ function spendByCategory(txs: readonly AnalysisTx[]): Map<string, number> {
 
 /** The period in a few numbers: totals, where most money went, and what changed from a year ago. */
 export function summaryReport(ctx: AnalysisContext, range: DateRange): SummaryReport {
-  const current = inDays(ctx, toDayRange(range));
-  const totals = totalsOf(current.map((t) => t.flows));
-  const now = spendByCategory(current);
+  const totals = spendTotals(ctx, toDayRange(range));
+  const now = spendByCategory(spendRows(ctx, toDayRange(range)));
   const topCategories = [...now.entries()]
     .filter(([, cents]) => cents > 0)
     .sort((a, b) => b[1] - a[1])
@@ -51,7 +49,7 @@ export function summaryReport(ctx: AnalysisContext, range: DateRange): SummaryRe
   const comparable = historyCovers(ctx, from);
   let changes: SummaryChange[] = [];
   if (comparable) {
-    const before = spendByCategory(inDays(ctx, toDayRange({ from, to: addMonthsToDate(range.to, -12) })));
+    const before = spendByCategory(spendRows(ctx, toDayRange({ from, to: addMonthsToDate(range.to, -12) })));
     // "other" is what nothing recognised: its change says more about the rules than about spending
     changes = [...new Set([...now.keys(), ...before.keys()])]
       .filter((c) => c !== "other")

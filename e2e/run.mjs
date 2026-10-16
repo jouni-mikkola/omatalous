@@ -193,7 +193,7 @@ ${(build.stdout + build.stderr).slice(-2000)}`);
   if (stampDir && code === 0) {
     const { passed, why } = verdict(join(stampDir, "report.json"));
     if (why) console.log(`e2e: no stamp written, ${why}`);
-    else stamps(["write", stampDir, "e2e", String(Math.ceil((Date.now() - began) / 1000)), String(passed), "0"], { stdio: ["ignore", "inherit", "inherit"] });
+    else stamps(["write", stampDir, "e2e", String(Math.max(0, Math.ceil((Date.now() - began) / 1000))), String(passed), "0"], { stdio: ["ignore", "inherit", "inherit"] });
   }
   const failing = apps.map((app) => app.log()).filter((log) => /error|Error/.test(log));
   if (code !== 0 && failing.length) console.error(`--- server log ---\n${failing.join("\n").slice(-3000)}`);

@@ -1,6 +1,6 @@
 // Decision: find the month a category jumped
 import { CATEGORIES, getCategory } from "../categories.ts";
-import { type AnalysisContext, type AnalysisTx, inDays } from "../analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, spendRows } from "../analysis/context.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { themeWindow } from "../analysis/themes-report.ts";
 import { largePurchases } from "../analysis/large.ts";
@@ -120,7 +120,7 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange): PivotReport
   const months = rangeMonthIndexes(range, 24, ctx);
   const first = months[0]!;
   const rows = new Map<string, { values: number[]; total: number }>();
-  for (const t of inDays(ctx, toDayRange(range))) {
+  for (const t of spendRows(ctx, toDayRange(range))) {
     if (!t.spend) continue;
     const e = rows.get(t.category) ?? { values: months.map(() => 0), total: 0 };
     // months older than the 24 shown count in the total only, so it equals the dashboard's for a long range
@@ -178,7 +178,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
   const before = last === null ? [] : completeMonthsBefore(ctx, fromMonthIndex(months[last]!));
   const beforeFirst = before.length ? monthIndex(before[0]!) : 0;
   const fresh = (): Acc => ({ values: new Array<number>(n).fill(0), total: 0, before: new Array<number>(before.length).fill(0) });
-  const rows = inDays(ctx, toDayRange(range)).filter((t) => t.spend);
+  const rows = spendRows(ctx, toDayRange(range)).filter((t) => t.spend);
   // the window's cars place the rows as the themes report does; with no window the range's own fuel stands in
   const cars = themeWindow(ctx)?.cars ?? { answer: null, purchases: fuelPurchases(rows) };
   const bigOnes = largePurchases(ctx);
@@ -209,7 +209,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
     add(of(of(payeeAcc, key, () => new Map()), t.merchant, () => ({ values: new Array<number>(n).fill(0), total: 0 })), t);
   }
   if (before.length) {
-    const earlier = inDays(ctx, toDayRange({ from: `${before[0]}-01`, to: monthEnd(before[before.length - 1]!) }));
+    const earlier = spendRows(ctx, toDayRange({ from: `${before[0]}-01`, to: monthEnd(before[before.length - 1]!) }));
     for (const t of earlier) {
       if (!t.spend || apart(t)) continue;
       const p = themeOf(ctx, t, cars);

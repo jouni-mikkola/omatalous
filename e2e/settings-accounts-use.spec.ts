@@ -75,7 +75,10 @@ test("the question after a link, the parts of the joint account, the bank's answ
   await expect(mine).toHaveValue("70");
   await expect(hers).toHaveValue("30");
   // opening the fields of other weights and leaving them changes nothing
+  // "Tasan" saves at once and the row is drawn again from what the server then says: "Prosentit" is pressed only after that
+  // (the row forgets fields opened before it), so the wait is for "Tasan" to show as pressed, not for a time
   await parts.getByRole("button", { name: "Tasan" }).click();
+  await expect(parts.getByRole("button", { name: "Tasan" })).toHaveAttribute("aria-pressed", "true");
   await parts.getByRole("button", { name: "Prosentit" }).click();
   await expect(save).toBeDisabled();
 

@@ -5,7 +5,7 @@
  * not read as the whole.
  */
 import { dateIn, fromMonthIndex, monthEnd } from "../dates.ts";
-import { type AnalysisContext, inDays } from "./context.ts";
+import { type AnalysisContext, inDays, loweredRows } from "./context.ts";
 import { isCardBill } from "./data-quality.ts";
 import { toDayRange } from "./period.ts";
 
@@ -14,6 +14,6 @@ export function cardBillsByMonth(ctx: AnalysisContext, months: readonly number[]
   if (!months.length) return [];
   const range = toDayRange({ from: dateIn(fromMonthIndex(Math.min(...months)), 1), to: monthEnd(fromMonthIndex(Math.max(...months))) });
   const by = new Map<number, number>(months.map((m) => [m, 0]));
-  for (const t of inDays(ctx, range)) if (isCardBill(t) && by.has(t.month)) by.set(t.month, by.get(t.month)! + t.spend);
+  for (const t of loweredRows(ctx, inDays(ctx, range))) if (isCardBill(t) && by.has(t.month)) by.set(t.month, by.get(t.month)! + t.spend);
   return months.map((m) => by.get(m)!);
 }

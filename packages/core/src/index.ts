@@ -36,6 +36,7 @@ export { isCardBill } from "./analysis/data-quality.ts";
 export * from "./analysis/period.ts";
 export * from "./analysis/format.ts";
 export * from "./analysis/context.ts";
+export * from "./analysis/statement-explain.ts";
 export * from "./analysis/usual.ts";
 export * from "./analysis/alerts.ts";
 export * from "./analysis/subscription-alerts.ts";

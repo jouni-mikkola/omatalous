@@ -1,6 +1,6 @@
 // Decision: where to cut
 import { CATEGORY_GROUPS, getCategory } from "../categories.ts";
-import { type AnalysisContext, historyCovers, inDays } from "../analysis/context.ts";
+import { type AnalysisContext, historyCovers, spendRows } from "../analysis/context.ts";
 import { spendingBase } from "../analysis/data-quality.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { fromMonthIndex } from "../dates.ts";
@@ -61,12 +61,12 @@ export interface CategoryReport {
 export function categoryReport(ctx: AnalysisContext, range: DateRange): CategoryReport {
   const months = rangeMonthIndexes(range, 120, ctx);
   const firstMonth = months[0]!;
-  const current = inDays(ctx, toDayRange(range));
+  const current = spendRows(ctx, toDayRange(range));
   // a running period is compared with the same days of the previous one
   const [pf, pt] = previousRange(range.from, range.from <= ctx.today && ctx.today <= range.to ? ctx.today : range.to);
   const comparable = historyCovers(ctx, pf);
   // a previous period before the history starts would show every category as new
-  const previous = comparable ? inDays(ctx, toDayRange({ from: pf, to: pt })) : [];
+  const previous = comparable ? spendRows(ctx, toDayRange({ from: pf, to: pt })) : [];
 
   const perCategory = new Map<string, { monthly: number[]; total: number; count: number }>();
   for (const t of current) {

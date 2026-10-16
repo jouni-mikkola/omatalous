@@ -2,7 +2,7 @@ import { dayNumber } from "../dates.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import type { IsoDate, UserInputs } from "../types.ts";
-import { type AnalysisContext, type AnalysisTx, inDays, netSpend } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
 import { isCardBill } from "./data-quality.ts";
 import { incomeTypeOf } from "./income.ts";
 import type { DateRange } from "./period.ts";
@@ -81,7 +81,7 @@ const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
  */
 export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): Questions {
   const toDay = dayNumber(range.to);
-  const rows = inDays(ctx, { fromDay: toDay - WINDOW_DAYS + 1, toDay }).filter((t) => t.status === "booked" && !t.isTransfer);
+  const rows = spendRows(ctx, { fromDay: toDay - WINDOW_DAYS + 1, toDay }).filter((t) => t.status === "booked" && !t.isTransfer);
   const dismissed = new Set(inputs.marks.filter((m) => m.mark === "dismissed" && m.subject.startsWith(QUESTION_PAYEE)).map((m) => m.subject.slice(QUESTION_PAYEE.length)));
 
   let outCents = 0;

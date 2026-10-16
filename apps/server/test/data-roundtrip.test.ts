@@ -66,7 +66,8 @@ function plain(file: File): File {
     if (HEAD_KEYS.includes(key) || key === "users" || !Array.isArray(rows)) continue;
     out[key] = rows.map((r: Record<string, unknown>) => {
       const o: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(r)) if (!(key === "rules" && k === "id")) o[k] = typeof v === "string" && names.has(v) ? names.get(v) : v;
+      // a statement's detached mark is derived: the reprocess after an import works it out again for the new instance
+      for (const [k, v] of Object.entries(r)) if (!(key === "rules" && k === "id") && !(key === "statementBills" && k.startsWith("detached_"))) o[k] = typeof v === "string" && names.has(v) ? names.get(v) : v;
       return o;
     });
   }
@@ -418,6 +419,10 @@ describe("who may import, and what is recorded", () => {
   });
 });
 
+// about 10x the median measured on a busy machine (PB1 notes): one sample in a parallel test run is noisy, so the budget
+// catches a slowdown by an order of magnitude, not a few per cent
+const IMPORT_BUDGET_MS = 10_000;
+
 describe("a household of PB1's size", () => {
   it("imports into an empty instance under a budget, and a second time adds nothing", async () => {
     const w = await perfHousehold();
@@ -431,7 +436,7 @@ describe("a household of PB1's size", () => {
     const first = await importFile(empty.admin, file);
     const took = performance.now() - t0;
     expect(first.done.total.add).toBeGreaterThan(5000);
-    expect(took).toBeLessThan(3000);
+    expect(took).toBeLessThan(IMPORT_BUDGET_MS);
     const again = await importFile(empty.admin, file);
     expect(again.dry.total.add).toBe(0);
   }, 120_000);

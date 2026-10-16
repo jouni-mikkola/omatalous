@@ -12,6 +12,7 @@ import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, Loa
 import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { BalanceRecordRepo } from "./finance/balance-record.ts";
 import { ForeignRowRepo } from "./finance/foreign-rows.ts";
+import { StatementRepo } from "./finance/statements.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
@@ -38,6 +39,7 @@ export class FinanceRepo {
   private readonly accounts: AccountsRepo;
   private readonly balanceRecord: BalanceRecordRepo;
   private readonly foreignRows: ForeignRowRepo;
+  private readonly statements: StatementRepo;
   private readonly connections: ConnectionsRepo;
   private readonly transactions: TransactionsRepo;
   private readonly list: TransactionListRepo;
@@ -57,6 +59,7 @@ export class FinanceRepo {
     this.accounts = new AccountsRepo(ctx);
     this.balanceRecord = new BalanceRecordRepo(ctx);
     this.foreignRows = new ForeignRowRepo(ctx);
+    this.statements = new StatementRepo(ctx);
     this.connections = new ConnectionsRepo(ctx);
     this.transactions = new TransactionsRepo(ctx);
     this.list = new TransactionListRepo(ctx);
@@ -83,6 +86,13 @@ export class FinanceRepo {
   recordBalances(...args: Parameters<BalanceRecordRepo["recordBalances"]>) { return this.balanceRecord.recordBalances(...args); }
   storeForeignRows(...args: Parameters<ForeignRowRepo["storeForeignRows"]>) { return this.foreignRows.storeForeignRows(...args); }
   foreignRowsOf(...args: Parameters<ForeignRowRepo["foreignRowsOf"]>) { return this.foreignRows.foreignRowsOf(...args); }
+  // ── card statement rows (finance/statements.ts) ──────────
+  statementBills() { return this.statements.statementBills(); }
+  saveStatement(...args: Parameters<StatementRepo["saveStatement"]>) { return this.statements.saveStatement(...args); }
+  deleteStatement(...args: Parameters<StatementRepo["deleteStatement"]>) { return this.statements.deleteStatement(...args); }
+  setStatementDetached(...args: Parameters<StatementRepo["setStatementDetached"]>) { return this.statements.setStatementDetached(...args); }
+  rowKeyHolders(...args: Parameters<StatementRepo["rowKeyHolders"]>) { return this.statements.rowKeyHolders(...args); }
+  overlappingBill(...args: Parameters<StatementRepo["overlappingBill"]>) { return this.statements.overlappingBill(...args); }
   seedBalancesFromAccounts() { return this.balanceRecord.seedBalancesFromAccounts(); }
   recordHistory(...args: Parameters<BalanceRecordRepo["recordHistory"]>) { return this.balanceRecord.recordHistory(...args); }
   recordFetch(...args: Parameters<BalanceRecordRepo["recordFetch"]>) { return this.balanceRecord.recordFetch(...args); }

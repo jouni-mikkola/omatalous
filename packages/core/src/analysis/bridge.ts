@@ -7,8 +7,8 @@
  */
 import { fromMonthIndex, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { median } from "../stats.ts";
-import { type AnalysisContext, inDays } from "./context.ts";
-import { type PeriodTotals, totalsOf } from "./flows.ts";
+import { type AnalysisContext, spendTotals } from "./context.ts";
+import type { PeriodTotals } from "./flows.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 import { completeMonthsBefore, earnedIncome, isCompleteMonth, MIN_COMPARE_MONTHS, usualIncome } from "./usual.ts";
 
@@ -36,7 +36,7 @@ export interface Bridge {
 
 
 function monthTotals(ctx: AnalysisContext, month: string): PeriodTotals {
-  return totalsOf(inDays(ctx, toDayRange({ from: `${month}-01`, to: monthEnd(month) })).map((t) => t.flows));
+  return spendTotals(ctx, toDayRange({ from: `${month}-01`, to: monthEnd(month) }));
 }
 
 function usualOf(ctx: AnalysisContext, month: string): Pick<Bridge, "usualIncomeCents" | "earnedIncomeCents" | "usualSavingsRate"> {

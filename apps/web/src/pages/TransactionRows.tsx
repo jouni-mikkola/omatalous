@@ -53,6 +53,27 @@ const bankText = (t: ListedRow): string | null => {
 const CARD_BILL_LABEL = "Korttilasku: ostot eivät näy";
 const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
 
+/** What a card bill row says: the purchases told so far, or that they are not shown. The action opens the bill's view (own rows only). */
+function CardBillMark({ t, explained, onStatement }: { t: ListedRow; explained?: number | null; onStatement?: (t: ListedRow) => void }) {
+  if (!cardBill(t)) return null;
+  return (
+    <>
+      <span className="badge">{explained ? `ostoja eritelty ${money(explained)}` : CARD_BILL_LABEL}</span>
+      {t.own && onStatement && (
+        <button className="btn btn-small cs-open" type="button" aria-label={`Erittele ostot: ${t.merchant}`} onClick={() => onStatement(t)}>
+          Erittele ostot
+        </button>
+      )}
+    </>
+  );
+}
+
+/** The statement of a card bill row: its explained sum and the way to open it. */
+export interface StatementProps {
+  explained?: number | null;
+  onStatement?: (t: ListedRow) => void;
+}
+
 interface RowProps {
   t: ListedRow;
   categories: Category[];
@@ -87,7 +108,7 @@ function RowCategory({ t, categories, categoryLabel, pending, onCategory, phone 
   );
 }
 
-export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { account: string }) {
+export const TxRow = memo(function TxRow({ account, explained, onStatement, ...row }: RowProps & StatementProps & { account: string }) {
   const { t } = row;
   const text = bankText(t);
   const part = partOfRow(t);
@@ -99,7 +120,7 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
         <a href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>{t.merchant}</a>
         {t.status === "pending" && <span className="badge warn">varaus</span>}
         {t.isTransfer && <span className="badge">oma siirto</span>}
-        {cardBill(t) && <span className="badge">{CARD_BILL_LABEL}</span>}
+        <CardBillMark t={t} explained={explained} onStatement={onStatement} />
         <div className="tx-under">
           {text && (
             <span className="tx-text" title={text}>
@@ -127,7 +148,7 @@ export const TxRow = memo(function TxRow({ account, ...row }: RowProps & { accou
 });
 
 /** A phone row: the merchant and the amount, then the category. The day is the header above it. */
-export const TxItem = memo(function TxItem(row: RowProps) {
+export const TxItem = memo(function TxItem({ explained, onStatement, ...row }: RowProps & StatementProps) {
   const { t } = row;
   const part = partOfRow(t);
   const owner = ownerLink(t);
@@ -137,7 +158,7 @@ export const TxItem = memo(function TxItem(row: RowProps) {
         <a href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>{t.merchant}</a>
         {t.status === "pending" && <span className="badge warn">varaus</span>}
         {t.isTransfer && <span className="badge">oma siirto</span>}
-        {cardBill(t) && <span className="badge">{CARD_BILL_LABEL}</span>}
+        <CardBillMark t={t} explained={explained} onStatement={onStatement} />
         <span className={`tx-amount ${t.amountCents > 0 ? "amount-in" : ""}`}>{money(t.amountCents)}</span>
       </div>
       <div className="tx-cat">

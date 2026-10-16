@@ -38,6 +38,7 @@ import type { Services } from "./context.ts";
 import { historyOf } from "./coverage.ts";
 import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
+import { statementsInView } from "./statements.ts";
 import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
 
 /**
@@ -306,7 +307,9 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
     }
     if (view === "used") txs = txs.map(uncut);
   }
-  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts)), accounts, shares, told };
+  // the rows of card statements read in the page: of the members whose accounts are in the view, each at the viewer's part
+  const statements = await statementsInView(s, accounts, [...txs, ...(standing ?? [])], parts);
+  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements), accounts, shares, told };
 }
 
 /**

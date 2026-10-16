@@ -1,4 +1,4 @@
-import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, loweredRows } from "./context.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 import { daysBetween } from "../dates.ts";
@@ -119,7 +119,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
 
   // with a card connected the bills are of the months before its rows, or of a card that is not connected
   const hasCardAccount = ctx.accounts.some((a) => a.type === "credit_card");
-  const billTotal = inRange.filter(isCardBill).reduce((s, t) => s + t.spend, 0);
+  const billTotal = loweredRows(ctx, inRange).filter(isCardBill).reduce((s, t) => s + t.spend, 0);
   if (billTotal > 0) {
     signals.push({
       id: "card_bills",

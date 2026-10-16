@@ -1,6 +1,7 @@
 import { UNKNOWN_MERCHANT } from "@banking/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, query } from "../api.ts";
+import { CardStatement, type SavedStatement } from "../components/cards/CardStatement.tsx";
 import { CategorySelect } from "../components/CategorySelect.tsx";
 import { PayeeCategorySelect, usePayeeCategory } from "../components/PayeeCategory.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
@@ -133,6 +134,9 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const phone = usePhone();
   const [panel, setPanel] = useState(false);
   const { data, error, loading, reload } = useApi<{ total: number; inCents: number; outCents: number; items: ListedRow[] }>(`/api/transactions${query({ ...filters, scope, limit })}`);
+  const statements = useApi<{ statements: SavedStatement[] }>("/api/statements");
+  const [billOpen, setBillOpen] = useState<ListedRow | null>(null);
+  const savedOf = (id: string) => statements.data?.statements?.find((s) => s.billId === id) ?? null;
   const anyOwn = data?.items.some((t) => t.own) ?? false;
   const transferIds = useRef(new Set<string>());
   transferIds.current = new Set(data?.items.filter((t) => t.isTransfer).map((t) => t.id));
@@ -229,10 +233,25 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     categoryLabel: categoryLabel(t.category),
     pending: saving?.id === t.id ? saving.category : null,
     onCategory: recategorize,
+    explained: savedOf(t.id)?.read ? savedOf(t.id)!.explainedCents : null,
+    onStatement: setBillOpen,
   });
 
   return (
     <div className="stack tx-page">
+      {billOpen && (
+        <CardStatement
+          key={billOpen.id}
+          bill={{ id: billOpen.id, bookingDate: billOpen.bookingDate, amountCents: billOpen.amountCents, merchant: billOpen.merchant }}
+          saved={savedOf(billOpen.id)}
+          onClose={() => setBillOpen(null)}
+          onChanged={() => {
+            statements.reload();
+            reload();
+            setEdits((n) => n + 1);
+          }}
+        />
+      )}
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} categoryLabel={categoryLabel} />}
       {!filters.merchant && !filters.q && (
         <Uncategorised

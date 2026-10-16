@@ -17,7 +17,9 @@ import { Gate, LoginLimiter, RateLimiter, RememberedAddresses } from "../securit
 import { SecretBox } from "../security/secretbox.ts";
 import { APP_VERSION } from "../version.ts";
 import { AnalysisCache } from "./analysis.ts";
+import { afterReprocess } from "./enrich.ts";
 import { InstanceStore, type RedirectMode, redirectModeOf, redirectUrlFor } from "./instance.ts";
+import { syncStatementState } from "./statements.ts";
 
 export interface BuildInfo {
   /** Release version shown to people (src/version.ts). */
@@ -105,7 +107,7 @@ export function createServices(deps: AppDeps): Services {
   let box: Promise<SecretBox | null> | undefined;
   const settings = new SettingsRepo(deps.db);
   const instance = new InstanceStore(settings, deps.config.defaults);
-  return {
+  const services: Services = {
     config: deps.config,
     build: deps.build ?? { version: APP_VERSION, id: APP_VERSION },
     db: deps.db,
@@ -142,6 +144,9 @@ export function createServices(deps: AppDeps): Services {
     finance: (userId) => new FinanceRepo(deps.db, userId),
     secretBox: () => (box ??= deps.config.appSecret ? SecretBox.fromSecret(deps.config.appSecret) : Promise.resolve(null)),
   };
+  // card statements set aside or read again once the rows they depend on have changed
+  afterReprocess(settings, (userId) => syncStatementState(services, userId));
+  return services;
 }
 
 /** Hono typing for the per-request variables set by the auth middleware. */

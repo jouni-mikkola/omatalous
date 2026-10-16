@@ -174,6 +174,16 @@ account, so the bill must not count again. Each run works this out from the rows
   a debt, savings or *Muut* category. A rule to a purchase category (*Koti*) and a category set by hand on a row stay.
 - **Data quality.** The bills counted as spending show in Tietojen laatu (*Korttilaskuja … lasketaan menoiksi*), with a
   card connected too: the bills of the months before the card's rows, and those of a card that is not connected.
+- **Statement rows.** A member may type in the purchases of one bill from a card statement. The bill stays one row on
+  its account (its amount, the balance, pairing and returns never see the rows). The sums of spending by category and
+  month, and the totals shown beside them (*Menot*, net and saved), read the rows on their purchase days and what the
+  rows leave of the bill on its booking day, so the two add up to the bill to the cent. The rows are read only when
+  they add up to between 0 and the bill's whole amount, the period fits the bill, and the bank does not cover the
+  period: the bank covers it when the booked rows of the card account the bill names SPAN the period, the first on or
+  before its last day and the last on or after its first day. A card whose rows stop before the period (a lapsed
+  consent) or begin after it leaves the statement's rows read. Rows that are not read are set aside, never deleted.
+  A bill cut to a member's part of a joint account is cut once: the members' explained sums and rests add up to the
+  bill's, to the cent.
 
 ### People
 

@@ -3,6 +3,15 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.50.0
+
+- A card bill's purchases can be filled in by hand: "Erittele ostot" on the bill row in Tapahtumat takes rows typed one by one or pasted from the card statement, shows what it read before saving, leaves out payment rows and shows what is still unexplained. The statement itself never leaves the browser.
+- Spending then follows the day of each purchase, and a month's spending total and its categories come from the same rows, so they always agree.
+
+Look
+
+- A card bill row in Tapahtumat opens "Erittele ostot": paste lines copied from the card statement or add rows by hand, and the bill row tells how much of it is itemised.
+
 ## 0.49.0
 
 - Asetukset > Tiedot has "Tuo tiedot": the file of "Vie kaikki tiedot" comes back in. A check shows first what would be added and what is already there, and nothing that exists is changed or removed. Only the user who made the file can bring it in.
