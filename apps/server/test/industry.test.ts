@@ -264,17 +264,38 @@ describe("industry lookup", () => {
     ]);
   });
 
-  it("a row that a trade word of the lexicon filed is an industry guess, with no register entry to show and no request about its name", async () => {
-    const { asked, fetchMock } = fakeRegister();
+  it("a row that a trade word of the lexicon filed is an industry guess until the register finds its company: the name is asked about, and a found entry takes the row", async () => {
+    const found = Response.json({ totalResults: 1, companies: [company("3456789-3", ["Kahvio Esimerkki Oy"], "47250")] });
+    const { asked, fetchMock } = fakeRegister({ answer: (name) => (name === "Kahvio Esimerkki Oy" ? found : undefined) });
     const { s, repo, admin } = await withData(fetchMock);
+    await ingestTransactions(repo, "chk", [raw("2026-09-07", -6, "KAHVIO ESIMERKKI OY", { description: "KORTTIOSTO" }), raw("2026-09-08", -7, "KAHVIO TOINEN OY", { description: "KORTTIOSTO" })], "csv");
+    await reprocess(repo, s.settings);
+    const filed = async (merchant: string) => (await repo.allTransactions()).find((t) => t.merchant === merchant);
+    expect(await filed("Kahvio Esimerkki Oy")).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    await lookupIndustries(s, { pauseMs: 0 });
+    expect(asked).toContain("Kahvio Esimerkki Oy");
+    // the entry fits: its category replaces the stem's; the other has no entry and keeps the stem's
+    expect(await filed("Kahvio Esimerkki Oy")).toMatchObject({ category: "alcohol", categorySource: "industry" });
+    expect(await filed("Kahvio Toinen Oy")).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    const list = await admin.call("GET", "/api/transactions?merchant=Kahvio%20Esimerkki%20Oy");
+    expect(list.body.items[0]).toMatchObject({ category: "alcohol", categorySource: "industry" });
+    // an entry already found is not asked about again in the next run
+    const before = asked.filter((n) => n === "Kahvio Esimerkki Oy").length;
+    await lookupIndustries(s, { pauseMs: 0 });
+    expect(asked.filter((n) => n === "Kahvio Esimerkki Oy")).toHaveLength(before);
+  });
+
+  it("a row a stem filed is a lookup row and no part of what is uncategorised: the unknown share and the list of unknown merchants stay as they were", async () => {
+    const { fetchMock } = fakeRegister();
+    const { s, repo } = await withData(fetchMock);
+    await reprocess(repo, s.settings);
+    const before = { spending: (await repo.uncategorisedSpending()).map((t) => t.merchant).sort(), unknown: await repo.uncategorisedMerchants() };
     await ingestTransactions(repo, "chk", [raw("2026-09-07", -6, "KAHVIO ESIMERKKI OY", { description: "KORTTIOSTO" })], "csv");
     await reprocess(repo, s.settings);
-    expect((await repo.allTransactions()).find((t) => t.merchant === "Kahvio Esimerkki Oy")).toMatchObject({ category: "restaurants", categorySource: "industry" });
-    await lookupIndustries(s, { pauseMs: 0 });
-    expect(asked).not.toContain("Kahvio Esimerkki Oy");
-    const list = await admin.call("GET", "/api/transactions?merchant=Kahvio%20Esimerkki%20Oy");
-    expect(list.body.items[0]).toMatchObject({ category: "restaurants", categorySource: "industry" });
-    expect(list.body.items[0].industry).toBeUndefined();
+    expect((await repo.allTransactions()).find((t) => t.merchant === "Kahvio Esimerkki Oy")).toMatchObject({ categorySource: "industry" });
+    expect((await repo.uncategorisedSpending()).map((t) => t.merchant).sort()).toEqual(before.spending);
+    expect(await repo.uncategorisedMerchants()).toEqual(before.unknown);
+    expect((await repo.registerLookupRows()).map((t) => t.merchant)).toContain("Kahvio Esimerkki Oy");
   });
 
   it("another user sees register categories only for names their own lookup asked about", async () => {

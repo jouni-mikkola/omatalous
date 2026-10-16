@@ -147,6 +147,7 @@ export class FinanceRepo {
   incomingPayerRows() { return this.merchants.incomingPayerRows(); }
   matchedRowsOutside(merchants: readonly string[]) { return this.merchants.matchedRowsOutside(merchants); }
   uncategorisedSpending() { return this.merchants.uncategorisedSpending(); }
+  registerLookupRows() { return this.merchants.registerLookupRows(); }
   merchantHistory(merchant: string, accountIds?: readonly string[], own?: OwnRows) { return this.merchants.merchantHistory(merchant, accountIds, own); }
   uncategorisedMerchants(limit?: number, own?: OwnRows) { return this.merchants.uncategorisedMerchants(limit, own); }
   merchantSummaries(f: MerchantFilter) { return this.merchants.merchantSummaries(f); }

@@ -337,6 +337,7 @@ a category you chose are never matched.
 | Case | Matched when | Result |
 |---|---|---|
 | A shop pays back | same merchant on the same account, the purchase is up to 120 days earlier and at least as large, in full or in part | the purchase's category goes down by the refund |
+| A contract ends with a refund | the payee is a company paid by an equal or varying monthly series of three payments or more (a lease, a loan, a phone, a gym), the refund comes up to 60 days after the series' last payment on the same account, the contract has ended (no payment by the expected day plus one and a half cadences, and 20 days past it) and no payment of the same run followed the refund, and it is no more than the contract cost altogether | the category of the contract's payments goes down by the refund, the latest payment first, whatever the 120 days (`closedContract` in `contract.ts`) |
 | A person pays back | same person on the same account, exactly the amount you sent them, up to 90 days later | *Maksut henkilöille* goes down |
 | Friends send their shares | the bill was paid to a business, and within 10 days one person sends the whole amount, or at least two different people send the same share and the bill divides into 2 to 8 such shares (cent rounding allowed) | the bill's category goes down by the shares |
 
@@ -351,8 +352,8 @@ more than a shop name or an amount:
 - A sender who pays about the same amount (within 10 % of their median) in three or more different months is
   regular income: rent from a lodger, an allowance. It is never matched, so a loan that is repaid in equal
   monthly instalments stays income too.
-- A refund after 120 days and one larger than the purchase stay income, and one to another account is not paired
-  here. A shop gets 120 days because that is how long a card dispute runs, and a cancelled trip or a complaint can
+- A refund after 120 days and one larger than the purchase stay income (a contract's closing refund, above, is the
+  exception), and one to another account is not paired here. A shop gets 120 days because that is how long a card dispute runs, and a cancelled trip or a complaint can
   take as long. A person gets 90, since only an exact amount from the same person is evidence.
 - **In the reports** money in on a spending category lowers spending only as a refund (`moneyIn` in
   `analysis/money-in.ts`, applied once in `createContext`, so every sum follows it). The pair of a person who paid
@@ -656,6 +657,17 @@ fetch records: `asked_from`, `first_row_day`, `source`), which the analysis cont
 - **The longest history** is asked for by the fetch a consent the user has just given sets off, once for each account
   of the new consent, from the history limit, and recorded (`source` `longest`; the record only moves earlier). A
   background fetch never asks for it: a bank limits the calls a day.
+
+- **Accounts two periods share.** `accountsCoverage` (same file) says which accounts have the whole of two periods:
+  those with a row that is no transfer (money in or out), from their first known day (the first 3 days of a month count
+  as the month's start) and not ended before the later period's last day. An account has ended when it has no row for
+  61 days, or 2.5 times its own median gap between rows when that is longer, before the newest row of the scope, so a
+  quarterly bill stays in. An account one period lacks is left out of both sides. The year comparison sums the shared
+  accounts month by month; the summary's changes and the category report's changes (`comparedCents`) do the same over
+  the period. When the accounts left out carry over a tenth of the later period's spending, no change is told. The
+  dashboard's side-by-side figures, the drift check, the Optimoi year comparisons and the months that cost more than
+  usual (with the months of their usual level) sum every account, so they are told only when none is left out.
+  The year comparison says how many months it rests on, that accounts were left out, or why there is no comparison.
 
 ## Loans
 

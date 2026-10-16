@@ -4,6 +4,7 @@
  * the evidence checks behind them.
  */
 import { type AnalysisContext, type AnalysisTx, historyCovers, netSpend } from "../analysis/context.ts";
+import { monthSpan, sameAccounts } from "../analysis/coverage.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
 import { balanceWalk, type BalanceWalk } from "../analysis/balance-walk.ts";
 import { formatEur } from "../analysis/format.ts";
@@ -239,7 +240,7 @@ export function yearOverYear(a: AreaInput): { now: string[]; then: string[]; all
   if (a.months.length < 12) return null;
   const now = a.months.slice(-YEAR_OVER_YEAR_SIDE);
   const then = now.map((m) => addMonths(m, -12));
-  if (!then.every((m) => isCompleteMonth(a.ctx, m))) return null;
+  if (!then.every((m, i) => isCompleteMonth(a.ctx, m) && sameAccounts(a.ctx, monthSpan(m), monthSpan(now[i]!)))) return null;
   return { now, then, all: [...then, ...a.months.slice(0, 12 - YEAR_OVER_YEAR_SIDE), ...now] };
 }
 

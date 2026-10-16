@@ -20,7 +20,7 @@ import { SecretBox } from "../security/secretbox.ts";
 import { ShortLived } from "../security/short-lived.ts";
 import { APP_VERSION } from "../version.ts";
 import { AnalysisCache } from "./analysis.ts";
-import { afterReprocess } from "./enrich.ts";
+import { afterReprocess, reprocessClock } from "./enrich.ts";
 import { InstanceStore, type RedirectMode, redirectModeOf, redirectUrlFor } from "./instance.ts";
 import { syncStatementState } from "./statements.ts";
 
@@ -175,6 +175,7 @@ export function createServices(deps: AppDeps): Services {
   };
   // card statements set aside or read again once the rows they depend on have changed
   afterReprocess(settings, (userId) => syncStatementState(services, userId));
+  reprocessClock(settings, () => services.today());
   return services;
 }
 

@@ -61,3 +61,7 @@
   .card-purchases td.st-num { text-align: left; }
   .card-purchases td::before { content: attr(data-label) ": "; color: var(--muted); }
 }
+
+/* the share of spending filed without asking: two lines above the notes */
+.filed-share { margin: 0 0 var(--sp-8); }
+.filed-share p { margin: 0; }

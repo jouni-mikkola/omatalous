@@ -1,6 +1,7 @@
 // Decision: find why a category rose and cap it
 import { getCategory } from "../categories.ts";
 import { type AnalysisContext, historyCovers } from "../analysis/context.ts";
+import { monthSpan, sameAccounts } from "../analysis/coverage.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { formatEur } from "../analysis/format.ts";
 import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
@@ -118,7 +119,7 @@ export function driftReport(ctx: AnalysisContext, range: DateRange): DriftReport
     const upper = [...baseValues].sort((a, b) => a - b)[Math.ceil(0.75 * baseValues.length) - 1]!;
     if (Math.min(...monthly) < Math.max(usual * MIN_RISE, upper)) continue;
     // the same months a year earlier were as dear: the season, not a new level
-    const lastYear = recent.map((m) => (historyCovers(ctx, `${fromMonthIndex(m - 12)}-01`) ? at(e.values, m - 12) : null));
+    const lastYear = recent.map((m) => (sameAccounts(ctx, monthSpan(fromMonthIndex(m - 12)), monthSpan(fromMonthIndex(m))) ? at(e.values, m - 12) : null));
     if (lastYear.every((v) => v !== null) && median(lastYear as number[]) >= 0.9 * level) continue;
     items.push({
       category,

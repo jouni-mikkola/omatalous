@@ -24,6 +24,7 @@ export const S = {
   prerelease: "Tarjoa uudet versiot heti",
   prereleaseHelp: "Uusi versio tulee tavallisesti tarjolle kaksi päivää julkaisunsa jälkeen. Kun tämä on päällä, se tarjotaan heti. Asennus alkaa vasta, kun painat Päivitä.",
   updateTitle: "Päivitä sovellus",
+  updateTo: (version?: string) => (version ? `Päivitetään versioon ${version}.` : null),
   updateBody: ["Tietokannasta otetaan kopio.", "Sovellus käynnistyy hetkeksi uudelleen.", "Edellinen versio voidaan palauttaa."],
   rollback: "Palauta edellinen versio",
   rollbackTitle: "Palauta edellinen versio",

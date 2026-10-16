@@ -71,6 +71,7 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
     industries,
     { memberId: userId, roles: await repo.payerRoles() },
     why,
+    s.today(),
   );
   const answer = explain(req.figure, ctx, { view: req.scope, range: req.range, accountIds: req.accountIds, category: req.category, why, rowId: req.rowId, use, viewerId: userId });
   if (answer.check.kind === "sum" && answer.check.diffCents !== 0) console.warn(`explain: ${req.figure} differs`);

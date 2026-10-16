@@ -7,6 +7,7 @@
  * carries it alone (ADR 0011).
  */
 import { addMonths, monthEnd } from "../../dates.ts";
+import { monthSpan, sameAccounts } from "../coverage.ts";
 import { formatEur, monthName, monthStem } from "../format.ts";
 import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../usual.ts";
 import { capitalise, lastCompleteMonths, monthRows, oneOffCents } from "./shared.ts";
@@ -41,12 +42,17 @@ export interface Season {
 }
 
 /**
- * The months of the last 12 complete ones whose same month a year earlier is complete too: the only months a season
- * can be judged on. Empty while the history is too short; the Optimoi check and the insight both read it.
+ * The months of the last 12 complete ones that can be judged: the same month a year earlier is complete and held the
+ * same accounts' rows (`accountsCoverage`), and so did the months of the usual level of both years. Empty while the
+ * history is too short; the Optimoi check and the insight both read it, so they give one answer.
  */
 export function seasonMonths(ctx: InsightArgs["ctx"], end: string): string[] {
   const recent = lastCompleteMonths(ctx, end, 12);
-  return recent.length < 12 ? [] : recent.filter((m) => isCompleteMonth(ctx, addMonths(m, -12)));
+  if (recent.length < 12) return [];
+  const same = (earlier: string, month: string) => sameAccounts(ctx, monthSpan(earlier), monthSpan(month));
+  /** The usual level of `month` is read from months that held the same accounts as it. */
+  const usualHeld = (month: string) => completeMonthsBefore(ctx, month).every((w) => same(w, month));
+  return recent.filter((m) => isCompleteMonth(ctx, addMonths(m, -12)) && same(addMonths(m, -12), m) && usualHeld(m) && usualHeld(addMonths(m, -12)));
 }
 
 /**

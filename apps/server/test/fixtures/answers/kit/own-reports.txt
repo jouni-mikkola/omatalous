@@ -78,6 +78,7 @@
   "comparable": true,
   "totalCents": 257670,
   "previousTotalCents": 244645,
+  "comparedTotalCents": 257670,
   "incomeCents": 0,
   "groups": [
    {
@@ -86,6 +87,7 @@
     "share": 0.42336321651725073,
     "incomeShare": null,
     "previousCents": 109763,
+    "comparedCents": 109088,
     "categories": [
      {
       "category": "housing",
@@ -103,6 +105,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 105000,
+      "comparedCents": 105000,
       "trend": null
      },
      {
@@ -121,6 +124,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 4763,
+      "comparedCents": 4088,
       "trend": null
      }
     ]
@@ -131,6 +135,7 @@
     "share": 0.23766833546784646,
     "incomeShare": null,
     "previousCents": 61240,
+    "comparedCents": 61240,
     "categories": [
      {
       "category": "mortgage",
@@ -148,6 +153,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 61240,
+      "comparedCents": 61240,
       "trend": null
      }
     ]
@@ -158,6 +164,7 @@
     "share": 0.13830092754298134,
     "incomeShare": null,
     "previousCents": 36299,
+    "comparedCents": 35636,
     "categories": [
      {
       "category": "groceries",
@@ -175,6 +182,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 20284,
+      "comparedCents": 34763,
       "trend": null
      },
      {
@@ -193,6 +201,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 9869,
+      "comparedCents": 873,
       "trend": null
      },
      {
@@ -211,6 +220,7 @@
       "maxMonthCents": null,
       "monthsActive": 0,
       "previousCents": 6146,
+      "comparedCents": 0,
       "trend": null
      }
     ]
@@ -221,6 +231,7 @@
     "share": 0.10862731400628711,
     "incomeShare": null,
     "previousCents": 27990,
+    "comparedCents": 27990,
     "categories": [
      {
       "category": "kids",
@@ -238,6 +249,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 27990,
+      "comparedCents": 27990,
       "trend": null
      }
     ]
@@ -248,6 +260,7 @@
     "share": 0.05522567625257112,
     "incomeShare": null,
     "previousCents": 0,
+    "comparedCents": 14230,
     "categories": [
      {
       "category": "insurance",
@@ -265,6 +278,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 0,
+      "comparedCents": 14230,
       "trend": null
      }
     ]
@@ -275,6 +289,7 @@
     "share": 0.025955679745410798,
     "incomeShare": null,
     "previousCents": 0,
+    "comparedCents": 6688,
     "categories": [
      {
       "category": "shopping",
@@ -292,6 +307,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 0,
+      "comparedCents": 6688,
       "trend": null
      }
     ]
@@ -302,6 +318,7 @@
     "share": 0.010858850467652423,
     "incomeShare": null,
     "previousCents": 2798,
+    "comparedCents": 2798,
     "categories": [
      {
       "category": "subscriptions",
@@ -319,6 +336,7 @@
       "maxMonthCents": null,
       "monthsActive": 1,
       "previousCents": 2798,
+      "comparedCents": 2798,
       "trend": null
      }
     ]
@@ -329,6 +347,7 @@
     "share": 0,
     "incomeShare": null,
     "previousCents": 6555,
+    "comparedCents": 0,
     "categories": [
      {
       "category": "car",
@@ -346,6 +365,7 @@
       "maxMonthCents": null,
       "monthsActive": 0,
       "previousCents": 6555,
+      "comparedCents": 0,
       "trend": null
      }
     ]
@@ -786,7 +806,14 @@
   "debtYearlyEffectCents": 0
  },
  "dataQuality": {
-  "signals": []
+  "signals": [],
+  "filed": {
+   "share": 1,
+   "guessShare": 0,
+   "userShare": 0,
+   "cents": 3918215,
+   "totalCents": 3918215
+  }
  },
  "yearOverYear": {
   "year": 2026,
@@ -819,7 +846,22 @@
    332734
   ],
   "comparableFromMonth": 1,
+  "comparedMonths": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
   "comparableMonths": 9,
+  "dataFrom": "2024-04",
+  "shortHistory": false,
+  "leftOutAccounts": false,
   "comparable": true,
   "partialMonth": 10,
   "ytdCents": 3199147,

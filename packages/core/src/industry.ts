@@ -321,7 +321,7 @@ export function isLookupName(merchant: string): boolean {
 }
 
 /**
- * Merchants with spending that nothing else categorised, largest total
+ * Merchants with spending that nothing else categorised (or only a guess of the lexicon's stems or the register), largest total
  * first, limited to those that are clearly businesses: every such row of
  * the merchant is a business row (isBusinessRow), and the guard takes none
  * for a person's (mayBePerson), whatever made the row a business row.
@@ -339,7 +339,7 @@ export function industryCandidates(
   const names = new Set([...household, ...householdWords(accounts.map((a) => a.holder))]);
   const totals = new Map<string, number>();
   const ruledOut = new Set<string>();
-  const uncategorised = txs.filter((t) => t.amountCents < 0 && !t.isTransfer && t.categorySource === "default" && isLookupName(t.merchant));
+  const uncategorised = txs.filter((t) => t.amountCents < 0 && !t.isTransfer && (t.categorySource === "default" || t.categorySource === "industry") && isLookupName(t.merchant));
   const shops = businessMerchants(uncategorised, ledgersWithPayeeAccounts(txs));
   // what vouches for an invoice's payee whose name does not say business: a row of the same merchant that a card paid, or the like
   const evidenced = new Set(uncategorised.filter((t) => isPaidAsBusiness(t, cards, shops, isMobilePay(t))).map((t) => t.merchant));

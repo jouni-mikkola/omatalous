@@ -4,6 +4,7 @@ import type { WhyCollector } from "../explain/types.ts";
 import { isMobilePay } from "../industry.ts";
 import type { ForeignDay } from "../foreign-rows.ts";
 import { fold } from "../merchant.ts";
+import { withContracts } from "../contract.ts";
 import { detectRecurring, type RecurringSeries } from "../recurring.ts";
 import { settlePaidElsewhere } from "../recurring-settled.ts";
 import { normalizeIban } from "../transfers.ts";
@@ -134,7 +135,7 @@ export function createContext(transactions: readonly Transaction[], accounts: re
   const byId = new Map(txs.map((t) => [t.id, t]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
   const returns = new Map<string, string>();
-  for (const [id, refund] of moneyIn(txs, ownIbans, why)) {
+  for (const [id, refund] of moneyIn(txs, ownIbans, why, today)) {
     const t = byId.get(id)!;
     if (!refund) {
       t.flows = incomeOf(t.amountCents);
@@ -181,11 +182,11 @@ export function createContext(transactions: readonly Transaction[], accounts: re
 
 /** The series of the rows, with the bills that a payment from another account or under another payee name settled: the one place that does it. */
 function recurringOf(txs: readonly AnalysisTx[], today: IsoDate, accounts: readonly Account[]): RecurringSeries[] {
-  return settlePaidElsewhere(detectRecurring(txs, today), txs, today, accounts);
+  return withContracts(settlePaidElsewhere(detectRecurring(txs, today), txs, today, accounts), txs, today);
 }
 
 /** Bank exports start on a weekday with bookings: a history from the 3rd still covers a month from the 1st. */
-const COVER_SLACK_DAYS = 3;
+export const COVER_SLACK_DAYS = 3;
 
 /** Does the history reach back to `from`? */
 export function historyCovers(ctx: Pick<AnalysisContext, "dataFrom">, from: IsoDate): boolean {

@@ -1,6 +1,7 @@
 // Decision: where to cut
 import { CATEGORY_GROUPS, getCategory } from "../categories.ts";
-import { type AnalysisContext, historyCovers } from "../analysis/context.ts";
+import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
+import { comparableWith } from "../analysis/coverage.ts";
 import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { spendingBase } from "../analysis/data-quality.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
@@ -29,6 +30,8 @@ export interface CategoryStat {
   maxMonthCents: number | null;
   monthsActive: number;
   previousCents: number;
+  /** `totalCents` on the accounts both periods have the whole of: what `previousCents` is set against. 0 when not comparable. */
+  comparedCents: number;
   /** Last 3 months vs the 3 before them, as a fraction; null when there is no base. */
   trend: number | null;
 }
@@ -41,6 +44,7 @@ export interface GroupStat {
   /** Of the income of the range; null when there was none. */
   incomeShare: number | null;
   previousCents: number;
+  comparedCents: number;
   categories: CategoryStat[];
 }
 
@@ -53,6 +57,8 @@ export interface CategoryReport {
    * is a row, so the changes of the rows add up to `totalCents - previousTotalCents`. 0 when not comparable.
    */
   previousTotalCents: number;
+  /** `totalCents` on the accounts both periods have the whole of: what `previousTotalCents` is set against. 0 when not comparable. */
+  comparedTotalCents: number;
   /** Income of the range, the base of `incomeShare`. */
   incomeCents: number;
   groups: GroupStat[];
@@ -66,9 +72,11 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
   const { rows: current, counted } = spendSelect(ctx, toDayRange(range));
   // a running period is compared with the same days of the previous one
   const [pf, pt] = previousRange(range.from, range.from <= ctx.today && ctx.today <= range.to ? ctx.today : range.to);
-  const comparable = historyCovers(ctx, pf);
-  // a previous period before the history starts would show every category as new
-  const previous = comparable ? spendSelect(ctx, toDayRange({ from: pf, to: pt })).counted : [];
+  // the accounts both periods have the whole of: a change is told on those on both sides, and none without any
+  const shared = comparableWith(ctx, { from: pf, to: pt }, range)?.shared ?? null;
+  const comparable = shared !== null;
+  const onShared = (rows: readonly AnalysisTx[]) => rows.filter((t) => shared?.has(t.accountId));
+  const previous = shared ? onShared(spendSelect(ctx, toDayRange({ from: pf, to: pt })).counted) : [];
 
   const perCategory = new Map<string, { monthly: number[]; total: number; count: number }>();
   for (const t of counted) {
@@ -81,6 +89,9 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
   }
   const prev = new Map<string, number>();
   for (const t of previous) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
+  // this period on the same accounts, what a change is measured on
+  const comparedNow = new Map<string, number>();
+  for (const t of onShared(counted)) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
   const averaged = fullMonths(ctx, range, months);
   const averagedAt = averaged.map((m) => m - firstMonth);
   // trend: the last three complete months against the three before them, so six complete months or none
@@ -128,6 +139,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         maxMonthCents: averagedAt.length ? Math.max(...averagedAt.map((i) => e.monthly[i]!)) : null,
         monthsActive: e.monthly.filter((v) => v > 0).length,
         previousCents: prev.get(category) ?? 0,
+        comparedCents: comparedNow.get(category) ?? 0,
         trend: before > 0 ? (recent - before) / before : null,
       };
     })
@@ -142,11 +154,12 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
       share: base ? groupTotal / base : 0,
       incomeShare: ofIncome(groupTotal),
       previousCents: categories.reduce((s, c) => s + c.previousCents, 0),
+      comparedCents: categories.reduce((s, c) => s + c.comparedCents, 0),
       categories,
     };
   })
     .filter((g) => g.categories.length)
     .sort((a, b) => b.totalCents - a.totalCents || b.previousCents - a.previousCents);
 
-  return { comparable, totalCents: total, previousTotalCents: stats.reduce((s, c) => s + c.previousCents, 0), incomeCents: income, groups };
+  return { comparable, totalCents: total, previousTotalCents: stats.reduce((s, c) => s + c.previousCents, 0), comparedTotalCents: stats.reduce((s, c) => s + c.comparedCents, 0), incomeCents: income, groups };
 }

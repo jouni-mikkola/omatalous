@@ -1,4 +1,5 @@
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
+import type { Contract } from "./contract.ts";
 import { addDays, addMonths, dateIn, DAYS_PER_MONTH, daysBetween, monthEnd, monthIndex, monthOf } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { followDay, type PayFollow, payFollowOf } from "./pay-follow.ts";
@@ -63,6 +64,8 @@ export interface RecurringSeries {
   active: boolean;
   /** Active, but the next charge is more than 5 days late. */
   overdue: boolean;
+  /** Set on a subscription or bill of three payments or more to a company: its start, end, first payment and refund (contract.ts). Absent on any other. */
+  contract?: Contract;
   /** Occurrences of a bill that a payment from another account, or under another payee name, settled (recurring-settled.ts). Absent when none. */
   settled?: SettledOccurrence[];
   /** A small service that has run for half a year or more: worth asking whether it is still used. */

@@ -241,6 +241,31 @@ test("Tietojen laatu tells the card bills by issuer, with the reason the purchas
   }
 });
 
+test("Tietojen laatu opens with the share of spending filed without asking, at 1280 and 390", async ({ browser }) => {
+  // made-up shares: the answer is changed on its way, core's tests hold how they are made
+  const cases = [
+    { filed: { share: 0.874, guessShare: 0.004, userShare: 0.06, cents: 874_00, totalCents: 1000_00 }, lines: ["Viimeisen 12 kuukauden menoista 87 % on luokiteltu ilman kysymistä.", "Näistä arvioita alle 1 %. Itse luokittelit 6 %."] },
+    { filed: { share: 1, guessShare: 0, userShare: 0, cents: 500_00, totalCents: 500_00 }, lines: ["Viimeisen 12 kuukauden menoista 100 % on luokiteltu ilman kysymistä."] },
+  ];
+  for (const width of [1280, 390]) {
+    for (const c of cases) {
+      const { context, page, seen } = await admin(browser, width, 900);
+      await page.route("**/api/reports?**", async (route) => {
+        const answer = await route.fetch();
+        await route.fulfill({ response: answer, json: { ...(await answer.json()), dataQuality: { signals: [], filed: c.filed } } });
+      });
+      await page.goto("/#/settings?section=technical#laatu");
+      const block = page.locator("#laatu");
+      await expect(block.getByRole("heading", { name: "Tietojen laatu", exact: true })).toBeVisible();
+      const lines = await block.locator(".filed-share p").evaluateAll((ps) => ps.map((p) => (p.textContent ?? "").replace(/\s+/g, " ")));
+      expect(lines).toEqual(c.lines);
+      expect(await overflow(page), `the page scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
+      expect(seen.problems).toEqual([]);
+      await context.close();
+    }
+  }
+});
+
 test("Tietojen laatu is a card only while the data has a note", async ({ browser }) => {
   const { context, page, seen } = await admin(browser);
   await page.route("**/api/reports?**", async (route) => {
@@ -318,5 +343,46 @@ test("an ended or ending bank connection has Yhdistä uudelleen on its row and i
   // again, a few ms later. Closing the context before that read is answered cuts its route.fetch off (1 run in 100).
   await expect.poll(() => metaAsked > readBefore && metaAnswered === metaAsked).toBe(true);
   expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Tekniset asetukset draws no empty cards while its data is on the way, only the loading placeholder", async ({ browser }) => {
+  const { context, page, seen } = await admin(browser);
+  // the first answer is held until the test lets it go
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/api/sync/runs", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.goto("/#/settings?section=technical");
+  await expect(page.getByRole("status").getByText("Ladataan…")).toBeVisible();
+  // no card is drawn, so no empty frame is either
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+  await expect(page.locator(".card:not(.skeleton):visible")).toHaveCount(0);
+  release();
+  await expect(page.getByRole("heading", { name: "Haku pankista" })).toBeVisible();
+  await expect(page.getByRole("status").getByText("Ladataan…")).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("Tekniset asetukset shows its cards when one read fails, and after a few seconds when one never answers", async ({ browser }) => {
+  const { context, page } = await admin(browser);
+  // one read fails: that card says so itself and the others work
+  await page.route("**/api/security/sessions", (route) => route.fulfill({ status: 500, json: { error: "Palvelin ei vastannut." } }));
+  await page.goto("/#/settings?section=technical");
+  await expect(page.getByRole("heading", { name: "Haku pankista" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Omat istunnot" })).toBeVisible();
+  await expect(page.getByText("Palvelin ei vastannut.")).toBeVisible();
+  await expect(page.getByText("Ladataan…")).toHaveCount(0);
+  await page.unroute("**/api/security/sessions");
+
+  // one read never answers: the cards are drawn after 4 s at the latest
+  await page.route("**/api/security/events*", () => new Promise(() => {}));
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Haku pankista" })).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole("heading", { name: "Omat istunnot" })).toBeVisible();
   await context.close();
 });

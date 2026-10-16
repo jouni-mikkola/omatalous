@@ -64,3 +64,16 @@ describe("partyKind", () => {
     expect(partyKind("")).toBe("unknown");
   });
 });
+
+describe("partyKind of banks and insurers", () => {
+  it.each(["Nordea Bank Abp", "Nordea", "OP", "Danske Bank", "If Vahinkovakuutus", "S-Pankki", "Säästöpankki", "Oma Säästöpankki", "POP Pankki", "Handelsbanken", "Ålandsbanken", "LähiTapiola", "Fennia", "Pohjola Vakuutus", "Turva", "Aktia", "Esimerkki Försäkring", "Example Insurance", "Esimerkki Sparbank"])(
+    "%s is a company",
+    (name) => {
+      expect(partyKind(name)).toBe("company");
+    },
+  );
+
+  it("a person whose name only starts like a bank is still a person", () => {
+    expect(partyKind("Matti Pankkinen")).toBe("person");
+  });
+});

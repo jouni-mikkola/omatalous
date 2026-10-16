@@ -302,10 +302,14 @@ describe("a trade word's row in the pipeline reads like a register guess", () =>
     expect(sentenceOf(why.of(txs[1]!.id)[0]!)).toBe("Luokiteltu automaattisesti");
   });
 
-  it("is not asked of the register again, and a register guess still outranks nothing", () => {
+  it("is asked of the register too, so that a found entry can replace the stem's guess", () => {
     const [stemRow] = run(rows());
-    // a row that a stem filed is no longer uncategorised: the register is not asked about its merchant
-    expect(industryCandidates([stemRow!], accounts)).toEqual([]);
+    // a row that a stem filed is still a candidate: the register's answer outranks the stem (pipeline.ts)
+    expect(industryCandidates([stemRow!], accounts)).toEqual(["KAHVIO ESIMERKKI OY"]);
     expect(industryCandidates([tx("KAHVIO ESIMERKKI OY", -6500)], accounts)).toEqual(["KAHVIO ESIMERKKI OY"]);
+    // near miss: a company row's "rule" is certain and is not asked about
+    const [, brandRow] = run(rows());
+    expect(brandRow?.categorySource).toBe("rule");
+    expect(industryCandidates([brandRow!], accounts)).toEqual([]);
   });
 });

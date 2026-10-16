@@ -1,5 +1,6 @@
 import { missingCardPurchases, type MissingCardPurchases } from "./card-bills.ts";
 import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
+import { type FiledWithoutAsking, filedWithoutAsking } from "./filed.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 import { daysBetween } from "../dates.ts";
@@ -22,6 +23,8 @@ export interface QualitySignal {
 
 export interface DataQualityReport {
   signals: QualitySignal[];
+  /** How much of the last 12 months' spending the app filed without asking; null when there was none. */
+  filed: FiledWithoutAsking | null;
 }
 
 const SHORT_HISTORY_DAYS = 90;
@@ -174,5 +177,5 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       detail: "Lisää saldo kohdassa Asetukset > Tilit, niin puskuri ja seuraavat 30 päivää näkyvät.",
     });
   }
-  return { signals };
+  return { signals, filed: filedWithoutAsking(ctx, range.to) };
 }

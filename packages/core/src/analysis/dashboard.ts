@@ -9,7 +9,8 @@ import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, historyCovers, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
+import { type AnalysisContext, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
+import { sameAccounts } from "./coverage.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
@@ -111,7 +112,8 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
   // salary on the 15th makes the first nine days look like a loss of income
   const running = range.from <= ctx.today && ctx.today <= range.to;
   const [previousFrom, previousTo] = previousRange(range.from, running ? ctx.today : range.to);
-  const comparable = historyCovers(ctx, previousFrom);
+  // the headline sets whole figures side by side, so no account may be left out of either
+  const comparable = sameAccounts(ctx, { from: previousFrom, to: previousTo }, range);
   const current = inDays(ctx, toDayRange(range));
   const previous = inDays(ctx, toDayRange({ from: previousFrom, to: previousTo }));
   const totals = spendTotals(ctx, toDayRange(range));

@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { asks, classifiedPercent } from "../src/components/questions.ts";
+import { asks, classifiedPercent, percentText } from "../src/components/questions.ts";
+
+describe("a share as the page says it", () => {
+  it("is a whole percent rounded down, and alle 1 % for a share above 0 that rounds to nothing", () => {
+    expect(percentText(0.874)).toBe("87 %");
+    expect(percentText(0.999)).toBe("99 %");
+    expect(percentText(1)).toBe("100 %");
+    expect(percentText(0.004)).toBe("alle 1 %");
+    expect(percentText(0.0099)).toBe("alle 1 %");
+    expect(percentText(0.01)).toBe("1 %");
+    expect(percentText(0)).toBe("0 %");
+  });
+});
 
 describe("the percent of the money that is classified", () => {
   it("rounds down to a whole percent, never up to 100", () => {

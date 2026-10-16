@@ -1,8 +1,9 @@
-import type { CSSProperties, ReactNode } from "react";
-import { CADENCE_LABEL, date, money } from "../../format.ts";
+import { type CSSProperties, Fragment, type ReactNode, useState } from "react";
+import { CADENCE_LABEL, date, money, monthYear } from "../../format.ts";
 import { addsUpPrinted, shares } from "../../marks.ts";
 import type { Recurring as Series } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
+import { ContractPanel } from "./ContractPanel.tsx";
 
 /** "kuukausittain", or "11 kertaa vuodessa" for a monthly fee with a summer break. */
 function frequency(s: Series): string {
@@ -39,6 +40,7 @@ export function SeriesRow({
   priced,
   className,
   share,
+  contract,
 }: {
   s: Series;
   label: (id: string) => string;
@@ -49,8 +51,13 @@ export function SeriesRow({
   className?: string;
   /** The row's slice of the share track in Kuussa. */
   share?: { from: number; part: number } | null;
+  /** Tells the start of the contract under the name; it opens the contract's own lines. */
+  contract?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const c = contract ? s.contract : undefined;
   return (
+    <Fragment>
     <tr className={className}>
       <td>
         <a href={`#/transactions?merchant=${encodeURIComponent(s.merchant)}`}>{s.merchant}</a>
@@ -61,6 +68,11 @@ export function SeriesRow({
           </span>
         )}
         <div className="sub">{label(s.category)}</div>
+        {c && (
+          <button type="button" className="contract-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+            alkaen {monthYear(c.startDate)}
+          </button>
+        )}
         {actions}
       </td>
       <td className="hide-phone">{frequency(s)}</td>
@@ -81,6 +93,14 @@ export function SeriesRow({
         )}
       </td>
     </tr>
+    {c && open && (
+      <tr className="contract-panel">
+        <td colSpan={COLUMNS}>
+          <ContractPanel contract={c} />
+        </td>
+      </tr>
+    )}
+    </Fragment>
   );
 }
 
@@ -99,14 +119,14 @@ export function SeriesTotal({ rows }: { rows: readonly Series[] }) {
 }
 
 /** One table of series, widest columns hidden on a phone. */
-export function SeriesTable({ rows, label, ended }: { rows: readonly Series[]; label: (id: string) => string; ended?: boolean }) {
+export function SeriesTable({ rows, label, ended, contract }: { rows: readonly Series[]; label: (id: string) => string; ended?: boolean; contract?: boolean }) {
   return (
     <div className="table-wrap">
       <table className="series-table ruled">
         <SeriesHead ended={ended} />
         <tbody>
           {rows.map((s) => (
-            <SeriesRow key={s.id} s={s} label={label} ended={ended} />
+            <SeriesRow key={s.id} s={s} label={label} ended={ended} contract={contract} />
           ))}
         </tbody>
       </table>

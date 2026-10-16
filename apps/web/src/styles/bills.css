@@ -83,3 +83,9 @@ tr:has(+ tr.foot-row) > * { border-bottom: 0; }
 
 /* a share track needs 100 px in its cell: on a phone the payee's name would be left under 150 */
 @media (max-width: 640px) { .series-table td.share { min-width: 0; background-image: none; } }
+
+/* a contract's start under its name opens its lines; it reads as the line of the category above it */
+.contract-toggle { display: block; margin: 0; padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-label); line-height: var(--lh-label); text-align: left; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.contract-panel > td { padding-top: 0; }
+.st-row > .contract-panel { flex: 0 0 100%; }
+.contract-panel .st-row:last-child { border-bottom: 0; }

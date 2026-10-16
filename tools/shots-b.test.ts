@@ -27,7 +27,7 @@ describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
     expect([...one.members].sort()).toEqual(["Eero", "Shots"]);
     // the bank's holders: both members hold as the one name their other accounts carry, and the second holder is no member
     expect(one.jointUse.source).toBe("bank");
-    expect(one.jointUse.users.map(([label]: [string]) => label).sort()).toEqual(["Eero", "KORHONEN ELISA", "Shots"]);
+    expect(one.jointUse.users.map(([label]: [string]) => label).sort()).toEqual(["Eero", "Korhonen Elisa", "Shots"]);
     expect(new Set(one.jointUse.users.map(([, weight]: [string, number]) => weight)).size, "a share each").toBe(1);
     expect(one.switchShown).toBe(1);
     expect(one.loans).toEqual([]);

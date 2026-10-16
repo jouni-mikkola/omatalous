@@ -71,11 +71,26 @@ async function figure(scope: Locator, label: string): Promise<number | null> {
   const row = scope.locator(".st-row").filter({ has: scope.page().getByText(label, { exact: true }) });
   return (await row.count()) ? cents(await row.locator(".st-num").innerText()) : null;
 }
-/** What a member paid over (positive) or under (negative) the share, and the share, in the block of the pool. */
+/**
+ * What a member paid over (positive) or under (negative) the share, and the share, in the block of the pool.
+ * The block is read again until the figures stand in it: a read made as the page renders finds no row yet.
+ */
 async function standing(page: Page, name: string): Promise<{ paid: number; owed: number; over: number }> {
   const block = poolOf(page).getByRole("group", { name, exact: true });
-  const over = (await figure(block, "Maksanut enemmän kuin osuutensa")) ?? -(await figure(block, "Maksanut vähemmän kuin osuutensa") ?? 0);
-  return { paid: (await figure(block, "Maksanut"))!, owed: (await figure(block, "Osuus"))!, over };
+  const read = async () => {
+    const paid = await figure(block, "Maksanut");
+    const owed = await figure(block, "Osuus");
+    if (paid === null || owed === null) return null;
+    const over = (await figure(block, "Maksanut enemmän kuin osuutensa")) ?? -((await figure(block, "Maksanut vähemmän kuin osuutensa")) ?? 0);
+    return { paid, owed, over };
+  };
+  // a row can go away between the count and the read while the page renders: that is one more round, not a failure
+  const once = () => read().catch(() => null);
+  await expect.poll(once, { message: `the figures of ${name}`, timeout: 15_000 }).not.toBeNull();
+  // the same figures twice in a row: a first render that is still filling in does not count
+  let last = JSON.stringify(await once());
+  await expect.poll(async () => { const now = JSON.stringify(await once()); const same = now === last; last = now; return same; }, { timeout: 15_000 }).toBe(true);
+  return (await read())!;
 }
 async function showMonth(page: Page, month: string) {
   await page.getByRole("combobox", { name: "Kuukausi" }).selectOption(month);

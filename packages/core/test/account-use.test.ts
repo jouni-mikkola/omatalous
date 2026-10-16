@@ -135,17 +135,19 @@ describe("the use the bank's holders give", () => {
   });
 
   it("the other holder is no member: the member and one user with no id, named as the bank names them", () => {
-    expect(deriveUse(JOINT, ["u-1"], [matti])).toEqual({ users: [user("u-1", "Matti"), user(null, ELISA)], source: "bank" });
+    expect(deriveUse(JOINT, ["u-1"], [matti])).toEqual({ users: [user("u-1", "Matti"), user(null, "Korhonen Elisa")], source: "bank" });
+    // the bank's upper case is the payee list's normal case, one holder or several
+    expect(deriveUse({ holder: `${MATTI}, ÅKERBLOM-VIERAS VEIKKO` }, ["u-1"], [matti]).users[1]).toEqual(user(null, "Åkerblom-Vieras Veikko"));
     // three holders: the two who are no member are one user, so the member's part is a half
     const three = deriveUse({ holder: `${MATTI}, ${ELISA}, VIERAS VEIKKO` }, ["u-1"], [matti]);
-    expect(three.users).toEqual([user("u-1", "Matti"), user(null, `${ELISA}, VIERAS VEIKKO`)]);
+    expect(three.users).toEqual([user("u-1", "Matti"), user(null, "Korhonen Elisa, Vieras Veikko")]);
     expect(partOf(three, "u-1")).toEqual({ from: 0, to: 1, of: 2 });
   });
 
   it("a member who linked the account is a user of it, also when no holder is them", () => {
     // a parent with the right to use an account two others hold
     const use = deriveUse({ holder: `${ELISA}, VIERAS VEIKKO` }, ["u-1"], [matti]);
-    expect(use).toEqual({ users: [user("u-1", "Matti"), user(null, `${ELISA}, VIERAS VEIKKO`)], source: "bank" });
+    expect(use).toEqual({ users: [user("u-1", "Matti"), user(null, "Korhonen Elisa, Vieras Veikko")], source: "bank" });
   });
 
   it("one holder who is another member uses the account alone, and a holder who is no member leaves it to whoever linked it", () => {
@@ -180,21 +182,21 @@ describe("the use the bank's holders give", () => {
     // the other holder is no member: one of the two names is hers, so neither is shown as somebody else's
     expect(deriveUse(JOINT, ["u-2"], [elisaUnnamed])).toEqual({ users: [user("u-2", "Elisa"), user(null, OTHER_HOLDER)], source: "bank" });
     // near miss: her name is known and stands on no holder, so both holders are other people
-    expect(deriveUse({ holder: `${MATTI}, VIERAS VEIKKO` }, ["u-2"], [elisa])).toEqual({ users: [user("u-2", "Elisa"), user(null, `${MATTI}, VIERAS VEIKKO`)], source: "bank" });
+    expect(deriveUse({ holder: `${MATTI}, VIERAS VEIKKO` }, ["u-2"], [elisa])).toEqual({ users: [user("u-2", "Elisa"), user(null, "Meikalainen Matti, Vieras Veikko")], source: "bank" });
   });
 
   it("two members of one name: the one who linked the account, else the line cannot tell and names neither", () => {
     const senior = member("u-1", "Matti", MATTI);
     const junior = member("u-4", "Matti nuorempi", `${MATTI} JUHANI`);
     expect(deriveUse(JOINT, ["u-4"], [senior, junior, elisa]).users).toEqual([user("u-2", "Elisa"), user("u-4", "Matti nuorempi")]);
-    expect(deriveUse(JOINT, ["u-2"], [senior, junior, elisa]).users).toEqual([user("u-2", "Elisa"), user(null, MATTI)]);
+    expect(deriveUse(JOINT, ["u-2"], [senior, junior, elisa]).users).toEqual([user("u-2", "Elisa"), user(null, "Meikalainen Matti")]);
   });
 });
 
 describe("the use the household said", () => {
   it("is the stored rows in the order of the parts, with a label for each", () => {
     const use = saidUse([{ userId: null, weight: 100 }, { userId: "u-2", weight: 40_000 }, { userId: "u-1", weight: 60_000 }], { holder: `${MATTI}, ${ELISA}, VIERAS VEIKKO` }, ["u-1"], [matti, elisa]);
-    expect(use).toEqual({ users: [user("u-1", "Matti", 60_000), user("u-2", "Elisa", 40_000), user(null, "VIERAS VEIKKO", 100)], source: "said" });
+    expect(use).toEqual({ users: [user("u-1", "Matti", 60_000), user("u-2", "Elisa", 40_000), user(null, "Vieras Veikko", 100)], source: "said" });
     // every holder is a member: the user with no id is somebody the bank does not name
     expect(saidUse([{ userId: null, weight: 1 }, { userId: "u-1", weight: 1 }], JOINT, ["u-1"], [matti, elisa])!.users).toEqual([user("u-1", "Matti"), user(null, OTHER_HOLDER)]);
     // somebody who is no user by the bank may be said to use it, and whoever linked it may be left out

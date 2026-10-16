@@ -57,9 +57,9 @@ export function useLoadedCount(): [number, () => void] {
   return [count, loaded];
 }
 
-/** Tells the page once, when `done` turns true, that this card has its data. */
-export function useReportLoaded(done: boolean, onLoaded?: () => void): void {
+/** Tells the page once, when `done` turns true, that this card has its data, or (`failed`) that its read failed and the card shows its error. */
+export function useReportLoaded(done: boolean, onLoaded?: (failed: boolean) => void, failed = false): void {
   useEffect(() => {
-    if (done) onLoaded?.();
-  }, [done, onLoaded]);
+    if (done) onLoaded?.(failed);
+  }, [done, failed, onLoaded]);
 }

@@ -33,8 +33,10 @@ describe("a page asks the server for the reports of its own sections", () => {
 
   it("Tietojen laatu is a card only while the data has a note", () => {
     const quality = REPORT_SECTIONS.find((s) => s.id === "laatu")!;
-    const ctx = (signals: unknown[]) => ({ data: { dataQuality: { signals } } }) as unknown as ReportContext;
+    const ctx = (signals: unknown[], filed: unknown = null) => ({ data: { dataQuality: { signals, filed } } }) as unknown as ReportContext;
     expect(quality.visible?.(ctx([]))).toBe(false);
     expect(quality.visible?.(ctx([{ id: "a" }]))).toBe(true);
+    // the share filed without asking is the first lines of the card, so spending alone draws it
+    expect(quality.visible?.(ctx([], { share: 0.9, guessShare: 0, userShare: 0, cents: 9, totalCents: 10 }))).toBe(true);
   });
 });

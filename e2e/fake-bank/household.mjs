@@ -85,6 +85,11 @@ export function household(today) {
     add("chk", back, 8, -between(7000, 12_000), "SAHKOLASKU", { name: "ESIMERKKI SAHKO OY" });
     add("chk", back, 10, -6400, "VAKUUTUS", { name: "ESIMERKKI VAKUUTUS OY" });
     add("chk", back, 12, -1990, "PUHELINLIITTYMA", { name: "ESIMERKKI TELE OY" });
+    // a car lease: a first rent, nine rents of 399,00 and, a month and a half after the last, the refund of the lessor
+    const lessor = { name: "ESIMERKKI LEASING OY" };
+    if (back === 13) add("chk", back, 14, -300_000, "AUTOLEASING ENSIMMAINEN VUOKRA", lessor);
+    if (back <= 12 && back >= 4) add("chk", back, 14, -39_900, "AUTOLEASING VUOKRA", lessor);
+    if (back === 3) add("chk", back, 3, 150_000, "AUTOLEASING HYVITYS", lessor);
     for (let i = 0; i < 4; i++) add("chk", back, between(2, 28), -between(800, 6000), "KORTTIOSTO", { name: pick(SPENDING) }, { mcc: "5499" });
 
     add("sav", back, 26, 20_000, "SAASTOON", { ...me, iban: IBAN.checking });

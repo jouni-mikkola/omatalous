@@ -82,6 +82,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
       version: "0.4.0",
       commit: "abc1234",
       update_available: true,
+      latest_version: "99.1.0",
       checked_at: new Date().toISOString(),
       behind_commits: [{ hash: "abc1234", subject: XSS[0] }, { hash: "def5678", subject: XSS[1] }],
       doctor: { at: new Date().toISOString(), items: [{ id: "x", level: "warn", title: XSS[2], detail: XSS[0], hint: XSS[1] }] },
@@ -97,7 +98,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await expect(page.getByRole("button", { name: "Lue lokit" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Siivoa levy" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Asenna apuri uudelleen" })).toBeDisabled();
-  await expect(page.getByText("Uusi versio saatavilla")).toBeVisible();
+  await expect(page.getByText("Uusi versio 99.1.0 saatavilla")).toBeVisible();
   // shown as text: the tags are on the page as characters, nothing was created from them
   await expect(page.locator(".ops-commits")).toContainText(XSS[0]!);
   await expect(page.locator(".ops-commits")).toContainText(XSS[1]!);
@@ -108,6 +109,8 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   // a wrong password is explained in the dialog and queues nothing
   await page.getByRole("button", { name: "Päivitä", exact: true }).click();
   const dialog = page.getByRole("dialog");
+  // the dialog names the version it installs
+  await expect(dialog.getByText("Päivitetään versioon 99.1.0.")).toBeVisible();
   // the content fits the frame: no scrollbar either way
   expect(await dialog.evaluate((d) => [d.scrollWidth - d.clientWidth, d.scrollHeight - d.clientHeight])).toEqual([0, 0]);
   await dialog.getByLabel("Salasanasi").fill("väärä-salasana-1234");

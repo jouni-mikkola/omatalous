@@ -25,6 +25,7 @@ export * from "./categorize.ts";
 export * from "./industry.ts";
 export * from "./transfers.ts";
 export * from "./recurring.ts";
+export type { Contract } from "./contract.ts";
 export * from "./commitments.ts";
 export * from "./loans.ts";
 export * from "./household-debts.ts";

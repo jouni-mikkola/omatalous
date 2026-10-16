@@ -9,13 +9,13 @@ import { GeneralForm } from "./InstanceForms.tsx";
 import { RemoteAccess } from "./RemoteAccess.tsx";
 import { useReportLoaded } from "./use-settings-page.ts";
 
-export function ServerSettings({ onChange, onLoaded }: { onChange: () => void; onLoaded?: () => void }) {
+export function ServerSettings({ onChange, onLoaded }: { onChange: () => void; onLoaded?: (failed: boolean) => void }) {
   const loaded = useApi<InstanceState>("/api/admin/instance");
   const [state, setState] = useState<InstanceState | null>(null);
   const current = state ?? loaded.data;
 
   // the page scrolls to this card (#/settings?section=server) and to the cards below it only after this one has its height
-  useReportLoaded(current !== null || loaded.error !== null, onLoaded);
+  useReportLoaded(current !== null || loaded.error !== null, onLoaded, loaded.error !== null);
 
   const update = (next: InstanceState) => {
     setState(next);

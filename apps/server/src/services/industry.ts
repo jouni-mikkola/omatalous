@@ -80,7 +80,7 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
     // the household's own names, the same for every member's rows: a partner's name is a payee on the other's account
     const household = householdWords(members.flatMap(({ user, accounts }) => [user.displayName, ...accounts.map((account) => account.holder)]));
     for (const { user, accounts } of members) {
-      const names = industryCandidates(await s.finance(user.id).uncategorisedSpending(), accounts, household);
+      const names = industryCandidates(await s.finance(user.id).registerLookupRows(), accounts, household);
       perUser.set(user.id, names);
       fresh.set(user.id, await s.industry.recordRequests(user.id, names));
     }

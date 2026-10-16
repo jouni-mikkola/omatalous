@@ -13,7 +13,7 @@ import { applyPayerRoles, steadyPayers } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
-import type { Account, CategoryRule, PayerInput, Transaction } from "./types.ts";
+import type { Account, CategoryRule, IsoDate, PayerInput, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
@@ -34,8 +34,9 @@ export function enrichTransactions(
   industries: ReadonlyMap<string, string> = new Map(),
   payers?: PayerInput,
   why?: WhyCollector,
+  today?: IsoDate,
 ): Transaction[] {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why, today);
   let step = steps.next();
   while (!step.done) step = steps.next();
   return step.value;
@@ -53,8 +54,9 @@ export async function enrichTransactionsPausing(
   pause: () => Promise<void>,
   payers?: PayerInput,
   why?: WhyCollector,
+  today?: IsoDate,
 ): Promise<Transaction[]> {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why, today);
   let step = steps.next();
   while (!step.done) {
     await pause();
@@ -106,7 +108,7 @@ function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<st
   for (const t of cardBillsByAmount(next.filter((t) => !byUserRule.has(t.id)))) t.category = "card_bill";
 }
 
-/** Rows nothing recognised take their merchant's other purchases' category, else the lexicon's (lexicon.ts), else the merchant's industry. After transfer detection, which treats such rows as possible own transfers. */
+/** Rows nothing recognised take their merchant's other purchases' category, else the lexicon's company rows (lexicon.ts), else the merchant's found register industry, else the lexicon's stems. After transfer detection, which treats such rows as possible own transfers. */
 function* applyMerchantEvidence(
   next: readonly Transaction[],
   accounts: readonly Account[],
@@ -130,12 +132,15 @@ function* applyMerchantEvidence(
     const industry = registered === "vehicle_purchase" ? dealerCategory(t.amountCents) : registered === CAR_HIRE ? hireCategory(!!leased?.has(t.id)) : registered;
     // debt too: a collection agency's industry means debt service
     const kind = industry ? getCategory(industry).kind : null;
-    // the lexicon of Finnish brands and trade words stands between the merchant's other purchases and the register
-    const listed = same ? null : isBusinessRow(t, cards, shops) ? lexiconCategory(t) : null;
-    if (same) Object.assign(t, { category: same, categorySource: "merchant" });
-    else if (listed) Object.assign(t, { category: listed.category, categorySource: listed.source });
+    // the lexicon of Finnish brands and trade words stands between the merchant's other purchases and the register; only a stem of it (a guess) gives way to a found register entry
+    const business = isBusinessRow(t, cards, shops);
+    const listed = same ? null : business ? lexiconCategory(t) : null;
     // only on business rows: a person who shares a company's name stays a person
-    else if (industry && (kind === "expense" || kind === "debt") && isBusinessRow(t, cards, shops)) Object.assign(t, { category: industry, categorySource: "industry" });
+    const registeredCategory = industry && (kind === "expense" || kind === "debt") && business ? industry : null;
+    if (same) Object.assign(t, { category: same, categorySource: "merchant" });
+    // a found register entry that gives a category beats a stem of the lexicon (a guess too); a company row of it beats the register
+    else if (listed && !(listed.source === "industry" && registeredCategory)) Object.assign(t, { category: listed.category, categorySource: listed.source });
+    else if (registeredCategory) Object.assign(t, { category: registeredCategory, categorySource: "industry" });
   }
 }
 
@@ -165,6 +170,7 @@ function* enrichSteps(
   industries: ReadonlyMap<string, string>,
   payers?: PayerInput,
   why?: WhyCollector,
+  today?: IsoDate,
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
@@ -172,7 +178,7 @@ function* enrichSteps(
   yield;
 
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
-  const returns = matchReturns(next, ownIbansOf(accounts), byUserRule);
+  const returns = matchReturns(next, ownIbansOf(accounts), byUserRule, today);
   if (why) whyReturns(why, next, returns, ownIbansOf(accounts), byUserRule);
   yield;
   const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]), why);
@@ -201,6 +207,11 @@ function* enrichSteps(
 // ── one merchant's rows ──────────────────────────────────
 
 export interface IslandInput {
+  /**
+   * The day the full run is given (the server's today): a contract's closing refund is paired when the contract has ended
+   * by it. Without one the run reads the newest booked row of `rows`, which for one merchant's rows is not the history's.
+   */
+  today?: IsoDate;
   /**
    * Every row of the merchants concerned (and no others), as stored after the change, in the order the full run
    * gets them: date, then id.
@@ -260,7 +271,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     while (!step.done) step = steps.next();
     const { next, byUserRule } = step.value;
     applyCardBills(next, byUserRule);
-    return { next, byUserRule, returns: matchReturns(next, ownIbans, byUserRule) };
+    return { next, byUserRule, returns: matchReturns(next, ownIbans, byUserRule, input.today) };
   };
   const finishWith = (staged: ReturnType<typeof run>, payeeLedgers: ReadonlySet<string>) => {
     // no row of the island pairs: the transfer stage adds nothing to it

@@ -1,6 +1,7 @@
 // Decision: is the household spending more than a year ago
 import { getCategory } from "../categories.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, spendRows, spendTotals } from "../analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, spendRows, spendTotals } from "../analysis/context.ts";
+import { comparableWith } from "../analysis/coverage.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { addMonthsToDate } from "../dates.ts";
 
@@ -46,14 +47,19 @@ export function summaryReport(ctx: AnalysisContext, range: DateRange): SummaryRe
     .map(([category, cents]) => ({ category, label: getCategory(category).label, cents }));
 
   const from = addMonthsToDate(range.from, -12);
-  const comparable = historyCovers(ctx, from);
+  const to = addMonthsToDate(range.to, -12);
+  // the accounts both periods have the whole of: a change is told on those on both sides
+  const shared = comparableWith(ctx, { from, to }, range)?.shared ?? null;
+  const comparable = shared !== null;
   let changes: SummaryChange[] = [];
-  if (comparable) {
-    const before = spendByCategory(spendRows(ctx, toDayRange({ from, to: addMonthsToDate(range.to, -12) })));
+  if (shared) {
+    const onShared = (rows: readonly AnalysisTx[]) => rows.filter((t) => shared.has(t.accountId));
+    const nowShared = spendByCategory(onShared(spendRows(ctx, toDayRange(range))));
+    const before = spendByCategory(onShared(spendRows(ctx, toDayRange({ from, to }))));
     // "other" is what nothing recognised: its change says more about the rules than about spending
-    changes = [...new Set([...now.keys(), ...before.keys()])]
+    changes = [...new Set([...nowShared.keys(), ...before.keys()])]
       .filter((c) => c !== "other")
-      .map((category) => ({ category, label: getCategory(category).label, cents: Math.max(0, now.get(category) ?? 0), previousCents: Math.max(0, before.get(category) ?? 0) }))
+      .map((category) => ({ category, label: getCategory(category).label, cents: Math.max(0, nowShared.get(category) ?? 0), previousCents: Math.max(0, before.get(category) ?? 0) }))
       .filter((c) => c.cents !== c.previousCents)
       .sort((a, b) => Math.abs(b.cents - b.previousCents) - Math.abs(a.cents - a.previousCents))
       .slice(0, 3);

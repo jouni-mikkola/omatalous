@@ -66,13 +66,13 @@ describe("the use of an account in /api/meta", () => {
     await link(s, aino.id, "aino-three", `${AINO}, ${EERO}, VIERAS VEIKKO`, "idn-three");
     await link(s, eero.id, "eero-three", null, "idn-three");
     const [hers, his] = [await accountOf(aino, "aino-three"), await accountOf(eero, "eero-three")];
-    expect(hers.use).toEqual({ users: [...inOrder([user(aino.id, "Aino"), user(eero.id, "Eero")]), user(null, "VIERAS VEIKKO")], source: "bank" });
+    expect(hers.use).toEqual({ users: [...inOrder([user(aino.id, "Aino"), user(eero.id, "Eero")]), user(null, "Vieras Veikko")], source: "bank" });
     expect(his.use).toEqual({ users: [...inOrder([user(aino.id, "Aino"), user(eero.id, "Eero")]), user(null, OTHER)], source: "bank" });
     // a third each, so the two own views and the third holder add up to the account
     expect(hers.part.of).toBe(3);
     expect(his.part.of).toBe(3);
     expect(hers.part).not.toEqual(his.part);
-    expect(JSON.stringify(await metaOf(eero))).not.toContain("VIERAS");
+    expect(JSON.stringify(await metaOf(eero))).not.toMatch(/vieras/i);
   });
 });
 
@@ -201,7 +201,8 @@ describe("what stays on the server", () => {
         for (const u of a.use.users as { userId: string | null; label: string }[]) {
           // a member by their display name; the user with no id by a name the account's own line already shows, or by no name
           if (u.userId !== null) expect(names.has(u.label), `${a.id}: ${u.label}`).toBe(true);
-          else expect(u.label === OTHER || u.label.split(", ").every((name) => (a.holder ?? "").split(", ").includes(name)), `${a.id}: ${u.label}`).toBe(true);
+          // the label is the holder in normal case, as a payee is shown
+          else expect(u.label === OTHER || u.label.split(", ").every((name) => (a.holder ?? "").toLowerCase().split(", ").includes(name.toLowerCase())), `${a.id}: ${u.label}`).toBe(true);
         }
       }
       // every name the answer holds was there before a use was told
@@ -210,9 +211,9 @@ describe("what stays on the server", () => {
     }
     // his own line of holders is on his accounts only: her answer has it on the joint account, and nowhere a name of his she could not see
     const hers = await metaOf(aino);
-    expect(accountIn(hers, "aino-guest").use.users.at(-1)).toEqual(user(null, "VIERAS VEIKKO"));
+    expect(accountIn(hers, "aino-guest").use.users.at(-1)).toEqual(user(null, "Vieras Veikko"));
     const his = JSON.stringify(await metaOf(eero));
-    expect(his).not.toContain("VIERAS");
+    expect(his).not.toMatch(/vieras/i);
     // near miss: a household where nothing of hers is in his view: saying he uses her account tells him nothing
     const apart = await setupApp();
     const other: Member = await apart.member("eero", "Eero");
@@ -237,7 +238,7 @@ describe("what stays on the server", () => {
     ]);
     // the ratio that was said stays, and what was his is the holder who is no user now: a name on her own line
     expect(await accountOf(aino, "aino-joint")).toMatchObject({
-      use: { users: [user(aino.id, "Aino", 60000), user(null, EERO, 40000)], source: "said" },
+      use: { users: [user(aino.id, "Aino", 60000), user(null, "Korhonen Eero", 40000)], source: "said" },
       part: { from: 0, to: 3, of: 5 },
     });
   });
@@ -255,7 +256,7 @@ describe("what stays on the server", () => {
       { account_key: "idn-joint", user_id: aino.id, weight: 2, said_by: null },
       { account_key: "idn-joint", user_id: null, weight: 1, said_by: null },
     ]);
-    expect(await accountOf(aino, "aino-joint")).toMatchObject({ use: { users: [user(aino.id, "Aino", 2), user(null, EERO, 1)], source: "said" }, part: { from: 0, to: 2, of: 3 } });
+    expect(await accountOf(aino, "aino-joint")).toMatchObject({ use: { users: [user(aino.id, "Aino", 2), user(null, "Korhonen Eero", 1)], source: "said" }, part: { from: 0, to: 2, of: 3 } });
     // her own account stays hers at nothing: what she said of it is not taken back by his leaving
     expect(await accountOf(aino, "aino-own")).toMatchObject({ use: { users: [user(aino.id, "Aino", 0), user(null, OTHER, 5)], source: "said" }, part: { from: 0, to: 0, of: 1 } });
   });
@@ -268,7 +269,7 @@ describe("what stays on the server", () => {
       { account_key: "idn-joint", user_id: aino.id, weight: 2, said_by: null },
       { account_key: "idn-joint", user_id: null, weight: 2, said_by: null },
     ]);
-    expect(await accountOf(aino, "aino-joint")).toMatchObject({ use: { users: [user(aino.id, "Aino", 2), user(null, EERO, 2)], source: "said" }, part: { from: 0, to: 1, of: 2 } });
+    expect(await accountOf(aino, "aino-joint")).toMatchObject({ use: { users: [user(aino.id, "Aino", 2), user(null, "Korhonen Eero", 2)], source: "said" }, part: { from: 0, to: 1, of: 2 } });
   });
 
   it("a removed member who had no weight leaves no row of the holders who are no user, and the others' rows stay", async () => {
@@ -301,6 +302,6 @@ describe("what stays on the server", () => {
     // the joint account has no copy left, and her own account is no other account's matter
     expect(await stored(app.db)).toEqual([{ account_key: "idn-aino-own", user_id: aino.id, weight: 2, said_by: aino.id }]);
     await link(app.s, aino.id, "aino-joint", `${AINO}, ${EERO}`, "idn-joint");
-    expect(await accountOf(aino, "aino-joint")).toMatchObject({ use: { users: [user(aino.id, "Aino"), user(null, EERO)], source: "bank" }, part: { from: 0, to: 1, of: 2 } });
+    expect(await accountOf(aino, "aino-joint")).toMatchObject({ use: { users: [user(aino.id, "Aino"), user(null, "Korhonen Eero")], source: "bank" }, part: { from: 0, to: 1, of: 2 } });
   });
 });

@@ -361,7 +361,8 @@ function isReferenceToken(tok: string): boolean {
   return digits >= 2 && !/[A-Z]{4,}/.test(tok);
 }
 
-function titleCase(s: string): string {
+/** "PEKKA ESIMERKKI" → "Pekka Esimerkki": the form a payee and a co-holder of an account are shown in. */
+export function titleCase(s: string): string {
   return s
     .toLowerCase()
     .replace(/(^|[\s\-.])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());

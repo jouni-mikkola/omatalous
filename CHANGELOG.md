@@ -3,6 +3,32 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.61.0
+
+- Laskut tells contracts by their start and end: a lease, loan, insurance or phone contract shows since when it runs, ended contracts move under Päättyneet sopimukset with their dates and cost, and the refund at the end of a contract lowers its cost instead of counting as income.
+- An ended contract is no longer counted in coming payments, and a credit note while a contract runs stays income.
+- Smaller fixes: the update dialog names the version, a co-holder's name is in normal case, Tekniset asetukset shows a loading state instead of empty boxes, and a trade register answer beats a guess from a trade word.
+- Comparisons with last year only use months and accounts that have data on both sides, and say how many months were compared; a newly connected or closed account no longer makes a change of +100 %.
+- An account the bank calls a loan but which only passes the instalments on is shown as Lainanhoitotili and is no debt; a paid-off loan says Maksettu; a loan the app cannot place is asked once, and a home loan answer is used in Asuminen.
+- Tietojen laatu opens with the share of the last 12 months' spending filed without asking.
+
+Money and reports
+
+- Laskut tells a lease, a loan or a phone, insurance or gym contract as a contract: each row of Sopimukset ja laskut shows when it began and opens its first payment, monthly cost, last payment and total paid.
+- A contract that has stopped is listed in Päättyneet sopimukset for two years, with the days it ran and what it cost, and is never counted as a coming payment.
+- The refund a company pays within 60 days after a contract's last payment (a lease deposit) is no longer income: it lowers the spending of the contract's category and is shown with the contract.
+- Asetukset > Tietojen laatu opens with how much of the last 12 months' spending the app filed without asking: "Viimeisen 12 kuukauden menoista 87 % on luokiteltu ilman kysymistä." A second line tells how much of that was a guess (a register code or a trade word) and how much you filed yourself, when either is above zero.
+- A comparison with last year or with the period before now sums only the accounts that have data for the whole of both periods. An account that began or closed in between is left out of both sides, so it no longer shows as +100 % or as a fall in a category. When the accounts left out carry over a tenth of the spending, no change is told.
+- The year comparison says how many months it rests on, that accounts were left out, or why there is no comparison yet, and its labels name the months the figures hold.
+- "Kalliit kuukaudet" and the finding beside it read the same history, so one no longer says it is too short while the other uses two years.
+- A payee the trade register has found now takes the register's category also when a trade word of the lexicon had guessed another; a brand the lexicon lists by name still wins over the register.
+
+Look
+
+- A co-holder of an account who has no login is named in normal case ("Korhonen Elisa", not "KORHONEN ELISA") in Raportit > Yhteiset menot and in the shares of an account, the way a payee is.
+- The update dialog in Asetukset starts with "Päivitetään versioon X." when the version to install is known.
+- Tekniset asetukset shows the loading placeholder until its data has arrived, instead of empty cards.
+
 ## 0.60.0
 
 - Payments the app used to leave in Muut menot are now filed by what the payee does: car leasing gets its own category Autoleasing, and energy, district heat, water, waste, housing companies, insurers, unions, shops and trades are known by name, with the trade register as the next step.

@@ -208,15 +208,12 @@ describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
     const OWNERS = new Set(["packages/core/src/analysis/usual.ts", "packages/core/src/analysis/context.ts"]);
     // today's other callers and how many calls each; a count may only go down
     const BASELINE: Record<string, number> = {
-      "packages/core/src/analysis/dashboard.ts": 1,
       "packages/core/src/analysis/income-changes.ts": 1,
       "packages/core/src/analysis/income-events.ts": 3,
       "packages/core/src/analysis/insights/commitments.ts": 1,
       "packages/core/src/analysis/insights/subscriptions.ts": 1,
       "packages/core/src/optimise/common.ts": 1,
-      "packages/core/src/reports/categories.ts": 1,
-      "packages/core/src/reports/drift.ts": 4,
-      "packages/core/src/reports/summary.ts": 1,
+      "packages/core/src/reports/drift.ts": 3,
     };
     const SELF = "tools/repo-rules/code-rules.ts";
     const found: Finding[] = [];

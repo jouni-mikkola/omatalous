@@ -2,6 +2,7 @@
 // It is a card of the technical page of Asetukset, drawn only while the data has a note.
 import { formatEur, formatFiDate, type MissingCardPurchases } from "@banking/core";
 import { query } from "../../../api.ts";
+import { filedLines } from "../../../components/questions.ts";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/quality.css";
@@ -36,8 +37,15 @@ function CardPurchases({ rows }: { rows: readonly MissingCardPurchases[] }) {
 
 function DataQuality({ ctx }: SectionProps) {
   const r = ctx.data.dataQuality;
+  const lines = filedLines(r.filed);
   return (
     <Section id={section.id} title={section.title}>
+      {r.filed && (
+        <div className="filed-share">
+          <p>{lines[0]}</p>
+          {lines.length > 1 && <p>{lines.slice(1).join(" ")}</p>}
+        </div>
+      )}
       <ul className="loans-notes">
         {r.signals.map((s) => (
           <li key={s.id} style={{ margin: "0 0 10px" }}>
@@ -65,7 +73,7 @@ export const section: ReportSection = {
   order: 10,
   page: "settings",
   reports: ["dataQuality"],
-  // no note, no card
-  visible: (ctx) => ctx.data.dataQuality.signals.length > 0,
+  // no note and no spending, no card
+  visible: (ctx) => ctx.data.dataQuality.signals.length > 0 || !!ctx.data.dataQuality.filed,
   Component: DataQuality,
 };

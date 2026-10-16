@@ -100,12 +100,12 @@ export function Password({ openPassword }: { openPassword: boolean }) {
 }
 
 /** The devices that are signed in, for the member whose page it is. */
-export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
+export function Sessions({ onLoaded }: { onLoaded?: (failed: boolean) => void }) {
   const sessions = useApi<{ sessions: Session[] }>("/api/security/sessions");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [doing, setDoing] = useState("");
-  useReportLoaded(sessions.data !== null || sessions.error !== null, onLoaded);
+  useReportLoaded(sessions.data !== null || sessions.error !== null, onLoaded, sessions.error !== null);
 
   const act = async (key: string, fn: () => Promise<unknown>, signsOut = false) => {
     if (busy) return;
@@ -175,10 +175,10 @@ export function Sessions({ onLoaded }: { onLoaded?: () => void }) {
 }
 
 /** The admin's list of logins, lockouts, key changes and maintenance requests of the last 90 days. */
-export function SecurityLog({ onLoaded }: { onLoaded?: () => void }) {
+export function SecurityLog({ onLoaded }: { onLoaded?: (failed: boolean) => void }) {
   const [kind, setKind] = useState("");
   const events = useApi<{ events: SecurityEvent[]; kinds: string[] }>(`/api/security/events${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
-  useReportLoaded(events.data !== null || events.error !== null, onLoaded);
+  useReportLoaded(events.data !== null || events.error !== null, onLoaded, events.error !== null);
   return (
     <div className="card" id={SETTINGS_ANCHOR.securityLog}>
       <div className="card-head">

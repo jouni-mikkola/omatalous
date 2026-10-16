@@ -132,21 +132,33 @@ export class MerchantsRepo {
     return rows.filter((r) => !inside.has(String(r.merchant))).map((r) => ({ accountId: String(r.account_id), bookingDate: String(r.booking_date), amountCents: Number(r.amount_cents) }));
   }
 
-  /** Spending rows nothing categorised: the input of the trade register lookup. The reference number tells an invoice from a transfer (core `isBusinessRow`). */
-  async uncategorisedSpending(): Promise<
+  /** Spending rows nothing categorised. The reference number tells an invoice from a transfer (core `isBusinessRow`). */
+  uncategorisedSpending() {
+    return this.spendingFiledBy(["default"]);
+  }
+
+  /**
+   * The input of the trade register lookup: the rows nothing categorised, and those a guess filed (a lexicon stem, or an
+   * earlier register answer), since a found entry replaces a stem's category. A list of its own: no figure of a page reads it.
+   */
+  registerLookupRows() {
+    return this.spendingFiledBy(["default", "industry"]);
+  }
+
+  private async spendingFiledBy(sources: readonly ("default" | "industry")[]): Promise<
     (Pick<Transaction, "accountId" | "amountCents" | "isTransfer" | "categorySource" | "merchant" | "mcc" | "counterparty" | "counterpartyIban" | "description" | "source"> & { reference: string | null })[]
   > {
     const rows = await this.ctx.db.all<Row>(
-      `SELECT account_id, source, amount_cents, merchant, mcc, counterparty, counterparty_iban, description, reference FROM transactions
-       WHERE user_id = ? AND category_source = 'default' AND amount_cents < 0 AND is_transfer = 0`,
-      [this.ctx.userId],
+      `SELECT account_id, source, category_source, amount_cents, merchant, mcc, counterparty, counterparty_iban, description, reference FROM transactions
+       WHERE user_id = ? AND category_source IN (${sources.map(() => "?").join(", ")}) AND amount_cents < 0 AND is_transfer = 0`,
+      [this.ctx.userId, ...sources],
     );
     return rows.map((r) => ({
       accountId: String(r.account_id),
       source: String(r.source),
       amountCents: Number(r.amount_cents),
       isTransfer: false,
-      categorySource: "default" as const,
+      categorySource: r.category_source === "industry" ? ("industry" as const) : ("default" as const),
       merchant: String(r.merchant),
       mcc: r.mcc === null ? null : String(r.mcc),
       counterparty: r.counterparty === null ? null : String(r.counterparty),

@@ -1,9 +1,10 @@
 import { getCategory } from "./categories.ts";
+import { closedContract } from "./contract.ts";
 import { dayNumber, monthOf } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { median } from "./stats.ts";
 import { normalizeIban } from "./transfers.ts";
-import type { Transaction } from "./types.ts";
+import type { IsoDate, Transaction } from "./types.ts";
 import { isRefundText } from "./wording.ts";
 
 /**
@@ -21,7 +22,7 @@ export const SHARE_WINDOW_DAYS = 10;
 const MAX_SHARES = 8;
 
 type ReturnInput = Pick<Transaction, "id" | "accountId" | "bookingDate" | "amountCents" | "merchant" | "counterpartyIban" | "category" | "categorySource"> &
-  Partial<Pick<Transaction, "counterparty" | "description">>;
+  Partial<Pick<Transaction, "counterparty" | "description" | "status">>;
 
 /** Refund words in a payment text. An insurance claim (KORVAUS) is income, not a refund. */
 const CLAIM_TEXT = /(?<![A-Z0-9])[A-Z]*KORVAUS[A-Z]*(?![A-Z0-9])/;
@@ -51,7 +52,7 @@ const NOT_A_PURCHASE = new Set(["card_bill", "cash"]);
  * transfers between own accounts out. The result depends on the rows only,
  * not on their order.
  */
-export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<string> = new Set(), locked: ReadonlySet<string> = new Set()): Map<string, string> {
+export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<string> = new Set(), locked: ReadonlySet<string> = new Set(), today?: IsoDate): Map<string, string> {
   const rows = sortedRows(txs);
   const regular = steadyParties(rows.filter((t) => t.amountCents > 0 && isNamed(t, ownIbans)));
 
@@ -61,7 +62,7 @@ export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<
     if (t.category === "p2p_in" && t.categorySource === "rule") incoming.push({ t, day: dayNumber(t.bookingDate), person: true, share: true });
     else if (isPlainIncome(t)) incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false });
   }
-  return pair(rows, incoming, ownIbans);
+  return pair(rows, incoming, ownIbans, today ?? latestDay(rows));
 }
 
 /**
@@ -73,7 +74,7 @@ export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<
  * merchants. It finds the pairs matchReturns made, because a returned row
  * carries its purchase's category and the rest of the evidence is unchanged.
  */
-export function pairedReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<string> = new Set()): Map<string, string> {
+export function pairedReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<string> = new Set(), today?: IsoDate): Map<string, string> {
   const rows = sortedRows(txs);
   const incoming: Incoming[] = [];
   for (const t of rows) {
@@ -81,7 +82,7 @@ export function pairedReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet
     // only a row that matchReturns put there can be a share of a bill: a refund a rule recognised names its shop
     incoming.push({ t, day: dayNumber(t.bookingDate), person: t.category === "p2p", share: t.categorySource === "match" });
   }
-  return incoming.length ? pair(rows, incoming, ownIbans) : new Map();
+  return incoming.length ? pair(rows, incoming, ownIbans, today ?? latestDay(rows)) : new Map();
 }
 
 /**
@@ -122,7 +123,10 @@ export const partyKey = (t: Pick<Transaction, "accountId" | "merchant">) => `${t
 export const isNamed = (t: Pick<Transaction, "merchant" | "counterpartyIban">, ownIbans: ReadonlySet<string>) => t.merchant !== UNKNOWN_MERCHANT && !ownIbans.has(normalizeIban(t.counterpartyIban) ?? "");
 
 /** Finds the payment each incoming row cancels. `rows` are sorted by date and id. */
-function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIbans: ReadonlySet<string>): Map<string, string> {
+/** The day of the newest booked row: the history's own today where the caller knows no other. A pending row is no evidence of the day. `rows` are sorted. */
+const latestDay = (rows: readonly ReturnInput[]): IsoDate => rows.findLast((t) => t.status !== "pending")?.bookingDate ?? "0000-00-00";
+
+function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIbans: ReadonlySet<string>, today: IsoDate): Map<string, string> {
   if (!incoming.length) return new Map();
   const purchases = new Map<string, Purchase[]>();
   const list: Purchase[] = [];
@@ -155,6 +159,22 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
       best.left -= cents;
       matches.set(inc.t.id, best.t.id);
     }
+  }
+
+  // the refund that closes a contract takes back what the contract cost, not one payment: it is paired with the last.
+  // A loan's payments count as well as spending (`moneyIn` nets a loan's closing refund too)
+  const contracts = new Map<string, ReturnInput[]>();
+  for (const t of rows) {
+    if (t.amountCents >= 0 || !isNamed(t, ownIbans) || NOT_A_PURCHASE.has(t.category) || !["expense", "debt"].includes(getCategory(t.category).kind)) continue;
+    const group = contracts.get(partyKey(t));
+    if (group) group.push(t);
+    else contracts.set(partyKey(t), [t]);
+  }
+  for (const inc of incoming) {
+    const group = contracts.get(partyKey(inc.t));
+    if (inc.person || matches.has(inc.t.id) || !group || group.length < 3) continue;
+    const closed = closedContract(group, inc.t, today);
+    if (closed) matches.set(inc.t.id, closed[closed.length - 1]!.id);
   }
 
   // friends sending their shares of a bill paid to a business

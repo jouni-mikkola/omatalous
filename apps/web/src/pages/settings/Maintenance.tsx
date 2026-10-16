@@ -71,6 +71,7 @@ export function Maintenance() {
   // a mutating request is queued or running: one at a time
   const blocked = !data || helperOff || data.active || pending;
   const latest = data?.requests[0];
+  const updateTo = S.updateTo(data?.state.latest_version);
 
   const panels = data && (
     <>
@@ -181,6 +182,7 @@ export function Maintenance() {
             setDialog(null);
           }}
         >
+          {updateTo && <p>{updateTo}</p>}
           <ul>
             {S.updateBody.map((line) => (
               <li key={line}>{line}</li>

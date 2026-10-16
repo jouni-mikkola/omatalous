@@ -25,6 +25,7 @@
  */
 import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex } from "../dates.ts";
+import { monthSpan, sameAccounts } from "./coverage.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import type { IsoDate } from "../types.ts";
 import { type Plan, planOf, rowsComplete, windowOf } from "./change-plan.ts";
@@ -237,7 +238,7 @@ function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
   // a year ago, for the season mark of the usual view
   const ago = addMonths(plan.target[0]!, -12);
   let yearAgo: Map<string, number> | null = null;
-  if (plan.view === "usual" && isCompleteMonth({ dataFrom: rowsComplete(ctx).from, today: ctx.today }, ago)) {
+  if (plan.view === "usual" && isCompleteMonth({ dataFrom: rowsComplete(ctx).from, today: ctx.today }, ago) && sameAccounts(ctx, monthSpan(ago), monthSpan(plan.target[0]!))) {
     yearAgo = new Map();
     for (const t of rowsOf(ago)) yearAgo.set(t.category, (yearAgo.get(t.category) ?? 0) + t.spend);
   }

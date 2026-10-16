@@ -4,6 +4,7 @@
  * read. A part is a range of the users' weights, so the users' parts of a row add up to the row, to the cent.
  */
 import type { WhyCollector } from "./explain/types.ts";
+import { titleCase } from "./merchant.ts";
 import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
 import { normalizeIban, pairTransfers } from "./transfers.ts";
 import type { Account, AccountUse, AccountUser, Part, RowShare, Transaction } from "./types.ts";
@@ -59,7 +60,7 @@ function heldBy(account: Pick<Account, "holder">, linkedBy: readonly string[], m
   // a member who linked the account and whose own accounts tell no name is one of the holders nobody matched
   const unnamed = linkedBy.filter((id) => !ids.includes(id) && members.some((m) => m.id === id && m.name === null)).length;
   // which of them the unnamed member is cannot be told, so the others are not named either
-  const other = strangers.length > unnamed ? (unnamed ? OTHER_HOLDER : strangers.map((h) => h.text).join(", ")) : null;
+  const other = strangers.length > unnamed ? (unnamed ? OTHER_HOLDER : strangers.map((h) => titleCase(h.text)).join(", ")) : null;
   return { count: holders.length, members: ids, other };
 }
 

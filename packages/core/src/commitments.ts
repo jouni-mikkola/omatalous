@@ -4,12 +4,12 @@
  * recurring page and the reports (docs/MONEY_FLOWS.md).
  */
 import type { AnalysisContext } from "./analysis/context.ts";
-import { covers, type MarkedSeries, marksBySubject } from "./analysis/subscription-alerts.ts";
+import { countingMark, covers, type MarkedSeries, marksBySubject } from "./analysis/subscription-alerts.ts";
 import { completeMonthsBefore } from "./analysis/usual.ts";
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
 import { addMonthsToDate, monthIndex, monthOf } from "./dates.ts";
 import { projectDates, type RecurringSeries } from "./recurring.ts";
-import type { ExpectedBill, IsoDate, UserInputs } from "./types.ts";
+import type { ExpectedBill, IsoDate, UserInputs, UserMark } from "./types.ts";
 
 /** What a mark can find a series by. A caller may pass less than a whole series, and then only a mark on its merchant covers it. */
 type Markable = Pick<RecurringSeries, "kind"> & Partial<Omit<MarkedSeries, "kind">>;
@@ -65,6 +65,17 @@ export function isContract(s: Pick<RecurringSeries, "active" | "kind" | "categor
   if (!isFixedCost(s) || isSubscription(s)) return false;
   const kind = getCategory(s.category).kind;
   return kind === "expense" || kind === "debt";
+}
+
+/**
+ * Whether a contract (contract.ts) has ended: the user's mark first, Lopetettu says it did and Käytössä, said in the
+ * last twelve months, says it did not; without one the payments say (`contract.ended`). A series that is no contract
+ * has not.
+ */
+export function isEndedContract(s: Pick<RecurringSeries, "id" | "merchant" | "kind" | "typicalAmountCents" | "priceChange" | "contract">, marks: ReadonlyMap<string, UserMark>, today: IsoDate): boolean {
+  if (!s.contract) return false;
+  const mark = countingMark(marks, s, today);
+  return mark ? mark.mark === "cancelled" : s.contract.ended;
 }
 
 /** An active monthly saving (a fund saving plan): it leaves the account like a bill, but the money is kept, so it is not a fixed cost. */

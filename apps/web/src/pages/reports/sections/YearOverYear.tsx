@@ -1,4 +1,5 @@
 // Decision: is the household spending more than a year ago
+import { yearComparisonNote } from "@banking/core";
 import { LineChart } from "../../../charts/LineChart.tsx";
 import { money, MONTHS_SHORT, signedMoney } from "../../../format.ts";
 import { Kv } from "../parts.tsx";
@@ -8,15 +9,17 @@ import type { ReportSection, SectionProps } from "../types.ts";
 function YearOverYear({ ctx }: SectionProps) {
   const r = ctx.data.yearOverYear;
   const { summary } = ctx.data;
+  const note = yearComparisonNote(r);
+  // too few months in common: no figures, only why
+  if (!r.comparable) return <Section id={section.id} title={section.title} sub={note ?? undefined}>{null}</Section>;
   const diff = r.previousYtdCents ? (r.ytdCents - r.previousYtdCents) / r.previousYtdCents : null;
-  // the section is visible with at least three comparable months, so `from` is a month
-  const from = r.comparableFromMonth!;
   const lastMonth = r.current.filter((v) => v !== null).length;
-  // "Menot 2026 tähän asti", or the months both years have: "Menot elo–syyskuu 2026"
-  const span = from > 1 ? `${MONTHS_SHORT[from - 1]}–${MONTHS_SHORT[lastMonth - 1]}kuu ` : "";
+  // the months the figures hold: "Menot 2026 tähän asti" when every month so far is in, else "Menot touko–syyskuu 2026"
+  const whole = r.comparedMonths.length === lastMonth;
+  const span = whole ? "" : `${MONTHS_SHORT[r.comparedMonths[0]! - 1]}–${MONTHS_SHORT[r.comparedMonths[r.comparedMonths.length - 1]! - 1]}kuu `;
   const changes = summary.comparable ? summary.changes : [];
   return (
-    <Section id={section.id} title={section.title} sub={from > 1 ? `Molemmilta vuosilta on tiedot ${MONTHS_SHORT[from - 1]}kuusta alkaen.` : undefined}>
+    <Section id={section.id} title={section.title} sub={note ?? undefined}>
       <Kv
         items={[
           [`Menot ${span}${r.year}${span ? "" : " tähän asti"}`, money(r.ytdCents, false)],
@@ -62,7 +65,7 @@ export const section: ReportSection = {
   page: "reports",
   // the biggest changes under the chart come from the summary
   reports: ["yearOverYear", "summary"],
-  // one or two months say nothing: the section waits for three whole months of both years
-  visible: (ctx) => ctx.data.yearOverYear.comparable,
+  // one or two months say nothing: with fewer than three whole months of both years the section says why
+  visible: (ctx) => ctx.data.yearOverYear.comparable || ctx.data.yearOverYear.dataFrom !== null,
   Component: YearOverYear,
 };

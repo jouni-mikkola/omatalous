@@ -60,7 +60,7 @@ function Categories({ ctx }: SectionProps) {
                 {hasAverage && <td className="num hide-phone">{money(g.categories.reduce((s, c) => s + (c.monthlyAvgCents ?? 0), 0), false)}</td>}
                 {r.comparable && (
                   <td className="num">
-                    <Change now={g.totalCents} before={g.previousCents} />
+                    <Change now={g.comparedCents} before={g.previousCents} />
                   </td>
                 )}
               </tr>,
@@ -78,7 +78,7 @@ function Categories({ ctx }: SectionProps) {
                   {hasAverage && <td className="num hide-phone">{c.monthlyAvgCents === null ? "–" : money(c.monthlyAvgCents, false)}</td>}
                   {r.comparable && (
                     <td className="num">
-                      <Change now={c.totalCents} before={c.previousCents} />
+                      <Change now={c.comparedCents} before={c.previousCents} />
                     </td>
                   )}
                 </tr>
@@ -98,7 +98,7 @@ function Categories({ ctx }: SectionProps) {
                 {hasAverage && <td className="num hide-phone">{money(r.groups.reduce((s, g) => s + g.categories.reduce((t, c) => t + (c.monthlyAvgCents ?? 0), 0), 0), false)}</td>}
                 {r.comparable && (
                   <td className="num">
-                    <Change now={r.totalCents} before={r.previousTotalCents} />
+                    <Change now={r.comparedTotalCents} before={r.previousTotalCents} />
                   </td>
                 )}
               </tr>

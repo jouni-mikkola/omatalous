@@ -367,6 +367,24 @@ describe("enrichTransactions with merchant memory and industries", () => {
     expect(byId.get(rows[2]!.id)?.categorySource ?? rows[2]!.categorySource).toBe("default");
   });
 
+  it("a found register entry beats a stem of the lexicon, a stem with no entry keeps its category, and a company row of the lexicon beats the register", () => {
+    const buy = (merchant: string) => tx({ accountId: "card", bookingDate: "2026-09-01", amountCents: -1200, merchant, counterparty: merchant.toUpperCase() });
+    const rows = [buy("Gastropub Esimerkki"), buy("Gastropub Toinen"), buy("Rusta Esimerkki")];
+    // the first has an entry that fits (stem GASTROPUB: restaurants), the second has none, the third is a company row (RUSTA: home)
+    const industries = new Map([["Gastropub Esimerkki", "shopping"], ["Rusta Esimerkki", "restaurants"]]);
+    const [entry, stemOnly, company] = enrichTransactions(rows, [checking, card], [], industries);
+    expect(entry).toMatchObject({ category: "shopping", categorySource: "industry" });
+    expect(stemOnly).toMatchObject({ category: "restaurants", categorySource: "industry" });
+    expect(company).toMatchObject({ category: "home", categorySource: "rule" });
+    // near miss: an entry that gives no category (income is no spending) leaves the stem's category
+    expect(enrichTransactions([rows[0]!], [checking, card], [], new Map([["Gastropub Esimerkki", "income"]]))[0]).toMatchObject({ category: "restaurants", categorySource: "industry" });
+  });
+
+  it("asks the register about a row only a stem filed, and not about one a company row filed", () => {
+    const row = (merchant: string, categorySource: "default" | "industry" | "rule") => ({ ...tx({ accountId: "card", bookingDate: "2026-09-01", amountCents: -1200, merchant, counterparty: merchant.toUpperCase() }), categorySource });
+    expect(industryCandidates([row("Gastropub Esimerkki Oy", "industry"), row("Kahvila Vanha Oy", "default"), row("Rusta Esimerkki Oy", "rule")], [checking, card])).toEqual(["Gastropub Esimerkki Oy", "Kahvila Vanha Oy"]);
+  });
+
   it("files the rows of each monthly run of equal sums under Autoleasing, and every other row of the company under travel", () => {
     const industries = new Map([["Ilmari Wheels", CAR_HIRE]]);
     const row = (date: string, cents: number) => tx({ accountId: "card", bookingDate: date, amountCents: cents, merchant: "Ilmari Wheels", counterparty: "ILMARI WHEELS" });

@@ -14,6 +14,16 @@ export function afterReprocess(settings: SettingsRepo, hook: (userId: string) =>
   afterHooks.set(settings, hook);
 }
 
+const clocks = new WeakMap<SettingsRepo, () => string>();
+
+/**
+ * Names where the services of `settings` read the day: a closing refund of a contract is paired when the contract has
+ * ended by that day, as the reports read it, so a reprocess is given it.
+ */
+export function reprocessClock(settings: SettingsRepo, today: () => string): void {
+  clocks.set(settings, today);
+}
+
 export interface ReprocessResult {
   /** Rows written: a new category, category source or transfer flag. */
   changed: number;
@@ -74,7 +84,7 @@ export async function reprocessLocked(repo: FinanceRepo, settings: SettingsRepo,
   const mark = await repo.unprocessedMark();
   const [txs, accounts, rules, industries, roles] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles()]);
   const before = new Map(txs.map((t) => [t.id, t.category]));
-  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles });
+  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, undefined, clocks.get(settings)?.());
   await repo.updateEnrichment(changed);
   await settings.bumpUserDataVersion(repo.userId);
   await afterHooks.get(settings)?.(repo.userId);
@@ -128,7 +138,7 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
     if (rows.length > ISLAND_MAX_ROWS) return reprocessLocked(repo, settings);
     // a payer's median reads rows of other merchants: their payer, sum and day, nothing more
     const payerRows = roles.length ? await repo.incomingPayerRows() : undefined;
-    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows });
+    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows, today: clocks.get(settings)?.() });
     if (!island.ok) return reprocessLocked(repo, settings);
     await repo.updateEnrichment(island.changed);
     await settings.bumpUserDataVersion(repo.userId);

@@ -118,6 +118,11 @@ export function date(iso: string | null | undefined): string {
   return iso ? formatFiDate(iso) : "–";
 }
 
+/** "2026-10-09" → "10/2026" */
+export function monthYear(iso: string): string {
+  return `${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+}
+
 /** "2026-10-09" → "9.10." */
 export function dayMonth(iso: string): string {
   const [, m, d] = iso.slice(0, 10).split("-");

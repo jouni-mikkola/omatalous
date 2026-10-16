@@ -10,11 +10,13 @@
  * a merchant still covers every series of it.
  */
 import {
+  addMonthsToDate,
   cancelledSubjects,
   countingMark,
   fixedSplit,
   isCancelled,
   isContract,
+  isEndedContract,
   isSavingsPlan,
   isSubscription,
   type MarkKind,
@@ -27,6 +29,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { api, query } from "../api.ts";
 import { Coming } from "../components/bills/Coming.tsx";
+import { EndedContracts } from "../components/bills/EndedContracts.tsx";
 import { monthlyOf, SeriesTable, TitleBlock } from "../components/bills/series.tsx";
 import { type MarkControls, Subscriptions } from "../components/bills/Subscriptions.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
@@ -130,7 +133,12 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   const byCost = (a: Series, b: Series) => b.monthlyCents - a.monthlyCents;
   const contracts = series.filter((s) => isContract(s) && !isCancelled(cancelled, s)).sort(byCost);
   const savings = series.filter((s) => isSavingsPlan(s) && !isCancelled(cancelled, s)).sort(byCost);
-  const ended = series.filter(hasEnded);
+  // a contract that ended in the last two years has its own block; the folded list keeps the rest
+  const since = addMonthsToDate(meta.today, -24);
+  const endedContracts = series
+    .filter((s) => s.contract && s.contract.lastDate >= since && isEndedContract(s, marks, meta.today) && !stopped.includes(s))
+    .sort((a, b) => b.contract!.lastDate.localeCompare(a.contract!.lastDate));
+  const ended = series.filter((s) => hasEnded(s) && !endedContracts.includes(s));
 
   // a typed-in bill or a mark changes what the reports and the next 30 days hold
   const refresh = () => {
@@ -144,7 +152,12 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   const parts: Part[] = [
     { order: 10, span: 5, node: <Coming key="coming" ahead={ahead.data.ahead} today={meta.today} onAdded={refresh} /> },
     { order: 20, span: 7, node: <Subscriptions key="subs" subs={subs} stopped={stopped} total={subsMonthly} controls={controls} label={label} /> },
-    { order: 40, span: 6, node: <Contracts key="contracts" rows={contracts} label={label} /> },
+    { order: 40, span: 6, node: (
+      <>
+        <Contracts key="contracts" rows={contracts} label={label} />
+        <EndedContracts key="ended-contracts" rows={endedContracts} />
+      </>
+    ) },
     { order: 45, span: 6, node: <Savings key="savings" rows={savings} label={label} /> },
     { order: 60, node: <Ended key="ended" rows={ended} label={label} /> },
     ...visibleSections(ctx, "bills").map((s) => ({ order: s.order, span: SECTION_SPAN[s.id], node: <s.Component key={s.id} ctx={ctx} /> })),
@@ -202,7 +215,7 @@ function Contracts({ rows, label }: { rows: Series[]; label: (id: string) => str
   return (
     <div className="card">
       <TitleBlock title="Sopimukset ja laskut" total={monthlyOf(rows)} />
-      <SeriesTable rows={rows} label={label} />
+      <SeriesTable rows={rows} label={label} contract />
     </div>
   );
 }

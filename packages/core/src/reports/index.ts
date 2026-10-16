@@ -75,6 +75,7 @@ export type { BufferReport } from "./buffer.ts";
 export type { CashflowReport, CashflowRow } from "./cashflow.ts";
 export type { CategoryReport, CategoryStat, GroupStat } from "./categories.ts";
 export type { DataQualityReport, QualitySignal } from "../analysis/data-quality.ts";
+export { type FiledWithoutAsking, filedWithoutAsking } from "../analysis/filed.ts";
 export type { DriftItem, DriftReport } from "./drift.ts";
 export type { FixedVariableReport, FixedVariableRow } from "./fixed-variable.ts";
 export type { IncomeMember, IncomeMonth, IncomePayDay, IncomePayerRow, IncomeReport, IncomeStability, IncomeTypeRow } from "./income.ts";
@@ -87,3 +88,4 @@ export type { SummaryCategory, SummaryChange, SummaryReport } from "./summary.ts
 export type { ChangeBar, ChangeViewReport, SpendingChangeReport } from "./spending-change.ts";
 export type { UpcomingBill, UpcomingReport } from "./upcoming.ts";
 export type { YearOverYearReport } from "./year-over-year.ts";
+export { yearComparisonNote } from "./year-over-year.ts";
