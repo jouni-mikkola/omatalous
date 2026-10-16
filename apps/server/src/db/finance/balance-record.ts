@@ -56,7 +56,9 @@ export class BalanceRecordRepo {
   /**
    * Notes that the app asked the bank for rows from `dateFrom` for this account. `asked_from` is the first day ever
    * asked for and only moves earlier: it is the earlier of `dateFrom` and the oldest booked row stored, which a file
-   * import may hold from before. `first_row_day` is the oldest booked row stored, also only earlier.
+   * import may hold from before. `first_row_day` is the oldest booked row stored, also only earlier. `source` is how the
+   * earliest day was asked for, and `longest` once the bank was asked for its longest history: a later default fetch never
+   * takes it back.
    */
   async recordHistory(accountId: string, dateFrom: string, source: "default" | "longest" | "csv", at: string): Promise<void> {
     const first = (await this.ctx.db.first<{ d: string | null }>("SELECT MIN(booking_date) AS d FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked'", [this.ctx.userId, accountId]))?.d ?? null;
@@ -68,8 +70,8 @@ export class BalanceRecordRepo {
          first_row_day = CASE WHEN account_history.first_row_day IS NULL THEN excluded.first_row_day
                               WHEN excluded.first_row_day IS NULL THEN account_history.first_row_day
                               ELSE MIN(account_history.first_row_day, excluded.first_row_day) END,
-         source = CASE WHEN excluded.asked_from < account_history.asked_from THEN excluded.source ELSE account_history.source END,
-         recorded_at = CASE WHEN excluded.asked_from < account_history.asked_from THEN excluded.recorded_at ELSE account_history.recorded_at END`,
+         source = CASE WHEN excluded.asked_from < account_history.asked_from OR (excluded.source = 'longest' AND account_history.source <> 'longest') THEN excluded.source ELSE account_history.source END,
+         recorded_at = CASE WHEN excluded.asked_from < account_history.asked_from OR (excluded.source = 'longest' AND account_history.source <> 'longest') THEN excluded.recorded_at ELSE account_history.recorded_at END`,
       [accountId, asked, first, source, at],
     );
   }

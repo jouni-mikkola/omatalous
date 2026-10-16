@@ -130,6 +130,20 @@ export class HouseholdRepo {
     return (await this.db.all<Row>(`SELECT ${TX_COLUMNS_LIGHT} FROM transactions WHERE account_id IN (${marks}) ORDER BY booking_date, id`, [...accountIds])).map(toTransaction);
   }
 
+  /**
+   * The recorded history (`account_history`) of every copy of the accounts with these keys, whoever linked it: a joint
+   * account is recorded by each member who linked it, and the earliest day any of them has counts for all.
+   */
+  async historyOfKeys(keys: readonly string[]): Promise<{ key: string; askedFrom: string; firstRowDay: string | null; source: string }[]> {
+    if (!keys.length) return [];
+    const marks = keys.map(() => "?").join(",");
+    const rows = await this.db.all<Row>(
+      `SELECT ${keyOf("a")} AS k, h.asked_from, h.first_row_day, h.source FROM account_history h JOIN accounts a ON a.id = h.account_id WHERE ${keyOf("a")} IN (${marks}) ORDER BY k, h.account_id`,
+      [...keys],
+    );
+    return rows.map((r) => ({ key: String(r.k), askedFrom: String(r.asked_from), firstRowDay: r.first_row_day === null ? null : String(r.first_row_day), source: String(r.source) }));
+  }
+
   /** Shares of the owner's accounts (who sees what). */
   async sharesOf(ownerId: string): Promise<AccountShare[]> {
     return (

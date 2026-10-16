@@ -3,7 +3,8 @@
  * Each theme and each of its lines has what it took a month and in the year, and how that moved against the year before.
  *
  * - The window is complete months only, twelve at most. Every account with spending in it was in the data from its
- *   first day: an account's rows begin with its first row, so a card connected five months ago makes it five months.
+ *   first day (`coverage`): an account's rows begin with its first row or the day its record gives, so a card
+ *   connected five months ago makes it five months.
  *   And it is the newest run of months in which every account that pays has rows, so a card that stopped syncing is no
  *   spending that fell. Under three months there is no answer.
  * - Nothing is scaled up to a year: a window under twelve months has a figure a month and none for the year.
@@ -14,14 +15,15 @@
  *
  * See docs/MONEY_FLOWS.md, "Themes".
  */
-import { addMonthsToDate, dateIn, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { dateIn, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fuelPurchases, themeOf, THEMES } from "../themes.ts";
-import type { Account, IsoDate } from "../types.ts";
+import type { IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, inDays } from "./context.ts";
+import { type Coverage, coverage } from "./coverage.ts";
 import { totalsOf } from "./flows.ts";
 import { largePurchases } from "./large.ts";
 import { toDayRange } from "./period.ts";
-import { completeMonthsBefore, gateFor, isCompleteMonth, MIN_COMPARE_MONTHS } from "./usual.ts";
+import { completeMonthsBefore, gateFor, MIN_COMPARE_MONTHS } from "./usual.ts";
 
 /** The months of the window at most, and what a year's figure and a change need. */
 const YEAR = 12;
@@ -100,53 +102,6 @@ function rowsOf(ctx: AnalysisContext, months: readonly number[]): AnalysisTx[] {
 /** The accounts whose rows the sums count: one with spending or money back among `rows`. */
 function counted(rows: readonly AnalysisTx[]): string[] {
   return [...new Set(rows.filter((t) => t.spend).map((t) => t.accountId))];
-}
-
-/** What a bank gives one length of history to: its cards, or its deposit accounts. A loan is neither. */
-const kindOf = (a: Account) => (a.type === "credit_card" ? "card" : a.type === "loan" ? null : "deposit");
-
-interface Coverage {
-  /** Was the account in the data for the whole of the month? */
-  covers: (accountId: string, month: number) => boolean;
-  /** The month of the account's first row. In a month before it the account has no row to miss. */
-  began: (accountId: string) => number;
-}
-
-/**
- * From when each account was in the data. The context does not know from which day an account's history was asked,
- * so its first row decides, with the days of slack the oldest row of all has (`isCompleteMonth`): a card opened
- * later than its history reaches is read as one connected later, the safe side.
- *
- * One thing says more than the first row. When another account of the same bank and of the same kind has a row a
- * whole month or more before it, the bank gave older history for an account of that kind and would have given this
- * one's too: the account was in the data from that older row on, with nothing to show. A card vouches for a card and
- * a deposit account for a deposit account, never one for the other, since banks give cards a shorter history. An
- * account without a bank is vouched for by none and vouches for none.
- *
- * A reader may rely on `covers(account, month)` (the account was in the data from the 1st of the month) and on
- * `began(account)` (the month index of its first row, infinity without one); how the first day is guessed may change.
- */
-export function coverage(ctx: AnalysisContext): Coverage {
-  const first = new Map<string, IsoDate>();
-  for (const t of ctx.txs) if (!first.has(t.accountId)) first.set(t.accountId, t.bookingDate);
-  const from = new Map(first);
-  for (const a of ctx.accounts) {
-    const own = first.get(a.id);
-    const kind = kindOf(a);
-    if (!own || !a.bank || !kind) continue;
-    const monthBefore = addMonthsToDate(own, -1);
-    for (const b of ctx.accounts) {
-      const theirs = first.get(b.id);
-      if (b.id !== a.id && b.bank === a.bank && kindOf(b) === kind && theirs && theirs <= monthBefore && theirs < from.get(a.id)!) from.set(a.id, theirs);
-    }
-  }
-  return {
-    covers: (accountId, month) => isCompleteMonth({ dataFrom: from.get(accountId) ?? null, today: ctx.today }, fromMonthIndex(month)),
-    began: (accountId) => {
-      const day = first.get(accountId);
-      return day ? monthIndex(monthOf(day)) : Number.POSITIVE_INFINITY;
-    },
-  };
 }
 
 /**

@@ -45,12 +45,12 @@ async function viewerOf(s: Services, user: { id: string; role: string }): Promis
  * in the app. A table that is neither a store nor in LEFT_OUT (a test stops that before a release) is named in
  * `notExported`, never written and never an error.
  */
-export async function exportEverything(s: Services, user: { id: string; role: string }, appVersion: string): Promise<string> {
+export async function exportEverything(s: Services, user: { id: string; role: string; username: string }, appVersion: string): Promise<string> {
   const viewer = await viewerOf(s, user);
   const reads = await Promise.all(STORES.map(async (st) => storeRead(st, await storeColumns(s, st), viewer)));
   const { tables, rows } = await s.household.exportSnapshot(reads);
   const notExported = tables.filter((t) => !(t in LEFT_OUT) && !STORES.some((st) => st.table === t)).sort();
-  const head = { format: EXPORT_FORMAT, version: EXPORT_VERSION, exportedAt: s.now().toISOString(), appVersion, notExported };
+  const head = { format: EXPORT_FORMAT, version: EXPORT_VERSION, exportedAt: s.now().toISOString(), appVersion, exportedBy: user.username, notExported };
   const pieces = [JSON.stringify(head).slice(0, -1)];
   for (const [i, store] of STORES.entries()) {
     const out = store.key === "transactions" ? (rows[i] as Row[]).map(withSignature) : rows[i]!;

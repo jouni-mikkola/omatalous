@@ -24,6 +24,7 @@ The code is `apps/server/src/services/data-export-stores.ts` (the stores) and `d
 | `version` | integer | the version of this file format, 1 |
 | `exportedAt` | string | the instant of the export, ISO text in UTC |
 | `appVersion` | string | the release that wrote the file |
+| `exportedBy` | string | optional: the username of the person who exported; a file made before 0.49.0 has none. An import refuses a file whose `exportedBy` is not the signed-in user: "Tiedosto on toisen käyttäjän. Tuo vain omat tietosi." |
 | `notExported` | array of strings | tables of the database that are neither in a store below nor left out on purpose (empty unless the database holds a table this release does not know); the file is written without them |
 
 After these come one array per store, listed below in the order of the file. A row is an object with one key per
@@ -159,7 +160,7 @@ Table `category_rules`, one object per row.
 | --- | --- | --- |
 | `id` | integer |  |
 | `user_id` | string |  |
-| `field` | string | merchant, description, counterparty, any |
+| `field` | string | merchant, merchant_exact, description, counterparty, any |
 | `pattern` | string |  |
 | `category` | string |  |
 | `priority` | integer |  |
@@ -441,3 +442,100 @@ Table `contract_terms`, one object per row.
 | `notice_days` | integer or null |  |
 | `renews_on` | string or null |  |
 | `answered_at` | string |  |
+
+## Import
+
+Asetukset > Tiedot > "Tuo tiedot" reads the file back into the signed-in user's own data (`apps/server/src/services/data-import.ts`,
+the checks of each store in `data-import-stores.ts`, the routes in `apps/server/src/routes/data.ts`). A member and an
+administrator alike import into their own data only. The import is a dry run first: nothing is written until the commit.
+
+### Endpoints
+
+All are POST (the CSRF header and origin of every write), for a signed-in user whose password is their own (a temporary
+password gets 403, no session 401). A refusal is HTTP 400 `{ "error": "<Finnish sentence>" }`.
+
+| Call | Body | Answer |
+| --- | --- | --- |
+| `POST /api/data/import` | the file's head: `{ "format": "omatalous-export", "version": 1, "appVersion", "exportedAt", "exportedBy" }` (`exportedBy` optional) | `{ session, expiresAt, limits }` |
+| `POST /api/data/import/:session/chunk` | `{ "seq": 0, "stores": { "<store>": [rows] } }` | `{ staged }` |
+| `POST /api/data/import/:session/check` | none | the dry run: the plan below, `committed: false` |
+| `POST /api/data/import/:session/commit` | none | the plan of that moment, `committed: true` |
+| `DELETE /api/data/import/:session` | none | `{ ok: true }` |
+
+The page reads the file in the browser, sends the head, then the rows of every array (every key of the file that is an
+array) in chunks, then `check`, shows the plan, and sends `commit` when the user presses "Tuo". A chunk holds rows of any
+stores, at most 192 KiB of JSON text (`limits.chunkBytes`; the app refuses a body over 256 KiB), numbered `seq` from 0
+with no gap and no repeat. Keys of the file that are not arrays (`exportedAt`, `notExported`) are not sent.
+
+### Limits
+
+- A session belongs to the user who opened it and ends 15 minutes after its last call (`limits.sessionMinutes`), at the
+  commit, at a refusal, and on `DELETE`. A user has one session: opening another ends the first. At most eight sessions
+  are open at a time. A session that is missing, over or another user's gets one sentence: "Tuonti on päättynyt tai vanhentunut. Aloita alusta."
+  A session not used for 15 minutes is dropped from memory at the next call of anyone, not only at the next import.
+- The chunks of one session add up to 64 MiB of JSON text and 2000 chunks. The cost at the cap (a file of 58.5 MiB with
+  125 000 transactions): the dry run takes about 0.6 s and the commit about 6 s, the event loop stalls up to 0.9 s at
+  the commit (the batch and one processing), and the staged rows take about 80 MiB of heap.
+- An array holds at most: transactions 500 000, parts 1 500 000, accounts and users 1000, loans 500, expectedBills 100,
+  householdMembers 200, rules 2000, 50 000 for the others (the exact figures are `max` in `data-import-stores.ts`).
+- A row has at most 200 keys; every value is checked against the type, length and list of its column (the tables above).
+  Money is whole cents within a hundred billion euros, a day must exist on the calendar, a text holds no control character.
+  A loan is also checked by the same rules as the loan form (`parseLoan`).
+- Version first: another `version` or `format` is refused at the head, before any row. The first value that fails refuses
+  the whole file and ends the session: "Tiedoston kohdan transactions rivi 3 on virheellinen (amount_cents). Mitään ei tuotu."
+- A reference must point to a row in the file or to a row the user has here: `account_id`, `account_key`, `tx_id`,
+  `bill_tx_id` and `user_id` that point nowhere (or to another user's row here) refuse the file.
+
+### What is written
+
+Only rows that are missing, in one transaction (`INSERT OR IGNORE`); then the user's transactions are processed once.
+Nothing is updated or deleted: a row with a key the table has is kept as it is and counted as existing.
+
+- Whose: a row is the user's when its owner's username is the signed-in user's (`owner_username`, or the `users` row its
+  `user_id` names; account-key rows follow the account). A row of another user is skipped (`other_user`), and so is a
+  person other than the user inside a row (`account_use` of another person). A person named as who said something
+  (`said_by`, `set_by`, `answered_by`) other than the user is the user where the column is required, else null.
+  `users` and `accountShares` are never written (`users`, `sharing`): no user, password, session, second factor or token is
+  created, and sharing is set again in the app.
+- Owners: a person named as an owner (`owner` of `answers` and `parts`: `u:<user id>`) is read through the file's `users`
+  to a person here; the file's ids mean nothing here, so every one of them (the user's own, another person's, an id the
+  file does not know, an id of a user here) becomes the user (`u:<id here>`). `u:` (a holder who is no user) stays.
+- Household-wide rows (`householdMembers`, `valuedAssets`, the `payerRoles` of scope `household`) have no owner and no
+  other writer in the app: only an administrator's import writes them. For a member they are skipped (`household`, the
+  page says "ei tuoda"). For an administrator an asset id that is here under another kind or name gets a fresh id with
+  all its days in the file, so no row lands under an asset it does not describe.
+- Accounts: matched to the user's own by id, then `identity`, then IBAN; a match is kept. A new account has no bank link
+  (provider `csv`, `demo` stays `demo`, no `connection_id` or `external_id`) and keeps `identity`, so linking the bank
+  later folds it as an imported account is folded. It keeps the file's id unless another account here has it. An
+  account whose `identity` or IBAN another user of this instance holds (and the user does not) is added with no
+  `identity`, and with a fresh id if its own id is a key another user holds: its rows stay the user's own, keyed by the
+  new account, and nothing is attached to the other user's account. A joint account is joined by linking the bank. The
+  dry run counts such an account as if no other user existed.
+- A category the user set (`category_source` `user`) is never changed by the processing that follows the commit; a row
+  the rules decide may be re-categorised, as when a rule is added in the app.
+- Transactions: by id, then by the bank signature a fetch matches on (account and `signature`, recomputed from the
+  fields, the file's `signature` is never trusted): each stored row is used once, so two equal rows of the file are two
+  rows. A new row keeps its id unless the table has it, gets no `raw`, and an unknown category becomes `other`. The parts
+  of a transaction that was here already are kept as they are.
+- The other stores by the key in the "Stores" tables: `rules` by (`field`, `pattern`), `householdMembers` by `name`,
+  `loans` and `expectedBills` by id, `statementRows` by (bill, `row_key`), the rest by their primary key. An id the table has
+  for another user's row is not used: the new row gets a fresh one.
+
+### The dry run's answer
+
+```json
+{
+  "session": "...", "expiresAt": "2026-10-09T10:15:00.000Z",
+  "head": { "version": 1, "appVersion": "0.48.0", "exportedAt": "2026-10-09T10:00:00.000Z" },
+  "stores": [ { "key": "transactions", "add": 12, "exists": 3, "skipped": [ { "reason": "other_user", "n": 2 } ] } ],
+  "otherUsers": [ { "username": "kaisa", "rows": 40 } ],
+  "ignored": { "stores": [ { "key": "mystery", "rows": 2 } ], "keys": 1 },
+  "total": { "add": 12, "exists": 3, "skipped": 2 },
+  "committed": false
+}
+```
+
+`stores` lists the stores that have rows in the file, in the order of the file; a store of the file this release does
+not know is in `ignored.stores` (rows counted), a key of a known row it does not know in `ignored.keys`. `reason` is
+`other_user` (the page says "toisen käyttäjän"), `users`, `sharing` or `household` (the page says "ei tuoda"). `otherUsers` are the other usernames the file names, with
+the rows skipped for them. The commit writes one security event `ops_import` with the totals.

@@ -35,6 +35,7 @@ import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
+import { historyOf } from "./coverage.ts";
 import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
 import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
@@ -305,7 +306,7 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
     }
     if (view === "used") txs = txs.map(uncut);
   }
-  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts)), accounts, shares, told };
+  return { ctx: createContext(txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts)), accounts, shares, told };
 }
 
 /**

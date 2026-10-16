@@ -209,14 +209,14 @@ describe("the seed from today's stored balance", () => {
 describe("how far back the app asked", () => {
   const historyOf = (db: Db) => db.all<{ account_id: string; asked_from: string; first_row_day: string | null; source: string }>("SELECT account_id, asked_from, first_row_day, source FROM account_history ORDER BY account_id");
 
-  it("is one row per accounts row, set at the first fetch from the first day asked and the oldest row stored", async () => {
+  it("is one row per accounts row, set at the first fetch, which asks for the longest history, from the first day asked and the oldest row stored", async () => {
     const { db, chk } = await connected();
     const rows = await historyOf(db);
     expect(rows).toHaveLength(2);
     const id = chk.id;
     const first = (await db.first<{ d: string }>("SELECT MIN(booking_date) AS d FROM transactions WHERE account_id = ? AND status = 'booked'", [id]))!.d;
     const mine = rows.find((r) => r.account_id === id)!;
-    expect(mine).toMatchObject({ source: "default", first_row_day: first });
+    expect(mine).toMatchObject({ source: "longest", first_row_day: first });
     expect(mine.asked_from <= first).toBe(true);
   });
 

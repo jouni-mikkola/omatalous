@@ -27,7 +27,6 @@ apps/server/src/db/finance/merchants.ts  UncategorisedMerchant
 apps/server/src/db/finance/optimise.ts  SnapshotRow
 apps/server/src/db/finance/optimise.ts  renamedSubject
 apps/server/src/db/finance/transaction-list.ts  amountQuery
-apps/server/src/db/finance/transactions.ts  searchText
 apps/server/src/db/household-repo.ts  AccountShare
 apps/server/src/db/industry-repo.ts  IndustryEntry
 apps/server/src/db/industry-repo.ts  IndustryStatus
@@ -172,7 +171,6 @@ packages/core/src/analysis/insights/types.ts  InsightLink
 packages/core/src/analysis/insights/types.ts  InsightTone
 packages/core/src/analysis/one-offs.ts  OneOffPolicy
 packages/core/src/analysis/themes-report.ts  ThemeWindow
-packages/core/src/analysis/themes-report.ts  coverage
 packages/core/src/analysis/usual.ts  GATE_SHARE
 packages/core/src/categorize.ts  CategorizeResult
 packages/core/src/categorize.ts  categoryForMcc

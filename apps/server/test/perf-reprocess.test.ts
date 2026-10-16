@@ -7,7 +7,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { reprocessDetailed } from "../src/services/enrich.ts";
 import { perfHousehold, type PerfHousehold } from "./perf-household.ts";
 
-const BUDGET_MS = { reprocessEach: 600 };
+// about 10x the median measured on a busy machine (PB1 notes): one sample in a parallel test run is noisy, so the budget
+// catches a slowdown by an order of magnitude, not a few per cent
+const BUDGET_MS = { reprocessEach: 2_000 };
 let w: PerfHousehold;
 
 describe("whole-history reprocess budget", () => {

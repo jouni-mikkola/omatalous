@@ -582,9 +582,9 @@ What goes where over a year is `themesReport` in `analysis/themes-report.ts`. Th
 `themes`, the same whatever period the page shows. The first page draws it as *Menot kategorioittain* (below).
 
 - **The months.** The last twelve complete months before today, never the running one, narrowed twice. First, every
-  account with spending in the window was in the data from the window's first day. The data does not say from which
-  day an account's history was asked, so the account's first row decides, with the three days of slack the oldest row
-  has (`isCompleteMonth`): a card connected five months ago makes the window five months, a month an account covers
+  account with spending in the window was in the data from the window's first day. That day is the account's recorded first day when it has one
+  (*Coverage by day*, below) and else its first row, with the three days of slack the oldest row has
+  (`isCompleteMonth`): a card connected five months ago makes the window five months, a month an account covers
   in part is not in it, and a card opened or first used inside the twelve months is read the same way. A new card
   narrows nothing when another card of the same bank has rows from a month or more before its first one, and neither
   does a new account when another account of that bank has them: the bank has shown how far back it gives history,
@@ -623,6 +623,26 @@ What goes where over a year is `themesReport` in `analysis/themes-report.ts`. Th
   line that has its name. A line that is a category links to its rows in Tapahtumat over the window's days; the lines
   of *Auto* are no categories and have no link. *Yhteensä* is the sum of the themes. The large purchases are a row of
   their own under the table, with the sum of the whole window, and open to their rows (`ThemesTable.tsx`).
+
+## Coverage by day
+
+`coverage` (`analysis/coverage.ts`) says from which day each account's rows are known, from `account_history` (what a
+fetch records: `asked_from`, `first_row_day`, `source`), which the analysis context carries as `history`.
+
+- **The rule.** An account's first known day is its `first_row_day`, the oldest booked row the app holds. When the bank
+  was asked for its longest history (`source` `longest`) and sent no row, the day it was asked from (`asked_from`)
+  stands: it had nothing to give for the whole of it. A default fetch that found no row proves nothing, since a bank
+  may give less than was asked, and neither does a file import. An account linked before 0.46.0 has no record: its
+  first day is unknown (*alkupäivä ei tiedossa*), the reports use its first row as before, and its next consent asks
+  for the longest history and records the day.
+- **A joint account** linked by two members is recorded once by each: the earliest day of the copies counts for all.
+- **A card account.** Where the bank gives a card account (the type code `CARD`, or a masked card number, in
+  `accountType`; the link log's `cash_account_type` shows it), its rows are the card's purchases, and the first known
+  day of the account is the day purchases are known from (`purchasesFrom`). An account that is no card account gives
+  none: a bill paid from a deposit account is one row whatever was bought.
+- **The longest history** is asked for by the fetch a consent the user has just given sets off, once for each account
+  of the new consent, from the history limit, and recorded (`source` `longest`; the record only moves earlier). A
+  background fetch never asks for it: a bank limits the calls a day.
 
 ## Loans
 

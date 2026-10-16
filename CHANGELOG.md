@@ -3,6 +3,19 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.49.0
+
+- Asetukset > Tiedot has "Tuo tiedot": the file of "Vie kaikki tiedot" comes back in. A check shows first what would be added and what is already there, and nothing that exists is changed or removed. Only the user who made the file can bring it in.
+- A renewed bank consent fetches the longest history the bank gives, not only the first link, and the app keeps from which day each account's rows are known.
+
+Fetching and importing
+
+- A renewed bank consent fetches the longest history the bank gives, once, and the app keeps from which day each account's rows are known.
+
+Look
+
+- "Tuo tiedot" in Asetukset > Tiedot brings the file of "Vie kaikki tiedot" back in, with a check first, and nothing existing changes.
+
 ## 0.48.0
 
 - Asetukset > Tiedot has "Vie kaikki tiedot": one file with your own data and what is shared with you, without passwords, tokens or the bank's raw data. A member and an administrator each get what they see in the app.

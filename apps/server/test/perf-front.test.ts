@@ -7,7 +7,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { perfHousehold, type PerfHousehold } from "./perf-household.ts";
 
-const BUDGET_MS = { cold: 1_000, warm: 100 };
+// about 10x the median measured on a busy machine (PB1 notes): one sample in a parallel test run is noisy, so the budget
+// catches a slowdown by an order of magnitude, not a few per cent
+const BUDGET_MS = { cold: 3_000, warm: 300 };
 let w: PerfHousehold;
 
 const CALLS: [name: string, path: string][] = [

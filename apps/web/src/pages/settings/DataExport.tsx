@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiDownload, saveFile } from "../../api.ts";
+import { DataImport } from "./DataImport.tsx";
 
 /** Asetukset > Tiedot: the user's own data and what is shared with them as one file; its format is docs/DATA_EXPORT.md. */
 export function DataExport() {
@@ -24,6 +25,7 @@ export function DataExport() {
         <button type="button" className="btn" disabled={busy} aria-busy={busy} onClick={() => void download()}>
           Vie kaikki tiedot
         </button>
+        <DataImport />
       </div>
       <p>Tiedosto sisältää omat tietosi ja sinulle jaetut tiedot. Säilytä se turvallisesti.</p>
       {error && <div className="error">{error}</div>}

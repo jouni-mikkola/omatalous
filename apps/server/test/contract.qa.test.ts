@@ -230,6 +230,8 @@ describe("data versions", () => {
     "DELETE /api/accounts/:id/answers",
     "DELETE /api/accounts/:id",
     "DELETE /api/demo",
+    // the import adds the rows the file has and the user does not, then processes the transactions once
+    "POST /api/data/import/:id/commit",
     // the new accounts are written before the first fetch; run with the mock bank below
     "POST /api/connections/complete",
   ];
@@ -253,7 +255,7 @@ describe("data versions", () => {
   // consent not yet given, the export of the user's own file (it reads and writes a security event), and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
   // (connector.ts removeConnection), and /api/meta reads the connection list for each request. Run below for the last one.
   const NO_ANALYSIS =
-    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/export$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
+    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/(export|import|import\/:id\/(chunk|check))$|^DELETE \/api\/data\/import\/:id$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
 
   it("every non-GET route is on exactly one named list", async () => {
     const { routes } = await rig();
@@ -315,6 +317,15 @@ describe("data versions", () => {
     const everyone = await s.settings.get("data_version");
     expect((await admin.call("DELETE", `/api/users/${m.id}`)).status, "DELETE /api/users/:id").toBe(200);
     expect(await s.settings.get("data_version"), "DELETE /api/users/:id").not.toBe(everyone);
+    const started = await admin.call("POST", "/api/data/import", { format: "omatalous-export", version: 1 });
+    const sid = started.body.session;
+    const at = "2026-10-01T00:00:00Z";
+    const staged = await admin.call("POST", `/api/data/import/${sid}/chunk`, {
+      seq: 0,
+      stores: { users: [{ id: "u1", username: "aino", display_name: "Aino", role: "admin", created_at: at }], marks: [{ user_id: "u1", subject: "ESIMERKKI", mark: "in_use", marked_at: at }] },
+    });
+    expect(staged.status).toBe(200);
+    await step("POST /api/data/import/:id/commit", () => admin.call("POST", `/api/data/import/${sid}/commit`), true);
     expect(MOVES.filter((k) => !ran.has(k) && k !== "POST /api/connections/complete" && k !== "PUT /api/accounts/:id/answers"), "every route on MOVES ran").toEqual([]);
   });
 

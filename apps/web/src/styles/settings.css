@@ -130,3 +130,10 @@ td .btn-small { white-space: nowrap; }
   .members-table th:nth-child(4) { width: 9rem; }
   .members-table td { overflow-wrap: anywhere; }
 }
+
+/* Tuo tiedot sits in the Tiedot card head; its progress, dry run and answer take whole lines under the buttons */
+.data-import-line { flex: 0 0 100%; min-width: 0; }
+.data-import-plan { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.data-import-plan th { text-align: left; font: inherit; color: inherit; text-transform: none; letter-spacing: normal; border: 0; padding: 4px 12px 4px 0; vertical-align: top; }
+.data-import-plan td { text-align: right; padding: 4px 0; border: 0; font-variant-numeric: tabular-nums; }
+.data-import-actions { display: flex; gap: 8px; }

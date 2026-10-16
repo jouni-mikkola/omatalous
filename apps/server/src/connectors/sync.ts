@@ -151,18 +151,23 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
       tally.failures++;
       continue;
     }
+    // A consent the user just gave is pulled for the first time by the fetch it set off: it asks the longest history once.
+    // A background fetch never does, since a bank limits the calls a day; a consent it pulled first has had its chance.
+    const fresh = trigger === "connect" && conn.lastSyncedAt === null;
     for (const account of accounts.filter((a) => a.connectionId === conn.id && a.externalId)) {
       tally.attempts++;
       try {
         // An account whose rows are all in another currency (kept apart, not among the euro rows) or that has none yet
-        // has no euro row, so the window follows its last completed fetch. Only an account never fetched before asks for the longest history.
+        // has no euro row, so the window follows its last completed fetch. Only an account never fetched before, or one on a consent
+        // the user just gave (`fresh`), asks for the longest history.
         const stored = (await repo.latestBookingDate(account.id, connector.id)) ?? account.lastSyncedAt?.slice(0, 10) ?? null;
         const latest = stored && stored > today ? today : stored;
-        const dateFrom = latest ? addDays(latest, -OVERLAP_DAYS) : addDays(today, -s.instance.current.historyDays);
+        const longest = latest === null || fresh;
+        const dateFrom = longest ? addDays(today, -s.instance.current.historyDays) : addDays(latest!, -OVERLAP_DAYS);
         const target = { id: account.id, externalId: account.externalId!, name: account.name };
         // the call counts for the account's key from here on: a refusal or a failure after it is a call as well
         await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), trigger.startsWith("open") ? "open" : trigger));
-        const split = splitByCurrency(await puller.transactions(target, { dateFrom, initial: latest === null }), accountKey(account));
+        const split = splitByCurrency(await puller.transactions(target, { dateFrom, initial: longest }), accountKey(account));
         const note = skippedNote(split.skipped, account.name);
         if (note) summary.messages.push(note);
         const r = await ingestTransactions(repo, account.id, split.euro, connector.id);
@@ -171,7 +176,7 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         tally.rowsChanged += r.changed;
         // rows in another currency are kept in the bank's own figure; only a new or changed one moves the data version
         tally.rowsChanged += await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString());
-        await keepRecord("history", () => repo.recordHistory(account.id, dateFrom, "default", s.now().toISOString()));
+        await keepRecord("history", () => repo.recordHistory(account.id, dateFrom, longest ? "longest" : "default", s.now().toISOString()));
 
         const told = await puller.balance(target);
         // The balance is the account's own money in the account's own currency, or it is not stored: a figure in

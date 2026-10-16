@@ -46,6 +46,18 @@ export function netSpend(t: Pick<AnalysisTx, "spend" | "refunded">): number {
 }
 
 /**
+ * What the app recorded of the history it asked one account's bank for (`account_history`): the first day asked, the
+ * oldest row the bank sent (null when it sent none), and how it was asked. The same account may come twice, once from
+ * each member who linked it. `coverage` reads it.
+ */
+export interface AccountHistory {
+  accountId: string;
+  askedFrom: IsoDate;
+  firstRowDay: IsoDate | null;
+  source: "default" | "longest" | "csv";
+}
+
+/**
  * Built once per data change (the server caches it) and shared by the
  * dashboard and every report, so a request only filters and sums.
  */
@@ -62,6 +74,8 @@ export interface AnalysisContext {
   recurring: readonly RecurringSeries[];
   /** Per account of the view that has rows in another currency: how many and the newest day. Those rows are in no sum; the day walk reads them (`balanceWalk`). */
   foreignRows: readonly ForeignDay[];
+  /** What was recorded of the history asked for each account of the view; an account linked before the record has none. */
+  history: readonly AccountHistory[];
   /** Category ids that own colour slots 1–7 (by all-time spend). */
   colorOrder: readonly string[];
   /** Transaction ids in active subscriptions/bills (fixed costs). */
@@ -83,7 +97,7 @@ export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(
  * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money
  * will be in the account next month.
  */
-export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = []): AnalysisContext {
+export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = []): AnalysisContext {
   const cut = standing && createContext(standing, accounts, today);
   const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
   const loanIds = new Set(accounts.filter((a) => a.type === "loan").map((a) => a.id));
@@ -147,7 +161,7 @@ export function createContext(transactions: readonly Transaction[], accounts: re
     .map(([c]) => c);
 
   return {
-    today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder, foreignRows,
+    today, todayDay: dayNumber(today), dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, colorOrder, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

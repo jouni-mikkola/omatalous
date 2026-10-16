@@ -4,11 +4,14 @@ import { Hono } from "hono";
 import { recordEvent } from "../services/security.ts";
 import { loadDemoData } from "../demo.ts";
 import { exportEverything } from "../services/data-export.ts";
+import { addChunk, cancelImport, commitImport, dryRun, type ImportChecks, startImport } from "../services/data-import.ts";
+import { strictObject } from "../platform/validate.ts";
+import { parseLoan } from "./loans.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
 import { yieldToLoop } from "../platform/yield.ts";
-import { cents, csv, csvBody, csvResponse, parseRange, requestInfo } from "./shared.ts";
+import { body, cents, csv, csvBody, csvResponse, parseRange, requestInfo } from "./shared.ts";
 
 /** An average the report has none of (no complete month in the range) is an empty cell, never a zero. */
 const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
@@ -18,6 +21,7 @@ const SOURCE_WORDS: Record<string, string> = { enablebanking: "pankki", csv: "ti
 
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
+  const checks: ImportChecks = { loan: (fields, accounts) => parseLoan(fields, s.today(), accounts as never) };
 
   /**
    * What the signed-in user sees, one JSON file (docs/DATA_EXPORT.md): their own data and what is shared with them, for a
@@ -34,6 +38,29 @@ export function dataRoutes(s: Services) {
       "Content-Disposition": `attachment; filename="omatalous-${s.today()}.json"`,
       "Cache-Control": "no-store",
     });
+  });
+
+  /**
+   * "Tuo tiedot" (docs/DATA_EXPORT.md, Import): the file the export wrote goes into the signed-in user's own data, in
+   * chunks to a session of 15 minutes. start (the file's head), chunk (the next rows), check (the dry run: writes nothing),
+   * commit (adds what is missing in one transaction). Every user imports their own data only.
+   */
+  app.post("/data/import", async (c) => c.json(startImport(s, c.get("user"), strictObject(await body(c), ["format", "version", "appVersion", "exportedAt", "exportedBy"]))));
+  app.post("/data/import/:id/chunk", async (c) => {
+    const chunk = strictObject(await body(c), ["seq", "stores"]);
+    return c.json(addChunk(s, c.get("user"), c.req.param("id"), chunk.seq, Buffer.byteLength(JSON.stringify(chunk.stores ?? null)), chunk.stores));
+  });
+  app.post("/data/import/:id/check", async (c) => c.json(await dryRun(s, c.get("user"), c.req.param("id"), checks)));
+  app.post("/data/import/:id/commit", async (c) => {
+    const user = c.get("user");
+    const plan = await commitImport(s, user, c.req.param("id"), checks);
+    const { add, exists, skipped } = plan.total;
+    await recordEvent(s, { kind: "ops_import", userId: user.id, ...requestInfo(c, s), detail: `tietojen tuonti: lisätty ${add}, jo olemassa ${exists}, ohitettu ${skipped}`, notify: false });
+    return c.json(plan);
+  });
+  app.delete("/data/import/:id", (c) => {
+    cancelImport(s, c.get("user"), c.req.param("id"));
+    return c.json({ ok: true });
   });
 
   /**

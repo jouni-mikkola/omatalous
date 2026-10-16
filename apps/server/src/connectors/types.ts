@@ -26,9 +26,9 @@ export interface PullAccount {
 }
 
 export interface PullWindow {
-  /** First day to ask for: the latest stored row minus the overlap, or the history limit on a first fetch. */
+  /** First day to ask for: the latest stored row minus the overlap, or the history limit when `initial`. */
   dateFrom: string;
-  /** No row of this source is stored yet, so the connector may ask for the longest history it can get. */
+  /** The connector may ask for the longest history it can get: no row of this source is stored yet, or the user just gave a new consent. */
   initial: boolean;
 }
 

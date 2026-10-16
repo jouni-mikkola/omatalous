@@ -128,7 +128,7 @@ const heldBy = (holder: Loan) => new UserError(`Tähän tiliin on jo liitetty la
  * The fields of a loan, each checked against its range or list. Throws a UserError with a message safe to show.
  * `accounts` reads the user's own accounts, for the one a loan is linked to.
  */
-async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Promise<LoanFields> {
+export async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Promise<LoanFields> {
   const input = strictObject(raw, FIELDS);
   const oldest = addMonthsToDate(today, -12 * YEARS_BACK);
   const latest = addMonthsToDate(today, 12 * YEARS_AHEAD);
