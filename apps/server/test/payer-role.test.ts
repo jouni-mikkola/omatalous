@@ -126,3 +126,66 @@ describe("payer roles stored and asked", () => {
     expect(items.filter((q) => q.kind === "payer")).toHaveLength(3);
   });
 });
+
+describe("the member's own answers listed", () => {
+  it("lists only the member's own answers with the payer, the answer, the options and the payments it moved", async () => {
+    const t = await twoMembers();
+    expect((await t.admin.call("GET", "/api/payer-roles")).body).toEqual({ answers: [] });
+    await t.say(t.admin, "sales");
+    // a household row and another member's answer are never listed
+    await t.db.run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('household', NULL, ?, 'gift', ?, ?)", ["name:ESIMERKKI MATTI", t.adminId, "2026-10-01T00:00:00.000Z"]);
+    expect((await t.maija.call("GET", "/api/payer-roles")).body).toEqual({ answers: [] });
+    const list = await t.admin.call("GET", "/api/payer-roles");
+    expect(list.status).toBe(200);
+    expect(list.body.answers).toEqual([{ key: KEY, name: "Esimerkki Ville", role: "sales", options: ["cost_share", "sales", "own_money", "gift", "pay"], count: 3 }]);
+    // taking the answer back takes it off the list; a changed answer shows as changed
+    await t.say(t.admin, "pay");
+    expect((await t.admin.call("GET", "/api/payer-roles")).body.answers[0]).toMatchObject({ role: "pay", count: 3 });
+    await t.say(t.admin, null);
+    expect((await t.admin.call("GET", "/api/payer-roles")).body).toEqual({ answers: [] });
+  });
+
+  it("lists an answer whose payer has no rows left, and offers no own money for a company", async () => {
+    const t = await twoMembers();
+    await t.db.run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('member', ?, ?, 'sales', ?, ?)", [t.maija.id, "name:ESIMERKKI OY", t.maija.id, "2026-10-01T00:00:00.000Z"]);
+    const { answers } = (await t.maija.call("GET", "/api/payer-roles")).body;
+    expect(answers).toEqual([{ key: "name:ESIMERKKI OY", name: "ESIMERKKI OY", role: "sales", options: ["cost_share", "sales", "gift", "pay"], count: 0 }]);
+  });
+});
+
+describe("a merchant edit with payer roles present", () => {
+  it("stays an update of the merchant's rows and gives the rows a full reprocess gives", async () => {
+    const states = async (app: Awaited<ReturnType<typeof twoMembers>>) => app.db.all("SELECT booking_date, category, category_source, is_transfer FROM transactions WHERE user_id = ? ORDER BY booking_date, id", [app.adminId]);
+    const twin = async (current: boolean) => {
+      const app = await twoMembers();
+      await app.say(app.admin, "cost_share");
+      // "the upgrade tasks have run for this build": the shortcut for a single change is allowed
+      if (current) await app.s.settings.set("app_build", app.s.build.id);
+      return app;
+    };
+    const fast = await twin(true);
+    const full = await twin(false);
+    let reads = 0;
+    const all = fast.db.all.bind(fast.db);
+    fast.db.all = (async (sql: string, params?: never) => {
+      if (/ORDER BY booking_date, id LIMIT/.test(sql)) reads++;
+      return all(sql, params);
+    }) as typeof fast.db.all;
+    const merchant = (await fast.db.first<{ merchant: string }>("SELECT merchant FROM transactions WHERE user_id = ? LIMIT 1", [fast.adminId]))!.merchant;
+    expect(await states(fast)).toEqual(await states(full));
+    for (const category of ["entertainment", "health"]) {
+      expect((await fast.admin.call("PUT", "/api/merchants/category", { merchant, category })).status).toBe(200);
+      expect((await full.admin.call("PUT", "/api/merchants/category", { merchant, category })).status).toBe(200);
+      expect(await states(fast)).toEqual(await states(full));
+    }
+    // no history page was read for the two edits: the roles did not send them to the full run
+    expect(reads).toBe(0);
+    // taking the rule away may free a row to pair as a transfer, which the full run answers (as it does without roles)
+    expect((await fast.admin.call("DELETE", "/api/merchants/rule", { merchant })).status).toBe(200);
+    expect((await full.admin.call("DELETE", "/api/merchants/rule", { merchant })).status).toBe(200);
+    // the rule gone, the role moves the payer's rows again, in the island as in the full run
+    expect(await states(fast)).toEqual(await states(full));
+    expect((await states(fast)).map((r: any) => r.category_source)).toEqual(["payer", "payer", "payer"]);
+  });
+});
+

@@ -172,7 +172,7 @@ async function keepPrivately(db: Db, userId: string, tag: string, accountId: str
   await db.run("INSERT INTO optimise_states (user_id, finding_id, status, decided_at) VALUES (?, ?, 'done', ?)", [userId, `${tag}-STATE`, NOW]);
   await db.run("INSERT INTO optimise_snapshots (user_id, month, data, created_at) VALUES (?, ?, '{}', ?)", [userId, `${tag}-SNAP`, NOW]);
   await db.run("INSERT INTO contract_terms (user_id, series_key, answered_at) VALUES (?, ?, ?)", [userId, `${tag}-TERMS`, NOW]);
-  await db.run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_at) VALUES ('member', ?, ?, 'payer', ?)", [userId, `${tag}-PAYER`, NOW]);
+  await db.run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_at) VALUES ('member', ?, ?, 'sales', ?)", [userId, `${tag}-PAYER`, NOW]);
   await db.run("INSERT INTO expected_bills (id, user_id, name, amount_cents, due_date, cadence, created_at) VALUES (?, ?, ?, 100, '2026-11-01', 'once', ?)", [`${tag}-BILL`, userId, `${tag}-BILLNAME`, NOW]);
   await db.run("INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES (?, 'in', ?, 'u:x', ?, ?)", [accountId, `${tag}-ANSWER`, userId, NOW]);
   await db.run("INSERT INTO account_balances (account_key, day, type, cents, fetched_at, source) VALUES (?, '2026-09-30', ?, 5, ?, 'csv')", [accountId, `${tag}-BALANCE`, NOW]);

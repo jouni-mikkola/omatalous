@@ -144,6 +144,7 @@ export class FinanceRepo {
   // ── merchants and trade register answers (finance/merchants.ts) ──
   transactionsOfMerchants(merchants: readonly string[]) { return this.merchants.transactionsOfMerchants(merchants); }
   merchantNames() { return this.merchants.merchantNames(); }
+  incomingPayerRows() { return this.merchants.incomingPayerRows(); }
   matchedRowsOutside(merchants: readonly string[]) { return this.merchants.matchedRowsOutside(merchants); }
   uncategorisedSpending() { return this.merchants.uncategorisedSpending(); }
   merchantHistory(merchant: string, accountIds?: readonly string[], own?: OwnRows) { return this.merchants.merchantHistory(merchant, accountIds, own); }

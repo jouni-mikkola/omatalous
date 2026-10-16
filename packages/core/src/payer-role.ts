@@ -113,6 +113,10 @@ export const isPersonName = (counterparty: string | null): boolean => !hasForm(n
 /** A refund stays a refund under every role: a refund word's category, or money in on a spending category (not the person's own `p2p`). */
 const isRefund = (t: Pick<Transaction, "category">): boolean => t.category === "reimbursements" || (t.category !== "p2p" && ["expense", "debt"].includes(getCategory(t.category).kind));
 
+/** The payers whose money in is steady (see `steadyBy`), each with its median: the rows of the whole history, whatever their category. */
+export const steadyPayers = (rows: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[]): Map<string, number> =>
+  steadyBy(rows.filter((t) => t.amountCents > 0), payerKeyOf);
+
 /** What pairing decided before the roles: a transfer leg, a return, a card bill. */
 const DECIDED = new Set(["transfer", "match"]);
 
@@ -122,11 +126,12 @@ const DECIDED = new Set(["transfer", "match"]);
  * decided (a transfer leg, a card bill, a return with both its rows), a refund, then the role. `locked`: the rows of the member's
  * own rules and both rows of every return. For a steady payer with `cost_share` or `gift`, a
  * row more than the band from the payer's median keeps today's reading. Changes `next` in place; no roles, no change.
+ * `steady`: the medians of the whole history when `next` is only some of its rows (one merchant's); else read from `next`.
  */
-export function applyPayerRoles(next: readonly Transaction[], locked: ReadonlySet<string>, payers: PayerInput | undefined): void {
+export function applyPayerRoles(next: readonly Transaction[], locked: ReadonlySet<string>, payers: PayerInput | undefined, steady?: ReadonlyMap<string, number>): void {
   if (!payers || !payers.roles.length) return;
   const roleOf = resolver(payers.roles, payers.memberId);
-  const steady = steadyBy(next.filter((t) => t.amountCents > 0), payerKeyOf);
+  steady ??= steadyPayers(next);
   for (const t of next) {
     if (locked.has(t.id) || DECIDED.has(t.categorySource) || t.isTransfer || t.category === "card_bill" || isRefund(t)) continue;
     const role = roleOf(t);

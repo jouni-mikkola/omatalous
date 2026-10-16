@@ -9,6 +9,8 @@ export interface User {
   displayName: string;
   role: "admin" | "member";
   mustChangePassword: boolean;
+  /** Only in the member list of an admin. */
+  hasFactor?: boolean;
   createdAt: string;
 }
 

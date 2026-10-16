@@ -114,6 +114,12 @@ export class MerchantsRepo {
     return out.sort((a, b) => (a.bookingDate < b.bookingDate ? -1 : a.bookingDate > b.bookingDate ? 1 : a.id < b.id ? -1 : 1));
   }
 
+  /** What a payer's median reads: every row of money in, as far as its payer, sum and day (core `steadyPayers`). */
+  async incomingPayerRows(): Promise<Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[]> {
+    const rows = await this.ctx.db.all<Row>("SELECT counterparty, counterparty_iban, amount_cents, booking_date FROM transactions WHERE user_id = ? AND amount_cents > 0", [this.ctx.userId]);
+    return rows.map((r) => ({ counterparty: r.counterparty === null ? null : String(r.counterparty), counterpartyIban: r.counterparty_iban === null ? null : String(r.counterparty_iban), amountCents: Number(r.amount_cents), bookingDate: String(r.booking_date) }));
+  }
+
   /** The distinct merchant names of the user's rows. */
   async merchantNames(): Promise<string[]> {
     return (await this.ctx.db.all<{ merchant: string }>("SELECT merchant FROM transactions WHERE user_id = ? GROUP BY merchant", [this.ctx.userId])).map((r) => String(r.merchant));

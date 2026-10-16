@@ -2,6 +2,7 @@ import { isUsablePattern } from "@banking/core";
 import { useState } from "react";
 import { api } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
+import { PayerAnswers } from "../components/PayerAnswers.tsx";
 import { useApi } from "../hooks.ts";
 import { RULES_ANCHOR } from "../routes.ts";
 import type { CategoryRule, Meta } from "../types.ts";
@@ -116,6 +117,7 @@ export function Rules({ meta }: { meta: Meta }) {
           {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
         </div>
       </div>
+      <PayerAnswers />
     </div>
   );
 }

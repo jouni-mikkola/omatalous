@@ -1,6 +1,6 @@
 /** Sign-in, first-run setup and password change screens. */
 import { type FormEvent, type ReactNode, useRef, useState } from "react";
-import { api } from "../api.ts";
+import { type ApiError, api } from "../api.ts";
 import type { User } from "../types.ts";
 import "../styles/auth.css";
 
@@ -45,10 +45,76 @@ function useSubmit<T>(fn: () => Promise<T>, onDone: (r: T) => void) {
 export function Login({ onDone }: { onDone: (user: User) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const { error, busy, submit } = useSubmit(() => api<{ user: User }>("/api/auth/login", { method: "POST", body: { username, password } }), (r) => onDone(r.user));
+  // after a right password of a member with a second factor the server waits for the code
+  const [step, setStep] = useState<"password" | "code">("password");
+  const [recovery, setRecovery] = useState(false);
+  const [code, setCode] = useState("");
+  const [expired, setExpired] = useState<string | null>(null);
+  const first = useSubmit(
+    () => api<{ user?: User; needsFactor?: boolean }>("/api/auth/login", { method: "POST", body: { username, password } }),
+    (r) => {
+      setExpired(null);
+      if (r.needsFactor) setStep("code");
+      else onDone(r.user!);
+    },
+  );
+  const second = useSubmit(
+    async () => {
+      try {
+        return await api<{ user: User }>("/api/auth/factor", { method: "POST", body: { code } });
+      } catch (err) {
+        // the five minutes passed, or the password changed meanwhile: the password goes first again
+        if ((err as ApiError).code === "half_expired") {
+          setExpired((err as Error).message);
+          setStep("password");
+          setPassword("");
+          setCode("");
+          setRecovery(false);
+        }
+        throw err;
+      }
+    },
+    (r) => onDone(r.user),
+  );
+  if (step === "code") {
+    const cancel = () => {
+      void api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+      setStep("password");
+      setPassword("");
+      setCode("");
+      setRecovery(false);
+    };
+    return (
+      <AuthCard title="Kirjaudu sisään" intro="Anna koodi 5 minuutin kuluessa.">
+        <form className="auth-form" onSubmit={second.submit}>
+          <label>
+            {recovery ? "Palautuskoodi" : "Koodi sovelluksesta"}
+            {recovery ? (
+              <input key="recovery" type="text" name="code" autoComplete="off" spellCheck={false} value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={second.error ? true : undefined} required autoFocus />
+            ) : (
+              <input key="totp" type="text" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={second.error ? true : undefined} required autoFocus />
+            )}
+          </label>
+          {second.error && <div className="error">{second.error}</div>}
+          <button className="btn btn-primary" type="submit" disabled={second.busy} aria-busy={second.busy || undefined}>
+            {second.busy ? "Kirjaudutaan…" : "Kirjaudu"}
+          </button>
+          <div className="form-row">
+            <button className="btn btn-small" type="button" onClick={() => { setRecovery(!recovery); setCode(""); }}>
+              {recovery ? "Käytä sovelluksen koodia" : "Käytä palautuskoodia"}
+            </button>
+            <button className="btn btn-small" type="button" onClick={cancel}>
+              Peruuta
+            </button>
+          </div>
+        </form>
+      </AuthCard>
+    );
+  }
+  const error = first.error ?? expired;
   return (
     <AuthCard title="Kirjaudu sisään">
-      <form className="auth-form" onSubmit={submit}>
+      <form className="auth-form" onSubmit={first.submit}>
         <label>
           Käyttäjätunnus
           <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} aria-invalid={error ? true : undefined} required autoFocus />
@@ -58,8 +124,8 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
           <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={error ? true : undefined} required />
         </label>
         {error && <div className="error">{error}</div>}
-        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
-          {busy ? "Kirjaudutaan…" : "Kirjaudu"}
+        <button className="btn btn-primary" type="submit" disabled={first.busy} aria-busy={first.busy || undefined}>
+          {first.busy ? "Kirjaudutaan…" : "Kirjaudu"}
         </button>
       </form>
     </AuthCard>

@@ -237,6 +237,15 @@ describe("second factor: throttle", () => {
 });
 
 describe("second factor: removal and recovery codes", () => {
+  it("the member list says who has a factor, so the page offers its removal only there", async () => {
+    const t = await setupApp();
+    await t.member("liisa");
+    const flags = async () => Object.fromEntries((await t.admin.call("GET", "/api/users")).body.users.map((u: { username: string; hasFactor: boolean }) => [u.username, u.hasFactor]));
+    expect(await flags()).toEqual({ aino: false, liisa: false });
+    await enrol(t.admin);
+    expect(await flags()).toEqual({ aino: true, liisa: false });
+  });
+
   it("removing needs the password and a code; the user then signs in with the password alone", async () => {
     const t = await setupApp();
     const { secret, recovery } = await enrol(t.admin);

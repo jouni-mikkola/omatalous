@@ -6,7 +6,7 @@ import { holdersOf } from "./categorize-people.ts";
 import { businessMerchants, isBusinessRow, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
-import { applyPayerRoles } from "./payer-role.ts";
+import { applyPayerRoles, steadyPayers } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
@@ -201,8 +201,13 @@ export interface IslandInput {
   industries: ReadonlyMap<string, string>;
   /** Rows outside the island that returns matched (stored source "match"): a friend's share carries its purchase's category. */
   outsideMatches: readonly Pick<Transaction, "accountId" | "bookingDate" | "amountCents">[];
-  /** The member's payer roles: a payer's median reads rows outside the island, so with any role the full run answers. */
+  /** The member's payer roles. */
   payers?: PayerInput;
+  /**
+   * Every row of the history that is money in, as far as a payer is told from it (payer, sum, day): a payer's median reads
+   * rows outside the island. Needed when `payers` has a role; without it the full run answers.
+   */
+  payerRows?: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[];
 }
 
 export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; reason: string };
@@ -223,12 +228,15 @@ export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; r
  * - a lender is a merchant with a credit payout among its own rows, so a payout that comes or goes is checked;
  * - returns are unchanged when each row keeps its part, and a friend's share outside the island that follows an
  *   island purchase is looked for;
+ * - payer roles act on one row from the row and the payer's median, and the median is read from `payerRows`, so a
+ *   merchant's roles stay inside the island;
  * - the old inputs run through the same steps must give the stored rows back, which also catches a stored state that
  *   an earlier version derived differently.
  */
 export function enrichIsland(input: IslandInput): IslandResult {
   const { rows, accounts, industries } = input;
-  if (input.payers?.roles.length) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
+  if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
+  const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
   const ownIbans = ownIbansOf(accounts);
   const holders = holdersOf(accounts);
@@ -246,6 +254,8 @@ export function enrichIsland(input: IslandInput): IslandResult {
     const evidence = applyMerchantEvidence(next, accounts, industries, payeeLedgers);
     while (!evidence.next().done);
     applyReturns(next, staged.returns);
+    // as in the full run: the member's rules and both rows of every return are the roles' to leave
+    applyPayerRoles(next, new Set([...staged.byUserRule, ...staged.returns.keys(), ...staged.returns.values()]), input.payers, typicals);
     return next;
   };
   // Whether a ledger (an account's rows of one source) carries payee accounts is known from the island's rows as far

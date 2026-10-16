@@ -3,6 +3,21 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.54.0
+
+- Two-step sign-in: Asetukset > Kaksivaiheinen kirjautuminen turns on a code from an authenticator app (password and one code to confirm), gives ten recovery codes shown once, and asks for the code after the password at every sign-in. An admin can remove a member's second step, and the server command `user remove-factor` brings a locked-out admin back. Works on plain http too.
+- Payer answers can be seen and changed later: Säännöt has a "Maksajat" list with each answer, how many payments it moved, a choice to change it and "Palauta ehdotus".
+
+Money and reports
+
+- Answers to "Mitä nämä ovat?" are listed under Säännöt in Maksajat: change an answer there, or take it back with Palauta ehdotus.
+- A data file with a payer answer the app does not know is refused instead of imported.
+- Changing a merchant's category no longer sends the whole history through processing again when you have payer answers.
+
+Look
+
+- Asetukset has a card for two-step sign-in: turn it on with an authenticator app, keep ten recovery codes, and the sign-in asks for the code after the password.
+
 ## 0.53.0
 
 - "Täsmää pankin saldoon" on each euro account in Asetukset > Tilit: a tick when the stored rows add up to the bank's own booked balances, or the reason when they cannot be checked (vain käytettävissä oleva saldo, ei viitepäivää, tyyppi vaihtui, liian vähän saldoja). Opened, it lists the days that agree and where the check stopped.

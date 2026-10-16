@@ -8,6 +8,7 @@ import { BankConnections, connectedMessage, connectError } from "./settings/Bank
 import { Loans } from "./settings/Loans.tsx";
 import { DataExport } from "./settings/DataExport.tsx";
 import { Members } from "./settings/Members.tsx";
+import { SecondFactor } from "./settings/SecondFactor.tsx";
 import { Password } from "./settings/Security.tsx";
 import { Sharing } from "./settings/Sharing.tsx";
 import { Technical } from "./settings/Technical.tsx";
@@ -87,6 +88,8 @@ function Plain({ meta, params, anchor, onChange }: PageProps) {
           </a>
         </div>
       </div>
+
+      <SecondFactor />
 
       <About version={meta.version.app} />
     </div>

@@ -2,9 +2,8 @@ import { dayNumber } from "../dates.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import { ASK_LIMIT } from "../money-trace.ts";
-import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerRoleOf, sameName } from "../payer-role.ts";
+import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerRoleOf, sameName, steadyPayers } from "../payer-role.ts";
 import { nameOf, userNameOf } from "../person-names.ts";
-import { steadyBy } from "../returns.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate, PayerInput, PayerRole, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
@@ -130,7 +129,7 @@ function roleProposal(t: AnalysisTx, steady: boolean, own: ReturnType<typeof use
 function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payers: PayerInput, dismissed: ReadonlySet<string>): { items: PayerQuestion[]; covered: Set<string> } {
   const money = rows.filter((t) => t.amountCents > 0);
   // the run's median: every row of the member's, not the window's (applyPayerRoles reads the same rows)
-  const steady = steadyBy(ctx.txs.filter((t) => t.amountCents > 0), payerKeyOf);
+  const steady = steadyPayers(ctx.txs);
   const byPayer = new Map<string, AnalysisTx[]>();
   for (const t of money) {
     const key = payerKeyOf(t);

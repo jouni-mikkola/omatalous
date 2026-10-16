@@ -161,6 +161,21 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
                       >
                         Nollaa salasana
                       </button>
+                      {u.hasFactor && (
+                        <button
+                          className="btn btn-small"
+                          disabled={busy}
+                          aria-busy={(busy && doing === `factor-${u.id}`) || undefined}
+                          onClick={() => {
+                            if (!window.confirm(`Poistetaanko käyttäjän ${u.displayName} kaksivaiheinen kirjautuminen? Hänet kirjataan ulos kaikilta laitteilta.`)) return;
+                            void run(async () => {
+                              await api(`/api/users/${u.id}/factor`, { method: "DELETE" });
+                            }, `factor-${u.id}`);
+                          }}
+                        >
+                          Poista kaksivaiheinen kirjautuminen
+                        </button>
+                      )}
                       <button
                         className="btn btn-small btn-danger"
                         disabled={busy}

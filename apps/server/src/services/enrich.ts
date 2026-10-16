@@ -126,7 +126,9 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
       repo.payerRoles(),
     ]);
     if (rows.length > ISLAND_MAX_ROWS) return reprocessLocked(repo, settings);
-    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles } });
+    // a payer's median reads rows of other merchants: their payer, sum and day, nothing more
+    const payerRows = roles.length ? await repo.incomingPayerRows() : undefined;
+    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows });
     if (!island.ok) return reprocessLocked(repo, settings);
     await repo.updateEnrichment(island.changed);
     await settings.bumpUserDataVersion(repo.userId);

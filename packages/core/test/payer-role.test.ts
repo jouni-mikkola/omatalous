@@ -4,7 +4,7 @@ import { buildQuestions } from "../src/analysis/questions.ts";
 import { earnedIncome, usualIncome } from "../src/analysis/usual.ts";
 import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
 import { applyPayerRoles, PAYER_ROLES, payerKeyOf, payerRoleOf } from "../src/payer-role.ts";
-import { type Account, NO_INPUTS, type PayerRole, type PayerRoleRow, type Transaction } from "../src/types.ts";
+import { type Account, type CategoryRule, NO_INPUTS, type PayerRole, type PayerRoleRow, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const eur = (euros: number) => Math.round(euros * 100);
@@ -251,15 +251,79 @@ describe("a role in the run", () => {
 });
 
 describe("the one-merchant run", () => {
-  const island = (payers?: { memberId: string; roles: PayerRoleRow[] }) => {
+  const island = (payers?: { memberId: string; roles: PayerRoleRow[] }, payerRows?: readonly Transaction[]) => {
     const rows = [tx({ bookingDate: "2026-10-03", amountCents: -eur(20), merchant: "Prisma", category: "groceries", categorySource: "user" })];
-    return enrichIsland({ rows, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], payers });
+    return enrichIsland({ rows, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], payers, payerRows });
   };
 
-  it("leaves the work to the full run when the member has any role, as a payer's median reads rows outside the merchant", () => {
-    expect(island({ memberId: "1", roles: [member("1", VILLE, "sales")] })).toMatchObject({ ok: false, reason: expect.stringContaining("payer roles") });
+  it("leaves the work to the full run when the member has a role and the payers' rows are not given", () => {
+    const roles = [member("1", VILLE, "sales")];
+    expect(island({ memberId: "1", roles })).toMatchObject({ ok: false, reason: expect.stringContaining("payer roles") });
+    expect(island({ memberId: "1", roles }, villeRows())).toMatchObject({ ok: true });
     expect(island({ memberId: "1", roles: [] })).toMatchObject({ ok: true });
     expect(island()).toMatchObject({ ok: true });
+  });
+
+  /** Ville's rows are of two merchants (written two ways), so the median of the payer reads rows outside the island. */
+  const ville = (euros: number, date: string, over: Partial<Transaction>) => fromVille(euros, date, { description: "Siirto", ...over });
+  const history = () => [
+    anchor(),
+    ville(300, "2026-08-03", { id: "v1" }),
+    ville(300, "2026-09-03", { id: "v2" }),
+    ville(300, "2026-10-03", { id: "v3", merchant: "V Esimerkki" }),
+    ville(300, "2026-11-03", { id: "v4", merchant: "V Esimerkki" }),
+    // far from the median: a payback among the shares, which a role leaves as it was
+    ville(900, "2026-11-04", { id: "v5" }),
+  ];
+  const rule = (category: string): CategoryRule[] => [{ id: 1, field: "merchant", pattern: "Ville Esimerkki", category, priority: 10 }];
+
+  /** The island of one merchant against the full run over everything, for the same roles and change. */
+  const same = (role: PayerRole, rules: CategoryRule[], oldRules: CategoryRule[]) => {
+    const roles = [member("1", VILLE, role)];
+    const stored = settledWith(history(), roles, oldRules);
+    const inside = (t: Transaction) => t.merchant === "Ville Esimerkki";
+    const result = enrichIsland({
+      rows: stored.filter(inside),
+      before: new Map(),
+      accounts: [checking],
+      rules,
+      oldRules,
+      industries: new Map(),
+      outsideMatches: [],
+      payers: { memberId: "1", roles },
+      payerRows: stored.filter((t) => t.amountCents > 0),
+    });
+    expect(result.ok ? "ok" : `${role} ${rules.length}${oldRules.length} ${result.reason}`).toBe("ok");
+    if (!result.ok) return;
+    const changed = new Map(result.changed.map((t) => [t.id, t]));
+    const full = settledWith(stored, roles, rules);
+    for (const [i, t] of stored.entries()) {
+      const got = changed.get(t.id) ?? t;
+      if (inside(t)) expect([t.id, got.category, got.categorySource, got.isTransfer]).toEqual([t.id, full[i]!.category, full[i]!.categorySource, full[i]!.isTransfer]);
+      else expect(changed.has(t.id)).toBe(false);
+    }
+    return { stored, full, changed };
+  };
+  const settledWith = (rows: Transaction[], roles: PayerRoleRow[], rules: CategoryRule[]) => {
+    const changed = new Map(enrichTransactions(rows, [checking], rules, new Map(), { memberId: "1", roles }).map((t) => [t.id, t]));
+    return rows.map((t) => changed.get(t.id) ?? t);
+  };
+
+  it("gives the rows of a merchant the same answer as the full run, with roles present", () => {
+    for (const role of PAYER_ROLES) {
+      // a rule leaves the roles (its rows are the member's own choice), and another rule in its place changes nothing more
+      same(role, rule("hobbies"), []);
+      same(role, rule("health"), rule("hobbies"));
+      same(role, [], []);
+    }
+    // the roles moved the rows that the island reads back as stored: the usual sums go, the off-median one stays
+    const kept = same("cost_share", [], [])!;
+    expect(kept.stored.filter((t) => t.merchant === "Ville Esimerkki").map((t) => [t.category, t.categorySource]).slice(0, 2)).toEqual([["p2p_in", "payer"], ["p2p_in", "payer"]]);
+    expect(kept.stored[5]!.categorySource).not.toBe("payer");
+    expect(kept.changed.size).toBe(0);
+    // a rule on the merchant takes its rows from the role
+    const ruled = same("sales", rule("hobbies"), [])!;
+    expect([...ruled.changed.values()].map((t) => [t.id, t.category, t.categorySource])).toEqual([["v1", "hobbies", "rule"], ["v2", "hobbies", "rule"], ["v5", "hobbies", "rule"]]);
   });
 });
 

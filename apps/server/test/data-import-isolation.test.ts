@@ -156,8 +156,8 @@ describe("what only the household's admin writes", () => {
     householdMembers: [{ id: "hm1", name: "Lapsi", weight: 1, created_at: AT }],
     valuedAssets: [{ id: "aino-asset", kind: "home", name: "Talo", day: "2026-10-01", cents: 5 }],
     payerRoles: [
-      { scope: "household", user_id: null, counterparty_key: "ESIMERKKI", role: "payer", answered_by: null, answered_at: AT },
-      { scope: "member", user_id: "K1", counterparty_key: "ESIMERKKI2", role: "payer", answered_by: "K1", answered_at: AT },
+      { scope: "household", user_id: null, counterparty_key: "ESIMERKKI", role: "sales", answered_by: null, answered_at: AT },
+      { scope: "member", user_id: "K1", counterparty_key: "ESIMERKKI2", role: "sales", answered_by: "K1", answered_at: AT },
     ],
   });
   const seed = (a: Awaited<ReturnType<typeof world>>["a"]) => a.db.run("INSERT INTO valued_asset (id, kind, name, day, cents) VALUES ('aino-asset', 'car', 'Auto', '2026-09-01', 100)");

@@ -5,7 +5,7 @@
  * until proved otherwise: every value is checked as it is staged, every reference must point inside the file or to a row
  * the user has here, and nothing is ever updated or deleted. No user, password, session, second factor or token is made.
  */
-import { getCategory, normalizeIban } from "@banking/core";
+import { getCategory, normalizeIban, PAYER_ROLES } from "@banking/core";
 import { type OwnAccount, ImportRepo, type IdTable } from "../db/import-repo.ts";
 import { bankSignature, searchText } from "../db/finance-repo.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -272,6 +272,8 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
       const mapped: Row = { ...row };
       for (const k of Object.keys(mapped)) if (k.startsWith("@")) delete mapped[k];
       if (store.key === "payerRoles" && (row.scope === "member") !== (row.user_id !== null)) dangling(s, ses, store, i, "scope");
+      // a role the app does not know would be read by no run and shown by no page: refused like a loan that fails its own checks
+      if (store.key === "payerRoles" && !(PAYER_ROLES as readonly unknown[]).includes(row.role)) refuse(s, ses, `Tiedoston kohdan payerRoles rivi ${i + 1} on virheellinen (role).`);
       // household-wide rows (no owner, no writer elsewhere in the app) are the admin's to bring
       if (store.household && (store.userOrNull ? row[store.userOrNull] === null : true) && me.role !== "admin") {
         skip(store.key, "household");

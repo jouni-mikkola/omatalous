@@ -1,5 +1,6 @@
 /** "Tuo tiedot": the file of "Vie kaikki tiedot" read back, and every hostile file refused with nothing changed. */
 import { describe, expect, it } from "vitest";
+import { PAYER_ROLES } from "@banking/core";
 import type { Db } from "../src/db/types.ts";
 import { IMPORT_BY_KEY, IMPORT_LIMITS, IMPORT_STORES } from "../src/services/data-import-stores.ts";
 import { STORES, storeColumns } from "../src/services/data-export-stores.ts";
@@ -92,7 +93,7 @@ async function keep(db: Db, userId: string, tag: string, other?: string) {
   await run("INSERT INTO optimise_states (user_id, finding_id, status, decided_at) VALUES (?, ?, 'done', ?)", userId, `${tag}-STATE`, AT);
   await run("INSERT INTO optimise_snapshots (user_id, month, data, created_at) VALUES (?, '2026-09', '{}', ?)", userId, AT);
   await run("INSERT INTO contract_terms (user_id, series_key, answered_at, notice_days) VALUES (?, ?, ?, 30)", userId, `${tag}-TERMS`, AT);
-  await run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('member', ?, ?, 'payer', ?, ?)", userId, `${tag}-PAYER`, userId, AT);
+  await run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('member', ?, ?, 'sales', ?, ?)", userId, `${tag}-PAYER`, userId, AT);
   await run("INSERT INTO expected_bills (id, user_id, name, amount_cents, due_date, cadence, created_at) VALUES (?, ?, ?, 100, '2026-11-01', 'once', ?)", `${tag}-bill`, userId, `${tag} lasku`, AT);
   await run("INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES (?, 'in', ?, ?, ?, ?)", `${tag}-ident`, `${tag}-ANSWER`, `u:${userId}`, userId, AT);
   await run("INSERT INTO account_balances (account_key, day, type, cents, fetched_at, source) VALUES (?, '2026-09-30', 'closingBooked', 5, ?, 'csv')", `${tag}-ident`, AT);
@@ -288,8 +289,13 @@ describe("a hostile file is refused and changes nothing", () => {
     await refusedWith(b, b.admin, { ...file, loans: [{ ...file.loans[0], kind: "payday" }] }, /loans rivi 1/);
     await refusedWith(b, b.admin, { ...file, transactions: ["text"] }, /rivi 1/);
     // a member's answer belongs to a person, a household's to nobody: the two must not be mixed
-    const role = { scope: "member", user_id: null, counterparty_key: "ESIMERKKI", role: "payer", answered_by: null, answered_at: AT };
+    const role = { scope: "member", user_id: null, counterparty_key: "ESIMERKKI", role: "sales", answered_by: null, answered_at: AT };
     await refusedWith(b, b.admin, { ...file, payerRoles: [role] }, /payerRoles rivi 1 viittaa riviin \(scope\)/);
+    // a role the app does not know is refused like any other bad row; the five it knows pass
+    const bad = { ...role, scope: "household", role: "boss" };
+    await refusedWith(b, b.admin, { ...file, payerRoles: [bad] }, /payerRoles rivi 1 on virheellinen \(role\)/);
+    await importFile(b.admin, { ...file, payerRoles: PAYER_ROLES.map((r, i) => ({ ...bad, counterparty_key: `ESIMERKKI${i}`, role: r })) });
+    expect(await b.db.all("SELECT role FROM payer_role WHERE counterparty_key LIKE 'ESIMERKKI%' ORDER BY counterparty_key")).toEqual(PAYER_ROLES.map((r) => ({ role: r })));
   });
 
   it("an array over its cap and a chunk over its size", async () => {

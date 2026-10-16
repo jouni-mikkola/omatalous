@@ -4,7 +4,7 @@
  * Every answer, change and restore reprocesses that member, so the past months move with it. Rows of the household scope
  * are read by core but never written here.
  */
-import { PAYER_ROLES, type PayerRole, payerKeyOf } from "@banking/core";
+import { isPersonName, PAYER_ROLES, type PayerRole, payerKeyOf, payerRoleOf } from "@banking/core";
 import { UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
@@ -39,4 +39,36 @@ export async function answerPayer(s: Services, userId: string, answer: PayerAnsw
     await repo.setPayerRole(answer.key, answer.role, s.now().toISOString());
   }
   await reprocess(repo, s.settings);
+}
+
+/** One answer of the member's, as the list of standing answers shows it. */
+interface PayerAnswerItem {
+  key: string;
+  /** The payer as its rows write it. */
+  name: string;
+  role: PayerRole;
+  /** The answers offered for this payer: own money only for a person. */
+  options: readonly PayerRole[];
+  /** The payments the answer moved: rows of the payer the run read as it said. */
+  count: number;
+}
+
+/** The member's own answers, largest first. A household row is never listed: it is not the member's to change. */
+export async function payerAnswers(s: Services, userId: string): Promise<PayerAnswerItem[]> {
+  const own = (await s.finance(userId).payerRoles()).filter((r) => r.scope === "member" && r.userId === userId);
+  if (!own.length) return [];
+  const { ctx } = await s.analysis.get(s, userId, "own");
+  const items = own.map((answer): PayerAnswerItem => {
+    const reached = ctx.txs.filter((t) => payerRoleOf([answer], t, userId) !== null);
+    const written = (reached.find((t) => payerKeyOf(t) === answer.counterpartyKey) ?? reached[0])?.counterparty;
+    const name = written || answer.counterpartyKey.slice(answer.counterpartyKey.indexOf(":") + 1);
+    return {
+      key: answer.counterpartyKey,
+      name,
+      role: answer.role,
+      options: isPersonName(name) ? PAYER_ROLES : PAYER_ROLES.filter((r) => r !== "own_money"),
+      count: reached.filter((t) => t.categorySource === "payer").length,
+    };
+  });
+  return items.sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
