@@ -5,12 +5,10 @@
 import { addMonths, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
 import type { AnalysisContext } from "./context.ts";
-import { formatEur, formatFiDate } from "./format.ts";
+import { formatEur, formatFiDate, monthName } from "./format.ts";
 import type { DateRange } from "./period.ts";
 import { isCompleteMonth } from "./usual.ts";
 
-const MONTHS = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
-export const monthName = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1]!;
 /** "10.10. mennessä": the day a running month is cut at when the rows end before today, so its figures never read as today's. null when they reach today. */
 export const cutWords = (running: boolean, through: IsoDate, today: IsoDate): string | null => (running && through < today ? `${formatFiDate(through).replace(/\d{4}$/, "")} mennessä` : null);
 export const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

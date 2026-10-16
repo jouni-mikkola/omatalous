@@ -1,8 +1,9 @@
 /**
  * "Tavallisesti" and "valmis kuukausi": the one yardstick every view uses to say what is usual and which months may
  * be compared. A running month, or one the history does not cover from the 1st, is never part of it, and fewer than
- * three months say nothing. The usual spending, the usual income and the gate a cause must pass are defined here once
- * (ADR 0004). See docs/MONEY_FLOWS.md.
+ * three months say nothing. The usual spending, the usual earned income and the gate a cause must pass are defined here
+ * once (ADR 0004). The page's "Tavalliset tulot kuukaudessa" is another figure: the income report's own median of twelve
+ * months of regular income (`stability.medianCents`). See docs/MONEY_FLOWS.md.
  */
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
@@ -112,8 +113,10 @@ export function usualSpending(ctx: AnalysisContext, month: string, day = 31): nu
 }
 
 /**
- * Tavalliset tulot: the median earned income of the complete months before `month`. Money from people, refunds and
- * own money are left out, as the income report leaves them out. null under three complete months.
+ * The median earned income of the complete months before `month` (at most six): the yardstick of the income shares and
+ * gates of the insights (borrowing, commitments, large income, the income series), written out in their texts as "tavalliset
+ * tulot". Money from people, refunds and own money are left out. null under three complete months. The income page's
+ * figure of the same name is the report's `stability.medianCents`, a longer window of regular income.
  */
 export function usualIncome(ctx: AnalysisContext, month: string): number | null {
   return usualCents(completeMonthsBefore(ctx, month).map((m) => earnedIncome(ctx, m)));

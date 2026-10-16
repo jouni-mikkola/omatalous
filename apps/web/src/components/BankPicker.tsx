@@ -96,10 +96,10 @@ export function BankPicker({
         <div className="notice warning">
           {isAdmin ? (
             <>
-              Talouden Enable Banking -sovelluksen pankkilistalla ei ole yhtään pankkia, jonka Omatalous osaa yhdistää. Tarkista sovellus kohdassa <a href="#/settings?section=server">Asetukset &gt; Palvelin</a>.
+              Enable Banking -sovelluksesi pankkilistalla ei ole pankkeja, joita Omatalous tukee. Tarkista sovellus kohdassa <a href="#/settings?section=server">Asetukset &gt; Palvelin</a>.
             </>
           ) : (
-            "Talouden Enable Banking -sovelluksen pankkilistalla ei ole yhtään pankkia, jonka Omatalous osaa yhdistää. Ylläpitäjä tarkistaa sovelluksen kohdassa Asetukset > Palvelin."
+            "Enable Banking -sovelluksesi pankkilistalla ei ole pankkeja, joita Omatalous tukee. Ylläpitäjä tarkistaa sovelluksen kohdassa Asetukset > Palvelin."
           )}
         </div>
       ) : (

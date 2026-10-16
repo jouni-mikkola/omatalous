@@ -40,7 +40,7 @@ type Store = Record<string, BankCapability>;
 const empty = (): BankCapability => ({ consentDays: null, requiredPsuHeaders: null, psuTypes: null, cardAccounts: false, pending: false, balanceTypes: [], historyDays: null });
 
 /** Four capital letters: the shape of every code Enable Banking documents for a balance or an account type. */
-export const isCode = (value: unknown): value is string => typeof value === "string" && /^[A-Z]{4}$/.test(value);
+const isCode = (value: unknown): value is string => typeof value === "string" && /^[A-Z]{4}$/.test(value);
 
 const strings = (value: unknown, shape: RegExp): string[] | null => {
   if (!Array.isArray(value)) return null;

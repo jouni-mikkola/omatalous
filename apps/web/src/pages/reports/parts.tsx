@@ -12,19 +12,14 @@ export function ExportLink({ href }: { href: string }) {
   );
 }
 
-/** Label and figure pairs; a third item stands beside the label. */
-export function Kv({ items }: { items: ([string, string] | [string, string, ReactNode])[] }) {
+/** Label and figure pairs; a third item wraps the figure (the button that opens its rows). */
+export function Kv({ items }: { items: ([string, string] | [string, string, (figure: ReactNode) => ReactNode])[] }) {
   return (
     <div className="kv">
-      {items.map(([k, v, beside]) => (
+      {items.map(([k, v, wrap]) => (
         <div key={k}>
-          <div className="k">
-              {k}
-              {beside && <> {beside}</>}
-            </div>
-          <div className="v">
-            <Figure text={v} size="m" />
-          </div>
+          <div className="k">{k}</div>
+          <div className="v">{wrap ? wrap(<Figure text={v} size="m" />) : <Figure text={v} size="m" />}</div>
         </div>
       ))}
     </div>

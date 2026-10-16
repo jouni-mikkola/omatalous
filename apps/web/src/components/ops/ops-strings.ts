@@ -68,7 +68,7 @@ export const S = {
   logs: "Lue lokit",
   logsHelp: "Sovelluksen, Caddyn ja tunnelin 100 viimeistä riviä. Avaimet ja tunnisteet piilotetaan.",
   prune: "Siivoa levy",
-  pruneHelp: "Poistaa vanhat versiot ja välimuistin. Nykyinen ja edellinen versio säilyvät.",
+  pruneHelp: "Poista vanhat versiot ja välimuisti. Nykyinen ja edellinen versio säilyvät.",
   renew: "Asenna apuri uudelleen",
   renewHelp: "Asentaa apurin ajastuksen ja asetukset uudelleen.",
   toolsOutdated: "Apuri ei tue näitä toimintoja. Päivitä se palvelimella:",

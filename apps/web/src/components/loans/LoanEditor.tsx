@@ -218,7 +218,7 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
       {interest !== null && (
         <div className="notice warning loan-interest" role="status">
           <p>
-            Maksuerä on pienempi kuin lyhennysvälin korko ({money(interest)}), joten laina ei lyhenisi. Tarkista luvut, tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.
+            Maksuerä on pienempi kuin korko ({money(interest)}). Laina ei lyhene. Tarkista luvut. Jos maksat vain korkoa, jätä maksuerä tyhjäksi.
           </p>
           <button className="btn btn-small" type="button" onClick={() => change("paymentCents", "")}>
             Tyhjennä maksuerä

@@ -26,7 +26,7 @@ const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 300_000
 
 /** A window as core gives it: its totals are the sums of the rows by source, and what is due is the four kinds of payment. */
 function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
-  const sum = (source: Row["source"]) => rows.filter((r) => r.source === source).reduce((s, r) => s + Math.abs(r.cents), 0);
+  const sum = (source: Row["source"]) => rows.filter((r) => r.source === source).reduce((s, r) => s + Math.abs(r.cents ?? 0), 0);
   const dueCents = sum("recurring") + sum("expected") + sum("card") + sum("transfer");
   return {
     from: "2026-10-12",

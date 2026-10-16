@@ -54,7 +54,9 @@ function compare(base: Transaction[], accounts: Account[], s: Scenario): "same" 
   }
   // rows outside the island are never written
   expect(island.changed.every(inIsland)).toBe(true);
-  expect(base).toBeTruthy();
+  // the scenario changes rows of the base: every row it names is one of them
+  const known = new Set(base.map((t) => t.id));
+  expect(s.rows.every((t) => known.has(t.id))).toBe(true);
   return "same";
 }
 

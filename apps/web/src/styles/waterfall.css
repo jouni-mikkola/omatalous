@@ -1,0 +1,30 @@
+/* Tulot ja menot: the waterfall, one row for each item. Up is a solid bar, down a hatched one, so colour is not the only cue. */
+.wf-empty { margin: 0; }
+.wf-rows { display: block; }
+.wf-row { display: grid; grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr) 7.5rem; align-items: center; column-gap: 16px; min-height: 44px; padding: 0; }
+.wf-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.wf-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-fig { font-weight: 600; }
+/* the track holds the zero line; a bar stands where the running total was and runs to where it went */
+.wf-track { position: relative; display: block; height: 20px; border-radius: 3px; background: linear-gradient(90deg, transparent calc(var(--zero) - 0.5px), var(--axis) calc(var(--zero) - 0.5px), var(--axis) calc(var(--zero) + 0.5px), transparent calc(var(--zero) + 0.5px)); }
+/* a bar that opens rows is a button, 44 px high, the bar in its middle */
+button.wf-hit { display: block; width: 100%; height: 44px; padding: 0; border: 0; font: inherit; color: inherit; cursor: pointer; --inset: 12px; }
+button.wf-hit:hover .wf-bar { filter: brightness(1.15); }
+.wf-bar { position: absolute; top: var(--inset, 3px); bottom: var(--inset, 3px); left: var(--at); width: var(--span); min-width: 3px; border-radius: 2px; }
+.wf-up .wf-bar { background: linear-gradient(180deg, var(--good), color-mix(in srgb, var(--good) 70%, transparent)); box-shadow: 0 0 10px color-mix(in srgb, var(--good) 40%, transparent); }
+.wf-down .wf-bar { background: repeating-linear-gradient(135deg, var(--bad) 0 3px, color-mix(in srgb, var(--bad) 35%, transparent) 3px 6px); box-shadow: 0 0 10px color-mix(in srgb, var(--bad) 35%, transparent); }
+.wf-left .wf-bar { background: linear-gradient(180deg, var(--series-1), color-mix(in srgb, var(--series-1) 70%, transparent)); box-shadow: 0 0 12px color-mix(in srgb, var(--series-1) 45%, transparent); }
+.wf-left { border-top: 1px solid var(--axis); }
+.wf-row:has(+ .wf-left) { border-bottom: 0; }
+/* the joint pools: a sentence for each, the way to the report after them */
+.wf-settle { margin-top: 12px; }
+.wf-settle p { margin: 0 0 4px; }
+.wf-settle .st-links { margin-top: 4px; }
+.wf-settle .st-links a { display: inline-flex; align-items: center; min-height: 44px; }
+/* on a phone the bar takes a line under the name and the figure */
+@media (max-width: 640px) {
+  .wf-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 0; padding-bottom: 8px; }
+  .wf-track { grid-column: 1 / -1; grid-row: 2; }
+  .wf-fig { grid-column: 2; grid-row: 1; }
+}
+.wf { position: relative; }

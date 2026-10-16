@@ -12,14 +12,12 @@ import { creditAccountLoan, creditUse } from "../loans.ts";
 import { detectRecurring } from "../recurring.ts";
 import type { SeriesInput } from "../recurring-occurrence.ts";
 import { median } from "../stats.ts";
-import { normalizeIban } from "../transfers.ts";
+import { normalizeIban, PAIR_WINDOW_DAYS } from "../transfers.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 import { balanceWalk } from "./balance-walk.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { USUAL_MONTHS, usualCents } from "./usual.ts";
 
-/** The two legs of an own transfer are booked at most this many days apart: the window `pairTransfers` pairs in. */
-const PAIR_DAYS = 5;
 /** Fewer bills than this say nothing of a card's bill day or its usual bill: nothing is guessed. */
 const MIN_PAYMENTS = 3;
 /** A bill day nearer than this to the last bill is that bill itself, paid early or late. */
@@ -105,7 +103,7 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
     let best: AnalysisTx | undefined;
     for (const t of cameIn.get(-billCents(out)) ?? []) {
       const gap = Math.abs(t.day - out.day);
-      if (t.accountId === out.accountId || used.has(t.id) || gap > PAIR_DAYS || (to !== null && t.accountId !== to)) continue;
+      if (t.accountId === out.accountId || used.has(t.id) || gap > PAIR_WINDOW_DAYS || (to !== null && t.accountId !== to)) continue;
       if (!best || gap < Math.abs(best.day - out.day)) best = t;
     }
     if (best) used.add(best.id);

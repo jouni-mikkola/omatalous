@@ -72,4 +72,3 @@ td.share { min-width: var(--share-w); }
 .src-est { background: none; box-shadow: inset 0 0 0 2px var(--text-2); }
 
 /* M17 the day a balance is true of, under the figure, right-aligned */
-.st-sub.st-day { text-align: right; font-variant-numeric: tabular-nums lining-nums; }

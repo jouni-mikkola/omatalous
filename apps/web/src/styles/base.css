@@ -54,17 +54,9 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
 .field-help { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 
 .grid { display: grid; gap: 16px; }
-.kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .two { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
 @media (max-width: 900px) {
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .two { grid-template-columns: minmax(0, 1fr); }
-}
-/* two tiles a row on a phone: the four headline numbers fit on one screen */
-@media (max-width: 480px) {
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .kpis > .card { padding: 12px; }
-  .kpis .tile-value { font-size: 21px; }
 }
 .stack { display: flex; flex-direction: column; gap: var(--gap); }
 /* from 1600 px a page that stacks its panels stands on the page's twelve columns, and two `.half` panels in a row take six each; a half with no half beside it stays whole */
@@ -171,8 +163,6 @@ td:has(> .payee-pending) { max-width: 0; }
 .lead { margin: 0 0 12px; max-width: 62ch; }
 .small { font-size: 12px; }
 code { background: var(--surface-2); padding: 1px 5px; border-radius: var(--radius-s); font-size: 12px; }
-.hero { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 12px; margin: 8px 0 4px; }
-.hero h1 { font-size: 20px; margin: 0; font-weight: 600; }
 
 textarea { font: inherit; color: inherit; width: 100%; min-height: 120px; padding: 6px 8px; font-family: var(--font-code); font-size: var(--fs-label); }
 
@@ -210,3 +200,9 @@ dialog.confirm h2 { margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) var(--sp
   background: color-mix(in srgb, var(--surface-2) 35%, var(--surface)); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; letter-spacing: var(--track-name); text-transform: uppercase; }
 dialog.confirm p { margin: 0 0 8px; color: var(--text); }
 dialog.confirm .form-row { justify-content: flex-end; margin: var(--sp-16) 0 0; }
+
+/* a thumb: every link, button and field of Yhteenveto is 44 px high and wide where the pointer is a finger */
+@media (pointer: coarse) {
+  .front :is(a, button, summary, select):not(.wf-hit), .front input:not([type="checkbox"], [type="radio"]) { box-sizing: border-box; min-height: 44px; min-width: 44px; }
+  .front :is(a, button:not(.wf-hit), summary) { display: inline-flex; align-items: center; max-width: 100%; }
+}

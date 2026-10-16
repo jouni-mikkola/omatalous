@@ -324,7 +324,7 @@ describe("the blocks of each state", () => {
     expect(html).toContain("Uusi osoite on kokeilussa.");
     expect(html).not.toContain("Etäkäyttö on käytössä.");
     expect(html).toContain(`<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a> kerran ja kirjaudu sisään Cloudflaren kautta ennen kello ${clock(REVERT_AT)}.`);
-    expect(html).toContain("Jos kukaan ei ole päässyt sisään siihen mennessä, palvelin ottaa osoitteen itse pois käytöstä, ja sovellus vastaa taas kotiverkon osoitteessa.");
+    expect(html).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
     // the address and the list stay on show, and so does the way back
     expect(html).toContain("<li>anna@example.fi</li>");
     expect(html).toContain(">Ota etäkäyttö pois käytöstä</button>");
@@ -336,7 +336,7 @@ describe("the blocks of each state", () => {
     const late = page(TRIAL, {}, Date.parse(REVERT_AT) + 60_000);
     expect(late).toContain(`Kokeiluaika päättyi kello ${clock(REVERT_AT)}.`);
     expect(late).not.toContain("ennen kello");
-    expect(late).toContain("palvelin ottaa osoitteen pois käytöstä heti, kun ylläpitoapuri ehtii.");
+    expect(late).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
   });
 
   it("taken off by the server: says that it happened, for which address, and what to check", () => {
@@ -368,7 +368,7 @@ describe("the blocks of each state", () => {
     expect(html).toContain("Etäkäyttö on otettu käyttöön, eikä kotiverkon osoite enää vastaa.");
     expect(html).toContain('<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a>');
     expect(html).toContain("15 minuutin kuluessa");
-    expect(html).toContain("Jos kukaan ei pääse sisään, palvelin ottaa osoitteen itse pois käytöstä");
+    expect(html).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
     expect(html).toContain("Kun kotiverkon osoite vastaa taas, lataa tämä sivu uudelleen.");
     expect(html).not.toContain("403");
     expect(html).not.toContain('name="hostname"');
@@ -391,14 +391,14 @@ describe("the blocks of each state", () => {
     expect(html).toContain("Tämän jälkeen Omatalous vastaa vain palvelimella itsellään, osoitteessa http://localhost:8080. Kotiverkon muut laitteet eivät pääse siihen.");
     expect(html).not.toContain("Omatalous löytyy osoitteesta");
     const unknown = page({ ...ON, access: { ...ON.access, afterOff: null } });
-    expect(unknown).toContain("Ylläpitoapuri ei kerro, mistä osoitteesta Omatalous löytyy tämän jälkeen, joten se voi vastata vain palvelimella itsellään.");
+    expect(unknown).toContain("Ylläpitoapuri ei näytä uutta osoitetta täällä. Näet sen palvelimella.");
   });
 
   it("on, made by the installer: no empty list as who may sign in, no form the server would refuse, and the way to turn it off", () => {
     const installer = { ...ON, access: { ...ON.access, emails: [], emailsKnown: false, checked: false }, cloudflare: { hostname: null, emails: [], removal: null, note: null } };
     const html = page(installer);
     expect(html).toContain("Lista on tehty palvelimella asennusohjelmalla, eikä se näy täällä.");
-    expect(html).toContain("Tämän osoitteen etäkäyttö on tehty palvelimella asennusohjelmalla, eikä sitä voi muuttaa täältä. Muuta sitä palvelimella asennusohjelmalla (./scripts/install.sh).");
+    expect(html).toContain("Etäkäyttö on otettu käyttöön palvelimella asennusohjelmalla. Muuta sitä palvelimella komennolla ./scripts/install.sh.");
     expect(html).toContain("Sovellus ei tarkista itse, että kävijä on kirjautunut Cloudflaren kautta.");
     expect(html).not.toContain("<ul");
     expect(html).not.toContain("<textarea");
@@ -678,7 +678,7 @@ describe("the yes-step before the call", () => {
     expect(html(createElement(OffAsk, { s: local, choice: true, onChoice: none }))).toMatch(/<input type="checkbox"[^>]*checked=""/);
     // the helper that does not report where the copy answers is the same case
     const unknown = html(createElement(OffAsk, { s: { ...ON, access: { ...ON.access, afterOff: null } }, choice: false, onChoice: none }));
-    expect(unknown).toContain("Ylläpitoapuri ei kerro, mistä osoitteesta Omatalous löytyy tämän jälkeen");
+    expect(unknown).toContain("Ylläpitoapuri ei näytä uutta osoitetta täällä.");
     expect(unknown).toContain('type="checkbox"');
   });
 
@@ -691,8 +691,8 @@ describe("the yes-step before the call", () => {
   });
 
   it("removing the token: said first that Cloudflare's side cannot be removed without it", () => {
-    expect(html(createElement(RemoveTokenAsk, { s: ON }))).toContain("Cloudflaren puolta (osoite talous.example.fi) ei voi poistaa ilman tunnistetta. Ota etäkäyttö ensin pois käytöstä.");
-    expect(html(createElement(RemoveTokenAsk, { s: { ...OFF, token: SAVED } }))).not.toContain("ei voi poistaa ilman tunnistetta");
+    expect(html(createElement(RemoveTokenAsk, { s: ON }))).toContain("Cloudflaren asetuksia (osoite talous.example.fi) ei voi poistaa ilman API-tunnistetta. Ota etäkäyttö ensin pois käytöstä.");
+    expect(html(createElement(RemoveTokenAsk, { s: { ...OFF, token: SAVED } }))).not.toContain("ei voi poistaa ilman API-tunnistetta");
   });
 });
 

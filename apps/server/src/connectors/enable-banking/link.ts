@@ -9,7 +9,7 @@ import { consumeLinkState, dropLinkState, issueLinkState, LinkFailure } from "..
 import { instanceAppInactive, testBankApp } from "./app-setup.ts";
 import { bankById, bankIdForAspsp, DEFAULT_BANK, findAspsp } from "./banks.ts";
 import { type EnableBankingClient, EnableBankingError } from "./client.ts";
-import { enableBanking, noteLinkedAccount } from "./connector.ts";
+import { enableBanking } from "./connector.ts";
 import { clientFor } from "./credentials.ts";
 import { accountHolder, accountName, accountType, cardMask, creditLimitCents } from "./mapper.ts";
 import { noteBankList, noteSeen } from "./capabilities.ts";
@@ -163,7 +163,6 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
       type: accountType(a),
     });
     const bankId = bankIdForAspsp(session.aspsp.name);
-    noteLinkedAccount(s, bankId, a);
     await noteSeen(s, bankId, { card: a.cash_account_type === "CARD" });
   }
 

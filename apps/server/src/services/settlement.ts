@@ -5,7 +5,7 @@
  * others, the way they see an account only when it is theirs or shared with them.
  */
 import { isDeepStrictEqual } from "node:util";
-import { type AgreementRow, addMonths, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, monthLast, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
+import { type AgreementRow, addMonths, type RunningPool, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, monthLast, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
 import type { StoredAgreement, StoredClosedMonth, StoredMember } from "../db/agreement-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
@@ -189,6 +189,40 @@ async function engineOf(s: Services, pool: Pool) {
 type Engine = NonNullable<Awaited<ReturnType<typeof engineOf>>>;
 const byMonth = (x: ClosedMonth, y: ClosedMonth): number => (x.month < y.month ? -1 : 1);
 
+/** How many months a quick answer may freeze itself: the one just ended and the one before, whose closing waits for its days. */
+const QUICK_MONTHS = 3;
+
+/** The rest a job on the side takes after each month it freezes, so the requests of the same process are not queued behind a long history (a month of a large pool is tens of milliseconds of work). */
+const ASIDE_PAUSE_MS = 250;
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** How many months of the pool from its first booked row up to the month before today have no stored snapshot. */
+function unstored(s: Services, e: Engine, closed: readonly ClosedMonth[]): number {
+  let n = 0;
+  for (let m = e.firstMonth ?? "9999-99"; m < s.today().slice(0, 7); m = addMonths(m, 1)) if (!closed.some((c) => c.month === m)) n += 1;
+  return n;
+}
+
+/** How long a pool whose freeze failed waits before a front page may start it again. */
+const RETRY_AFTER_MS = 10 * 60_000;
+
+/** The pools being frozen on the side, per server and key: one job each. A failure is logged and the pool waits RETRY_AFTER_MS, so a failing store is not worked through again on every front page. */
+const freezing = new WeakMap<Services, Map<string, Promise<unknown>>>();
+const failedAt = new WeakMap<Services, Map<string, number>>();
+function freezeAside(s: Services, key: string, job: () => Promise<unknown>): void {
+  const jobs = freezing.get(s) ?? freezing.set(s, new Map()).get(s)!;
+  const failed = failedAt.get(s) ?? failedAt.set(s, new Map()).get(s)!;
+  if (jobs.has(key) || Date.now() - (failed.get(key) ?? -Infinity) < RETRY_AFTER_MS) return;
+  const run = job().then(
+    () => failed.delete(key),
+    (err: unknown) => {
+      failed.set(key, Date.now());
+      console.error("settlement: freezing the closed months of a shared account failed:", err instanceof Error ? err.message : err);
+    },
+  );
+  jobs.set(key, run.finally(() => jobs.delete(key)));
+}
+
 /** Every month of the pool that has closed and is not in `closed`, oldest first, each worked out with the earlier ones; `keep` may say what stands for a month (the stored one). */
 async function closeAll(s: Services, e: Engine, closed: ClosedMonth[], keep: (done: Settlement, closed: ClosedMonth[]) => Promise<ClosedMonth[]>): Promise<ClosedMonth[]> {
   for (let m = e.firstMonth ?? "9999-99"; m < s.today().slice(0, 7); m = addMonths(m, 1)) {
@@ -229,7 +263,25 @@ export async function importedMonthRefusal(s: Services, userId: string, row: Rea
 
 /** The settlement of a month for every pool the member is weighted in and that has a trace. */
 export async function settlementsOf(s: Services, userId: string, month: string): Promise<PoolSettlement[]> {
-  const out: PoolSettlement[] = [];
+  return (await poolSettlements(s, userId, month)).map((p) => p.settled);
+}
+
+/**
+ * The running month so far, for the front page: per pool the member is weighted in and that has a trace, who has paid over
+ * their share. Only the users of the pool with a weight above zero are named, with the words of `names`; an agreement that
+ * waits for a partner is not in force (`engineOf`).
+ */
+export async function runningSettlement(s: Services, userId: string): Promise<RunningPool[]> {
+  const month = s.today().slice(0, 7);
+  return (await poolSettlements(s, userId, month, true)).map(({ pool, settled }) => {
+    const users = new Set(pool.users.filter((u) => u.weight > 0).map((u) => u.owner));
+    const lines = settled.settlement.members.flatMap((m) => (users.has(m.owner) && Object.hasOwn(settled.names, m.owner) ? [{ owner: m.owner, name: settled.names[m.owner]!, overCents: m.over }] : []));
+    return { accountKey: pool.key, month: settled.settlement.month, lines };
+  });
+}
+
+async function poolSettlements(s: Services, userId: string, month: string, quick = false): Promise<{ pool: Pool; settled: PoolSettlement }[]> {
+  const out: { pool: Pool; settled: PoolSettlement }[] = [];
   const all = await namesOf(s);
   for (const pool of await poolsOf(s, userId)) {
     const e = await engineOf(s, pool);
@@ -243,13 +295,19 @@ export async function settlementsOf(s: Services, userId: string, month: string):
       return kept ? [...closed, kept].sort(byMonth) : closed;
     };
     // every month of the trace that has closed and has none yet, oldest first, so one nobody asked for is frozen near its closing too
-    const closed = await closeAll(s, e, (await s.agreements.closedMonths(pool.key)).flatMap((c) => closedOf(c) ?? []), keep);
+    const stored = (await s.agreements.closedMonths(pool.key)).flatMap((c) => closedOf(c) ?? []);
+    // a quick answer (the front page) never waits for a long history to be frozen: the pool is left out until a job on the side has done it
+    if (quick && unstored(s, e, stored) > QUICK_MONTHS) {
+      freezeAside(s, pool.key, () => closeAll(s, e, stored, async (done, closed) => (await pause(ASIDE_PAUSE_MS), keep(done, closed))));
+      continue;
+    }
+    const closed = await closeAll(s, e, stored, keep);
     let done = compute(month, closed);
     if (!done.status.open && firstMonth !== null && month >= firstMonth && !closed.some((c) => c.month === month)) done = (await keep(done, closed)).find((c) => c.month === month) ?? done;
     // only the payers this month's lines name: the other months' are not this month's to show
     const named = namedIn(done.lines);
     const owners = [...pool.users.filter((u) => u.weight > 0).map((u) => u.owner), ...done.members.map((m) => m.owner), ...named, ...done.unknownPaidBy.map((e) => e.owner), ...done.unknownOwedBy.map((e) => e.owner)];
-    out.push({ accountId: pool.ids[0]!, name: pool.name, ...wordsFor(owners, all), labels: Object.fromEntries([...t.labels].filter(([owner]) => named.has(owner))), settlement: done });
+    out.push({ pool, settled: { accountId: pool.ids[0]!, name: pool.name, ...wordsFor(owners, all), labels: Object.fromEntries([...t.labels].filter(([owner]) => named.has(owner))), settlement: done } });
   }
   return out;
 }

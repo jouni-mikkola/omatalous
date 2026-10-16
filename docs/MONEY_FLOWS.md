@@ -802,9 +802,7 @@ view holds.
   gets display names.
 - The member who linked an account can say its use in *Asetukset > Tilit*: the users and the weight of each, typed as
   euros a month ("600" and "400"). Only the ratio counts, and an empty field or 0 leaves a user out. *Palauta pankin
-  tiedoista* takes what was said back, and the bank's holders decide again. The page can propose weights from what each
-  user paid into the account in the last six complete months (`suggestWeights`), and stores them only when the member
-  takes them.
+  tiedoista* takes what was said back, and the bank's holders decide again.
 - One statement holds for the real account, whoever linked a copy. A joint account that both partners linked reads the
   same in both copies, and what either partner says replaces what was said. A statement gives nobody access to the
   account: a user it names who cannot see the account sees nothing of it, and the page offers the share beside it.

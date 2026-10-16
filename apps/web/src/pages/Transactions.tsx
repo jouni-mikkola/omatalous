@@ -45,7 +45,7 @@ function MerchantSummary({ merchant, scope, refresh, categoryLabel }: { merchant
   if (s.inCents > 0) facts.push(["Saatu yhteensä", money(s.inCents)]);
   facts.push(["Maksuja", String(s.count)]);
   const m = s.monthly;
-  if (m.fromSeries) facts.push(["Kuussa", money(m.monthlyCents ?? 0)], ["Vuodessa", money(m.yearCents)]);
+  if (m.fromSeries) facts.push(["Kuussa", m.monthlyCents === null ? "–" : money(m.monthlyCents)], ["Vuodessa", money(m.yearCents)]);
   else if (m.monthlyCents) facts.push([m.months === 1 ? "Viimeinen valmis kuukausi" : `Viimeiset ${m.months} kuukautta`, money(m.yearCents)], ["Kuussa", money(m.monthlyCents)]);
   facts.push(["Ensimmäinen", date(s.firstDate)], ["Viimeisin", date(s.lastDate)]);
   if (s.recurring?.active) {
@@ -326,7 +326,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             {changed !== null && !saveError && (
               <div className="notice good" role="status">
                 {changed.rule && changed.merchant
-                  ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}, samoin tulevat.`
+                  ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}. Myös tulevat tapahtumat menevät sinne.`
                   : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
                 {phone && (
                   <button className="icon-btn" type="button" onClick={() => setChanged(null)} aria-label="Sulje">

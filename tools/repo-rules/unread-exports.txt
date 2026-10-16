@@ -194,7 +194,6 @@ packages/core/src/optimise/common.ts  WEAKNESS_ORDER
 packages/core/src/optimise/common.ts  YearWindow
 packages/core/src/optimise/facts/index.ts  FactKind
 packages/core/src/optimise/facts/index.ts  FactStatus
-packages/core/src/optimise/facts/index.ts  factExpiry
 packages/core/src/optimise/facts/index.ts  proposedFrom
 packages/core/src/optimise/index.ts  AREAS
 packages/core/src/optimise/index.ts  MIN_MONTHS_EUROS
@@ -221,7 +220,6 @@ packages/core/src/optimise/snapshot.ts  SnapshotStatus
 packages/core/src/optimise/state.ts  REOPEN_CENTS
 packages/core/src/optimise/state.ts  REOPEN_SHARE
 packages/core/src/optimise/state.ts  reopens
-packages/core/src/optimise/types.ts  ACTION_VERBS
 packages/core/src/optimise/types.ts  EvidenceRow
 packages/core/src/optimise/types.ts  LoanRateValue
 packages/core/src/pay-day.ts  PayRule

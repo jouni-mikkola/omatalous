@@ -116,9 +116,16 @@ export function SurplusBridge({ totals, title, heading: Heading = "h3", sub, lef
                   <tr key={r.key}>
                     <td>
                       {cell(r.label)}
-                      {leftWhy && r.key === "left" && <> <Why figure="yli_jai.month" title={r.label} range={leftWhy.range} scope={leftWhy.scope} /></>}
                     </td>
-                    <td className="num">{cell(money(r.cents, false))}</td>
+                    <td className="num">
+                      {leftWhy && r.key === "left" ? (
+                        <Why figure="yli_jai.month" title={r.label} range={leftWhy.range} scope={leftWhy.scope} text={money(r.cents, false)}>
+                          {cell(money(r.cents, false))}
+                        </Why>
+                      ) : (
+                        cell(money(r.cents, false))
+                      )}
+                    </td>
                     {shares && <td className="num">{r.ofIncome ? share(r.key, r.cents) : "–"}</td>}
                   </tr>
                 );

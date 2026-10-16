@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { dayNumber as d } from "../src/dates.ts";
 import { type Answer, openOf, questionsOf, settle, shareOf, splitOf, type TraceUser } from "../src/money-trace-answers.ts";
-import { ASK_LIMIT, PAIR_DAYS, type RowParts, type SourcePart, TRACE_VERSION, type Trace, type TraceRow, trace } from "../src/money-trace.ts";
+import { ASK_LIMIT, TRACE_PAIR_DAYS, type RowParts, type SourcePart, TRACE_VERSION, type Trace, type TraceRow, trace } from "../src/money-trace.ts";
 import { rng } from "./gen.ts";
 
 const AINO = "u:u-aino";
@@ -88,7 +88,7 @@ const answer = (owner: string, key = "o"): Answer => ({ kind: key === "o" ? "ope
 describe("constants", () => {
   it("states the asking sum, the days of a pair and a version", () => {
     expect(ASK_LIMIT).toBe(10000);
-    expect(PAIR_DAYS).toBe(3);
+    expect(TRACE_PAIR_DAYS).toBe(3);
     expect(TRACE_VERSION).toBeGreaterThan(0);
   });
 });

@@ -257,7 +257,7 @@ for (const width of [1280, 390]) {
       await expect(section.getByText("Muutos odottaa ylläpitoapuria.")).toBeVisible();
       await expect(section.getByText("Uusi osoite on kokeilussa.")).toBeVisible({ timeout: 15_000 });
       await expect(section.getByText("kirjaudu sisään Cloudflaren kautta ennen kello")).toBeVisible();
-      await expect(section.getByText("palvelin ottaa osoitteen itse pois käytöstä")).toBeVisible();
+      await expect(section.getByText("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.")).toBeVisible();
       await expect(section.getByRole("link", { name: "https://talous.example.fi" }).first()).toBeVisible();
       await shot(section, "trial", width);
 

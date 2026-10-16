@@ -123,3 +123,10 @@
 
 /* the debts of the whole block: one row under all the groups, under a hairline */
 .holdings .holding-foot { margin: 18px 0 0; padding: 0; border-top: 1px solid var(--border); }
+
+/* the tick before a balance: a mark in the text colour with a glyph (a check, or an exclamation mark) drawn here, never a colour alone */
+.holding-tick { display: inline-block; margin-right: 6px; font-size: 12px; line-height: 16px; font-weight: 600; cursor: help; }
+.holding-tick-ok { color: var(--good); }
+.holding-tick-diff { color: var(--bad); }
+.holding-tick-ok::before { content: "\2713"; }
+.holding-tick-diff::before { content: "\21"; }

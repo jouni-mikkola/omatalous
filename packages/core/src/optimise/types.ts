@@ -13,9 +13,6 @@ import type { FindingChange } from "./snapshot.ts";
 export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electricity", "housing", "insurance", "food", "habits", "seasons", "tax", "kids", "car"] as const;
 export type AreaId = (typeof AREA_IDS)[number];
 
-/** The verbs an action may start with (rule 5): a sinä imperative the household can carry out. */
-export const ACTION_VERBS = ["kilpailuta", "irtisano", "neuvottele", "vaihda", "hae", "maksa", "siirrä", "varaa", "tarkista"] as const;
-
 /** Yearly cents, `lowCents <= midCents <= highCents`, positive. */
 export interface EuroRange {
   lowCents: number;
@@ -86,7 +83,7 @@ export interface FindingDraft {
   subject: string | null;
   /** At most two sentences, number first, basis after; a merchant stands in nominative before a colon. */
   title: string;
-  /** A sinä imperative starting with one of `ACTION_VERBS`, capitalised. */
+  /** A sinä imperative starting with one of the verbs of rule 5 (`ACTION_VERBS` in the invariants test), capitalised. */
   action: string;
   /** Null for a deadline finding. */
   euros: EuroRange | null;

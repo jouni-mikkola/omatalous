@@ -9,7 +9,7 @@ import { fromBase64Url, randomBytes, timingSafeEqual, toBase64Url, utf8 } from "
 export const DEFAULT_ITERATIONS = 600_000;
 export const MIN_PASSWORD_LENGTH = 12;
 
-async function derive(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+async function derive(password: string, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey("raw", utf8.encode(password.normalize("NFKC")), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
   return new Uint8Array(bits);

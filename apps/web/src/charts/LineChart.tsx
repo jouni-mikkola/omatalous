@@ -115,6 +115,7 @@ export function LineChart({ labels, series, height: minHeight = 240, format = (v
               width={innerW + 12}
               height={innerH}
               tabIndex={0}
+              role="group"
               aria-label="Siirry nuolinäppäimillä"
               onPointerMove={onMove}
               onPointerLeave={() => setHover(null)}

@@ -53,7 +53,7 @@ check "with no user for the drills they come after every other leg, one at a tim
 check "the drills' install is made after the helper's drills" test "$(grep -n '^drills work=upgrade-b7' "$CALLS" | cut -d: -f1)" -lt "$(grep -n '^drill-install ' "$CALLS" | cut -d: -f1)"
 check "no setpriv and no chown for a user that is not root" test "$(called '^setpriv\|^chown')" -eq 0
 check "only the logs stay in the work folder" test "$(ls "$TMP"/work/local-proof.*)" = logs
-check "a log for each leg" test "$(ls "$(logs)" | LC_ALL=C sort | tr '\n' ' ')" = "clone.log drills-default.log drills-install.log drills-own.log image.log signature.log smoke.log upgrade-b0.log upgrade-b3.log upgrade-b5.log upgrade-b6.log upgrade-b7.log "
+check "a log for each leg" test "$(ls "$(logs)" | LC_ALL=C sort -u | tr '\n' ' ')" = "clone.log drills-default.log drills-install.log drills-own.log image.log signature.log smoke.log upgrade-b0.log upgrade-b3.log upgrade-b5.log upgrade-b6.log upgrade-b7.log "
 # the closing list: one line a leg with its seconds, the longest first, then the lanes and the drills
 has "the list opens" "$out" "where the time went, the longest first:"
 for l in "the image builds" "smoke test of the image" "signature of the newest release" "upgrade from b0 \(lane 0\)" "upgrade from b7 \(lane 0\)" "upgrade from b3 \(lane 1\)" "install for drills 1, 2, 5, 6, 9, 10" "drills 1, 2, 5, 6, 9, 10" "drills 3, 4, 7, 8"; do
@@ -98,7 +98,7 @@ check "--proved exits 0 for a proved commit" test $rc -eq 0 -a ! -s "$CALLS"
 has "--proved says from how many" "$out" "$(short) is proved from 5 baselines"
 out=$(proof --proved --all baselines.txt); rc=$?
 check "the stamp of the short list does not prove the whole list" test $rc -eq 1
-has "--proved --all counts the whole list" "$out" "is not proved from its 8 baselines (--all)"
+has "--proved --all counts the whole list" "$out" "is not proved from its 8 baselines (--all: every baseline of the list runs, none is left out)"
 echo more >"$R/docs/more.md"; commit "$R" "words"
 out=$(proof --proved baselines.txt); rc=$?
 check "the stamp of another commit proves nothing" test $rc -eq 1 -a ! -s "$CALLS"
@@ -113,7 +113,7 @@ tried() { # tried FILE...: what the rule says of a commit that changes FILE...
   git -C "$R" reset -q --hard HEAD~1
 }
 for f in apps/server/migrations/0002_more.sql scripts/update.sh docker-compose.yml docker-compose.override.yml Dockerfile tools/ci/new.sh; do
-  has "a change of $f: the whole list" "$(tried "$f")" "8 baselines ($f changed since b7)"
+  has "a change of $f: the whole list" "$(tried "$f")" "8 baselines ($f changed since b7;"
 done
 for f in apps/server/src/app.ts tools/test/some.test.sh scripts.md; do
   has "a change of $f: the short list" "$(tried "$f")" "5 baselines (nothing"
@@ -123,14 +123,14 @@ NOT_RUN=$(sed -n 's/^NOT_RUN=(\(.*\))$/\1/p' "$REPO/tools/ci/local-proof.sh")
 check "the script names the files it leaves out" test -n "$NOT_RUN"
 for f in $NOT_RUN; do
   has "a change of $f alone: the short list, for the old reason" "$(tried "$f")" "5 baselines (nothing an update runs through changed since b7)"
-  has "a change of $f and of tools/ci/new.sh: the whole list, for the file that counts" "$(tried "$f" tools/ci/new.sh)" "8 baselines (tools/ci/new.sh changed since b7)"
-  has "a change of $f and of a migration: the whole list" "$(tried "$f" apps/server/migrations/0002_more.sql)" "8 baselines (apps/server/migrations/0002_more.sql changed since b7)"
-  has "the same name in another folder of tools/ci counts" "$(tried "tools/ci/sub/${f##*/}")" "8 baselines (tools/ci/sub/${f##*/} changed since b7)"
-  has "a file that only starts with the name counts" "$(tried "$f.bak")" "8 baselines ($f.bak changed since b7)"
+  has "a change of $f and of tools/ci/new.sh: the whole list, for the file that counts" "$(tried "$f" tools/ci/new.sh)" "8 baselines (tools/ci/new.sh changed since b7;"
+  has "a change of $f and of a migration: the whole list" "$(tried "$f" apps/server/migrations/0002_more.sql)" "8 baselines (apps/server/migrations/0002_more.sql changed since b7;"
+  has "the same name in another folder of tools/ci counts" "$(tried "tools/ci/sub/${f##*/}")" "8 baselines (tools/ci/sub/${f##*/} changed since b7;"
+  has "a file that only starts with the name counts" "$(tried "$f.bak")" "8 baselines ($f.bak changed since b7;"
 done
 has "all the named files together: the short list" "$(tried $NOT_RUN)" "5 baselines (nothing an update runs through changed since b7)"
-has "the other files of tools/ci still count: lib.sh" "$(tried tools/ci/lib.sh)" "8 baselines (tools/ci/lib.sh changed since b7)"
-has "so does a script an update runs, with the named ones changed too" "$(tried tools/ci/upgrade-run.sh $NOT_RUN)" "8 baselines (tools/ci/upgrade-run.sh changed since b7)"
+has "the other files of tools/ci still count: lib.sh" "$(tried tools/ci/lib.sh)" "8 baselines (tools/ci/lib.sh changed since b7;"
+has "so does a script an update runs, with the named ones changed too" "$(tried tools/ci/upgrade-run.sh $NOT_RUN)" "8 baselines (tools/ci/upgrade-run.sh changed since b7;"
 # the list stays honest: a name is no file that an install or a leg of the proof runs or mentions
 for f in $NOT_RUN; do
   hits=$(cd "$REPO" && { grep -rlF "${f##*/}" scripts Dockerfile docker-compose*.yml tools/ci/proof-drills.sh tools/ci/upgrade-run.sh tools/ci/drills.sh tools/ci/smoke-image.sh tools/ci/verify-release.sh 2>/dev/null
@@ -138,13 +138,13 @@ for f in $NOT_RUN; do
   check "$f is read by nothing an update or the proof runs (else take the name off NOT_RUN in tools/ci/local-proof.sh)" test -z "$hits"
   [[ -z $hits ]] || echo "       read by: $hits"
 done
-has "a last ref that is no commit: the whole list" "$(proof --proved ghost.txt)" "2 baselines (no diff from nope, the last of the list, could be read)"
+has "a last ref that is no commit: the whole list" "$(proof --proved ghost.txt)" "2 baselines (no diff from nope, the last of the list, could be read;"
 
 # ── the whole list, two at a time ──
 reset
 out=$(proof --jobs 2 --all baselines.txt); rc=$?
 check "--all exits 0" test $rc -eq 0
-has "--all takes the whole list" "$out" "8 baselines (--all), 2 at a time."
+has "--all takes the whole list" "$out" "8 baselines (--all: every baseline of the list runs, none is left out), 2 at a time."
 check "--all stamps the whole list" test "$(stamp | tail -1)" = "b0 b1 b2 b3 b4 b5 b6 b7"
 has "two lanes: a movable baseline in the second" "$(calls)" "rehearsal b2 port=8081 project=proof-1 "
 has "two lanes: a movable baseline in the first, on the defaults" "$(calls)" "rehearsal b6 port= project= "
@@ -162,7 +162,7 @@ exec 9<>"$PLAY/gate.fifo" # held open, so that no end of it waits for the other
 out=$(proof baselines.txt); rc=$?
 exec 9>&-
 check "the proof of the whole list exits 0" test $rc -eq 0
-has "the first line names the file that changed" "$out" "8 baselines (scripts/install.sh changed since b7), 4 at a time."
+has "the first line names the file that changed" "$out" "8 baselines (scripts/install.sh changed since b7; the 8 baselines of the list are 8 update paths, and the newest of each runs), 4 at a time."
 check "four rehearsals were inside at once" test "$(head -4 "$PLAY/inside" | sort | tr '\n' ' ')" = "b0 b2 b3 b4 "
 lacks "no two rehearsals inside at once had one port or one project" "$(calls)" "CLASH"
 has "a baseline with fixed names runs on the defaults" "$(calls)" "rehearsal b1 port= project= keep= work=upgrade-b1 "
@@ -195,10 +195,10 @@ out=$(PROOF_JOBS='' proof baselines.txt)
 has "an empty PROOF_JOBS is the default" "$out" "4 at a time."
 # without a flag the lanes come from the CPUs: one for every 4, at least 4, at most the rehearsals
 lanes() { local cpus=$1; shift; reset; echo "$cpus" >"$PLAY/cpus"; proof "$@" | sed -n 1p; }
-has "28 CPUs: 7 lanes" "$(lanes 28 baselines.txt)" "8 baselines (scripts/install.sh changed since b7), 7 at a time."
+has "28 CPUs: 7 lanes" "$(lanes 28 baselines.txt)" "8 baselines (scripts/install.sh changed since b7; the 8 baselines of the list are 8 update paths, and the newest of each runs), 7 at a time."
 has "no more lanes than rehearsals" "$(lanes 100 baselines.txt)" "8 at a time."
 has "a small machine still gets 4" "$(lanes 4 baselines.txt)" "4 at a time."
-has "a list of two rehearsals gets two lanes" "$(lanes 28 two.txt)" "2 baselines (scripts/install.sh changed since b7), 2 at a time."
+has "a list of two rehearsals gets two lanes" "$(lanes 28 two.txt)" "2 baselines (scripts/install.sh changed since b7; the 2 baselines of the list are 2 update paths, and the newest of each runs), 2 at a time."
 has "a machine that cannot count its CPUs gets 4" "$(lanes none baselines.txt)" "4 at a time."
 reset
 out=$(echo 28 >"$PLAY/cpus"; PROOF_JOBS=3 proof baselines.txt)
@@ -631,6 +631,69 @@ check "a compose file with more than one image builds as before and keeps nothin
 out=$(rehearse "$keys")
 check "a compose file that names no image builds as before" test "$(called '^docker compose build ')" -eq 1 -a "$(called '^docker tag ')" -eq 0
 rm -f "$PLAY/compose-images" "$PLAY/have"
+
+# ── baselines that update the same way run once ──
+# Side commits make twins of a baseline: d1 is b7 with another note (the same update path), d2 is b7 with one more migration,
+# d3 is d2 with another note, d4 is b7 with another compose file that still takes a port and a name, f1 is b0 with another note.
+br=$(git -C "$R" symbolic-ref --short HEAD)
+side() { # side BASE TAG FILE TEXT: a commit on BASE that writes TEXT to FILE, tagged TAG
+  git -C "$R" checkout -q --detach "$1" && mkdir -p "$R/$(dirname "$3")" && echo "$4" >>"$R/$3" && commit "$R" "side $2" && git -C "$R" tag "$2"
+}
+side b7 d1 docs/notes.md twin
+side b7 d2 apps/server/migrations/0002_more.sql 'ALTER TABLE t ADD COLUMN n TEXT;'
+side d2 d3 docs/notes.md twin
+side b7 d4 docker-compose.yml '# another compose file'
+side b0 f1 docs/notes.md twin
+git -C "$R" checkout -q "$br"
+printf '%s\n' b2 b7 d1 d2 >"$R/twins.txt"
+printf '%s\n' b2 b7 d2 >"$R/migration.txt"
+printf '%s\n' b2 b7 d4 >"$R/compose.txt"
+printf '%s\n' b2 b7 d1 d3 d4 >"$R/paths.txt"
+printf '%s\n' b0 f1 b2 d1 >"$R/fixed.txt"
+printf '%s\n' b0 b7 d1 d2 >"$R/oldest-movable.txt"
+commit "$R" "the lists of twins"
+upgraded() { grep -oE 'upgrade from [a-z0-9]+ \(' <<<"$1" | sed 's/upgrade from //; s/ (//' | LC_ALL=C sort -u | tr '\n' ' '; }
+reset
+out=$(proof twins.txt)
+has "two baselines of one update path: the first line counts the paths" "$out" "4 baselines of the list are 3 update paths, and the newest of each runs"
+check "give one rehearsal: the newer of the twins" test "$(upgraded "$out")" = "b2 d1 d2 "
+lacks "the older twin has no rehearsal" "$out" "upgrade from b7 "
+check "and no check of its migrations and compose file" test "$(called '^check-migrations ')" -eq 3 -a "$(called '^compose-compat ')" -eq 3
+has "the first line counts the baselines that run" "$out" "local proof of $(short): 3 baselines ("
+check "the stamp names the baselines that ran" test "$(stamp)" = "$(git -C "$R" rev-parse HEAD)"$'\n'"b2 d1 d2"
+out=$(proof --proved twins.txt); rc=$?
+check "--proved takes the stamp of the collapsed set for the same commit and list" test $rc -eq 0
+has "and counts the baselines that run" "$out" "is proved from 3 baselines"
+out=$(proof --proved --all twins.txt); rc=$?
+check "the stamp of the collapsed set does not prove --all" test $rc -eq 1
+: >"$CALLS"
+out=$(proof twins.txt)
+has "a second proof of the same commit and list runs nothing" "$out" "is proved already from b2 d1 d2 (the stamp is .git/local-proof). Nothing ran."
+check "and starts no leg" test ! -s "$CALLS"
+reset
+out=$(proof --all twins.txt)
+check "--all runs every baseline, the twin too" test "$(upgraded "$out")" = "b2 b7 d1 d2 "
+has "--all says so in the first line" "$out" "4 baselines (--all: every baseline of the list runs, none is left out)"
+check "and stamps all four" test "$(stamp)" = "$(git -C "$R" rev-parse HEAD)"$'\n'"b2 b7 d1 d2"
+reset
+out=$(proof migration.txt)
+check "a baseline whose migrations differ is kept with the one it is a twin of in all else" test "$(upgraded "$out")" = "b2 b7 d2 "
+has "so there are three paths" "$out" "3 baselines of the list are 3 update paths"
+reset
+out=$(proof compose.txt)
+check "a baseline whose compose file differs is kept too" test "$(upgraded "$out")" = "b2 b7 d4 "
+reset
+out=$(proof paths.txt)
+check "the twins of one path and the others: the newest of each path, and b2 as the oldest" test "$(upgraded "$out")" = "b2 d1 d3 d4 "
+reset
+out=$(proof fixed.txt)
+check "a baseline that cannot take a port runs though it has the path of the oldest" test "$(upgraded "$out")" = "b0 b2 d1 f1 "
+has "the paths are counted for them as well" "$out" "4 baselines of the list are 3 update paths"
+reset
+out=$(proof oldest-movable.txt)
+check "the oldest baseline that can take a port runs though a newer one has its path" test "$(upgraded "$out")" = "b0 b7 d1 d2 "
+check "and is the one the drills' install is made from" test "$(called '^drill-install b7 ')" -eq 1
+unset -f side upgraded
 
 
 echo

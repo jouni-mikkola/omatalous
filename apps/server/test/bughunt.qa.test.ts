@@ -108,8 +108,9 @@ describe("sharing and sessions", () => {
 
   it("a session expires after SESSION_DAYS without use, slides when used, and is gone from the database", async () => {
     const clock = { now: new Date("2026-10-09T10:00:00Z") };
-    const { client, db, app } = await setupApp({ SESSION_DAYS: "30" }, undefined, { now: () => clock.now });
+    const { client, db } = await setupApp({ SESSION_DAYS: "30" }, undefined, { now: () => clock.now });
     const c = client();
+    const others = await db.all<{ id: string }>("SELECT id FROM sessions");
     expect((await c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" })).status).toBe(200);
     clock.now = new Date("2026-11-01T10:00:00Z"); // day 23
     expect((await c.call("GET", "/api/meta")).status).toBe(200); // slides the expiry to day 53
@@ -119,11 +120,10 @@ describe("sharing and sessions", () => {
     const gone = await c.call("GET", "/api/meta");
     expect(gone.status).toBe(401);
     expect(gone.body.code).toBe("unauthenticated");
-    // the expired row was removed, and the cookie header does not revive it
+    // the expired row was removed (only the sessions that were there before the login are left), and the cookie header does not revive it
     const left = await db.all<{ id: string }>("SELECT id FROM sessions");
-    expect(left.length).toBeLessThanOrEqual(1);
+    expect(left).toEqual(others);
     expect((await c.call("GET", "/api/meta")).status).toBe(401);
-    expect(app).toBeTruthy();
   });
 });
 

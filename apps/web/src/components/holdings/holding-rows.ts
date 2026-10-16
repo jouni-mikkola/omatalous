@@ -68,3 +68,9 @@ export function cardMasks(cards: readonly Pick<Answer["cards"][number], "id" | "
 export function cardsOwe(cards: readonly Pick<Answer["cards"][number], "usedCents">[]): boolean {
   return cards.some((c) => (c.usedCents ?? 0) > 0);
 }
+
+/** The words under a tick beside a balance: the line of Asetukset > Tilit, with "ei täsmää" where the rows differ; none where it cannot be told. */
+export function reconcileTitle(state: "ok" | "diff" | "unknown"): string | null {
+  if (state === "unknown") return null;
+  return state === "ok" ? "Täsmää pankin saldoon" : "Täsmää pankin saldoon: ei täsmää";
+}

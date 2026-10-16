@@ -17,13 +17,12 @@ import { date, money, moneyIn } from "../../format.ts";
 import { addsUp, shares } from "../../marks.ts";
 import { partText, typedByText } from "../../part.ts";
 import { LOANS_REPORT_ANCHOR } from "../../routes.ts";
-import type { DashboardData, Meta, Scope } from "../../types.ts";
-import { Why } from "../Why.tsx";
+import type { DashboardData, Meta, ReconcileState } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
-import { cardMasks, cardName, cardsOwe, maskedNames } from "./holding-rows.ts";
+import { cardMasks, cardName, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../styles/statement.css";
 import "../../styles/holdings.css";
 
@@ -39,12 +38,11 @@ function sinceLine(balanceAt: string | null, today: string): string | null {
 }
 
 /** A name that is a link, in the colour of the row until it is pointed at; `mask` tells apart two that share a name. */
-function Name({ name, href, mask, why }: { name: string; href: string; mask: string | undefined; why?: ReactNode }) {
+function Name({ name, href, mask }: { name: string; href: string; mask: string | undefined }) {
   return (
     <span className="st-name holding-name" title={mask ? `${name} ·· ${mask}` : name}>
       <a href={href}>{name}</a>
       {mask && <span className="muted"> ·· {mask}</span>}
-      {why && <> {why}</>}
     </span>
   );
 }
@@ -89,10 +87,17 @@ function Unit({ name, href, mask, lines, note, face, arc, children }: { name: st
   );
 }
 
-function Accounts({ holdings, meta, scope }: { holdings: Answer; meta: Meta; scope?: Scope | undefined }) {
+/** The small mark before a balance (its glyph is drawn by the stylesheet): ✓ when the bank's balances are the sum of the rows, ! when they differ; nothing where it cannot be told. */
+function Tick({ state }: { state: ReconcileState | undefined }) {
+  const title = state ? reconcileTitle(state) : null;
+  if (!title) return null;
+  return (
+    <span className={`holding-tick holding-tick-${state}`} role="img" aria-label={title} title={title} />
+  );
+}
+
+function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { accounts, accountsCents } = holdings;
-  // "Miksi?" reads the balances as of today: this month's balance is today's
-  const range = { from: `${meta.today.slice(0, 7)}-01`, to: meta.today };
   const masks = maskedNames(accounts);
   // an account in another currency has a balance: it is shown with its currency and is in no total, so it is not missing
   const missing = accounts.filter((a) => a.balanceCents === null && !a.foreign).length;
@@ -118,15 +123,18 @@ function Accounts({ holdings, meta, scope }: { holdings: Answer; meta: Meta; sco
           const classes = ["st-row", "holding-account", track ? "share" : "", adds && i === known[0] ? "part-first" : "", adds && i === known[known.length - 1] ? "part-last" : ""];
           return (
             <li key={a.id} className={classes.filter(Boolean).join(" ")} style={track ? ({ "--from": track.at, "--part": track.p } as CSSProperties) : undefined}>
-              <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} why={scope && a.balanceCents !== null && !a.foreign ? <Why figure="balance.account" title={a.name} range={range} scope={scope} accounts={[a.id]} /> : undefined} />
-              <span className="st-num">{figure(a.balanceCents, a.foreign)}</span>
+              <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
+              <span className="st-num">
+                <Tick state={a.reconcile} />
+                {figure(a.balanceCents, a.foreign)}
+              </span>
               {part && <span className="st-sub">{part}</span>}
               {since && <span className="st-sub">{since}</span>}
             </li>
           );
         })}
       </ul>
-      <Total label={<>Tilit yhteensä{scope && accountsCents !== null && <> <Why figure="balance.view" title="Tilit yhteensä" range={range} scope={scope} /></>}</>} cents={accountsCents} note={missing > 0 ? `Ilman ${missing} tilin saldoa` : undefined} />
+      <Total label="Tilit yhteensä" cents={accountsCents} note={missing > 0 ? `Ilman ${missing} tilin saldoa` : undefined} />
     </section>
   );
 }
@@ -197,7 +205,7 @@ function Loans({ holdings }: { holdings: Answer }) {
   );
 }
 
-export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Meta; scope?: Scope }) {
+export function Holdings({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { accounts, cards, loans, debtCents } = holdings;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
@@ -215,7 +223,7 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
         </div>
       </div>
       <div className={columns}>
-        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} scope={scope} />}
+        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} />}
         {loans.length > 0 && <Loans holdings={holdings} />}
         {cards.length > 0 && <Cards holdings={holdings} meta={meta} />}
       </div>

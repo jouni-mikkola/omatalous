@@ -43,7 +43,7 @@ const history = [
   buy("2026-10-02", 10_000),
   buy("2026-10-09", 4_500),
 ];
-const answer = (rows: Transaction[], from: string, to: string) => buildDashboard(createContext(rows, [checking], today), { from, to });
+const answer = (rows: Transaction[], from: string, to: string) => ({ ...buildDashboard(createContext(rows, [checking], today), { from, to }), settlement: [] });
 const view = (rows: Transaction[], from: string, to: string) => incomeSpendingView(answer(rows, from, to));
 /** The rows of the months' table as they read: the label, the month's sum, the sum of the month before. */
 const figures = (v: ReturnType<typeof view>) => v.figures.map((f) => [f.label, plain(f.text), f.previous === null ? null : plain(f.previous)]);
@@ -206,7 +206,7 @@ describe("Tulot ja menot: the savings rate and the fixed costs", () => {
 
 describe("Tulot ja menot: the month's list or the table of themes", () => {
   const draw = (data: ReturnType<typeof answer>) =>
-    renderToStaticMarkup(createElement(IncomeSpending, { data, scope: "own", period: "month", presets: periodsOf("overview", today), anchors: { income: "tulot", months: "kuukaudet" } }));
+    renderToStaticMarkup(createElement(IncomeSpending, { data, scope: "own", period: "month", presets: periodsOf("overview", today), anchors: { income: "tulot", months: "kuukaudet", settlement: "yhteiset-menot" }, categories: new Map() }));
   const text = (html: string) => plain(html.replace(/<[^>]*>/g, " ")).replace(/ +/g, " ");
   // three complete months with one account that covers them: July, August and September
   const threeMonths = [buy("2026-07-02", 6_000), ...history];

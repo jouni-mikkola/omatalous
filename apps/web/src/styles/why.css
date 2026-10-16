@@ -1,5 +1,5 @@
-/* "Miksi?": the opener beside a figure and the panel of its rows, one depth up like the confirmation dialog */
-.why-open { padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+/* the figure that opens its rows (a thin dotted underline) and the panel of those rows, one depth up like the confirmation dialog */
+.why-fig { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline dotted 1px; text-underline-offset: 3px; cursor: pointer; }
 dialog.why { padding: var(--pad); width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: hidden; border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--pop-edge), var(--pop-shadow); }
 dialog.why::backdrop { background: var(--backdrop); }
 dialog.why h2 { margin: 0 0 var(--sp-16); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; text-transform: uppercase; }

@@ -99,7 +99,7 @@ test("The demo household: Yhteenveto tells the month before by its savings rate,
 
   // income, where it went, then what stayed, or for a month that ran short of the pay how the gap was covered (from the
   // accounts or a card: the demo has no loan drawn): in that order, without opening anything
-  const legend = (await texts(page, ".bridge-legend > div")).map((l) => l.replace(" Miksi?", ""));
+  const legend = (await texts(page, ".bridge-legend > div"));
   const labels = legend.map((l) => l.replace(/ -?\d[\d ]* €.*$/, ""));
   const short = (await page.locator(".bridge-gap").count()) > 0;
   expect(labels).toEqual(["Tulot", "Kulutus", "Velanhoito", "Säästöön", short ? "Tileiltä tai kortilta" : "Yli jäi"]);
@@ -120,7 +120,7 @@ test("The demo household: Yhteenveto tells the month before by its savings rate,
   // the table is the same sum: what came in less what went out is Yli jäi, up to the euro each figure is rounded to
   await bridge.getByRole("button", { name: "Taulukko" }).click();
   const rows = await texts(page, ".bridge-table tbody tr");
-  expect(rows.map((r) => r.replace(" Miksi?", "").replace(/ -?\d[\d ]* €.*$/, ""))).toEqual(["Tulot", "Kulutus", "Velanhoito", "Säästöön", "Yli jäi"]);
+  expect(rows.map((r) => r.replace(/ -?\d[\d ]* €.*$/, ""))).toEqual(["Tulot", "Kulutus", "Velanhoito", "Säästöön", "Yli jäi"]);
   const stayed = euros(rows[4]!);
   expect(rows.slice(0, 4).map(euros)).toEqual([income, spent, debt, saved]);
   expect(Math.abs(income! - spent! - debt! - saved! - stayed)).toBeLessThanOrEqual(3);

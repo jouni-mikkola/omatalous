@@ -17,7 +17,7 @@ function Link({ host }: { host: string }) {
 
 /** What happens if nobody comes in: said the same way before, during and after the turning on. */
 function IfNobody() {
-  return <p>Jos kukaan ei ole päässyt sisään siihen mennessä, palvelin ottaa osoitteen itse pois käytöstä, ja sovellus vastaa taas kotiverkon osoitteessa.</p>;
+  return <p>Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.</p>;
 }
 
 /** On, and nobody has come in through the new address yet. `now` is the clock the overdue test reads. */
@@ -43,7 +43,7 @@ export function Trial({ s, now }: { s: RemoteAccessState; now: number }) {
         </p>
       )}
       {!overdue && <IfNobody />}
-      {overdue && <p>Jos kukaan ei ole päässyt sisään, palvelin ottaa osoitteen pois käytöstä heti, kun ylläpitoapuri ehtii.</p>}
+      {overdue && <p>Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.</p>}
     </>
   );
 }
@@ -80,7 +80,7 @@ export function HomeBlocked({ s }: { s: RemoteAccessState }) {
       <p>
         Avaa <Link host={host} /> {proven ? "ja kirjaudu sisään Cloudflaren kautta." : "ja kirjaudu sisään Cloudflaren kautta 15 minuutin kuluessa."}
       </p>
-      {!proven && <p>Jos kukaan ei pääse sisään, palvelin ottaa osoitteen itse pois käytöstä, ja sovellus vastaa taas kotiverkon osoitteessa.</p>}
+      {!proven && <p>Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.</p>}
       <p className="small muted">Kun kotiverkon osoite vastaa taas, lataa tämä sivu uudelleen.</p>
     </div>
   );

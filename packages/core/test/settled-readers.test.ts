@@ -110,7 +110,7 @@ describe("the window before payday: a monthly bill paid from another account", (
       const d = run([pay({ status: "pending", accountId: account })]);
       expect(bills(d)).toEqual([{ date: "2026-10-15", name: PAYEE, category: "subscriptions", cents: -5000, source: "recurring", pending: true }]);
       expect(d.totals.dueCents).toBe(5000);
-      expect(d.rows.filter((r) => r.cents < 0).reduce((sum, r) => sum - r.cents, 0)).toBe(d.totals.dueCents);
+      expect(d.rows.filter((r) => r.cents! < 0).reduce((sum, r) => sum - r.cents!, 0)).toBe(d.totals.dueCents);
       // the balance still holds the payment's money: it is taken off once
       expect(d.balance!.freeCents).toBe(300_000 - 5000);
       // Laskut's list holds the same row, marked the same, so the two pages show one sum

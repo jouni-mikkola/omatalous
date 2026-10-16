@@ -112,6 +112,7 @@ export function PaceChart({
               width={innerW + 12}
               height={innerH}
               tabIndex={0}
+              role="group"
               aria-label="Siirry päivien välillä nuolinäppäimillä"
               onPointerMove={onMove}
               onPointerLeave={() => setHover(null)}

@@ -3,6 +3,17 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.58.0
+
+- Yhteenveto shows the month as a waterfall: income, each spending category, and what is left. A tick beside each account balance tells whether the bank's balance matches the rows.
+- The "Miksi?" button is gone: a figure the app works out is itself the button that opens its rows. Balances and forecasts no longer open anything.
+- Laskut loads only what is due, and several settings sentences read plainer. Tools updated (Playwright 1.64, Vitest 5).
+
+Look
+
+- Yhteenveto shows the month as a waterfall: income up, each spending category down, and what is left last, with the joint pools' sentence under it. A tick beside each account balance tells whether the bank's balances match the rows. The balances no longer have a Miksi? button, and the page fits phones from 320 px with controls of 44 px.
+- The "Miksi?" button is gone: a figure the app works out (income, spending, a category, Yli jäi, a usual income, your part of a joint row) is itself the button that shows its rows, marked with a dotted underline. Balances and the forecast no longer open anything. Laskut asks only for what is due instead of the whole first page, a pay with no estimate shows a dash, the waterfall calls its transfer bar "Säästöt ja luotot", and several sentences in the remote access, loan and bank settings read plainer.
+
 ## 0.57.0
 
 - "Miksi?" now also opens each account balance and "Tilit yhteensä" on Yhteenveto, "Käytettävissä" in Erääntyvät maksut, your share of a joint row on Tapahtumat, "Tavalliset tulot kuukaudessa" and the "Yli jäi" row in Raportit. Each panel shows exactly the number beside it: the rows behind a sum, the months behind a median, or what a forecast reads and assumes.

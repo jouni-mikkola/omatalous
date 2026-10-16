@@ -1,6 +1,6 @@
 // Decision: where the month's money went, told once
 import { dayMonth, money, monthLong, percent, signedMoney } from "../../format.ts";
-import type { DashboardData } from "../../types.ts";
+import type { DashboardData } from "@banking/core";
 import { type Ruler, rulerOf } from "./ruler.ts";
 
 /** "2026-10" gives "lokakuu": the month's name alone, as it stands after a label. */

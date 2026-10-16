@@ -20,7 +20,7 @@ const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 200_000
 
 /** A payday window as core gives it: Monday 12.10., the pay on Friday 23.10., the window to Thursday 22.10. */
 function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
-  const sum = (source: Row["source"]) => rows.filter((r) => r.source === source).reduce((s, r) => s + Math.abs(r.cents), 0);
+  const sum = (source: Row["source"]) => rows.filter((r) => r.source === source).reduce((s, r) => s + Math.abs(r.cents ?? 0), 0);
   const dueCents = sum("recurring") + sum("expected");
   return {
     from: "2026-10-12",
@@ -29,7 +29,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
     reason: "payday",
     payday: { date: "2026-10-23", name: "Esimerkki Oy", pay: steady(300_000) },
     rows,
-    upcoming: rows.filter((r) => r.cents < 0),
+    upcoming: rows.filter((r) => r.cents! < 0),
     everydayPerDayCents: 3_849,
     totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: 0, transferCents: 0, dueCents, incomeCents: sum("income") },
     balance: balance({ freeCents: 200_000 - dueCents }),
@@ -316,7 +316,7 @@ describe("the coming pay is an estimate", () => {
 
   it("shows a pay with no estimate as its day and a dash, and says nothing of a sum", () => {
     const a = pay({ date: "2026-10-23", name: "Esimerkki Oy", pay: null });
-    expect(incoming(a)[0]).toMatchObject({ day: "23.10.", cents: 0, sum: null });
+    expect(incoming(a)[0]).toMatchObject({ day: "23.10.", cents: null, sum: null });
     expect(payNote(a)).toBeNull();
     const out = html(a);
     expect(out).toContain('<td class="st-num">–</td>');

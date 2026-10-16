@@ -54,8 +54,11 @@
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
 # the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/, except the few files
 # of tools/ci that only the release workflow's own jobs run (NOT_RUN in the script; a test keeps that list honest).
-# Otherwise the oldest, the first public release (the ref under the comment line that says "first public release") and
-# the last three. --all takes the whole list.
+# Of those, baselines with the same update path run once, the newest of each: the same apps/server/migrations, scripts/,
+# docker-compose*.yml and Dockerfile (what an install of the baseline runs; their git hashes decide). The oldest, the newest,
+# the oldest that can take a port and a name and every one that cannot run in any case. The signature leg and the kept images
+# still name every baseline. Otherwise (nothing changed) the oldest, the first public release (the ref under the comment line
+# that says "first public release") and the last three. --all runs every baseline, none collapsed, and says so in the first line.
 #
 # --jobs N (or PROOF_JOBS; the flag wins) is how many rehearsals run at once, each in a lane. Without either it is one
 # lane for every 4 CPUs, at least 4 and at most the number of rehearsals. A machine too small for that sets PROOF_JOBS=1
@@ -122,6 +125,44 @@ SHORT=${SHA:0:7}
 STAMP=$(cd "$(git rev-parse --git-common-dir)" && pwd)/local-proof # the common git dir: every worktree of the repository reads it
 TEXT=$(git show "$SHA:$LIST" 2>/dev/null) || refuse "$LIST is not a file of the commit $SHORT (name it from the root of the repository)."
 
+# movable REF: the docker-compose.yml of the baseline reads the keys of a port and a name, so its rehearsal can run
+# in another lane than 0 (upgrade-run.sh refuses the keys otherwise). Asked of the commit under proof's repository.
+movable() {
+  local c
+  c=$(git show "$1:docker-compose.yml" 2>/dev/null) || return 1
+  [[ $c == *"\${HOST_PORT"* && $c == *"\${INSTANCE_NAME"* ]]
+}
+
+# update_path REF: what an update from REF runs through, as one hash (see "Which baselines"); none (return 1) for no commit.
+update_path() {
+  {
+    git ls-tree "$1" -- apps/server/migrations scripts Dockerfile \
+      && git ls-tree "$1" | awk -F'\t' '$2 ~ /^docker-compose.*\.yml$/'
+  } 2>/dev/null | git hash-object --stdin
+}
+
+# collapse REFS...: the refs that prove every update path of them, into PICK, and how many paths there are into PATHS_SAID.
+# The newest of each path runs, the oldest and newest ref, the oldest that can move (the drills' install) and every one that
+# cannot (lane 0 runs those one at a time). A ref with no readable path is a path of its own.
+collapse() {
+  local -a refs=("$@") keys=(); local -A last=()
+  local i k n=$# movable_seen=0 paths=0 keep
+  for i in "${!refs[@]}"; do
+    k=$(update_path "${refs[i]}") || k="unreadable ${refs[i]}"
+    keys+=("$k"); last["$k"]=$i
+  done
+  PICK=()
+  for i in "${!refs[@]}"; do
+    keep=0
+    [[ ${last["${keys[i]}"]} != "$i" ]] || { keep=1; paths=$((paths + 1)); }
+    ((i == 0 || i == n - 1)) && keep=1
+    if ! movable "${refs[i]}"; then keep=1
+    elif ((!movable_seen)); then keep=1; movable_seen=1; fi
+    ((!keep)) || PICK+=("${refs[i]}")
+  done
+  PATHS_SAID="the $n baselines of the list are $paths update paths, and the newest of each runs"
+}
+
 # pick_baselines TEXT: the baselines this proof runs, into PICK in the order of the list, and why into WHY. The one
 # place for the rule in the header.
 PICK=()
@@ -146,12 +187,12 @@ pick_baselines() {
   ((n)) || return 1
   ALLREFS=("${refs[@]}")
   last=${refs[n - 1]}
-  if ((ALL)); then PICK=("${refs[@]}"); WHY="--all"; return 0; fi
+  if ((ALL)); then PICK=("${refs[@]}"); WHY="--all: every baseline of the list runs, none is left out"; return 0; fi
   # a last ref that is no commit here cannot say that nothing changed
   if ! changed=$(git diff --name-only "$last" "$SHA" -- "${spec[@]}" 2>/dev/null); then
-    PICK=("${refs[@]}"); WHY="no diff from $last, the last of the list, could be read"; return 0
+    collapse "${refs[@]}"; WHY="no diff from $last, the last of the list, could be read; $PATHS_SAID"; return 0
   fi
-  if [[ -n $changed ]]; then PICK=("${refs[@]}"); WHY="${changed%%$'\n'*} changed since $last"; return 0; fi
+  if [[ -n $changed ]]; then collapse "${refs[@]}"; WHY="${changed%%$'\n'*} changed since $last; $PATHS_SAID"; return 0; fi
   for i in "${!refs[@]}"; do
     if ((i == 0 || i >= n - 3)) || [[ ${refs[i]} == "$marked" ]]; then PICK+=("${refs[i]}"); fi
   done
@@ -235,13 +276,6 @@ if ! {
   refuse "The commit $SHORT could not be cloned into $SRC: $why"
 fi
 
-# movable REF: the docker-compose.yml of the baseline reads the keys of a port and a name, so its rehearsal can run
-# in another lane than 0 (upgrade-run.sh refuses the keys otherwise). Asked here, before the clone changes its owner.
-movable() {
-  local c
-  c=$(git show "$1:docker-compose.yml" 2>/dev/null) || return 1
-  [[ $c == *"\${HOST_PORT"* && $c == *"\${INSTANCE_NAME"* ]]
-}
 NEWEST=${PICK[${#PICK[@]} - 1]}
 LANES=() # the refs of each lane, in the order they run
 for ((k = 0; k < JOBS; k++)); do LANES+=(''); done

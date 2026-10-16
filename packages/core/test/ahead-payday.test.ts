@@ -79,7 +79,7 @@ describe("a coming pay is an estimate", () => {
     // three pays, the last two after a raise: one pay of the new level is no evidence
     const raise = varying(SMALL, "2026-02", [80_000, 80_000, 80_000, 80_000, 80_000, 80_000, 100_000, 100_000]);
     const [row] = run([...home, ...raise], "2026-10-03").rows.filter((r) => r.source === "income");
-    expect(row).toMatchObject({ cents: 0, pay: null });
+    expect(row).toMatchObject({ cents: null, pay: null });
   });
 
   it("leaves holiday pay out of the evidence", () => {
@@ -207,7 +207,7 @@ describe("the window to the next payday", () => {
 
   it("the 30-day list is the same list when no payday sets the window", () => {
     const d = run(living("2026-03-01", "2026-10-31"), "2026-10-03");
-    expect(d.upcoming).toEqual(d.rows.filter((r) => r.cents < 0));
+    expect(d.upcoming).toEqual(d.rows.filter((r) => r.cents! < 0));
   });
 
   it("a window longer than 30 days still gives 30 days of payments, and the window its own", () => {
@@ -434,17 +434,17 @@ describe("what is free is the balance less the payments of the window", () => {
           const d = cashAhead(ctx, [chk], { ...NO_INPUTS, expectedBills: bills });
           rows += d.rows.length;
           const label = `seed ${seed}, settled ${settled}, ${today}`;
-          const payments = d.rows.filter((r) => r.cents < 0);
+          const payments = d.rows.filter((r) => r.cents! < 0);
           const b = d.balance!;
-          expect(d.totals.dueCents, label).toBe(payments.reduce((s, r) => s - r.cents, 0));
+          expect(d.totals.dueCents, label).toBe(payments.reduce((s, r) => s - r.cents!, 0));
           expect(d.totals.dueCents, label).toBe(d.totals.recurringCents + d.totals.typedCents + d.totals.cardCents + d.totals.transferCents);
           expect(b.freeCents, label).toBe(b.startCents - d.totals.dueCents);
           // walked by hand: the payments in the order of the rows, each against the balance and the pay dated before its day
           let [paid, lowest] = [0, b.startCents];
           let crossing: IsoDate | null = null;
           for (const r of payments) {
-            paid -= r.cents;
-            const left = b.startCents + d.rows.filter((p) => p.cents > 0 && p.date < r.date).reduce((s, p) => s + p.cents, 0) - paid;
+            paid -= r.cents!;
+            const left = b.startCents + d.rows.filter((p) => p.cents! > 0 && p.date < r.date).reduce((s, p) => s + p.cents!, 0) - paid;
             if (left < 0) crossing ??= r.date;
             lowest = Math.min(lowest, left);
           }
@@ -453,11 +453,11 @@ describe("what is free is the balance less the payments of the window", () => {
           // with no pay in the window that is what the payments exceed the balance by
           if (d.totals.incomeCents === 0) expect(b.shortCents, label).toBe(Math.max(0, -b.freeCents));
           if (b.shortOn) short++;
-          expect(d.totals.recurringCents, label).toBe(d.rows.filter((r) => r.source === "recurring").reduce((s, r) => s - r.cents, 0));
+          expect(d.totals.recurringCents, label).toBe(d.rows.filter((r) => r.source === "recurring").reduce((s, r) => s - r.cents!, 0));
           expect(d.rows.every((r) => r.date >= d.from && r.date <= d.to), label).toBe(true);
           // the 30 days of payments hold the bills of the window, the same rows in the same order, and the bills an
           // account outside the balance pays; the bill of a card and a transfer are rows of the window only
-          expect(d.upcoming.every((r) => r.cents < 0 && r.date >= d.from && r.date <= addDays(d.from, 30)), label).toBe(true);
+          expect(d.upcoming.every((r) => r.cents! < 0 && r.date >= d.from && r.date <= addDays(d.from, 30)), label).toBe(true);
           const to30 = (d.to < addDays(d.from, 30) ? d.to : addDays(d.from, 30));
           const ownBills = d.rows.filter((r) => (r.source === "recurring" || r.source === "expected") && r.date <= to30);
           expect(d.upcoming.filter((r) => ownBills.includes(r)), label).toEqual(ownBills);
@@ -476,7 +476,7 @@ describe("what is free is the balance less the payments of the window", () => {
             expect(d.days, label).toBe(30);
           }
           // no pay to wait for is inside a window: a row of pay is under half of the largest, so smaller than the pay it names
-          if (d.reason === "payday") for (const r of d.rows) if (r.cents > 0) expect(r.cents, label).toBeLessThan(d.payday!.pay!.usualCents);
+          if (d.reason === "payday") for (const r of d.rows) if (r.cents! > 0) expect(r.cents, label).toBeLessThan(d.payday!.pay!.usualCents);
         }
       }
     }

@@ -195,7 +195,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await dialog.getByLabel("Lainaa jäljellä (€)").fill("119 500");
   // a payment under the interval's interest: told before saving, with the way out
   await dialog.getByLabel("Maksuerä (€)").fill("300");
-  await expect(dialog.getByText(/Maksuerä on pienempi kuin lyhennysvälin korko \(337,59\s€\)/)).toBeVisible();
+  await expect(dialog.getByText(/Maksuerä on pienempi kuin korko \(337,59\s€\)/)).toBeVisible();
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog.getByRole("alert")).toContainText("Maksuerä on pienempi kuin korko.");
   await dialog.getByRole("button", { name: "Tyhjennä maksuerä" }).click();

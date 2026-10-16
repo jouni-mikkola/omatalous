@@ -65,10 +65,13 @@ function Categories({ ctx }: SectionProps) {
               ...g.categories.map((c, ci) => (
                 <tr key={c.category}>
                   <td style={{ paddingLeft: 20 }}>
-                    <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>{" "}
-                    <Why figure="spend.category" title={c.label} range={range} scope={ctx.scope} category={c.category} />
+                    <a href={`#/transactions${query({ category: c.category, from: range.from, to: range.to })}`}>{c.label}</a>
                   </td>
-                  <td className={`num${sums ? " sum-pad" : ""}`}>{money(c.totalCents, false)}</td>
+                  <td className={`num${sums ? " sum-pad" : ""}`}>
+                    <Why figure="spend.category" title={c.label} range={range} scope={ctx.scope} category={c.category} text={money(c.totalCents, false)}>
+                      {money(c.totalCents, false)}
+                    </Why>
+                  </td>
                   <td className="num">{text(categoryUnits[gi]![ci])}</td>
                   {hasAverage && <td className="num hide-phone">{c.monthlyAvgCents === null ? "–" : money(c.monthlyAvgCents, false)}</td>}
                   {r.comparable && (
@@ -83,10 +86,12 @@ function Categories({ ctx }: SectionProps) {
           {r.groups.length > 0 && (
             <tfoot>
               <tr className="foot-row">
-                <td>
-                  Yhteensä <Why figure="spend.month" title="Menot yhteensä" range={range} scope={ctx.scope} />
+                <td>Yhteensä</td>
+                <td className={`num${sums ? " sum-pad" : ""}`}>
+                  <Why figure="spend.month" title="Menot yhteensä" range={range} scope={ctx.scope} text={money(r.totalCents, false)}>
+                    {money(r.totalCents, false)}
+                  </Why>
                 </td>
-                <td className={`num${sums ? " sum-pad" : ""}`}>{money(r.totalCents, false)}</td>
                 <td className="num">{percent(r.totalCents ? 1 : 0)}</td>
                 {hasAverage && <td className="num hide-phone">{money(r.groups.reduce((s, g) => s + g.categories.reduce((t, c) => t + (c.monthlyAvgCents ?? 0), 0), 0), false)}</td>}
                 {r.comparable && (

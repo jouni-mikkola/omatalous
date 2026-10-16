@@ -7,9 +7,9 @@
  * carries it alone (ADR 0011).
  */
 import { addMonths, monthEnd } from "../../dates.ts";
-import { formatEur } from "../format.ts";
+import { formatEur, monthName, monthStem } from "../format.ts";
 import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../usual.ts";
-import { capitalise, lastCompleteMonths, monthName, monthRows, monthStem, oneOffCents } from "./shared.ts";
+import { capitalise, lastCompleteMonths, monthRows, oneOffCents } from "./shared.ts";
 import { MIN_T, monthlyNoise, monthT } from "../signal.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 

@@ -107,6 +107,7 @@ export function DivergingColumns({ months, up, down, height = 300 }: { months: s
                 width={band}
                 height={innerH}
                 tabIndex={0}
+                role="group"
                 aria-label={`${monthLong(m)}: ${up.map((u) => `${u.label.toLowerCase()} ${money(u.values[i] ?? 0, false)}`).join(", ")}, menot ${money(downTotals[i] ?? 0, false)}`}
                 onPointerEnter={() => setHover(i)}
                 onPointerLeave={() => setHover(null)}

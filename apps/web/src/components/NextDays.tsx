@@ -8,8 +8,6 @@ import "../styles/statement.css";
 import { type Active, NextDaysLine } from "./NextDaysLine.tsx";
 import { billLine } from "./next-days-line.ts";
 import { PendingPayee } from "./PendingPayee.tsx";
-import type { Scope } from "../types.ts";
-import { Why } from "./Why.tsx";
 import { type Ahead, figures, incoming, payNote, payments, paymentsCaption, warning, windowLine } from "./next-days.ts";
 
 type Line = ReturnType<typeof payments>[number];
@@ -20,7 +18,7 @@ type Line = ReturnType<typeof payments>[number];
  * the payments one by one and the pay that is to arrive. A dot and its row light each other. Nothing is modelled.
  * Laskut lists the same payments for 30 days and lets a bill be added.
  */
-export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
+export function NextDays({ ahead }: { ahead: Ahead }) {
   const three = figures(ahead);
   const short = warning(ahead);
   const due = payments(ahead);
@@ -49,7 +47,6 @@ export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
                 <div key={f.key} className={f.key === "free" ? "st-row st-total" : "st-row"}>
                   <dt className="st-name">
                     {f.label}
-                    {scope && f.key === "free" && <> <Why figure="forecast.month" title={f.label} range={{ from: ahead.from, to: ahead.to }} scope={scope} /></>}
                   </dt>
                   <dd className="st-num">{money(f.cents)}</dd>
                   {f.notes.map((note) => (
@@ -135,7 +132,7 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive }:
               {l.pending ? <PendingPayee>{payee}</PendingPayee> : payee}
               {l.note && <div className="st-sub">{l.note}</div>}
             </td>
-            <td className="st-num">{l.sum === undefined ? money(l.cents) : (l.sum ?? "–")}</td>
+            <td className="st-num">{l.sum !== undefined ? (l.sum ?? "–") : l.cents === null ? "–" : money(l.cents)}</td>
           </tr>
           );
         })}

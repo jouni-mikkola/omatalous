@@ -66,7 +66,7 @@ pnpm findings --golden  # writes the golden files again after a change of a dete
   `test/*.test.sh` shell suites (`test/ops-world.sh` is the helper's test world), `ci/*` (`smoke-image.sh` the image smoke test, `promote-release.sh` what `promote.yml` runs, `drills.sh` ten drills in real Docker with its functions in `drills-lib.sh`, `lib.sh` the helpers `upgrade-run.sh` and `drills-lib.sh` both source, each defined there and nowhere else)) and stays out of the image. `relay/` is the static bank return page with the privacy and terms pages Enable Banking asks for, and `install.sh`, the script of the one-line install (its sha256 is in README.md and docs/INSTALL.md, see relay/README.md), published to GitHub Pages by
   `.github/workflows/pages.yml`. `.github/workflows/release.yml` runs its jobs side by side after `plan` (verify that the commit is on main, build for amd64 and arm64 on runners of their own, then smoke; the types, the build and the tests run in the local release gate on the public tree, not there; `publish` needs verify, build and smoke and is the only job that makes a tag or anything public, then `release`; a `dry-run` job for a dry run) when `main` gets a new version, on a `v*` tag or by hand, and creates the release as a pre-release; `.github/workflows/promote.yml` promotes it after 48 hours (a draft holds it and every older pre-release).
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. First-run wizard `pages/Wizard.tsx`;
-  `components/BankPicker.tsx`; `components/holdings/` (`Holdings`, `CardFace`, `FigureRow`, `card-tier.ts`, `holding-rows.ts`: the Tilit, Luottokortit and Lainat of the Varallisuus card on Yhteenveto, styled in `styles/holdings.css`) and `components/next-days.ts` (the heading, figures and warning of the payday card); bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
+  `components/BankPicker.tsx`; `components/holdings/` (`Holdings`, `CardFace`, `FigureRow`, `CreditArc`, `holding-rows.ts`: the Tilit, Luottokortit and Lainat of the Varallisuus card on Yhteenveto, styled in `styles/holdings.css`) and `components/next-days.ts` (the heading, figures and warning of the payday card); bank logos on a white plate: Nordea's in `public/banks/`, the others served by the server
   (`bankLogo` in `src/banks.ts`); `consent-notices.ts` (when a consent ends, unlinked accounts, the calendar file);
   loans: `components/loans/`, `pages/settings/Loans.tsx`, `pages/settings/LoanIntake.tsx`, `LoanLinks` (in
   `components/loans/LoanEditor.tsx`: the accounts and loans the loan form reads). `styles/` (tokens.css and base.css
@@ -151,7 +151,7 @@ pnpm findings --golden  # writes the golden files again after a change of a dete
 - A card's payment channel is derived from the rows on every run and stored nowhere, so a change of rule is felt by the
   next run with no migration (ADR 0015).
 - The accounts, cards and loans of the first page show the fields of `holdings` in the dashboard answer. The web adds up
-  and compares no money of its own there. The width of a card's bar (`barPercent`) is the one figure it draws.
+  and compares no money of its own there. The share a card's arc fills (`CreditArc`) is the one figure it draws.
 
 ## Conventions
 

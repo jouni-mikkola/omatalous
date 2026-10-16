@@ -34,14 +34,7 @@ function Balances({ ctx }: SectionProps) {
           {(maybeTwice.length > 0 || overdrafts.length > 0) && (
             <ul className="loans-notes">
               {maybeTwice.length > 0 && <li className="warn">{SAME_DEBT_TWICE}: katso Lainat.</li>}
-              {overdrafts.map((t) => {
-                const text = overdraftTwice(t);
-                return (
-                  <li key={text} className="warn">
-                    {text}
-                  </li>
-                );
-              })}
+              {overdrafts.length > 0 && <li className="warn">{overdraftTwice()}</li>}
             </ul>
           )}
         </>

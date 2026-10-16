@@ -125,7 +125,7 @@ test("no bank on the list: it says what is wrong and links to the application in
   await page.goto("/#/settings?add=1");
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
   await expect(tiles(page)).toHaveCount(0);
-  await expect(page.getByText("ei ole yhtään pankkia, jonka Omatalous osaa yhdistää")).toBeVisible();
+  await expect(page.getByText("ei ole pankkeja, joita Omatalous tukee")).toBeVisible();
   await page.getByRole("link", { name: "Asetukset > Palvelin" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings?section=server");
   await expect(page.getByRole("heading", { name: "Palvelin", exact: true })).toBeVisible();

@@ -196,7 +196,7 @@ test("a saved loan is a row with what is left and the payment a month, and its f
   const used = cents((await figuresOf(cardsOf(page))).replace("Käytetty luotto ", ""));
   // each group ends with its total (one card has none), and the debts of the block are a row under all three groups, the card in them
   expect(used, "the demo card owes something").toBeGreaterThan(0);
-  await expect(holdings.locator(".st-total .st-name")).toHaveText([/^Tilit yhteensä( Miksi[?])?$/, "Lainat yhteensä"]);
+  await expect(holdings.locator(".st-total .st-name")).toHaveText(["Tilit yhteensä", "Lainat yhteensä"]);
   await expect(holdings.locator(".holding-foot .st-name")).toHaveText("Velat yhteensä");
   const firstTotal = cents(plain(await holdings.locator(".holding-foot .st-num").innerText()));
 
@@ -304,7 +304,7 @@ test("Tulot ja menot is two tables and no sentence: the two months' figures side
   expect(heads[0]).toMatch(/^[A-ZÄÖ][a-zäö]+kuu$/);
   expect(heads[1]).toMatch(/^[A-ZÄÖ][a-zäö]+kuu \d{1,2}\.\d{1,2}\. mennessä$/);
   const rows = months.locator("tbody tr");
-  expect(await rows.locator("th").allInnerTexts()).toEqual(["Tulot Miksi?", "Menot Miksi?"]);
+  expect(await rows.locator("th").allInnerTexts()).toEqual(["Tulot", "Menot"]);
   for (const figure of await rows.locator("td").allInnerTexts()) expect(plain(figure)).toMatch(/^[\d ]+,\d\d €$/);
   await expect(rows.locator("td")).toHaveCount(4);
   await expect(rows.getByRole("link", { name: "Tulot", exact: true })).toHaveAttribute("href", /^#\/reports#/);

@@ -235,7 +235,8 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
             {SETTINGS.label}
           </a>
           <details className="user-menu" ref={userMenu}>
-            <summary aria-label="Käyttäjävalikko">
+            <summary>
+              <span className="sr-only">Käyttäjävalikko </span>
               <span className="avatar" aria-hidden="true">
                 {initials}
               </span>

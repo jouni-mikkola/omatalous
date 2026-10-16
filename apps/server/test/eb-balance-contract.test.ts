@@ -112,7 +112,7 @@ describe("a fetch with a reference day and a dollar account", () => {
 
     // Saldot: the same walk, and no series for the dollar account
     const report = (await admin.call("GET", "/api/reports?reports=balances&scope=own")).body.balances;
-    expect(report.holdings).toEqual(dashboard);
+    expect(report.holdings).toEqual({ ...dashboard, accounts: dashboard.accounts.map(({ reconcile: _reconcile, ...a }: { reconcile: string }) => a) });
     expect(report.accounts.map((a: { name: string }) => a.name)).toEqual(["Käyttötili"]);
     expect(report.total.at(-1)).toBe(95_000);
   });

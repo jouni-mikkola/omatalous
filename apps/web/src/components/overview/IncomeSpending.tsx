@@ -9,6 +9,7 @@ import type { DashboardData, Scope } from "../../types.ts";
 import { type IncomeSpendingView, incomeSpendingView, monthName } from "./income-spending.ts";
 import { BarRuler, rulerStyle } from "./BarRuler.tsx";
 import { ThemesTable } from "./ThemesTable.tsx";
+import { Settlement, Waterfall } from "./Waterfall.tsx";
 import { OPEN_AT_FIRST, toggled } from "./themes-table.ts";
 import "../../styles/overview.css";
 import "../../styles/statement.css";
@@ -17,6 +18,7 @@ import "../../styles/statement.css";
 interface ReportAnchors {
   income: string;
   months: string;
+  settlement: string;
 }
 
 /**
@@ -24,7 +26,7 @@ interface ReportAnchors {
  * because it changes this block and nothing above it. `data` is the answer for the chosen month, or null while it is on
  * its way: the head stays, so the switch does not flicker away.
  */
-export function IncomeSpending({ data, scope, period, presets, anchors }: { data: DashboardData | null; scope: Scope; period: string; presets: readonly PeriodPreset[]; anchors: ReportAnchors }) {
+export function IncomeSpending({ data, scope, period, presets, anchors, categories }: { data: DashboardData | null; scope: Scope; period: string; presets: readonly PeriodPreset[]; anchors: ReportAnchors; categories: ReadonlyMap<string, string> }) {
   // the rows of the table of themes that are open stay so while the next month's answer is on its way
   const [open, setOpen] = useState(OPEN_AT_FIRST);
   return (
@@ -43,7 +45,7 @@ export function IncomeSpending({ data, scope, period, presets, anchors }: { data
           </div>
         </div>
       </div>
-      {data ? <Month data={data} scope={scope} anchors={anchors} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
+      {data ? <Month data={data} scope={scope} anchors={anchors} categories={categories} open={open} onToggle={(id) => setOpen((rows) => toggled(rows, id))} /> : <p className="muted st-wait" role="status">Ladataan…</p>}
     </section>
   );
 }
@@ -53,7 +55,7 @@ export function IncomeSpending({ data, scope, period, presets, anchors }: { data
  * running month; at the right the categories as a table. The right group takes two of the block's three columns. When
  * core has the themes of the last complete months their table takes the place of the month's list of categories.
  */
-function Month({ data, scope, anchors, open, onToggle }: { data: DashboardData; scope: Scope; anchors: ReportAnchors; open: ReadonlySet<string>; onToggle: (id: string) => void }) {
+function Month({ data, scope, anchors, categories, open, onToggle }: { data: DashboardData; scope: Scope; anchors: ReportAnchors; categories: ReadonlyMap<string, string>; open: ReadonlySet<string>; onToggle: (id: string) => void }) {
   const view = incomeSpendingView(data);
   const { from, to } = data.range;
   const link = { Tulot: `#/reports#${anchors.income}`, Menot: `#/transactions${query({ from, to })}` };
@@ -61,7 +63,12 @@ function Month({ data, scope, anchors, open, onToggle }: { data: DashboardData; 
   // the rate is the month before's while a month runs: its label opens that month, and names it once it is the one shown
   const savingsHref = data.running ? `#/overview${query({ period: "last-month" })}` : null;
   return (
-    <div className="st-cols st-cols-3">
+    <>
+      <div className="st-part">
+        <Waterfall waterfall={data.waterfall} categories={categories} range={{ from, to }} scope={scope} />
+        {data.waterfall !== null && <Settlement pools={data.settlement} anchor={anchors.settlement} />}
+      </div>
+      <div className="st-cols st-cols-3">
       <div>
         <table className="st-table month-table ruled">
           <thead>
@@ -87,10 +94,13 @@ function Month({ data, scope, anchors, open, onToggle }: { data: DashboardData; 
             {view.figures.map((f) => (
               <tr key={f.label}>
                 <th scope="row">
-                  <a href={link[f.label]}>{f.label}</a>{" "}
-                  <Why figure={f.label === "Tulot" ? "income.month" : "spend.month"} title={f.label} range={{ from, to }} scope={scope} />
+                  <a href={link[f.label]}>{f.label}</a>
                 </th>
-                <td className="st-num st-strong">{f.text}</td>
+                <td className="st-num st-strong">
+                  <Why figure={f.label === "Tulot" ? "income.month" : "spend.month"} title={f.label} range={{ from, to }} scope={scope} text={f.text}>
+                    {f.text}
+                  </Why>
+                </td>
                 {view.previous && <td className="st-num">{f.previous}</td>}
               </tr>
             ))}
@@ -122,7 +132,7 @@ function Month({ data, scope, anchors, open, onToggle }: { data: DashboardData; 
         )}
       </div>
       <div className="st-wide">
-        {data.themes ? <ThemesTable report={data.themes} open={open} onToggle={onToggle} /> : <MonthCategories view={view} from={from} to={to} />}
+        {data.themes ? <ThemesTable report={data.themes} open={open} onToggle={onToggle} /> : <MonthCategories view={view} from={from} to={to} empty={data.waterfall === null ? null : view.empty} />}
         {view.categories.length > 0 && (
           <p className="st-links">
             <a href={`#/transactions${query({ view: "merchants", from, to })}`}>Kauppiaat</a>
@@ -130,12 +140,13 @@ function Month({ data, scope, anchors, open, onToggle }: { data: DashboardData; 
           </p>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
 /** The month's list of categories, as the block drew it before core told the themes: the nine largest and the rest. */
-function MonthCategories({ view, from, to }: { view: IncomeSpendingView; from: string; to: string }) {
+function MonthCategories({ view, from, to, empty }: { view: IncomeSpendingView; from: string; to: string; empty: string | null }) {
   return (
     <>
       <h3 className="st-cap" id="categories-h">
@@ -169,9 +180,9 @@ function MonthCategories({ view, from, to }: { view: IncomeSpendingView; from: s
               {view.previous && <td className="st-num">{c.change}</td>}
             </tr>
           ))}
-          {view.empty && (
+          {empty && (
             <tr>
-              <td colSpan={view.previous ? 4 : 3}>{view.empty}</td>
+              <td colSpan={view.previous ? 4 : 3}>{empty}</td>
             </tr>
           )}
         </tbody>

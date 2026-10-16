@@ -72,3 +72,7 @@
 .skip-link { position: absolute; left: -9999px; top: 8px; z-index: var(--z-skip); background: var(--on-ink); color: var(--ink); padding: 8px 12px; border-radius: var(--radius-s); text-decoration: none; box-shadow: 0 0 0 2px var(--ink); }
 .skip-link:focus { left: 8px; }
 main:focus { outline: none; }
+/* at 320 px the five tabs are 3 px wider than the screen with 2 px of padding each: 1 px does it */
+@media (max-width: 340px) {
+  .nav a { padding: 0 1px; }
+}

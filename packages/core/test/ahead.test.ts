@@ -48,7 +48,7 @@ describe("cash ahead", () => {
   });
   const inputs = (partial: Partial<UserInputs>): UserInputs => ({ ...NO_INPUTS, ...partial });
   const bill = (partial: Partial<ExpectedBill>): ExpectedBill => ({ id: "b1", name: "Autovakuutus", amountCents: 41_000, dueDate: "2026-10-20", cadence: "once", category: "insurance", ...partial });
-  const sum = (rows: { cents: number }[]) => rows.reduce((s, r) => s + r.cents, 0);
+  const sum = (rows: { cents: number | null }[]) => rows.reduce((s, r) => s + (r.cents ?? 0), 0);
 
   // the same household without its pay: no payday sets the window, so it is the 30 days (ahead-payday.test.ts has the window)
   const unpaid = createContext(upTo(all.filter((t) => t.merchant !== "Acme Oy"), today), [checking], today);

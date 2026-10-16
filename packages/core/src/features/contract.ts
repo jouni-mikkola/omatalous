@@ -11,7 +11,6 @@ import type { Insight } from "../analysis/insights/types.ts";
 import type { DateRange } from "../analysis/period.ts";
 import type { AreaInput, AreaResult } from "../optimise/types.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
-import type * as sectionRegistry from "./section/registry.gen.ts";
 
 export type { AnalysisContext, AreaInput, AreaResult, BalanceInput, DateRange, Insight, IsoDate, UserInputs };
 
@@ -89,7 +88,5 @@ export type FeatureModule = InsightModule | CheckModule | SectionModule | PayeeM
 /** The one way to write a module: `export const module = define({ kind: "insight", id: "...", ... })`. The `const` keeps the literal `id` and `kind`. */
 export const define = <const M extends FeatureModule>(m: M): M => m;
 
-/** What the section `Id` of the registry `R` builds. `never` for an id the registry does not have. */
+/** What the section `Id` of the registry `R` builds, read from a generated registry (`typeof all` of `import * as all`): no export line a feature. `never` for an id the registry does not have. */
 export type SectionDataIn<R, Id extends string> = ReturnType<Extract<R[keyof R], { kind: "section"; id: Id; build: (input: never) => unknown }>["build"]>;
-/** The answer of one section, by id, read from the generated registry: no export line a feature. */
-export type SectionData<Id extends string> = SectionDataIn<typeof sectionRegistry, Id>;

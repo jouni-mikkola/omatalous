@@ -156,9 +156,11 @@ echo 'echo install' >"$R/scripts/install.sh"
 echo 'FROM scratch' >"$R/Dockerfile"
 echo 'CREATE TABLE t (id TEXT);' >"$R/apps/server/migrations/0001_first.sql"
 commit "$R" "the first version"; git -C "$R" tag b0
-echo 1 >"$R/docs/notes.md"; commit "$R" "b1"; git -C "$R" tag b1
+# every baseline gets a scripts/step.sh of its own, so that each has an update path of its own (the collapsing of equal paths
+# is tried with the tags d1 and the like at the end of the world)
+echo 1 >"$R/docs/notes.md"; echo 1 >"$R/scripts/step.sh"; commit "$R" "b1"; git -C "$R" tag b1
 echo "$KEYS" >"$R/docker-compose.yml"; commit "$R" "an install with a port and a name of its own"; git -C "$R" tag b2
-for i in 3 4 5 6 7; do echo "$i" >"$R/docs/notes.md"; commit "$R" "b$i"; git -C "$R" tag "b$i"; done
+for i in 3 4 5 6 7; do echo "$i" >"$R/docs/notes.md"; echo "$i" >"$R/scripts/step.sh"; commit "$R" "b$i"; git -C "$R" tag "b$i"; done
 printf '%s\n' '# the oldest supported' b0 b1 '' '# 0.3.0' '  b2  ' '# 0.4.0, the first public release' b3 b4 b5 b5 b6 '# the last release' b7 >"$R/baselines.txt"
 printf '%s\n' '# no ref yet' '' >"$R/empty.txt"
 printf '%s\n' b3 nope >"$R/ghost.txt"

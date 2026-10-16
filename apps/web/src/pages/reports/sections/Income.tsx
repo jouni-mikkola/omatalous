@@ -172,7 +172,15 @@ function Stability({ r, ctx }: { r: IncomeReport; ctx: ReportContext }) {
   const s = r.stability;
   if (!s) return null;
   // the usual level of the month the period ends in, from the months before it
-  const usual: [string, string, ReactNode] = ["Tavalliset tulot kuukaudessa", money(s.medianCents, false), <Why key="why" figure="usual.income" title="Tavalliset tulot kuukaudessa" range={ctx.range} scope={ctx.scope} />];
+  const usual: [string, string, (figure: ReactNode) => ReactNode] = [
+    "Tavalliset tulot kuukaudessa",
+    money(s.medianCents, false),
+    (figure) => (
+      <Why figure="usual.income" title="Tavalliset tulot kuukaudessa" range={ctx.range} scope={ctx.scope} text={money(s.medianCents, false)}>
+        {figure}
+      </Why>
+    ),
+  ];
   const weeks = s.worstRunWeeks.toLocaleString("fi-FI", { maximumFractionDigits: 1 });
   return (
     <>

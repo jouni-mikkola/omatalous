@@ -333,70 +333,17 @@ describe("consent hosts", () => {
   });
 });
 
-describe("the log line of a linked account", () => {
-  const linkLines = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((c) => c.join(" ")).filter((l) => l.startsWith("bank link "));
-  const link = async (bank: Bank) => {
+describe("linking an account", () => {
+  it("writes nothing the bank sent to the log", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const bank = mockBank();
     const app = await setupApp(withApp(), bank.fetchMock);
     await app.admin.call("POST", "/api/connections/start", {});
     await app.admin.call("POST", "/api/connections/complete", { url: `https://x.example/cb?code=abc&state=${bank.state}` });
     await waitFor(async () => (await app.admin.call("GET", "/api/sync/runs")).body.runs.some((r: { status: string }) => r.status !== "running"));
-    return app;
-  };
-
-  it("tells the bank, the account type, whether a limit came and the balance types, once", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { admin } = await link(mockBank());
-    const lines = linkLines(log);
-    expect([...lines].sort()).toEqual([
-      "bank link nordea-fi: cash_account_type=CACC credit_limit=no balance_types=CLBD",
-      "bank link nordea-fi: cash_account_type=CARD credit_limit=yes balance_types=CLBD",
-    ]);
-    // no IBAN, card number or amount: the lines have no digit at all
-    expect(lines.join("\n")).not.toMatch(/\d/);
-    expect(lines.join("\n")).not.toContain(HOLDER);
-
-    log.mockClear();
-    await admin.call("POST", "/api/sync");
-    expect(linkLines(log)).toEqual([]);
-  });
-
-  it("never repeats what the bank wrote where a code belongs", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const bank = mockBank();
-    bank.answers["POST /sessions"] = {
-      status: 200,
-      body: {
-        session_id: `sess-${randomUUID()}`,
-        aspsp: { name: `Pankki ${HOLDER_IBAN}`, country: "FI" },
-        access: { valid_until: "2027-04-06T00:00:00Z" },
-        accounts: [{ uid: "u-chk", identification_hash: "h-chk", account_id: { iban: HOLDER_IBAN }, name: HOLDER, currency: "EUR", cash_account_type: HOLDER_IBAN }],
-      },
-    };
-    bank.answers["GET /accounts/u-chk/balances"] = {
-      status: 200,
-      body: { balances: [{ balance_amount: { currency: "EUR", amount: "1234.56" }, balance_type: "1234.56 EUR" }, { balance_amount: { currency: "EUR", amount: "1.00" }, balance_type: "ITAV" }] },
-    };
-    await link(bank);
-    expect(linkLines(log)).toEqual(["bank link unknown: cash_account_type=other credit_limit=no balance_types=ITAV,other"]);
-  });
-
-  it("prints a code only when it is four capital letters, so a short name or word never reaches the log", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const bank = mockBank();
-    bank.answers["POST /sessions"] = {
-      status: 200,
-      body: {
-        session_id: `sess-${randomUUID()}`,
-        aspsp: { name: "Nordea", country: "FI" },
-        access: { valid_until: "2027-04-06T00:00:00Z" },
-        accounts: [{ uid: "u-chk", identification_hash: "h-chk", account_id: { iban: HOLDER_IBAN }, name: HOLDER, currency: "EUR", cash_account_type: "Matti" }],
-      },
-    };
-    bank.answers["GET /accounts/u-chk/balances"] = {
-      status: 200,
-      body: { balances: [{ balance_amount: { currency: "EUR", amount: "1.00" }, balance_type: "Liisa" }, { balance_amount: { currency: "EUR", amount: "1.00" }, balance_type: "av" }, { balance_amount: { currency: "EUR", amount: "1.00" }, balance_type: "ITAV" }] },
-    };
-    await link(bank);
-    expect(linkLines(log)).toEqual(["bank link nordea-fi: cash_account_type=other credit_limit=no balance_types=ITAV,other"]);
+    const lines = log.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(lines).not.toContain("bank link");
+    expect(lines).not.toContain(HOLDER);
+    expect(lines).not.toContain(HOLDER_IBAN);
   });
 });

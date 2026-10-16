@@ -5,7 +5,7 @@
  * page maps an id to a display name.
  */
 import type { DateRange } from "../analysis/period.ts";
-import type { AccountUse, BalanceInput, IsoDate, UserInputs } from "../types.ts";
+import type { AccountUse, IsoDate } from "../types.ts";
 
 /** The figures that can be explained: the front page and Raportit. */
 export type FigureId =
@@ -14,13 +14,10 @@ export type FigureId =
   | "income.month"
   | "income.earned"
   | "yli_jai.month"
-  | "balance.account"
-  | "balance.view"
   | "usual.spend"
   | "usual.income"
   | "share.part"
-  | "settlement.over"
-  | "forecast.month";
+  | "settlement.over";
 
 /** What placed a row or decided its cents; each has a sentence in `catalogue.ts`. */
 export type RuleId =
@@ -70,16 +67,14 @@ export interface Line {
 }
 
 /** How a figure that is not a sum says what it is. */
-type Method =
-  | { kind: "median"; values: { label: string; cents: number; explain?: Explanation }[]; rule: string; tie: string }
-  | { kind: "estimate"; inputs: string[]; assumptions: string[] };
+type Method = { kind: "median"; values: { label: string; cents: number; explain?: Explanation }[]; rule: string; tie: string };
 
-/** A sum is checked against its lines, a median against its recomputation; an estimate has nothing to check. */
+/** A sum is checked against its lines, a median against its recomputation. */
 export type Check = { kind: "sum"; diffCents: number } | { kind: "recompute"; diffCents: number } | { kind: "n/a" };
 
 export interface Explanation {
   figure: FigureId;
-  kind: "sum" | "median" | "share" | "estimate";
+  kind: "sum" | "median" | "share";
   /** null: the figure says nothing (too few months). */
   cents: number | null;
   lines: Line[];
@@ -102,15 +97,11 @@ export interface ExplainArgs {
   /** Own or household: `ctx` is that view's, and so is `why`. */
   view: "own" | "household";
   range: DateRange;
-  /** Where the page restricts the figure to accounts, their keys: a figure of one account is a figure of its own. `balance.account`: the one account. */
+  /** Where the page restricts the figure to accounts, their keys: a figure of one account is a figure of its own. */
   accountIds?: readonly string[];
   /** `spend.category`: the category. */
   category?: string;
   why?: WhyCollector;
-  /** `balance.*` and `forecast.month`: the balances of the accounts in the view, as the reports read them. */
-  balances?: readonly BalanceInput[];
-  /** `forecast.month`: the household's marks and typed-in bills. */
-  inputs?: UserInputs;
   /** `share.part`: the row, the use of its account (its users in the order of the parts) and the viewing user (null: the user with no id). */
   rowId?: string;
   use?: AccountUse;

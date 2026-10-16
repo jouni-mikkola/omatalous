@@ -12,6 +12,15 @@ export function formatFiDate(iso: string): string {
   return `${Number(d)}.${Number(m)}.${y}`;
 }
 
+/** The Finnish month stems, "tammi" to "joulu": the one table of month names ("kuu" after a stem is the name, `monthName`). */
+export const MONTH_STEMS = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
+
+/** "joulu" for "2025-12": the first half of "joulu- ja heinäkuu". */
+export const monthStem = (month: string): string => MONTH_STEMS[Number(month.slice(5, 7)) - 1]!;
+
+/** "joulukuu" for "2025-12". */
+export const monthName = (month: string): string => `${monthStem(month)}kuu`;
+
 const MONTHS_INESSIVE = [
   "tammikuussa",
   "helmikuussa",

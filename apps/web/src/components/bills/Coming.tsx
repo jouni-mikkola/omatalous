@@ -5,12 +5,11 @@ import { dayMonth, money } from "../../format.ts";
 import type { DashboardData } from "../../types.ts";
 import { addsUp } from "../../marks.ts";
 import { Figure } from "../Figure.tsx";
-import { isEstimate, windowLine, windowPayday } from "../next-days.ts";
+import { isEstimate, isPayment, type Payment, windowLine, windowPayday } from "../next-days.ts";
 import { PendingPayee } from "../PendingPayee.tsx";
 import { BillForm } from "./BillForm.tsx";
 
 type Ahead = NonNullable<DashboardData["ahead"]>;
-type Row = Ahead["upcoming"][number];
 
 /**
  * The list in the groups of the window of Yhteenveto: what the accounts pay to the window's last day, the day before
@@ -21,10 +20,11 @@ type Row = Ahead["upcoming"][number];
  * the pay is further than the list reaches. What a credit card is charged (`onCard`) leaves no account: it is the last
  * group, with a sum of its own, when there is any.
  */
-function groupsOf(ahead: Ahead): { title: string; rows: Row[] }[] {
-  const rows = ahead.upcoming.filter((r) => !r.onCard);
-  const onCard = { title: "Kortilta veloitettavat", rows: ahead.upcoming.filter((r) => r.onCard) };
-  const inWindow = (r: Row) => r.date <= ahead.to && !r.withPay;
+function groupsOf(ahead: Ahead): { title: string; rows: Payment[] }[] {
+  const upcoming = ahead.upcoming.filter(isPayment);
+  const rows = upcoming.filter((r) => !r.onCard);
+  const onCard = { title: "Kortilta veloitettavat", rows: upcoming.filter((r) => r.onCard) };
+  const inWindow = (r: Payment) => r.date <= ahead.to && !r.withPay;
   const before = { title: windowLine(ahead), rows: rows.filter(inWindow) };
   const after = { title: "Palkkapäivän jälkeen", rows: rows.filter((r) => !inWindow(r)) };
   const groups = !windowPayday(ahead) ? [{ title: "Seuraavat 30 päivää", rows }] : after.rows.length ? [before, after] : [before];

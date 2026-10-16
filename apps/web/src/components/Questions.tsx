@@ -53,9 +53,12 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
       </div>
       <p className="question-line">Luokiteltu {classifiedPercent(questions.share)} % viimeisen 12 kuukauden tuloista ja menoista.</p>
       {questions.cardBillCents > 0 && (
-        <p className="question-line">
-          Korttilaskuissa on {money(questions.cardBillCents)} ostoja, joita ei ole eritelty. <a href={`#/settings#${SETTINGS_ANCHOR.quality}`}>Tietojen laatu</a>
-        </p>
+        <>
+          <p className="question-line">Korttilaskuissa on {money(questions.cardBillCents)} ostoja, joita ei ole eritelty.</p>
+          <p className="question-line">
+            <a href={`#/settings#${SETTINGS_ANCHOR.quality}`}>Tietojen laatu</a>
+          </p>
+        </>
       )}
       {questions.items.length > 0 && (
         <ul className="st-rows question-list" aria-labelledby="questions-h">
@@ -140,7 +143,7 @@ export function Questions({ questions, categories, onAnswered }: { questions: Da
           )}
         </ul>
       )}
-      {questions.items.some((q) => q.kind === "payer") && <p className="question-line">Vastaus koskee myös aiempia kuukausia. Selvästi tavallisesta poikkeavat summat jäävät ennalleen.</p>}
+      {questions.items.some((q) => q.kind === "payer") && <p className="question-line">Vastaus koskee myös aiempia kuukausia. Tavallisesta selvästi poikkeavia maksuja se ei muuta.</p>}
       {problem && (
         <p className="error question-error" role="alert">
           {problem}

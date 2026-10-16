@@ -12,8 +12,8 @@
  * interest too, so the list would not add up to the figure. `rows` names the rows.
  */
 import { CARD_COST_MONTHS, cardCosts } from "../credit.ts";
-import { finnishList, formatEur } from "../format.ts";
-import { ITEM_GATE_MONTHLY_CENTS, monthName, monthSpan } from "./shared.ts";
+import { finnishList, formatEur, monthName } from "../format.ts";
+import { ITEM_GATE_MONTHLY_CENTS, monthSpan } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
 const ESSIVE = ["", "yhtenä", "kahtena", "kolmena", "neljänä", "viitenä", "kuutena", "seitsemänä", "kahdeksana", "yhdeksänä", "kymmenenä"];

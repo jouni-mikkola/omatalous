@@ -1,3 +1,4 @@
+import { formatFiDate } from "../analysis/format.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../analysis/usual.ts";
 import { USUAL_INCOME_MONTHS } from "../reports/income.ts";
 import type { Reason, RuleId } from "./types.ts";
@@ -8,12 +9,6 @@ const SOURCES: Record<string, string> = {
   merchant: "Luokiteltu saman kaupan aiempien ostojen mukaan",
   industry: "Luokiteltu kaupan toimialan mukaan",
   default: "Ei luokiteltu",
-};
-
-/** An ISO date as d.m.yyyy. */
-const fiDate = (iso: string) => {
-  const [y, m, d] = iso.split("-");
-  return y && m && d ? `${Number(d)}.${Number(m)}.${y}` : iso;
 };
 
 const fraction = (r: Reason) => `${Number(r.to) - Number(r.from)}/${r.of}`;
@@ -40,7 +35,7 @@ const CATALOGUE: Record<RuleId, (r: Reason) => string> = {
   "settle.unknown": () => "Maksaja ei ole tiedossa",
   "settle.open": () => "Kuukausi on vielä kesken",
   "settle.closed": () => "Kuukausi on lukittu",
-  "agree.dated": (r) => `Sopimus on voimassa ${fiDate(String(r.valid_from))} alkaen`,
+  "agree.dated": (r) => `Sopimus on voimassa ${formatFiDate(String(r.valid_from))} alkaen`,
   "rounding.cent": () => "Pyöristyksestä jäänyt sentti on merkitty ensimmäiselle käyttäjälle",
 };
 

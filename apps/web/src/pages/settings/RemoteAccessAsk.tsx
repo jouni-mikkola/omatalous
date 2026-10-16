@@ -54,7 +54,7 @@ export function OnAsk({ changing, hostname, emails }: { changing: boolean; hostn
 export function AfterOff({ s }: { s: RemoteAccessState }) {
   const after = s.access.afterOff;
   if (afterOffKind(s) === "home") return <p>Tämän jälkeen Omatalous löytyy osoitteesta {after}.</p>;
-  if (after === null) return <p>Ylläpitoapuri ei kerro, mistä osoitteesta Omatalous löytyy tämän jälkeen, joten se voi vastata vain palvelimella itsellään.</p>;
+  if (after === null) return <p>Ylläpitoapuri ei näytä uutta osoitetta täällä. Näet sen palvelimella.</p>;
   return <p>Tämän jälkeen Omatalous vastaa vain palvelimella itsellään, osoitteessa {after}. Kotiverkon muut laitteet eivät pääse siihen.</p>;
 }
 
@@ -80,8 +80,8 @@ export function OffAsk({ s, choice, onChoice }: { s: RemoteAccessState; choice: 
 export function RemoveTokenAsk({ s }: { s: RemoteAccessState }) {
   return (
     <div className="remote-ask">
-      <p>Tallennettu API-tunniste poistetaan palvelimelta. Etäkäyttöön ei voi tehdä muutoksia, ennen kuin tallennat tunnisteen uudelleen.</p>
-      {s.cloudflare.hostname && <p>Cloudflaren puolta (osoite {s.cloudflare.hostname}) ei voi poistaa ilman tunnistetta. Ota etäkäyttö ensin pois käytöstä.</p>}
+      <p>API-tunniste poistetaan palvelimelta. Et voi muuttaa etäkäyttöä ennen kuin tallennat tunnisteen uudelleen.</p>
+      {s.cloudflare.hostname && <p>Cloudflaren asetuksia (osoite {s.cloudflare.hostname}) ei voi poistaa ilman API-tunnistetta. Ota etäkäyttö ensin pois käytöstä.</p>}
     </div>
   );
 }

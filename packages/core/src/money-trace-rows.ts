@@ -7,7 +7,7 @@ import { type CardBook, cardHolderOf } from "./card-holder.ts";
 import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
 import type { Owner, SourcePart, TraceRow } from "./money-trace.ts";
-import { isUserOwner, PAIR_DAYS } from "./money-trace.ts";
+import { isUserOwner, TRACE_PAIR_DAYS } from "./money-trace.ts";
 import { type Name, nameOf, samePerson } from "./person-names.ts";
 import { matchReturns } from "./returns.ts";
 import { normalizeIban, pairable, pairTransfers } from "./transfers.ts";
@@ -182,7 +182,7 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     return byLeg ?? (holder?.kind === "one" ? holder.owner : undefined);
   };
 
-  // the legs on another pool: the same cents, the money out on the same day or up to PAIR_DAYS before the money in, and
+  // the legs on another pool: the same cents, the money out on the same day or up to TRACE_PAIR_DAYS before the money in, and
   // evidence that the two rows are one movement: one names the other's pool by IBAN, or neither has an IBAN and both may be a transfer
   const onPool = (t: Transaction): boolean => {
     const iban = ibanOf.get(t.accountId);
@@ -204,7 +204,7 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     if (!days) return undefined;
     const day = dayNumber(tx.bookingDate);
     const rowIban = normalizeIban(tx.counterpartyIban);
-    for (let gap = 0; gap <= PAIR_DAYS; gap++) {
+    for (let gap = 0; gap <= TRACE_PAIR_DAYS; gap++) {
       for (const leg of days.get(day + dir * gap) ?? []) {
         const legIban = normalizeIban(leg.counterpartyIban);
         if (used.has(leg.id) || (rowIban && rowIban !== ibanOf.get(leg.accountId)) || (legIban && legIban !== self)) continue;

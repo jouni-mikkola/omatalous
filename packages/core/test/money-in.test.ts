@@ -12,6 +12,7 @@ import { buildDashboard, categoryTotals } from "../src/analysis/dashboard.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
 import { incomeTypes } from "../src/analysis/income.ts";
 import { toDayRange } from "../src/analysis/period.ts";
+import { earnedIncome } from "../src/analysis/usual.ts";
 import { addMonths, daysInMonth, monthOf } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { REFUND_WINDOW_DAYS } from "../src/returns.ts";
@@ -100,8 +101,7 @@ describe("the month of the owner's case, in made-up figures", () => {
   });
 
   it("neither is earned income: the usual income of the months is the salary alone", () => {
-    const d = buildDashboard(ctx, OCTOBER);
-    expect(d.bridge.earnedIncomeCents).toBe(300_000);
+    expect(earnedIncome(ctx, "2026-09")).toBe(300_000);
   });
 });
 

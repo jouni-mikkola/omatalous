@@ -1,6 +1,6 @@
 /**
  * The contract of a feature module survives a generated registry. `export { module as x }` and `import * as all` must
- * keep the literal `id` and `kind` of each module and what its `build` returns, or `SectionData<"id">` would be a
+ * keep the literal `id` and `kind` of each module and what its `build` returns, or `SectionDataIn<R, "id">` would be a
  * union of everything. The type assertions are checked by `tsc` (pnpm typecheck); a module whose id widened to
  * `string` fails to compile here.
  */

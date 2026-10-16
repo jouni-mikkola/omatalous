@@ -55,6 +55,8 @@ export { type CommitmentsShare, commitmentsShareOf, type FixedShare } from "./an
 export { type PriceRiseItem, priceRiseItems } from "./analysis/insights/prices.ts";
 export { isLongSubscription, renewalItems } from "./analysis/insights/renewals.ts";
 export * from "./analysis/dashboard.ts";
+export type { Waterfall } from "./analysis/waterfall.ts";
+export { cashAhead } from "./analysis/ahead.ts";
 export { QUESTION_PAYEE } from "./analysis/questions.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";

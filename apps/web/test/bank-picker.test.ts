@@ -122,7 +122,7 @@ describe("the order of the banks", () => {
 describe("the picker with no bank", () => {
   it("says what is wrong and sends an admin to the application in Asetukset > Palvelin", () => {
     const out = render([], { isAdmin: true });
-    expect(out).toContain("yhtään pankkia");
+    expect(out).toContain("ei ole pankkeja, joita Omatalous tukee");
     expect(out).toContain('href="#/settings?section=server"');
     expect(out).not.toContain("bank-grid");
     expect(out).not.toContain('type="search"');

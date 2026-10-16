@@ -342,7 +342,11 @@ describe("accounts linked before the bank's own fields were stored", () => {
     expect(bank.calls.indexOf("GET /accounts/u-chk/transactions")).toBeLessThan(bank.calls.indexOf("GET /accounts/u-chk/details"));
     expect(await chk()).toMatchObject({ holder: null });
     expect((await meta(admin)).accounts.every((a: { problem: unknown }) => a.problem === null)).toBe(true);
-    expect(errors).not.toHaveBeenCalled();
+    // the log names the account and the kind of error, never what the bank answered
+    const logged = errors.mock.calls.map((c) => c.join(" "));
+    expect(logged.length).toBeGreaterThan(0);
+    expect(logged.every((line) => /^account details eb-\w+: \w+$/.test(line))).toBe(true);
+    expect(logged.join("\n")).not.toMatch(/RATE_LIMIT|ASPSP|Too many/);
 
     // the bank answers: the product, holder, card number and limit arrive, the user's name and the type stay
     await admin.call("PATCH", `/api/accounts/${(await chk()).id}`, { name: "Yhteinen tili" });

@@ -72,14 +72,14 @@ const hasEnded = (s: Series) => !s.active && s.kind !== "habit" && s.kind !== "i
 
 export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
-  // the rows of Tulossa are the dashboard's next 30 days, the sections read the reports: both for the month of today
+  // the rows of Tulossa are the next 30 days, the sections read the reports: both for the month of today
   const reports = useApi<ReportsData>(`/api/reports${query({ ...range, scope, reports: reportsOf("bills").join(",") })}`);
-  const dashboard = useApi<DashboardData>(`/api/dashboard${query({ ...range, scope })}`);
+  const ahead = useApi<{ ahead: DashboardData["ahead"] }>(`/api/ahead${query({ scope })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
-  const failed = [recurring, reports, dashboard].find((r) => r.error && !r.data);
+  const failed = [recurring, reports, ahead].find((r) => r.error && !r.data);
   if (failed) {
     return (
       <ErrorCard
@@ -87,12 +87,12 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
         onRetry={() => {
           recurring.reload();
           reports.reload();
-          dashboard.reload();
+          ahead.reload();
         }}
       />
     );
   }
-  if (!recurring.data || !reports.data || !dashboard.data) return <Loading />;
+  if (!recurring.data || !reports.data || !ahead.data) return <Loading />;
 
   const { series } = recurring.data;
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
@@ -106,7 +106,7 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
       .then((res) => {
         setSaved(res.marks);
         // a subscription marked as cancelled leaves the list of what is coming
-        dashboard.reload();
+        ahead.reload();
       })
       .catch((e: Error) => setMarkError(e.message))
       .finally(() => setBusy(false));
@@ -135,14 +135,14 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   // a typed-in bill or a mark changes what the reports and the next 30 days hold
   const refresh = () => {
     reports.reload();
-    dashboard.reload();
+    ahead.reload();
   };
   const ctx = reportContext(reports.data, meta, range, scope, refresh);
 
   // the numbers share one scale with the `order` of the sections that are shown on this page
   // `span` is the panel's width in the twelve columns above a tablet: 5|7 for the list and Tilaukset, 6|6 below, the rest whole
   const parts: Part[] = [
-    { order: 10, span: 5, node: <Coming key="coming" ahead={dashboard.data.ahead} today={meta.today} onAdded={refresh} /> },
+    { order: 10, span: 5, node: <Coming key="coming" ahead={ahead.data.ahead} today={meta.today} onAdded={refresh} /> },
     { order: 20, span: 7, node: <Subscriptions key="subs" subs={subs} stopped={stopped} total={subsMonthly} controls={controls} label={label} /> },
     { order: 40, span: 6, node: <Contracts key="contracts" rows={contracts} label={label} /> },
     { order: 45, span: 6, node: <Savings key="savings" rows={savings} label={label} /> },
@@ -152,7 +152,7 @@ export function Bills({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   parts.sort((a, b) => a.order - b.order);
 
   return (
-    <div className={`page-grid ${recurring.loading || reports.loading || dashboard.loading ? "loading" : ""}`}>
+    <div className={`page-grid ${recurring.loading || reports.loading || ahead.loading ? "loading" : ""}`}>
       {fixedTotal > 0 && (
         <div className="card bills-top">
           <dl className="st-rows">

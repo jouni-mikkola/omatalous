@@ -53,7 +53,7 @@ const cardRows = (bills: readonly number[] = BILLS, until: IsoDate = TODAY, firs
   ...monthly(day).flatMap((d, i) => (i >= first && bills[i] ? move(own, card, d, bills[i]!) : [])),
 ];
 /** What is left of the balance after the payments of the window, added up from the rows. */
-const freeOf = (d: ReturnType<typeof cashAhead>) => d.balance!.startCents + d.rows.filter((r) => r.cents < 0).reduce((sum, r) => sum + r.cents, 0);
+const freeOf = (d: ReturnType<typeof cashAhead>) => d.balance!.startCents + d.rows.filter((r) => r.cents! < 0).reduce((sum, r) => sum + r.cents!, 0);
 const of = (d: ReturnType<typeof cashAhead>, source: string) => d.rows.filter((r) => r.source === source);
 
 describe("the window: a connected card", () => {
@@ -115,7 +115,7 @@ describe("the window: a connected card", () => {
     // the row says a card pays it, and the rent an account pays says nothing
     expect(d.upcoming.map((r) => r.onCard ?? false)).toEqual([true, false]);
     // what the accounts pay of Laskut's list is the window's own sum
-    expect(d.upcoming.filter((r) => !r.onCard && r.date <= d.to).reduce((sum, r) => sum - r.cents, 0)).toBe(d.totals.recurringCents + d.totals.typedCents);
+    expect(d.upcoming.filter((r) => !r.onCard && r.date <= d.to).reduce((sum, r) => sum - r.cents!, 0)).toBe(d.totals.recurringCents + d.totals.typedCents);
   });
 });
 
@@ -309,7 +309,7 @@ describe("the window and Laskut's first group: a loan's instalment, a bill and a
   };
   /** What Laskut lists under "Palkkapäivään asti": what the accounts pay up to the window's last day. */
   const firstGroup = (d: Ahead) => d.upcoming.filter((r) => !r.onCard && r.date <= d.to && !r.withPay);
-  const owed = (rows: readonly { cents: number }[]) => rows.reduce((sum, r) => sum - r.cents, 0);
+  const owed = (rows: readonly { cents: number | null }[]) => rows.reduce((sum, r) => sum - (r.cents ?? 0), 0);
 
   it("the loan paid from the account the window counts is in both lists; the card's bill is only in the window, and the window's due is Laskut's group and the card's bill", () => {
     const { household, mine } = views(instalments("own", 12));
@@ -329,7 +329,7 @@ describe("the window and Laskut's first group: a loan's instalment, a bill and a
     for (const extra of [benefit, refund]) {
       const { household, mine } = views(instalments("own", 12), extra);
       for (const [d, was] of [[household, plain.household], [mine, plain.mine]] as const) {
-        expect(d.rows.filter((r) => r.cents < 0)).toEqual(was.rows.filter((r) => r.cents < 0));
+        expect(d.rows.filter((r) => r.cents! < 0)).toEqual(was.rows.filter((r) => r.cents! < 0));
         expect(d.upcoming).toEqual(was.upcoming);
         expect(d.totals.dueCents).toBe(was.totals.dueCents);
         expect(d.balance).toEqual(was.balance);

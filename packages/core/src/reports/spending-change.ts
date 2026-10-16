@@ -1,8 +1,8 @@
 // Decision: is the change in spending a reason to act, and where
 import { type BucketKind, bucketLabel, type ChangeView, namedCauses, type SpendingChange, spendingChange } from "../analysis/change.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
-import { changeMonths, cutWords, monthName, signed, spanLabel, upper } from "../analysis/change-text.ts";
-import { formatEur } from "../analysis/format.ts";
+import { changeMonths, cutWords, signed, spanLabel, upper } from "../analysis/change-text.ts";
+import { formatEur, monthName } from "../analysis/format.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { addMonths, monthOf } from "../dates.ts";

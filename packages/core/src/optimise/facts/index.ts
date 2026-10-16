@@ -3,7 +3,6 @@
  * here, and a row past its expiry hides its comparison, so the page never compares against an old number. Each row
  * was read from its source page on `verifiedAt`; a figure nobody opened at its source is left out.
  */
-import { addMonthsToDate } from "../../dates.ts";
 import type { IsoDate } from "../../types.ts";
 import { BANK_FACTS } from "./bank.ts";
 import { ELECTRICITY_FACTS } from "./electricity.ts";
@@ -38,27 +37,11 @@ export interface Fact {
   period?: string;
   /** The date the figure describes. */
   asOf: IsoDate;
-  /** `factExpiry` of the row: the test checks it. */
+  /** The day the row stops being used; the rule it follows is `factExpiry` in the facts test, which checks every row. */
   expires: IsoDate;
   source: { title: string; url: string };
   /** The day a worker opened `source.url` and read the figure there. */
   verifiedAt: IsoDate;
-}
-
-/** The expiry rule of the plan. */
-export function factExpiry(f: Pick<Fact, "kind" | "asOf" | "validTo" | "verifiedAt">): IsoDate {
-  switch (f.kind) {
-    case "rate":
-    case "cpi":
-    case "energy":
-      return addMonthsToDate(f.asOf, 6);
-    case "price_list":
-    case "survey":
-    case "sample":
-      return addMonthsToDate(f.asOf, 12);
-    case "law":
-      return f.validTo ?? addMonthsToDate(f.verifiedAt, 12);
-  }
 }
 
 /** A survey or a sample stands for other households, not this one: a certainty step (rule 7). */

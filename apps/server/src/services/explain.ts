@@ -6,7 +6,7 @@
 import { createWhy, enrichTransactions, explain, type Explanation, type FigureId, isKnownCategory } from "@banking/core";
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
-import { requestInputs, type Scope, scopeWithReasons } from "./analysis.ts";
+import { type Scope, scopeWithReasons } from "./analysis.ts";
 import { industryMap } from "./enrich.ts";
 
 /** The figures the page opens a "Miksi?" for. */
@@ -16,12 +16,9 @@ const EXPLAINED = [
   "income.month",
   "income.earned",
   "yli_jai.month",
-  "balance.account",
-  "balance.view",
   "usual.spend",
   "usual.income",
   "share.part",
-  "forecast.month",
 ] as const satisfies readonly FigureId[];
 type ExplainedFigure = (typeof EXPLAINED)[number];
 
@@ -43,9 +40,8 @@ export const MAX_ACCOUNTS = 50;
 
 export async function explainFigure(s: Services, userId: string, req: ExplainRequest): Promise<Explanation> {
   if (req.figure === "spend.category" && (!req.category || !isKnownCategory(req.category))) throw new UserError("Tuntematon kategoria.");
-  // a balance is of one account; a usual level is of the whole view; a part is of one row
-  if (req.figure === "balance.account" && req.accountIds?.length !== 1) throw new UserError("Tuntematon raportti.");
-  if ((req.figure === "usual.spend" || req.figure === "usual.income" || req.figure === "balance.view") && req.accountIds) throw new UserError("Tuntematon raportti.");
+  // a usual level is of the whole view; a part is of one row
+  if ((req.figure === "usual.spend" || req.figure === "usual.income") && req.accountIds) throw new UserError("Tuntematon raportti.");
   if (req.figure === "share.part" && !req.rowId) throw new UserError("Tuntematon raportti.");
   const why = createWhy(req.scope);
   const { ctx, accounts } = await scopeWithReasons(s, userId, req.scope, why);
@@ -56,8 +52,6 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
   if (req.figure === "share.part" && !row) throw new NotFound("Tapahtumaa ei löydy.");
   const use = row ? accounts.find((a) => a.id === row.accountId)?.use : undefined;
   if (req.figure === "share.part" && (!use || use.users.length < 2)) throw new UserError("Tuntematon raportti.");
-  const needsInputs = req.figure === "balance.account" || req.figure === "balance.view" || req.figure === "forecast.month";
-  const { balances, inputs } = needsInputs ? await requestInputs(s, userId, accounts) : { balances: undefined, inputs: undefined };
   // the category of a row is stored; running the pipeline again over copies of the viewer's own rows gives the reasons for it
   const repo = s.finance(userId);
   const [txs, own, rules, industries] = await Promise.all([repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo)]);
@@ -69,7 +63,7 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
     { memberId: userId, roles: await repo.payerRoles() },
     why,
   );
-  const answer = explain(req.figure, ctx, { view: req.scope, range: req.range, accountIds: req.accountIds, category: req.category, why, balances, inputs, rowId: req.rowId, use, viewerId: userId });
+  const answer = explain(req.figure, ctx, { view: req.scope, range: req.range, accountIds: req.accountIds, category: req.category, why, rowId: req.rowId, use, viewerId: userId });
   if (answer.check.kind === "sum" && answer.check.diffCents !== 0) console.warn(`explain: ${req.figure} differs`);
   return answer;
 }

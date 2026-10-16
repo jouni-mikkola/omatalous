@@ -78,7 +78,7 @@ function Standing({ s, now }: { s: RemoteAccessState; now: number }) {
           </dd>
         </dl>
         {!s.access.checked && <p>Sovellus ei tarkista itse, että kävijä on kirjautunut Cloudflaren kautta.</p>}
-        {isInstallerHost(s) && <p>Tämän osoitteen etäkäyttö on tehty palvelimella asennusohjelmalla, eikä sitä voi muuttaa täältä. Muuta sitä palvelimella asennusohjelmalla (./scripts/install.sh). Täältä sen voi ottaa pois käytöstä.</p>}
+        {isInstallerHost(s) && <p>Etäkäyttö on otettu käyttöön palvelimella asennusohjelmalla. Muuta sitä palvelimella komennolla ./scripts/install.sh. Täältä voit ottaa sen pois käytöstä.</p>}
         {note && <p>{note}</p>}
       </div>
     );

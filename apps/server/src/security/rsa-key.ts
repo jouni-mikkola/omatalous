@@ -5,7 +5,7 @@
 
 export type SigningKey = Awaited<ReturnType<typeof crypto.subtle.importKey>>;
 
-function pemToDer(pem: string): Uint8Array {
+function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
   const b64 = pem.replace(/-----(BEGIN|END)[^-]+-----/g, "").replace(/\s+/g, "");
   const bin = atob(b64);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
@@ -19,7 +19,7 @@ function derLength(len: number): number[] {
 }
 
 /** Wraps a PKCS#1 "RSA PRIVATE KEY" into PKCS#8, the only RSA format WebCrypto imports. */
-function pkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array {
+function pkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array<ArrayBuffer> {
   const version = [0x02, 0x01, 0x00];
   const rsaAlgorithm = [0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00];
   const octet = [0x04, ...derLength(pkcs1.length), ...pkcs1];

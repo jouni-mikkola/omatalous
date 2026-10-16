@@ -5,7 +5,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnalysisContext } from "../../src/analysis/context.ts";
 import {
-  ACTION_VERBS,
   AREA_IDS,
   AREAS,
   type Area,
@@ -87,6 +86,9 @@ function problemsOf(area: Area, result: AreaResult, ctx: AnalysisContext): strin
 const H = household();
 const INPUT = householdInput(H);
 const A = areaInputOf(INPUT);
+
+/** The verbs an action may start with (rule 5): a sinä imperative the household can carry out. */
+const ACTION_VERBS = ["kilpailuta", "irtisano", "neuvottele", "vaihda", "hae", "maksa", "siirrä", "varaa", "tarkista"] as const;
 
 describe("optimise invariants over every area", () => {
   it("has the thirteen areas once each, with a Finnish label", () => {

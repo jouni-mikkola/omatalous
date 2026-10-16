@@ -73,9 +73,7 @@ describe("usual income has one owner", () => {
 
     const bridge = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }).bridge;
     expect(bridge.month).toBe("2026-09");
-    expect(bridge.usualIncomeCents).toBe(share.incomeCents);
-    // the month is compared like with like; the bar keeps every income row
-    expect(bridge.earnedIncomeCents).toBe(300000);
+    // the bar keeps every income row
     expect(bridge.totals.incomeCents).toBe(320000);
 
     const fact = situationOf(ctx, [], [], NO_INPUTS).find((f) => f.id === "fixed_share")!;

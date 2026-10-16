@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { addMonths } from "../../src/dates.ts";
-import { cpiChange, type Fact, FACTS, factExpiry, factFrom, factOn, proposedFrom } from "../../src/optimise/index.ts";
+import { addMonths, addMonthsToDate } from "../../src/dates.ts";
+import { cpiChange, type Fact, FACTS, factFrom, factOn, proposedFrom } from "../../src/optimise/index.ts";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The expiry rule of the plan: what `Fact.expires` of every row must equal. */
+function factExpiry(f: Pick<Fact, "kind" | "asOf" | "validTo" | "verifiedAt">): string {
+  switch (f.kind) {
+    case "rate":
+    case "cpi":
+    case "energy":
+      return addMonthsToDate(f.asOf, 6);
+    case "price_list":
+    case "survey":
+    case "sample":
+      return addMonthsToDate(f.asOf, 12);
+    case "law":
+      return f.validTo ?? addMonthsToDate(f.verifiedAt, 12);
+  }
+}
 
 describe("optimise facts", () => {
   it("every row is dated, sourced, verified and expires by the rule", () => {

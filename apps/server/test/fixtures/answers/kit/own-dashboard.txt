@@ -44,10 +44,7 @@
    "savingsRate": 0.08522727272727272
   },
   "basis": "last",
-  "month": "2026-09",
-  "usualIncomeCents": 352000,
-  "earnedIncomeCents": 352000,
-  "usualSavingsRate": 0.08522727272727272
+  "month": "2026-09"
  },
  "fixedMonthlyCents": 212460,
  "categories": [
@@ -564,7 +561,8 @@
       }
      ],
      "source": "owner"
-    }
+    },
+    "reconcile": "unknown"
    },
    {
     "id": "sav",
@@ -585,7 +583,8 @@
       }
      ],
      "source": "owner"
-    }
+    },
+    "reconcile": "unknown"
    }
   ],
   "accountsCents": 1957500,
@@ -683,5 +682,44 @@
   "restaurants",
   "car",
   "food_delivery"
- ]
+ ],
+ "waterfall": {
+  "month": "2026-10",
+  "bars": [
+   {
+    "key": "income",
+    "cents": 0
+   },
+   {
+    "key": "category:housing",
+    "cents": -105000
+   },
+   {
+    "key": "category:mortgage",
+    "cents": -61240
+   },
+   {
+    "key": "category:groceries",
+    "cents": -34763
+   },
+   {
+    "key": "category:kids",
+    "cents": -27990
+   },
+   {
+    "key": "category:insurance",
+    "cents": -14230
+   },
+   {
+    "key": "category:shopping",
+    "cents": -6688
+   },
+   {
+    "key": "other",
+    "cents": -7759
+   }
+  ],
+  "leftCents": -257670
+ },
+ "settlement": []
 }

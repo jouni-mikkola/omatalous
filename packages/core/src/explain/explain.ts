@@ -15,7 +15,7 @@ import { cashflowReport } from "../reports/cashflow.ts";
 import { categoryReport } from "../reports/categories.ts";
 import { incomeReport, regularIncomeMonths, USUAL_INCOME_MONTHS, usualRegularCents } from "../reports/income.ts";
 import { incomeRule, medianRule, medianTie, tooFewMonths } from "./catalogue.ts";
-import { explainBalance, explainEstimate, explainShare } from "./figures.ts";
+import { explainShare } from "./figures.ts";
 import type { ExplainArgs, Explanation, FigureId, Line, Reason } from "./types.ts";
 
 interface Sum {
@@ -54,14 +54,14 @@ function sumOfFigure(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs, 
   }
 }
 
-/** The number the report that owns the figure gives for the range. */
-function reportFigure(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs, booked: boolean): number {
+/** The number the report that owns the figure gives for the range; null when the report has no such figure (a category it does not list). */
+function reportFigure(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs, booked: boolean): number | null {
   switch (figure) {
     case "spend.month":
       if (booked) return spendingThrough(ctx, monthOf(args.range.from));
       return categoryReport(ctx, args.range).totalCents;
     case "spend.category":
-      return categoryReport(ctx, args.range).groups.flatMap((g) => g.categories).find((c) => c.category === args.category)?.totalCents ?? 0;
+      return categoryReport(ctx, args.range).groups.flatMap((g) => g.categories).find((c) => c.category === args.category)?.totalCents ?? null;
     case "income.month":
       return cashflowReport(ctx, args.range).rows.reduce((s, r) => s + r.incomeCents, 0);
     case "yli_jai.month":
@@ -90,7 +90,7 @@ function sumExplanation(figure: FigureId, ctx: AnalysisContext, args: ExplainArg
     for (const t of s.rows) if (!shown.has(t.id) && why(t.id).some((r) => NOT_SPENDING.has(r.rule))) lines.push(lineOf(t));
   }
   lines.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.id < b.id ? -1 : 1));
-  return { figure, kind: "sum", cents: figureCents, lines, check: { kind: "sum", diffCents: figureCents - sumOf(lines, (l) => l.cents) } };
+  return { figure, kind: "sum", cents: figureCents, lines, check: { kind: "sum", diffCents: (figureCents ?? 0) - sumOf(lines, (l) => l.cents) } };
 }
 
 /** The one `diffCents` of a recomputation: 0 when both say the same, also when both say nothing. */
@@ -140,13 +140,8 @@ export function explain(figure: FigureId, ctx: AnalysisContext, args: ExplainArg
       return usualSpendExplanation(ctx, args);
     case "usual.income":
       return usualIncomeExplanation(ctx, args);
-    case "balance.account":
-    case "balance.view":
-      return explainBalance(figure, ctx, args);
     case "share.part":
       return explainShare(ctx, args);
-    case "forecast.month":
-      return explainEstimate(ctx, args);
     default:
       return sumExplanation(figure, ctx, args, false);
   }

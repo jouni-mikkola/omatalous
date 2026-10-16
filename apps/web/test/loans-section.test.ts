@@ -117,7 +117,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("an overdraft beside a saved credit line is told where the accounts less the debts are, and nowhere else", () => {
-    const sentence = "Sama velka voi olla luvussa Tilit miinus velat kahdesti: tallennettu laina Tililuotto ja miinuksella oleva yhdistetty tili Käyttötili. Jos velka on sama, oikea luku on tallennetun lainan verran suurempi.";
+    const sentence = "Jos tallentamasi laina näkyy myös pankin tiedoissa, se on luvussa Tilit miinus velat kahdesti. Silloin oikea luku on lainan verran suurempi.";
     const over = report([row()], { overdraftTwice: [{ loans: [{ id: "cl", name: "Tililuotto" }], accounts: [{ id: "a", name: "Käyttötili" }] }] });
     expect(html(loans, context(over))).toContain(`<li class="notice warning">${sentence}</li>`);
     expect(html(balances, context(over))).toContain(`<li class="warn">${sentence}</li>`);
@@ -128,7 +128,8 @@ describe("Raportit: Lainat", () => {
     expect(earlier).not.toContain("Tilit miinus velat");
     expect(earlier).toContain("Velkaa yhteensä");
     const two = report([row()], { overdraftTwice: [{ loans: [{ id: "cl", name: "Tililuotto" }], accounts: [{ id: "a", name: "Käyttötili" }, { id: "b", name: "Yhteinen tili" }] }] });
-    expect(html(loans, context(two))).toContain("tallennettu laina Tililuotto ja miinuksella olevat yhdistetyt tilit Käyttötili ja Yhteinen tili.");
+    // two accounts below zero are still one figure, so one sentence
+    expect(html(loans, context(two)).split("se on luvussa").length - 1).toBe(1);
   });
 
   it("a move of the rate names the payment only when it has one, and a move with no figure has no line", () => {

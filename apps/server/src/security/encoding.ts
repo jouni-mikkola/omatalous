@@ -8,12 +8,12 @@ export function toBase64Url(bytes: Uint8Array): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export function fromBase64Url(s: string): Uint8Array {
+export function fromBase64Url(s: string): Uint8Array<ArrayBuffer> {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
-export function randomBytes(n: number): Uint8Array {
+export function randomBytes(n: number): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(n));
 }
 

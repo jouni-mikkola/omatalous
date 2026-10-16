@@ -7,6 +7,9 @@ import { cardName } from "./holdings/holding-rows.ts";
 export type Ahead = NonNullable<DashboardData["ahead"]>;
 type Balance = NonNullable<Ahead["balance"]>;
 type Row = Ahead["rows"][number];
+/** A row that is a payment: it always has its sum, which a pay with no estimate has not. */
+export type Payment = Row & { cents: number };
+export const isPayment = (r: Row): r is Payment => r.cents !== null && r.cents < 0;
 
 /**
  * The payday the window ends before, or null when it ends at no pay. A pay whose day has gone by and that is not late
@@ -102,8 +105,8 @@ interface Line {
   note: string | null;
   /** The merchant Tapahtumat lists the row's payments by, or null. */
   merchant: string | null;
-  /** Positive, whichever way the money goes: the table says which. */
-  cents: number;
+  /** Positive, whichever way the money goes: the table says which. Null: a pay with no estimate. */
+  cents: number | null;
   /** The app estimates its day and sum: the row carries a ring where a given one carries a disc. */
   estimate: boolean;
   /** The bill is paid and the bank has not booked the payment yet: the name carries the word Tapahtumat gives such a row. */
@@ -115,10 +118,10 @@ interface Line {
 /** What a row is called: a card is called as Varallisuus calls it, without the type the bank adds in brackets. */
 export const rowName = (r: Row): string => (r.source === "card" ? cardName(r.name) : r.name);
 
-const lineOf = (r: Row): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r), ...(r.pending ? { pending: true } : {}) });
+const lineOf = (r: Payment): Line => ({ day: dayMonth(r.date), name: rowName(r), note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r), ...(r.pending ? { pending: true } : {}) });
 
 /** The rows of the payments' table, in core's order: by day, the larger of a day first. */
-export const paymentRows = (ahead: Ahead): Row[] => ahead.rows.filter((r) => r.cents < 0);
+export const paymentRows = (ahead: Ahead): Payment[] => ahead.rows.filter(isPayment);
 
 /** The payments of the window as table lines. */
 export const payments = (ahead: Ahead): Line[] => paymentRows(ahead).map(lineOf);
@@ -172,7 +175,7 @@ export function payNote({ payday, reason }: Ahead): string | null {
 
 /** The arrivals as the lines of the second table: every one is projected from the pays that came, so every one is an estimate. */
 export const incoming = (ahead: Ahead): Line[] =>
-  arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.pay?.floorCents ?? 0, estimate: true, sum: paySum(a.pay) }));
+  arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.pay?.floorCents ?? null, estimate: true, sum: paySum(a.pay) }));
 
 /** What the table of the payments is about, for a reader of the page that has no eyes for it. */
 export function paymentsCaption(ahead: Ahead): string {

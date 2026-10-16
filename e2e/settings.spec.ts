@@ -93,7 +93,7 @@ test("Asetukset is a link in the header to one plain page, and Tekniset asetukse
 
   // Vaihda salasana in the user menu opens Salasana with the form
   await page.goto("/#/overview");
-  await page.locator("summary[aria-label='Käyttäjävalikko']").click();
+  await page.locator(".user-menu summary").click();
   await page.getByRole("link", { name: "Vaihda salasana" }).click();
   await expect.poll(hash).toBe("#/settings#salasana");
   await expect(page.getByLabel("Nykyinen salasana")).toBeVisible();

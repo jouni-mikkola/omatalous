@@ -180,8 +180,8 @@ function twice(t: MaybeTwice, linkable: boolean, others: readonly string[]): str
  * debt total holds it once, and removing the saved loan would take it out of that total, so the sentence tells what
  * the figure would be and advises no step. Said where the figure is: its tile here and its line in Saldot.
  */
-export function overdraftTwice(t: MaybeTwice): string {
-  return `Sama velka voi olla luvussa ${ACCOUNTS_LESS_DEBT.label} kahdesti: ${sides(t, "miinuksella oleva yhdistetty tili", "miinuksella olevat yhdistetyt tilit")}. Jos velka on sama, oikea luku on tallennetun lainan verran suurempi.`;
+export function overdraftTwice(): string {
+  return `Jos tallentamasi laina näkyy myös pankin tiedoissa, se on luvussa ${ACCOUNTS_LESS_DEBT.label} kahdesti. Silloin oikea luku on lainan verran suurempi.`;
 }
 
 /** A set of saved loans is one entry of its list, so its ids are a key no other sentence has. */
@@ -205,7 +205,7 @@ function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] 
       const links = offers(t, own, typists);
       return { key: `twice ${idsOf(t)}`, text: twice(t, links.length > 0, removers(t, typists)), warn: true, offers: links };
     }),
-    ...(less ? r.overdraftTwice.map((t) => ({ key: `overdraft ${idsOf(t)}`, text: overdraftTwice(t), warn: true })) : []),
+    ...(less && r.overdraftTwice.length > 0 ? [{ key: "overdraft", text: overdraftTwice(), warn: true }] : []),
   ];
 }
 

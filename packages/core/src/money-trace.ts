@@ -38,8 +38,11 @@ export type { CreditFill, Owner, RowParts, SourcePart, Trace, TraceRow };
 
 /** Unknown money in is asked about from this sum on (100,00): below it the app does not trouble the household. */
 export const ASK_LIMIT = 10000;
-/** How many days apart the two legs of a person's movement may be booked. */
-export const PAIR_DAYS = 3;
+/**
+ * How many days after the money in the money out of a person's movement may be booked. Not `PAIR_WINDOW_DAYS` (5, either
+ * order, the transfer between own accounts): the trace reads one direction, in then out, and keeps its own window.
+ */
+export const TRACE_PAIR_DAYS = 3;
 /** Changes when a rule of the trace changes: a trace kept anywhere is built again. */
 export const TRACE_VERSION = 2;
 
@@ -69,7 +72,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
   }
   const order = main.flatMap((r) => [r, ...(bound.get(r.key) ?? [])]);
 
-  const outOf = pairMoves(order, PAIR_DAYS);
+  const outOf = pairMoves(order, TRACE_PAIR_DAYS);
 
   // state
   const buckets = new Map<string, Bucket>();

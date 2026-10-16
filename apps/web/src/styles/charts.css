@@ -24,10 +24,6 @@
 .chart .bar-value { fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .chart .bar-value.active, .chart .month-active { fill: var(--text); font-weight: 600; }
 .chart .avg-line { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 5 4; shape-rendering: crispEdges; }
-.swatch-in { background: var(--series-1); }
-.swatch-out { background: var(--series-1); opacity: 0.36; }
-.swatch-hatch { background: repeating-linear-gradient(45deg, var(--series-1) 0 2px, transparent 2px 4px); outline: 1px solid var(--series-1); outline-offset: -1px; }
-.avg-key { width: 16px; height: 0; border-top: 2px dashed var(--text-2); display: inline-block; flex: none; }
 
 .tooltip {
   position: absolute; pointer-events: none; z-index: var(--z-pop); min-width: 150px; max-width: 260px;

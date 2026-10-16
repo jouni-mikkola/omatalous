@@ -111,28 +111,6 @@ describe("GET /api/explain: the figures that are not a sum of one range", () => 
     expect(r.body.check).toEqual({ kind: "sum", diffCents: 0 });
   });
 
-  it("an account's balance is its bank balance and the rows after it; a member never gets another member's account (404)", async () => {
-    const { admin, member, accountId } = await imported();
-    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 123456 })).status).toBe(200);
-    const r = await admin.call("GET", `/api/explain?figure=balance.account&${OCTOBER}&accounts=${accountId}`);
-    expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ figure: "balance.account", cents: 123456, check: { kind: "sum", diffCents: 0 } });
-    expect(r.body.lines[0]).toMatchObject({ id: accountId, cents: 123456 });
-    const eero = await member("eero", "Eero");
-    expect((await eero.call("GET", `/api/explain?figure=balance.account&${OCTOBER}&accounts=${accountId}`)).status).toBe(404);
-    // near misses: no account, two accounts and a view figure with an account are asked wrongly
-    for (const bad of ["balance.account", `balance.account&accounts=${accountId},${accountId}`, `balance.view&accounts=${accountId}`]) expect((await admin.call("GET", `/api/explain?figure=${bad}&${OCTOBER}`)).status, bad).toBe(400);
-  });
-
-  it("the view's balance is its accounts' balances added up", async () => {
-    const { admin, accountId } = await imported();
-    await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 123456 });
-    const r = await admin.call("GET", `/api/explain?figure=balance.view&${OCTOBER}`);
-    expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ cents: 123456, check: { kind: "sum", diffCents: 0 } });
-    expect(r.body.lines.map((l: { id: string }) => l.id)).toEqual([accountId]);
-  });
-
   it("a usual level is the median of its months, each month a sum of its own; under three months it says nothing", async () => {
     const { admin, s } = await setupApp();
     expect((await seedCsv(s, admin, { content: LONG_CSV, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
@@ -172,39 +150,15 @@ describe("GET /api/explain: the figures that are not a sum of one range", () => 
     expect((await ask(admin, "nope")).status).toBe(404);
   });
 
-  it("the forecast is an estimate: its inputs and assumptions, and no check", async () => {
-    const { admin, accountId } = await imported();
-    await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 123456 });
-    const r = await admin.call("GET", `/api/explain?figure=forecast.month&${OCTOBER}`);
-    expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ kind: "estimate", check: { kind: "n/a" }, lines: [] });
-    expect(r.body.method.inputs.length).toBeGreaterThan(0);
-    expect(r.body.method.assumptions).toContain("pay.not_added");
-  });
 });
 
 /** The numbers the pages of the demo household show, asked from the API that gives them. */
 describe("GET /api/explain: each opener explains the number its page shows", () => {
   const YEAR = "from=2025-10-01&to=2026-10-09";
-  const THIS_MONTH = "from=2026-10-01&to=2026-10-09";
 
-  it("balance.account, balance.view, usual.income, Yli jäi and the forecast are the figures of the dashboard and the reports", async () => {
+  it("usual.income and Yli jäi are the figures of the dashboard and the reports", async () => {
     const { admin } = await setupApp();
     expect((await admin.call("POST", "/api/demo")).status).toBe(200);
-    const dash = (await admin.call("GET", `/api/dashboard?${THIS_MONTH}`)).body;
-    const accounts = dash.holdings.accounts as { id: string; balanceCents: number | null }[];
-    expect(accounts.length).toBeGreaterThan(1);
-    for (const a of accounts) {
-      const r = await admin.call("GET", `/api/explain?figure=balance.account&${THIS_MONTH}&accounts=${a.id}`);
-      expect(r.status).toBe(200);
-      expect(r.body.cents, a.id).toBe(a.balanceCents);
-      expect(r.body.check.diffCents).toBe(0);
-    }
-    // the total of the accounts: the card of the demo household is not in it
-    const view = await admin.call("GET", `/api/explain?figure=balance.view&${THIS_MONTH}`);
-    expect(view.body.cents).toBe(dash.holdings.accountsCents);
-    expect(view.body.check).toEqual({ kind: "sum", diffCents: 0 });
-    expect(view.body.lines.map((l: { id: string }) => l.id).sort()).toEqual(accounts.filter((a) => a.balanceCents !== null).map((a) => a.id).sort());
     const reports = (await admin.call("GET", `/api/reports?${YEAR}&reports=income,cashflow`)).body;
     expect(reports.income.stability.medianCents).toBeGreaterThan(0);
     const income = await admin.call("GET", `/api/explain?figure=usual.income&${YEAR}`);
@@ -215,8 +169,6 @@ describe("GET /api/explain: each opener explains the number its page shows", () 
     const left = await admin.call("GET", `/api/explain?figure=yli_jai.month&from=2026-09-01&to=2026-09-30`);
     expect(left.body.cents).toBe(month.totals.leftCents);
     expect(left.body.check).toEqual({ kind: "sum", diffCents: 0 });
-    const forecast = await admin.call("GET", `/api/explain?figure=forecast.month&${THIS_MONTH}`);
-    expect(forecast.body.cents).toBe(dash.ahead.balance.freeCents);
   });
 
   it("the part of a joint account's row is the part its row in Tapahtumat shows", async () => {
@@ -237,20 +189,11 @@ describe("GET /api/explain: each opener explains the number its page shows", () 
 describe("GET /api/explain: Koko talous and a joint account", () => {
   const SEPT = "from=2026-09-01&to=2026-09-30";
 
-  it("the new figures answer in the household view with the household's numbers, and a figure of one account stays an account the viewer reads", async () => {
+  it("the figures answer in the household view with the household's numbers", async () => {
     const { admin, adminId, member, accountId } = await imported();
     const eero = await member("eero", "Eero");
     await admin.call("PUT", `/api/accounts/${accountId}/use`, { users: [{ userId: adminId, weight: 1 }, { userId: eero.id, weight: 1 }] });
-    await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 123456 });
-    const dash = (await admin.call("GET", `/api/dashboard?${OCTOBER}&scope=household`)).body;
-    const ask = (figure: string, more = "") => admin.call("GET", `/api/explain?figure=${figure}&${OCTOBER}&scope=household${more}`);
-    const view = await ask("balance.view");
-    expect(view.status).toBe(200);
-    expect(view.body.cents).toBe(dash.holdings.accountsCents);
-    expect(view.body.check).toEqual({ kind: "sum", diffCents: 0 });
-    const one = await ask("balance.account", `&accounts=${accountId}`);
-    expect(one.body).toMatchObject({ cents: 123456, check: { kind: "sum", diffCents: 0 } });
-    expect((await ask("forecast.month")).body).toMatchObject({ kind: "estimate" });
+    const ask = (figure: string) => admin.call("GET", `/api/explain?figure=${figure}&${OCTOBER}&scope=household`);
     expect((await ask("usual.income")).status).toBe(200);
     const left = await admin.call("GET", `/api/explain?figure=yli_jai.month&${SEPT}&scope=household`);
     expect(left.body.cents).toBe((await admin.call("GET", `/api/reports?${SEPT}&reports=cashflow&scope=household`)).body.cashflow.totals.leftCents);
@@ -268,9 +211,7 @@ describe("GET /api/explain: Koko talous and a joint account", () => {
     const second = await seedCsv(s, admin, { content: CSV, accountName: "Säästötili", accountType: "savings" });
     const privateId = second.body.accountId as string;
     expect(privateId).not.toBe(accountId);
-    await admin.call("PATCH", `/api/accounts/${accountId}`, { balanceCents: 5000 });
-    await admin.call("PATCH", `/api/accounts/${privateId}`, { balanceCents: 7000 });
-    const asEero = (id: string) => eero.call("GET", `/api/explain?figure=balance.account&${OCTOBER}&accounts=${id}`);
+    const asEero = (id: string) => eero.call("GET", `/api/explain?figure=spend.month&${OCTOBER}&accounts=${id}`);
     // before the account is shared with him it is not his
     expect((await asEero(accountId)).status).toBe(404);
     // shared with him and said to be used by both: his, at his part
@@ -278,10 +219,6 @@ describe("GET /api/explain: Koko talous and a joint account", () => {
     await admin.call("PUT", `/api/accounts/${accountId}/use`, { users: [{ userId: adminId, weight: 1 }, { userId: eero.id, weight: 1 }] });
     const used = await asEero(accountId);
     expect(used.status).toBe(200);
-    // the number his own first page shows for the account
-    const shown = (await eero.call("GET", `/api/dashboard?${OCTOBER}`)).body.holdings.accounts.find((a: { id: string }) => a.id === accountId);
-    expect(used.body.cents).toBe(shown.balanceCents);
-    expect(used.body.cents).toBe(2500);
     // the near miss: the other account of the same owner, not shared
     expect((await asEero(privateId)).status).toBe(404);
     const row = ((await admin.call("GET", `/api/transactions?${SEPTEMBER}&limit=500`)).body.items as { id: string; accountId: string }[]).find((t) => t.accountId === accountId)!;

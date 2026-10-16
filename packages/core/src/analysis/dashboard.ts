@@ -15,6 +15,7 @@ import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { buildQuestions, type Questions } from "./questions.ts";
+import { monthWaterfall, type Waterfall } from "./waterfall.ts";
 import { type ThemesReport, themesReport } from "./themes-report.ts";
 import { isCompleteMonth } from "./usual.ts";
 
@@ -78,6 +79,11 @@ export interface DashboardData {
   questions: Questions;
   /** Category ids that own colour slots 1–7 (slot 8 is "Muut"). */
   colorOrder: string[];
+  /**
+   * The month the range ends in (today's when the range runs past it), told as steps from income to Yli jäi, whatever
+   * the range's length. null when the range starts after today or the month has no rows.
+   */
+  waterfall: Waterfall | null;
 }
 
 /**
@@ -113,6 +119,22 @@ function settledTotals(ctx: AnalysisContext, range: DateRange): PeriodTotals | n
   const months = new Set(monthRange(monthOf(range.from), monthOf(range.to)).filter(covered).map(monthIndex));
   return months.size ? totalsOf(spendRows(ctx, toDayRange(range)).filter((t) => months.has(t.month)).map((t) => t.flows)) : null;
 }
+
+/** How an account's bank balances stand against its rows, the tick beside its balance: they add up, they do not, or it cannot be told. */
+export type ReconcileVerdict = "ok" | "diff" | "unknown";
+
+/** One joint pool's running month: what each member paid above (positive) or under (negative) their share. */
+export interface RunningPool {
+  accountKey: string;
+  month: string;
+  lines: { owner: string; name: string; overCents: number }[];
+}
+
+/** What `GET /api/dashboard` sends: the dashboard with what the server adds (a verdict for each account, the joint pools' running month). */
+export type DashboardAnswer = Omit<DashboardData, "holdings"> & {
+  holdings: Omit<DashboardData["holdings"], "accounts"> & { accounts: (DashboardData["holdings"]["accounts"][number] & { reconcile?: ReconcileVerdict })[] };
+  settlement: RunningPool[];
+};
 
 /**
  * Everything the month page shows (Yhteenveto). Why a past month differed is the spending change report's usual view.
@@ -158,5 +180,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     housing: buildHousing(ctx, balances, inputs),
     questions: buildQuestions(ctx, range, inputs, proposals),
     colorOrder: [...ctx.colorOrder],
+    waterfall: range.from > ctx.today ? null : monthWaterfall(ctx, monthOf(range.to < ctx.today ? range.to : ctx.today)),
   };
 }

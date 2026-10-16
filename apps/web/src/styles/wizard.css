@@ -12,7 +12,7 @@
 .step-no { width: 22px; height: 22px; border-radius: var(--radius-s); display: inline-grid; place-items: center; font-size: var(--fs-label); font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); box-sizing: border-box; font-variant-numeric: tabular-nums lining-nums; }
 .wizard-steps li[aria-current="step"] .step-no { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
 .wizard-steps li.done .step-no { background: var(--good-bg); border-color: var(--good-bg); color: var(--good); }
-.wizard-section, .subhead { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+.subhead { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
 .wizard .auth-title { margin-top: 0; }
 .wizard-nav { margin: var(--sp-20) calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px var(--pad); border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 35%, var(--surface)); border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }

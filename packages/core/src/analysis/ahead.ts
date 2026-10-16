@@ -37,9 +37,10 @@ export interface AheadRow {
   category: string | null;
   /**
    * Money in is positive, everything that leaves the counted accounts negative. On a pay day: the least the pay is
-   * expected to be (`pay.floorCents`), 0 when it has no estimate. It is the only sum of a pay that any figure adds.
+   * expected to be (`pay.floorCents`), null when it has no estimate (a figure adds nothing for it). It is the only sum
+   * of a pay that any figure adds. A payment always has its sum.
    */
-  cents: number;
+  cents: number | null;
   /**
    * "income": a pay day. "recurring": a subscription or bill the history shows. "expected": a bill the household typed
    * in. "card": the bill of a connected card. "transfer": a regular transfer to an account the balance does not count.
@@ -170,9 +171,12 @@ function payDates(s: RecurringSeries, paidOn: readonly IsoDate[], to: IsoDate): 
   return out;
 }
 
-const sumOf = (rows: readonly AheadRow[], source: AheadRow["source"]) => rows.filter((r) => r.source === source).reduce((sum, r) => sum + Math.abs(r.cents), 0);
+/** What a row adds to a figure: a pay with no estimate adds nothing. */
+const centsOf = (r: AheadRow): number => r.cents ?? 0;
 
-const byDay = (a: AheadRow, b: AheadRow) => a.date.localeCompare(b.date) || Math.abs(b.cents) - Math.abs(a.cents) || a.name.localeCompare(b.name);
+const sumOf = (rows: readonly AheadRow[], source: AheadRow["source"]) => rows.filter((r) => r.source === source).reduce((sum, r) => sum + Math.abs(centsOf(r)), 0);
+
+const byDay = (a: AheadRow, b: AheadRow) => a.date.localeCompare(b.date) || Math.abs(centsOf(b)) - Math.abs(centsOf(a)) || a.name.localeCompare(b.name);
 const chargeRow = (c: ExpectedCharge): AheadRow => ({ date: c.date, name: c.merchant, category: c.category, cents: -c.amountCents, source: "recurring" });
 
 /**
@@ -189,7 +193,7 @@ const chargeRow = (c: ExpectedCharge): AheadRow => ({ date: c.date, name: c.merc
  * What is due and what is free hold the payments and nothing else: what is free is the balance less what is due. The
  * day the balance runs short is the day of the first payment that the balance and the pay dated before that day do
  * not cover: other pay of the window is a row, and it is money only for what is due after it, as much as its estimate
- * says it is at least (`PayEstimate.floorCents`, 0 without an estimate). The figures need the balance of every counted
+ * says it is at least (`PayEstimate.floorCents`; nothing without an estimate). The figures need the balance of every counted
  * account, since the rows are those of all of them.
  *
  * The payday is that of the whole view, whatever account the pay lands on. Everything else follows the counted
@@ -269,7 +273,7 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
       // the pay that ends the window lands after it, and a pay to wait for whose day has gone by has not come
       if (d > to || (s === next?.s && d === next.day) || (waited.has(s) && due[i]! < from)) return;
       const pay = payOf(s, due[i]!);
-      all.push({ date: d, name: s.merchant, category: s.category, cents: pay?.floorCents ?? 0, source: "income", pay });
+      all.push({ date: d, name: s.merchant, category: s.category, cents: pay?.floorCents ?? null, source: "income", pay });
     });
   }
   const expected = { cancelled: cancelledSubjects(inputs), savings: true };
@@ -330,8 +334,8 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   let shortOn: IsoDate | null = null;
   for (const r of rows) {
     if (r.source === "income") continue;
-    paid += Math.abs(r.cents);
-    const left = startCents + rows.reduce((sum, p) => (p.source === "income" && p.date < r.date ? sum + p.cents : sum), 0) - paid;
+    paid += Math.abs(centsOf(r));
+    const left = startCents + rows.reduce((sum, p) => (p.source === "income" && p.date < r.date ? sum + centsOf(p) : sum), 0) - paid;
     if (left < 0) shortOn ??= r.date;
     lowest = Math.min(lowest, left);
   }

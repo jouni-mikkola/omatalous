@@ -184,7 +184,7 @@ test("the edit dialog of a saved loan on a phone reaches every field, scrolls in
     // the longest sentence of the form, a payment under the interval's interest, with the way out, fits the dialog
     await dialog.getByLabel("Maksuerä (€)", { exact: true }).fill("300");
     const notice = dialog.locator(".loan-interest");
-    await expect(notice).toContainText("Maksuerä on pienempi kuin lyhennysvälin korko");
+    await expect(notice).toContainText("Maksuerä on pienempi kuin korko");
     await notice.scrollIntoViewIfNeeded();
     const warned = (await notice.boundingBox())!;
     expect(warned.x).toBeGreaterThanOrEqual(0);

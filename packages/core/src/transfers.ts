@@ -7,8 +7,11 @@ import { companyForms } from "./wording.ts";
 /** The forms that make a payee a company. */
 const PAYEE_FORMS = companyForms("payee");
 
-/** Max days between the two legs of a transfer between own accounts. */
-const PAIR_WINDOW_DAYS = 5;
+/**
+ * Max days between the two legs of a transfer between own accounts, in either order. The trace's `TRACE_PAIR_DAYS` is a
+ * second, narrower window for another job.
+ */
+export const PAIR_WINDOW_DAYS = 5;
 
 /** Categories that describe the purpose of a payment rather than a purchase, so they may be one leg of a transfer. */
 const PAIRABLE_CATEGORIES = new Set(["card_bill", "credit_draw", "other", "income", "p2p", "p2p_in"]);

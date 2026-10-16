@@ -34,37 +34,29 @@ describe("the bridge of the overview", () => {
     expect(b.totals.leftCents).toBe(300000 - 155000 - 30000);
   });
 
-  it("gives the usual income and savings rate of the months before that month", () => {
-    const b = dash("2026-10-01", "2026-10-31");
-    expect(b.usualIncomeCents).toBe(300000);
-    expect(b.usualSavingsRate).toBeCloseTo(0.1, 10);
-  });
-
   it("a running period with complete months uses them, and names a month only when there is one", () => {
     const quarter = dash("2026-08-01", "2026-10-31");
     expect(quarter.basis).toBe("settled");
     expect(quarter.month).toBeNull();
     expect(quarter.totals.incomeCents).toBe(600000);
-    expect(quarter.usualIncomeCents).toBeNull();
     // September is the only complete month from the 1st in a range that starts there
     const fromSeptember = dash("2026-09-01", "2026-10-31");
     expect(fromSeptember.basis).toBe("settled");
     expect(fromSeptember.month).toBe("2026-09");
-    expect(fromSeptember.usualIncomeCents).toBe(300000);
   });
 
-  it("a period that is over is its own totals, a single month with its usual", () => {
+  it("a period that is over is its own totals, and names a month only when it is a single one", () => {
     const august = dash("2026-08-01", "2026-08-31");
-    expect(august).toMatchObject({ basis: "range", month: "2026-08", usualIncomeCents: 300000 });
+    expect(august).toMatchObject({ basis: "range", month: "2026-08" });
     const year = dash("2026-01-01", "2026-09-30");
-    expect(year).toMatchObject({ basis: "range", month: null, usualIncomeCents: null, usualSavingsRate: null });
+    expect(year).toMatchObject({ basis: "range", month: null });
   });
 
-  it("says nothing usual before three complete months, and without a complete month there is no fallback", () => {
+  it("with one complete month that month stands in, and without a complete month there is no fallback", () => {
     // the history starts on 2026-08-01: only 2026-09 is complete before today
     const young = createContext(household.filter((t) => t.bookingDate >= "2026-08-01"), [checking], today);
     const b = buildDashboard(young, { from: "2026-10-01", to: "2026-10-31" }).bridge;
-    expect(b).toMatchObject({ basis: "last", month: "2026-09", usualIncomeCents: null, usualSavingsRate: null });
+    expect(b).toMatchObject({ basis: "last", month: "2026-09" });
     const none = createContext(household.filter((t) => t.bookingDate >= "2026-10-01"), [checking], today);
     expect(buildDashboard(none, { from: "2026-10-01", to: "2026-10-31" }).bridge).toMatchObject({ basis: "running", month: null });
   });
@@ -73,7 +65,7 @@ describe("the bridge of the overview", () => {
     // the history starts on 2026-09-10: September is not complete, its salary came on the 25th, October's has not
     const first = createContext(household.filter((t) => t.bookingDate >= "2026-09-10"), [checking], today);
     const b = buildDashboard(first, { from: "2026-10-01", to: "2026-10-31" }).bridge;
-    expect(b).toMatchObject({ basis: "partial", month: "2026-09", usualIncomeCents: null, earnedIncomeCents: null, usualSavingsRate: null });
+    expect(b).toMatchObject({ basis: "partial", month: "2026-09" });
     expect(b.totals.incomeCents).toBe(300000);
     expect(b.totals.consumptionCents).toBe(50000);
     // a running month that has its income already is told as it is

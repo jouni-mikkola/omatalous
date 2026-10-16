@@ -1,15 +1,13 @@
 /**
- * "Miksi?" on the figures that are not a sum of a range's rows: Yli jäi, the usual levels (medians), balances, a part of
- * a joint-account row, an estimate; and the reasons of card bills, card channels and returns.
+ * "Miksi?" on the figures that are not a sum of a range's rows: Yli jäi, the usual levels (medians), a part of
+ * a joint-account row; and the reasons of card bills, card channels and returns.
  */
 import { describe, expect, it } from "vitest";
 import { contextOf, demoHousehold } from "../../../tools/findings/households.ts";
-import { cashAhead } from "../src/analysis/ahead.ts";
 import { createContext, spendTotals } from "../src/analysis/context.ts";
 import { leftOf, totalsOf } from "../src/analysis/flows.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { completeMonthsBefore, usualIncome, usualSpending } from "../src/analysis/usual.ts";
-import { buildHoldings } from "../src/holdings.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import type { StatementBill } from "../src/analysis/statement-explain.ts";
@@ -21,8 +19,7 @@ import { createWhy } from "../src/explain/why.ts";
 import { shareOf } from "../src/money-trace-answers.ts";
 import type { RowParts } from "../src/money-trace.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
-import { balanceReport } from "../src/reports/balances.ts";
-import { type Account, type AccountUse, type BalanceInput, NO_INPUTS } from "../src/types.ts";
+import type { Account, AccountUse } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 type ExplainArgs = Parameters<typeof explain>[2];
@@ -218,98 +215,6 @@ describe("explain: the usual levels", () => {
   });
 });
 
-describe("explain: a balance", () => {
-  const given = (cents: number, at: string): BalanceInput => ({ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: cents, ownerName: null, balanceAt: at });
-  const rows = [
-    tx({ id: "a", bookingDate: "2026-08-10", amountCents: 100000 }),
-    tx({ id: "b", bookingDate: "2026-08-20", amountCents: -20000 }),
-    tx({ id: "c", bookingDate: "2026-09-05", amountCents: -5000 }),
-    tx({ id: "d", bookingDate: "2026-09-25", amountCents: 7000 }),
-    tx({ id: "p", bookingDate: "2026-09-26", amountCents: -999, status: "pending" }),
-    tx({ id: "e", bookingDate: "2026-10-03", amountCents: -1000 }),
-  ];
-  const ctx = createContext(rows, [account], "2026-10-20");
-  // the bank said 70 000 on 20.9.: 100 000 - 20 000 - 5 000 = 75 000 stood then, so the balance is 5 000 more than the rows say it is
-  const balances = [given(70000, "2026-09-20")];
-
-  it("an account's lines are the bank's balance and the booked rows between its day and the month's end, and they add up", () => {
-    // end of August: the balance given less what was booked after it, up to 20.9. (c)
-    const aug = explain("balance.account", ctx, argsOf("2026-08", { accountIds: ["acc-1"], balances }));
-    expect(aug.kind).toBe("sum");
-    expect(aug.lines.map((l) => [l.id, l.cents])).toEqual([["acc-1", 70000], ["c", 5000]]);
-    expect(aug.cents).toBe(75000);
-    expect(diffOf(aug)).toBe(0);
-    expect(aug.lines[0]!.day).toBe("2026-09-20");
-    // end of September: the rows booked after the given day are added (d); the pending row is in neither
-    const sep = explain("balance.account", ctx, argsOf("2026-09", { accountIds: ["acc-1"], balances }));
-    expect(sep.lines.map((l) => [l.id, l.cents])).toEqual([["acc-1", 70000], ["d", 7000]]);
-    expect(sep.cents).toBe(77000);
-    expect(diffOf(sep)).toBe(0);
-    // the running month ends today
-    const oct = explain("balance.account", ctx, argsOf("2026-10", { accountIds: ["acc-1"], balances }));
-    expect(oct.cents).toBe(76000);
-    expect(oct.lines.map((l) => l.id)).toEqual(["acc-1", "d", "e"]);
-    expect(diffOf(oct)).toBe(0);
-  });
-
-  it("a month before the account's first row says nothing: null, no lines, nothing to check", () => {
-    const e = explain("balance.account", ctx, argsOf("2026-07", { accountIds: ["acc-1"], balances }));
-    expect(e).toMatchObject({ cents: null, lines: [], check: { kind: "n/a" } });
-  });
-
-  it("an account needs one account with a balance", () => {
-    expect(() => explain("balance.account", ctx, argsOf("2026-09", { balances }))).toThrow("one account");
-    expect(() => explain("balance.account", ctx, argsOf("2026-09", { accountIds: ["acc-1"], balances: [] }))).toThrow("one account");
-  });
-
-  it("the demo household: each account adds up to the balance report at every month's end", () => {
-    let checked = 0;
-    for (const m of months) {
-      const report = balanceReport(plain, rangeOf(m), h.balances, NO_INPUTS);
-      for (const a of report.accounts) {
-        const one = explain("balance.account", plain, argsOf(m, { accountIds: [a.accountId], balances: h.balances }));
-        expect(one.cents, `${a.accountId} ${m}`).toBe(a.values.at(-1));
-        if (one.cents !== null) {
-          expect(diffOf(one)).toBe(0);
-          checked++;
-        }
-      }
-    }
-    expect(checked).toBeGreaterThan(2);
-  });
-
-  const held = buildHoldings(plain, h.balances, h.inputs);
-  const today = argsOf(months.at(-1)!, { balances: h.balances, inputs: h.inputs });
-
-  it("an account's balance is the number its row on the first page shows", () => {
-    expect(held.accounts.length).toBeGreaterThan(1);
-    for (const a of held.accounts) {
-      const one = explain("balance.account", plain, { ...today, accountIds: [a.id] });
-      expect(one.cents, a.id).toBe(a.balanceCents);
-      expect(diffOf(one), a.id).toBe(0);
-    }
-  });
-
-  it("the view's balance is the page's Tilit yhteensä: its accounts only, the card in the view stays out", () => {
-    const view = explain("balance.view", plain, today);
-    const card = h.balances.find((b) => b.type === "credit_card" && b.balanceCents !== null);
-    expect(card, "the demo has a card with a balance").toBeDefined();
-    expect(view.cents).toBe(held.accountsCents);
-    expect(view.cents).not.toBe(h.balances.reduce((s, b) => s + (b.balanceCents ?? 0), 0));
-    expect(diffOf(view)).toBe(0);
-    expect(view.lines.map((l) => l.id).sort()).toEqual(held.accounts.filter((a) => a.balanceCents !== null).map((a) => a.id).sort());
-    expect(view.lines.some((l) => l.id === card!.id)).toBe(false);
-    // a figure of some accounts is no figure of the view
-    expect(() => explain("balance.view", plain, { ...today, accountIds: [h.balances[0]!.id] })).toThrow("some accounts");
-  });
-
-  it("with no account that has a balance the view's figure says nothing and has no check", () => {
-    const cardOnly = explain("balance.view", plain, { ...today, balances: h.balances.filter((b) => b.type === "credit_card") });
-    expect(cardOnly.cents).toBeNull();
-    expect(cardOnly.check).toEqual({ kind: "n/a" });
-  });
-});
-
 describe("explain: a part of one joint-account row", () => {
   const two: AccountUse = { users: [{ userId: "u1", label: "A", weight: 1 }, { userId: "u2", label: "B", weight: 1 }], source: "said" };
   const row = tx({ id: "rent", bookingDate: "2026-09-05", amountCents: -10001, merchant: "ESIMERKKI OY" });
@@ -379,24 +284,8 @@ describe("explain: a part of one joint-account row", () => {
   });
 });
 
-describe("explain: an estimate", () => {
-  it("names its inputs and assumptions, says it is an estimate, and has no check to tick", () => {
-    const e = explain("forecast.month", plain, argsOf(months.at(-1)!, { balances: h.balances, inputs: h.inputs }));
-    const ahead = cashAhead(plain, h.balances, h.inputs);
-    expect(e.kind).toBe("estimate");
-    expect(e.cents).toBe(ahead.balance?.freeCents ?? null);
-    expect(e.check).toEqual({ kind: "n/a" });
-    expect(e.lines).toEqual([]);
-    if (e.method?.kind !== "estimate") throw new Error("not an estimate");
-    expect(e.method.inputs).toContain(`window:${ahead.from}..${ahead.to}`);
-    expect(e.method.inputs).toContain(`window.reason:${ahead.reason}`);
-    expect(e.method.assumptions).toEqual(["pay.not_added", "everyday_spending.not_taken_off", "bills.repeat_from_history"]);
-    expect(JSON.stringify(e)).not.toContain("diffCents");
-  });
-
-  it("with no balance the figure says nothing, and a sum figure is never an estimate", () => {
-    const e = explain("forecast.month", plain, argsOf(months.at(-1)!));
-    expect(e).toMatchObject({ kind: "estimate", cents: null, check: { kind: "n/a" } });
+describe("explain: a sum figure and settlement", () => {
+  it("a sum figure checks against its lines", () => {
     for (const f of ["spend.month", "income.month", "yli_jai.month"] as FigureId[]) expect(explain(f, plain, argsOf(months.at(-1)!)).check.kind).toBe("sum");
   });
 
@@ -412,9 +301,9 @@ describe("explain: the figures are the same with and without a collector", () =>
 
   it("each new figure gives one number either way", () => {
     for (const m of months) {
-      for (const f of ["yli_jai.month", "usual.spend", "usual.income", "balance.view", "forecast.month"] as FigureId[]) {
-        const a = explain(f, withWhy, argsOf(m, { why: w, balances: h.balances, inputs: h.inputs }));
-        const b = explain(f, plain, argsOf(m, { balances: h.balances, inputs: h.inputs }));
+      for (const f of ["yli_jai.month", "usual.spend", "usual.income"] as FigureId[]) {
+        const a = explain(f, withWhy, argsOf(m, { why: w }));
+        const b = explain(f, plain, argsOf(m));
         expect(a.cents, `${f} ${m}`).toBe(b.cents);
         expect(a.check, `${f} ${m}`).toEqual(b.check);
       }

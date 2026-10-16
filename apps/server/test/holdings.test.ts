@@ -43,11 +43,14 @@ async function households() {
     expect(report.status).toBe(200);
     expect(dashboard.status).toBe(200);
     // one answer in two places
-    expect(dashboard.body.holdings).toEqual(report.body.balances.holdings);
+    expect(withoutReconcile(dashboard.body.holdings)).toEqual(report.body.balances.holdings);
     return { holdings: report.body.balances.holdings, text: JSON.stringify([report.body, dashboard.body]) };
   };
   return { ...app, eero, maija, holdings };
 }
+
+/** The dashboard's accounts also carry the reconcile word; the report's do not. */
+const withoutReconcile = (h: { accounts: object[] }) => ({ ...h, accounts: h.accounts.map(({ reconcile: _reconcile, ...a }: any) => a) });
 
 describe("holdings in the answers", () => {
   it("the bank, mask and limit stored for an account reach the report and the first page", async () => {

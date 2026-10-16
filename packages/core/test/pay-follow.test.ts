@@ -191,7 +191,7 @@ describe("which series follow a pay", () => {
       cashAhead(household, [bal(own, 100_000, TODAY), bal(joint, 50_000, TODAY)], NO_INPUTS),
       cashAhead(mine, [bal(own, 100_000, TODAY, { part: { from: 0, to: 1, of: 1 } }), bal(joint, 25_000, TODAY, { part: HALF })], NO_INPUTS),
     ];
-    expect(m.upcoming.map((r) => [r.date, r.cents * 2])).toEqual(h.upcoming.map((r) => [r.date, r.cents]));
+    expect(m.upcoming.map((r) => [r.date, r.cents! * 2])).toEqual(h.upcoming.map((r) => [r.date, r.cents]));
     expect(h.upcoming.map((r) => r.date)).toEqual([WITH_PAY, WITH_PAY, WITH_PAY, WITH_PAY]);
   });
 });

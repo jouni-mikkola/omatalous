@@ -276,8 +276,9 @@ async function readDetails(repo: FinanceRepo, puller: Puller, account: StoredAcc
     // a card is matched to its bills by the bank's name, so a new one means the transfers are worked out again
     if (account.type === "credit_card" && d.name !== null && d.name !== account.bankName) tally.rowsChanged++;
     else tally.accountsChanged = true;
-  } catch {
-    // retried at the next fetch
+  } catch (err) {
+    // retried at the next fetch; the log names the account and the kind of error, never the bank's answer
+    console.error(`account details ${account.id}: ${err instanceof Error ? err.name : "error"}`);
   }
 }
 

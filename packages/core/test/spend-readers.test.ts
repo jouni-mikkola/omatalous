@@ -61,6 +61,7 @@ const BILL_WHOLE = [
   "optimise/common.ts",
   "reports/drift.ts",
   "reports/year-over-year.ts",
+  "analysis/waterfall.ts",
 ];
 
 describe("every reader of spend is classified", () => {

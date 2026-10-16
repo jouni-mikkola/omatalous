@@ -1,14 +1,12 @@
-const eur = new Intl.NumberFormat("fi-FI", { style: "currency", currency: "EUR" });
-const eur0 = new Intl.NumberFormat("fi-FI", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+import { formatEur, formatFiDate, MONTH_STEMS, monthName } from "@banking/core";
+
 const num0 = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 0 });
 
-export const MONTHS_SHORT = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
-const MONTHS_LONG = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
+/** The month stems of core, "tammi" to "joulu". */
+export const MONTHS_SHORT = MONTH_STEMS;
 
-/** 123456 → "1 234,56 €" */
-export function money(cents: number, decimals = true): string {
-  return (decimals ? eur : eur0).format(cents / 100);
-}
+/** 123456 → "1 234,56 €": core's `formatEur`, the one euro formatter. */
+export const money = formatEur;
 
 const plain = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -117,9 +115,7 @@ export function shareText(units: number, decimals = 0): string {
 
 /** "2026-10-09" → "9.10.2026" */
 export function date(iso: string | null | undefined): string {
-  if (!iso) return "–";
-  const [y, m, d] = iso.slice(0, 10).split("-");
-  return `${Number(d)}.${Number(m)}.${y}`;
+  return iso ? formatFiDate(iso) : "–";
 }
 
 /** "2026-10-09" → "9.10." */
@@ -144,13 +140,12 @@ export function dateTime(iso: string | null | undefined): string {
 /** "2026-10" → "loka" (with year when asked) */
 export function monthLabel(month: string, withYear = false): string {
   const [y, m] = month.split("-");
-  const name = MONTHS_SHORT[Number(m) - 1] ?? month;
+  const name = MONTH_STEMS[Number(m) - 1] ?? month;
   return withYear ? `${name} ${y}` : name;
 }
 
 export function monthLong(month: string): string {
-  const [y, m] = month.split("-");
-  return `${MONTHS_LONG[Number(m) - 1]} ${y}`;
+  return `${monthName(month)} ${month.slice(0, 4)}`;
 }
 
 export const CADENCE_LABEL: Record<string, string> = {

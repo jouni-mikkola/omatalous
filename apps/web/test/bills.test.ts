@@ -11,7 +11,7 @@ import { steady } from "./pay-fixture.ts";
 type Ahead = NonNullable<DashboardData["ahead"]>;
 type Row = Ahead["rows"][number];
 
-const sum = (rows: Row[], source: Row["source"]) => rows.filter((r) => r.source === source).reduce((total, r) => total + Math.abs(r.cents), 0);
+const sum = (rows: Row[], source: Row["source"]) => rows.filter((r) => r.source === source).reduce((total, r) => total + Math.abs(r.cents ?? 0), 0);
 const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Palkka", category: "salary", cents: 395_000, source: "income", pay: steady(395_000), ...over });
 /** A 30-day answer as the dashboard gives it: a pay day, two bills of the history and one the household typed in. */
 const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö", category: "utilities", cents: -8_900, source: "recurring" }), row({ date: "2026-10-20", name: "Netflix", category: "subscriptions", cents: -1_599, source: "recurring" }), row({ date: "2026-11-03", name: "Ajoneuvovero", category: null, cents: -31_250, source: "expected" })]): Ahead => ({
@@ -21,7 +21,7 @@ const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö"
   reason: "none",
   payday: null,
   rows,
-  upcoming: rows.filter((r) => r.cents < 0),
+  upcoming: rows.filter((r) => r.cents! < 0),
   everydayPerDayCents: 0,
   totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), cardCents: 0, transferCents: 0, dueCents: sum(rows, "recurring") + sum(rows, "expected"), incomeCents: sum(rows, "income") },
   balance: null,
@@ -107,7 +107,7 @@ describe("Laskut: Erääntyvät maksut", () => {
     expect(out.indexOf("Musiikkipalvelu")).toBeGreaterThan(out.indexOf("Kortilta veloitettavat"));
     // Yhteenveto's figure of the same window is the first group's sum: no card's bill and no transfer is in it
     const balance = { startCents: 100_000, counts: "all" as const, accounts: 1, balanceAt: null, freeCents: 91_100, shortCents: 0, shortOn: null };
-    const window = base.rows.filter((r) => r.cents < 0 && r.date <= base.to);
+    const window = base.rows.filter((r) => r.cents! < 0 && r.date <= base.to);
     expect(nextDays({ ...withCard, rows: window, totals: { ...base.totals, recurringCents: 8_900, typedCents: 0, dueCents: 8_900 }, balance, missing: null })).toContain('<dt class="st-name">Erääntyvät maksut</dt><dd class="st-num">89,00 €</dd>');
     // near misses: without a card's row there is no third group, and with no pay to wait for the card's rows are still apart
     expect(groupHeads(coming(base))).toHaveLength(2);

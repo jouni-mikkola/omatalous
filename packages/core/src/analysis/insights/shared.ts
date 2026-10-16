@@ -1,4 +1,5 @@
 import { monthIndex, monthOf } from "../../dates.ts";
+import { monthName, monthStem } from "../format.ts";
 import { fold } from "../../merchant.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, standingOf } from "../context.ts";
@@ -14,11 +15,6 @@ const COUNT_WORDS = ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "
 export const countWord = (n: number) => COUNT_WORDS[n] ?? String(n);
 export const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const MONTHS = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
-/** "joulukuu" for "2025-12". */
-export const monthName = (month: string) => `${MONTHS[Number(month.slice(5, 7)) - 1]}kuu`;
-/** "joulu" for "2025-12": the first half of "joulu- ja heinäkuu". */
-export const monthStem = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1]!;
 /** "kesä–marraskuu 2026", or "joulu 2025 – toukokuu 2026" over a year's end. */
 export function monthSpan(from: string, to: string): string {
   if (from.slice(0, 4) === to.slice(0, 4)) return `${monthStem(from)}–${monthName(to)} ${to.slice(0, 4)}`;

@@ -1,7 +1,9 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardData, FeatureState, LoanProposal, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, RunningPool, Waterfall, FeatureState, LoanProposal, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
-export type { AccountType, Category, CategoryRule, DashboardData, RecurringSeries, ReportsData };
+export type { AccountType, Category, CategoryRule, RecurringSeries, ReportsData };
+/** What `GET /api/dashboard` sends, with the verdicts and the joint pools the server adds. */
+export type DashboardData = DashboardAnswer;
 
 export interface User {
   id: string;
@@ -216,3 +218,12 @@ export type LoanProposalRow = Pick<LoanProposal, "key" | "payee" | "paymentCents
 
 /** own = my accounts; household = mine + accounts shared with me. */
 export type Scope = "own" | "household";
+
+/** The month as a waterfall: each bar a signed change of the running total, the bars adding up to `leftCents` (Yli jäi). */
+export type WaterfallAnswer = Waterfall;
+
+/** What each joint pool's members paid above (positive) or under (negative) their share, for the running month. */
+export type SettlementAnswer = RunningPool;
+
+/** The tick beside an account's balance. */
+export type ReconcileState = ReconcileVerdict;

@@ -149,8 +149,8 @@ test("more than five are cut to five with a link to all of them, and card bills 
   await expect(block.locator(".question-row")).toHaveCount(5);
   await expect(block.getByRole("link", { name: "Näytä kaikki (7)" })).toHaveAttribute("href", "#/transactions?category=other");
   const bills = block.locator(".question-line").nth(1);
-  expect(plain(await bills.innerText())).toBe("Korttilaskuissa on 4 200,00 € ostoja, joita ei ole eritelty. Tietojen laatu");
-  await expect(bills.getByRole("link", { name: "Tietojen laatu" })).toHaveAttribute("href", "#/settings#laatu");
+  expect(plain(await bills.innerText())).toBe("Korttilaskuissa on 4 200,00 € ostoja, joita ei ole eritelty.");
+  await expect(block.locator(".question-line").nth(2).getByRole("link", { name: "Tietojen laatu" })).toHaveAttribute("href", "#/settings#laatu");
   await context.close();
 });
 
@@ -228,7 +228,7 @@ test("a payer is asked what its money is: five answers with the proposal marked,
   await expect(rows).toHaveCount(3);
   const ville = rows.filter({ hasText: "Esimerkki Ville" });
   expect(plain(await ville.innerText())).toMatch(/^Esimerkki Ville 900,00 € 3 tapahtumaa/);
-  await expect(block.getByText("Vastaus koskee myös aiempia kuukausia. Selvästi tavallisesta poikkeavat summat jäävät ennalleen.")).toHaveCount(1);
+  await expect(block.getByText("Vastaus koskee myös aiempia kuukausia. Tavallisesta selvästi poikkeavia maksuja se ei muuta.")).toHaveCount(1);
   await expect(block.getByLabel("Sama kaikille tällaisille")).toHaveCount(0);
 
   // the five answers in the page's order, the proposed one marked; a company is not offered Omaa rahaa
