@@ -15,6 +15,7 @@ import { isJoint, namesOther, optionsOf } from "./account-use.ts";
 import { AccountSources, hasSources } from "./AccountSources.tsx";
 import { UseParts, UseSelect } from "./AccountUse.tsx";
 import { type ForeignCurrency, ForeignRows } from "./ForeignRows.tsx";
+import { Reconcile } from "./Reconcile.tsx";
 
 // a bank-linked account comes back at the next link, so only an earlier CSV import or a demo one can be removed
 const removable = (a: Account) => a.provider === "csv" || a.provider === "demo";
@@ -148,6 +149,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                     )}
                     <FetchProblem account={a} connection={meta.connections.find((c) => c.id === a.connectionId)} canFix={canFix} />
                     {foreign?.[a.id] && <ForeignRows currencies={foreign[a.id]!} />}
+                    {a.reconcile && <Reconcile result={a.reconcile} />}
                     <div className="acc-type-phone">{type}</div>
                     {showUse && <div className="acc-use-phone">{users}</div>}
                   </td>

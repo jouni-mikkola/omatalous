@@ -30,7 +30,7 @@ import { upgradeAndLog } from "../services/upgrade.ts";
 import { ensureSetupCode } from "../services/users.ts";
 import { APP_VERSION } from "../version.ts";
 import { loadOrCreateAppSecret } from "./app-secret.ts";
-import { finishInterruptedRotation, rotateAppSecret } from "./secret-rotate.ts";
+import { finishInterruptedRotation, rotateAppSecret, secretFileDiffers } from "./secret-rotate.ts";
 import { SHUTDOWN_WAIT_MS, shutdown } from "./shutdown.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -151,7 +151,7 @@ if (process.argv.length > 2) {
 }
 
 // ── server mode ──────────────────────────────────────────
-const app = createApp({ db, config, build, backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
+const app = createApp({ db, config, build, secretStale: () => secretFileDiffers(secretFile, config.appSecret), backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
 const s = app.services;
 
 /** What the gate did at this start: an event in the security log and a notice for every admin. */

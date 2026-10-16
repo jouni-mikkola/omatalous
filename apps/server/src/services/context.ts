@@ -4,6 +4,7 @@
  * repositories or read configuration themselves.
  */
 import { todayIn, type Config } from "../platform/config.ts";
+import { FactorRepo } from "../db/factor-repo.ts";
 import { FinanceRepo } from "../db/finance-repo.ts";
 import { HouseholdRepo } from "../db/household-repo.ts";
 import { IndustryRepo } from "../db/industry-repo.ts";
@@ -15,11 +16,15 @@ import { UsersRepo } from "../db/users-repo.ts";
 import type { User } from "../db/rows.ts";
 import { Gate, LoginLimiter, RateLimiter, RememberedAddresses } from "../security/rate-limit.ts";
 import { SecretBox } from "../security/secretbox.ts";
+import { ShortLived } from "../security/short-lived.ts";
 import { APP_VERSION } from "../version.ts";
 import { AnalysisCache } from "./analysis.ts";
 import { afterReprocess } from "./enrich.ts";
 import { InstanceStore, type RedirectMode, redirectModeOf, redirectUrlFor } from "./instance.ts";
 import { syncStatementState } from "./statements.ts";
+
+/** How long a password-right sign-in waits for its second factor. */
+const HALF_SESSION_MS = 5 * 60_000;
 
 export interface BuildInfo {
   /** Release version shown to people (src/version.ts). */
@@ -41,6 +46,8 @@ export interface AppDeps {
   pruneBackups?: (now: Date) => void;
   /** Folder of the database copies (<data>/backups); an admin can download the newest. */
   backupDir?: string;
+  /** True when the secret file no longer holds the secret this process runs with (a `secret rotate` waits for its restart). Only the Node entry knows the file. */
+  secretStale?: () => boolean;
 }
 
 export interface Services {
@@ -70,6 +77,17 @@ export interface Services {
   };
   /** Wrong current passwords on password change, per user. */
   readonly passwordLimiter: RateLimiter;
+  /** Second-factor secrets and recovery codes (services/second-factor.ts). */
+  readonly factors: FactorRepo;
+  /** Codes typed for the second factor: `user` per address and user (5 in 15 minutes), `name` per user from all addresses (15). */
+  readonly factorLimiter: { readonly user: RateLimiter; readonly name: RateLimiter };
+  /** A secret made for an enrolment and not yet confirmed with a code, by user id; ten minutes. */
+  readonly factorEnrolments: ShortLived<string>;
+  /**
+   * A sign-in with the password right that waits for the second factor, by the hash of its cookie token to the user and the
+   * password hash it was made with (a changed or reset password ends it); five minutes (auth/session.ts).
+   */
+  readonly halfSessions: ShortLived<{ userId: string; passwordHash: string }>;
   /** First-run setup attempts per client address. */
   readonly setupLimiter: RateLimiter;
   /** Caps password hashes running at once, so unauthenticated requests cannot fill the thread pool. */
@@ -100,6 +118,8 @@ export interface Services {
   finance(userId: string): FinanceRepo;
   /** Null when no app secret is available (Docker creates one on first start). */
   secretBox(): Promise<SecretBox | null>;
+  /** See AppDeps.secretStale. */
+  secretStale(): boolean;
 }
 
 export function createServices(deps: AppDeps): Services {
@@ -126,6 +146,10 @@ export function createServices(deps: AppDeps): Services {
       remembered: new RememberedAddresses(),
     },
     passwordLimiter: new RateLimiter(5, 15 * 60_000),
+    factors: new FactorRepo(deps.db),
+    factorLimiter: { user: new RateLimiter(5, 15 * 60_000), name: new RateLimiter(15, 15 * 60_000) },
+    factorEnrolments: new ShortLived(10 * 60_000),
+    halfSessions: new ShortLived(HALF_SESSION_MS),
     setupLimiter: new RateLimiter(10, 15 * 60_000),
     hashGate: new Gate(4),
     security: new SecurityRepo(deps.db),
@@ -142,7 +166,8 @@ export function createServices(deps: AppDeps): Services {
     redirectUrl: () => redirectUrlFor(instance.current, deps.config.bank.redirectUrl, deps.config.bank.relayUrl ?? undefined),
     redirectMode: () => redirectModeOf(instance.current),
     finance: (userId) => new FinanceRepo(deps.db, userId),
-    secretBox: () => (box ??= deps.config.appSecret ? SecretBox.fromSecret(deps.config.appSecret) : Promise.resolve(null)),
+    secretStale: deps.secretStale ?? (() => false),
+    secretBox: () => (box ??=deps.config.appSecret ? SecretBox.fromSecret(deps.config.appSecret) : Promise.resolve(null)),
   };
   // card statements set aside or read again once the rows they depend on have changed
   afterReprocess(settings, (userId) => syncStatementState(services, userId));

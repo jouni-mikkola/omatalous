@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { UserError } from "../platform/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
+import { removeFactorByAdmin } from "../services/second-factor.ts";
 import { createUser, deleteUser, resetPassword, type Role } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
 import { body, optionalString, requestInfo } from "./shared.ts";
@@ -38,6 +39,12 @@ export function userRoutes(s: Services) {
   });
 
   app.post("/:id/reset-password", async (c) => c.json({ temporaryPassword: await resetPassword(s, c.req.param("id"), c.get("user"), requestInfo(c, s)) }));
+
+  /** A lost phone: takes a member's second factor away. An admin's own is removed by that admin alone (POST /api/security/factor/remove). */
+  app.delete("/:id/factor", async (c) => {
+    await removeFactorByAdmin(s, c.get("user"), c.req.param("id"), requestInfo(c, s));
+    return c.json({ ok: true });
+  });
 
   app.delete("/:id", async (c) => {
     const removal = await deleteUser(s, c.get("user"), c.req.param("id"), requestInfo(c, s));

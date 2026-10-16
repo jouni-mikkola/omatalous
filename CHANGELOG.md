@@ -3,6 +3,15 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.53.0
+
+- "Täsmää pankin saldoon" on each euro account in Asetukset > Tilit: a tick when the stored rows add up to the bank's own booked balances, or the reason when they cannot be checked (vain käytettävissä oleva saldo, ei viitepäivää, tyyppi vaihtui, liian vähän saldoja). Opened, it lists the days that agree and where the check stopped.
+- Only booked balances prove anything, never an available balance, and never two balance types mixed. The example household now has daily balances so the check can be seen.
+
+Look
+
+- Asetukset > Tilit: each bank account says under its name whether the bank's balances match its transactions, and opened shows the days that match.
+
 ## 0.52.0
 
 - Money from a steady payer gets its meaning from one answer: Yhteenveto asks "Mitä nämä ovat?" (yhteisten menojen osuus, myynti, omaa rahaa, lahja, palkka tai etuus) with the proposed answer marked, and the answer moves that payer's past and future payments in your own view. Payments clearly off the usual sum stay as they were, and "Palauta ehdotus" takes the answer back.

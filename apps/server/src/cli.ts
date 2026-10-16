@@ -4,13 +4,14 @@
  *   docker compose exec banking node dist/node.js version
  *   docker compose exec banking node dist/node.js user create <username> [--admin] [--name "Nimi"]
  *   docker compose exec banking node dist/node.js user reset-password <username>
+ *   docker compose exec banking node dist/node.js user remove-factor <username>      (a lost phone and recovery codes: the second sign-in factor off, the user signed out)
  *   docker compose exec banking node dist/node.js user list
  *   docker compose exec banking node dist/node.js user delete <username>
  *   docker compose exec banking node dist/node.js sessions revoke-all      (signs everyone out)
  *   docker compose run --rm --no-deps -T banking node dist/node.js restore <file in /data>   (handled in entry/node.ts, app stopped)
  *   node dist/node.js migrate-check <database file>   (handled in entry/node.ts, db/migrate-check.ts: tries the migrations on a copy)
  *   node dist/node.js cloudflare up|down --name <copy> --hostname <host>   (handled in entry/node.ts, cli-cloudflare.ts: tunnel and Access, no database)
- *   docker compose exec banking node dist/node.js secret rotate            (new app secret, bank keys re-sealed)
+ *   docker compose exec banking node dist/node.js secret rotate            (new app secret, bank keys and second-factor secrets re-sealed)
  *   node dist/node.js secret check <file>       (exit 0 when the secret in the file opens the stored bank keys, 4 when it does not, 1 when the file could not be tried; restore.sh reads the status before it replaces the app secret)
  *   docker compose exec banking node dist/node.js address set <url>        (the app's own address, install.sh runs it)
  *   docker compose exec -T banking node dist/node.js ops poll|report|state  (the host helper, see cli-ops.ts)
@@ -24,6 +25,7 @@ import type { Services } from "./services/context.ts";
 import { parseBaseUrl } from "./platform/validate.ts";
 import { databaseOpensWith, triedAgainstToken } from "./services/secret-rotation.ts";
 import { recordEvent } from "./services/security.ts";
+import { removeFactorOf } from "./services/second-factor.ts";
 import { createUser, issueSetupCode, removeUser, resetPassword } from "./services/users.ts";
 
 /** What only the Node entry knows: where the app secret file is and how to copy the database. */
@@ -108,7 +110,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (group !== "user" || !command) {
-    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | secret check <file> | address set <url> | ops poll|report|state");
+    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user remove-factor <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | secret check <file> | address set <url> | ops poll|report|state");
     return 1;
   }
   if (command === "list") {
@@ -136,6 +138,15 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
   }
   if (command === "reset-password") {
     console.log(`New temporary password for ${username}: ${await resetPassword(s, record.id)}`);
+    return 0;
+  }
+  if (command === "remove-factor") {
+    if (!(await s.factors.hasTotp(record.id))) {
+      console.error(`${username} has no second sign-in factor.`);
+      return 1;
+    }
+    await removeFactorOf(s, record.id, "komentorivi");
+    console.log(`Removed the second sign-in factor and the recovery codes of ${username}, and signed them out. They sign in with the password alone.`);
     return 0;
   }
   if (command === "delete") {

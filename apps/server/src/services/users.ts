@@ -144,11 +144,15 @@ export async function createUser(
   return { user: (await s.users.get(id))!, temporaryPassword: temporary };
 }
 
-export async function changePassword(s: Services, user: User, current: string, next: string, keepSessionId: string, req: RequestInfo = { ip: null, userAgent: null }): Promise<void> {
-  // the attempt is counted before the slow hash, so a burst of parallel guesses is counted too
+/**
+ * The password typed again for an action that needs it (a change, taking the second factor away). Counted per user
+ * before the slow hash, so a burst of parallel guesses is counted too. `what` names the action in the event and the
+ * lockout; `wrong` is the sentence for a wrong password.
+ */
+export async function confirmPassword(s: Services, user: { id: string; username: string }, password: string, req: RequestInfo, what: string, wrong: string): Promise<void> {
   const attempt = s.passwordLimiter.consume(user.id);
   if (attempt.wait) {
-    if (attempt.first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: "salasanan vaihto" });
+    if (attempt.first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: what });
     throw new TooManyAttempts(tooManyMessage(attempt.wait), attempt.wait);
   }
   if (!s.hashGate.tryEnter()) {
@@ -158,15 +162,19 @@ export async function changePassword(s: Services, user: User, current: string, n
   let ok = false;
   try {
     const record = await s.users.findForLogin(user.username);
-    ok = !!record && (await verifyPassword(current, record.passwordHash));
+    ok = !!record && (await verifyPassword(password, record.passwordHash));
   } finally {
     s.hashGate.leave();
   }
   if (!ok) {
-    await recordEvent(s, { kind: "login_fail", userId: user.id, ...req, detail: "salasanan vaihto" });
-    throw new UserError("Nykyinen salasana on väärä.");
+    await recordEvent(s, { kind: "login_fail", userId: user.id, ...req, detail: what });
+    throw new UserError(wrong);
   }
   s.passwordLimiter.reset(user.id);
+}
+
+export async function changePassword(s: Services, user: User, current: string, next: string, keepSessionId: string, req: RequestInfo = { ip: null, userAgent: null }): Promise<void> {
+  await confirmPassword(s, user, current, req, "salasanan vaihto", "Nykyinen salasana on väärä.");
   const problem = passwordProblem(next);
   if (problem) throw new UserError(problem);
   if (current === next) throw new UserError("Uusi salasana ei voi olla sama kuin vanha.");

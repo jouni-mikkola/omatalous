@@ -33,6 +33,36 @@ export async function startSession(c: Context, s: Services, userId: string): Pro
   setSessionCookie(c, s, token);
 }
 
+/**
+ * The sign-in of a user with a second factor, between the right password and the right code. It is no session: its
+ * cookie has its own name, the session middleware does not read it, and so every route but the one that takes the
+ * code answers it as signed out. It lives in memory for five minutes (a restart ends it, the user signs in again).
+ */
+const halfCookie = (s: Services) => `${s.config.sessionCookie}_half`;
+
+export async function startHalfSession(c: Context, s: Services, userId: string, passwordHash: string): Promise<void> {
+  const token = toBase64Url(randomBytes(32));
+  s.halfSessions.set(await sha256(token), { userId, passwordHash }, s.now().getTime());
+  setCookie(c, halfCookie(s), token, { httpOnly: true, sameSite: "Lax", secure: isHttps(c, s), path: "/", maxAge: 300 });
+}
+
+/** The user a live half session belongs to, or null: also null once their password has changed since (a reset, a change, the command line). */
+export async function readHalfSession(c: Context, s: Services): Promise<User | null> {
+  const token = getCookie(c, halfCookie(s));
+  if (!token || token.length > 100) return null;
+  const half = s.halfSessions.get(await sha256(token), s.now().getTime());
+  const user = half ? await s.users.get(half.userId) : null;
+  const record = user ? await s.users.findForLogin(user.username) : null;
+  return user && record?.passwordHash === half?.passwordHash ? user : null;
+}
+
+export async function endHalfSession(c: Context, s: Services): Promise<void> {
+  const token = getCookie(c, halfCookie(s));
+  if (!token || token.length > 100) return;
+  s.halfSessions.delete(await sha256(token));
+  deleteCookie(c, halfCookie(s), { path: "/" });
+}
+
 function setSessionCookie(c: Context, s: Services, token: string): void {
   setCookie(c, s.config.sessionCookie, token, {
     httpOnly: true,

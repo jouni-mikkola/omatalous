@@ -20,6 +20,12 @@ export const EVENT_KINDS = [
   "session_revoked",
   "user_created",
   "user_deleted",
+  // the second sign-in factor (second-factor.ts)
+  "factor_on",
+  "factor_off",
+  "factor_removed_by_admin",
+  "recovery_codes_made",
+  "recovery_code_used",
   // Asetukset > Palvelin > Etäkäyttö (remote-access.ts)
   "remote_access_on",
   "remote_access_off",
@@ -155,6 +161,8 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   for (const e of await s.security.unseenNotices(user.id)) {
     if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, detail: e.detail ?? "tuntematon" });
+    else if (e.kind === "factor_removed_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
+    else if (e.kind === "recovery_code_used") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellesi kirjauduttiin palautuskoodilla ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja tee uudet palautuskoodit.` });
     else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "watchdog_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
     else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Tietokanta palautettiin varmuuskopiosta"}. Sen jälkeen tehdyt muutokset menetettiin. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.` });

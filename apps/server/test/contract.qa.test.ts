@@ -10,7 +10,7 @@ import { mockBank } from "./mock-bank.ts";
 const PEM = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 
 // Reachable without a session on purpose.
-const PUBLIC = new Set(["GET /api/health", "GET /api/auth/state", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/logout", "GET /api/connections/callback"]);
+const PUBLIC = new Set(["GET /api/health", "GET /api/auth/state", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/factor", "POST /api/auth/logout", "GET /api/connections/callback"]);
 // Answers 401 itself, so it is not public but sits above the shared login gate.
 const SELF_AUTH = new Set(["POST /api/auth/password"]);
 const ADMIN_PREFIXES = ["/api/users", "/api/admin/"];

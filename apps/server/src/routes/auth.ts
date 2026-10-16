@@ -1,12 +1,13 @@
 /** Login, logout, first-run setup and own password. */
 import { Hono } from "hono";
 import { clientIp } from "../auth/middleware.ts";
-import { endSession, startSession } from "../auth/session.ts";
+import { endHalfSession, endSession, readHalfSession, startHalfSession, startSession } from "../auth/session.ts";
 import { DUMMY_HASH, verifyPassword } from "../security/password.ts";
 import { addressKey } from "../security/rate-limit.ts";
 import { TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
 import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
+import { takeCode } from "../services/second-factor.ts";
 import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
 import { body, optionalString, requestInfo } from "./shared.ts";
@@ -109,6 +110,11 @@ export function authRoutes(s: Services) {
     limits.ip.release(ipKey);
     // given back, not cleared: a correct password must not refill a stranger's guesses at the name
     limits.name.release(name);
+    // with a second factor the password is half of it: no session, no remembered address and no login record until the code
+    if (await s.factors.hasTotp(record.id)) {
+      await startHalfSession(c, s, record.id, record.passwordHash);
+      return c.json({ needsFactor: true });
+    }
     // the only place an address is remembered: after a correct password
     limits.remembered.add(ipKey);
     await recordLogin(s, record.id, ip, userAgent);
@@ -117,9 +123,25 @@ export function authRoutes(s: Services) {
     return c.json({ user });
   });
 
+  /** The second half of a sign-in: a code from the app or a recovery code, sent with the cookie the password step set. */
+  app.post("/factor", async (c) => {
+    const raw = strictObject(await body(c), ["code"] as const);
+    const code = optionalString(raw.code, 64) ?? "";
+    const user = await readHalfSession(c, s);
+    if (!user) return c.json({ error: "Kirjautuminen vanheni. Kirjaudu uudelleen.", code: "half_expired" }, 401);
+    const req = requestInfo(c, s);
+    if (!(await takeCode(s, user, code, req))) return c.json({ error: "Koodi on väärä." }, 401);
+    s.loginLimiter.remembered.add(addressKey(req.ip ?? "local"));
+    await recordLogin(s, user.id, req.ip ?? "local", req.userAgent);
+    await startSession(c, s, user.id);
+    await endHalfSession(c, s);
+    return c.json({ user });
+  });
+
   app.post("/logout", async (c) => {
     const sessionId = c.get("sessionId");
     if (sessionId) await endSession(c, s, sessionId);
+    await endHalfSession(c, s);
     return c.json({ ok: true });
   });
 

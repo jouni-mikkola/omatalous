@@ -1,0 +1,8 @@
+/* Täsmää pankin saldoon under an account in Asetukset > Tilit: one flow of text inside the name's cell; the stretches are lines in the small size under it, indented past the caret. */
+.acc-rec { margin-top: 6px; white-space: normal; max-width: 36rem; }
+.acc-rec > summary { display: block; }
+/* a line with nothing to open stands where the words of a fold stand, after its caret */
+.acc-rec-plain { padding-left: 18px; }
+.acc-rec-rows { list-style: none; margin: 2px 0 0; padding: 0 0 0 18px; font-size: 12px; }
+.acc-rec-rows li { padding: 1px 0; }
+.acc-rec-rows li.stop { font-weight: 600; }

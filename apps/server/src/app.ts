@@ -24,6 +24,7 @@ import { marksRoutes } from "./routes/marks.ts";
 import { payerRoleRoutes } from "./routes/payer-roles.ts";
 import { optimiseRoutes } from "./routes/optimise.ts";
 import { securityRoutes } from "./routes/security.ts";
+import { factorRoutes } from "./routes/second-factor.ts";
 import { opsRoutes } from "./routes/ops.ts";
 import { merchantRoutes } from "./routes/merchants.ts";
 import { userRoutes } from "./routes/users.ts";
@@ -111,6 +112,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.use("/api/ops/*", requireAdmin);
   app.route("/api/users", userRoutes(s));
   app.route("/api/security", securityRoutes(s));
+  app.route("/api/security/factor", factorRoutes(s));
   app.route("/api/admin", adminRoutes(s));
   app.route("/api/ops", opsRoutes(s));
   app.route("/api", financeRoutes(s));

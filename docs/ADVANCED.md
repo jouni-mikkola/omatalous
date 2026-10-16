@@ -698,6 +698,7 @@ builds from source only when its checkout is newer than the latest release. `rel
 | Show the version | `docker compose exec banking node dist/node.js version` |
 | Get a new setup code, before the first user exists (a generated code works for 24 hours) | `docker compose exec banking node dist/node.js setup-code` |
 | Reset a password | `docker compose exec banking node dist/node.js user reset-password <username>` |
+| Take a second sign-in factor away (the phone and the recovery codes are lost; the user is signed out and told) | `docker compose exec banking node dist/node.js user remove-factor <username>` |
 | Sign everyone out | `docker compose exec banking node dist/node.js sessions revoke-all` |
 | Stop or start | `docker compose stop`, `docker compose up -d` |
 | Replace the app secret | `docker compose exec banking node dist/node.js secret rotate`, then `docker compose restart banking` |

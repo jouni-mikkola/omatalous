@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, AccountUse, Category, CategoryRule, DashboardData, FeatureState, LoanProposal, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardData, FeatureState, LoanProposal, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, DashboardData, RecurringSeries, ReportsData };
 
@@ -48,6 +48,8 @@ export interface Account {
   questions?: AccountQuestion[];
   /** The answers given, with the label of what they answer. */
   answers?: AccountAnswer[];
+  /** Whether the bank's balances are the sum of the rows; null for a card, a loan and another currency. */
+  reconcile?: ReconcileResult | null;
   /** The split of the payments to the account when it differs from the weights, in whole percents. */
   offer?: { userId: string | null; percent: number }[];
 }

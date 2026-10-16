@@ -59,6 +59,19 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   return lines;
 }
 
+/**
+ * True when the secret file holds another secret than the one this process runs with: a rotation was made and the app
+ * waits for its restart, so whatever it sealed now would be sealed with a key that is gone after it.
+ */
+export function secretFileDiffers(file: string | null, running: string | null | undefined): boolean {
+  if (!file || !running) return false;
+  try {
+    return readFileSync(file, "utf8").trim() !== running;
+  } catch {
+    return false;
+  }
+}
+
 /** Keeps the old secret as <file>.prev-<stamp> and makes <file>.next the secret file; each step is flushed. */
 function installNext(file: string, next: string, at: Date): string {
   const prev = `${file}.prev-${at.toISOString().slice(0, 19).replace(/[-:]/g, "")}`;
