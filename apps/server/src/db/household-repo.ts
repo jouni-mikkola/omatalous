@@ -22,7 +22,7 @@ export const keyOf = (a: string) => `COALESCE(${a}.identity, ${a}.id)`;
 
 /**
  * The tables keyed by a real account (`account_key`) that no foreign key reaches: what they hold goes when no account holds the key.
- * Only the fetch notes go: `account_balances`, `foreign_rows` and `account_agreement` (the user's own answer) cannot all be fetched again, and an account can be gone for a while (a consent that
+ * Only the fetch notes go: `account_balances`, `foreign_rows`, `account_agreement` (the user's own answer) and `settlement_closed` (what the partners were shown) cannot all be fetched again, and an account can be gone for a while (a consent that
  * ended, an unlinked account linked again under the same identity), so its rows stay and a reader ignores a key with no account.
  */
 const KEYED_TABLES = ["account_fetch"] as const;
@@ -66,6 +66,8 @@ export interface AnswerRow {
   kind: "in" | "opening";
   answerKey: string;
   owner: string;
+  /** The instant it was said (ISO text). */
+  saidAt: string;
 }
 
 /** One stored part of a row: see migration 0020. */
@@ -285,11 +287,12 @@ export class HouseholdRepo {
   }
 
   async answerRows(key: string): Promise<AnswerRow[]> {
-    return (await this.db.all<Row>("SELECT kind, key, owner FROM owner_answer WHERE account_key = ? ORDER BY kind, key", [key])).map((r) => ({
+    return (await this.db.all<Row>("SELECT kind, key, owner, said_at FROM owner_answer WHERE account_key = ? ORDER BY kind, key", [key])).map((r) => ({
       key,
       kind: String(r.kind) as AnswerRow["kind"],
       answerKey: String(r.key),
       owner: String(r.owner),
+      saidAt: String(r.said_at),
     }));
   }
 

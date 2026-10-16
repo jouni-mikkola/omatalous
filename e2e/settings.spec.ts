@@ -6,8 +6,8 @@ import { linkFakeBank, makeMember, overflow, removeMember, waitForSync, watch } 
 // of a bank connection that ended. The server has the administrator and the demo household already (e2e/run.mjs makes
 // them). A member lives in the household for the length of the file: Tilien jakaminen is a card only beside a second member.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const PLAIN = ["Pankkiyhteydet", "Tilit", "Talouden jäsenet", "Tilien jakaminen", "Lainat", "Tiedot", "Salasana", "Tekniset asetukset", "Kaksivaiheinen kirjautuminen", "Tietoja"];
-const MEMBER_PLAIN = PLAIN.filter((h) => h !== "Talouden jäsenet");
+const PLAIN = ["Pankkiyhteydet", "Tilit", "Talouden jäsenet", "Jäsenet ilman tunnusta", "Tilien jakaminen", "Lainat", "Tiedot", "Salasana", "Tekniset asetukset", "Kaksivaiheinen kirjautuminen", "Tietoja"];
+const MEMBER_PLAIN = PLAIN.filter((h) => h !== "Talouden jäsenet" && h !== "Jäsenet ilman tunnusta");
 
 let member: { state: string; id: string };
 test.beforeAll(async ({ browser }) => {

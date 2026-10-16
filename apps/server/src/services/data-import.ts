@@ -5,7 +5,7 @@
  * until proved otherwise: every value is checked as it is staged, every reference must point inside the file or to a row
  * the user has here, and nothing is ever updated or deleted. No user, password, session, second factor or token is made.
  */
-import { getCategory, normalizeIban, PAYER_ROLES } from "@banking/core";
+import { type ClosedMonth, getCategory, normalizeIban, PAYER_ROLES } from "@banking/core";
 import { type OwnAccount, ImportRepo, type IdTable } from "../db/import-repo.ts";
 import { bankSignature, searchText } from "../db/finance-repo.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -14,14 +14,15 @@ import { yieldToLoop } from "../platform/yield.ts";
 import type { Statement } from "../db/types.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
+import { importedAgreementValue, importedMonthRefusal, weightedKeys } from "./settlement.ts";
 import { expiry, open, refuse, sessionOf, type ImportHead, type Row, type Session, type User } from "./data-import-session.ts";
 
 export { addChunk, cancelImport, startImport } from "./data-import-session.ts";
 import { IMPORT_BY_KEY, IMPORT_STORES, NEVER_WRITTEN, type ImportStore } from "./data-import-stores.ts";
 
 
-/** Why a row is not added: it is another user's, a kind of row this import never writes, or household-wide and the user is not the admin. */
-type SkipReason = "other_user" | "users" | "sharing" | "household";
+/** Why a row is not added: it is another user's, a kind of row this import never writes, household-wide and the user is not the admin, or a settlement row the user may not bring (`refused`). */
+type SkipReason = "other_user" | "users" | "sharing" | "household" | "refused";
 
 interface StoreCounts {
   key: string;
@@ -254,6 +255,16 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
     tally("transactions").add++;
   }
 
+  // a pool or card the user is weighted in: as the household says now, or (an account this import adds) as the file says of the user, who weighs 1 unless it says 0
+  // the closed months of the pools this import has worked out, to hold a given month against
+  const worked = new Map<string, Map<string, ClosedMonth> | null>();
+  const weighted = new Set(await weightedKeys(s, me.id, [...localKeys]));
+  const zero = new Set(rowsOf("accountUse").filter((r) => r.weight === 0 && r.user_id !== null && fileUsers.get(String(r.user_id)) === me.username).map((r) => keyMap.get(String(r.account_key)) ?? String(r.account_key)));
+  for (const id of createdAccounts) {
+    const a = localById.get(id)!;
+    if (!zero.has(a.identity ?? a.id)) weighted.add(a.identity ?? a.id);
+  }
+
   // the other stores, each row by its key: another user's skipped, the user's own added unless the table has the key
   const billsHere = new Set<string>();
   const NOT_STORES = new Set(["users", "accounts", "transactions", "accountShares"]);
@@ -310,6 +321,22 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
       if (theirs !== null) {
         skip(store.key, "other_user", theirs || undefined);
         continue;
+      }
+      // what a settlement says of a pool is for those weighted in it; a month is kept only when it has closed by the rule that closes one, and one that is kept is never replaced (it exists: same key)
+      if (store.key === "accountAgreements" || store.key === "settlementClosed") {
+        if (!weighted.has(String(mapped.account_key)) || (store.key === "settlementClosed" && (await importedMonthRefusal(s, me.id, mapped, worked)))) {
+          skip(store.key, "refused");
+          continue;
+        }
+        // a row that shows the income ratio is put by the user alone: the others it names put it themselves
+        if (store.key === "accountAgreements") {
+          const value = await importedAgreementValue(s, me.id, String(mapped.account_key), String(mapped.kind), String(mapped.value));
+          if (value === null) {
+            skip(store.key, "refused");
+            continue;
+          }
+          mapped.value = value;
+        }
       }
       for (const c of store.said ?? []) {
         if (row[c] === null) continue;

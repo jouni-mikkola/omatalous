@@ -30,7 +30,7 @@ The code is `apps/server/src/services/data-export-stores.ts` (the stores) and `d
 After these come one array per store, listed below in the order of the file. A row is an object with one key per
 column of the database table it is read from: the same names, so the migrations (`apps/server/migrations`) explain a
 column further. A key is always present; a missing value is `null`. Money is integer cents, a day is `YYYY-MM-DD`, an
-instant is ISO text in UTC. Text columns that hold JSON (`account_agreement.value`, `optimise_snapshots.data`) are
+instant is ISO text in UTC. Text columns that hold JSON (`account_agreement.value`, `settlement_closed.snapshot`, `optimise_snapshots.data`) are
 strings, not nested objects. Rows are ordered by their key, so two exports of one database are equal but for
 `exportedAt`.
 
@@ -419,6 +419,30 @@ Table `account_agreement`, one object per row.
 | `set_by` | string or null |  |
 | `set_at` | string |  |
 
+### settlementClosed
+
+Table `settlement_closed`, one object per row.
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `account_key` | string |  |
+| `month` | string |  |
+| `closed_on` | string |  |
+| `snapshot` | string |  |
+| `written_at` | string |  |
+
+`accountAgreements` and `settlementClosed` are in the file only for the accounts the person is weighted in (they say what the
+partners of a pool owe each other, so a person who only sees a shared account gets none). A row that still waits for a
+partner (an `income` agreement, or a `fixed` one whose remainder follows income, that not every user it names has put) is
+in the file only for the users it names and the ones who have put it. On import such a row is taken only for an account
+the person is weighted in, of a kind this server knows and a value of the shape the app writes (anything else is skipped
+with the reason `refused`). A `settlementClosed` row is taken only for a month that has ended, from the pool's first booked
+month on, whose `closed_on` is a day that month can close on (from its last day to 90 days after, not in the future, with
+`by` as that day gives), and only when it equals what this server works out for that month of that pool (the same lines and
+cents); it is never put in place of a month that is stored. So a month that comes in one file with the agreement it was
+worked out with is skipped the first time and taken when the file is imported again. An agreement that shows the income
+ratio is read as put by the person alone: the others it names put it themselves.
+
 ### valuedAssets
 
 Table `valued_asset`, one object per row.
@@ -537,5 +561,5 @@ Nothing is updated or deleted: a row with a key the table has is kept as it is a
 
 `stores` lists the stores that have rows in the file, in the order of the file; a store of the file this release does
 not know is in `ignored.stores` (rows counted), a key of a known row it does not know in `ignored.keys`. `reason` is
-`other_user` (the page says "toisen käyttäjän"), `users`, `sharing` or `household` (the page says "ei tuoda"). `otherUsers` are the other usernames the file names, with
+`other_user` (the page says "toisen käyttäjän"), `users`, `sharing`, `household` (the page says "ei tuoda") or `refused` (a settlement row the person may not bring). `otherUsers` are the other usernames the file names, with
 the rows skipped for them. The commit writes one security event `ops_import` with the totals.

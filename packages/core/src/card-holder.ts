@@ -15,6 +15,8 @@ export interface CardUse {
 interface Agreement {
   accountKey: string;
   validFrom: string;
+  /** A `fixed` agreement is monthly and the pool's: a card has none, so one on a card key is not read here. */
+  kind?: string;
 }
 
 /** The cards a pool's bills may go to, by account id, with the pool's members and the agreements there are. */
@@ -35,7 +37,7 @@ type CardHolder = { rule: 1; kind: "agreement" } | { rule: 2; kind: "one"; owner
 
 /** Whose the bill of `card` booked on `day` is, by the first rule that says. */
 export function cardHolderOf(card: CardUse, day: number, members: ReadonlySet<Owner>, agreements: readonly Agreement[] = []): CardHolder {
-  if (agreements.some((a) => a.accountKey === card.key && dayNumber(a.validFrom) <= day)) return { rule: 1, kind: "agreement" };
+  if (agreements.some((a) => a.accountKey === card.key && a.kind !== "fixed" && dayNumber(a.validFrom) <= day)) return { rule: 1, kind: "agreement" };
   const users = card.users.filter((u) => u.weight > 0);
   const one = users.length === 1 ? users[0]! : undefined;
   if (one && one.owner !== "u:" && members.has(one.owner)) return { rule: 2, kind: "one", owner: one.owner };

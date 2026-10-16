@@ -36,8 +36,8 @@ export async function accountSources(s: Services, userId: string, accountId: str
       month: m.month,
       columns: m.columns.map(({ owner, ...figures }) => ({
         // the holder with no login is the user with no id: the page names them from the account's use
-        userId: owner === null || owner === "u:" ? null : owner.slice(2),
-        ...(owner === "u:" ? { holder: true as const } : {}),
+        userId: owner === null || owner === "u:" || owner.startsWith("m:") ? null : owner.slice(2),
+        ...(owner === "u:" || owner?.startsWith("m:") ? { holder: true as const } : {}),
         ...figures,
       })),
     })),

@@ -4,6 +4,7 @@ import { accountKey } from "../db/household-repo.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { sharedInView } from "./analysis.ts";
 import type { Services } from "./context.ts";
+import { weightedKeys } from "./settlement.ts";
 import { EXPORT_FORMAT, EXPORT_VERSION, LEFT_OUT, STORES, storeColumns, storeRead, type Viewer } from "./data-export-stores.ts";
 
 type Row = Record<string, string | number | null>;
@@ -30,12 +31,14 @@ const withSignature = (r: Row) => ({
 async function viewerOf(s: Services, user: { id: string; role: string }): Promise<Viewer> {
   const own = await s.finance(user.id).listAccounts();
   const [shared, shares] = await Promise.all([sharedInView(s, user.id, own), s.household.sharesOf(user.id)]);
+  const accountKeys = [...new Set([...own, ...shared].map(accountKey))];
   return {
     userId: user.id,
     admin: user.role === "admin",
     ownAccounts: own.map((a) => a.id),
     sharedAccounts: shared.map((a) => a.id),
-    accountKeys: [...new Set([...own, ...shared].map(accountKey))],
+    accountKeys,
+    weightedKeys: await weightedKeys(s, user.id, accountKeys),
     users: [...new Set([user.id, ...shared.map((a) => a.userId), ...shares.map((x) => x.userId)])],
   };
 }

@@ -40,6 +40,7 @@ const REASONS: Record<string, string> = {
   users: "ei tuoda",
   sharing: "ei tuoda",
   household: "ei tuoda: vain ylläpitäjä tuo talouden yhteiset tiedot",
+  refused: "Ei tuotu: ei täsmää tai kuukausi ei ole päättynyt",
 };
 
 const NOT_OURS = "Tiedosto ei ole Omatalouden tietotiedosto.";

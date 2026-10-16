@@ -41,7 +41,7 @@ test("the question after a link, the parts of the joint account, the bank's answ
   await expect(parts.getByRole("button", { pressed: true })).toHaveCount(1);
   // an own account has the same select, with nothing under it
   await expect(tilit.getByRole("combobox", { name: "Tilin Käyttötili käyttäjä" })).toHaveValue(`user:${member.id}`);
-  await expect(tilit.getByRole("group")).toHaveCount(1);
+  await expect(tilit.getByRole("group", { name: /osuudet$/ })).toHaveCount(1);
 
   // nothing said and no payers to go by: the account is cut equally
   await expect(parts.getByRole("button", { name: "Tasan" })).toHaveAttribute("aria-pressed", "true");

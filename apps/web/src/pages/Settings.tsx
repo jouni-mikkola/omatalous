@@ -8,6 +8,7 @@ import { BankConnections, connectedMessage, connectError } from "./settings/Bank
 import { Loans } from "./settings/Loans.tsx";
 import { DataExport } from "./settings/DataExport.tsx";
 import { Members } from "./settings/Members.tsx";
+import { NamelessMembers } from "./settings/NamelessMembers.tsx";
 import { SecondFactor } from "./settings/SecondFactor.tsx";
 import { Password } from "./settings/Security.tsx";
 import { Sharing } from "./settings/Sharing.tsx";
@@ -69,6 +70,8 @@ function Plain({ meta, params, anchor, onChange }: PageProps) {
       <Accounts meta={meta} onChange={onChange} />
 
       {isAdmin && <Members me={meta.user} onChange={onChange} onLoaded={partLoaded} />}
+
+      {isAdmin && <NamelessMembers meta={meta} />}
 
       <Sharing meta={meta} onChange={onChange} />
 

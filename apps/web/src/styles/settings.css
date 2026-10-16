@@ -43,6 +43,9 @@ td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-spac
 .use-field { display: flex; flex-direction: column; gap: 4px; }
 .use-field input { width: 6.5rem; font-variant-numeric: tabular-nums; }
 .use-field input[readonly] { background: transparent; border-style: dashed; }
+.use-field input[type="date"] { width: 11rem; }
+/* the date of a new agreement has a row to itself: at 390 px it is cut beside another field */
+.use-field-date { flex-basis: 100%; }
 /* the offer, the questions and the answers: a label at the left, the figure, the buttons */
 .use-head { margin: 6px 0 0; font-size: inherit; font-weight: 600; }
 .use-list { list-style: none; margin: 0; padding: 0; align-self: stretch; max-width: 46rem; }

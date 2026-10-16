@@ -122,8 +122,18 @@ describe("the page of a section", () => {
     expect(ids("month")).toEqual(["muutos"]);
     expect(ids("bills")).toEqual(["tulevat", "hinnat"]);
     expect(ids("settings")).toEqual(["laatu"]);
-    expect(ids("reports")).toHaveLength(REPORT_SECTIONS.length - 4);
-    for (const id of ["muutos", "tulevat", "hinnat", "laatu"]) expect(ids("reports")).not.toContain(id);
+    // Yhteiset menot needs a joint account the user is weighted in, which the full answer does not have
+    expect(ids("reports")).toHaveLength(REPORT_SECTIONS.length - 5);
+    for (const id of ["muutos", "tulevat", "hinnat", "laatu", "yhteiset-menot"]) expect(ids("reports")).not.toContain(id);
+  });
+
+  it("Yhteiset menot shows only for a user who is weighted in a joint account", () => {
+    const section = REPORT_SECTIONS.find((s) => s.id === "yhteiset-menot")!;
+    const ctx = (users: { userId: string; weight: number }[]) => ({ meta: { user: { id: "u1" }, accounts: [{ use: { users } }] } }) as unknown as ReportContext;
+    expect(section.visible?.(ctx([{ userId: "u1", weight: 50 }, { userId: "u2", weight: 50 }]))).toBe(true);
+    // a near miss: she is named with no weight, or alone
+    expect(section.visible?.(ctx([{ userId: "u1", weight: 0 }, { userId: "u2", weight: 100 }]))).toBe(false);
+    expect(section.visible?.(ctx([{ userId: "u1", weight: 100 }]))).toBe(false);
   });
 
   it("a page renders only its own sections", () => {

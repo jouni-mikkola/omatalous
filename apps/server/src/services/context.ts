@@ -6,6 +6,7 @@
 import { todayIn, type Config } from "../platform/config.ts";
 import { FactorRepo } from "../db/factor-repo.ts";
 import { FinanceRepo } from "../db/finance-repo.ts";
+import { AgreementRepo } from "../db/agreement-repo.ts";
 import { HouseholdRepo } from "../db/household-repo.ts";
 import { IndustryRepo } from "../db/industry-repo.ts";
 import { OpsRepo } from "../db/ops-repo.ts";
@@ -56,6 +57,8 @@ export interface Services {
   readonly db: Db;
   readonly users: UsersRepo;
   readonly household: HouseholdRepo;
+  /** Dated agreements and the household members who have no login (settlement between partners). */
+  readonly agreements: AgreementRepo;
   readonly settings: SettingsRepo;
   /** Trade register answers per merchant name (services/industry.ts). */
   readonly industry: IndustryRepo;
@@ -133,6 +136,7 @@ export function createServices(deps: AppDeps): Services {
     db: deps.db,
     users: new UsersRepo(deps.db),
     household: new HouseholdRepo(deps.db),
+    agreements: new AgreementRepo(deps.db),
     settings,
     industry: new IndustryRepo(deps.db),
     instance,

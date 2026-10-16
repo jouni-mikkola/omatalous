@@ -99,7 +99,7 @@ async function keep(db: Db, userId: string, tag: string, other?: string) {
   await run("INSERT INTO account_balances (account_key, day, type, cents, fetched_at, source) VALUES (?, '2026-09-30', 'closingBooked', 5, ?, 'csv')", `${tag}-ident`, AT);
   await run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES (?, ?, 1, ?, ?)", `${tag}-ident`, userId, userId, AT);
   await run("INSERT INTO account_split (account_key, mode, set_by, set_at) VALUES (?, 'source', ?, ?)", `${tag}-ident`, userId, AT);
-  await run("INSERT INTO account_agreement (account_key, valid_from, kind, value, set_by, set_at) VALUES (?, '2026-01-01', 'terms', '{}', ?, ?)", `${tag}-ident`, userId, AT);
+  await run("INSERT INTO account_agreement (account_key, valid_from, kind, value, set_by, set_at) VALUES (?, '2026-01-01', 'equal', ?, ?, ?)", `${tag}-ident`, JSON.stringify({ who: [`u:${tag}`] }), userId, AT);
   await run("INSERT INTO foreign_rows (account_key, raw_key, booking_date, amount_minor, scale, currency, text, seen_at) VALUES (?, 'r1', '2026-09-30', -500, 2, 'SEK', 'ESIMERKKI AB', ?)", `${tag}-ident`, AT);
   await run("INSERT INTO tx_part (tx_id, owner, kind, grp, cents, passed) VALUES (?, ?, 'spend', 'groceries', 1250, 0)", tx1, `u:${userId}`);
   await run("INSERT INTO loans (id, user_id, name, kind, balance_cents, balance_date, rate_bp, created_at, updated_at) VALUES (?, ?, ?, 'consumer', 100000, '2026-09-01', 500, ?, ?)", `${tag}-loan`, userId, `${tag} laina`, AT, AT);

@@ -225,6 +225,14 @@ export const IMPORT_STORES: readonly ImportStore[] = [
     accountKey: "account_key",
     said: ["set_by"],
   },
+  {
+    key: "settlementClosed",
+    table: "settlement_closed",
+    cols: { account_key: id, month: text(7, 7, /^\d{4}-\d{2}$/), closed_on: day, snapshot: json(150_000), written_at: at },
+    max: 5000,
+    pk: ["account_key", "month"],
+    accountKey: "account_key",
+  },
   { key: "valuedAssets", table: "valued_asset", cols: { id, kind: word, name: text(200), day, cents: whole(0, 1e13) }, max: MAX_ROWS, pk: ["id", "day"], household: true },
   { key: "contractTerms", table: "contract_terms", cols: { user_id: id, series_key: text(200), notice_days: maybe(whole(0, 3650)), renews_on: maybe(day), answered_at: at }, max: 5000, pk: ["user_id", "series_key"], user: "user_id" },
 ];

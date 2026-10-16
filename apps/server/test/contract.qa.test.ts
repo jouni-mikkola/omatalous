@@ -255,6 +255,9 @@ describe("data versions", () => {
     "PUT /api/optimise/inputs/:key",
     "DELETE /api/optimise/inputs/:key",
     "PUT /api/optimise/findings/:id",
+    // the settlement is worked out for each request from the trace and the stored agreements; settlement.test.ts checks that saving one moves no version
+    "PUT /api/settlement/agreements/:accountId",
+    "DELETE /api/settlement/agreements/:accountId/:validFrom",
   ];
   // Nothing the analysis reads: sign-in, members (removal aside), the instance, maintenance, security events, bank keys, a
   // consent not yet given, the export of the user's own file (it reads and writes a security event), and a consent ended: removing a connection only marks it revoked, its accounts and rows stay

@@ -22,6 +22,8 @@ export interface Viewer {
   sharedAccounts: readonly string[];
   /** The real accounts of both (`accountKey`): the key the household's answers and balances are kept under. */
   accountKeys: readonly string[];
+  /** Of those, the keys the viewer is weighted in: what a settlement says of a pool or card is for the users who weigh something in it. */
+  weightedKeys: readonly string[];
   /** The viewer, the owners of the shared accounts and the members the viewer shares an account with. */
   users: readonly string[];
 }
@@ -62,6 +64,18 @@ const accountIds = (v: Viewer) => [...v.ownAccounts, ...v.sharedAccounts];
 const mine = (v: Viewer): Clause => ({ sql: "user_id = ?", params: [v.userId] });
 const inView = (v: Viewer): Clause => ({ sql: among("account_id"), params: [list(accountIds(v))] });
 const byKey = (v: Viewer): Clause => ({ sql: among("account_key"), params: [list(v.accountKeys)] });
+const byWeightedKey = (v: Viewer): Clause => ({ sql: among("account_key"), params: [list(v.weightedKeys)] });
+/** The users a row of an agreement that shows the income ratio names, as `$.who`; the ones who have put it, `$.confirmed`. */
+const WHO = "json_each(account_agreement.value, '$.who')";
+const PUT = "json_each(account_agreement.value, '$.confirmed')";
+/** As `byWeightedKey`, and a row that still waits for a partner only for the users it names or who have put it (the route's rule). */
+const agreementsOfViewer = (v: Viewer): Clause => ({
+  sql: `${among("account_key")} AND NOT CASE WHEN json_valid(value) AND (kind = 'income' OR (kind = 'fixed' AND json_extract(value, '$.rest.kind') = 'income'))
+    THEN EXISTS (SELECT 1 FROM ${WHO} w WHERE w.value LIKE 'u:_%' AND w.value NOT IN (SELECT c.value FROM ${PUT} c))
+      AND ? NOT IN (SELECT w.value FROM ${WHO} w) AND ? NOT IN (SELECT c.value FROM ${PUT} c)
+    ELSE 0 END`,
+  params: [list(v.weightedKeys), `u:${v.userId}`, `u:${v.userId}`],
+});
 
 export const STORES: readonly Store[] = [
   {
@@ -122,7 +136,8 @@ export const STORES: readonly Store[] = [
   // the household's answers are for everybody, a member's own answers only for them
   { key: "payerRoles", table: "payer_role", rows: (v) => ({ sql: "(user_id IS NULL OR user_id = ?)", params: [v.userId] }), order: "scope, COALESCE(user_id, ''), counterparty_key" },
   { key: "householdMembers", table: "household_member", order: "created_at, id" },
-  { key: "accountAgreements", table: "account_agreement", rows: byKey, order: "account_key, valid_from" },
+  { key: "accountAgreements", table: "account_agreement", rows: agreementsOfViewer, order: "account_key, valid_from" },
+  { key: "settlementClosed", table: "settlement_closed", rows: byWeightedKey, order: "account_key, month" },
   { key: "valuedAssets", table: "valued_asset", order: "id, day" },
   { key: "contractTerms", table: "contract_terms", rows: mine, order: "user_id, series_key" },
 ];

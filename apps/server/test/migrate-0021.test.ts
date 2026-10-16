@@ -147,7 +147,8 @@ describe("migration 0021", () => {
   it("is opened by a build that stops at 0020, and refused by one below its floor", async () => {
     const db = fromFixture();
     try {
-      await applyMigrations(db, (await pendingMigrations(db, all())).pending);
+      // the database as 0021 leaves it: later files (0022 has a higher floor) are not applied here
+      await applyMigrations(db, (await pendingMigrations(db, all())).pending.filter((m) => m.name <= NAME));
       const known = all().filter((m) => m.name < NAME);
       const rollback = await pendingMigrations(db, known, { appVersion: "0.45.0" });
       expect(rollback.pending).toEqual([]);

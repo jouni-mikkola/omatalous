@@ -1,0 +1,38 @@
+{
+  "contract": "ops poll",
+  "about": "stdout of `node dist/node.js ops poll [--dry] --helper <version> --done <ids>`. poll_once in scripts/ops-helper.sh of every installed release matches the line with a regular expression (lineRegex is its pattern in JavaScript syntax, and the answer may be 8192 characters at most), so the keys and their order are fixed and nothing may be added. The helper passes its own version, a number (4 in 0.10.0, 3 in 0.9.0 and 0.8.7). Since 0.8.7 the action may be `access`, handed only to a helper of version 3 or newer; the helper then asks what to apply with `node dist/node.js ops access --helper <version>`, whose line it also matches as text (access_read in scripts/lib/ops-access.sh, 4096 characters at most). Since 0.10.0 the action may also be `prerelease-on` or `prerelease-off`, handed only to a helper of version 4 or newer (ACTION_SINCE in services/ops-validate.ts, helperKnows in pollOps in services/ops.ts; a request queued for a newer helper than the one polling ends as failed and is not handed out). Neither takes parameters, so the line has the keys of any other action, and the action pattern of the second case already matches both names (at most 14 characters). Since 0.9.0 the self-test of the helper (selftest_checks in scripts/lib/ops-selftest.sh) asks `ops poll --dry --helper <version>` and compares the first 200 characters with the text {\"request\":null} (the fourth case). The flag hands out nothing and writes nothing, so a queued request stays queued and the helper does not count as seen; an app from before 0.9.0 ignores the flag and polls for real, which is why the helper asks only an app of 0.9.0 or newer. The third case is the access line when nothing is prepared; the other two lines are in the README of 0.8.7. `cli-ops.ts` did not change after 0.9.0: only the version the helper passes is new.",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "forbidden",
+  "lineMaxLength": 8192,
+  "cases": [
+    {
+      "name": "nothing is queued",
+      "setup": "none",
+      "args": ["poll", "--helper", "4", "--done", ""],
+      "lineRegex": "^\\{\"request\":null\\}$",
+      "shape": { "request": "null" }
+    },
+    {
+      "name": "a request is queued",
+      "setup": "queued",
+      "args": ["poll", "--helper", "4", "--done", ""],
+      "lineRegex": "^\\{\"request\":\\{\"id\":\"op_[0-9a-f]{16}\",\"action\":\"[a-z-]{1,20}\",\"params\":\\{\\},\"secret\":null\\}\\}$",
+      "shape": { "request": { "id": "string", "action": "string", "params": {}, "secret": "null" } }
+    },
+    {
+      "name": "ops access: no change of remote access is prepared",
+      "setup": "none",
+      "args": ["access", "--helper", "4"],
+      "lineRegex": "^\\{\"want\":null\\}$",
+      "shape": { "want": "null" }
+    },
+    {
+      "name": "ops poll --dry: the self-test's question hands out nothing while a request is queued",
+      "setup": "queued",
+      "args": ["poll", "--dry", "--helper", "4"],
+      "lineRegex": "^\\{\"request\":null\\}$",
+      "shape": { "request": "null" }
+    }
+  ]
+}

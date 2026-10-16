@@ -3,6 +3,24 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.56.0
+
+- Settlement between partners. Under Asetukset > Tilit each joint account and shared card has "Jako": equal, by shares, in proportion to income or a fixed sum with the rest split another way, valid from a day you choose, earlier agreements kept below. A split in proportion to income waits until every named partner has accepted it ("Hyväksy"); a partner can turn it down ("Hylkää") and the one who proposed it can take it back ("Peruuta ehdotus").
+- Raportit has "Yhteiset menot" per month and joint account: what each partner paid, their share and who paid over or under it. Money of unknown origin is shown apart under "Ei tiedossa", never put on anyone. A closed month is locked; a later change shows as "Korjaus kuukaudelta …" in the running month, so nothing already settled moves.
+- Admin has "Jäsenet ilman tunnusta" for a partner who pays into the joint account but has no login of their own.
+
+Money and reports
+
+- Raportit has Yhteiset menot: for each month and joint account, what each member paid, their share and who paid over or under it, with the month locked on its closing day and later corrections named.
+- Asetukset > Tilit has Jako on a joint account or card: the split in force, earlier ones, and a form to change it from a day.
+- Asetukset has Jäsenet ilman tunnusta for the administrator: household members with no login, optionally named as the bank shows them.
+- A split that follows income waits until every user it names has accepted it; each of them can accept (Hyväksy) or decline (Hylkää) it, and the one who proposed it can take it back (Peruuta ehdotus). Until then the earlier split holds.
+- Yhteiset menot lists money nobody of the account paid or owes under its own heading, Ei tiedossa.
+
+Upgrade
+
+- Migration 0022 adds one table for the frozen months of a joint account's split. Version 0.55.0 can still open the database after it, so a rollback keeps what was recorded.
+
 ## 0.55.0
 
 - "Miksi?" beside the month's income and spending on Yhteenveto and beside each category and the total on Raportit opens the rows behind the figure: day, payee, category, the reason the row was placed where it is (your own choice, your rule, a transfer between own accounts, your part of a joint account, a refund netted against its purchase), and at the foot "Täsmää" or the difference in euros, never hidden. Rows the figure leaves out are listed apart.

@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import {
   type Account,
   type AccountUse,
+  type AccountUser,
   type Answer,
   balanceDayOf,
   type CardUse,
@@ -21,6 +22,7 @@ import {
   isUserOwner,
   type Joined,
   joinCopies,
+  nameOf,
   normalizeIban,
   OTHER_HOLDER,
   openOf,
@@ -30,6 +32,8 @@ import {
   type Question,
   questionsOf,
   type RowShare,
+  type SaidAnswer,
+  samePerson,
   type SourcePart,
   settle,
   shareOf,
@@ -44,13 +48,16 @@ import {
   userNameOf,
 } from "@banking/core";
 import { isEuro } from "../connectors/balance-sign.ts";
+import type { StoredMember } from "../db/agreement-repo.ts";
 import { type AnswerRow, accountKey, type PartRow } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { UserError } from "../platform/errors.ts";
 import { bumpSeers, isPool, usesInView } from "./account-use.ts";
+import { pendingOf } from "./agreement-pending.ts";
 import type { Services } from "./context.ts";
 import { withUserLock } from "./enrich.ts";
+import { offerOf, partRowsOf, windowOf } from "./money-trace-parts.ts";
 
 /** Everything the trace of a pool reads about the household, loaded once. */
 interface Household {
@@ -59,6 +66,10 @@ interface Household {
   userIds: string[];
   /** The use of every real account, by key. */
   uses: Map<string, AccountUse>;
+  /** The household members who have no login: a holder line that names one is that member (`m:<id>`). */
+  members: StoredMember[];
+  /** The days agreements stand from, by account key, and their kind (a `fixed` one is no card's): what the card rule of a bill reads. */
+  agreements: { accountKey: string; validFrom: string; kind: string }[];
   /** The rows of every account, by account id; set by `withRows`. */
   rows: Map<string, Transaction[]>;
   /** Memos of one pass. */
@@ -92,6 +103,13 @@ export interface SettledTrace {
   users: TraceUser[];
   /** What the household said, as `settle` reads it. */
   answers: Answer[];
+  /** The answers as `settlement` reads them: with the local day each was said on. */
+  said: SaidAnswer[];
+  /** The card accounts of the household and the owners who use this pool (`u:` the holder nobody names is not one). */
+  cards: CardUse[];
+  members: ReadonlySet<Owner>;
+  /** The rows of the pool that the bank says paid a card bill (the category), by trace row key. */
+  cardBills: ReadonlySet<string>;
   /** The trace before any answer, and after them. */
   raw: Trace;
   trace: Trace;
@@ -117,7 +135,16 @@ export interface TraceFacts {
   split?: { by: "app" | "user"; at: string };
 }
 
-const ownerOfUser = (userId: string | null): Owner => (userId === null ? "u:" : `u:${userId}`);
+/**
+ * The owner a user of an account is in a trace: `u:<id>`. The holders who have no login are the household member their
+ * line of holders names, matched as the bank writes the name (`m:<id>`), else nobody in particular (`u:`).
+ */
+function ownerOf(h: Household, u: AccountUser): Owner {
+  if (u.userId !== null) return `u:${u.userId}`;
+  const holders = u.label !== OTHER_HOLDER ? holdersIn(u.label) : [];
+  const hits = holders.length === 1 ? h.members.filter((m) => samePerson(nameOf(m.name), holders[0]!.name)) : [];
+  return hits.length === 1 ? `m:${hits[0]!.id}` : "u:";
+}
 const weighted = (use: AccountUse) => use.users.filter((u) => u.weight > 0);
 const sha = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 40);
 
@@ -128,7 +155,7 @@ function fullest(copies: readonly StoredAccount[]): StoredAccount {
 }
 
 async function loadHousehold(s: Services): Promise<Household> {
-  const [accounts, users] = await Promise.all([s.household.allAccounts(), s.users.list()]);
+  const [accounts, users, members, agreements] = await Promise.all([s.household.allAccounts(), s.users.list(), s.agreements.members(), s.agreements.allAgreements()]);
   const byKey = new Map<string, StoredAccount[]>();
   for (const a of accounts) byKey.set(accountKey(a), [...(byKey.get(accountKey(a)) ?? []), a]);
   const uses = new Map<string, AccountUse>();
@@ -138,7 +165,8 @@ async function loadHousehold(s: Services): Promise<Household> {
     const read = await usesInView(s, first.id, standing);
     for (const a of standing) uses.set(accountKey(a), read.get(a.id)!.use);
   }
-  return { accounts, byKey, userIds: users.map((u) => u.id), uses, rows: new Map(), prepared: new Map(), raw: new Map(), deps: new Map(), today: s.today(), timezone: s.instance.current.timezone };
+  return { accounts, byKey, userIds: users.map((u) => u.id), uses, members,
+    agreements: agreements.filter((r) => !pendingOf(r)).map(({ accountKey: key, validFrom, kind }) => ({ accountKey: key, validFrom, kind })), rows: new Map(), prepared: new Map(), raw: new Map(), deps: new Map(), today: s.today(), timezone: s.instance.current.timezone };
 }
 
 async function withRows(s: Services, h: Household): Promise<void> {
@@ -153,16 +181,8 @@ const keyOfAccount = (h: Household, accountId: string): string => {
   return a ? accountKey(a) : accountId;
 };
 
-/** The first day and the last of the three complete calendar months before today's month. */
-function windowOf(today: string): { from: number; to: number } {
-  const [year, month] = today.split("-").map(Number) as [number, number];
-  const back = year * 12 + (month - 1) - 3;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return { from: dayNumber(`${Math.floor(back / 12)}-${pad((back % 12) + 1)}-01`), to: dayNumber(`${today.slice(0, 7)}-01`) - 1 };
-}
-
 /** A card account: a credit card with no IBAN to key it by (the type the pairing of a bill with the card's row reads). */
-const isCardAccount = (a: StoredAccount): boolean => !normalizeIban(a.iban) && a.type === "credit_card";
+export const isCardAccount = (a: StoredAccount): boolean => !normalizeIban(a.iban) && a.type === "credit_card";
 
 /**
  * The payers of a pool: this pool's users only (`u:<id>`, and `u:` for the holders who are no user), by IBAN and by name.
@@ -172,17 +192,18 @@ const isCardAccount = (a: StoredAccount): boolean => !normalizeIban(a.iban) && a
  */
 function payersOf(h: Household, key: string): Omit<Payers, "legParts" | "others"> {
   const use = h.uses.get(key)!;
-  const mine = new Set(weighted(use).map((u) => ownerOfUser(u.userId)));
+  const mine = new Set(weighted(use).map((u) => ownerOf(h, u)));
   const alone = new Map<string, Owner>();
   const byAccount = new Map<string, CardUse>();
   const pools = new Set<string>();
   for (const [k, other] of h.uses) {
     const users = weighted(other);
-    const only = users.length === 1 && users[0]!.userId !== null ? ownerOfUser(users[0]!.userId) : null;
+    const sole = users.length === 1 ? ownerOf(h, users[0]!) : null;
+    const only = sole !== "u:" ? sole : null;
     for (const a of h.byKey.get(k) ?? []) {
       const iban = normalizeIban(a.iban);
       if (!iban) {
-        if (isCardAccount(a)) byAccount.set(a.id, { key: k, users: users.map((u) => ({ owner: ownerOfUser(u.userId), weight: u.weight })) });
+        if (isCardAccount(a)) byAccount.set(a.id, { key: k, users: users.map((u) => ({ owner: ownerOf(h, u), weight: u.weight })) });
         continue;
       }
       if (users.length >= 2) pools.add(iban);
@@ -192,13 +213,12 @@ function payersOf(h: Household, key: string): Omit<Payers, "legParts" | "others"
   const names = weighted(use).flatMap((u) => {
     if (u.userId === null) {
       const holders = holdersIn(u.label);
-      return u.label !== OTHER_HOLDER && holders.length === 1 ? [{ owner: "u:", name: holders[0]!.name }] : [];
+      return u.label !== OTHER_HOLDER && holders.length === 1 ? [{ owner: ownerOf(h, u), name: holders[0]!.name }] : [];
     }
     const name = userNameOf(h.accounts.filter((a) => a.userId === u.userId));
-    return name ? [{ owner: ownerOfUser(u.userId), name }] : [];
+    return name ? [{ owner: ownerOf(h, u), name }] : [];
   });
-  // no agreement is stored yet: the first rule of `cardHolderOf` has nothing to read
-  return { accounts: h.accounts as Account[], alone, cards: { byAccount, members: mine, agreements: [] }, pools, names };
+  return { accounts: h.accounts as Account[], alone, cards: { byAccount, members: mine, agreements: h.agreements }, pools, names };
 }
 
 /** The joined rows of a pool and its payers; null when it has no rows, no balance, or no booked row. */
@@ -261,7 +281,7 @@ function rawOf(h: Household, key: string): Raw | null {
   const p = prepare(h, key);
   if (!p) return null;
   const several = [...h.uses.values()].filter(isPool).length > 1;
-  const users = new Set(weighted(h.uses.get(key)!).map((u) => ownerOfUser(u.userId)));
+  const users = new Set(weighted(h.uses.get(key)!).map((u) => ownerOf(h, u)));
   const rows = traceRows(p.joined, {
     ...p.payers,
     ...(several
@@ -296,32 +316,23 @@ const localDay = (h: Household, at: string | null): string | null => {
 
 const answersOf = (rows: readonly AnswerRow[]): Answer[] => rows.map((r) => ({ kind: r.kind, key: r.kind === "opening" ? "o" : r.answerKey, owner: r.owner }));
 
-/** The traced split of the window in whole percents against the weights', as `splitOf` rounds both. */
-function offerOf(raw: Trace, users: readonly TraceUser[], window: { from: number; to: number }, c: ReturnType<typeof splitOf>): SettledTrace["offer"] {
-  if (!c.c3 || !c.c4) return null;
-  // the weights as the cost of one row cut at them: the same rounding, and no second copy of it
-  const weights = splitOf(
-    { ...raw, rows: [{ key: "w", ids: [], day: window.from, cents: -1, what: "all", parts: users.map((u) => ({ owner: u.owner, kind: "own", cents: u.weight })) }] },
-    [],
-    users,
-    window,
-  );
-  const same = c.percents.every((p) => p.percent === weights.percents.find((w) => w.owner === p.owner)?.percent);
-  return same ? null : c.percents.map((p) => ({ userId: p.owner === "u:" ? null : p.owner.slice(2), percent: p.percent }));
-}
-
 function settledOf(h: Household, key: string, signature: string, answerRows: readonly AnswerRow[], split: boolean): SettledTrace | null {
   const raw = rawOf(h, key);
   if (!raw) return null;
-  const users = weighted(h.uses.get(key)!).map((u): TraceUser => ({ owner: ownerOfUser(u.userId), weight: u.weight }));
+  const users = weighted(h.uses.get(key)!).map((u): TraceUser => ({ owner: ownerOf(h, u), weight: u.weight }));
   // an answer names its owner: one who is no user now (the users changed) is no answer, and the question stands again
-  const answers = answersOf(answerRows).filter((a) => a.owner === "all" || a.owner === "none" || users.some((u) => u.owner === a.owner));
+  const kept = answerRows.filter((a) => a.owner === "all" || a.owner === "none" || users.some((u) => u.owner === a.owner));
+  const answers = answersOf(kept);
+  const said = answers.map((a, i): SaidAnswer => ({ ...a, saidOn: localDay(h, kept[i]!.saidAt) ?? kept[i]!.saidAt.slice(0, 10) }));
+  const cardUses = new Map([...(raw.prepared.payers.cards?.byAccount.values() ?? [])].map((c) => [c.key, c]));
   const settled = settle(raw.trace, answers, users);
   const window = windowOf(h.today);
   const labels = new Map<string, string>();
+  const cardBills = new Set<string>();
   const txOf = new Map(raw.prepared.joined.rows.map((x) => [x.key, x.tx]));
   for (const r of raw.rows) {
     const tx = txOf.get(r.key);
+    if (tx?.category === "card_bill") cardBills.add(r.key);
     if (r.group && tx && !labels.has(r.group)) labels.set(r.group, tx.counterparty?.trim() || tx.counterpartyIban || tx.description?.trim() || r.group);
   }
   return {
@@ -329,6 +340,10 @@ function settledOf(h: Household, key: string, signature: string, answerRows: rea
     signature,
     users,
     answers,
+    said,
+    cards: [...cardUses.values()],
+    members: new Set([...(raw.prepared.payers.cards?.members ?? [])].filter((o) => o !== "u:")),
+    cardBills,
     raw: raw.trace,
     trace: settled,
     open: openOf(raw.trace, answers),
@@ -338,31 +353,23 @@ function settledOf(h: Household, key: string, signature: string, answerRows: rea
   };
 }
 
-/** The stored parts of a settled trace, by row id: users' by owner, the rest as `?` (a question stands for it) or `-` (unknown), summed by the key of the table. */
-function partRowsOf(t: SettledTrace): Map<string, PartRow[]> {
-  const out = new Map<string, PartRow[]>();
-  for (const row of t.trace.rows) {
-    const merged = new Map<string, PartRow>();
-    for (const p of row.parts) {
-      const user = isUserOwner(p.owner);
-      const part: PartRow = { owner: user ? p.owner : t.open(p) ? "?" : "-", kind: p.kind, grp: user ? "" : p.owner, cents: p.cents, passed: !!p.passed };
-      const k = `${part.owner}|${part.kind}|${part.grp}`;
-      const have = merged.get(k);
-      if (have) {
-        have.cents += part.cents;
-        have.passed ||= part.passed;
-      } else merged.set(k, part);
-    }
-    for (const id of row.ids) out.set(id, [...merged.values()]);
-  }
-  return out;
-}
-
 async function signatureOf(s: Services, h: Household, key: string, today: string): Promise<{ signature: string; split: TraceFacts["split"]; answers: AnswerRow[] }> {
   const [version, splits, answers] = await Promise.all([s.settings.dataVersionOf(h.userIds), s.household.splitRows([key]), s.household.answerRows(key)]);
   const use = h.uses.get(key)!;
   const split = splits[0];
-  const signature = sha([TRACE_VERSION, version, windowOf(today).from, use.source, use.users.map((u) => [u.userId, u.weight]), split ? [split.setBy, split.setAt] : null, answers.map((a) => [a.kind, a.answerKey, a.owner])]);
+  const cardKeys = new Set([...h.byKey].filter(([, copies]) => copies.some(isCardAccount)).map(([k]) => k));
+  // what names the owners (the members) and what says whose a card bill is (the cards' agreements) are read by the rows' parts
+  const signature = sha([
+    TRACE_VERSION,
+    version,
+    windowOf(today).from,
+    use.source,
+    use.users.map((u) => [u.userId, u.weight]),
+    split ? [split.setBy, split.setAt] : null,
+    answers.map((a) => [a.kind, a.answerKey, a.owner, a.saidAt]),
+    h.members.map((m) => [m.id, m.name]),
+    h.agreements.filter((a) => cardKeys.has(a.accountKey)).map((a) => [a.accountKey, a.validFrom, a.kind]),
+  ]);
   return { signature, split: split ? { by: split.setBy === null ? "app" : "user", at: split.setAt } : undefined, answers };
 }
 
@@ -440,6 +447,12 @@ export async function ensureTrace(s: Services, key: string): Promise<TraceFacts 
     traced: hasTrace && !!split,
     ...(split ? { split: { by: split.setBy === null ? ("app" as const) : ("user" as const), at: split.setAt } } : {}),
   };
+}
+
+/** The users of real accounts as a trace names them (the members who have no login as `m:<id>`), by key; a key that is no account of the household has none. */
+export async function poolUsers(s: Services, keys: readonly string[]): Promise<Map<string, TraceUser[]>> {
+  const h = await loadHousehold(s);
+  return new Map(keys.map((key) => [key, h.uses.has(key) ? weighted(h.uses.get(key)!).map((u): TraceUser => ({ owner: ownerOf(h, u), weight: u.weight })) : []]));
 }
 
 /** The settled trace of one real account in memory; null when it has none (no pool, no balance, no booked row). */

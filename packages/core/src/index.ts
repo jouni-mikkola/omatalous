@@ -11,7 +11,8 @@
  */
 export * from "./types.ts";
 export * from "./account-use.ts";
-export { holdersIn, userNameOf } from "./person-names.ts";
+export { holdersIn, nameOf, samePerson, userNameOf } from "./person-names.ts";
+export { isEarnedIncome } from "./analysis/income.ts";
 export * from "./dates.ts";
 export * from "./stats.ts";
 export * from "./categories.ts";
@@ -65,4 +66,7 @@ export * from "./card-holder.ts";
 export * from "./money-trace.ts";
 export * from "./money-trace-answers.ts";
 export * from "./money-trace-rows.ts";
+export * from "./settlement.ts";
+export * from "./settlement-agreements.ts";
+export { CLOSE_DAYS, monthLast } from "./settlement-ledger.ts";
 export * from "./money-sources.ts";
