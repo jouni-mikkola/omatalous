@@ -311,7 +311,7 @@ const LOAN_TEXT = words(`${LOAN_WORDS}|SOPIMUS`);
 export const isLoanText = (folded: string) => LOAN_TEXT.test(folded) || isCreditText(folded);
 
 /** Refund words, as a regex alternation: `REIMBURSEMENT_WORDS` and `isRefundText` read it. */
-export const REFUND_WORDS = "HYVITYS|PALAUTUS|REFUND|CHARGEBACK|OIKAISU|LIIKASUORITUS|YLISUORITUS";
+export const REFUND_WORDS = "HYVITYS|PALAUTUS|REFUND|ATERBETALNING|CHARGEBACK|OIKAISU|LIIKASUORITUS|YLISUORITUS";
 const REFUND_TEXT = new RegExp(`(?<![A-Z0-9])(?:${REFUND_WORDS})[A-Z]*(?![A-Z0-9])`);
 export const isRefundText = (folded: string) => REFUND_TEXT.test(folded);
 /** Money back for a cost the household paid. The reimbursements rule of categorize.ts reads the words, and its salary code steps aside for them: an employer pays a travel claim in the payroll batch. */

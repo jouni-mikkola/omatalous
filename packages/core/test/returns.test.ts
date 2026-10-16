@@ -13,6 +13,9 @@ const bought = (id: string, date: string, euros: number, extra: Partial<Transact
 const back = (id: string, date: string, euros: number, extra: Partial<Transaction> = {}) =>
   tx({ id, bookingDate: date, amountCents: Math.round(euros * 100), merchant: "Zxq Tmi", counterparty: "ZXQ TMI", category: "income", categorySource: "default", ...extra });
 
+// money in from the shop before it was ever paid: the shop has paid the household, so a later sum is no refund by that alone
+const earlierIncome = back("i", "2026-08-01", 5);
+
 describe("matchReturns", () => {
   it("pairs a refund with the earlier purchase at the same merchant", () => {
     expect([...matchReturns([bought("p", "2026-09-03", 79), back("r", "2026-09-17", 79)])]).toEqual([["r", "p"]]);
@@ -25,20 +28,20 @@ describe("matchReturns", () => {
   });
 
   it("a partial refund takes its part, two refunds can share a purchase, and the sum never exceeds it", () => {
-    const m = matchReturns([bought("p", "2026-09-03", 100), back("r1", "2026-09-10", 40), back("r2", "2026-09-12", 40), back("r3", "2026-09-14", 40)]);
+    const m = matchReturns([earlierIncome, bought("p", "2026-09-03", 100), back("r1", "2026-09-10", 40), back("r2", "2026-09-12", 40), back("r3", "2026-09-14", 40)]);
     expect([...m.keys()]).toEqual(["r1", "r2"]);
   });
 
   it("ignores another merchant, a refund before the purchase, one larger than the purchase and one on another account", () => {
     const p = bought("p", "2026-09-03", 79);
-    expect(matchReturns([p, back("r", "2026-09-17", 79, { merchant: "Other", counterparty: "OTHER" })]).size).toBe(0);
-    expect(matchReturns([p, back("r", "2026-09-01", 79)]).size).toBe(0);
-    expect(matchReturns([p, back("r", "2026-09-17", 80)]).size).toBe(0);
-    expect(matchReturns([p, back("r", "2026-09-17", 79, { accountId: "sav" })]).size).toBe(0);
+    expect(matchReturns([earlierIncome, p, back("r", "2026-09-17", 79, { merchant: "Other", counterparty: "OTHER" })]).size).toBe(0);
+    expect(matchReturns([earlierIncome, p, back("r", "2026-09-01", 79)]).size).toBe(0);
+    expect(matchReturns([earlierIncome, p, back("r", "2026-09-17", 80)]).size).toBe(0);
+    expect(matchReturns([earlierIncome, p, back("r", "2026-09-17", 79, { accountId: "sav" })]).size).toBe(0);
   });
 
   it("a shop refunds for 120 days, a person pays back for 90", () => {
-    const shop = (days: number) => matchReturns([bought("p", "2026-01-01", 79), back("r", new Date(Date.UTC(2026, 0, 1 + days)).toISOString().slice(0, 10), 79)]).size;
+    const shop = (days: number) => matchReturns([back("i", "2025-12-01", 5), bought("p", "2026-01-01", 79), back("r", new Date(Date.UTC(2026, 0, 1 + days)).toISOString().slice(0, 10), 79)]).size;
     expect([shop(120), shop(121)]).toEqual([1, 0]);
     const person = (days: number) =>
       matchReturns([

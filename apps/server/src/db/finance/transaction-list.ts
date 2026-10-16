@@ -4,17 +4,21 @@
  * The rows are the bank's, whole, in every view; the sums above the list are sums of the viewer's parts, and they and
  * the category filter count a row as the view does (`toldSql`).
  */
-import { fold } from "@banking/core";
+import { CATEGORIES, fold } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
 import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
+
+const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id);
 
 export interface TransactionFilter {
   from?: string;
   to?: string;
   accountId?: string;
   category?: string;
+  /** Only the rows of the categories of this kind: the income categories. */
+  kind?: "income";
   merchant?: string;
   q?: string;
   limit?: number;
@@ -66,6 +70,7 @@ export class TransactionListRepo {
     if (f.accountId) add("account_id = ?", f.accountId);
     const category = toldSql(f.own).category;
     if (f.category) add(`${category.sql} = ?`, ...category.params, f.category);
+    if (f.kind) add(`${category.sql} IN (${INCOME_CATEGORIES.map(() => "?").join(",")})`, ...category.params, ...INCOME_CATEGORIES);
     if (f.merchant) add("merchant = ?", f.merchant);
     const q = f.q ? fold(f.q.trim()) : "";
     const amount = f.q ? amountQuery(f.q) : null;

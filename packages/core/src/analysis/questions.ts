@@ -76,14 +76,6 @@ type FrontQuestion = PayeeQuestion | LoanQuestion | PayerQuestion;
 export interface Questions {
   /** The part of the window's money (spending plus income) that is classified, 0 to 1; null when there was none. */
   share: number | null;
-  /** Spending of the 365 days up to the period's end: the base of `unknownSpending` (bills at what their statement rows leave). */
-  outCents: number;
-  /** Income of the same days. */
-  inCents: number;
-  /** Spending nobody categorised: Muut menot that the user did not set (`unknownSpending`). */
-  outUnknownCents: number;
-  /** Income nobody recognised: type Muut tulot by the default. */
-  inUnknownCents: number;
   /** Card bills counted as spending: purchases the app cannot see. */
   cardBillCents: number;
   /** The issuers of those bills, the largest two by sum. */
@@ -215,5 +207,5 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
 
   const money = outCents + inCents;
   const share = money === 0 ? null : Math.min(1, Math.max(0, 1 - (outUnknownCents + inUnknownCents + cardBillCents) / money));
-  return { share, outCents, inCents, outUnknownCents, inUnknownCents, cardBillCents, cardBillIssuers: [...billsBy].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fi")).slice(0, 2).map(([name]) => name), items: items.slice(0, inputs.payers ? MAX_ITEMS_WITH_PAYERS : MAX_ITEMS), total: items.length };
+  return { share, cardBillCents, cardBillIssuers: [...billsBy].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fi")).slice(0, 2).map(([name]) => name), items: items.slice(0, inputs.payers ? MAX_ITEMS_WITH_PAYERS : MAX_ITEMS), total: items.length };
 }

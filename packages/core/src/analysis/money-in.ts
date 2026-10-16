@@ -7,6 +7,8 @@
  * - A refund: the same payee was paid from the accounts of the view in the days before the row in which the
  *   categoriser pairs a shop's refund (`REFUND_WINDOW_DAYS`), and the row is not larger than what is left of those
  *   payments. It lowers the category of the payments, in the month it arrives.
+ * - A refund the categoriser made of the payee's latest earlier payment, by its word or as money from a payee the household
+ *   only pays: it lowers that payment's category in its month, whatever the days and the sum.
  * - A contract's closing refund (contract.ts): the payee's contract ended with its last payment within 60 days before the
  *   row, and the row is no more than the contract cost. It lowers the category of the contract's payments, the latest
  *   first, whatever the 120 days: a lease gives back more than one rent.
@@ -78,7 +80,7 @@ export function moneyIn(rows: readonly Row[], ownIbans: ReadonlySet<string>, why
   for (const t of incoming) {
     if (out.has(t.id)) continue;
     const paid = t.category === TO_PERSONS || !isNamed(t, ownIbans) ? [] : (byPayee.get(t.merchant) ?? []).filter((p) => fits(t, p));
-    out.set(t.id, refundOf(t, paid) ?? contractRefundOf(t, paid, now) ?? (t.categorySource === "user" || t.categorySource === "payer" ? [] : null));
+    out.set(t.id, refundOf(t, paid) ?? contractRefundOf(t, paid, now) ?? lateRefundOf(t, payments.get(paired.get(t.id) ?? ""), paid) ?? (t.categorySource === "user" || t.categorySource === "payer" ? [] : null));
   }
   if (why) {
     const byId = new Map(rows.map((t) => [t.id, t]));
@@ -108,6 +110,14 @@ function refundOf(t: Row, paid: readonly Payment[]): Refund | null {
     taken.push([p.t.id, part]);
   }
   return taken;
+}
+
+/**
+ * A refund the categorisation made of the payee's latest earlier payment (a refund word, or money in from a payee only
+ * paid to) that no window or sum holds: it takes back that payment, however old and however small.
+ */
+function lateRefundOf(t: Row, pairedPayment: Payment | undefined, paid: readonly Payment[]): Refund | null {
+  return t.categorySource === "match" && pairedPayment && paid.includes(pairedPayment) ? [[pairedPayment.t.id, t.amountCents]] : null;
 }
 
 /** The payments of the contract that `t` closes, the latest first, or null when it closes none or they do not hold it. */

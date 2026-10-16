@@ -112,6 +112,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const filters = {
     q: params.get("q") ?? "",
     category: params.get("category") ?? "",
+    kind: params.get("kind") === "income" ? "income" : "",
     // a shared account stays in the address after switching back to the own view
     accountId: accounts.some((a) => a.id === params.get("accountId")) ? params.get("accountId")! : "",
     merchant: params.get("merchant") ?? "",
@@ -216,6 +217,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       <DateFilter value={filters.to} onCommit={(to) => set({ to })} label="Asti" />
     </>
   );
+  const kindFilter = filters.kind && <FilterChip label="Tulot" removeLabel="Poista rajaus Tulot" onRemove={() => set({ kind: "" })} />;
   const merchantFilter = <FilterChip label={filters.merchant} removeLabel="Poista kauppiaan rajaus" onRemove={() => set({ merchant: "" })} />;
   const clear = anyFilter && (
     <button className="btn btn-small" onClick={() => navigate("transactions")}>
@@ -266,7 +268,12 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         {phone ? (
           <>
             <FilterToggle count={active} open={panel} onToggle={() => setPanel((v) => !v)} controls="tx-filter-panel" />
-            {filters.merchant && <div className="filter-line">{merchantFilter}</div>}
+            {(filters.merchant || filters.kind) && (
+              <div className="filter-line">
+                {kindFilter}
+                {filters.merchant && merchantFilter}
+              </div>
+            )}
             <div id="tx-filter-panel" className="filter-panel" hidden={!panel}>
               {fields}
               {clear}
@@ -275,6 +282,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         ) : (
           <>
             {fields}
+            {kindFilter}
             {filters.merchant && merchantFilter}
             {clear}
           </>

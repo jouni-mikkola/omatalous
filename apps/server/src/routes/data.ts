@@ -73,7 +73,7 @@ export function dataRoutes(s: Services) {
     const q = c.req.query();
     const repo = s.finance(user.id);
     const { shared, own } = await rowsInView(s, user.id, parseScope(q.scope));
-    const filter = { ...range, accountId: q.accountId, category: q.category, merchant: q.merchant, q: q.q?.slice(0, 100), own };
+    const filter = { ...range, accountId: q.accountId, category: q.category, kind: q.kind === "income" ? ("income" as const) : undefined, merchant: q.merchant, q: q.q?.slice(0, 100), own };
     const accounts = new Map([...(await repo.listAccounts()), ...shared].map((a) => [a.id, a.name]));
     const pieces = [
       csv([["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Lähde", "Siirto"]]),

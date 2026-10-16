@@ -691,7 +691,7 @@ t_stamps_a_stamp_that_is_not_whole_is_a_miss() {
   local f
   f=$(ls "$SD/types/"*); : >"$f"
   f=$(ls "$SD/sh:alpha.test.sh/"*); head -c 40 "$f" >"$f.cut"; mv "$f.cut" "$f"
-  f=$(ls "$SD/sh:plain.test.sh/"*); sed 's/^key=./key=0/; s/^key=00/key=01/' "$f" >"$f.cut"; mv "$f.cut" "$f"
+  f=$(ls "$SD/sh:plain.test.sh/"*); sed 's/^key=/key=z/' "$f" >"$f.cut"; mv "$f.cut" "$f"
   f=$(ls "$SD/tests:core/"*); echo "a second line" >>"$f"
   srun
   check "stamps: an empty, a cut, a stamp of another key and a stamp with a second line are misses, the rest hits" test "$(ranlog)" = "sh:alpha sh:plain types vt:packages/core/test/a.test.ts $RULES_RAN"

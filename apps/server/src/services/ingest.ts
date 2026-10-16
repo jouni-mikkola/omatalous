@@ -1,4 +1,4 @@
-import { daysBetween, fold, normalizeMerchant, type RawTransaction, UNKNOWN_MERCHANT } from "@banking/core";
+import { daysBetween, fillEnvelopeMerchants, fold, normalizeMerchant, type RawTransaction, UNKNOWN_MERCHANT } from "@banking/core";
 import { bankSignature, type FinanceRepo, type StoredParty, WRITE_CHUNK } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -83,6 +83,13 @@ export async function ingestTransactions(repo: FinanceRepo, accountId: string, r
     const id = stableId(`${accountId}|${r.status}|${base}|${occurrence}`);
     entries.push({ r, id, party: { merchant: normalizeMerchant(r.counterparty, r.description), counterparty: r.counterparty, description: r.description } });
   }
+
+  // a row of only a card's currency, country and city takes the merchant of the same card's row of the same sum
+  const filled = fillEnvelopeMerchants([
+    ...existing.map((e) => ({ ...e, accountId })),
+    ...entries.map((e) => ({ id: e.id, accountId, bookingDate: e.r.bookingDate, amountCents: e.r.amountCents, counterparty: e.r.counterparty, description: e.r.description, merchant: e.party.merchant })),
+  ]);
+  for (const e of entries) e.party.merchant = filled.get(e.id) ?? e.party.merchant;
 
   // Rows stored for the same day and amount that this import does not name: a new row is a duplicate only if it is one
   // of them. Another source's rows qualify. So do rows of the same source from an earlier import, which the same

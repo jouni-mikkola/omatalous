@@ -4,6 +4,7 @@
  * "K-Market") so that spending can be grouped per merchant.
  */
 import { isCarDealerName } from "./wording-car.ts";
+import { COUNTRY_CODES, dropCardEnvelope } from "./card-text.ts";
 import { PAYMENT_SERVICES } from "./payment-services.ts";
 import { companyForms, hasPayeeForm, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
 
@@ -120,19 +121,6 @@ function shopInText(text: string): string | null {
   return name === UNKNOWN_MERCHANT ? null : name;
 }
 
-/** ISO 3166-1 alpha-3: how a card account writes the country of a purchase. */
-const COUNTRY_CODES = new Set(
-  `ABW AFG AGO AIA ALA ALB AND ARE ARG ARM ASM ATA ATF ATG AUS AUT AZE BDI BEL BEN BES BFA BGD BGR BHR BHS BIH BLM BLR
-  BLZ BMU BOL BRA BRB BRN BTN BVT BWA CAF CAN CCK CHE CHL CHN CIV CMR COD COG COK COL COM CPV CRI CUB CUW CXR CYM CYP
-  CZE DEU DJI DMA DNK DOM DZA ECU EGY ERI ESH ESP EST ETH FIN FJI FLK FRA FRO FSM GAB GBR GEO GGY GHA GIB GIN GLP GMB
-  GNB GNQ GRC GRD GRL GTM GUF GUM GUY HKG HMD HND HRV HTI HUN IDN IMN IND IOT IRL IRN IRQ ISL ISR ITA JAM JEY JOR JPN
-  KAZ KEN KGZ KHM KIR KNA KOR KWT LAO LBN LBR LBY LCA LIE LKA LSO LTU LUX LVA MAC MAF MAR MCO MDA MDG MDV MEX MHL MKD
-  MLI MLT MMR MNE MNG MNP MOZ MRT MSR MTQ MUS MWI MYS MYT NAM NCL NER NFK NGA NIC NIU NLD NOR NPL NRU NZL OMN PAK PAN
-  PCN PER PHL PLW PNG POL PRI PRK PRT PRY PSE PYF QAT REU ROU RUS RWA SAU SDN SEN SGP SGS SHN SJM SLB SLE SLV SMR SOM
-  SPM SRB SSD STP SUR SVK SVN SWE SWZ SXM SYC SYR TCA TCD TGO THA TJK TKL TKM TLS TON TTO TUN TUR TUV TWN TZA UGA UKR
-  UMI URY USA UZB VAT VCT VEN VGB VIR VNM VUT WLF WSM YEM ZAF ZMB ZWE`.split(/\s+/),
-);
-
 /**
  * A card account writes "Osto <country> <city> <name> [<city>]" ("OSTO FIN KUOPIO KUKKAKAUPPA ILO OY KUOPIO"). The
  * country and the city in front hide the shop from the processor and brand patterns, which read the start. The leading
@@ -239,6 +227,7 @@ const BRANDS: ReadonlyArray<readonly [RegExp, string]> = [
   [/SPOTIFY/, "Spotify"],
   [/NETFLIX/, "Netflix"],
   [/DISNEY\s*(?:PLUS|\+)|DISNEYPLUS/, "Disney+"],
+  [/^DISNEY/, "Disney+"],
   [/HBO\s*MAX|^MAX\b(?!\s*BURGER)/, "Max"],
   [/VIAPLAY/, "Viaplay"],
   [/^APPLE\.COM|^ITUNES|^APPLE\b/, "Apple"],
@@ -250,6 +239,14 @@ const BRANDS: ReadonlyArray<readonly [RegExp, string]> = [
   [/^ANTHROPIC|CLAUDE\.AI/, "Anthropic"],
   [/^MICROSOFT|^MSFT/, "Microsoft"],
   [/^ADOBE/, "Adobe"],
+  [/^GITHUB/, "GitHub"],
+  [/^NOTION/, "Notion"],
+  [/^FIGMA/, "Figma"],
+  [/^CANVA/, "Canva"],
+  [/^DROPBOX/, "Dropbox"],
+  [/^MIDJOURNEY/, "Midjourney"],
+  [/^AUDIBLE/, "Audible"],
+  [/^PATREON/, "Patreon"],
   [/^STORYTEL/, "Storytel"],
   [/^BOOKBEAT/, "BookBeat"],
   [/^STEAM/, "Steam"],
@@ -426,6 +423,18 @@ function formTellsApart(words: readonly string[]): boolean {
   return isPersonShaped(bare) || (isCarDealerName(whole) && !isCarDealerName(bare));
 }
 
+/** `dropCardEnvelope` with the merchants of BRANDS as the proof that a city in front is no part of a name. */
+const cardEnvelope = (s: string) => dropCardEnvelope(s, fold, (rest) => BRANDS.some(([pattern]) => pattern.test(rest)));
+
+/** Whether the text a row is named by is a card's currency, country and city and no merchant: its merchant is the same card's row of the same sum. */
+export function isCardEnvelopeOnly(counterparty: string | null, description: string | null): boolean {
+  for (const candidate of [counterparty, description]) {
+    const cleaned = candidate?.trim() ? cleanDescription(candidate) : "";
+    if (cleaned) return cardEnvelope(cleaned).only;
+  }
+  return false;
+}
+
 /**
  * Returns a display name that is also the grouping key for a merchant.
  * `counterparty` (creditor/debtor name) is preferred over the free-text
@@ -434,7 +443,7 @@ function formTellsApart(words: readonly string[]): boolean {
 export function normalizeMerchant(counterparty: string | null, description: string | null): string {
   for (const candidate of [counterparty, description]) {
     if (!candidate?.trim()) continue;
-    const cleaned = cleanDescription(candidate);
+    const cleaned = cardEnvelope(cleanDescription(candidate)).text;
     if (!cleaned) continue;
     const folded = fold(cleaned);
     for (const [pattern, name] of SERVICE_ONLY) {

@@ -32,7 +32,7 @@ function household(first = "2025-09", card = "card"): Transaction[] {
     out.push(
       tx({ accountId: "chk", bookingDate: on(m, 1), amountCents: 320000, merchant: "Työnantaja Oy", category: "salary" }),
       tx({ accountId: "chk", bookingDate: on(m, 2), amountCents: -90000, merchant: "Vuokranantaja", category: "housing" }),
-      tx({ accountId: card, bookingDate: on(m, 5), amountCents: -40000, merchant: "Prisma", category: "groceries" }),
+      tx({ accountId: card, bookingDate: on(m, 1), amountCents: -40000, merchant: "Prisma", category: "groceries" }),
       tx({ accountId: "chk", bookingDate: on(m, 10), amountCents: -40000, merchant: "Nordea Rahoitus", category: "transfer", isTransfer: true }),
       tx({ accountId: card, bookingDate: on(m, 10), amountCents: 40000, merchant: "Nordea Rahoitus", category: "transfer", isTransfer: true }),
     );

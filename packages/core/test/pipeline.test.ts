@@ -118,7 +118,7 @@ describe("buildDashboard", () => {
     expect(d.categories[0]).toMatchObject({ category: "groceries", cents: 60000, previousCents: 40000 });
     expect(d.pace.currentTotal).toBe(80000);
     // the history starts on 10.8., so August is not a full previous period
-    expect(d).toMatchObject({ comparable: false, dataFrom: "2026-08-10" });
+    expect(d).toMatchObject({ comparable: false });
     expect(d.insights.some((i: { id: string }) => i.id.startsWith("swing:"))).toBe(false);
   });
 });
@@ -195,7 +195,7 @@ describe("dashboard, next level", () => {
     const ctx = createContext([...base(), ...txs], [checking], today);
     const d = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" });
     expect(d.running).toBe(true);
-    expect(d.range).toMatchObject({ previousFrom: "2026-09-01", previousTo: "2026-09-09" });
+    expect(d.range).toMatchObject({ previousFrom: "2026-09-01" });
     expect(d.previousTotals.incomeCents).toBe(0);
     expect(d.categories.find((c) => c.category === "groceries")!.previousCents).toBe(
       ctx.txs.filter((t) => t.category === "groceries" && t.bookingDate >= "2026-09-01" && t.bookingDate <= "2026-09-09").reduce((s, t) => s + t.spend, 0),
@@ -203,14 +203,14 @@ describe("dashboard, next level", () => {
     // the overview sends to = today; that runs too, with the same cut
     const toToday = buildDashboard(ctx, { from: "2026-10-01", to: today });
     expect(toToday.running).toBe(true);
-    expect(toToday.range.previousTo).toBe("2026-09-09");
+    expect(toToday.previousTotals).toEqual(d.previousTotals);
   });
 
   it("a complete month is compared with the whole previous month and is not running", () => {
     const ctx = createContext(base(), [checking], today);
     const d = buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" });
     expect(d.running).toBe(false);
-    expect(d.range).toMatchObject({ previousFrom: "2026-08-01", previousTo: "2026-08-31" });
+    expect(d.range).toMatchObject({ previousFrom: "2026-08-01" });
     expect(buildDashboard(ctx, { from: "2026-05-01", to: "2026-05-31" }).running).toBe(false);
     expect(buildDashboard(ctx, { from: "2026-11-01", to: "2026-11-30" }).running).toBe(false);
   });

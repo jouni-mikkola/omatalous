@@ -3,7 +3,7 @@
   "today": "2026-10-09",
   "end": "2026-09-30",
   "months": 12,
-  "historyMonths": 13,
+  "historyMonths": 12,
   "dataTo": "2026-10-09",
   "accounts": 3,
   "situation": [
@@ -385,7 +385,7 @@
      {
       "id": "seasons:month",
       "label": "Kalliit kuukaudet",
-      "status": "clear"
+      "status": "no_data"
      }
     ],
     "weightCents": 0
@@ -482,7 +482,7 @@
   "checked": {
    "total": 20,
    "findings": 2,
-   "unavailable": 7,
+   "unavailable": 8,
    "noRows": 0,
    "noSubject": 6
   }

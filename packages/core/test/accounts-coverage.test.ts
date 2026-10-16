@@ -95,9 +95,9 @@ describe("which accounts two periods can be compared on", () => {
     // the answer does not move while the next quarterly row is awaited: 122 days without a row still stand
     const later = spend("a", "2024-01-01", "2026-05-14");
     expect(rep([...later, ...quarterly], "2026-05-15")).toMatchObject({ comparedMonths: [1, 2, 3], comparable: true, leftOutAccounts: false });
-    // a daily account stopping on the same day has ended by April, and is left out
+    // a daily account stopping on the same day has ended by April, and is left out; January has a quarter of its spending on it, so January is not compared
     const daily = spend("c", "2024-01-01", "2026-01-12");
-    expect(rep([...a, ...daily], "2026-04-09")).toMatchObject({ comparedMonths: [1, 2, 3], leftOutAccounts: true });
+    expect(rep([...a, ...daily], "2026-04-09")).toMatchObject({ comparedMonths: [2, 3], leftOutAccounts: true });
   });
 
   it("counts an account that only brings money in", () => {
@@ -131,8 +131,10 @@ describe("the year comparison sums the accounts both years have", () => {
     expect(both.leftOutAccounts).toBe(true);
     expect(Math.abs(percent(both))).toBeLessThan(0.05);
     expect(both.previous.slice(0, 4).every((v) => v !== null)).toBe(true);
-    // near miss: b as large as a carries a fifth of the spending compared, so no change is told
-    expect(yoy([...spend("a", "2024-01-01"), ...spend("b", "2025-05-01")]).comparable).toBe(false);
+    // near miss: b as large as a carries half of the spending of January to April this year, so those months are not compared; May to September still are
+    const equal = yoy([...spend("a", "2024-01-01"), ...spend("b", "2025-05-01")]);
+    expect(equal).toMatchObject({ comparedMonths: [5, 6, 7, 8, 9], comparableMonths: 5, comparable: true });
+    expect(equal.previous.slice(0, 4)).toEqual([null, null, null, null]);
   });
 
   it("a new card linked this year changes nothing while it carries a tenth at most, and tells nothing beyond", () => {
@@ -148,11 +150,48 @@ describe("the year comparison sums the accounts both years have", () => {
 
   it("two accounts with different starts: the months with a shared account compare, and a short history is told when it is why", () => {
     const y = yoy([...spend("a", "2025-06-01"), ...spend("b", "2025-09-01")]);
-    // a began in June last year: only June to September have a shared account in both years
-    expect(y.comparedMonths).toEqual([6, 7, 8, 9]);
+    // a began in June last year: June to September have a shared account in both years, but b carries half of June to August this year, so only September is compared
+    expect(y.comparedMonths).toEqual([9]);
     const short = yoy([...spend("a", "2025-08-01"), ...spend("b", "2025-09-01")]);
     expect(short).toMatchObject({ comparable: false, shortHistory: true, dataFrom: "2025-08" });
     expect(yearComparisonNote(short)).toBe("Vertailuun ei ole vielä tarpeeksi tietoja: tiedot alkavat 8/2025.");
+  });
+
+  describe("the months both years cover with the same accounts", () => {
+    /** An old account with next to no spending, and a main account that began in `main`: the long-standing one makes every month look covered. */
+    const tiny = spend("a", "2024-01-01", today, -50);
+    const withMain = (main: string, extra: Transaction[] = []) => yoy([...tiny, ...spend("b", main), ...extra]);
+
+    it("five shared months are compared and named, though the older account covers all nine", () => {
+      const y = withMain("2025-05-01");
+      expect(y).toMatchObject({ comparedMonths: [5, 6, 7, 8, 9], comparableMonths: 5, comparable: true, shortHistory: false });
+      expect(yearComparisonNote(y)).toBe("Verrattu 5 kuukautta, joilta on tiedot molempina vuosina.");
+      // the main account's months of both years are summed, and only those
+      const mainOnly = yoy(spend("b", "2025-05-01"));
+      expect(y.ytdCents - mainOnly.ytdCents).toBeGreaterThan(0);
+      expect(Math.abs(percent(y))).toBeLessThan(0.05);
+    });
+
+    it("two shared months are too few: the section says why and compares nothing", () => {
+      const y = withMain("2025-08-01");
+      expect(y).toMatchObject({ comparedMonths: [8, 9], comparableMonths: 2, comparable: false });
+      expect(yearComparisonNote(y)).toBe("Vertailuun ei ole tarpeeksi kuukausia, joilta on tiedot samoista tileistä molempina vuosina.");
+      // three are enough
+      expect(withMain("2025-07-01")).toMatchObject({ comparedMonths: [7, 8, 9], comparable: true });
+    });
+
+    it("a card linked this year is not counted in the months it has no last year for", () => {
+      const card = spend("c", "2026-03-01", today, -300);
+      const y = withMain("2025-05-01", card);
+      const without = withMain("2025-05-01");
+      expect(y).toMatchObject({ comparedMonths: [5, 6, 7, 8, 9], comparable: true, leftOutAccounts: true });
+      // its purchases are on neither side
+      expect(y.ytdCents).toBe(without.ytdCents);
+      expect(y.previousYtdCents).toBe(without.previousYtdCents);
+      expect(yearComparisonNote(y)).toBe("Verrattu 5 kuukautta, joilta on tiedot molempina vuosina. Vertailusta on jätetty pois tilit, joilta ei ole tietoja molemmilta vuosilta.");
+      // a card past a tenth of the spending leaves the months it is in out of the comparison, and too few months are left
+      expect(withMain("2025-05-01", spend("c", "2026-03-01", today, -400))).toMatchObject({ comparedMonths: [], comparable: false });
+    });
   });
 
   it("a closed account is left out of the months it was in on one side only", () => {
@@ -262,11 +301,11 @@ describe("Kalliit kuukaudet and the finding beside it say the same about the his
     expect(a).toEqual({ status: "no_data", findings: 0, months: 0, insight: 0, items: 0 });
   });
 
-  it("a later account leaves out the months it was in on one side only: the check clear on the rest, no July finding", () => {
+  it("an account connected eight months ago leaves no run of twelve complete months: the check says the history is too short", () => {
     const i = input(rowsOf("2026-02-10"), [extra]);
-    // only the months before it began, on both sides, are the same accounts
-    expect(seasonMonths(i.ctx, i.ctx.today)).toEqual(["2025-10", "2025-11", "2025-12", "2026-01"]);
-    expect(answer(i)).toMatchObject({ status: "clear", findings: 0, insight: 0 });
+    // the month it joined is not complete, and the months before it are not reached from the recent ones
+    expect(seasonMonths(i.ctx, i.ctx.today)).toEqual([]);
+    expect(answer(i)).toMatchObject({ status: "no_data", findings: 0, insight: 0 });
   });
 
   it("near miss: an account that began before the usual level of both years changes nothing", () => {

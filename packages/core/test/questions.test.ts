@@ -28,43 +28,43 @@ const dismiss = (merchant: string): UserInputs => ({ ...NO_INPUTS, marks: [{ sub
 
 describe("how much of the money is classified", () => {
   it("is 1 when every row has its category, and null without money", () => {
-    expect(questionsOf(base())).toMatchObject({ share: 1, outCents: 80000, inCents: 100000, outUnknownCents: 0, inUnknownCents: 0, cardBillCents: 0, items: [], total: 0 });
+    expect(questionsOf(base())).toMatchObject({ share: 1, cardBillCents: 0, items: [], total: 0 });
     expect(questionsOf([]).share).toBeNull();
     expect(questionsOf([known(-800, "Oma tili", "transfer", { isTransfer: true })]).share).toBeNull();
   });
 
   it("takes each of the three unknown sums alone, to the cent", () => {
-    expect(questionsOf([...base(), unknownOut(100, "Kioski Oy")])).toMatchObject({ outCents: 90000, outUnknownCents: 10000, share: 1 - 10000 / 190000 });
-    expect(questionsOf([...base(), unknownIn(50, "Kaveri")])).toMatchObject({ inCents: 105000, inUnknownCents: 5000, share: 1 - 5000 / 185000 });
-    expect(questionsOf([...base(), known(-200, "Visa", "card_bill")])).toMatchObject({ outCents: 100000, cardBillCents: 20000, outUnknownCents: 0, share: 1 - 20000 / 200000 });
+    expect(questionsOf([...base(), unknownOut(100, "Kioski Oy")])).toMatchObject({ share: 1 - 10000 / 190000 });
+    expect(questionsOf([...base(), unknownIn(50, "Kaveri")])).toMatchObject({ share: 1 - 5000 / 185000 });
+    expect(questionsOf([...base(), known(-200, "Visa", "card_bill")])).toMatchObject({ cardBillCents: 20000, share: 1 - 20000 / 200000 });
   });
 
   it("takes the three together, and a transfer and a pending row move nothing", () => {
     const rows = [...base(), unknownOut(100, "Kioski Oy"), unknownIn(50, "Kaveri"), known(-200, "Visa", "card_bill")];
     const q = questionsOf(rows);
-    expect(q).toMatchObject({ outCents: 110000, inCents: 105000, outUnknownCents: 10000, inUnknownCents: 5000, cardBillCents: 20000 });
+    expect(q.cardBillCents).toBe(20000);
     expect(q.share).toBe(1 - 35000 / 215000);
     expect(questionsOf([...rows, known(-500, "Oma tili", "transfer", { isTransfer: true })])).toEqual(q);
     // money in waits for its booking; a pending payment is spending here as on every page, and asks no question yet
     expect(questionsOf([...rows, unknownIn(700, "Odottaa Oy", { status: "pending" })])).toEqual(q);
     const waiting = questionsOf([...rows, unknownOut(900, "Odottaa Oy", { status: "pending" })]);
-    expect(waiting).toMatchObject({ outCents: 200000, outUnknownCents: 100000, inCents: 105000 });
+    expect(waiting.share).toBe(1 - 125000 / 305000);
     expect(waiting.items).toEqual(q.items);
   });
 
   it("nets a payment that came back: whole it moves nothing, in part it counts what was left", () => {
     const back = (euros: number) => tx({ bookingDate: "2026-09-28", amountCents: eur(euros), merchant: "Kioski Oy" });
     const whole = questionsOf([...base(), unknownOut(100, "Kioski Oy"), back(100)]);
-    expect(whole).toMatchObject({ outCents: 80000, outUnknownCents: 0, share: 1, items: [] });
+    expect(whole).toMatchObject({ share: 1, items: [] });
     const part = questionsOf([...base(), unknownOut(100, "Kioski Oy"), back(40)]);
-    expect(part).toMatchObject({ outCents: 86000, outUnknownCents: 6000, items: [{ kind: "payee_out", merchant: "Kioski Oy", cents: 6000, count: 1 }] });
+    expect(part).toMatchObject({ share: 1 - 6000 / 186000, items: [{ kind: "payee_out", merchant: "Kioski Oy", cents: 6000, count: 1 }] });
   });
 
   it("reads the 365 days up to the period's end", () => {
     const old = unknownOut(100, "Kioski Oy", { bookingDate: "2025-10-09" });
     const edge = unknownOut(30, "Kioski Oy", { bookingDate: "2025-10-10" });
-    expect(questionsOf([...base(), old]).outUnknownCents).toBe(0);
-    expect(questionsOf([...base(), edge]).outUnknownCents).toBe(3000);
+    expect(questionsOf([...base(), old]).share).toBe(1);
+    expect(questionsOf([...base(), edge]).share).toBe(1 - 3000 / 183000);
   });
 });
 
@@ -144,8 +144,8 @@ describe("what would mend it most", () => {
     const second: Account = { id: "acc-2", name: "Oma", iban: null, currency: "EUR", type: "checking" };
     const own = buildQuestions(createContext(joint, [checking], today), range, NO_INPUTS);
     const household = buildQuestions(createContext([...joint, unknownOut(300, "Oma Kauppa", { accountId: "acc-2" })], [checking, second], today), range, NO_INPUTS);
-    expect(own.outUnknownCents).toBe(10000);
-    expect(household.outUnknownCents).toBe(40000);
+    expect(own.share).toBe(1 - 10000 / 190000);
+    expect(household.share).toBe(1 - 40000 / 220000);
     expect(names(household.items)).toEqual(["Oma Kauppa", "Kioski Oy"]);
     expect(own.share).not.toBe(household.share);
   });

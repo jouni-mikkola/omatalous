@@ -3,8 +3,8 @@
  * accounts that existed before a window, the level without one-offs, the yearly figure, certainty from weaknesses and
  * the evidence checks behind them.
  */
-import { type AnalysisContext, type AnalysisTx, historyCovers, netSpend } from "../analysis/context.ts";
-import { monthSpan, sameAccounts } from "../analysis/coverage.ts";
+import { type AnalysisContext, type AnalysisTx, netSpend } from "../analysis/context.ts";
+import { accountCovers, monthSpan, sameAccounts } from "../analysis/coverage.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
 import { balanceWalk, type BalanceWalk } from "../analysis/balance-walk.ts";
 import { formatEur } from "../analysis/format.ts";
@@ -66,13 +66,12 @@ export function yearWindow(ctx: AnalysisContext, end: IsoDate): YearWindow {
 }
 
 /**
- * Accounts whose first row is on or before `from` (with the history's own slack of a few days). A window counts only
- * these, so an account connected inside it never reads as a rise (rule 4).
+ * Accounts with rows that were in the data from `from` on (`accountCovers`, with its slack of a few days). A window
+ * counts only these, so an account connected inside it never reads as a rise (rule 4).
  */
 export function accountsBefore(ctx: AnalysisContext, from: IsoDate): ReadonlySet<string> {
-  const first = new Map<string, IsoDate>();
-  for (const t of ctx.txs) if (!first.has(t.accountId)) first.set(t.accountId, t.bookingDate);
-  return new Set([...first].filter(([, date]) => historyCovers({ dataFrom: date }, from)).map(([id]) => id));
+  const withRows = new Set(ctx.txs.map((t) => t.accountId));
+  return new Set([...withRows].filter((id) => accountCovers(ctx, [id], from)));
 }
 
 /** What a row cost in the end: consumption and debt service less what came back, never below zero. Transfers cost nothing. */

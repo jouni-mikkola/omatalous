@@ -200,7 +200,7 @@ function regularMonthsOf({ b, labels, parts }: Window, ctx: AnalysisContext): Re
   return [...byMonth.values()];
 }
 
-/** What the page's "Tavalliset tulot kuukaudessa" is the median of, for the report of `range`; its median is `incomeReport(...).stability.medianCents`. */
+/** What the page's "Säännölliset tulot kuukaudessa" is the median of, for the report of `range`; its median is `incomeReport(...).stability.medianCents`. */
 export const regularIncomeMonths = (ctx: AnalysisContext, range: DateRange): RegularMonth[] => regularMonthsOf(windowOf(ctx, range), ctx);
 
 export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): IncomeReport {

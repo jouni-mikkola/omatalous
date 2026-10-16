@@ -1,4 +1,4 @@
-import { REPORTS } from "@banking/core";
+import { CATEGORIES, REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { seedCsv } from "./csv-seed.ts";
 import { checkingAccount, setupApp } from "./helpers.ts";
@@ -99,6 +99,23 @@ describe("dashboard and reports on demo data", () => {
     expect(page.total).toBe(all.items.length);
   });
 
+  it("filters the list and the CSV to income with kind=income, and ignores any other kind", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    const month = "from=2026-09-01&to=2026-09-30&limit=5000";
+    const { body: all } = await admin.call("GET", `/api/transactions?${month}`);
+    const { body: income } = await admin.call("GET", `/api/transactions?${month}&kind=income`);
+    const incomeIds = new Set(CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id));
+    expect(income.items.length).toBeGreaterThan(0);
+    expect(income.items.length).toBeLessThan(all.items.length);
+    expect(income.items.every((t: { category: string }) => incomeIds.has(t.category))).toBe(true);
+    expect(income.total).toBe(all.items.filter((t: { category: string }) => incomeIds.has(t.category)).length);
+    const { body: other } = await admin.call("GET", `/api/transactions?${month}&kind=expense`);
+    expect(other.total).toBe(all.total);
+    const csv = await admin.call("GET", "/api/export/transactions.csv?from=2026-09-01&to=2026-09-30&kind=income");
+    expect(String(csv.body).trim().split(/\r?\n/)).toHaveLength(income.total + 1);
+  });
+
   it("lets the user recategorise and remembers it as a rule", async () => {
     const { admin } = await setupApp();
     await admin.call("POST", "/api/demo");
@@ -156,7 +173,7 @@ describe("the questions of the first page", () => {
     const content = [header, `2026/09/03;-12,50;${own};;;XQAZ KAUPPA;;EUR`, `2026/09/10;-20,00;${own};;;XQAZ KAUPPA;;EUR`, `2026/09/25;2500,00;;;ESIMERKKI OY;PALKKA;;EUR`].join("\n");
     await seedCsv(s, admin, { content, accountName: "Käyttötili" });
     const before = (await admin.call("GET", "/api/dashboard")).body.questions;
-    expect(before).toMatchObject({ share: expect.any(Number), outCents: expect.any(Number), inCents: expect.any(Number), outUnknownCents: expect.any(Number), inUnknownCents: expect.any(Number), cardBillCents: expect.any(Number), items: expect.any(Array), total: expect.any(Number) });
+    expect(before).toMatchObject({ share: expect.any(Number), cardBillCents: expect.any(Number), items: expect.any(Array), total: expect.any(Number) });
     expect(before.share).toBeGreaterThanOrEqual(0);
     expect(before.share).toBeLessThanOrEqual(1);
     expect(before.items.length).toBeLessThanOrEqual(5);

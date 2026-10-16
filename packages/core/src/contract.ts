@@ -172,6 +172,12 @@ export function withContracts(series: readonly RecurringSeries[], rows: readonly
   });
 }
 
+/** Whether the payee's payments up to the money's day run as a contract: then the rules of `closedContract` alone decide whether the money nets them. */
+export function runsContract<T extends ContractRow>(payments: readonly T[], money: Pick<ContractRow, "accountId" | "bookingDate" | "amountCents" | "merchant">): boolean {
+  const mine = payments.filter((t) => t.amountCents < 0 && partyOf(t) === partyOf(money));
+  return mine.length >= MIN_PAYMENTS && detectRecurring(mine.filter((t) => t.bookingDate <= money.bookingDate).map(asInput), money.bookingDate).some((s) => isContractSeries(s, mine[0]!.counterparty));
+}
+
 /**
  * The payments of the contract that a refund closes, oldest first, or null when it closes none: `payments` are what was
  * paid to the refunding payee. The contract is read as the history stood on the refund's day, and it must have its last

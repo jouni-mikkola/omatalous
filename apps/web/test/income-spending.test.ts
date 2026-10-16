@@ -43,7 +43,7 @@ const history = [
   buy("2026-10-02", 10_000),
   buy("2026-10-09", 4_500),
 ];
-const ANCHORS = { income: "tulot", food: "ruoka", months: "kuukaudet", settlement: "yhteiset-menot" };
+const ANCHORS = { food: "ruoka", months: "kuukaudet", settlement: "yhteiset-menot" };
 const answer = (rows: Transaction[], from: string, to: string) => ({ ...buildDashboard(createContext(rows, [checking], today), { from, to }), settlement: [] });
 const view = (rows: Transaction[], from: string, to: string) => incomeSpendingView(answer(rows, from, to));
 

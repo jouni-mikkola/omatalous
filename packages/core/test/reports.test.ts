@@ -536,10 +536,9 @@ describe("one definition", () => {
       expect(buildDashboard(steadyCtx, range, [], { marks: [{ ...inputs.marks[0]!, subject: "merchant:Nobody" }], expectedBills: [] }).fixedMonthlyCents).toBe(fixed);
     });
 
-    it("the overview counts the signals of the data quality report it takes its notice from", () => {
+    it("the overview takes its notice from the data quality report", () => {
       const d = buildDashboard(steadyCtx, range);
       const signals = buildReports({ ctx: steadyCtx, range, balances: [] }).dataQuality.signals;
-      expect(d.dataSignals).toBe(signals.length);
       expect(d.dataNotice).toEqual(signals.find((x) => x.tone === "warning") ?? null);
     });
 
@@ -604,24 +603,27 @@ describe("one definition", () => {
       for (const row of cash.rows) expect(row.savingsRate, row.month).toBeCloseTo(row.savedCents / row.incomeCents, 10);
     });
 
+    // the totals the bridge tells when it stands on the complete months of a running range; null in any other basis
+    const settledOf = (d: ReturnType<typeof buildDashboard>) => (d.bridge.basis === "settled" ? d.bridge.totals : null);
+
     it("settled leaves the running month out of a running range", () => {
       const running = createContext(dataset().filter((t) => t.bookingDate <= today), [checking], today);
       const upToNow = buildDashboard(running, { from: "2026-01-01", to: today });
       expect(upToNow.running).toBe(true);
-      expect(upToNow.settled).toEqual(buildDashboard(running, { from: "2026-01-01", to: "2026-09-30" }).totals);
+      expect(settledOf(upToNow)).toEqual(buildDashboard(running, { from: "2026-01-01", to: "2026-09-30" }).totals);
       // the running month has its bills and some of its income: the totals include it, settled does not
-      expect(upToNow.totals.expenseCents).toBeGreaterThan(upToNow.settled!.expenseCents);
+      expect(upToNow.totals.expenseCents).toBeGreaterThan(settledOf(upToNow)!.expenseCents);
       // a range that has ended, and the running month alone, have none
-      expect(buildDashboard(running, { from: "2026-01-01", to: "2026-09-30" }).settled).toBeNull();
-      expect(buildDashboard(running, { from: "2026-10-01", to: today }).settled).toBeNull();
+      expect(settledOf(buildDashboard(running, { from: "2026-01-01", to: "2026-09-30" }))).toBeNull();
+      expect(settledOf(buildDashboard(running, { from: "2026-10-01", to: today }))).toBeNull();
       // a range that starts inside a month leaves that month out: August 15 to today settles September alone
-      expect(buildDashboard(running, { from: "2026-08-15", to: today }).settled).toEqual(buildDashboard(running, { from: "2026-09-01", to: "2026-09-30" }).totals);
+      expect(settledOf(buildDashboard(running, { from: "2026-08-15", to: today }))).toEqual(buildDashboard(running, { from: "2026-09-01", to: "2026-09-30" }).totals);
     });
 
     it("settled leaves the first, partly fetched month out too", () => {
       const partly = createContext(dataset().filter((t) => t.bookingDate >= "2026-02-10"), [checking], today);
       const run = buildDashboard(partly, { from: "2026-01-01", to: today });
-      expect(run.settled).toEqual(buildDashboard(partly, { from: "2026-03-01", to: "2026-09-30" }).totals);
+      expect(settledOf(run)).toEqual(buildDashboard(partly, { from: "2026-03-01", to: "2026-09-30" }).totals);
     });
   });
 

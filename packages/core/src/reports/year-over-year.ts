@@ -23,7 +23,7 @@ export interface YearOverYearReport {
   shortHistory: boolean;
   /** An account was left out of both sides of some compared month (it began or ended in between). */
   leftOutAccounts: boolean;
-  /** At least three comparable months, and the accounts left out carry at most a tenth of the spending compared. Below that the change is not told. */
+  /** At least three comparable months (`MIN_COMPARE_MONTHS`): months both years cover with the same accounts, and in which the accounts left out carry at most a tenth of the spending. Below that the change is not told. */
   comparable: boolean;
   /** The running month (1–12) when range.to falls in a month that has not ended: the line stops or dashes there. */
   partialMonth: number | null;
@@ -37,8 +37,9 @@ export interface YearOverYearReport {
 /**
  * This year against last year, month by month and year to date, on the accounts that have the whole of both months
  * (`accountsCoverage`): an account that began or ended in between is left out of both sides of that month, since it
- * would show as a huge change. Under three months with a shared account, or when the accounts left out carry over a
- * tenth of the spending compared, the report says it is not `comparable`.
+ * would show as a huge change. A month where the accounts left out carry over a tenth of its spending is not compared
+ * at all, so months a long-standing account holds do not hide the months a younger main account shares. Under three
+ * months compared, the report says it is not `comparable`.
  */
 export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): YearOverYearReport {
   const year = Number(range.to.slice(0, 4));
@@ -47,16 +48,13 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
   const coverage = accountsCoverage(ctx);
   // the accounts both years have the whole of, month by month; a month with none is not compared
   const sharedIn = new Map<number, ReadonlySet<string>>();
-  let leftOutCents = 0;
-  let laterCents = 0;
   let leftOutAccounts = false;
   for (let m = 1; m <= lastMonth; m++) {
     const mm = String(m).padStart(2, "0");
     const c = coverage.compare({ from: `${year - 1}-${mm}-01`, to: monthEnd(`${year - 1}-${mm}`) }, { from: `${year}-${mm}-01`, to: monthEnd(`${year}-${mm}`) });
-    if (!c) continue;
+    // a month whose spending sits mostly on accounts the other year lacks says nothing of the change: it is not compared, and the months that are keep their say
+    if (!c || c.leftOutCents > LEFT_OUT_SHARE * c.laterCents) continue;
     sharedIn.set(m, c.shared);
-    leftOutCents += c.leftOutCents;
-    laterCents += c.laterCents;
     leftOutAccounts ||= c.leftOut;
   }
   const comparedMonths = [...sharedIn.keys()];
@@ -113,7 +111,7 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
     dataFrom,
     shortHistory: dataFrom !== null && dataFrom > `${year - 1}-01`,
     leftOutAccounts,
-    comparable: comparableMonths >= MIN_COMPARE_MONTHS && leftOutCents <= LEFT_OUT_SHARE * laterCents,
+    comparable: comparableMonths >= MIN_COMPARE_MONTHS,
     partialMonth,
     ytdCents: ytd,
     previousYtdCents: prevYtd,

@@ -11,7 +11,7 @@
  * a dead process leaves is cleared at start (services/recovery.ts), each finished user is remembered under
  * `app_build:<user id>`, and the hourly tick calls this again while the build differs.
  */
-import { isLookupName, normalizeMerchant } from "@banking/core";
+import { fillEnvelopeMerchants, isLookupName, normalizeMerchant } from "@banking/core";
 import { atOrAbove } from "../db/migrate.ts";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import { bankTxnCode } from "../connectors/enable-banking/mapper.ts";
@@ -129,11 +129,18 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
         const names = new Map<string, Set<string>>();
         // the same text repeats across a history: derive each name once
         const derived = new Map<string, string>();
+        const derivedNames: string[] = [];
         for (const [i, t] of rows.entries()) {
           if (i % 4000 === 3999) await yieldToLoop();
           const key = `${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}`;
           let merchant = derived.get(key);
           if (merchant === undefined) derived.set(key, (merchant = normalizeMerchant(t.counterparty, t.description)));
+          derivedNames.push(merchant);
+        }
+        // a row of only a card's currency, country and city takes the merchant of the same card's row of the same sum
+        const filled = fillEnvelopeMerchants(rows.map((t, i) => ({ ...t, merchant: derivedNames[i]! })));
+        for (const [i, t] of rows.entries()) {
+          const merchant = filled.get(t.id) ?? derivedNames[i]!;
           // unchanged rows count too: if some rows keep the old name, the rule must stay on it
           const set = names.get(t.merchant);
           if (set) set.add(merchant);

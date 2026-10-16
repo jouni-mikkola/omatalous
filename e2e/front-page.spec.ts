@@ -394,6 +394,8 @@ test("a row of the waterfall opens in place, one at a time, with its parts addin
   await expect(category.locator(".wf-before")).toHaveCount(comparable ? 1 : 0);
   if (comparable) await expect(category.locator(".wf-before")).toHaveText(/^[A-ZÄÖ][a-zäö]+kuu: [\d\s]+,\d\d\s€$/);
   await expect(category.getByRole("link", { name: "Näytä kaikki tapahtumat", exact: true })).toHaveAttribute("href", /^#\/transactions\?category=[\w-]+&from=\d{4}-\d\d-01&to=\d{4}-\d\d-\d\d$/);
+  // every payee of the category is a link to that payee's rows of the month
+  await expect(lines.first().locator("a")).toHaveAttribute("href", /^#\/transactions\?merchant=[^&]+&from=\d{4}-\d\d-01&to=\d{4}-\d\d-\d\d$/);
   // the next row opens by the keyboard and the first closes
   const next = block.locator(".wf-row.wf-down").nth(1);
   await next.locator("button[aria-expanded]").focus();

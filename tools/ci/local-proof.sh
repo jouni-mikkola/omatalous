@@ -40,10 +40,9 @@
 # and the layers the image leg builds at the same time are the Docker cache it reuses. What the builds and the other
 # phases take is in each rehearsal's log, one line a phase ("phase update: 31 s"), and a drills log has a line a drill.
 #
-# One line a leg when it ends, with its seconds. A failed leg does not stop the others, so that one proof shows every
-# failure; a failed image or smoke test is the exception, since every rehearsal builds the same Dockerfile: it stops the
-# legs that are running (each takes its install down), the drills do not run, and the line "stopped" stands for each
-# leg that was cut. The last lines before the verdict say where the time went: a line a leg with its seconds, the longest
+# One line a leg when it ends, with its seconds. A failed leg stops the others (see "One red leg" below; a failed image
+# or smoke test always does, since every rehearsal builds the same Dockerfile): the legs that are running are cut (each takes
+# its install down), the drills do not run, and the line "stopped" stands for each leg that was cut. The last lines before the verdict say where the time went: a line a leg with its seconds, the longest
 # first, then one for each lane and one for the drills' install and drills, so that the next cut shows the long path. The
 # proof passes, and is stamped, only when every leg said ok: a leg whose shell was lost leaves no line, and the end says
 # so. At the end the failed ones are named with their logs and the exit code is 1.
@@ -51,9 +50,19 @@
 # from, and the next run for the same commit ends at once (remove the file `local-proof` there to run it again).
 # The folder is the repository's common git dir, so the stamp of one worktree is read by the others.
 #
+# Verdicts: a rehearsal that passed is noted in the git folder (local-proof-verdicts) under a sha256 of the baseline's commit and
+# of this commit's tree. A later proof of the same tree, after a red leg or a lost shell, takes that verdict and says "cached" in
+# the leg's line instead of running it again; any changed byte of the tree, or another baseline commit, is another key, and
+# PROOF_FRESH=1 reruns everything. The rehearsal of the newest baseline always runs: it leaves the install for drills 3 and 4.
+#
+# "One red leg": it fails the proof at once: the legs that run are cut (each takes its install down), no other starts, and the end
+# names that leg. PROOF_KEEP_GOING=1 lets the others finish, so that one proof shows every failure. Every leg runs at nice 10
+# (PROOF_NICE), and the rehearsals run in at most PROOF_MAX_LANES lanes (default 3) unless --jobs says more.
+#
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
 # the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/, except the few files
-# of tools/ci that only the release workflow's own jobs run (NOT_RUN in the script; a test keeps that list honest).
+# of tools/ci that only the release workflow's own jobs run (NOT_RUN in the script) and the one that only the signature leg runs
+# (LEG_ONLY: a change of verify-release.sh alone gave 25 baselines in 0.63.0 where 0.62.0 had 5); a test keeps both lists honest.
 # Of those, baselines with the same update path run once, the newest of each: the same apps/server/migrations, scripts/,
 # docker-compose*.yml and Dockerfile (what an install of the baseline runs; their git hashes decide). The oldest, the newest,
 # the oldest that can take a port and a name and every one that cannot run in any case. The signature leg and the kept images
@@ -86,7 +95,8 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 JOBS='' # from the flag or PROOF_JOBS, else from the CPUs once the baselines are picked
 ALL=0
 # jobs_are NAME VALUE: the number of rehearsals at once, from the flag or from the environment
-jobs_are() { [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "$1 needs a number from 1 to 99."; JOBS=$2; }
+jobs_are() { [[ ${2:-} =~ ^[1-9][0-9]?$ ]] || refuse "$1 needs a number from 1 to 99."; JOBS=$2; [[ $1 != --jobs ]] || JOBS_FLAG=1; }
+JOBS_FLAG=0 # 1 when --jobs named the lanes: the cap of PROOF_MAX_LANES is for the default and for PROOF_JOBS, not for the flag
 PROVED=0
 LIST=''
 COMMIT=''
@@ -95,6 +105,9 @@ DRILL_USER=${PROOF_DRILL_USER:-2}
 # what an update runs through: a change here since the last release is proved from every baseline, except in the
 # files NOT_RUN names, which no install and no leg of the proof runs (a name may be of a file that does not exist yet)
 NOT_RUN=(tools/ci/release-plan.sh tools/ci/candidate-index.sh)
+# files that only the signature leg runs: no install and no rehearsal reads them, and that leg checks every baseline of the list
+# whatever the rule picks, so a change of them alone is no reason for more rehearsals (a test keeps this list honest too)
+LEG_ONLY=(tools/ci/verify-release.sh)
 PATHS=(apps/server/migrations scripts 'docker-compose*.yml' Dockerfile tools/ci)
 USAGE="usage: local-proof.sh [--all] [--jobs N] BASELINES, or --proved [--all] [--commit SHA] BASELINES"
 # a rehearsal takes these from the lane it runs in and from nowhere else
@@ -103,6 +116,8 @@ unset UPGRADE_PORT UPGRADE_PROJECT UPGRADE_WORK UPGRADE_KEEP_UP UPGRADE_UNTIL DR
 refuse() { printf 'Error: %s\n' "$*" >&2; exit 2; }
 
 [[ -z ${PROOF_JOBS:-} ]] || jobs_are PROOF_JOBS "$PROOF_JOBS"
+MAX_LANES=${PROOF_MAX_LANES:-3}
+[[ $MAX_LANES =~ ^[1-9][0-9]?$ ]] || refuse "PROOF_MAX_LANES needs a number from 1 to 99."
 while (($#)); do
   case $1 in
     --all) ALL=1 ;;
@@ -123,80 +138,20 @@ git rev-parse --git-dir >/dev/null 2>&1 || refuse "$ROOT is not a git checkout."
 SHA=$(git rev-parse --verify -q "${COMMIT:-HEAD}^{commit}") || refuse "${COMMIT:-HEAD} is not a commit of $ROOT."
 SHORT=${SHA:0:7}
 STAMP=$(cd "$(git rev-parse --git-common-dir)" && pwd)/local-proof # the common git dir: every worktree of the repository reads it
+VERDICTS=$(dirname "$STAMP")/local-proof-verdicts # one key a line: a rehearsal that passed (see "Verdicts")
+TREE=$(git rev-parse --verify -q "$SHA^{tree}")
 TEXT=$(git show "$SHA:$LIST" 2>/dev/null) || refuse "$LIST is not a file of the commit $SHORT (name it from the root of the repository)."
 
-# movable REF: the docker-compose.yml of the baseline reads the keys of a port and a name, so its rehearsal can run
-# in another lane than 0 (upgrade-run.sh refuses the keys otherwise). Asked of the commit under proof's repository.
-movable() {
+# shellcheck source=proof-pick.sh
+. "$ROOT/tools/ci/proof-pick.sh" || exit 2
+
+# verdict_key REF: the key of a rehearsal from REF on this commit: the hash of REF's commit (its image) and of this commit's tree
+# (every script, the Dockerfile, the compose file, the migrations and the app that the update builds), as one sha256. A change of
+# any byte of either is another key. Returns 1 for a ref that names no commit here.
+verdict_key() {
   local c
-  c=$(git show "$1:docker-compose.yml" 2>/dev/null) || return 1
-  [[ $c == *"\${HOST_PORT"* && $c == *"\${INSTANCE_NAME"* ]]
-}
-
-# update_path REF: what an update from REF runs through, as one hash (see "Which baselines"); none (return 1) for no commit.
-update_path() {
-  {
-    git ls-tree "$1" -- apps/server/migrations scripts Dockerfile \
-      && git ls-tree "$1" | awk -F'\t' '$2 ~ /^docker-compose.*\.yml$/'
-  } 2>/dev/null | git hash-object --stdin
-}
-
-# collapse REFS...: the refs that prove every update path of them, into PICK, and how many paths there are into PATHS_SAID.
-# The newest of each path runs, the oldest and newest ref, the oldest that can move (the drills' install) and every one that
-# cannot (lane 0 runs those one at a time). A ref with no readable path is a path of its own.
-collapse() {
-  local -a refs=("$@") keys=(); local -A last=()
-  local i k n=$# movable_seen=0 paths=0 keep
-  for i in "${!refs[@]}"; do
-    k=$(update_path "${refs[i]}") || k="unreadable ${refs[i]}"
-    keys+=("$k"); last["$k"]=$i
-  done
-  PICK=()
-  for i in "${!refs[@]}"; do
-    keep=0
-    [[ ${last["${keys[i]}"]} != "$i" ]] || { keep=1; paths=$((paths + 1)); }
-    ((i == 0 || i == n - 1)) && keep=1
-    if ! movable "${refs[i]}"; then keep=1
-    elif ((!movable_seen)); then keep=1; movable_seen=1; fi
-    ((!keep)) || PICK+=("${refs[i]}")
-  done
-  PATHS_SAID="the $n baselines of the list are $paths update paths, and the newest of each runs"
-}
-
-# pick_baselines TEXT: the baselines this proof runs, into PICK in the order of the list, and why into WHY. The one
-# place for the rule in the header.
-PICK=()
-ALLREFS=() # every ref of the list, picked or not
-WHY=''
-pick_baselines() {
-  local refs=() marked='' above='' l last changed i n f spec=("${PATHS[@]}")
-  for f in "${NOT_RUN[@]}"; do spec+=(":(exclude)$f"); done
-  while IFS= read -r l; do
-    l=${l#"${l%%[![:space:]]*}"}
-    l=${l%"${l##*[![:space:]]}"}
-    case $l in
-      '') ;;
-      '#'*) above=$l ;;
-      *)
-        [[ " ${refs[*]:-} " == *" $l "* ]] || refs+=("$l")
-        [[ $above != *"first public release"* ]] || marked=$l
-        above='' ;;
-    esac
-  done <<<"$1"
-  n=${#refs[@]}
-  ((n)) || return 1
-  ALLREFS=("${refs[@]}")
-  last=${refs[n - 1]}
-  if ((ALL)); then PICK=("${refs[@]}"); WHY="--all: every baseline of the list runs, none is left out"; return 0; fi
-  # a last ref that is no commit here cannot say that nothing changed
-  if ! changed=$(git diff --name-only "$last" "$SHA" -- "${spec[@]}" 2>/dev/null); then
-    collapse "${refs[@]}"; WHY="no diff from $last, the last of the list, could be read; $PATHS_SAID"; return 0
-  fi
-  if [[ -n $changed ]]; then collapse "${refs[@]}"; WHY="${changed%%$'\n'*} changed since $last; $PATHS_SAID"; return 0; fi
-  for i in "${!refs[@]}"; do
-    if ((i == 0 || i >= n - 3)) || [[ ${refs[i]} == "$marked" ]]; then PICK+=("${refs[i]}"); fi
-  done
-  WHY="nothing an update runs through changed since $last"
+  c=$(git rev-parse --verify -q "$1^{commit}") || return 1
+  echo "rehearsal $c tree $TREE" | sha256sum | cut -c1-64
 }
 
 # the stamp names this commit and every baseline of this proof
@@ -222,9 +177,11 @@ fi
 if [[ -z $JOBS ]]; then
   JOBS=$(($(nproc 2>/dev/null || echo 4) / 4))
   ((JOBS >= 4)) || JOBS=4
-  ((JOBS <= ${#PICK[@]})) || JOBS=${#PICK[@]}
-  ((JOBS <= 99)) || JOBS=99
 fi
+# lanes side by side: at most PROOF_MAX_LANES (default 3: the machine is shared with other users), and never more than rehearsals
+((JOBS_FLAG || JOBS <= MAX_LANES)) || JOBS=$MAX_LANES
+((JOBS_FLAG || JOBS <= ${#PICK[@]})) || JOBS=${#PICK[@]}
+((JOBS <= 99)) || JOBS=99
 
 for c in docker setsid flock; do command -v "$c" >/dev/null 2>&1 || refuse "$c is not installed."; done
 docker info >/dev/null 2>&1 || refuse "Docker does not answer (docker info). Start it, for example with: systemctl start docker. Then run again."
@@ -321,6 +278,7 @@ if ((${#AS[@]})); then
   fi
 fi
 
+if [[ -f $VERDICTS ]]; then { tail -n 400 "$VERDICTS" >"$VERDICTS.new" && cat "$VERDICTS.new" >"$VERDICTS"; rm -f "$VERDICTS.new"; } 2>/dev/null; fi
 T0=$SECONDS
 LEGS=$((${#PICK[@]} + 6)) # the image, the smoke test, the signature, a rehearsal each, the drills' install and two drills parts
 echo "local proof of $SHORT: ${#PICK[@]} baselines ($WHY), $JOBS at a time. Logs: $LOGS"
@@ -337,7 +295,7 @@ leg() {
   local name=$1 label=$2 t0=$SECONDS rc=0 pid dir=$SRC who=("${AS[@]}")
   shift 2
   if [[ ${LEG_AS:-} == drill ]]; then dir=$DSRC; who=("${DRILL_AS[@]}"); fi
-  (cd "$dir" && exec setsid "${who[@]}" "$@") </dev/null >"$LOGS/$name.log" 2>&1 &
+  (cd "$dir" && exec setsid nice -n "${PROOF_NICE:-10}" "${who[@]}" "$@") </dev/null >"$LOGS/$name.log" 2>&1 &
   pid=$!
   echo "$pid" >"$RUNNING/$name"
   # a stop that came between the start and the line above did not see this leg
@@ -355,6 +313,8 @@ leg() {
   else
     echo "FAILED  $label ($((SECONDS - t0)) s): $LOGS/$name.log"
     echo "$name" >>"$WORK/failed"
+    # one red fails the proof: the legs that run are cut and no new one starts, unless PROOF_KEEP_GOING=1 asks to see every failure
+    [[ ${PROOF_KEEP_GOING:-} == 1 ]] || halt
   fi
   return "$rc"
 }
@@ -369,10 +329,20 @@ upgrade_leg() {
   [[ ${3:-} != keep ]] || set+=(UPGRADE_KEEP_UP=1)
   if ((lane == 0 && ${#AS[@]})); then LEG_AS=drill; root=$DROOT; fi
   LEG_NOTE="lane $lane"
-  if leg "$name" "upgrade from $ref" env "UPGRADE_WORK=$root/$name" "${set[@]}" bash -c \
-    'tools/ci/check-migrations.sh "$1" && tools/ci/compose-compat.sh "$1" && exec tools/ci/upgrade-run.sh "$1"' leg "$ref" \
-    && [[ ${3:-} == keep ]]; then
+  # the verdict of an earlier proof of this very tree from this very baseline stands (see "Verdicts"); the rehearsal that
+  # leaves its install up for drills 3 and 4 always runs
+  local key='' reused=0
+  if [[ ${3:-} != keep ]] && key=$(verdict_key "$ref"); then
+    if [[ ${PROOF_FRESH:-} != 1 ]] && grep -qxF "$key" "$VERDICTS" 2>/dev/null; then reused=1; fi
+  fi
+  if ((reused)); then
+    leg "$name" "upgrade from $ref" echo "cached: the rehearsal from $ref passed before for this tree and this baseline"
     return 0
+  fi
+  if leg "$name" "upgrade from $ref" env "UPGRADE_WORK=$root/$name" "${set[@]}" bash -c \
+    'tools/ci/check-migrations.sh "$1" && tools/ci/compose-compat.sh "$1" && exec tools/ci/upgrade-run.sh "$1"' leg "$ref"; then
+    [[ -z $key ]] || echo "$key" >>"$VERDICTS"
+    [[ ${3:-} != keep ]] || return 0
   fi
   rm -rf "${root:?}/$name" 2>/dev/null
 }

@@ -1111,7 +1111,7 @@
   "checked": 6,
   "minLevelCents": 2000,
   "neededMonths": 9,
-  "readyFrom": "2025-01-01"
+  "readyFrom": "2025-02-01"
  },
  "buffer": {
   "fixedMonthlyCents": 212460,
@@ -3239,7 +3239,7 @@
  },
  "insights": {
   "items": [],
-  "months": 30
+  "months": 29
  },
  "loans": {
   "day": "2026-10-15",

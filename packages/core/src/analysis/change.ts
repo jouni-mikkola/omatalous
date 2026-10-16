@@ -238,7 +238,7 @@ function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
   // a year ago, for the season mark of the usual view
   const ago = addMonths(plan.target[0]!, -12);
   let yearAgo: Map<string, number> | null = null;
-  if (plan.view === "usual" && isCompleteMonth({ dataFrom: rowsComplete(ctx).from, today: ctx.today }, ago) && sameAccounts(ctx, monthSpan(ago), monthSpan(plan.target[0]!))) {
+  if (plan.view === "usual" && isCompleteMonth(ctx, ago, undefined, { from: rowsComplete(ctx).from, today: ctx.today }) && sameAccounts(ctx, monthSpan(ago), monthSpan(plan.target[0]!))) {
     yearAgo = new Map();
     for (const t of rowsOf(ago)) yearAgo.set(t.category, (yearAgo.get(t.category) ?? 0) + t.spend);
   }

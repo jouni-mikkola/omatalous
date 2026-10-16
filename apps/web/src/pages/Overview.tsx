@@ -16,7 +16,6 @@ import type { DashboardData, Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
 import { reportsOf, visibleSections } from "./reports/registry.ts";
 import { section as foodSection } from "./reports/sections/Food.tsx";
-import { section as incomeSection } from "./reports/sections/Income.tsx";
 import { section as settlementSection } from "./reports/sections/Settlement.tsx";
 import { section as loansSection } from "./reports/sections/Loans.tsx";
 import { section as monthsSection } from "./reports/sections/Pivot.tsx";
@@ -123,7 +122,7 @@ export function Overview({
 
       {today.housing && <Housing housing={today.housing} reportAnchor={loansSection.id} onAnswered={now.reload} />}
 
-      <IncomeSpending data={data} scope={scope} period={period} presets={periodsOf("overview", meta.today)} anchors={{ income: incomeSection.id, food: foodSection.id, months: monthsSection.id, settlement: settlementSection.id }} categories={new Map(meta.categories.map((c) => [c.id, c.label]))} />
+      <IncomeSpending data={data} scope={scope} period={period} presets={periodsOf("overview", meta.today)} anchors={{ food: foodSection.id, months: monthsSection.id, settlement: settlementSection.id }} categories={new Map(meta.categories.map((c) => [c.id, c.label]))} />
 
       {monthSections.map((sec) => (
         <sec.Component key={sec.id} ctx={reportCtx!} />

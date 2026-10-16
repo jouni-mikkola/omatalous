@@ -1,5 +1,5 @@
 import { getCategory } from "./categories.ts";
-import { closedContract } from "./contract.ts";
+import { closedContract, runsContract } from "./contract.ts";
 import { dayNumber, monthOf } from "./dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { isSharedPurchase, isUnnamedMobilePay, matchMobilePayShares } from "./mobilepay.ts";
@@ -67,9 +67,16 @@ export function matchReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet<
     }
     if (regular.has(partyKey(t))) continue;
     if (t.category === "p2p_in" && t.categorySource === "rule") incoming.push({ t, day: dayNumber(t.bookingDate), person: true, share: true });
-    else if (isPlainIncome(t)) incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false });
+    else if (isPlainIncome(t)) incoming.push({ t, day: dayNumber(t.bookingDate), person: false, share: false, ...(hasRefundWord(t) ? { refund: "text" as const } : {}) });
   }
-  return pair(rows, incoming, ownIbans, today ?? latestDay(rows));
+  // the first money in of each payee that no refund explains: a payee that paid the household before is no shop it only buys from
+  const candidates = new Set(incoming.map((i) => i.t.id));
+  const firstIncome = new Map<string, string>();
+  for (const t of rows) {
+    if (t.amountCents <= 0 || !isNamed(t, ownIbans) || candidates.has(t.id) || t.categorySource === "match" || getCategory(t.category).kind === "expense") continue;
+    if (!firstIncome.has(partyKey(t))) firstIncome.set(partyKey(t), orderOf(t));
+  }
+  return pair(rows, incoming, ownIbans, today ?? latestDay(rows), firstIncome);
 }
 
 /**
@@ -91,7 +98,7 @@ export function pairedReturns(txs: readonly ReturnInput[], ownIbans: ReadonlySet
     }
     if (t.amountCents <= 0 || !isNamed(t, ownIbans) || NOT_A_PURCHASE.has(t.category) || getCategory(t.category).kind !== "expense") continue;
     // only a row that matchReturns put there can be a share of a bill: a refund a rule recognised names its shop
-    incoming.push({ t, day: dayNumber(t.bookingDate), person: t.category === "p2p", share: t.categorySource === "match" });
+    incoming.push({ t, day: dayNumber(t.bookingDate), person: t.category === "p2p", share: t.categorySource === "match", ...(t.categorySource === "match" && t.category !== "p2p" ? { refund: "paired" as const } : {}) });
   }
   return incoming.length ? pair(rows, incoming, ownIbans, today ?? latestDay(rows)) : new Map();
 }
@@ -120,6 +127,8 @@ interface Incoming {
   share: boolean;
   /** MobilePay money that names no sender: matched by `matchMobilePayShares` only. */
   wallet?: true;
+  /** A refund by its word ("text"), or one the categorisation matched before ("paired"): it lowers its merchant's latest earlier purchase, whatever the window and what is left of it. */
+  refund?: "text" | "paired";
 }
 
 interface Purchase {
@@ -139,7 +148,7 @@ export const isNamed = (t: Pick<Transaction, "merchant" | "counterpartyIban">, o
 /** The day of the newest booked row: the history's own today where the caller knows no other. A pending row is no evidence of the day. `rows` are sorted. */
 const latestDay = (rows: readonly ReturnInput[]): IsoDate => rows.findLast((t) => t.status !== "pending")?.bookingDate ?? "0000-00-00";
 
-function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIbans: ReadonlySet<string>, today: IsoDate): Map<string, string> {
+function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIbans: ReadonlySet<string>, today: IsoDate, firstIncome?: ReadonlyMap<string, string>): Map<string, string> {
   if (!incoming.length) return new Map();
   const purchases = new Map<string, Purchase[]>();
   const list: Purchase[] = [];
@@ -205,6 +214,32 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
     if (closed) matches.set(inc.t.id, closed[closed.length - 1]!.id);
   }
 
+  // A refund no single purchase holds (more than is left of any one, the window kept) is still the merchant's: it takes the
+  // latest earlier purchase. By its word, or, from a payee the household only pays and has had no money in from before
+  // (`firstIncome`, given when the rows are not yet categorised), by that alone when it is no more than is left of the payments and the payee is no contract. Else the money in is income.
+  const seen = new Set<string>();
+  for (const inc of incoming) {
+    if (inc.wallet || inc.person || matches.has(inc.t.id)) continue;
+    const key = partyKey(inc.t);
+    const first = firstIncome?.get(key);
+    const evidence = inc.refund !== undefined || (firstIncome !== undefined && !seen.has(key) && !(first !== undefined && first < orderOf(inc.t)));
+    let best: Purchase | undefined;
+    let room = 0;
+    for (const p of evidence ? (purchases.get(key) ?? []) : []) {
+      if (p.day > inc.day || inc.day - p.day > REFUND_WINDOW_DAYS || p.t.category === "p2p") continue;
+      room += p.left;
+      if (!best || better(p, best, inc.t.amountCents)) best = p;
+    }
+    // by the payee alone the money in must also fit what is left of the payments: a bank's bonus or a deposit is no refund of a fee
+    if (inc.refund === undefined && room < inc.t.amountCents) best = undefined;
+    // a contract's own rules (closedContract) decide money from its payee: late, larger than its cost or while it runs is no refund
+    if (best && inc.refund === undefined && runsContract(contracts.get(key) ?? [], inc.t)) best = undefined;
+    if (best) {
+      best.left = Math.max(0, best.left - inc.t.amountCents);
+      matches.set(inc.t.id, best.t.id);
+    } else if (firstIncome) seen.add(key);
+  }
+
   // friends sending their shares of a bill paid to a business
   const people = incoming.filter((i) => i.share && !matches.has(i.t.id));
   if (people.length) {
@@ -237,12 +272,20 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
   return matches;
 }
 
+/** The order of the rows `sortedRows` makes: the day, then the id. */
+const orderOf = (t: Pick<ReturnInput, "bookingDate" | "id">) => `${t.bookingDate}|${t.id}`;
+
+/** Whether the row's own words call it a refund (not an insurance claim). */
+function hasRefundWord(t: ReturnInput): boolean {
+  const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
+  return isRefundText(text) && !CLAIM_TEXT.test(text);
+}
+
 /** Unrecognised money in, or a refund by its own word. */
 function isPlainIncome(t: ReturnInput): boolean {
   if (t.category === "income" && t.categorySource === "default") return true;
   if (t.category !== "reimbursements" || t.categorySource !== "rule") return false;
-  const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-  return isRefundText(text) && !CLAIM_TEXT.test(text);
+  return hasRefundWord(t);
 }
 
 /** The better of two purchases for a refund of `cents`: the same amount first, then the latest, then the lower id. */

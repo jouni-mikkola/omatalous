@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { changedFiles, loadCorpus, scopeOf, workspace } from "./scope.mjs";
+import { changedFiles, diffTexts, loadCorpus, scopeOf, uiTokens, workspace } from "./scope.mjs";
 
 const RULES = "tools/repo-rules";
 const UI_STRINGS = "tools/ui-strings.test.ts";
@@ -218,5 +218,120 @@ describe("check --changed: the files of a diff", () => {
     writeFileSync(join(dir, "new.txt"), "x\n");
     expect(changedFiles("main", dir)).toEqual(["a.txt", "b.txt", "docs/old.md", "new.txt"]);
     expect(() => changedFiles("no-such-base", dir)).toThrow();
+  });
+});
+
+describe("check --changed: tests that read a changed file as text", () => {
+  const SHOTS = ["tools/shots-a.test.ts", "tools/shots-b.test.ts", "tools/shots-c.test.ts"];
+  const corpus = {
+    shell: {},
+    vitest: {
+      "tools/shots-a.test.ts": "run('overview')",
+      "tools/shots-b.test.ts": "run('bills')",
+      "tools/shots-c.test.ts": "run('loans')",
+      "tools/css-lint.test.ts": 'readFileSync(join(ROOT, "apps/web/src/styles/tokens.css"))',
+      "apps/server/test/changelog.test.ts": 'readFileSync("CHANGELOG.md")',
+      "apps/server/test/by-name.test.ts": 'join(dir, "legacy.css")',
+      "apps/server/test/index.test.ts": 'readFileSync("apps/server/src/index.ts")',
+      "packages/core/test/unrelated.test.ts": "nothing here",
+    },
+    e2e: {
+      "e2e/bills.spec.ts": 'import { go } from "./helpers";\nawait page.locator(".bill-row").click();\nawait expect(page.getByText("Tulevat maksut")).toBeVisible();',
+      "e2e/settings.spec.ts": 'import { go } from "./helpers";\nawait page.getByRole("button", { name: "Tallenna" }).click();',
+      "e2e/loans.spec.ts": 'await page.goto("/loans"); // a .bill-row-extra table is not the bill row',
+    },
+  };
+  const scope = (files: string[], diffs: Record<string, string> = {}) => scopeOf(files, real, corpus, diffs);
+
+  it("a changed stylesheet brings the pictures tests and the test that reads it by path", () => {
+    const s = scope(["apps/web/src/styles/tokens.css"], { "apps/web/src/styles/tokens.css": ".other { gap: 1px; }\n" });
+    expect(s.readers).toEqual(["tools/css-lint.test.ts", ...SHOTS]);
+    expect(s.tests).toEqual(expect.arrayContaining(["apps/web", RULES, ...SHOTS, "tools/css-lint.test.ts"]));
+    expect(s.e2e).toEqual([]);
+  });
+
+  it("a stylesheet named only by its file name is found, and a generic file name needs its whole path", () => {
+    expect(scope(["apps/web/src/legacy.css"]).readers).toContain("apps/server/test/by-name.test.ts");
+    expect(scope(["packages/core/src/index.ts"]).readers).toEqual([]);
+    expect(scope(["apps/server/src/index.ts"]).readers).toEqual(["apps/server/test/index.test.ts"]);
+    // the root note that a server test reads is no longer left out
+    expect(scope(["CHANGELOG.md"]).readers).toEqual(["apps/server/test/changelog.test.ts"]);
+  });
+
+  it("a changed class name brings the spec that names it, whole word only", () => {
+    const css = { "apps/web/src/styles/tokens.css": ".bill-row {\n  display: grid;\n}\n.bill-row:hover, .other-thing {\n" };
+    expect(scope(["apps/web/src/styles/tokens.css"], css).e2e).toEqual(["e2e/bills.spec.ts"]);
+    const tsx = { "apps/web/src/pages/Bills.tsx": '<li className={cx("bill-row", open && "is-open")}>' };
+    expect(scope(["apps/web/src/pages/Bills.tsx"], tsx).e2e).toEqual(["e2e/bills.spec.ts"]);
+  });
+
+  it("a changed UI sentence brings the spec that reads it, the old text too, and the pictures tests", () => {
+    const old = { "apps/web/src/pages/Bills.tsx": "<h2>Tulevat maksut</h2>\n<h2>Erapaivat</h2>" };
+    const s = scope(["apps/web/src/pages/Bills.tsx"], old);
+    expect(s.e2e).toEqual(["e2e/bills.spec.ts"]);
+    expect(s.readers).toEqual(SHOTS);
+    expect(scope(["packages/core/src/wording.ts"], { "packages/core/src/wording.ts": 'const a = "Tallenna";' }).e2e).toEqual(["e2e/settings.spec.ts"]);
+  });
+
+  it("an unrelated change brings neither the pictures tests nor a spec", () => {
+    const s = scope(["packages/core/src/money.ts"], { "packages/core/src/money.ts": "export const cents = 2;\nconst key = 'abc-def';\n" });
+    expect(s).toMatchObject({ readers: [], e2e: [], tests: ["apps/server", "apps/web", "packages/core", RULES, UI_STRINGS] });
+    // a web source that changes logic and no sentence is no picture either
+    expect(scope(["apps/web/src/lib/sum.ts"], { "apps/web/src/lib/sum.ts": "return a + b;" }).readers).toEqual([]);
+  });
+
+  it("a changed spec runs itself, and a changed helper the specs that import it", () => {
+    expect(scope(["e2e/loans.spec.ts"]).e2e).toEqual(["e2e/loans.spec.ts"]);
+    expect(scope(["e2e/helpers.ts"]).e2e).toEqual(["e2e/bills.spec.ts", "e2e/settings.spec.ts"]);
+    expect(scope(["e2e/gone.spec.ts"]).e2e).toEqual([]);
+  });
+
+  it("without a corpus nothing is read as text", () => {
+    expect(scopeOf(["apps/web/src/styles/tokens.css"], real)).toMatchObject({ readers: [], e2e: [], tests: ["apps/web", RULES, UI_STRINGS] });
+  });
+
+  it("reads class names and sentences from changed lines and leaves code, paths and ids out", () => {
+    const tsx = [
+      'import { Row } from "./Row";',
+      "// Tallenna in a comment",
+      '<div className="card wide" data-id="row-1">',
+      "  <h2>Tulevat maksut</h2>",
+      '  <button title="Poista" onClick={() => go("/bills/new")}>Lisää tilitys {name}</button>',
+      "  Pelkkä teksti",
+      "  const key = `${a}-b`; const id = 'user_id'; fetch('/api/x');",
+    ].join("\n");
+    expect(uiTokens("apps/web/src/pages/Bills.tsx", tsx)).toEqual({
+      classes: ["card", "wide"],
+      strings: ["Lisää tilitys", "Pelkkä teksti", "Poista", "Tulevat maksut"],
+    });
+    expect(uiTokens("apps/web/src/styles/a.css", ".bill-row > .cell,\n.x {\n  margin: 0.5rem;\n  background: url(a.png);\n}\n/* .comment */")).toEqual({ classes: ["bill-row", "cell"], strings: [] });
+  });
+});
+
+describe("check --changed: the changed lines of source files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "diffs-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const git = (...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", ...a], { cwd: dir, encoding: "utf8" });
+
+  it("holds the added and removed lines of a tracked file, a deleted one and a new one whole, and no other file", () => {
+    git("init", "-q", "-b", "main");
+    mkdirSync(join(dir, "apps/web/src/pages"), { recursive: true });
+    mkdirSync(join(dir, "docs"));
+    writeFileSync(join(dir, "apps/web/src/pages/A.tsx"), "<h1>Vanha</h1>\n<p>Sama</p>\n");
+    writeFileSync(join(dir, "apps/web/src/pages/B.tsx"), "<h1>Poistettu</h1>\n");
+    writeFileSync(join(dir, "docs/a.md"), "1\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(join(dir, "apps/web/src/pages/A.tsx"), "<h1>Uusi</h1>\n<p>Sama</p>\n");
+    rmSync(join(dir, "apps/web/src/pages/B.tsx"));
+    writeFileSync(join(dir, "apps/web/src/pages/C.tsx"), "<h1>Kolmas</h1>\n");
+    writeFileSync(join(dir, "docs/a.md"), "2\n");
+    const files = changedFiles("main", dir);
+    const d = diffTexts("main", files, dir);
+    expect(Object.keys(d).sort()).toEqual(["apps/web/src/pages/A.tsx", "apps/web/src/pages/B.tsx", "apps/web/src/pages/C.tsx"]);
+    expect(d["apps/web/src/pages/A.tsx"]!.split("\n").sort()).toEqual(["<h1>Uusi</h1>", "<h1>Vanha</h1>"]);
+    expect(d["apps/web/src/pages/B.tsx"]).toBe("<h1>Poistettu</h1>");
+    expect(d["apps/web/src/pages/C.tsx"]).toBe("<h1>Kolmas</h1>\n");
   });
 });

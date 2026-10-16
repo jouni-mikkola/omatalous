@@ -2,13 +2,15 @@
  * "Tavallisesti" and "valmis kuukausi": the one yardstick every view uses to say what is usual and which months may
  * be compared. A running month, or one the history does not cover from the 1st, is never part of it, and fewer than
  * three months say nothing. The usual spending, the usual earned income and the gate a cause must pass are defined here
- * once (ADR 0004). The page's "Tavalliset tulot kuukaudessa" is another figure: the income report's own median of twelve
+ * once (ADR 0004). The page's "Säännölliset tulot kuukaudessa" is another figure: the income report's own median of twelve
  * months of regular income (`stability.medianCents`). See docs/MONEY_FLOWS.md.
  */
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, historyCovers } from "./context.ts";
+import { accountCovers, LEFT_OUT_SHARE } from "./coverage.ts";
 import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
+import type { IsoDate } from "../types.ts";
 import type { DayRange } from "./period.ts";
 
 /** The usual level is the median of this many complete months at most. */
@@ -16,26 +18,75 @@ export const USUAL_MONTHS = 6;
 /** Fewer complete months than this give no usual level and no comparison. */
 export const MIN_COMPARE_MONTHS = 3;
 
-type MonthContext = Pick<AnalysisContext, "dataFrom" | "today">;
+/** The accounts with a row in each month (`2026-09`), found once per context. */
+const rowAccounts = new WeakMap<AnalysisContext, Map<string, Set<string>>>();
 
-/** The month (`2026-09`) has ended and the history covers it from the 1st. */
-export function isCompleteMonth(ctx: MonthContext, month: string): boolean {
-  const end = monthEnd(month);
-  return end < ctx.today && historyCovers(ctx, `${month}-01`);
+function accountsWithRows(ctx: AnalysisContext, month: string): ReadonlySet<string> {
+  let byMonth = rowAccounts.get(ctx);
+  if (!byMonth) {
+    rowAccounts.set(ctx, (byMonth = new Map()));
+    for (const t of ctx.txs) {
+      const label = t.bookingDate.slice(0, 7);
+      let ids = byMonth.get(label);
+      if (!ids) byMonth.set(label, (ids = new Set()));
+      ids.add(t.accountId);
+    }
+  }
+  return byMonth.get(month) ?? new Set();
+}
+
+/** The days a reader knows its rows are complete on (`rowsComplete`). */
+type RowBounds = { from: IsoDate | null; today: IsoDate };
+
+/**
+ * The month (`2026-09`) has ended and the accounts a reader sums were in the data from the 1st (`accountCovers`). A
+ * reader of the household total passes no accounts: the accounts with a row in the month are the ones it sums, so an
+ * account connected later does not make the months before it incomplete, and its own first month is. A month without
+ * a row is judged by the history of all rows. `rows` narrows it further for a reader that knows the days its rows are
+ * complete on (`rowsComplete`): the month must also end before `rows.today` and start after `rows.from`.
+ */
+export function isCompleteMonth(ctx: AnalysisContext, month: string, accounts?: Iterable<string>, rows?: RowBounds): boolean {
+  if (monthEnd(month) >= (rows?.today ?? ctx.today)) return false;
+  const from = `${month}-01`;
+  if (rows && !historyCovers({ dataFrom: rows.from }, from)) return false;
+  if (accounts) return accountCovers(ctx, accounts, from);
+  const own = accountsWithRows(ctx, month);
+  return own.size ? accountCovers(ctx, own, from) : historyCovers(ctx, from);
 }
 
 /**
- * The complete months right before `month`, at most `n`, oldest first. It stops at the first month that is not
- * complete, so a history that starts later gives fewer (none when `month` itself is in the future).
+ * The complete months right before `month`, at most `n`, oldest first (for the accounts a reader sums, see
+ * `isCompleteMonth`). It stops at the first month that is not complete, so a history that starts later gives fewer
+ * (none when `month` itself is in the future). One month is skipped instead: the month an account joined, when that
+ * is all that makes it incomplete and the joining accounts carry under `LEFT_OUT_SHARE` of the spending from that month
+ * up to `month`: a small new card does not cut the usual level off, a main account does. A reader that names its
+ * accounts always stops.
  */
-export function completeMonthsBefore(ctx: MonthContext, month: string, n: number = USUAL_MONTHS): string[] {
+export function completeMonthsBefore(ctx: AnalysisContext, month: string, n: number = USUAL_MONTHS, accounts?: Iterable<string>, rows?: RowBounds): string[] {
+  const ids = accounts && [...accounts];
   const out: string[] = [];
   for (let i = monthIndex(month) - 1; out.length < n; i--) {
     const label = fromMonthIndex(i);
-    if (!isCompleteMonth(ctx, label)) break;
-    out.push(label);
+    if (isCompleteMonth(ctx, label, ids, rows)) out.push(label);
+    else if (ids || !joinedSmall(ctx, label, month, rows)) break;
   }
   return out.reverse();
+}
+
+/** Is `label` incomplete only because accounts began in it, and do they carry under `LEFT_OUT_SHARE` of the spending from `label` to before `month`? */
+function joinedSmall(ctx: AnalysisContext, label: string, month: string, rows?: RowBounds): boolean {
+  const here = accountsWithRows(ctx, label);
+  const joined = new Set([...here].filter((id) => !accountCovers(ctx, [id], `${label}-01`)));
+  if (!joined.size || joined.size === here.size) return false;
+  const others = [...here].filter((id) => !joined.has(id));
+  if (!isCompleteMonth(ctx, label, others, rows)) return false;
+  let all = 0;
+  let theirs = 0;
+  for (const t of bookedSpendSelect(ctx, { fromDay: dayNumber(`${label}-01`), toDay: dayNumber(monthEnd(fromMonthIndex(monthIndex(month) - 1))) }).counted) {
+    all += spendOf(t);
+    if (joined.has(t.accountId)) theirs += spendOf(t);
+  }
+  return all > 0 && theirs < LEFT_OUT_SHARE * all;
 }
 
 /**

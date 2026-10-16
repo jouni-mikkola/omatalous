@@ -3,7 +3,7 @@
   "today": "2026-10-15",
   "end": "2026-09-30",
   "months": 12,
-  "historyMonths": 30,
+  "historyMonths": 29,
   "dataTo": "2026-10-14",
   "accounts": 4,
   "situation": [

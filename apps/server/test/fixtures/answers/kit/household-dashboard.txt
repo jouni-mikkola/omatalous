@@ -2,13 +2,11 @@
  "range": {
   "from": "2026-10-01",
   "to": "2026-10-15",
-  "previousFrom": "2026-09-01",
-  "previousTo": "2026-09-15"
+  "previousFrom": "2026-09-01"
  },
  "comparable": true,
  "leftOutAccounts": false,
  "running": true,
- "dataFrom": "2024-04-02",
  "totals": {
   "incomeCents": 0,
   "consumptionCents": 196430,
@@ -31,7 +29,6 @@
   "leftCents": -244645,
   "savingsRate": null
  },
- "settled": null,
  "bridge": {
   "totals": {
    "incomeCents": 352000,
@@ -556,7 +553,6 @@
   }
  ],
  "dataNotice": null,
- "dataSignals": 0,
  "insights": [],
  "holdings": {
   "accounts": [
@@ -678,24 +674,11 @@
  },
  "questions": {
   "share": 1,
-  "outCents": 3918215,
-  "inCents": 4414300,
-  "outUnknownCents": 0,
-  "inUnknownCents": 0,
   "cardBillCents": 0,
   "cardBillIssuers": [],
   "items": [],
   "total": 0
  },
- "colorOrder": [
-  "housing",
-  "groceries",
-  "mortgage",
-  "kids",
-  "restaurants",
-  "car",
-  "food_delivery"
- ],
  "waterfall": {
   "month": "2026-10",
   "bars": [

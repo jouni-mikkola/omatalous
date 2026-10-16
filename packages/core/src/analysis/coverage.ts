@@ -5,7 +5,6 @@
 import { addMonthsToDate, dayNumber, fromDayNumber, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import type { Account, IsoDate } from "../types.ts";
 import { type AnalysisContext, COVER_SLACK_DAYS } from "./context.ts";
-import { isCompleteMonth } from "./usual.ts";
 
 export interface Coverage {
   /** Was the account in the data for the whole of the month? */
@@ -74,7 +73,7 @@ function computeStartDays(ctx: AnalysisContext): StartDays {
 
 /**
  * From when each account was in the data. The day its record gives (`recordedDays`) or else its first row decides,
- * with the days of slack the oldest row of all has (`isCompleteMonth`): a card opened later than its history reaches
+ * with the days of slack the oldest row of all has (`COVER_SLACK_DAYS`): a card opened later than its history reaches
  * is read as one connected later, the safe side. An account linked before the record has no recorded day, so its first
  * row decides until its next consent asks for the longest history.
  *
@@ -89,10 +88,13 @@ function computeStartDays(ctx: AnalysisContext): StartDays {
  * guess) and on `purchasesFrom` (the same for a card account); how the first day is guessed may change.
  */
 export function coverage(ctx: AnalysisContext): Coverage {
-  const { first, known, from } = startDays(ctx);
+  const { first, known } = startDays(ctx);
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   return {
-    covers: (accountId, month) => isCompleteMonth({ dataFrom: from.get(accountId) ?? null, today: ctx.today }, fromMonthIndex(month)),
+    covers: (accountId, month) => {
+      const label = fromMonthIndex(month);
+      return monthEnd(label) < ctx.today && accountCovers(ctx, [accountId], `${label}-01`);
+    },
     began: (accountId) => {
       const day = first.get(accountId);
       return day ? monthIndex(monthOf(day)) : Number.POSITIVE_INFINITY;

@@ -207,10 +207,7 @@ describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
   it("rule 19: `historyCovers(` only in usual.ts and context.ts, or on the shrinking baseline", () => {
     const OWNERS = new Set(["packages/core/src/analysis/usual.ts", "packages/core/src/analysis/context.ts"]);
     // today's other callers and how many calls each; a count may only go down
-    const BASELINE: Record<string, number> = {
-      "packages/core/src/optimise/common.ts": 1,
-      "packages/core/src/reports/drift.ts": 3,
-    };
+    const BASELINE: Record<string, number> = {};
     const SELF = "tools/repo-rules/code-rules.ts";
     const found: Finding[] = [];
     const seen = new Map<string, number>();

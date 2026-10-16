@@ -5,7 +5,7 @@
 # A suite whose scenarios are t_ functions behind a `want` filter (install, backup, ops-helper, ...) runs one job per
 # scenario, the other suites one job each, CHECK_JOBS of them at a time (default the CPUs less 8, at least 4, so vitest keeps cores).
 # --changed [base] is for the loop while working: tsc runs incrementally, vitest only on the packages the diff touches
-# and on the files that name a changed script (tools/check/scope.mjs says which), and the shell steps only when it
+# and on the files that name a changed script or read a changed file as text, and the pictures tests when the web app's look changes (tools/check/scope.mjs says which; tools/check/tests-for.sh <base> prints the list with the e2e specs), and the shell steps only when it
 # touches shell: then only the suites that name the changed script, or a script that sources it. A changed script that
 # nothing names runs everything. The base defaults to the commit that .git/worker-base holds, else origin/main. CI and
 # a plain `pnpm check` run everything.
@@ -125,6 +125,7 @@ if ((CHANGED)); then
     elif ((${#SCOPE_SUITES[@]})); then shell=", shell suites $(for s in "${SCOPE_SUITES[@]}"; do s=${s##*/}; printf '%s ' "${s%.test.sh}"; done)"; shell=${shell% }
     fi
     echo "check: scoped to ${base:0:12} (${sc[files]} files): vitest ${SCOPE_TESTS[*]:-everything}${sc[why]:+ (${sc[why]})}, types incremental$shell"
+    [[ -z ${sc[e2e]:-} ]] || echo "check: e2e specs this change needs (not run here; after pnpm build: pnpm e2e ${sc[e2e]})"
     ((${#steps[@]})) || { echo "check: nothing to run"; exit 0; }
   fi
 fi

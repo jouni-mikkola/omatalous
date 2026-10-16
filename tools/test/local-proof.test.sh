@@ -18,6 +18,8 @@ has() { if [[ $2 == *"$3"* ]]; then pass "$1"; else fail "$1" "$2"; fi; }
 lacks() { if [[ $2 != *"$3"* ]]; then pass "$1"; else fail "$1" "$2"; fi; }
 
 . "$HERE/local-proof-world.sh" || exit 1
+# the tests below that read several failures at once ask for every leg to finish; the section "one red leg" says what the default does
+export PROOF_KEEP_GOING=1
 
 # ── a proof that passes: the short list, as the user that started it ──
 reset
@@ -25,7 +27,7 @@ echo 'echo DIRTY >>"$PROOF_CALLS"' >>"$R/tools/ci/upgrade-run.sh"
 out=$(UPGRADE_PORT=9999 UPGRADE_PROJECT=mine UPGRADE_KEEP_UP=1 UPGRADE_WORK=/nowhere proof baselines.txt); rc=$?
 git -C "$R" checkout -q -- tools/ci/upgrade-run.sh
 check "a proof whose legs pass exits 0" test $rc -eq 0
-has "the first line says how many baselines, why, and where the logs are" "$out" "local proof of $(short): 5 baselines (nothing an update runs through changed since b7), 4 at a time. Logs: $TMP/work/local-proof."
+has "the first line says how many baselines, why, and where the logs are" "$out" "local proof of $(short): 5 baselines (nothing an update runs through changed since b7), 3 at a time. Logs: $TMP/work/local-proof."
 for l in "the image builds" "smoke test of the image" "signature of the newest release" "upgrade from b0" "upgrade from b3" "upgrade from b5" "upgrade from b6" "upgrade from b7" "install for drills 1, 2, 5, 6, 9, 10" "drills 3, 4, 7, 8" "drills 1, 2, 5, 6, 9, 10"; do
   has "one line for the leg: $l" "$out" "ok      $l ("
 done
@@ -159,7 +161,7 @@ reset
 echo 4 >"$PLAY/gate"
 mkfifo "$PLAY/gate.fifo"
 exec 9<>"$PLAY/gate.fifo" # held open, so that no end of it waits for the other
-out=$(proof baselines.txt); rc=$?
+out=$(proof --jobs 4 baselines.txt); rc=$?
 exec 9>&-
 check "the proof of the whole list exits 0" test $rc -eq 0
 has "the first line names the file that changed" "$out" "8 baselines (scripts/install.sh changed since b7; the 8 baselines of the list are 8 update paths, and the newest of each runs), 4 at a time."
@@ -192,14 +194,18 @@ out=$(PROOF_JOBS=1 proof --jobs 2 baselines.txt)
 has "the flag wins over PROOF_JOBS" "$out" "2 at a time."
 reset
 out=$(PROOF_JOBS='' proof baselines.txt)
-has "an empty PROOF_JOBS is the default" "$out" "4 at a time."
+has "an empty PROOF_JOBS is the default" "$out" "3 at a time."
 # without a flag the lanes come from the CPUs: one for every 4, at least 4, at most the rehearsals
 lanes() { local cpus=$1; shift; reset; echo "$cpus" >"$PLAY/cpus"; proof "$@" | sed -n 1p; }
-has "28 CPUs: 7 lanes" "$(lanes 28 baselines.txt)" "8 baselines (scripts/install.sh changed since b7; the 8 baselines of the list are 8 update paths, and the newest of each runs), 7 at a time."
-has "no more lanes than rehearsals" "$(lanes 100 baselines.txt)" "8 at a time."
-has "a small machine still gets 4" "$(lanes 4 baselines.txt)" "4 at a time."
+has "28 CPUs: no more than 3 lanes side by side" "$(lanes 28 baselines.txt)" "8 baselines (scripts/install.sh changed since b7; the 8 baselines of the list are 8 update paths, and the newest of each runs), 3 at a time."
+has "100 CPUs: still 3" "$(lanes 100 baselines.txt)" "8 baselines (scripts/install.sh changed since b7; the 8 baselines of the list are 8 update paths, and the newest of each runs), 3 at a time."
+has "PROOF_MAX_LANES raises the cap" "$(PROOF_MAX_LANES=7 lanes 28 baselines.txt)" "7 at a time."
+has "PROOF_MAX_LANES never gives more lanes than rehearsals" "$(PROOF_MAX_LANES=20 lanes 100 baselines.txt)" "8 at a time."
+has "a small machine gets 3" "$(lanes 4 baselines.txt)" "3 at a time."
 has "a list of two rehearsals gets two lanes" "$(lanes 28 two.txt)" "2 baselines (scripts/install.sh changed since b7; the 2 baselines of the list are 2 update paths, and the newest of each runs), 2 at a time."
-has "a machine that cannot count its CPUs gets 4" "$(lanes none baselines.txt)" "4 at a time."
+has "a machine that cannot count its CPUs gets 3" "$(lanes none baselines.txt)" "3 at a time."
+has "PROOF_JOBS from a cut on a big machine is capped as well" "$(PROOF_JOBS=7 lanes 28 baselines.txt)" "3 at a time."
+has "the flag is not capped" "$(lanes 28 --jobs 5 baselines.txt)" "5 at a time."
 reset
 out=$(echo 28 >"$PLAY/cpus"; PROOF_JOBS=3 proof baselines.txt)
 has "PROOF_JOBS wins over the CPUs" "$out" "3 at a time."
@@ -223,7 +229,10 @@ has "the list that closes the proof is there for a red proof too, before its ver
 check "no stamp after a failure" test -z "$(stamp)"
 rm "$PLAY"/fail-*; : >"$CALLS"
 out=$(proof baselines.txt); rc=$?
-check "after the fix the same command proves the commit" test $rc -eq 0 -a -n "$(stamp)" -a "$(called '^rehearsal ')" -eq 8
+check "after the fix the same command proves the commit" test $rc -eq 0 -a -n "$(stamp)"
+check "and runs again only what had no verdict: b5, b6 and the newest, which leaves the install for the drills" test "$(called '^rehearsal ')" -eq 3
+has "the others say cached" "$out" "ok      upgrade from b0 ("
+has "with the word after the seconds" "$out" " s), cached"
 
 reset
 touch "$PLAY/fail-b0"
@@ -482,6 +491,9 @@ refused "--commit as the last word" "--commit needs a commit" proof --proved bas
 refused "--commit with a word that is no commit" "nonsense is not a commit of" proof --proved --commit nonsense baselines.txt
 refused "an unknown option" "Unknown option: --fast" proof --fast baselines.txt
 refused "--jobs 0" "--jobs needs a number from 1 to 99" proof --jobs 0 baselines.txt
+proof_max() { local m=$1; shift; PROOF_MAX_LANES=$m proof "$@"; }
+refused "PROOF_MAX_LANES 0" "PROOF_MAX_LANES needs a number from 1 to 99" proof_max 0 baselines.txt
+refused "PROOF_MAX_LANES with a word" "PROOF_MAX_LANES needs a number from 1 to 99" proof_max some baselines.txt
 refused "--jobs with a word" "--jobs needs a number from 1 to 99" proof --jobs many baselines.txt
 refused "--jobs with nothing" "--jobs needs a number from 1 to 99" proof baselines.txt --jobs
 proof_jobs() { local j=$1; shift; PROOF_JOBS=$j proof "$@"; }

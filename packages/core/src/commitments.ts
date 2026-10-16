@@ -119,7 +119,7 @@ export interface MerchantBasis {
 }
 
 /** The basis of a view (own or household): an income series is money in, and the figure is money out. */
-export function merchantBasis(ctx: Pick<AnalysisContext, "today" | "dataFrom" | "recurring">): MerchantBasis {
+export function merchantBasis(ctx: AnalysisContext): MerchantBasis {
   const series = new Map<string, { monthlyCents: number; yearlyCents: number }>();
   for (const s of ctx.recurring) {
     if (!s.active || s.kind === "income") continue;

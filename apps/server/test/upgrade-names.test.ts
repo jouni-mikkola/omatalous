@@ -284,4 +284,27 @@ describe("one card issuer under three names: what the household chose on the old
     expect(await repo.listMarks()).toEqual(marksBefore);
     expect(await rows()).toEqual(rowsBefore);
   });
+
+  it("makes one payee of a foreign merchant's card texts, the fee line included, and the rule every old name had is the new name's", async () => {
+    const { s, adminId, admin } = await setupApp();
+    const repo = s.finance(adminId);
+    const forms = [
+      ["USD IRL DUBLIN ANTHROPIC", "Usd Irl Dublin Anthropic", "2026/09/01", "10,00"],
+      ["SAN FRANCISCO ANTHROPIC PRO", "San Francisco Anthropic Pro", "2026/09/02", "11,00"],
+      ["ANTHROPIC", "Anthropic", "2026/09/03", "12,00"],
+      ["USD USA SAN FRANCISCO", "Usd Usa San Francisco", "2026/09/01", "10,00"],
+    ] as const;
+    const csv = ["Kirjauspäivä;Määrä;Nimi;Otsikko", ...forms.map(([text, , day, sum]) => `${day};-${sum};;${text}`)].join("\n");
+    expect((await seedCsv(s, admin, { content: csv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+    // the rows as the version before stored them, a name each, and the household's rule on every one of them
+    for (const [text, old] of forms) {
+      await s.db.run("UPDATE transactions SET merchant = ?, category = 'gifts', category_source = 'rule' WHERE user_id = ? AND description LIKE ?", [old, adminId, `%${text}%`]);
+      await repo.setMerchantRule(old, "gifts");
+    }
+
+    expect(await runUpgradeTasks(s, "0.14.0+anthropic")).toMatchObject({ users: 1 });
+
+    expect((await repo.allTransactions()).map((t) => `${t.merchant} ${t.category}`)).toEqual(Array(4).fill("Anthropic gifts"));
+    expect((await repo.listRules()).map((r) => [r.pattern, r.category])).toContainEqual(["Anthropic", "gifts"]);
+  });
 });

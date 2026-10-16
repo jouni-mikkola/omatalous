@@ -93,8 +93,6 @@ export interface AnalysisContext {
   foreignRows: readonly ForeignDay[];
   /** What was recorded of the history asked for each account of the view; an account linked before the record has none. */
   history: readonly AccountHistory[];
-  /** Category ids that own colour slots 1–7 (by all-time spend). */
-  colorOrder: readonly string[];
   /** Transaction ids in active subscriptions/bills (fixed costs). */
   fixedIds: ReadonlySet<string>;
   /** Transaction ids in habit series. */
@@ -182,16 +180,9 @@ export function createContext(transactions: readonly Transaction[], accounts: re
 
   // after the series and the returns: a statement row is in none of them
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
-  const allTime = new Map<string, number>();
-  for (const t of [...txs, ...explained]) if (t.spend) allTime.set(t.category, (allTime.get(t.category) ?? 0) + t.spend);
-  const colorOrder = [...allTime.entries()]
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 7)
-    .map(([c]) => c);
 
   return {
-    today, todayDay: dayNumber(today), paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, colorOrder, foreignRows, history,
+    today, todayDay: dayNumber(today), paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

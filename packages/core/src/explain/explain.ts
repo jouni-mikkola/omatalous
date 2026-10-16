@@ -115,7 +115,7 @@ function usualSpendExplanation(ctx: AnalysisContext, args: ExplainArgs): Explana
 }
 
 /**
- * `usual.income`: the page's "Tavalliset tulot kuukaudessa", the income report's own median (`stability.medianCents`),
+ * `usual.income`: the page's "Säännölliset tulot kuukaudessa", the income report's own median (`stability.medianCents`),
  * over the months that report reads, each listed with the payments of its pay period. The check recomputes the median
  * from the listed months and compares it with the report's number; under twelve complete months the report has none.
  */

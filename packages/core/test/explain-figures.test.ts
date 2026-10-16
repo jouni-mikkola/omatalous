@@ -159,7 +159,7 @@ describe("explain: the usual levels", () => {
     expect(figures).toBeGreaterThan(2);
   });
 
-  /** The page's "Tavalliset tulot kuukaudessa": the income report's own median of the range the report is drawn for. */
+  /** The page's "Säännölliset tulot kuukaudessa": the income report's own median of the range the report is drawn for. */
   const pageIncome = (ctx: typeof plain, range: { from: string; to: string }) => incomeReport(ctx, range).stability?.medianCents ?? null;
   const RANGES = [{ from: "2025-09-01", to: "2026-10-09" }, { from: "2026-01-01", to: "2026-12-31" }, { from: "2025-10-01", to: "2026-09-30" }];
 

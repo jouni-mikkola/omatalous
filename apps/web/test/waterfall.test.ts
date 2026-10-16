@@ -21,7 +21,8 @@ const month: WaterfallAnswer = {
   ],
   leftCents: 105_000,
 };
-const hrefs = { category: (id: string) => `#/transactions?category=${id}&from=2026-10-01&to=2026-10-31`, income: "#/reports#tulot" };
+const hrefs = { category: (id: string) => `#/transactions?category=${id}&from=2026-10-01&to=2026-10-31`, payee: (name: string) => `#/transactions?merchant=${encodeURIComponent(name)}&from=2026-10-01&to=2026-10-31`, income: "#/transactions?kind=income&from=2026-10-01&to=2026-10-31" };
+const amp = (href: string) => href.replace(/&/g, "&amp;");
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 let seq = 0;
 /** A booked row of the checking account, in cents (negative is money out). */
@@ -137,19 +138,19 @@ describe("Waterfall: a row opens in place", () => {
 
   it("opens a category to its payees largest first with their sums, the rest as Muut (n), and one link to the category's rows in the month", () => {
     const out = html("category:groceries");
-    expect(detail(out)).toEqual([["Prisma Esimerkki", "−500,00 €", null], ["Lidl Esimerkki", "−200,00 €", null], ["Muut (3)", "−100,00 €", null]]);
+    expect(detail(out)).toEqual([["Prisma Esimerkki", "−500,00 €", amp(hrefs.payee("Prisma Esimerkki"))], ["Lidl Esimerkki", "−200,00 €", amp(hrefs.payee("Lidl Esimerkki"))], ["Muut (3)", "−100,00 €", null]]);
     expect(allLink(out)).toBe("#/transactions?category=groceries&amp;from=2026-10-01&amp;to=2026-10-31");
   });
 
-  it("opens Tulot to its payers and links to the income report", () => {
+  it("opens Tulot to its payers, each a link to that payer's rows in the month, and links to the month's income rows", () => {
     const out = html("income");
-    expect(detail(out)).toEqual([["ESIMERKKI OY", "+3 000,00 €", null]]);
-    expect(allLink(out)).toBe("#/reports#tulot");
+    expect(detail(out)).toEqual([["ESIMERKKI OY", "+3 000,00 €", amp(hrefs.payee("ESIMERKKI OY"))]]);
+    expect(allLink(out)).toBe(amp(hrefs.income));
   });
 
   it("opens Muut (n) to the categories it folds, each a link as the category links are, and has no link of its own", () => {
     const out = html("other");
-    const link = (id: string) => hrefs.category(id).replace(/&/g, "&amp;");
+    const link = (id: string) => amp(hrefs.category(id));
     expect(detail(out)).toEqual([["housing", "−700,00 €", link("housing")], ["transport", "−300,00 €", link("transport")], ["x", "−200,00 €", link("x")]]);
     expect(allLink(out)).toBeNull();
   });

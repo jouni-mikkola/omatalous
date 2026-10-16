@@ -19,7 +19,7 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
 | *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. A month's usual spending is the median of those months' totals, on the same days for a running month: *Menojen muutos* and the buffer report say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
-| *Tavalliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
+| *Säännölliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
 | *Yli jäi* | Income + credit drawn − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on. See *Yli jäi and borrowed money* | `PeriodTotals.leftCents`, summed in `totalsOf` in `analysis/flows.ts` and nowhere else |
 | *Katettu luotolla*, *Katettu säästöistä*, *Tileiltä tai kortilta* | How a period that took more than its income was paid for: with credit drawn in the period, with money taken out of savings, and the rest from the accounts or a connected card, which the totals cannot tell apart. `coverOf` also gives what the drawn money left (`creditLeftCents`, `savingsLeftCents`), so no view subtracts | `coverOf` in `analysis/flows.ts` |
@@ -413,12 +413,22 @@ Yhteenveto opens with the card *Varallisuus*, then the blocks *Luokittelemattoma
 as given.
 
 **Luokittelemattomat** is `buildQuestions` (`analysis/questions.ts`): of the 365 days up to the period's end it tells how
-much of the money is classified, and the five answers that would mend it most. Classified is money that is not spending
+much of the money is classified, and the questions that would mend it most. Classified is money that is not spending
 the default left in Muut menot (by what the purchase cost in the end), not income the default left in Muut tulot, and not a
 card bill (purchases the app cannot see); a transfer is no money, and a refund lowers the spending it took back. The share is
-`1 - unknown / (spending + income)` and the page rounds it down to a whole percent. An answer is a payee without a category
-(a category for it, or *Ohita*, which keeps its money among the unknown) or a monthly payment that looks like a loan (the
-proposals of Asetukset > Lainat). The block is drawn when something is asked or under 95 % is classified.
+`1 - unknown / (spending + income)` and the page rounds it down to a whole percent. The block is drawn when something is
+asked or under 95 % is classified. A question has one of four kinds:
+
+- `payee_out`: a payee whose spending is in Muut menot by the default (a payment service such as Trustly is asked per
+  service). A category for it moves every row of the payee out of the unknown; *Ohita* keeps its money among the unknown and ends the question.
+- `payee_in`: a payee whose money the default left in Muut tulot; a category, or *Ohita*, as above.
+- `loan`: a monthly payment that looks like a loan the app cannot place. A kind saves it as a loan (Asetukset > Lainat); *Ei laina* ends the question.
+- `payer`: only when the inputs carry payer roles. A payer that is steady (about the same sum in three months or more) or
+  reaches `ASK_LIMIT`, with no role yet; it takes the place of the payee questions about the same money. A role
+  (`PAYER_ROLES`; MobilePay money with no sender is asked only as cost share, sale or gift) rewrites every row of the payer, the past ones too.
+
+The questions come largest sum first (the window's sum; a loan's is twelve payments), ties by kind and name. The block lists five, or three when the inputs
+carry payer roles; `total` counts them all. A card bill is told in a line of its own (the issuers of the largest two), not as a question.
 
 **Varallisuus** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out. In a member's own view a joint account, a card
 or a loan that other members use is counted at the member's part, and its row says so (*osuutesi 60 %*, see *Joint
@@ -572,7 +582,7 @@ comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`comp
   shops and clinics are purchases and are not listed. It is always about today.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
-  spending of the period. It starts with two figures, the fixed costs a month and their share of *Tavalliset tulot*,
+  spending of the period. It starts with two figures, the fixed costs a month and their share of *Säännölliset tulot*,
   the share a dash where the income or the costs are too small to tell. It has no chart and no sentence.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).

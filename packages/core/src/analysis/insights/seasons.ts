@@ -9,7 +9,7 @@
 import { addMonths, monthEnd } from "../../dates.ts";
 import { monthSpan, sameAccounts } from "../coverage.ts";
 import { formatEur, monthName, monthStem } from "../format.ts";
-import { completeMonthsBefore, isCompleteMonth, usualSpending } from "../usual.ts";
+import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS, usualSpending } from "../usual.ts";
 import { capitalise, lastCompleteMonths, monthRows, oneOffCents } from "./shared.ts";
 import { MIN_T, monthlyNoise, monthT } from "../signal.ts";
 import type { Insight, InsightArgs } from "./types.ts";
@@ -50,8 +50,11 @@ export function seasonMonths(ctx: InsightArgs["ctx"], end: string): string[] {
   const recent = lastCompleteMonths(ctx, end, 12);
   if (recent.length < 12) return [];
   const same = (earlier: string, month: string) => sameAccounts(ctx, monthSpan(earlier), monthSpan(month));
-  /** The usual level of `month` is read from months that held the same accounts as it. */
-  const usualHeld = (month: string) => completeMonthsBefore(ctx, month).every((w) => same(w, month));
+  /** The usual level of `month` is read from at least three months that held the same accounts as it. */
+  const usualHeld = (month: string) => {
+    const window = completeMonthsBefore(ctx, month);
+    return window.length >= MIN_COMPARE_MONTHS && window.every((w) => same(w, month));
+  };
   return recent.filter((m) => isCompleteMonth(ctx, addMonths(m, -12)) && same(addMonths(m, -12), m) && usualHeld(m) && usualHeld(addMonths(m, -12)));
 }
 

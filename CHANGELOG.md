@@ -3,6 +3,23 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.64.0
+
+- Every payee and payer in an open row of Tulot ja menot is a link to that month's transactions, and Tulot's "Näytä kaikki tapahtumat" opens the transactions filtered to income.
+- The year comparison judges each month on its own: a month where most spending sits on an account the other year lacks is left out, and the months both years cover are compared instead of hiding the whole comparison.
+- Smaller fixes: the overview's answer carries only what a page reads, and the money flows document describes the questions as they are now.
+- A new card or account no longer blanks the "usual month" figures: a joining account that carries under a tenth of the spending is left out of its first month, and the usual month, the change plan and the reports keep their history.
+- Development: a release proof stops at its first red step and reuses a passed rehearsal, the round lands a queue of ready branches by itself, and one script makes a worker's worktree.
+- One merchant is one payee: a payee written with a card town or a currency prefix joins the merchant's own name, and a card refund lowers the purchase's category instead of counting as income.
+
+Money and reports
+
+- Every payee and payer line under an open row of Tulot ja menot links to that payee's transactions in the month, and Tulot's "Näytä kaikki tapahtumat" opens the month's income transactions.
+- The year comparison compares the months both years cover with the same accounts, also when an older account with little spending covers the whole year, and says how many months it rests on.
+- A foreign merchant on a card is one payee: the currency, the country and the city around its name in the card text no longer make it several.
+- A merchant's refund lowers the merchant's category in the month it arrives and is not counted as income, also when the purchase is older than 120 days or larger than the refund.
+- A month counts as complete for the accounts that make its total: an account connected later no longer makes the months before it incomplete, its own first month is left out of the usual level, and the rise check and the savings windows judge each account from its own first day.
+
 ## 0.63.0
 
 - The overview's Tulot ja menot opens row by row: a category shows its payees in the month with "Näytä kaikki tapahtumat", Tulot its payers, Muut (n) the categories it folds and Säästöt ja luotot its parts; every open row adds up to its bar and names last month's sum when the months compare.

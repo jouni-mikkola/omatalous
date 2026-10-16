@@ -43,7 +43,7 @@ export interface Before {
   categories: ReadonlyMap<string, number>;
 }
 
-/** One line under an open bar: the part's name, its sum, and where its rows are when it is a category. */
+/** One line under an open bar: the part's name, its sum, and where its rows are when it is a category or a payee. */
 interface DetailLine {
   key: string;
   label: string;
@@ -51,9 +51,10 @@ interface DetailLine {
   href: string | null;
 }
 
-/** Where the lines of a bar lead: the category's rows in the month, the income report. */
+/** Where the lines of a bar lead: the category's rows in the month, a payee's rows in the month, the month's income rows. */
 export interface Hrefs {
   category: (id: string) => string;
+  payee: (name: string) => string;
   income: string;
 }
 
@@ -84,8 +85,9 @@ function labelOf({ key, count }: WaterfallAnswer["bars"][number], categories: Re
 function linesOf(bar: WaterfallAnswer["bars"][number], categories: ReadonlyMap<string, string>, hrefs: Hrefs): DetailLine[] {
   return bar.parts.map((p) => {
     const id = p.key.startsWith("category:") ? p.key.slice("category:".length) : null;
-    const label = id !== null ? categoryName(id, categories) : p.key === "rest" ? `Muut (${p.count})` : p.key.startsWith("payee:") ? p.key.slice("payee:".length) : (PART_NAMES[p.key] ?? p.key);
-    return { key: p.key, label, text: signed(p.cents), href: id !== null ? hrefs.category(id) : null };
+    const payee = p.key.startsWith("payee:") ? p.key.slice("payee:".length) : null;
+    const label = id !== null ? categoryName(id, categories) : p.key === "rest" ? `Muut (${p.count})` : (payee ?? PART_NAMES[p.key] ?? p.key);
+    return { key: p.key, label, text: signed(p.cents), href: id !== null ? hrefs.category(id) : payee !== null ? hrefs.payee(payee) : null };
   });
 }
 

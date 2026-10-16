@@ -6,7 +6,7 @@ import { addDays, addMonths, dateIn, fromDayNumber, fromMonthIndex, monthEnd, mo
 import type { IsoDate } from "../types.ts";
 import type { ChangeView, ChangeWindow } from "./change.ts";
 import type { AnalysisContext } from "./context.ts";
-import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS } from "./usual.ts";
+import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "./usual.ts";
 
 export interface Plan {
   view: ChangeView;
@@ -106,21 +106,30 @@ export function rowsComplete(ctx: AnalysisContext): { from: IsoDate | null; thro
 export function planOf(full: AnalysisContext, view: ChangeView, month: string): Plan | null {
   const { from, through } = rowsComplete(full);
   // a month is complete for the comparison only from the day and up to the day every paying account's rows reach
-  const ctx = { dataFrom: from, today: through < full.today ? addDays(through, 1) : full.today };
+  const today = through < full.today ? addDays(through, 1) : full.today;
+  const complete = (m: string) => isCompleteMonth(full, m, undefined, { from, today });
+  const before = (m: string) => completeMonthsBefore(full, m, USUAL_MONTHS, undefined, { from, today });
+  // the noise is read from every complete month back to the first day: an account connected in between leaves its own
+  // first month out and does not cut the months before it off (a replaced card must not leave the noise empty)
+  const noiseBefore = (m: string): string[] => {
+    const out: string[] = [];
+    for (let i = monthIndex(m) - 1; from && i >= monthIndex(monthOf(from)) && out.length < NOISE_MONTHS; i--) if (complete(fromMonthIndex(i))) out.unshift(fromMonthIndex(i));
+    return out;
+  };
   if (month > monthOf(full.today) || `${month}-01` > through) return null;
   const running = through < monthEnd(month);
   const cap = running ? Number(through.slice(8, 10)) : 31;
   if (view === "usual") {
-    const base = completeMonthsBefore(ctx, month);
-    return base.length < MIN_COMPARE_MONTHS ? null : { view, target: [month], base, cap, running, mean: true, noise: completeMonthsBefore(ctx, month, NOISE_MONTHS) };
+    const base = before(month);
+    return base.length < MIN_COMPARE_MONTHS ? null : { view, target: [month], base, cap, running, mean: true, noise: noiseBefore(month) };
   }
   if (view === "season") {
     const base = addMonths(month, -12);
-    return isCompleteMonth(ctx, base) ? { view, target: [month], base: [base], cap, running, mean: false, noise: completeMonthsBefore(ctx, month, NOISE_MONTHS) } : null;
+    return complete(base) ? { view, target: [month], base: [base], cap, running, mean: false, noise: noiseBefore(month) } : null;
   }
-  if (!isCompleteMonth(ctx, month) || !ctx.dataFrom) return null;
-  let first = monthIndex(monthOf(ctx.dataFrom));
-  while (!isCompleteMonth(ctx, fromMonthIndex(first)) && first < monthIndex(month)) first++;
+  if (!complete(month) || !from) return null;
+  let first = monthIndex(monthOf(from));
+  while (!complete(fromMonthIndex(first)) && first < monthIndex(month)) first++;
   // a month of the target pairs with the month twelve earlier, which must be complete
   const k = Math.min(12, monthIndex(month) - 12 - first + 1);
   if (k < MIN_COMPARE_MONTHS) return null;

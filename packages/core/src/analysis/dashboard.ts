@@ -30,7 +30,7 @@ type DashboardCategory = CategoryTotal & { comparedCents: number };
 export { type MonthPace, monthPace } from "./forecast.ts";
 
 export interface DashboardData {
-  range: { from: IsoDate; to: IsoDate; previousFrom: IsoDate; previousTo: IsoDate };
+  range: { from: IsoDate; to: IsoDate; previousFrom: IsoDate };
   /**
    * False when the history does not reach back over the previous period on enough of the accounts (those left out may
    * carry at most a tenth of the period's spending): deltas and swings are hidden. Otherwise `previousTotals` and the
@@ -39,17 +39,10 @@ export interface DashboardData {
   comparable: boolean;
   /** An account with rows in only one of the two periods is left out of the comparison (shown or hidden): the page says so. */
   leftOutAccounts: boolean;
-  /** The range reaches today (from <= today <= to). The previous period is then cut to the same days (range.previousTo). */
+  /** The range reaches today (from <= today <= to). The previous period is then cut to the same days. */
   running: boolean;
-  /** First booking date in the history, or null. */
-  dataFrom: IsoDate | null;
   totals: PeriodTotals;
   previousTotals: PeriodTotals;
-  /**
-   * The totals of the complete months of a running range. The running month has its bills but often not its salary
-   * yet, so the savings rate is told from these. null when the range does not reach today or holds no complete month.
-   */
-  settled: PeriodTotals | null;
   /** The split of income the overview shows: the period's complete months, or the latest complete month while it has none. */
   bridge: Bridge;
   fixedMonthlyCents: number;
@@ -70,8 +63,6 @@ export interface DashboardData {
   alerts: Alert[];
   /** The first warning from the data quality report, so a user who never opens Reports still sees it. */
   dataNotice: QualitySignal | null;
-  /** How many signals the data quality report holds (warnings and notes), for the line at the top of the overview. */
-  dataSignals: number;
   insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
@@ -79,8 +70,6 @@ export interface DashboardData {
   housing: Housing | null;
   /** How much of the last 365 days' money is classified, and the payees and loan payments that would mend it most. */
   questions: Questions;
-  /** Category ids that own colour slots 1–7 (slot 8 is "Muut"). */
-  colorOrder: string[];
   /**
    * The month the range ends in (today's when the range runs past it), told as steps from income to Yli jäi, whatever
    * the range's length. null when the range starts after today or the month has no rows.
@@ -140,19 +129,16 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   for (const t of onShared(rows)) if (t.spend) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
   const categories = categoryTotals(rows, onShared(previousRows)).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
   const alerts = buildAlerts(ctx, range, inputs);
-  // one report for the notice and the count, so the two cannot disagree
   const quality = dataQualityReport(ctx, range, balances);
   const settled = running ? settledTotals(ctx, range) : null;
 
   return {
-    range: { from: range.from, to: range.to, previousFrom, previousTo },
+    range: { from: range.from, to: range.to, previousFrom },
     comparable,
     leftOutAccounts,
     running,
-    dataFrom: ctx.dataFrom,
     totals,
     previousTotals,
-    settled,
     bridge: buildBridge(ctx, range, running, totals, settled),
     // the fixed costs as they were at the end of the period; a subscription the household marked as cancelled has left them
     fixedMonthlyCents: fixedMonthlyCents(recurringAt(ctx, range.to), cancelledSubjects(inputs)),
@@ -162,12 +148,10 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     ahead: running ? cashAhead(ctx, balances, inputs) : null,
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning") ?? null,
-    dataSignals: quality.signals.length,
     insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
     holdings: buildHoldings(ctx, balances, inputs),
     housing: buildHousing(ctx, balances, inputs),
     questions: buildQuestions(ctx, range, inputs, proposals),
-    colorOrder: [...ctx.colorOrder],
     waterfall: range.from > ctx.today ? null : monthWaterfall(ctx, monthOf(range.to < ctx.today ? range.to : ctx.today), range),
   };
 }

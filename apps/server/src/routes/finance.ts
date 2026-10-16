@@ -181,6 +181,7 @@ export function financeRoutes(s: Services) {
         to: q.to ? parseIsoDate(q.to, "Virheellinen aikaväli.") : undefined,
         accountId: q.accountId,
         category: q.category,
+        kind: q.kind === "income" ? "income" : undefined,
         merchant: q.merchant,
         q: q.q?.slice(0, 100),
         limit: queryInt(q.limit),

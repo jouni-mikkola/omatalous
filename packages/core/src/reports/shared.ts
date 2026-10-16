@@ -19,7 +19,7 @@ export function rangeMonthIndexes(range: DateRange, max = 24, ctx?: Pick<Analysi
 
 export const monthLabels = (indexes: readonly number[]) => indexes.map(fromMonthIndex);
 
-type MonthContext = Pick<AnalysisContext, "dataFrom" | "today">;
+type MonthContext = AnalysisContext;
 
 /**
  * The months a monthly average should divide by: those the range covers

@@ -1,7 +1,7 @@
 // Decision: find why a category rose and cap it
 import { getCategory } from "../categories.ts";
-import { type AnalysisContext, historyCovers } from "../analysis/context.ts";
-import { monthSpan, sameAccounts } from "../analysis/coverage.ts";
+import type { AnalysisContext } from "../analysis/context.ts";
+import { accountCovers, monthSpan, sameAccounts } from "../analysis/coverage.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { formatEur } from "../analysis/format.ts";
 import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
@@ -53,12 +53,16 @@ export interface DriftReport {
   readyFrom: string | null;
 }
 
-/** The first day after the last of the `neededMonths` complete months the history holds. */
+/**
+ * The first day after the last of the `neededMonths` complete months the history holds: counted from the first month
+ * that every account with rows was in the data for (an account connected later holds none of the months before it).
+ */
 function readyFrom(ctx: AnalysisContext): string | null {
   if (!ctx.dataFrom) return null;
-  const month = monthIndex(ctx.dataFrom);
+  const accounts = new Set(ctx.txs.map((t) => t.accountId));
   // a history that starts after the 3rd covers its first month only in part
-  const first = historyCovers(ctx, `${fromMonthIndex(month)}-01`) ? month : month + 1;
+  let first = monthIndex(ctx.dataFrom);
+  while (!accountCovers(ctx, accounts, `${fromMonthIndex(first)}-01`)) first++;
   return `${fromMonthIndex(first + MIN_BASE_MONTHS + RECENT_MONTHS)}-01`;
 }
 
@@ -82,10 +86,15 @@ function lastWholeMonth(ctx: AnalysisContext, range: DateRange): number {
 export function driftReport(ctx: AnalysisContext, range: DateRange): DriftReport {
   const last = lastWholeMonth(ctx, range);
   const recent = Array.from({ length: RECENT_MONTHS }, (_, i) => last - RECENT_MONTHS + 1 + i);
+  // the accounts of the rows the recent months are read from: a base month counts when all of them were in the data
+  const readers = new Set<string>();
+  for (const t of ctx.txs) if (t.spend && t.month >= recent[0]! && t.month <= last) readers.add(t.accountId);
+  if (!readers.size) for (const t of ctx.txs) readers.add(t.accountId);
+  const covered = (m: number) => accountCovers(ctx, readers, `${fromMonthIndex(m)}-01`);
   const base: number[] = [];
-  for (let m = recent[0]! - BASE_MONTHS; m < recent[0]!; m++) if (historyCovers(ctx, `${fromMonthIndex(m)}-01`)) base.push(m);
+  for (let m = recent[0]! - BASE_MONTHS; m < recent[0]!; m++) if (covered(m)) base.push(m);
   const frame = { minLevelCents: MIN_BASE_CENTS, neededMonths: MIN_BASE_MONTHS + RECENT_MONTHS, readyFrom: readyFrom(ctx) };
-  if (base.length < MIN_BASE_MONTHS || !historyCovers(ctx, `${fromMonthIndex(recent[0]!)}-01`)) return { months: [], items: [], advice: "", checked: 0, ...frame };
+  if (base.length < MIN_BASE_MONTHS || !covered(recent[0]!)) return { months: [], items: [], advice: "", checked: 0, ...frame };
 
   const first = base[0]!;
   const perCategory = new Map<string, { values: number[]; bills: number; all: number }>();

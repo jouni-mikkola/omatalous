@@ -18,9 +18,10 @@ import { loadKit } from "./kit-load.ts";
  * server's order.
  *
  * To renew the files after a change that is meant to move a figure, run
- *   rm -r apps/server/test/fixtures/answers && pnpm test apps/server/test/answers-golden.test.ts
- * The run writes the files that are missing and fails once to say so; read the diff of `fixtures/answers` before
- * committing it and run the test again. The test never replaces a file that exists.
+ *   ANSWERS_RENEW=1 pnpm test apps/server/test/answers-golden.test.ts
+ * The run writes every file over with the current answer (it deletes nothing) and fails once to say which changed; read
+ * the diff of `fixtures/answers` before committing it and run the test again without the flag. Without the flag the
+ * test writes only the files that are missing and never replaces one that exists.
  *
  * What keeps the answers the same on every machine and day:
  * - The app's clock is a fixed day (`now` of `setupApp`), so ranges, "today" and every age are the same.
@@ -34,6 +35,7 @@ import { loadKit } from "./kit-load.ts";
  *
  * No field is left out of the files: the answers are stored whole.
  */
+const RENEW = process.env.ANSWERS_RENEW === "1";
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "answers");
 
 /** The answer as the server wrote it, one value a line. Outside the strings only the layout is added. */
@@ -122,14 +124,15 @@ describe("the three whole answers on fixed days", () => {
         const file = join(FIXTURES, h.name, `${key}.txt`);
         const shown = laidOut(text);
         if (key.endsWith("reports")) expect(Object.keys(JSON.parse(text)), key).toEqual(Object.keys(REPORTS));
-        if (existsSync(file)) expect(shown, `${h.name}/${key}`).toBe(readFileSync(file, "utf8"));
+        if (existsSync(file) && !RENEW) expect(shown, `${h.name}/${key}`).toBe(readFileSync(file, "utf8"));
+        else if (existsSync(file) && readFileSync(file, "utf8") === shown) continue;
         else {
           mkdirSync(dirname(file), { recursive: true });
           writeFileSync(file, shown);
           written.push(file);
         }
       }
-      expect(written, "these files were missing and are written now: read their diff and run the test again").toEqual([]);
+      expect(written, "these files were missing or renewed and are written now: read their diff and run the test again").toEqual([]);
     });
   }
 });

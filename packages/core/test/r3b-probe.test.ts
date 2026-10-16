@@ -64,6 +64,10 @@ const statement: StatementBill = {
 
 const ctxOf = (rows: Transaction[]) => createContext(rows, [checking, card], today, undefined, [], [], [statement]);
 const plain = (s: string) => s.replace(/\s/g, " ");
+/** The salaries of the window: twelve of 3000 euros, all recognised, so the money-in side of the share holds nothing unknown. */
+const INCOME_CENTS = 12 * 300_000;
+/** The overview's classified share as the unknown spending of the same rows says it. */
+const classifiedShare = (u: { otherCents: number; billCents: number; spendingCents: number }) => Math.min(1, Math.max(0, 1 - (u.otherCents + u.billCents) / (u.spendingCents + INCOME_CENTS)));
 type Unknown = ReturnType<typeof unknownSpending> & { otherShare: number }; // API: adjust name (otherShare)
 
 describe("one share of unknown spending", () => {
@@ -79,8 +83,8 @@ describe("one share of unknown spending", () => {
   });
 
   it("gives the spending part of the overview's classified share the same sums", () => {
-    expect(q.outUnknownCents).toBe(u.otherCents);
     expect(q.cardBillCents).toBe(u.billCents);
+    expect(q.share).toBeCloseTo(classifiedShare(u), 10);
   });
 
   it("gives the uncategorised signal the same sum and share", () => {
@@ -93,22 +97,25 @@ describe("one share of unknown spending", () => {
 
   it("keeps the money-in part of the overview's share as its one addition", () => {
     // the spending side is unknownSpending's; the income side is the questions' own
-    const expected = 1 - (u.otherCents + u.billCents + q.inUnknownCents) / (u.spendingCents + q.inCents);
-    expect(q.share).toBeCloseTo(Math.min(1, Math.max(0, expected)), 10);
+    expect(q.share).toBeCloseTo(classifiedShare(u), 10);
+    const unknownIncome = ctxOf([...household(), tx({ bookingDate: "2026-09-20", amountCents: 100_000, merchant: "Tuntematon Maksaja", category: "income", categorySource: "default" })]);
+    expect(buildQuestions(unknownIncome, window, NO_INPUTS).share).toBeCloseTo(1 - (u.otherCents + u.billCents + 100_000) / (u.spendingCents + INCOME_CENTS + 100_000), 10);
   });
 
   it("counts the pending Muut menot row the same in all of them", () => {
     // whichever rule is chosen, the three read the same rows: the pending row moves both sums or neither
     const without = ctxOf(household().filter((t) => t.status !== "pending"));
     const delta = u.otherCents - unknownSpending(without, window).otherCents;
-    expect(q.outUnknownCents - buildQuestions(without, window, NO_INPUTS).outUnknownCents).toBe(delta);
+    expect(delta).not.toBe(0);
+    expect(buildQuestions(without, window, NO_INPUTS).share).toBeCloseTo(classifiedShare(unknownSpending(without, window)), 10);
   });
 
   it("counts the unrecognised statement row the same in all of them", () => {
     const noOther: StatementBill = { ...statement, rows: statement.rows.map((r) => (r.category === "other" ? { ...r, category: "shopping" } : r)) };
     const known = createContext(household(), [checking, card], today, undefined, [], [], [noOther]);
     const delta = u.otherCents - unknownSpending(known, window).otherCents;
-    expect(q.outUnknownCents - buildQuestions(known, window, NO_INPUTS).outUnknownCents).toBe(delta);
+    expect(delta).not.toBe(0);
+    expect(buildQuestions(known, window, NO_INPUTS).share).toBeCloseTo(classifiedShare(unknownSpending(known, window)), 10);
   });
 });
 
@@ -118,7 +125,7 @@ describe("a Muut menot row the user set", () => {
 
   it("is known in unknownSpending, the signal and the questions alike", () => {
     expect(unknownSpending(withUser, window).otherCents).toBe(unknownSpending(withoutUser, window).otherCents);
-    expect(buildQuestions(withUser, window, NO_INPUTS).outUnknownCents).toBe(buildQuestions(withoutUser, window, NO_INPUTS).outUnknownCents);
+    for (const c of [withUser, withoutUser]) expect(buildQuestions(c, window, NO_INPUTS).share).toBeCloseTo(classifiedShare(unknownSpending(c, window)), 10);
     const s = dataQualityReport(withUser, window).signals.find((x) => x.id === "uncategorised")!;
     expect(s.cents).toBe(unknownSpending(withoutUser, window).otherCents);
     expect(s.detail).not.toContain("Esimerkki Palvelu");

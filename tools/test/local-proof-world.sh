@@ -19,7 +19,7 @@ commit() { git -C "$1" add -A && git -C "$1" commit -q -m "$2"; }
 # ── the stand-in repository ──
 mkdir -p "$R/tools/ci" "$R/scripts" "$R/apps/server/migrations" "$R/docs" "$BIN"
 git init -q "$R"
-cp "$REPO/tools/ci/local-proof.sh" "$REPO/tools/ci/proof-drills.sh" "$R/tools/ci/"
+cp "$REPO/tools/ci/local-proof.sh" "$REPO/tools/ci/proof-drills.sh" "$REPO/tools/ci/proof-pick.sh" "$R/tools/ci/"
 cat >"$R/tools/ci/play.sh" <<'PLAY_SH'
 # shellcheck shell=bash
 # what the stand-in legs share
@@ -92,6 +92,7 @@ project=${UPGRADE_PROJECT:-default}
 # a run with UPGRADE_UNTIL is an install for the drills, not a rehearsal
 kind=rehearsal
 [[ -z ${UPGRADE_UNTIL:-} ]] || kind=drill-install
+said "nice $kind $ref $(nice)"
 said "$kind $ref port=${UPGRADE_PORT:-} project=${UPGRADE_PROJECT:-} keep=${UPGRADE_KEEP_UP:-} work=${UPGRADE_WORK##*/} until=${UPGRADE_UNTIL:-} home=${HOME##*/} cwd=$PWD"
 # two runs inside at once on one port or in one project
 mkdir "$PROOF_PLAY/port-$port" 2>/dev/null || said "CLASH port $port ($ref)"
@@ -125,6 +126,8 @@ if [[ -e $PROOF_PLAY/gate ]]; then
   fi
 fi
 hold "$ref"
+# with the file fail-late-REF, the rehearsal fails, but only after a word on the FIFO `late` (the test says it once another leg holds)
+if [[ -e $PROOF_PLAY/fail-late-$ref ]]; then timeout 30 head -n 1 "$PROOF_PLAY/late.fifo" >/dev/null; echo "the $ref leg broke late"; exit 1; fi
 # with the file meet-image, the first rehearsal in tells the image build (which waits for it) and then holds, if the file
 # hold-meeting is there
 if [[ -e $PROOF_PLAY/meet-image ]] && mkdir "$PROOF_PLAY/met" 2>/dev/null; then
@@ -232,7 +235,7 @@ only path-no-setpriv bash git dirname setsid flock; cp "$BIN/docker" "$BIN/id" "
 
 # proof ARGS: the proof of the stand-in repository, started from another folder
 proof() { (cd "$TMP" && TMPDIR=$TMP/work PATH=$BIN:$PATH "$R/tools/ci/local-proof.sh" "$@" 2>&1); }
-reset() { rm -rf "$PLAY" "$TMP/work" "$R/.git/local-proof"; mkdir -p "$PLAY" "$TMP/work"; : >"$CALLS"; }
+reset() { rm -rf "$PLAY" "$TMP/work" "$R/.git/local-proof" "$R/.git/local-proof-verdicts"; mkdir -p "$PLAY" "$TMP/work"; : >"$CALLS"; }
 called() { grep -c -- "$1" "$CALLS"; }
 calls() { cat "$CALLS"; }
 logs() { echo "$TMP"/work/local-proof.*/logs; }

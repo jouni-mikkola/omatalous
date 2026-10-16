@@ -28,14 +28,14 @@ describe("one share of uncategorised spending", () => {
     expect(signalOf(ctx)).toMatchObject({ cents: 10000, title: expect.stringMatching(/^11\s%\smenoista on luokittelematta$/) });
     expect(cashflowReport(ctx, month).unknownShare).toBe(u.share);
     const q = buildQuestions(ctx, month, NO_INPUTS);
-    expect(q).toMatchObject({ outCents: 90000, outUnknownCents: 10000, share: 1 - u.share });
+    expect(q).toMatchObject({ share: 1 - u.share });
   });
 
   it("counts a Muut menot row the user set as known everywhere", () => {
     const ctx = ctxOf([groceries(800), out(100, "Kioski Oy", { categorySource: "user" })]);
     expect(unknownSpending(ctx, month)).toMatchObject({ otherCents: 0, otherShare: 0, share: 0, spendingCents: 90000 });
     expect(signalOf(ctx)).toBeUndefined();
-    expect(buildQuestions(ctx, month, NO_INPUTS)).toMatchObject({ share: 1, outUnknownCents: 0, items: [] });
+    expect(buildQuestions(ctx, month, NO_INPUTS)).toMatchObject({ share: 1, items: [] });
     // the near miss: the same row left to the default is the gap
     expect(signalOf(ctxOf([groceries(800), out(100, "Kioski Oy")]))).toBeDefined();
   });
@@ -66,7 +66,7 @@ describe("one share of uncategorised spending", () => {
     // the questions read twelve months: the statement's purchases of February are in its base too
     const year = unknownSpending(ctx, { from: "2025-04-02", to: month.to });
     expect(year).toMatchObject({ spendingCents: 12850 + 5200 + 29150, otherCents: 5200, billCents: 12850 });
-    expect(buildQuestions(ctx, month, NO_INPUTS)).toMatchObject({ outCents: year.spendingCents, outUnknownCents: 5200, cardBillCents: 12850, share: 1 - (5200 + 12850) / year.spendingCents });
+    expect(buildQuestions(ctx, month, NO_INPUTS)).toMatchObject({ cardBillCents: 12850, share: 1 - (5200 + 12850) / year.spendingCents });
   });
 
   it("adds a bill without purchases to the share but not to the signal's Muut menot", () => {
@@ -76,6 +76,6 @@ describe("one share of uncategorised spending", () => {
     expect(u.billCents).toBeGreaterThan(0);
     expect(u.share).toBe((u.otherCents + u.billCents) / u.spendingCents);
     expect(u.otherShare).toBe(10000 / 100000);
-    expect(buildQuestions(ctx, month, NO_INPUTS)).toMatchObject({ cardBillCents: u.billCents, outUnknownCents: 10000 });
+    expect(buildQuestions(ctx, month, NO_INPUTS)).toMatchObject({ cardBillCents: u.billCents });
   });
 });

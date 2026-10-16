@@ -13,7 +13,6 @@ import "../../styles/statement.css";
 
 /** The sections of Raportit the block links to, by their anchors: the page that mounts the block names them. */
 interface ReportAnchors {
-  income: string;
   food: string;
   months: string;
   settlement: string;
@@ -61,7 +60,7 @@ function Month({ data, scope, anchors, categories, row, onRow }: { data: Dashboa
   const { pace } = data;
   // the rate is the month before's while a month runs: its label opens that month, and names it once it is the one shown
   const savingsHref = data.running ? `#/overview${query({ period: "last-month" })}` : null;
-  const hrefs = { category: (category: string) => `#/transactions${query({ category, from, to })}`, income: `#/reports#${anchors.income}` };
+  const hrefs = { category: (category: string) => `#/transactions${query({ category, from, to })}`, payee: (merchant: string) => `#/transactions${query({ merchant, from, to })}`, income: `#/transactions${query({ kind: "income", from, to })}` };
   const month = data.waterfall?.month ?? "";
   const chart = view.chart && (
     <>

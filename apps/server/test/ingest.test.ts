@@ -332,3 +332,16 @@ describe("an account entirely in another currency", () => {
     expect(await f.repo.foreignRowsOf([accountKey(f.chk)])).toHaveLength(2);
   });
 });
+
+describe("a card text of only currency, country and city", () => {
+  it("takes the merchant of the same card's row of the same day and sum, also from an earlier import", async () => {
+    const { fetchBank, rows } = await withAccount();
+    await fetchBank([raw("2026-10-05", -20, null, { externalId: "a", description: "USD IRL DUBLIN EXAMPLECO" })]);
+    await fetchBank([raw("2026-10-05", -20, null, { externalId: "b", description: "USD USA SAN FRANCISCO" }), raw("2026-10-06", -3, null, { externalId: "c", description: "USD USA SAN FRANCISCO" })]);
+    expect(await rows()).toEqual([
+      "2026-10-05 booked -2000 Exampleco enablebanking",
+      "2026-10-05 booked -2000 Exampleco enablebanking",
+      "2026-10-06 booked -300 Usd Usa San Francisco enablebanking",
+    ]);
+  });
+});
