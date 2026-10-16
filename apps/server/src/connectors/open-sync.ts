@@ -4,17 +4,16 @@
  */
 import { hourIn } from "../platform/config.ts";
 import type { Services } from "../services/context.ts";
-import { rateLimitedUntil } from "./bank-limit.ts";
+import { accountKey } from "../db/household-repo.ts";
+import { accountsAtLimit, rateLimitedUntil } from "./bank-limit.ts";
 import { LOCK_TTL_MS, syncUser } from "./sync.ts";
+import type { UserHeaders } from "./types.ts";
 
 const FRESH_MINUTES = 30;
 
 /** The trigger of an open that carried the member's headers; any other trigger is a fetch without them. */
 const WITH_HEADERS = "open";
 const WITHOUT_HEADERS = "open-bare";
-
-/** A bank allows about this many fetches a day made without the user present. */
-const UNATTENDED_PER_DAY = 4;
 
 interface OpenAnswer {
   state: "none" | "fresh" | "running" | "limited" | "failed";
@@ -37,12 +36,12 @@ function nextSyncHour(s: Services, now: Date): string | null {
 }
 
 /**
- * `userHeaders` are the member's Psu headers (psu.ts), or null when they cannot be given. A fetch with them counts as
- * made with the user present: only the half hour limits it. One without them is started only while the member's runs of
- * the last 24 hours that were neither scheduled nor carried headers are fewer than 4 less the sync hours: any 24 hours
- * then hold the scheduled runs and at most that many others, never over four.
+ * `userHeaders` give the member's Psu headers (psu.ts), or are null when the request cannot give the default pair. A fetch
+ * with them counts as made with the user present: only the half hour limits it; an account whose bank asks for more than
+ * the request can give is counted as one without (sync.ts). One without them is started only while one of the member's
+ * accounts has room for it (bank-limit.ts counts per account); the fetch itself leaves out the ones that have none.
  */
-export async function openSync(s: Services, userId: string, userHeaders: Readonly<Record<string, string>> | null): Promise<OpenAnswer> {
+export async function openSync(s: Services, userId: string, userHeaders: UserHeaders | null): Promise<OpenAnswer> {
   const repo = s.finance(userId);
   if (!(await repo.listConnections()).some((c) => c.status === "active")) return { state: "none", lastAt: null, inserted: 0, nextAt: null };
 
@@ -62,10 +61,9 @@ export async function openSync(s: Services, userId: string, userHeaders: Readonl
   if (recent) return answer("failed");
 
   if (!userHeaders) {
-    const day = now - 24 * 3600_000;
-    const others = runs.filter((r) => r.trigger !== WITH_HEADERS && r.trigger !== "schedule" && Date.parse(r.startedAt) > day).length;
-    const scheduledToCome = new Set(s.instance.current.syncHours).size;
-    if (others >= UNATTENDED_PER_DAY - scheduledToCome) return limited();
+    const live = new Set((await repo.listConnections()).filter((c) => c.status === "active").map((c) => c.id));
+    const keys = (await repo.listAccounts()).filter((a) => a.externalId && a.connectionId !== null && live.has(a.connectionId)).map(accountKey);
+    if (keys.length && (await accountsAtLimit(s, keys, WITHOUT_HEADERS)).size === new Set(keys).size) return limited();
   }
 
   syncUser(s, userId, userHeaders ? WITH_HEADERS : WITHOUT_HEADERS, userHeaders ?? undefined).catch((err) => console.error("fetch at open failed:", err));

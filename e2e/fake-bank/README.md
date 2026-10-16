@@ -9,3 +9,4 @@ The household, the same rows for a day (seeded, 14 months): MEIKALAINEN MATTI wi
 MEIKALAINEN MATTI;KORHONEN ELISA with a joint account (600,00 from him on the 1st, 400,00 from her on the 2nd, LAINAN LYHENNYS
 to ESIMERKKIPANKKI OYJ, the groceries); an ESIMERKKIPANKKI card with a 3 000,00 limit, a debt and a bill paid from his checking.
 Not copied into the Docker image.
+`PUT /fake/auth-answer {"mode":"refuse-redirect"|"fail"|"ok"}` changes how the next authorisations are answered (a refused redirect URL, a failure; default `ok`); a spec that sets it sets `ok` again.

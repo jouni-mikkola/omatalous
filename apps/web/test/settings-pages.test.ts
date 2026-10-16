@@ -15,6 +15,7 @@ const conn = (id: string, state: Connection["state"]): Connection => ({
   createdAt: "2026-06-01T00:00:00Z",
   lastSyncedAt: null,
   daysLeft: state === "active" ? 40 : null,
+  needsRenewal: state === "lapsed" || state === "broken",
 });
 
 const meta = (connections: Connection[]) =>

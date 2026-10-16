@@ -184,9 +184,7 @@ packages/core/src/industry.ts  companyKey
 packages/core/src/loan-intake/checks.ts  CheckInputs
 packages/core/src/loan-intake/values.ts  repairDigits
 packages/core/src/loans.ts  CreditUse
-packages/core/src/loans.ts  LoanUnknown
-packages/core/src/loans.ts  MAX_LOAN_PAYMENTS
-packages/core/src/loans.ts  intervalOf
+packages/core/src/loan-plan.ts  MAX_LOAN_PAYMENTS
 packages/core/src/optimise/areas/electricity.ts  BillKind
 packages/core/src/optimise/areas/electricity.ts  billKind
 packages/core/src/optimise/areas/savings.ts  IDLE_MIN_CENTS

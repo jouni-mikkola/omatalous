@@ -3,10 +3,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { autoSaveWanted, startDownload } from "../src/pages/settings/BankAppSetup.tsx";
+import { BankCapabilities, bankSeen } from "../src/pages/settings/BankCapabilities.tsx";
 import { BankConnections } from "../src/pages/settings/BankConnections.tsx";
 import { BankKey } from "../src/pages/settings/BankKey.tsx";
 import { WizardDone } from "../src/pages/Wizard.tsx";
-import type { InstanceState, Meta } from "../src/types.ts";
+import type { BankCapability, InstanceState, Meta } from "../src/types.ts";
 
 describe("startDownload", () => {
   it("clicks a hidden link to the file and removes it again", () => {
@@ -118,5 +119,27 @@ describe("Oma Enable Banking -sovellus: its name strip", () => {
     expect(out).toContain('<summary class="card-head">');
     expect(out).toContain("<h2>Oma Enable Banking -sovellus</h2>");
     expect(out).toContain('<div class="card-sub">käytössä oma avain</div>');
+  });
+});
+
+describe("Pankkien tiedot", () => {
+  const none: BankCapability = { bankId: "nordea-fi", consentDays: null, requiredPsuHeaders: null, psuTypes: null, cardAccounts: false, pending: false, balanceTypes: [], historyDays: null };
+  it("reads a fact not seen yet as ei vielä nähty and a seen one as its value", () => {
+    const blank = renderToStaticMarkup(createElement(BankCapabilities, { banks: [none] }));
+    expect(blank.match(/ei vielä nähty/g)).toHaveLength(6);
+    const seen = renderToStaticMarkup(
+      createElement(BankCapabilities, { banks: [{ ...none, consentDays: 180, cardAccounts: true, balanceTypes: ["CLAV", "ITAV"], historyDays: 90, requiredPsuHeaders: ["Psu-Ip-Address"] }] }),
+    );
+    expect(seen).toContain("180 päivää");
+    expect(seen).toContain("CLAV, ITAV");
+    expect(seen).toContain("90 päivää");
+    expect(seen).toContain("Psu-Ip-Address");
+    expect(seen.match(/ei vielä nähty/g)).toHaveLength(1);
+  });
+  it("draws nothing for no bank, and counts a bank as seen only after a link or a fetch", () => {
+    expect(renderToStaticMarkup(createElement(BankCapabilities, { banks: [] }))).toBe("");
+    expect(bankSeen({ ...none, consentDays: 180 })).toBe(false);
+    expect(bankSeen({ ...none, pending: true })).toBe(true);
+    expect(bankSeen({ ...none, historyDays: 0 })).toBe(true);
   });
 });

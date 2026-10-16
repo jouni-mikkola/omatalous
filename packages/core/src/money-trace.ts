@@ -8,9 +8,32 @@
  * The trace reads no answer. An answer to "whose money was this?" only relabels the owner of a group or of the
  * opening (`settle`), so no other cent moves. The rows of the real account are made in money-trace-rows.ts.
  */
-import { partCents } from "./account-use.ts";
+import {
+  addPart,
+  type Bucket,
+  byPart,
+  cmp,
+  compareOwners,
+  type CreditEntry,
+  cut,
+  isUserOwner,
+  type Lot,
+  type LotKind,
+  type Owner,
+  type Piece,
+  partKey,
+  type RowParts,
+  type RowRec,
+  type SourcePart,
+  sumCents,
+  type Trace,
+  type TraceRow,
+  type Undo,
+} from "./money-trace-lots.ts";
 import { pairMoves } from "./money-trace-pairs.ts";
-import type { Part } from "./types.ts";
+
+export { compareOwners, isUserOwner, sumCents };
+export type { Owner, RowParts, SourcePart, Trace, TraceRow };
 
 /** Unknown money in is asked about from this sum on (100,00): below it the app does not trouble the household. */
 export const ASK_LIMIT = 10000;
@@ -18,130 +41,6 @@ export const ASK_LIMIT = 10000;
 export const PAIR_DAYS = 3;
 /** Changes when a rule of the trace changes: a trace kept anywhere is built again. */
 export const TRACE_VERSION = 2;
-
-/** `u:<id>` a member; `u:` a holder with no login; `g:<key>` money in nobody could name (a group per payer); `o` the opening; `c` credit. */
-export type Owner = string;
-type LotKind = "own" | "payment" | "pool" | "refund" | "back" | "unknown" | "opening" | "credit" | "before";
-/** `passed`: a row for one person took this from another member's money. */
-export interface SourcePart {
-  owner: Owner;
-  kind: LotKind;
-  cents: number;
-  passed?: true;
-}
-
-/**
- * One row of the real account, once, whatever number of copies hold it. `cents` is signed. `key` starts with the
- * day and the sum and ends in the content and the occurrence, so that comparing two keys of one day and one sum is
- * the content order. `group` names the payer of unknown money. `unmatched` is a row only one of two disagreeing
- * copies has: it is unknown whole and neither takes nor makes a lot.
- */
-export interface TraceRow {
-  key: string;
-  ids: readonly string[];
-  day: number;
-  cents: number;
-  pending?: true;
-  unmatched?: true;
-  group?: Owner;
-  from?: { owner: Owner; kind: "own" | "payment" } | { parts: readonly SourcePart[] } | { refundOf: string } | "back";
-  /** Money out for one person, or to another pool; absent: for all. */
-  to?: { owner: Owner } | "pool";
-}
-
-export interface RowParts {
-  key: string;
-  ids: readonly string[];
-  day: number;
-  cents: number;
-  what: "in" | "one" | "all" | "pool";
-  /** The person a `one` row was for. */
-  to?: Owner;
-  /** A refund of a `one` row: the person the refunded row was for. What it gives back is what that row took. */
-  refundFor?: Owner;
-  /** A refund: the key of the row it gives back (of any kind, whether or not it took anything). */
-  refundOf?: string;
-  pending?: true;
-  /** Positive cents that add up to the row, in the order of the parts. */
-  parts: SourcePart[];
-}
-
-export interface Trace {
-  rows: RowParts[];
-  lots: (SourcePart & { tier: 1 | 2 })[];
-  /** What each payer paid into the time before the history (an opening below zero). */
-  before: SourcePart[];
-  groups: { key: string; cents: number; firstDay: number }[];
-  openingCents: number;
-  openingDay: number;
-  openingTaken: boolean;
-  /** What the pool owes its own spending: the cents rows took that no money covered yet. */
-  creditCents: number;
-}
-
-const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-/** Whether an owner is a member or the holder with no login. */
-export const isUserOwner = (owner: Owner): boolean => owner.startsWith("u:");
-export const sumCents = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
-
-/** The order of the parts: members by id (as code units compare), the holder with no login, groups by key, the opening, credit. */
-const ownerRank = (owner: Owner): number => (isUserOwner(owner) ? (owner === "u:" ? 1 : 0) : owner.startsWith("g:") ? 2 : owner === "o" ? 3 : 4);
-export const compareOwners = (a: Owner, b: Owner): number => ownerRank(a) - ownerRank(b) || cmp(a, b);
-
-/** `total` cut in proportion to `weights`: the shares add up to the total and none is more than its weight when the total is no more than their sum. */
-function cut(total: number, weights: readonly number[]): number[] {
-  const of = sumCents(weights);
-  if (of <= 0) return weights.map(() => 0);
-  let from = 0;
-  return weights.map((w) => {
-    const part: Part = { from, to: from + w, of };
-    from += w;
-    return partCents(total, part);
-  });
-}
-
-interface Lot {
-  owner: Owner;
-  kind: LotKind;
-  tier: 1 | 2;
-  cents: number;
-  seq: number;
-}
-/** The live lots of one owner and tier are `lots[head..tail)`, oldest first. */
-interface Bucket {
-  owner: Owner;
-  tier: 1 | 2;
-  lots: Lot[];
-  head: number;
-  tail: number;
-  total: number;
-}
-type Undo = { lot: Lot; cents: number; bucket: Bucket; head: number; tail: number };
-type Piece = SourcePart & { tier: 1 | 2 };
-interface CreditEntry {
-  /** The row paid on credit; null for the opening below zero. */
-  rec: RowRec | null;
-  left: number;
-}
-interface RowRec {
-  row: TraceRow;
-  parts: Piece[];
-  /** Cents of each part a refund has returned already, so a second refund cuts what is left. */
-  refunded: Map<string, number>;
-  /** The credit this row's shortfall opened. */
-  entry?: CreditEntry;
-  done: boolean;
-}
-
-const partKey = (p: Piece): string => `${p.owner}|${p.kind}|${p.passed ? 1 : 0}|${p.tier}`;
-/** Adds a part to a list, into the one of the same owner, kind, tier and passing that is there. */
-function addPart(list: Piece[], p: Piece): void {
-  if (p.cents <= 0) return;
-  const same = list.find((q) => partKey(q) === partKey(p));
-  if (same) same.cents += p.cents;
-  else list.push({ ...p });
-}
-const byPart = (a: Piece, b: Piece): number => compareOwners(a.owner, b.owner) || cmp(a.kind, b.kind) || a.tier - b.tier || Number(!!a.passed) - Number(!!b.passed);
 
 /**
  * Traces a pool. `openingCents` is the balance before the first booked row (`openingDay`: that row's day); below zero

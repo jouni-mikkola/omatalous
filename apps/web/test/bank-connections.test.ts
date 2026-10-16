@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../src/banks.ts";
-import { BankConnections, waitsForFirstFetch } from "../src/pages/settings/BankConnections.tsx";
+import { BankConnections, connectionStateText, renewalLine, waitsForFirstFetch } from "../src/pages/settings/BankConnections.tsx";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
 const BANKS = [{ id: "nordea-fi", name: "Nordea", country: "FI" }];
@@ -86,6 +86,7 @@ const conn = (id: string, state: Connection["state"], daysLeft: number | null, e
   createdAt: "2026-06-01T00:00:00Z",
   lastSyncedAt: null,
   daysLeft,
+  needsRenewal: state === "lapsed" || state === "broken",
   ...extra,
 });
 
@@ -249,5 +250,23 @@ describe("Pankkiyhteydet: when the page looks again after a link", () => {
     expect(waitsForFirstFetch([conn("a")], [acc("a", { problem: { kind: "failed", message: "x" } })])).toBe(false);
     expect(waitsForFirstFetch([conn("a", "lapsed")], [])).toBe(false);
     expect(waitsForFirstFetch([], [])).toBe(false);
+  });
+});
+
+describe("Pankkiyhteydet: a consent that ended", () => {
+  it("says why on the row of a lapsed or a broken consent, and nowhere else", () => {
+    expect(renewalLine(conn("a", "lapsed", null))).toBe("Pankin yhteys päättyi.");
+    expect(renewalLine(conn("b", "broken", null))).toBe("Pankin yhteys päättyi.");
+    expect(renewalLine(conn("c", "active", 40))).toBeNull();
+    // a newer consent of the bank has the accounts: no reconnect is asked for
+    expect(renewalLine(conn("d", "lapsed", null, { replaced: true }))).toBeNull();
+  });
+});
+
+describe("Pankkiyhteydet: the Tila words of an ended consent", () => {
+  it("keeps vanhentui with its date once the date has passed, and says päättynyt without a date before it", () => {
+    expect(connectionStateText(conn("a", "lapsed", null, { validUntil: "2026-10-01T00:00:00Z" }), "2026-10-16")).toMatch(/^vanhentui \d/);
+    expect(connectionStateText(conn("a", "lapsed", null, { validUntil: "2027-04-14T00:00:00Z" }), "2026-10-16")).toBe("päättynyt");
+    expect(connectionStateText(conn("b", "broken", null), "2026-10-16")).toBe("katkesi");
   });
 });

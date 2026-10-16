@@ -8,7 +8,9 @@
  * admin's password on each change.
  */
 import { Hono } from "hono";
+import { bankCapabilities } from "../connectors/enable-banking/capabilities.ts";
 import { activateBankApp, bankAppStatus, checkAppId, downloadableCertificate, generatePendingKey, removeBankApp, testBankApp } from "../connectors/enable-banking/app-setup.ts";
+import { testRedirect } from "../connectors/enable-banking/link.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -79,6 +81,9 @@ export function adminRoutes(s: Services) {
   });
 
   /** Tries a pasted Application ID without saving it. */
+  /** What each bank supports, from the bank list and from what links and fetches saw (capabilities.ts). Read-only. */
+  app.get("/bank-app/capabilities", async (c) => c.json({ banks: await bankCapabilities(s) }));
+
   app.post("/bank-app/check", async (c) => c.json(await checkAppId(s, await body(c))));
 
   app.post("/bank-app/test", async (c) => {
@@ -86,6 +91,9 @@ export function adminRoutes(s: Services) {
     const result = await testBankApp(s);
     return c.json({ ...(await state()), result });
   });
+
+  /** Asks Enable Banking to start an authorisation with the configured redirect URL and goes no further. */
+  app.post("/bank-app/redirect-test", async (c) => c.json({ result: await testRedirect(s, c.get("user").id) }));
 
   app.delete("/bank-app", async (c) => {
     await removeBankApp(s);

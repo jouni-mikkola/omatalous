@@ -46,6 +46,11 @@ const NAMES: Record<string, readonly string[]> = {
 
 const KNOWN = Object.entries(NAMES).map(([id, names]) => ({ id, name: names[0]! }));
 
+/** The name the app shows for a bank id of the server's list; the id itself for a bank this file does not know. */
+export function bankName(id: string): string {
+  return KNOWN.find((b) => b.id === id)?.name ?? id;
+}
+
 /** A name as its words, without case or accents: "S-Pankki" is s and pankki, "Ålandsbanken Abp" alandsbanken and abp. */
 function wordsOf(name: string): string[] {
   return name

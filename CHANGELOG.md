@@ -3,6 +3,16 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.51.0
+
+- The bank link is set up and kept from Asetukset alone: the steps at Enable Banking each have a link and a mark when done, "Testaa paluuosoite" tells before you meet the bank whether the return address is accepted, and a consent the bank ended shows "Yhdistä uudelleen" on its row.
+- Per bank, Asetukset shows what the bank has given so far: consent length, card accounts, pending rows, balance types and how far back history reaches.
+- The bank's limit of four fetches a day without you is now counted per account, so one full account no longer stops the others, and a fetch you start yourself sends the headers each bank asks for.
+
+Fetching and importing
+
+- The bank link is set up and kept from Asetukset without files or a terminal: the outside steps with links, a test of the return address, what each bank supports, and the reason on a consent that ended.
+
 ## 0.50.0
 
 - A card bill's purchases can be filled in by hand: "Erittele ostot" on the bill row in Tapahtumat takes rows typed one by one or pasted from the card statement, shows what it read before saving, leaves out payment rows and shows what is still unexplained. The statement itself never leaves the browser.

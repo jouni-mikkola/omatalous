@@ -13,6 +13,7 @@ const conn = (id: string, institution: string, state: Connection["state"], daysL
   createdAt: "2026-10-11T00:00:00Z",
   lastSyncedAt: null,
   daysLeft,
+  needsRenewal: state === "lapsed" || state === "broken",
   ...extra,
 });
 const account = (id: string, name: string, connectionId: string) => ({ id, name, connectionId });

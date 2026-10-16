@@ -38,12 +38,18 @@ export function connectError(code: string): string {
   return Object.hasOwn(CONNECT_ERRORS, code) ? CONNECT_ERRORS[code]! : CONNECT_ERRORS.failed!;
 }
 
-/** The Tila column: the same words as the notice and Tietojen laatu, and no date ahead for a consent that broke. */
-export function connectionStateText(c: Pick<Connection, "state" | "validUntil">): string {
-  if (c.state === "lapsed") return `vanhentui ${date(c.validUntil)}`;
+/** The Tila column: the same words as the notice and Tietojen laatu, and no date ahead for a consent that broke or ended before its date. */
+export function connectionStateText(c: Pick<Connection, "state" | "validUntil">, today = ""): string {
+  // an end marked before its date is no "vanhentui" with a date ahead
+  if (c.state === "lapsed") return today && (c.validUntil ?? "").slice(0, 10) > today ? "päättynyt" : `vanhentui ${date(c.validUntil)}`;
   if (c.state === "broken") return "katkesi";
   if (c.state === "removed") return "poistettu";
   return "käytössä";
+}
+
+/** A consent that ended and has no newer one of its bank: Yhdistä uudelleen is the next step, and the row says why. */
+export function renewalLine(c: Pick<Connection, "needsRenewal" | "replaced">): string | null {
+  return c.needsRenewal && !c.replaced ? "Pankin yhteys päättyi." : null;
 }
 
 /**
@@ -337,8 +343,9 @@ export function BankConnections({
                     </div>
                   </td>
                   <td role="cell" data-label="Tila">
-                    {validityText(c) || connectionStateText(c)}
+                    {validityText(c) || connectionStateText(c, meta.today)}
                     {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">vanhenee pian</span>}
+                    {renewalLine(c) && <div>{renewalLine(c)}</div>}
                     {reminderOf(c) && (
                       <div className="small">
                         <button className="text-button" type="button" onClick={() => saveReminder(c)}>
@@ -352,7 +359,7 @@ export function BankConnections({
                   <td role="cell" className="num">
                     <span className="row-actions">
                       {canReconnect(c) && (
-                        <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={busy === `connect-${renewalBank(meta.bank.banks, c.institution, canStart)}` || undefined} onClick={() => reconnect(c)}>
+                        <button className={renewalLine(c) ? "btn btn-small btn-primary" : "btn btn-small"} type="button" disabled={busy !== null} aria-busy={busy === `connect-${renewalBank(meta.bank.banks, c.institution, canStart)}` || undefined} onClick={() => reconnect(c)}>
                           Yhdistä uudelleen
                         </button>
                       )}

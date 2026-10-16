@@ -257,11 +257,11 @@ describe("how far back the app asked", () => {
 describe("the calls made to the bank", () => {
   it("notes each call with its trigger and the member, one per account, and drops notes older than eight days", async () => {
     const { db, s, adminId, key } = await connected();
-        expect((await db.all<{ trigger: string; user_id: string }>("SELECT trigger, user_id FROM account_fetch WHERE account_key = ?", [key]))).toEqual([{ trigger: "connect", user_id: adminId }]);
+        expect((await db.all<{ trigger: string; user_id: string }>("SELECT trigger, user_id FROM account_fetch WHERE account_key = ?", [key]))).toEqual([{ trigger: "connect-bare", user_id: adminId }]);
     await s.finance(adminId).recordFetch(key, new Date("2026-09-20T10:00:00Z"), "schedule");
     expect(await db.all("SELECT 1 FROM account_fetch WHERE at < '2026-10-01'")).toHaveLength(1);
     await syncUser(s, adminId, "open-bare");
     expect(await db.all("SELECT 1 FROM account_fetch WHERE at < '2026-10-01'")).toEqual([]);
-    expect((await db.all<{ trigger: string }>("SELECT trigger FROM account_fetch WHERE account_key = ? ORDER BY id", [key])).map((r) => r.trigger)).toEqual(["connect", "open"]);
+    expect((await db.all<{ trigger: string }>("SELECT trigger FROM account_fetch WHERE account_key = ? ORDER BY id", [key])).map((r) => r.trigger)).toEqual(["connect-bare", "open-bare"]);
   });
 });

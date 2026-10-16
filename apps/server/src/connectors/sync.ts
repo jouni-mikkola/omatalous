@@ -15,11 +15,11 @@ import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
 import { balanceFitsAccount, balanceStamp, isEuro, storedBalanceCents } from "./balance-sign.ts";
-import { markRateLimited } from "./bank-limit.ts";
+import { accountsAtLimit, markRateLimited } from "./bank-limit.ts";
 import { skippedNote, splitByCurrency } from "./foreign-split.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
-import type { BalanceReading, Connector, PullAccount, Puller } from "./types.ts";
+import type { BalanceReading, Connector, PullAccount, Puller, UserHeaders } from "./types.ts";
 
 /** "2026-09-30" → "30.9.2026" */
 const finnishDate = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
@@ -36,6 +36,9 @@ export const LOCK_TTL_MS = 15 * 60_000;
 const OVERLAP_DAYS = 10;
 /** The notes of calls to the bank (`account_fetch`) older than this are of no use for counting a day's fetches. */
 const FETCH_NOTES_KEEP_DAYS = 8;
+
+/** The triggers of a fetch the member started: one that cannot give the headers is noted `<trigger>-bare` (bank-limit.ts). */
+const USER_STARTED = new Set(["manual", "connect", "open"]);
 
 /** What one run adds up, across connectors. */
 interface Tally {
@@ -56,14 +59,15 @@ interface Tally {
 /**
  * Fetches new transactions and balances for every account of the user's
  * active consents, then re-runs categorisation. PSD2 lets banks cap
- * unattended fetches at 4 a day per account, so schedule 1–4 runs a day.
+ * unattended fetches at 4 a day per account, so schedule 1–4 runs a day;
+ * an unattended run leaves out an account that has had its share (bank-limit.ts).
  */
-export function syncUser(s: Services, userId: string, trigger: string, userHeaders?: Readonly<Record<string, string>>): Promise<SyncSummary> {
+export function syncUser(s: Services, userId: string, trigger: string, userHeaders?: UserHeaders): Promise<SyncSummary> {
   // a stop signal waits for a fetch in progress (entry/shutdown.ts)
   return track(fetchForUser(s, userId, trigger, userHeaders));
 }
 
-async function fetchForUser(s: Services, userId: string, trigger: string, userHeaders?: Readonly<Record<string, string>>): Promise<SyncSummary> {
+async function fetchForUser(s: Services, userId: string, trigger: string, userHeaders?: UserHeaders): Promise<SyncSummary> {
   const lockKey = `sync_lock:${userId}`;
   if (!(await s.settings.tryLock(lockKey, LOCK_TTL_MS))) {
     return { status: "skipped", fetched: 0, inserted: 0, messages: ["Haku on jo käynnissä."] };
@@ -133,12 +137,24 @@ function setProblem(tally: Tally, accountId: string, problem: FetchProblem | nul
  * Every account of the connector's active connections, one after another. A failing account does not stop the
  * others; only a consent that ended stops the rest of its own accounts.
  */
-async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally, trigger: string, userHeaders?: Readonly<Record<string, string>>): Promise<void> {
+async function pullConnector(s: Services, repo: FinanceRepo, connector: Connector, connections: Connection[], summary: SyncSummary, tally: Tally, trigger: string, userHeaders?: UserHeaders): Promise<void> {
   const sync = connector.sync!;
   const today = s.today();
   await keepRecord("fetch notes", () => s.household.pruneFetchNotes(new Date(s.now().getTime() - FETCH_NOTES_KEEP_DAYS * 86_400_000).toISOString()));
   const puller = await sync.open({ s, repo, userHeaders });
   const accounts = await repo.listAccounts();
+  // an unattended run skips the accounts that have had their fetches of the day, whoever made them; the member's other accounts go on
+  // a fetch the user started that could not give the headers of an account's bank looks unattended to it: noted as such and counted
+  const notedFor = new Map<string, string>();
+  const byTrigger = new Map<string, string[]>();
+  for (const a of accounts.filter((x) => x.externalId)) {
+    const attended = !!userHeaders && (!puller.attended || (await puller.attended({ id: a.id, externalId: a.externalId!, name: a.name }).catch(() => false)));
+    const noted = !attended && USER_STARTED.has(trigger) ? `${trigger}-bare` : trigger;
+    notedFor.set(a.id, noted);
+    byTrigger.set(noted, [...(byTrigger.get(noted) ?? []), accountKey(a)]);
+  }
+  const atLimit = new Set<string>();
+  for (const [noted, keys] of byTrigger) for (const key of await accountsAtLimit(s, keys, noted)) atLimit.add(key);
   const say = (message: string) => {
     // a key the source refuses fails every account with the same words: once is enough
     if (!summary.messages.includes(message)) summary.messages.push(message);
@@ -154,7 +170,13 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
     // A consent the user just gave is pulled for the first time by the fetch it set off: it asks the longest history once.
     // A background fetch never does, since a bank limits the calls a day; a consent it pulled first has had its chance.
     const fresh = trigger === "connect" && conn.lastSyncedAt === null;
-    for (const account of accounts.filter((a) => a.connectionId === conn.id && a.externalId)) {
+    let skipped = 0;
+    const own = accounts.filter((a) => a.connectionId === conn.id && a.externalId);
+    for (const account of own) {
+      if (atLimit.has(accountKey(account))) {
+        skipped++;
+        continue;
+      }
       tally.attempts++;
       try {
         // An account whose rows are all in another currency (kept apart, not among the euro rows) or that has none yet
@@ -166,7 +188,7 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         const dateFrom = longest ? addDays(today, -s.instance.current.historyDays) : addDays(latest!, -OVERLAP_DAYS);
         const target = { id: account.id, externalId: account.externalId!, name: account.name };
         // the call counts for the account's key from here on: a refusal or a failure after it is a call as well
-        await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), trigger.startsWith("open") ? "open" : trigger));
+        await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), notedFor.get(account.id) ?? trigger));
         const split = splitByCurrency(await puller.transactions(target, { dateFrom, initial: longest }), accountKey(account));
         const note = skippedNote(split.skipped, account.name);
         if (note) summary.messages.push(note);
@@ -220,7 +242,8 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         say(`${account.name}: ${message}`);
       }
     }
-    await repo.markConnectionSynced(conn.id, s.now().toISOString());
+    // a consent whose accounts were all left out has not been fetched: its first fetch is still to come
+    if (skipped < own.length || !own.length) await repo.markConnectionSynced(conn.id, s.now().toISOString());
   }
 }
 

@@ -76,7 +76,7 @@ const account = (extra: Partial<Account>): Account => ({
   problem: null,
   ...extra,
 });
-const connection = (id: string): Connection => ({ id, institution: "Nordea", status: "active", state: "active", history: false, replaced: false, validUntil: "2027-03-01T00:00:00Z", createdAt: "2026-09-01T00:00:00Z", lastSyncedAt: null, daysLeft: 140 });
+const connection = (id: string): Connection => ({ id, institution: "Nordea", status: "active", state: "active", history: false, replaced: false, validUntil: "2027-03-01T00:00:00Z", createdAt: "2026-09-01T00:00:00Z", lastSyncedAt: null, daysLeft: 140, needsRenewal: false });
 const metaOf = (accounts: Account[], connections: Connection[]) => ({ user: { id: "u1", role: "member" }, members: [{ id: "u1", displayName: "Matti" }], shares: [], bank: { configured: true, banks: [], redirectMode: "own", source: "user" }, connections, accounts }) as unknown as Meta;
 /** What a reader sees: no tags, no React text separators, one kind of space. */
 const text = (markup: string) => markup.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");

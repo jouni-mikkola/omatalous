@@ -48,6 +48,8 @@ export function connectionView(conn: Connection, today: string, accounts: readon
     state,
     history: !accounts.some((a) => a.connectionId === conn.id),
     replaced,
+    // its session or date ended: no fetch is made on it until the member connects again, and nothing stored is deleted
+    needsRenewal: state === "lapsed" || state === "broken",
     daysLeft: state !== "active" || end === null ? null : Math.max(0, daysBetween(today, end)),
   };
 }

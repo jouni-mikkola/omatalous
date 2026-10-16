@@ -4,9 +4,11 @@
  */
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
-import { copyText } from "../../clipboard.ts";
 import { dateTime } from "../../format.ts";
 import type { InstanceState } from "../../types.ts";
+import { BankCapabilities, bankSeen, useBankCapabilities } from "./BankCapabilities.tsx";
+import { BankRedirectTest } from "./BankRedirectTest.tsx";
+import { CopyValue } from "./CopyValue.tsx";
 import "../../styles/settings.css";
 
 const APP_ID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -42,27 +44,6 @@ export function autoSaveWanted(saved: boolean, busy: boolean, signature: string,
   return !saved && !busy && signature !== "" && check.signature === signature && check.result?.verified === true;
 }
 
-/** A value to paste into Enable Banking, with a button that copies it. When copying fails the text stays selectable. */
-export function CopyValue({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    if (await copyText(value)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-  return (
-    <>
-      <code className="copyable" onClick={copy} title="Kopioi">
-        {value}
-      </code>{" "}
-      <button className="btn btn-small" type="button" aria-label={`${copied ? "Kopioitu" : "Kopioi"} ${label}`} onClick={copy}>
-        {copied ? "Kopioitu" : "Kopioi"}
-      </button>
-    </>
-  );
-}
-
 export function BankAppSetup({
   state,
   onState,
@@ -87,6 +68,7 @@ export function BankAppSetup({
   // the Application ID is tried against Enable Banking as soon as it is pasted (one call per distinct id and key);
   // the result carries the id and key it is for, so a result of an earlier paste is never taken for the one on screen
   const [check, setCheck] = useState<{ signature: string; busy: boolean; result: { verified: boolean; message: string } | null }>({ signature: "", busy: false, result: null });
+  const capabilities = useBankCapabilities(app.appId);
   const checked = useRef("");
   const autoSaved = useRef("");
 
@@ -233,6 +215,8 @@ export function BankAppSetup({
         </div>
       )}
 
+      {configured && <BankRedirectTest redirectUrl={app.redirectUrl} />}
+
       {showSetup && (
         <>
           <ul className="checklist" aria-label="Enable Banking -sovelluksen vaiheet">
@@ -241,9 +225,18 @@ export function BankAppSetup({
             <li className={check.result?.verified || configured ? "done" : undefined}>
               {check.busy ? "Application ID testataan…" : "Application ID toimii"}
             </li>
+            <li className={capabilities?.some(bankSeen) ? "done" : undefined}>Tilit linkitetty</li>
           </ul>
 
           <ol className="setup-steps">
+            <li>
+              Kirjaudu Enable Bankingiin sähköpostilinkillä.
+              <div className="form-row">
+                <a className="btn btn-small" href={EB_SIGN_IN} target="_blank" rel="noopener noreferrer">
+                  Avaa kirjautuminen
+                </a>
+              </div>
+            </li>
             {mode === "generate" && (
               <li>
                 Luo avain. Varmenne latautuu itsestään.
@@ -282,13 +275,6 @@ export function BankAppSetup({
                 <a className="btn btn-small" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
                   Avaa Enable Banking
                 </a>
-                <span className="small muted">
-                  Jos sinulla ei ole tiliä,{" "}
-                  <a href={EB_SIGN_IN} target="_blank" rel="noopener noreferrer">
-                    luo se ensin
-                  </a>
-                  .
-                </span>
               </div>
               <ul>
                 <li>
@@ -328,6 +314,11 @@ export function BankAppSetup({
             <li>
               Linkitä tilit. Paina <em>Activate by linking accounts</em>, valitse Finland, oma pankkisi ja Personal. Kirjaudu pankkiin. Lisää muut tilit ja
               luottokortit yksi kerrallaan kohdasta <em>Link accounts</em>.
+              <div className="form-row">
+                <a className="btn btn-small" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
+                  Avaa Control Panel
+                </a>
+              </div>
             </li>
             <li>
               {configured
@@ -368,6 +359,11 @@ export function BankAppSetup({
                 )}
                 {fileError && <span className="error field-error">{fileError}</span>}
               </form>
+              <div className="form-row">
+                <a className="btn btn-small" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
+                  Avaa sovellusluettelo
+                </a>
+              </div>
               {check.result && <div className={check.result.verified ? "notice good" : "notice warning"}>{check.result.message}</div>}
               {mode === "upload" && <div className="small muted">Poista .pem Lataukset-kansiosta.</div>}
             </li>
@@ -388,6 +384,8 @@ export function BankAppSetup({
           </details>
         </>
       )}
+
+      {capabilities && <BankCapabilities banks={capabilities} />}
 
       {configured && !showSetup && app.redirectMode === "paste" && (
         <div className="notice">

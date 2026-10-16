@@ -7,14 +7,20 @@ import type { RawTransaction } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import type { Services } from "../services/context.ts";
 
+/**
+ * The member's own request, as a function from the list of Psu-* headers a bank requires (null: the default pair) to the
+ * headers to send, or null when the request cannot give all of them (psu.ts). Each bank has its own list.
+ */
+export type UserHeaders = (required: readonly string[] | null) => Readonly<Record<string, string>> | null;
+
 export interface ConnectorContext {
   s: Services;
   repo: FinanceRepo;
   /**
-   * Headers of the member's own request, set only when the member is present (a fetch started by opening the app).
-   * A source that wants them passes them on as they are; they are never stored or logged.
+   * The member's own request, set only when the member is present (a fetch the member started or the opening of the app).
+   * A source that wants the headers passes them on as they are; they are never stored or logged.
    */
-  userHeaders?: Readonly<Record<string, string>>;
+  userHeaders?: UserHeaders;
 }
 
 /** One account of an active connection, as the loop hands it to the connector. */
@@ -76,6 +82,11 @@ export interface Puller {
   balance(account: PullAccount): Promise<BalanceReading[]>;
   /** What the source says about the account, for one linked before these fields were stored. May throw: the loop goes on. */
   details?(account: PullAccount): Promise<AccountDetails>;
+  /**
+   * True when the calls for this account carry the member's headers; a fetch the member started without them looks
+   * unattended to the source and is counted so (bank-limit.ts). Left out: the account is fetched as the request is.
+   */
+  attended?(account: PullAccount): Promise<boolean>;
 }
 
 /** Only a connector that fetches by itself has this. */

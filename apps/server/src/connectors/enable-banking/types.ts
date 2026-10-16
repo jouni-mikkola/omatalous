@@ -73,8 +73,11 @@ export interface EbApplication {
 export interface EbAspsp {
   name: string;
   country: string;
+  /** Seconds a consent may last. */
   maximum_consent_validity?: number;
   psu_types?: string[];
+  /** The Psu-* headers the bank requires on a fetch made with the user present. Absent when the answer does not say. */
+  required_psu_headers?: string[];
   /** Where the bank's logo is. It comes from an API answer: only `logoAddress` (logos.ts) decides whether it is used. */
   logo?: string;
 }

@@ -4,7 +4,7 @@ import { EnableBankingError } from "../src/connectors/enable-banking/client.ts";
 import { psuHeaders } from "../src/connectors/enable-banking/psu.ts";
 import { syncEveryone } from "../src/connectors/sync.ts";
 import { mockBank } from "./mock-bank.ts";
-import { type Client, setupApp, waitFor } from "./helpers.ts";
+import { type Client, NOW, setupApp, waitFor } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 
@@ -57,7 +57,10 @@ async function setup(env: Record<string, string> = {}) {
     await app.s.db.run("UPDATE sync_runs SET started_at = ?, finished_at = ? WHERE user_id = ?", [at, at, userId]);
   };
   /** Forgets the member's runs, so the count of the day starts again. */
-  const clear = (userId: string) => app.s.db.run("DELETE FROM sync_runs WHERE user_id = ?", [userId]);
+  const clear = async (userId: string) => {
+    await app.s.db.run("DELETE FROM sync_runs WHERE user_id = ?", [userId]);
+    await app.s.db.run("DELETE FROM account_fetch");
+  };
   const addRun = (userId: string, trigger: string, minutesAgo: number, status = "ok") => {
     const at = new Date(Date.now() - minutesAgo * 60_000).toISOString();
     return app.s.db.run("INSERT INTO sync_runs (user_id, trigger, started_at, finished_at, status, fetched, inserted) VALUES (?, ?, ?, ?, ?, 0, 0)", [userId, trigger, at, at, status]);
@@ -116,6 +119,7 @@ describe("a fetch when a member opens the app", () => {
     await connect(eero);
     await age(adminId);
     await age(eero.id);
+    await s.db.run("DELETE FROM account_fetch"); // the two connects were counted: this test is about whose accounts are fetched
     const eeroRuns = (await s.finance(eero.id).listSyncRuns(20)).length;
     const adminRuns = (await s.finance(adminId).listSyncRuns(20)).length;
 
@@ -229,17 +233,23 @@ describe("the user's headers", () => {
 });
 
 describe("inside what the bank allows", () => {
+  /** Notes `n` unattended calls for every account of the member, as if that many fetches had been made. */
+  async function noted(s: { db: { run(sql: string, params?: unknown[]): Promise<unknown> }; finance(id: string): { listAccounts(): Promise<{ id: string; identity: string | null }[]>; recordFetch(key: string, at: Date, trigger: string): Promise<void> } }, userId: string, trigger: string, n: number) {
+    for (const a of await s.finance(userId).listAccounts()) for (let i = 0; i < n; i++) await s.finance(userId).recordFetch(a.identity ?? a.id, new Date(NOW.getTime() - 3600_000), trigger);
+  }
+
   // one sync hour a day: four fetches without the user, one kept for the scheduled one, so three may be started
   it("allows the third fetch without headers and answers limited with the next sync hour for the next", async () => {
-    const { admin, adminId, open, age, addRun, idle, balanceCalls, s } = await setup({ SYNC_HOURS: "6" });
-    await age(adminId); // the connect fetch is the first
-    await addRun(adminId, "manual", 180); // the second
+    const { admin, adminId, open, age, idle, balanceCalls, s } = await setup({ SYNC_HOURS: "6" });
+    await age(adminId);
+    await noted(s, adminId, "open-bare", 1); // the connect fetch, which had no headers either, is the first: this is the second
     const before = balanceCalls();
     expect((await open(admin)).body.state).toBe("running"); // the third
     await idle(admin);
     expect(balanceCalls()).toBe(before + 2);
 
     await age(adminId);
+    await noted(s, adminId, "open-bare", 1); // the fourth, over what is left after the schedule
     const limited = await open(admin);
     expect(limited.body).toMatchObject({ state: "limited", inserted: 0 });
     // 9.10.2026 is 13:00 in Helsinki, so the next 6:00 is the next morning, 03:00 UTC
@@ -247,71 +257,66 @@ describe("inside what the bank allows", () => {
     expect(balanceCalls()).toBe(before + 2);
 
     // near miss: a fetch that carried the headers is not counted, so room is left
-    await s.db.run("UPDATE sync_runs SET trigger = 'open' WHERE user_id = ? AND trigger = 'open-bare'", [adminId]);
+    await s.db.run("UPDATE account_fetch SET trigger = 'open' WHERE trigger = 'open-bare'");
     expect((await open(admin)).body.state).toBe("running");
     await idle(admin);
     await age(adminId);
+    await noted(s, adminId, "open-bare", 3);
     expect((await open(admin)).body.state).toBe("limited");
     // with the headers there is no count, only the half hour
     expect((await open(admin, FROM_OUTSIDE)).body.state).toBe("running");
   });
 
-  // the scheduled runs of the day are not counted: the hours leave room for them, so the others may be 4 less the hours
+  // the scheduled runs of the day are not counted against the opens: the hours leave room for them
   it("with hours 6 and 18 and two scheduled runs, starts the first and second open without headers and limits the third", async () => {
-    const { admin, adminId, open, age, clear, addRun, idle, balanceCalls } = await setup();
-    await clear(adminId);
-    await addRun(adminId, "schedule", 600);
-    await addRun(adminId, "schedule", 1200);
+    const { admin, adminId, open, age, idle, balanceCalls, s } = await setup();
+    await age(adminId);
+    await s.db.run("DELETE FROM account_fetch"); // the connect fetch is not part of this count
+    await noted(s, adminId, "schedule", 2);
     const before = balanceCalls();
     expect((await open(admin)).body.state).toBe("running"); // the first
     await idle(admin);
     await age(adminId); // not fresh any more, still inside the day
     expect((await open(admin)).body.state).toBe("running"); // the second
     await idle(admin);
-    await age(adminId);
     expect(balanceCalls()).toBe(before + 4);
-    const limited = await open(admin); // the third
-    expect(limited.body).toMatchObject({ state: "limited" });
-    expect(limited.body.nextAt).toBe("2026-10-09T15:00:00.000Z"); // 18:00 in Helsinki
+    await age(adminId);
+    expect((await open(admin)).body.state).toBe("limited"); // the third
     expect(balanceCalls()).toBe(before + 4);
   });
 
-  it("counts a manual run as one of the two, and a run with headers or a scheduled one as none", async () => {
-    const { admin, adminId, open, clear, addRun } = await setup();
-    await clear(adminId);
-    await addRun(adminId, "schedule", 600);
-    await addRun(adminId, "schedule", 60 * 20);
-    await addRun(adminId, "open", 100); // carried headers: not counted
-    await addRun(adminId, "manual", 120);
-    expect((await open(admin)).body.state).toBe("running"); // one other so far
-    await clear(adminId);
-    await addRun(adminId, "manual", 120);
-    await addRun(adminId, "connect", 150);
-    expect((await open(admin)).body.state).toBe("limited"); // two others
-    await clear(adminId);
-    await addRun(adminId, "manual", 120);
-    await addRun(adminId, "open-bare", 25 * 60); // older than a day: not counted
+  it("counts an open without headers, and not a manual run, a connect, a run with headers or one older than a day", async () => {
+    const { admin, adminId, open, age, s } = await setup({ SYNC_HOURS: "3,6,12" });
+    await age(adminId);
+    await s.db.run("DELETE FROM account_fetch");
+    for (const trigger of ["manual", "connect", "open"]) await noted(s, adminId, trigger, 3);
+    await noted(s, adminId, "open-bare", 1);
+    expect((await open(admin)).body.state).toBe("limited"); // four less three hours is one, and it is made
+    await s.db.run("DELETE FROM account_fetch");
+    await noted(s, adminId, "open-bare", 1);
+    await s.db.run("UPDATE account_fetch SET at = ?", [new Date(NOW.getTime() - 25 * 3600_000).toISOString()]);
     expect((await open(admin)).body.state).toBe("running");
   });
 
   it("with four sync hours starts no open without headers, but one with them", async () => {
-    const { admin, adminId, open, clear } = await setup({ SYNC_HOURS: "3,6,12,18" });
-    await clear(adminId);
+    const { admin, adminId, age, open } = await setup({ SYNC_HOURS: "3,6,12,18" });
+    await age(adminId);
     expect((await open(admin)).body.state).toBe("limited");
     expect((await open(admin, FROM_OUTSIDE)).body.state).toBe("running");
   });
 
   it("with no sync hours allows four opens without headers and limits the fifth", async () => {
-    const { admin, adminId, s, open, clear, addRun, idle, balanceCalls } = await setup();
+    const { admin, adminId, s, open, age, idle, balanceCalls } = await setup();
+    await age(adminId);
     await s.instance.save({ syncHours: [] });
-    await clear(adminId);
-    for (const minutes of [400, 300, 200]) await addRun(adminId, "manual", minutes);
+    await noted(s, adminId, "open-bare", 2); // and the connect fetch without headers: three
     const before = balanceCalls();
     expect((await open(admin)).body.state).toBe("running"); // the fourth
     await idle(admin);
     expect(balanceCalls()).toBe(before + 2);
-    await clear(adminId);
-    for (const minutes of [400, 300, 200, 100]) await addRun(adminId, "manual", minutes);
+    await s.db.run("DELETE FROM account_fetch");
+    await noted(s, adminId, "open-bare", 4);
+    await age(adminId);
     const fifth = await open(admin);
     expect(fifth.body).toMatchObject({ state: "limited", nextAt: null });
     expect(balanceCalls()).toBe(before + 2);

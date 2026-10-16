@@ -5,7 +5,7 @@
  */
 import { isIP } from "node:net";
 
-/** What the bank requires when its answer does not say (the types carry no `required_psu_headers`). */
+/** What a bank requires when its entry in the bank list has no `required_psu_headers`; a list it has is used instead (capabilities.ts). */
 const DEFAULT_REQUIRED: readonly string[] = ["Psu-Ip-Address", "Psu-User-Agent"];
 
 /** The request header each Psu header is taken from, as the browser sent it. The address comes from the caller. */
@@ -57,11 +57,13 @@ function isPublicAddress(ip: string): boolean {
  * request header by lower-case name. A value that is missing or empty once cleaned, or an address that is not a
  * public one, means none.
  */
-export function psuHeaders(ip: string, header: (name: string) => string | undefined, required: readonly string[] = DEFAULT_REQUIRED): Record<string, string> | null {
+export function psuHeaders(ip: string, header: (name: string) => string | undefined, required?: readonly string[] | null): Record<string, string> | null {
+  // never from a private address, whatever the bank's list asks for
+  if (!isPublicAddress(ip)) return null;
   const out: Record<string, string> = {};
-  for (const name of required) {
+  for (const name of required ?? DEFAULT_REQUIRED) {
     const source = FROM_REQUEST[name];
-    const raw = name === "Psu-Ip-Address" ? (isPublicAddress(ip) ? ip : undefined) : source ? header(source) : undefined;
+    const raw = name === "Psu-Ip-Address" ? ip : source ? header(source) : undefined;
     const value = raw === undefined ? "" : clean(raw);
     if (!value) return null;
     out[name] = value;

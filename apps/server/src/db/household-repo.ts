@@ -226,6 +226,17 @@ export class HouseholdRepo {
     await this.db.run("DELETE FROM account_fetch WHERE at < ?", [before]);
   }
 
+  /** The calls that count as unattended (triggers `schedule` and the `-bare` ones, made without the member's headers) noted for these accounts after `since`, whoever made them. */
+  async unattendedFetches(keys: readonly string[], since: string): Promise<{ accountKey: string; trigger: string; at: string }[]> {
+    if (!keys.length) return [];
+    const marks = keys.map(() => "?").join(", ");
+    const rows = await this.db.all<{ account_key: string; trigger: string; at: string }>(
+      `SELECT account_key, trigger, at FROM account_fetch WHERE trigger IN ('schedule', 'open-bare', 'manual-bare', 'connect-bare') AND at > ? AND account_key IN (${marks})`,
+      [since, ...keys],
+    );
+    return rows.map((r) => ({ accountKey: r.account_key, trigger: r.trigger, at: r.at }));
+  }
+
   /** Deletes what hangs on real accounts nobody holds (`SWEEP_UNHELD_KEYS`). Returns how many rows went. */
   async sweepUnheldKeys(): Promise<number> {
     let n = 0;

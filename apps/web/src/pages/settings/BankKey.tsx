@@ -7,7 +7,7 @@
 import { type FormEvent, useState } from "react";
 import { api } from "../../api.ts";
 import type { Meta } from "../../types.ts";
-import { CopyValue } from "./BankAppSetup.tsx";
+import { CopyValue } from "./CopyValue.tsx";
 
 export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }) {
   const [appId, setAppId] = useState("");

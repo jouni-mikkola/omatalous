@@ -19,6 +19,7 @@ import { EnableBankingClient, EnableBankingError } from "./client.ts";
 import { canonicalPrivateKey, KeyProblem } from "../../security/private-key.ts";
 import { generateKeyAndCertificate } from "../../security/x509.ts";
 import { BANKS, type BankOption, DEFAULT_BANK, findAspsp, offeredFrom } from "./banks.ts";
+import { noteBankList } from "./capabilities.ts";
 import type { EbAspsp } from "./types.ts";
 import type { Services } from "../../services/context.ts";
 import { readJson, sealedBox } from "../../services/remote-access-cloudflare.ts";
@@ -261,6 +262,7 @@ async function probe(s: Services, appId: string, privateKeyPem: string, saved: b
     const banks = await client.listAspsps(DEFAULT_BANK.country);
     // the saved application's own list is the one the picker offers banks from
     if (saved) bankLists.set(s, { appId, at: s.now().getTime(), aspsps: banks, ok: true, pending: null });
+    await noteBankList(s, banks);
     const found = BANKS.some((bank) => findAspsp(bank, banks));
     const flag = active === undefined ? {} : { active };
     return found
@@ -298,9 +300,10 @@ function askBankList(s: Services, appId: string, privateKeyPem: string, previous
   list.pending = new EnableBankingClient({ appId, privateKeyPem, baseUrl: s.config.bank.apiUrl, fetch: s.fetch })
     .listAspsps(DEFAULT_BANK.country)
     .then(
-      (aspsps) => {
+      async (aspsps) => {
         list.aspsps = aspsps;
         list.ok = true;
+        await noteBankList(s, aspsps);
       },
       (err) => {
         // a key or an application Enable Banking refuses is told by the setup test; any other failure gets a line

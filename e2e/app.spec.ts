@@ -66,7 +66,7 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   await expect(fields.filter({ hasText: "Terms URL" }).locator("code.copyable")).toHaveText(/github\.io\/omatalous\/terms\/$/);
   await expect(fields.filter({ hasText: "Email for data protection matters" }).getByRole("button")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Avaa Enable Banking" })).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
-  await expect(page.getByText("Jos sinulla ei ole tiliä, luo se ensin.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Avaa kirjautuminen" })).toHaveAttribute("href", "https://enablebanking.com/sign-in/");
   const checklist = page.getByLabel("Enable Banking -sovelluksen vaiheet");
   await expect(checklist.locator("li.done")).toHaveCount(0);
   await page.getByRole("button", { name: "Luo avain" }).click();

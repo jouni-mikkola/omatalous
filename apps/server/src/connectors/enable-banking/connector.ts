@@ -2,12 +2,14 @@
  * Enable Banking as a connector: what the sync loop pulls, how its errors are told apart, and how consents
  * end. The link flow is in link.ts, the application's keys in credentials.ts and app-setup.ts.
  */
-import { addDays } from "@banking/core";
+import { addDays, daysBetween } from "@banking/core";
 import { UserError } from "../../platform/errors.ts";
 import type { FinanceRepo } from "../../db/finance-repo.ts";
 import type { Services } from "../../services/context.ts";
 import type { Connector, ConnectorContext, PullWindow, Puller, SyncProblem } from "../types.ts";
 import { EnableBankingClient, EnableBankingError } from "./client.ts";
+import { bankCapabilities, isCode, noteSeen } from "./capabilities.ts";
+import { bankIdForAspsp } from "./banks.ts";
 import { clientFor } from "./credentials.ts";
 import { accountDetails, balanceReading, pickBalance } from "./mapper.ts";
 import type { EbAccount, EbBalance } from "./types.ts";
@@ -61,7 +63,7 @@ const LINKED_MAX = 100;
  */
 function logCode(value: unknown): string {
   if (value === null || value === undefined) return "none";
-  return typeof value === "string" && /^[A-Z]{4}$/.test(value) ? value : "other";
+  return isCode(value) ? value : "other";
 }
 
 /**
@@ -90,11 +92,42 @@ function logLinkedAccount(s: Services, uid: string, balances: unknown): void {
 
 async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller> {
   const client = await clientFor(s, repo.userId);
+  // the bank of an account, by the consent it belongs to; read once, on the first fetch that has facts to keep
+  let banks: Map<string, string | null> | undefined;
+  const bankOf = async (externalId: string): Promise<string | null> => {
+    if (!banks) {
+      const consents = new Map((await repo.listConnections()).map((c) => [c.id, bankIdForAspsp(c.institution)]));
+      banks = new Map((await repo.listAccounts()).map((a) => [a.externalId ?? "", consents.get(a.connectionId ?? "") ?? null]));
+    }
+    return banks.get(externalId) ?? null;
+  };
+  // the member's headers for an account, built with its bank's own list (default pair: no record, unknown bank, or a list that cannot be read)
+  let lists: Map<string, string[] | null> | undefined;
+  const headersFor = async (externalId: string): Promise<Readonly<Record<string, string>> | undefined> => {
+    if (!userHeaders) return undefined;
+    try {
+      lists ??= new Map((await bankCapabilities(s)).map((c) => [c.bankId, c.requiredPsuHeaders]));
+      const bank = await bankOf(externalId);
+      return userHeaders((bank && lists.get(bank)) || null) ?? undefined;
+    } catch {
+      return userHeaders(null) ?? undefined;
+    }
+  };
   return {
-    transactions: (account, window) => fetchTransactions(client, account.externalId, window, s.today(), userHeaders),
+    attended: async (account) => (await headersFor(account.externalId)) !== undefined,
+    async transactions(account, window) {
+      const rows = await fetchTransactions(client, account.externalId, window, s.today(), await headersFor(account.externalId));
+      const oldest = rows.reduce<string | null>((o, r) => (o === null || r.bookingDate < o ? r.bookingDate : o), null);
+      await noteSeen(s, await bankOf(account.externalId).catch(() => null), {
+        pending: rows.some((r) => r.status === "pending"),
+        ...(oldest ? { historyDays: daysBetween(oldest, s.today()) } : {}),
+      });
+      return rows;
+    },
     async balance(account) {
-      const balances = await client.balances(account.externalId, userHeaders);
+      const balances = await client.balances(account.externalId, await headersFor(account.externalId));
       logLinkedAccount(s, account.externalId, balances);
+      await noteSeen(s, await bankOf(account.externalId).catch(() => null), { balanceTypes: Array.isArray(balances) ? balances.map((b) => b?.balance_type) : [] });
       // every balance the bank sent, the one it shows first
       const shown = pickBalance(balances);
       return [...(shown ? [shown] : []), ...balances.filter((b) => b !== shown)].flatMap((b) => balanceReading(b) ?? []);

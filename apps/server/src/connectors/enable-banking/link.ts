@@ -1,4 +1,5 @@
 /** Linking a bank through Enable Banking: the consent URL, then the accounts the redirect brings back. */
+import { randomUUID } from "node:crypto";
 import type { FinanceRepo } from "../../db/finance-repo.ts";
 import { UserError } from "../../platform/errors.ts";
 import { stableId } from "../../platform/ids.ts";
@@ -11,6 +12,7 @@ import { type EnableBankingClient, EnableBankingError } from "./client.ts";
 import { enableBanking, noteLinkedAccount } from "./connector.ts";
 import { clientFor } from "./credentials.ts";
 import { accountHolder, accountName, accountType, cardMask, creditLimitCents } from "./mapper.ts";
+import { noteBankList, noteSeen } from "./capabilities.ts";
 import type { EbAspsp } from "./types.ts";
 
 /** Step 1: returns the bank's consent page URL. Only banks in the registry (banks.ts) can be started. */
@@ -25,7 +27,9 @@ export async function startConnection(s: Services, userId: string, bankId: unkno
   let aspsp: EbAspsp | undefined;
   try {
     // matched as the offered list matches it (banks.ts), and started with the name the live list writes
-    aspsp = findAspsp(bank, await client.listAspsps(country));
+    const listed = await client.listAspsps(country);
+    await noteBankList(s, listed);
+    aspsp = findAspsp(bank, listed);
   } catch (err) {
     throw linkFailure(err);
   }
@@ -46,10 +50,47 @@ export async function startConnection(s: Services, userId: string, bankId: unkno
     return { url };
   } catch (err) {
     await dropLinkState(s, state);
-    if (err instanceof EnableBankingError && (/REDIRECT_URI_NOT_ALLOWED/.test(err.message) || (err.status === 422 && /redirect/i.test(err.body)))) {
+    if (redirectNotAllowed(err)) {
       throw new UserError(`Enable Banking ei hyväksy paluuosoitetta. Lisää sovelluksen Redirect URLs -kohtaan: ${s.redirectUrl()}`);
     }
     throw linkFailure(err);
+  }
+}
+
+/** Enable Banking refused the redirect URL: it is not among the application's Redirect URLs. */
+function redirectNotAllowed(err: unknown): boolean {
+  return err instanceof EnableBankingError && (/REDIRECT_URI_NOT_ALLOWED/.test(err.message) || (err.status === 422 && /redirect/i.test(err.body)));
+}
+
+/** How far ahead the test's authorisation reaches: it is never opened, and ends by itself. */
+const SELF_TEST_MINUTES = 10;
+
+/**
+ * The admin's test of the redirect URL: asks Enable Banking to start an authorisation with the configured address, and
+ * stops there. The bank's page is never opened and no state is issued, so no return can complete it. Enable Banking has
+ * no call to cancel an authorisation (only a session, which exists after a consent), so none is made: it lapses by itself.
+ * `ok`: accepted; `redirect_not_allowed`: the address is not among the application's Redirect URLs; `error`: anything
+ * else (no application, no bank in the list, a refusal or a failure of the call).
+ */
+export async function testRedirect(s: Services, userId: string): Promise<"ok" | "redirect_not_allowed" | "error"> {
+  try {
+    const client = await clientFor(s, userId);
+    const aspsp = findAspsp(DEFAULT_BANK, await client.listAspsps(DEFAULT_BANK.country));
+    if (!aspsp) return "error";
+    await client.startAuthorization({
+      aspspName: aspsp.name,
+      country: DEFAULT_BANK.country,
+      redirectUrl: s.redirectUrl(),
+      state: `redirect-test-${randomUUID()}`,
+      validUntil: new Date(s.now().getTime() + SELF_TEST_MINUTES * 60_000),
+      psuType: DEFAULT_BANK.psuType,
+    });
+    return "ok";
+  } catch (err) {
+    if (redirectNotAllowed(err)) return "redirect_not_allowed";
+    // status and path only: the body may hold more than a code
+    console.error(`redirect test failed: ${err instanceof Error ? err.message : "unknown"}`);
+    return "error";
   }
 }
 
@@ -121,7 +162,9 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
       currency: a.currency ?? "EUR",
       type: accountType(a),
     });
-    noteLinkedAccount(s, bankIdForAspsp(session.aspsp.name), a);
+    const bankId = bankIdForAspsp(session.aspsp.name);
+    noteLinkedAccount(s, bankId, a);
+    await noteSeen(s, bankId, { card: a.cash_account_type === "CARD" });
   }
 
   await foldCsvAccounts(repo);

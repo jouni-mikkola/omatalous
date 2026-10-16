@@ -16,6 +16,8 @@ const { accounts, transactions, balances, dollarAccount } = household(today);
 /** Authorisations that were started: the consent page sends the browser back to the redirect URL given there. */
 const authorizations = new Map();
 let sessions = 0;
+/** How POST /auth answers: "ok", "refuse-redirect" (REDIRECT_URI_NOT_ALLOWED) or "fail". PUT /fake/auth-answer changes it. */
+let authAnswer = "ok";
 
 function send(res, status, body) {
   if (body === undefined) return res.writeHead(status).end();
@@ -45,12 +47,20 @@ async function handle(req, res) {
     return res.writeHead(302, { Location: back.href }).end();
   }
 
+  // the option for a spec that tries the redirect self-test: no token, it is the bank's side that changes
+  if (route === "PUT /fake/auth-answer") {
+    authAnswer = String((await readJson(req)).mode);
+    return send(res, 204);
+  }
+
   if (!/^Bearer \S+$/.test(req.headers.authorization ?? "")) return send(res, 401, { error: "UNAUTHORIZED" });
   if (route === "GET /application") return send(res, 200, { active: true });
   if (route === "GET /aspsps") {
     return send(res, 200, { aspsps: [{ name: "Nordea", country: "FI", maximum_consent_validity: 180 * 86400, psu_types: ["personal"] }] });
   }
   if (route === "POST /auth") {
+    if (authAnswer === "refuse-redirect") return send(res, 422, { error: "REDIRECT_URI_NOT_ALLOWED", message: "Redirect URI not allowed" });
+    if (authAnswer === "fail") return send(res, 500, { error: "FAKE_BANK_FAILED" });
     const sent = await readJson(req);
     const id = `authorization-${authorizations.size + 1}`;
     authorizations.set(id, { redirectUrl: sent.redirect_url, state: sent.state, validUntil: sent.access?.valid_until });

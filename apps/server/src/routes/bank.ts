@@ -1,11 +1,12 @@
 /** Bank credentials, consents and synchronisation for the signed-in user. */
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { removeConnection } from "../connectors/enable-banking/connector.ts";
 import { saveCredentials } from "../connectors/enable-banking/credentials.ts";
 import { completeConnection, startConnection } from "../connectors/enable-banking/link.ts";
 import { psuHeaders } from "../connectors/enable-banking/psu.ts";
 import { LinkFailure, returnedWithError } from "../connectors/link-state.ts";
 import { openSync } from "../connectors/open-sync.ts";
+import type { UserHeaders } from "../connectors/types.ts";
 import { syncUser } from "../connectors/sync.ts";
 import { clientIp } from "../auth/middleware.ts";
 import { UserError } from "../platform/errors.ts";
@@ -16,6 +17,16 @@ import { body, requestInfo } from "./shared.ts";
 /** Work that finishes after the response: the Node process keeps it running, a failure is only logged. */
 function inBackground(task: Promise<unknown>): void {
   task.catch((err) => console.error("background task failed:", err));
+}
+
+/**
+ * The member's Psu headers (psu.ts) from this request, for each bank's own list of them; undefined when the request
+ * cannot even give the default pair.
+ */
+function headersOf(s: Services, c: Context<AppEnv>): UserHeaders | undefined {
+  const ip = clientIp(c, s);
+  const header = (name: string) => c.req.header(name);
+  return psuHeaders(ip, header) ? (required) => psuHeaders(ip, header, required) : undefined;
 }
 
 /**
@@ -37,7 +48,7 @@ export function bankCallbackRoute(s: Services) {
     if (!code || !state) return back("error=cancelled");
     try {
       const r = await completeConnection(s, s.finance(user.id), code, state);
-      inBackground(syncUser(s, user.id, "connect"));
+      inBackground(syncUser(s, user.id, "connect", headersOf(s, c)));
       return back(`connected=${r.accounts}`);
     } catch (err) {
       // a reason of the link itself (LINK_FAILURES); setup: bank keys missing or unreadable, an admin has to look; failed: anything else
@@ -98,7 +109,7 @@ export function bankRoutes(s: Services) {
     if (error) throw await returnedWithError(s, user.id, state, error);
     if (!code || !state) throw new UserError("Osoite on vajaa. Liitä koko osoite.");
     const r = await completeConnection(s, s.finance(user.id), code, state);
-    inBackground(syncUser(s, user.id, "connect"));
+    inBackground(syncUser(s, user.id, "connect", headersOf(s, c)));
     return c.json(r);
   });
 
@@ -108,9 +119,9 @@ export function bankRoutes(s: Services) {
   });
 
   // ── sync ───────────────────────────────────────────
-  app.post("/sync", async (c) => c.json(await syncUser(s, c.get("user").id, "manual")));
+  app.post("/sync", async (c) => c.json(await syncUser(s, c.get("user").id, "manual", headersOf(s, c))));
   // a member opened the app: fetch their own connections if the rows are old, with their address and browser when those can be given
-  app.post("/sync/open", async (c) => c.json(await openSync(s, c.get("user").id, psuHeaders(clientIp(c, s), (name) => c.req.header(name)))));
+  app.post("/sync/open", async (c) => c.json(await openSync(s, c.get("user").id, headersOf(s, c) ?? null)));
   app.get("/sync/runs", async (c) => c.json({ runs: await s.finance(c.get("user").id).listSyncRuns(20) }));
 
   return app;

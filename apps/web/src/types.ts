@@ -87,6 +87,20 @@ export interface Connection {
   lastSyncedAt: string | null;
   /** Days to the end date of an active consent, else null. */
   daysLeft: number | null;
+  /** The bank's consent ended (lapsed or broken): Yhdistä uudelleen starts a new one. */
+  needsRenewal: boolean;
+}
+
+/** What the app has seen of one bank (GET /api/admin/bank-app/capabilities). */
+export interface BankCapability {
+  bankId: string;
+  consentDays: number | null;
+  requiredPsuHeaders: string[] | null;
+  psuTypes: string[] | null;
+  cardAccounts: boolean;
+  pending: boolean;
+  balanceTypes: string[];
+  historyDays: number | null;
 }
 
 export interface SyncRun {
