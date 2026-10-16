@@ -21,7 +21,8 @@ export function explainShare(ctx: AnalysisContext, args: ExplainArgs): Explanati
   const t = ctx.txs.find((x) => x.id === args.rowId);
   if (!t) throw new Error("explain: no such row");
   const whole = billCents(t);
-  const reasons = args.why?.of(t.id) ?? [];
+  // the collector holds every reason of the row (its category too): a part is told by the reasons of the part
+  const reasons = (args.why?.of(t.id) ?? []).filter((r) => r.rule === "part.source" || r.rule === "part.use");
   if (reasons.some((r) => r.rule === "part.source")) {
     const lines = reasons.map((r, i): Line => ({ id: `${t.id}#${i}`, day: t.bookingDate, cents: r.rule === "part.source" && !r.mine ? 0 : Number(r.cents), whole, why: [r] }));
     return { figure, kind: "share", cents: t.amountCents, lines, check: { kind: "recompute", diffCents: t.amountCents - sumLines(lines) } };

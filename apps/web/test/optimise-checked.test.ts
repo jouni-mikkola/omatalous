@@ -18,6 +18,12 @@ const html = (areas: AreaView[], young = false) => renderToStaticMarkup(createEl
 const labels = (markup: string) => [...markup.matchAll(/<th scope="row"[^>]*>([^<]*)</g)].map((m) => m[1]);
 
 describe("Tarkistettu", () => {
+  it("says a check with nothing to check has nothing to check, not that it found nothing", () => {
+    const out = html([area("loans", [check("loans:margin", "Asuntolainan marginaali", "no_subject"), check("loans:prepay", "Lainan lyhentäminen säästöillä", "clear")])]);
+    expect(out).toContain("Ei tarkistettavaa");
+    expect(out.match(/Ei huomautettavaa/g)).toHaveLength(1);
+  });
+
   it("prints a row a check in the order of the areas, with its word, and leaves a finding out", () => {
     const out = html(AREAS);
     expect(labels(out)).toEqual(["Asuntolainan marginaali", "Luottokortin korko", "Unohtuneet tilaukset", "Polttoaine"]);

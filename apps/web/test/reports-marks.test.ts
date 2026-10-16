@@ -11,7 +11,7 @@ const html = (s: ReportSection, data: Record<string, unknown>) =>
 
 const cat = (category: string, totalCents: number) => ({ category, label: category, totalCents, share: 0.5, monthlyAvgCents: null, previousCents: 0 });
 const group = (name: string, totalCents: number) => ({ group: name, totalCents, share: 0.5, previousCents: 0, categories: [cat(name, totalCents)] });
-const categoriesData = (groups: ReturnType<typeof group>[], totalCents: number) => ({ categories: { groups, totalCents, previousTotalCents: 0, comparable: false } });
+const categoriesData = (groups: ReturnType<typeof group>[], totalCents: number) => ({ categories: { groups, totalCents, previousTotalCents: 0, comparable: false }, cashflow: { unknownShare: 0 } });
 
 describe("Raportit: the sum bracket of Kategoriat", () => {
   it("stands on the groups when they add up to Yhteensä, a refund among them included", () => {

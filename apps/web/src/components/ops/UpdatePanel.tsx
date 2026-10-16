@@ -33,7 +33,7 @@ export function UpdatePanel({ version, build, state, disabled, prerelease, onChe
       {state.update_available ? (
         <>
           <p>
-            <strong>{S.updateAvailable}</strong>
+            <strong>{S.updateAvailable(state.latest_version)}</strong>
           </p>
           {behind.length > 0 && (
             <>

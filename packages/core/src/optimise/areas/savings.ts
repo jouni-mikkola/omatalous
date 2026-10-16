@@ -27,7 +27,8 @@ const IDLE_LABEL = "Käyttötilin ylimääräinen saldo";
 function idleCash(a: AreaInput): { check: Check; draft?: FindingDraft } {
   const noData = () => ({ check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_data" as const } });
   const checking = ownAccounts(a, "checking");
-  if (!checking.length || checking.some((b) => b.balanceCents === null)) return noData();
+  if (!checking.length) return { check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_subject" as const } };
+  if (checking.some((b) => b.balanceCents === null)) return noData();
   const todayDay = dayNumber(a.today);
   if (checking.some((b) => !b.balanceAt || todayDay - dayNumber(b.balanceAt.slice(0, 10)) > FRESH_BALANCE_DAYS)) return noData();
   if (a.quality.signals.some((s) => HOUSEHOLD_SIGNALS.has(s.id))) return noData();

@@ -8,8 +8,8 @@
  */
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
 import { formatEur, formatFiDate, monthInessive, monthName, monthStem } from "../../analysis/format.ts";
-import { expensiveMonthItems, type Season } from "../../analysis/insights/seasons.ts";
-import { capitalise, gateMonthly, lastCompleteMonths, monthRows } from "../../analysis/insights/shared.ts";
+import { expensiveMonthItems, seasonMonths, type Season } from "../../analysis/insights/seasons.ts";
+import { capitalise, gateMonthly, monthRows } from "../../analysis/insights/shared.ts";
 import { monthOneOffs } from "../../analysis/one-offs.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../../analysis/usual.ts";
 import { getCategory } from "../../categories.ts";
@@ -168,8 +168,8 @@ export const seasons: Area = {
   id: "seasons",
   label: "Vuosimenot",
   assess: (a) => {
-    const recent = lastCompleteMonths(a.ctx, a.today, 12);
-    const enough = recent.length === 12 && isCompleteMonth(a.ctx, addMonths(recent[0]!, -12));
+    // the insight's own history test: a month with a complete same month a year earlier
+    const enough = seasonMonths(a.ctx, a.today).length > 0;
     const checks: Check[] = [
       { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data" },
     ];

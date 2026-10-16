@@ -171,6 +171,9 @@ export const subscriptions: Area = {
   label: "Puhelin ja tilaukset",
   assess: (a) => {
     const answered = answeredSubscriptions(a.inputs, a.today);
-    return { findings: [...rises(a, answered), ...overlaps(a, answered), ...renewals(a)], checks: CHECKS };
+    // no contract or subscription series at all: the three checks have no subject
+    const any = a.ctx.recurring.some((s) => s.kind === "subscription" || PLAN_CATEGORIES.has(s.category));
+    const findings = [...rises(a, answered), ...overlaps(a, answered), ...renewals(a)];
+    return { findings, checks: any ? CHECKS : CHECKS.map((c) => ({ ...c, status: "no_subject" as const })) };
   },
 };

@@ -46,6 +46,7 @@ import {
   traceRows,
   type Transaction,
   userNameOf,
+  type WhyCollector,
 } from "@banking/core";
 import { isEuro } from "../connectors/balance-sign.ts";
 import type { StoredMember } from "../db/agreement-repo.ts";
@@ -468,13 +469,13 @@ export async function settledTrace(s: Services, key: string): Promise<SettledTra
   return settled;
 }
 
-/** One member's cents of every row of a settled trace, by the id of the row on each copy. */
-export function sharesOf(t: SettledTrace, viewerId: string, part: Part): Map<string, RowShare> {
+/** One member's cents of every row of a settled trace, by the id of the row on each copy; `why` collects whose money each part was, for "Miksi?". */
+export function sharesOf(t: SettledTrace, viewerId: string, part: Part, why?: WhyCollector): Map<string, RowShare> {
   const shares = new Map<string, RowShare>();
   for (const row of t.trace.rows) {
     // a row with no parts is cut by the part, as a row with no stored parts is in SQL
     if (!row.parts.length) continue;
-    const share = shareOf(row, `u:${viewerId}`, part, t.open);
+    const share = shareOf(row, `u:${viewerId}`, part, t.open, why);
     for (const id of row.ids) shares.set(id, share);
   }
   return shares;

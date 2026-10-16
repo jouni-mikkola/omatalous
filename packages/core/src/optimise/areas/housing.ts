@@ -87,6 +87,8 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
   // one step over 10 % is a move, a new flat or a loan share, never a rise to act on (the price insight's rule too)
   const rises = all.filter((r) => r.riseT <= MAX_HOUSING_STEP_TENTHS);
   const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? undefined : "moved_on") : null;
+  // no row that pays a home: the check has no subject
+  if (!firstSeen.size) return { findings: [], checks: [check("no_subject")] };
   if (!rises.some((r) => r.riseT >= GATE_TENTHS)) return { findings: [], checks: [step ?? check("clear")] };
   const type = valueOf(a.values, "housing_type", today);
   if (!type) return { findings: [], checks: [check("needs_input", "housing_type")] };

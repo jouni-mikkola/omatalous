@@ -118,7 +118,7 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   // the bills of the old home are another household's use: the year starts after the move
   if (moved && moved >= from) return { finding: null, check: priceCheck("no_data") };
   const { bills, credits } = billsOf(ctx, a, a.months, from);
-  if (!bills.length) return { finding: null, check: priceCheck("no_data") };
+  if (!bills.length) return { finding: null, check: priceCheck("no_subject") };
   const sellers = bills.filter((b) => b.kind !== "network");
   const networks = bills.filter((b) => b.kind !== "seller");
   if (!networks.length) return { finding: null, check: priceCheck("no_data") };

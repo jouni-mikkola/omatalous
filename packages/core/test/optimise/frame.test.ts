@@ -138,7 +138,7 @@ describe("optimise frame: what is shown", () => {
     expect(ids(data.areas[0]!.findings)).toEqual(["subscriptions:rise:S1", "subscriptions:rise:S4", "subscriptions:rise:S2", "subscriptions:rise:S3", "subscriptions:rise:S0"]);
     expect(data.areas[0]!.weightCents).toBe(155000);
     expect(data.headline).toMatchObject({ midCents: 155000, count: 5 });
-    expect(data.checked).toEqual({ total: 2, findings: 5, unavailable: 0, noRows: 0 });
+    expect(data.checked).toEqual({ total: 2, findings: 5, unavailable: 0, noRows: 0, noSubject: 0 });
     expect(data.areas[0]!.checks.find((c) => c.id === "subscriptions:rise")!.status).toBe("finding");
   });
 

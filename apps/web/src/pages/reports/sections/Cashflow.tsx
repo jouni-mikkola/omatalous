@@ -1,6 +1,7 @@
 // Decision: spend less or save more
 import { useState } from "react";
 import { DivergingColumns } from "../../../charts/DivergingColumns.tsx";
+import { UnknownShare } from "../../../components/UnknownShare.tsx";
 import { SurplusBridge } from "../../../components/SurplusBridge.tsx";
 import { money, monthLabel, monthLong, percent } from "../../../format.ts";
 import { TableToggle } from "../../../components/TableToggle.tsx";
@@ -27,6 +28,7 @@ function Cashflow({ ctx }: SectionProps) {
         </>
       }
     >
+      <UnknownShare share={r.unknownShare} />
       {/* the bar holds the figures of the settled months; with none there is no bar, and the totals stand in its place */}
       {!settled && (
         <Kv

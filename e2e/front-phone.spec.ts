@@ -39,7 +39,7 @@ for (const width of [320, 360, 390]) {
     const page = await open(context, { settlement: "uneven" });
     const seen = watch(page);
     const rows = page.locator(".wf-row");
-    expect(await rows.count(), "income, four categories, the rest, transfers, unknown and Yli jäi").toBe(9);
+    expect(await rows.count(), "income, four categories, the rest, transfers and Yli jäi").toBe(8);
     // the figure is at the right edge of its row, the bar under the name; both are on the screen
     for (const row of await rows.all()) {
       for (const part of [row.locator(".wf-fig"), row.locator(".wf-track")]) {

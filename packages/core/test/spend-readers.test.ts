@@ -21,13 +21,14 @@ function readers(dir = SRC): string[] {
  */
 const USES_SPEND_ROWS = [
   "analysis/card-bills.ts",
+  "analysis/category-totals.ts",
   "analysis/context.ts",
   "analysis/counted.ts",
-  "analysis/dashboard.ts",
   "analysis/data-quality.ts",
   "analysis/food.ts",
   "analysis/questions.ts",
   "analysis/themes-report.ts",
+  "analysis/waterfall.ts",
   "reports/categories.ts",
   "reports/pivot.ts",
   "reports/summary.ts",
@@ -61,7 +62,6 @@ const BILL_WHOLE = [
   "optimise/common.ts",
   "reports/drift.ts",
   "reports/year-over-year.ts",
-  "analysis/waterfall.ts",
 ];
 
 describe("every reader of spend is classified", () => {

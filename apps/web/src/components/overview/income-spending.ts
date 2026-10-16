@@ -1,6 +1,6 @@
 // Decision: where the month's money went, told once
 import { dayMonth, money, monthLong, percent, signedMoney } from "../../format.ts";
-import type { DashboardData } from "@banking/core";
+import { type DashboardData, NAMED_CATEGORIES } from "@banking/core";
 import { type Ruler, rulerOf } from "./ruler.ts";
 
 /** "2026-10" gives "lokakuu": the month's name alone, as it stands after a label. */
@@ -58,9 +58,6 @@ export interface IncomeSpendingView {
 const NO_ROWS = { running: "Ei vielä tapahtumia tässä kuussa.", ended: "Ei tapahtumia tässä kuussa." };
 const NO_SPENDING = { running: "Ei vielä menoja tässä kuussa.", ended: "Ei menoja tässä kuussa." };
 
-/** The categories told by name; the ones after them are one row. */
-const NAMED = 9;
-
 const NO_CHANGE = signedMoney(0);
 /** "+17 €" or "−5 €"; a change that rounds to no euro is not told. */
 function changeOf(cents: number): string {
@@ -74,8 +71,8 @@ function changeOf(cents: number): string {
  * categories), so the rows add up to "Menot"; a row below zero has its sum and no bar.
  */
 function categoriesOf(data: DashboardData): { rows: Category[]; longest: number } {
-  const named = data.categories.slice(0, NAMED);
-  const rest = data.categories.slice(NAMED).reduce((s, c) => s + c.cents, 0);
+  const named = data.categories.slice(0, NAMED_CATEGORIES);
+  const rest = data.categories.slice(NAMED_CATEGORIES).reduce((s, c) => s + c.cents, 0);
   const longest = Math.max(rest, ...named.map((c) => c.cents), 0);
   // the bar is the row's sum against the longest as a percent to two decimals, the ruler's own precision
   const share = (cents: number) => (cents > 0 && longest > 0 ? Math.round((cents / longest) * 10000) / 100 : 0);
@@ -88,7 +85,7 @@ function categoriesOf(data: DashboardData): { rows: Category[]; longest: number 
       text: money(c.cents),
       change: data.comparable && c.previousCents ? changeOf(c.cents - c.previousCents) : "",
     })),
-    ...(rest !== 0 ? [{ key: "rest", label: `Muut (${data.categories.length - NAMED})`, category: null, share: share(rest), text: money(rest), change: "" }] : []),
+    ...(rest !== 0 ? [{ key: "rest", label: `Muut (${data.categories.length - NAMED_CATEGORIES})`, category: null, share: share(rest), text: money(rest), change: "" }] : []),
   ];
   return { rows, longest };
 }

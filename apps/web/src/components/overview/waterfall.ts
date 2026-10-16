@@ -30,10 +30,11 @@ export interface WaterfallRow {
 
 const signed = (cents: number): string => `${cents < 0 ? "−" : "+"}${money(Math.abs(cents))}`;
 
-/** The name a bar is shown under: the category's own name, else the fixed names. */
-function labelOf(key: string, categories: ReadonlyMap<string, string>): string {
+/** The name a bar is shown under: the category's own name, the rest as the category table names it, else the fixed names. */
+function labelOf({ key, count }: WaterfallAnswer["bars"][number], categories: ReadonlyMap<string, string>): string {
   if (key.startsWith("category:")) return categories.get(key.slice("category:".length)) ?? key.slice("category:".length);
-  return { income: "Tulot", other: "Muut menot", transfers: "Säästöt ja luotot", unknown: "Ei tiedossa" }[key] ?? key;
+  if (key === "other") return count ? `Muut (${count})` : "Muut menot";
+  return { income: "Tulot", transfers: "Säästöt ja luotot" }[key] ?? key;
 }
 
 /** A bar of nothing is left out, the last bar stays whatever it is. */
@@ -42,7 +43,7 @@ export function waterfallRows(w: WaterfallAnswer, categories: ReadonlyMap<string
   const steps: { key: string; label: string; cents: number; from: number; to: number; kind: BarKind }[] = [];
   let total = 0;
   for (const b of bars) {
-    steps.push({ key: b.key, label: labelOf(b.key, categories), cents: b.cents, from: total, to: total + b.cents, kind: b.cents > 0 ? "up" : "down" });
+    steps.push({ key: b.key, label: labelOf(b, categories), cents: b.cents, from: total, to: total + b.cents, kind: b.cents > 0 ? "up" : "down" });
     total += b.cents;
   }
   steps.push({ key: "left", label: "Yli jäi", cents: w.leftCents, from: 0, to: w.leftCents, kind: "left" });
@@ -63,13 +64,20 @@ export function waterfallRows(w: WaterfallAnswer, categories: ReadonlyMap<string
   }));
 }
 
-/** The month's one sentence for a reader who does not see the bars. */
+/**
+ * The month's one sentence for a reader who does not see the bars: the figures of the table under it, then what went to
+ * savings and credit, which the table's Menot leaves out. The bars add up to Yli jäi, so the sentence does too.
+ */
 export function summaryOf(w: WaterfallAnswer): string {
-  const income = w.bars.filter((b) => b.key === "income").reduce((s, b) => s + b.cents, 0);
-  // everything that went out net of what came in, so income less spending is Yli jäi to the cent
-  const spent = income - w.leftCents;
-  if (w.leftCents < 0) return `Tuloja ${money(income)}, menoja ${money(spent)}. Menoja oli ${money(-w.leftCents)} enemmän kuin tuloja.`;
-  return `Tuloja ${money(income)}, menoja ${money(spent)}. Yli jäi ${money(w.leftCents)}.`;
+  const sum = (keep: (key: string) => boolean) => w.bars.filter((b) => keep(b.key)).reduce((s, b) => s + b.cents, 0);
+  const income = sum((k) => k === "income");
+  const spent = -sum((k) => k === "other" || k.startsWith("category:"));
+  const moved = -sum((k) => k === "transfers");
+  const first = `Tuloja ${money(income)}, menoja ${money(spent)}.`;
+  const last = w.leftCents < 0 ? `Rahaa meni ${money(-w.leftCents)} enemmän kuin tuli.` : `Yli jäi ${money(w.leftCents)}.`;
+  if (moved === 0) return `${first} ${last}`;
+  const middle = moved > 0 ? `Säästöihin ja luottoihin meni ${money(moved)}.` : `Säästöistä ja luotoista tuli ${money(-moved)}.`;
+  return `${first} ${middle} ${last}`;
 }
 
 /**

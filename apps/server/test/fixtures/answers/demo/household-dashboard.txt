@@ -805,12 +805,14 @@
    {
     "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
     "label": "Vuokra",
+    "category": "housing",
     "payee": "Sato",
     "monthlyCents": 105000
    },
    {
     "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
     "label": "Sähkö",
+    "category": "utilities",
     "payee": "Helen",
     "monthlyCents": 5697
    }
@@ -903,8 +905,21 @@
     "cents": -6470
    },
    {
+    "key": "category:fitness",
+    "cents": -5900
+   },
+   {
+    "key": "category:car",
+    "cents": -5784
+   },
+   {
+    "key": "category:subscriptions",
+    "cents": -4198
+   },
+   {
     "key": "other",
-    "cents": -20975
+    "cents": -5093,
+    "count": 2
    },
    {
     "key": "transfers",

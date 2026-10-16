@@ -3,6 +3,23 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.59.0
+
+- Yhteenveto's waterfall and the table under it now show the same income and spending to the cent; savings and credit get their own sentence.
+- Raportit and Säästövinkit say when much of the spending is not itemised, and a check with nothing to check says "Ei tarkistettavaa" instead of "Ei huomautettavaa".
+- Your part of a row paid into a joint account is the same number on the row and in its panel; smaller page fixes from a live review (version number in the update card, housing costs named by category, empty joint accounts left out).
+
+Money and reports
+
+- Raportit and Säästövinkit say how much of the spending is not itemised when it is over 20 %, and Tarkistettu says "Ei tarkistettavaa" for a check with nothing to check.
+- Säästövinkit no longer says "Ei vinkkejä." beside Muut havainnot, and Kalliit kuukaudet and the expensive-month finding use one history test.
+- The part a row of a joint account shows on Tapahtumat and the total of the "Miksi?" panel it opens are now the same figure, also for an account cut by who paid.
+- The waterfall of Tulot ja menot on Yhteenveto shows the same Tulot and Menot as the table beside it, and its sentence names what went to savings and credit.
+
+Look
+
+- Tekniset asetukset shows "Ladataan…" while it loads, the update card names the new version, Yhteiset menot leaves out a joint account with nothing paid in the month and names a co-holder with no login, Asumiskulut shows the category when the kind is unknown, and the debt rows of Varallisuus fit a phone.
+
 ## 0.58.0
 
 - Yhteenveto shows the month as a waterfall: income, each spending category, and what is left. A tick beside each account balance tells whether the bank's balance matches the rows.

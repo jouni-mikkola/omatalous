@@ -51,7 +51,7 @@ const paid = (over: Partial<HousingLoan> = {}): HousingLoan => ({
   ...over,
 });
 
-const charge = (seriesId: string, label: string | null, payee: string, monthlyCents: number): HousingCharge => ({ seriesId, label, payee, monthlyCents });
+const charge = (seriesId: string, label: string | null, payee: string, monthlyCents: number, category = "housing"): HousingCharge => ({ seriesId, label, category, payee, monthlyCents });
 /** The viewer's 60 % of a joint account. */
 const part = { from: 0, to: 3, of: 5 };
 /** A next payment the plan cannot tell: the loan lacks a field. */
@@ -155,8 +155,8 @@ describe("the rows", () => {
     expect(view.loans.map((r) => r.name)).toEqual(["Kodin laina", "ESIMERKKIPANKKI OYJ"]);
     expect(view.charges.map((r) => [r.kind, r.payee, r.part && flat(r.part), r.cents])).toEqual([
       ["Hoitovastike", "As Oy Esimerkkikatu 5", null, 28_600],
-      // the words of the payment name no kind: a dash, and the payee stands in its own column
-      [DASH, "ESIMERKKIENERGIA OY", "osuutesi 60 %", 6_130],
+      // the words of the payment name no kind: the category's name, and the payee stands in its own column
+      ["Vuokra ja vastike", "ESIMERKKIENERGIA OY", "osuutesi 60 %", 6_130],
     ]);
   });
 
@@ -239,5 +239,12 @@ describe("the bracket and the tracks of the charges", () => {
     expect(housingView(answer({ ...base, loans: [saved({ monthlyCents: null })], partial: true, totalMonthlyCents: 114_821 })).sumsAddUp).toBe(false);
     // the total alone has no rows over it
     expect(only([rent, power]).sumsAddUp).toBe(false);
+  });
+});
+
+describe("the name of a charge", () => {
+  it("is the words of the payment, else the category's name, else a dash", () => {
+    const kinds = (...cs: HousingCharge[]) => housingView(answer({ charges: cs })).charges.map((c) => c.kind);
+    expect(kinds(charge("a", "Sähkö", "Helen", 5_697, "utilities"), charge("b", null, "Helen", 5_697, "utilities"), charge("c", null, "Esimerkki Oy", 5_000, "unheard"))).toEqual(["Sähkö", "Sähkö, vesi ja lämpö", DASH]);
   });
 });

@@ -218,11 +218,11 @@ export const bank: Area = {
   assess: (a) => {
     const w = windowOf(a);
     const list = TIERS.every((tier) => priceFact(tier, a.today)) && priceFact("credit", a.today);
+    const hasFee = a.ctx.recurring.some(isMonthlyFee);
+    const hasLate = !!w && a.ctx.txs.some((t) => w.months.has(monthOf(t.bookingDate)) && isLateFee(t) && netCost(t) > 0);
     const checks: Check[] = [
-      list
-        ? { id: "bank:card_tier", label: "Kortin hintataso", status: "clear" }
-        : { id: "bank:card_tier", label: "Kortin hintataso", status: "no_data" },
-      { id: "bank:late_fees", label: "Myöhästymiskulut", status: "clear" },
+      { id: "bank:card_tier", label: "Kortin hintataso", status: !list ? "no_data" : hasFee ? "clear" : "no_subject" },
+      { id: "bank:late_fees", label: "Myöhästymiskulut", status: hasLate ? "clear" : "no_subject" },
     ];
     const summary = feeSummary(a, w);
     return { findings: [...cardTiers(a, w), ...lateFees(a, w)], checks, ...(summary ? { summary } : {}) };

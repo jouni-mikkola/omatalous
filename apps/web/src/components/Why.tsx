@@ -22,6 +22,8 @@ interface WhyFigure {
   category?: string;
   /** `share.part`: the row whose part the figure is. */
   row?: string;
+  /** `share.part`: the row's account, whose users name the lines. */
+  account?: string;
   /** What the button shows: the figure, or the waterfall's bar. */
   children: ReactNode;
   /** The figure's own text: its visible words belong to the button's name. A bar has none. */
@@ -120,7 +122,7 @@ function lineRows(l: Line, key: string, shown: Shown, kind: "counted" | "left" |
             <td colSpan={3}>
               {category && <div>{category}</div>}
               {reason && <div className="why-reason">{reason}</div>}
-              {l.whole !== undefined && figure !== "share.part" && <div className="why-reason">Pankin ilmoittama saldo {money(l.whole)}</div>}
+              {l.whole !== undefined && figure !== "share.part" && <div className="why-reason">Tapahtuman summa {money(l.whole)}</div>}
             </td>
           </tr>,
         ]
@@ -159,7 +161,7 @@ function Month({ label, cents, lines, shown }: { label: string; cents: number; l
   );
 }
 
-function WhyPanel({ figure, title, range, scope, category, row, onClose }: Omit<WhyFigure, "children" | "className" | "text"> & { onClose: () => void }) {
+function WhyPanel({ figure, title, range, scope, category, row, account, onClose }: Omit<WhyFigure, "children" | "className" | "text"> & { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [all, setAll] = useState(false);
   useEffect(() => {
@@ -175,11 +177,15 @@ function WhyPanel({ figure, title, range, scope, category, row, onClose }: Omit<
   const needsRows = figure !== "share.part";
   const earliest = e ? [range.from, ...e.lines.map((l) => l.day), ...(e.method?.kind === "median" ? e.method.values.map((v) => `${v.label}-01`) : [])].sort()[0]! : range.from;
   const rows = useApi<{ items: TransactionItem[] }>(needsRows && (e || !waits) ? `/api/transactions${query({ from: earliest, to: range.to, scope, limit: 5000 })}` : null);
-  const meta = useApi<Pick<Meta, "categories" | "members">>("/api/meta");
+  const meta = useApi<Pick<Meta, "categories" | "members" | "accounts">>("/api/meta");
   const names: Names = {
     rows: new Map((rows.data?.items ?? []).map((t) => [t.id, t])),
     labels: new Map((meta.data?.categories ?? []).map((c) => [c.id, c.label])),
-    members: new Map((meta.data?.members ?? []).map((m) => [m.id, m.displayName])),
+    members: new Map([
+      ...(meta.data?.members ?? []).map((m): [string, string] => [m.id, m.displayName]),
+      // the holders who are no user of the app, as the account's users name them
+      ...(meta.data?.accounts.find((a) => a.id === account)?.use?.users ?? []).filter((u) => u.userId === null).map((u): [string, string] => ["-", u.label]),
+    ]),
   };
   const shown: Shown = { figure, names };
   // a row the figure left out counts nothing: it stands in the closed group at the foot, never between the counted rows
@@ -241,7 +247,7 @@ function WhyPanel({ figure, title, range, scope, category, row, onClose }: Omit<
           <div className="why-foot">
             {whole !== undefined && (
               <div className="why-total">
-                <span>Pankin ilmoittama saldo</span>
+                <span>Tapahtuman summa</span>
                 <span className="num">{money(whole)}</span>
               </div>
             )}

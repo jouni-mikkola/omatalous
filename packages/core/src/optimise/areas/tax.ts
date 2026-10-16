@@ -63,6 +63,8 @@ function assess(a: AreaInput): AreaResult {
   const cards = new Set(ctx.accounts.filter((acc) => acc.type === "credit_card").map((acc) => acc.id));
   const shops = businessMerchants(ctx.txs, ledgersWithPayeeAccounts(ctx.txs));
   const findings: FindingDraft[] = [];
+  // set when a row of a business payee for household work was read, whatever it came to
+  let looked = false;
 
   for (const year of yearsOf(today)) {
     const rate = factFor("household_deduction_rate", year, today);
@@ -83,6 +85,7 @@ function assess(a: AreaInput): AreaResult {
       sums[work] += paid;
     }
     const paid = sums.cleaning + sums.other;
+    if (rows.length) looked = true;
     if (paid < PAID_GATE_CENTS) continue;
 
     const deduction = (share: number, r: Fact, c: Fact) => Math.min(c.value, Math.round((r.value / 100) * (sums.cleaning + sums.other * share)) - deductible.value);
@@ -140,7 +143,7 @@ function assess(a: AreaInput): AreaResult {
     });
   }
 
-  const check: Check = { id: `tax:${KIND}`, label: "Kotitalousvähennys", status: findings.length ? "finding" : "clear" };
+  const check: Check = { id: `tax:${KIND}`, label: "Kotitalousvähennys", status: findings.length ? "finding" : looked ? "clear" : "no_subject" };
   return { findings, checks: [check] };
 }
 

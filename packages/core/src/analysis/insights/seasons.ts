@@ -41,14 +41,21 @@ export interface Season {
 }
 
 /**
+ * The months of the last 12 complete ones whose same month a year earlier is complete too: the only months a season
+ * can be judged on. Empty while the history is too short; the Optimoi check and the insight both read it.
+ */
+export function seasonMonths(ctx: InsightArgs["ctx"], end: string): string[] {
+  const recent = lastCompleteMonths(ctx, end, 12);
+  return recent.length < 12 ? [] : recent.filter((m) => isCompleteMonth(ctx, addMonths(m, -12)));
+}
+
+/**
  * Calendar months of the last 12 complete months that were 20 % over usual, clear of the noise, in each of the last
  * two years. The insight sums them; Optimoi takes each month for itself.
  */
 export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<InsightArgs, "ctx" | "end" | "gateMonthlyCents">): Season[] {
-  const recent = lastCompleteMonths(ctx, end, 12);
-  if (recent.length < 12) return [];
   const seasons: Season[] = [];
-  for (const month of recent) {
+  for (const month of seasonMonths(ctx, end)) {
     const years = Array.from({ length: YEARS }, (_, k) => addMonths(month, -12 * k));
     const extras: number[] = [];
     for (const m of years) {

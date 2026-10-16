@@ -1,5 +1,5 @@
 // Decision: what the home costs a month and on what terms its loan runs, told as a statement
-import { type DashboardData, type HousingCharge, type HousingLoan, LOAN_REFERENCE_LABEL } from "@banking/core";
+import { CATEGORIES, type DashboardData, type HousingCharge, type HousingLoan, LOAN_REFERENCE_LABEL } from "@banking/core";
 import { date, dayMonth, money, rateText } from "../../format.ts";
 import { addsUp, shares } from "../../marks.ts";
 import { partText } from "../../part.ts";
@@ -84,7 +84,7 @@ interface LoanRow {
 
 interface ChargeRow {
   key: string;
-  /** What the payment is, in the words of the bank or the housing company; a dash when they name nothing. */
+  /** What the payment is, in the words of the bank or the housing company; the category's name when they name nothing. */
   kind: string;
   payee: string;
   part: string | null;
@@ -132,7 +132,7 @@ function loanRow(loan: HousingLoan): LoanRow {
 
 const chargeRow = (charge: HousingCharge): ChargeRow => ({
   key: charge.seriesId,
-  kind: charge.label ?? DASH,
+  kind: charge.label ?? CATEGORIES.find((c) => c.id === charge.category)?.label ?? DASH,
   payee: charge.payee,
   part: partText(charge.part, "debt"),
   cents: charge.monthlyCents,

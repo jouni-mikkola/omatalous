@@ -1,5 +1,6 @@
 // Decision: spend less or save more
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
+import { unknownSpending } from "../analysis/data-quality.ts";
 import { incomeCentsOf, incomeSelect, sumOf } from "../analysis/counted.ts";
 import { type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
@@ -24,6 +25,8 @@ export interface CashflowRow {
 
 export interface CashflowReport {
   rows: CashflowRow[];
+  /** The share of the range's spending that is not itemised, 0 to 1 (`unknownSpending`): Raportit says so when it is over 20 %. */
+  unknownShare: number;
   totals: PeriodTotals;
   /** Per-month averages over the complete months; null when the range has none. */
   average: Omit<CashflowRow, "month" | "savingsRate" | "complete"> | null;
@@ -69,6 +72,7 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
   const avg = (key: keyof Omit<CashflowRow, "month" | "savingsRate" | "complete">) => Math.round(base.reduce((s, r) => s + r[key], 0) / base.length);
   return {
     rows,
+    unknownShare: unknownSpending(ctx, range).share,
     totals: totalsOf(all.map((x) => x.flows)),
     running,
     closed: closedFlows.length ? totalsOf(closedFlows.map((x) => x.flows)) : null,

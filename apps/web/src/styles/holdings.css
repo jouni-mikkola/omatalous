@@ -21,6 +21,8 @@
 /* a name is a link in the accent colour, underlined when pointed at or focused; the box has room for the focus ring, which
    the cut edge of a name would clip */
 .holdings .holding-name { margin: -4px; padding: 4px; }
+/* in a unit's head the name fills the row, so its right margin would push it 4 px past the card: the ring has its room inside */
+.holdings .holding-unit-head .holding-name { margin-right: 0; }
 .holdings .holding-name a { text-decoration: none; }
 .holdings .holding-name a:hover, .holdings .holding-name a:focus-visible { text-decoration: underline; }
 .holdings .holding-name a:focus-visible { outline-offset: 0; box-shadow: none; }

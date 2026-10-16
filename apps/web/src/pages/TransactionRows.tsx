@@ -37,8 +37,8 @@ export type ListedRow = TransactionItem & { partCents?: number };
 /** The link of a row whose payer is not told: to the account's parts on Tilit, where the question is answered. null for a row with none open. */
 export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string | null => (t.openCents ? `#/settings#${partAnchor(t.accountId)}` : null);
 
-/** The viewer's part of a joint account's row, told beside the bank's amount; null for a row that is all theirs. */
-const partOfRow = (t: ListedRow): string | null => (t.partCents === undefined || t.partCents === t.amountCents ? null : `osuutesi ${money(t.partCents)}`);
+/** The viewer's part of a joint account's row, told beside the bank's amount; null for a row that is all theirs and for one with nothing of theirs (no figure to explain). */
+const partOfRow = (t: ListedRow): string | null => (!t.partCents || t.partCents === t.amountCents ? null : `osuutesi ${money(t.partCents)}`);
 
 /**
  * The bank's own text of a row (its payee and message), cut to what the payee's name does not already say: a part that
@@ -137,7 +137,7 @@ export const TxRow = memo(function TxRow({ account, explained, onStatement, ...r
       </td>
       <td className={`num ${t.amountCents > 0 ? "amount-in" : ""}`}>
         {money(t.amountCents)}
-        {part && <div className="sub tx-part"><Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} text={part}>
+        {part && <div className="sub tx-part"><Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} account={t.accountId} text={part}>
             {part}
           </Why></div>}
         {owner && (
@@ -166,7 +166,7 @@ export const TxItem = memo(function TxItem({ explained, onStatement, ...row }: R
       </div>
       <div className="tx-cat">
         <RowCategory {...row} phone />
-        {part && <span className="tx-part"><Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} text={part}>
+        {part && <span className="tx-part"><Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} account={t.accountId} text={part}>
             {part}
           </Why></span>}
         {owner && (

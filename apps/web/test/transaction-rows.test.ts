@@ -24,3 +24,14 @@ describe("the link of a row whose payer is not told", () => {
     }
   });
 });
+
+describe("the part of a joint account's row", () => {
+  it("is a button that opens its figure, and is not shown at all when it is nothing", () => {
+    for (const show of [phone, wide]) {
+      expect(show(row({ amountCents: -60_000, partCents: -30_000 }))).toContain("osuutesi");
+      // near misses: a part of 0 has no figure to explain, a part equal to the amount is the whole row
+      expect(show(row({ amountCents: 20_000, partCents: 0 }))).not.toContain("osuutesi");
+      expect(show(row({ amountCents: 20_000, partCents: 20_000 }))).not.toContain("osuutesi");
+    }
+  });
+});

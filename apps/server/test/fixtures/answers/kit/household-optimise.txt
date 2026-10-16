@@ -64,7 +64,7 @@
      {
       "id": "loans:card_interest",
       "label": "Luottokortin korot",
-      "status": "clear"
+      "status": "no_subject"
      }
     ],
     "weightCents": 0
@@ -113,12 +113,12 @@
      {
       "id": "bank:card_tier",
       "label": "Kortin hintataso",
-      "status": "clear"
+      "status": "no_subject"
      },
      {
       "id": "bank:late_fees",
       "label": "Myöhästymiskulut",
-      "status": "clear"
+      "status": "no_subject"
      }
     ],
     "weightCents": 0
@@ -225,7 +225,7 @@
      {
       "id": "tax:household_deduction",
       "label": "Kotitalousvähennys",
-      "status": "clear"
+      "status": "no_subject"
      }
     ],
     "weightCents": 0
@@ -275,6 +275,7 @@
   "done": [],
   "dismissed": [],
   "snoozed": [],
+  "unknownShare": 0,
   "others": [],
   "othersDismissed": [],
   "needed": [
@@ -301,7 +302,8 @@
    "total": 21,
    "findings": 0,
    "unavailable": 5,
-   "noRows": 0
+   "noRows": 0,
+   "noSubject": 4
   }
  },
  "inputs": [],

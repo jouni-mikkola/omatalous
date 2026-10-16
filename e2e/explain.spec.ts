@@ -100,6 +100,11 @@ test.describe("a joint account", () => {
       if (members.length === 2) {
         const first = await browser.newContext({ storageState: members[0]!.state });
         await sayJointUse(first, members.map((m) => ({ userId: m.id, weight: 5000 })));
+        // cut by who paid, so the rows are told by the trace and not by the weights
+        const meta = await (await first.request.get("/api/meta")).json();
+        const joint = (meta.accounts as { id: string; name: string }[]).find((a) => a.name === "Yhteistili")!;
+        const split = await first.request.put(`/api/accounts/${encodeURIComponent(joint.id)}/split`, { data: { mode: "source" }, headers: { "X-Requested-With": "fetch" } });
+        expect(split.ok(), `PUT split answered ${split.status()} ${await split.text()}`).toBe(true);
         await first.close();
       }
       await context.close();
@@ -121,9 +126,33 @@ test.describe("a joint account", () => {
     await total.getByRole("button", { name: /Näytä rivit/ }).click();
     const panel = page.getByRole("dialog");
     await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    expect(plain(await panel.innerText())).toContain("Pankin ilmoittama saldo");
+    expect(plain(await panel.innerText())).toContain("Tapahtuman summa");
     expect(Math.round((await rowsSum(panel)) / 100)).toBe(figure / 100);
     await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
+    await context.close();
+  });
+
+  test("the part a row of Tapahtumat tells is the Yhteensä of the panel it opens", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: members[0]!.state, viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await ready(page, "/#/transactions");
+    const row = page.locator("table tbody tr").filter({ has: page.locator(".tx-part button") }).first();
+    await expect(row).toBeVisible();
+    const told = cents((await row.locator(".tx-part button").innerText()).replace("osuutesi", ""));
+    await row.locator(".tx-part button").click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    expect(cents(await panel.locator("[data-why-total]").innerText())).toBe(told);
+    // the pool is cut by who paid: every row with a part is explained by the part it shows, and some say whose money it was
+    const listed = (await (await context.request.get("/api/transactions?limit=500")).json()).items as { id: string; partCents?: number }[];
+    const sources: boolean[] = [];
+    for (const t of listed.filter((x) => x.partCents !== undefined)) {
+      const e = await (await context.request.get(`/api/explain?figure=share.part&row=${t.id}&from=2000-01-01&to=2099-12-31`)).json();
+      expect(e.cents, t.id).toBe(t.partCents);
+      sources.push(e.lines.some((l: { why: { rule: string }[] }) => l.why.some((w) => w.rule === "part.source")));
+    }
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources, "the trace told the parts").toContain(true);
     await context.close();
   });
 });

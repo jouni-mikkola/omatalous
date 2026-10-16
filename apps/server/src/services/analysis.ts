@@ -234,8 +234,8 @@ async function accountsInView(s: Services, userId: string, requested: View): Pro
 }
 
 /** A view built again, uncached, with the reasons its rows count as they do collected: what "Miksi?" reads. */
-export async function scopeWithReasons(s: Services, userId: string, requested: Scope, why: WhyCollector): Promise<ScopeData> {
-  return loadScope(s, userId, await accountsInView(s, userId, requested), s.today(), why);
+export async function scopeWithReasons(s: Services, userId: string, requested: Scope, why: WhyCollector, tracedParts = false): Promise<ScopeData> {
+  return loadScope(s, userId, await accountsInView(s, userId, requested), s.today(), why, tracedParts);
 }
 
 /** A row cut to a part, as the bank booked it. */
@@ -265,7 +265,7 @@ function tracedBalance(t: SettledTrace, userId: string, part: Part, day: number,
 }
 
 /** The traced accounts of the own view: the viewer's cents of their rows and each one's balance. An account whose trace is gone counts by its part. */
-async function tracedShares(s: Services, userId: string, accounts: readonly ScopeAccount[], today: string): Promise<{ accounts: ScopeAccount[]; shares: Map<string, RowShare> }> {
+async function tracedShares(s: Services, userId: string, accounts: readonly ScopeAccount[], today: string, why?: WhyCollector): Promise<{ accounts: ScopeAccount[]; shares: Map<string, RowShare> }> {
   const shares = new Map<string, RowShare>();
   const counted = await Promise.all(
     accounts.map(async (a): Promise<ScopeAccount> => {
@@ -274,7 +274,7 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
         const { traced: _traced, ...rest } = a;
         return rest;
       }
-      const own = sharesOf(t, userId, a.part);
+      const own = sharesOf(t, userId, a.part, why);
       for (const [id, share] of own) shares.set(id, share);
       return { ...a, tracedCents: tracedBalance(t, userId, a.part, dayNumber(balanceDayOf(localDay(s, a.balanceAt), today)), own) };
     }),
@@ -282,9 +282,10 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
   return { accounts: counted, shares };
 }
 
-async function loadScope(s: Services, userId: string, inView: InView, today: string, why?: WhyCollector): Promise<ScopeData> {
+async function loadScope(s: Services, userId: string, inView: InView, today: string, why?: WhyCollector, tracedParts = false): Promise<ScopeData> {
   const { view, left, parts } = inView;
-  const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today) : { accounts: inView.accounts, shares: new Map<string, RowShare>() };
+  // the reasons of a traced row's parts are for the panel of that part alone: another figure's panel would print them under the row
+  const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today, tracedParts ? why : undefined) : { accounts: inView.accounts, shares: new Map<string, RowShare>() };
   const { accounts, shares } = traced;
   const theirs = accounts.filter((a) => a.userId !== userId).map((a) => a.id);
   let txs: readonly StoredTransaction[] = await s.finance(userId).allTransactions();

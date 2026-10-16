@@ -55,11 +55,14 @@ describe("tax: household deduction", () => {
   });
 
   it("stays quiet on a person paid for cleaning and on 280 € paid", () => {
-    for (const near of taxPart.nearMiss(FRAME)) {
+    // 280 € paid to a company was read and came to nothing: clear; a person is no business, so no row was read
+    const statuses = taxPart.nearMiss(FRAME).map((near) => {
       const result = run(tax, [near]);
       expect(result.findings).toEqual([]);
-      expect(result.checks).toEqual([{ id: "tax:household_deduction", label: "Kotitalousvähennys", status: "clear" }]);
-    }
+      expect(result.checks.map((c) => c.id)).toEqual(["tax:household_deduction"]);
+      return result.checks[0]!.status;
+    });
+    expect(statuses.sort()).toEqual(["clear", "no_subject"]);
   });
 
   it("never treats a person as a business, even one the register lookup names; a company found by its industry counts", () => {

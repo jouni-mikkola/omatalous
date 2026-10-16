@@ -18,7 +18,7 @@ export const S = {
   version: "Versio",
   checkUpdates: "Tarkista päivitykset",
   upToDate: (time: string) => `Ajan tasalla (tarkistettu ${time})`,
-  updateAvailable: "Uusi versio saatavilla",
+  updateAvailable: (version?: string) => (version ? `Uusi versio ${version} saatavilla` : "Uusi versio saatavilla"),
   changes: "Muutokset",
   update: "Päivitä",
   prerelease: "Tarjoa uudet versiot heti",

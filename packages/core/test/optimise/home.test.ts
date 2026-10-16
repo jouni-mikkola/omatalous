@@ -123,7 +123,7 @@ describe("electricity price per kWh", () => {
     expect(checkOf(data, "electricity:price")).toMatchObject({ status: "needs_input", input: "electricity_kwh" });
     expect(data.needed.map((n) => n.key)).toContain("electricity_kwh");
     const none = run([]);
-    expect(checkOf(none, "electricity:price")).toMatchObject({ status: "no_data" });
+    expect(checkOf(none, "electricity:price")).toMatchObject({ status: "no_subject" });
     expect(none.needed).toEqual([]);
   });
 
@@ -268,7 +268,7 @@ describe("insurance", () => {
     const september = run([{ txs: ins.premiums(FRAME, { to: 12000, changeMonth: "2026-09" }) }]);
     expect(allFindings(september)).toEqual([]);
     expect(checkOf(september, "insurance:rise")).toMatchObject({ status: "no_data" });
-    expect(checkOf(run([]), "insurance:rise")).toMatchObject({ status: "no_data" });
+    expect(checkOf(run([]), "insurance:rise")).toMatchObject({ status: "no_subject" });
   });
 });
 

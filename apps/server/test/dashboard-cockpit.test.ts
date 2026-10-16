@@ -98,8 +98,8 @@ describe("the dashboard waterfall", () => {
     const [mine, theirs] = [await dashboard(w, w.ville, "own"), await dashboard(w, w.ville, "household")];
     expect(mine.waterfall.month).toBe("2026-10");
     expect(bars(mine)).toBe(mine.waterfall.leftCents);
-    // the shop payment nobody classified is a bar of its own, and the sum still holds with it
-    expect(mine.waterfall.bars.map((b: { key: string }) => b.key)).toContain("unknown");
+    // the shop payment nobody classified is the category Muut menot, and the sum still holds with it
+    expect(mine.waterfall.bars.map((b: { key: string }) => b.key)).toContain("category:other");
     expect(bars(theirs)).toBe(theirs.waterfall.leftCents);
     // Aino's account is shared with Ville: the household view holds its 2 000,00, the own view does not
     expect(theirs.waterfall.leftCents - (await dashboard(bare, bare.ville, "household")).waterfall.leftCents).toBe(200000);
@@ -129,7 +129,11 @@ describe("the dashboard on the demo household", () => {
         expect(bars(d)).toBe(d.waterfall.leftCents);
         for (const b of d.waterfall.bars as { key: string }[]) seen.add(b.key.split(":")[0]!);
         expect(d.waterfall.bars[0].key).toBe("income");
-        expect(d.waterfall.bars.filter((b: { key: string }) => b.key.startsWith("category:")).length).toBeLessThanOrEqual(6);
+        expect(d.waterfall.bars.filter((b: { key: string }) => b.key.startsWith("category:")).length).toBeLessThanOrEqual(9);
+        // the waterfall and the table under it are one month's figures: Tulot, and Menot as the spending bars
+        const waterfall = d.waterfall.bars as { key: string; cents: number }[];
+        expect(waterfall[0]!.cents).toBe(d.totals.incomeCents);
+        expect(-waterfall.filter((b) => b.key.startsWith("category:") || b.key === "other").reduce((n, b) => n + b.cents, 0)).toBe(d.totals.expenseCents);
         expect(d.settlement).toEqual([]);
         expect(d.holdings.accounts.length).toBeGreaterThan(0);
         for (const a of d.holdings.accounts as { id: string; reconcile: string }[]) {

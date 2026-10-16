@@ -2,6 +2,7 @@
 import { money, percent, roundedShares, shareText } from "../../../format.ts";
 import { Kv } from "../parts.tsx";
 import { Section } from "../../../components/Section.tsx";
+import { UnknownShare } from "../../../components/UnknownShare.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function FixedVariable({ ctx }: SectionProps) {
@@ -22,6 +23,7 @@ function FixedVariable({ ctx }: SectionProps) {
   const parts = all.map((p, i) => ({ ...p, share: spending > 0 && units[i] != null ? shareText(units[i]!) : "–" })).filter((p) => p.cents !== 0);
   return (
     <Section id={section.id} title={section.title}>
+      <UnknownShare share={ctx.data.cashflow.unknownShare} />
       <Kv
         items={[
           // what the fixed costs are now, against the usual income; a dash where the income or the costs are too small to tell
@@ -40,6 +42,6 @@ export const section: ReportSection = {
   order: 60,
   page: "reports",
   // the fixed costs a month and their share of the income are the buffer report's
-  reports: ["fixedVariable", "buffer"],
+  reports: ["fixedVariable", "buffer", "cashflow"],
   Component: FixedVariable,
 };

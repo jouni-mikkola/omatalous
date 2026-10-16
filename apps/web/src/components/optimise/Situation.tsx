@@ -2,6 +2,7 @@
 import type { OptimiseData } from "@banking/core";
 import { money } from "../../format.ts";
 import { Figure } from "../Figure.tsx";
+import { UnknownShare } from "../UnknownShare.tsx";
 import { Section } from "../Section.tsx";
 import { rangeText } from "./shared.tsx";
 
@@ -10,7 +11,9 @@ export function Situation({ data }: { data: OptimiseData }) {
   const range = rangeText(headline);
   return (
     <Section id="tilanne" title="Tilanne">
-      {headline.count === 0 && checked.findings === 0 && <p className="optimise-none">Ei vinkkejä.</p>}
+      <UnknownShare share={data.unknownShare} />
+      {/* no tip, no finding and nothing under Muut havainnot: only then is the page empty */}
+      {headline.count === 0 && checked.findings === 0 && data.others.length === 0 && <p className="optimise-none">Ei vinkkejä.</p>}
       <dl className="kv optimise-facts">
         {headline.count > 0 && (
           <div>

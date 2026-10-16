@@ -3,7 +3,7 @@
  * request over the viewer's own view, with a collector the decision points fill; nothing is stored. The answer is core's
  * `Explanation` as it is: ids, days and cents, no names (the page names a row from the list it already reads).
  */
-import { createWhy, enrichTransactions, explain, type Explanation, type FigureId, isKnownCategory } from "@banking/core";
+import { createContext, createWhy, enrichTransactions, explain, type Explanation, type FigureId, isKnownCategory } from "@banking/core";
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { type Scope, scopeWithReasons } from "./analysis.ts";
@@ -44,11 +44,20 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
   if ((req.figure === "usual.spend" || req.figure === "usual.income") && req.accountIds) throw new UserError("Tuntematon raportti.");
   if (req.figure === "share.part" && !req.rowId) throw new UserError("Tuntematon raportti.");
   const why = createWhy(req.scope);
-  const { ctx, accounts } = await scopeWithReasons(s, userId, req.scope, why);
+  const { ctx: scoped, accounts, shares } = await scopeWithReasons(s, userId, req.scope, why, req.figure === "share.part");
+  let ctx = scoped;
   // a member explains only what they may read: an account outside their view is not found, as it is nowhere else
   if (req.accountIds?.some((id) => !accounts.some((a) => a.id === id))) throw new NotFound("Tiliä ei löydy.");
   // the row of a part is one of the viewer's view, so another member's row is not found; the account must have users to share it
-  const row = req.figure === "share.part" ? ctx.txs.find((t) => t.id === req.rowId) : undefined;
+  let row = req.figure === "share.part" ? ctx.txs.find((t) => t.id === req.rowId) : undefined;
+  // a row whose part of the viewer is 0 is left out of the view's sums, but it has a part to tell: nobody's money of the viewer's
+  if (req.figure === "share.part" && !row && req.rowId && shares.get(req.rowId)?.cents === 0) {
+    const stored = (await s.finance(userId).allTransactions()).find((t) => t.id === req.rowId);
+    if (stored) {
+      ctx = createContext([{ ...stored, amountCents: 0, wholeCents: stored.amountCents }], accounts, s.today());
+      row = ctx.txs[0];
+    }
+  }
   if (req.figure === "share.part" && !row) throw new NotFound("Tapahtumaa ei löydy.");
   const use = row ? accounts.find((a) => a.id === row.accountId)?.use : undefined;
   if (req.figure === "share.part" && (!use || use.users.length < 2)) throw new UserError("Tuntematon raportti.");

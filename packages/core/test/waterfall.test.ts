@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type AnalysisContext, createContext } from "../src/analysis/context.ts";
+import { NAMED_CATEGORIES } from "../src/analysis/category-totals.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -39,29 +40,78 @@ const september: Transaction[] = [
 const ctx = createContext(september, accounts, today);
 
 describe("the month waterfall", () => {
-  it("adds up to Yli jäi of the cash flow report, with transfers and unknown rows as bars of their own", () => {
+  it("adds up to the table's Yli jäi, with savings and credit as a bar of their own", () => {
     const w = monthOnly(ctx, "2026-09")!;
     expect(w.leftCents).toBe(cashflowReport(ctx, { from: "2026-09-01", to: "2026-09-30" }).totals.leftCents);
     expect(sum(w)).toBe(w.leftCents);
-    expect(bar(w, "income")).toBe(300000);
+    // the money in the default called other income is income, as the table counts it
+    expect(bar(w, "income")).toBe(301000);
     // savings (30 000) and the money landing on the savings account (20 000) leave Yli jäi; the credit drawn is in it
     expect(bar(w, "transfers")).toBe(-30000 - 20000 + 10000);
-    expect(bar(w, "unknown")).toBe(-2500 + 1000);
-    expect(w.bars.map((b) => b.key)).toEqual(["income", "category:housing", "category:groceries", "category:transport", "category:restaurants", "category:health", "category:shopping", "other", "transfers", "unknown"]);
-    // the rest of the spending: entertainment and fees
-    expect(bar(w, "other")).toBe(-5000 - 2000);
+    // nine categories, all named: the unclassified payment is the category Muut menot, in the order of the category table
+    expect(w.bars.map((b) => b.key)).toEqual(["income", "category:housing", "category:groceries", "category:transport", "category:restaurants", "category:health", "category:shopping", "category:entertainment", "category:other", "category:fees", "transfers"]);
+    expect(bar(w, "category:other")).toBe(-2500);
     expect(bar(w, "category:groceries")).toBe(-55000);
   });
 
-  it("a row the household classified is no unknown row: the same payment with a rule is a category", () => {
+  it("tells the month with the figures of the table under it: Tulot, Menot, a loan payment and an unclassified row included", () => {
+    const rows = [...september, by("loans", "2026-09-15", -45000), by("other", "2026-09-16", -1500, { categorySource: "default" })];
+    const c = createContext(rows, accounts, today);
+    const range = { from: "2026-09-01", to: "2026-09-30" };
+    const { totals, categories } = buildDashboard(c, range);
+    const w = dashboardWaterfall(c, range)!;
+    expect(bar(w, "income")).toBe(totals.incomeCents);
+    const spending = w.bars.filter((b) => b.key.startsWith("category:") || b.key === "other");
+    expect(-spending.reduce((n, b) => n + b.cents, 0)).toBe(totals.expenseCents);
+    // the loan payment is spending, the savings are not
+    expect(bar(w, "category:loans")).toBe(-45000);
+    expect(bar(w, "transfers")).toBe(-30000 - 20000 + 10000);
+    expect(sum(w)).toBe(totals.incomeCents - totals.expenseCents + bar(w, "transfers")!);
+    // the same grouping as the category table: the nine largest, the rest as one bar that counts them
+    expect(w.bars.filter((b) => b.key.startsWith("category:")).map((b) => b.key.slice(9))).toEqual(categories.slice(0, NAMED_CATEGORIES).map((x) => x.category));
+    expect(bar(w, "other")).toBe(-categories.slice(NAMED_CATEGORIES).reduce((n, x) => n + x.cents, 0));
+    expect(w.bars.find((b) => b.key === "other")?.count).toBe(categories.length - NAMED_CATEGORIES);
+  });
+
+  it("a card bill read off its statement counts as the table counts it, in the month of the purchases and in the month of the bill", () => {
+    const cards: Account[] = [{ id: "chk", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" }, { id: "card", name: "Esimerkki Kortti", iban: null, currency: "EUR", type: "credit_card" }];
+    const bill = tx({ id: "bill", accountId: "chk", bookingDate: "2026-03-10", amountCents: -42000, category: "card_bill", merchant: "ESIMERKKI KORTTI", counterparty: "ESIMERKKI KORTTI", categorySource: "rule" });
+    const rows = [{ id: "r1", day: "2026-02-03", cents: 6150, text: "K-MARKET ESIMERKKI", category: "groceries" }, { id: "r2", day: "2026-02-09", cents: 8000, text: "ESIMERKKI POLTTOAINE", category: "car" }, { id: "r3", day: "2026-02-20", cents: 15000, text: "VERKKOKAUPPA ESIMERKKI", category: "shopping" }];
+    const pay = (id: string, bookingDate: string) => tx({ id, accountId: "chk", bookingDate, amountCents: 300000, category: "salary", categorySource: "rule", merchant: "ESIMERKKI TYÖNANTAJA OY" });
+    const c = createContext([pay("p1", "2026-02-25"), pay("p2", "2026-03-25"), bill], cards, "2026-04-01", undefined, [], [], [{ billId: "bill", periodFrom: "2026-02-01", periodTo: "2026-02-28", rows }]);
+    const spent = { "2026-02": 6150 + 8000 + 15000, "2026-03": 42000 - (6150 + 8000 + 15000) };
+    for (const month of ["2026-02", "2026-03"] as const) {
+      const range = { from: `${month}-01`, to: `${month}-28` };
+      const { totals } = buildDashboard(c, range);
+      const w = dashboardWaterfall(c, range)!;
+      expect(totals.expenseCents).toBe(spent[month]);
+      expect(bar(w, "income")).toBe(totals.incomeCents);
+      expect(-w.bars.filter((b) => b.key.startsWith("category:") || b.key === "other").reduce((n, b) => n + b.cents, 0)).toBe(totals.expenseCents);
+      expect(w.leftCents).toBe(totals.leftCents);
+      expect(sum(w)).toBe(w.leftCents);
+    }
+  });
+
+  it("counts only the days of the range: a row booked after today or before the range's first day is not in the sentence", () => {
+    const rows = [by("salary", "2026-10-02", 100000), by("groceries", "2026-10-03", -5000), by("groceries", "2026-10-25", -80000)];
+    const c = createContext(rows, accounts, today);
+    for (const range of [{ from: "2026-10-01", to: today }, { from: "2026-10-03", to: today }, { from: "2026-10-01", to: "2026-10-31" }]) {
+      const { totals } = buildDashboard(c, range);
+      const w = dashboardWaterfall(c, range)!;
+      expect(bar(w, "income")).toBe(totals.incomeCents);
+      expect(-w.bars.filter((b) => b.key.startsWith("category:")).reduce((n, b) => n + b.cents, 0)).toBe(totals.expenseCents);
+      expect(w.leftCents).toBe(totals.leftCents);
+    }
+    expect(bar(dashboardWaterfall(c, { from: "2026-10-01", to: today }), "category:groceries")).toBe(-5000);
+    expect(bar(dashboardWaterfall(c, { from: "2026-10-03", to: today }), "income")).toBe(0);
+  });
+
+  it("a row the household classified changes no sum: the same payments with a rule add up the same", () => {
     const classified = september.map((t) => (t.category === "other" || t.category === "income" ? { ...t, categorySource: "rule" as const } : t));
     const w = monthOnly(createContext(classified, accounts, today), "2026-09")!;
-    expect(bar(w, "unknown")).toBeUndefined();
-    // nine categories now: the three smallest are the rest of the spending
-    expect(bar(w, "other")).toBe(-5000 - 2000 - 2500);
     expect(sum(w)).toBe(w.leftCents);
-    // the income the default called unknown was money in: now it is income
     expect(bar(w, "income")).toBe(301000);
+    expect(bar(w, "category:other")).toBe(-2500);
   });
 
   it("a refund lowers its category and the sum rule still holds", () => {
@@ -71,7 +121,7 @@ describe("the month waterfall", () => {
     expect(w.leftCents).toBe(monthOnly(ctx, "2026-09")!.leftCents + 6000);
     // the refund took the purchase back: the category nets to nothing and the refund is no income
     expect(bar(w, "category:shopping")).toBeUndefined();
-    expect(bar(w, "income")).toBe(300000);
+    expect(bar(w, "income")).toBe(301000);
   });
 
   it("is null for a month with no rows and for a range after today; a long range ends in today's month", () => {

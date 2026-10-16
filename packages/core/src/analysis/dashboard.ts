@@ -1,15 +1,15 @@
-import { getCategory } from "../categories.ts";
 import { addMonths, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { buildHousing, type Housing } from "../housing.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
-import { dataQualityReport, type QualitySignal, spendingBase } from "./data-quality.ts";
+import { type CategoryTotal, categoryTotals } from "./category-totals.ts";
+import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, type AnalysisTx, historyCovers, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
+import { type AnalysisContext, historyCovers, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
@@ -19,19 +19,10 @@ import { monthWaterfall, type Waterfall } from "./waterfall.ts";
 import { type ThemesReport, themesReport } from "./themes-report.ts";
 import { isCompleteMonth } from "./usual.ts";
 
+export type { CategoryTotal } from "./category-totals.ts";
+
 // the pace code lives in forecast.ts; these keep the names the package index has always exported
 export { type MonthPace, monthPace } from "./forecast.ts";
-
-export interface CategoryTotal {
-  category: string;
-  label: string;
-  group: string;
-  kind: string;
-  cents: number;
-  count: number;
-  share: number;
-  previousCents: number;
-}
 
 export interface DashboardData {
   range: { from: IsoDate; to: IsoDate; previousFrom: IsoDate; previousTo: IsoDate };
@@ -84,32 +75,6 @@ export interface DashboardData {
    * the range's length. null when the range starts after today or the month has no rows.
    */
   waterfall: Waterfall | null;
-}
-
-/**
- * Spending (consumption + debt) per category, with the previous period alongside. The rows add up to the spending of
- * `current`: a category that nets below zero (a refund that came a month after its payment, or money in the user put
- * on it by hand) is a row with its minus.
- */
-export function categoryTotals(current: readonly AnalysisTx[], previous: readonly AnalysisTx[] = []): CategoryTotal[] {
-  const totals = new Map<string, { cents: number; count: number }>();
-  for (const t of current) {
-    if (!t.spend) continue;
-    const e = totals.get(t.category) ?? { cents: 0, count: 0 };
-    e.cents += t.spend;
-    e.count += 1;
-    totals.set(t.category, e);
-  }
-  const prev = new Map<string, number>();
-  for (const t of previous) if (t.spend) prev.set(t.category, (prev.get(t.category) ?? 0) + t.spend);
-  const all = spendingBase(current);
-  return [...totals.entries()]
-    .filter(([, e]) => e.cents !== 0)
-    .map(([category, e]) => {
-      const c = getCategory(category);
-      return { category, label: c.label, group: c.group, kind: c.kind, cents: e.cents, count: e.count, share: all ? e.cents / all : 0, previousCents: prev.get(category) ?? 0 };
-    })
-    .sort((a, b) => b.cents - a.cents);
 }
 
 /** The totals of the complete months the range covers from their first day; null without one. */
@@ -180,6 +145,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, balances:
     housing: buildHousing(ctx, balances, inputs),
     questions: buildQuestions(ctx, range, inputs, proposals),
     colorOrder: [...ctx.colorOrder],
-    waterfall: range.from > ctx.today ? null : monthWaterfall(ctx, monthOf(range.to < ctx.today ? range.to : ctx.today)),
+    waterfall: range.from > ctx.today ? null : monthWaterfall(ctx, monthOf(range.to < ctx.today ? range.to : ctx.today), range),
   };
 }

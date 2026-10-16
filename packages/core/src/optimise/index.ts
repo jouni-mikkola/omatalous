@@ -5,6 +5,7 @@
  * insights no finding covers come along as Muut havainnot (`others.ts`). Pure: `ctx.today` is the only clock.
  */
 import type { AnalysisContext } from "../analysis/context.ts";
+import { unknownSpending } from "../analysis/data-quality.ts";
 import { completeMonthsBefore } from "../analysis/usual.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
@@ -249,6 +250,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     done,
     dismissed,
     snoozed,
+    unknownShare: unknownSpending(ctx, { from: a.months.length ? `${a.months[0]}-01` : a.end, to: a.end }).share,
     ...othersOf(a, findingRows),
     needed: neededOf(views, a.values, today),
     checked: {
@@ -256,6 +258,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
       findings: active.length,
       unavailable: checks.filter((c) => c.status === "needs_input" || c.status === "no_data").length,
       noRows: checks.filter((c) => c.status === "no_rows").length,
+      noSubject: checks.filter((c) => c.status === "no_subject").length,
     },
   };
 }

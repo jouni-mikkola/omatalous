@@ -183,6 +183,8 @@ export const food: Area = {
     if (!win) return { findings: [], checks: checks("no_data") };
     const rows = eatingOutRows(a.ctx, win.all);
     const findings = [eatingOut(a, win, rows), ...delivery(win, rows)].filter((f): f is FindingDraft => f !== null);
-    return { findings, checks: checks("clear") };
+    // no restaurant or delivery row at all: nothing was looked at
+    const [out, orders] = checks("clear");
+    return { findings, checks: [rows.length ? out! : { ...out!, status: "no_subject" }, rows.some((t) => t.category === "food_delivery") ? orders! : { ...orders!, status: "no_subject" }] };
   },
 };

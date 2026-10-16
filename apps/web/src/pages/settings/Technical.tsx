@@ -79,6 +79,7 @@ export function Technical({ meta, params, anchor, onChange }: { meta: Meta; para
         <a href="#/settings">← Asetukset</a>
       </p>
       {message && <div className={`notice ${message.tone}`}>{message.text}</div>}
+      {!settled && <div className="empty" role="status">Ladataan…</div>}
 
       <div className="card">
         <div className="card-head">

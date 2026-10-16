@@ -111,3 +111,24 @@ describe("the share of Muut menot", () => {
     expect(title).toBe("17 % menoista on luokittelematta");
   });
 });
+
+describe("the share of spending that is not itemised", () => {
+  const range = { from: "2026-03-01", to: "2026-03-31" };
+  const shareOf = (other: number, bill: number, groceries: number) =>
+    cashflowReport(
+      createContext([row("2026-03-02", -groceries, "groceries", "K-Market"), row("2026-03-05", -other, "other", "Tuntematon"), row("2026-03-06", -bill, "card_bill", "Visa")], [checking], "2026-04-15"),
+      range,
+    ).unknownShare;
+
+  it("adds card bills to Muut menot against the spending base", () => {
+    // 1 000 + 1 500 of 10 000
+    expect(shareOf(1000, 1500, 7500)).toBeCloseTo(0.25, 10);
+    // money in, money out: a refund of the groceries takes the base down and the share up
+    expect(shareOf(1000, 0, 9000)).toBeCloseTo(0.1, 10);
+  });
+
+  it("is zero with no spending", () => {
+    const ctx = createContext([row("2026-03-02", 5000, "salary", "Työnantaja")], [checking], "2026-04-15");
+    expect(cashflowReport(ctx, range).unknownShare).toBe(0);
+  });
+});

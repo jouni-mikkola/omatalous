@@ -101,6 +101,10 @@ describe("Versio with nothing to show", () => {
     expect(panel({ checked_at: "2026-03-01T10:00:00.000Z" } as OpsSnapshot, null)).toContain('class="muted"');
     expect(panel({ update_available: true } as OpsSnapshot, null)).toContain('class="form-row"');
     expect(panel({ can_rollback: true } as OpsSnapshot, null)).toContain('class="form-row"');
+  });
+  it("names the new version when the helper has said which it is", () => {
+    expect(panel({ update_available: true, latest_version: "0.59.0" } as OpsSnapshot, null)).toContain("Uusi versio 0.59.0 saatavilla");
+    expect(panel({ update_available: true } as OpsSnapshot, null)).toContain("Uusi versio saatavilla");
     expect(panel(bare, { on: false, onChange: () => {} })).toContain('role="switch"');
   });
 });

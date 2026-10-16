@@ -594,6 +594,22 @@ test("Asuminen is on the page when the answer has no Erääntyvät maksut, and E
   await context.close();
 });
 
+test("the waterfall's sentence and the table under it tell one month: the two first figures are the table's Tulot and Menot", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
+  const page = await signedIn(context, "/#/overview");
+  const seen = watch(page);
+  const block = monthOf(page);
+  const sentence = plain((await block.locator(".wf > p.sr-only").textContent()) ?? "");
+  const told = sentence.match(/^Tuloja (.+?), menoja (.+?)\./);
+  expect(told, sentence).not.toBeNull();
+  const figure = (row: number) => block.locator(".month-table tbody tr").nth(row).locator("td").first().innerText();
+  const [income, spending] = [await figure(0), await figure(1)];
+  expect(cents(told![1]!)).toBe(cents(income));
+  expect(cents(told![2]!)).toBe(cents(spending));
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
 test("the month switch is in the block it changes and nowhere else, and the running month asks once", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();

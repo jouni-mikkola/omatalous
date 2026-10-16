@@ -302,6 +302,27 @@ describe("two copies of one account and two pools", () => {
     expect(await w.db.all("SELECT COUNT(*) AS n FROM tx_part_state")).toEqual([{ n: 1 }]);
   });
 
+  it("the part of a row of a pool cut by who paid is the part its row shows, and the panel's total is the same figure", async () => {
+    // a loan account that holds -0,90: the viewer's own 600,00 in, an instalment out, and money from nobody the pool knows
+    const rows: R[] = [fromAino("2026-09-01", 600), ["2026-09-02", -600, "ESIMERKKI PANKKI"], ["2026-09-03", 30, "ESIMERKKI OY", "FI9000000000000009"], fromVille("2026-09-04", 200)];
+    const w = await world(one(rows, 0, { balance: -90, extra: async (x) => void (await x.as(x.aino).call("PUT", "/api/accounts/pool-a/split", { mode: "source" })) }));
+    const list = (await w.as(w.aino).call("GET", `/api/transactions?scope=own&accountId=pool-a&${YEAR}&limit=50`)).body.items as { id: string; amountCents: number; partCents?: number }[];
+    const parted = list.filter((t) => t.partCents !== undefined);
+    expect(parted.map((t) => [t.amountCents, t.partCents])).toContainEqual([60000, 60000]);
+    // money Ville paid in is nothing of Aino's: a part of 0 that the panel still answers
+    expect(parted.map((t) => [t.amountCents, t.partCents])).toContainEqual([20000, 0]);
+    // near miss: another figure's panel lists the same traced row with no reason of its parts under it
+    const spend = (await w.as(w.aino).call("GET", `/api/explain?figure=spend.month&from=2026-09-01&to=2026-09-30`)).body.lines as { cents: number; why: { rule: string }[] }[];
+    expect(spend.some((l) => l.cents !== 0)).toBe(true);
+    expect(spend.flatMap((l) => l.why.map((x) => x.rule)).filter((x) => x.startsWith("part."))).toEqual([]);
+    for (const t of parted) {
+      const r = await w.as(w.aino).call("GET", `/api/explain?figure=share.part&row=${t.id}&${YEAR}`);
+      expect([r.status, r.body.cents, r.body.check], String(t.amountCents)).toEqual([200, t.partCents, { kind: "recompute", diffCents: 0 }]);
+      // a row with a part of its own money lists it by source and adds up to the part; unknown money is listed by the weights
+      if (r.body.lines.some((l: { why: { rule: string }[] }) => l.why.some((x) => x.rule === "part.source"))) expect(r.body.lines.reduce((sum: number, l: { cents: number }) => sum + l.cents, 0)).toBe(t.partCents);
+    }
+  });
+
   const POOL_Y = "FI7000000000000007";
   const both = `${AINO}, ${VILLE}`;
   /** Two pools of the same two members; each holds the rows given. */

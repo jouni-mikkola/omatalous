@@ -90,7 +90,7 @@ test("Säästövinkit ends with Tarkistettu: a row a check that is not a finding
   await expect(checked).toBeVisible();
   const rows = checked.locator("tbody tr");
   expect(await rows.count()).toBeGreaterThan(0);
-  const words = /Ei huomautettavaa|Tietoja puuttuu|Tapahtumia liian lyhyeltä ajalta|Ei tapahtumia/;
+  const words = /Ei huomautettavaa|Ei tarkistettavaa|Tietoja puuttuu|Tapahtumia liian lyhyeltä ajalta|Ei tapahtumia/;
   for (const text of await rows.locator(".checked-status").allInnerTexts()) expect(text).toMatch(words);
   await page.waitForLoadState("networkidle");
   expect(await overflow(page), "Tarkistettu scrolls sideways at 390px").toBeLessThanOrEqual(1);

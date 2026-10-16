@@ -148,7 +148,6 @@ packages/core/src/analysis/change.ts  contextIndex
 packages/core/src/analysis/change.ts  restLabel
 packages/core/src/analysis/credit.ts  CardCost
 packages/core/src/analysis/credit.ts  CardCosts
-packages/core/src/analysis/dashboard.ts  categoryTotals
 packages/core/src/analysis/data-quality.ts  DataQualityReport
 packages/core/src/analysis/data-quality.ts  QualityTone
 packages/core/src/analysis/flows.ts  FlowInput

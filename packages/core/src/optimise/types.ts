@@ -116,13 +116,16 @@ export interface Finding extends Omit<FindingDraft, "weaknesses"> {
   reopened?: boolean;
 }
 
-/** `no_data` waits for months or a fact; `no_rows` found no row of its kind in the data, so it looked at nothing. */
-type CheckStatus = "finding" | "clear" | "needs_input" | "no_data" | "no_rows";
+/**
+ * `no_data` waits for months or a fact; `no_rows` found no row of its kind in the data, so it looked at nothing;
+ * `no_subject` has nothing to check (no mortgage, no card): "clear" is for a check that looked at data.
+ */
+type CheckStatus = "finding" | "clear" | "needs_input" | "no_data" | "no_rows" | "no_subject";
 
 /**
  * One thing an area looked at: "Tarkistettiin 14 asiaa, 7 löydöstä, 3 ei voitu tarkistaa". The frame sets `finding`
  * and `clear` from the findings that survive, so an area may report either. A check with no row to read reports
- * `no_rows` and is not counted as checked.
+ * `no_rows` or `no_subject` and is not counted as checked.
  */
 export interface Check {
   /** `<area>:<kind>`, the same kind as its findings. */
@@ -315,6 +318,8 @@ export interface OptimiseData {
   dismissed: { state: FindingState; finding: Finding }[];
   /** Päätetyt, Muistutus: findings snoozed until a day after today. `finding` is null when the data no longer shows it. */
   snoozed: { state: FindingState; finding: Finding | null }[];
+  /** The share of the window's spending that is not itemised, 0 to 1 (`unknownSpending`). */
+  unknownShare: number;
   /** Muut havainnot: the insights of the findings' window that no finding covers, largest yearly figure first (`others.ts`). */
   others: Insight[];
   /** Päätetyt, Ei koske meitä: insights dismissed at a figure within 25 % of today's. */
@@ -322,9 +327,9 @@ export interface OptimiseData {
   needed: NeededInput[];
   /**
    * `total` is every check, and splits into those that found something or found nothing, `unavailable` (waiting for a
-   * number, a fact or months) and `noRows` (no row of their kind to read). `findings` counts active findings, not checks.
+   * number, a fact or months) and `noRows` (no row of their kind to read) and `noSubject` (nothing to check: no mortgage, no card). `findings` counts active findings, not checks.
    */
-  checked: { total: number; findings: number; unavailable: number; noRows: number };
+  checked: { total: number; findings: number; unavailable: number; noRows: number; noSubject: number };
 }
 
 /** An insight the household dismissed (Ei koske meitä) that stays hidden until its figure moves 25 %. */

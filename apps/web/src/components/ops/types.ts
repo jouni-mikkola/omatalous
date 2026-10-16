@@ -43,6 +43,8 @@ export interface OpsSnapshot {
   build?: string;
   commit?: string;
   update_available?: boolean;
+  /** The newest release the helper saw, when it said (release mode). */
+  latest_version?: string;
   behind_commits?: { hash: string; subject: string }[];
   checked_at?: string;
   can_rollback?: boolean;

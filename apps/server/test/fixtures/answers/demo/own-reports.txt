@@ -58,6 +58,7 @@
     "complete": false
    }
   ],
+  "unknownShare": 0,
   "totals": {
    "incomeCents": 0,
    "consumptionCents": 173212,

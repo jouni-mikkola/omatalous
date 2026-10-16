@@ -6,17 +6,16 @@ import { settlementSentences, summaryOf, waterfallRows } from "../src/components
 import type { WaterfallAnswer } from "../src/types.ts";
 
 const names = new Map([["groceries", "Ruoka"]]);
-/** Income 3 000 €, groceries 800 €, the rest of spending 1 200 €, 100 € moved in, 50 € of unknown rows out: 950 € left. */
+/** Income 3 000 €, groceries 800 €, the rest of spending (three categories) 1 200 €, 100 € of credit drawn: 1 100 € left. */
 const month: WaterfallAnswer = {
   month: "2026-10",
   bars: [
     { key: "income", cents: 300_000 },
     { key: "category:groceries", cents: -80_000 },
-    { key: "other", cents: -120_000 },
+    { key: "other", cents: -120_000, count: 3 },
     { key: "transfers", cents: 10_000 },
-    { key: "unknown", cents: -5_000 },
   ],
-  leftCents: 105_000,
+  leftCents: 110_000,
 };
 const plain = (s: string) => s.replace(/\s/g, " ");
 
@@ -26,15 +25,14 @@ describe("waterfallRows", () => {
     expect(rows.map((r) => [r.label, r.kind, r.total])).toEqual([
       ["Tulot", "up", 300_000],
       ["Ruoka", "down", 220_000],
-      ["Muut menot", "down", 100_000],
+      ["Muut (3)", "down", 100_000],
       ["Säästöt ja luotot", "up", 110_000],
-      ["Ei tiedossa", "down", 105_000],
-      ["Yli jäi", "left", 105_000],
+      ["Yli jäi", "left", 110_000],
     ]);
     expect(rows[rows.length - 2]!.total).toBe(month.leftCents);
   });
   it("gives every bar its sign in text, so colour is not the only cue", () => {
-    expect(rows.map((r) => plain(r.text))).toEqual(["+3 000,00 €", "−800,00 €", "−1 200,00 €", "+100,00 €", "−50,00 €", "1 050,00 €"]);
+    expect(rows.map((r) => plain(r.text))).toEqual(["+3 000,00 €", "−800,00 €", "−1 200,00 €", "+100,00 €", "1 100,00 €"]);
   });
   it("starts a falling bar where the total was and puts zero at the left while nothing is below it", () => {
     expect(rows[1]!.at).toBeCloseTo((220_000 / 300_000) * 100);
@@ -57,8 +55,16 @@ describe("summaryOf", () => {
   it("tells income, spending and what stayed", () => {
     expect(plain(summaryOf({ ...month, leftCents: 100_000, bars: [{ key: "income", cents: 300_000 }, { key: "other", cents: -200_000 }] }))).toBe("Tuloja 3 000,00 €, menoja 2 000,00 €. Yli jäi 1 000,00 €.");
   });
-  it("says how much more went out than came in when Yli jäi is negative", () => {
-    expect(plain(summaryOf({ month: "2026-10", bars: [{ key: "income", cents: 100_000 }, { key: "other", cents: -130_000 }], leftCents: -30_000 }))).toBe("Tuloja 1 000,00 €, menoja 1 300,00 €. Menoja oli 300,00 € enemmän kuin tuloja.");
+  it("names what went to savings and credit after the table's two figures, and leaves it out when nothing did", () => {
+    const bars = [{ key: "income", cents: 400_000 }, { key: "category:groceries", cents: -300_000 }, { key: "other", cents: -50_000, count: 2 }, { key: "transfers", cents: -20_000 }];
+    expect(plain(summaryOf({ month: "2026-10", bars, leftCents: 30_000 }))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Säästöihin ja luottoihin meni 200,00 €. Yli jäi 300,00 €.");
+    expect(plain(summaryOf({ month: "2026-10", bars: bars.slice(0, 3), leftCents: 50_000 }))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Yli jäi 500,00 €.");
+    // more credit drawn than saved: money came in, and the sentence says so instead of a negative sum
+    expect(plain(summaryOf({ month: "2026-10", bars: [...bars.slice(0, 3), { key: "transfers", cents: 10_000 }], leftCents: 60_000 }))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Säästöistä ja luotoista tuli 100,00 €. Yli jäi 600,00 €.");
+  });
+  it("says how much more went out than came in when Yli jäi is below zero, with and without savings", () => {
+    expect(plain(summaryOf({ month: "2026-10", bars: [{ key: "income", cents: 100_000 }, { key: "other", cents: -130_000 }], leftCents: -30_000 }))).toBe("Tuloja 1 000,00 €, menoja 1 300,00 €. Rahaa meni 300,00 € enemmän kuin tuli.");
+    expect(plain(summaryOf({ month: "2026-10", bars: [{ key: "income", cents: 100_000 }, { key: "other", cents: -130_000 }, { key: "transfers", cents: -40_000 }], leftCents: -70_000 }))).toBe("Tuloja 1 000,00 €, menoja 1 300,00 €. Säästöihin ja luottoihin meni 400,00 €. Rahaa meni 700,00 € enemmän kuin tuli.");
   });
 });
 
@@ -88,7 +94,7 @@ describe("Waterfall", () => {
     const out = html(month);
     expect(out).toContain("<caption>Tulot ja menot taulukkona</caption>");
     expect(out).toContain('<th scope="col">Erä</th><th scope="col">Summa</th><th scope="col">Kertymä</th>');
-    expect(out.match(/<tr><th scope="row">/g)).toHaveLength(6);
+    expect(out.match(/<tr><th scope="row">/g)).toHaveLength(5);
     expect(out).toContain('class="sr-only">Tuloja');
   });
   it("tells an empty month in a sentence and draws no bar", () => {

@@ -40,7 +40,7 @@ function renewalOf(s: RecurringSeries): { date: IsoDate; label: string } {
 function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
   const { ctx, today, end } = a;
   const paysInsurance = ctx.txs.some((t) => !t.isTransfer && t.category === "insurance" && t.spend > 0 && t.bookingDate > addDays(end, -365) && t.bookingDate <= end);
-  if (!paysInsurance) return { findings: [], checks: [{ id: "insurance:rise", label: RISE_LABEL, status: "no_data" }] };
+  if (!paysInsurance) return { findings: [], checks: [{ id: "insurance:rise", label: RISE_LABEL, status: "no_subject" }] };
 
   const findings: FindingDraft[] = [];
   let noCpi = false;

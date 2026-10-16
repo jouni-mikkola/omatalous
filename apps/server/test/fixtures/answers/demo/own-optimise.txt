@@ -250,17 +250,17 @@
      {
       "id": "loans:margin",
       "label": "Asuntolainan marginaali",
-      "status": "clear"
+      "status": "no_subject"
      },
      {
       "id": "loans:prepay",
       "label": "Lainan lyhentäminen säästöillä",
-      "status": "clear"
+      "status": "no_subject"
      },
      {
       "id": "loans:card_interest",
       "label": "Luottokortin korot",
-      "status": "clear"
+      "status": "no_subject"
      }
     ],
     "weightCents": 0
@@ -286,12 +286,12 @@
      {
       "id": "bank:card_tier",
       "label": "Kortin hintataso",
-      "status": "clear"
+      "status": "no_subject"
      },
      {
       "id": "bank:late_fees",
       "label": "Myöhästymiskulut",
-      "status": "clear"
+      "status": "no_subject"
      }
     ],
     "weightCents": 0
@@ -385,7 +385,7 @@
      {
       "id": "seasons:month",
       "label": "Kalliit kuukaudet",
-      "status": "no_data"
+      "status": "clear"
      }
     ],
     "weightCents": 0
@@ -398,7 +398,7 @@
      {
       "id": "tax:household_deduction",
       "label": "Kotitalousvähennys",
-      "status": "clear"
+      "status": "no_subject"
      }
     ],
     "weightCents": 0
@@ -446,6 +446,7 @@
   "done": [],
   "dismissed": [],
   "snoozed": [],
+  "unknownShare": 0,
   "others": [
    {
     "id": "new:out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
@@ -481,8 +482,9 @@
   "checked": {
    "total": 20,
    "findings": 2,
-   "unavailable": 8,
-   "noRows": 0
+   "unavailable": 7,
+   "noRows": 0,
+   "noSubject": 6
   }
  },
  "inputs": [],

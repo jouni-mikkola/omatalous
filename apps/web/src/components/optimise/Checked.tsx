@@ -8,6 +8,7 @@ const WORD: Record<Exclude<Check["status"], "finding">, string> = {
   needs_input: "Tietoja puuttuu",
   no_data: "Tapahtumia liian lyhyeltä ajalta",
   no_rows: "Ei tapahtumia",
+  no_subject: "Ei tarkistettavaa",
 };
 
 /** The checks to list: those that are not a finding, the areas in their own order, not the page's order by weight. */

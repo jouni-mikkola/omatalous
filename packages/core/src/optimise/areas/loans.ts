@@ -145,7 +145,7 @@ interface Mortgage {
  */
 function loanInputs(a: AreaInput, kind: "margin" | "prepay"): Mortgage | Outcome {
   const series = mortgageSeries(a);
-  if (!series) return checkOf(kind, "clear");
+  if (!series) return checkOf(kind, "no_subject");
   if (!a.months.length) return checkOf(kind, "no_data");
   const saved = savedMortgage(a, series);
   // a fixed rate cannot be moved to a new margin, and prepaying it usually costs a fee: a saved one needs no margin to say so
@@ -269,12 +269,13 @@ const CARD_SIGNALS = ["gap", "stale", "own_unconnected"] as const;
 
 function cardInterestFinding(a: AreaInput): Outcome {
   const cards = ownAccounts(a, "credit_card");
-  if (!cards.length || !a.months.length) return checkOf("card_interest", "clear");
+  if (!cards.length) return checkOf("card_interest", "no_subject");
+  if (!a.months.length) return checkOf("card_interest", "no_data");
   const cardIds = new Set(cards.map((b) => b.id));
   // Which rows are a card's interest and what they come to is `cardCosts`' to say (ADR 0004): purchase interest only,
   // less what the bank took back. From today its months are the window's.
   const costs = cardCosts(a.ctx, a.today).cards.filter((c) => cardIds.has(c.accountId));
-  if (!costs.some((c) => c.carriedMonths.length)) return checkOf("card_interest", "clear");
+  if (!costs.some((c) => c.carriedMonths.length)) return checkOf("card_interest", "no_subject");
   const checking = ownAccounts(a, "checking");
   const walksChecking = checking.length ? walksOf(a, checking) : null;
   const walksCard = walksOf(a, cards);

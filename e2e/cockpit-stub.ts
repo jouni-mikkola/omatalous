@@ -19,7 +19,7 @@ export function withCockpit(json: Record<string, any>, how: Cockpit = {}): void 
   const names: { category: string }[] = json.categories ?? [];
   const income = how.empty ? 0 : 320_000;
   const spent = names.slice(0, 4).map((c, i) => ({ key: `category:${c.category}`, cents: -(60_000 - i * 12_000) * (how.over ? 2 : 1) }));
-  const bars = [{ key: "income", cents: income }, ...spent, { key: "other", cents: -45_000 * (how.over ? 2 : 1) }, { key: "transfers", cents: 15_000 }, { key: "unknown", cents: -2_500 }];
+  const bars = [{ key: "income", cents: income }, ...spent, { key: "other", cents: -45_000 * (how.over ? 2 : 1) }, { key: "transfers", cents: 15_000 }];
   json.waterfall = how.empty ? null : { month: String(json.range.from).slice(0, 7), bars, leftCents: bars.reduce((s, b) => s + b.cents, 0) };
   const line = (owner: string, name: string, overCents: number) => ({ owner, name, overCents });
   const month = String(json.range.from).slice(0, 7);

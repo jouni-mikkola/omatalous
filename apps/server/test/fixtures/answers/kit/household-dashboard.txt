@@ -639,12 +639,14 @@
    {
     "seriesId": "out:chk:Sato",
     "label": "Vuokra",
+    "category": "housing",
     "payee": "Sato",
     "monthlyCents": 105000
    },
    {
     "seriesId": "out:chk:Helen",
     "label": "Sähkö",
+    "category": "utilities",
     "payee": "Helen",
     "monthlyCents": 7741
    }
@@ -715,8 +717,16 @@
     "cents": -6688
    },
    {
-    "key": "other",
-    "cents": -7759
+    "key": "category:utilities",
+    "cents": -4088
+   },
+   {
+    "key": "category:subscriptions",
+    "cents": -2798
+   },
+   {
+    "key": "category:restaurants",
+    "cents": -873
    }
   ],
   "leftCents": -257670

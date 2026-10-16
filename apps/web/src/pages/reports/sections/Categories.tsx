@@ -5,6 +5,7 @@ import { addsUpPrinted } from "../../../marks.ts";
 import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
 import { Why } from "../../../components/Why.tsx";
 import { Section } from "../../../components/Section.tsx";
+import { UnknownShare } from "../../../components/UnknownShare.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 function Change({ now, before }: { now: number; before: number }) {
@@ -38,6 +39,7 @@ function Categories({ ctx }: SectionProps) {
   const text = (units: number | null | undefined) => (units == null ? "–" : shareText(units));
   return (
     <Section id={section.id} title={section.title} half sub={r.comparable ? "Muutos edellisestä jaksosta" : undefined} actions={<ExportLink href={ctx.exportHref("categories")} />}>
+      <UnknownShare share={ctx.data.cashflow.unknownShare} />
       <div className="table-wrap">
         <table className="ruled">
           <thead>
@@ -115,6 +117,7 @@ export const section: ReportSection = {
   title: "Kategoriat",
   order: 30,
   page: "reports",
-  reports: ["categories"],
+  // the unknown share is the cash flow report's, which the page asks for anyway
+  reports: ["categories", "cashflow"],
   Component: Categories,
 };

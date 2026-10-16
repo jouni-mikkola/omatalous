@@ -250,6 +250,26 @@ describe("explain: a part of one joint-account row", () => {
     expect(t.check).toEqual({ kind: "recompute", diffCents: 0 });
   });
 
+  it("the part of an instalment row of a joint loan account is the part its row shows, whatever the loan holds", () => {
+    const half = { from: 0, to: 1, of: 2 };
+    const row = (parts: RowParts["parts"], cents: number, id: string) => ({ key: id, ids: [id], day: 1, cents, what: "all", parts }) as RowParts;
+    // 600,00 paid on a loan that holds -0,90: the opening is the viewer's, the 0,90 the account owes is nobody's
+    const instalment = row([{ owner: "u:a", kind: "opening", cents: 59910 }, { owner: "g:x", kind: "unknown", cents: 90 }], -60000, "i1");
+    // the same 600,00 as money the viewer paid in
+    const paidIn = row([{ owner: "u:a", kind: "own", cents: 60000 }], 60000, "i2");
+    for (const [traced, whole] of [[instalment, -60000], [paidIn, 60000]] as const) {
+      const w = createWhy("own");
+      const mine = shareOf(traced, "u:a", half, () => false, w).cents;
+      w.add(traced.ids[0]!, { rule: "category.builtin", source: "default" });
+      const rowOf = tx({ id: traced.ids[0]!, bookingDate: "2026-09-05", amountCents: mine, wholeCents: whole, merchant: "ESIMERKKI OY" });
+      const e = explain("share.part", createContext([rowOf], [account], TODAY), argsOf("2026-09", { why: w, rowId: traced.ids[0]!, use: two, viewerId: "u1" }));
+      expect(e.cents).toBe(mine);
+      expect(e.lines.reduce((sum, l) => sum + l.cents, 0)).toBe(mine);
+      expect(e.check).toEqual({ kind: "recompute", diffCents: 0 });
+    }
+    expect(shareOf(instalment, "u:a", half, () => false).cents).toBe(-59955);
+  });
+
   it("a traced row says whose money its own parts were and cuts only the unknown ones; with none unknown there is no cut", () => {
     const parts = (extra: RowParts["parts"]): RowParts => ({
       key: "k",

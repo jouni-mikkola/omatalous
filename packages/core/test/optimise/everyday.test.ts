@@ -5,9 +5,9 @@
 import { describe, expect, it } from "vitest";
 import { buildAlerts, habitItems } from "../../src/analysis/alerts.ts";
 import { gateMonthly } from "../../src/analysis/insights/shared.ts";
-import { expensiveMonths } from "../../src/analysis/insights/seasons.ts";
+import { expensiveMonths, seasonMonths } from "../../src/analysis/insights/seasons.ts";
 import type { InsightArgs } from "../../src/analysis/insights/types.ts";
-import { addDays, monthRange, weekdayOf } from "../../src/dates.ts";
+import { addDays, addMonths, monthRange, weekdayOf } from "../../src/dates.ts";
 import { food } from "../../src/optimise/areas/food.ts";
 import { habits } from "../../src/optimise/areas/habits.ts";
 import { seasons } from "../../src/optimise/areas/seasons.ts";
@@ -245,6 +245,27 @@ describe("Vuosimenot", () => {
     const { add, out } = F.rows("revolving");
     for (const month of FRAME.months) add({ bookingDate: F.on(month, 27), amountCents: -7500, merchant: "Luottokorko", description: "LUOTTOKORKO" });
     expect(ids([S.noCredit(FRAME), { txs: out }])).toEqual([]);
+  });
+
+  it("tests the history as the insight does: one month judged is enough, none judged is too short", () => {
+    const part = S.hit(FRAME);
+    const status = (parts: readonly PartHousehold[]) => {
+      const r = run(parts);
+      return { judged: seasonMonths(r.a.ctx, r.a.today).length, check: r.checks.find((c) => c.id === "seasons:month")!.status, insight: expensiveMonths({ ctx: r.a.ctx, end: r.a.today, gateMonthlyCents: gateMonthly(r.a.ctx, r.a.today) } as InsightArgs).length };
+    };
+    const whole = status([part]);
+    expect(whole.judged).toBeGreaterThan(0);
+    expect(whole.check).not.toBe("no_data");
+    // the oldest month of the year before is gone: July is still judged, so the check and the insight still agree
+    const cut = addMonths(FRAME.months[0]!, -12);
+    const trimmed = status([{ ...part, txs: part.txs.filter((t) => !t.bookingDate.startsWith(cut)) }]);
+    expect(trimmed.judged).toBeGreaterThan(0);
+    expect(trimmed.check).not.toBe("no_data");
+    expect(trimmed.insight).toBe(whole.insight);
+    // no history: nothing judged, and the check says the history is too short
+    const empty = createContext([], [], FRAME.today);
+    expect(seasonMonths(empty, "2026-06-30")).toEqual([]);
+    expect(seasons.assess({ ...run([part]).a, ctx: empty, months: [] }).checks.map((c) => c.status)).toEqual(["no_data"]);
   });
 
   it("stays quiet on its near misses, and fires with both years and the credit", () => {

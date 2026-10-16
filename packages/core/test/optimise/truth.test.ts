@@ -79,7 +79,7 @@ describe("the car's cost reads the rows that belong to it", () => {
     expect(data.checked.noRows).toBe(1);
     // looked at: what ran, found or found nothing
     const ran = data.areas.flatMap((a) => a.checks).filter((c) => c.status === "finding" || c.status === "clear").length;
-    expect(data.checked.total - data.checked.unavailable - data.checked.noRows).toBe(ran);
+    expect(data.checked.total - data.checked.unavailable - data.checked.noRows - data.checked.noSubject).toBe(ran);
   });
 });
 
@@ -143,10 +143,11 @@ describe("what was checked adds up", () => {
     const checks = data.areas.flatMap((a) => a.checks);
     const n = (...statuses: string[]) => checks.filter((c) => statuses.includes(c.status)).length;
     // findings, clean, waiting and no data: nothing counted twice and nothing left out
-    expect(data.checked.total, label).toBe(n("finding") + n("clear") + n("needs_input", "no_data") + n("no_rows"));
+    expect(data.checked.total, label).toBe(n("finding") + n("clear") + n("needs_input", "no_data") + n("no_rows") + n("no_subject"));
     expect(data.checked.total, label).toBe(checks.length);
     expect(data.checked.unavailable, label).toBe(n("needs_input", "no_data"));
     expect(data.checked.noRows, label).toBe(n("no_rows"));
+    expect(data.checked.noSubject, label).toBe(n("no_subject"));
   }
 
   it("holds for every household of the optimise tests", () => {

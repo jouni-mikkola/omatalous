@@ -5,8 +5,10 @@ import { useState } from "react";
 import { Section } from "../../../components/Section.tsx";
 import { date, money, monthLong, signedMoney } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
+import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
+import { hasNothing, holderNameOf } from "./settlement-text.ts";
 
 interface Answer {
   month: string;
@@ -28,8 +30,8 @@ function monthsOf(from: string, to: string): string[] {
 }
 
 /** What an unknown source is called on the page: the words of the payer's own rows where the answer has them. */
-function unknownName(owner: string, labels: Record<string, string>): string {
-  if (owner === "u:") return "Tilin omistaja, jolla ei ole tunnusta";
+function unknownName(owner: string, labels: Record<string, string>, holder: string | null): string {
+  if (owner === "u:") return holder ?? "Tilin omistaja, jolla ei ole tunnusta";
   if (owner.startsWith("g:iban:")) return "Tuntemattomalta tililtä";
   if (owner === "o") return "Alkusaldo";
   if (owner === "c") return "Maksettu luotolla";
@@ -39,14 +41,14 @@ function unknownName(owner: string, labels: Record<string, string>): string {
 /** The line of a member who paid more or less than the share; nothing when it came out even. */
 const overLine = (over: number): { label: string; cents: number } | null => (over === 0 ? null : { label: over > 0 ? "Maksanut enemmän kuin osuutensa" : "Maksanut vähemmän kuin osuutensa", cents: Math.abs(over) });
 
-function Pool({ pool }: { pool: Answer["pools"][number] }) {
+function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string | null }) {
   const s = pool.settlement;
   const late = s.lines.filter((l: SettlementLine) => l.kind === "late_change");
   const heldBack = s.unknownHolder.reduce((sum, h) => sum + h.cents, 0);
   // a block of its own after the users: money no user of the pool paid or owes reads as nobody's
   const unknown = [
-    ...s.unknownPaidBy.map((e) => ({ label: `Maksanut: ${unknownName(e.owner, pool.labels)}`, cents: e.cents })),
-    ...s.unknownOwedBy.map((e) => ({ label: `Osuus: ${unknownName(e.owner, pool.labels)}`, cents: e.cents })),
+    ...s.unknownPaidBy.map((e) => ({ label: `Maksanut: ${unknownName(e.owner, pool.labels, holder)}`, cents: e.cents })),
+    ...s.unknownOwedBy.map((e) => ({ label: `Osuus: ${unknownName(e.owner, pool.labels, holder)}`, cents: e.cents })),
     ...(heldBack > 0 ? [{ label: "Kortin haltija", cents: heldBack }] : []),
   ].filter((u) => u.cents !== 0);
   return (
@@ -106,15 +108,16 @@ function Pool({ pool }: { pool: Answer["pools"][number] }) {
   );
 }
 
-function Month({ month }: { month: string }) {
+function Month({ month, meta }: { month: string; meta: Meta }) {
   const { data: answer, error } = useApi<Answer>(`/api/settlement?month=${month}`);
   if (error) return <div className="error">{error}</div>;
   if (!answer) return <div className="empty">Ladataan…</div>;
-  if (!answer.pools.length) return <div className="empty">Ei yhteisiä menoja tältä kuukaudelta.</div>;
+  const pools = answer.pools.filter((p) => !hasNothing(p.settlement));
+  if (!pools.length) return <div className="empty">Ei yhteisiä menoja tältä kuukaudelta.</div>;
   return (
     <>
-      {answer.pools.map((p) => (
-        <Pool key={p.accountId} pool={p} />
+      {pools.map((p) => (
+        <Pool key={p.accountId} pool={p} holder={holderNameOf([...meta.accounts, ...meta.sharedAccounts].find((a) => a.id === p.accountId)?.use)} />
       ))}
     </>
   );
@@ -139,7 +142,7 @@ function Settlements({ ctx }: SectionProps) {
         </select>
       }
     >
-      <Month key={month} month={month} />
+      <Month key={month} month={month} meta={ctx.meta} />
     </Section>
   );
 }

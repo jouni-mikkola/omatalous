@@ -80,6 +80,8 @@ export interface HousingCharge {
   seriesId: string;
   /** What the payment is, in the words of its own text ("Hoitovastike"). Null when they name nothing: the payee stands alone. */
   label: string | null;
+  /** The category the series is in (`housing` or `utilities`): the name a row shows when the words name nothing. */
+  category: string;
   payee: string;
   /** The series' month, positive. */
   monthlyCents: number;
@@ -208,7 +210,7 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
     // payments of one day are one charge of the series: where their words differ, the sum is none of them and the payee names it
     return new Set(last.map((n) => n?.kind)).size === 1 ? last[0]! : name("");
   });
-  const charges = billed.map((s, i): HousingCharge => ({ seriesId: s.id, label: names[i]?.label ?? null, payee: s.merchant, monthlyCents: s.monthlyCents, ...atPartOf(partOfSeries(s)) }));
+  const charges = billed.map((s, i): HousingCharge => ({ seriesId: s.id, label: names[i]?.label ?? null, category: s.category, payee: s.merchant, monthlyCents: s.monthlyCents, ...atPartOf(partOfSeries(s)) }));
 
   // a tenant has no home loan to add, and one that is saved and paid off needs no question either
   const tenant = names.some((n) => n?.kind === "rent" || n?.kind === "occupancy");

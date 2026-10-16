@@ -41,6 +41,18 @@ export function spendingBase(txs: readonly Pick<AnalysisTx, "spend" | "category"
 /** A row of a card bill that counts as spending: the rows the card_bills signal adds up. */
 export const isCardBill = (t: Pick<AnalysisTx, "category" | "spend">): boolean => t.category === "card_bill" && t.spend > 0;
 
+/**
+ * The spending of the range that nothing says what it was: card bills whose purchases are not itemised and Muut menot,
+ * against the spending base. Tietojen laatu names both; the pages that draw conclusions say how much there is.
+ */
+export function unknownSpending(ctx: AnalysisContext, range: DateRange): { otherCents: number; billCents: number; spendingCents: number; share: number } {
+  const inRange = inDays(ctx, toDayRange(range));
+  const spendingCents = spendingBase(inRange);
+  const otherCents = inRange.filter((t) => t.category === "other").reduce((s, t) => s + t.spend, 0);
+  const billCents = loweredRows(ctx, inRange).filter(isCardBill).reduce((s, t) => s + t.spend, 0);
+  return { otherCents, billCents, spendingCents, share: spendingCents > 0 ? Math.min(1, (otherCents + billCents) / spendingCents) : 0 };
+}
+
 const GAP_DAYS = 14;
 const STALE_DAYS = 7;
 /** A card is used less often than a checking account: three weeks of quiet is ordinary. */
@@ -72,8 +84,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     }
   }
 
-  const spending = spendingBase(inRange);
-  const other = inRange.filter((t) => t.category === "other").reduce((s, t) => s + t.spend, 0);
+  const { spendingCents: spending, otherCents: other, billCents: billTotal } = unknownSpending(ctx, range);
   if (spending > 0 && other / spending >= UNCATEGORISED_SHARE) {
     const byMerchant = new Map<string, number>();
     for (const t of inRange) if (t.category === "other" && t.spend > 0) byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + t.spend);
@@ -119,7 +130,6 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
 
   // with a card connected the bills are of the months before its rows, or of a card that is not connected
   const hasCardAccount = ctx.accounts.some((a) => a.type === "credit_card");
-  const billTotal = loweredRows(ctx, inRange).filter(isCardBill).reduce((s, t) => s + t.spend, 0);
   if (billTotal > 0) {
     signals.push({
       id: "card_bills",

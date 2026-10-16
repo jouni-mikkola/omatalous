@@ -231,7 +231,8 @@ describe("loans", () => {
     for (const cardCharge of ["NOSTOPALKKIO", "VIIVÄSTYSKORKO", "VIIVASTYSKORKO"]) {
       const r2 = assess({ ...LOANS, cardCharge }).loans;
       expect(draft(r2, "card_interest"), cardCharge).toBeUndefined();
-      expect(status(r2, "card_interest")?.status).toBe("clear");
+      // a card with no purchase interest has nothing to check
+      expect(status(r2, "card_interest")?.status).toBe("no_subject");
     }
   });
 
@@ -321,7 +322,7 @@ describe("loans", () => {
   it("stays quiet without a mortgage", () => {
     const r2 = assess(SAVINGS).loans;
     expect(r2.findings).toEqual([]);
-    expect(r2.checks.map((c) => c.status)).toEqual(["clear", "clear", "clear"]);
+    expect(r2.checks.map((c) => c.status)).toEqual(["no_subject", "no_subject", "no_subject"]);
   });
 });
 
