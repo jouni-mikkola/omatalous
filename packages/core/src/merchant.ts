@@ -1,0 +1,478 @@
+/**
+ * Turns noisy bank descriptions ("PAYPAL *SPOTIFY P2A1B3 STOCKHOLM SE",
+ * "K-MARKET KAMPPI HELSINKI") into a stable merchant name ("Spotify",
+ * "K-Market") so that spending can be grouped per merchant.
+ */
+import { isCarDealerName } from "./wording-car.ts";
+import { COUNTRY_CODES, dropCardEnvelope } from "./card-text.ts";
+import { PAYMENT_SERVICES } from "./payment-services.ts";
+import { companyForms, hasPayeeForm, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
+
+/** A folded service name as a pattern: a space is one or more spaces. */
+const spelled = (name: string) => name.replace(/ /g, String.raw`\s+`);
+
+// ── card issuers under one display name each: the merchant name, the card bills and the card accounts read them ──
+/** What a bank adds after its name: the legal forms of its own country ("AB", "ASA"), "Filial i Finland". Never a Finnish Oy. */
+const ISSUER_SUFFIX = String.raw`(?:\s+(?:ASA|AB|PUBL|GROUP|SWEDEN|SVERIGE|NORGE|NORWAY))*(?:\s+FILIAL(?:\s+I(?:\s+FINLAND)?)?)?`;
+/**
+ * The card issuers under one display name each, as [the whole folded name, name]. The whole name and not a word of it:
+ * "NORWEGIAN" and "KOMPLETT" alone are an airline and a shop, so only the bank's own forms stand here. "MORROW" alone
+ * is the issuer, as it writes itself (Komplett Bank became Morrow Bank in 2023), but only with the bank's own forms
+ * behind it: "MORROW OY" is another company. "RE:MEMBER" is Entercard's own card brand (CARD_BRAND_WORDS reads it as a
+ * card already), and it too takes no Finnish form.
+ */
+const ISSUER_NAMES: ReadonlyArray<readonly [RegExp, string]> = (
+  [
+    [String.raw`MORROW(?:\s+BANK)?|KOMPLETT\s+BANK`, "Morrow Bank"],
+    [String.raw`SEB\s+KORT(?:\s+BANK)?`, "SEB Kort"],
+    [String.raw`BANK\s+NORWEGIAN|NORWEGIAN\s+BANK`, "Bank Norwegian"],
+    [String.raw`RESURS\s+BANK`, "Resurs Bank"],
+    [String.raw`ENTERCARD|RE[ :]?MEMBER`, "Entercard"],
+  ] as const
+).map(([pattern, name]) => [new RegExp(`^(?:${pattern})${ISSUER_SUFFIX}$`), name] as const);
+/** The one name of the card issuer a folded merchant name is written as, whatever its legal suffix or word order; else null. */
+export function cardIssuerName(folded: string): string | null {
+  const name = folded.trim().replace(/\s+/g, " ");
+  return ISSUER_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? null;
+}
+/** The words a bank puts in brackets after a card's name to tell its type, in the lower case they are compared in. */
+const CARD_TYPES = ["credit", "debit", "credit card", "debit card", "luotto", "luottokortti", "debetti", "kredit"];
+const TYPE_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:${CARD_TYPES.join("|")})\s*\)`, "gi");
+
+/**
+ * The bank's name for a card without the type it adds in brackets ("Nordea Gold (credit)" gives "Nordea Gold"). Only a
+ * bracket that holds nothing but a type word goes: the owner's name of a shared card, "(Eero)", stays, and so does a name
+ * that would be left empty.
+ */
+export function cardName(name: string): string {
+  const plain = name.replace(TYPE_IN_BRACKETS, "").replace(/\s+/g, " ").trim();
+  return plain || name.trim();
+}
+
+const CARD_WORD = /(?<![A-Z])(?:KORT|KORTTI|CARD|EUROCARD|MASTERCARD|VISA)(?![A-Z])/;
+const ACCOUNT_ISSUERS: ReadonlyArray<readonly [(text: string) => boolean, string]> = [
+  [(t) => /(?<![A-Z])(?:MORROW|KOMPLETT)(?![A-Z])/.test(t), "Morrow Bank"],
+  // SEB is a bank too: only with a card word (SEB KORT, SEB EUROCARD) is it the card issuer
+  [(t) => /(?<![A-Z])SEB(?![A-Z])/.test(t) && CARD_WORD.test(t), "SEB Kort"],
+  [(t) => /(?<![A-Z])NORWEGIAN(?![A-Z])/.test(t), "Bank Norwegian"],
+  [(t) => /(?<![A-Z])RESURS(?![A-Z])/.test(t), "Resurs Bank"],
+  [(t) => /(?<![A-Z])(?:ENTERCARD|RE[ :]?MEMBER)(?![A-Z])/.test(t), "Entercard"],
+];
+/**
+ * The issuer a card account belongs to, from the folded text of its bank and its names together: the plain words count
+ * here ("KOMPLETT", "NORWEGIAN"), since a card account is no shop. The list's name, or null.
+ */
+export function cardIssuerOfAccountText(folded: string): string | null {
+  return ACCOUNT_ISSUERS.find(([test]) => test(folded))?.[1] ?? null;
+}
+
+/** The word a payment service's group name adds ("TRUSTLY GROUP AB"). */
+/** The forms a payment service is written with, "AS" and "AB" included. */
+const SERVICE_FORMS = [...new Set([...companyForms("strip"), ...companyForms("payee")])].join("|");
+const SERVICE_GROUP = "(?:GROUP|HOLDING|EUROPE|NORDIC|NORDICS|BANK)";
+
+/**
+ * Payment services that stand in front of a shop's name: before a star with any separator the rows use ("SUMUP *",
+ * "ZETTLE-*", "PTL*"), and a name of four letters or more as the first words of a bank transfer, with its company form
+ * and a word that starts with a letter after it ("PAYTRAIL OYJ KAUPPA ILO OY"). A short code is no company's name.
+ */
+const PROCESSOR_PREFIX = new RegExp(
+  String.raw`^(?:${[...PAYMENT_SERVICES.flatMap((s) => [...s.names, ...(s.codes ?? [])]).map(spelled), "SP", "VFI", MOBILEPAY_SHOP_PREFIX].sort((a, b) => b.length - a.length).join("|")})(?:[\s_-]*[*/]\s*|(?<=[A-Z]{4})(?:\s+${SERVICE_GROUP}(?:\s+(?:${SERVICE_FORMS}))?|\s+(?:${SERVICE_FORMS}))(?:\s*/\s*|\s+)(?=[A-ZÄÖÅÜ]))`,
+);
+
+/**
+ * [pattern on the folded name, display name] of the payment services. A row that names only the service (with its
+ * company form, group word, place or country) has no real payee behind it: the service is the payee, under one name.
+ * Where a real payee follows, PROCESSOR_PREFIX has already dropped the service.
+ */
+const SERVICES: ReadonlyArray<readonly [string, string]> = PAYMENT_SERVICES.filter((s) => s.alone !== false).map((s) => [`(?:${s.names.map(spelled).join("|")})`, s.name]);
+
+/** The service a text begins with (a short code only before a star), for the line that says a payment went through it. */
+const SERVICE_LEAD = PAYMENT_SERVICES.map((s) => ({
+  name: s.name,
+  re: new RegExp(String.raw`^(?:(?:${s.names.filter((n) => n.length >= 4).map(spelled).join("|") || "(?!)"})(?![A-Z0-9])|(?:${[...s.names, ...(s.codes ?? [])].map(spelled).join("|")})[\s_-]*\*)`),
+}));
+const WALLET_ANYWHERE = /(?<![A-Z0-9])(?:(MOBILEPAY|MOB\.? ?PAY|PIVO)|VIPPS)(?![A-Z0-9])/;
+
+/**
+ * The payment service a payment went through, or null: the one the counterparty or the text begins with, else a
+ * MobilePay or Vipps word anywhere in them. It does not tell who was paid.
+ */
+export function serviceOf(counterparty: string | null, description: string | null): string | null {
+  for (const text of [counterparty, description]) {
+    if (!text?.trim()) continue;
+    const folded = fold(dropCardAccountPrefix(text.toUpperCase().trim()));
+    const hit = SERVICE_LEAD.find(({ re }) => re.test(folded));
+    if (hit) return hit.name;
+  }
+  const wallet = WALLET_ANYWHERE.exec(fold([counterparty, description].filter(Boolean).join(" ")));
+  return wallet ? (wallet[1] ? "MobilePay" : "Vipps") : null;
+}
+
+/** The services whose rows are named by the service alone and whose text holds the shop (Trustly: a reference and a word). */
+const TEXT_MERCHANT = new Set(PAYMENT_SERVICES.filter((s) => s.textMerchant).map((s) => s.name));
+const REFERENCE_WORDS = /(?<![A-Z0-9])(?:VIITE|VIITENUMERO|VIESTI|REF|REFERENCE|REFERENSSI|NRO|NUMERO|NUMBER|MAKSU|PAYMENT|ORDER|TILAUS|TILAUSNUMERO|ID)(?![A-Z0-9])/g;
+const SERVICE_WORDS = new RegExp(String.raw`(?<![A-Z0-9])(?:${PAYMENT_SERVICES.flatMap((s) => s.names).map(spelled).join("|")})(?![A-Z0-9])`, "g");
+
+/** The shop a service's text names beside the reference ("Viite 99887 Kahvila Esimerkki"), or null when it holds only the reference. */
+function shopInText(text: string): string | null {
+  const words = fold(cleanDescription(text)).replace(REFERENCE_WORDS, " ").replace(SERVICE_WORDS, " ").split(/\s+/).filter((w) => /^[A-Z]{2}[A-Z.&'-]*$/.test(w) && !COMPANY_FORMS.has(w) && !new RegExp(`^${SERVICE_GROUP}$`).test(w));
+  const name = words.length ? normalizeMerchant(null, words.join(" ")) : UNKNOWN_MERCHANT;
+  return name === UNKNOWN_MERCHANT ? null : name;
+}
+
+/**
+ * A card account writes "Osto <country> <city> <name> [<city>]" ("OSTO FIN KUOPIO KUKKAKAUPPA ILO OY KUOPIO"). The
+ * country and the city in front hide the shop from the processor and brand patterns, which read the start. The leading
+ * word and a country code prove the shape: "OSTO XYZ …" has no such code, and a shop whose own name starts with three
+ * capitals has no "OSTO" before them. The word after the country is dropped as the city only when the text proves it
+ * is one (dropCardAccountPrefix); a row with no city keeps the first word of its name. Groups: the country, all that
+ * follows it, its first word, the rest.
+ */
+const CARD_ACCOUNT_TEXT = /^OSTO\s+([A-Z]{3})\s+((\S+)(?:\s+(\S.*))?)$/s;
+
+const NOISE_WORDS =
+  /\b(?:KORTTIOSTO|KORTTIMAKSU|OSTOPVM|OSTO|PURCHASE|CARD|VISA|DEBIT|ELECTRON|MASTERCARD|E-LASKU|E-INVOICE|TILISIIRTO|SUORAMAKSU|VERKKOMAKSU|LASKU|INVOICE)\b/g;
+
+/** Places that are common surnames too: "MATTI KALLIO" is a person, not Matti in Kallio. */
+const SURNAME_TOWNS = new Set(["SALO", "LAHTI", "KOTKA", "KALLIO", "MALMI"]);
+
+/** Whether `town` after the one word `rest` is a surname: "MATTI LAHTI" is a person, not Matti in Lahti. */
+const isSurnameAfterName = (town: string, rest: string) => SURNAME_TOWNS.has(town) && /^[A-ZÅÄÖ]+$/i.test(rest);
+
+/** The countries a bank writes after a town, as a code or the name. Folded. */
+const COUNTRY_WORDS = ["FI", "FIN", "FINLAND", "SE", "SWE", "EE", "DE", "IE", "NL", "LU", "GB", "UK", "US", "USA", "DK", "NO", "FR", "ES"];
+
+/** Towns, city districts and malls that banks append to a shop's name ("K-MARKET KAMPPI HELSINKI"), and the countries. Folded. */
+const PLACES = [
+  ...COUNTRY_WORDS,
+  "HELSINKI", "HELSINGFORS", "ESPOO", "VANTAA", "KAUNIAINEN", "TAMPERE", "TURKU", "OULU", "JYVASKYLA", "LAHTI",
+  "KUOPIO", "PORI", "JOENSUU", "LAPPEENRANTA", "HAMEENLINNA", "VAASA", "SEINAJOKI", "ROVANIEMI", "MIKKELI",
+  "KOTKA", "SALO", "PORVOO", "KOUVOLA", "HYVINKAA", "NURMIJARVI", "JARVENPAA", "KERAVA", "LOHJA", "KIRKKONUMMI",
+  "TUUSULA", "RAUMA", "KAJAANI", "KOKKOLA", "SAVONLINNA", "RIIHIMAKI", "SIPOO", "RAISIO", "KAARINA", "NOKIA",
+  "YLOJARVI", "KANGASALA", "LEMPAALA", "PIRKKALA", "KEMPELE", "NAANTALI", "STOCKHOLM", "TALLINN", "DUBLIN",
+  "LUXEMBOURG", "AMSTERDAM", "LONDON", "BERLIN",
+  // Helsinki
+  "KAMPPI", "KALLIO", "ITAKESKUS", "ITIS", "HERTTONIEMI", "MALMI", "PASILA", "TOOLO", "PUNAVUORI", "SORNAINEN",
+  "HAKANIEMI", "KANNELMAKI", "VUOSAARI", "MYLLYPURO", "MELLUNMAKI", "OULUNKYLA", "LAUTTASAARI", "MUNKKIVUORI",
+  "MUNKKINIEMI", "MALMINKARTANO", "KONALA", "PITAJANMAKI", "HAAGA", "ARABIANRANTA", "VIIKKI", "KALASATAMA",
+  "JATKASAARI", "RUOHOLAHTI", "SIILITIE",
+  // Espoo
+  "TAPIOLA", "LEPPAVAARA", "MATINKYLA", "ESPOONLAHTI", "ESPOON KESKUS", "OTANIEMI", "NIITTYKUMPU", "KIVENLAHTI",
+  "SOUKKA", "OLARI", "KILO", "KAUKLAHTI", "SUURPELTO", "KALAJARVI", "LAAJALAHTI",
+  // Vantaa
+  "TIKKURILA", "MYYRMAKI", "KORSO", "MARTINLAAKSO", "KIVISTO", "HIEKKAHARJU", "KOIVUKYLA", "AVIAPOLIS",
+  "VANTAANKOSKI", "LANSIMAKI", "SIMONKYLA",
+  // malls and centres, also in Tampere, Turku and Oulu
+  "JUMBO", "FLAMINGO", "SELLO", "ISO OMENA", "REDI", "TRIPLA", "MALL OF TRIPLA", "FORUM", "KAUPPAKESKUS",
+  "KESKUSTA", "CITYCENTER", "RATINA", "KOSKIKESKUS", "IDEAPARK", "HERVANTA", "LIELAHTI", "LINNAINMAA", "HANSA",
+  "SKANSSI", "VARISSUO", "RUNOSMAKI", "ZEPPELIN", "LIMINGANTULLI", "KAAKKURI", "TUIRA", "RITAHARJU",
+];
+const PLACE_SET = new Set(PLACES);
+
+const TRAILING_PLACE = new RegExp(String.raw`\s+(?:${PLACES.join("|")})$`);
+/** A place and at most a country code, and nothing after: all that a payment service's seat leaves in the text. */
+const PLACE_AND_COUNTRY = new RegExp(String.raw`^(?:${PLACES.join("|")})(?:\s+(?:${COUNTRY_WORDS.join("|")}))?\s*$`);
+
+/** What a payment service's own name leaves behind it: a place and a country, or only company forms and group words. */
+const SEAT_ONLY = new RegExp(String.raw`${PLACE_AND_COUNTRY.source}|^(?:(?:${[...companyForms("payee")].join("|")}|${SERVICE_GROUP})\s*)+$`);
+
+/** Company forms, as the one word a text can be left with. */
+const COMPANY_FORMS = new Set([...companyForms("strip"), ...companyForms("payee")]);
+
+const SERVICE_SUFFIX = String.raw`(?:\s+(?:${SERVICE_GROUP.slice(3, -1)}|N\.?V\.?|B\.?V\.?|${[...COMPANY_FORMS].join("|")}|${PLACES.join("|")}))*`;
+const SERVICE_ONLY = SERVICES.map(([pattern, name]) => [new RegExp(`^${pattern}${SERVICE_SUFFIX}$`), name] as const);
+
+/** Whether a word (or two, "Iso Omena") is a town, a district or a mall. */
+export function isPlaceName(name: string): boolean {
+  return PLACE_SET.has(fold(name.trim()).replace(/\s+/g, " "));
+}
+
+/** Brands that are a first name or a surname too: a row of two plain name words ("STARK TONY") is a person's, not theirs. */
+const NAMES_TOO = new Set(["Stark", "Elisa"]);
+
+/** [pattern on folded upper-case text, display name]. The first match wins. */
+const BRANDS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^K-?SUPERMARKET/, "K-Supermarket"],
+  [/^K-?CITYMARKET/, "K-Citymarket"],
+  [/^K-?MARKET/, "K-Market"],
+  [/^K-?RUOKA/, "K-Ruoka"],
+  [/^K-?RAUTA/, "K-Rauta"],
+  [/^S-?MARKET/, "S-Market"],
+  [/^PRISMA/, "Prisma"],
+  [/^ALEPA/, "Alepa"],
+  [/^ALKO\b/, "Alko"],
+  [/^BAUHAUS\b/, "Bauhaus"],
+  [/^STARK\b/, "Stark"],
+  [/^PUUILO\b/, "Puuilo"],
+  [/^POWER\b/, "Power"],
+  [/^JYSK\b/, "Jysk"],
+  [/^STADIUM\b/, "Stadium"],
+  [/^XXL\b/, "XXL"],
+  [/^INTERSPORT\b/, "Intersport"],
+  [/^SUBWAY\b/, "Subway"],
+  [/^VATTENFALL\b/, "Vattenfall"],
+  [/^ELENIA\b/, "Elenia"],
+  [/^KELA\b/, "Kela"],
+  [/^VEROHALLINTO\b/, "Verohallinto"],
+  [/^TRAFICOM\b/, "Traficom"],
+  [/^VEIKKAUS\b/, "Veikkaus"],
+  [/^SALE\b/, "Sale"],
+  [/^LIDL/, "Lidl"],
+  [/^TOKMANNI/, "Tokmanni"],
+  [/^R-?KIOSKI/, "R-Kioski"],
+  [/^UBER\s*\*?\s*EATS|^UBEREATS/, "Uber Eats"],
+  [/\bWOLT\b/, "Wolt"],
+  [/FOODORA/, "Foodora"],
+  [/SPOTIFY/, "Spotify"],
+  [/NETFLIX/, "Netflix"],
+  [/DISNEY\s*(?:PLUS|\+)|DISNEYPLUS/, "Disney+"],
+  [/^DISNEY/, "Disney+"],
+  [/HBO\s*MAX|^MAX\b(?!\s*BURGER)/, "Max"],
+  [/VIAPLAY/, "Viaplay"],
+  [/^APPLE\.COM|^ITUNES|^APPLE\b/, "Apple"],
+  [/YOUTUBE/, "YouTube"],
+  [/^GOOGLE/, "Google"],
+  [/AMAZON\s*PRIME|PRIME\s*VIDEO/, "Amazon Prime"],
+  [/^AMAZON|^AMZN/, "Amazon"],
+  [/^OPENAI|CHATGPT/, "OpenAI"],
+  [/^ANTHROPIC|CLAUDE\.AI/, "Anthropic"],
+  [/^MICROSOFT|^MSFT/, "Microsoft"],
+  [/^ADOBE/, "Adobe"],
+  [/^GITHUB/, "GitHub"],
+  [/^NOTION/, "Notion"],
+  [/^FIGMA/, "Figma"],
+  [/^CANVA/, "Canva"],
+  [/^DROPBOX/, "Dropbox"],
+  [/^MIDJOURNEY/, "Midjourney"],
+  [/^AUDIBLE/, "Audible"],
+  [/^PATREON/, "Patreon"],
+  [/^STORYTEL/, "Storytel"],
+  [/^BOOKBEAT/, "BookBeat"],
+  [/^STEAM/, "Steam"],
+  [/^HSL\b|HELSINGIN SEUDUN LIIKENNE/, "HSL"],
+  [/^VR\b|^VR-YHTYMA/, "VR"],
+  [/^NYSSE/, "Nysse"],
+  [/^MATKAHUOLTO/, "Matkahuolto"],
+  [/^BOLT\b/, "Bolt"],
+  [/^UBER/, "Uber"],
+  [/^NESTE/, "Neste"],
+  [/^ST1/, "St1"],
+  [/^ABC\b/, "ABC"],
+  [/^SHELL/, "Shell"],
+  [/^TEBOIL/, "Teboil"],
+  [/^EASYPARK/, "EasyPark"],
+  [/^PARKMAN/, "ParkMan"],
+  [/^AIMO\s*PARK/, "Aimo Park"],
+  [/^HESBURGER/, "Hesburger"],
+  [/^MCDONALD/, "McDonald's"],
+  [/^BURGER KING/, "Burger King"],
+  [/^KOTIPIZZA/, "Kotipizza"],
+  [/^ESPRESSO HOUSE/, "Espresso House"],
+  [/^ROBERT'?S COFFEE/, "Robert's Coffee"],
+  [/^ELISA\s*VIIHDE/, "Elisa Viihde"],
+  [/^ELISA\b/, "Elisa"],
+  [/^DNA\b/, "DNA"],
+  [/^TELIA/, "Telia"],
+  [/^HELEN\b/, "Helen"],
+  [/^FORTUM/, "Fortum"],
+  [/^OOMI/, "Oomi"],
+  [/^CARUNA/, "Caruna"],
+  [/^ZALANDO/, "Zalando"],
+  [/^H\s?&\s?M\b/, "H&M"],
+  [/^IKEA/, "IKEA"],
+  [/^GIGANTTI/, "Gigantti"],
+  [/VERKKOKAUPPA\.?COM/, "Verkkokauppa.com"],
+  [/^CLAS OHLSON/, "Clas Ohlson"],
+  [/^MOTONET/, "Motonet"],
+  [/^BILTEMA/, "Biltema"],
+  [/^STOCKMANN/, "Stockmann"],
+  [/^SOKOS\s*HOTEL/, "Sokos Hotels"],
+  [/^SOKOS/, "Sokos"],
+  [/^FINNAIR/, "Finnair"],
+  [/^AIRBNB/, "Airbnb"],
+  [/^BOOKING\.COM/, "Booking.com"],
+  [/^FINNKINO/, "Finnkino"],
+  [/^TERVEYSTALO/, "Terveystalo"],
+  [/^MEHILAINEN/, "Mehiläinen"],
+  [/^PIHLAJALINNA/, "Pihlajalinna"],
+  [/^YLIOPISTON APTEEKKI/, "Yliopiston Apteekki"],
+  [/^YLIOPISTON APTEEKKI\b/, "Yliopiston Apteekki"],
+  [/APTEEKKI/, "Apteekki"],
+  [/^ELIXIA/, "Elixia"],
+  [/^FITNESS24SEVEN/, "Fitness24Seven"],
+  [/^SATS\b/, "SATS"],
+  [/^EASYFIT/, "EasyFit"],
+  // marketplaces: an item's title or an order number follows the name, so each purchase would be a merchant of its own.
+  // Tori only in its own forms (the word alone, its domain): a shop that begins with the word ("TORI KEBAB") keeps its name
+  [/^TORI(?:\.FI\b|$)/, "Tori"],
+  [/^ENEBA\b/, "Eneba"],
+];
+
+export const UNKNOWN_MERCHANT = "Tuntematon";
+
+/** Upper-case and strip Nordic diacritics (and the Ë of Citroën) so "MEHILÄINEN" and "MEHILAINEN" match. */
+export function fold(s: string): string {
+  const upper = s.toUpperCase();
+  // most texts have no diacritics: skip the replace passes (this runs for every row and field)
+  return FOLD_CHARS.test(upper) ? upper.replace(FOLD_CHARS_G, (c) => FOLD_MAP[c]!) : upper;
+}
+const FOLD_MAP: Record<string, string> = { Ä: "A", Ë: "E", Å: "A", Ö: "O", Ü: "U" };
+const FOLD_CHARS = /[ÄËÅÖÜ]/;
+const FOLD_CHARS_G = /[ÄËÅÖÜ]/g;
+
+/** Whether a merchant name is the placeholder every row without a name shares. */
+export function isUnknownMerchant(name: string): boolean {
+  return fold(name.trim()) === fold(UNKNOWN_MERCHANT);
+}
+
+/**
+ * A merchant rule for the placeholder would take every unnamed row, now and later, so none is made. Versions up to
+ * 0.8.3 could store one (`merchant_exact`, or the older whole-word `merchant`): it never applies, and the upgrade
+ * deletes it.
+ */
+export function namesUnknownMerchant(rule: { field: string; pattern: string }): boolean {
+  return (rule.field === "merchant" || rule.field === "merchant_exact") && isUnknownMerchant(rule.pattern);
+}
+
+/** The most of a bank text the cleaning reads. No name or card mask is longer; a cap keeps a regex that is slow on some long text from holding the event loop. */
+const BANK_TEXT_MAX = 200;
+const capBankText = (s: string) => (s.length > BANK_TEXT_MAX ? s.slice(0, BANK_TEXT_MAX) : s);
+
+/**
+ * Upper-cases and strips payment-processor prefixes, card masks, dates,
+ * reference numbers and trailing town/country names. Keeps Nordic letters;
+ * `fold` the result for matching.
+ */
+export function cleanDescription(raw: string): string {
+  let s = dropCardAccountPrefix(capBankText(raw).toUpperCase().trim());
+  for (let i = 0; i < 2; i++) s = dropProcessor(s);
+  s = s
+    .replace(NOISE_WORDS, " ")
+    // card masks with the card's first digits (4581XXXXXXXX2241, 4581 **** **** 2241), dates, times, long reference numbers
+    // the lookahead and backreference take each run of X or * whole (an atomic group): a run with no digits after it
+    // fails in one try instead of in every way of splitting it, which took seconds from 36 characters on
+    .replace(/(?<![A-Z0-9])(?:\d{4,6}[ -]?)?(?:(?=(X{2,}|\*{2,}))\1[ -]?)+\d{2,4}(?!\d)/g, " ")
+    .replace(/\b\d{1,2}\.\d{1,2}\.(?:\d{2,4})?/g, " ")
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
+    .replace(/\b\d{1,2}:\d{2}\b/g, " ")
+    .replace(/\b[A-Z\d]{5,}\b/g, (tok) => (isReferenceToken(tok) ? " " : tok))
+    .replace(/[^A-ZÄËÖÅÜ0-9&.'+\- ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    // what is left of a card or terminal number before the shop's name
+    .replace(/^(?:\d+ )+(?=\S*[A-ZÄÖÅÜ])/, "");
+  // strip trailing towns / country codes, possibly several ("HELSINKI FI").
+  // fold() keeps string length, so the folded match index applies to `s`.
+  for (let i = 0; i < 3; i++) {
+    const m = TRAILING_PLACE.exec(fold(s));
+    if (!m || m.index === 0) break;
+    const rest = s.slice(0, m.index).trim();
+    if (isSurnameAfterName(m[0].trim(), rest)) break;
+    s = rest;
+  }
+  return s;
+}
+
+/**
+ * The payment service in front of a shop's name, dropped. The leading-words form ("PAYTRAIL OYJ KAUPPA ILO OY") keeps
+ * the service only when a place and at most a country code are all that is left behind it: "PAYTRAIL OYJ HELSINKI" names
+ * the service and its seat, and without the service only the town would be left. A shop whose name begins with a town
+ * ("PAYTRAIL OYJ TURKU ENERGIA OY") keeps its own name.
+ */
+function dropProcessor(s: string): string {
+  const dropped = s.replace(PROCESSOR_PREFIX, (prefix) => (!/[*/]/.test(prefix) && SEAT_ONLY.test(fold(s.slice(prefix.length))) ? prefix : ""));
+  if (dropped !== s) return dropped;
+  // "MOBILEPAY ESIMERKKI OY": the wallet's word stands in front of a company, whose name is the payee; a person's name keeps it
+  const wallet = /^(?:MOBILEPAY|VIPPS) +(?=\S)/.exec(s);
+  return wallet && hasPayeeForm(fold(s.slice(wallet[0].length))) ? s.slice(wallet[0].length) : s;
+}
+
+/** A city's spelling with Ä and Ö written AE and OE, as a card account does, and with them: "JYVAESKYLAE" is "JYVÄSKYLÄ". */
+const cityKey = (city: string) => fold(city).replace(/AE/g, "A").replace(/OE/g, "O");
+
+/**
+ * The text of a card account (CARD_ACCOUNT_TEXT) without its country, its city and the same city at the end; else `s`.
+ * The first word after the country is the city when the same word ends the text, when a processor follows it (the
+ * processor stands where the name begins) or when it is a town of PLACES, in its own spelling or with AE and OE for
+ * Ä and Ö ("JOENSUU" holds an OE of its own). When none holds, the word may be the first of the name, so only the
+ * country goes. A town followed by nothing but a company form ("TIKKURILA OYJ") is a company named for its town, kept.
+ */
+export function dropCardAccountPrefix(s: string): string {
+  const m = CARD_ACCOUNT_TEXT.exec(s);
+  if (!m || !COUNTRY_CODES.has(m[1]!) || m[4] === undefined) return s;
+  const [afterCountry, city, rest] = [m[2]!, m[3]!, m[4].trimEnd()];
+  const at = rest.lastIndexOf(" ");
+  const repeated = at > 0 && cityKey(rest.slice(at + 1)) === cityKey(city);
+  if (!repeated && !isPlaceName(city) && !isPlaceName(cityKey(city)) && !PROCESSOR_PREFIX.test(rest)) return afterCountry;
+  const name = rest.slice(0, at).trim();
+  const kept = repeated && !isSurnameAfterName(fold(city), name) ? name : rest;
+  return COMPANY_FORMS.has(fold(kept)) ? afterCountry : kept;
+}
+
+/** "P2A1B3", "RF18539007547034" → true; "FITNESS24SEVEN", "ST1" → false */
+function isReferenceToken(tok: string): boolean {
+  const digits = tok.replace(/\D/g, "").length;
+  return digits >= 2 && !/[A-Z]{4,}/.test(tok);
+}
+
+/** "PEKKA ESIMERKKI" → "Pekka Esimerkki": the form a payee and a co-holder of an account are shown in. */
+export function titleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/(^|[\s\-.])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
+/** Whether the company form ending `words` is what tells the company from a person or from a plain word of the car trade. */
+function formTellsApart(words: readonly string[]): boolean {
+  const [whole, bare] = [fold(words.join(" ")), fold(words.slice(0, -1).join(" "))];
+  return isPersonShaped(bare) || (isCarDealerName(whole) && !isCarDealerName(bare));
+}
+
+/** `dropCardEnvelope` with the merchants of BRANDS as the proof that a city in front is no part of a name. */
+const cardEnvelope = (s: string) => dropCardEnvelope(s, fold, (rest) => BRANDS.some(([pattern]) => pattern.test(rest)));
+
+/** Whether the text a row is named by is a card's currency, country and city and no merchant: its merchant is the same card's row of the same sum. */
+export function isCardEnvelopeOnly(counterparty: string | null, description: string | null): boolean {
+  for (const candidate of [counterparty, description]) {
+    const cleaned = candidate?.trim() ? cleanDescription(candidate) : "";
+    if (cleaned) return cardEnvelope(cleaned).only;
+  }
+  return false;
+}
+
+/**
+ * Returns a display name that is also the grouping key for a merchant.
+ * `counterparty` (creditor/debtor name) is preferred over the free-text
+ * description because banks fill it with the cleanest value.
+ */
+export function normalizeMerchant(counterparty: string | null, description: string | null): string {
+  [counterparty, description] = [counterparty && capBankText(counterparty), description && capBankText(description)];
+  for (const candidate of [counterparty, description]) {
+    if (!candidate?.trim()) continue;
+    const cleaned = cardEnvelope(cleanDescription(candidate)).text;
+    if (!cleaned) continue;
+    const folded = fold(cleaned);
+    for (const [pattern, name] of SERVICE_ONLY) {
+      if (pattern.test(folded)) return (TEXT_MERCHANT.has(name) && candidate === counterparty && description?.trim() ? shopInText(description) : null) ?? name;
+    }
+    // one issuer under every legal suffix and word order ("MORROW", "MORROW BANK ASA", "MORROW BANK AB FILIAL")
+    // "MORROW FI" is the bare name with a country the cleaning took off: the bank writes none, so it is not the bank
+    const issuer = cardIssuerName(folded);
+    if (issuer && !(folded === "MORROW" && PLACE_AND_COUNTRY.test(fold(candidate).trim().replace(/^MORROW\s*/, "")))) return issuer;
+    for (const [pattern, name] of BRANDS) {
+      if (pattern.test(folded) && !(NAMES_TOO.has(name) && isPersonShaped(folded) && !/ (?:SUOMI|FINLAND)$/.test(folded))) return name;
+    }
+    const all = cleaned.split(" ").filter((w) => /[A-ZÄÖÅÜ]/.test(w));
+    // A company form at the end is no part of the name; at the start it is ("AS OY ESIMERKKIKATU 3"); a name that would be
+    // left empty keeps it. A form that would leave the name of a person ("PEKKA ESIMERKKI OY") stays: it is all that tells
+    // the company from the person, and the guard before the trade register reads it.
+    // The chains of the car trade are listed with their form ("LAAKKONEN OY"): that form stays too.
+    while (all.length > 1 && COMPANY_FORMS.has(fold(all[all.length - 1]!)) && !formTellsApart(all)) all.pop();
+    const words = all.slice(0, 4);
+    // whole words up to 40 characters
+    while (words.length > 1 && words.join(" ").length > 40) words.pop();
+    if (words.length) return titleCase(words.join(" ")).slice(0, 40);
+  }
+  return UNKNOWN_MERCHANT;
+}

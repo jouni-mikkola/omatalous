@@ -1,0 +1,7 @@
+-- Loans linked to an account (0016_loan_account.sql, loans.account_id), two made-up ones next to the three of 0.8.7,
+-- which stay unlinked (NULL): a car loan with a plan, linked to the connected loan account a-4 (accounts.sql), and a card
+-- with a limit and no plan, linked to the Visa account a-2 of the removed CSV import. A later migration that removes the
+-- csv accounts must clear the second link (ON DELETE SET NULL) and keep the loan. The two loans name two accounts: the
+-- server lets an account hold one loan.
+INSERT INTO loans (id,user_id,name,lender,kind,granted_cents,balance_cents,balance_date,rate_bp,reference,margin_bp,repayment,interval_months,payment_cents,end_date,limit_cents,series_key,created_at,updated_at,account_id) VALUES ('c1e2c3d4-0004-4a5b-8c6d-7e8f9a0b1c2d','u-aino','Autolaina','Nordea','car',1800000,1250000,'2026-10-01',590,'fixed',NULL,'annuity',1,31500,'2029-08-15',NULL,NULL,'2026-10-12T09:00:00.000Z','2026-10-12T09:00:00.000Z','a-4');
+INSERT INTO loans (id,user_id,name,lender,kind,granted_cents,balance_cents,balance_date,rate_bp,reference,margin_bp,repayment,interval_months,payment_cents,end_date,limit_cents,series_key,created_at,updated_at,account_id) VALUES ('c1e2c3d4-0005-4a5b-8c6d-7e8f9a0b1c2d','u-aino','Visa','OP','card',NULL,42000,'2026-10-05',1790,'fixed',NULL,NULL,1,NULL,NULL,300000,NULL,'2026-10-12T09:05:00.000Z','2026-10-12T09:05:00.000Z','a-2');

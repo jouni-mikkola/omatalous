@@ -1,0 +1,28 @@
+/* The surplus bridge (SurplusBridge). */
+
+.bridge { margin: 0 0 16px; }
+.bridge-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 8px; }
+.bridge-title { font-size: var(--fs-body); font-weight: 600; margin: 0; }
+.bridge-track { display: grid; gap: 4px; }
+/* where the money of the bar came from, on the bar's own axis: there when the income was not all of it */
+.bridge-from { display: flex; height: var(--bar-h); border-radius: var(--radius-s); overflow: hidden; }
+.bridge-bar { display: flex; height: 28px; border-radius: var(--radius-s); overflow: hidden; }
+/* the 2px between two parts is cut from the part itself, so an edge of the strip stands over the same edge of the bar.
+   The colour comes as background-color: the shorthand would reset the clip. */
+.bridge-seg { display: block; box-sizing: border-box; height: 100%; min-width: 4px; border-right: 2px solid transparent; background-clip: padding-box; }
+.bridge-seg:last-child { border-right: 0; }
+.bridge-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 16px; margin-top: 12px; }
+.bridge-legend > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bridge-legend .k { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-label); color: var(--text-2); }
+.bridge-legend .v { font-size: var(--fs-fig-s); font-weight: var(--w-strong); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.bridge-legend small { color: var(--muted); font-size: var(--fs-label); }
+/* how a gap was paid: a fact about the period, so it wears the text colour and no status colour */
+.bridge-gap { margin: 12px 0 0; }
+.bridge-drawn { margin: 8px 0 0; font-size: var(--fs-ui); color: var(--text-2); }
+.bridge-drawn .swatch { margin-right: 8px; }
+.bridge-table { max-width: 520px; }
+/* a tablet: the cells stay on one row, so none stands alone on a second */
+@media (min-width: 641px) and (max-width: 999px) {
+  .bridge-legend { display: flex; gap: 8px 12px; }
+  .bridge-legend > div { flex: 1 1 0; }
+}

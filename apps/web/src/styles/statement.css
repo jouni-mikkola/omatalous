@@ -1,0 +1,75 @@
+/*
+ * The statement look of Yhteenveto: the classes every block of the page shares, so a block adds rows, not a style.
+ * A block is one `.card.st-block`: a head, then parts across the card (`.st-part`) and groups in columns (`.st-cols`);
+ * its lines are `.st-rows` and its tables `.st-table`. Two weights (400 and 600), figures right-aligned in tabular
+ * numerals, hairlines between rows, no colour on a sum.
+ */
+
+/* a list or a dl of rows */
+.st-rows { margin: 0; padding: 0; list-style: none; }
+/* a row is 32 px: 7 px above and below a line of 18 px; name left, figure right, a line under the name when there is one */
+.st-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; padding: var(--cell-y) 0; border-bottom: 1px solid var(--grid); font-size: var(--fs-body); line-height: 18px; }
+.st-rows > .st-row:last-child { border-bottom: 0; }
+/* a name is cut, never wrapped; the whole name goes in `title` */
+.st-name { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-num { flex: none; margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.st-strong { font-weight: 600; }
+/* the 12 px line under a name, in the row's own width */
+.st-sub { flex: 0 0 100%; margin: 0; font-size: var(--fs-label); line-height: 16px; color: var(--text-2); }
+/* a total: 600 and the axis above it, which takes the place of the row's hairline above */
+.st-total { font-weight: 600; border-top: 1px solid var(--axis); }
+.st-row:has(+ .st-total) { border-bottom: 0; }
+/* the 12 px line under a table or a group */
+.st-note { margin: 12px 0 0; font-size: var(--fs-label); line-height: 16px; color: var(--text-2); }
+/* h3 of a group */
+.st-cap { margin: 0 0 4px; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text); }
+.st-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }
+
+/*
+ * A table of a block. A head is the label of the figures under it, in 12 px; a row is as tall as `.st-row`; a column of
+ * figures is `.st-num`. The cells have no padding at the table's edges, so the first and the last column stand on the
+ * edges of the rows above and below the table.
+ */
+.st-table { font-size: var(--fs-body); line-height: 18px; }
+.st-table :is(th, td) { padding: var(--cell-y) 0; border-bottom: 1px solid var(--grid); vertical-align: top; text-align: left; font-weight: 400; }
+.st-table :is(th, td) + :is(th, td) { padding-left: 16px; }
+/* an empty cell of the head keeps the head's rule */
+.st-table thead tr > :is(th, td) { padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--axis); font-weight: 600; vertical-align: bottom; font-size: var(--fs-label); line-height: 16px; color: var(--text-2); }
+.st-table tbody th { font-size: inherit; color: inherit; white-space: normal; }
+.st-table tbody tr:last-child > * { border-bottom: 0; }
+.st-table .st-num { text-align: right; }
+.st-table .st-strong { font-weight: 600; }
+.st-table .st-sub { display: block; }
+/* a name that is cut where the column ends; the whole name goes in `title` */
+.st-table .st-cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* a part of a block across the card, under a rule that runs to the card's edges */
+.st-part { margin: 0 calc(-1 * var(--pad)); padding: 16px var(--pad) 16px; border-top: 1px solid var(--border); }
+/* the last part of a block ends on the card's bottom edge */
+.st-block > :is(.st-part, .st-cols):last-child { margin-bottom: calc(-1 * var(--pad)); }
+
+/*
+ * The groups of a block: side by side from 900 px, under each other below with a hairline between. `.st-cols-3` holds
+ * three and keeps them under each other until 1040 px; a block of two groups uses the same three columns and gives one
+ * of them two (`.st-wide`), so its rule stands on a rule of the block above. The groups run to the edges of the card,
+ * so the hairlines do.
+ */
+.st-cols { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 calc(-1 * var(--pad)); border-top: 1px solid var(--border); }
+.st-cols > * { min-width: 0; padding: 16px var(--pad) 16px; }
+.st-cols > * + * { border-top: 1px solid var(--border); }
+@media (min-width: 900px) {
+  .st-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .st-cols > * + * { border-top: 0; border-left: 1px solid var(--border); }
+  .st-cols-3 { grid-template-columns: minmax(0, 1fr); }
+  .st-cols-3 > * + * { border-top: 1px solid var(--border); border-left: 0; }
+}
+@media (min-width: 1040px) {
+  /* 4 | 4 | 4 on the page's columns (--split-n, marks.css): a wide group is 4 | 8 or 8 | 4 and its rule stands on the register */
+  .st-cols-3 { grid-template-columns: var(--split-4) calc(var(--split-8) - var(--split-4)) minmax(0, 1fr); column-gap: 0; }
+  .st-cols-3 > * + * { border-top: 0; border-left: 1px solid var(--border); }
+  .st-cols-3 > .st-wide { grid-column: span 2; }
+}
+
+/* the name strip of a block is the last thing above its first part: no gap, and no rule twice */
+.st-block > .card-head { margin-bottom: 0; }
+.st-block > .card-head + :is(.st-part, .st-cols) { border-top: 0; }

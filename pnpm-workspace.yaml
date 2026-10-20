@@ -1,0 +1,14 @@
+packages:
+  - packages/*
+  - apps/*
+
+onlyBuiltDependencies:
+  - esbuild
+
+# tesseract.js has an install script that only prints a donation line
+ignoredBuiltDependencies:
+  - tesseract.js
+
+# pdfjs-dist's canvas for Node: a native binary of about 30 MB that the web build never loads
+ignoredOptionalDependencies:
+  - "@napi-rs/canvas"

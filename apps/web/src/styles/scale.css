@@ -1,0 +1,51 @@
+/* Measures that are the same in both looks: spacing, type, motion, z-order. Not read by the both-sets test. */
+:root {
+  /* spacing: a 4 px step; 2 px only inside a control */
+  --sp-2: 2px; --sp-4: 4px; --sp-8: 8px; --sp-12: 12px; --sp-16: 16px; --sp-20: 20px; --sp-24: 24px; --sp-32: 32px; --sp-48: 48px;
+  --pad: 24px;            /* inside a panel; every full-bleed rule uses calc(-1 * var(--pad)) */
+  --gap: 16px;            /* between panels and between grid columns */
+  --container: 1240px;    /* .app and .topbar-in */
+  --rail-h: 48px;
+  --tabbar-h: 56px;
+  --control-h: 32px;      /* button, field, select; 44 px on a coarse pointer */
+  --row-h: 32px;          /* a row of the body's line */
+  --row-h-roomy: 44px;    /* a row a thumb taps: a roomy table on a coarse pointer */
+  --cell-y: calc((var(--row-h) - var(--lh-body)) / 2);  /* the padding above and below a line of a row: the row stays on the step */
+  --tick: 4px;            /* one unit of a real axis */
+  --tick-l: 8px;          /* a unit that carries a label */
+  --bar-h: 8px;           /* every bar that is a length */
+  --share-w: 100px;       /* the share track: 1 px is 1 % */
+  --mark-gap: 8px;        /* from a figure to the mark that measures it */
+  --bar-h-s: 6px;         /* the share pill in a table cell */
+  --edge-mark: 3px;       /* the coloured edge of a tile or row that needs the eye first (Puuttuu) */
+  --avatar: 24px; --avatar-s: 20px;   /* the initials disc and its compact size */
+  --spark-w: 72px; --spark-h: 20px;   /* a sparkline in a table cell */
+  /* the share of a series hue mixed into a surface: a chip's ground and frame, an initials disc */
+  --mix-chip: 12%; --mix-chip-edge: 32%; --mix-disc: 16%;
+  /* type: two weights only; every font-size in a stylesheet reads one of these (scale-css.test.ts) */
+  --font-code: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", monospace;
+  --w-regular: 400; --w-strong: 600;
+  --fs-tick: 11px;   --lh-tick: 14px;    /* chart axis labels only */
+  --fs-label: 12px;  --lh-label: 16px;   /* column head, sub line, badge, panel name */
+  --fs-ui: 13px;     --lh-ui: 16px;      /* the label of a button, a tab, a field's label */
+  --fs-body: 14px;   --lh-body: 18px;    /* rows */
+  --lh-prose: 20px;                      /* prose, and a title over its action (a tip) */
+  --fs-h2: 16px;     --lh-h2: 22px;      /* the name of a panel */
+  --fs-fig-s: 16px;  --lh-fig-s: 20px;
+  --fs-fig-m: 22px;  --lh-fig-m: 28px;
+  --fs-fig-l: 30px;  --lh-fig-l: 36px;
+  --fs-input: 16px;                      /* a field on a coarse pointer and the sign-in fields: a phone zooms under 16 */
+  --fs-dec: 0.68em;                      /* the decimals and the unit of a figure */
+  --track-name: 0.08em;   /* a small label in capitals (a kind of question) */
+  --track-fig: -0.01em;   /* figures of 16 px and over */
+  /* motion */
+  --t-press: 80ms; --t-state: 140ms; --t-open: 200ms; --t-draw: 400ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  /* z-order; a dialog is in the browser's top layer and needs none */
+  --z-rail: 10; --z-tabbar: 20; --z-pop: 30; --z-toast: 40; --z-skip: 50;
+}
+@media (max-width: 640px) { :root { --pad: 16px; --gap: 12px; } }
+/* 1408 px less the page margins is 1376: twelve columns of 100 px and eleven gutters of 16 */
+@media (min-width: 1600px) { :root { --container: 1408px; } }
+@media (pointer: coarse) { :root { --control-h: 44px; } }

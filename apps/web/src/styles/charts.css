@@ -1,0 +1,130 @@
+/* Charts: legend, SVG chart parts, tooltip. */
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.swatch { width: 10px; height: 10px; border-radius: 1px; display: inline-block; flex: none; }
+.line-key { width: 16px; height: 2px; border-radius: 0; display: inline-block; flex: none; }
+
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; overflow: visible; }
+.chart text { fill: var(--text-2); font-size: var(--fs-tick); font-variant-numeric: tabular-nums lining-nums; }
+.chart .grid-line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .axis-line, .chart .tick { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .hit { fill: transparent; cursor: default; outline: none; }
+.chart .hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
+.chart .hit-pick { cursor: pointer; }
+
+/* monthly totals: one colour, period in full strength, the rest lighter */
+.chart .bar { fill: var(--series-1); }
+.chart .bar-out { fill-opacity: 0.36; }
+.chart .bar-out.bar-active { fill-opacity: 0.7; }
+.chart .bar-partial { fill: url(#month-hatch); }
+.chart .bar-running-bg { fill: var(--series-1); fill-opacity: 0.22; }
+.chart .bar-running-line { stroke: var(--series-1); }
+.chart .bar-value { fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .bar-value.active, .chart .month-active { fill: var(--text); font-weight: 600; }
+.chart .avg-line { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 5 4; shape-rendering: crispEdges; }
+
+.tooltip {
+  position: absolute; pointer-events: none; z-index: var(--z-pop); min-width: 150px; max-width: 260px;
+  background: var(--surface); border: 1px solid var(--pop-edge); border-radius: 10px; padding: 8px 8px;
+  box-shadow: var(--pop-shadow); font-size: var(--fs-label); line-height: var(--lh-label);
+}
+.tooltip-title { color: var(--text); font-weight: 600; margin-bottom: 4px; }
+.tooltip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tooltip-row .name { color: var(--text-2); display: inline-flex; align-items: center; gap: 8px; }
+.tooltip-row strong { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+
+/* Motion: lengths fade in at their true size (they do not grow), a line is wiped in from the left. */
+@media (prefers-reduced-motion: no-preference) {
+  .chart .bar, .chart .seg { animation: chart-fade var(--t-open) var(--ease-out) backwards; }
+  .chart .draw { animation: chart-wipe var(--t-draw) var(--ease-out) backwards; }
+  @keyframes chart-fade { from { opacity: 0; } }
+  @keyframes chart-wipe { from { clip-path: inset(-6px 100% -6px 0); } to { clip-path: inset(-6px -6px -6px 0); } }
+  .tooltip { transition: opacity var(--t-open) var(--ease-out), transform var(--t-open) var(--ease-out); }
+  @starting-style { .tooltip { opacity: 0; transform: translateY(4px); } }
+}
+
+/* the calendar of days: one hue in four steps, an empty day a hairline square, the largest days ringed in text ink with
+   a numbered badge; the week strip and the weekday column share the grid's axes and fade from a tint into the series hue */
+.calendar .calendar-day { fill: var(--grid); outline: none; }
+.calendar .calendar-day.heat-1, .swatch.heat-1 { fill: var(--heat-1); background: var(--heat-1); }
+.calendar .calendar-day.heat-2, .swatch.heat-2 { fill: var(--heat-2); background: var(--heat-2); }
+.calendar .calendar-day.heat-3, .swatch.heat-3 { fill: var(--heat-3); background: var(--heat-3); }
+.calendar .calendar-day.heat-4, .swatch.heat-4 { fill: var(--heat-4); background: var(--heat-4); }
+.calendar .calendar-day.today { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.calendar .calendar-day.active, .calendar .calendar-day:focus-visible { stroke: var(--text); stroke-width: 2; stroke-dasharray: none; }
+.calendar .calendar-top rect { fill: none; stroke: var(--text); stroke-width: 1.5; pointer-events: none; }
+.calendar .calendar-top circle { fill: var(--text); stroke: var(--surface); stroke-width: 2; pointer-events: none; }
+.calendar .calendar-top text { fill: var(--surface); font-size: var(--fs-tick); font-weight: var(--w-strong); pointer-events: none; }
+.calendar .calendar-month, .calendar .calendar-strip-label { fill: var(--muted); }
+.calendar .calendar-peak-label { fill: var(--text); font-weight: var(--w-strong); }
+.calendar .calendar-stop { stop-color: var(--series-1); }
+.calendar .calendar-stop-soft { stop-color: color-mix(in srgb, var(--series-1) 35%, var(--surface)); }
+.calendar .calendar-week-hit { fill: transparent; outline: none; }
+.calendar .calendar-week-bar, .calendar .calendar-mean-bar { opacity: 0.55; pointer-events: none; }
+.calendar .peak .calendar-week-bar, .calendar .peak .calendar-mean-bar, .calendar .active .calendar-week-bar, .calendar .active .calendar-mean-bar { opacity: 1; }
+.calendar .calendar-mean.peak text, .calendar .calendar-annot { fill: var(--text); font-weight: var(--w-strong); }
+.calendar-legend { align-items: center; gap: 4px 8px; }
+.calendar-legend .swatch { border-radius: var(--radius-s); }
+.calendar-legend .calendar-legend-ring { margin-left: 12px; }
+.calendar-legend .calendar-ring-key { background: none; border: 1.5px solid var(--text); }
+.chart-answer { margin: 0 0 2px; font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); }
+.chart-note { margin: 0 0 8px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.calendar-notes { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-label); color: var(--text-2); }
+.calendar-notes li { display: inline-flex; align-items: center; gap: 8px; }
+.calendar-notes .badge-n { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-tick); font-weight: var(--w-strong); }
+.calendar-notes b { color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+
+/* the slope: grey context lines, the marked rows running from the grey of the past into the colour of their change */
+.chart .slope { outline: none; }
+.chart .slope-line { stroke-width: 2; stroke-linecap: round; }
+.chart .slope-hit { stroke: transparent; stroke-width: 14; }
+.chart .slope-quiet .slope-line { stroke: var(--series-rest); stroke-opacity: 0.4; }
+.chart .slope-quiet .slope-dot { fill: var(--series-rest); }
+.chart .slope-stop-past { stop-color: var(--series-rest); }
+.chart .slope-stop-up { stop-color: var(--bad); }
+.chart .slope-stop-down { stop-color: var(--good); }
+.chart .slope-up .slope-dot { fill: var(--bad); }
+.chart .slope-down .slope-dot { fill: var(--good); }
+.chart .slope .slope-dot-before { fill: var(--series-rest); }
+.chart .slope .slope-dot { stroke: var(--surface); stroke-width: 2; }
+.chart .slope-up .slope-halo { fill: color-mix(in srgb, var(--bad) 18%, transparent); }
+.chart .slope-down .slope-halo { fill: color-mix(in srgb, var(--good) 18%, transparent); }
+.chart .slope.active .slope-line, .chart .slope:focus-visible .slope-line { stroke-width: 3.5; stroke-opacity: 1; }
+.chart .slope-head { fill: var(--text); font-weight: var(--w-strong); }
+.chart .slope-zero { fill: var(--muted); }
+.chart .slope-name { fill: var(--text); font-weight: 600; font-size: var(--fs-label); }
+.chart .slope-figure { fill: var(--text-2); }
+.chart .slope-change-up { fill: var(--bad); font-weight: 600; }
+.chart .slope-change-down { fill: var(--good); font-weight: 600; }
+.chart .slope-annot { fill: var(--text-2); font-style: italic; }
+.chart .slope-dim { opacity: 0.35; }
+.slope-key-up { background: var(--bad); }
+.slope-key-down { background: var(--good); }
+.slope-key-quiet { background: var(--series-rest); opacity: 0.6; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade 150ms var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+  .chart .slope-line.draw { animation-duration: 400ms; }
+}
+
+/* Mikä muuttui: the slopes and, where the panel is wide, the exact figures beside them with each change as a bar from the middle */
+.shift-side { display: none; }
+@media (min-width: 900px) {
+  .shift-layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px; align-items: start; }
+  .shift-side { display: block; padding-top: 24px; }
+}
+.shift-table .shift-bar-head { width: 22%; }
+.shift-table .shift-bar-cell { position: relative; }
+.shift-table .shift-bar-cell::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; border-left: 1px solid var(--axis); }
+.shift-table .shift-bar { position: absolute; top: 50%; height: 8px; margin-top: -4px; border-radius: var(--radius-s); }
+.shift-table .shift-bar.up { left: 50%; background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 45%, var(--surface)), var(--bad)); }
+.shift-table .shift-bar.down { right: 50%; background: linear-gradient(270deg, color-mix(in srgb, var(--good) 45%, var(--surface)), var(--good)); }
+.shift-table .shift-marked td:first-child { font-weight: 600; color: var(--text); }
+
+/* The chart kit (charts/kit): events, reference lines and bands. No chart draws them yet; VD0's tokens set them later. */
+.chart .kit-event-rule { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .kit-event-label { fill: var(--text-2); }
+.chart .kit-ref-label { fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .kit-band { fill: var(--series-avg); fill-opacity: 0.12; }

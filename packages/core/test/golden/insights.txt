@@ -1,0 +1,15 @@
+# insights: 2 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+insights · demo · new:out:card:OpenAI
+  Uusi toistuva maksu: OpenAI 23 € kuussa
+  = 276.00 € a year
+  | Ensimmäinen veloitus 5.8.2026, 3 veloitusta tähän mennessä.
+  | tone info
+  rows 3
+
+insights · demo · price-rises
+  Kaksi toistuvaa maksua kallistui, yhteensä 168 € enemmän vuodessa
+  = 168.00 € a year
+  | Adobe ja Netflix, 12 kuukauden ajalta 10.10.2025 alkaen.
+  | tone warning
+  rows 4

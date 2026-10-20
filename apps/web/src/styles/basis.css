@@ -1,0 +1,12 @@
+/* The figure that opens its basis and the sheet it opens (components/BasisSheet.tsx). */
+/* the affordance and the "≈" are Why's (why.css); this lays out the figure and sizes the sign beside a large one */
+.basis-fig { display: inline-flex; align-items: baseline; gap: 4px; letter-spacing: inherit; font-variant-numeric: tabular-nums lining-nums; }
+.basis-fig[aria-expanded="true"] { text-decoration: underline solid 1px var(--accent); text-underline-offset: 3px; }
+.basis-fig-l .fig-approx-sign { font-size: var(--fs-fig-m); }
+.basis-sheet { margin: 12px 0; padding: 8px 12px 12px; border-left: 2px solid var(--border); border-radius: 0 var(--radius-s) var(--radius-s) 0; background: var(--surface-2); }
+.basis-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.basis-head h3 { margin: 0; font-size: var(--fs-ui); line-height: var(--lh-ui); }
+.basis-close { padding: 0 8px; border: 0; background: none; color: var(--text-2); font-size: var(--fs-fig-s); line-height: 1; cursor: pointer; }
+.basis-close:focus-visible { outline: 2px solid var(--accent); }
+.basis-rule, .basis-kind, .basis-note { margin: 8px 0 0; font-size: var(--fs-ui); line-height: var(--lh-ui); }
+.basis-kind, .basis-note { color: var(--text-2); }

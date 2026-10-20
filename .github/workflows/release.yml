@@ -1,0 +1,410 @@
+name: Release
+
+# A push to main that brings a version with no tag yet, or a tag vX.Y.Z, builds the image for amd64 and for arm64, each
+# on a runner of its own processor, and pushes both to ghcr.io by digest with no tag. This run does only what GitHub
+# alone can do: say that the commit is on main, build the image with provenance and SBOM, smoke test it, sign it, make
+# the tags and write the release. Every other check (the types, the build, the tests, the migrations against every
+# baseline) is run before the push, on the machine of the maintainer, on the tree that this repository holds. Each image
+# is pulled and started on its runner, as a new install and on a database of 0.5.0 (tools/ci/smoke-image.sh). When the
+# commit check, both builds and both smoke tests have passed, one index of the two gets the version tag, is signed by
+# digest (keyless, through GitHub OIDC) and verified with the check installs run, and the release is written. A check
+# or a smoke test that fails leaves no tag, no signature and no release, only untagged digests that nothing can find.
+# On main the version comes from the tree and the release creates the tag vX.Y.Z on that commit; a push to main
+# whose version has a tag already does nothing. A push to a branch candidate/X.Y.Z-<short>, the commit that main
+# moves to later (its parent is main, its version has no tag), builds both images, smoke tests them and writes the
+# artifact candidate with the digests; it signs nothing, tags nothing and releases nothing, and no job of it holds
+# id-token: write, contents: write or the release environment (a test of the workflow's shape reads that). Installs
+# before 0.5.1 accept only a signature from a run started by a push, so a run started by hand stops unless told
+# otherwise. Retry a failed release with "Re-run failed jobs", which keeps the push (docs/RELEASING.md). A run
+# started by hand with dry_run rehearses: it builds both images into their runners' own Docker and smoke tests
+# them there, and pushes, signs and releases nothing. The "release" environment has no required reviewer. Runs only
+# in the public repository.
+on:
+  push:
+    branches:
+      - main
+      - "candidate/**"
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      signed_by_hand:
+        description: Release anyway. Installs before 0.5.1 refuse a signature from a run started by hand.
+        type: boolean
+        default: false
+      dry_run:
+        description: Rehearse only. Builds and smoke tests both images. Pushes, signs and releases nothing.
+        type: boolean
+        default: false
+
+permissions: {}
+
+# one release at a time: a second push of the same version waits and then finds the tag. A dry run publishes nothing and
+# has a group of its own, because a run that joins a group takes the place of the one that waits there.
+concurrency:
+  group: ${{ inputs.dry_run && 'release-dry-run' || startsWith(github.ref, 'refs/heads/candidate/') && 'candidate' || 'release' }}
+  # a newer candidate ends the build of an older one; a release is never cut short
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/heads/candidate/') && github.event_name == 'push' }}
+
+env:
+  IMAGE: ghcr.io/jouni-mikkola/omatalous
+  # What scripts/update.sh pins when it verifies an image. Keep in step with it (a test compares them).
+  SIGN_IDENTITY_REGEXP: ^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$
+  SIGN_ISSUER: https://token.actions.githubusercontent.com
+
+jobs:
+  plan:
+    # which version this run releases, if any, and that the tree agrees with it
+    if: github.repository == 'jouni-mikkola/omatalous'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.v.outputs.release }}
+      dry_run: ${{ steps.v.outputs.dry_run }}
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      new_tag: ${{ steps.v.outputs.new_tag }}
+      candidate: ${{ steps.v.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Version and tag
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          SIGNED_BY_HAND: ${{ inputs.signed_by_hand }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: tools/ci/release-plan.sh
+
+  # The one check that only GitHub can make. It needs only plan and runs beside the build; publish needs it (a test of the
+  # workflow's shape reads that). A dry run asks the same.
+  verify:
+    # the commit is on main
+    needs: plan
+    if: github.repository == 'jouni-mikkola/omatalous' && (needs.plan.outputs.release == 'true' || needs.plan.outputs.dry_run == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Commit is on main
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main || { echo "The commit is not on main"; exit 1; }
+
+  build:
+    # Each image is built on a runner of its own processor. The arm64 half used to run under QEMU, which once crashed and
+    # then hung for 30 minutes (0.7.0). Each image is pushed by digest with no tag, so nothing finds it by version before
+    # the checks and the smoke test have passed: a red check leaves untagged digests and nothing else. A dry run never
+    # comes here: its build is the job dry-run, which cannot push.
+    needs: plan
+    if: github.repository == 'jouni-mikkola/omatalous' && (needs.plan.outputs.release == 'true' || needs.plan.outputs.candidate == 'true')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # a build takes about two minutes; a hung one fails here and Re-run failed jobs retries it with the same push
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      # each leg of the matrix writes the one named after its processor
+      amd64: ${{ steps.digest.outputs.amd64 }}
+      arm64: ${{ steps.digest.outputs.arm64 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compose layout number
+        id: compat
+        run: |
+          n=$(sed -n 's/^x-talous-compat: *\([0-9]*\).*/\1/p' docker-compose.yml)
+          [[ -n $n ]] || { echo "x-talous-compat missing"; exit 1; }
+          echo "n=$n" >>"$GITHUB_OUTPUT"
+      - name: Build and push by digest
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            APP_VERSION=${{ needs.plan.outputs.version }}
+            COMPOSE_COMPAT=${{ steps.compat.outputs.n }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Digest for the jobs after this one
+        id: digest
+        env:
+          ARCH: ${{ matrix.arch }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          [[ $DIGEST =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "The build gave no digest: \"$DIGEST\""; exit 1; }
+          echo "$ARCH=$DIGEST" >>"$GITHUB_OUTPUT"
+          echo "Built $IMAGE@$DIGEST for linux/$ARCH" >>"$GITHUB_STEP_SUMMARY"
+
+  dry-run:
+    # The rehearsal: each image is built on a runner of its own processor, loaded into that runner's Docker and smoke
+    # tested there, beside the commit check. The job may read the repository and nothing else, so no part of a dry run holds a
+    # right to push.
+    needs: plan
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.dry_run == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Compose layout number
+        id: compat
+        run: |
+          n=$(sed -n 's/^x-talous-compat: *\([0-9]*\).*/\1/p' docker-compose.yml)
+          [[ -n $n ]] || { echo "x-talous-compat missing"; exit 1; }
+          echo "n=$n" >>"$GITHUB_OUTPUT"
+      - name: Build and load
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: omatalous:dry-run
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            APP_VERSION=${{ needs.plan.outputs.version }}
+            COMPOSE_COMPAT=${{ steps.compat.outputs.n }}
+          # the runner's Docker cannot keep attestations next to a loaded image, and a rehearsal writes no cache
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.arch }}
+      - name: Smoke test
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: tools/ci/smoke-image.sh omatalous:dry-run "$VERSION" "$GITHUB_SHA"
+
+  smoke:
+    # Each pushed image is pulled by its digest on a runner of its own processor and started there, as a new install and
+    # on a database of 0.5.0. Nothing has a tag or a signature yet, so a failure here leaves installs nothing to find.
+    needs: [plan, build]
+    if: github.repository == 'jouni-mikkola/omatalous' && (needs.plan.outputs.release == 'true' || needs.plan.outputs.candidate == 'true')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull by digest and smoke test
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          DIGEST: ${{ needs.build.outputs[matrix.arch] }}
+        run: |
+          [[ $DIGEST =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "The build gave no digest for this processor: \"$DIGEST\""; exit 1; }
+          docker pull -q "$IMAGE@$DIGEST"
+          tools/ci/smoke-image.sh "$IMAGE@$DIGEST" "$VERSION" "$GITHUB_SHA"
+
+  index:
+    # A candidate only. The runner's buildx pushes an index only under a tag ("can't push with no tags specified"), and a
+    # tag is what nothing may have before the release. So the index of the two images is made here as the registry would
+    # keep it (--dry-run prints it, pushes nothing), checked like the one publish makes, and its digest is written down with
+    # both image digests. Promotion makes the real index under the version tag and must find the same digest. This job
+    # can read the registry and nothing else.
+    needs: [plan, build, smoke]
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.candidate == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Index of both images, not pushed
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          AMD64: ${{ needs.build.outputs.amd64 }}
+          ARM64: ${{ needs.build.outputs.arm64 }}
+          RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          INDEX_FILE: index.json
+        run: |
+          docker buildx imagetools create --dry-run "$IMAGE@$AMD64" "$IMAGE@$ARM64" >"$INDEX_FILE"
+          tools/ci/candidate-index.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: candidate
+          path: candidate.json
+          retention-days: 3
+          if-no-files-found: error
+
+  publish:
+    # Every check passed and both images were built and started. One index of the two gets the version tag and is signed
+    # by its digest. This job and release are the only ones that make a tag, a signature or a release.
+    needs: [plan, verify, build, smoke]
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # keyless signing
+    outputs:
+      digest: ${{ steps.index.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Index of both images under the version tag
+        id: index
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          AMD64: ${{ needs.build.outputs.amd64 }}
+          ARM64: ${{ needs.build.outputs.arm64 }}
+        run: |
+          # the buildx on the runner's image is enough for imagetools, which talks to the registry and starts no builder
+          docker buildx version
+          for d in "$AMD64" "$ARM64"; do
+            [[ $d =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "A build gave no digest: amd64 \"$AMD64\", arm64 \"$ARM64\""; exit 1; }
+          done
+          docker buildx imagetools create --tag "$IMAGE:$VERSION" "$IMAGE@$AMD64" "$IMAGE@$ARM64"
+          manifest=$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}')
+          digest=$(jq -r '.digest // empty' <<<"$manifest")
+          [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "The index of $IMAGE:$VERSION has no digest"; exit 1; }
+          # attestation manifests carry the platform unknown/unknown and do not count
+          platforms=$(jq -r '[.manifests[]? | select(.platform.os != "unknown") | "\(.platform.os)/\(.platform.architecture)"] | sort | join(" ")' <<<"$manifest")
+          [[ $platforms == "linux/amd64 linux/arm64" ]] || { echo "The index holds \"$platforms\", not linux/amd64 and linux/arm64"; exit 1; }
+          attestations=$(jq '[.manifests[]? | select(.platform.os == "unknown")] | length' <<<"$manifest")
+          [[ $attestations == 2 ]] || echo "::warning::The index holds $attestations attestation manifests, not one for each image."
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.6
+      - name: Sign by digest
+        env:
+          DIGEST: ${{ steps.index.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+      - name: Verify with the check installs run
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          DIGEST: ${{ steps.index.outputs.digest }}
+        run: |
+          # scripts/lib/release.sh is what update.sh and install.sh run, so a signature they would refuse stops here
+          . scripts/lib/release.sh
+          if ! verify_signature "$IMAGE@$DIGEST" "$GITHUB_SHA"; then
+            echo "The check installs run refuses this signature. cosign says:"
+            cosign verify --certificate-identity-regexp "$SIGN_IDENTITY_REGEXP" --certificate-oidc-issuer "$SIGN_ISSUER" \
+              --certificate-github-workflow-sha "$GITHUB_SHA" "$IMAGE@$DIGEST" || true
+            exit 1
+          fi
+          # installs before 0.5.1 also need the run to have been started by a push
+          cosign_verify "$IMAGE@$DIGEST" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger push \
+            || echo "::warning::Started by hand: installs before 0.5.1 refuse this signature and cannot update to it."
+          # the labels an update reads from the image it has verified
+          docker pull -q "$IMAGE@$DIGEST"
+          v=$(image_label "$IMAGE@$DIGEST" talous.version)
+          c=$(image_label "$IMAGE@$DIGEST" talous.commit)
+          n=$(image_label "$IMAGE@$DIGEST" talous.compose)
+          [[ $v == "$VERSION" ]] || { echo "The label talous.version says \"$v\", not $VERSION"; exit 1; }
+          [[ $c == "$GITHUB_SHA" ]] || { echo "The label talous.commit says \"$c\", not $GITHUB_SHA"; exit 1; }
+          [[ -n $n && $n == "$(compose_compat "$GITHUB_SHA")" ]] || { echo "The label talous.compose says \"$n\", not the layout of docker-compose.yml"; exit 1; }
+          echo "Verified $IMAGE@$DIGEST" >>"$GITHUB_STEP_SUMMARY"
+
+  release:
+    # A job of its own: it may write the repository's releases, which the job that signs and pushes images must not.
+    needs: [plan, publish]
+    if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.release == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # the release itself
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Release notes
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          awk -v v="$VERSION" '/^## /{p = ($2 == v); next} p' CHANGELOG.md >notes.md
+          [[ -s notes.md ]] || { echo "CHANGELOG has no section for $VERSION"; exit 1; }
+          {
+            echo
+            echo "Image: \`$IMAGE:$VERSION@$DIGEST\`"
+            echo
+            echo "Verify: \`cosign verify --certificate-identity-regexp '$SIGN_IDENTITY_REGEXP' --certificate-oidc-issuer $SIGN_ISSUER $IMAGE@$DIGEST\`"
+          } >>notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          NEW_TAG: ${{ needs.plan.outputs.new_tag }}
+        run: |
+          # on main the release creates the tag on the commit that was built and signed
+          # a release starts as a pre-release, which /releases/latest skips; promote.yml promotes it after 48 hours
+          if [[ $NEW_TAG == true ]]; then
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" --prerelease --verify-tag --title "$TAG" --notes-file notes.md
+          fi

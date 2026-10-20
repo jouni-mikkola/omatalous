@@ -1,0 +1,81 @@
+# alerts: 16 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+alerts · demo · forgotten:out:card:Apple#1299
+  Apple 12,99 € kuussa, 156 € vuodessa
+  | Maksettu 13 kuukautta.
+  | tone info
+
+alerts · demo · forgotten:out:card:Elixia
+  Elixia 59 € kuussa, 708 € vuodessa
+  | Maksettu 14 kuukautta.
+  | tone info
+
+alerts · demo · overlap:video
+  Kaksi videopalvelua
+  | Netflix ja Max, yhteensä 29,98 € kuussa
+  | tone info
+
+alerts · kit:base · forgotten:out:card:Spotify
+  Spotify 11,99 € kuussa, 144 € vuodessa
+  | Maksettu 27 kuukautta.
+  | tone info
+
+alerts · bank:op-couple · forgotten:out:card:Spotify
+  Spotify 11,99 € kuussa, 144 € vuodessa
+  | Maksettu 15 kuukautta.
+  | tone info
+
+alerts · bank:s-pankki-single · forgotten:out:chk:Netflix
+  Netflix 12,99 € kuussa, 156 € vuodessa
+  | Maksettu 14 kuukautta.
+  | tone info
+
+alerts · plain:4 · forgotten:out:chk:Spotify#999
+  Spotify 9,99 € kuussa, 120 € vuodessa
+  | Maksettu 8 kuukautta.
+  | tone info
+
+alerts · settled:1 · forgotten:out:card:Spotify
+  Spotify 11,99 € kuussa, 144 € vuodessa
+  | Maksettu 26 kuukautta.
+  | tone info
+
+alerts · settled:1 · forgotten:out:chk:Adobe
+  Adobe 9,14 € kuussa, 110 € vuodessa
+  | Maksettu 13 kuukautta.
+  | tone info
+
+alerts · settled:2 · forgotten:out:card:Spotify
+  Spotify 11,99 € kuussa, 144 € vuodessa
+  | Maksettu 26 kuukautta.
+  | tone info
+
+alerts · settled:2 · forgotten:out:chk:Adobe
+  Adobe 9,66 € kuussa, 116 € vuodessa
+  | Maksettu 13 kuukautta.
+  | tone info
+
+alerts · settled:3 · forgotten:out:chk:Adobe
+  Adobe 8,43 € kuussa, 101 € vuodessa
+  | Maksettu 13 kuukautta.
+  | tone info
+
+alerts · settled:4 · forgotten:out:card:Spotify
+  Spotify 11,99 € kuussa, 144 € vuodessa
+  | Maksettu 26 kuukautta.
+  | tone info
+
+alerts · settled:4 · forgotten:out:chk:Adobe
+  Adobe 10,65 € kuussa, 128 € vuodessa
+  | Maksettu 13 kuukautta.
+  | tone info
+
+alerts · settled:5 · forgotten:out:card:Spotify
+  Spotify 11,99 € kuussa, 144 € vuodessa
+  | Maksettu 26 kuukautta.
+  | tone info
+
+alerts · settled:5 · forgotten:out:chk:Adobe
+  Adobe 10,44 € kuussa, 125 € vuodessa
+  | Maksettu 13 kuukautta.
+  | tone info

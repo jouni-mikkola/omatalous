@@ -1,0 +1,47 @@
+/* Trust marks of the report tables and the data quality notes. */
+
+/* a month that is not whole: named in the header, left out of the shading */
+.partial-tag { display: block; font-size: var(--fs-tick); font-weight: 400; color: var(--muted); }
+.heat-table td.partial-cell { font-style: italic; color: var(--muted); }
+
+
+/*
+ * "Menot kuukausittain": the strip of the newest twelve complete months with the highest marked, the three largest rows
+ * of that month, and the table of themes. The rows, figures and cut names are the statement classes; the arrow that opens
+ * a row is the themes table's.
+ */
+.months-strip { display: flex; gap: 4px; height: 110px; margin: 0 0 var(--sp-8); padding: 0; list-style: none; }
+.months-strip li { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; text-align: center; font-size: var(--fs-tick); line-height: 16px; color: var(--muted); }
+.months-bar { flex: 1; display: flex; align-items: flex-end; }
+.months-bar i { display: block; width: 100%; min-height: 1px; background: var(--series-1); }
+.months-strip .is-peak { color: var(--text); font-weight: 600; }
+.months-strip .is-peak i { background: var(--series-2); }
+.months-peak { display: flex; flex-wrap: wrap; gap: 0 var(--sp-16); margin: 0 0 var(--sp-8); padding: 0; list-style: none; font-size: var(--fs-body); line-height: 20px; }
+
+.months-table { table-layout: fixed; }
+.months-table th:first-child { width: auto; padding-right: 16px; }
+.months-table .num { width: 7rem; }
+@media (max-width: 600px) { .months-table { min-width: 34rem; } }
+.months-table .months-depth-1 > th { padding-left: 32px; }
+.months-table .months-depth-2 > th { padding-left: 44px; }
+.months-table .months-depth-3 > th { padding-left: 56px; }
+
+/* Tietojen laatu, the card bills by issuer: the issuer, the sum of its bills, and why its purchases are missing */
+.card-purchases { width: 100%; margin: 8px 0 8px; }
+.card-purchases td.st-num { white-space: nowrap; }
+
+/* a narrow screen: an issuer's name above its sum and its reason, each under its head */
+@media (max-width: 600px) {
+  .card-purchases thead { display: none; }
+  .card-purchases, .card-purchases tbody { display: block; }
+  .card-purchases tr { display: grid; grid-template-columns: 1fr; gap: 2px 0; padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .card-purchases tr:last-child { border-bottom: 0; }
+  .card-purchases :is(th, td) { padding: 0; border: 0; text-align: left; }
+  .st-table.card-purchases :is(th, td) + :is(th, td) { padding-left: 0; }
+  .card-purchases td.st-num { text-align: left; }
+  .card-purchases td::before { content: attr(data-label) ": "; color: var(--muted); }
+}
+
+/* the share of spending filed without asking: two lines above the notes */
+.filed-share { margin: 0 0 var(--sp-8); }
+.filed-share p { margin: 0; }

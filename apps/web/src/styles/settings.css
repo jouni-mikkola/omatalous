@@ -1,0 +1,163 @@
+/* Settings page and the server and bank app forms the wizard reuses. */
+
+/* settings: an account's own edit row */
+.edit-row td { background: var(--surface-2); }
+.account-form { max-width: 640px; display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; padding: 4px 0; }
+.account-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; max-width: 260px; }
+.acc-type-phone, .acc-use-phone, .acc-edit-phone { display: none; }
+/* settings: what an account's last fetch ran into, wrapped (td .sub cuts a line short) */
+.acc-problem { color: var(--warn); font-size: var(--fs-label); margin-top: 2px; max-width: 32rem; white-space: normal; }
+/* settings: the lines under an account's name (IBAN, holder, limit), and the accounts a connection reads, wrap instead of being cut */
+td .sub.acc-line, .accounts-table td .sub.acc-line { max-width: none; white-space: normal; overflow: visible; }
+.conn-accounts { margin-top: 2px; }
+/* settings: how much of an account's credit limit is in use, under the line that says it */
+.credit-bar { position: relative; height: 8px; margin: 4px 0 8px; max-width: 14rem; background: var(--surface-2); box-shadow: var(--sink); }
+.credit-bar span { display: block; height: 100%; background: var(--series-1); }
+/* the quarter scale: ticks at 0, 25, 50, 75 and 100 % of the limit */
+.credit-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 3px; background: linear-gradient(90deg, var(--axis) 0 1px, transparent 1px) 0 0 / 25% 100% repeat-x, linear-gradient(var(--axis), var(--axis)) 100% 0 / 1px 100% no-repeat; }
+.credit-bar.over span { background: var(--warn); }
+/* the type and the user move under the name while the five columns would not fit the card (about 700 px of screen) */
+@media (max-width: 760px) {
+  .accounts-table .acc-type, .accounts-table .acc-use { display: none; }
+  .acc-type-phone, .acc-use-phone { display: block; margin-top: 4px; }
+}
+@media (max-width: 600px) {
+  /* the name, balance and edit button must fit without a sideways scroll */
+  .accounts-table td .sub { max-width: 40vw; }
+  .accounts-table td, .accounts-table th { padding-left: 4px; padding-right: 4px; }
+  .account-form label { max-width: none; }
+}
+/* settings: who uses an account; a joint account's parts and the share for a member who cannot see it, in a row under the account */
+.use-parts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 4px 0; }
+/* a phone: who paid takes a row, the other two share the next */
+@media (max-width: 600px) {
+  .use-parts .segmented { display: grid; grid-template-columns: 1fr 1fr; align-self: stretch; }
+  .use-parts .segmented button:first-child { grid-column: 1 / -1; }
+}
+.use-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 16px; }
+.use-field { display: flex; flex-direction: column; gap: 4px; }
+.use-field input { width: 6.5rem; font-variant-numeric: tabular-nums; }
+.use-field input[readonly] { background: transparent; border-style: dashed; }
+.use-field input[type="date"] { width: 11rem; }
+/* the date of a new agreement has a row to itself: at 390 px it is cut beside another field */
+.use-field-date { flex-basis: 100%; }
+.use-check { display: flex; align-items: center; gap: 8px; flex-basis: 100%; }
+/* the offer, the questions and the answers: a label at the left, the figure, the buttons */
+.use-head { margin: 8px 0 0; font-size: inherit; font-weight: 600; }
+.use-list { list-style: none; margin: 0; padding: 0; align-self: stretch; max-width: 46rem; }
+.use-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.use-label { flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; }
+.use-sum { font-variant-numeric: tabular-nums; }
+.use-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the sentence of a member who cannot see the account is running text: it has a measure */
+.use-line > span { max-width: 70ch; text-wrap: pretty; }
+.use-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.shared-list { margin: 2px 0 0; padding-left: 20px; }
+.account-form .form-row { margin: 0; flex: 1 1 260px; }
+.account-form .error { flex-basis: 100%; }
+
+.secret-box { background: var(--warn-bg); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 8px 12px; margin: 8px 0; }
+.secret-box code { font-size: var(--fs-body); user-select: all; }
+
+.setup-form { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
+.setup-form label { display: flex; flex-direction: column; gap: 4px; }
+.setup-form label.check { flex-direction: row; align-items: flex-start; gap: 8px; }
+.setup-form label.check > span { display: flex; flex-direction: column; gap: 2px; }
+.setup-form label.check input { margin-top: 4px; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 16rem)); gap: 16px; }
+.setup-form input[type="url"] { max-width: 24rem; }
+.hour-picker { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hour-picker legend { padding: 0; margin-bottom: 8px; }
+.hours { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+@media (max-width: 520px) { .hours { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+/* a key of the buttons; the chosen one is raised with the accent foot, as the switch's */
+.hours button { min-height: var(--control-h); padding: 0; border: 1px solid var(--control-edge); border-radius: var(--radius-m); background: var(--control); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2); cursor: pointer; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.hours button:hover:not(:disabled) { background: var(--control-hover); border-color: var(--control-edge-hover); color: var(--text); }
+.hours button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2), inset 0 -2px 0 var(--accent); }
+.hours button:disabled { cursor: default; background: transparent; border-color: var(--border); color: var(--muted); box-shadow: none; }
+.setup-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 16px; }
+.setup-steps li::marker { color: var(--muted); font-weight: 600; }
+.setup-steps li > .small.muted { margin-top: 8px; }
+.setup-steps ul { margin: 8px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+.copyable { cursor: copy; overflow-wrap: anywhere; word-break: break-all; }
+/* a run's date and way stay on one line */
+.run-when { white-space: nowrap; }
+td .btn-small { white-space: nowrap; }
+@media (max-width: 600px) { .run-table :is(th, td) { padding-left: 4px; padding-right: 4px; } }
+.eb-label { color: var(--muted); }
+/* what the app has seen of a bank: the label at the left in the body text, the value at the right */
+.bank-facts { width: 100%; max-width: 520px; }
+.bank-facts th { font: inherit; color: var(--text); text-transform: none; letter-spacing: normal; text-align: left; }
+.bank-facts td { border-bottom-color: var(--axis); }
+.bank-facts tr:last-child th { border-bottom: 0; }
+.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-ui); color: var(--muted); }
+/* a square, not a ring: a ring on Yhteenveto means an estimate, and here nothing can be pressed */
+.checklist li::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border: 1px solid var(--axis); box-sizing: border-box; }
+.checklist li.done { color: var(--text); }
+.checklist li.done::before { background: var(--good); border-color: var(--good); }
+.bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 8px 12px; }
+.bank-app-status code { overflow-wrap: anywhere; }
+
+/* a connection row with a reconnect and a remove button */
+.row-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+/* the password form of Salasana has the measures of the settings forms: the height of a field, a key as wide as its text, no wider than a field needs */
+#salasana .auth-form { margin-top: 0; max-width: 20rem; }
+#salasana .auth-form input { min-height: var(--control-h); font-size: var(--fs-body); }
+#salasana .auth-form .form-row .btn-primary { width: auto; flex: none; min-height: var(--control-h); }
+
+/* Pankkiyhteydet: the accounts Enable Banking does not let the app read, and the reminder button under a consent's end date */
+.unlinked p { margin: 0; }
+.unlinked ul { margin: 4px 0 8px; padding-left: 20px; }
+.text-button { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.text-button:hover { text-decoration-thickness: 2px; }
+/* between a phone and a wide screen the fetch time stays out of Pankkiyhteydet (Tekniset asetukset has it), so an account number keeps its line */
+@media (min-width: 601px) and (max-width: 760px) {
+  .conn-table :is(th, td):nth-child(3) { display: none; }
+  .conn-table td .acc-line { white-space: nowrap; }
+}
+/* a phone: each consent is a block of its own, so its buttons are on the screen and not behind a sideways scroll */
+@media (max-width: 600px) {
+  .conn-table, .conn-table tbody, .conn-table tr, .conn-table td { display: block; width: 100%; box-sizing: border-box; }
+  .conn-table thead { display: none; }
+  .conn-table tr { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .conn-table td { padding: 4px 0; border: 0; }
+  .conn-table td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
+  .conn-table td.num { text-align: left; padding-top: 8px; }
+  .conn-table .row-actions { justify-content: flex-start; }
+}
+/* from 1600 px the members' columns keep measures of their own, so a row reads as one row and the table does not spread its few words over the card */
+@media (min-width: 1600px) {
+  .members-table { table-layout: fixed; }
+  .members-table th:nth-child(1) { width: 18rem; }
+  .members-table th:nth-child(2) { width: 12rem; }
+  .members-table th:nth-child(3) { width: 9rem; }
+  .members-table th:nth-child(4) { width: 9rem; }
+  .members-table td { overflow-wrap: anywhere; }
+}
+
+/* Tuo tiedot sits in the Tiedot card head; its progress, dry run and answer take whole lines under the buttons */
+.data-import-line { flex: 0 0 100%; min-width: 0; }
+.data-import-plan { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.data-import-plan th { text-align: left; font: inherit; color: inherit; text-transform: none; letter-spacing: normal; border: 0; padding: 4px 12px 4px 0; vertical-align: top; }
+.data-import-plan td { text-align: right; padding: 4px 0; border: 0; font-variant-numeric: tabular-nums; }
+.data-import-actions { display: flex; gap: 8px; }
+.recovery-codes { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 24px; font-variant-numeric: tabular-nums; }
+
+/* a visible label above its field: forms of the household and the log filter */
+.form-fields { align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-ui); }
+.field-inline { flex-direction: row; align-items: center; gap: 8px; }
+.field-hint { font-size: var(--fs-label); color: var(--muted); }
+
+/* a phone: the edit key of an account sits under its name, and each row of the members, the sessions and the security log is a block with its cells labelled */
+@media (max-width: 600px) {
+  .accounts-table .acc-edit { display: none; }
+  .acc-edit-phone { display: block; margin-top: 4px; }
+  .rows-phone, .rows-phone tbody, .rows-phone tr, .rows-phone td { display: block; width: 100%; box-sizing: border-box; }
+  .rows-phone thead, .rows-phone td.hide-phone { display: none; }
+  .rows-phone tr { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .rows-phone td { padding: 2px 0; border: 0; text-align: left; overflow-wrap: anywhere; }
+  .rows-phone td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
+}
+.field-inline { max-width: 100%; min-width: 0; }
+.field-inline select { min-width: 0; max-width: 60vw; }

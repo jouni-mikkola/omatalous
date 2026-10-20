@@ -1,0 +1,12 @@
+/* Rows in another currency under an account in Asetukset > Tilit: body size and text colour, figures tabular and to the right. */
+.acc-foreign { margin-top: 8px; white-space: normal; }
+.acc-foreign-currency + .acc-foreign-currency { margin-top: 8px; }
+.acc-foreign-head { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.acc-foreign-code { font-weight: 600; }
+.acc-foreign .num { font-variant-numeric: tabular-nums; text-align: right; }
+.acc-foreign-rows { list-style: none; margin: 4px 0 0; padding: 0; max-width: 36rem; }
+.acc-foreign-rows li { display: grid; grid-template-columns: 6.5rem 1fr auto; gap: 12px; padding: 2px 0; }
+.acc-foreign-text { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .acc-foreign-rows li { grid-template-columns: 5.5rem 1fr auto; gap: 8px; }
+}

@@ -1,0 +1,277 @@
+/* Säästövinkit: the lead strip, the deadlines, the areas, the tips with their calculation, the follow-up, the rates, the checks, the decided ones and the inputs. */
+
+.optimise .card h3 { font-size: var(--fs-body); line-height: 18px; font-weight: 600; margin: 0; }
+.optimise h4 { margin: 0; font-size: var(--fs-body); line-height: 18px; font-weight: 600; color: var(--text); }
+
+/* a finding: the words on the left, the euros on the right, on a phone one under the other */
+.findings { display: flex; flex-direction: column; gap: var(--sp-12); }
+/* an inner frame (no corner marks, no shadow) */
+.finding, .other { border: 1px solid var(--border); border-radius: var(--radius-m); padding: var(--sp-16); background: var(--surface); min-width: 0; }
+/* Muut havainnot: an insight's tone is a badge above its words */
+.other-tone { margin: 0 0 var(--sp-4); }
+/* the words in columns 1-8, the euros in 9-12 */
+.finding-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-8) var(--gap); align-items: start; }
+.finding-main { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+.finding-main p, .finding-money { margin: 0; }
+.finding-title { font-weight: 600; }
+.finding-action { color: var(--text-2); }
+.finding-money { grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+/* an insight's figure is a cost or a change, not a saving: plain weight, beside its words, and what to do under them */
+.other-figure { color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+.finding-main p.other-todo { margin-top: 8px; color: var(--text-2); }
+@media (max-width: 640px) {
+  .finding-main, .finding-money { grid-column: 1 / -1; }
+  .finding-money { align-items: flex-start; text-align: left; }
+}
+
+.finding-actions { margin-top: var(--sp-12); }
+.finding-actions .form-row { margin: 0; gap: 8px; }
+/* a phone: the keys stand in two columns (the widest of each), so four keys are two and two and none stands alone */
+@media (max-width: 640px) { .finding-actions .form-row { display: grid; grid-template-columns: repeat(2, max-content); justify-content: start; } }
+/* the form that opens under the buttons: a date, a reason, a delay or a number */
+.decide-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 8px; margin-top: 8px; padding: var(--sp-12); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); }
+.decide-form label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.decide-form.refine { align-items: flex-start; }
+.decide-form .input-form { flex: 1 1 100%; }
+
+/* the calculation */
+.evidence { margin-top: var(--sp-16); padding-top: var(--sp-16); border-top: 1px solid var(--border); display: grid; gap: 16px; min-width: 0; }
+.evidence-part { min-width: 0; }
+/* a part without a chart has a measure, so a label stays near its figure; a part with a chart keeps the panel's width */
+.evidence-part:not(:has(.chart)) { max-width: 36rem; }
+.evidence-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: var(--sp-8); }
+.calc { margin: 0; }
+.calc > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 16px; min-height: var(--row-h); padding: var(--cell-y) 0; box-sizing: border-box; border-bottom: 1px solid var(--grid); }
+.calc > div:last-child { border-bottom: none; }
+.calc dt { color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
+.calc dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; max-width: 55%; }
+.calc .struck dt, .calc .struck dd { color: var(--muted); }
+.evidence-rows th { padding-left: 0; }
+.evidence-rows th.num { padding-right: 0; }
+.evidence-rows td.when { white-space: nowrap; }
+.evidence-rows tr.struck td { color: var(--muted); }
+.evidence-check { margin: 0; }
+@media (max-width: 640px) { .calc dd { max-width: 50%; } }
+
+/* Päätetyt and the inputs */
+.decided-list, .needed-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.decided, .needed { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-8) var(--sp-16); min-height: var(--row-h); box-sizing: border-box; padding: var(--cell-y) 0; border-bottom: 1px solid var(--grid); }
+.decided:last-child, .needed:last-child { border-bottom: none; }
+.needed { align-items: flex-start; justify-content: flex-start; }
+/* a row's label, its field and its key stand together: the label has a measure of its own, the field follows it */
+.needed > .needed-text { flex: 0 1 20rem; }
+.decided-text, .needed-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 18rem; min-width: 0; overflow-wrap: anywhere; }
+.decided-title { font-weight: var(--w-strong); }
+.needed > .input-form { flex: 0 1 24rem; min-width: 0; }
+.input-fields { display: flex; flex-direction: column; gap: 4px; }
+.input-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.input-line select { max-width: 100%; }
+.input-form .form-row { margin: 8px 0 0; }
+.stale { color: var(--warn); }
+.optimise-subhead { margin: var(--sp-16) 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+@media (max-width: 640px) { .needed > .input-form { flex-basis: 100%; } }
+
+/* the lead strip: the key figure tiles of base.css; here only the day strip of 61 days and its deadline marks */
+.sv-lead .kf-days { gap: 1px; max-width: 240px; }
+/* warn is a status: a deadline under 30 days, or one that has passed; a later one is a quiet mark */
+.sv-lead .kf-due::after { background: var(--text-2); }
+.sv-lead .kf-due.kf-near::after { background: var(--warn); }
+
+/* an estimate wears ≈ before its number, quieter than the number */
+.est { display: inline-flex; align-items: baseline; gap: var(--sp-4); }
+
+/* the checks as segments: tips, in order, waiting, nothing to check; a 2 px gap of the surface between them */
+.check-seg { display: flex; gap: 2px; block-size: var(--bar-h); margin: var(--sp-4) 0; max-width: 240px; }
+.check-seg > span { min-inline-size: 4px; border-radius: var(--radius-pill); }
+.seg-finding { background: var(--accent); }
+.seg-clear { background: color-mix(in srgb, var(--good) 70%, var(--surface)); }
+.seg-waiting { background: color-mix(in srgb, var(--warn) 60%, var(--surface)); }
+.seg-none { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--grid); }
+#tarkistettu .check-seg { max-width: none; margin: 0 0 var(--sp-16); }
+
+/* an area's mark: its glyph in the text colour on a disc of 16 % of its series, as the avatar of a payee */
+.area-mark { flex: none; display: inline-grid; place-items: center; border-radius: 50%; color: var(--text); background: color-mix(in srgb, var(--rt-hue) 16%, var(--surface)); }
+.area-mark path { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Missä on eniten säästettävää: the spend with a bar under it, the saving as a band on the column's scale */
+.reach a.rt-who { color: inherit; text-decoration: none; }
+.reach a.rt-who:hover .reach-name { text-decoration: underline; }
+.reach-name { font-weight: 600; }
+:is(.reach, .outcomes, .rates) .tx-under { display: block; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-weight: 400; }
+.reach-spend { min-inline-size: 140px; }
+.reach-spend .tc-bar { margin: var(--sp-4) 0 0 auto; max-inline-size: 160px; }
+.reach-range-h, .reach-range { min-inline-size: 240px; }
+.reach-range-h .muted { margin-left: var(--sp-4); font-weight: 400; }
+.reach-range-text { display: block; margin-top: var(--sp-4); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.reach-range-text .muted { font-weight: 400; }
+.range-bar { position: relative; display: block; block-size: 12px; border-radius: var(--radius-s); background: var(--surface-2); }
+/* a range is an estimate: the estimate fill inside a dashed edge, the mid a tick of the text colour */
+.range-band { position: absolute; inset-block: 1px; min-inline-size: 4px; box-sizing: border-box; border-radius: var(--radius-s); background: var(--estimate-fill); border: 1px dashed var(--estimate-edge); }
+.range-mid { position: absolute; inset-block: 0; inline-size: 2px; margin-inline-start: -1px; border-radius: var(--radius-pill); background: var(--text); }
+
+/* a tip: mark | words | figure, the keys under the words, the basis under all */
+.tips { display: flex; flex-direction: column; gap: var(--sp-12); }
+.tip { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: var(--sp-4) var(--sp-16); padding: var(--sp-16); border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface); }
+.tip-open { box-shadow: var(--lift-1); }
+.tip > .area-mark { grid-row: 1 / span 2; }
+.tip-main { min-width: 0; overflow-wrap: anywhere; }
+.tip-main p { margin: 0; }
+.tip-title { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+.tip-main p.tip-action { margin-top: 2px; color: var(--text-2); }
+.tip-main p.tip-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4) var(--sp-12); margin-top: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.tip-meta:empty { display: none; }
+.tip-due { display: inline-flex; gap: var(--sp-4); padding: 1px var(--sp-8); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text); }
+.tip-due-near { background: var(--warn-bg); }
+.tip-shared { padding: 1px var(--sp-8); border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px var(--border); }
+/* the figure is the button that opens the basis: nothing at rest, the accent underline under the pointer or the focus */
+.tip-figure { grid-column: 3; grid-row: 1; display: grid; grid-template-columns: auto 16px; align-items: baseline; justify-items: end; gap: 0 var(--sp-4); padding: var(--sp-4) var(--sp-8); margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-8)) 0 0; border: 0; border-radius: var(--radius-s); background: none; color: var(--text); font: inherit; cursor: pointer; text-align: right; }
+.tip-figure:hover .tip-fig .fig, .tip-figure:focus-visible .tip-fig .fig { text-decoration: underline solid var(--accent); text-underline-offset: 4px; }
+.tip-figure:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tip-fig { display: inline-flex; align-items: baseline; }
+.tip-unit { grid-column: 1; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+.tip-chev { grid-column: 2; grid-row: 1; align-self: center; }
+.tip-chev path { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); transform-origin: 8px 8px; }
+.tip-figure[aria-expanded="true"] .tip-chev path { transform: rotate(180deg); }
+.tip-actions { grid-column: 2 / -1; }
+.tip-actions .finding-actions { margin-top: var(--sp-4); }
+.tip-basis { grid-column: 1 / -1; }
+@media (prefers-reduced-motion: reduce) { .tip-chev path { transition: none; } }
+@media (max-width: 640px) {
+  .tip { grid-template-columns: 28px minmax(0, 1fr); padding: var(--sp-12); }
+  .tip > .area-mark { grid-row: 1; inline-size: 28px !important; block-size: 28px !important; }
+  .tip-main { grid-column: 2; grid-row: 1; }
+  .tip-figure { grid-column: 2; grid-row: 2; justify-items: start; justify-self: start; text-align: left; margin: 0 0 0 calc(-1 * var(--sp-8)); }
+  .tip-actions { grid-column: 1 / -1; }
+}
+
+/* the tips by area: a group head carries the mark, the count and the area's saving at the right */
+.tip-groups { display: flex; flex-direction: column; gap: var(--sp-24); }
+.optimise .tip-group-head { display: flex; align-items: center; gap: var(--sp-8); margin: 0 0 var(--sp-12); padding-bottom: var(--sp-8); border-bottom: 1px solid var(--grid); font-size: var(--fs-body); }
+.tip-group-sum { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.tips-more { margin-top: var(--sp-12); }
+.tip-summary { margin-top: var(--sp-12); max-width: 36rem; }
+
+/* the 60 days ahead: an axis with five dates and a pin on each deadline, the labels on three rows so near days do not collide */
+.due-line { position: relative; block-size: 80px; margin: 0 0 var(--sp-16); }
+.due-axis { position: absolute; inset-inline: 0; inset-block-end: 20px; block-size: 6px; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--accent) 0 2px, var(--surface-2) 2px); }
+.due-tick { position: absolute; inset-block-start: 12px; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); white-space: nowrap; }
+.due-tick > span { position: absolute; transform: translateX(-50%); }
+.due-tick:first-child > span { transform: none; }
+.due-tick:last-child > span { transform: translateX(-100%); }
+.due-pin { position: absolute; inset-block-end: 20px; inline-size: 0; }
+.due-pin::before { content: ""; position: absolute; inset-block-end: -3px; inset-inline-start: -6px; inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--text-2); box-shadow: 0 0 0 2px var(--surface); }
+.due-near::before { background: var(--warn); }
+.due-pin::after { content: ""; position: absolute; inset-block-end: 9px; inset-inline-start: 0; inline-size: 1px; background: var(--axis); }
+.due-row-0::after { block-size: 14px; }
+.due-row-1::after { block-size: 30px; }
+.due-row-2::after { block-size: 46px; }
+.due-pin-label { position: absolute; inset-inline-start: 6px; white-space: nowrap; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); }
+.due-row-0 .due-pin-label { inset-block-end: 10px; }
+.due-row-1 .due-pin-label { inset-block-end: 26px; }
+.due-row-2 .due-pin-label { inset-block-end: 42px; }
+.due-pin-label strong { font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+
+/* Tuottivatko muutokset säästöä: the months as bars, the two levels dashed, the change a rule */
+.outcomes td { vertical-align: top; }
+.outcomes .outcome-reason { max-width: 28rem; }
+.ba { display: block; overflow: visible; }
+.ba-before { fill: color-mix(in srgb, var(--text-2) 40%, var(--surface)); }
+.ba-after { fill: var(--accent); }
+.ba-change { stroke: var(--axis); stroke-width: 1; }
+.ba-level { stroke: var(--text); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.ba-key { display: inline-block; inline-size: 8px; block-size: 8px; margin: 0 2px 0 var(--sp-8); border-radius: var(--radius-pill); }
+.ba-key-before { margin-left: 0; background: color-mix(in srgb, var(--text-2) 40%, var(--surface)); }
+.ba-key-after { background: var(--accent); }
+.outcomes-key { margin: var(--sp-8) 0 0; }
+.verdict { display: inline-flex; align-items: center; gap: var(--sp-4); font-weight: 600; white-space: nowrap; }
+.verdict-sign { display: inline-grid; place-items: center; inline-size: 20px; block-size: 20px; border-radius: 50%; font-size: var(--fs-tick); background: var(--surface-2); color: var(--text); }
+.verdict-good .verdict-sign { background: var(--good-bg); color: var(--good); }
+.verdict-bad .verdict-sign { background: var(--bad-bg); color: var(--bad); }
+#seuranta .table-wrap + .decided-list, #seuranta .decided-list + .evidence-part, #seuranta .table-wrap + .evidence-part { margin-top: var(--sp-24); }
+
+/* the rate moves: a payment, its change as a chip, the year's interest under it */
+.rates .rate-move .tc-delta { margin-left: var(--sp-4); }
+.rates .rate-pay { font-weight: 600; }
+.rates-fixed { color: var(--text-2); }
+
+/* the certainty as three steps beside its word */
+.certainty { display: inline-flex; align-items: center; gap: var(--sp-4); }
+.certainty-steps { display: inline-flex; gap: 2px; }
+.certainty-steps > span { inline-size: 6px; block-size: 10px; border-radius: var(--radius-pill); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--grid); }
+.certainty-steps > span.on { background: var(--text-2); box-shadow: none; }
+
+/* Mitä tarkistettiin: three groups side by side on a wide screen */
+.checked-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-16) var(--gap); }
+.optimise .checked-group h3 { display: flex; align-items: center; gap: var(--sp-8); margin: 0 0 var(--sp-8); padding-bottom: var(--sp-8); border-bottom: 1px solid var(--grid); }
+.checked-sign { display: inline-grid; place-items: center; inline-size: 20px; block-size: 20px; border-radius: 50%; font-size: var(--fs-tick); background: var(--surface-2); }
+.checked-clear .checked-sign { background: var(--good-bg); color: var(--good); }
+.checked-waiting .checked-sign { background: var(--warn-bg); color: var(--text); }
+.checked-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.checked-group li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-8); min-height: 28px; font-size: var(--fs-body); }
+.checked-group li .checked-label { flex: 1 1 auto; min-width: 0; }
+.checked-why { flex: 1 0 100%; padding-left: 28px; }
+.checked-why, .checked-cents, .checked-count { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+.checked-none li { color: var(--text-2); }
+
+/* a phone: the area, outcome and rate tables become cards; a cell says its column from its own data-head */
+@media (max-width: 640px) {
+  :is(.reach, .outcomes, .rates) thead { display: none; }
+  :is(.reach, .outcomes, .rates), :is(.reach, .outcomes, .rates) tbody { display: block; }
+  :is(.reach, .outcomes, .rates) tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4) var(--sp-12); padding: var(--sp-12) 0; border-bottom: 1px solid var(--grid); }
+  :is(.reach, .outcomes, .rates) td { display: block; padding: 0 !important; border: 0 !important; text-align: left; min-inline-size: 0; }
+  :is(.reach, .outcomes, .rates) td[data-head]::before { content: attr(data-head); display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+  .reach td.reach-range { grid-column: 1 / -1; grid-row: 2; }
+  .reach td.reach-spend { grid-column: 1 / -1; grid-row: 3; }
+  .reach-spend .tc-bar { margin: var(--sp-4) 0 0; }
+  .reach td:last-child { grid-column: 2; grid-row: 1; text-align: right; }
+  .outcomes td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .outcomes td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
+  .outcomes td:nth-child(n + 5) { grid-column: 1 / -1; }
+  .rates tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rates td:first-child, .rates td.rates-fixed { grid-column: 1 / -1; }
+  .rates .rate-move .tc-delta { display: table; margin: 2px 0 0; }
+  .rates .rate-move .tx-under { display: none; }
+  .due-pin-label { font-size: var(--fs-tick); }
+  .due-pin-name { display: none; }
+}
+@media (max-width: 640px) {
+  /* the three keys share one row; with Tarkenna they stand two and two */
+  .tip-actions .finding-actions .form-row { display: flex; flex-wrap: nowrap; }
+  .tip-actions .finding-actions .form-row:has(> :nth-child(4)) { display: grid; grid-template-columns: repeat(2, max-content); }
+  .tip-actions .finding-actions .form-row > .btn { flex: 1 1 auto; padding-inline: var(--sp-8); }
+}
+
+/* one key a card at rest: Päätä opens the four answers under it */
+.finding-actions .decide-key { margin: 0; }
+.finding-actions .decide-choices { margin-top: var(--sp-8); }
+/* an exact figure the title says opens the basis from the title itself */
+.tip-said { grid-template-columns: 32px minmax(0, 1fr); }
+.tip-inline { display: inline-flex; align-items: baseline; gap: 2px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.tip-inline .tip-chev { align-self: center; }
+/* an insight has no area: its card is words and figure */
+.tip.other { grid-template-columns: minmax(0, 1fr) auto; }
+.tip.other .tip-figure { grid-column: 2; }
+.tip.other .tip-actions { grid-column: 1 / -1; }
+a.tip-figure { text-decoration: none; }
+.tip-figure-still { cursor: default; }
+/* the checks' segments with their counts under them */
+.check-key { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: 0 0 var(--sp-16); padding: 0; list-style: none; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+.check-key li { display: inline-flex; align-items: center; gap: var(--sp-4); }
+.check-swatch { display: inline-block; inline-size: 12px; block-size: var(--bar-h); border-radius: var(--radius-pill); }
+#tarkistettu .check-seg { margin-bottom: var(--sp-8); }
+@media (max-width: 640px) {
+  .tip-said { grid-template-columns: 28px minmax(0, 1fr); }
+  .tip.other { grid-template-columns: minmax(0, 1fr); }
+  /* one column: the phone rule above puts .tip-main in a second column that this grid has not */
+  .tip.other .tip-main { grid-column: 1; grid-row: 1; }
+  .tip.other .tip-figure { grid-column: 1; grid-row: 2; }
+  .tip.other .tip-actions { grid-row: 3; }
+}
+
+/* the calculation as one line: name and figure pairs, a dot between them */
+.calc-line { display: flex; flex-wrap: wrap; gap: var(--sp-4) 0; margin: 0; font-variant-numeric: tabular-nums lining-nums; }
+.calc-line > div { display: inline-flex; align-items: baseline; gap: var(--sp-4); }
+.calc-line > div + div::before { content: "·"; margin: 0 var(--sp-8); color: var(--muted); }
+.calc-line dt { color: var(--text-2); }
+.calc-line dd { margin: 0; font-weight: 600; }
+.calc-line .struck :is(dt, dd) { color: var(--muted); font-weight: 400; }

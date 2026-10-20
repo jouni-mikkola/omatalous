@@ -1,0 +1,52 @@
+name: Promote
+
+# Every release is created as a pre-release, which /releases/latest (what installs read) skips, so an install is offered
+# a release only after this workflow promotes it. It runs every six hours and by hand, and tools/ci/promote-release.sh
+# promotes the highest release when it is a pre-release, once it is 48 hours old, above the latest release, and its
+# image verifies with the check installs run. One release per run. Holding a release is making it a draft
+# (gh release edit TAG --draft), pulling it is deleting it; a draft is never promoted and holds every older release
+# too, so nothing below the highest version goes out while that one is a draft (docs/RELEASING.md).
+# Runs only in the public repository, where minutes are free; in the private one the job is skipped and bills nothing.
+# GitHub switches a scheduled workflow off after 60 days with no activity in the repository: a release then stays a
+# pre-release until it is promoted by hand, and nothing else breaks (docs/RELEASING.md).
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# a run by hand while the schedule runs would edit the same release twice
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.repository == 'jouni-mikkola/omatalous'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # edits the release: pre-release off, latest on
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Does a pre-release wait?
+        id: look
+        run: |
+          # one API call. When none waits, nothing is checked out and the run ends here, a second or two long
+          n=$(gh api "repos/$GH_REPO/releases?per_page=100" --jq '[.[] | select(.prerelease and (.draft | not))] | length')
+          echo "waiting=$([[ $n -gt 0 ]] && echo true || echo false)" >>"$GITHUB_OUTPUT"
+          echo "$n pre-release(s) that are no draft."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.look.outputs.waiting == 'true'
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib/release.sh
+            tools/ci/promote-release.sh
+          sparse-checkout-cone-mode: false
+      - name: Promote the newest pre-release that has waited
+        if: steps.look.outputs.waiting == 'true'
+        run: bash tools/ci/promote-release.sh

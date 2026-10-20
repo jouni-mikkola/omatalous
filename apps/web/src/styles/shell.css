@@ -1,0 +1,97 @@
+/* App.tsx: the rail, the phone's tab bar, user menu, skip link. */
+
+.app { max-width: var(--container); margin: 0 auto; padding: 0 16px 48px; }
+/* when the rows were last fetched: right on a wide screen, left and wrapping on a phone; empty it takes no room */
+.sync-line { margin: 0 0 var(--sp-8); font-size: var(--fs-label); text-align: right; overflow-wrap: anywhere; }
+.sync-line:empty { display: none; }
+@media (max-width: 640px) { .sync-line { text-align: left; } }
+
+/* the band runs the full width of the window in --ink; what is in it is as wide as the page below */
+.topbar { background: var(--ink); color: var(--on-ink); margin-bottom: 20px; box-shadow: inset 0 -1px 0 var(--bar-edge); }
+.topbar-in { max-width: var(--container); margin: 0 auto; height: var(--rail-h); padding: 0 16px; display: flex; align-items: center; flex-wrap: nowrap; gap: 0 20px; }
+.topbar :focus-visible { outline-color: var(--on-ink); box-shadow: none; }
+.topbar .brand { padding-bottom: 0; }
+.topbar .brand-mark { background: var(--on-ink); }
+.topbar .brand-mark i { background: var(--ink); }
+.topbar .spacer { flex: 1; }
+
+/* the rail from 641 px: one composited layer that stays; the page you are on is a 3 px bar at its foot */
+@media (min-width: 1100px) {
+  .topbar { position: sticky; top: 0; z-index: var(--z-rail); }
+}
+/* between a phone and 1100 px the pages do not fit beside the switch: one row needs 1066 px with the switch drawn (the pages, the switch on one line, the tray with its count, Asetukset, the user); they take a row of their own under the first */
+@media (min-width: 641px) and (max-width: 1099px) {
+  .topbar-in { height: auto; flex-wrap: wrap; gap: 0 12px; }
+  .topbar .brand, .settings-link, .user-menu { min-height: var(--rail-h); }
+  .topbar .brand { align-items: center; }
+  .user-menu summary { min-height: var(--rail-h); }
+  .nav { order: 9; flex: 0 0 100%; margin: 0 -12px; box-shadow: inset 0 1px 0 var(--bar-edge); }
+}
+/* the user's small text (the household or role line) gives way under 1100 px so the one row holds a long name */
+@media (max-width: 1099px) { .user-menu summary .small { display: none; } }
+.nav { display: flex; gap: 0; }
+.nav a, .settings-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 12px; color: var(--on-ink-2); font-size: var(--fs-body); font-weight: 600; text-decoration: none; }
+/* one row up to 1299 px holds the private build's extra page beside the view switch and a long name: the links sit closer */
+@media (min-width: 990px) and (max-width: 1299px) { .nav a, .settings-link { padding: 0 8px; } }
+/* and the items stand closer: at 1100 px the private build's extra page, the view switch and the review count need the 12 px less a gap */
+@media (min-width: 1100px) and (max-width: 1299px) { .topbar-in { gap: 0 8px; } }
+.nav a:hover, .settings-link:hover { background: var(--ink-2); color: var(--on-ink); }
+.nav a[aria-current="page"], .settings-link[aria-current="page"] { background: none; color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--on-ink); }
+
+/* Tarkistettavat beside Asetukset: a tray, the word, and the count of open questions when there are any */
+.review-link { gap: 8px; }
+.review-glyph { inline-size: 16px; block-size: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+.nav-count { min-inline-size: 20px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--on-ink); color: var(--ink); font-size: var(--fs-label); line-height: 20px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+/* the word gives way where the header row is full: the tray and the count stay, and the link's name says both */
+/* on a phone the count stands small at the tray's upper right, past its edge and never over it, in the gap after the link: the row keeps the width it had without the count */
+@media (max-width: 640px) {
+  .review-link { position: relative; padding: 0 8px; }
+  .review-link .nav-count { position: absolute; top: 4px; left: 23px; min-inline-size: 16px; padding: 0 4px; font-size: var(--fs-tick); line-height: 16px; }
+}
+@media (max-width: 1239px) { .review-link-text { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+
+.topbar .segmented { background: var(--ink-2); border-color: transparent; flex: none; white-space: nowrap; }
+.topbar .segmented button { white-space: nowrap; }
+.topbar .segmented button { color: var(--on-ink-2); }
+.topbar .segmented button:hover { color: var(--on-ink); }
+.topbar .segmented button[aria-pressed="true"] { background: var(--on-ink); color: var(--ink); }
+.scope-toggle { margin-left: 4px; }
+
+.range-label { color: var(--muted); font-size: var(--fs-ui); }
+
+.user-menu { position: relative; }
+.user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-m); }
+.user-menu summary::-webkit-details-marker { display: none; }
+.user-menu summary:hover { background: var(--ink-2); }
+.avatar { width: 28px; height: 28px; border-radius: var(--radius-m); background: var(--on-ink); color: var(--ink); display: inline-grid; place-items: center; font-size: var(--fs-label); font-weight: 600; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-pop); min-width: 200px; background: var(--surface); color: var(--text); border: 1px solid var(--pop-edge); border-radius: var(--radius); padding: 8px; box-shadow: var(--pop-shadow); display: flex; flex-direction: column; }
+.menu button, .menu a { text-align: left; border: none; background: none; padding: var(--cell-y) 8px; min-height: 36px; display: flex; align-items: center; border-radius: var(--radius-s); cursor: pointer; text-decoration: none; color: var(--text); }
+.menu button:hover, .menu a:hover { background: var(--surface-2); }
+.menu .muted { padding: 4px 8px 8px; font-size: var(--fs-label); }
+
+/* phones: one top row (mark, view switch, Asetukset, the user) and the five pages as a tab bar at the foot */
+@media (max-width: 640px) {
+  .topbar-in { padding: 0 12px; gap: 0 8px; }
+  .user-menu summary .small { display: none; }
+  .user-menu summary, .settings-link { min-height: 44px; }
+  /* the mark alone beside the switch */
+  .topbar-in:has(.scope-toggle) .brand { font-size: 0; gap: 0; }
+  .scope-toggle { margin-left: 0; }
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-tabbar); height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom); background: var(--ink); box-shadow: inset 0 1px 0 var(--bar-edge); }
+  .nav a { flex: 1 1 auto; height: var(--tabbar-h); justify-content: center; padding: 0 2px; font-size: var(--fs-label); white-space: nowrap; }
+  .nav a[aria-current="page"] { box-shadow: inset 0 3px 0 var(--on-ink); }
+  .app { padding: 0 12px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
+}
+
+/* off the screen until it is focused; light on the dark band and on the page alike */
+.skip-link { position: absolute; left: -9999px; top: 8px; z-index: var(--z-skip); background: var(--on-ink); color: var(--ink); padding: 8px 12px; border-radius: var(--radius-s); text-decoration: none; box-shadow: 0 0 0 2px var(--ink); }
+.skip-link:focus { left: 8px; }
+main:focus { outline: none; }
+/* at 320 px the five tabs are 3 px wider than the screen with 2 px of padding each: 1 px does it */
+@media (max-width: 340px) {
+  .nav a { padding: 0 1px; }
+  /* and the header row holds Tarkistettavat's tray with 2 px a side */
+  .review-link { padding: 0 2px; }
+  .review-link .nav-count { left: 10px; }
+}

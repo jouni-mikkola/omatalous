@@ -1,0 +1,15 @@
+{
+  "name": "@banking/core",
+  "version": "0.69.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/core",
+    "typecheck": "tsc -p ."
+  }
+}

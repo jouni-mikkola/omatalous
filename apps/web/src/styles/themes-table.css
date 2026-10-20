@@ -1,0 +1,24 @@
+/*
+ * The label that opens its lines (Ruoka, Menot kuukausittain, the months of a source) and the heading with the period at
+ * its right. The rows, the figures and the cut names are the statement classes (statement.css); the bar is
+ * `.category-bar` (overview.css).
+ */
+
+.themes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 4px; }
+.themes-head .st-cap { margin: 0; }
+.themes-head .st-num { font-size: var(--fs-body); line-height: 18px; }
+
+/* a label that opens its lines: a button that reads as the text, with an arrow that turns when it is open */
+.themes-toggle { display: flex; align-items: baseline; width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.themes-toggle:focus-visible { outline-offset: -2px; }
+.themes-toggle::before { content: ""; flex: none; box-sizing: border-box; width: 6px; height: 6px; margin: 0 8px 0 2px; align-self: center; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.themes-toggle[aria-expanded="true"]::before { transform: rotate(45deg); }
+.themes-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a row with nothing to open stands where the labels with an arrow stand */
+.themes-plain { display: block; padding-left: 16px; overflow: hidden; text-overflow: ellipsis; }
+
+/* the large purchases: one sum of the whole window, a row of its own under the chart */
+.themes-large { border-top: 1px solid var(--grid); margin-top: 12px; }
+.themes-large > .st-row { border-bottom: 0; }
+.themes-large-rows { padding-left: 16px; border-top: 1px solid var(--grid); }
+.themes-large-rows .themes-date { width: 5rem; text-align: left; }

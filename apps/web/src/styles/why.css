@@ -1,0 +1,59 @@
+/*
+ * The figure that opens its rows, and the panel of those rows one depth up like the confirmation dialog. A tappable figure
+ * wears nothing at rest (VD0, owner rule): the pointer, a solid accent underline under the pointer or the keyboard's focus,
+ * and its accessible name say it opens. The dotted underline and "≈" belong to estimates alone (.fig-est).
+ */
+/* every door (Why): the pointer and the focus ring, whatever it draws (a figure, a bar) */
+.why-door { cursor: pointer; }
+.why-door:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.why-fig { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; border-radius: var(--radius-s); }
+.why-fig:hover, .why-fig:focus-visible { text-decoration: underline solid 1px var(--accent); text-underline-offset: 3px; }
+.why-fig:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* an estimate: a dotted underline in the muted colour, the "≈" before the figure is written by the caller */
+.fig-est { text-decoration: underline dotted 1px var(--muted); text-underline-offset: 3px; }
+.fig-approx { display: inline-flex; align-items: baseline; gap: var(--sp-4); }
+.fig-approx-sign { color: var(--text-2); font-weight: var(--w-regular); }
+/* an estimate in a chart or a table (the `estimate` of Why marks its figure): lighter, with a dashed edge */
+.est-area { fill: var(--estimate-fill); stroke: var(--estimate-edge); stroke-width: 1; stroke-dasharray: 4 4; }
+.est-line { fill: none; stroke: var(--estimate-edge); stroke-dasharray: 4 4; }
+.est-bar { background: var(--estimate-fill); outline: 1px dashed var(--estimate-edge); outline-offset: -1px; }
+.est-row, .est-row .num { color: var(--muted); }
+dialog.why { padding: var(--pad); width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: hidden; border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--pop-edge), var(--pop-shadow); }
+dialog.why::backdrop { background: var(--backdrop); }
+/* the panel stands under body (a portal), so it starts from the page's own text: left, regular, the body size */
+dialog.why { text-align: left; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-regular); }
+dialog.why h2 { margin: 0 0 var(--sp-4); font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; }
+.why-period { margin: 0 0 var(--sp-16); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums; }
+dialog.why[open] { display: flex; flex-direction: column; }
+.why-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.why-foot { flex: none; border-top: 1px solid var(--border); margin-top: 8px; }
+.why-total { display: flex; justify-content: space-between; padding: 4px 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.why-rows thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.why-reason { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.why-left { margin-top: 8px; }
+.why-left summary { cursor: pointer; font-weight: 600; }
+.why-rows { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.why-rows th, .why-rows td { padding: 4px 8px 4px 0; text-align: left; vertical-align: top; }
+.why-rows .num { text-align: right; padding-right: 0; white-space: nowrap; }
+.why-rows .why-day { white-space: nowrap; color: var(--text-2); }
+.why-rows .rt-subrow td { padding-top: 0; }
+.why-more-in { padding-left: 4.5rem; }
+/* the check says in the muted line of the panel that the rows add up to the figure; a difference stands in the text colour */
+.why-check { margin: 0; text-align: right; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.why-differs { color: var(--text); }
+dialog.why .form-row { justify-content: flex-end; margin: var(--sp-16) 0 0; }
+.why-list { margin: 0 0 8px; padding-left: 20px; }
+.why-month > summary { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; cursor: pointer; font-variant-numeric: tabular-nums; }
+.why-month > summary .num { white-space: nowrap; }
+.why-month > summary { justify-content: flex-start; text-align: left; }
+.why-month > summary .num { margin-left: auto; }
+.why-list li { white-space: normal; overflow-wrap: anywhere; text-align: left; }
+dialog.why .btn { font-weight: 600; }
+.why-month > summary { align-items: center; }
+.why-cat-sub { display: none; }
+/* a phone: the panel is a sheet from the foot of the screen, the whole width, and a row's category goes under its name */
+@media (max-width: 640px) {
+  dialog.why { margin: auto 0 0; width: 100vw; max-width: 100vw; max-height: 85dvh; border-radius: var(--radius) var(--radius) 0 0; padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom)); }
+  .why-rows .why-cat { display: none; }
+  .why-cat-sub { display: block; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+}

@@ -1,0 +1,333 @@
+/* Tapahtumat: the filter bar, the totals strip, the rows with their chips and marks, the drill. Tokens only. */
+
+.tx-page { gap: var(--gap); }
+.view-tabs { align-self: flex-start; }
+
+/* ── the filter bar: the search, then a chip per filter ─────────────────────────────── */
+.tx-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
+.tx-filterbar form { flex: 0 1 18rem; min-width: 12rem; }
+.tx-filterbar input[type="search"] { width: 100%; }
+.tx-fchips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); }
+.tx-fchip { position: relative; display: inline-flex; align-items: stretch; height: var(--control-h); border: 1px dashed var(--border); border-radius: var(--radius-m); background: transparent; color: var(--text-2); }
+.tx-fchip.set { border-style: solid; border-color: color-mix(in srgb, var(--accent) 60%, var(--surface)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
+.tx-fchip-main { all: unset; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); font-size: var(--fs-ui); line-height: var(--lh-ui); cursor: pointer; white-space: nowrap; }
+.tx-fchip.set .tx-fchip-main { padding-right: var(--sp-4); }
+.tx-fchip-main:focus-visible, .tx-fchip-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
+.tx-fchip-plus { font-weight: var(--w-strong); color: var(--accent-ink); }
+.tx-fchip-name { color: var(--text-2); }
+.tx-fchip-value { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; font-weight: var(--w-strong); }
+.tx-fchip-x { all: unset; display: inline-grid; place-items: center; width: 28px; cursor: pointer; color: var(--text-2); }
+.tx-fchip-x svg, .tx-chip-caret { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+.tx-fchip-x:hover { color: var(--text); }
+.tx-fclear { all: unset; padding: 0 var(--sp-8); font-size: var(--fs-ui); color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tx-fclear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
+
+/* ── the popover: under its control on a wide screen, a sheet at the bottom on a phone ─────── */
+.tx-pop { position: absolute; top: calc(100% + var(--sp-8)); left: 0; z-index: var(--z-pop); min-width: 18rem; padding: var(--sp-8); border: 1px solid var(--pop-edge); border-radius: var(--radius); background: var(--surface); box-shadow: var(--pop-shadow); color: var(--text); animation: tx-pop var(--t-open) var(--ease-out); }
+@keyframes tx-pop { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .tx-pop { animation: none; } }
+.tx-pop-search { width: 100%; margin-bottom: var(--sp-8); }
+.tx-pop-note { margin: var(--sp-8) var(--sp-4) 0; padding-top: var(--sp-8); border-top: 1px solid var(--grid); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+
+.tx-catlist { max-height: 20rem; overflow-y: auto; overscroll-behavior: contain; }
+.tx-catgroup { padding: var(--sp-8) var(--sp-8) var(--sp-4); font-size: var(--fs-tick); line-height: var(--lh-tick); font-weight: var(--w-strong); letter-spacing: var(--track-name); text-transform: uppercase; color: var(--text-2); }
+.tx-catopt { display: flex; align-items: center; gap: var(--sp-8); min-height: var(--control-h); padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-ui); cursor: pointer; }
+.tx-catopt.on { background: var(--row-hover); }
+.tx-catopt[aria-selected="true"] { font-weight: var(--w-strong); }
+.tx-catopt-now { margin-left: auto; font-size: var(--fs-label); font-weight: var(--w-regular); color: var(--text-2); }
+.tx-catnone { padding: var(--sp-12) var(--sp-8); color: var(--text-2); font-size: var(--fs-ui); }
+
+.tx-acctlist { margin: 0; padding: 0; list-style: none; }
+.tx-acctlist li { display: flex; align-items: center; gap: var(--sp-8); min-height: var(--control-h); padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-ui); cursor: pointer; }
+.tx-acctlist li:hover, .tx-acctlist li:focus-visible { background: var(--row-hover); outline: none; }
+.tx-acctlist li[aria-selected="true"] { font-weight: var(--w-strong); }
+.tx-acctlist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── the category chip: the group's colour slot as a tint, the category's icon in the slot's hue ──────── */
+[data-slot="1"] { --chip: var(--series-1); }
+[data-slot="2"] { --chip: var(--series-2); }
+[data-slot="3"] { --chip: var(--series-3); }
+[data-slot="4"] { --chip: var(--series-4); }
+[data-slot="5"] { --chip: var(--series-5); }
+[data-slot="6"] { --chip: var(--series-6); }
+[data-slot="7"] { --chip: var(--series-7); }
+[data-slot="rest"] { --chip: var(--series-rest); }
+.tx-icon { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--chip, var(--text-2)); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.tx-chip-wrap { position: relative; display: inline-flex; max-width: 100%; }
+.tx-chip { display: inline-flex; align-items: center; gap: var(--sp-4); max-width: 15rem; height: var(--avatar); padding: 0 var(--sp-8) 0 var(--sp-4); border: 1px solid color-mix(in srgb, var(--chip) var(--mix-chip-edge), var(--surface)); border-radius: var(--radius-m); background: color-mix(in srgb, var(--chip) var(--mix-chip), var(--surface)); color: var(--text); font: inherit; font-size: var(--fs-ui); line-height: var(--lh-ui); white-space: nowrap; box-sizing: border-box; }
+button.tx-chip { cursor: pointer; transition: border-color var(--t-state); }
+button.tx-chip:hover { border-color: color-mix(in srgb, var(--chip) 70%, var(--surface)); }
+button.tx-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
+.tx-chip-label { overflow: hidden; text-overflow: ellipsis; }
+.tx-chip-caret { flex: none; color: var(--text-2); }
+/* "käsin": the household set the category; the dot is in the text colour, the word in its title */
+.tx-chip-manual { flex: none; width: 6px; height: 6px; background: var(--text-2); clip-path: circle(50%); }
+.tx-fchip .tx-icon { margin-left: var(--sp-4); }
+
+/* ── the marks: VT4's payee plate and account mark, with the account's short text ─────── */
+.tx-acct { display: inline-flex; align-items: center; gap: var(--sp-4); max-width: 100%; min-width: 0; color: var(--text-2); }
+/* the digits, a short own name or the type's word: never cut, so the cell is as wide as its longest */
+.tx-acct-short { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+
+/* ── the totals strip ────────────────────────────────────────────────────────────── */
+.tx-totals-wrap { position: relative; padding: var(--pad); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--surface)); border-radius: var(--radius); background: var(--surface); box-shadow: var(--lift-1); }
+.tx-totals { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
+.tx-totals-figs { grid-column: span 7; display: flex; flex-direction: column; gap: var(--sp-12); }
+.tx-totals-lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }
+.tx-totals-count { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; }
+.tx-totals-span { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.tx-totals-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); margin: 0; }
+.tx-totals-kv > div { padding-left: var(--sp-12); border-left: 2px solid var(--grid); }
+.tx-totals-kv > div:first-child { border-left-color: var(--accent); }
+.tx-totals-kv dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.tx-totals-kv dd { margin: var(--sp-2) 0 0; }
+.tx-totals-kv .tx-in { color: var(--good); }
+.tx-totals-note { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+
+.tx-hist { grid-column: span 5; margin: 0; min-width: 0; }
+.tx-hist-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); margin-bottom: var(--sp-16); }
+.tx-hist-title { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
+.tx-hist-plot { position: relative; height: 48px; }
+.tx-hist-plot svg { display: block; width: 100%; height: 100%; overflow: visible; cursor: pointer; }
+.tx-hist-plot svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.tx-hist-bar { fill: color-mix(in srgb, var(--accent) 72%, var(--surface)); }
+.tx-hist-bar.on { fill: var(--accent); }
+.tx-hist-base { stroke: var(--axis); stroke-width: 1; }
+.tx-hist-peak { position: absolute; top: calc(-1 * var(--sp-16)); transform: translateX(-50%); font-size: var(--fs-tick); line-height: var(--lh-tick); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); pointer-events: none; }
+.tx-hist-axis { display: flex; justify-content: space-between; margin-top: var(--sp-4); font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tx-hist-readout { min-height: var(--lh-label); margin: var(--sp-2) 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+.tx-chart-switch { flex: none; }
+.tx-chart-switch button { font-size: var(--fs-label); }
+.tx-rhythm { margin-top: var(--sp-20); padding-top: var(--sp-16); border-top: 1px solid var(--grid); }
+
+/* the strip before its answer: the same frame, the grey bars of base.css where its parts will stand */
+.tx-skel.tx-totals { padding: var(--pad); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--surface)); border-radius: var(--radius); background: var(--surface); box-shadow: var(--lift-1); }
+.tx-skel-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); }
+.tx-skel-figs .sk-fig { inline-size: 100%; }
+.tx-skel .tx-hist { display: flex; flex-direction: column; gap: var(--sp-16); }
+.tx-skel-plot { block-size: 48px; }
+
+/* ── the list ───────────────────────────────────────────────────────────────────── */
+.tx-head { display: flex; align-items: center; gap: var(--sp-12); }
+.tx-head h2 { margin: 0; }
+.tx-head-datum { font-size: var(--fs-h2); line-height: var(--lh-h2); font-variant-numeric: tabular-nums; color: var(--text-2); }
+.tx-menu-wrap { position: relative; margin-left: auto; }
+.tx-menu-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.tx-menu.tx-pop { left: auto; right: 0; width: 20rem; padding: var(--sp-4); }
+.tx-menu-item { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-12); padding: var(--sp-12); border-radius: var(--radius-s); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--text); }
+label.tx-menu-item { justify-content: flex-start; cursor: pointer; }
+.tx-menu-item + .tx-menu-item { border-top: 1px solid var(--grid); }
+.tx-menu-link { flex-direction: column; text-decoration: none; }
+.tx-menu-link:hover, label.tx-menu-item:hover { background: var(--row-hover); }
+.tx-menu-sub { display: block; margin-top: var(--sp-2); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+
+/*
+ * The table. A row is one line: 44 px in Väljä (the 24 px disc and chip with the padding the row leaves them), 32 px in
+ * Tiivis (the 20 px disc, the bank's text hidden); a day's row 28 and 24 px. The bar under a figure stands out of the
+ * flow, so it adds no height. What the build's extensions add under a matched row is the only second line.
+ */
+.tx-table { table-layout: fixed; width: 100%; }
+.tx-table th.tx-account, .tx-table td.tx-account { width: 8rem; }
+.tx-table th.tx-category, .tx-table td.tx-category { width: 14rem; }
+.tx-table th.num, .tx-table td.tx-sum { width: 9.5rem; }
+.tx-table .tx-drillcell { width: 40px; padding-left: 0; text-align: right; }
+.tx-table td { vertical-align: top; }
+.rt-comfortable.tx-table td { padding-block: calc((var(--row-h-roomy) - var(--avatar) - var(--tick)) / 2); }
+.rt-compact.tx-table td { padding-block: calc((var(--row-h) - var(--avatar-s) - var(--tick)) / 2); }
+.rt-comfortable.tx-table tr.rt-group > * { padding-block: calc((28px - var(--lh-label)) / 2); }
+.rt-compact.tx-table tr.rt-group > * { padding-block: calc((24px - var(--lh-label)) / 2); }
+.tx-table tr.rt-group > th { letter-spacing: var(--track-name); text-transform: uppercase; font-size: var(--fs-tick); }
+.tx-table tr.rt-group > th .rt-group-count { text-transform: none; letter-spacing: 0; font-size: var(--fs-label); }
+.tx-who { min-width: 0; }
+.tx-line { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; height: calc(var(--avatar) + var(--tick)); }
+.tx-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--text); text-decoration: none; }
+.tx-name:hover { text-decoration: underline; }
+/* the bank's own text after the name and its tags, muted, cut by the cell (its title holds all of it) */
+.tx-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.tx-line-acct { display: none; }
+.tx-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); white-space: nowrap; }
+.tx-tag.warn { background: var(--warn-bg); color: var(--text); }
+.tx-tag-act { border: 1px solid var(--control-edge); background: var(--control); color: var(--text); cursor: pointer; font: inherit; font-size: var(--fs-label); }
+.tx-tag-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tx-who .row-linked { margin: var(--sp-4) 0 0 calc(var(--avatar) + var(--tick) + var(--sp-8)); }
+/* the cells' marks are blocks of the line's height, so no text strut makes a row taller than its 24 px */
+.tx-table td .tx-acct, .tx-table td .tx-chip-wrap { display: flex; width: fit-content; height: calc(var(--avatar) + var(--tick)); align-items: center; }
+.tx-table td .tx-open { display: grid; margin-left: auto; }
+
+.rt-compact .tx-line .mk-plate { inline-size: calc(var(--avatar-s) + var(--tick)); block-size: calc(var(--avatar-s) + var(--tick)); }
+.rt-compact .tx-line .mk-disc { inline-size: var(--avatar-s); block-size: var(--avatar-s); }
+.rt-compact .tx-line { height: calc(var(--avatar-s) + var(--tick)); }
+.rt-compact .tx-text { display: none; }
+.rt-compact .tx-chip { height: var(--avatar-s); }
+.rt-compact.tx-table td .tx-acct, .rt-compact.tx-table td .tx-chip-wrap { height: calc(var(--avatar-s) + var(--tick)); }
+
+.tx-sum { position: relative; text-align: right; }
+.tx-amount { display: block; font-size: var(--fs-body); line-height: calc(var(--avatar) + var(--tick)); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.rt-compact .tx-amount { line-height: calc(var(--avatar-s) + var(--tick)); }
+.tx-amount.in { color: var(--good); }
+/* the bar against the day's largest, anchored right under the figure and out of the flow */
+.tx-bar { position: absolute; right: var(--sp-8); bottom: var(--sp-4); display: block; height: 3px; width: 6rem; max-width: calc(100% - var(--sp-16)); border-radius: var(--radius-pill); background: var(--grid); overflow: hidden; direction: rtl; }
+.rt-compact .tx-bar { bottom: var(--sp-2); height: 2px; }
+.tx-bar > span { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 70%, var(--surface)); }
+.tx-bar.in > span { background: color-mix(in srgb, var(--good) 70%, var(--surface)); }
+.tx-part { display: block; margin-top: var(--sp-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); }
+.tx-sum:has(.tx-part) .tx-bar { display: none; }
+
+.tx-open { all: unset; display: inline-grid; place-items: center; width: calc(var(--avatar) + var(--tick)); height: calc(var(--avatar) + var(--tick)); border-radius: var(--radius-s); color: var(--text-2); cursor: pointer; }
+.rt-compact .tx-open { height: calc(var(--avatar-s) + var(--tick)); }
+.tx-open:hover { background: var(--control-hover); color: var(--text); }
+.tx-open:focus-visible { outline: 2px solid var(--accent); }
+.tx-open svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state); }
+.tx-open[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tx-opened > td { background: var(--row-hover); }
+
+/* the drill: the payee's twelve months on the well */
+.tx-table tr.tx-drill > td { padding: 0; background: var(--well); box-shadow: inset 0 1px 0 var(--grid), inset 0 -1px 0 var(--grid); }
+.tx-drill-body { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--sp-12) var(--sp-24); align-items: end; padding: var(--sp-16) var(--pad); }
+.tx-drill-wait { min-height: 112px; }
+.tx-drill-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-12) var(--sp-16); margin: 0; }
+.tx-drill-figs dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.tx-drill-figs dd { margin: var(--sp-2) 0 0; }
+.tx-drill-text { font-size: var(--fs-ui); }
+.tx-drill-chart { margin: 0; }
+.tx-drill-bars { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--sp-4); height: 96px; margin: 0; padding: 0; list-style: none; }
+.tx-drill-bars li { display: grid; grid-template-rows: var(--lh-tick) 1fr var(--lh-tick); align-items: end; justify-items: center; min-width: 0; }
+.tx-drill-bar { display: block; width: 100%; max-width: 20px; border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: color-mix(in srgb, var(--accent) 45%, var(--well)); align-self: end; }
+.tx-drill-bars li.peak .tx-drill-bar { background: var(--accent); }
+.tx-drill-val { font-size: var(--fs-tick); line-height: var(--lh-tick); font-weight: var(--w-strong); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tx-drill-month { font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); }
+.tx-drill-bars li.peak .tx-drill-month { color: var(--text); font-weight: var(--w-strong); }
+.tx-drill-link { grid-column: 1 / -1; justify-self: start; font-size: var(--fs-ui); }
+
+/* the table before its answer: a day's row and four rows at the chosen density, under the head that already stands */
+.tx-skel-rows { display: flex; flex-direction: column; }
+.tx-skel-group { display: flex; align-items: center; block-size: 28px; padding: 0 var(--sp-8); background: var(--surface-2); }
+.tx-skel-group .sk-bar { background: var(--grid); }
+.tx-skel-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16); block-size: var(--row-h-roomy); padding: 0 var(--sp-8); border-bottom: 1px solid var(--grid); }
+.tx-skel-compact .tx-skel-group { block-size: 24px; }
+.tx-skel-compact .tx-skel-row { block-size: var(--row-h); }
+
+/* M14 the cut mark: the range of rows shown and the whole, at the left of the button that shows more */
+.cut-mark { margin-right: auto; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.cut-mark + .btn { margin-left: 0; }
+.tx-more { margin-top: var(--sp-16); }
+
+/* the merchant's summary when the list is filtered to one payee: seven or eight cells stand four to a row */
+@media (min-width: 1100px) {
+  section.card[aria-label^="Yhteenveto:"] > .kv { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  section.card[aria-label^="Yhteenveto:"] > .kv:has(> :nth-child(7)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* the filters of Kauppiaat (Merchants.tsx, shown inside this page) keep their row: the date fields and, on a phone, Rajaa */
+.filters input[type="search"] { width: 9rem; min-width: 14rem; }
+.filters .badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; box-sizing: border-box; }
+.date-filter { display: inline-flex; align-items: center; gap: var(--sp-8); color: var(--text-2); font-size: var(--fs-ui); }
+.filters:has(.date-filter) { align-items: flex-end; }
+
+/* tablets: the account's column gives way and its mark stands on the payee's line */
+@media (min-width: 601px) and (max-width: 960px) {
+  .tx-table .tx-account { display: none; }
+  .tx-line-acct { display: inline-flex; flex: none; }
+  .tx-table th.tx-category, .tx-table td.tx-category { width: 11rem; }
+  .tx-totals-figs, .tx-hist { grid-column: 1 / -1; }
+  /* the viewer's part of a joint row may wrap under its amount rather than widen the column */
+  .tx-table td .tx-part { white-space: normal; }
+}
+
+/* ── phones (the width TransactionRows.tsx asks matchMedia for) ───────────────────── */
+@media (max-width: 600px) {
+  .tx-filterbar form { flex: 1 1 100%; min-width: 0; }
+  /* the chips stay on one line that scrolls in its own box, never the page */
+  .tx-fchips { flex-wrap: nowrap; width: 100%; min-width: 0; padding-bottom: var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+  .tx-fchips::-webkit-scrollbar { display: none; }
+  .tx-fchip { flex: none; }
+  .tx-pop, .tx-menu.tx-pop { position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: auto; min-width: 0; max-height: 75vh; overflow-y: auto; border-radius: var(--radius) var(--radius) 0 0; padding: var(--sp-16) var(--sp-16) calc(var(--sp-16) + var(--tabbar-h) + env(safe-area-inset-bottom)); }
+  .tx-catlist { max-height: none; }
+  .tx-pop { box-shadow: var(--pop-shadow), 0 0 0 100vmax var(--backdrop); }
+
+  .tx-totals-wrap, .tx-skel.tx-totals { padding: var(--sp-16); }
+  .tx-totals { gap: var(--sp-16); }
+  .tx-totals-figs, .tx-hist { grid-column: 1 / -1; }
+  .tx-totals-kv { gap: var(--sp-8); }
+  .tx-totals-kv > div { padding-left: var(--sp-8); }
+  .tx-totals-kv .fig-m { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
+
+  .tx-card { padding: var(--sp-12) var(--sp-16); }
+  .tx-head { margin: calc(-1 * var(--sp-12)) calc(-1 * var(--sp-16)) var(--sp-4); }
+  .tx-day-head { display: flex; align-items: baseline; gap: var(--sp-8); margin: var(--sp-16) 0 0; padding: var(--sp-4) 0; border-bottom: 1px solid var(--axis); }
+  .tx-day:first-child .tx-day-head { margin-top: var(--sp-4); }
+  .tx-day h3 { flex: 1; margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); text-transform: uppercase; letter-spacing: var(--track-name); }
+  .tx-day-head .rt-sub { margin-left: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums; }
+  .tx-day ul { list-style: none; margin: 0; padding: 0; }
+  /* a card of two lines, 64 px: the chip on the second is a thumb's target */
+  .tx-item { padding: var(--sp-8) 0; border-bottom: 1px solid var(--grid); }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-main { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); min-width: 0; }
+  .tx-main .tx-line { flex: 1 1 auto; }
+  .tx-main .tx-amount { flex: none; line-height: var(--lh-body); }
+  /* the chevron keeps the right end of the second line, so a tag that wraps never takes it to a line of its own */
+  .tx-item { position: relative; }
+  .tx-cat { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-4) var(--sp-8); min-width: 0; margin: var(--sp-4) 0 0 calc(var(--avatar) + var(--tick) + var(--sp-8)); padding-right: calc(var(--avatar) + var(--sp-8)); }
+  /* the chip gives up its letters before the account moves; only a card bill's words may take a third line */
+  /* a chip of a shared account's row is a span with no wrap, and a flex item keeps its text's width unless told it may go below it */
+  .tx-cat .tx-chip-wrap, .tx-cat > .tx-chip { flex: 0 1 auto; min-width: 0; }
+  .tx-cat > :not(.tx-chip-wrap, .tx-chip) { flex: none; }
+  .tx-cat:has(.tx-tag) { flex-wrap: wrap; }
+  .tx-cat .tx-chip { max-width: min(12rem, 100%); min-width: 0; overflow: hidden; }
+  .tx-cat .tx-open { position: absolute; right: 0; top: calc(var(--sp-8) + var(--avatar) + var(--tick) + var(--sp-4)); }
+  .tx-cat .tx-part { display: inline; margin: 0; }
+  .tx-item .row-linked { margin: var(--sp-8) 0 0 calc(var(--avatar) + var(--tick) + var(--sp-8)); }
+  /* twelve month names do not fit side by side: every third and the peak keep theirs (MerchantDrill phoneMonthLabels) */
+  .tx-drill-minor { visibility: hidden; }
+  .tx-item .tx-drill-body { margin: var(--sp-12) calc(-1 * var(--sp-16)) 0; padding: var(--sp-16); background: var(--well); grid-template-columns: 1fr; }
+
+  /* the answer to a category change: the row is far from the top of the card, so it floats above the list */
+  .tx-feedback { position: fixed; left: var(--sp-12); right: var(--sp-12); bottom: calc(var(--tabbar-h) + var(--sp-12) + env(safe-area-inset-bottom)); z-index: var(--z-toast); }
+  .tx-feedback .notice, .tx-feedback .error { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-8); margin: 0; }
+  .tx-feedback .error { padding: var(--sp-8) var(--sp-12); border: 1px solid var(--border); border-left: 3px solid var(--bad); border-radius: var(--radius-s); background: var(--surface); }
+
+  /* Kauppiaat's filters on a phone */
+  .filters { margin: 0; }
+  .filters form { flex: 1 1 0; min-width: 0; }
+  .filters:not(:has(.filter-toggle)) form { flex: 1 1 100%; }
+  .filters input[type="search"] { width: 100%; min-width: 0; }
+  .filter-toggle { flex: none; }
+  .filter-toggle.on { border-color: var(--accent); color: var(--accent-ink); }
+  .filter-toggle[aria-expanded="true"] { background: var(--surface-2); }
+  .filter-line { flex: 1 1 100%; }
+  .filter-line .badge { margin-left: 0; }
+  .filter-panel { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-8); }
+  .filter-panel[hidden] { display: none; }
+  .filter-panel select { grid-column: 1 / -1; width: 100%; }
+  .filter-panel .date-filter { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .filter-panel input[type="date"] { min-width: 0; }
+  .filter-panel .btn { grid-column: 1 / -1; justify-self: start; }
+}
+
+/* the date range: the named periods on the left, the calendar on the right */
+.tx-range { display: grid; grid-template-columns: 9rem 16rem; gap: var(--sp-12); }
+.tx-range-presets { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0 var(--sp-12) 0 0; list-style: none; border-right: 1px solid var(--grid); }
+.tx-range-presets button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-ui); line-height: var(--lh-ui); cursor: pointer; }
+.tx-range-presets button:hover { background: var(--row-hover); }
+.tx-range-presets button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); font-weight: var(--w-strong); }
+.tx-range-presets button:focus-visible, .tx-cal-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tx-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-8); }
+.tx-cal-month { font-size: var(--fs-ui); font-weight: var(--w-strong); }
+.tx-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--sp-2) 0; }
+.tx-cal-wd { padding: var(--sp-4) 0; font-size: var(--fs-tick); text-align: center; color: var(--text-2); }
+.tx-cal-day { all: unset; box-sizing: border-box; height: var(--control-h); text-align: center; font-size: var(--fs-ui); line-height: var(--control-h); font-variant-numeric: tabular-nums; cursor: pointer; }
+.tx-cal-day:hover:not(:disabled) { background: var(--row-hover); border-radius: var(--radius-s); }
+.tx-cal-day:disabled { color: var(--muted); cursor: default; opacity: 0.5; }
+.tx-cal-day.in { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.tx-cal-day.end { background: var(--accent); color: var(--on-fill); font-weight: var(--w-strong); border-radius: var(--radius-s); }
+.tx-cal-day.today:not(.end) { box-shadow: inset 0 0 0 1px var(--accent); border-radius: var(--radius-s); }
+.tx-cal-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); margin-top: var(--sp-12); padding-top: var(--sp-12); border-top: 1px solid var(--grid); }
+.tx-cal-pick { font-size: var(--fs-label); color: var(--text-2); }
+@media (max-width: 600px) {
+  .tx-range { grid-template-columns: 1fr; }
+  .tx-range-presets { flex-direction: row; flex-wrap: wrap; padding: 0 0 var(--sp-12); border-right: 0; border-bottom: 1px solid var(--grid); }
+  .tx-range-presets button { width: auto; border: 1px solid var(--grid); }
+  .tx-cal-day { height: 40px; line-height: 40px; }
+}

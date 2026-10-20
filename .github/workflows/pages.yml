@@ -1,0 +1,78 @@
+name: Return page
+
+# Publishes relay/ to the gh-pages branch on release tags, on a push to main that touches relay/, and by hand:
+# the bank return page (https://jouni-mikkola.github.io/omatalous/callback/) and the privacy and terms pages next to it,
+# and install.sh, the script of the install command in README.md. It refuses to publish when that script's hash differs
+# from install.sh.sha256 or from the hash in README.md and docs/INSTALL.md.
+# Runs only in the public repository. Each page is one reviewed static file, see relay/README.md. GitHub Pages
+# must be set to serve the gh-pages branch (Settings > Pages), which the owner does once.
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+    paths: ["relay/**"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # by hand only from the default branch, so a feature branch cannot replace the page every household trusts
+    if: github.repository == 'jouni-mikkola/omatalous' && (github.ref_type == 'tag' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Tagged commit is on main
+        # this workflow has no approval step, so a tag on a side branch must not publish
+        if: github.ref_type == 'tag'
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main || { echo "The tagged commit is not on main"; exit 1; }
+      - name: Check the pages
+        run: |
+          for page in callback privacy terms; do test -f "relay/$page/index.html"; done
+          for f in relay/*/index.html; do
+            # a page that loads anything from elsewhere does not ship
+            if grep -Eiq '<script[^>]*src=|<link|<img|<iframe|https?://[a-z]' "$f"; then
+              echo "$f references an outside resource"; exit 1
+            fi
+            grep -q "Content-Security-Policy" "$f" || { echo "$f has no Content-Security-Policy"; exit 1; }
+          done
+      - name: Check the install script
+        # Households run what README.md and docs/INSTALL.md name after checking its sha256, so the script, its hash
+        # file and both documents must carry one hash. A page update that breaks that does not ship.
+        run: |
+          want=$(cut -d' ' -f1 relay/install.sh.sha256)
+          [[ $want =~ ^[0-9a-f]{64}$ ]] || { echo "relay/install.sh.sha256 holds no sha256"; exit 1; }
+          have=$(sha256sum relay/install.sh | cut -d' ' -f1)
+          [[ $have == "$want" ]] || { echo "relay/install.sh does not match relay/install.sh.sha256"; exit 1; }
+          for f in README.md docs/INSTALL.md; do
+            grep -qF "echo \"$want  omatalous-install.sh\" | sha256sum -c" "$f" || { echo "$f does not name the sha256 of relay/install.sh"; exit 1; }
+          done
+          bash -n relay/install.sh
+      - name: Publish to gh-pages
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          out=$(mktemp -d)
+          cp -R relay/. "$out/"
+          touch "$out/.nojekyll"
+          cd "$out"
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Return page from $REF"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${REPO}.git" gh-pages

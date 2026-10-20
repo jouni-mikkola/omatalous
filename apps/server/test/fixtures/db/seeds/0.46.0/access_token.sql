@@ -1,0 +1,3 @@
+-- Keys of u-aino for reading a summary: one that expires and was used, one that never expires. The hashes are made up.
+INSERT INTO access_token (id,user_id,scope,hash,label,created_at,expires_at,last_used_at) VALUES ('at-1','u-aino','ha_summary','1111111111111111111111111111111111111111111111111111111111111111','Koti','2026-10-20T08:00:00.000Z','2027-10-20T08:00:00.000Z','2026-10-21T08:00:00.000Z');
+INSERT INTO access_token (id,user_id,scope,hash,label,created_at,expires_at,last_used_at) VALUES ('at-2','u-aino','mcp_read','2222222222222222222222222222222222222222222222222222222222222222',NULL,'2026-10-20T08:00:00.000Z',NULL,NULL);

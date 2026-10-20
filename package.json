@@ -1,0 +1,41 @@
+{
+  "name": "banking-app",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @banking/server --filter @banking/web dev",
+    "build": "pnpm --filter @banking/web build && pnpm --filter @banking/server build",
+    "test": "vitest run",
+    "test:core": "vitest run packages/core",
+    "test:server": "vitest run apps/server",
+    "test:sh": "for t in tools/test/*.test.sh; do bash \"$t\" || exit 1; done",
+    "test:sh:fast": "bash tools/check.sh sh",
+    "lint:sh": "bash tools/ci/shell-lint.sh",
+    "check": "bash tools/check.sh",
+    "release:prepare": "node tools/release/prepare.mjs",
+    "release:fixture": "node tools/release/fixture.mjs",
+    "e2e": "node e2e/run.mjs",
+    "where": "node tools/where.mjs",
+    "strings": "node tools/ui-strings.mjs",
+    "shots": "node tools/shots.mjs",
+    "shots:diff": "node tools/shots-diff.mjs",
+    "docs:shots": "node tools/docs-shots.mjs",
+    "gen": "node tools/gen/registry.mjs",
+    "findings": "node --experimental-strip-types --disable-warning=ExperimentalWarning tools/findings/cli.ts",
+    "typecheck": "pnpm -r typecheck && tsc -p .",
+    "seed:demo": "pnpm --filter @banking/server seed:demo",
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning apps/server/dist/node.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "~1.64.0",
+    "@types/node": "^26.6.5",
+    "axe-core": "4.14.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.4"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

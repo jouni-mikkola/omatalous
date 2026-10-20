@@ -1,0 +1,27 @@
+/* Asetukset > Palvelin > Etäkäyttö. */
+.remote-access { display: flex; flex-direction: column; gap: 16px; }
+.remote-access h2, .remote-access h3, .remote-access h4, .remote-access p { margin: 0; }
+.remote-access .notice { margin-bottom: 0; }
+.remote-access .notice > p { margin-top: 4px; }
+.remote-access .notice > .form-row { margin-bottom: 0; }
+.remote-block { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 16px; }
+.remote-block .form-row { margin: 0; }
+.remote-block .notice { margin-bottom: 0; }
+.remote-access .setup-form input[readonly] { background: var(--surface-2); color: var(--text-2); box-shadow: none; }
+.remote-access textarea { min-height: 96px; }
+.remote-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 8px 0 0; }
+.remote-facts dt { color: var(--muted); }
+.remote-facts dd { margin: 0; overflow-wrap: anywhere; }
+.remote-emails { margin: 0; padding-left: 16px; }
+.remote-guide { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-m); padding: 8px 12px; }
+.remote-guide > summary { cursor: pointer; }
+.remote-guide[open] > summary { margin-bottom: 8px; }
+.remote-guide > p { margin-bottom: 8px; }
+.remote-guide code { overflow-wrap: anywhere; }
+.remote-ask p { margin: 0 0 8px; }
+.remote-ask .remote-facts { margin: 0 0 8px; }
+.remote-ask .remote-emails { margin: 0 0 8px; overflow-wrap: anywhere; }
+.remote-ask label.check { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; color: var(--text); }
+.remote-ask label.check input { margin-top: 4px; flex: none; }
+.remote-ask strong { overflow-wrap: anywhere; }
+@media (max-width: 520px) { .remote-facts { grid-template-columns: minmax(0, 1fr); gap: 0; } .remote-facts dd { margin-bottom: 8px; } }

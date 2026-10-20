@@ -1,0 +1,27 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-*
+.env
+# the maintenance helper writes .env beside itself: one killed there leaves this file, with the tunnel token in it
+.env.new
+secrets/
+*.pem
+coverage/
+backups/
+.env.bak.*
+# personal files that may end up in the clone directory: bank exports, keys, encrypted backups
+*.csv
+!packages/**/fixtures/*.csv
+*.key
+*.crt
+*.p12
+*.age
+*.gz
+/ops/
+# agent worktrees
+.claude/worktrees/
+test-results/
+playwright-report/
+*.tsbuildinfo

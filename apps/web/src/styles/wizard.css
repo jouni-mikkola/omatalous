@@ -1,0 +1,27 @@
+/* First-run wizard: one panel, its name strip holding the name and the step list, a body, a foot. */
+
+.wizard-wrap { min-height: 100vh; display: grid; place-items: start center; padding: 32px 16px; }
+.wizard { width: 100%; max-width: 760px; }
+.wizard-head { gap: 8px 24px; }
+.wizard-head > .brand { padding-bottom: 0; }
+.wizard-head > .btn { margin-left: auto; }
+.wizard-steps { list-style: none; display: flex; gap: 4px 16px; flex-wrap: wrap; padding: 0; margin: 0; color: var(--muted); font-size: var(--fs-ui); line-height: var(--lh-ui); }
+.wizard-steps li { display: inline-flex; align-items: center; gap: 8px; }
+.wizard-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
+.wizard-steps li.done { color: var(--text-2); }
+.step-no { width: 22px; height: 22px; border-radius: var(--radius-s); display: inline-grid; place-items: center; font-size: var(--fs-label); font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); box-sizing: border-box; font-variant-numeric: tabular-nums lining-nums; }
+.wizard-steps li[aria-current="step"] .step-no { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
+.wizard-steps li.done .step-no { background: var(--good-bg); border-color: var(--good-bg); color: var(--good); }
+.subhead { font-size: var(--fs-body); font-weight: 600; margin: 0 0 4px; }
+.wizard .auth-title { margin-top: 0; }
+.wizard-nav { margin: var(--sp-20) calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px var(--pad); border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 35%, var(--surface)); border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
+@media (max-width: 640px) {
+  /* at phone width only the current step keeps its name; the numbers stay */
+  .wizard-steps li:not([aria-current="step"]) { font-size: 0; gap: 0; }
+}
+.summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0 0 8px; }
+.summary dt { color: var(--muted); }
+.summary dd { margin: 0; overflow-wrap: anywhere; }
+/* a badge alone in the value column starts on the column, not 6 px right of it */
+.summary .badge { margin-left: 0; }

@@ -1,0 +1,86 @@
+/* Tarkistettavat (Review.tsx): one item at a time in a column a phone's width, centred on a wide screen. */
+
+.review { display: grid; gap: var(--gap); max-width: 640px; margin: 0 auto; }
+/* the sitting's head: what is open as the datum, and the track of this sitting under it */
+.review-head { display: grid; gap: var(--sp-8); }
+.review-datum { margin: 0; display: flex; align-items: baseline; gap: var(--sp-8); font-size: var(--fs-body); color: var(--text-2); }
+.review-datum .fig { color: var(--text); }
+
+/* how far the sitting has gone: a length, no number of its own (the card says "3/12") */
+.review-progress { height: var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); overflow: hidden; }
+.review-progress > span { display: block; height: 100%; background: var(--accent); transition: width var(--t-state) var(--ease-out); }
+
+.review-item { display: grid; gap: var(--sp-12); }
+.review-skeleton { min-height: 420px; }
+.review-kind { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-weight: var(--w-strong); letter-spacing: var(--track-name); text-transform: uppercase; overflow-wrap: anywhere; }
+
+.review-who { display: flex; align-items: center; gap: var(--sp-12); min-width: 0; }
+.review-who .tc-mark { gap: var(--sp-12); }
+.review-who .tc-name { white-space: normal; }
+.review-name { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); color: var(--text); overflow-wrap: anywhere; }
+.review-figure { display: flex; align-items: baseline; gap: var(--sp-8); justify-self: start; text-align: left; }
+.review-unit { font-size: var(--fs-body); color: var(--text-2); }
+.review-line { margin: calc(-1 * var(--sp-8)) 0 0; font-size: var(--fs-body); line-height: 20px; color: var(--text-2); }
+
+/* the newest rows of the payee, the evidence the answer rests on; the figure opens the rest */
+.review-row-list { margin: 0; padding: 0; list-style: none; }
+.review-row-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-12); align-items: baseline; min-height: var(--row-h); padding: var(--sp-4) 0; border-bottom: 1px solid var(--grid); font-size: var(--fs-body); line-height: var(--lh-body); }
+.review-row-date { color: var(--text-2); font-size: var(--fs-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* the payee's display name leads; the bank's own text (often in capitals) follows small and quiet */
+.review-row-who { display: flex; align-items: baseline; gap: var(--sp-8); min-width: 0; }
+.review-row-name { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.review-row-text { min-width: 0; color: var(--muted); font-size: var(--fs-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-row-sum { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.review-q { margin: var(--sp-8) 0 0; padding-top: var(--sp-16); border-top: 1px solid var(--grid); font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: var(--w-strong); color: var(--text); }
+.review-q:focus { outline: none; }
+.review-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* the choices: large, a column on a phone, two to a row from 480 px; the guess first and filled */
+/* a wrapped grid: two to a row on a phone, three in the 640 px column, so a list of kinds or categories stays short */
+.review-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: var(--sp-8); }
+.review-choice { justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2) var(--sp-8); min-height: 48px; padding: var(--sp-4) var(--sp-16); font-size: var(--fs-body); text-align: left; white-space: normal; }
+/* the guess is framed, never filled: a fill would read as already chosen. A choice fills only while it is pressed */
+.review-choice.is-guess { border: 2px solid var(--accent); }
+/* the badge keeps its width: where the label leaves no room it goes on a line of its own under it */
+.review-guess { flex: none; font-size: var(--fs-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); text-transform: uppercase; color: var(--accent); }
+.review-choice:active:not(:disabled), .review-choice[aria-busy="true"] { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
+.review-choice:active:not(:disabled) .review-guess, .review-choice[aria-busy="true"] .review-guess { color: var(--on-fill); }
+
+/* a plan's end: a count or a month, each with its own save, then "En tiedä" */
+.review-plan { display: grid; gap: var(--sp-12); }
+.review-plan-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: end; }
+.review-plan-field { display: grid; gap: var(--sp-4); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--text-2); }
+.review-plan-field input { min-height: 48px; width: 100%; font-size: var(--fs-body); }
+@media (min-width: 480px) { .review-plan-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+
+.review-note { margin: 0; font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--text-2); }
+.review-error { margin: 0; }
+.review-later { display: flex; justify-content: flex-end; gap: var(--sp-8); }
+/* Ohita is quiet: no frame, so it never competes with the choices */
+.review-skip { min-height: 44px; min-width: 64px; padding: 0 var(--sp-8); border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-ui); font-weight: var(--w-strong); cursor: pointer; }
+.review-skip:hover:not(:disabled) { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.review-skip:disabled { cursor: default; opacity: 0.6; }
+/* the figure opened stays underlined while its rows are open; at rest it wears nothing */
+.review-figure[aria-expanded="true"] { text-decoration: underline solid 1px var(--accent); text-underline-offset: 3px; }
+
+/* every category, a sheet over the page: centred on a wide screen, from the foot on a phone */
+.review-sheet { inline-size: min(560px, calc(100vw - 32px)); max-block-size: min(720px, calc(100vh - 64px)); padding: var(--pad); border: 1px solid var(--pop-edge); border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: var(--pop-shadow); }
+.review-sheet::backdrop { background: var(--backdrop); }
+.review-sheet[open] { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: var(--sp-12); }
+.review-sheet-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-8); }
+.review-sheet-head h2 { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.review-sheet-list { overflow-y: auto; display: grid; gap: var(--sp-16); }
+.review-sheet-list h3 { margin: 0 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); text-transform: uppercase; color: var(--text-2); }
+@media (max-width: 640px) {
+  .review-sheet { inline-size: 100vw; max-inline-size: 100vw; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; max-block-size: 85vh; }
+}
+
+.review-loan { display: grid; gap: var(--sp-12); }
+
+/* the end is the shared empty card of base.css (.empty-card); only its mark is the page's own */
+/* a drawn tick in a ring: the queue is done, nothing more */
+.review-done-mark { position: relative; inline-size: 40px; block-size: 40px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--good); }
+.review-done-mark::after { content: ""; position: absolute; left: 14px; top: 9px; inline-size: 9px; block-size: 16px; border: solid var(--good); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+@media (prefers-reduced-motion: reduce) { .review-progress > span { transition: none; } }

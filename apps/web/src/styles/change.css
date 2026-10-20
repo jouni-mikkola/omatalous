@@ -1,0 +1,23 @@
+/* Spending change section of the Reports page: tabs, the bridge of causes and the category drill. */
+
+.change-tabs { margin: 0 0 12px; }
+.change-sentence { margin: 0 0 16px; max-width: 70ch; }
+.change-bars { display: grid; gap: 8px; }
+.change-bar { display: grid; grid-template-columns: minmax(110px, 1.3fr) 3fr minmax(64px, auto); gap: 8px; align-items: center; font-size: var(--fs-ui); }
+.change-bar .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.change-cause { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+/* one axis: zero is the middle line, more spending grows to the right and less to the left */
+.change-track { position: relative; height: var(--bar-h); background: var(--surface-2); }
+.change-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; border-left: 1px solid var(--text-2); }
+.change-fill { position: absolute; top: 0; bottom: 0; }
+.change-fill.up { left: 50%; background: var(--bad); }
+.change-fill.down { right: 50%; background: var(--good); }
+.change-table td.worse { color: var(--bad); }
+.change-table td.better { color: var(--good); }
+@media (max-width: 520px) {
+  .change-bar { grid-template-columns: 1fr minmax(64px, auto); }
+  .change-track { grid-column: 1 / -1; order: 3; }
+  /* a phone keeps now, the change and its cause: the comparison column is now minus the change; each fills a line of the card */
+  .rt-cards.change-table td[data-label] { grid-column: 1 / -1; text-align: left; white-space: normal; }
+  .rt-cards.change-table td:empty { display: none; }
+}

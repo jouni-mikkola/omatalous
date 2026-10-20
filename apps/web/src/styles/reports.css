@@ -1,0 +1,142 @@
+/* Reports page: section nav, key figures, pivot and heat tables. */
+
+/* the tabs of Raportit: one kind of question each, the chosen one underlined in the accent */
+.report-tabs { display: flex; gap: var(--sp-4, 4px); border-bottom: 1px solid var(--border); margin-bottom: 4px; overflow-x: auto; scrollbar-width: none; }
+.report-tabs button { flex: none; min-height: 44px; padding: 0 16px; border: 0; background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: 600; cursor: pointer; box-shadow: inset 0 -2px 0 transparent; white-space: nowrap; }
+.report-tabs button:hover { color: var(--text); }
+.report-tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.report-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.report-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.report-nav a { display: inline-flex; align-items: center; min-height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-m); background: none; color: var(--text-2); font-size: var(--fs-label); font-weight: 600; text-decoration: none; }
+.report-nav a:hover { color: var(--text); border-color: var(--control-edge); }
+/* a phone: one row that scrolls sideways instead of nine chips on three rows before any content */
+@media (max-width: 640px) {
+  .report-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -12px; padding-inline: 12px; }
+  .report-nav::-webkit-scrollbar { display: none; }
+  .report-nav a { flex: none; white-space: nowrap; min-height: 44px; padding: 0 12px; }
+}
+/* the readouts: five across at most (a cell is a fifth of the row, 184 px at least so a sum with its share fits), two across on a phone */
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(184px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
+/* the figure stands at the foot of its cell: a label that takes two lines does not lift or drop its neighbours */
+.kv > div { border-left: 1px solid var(--border); padding: 0 var(--sp-16); display: flex; flex-direction: column; justify-content: space-between; }
+.kv dt, .kv dd { margin: 0; }
+.kv .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.kv .v { margin-top: 2px; }
+@media (max-width: 640px) { .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Saldot: the accounts, the saved loans and what is left, as rows of the statement look; a label is told whole */
+.balance-rows { max-width: 420px; margin-bottom: 12px; }
+.balance-rows .st-name { overflow: visible; white-space: normal; }
+.heat-table td.num { font-size: var(--fs-label); padding: 4px 8px; }
+.heat-table th { font-size: var(--fs-tick); padding: 4px 8px; }
+.heat-table td.cell { border-radius: 0; }
+.group-row td { background: var(--surface-2); font-weight: 600; }
+details.group > summary { cursor: pointer; }
+
+/* pivot heat cells: one blue ramp; ink flips where the fill gets dark */
+.heat-l1 { background: var(--heat-1); color: var(--heat-ink-1); }
+.heat-l2 { background: var(--heat-2); color: var(--heat-ink-2); }
+.heat-l3 { background: var(--heat-3); color: var(--heat-ink-3); }
+.heat-l4 { background: var(--heat-4); color: var(--heat-ink-4); }
+
+/* the pivot where twelve months and the total do not fit (a table at 1000 px still cuts the total): a list with the months behind a tap */
+.pivot-narrow { display: none; }
+@media (max-width: 1039px) {
+  .pivot-wide { display: none; }
+  .pivot-narrow { display: block; list-style: none; margin: 0; padding: 0; }
+}
+/* between a phone and the table: the rows in two columns, none broken between them, the total across both */
+@media (min-width: 641px) and (max-width: 1039px) {
+  .pivot-narrow { columns: 2; column-gap: 32px; }
+  .pivot-list > li { break-inside: avoid; }
+  .pivot-list > .pivot-sum { column-span: all; }
+}
+.pivot-list > li { border-bottom: 1px solid var(--grid); }
+.pivot-list summary, .pivot-sum { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 8px 0; cursor: pointer; list-style: none; }
+.pivot-list summary::-webkit-details-marker { display: none; }
+/* the name carries its own arrow (below); the page-wide one would take a grid cell of its own and push the name aside */
+.pivot-list li > details > summary::before { display: none; }
+.pivot-sum { cursor: default; background: var(--surface-2); font-weight: 600; padding-inline: 8px; border-radius: var(--radius-s); margin-top: 4px; }
+.pivot-total { text-align: right; font-variant-numeric: tabular-nums; }
+.pivot-avg { grid-column: 1 / -1; font-size: var(--fs-label); }
+.pivot-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 0 0 8px; }
+.pivot-months > div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 8px; border-radius: 4px; }
+.pivot-months dt, .pivot-months dd { margin: 0; white-space: nowrap; }
+.pivot-months dd { font-variant-numeric: tabular-nums; }
+/* the arrow is the chevron of a fold (base.css), drawn on the name because the summary's own mark would take a grid cell; it turns when the row is open, and the open row's name is set bold */
+.pivot-list summary .pivot-name::before { content: ""; display: inline-block; box-sizing: border-box; width: 6px; height: 6px; margin: 0 var(--sp-8) 2px 2px; vertical-align: middle;
+  border-right: 1.5px solid var(--text-2); border-bottom: 1.5px solid var(--text-2); transform: rotate(-45deg); }
+.pivot-list details[open] summary .pivot-name::before { transform: rotate(45deg); border-color: var(--text); }
+.pivot-list details[open] summary .pivot-name { font-weight: 600; }
+/* the opened row's months stand on the panel ground, inset under their row, so the block's end can be seen */
+.pivot-list details[open] > .pivot-months { padding: 8px; background: var(--surface-2); border-radius: var(--radius-s); }
+
+/* a total is told by the ledger's double rule under its figure, as in Kategoriat */
+.pivot-wide .group-row .num, .pivot-sum .pivot-total { text-decoration: underline double var(--axis); text-decoration-thickness: 1px; text-underline-offset: 5px; }
+/* the average line of a row starts under its name, past the arrow (6 px and its margins) */
+.pivot-avg { padding-left: 16px; }
+
+/* a phone: seven columns do not fit, so the month stays at the left on the panel's ground while the figures pass under it, and an edge tells there is more */
+.month-name { white-space: nowrap; }
+.month-short { display: none; }
+@media (max-width: 640px) {
+  /* the month is told once: long above the phone, short on it */
+  #kassavirta .month-long { display: none; }
+  #kassavirta .month-short { display: inline; }
+  #kassavirta .table-wrap :is(th, td) { padding-inline: 4px; }
+  #kassavirta .table-wrap :is(th, td):first-child { position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--axis); }
+}
+
+/* loading: the first panel's shape in the well colour, so nothing moves when the figures come */
+.skeleton-card { display: grid; gap: 12px; }
+.skeleton-card .sk { display: block; background: var(--well); border-radius: var(--radius-s); }
+.sk-title { inline-size: 140px; block-size: 20px; }
+.sk-figure { inline-size: 120px; block-size: 20px; }
+.sk-line { inline-size: min(560px, 100%); block-size: 14px; }
+.sk-short { inline-size: min(380px, 70%); }
+.sk-plot { block-size: 260px; }
+.sk-row { block-size: 28px; }
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-card .sk { animation: sk-pulse 1.6s var(--ease-out) infinite alternate; }
+  @keyframes sk-pulse { to { opacity: 0.55; } }
+}
+
+/* VT3: the table kit on Raportit */
+/* a category with nothing to open keeps its name in line with the names after an arrow (24 px and its 4 px margin) */
+.cat-table td.cat-flat { padding-left: calc(var(--sp-24) + var(--sp-12)); }
+.cat-table td.cat-name { white-space: nowrap; }
+/* the chip is the button that opens the row's base: the chip's own ground, the figure's focus ring */
+.why-fig.cat-chip { border-radius: var(--radius-pill); }
+.why-fig.cat-chip:hover .tc-delta, .why-fig.cat-chip[aria-expanded="true"] .tc-delta { box-shadow: inset 0 0 0 1px currentColor; }
+.cat-detail { display: grid; gap: var(--sp-8); }
+.cat-base { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+
+/* CP1's split of a rise: one line of two parts, each an estimate that opens its basis under the line */
+.price-parts { margin-top: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.price-line { margin: 0; }
+.price-name { color: var(--text-2); }
+.price-fig { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-basis { margin-top: var(--sp-8); padding: var(--sp-8) var(--sp-12); border-left: 2px solid var(--estimate-edge); background: var(--well); border-radius: var(--radius-s); color: var(--text); }
+.price-basis p { margin: 0 0 var(--sp-4); }
+.price-basis p:last-child { margin-bottom: 0; }
+.price-basis .price-source { color: var(--text-2); }
+.rt-detail .price-basis { margin-top: 0; max-inline-size: 640px; }
+
+/* Nousseet: the step from the usual level to the new one, drawn in the text colour over the columns */
+.chart .drift-step { fill: none; stroke: var(--text); stroke-width: 1.5; stroke-linejoin: round; }
+.drift-tile .sm-col { fill: var(--heat-3); }
+
+/* Kiinteät: the layer's colour before its name in the head stands for the chart's legend */
+.fv-key { display: inline-block; inline-size: 8px; block-size: 8px; margin-right: var(--sp-4); border-radius: var(--radius-s); vertical-align: baseline; }
+.fv-table td.fv-sum { font-weight: 600; }
+.fv-table td.rt-bar-cell, .income-types td.rt-bar-cell { min-inline-size: 64px; }
+
+/* Ruoka: the sentence that names the table's months and bases, and why the card bills' row has no share */
+.food-base { margin-bottom: var(--sp-8); }
+.food-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+
+/* Tulot on a phone: the month lines and the share's bar give way so the figures and the change fit; the share stays as a figure */
+@media (max-width: 600px) {
+  .income-types :is(th, td):is(.rt-spark-cell, .rt-bar-cell) { display: none; }
+  .income-types th { white-space: normal; }
+  .income-types :is(th, td) { padding-inline: var(--sp-4); }
+}

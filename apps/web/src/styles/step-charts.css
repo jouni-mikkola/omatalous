@@ -1,0 +1,54 @@
+/* The step waterfall (charts/Waterfall.tsx) and the shift bars (charts/ChangeBars.tsx): one row a step, its label, a track the bar floats in and its own figure. */
+.step-fall { display: grid; gap: 2px; }
+.sw-row { position: relative; }
+.sw-step { display: grid; grid-template-columns: minmax(9em, 13em) 1fr minmax(6.5em, auto); align-items: center; gap: 12px; width: 100%; min-height: 36px; padding: 4px 8px; border: 0; border-radius: var(--radius-s); background: none; color: inherit; font: inherit; text-align: left; }
+button.sw-step { cursor: pointer; }
+button.sw-step:hover, .sw-row.picked .sw-step { background: var(--row-hover); }
+button.sw-step:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sw-label { color: var(--text-2); font-size: var(--fs-ui); line-height: var(--lh-ui); }
+.sw-row-total .sw-label, .sw-row-total .sw-value { color: var(--text); font-weight: 600; }
+.sw-row-total { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--grid); }
+.sw-value { font-size: var(--fs-ui); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }
+.sw-track { position: relative; height: 20px; }
+.sw-bar { position: absolute; left: 0; top: 0; bottom: 0; min-width: 2px; border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+/* the changes stand on a scale of their own: a thinner bar, and a rule with a word above the first of a run */
+.sw-track-change .sw-bar { top: 4px; bottom: 4px; }
+.sw-row-first { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--grid); }
+.sw-row-level + .sw-row-level { margin-top: 4px; }
+.sw-share { margin-left: 8px; color: var(--muted); font-size: var(--fs-label); }
+.sw-level { background: var(--series-rest); }
+.sw-total { background: var(--fill); }
+.sw-saved { background: var(--saved); }
+.sw-earned { background: var(--earned); }
+.sw-added { background: var(--series-avg); }
+.sw-axis { margin: 8px 0 0; color: var(--muted); font-size: var(--fs-label); line-height: var(--lh-label); }
+@media (max-width: 560px) {
+  .sw-step { grid-template-columns: 1fr auto; grid-template-areas: "label value" "track track"; gap: 2px 8px; }
+  .sw-label { grid-area: label; }
+  .sw-value { grid-area: value; }
+  .sw-track { grid-area: track; height: 14px; }
+}
+
+/* Diverging change bars (charts/ChangeBars.tsx): the midline is the "no change", a rise grows right and a fall left. */
+.shift-bars { display: grid; gap: 2px; }
+.sb-step { display: grid; grid-template-columns: minmax(12em, 24em) 1fr minmax(8.5em, auto); align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 4px 8px; border: 0; border-radius: var(--radius-s); background: none; color: inherit; font: inherit; text-align: left; }
+button.sb-step { cursor: pointer; }
+button.sb-step:hover, .sb-row.picked .sb-step { background: var(--row-hover); }
+button.sb-step:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sb-label { display: grid; gap: 2px; font-size: var(--fs-ui); line-height: var(--lh-ui); }
+.sb-sub { color: var(--muted); font-size: var(--fs-label); line-height: var(--lh-label); }
+.sb-track { position: relative; height: 16px; }
+.sb-mid { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 0; border-left: 1px solid var(--axis); }
+.sb-bar { position: absolute; top: 0; bottom: 0; min-width: 2px; }
+.sb-rise { background: var(--rise); border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+.sb-fall { background: var(--fall); border-radius: var(--radius-s) 0 0 var(--radius-s); }
+.sb-value { font-size: var(--fs-ui); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }
+@media (max-width: 560px) {
+  .sb-step { grid-template-columns: 1fr auto; grid-template-areas: "label value" "track track"; gap: 2px 8px; }
+  .sb-label { grid-area: label; }
+  .sb-value { grid-area: value; }
+  .sb-track { grid-area: track; height: 12px; }
+}
+
+/* the usual of the month columns (charts/LedgerColumns.tsx): its name at the picked month */
+.usual-note { fill: var(--text-2); font-size: var(--fs-tick); }

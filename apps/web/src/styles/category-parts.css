@@ -1,0 +1,3 @@
+/* A category's parts under its row (CategoryParts.tsx): the reports' category drill and Yhteenveto's bar. */
+.cat-parts { margin: 0 0 var(--sp-8); }
+.cat-parts-head { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }

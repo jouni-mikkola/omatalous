@@ -1,0 +1,122 @@
+/* A chart under its question (charts/forms): the question, its one-sentence answer, the plot and its end labels. */
+
+.qc { margin: 0; min-width: 0; }
+.qc + .qc { margin-top: var(--gap, 20px); }
+.qc-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.qc-text { min-width: 0; }
+.qc-head .segmented { flex: none; flex-wrap: nowrap; }
+/* a phone: the answer takes the whole width, the switch goes under it */
+@media (max-width: 599px) { .qc-head { flex-direction: column; gap: 8px; } }
+.qc-q { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text); margin: 0; }
+.qc-a { font-size: var(--fs-body); line-height: 20px; color: var(--text-2); margin: 2px 0 0; max-width: 62ch; }
+.qc-a strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+
+/* two questions side by side on a wide screen, one above the other on a narrow one */
+.qc-pair { display: grid; grid-template-columns: 1fr; gap: 24px; }
+@media (min-width: 1000px) {
+  .qc-pair { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .qc-pair .qc + .qc { margin-top: 0; }
+}
+.qc-rule { border: 0; border-top: 1px solid var(--grid); margin: 24px 0; }
+
+/* the marks */
+.chart .qc-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .qc-now { stroke: var(--series-1); }
+.chart .qc-then { stroke: var(--series-avg); }
+.chart .qc-dot { fill: var(--series-1); stroke: var(--surface); stroke-width: 2; }
+.chart .qc-dot-then { fill: var(--series-avg); stroke: var(--surface); stroke-width: 2; }
+.chart .qc-end { fill: var(--text); font-size: var(--fs-label); font-weight: 600; }
+.chart .qc-end-sub { fill: var(--text-2); font-size: var(--fs-tick); font-weight: 400; }
+.chart .qc-note { fill: var(--text); font-size: var(--fs-tick); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .qc-gap { stroke: var(--text-2); stroke-width: 1; }
+.chart .qc-band { fill: var(--series-avg); fill-opacity: 0.16; }
+.chart .qc-mid { stroke: var(--series-avg); stroke-width: 1; stroke-dasharray: 5 4; }
+.chart .qc-low { fill: var(--bad); stroke: var(--surface); stroke-width: 2; }
+.chart .qc-area { fill: var(--series-1); fill-opacity: 0.1; }
+
+/* small multiples: one tile per category on one shared scale */
+.sm-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; }
+@media (min-width: 600px) { .sm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .sm-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.sm-tile { min-width: 0; border-top: 1px solid var(--grid); padding-top: 8px; }
+.sm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sm-name { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-fig { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+.sm-sub { display: flex; gap: 8px; align-items: center; min-height: 22px; font-size: var(--fs-tick); color: var(--text-2); }
+/* magnitude is sequential: the heat ladder, validated per look (VD0) */
+.chart .sm-col { fill: var(--heat-2); }
+.chart .sm-col.sm-on { fill: var(--heat-3); }
+.chart .sm-col.sm-peak { fill: var(--heat-4); }
+.chart .sm-peak-label { fill: var(--text); font-weight: 600; }
+.sm-scale { font-size: var(--fs-tick); color: var(--text-2); margin: 8px 0 0; }
+
+/* the use of each month's income as one bar per row, on one scale for the table */
+.use-key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-label); color: var(--text-2); margin: 0 0 8px; }
+.use-key span { display: inline-flex; align-items: center; gap: 8px; }
+.use-bar { position: relative; display: flex; height: 12px; gap: 2px; align-items: stretch; min-width: 120px; }
+.use-bar i { display: block; border-radius: var(--radius-pill); min-width: 0; }
+.use-bar .use-over { position: absolute; top: -2px; bottom: -2px; border-radius: 0; }
+.use-over, .use-over-key { background: repeating-linear-gradient(135deg, var(--bad) 0 2px, transparent 2px 5px); }
+.use-table tfoot .use-bar { height: 16px; }
+.use-table td.use-cell { width: 42%; }
+.use-table .use-month { white-space: nowrap; }
+@media (max-width: 599px) {
+  .use-table .use-hide { display: none; }
+  .use-table td.use-cell { width: auto; }
+  .use-table .use-bar { min-width: 56px; }
+  .use-table :is(td, th) { padding-inline: 4px; }
+}
+
+/* the category cards on a phone (critic 9): name and figure on the first line, the share bar, share and change on the
+   second; no ledger bracket; a group's categories open from its arrow */
+.rt-phone-only { display: none; }
+@media (max-width: 599px) {
+  .rt-phone-only { display: inline; }
+  #kategoriat .rt-cards tr { grid-template-columns: minmax(0, 1fr) auto auto; }
+  #kategoriat .rt-cards td:first-child { grid-column: 1 / 3; grid-row: 1; }
+  #kategoriat .rt-cards td[data-rt="main"] { grid-column: 3; grid-row: 1; text-align: right; }
+  #kategoriat .rt-cards td.rt-bar-cell { grid-column: 1; grid-row: 2; }
+  #kategoriat .rt-cards td.rt-share { grid-column: 2; grid-row: 2; }
+  #kategoriat .rt-cards td.rt-change { grid-column: 3; grid-row: 2; min-inline-size: 0; }
+  #kategoriat .rt-cards td.rt-change:empty { display: none; }
+  #kategoriat .rt-cards :is(.sum, .sum-pad) { border: 0; box-shadow: none; background-image: none; }
+  #kategoriat .rt-cards tr.rt-folded { display: none; }
+}
+
+/* the heat map of Menot kuukausittain: core's bins on the heat ladder, a month with nothing a hairline square */
+.chart .heat-cell { outline: none; }
+.chart .heat-bnone { fill: none; stroke: var(--grid); stroke-width: 1; }
+.chart .heat-b0 { fill: var(--surface-2); stroke: var(--grid); stroke-width: 1; }
+.chart .heat-b1 { fill: var(--heat-1); }
+.chart .heat-b2 { fill: var(--heat-2); }
+.chart .heat-b3 { fill: var(--heat-3); }
+.chart .heat-b4 { fill: var(--heat-4); }
+.chart .heat-peak { stroke: var(--text); stroke-width: 2; }
+.chart .heat-active, .chart .heat-cell:focus-visible { stroke: var(--accent); stroke-width: 2; }
+.chart .heat-name { fill: var(--text); font-size: var(--fs-label); }
+.chart .heat-name.heat-on { font-weight: 600; }
+.chart .heat-total { fill: var(--text); font-size: var(--fs-label); font-variant-numeric: tabular-nums lining-nums; }
+.heat-read { min-height: var(--lh-label); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); margin: 8px 0; font-variant-numeric: tabular-nums lining-nums; }
+.heat-key-1 { background: var(--heat-1); }
+.heat-key-2 { background: var(--heat-2); }
+.heat-key-3 { background: var(--heat-3); }
+.heat-key-4 { background: var(--heat-4); }
+
+/* Saldot: the bank mark beside each account, the change chip beside the head's figure */
+.saldot-name, .saldot-datum { display: inline-flex; align-items: center; gap: 8px; }
+.qc-cap { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); font-weight: 600; margin: 0 0 4px; }
+
+/* Ruoka's lines on a phone: name, a month's spend, share and change; the line of months and the share bar go */
+@media (max-width: 599px) {
+  .food-lines :is(.rt-spark-cell, .rt-bar-cell) { display: none; }
+  .food-lines :is(td, th) { padding-inline: 4px; }
+}
+@media (max-width: 599px) {
+  /* an account card: mark and name, then the balance; the change chip under the balance */
+  #saldot .rt-cards td.rt-change { grid-column: 2; text-align: right; }
+}
+@media (max-width: 599px) {
+  /* Tulot's types on a phone: the type, its total and its share; the month and the share bar go */
+  .income-types :is(.income-month, .rt-bar-cell) { display: none; }
+  .income-types :is(td, th) { padding-inline: 4px; }
+}

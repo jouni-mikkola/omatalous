@@ -1,0 +1,134 @@
+/* The first page's holdings: accounts, credit cards and loans (components/holdings/). */
+
+/* The groups, ruled as the columns of a block (statement.css .st-cols): to the card's edges, a rule between them. Two stand
+   side by side from 900 px, in five parts and seven, from 1040 px on the register's own split (--split-5). Of three, the first two
+   stand side by side and the cards have a row of their own under them, across the card. Below 900 px they stand under each other. */
+.holdings > .card-head { margin-bottom: 0; }
+.holding-groups { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 calc(-1 * var(--pad)); }
+.holding-groups > * { min-width: 0; padding: 16px var(--pad) 16px; }
+.holding-groups > * + * { border-top: 1px solid var(--border); }
+.holdings > .holding-groups:last-child { margin-bottom: calc(-1 * var(--pad)); }
+@media (min-width: 900px) {
+  .holding-groups-2, .holding-groups-3 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .holding-groups-3 > .holding-cards { grid-column: 1 / -1; }
+  .holding-groups-2 > * + * { border-top: 0; border-left: 1px solid var(--border); }
+  .holding-groups-3 > :nth-child(2) { border-top: 0; border-left: 1px solid var(--border); }
+}
+@media (min-width: 1040px) {
+  .holding-groups-2, .holding-groups-3 { grid-template-columns: var(--split-5) minmax(0, 1fr); }
+}
+
+/* a name is a link in the accent colour, underlined when pointed at or focused; the box has room for the focus ring, which
+   the cut edge of a name would clip */
+.holdings .holding-name { margin: -4px; padding: 4px; }
+/* in a unit's head the name fills the row, so its right margin would push it 4 px past the card: the ring has its room inside */
+.holdings .holding-unit-head .holding-name { margin-right: 0; }
+.holdings .holding-name a { text-decoration: none; }
+.holdings .holding-name a:hover, .holdings .holding-name a:focus-visible { text-decoration: underline; }
+.holdings .holding-name a:focus-visible { outline-offset: 0; box-shadow: none; }
+/* the label of a figure is told whole */
+.holdings .holding-label { overflow: visible; white-space: normal; }
+/* a card over its limit: what is used is in the colour of what is wrong */
+.holdings .holding-bad { color: var(--bad); }
+
+/* an account: its name at the left and its balance at the right edge. The row is 54 px so that a curve of 34 px fits between
+   the two later without the row growing or the balance moving; a line under the name (a part, an old balance) spans the row */
+.holdings .holding-account { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 54px; padding: 8px 0; box-sizing: border-box; }
+.holdings .holding-account .st-sub { grid-column: 1 / -1; }
+/* M7: the track lies on the row's own rule, so the box it is drawn in reaches the border */
+.holdings .holding-account.share { background-origin: border-box; }
+
+/* a unit: a card or a loan, its name and lines and then its figures as rows */
+.holding-units { list-style: none; margin: 0; padding: 0; }
+.holdings .holding-unit-head { padding-bottom: 0; border-bottom: 0; }
+.holding-unit .st-note { margin: 4px 0 8px; }
+
+/* Lainat: a hairline between the loans. From 700 px a loan is its name and lines at the left and its figures as rows at the
+   right, so the figure rows have a place to grow in (the last due date, the share paid) and the loan stays two rows tall;
+   below, the figures go under the name */
+.holding-loans > li { padding: 4px 0; }
+.holding-loans > li:not(:last-child) { border-bottom: 1px solid var(--bar-edge); }
+.holding-loans .holding-unit-head { padding-top: var(--cell-y); }
+@media (min-width: 700px) {
+  .holding-loans > li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); column-gap: 24px; align-items: center; }
+  .holding-loans .st-note { grid-column: 1 / -1; margin: 0 0 8px; }
+}
+
+/* Luottokortit: the head has the sum of the cards at the right; the cards stand in as many columns as are 340 px wide */
+.holding-cards-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 16px; }
+.holding-cards-head .st-cap { margin: 0; }
+.holding-inline { display: flex; gap: 16px; margin: 0; font-size: var(--fs-body); line-height: 18px; }
+.holding-inline dt { color: var(--text-2); }
+.holding-inline dd { margin: 0; }
+.holding-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 24px 40px; }
+
+/* a credit card: its picture at the left, its name and the arc at the right, its figures as rows across the unit. The body
+   is no box of its own, so the name and the arc are cells of the unit's grid beside the picture */
+.holdings { --face-w: 196px; }
+@media (max-width: 480px) { .holdings { --face-w: 148px; } .holding-unit-faced .holding-unit-head .st-name { overflow-wrap: anywhere; } }
+.holding-unit-faced { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 20px; row-gap: 8px; align-items: start; }
+.holding-unit-faced > .card-face-link { grid-row: span 2; }
+.holding-unit-faced .holding-unit-body { display: contents; }
+.holding-unit-faced .holding-unit-head { grid-column: 2; padding: 0; }
+/* a card's name is told whole: it wraps where a row's name is cut */
+.holding-unit-faced .holding-unit-head .st-name { overflow: visible; white-space: normal; flex-basis: 100%; }
+.holding-unit-faced .credit-arc { grid-column: 2; }
+.holding-unit-faced > .holding-unit-body > .st-rows, .holding-unit-faced > .holding-unit-body > .st-note { grid-column: 1 / -1; }
+.holding-unit-faced > .holding-unit-body > .st-rows { border-top: 1px solid var(--bar-edge); }
+/* the keyboard's focus is on the name; the picture shows it too, as every focus on the page is shown, and does not lean */
+.holding-unit-faced:has(.holding-name a:focus-visible) .card-face { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* the arc of what is used: a track of three quarters of a circle and the fill on it, the share in the middle. It is drawn from
+   the lower left, and its colours run from mint to violet along the fill */
+.credit-arc { display: block; width: 64px; height: 64px; }
+.credit-arc circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.credit-arc-track { stroke: var(--grid); }
+.credit-arc-over .credit-arc-fill { stroke: var(--bad); }
+.credit-arc text { fill: var(--text); font-size: var(--fs-body); font-weight: 600; }
+
+/* The picture of a card, drawn here: a real card's proportions (85.6 by 54 mm), a ground of five stops in the tone's colours and a
+   texture of fine lines and arcs over it (::before). It is an object, not a part of the page: its colours are its own and the same
+   in every look of the page, and it reads no token. It stands still: the one light is straight above, so its shadow falls straight down. */
+.card-face-link { display: block; width: var(--face-w, 196px); border-radius: 13px; }
+.card-face-link:hover { text-decoration: none; }
+.card-face {
+  --face-chip-1: #f3dc96; --face-chip-2: #b0832a; --face-chip-line: #5d480f;
+  position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 1.586; overflow: hidden; border-radius: 12px;
+  font-size: calc(var(--face-w, 196px) * 0.0765); line-height: 1.2; font-weight: 400; color: #eef0fb;
+  background-color: #2a3260; background-image: linear-gradient(135deg, #46509a 0%, #2a3260 48%, #1a2040 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 -1px 0 rgb(0 0 0 / 0.3), 0 10px 18px -12px rgb(20 28 43 / 0.45);
+}
+.card-face-gold { color: #1d1503; background-color: #cfa94a; background-image: linear-gradient(135deg, #f3dc96 0%, #d6b150 30%, #b0832a 56%, #e2c670 78%, #9c7120 100%); }
+.card-face-platinum { color: #12162a; background-color: #b3bad2; background-image: linear-gradient(135deg, #eef1f9 0%, #c4cae0 30%, #8f98b8 58%, #d4d9ea 80%, #7e87a8 100%); }
+.card-face-black { color: #e9ebf5; background-color: #14151c; background-image: linear-gradient(135deg, #34374b 0%, #111218 42%, #20222d 70%, #050508 100%); }
+.card-face-silver { color: #15171b; background-color: #a9adb4; background-image: linear-gradient(135deg, #e6e8eb 0%, #b9bcc2 32%, #84888f 58%, #c6c9ce 80%, #73777e 100%); }
+.card-face::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(115deg, rgb(255 255 255 / 0.06) 0 1px, transparent 1px 4px),
+    radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 0.26), transparent 55%),
+    radial-gradient(circle at 88% 130%, transparent 0 46%, rgb(255 255 255 / 0.16) 46.4% 47%, transparent 47.4% 56%, rgb(255 255 255 / 0.11) 56.4% 57%, transparent 57.4% 66%, rgb(255 255 255 / 0.07) 66.4% 67%, transparent 67.4%);
+}
+
+/* the parts of the picture stand where a real card has them, in percent of it, so they keep their places at any size; text on
+   it is cut with an ellipsis, never wraps and never leaves the picture, the number is the last to be cut and the tone's word
+   the first */
+.card-face-top { position: absolute; left: 10%; top: 9%; max-width: 80%; height: 22px; display: flex; align-items: center; }
+.card-face-bank { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.75em; font-weight: 600; }
+.card-chip { position: absolute; left: 10%; top: 31%; width: 17.5%; aspect-ratio: 34 / 26; border-radius: 15%; overflow: hidden; background: linear-gradient(135deg, var(--face-chip-1), var(--face-chip-2)); filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)); }
+.card-chip svg { display: block; width: 100%; height: 100%; }
+.card-chip path { fill: none; stroke: var(--face-chip-line); stroke-opacity: 0.6; stroke-width: 1; }
+.card-face-bottom { position: absolute; left: 10%; right: 10%; bottom: 12%; display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.card-face-mask { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgb(255 255 255 / 0.3); }
+.card-face-black .card-face-mask, .card-face-plain .card-face-mask { text-shadow: 0 -1px 0 rgb(0 0 0 / 0.6); }
+.card-face-tone { flex: 0 1000 auto; min-width: 0; margin-left: auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.6em; font-weight: 600; letter-spacing: 0.1em; }
+
+/* the debts of the whole block: one row under all the groups, under a hairline */
+.holdings .holding-foot { margin: 16px 0 0; padding: 0; border-top: 1px solid var(--border); }
+
+/* the tick before a balance: a mark in the text colour with a glyph (a check, or an exclamation mark) drawn here, never a colour alone */
+.holding-tick { display: inline-block; margin-right: 8px; font-size: var(--fs-label); line-height: 16px; font-weight: 600; cursor: help; }
+.holding-tick-ok { color: var(--good); }
+.holding-tick-diff { color: var(--bad); }
+.holding-tick-ok::before { content: "\2713"; }
+.holding-tick-diff::before { content: "\21"; }

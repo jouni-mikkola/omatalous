@@ -1,0 +1,22 @@
+# The files a check step may read: one line `step: pathspec pathspec ...` (tools/check/key.sh explains the form). The key of
+# a step is the content of the tracked files these name, so a file a step reads that is not named here would let a stamp
+# hit on a tree where that step is red. Only lint has a declared set; types, every tests part and sh have no line, so each
+# reads the whole tree, until a proof of narrower sets (not a grep) has run. A miss costs seconds, a wrong hit costs a red
+# tree that looks green.
+#
+# git pathspecs: `*` also crosses `/`, so `*.ts` is every .ts file of the tree.
+
+# tools/ci/shell-lint.sh lints scripts/**/*.sh, tools/*.sh, tools/*/*.sh and .claude/hooks/*.sh, and reads the shellcheck
+# settings and the libraries a script sources (they are scripts too)
+lint: scripts tools/*.sh .claude/hooks *.shellcheckrc
+
+# `env: NAME NAME ...` is no step: the environment variables a test reads that can change what it runs or what it accepts
+# (how many seeds, whether a browser is used, which contract file is rewritten). The value of each, an unset one told from an empty one,
+# is in every key. The variables only a debug print reads (ISLAND_DEBUG, INCREMENTAL_DEBUG), the ones `pnpm e2e` sets for
+# the page specs (E2E_BASE_URL, E2E_DIR, E2E_FAKE_BANK) and PATH (which tool is found: node's version is in the key already)
+# are left out. The cut's shares change how fast the page tests run, not what they find. E2E_WORKERS is in: it decides which
+# spec files share a server. So are the time zone and some names the app reads (instance name, session and history days,
+# password iterations, proxy and Cloudflare Access settings: the page server takes the caller's whole environment). The page tests
+# (step e2e, no line here: the whole tree) add the names of the installed Chromium folders; a run with SHOTS_DIR, E2E_SHOTS
+# or FAKE_BANK_PORT, NODE_ENV, PWDEBUG or PW_TEST_CONNECT_WS_ENDPOINT set, or with any argument, reads and writes no stamp.
+env: ISLAND_SEEDS INCREMENTAL_SEEDS E2E_CHROMIUM PLAYWRIGHT_BROWSERS_PATH UPDATE_CONTRACT ANSWERS_RENEW FACTS_GARBAGE FIXTURE_REFUSES E2E_WORKERS TZ INSTANCE_NAME SESSION_DAYS HISTORY_DAYS PASSWORD_ITERATIONS TRUST_PROXY CF_ACCESS_AUD CF_ACCESS_TEAM_DOMAIN

@@ -1,0 +1,23 @@
+/*
+ * Ilmoitukset, the card at the foot of Yhteenveto. The rows are the statement's (`.st-rows`, `.st-row`); a notice is one
+ * line, its title and its detail after it, cut with an ellipsis where it does not fit, and its answers at the right. Only a
+ * warning is marked, by a triangle before its title, which leaves the text of every row on one line.
+ */
+/* a row is 40 px with or without a button, so a list of them is even; the button (27 px) sets the height */
+.notice-item { position: relative; align-items: center; row-gap: 4px; box-sizing: border-box; min-height: 40px; padding: 4px 0; }
+.notice-item.warn .notice-title::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+/* the line keeps 14 rem; narrower than that beside its answers they go under it, from its left edge. The box has room for
+   the focus ring, which the cut edge of the line would clip */
+.notice-item .notice-text { flex: 1 1 14rem; margin: -4px; padding: 4px; color: inherit; text-decoration: none; }
+a.notice-text:focus-visible { outline-offset: 0; box-shadow: none; }
+.notice-title { font-weight: 600; }
+a.notice-text .notice-title { color: var(--accent-ink); }
+a.notice-text:hover .notice-title { text-decoration: underline; }
+.notice-detail { color: var(--text-2); }
+.notice-actions { display: flex; flex: none; align-items: center; gap: 12px; }
+.notice-actions .btn { font-weight: 400; }
+.notice-error { margin: 12px 0 0; }
+/* where the line is narrow beside its links and key the detail wraps: its unit is never cut off */
+@media (max-width: 1039px) {
+  .notice-item .notice-text { overflow: visible; text-overflow: clip; white-space: normal; }
+}

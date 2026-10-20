@@ -1,0 +1,27 @@
+/* Motion: only opacity, nothing moves or scales, nothing loops, nothing waits on scroll, every time under 0.4 s.
+   A mark stands at its true place and length from the first frame; a length fades in. The last block turns all of it off. */
+
+@keyframes enter { from { opacity: 0; } }
+@keyframes settle { from { opacity: 0.35; } }
+
+/* a page's panels, once, when its data first shows: all readable at 320 ms */
+.stack > *, .page-grid > * { animation: enter var(--t-open) var(--ease-out) backwards; }
+.stack > :nth-child(2), .page-grid > :nth-child(2) { animation-delay: 30ms; }
+.stack > :nth-child(3), .page-grid > :nth-child(3) { animation-delay: 60ms; }
+.stack > :nth-child(4), .page-grid > :nth-child(4) { animation-delay: 90ms; }
+.stack > :nth-child(n + 5), .page-grid > :nth-child(n + 5) { animation-delay: 120ms; }
+
+/* a figure whose text changed is a new element (Figure keys its span by the text) */
+.fig { animation: settle var(--t-state) var(--ease-out); }
+
+/* a dialog opens at once in a browser without @starting-style */
+dialog.confirm { transition: opacity var(--t-open) var(--ease-out); }
+@starting-style { dialog.confirm[open] { opacity: 0; } }
+
+/* the rows of a category opened */
+.themes-line { animation: enter var(--t-state) var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .stack > *, .page-grid > *, .fig, .themes-line { animation: none; }
+  dialog.confirm { transition: none; }
+}

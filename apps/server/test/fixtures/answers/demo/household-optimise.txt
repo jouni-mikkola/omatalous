@@ -1,0 +1,534 @@
+{
+ "data": {
+  "today": "2026-10-09",
+  "end": "2026-09-30",
+  "months": 12,
+  "historyMonths": 12,
+  "dataTo": "2026-10-09",
+  "accounts": 3,
+  "situation": [
+   {
+    "id": "savings_rate",
+    "label": "Säästöaste, viimeiset 12 kuukautta",
+    "value": 0.11265450095412104,
+    "unit": "share",
+    "text": "11 %"
+   },
+   {
+    "id": "fixed_share",
+    "label": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta",
+    "value": 0.4432759493670886,
+    "unit": "share",
+    "text": "44 %"
+   },
+   {
+    "id": "buffer",
+    "label": "Puskuri",
+    "value": 4.372983372907808,
+    "unit": "months",
+    "text": "4,4 kuukautta"
+   },
+   {
+    "id": "debt_share",
+    "label": "Velanhoito tavallisista tuloista, viimeiset 6 kuukautta",
+    "value": 0.07316455696202531,
+    "unit": "share",
+    "text": "7 %"
+   }
+  ],
+  "headline": {
+   "lowCents": 28788,
+   "midCents": 28788,
+   "highCents": 28788,
+   "count": 2
+  },
+  "household": [
+   {
+    "id": "own_unconnected",
+    "reason": "Säästöön meni 1 800 € tilille, jota ei ole yhdistetty."
+   }
+  ],
+  "areas": [
+   {
+    "id": "subscriptions",
+    "label": "Puhelin ja tilaukset",
+    "findings": [
+     {
+      "id": "subscriptions:rise:out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "area": "subscriptions",
+      "kind": "rise",
+      "subject": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "title": "Adobe: hinta nousi 62,99 € → 74,99 € 14.4.2026. Nousu on 144 € vuodessa.",
+      "action": "Neuvottele hinnasta tai irtisano tilaus.",
+      "euros": {
+       "lowCents": 14400,
+       "midCents": 14400,
+       "highCents": 14400
+      },
+      "decideBy": null,
+      "weaknesses": [],
+      "shared": false,
+      "calc": [
+       {
+        "label": "Maksunsaaja",
+        "value": "Adobe"
+       },
+       {
+        "label": "Hinta ennen",
+        "value": "62,99 €"
+       },
+       {
+        "label": "Hinta nyt",
+        "value": "74,99 €"
+       },
+       {
+        "label": "Uusi hinta alkaen",
+        "value": "14.4.2026"
+       },
+       {
+        "label": "Veloituksia ennen nousua",
+        "value": "7"
+       },
+       {
+        "label": "Veloituksia vuodessa",
+        "value": "12"
+       },
+       {
+        "label": "Nousu vuodessa",
+        "value": "144 €"
+       }
+      ],
+      "rows": [
+       "3124393efb8ec90c5828f438",
+       "966a27cd182b3a4318ffc570",
+       "ee48c96fba381570458f1c49",
+       "addf94d9a9106f5a25e15dde",
+       "b76915db29043f8902974dd2",
+       "b998799d48e41ff04c1835a9",
+       "1bc20c047b8dc72814187c7f",
+       "69cd875949b69faaac4c9791",
+       "8fce21607677b2a28865ea99",
+       "4c275b6beab5f87a94fa8651",
+       "8cfd1e237717fa06e48d20a3",
+       "cef4195f0be15129f9587537",
+       "ea783325604854f97b1339eb"
+      ],
+      "struck": [],
+      "claims": [
+       "series:out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      ],
+      "measure": {
+       "kind": "series",
+       "keys": [
+        "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+       ],
+       "perYear": 12
+      },
+      "facts": [],
+      "change": {
+       "date": "2026-04-14",
+       "label": "Uusi hinta"
+      },
+      "certainty": {
+       "level": "korkea",
+       "reason": "Laskettu omista tiedoista."
+      }
+     },
+     {
+      "id": "subscriptions:overlap:video",
+      "area": "subscriptions",
+      "kind": "overlap",
+      "subject": "video",
+      "title": "Kaksi videopalvelua yhteensä 29,98 € kuussa: Netflix ja Max.",
+      "action": "Irtisano yksi palveluista tai pidä palvelut voimassa vuorotellen.",
+      "euros": {
+       "lowCents": 14388,
+       "midCents": 14388,
+       "highCents": 14388
+      },
+      "decideBy": null,
+      "weaknesses": [
+       {
+        "id": "estimate",
+        "reason": "Tiedoista ei näy, kuka käyttää mitäkin palvelua."
+       }
+      ],
+      "shared": false,
+      "calc": [
+       {
+        "label": "Netflix",
+        "value": "17,99 €/kk"
+       },
+       {
+        "label": "Max",
+        "value": "11,99 €/kk"
+       },
+       {
+        "label": "Yhteensä kuussa",
+        "value": "29,98 €"
+       },
+       {
+        "label": "Halvin palvelu vuodessa",
+        "value": "144 €"
+       },
+       {
+        "label": "Muut kuin kallein vuodessa",
+        "value": "144 €"
+       },
+       {
+        "label": "Arvio vuodessa, vaihteluvälin keskikohta",
+        "value": "144 €"
+       }
+      ],
+      "rows": [
+       "956c6398504f808a0fbef944",
+       "b64ca4d46dd59aaf46737e11",
+       "93b34705e2e7b2df61deb8b5",
+       "be22a6111d1dcbac19f4ffd7",
+       "1e1d27994b5302d32a411f52",
+       "31920eb140fe7d14f5e47a0d",
+       "e493cffbccf2240e26a1de3a",
+       "28ee281d56badad987d4e050",
+       "d1581b50ef30653b5b540c42",
+       "3e260df6fb1d2191e961e744",
+       "0113160398ea51c4a4743f1b",
+       "0a967bad415875b6d011beba",
+       "b2f1b26f9ed0531f35347cdc",
+       "b4aa68df1f53638b15f31b36",
+       "aed86148374e4efef422271f",
+       "b91f3319e04c823fef9e3253",
+       "183259a360b082e03edec549",
+       "ecebc7fe63998597bb53f5ff",
+       "d3d1c6541b6673288da7932e",
+       "de6d2cf4c145f0976a535c41",
+       "541880028df9c9730413c9ef",
+       "37271f46fb0a525456472657",
+       "21f8c9e8c3ceefd6a73524ff",
+       "6ccbaf150f3de977c0bce980",
+       "9a2ead7c2c6eb2271bff8077"
+      ],
+      "struck": [],
+      "claims": [
+       "series:out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+       "series:out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      ],
+      "measure": {
+       "kind": "series",
+       "keys": [
+        "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+        "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+       ],
+       "perYear": 12
+      },
+      "facts": [],
+      "certainty": {
+       "level": "keskitaso",
+       "reason": "Tiedoista ei näy, kuka käyttää mitäkin palvelua."
+      }
+     }
+    ],
+    "checks": [
+     {
+      "id": "subscriptions:rise",
+      "label": "Sopimusten ja tilausten hinnat",
+      "status": "finding"
+     },
+     {
+      "id": "subscriptions:overlap",
+      "label": "Päällekkäiset palvelut",
+      "status": "finding"
+     },
+     {
+      "id": "subscriptions:renewal",
+      "label": "Uusiutuvat tilaukset",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 23033
+   },
+   {
+    "id": "loans",
+    "label": "Lainat",
+    "findings": [],
+    "checks": [
+     {
+      "id": "loans:margin",
+      "label": "Asuntolainan marginaali",
+      "status": "no_subject"
+     },
+     {
+      "id": "loans:prepay",
+      "label": "Lainan lyhentäminen säästöillä",
+      "status": "no_subject"
+     },
+     {
+      "id": "loans:card_interest",
+      "label": "Luottokortin korot",
+      "status": "no_subject"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "savings",
+    "label": "Säästöt",
+    "findings": [],
+    "checks": [
+     {
+      "id": "savings:idle_cash",
+      "label": "Käyttötilin ylimääräinen saldo",
+      "status": "no_data"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "bank",
+    "label": "Pankkikulut",
+    "findings": [],
+    "checks": [
+     {
+      "id": "bank:card_tier",
+      "label": "Kortin hintataso",
+      "status": "no_subject"
+     },
+     {
+      "id": "bank:late_fees",
+      "label": "Myöhästymiskulut",
+      "status": "no_subject"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "electricity",
+    "label": "Sähkö",
+    "findings": [],
+    "checks": [
+     {
+      "id": "electricity:price",
+      "label": "Sähkön hinta",
+      "status": "no_data"
+     },
+     {
+      "id": "electricity:contract_end",
+      "label": "Sähkösopimuksen päättyminen",
+      "status": "needs_input",
+      "input": "electricity_contract_end"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "housing",
+    "label": "Asuminen",
+    "findings": [],
+    "checks": [
+     {
+      "id": "housing:rise",
+      "label": "Asumismenojen nousu",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "insurance",
+    "label": "Vakuutukset",
+    "findings": [],
+    "checks": [
+     {
+      "id": "insurance:rise",
+      "label": "Vakuutusmaksujen nousu",
+      "status": "clear"
+     },
+     {
+      "id": "insurance:renewal",
+      "label": "Vakuutusten uusiutuminen",
+      "status": "clear"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "food",
+    "label": "Ruoka",
+    "findings": [],
+    "checks": [
+     {
+      "id": "food:eating_out",
+      "label": "Ravintolat ja kotiinkuljetus",
+      "status": "no_data"
+     },
+     {
+      "id": "food:delivery",
+      "label": "Ruoan kotiinkuljetus",
+      "status": "no_data"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "habits",
+    "label": "Pienet tavat",
+    "findings": [],
+    "checks": [
+     {
+      "id": "habits:repeat",
+      "label": "Arkiostot",
+      "status": "no_data"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "seasons",
+    "label": "Vuosimenot",
+    "findings": [],
+    "checks": [
+     {
+      "id": "seasons:month",
+      "label": "Kalliit kuukaudet",
+      "status": "no_data"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "tax",
+    "label": "Verot",
+    "findings": [],
+    "checks": [
+     {
+      "id": "tax:household_deduction",
+      "label": "Kotitalousvähennys",
+      "status": "no_subject"
+     }
+    ],
+    "weightCents": 0
+   },
+   {
+    "id": "kids",
+    "label": "Lapset",
+    "findings": [],
+    "checks": [],
+    "weightCents": 0
+   },
+   {
+    "id": "car",
+    "label": "Auto",
+    "findings": [],
+    "checks": [
+     {
+      "id": "car:per_km",
+      "label": "Auton menot kilometriä kohden",
+      "status": "needs_input",
+      "input": "car_km"
+     }
+    ],
+    "summary": {
+     "title": "Auton menot 12 kuukaudessa",
+     "lines": [
+      {
+       "label": "Polttoaine",
+       "value": "1 473 €"
+      },
+      {
+       "label": "Rahoitus",
+       "value": "3 468 €"
+      },
+      {
+       "label": "Yhteensä",
+       "value": "4 941 €"
+      }
+     ]
+    },
+    "weightCents": 0
+   }
+  ],
+  "reach": [
+   {
+    "area": "subscriptions",
+    "euros": {
+     "lowCents": 28788,
+     "midCents": 28788,
+     "highCents": 28788
+    },
+    "count": 2,
+    "spendCents": 116764,
+    "share": 0.24654859374464733
+   }
+  ],
+  "soon": [],
+  "done": [],
+  "dismissed": [],
+  "snoozed": [],
+  "unknownShare": 0,
+  "others": [
+   {
+    "id": "new:out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+    "tone": "info",
+    "title": "Uusi toistuva maksu: OpenAI 23 € kuussa",
+    "detail": "Ensimmäinen veloitus 5.8.2026, 2 veloitusta tähän mennessä.",
+    "yearlyCents": 27600,
+    "rows": [
+     "54f2307e23830edae0c5fcc1",
+     "54d7ba287b2a3cb16b38e4b4"
+    ],
+    "link": {
+     "merchant": "OpenAI"
+    },
+    "merchant": "OpenAI",
+    "calc": [
+     {
+      "label": "Ensimmäinen veloitus",
+      "value": "5.8.2026"
+     },
+     {
+      "label": "Veloituksia",
+      "value": "2"
+     },
+     {
+      "label": "Kuussa",
+      "value": "23 €"
+     },
+     {
+      "label": "Vuodessa",
+      "value": "276 €"
+     }
+    ]
+   }
+  ],
+  "othersDismissed": [],
+  "needed": [
+   {
+    "key": "electricity_contract_end",
+    "def": "electricity_contract_end",
+    "subject": null,
+    "old": null
+   },
+   {
+    "key": "car_km",
+    "def": "car_km",
+    "subject": null,
+    "old": null
+   }
+  ],
+  "checked": {
+   "total": 20,
+   "findings": 2,
+   "unavailable": 8,
+   "noRows": 0,
+   "noSubject": 6
+  }
+ },
+ "inputs": [],
+ "states": [],
+ "changes": [],
+ "followUp": {
+  "outcomes": [],
+  "proposals": [],
+  "line": []
+ },
+ "rates": []
+}

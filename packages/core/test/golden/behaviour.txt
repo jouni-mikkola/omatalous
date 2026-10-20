@@ -1,0 +1,192 @@
+# behaviour: 31 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+behaviour · demo · behaviour:credit (quiet)
+  2 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold (esimerkki): 2025-09-01..2026-10-09, start before the history, paid 3893.61 € in 90 days
+  | loan Nordea Rahoitus Suomi Oy: 2025-09-05..2026-10-05, start before the history, paid 867.00 € in 90 days
+  rows 676
+
+behaviour · demo · behaviour:payday (quiet)
+  days after pay at 1.19 times the days before, chance 0.54 (estimated)
+  = 30.78 € a cycle beyond the pace before
+  | 11 cycles counted
+  rows 55
+
+behaviour · kit:base · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2024-04-05..2026-10-14, start before the history, paid 2811.65 € in 90 days
+  | mortgage Nordea Bank Abp: 2024-04-05..2026-10-05, start before the history, paid 1837.20 € in 90 days
+  rows 976
+
+behaviour · kit:base · behaviour:payday (quiet)
+  days after pay at 0.89 times the days before, chance 0.919 (estimated)
+  = -14.78 € a cycle beyond the pace before
+  | 12 cycles counted
+  rows 43
+
+behaviour · bank:op-couple · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card OP Visa Credit: 2025-08-02..2026-10-15, start before the history, paid 2723.71 € in 90 days
+  rows 319
+
+behaviour · bank:op-couple · behaviour:payday (quiet)
+  days after pay at 0.34 times the days before, chance 1 (estimated)
+  = -94.08 € a cycle beyond the pace before
+  | 12 cycles counted
+  | skipped 1 as few_rows
+  | skipped 1 as open
+  rows 14
+
+behaviour · bank:s-pankki-single · behaviour:credit (quiet)
+  0 consumer credit lines running, 0 opened in 180 days (estimated)
+  | student S-Pankki: 2025-08-05..2026-10-05, start before the history, paid 294.00 € in 90 days
+  rows 0
+
+behaviour · bank:s-pankki-single · behaviour:payday (quiet)
+  no answer: under six covered cycles
+  | 0 cycles counted
+
+behaviour · bank:danske-family · behaviour:credit (quiet)
+  0 consumer credit lines running, 0 opened in 180 days (estimated)
+  | mortgage Danske Bank Oyj: 2025-08-03..2026-10-03, start before the history, paid 2961.00 € in 90 days
+  rows 0
+
+behaviour · bank:danske-family · behaviour:payday (quiet)
+  no answer: under six covered cycles
+  | 0 cycles counted
+  | skipped 24 as short
+
+behaviour · plain:1 · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2025-01-01..2025-10-22, start before the history, paid 1315.01 € in 90 days
+  | mortgage Nordea: 2025-03-02..2025-10-13, paid 1603.03 € in 90 days
+  rows 179
+
+behaviour · plain:1 · behaviour:payday (quiet)
+  days after pay at 0.99 times the days before, chance 0.144 (estimated)
+  = -1.06 € a cycle beyond the pace before
+  | 7 cycles counted
+  rows 34
+
+behaviour · plain:1 · behaviour:split:g1-000373 (quiet)
+  Kahvila Ilo 2025-09-30: 25.00 € + 30.00 € back (guess)
+  = 90.00 €
+  | left to the household 35.00 €
+  rows 3
+
+behaviour · plain:2 · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | mortgage Nordea: 2025-01-02..2025-10-24, start before the history, paid 1200.19 € in 90 days
+  | card Nordea Gold: 2025-01-03..2025-10-27, start before the history, paid 1398.32 € in 90 days
+  rows 179
+
+behaviour · plain:2 · behaviour:payday (quiet)
+  days after pay at 0.78 times the days before, chance 0.598 (estimated)
+  = -53.08 € a cycle beyond the pace before
+  | 8 cycles counted
+  rows 36
+
+behaviour · plain:3 · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | mortgage Nordea: 2025-01-21..2025-10-19, start before the history, paid 2804.79 € in 90 days
+  | card Nordea Gold: 2025-01-26..2025-10-25, start before the history, paid 1161.63 € in 90 days
+  rows 189
+
+behaviour · plain:3 · behaviour:payday (quiet)
+  no answer: under six covered cycles
+  | 0 cycles counted
+  | skipped 3 as short
+
+behaviour · plain:4 · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2025-01-10..2025-11-09, start before the history, paid 1665.53 € in 90 days
+  | mortgage Nordea: 2025-02-07..2025-10-27, start before the history, paid 4004.27 € in 90 days
+  rows 185
+
+behaviour · plain:4 · behaviour:payday (quiet)
+  days after pay at 0.84 times the days before, chance 0.774 (estimated)
+  = -31.60 € a cycle beyond the pace before
+  | 7 cycles counted
+  | skipped 6 as short
+  rows 36
+
+behaviour · plain:5 · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2025-01-01..2025-10-27, start before the history, paid 3539.75 € in 90 days
+  | mortgage Nordea: 2025-01-11..2025-10-15, start before the history, paid 1602.36 € in 90 days
+  rows 188
+
+behaviour · plain:5 · behaviour:payday (quiet)
+  no answer: under six covered cycles
+  | 0 cycles counted
+  | skipped 2 as short
+
+behaviour · settled:1 · behaviour:credit (quiet)
+  3 consumer credit lines running, 0 opened in 180 days (estimated)
+  | mortgage Nordea: 2023-04-20..2025-10-20, start before the history, paid 1222.05 € in 90 days
+  | card Nordea Gold: 2023-05-01..2025-10-27, start before the history, paid 1104.11 € in 90 days
+  | instalment Klarna: 2023-05-02..2025-10-06, start before the history, paid 166.08 € in 90 days
+  | instalment Walley: 2023-06-20..2025-09-25, paid 115.50 € in 90 days
+  rows 536
+
+behaviour · settled:1 · behaviour:payday (quiet)
+  days after pay at 0.61 times the days before, chance 0.997 (estimated)
+  = -76.11 € a cycle beyond the pace before
+  | 12 cycles counted
+  rows 34
+
+behaviour · settled:2 · behaviour:credit (quiet)
+  3 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2023-04-04..2025-10-26, start before the history, paid 1635.47 € in 90 days
+  | mortgage Nordea: 2023-04-20..2025-10-20, start before the history, paid 936.90 € in 90 days
+  | instalment Walley: 2023-06-19..2025-09-23, paid 102.54 € in 90 days
+  | instalment Klarna: 2024-04-27..2025-10-17, paid 109.32 € in 90 days
+  rows 543
+
+behaviour · settled:2 · behaviour:payday (quiet)
+  days after pay at 0.82 times the days before, chance 0.827 (estimated)
+  = -34.56 € a cycle beyond the pace before
+  | 12 cycles counted
+  rows 46
+
+behaviour · settled:3 · behaviour:credit (quiet)
+  1 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2023-04-04..2025-08-31, ended, start before the history, paid 193.01 € in 90 days
+  | instalment Walley: 2023-04-12..2025-10-18, start before the history, paid 94.25 € in 90 days
+  | mortgage Nordea: 2023-04-20..2025-10-20, start before the history, paid 1127.31 € in 90 days
+  | instalment Klarna: 2023-05-05..2025-07-02, ended, start before the history, paid 0.00 € in 90 days
+  rows 13
+
+behaviour · settled:3 · behaviour:payday (quiet)
+  days after pay at 1.19 times the days before, chance 0.022 (estimated)
+  = 33.67 € a cycle beyond the pace before
+  | 12 cycles counted
+  rows 69
+
+behaviour · settled:4 · behaviour:credit (quiet)
+  2 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2023-04-04..2025-10-27, start before the history, paid 1496.28 € in 90 days
+  | instalment Klarna: 2023-04-10..2025-09-02, ended, start before the history, paid 46.47 € in 90 days
+  | mortgage Nordea: 2023-04-20..2025-10-20, start before the history, paid 898.80 € in 90 days
+  | instalment Walley: 2023-05-07..2025-10-26, start before the history, paid 102.25 € in 90 days
+  rows 553
+
+behaviour · settled:4 · behaviour:payday (quiet)
+  days after pay at 1 times the days before, chance 0.484 (estimated)
+  = 0.15 € a cycle beyond the pace before
+  | 12 cycles counted
+  rows 50
+
+behaviour · settled:5 · behaviour:credit (quiet)
+  2 consumer credit lines running, 0 opened in 180 days (estimated)
+  | card Nordea Gold: 2023-04-04..2025-10-25, start before the history, paid 1647.16 € in 90 days
+  | mortgage Nordea: 2023-04-20..2025-10-20, start before the history, paid 1177.23 € in 90 days
+  | instalment Walley: 2023-06-14..2025-09-26, paid 71.98 € in 90 days
+  | instalment Klarna: 2023-10-21..2025-08-01, ended, paid 0.00 € in 90 days
+  rows 557
+
+behaviour · settled:5 · behaviour:payday (quiet)
+  days after pay at 1.28 times the days before, chance 0.626 (estimated)
+  = 32.39 € a cycle beyond the pace before
+  | 12 cycles counted
+  rows 43

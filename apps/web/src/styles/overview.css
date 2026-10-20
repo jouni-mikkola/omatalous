@@ -1,0 +1,86 @@
+/* Yhteenveto and Recurring: the block "Tulot ja menot", upcoming charges. */
+
+/* Tulot ja menot: the switch in the head; the tables, the rows and the columns are the shared statement classes (statement.css) */
+.st-block .segmented button[aria-pressed="true"], .st-block .btn { font-weight: 400; }
+.st-wait { margin: 0; }
+/* on a phone the switch is the second line of the title block, two equal keys the width of the card */
+@media (max-width: 640px) {
+  .st-block .card-tool .segmented { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; }
+  .st-block .segmented button { padding: var(--cell-y) 8px; }
+}
+
+/* the savings rate and the fixed costs under Yli jäi; a label is told whole */
+.month-more { border-top: 1px solid var(--axis); }
+.month-more .st-name { overflow: visible; white-space: normal; }
+.month-chart { margin-top: 20px; }
+
+/* the bar of a table of categories (Ruoka): one colour, the length is the sum */
+.category-bar span { display: block; height: var(--bar-h); min-width: 1px; background: var(--series-1); }
+
+/* Yhteenveto's grid cells: a panel fills its cell, so the two of a row end together */
+.front-cell { display: flex; flex-direction: column; min-width: 0; }
+.front-cell > .card { flex: 1 1 auto; }
+
+/* the answer under a panel's name: one sentence with the figure, at body size */
+.pace-answer { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
+
+/* Menot tässä kuussa: this month in the accent, the usual month's median and middle half in grey, last month dotted,
+   the rest of the month as an estimate (lighter, dashed edge) */
+.pace-chart { position: relative; }
+.pace-chart .pace-usual-band { fill: color-mix(in srgb, var(--series-avg) 18%, transparent); stroke: none; }
+.pace-chart .pace-usual { fill: none; stroke: var(--series-avg); stroke-width: 1.5; stroke-linejoin: round; }
+.pace-chart .pace-prev { fill: none; stroke: var(--series-avg); stroke-width: 1.5; stroke-dasharray: 2 3; stroke-linejoin: round; }
+.pace-chart .pace-est { fill: var(--estimate-fill); stroke: var(--estimate-edge); stroke-width: 1; stroke-dasharray: 4 3; }
+.pace-chart .pace-now { fill: none; stroke: var(--series-1); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.pace-chart .pace-dot { fill: var(--surface); stroke: var(--series-1); stroke-width: 2; }
+.pace-chart .pace-now-label { fill: var(--text); font-weight: 600; }
+.pace-chart .pace-end { fill: var(--text-2); }
+.pace-chart .pace-end-est { fill: var(--estimate-edge); }
+.pace-readout { position: absolute; min-width: 180px; pointer-events: none; }
+.pace-readout-row { display: flex; justify-content: space-between; gap: var(--sp-12); }
+.pace-readout-row .num { font-variant-numeric: tabular-nums lining-nums; color: var(--text); }
+.pace-key { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: var(--sp-8) 0 0; padding: 0; list-style: none; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.pace-key li { display: inline-flex; align-items: center; gap: var(--sp-8); }
+.pace-key span { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--series-avg); }
+.pace-key .pace-key-now { border-top: 3px solid var(--series-1); }
+.pace-key .pace-key-usual { height: 8px; border-top: 2px solid var(--series-avg); background: color-mix(in srgb, var(--series-avg) 18%, transparent); }
+.pace-key .pace-key-prev { border-top-style: dotted; }
+.pace-key .pace-key-est { height: 8px; border: 1px dashed var(--estimate-edge); background: var(--estimate-fill); }
+/* under three complete months: what appears and when, where the comparison will stand */
+.pace-gate { margin: var(--sp-8) 0 0; color: var(--text-2); }
+.pace-table { max-height: 420px; overflow: auto; }
+
+/* Miksi kuu poikkeaa tavallisesta: a bar from the middle for each category that moved, up more and down less than usual */
+.differs-rows { margin: 0; padding: 0; list-style: none; }
+.differs-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-12); min-height: 44px; padding: var(--sp-4) 0; border-bottom: 1px solid var(--grid); }
+.differs-name { display: flex; flex-direction: column; min-width: 0; }
+.differs-cause { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.differs-track { position: relative; display: block; height: 16px; background: linear-gradient(90deg, transparent calc(50% - 0.5px), var(--axis) calc(50% - 0.5px), var(--axis) calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
+.differs-bar { position: absolute; top: 2px; bottom: 2px; min-width: 2px; border-radius: var(--radius-s); background: var(--series-avg); }
+.differs-up .differs-bar { background: var(--bad); }
+.differs-down .differs-bar { background: var(--good); }
+.differs-fig { font-variant-numeric: tabular-nums lining-nums; font-weight: 600; white-space: nowrap; }
+.differs-axis { display: flex; justify-content: space-between; margin-top: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.differs-quiet { margin: 0; color: var(--text-2); }
+@media (max-width: 640px) {
+  .differs-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .differs-track { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* the waterfall against the usual month: a 2 px tick where the usual bar would end, and the difference as a chip */
+.wf-usual { position: absolute; top: var(--inset, 3px); bottom: var(--inset, 3px); width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; }
+.wf.wf-vs .wf-row { grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr) 7.5rem 6.5rem; }
+.wf-chip { display: flex; justify-content: flex-end; }
+@media (max-width: 640px) {
+  .wf.wf-vs .wf-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .wf.wf-vs .wf-chip { grid-column: 2; grid-row: 2; }
+  .wf.wf-vs .wf-track { grid-column: 1; }
+}
+
+/* a datum with a word before its figure: "Netto", "Yli jäi" */
+.datum-label { margin-right: var(--sp-8); font-weight: 400; color: var(--text-2); }
+
+/* Varallisuus: the account's mark before its name */
+.holding-name .acc-mark { margin-right: var(--sp-8); vertical-align: middle; }
+/* under 360 px the name needs the room: the mark goes, the name stays whole */
+@media (max-width: 359px) { .holding-name .acc-mark { display: none; } }

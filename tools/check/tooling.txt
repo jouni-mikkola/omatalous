@@ -1,0 +1,27 @@
+# The self-tests of the developer and release tools: tools/check.sh leaves them out unless the change touches tools/,
+# .github/ or scripts/ (against the same base as --changed), and runs them in CI, with CHECK_FRESH (the release gate) or
+# CHECK_TOOLING=1. One path a line: a shell suite, or a folder of vitest files ending in /.
+# A suite that tests scripts/ or relay/ (the install, the update, the helper) is never listed here: a product change runs
+# it (tools/check/scope.test.ts holds that).
+tools/test/build-ca.test.sh
+tools/test/check.test.sh
+tools/test/commit.test.sh
+tools/test/docker-tidy.test.sh
+tools/test/drills-lib.test.sh
+tools/test/image-tags.test.sh
+tools/test/local-proof-legs.test.sh
+tools/test/local-proof-runs.test.sh
+tools/test/local-proof.test.sh
+tools/test/promote.test.sh
+tools/test/registry-union.test.sh
+tools/test/shell-lint.test.sh
+tools/test/slots.test.sh
+tools/test/smoke-image.test.sh
+tools/test/tests-for.test.sh
+tools/test/verify-release-cache.test.sh
+tools/test/verify-release.test.sh
+tools/test/wait-quiet.test.sh
+tools/test/wait.test.sh
+tools/check/
+tools/release/
+tools/test/

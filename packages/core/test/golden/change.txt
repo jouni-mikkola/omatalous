@@ -1,0 +1,49 @@
+# change: 12 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+change · demo · change:season:2026-10..2026-10 (quiet)
+  Lokakuu 2026: menot 2 021 €, lokakuu 2025 1 916 €.
+  = 105.33 € (now 2021.12 €, base 1915.79 €, gate 38.32 €)
+
+change · demo · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 2 021 €, tavallisesti 2 112 €.
+  = -90.79 € (now 2021.12 €, base 2111.91 €, gate 42.24 €)
+
+change · kit:base · change:season:2026-10..2026-10 (quiet)
+  Lokakuu 2026: menot 2 577 €, lokakuu 2025 2 582 €.
+  = -5.55 € (now 2576.70 €, base 2582.25 €, gate 51.65 €)
+
+change · kit:base · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 2 577 €, tavallisesti 2 574 €.
+  = 3.18 € (now 2576.70 €, base 2573.52 €, gate 51.47 €)
+
+change · kit:base · change:year:2025-10..2026-09 (quiet)
+  Lokakuu 2025–syyskuu 2026: menot 39 188 €, lokakuu 2024–syyskuu 2025 39 146 €.
+  = 41.73 € (now 39187.70 €, base 39145.97 €, gate 782.88 €)
+
+change · bank:op-couple · change:season:2026-10..2026-10 (quiet)
+  Lokakuu 2026: menot 1 309 €, lokakuu 2025 1 363 €.
+  = -53.42 € (now 1309.44 €, base 1362.86 €, gate 27.26 €)
+
+change · bank:op-couple · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 1 309 €, tavallisesti 1 344 €.
+  = -34.58 € (now 1309.44 €, base 1344.02 €, gate 26.88 €)
+
+change · bank:s-pankki-single · change:season:2026-10..2026-10 (quiet)
+  Lokakuu 2026: menot 872 €, lokakuu 2025 915 €.
+  = -42.98 € (now 871.69 €, base 914.67 €, gate 18.29 €)
+
+change · bank:s-pankki-single · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 872 €, tavallisesti 830 €.
+  = 41.76 € (now 871.69 €, base 829.93 €, gate 16.60 €)
+
+change · bank:danske-family · change:season:2026-10..2026-10 (quiet)
+  Lokakuu 2026: menot 2 475 €, lokakuu 2025 1 945 €.
+  = 530.64 € (now 2475.35 €, base 1944.71 €, gate 38.89 €)
+
+change · bank:danske-family · change:usual:2026-10..2026-10 (quiet)
+  Lokakuu: menot 2 475 €, tavallisesti 1 758 €.
+  = 717.54 € (now 2475.35 €, base 1757.81 €, gate 35.16 €)
+
+change · plain:4 · change:usual:2025-11..2025-11 (quiet)
+  Marraskuu: menot 44 €, tavallisesti 1 251 €.
+  = -1206.95 € (now 44.22 €, base 1251.17 €, gate 25.02 €)

@@ -1,0 +1,70 @@
+{
+  "contract": "ops state",
+  "about": "`node dist/node.js ops state --helper <version>` with the state snapshot of the helper on stdin (state_json in scripts/ops-helper.sh). Heartbeat only: stdout is not read beyond the exit code. The snapshot below is what the helper of 0.8.7 (version 3) sends; every key of it is kept by the app.",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "allowed",
+  "cases": [
+    {
+      "name": "a snapshot with the checks",
+      "setup": "none",
+      "args": [
+        "state",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "version": "0.8.7",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "build": "0123456",
+        "can_rollback": false,
+        "schema_changed": false,
+        "mode": "tunnel",
+        "port": 8080,
+        "address": "https://talous.example.org",
+        "update_available": true,
+        "checked_at": "2026-10-09T08:00:00Z",
+        "doctor": {
+          "at": "2026-10-09T08:00:00Z",
+          "items": [
+            {
+              "id": "disk",
+              "level": "ok",
+              "title": "Levy",
+              "detail": "12 GB vapaana",
+              "hint": ""
+            }
+          ]
+        },
+        "backups": [
+          {
+            "name": "talous-20261009.db.gz",
+            "size": 1048576,
+            "at": "2026-10-09T03:00:00Z",
+            "kind": "manual"
+          }
+        ]
+      },
+      "keepsStateKeys": true,
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    },
+    {
+      "name": "text that is not JSON",
+      "setup": "none",
+      "args": [
+        "state",
+        "--helper",
+        "3"
+      ],
+      "stdinText": "not json",
+      "shape": {
+        "ok": "boolean",
+        "error": "string"
+      },
+      "lineRegex": "\"ok\":false"
+    }
+  ]
+}

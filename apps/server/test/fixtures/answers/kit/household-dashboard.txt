@@ -1,0 +1,1022 @@
+{
+ "range": {
+  "from": "2026-10-01",
+  "to": "2026-10-15",
+  "previousFrom": "2026-09-01"
+ },
+ "comparable": true,
+ "leftOutAccounts": false,
+ "running": true,
+ "totals": {
+  "incomeCents": 0,
+  "consumptionCents": 196430,
+  "debtCents": 61240,
+  "expenseCents": 257670,
+  "savedCents": 0,
+  "borrowedCents": 0,
+  "netCents": -257670,
+  "leftCents": -257670,
+  "savingsRate": null
+ },
+ "previousTotals": {
+  "incomeCents": 0,
+  "consumptionCents": 183405,
+  "debtCents": 61240,
+  "expenseCents": 244645,
+  "savedCents": 0,
+  "borrowedCents": 0,
+  "netCents": -244645,
+  "leftCents": -244645,
+  "savingsRate": null
+ },
+ "previousMonthTotals": {
+  "month": "2026-09",
+  "totals": {
+   "incomeCents": 352000,
+   "consumptionCents": 239023,
+   "debtCents": 61240,
+   "expenseCents": 300263,
+   "savedCents": 30000,
+   "borrowedCents": 0,
+   "netCents": 51737,
+   "leftCents": 21737,
+   "savingsRate": 0.08522727272727272
+  }
+ },
+ "bridge": {
+  "totals": {
+   "incomeCents": 352000,
+   "consumptionCents": 239023,
+   "debtCents": 61240,
+   "expenseCents": 300263,
+   "savedCents": 30000,
+   "borrowedCents": 0,
+   "netCents": 51737,
+   "leftCents": 21737,
+   "savingsRate": 0.08522727272727272
+  },
+  "basis": "last",
+  "month": "2026-09"
+ },
+ "fixedMonthlyCents": 212460,
+ "categories": [
+  {
+   "category": "housing",
+   "label": "Vuokra ja vastike",
+   "group": "Asuminen",
+   "kind": "expense",
+   "cents": 105000,
+   "count": 1,
+   "share": 0.40749796251018744,
+   "previousCents": 105000,
+   "comparedCents": 105000
+  },
+  {
+   "category": "mortgage",
+   "label": "Asuntolaina",
+   "group": "Velanhoito",
+   "kind": "debt",
+   "cents": 61240,
+   "count": 1,
+   "share": 0.23766833546784646,
+   "previousCents": 61240,
+   "comparedCents": 61240
+  },
+  {
+   "category": "groceries",
+   "label": "Ruokakauppa",
+   "group": "Ruoka",
+   "kind": "expense",
+   "cents": 34763,
+   "count": 7,
+   "share": 0.13491287305468236,
+   "previousCents": 20284,
+   "comparedCents": 34763
+  },
+  {
+   "category": "kids",
+   "label": "Lapset",
+   "group": "Perhe ja lemmikit",
+   "kind": "expense",
+   "cents": 27990,
+   "count": 1,
+   "share": 0.10862731400628711,
+   "previousCents": 27990,
+   "comparedCents": 27990
+  },
+  {
+   "category": "insurance",
+   "label": "Vakuutukset",
+   "group": "Vakuutukset ja verot",
+   "kind": "expense",
+   "cents": 14230,
+   "count": 1,
+   "share": 0.05522567625257112,
+   "previousCents": 0,
+   "comparedCents": 14230
+  },
+  {
+   "category": "shopping",
+   "label": "Vaatteet ja ostokset",
+   "group": "Ostokset",
+   "kind": "expense",
+   "cents": 6688,
+   "count": 1,
+   "share": 0.025955679745410798,
+   "previousCents": 0,
+   "comparedCents": 6688
+  },
+  {
+   "category": "utilities",
+   "label": "Sähkö, vesi ja lämpö",
+   "group": "Asuminen",
+   "kind": "expense",
+   "cents": 4088,
+   "count": 1,
+   "share": 0.015865254007063297,
+   "previousCents": 4763,
+   "comparedCents": 4088
+  },
+  {
+   "category": "subscriptions",
+   "label": "Tilaukset ja suoratoisto",
+   "group": "Viestintä ja tilaukset",
+   "kind": "expense",
+   "cents": 2798,
+   "count": 2,
+   "share": 0.010858850467652423,
+   "previousCents": 2798,
+   "comparedCents": 2798
+  },
+  {
+   "category": "restaurants",
+   "label": "Ravintolat ja kahvilat",
+   "group": "Ruoka",
+   "kind": "expense",
+   "cents": 873,
+   "count": 2,
+   "share": 0.003388054488298987,
+   "previousCents": 9869,
+   "comparedCents": 873
+  }
+ ],
+ "themes": {
+  "window": {
+   "first": "2025-10",
+   "last": "2026-09",
+   "months": 12
+  },
+  "themes": [
+   {
+    "id": "housing",
+    "heading": "Asuminen",
+    "monthlyCents": 174041,
+    "yearCents": 2088490,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "housing",
+      "heading": "Vuokra ja vastike",
+      "monthlyCents": 105000,
+      "yearCents": 1260000,
+      "changePct": null
+     },
+     {
+      "id": "mortgage",
+      "heading": "Asuntolaina",
+      "monthlyCents": 61240,
+      "yearCents": 734880,
+      "changePct": null
+     },
+     {
+      "id": "utilities",
+      "heading": "Sähkö, vesi ja lämpö",
+      "monthlyCents": 7801,
+      "yearCents": 93610,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "food",
+    "heading": "Ruoka",
+    "monthlyCents": 95524,
+    "yearCents": 1146287,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "groceries",
+      "heading": "Ruokakauppa",
+      "monthlyCents": 71128,
+      "yearCents": 853533,
+      "changePct": -3
+     },
+     {
+      "id": "restaurants",
+      "heading": "Ravintolat ja kahvilat",
+      "monthlyCents": 14264,
+      "yearCents": 171164,
+      "changePct": 17
+     },
+     {
+      "id": "food_delivery",
+      "heading": "Ruoan kotiinkuljetus",
+      "monthlyCents": 10132,
+      "yearCents": 121590,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "kids",
+    "heading": "Lapset",
+    "monthlyCents": 25658,
+    "yearCents": 307890,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "kids",
+      "heading": "Lapset",
+      "monthlyCents": 25658,
+      "yearCents": 307890,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "car",
+    "heading": "Auto",
+    "monthlyCents": 12091,
+    "yearCents": 145094,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "fuel",
+      "heading": "Polttoaine",
+      "monthlyCents": 12091,
+      "yearCents": 145094,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "media",
+    "heading": "Viestintä ja tilaukset",
+    "monthlyCents": 8078,
+    "yearCents": 96936,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "telecom",
+      "heading": "Puhelin ja netti",
+      "monthlyCents": 1990,
+      "yearCents": 23880,
+      "changePct": null
+     },
+     {
+      "id": "subscriptions",
+      "heading": "Tilaukset ja suoratoisto",
+      "monthlyCents": 6088,
+      "yearCents": 73056,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "insurance",
+    "heading": "Vakuutukset",
+    "monthlyCents": 4743,
+    "yearCents": 56920,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "insurance",
+      "heading": "Vakuutukset",
+      "monthlyCents": 4743,
+      "yearCents": 56920,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "shopping",
+    "heading": "Ostokset",
+    "monthlyCents": 3673,
+    "yearCents": 44076,
+    "changePct": 75,
+    "lines": [
+     {
+      "id": "shopping",
+      "heading": "Vaatteet ja ostokset",
+      "monthlyCents": 3673,
+      "yearCents": 44076,
+      "changePct": 75
+     }
+    ]
+   },
+   {
+    "id": "health",
+    "heading": "Terveys ja hyvinvointi",
+    "monthlyCents": 2399,
+    "yearCents": 28787,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "health",
+      "heading": "Terveys ja apteekki",
+      "monthlyCents": 2399,
+      "yearCents": 28787,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "taxes",
+    "heading": "Verot ja maksut",
+    "monthlyCents": 358,
+    "yearCents": 4290,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "taxes",
+      "heading": "Verot, maksut ja sakot",
+      "monthlyCents": 358,
+      "yearCents": 4290,
+      "changePct": null
+     }
+    ]
+   }
+  ],
+  "totalCents": 3918770,
+  "totalMonthlyCents": 326565,
+  "totalYearCents": 3918770,
+  "large": {
+   "cents": 0,
+   "count": 0,
+   "rows": []
+  },
+  "spendingCents": 3918770
+ },
+ "pace": {
+  "month": "2026-10",
+  "daysInMonth": 31,
+  "current": [
+   0,
+   105000,
+   105488,
+   109992,
+   185462,
+   185462,
+   185462,
+   217522,
+   225581,
+   230794,
+   230794,
+   236081,
+   239745,
+   257670,
+   257670,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "currentTotal": 257670,
+  "previous": {
+   "month": "2026-09",
+   "curve": [
+    0,
+    114330,
+    114330,
+    119585,
+    180825,
+    183934,
+    183934,
+    211924,
+    216672,
+    216672,
+    223673,
+    229635,
+    229635,
+    239449,
+    244645,
+    244645,
+    244645,
+    247935,
+    247935,
+    253566,
+    253566,
+    253566,
+    265222,
+    270505,
+    276089,
+    287985,
+    293664,
+    297253,
+    297253,
+    300263
+   ],
+   "day": 15,
+   "toToday": 244645
+  },
+  "usual": {
+   "curve": [
+    2156,
+    111731,
+    111731,
+    116759,
+    184501,
+    186187,
+    197907,
+    217224,
+    221808,
+    224686,
+    237745,
+    249721,
+    249721,
+    254432,
+    257352,
+    262717,
+    262717,
+    269504,
+    272144,
+    277213,
+    279936,
+    285006,
+    288473,
+    294662,
+    297614,
+    297614,
+    298042,
+    304796,
+    304796,
+    305795,
+    305795
+   ],
+   "low": [
+    157,
+    108796,
+    108796,
+    109996,
+    176585,
+    184000,
+    188075,
+    212771,
+    217288,
+    218624,
+    226961,
+    234364,
+    234364,
+    242709,
+    246606,
+    248126,
+    248126,
+    252578,
+    253898,
+    259350,
+    259534,
+    266448,
+    269005,
+    276062,
+    281410,
+    290332,
+    294712,
+    297730,
+    297730,
+    299436,
+    299874
+   ],
+   "high": [
+    4642,
+    114857,
+    117748,
+    122301,
+    188356,
+    196044,
+    207654,
+    229888,
+    231225,
+    234440,
+    241646,
+    255705,
+    255705,
+    258274,
+    265701,
+    268738,
+    276301,
+    280711,
+    281178,
+    283977,
+    292521,
+    295056,
+    300783,
+    305154,
+    311012,
+    313864,
+    313958,
+    323724,
+    329187,
+    329411,
+    329411
+   ],
+   "months": 6,
+   "toToday": 257352,
+   "diffCents": 318
+  },
+  "projection": {
+   "fromDay": 15,
+   "low": [
+    257670,
+    259190,
+    259190,
+    263642,
+    264962,
+    270414,
+    270598,
+    277512,
+    280069,
+    287126,
+    292474,
+    301396,
+    305776,
+    308794,
+    308794,
+    310500,
+    310938
+   ],
+   "high": [
+    257670,
+    260707,
+    268270,
+    272680,
+    273147,
+    275946,
+    284490,
+    287025,
+    292752,
+    297123,
+    302981,
+    305833,
+    305927,
+    315693,
+    321156,
+    321380,
+    321380
+   ]
+  },
+  "largest": {
+   "day": 14,
+   "name": "Kappahl",
+   "cents": 6688
+  },
+  "payDays": []
+ },
+ "ahead": {
+  "from": "2026-10-15",
+  "to": "2026-10-22",
+  "days": 7,
+  "reason": "payday",
+  "payday": {
+   "date": "2026-10-23",
+   "name": "Acme",
+   "pay": {
+    "count": 12,
+    "lowCents": 352000,
+    "highCents": 352000,
+    "usualCents": 352000,
+    "floorCents": 352000,
+    "ceilCents": 352000,
+    "kind": "steady",
+    "baseCents": 352000
+   }
+  },
+  "rows": [
+   {
+    "date": "2026-10-18",
+    "name": "Sanoma Media Finland",
+    "category": "subscriptions",
+    "cents": -3290,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-10-20",
+    "name": "Elisa",
+    "category": "telecom",
+    "cents": -1990,
+    "source": "recurring"
+   }
+  ],
+  "upcoming": [
+   {
+    "date": "2026-10-18",
+    "name": "Sanoma Media Finland",
+    "category": "subscriptions",
+    "cents": -3290,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-10-20",
+    "name": "Elisa",
+    "category": "telecom",
+    "cents": -1990,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-11-02",
+    "name": "Sato",
+    "category": "housing",
+    "cents": -105000,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-11-05",
+    "name": "Nordea Bank Abp",
+    "category": "mortgage",
+    "cents": -61240,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-11-08",
+    "name": "Helsingin Kaupunki",
+    "category": "kids",
+    "cents": -27990,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-11-10",
+    "name": "Nordea Gold",
+    "category": "transfer",
+    "cents": -45122,
+    "source": "card",
+    "basis": "balance"
+   },
+   {
+    "date": "2026-11-12",
+    "name": "Helen",
+    "category": "utilities",
+    "cents": -4712,
+    "source": "recurring"
+   },
+   {
+    "date": "2026-11-12",
+    "name": "Spotify",
+    "category": "subscriptions",
+    "cents": -1199,
+    "source": "recurring",
+    "onCard": true
+   },
+   {
+    "date": "2026-11-14",
+    "name": "Netflix",
+    "category": "subscriptions",
+    "cents": -1599,
+    "source": "recurring",
+    "onCard": true
+   }
+  ],
+  "everydayPerDayCents": 0,
+  "totals": {
+   "recurringCents": 5280,
+   "typedCents": 0,
+   "cardCents": 0,
+   "transferCents": 0,
+   "dueCents": 5280,
+   "incomeCents": 0
+  },
+  "balance": {
+   "startCents": 240000,
+   "counts": "all",
+   "accounts": 1,
+   "balanceAt": "2026-10-15",
+   "freeCents": 234720,
+   "shortCents": 0,
+   "shortOn": null
+  },
+  "missing": null
+ },
+ "alerts": [
+  {
+   "id": "forgotten:out:card:Spotify",
+   "kind": "forgotten",
+   "tone": "info",
+   "title": "Spotify 11,99 € kuussa, 144 € vuodessa",
+   "detail": "Maksettu 27 kuukautta.",
+   "merchant": "Spotify",
+   "markSubject": "series:out:card:Spotify#1199"
+  }
+ ],
+ "dataNotice": null,
+ "insights": [],
+ "holdings": {
+  "accounts": [
+   {
+    "id": "chk",
+    "name": "Käyttötili",
+    "type": "checking",
+    "bank": null,
+    "ownerName": null,
+    "balanceCents": 240000,
+    "balanceAt": "2026-10-15",
+    "foreign": null,
+    "mask": "0785",
+    "use": {
+     "users": [
+      {
+       "userId": "00000000-0000-4000-8000-000000000001",
+       "label": "Aino",
+       "weight": 1
+      }
+     ],
+     "source": "owner"
+    },
+    "reconcile": "unknown"
+   },
+   {
+    "id": "sav",
+    "name": "Säästötili",
+    "type": "savings",
+    "bank": null,
+    "ownerName": null,
+    "balanceCents": 1717500,
+    "balanceAt": "2026-10-15",
+    "foreign": null,
+    "mask": "3458",
+    "use": {
+     "users": [
+      {
+       "userId": "00000000-0000-4000-8000-000000000001",
+       "label": "Aino",
+       "weight": 1
+      }
+     ],
+     "source": "owner"
+    },
+    "reconcile": "unknown"
+   }
+  ],
+  "accountsCents": 1957500,
+  "netCents": 1912378,
+  "accountsAddUp": true,
+  "accountShares": [
+   12,
+   88
+  ],
+  "cards": [
+   {
+    "id": "card",
+    "name": "Nordea Gold",
+    "bank": null,
+    "ownerName": null,
+    "mask": null,
+    "limitCents": null,
+    "usedCents": 45122,
+    "freeCents": null,
+    "overCents": null,
+    "balanceAt": "2026-10-15",
+    "use": {
+     "users": [
+      {
+       "userId": "00000000-0000-4000-8000-000000000001",
+       "label": "Aino",
+       "weight": 1
+      }
+     ],
+     "source": "owner"
+    },
+    "reconcile": "unknown"
+   }
+  ],
+  "cardsCents": 45122,
+  "loans": [],
+  "loansCents": null,
+  "debtCents": 45122,
+  "unsavedLoans": {
+   "count": 1,
+   "paymentCents": 61240
+  }
+ },
+ "housing": {
+  "loans": [
+   {
+    "id": null,
+    "name": null,
+    "lender": "Nordea Bank Abp",
+    "seriesId": "out:chk:Nordea Bank Abp",
+    "monthlyCents": 61240,
+    "next": null,
+    "rateBp": null,
+    "reference": null,
+    "marginBp": null,
+    "referenceBp": null,
+    "reviewDate": null,
+    "reviewPassed": false,
+    "typedByOther": false
+   }
+  ],
+  "charges": [
+   {
+    "seriesId": "out:chk:Sato",
+    "label": "Vuokra",
+    "category": "housing",
+    "payee": "Sato",
+    "monthlyCents": 105000
+   },
+   {
+    "seriesId": "out:chk:Helen",
+    "label": "Sähkö",
+    "category": "utilities",
+    "payee": "Helen",
+    "monthlyCents": 7741
+   }
+  ],
+  "loansMonthlyCents": 61240,
+  "chargesMonthlyCents": 112741,
+  "totalMonthlyCents": 173981,
+  "partial": false,
+  "atPart": false,
+  "ask": false
+ },
+ "questions": {
+  "share": 1,
+  "window": {
+   "from": "2025-10-01",
+   "to": "2026-09-30"
+  },
+  "cardBills": [],
+  "items": [],
+  "total": 0
+ },
+ "waterfall": {
+  "month": "2026-10",
+  "bars": [
+   {
+    "key": "income",
+    "cents": 0,
+    "parts": [],
+    "fromCents": 0,
+    "toCents": 0,
+    "usualCents": 0,
+    "vsUsualCents": 0
+   },
+   {
+    "key": "category:housing",
+    "cents": -105000,
+    "parts": [
+     {
+      "key": "payee:Sato",
+      "cents": -105000
+     }
+    ],
+    "fromCents": 0,
+    "toCents": -105000,
+    "usualCents": -105000,
+    "vsUsualCents": 0
+   },
+   {
+    "key": "category:mortgage",
+    "cents": -61240,
+    "parts": [
+     {
+      "key": "payee:Nordea Bank Abp",
+      "cents": -61240
+     }
+    ],
+    "fromCents": -105000,
+    "toCents": -166240,
+    "usualCents": -61240,
+    "vsUsualCents": 0
+   },
+   {
+    "key": "category:groceries",
+    "cents": -34763,
+    "parts": [
+     {
+      "key": "payee:Lidl",
+      "cents": -16957
+     },
+     {
+      "key": "payee:K-Citymarket",
+      "cents": -13302
+     },
+     {
+      "key": "payee:S-Market",
+      "cents": -4504
+     }
+    ],
+    "fromCents": -166240,
+    "toCents": -201003,
+    "usualCents": -28380,
+    "vsUsualCents": -6383
+   },
+   {
+    "key": "category:kids",
+    "cents": -27990,
+    "parts": [
+     {
+      "key": "payee:Helsingin Kaupunki",
+      "cents": -27990
+     }
+    ],
+    "fromCents": -201003,
+    "toCents": -228993,
+    "usualCents": -27990,
+    "vsUsualCents": 0
+   },
+   {
+    "key": "category:insurance",
+    "cents": -14230,
+    "parts": [
+     {
+      "key": "payee:If Vahinkovakuutus Oy",
+      "cents": -14230
+     }
+    ],
+    "fromCents": -228993,
+    "toCents": -243223,
+    "usualCents": 0,
+    "vsUsualCents": -14230
+   },
+   {
+    "key": "category:shopping",
+    "cents": -6688,
+    "parts": [
+     {
+      "key": "payee:Kappahl",
+      "cents": -6688
+     }
+    ],
+    "fromCents": -243223,
+    "toCents": -249911,
+    "usualCents": -5294,
+    "vsUsualCents": -1394
+   },
+   {
+    "key": "category:utilities",
+    "cents": -4088,
+    "parts": [
+     {
+      "key": "payee:Helen",
+      "cents": -4088
+     }
+    ],
+    "fromCents": -249911,
+    "toCents": -253999,
+    "usualCents": -4832,
+    "vsUsualCents": 744
+   },
+   {
+    "key": "category:subscriptions",
+    "cents": -2798,
+    "parts": [
+     {
+      "key": "payee:Netflix",
+      "cents": -1599
+     },
+     {
+      "key": "payee:Spotify",
+      "cents": -1199
+     }
+    ],
+    "fromCents": -253999,
+    "toCents": -256797,
+    "usualCents": -2798,
+    "vsUsualCents": 0
+   },
+   {
+    "key": "category:restaurants",
+    "cents": -873,
+    "parts": [
+     {
+      "key": "payee:Espresso House",
+      "cents": -488
+     },
+     {
+      "key": "payee:Robert's Coffee",
+      "cents": -385
+     }
+    ],
+    "fromCents": -256797,
+    "toCents": -257670,
+    "usualCents": -5316,
+    "vsUsualCents": 4443
+   }
+  ],
+  "leftCents": -257670,
+  "incomeCents": 0,
+  "spentCents": 257670,
+  "transfersCents": 0
+ },
+ "settlement": []
+}
