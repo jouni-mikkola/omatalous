@@ -24,19 +24,24 @@ function refused(err: unknown): err is EnableBankingError {
   return err instanceof EnableBankingError && (err.status === 400 || err.status === 422) && !err.consentExpired && !err.appRejected && !err.notLinked;
 }
 
+/** What a fetch was in the end answered for: the first day, and whether it was the bank's longest history. */
+type Asked = { dateFrom: string; longest: boolean };
+
 /**
  * The rows since the window's start, then shorter windows when the bank refuses a period that reaches back too far.
  * Rows the bank does not keep are lost either way; a refusal would also lose the ones it does. `unread` keeps the
- * counts of unreadable rows of the answer kept.
+ * counts of unreadable rows of the answer kept and `asked` the window that was answered, which is what the account's
+ * history record must say (a card that fell back to 360 days was not asked for two years).
  */
-async function fetchTransactions(client: EnableBankingClient, uid: string, window: PullWindow, today: string, userHeaders: Readonly<Record<string, string>> | undefined, unread: Map<string, RefusedRows>) {
-  const counted = (rows: RawTransaction[], counts: RefusedRows) => {
+async function fetchTransactions(client: EnableBankingClient, uid: string, window: PullWindow, today: string, userHeaders: Readonly<Record<string, string>> | undefined, unread: Map<string, RefusedRows>, asked: Map<string, Asked>) {
+  const counted = (rows: RawTransaction[], counts: RefusedRows, answered: Asked) => {
     unread.set(uid, counts);
+    asked.set(uid, answered);
     return rows;
   };
   try {
     const counts: RefusedRows = {};
-    return counted(await client.transactions(uid, window.dateFrom, window.initial ? "longest" : "default", userHeaders, counts), counts);
+    return counted(await client.transactions(uid, window.dateFrom, window.initial ? "longest" : "default", userHeaders, counts), counts, { dateFrom: window.dateFrom, longest: window.initial });
   } catch (err) {
     if (!refused(err)) throw err;
     for (const days of FALLBACK_DAYS) {
@@ -44,7 +49,35 @@ async function fetchTransactions(client: EnableBankingClient, uid: string, windo
       if (dateFrom <= window.dateFrom) continue;
       try {
         const counts: RefusedRows = {};
-        return counted(await client.transactions(uid, dateFrom, "default", userHeaders, counts), counts);
+        return counted(await client.transactions(uid, dateFrom, "default", userHeaders, counts), counts, { dateFrom, longest: false });
+      } catch (retry) {
+        if (!refused(retry)) throw retry;
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * The rows of a backfill window (`dateTo` set), one plain window. A bank that refuses it may still give its days within
+ * a shorter reach (Nordea gives 90 days without a fresh consent), so those are asked once more and the window ends
+ * there. Its unreadable rows are not counted over those of the ordinary fetch.
+ */
+async function fetchOlder(client: EnableBankingClient, uid: string, window: PullWindow & { dateTo: string }, today: string, userHeaders: Readonly<Record<string, string>> | undefined, asked: Map<string, Asked>) {
+  try {
+    const rows = await client.transactions(uid, window.dateFrom, "default", userHeaders, {}, window.dateTo);
+    asked.set(uid, { dateFrom: window.dateFrom, longest: false });
+    return rows;
+  } catch (err) {
+    if (!refused(err)) throw err;
+    for (const days of FALLBACK_DAYS) {
+      const dateFrom = addDays(today, -days);
+      if (dateFrom <= window.dateFrom) continue;
+      if (dateFrom >= window.dateTo) break;
+      try {
+        const rows = await client.transactions(uid, dateFrom, "default", userHeaders, {}, window.dateTo);
+        asked.set(uid, { dateFrom, longest: false });
+        return rows;
       } catch (retry) {
         if (!refused(retry)) throw retry;
       }
@@ -78,11 +111,14 @@ async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller>
   };
   // per account, the rows of its last fetch the mapper could not read
   const refused = new Map<string, RefusedRows>();
+  const askedOf = new Map<string, Asked>();
   return {
     attended: async (account) => (await headersFor(account.externalId)) !== undefined,
     refused: (account) => refused.get(account.externalId) ?? {},
+    asked: (account) => askedOf.get(account.externalId),
     async transactions(account, window) {
-      const rows = await fetchTransactions(client, account.externalId, window, s.today(), await headersFor(account.externalId), refused);
+      const headers = await headersFor(account.externalId);
+      const rows = window.dateTo ? await fetchOlder(client, account.externalId, { ...window, dateTo: window.dateTo }, s.today(), headers, askedOf) : await fetchTransactions(client, account.externalId, window, s.today(), headers, refused, askedOf);
       const oldest = rows.reduce<string | null>((o, r) => (o === null || r.bookingDate < o ? r.bookingDate : o), null);
       await noteSeen(s, await bankOf(account.externalId).catch(() => null), {
         pending: rows.some((r) => r.status === "pending"),
@@ -104,7 +140,7 @@ async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller>
 }
 
 /** The words for an account a restricted application may not read, after the account's name. */
-export const NOT_LINKED_MESSAGE = "tiliä ei ole linkitetty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
+export const NOT_LINKED_MESSAGE = "tiliä ei ole lisätty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
 
 function classify(err: unknown): SyncProblem | null {
   if (!(err instanceof EnableBankingError)) return null;

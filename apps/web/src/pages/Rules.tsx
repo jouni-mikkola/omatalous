@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api.ts";
 import { CategorySelect } from "../components/CategorySelect.tsx";
 import { PayerAnswers } from "../components/PayerAnswers.tsx";
-import { DataTable } from "../components/table/DataTable.tsx";
+import { Table } from "../components/table/Table.tsx";
 import { useApi } from "../hooks.ts";
 import { RULES_ANCHOR } from "../routes.ts";
 import type { CategoryRule, Meta } from "../types.ts";
@@ -74,54 +74,52 @@ export function Rules({ meta }: { meta: Meta }) {
           </button>
         </form>
         {(error ?? loadError) && <div className="error">{error ?? loadError}</div>}
-        <div className="table-wrap">
-          {data && data.rules.length > 0 && (
-          <DataTable
-            id="rules"
-            caption="Omat säännöt"
-            rows={data.rules}
-            rowKey={(r) => String(r.id)}
-            phone="cards"
-            columns={[
-              { key: "field", label: "Kenttä", kind: "text", rowHead: true, cell: (r) => FIELD_LABEL[r.field] },
-              {
-                key: "pattern",
-                label: "Hakusana",
-                kind: "text",
-                cell: (r) => (
-                  <>
-                    <code>{r.pattern}</code>
-                    {/* older versions accepted regexes; only the simple ones still match */}
-                    {!isUsablePattern(r.pattern) && (
-                      <span className="badge warn" title="Sääntö ei osu enää mihinkään. Poista se ja lisää tilalle sana tai kauppiaan nimi.">
-                        ei osumia
-                      </span>
-                    )}
-                  </>
-                ),
-              },
-              { key: "category", label: "Kategoria", kind: "text", cell: (r) => label(r.category) },
-              {
-                key: "delete",
-                label: "",
-                kind: "count",
-                cell: (r) => (
-                  <button
-                    className="btn btn-small btn-danger"
-                    disabled={busy}
-                    aria-busy={(busy && doing === `del-${r.id}`) || undefined}
-                    aria-label={`Poista sääntö: ${r.pattern}`}
-                    onClick={() => void run(() => api(`/api/rules/${r.id}`, { method: "DELETE" }), `del-${r.id}`)}
-                  >
-                    Poista
-                  </button>
-                ),
-              },
-            ]}
-          />
-          )}
-          {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
-        </div>
+        {data && data.rules.length > 0 && (
+        <Table
+          caption="Omat säännöt"
+          rows={data.rules}
+          rowKey={(r) => String(r.id)}
+          page={25}
+          columns={[
+            { key: "field", label: "Kenttä", kind: "text", rowHead: true, cell: (r) => FIELD_LABEL[r.field] },
+            {
+              key: "pattern",
+              label: "Hakusana",
+              kind: "text",
+              cell: (r) => (
+                <>
+                  <code>{r.pattern}</code>
+                  {/* older versions accepted regexes; only the simple ones still match */}
+                  {!isUsablePattern(r.pattern) && (
+                    <span className="badge warn" title="Sääntö ei osu enää mihinkään. Poista se ja lisää tilalle sana tai kauppiaan nimi.">
+                      ei osumia
+                    </span>
+                  )}
+                </>
+              ),
+            },
+            { key: "category", label: "Kategoria", kind: "text", cell: (r) => label(r.category) },
+            {
+              key: "delete",
+              label: "Toiminnot",
+              headHidden: true,
+              kind: "count",
+              cell: (r) => (
+                <button
+                  className="btn btn-small btn-danger"
+                  disabled={busy}
+                  aria-busy={(busy && doing === `del-${r.id}`) || undefined}
+                  aria-label={`Poista sääntö: ${r.pattern}`}
+                  onClick={() => void run(() => api(`/api/rules/${r.id}`, { method: "DELETE" }), `del-${r.id}`)}
+                >
+                  Poista
+                </button>
+              ),
+            },
+          ]}
+        />
+        )}
+        {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
       </div>
       <PayerAnswers />
     </div>

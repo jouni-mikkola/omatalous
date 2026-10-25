@@ -1,5 +1,5 @@
 // Decision: is the month's spending on its usual course, or should the household slow down before payday
-import { DataTable } from "../table/DataTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { MIN_COMPARE_MONTHS } from "@banking/core";
 import { useState } from "react";
 import { completeMonths, money } from "../../format.ts";
@@ -8,7 +8,9 @@ import type { DashboardData, Scope } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 import { TableToggle } from "../TableToggle.tsx";
 import { Why } from "../Why.tsx";
+import { SpendingGoalBar } from "./SpendingGoal.tsx";
 import { monthName } from "./income-spending.ts";
+import { CARD_GAP } from "./waterfall.ts";
 import "../../styles/overview.css";
 
 /** "Lokakuu": a month's name as a label starts it. */
@@ -39,11 +41,12 @@ export function paceRange(pace: DashboardData["pace"]): { from: string; to: stri
 /**
  * Menot tässä kuussa, the first panel under the key figures: the month to date against the household's usual month
  * (`PaceChart`), its answer in one sentence, the figure in the head opening its rows. Under three complete months the
- * chart says when the usual appears. The table view lists the days.
+ * chart says when the usual appears. The table view lists the days. The household's one monthly spending goal is a
+ * line on the chart, a column of the table and a sentence under them (`SpendingGoalBar`), where it is also set.
  */
-export function Pace({ data, scope }: { data: DashboardData; scope: Scope }) {
+export function Pace({ data, scope, onGoalChanged }: { data: DashboardData; scope: Scope; onGoalChanged: () => void }) {
   const [table, setTable] = useState(false);
-  const { pace, ahead } = data;
+  const { pace, ahead, goal } = data;
   const month = pace.month;
   const range = paceRange(pace);
   const payday = ahead?.payday && ahead.payday.date.startsWith(month) ? Number(ahead.payday.date.slice(8, 10)) : null;
@@ -64,28 +67,28 @@ export function Pace({ data, scope }: { data: DashboardData; scope: Scope }) {
           <TableToggle table={table} onChange={setTable} />
         </div>
       </div>
-      {table ? <PaceTable pace={data.pace} names={names} /> : <PaceChart pace={pace} payday={payday} names={names} />}
-      {!pace.usual && <p className="pace-gate">Vertailu tavalliseen näkyy, kun takana on {completeMonths(MIN_COMPARE_MONTHS)}.</p>}
+      {table ? <PaceTable pace={data.pace} goal={goal?.cents ?? null} names={names} /> : <PaceChart pace={pace} goal={goal?.cents ?? null} payday={payday} names={names} />}
+      <SpendingGoalBar goal={goal} onChanged={onGoalChanged} />
+      {!pace.usual && <p className="pace-gate">{pace.cardGap ? CARD_GAP : `Vertailu tavalliseen näkyy, kun takana on ${completeMonths(MIN_COMPARE_MONTHS)}.`}</p>}
     </section>
   );
 }
 
-/** The chart's days as a table: what each line says on each day, the estimate from today on. */
-function PaceTable({ pace, names }: { pace: DashboardData["pace"]; names: { current: string; previous: string } }) {
+/** The chart's days as a table: what each line says on each day, the goal left, the estimate from today on. */
+function PaceTable({ pace, goal, names }: { pace: DashboardData["pace"]; goal: number | null; names: { current: string; previous: string } }) {
   const days = Array.from({ length: pace.daysInMonth }, (_, i) => paceDay(pace, i + 1));
   return (
     <div className="pace-table">
-      <DataTable
-        id="pace"
+      <Table
         caption={`${names.current} päivittäin`}
         rows={days}
         rowKey={(d) => String(d.day)}
-        phone="cards"
         columns={[
           { key: "day", label: "Päivä", kind: "text", rowHead: true, cell: (d) => `${d.day}.` },
           { key: "current", label: names.current, kind: "money", precision: "cents", main: true, cents: (d) => d.current },
           ...(pace.usual ? [{ key: "usual", label: "Tavallisesti", kind: "money" as const, precision: "cents" as const, cents: (d: (typeof days)[number]) => d.usual }] : []),
           ...(pace.previous ? [{ key: "previous", label: names.previous, kind: "money" as const, precision: "cents" as const, cents: (d: (typeof days)[number]) => d.previous }] : []),
+          ...(goal === null ? [] : [{ key: "goalLeft", label: "Tavoitteesta jäljellä", kind: "money" as const, precision: "cents" as const, cents: (d: (typeof days)[number]) => (d.current === null ? null : goal - d.current) }]),
           ...(pace.projection
             ? [
                 {

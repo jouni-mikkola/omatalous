@@ -265,7 +265,7 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   const ordinals = await rows.evaluateAll((trs) =>
     trs.map((tr) => ({
       unranked: tr.classList.contains("unranked"),
-      moneyIn: (tr.querySelector('td[data-label="Yhteensä"]')?.textContent ?? "").startsWith("+"),
+      moneyIn: (tr.querySelector('td[data-rt="main"]')?.textContent ?? "").startsWith("+"),
       mark: getComputedStyle(tr.firstElementChild as Element, "::before").content,
     })),
   );
@@ -386,15 +386,16 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  const rows = page.locator("tbody tr:not(.rt-group)");
+  const rows = page.locator("tbody tr:not(.rt-group):not(.rt-detail)");
   await expect(rows.first()).toBeVisible();
 
   // pick a row that was categorised by rule so that "käsin" (by hand) is new after the change
   const row = rows.filter({ hasNot: page.locator(".tx-chip-manual") }).filter({ hasNotText: /Omat siirrot|Luottokortin lasku|Luotonnostot/ }).first();
-  const chip = row.locator("td.tx-category button.tx-chip");
-  const merchant = ((await chip.getAttribute("aria-label")) ?? "").replace(/^Kategoria: /, "").replace(/, nyt .*$/, "");
-  const before = (await chip.locator(".tx-chip-label").innerText()).trim();
-  await chip.click();
+  const merchant = (await row.locator(".tx-name").innerText()).trim();
+  const before = (await row.locator(".tx-category .tx-chip-label").innerText()).trim();
+  // the category is changed in the opened row
+  await row.getByRole("button", { name: `Avaa ${merchant}: 12 kuukautta` }).click();
+  await page.getByRole("button", { name: `Kategoria: ${merchant}, nyt ${before}` }).first().click();
   // the picker is a list of our own, not a native select
   const target = before === "Lemmikit" ? "Rahapelit" : "Lemmikit";
   await page.getByRole("dialog", { name: `Kategoria: ${merchant}` }).getByRole("option", { name: target }).click();
@@ -402,7 +403,7 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   await expect(page.getByText(/siirrettiin kategoriaan/)).toBeVisible();
 
   await page.reload();
-  const same = page.locator("tbody tr").filter({ has: page.getByRole("button", { name: new RegExp(`^Kategoria: ${merchant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}, nyt ${target}`) }) });
+  const same = rows.filter({ has: page.locator(".tx-name", { hasText: merchant }) }).filter({ has: page.locator(".tx-category .tx-chip-label", { hasText: target }) });
   await expect(same.first()).toBeVisible();
   // "käsin" is the dot on the chip, its word for readers
   await expect(same.first().locator(".tx-chip-manual")).toBeAttached();
@@ -444,7 +445,7 @@ test("the Laskut tables fit a phone: the date of the next charge is inside the c
   await expect(page.getByRole("heading", { name: "Tilaukset", exact: true })).toBeVisible();
   await page.waitForLoadState("networkidle");
   // a table wider than its card scrolls sideways inside the card and clips the last column
-  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
+  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
   expect(clipped, "tables that scroll sideways").toBe(0);
   // the list of what falls due has its three heads, and the page fits the screen
   await expect(page.locator("#tulossa thead th")).toHaveText(["Eräpäivä", "Saaja", "Summa"]);
@@ -458,7 +459,7 @@ test("the Laskut tables fit a phone: the date of the next charge is inside the c
   await context.close();
 });
 
-test("Menot kuukausittain is a heat map of core's shades under its question, keeps the CSV, the old table is behind Taulukko, and 390 px does not scroll sideways", async ({ browser }) => {
+test("Menot kuukausittain is a heat map of core's shades under its question, keeps the CSV, the table is behind Taulukko, and 390 px does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
@@ -469,9 +470,9 @@ test("Menot kuukausittain is a heat map of core's shades under its question, kee
   expect(await card.locator(".heat-grid rect.heat-cell").count(), "a cell a category and month").toBeGreaterThan(0);
   expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the heat map fits its card at 390px").toBe(true);
   await card.getByRole("button", { name: "Taulukko" }).click();
-  await expect(card.locator(".pivot-list summary").first()).toBeVisible();
+  await expect(card.locator("table.heat-table tbody tr").first()).toBeVisible();
   await expect(card.getByRole("link", { name: "Lataa CSV" })).toBeVisible();
-  expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the old table fits its card at 390px").toBe(true);
+  expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the table fits its card at 390px").toBe(true);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -481,7 +482,7 @@ async function fitsScreen(page: Page, what: string): Promise<void> {
   expect(await overflow(page), `${what} scrolls sideways`).toBeLessThanOrEqual(1);
   const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
   expect(wide, `${what} has a table wider than the screen`).toBe(0);
-  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
+  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
   expect(clipped, `${what} has a table that scrolls sideways in its card`).toBe(0);
 }
 
@@ -707,7 +708,7 @@ test("Harvinaiset laskut at 1280 px: the due month of a row stands on one line",
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/bills");
-  const months = page.locator("#tulevat .rare-table td.due-col");
+  const months = page.locator("#tulevat .rare-table .due-col");
   await expect(months.first()).toBeVisible();
   // a text that wraps has one box per line
   const wrapped = await months.evaluateAll((cells) =>

@@ -4,7 +4,7 @@ import { api } from "../../../api.ts";
 import { cadenceLabel } from "../../../components/bills/BillForm.tsx";
 import { Figure } from "../../../components/Figure.tsx";
 import { date, dayMonth, money, monthLong } from "../../../format.ts";
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/bills.css";
@@ -37,39 +37,16 @@ function Upcoming({ ctx }: SectionProps) {
   return (
     <Section id={section.id} title={section.title} datum={r.yearlyCents > 0 ? <Figure text={`${money(r.reserveMonthlyCents, false)}/kk`} size="s" /> : undefined}>
       {r.yearlyCents > 0 && (
-        <DataTable
-          id="upcoming-rare"
+        <Table
           caption="Seuraavat 12 kuukautta"
           className="rare-table"
           rows={months}
           rowKey={(m) => m.month}
           columns={[
-            { key: "due", label: "Eräpäivä", kind: "text", className: () => "due-col", cell: (m) => monthLong(m.month) },
-            {
-              key: "payee",
-              label: "Saaja",
-              kind: "text",
-              cell: (m) => (
-                <>
-                  {m.names.join(", ")}
-                  {/* on a phone the state stands under the payee: the fourth column is not drawn there */}
-                  {m.paid.map((p) => (
-                    <div key={`${p.merchant}-${p.date}`} className="sub paid-sub">
-                      {paidText(m.paid.length, p)}
-                    </div>
-                  ))}
-                </>
-              ),
-            },
+            { key: "due", label: "Eräpäivä", kind: "text", rowHead: true, className: () => "due-col", cell: (m) => monthLong(m.month) },
+            { key: "payee", label: "Saaja", kind: "text", cell: (m) => m.names.join(", ") },
+            { key: "paid", label: "Maksettu", kind: "text", cell: (m) => m.paid.map((p) => <div key={`${p.merchant}-${p.date}`}>{paidText(m.paid.length, p)}</div>) },
             { key: "sum", label: "Summa", kind: "money", main: true, cell: (m) => money(m.cents, false) },
-            {
-              key: "paid",
-              label: "Maksettu",
-              kind: "text",
-              phone: "hide",
-              className: () => "paid-col",
-              cell: (m) => m.paid.map((p) => <div key={`${p.merchant}-${p.date}`}>{paidText(m.paid.length, p)}</div>),
-            },
           ]}
         />
       )}

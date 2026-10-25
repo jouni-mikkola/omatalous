@@ -5,25 +5,13 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { bankName } from "../../banks.ts";
-import { type Column, DataTable } from "../../components/table/DataTable.tsx";
+import { KeyValue } from "../../components/table/KeyValue.tsx";
 import { plural } from "../../format.ts";
 import type { BankCapability } from "../../types.ts";
 
 const UNSEEN = "ei vielä tiedossa";
 
 /** True once a link or a fetch has seen something of the bank: a list alone says nothing of the accounts. */
-/** A key/value list: no head row, the label is the row head. */
-const KV_COLUMNS: Column<[string, ReactNode]>[] = [
-  {
-    key: "label",
-    label: "Tieto",
-    kind: "text",
-    rowHead: true,
-    cell: (r) => r[0],
-  },
-  { key: "value", label: "Arvo", kind: "count", cell: (r) => r[1] },
-];
-
 export function bankSeen(b: BankCapability): boolean {
   return (
     b.cardAccounts ||
@@ -76,16 +64,7 @@ export function BankCapabilities({
       {banks.map((b) => (
         <div key={b.bankId}>
           <h3 className="subhead">{bankName(b.bankId)}</h3>
-          <DataTable
-            id={`bank-facts-${b.bankId}`}
-            caption={bankName(b.bankId)}
-            headless
-            phone="scroll"
-            className="bank-facts"
-            rows={rows(b)}
-            rowKey={(r) => r[0]}
-            columns={KV_COLUMNS}
-          />
+          <KeyValue className="bank-facts" items={rows(b)} />
         </div>
       ))}
     </div>

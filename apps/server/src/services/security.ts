@@ -48,6 +48,13 @@ export const EVENT_KINDS = [
   "db_restored",
   // the household's data emptied from the browser (reset.ts)
   "data_reset",
+  // the first-run wizard finished (routes/admin.ts)
+  "setup_completed",
+  // read-only keys for scripts and agents (service-tokens.ts)
+  "service_token_made",
+  "service_token_removed",
+  "service_token_used",
+  "service_token_refused",
 ] as const;
 
 /** Maintenance requests and results use kinds that start with ops_. */

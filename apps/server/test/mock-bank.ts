@@ -87,6 +87,12 @@ export function mockBank() {
     pendingBooked: false,
     /** Set to refuse card fetches that start before this day, as Nordea's card API does past 12 months. */
     cardOldest: null as string | null,
+    /** Set to refuse a card request that spans more days than this (its end day is today when none is given), as Nordea's does past 12 months. */
+    cardMaxDays: null as number | null,
+    /** Older card purchases the bank holds, booked on these days; given to a request whose window holds the day. */
+    cardOlder: [] as { id: string; date: string }[],
+    /** Set to answer a card's longest-history request with the rows since this day only: Enable Banking's search stopped there, and it never refuses. */
+    cardLongestFrom: null as string | null,
     /** Answers that replace a route's own (or answer one it has not), keyed like "POST /sessions" or "GET /accounts/u-card/balances". */
     answers: {} as Record<string, { status: number; body: unknown }>,
     fetchMock: undefined as unknown as typeof fetch,
@@ -145,17 +151,29 @@ export function mockBank() {
         return url.searchParams.get("continuation_key")
           ? json({ transactions: [tx("c2", "300.00", "DBIT", "2026-10-05", "NORDEA GOLD LASKU", { creditor: { name: "NORDEA RAHOITUS SUOMI OY" } })] })
           : json({ transactions: [tx("c1", "3420.00", "CRDT", "2026-09-25", "PALKKA", { debtor: { name: "ACME OY" } })], continuation_key: "page2" });
-      case "GET /accounts/u-card/transactions":
-        if (bank.cardOldest && (url.searchParams.get("date_from") ?? "") < bank.cardOldest) {
+      case "GET /accounts/u-card/transactions": {
+        const longestFrom = url.searchParams.get("strategy") === "longest" ? bank.cardLongestFrom : null;
+        if (!longestFrom && bank.cardOldest && (url.searchParams.get("date_from") ?? "") < bank.cardOldest) {
           return new Response(JSON.stringify({ error: "ASPSP_ERROR", message: "Bad Request" }), { status: 400 });
         }
-        return json({
-          transactions: [
+        {
+          const from = longestFrom ?? url.searchParams.get("date_from") ?? "0000-00-00";
+          const to = url.searchParams.get("date_to");
+          if (!longestFrom && bank.cardMaxDays !== null && (Date.parse(`${to ?? "2026-10-09"}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 > bank.cardMaxDays) {
+            return new Response(JSON.stringify({ error: "ASPSP_ERROR", message: "Bad Request" }), { status: 400 });
+          }
+          const older = bank.cardOlder.filter((o) => o.date >= from && (!to || o.date <= to)).map((o) => tx(o.id, "20.00", "DBIT", o.date, "K-MARKET"));
+          // a request with an end day is a backfill: only the days up to it
+          if (to) return json({ transactions: older });
+          const own = [
             tx("k1", "300.00", "DBIT", "2026-09-12", "WOLT HELSINKI", { merchant_category_code: "5814" }),
             tx(null, "300.00", "CRDT", "2026-10-05", "MAKSU KIITOS"),
             { ...tx(null, "8.50", "DBIT", "2026-10-08", "ESPRESSO HOUSE"), status: bank.pendingBooked ? "BOOK" : "PDNG" },
-          ],
-        });
+          ];
+          // a short longest answer holds the rows since the day the search stopped at
+          return json({ transactions: [...older, ...(longestFrom ? own.filter((t) => (t.booking_date ?? "") >= longestFrom) : own)] });
+        }
+      }
       case "GET /accounts/u-chk/balances":
       case "GET /accounts/u-card/balances":
         return json({ balances: [{ balance_amount: { currency: "EUR", amount: "1234.56" }, balance_type: "CLBD" }] });

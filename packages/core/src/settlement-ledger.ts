@@ -51,7 +51,18 @@ export const merge = (entries: readonly Entry[]): Entry[] => {
   return [...by].map(([owner, cents]) => ({ owner, cents })).filter((e) => e.cents !== 0).sort((a, b) => compareOwners(a.owner, b.owner));
 };
 
-export const monthOfDay = (day: number): string => fromDayNumber(day).slice(0, 7);
+// The ledger asks the month of every row for every month it works out, and an ISO string from Date was most of the time
+// of a long joint account's answer, so the months are kept by day number (a household's days are a few thousand).
+const MONTHS_BY_DAY = new Map<number, string>();
+export const monthOfDay = (day: number): string => {
+  let month = MONTHS_BY_DAY.get(day);
+  if (month === undefined) {
+    if (MONTHS_BY_DAY.size >= 100_000) MONTHS_BY_DAY.clear();
+    month = fromDayNumber(day).slice(0, 7);
+    MONTHS_BY_DAY.set(day, month);
+  }
+  return month;
+};
 export const monthLast = (month: string): number => dayNumber(`${addMonths(month, 1)}-01`) - 1;
 const isCost = (r: RowParts): boolean => r.cents < 0 && !r.pending && (r.what === "all" || r.what === "one");
 const NETTING = new Set(["refund", "credit", "opening"]);

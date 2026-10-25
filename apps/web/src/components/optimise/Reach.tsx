@@ -8,8 +8,7 @@ import { Estimate } from "../Why.tsx";
 import type { AreaReach, AreaView } from "@banking/core";
 import { money, percent } from "../../format.ts";
 import { Section } from "../Section.tsx";
-import { BarCell } from "../table/Cells.tsx";
-import { RichTable } from "../table/RichTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { AreaMark, RangeBar } from "./marks.tsx";
 import { rangeText } from "./shared.tsx";
 
@@ -30,55 +29,63 @@ export function Reach({ reach, areas }: { reach: readonly AreaReach[]; areas: re
       title="Missä on eniten säästettävää?"
       sub={`${label.get(first.area)}: arviolta ${firstRange} vuodessa${first.share !== null ? `, ${percent(first.share, first.share < 0.1 ? 1 : 0)} alueen menoista` : ""}.`}
     >
-      <div className="table-wrap">
-        <RichTable density="comfortable" className="reach">
-          <thead>
-            <tr>
-              <th scope="col">Alue</th>
-              <th scope="col" className="num">
-                Menot 12 kuukaudessa
-              </th>
-              <th scope="col" className="reach-range-h">
+      <Table<AreaReach>
+        caption="Missä on eniten säästettävää"
+        className="reach"
+        rows={rows}
+        rowKey={(r) => r.area}
+        columns={[
+          {
+            key: "area",
+            label: "Alue",
+            kind: "text",
+            rowHead: true,
+            cell: (r) => (
+              <a className="rt-who" href={`#alue-${r.area}`}>
+                <AreaMark id={r.area} />
+                <span className="rt-who-text">
+                  <span className="reach-name">{label.get(r.area)}</span>
+                  <span className="sub">{tips(r.count)}</span>
+                </span>
+              </a>
+            ),
+          },
+          {
+            key: "spend",
+            label: "Menot 12 kuukaudessa",
+            kind: "money",
+            className: () => "reach-spend",
+            cell: (r) => (r.spendCents !== null ? money(r.spendCents, false) : "–"),
+            bar: { value: (r) => r.spendCents ?? 0, max: spendMax },
+          },
+          {
+            key: "range",
+            label: (
+              <>
                 Säästö vuodessa, arvio <span className="muted">0–{money(highMax, false)}</span>
-              </th>
-              <th scope="col" className="num">
-                Osuus menoista
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
+              </>
+            ),
+            text: "Säästö vuodessa, arvio",
+            kind: "text",
+            main: true,
+            className: () => "reach-range",
+            cell: (r) => {
               const e = r.euros;
               const range = rangeText(e);
               return (
-                <tr key={r.area}>
-                  <td>
-                    <a className="rt-who" href={`#alue-${r.area}`}>
-                      <AreaMark id={r.area} />
-                      <span className="rt-who-text">
-                        <span className="reach-name">{label.get(r.area)}</span>
-                        <span className="tx-under">{tips(r.count)}</span>
-                      </span>
-                    </a>
-                  </td>
-                  <td className="num reach-spend" data-head="Menot 12 kuukaudessa">
-                    {r.spendCents !== null ? money(r.spendCents, false) : "–"}
-                    {r.spendCents !== null && <BarCell value={r.spendCents} max={spendMax} />}
-                  </td>
-                  <td className="reach-range" data-head="Säästö vuodessa, arvio">
-                    <RangeBar low={e.lowCents} mid={e.midCents} high={e.highCents} max={highMax} />
-                    <span className="reach-range-text">
-                      <Estimate when={!!range}>{money(e.midCents, false)}</Estimate>
-                      {range && <span className="muted"> {range}</span>}
-                    </span>
-                  </td>
-                  <td className="num" data-head="Osuus menoista">{r.share !== null ? percent(r.share, r.share < 0.1 ? 1 : 0) : "–"}</td>
-                </tr>
+                <>
+                  <RangeBar low={e.lowCents} mid={e.midCents} high={e.highCents} max={highMax} />
+                  <span className="reach-range-text">
+                    <Estimate when={!!range}>{money(e.midCents, false)}</Estimate>
+                    {range && <span className="muted"> {range}</span>}
+                  </span>
+                </>
               );
-            })}
-          </tbody>
-        </RichTable>
-      </div>
+            },
+          },
+          { key: "share", label: "Osuus menoista", kind: "share", cell: (r) => (r.share !== null ? percent(r.share, r.share < 0.1 ? 1 : 0) : "–") },
+        ]}
+      />
     </Section>
   );
 }

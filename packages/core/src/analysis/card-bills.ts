@@ -1,10 +1,10 @@
 /**
  * Card bills that count as spending, by month: the rows the `card_bills` signal of the data quality report adds up. A
  * card connected later, or a card that is not connected, leaves its bill as one payment from the account, with the
- * purchases behind it in no category. The months view and the food report name this sum so a list of categories is
- * not read as the whole.
+ * purchases behind it in no category. The months view names this sum so a list of categories is not read as the whole,
+ * and the food report is a reason, not figures, when its window holds one.
  */
-import { dateIn, fromMonthIndex, monthEnd } from "../dates.ts";
+import { finnishList, formatFiDate } from "./format.ts";
 import { cardIssuerName, cardIssuerOfAccountText, cardName, fold } from "../merchant.ts";
 import type { Account, BalanceInput, IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, loweredRows } from "./context.ts";
@@ -87,6 +87,21 @@ export function missingCardPurchases(ctx: AnalysisContext, range: DateRange, bal
   return rows;
 }
 
+/**
+ * What the missing purchases are, in the words of a sentence that goes on after "mutta": since when a connected card has
+ * rows, which issuer is not connected, and that some bills pair with no purchase. Null for no bill.
+ */
+export function cardGapCause(bills: readonly MissingCardPurchases[]): string | null {
+  const began = bills.filter((b) => b.reason === "before_history" && b.since).map((b) => b.since!).sort()[0];
+  const unconnected = [...new Set(bills.filter((b) => b.reason === "not_connected").map((b) => b.issuer))];
+  const cause = [
+    ...(began ? [`kortin ostot alkavat vasta ${formatFiDate(began)}`] : []),
+    ...(unconnected.length ? [`${finnishList(unconnected)} ei ole yhdistetty`] : []),
+    ...(bills.some((b) => b.reason === "unmatched") ? ["osa korttilaskuista ei vastaa kortin ostoja"] : []),
+  ];
+  return cause.length ? finnishList(cause) : null;
+}
+
 /** The last four digits a bank's card number ends in ("•••• 1234", "5225********1144"), or null where it gives fewer. */
 const lastFour = (mask: string | null | undefined): string | null => {
   const digits = (mask ?? "").replace(/\D/g, "");
@@ -100,13 +115,4 @@ function labelled(issuer: string, card: Account, mask: string | null | undefined
   const name = cardName(card.name);
   const product = name.toLowerCase().startsWith(issuer.toLowerCase()) ? name.slice(issuer.length).trim() : name;
   return product ? `${issuer} ${product}` : issuer;
-}
-
-/** The cents of card bills in each of `months` (month indexes), in the order of `months`; 0 for a month without one. */
-export function cardBillsByMonth(ctx: AnalysisContext, months: readonly number[]): number[] {
-  if (!months.length) return [];
-  const range = toDayRange({ from: dateIn(fromMonthIndex(Math.min(...months)), 1), to: monthEnd(fromMonthIndex(Math.max(...months))) });
-  const by = new Map<number, number>(months.map((m) => [m, 0]));
-  for (const t of loweredRows(ctx, inDays(ctx, range))) if (isCardBill(t) && by.has(t.month)) by.set(t.month, by.get(t.month)! + t.spend);
-  return months.map((m) => by.get(m)!);
 }

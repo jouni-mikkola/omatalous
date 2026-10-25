@@ -1,12 +1,12 @@
 // Decision: the month's money as a waterfall, read at a glance, and the joint pools' sentence under it
-import { DataTable } from "../table/DataTable.tsx";
 import type { CSSProperties } from "react";
-import { money, signedMoney } from "../../format.ts";
+import { signedMoney } from "../../format.ts";
 import type { Scope, WaterfallAnswer, SettlementAnswer } from "../../types.ts";
 import { DeltaChip } from "../table/Cells.tsx";
 import { CategoryParts } from "../CategoryParts.tsx";
 import { Why } from "../Why.tsx";
 import {
+  CARD_GAP,
   EMPTY_MONTH,
   settlementSentences,
   summaryOf,
@@ -28,7 +28,7 @@ const barOf = (row: WaterfallRow) => (
   </>
 );
 
-/** The bar of a row: a button that opens the rows of income, one category or Yli jäi; the other bars have no figure to open and are drawn only. */
+/** The bar of a row: a button that opens the rows of income, one category or Tulos; the other bars have no figure to open and are drawn only. */
 function trackOf(row: WaterfallRow, range: Range, scope: Scope) {
   const BAR = barOf(row);
   if (row.key === "income")
@@ -76,10 +76,9 @@ function trackOf(row: WaterfallRow, range: Range, scope: Scope) {
 }
 
 /**
- * One bar for each item, in the order the server gives: income up, spending down, Yli jäi last. The name of every row but Yli jäi is a button that opens what the bar is made of, one row at a time (`open` is the key of the open row, the caller's, so it can close with the month); the bar of a figure Miksi? can open is a button that opens its rows. Up is a solid bar and down
+ * One bar for each item, in the order the server gives: income up, spending down, Tulos last. The name of every row but Tulos is a button that opens what the bar is made of, one row at a time (`open` is the key of the open row, the caller's, so it can close with the month); the bar of a figure Miksi? can open is a button that opens its rows. Up is a solid bar and down
  * a hatched one, and every figure has its sign, so colour is not the only cue. With a usual month each bar carries a tick
- * where the usual bar would end and a chip of the difference (more spent is bad, more income good; the transfers have none). The bars are for the eye; a table of the
- * same figures with the running total and one sentence are for a reader who does not see them.
+ * where the usual bar would end and a chip of the difference (more spent is bad, more income good; the transfers have none). The bars are for the eye; the rows say the same in words, and one sentence tells a reader who does not see the bars.
  */
 export function Waterfall({
   waterfall,
@@ -168,20 +167,7 @@ export function Waterfall({
           </li>
         ))}
       </ol>
-      <div className="sr-only">
-        <DataTable
-          id="waterfall"
-          caption="Tulot ja menot taulukkona"
-          rows={rows}
-          rowKey={(r) => r.key}
-          phone="cards"
-          columns={[
-            { key: "step", label: "Erä", kind: "text", rowHead: true, cell: (r) => r.label },
-            { key: "sum", label: "Summa", kind: "money", main: true, cell: (r) => r.text },
-            { key: "total", label: "Kertymä", kind: "money", cell: (r) => money(r.total) },
-          ]}
-        />
-      </div>
+      {waterfall.cardGap && <p className="wf-gate">{CARD_GAP}</p>}
     </div>
   );
 }

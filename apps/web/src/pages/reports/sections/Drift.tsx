@@ -1,12 +1,12 @@
 // Decision: find why a category rose and cap it
 import { type DriftItem, monthEnd, printedEuros, printedParts } from "@banking/core";
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { query } from "../../../api.ts";
 import { crisp } from "../../../charts/draw.ts";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { SparkCell } from "../../../components/table/Cells.tsx";
 import { Estimate } from "../../../components/Why.tsx";
-import { DensitySwitch, RichTable, useDensity } from "../../../components/table/RichTable.tsx";
+import { type Column, Table } from "../../../components/table/Table.tsx";
 import { date, money, monthLong, MONTHS_SHORT, percent, signedMoney } from "../../../format.ts";
 import { useWidth } from "../../../hooks.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -154,74 +154,46 @@ function DriftTile({ item, label, href }: { item: DriftItem; label: string; href
  * The tiles' table view: each item's months as a line against its usual level, on the row's own scale as the tiles have
  * (three months on a scale from nothing would be a flat line at the top), the levels, the rise's parts and the year.
  */
-function DriftTable({ items, baseMonths, label }: { items: DriftItem[]; baseMonths: number; label: (c: string) => string }) {
-  const [density, setDensity] = useDensity("drift");
+function DriftTable({ items, label }: { items: DriftItem[]; label: (c: string) => string }) {
   const [open, setOpen] = useState<{ category: string; part: PricePart } | null>(null);
   const prices = items.some((i) => i.prices);
-  const columns = 5 + (prices ? 2 : 0);
   const fig = (i: DriftItem, part: PricePart) => {
     if (!i.prices) return null;
     const on = open?.category === i.category && open.part === part;
     const printed = printedSplit(i.prices);
     return <PriceFig cents={part === "price" ? printed.price : printed.quantity} part={part} open={on} onToggle={() => setOpen(on ? null : { category: i.category, part })} basis={`nousseet-taulu-${i.category}`} />;
   };
+  const columns: Column<DriftItem>[] = [
+    { key: "category", label: "Kategoria", kind: "text", rowHead: true, cell: (i) => label(i.category) },
+    {
+      key: "months",
+      label: "Kuukaudet",
+      kind: "text",
+      phone: "hide",
+      cell: (i) => <SparkCell values={i.monthlyCents} usual={i.usualCents} label={`${label(i.category)}: ${i.months.map((m, k) => `${monthLong(m)} ${money(i.monthlyCents[k]!, false)}`).join(", ")}, ennen ${money(i.usualCents, false)}`} />,
+    },
+    { key: "before", label: "Ennen kuussa", kind: "money", cell: (i) => money(i.usualCents, false) },
+    { key: "now", label: "Nyt kuussa", kind: "money", cell: (i) => money(i.recentCents, false) },
+    ...(prices
+      ? [
+          { key: "price", label: "Hinnat", kind: "money" as const, cell: (i: DriftItem) => fig(i, "price") },
+          { key: "quantity", label: "Määrä", kind: "money" as const, cell: (i: DriftItem) => fig(i, "quantity") },
+        ]
+      : []),
+    { key: "year", label: "Vuodessa", kind: "money", main: true, cell: (i) => signedMoney(i.extraYearlyCents) },
+  ];
   return (
-    <>
-      <div className="rt-tools">
-        <DensitySwitch density={density} onChange={setDensity} />
-      </div>
-      <RichTable density={density} cards className="ruled drift-table">
-        <thead>
-          <tr>
-            <th>Kategoria</th>
-            <th className="rt-spark-cell">Kuukaudet</th>
-            <th className="num">Ennen kuussa</th>
-            <th className="num">Nyt kuussa</th>
-            {prices && <th className="num">Hinnat</th>}
-            {prices && <th className="num">Määrä</th>}
-            <th className="num">Vuodessa</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((i) => (
-            <Fragment key={i.category}>
-              <tr>
-                <td>{label(i.category)}</td>
-                <td className="rt-spark-cell">
-                  <SparkCell values={i.monthlyCents} usual={i.usualCents} label={`${label(i.category)}: ${i.months.map((m, k) => `${monthLong(m)} ${money(i.monthlyCents[k]!, false)}`).join(", ")}, ennen ${money(i.usualCents, false)}`} />
-                </td>
-                <td className="num" data-label="ennen">
-                  {money(i.usualCents, false)}
-                </td>
-                <td className="num" data-label="nyt">
-                  {money(i.recentCents, false)}
-                </td>
-                {prices && (
-                  <td className="num" data-label="hinnat">
-                    {fig(i, "price")}
-                  </td>
-                )}
-                {prices && (
-                  <td className="num" data-label="määrä">
-                    {fig(i, "quantity")}
-                  </td>
-                )}
-                <td className="num" data-rt="main">
-                  {signedMoney(i.extraYearlyCents)}
-                </td>
-              </tr>
-              {open?.category === i.category && i.prices && (
-                <tr className="rt-detail">
-                  <td colSpan={columns}>
-                    <PriceBasis split={i.prices} printed={printedSplit(i.prices)} part={open.part} id={`nousseet-taulu-${i.category}`} before="Tavallisen kuukauden ostot" />
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}
-        </tbody>
-      </RichTable>
-    </>
+    <Table<DriftItem>
+      caption="Nousseet menot taulukkona"
+      className="drift-table"
+      rows={items}
+      rowKey={(i) => i.category}
+      columns={columns}
+      open={open?.category ?? null}
+      onOpen={() => setOpen(null)}
+      drillButton={false}
+      drill={(i) => (open?.category === i.category && i.prices ? <PriceBasis split={i.prices} printed={printedSplit(i.prices)} part={open.part} id={`nousseet-taulu-${i.category}`} before="Tavallisen kuukauden ostot" /> : null)}
+    />
   );
 }
 
@@ -242,7 +214,7 @@ function Drift({ ctx }: SectionProps) {
             {priced ? " Nousu on jaettu hintoihin ja määrään Tilastokeskuksen kuluttajahintaindeksin mukaan." : ""}
           </>
         }
-        table={<DriftTable items={r.items} baseMonths={r.baseMonths} label={ctx.label} />}
+        table={<DriftTable items={r.items} label={ctx.label} />}
       >
         <div className="sm-grid">
           {r.items.map((i) => (

@@ -1,4 +1,4 @@
-import { addMonths, monthEnd } from "@banking/core";
+import { addMonths, monthEnd, monthName } from "@banking/core";
 import { monthLong } from "./format.ts";
 
 /** Yhteenveto offers the running month and the one before it. The ids stay in a bookmark; the label is the month's name. */
@@ -88,4 +88,15 @@ export function periodRange(period: string, today: string): { from: string; to: 
     default:
       return { from: `${month}-01`, to: today };
   }
+}
+
+/**
+ * The line that says where a window of whole months stops, for 3, 6 and 12 kk: the running month is left out, and
+ * nothing else tells the reader so. Null for the presets that run to today or to a year's end.
+ */
+export function windowNote(period: string, today: string): string | null {
+  if (period !== "3m" && period !== "6m" && period !== "12m") return null;
+  const month = today.slice(0, 7);
+  const first = `${monthName(addMonths(month, -1))}n`;
+  return `${first.charAt(0).toUpperCase()}${first.slice(1)} loppuun asti, ${monthName(month)} ei ole vielä mukana`;
 }

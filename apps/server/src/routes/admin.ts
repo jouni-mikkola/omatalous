@@ -15,7 +15,9 @@ import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import { accessEmail } from "../security/cf-access.ts";
+import { recordEvent } from "../services/security.ts";
 import { startLookup } from "../services/industry.ts";
+import { listServiceTokens, revokeServiceToken } from "../services/service-tokens.ts";
 import { remoteAccessState, removeToken, saveToken, turnOff, turnOn } from "../services/remote-access.ts";
 import { body, requestInfo } from "./shared.ts";
 
@@ -40,6 +42,17 @@ export function adminRoutes(s: Services) {
     return c.json(await state());
   });
 
+  /** Service tokens (services/service-tokens.ts): listed and removed here, made only on the command line. */
+  app.get("/service-tokens", async (c) => {
+    const tokens = await listServiceTokens(s);
+    return c.json({ tokens: tokens.map(({ id, username, name, createdAt, expiresAt, lastUsedAt, lastUsedIp }) => ({ id, username, name, createdAt, expiresAt, lastUsedAt, lastUsedIp })) });
+  });
+
+  app.delete("/service-tokens/:id", async (c) => {
+    if (!(await revokeServiceToken(s, c.req.param("id"), c.get("user").username))) throw new UserError("Palvelutunnusta ei löydy.");
+    return c.json({ ok: true });
+  });
+
   /** Feature flags: a partial map of ids from core's FEATURES to on or off. */
   app.put("/features", async (c) => {
     await s.instance.setFeatures(await body(c));
@@ -53,9 +66,11 @@ export function adminRoutes(s: Services) {
     return c.json(await state());
   });
 
-  /** Finishes (or skips) the wizard; everything stays editable in the settings. */
+  /** Finishes the wizard (the "Tee myöhemmin" button writes nothing); everything stays editable in the settings. */
   app.post("/instance/complete", async (c) => {
+    const before = s.instance.current.setupDone;
     await s.instance.completeSetup();
+    await recordEvent(s, { kind: "setup_completed", userId: c.get("user").id, ...requestInfo(c, s), detail: before ? "uudelleen, käyttöönotto oli jo valmis" : null });
     return c.json(await state());
   });
 

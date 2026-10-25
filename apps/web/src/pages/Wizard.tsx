@@ -1,6 +1,6 @@
 /**
  * First-run setup for the admin, shown after the first account is created
- * until it is finished or skipped: the household's Enable Banking app, done.
+ * until it is finished (skipping it only hides it in this browser until the next load): the household's Enable Banking app, done.
  * Address and schedule are saved with their defaults when the wizard opens
  * (the address the admin came in through); all of it stays editable in
  * Asetukset > Palvelin.
@@ -104,7 +104,19 @@ export function WizardDone({ current, linked, finishing, onBack, onFinish }: { c
   );
 }
 
-export function Wizard({ meta, onDone }: { meta: Meta; onDone: (next: "overview" | "connect") => void }) {
+/**
+ * "Tee myöhemmin" only closes the wizard in this browser: nothing is written, so setupDone stays false and the wizard
+ * opens again on the next visit (of any admin) until the setup is finished from its last step.
+ */
+export function WizardSkip({ disabled, onSkip }: { disabled: boolean; onSkip: () => void }) {
+  return (
+    <button className="btn btn-small" type="button" disabled={disabled} aria-busy={disabled || undefined} onClick={onSkip}>
+      Tee myöhemmin
+    </button>
+  );
+}
+
+export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "overview" | "connect") => void; onSkip: () => void }) {
   const loaded = useApi<InstanceState>("/api/admin/instance");
   const [state, setState] = useState<InstanceState | null>(null);
   const [step, setStep] = useState(readStep);
@@ -170,9 +182,13 @@ export function Wizard({ meta, onDone }: { meta: Meta; onDone: (next: "overview"
               </li>
             ))}
           </ol>
-          <button className="btn btn-small" type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => void finish("overview")}>
-            Tee myöhemmin
-          </button>
+          <WizardSkip
+            disabled={finishing}
+            onSkip={() => {
+              writeStep(null);
+              onSkip();
+            }}
+          />
         </div>
         <h1 className="auth-title">Käyttöönotto</h1>
         <p className="muted">Kaiken voi muuttaa myöhemmin kohdassa Asetukset &gt; Palvelin.</p>
@@ -205,5 +221,24 @@ export function Wizard({ meta, onDone }: { meta: Meta; onDone: (next: "overview"
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * What App shows before the pages: the wizard for an admin of an install whose setup is not finished and who has not
+ * closed it in this browser, else null. "Tee myöhemmin" only calls `close`; finishing also reloads meta.
+ */
+export function firstRunWizard(o: { role: string; meta: Meta; closed: boolean; close: () => void; reloadMeta: () => void; goToSettings: () => void }) {
+  if (o.role !== "admin" || o.meta.setupDone || o.closed) return null;
+  return (
+    <Wizard
+      meta={o.meta}
+      onSkip={o.close}
+      onDone={(next) => {
+        o.close();
+        o.reloadMeta();
+        if (next === "connect") o.goToSettings();
+      }}
+    />
   );
 }

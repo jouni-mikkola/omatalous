@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashOf, onTechnicalPage, parseHash, redirectRoute, type Route, settingsCard } from "../src/routes.ts";
+import { hashOf, onTechnicalPage, parseHash, redirectRoute, type Route, settingsCard, withParams } from "../src/routes.ts";
 
 const route = (page: string, query = "", anchor?: string): Route => ({ page, params: new URLSearchParams(query), ...(anchor ? { anchor } : {}) });
 /** Where an address ends up: the redirect when there is one, else itself. */
@@ -197,5 +197,13 @@ describe("hashOf", () => {
     expect(hashOf(route("overview"))).toBe("#/overview");
     expect(hashOf(route("reports", "period=3m"))).toBe("#/reports?period=3m");
     expect(hashOf(route("transactions", "view=merchants", "saannot"))).toBe("#/transactions?view=merchants#saannot");
+  });
+});
+
+describe("withParams", () => {
+  it("lays a patch over the parameters and drops an empty value", () => {
+    const base = new URLSearchParams("tab=menot&period=12m&q=x");
+    expect(withParams(base, { period: "6m", q: "" }).toString()).toBe("tab=menot&period=6m");
+    expect(base.toString()).toBe("tab=menot&period=12m&q=x");
   });
 });

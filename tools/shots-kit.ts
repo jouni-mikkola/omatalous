@@ -8,8 +8,10 @@ import { expect } from "vitest";
 
 export const ROOT = join(import.meta.dirname, "..");
 export const BUILT = existsSync(join(ROOT, "apps/server/dist/node.js"));
-/** Real runs need the built app and a Chromium. */
-export const NO_BROWSER = !BUILT || !existsSync(process.env.E2E_CHROMIUM ?? chromium.executablePath());
+/** shots.mjs imports the TypeScript helpers of e2e/ with node itself, so a node built without TypeScript support (some distribution packages) cannot run it. */
+export const NO_TYPES = !process.features.typescript;
+/** Real runs need the built app, a Chromium and a node that reads TypeScript. */
+export const NO_BROWSER = NO_TYPES || !BUILT || !existsSync(process.env.E2E_CHROMIUM ?? chromium.executablePath());
 
 /** The folder, the step module and the runner of the real runs: call it inside the describe that uses it. */
 export function stateKit() {

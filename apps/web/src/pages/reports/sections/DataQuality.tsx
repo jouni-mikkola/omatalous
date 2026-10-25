@@ -3,7 +3,7 @@
 import { formatEur, formatFiDate, type MissingCardPurchases } from "@banking/core";
 import { query } from "../../../api.ts";
 import { filedLines } from "../../../components/questions.ts";
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { Meta } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -19,8 +19,7 @@ function reasonText(m: MissingCardPurchases): string {
 /** The bills that count as spending, by issuer: what they sum to over the range and why the purchases are not in the data. */
 function CardPurchases({ rows }: { rows: readonly MissingCardPurchases[] }) {
   return (
-    <DataTable
-      id="card-purchases"
+    <Table
       caption="Kortit, joiden ostot puuttuvat"
       className="card-purchases"
       rows={[...rows]}

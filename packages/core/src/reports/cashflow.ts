@@ -20,7 +20,7 @@ export interface CashflowRow {
   /** Credit drawn in the month, net of what was paid back and never below zero (`coverOf`). */
   borrowedCents: number;
   netCents: number;
-  /** Yli jäi of the month, `PeriodTotals.leftCents` as `totalsOf` gives it: this report holds no sum of its own. */
+  /** Tulos of the month, `PeriodTotals.leftCents` as `totalsOf` gives it: this report holds no sum of its own. */
   leftCents: number;
   /** The month's `savingsRateOf`; null for a month that is partial or that the range cuts, which the table shows as "–". */
   savingsRate: number | null;
@@ -59,7 +59,7 @@ export interface CashflowReport {
    * when a running range has no complete month.
    */
   settled: (PeriodTotals & { inCents: number }) | null;
-  /** Yli jäi added up from January, this year against the year before: the cumulative chart of Raportit. */
+  /** Tulos added up from January, this year against the year before: the cumulative chart of Raportit. */
   yearToDate: YearToDate;
   /** The usual savings rate: the middle half of the complete months' rates and their median; null under four such months. */
   usualRate: { low: number; mid: number; high: number; months: number } | null;
@@ -69,7 +69,7 @@ export interface YearToDate {
   /** The calendar year of the range's end. */
   year: number;
   /**
-   * Yli jäi added up from 1 January to the end of each month (index 0 = January). A year whose January the history
+   * Tulos added up from 1 January to the end of each month (index 0 = January). A year whose January the history
    * does not cover from the 1st has no line (all null): a sum from a later month would read as a smaller year.
    */
   current: (number | null)[];
@@ -80,7 +80,7 @@ export interface YearToDate {
   compared: { month: number; cents: number } | null;
 }
 
-/** Yli jäi from January of `year`, month by month up to `lastMonth` (1–12), or all null when a month is not covered. */
+/** Tulos from January of `year`, month by month up to `lastMonth` (1–12), or all null when a month is not covered. */
 function leftFromJanuary(ctx: AnalysisContext, year: number, lastMonth: number): (number | null)[] {
   const out: (number | null)[] = Array.from({ length: 12 }, () => null);
   const txs = inDays(ctx, toDayRange({ from: `${year}-01-01`, to: `${year}-12-31` }));

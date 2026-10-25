@@ -92,7 +92,7 @@ describe("the figure of what is due is what core totals", () => {
   it("is the sum of the listed payments, a card's bill and a transfer among them", () => {
     const out = html(ahead());
     const table = out.slice(out.indexOf("<table"), out.indexOf("</table>"));
-    const listed = [...table.matchAll(/<td class="num st-num" data-label="Summa">([\d ]+,\d\d) €<\/td>/g)].map((m) => Math.round(Number(m[1]!.replace(/ /g, "").replace(",", ".")) * 100));
+    const listed = [...table.matchAll(/<td class="num" data-label="Summa">([\d ]+,\d\d) €<\/td>/g)].map((m) => Math.round(Number(m[1]!.replace(/ /g, "").replace(",", ".")) * 100));
     expect(listed).toHaveLength(4);
     expect(listed.reduce((s, c) => s + c, 0)).toBe(figures(ahead())![1]!.cents);
   });
@@ -105,8 +105,8 @@ describe("the figure of what is due is what core totals", () => {
 describe("the tables on the page", () => {
   it("show the card's bill and the transfer by name with their lines and no link to Tapahtumat, a bill with its link", () => {
     const out = html(ahead());
-    expect(out).toContain('<td title="Esimerkkipankki Gold" data-label="Saaja">Esimerkkipankki Gold<div class="st-sub">Luottokortin lasku</div></td>');
-    expect(out).toContain('<td title="Yhteistili" data-label="Saaja">Yhteistili<div class="st-sub">Oma siirto</div></td>');
+    expect(out).toContain('<td title="Esimerkkipankki Gold" data-label="Saaja">Esimerkkipankki Gold<div class="sub">Luottokortin lasku</div></td>');
+    expect(out).toContain('<td title="Yhteistili" data-label="Saaja">Yhteistili<div class="sub">Oma siirto</div></td>');
     expect(out).not.toContain("merchant=Esimerkkipankki");
     expect(out).not.toContain("merchant=Yhteistili");
     expect(out).toContain("merchant=S%C3%A4hk%C3%B6yhti%C3%B6");

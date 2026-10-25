@@ -53,10 +53,10 @@ test("the four outside steps each have a link to Enable Banking and the done lis
   // one link in each of the outside steps, and the key step has none
   await expect(steps.filter({ has: page.locator("a[target=_blank]") })).toHaveCount(4);
   const checklist = page.getByLabel("Enable Banking -sovelluksen vaiheet");
-  await expect(checklist.getByRole("listitem")).toHaveText(["Avain luotu", "Varmenne ladattu Enable Bankingiin", "Application ID toimii", "Tilit linkitetty"].map((t) => new RegExp(`^${t}`)));
+  await expect(checklist.getByRole("listitem")).toHaveText(["Avain luotu", "Varmenne ladattu Enable Bankingiin", "Application ID toimii", "Tilit lisätty Enable Bankingiin"].map((t) => new RegExp(`^${t}`)));
   // done exactly when some bank has been seen: which it is depends on the specs this worker ran before, not on this one
   const linked = (await seenFacts(context)).some((b) => b.cardAccounts || b.pending || b.balanceTypes.length > 0 || b.historyDays !== null);
-  const item = checklist.getByText("Tilit linkitetty");
+  const item = checklist.getByText("Tilit lisätty Enable Bankingiin");
   if (linked) await expect(item).toHaveClass(/done/);
   else await expect(item).not.toHaveClass(/done/);
   expect(seen.problems).toEqual([]);
@@ -94,8 +94,8 @@ test("what each bank supports: a row for the bank the list named, a fact not see
   // Testaa yhteys reads the bank list, which is what makes the record
   expect((await context.request.post("/api/admin/bank-app/test", { headers: FETCH })).ok()).toBe(true);
   await page.goto("/#/settings?section=server");
-  const table = page.getByRole("table", { name: "Nordea" });
-  const cell = (label: string) => table.getByRole("row", { name: new RegExp(`^${label}`) }).getByRole("cell");
+  const list = page.locator("h3", { hasText: "Nordea" }).locator("xpath=following-sibling::dl[1]");
+  const cell = (label: string) => list.locator("div", { has: page.getByText(label, { exact: true }) }).locator("dd");
   await expect(cell("Suostumuksen pituus")).toHaveText("180 päivää");
   // a fact reads ei vielä tiedossa until a link or a fetch has seen it; an earlier spec of this worker may have seen it
   const facts = (await seenFacts(context)).find((b) => b.bankId === "nordea-fi")!;

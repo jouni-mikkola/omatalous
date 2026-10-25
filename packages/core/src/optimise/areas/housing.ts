@@ -10,10 +10,10 @@ import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { MAX_HOUSING_STEP_TENTHS, priceRiseItems, stepTenths } from "../../analysis/insights/prices.ts";
 import { addDays } from "../../dates.ts";
 import type { IsoDate } from "../../types.ts";
-import { findingId, yearlyAt } from "../common.ts";
+import { findingId, WHY_FACTS, yearlyAt } from "../common.ts";
 import { type Fact, factOn } from "../facts/index.ts";
 import { valueOf } from "../inputs.ts";
-import type { Area, AreaInput, Check, FindingDraft, HousingType, Weakness } from "../types.ts";
+import type { Area, AreaInput, Check, FindingDraft, HousingType, NoDataWhy, Weakness } from "../types.ts";
 
 /** A vastike or a rent changes once a year: two years keep last year's rise in view. */
 const RISE_DAYS = 730;
@@ -23,6 +23,8 @@ const GATE_TENTHS = 30;
 const NEW_PAYEE_DAYS = 365;
 
 const LABEL = "Asumismenojen nousu";
+/** A rise over the limit is read as a move, so it is not compared. */
+const MOVED: NoDataWhy = { cause: "other", text: "Muutto selittää hinnan hypyn, joten sitä ei vertailla." };
 
 const pct = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const pctText = (tenths: number) => `${pct.format(tenths / 10)}\u00a0%`;
@@ -68,8 +70,8 @@ function housingPayeesFirstSeen(ctx: AnalysisContext): Map<string, IsoDate> {
   return first;
 }
 
-function check(status: Check["status"], input?: string): Check {
-  return { id: "housing:rise", label: LABEL, status, ...(input ? { input } : {}) };
+function check(status: Check["status"], input?: string, why?: NoDataWhy): Check {
+  return { id: "housing:rise", label: LABEL, status, ...(input ? { input } : {}), ...(why ? { why } : {}) };
 }
 
 function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
@@ -86,7 +88,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
   const all = candidates.map((item) => ({ item, riseT: stepTenths(item.series.priceChange!) }));
   // one step over 10 % is a move, a new flat or a loan share, never a rise to act on (the price insight's rule too)
   const rises = all.filter((r) => r.riseT <= MAX_HOUSING_STEP_TENTHS);
-  const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? undefined : "moved_on") : null;
+  const step = all.length > rises.length ? check(moved ? "no_data" : "needs_input", moved ? undefined : "moved_on", moved ? MOVED : undefined) : null;
   // no row that pays a home: the check has no subject
   if (!firstSeen.size) return { findings: [], checks: [check("no_subject")] };
   if (!rises.some((r) => r.riseT >= GATE_TENTHS)) return { findings: [], checks: [step ?? check("clear")] };
@@ -151,7 +153,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
     });
   }
   if (findings.length) return { findings, checks: [check("finding")] };
-  return { findings, checks: [missing ? check("no_data") : (step ?? check("clear"))] };
+  return { findings, checks: [missing ? check("no_data", undefined, WHY_FACTS) : (step ?? check("clear"))] };
 }
 
 export const housing: Area = { id: "housing", label: "Asuminen", assess };

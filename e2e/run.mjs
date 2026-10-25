@@ -7,13 +7,15 @@
  * faster but failed one run in three when the machine was busy, so 8 is the cap. Each worker has a server of its own, with its own port, data
  * directory and fake bank, and the config gives a worker the server of its `parallelIndex`. Every server starts with the
  * administrator made and the demo household loaded, which is what the first two tests of app.spec.ts leave behind; that
- * file makes them through the page on a server of its own. With `E2E_WORKERS=1` the specs run one after the other.
+ * file makes them through the page on a server of its own. With `E2E_WORKERS=1` the specs run one after the other. With no
+ * `E2E_WORKERS` the run also takes a lease on a share of the cores (tools/cores.sh) and starts no more workers than the share has.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
+import { holdCores } from "../tools/lib/cores.mjs";
 import { root, startServer } from "./server.mjs";
 
 /**
@@ -172,7 +174,9 @@ async function prepare(app) {
 }
 
 const began = Date.now();
-const workers = Number(process.env.E2E_WORKERS ?? Math.min(8, Math.max(3, Math.floor(availableParallelism() / 3))));
+// With no E2E_WORKERS the run takes a lease on a share of the cores (tools/cores.sh) and starts no more workers than the share has
+const share = process.env.E2E_WORKERS === undefined ? await holdCores("e2e") : null;
+const workers = Number(process.env.E2E_WORKERS ?? Math.max(1, Math.min(8, Math.max(3, Math.floor(availableParallelism() / 3)), share ?? Infinity)));
 const apps = [];
 // startServer ends its own server at SIGINT and exits the process there, so the others are ended here
 process.on("exit", () => apps.forEach((app) => app.stop()));

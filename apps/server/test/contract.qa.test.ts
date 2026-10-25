@@ -247,6 +247,8 @@ describe("data versions", () => {
   // Read for each request (requestInputs), never cached: saving them moves no version. optimise.test.ts checks the Optimoi ones.
   const PER_REQUEST = [
     "PUT /api/marks",
+    "PUT /api/spending-goal",
+    "DELETE /api/spending-goal",
     "POST /api/expected-bills",
     "DELETE /api/expected-bills/:id",
     "POST /api/loans",
@@ -260,10 +262,10 @@ describe("data versions", () => {
     "DELETE /api/settlement/agreements/:accountId/:validFrom",
   ];
   // Nothing the analysis reads: sign-in, members (removal aside), the instance, maintenance, security events, bank keys, a
-  // consent not yet given, the export of the user's own file (it reads and writes a security event), and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
+  // consent not yet given, the export of the user's own file (it reads and writes a security event), and the round that renews consents (one settings row), and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
   // (connector.ts removeConnection), and /api/meta reads the connection list for each request. Run below for the last one.
   const NO_ANALYSIS =
-    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/(export|import|import\/:id\/(chunk|check))$|^DELETE \/api\/data\/import\/:id$|^POST \/api\/connections\/start$|^DELETE \/api\/connections\/:id$/;
+    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/(export|import|import\/:id\/(chunk|check))$|^DELETE \/api\/data\/import\/:id$|^POST \/api\/connections\/start$|^(POST|DELETE) \/api\/connections\/round$|^DELETE \/api\/connections\/:id$/;
 
   it("every non-GET route is on exactly one named list", async () => {
     const { routes } = await rig();
@@ -316,6 +318,8 @@ describe("data versions", () => {
     await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
 
     await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);
+    await step("PUT /api/spending-goal", () => admin.call("PUT", "/api/spending-goal", { monthlyCents: 250_000 }), false);
+    await step("DELETE /api/spending-goal", () => admin.call("DELETE", "/api/spending-goal"), false);
     const bill = await step("POST /api/expected-bills", () => admin.call("POST", "/api/expected-bills", { name: "Vesi", amountCents: 5000, dueDate: "2026-11-20", cadence: "once" }), false);
     await step("DELETE /api/expected-bills/:id", () => admin.call("DELETE", `/api/expected-bills/${bill.body.bill.id}`), false);
     const loan = await step("POST /api/loans", () => admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" }), false);

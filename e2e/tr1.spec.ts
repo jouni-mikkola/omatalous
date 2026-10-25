@@ -7,7 +7,7 @@ import { overflow, plain, watch } from "./helpers.ts";
 // up; the server's tests (apps/server/test/review.test.ts) hold what each answer does to the rows. Each answer must go to
 // its own source's route, the next item must show at once, and the count in the header must follow.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-/** Set by a run that wants pictures of the page: SHOTS_DIR=/tmp/claude-0/shots pnpm e2e e2e/tr1.spec.ts */
+/** Set by a run that wants pictures of the page: SHOTS_DIR=$TMPDIR/shots pnpm e2e e2e/tr1.spec.ts */
 const SHOTS = process.env.SHOTS_DIR;
 
 type Item = { id: string; kind: string; cents: number; [field: string]: unknown };
@@ -105,12 +105,12 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(rows.first().locator(".review-row-name")).toHaveText("Esimerkki Kauppa Oy");
   await expect(rows.first().locator(".review-row-text")).toHaveText("KORTTIOSTO ESIMERKKI KAUPPA");
   // every figure names its period: the payee's is the last year's
-  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toBe("760,50 € vuodessa");
-  await expect(card(page).getByText("Näytä tapahtumat")).toHaveCount(0);
-  const figure = card(page).getByRole("button", { name: /^Näytä tapahtumat: Esimerkki Kauppa Oy/ });
+  // (the button holds a hidden action after the figure, for the name a screen reader hears)
+  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toMatch(/^760,50 € vuodessa(, näytä tapahtumat: Esimerkki Kauppa Oy)?$/);
+  const figure = card(page).getByRole("button", { name: /näytä tapahtumat: Esimerkki Kauppa Oy$/ });
   await figure.click();
   await expect(rows).toHaveCount(5);
-  await expect(card(page).getByRole("button", { name: /^Piilota tapahtumat: Esimerkki Kauppa Oy/ })).toHaveAttribute("aria-expanded", "true");
+  await expect(card(page).getByRole("button", { name: /piilota tapahtumat: Esimerkki Kauppa Oy$/ })).toHaveAttribute("aria-expanded", "true");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-payee-rows-1280.png"), fullPage: true });
   await expect(question(page)).toHaveText("Mihin kategoriaan nämä maksut kuuluvat?");
   // the household's most used categories as buttons, none marked as a guess, then the sheet of every category; no select

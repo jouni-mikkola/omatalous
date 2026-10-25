@@ -5,13 +5,14 @@ import { Slope } from "../../../charts/forms/Slope.tsx";
 import { printedParts } from "@banking/core";
 import {
   BarCell,
+  BarFigure,
   DeltaChip,
   SparkCell,
 } from "../../../components/table/Cells.tsx";
 import {
   type Column,
-  DataTable,
-} from "../../../components/table/DataTable.tsx";
+  Table,
+} from "../../../components/table/Table.tsx";
 import {
   monthLabel,
   money,
@@ -22,7 +23,7 @@ import {
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 
-type FoodReport = NonNullable<ReportsData["food"]>;
+type FoodReport = Exclude<NonNullable<ReportsData["food"]>, { gap: unknown }>;
 type Line = FoodReport["lines"][number];
 
 /** Visits a month with a decimal comma; a whole number has none. */
@@ -124,37 +125,24 @@ function Lines({ r }: { r: FoodReport }) {
   // a line's change is null when core has no figure for it: the cell is a dash and claims no "usual" level, since a line
   // over its usual range for months can have null too (Nousseet below says so)
   const usualOnly = r.window.months >= 9;
-  type Row = { id: string; line: Line | null; i: number };
-  const rows: Row[] = [
-    ...(r.cardBills ? [{ id: "card-bills", line: null, i: -1 }] : []),
-    ...r.lines.map((l, i) => ({ id: l.id, line: l, i })),
-  ];
+  type Row = { id: string; line: Line; i: number };
+  const rows: Row[] = r.lines.map((l, i) => ({ id: l.id, line: l, i }));
   const dash = <span className="muted">–</span>;
   const cols: Column<Row>[] = [
     {
       key: "heading",
       label: "Ruoka",
       kind: "text",
-      cell: (x) =>
-        x.line ? (
-          x.line.heading
-        ) : (
-          <>
-            Luottokortin laskut
-            <span className="food-note">
-              Laskun ostot eivät näy ruokariveinä, joten niillä ei ole osuutta
-              eikä ostoskertoja.
-            </span>
-          </>
-        ),
+      rowHead: true,
+      cell: (x) => x.line.heading,
     },
     {
       key: "months",
       label: "Kuukaudet",
       kind: "text",
-      className: () => "rt-spark-cell",
+      phone: "hide",
       cell: (x) =>
-        x.line && x.line.monthCents.length >= 3 ? (
+        x.line.monthCents.length >= 3 ? (
           <SparkCell
             values={x.line.monthCents}
             label={`${x.line.heading}: ${x.line.monthCents.length} kuukautta`}
@@ -166,24 +154,16 @@ function Lines({ r }: { r: FoodReport }) {
       label: "Kuussa",
       kind: "money",
       main: true,
-      cents: (x) => (x.line ? monthly[x.i]! : r.cardBills!.monthlyCents),
-    },
-    {
-      key: "bar",
-      label: "",
-      kind: "text",
-      className: () => "rt-bar-cell",
-      bar: { value: (x) => (x.line ? (shares[x.i] ?? 0) : 0), max: 100 },
-      cell: () => null,
+      sort: true,
+      cents: (x) => monthly[x.i]!,
     },
     {
       key: "share",
       label: "Osuus",
       kind: "share",
+      bar: { value: (x) => shares[x.i] ?? 0, max: 100 },
       cell: (x) =>
-        !x.line ? (
-          <span className="muted">–</span>
-        ) : shares[x.i] == null ? (
+        shares[x.i] == null ? (
           <span className="muted">ei osuutta</span>
         ) : (
           shareText(shares[x.i]!)
@@ -196,9 +176,7 @@ function Lines({ r }: { r: FoodReport }) {
       phone: "hide",
       // under six purchases a mean says nothing: the cell says there were too few
       cell: (x) =>
-        !x.line ? (
-          dash
-        ) : x.line.meanCents === null ? (
+        x.line.meanCents === null ? (
           <span className="muted">liian vähän ostoja</span>
         ) : (
           money(x.line.meanCents, false)
@@ -209,8 +187,7 @@ function Lines({ r }: { r: FoodReport }) {
       label: "Kertaa kuussa",
       kind: "count",
       phone: "hide",
-      cell: (x) =>
-        !x.line || x.line.perMonth === null ? dash : count(x.line.perMonth),
+      cell: (x) => (x.line.perMonth === null ? dash : count(x.line.perMonth)),
     },
     ...(change || usualOnly
       ? [
@@ -219,7 +196,7 @@ function Lines({ r }: { r: FoodReport }) {
             label: "Muutos",
             kind: "money" as const,
             cell: (x: Row) =>
-              x.line && x.line.changeCents !== null ? (
+              x.line.changeCents !== null ? (
                 <DeltaChip
                   delta={x.line.changeCents}
                   text={signedMoney(x.line.changeCents)}
@@ -243,25 +220,23 @@ function Lines({ r }: { r: FoodReport }) {
           ? " Muutos on kolmen viimeisen kuukauden keskiarvo kuuden niitä edeltävän kuukauden tavalliseen tasoon verrattuna."
           : ""}
       </p>
-      <DataTable
-        id="food-lines"
+      <Table
         caption="Ruokarivit"
         className="food-lines"
         rows={rows}
         rowKey={(x) => x.id}
         columns={cols}
         drill={(x) =>
-          x.line && (x.line.payees.length > 0 || x.line.weekdays) ? (
+          x.line.payees.length > 0 || x.line.weekdays ? (
             <LineDetail line={x.line} />
           ) : null
         }
-        drillLabel={(x) => `Kauppiaat: ${x.line?.heading ?? ""}`}
+        drillLabel={(x) => `Kauppiaat: ${x.line.heading}`}
         total={{
           label: "Yhteensä",
           cells: {
             monthly: <strong>{money(r.monthlyCents, false)}</strong>,
-            bar: hasShares ? <BarCell value={100} max={100} /> : null,
-            share: hasShares ? "100 %" : "",
+            share: hasShares ? <BarFigure value={100} max={100}>100 %</BarFigure> : "",
           },
         }}
       />
@@ -270,7 +245,15 @@ function Lines({ r }: { r: FoodReport }) {
 }
 
 function Food({ ctx }: SectionProps) {
-  const r = ctx.data.food!;
+  const found = ctx.data.food!;
+  // card bills without their purchases: no figure of food is told, one row says why
+  if ("gap" in found)
+    return (
+      <ReportPanel id={section.id} title={section.title}>
+        <p className="question-line">{found.gap.text}</p>
+      </ReportPanel>
+    );
+  const r = found;
   const b = r.basket;
   const both =
     b &&

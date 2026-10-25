@@ -44,7 +44,7 @@ import type { DashboardData, Meta, Recurring as Series, ReportsData, Scope } fro
 import { reportContext } from "./reports/context.ts";
 import { reportsOf, visibleSections } from "./reports/registry.ts";
 import type { ReportRange } from "./reports/types.ts";
-import "../styles/rich-table.css";
+import "../styles/table.css";
 import "../styles/bills.css";
 import "../styles/statement.css";
 
@@ -260,15 +260,15 @@ function Savings({ rows, total, label }: { rows: Series[]; total: number; label:
   );
 }
 
-/** Folded: what has stopped is looked at when a bill is missing, not every visit. */
+/** What has stopped, looked at when a bill is missing. */
 function Ended({ rows, label }: { rows: Series[]; label: (id: string) => string }) {
   if (!rows.length) return null;
   return (
-    <details className="card">
-      <summary className="card-head">
+    <div className="card">
+      <div className="card-head">
         <h2>Päättyneet maksut</h2>
-      </summary>
+      </div>
       <SeriesTable rows={rows} label={label} ended />
-    </details>
+    </div>
   );
 }

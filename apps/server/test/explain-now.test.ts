@@ -1,5 +1,5 @@
 /**
- * Today's figures of the first page open their basis (explain/now.ts): Tileillä the accounts' balances, Käytettävissä the
+ * Today's figures of the first page open their basis (explain/now.ts): Tilien saldo the accounts' balances, Käytettävissä the
  * checking accounts' balances and the window's payments, the pay the window waits for the pays its estimate rests on. Each
  * is the dashboard's own figure, and every line of it is named. Read on the demo household.
  */
@@ -23,7 +23,7 @@ const named = (a: Answer) => {
 };
 
 describe("the basis of today's figures", () => {
-  it("Tileillä, Käytettävissä and the pay estimate add up to the dashboard's figures, every line named", async () => {
+  it("Tilien saldo, Käytettävissä and the pay estimate add up to the dashboard's figures, every line named", async () => {
     const { dashboard, explain } = await demo();
     const accounts = await explain("holdings.accounts");
     expect(accounts.cents).toBe(dashboard.holdings.accountsCents);

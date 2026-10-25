@@ -1,7 +1,7 @@
 // Decision: which month let the money run out, and on what: spending, paying debt or saving
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import type { CashflowReport, PeriodTotals } from "@banking/core";
-import { money, monthLabel, monthLong, percent } from "../../format.ts";
+import { money, monthLong, percent } from "../../format.ts";
 
 /** The flows in the order income is used, each in a fixed slot of its own (never picked by rank, VD0). */
 const PARTS = [
@@ -9,7 +9,7 @@ const PARTS = [
   // the word of the bridge on Yhteenveto (r3a), so a flow has one name on every page
   { key: "debtCents", label: "Maksettu velanhoito", color: "var(--series-7)" },
   { key: "savedCents", label: "Säästöön", color: "var(--series-3)" },
-  { key: "leftCents", label: "Yli jäi", color: "var(--series-5)" },
+  { key: "leftCents", label: "Tulos", color: "var(--series-5)" },
 ] as const;
 
 type Flows = Pick<PeriodTotals, (typeof PARTS)[number]["key"]>;
@@ -54,55 +54,38 @@ export function IncomeUse({ rows, total, totalLabel }: { rows: CashflowReport["r
           Tileiltä otettu
         </span>
       </p>
-      <div className="table-wrap">
-        <table className="ruled use-table">
-          <thead>
-            <tr>
-              <th>Kuukausi</th>
-              <th className="num">Tulot</th>
-              <th>
-                <span className="sr-only">Mihin tulot menivät</span>
-              </th>
-              <th className="num">Yli jäi</th>
-              <th className="num use-hide">Säästöaste</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.month}>
-                <td className="use-month">
-                  <span className="month-name">
-                    <span className="month-long">{monthLong(r.month)}</span>
-                    <span className="month-short">{monthLabel(r.month, true)}</span>
-                  </span>
-                  {r.complete ? "" : " (vajaa)"}
-                </td>
-                <td className="num">{money(r.incomeCents, false)}</td>
-                <td className="use-cell">
-                  <UseBar f={r} inCents={r.stack.inCents} scale={scale} />
-                </td>
-                <td className="num">{money(r.leftCents, false)}</td>
-                <td className="num use-hide">{r.savingsRate === null ? "–" : percent(r.savingsRate)}</td>
-              </tr>
-            ))}
-          </tbody>
-          {total && (
-            <tfoot>
-              <tr className="foot-row">
-                <td>{totalLabel}</td>
-                <td className="num">{money(total.incomeCents, false)}</td>
-                <td className="use-cell">
-                  <UseBar f={total} inCents={total.inCents} scale={Math.max(total.inCents, 1) * HEADROOM} />
-                </td>
-                <td className="num">
-                  <strong>{money(total.leftCents, false)}</strong>
-                </td>
-                <td className="num use-hide">{total.savingsRate === null ? "–" : percent(total.savingsRate)}</td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      </div>
+      <Table<CashflowReport["rows"][number]>
+        caption="Mihin tulot menivät kuukausittain"
+        className="use-table"
+        rows={rows}
+        rowKey={(r) => r.month}
+        columns={[
+          {
+            key: "month",
+            label: "Kuukausi",
+            kind: "text",
+            rowHead: true,
+            cell: (r) => `${monthLong(r.month)}${r.complete ? "" : " (vajaa)"}`,
+          },
+          { key: "income", label: "Tulot", kind: "money", cell: (r) => money(r.incomeCents, false) },
+          { key: "use", label: "Mihin tulot menivät", kind: "text", className: () => "use-cell", cell: (r) => <UseBar f={r} inCents={r.stack.inCents} scale={scale} /> },
+          { key: "left", label: "Tulos", kind: "money", main: true, cell: (r) => money(r.leftCents, false) },
+          { key: "rate", label: "Säästöaste", kind: "share", phone: "hide", cell: (r) => (r.savingsRate === null ? "–" : percent(r.savingsRate)) },
+        ]}
+        total={
+          total
+            ? {
+                label: totalLabel,
+                cells: {
+                  income: money(total.incomeCents, false),
+                  use: <UseBar f={total} inCents={total.inCents} scale={Math.max(total.inCents, 1) * HEADROOM} />,
+                  left: money(total.leftCents, false),
+                  rate: total.savingsRate === null ? "–" : percent(total.savingsRate),
+                },
+              }
+            : undefined
+        }
+      />
     </>
   );
 }
@@ -113,8 +96,7 @@ export function IncomeUseTable({ rows, total, totalLabel }: { rows: CashflowRepo
   type Row = CashflowReport["rows"][number];
   const rate = (f: PeriodTotals | Row) => (f.savingsRate === null ? "–" : percent(f.savingsRate));
   return (
-    <DataTable
-      id="tulojen-kaytto"
+    <Table
       caption="Tulot ja niiden käyttö kuukausittain"
       rows={rows}
       rowKey={(r) => r.month}
@@ -123,7 +105,7 @@ export function IncomeUseTable({ rows, total, totalLabel }: { rows: CashflowRepo
         { key: "income", label: "Tulot", kind: "money", cents: (r) => r.incomeCents },
         ...(drew ? [{ key: "borrowed", label: "Luotonnostot", kind: "money" as const, cents: (r: Row) => r.borrowedCents }] : []),
         ...PARTS.map((p) => ({ key: p.key, label: p.label, kind: "money" as const, cents: (r: Row) => r[p.key] })),
-        { key: "rate", label: "Säästöaste", kind: "share" as const, cell: rate, sortValue: (r: Row) => r.savingsRate },
+        { key: "rate", label: "Säästöaste", kind: "share" as const, cell: rate },
       ]}
       total={
         total

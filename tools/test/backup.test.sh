@@ -16,9 +16,13 @@ want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 # The system tools without the ones a test decides about, so that "no age" and "no crontab" are commands that do not exist.
 SYS=$T/sys; mkdir -p "$SYS" "$T/bin" "$T/agebin" "$T/cronbin"
+# One ln for all of them (a name in both folders is taken from the later, /usr/sbin): a ln per tool is some 1900 forks, and
+# every scenario job of this suite paid them.
+declare -A pick=()
 for f in /usr/bin/* /usr/sbin/*; do
-  case ${f##*/} in crontab | docker | age | mountpoint | cp | cmp | date) ;; *) ln -sf "$f" "$SYS/" 2>/dev/null ;; esac
+  case ${f##*/} in crontab | docker | age | mountpoint | cp | cmp | date) ;; *) pick[${f##*/}]=$f ;; esac
 done
+ln -sf -t "$SYS" "${pick[@]}" 2>/dev/null
 # a database that passes backup.sh's own checks: the header, 8192 bytes
 { printf 'SQLite format 3\0'; head -c 8176 /dev/zero; } >"$T/fixture.db"
 

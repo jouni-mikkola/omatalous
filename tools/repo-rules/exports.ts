@@ -8,10 +8,7 @@
  * unread-exports.txt of its own, so the public list names none of its files.
  */
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
-import { type Finding, expectNoFindings, isTestFile, lineIn, lineOf, parse, readText, repoFiles, sourceFiles } from "./lib.ts";
-
-const LIST = "tools/repo-rules/unread-exports.txt";
+import { isTestFile, lineOf } from "./lib.ts";
 
 /** Where an export must be read: the sources of the product, and the findings tool that runs core. */
 export const READERS = ["packages/core/src/", "apps/server/src/", "apps/web/src/", "tools/findings/"];
@@ -92,15 +89,25 @@ const isPrivate = (file: string) => file.includes("/private/");
 
 export function unreadExports(files: readonly string[], sf: (file: string) => ts.SourceFile, owners = OWNERS, readers = READERS): { key: string; file: string; line: number }[] {
   const under = (prefixes: readonly string[]) => files.filter((f) => !isTestFile(f) && prefixes.some((p) => f.startsWith(p)));
-  const read = new Map(under(readers).map((f) => [f, namesRead(sf(f))] as const));
+  // Index each name once instead of copying and searching all source files for every export. A null entry
+  // means more than one file reads it, so at least one reader is outside any given owner.
+  const allRead = new Map<string, string | null>();
+  const publicRead = new Map<string, string | null>();
+  const index = (map: Map<string, string | null>, name: string, file: string) => map.set(name, map.has(name) && map.get(name) !== file ? null : file);
+  for (const file of under(readers)) {
+    for (const name of namesRead(sf(file))) {
+      index(allRead, name, file);
+      if (!isPrivate(file)) index(publicRead, name, file);
+    }
+  }
   const out: { key: string; file: string; line: number }[] = [];
   for (const file of under(owners)) {
     const seen = new Set<string>();
     for (const { name, line } of ownExports(sf(file))) {
       if (seen.has(name) || exempt(file, name)) continue;
       seen.add(name);
-      const mayRead = (other: string) => isPrivate(file) || !isPrivate(other);
-      if (![...read].some(([other, names]) => other !== file && mayRead(other) && names.has(name))) out.push({ key: `${file}  ${name}`, file, line });
+      const read = isPrivate(file) ? allRead : publicRead;
+      if (!read.has(name) || read.get(name) === file) out.push({ key: `${file}  ${name}`, file, line });
     }
   }
   return out;
@@ -113,27 +120,3 @@ export function unreadExports(files: readonly string[], sf: (file: string) => ts
 const FEATURES = /^packages\/core\/src\/features\//;
 const exempt = (file: string, name: string) =>
   file === "packages/core/src/features/contract.ts" || (FEATURES.test(file) && ((name === "module" && /\/[^/]+\/[^/]+\/index\.ts$/.test(file)) || (name === "cases" && file.endsWith("/fixture.ts"))));
-
-const LISTS = () => [LIST, ...repoFiles().filter((f) => f !== LIST && f.endsWith("/unread-exports.txt"))];
-const listed = () => LISTS().flatMap((list) => readText(list).split("\n").filter(Boolean).map((key) => ({ list, key })));
-
-describe("repo rules: unread exports (rule 24)", () => {
-  const files = () => sourceFiles(...READERS);
-
-  it("rule 24a: an export of core or the server is read by another source file, except the list", () => {
-    expect(sourceFiles(...OWNERS).length, "the scan found the sources").toBeGreaterThan(100);
-    const known = new Set(listed().map((l) => l.key));
-    const found: Finding[] = unreadExports(files(), parse)
-      .filter((u) => !known.has(u.key))
-      .map((u) => ({ file: u.file, line: u.line, why: `export ${u.key.split("  ")[1]} is read by no other source file (a test does not count)` }));
-    expectNoFindings("unread exports", found, `delete the export with its test, or drop \`export\` when only its own file uses it. Do not add it to ${LIST}.`);
-  }, 30_000); // parses every source file of core and the server: a loaded machine takes over the five seconds a test gets
-
-  it("rule 24b: every entry of the list is still an unread export, so the list shrinks when one is deleted or read", () => {
-    const live = new Set(unreadExports(files(), parse).map((u) => u.key));
-    const found: Finding[] = listed()
-      .filter((l) => !live.has(l.key))
-      .map((l) => ({ file: l.list, line: lineIn(l.list, l.key), why: `no longer an unread export, delete the line: ${l.key}` }));
-    expectNoFindings("unread exports list", found, "remove the listed lines from their list. Good: the export is gone or read.");
-  }, 30_000);
-});

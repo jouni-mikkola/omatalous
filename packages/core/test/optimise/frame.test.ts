@@ -29,11 +29,12 @@ import {
   INPUT_DEFS,
   valueOf,
   type Weakness,
+  WHY_FACTS,
   yearWindow,
 } from "../../src/optimise/index.ts";
 import type { Account, Transaction } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
-import { enrich } from "./household.ts";
+import { enrich, household, householdInput } from "./household.ts";
 import { numbersIn } from "./numbers.ts";
 
 const TODAY = "2026-10-15";
@@ -46,7 +47,7 @@ const ACCOUNTS: Account[] = [
 const GROCERIES = [-4500, -5200, -4800, -5500, -5000];
 
 /** `months` complete months before October 2026: weekly groceries and monthly pay on the checking account. */
-function ctxWith(months: number, extra: Transaction[] = []) {
+function ctxWith(months: number, extra: Transaction[] = [], unenriched: Transaction[] = []) {
   const txs: Transaction[] = [];
   for (const m of monthRange(addMonths("2026-10", -months), "2026-10")) {
     ["01", "08", "15", "22", "29"].forEach((d, i) => {
@@ -55,7 +56,7 @@ function ctxWith(months: number, extra: Transaction[] = []) {
     if (`${m}-15` <= TODAY) txs.push(tx({ bookingDate: `${m}-15`, amountCents: 300000, merchant: "Työnantaja Oy", description: "PALKKA" }));
   }
   txs.push(...extra);
-  return createContext(enrich(txs, ACCOUNTS), ACCOUNTS, TODAY);
+  return createContext([...enrich(txs, ACCOUNTS), ...unenriched], ACCOUNTS, TODAY);
 }
 
 const CTX12 = ctxWith(12);
@@ -361,13 +362,14 @@ describe("optimise frame: inputs and facts", () => {
         }),
       ];
     },
-    (a) => [{ id: "subscriptions:rise", label: "Maksu", status: factFrom(ROWS, "rate", a.today) ? "clear" : "no_data" }],
+    (a) => [{ id: "subscriptions:rise", label: "Maksu", status: factFrom(ROWS, "rate", a.today) ? "clear" : "no_data", ...(factFrom(ROWS, "rate", a.today) ? {} : { why: WHY_FACTS }) }],
   );
 
   it("hides a comparison whose fact expired and shows a proposed fact only as a calc line", () => {
     const expired = run(CTX12, feeArea);
     expect(shown(expired)).toEqual([]);
     expect(expired.areas[0]!.checks[0]!.status).toBe("no_data");
+    expect(expired.areas[0]!.checks[0]!.why).toEqual({ cause: "facts", text: "Vertailuluku on vanhentunut tai puuttuu." });
     const rateValid: Fact[] = ROWS.map((f) => (f.id === "rate" ? { ...f, asOf: "2026-08-31", expires: "2027-02-28" } : f));
     const fresh = area((a) => {
       const fee = factFrom(rateValid, "fee", a.today)!;
@@ -386,6 +388,7 @@ describe("optimise frame: inputs and facts", () => {
     const gone = run(CTX12, cites(["no_such_fact"]));
     expect(shown(gone)).toEqual([]);
     expect(gone.areas[0]!.checks[0]!.status).toBe("no_data");
+    expect(gone.areas[0]!.checks[0]!.why?.cause).toBe("facts");
     expect(shown(run(CTX12, cites([]))).length).toBe(1);
   });
 
@@ -497,5 +500,58 @@ describe("optimise frame: Tilanne", () => {
       ["debt_share", "0\u00a0%"],
     ]);
     expect(data).toMatchObject({ months: 12, historyMonths: 12, accounts: 2, dataTo: TODAY, end: "2026-09-30" });
+  });
+});
+
+describe("optimise frame: why a check has no data", () => {
+  const one = area([draft({ mid: 30000 })]);
+  const why = (data: OptimiseData) => data.areas[0]!.checks[0]!;
+  const bill = tx({ bookingDate: "2026-09-12", amountCents: -20_000, merchant: "Esimerkkipankki Oyj", category: "card_bill", categorySource: "rule" });
+
+  it("names the short history with the months the data has and the months the check needs", () => {
+    const c = why(run(ctxWith(2), one));
+    expect(c.status).toBe("no_data");
+    expect(c.why).toEqual({ cause: "history", text: "Vertailuun tarvitaan 6 valmista kuukautta, mutta tapahtumahistoriassa on vain 2 valmista kuukautta." });
+  });
+
+  it("names the card purchases that are missing before it names a short history", () => {
+    const c = why(run(ctxWith(2, [], [bill]), one));
+    expect(c.status).toBe("no_data");
+    expect(c.why!.cause).toBe("cards");
+    expect(c.why!.text).toBe("Korttilaskuja on, mutta Esimerkkipankki Oyj ei ole yhdistetty.");
+  });
+
+  it("names the old or missing outside figure when the history is long enough", () => {
+    const cites = area(() => [draft({ mid: 30000, facts: ["no_such_fact"] })], () => [{ id: "subscriptions:rise", label: "Maksu", status: "clear" }]);
+    expect(why(run(CTX12, cites)).why).toEqual({ cause: "facts", text: "Vertailuluku on vanhentunut tai puuttuu." });
+  });
+
+  it("gives a reason to every check the area itself reports as no_data", () => {
+    const data = run(CTX12, area([], [{ id: "subscriptions:rise", label: "Maksu", status: "no_data" }]));
+    expect(why(data).why?.cause).toBe("other");
+  });
+
+  it("leaves a check that has data without a reason", () => {
+    expect(why(run(CTX12, area([]))).why).toBeUndefined();
+  });
+});
+
+describe("optimise frame: the real areas name why a check has no data", () => {
+  const checksOf = (h: ReturnType<typeof household>) => buildOptimise(householdInput(h)).areas.flatMap((a) => a.checks);
+  const full = household();
+  // the same household cut to four months: the checks that need a year cannot say
+  const young = { ...full, txs: full.txs.filter((t) => t.bookingDate >= "2026-06-01") };
+
+  it("gives every no_data check a sentence, and no other status has one", () => {
+    for (const h of [full, young]) {
+      for (const c of checksOf(h)) {
+        if (c.status === "no_data") expect(c.why?.text, c.id).toMatch(/\.$/);
+        else expect(c.why, c.id).toBeUndefined();
+      }
+    }
+  });
+
+  it("calls a short history short", () => {
+    expect(checksOf(young).filter((c) => c.status === "no_data").map((c) => c.why!.cause)).toContain("history");
   });
 });

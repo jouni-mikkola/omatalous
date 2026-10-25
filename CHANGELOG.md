@@ -3,6 +3,69 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 0.70.0
+
+- Yhteenveto takes a monthly spending goal and draws it on the pace chart, with the most a day may cost to stay within it.
+- Asetukset > Pankkiyhteydet renews every consent that ends soon in one round, one bank after another.
+- Omatalous installs as an app, and the installed app opens Yhteenveto with no network from the figures of the last visit.
+- A card is asked for its older days back to five years, also on an install used on the home network, and every table has one look that works on a phone.
+- Service tokens give a script or a coding agent read-only access to one user's data, made on the command line.
+
+Money and reports
+
+- Asetukset > Pankkiyhteydet renews every consent that ends within 14 days or has ended in one round: *Uusi kaikki yhteydet* takes you through them one consent at a time (a bank with several consents has a step for each) and the page lists which are renewed and which are left.
+- The Netto figure of Varallisuus says when loans are left out: "Netto (ilman lainoja)" when no loan has a balance, "Netto (ilman N lainaa)" when some do not. The label links to Asetukset > Lainat, where the balances are added. With every balance known it reads "Netto".
+- Yhteenveto has one row when a card or an account is not connected: the card bills of the last 12 complete months whose purchases are missing, or the savings sent to an account that is not connected, with a link to Pankkiyhteydet. The card bills no longer show as the data-quality warning of that page.
+- Raportit: the 3, 6 and 12 month choices show one line beside the date range that says where the window ends, for example "Syyskuun loppuun asti, lokakuu ei ole vielä mukana". The window stays whole months.
+- The sentence under *Mihin tulot menivät?* names the credit drawn (or paid back) and savings drawn on, so the terms it prints add up to *Tulos*; the parts are rounded together.
+- Raportit > Ruoka shows one reason instead of figures when card bills in its window have no card purchases behind them (the card's history starts inside the window, the card is not connected, or the bills match no purchase). The *Luottokortin laskut* row is gone.
+- In *Mitä tarkistettiin?* a check that could not say names why in one sentence: too few full months, an outside figure that is old or missing, missing card purchases, or the specific gap in the data.
+- Yhteenveto > Menot tässä kuussa takes one monthly spending goal, set, changed and removed under the chart. The chart draws it as a dashed line, the tooltip and the table view give what is left of it, and a sentence says where the month ends against it, as a range, and the most a day may cost to stay within it. The goal counts what the pace chart counts: consumption and debt payments.
+- The goal is part of the data export and import.
+- Yhteenveto calls the accounts figure "Tilien saldo, ilman korttia", and Raportit > Varat ja velat > Saldot calls its figure "Tilien ja korttien saldo" and names the date it is for, so one name no longer stands for two figures.
+- Yhteenveto compares the month with the usual one only where the data covers it. While the months to compare hold card bills with no card purchases behind them, or a linked card's history starts inside them, there is no usual line, no arrows and no month-end estimate, instead of a figure that is too high.
+
+Fetching and importing
+
+- A card is asked again for the older days on a fetch the member starts: windows of 12 months back to five years (further than the first fetch's 730 days), also past windows with no row, once a month for an account. Accounts that already exist are covered by the next *Hae nyt*. How many older rows come depends on the bank and the consent; nothing is promised. The fetch right after *Yhdistä uudelleen* always asks.
+- The history record of an account says the window the bank answered for, so a card that fell back to 360 days no longer reads as two years.
+- docs/ENABLE_BANKING.md explains how far back a card goes and why a Nordea card's first fetch brought only a month: the bank refused the long request and later sent no older rows.
+- *Hae nyt* on an install used on the home network, where no address of the member can be sent to the bank, now also asks for the older days. Each window counts among the day's unattended calls of the account, so it comes one window a day, and the next press goes on from the days already asked, to five years. docs/ENABLE_BANKING.md explains why.
+- The walk back no longer stops at a window with no row. It goes on to the reach of five years.
+
+Look
+
+- Screen readers hear the figure of a saving tip, an other finding and a Tarkistettavat question as it is written, then its action. Tapahtumat and the joint account's months no longer repeat a landmark, and the last column of the Talouden jäsenet table has a hidden name.
+- Omatalous installs as an app on a phone or computer over https or at localhost, with its own icon.
+- The installed app opens Yhteenveto with no network from the figures of the last visit, with the time they were fetched and a button that asks again. The figures stay on the device for one user at a time and are deleted at logout, with a lost session and when another user signs in.
+- Offline, the line about a failed fetch from the bank no longer shows.
+- Long lists stop at a page and open with *Näytä lisää*: merchants, rules, the security log and sessions, the joint account's months and the foreign rows.
+- Käyttöönoton *Tee myöhemmin* closes the setup guide in that browser only, and the choice is written to the security log.
+- A transaction row has one opening control. Its category, shared-account basis and statement actions are in the opened detail.
+- Every table has one look: ruled rows, figures in tabular columns, the sum rows marked, and a phone view where each row is a block and nothing scrolls sideways.
+- Sorting stays only on lists read by size. The density switch and the column choice are gone, and Tapahtumat has one layout from phone to desktop.
+- Views that repeated other ones were deleted: the hidden table behind the waterfall, the month view and the bridge of Raportit.
+- Yhteenveto no longer scrolls sideways when the usual income is larger than this month's so far: the usual tick of the waterfall stays on the scale.
+- Changing the period on Raportit keeps the open tab, and changing the tab keeps the period.
+- Every time of day and every date made from a timestamp is shown in the instance's time zone (Asetukset > Palvelin), by one formatter, so a consent's last day and the days left agree.
+- The figure *Yli jäi* is called *Tulos* everywhere: Yhteenveto, Raportit and the cash flow export.
+- The steps in Enable Banking say *Lisää tilit* where they said *Linkitä tilit*, and the list of what an import holds says *Säästövinkkien* where it said *Optimoi-sivun*.
+- The sentence about how many months the accounts cover starts with *Tilien saldo* instead of *Tileillä olevat rahat*.
+
+Maintenance
+
+- Service tokens give a script or a coding agent read-only access to one user's data without a password or a session. They are made on the command line (`service-token create <username> --name N --days D`), stored only as a SHA-256, end after 30 days unless told otherwise (at most 90), and reach only the GET routes of the data pages. An admin sees and removes them in Asetukset > Tekniset asetukset > Palvelutunnukset. See docs/ADVANCED.md.
+
+For developers
+
+- `docs/UI_STYLE.md` holds the glossary and the style sheet of the interface's Finnish. Rule 35 of the repo rules keeps the words it removed (*Optimoi*, *Yli jäi*, *Tileillä* as a figure name, *linkitä*) out of the texts.
+- `.npmrc` pins the node of the scripts and checks (`use-node-version=22.23.0`): pnpm fetches it, so the shots tests and `pnpm check` also run where the system node, such as Ubuntu's package, cannot read TypeScript. CI and `tools/check.sh` use the same node.
+
+Upgrade
+
+- Migration 0024 adds the table service_tokens. Older versions neither read nor write it, so a rollback keeps it and its tokens then open nothing.
+- Migration 0025 adds the table spending_goal. Older versions neither read nor write it, so a rollback keeps the goal.
+
 ## 0.69.0
 
 - New page Tarkistettavat gathers every question the app cannot settle itself and asks one at a time, the most money first, with a suggested category when the evidence is clear.

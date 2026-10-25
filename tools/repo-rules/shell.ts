@@ -9,13 +9,12 @@
  * Rule 27: .gitignore keeps the files that hold a secret out of the repository.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-import { type Finding, ROOT, expectNoFindings, readText, repoFiles } from "./lib.ts";
+import { type Finding, ROOT } from "./lib.ts";
 
 /** A shell file: `.sh`, `.bash`, or a file without an extension whose first line is a shell shebang. */
-function isShellFile(rel: string): boolean {
+export function isShellFile(rel: string): boolean {
   if (/\.(sh|bash)$/.test(rel)) return true;
   if (!/^(scripts|tools|deploy)\//.test(rel) || /(^|\/)[^/]*\.[^/]*$/.test(rel)) return false;
   return /^#!.*\b(ba)?sh\b/.test(readFileSync(resolve(ROOT, rel), "utf8").slice(0, 80).split("\n")[0] ?? "");
@@ -191,36 +190,3 @@ export function notIgnored(root: string, paths: readonly string[]): string[] {
     }
   });
 }
-
-describe("repo rules: shell scripts", () => {
-  it("rule 25: no shell file and no workflow pipes into grep -q (under pipefail a match reads as a miss)", () => {
-    const files = repoFiles().filter((f) => isShellFile(f) || /^\.github\/.+\.ya?ml$/.test(f));
-    expect(files.length, "the scan found the shell files").toBeGreaterThan(30);
-    const found: Finding[] = [];
-    for (const file of files) for (const { line, why } of quietGrepPipes(readText(file))) found.push({ file, line, why });
-    expectNoFindings("grep -q behind a pipe", found, "write `... | grep PATTERN >/dev/null` (and keep the options but q). grep -q on a file is fine.");
-  });
-
-  it("rule 26: a function defined in a file under scripts/ is named a second time under scripts/", () => {
-    const files = repoFiles().filter((f) => f.startsWith("scripts/") && isShellFile(f));
-    expect(files.length, "the scan found the scripts").toBeGreaterThan(10);
-    const all = files.map((f) => readText(f)).join("\n");
-    const found: Finding[] = [];
-    for (const file of files) {
-      for (const { name, line } of definitions(readText(file))) {
-        if (!namedElsewhere(all, name)) found.push({ file, line, why: `${name} is defined and never named again under scripts/` });
-      }
-    }
-    expectNoFindings("function nothing calls", found, "delete the function (and its test, if one reads it), or call it. A name used only in tools/test does not count.");
-  });
-
-  it("rule 27: .gitignore keeps the files that hold a secret out of the repository", () => {
-    expect(existsSync(resolve(ROOT, ".git")), "the rule needs git").toBe(true);
-    const open = notIgnored(ROOT, SECRET_PATHS);
-    expectNoFindings(
-      "secret files not ignored",
-      open.map((p) => ({ file: ".gitignore", line: 1, why: `git does not ignore ${p}` })),
-      "a line of .gitignore no longer matches it: put the line back, or the next `git add -A` commits a secret.",
-    );
-  });
-});

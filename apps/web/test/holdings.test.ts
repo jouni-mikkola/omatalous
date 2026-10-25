@@ -43,6 +43,30 @@ describe("Holdings", () => {
     expect(html(answer({ cards: [card({ usedCents: 26_550, reconcile: "unknown" })] }))).not.toContain("holding-tick");
   });
 
+  describe("Netto", () => {
+    const head = (h: Answer) => text(html(h)).slice(0, 80);
+    const base = { accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000 };
+
+    it("is plain Netto when every loan has a balance, and has no word before the figure with no debt", () => {
+      expect(head(answer({ ...base, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, netCents: -11_900_000 }))).toContain("Varallisuus Netto −119 000 €");
+      expect(text(html(answer({ ...base, netCents: 100_000 })))).not.toContain("Netto");
+    });
+
+    it("is named Netto (ilman lainoja) with a link to the loans when no loan has a balance, saved or not", () => {
+      const saved = html(answer({ ...base, netCents: 100_000, loans: [loan({ leftCents: null })] }));
+      expect(text(saved)).toContain("Varallisuus Netto (ilman lainoja) 1 000 €");
+      expect(links(saved)).toContain("#/settings#lainat");
+      const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 2, paymentCents: 30_000 } }));
+      expect(text(unsaved)).toContain("Varallisuus Netto (ilman lainoja) 1 000 €");
+      expect(links(unsaved)).toContain("#/settings#lainat");
+    });
+
+    it("counts the loans left out when only some have a balance", () => {
+      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan(), loan({ id: "l2", leftCents: null })], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans: { count: 1, paymentCents: 30_000 } }));
+      expect(text(some)).toContain("Varallisuus Netto (ilman 2 lainaa) −119 000 €");
+    });
+  });
+
   describe("Tilit", () => {
     it("ends with the total core gives, after the accounts, and has no total row before them", () => {
       const markup = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", -2_000)], accountsCents: 118_050 }));

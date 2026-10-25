@@ -52,8 +52,6 @@ describe("check --changed: scope of a diff", () => {
       expect(scopeOf([f]), f).toMatchObject({ lint: true, sh: true });
     }
     expect(scopeOf(["scripts/lib/dbcopy.sh"])).toMatchObject({ lint: true, sh: true });
-    // a hook that only a vitest file names turns the lint on and no suite
-    expect(scopeOf([".claude/hooks/session-start.sh"])).toMatchObject({ lint: true });
   });
 
   it("the compose file turns the shell suites on, without the lint", () => {

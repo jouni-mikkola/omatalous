@@ -1,6 +1,6 @@
 import { type ReactNode, useRef, useState } from "react";
 import { api } from "../../api.ts";
-import { type Column, DataTable } from "../../components/table/DataTable.tsx";
+import { KeyValue } from "../../components/table/KeyValue.tsx";
 
 /** One store of the dry run's answer (docs/DATA_EXPORT.md, "The dry run's answer"). */
 type StorePlan = {
@@ -31,9 +31,10 @@ const STORE_LABELS: Record<string, string> = {
   parts: "Tapahtumien osat",
   loans: "Lainat",
   expectedBills: "Odotetut laskut",
-  optimiseInputs: "Optimoi-sivun lähtötiedot",
-  optimiseStates: "Optimoi-sivun päätökset",
-  optimiseSnapshots: "Optimoi-sivun tilannekuvat",
+  spendingGoals: "Kuukauden menotavoite",
+  optimiseInputs: "Säästövinkkien lähtötiedot",
+  optimiseStates: "Säästövinkkien päätökset",
+  optimiseSnapshots: "Säästövinkkien tilannekuvat",
   accountBalances: "Tilien saldot",
   accountHistory: "Tilien historia",
   statementBills: "Korttilaskut",
@@ -106,18 +107,6 @@ function storeLine(s: StorePlan): string {
  * Asetukset > Tiedot > "Tuo tiedot": reads the file of "Vie kaikki tiedot", stages it on the server, shows the dry run and
  * commits on "Tuo". It sits in the card head beside the export button; what it prints wraps to its own lines.
  */
-/** A key/value list: no head row, the label is the row head. */
-const KV_COLUMNS: Column<[string, ReactNode]>[] = [
-  {
-    key: "label",
-    label: "Tieto",
-    kind: "text",
-    rowHead: true,
-    cell: (r) => r[0],
-  },
-  { key: "value", label: "Arvo", kind: "count", cell: (r) => r[1] },
-];
-
 export function DataImport() {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -228,21 +217,15 @@ export function DataImport() {
       )}
       {plan && (
         <div className="data-import-line">
-          <DataTable
-            id="data-import-plan"
-            caption="Tuonnin suunnitelma"
-            headless
-            phone="scroll"
+          <KeyValue
             className="data-import-plan"
-            rows={[
+            items={[
               ...plan.stores.map((s): [string, ReactNode] => [
                 STORE_LABELS[s.key] ?? s.key,
                 storeLine(s),
               ]),
               ["Yhteensä", counts(plan.total, false)],
             ]}
-            rowKey={(r) => r[0]}
-            columns={KV_COLUMNS}
           />
           <div className="data-import-actions">
             <button

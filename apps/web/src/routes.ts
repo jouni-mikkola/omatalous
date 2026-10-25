@@ -43,6 +43,16 @@ export function settingsCard(route: Route): string | undefined {
 /** The card of Raportit that tells the loans, as the anchor of its section. */
 export const LOANS_REPORT_ANCHOR = "lainat";
 
+/** The parameters with `patch` laid over them: a value that is empty or undefined removes its parameter. The one way an address is built from another. */
+export function withParams(base: URLSearchParams, patch: Record<string, string | undefined>): URLSearchParams {
+  const next = new URLSearchParams(base);
+  for (const [key, value] of Object.entries(patch)) {
+    if (value) next.set(key, value);
+    else next.delete(key);
+  }
+  return next;
+}
+
 /** `#/page?a=b#anchor` for a route. */
 export function hashOf(route: Route): string {
   const q = route.params.toString();

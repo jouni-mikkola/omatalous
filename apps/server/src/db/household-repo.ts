@@ -233,7 +233,7 @@ export class HouseholdRepo {
     if (!keys.length) return [];
     const marks = keys.map(() => "?").join(", ");
     const rows = await this.db.all<{ account_key: string; trigger: string; at: string }>(
-      `SELECT account_key, trigger, at FROM account_fetch WHERE trigger IN ('schedule', 'open-bare', 'manual-bare', 'connect-bare') AND at > ? AND account_key IN (${marks})`,
+      `SELECT account_key, trigger, at FROM account_fetch WHERE trigger IN ('schedule', 'open-bare', 'manual-bare', 'connect-bare', 'backfill-bare') AND at > ? AND account_key IN (${marks})`,
       [since, ...keys],
     );
     return rows.map((r) => ({ accountKey: r.account_key, trigger: r.trigger, at: r.at }));

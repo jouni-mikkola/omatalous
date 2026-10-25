@@ -1,29 +1,10 @@
 /*
  * "Maksut ja menot kuukausittain" under a joint account (AccountSources): a month is its name, which opens it, and a
- * table of a column for each member and one for the rest. The classes are the statement's (statement.css, themes-table.css);
- * this adds the width of the columns and what a narrow screen does with them.
+ * table of a column for each member and one for the rest (table.css). This adds the month's heading and the closing row.
  */
 .acc-src { padding: 4px 0; }
 .acc-src-month { padding: 4px 0; }
 .acc-src-toggle { padding: var(--cell-y) 0; font-weight: 600; }
-.acc-src-table { width: 100%; table-layout: fixed; }
-.acc-src-table thead td { width: 34%; }
-.acc-src-table thead th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acc-src-table td.st-num { white-space: nowrap; }
 .acc-src-table .acc-src-end > * { border-top: 1px solid var(--axis); font-weight: 600; }
 .acc-src-table tr:has(+ .acc-src-end) > * { border-bottom: 0; }
-
-/* a narrow screen: a row is its name above its figures, each under the name of its member */
-@media (max-width: 600px) {
-  .acc-src-table thead { display: none; }
-  .acc-src-table, .acc-src-table tbody { display: block; }
-  .acc-src-table tr { display: grid; grid-template-columns: repeat(var(--src-cols), minmax(0, 1fr)); gap: 0 8px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
-  .acc-src-table tr:last-child { border-bottom: 0; }
-  .acc-src-table :is(th, td) { padding: 0; border: 0; }
-  .st-table.acc-src-table :is(th, td) + :is(th, td) { padding-left: 0; }
-  .acc-src-table tr > th { grid-column: 1 / -1; }
-  .acc-src-table td::before { content: attr(data-label); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-tick); line-height: 16px; font-weight: 400; color: var(--muted); }
-  .acc-src-table td { font-size: var(--fs-ui); }
-  .acc-src-table .acc-src-end { border-top: 1px solid var(--axis); }
-  .acc-src-table .acc-src-end > * { border-top: 0; }
-}
+.rt-wrap[data-block] .acc-src-table .acc-src-end { border-top: 1px solid var(--axis); font-weight: 600; }

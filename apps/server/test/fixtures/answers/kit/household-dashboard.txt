@@ -576,6 +576,7 @@
     321380
    ]
   },
+  "cardGap": false,
   "largest": {
    "day": 14,
    "name": "Kappahl",
@@ -583,6 +584,7 @@
   },
   "payDays": []
  },
+ "goal": null,
  "ahead": {
   "from": "2026-10-15",
   "to": "2026-10-22",
@@ -718,6 +720,7 @@
   }
  ],
  "dataNotice": null,
+ "connectNotice": null,
  "insights": [],
  "holdings": {
   "accounts": [
@@ -1016,7 +1019,8 @@
   "leftCents": -257670,
   "incomeCents": 0,
   "spentCents": 257670,
-  "transfersCents": 0
+  "transfersCents": 0,
+  "cardGap": false
  },
  "settlement": []
 }

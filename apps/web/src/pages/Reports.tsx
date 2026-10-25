@@ -6,9 +6,8 @@
 import { useEffect, useRef } from "react";
 import { query } from "../api.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { useApi } from "../hooks.ts";
+import { navigate, useApi } from "../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
-import { hashOf } from "../routes.ts";
 import { reportContext } from "./reports/context.ts";
 import { reportsOf, visibleSections } from "./reports/registry.ts";
 import type { ReportRange, ReportTab } from "./reports/types.ts";
@@ -74,11 +73,7 @@ export function Reports({ meta, range, scope, params, anchor }: { meta: Meta; ra
   const current = REPORT_TABS.find((t) => t.id === tab)!;
   // a section in no tab is not drawn: Havainnot is Säästövinkit's Muut havainnot (lead decision)
   const sections = all.filter((s) => s.tab === tab);
-  const pick = (id: TabId) => {
-    const next = new URLSearchParams(params);
-    next.set("tab", id);
-    location.hash = hashOf({ page: "reports", params: next });
-  };
+  const pick = (id: TabId) => navigate("reports", { tab: id }, true);
 
   return (
     <div className={`stack ${loading ? "loading" : ""}`}>

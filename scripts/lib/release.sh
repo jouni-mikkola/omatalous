@@ -21,14 +21,15 @@ COSIGN_IMAGE='ghcr.io/sigstore/cosign/cosign:v3.0.6@sha256:de9c65609e6bde17e6b48
 # under a new inode. So that file is locked too, and a process that still holds the one an update has since replaced
 # (0.8.7's update.sh during the update to this release) counts as a holder: /proc shows it as deleted on its fd 9.
 installer_lock() {
-  local p here
+  local here held
   exec 9<. 6<scripts/install.sh || return 1
   here=$(pwd -P)
   # the look at /proc comes before the locks, so a probe (the watchdog asks on every tick) holds the folder's lock for one
-  # flock and no longer; fd 6 is open already, so a holder whose file is replaced meanwhile is still met on the name
-  for p in /proc/[0-9]*/fd/9; do
-    [[ $(readlink "$p" 2>/dev/null) != "$here/scripts/install.sh (deleted)" ]] || return 1
-  done
+  # flock and no longer; fd 6 is open already, so a holder whose file is replaced meanwhile is still met on the name.
+  # One find names every process's fd 9 (a fork for each of the hundreds of processes of a busy host cost seconds). Not readlink:
+  # a process that ends between the glob and the call fails its path, and uutils' readlink then prints nothing for the paths after.
+  held=$(find /proc/[0-9]*/fd -maxdepth 1 -name 9 -printf '%l\n' 2>/dev/null)
+  [[ $'\n'$held$'\n' != *$'\n'"$here/scripts/install.sh (deleted)"$'\n'* ]] || return 1
   flock -n 9 && flock -n 6 || return 1
 }
 latest_release() { git tag --list 'v[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true; }
@@ -193,13 +194,15 @@ private_follow() { # the branch the channel follows, or `tags`; fails on a name 
   printf '%s\n' "$f"
 }
 private_fetch() { # fetches what the channel follows, and nothing else; the helper's T_CHECK caps it
-  local f cap=()
+  local f cap=() key=()
   f=$(private_follow) || return 1
   [[ -z ${T_CHECK:-} ]] || cap=(timeout -k 5 "$T_CHECK")
+  # the helper exports GIT_SSH_COMMAND, which git puts before core.sshCommand: the deploy key of use-private.sh
+  [[ -z $(git config --get core.sshCommand) ]] || key=(env -u GIT_SSH_COMMAND)
   if [[ $f == tags ]]; then
-    GIT_TERMINAL_PROMPT=0 ${cap[@]+"${cap[@]}"} git fetch --quiet --no-tags --prune private '+refs/tags/v*:refs/remotes/private/tags/v*'
+    GIT_TERMINAL_PROMPT=0 ${key[@]+"${key[@]}"} ${cap[@]+"${cap[@]}"} git fetch --quiet --no-tags --prune private '+refs/tags/v*:refs/remotes/private/tags/v*'
   else
-    GIT_TERMINAL_PROMPT=0 ${cap[@]+"${cap[@]}"} git fetch --quiet --no-tags private "+refs/heads/$f:refs/remotes/private/$f"
+    GIT_TERMINAL_PROMPT=0 ${key[@]+"${key[@]}"} ${cap[@]+"${cap[@]}"} git fetch --quiet --no-tags private "+refs/heads/$f:refs/remotes/private/$f"
   fi
 }
 private_ref() { # the ref the channel follows, from the last fetch

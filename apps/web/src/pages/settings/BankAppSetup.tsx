@@ -225,7 +225,7 @@ export function BankAppSetup({
             <li className={check.result?.verified || configured ? "done" : undefined}>
               {check.busy ? "Application ID testataan…" : "Application ID toimii"}
             </li>
-            <li className={capabilities?.some(bankSeen) ? "done" : undefined}>Tilit linkitetty</li>
+            <li className={capabilities?.some(bankSeen) ? "done" : undefined}>Tilit lisätty Enable Bankingiin</li>
           </ul>
 
           <ol className="setup-steps">

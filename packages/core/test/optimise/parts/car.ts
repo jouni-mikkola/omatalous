@@ -25,7 +25,7 @@ function carRows(frame: Frame) {
     // the yearly costs fall in the first month: in spring they would swing the half-year before the joined household's July
     { merchant: "Vianor", description: "VIANOR", mcc: "7538", bookingDate: `${months[0]}-14`, amountCents: -45_000 },
     { merchant: "A-Katsastus", description: "A-KATSASTUS", bookingDate: `${months[0]}-20`, amountCents: -6_900 },
-    { merchant: "Traficom", counterparty: "LIIKENNE- JA VIESTINTÄVIRASTO TRAFICOM", counterpartyIban: "FI1680001400050260", description: "AJONEUVOVERO", bookingDate: `${months[0]}-10`, amountCents: -23_000 },
+    { merchant: "Traficom", counterparty: "TRAFICOM", counterpartyIban: "FI1680001400050260", description: "AJONEUVOVERO", bookingDate: `${months[0]}-10`, amountCents: -23_000 },
     { merchant: "If", counterparty: "IF VAHINKOVAKUUTUS OYJ", counterpartyIban: "FI6880001300029010", description: "LIIKENNEVAKUUTUS", bookingDate: `${months[1]}-05`, amountCents: -21_000 },
     { merchant: "If", counterparty: "IF VAHINKOVAKUUTUS OYJ", counterpartyIban: "FI6880001300029010", description: "LIIKENNEVAKUUTUS", bookingDate: `${months[7]}-05`, amountCents: -21_000 },
   ];

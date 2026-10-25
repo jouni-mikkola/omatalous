@@ -1,6 +1,6 @@
 // Decision: is our income changing, and does the buffer match how it moves
 import { type IncomeChange, type IncomeReport, type IncomeTypeRow, printedEuros, printedParts } from "@banking/core";
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { date, money, monthLong, percent, plural, roundedShares, shareText, signedMoney } from "../../../format.ts";
 import { hasJointAccount } from "../../../part.ts";
 import "../../../styles/income.css";
@@ -8,8 +8,8 @@ import { UnknownIncome } from "./Cashflow.tsx";
 import { Why } from "../../../components/Why.tsx";
 import { MonthLine, MonthLineTable } from "../../../charts/forms/MonthLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
-import { BarCell, DeltaChip, SparkCell } from "../../../components/table/Cells.tsx";
-import { DensitySwitch, DrillButton, RichTable, useDensity } from "../../../components/table/RichTable.tsx";
+import { BarFigure, DeltaChip, SparkCell } from "../../../components/table/Cells.tsx";
+import { type Column, DrillButton, Table } from "../../../components/table/Table.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 const rowsHref = (payer: string, r: IncomeReport) => `#/transactions?merchant=${encodeURIComponent(payer)}&from=${r.months[0]!.month}-01`;
@@ -49,13 +49,8 @@ function Changes({ r }: { r: IncomeReport }) {
  * the groups to the head. `from` is the first of the report's months the page shows.
  */
 function Types({ r, from }: { r: IncomeReport; from: number }) {
-  const [density, setDensity] = useDensity("income");
   const [openType, setOpenType] = useState<string | null>(null);
   const [openPayer, setOpenPayer] = useState<string | null>(null);
-  const toggle = (t: IncomeTypeRow) => {
-    setOpenType((v) => (v === t.type ? null : t.type));
-    setOpenPayer(null);
-  };
   // the shares of the earned types are parts of the earned income: rounded together they add up to the 100 % it is
   const units = roundedShares(r.types.map((t) => (t.share === null ? null : t.totalCents)), r.earnedCents);
   const kindTotals = printedParts(r.kinds.map((k) => k.totalCents), r.totalCents);
@@ -64,112 +59,111 @@ function Types({ r, from }: { r: IncomeReport; from: number }) {
   // one scale for every line of the table: a value picked, not a sum
   const scale = { lo: 0, hi: Math.max(0, ...r.types.flatMap((t) => t.months.slice(from))) };
   const shown = r.months.length;
-  const columns = 6 + (change ? 1 : 0);
+  // what each type prints: its euros rounded together with its group's, and its change likewise
+  const printed = new Map<string, { total: number; change: number | null; payers: (number | null)[] }>();
+  const kinds = r.kinds.map((k, ki) => {
+    const types = r.types.filter((t) => t.earned === k.earned);
+    const totals = printedParts(types.map((t) => t.totalCents), k.totalCents, kindTotals[ki]!);
+    const changes = k.changeCents === null ? types.map(() => null) : printedParts(types.map((t) => t.changeCents), k.changeCents);
+    types.forEach((t, at) => printed.set(t.type, { total: totals[at]!, change: changes[at] ?? null, payers: printedParts(t.payers.map((p) => p.totalCents), t.totalCents, totals[at]!) }));
+    return { k, ki, types };
+  });
+  const shareOf = (t: IncomeTypeRow) => (t.share === null ? "ei osuutta" : units[r.types.indexOf(t)] == null ? percent(t.share) : shareText(units[r.types.indexOf(t)]!));
+  const columns: Column<IncomeTypeRow>[] = [
+    { key: "type", label: "Tulolaji", kind: "text", rowHead: true, cell: (t) => t.label },
+    { key: "months", label: "Kuukaudet", kind: "text", phone: "hide", cell: (t) => <Line values={t.months.slice(from)} scale={scale} label={`${t.label}: ${shown} kuukautta`} /> },
+    { key: "total", label: "Yhteensä", kind: "money", main: true, cell: (t) => money(printed.get(t.type)!.total, false) },
+    { key: "month", label: "Kuussa", kind: "money", cell: (t) => (t.monthlyCents === null ? "–" : money(t.monthlyCents, false)) },
+    {
+      key: "share",
+      label: "Osuus ansiotuloista",
+      kind: "share",
+      cell: (t) => {
+        const u = units[r.types.indexOf(t)];
+        return <BarFigure value={t.share !== null && u ? u : 0} max={100}>{shareOf(t)}</BarFigure>;
+      },
+    },
+    ...(change ? [{ key: "change", label: "Muutos", kind: "money" as const, cell: (t: IncomeTypeRow) => (printed.get(t.type)!.change == null ? "–" : <Delta cents={printed.get(t.type)!.change!} />) }] : []),
+  ];
   return (
     <>
-      <div className="rt-tools">
-        <DensitySwitch density={density} onChange={setDensity} />
-      </div>
       {change && <p className="qc-a">Muutos on samoihin valmiisiin kuukausiin vuotta aiemmin verrattuna.</p>}
-      <RichTable density={density} className="income-types ruled">
-        <thead>
-          <tr>
-            <th>Tulolaji</th>
-            <th className="rt-spark-cell">Kuukaudet</th>
-            <th className="num">Yhteensä</th>
-            <th className="num income-month">Kuussa</th>
-            <th className="rt-bar-cell" aria-hidden="true" />
-            <th className="num">Osuus ansiotuloista</th>
-            {change && <th className="num">Muutos</th>}
-          </tr>
-        </thead>
-        {r.kinds.map((k, ki) => {
-          const types = r.types.map((t, ti) => ({ t, ti })).filter(({ t }) => t.earned === k.earned);
-          const totals = printedParts(types.map(({ t }) => t.totalCents), k.totalCents, kindTotals[ki]!);
-          const changes = k.changeCents === null ? types.map(() => null) : printedParts(types.map(({ t }) => t.changeCents), k.changeCents);
-          return (
-            <tbody key={k.label}>
-              <tr className="group-row rt-group">
-                <td>
-                  {k.label}
-                  <span className="rt-group-count">{types.length}</span>
-                </td>
-                <td className="rt-spark-cell">
-                  <Line values={k.months.slice(from)} scale={scale} label={`${k.label}: ${shown} kuukautta`} />
-                </td>
-                <td className="num">{money(kindTotals[ki]!, false)}</td>
-                <td className="num income-month">{k.monthlyCents === null ? "–" : money(k.monthlyCents, false)}</td>
-                <td className="rt-bar-cell">{k.earned && r.earnedCents > 0 ? <BarCell value={100} max={100} /> : null}</td>
-                <td className="num">{k.earned && r.earnedCents > 0 ? "100 %" : "ei osuutta"}</td>
-                {change && <td className="num">{k.changeCents === null ? "–" : <Delta cents={printedEuros(k.changeCents)} />}</td>}
-              </tr>
-              {types.map(({ t, ti }, at) => {
-                const payers = printedParts(t.payers.map((p) => p.totalCents), t.totalCents, totals[at]!);
-                return (
-                  <Fragment key={t.type}>
-                    <tr>
-                      <td>
-                        <DrillButton open={openType === t.type} onToggle={() => toggle(t)} label={`Maksajat: ${t.label}`} />
-                        {t.label}
-                      </td>
-                      <td className="rt-spark-cell">
-                        <Line values={t.months.slice(from)} scale={scale} label={`${t.label}: ${shown} kuukautta`} />
-                      </td>
-                      <td className="num">{money(totals[at]!, false)}</td>
-                      <td className="num income-month">{t.monthlyCents === null ? "–" : money(t.monthlyCents, false)}</td>
-                      <td className="rt-bar-cell">{t.share !== null && units[ti] ? <BarCell value={units[ti]!} max={100} /> : null}</td>
-                      <td className="num">{t.share === null ? "ei osuutta" : units[ti] == null ? percent(t.share) : shareText(units[ti]!)}</td>
-                      {change && <td className="num">{changes[at] == null ? "–" : <Delta cents={changes[at]!} />}</td>}
-                    </tr>
-                    {openType === t.type &&
-                      t.payers.map((p, pi) => {
-                        const key = `${t.type}|${p.payer}`;
-                        return (
-                          <Fragment key={key}>
-                            <tr className="income-payer">
-                              <td colSpan={2}>
-                                <DrillButton open={openPayer === key} onToggle={() => setOpenPayer((v) => (v === key ? null : key))} label={`Maksut: ${p.payer}`} />
-                                {p.payer}
-                                <span className="income-note">
-                                  {plural(p.payments, "maksu", "maksua")}, tavallisesti {money(p.usualCents)}
-                                  {p.nextDate ? `, seuraava ${date(p.nextDate)}` : `, viimeksi ${date(p.lastDate)}`}
-                                </span>
-                              </td>
-                              <td className="num">{money(payers[pi]!, false)}</td>
-                              <td className="income-month" />
-                              <td colSpan={change ? 3 : 2} />
-                            </tr>
-                            {openPayer === key && (
-                              <tr className="income-rows rt-detail">
-                                <td colSpan={columns}>
-                                  <ul>
-                                    {p.rows.map((x) => (
-                                      <li key={x.id}>
-                                        <span>{date(x.date)}</span>
-                                        <span className="num">{money(x.amountCents)}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  <a href={rowsHref(p.payer, r)}>Näytä tapahtumat</a>
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        );
-                      })}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          );
-        })}
-      </RichTable>
+      <Table<IncomeTypeRow>
+        caption="Tulolajit"
+        className="income-types"
+        rows={r.types}
+        rowKey={(t) => t.type}
+        columns={columns}
+        groups={kinds.map(({ k, ki, types }) => ({
+          key: k.label,
+          title: (
+            <>
+              {k.label}
+              <span className="rt-group-count">{types.length}</span>
+            </>
+          ),
+          cells: {
+            months: <Line values={k.months.slice(from)} scale={scale} label={`${k.label}: ${shown} kuukautta`} />,
+            total: money(kindTotals[ki]!, false),
+            month: k.monthlyCents === null ? "–" : money(k.monthlyCents, false),
+            share: <BarFigure value={k.earned && r.earnedCents > 0 ? 100 : 0} max={100}>{k.earned && r.earnedCents > 0 ? "100 %" : "ei osuutta"}</BarFigure>,
+            ...(change ? { change: k.changeCents === null ? "–" : <Delta cents={printedEuros(k.changeCents)} /> } : {}),
+          },
+          rows: types,
+        }))}
+        open={openType}
+        onOpen={(key) => {
+          setOpenType(key);
+          setOpenPayer(null);
+        }}
+        drill={(t) => <Payers r={r} t={t} printed={printed.get(t.type)!.payers} open={openPayer} onOpen={setOpenPayer} />}
+        drillLabel={(t) => `Maksajat: ${t.label}`}
+      />
     </>
   );
 }
 
+/** The payers of a type under its row, each with its usual payment and, opened, its rows. */
+function Payers({ r, t, printed, open, onOpen }: { r: IncomeReport; t: IncomeTypeRow; printed: (number | null)[]; open: string | null; onOpen: (key: string | null) => void }) {
+  return (
+    <ul className="income-payers">
+      {t.payers.map((p, pi) => {
+        const key = `${t.type}|${p.payer}`;
+        return (
+          <li key={key}>
+            <div className="income-payer">
+              <DrillButton open={open === key} onToggle={() => onOpen(open === key ? null : key)} label={`Maksut: ${p.payer}`} />
+              <span>
+                {p.payer}
+                <span className="income-note">
+                  {plural(p.payments, "maksu", "maksua")}, tavallisesti {money(p.usualCents)}
+                  {p.nextDate ? `, seuraava ${date(p.nextDate)}` : `, viimeksi ${date(p.lastDate)}`}
+                </span>
+              </span>
+              <span className="num">{money(printed[pi] ?? p.totalCents, false)}</span>
+            </div>
+            {open === key && (
+              <div className="income-rows">
+                <ul>
+                  {p.rows.map((x) => (
+                    <li key={x.id}>
+                      <span>{date(x.date)}</span>
+                      <span className="num">{money(x.amountCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a href={rowsHref(p.payer, r)}>Näytä tapahtumat</a>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** A month line of the table, on its shared scale; nothing under three months (two points are a slope, not a pattern). */
-function Line({ values, scale, label }: { values: number[]; scale: { lo: number; hi: number }; label: string }) {
+function Line({ values, scale, label }: { values: (number | null)[]; scale: { lo: number; hi: number }; label: string }) {
   return values.length >= 3 ? <SparkCell values={values} scale={scale} label={label} /> : null;
 }
 
@@ -235,7 +229,6 @@ function Income({ ctx }: SectionProps) {
             {top ? `, eniten: ${top.label.toLowerCase()}` : ""}.{r.fromPeopleCents >= 50 ? ` Maksuja henkilöiltä ja hyvityksiä tuli ${money(r.fromPeopleCents, false)}.` : ""}
           </>
         }
-        table={<Types r={r} from={from} />}
       >
         <Types r={r} from={from} />
         {r.payDays.length > 0 && (

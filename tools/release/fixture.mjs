@@ -22,9 +22,10 @@
  * migration adds and the compat floor it carries (null: none). prepare.mjs writes contracts/X.Y.Z/README.md from it.
  *
  * Options for the tests: --fixtures DIR, --seeds DIR, --contracts DIR and --migrations DIR replace the repository's
- * folders. Needs Node 22.18 or newer, because it reads db/migrate.ts as it is.
+ * folders. It reads db/migrate.ts as it is (loadRunner).
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -58,12 +59,22 @@ const compare = (a, b) => {
 
 const { DatabaseSync } = await import("node:sqlite");
 
-/** @returns {Promise<Runner>} */
+/**
+ * The migration runner as it is. A Node that strips types imports it; one that cannot (older than 22.18, or built
+ * without TypeScript, as some distributions' packages are: process.features.typescript is false) gets it bundled in
+ * memory by esbuild, the server's own bundler.
+ * @returns {Promise<Runner>}
+ */
 async function loadRunner() {
+  const file = join(ROOT, "apps/server/src/db/migrate.ts");
   try {
-    return await import(pathToFileURL(join(ROOT, "apps/server/src/db/migrate.ts")).href);
+    if (process.features.typescript) return await import(pathToFileURL(file).href);
+    /** @type {{ buildSync(o: object): { outputFiles: { text: string }[] } }} */
+    const esbuild = createRequire(join(ROOT, "apps/server/package.json"))("esbuild");
+    const [js] = esbuild.buildSync({ entryPoints: [file], bundle: true, format: "esm", platform: "node", write: false, logLevel: "silent" }).outputFiles;
+    return await import(`data:text/javascript;base64,${Buffer.from(/** @type {{ text: string }} */ (js).text).toString("base64")}`);
   } catch (e) {
-    throw new Refuse(`cannot read apps/server/src/db/migrate.ts (needs Node 22.18 or newer): ${/** @type {Error} */ (e).message}`);
+    throw new Refuse(`cannot read apps/server/src/db/migrate.ts: ${/** @type {Error} */ (e).message}`);
   }
 }
 

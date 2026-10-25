@@ -5,7 +5,7 @@ import { date, money, plural } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { Scope } from "../../types.ts";
 import { MarkCell } from "../table/Cells.tsx";
-import { RichTable } from "../table/RichTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { TableToggle } from "../TableToggle.tsx";
 import { MonthSteps, MonthStepsTable } from "./MonthSteps.tsx";
 import type { EvidenceResponse } from "@banking/core";
@@ -24,9 +24,7 @@ function MonthlySums({ sums, change }: Pick<EvidenceResponse, "sums" | "change">
         <TableToggle table={table} onChange={setTable} />
       </div>
       {table ? (
-        <div className="table-wrap">
-          <MonthStepsTable sums={sums} change={change} label="Menot" />
-        </div>
+        <MonthStepsTable sums={sums} change={change} label="Menot" />
       ) : (
         <MonthSteps sums={sums} change={change} label="Menot" />
       )}
@@ -35,54 +33,40 @@ function MonthlySums({ sums, change }: Pick<EvidenceResponse, "sums" | "change">
 }
 
 function Rows({ rows, household }: { rows: EvidenceResponse["rows"]; household: boolean }) {
-  const [all, setAll] = useState(false);
   const newest = [...rows].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
-  const shown = all ? newest : newest.slice(0, ROWS_SHOWN);
   const showAccount = household && new Set(rows.map((r) => r.accountId)).size > 1;
+  type Row = EvidenceResponse["rows"][number];
   return (
     <div className="evidence-part">
       <div className="evidence-head">
         <h4>Tapahtumat</h4>
         {rows.some((r) => r.struck) && <span className="small muted">Yliviivattu rivi on kertaluonteinen eikä sitä lasketa mukaan.</span>}
       </div>
-      <div className="table-wrap">
-        <RichTable density="compact" className="evidence-rows">
-          <thead>
-            <tr>
-              <th scope="col">Päivä</th>
-              <th scope="col">Saaja</th>
-              {showAccount && (
-                <th scope="col" className="hide-phone">
-                  Tili
-                </th>
-              )}
-              <th scope="col" className="num">
-                Summa
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => (
-              <tr key={r.id} className={r.struck ? "struck" : undefined}>
-                <td className="when">{date(r.date)}</td>
-                <td>
-                  <MarkCell name={r.merchant} />
-                </td>
-                {showAccount && <td className="hide-phone">{r.account}</td>}
-                <td className="num">
-                  {r.struck ? <s>{money(r.amountCents)}</s> : money(r.amountCents)}
-                  {r.struck && <span className="sr-only"> (ei mukana laskennassa)</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </RichTable>
-      </div>
-      {rows.length > ROWS_SHOWN && (
-        <button className="link-btn small" type="button" onClick={() => setAll((a) => !a)}>
-          {all ? "Näytä vain uusimmat" : `Näytä kaikki ${plural(rows.length, "tapahtuma", "tapahtumaa")}`}
-        </button>
-      )}
+      <Table<Row>
+        caption="Laskelman tapahtumat"
+        className="evidence-rows"
+        rows={newest}
+        rowKey={(r) => r.id}
+        page={ROWS_SHOWN}
+        rowClassName={(r) => (r.struck ? "struck" : undefined)}
+        columns={[
+          { key: "date", label: "Päivä", kind: "date", className: () => "when", cell: (r) => date(r.date) },
+          { key: "merchant", label: "Saaja", kind: "text", rowHead: true, cell: (r) => <MarkCell name={r.merchant} /> },
+          ...(showAccount ? [{ key: "account", label: "Tili", kind: "text" as const, phone: "hide" as const, cell: (r: Row) => r.account }] : []),
+          {
+            key: "sum",
+            label: "Summa",
+            kind: "money",
+            main: true,
+            cell: (r) => (
+              <>
+                {r.struck ? <s>{money(r.amountCents)}</s> : money(r.amountCents)}
+                {r.struck && <span className="sr-only"> (ei mukana laskennassa)</span>}
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

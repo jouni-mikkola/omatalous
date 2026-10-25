@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # More tests for tools/ci/local-proof.sh, in the stand-in world of tools/test/local-proof-world.sh (see local-proof.test.sh): the
-# files only the signature leg runs, the niceness of the legs, the verdicts of rehearsals that passed, and the red leg that stops
+# files only one leg runs, the niceness of the legs, the verdicts of rehearsals that passed, and the red leg that stops
 # the proof. A file in the folder `play` changes what a stub does; where two processes must meet, they meet on a FIFO.
 #
 #   tools/test/local-proof-legs.test.sh
@@ -37,7 +37,8 @@ for f in $LEG_ONLY; do
   check "$f is read by no install and no rehearsal (else take it off LEG_ONLY)" test -z "$hits"
   [[ -z $hits ]] || echo "       read by: $hits"
   legs=$(cd "$REPO" && grep -F "${f##*/}" tools/ci/local-proof.sh | grep -v '^ *#' | grep -vF LEG_ONLY)
-  check "the proof starts $f in the signature leg and nowhere else" test "$(wc -l <<<"$legs")" -eq 1 -a "$legs" != "${legs/leg signature/}"
+  case ${f##*/} in image-checks.sh) leg=container ;; *) leg=signature ;; esac
+  check "the proof starts $f in the $leg leg and nowhere else" test "$(wc -l <<<"$legs")" -eq 1 -a "$legs" != "${legs/leg $leg /}"
 done
 
 # ── the layers and the niceness ──
@@ -124,7 +125,7 @@ has "the one that ran beside it is cut, and is a stopped leg" "$out" "stopped up
 check "and got the stop" test "$(called '^stopped b5')" -eq 1
 lacks "b6, which came after b3 in its lane, did not start" "$(calls)" "rehearsal b6 "
 lacks "and no drills ran" "$(calls)" "drills work="
-has "the end says one leg failed and that the others were stopped" "$out" "1 of 11 legs. The legs still running were stopped, and the drills did not run. Nothing is stamped."
+has "the end says one leg failed and that the others were stopped" "$out" "1 of 12 legs. The legs still running were stopped, and the drills did not run. Nothing is stamped."
 check "nothing is stamped and no clone is left" test -z "$(stamp)" -a ! -e "$(dirname "$(logs)")/src"
 reset
 touch "$PLAY/fail-b0"

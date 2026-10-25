@@ -3,8 +3,8 @@ import type { FixedVariableReport } from "@banking/core";
 import { LAYERS, layersOf, StackedArea } from "../../../charts/forms/StackedArea.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { printedParts } from "@banking/core";
-import { BarCell } from "../../../components/table/Cells.tsx";
-import { DensitySwitch, RichTable, useDensity } from "../../../components/table/RichTable.tsx";
+import { BarFigure } from "../../../components/table/Cells.tsx";
+import { type Column, Table } from "../../../components/table/Table.tsx";
 import { money, monthLong, percent } from "../../../format.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -13,77 +13,57 @@ import type { ReportSection, SectionProps } from "../types.ts";
  * layer's colour, with the period's layers on the total row. All server fields; a month not ended says so.
  */
 function Rows({ rows, totals, complete }: { rows: FixedVariableReport["rows"]; totals: FixedVariableReport["totals"]; complete: boolean[] }) {
-  const [density, setDensity] = useDensity("fixedVariable");
   // a layer of nothing has no column, as the chart has no band for it
   const layers = layersOf(rows);
   const totalEuros = printedParts(LAYERS.map((l) => totals[l.key]), totals.spendingCents);
+  type Row = FixedVariableReport["rows"][number];
+  // the layers of the month in euros that add up to its Menot as printed (core `printedParts`)
+  const printedOf = (r: Row) => printedParts(LAYERS.map((l) => r[l.key]), r.tops[3]);
+  const share = (v: number | null) => (v === null ? "–" : <BarFigure value={v} max={1} color={LAYERS[0].color}>{percent(v)}</BarFigure>);
+  const columns: Column<Row>[] = [
+    {
+      key: "month",
+      label: "Kuukausi",
+      kind: "text",
+      rowHead: true,
+      cell: (r) => (
+        <>
+          {monthLong(r.month)}
+          {!complete[rows.indexOf(r)] && <span className="muted"> (vajaa)</span>}
+        </>
+      ),
+    },
+    ...layers.map((l): Column<Row> => ({
+      key: l.key,
+      label: (
+        <>
+          <span className="fv-key" style={{ background: l.color }} aria-hidden="true" />
+          {l.label}
+        </>
+      ),
+      text: l.label,
+      kind: "money",
+      cell: (r) => money(printedOf(r)[LAYERS.findIndex((x) => x.key === l.key)]!, false),
+    })),
+    { key: "spending", label: "Menot", kind: "money", main: true, cell: (r) => money(r.tops[3], false) },
+    { key: "fixed", label: "Kiinteiden osuus", kind: "share", cell: (r) => share(r.fixedShare) },
+  ];
   return (
-    <>
-      <div className="rt-tools">
-        <DensitySwitch density={density} onChange={setDensity} />
-      </div>
-      <RichTable density={density} cards className="ruled fv-table">
-        <thead>
-          <tr>
-            <th>Kuukausi</th>
-            {layers.map((l) => (
-              <th key={l.key} className="num">
-                <span className="fv-key" style={{ background: l.color }} aria-hidden="true" />
-                {l.label}
-              </th>
-            ))}
-            <th className="num">Menot</th>
-            <th className="num" colSpan={2}>
-              Kiinteiden osuus
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            // the layers of the month in euros that add up to its Menot as printed (core `printedParts`)
-            const printed = printedParts(LAYERS.map((l) => r[l.key]), r.tops[3]);
-            const euros = (key: (typeof LAYERS)[number]["key"]) => printed[LAYERS.findIndex((l) => l.key === key)]!;
-            return (
-            <tr key={r.month}>
-              <td>
-                {monthLong(r.month)}
-                {!complete[i] && <span className="muted"> (vajaa)</span>}
-              </td>
-              {layers.map((l) => (
-                <td key={l.key} className="num" data-label={l.label.toLowerCase()}>
-                  {money(euros(l.key), false)}
-                </td>
-              ))}
-              <td className="num fv-sum" data-rt="main">
-                {money(r.tops[3], false)}
-              </td>
-              <td className="rt-bar-cell">{r.fixedShare !== null && <BarCell value={r.fixedShare} max={1} color={LAYERS[0].color} />}</td>
-              <td className="num" data-label="kiinteiden osuus">
-                {r.fixedShare === null ? "–" : percent(r.fixedShare)}
-              </td>
-            </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="foot-row">
-            <td>Jakso yhteensä</td>
-            {layers.map((l) => (
-              <td key={l.key} className="num" data-label={l.label.toLowerCase()}>
-                {money(totalEuros[LAYERS.findIndex((x) => x.key === l.key)]!, false)}
-              </td>
-            ))}
-            <td className="num fv-sum" data-rt="main">
-              {money(totals.spendingCents, false)}
-            </td>
-            <td className="rt-bar-cell">{totals.fixedShare !== null && <BarCell value={totals.fixedShare} max={1} color={LAYERS[0].color} />}</td>
-            <td className="num" data-label="kiinteiden osuus">
-              {totals.fixedShare === null ? "–" : percent(totals.fixedShare)}
-            </td>
-          </tr>
-        </tfoot>
-      </RichTable>
-    </>
+    <Table<Row>
+      caption="Kiinteät ja muuttuvat menot kuukausittain"
+      className="fv-table"
+      rows={rows}
+      rowKey={(r) => r.month}
+      columns={columns}
+      total={{
+        label: "Jakso yhteensä",
+        cells: {
+          ...Object.fromEntries(layers.map((l) => [l.key, money(totalEuros[LAYERS.findIndex((x) => x.key === l.key)]!, false)])),
+          spending: money(totals.spendingCents, false),
+          fixed: share(totals.fixedShare),
+        },
+      }}
+    />
   );
 }
 
@@ -119,7 +99,7 @@ function FixedVariable({ ctx }: SectionProps) {
             ) : null}
             Kiinteät menot ovat nyt <strong>{money(buffer.fixedMonthlyCents, false)}</strong> kuussa
             {buffer.fixedShare === null ? "." : `, ${percent(buffer.fixedShare)} tavallisista tuloista.`}
-            {months === null ? "" : ` Tileillä olevat rahat riittävät ${months} kuukauden tavallisiin menoihin.`}
+            {months === null ? "" : ` Tilien saldo riittää ${months} kuukauden tavallisiin menoihin.`}
           </>
         }
         table={<Rows rows={r.rows} totals={r.totals} complete={complete} />}

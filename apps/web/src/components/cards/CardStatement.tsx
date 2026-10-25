@@ -1,5 +1,5 @@
 import { addDays } from "@banking/core";
-import { DataTable } from "../table/DataTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { date, eurosText, money, parseEuros, plural } from "../../format.ts";
@@ -96,19 +96,18 @@ export function CardStatement({ bill, saved, onClose, onChanged }: { bill: BillF
       </dl>
       {sorted.length > 0 && (
         <div className="cs-rows">
-          <DataTable
-            id="card-statement"
+          <Table
             caption="Erittelyn rivit"
             rows={sorted}
             rowKey={(r) => `${r.day}|${r.cents}|${r.text}`}
-            phone="cards"
             columns={[
               { key: "day", label: "Päivä", kind: "date", cell: (r) => date(r.day) },
               { key: "text", label: "Kuvaus", kind: "text", cell: (r) => r.text },
               { key: "sum", label: "Summa", kind: "money", main: true, precision: "cents", cents: (r) => r.cents },
               {
                 key: "remove",
-                label: "",
+                label: "Toiminnot",
+                headHidden: true,
                 kind: "text",
                 cell: (r) => (
                   <button className="btn btn-small" type="button" aria-label={`Poista rivi: ${r.text}`} onClick={() => setRows((now) => now.filter((n) => !sameRow(n, r)))}>

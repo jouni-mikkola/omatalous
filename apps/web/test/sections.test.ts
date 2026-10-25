@@ -27,8 +27,8 @@ describe("Raportit: Tulot ja menot", () => {
   it("asks where the income went and answers with the period's flows, each a server total, and draws no tile row", () => {
     const out = plain(html(cashflow, context(cashflowData())));
     expect(out).toContain("Mihin tulot menivät 1 kuukaudessa?");
-    expect(out).toContain("Tuloja tuli <strong>4 000 €</strong>. Kulutukseen meni 2 500 €, velanhoitoon 0 € ja säästöön 500 €. Yli jäi <strong>1 000 €</strong>.");
-    expect(out).toContain("Yli jäi 1 000 €");
+    expect(out).toContain("Tuloja tuli <strong>4 000 €</strong>. Kulutukseen meni 2 500 €. Velanhoitoon meni 0 €. Säästöön meni 500 €. Tulos <strong>1 000 €</strong>.");
+    expect(out).toContain("Tulos 1 000 €");
     expect(out).not.toContain('class="kv"');
   });
 
@@ -40,7 +40,7 @@ describe("Raportit: Tulot ja menot", () => {
   it("the month table's total row is the settled months', named by their count, which core gives", () => {
     const out = plain(html(cashflow, context(cashflowData({ running: true, closedMonths: 1, settled: { ...totals, inCents: 400_000 }, rows: [row, { ...row, month: "2026-09" }, { ...row, month: "2026-10", complete: false }] }))));
     expect(out).toContain("Mihin tulot menivät 1 valmiissa kuukaudessa?");
-    expect(out).toContain("<td>1 valmis kuukausi</td>");
+    expect(out).toContain('<th scope="row">1 valmis kuukausi</th>');
   });
 
   it("a running range with no complete month has no settled figures, so the totals stand in their place", () => {
@@ -70,7 +70,7 @@ describe("Raportit: Kiinteät ja muuttuvat", () => {
     expect(out).toContain("Kiinteät 1 300 € kuussa");
     expect(out).toContain("Elokuussa kiinteisiin menoihin meni <strong>60 %</strong> menoista.");
     expect(out).toContain("Kiinteät menot ovat nyt <strong>1 300 €</strong> kuussa, 40 % tavallisista tuloista.");
-    expect(out).toContain("Tileillä olevat rahat riittävät 2,5 kuukauden tavallisiin menoihin.");
+    expect(out).toContain("Tilien saldo riittää 2,5 kuukauden tavallisiin menoihin.");
   });
 
   it("sets the newest month's fixed share against the first month the chart draws, in the shares the end labels show", () => {
@@ -177,11 +177,11 @@ describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
     ];
     const out = flat(html(upcomingSection, context(upcoming({ months }))));
     expect(out).toContain('<div class="card-datum"><span class="fig fig-s"><span class="fig-int">47</span><span class="fig-unit"> €/kk</span></span></div>');
-    expect(out).toContain('<th scope="col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="num">Summa</th><th scope="col" class="hide-phone">Maksettu</th>');
-    expect(out).toContain('<td class="due-col" data-label="Eräpäivä">lokakuu 2026</td><td data-label="Saaja">If, Lähitapiola<div class="sub paid-sub">Maksettu 5.10.</div></td><td class="num" data-rt="main">141 €</td><td class="hide-phone paid-col" data-label="Maksettu"><div>Maksettu 5.10.</div></td>');
+    expect(out).toContain('<th scope="col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col">Maksettu</th><th scope="col" class="num">Summa</th>');
+    expect(out).toContain('<td data-label="Maksettu"><div>Maksettu 5.10.</div></td><td class="num" data-rt="main">141 €</td>');
     // a month with nothing due is no row; one with nothing paid has an empty fourth cell
     expect(out).not.toContain("marraskuu 2026");
-    expect(out).toContain('<td class="due-col" data-label="Eräpäivä">joulukuu 2026</td><td data-label="Saaja">Ajoneuvovero</td><td class="num" data-rt="main">312 €</td><td class="hide-phone paid-col" data-label="Maksettu"></td>');
+    expect(out).toContain('<td data-label="Maksettu"></td><td class="num" data-rt="main">312 €</td>');
     expect(out).not.toContain("vuodessa eli");
     expect(out).not.toContain('class="lead"');
   });
@@ -189,7 +189,7 @@ describe("Laskut: Harvinaiset laskut and Hinnanmuutokset", () => {
   it("when two bills of a month are paid each paid day names its payee, and with nothing found there is no table and no figure", () => {
     const paid = [{ merchant: "If", date: "2026-10-05" }, { merchant: "Lähitapiola", date: "2026-10-09" }];
     const out = flat(html(upcomingSection, context(upcoming({ months: [{ month: "2026-10", cents: 20_000, names: ["If", "Lähitapiola"], paid }] }))));
-    expect(out).toContain('<td class="hide-phone paid-col" data-label="Maksettu"><div>Maksettu 5.10. (If)</div><div>Maksettu 9.10. (Lähitapiola)</div>');
+    expect(out).toContain('<td data-label="Maksettu"><div>Maksettu 5.10. (If)</div><div>Maksettu 9.10. (Lähitapiola)</div>');
     const typedOnly = flat(html(upcomingSection, context(upcoming({ yearlyCents: 0, manual: [typed] }))));
     expect(typedOnly).toContain("Poista lasku Ajoneuvovero");
     expect(typedOnly).not.toContain("<table");

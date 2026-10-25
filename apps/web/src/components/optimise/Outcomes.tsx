@@ -7,7 +7,7 @@
 import { type FindingOutcome, type FindingState, type OptimiseData, type OutcomeDetail, parseFindingId } from "@banking/core";
 import { date, money } from "../../format.ts";
 import { DeltaChip, MarkCell } from "../table/Cells.tsx";
-import { RichTable } from "../table/RichTable.tsx";
+import { type Column, Table } from "../table/Table.tsx";
 import { AreaMark, VerdictMark } from "./marks.tsx";
 import { nameOf, subjectName } from "./shared.tsx";
 
@@ -43,7 +43,7 @@ function Who({ state, data }: { state: FindingState; data: OptimiseData }) {
   const text = (
     <span className="rt-who-text">
       <span>{nameOf(state.findingId, data.areas)}</span>
-      <span className="tx-under">Tehty {date(state.effectiveDate ?? state.decidedAt)}</span>
+      <span className="sub">Tehty {date(state.effectiveDate ?? state.decidedAt)}</span>
     </span>
   );
   return named ? (
@@ -60,7 +60,7 @@ const perMonth = (m: { cents: number; months: number } | undefined) =>
   m ? (
     <>
       {money(m.cents)}
-      <span className="tx-under">yleensä, {m.months} kuukautta</span>
+      <span className="sub">yleensä, {m.months} kuukautta</span>
     </>
   ) : (
     <span className="muted">–</span>
@@ -75,47 +75,38 @@ export function Outcomes({ data, outcomes }: { data: OptimiseData; outcomes: Rea
     return o ? [{ ...d, outcome: o }] : [];
   });
   if (!rows.length) return null;
+  type Row = (typeof rows)[number];
+  const columns: Column<Row>[] = [
+    { key: "change", label: "Muutos", kind: "text", rowHead: true, cell: (r) => <Who state={r.state} data={data} /> },
+    { key: "before", label: "Ennen, kuussa", kind: "money", cell: (r) => perMonth(r.outcome.detail?.before) },
+    { key: "after", label: "Jälkeen, kuussa", kind: "money", cell: (r) => perMonth(r.outcome.detail?.after) },
+    {
+      key: "diff",
+      label: "Ero kuussa",
+      kind: "money",
+      main: true,
+      // the saving a month is spending that fell: the chip shows the spending's change, so a saving reads as down and good
+      cell: (r) => (r.outcome.monthlyCents !== null ? <DeltaChip delta={-r.outcome.monthlyCents} text={signed(-r.outcome.monthlyCents)} meaning="spend" flat={99} /> : <span className="muted">–</span>),
+    },
+    { key: "months", label: "Kuukaudet", kind: "text", className: () => "ba-cell", cell: (r) => r.outcome.detail && <BeforeAfter detail={r.outcome.detail} /> },
+    {
+      key: "result",
+      label: "Tulos",
+      kind: "text",
+      cell: (r) => (
+        <>
+          <VerdictMark verdict={r.outcome.verdict} />
+          <span className="sub outcome-reason">{r.outcome.reason}</span>
+        </>
+      ),
+    },
+  ];
   return (
-    <div className="table-wrap">
-      <RichTable density="comfortable" className="outcomes">
-        <thead>
-          <tr>
-            <th scope="col">Muutos</th>
-            <th scope="col" className="num">
-              Ennen, kuussa
-            </th>
-            <th scope="col" className="num">
-              Jälkeen, kuussa
-            </th>
-            <th scope="col" className="num">
-              Ero kuussa
-            </th>
-            <th scope="col">Kuukaudet</th>
-            <th scope="col">Tulos</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ state, outcome: o }) => (
-            <tr key={state.findingId}>
-              <td>
-                <Who state={state} data={data} />
-              </td>
-              <td className="num" data-head="Ennen, kuussa">{perMonth(o.detail?.before)}</td>
-              <td className="num" data-head="Jälkeen, kuussa">{perMonth(o.detail?.after)}</td>
-              {/* the saving a month is spending that fell: the chip shows the spending's change, so a saving reads as down and good */}
-              <td className="num">{o.monthlyCents !== null ? <DeltaChip delta={-o.monthlyCents} text={signed(-o.monthlyCents)} meaning="spend" flat={99} /> : <span className="muted">–</span>}</td>
-              <td className="ba-cell" data-head="Kuukaudet">{o.detail && <BeforeAfter detail={o.detail} />}</td>
-              <td>
-                <VerdictMark verdict={o.verdict} />
-                <span className="tx-under outcome-reason">{o.reason}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </RichTable>
+    <>
+      <Table<Row> caption="Tehtyjen muutosten tulokset" className="outcomes" rows={rows} rowKey={(r) => r.state.findingId} columns={columns} />
       <p className="small muted outcomes-key">
         <span className="ba-key ba-key-before" aria-hidden="true" /> ennen <span className="ba-key ba-key-after" aria-hidden="true" /> jälkeen, muutoksen kuukausi ei ole mukana. Katkoviiva on tavallinen taso.
       </p>
-    </div>
+    </>
   );
 }

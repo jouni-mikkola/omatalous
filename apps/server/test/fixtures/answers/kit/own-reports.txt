@@ -3590,7 +3590,6 @@
   ],
   "cents": 1146287,
   "monthlyCents": 95524,
-  "cardBills": null,
   "basket": {
    "now": {
     "purchases": 30,

@@ -11,7 +11,7 @@ import { useMeta } from "../../hooks.ts";
 import { BankLogo } from "../BankLogo.tsx";
 import { Section } from "../Section.tsx";
 import { DeltaChip, MarkCell } from "../table/Cells.tsx";
-import { RichTable } from "../table/RichTable.tsx";
+import { type Column, Table } from "../table/Table.tsx";
 
 /** "Viitekorko laskee 1 prosenttiyksikön", "Viitekorko nousee 2 prosenttiyksikköä": the move as words, no abbreviation. */
 export const shiftHead = (bp: number) => {
@@ -22,15 +22,15 @@ const unit = (months: number | null) => (months === null || months === 1 ? "kuus
 const signed = (cents: number) => `${cents > 0 ? "+" : cents < 0 ? "−" : "±"}${money(Math.abs(cents))}`;
 
 function MoveCell({ move, months }: { move: RateMove | undefined; months: number | null }) {
-  if (!move || move.paymentCents === null) return <td className="num muted">–</td>;
+  if (!move || move.paymentCents === null) return <span className="muted">–</span>;
   return (
-    <td className="num rate-move" data-head={shiftHead(move.shiftBp)}>
+    <>
       <span className="rate-pay">{money(move.paymentCents)}</span>
       <span className="sr-only"> {unit(months)}</span>
       {move.paymentChangeCents ? <DeltaChip delta={move.paymentChangeCents} text={signed(move.paymentChangeCents)} meaning="spend" /> : null}
-      {move.interestCents !== null && <span className="tx-under">korkoa {money(move.interestCents, false)} vuodessa</span>}
-      {move.movedBp !== null && move.movedBp !== move.shiftBp && <span className="tx-under">korko laskee vain {rateText(Math.abs(move.movedBp))} prosenttiyksikköä</span>}
-    </td>
+      {move.interestCents !== null && <span className="sub">korkoa {money(move.interestCents, false)} vuodessa</span>}
+      {move.movedBp !== null && move.movedBp !== move.shiftBp && <span className="sub">korko laskee vain {rateText(Math.abs(move.movedBp))} prosenttiyksikköä</span>}
+    </>
   );
 }
 
@@ -46,58 +46,64 @@ export function Rates({ rates }: { rates: readonly LoanRates[] }) {
       title="Mitä koron nousu tai lasku tekisi lainoille?"
       sub={moving && up?.paymentChangeCents != null ? `${moving.name}: jos viitekorko nousee yhden prosenttiyksikön, erä kasvaa ${money(up.paymentChangeCents)} ${unit(moving.intervalMonths)}.` : undefined}
     >
-      <div className="table-wrap">
-        <RichTable density="comfortable" className="rates">
-          <thead>
-            <tr>
-              <th scope="col">Laina</th>
-              <th scope="col" className="num">
-                Korko nyt
-              </th>
-              <th scope="col" className="num">
-                Erä nyt
-              </th>
-              {RATE_MOVES_BP.map((s) => (
-                <th key={s} scope="col" className="num">
-                  {shiftHead(s)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rates.map((l) => {
+      <Table<LoanRates>
+        caption="Korkojen muutosten vaikutus lainoihin"
+        className="rates"
+        rows={[...rates]}
+        rowKey={(l) => l.loanId}
+        columns={[
+          {
+            key: "loan",
+            label: "Laina",
+            kind: "text",
+            rowHead: true,
+            cell: (l) => {
               const src = logo(l.lender);
               return (
-                <tr key={l.loanId}>
-                  <td>
-                    <MarkCell name={l.name} mark={src ? <BankLogo src={src} name={l.lender ?? l.name} size="sm" /> : undefined}>
-                      <span className="rt-who-text">
-                        <span>{l.name}</span>
-                        {l.balanceCents !== null && <span className="tx-under">{money(l.balanceCents, false)} jäljellä</span>}
-                      </span>
-                    </MarkCell>
-                  </td>
-                  <td className="num" data-head="Korko nyt">
-                    {l.rateBp !== null ? `${rateText(l.rateBp)} %` : "–"}
-                    {l.reference && <span className="tx-under">{l.reference}</span>}
-                  </td>
-                  <td className="num" data-head="Erä nyt">
-                    {l.paymentCents !== null ? money(l.paymentCents) : "–"}
-                    {l.interestCents !== null && <span className="tx-under">korkoa {money(l.interestCents, false)} vuodessa</span>}
-                  </td>
-                  {l.moves.length ? (
-                    RATE_MOVES_BP.map((s) => <MoveCell key={s} move={l.moves.find((m) => m.shiftBp === s)} months={l.intervalMonths} />)
-                  ) : (
-                    <td className="rates-fixed" colSpan={RATE_MOVES_BP.length}>
-                      {l.reference === null || l.rateBp === null ? "Viitekorkoa tai korkoa ei ole kerrottu." : "Kiinteä korko: viitekoron muutos ei muuta erää."}
-                    </td>
-                  )}
-                </tr>
+                <>
+                  <MarkCell name={l.name} mark={src ? <BankLogo src={src} name={l.lender ?? l.name} size="sm" /> : undefined}>
+                    <span className="rt-who-text">
+                      <span>{l.name}</span>
+                      {l.balanceCents !== null && <span className="sub">{money(l.balanceCents, false)} jäljellä</span>}
+                    </span>
+                  </MarkCell>
+                  {!l.moves.length && <span className="sub rates-fixed">{l.reference === null || l.rateBp === null ? "Viitekorkoa tai korkoa ei ole kerrottu." : "Kiinteä korko: viitekoron muutos ei muuta erää."}</span>}
+                </>
               );
-            })}
-          </tbody>
-        </RichTable>
-      </div>
+            },
+          },
+          {
+            key: "rate",
+            label: "Korko nyt",
+            kind: "count",
+            cell: (l) => (
+              <>
+                {l.rateBp !== null ? `${rateText(l.rateBp)} %` : "–"}
+                {l.reference && <span className="sub">{l.reference}</span>}
+              </>
+            ),
+          },
+          {
+            key: "payment",
+            label: "Erä nyt",
+            kind: "money",
+            main: true,
+            cell: (l) => (
+              <>
+                {l.paymentCents !== null ? money(l.paymentCents) : "–"}
+                {l.interestCents !== null && <span className="sub">korkoa {money(l.interestCents, false)} vuodessa</span>}
+              </>
+            ),
+          },
+          ...RATE_MOVES_BP.map((s): Column<LoanRates> => ({
+            key: `move${s}`,
+            label: shiftHead(s),
+            kind: "money",
+            className: () => "rate-move",
+            cell: (l) => (l.moves.length ? <MoveCell move={l.moves.find((m) => m.shiftBp === s)} months={l.intervalMonths} /> : <span className="muted">–</span>),
+          })),
+        ]}
+      />
     </Section>
   );
 }

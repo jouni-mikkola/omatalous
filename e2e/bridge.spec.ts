@@ -98,12 +98,24 @@ test("The demo household: Yhteenveto tells the month before by its savings rate,
   await expect(cashflow.getByRole("heading", { name: /^Mihin tulot menivät/ })).toBeVisible();
 
   // where the money went, as one sentence of the period's figures (Raportit's bridge is the month table's period row):
-  // what came in less what went out is Yli jäi, up to the euro each figure is rounded to
+  // every term it names, credit drawn included, adds up to Tulos (the parts are rounded together, so to the euro)
   const answer = plain(await cashflow.locator(".qc-a").first().innerText());
-  const figures = /^Tuloja tuli (.+) €\. Kulutukseen meni (.+) €, velanhoitoon (.+) € ja säästöön (.+) €\. Yli jäi (.+) €\.$/.exec(answer);
-  expect(figures, answer).not.toBeNull();
-  const [income, spent, debt, saved, stayed] = figures!.slice(1).map((f) => Number(f.replace(/\s/g, "").replace("−", "-")));
-  expect(Math.abs(income! - spent! - debt! - saved! - stayed!)).toBeLessThanOrEqual(3);
+  const euros = (sentence: string) => [...sentence.matchAll(/(-?)(\d[\d ]*) €/g)].map((m) => (m[1] ? -1 : 1) * Number(m[2]!.replace(/ /g, "")));
+  // what each sentence adds to Tulos: what came in plus, what went out minus, a refund or a return the other way
+  const adds: [RegExp, number][] = [[/^Tuloja tuli/, 1], [/^Tuloja peruttiin/, -1], [/^Luottoa nostettiin/, 1], [/^Luottoa maksettiin takaisin/, -1], [/^Kulutukseen meni/, -1], [/^Kulutuksesta palautui/, 1], [/^Velanhoitoon meni/, -1], [/^Velanhoidosta palautui/, 1], [/^Säästöön meni/, -1], [/^Säästöistä otettiin/, 1]];
+  let sum = 0;
+  let stayed = 0;
+  for (const sentence of answer.split(/(?<=\.) /)) {
+    const first = euros(sentence)[0] ?? 0;
+    if (sentence.startsWith("Tulos")) stayed = first;
+    else {
+      const sign = adds.find(([re]) => re.test(sentence))?.[1];
+      if (!sign) throw new Error(`a sentence the test does not know: ${sentence}`);
+      sum += sign * first;
+    }
+  }
+  expect(answer).toMatch(/^Tuloja tuli .+ Kulutukseen meni .+ Tulos .+ €\.$/);
+  expect(sum, answer).toBe(stayed);
 
   // the month table has the month before with the rate Yhteenveto told
   const last = month(1);
@@ -112,7 +124,7 @@ test("The demo household: Yhteenveto tells the month before by its savings rate,
   expect(cells[cells.length - 1], "the savings rate of the month is one figure on both pages").toBe(rate);
   // the panel's one switch shows every flow of the months as figures
   await cashflow.locator(".card-head").getByRole("button", { name: "Taulukko" }).click();
-  expect(await cashflow.locator("table.ruled").first().locator("thead th").allInnerTexts()).toEqual(["Kuukausi", "Tulot", "Kulutus", "Maksettu velanhoito", "Säästöön", "Yli jäi", "Säästöaste"]);
+  expect(await cashflow.locator("table.rt").first().locator("thead th").allInnerTexts()).toEqual(["Kuukausi", "Tulot", "Kulutus", "Maksettu velanhoito", "Säästöön", "Tulos", "Säästöaste"]);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -129,7 +141,7 @@ test("390 px: the month before on Yhteenveto and the bridge of the year fit the 
   await expect(page.locator("#kassavirta table.use-table")).toBeVisible();
   expect(await overflow(page), "sideways scroll with the month table").toBeLessThanOrEqual(1);
   await page.locator("#kassavirta .card-head").getByRole("button", { name: "Taulukko" }).click();
-  await expect(page.locator("#kassavirta table.ruled").first()).toBeVisible();
+  await expect(page.locator("#kassavirta table.rt").first()).toBeVisible();
   expect(await overflow(page), "sideways scroll with the table open").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();

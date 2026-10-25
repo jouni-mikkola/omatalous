@@ -3,13 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CardStatement, type SavedStatement } from "../components/cards/CardStatement.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { type Density, DensitySwitch, useDensity } from "../components/table/RichTable.tsx";
 import { CADENCE_LABEL, date, money, plural } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import type { Meta, Scope } from "../types.ts";
 import { CalendarHeat, type HeatDay } from "../charts/CalendarHeat.tsx";
 import { Merchants } from "./Merchants.tsx";
-import { type DaySum, type ListedRow, RowsSkeleton, TxCards, TxTable, usePhone } from "./TransactionRows.tsx";
+import { type DaySum, type ListedRow, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import { type Filters, FilterBar } from "./transactions/FilterBar.tsx";
 import { Popover } from "./transactions/Popover.tsx";
@@ -86,7 +85,8 @@ function Facts({ facts }: { facts: [string, string][] }) {
 /** A count of rows with its thousands set apart, as the cut mark prints it. */
 const count = (n: number): string => n.toLocaleString("fi-FI");
 
-const PAGE = 100;
+/** Rows asked for at a time: a phone carries a short list, a desktop a longer one. */
+const PAGE = { phone: 25, wide: 100 };
 const MAX_ROWS = 500;
 
 /**
@@ -118,8 +118,8 @@ interface ListAnswer extends Totals {
   calendar?: { days: HeatDay[]; usualCents: number | null } | null;
 }
 
-/** The quiet menu of the list's head: the download, the rule a category change makes, the density. */
-function ListMenu({ csv, remember, setRemember, density, setDensity, ownRows }: { csv: string; remember: boolean; setRemember: (v: boolean) => void; density: Density; setDensity: (d: Density) => void; ownRows: boolean }) {
+/** The quiet menu of the list's head: the download and the rule a category change makes. */
+function ListMenu({ csv, remember, setRemember, ownRows }: { csv: string; remember: boolean; setRemember: (v: boolean) => void; ownRows: boolean }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   return (
@@ -141,10 +141,6 @@ function ListMenu({ csv, remember, setRemember, density, setDensity, ownRows }: 
             </span>
           </label>
         )}
-        <div className="tx-menu-item">
-          <span>Rivien tiheys</span>
-          <DensitySwitch density={density} onChange={setDensity} />
-        </div>
         <a className="tx-menu-item tx-menu-link" href={csv} download onClick={() => setOpen(false)}>
           Lataa CSV
           <span className="tx-menu-sub">Rajatut tapahtumat taulukkona</span>
@@ -169,8 +165,10 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   // a filter change starts from the first page, also when it goes back to an earlier filter;
   // resetting during render means the request for the old page size is never sent
   const filterKey = `${scope}?${params.toString()}`;
-  const [paging, setPaging] = useState({ key: filterKey, limit: PAGE });
-  if (paging.key !== filterKey) setPaging({ key: filterKey, limit: PAGE });
+  const phone = usePhone();
+  const step = phone ? PAGE.phone : PAGE.wide;
+  const [paging, setPaging] = useState({ key: filterKey, limit: step });
+  if (paging.key !== filterKey) setPaging({ key: filterKey, limit: step });
   const { limit } = paging;
   const [remember, setRemember] = useState(true);
   const rememberRef = useRef(remember);
@@ -181,8 +179,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const [edits, setEdits] = useState(0);
   const [opened, setOpened] = useState<string | null>(null);
   const [chart, setChart] = useState<"bars" | "calendar">("bars");
-  const [density, setDensity] = useDensity("transactions");
-  const phone = usePhone();
   const { data, error, loading, reload } = useApi<ListAnswer>(`/api/transactions${query({ ...filters, scope, limit })}`);
   const statements = useApi<{ statements: SavedStatement[] }>("/api/statements");
   const [billOpen, setBillOpen] = useState<ListedRow | null>(null);
@@ -197,7 +193,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
 
   const set = (patch: Partial<Filters>) => navigate("transactions", { ...filters, ...patch });
   const categoryLabel = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
-  const toggle = useCallback((id: string) => setOpened((o) => (o === id ? null : id)), []);
 
   // stable, so the rows (memo) do not re-render while the user types or ticks the box
   const recategorize = useCallback(
@@ -254,8 +249,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     account: looks.get(t.accountId)?.name ?? t.accountId,
     explained: savedOf(t.id)?.read ? savedOf(t.id)!.explainedCents : null,
     onStatement: setBillOpen,
-    open: opened === t.id,
-    onToggle: toggle,
   });
 
   return (
@@ -324,7 +317,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
                 {data.total > data.items.length ? `${count(data.items.length)} / ${count(data.total)}` : plural(data.total, "tapahtuma", "tapahtumaa")}
               </span>
             )}
-            <ListMenu csv={csv} remember={remember} setRemember={setRemember} density={density} setDensity={setDensity} ownRows={anyOwn} />
+            <ListMenu csv={csv} remember={remember} setRemember={setRemember} ownRows={anyOwn} />
           </div>
           {error && (
             <div className="error" role="alert">
@@ -359,14 +352,10 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               </div>
             )}
           </div>
-          <div className="table-wrap">
-            {phone ? (
-              <TxCards items={data?.items ?? []} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} />
-            ) : (
-              <TxTable items={data?.items ?? []} today={meta.today} density={density} daySums={daySums} rowProps={rowProps} scope={scope} />
-            )}
-            {/* before the first answer the page is loading, not empty: the table's head stands, grey rows under it */}
-            {!data && !error && <RowsSkeleton density={density} />}
+          <div>
+            {data && data.items.length > 0 && <TxTable items={data.items} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} />}
+            {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
+            {!data && !error && <RowsSkeleton />}
             {data && !data.items.length && (
               <div className="empty">
                 {anyFilter ? (
@@ -389,7 +378,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               <span className="cut-mark">
                 1–{count(data.items.length)} / {count(data.total)}
               </span>
-              <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + PAGE })} disabled={loading || limit >= MAX_ROWS}>
+              <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + step })} disabled={loading || limit >= MAX_ROWS}>
                 Näytä lisää
               </button>
               {limit >= MAX_ROWS && <span className="small muted">Näytetään enintään {MAX_ROWS}. Rajaa hakua.</span>}

@@ -59,10 +59,10 @@ const loansOf = (block: Locator) => block.locator(".housing-loans");
 const chargesOf = (block: Locator) => block.locator(".housing-charges");
 const loanRows = (block: Locator) => loansOf(block).locator("tbody tr");
 /** A cell of a loan's row by its column, as it reads: the value, without the label a narrow screen draws before it. */
-const cell = async (row: Locator, column: string) => plain(await row.locator(`.housing-${column} > span`).last().innerText());
+const cell = async (row: Locator, column: string) => plain(await row.locator(`.housing-${column}`).first().innerText());
 /** The rows of the charges as they read: the kind (with the line under it), the payee, the month in cents. */
 const chargeRows = async (block: Locator) =>
-  Promise.all((await chargesOf(block).locator("tbody tr").all()).map(async (row) => [plain(await row.locator("td").nth(0).innerText()), plain(await row.locator("td").nth(1).innerText()), cents(await row.locator(".st-num").innerText())] as const));
+  Promise.all((await chargesOf(block).locator("tbody tr").all()).map(async (row) => [plain(await row.locator("th").innerText()), plain(await row.locator("td").nth(0).innerText()), cents(await row.locator("td.num").innerText())] as const));
 /** The sums of the block by their labels, in cents. */
 const sumsOf = async (block: Locator): Promise<Record<string, number>> =>
   Object.fromEntries(await Promise.all((await block.locator(".housing-sums .st-row").all()).map(async (row) => [plain(await row.locator(".st-name").innerText()), cents(await row.locator(".st-num").innerText())] as const)));
@@ -88,7 +88,7 @@ test("a tenant's block: the rent and the electricity as the table Asumiskulut, o
   expect(rows[0]![2]).toBeGreaterThan(rows[1]![2]);
   const foot = chargesOf(block).locator("tfoot tr");
   await expect(foot.locator("th")).toHaveText("Asuminen yhteensä kuussa");
-  expect(cents(await foot.locator(".st-num").innerText())).toBe(rows[0]![2] + rows[1]![2]);
+  expect(cents(await foot.locator("td.num").innerText())).toBe(rows[0]![2] + rows[1]![2]);
   await expect(block.locator(".housing-sums")).toHaveCount(0);
   await expect(block.locator(".st-cols")).toHaveCount(0);
 
@@ -133,7 +133,7 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   await expect(loanRows(block)).toHaveCount(1);
   const loan = loanRows(block).first();
   await expect(loan.locator(".housing-name a")).toHaveText("Kodin laina");
-  expect(await loan.locator(".housing-name .st-sub").allInnerTexts(), "the lender is the line under the name").toEqual(["Esimerkkirahoitus Oy"]);
+  expect(await loan.locator(".housing-name .sub").allInnerTexts(), "the lender is the line under the name").toEqual(["Esimerkkirahoitus Oy"]);
   const [y, m, d] = review.split("-").map(Number);
   expect(await cell(loan, "rate")).toBe("4,00 %");
   expect(await cell(loan, "reference")).toBe("12 kuukauden Euribor 3,40 % + 0,60 %");
@@ -145,7 +145,6 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   // every term is typed: no dash in the row, and no link to add one
   expect(plain(await loan.innerText())).not.toContain(DASH);
   await expect(block.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
-  await expect(loan.locator(".housing-label").first()).toBeHidden();
 
   // the charges stay under the table, and the three sums are the rows' own
   const charges = await chargeRows(block);
@@ -169,7 +168,7 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   await shown.close();
 });
 
-test("the table Lainat fits the card at 1040 px, where it is narrowest, and under it a loan is label and value pairs: two a row at 700 px, one at 390", async ({ browser }) => {
+test("the table Lainat fits the card at 1040 px, where it is narrowest, and under it a loan is a block: the name and the month, the terms as label and value pairs", async ({ browser }) => {
   for (const width of [1040, 700, 390]) {
     const { context, page, seen } = await open(browser, STATE, "/#/overview", { width });
     const block = blockOf(page);
@@ -181,22 +180,14 @@ test("the table Lainat fits the card at 1040 px, where it is narrowest, and unde
       expect(box.right, `a cell stays inside the card at ${width} px`).toBeLessThanOrEqual(card.x + card.width + 1);
     }
     const loan = loanRows(block).first();
-    const label = loan.locator(".housing-reference .housing-label");
-    const group = loan.locator(".housing-group");
+    const wrap = block.locator(".rt-wrap").first();
     if (width >= 1040) {
-      // a table: the heads name the columns, so no cell repeats its label
-      await expect(loansOf(block).locator("thead")).toBeVisible();
-      await expect(label).toBeHidden();
-      await expect(group).toBeHidden();
+      // a table: the heads name the columns, so no cell draws its label
+      await expect(wrap).not.toHaveAttribute("data-block", "");
     } else {
-      // pairs: the same labels as the heads, each before its value, the next payment under its own head
-      await expect(loansOf(block).locator("thead")).toBeHidden();
-      await expect(label).toHaveText("Viitekorko ja marginaali");
-      await expect(group).toHaveText("Seuraava maksuerä");
-      expect(await loan.locator(".housing-label").allInnerTexts()).toEqual(["Korko", "Viitekorko ja marginaali", "Koron tarkistuspäivä", "Eräpäivä", "Lyhennys", "Korko", "Kuussa"]);
-      const [rate, due] = [(await loan.locator(".housing-rate").boundingBox())!, (await group.boundingBox())!];
-      if (width >= 600) expect(Math.abs(rate.y - due.y), "two pairs a row").toBeLessThanOrEqual(1);
-      else expect(due.y, "one pair a row: the next payment is under the terms").toBeGreaterThan((await loan.locator(".housing-month").boundingBox())!.y);
+      // a block: the same names as the heads, each before its value, the head itself kept for a reader
+      await expect(wrap).toHaveAttribute("data-block", "");
+      expect(await loan.locator("td[data-label]").evaluateAll((els) => els.map((el) => el.getAttribute("data-label")))).toEqual(["Korko", "Viitekorko ja marginaali", "Koron tarkistuspäivä", "Seuraava maksuerä: eräpäivä", "Seuraava maksuerä: lyhennys", "Seuraava maksuerä: korko"]);
     }
     expect(seen.problems).toEqual([]);
     await context.close();
@@ -234,7 +225,7 @@ test("Yhteenveto asks nothing: a household with a charge and no home loan sees t
   expect((await chargeRows(block)).map((r) => r[0])).toEqual(["Sähkö"]);
   const foot = chargesOf(block).locator("tfoot tr");
   await expect(foot.locator("th")).toHaveText("Asuminen yhteensä kuussa");
-  expect(cents(await foot.locator(".st-num").innerText())).toBe((await chargeRows(block))[0]![2]);
+  expect(cents(await foot.locator("td.num").innerText())).toBe((await chargeRows(block))[0]![2]);
   await expect(loansOf(block)).toHaveCount(0);
   await expect(block.locator(".housing-sums")).toHaveCount(0);
   await expect(addLink(block)).toHaveCount(0);
@@ -353,7 +344,7 @@ test("a loan paid from a joint account is the member's part with the line that s
   await expect(mine.locator(".housing-name a")).toHaveText("Asuntolaina");
   await expect(addLink(ownBlock)).toHaveCount(0);
   expect([await cell(mine, "rate"), await cell(mine, "reference"), await cell(mine, "review")]).toEqual(["4,00 %", DASH, DASH]);
-  expect((await mine.locator(".housing-name .st-sub").allInnerTexts()).map(plain), "the part is a line under the name, as on an account's row").toContain("osuutesi 60 %");
+  expect((await mine.locator(".housing-name .sub").allInnerTexts()).map(plain), "the part is a line under the name, as on an account's row").toContain("osuutesi 60 %");
   // the loan is its typist's to change: no link on the row, and no column for one
   await expect(ownBlock.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
   await expect(mine.locator(".housing-link")).toHaveCount(0);
@@ -380,7 +371,7 @@ test("a loan paid from a joint account is the member's part with the line that s
   const typist = await open(browser, second.state, "/#/overview", { scope: { id: second.id, choice: "own" } });
   const typed = loanRows(blockOf(typist.page)).first();
   expect([await cell(typed, "reference"), await cell(typed, "review")]).toEqual([DASH, DASH]);
-  expect((await typed.locator(".housing-name .st-sub").allInnerTexts()).map(plain)).toContain("osuutesi 40 %");
+  expect((await typed.locator(".housing-name .sub").allInnerTexts()).map(plain)).toContain("osuutesi 40 %");
   await expect(typed.locator(".housing-link").getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings#lainat");
   expect(typist.seen.problems).toEqual([]);
   await typist.context.close();

@@ -197,12 +197,14 @@ export class EnableBankingClient {
     return (await this.request<{ balances: EbBalance[] }>("GET", `/accounts/${encodeURIComponent(accountUid)}/balances`, undefined, userHeaders)).balances;
   }
 
-  /** All transactions since `dateFrom`, following continuation keys. A row that cannot be read is counted into `refused` by its reason. */
-  async transactions(accountUid: string, dateFrom: string, strategy: "default" | "longest" = "default", userHeaders?: Readonly<Record<string, string>>, refused: RefusedRows = {}): Promise<RawTransaction[]> {
+  /** All transactions since `dateFrom` (up to `dateTo` when given), following continuation keys. A row that cannot be read is counted into `refused` by its reason. */
+  async transactions(accountUid: string, dateFrom: string, strategy: "default" | "longest" = "default", userHeaders?: Readonly<Record<string, string>>, refused: RefusedRows = {}, dateTo?: string): Promise<RawTransaction[]> {
     const out: RawTransaction[] = [];
     let continuationKey: string | null | undefined;
     for (let page = 0; page < MAX_PAGES; page++) {
       const params = new URLSearchParams({ date_from: dateFrom });
+      // the longest strategy ignores the end day, so an ask that has one is a plain window
+      if (dateTo && strategy === "default") params.set("date_to", dateTo);
       if (strategy !== "default") params.set("strategy", strategy);
       if (continuationKey) params.set("continuation_key", continuationKey);
       const r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`, undefined, userHeaders);

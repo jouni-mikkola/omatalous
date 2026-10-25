@@ -1,5 +1,5 @@
 /**
- * "Miksi?" on the figures that are not a sum of a range's rows: Yli jäi, the usual levels (medians), a part of
+ * "Miksi?" on the figures that are not a sum of a range's rows: Tulos, the usual levels (medians), a part of
  * a joint-account row; and the reasons of card bills, card channels and returns.
  */
 import { describe, expect, it } from "vitest";
@@ -33,7 +33,7 @@ const diffOf = (e: Explanation) => (e.check.kind === "n/a" ? NaN : e.check.diffC
 const account: Account = { ...h.accounts[0]!, id: "acc-1" };
 const TODAY = "2026-12-20";
 
-describe("explain: Yli jäi", () => {
+describe("explain: Tulos", () => {
   it("is the cash flow report's total of the month, also when a card statement lowers a bill (the first page's total then differs)", () => {
     const current: Account = { id: "chk", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
     const cardAccount: Account = { id: "card", name: "Esimerkki Kortti", iban: null, currency: "EUR", type: "credit_card" };

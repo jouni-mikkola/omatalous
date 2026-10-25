@@ -8,10 +8,10 @@ import { coverOf, type GapCover, type PeriodTotals } from "./flows.ts";
 
 type BridgeTotals = Pick<PeriodTotals, "incomeCents" | "consumptionCents" | "debtCents" | "savedCents" | "borrowedCents" | "leftCents">;
 
-export type BridgeKey = "income" | "consumption" | "debt" | "saved" | "repaid" | "left" | "credit" | "savings" | "accounts" | "credit-left" | "savings-left";
+type BridgeKey = "income" | "consumption" | "debt" | "saved" | "repaid" | "left" | "credit" | "savings" | "accounts" | "credit-left" | "savings-left";
 
 /** A part of a bar: its sum and the share of the bar it fills (0 for a part with no length). */
-export interface BridgePiece {
+interface BridgePiece {
   key: BridgeKey;
   cents: number;
   share: number;
@@ -27,15 +27,15 @@ interface IncomeShare {
   incomeShare: number | null;
 }
 
-export interface BridgeFigure extends IncomeShare {
+interface BridgeFigure extends IncomeShare {
   key: BridgeKey;
   cents: number;
 }
 
-export interface BridgeRow extends IncomeShare {
+interface BridgeRow extends IncomeShare {
   key: BridgeKey | "credit-drawn" | "savings-drawn";
   cents: number;
-  /** Money in, money out, or what stayed: what came in less what went out is Yli jäi, to the cent. */
+  /** Money in, money out, or what stayed: what came in less what went out is Tulos, to the cent. */
   side: "in" | "out" | "stayed";
 }
 
@@ -50,7 +50,7 @@ export interface BridgeView {
   sources: BridgePiece[];
   /** The figures under the bar, in reading order. */
   figures: BridgeFigure[];
-  /** The bridge as a table, every row signed; the last row is Yli jäi. */
+  /** The bridge as a table, every row signed; the last row is Tulos. */
   rows: BridgeRow[];
 }
 

@@ -7,7 +7,7 @@ import { date, dayMonth, money, monthLong } from "../format.ts";
 import { useApi, useMeta } from "../hooks.ts";
 import type { Scope } from "../types.ts";
 import { MarkCell } from "./table/Cells.tsx";
-import { type Column, DataTable } from "./table/DataTable.tsx";
+import { type Column, Table } from "./table/Table.tsx";
 import "../styles/why.css";
 
 /** The rows shown before "Näytä kaikki". */
@@ -268,14 +268,11 @@ function LineTable({ lines, shown, who, kind, id }: { lines: Line[]; shown: Show
     { key: "sum", label: "Summa", kind: "money", cell: (l) => money(l.cents) },
   ];
   return (
-    <DataTable<Line>
-      id={id}
+    <Table<Line>
       caption={`Rivit: ${who}`}
       rows={lines}
       rowKey={(l) => l.id}
       columns={columns}
-      phone="none"
-      plain
       className="why-rows"
       rowProps={(l) => (kind === "left" ? { "data-why-left": l.id } : kind === "counted" ? { "data-why-row": l.id } : {})}
       subRow={(l) => lineNote(l, shown, kind)}

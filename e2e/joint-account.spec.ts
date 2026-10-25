@@ -204,11 +204,11 @@ test("Erääntyvät maksut lists the rows of the window the API gives, and the l
   const ahead: Ahead = (await (await context.request.get("/api/dashboard")).json()).ahead;
   const card = paydayCard(page);
   await expect(card).toBeVisible();
-  // the table of payments is there whatever the window has: its rows are the window's payments in order, or one row that says there are none
+  // the rows of the table are the window's payments in order; a window with none says so in a sentence and has no table
   const expected = due(ahead).map(listed);
-  await expect(paymentsOf(card)).toHaveCount(1);
-  await expect(paymentsOf(card).locator("tbody td[colspan]")).toHaveText(expected.length > 0 ? [] : ["Ei erääntyviä maksuja."]);
-  await expect(paymentsOf(card).locator("tbody tr td:nth-child(2)")).toHaveText(expected);
+  await expect(paymentsOf(card)).toHaveCount(expected.length > 0 ? 1 : 0);
+  await expect(card.getByText("Ei erääntyviä maksuja.", { exact: true })).toHaveCount(expected.length > 0 ? 0 : 1);
+  if (expected.length > 0) await expect(paymentsOf(card).locator("tbody tr td:nth-child(2)")).toHaveText(expected);
   // what is to arrive has a table of its own: other pay, and the pay the window waits for
   await expect(card.getByRole("table", { name: "Saapuvat maksut" }).locator("tbody tr td:nth-child(2)")).toHaveText(arriving(ahead));
   // the figure of the payments is the four kinds of payment, and what is free is the balance less them
@@ -255,9 +255,9 @@ test("Erääntyvät maksut names a card's bill and a transfer to the joint accou
   await expect(table.locator("tbody tr td:nth-child(2)")).toHaveText(due(stub!).map(listed));
   // the bill of the card says what its sum is and the transfer that it is the member's own, and neither name is a link to Tapahtumat
   const cardRows = table.getByRole("row").filter({ hasText: "ESIMERKKIPANKKI Luottokortti" });
-  expect((await cardRows.locator(".st-sub").allInnerTexts()).slice(-2)).toEqual([CARD_NOTE.balance, CARD_NOTE.usual]);
+  expect((await cardRows.locator(".sub").allInnerTexts()).slice(-2)).toEqual([CARD_NOTE.balance, CARD_NOTE.usual]);
   const move = table.getByRole("row").filter({ hasText: "Yhteistili" }).last();
-  await expect(move.locator(".st-sub")).toHaveText("Oma siirto");
+  await expect(move.locator(".sub")).toHaveText("Oma siirto");
   await expect(cardRows.getByRole("link")).toHaveCount(0);
   await expect(move.getByRole("link")).toHaveCount(0);
   // the figure of the payments holds the card's bills and the transfer, the table adds up to it to the cent, and what is
@@ -347,6 +347,10 @@ test("a payer nobody has named is a question: asked in Tarkistettavat with no gu
   const overview = await open(browser, members[0]!, "/#/overview");
   await expect(overview.page.locator(".notice-item", { hasText: "Kenen rahaa tilillä" })).toHaveCount(0);
   const listed = await open(browser, members[0]!, "/#/transactions");
+  await expect(listed.page.getByRole("link", { name: "Kenen?" })).toHaveCount(0);
+  const unnamed = listed.page.locator("table.tx-table tbody tr", { has: listed.page.locator('.tx-part:text-is("jako kertomatta")') }).first();
+  await expect(unnamed.locator("button, a[href]")).toHaveCount(1);
+  await unnamed.locator(".rt-drill").click();
   await expect(listed.page.getByRole("link", { name: "Kenen?" }).first()).toBeVisible();
   await listed.context.close();
 

@@ -11,7 +11,7 @@ const area = (id: AreaView["id"], checks: Check[]): AreaView => ({ id, label: id
 const AREAS: AreaView[] = [
   area("subscriptions", [check("subscriptions:quiet", "Unohtuneet tilaukset", "clear"), check("subscriptions:rise", "Hinnannousut", "finding")]),
   area("car", [check("car:fuel", "Polttoaine", "no_rows")]),
-  area("loans", [check("loans:margin", "Asuntolainan marginaali", "needs_input", { input: "loan_rate" }), check("loans:card", "Luottokortin korko", "no_data")]),
+  area("loans", [check("loans:margin", "Asuntolainan marginaali", "needs_input", { input: "loan_rate" }), check("loans:card", "Luottokortin korko", "no_data", { why: { cause: "history", text: "Vertailuun tarvitaan 6 valmista kuukautta, mutta tapahtumahistoriassa on vain 2 valmista kuukautta." } })]),
 ];
 
 const html = (areas: AreaView[], young = false) => renderToStaticMarkup(createElement(Checked, { areas, young }));
@@ -30,11 +30,23 @@ describe("Tarkistettu", () => {
     const out = html(AREAS);
     expect(labels(out)).toEqual(["Unohtuneet tilaukset", "Asuntolainan marginaali", "Luottokortin korko", "Polttoaine"]);
     expect(group(out, "Tietoja puuttuu")).toEqual(["Asuntolainan marginaali", "Luottokortin korko"]);
-    expect(out).toContain("Tapahtumia liian lyhyeltä ajalta");
+    expect(out).toContain("Vertailuun tarvitaan 6 valmista kuukautta, mutta tapahtumahistoriassa on vain 2 valmista kuukautta.");
     expect(out).not.toContain("Hinnannousut");
     // the total is the lead strip's figure, said once there; every segment of the bar carries its count and word under it
     expect(out).not.toContain("card-datum");
     expect([...out.matchAll(/<li><span class="check-swatch[^"]*" aria-hidden="true"><\/span>([^<]*)<\/li>/g)].map((m) => m[1])).toEqual(["1 vinkki", "1 kunnossa", "2 vailla tietoja", "1 ei tarkistettavaa"]);
+  });
+
+  it("names the reason of each check without data, one sentence each", () => {
+    const out = html([
+      area("loans", [
+        check("loans:card", "Luottokortin korko", "no_data", { why: { cause: "cards", text: "Korttilaskuja on, mutta kortin ostot alkavat vasta 10.9.2026." } }),
+        check("loans:margin", "Asuntolainan marginaali", "no_data", { why: { cause: "facts", text: "Vertailuluku on vanhentunut tai puuttuu." } }),
+      ]),
+    ]);
+    expect(out).toContain('<span class="checked-why">Korttilaskuja on, mutta kortin ostot alkavat vasta 10.9.2026.</span>');
+    expect(out).toContain('<span class="checked-why">Vertailuluku on vanhentunut tai puuttuu.</span>');
+    expect(out).not.toContain("liian lyhyeltä");
   });
 
   it("offers Täydennä to the input only where information is missing", () => {

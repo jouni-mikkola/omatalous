@@ -592,8 +592,8 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await form.getByRole("button", { name: "Tallenna" }).click();
     await said(card, "Auton laina tallennettu.");
     await expect(card.getByRole("row").filter({ hasText: "Auton laina" })).toContainText(/9\s800,50\s€/);
-    // the phone shows the rate under the name
-    await expect(card.getByRole("row").filter({ hasText: "Auton laina" }).locator(".loan-phone")).toContainText("5,25 %");
+    // the phone shows the rate in the row's block
+    await expect(card.getByRole("row").filter({ hasText: "Auton laina" })).toContainText("5,25 %");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
     // a read loan with its marks and source lines fits too

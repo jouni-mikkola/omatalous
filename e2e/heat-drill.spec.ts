@@ -18,3 +18,24 @@ test("a heat map cell with spending opens Tapahtumat filtered by its category an
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+test("Raportit: a period switch keeps the open tab and a tab switch keeps the period", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/reports?tab=menot");
+  const toolbar = page.getByRole("toolbar", { name: "Aikaväli" });
+  const menot = page.locator("#kuukaudet");
+  await expect(menot).toBeVisible();
+  await toolbar.getByRole("button", { name: "6 kk" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/reports\?(tab=menot&period=6m|period=6m&tab=menot)$/);
+  await expect(page.getByRole("tab", { name: "Menot" })).toHaveAttribute("aria-selected", "true");
+  await expect(menot).toBeVisible();
+  await page.goto("/#/reports?period=3m");
+  await page.getByRole("tab", { name: "Menot" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toMatch(/period=3m/);
+  expect(new URL(page.url()).hash).toMatch(/tab=menot/);
+  await expect(toolbar.locator("[aria-pressed=true]")).toHaveText("3 kk");
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});

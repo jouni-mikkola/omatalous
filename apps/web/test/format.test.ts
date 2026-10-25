@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { eurosText, money, parseEuros, parseRate, rateText, roundedShares, shareText } from "../src/format.ts";
+import { afterEach, describe, expect, it } from "vitest";
+import { clockTime, date, dateTime, dayTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { addedOn } from "../src/pages/settings/Members.tsx";
+import { factRows } from "../src/pages/settings/SecondFactor.tsx";
 
 describe("the texts of amount and rate inputs", () => {
   it("writes cents and hundredths of a percent as the household types them, with plain spaces", () => {
@@ -89,5 +91,51 @@ describe("money", () => {
     expect(money(-0, false)).not.toMatch(/[−-]/);
     expect(money(-49, false)).not.toMatch(/[−-]/);
     expect(money(-100, false)).toMatch(/[−-]1/);
+  });
+});
+
+describe("timestamps are read in the instance's time zone", () => {
+  afterEach(() => setTimeZone("Europe/Helsinki"));
+
+  it("reads a late evening in UTC as the next day in Helsinki, summer and winter time", () => {
+    expect(date("2026-10-23T22:30:00Z")).toBe("24.10.2026");
+    expect(date("2026-10-23T20:59:59Z")).toBe("23.10.2026");
+    expect(date("2026-12-31T22:30:00Z")).toBe("1.1.2027");
+    expect(date("2026-10-23T22:30:00.000+00:00")).toBe("24.10.2026");
+    expect(localDay("2026-10-23T22:30:00Z")).toBe("2026-10-24");
+    // a stamp already written with the local offset keeps its day
+    expect(localDay("2026-10-24T01:30:00+03:00")).toBe("2026-10-24");
+  });
+
+  it("leaves a YYYY-MM-DD date as it is, whatever the zone", () => {
+    for (const zone of ["Europe/Helsinki", "UTC", "Pacific/Auckland", "America/Los_Angeles"]) {
+      setTimeZone(zone);
+      expect(date("2026-10-23")).toBe("23.10.2026");
+      expect(localDay("2026-10-23")).toBe("2026-10-23");
+    }
+  });
+
+  it("gives the day and the clock of a timestamp together, and a dash for none", () => {
+    expect(dateTime("2026-10-23T22:30:00Z")).toBe("24.10.2026 klo 1.30");
+    expect(clockTime("2026-10-12T11:35:00Z")).toBe("14.35");
+    expect(dayTime("2026-10-12T12:30:00Z")).toBe("12.10. klo 15.30");
+    expect(date(null)).toBe("–");
+    expect(dateTime(undefined)).toBe("–");
+  });
+
+  it("follows the zone the server names and ignores one the browser does not know", () => {
+    setTimeZone("America/New_York");
+    expect(dateTime("2026-10-23T22:30:00Z")).toBe("23.10.2026 klo 18.30");
+    setTimeZone("Not/AZone");
+    expect(timeZone()).toBe("America/New_York");
+    setTimeZone(undefined);
+    expect(timeZone()).toBe("America/New_York");
+  });
+
+  it("dates the second factor's start and the member's addition by the household's clock", () => {
+    const rows = Object.fromEntries(factRows({ since: "2026-10-23T22:30:00Z", lastUsedAt: "2026-10-23T22:45:00Z", recoveryLeft: 10 }));
+    expect(rows["Käytössä alkaen"]).toBe("24.10.2026");
+    expect(rows["Viimeksi käytetty"]).toBe("24.10.2026 klo 1.45");
+    expect(addedOn({ createdAt: "2026-10-23T22:30:00Z" })).toBe("24.10.2026");
   });
 });

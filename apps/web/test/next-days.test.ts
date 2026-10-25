@@ -131,7 +131,9 @@ describe("the three figures", () => {
   it("a balance older than a day says its day under Saldo", () => {
     const notes = (balanceAt: string | null) => figures(ahead({ balance: balance({ balanceAt }) }))![0]!.notes;
     expect(notes("2026-10-09T06:00:00Z")).toEqual(["Saldo päivältä 9.10.2026"]);
-    expect(notes("2026-10-10T21:00:00Z")).toEqual(["Saldo päivältä 10.10.2026"]);
+    expect(notes("2026-10-10T20:59:00Z")).toEqual(["Saldo päivältä 10.10.2026"]);
+    // 21:00 UTC is already the 11th by the household's clock, so that balance is not old
+    expect(notes("2026-10-10T21:00:00Z")).toEqual([]);
     // yesterday's balance and today's are not old, and a balance with no time says nothing
     expect(notes("2026-10-11T06:00:00Z")).toEqual([]);
     expect(notes("2026-10-12T06:00:00Z")).toEqual([]);
@@ -198,13 +200,13 @@ describe("the two tables", () => {
     const out = html(ahead());
     expect(out).toContain('<caption class="sr-only">Erääntyvät maksut ennen palkkapäivää</caption>');
     expect(out).toContain('<th scope="col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="num">Summa</th>');
-    expect(out).toContain('<tr><td data-label="Eräpäivä"><span class="src src-est" aria-hidden="true"></span>15.10.</td><td title="Sähköyhtiö Esimerkki" data-label="Saaja"><a href="#/transactions?merchant=S%C3%A4hk%C3%B6yhti%C3%B6+Esimerkki">Sähköyhtiö Esimerkki</a></td><td class="num st-num" data-label="Summa">45,00 €</td></tr>');
+    expect(out).toContain('<tr><td data-label="Eräpäivä"><span class="src src-est" aria-hidden="true"></span>15.10.</td><td title="Sähköyhtiö Esimerkki" data-label="Saaja"><a href="#/transactions?merchant=S%C3%A4hk%C3%B6yhti%C3%B6+Esimerkki">Sähköyhtiö Esimerkki</a></td><td class="num" data-label="Summa">45,00 €</td></tr>');
   });
 
   it("the payments on the page add up to the figure of what is due", () => {
     const out = html(ahead());
     const table = out.slice(out.indexOf("<table"), out.indexOf("</table>"));
-    const listed = [...table.matchAll(/<td class="num st-num" data-label="Summa">([\d ]+,\d\d) €<\/td>/g)].map((m) => Math.round(Number(m[1]!.replace(/ /g, "").replace(",", ".")) * 100));
+    const listed = [...table.matchAll(/<td class="num" data-label="Summa">([\d ]+,\d\d) €<\/td>/g)].map((m) => Math.round(Number(m[1]!.replace(/ /g, "").replace(",", ".")) * 100));
     expect(listed).toHaveLength(3);
     expect(listed.reduce((s, c) => s + c, 0)).toBe(ahead().totals.dueCents);
   });
@@ -221,7 +223,7 @@ describe("the two tables", () => {
     expect(names(out)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkivakuutus", "Vuokra Esimerkki", "Pieni Esimerkki Oy", "Esimerkki Oy"]);
     expect(out).toContain('<caption class="st-cap">Saapuvat maksut</caption>');
     expect(out).toContain('<th scope="col">Päivä</th><th scope="col">Maksaja</th><th scope="col" class="num">Summa</th>');
-    expect(out).toContain('<td class="num st-num" data-label="Summa">noin 3 000 €</td>');
+    expect(out).toContain('<td class="num" data-label="Summa">noin 3 000 €</td>');
     expect(out.indexOf("Saapuvat maksut")).toBeGreaterThan(out.indexOf("</table>"));
   });
 
@@ -256,12 +258,12 @@ describe("the two tables", () => {
 });
 
 describe("what stands in place of the payments, and under the tables", () => {
-  it("says nothing is due as the one row of the payments' table when the window has no payment", () => {
-    const empty = '<tbody><tr><td colSpan="3">Ei erääntyviä maksuja.</td></tr></tbody>';
+  it("says nothing is due as a sentence, with no table, when the window has no payment", () => {
+    const empty = '<p class="st-note">Ei erääntyviä maksuja.</p>';
     for (const a of [ahead({}, []), ahead(NONE, [OTHER_PAY]), ahead(LATE, []), ahead(NONE, [])]) expect(html(a)).toContain(empty);
     const out = html(ahead({}, []));
-    // the table keeps its head; the pay still has its table, and the figures are there
-    expect(out).toContain('<th scope="col">Eräpäivä</th><th scope="col">Saaja</th>');
+    // the pay still has its table, and the figures are there
+    expect(out).not.toContain("Eräpäivä");
     expect(names(out)).toEqual(["Esimerkki Oy"]);
     expect(out).toContain("Käytettävissä");
     // near miss: one payment, and the row is not there
@@ -316,7 +318,7 @@ describe("the coming pay is an estimate", () => {
     expect(sumsOf(a)).toEqual(["2 100–2 900 €"]);
     expect(plain(payNote(a)!)).toBe("Palkka vaihtelee: viimeiset 12 palkkaa 1 950–3 240 €, useimmiten 2 480 €. Joka kerta on tullut vähintään 1 950 €.");
     const out = html(a);
-    expect(out).toContain('<td class="num st-num" data-label="Summa">2 100–2 900 €</td>');
+    expect(out).toContain('<td class="num" data-label="Summa">2 100–2 900 €</td>');
     expect(out.indexOf("Palkka vaihtelee")).toBeGreaterThan(out.indexOf("Saapuvat maksut"));
     // the sum of no figure of the block moves with the estimate
     expect(figures(a)!.map((f) => f.cents)).toEqual(figures(ahead())!.map((f) => f.cents));
@@ -332,7 +334,7 @@ describe("the coming pay is an estimate", () => {
     expect(incoming(a)[0]).toMatchObject({ day: "23.10.", cents: null, sum: null });
     expect(payNote(a)).toBeNull();
     const out = html(a);
-    expect(out).toContain('<td class="num st-num" data-label="Summa">–</td>');
+    expect(out).toContain('<td class="num" data-label="Summa">–</td>');
     expect(out).not.toContain("noin");
     expect(out).not.toContain("vaihtelee");
   });

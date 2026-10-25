@@ -42,7 +42,8 @@ async function setup(lists: Record<string, string[] | null>) {
     // the header names of the calls to a route, one entry for each different set (a paged route is called more than once)
     return (route: string) => [...new Set(sent.filter((c) => c.route.endsWith(route)).map((c) => JSON.stringify(Object.keys(c.psu).sort())))].map((j) => JSON.parse(j) as string[]);
   };
-  const triggers = async () => (await app.s.db.all<{ trigger: string }>("SELECT trigger FROM account_fetch ORDER BY at, rowid")).map((r) => r.trigger);
+  // a backfill of older days is noted apart
+  const triggers = async () => (await app.s.db.all<{ trigger: string }>("SELECT trigger FROM account_fetch WHERE trigger NOT LIKE 'backfill%' ORDER BY at, rowid")).map((r) => r.trigger);
   return { ...app, manual, triggers, idle };
 }
 

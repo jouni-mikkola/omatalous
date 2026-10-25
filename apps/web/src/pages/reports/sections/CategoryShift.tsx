@@ -2,8 +2,8 @@
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import {
   type Column,
-  DataTable,
-} from "../../../components/table/DataTable.tsx";
+  Table,
+} from "../../../components/table/Table.tsx";
 import { money, signedMoney } from "../../../format.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -88,7 +88,8 @@ function ShiftTable({
       ? [
           {
             key: "bar",
-            label: "",
+            label: "Muutoksen suuruus",
+            headHidden: true,
             kind: "text" as const,
             className: () => "shift-bar-cell",
             cell: (x: ShiftItem) => (
@@ -111,11 +112,9 @@ function ShiftTable({
     },
   ];
   return (
-    <DataTable
-      id={bars ? "shift-bars" : "shift-table"}
+    <Table
       caption="Menojen muutos kategorioittain"
-      phone="scroll"
-      className="compact shift-table"
+      className="shift-table"
       rows={[...items]}
       rowKey={(x) => x.key}
       columns={columns}
@@ -127,24 +126,16 @@ function ShiftTable({
 /** The causes of the change set against the same months a year earlier: core's bars, which add up to the change. */
 function CauseTable({ bars }: { bars: NonNullable<SectionProps["ctx"]["data"]["rangeChange"]>["bars"] }) {
   return (
-    <table className="compact ruled">
-      <thead>
-        <tr>
-          <th>Kategoria</th>
-          <th>Syy</th>
-          <th className="num">Muutos</th>
-        </tr>
-      </thead>
-      <tbody>
-        {bars.map((b, i) => (
-          <tr key={i}>
-            <td>{b.label}</td>
-            <td className="muted">{b.cause ? `${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""}` : ""}</td>
-            <td className={`num ${b.cents > 0 ? "worse" : "better"}`}>{signedMoney(b.cents)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Table
+      caption="Mistä muutos tuli"
+      rows={bars.map((b, i) => ({ ...b, i }))}
+      rowKey={(b) => String(b.i)}
+      columns={[
+        { key: "label", label: "Kategoria", kind: "text", rowHead: true, cell: (b) => b.label },
+        { key: "cause", label: "Syy", kind: "text", cell: (b) => <span className="muted">{b.cause ? `${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""}` : ""}</span> },
+        { key: "change", label: "Muutos", kind: "money", main: true, className: (b) => (b.cents > 0 ? "worse" : "better"), cell: (b) => signedMoney(b.cents) },
+      ]}
+    />
   );
 }
 
@@ -176,10 +167,8 @@ function CategoryShift({ ctx }: SectionProps) {
         {items.length > 0 && <ShiftTable items={items} bars />}
       </QuestionChart>
       {causes && causes.bars.length > 0 && (
-        <QuestionChart id="siirtymat-syy" question="Mistä muutos tuli vuoden takaiseen verrattuna?" answer={causes.sentence} table={<CauseTable bars={causes.bars} />}>
-          <div className="table-wrap">
-            <CauseTable bars={causes.bars} />
-          </div>
+        <QuestionChart id="siirtymat-syy" question="Mistä muutos tuli vuoden takaiseen verrattuna?" answer={causes.sentence}>
+          <CauseTable bars={causes.bars} />
         </QuestionChart>
       )}
     </ReportPanel>

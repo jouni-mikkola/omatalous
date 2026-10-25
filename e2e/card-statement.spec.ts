@@ -1,4 +1,4 @@
-import { type Browser, expect, test } from "@playwright/test";
+import { type Browser, type Page, expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { makeMember, removeMember, watch } from "./helpers.ts";
 
@@ -71,15 +71,23 @@ async function importFile(browser: Browser) {
 
 const food = async (context: Awaited<ReturnType<typeof importFile>>["context"]) => JSON.stringify((await (await context.request.get("/api/dashboard")).json()) as unknown);
 
+async function openStatement(page: Page) {
+  const row = page.locator("table.tx-table tbody tr:not(.rt-detail)", { hasText: "ESIMERKKI KORTTILASKU" });
+  const open = row.locator(".rt-drill");
+  if ((await open.getAttribute("aria-expanded")) !== "true") await open.click();
+  await page.locator(".rt-detail").getByRole("button", { name: "Erittele ostot" }).click();
+}
+
 test("pasted statement lines are read, saved, told on the bill row, and undone", async ({ browser }) => {
   const { context, page } = await importFile(browser);
   const seen = watch(page);
   const before = await food(context);
   await page.goto("/#/transactions?merchant=ESIMERKKI%20KORTTILASKU");
   await page.reload();
-  const row = page.locator("tr", { hasText: "ESIMERKKI KORTTILASKU" });
+  const row = page.locator("table.tx-table tbody tr:not(.rt-detail)", { hasText: "ESIMERKKI KORTTILASKU" });
   await expect(row.getByText("Korttilasku: ostot eivät näy")).toBeVisible();
-  await row.getByRole("button", { name: "Erittele ostot" }).click();
+  await expect(row.locator("button, a[href]")).toHaveCount(1);
+  await openStatement(page);
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "Erittele ostot" })).toBeVisible();
   const lines = [`${fi(dayOf(5))} K-MARKET ESIMERKKI 12,50`, `${fi(dayOf(4))} ESIMERKKI RAVINTOLA 8,00`, `${fi(dayOf(3))} S-MARKET ESIMERKKI 25,00`, `${fi(dayOf(2))} MAKSU KIITOS 100,00`];
@@ -105,7 +113,7 @@ test("pasted statement lines are read, saved, told on the bill row, and undone",
   expect(await food(context)).not.toBe(before);
 
   // opened again it holds the saved rows; Poista erittely brings the bill back whole
-  await row.getByRole("button", { name: "Erittele ostot" }).click();
+  await openStatement(page);
   await expect(page.getByRole("dialog").locator(".cs-rows tbody tr")).toHaveCount(3);
   await page.setViewportSize({ width: 390, height: 800 });
   // the dialog fades in over 200 ms: wait it out, then it is opaque and nothing of the page shows through
@@ -126,7 +134,7 @@ test("pasted statement lines are read, saved, told on the bill row, and undone",
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   await page.getByRole("dialog").getByRole("button", { name: "Poista erittely" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".tx-item", { hasText: "ESIMERKKI KORTTILASKU" }).getByText("Korttilasku: ostot eivät näy")).toBeVisible();
+  await expect(row.getByText("Korttilasku: ostot eivät näy")).toBeVisible();
   expect(await food(context)).toBe(before);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -136,7 +144,7 @@ test("the server's sentence shows when the rows are over the bill", async ({ bro
   const { context, page } = await importFile(browser);
   await page.goto("/#/transactions?merchant=ESIMERKKI%20KORTTILASKU");
   await page.reload();
-  await page.locator("tr", { hasText: "ESIMERKKI KORTTILASKU" }).getByRole("button", { name: "Erittele ostot" }).click();
+  await openStatement(page);
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Liitä rivit").fill(`${fi(dayOf(5))} ESIMERKKI KAUPPA 999,00`);
   await dialog.getByRole("button", { name: "Lue", exact: true }).click();

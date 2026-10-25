@@ -126,6 +126,7 @@ const STORES: readonly ExportStore[] = [
   // a loan another member typed is in the viewer's figures as a copy, not as the row the member stored
   { key: "loans", table: "loans", rows: mine, order: "created_at, id" },
   { key: "expectedBills", table: "expected_bills", rows: mine, order: "created_at, id" },
+  { key: "spendingGoals", table: "spending_goal", rows: mine, order: "user_id" },
   { key: "optimiseInputs", table: "optimise_inputs", rows: mine, order: "user_id, key" },
   { key: "optimiseStates", table: "optimise_states", rows: mine, order: "user_id, finding_id" },
   { key: "optimiseSnapshots", table: "optimise_snapshots", rows: mine, order: "user_id, month" },
@@ -158,6 +159,7 @@ const LEFT_OUT: Readonly<Record<string, string>> = {
   bank_credentials: "the bank application's private key",
   connections: "the bank consents and their state; a restore connects the banks again",
   user_factor: "second-factor secrets",
+  service_tokens: "read-only keys for scripts: a token hash opens the data, and a copy makes none",
   access_token: "hashes of access tokens",
   account_fetch: "a log of when balances were fetched",
   sync_runs: "a log of fetches",

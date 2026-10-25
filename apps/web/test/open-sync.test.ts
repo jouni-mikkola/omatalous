@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { lineText, type OpenSync, shouldAsk } from "../src/open-sync.ts";
 
-const NOW = new Date(2026, 9, 13, 20, 0);
-const at = (day: number, h: number, min: number) => new Date(2026, 9, day, h, min).toISOString();
+// the clock of the instance (Europe/Helsinki, +03:00 until 25.10.), not the machine's
+const stamped = (day: number, h: number, min: number) => `2026-10-${String(day).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}:00+03:00`;
+const NOW = new Date(stamped(13, 20, 0));
+const at = (day: number, h: number, min: number) => new Date(stamped(day, h, min)).toISOString();
 const answer = (o: Partial<OpenSync>): OpenSync => ({ state: "fresh", lastAt: null, inserted: 0, nextAt: null, ...o });
 
 describe("the line at the top", () => {

@@ -2,7 +2,7 @@ import type { BrowserContext, Page } from "@playwright/test";
 
 /**
  * The cockpit's answers on top of the first page's own: the server of this build may not give them yet, so a spec shows
- * the page the answer it will have. Made-up figures; the bars are built from the month's own categories and add up to Yli jäi.
+ * the page the answer it will have. Made-up figures; the bars are built from the month's own categories and add up to Tulos.
  */
 export interface Cockpit {
   /** The month has no rows: the answer says so with null. */

@@ -37,7 +37,7 @@ td.share { min-width: var(--share-w); }
 /* M12 the sum bracket: these rows add up, to the cent, to the sum it runs into (addsUp) */
 .adds-up { --mark-gutter: var(--mark-gap); }
 .adds-up > .st-row { padding-right: var(--mark-gap); }
-/* the bracket is drawn on the .st-row itself; a table's is on its cell (rich-table.css) */
+/* the bracket is drawn on the .st-row itself; a table's is on its cell (table.css) */
 .adds-up > .st-row:not(.st-total) { box-shadow: inset -1px 0 0 var(--axis); background-repeat: no-repeat; background-size: 4px 1px; }
 .adds-up > .part-first:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 0; }
 .adds-up > .part-last:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 100%; }

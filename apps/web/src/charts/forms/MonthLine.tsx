@@ -98,7 +98,6 @@ export function MonthLine({ months, values, complete, usual, usualLabel, marks, 
 export function MonthLineTable({ months, values, complete, label }: { months: string[]; values: (number | null)[]; complete: boolean[]; label: string }) {
   return (
     <ChartTable
-      id={`monthline-${label}`}
       xLabel="Kuukausi"
       series={[{ key: "v", label }]}
       rows={months.map((m, i) => ({ key: m, label: `${monthLong(m)}${complete[i] ? "" : " (vajaa)"}`, values: [values[i] ?? null] }))}

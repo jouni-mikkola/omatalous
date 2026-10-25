@@ -10,7 +10,7 @@ import { query } from "../../api.ts";
 import { money } from "../../format.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import type { DashboardData } from "../../types.ts";
-import { type Column, DataTable } from "../table/DataTable.tsx";
+import { type Column, Table } from "../table/Table.tsx";
 import { DASH, housingView, LOAN_COLUMNS } from "./housing.ts";
 import "../../styles/statement.css";
 import "../../styles/housing.css";
@@ -23,30 +23,23 @@ type View = ReturnType<typeof housingView>;
 type Row = View["loans"][number];
 
 /**
- * The table Lainat. From 1040 px it is a table with a head; below that each loan is a grid of the same labels and
- * values (housing.css), so every cell carries its label and the group head of the next payment for that form.
+ * The table Lainat: one row a loan, the terms after its name. The three columns of the next payment stand under the group
+ * head "Seuraava maksuerä", and on a phone each carries it in its name.
  */
 function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: string }) {
   // the column of the links is there only when a row has one: without it the months stand on the block's right edge
   const linked = rows.some((row) => row.link !== null);
   const next = LOAN_COLUMNS.filter((c) => c.next);
   const before = LOAN_COLUMNS.filter((c) => !c.next && c.key !== "month");
-  const loanColumn = (c: (typeof LOAN_COLUMNS)[number]): Column<Row>[] => [
-    // the group head of the next payment stands in the first cell of that group, for the form of a phone (housing.css)
-    ...(c.key === "due" ? [{ key: "group", label: NEXT_PAYMENT, kind: "text" as const, className: () => "housing-group", cell: () => NEXT_PAYMENT }] : []),
-    {
-      key: c.key,
-      label: c.head,
-      kind: c.figure ? "money" : "text",
-      className: () => `housing-${c.key}${c.figure ? " st-num" : ""}`,
-      cell: (row) => (
-        <>
-          <span className="housing-label">{c.head}</span>
-          <span>{row.cells[c.key]}</span>
-        </>
-      ),
-    },
-  ];
+  const loanColumn = (c: (typeof LOAN_COLUMNS)[number]): Column<Row> => ({
+    key: c.key,
+    label: c.head,
+    text: c.next ? `${NEXT_PAYMENT}: ${c.head.toLowerCase()}` : c.head,
+    kind: c.figure ? "money" : "text",
+    main: c.key === "month",
+    className: () => `housing-${c.key}`,
+    cell: (row) => row.cells[c.key],
+  });
   const columns: Column<Row>[] = [
     {
       key: "name",
@@ -58,39 +51,36 @@ function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: stri
       cell: (row) => (
         <>
           <a href={row.saved ? `#/reports#${reportAnchor}` : paymentsOf(row.name)}>{row.name}</a>
-          {row.lender && <span className="st-sub">{row.lender}</span>}
-          {row.part && <span className="st-sub">{row.part}</span>}
+          {row.lender && <span className="sub">{row.lender}</span>}
+          {row.part && <span className="sub">{row.part}</span>}
         </>
       ),
     },
-    ...LOAN_COLUMNS.flatMap(loanColumn),
+    ...LOAN_COLUMNS.map(loanColumn),
     ...(linked
-      ? [{ key: "link", label: "", kind: "text" as const, className: () => "housing-link", cell: (row: Row) => (row.link ? <a href={SETTINGS_LOANS}>{row.link}</a> : null) }]
+      ? [{ key: "link", label: "Toiminnot", headHidden: true, kind: "text" as const, className: () => "housing-link", cell: (row: Row) => (row.link ? <a href={SETTINGS_LOANS}>{row.link}</a> : null) }]
       : []),
   ];
-  const figureHead = (c: { figure: boolean }) => (c.figure ? "st-num" : undefined);
+  const figureHead = (c: { figure: boolean }) => (c.figure ? "num" : undefined);
   return (
     <div className="st-part">
       <h3 className="st-cap" id="housing-loans-h">
         Lainat
       </h3>
-      <DataTable<Row>
-        id="housing-loans"
+      <Table<Row>
         caption="Lainat"
         rows={rows}
         rowKey={(row) => row.key}
         columns={columns}
-        phone="none"
-        plain
-        className="st-table housing-loans"
+        className="housing-loans"
         headTop={{
           covered: ["name", ...before.map((c) => c.key), "group", "month", ...(linked ? ["link"] : [])],
           cells: [
             { key: "name", label: "Laina", rowSpan: 2 },
             ...before.map((c) => ({ key: c.key, label: c.head, rowSpan: 2, className: figureHead(c) })),
             { key: "next", label: NEXT_PAYMENT, colSpan: next.length },
-            { key: "month", label: "Kuussa", rowSpan: 2, className: "st-num" },
-            ...(linked ? [{ key: "link", label: "", rowSpan: 2, empty: true }] : []),
+            { key: "month", label: "Kuussa", rowSpan: 2, className: "num" },
+            ...(linked ? [{ key: "link", label: "Toiminnot", rowSpan: 2, hidden: true }] : []),
           ],
         }}
       />
@@ -107,10 +97,11 @@ function Charges({ rows, addsUp, total }: { rows: View["charges"]; addsUp: boole
       key: "kind",
       label: "Kulu",
       kind: "text",
+      rowHead: true,
       cell: (row) => (
         <>
           {row.kind}
-          {row.part && <span className="st-sub">{row.part}</span>}
+          {row.part && <span className="sub">{row.part}</span>}
         </>
       ),
     },
@@ -118,7 +109,6 @@ function Charges({ rows, addsUp, total }: { rows: View["charges"]; addsUp: boole
       key: "payee",
       label: "Saaja",
       kind: "text",
-      className: () => "st-cut",
       title: (row) => row.payee,
       cell: (row) => <a href={paymentsOf(row.payee)}>{row.payee}</a>,
     },
@@ -126,7 +116,8 @@ function Charges({ rows, addsUp, total }: { rows: View["charges"]; addsUp: boole
       key: "cents",
       label: "Kuussa",
       kind: "money",
-      className: (row) => `st-num sum${row.share ? " share" : ""}`,
+      main: true,
+      className: (row) => `sum${row.share ? " share" : ""}`,
       style: (row) => (row.share ? ({ "--from": row.share.from, "--part": row.share.part } as CSSProperties) : undefined),
       cell: (row) => money(row.cents),
     },
@@ -136,17 +127,14 @@ function Charges({ rows, addsUp, total }: { rows: View["charges"]; addsUp: boole
       <h3 className="st-cap" id="housing-charges-h">
         Asumiskulut
       </h3>
-      <DataTable<ChargeRowView>
-        id="housing-charges"
+      <Table<ChargeRowView>
         caption="Asumiskulut"
         rows={rows}
         rowKey={(row) => row.key}
         columns={columns}
-        phone="none"
-        plain
-        className="st-table housing-charges"
+        className="housing-charges"
         sums={addsUp ? ["cents"] : undefined}
-        total={total && { label: total.label, cells: { cents: <span className="st-num">{total.cents === null ? DASH : money(total.cents)}</span> } }}
+        total={total && { label: total.label, cells: { cents: total.cents === null ? DASH : money(total.cents) } }}
       />
     </>
   );

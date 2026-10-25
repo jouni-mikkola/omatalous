@@ -319,6 +319,8 @@ export interface UserInputs {
   loans?: readonly Loan[];
   /** The member's payer roles. Left out, no payer is asked about; given (even empty), the steady ones are. */
   payers?: PayerInput;
+  /** The monthly spending goal in cents (`spending-goal.ts`). Left out or null, the user has set none. */
+  spendingGoalCents?: number | null;
 }
 
 export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [], loans: [] };

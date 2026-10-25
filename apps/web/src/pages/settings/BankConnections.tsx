@@ -3,20 +3,23 @@
  * (components/BankPicker.tsx: the banks the server offers), the list
  * shows each consent's validity and the accounts it reads (name and IBAN, so two consents of one holder differ),
  * and a fallback finishes a consent whose redirect page did not open. Every consent has "Yhdistä uudelleen", which starts
- * the same bank again, and a calendar file with a reminder before it ends. After a link the page lists the accounts
+ * the same bank again, and a calendar file with a reminder before it ends. When two or more consents are due, one round
+ * renews them all, one after the other (RenewalRound.tsx). After a link the page lists the accounts
  * the bank handed over that Enable Banking does not let the app read, and offers the next bank, and asks who uses a new
  * joint account (LinkQuestion, on that visit only).
  */
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { bankIdForInstitution, logoForInstitution } from "../../banks.ts";
 import { BankLogo } from "../../components/BankLogo.tsx";
 import { BankPicker, lastUsedBank } from "../../components/BankPicker.tsx";
-import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText, WARN_DAYS } from "../../consent-notices.ts";
-import { accountNumber, date, dateTime, plural } from "../../format.ts";
+import { WARN_DAYS, type RoundView } from "@banking/core";
+import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../../consent-notices.ts";
+import { accountNumber, date, dateTime, localDay, plural } from "../../format.ts";
 import type { Account, BankOption, Connection, Meta } from "../../types.ts";
 import { LinkQuestion } from "./AccountUse.tsx";
+import { RenewalRound } from "./RenewalRound.tsx";
 
 /**
  * The bank callback sends only these codes (routes/bank.ts). The link reasons have the same words as LINK_FAILURES in
@@ -42,7 +45,7 @@ export function connectError(code: string): string {
 /** The Tila column: the same words as the notice and Tietojen laatu, and no date ahead for a consent that broke or ended before its date. */
 export function connectionStateText(c: Pick<Connection, "state" | "validUntil">, today = ""): string {
   // an end marked before its date is no "vanhentui" with a date ahead
-  if (c.state === "lapsed") return today && (c.validUntil ?? "").slice(0, 10) > today ? "päättynyt" : `vanhentui ${date(c.validUntil)}`;
+  if (c.state === "lapsed") return today && (c.validUntil ? localDay(c.validUntil) : "") > today ? "päättynyt" : `vanhentui ${date(c.validUntil)}`;
   if (c.state === "broken") return "katkesi";
   if (c.state === "removed") return "poistettu";
   return "käytössä";
@@ -75,7 +78,7 @@ export function fetchedText(conn: Pick<Connection, "id" | "state" | "lastSyncedA
   const last = own.reduce<string | null>((late, a) => (a.lastSyncedAt && (!late || a.lastSyncedAt > late) ? a.lastSyncedAt : late), null);
   if (last) return dateTime(last);
   if (conn.state !== "active" || !own.length) return dateTime(conn.lastSyncedAt);
-  if (own.some((a) => a.problem?.kind === "not_linked")) return "Ei linkitetty Control Panelissa";
+  if (own.some((a) => a.problem?.kind === "not_linked")) return "Ei lisätty Control Panelissa";
   if (own.some((a) => a.problem?.kind === "failed")) return "Haku epäonnistui";
   return "Odottaa ensimmäistä hakua";
 }
@@ -88,7 +91,7 @@ export function fetchedText(conn: Pick<Connection, "id" | "state" | "lastSyncedA
 export function connectedMessage(accounts: number): { tone: "good" | "warning"; text: string } {
   return accounts > 0
     ? { tone: "good", text: `Pankki yhdistetty, ${plural(accounts, "tili", "tiliä")}. Tapahtumat tulevat hetken päästä.` }
-    : { tone: "warning", text: "Pankki ei antanut tilejä. Linkitä tilit Enable Bankingissa (Link accounts) ja yritä uudelleen." };
+    : { tone: "warning", text: "Pankki ei antanut tilejä. Lisää tilit Enable Bankingissa (Link accounts) ja yritä uudelleen." };
 }
 
 /**
@@ -205,13 +208,14 @@ export function BankConnections({
     }
   };
 
-  const connect = (bank: string) => {
+  // `which` names the bank when the press already knows it; the round's first press learns it from the server
+  const connect = (bank: string, which: () => Promise<string> = async () => bank) => {
     // paste mode: the bank's last page is an error page whose address the user copies here, so the bank opens
     // in a new tab (from this click, or the popup blocker stops it) and this page stays with the paste box open
     const tab = mode === "paste" ? window.open("", "_blank") : null;
     return run(`connect-${bank}`, async () => {
       try {
-        const { url } = await api<{ url: string }>("/api/connections/start", { method: "POST", body: { bank, returnTo: window.location.origin } });
+        const { url } = await api<{ url: string }>("/api/connections/start", { method: "POST", body: { bank: await which(), returnTo: window.location.origin } });
         if (tab) {
           tab.opener = null;
           tab.location.href = url;
@@ -234,6 +238,13 @@ export function BankConnections({
     if (bank) void connect(bank);
     else openPicker();
   };
+  // the round: the server picks the consents that are due and the first one is started at once
+  const startRound = () =>
+    void connect("round", async () => {
+      const round = await api<RoundView>("/api/connections/round", { method: "POST", body: {} });
+      return round.consents.find((c) => !c.done)!.bank;
+    });
+  const closeRound = () => void run("round-close", () => api("/api/connections/round", { method: "DELETE" }).then(() => undefined));
   const canReconnect = (c: Connection) => c.state !== "removed";
   // the reminder is offered while its day has not passed
   const reminderOf = (c: Connection) => {
@@ -281,7 +292,7 @@ export function BankConnections({
             <p className="small muted">Lisää jokainen tili ja luottokortti erikseen.</p>
           ) : meta.bank.inactive ? (
             <div className="notice warning">
-              {CONNECT_ERRORS.inactive} Kun tilit on linkitetty, yhteys testataan uudelleen, kun valitset pankin.
+              {CONNECT_ERRORS.inactive} Kun tilit on lisätty, yhteys testataan uudelleen, kun valitset pankin.
             </div>
           ) : isAdmin ? (
             <div className="notice warning">
@@ -292,6 +303,8 @@ export function BankConnections({
           )}
         </BankPicker>
       )}
+
+      <RenewalRound meta={meta} disabled={!canStart || busy !== null} busy={busy} onStart={startRound} onNext={(bank) => void connect(bank)} onClose={closeRound} />
 
       {unlinked.length > 0 && (
         <div className="notice warning unlinked" role="status">
@@ -316,10 +329,8 @@ export function BankConnections({
       )}
 
       {current.length > 0 ? (
-        <DataTable
-          id="bank-connections"
+        <Table
           caption="Pankkiyhteydet"
-          className="conn-table"
           rows={current}
           rowKey={(c) => c.id}
           columns={[
@@ -374,6 +385,7 @@ export function BankConnections({
             {
               key: "actions",
               label: "Toiminnot",
+              headHidden: true,
               kind: "text",
               className: () => "num",
               cell: (c) => (
@@ -398,7 +410,7 @@ export function BankConnections({
                       Poista
                     </button>
                   )}
-                        </span>
+                </span>
               ),
             },
           ]}

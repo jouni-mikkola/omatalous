@@ -97,8 +97,10 @@ after_kill() {
   : >"$S/calls.log"; rm -f "$S/report.json"; touch "$CL/ops/last-check"
   printf '#!/bin/sh\necho "update.sh $*" >>"$OPS_STUB_DIR/calls.log"\nexit 1\n' >"$CL/scripts/update.sh"; chmod 755 "$CL/scripts/update.sh"
 }
-# a tick the stub kills the helper in (the shell's own "Killed" line is not a finding)
-killed_tick() { tick 2>/dev/null; after_kill; }
+# a tick the stub kills the helper in (the shell's own "Killed" line is not a finding). The next tick comes a minute later
+# in life: here it waits until the dead helper's children (the `timeout` of the stub) let go of the lock they inherited,
+# or that tick would find the lock held and do nothing.
+killed_tick() { tick 2>/dev/null; flock -w 20 "$CL/ops/.lock" true; after_kill; }
 # this world's copy of the helper writes every command it runs, as bash expanded it, into S/trace
 traced() { sed -i 's|^set +x$|exec 9>>"$OPS_STUB_DIR/trace"; BASH_XTRACEFD=9; set -x|' "$CL/scripts/ops-helper.sh"; }
 n_calls() { grep -cE "$1" "$S/calls.log" || true; }

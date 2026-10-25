@@ -30,15 +30,19 @@ const DAY_MS = 86_400_000;
  */
 const SCHEDULE_WINDOW_MS = DAY_MS - 3600_000;
 
-/** The fetches that are left out at the limit: the schedule, and an open that could not give the member's headers. */
-const LIMITED = new Set(["schedule", "open-bare"]);
+/**
+ * The fetches that are left out at the limit: the schedule, an open that could not give the member's headers, and a
+ * window of the backfill made without them (the home network gives none: psu.ts).
+ */
+const LIMITED = new Set(["schedule", "open-bare", "backfill-bare"]);
 
 /**
  * The accounts (by key) that this kind of fetch leaves out now. The day is the 24 hours before now, counted over the
  * calls of every member, so a joint account fetched by two members has one count. A scheduled fetch is left out at four
  * unattended fetches of the account. An open without headers is left out at four less the sync hours, which keeps the
- * scheduled fetches of the day their room. A manual or connect fetch without the member's headers is counted like an open
- * without them, but never left out: the user asked for it. One with the headers is not counted.
+ * scheduled fetches of the day their room, and a backfill window without headers likewise. A manual or connect fetch
+ * without the member's headers is counted like an open without them, but never left out: the user asked for it. One with
+ * the headers is not counted.
  */
 export async function accountsAtLimit(s: Services, keys: readonly string[], trigger: string): Promise<Set<string>> {
   if (!LIMITED.has(trigger)) return new Set();
@@ -50,7 +54,7 @@ export async function accountsAtLimit(s: Services, keys: readonly string[], trig
   for (const key of unique) {
     const own = notes.filter((n) => n.accountKey === key);
     const bare = own.filter((n) => n.trigger !== "schedule").length;
-    const scheduled = own.filter((n) => n.trigger === "schedule" && (trigger === "open-bare" || Date.parse(n.at) > now - SCHEDULE_WINDOW_MS)).length;
+    const scheduled = own.filter((n) => n.trigger === "schedule" && (trigger !== "schedule" || Date.parse(n.at) > now - SCHEDULE_WINDOW_MS)).length;
     const limit = trigger === "schedule" ? UNATTENDED_PER_DAY : Math.max(0, UNATTENDED_PER_DAY - hours);
     if (trigger === "schedule" ? bare + scheduled >= limit : bare >= limit || bare + scheduled >= UNATTENDED_PER_DAY) full.add(key);
   }

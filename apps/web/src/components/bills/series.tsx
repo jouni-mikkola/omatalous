@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CADENCE_LABEL, date, money, monthYear } from "../../format.ts";
 import type { Recurring as Series } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { DataTable, type Column } from "../table/DataTable.tsx";
+import { Table, type Column } from "../table/Table.tsx";
 import { ContractPanel } from "./ContractPanel.tsx";
 
 /** "kuukausittain", or "11 kertaa vuodessa" for a monthly fee with a summer break. */
@@ -12,7 +12,7 @@ function frequency(s: Series): string {
   return s.cadence === "monthly" && perYear < 12 ? `${perYear} kertaa vuodessa` : CADENCE_LABEL[s.cadence] ?? "–";
 }
 
-/** One table of series, widest columns hidden on a phone. A contract's lines open under its row from the start under the name. */
+/** One table of series. A contract's lines open under its row from the start under the name. */
 export function SeriesTable({ rows, label, ended, contract }: { rows: readonly Series[]; label: (id: string) => string; ended?: boolean; contract?: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
   const contractOf = (s: Series) => (contract ? s.contract : undefined);
@@ -21,6 +21,7 @@ export function SeriesTable({ rows, label, ended, contract }: { rows: readonly S
       key: "merchant",
       label: "Saaja",
       kind: "text",
+      rowHead: true,
       cell: (s) => {
         const c = contractOf(s);
         return (
@@ -41,10 +42,10 @@ export function SeriesTable({ rows, label, ended, contract }: { rows: readonly S
         );
       },
     },
-    { key: "frequency", label: "Tiheys", kind: "text", phone: "hide", cell: frequency },
-    { key: "typical", label: "Summa", kind: "money", phone: "hide", cell: (s) => money(s.typicalAmountCents) },
-    { key: "month", label: "Kuussa", kind: "money", className: () => "sum", cell: (s) => <strong>{money(s.monthlyCents, false)}</strong> },
-    { key: "year", label: "Vuodessa", kind: "money", phone: "hide", cell: (s) => money(s.yearlyCents, false) },
+    { key: "frequency", label: "Tiheys", kind: "text", cell: frequency },
+    { key: "typical", label: "Summa", kind: "money", cell: (s) => money(s.typicalAmountCents) },
+    { key: "month", label: "Kuussa", kind: "money", main: true, cell: (s) => money(s.monthlyCents, false) },
+    { key: "year", label: "Vuodessa", kind: "money", cell: (s) => money(s.yearlyCents, false) },
     {
       key: "next",
       label: ended ? "Viimeksi" : "Seuraava",
@@ -63,25 +64,20 @@ export function SeriesTable({ rows, label, ended, contract }: { rows: readonly S
     },
   ];
   return (
-    <div className="table-wrap">
-      <DataTable<Series>
-        id={ended ? "series-ended" : "series"}
-        caption={ended ? "Päättyneet sopimukset ja tilaukset" : "Sopimukset ja tilaukset"}
-        rows={[...rows]}
-        rowKey={(s) => s.id}
-        columns={columns}
-        phone="none"
-        plain
-        className="series-table"
-        open={open}
-        onOpen={setOpen}
-        drillButton={false}
-        drill={(s) => {
-          const c = contractOf(s);
-          return c ? <ContractPanel contract={c} /> : null;
-        }}
-      />
-    </div>
+    <Table<Series>
+      caption={ended ? "Päättyneet sopimukset ja tilaukset" : "Sopimukset ja tilaukset"}
+      rows={[...rows]}
+      rowKey={(s) => s.id}
+      columns={columns}
+      className="series-table"
+      open={open}
+      onOpen={setOpen}
+      drillButton={false}
+      drill={(s) => {
+        const c = contractOf(s);
+        return c ? <ContractPanel contract={c} /> : null;
+      }}
+    />
   );
 }
 

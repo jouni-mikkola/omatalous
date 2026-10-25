@@ -18,10 +18,10 @@ import { loanBalanceOn, loansOf } from "../../loans.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { FIGURE_UNKNOWN, loansWithout, loansWithoutRate, maybeTwice, SAME_DEBT_TWICE } from "../../reports/loans.ts";
 import type { BalanceInput, Loan } from "../../types.ts";
-import { annualise, eur, findingId, MAX_ROWS, monthEndDays, ownAccounts, pct, rowsById, savingsYield, usualSpend, walksOf } from "../common.ts";
+import { annualise, eur, findingId, MAX_ROWS, monthEndDays, ownAccounts, pct, rowsById, savingsYield, usualSpend, walksOf, WHY_FACTS, whyHistory } from "../common.ts";
 import { type Fact, factOn, isSampleFact } from "../facts/index.ts";
 import { LOAN_REFERENCE_LABEL, valueOf } from "../inputs.ts";
-import type { Area, AreaInput, AreaSummary, Check, FindingDraft, LoanReference } from "../types.ts";
+import type { Area, AreaInput, AreaSummary, Check, FindingDraft, LoanReference, NoDataWhy } from "../types.ts";
 
 /** The margin finding needs a margin this far over the offers' top: 0,2 percentage points, in hundredths of a percent. */
 const MARGIN_OVER_TOP_BP = 20;
@@ -42,6 +42,9 @@ const LABELS = { margin: "Asuntolainan marginaali", prepay: "Lainan lyhentämine
 type Kind = keyof typeof LABELS;
 type Outcome = { check: Check; draft?: FindingDraft };
 
+/** Causes that are no short history and no outside figure: the loan's balance and the accounts' balance history are missing. */
+const NO_BALANCE: NoDataWhy = { cause: "other", text: "Lainan jäljellä oleva määrä puuttuu." };
+const NO_BALANCES: NoDataWhy = { cause: "other", text: "Tilien saldohistoria ei riitä koron tarkistamiseen." };
 const checkOf = (kind: Kind, status: Check["status"], extra: Partial<Check> = {}): Outcome => ({ check: { id: `loans:${kind}`, label: LABELS[kind], status, ...extra } });
 const round10 = (cents: number) => Math.round(cents / 1000) * 1000;
 const margin = (bp: number) => pct(bp / 10_000);
@@ -147,7 +150,7 @@ interface Mortgage {
 function loanInputs(a: AreaInput, kind: "margin" | "prepay"): Mortgage | Outcome {
   const series = mortgageSeries(a);
   if (!series) return checkOf(kind, "no_subject");
-  if (!a.months.length) return checkOf(kind, "no_data");
+  if (!a.months.length) return checkOf(kind, "no_data", { why: whyHistory(a, 1) });
   const saved = savedMortgage(a, series);
   // a fixed rate cannot be moved to a new margin, and prepaying it usually costs a fee: a saved one needs no margin to say so
   if (saved?.loan.reference === "fixed") return checkOf(kind, "clear");
@@ -166,8 +169,8 @@ function marginFinding(a: AreaInput): Outcome {
   const { series, rate, balance } = inputs;
   const low = factOn("mortgage_margin_sample_low", a.today);
   const high = factOn("mortgage_margin_sample_high", a.today);
-  if (!low || !high) return checkOf("margin", "no_data");
-  if (balance === null) return checkOf("margin", "no_data");
+  if (!low || !high) return checkOf("margin", "no_data", { why: WHY_FACTS });
+  if (balance === null) return checkOf("margin", "no_data", { why: NO_BALANCE });
   const lowBp = Math.round(low.value * 100);
   const highBp = Math.round(high.value * 100);
   if (rate.marginBp < highBp + MARGIN_OVER_TOP_BP) return checkOf("margin", "clear");
@@ -206,10 +209,10 @@ function prepayFinding(a: AreaInput): Outcome {
   const inputs = loanInputs(a, "prepay");
   if ("check" in inputs) return inputs;
   const { series, rate, balance, rateBp } = inputs;
-  if (balance === null) return checkOf("prepay", "no_data");
+  if (balance === null) return checkOf("prepay", "no_data", { why: NO_BALANCE });
   // the rate of a saved mortgage is the household's own figure: the Euribor months are read only without it
   const reference = rateBp === null ? referenceRange(rate.reference, monthOf(a.end), a.today) : null;
-  if (rateBp === null && !reference) return checkOf("prepay", "no_data");
+  if (rateBp === null && !reference) return checkOf("prepay", "no_data", { why: WHY_FACTS });
   const yieldOf = savingsYield(a);
   if (!yieldOf) return checkOf("prepay", "no_data");
   const usual = usualSpend(a);
@@ -271,7 +274,7 @@ const CARD_SIGNALS = ["gap", "stale", "own_unconnected"] as const;
 function cardInterestFinding(a: AreaInput): Outcome {
   const cards = ownAccounts(a, "credit_card");
   if (!cards.length) return checkOf("card_interest", "no_subject");
-  if (!a.months.length) return checkOf("card_interest", "no_data");
+  if (!a.months.length) return checkOf("card_interest", "no_data", { why: whyHistory(a, 1) });
   const cardIds = new Set(cards.map((b) => b.id));
   // Which rows are a card's interest and what they come to is `cardCosts`' to say (ADR 0004): purchase interest only,
   // less what the bank took back. From today its months are the window's.
@@ -280,9 +283,9 @@ function cardInterestFinding(a: AreaInput): Outcome {
   const checking = ownAccounts(a, "checking");
   const walksChecking = checking.length ? walksOf(a, checking) : null;
   const walksCard = walksOf(a, cards);
-  if (!walksChecking || !walksCard) return checkOf("card_interest", "no_data");
+  if (!walksChecking || !walksCard) return checkOf("card_interest", "no_data", { why: NO_BALANCES });
   const flagged = [...checking, ...cards].some((b) => CARD_SIGNALS.some((s) => a.quality.byAccount[b.id]?.includes(s))) || a.quality.signals.some((s) => s.id === "no_balance");
-  if (flagged) return checkOf("card_interest", "no_data");
+  if (flagged) return checkOf("card_interest", "no_data", { why: NO_BALANCES });
   // month ends of the month before the window and of each window month: interest booked in a month counts only when
   // the checking accounts held the card's whole debt at both ends of it
   const ends = monthEndDays([addMonths(a.months[0]!, -1), ...a.months]);

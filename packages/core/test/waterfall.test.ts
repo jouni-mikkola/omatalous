@@ -5,6 +5,7 @@ import { cashflowReport } from "../src/reports/cashflow.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+import { lateCardContext } from "./late-card-household.ts";
 
 const accounts: Account[] = [
   { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" },
@@ -40,13 +41,13 @@ const september: Transaction[] = [
 const ctx = createContext(september, accounts, today);
 
 describe("the month waterfall", () => {
-  it("adds up to the table's Yli jäi, with savings and credit as a bar of their own", () => {
+  it("adds up to the table's Tulos, with savings and credit as a bar of their own", () => {
     const w = monthOnly(ctx, "2026-09")!;
     expect(w.leftCents).toBe(cashflowReport(ctx, { from: "2026-09-01", to: "2026-09-30" }).totals.leftCents);
     expect(sum(w)).toBe(w.leftCents);
     // the money in the default called other income is income, as the table counts it
     expect(bar(w, "income")).toBe(301000);
-    // savings (30 000) and the money landing on the savings account (20 000) leave Yli jäi; the credit drawn is in it
+    // savings (30 000) and the money landing on the savings account (20 000) leave Tulos; the credit drawn is in it
     expect(bar(w, "transfers")).toBe(-30000 - 20000 + 10000);
     // nine categories, all named: the unclassified payment is the category Muut menot, in the order of the category table
     expect(w.bars.map((b) => b.key)).toEqual(["income", "category:housing", "category:groceries", "category:transport", "category:restaurants", "category:health", "category:shopping", "category:entertainment", "category:other", "category:fees", "transfers"]);
@@ -221,7 +222,7 @@ describe("what a bar is made of", () => {
     expect(w.bars.find((b) => b.key === "transfers")).toMatchObject({ usualCents: null, vsUsualCents: null });
   });
 
-  it("gives each bar the running total it starts and ends at, the last ending at Yli jäi", () => {
+  it("gives each bar the running total it starts and ends at, the last ending at Tulos", () => {
     const w = monthOnly(ctx, "2026-09")!;
     expect(w.bars[0]!.fromCents).toBe(0);
     w.bars.forEach((b, i) => {
@@ -229,5 +230,41 @@ describe("what a bar is made of", () => {
       if (i > 0) expect(b.fromCents).toBe(w.bars[i - 1]!.toCents);
     });
     expect(w.bars.at(-1)!.toCents).toBe(w.leftCents);
+  });
+});
+
+describe("the usual only where the data covers it", () => {
+  const october = { from: "2026-10-01", to: "2026-10-31" };
+
+  it("gives no bar a usual or an arrow while the months to compare hold bills of a card that begins later", () => {
+    // the card's rows begin in July; April to June hold its purchases only as card bills, so groceries and restaurants would read 0 usually
+    const w = dashboardWaterfall(lateCardContext("2026-07"), october)!;
+    expect(w.bars.map((b) => b.key)).toEqual(["income", "category:housing", "category:groceries", "category:restaurants"]);
+    expect(w.cardGap).toBe(true);
+    for (const b of w.bars) expect(b).toMatchObject({ usualCents: null, vsUsualCents: null });
+  });
+
+  it("gives no usual either when the card's history is missing with no card bill to show it", () => {
+    const w = dashboardWaterfall(lateCardContext("2026-07", "2026-10-09", false), october)!;
+    expect(w.cardGap).toBe(true);
+    for (const b of w.bars) expect(b).toMatchObject({ usualCents: null, vsUsualCents: null });
+  });
+
+  it("compares every bar when the card's rows cover the months to compare", () => {
+    const w = dashboardWaterfall(lateCardContext("2026-01"), october)!;
+    expect(w.cardGap).toBe(false);
+    expect(w.bars.find((b) => b.key === "category:groceries")).toMatchObject({ cents: -40_000, usualCents: -40_000, vsUsualCents: 0 });
+  });
+
+  it("compares again once the bills are out of the window", () => {
+    const w = dashboardWaterfall(lateCardContext("2026-07", "2027-02-09"), { from: "2027-02-01", to: "2027-02-28" })!;
+    expect(w.cardGap).toBe(false);
+    expect(w.bars.find((b) => b.key === "category:groceries")?.usualCents).toBe(-40_000);
+  });
+
+  it("is no card gap under three complete months: there is just nothing to compare with", () => {
+    const w = dashboardWaterfall(lateCardContext("2026-07", "2026-03-09"), { from: "2026-03-01", to: "2026-03-31" })!;
+    expect(w.cardGap).toBe(false);
+    expect(w.bars.every((b) => b.usualCents === null)).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 /**
  * The household draws a consumer credit of 8 000 € in August, buys a used car for 6 500 € two days later and pays the
- * first instalments in September and October. 0.8.7 review (Yli jäi and the bridge): money a lender pays out is
- * borrowed and no income, it is in Yli jäi, and the month of the car is covered with credit and is no loss the size of
+ * first instalments in September and October. 0.8.7 review (Tulos and the bridge): money a lender pays out is
+ * borrowed and no income, it is in Tulos, and the month of the car is covered with credit and is no loss the size of
  * the car (ADR 0014). No other household of the kit, the demo or the seeds has a borrowed row.
  */
 import { type LifeEvent, rows } from "../frame.ts";

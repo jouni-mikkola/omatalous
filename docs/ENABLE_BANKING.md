@@ -85,7 +85,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   whole address from the address bar and paste it under *Asetukset > Pankkiyhteydet*, in the line *Viimeistele yhteys
   osoitteella*. Then press *Viimeistele*. An install that still ends on the bank's error page has that line as *Liitä
   pankin viimeisen sivun osoite*.
-- The first fetch brings up to two years of history in the background, as much as the bank gives. Omatalous reads no
+- The first fetch brings up to two years of history in the background, as much as the bank gives (a card often gives less, see [How far back a card goes](#how-far-back-a-card-goes)). Omatalous reads no
   files, so there is no import for older history. An account that an earlier version took in from a CSV file stays with
   its rows. When you link the same account (the same IBAN) at the bank, its rows move into the bank's account and are
   not counted twice.
@@ -109,6 +109,17 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   The history stays. When the new consent has its accounts, the old one is no longer in the list. A consent that has
   ended and still has accounts stays in the list, with *Yhdistä uudelleen*.
   Nordea gives one account per consent, so renew each consent you have.
+- When two or more consents end within 14 days or have ended, *Pankkiyhteydet* shows them by name with *Uusi kaikki
+  yhteydet*. The press starts a round: it takes you to the first consent's bank (ended consents first, then the soonest
+  to end), the bank sends you back, and the page lists each consent as *uusittu* or *odottaa* with the next press
+  (*Uusi OP*). A bank with several consents (Nordea gives one account per consent) has a line for each, named by its
+  accounts. Each bank is started by its id from the bank list, as with *Yhdistä uudelleen*, and the bank's own consent
+  page asks for the login and the accounts. A consent is done when it is no longer due: a newer consent took its
+  accounts, so choose at the bank the accounts of the consent you are renewing. The round says *Kaikki yhteydet on
+  uusittu* only when every consent is done. One that stays left (you cancelled at the bank, or the return failed)
+  stays in the list: press it again, or end the round with *Lopeta kierros*. The round is kept per user for seven
+  days, and *Sulje* removes it once it is finished. A bank the list no longer offers is not in the round; renew it from
+  its row.
 - *Muistutus kalenteriin* under the end date downloads a calendar file (`.ics`) with one all-day event seven days before
   the consent ends, "Omatalous: pankkiyhteys vanhenee 14.1.2027". The browser makes the file. It holds the bank's name, the end date
   and the address of Omatalous as you opened it, and no account detail. Open it with the calendar of your phone or computer.
@@ -125,6 +136,121 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 - After a link the server log has one line per account: `bank link <bank id>: cash_account_type=... credit_limit=...
   balance_types=...`. It holds codes and yes or no only, no account number, name or amount. It shows what a bank sends.
 
+## How far back a card goes
+
+A card can show far fewer rows than the current account of the same bank. The case that raised this: a Nordea Gold card
+whose rows began about 30 days before the link, while 72 card bills older than that were in the current account. The
+app's window was not the cause. These are the steps of the first fetch, in `connectors/enable-banking/connector.ts`:
+
+1. The longest history (`strategy=longest`) from `HISTORY_DAYS` ago, 730 days unless *Asetukset > Palvelin* says
+   otherwise.
+2. If the bank answers 400 or 422, the same account from 360 days ago, then from 89 days ago. Nordea refused a card's
+   first request of two years with 400 when the cards were first linked (2026-10-11), so the app takes 12 months as
+   the most one card request may span. 89 days is the most a bank may give without a fresh consent, as the public API describes it.
+
+No step starts later than 89 days back, and later fetches start ten days before the newest row. So rows that begin 30
+days back are what the bank sent, not a window the app cut short. What the instance's own record shows for that card
+(read from its database, read-only, no call to the bank):
+
+- The card was created at the first link (2026-10-11 13:46Z). The six fetches that followed, over the next hour and a
+  half (connect, manual and scheduled), each ended `partial` with "pankki vastasi virheellä 400" for the card and no
+  row stored. The card had no row, so each asked the longest history, which is the request the bank refused. The other
+  accounts of the same consent were fetched without trouble.
+- The fetch after a new consent at 15:45Z was the first to succeed (123 rows fetched, 100 stored), and the card's rows
+  since then begin 2026-09-10 (125 rows to 2026-10-23). That fetch asked for a window of at least 89 days, since no
+  step asks for less than that for a card with no rows, so the bank left out the days before 2026-09-10 in an answer that
+  reached back past them. It was not a window the app shortened.
+
+So the cause is the bank's side: Nordea refused the long request on the first consent and, after a new consent, gave a
+card's rows only from about a month before the link. Public documentation does not say how many days a Nordea card keeps
+(Nordea's card documentation describes what a token may read, and Enable Banking's `longest` strategy is a search
+that returns the rows from the earliest day it found), so the number is the bank's answer, not a limit this page can
+quote. Earlier versions asked for nothing more after the first fetch, and the record of the account said the longest
+history had been asked from two years back, which the card-bill signal under *Asetukset > Tekniset asetukset >
+Tietojen laatu* reads as "the bank gives no older rows" (`before_history`). For this card that reading is right
+for the answers the bank has given so far.
+
+The record `account_history` of such a card shows only the first day of its rows. It was first written on 2026-10-16
+by the version that added it, so it holds nothing of the fetches of 2026-10-11, and its `asked_from` is the earlier of
+the window and the oldest row stored. The sync runs (`sync_runs`) and the `account_fetch` notes are the trace of a
+refusal; the container log is not, since it is gone when the container is recreated.
+
+The backfill. A fetch the member starts (*Hae nyt*, or the fetch after a link) with the member's headers asks again for
+the days before the oldest booked row (before today, when the account has booked none yet), in windows of at most
+12 months with an end day, back to five years (`BACKFILL_REACH_DAYS`), which is further than the 730 days of the first
+fetch. A window with no row does not end the walk, since a card unused for a year still has older purchases; the reach
+and at most six windows do. The days asked for are recorded, so the next walk starts where this one ended and the
+empty windows past a bank's edge are asked once. When the bank refuses a window, it asks for the part of it within
+360 days, then within 89 days, and stops there. It runs once a month for an account, and a refusal is not an error. The fetch right after a new
+consent always runs it, since that is when the bank gives the most. A fetch in the background never runs it. An
+account that already exists is covered the same way: its record holds the first day it was asked for, so the next
+*Hae nyt* after the update asks for the years before its first row.
+
+On the home network. An install opened at a home network address (`http://192.168.x.x:8080`, the normal case) sees the
+member's address as a private one, and Omatalous never sends a private address as `Psu-Ip-Address` (`psu.ts`). With
+no Psu headers, Enable Banking and the bank treat the fetch as one made in the background, which a bank may limit to
+four a day for an account. So *Hae nyt* there is noted `manual-bare`, and the backfill follows the rules of an
+unattended call:
+
+- Only *Hae nyt* walks. Each window is a call to the bank, noted `backfill-bare` in `account_fetch` and counted with the
+  other unattended calls of the account (`bank-limit.ts`). A window is made only while the account has room by the rule
+  of an open without headers: fewer than four calls in the last 24 hours, and fewer than four less the sync hours made
+  by hand, which leaves the scheduled fetches of the day their share. With the default sync hours (6 and 18) that is
+  one window a day for each account, after the fetch of the press itself.
+- The walk is not given up when the day is full. The days asked for are recorded, so the next *Hae nyt* goes on from
+  where the last stopped, and the month's rest is noted only when the walk is over (the reach of five years, a bank's
+  refusal, or a failure). Five years takes up to six windows, so up to six days of pressing *Hae nyt* on a bank that
+  holds that much; a bank that refuses an older window ends the walk at once.
+- The fetch right after a link does not walk without the headers: it has just used the day's calls of the new
+  accounts, and the first *Hae nyt* after it starts the walk.
+- A scheduled fetch is left out when the day's four calls are used, as before. A window never takes an account over four.
+
+Why not a `Psu-Ip-Address` for the home network? Enable Banking asks for the address of the person who triggered the
+fetch, and a private address is none the bank can see. The member's address as the bank sees it is the home's public
+one, but Omatalous has no way to learn it that is not a guess: it would have to ask an outside service what its own
+address is, and that can differ from the member's (IPv6 on the phone, IPv4 on the server, a VPN). A header that misstates
+the user is worse than none, since the bank takes it for its own security checks. An address that cannot be given
+honestly is left out, and the fetch is counted as the unattended call it is. A member who opens the install from a
+public address (a tunnel or a domain with `TRUST_PROXY`) still sends the headers, and then the backfill is not counted.
+
+The backfill is a safeguard for a bank that gives more later, or after a new consent. The bank has so far sent no row
+older than 2026-09-10 for the card above, so the backfill brings older purchases only if a later answer does. Nothing
+here promises a number of days: that depends on the bank and the consent.
+
+- Older purchases may need a new consent: *Yhdistä uudelleen* on *Asetukset > Pankkiyhteydet*. Its first fetch asks for
+  the longest history and then for the days before the first row, back to the history limit.
+- If every window right after a new consent comes back empty, the bank gave no older rows of the card then, and the
+  months before the first row stay missing from the card's purchases.
+
+What an install records of this:
+
+- The bank list under the bank app on *Asetukset > Palvelin* shows `Historia`, the longest history the app has seen the
+  bank give. It is one figure per bank, so a current account's two years hide a card's one month.
+- `account_history` holds for each account the first day that was asked for (`asked_from`), whether it was the longest
+  history or a plain window (`source`) and the first row the bank sent (`first_row_day`). A refused window is now
+  recorded as the shorter one it was answered for. A record of the longest history keeps its first day even when the
+  rows begin much later.
+- `account_fetch` notes each call with its trigger; a backfill window is noted `backfill`, or `backfill-bare` when no Psu headers went with it (counted against the day's four).
+
+## Where each bank's history ends
+
+What one instance showed when the first fetch of every account is compared with the bank. It is the evidence of that
+instance, not a rule of the banks; the backfill above asks for more where a bank gives more.
+
+- Nordea, current and savings accounts. The first request of 730 days was answered. The oldest row of the busiest
+  account lay about 540 days (18 months) before the link, the same distance that Nordea's open banking support names as
+  the longest history of a consent. Two accounts opened a year after that edge start on the day their balance was zero,
+  so they are whole. A savings account whose balance was not zero at its first row lost the days before the edge.
+  Nothing older exists to fetch there, and the backfill finds nothing on those accounts.
+- Nordea, card. The first request of 730 days was refused (400) every time on the first consent. After a new consent a
+  window of at least 89 days was answered with rows from a month before the link only (see the section above).
+- S-Pankki. The first request of 730 days was answered and the oldest row lies five days after its first day, which is
+  the edge of the app's window, and the balance was not zero at that row. So the app's own limit may have cut it, and
+  the backfill now asks the five years. What S-Pankki holds beyond two years is not known.
+- The `Historia` figure of the bank list (*Asetukset > Palvelin*) is the oldest row any fetch brought since the figure
+  was kept, not the bank's limit: an instance updated after its first fetches shows only what later, shorter fetches
+  reached (75 days for Nordea on the instance above, whose accounts hold 18 months).
+
 ## Errors
 
 | What you see | What it means |
@@ -133,7 +259,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 | "Enable Banking ei vielä päästä sovellusta pankkeihin", or "Enable Banking hylkäsi avaimen (403)" | The app is still *Inactive*, or no account is linked. Press *Activate by linking accounts* in the Control Panel, choose your bank, then press *Testaa yhteys* under *Asetukset > Palvelin*. |
 | "Enable Banking ei hyväksy paluuosoitetta" | The address the message names is missing from your app's Redirect URLs. Add it in the Control Panel. |
 | An account or a card is missing | It is not under *Linked accounts*. Link it with *Link accounts*, then connect again with *Yhdistä pankki*. |
-| "N tiliä ei ole linkitetty Enable Bankingissa" ("Yksi tili ei ole linkitetty Enable Bankingissa" for one) with a list under *Pankkiyhteydet*, "&lt;account&gt;: tiliä ei ole linkitetty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted and reads only the accounts under *Linked accounts*. The list names each such account by the bank's name for it and its last four digits. Open *API applications*, your app, *Link accounts*, and link those accounts or cards. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
+| "N tiliä ei ole lisätty Enable Bankingissa" ("Yksi tili ei ole lisätty Enable Bankingissa" for one) with a list under *Pankkiyhteydet*, "&lt;account&gt;: tiliä ei ole lisätty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted and reads only the accounts under *Linked accounts*. The list names each such account by the bank's name for it and its last four digits. Open *API applications*, your app, *Link accounts*, and link those accounts or cards. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
 | "&lt;account&gt; ei tullut mukaan uuteen yhteyteen" | The new connection did not bring that account, so it stays on the old one and is not fetched. Link it under *Link accounts* in the Control Panel, then press *Yhdistä uudelleen*. |
 | "Pankki ei antanut tilejä" | The connection finished with no accounts, because none was linked at Enable Banking. Link them in the Control Panel and connect again. |
 | "Pankki keskeytti yhdistämisen", or "Enable Banking hylkäsi yhdistämisen" | The app's request log in the Control Panel has the reason. The server log has a line `bank link refused` with the status and code. |

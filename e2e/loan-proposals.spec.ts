@@ -11,7 +11,7 @@ import { overflow, watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 const PASSWORD = "ehdotus-testin-salasana-1";
-/** Set by a run that wants pictures of the page: SHOTS_DIR=/tmp/claude-0/shots pnpm e2e e2e/loan-proposals.spec.ts */
+/** Set by a run that wants pictures of the page: SHOTS_DIR=$TMPDIR/shots pnpm e2e e2e/loan-proposals.spec.ts */
 const SHOTS = process.env.SHOTS_DIR;
 
 /**

@@ -65,7 +65,8 @@ describe("migration 0023", () => {
       const known = all().filter((m) => m.name < NAME);
       const rollback = await pendingMigrations(db, known, { appVersion: "0.64.0" });
       expect(rollback.pending).toEqual([]);
-      expect(rollback.ahead).toEqual([NAME]);
+      // the files after 0023 are ahead too, each with a floor at or below 0.64.0
+      expect(rollback.ahead).toEqual(all().filter((m) => m.name >= NAME).map((m) => m.name));
       await expect(pendingMigrations(db, known, { appVersion: "0.63.9" })).rejects.toThrow(/newer app version/);
     } finally {
       db.close();

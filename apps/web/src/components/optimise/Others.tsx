@@ -110,10 +110,11 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
         <p className="tip-action">{i.detail}</p>
         {i.calc && i.calc.length > 0 && <CalcLines calc={i.calc} />}
       </div>
-      {/* the figure opens its rows: no link text, the pointer and the focus ring are the cue */}
+      {/* the figure opens its rows: its name is the figure as seen plus a hidden "näytä rivit" (the name must hold the visible text), the title is its description */}
       {i.link ? (
-        <a className="tip-figure" href={`#/transactions${query({ ...i.link })}`} aria-label={`Näytä rivit: ${i.title}`}>
+        <a className="tip-figure" href={`#/transactions${query({ ...i.link })}`} aria-describedby={titleId}>
           {figure}
+          <span className="sr-only">, näytä rivit</span>
         </a>
       ) : (
         <div className="tip-figure tip-figure-still">{figure}</div>

@@ -4,7 +4,7 @@
 #   tools/slots.sh [--dir DIR] [--pool NAME] [--slots N] [--wait SECONDS] [--label NAME] -- command [args...]
 # A slot is a directory in DIR (default: check-slots in the git common dir, shared by all worktrees) that holds
 # the owner's pid and start time. --pool NAME picks another default directory, <NAME>-slots, so a caller can have slots
-# of its own: the lead's landing and the release gate use --pool lead --slots 1 and never wait behind the workers' two.
+# of its own: the release gate uses --pool lead --slots 1 and never waits behind the two of the tasks.
 # A slot whose owner is gone is taken over, so a killed run does not block anyone.
 # After --wait seconds (default 1800) the command runs without a slot, so a stuck holder cannot block for ever.
 # CHECK_SLOTS, CHECK_SLOT_WAIT and CHECK_SLOT_POLL (seconds between tries, default 1) set the defaults.
@@ -49,10 +49,14 @@ stale() { # slot dir: true when its owner is gone
   owner_gone "$pid" "$st"
 }
 
+# A claim is a file made with noclobber (O_EXCL): exactly one caller makes it. mkdir alone is not enough, because the mkdir of
+# uutils coreutils (the default on Ubuntu 26.04) lets two callers that race for one name both succeed.
+claim() { ( set -C; echo "$2" >"$1" ) 2>/dev/null; }
+
 reap() { # remove a stale slot; one reaper at a time, so a slot that was just taken again is never removed
-  mkdir "$DIR/reap" 2>/dev/null || { old "$DIR/reap" && rmdir "$DIR/reap" 2>/dev/null; return 1; }
+  claim "$DIR/reap" "$$" || { old "$DIR/reap" && rm -f "$DIR/reap"; return 1; }
   stale "$1" && rm -rf "$1"
-  rmdir "$DIR/reap" 2>/dev/null
+  rm -f "$DIR/reap"
   return 0
 }
 
@@ -66,7 +70,7 @@ trap 'exit 143' TERM HUP
 try_slot() {
   local d=$DIR/slot-$1
   mkdir "$d" 2>/dev/null || { stale "$d" && reap "$d" && mkdir "$d" 2>/dev/null; } || return 1
-  echo "$ME" >"$d/owner" || return 1
+  claim "$d/owner" "$ME" || return 1
   MINE=$d
 }
 
@@ -85,6 +89,12 @@ done
 if ((waited)) && [[ -n $LOG ]]; then
   mkdir -p "${LOG%/*}" 2>/dev/null && printf '%s %s %s\n' "$LABEL" "$((SECONDS - t0))" "$(date '+%Y-%m-%d %H:%M:%S')" >>"$LOG" 2>/dev/null
 fi
+
+# the command learns how many slots are taken when it got its own (itself included), so a caller can size itself by the
+# crowd (tools/cores.sh); 0 when it runs without a slot
+SLOTS_HELD=0
+if [[ -n $MINE ]]; then for d in "$DIR"/slot-*; do [[ -d $d ]] && SLOTS_HELD=$((SLOTS_HELD + 1)); done; fi
+export SLOTS_HELD
 
 # The command runs in its own process group (set -m), so a signal sent to it reaches everything it started. A signal
 # to this script is passed on and the slot stays taken until the command has ended, then the EXIT trap gives it back.

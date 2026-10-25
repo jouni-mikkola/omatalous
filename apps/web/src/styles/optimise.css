@@ -46,10 +46,8 @@
 .calc dt { color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
 .calc dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; max-width: 55%; }
 .calc .struck dt, .calc .struck dd { color: var(--muted); }
-.evidence-rows th { padding-left: 0; }
-.evidence-rows th.num { padding-right: 0; }
 .evidence-rows td.when { white-space: nowrap; }
-.evidence-rows tr.struck td { color: var(--muted); }
+.evidence-rows tr.struck > * { color: var(--muted); }
 .evidence-check { margin: 0; }
 @media (max-width: 640px) { .calc dd { max-width: 50%; } }
 
@@ -97,11 +95,10 @@
 .reach a.rt-who { color: inherit; text-decoration: none; }
 .reach a.rt-who:hover .reach-name { text-decoration: underline; }
 .reach-name { font-weight: 600; }
-:is(.reach, .outcomes, .rates) .tx-under { display: block; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-weight: 400; }
 .reach-spend { min-inline-size: 140px; }
-.reach-spend .tc-bar { margin: var(--sp-4) 0 0 auto; max-inline-size: 160px; }
-.reach-range-h, .reach-range { min-inline-size: 240px; }
-.reach-range-h .muted { margin-left: var(--sp-4); font-weight: 400; }
+.reach-range { min-inline-size: 240px; }
+.rt-wrap[data-block] .reach-range { min-inline-size: 0; }
+.reach-range { text-align: left; }
 .reach-range-text { display: block; margin-top: var(--sp-4); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 .reach-range-text .muted { font-weight: 400; }
 .range-bar { position: relative; display: block; block-size: 12px; border-radius: var(--radius-s); background: var(--surface-2); }
@@ -172,7 +169,6 @@
 .due-pin-label strong { font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 
 /* Tuottivatko muutokset säästöä: the months as bars, the two levels dashed, the change a rule */
-.outcomes td { vertical-align: top; }
 .outcomes .outcome-reason { max-width: 28rem; }
 .ba { display: block; overflow: visible; }
 .ba-before { fill: color-mix(in srgb, var(--text-2) 40%, var(--surface)); }
@@ -187,10 +183,11 @@
 .verdict-sign { display: inline-grid; place-items: center; inline-size: 20px; block-size: 20px; border-radius: 50%; font-size: var(--fs-tick); background: var(--surface-2); color: var(--text); }
 .verdict-good .verdict-sign { background: var(--good-bg); color: var(--good); }
 .verdict-bad .verdict-sign { background: var(--bad-bg); color: var(--bad); }
-#seuranta .table-wrap + .decided-list, #seuranta .decided-list + .evidence-part, #seuranta .table-wrap + .evidence-part { margin-top: var(--sp-24); }
+#seuranta .rt-wrap + .decided-list, #seuranta .decided-list + .evidence-part, #seuranta .rt-wrap + .evidence-part { margin-top: var(--sp-24); }
 
 /* the rate moves: a payment, its change as a chip, the year's interest under it */
 .rates .rate-move .tc-delta { margin-left: var(--sp-4); }
+.rt-wrap[data-block] .rates .rate-move .sub { display: none; }
 .rates .rate-pay { font-weight: 600; }
 .rates-fixed { color: var(--text-2); }
 
@@ -213,24 +210,8 @@
 .checked-why, .checked-cents, .checked-count { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
 .checked-none li { color: var(--text-2); }
 
-/* a phone: the area, outcome and rate tables become cards; a cell says its column from its own data-head */
+/* a phone */
 @media (max-width: 640px) {
-  :is(.reach, .outcomes, .rates) thead { display: none; }
-  :is(.reach, .outcomes, .rates), :is(.reach, .outcomes, .rates) tbody { display: block; }
-  :is(.reach, .outcomes, .rates) tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4) var(--sp-12); padding: var(--sp-12) 0; border-bottom: 1px solid var(--grid); }
-  :is(.reach, .outcomes, .rates) td { display: block; padding: 0 !important; border: 0 !important; text-align: left; min-inline-size: 0; }
-  :is(.reach, .outcomes, .rates) td[data-head]::before { content: attr(data-head); display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
-  .reach td.reach-range { grid-column: 1 / -1; grid-row: 2; }
-  .reach td.reach-spend { grid-column: 1 / -1; grid-row: 3; }
-  .reach-spend .tc-bar { margin: var(--sp-4) 0 0; }
-  .reach td:last-child { grid-column: 2; grid-row: 1; text-align: right; }
-  .outcomes td:nth-child(1) { grid-column: 1; grid-row: 1; }
-  .outcomes td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
-  .outcomes td:nth-child(n + 5) { grid-column: 1 / -1; }
-  .rates tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .rates td:first-child, .rates td.rates-fixed { grid-column: 1 / -1; }
-  .rates .rate-move .tc-delta { display: table; margin: 2px 0 0; }
-  .rates .rate-move .tx-under { display: none; }
   .due-pin-label { font-size: var(--fs-tick); }
   .due-pin-name { display: none; }
 }

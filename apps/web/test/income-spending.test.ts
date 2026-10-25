@@ -96,9 +96,9 @@ describe("Tulot ja menot: what the block draws under the waterfall", () => {
     expect(text(html)).not.toContain("Menot kategorioittain");
   });
 
-  it("puts the savings rate under Yli jäi, and draws no chart and no links: the pace is the panel at the top of the page", () => {
+  it("puts the savings rate under Tulos, and draws no chart and no links: the pace is the panel at the top of the page", () => {
     const html = draw(answer(history, "2026-10-01", today));
-    const order = ["Yli jäi", "Säästöaste, syyskuu"].map((s) => text(html).indexOf(s));
+    const order = ["Tulos", "Säästöaste, syyskuu"].map((s) => text(html).indexOf(s));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((x, y) => x - y));
     for (const gone of ["Menojen kertymä", "Kauppiaat", "Menot kuukausittain"]) expect(text(html)).not.toContain(gone);

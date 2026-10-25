@@ -25,7 +25,7 @@ export RUNLOG
 world() { # world: an empty folder in W with check.sh, and the log of the scenarios that ran
   W=$(mktemp -d "$ROOT/w.XXXXXX")
   mkdir -p "$W/tools/test" "$W/tools/check" "$W/scripts" "$W/bin"
-  cp "$SRC/tools/check.sh" "$W/tools/"; cp "$SRC/tools/check/stamps.sh" "$SRC/tools/check/cut-shared.sh" "$W/tools/check/"
+  cp "$SRC/tools/check.sh" "$W/tools/"; cp "$SRC/tools/check/stamps.sh" "$SRC/tools/check/cut-shared.sh" "$SRC/tools/check/weights.sh" "$W/tools/check/"
   # what the run leaves behind is no change to the scope
   printf '%s\n' out rc runlog bin/ >"$W/.gitignore"
   RUNLOG=$W/runlog; : >"$RUNLOG"
@@ -184,6 +184,64 @@ t_jobs_follow_the_cpus() {
   check "jobs: CHECK_JOBS wins" grep -q '3 at a time' "$W/out"
 }
 
+# The jobs start longest first, by the CPU time of the last green run (a file beside the stamps); a job with no record counts
+# as the longest. One job at a time, so the order the suites logged is the order they started in.
+t_jobs_start_longest_first() {
+  world; fake_alpha; fake_beta; fake_plain
+  local wf=$W/weights tab=$'\t'
+  printf '%s\n' "tools/test/alpha.test.sh t_one${tab}100" "tools/test/beta.test.sh x${tab}900" "tools/test/beta.test.sh y${tab}200" "tools/test/gone.test.sh t_old${tab}5" "not a record" >"$wf"
+  (cd "$W" && env -u CHECK_LOG -u CI CHECK_JOBS=1 CHECK_WEIGHTS_FILE="$wf" CHECK_SLOT_HELD=1 PATH="$W/bin:$PATH" bash tools/check.sh sh) >"$W/out" 2>&1
+  check "order: green" grep -q 'sh ok' "$W/out"
+  # plain and t_two have no record, so they come first in the order given; then 900, 200, 100
+  check "order: no record first, then the heaviest" test "$(tr '\n' ',' <"$RUNLOG")" = "plain.test.sh plain,alpha.test.sh t_two,beta.test.sh t_x,beta.test.sh t_y,alpha.test.sh t_one,alpha.test.sh t_one_more,"
+  check "order: the records stay lines of a job and its milliseconds, also those of a job this run did not run" bash -c "awk -F'\t' 'NF != 2 || \$2 !~ /^[0-9]+\$/ { bad = 1 } END { exit bad }' '$wf' && grep -q 'gone.test.sh t_old' '$wf'"
+  rm -f "$wf"; : >"$RUNLOG"
+  (cd "$W" && env -u CHECK_LOG -u CI CHECK_JOBS=1 CHECK_WEIGHTS_FILE="$wf" CHECK_SLOT_HELD=1 PATH="$W/bin:$PATH" bash tools/check.sh sh) >"$W/out" 2>&1
+  check "order: with no file, the order given" test "$(ran)" = "alpha.test.sh t_one,alpha.test.sh t_one_more,alpha.test.sh t_two,beta.test.sh t_x,beta.test.sh t_y,plain.test.sh plain,"
+}
+
+# A job records its own CPU time and that of what it ran (`times` of its children), not zero and not its wall time: a job that
+# only waits costs about nothing, one that works costs what it worked, whatever else the machine does.
+t_job_records_its_cpu_time() {
+  world
+  printf '%s\n' '#!/bin/bash' 'sleep 0.6' >"$W/idle.sh"
+  # works until it has used 0.7 s of CPU itself, so a busy machine cannot make it use less (a loop on $SECONDS can end at once)
+  printf '%s\n' '#!/bin/bash' "python3 -c 'import time; t = time.process_time()
+while time.process_time() - t < 0.7: pass'" >"$W/busy.sh"
+  mkdir -p "$W/log"
+  (cd "$W" && CHECK_LOG=$W/log bash tools/check.sh __job 01 "$W/idle.sh"; CHECK_LOG=$W/log bash tools/check.sh __job 02 "$W/busy.sh") >"$W/out" 2>&1
+  check "cpu: a job that only waits costs under 300 ms of CPU, though it took over 500 ms" bash -c "[[ \$(<'$W/log/sh-01.cpu') -lt 300 && \$(<'$W/log/sh-01.ms') -ge 500 ]]"
+  check "cpu: a job that works is recorded with the CPU it used" bash -c "[[ \$(<'$W/log/sh-02.cpu') -ge 500 ]]"
+}
+
+# sh_run (tools/check/weights.sh): JOBS at a time, and GIVE more once the tests step has marked itself done. Each fake job
+# notes how many jobs run at the moment it starts.
+t_jobs_take_the_cores_of_the_tests_when_they_are_done() {
+  world
+  local d=$W/sr n self=$W/self.sh
+  mkdir -p "$d/run"
+  printf '%s\n' '#!/usr/bin/env bash' 'D=$(dirname "$0")/sr' 'touch "$D/run/$$"; ls "$D/run" | wc -l >>"$D/seen"; sleep 0.5; rm -f "$D/run/$$"' >"$self"
+  export CHECK_LOG=$d CHECK_NAP=0.05
+  # shellcheck source=../check/weights.sh
+  . "$SRC/tools/check/weights.sh"
+  local lines=() i
+  for i in $(seq 1 16); do lines+=("$i suite scenario"); done
+  sh_run 0 1 "$self" "${lines[@]}"
+  n=$(sort -n "$d/seen" | tail -1)
+  check "run: one at a time with nothing to hand over" test "$n" = 1
+  rm -f "$d/seen"
+  : >"$d/done-tests"
+  sh_run 2 1 "$self" "${lines[@]}"
+  n=$(sort -n "$d/seen" | tail -1)
+  check "run: the tests were done at the start, so GIVE more at once" test "$n" = 3
+  rm -f "$d/seen" "$d/done-tests"
+  (sleep 1.5; : >"$d/done-tests") &
+  sh_run 2 1 "$self" "${lines[@]}"
+  wait
+  check "run: GIVE more when the tests step is done in the middle" test "$(head -2 "$d/seen" | sort -n | tail -1)" = 1 -a "$(sort -n "$d/seen" | tail -1)" = 3
+  unset CHECK_LOG CHECK_NAP
+}
+
 # The cut lock: a world in a repository of its own, so that its lock file is W/.git/cut.lock. The suite blocks on a
 # fifo while it runs, so the test reads the lock from inside a running check. Nothing waits on the clock.
 lock_world() {
@@ -294,9 +352,10 @@ quiet_world() {
   mkdir -p "$W/tools/lib"; cp "$SRC/tools/wait-quiet.sh" "$W/tools/"; cp "$SRC/tools/lib/owner.sh" "$W/tools/lib/"
   echo "99.00 99.00 99.00 1/1 1" >"$W/load"
 }
-# quiet_run [VAR=value ...]: check.sh sh with the cut variables removed, a one-second call and four seconds in all
+# quiet_run [VAR=value ...]: check.sh sh with the cut variables removed, a one-second call and three seconds in all. SECONDS
+# counts whole seconds, so with two in all a first call that began late in a second could be the only one.
 quiet_run() {
-  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CI -u CHECK_WAIT CHECK_SLOT_HELD=1 WAIT_QUIET_PATTERN="$W/never-runs-" WAIT_QUIET_LOADAVG_FILE="$W/load" WAIT_QUIET_CPUS=4 WAIT_QUIET_POLL=0.2     CHECK_WAIT_CALL=1 CHECK_WAIT_MAX=2 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/out" 2>&1; echo $? >"$W/rc") &
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CI -u CHECK_WAIT CHECK_SLOT_HELD=1 WAIT_QUIET_PATTERN="$W/never-runs-" WAIT_QUIET_LOADAVG_FILE="$W/load" WAIT_QUIET_CPUS=4 WAIT_QUIET_POLL=0.2     CHECK_WAIT_CALL=1 CHECK_WAIT_MAX=3 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/out" 2>&1; echo $? >"$W/rc") &
   RUNPID=$!
 }
 
@@ -435,13 +494,13 @@ lockinstall() { cp "$W/pnpm-lock.yaml" "$W/node_modules/.pnpm/lock.yaml"; } # wh
 wcommit() { git -C "$W" add -A && git -C "$W" -c user.name=t -c user.email=t@example.com -c commit.gpgsign=false commit -q -m "${1:-c}"; }
 stamp_world() {
   world
-  mkdir -p "$W"/{packages/core/src,packages/core/test,apps/web/src,apps/web/test,apps/server/test,tools/release,tools/repo-rules,tools/ci,tools/findings,docs,relay/callback,.github/workflows,.claude/hooks,node_modules/.bin,node_modules/.pnpm}
+  mkdir -p "$W"/{packages/core/src,packages/core/test,apps/web/src,apps/web/test,apps/server/test,tools/release,tools/repo-rules,tools/ci,tools/findings,docs,relay/callback,.github/workflows,node_modules/.bin,node_modules/.pnpm}
   cp "$SRC/tools/check/key.sh" "$SRC/tools/check/reads.txt" "$SRC/tools/check/report.mjs" "$W/tools/check/"
   printf '%s\n' 'runlog*' node_modules/ >>"$W/.gitignore"
   echo "export const a = 1;" >"$W/packages/core/src/a.ts"; echo "export const w = 1;" >"$W/apps/web/src/w.ts"
   echo "echo x" >"$W/scripts/x.sh"; echo "notes" >"$W/docs/NOTES.md"; echo "lock: 1" >"$W/pnpm-lock.yaml"; lockinstall
   echo "export const l = 1;" >"$W/tools/findings/x.mjs"; echo "<p>x</p>" >"$W/relay/callback/index.html"; echo "name: pages" >"$W/.github/workflows/pages.yml"
-  echo "readme" >"$W/README.md"; echo "echo hook" >"$W/.claude/hooks/h.sh"
+  echo "readme" >"$W/README.md"; echo "echo hook" >"$W/tools/h.sh"
   echo '{}' >"$W/tsconfig.json"; echo '{}' >"$W/package.json"; echo "packages: []" >"$W/pnpm-workspace.yaml"; echo "export default {};" >"$W/vitest.config.ts"
   printf 'pass\npass\npass\n' >"$W/packages/core/test/a.test.ts"; echo pass >"$W/apps/web/test/w.test.ts"
   printf 'pass\npass\n' >"$W/apps/server/test/s.test.ts"; echo pass >"$W/tools/release/r.test.ts"; echo pass >"$W/tools/repo-rules/rr.test.ts"
@@ -456,7 +515,7 @@ srun() {
   while (($#)) && [[ $1 != -- ]]; do envs+=("$1"); shift; done
   (($#)) && shift
   : >"$RUNLOG"
-  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CHECK_FRESH -u CHECK_STAMPS_DIR -u CI -u CUT_LOCK_HELD CHECK_SLOT_HELD=1 "${envs[@]}" PATH="$BIN:$PATH" bash tools/check.sh "$@") >"$W/out" 2>&1
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CHECK_FRESH -u CHECK_STAMPS_DIR -u CI -u CHECK_LIGHT -u CUT_LOCK_HELD CHECK_SLOT_HELD=1 "${envs[@]}" PATH="$BIN:$PATH" bash tools/check.sh "$@") >"$W/out" 2>&1
   echo $? >"$W/rc"
 }
 ranlog() { sed -E 's/^tsc .*/types/; s/^([a-z]+)\.test\.sh .*/sh:\1/' "$RUNLOG" | LC_ALL=C sort -u | tr '\n' ' '; }
@@ -470,8 +529,7 @@ t_tooling_a_test_the_scope_picked_is_not_left_out() {
   stamp_world
   cp "$SRC/tools/check/scope.mjs" "$SRC/tools/check/tooling.txt" "$W/tools/check/"
   echo '{ "name": "@banking/core", "exports": "./src/a.ts" }' >"$W/packages/core/package.json"
-  printf '%s\n' 'import { a } from "../../packages/core/src/a.ts";' pass >"$W/tools/release/r.test.ts"
-  echo pass >"$W/tools/release/other.test.ts"
+  printf '%s\n' 'import { a } from "../../packages/core/src/a.ts";' pass >"$W/tools/release/r.test.ts"; echo pass >"$W/tools/release/other.test.ts"
   wcommit tooling
   git -C "$W" branch -q base
   echo "export const a = 2;" >"$W/packages/core/src/a.ts"
@@ -479,6 +537,8 @@ t_tooling_a_test_the_scope_picked_is_not_left_out() {
   check "tooling: the scoped run left the tools' self-tests out" grep -q "self-tests left out" "$W/out"
   check "tooling: the test the graph picked under tools/release/ ran" grep -qx "vt:tools/release/r.test.ts" "$RUNLOG"
   check "tooling: the other self-test there did not" bash -c "! grep -q other.test.ts '$RUNLOG'"
+  srun CI=1 -- --changed base tests; check "tooling: CI runs the self-tests of a product change" bash -c "! grep -q 'self-tests left out' '$W/out'"
+  srun CI=1 CHECK_LIGHT=1 -- --changed base tests; check "tooling: the light tier of CI leaves them out like a local run" grep -q "self-tests left out" "$W/out"
   srun
   check "tooling: a whole run leaves out the folder" bash -c "! grep -q 'vt:tools/release/' '$RUNLOG' && grep -q 'vt:packages/core' '$RUNLOG'"
 }
@@ -516,9 +576,9 @@ t_stamps_a_file_outside_the_lint_set_misses_every_other_step() {
   srun
   check "stamps: a note misses all but the lint" test "$(ranlog)" = "$NOLINT_RAN"
   check "stamps: green" test "$(cat "$W/rc")" = 0
-  echo "echo more" >>"$W/.claude/hooks/h.sh"; wcommit
+  echo "echo more" >>"$W/tools/h.sh"; wcommit
   srun
-  check "stamps: near miss: a hook script is in the lint's set, so the lint runs too" test "$(ranlog)" = "$ALL_RAN"
+  check "stamps: near miss: a tools script is in the lint's set, so the lint runs too" test "$(ranlog)" = "$ALL_RAN"
 }
 
 # Each of these was a file a step reads that no set of reads.txt named: a type-checked script, the relay and the workflow

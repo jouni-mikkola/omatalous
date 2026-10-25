@@ -2,7 +2,7 @@
  * Asetukset > Tilit, under a joint account: "Maksut ja menot kuukausittain". For each month with a booked row, newest first,
  * a column for each member and one for the rest, and what each paid in, bore of the costs, moved away and took of the
  * others' money, and what is left of whose. The server adds it up from the account's trace; this only draws it. The
- * newest three months are open, the older ones open with their name.
+ * newest month is open, the older ones open with their name; the newest six are listed, the rest behind "Näytä lisää".
  */
 import { monthEnd } from "@banking/core";
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
@@ -10,8 +10,9 @@ import { query } from "../../api.ts";
 import { money, monthLong } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { Account, Meta } from "../../types.ts";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { toggled } from "../../components/toggled.ts";
+import { useMore } from "../../components/More.tsx";
 import "../../styles/statement.css";
 import "../../styles/themes-table.css";
 import "../../styles/account-sources.css";
@@ -36,6 +37,8 @@ const ROWS: { label: string; figure: Figure; linked: boolean }[] = [
 ];
 /** How many of the newest months are open when the page opens. */
 const OPEN_MONTHS = 1;
+/** How many of the newest months are listed before "Näytä lisää". */
+const MONTHS_LISTED = 6;
 const NOBODY = "Ei tiedossa";
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -60,6 +63,8 @@ export function AccountSources({ account, meta }: { account: Account; meta: Meta
   }, [meta, reload]);
   // the months the reader opened or closed; the others are open by their place
   const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
+  // a month's toggle each since the account began is years of lines under every joint account
+  const { shown: months, more } = useMore(data?.months ?? [], MONTHS_LISTED);
   if (!data?.months.length) return null;
   // the holder with no login is named as the account's use names them
   const nameOf = (c: Column) =>
@@ -67,12 +72,13 @@ export function AccountSources({ account, meta }: { account: Account; meta: Meta
   const keyOf = (c: Column) => c.userId ?? (c.holder ? "holder" : "rest");
   return (
     <tr className="edit-row">
-      <td colSpan={5}>
-        <section className="acc-src" aria-labelledby={heading}>
+      <td colSpan={99}>
+        {/* a group, not a region: one such landmark per account repeated under the same name */}
+        <div className="acc-src" role="group" aria-labelledby={heading}>
           <h3 id={heading} className="st-cap">
             Tilille tullut ja lähtenyt raha kuukausittain
           </h3>
-          {data.months.map((m, i) => {
+          {months.map((m, i) => {
             const open = (i < OPEN_MONTHS) !== flipped.has(m.month);
             const names = m.columns.map(nameOf);
             const rows = `#/transactions${query({ accountId: account.id, from: `${m.month}-01`, to: monthEnd(m.month) })}`;
@@ -83,24 +89,20 @@ export function AccountSources({ account, meta }: { account: Account; meta: Meta
                 </button>
                 {open && (
                   <div style={{ "--src-cols": m.columns.length } as CSSProperties}>
-                    <DataTable<(typeof ROWS)[number]>
-                      id="account-sources"
+                    <Table<(typeof ROWS)[number]>
                       caption={`${capital(monthLong(m.month))}: tilille tullut ja lähtenyt raha`}
                       rows={[...ROWS]}
                       rowKey={(r) => r.figure}
                       columns={[
-                        { key: "label", label: "Erä", emptyHead: true, kind: "text", rowHead: true, cell: (r) => r.label },
+                        { key: "label", label: "Erä", headHidden: true, kind: "text", rowHead: true, cell: (r) => r.label },
                         ...m.columns.map((c, k) => ({
                           key: keyOf(c),
                           label: names[k]!,
                           kind: "money" as const,
-                          className: () => "st-num",
                           cell: (r: (typeof ROWS)[number]) => <Amount cents={c[r.figure]} href={r.linked ? rows : null} />,
                         })),
                       ]}
-                      phone="none"
-                      plain
-                      className="st-table acc-src-table"
+                      className="acc-src-table"
                       rowClassName={(r) => (r.figure === "leftCents" ? "acc-src-end" : undefined)}
                     />
                   </div>
@@ -108,7 +110,8 @@ export function AccountSources({ account, meta }: { account: Account; meta: Meta
               </div>
             );
           })}
-        </section>
+          {more}
+        </div>
       </td>
     </tr>
   );

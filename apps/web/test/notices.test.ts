@@ -6,7 +6,7 @@ import { Notices } from "../src/components/Notices.tsx";
 import { bannersOf, MAX_ROWS, type Notice, noticesOf, type SecurityNotice } from "../src/components/notices.ts";
 import type { DashboardData } from "../src/types.ts";
 
-type Data = Pick<DashboardData, "dataNotice" | "alerts" | "insights">;
+type Data = Pick<DashboardData, "dataNotice" | "connectNotice" | "alerts" | "insights">;
 type Noted = Parameters<typeof noticesOf>[1] extends { accounts?: readonly (infer A)[] } ? A : never;
 type Alert = Data["alerts"][number];
 type Insight = Data["insights"][number];
@@ -18,12 +18,27 @@ const alert = (id: string, over: Partial<Alert> = {}): Alert => ({ id, kind: "sp
 const insight = (id: string, over: Partial<Insight> = {}): Insight => ({ id, tone: "info", title: `Havainto ${id}`, detail: `Selitys ${id}`, yearlyCents: 12_000, ...over });
 const quality = { id: "stale", tone: "warning", title: "Tilin tiedot ovat vanhoja", detail: "Esimerkkitili on haettu viimeksi viikko sitten." } satisfies NonNullable<Data["dataNotice"]>;
 const signIn = (over: Partial<SecurityNotice> = {}): SecurityNotice => ({ id: "e7", kind: "new_device", at: "2026-10-12T12:30:00.000Z", text: "Tunnuksellasi kirjauduttiin uudelta laitteelta.", detail: "Chrome, Windows", ...over });
-const data = (over: Partial<Data> = {}): Data => ({ dataNotice: null, alerts: [], insights: [], ...over });
+const data = (over: Partial<Data> = {}): Data => ({ dataNotice: null, connectNotice: null, alerts: [], insights: [], ...over });
 
 type Options = { answered?: ReadonlySet<string>; insights?: boolean; security?: SecurityNotice[] };
 const listed = (d: Data, over: Options = {}) => noticesOf(d, { range: RANGE, answered: over.answered ?? NONE, insights: over.insights ?? true, security: over.security ?? [] });
 const rows = (d: Data, over: Options = {}): Notice[] => listed(d, over).rows;
 const ids = (list: Notice[]) => list.map((n) => `${n.kind}:${n.id}`);
+
+describe("the card to connect", () => {
+  const connectNotice = { title: "Korttilaskuja 4 321 € viimeiseltä 12 kuukaudelta, mutta kortin ostot puuttuvat", detail: "Yhdistämättömät kortit: Nordea.", cents: 432_100 };
+
+  it("is one row after the data-quality warning that links to Pankkiyhteydet and cannot be set aside", () => {
+    const list = rows(data({ dataNotice: quality, connectNotice, alerts: [alert("a")] }));
+    expect(ids(list)).toEqual(["quality:stale", "connect:connect", "alert:a"]);
+    const row = list[1]!;
+    expect(row).toMatchObject({ title: connectNotice.title, detail: connectNotice.detail, href: "#/settings?add=1", link: "Yhdistä", warning: true, answers: [] });
+  });
+
+  it("is no row when every card is connected", () => {
+    expect(rows(data())).toEqual([]);
+  });
+});
 
 describe("the order of the rows", () => {
   it("is the new sign-in, the data-quality warning, the alerts in core's order, then the insights", () => {
@@ -89,7 +104,7 @@ describe("the insights", () => {
 describe("a sign-in from a new device", () => {
   it("is one row with the time and the device, leading to the sign-in card of Asetukset, and Kuittaa reads the notices", () => {
     const [n] = rows(data(), { security: [signIn()] });
-    expect(n!.title).toMatch(/^Uusi kirjautuminen \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Chrome, Windows\)$/);
+    expect(n!.title).toBe("Uusi kirjautuminen 12.10. klo 15.30 (Chrome, Windows)");
     expect(n!.href).toBe("#/settings#kirjautuminen");
     expect(n!.warning).toBe(true);
     expect(n!.answers).toEqual([{ label: "Kuittaa", name: `Kuittaa: ${n!.title}`, send: "seen" }]);

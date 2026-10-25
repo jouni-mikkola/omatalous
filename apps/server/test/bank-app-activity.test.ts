@@ -69,7 +69,7 @@ describe("the shared app must be active before a bank can be connected", () => {
     const { admin, member, app } = await rig("inactive");
     const saved = await admin.call("PUT", "/api/admin/bank-app", { appId: randomUUID() });
     expect(saved.body.result).toEqual({ verified: false, active: false, message: INACTIVE_MESSAGE });
-    expect(INACTIVE_MESSAGE).toBe("Sovellus ei ole vielä aktiivinen. Linkitä tilit Enable Bankingissa: Activate by linking accounts.");
+    expect(INACTIVE_MESSAGE).toBe("Sovellus ei ole vielä aktiivinen. Lisää tilit Enable Bankingissa (Activate by linking accounts).");
     // the settings are kept, and every later look at the status repeats the sentence
     expect(saved.body.bankApp).toMatchObject({ source: "web", inactiveMessage: INACTIVE_MESSAGE });
     expect((await admin.call("GET", "/api/admin/instance")).body.bankApp.inactiveMessage).toBe(INACTIVE_MESSAGE);

@@ -277,7 +277,11 @@
      {
       "id": "savings:idle_cash",
       "label": "Käyttötilin ylimääräinen saldo",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "other",
+       "text": "Tapahtumissa on aukko tai tilin tiedot ovat vanhentuneet."
+      }
      }
     ],
     "weightCents": 0
@@ -308,7 +312,11 @@
      {
       "id": "electricity:price",
       "label": "Sähkön hinta",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "other",
+       "text": "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten hintaa ei voi verrata."
+      }
      },
      {
       "id": "electricity:contract_end",
@@ -358,12 +366,20 @@
      {
       "id": "food:eating_out",
       "label": "Ravintolat ja kotiinkuljetus",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "history",
+       "text": "Vertailuun tarvitaan 18 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+      }
      },
      {
       "id": "food:delivery",
       "label": "Ruoan kotiinkuljetus",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "history",
+       "text": "Vertailuun tarvitaan 18 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+      }
      }
     ],
     "weightCents": 0
@@ -376,7 +392,11 @@
      {
       "id": "habits:repeat",
       "label": "Arkiostot",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "history",
+       "text": "Vertailuun tarvitaan 18 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+      }
      }
     ],
     "weightCents": 0
@@ -389,7 +409,11 @@
      {
       "id": "seasons:month",
       "label": "Kalliit kuukaudet",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "history",
+       "text": "Vertailuun tarvitaan 13 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+      }
      }
     ],
     "weightCents": 0

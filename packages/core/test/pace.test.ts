@@ -35,7 +35,7 @@ describe("pace: the month against the month before", () => {
     expect(pace.previous!.curve[12]).toBe(15_700);
     expect(pace.previous!.curve[29]).toBe(16_700);
     // under three complete months there is no usual month and so no projection
-    expect(Object.keys(pace).sort()).toEqual(["current", "currentTotal", "daysInMonth", "largest", "month", "payDays", "previous", "projection", "usual"]);
+    expect(Object.keys(pace).sort()).toEqual(["cardGap", "current", "currentTotal", "daysInMonth", "largest", "month", "payDays", "previous", "projection", "usual"]);
     expect(pace.usual).toBeNull();
     expect(pace.projection).toBeNull();
   });

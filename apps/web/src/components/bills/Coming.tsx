@@ -9,7 +9,7 @@ import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import { Estimate } from "../Why.tsx";
 import { isEstimate, isPayment, type Payment, windowLine } from "../next-days.ts";
 import { PendingPayee } from "../PendingPayee.tsx";
-import { type Column, DataTable } from "../table/DataTable.tsx";
+import { type Column, Table } from "../table/Table.tsx";
 import { BillForm } from "./BillForm.tsx";
 
 /** The window as GET /api/ahead sends it: with Laskut's groups and their sums. */
@@ -39,6 +39,7 @@ const COLUMNS: Column<Payment>[] = [
     key: "name",
     label: "Saaja",
     kind: "text",
+    rowHead: true,
     cell: (r) => (
       <span className="coming-payee">
         <MerchantAvatar name={r.name} person={false} size="s" />
@@ -58,7 +59,7 @@ const COLUMNS: Column<Payment>[] = [
     key: "cents",
     label: "Summa",
     kind: "money",
-    className: (r) => (isEstimate(r) ? "st-num coming-est" : "st-num"),
+    className: (r) => (isEstimate(r) ? "coming-est" : undefined),
     cell: (r) => <Estimate when={isEstimate(r)}>{money(-r.cents)}</Estimate>,
   },
 ];
@@ -113,16 +114,12 @@ export function Coming({ ahead, today, onAdded }: { ahead: Ahead | null; today: 
       {groups.length === 0 ? (
         <p className="small muted">Ei laskuja seuraavan 30 päivän aikana.</p>
       ) : (
-        <DataTable<Payment>
-          id="coming"
+        <Table<Payment>
           caption="Maksut, jotka erääntyvät seuraavan 30 päivän aikana"
           rows={groups.flatMap((g) => g.rows)}
           rowKey={(r) => `${r.date}-${r.name}-${r.cents}`}
           columns={COLUMNS}
-          phone="none"
-          plain
-          className="st-table coming-table"
-          colgroup={["due-col", "", ""]}
+          className="coming-table"
           groups={groups.map((g) => {
             const sum = g.cents;
             return {

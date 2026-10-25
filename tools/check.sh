@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2154 # cpus, leased, JOBS and floor come from jobs_split, seen goes to weights_write by name (tools/check/weights.sh)
 # The gate before handing work back: what CI runs, with the output cut to what a failure needs.
 #   tools/check.sh [--changed [base]] [types] [tests] [lint] [sh]     (pnpm check; no argument runs all four steps)
 # types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/.
@@ -10,8 +11,9 @@
 # touches shell: then only the suites that name the changed script, or a script that sources it. A changed script that
 # nothing names runs everything. The base defaults to the commit that .git/worker-base holds, else origin/main. CI and
 # a plain `pnpm check` run everything, except that the self-tests of the developer and release tools
-# (tools/check/tooling.txt) run only when the change touches tools/, .github/ or scripts/ since that base: always in CI,
-# with CHECK_FRESH (the release gate sets it) or CHECK_TOOLING=1, never with CHECK_TOOLING=0.
+# (tools/check/tooling.txt) run only when the change touches tools/, .github/ or scripts/ since that base: always in CI
+# (CHECK_LIGHT=1, set by the light tier of ci.yml, applies the rule there too), with CHECK_FRESH (the release gate sets
+# it) or CHECK_TOOLING=1, never with CHECK_TOOLING=0.
 # The steps run side by side, their lines printed in the order above; CHECK_SERIAL=1 runs them one after the other, for
 # a small machine. CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
 # Unless CUT_LOCK_HELD or CI is set, a run holds a shared lock on $(git rev-parse --git-common-dir)/cut.lock, which a
@@ -39,7 +41,6 @@ ROOT=$(cd "$(dirname "$SELF")/.." && pwd)
 cd "$ROOT" || exit 1
 # pnpm -s sets npm_config_reporter=silent, which would also hide the tsc errors this script prints
 unset npm_config_loglevel npm_config_reporter
-
 # One shell suite, or one scenario of the helper suite, started by xargs below. Always exits 0: the result is in
 # the .rc file, so one failing scenario cannot stop the others.
 if [[ ${1:-} == __job ]]; then
@@ -48,6 +49,8 @@ if [[ ${1:-} == __job ]]; then
   bash "$@" >"$CHECK_LOG/sh-$id.log" 2>&1
   echo $? >"$CHECK_LOG/sh-$id.rc"
   echo $(((${EPOCHREALTIME/./} - t0) / 1000)) >"$CHECK_LOG/sh-$id.ms"
+  # the CPU ms of the job (`times` of its children, to a file: in a pipe it runs in a subshell that has none); a busy machine stretches the wall time, never this
+  times >"$CHECK_LOG/sh-$id.t"; awk 'NR == 2 { for (i = 1; i <= 2; i++) { split($i, a, "m"); t += a[1] * 60 + a[2] } printf "%d\n", t * 1000 }' "$CHECK_LOG/sh-$id.t" >"$CHECK_LOG/sh-$id.cpu"
   exit 0
 fi
 
@@ -73,6 +76,9 @@ if ((!RERUN)) && [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" test
   [[ -d node_modules ]] || { echo "check: node_modules is missing, run pnpm install first" >&2; exit 1; }
 fi
 
+# The steps that run node run on the node of .npmrc, the one with TypeScript support (tools/check/pinned-node.sh)
+if ((RERUN)) || [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then source "$ROOT/tools/check/pinned-node.sh"; fi
+
 # CHECK_WAIT=1 waits for a quiet machine before the heavy steps (tools/wait-quiet.sh), 0 does not. Inside a release cut
 # (CUT_LOCK_HELD) and in CI, which own the machine, the default is 0. The restarts below carry the decision; what the run
 # starts does not inherit it.
@@ -84,9 +90,10 @@ if [[ -z ${CUT_LOCK_HELD:-} && -z ${CI:-} ]] && git rev-parse --git-common-dir >
   CHECK_WAIT=$CHECK_WAIT exec bash "$ROOT/tools/check/cut-shared.sh" check -- bash "$SELF" "${ORIG[@]}"
 fi
 
-# wait for a free slot, so workers checking at the same time do not make each other's seeded tests time out
+# wait for a free slot, so workers checking at the same time do not make each other's seeded tests time out, and for a lease
+# on a share of the cores (tools/cores.sh), which the shell jobs and vitest below divide between them
 if [[ -z ${CHECK_SLOT_HELD:-} && -z ${CI:-} && " ${steps[*]} " != " lint " ]]; then
-  CHECK_SLOT_HELD=1 CHECK_WAIT=$CHECK_WAIT exec bash "$ROOT/tools/slots.sh" --label check -- bash "$SELF" "${ORIG[@]}"
+  CHECK_SLOT_HELD=1 CHECK_WAIT=$CHECK_WAIT exec bash "$ROOT/tools/slots.sh" --label check -- bash "$ROOT/tools/cores.sh" --label check -- bash "$SELF" "${ORIG[@]}"
 fi
 
 # --rerun: only the failures of an earlier red run, in the lead's slot or the workers', under the same cut lock
@@ -136,10 +143,10 @@ if ((CHANGED)); then
 fi
 
 # The self-tests of the developer and release tools (tools/check/tooling.txt) run when the change touches tools/, .github/
-# or scripts/ since the base, and always in CI, with CHECK_FRESH (the release gate) or CHECK_TOOLING=1. Without a base
+# or scripts/ since the base, and always in CI (except with CHECK_LIGHT=1, the light tier of ci.yml), with CHECK_FRESH (the release gate) or CHECK_TOOLING=1. Without a base
 # they run. TOOL_SUITES and TOOL_DIRS stay empty when they run.
 TOOL_SUITES=() TOOL_DIRS=()
-if [[ -z ${CI:-}${CHECK_FRESH:-} && ${CHECK_TOOLING:-} != 1 && -f tools/check/tooling.txt ]]; then
+if [[ -z ${CHECK_FRESH:-} && ( -z ${CI:-} || ${CHECK_LIGHT:-} == 1 ) && ${CHECK_TOOLING:-} != 1 && -f tools/check/tooling.txt ]]; then
   tb=$(base_of)
   if [[ ${CHECK_TOOLING:-} == 0 ]] || { [[ -n $tb ]] && mb=$(git merge-base HEAD "$tb" 2>/dev/null) &&
     ! { git diff --name-only --no-renames "$mb" -- && git ls-files --others --exclude-standard; } | grep -E '^(tools|\.github|scripts)/' >/dev/null; }; then
@@ -165,13 +172,22 @@ CHECK_LOG=$(mktemp -d "${TMPDIR:-/tmp}/check.XXXXXX")
 export CHECK_LOG
 # what a rerun (--rerun) has to run with as this run did
 for v in CHECK_FRESH CHECK_STAMPS_DIR VITEST_MAX_WORKERS E2E_WORKERS CI TZ; do
-  [[ -z ${!v:-} ]] || printf '%s=%s
-' "$v" "${!v}"
+  [[ -z ${!v:-} ]] || printf '%s=%s\n' "$v" "${!v}"
 done >"$CHECK_LOG/env"
-cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
-JOBS=${CHECK_JOBS:-$((cpus > 12 ? cpus - 8 : 4))}
+# shellcheck source=check/weights.sh
+source "$ROOT/tools/check/weights.sh"
+jobs_split # cpus, JOBS, leased and floor
+# On 12 CPUs or fewer the shell jobs take 4 whatever the count, and vitest's default of a worker per CPU but one beside
+# them loads the machine about twice over: the budget tests then measure the crowd. With the shell suites beside the
+# tests, vitest gets the CPUs the jobs leave (at least 2), unless VITEST_MAX_WORKERS says otherwise. With a lease on a share
+# of the cores (CORES_SHARE) that share is the CPUs: the jobs take half, vitest the rest, whatever the count.
+GIVE=0 # the cores the vitest workers hold, which the shell jobs take over when the tests step ends (sh_run)
+if [[ -z ${VITEST_MAX_WORKERS:-} && ${CHECK_SERIAL:-0} != 1 && " ${steps[*]} " == *" tests "* && " ${steps[*]} " == *" sh "* ]] && ((cpus <= 12 || leased)); then
+  export VITEST_MAX_WORKERS=$((cpus - JOBS > floor ? cpus - JOBS : floor))
+  GIVE=$VITEST_MAX_WORKERS
+fi
 failed=()
-trap '((${#failed[@]})) || rm -rf "$CHECK_LOG"' EXIT
+trap '((${#failed[@]})) || [[ -n ${CHECK_KEEP:-} ]] || rm -rf "$CHECK_LOG"' EXIT
 
 strip() { sed 's/\x1b\[[0-9;]*[A-Za-z]//g'; }
 indent() { sed 's/^/  /' | cut -c1-170; }
@@ -233,6 +249,7 @@ step_types() {
     i=$((i + 1))
     ((CHANGED)) && inc=(--incremental --tsBuildInfoFile "$cache/$i.tsbuildinfo")
     (
+      trap - INT QUIT # a Ctrl-C ends tsc too (see the steps side by side below)
       cd "$d" && "$ROOT/node_modules/.bin/tsc" -p . "${inc[@]}" 2>&1 | sed "/error TS/ s|^|${d#.}/|; s|^/||"
       echo "${PIPESTATUS[0]}" >"$log.rc$i"
     ) >"$log.$i" 2>&1 &
@@ -357,10 +374,10 @@ step_sh() {
   [[ -d $dir ]] || { finish sh 0 "no tools/test"; return; }
   if ((${#SCOPE_SUITES[@]})); then files=("${SCOPE_SUITES[@]}"); else files=("$dir"/*.test.sh); fi
   # a suite whose stamp hits is not run, nor a self-test of the tools that this run leaves out
-  local total=0 hits=0 kept=() p q l
+  local total=0 hits=0 kept=() p q l cpu
   for f in "${files[@]}"; do tooling "$f" || kept+=("$f"); done
   files=(${kept[@]+"${kept[@]}"}) kept=()
-  declare -A sms=() sbad=() spass=() sskip=()
+  declare -A sms=() sbad=() spass=() sskip=() seen=()
   for f in "${files[@]}"; do
     [[ -e $f ]] || continue
     total=$((total + 1))
@@ -382,13 +399,11 @@ step_sh() {
       whole+=("$f")
     fi
   done
-  for line in "${whole[@]}" "${scenarios[@]}"; do
-    n=$((n + 1)); printf -v id '%02d' "$n"; list+=("$id $line")
-  done
-  ((${#list[@]})) && printf '%s\n' "${list[@]}" | xargs -P "$JOBS" -L1 bash "$SELF" __job
+  sh_order ${whole[@]+"${whole[@]}"} ${scenarios[@]+"${scenarios[@]}"}
+  for line in ${ORDERED[@]+"${ORDERED[@]}"}; do n=$((n + 1)); printf -v id '%02d' "$n"; list+=("$id $line"); done
+  ((${#list[@]})) && sh_run "$GIVE" "$JOBS" "$SELF" "${list[@]}"
   # the jobs of this run for --rerun: id, suite, scenario filter (tab separated)
-  for line in "${list[@]}"; do read -r id f name <<<"$line"; printf '%s	%s	%s
-' "$id" "$f" "${name:-}"; done >"$CHECK_LOG/sh-jobs"
+  for line in "${list[@]}"; do read -r id f name <<<"$line"; printf '%s\t%s\t%s\n' "$id" "$f" "${name:-}"; done >"$CHECK_LOG/sh-jobs"
   for line in "${list[@]}"; do
     name=""
     read -r id f name <<<"$line"
@@ -403,6 +418,7 @@ step_sh() {
       rc=1; echo "check: the filter $name matched no scenario, so the job ran nothing" >>"$CHECK_LOG/sh-$id.log"
     fi
     echo "$rc" >"$CHECK_LOG/sh-$id.rc" # what the job finally was, for --rerun
+    cpu=$(cat "$CHECK_LOG/sh-$id.cpu" 2>/dev/null || echo 0); ((cpu > 0)) || cpu=$ms; ((rc == 0 && cpu > 0)) && seen[${line#* }]=$cpu
     if ((STAMP_ON)); then
       # what a stamp of the suite says: the seconds of its jobs and the counts of their last "N passed" and "N skipped" lines
       sms[$f]=$((${sms[$f]:-0} + ms)); p=0 q=0
@@ -422,6 +438,7 @@ step_sh() {
       fi
     fi
   done
+  weights_write seen
   # a suite is stamped when all its jobs passed, none needed the rerun alone and no test was skipped
   if ((STAMP_ON)); then
     for f in "${files[@]}"; do
@@ -460,9 +477,11 @@ stamps_start
 if ((${#steps[@]} > 1)) && [[ ${CHECK_SERIAL:-0} != 1 ]]; then
   # side by side: each step prints into a file of its own, and its seconds are its own. The lines are then printed in
   # the order of the steps, so the output reads as the serial run does.
+  # A step in the background ignores SIGINT and SIGQUIT, and since bash 5.3 so does every program it runs: trap - gives
+  # them back, so a Ctrl-C ends the steps as it ends the check, and the shell suites see the signals a terminal sends.
   pids=()
   for s in "${steps[@]}"; do
-    ( t0=$SECONDS; "step_$s" >"$CHECK_LOG/out-$s" 2>&1; ((${#failed[@]} == 0)) ) &
+    ( trap - INT QUIT; t0=$SECONDS; "step_$s" >"$CHECK_LOG/out-$s" 2>&1; : >"$CHECK_LOG/done-$s"; ((${#failed[@]} == 0)) ) &
     pids+=($!)
   done
   for i in "${!steps[@]}"; do

@@ -13,7 +13,7 @@ import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
-import { completeMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualIncome, usualSpending } from "./usual.ts";
+import { cardsBreakUsual, completeMonthsBefore, itemisedMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualIncome, usualSpendingOver } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -49,6 +49,8 @@ export interface MonthPace {
     /** `currentTotal` less `toToday`: above zero the month has cost more than usual so far. */
     diffCents: number;
   } | null;
+  /** The months to compare lack the purchases of a linked card (`cardsBreakUsual`): `usual` is null for that reason, not for lack of months. */
+  cardGap: boolean;
   /**
    * The rest of a running month as the usual months spent it: on each day from today's to the last, `currentTotal` plus
    * what the lower and the upper quartile months of `usual` added after today's day; `low` and `high` start at today.
@@ -111,22 +113,22 @@ function quantile(sorted: readonly number[], q: number): number {
 }
 
 /** The usual month and the projection of the rest of this one (`MonthPace.usual`, `MonthPace.projection`). */
-function usualPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "usual" | "projection"> {
+function usualPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "usual" | "projection" | "cardGap"> {
   const days = daysInMonth(month);
-  const months = completeMonthsBefore(ctx, month);
-  if (months.length < MIN_COMPARE_MONTHS) return { usual: null, projection: null };
+  const months = itemisedMonthsBefore(ctx, month);
+  if (months.length < MIN_COMPARE_MONTHS) return { usual: null, projection: null, cardGap: cardsBreakUsual(ctx, month) };
   const curve: number[] = [];
   const low: number[] = [];
   const high: number[] = [];
   for (let d = 1; d <= days; d++) {
     const values = months.map((m) => spendingThrough(ctx, m, d)).sort((a, b) => a - b);
-    curve.push(usualSpending(ctx, month, d)!);
+    curve.push(usualSpendingOver(ctx, months, d)!);
     low.push(quantile(values, 0.25));
     high.push(quantile(values, 0.75));
   }
   const toToday = lastDay ? curve[lastDay - 1]! : 0;
   const usual = { curve, low, high, months: months.length, toToday, diffCents: total - toToday };
-  if (!lastDay || lastDay >= days) return { usual, projection: null };
+  if (!lastDay || lastDay >= days) return { usual, projection: null, cardGap: false };
   const at = lastDay - 1;
   const projection = { fromDay: lastDay, low: [] as number[], high: [] as number[] };
   for (let d = at; d < days; d++) {
@@ -136,7 +138,7 @@ function usualPace(ctx: AnalysisContext, month: string, lastDay: number, total: 
     projection.low.push(Math.min(a, b));
     projection.high.push(Math.max(a, b));
   }
-  return { usual, projection };
+  return { usual, projection, cardGap: false };
 }
 
 /** The month's largest purchase on its days 1 to `lastDay` that belongs to no recurring series. */

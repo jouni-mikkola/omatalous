@@ -1,7 +1,6 @@
 /** Share own accounts with household members (read-only, per account). */
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { DataTable } from "../../components/table/DataTable.tsx";
 import type { Meta } from "../../types.ts";
 import { sharedUseText } from "./account-use.ts";
 
@@ -33,27 +32,17 @@ export function Sharing({ meta, onChange }: { meta: Meta; onChange: () => void }
           <h2>Tilien jakaminen</h2>
         </div>
       </div>
-      <div className="table-wrap">
-        <DataTable
-          id="sharing"
-          caption="Tilien jakaminen"
-          rows={meta.accounts}
-          rowKey={(a) => a.id}
-          phone="cards"
-          columns={[
-            { key: "account", label: "Oma tili", kind: "text", rowHead: true, cell: (a) => a.name },
-            ...others.map((m) => ({
-              key: m.id,
-              label: m.displayName,
-              kind: "text" as const,
-              cell: (a: (typeof meta.accounts)[number]) => (
-                <label className="small">
-                  <input type="checkbox" checked={isShared(a.id, m.id)} onChange={(e) => void toggle(a.id, m.id, e.target.checked)} /> jaettu
-                </label>
-              ),
-            })),
-          ]}
-        />
+      <div className="share-list">
+        {meta.accounts.map((a) => (
+          <fieldset key={a.id}>
+            <legend>{a.name}</legend>
+            {others.map((m) => (
+              <label key={m.id}>
+                <input type="checkbox" checked={isShared(a.id, m.id)} onChange={(e) => void toggle(a.id, m.id, e.target.checked)} /> jaettu: {m.displayName}
+              </label>
+            ))}
+          </fieldset>
+        ))}
         {!meta.accounts.length && <div className="empty">Ei tilejä.</div>}
         {error && <div className="error">{error}</div>}
       </div>

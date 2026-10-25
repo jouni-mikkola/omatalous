@@ -11,4 +11,5 @@ to ESIMERKKIPANKKI OYJ, the groceries); an ESIMERKKIPANKKI card with a 3 000,00 
 The consent path with `?own=1` links the same household under other account ids and with a joint account of its own
 (`linkFakeBank(page, { own: true })`): the server keeps the closed months of a joint account for whoever links it next.
 Not copied into the Docker image.
+The bank list has OP beside Nordea; its consent brings one account (`OP-tili`, no rows). `PUT /fake/valid-days {"days":5}` makes the sessions that follow end in that many days (a consent about to end), `{"days":null}` takes it back; a spec that sets it takes it back.
 `PUT /fake/auth-answer {"mode":"refuse-redirect"|"fail"|"ok"}` changes how the next authorisations are answered (a refused redirect URL, a failure; default `ok`); a spec that sets it sets `ok` again.

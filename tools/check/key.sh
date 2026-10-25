@@ -5,7 +5,7 @@
 # The key is a sha256 over the step's name, K0 and the lines of `git ls-files -s -- <the step's paths>` (mode, blob, path: the
 # content of every tracked file the step may read, not a commit). K0 is the word v3, the local day (a stamp is good for its own
 # day: a test may depend on today), the blobs of pnpm-lock.yaml, the root
-# package.json, pnpm-workspace.yaml, tools/check.sh and tools/check/, `node -v`, $BASH_VERSION, each environment variable of
+# package.json, .npmrc, pnpm-workspace.yaml, tools/check.sh and tools/check/, `node -v`, $BASH_VERSION, each environment variable of
 # the `env:` line of reads.txt with its value (a variable that is set and empty is not an unset one) and, for lint, `shellcheck --version`, for e2e the names of the
 # installed Chromium folders. The paths come from
 # tools/check/reads.txt: a line `step: pathspec pathspec ...`. A step is looked
@@ -37,7 +37,7 @@ done
 k0=$(
   echo v3
   date +%F # a test may depend on today: a stamp is a hit on its own day only
-  git ls-files -s -- pnpm-lock.yaml package.json pnpm-workspace.yaml tools/check.sh tools/check
+  git ls-files -s -- pnpm-lock.yaml package.json .npmrc pnpm-workspace.yaml tools/check.sh tools/check
   node -v 2>/dev/null || echo no-node
   echo "$BASH_VERSION"
   for name in ${ENVS[@]+"${ENVS[@]}"}; do if [[ -v $name ]]; then printf 'env %s set %s\n' "$name" "${!name}"; else printf 'env %s unset\n' "$name"; fi; done

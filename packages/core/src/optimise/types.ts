@@ -124,6 +124,15 @@ export interface Finding extends Omit<FindingDraft, "weaknesses"> {
  */
 type CheckStatus = "finding" | "clear" | "needs_input" | "no_data" | "no_rows" | "no_subject";
 
+/** Why a check could not say: the months are too few, an outside figure is old or missing, card purchases are missing, or something else. */
+type NoDataCause = "history" | "facts" | "cards" | "other";
+
+/** The cause of a `no_data` check and the one sentence that names it. */
+export interface NoDataWhy {
+  cause: NoDataCause;
+  text: string;
+}
+
 /**
  * One thing an area looked at: "Tarkistettiin 14 asiaa, 7 löydöstä, 3 ei voitu tarkistaa". The frame sets `finding`
  * and `clear` from the findings that survive, so an area may report either. A check with no row to read reports
@@ -135,6 +144,8 @@ export interface Check {
   /** Finnish, a noun phrase: "Asuntolainan marginaali". */
   label: string;
   status: CheckStatus;
+  /** Why the check could not say (status `no_data`, set by the check or else by the frame). */
+  why?: NoDataWhy;
   /** The input key that would let the check run (status `needs_input`). */
   input?: string;
   /** What the check found a month, in cents: the column Kuukaudessa of Tarkistettu. Empty until an area fills it. */

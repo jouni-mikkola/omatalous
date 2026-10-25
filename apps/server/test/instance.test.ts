@@ -51,6 +51,26 @@ describe("setup wizard: instance settings", () => {
     expect((await admin.call("GET", "/api/meta")).body.setupDone).toBe(true);
   });
 
+  it("finishing the wizard is a security event the Turvallisuusloki filter shows, and only an admin can do it", async () => {
+    const { admin, member } = await setupApp();
+    const eero = await member("eero");
+    expect((await eero.call("POST", "/api/admin/instance/complete")).status).toBe(403);
+    const none = await admin.call("GET", "/api/security/events?kind=setup_completed");
+    expect(none.body.events).toEqual([]);
+    expect(none.body.kinds).toContain("setup_completed");
+
+    expect((await admin.call("POST", "/api/admin/instance/complete", undefined, { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0" })).status).toBe(200);
+    const events = (await admin.call("GET", "/api/security/events?kind=setup_completed")).body.events as { kind: string; username: string | null; device: string | null; detail: string | null }[];
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ kind: "setup_completed", username: "aino", device: "Firefox, Linux", detail: null });
+
+    // a second call still writes a row, and says so
+    await admin.call("POST", "/api/admin/instance/complete");
+    const again = (await admin.call("GET", "/api/security/events?kind=setup_completed")).body.events as { detail: string | null }[];
+    expect(again).toHaveLength(2);
+    expect(again.some((e) => e.detail?.includes("jo valmis"))).toBe(true);
+  });
+
   it.each([
     ["javascript URL", { appBaseUrl: "javascript:alert(1)" }],
     ["file URL", { appBaseUrl: "file:///etc/passwd" }],

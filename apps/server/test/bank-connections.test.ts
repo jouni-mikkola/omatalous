@@ -6,7 +6,7 @@ import { HOLDER, HOLDER_IBAN, mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-const NOT_LINKED = "tiliä ei ole linkitetty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
+const NOT_LINKED = "tiliä ei ole lisätty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
 
 type Admin = Awaited<ReturnType<typeof setupApp>>["admin"];
 type Bank = ReturnType<typeof mockBank>;
@@ -84,6 +84,15 @@ describe("connection states", () => {
     const conn = (await repo.listConnections())[0]!;
     await repo.upsertConnection({ ...conn, validUntil: "2026-10-01T00:00:00Z" });
     expect(await connection(admin, id)).toMatchObject({ status: "expired", state: "lapsed", history: false, daysLeft: null });
+    expect((await admin.call("POST", "/api/sync")).body.messages).toEqual(["Nordea: yhteys vanhentui 1.10.2026. Yhdistä uudelleen."]);
+  });
+
+  it("a consent that ends late in the evening UTC ends on the household's next day", async () => {
+    const bank = mockBank();
+    const { admin, s, adminId } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
+    await connect(admin, bank);
+    const repo = s.finance(adminId);
+    await repo.upsertConnection({ ...(await repo.listConnections())[0]!, validUntil: "2026-09-30T22:30:00Z" });
     expect((await admin.call("POST", "/api/sync")).body.messages).toEqual(["Nordea: yhteys vanhentui 1.10.2026. Yhdistä uudelleen."]);
   });
 

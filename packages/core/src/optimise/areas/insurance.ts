@@ -9,7 +9,7 @@ import { priceRiseItems } from "../../analysis/insights/prices.ts";
 import { addDays, addMonthsToDate, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { IsoDate } from "../../types.ts";
-import { findingId, GATE_YEARLY_CENTS, yearlyAt } from "../common.ts";
+import { findingId, GATE_YEARLY_CENTS, WHY_FACTS, yearlyAt } from "../common.ts";
 import { factOn } from "../facts/index.ts";
 import { inputKey, inputStatus, valueOf } from "../inputs.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
@@ -131,7 +131,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
       kinds.has("rise")
         ? { id: "insurance:rise", label: RISE_LABEL, status: "finding" }
         : noCpi
-          ? { id: "insurance:rise", label: RISE_LABEL, status: "no_data" }
+          ? { id: "insurance:rise", label: RISE_LABEL, status: "no_data", why: WHY_FACTS }
           : { id: "insurance:rise", label: RISE_LABEL, status: "clear" },
       { id: "insurance:renewal", label: RENEWAL_LABEL, status: kinds.has("renewal") ? "finding" : "clear" },
     ],

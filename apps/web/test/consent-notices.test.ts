@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consentNoticeText, consentNotices, expiresIn, leftOutText, maskedNumber, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../src/consent-notices.ts";
+import { consentNoticeText, roundLabel, consentNotices, dueText, expiresIn, leftOutText, maskedNumber, reminderDay, renewalReminder, roundText, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../src/consent-notices.ts";
 import type { Account, Connection } from "../src/types.ts";
 
 const conn = (id: string, institution: string, state: Connection["state"], daysLeft: number | null, extra: Partial<Connection> = {}): Connection => ({
@@ -61,7 +61,7 @@ describe("consentNotices", () => {
     const notices = consentNotices([fresh, old], [account("chk", "Käyttötili", "new"), account("card", "Nordea Gold", "old")]);
     expect(notices).toEqual([{ id: "card", institution: "Nordea", kind: "left_out", endedOn: null, daysLeft: null, accountName: "Nordea Gold" }]);
     expect(consentNoticeText(notices[0]!)).toBe(
-      "Nordea Gold ei tullut mukaan uuteen yhteyteen. Linkitä se Enable Bankingissa (API applications > Omatalous > Link accounts) ja yhdistä uudelleen.",
+      "Nordea Gold ei tullut mukaan uuteen yhteyteen. Lisää se Enable Bankingissa (API applications > Omatalous > Link accounts) ja yhdistä uudelleen.",
     );
     // a consent the user removed is named the same way once a newer one is active
     const removed = conn("old", "Nordea", "removed", null, { replaced: true });
@@ -85,7 +85,7 @@ describe("consentNoticeText", () => {
   });
 });
 
-const problem = { kind: "not_linked", message: "tiliä ei ole linkitetty Enable Bankingissa." } as const;
+const problem = { kind: "not_linked", message: "tiliä ei ole lisätty Enable Bankingissa." } as const;
 type Row = Pick<Account, "id" | "bankName" | "name" | "iban" | "cardMask" | "connectionId" | "problem">;
 const row = (id: string, connectionId: string | null, extra: Partial<Row> = {}): Row => ({ id, bankName: id, name: id, iban: null, cardMask: null, connectionId, problem: null, ...extra });
 
@@ -139,14 +139,14 @@ describe("maskedNumber, unlinkedTitle and unlinkedStep", () => {
   });
 
   it("counts in good Finnish", () => {
-    expect(unlinkedTitle(1)).toBe("Yhtä tiliä ei ole linkitetty Enable Bankingissa.");
-    expect(unlinkedTitle(3)).toBe("3 tiliä ei ole linkitetty Enable Bankingissa.");
+    expect(unlinkedTitle(1)).toBe("Yhtä tiliä ei ole lisätty Enable Bankingissa.");
+    expect(unlinkedTitle(3)).toBe("3 tiliä ei ole lisätty Enable Bankingissa.");
   });
 
   it("gives the step to who can take it, and says who does otherwise", () => {
-    expect(unlinkedStep(1, true)).toBe("Linkitä se Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
-    expect(unlinkedStep(2, true)).toMatch(/^Linkitä ne Control Panelissa/);
-    expect(unlinkedStep(2, false)).toBe("Ylläpitäjä linkittää ne Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
+    expect(unlinkedStep(1, true)).toBe("Lisää se Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
+    expect(unlinkedStep(2, true)).toMatch(/^Lisää ne Control Panelissa/);
+    expect(unlinkedStep(2, false)).toBe("Ylläpitäjän pitää lisätä ne Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
   });
 });
 
@@ -273,5 +273,35 @@ describe("renewalReminder", () => {
     expect(renewalReminder(nordea, "", stamp)).toBeNull();
     expect(renewalReminder(nordea, "null", stamp)).toBeNull();
     expect(renewalReminder(nordea, "file:///talous", stamp)).toBeNull();
+  });
+});
+
+describe("the round that renews every consent", () => {
+  it("names the banks that are due, in the order the round takes them", () => {
+    expect(dueText(["OP", "Nordea"])).toBe("Yhteys päättyy tai on päättynyt: OP, Nordea.");
+  });
+
+  it("counts the banks done, and says so when all are", () => {
+    const consents = [
+      { connection: "a", bank: "op-fi", done: true },
+      { connection: "b", bank: "nordea-fi", done: false },
+    ];
+    expect(roundText({ consents, finished: false })).toBe("1 / 2 uusittu");
+    expect(roundText({ consents: consents.map((c) => ({ ...c, done: true })), finished: true })).toBe("Kaikki yhteydet on uusittu.");
+  });
+});
+
+describe("roundLabel", () => {
+  const accounts = [
+    { name: "Käyttötili", iban: "FI2112345600000785", cardMask: null, connectionId: "a" },
+    { name: "Säästötili", iban: "FI1410093000123458", cardMask: null, connectionId: "a" },
+    { name: "Nordea Gold", iban: null, cardMask: "•••• 1144", connectionId: "b" },
+  ];
+  it("is the bank's name, and with two consents of one bank the accounts that tell them apart", () => {
+    const round = [{ connection: "a", bank: "nordea-fi" }, { connection: "b", bank: "nordea-fi" }, { connection: "c", bank: "op-fi" }];
+    expect(roundLabel("c", "op-fi", "OP", round, accounts)).toBe("OP");
+    expect(roundLabel("a", "nordea-fi", "Nordea", round, accounts)).toBe("Nordea (Käyttötili · FI21 1234 5600 0007 85, Säästötili · FI14 1009 3000 1234 58)");
+    expect(roundLabel("b", "nordea-fi", "Nordea", round, accounts)).toBe("Nordea (Nordea Gold · •••• 1144)");
+    expect(roundLabel("a", "nordea-fi", "Nordea", round.slice(0, 1), accounts)).toBe("Nordea");
   });
 });

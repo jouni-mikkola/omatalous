@@ -69,7 +69,7 @@ policy_case() {
 }
 t_source_compose_policy() {
   new_world; setenv TALOUS_CHANNEL=source
-  [[ -x /usr/bin/docker ]] && /usr/bin/docker compose version >/dev/null 2>&1 || { fail "compose policy: needs docker compose on this machine"; return; }
+  [[ -n $REAL_COMPOSE ]] || { fail "compose policy: needs Docker Compose v2 on this machine (real_compose in ops-world.sh)"; return; }
   policy_case "privileged" inject '^  banking:$' "    privileged: true"
   policy_case "quoted privileged and pid" inject '^  banking:$' '    "privileged": true\n    "pid": "host"'
   policy_case "flow merge" inject '^  banking:$' "    <<: {privileged: true, pid: host}"
@@ -89,7 +89,7 @@ t_source_compose_policy() {
 }
 t_real_compose_passes() { # as it is, and with the tunnel image at latest or pinned to a cloudflared release, with and without a digest
   new_world; setenv TALOUS_CHANNEL=source
-  [[ -x /usr/bin/docker ]] && /usr/bin/docker compose version >/dev/null 2>&1 || { fail "compose policy: needs docker compose on this machine"; return; }
+  [[ -n $REAL_COMPOSE ]] || { fail "compose policy: needs Docker Compose v2 on this machine (real_compose in ops-world.sh)"; return; }
   local i; for i in '' latest 2026.9.1 "2026.9.1@sha256:$(printf %064d 0)"; do [[ -z $i ]] || sed -i "s#image: cloudflare/cloudflared.*#image: cloudflare/cloudflared:$i#" "$W/seed/docker-compose.yml"; src_commit
     check "source: the project's own docker-compose.yml passes the policy check${i:+ with the tunnel image at $i}" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/lib/ops-git.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep 'image: cloudflare/cloudflared.*$i\$' >/dev/null && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
   done

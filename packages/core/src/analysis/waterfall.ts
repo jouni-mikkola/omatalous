@@ -4,7 +4,7 @@ import { categoryTotals, NAMED_CATEGORIES } from "./category-totals.ts";
 import { type AnalysisContext, spendRows } from "./context.ts";
 import { leftOf } from "./flows.ts";
 import { type DateRange, toDayRange } from "./period.ts";
-import { completeMonthsBefore, usualCents } from "./usual.ts";
+import { cardsBreakUsual, itemisedMonthsBefore, usualCents } from "./usual.ts";
 import { type CategoryPart, categoryParts } from "./row-parts.ts";
 
 /** The payees a bar tells before the rest are one row. */
@@ -21,7 +21,7 @@ interface WaterfallPart {
   count?: number;
 }
 
-/** One step of the waterfall: `income`, `category:<id>`, `other` or `transfers`, with the cents it adds to Yli jäi. */
+/** One step of the waterfall: `income`, `category:<id>`, `other` or `transfers`, with the cents it adds to Tulos. */
 interface WaterfallBar {
   key: string;
   cents: number;
@@ -56,7 +56,7 @@ function payeeParts(sums: ReadonlyMap<string, number>, sign: 1 | -1): WaterfallP
 
 const add = (map: Map<string, number>, key: string, cents: number) => map.set(key, (map.get(key) ?? 0) + cents);
 
-/** A month told as steps from income to Yli jäi. The bars add up to `leftCents` exactly. */
+/** A month told as steps from income to Tulos. The bars add up to `leftCents` exactly. */
 export interface Waterfall {
   /** The calendar month, `2026-09`. */
   month: string;
@@ -66,14 +66,16 @@ export interface Waterfall {
    * Income and the spending bars are the table's Tulot and Menot to the cent.
    */
   bars: WaterfallBar[];
-  /** Yli jäi of the month as the table beside the waterfall has it (`spendTotals` of the same rows): the bars add up to it. Raportit's cash flow report counts a card bill whole and can differ by what a statement moves between months. */
+  /** Tulos of the month as the table beside the waterfall has it (`spendTotals` of the same rows): the bars add up to it. Raportit's cash flow report counts a card bill whole and can differ by what a statement moves between months. */
   leftCents: number;
   /** The table's Tulot: the income bar. */
   incomeCents: number;
   /** The table's Menot, positive: the spending bars together. */
   spentCents: number;
-  /** What went to savings and credit, negative when it left (the transfers bar, 0 without one). Income less Menot plus this is Yli jäi. */
+  /** What went to savings and credit, negative when it left (the transfers bar, 0 without one). Income less Menot plus this is Tulos. */
   transfersCents: number;
+  /** The months to compare lack the purchases of a linked card (`cardsBreakUsual`): no bar has a usual. Set by `withUsual`. */
+  cardGap?: boolean;
 }
 
 /**
@@ -98,7 +100,7 @@ export function monthWaterfall(ctx: AnalysisContext, month: string, within: Date
     const cents = leftOf(t.flows);
     left += cents;
     income += t.flows.income;
-    // what moves Yli jäi and is neither income nor spending: savings set aside and credit drawn, as `saved` and `borrowed` below
+    // what moves Tulos and is neither income nor spending: savings set aside and credit drawn, as `saved` and `borrowed` below
     transfers += cents - t.flows.income + t.spend;
     saved += t.flows.saved;
     borrowed += t.flows.borrowed;
@@ -121,7 +123,7 @@ export function monthWaterfall(ctx: AnalysisContext, month: string, within: Date
     ...(other ? [{ key: "other", cents: -other, count: rest.length, parts: rest.map((c) => ({ key: `category:${c.category}`, cents: -c.cents })) }] : []),
     ...(transfers ? [{ key: "transfers", cents: transfers, parts: moved }] : []),
   ];
-  // the running total each bar starts and ends at: the bars add up to Yli jäi, so the last ends at `left`
+  // the running total each bar starts and ends at: the bars add up to Tulos, so the last ends at `left`
   let at = 0;
   const bars: WaterfallBar[] = steps.map((b) => ({ ...b, fromCents: at, toCents: (at += b.cents) }));
   return { month, bars, leftCents: left, incomeCents: income, spentCents: ranked.reduce((sum, c) => sum + c.cents, 0), transfersCents: transfers };
@@ -129,10 +131,11 @@ export function monthWaterfall(ctx: AnalysisContext, month: string, within: Date
 
 /**
  * The waterfall with the usual of each bar (`WaterfallBar.usualCents`): the same steps in the complete months before
- * (`completeMonthsBefore`), each cut to the day this one runs to, so a running month is set against the same days.
+ * (`itemisedMonthsBefore`), each cut to the day this one runs to, so a running month is set against the same days. A
+ * category is compared only where the months before hold its purchases: with a month that lacks the card's purchases among them (`cardGap`) no bar has a usual.
  */
 export function withUsual(ctx: AnalysisContext, wf: Waterfall, toDay: number): Waterfall {
-  const months = completeMonthsBefore(ctx, wf.month);
+  const months = itemisedMonthsBefore(ctx, wf.month);
   const steps = months.map((m) => {
     const cut = dateIn(m, toDay);
     const past = monthWaterfall(ctx, m, { from: `${m}-01`, to: cut });
@@ -146,6 +149,7 @@ export function withUsual(ctx: AnalysisContext, wf: Waterfall, toDay: number): W
   const valueIn = (by: Map<string, number>, bar: WaterfallBar) => (bar.key === "other" ? bar.parts.reduce((n, p) => n + (by.get(p.key) ?? 0), 0) : (by.get(bar.key) ?? 0));
   return {
     ...wf,
+    cardGap: cardsBreakUsual(ctx, wf.month),
     bars: wf.bars.map((b) => {
       const usual = b.key === "transfers" ? null : usualCents(steps.map((by) => valueIn(by, b)));
       return { ...b, usualCents: usual, vsUsualCents: usual === null ? null : b.cents - usual };

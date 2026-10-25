@@ -78,7 +78,7 @@ export function TipCard({ finding: f, today, scope, onChanged }: { finding: Find
         </p>
       </div>
       {at < 0 && (
-        <button className="tip-figure" type="button" aria-expanded={open} aria-describedby={titleId} aria-label={label} onClick={() => setOpen((o) => !o)}>
+        <button className="tip-figure" type="button" aria-expanded={open} aria-describedby={titleId} onClick={() => setOpen((o) => !o)}>
           {f.euros ? (
             <>
               <span className="tip-fig">
@@ -96,6 +96,7 @@ export function TipCard({ finding: f, today, scope, onChanged }: { finding: Find
               <span className="tip-unit">määräpäivä</span>
             </>
           )}
+          <span className="sr-only">, laskelma</span>
           {chevron}
         </button>
       )}

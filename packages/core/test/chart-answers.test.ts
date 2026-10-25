@@ -45,7 +45,7 @@ describe("the bar of Tulojen käyttö", () => {
     }
   });
 
-  it("fills each bar with its parts' shares, and the table adds up to Yli jäi", () => {
+  it("fills each bar with its parts' shares, and the table adds up to Tulos", () => {
     for (const { seed, r } of households) {
       const v = r.cashflow.bridge;
       if (!v) continue;

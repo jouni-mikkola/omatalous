@@ -19,7 +19,7 @@ test("a card bill row of Tapahtumat says its purchases are not shown, and a plai
   await expect(label).toHaveCount(1);
   await expect(page.locator("tr", { hasText: "Esimerkki Korttilasku" }).getByText("Korttilasku: ostot eivät näy")).toHaveCount(1);
   await page.setViewportSize({ width: 390, height: 800 });
-  await expect(page.locator(".tx-item", { hasText: "Esimerkki Korttilasku" }).getByText("Korttilasku: ostot eivät näy")).toHaveCount(1);
+  await expect(page.locator("tr", { hasText: "Esimerkki Korttilasku" }).getByText("Korttilasku: ostot eivät näy")).toHaveCount(1);
   expect(await overflow(page)).toBe(0);
   expect(seen.problems).toEqual([]);
   await context.close();

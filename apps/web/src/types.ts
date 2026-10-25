@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, RunningPool, Waterfall, FeatureState, LoanProposal, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, RunningPool, Waterfall, FeatureState, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, RecurringSeries, ReportsData };
 /** What `GET /api/dashboard` sends, with the verdicts and the joint pools the server adds. */
@@ -144,6 +144,8 @@ export interface Meta {
   members: { id: string; displayName: string }[];
   shares: { accountId: string; userId: string }[];
   connections: Connection[];
+  /** The consents to renew now and the round begun over them, else null (core `consent-round.ts`). */
+  renewal: { due: RoundConsent[]; round: RoundView | null };
   lastSync: SyncRun | null;
   bank: {
     /** A bank can be connected: an app is set up and the household's app is not known to be inactive. */
@@ -233,7 +235,7 @@ export type LoanProposalRow = Pick<LoanProposal, "key" | "payee" | "paymentCents
 /** own = my accounts; household = mine + accounts shared with me. */
 export type Scope = "own" | "household";
 
-/** The month as a waterfall: each bar a signed change of the running total, the bars adding up to `leftCents` (Yli jäi). */
+/** The month as a waterfall: each bar a signed change of the running total, the bars adding up to `leftCents` (Tulos). */
 export type WaterfallAnswer = Waterfall;
 
 /** What each joint pool's members paid above (positive) or under (negative) their share, for the running month. */

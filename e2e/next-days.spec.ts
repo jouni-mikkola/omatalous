@@ -60,23 +60,21 @@ test("the line over the figures names the payday, the three figures are the API'
   expect(free).toBe(balance! - due!);
 
   // the table of the payments is the window's payments and nothing else, in order, and it adds up to the figure to the
-  // cent. A payday today or tomorrow can leave a window with nothing due in it: the table says so in its one row, a figure of 0.
+  // cent. A payday today or tomorrow can leave a window with nothing due in it: it says so in a sentence, with no table, a figure of 0.
   const paid = ahead.rows.filter((r) => r.cents < 0);
   const known = await demoNames(context);
   for (const r of ahead.rows.filter((r) => r.source === "recurring" || r.source === "income")) expect(known.has(r.name), `${r.name} is a name the demo's rows give`).toBe(true);
   const table = card.getByRole("table", { name: /^Erääntyvät maksut / });
-  await expect(table).toHaveCount(1);
-  const none = table.locator("tbody td[colspan]");
-  await expect(none).toHaveCount(paid.length > 0 ? 0 : 1);
-  if (paid.length === 0) await expect(none).toHaveText("Ei erääntyviä maksuja.");
-  expect(await namesOf(table)).toEqual(paid.map((r) => r.name));
-  const amounts = (await table.locator("tbody tr td.st-num").allInnerTexts()).map(cents);
+  await expect(table).toHaveCount(paid.length > 0 ? 1 : 0);
+  await expect(card.getByText("Ei erääntyviä maksuja.", { exact: true })).toHaveCount(paid.length > 0 ? 0 : 1);
+  const amounts = paid.length > 0 ? (await table.locator("tbody tr td.num").allInnerTexts()).map(cents) : [];
+  if (paid.length > 0) expect(await namesOf(table)).toEqual(paid.map((r) => r.name));
   expect(amounts.reduce((sum, c) => sum + c, 0), "the table adds up to the figure").toBe(due);
   // the days and the sums are called estimates under the table, in a line of three words, and no usual spending is told
   await expect(card.getByText("Eräpäivät ja summat ovat arvioita.", { exact: true })).toHaveCount(paid.length > 0 ? 1 : 0);
   await expect(card.getByText(/tavallisesti|arvioitu aiemmista/)).toHaveCount(0);
   // two groups: the figures at the left under the line of the window, the tables at the right from the block's second column on
-  const [left, right, whole] = await Promise.all([card.locator("dl.st-rows"), table, card].map(async (l) => (await l.boundingBox())!));
+  const [left, right, whole] = await Promise.all([card.locator("dl.st-rows"), paid.length > 0 ? table : card.getByRole("table", { name: "Saapuvat maksut" }), card].map(async (l) => (await l.boundingBox())!));
   expect(left!.x + left!.width).toBeLessThan(right!.x);
   expect(Math.abs(right!.x - 24 - (whole!.x + whole!.width / 3)), "the tables start on the line of the second column").toBeLessThanOrEqual(2);
 
@@ -166,7 +164,7 @@ test("a bill that is paid and waits to be booked carries the word varaus after i
   await expect(list.locator(".badge", { hasText: "varaus" })).toHaveCount(1);
   await expect(row.locator(".payee-pending .badge")).toHaveText("varaus");
   // the first group of Laskut is the figure of Yhteenveto without an own transfer: the paid bill is in both
-  const first = cents(await list.locator(".group-head").first().locator("td").innerText());
+  const first = cents(await list.locator(".rt-group").first().locator("td").innerText());
   expect(first).toBe(due - stub!.totals.transferCents);
 
   // on a phone the long name is cut with an ellipsis and the word keeps its line inside the cell, on both pages
@@ -179,7 +177,7 @@ test("a bill that is paid and waits to be booked carries the word varaus after i
     expect(await cell.locator(".payee-pending > span").first().evaluate((n) => n.scrollWidth > n.clientWidth), "the name is cut").toBe(true);
     expect(await overflow(page), "the page scrolls sideways at 390 px").toBeLessThanOrEqual(1);
   };
-  await phone(row.locator("td:has(.payee-pending)"));
+  await phone(row.locator("td:has(.payee-pending), th:has(.payee-pending)"));
   await page.goto("/#/overview?period=month");
   await expect(mine).toHaveCount(1);
   await phone(mine.locator("td:has(.payee-pending)"));
@@ -211,7 +209,7 @@ test("on a phone nothing scrolls sideways, the figures come before the tables an
     all.map((t) => ({
       wide: t.getBoundingClientRect().width > t.parentElement!.getBoundingClientRect().width + 1,
       cells: Array.from(t.querySelectorAll("tbody tr:not(:has(td[colspan]))")).map((r) => r.children.length),
-      cut: Array.from(t.querySelectorAll("td.st-num")).filter((c) => c.scrollWidth > c.clientWidth + 1).length,
+      cut: Array.from(t.querySelectorAll("td.num")).filter((c) => c.scrollWidth > c.clientWidth + 1).length,
     })),
   );
   expect(shape.length).toBeGreaterThan(0);
@@ -232,7 +230,7 @@ test("Laskut has the same payments in groups: the first group's sum is the figur
   expect(due).toBe(ahead.totals.dueCents);
 
   await page.goto("/#/bills");
-  const heads = page.locator("#tulossa .group-head");
+  const heads = page.locator("#tulossa .rt-group");
   await expect(heads.first()).toContainText("Palkkapäivään asti");
   const groups = (await heads.evaluateAll((rows) => rows.map((r) => [r.querySelector("th")!.textContent ?? "", r.querySelector("td")!.textContent ?? ""]))).map(([title, sum]) => ({ title: title!, cents: cents(sum!) }));
   // the first group is what the accounts pay in the window, a card's bill included. Yhteenveto's figure adds to it only an
@@ -275,12 +273,12 @@ test("Laskut lists a card's bill due inside 30 days in the group of its day, and
   await expect(row.locator("td.sum")).toHaveText(/412,00/);
   // the bill is in the group of its day: that group's sum is its own rows' sum, the card's bill among them
   const group = row.locator("xpath=ancestor::tbody");
-  const head = cents(await group.locator(".group-head td").innerText());
-  const rows = await group.locator("tr:not(.group-head) td.sum").allInnerTexts();
+  const head = cents(await group.locator(".rt-group td").innerText());
+  const rows = await group.locator("tr:not(.rt-group) td.sum").allInnerTexts();
   expect(head).toBe(rows.reduce((sum, t) => sum + cents(t), 0));
   expect(head).toBeGreaterThanOrEqual(41_200);
   // and the groups together are the whole list
-  const sums = await list.locator(".group-head td").allInnerTexts();
+  const sums = await list.locator(".rt-group td").allInnerTexts();
   expect(sums.reduce((sum, t) => sum + cents(t), 0)).toBe(stub!.upcoming.reduce((sum, r) => sum - r.cents, 0));
   await page.setViewportSize({ width: 390, height: 900 });
   expect(await overflow(page), "the page scrolls sideways at 390 px").toBeLessThanOrEqual(1);

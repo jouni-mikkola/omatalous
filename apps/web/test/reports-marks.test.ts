@@ -52,7 +52,7 @@ describe("Raportit: the sum bracket of Kategoriat, on the euros as printed", () 
 });
 
 describe("Raportit: the shares of Kategoriat are core's", () => {
-  const shareCells = (out: string) => [...out.matchAll(/<td class="num(?: rt-share)?">(\d+[\s ]%|–)<\/td>/g)].map((m) => m[1]!.replace(/\s/g, " "));
+  const shareCells = (out: string) => [...out.matchAll(/<td class="num[^"]*"(?: data-label="[^"]*")?>(?:<span class="rt-barcell">.*?<span>)?(\d+[\s ]%|–)(?:<\/span><\/span>)?<\/td>/g)].map((m) => m[1]!.replace(/\s/g, " "));
 
   it("prints each row's printed share as core rounded it (report-charts.test.ts holds the rounding), a dash for none", () => {
     const out = html(categories, categoriesData([group("Asuminen", 66_700, 67), group("Ruoka", 33_300, 33), group("Muu", -2_000, null)], 98_000));
@@ -146,6 +146,6 @@ describe("Raportit: Menot kuukausittain", () => {
   it("the table behind Taulukko keeps every figure the old one had", () => {
     const out = renderToStaticMarkup(createElement(HeatTable, { r: months().pivot as never }));
     expect(out).toContain("heat-table");
-    for (const word of ["Kategoria", "Ruokakauppa", "520", "Keskimäärin kuussa", "pivot-list", "pivot-narrow"]) expect(out, word).toContain(word);
+    for (const word of ["Kategoria", "Ruokakauppa", "520", "Keskimäärin kuussa", "rt-fold"]) expect(out, word).toContain(word);
   });
 });

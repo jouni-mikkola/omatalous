@@ -1,8 +1,6 @@
-import { date, plural } from "./format.ts";
+import { type RoundView, WARN_DAYS } from "@banking/core";
+import { accountNumber, date, localDay, plural } from "./format.ts";
 import type { Account, Connection } from "./types.ts";
-
-/** Notices start this many days before a consent ends; the connections table offers a reconnect from then on. */
-export const WARN_DAYS = 14;
 
 /** The applications page of the Enable Banking Control Panel, where Link accounts is. */
 export const CONTROL_PANEL = "https://enablebanking.com/cp/applications";
@@ -28,7 +26,7 @@ interface ConsentNotice {
  * account is linked: a restricted application leaves the others out of a session.
  */
 export function leftOutText(accountName: string): string {
-  return `${accountName} ei tullut mukaan uuteen yhteyteen. Linkitä se Enable Bankingissa (API applications > Omatalous > Link accounts) ja yhdistä uudelleen.`;
+  return `${accountName} ei tullut mukaan uuteen yhteyteen. Lisää se Enable Bankingissa (API applications > Omatalous > Link accounts) ja yhdistä uudelleen.`;
 }
 
 /**
@@ -68,6 +66,28 @@ export function consentNoticeText(n: ConsentNotice): string {
   return `${n.institution}: yhteys vanhenee ${expiresIn(n.daysLeft ?? 0)}.`;
 }
 
+// ── the round that renews every consent ───────────────────────────────────────────
+
+/** The line above the button that begins a round: the consents by name, in the order the round takes them. */
+export function dueText(names: readonly string[]): string {
+  return `Yhteys päättyy tai on päättynyt: ${names.join(", ")}.`;
+}
+
+/** The progress of a begun round, "1 / 2 uusittu"; the end says so. */
+export function roundText(round: Pick<RoundView, "consents" | "finished">): string {
+  return round.finished ? "Kaikki yhteydet on uusittu." : `${round.consents.filter((c) => c.done).length} / ${round.consents.length} uusittu`;
+}
+
+/**
+ * What a consent of the round is called: the bank, and when the round holds more than one consent of that bank, the
+ * accounts, with their numbers, that tell them apart (Nordea gives one account per consent).
+ */
+export function roundLabel(connection: string, bank: string, nameOfBank: string, round: readonly { connection: string; bank: string }[], accounts: readonly Pick<Account, "name" | "iban" | "cardMask" | "connectionId">[]): string {
+  if (round.filter((r) => r.bank === bank).length < 2) return nameOfBank;
+  const names = accounts.filter((a) => a.connectionId === connection).map((a) => [a.name, accountNumber(a)].filter(Boolean).join(" · "));
+  return names.length ? `${nameOfBank} (${names.join(", ")})` : nameOfBank;
+}
+
 // ── accounts the bank handed over that the app may not read ─────────────────────────
 
 interface UnlinkedAccount {
@@ -104,7 +124,7 @@ export function unlinkedAccounts(connections: readonly Connection[], accounts: r
 
 /** The line above the list. */
 export function unlinkedTitle(count: number): string {
-  return count === 1 ? "Yhtä tiliä ei ole linkitetty Enable Bankingissa." : `${count} tiliä ei ole linkitetty Enable Bankingissa.`;
+  return count === 1 ? "Yhtä tiliä ei ole lisätty Enable Bankingissa." : `${count} tiliä ei ole lisätty Enable Bankingissa.`;
 }
 
 /** The one step that fixes it: who takes it depends on whose Enable Banking application reads the accounts. */
@@ -112,8 +132,8 @@ export function unlinkedStep(count: number, canFix: boolean): string {
   const them = count === 1 ? "se" : "ne";
   const where = "API applications > Omatalous > Link accounts";
   return canFix
-    ? `Linkitä ${them} Control Panelissa (${where}). Paina sen jälkeen Hae nyt.`
-    : `Ylläpitäjä linkittää ${them} Control Panelissa (${where}). Paina sen jälkeen Hae nyt.`;
+    ? `Lisää ${them} Control Panelissa (${where}). Paina sen jälkeen Hae nyt.`
+    : `Ylläpitäjän pitää lisätä ${them} Control Panelissa (${where}). Paina sen jälkeen Hae nyt.`;
 }
 
 // ── the calendar reminder ───────────────────────────────────────────────────────────
@@ -134,7 +154,7 @@ export function validityText(c: Pick<Connection, "state" | "validUntil" | "daysL
 
 /** The day of the reminder (YYYY-MM-DD), counted from the date the page shows for the end. Null without a date. */
 export function reminderDay(validUntil: string | null): string | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(validUntil ?? "");
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(validUntil ? localDay(validUntil) : "");
   if (!m) return null;
   const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - REMINDER_DAYS));
   return Number.isNaN(day.getTime()) ? null : day.toISOString().slice(0, 10);
@@ -215,7 +235,7 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:renewal-${shortHash(c.id)}-${compact(c.validUntil.slice(0, 10))}@omatalous`,
+    `UID:renewal-${shortHash(c.id)}-${compact(localDay(c.validUntil))}@omatalous`,
     `DTSTAMP:${stamp.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "")}`,
     `DTSTART;VALUE=DATE:${compact(day)}`,
     `DTEND;VALUE=DATE:${compact(after.toISOString().slice(0, 10))}`,
@@ -232,6 +252,6 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
     "END:VCALENDAR",
   ];
   const slug = c.institution.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const filename = `${["pankkiyhteys", slug, c.validUntil.slice(0, 10)].filter(Boolean).join("-")}.ics`;
+  const filename = `${["pankkiyhteys", slug, localDay(c.validUntil)].filter(Boolean).join("-")}.ics`;
   return { day, filename, ics: `${lines.map(foldLine).join("\r\n")}\r\n` };
 }

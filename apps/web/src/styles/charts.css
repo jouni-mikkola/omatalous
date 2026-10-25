@@ -109,19 +109,12 @@
   .chart .slope-line.draw { animation-duration: 400ms; }
 }
 
-/* Mikä muuttui: the slopes and, where the panel is wide, the exact figures beside them with each change as a bar from the middle */
-.shift-side { display: none; }
-@media (min-width: 900px) {
-  .shift-layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px; align-items: start; }
-  .shift-side { display: block; padding-top: 24px; }
-}
-.shift-table .shift-bar-head { width: 22%; }
+/* Mikä muuttui: each change as a bar from the middle */
 .shift-table .shift-bar-cell { position: relative; }
 .shift-table .shift-bar-cell::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; border-left: 1px solid var(--axis); }
 .shift-table .shift-bar { position: absolute; top: 50%; height: 8px; margin-top: -4px; border-radius: var(--radius-s); }
 .shift-table .shift-bar.up { left: 50%; background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 45%, var(--surface)), var(--bad)); }
 .shift-table .shift-bar.down { right: 50%; background: linear-gradient(270deg, color-mix(in srgb, var(--good) 45%, var(--surface)), var(--good)); }
-.shift-table .shift-marked td:first-child { font-weight: 600; color: var(--text); }
 
 /* The chart kit (charts/kit): events, reference lines and bands. No chart draws them yet; VD0's tokens set them later. */
 .chart .kit-event-rule { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }

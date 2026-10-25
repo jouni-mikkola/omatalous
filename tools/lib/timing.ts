@@ -42,6 +42,14 @@ export async function bestOf<T>(runs: number, run: () => Promise<T>, prepare: ()
   return { ms, result };
 }
 
+/** What `calibrate` reads on an idle machine: a budget stretches by how much slower it runs now (slowerNow). */
+export const CALIBRATION_IDLE_MS = 80;
+
+/** How much slower than idle the machine runs the calibration, the faster of two readings (never under 1). */
+export function slowerNow(before: number): number {
+  return Math.max(1, Math.min(before, calibrate()) / CALIBRATION_IDLE_MS);
+}
+
 /**
  * CPU milliseconds of a fixed piece of plain JavaScript, the best of `runs` after a warm-up: 50 000 rows made and
  * kept, grouped in a Map by a string key, each group sorted by date, all of them by amount, part of them turned into
@@ -64,4 +72,22 @@ export function calibrate(runs = 2): number {
     return JSON.stringify(rows.slice(0, 5_000)).length + groups.size;
   };
   return bestOfSync(runs, work).ms;
+}
+
+/**
+ * The reading over its budget, as a ratio (under 1 passes): `read` returns the CPU milliseconds of the work (a `bestOf`)
+ * and the budget stretches by how much slower than idle the calibration runs, the slower of one taken just before the
+ * reading and one just after it, so that the load of the seconds in between is in it. A reading over budget is taken
+ * again (up to `attempts`) with calibrations of its own, since a load that comes and goes is not the same in each;
+ * code that got slower is over budget in every attempt.
+ */
+export async function budgetRatio(budgetMs: number, read: () => number | Promise<number>, attempts = 3): Promise<number> {
+  let best = Number.POSITIVE_INFINITY;
+  for (let attempt = 0; attempt < attempts && best >= 1; attempt++) {
+    const before = calibrate();
+    const ms = await read();
+    const slower = Math.max(1, Math.max(before, calibrate()) / CALIBRATION_IDLE_MS);
+    best = Math.min(best, ms / (budgetMs * slower));
+  }
+  return best;
 }

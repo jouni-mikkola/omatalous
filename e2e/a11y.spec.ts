@@ -83,3 +83,32 @@ for (const look of ["light", "night"] as const) {
     }
   }
 }
+
+// 0.69.1: three rules the serious-only checks above let through, on the pages that had them: a control's name holds its visible
+// text, a landmark is told apart from its twin, a table head cell is not empty. Any impact counts here.
+const ROWS = Array.from({ length: 5 }, (_, i) => ({ id: `r${i}`, date: `2025-0${i + 1}-02`, cents: -10_000, name: "Pankki Oyj", text: "LAINA" }));
+const MANY = { ...LOAN, rows: ROWS, rowCount: 5 };
+const RULES = ["label-content-name-mismatch", "landmark-unique", "empty-table-header"];
+for (const width of [1440, 390]) {
+  for (const [name, path, ready, queue] of [
+    ["Yhteenveto", "/#/overview?period=month", ".wf-row", null],
+    ["Säästövinkit", "/#/optimise", ".tip-figure", null],
+    ["Tarkistettavat", "/#/review", ".review-figure", [MANY]],
+    ["Tapahtumat", "/#/transactions", ".tx-filterbar", null],
+    ["Asetukset", "/#/settings", "table:has(caption:text-is(\"Talouden jäsenet\"))", null],
+  ] as const) {
+    test(`${name}, ${width} px: axe finds no mismatched name, repeated landmark or empty table header`, async ({ browser }) => {
+      const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, bypassCSP: true, ...(width < 600 ? { isMobile: true, hasTouch: true } : {}) });
+      await stubCockpit(context, { settlement: "uneven" });
+      if (queue) await context.route(/\/api\/review(\?|$)/, (r) => r.fulfill({ json: { items: queue } }));
+      const page = await visit(context, path, ready);
+      await page.addScriptTag({ path: AXE });
+      const found = await page.evaluate(async (rules) => {
+        const run = (window as unknown as { axe: { run: (c: Document, o: object) => Promise<{ violations: Violation[] }> } }).axe.run;
+        return (await run(document, { runOnly: { type: "rule", values: rules }, resultTypes: ["violations"] })).violations;
+      }, RULES);
+      expect(found.map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => `${n.target.join(" ")} [${n.any[0]?.message ?? ""}]`).join(" | ")}`)).toEqual([]);
+      await context.close();
+    });
+  }
+}

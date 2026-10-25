@@ -82,7 +82,7 @@ test("Peruuta leaves nothing behind", async ({ browser }) => {
 
 test("the dry run counts, Tuo commits it, and a second dry run finds everything there", async ({ browser }) => {
   const { context, page, card, seen } = await open(browser);
-  const row = (name: string) => card.locator(".data-import-plan tr", { has: page.getByRole("rowheader", { name, exact: true }) });
+  const row = (name: string) => card.locator(".data-import-plan > div", { has: page.locator("dt", { hasText: new RegExp(`^${name}$`) }) });
   await pick(card, file);
   await expect(row("Tapahtumat")).toContainText(/lisätään [1-9]\d*, jo olemassa 0, ohitetaan 0/);
   await expect(row("Tilit")).toContainText("lisätään");
@@ -120,9 +120,9 @@ test("the administrator's own file finds everything there and changes nothing", 
   const card = page.locator(".card", { has: page.getByRole("heading", { level: 2, name: "Tiedot", exact: true }) });
   const own = await (await context.request.post("/api/data/export", { headers: FETCH })).text();
   await pick(card, own);
-  const rows = card.locator(".data-import-plan tr", { has: page.getByRole("rowheader", { name: "Tapahtumat", exact: true }) });
+  const rows = card.locator(".data-import-plan > div", { has: page.locator("dt", { hasText: /^Tapahtumat$/ }) });
   await expect(rows).toContainText(/lisätään 0, jo olemassa [1-9]\d*, ohitetaan 0/);
-  await expect(card.locator(".data-import-plan tr", { has: page.getByRole("rowheader", { name: "Yhteensä", exact: true }) })).toContainText("lisätään 0");
+  await expect(card.locator(".data-import-plan > div", { has: page.locator("dt", { hasText: /^Yhteensä$/ }) })).toContainText("lisätään 0");
   await card.getByRole("button", { name: "Peruuta" }).click();
   expect(seen.problems).toEqual([]);
   await context.close();

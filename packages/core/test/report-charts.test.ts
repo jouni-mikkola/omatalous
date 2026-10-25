@@ -5,7 +5,7 @@ import { buildReports } from "../src/reports/index.ts";
 import type { Account } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
-// the fields the charts of Raportit read (PD-raportit): cumulative Yli jäi, the usual savings rate, like-for-like
+// the fields the charts of Raportit read (PD-raportit): cumulative Tulos, the usual savings rate, like-for-like
 // change per category, the lowest day and the events of the balance line
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";
@@ -20,7 +20,7 @@ const ctx = createContext(rows, [checking], today);
 describe("report fields of the Raportit charts", () => {
   const r = buildReports({ ctx, range: { from: "2025-11-01", to: "2026-10-09" }, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 500000, ownerName: null, balanceAt: null }] });
 
-  it("adds up Yli jäi from January, and the running month ends this year's line", () => {
+  it("adds up Tulos from January, and the running month ends this year's line", () => {
     const y = r.cashflow.yearToDate;
     expect(y.year).toBe(2026);
     expect(y.partialMonth).toBe(9);

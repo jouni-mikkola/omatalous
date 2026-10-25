@@ -1,4 +1,4 @@
-import { clockTime } from "./pages/settings/remote-access-model.ts";
+import { clockTime, dayMonth, localDay } from "./format.ts";
 
 /** What `POST /api/sync/open` answers: whether rows were fetched when the app was opened, and when. */
 export type OpenSync = {
@@ -10,9 +10,8 @@ export type OpenSync = {
 
 /** A time as the page reads it: "klo 18.02", and with the date in front when it is not today, "12.10. klo 18.02". */
 function stamp(iso: string, now: Date): string {
-  const at = new Date(iso);
-  const sameDay = at.toDateString() === now.toDateString();
-  return `${sameDay ? "" : `${at.getDate()}.${at.getMonth() + 1}. `}klo ${clockTime(iso)}`;
+  const day = localDay(iso);
+  return `${day === localDay(now.toISOString()) ? "" : `${dayMonth(day)} `}klo ${clockTime(iso)}`;
 }
 
 /** The one line at the top of the page, or null when there is nothing to say. */

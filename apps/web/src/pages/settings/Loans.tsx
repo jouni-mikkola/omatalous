@@ -2,7 +2,7 @@ import { DEBT_ACCOUNT_TYPES, type Loan } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { formOfLoan, LOAN_LINK_PARAM, linkChoices } from "../../components/loans/form.ts";
 import { KIND_LABEL } from "../../components/loans/labels.ts";
 import { LoanEditor, LoanLinks } from "../../components/loans/LoanEditor.tsx";
@@ -111,12 +111,10 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
         </div>
       )}
       {loans.length > 0 && (
-        <DataTable
-          id="loans"
+        <Table
           caption="Lainat"
           rows={loans}
           rowKey={(loan) => loan.id}
-          phone="cards"
           columns={[
             {
               key: "name",
@@ -128,11 +126,10 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
                   {loan.name}
                   <div className="sub">{KIND_LABEL[loan.kind]}</div>
                   {linkedTo(loan) && <div className="sub">{`Liitetty tiliin ${linkedTo(loan)!.name}`}</div>}
-                  <div className="sub loan-phone">{[loan.lender, rateOf(loan), paymentOf(loan), loan.endDate && `viimeinen eräpäivä ${date(loan.endDate)}`].filter(Boolean).join(" · ")}</div>
                 </>
               ),
             },
-            { key: "lender", label: "Lainanantaja", kind: "text", phone: "hide", cell: (loan) => loan.lender ?? "–" },
+            { key: "lender", label: "Lainanantaja", kind: "text", cell: (loan) => loan.lender ?? "–" },
             {
               key: "balance",
               label: "Jäljellä",
@@ -145,12 +142,13 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
                 </>
               ),
             },
-            { key: "rate", label: "Korko", kind: "count", phone: "hide", cell: (loan) => rateOf(loan) ?? "–" },
-            { key: "payment", label: "Maksuerä", kind: "count", phone: "hide", cell: (loan) => paymentOf(loan) ?? "–" },
-            { key: "end", label: "Viimeinen eräpäivä", kind: "date", phone: "hide", cell: (loan) => date(loan.endDate) },
+            { key: "rate", label: "Korko", kind: "count", cell: (loan) => rateOf(loan) ?? "–" },
+            { key: "payment", label: "Maksuerä", kind: "count", cell: (loan) => paymentOf(loan) ?? "–" },
+            { key: "end", label: "Viimeinen eräpäivä", kind: "date", cell: (loan) => date(loan.endDate) },
             {
               key: "actions",
               label: "Toiminnot",
+              headHidden: true,
               kind: "count",
               cell: (loan) => (
                 <span className="row-actions">

@@ -388,7 +388,7 @@ describe("the app with the check on", () => {
     const { call } = await accessApp();
     const state = await call("/api/auth/state", { token: token() });
     expect(state.status).toBe(200);
-    expect(await state.json()).toEqual({ needsSetup: true, user: null });
+    expect(await state.json()).toEqual({ needsSetup: true, user: null, timezone: "Europe/Helsinki" });
     const page = await call("/", { token: token() });
     expect(page.status).toBe(200);
     expect(await page.text()).toBe("the page");

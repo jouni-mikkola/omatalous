@@ -22,6 +22,12 @@ const authorizations = new Map();
 let sessions = 0;
 /** How POST /auth answers: "ok", "refuse-redirect" (REDIRECT_URI_NOT_ALLOWED) or "fail". PUT /fake/auth-answer changes it. */
 let authAnswer = "ok";
+/** When set, a session ends in this many days whatever the app asked for (PUT /fake/valid-days): a consent that is about to end. */
+let validDays = null;
+/** The one account OP's consent brings: a second bank for the specs that renew more than one consent. */
+const opAccount = { uid: "fb-op", identification_hash: "fb-op-hash", account_id: { iban: "FI4950009420028730" }, name: "MEIKALAINEN MATTI", product: "OP-tili", currency: "EUR", cash_account_type: "CACC" };
+transactions[opAccount.uid] = [];
+balances[opAccount.uid] = 2500;
 
 function send(res, status, body) {
   if (body === undefined) return res.writeHead(status).end();
@@ -57,32 +63,39 @@ async function handle(req, res) {
     authAnswer = String((await readJson(req)).mode);
     return send(res, 204);
   }
+  if (route === "PUT /fake/valid-days") {
+    const { days } = await readJson(req);
+    validDays = days === null ? null : Number(days);
+    return send(res, 204);
+  }
 
   if (!/^Bearer \S+$/.test(req.headers.authorization ?? "")) return send(res, 401, { error: "UNAUTHORIZED" });
   if (route === "GET /application") return send(res, 200, { active: true });
   if (route === "GET /aspsps") {
-    return send(res, 200, { aspsps: [{ name: "Nordea", country: "FI", maximum_consent_validity: 180 * 86400, psu_types: ["personal"] }] });
+    return send(res, 200, { aspsps: ["Nordea", "OP"].map((name) => ({ name, country: "FI", maximum_consent_validity: 180 * 86400, psu_types: ["personal"] })) });
   }
   if (route === "POST /auth") {
     if (authAnswer === "refuse-redirect") return send(res, 422, { error: "REDIRECT_URI_NOT_ALLOWED", message: "Redirect URI not allowed" });
     if (authAnswer === "fail") return send(res, 500, { error: "FAKE_BANK_FAILED" });
     const sent = await readJson(req);
     const id = `authorization-${authorizations.size + 1}`;
-    authorizations.set(id, { redirectUrl: sent.redirect_url, state: sent.state, validUntil: sent.access?.valid_until });
+    authorizations.set(id, { redirectUrl: sent.redirect_url, state: sent.state, validUntil: sent.access?.valid_until, bank: sent.aspsp?.name ?? "Nordea" });
     return send(res, 200, { url: `https://${CONSENT_HOST}/consent/${id}`, authorization_id: id });
   }
   if (route === "POST /sessions") {
     const { code } = await readJson(req);
     const authorization = authorizations.get(String(code).replace(/^code-/, ""));
     if (!authorization) return send(res, 422, { error: "WRONG_AUTHORIZATION_CODE" });
-    return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: "Nordea", country: "FI" }, access: { valid_until: authorization.validUntil }, accounts: authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts });
+    const validUntil = validDays === null ? authorization.validUntil : new Date(Date.now() + validDays * 86_400_000).toISOString();
+    const brought = authorization.bank === "OP" ? [opAccount] : authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts;
+    return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: authorization.bank, country: "FI" }, access: { valid_until: validUntil }, accounts: brought });
   }
   if (req.method === "DELETE" && url.pathname.startsWith("/sessions/")) return send(res, 204);
 
   const account = /^GET \/accounts\/([\w-]+)\/(details|balances|transactions)$/.exec(route);
   const uid = account?.[1] ?? "";
   if (!account || !Object.hasOwn(transactions, uid)) return send(res, 404, { error: "NOT_FOUND" });
-  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts].find((a) => a.uid === uid));
+  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts, opAccount].find((a) => a.uid === uid));
   if (account[2] === "balances") {
     const amount = { currency: "EUR", amount: (balances[uid] / 100).toFixed(2) };
     return send(res, 200, { balances: [{ name: "Kirjattu saldo", balance_amount: amount, balance_type: "CLBD", reference_date: today }] });

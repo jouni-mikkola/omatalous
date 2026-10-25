@@ -11,6 +11,7 @@ import { HouseholdRepo } from "../db/household-repo.ts";
 import { IndustryRepo } from "../db/industry-repo.ts";
 import { OpsRepo } from "../db/ops-repo.ts";
 import { SecurityRepo } from "../db/security-repo.ts";
+import { ServiceTokenRepo } from "../db/service-token-repo.ts";
 import { SettingsRepo } from "../db/settings-repo.ts";
 import type { Db } from "../db/types.ts";
 import { UsersRepo } from "../db/users-repo.ts";
@@ -98,6 +99,10 @@ export interface Services {
   /** Caps password hashes running at once, so unauthenticated requests cannot fill the thread pool. */
   readonly hashGate: Gate;
   readonly security: SecurityRepo;
+  /** Read-only keys for scripts and agents (services/service-tokens.ts). */
+  readonly serviceTokens: ServiceTokenRepo;
+  /** Unknown or ended service tokens per client address: 20 in 15 minutes, then 429 before any lookup. */
+  readonly serviceTokenLimiter: RateLimiter;
   /** Maintenance requests for the host helper (services/ops.ts). */
   readonly ops: OpsRepo;
   /** Wrong passwords on maintenance requests, per admin. */
@@ -160,6 +165,8 @@ export function createServices(deps: AppDeps): Services {
     setupLimiter: new RateLimiter(10, 15 * 60_000),
     hashGate: new Gate(4),
     security: new SecurityRepo(deps.db),
+    serviceTokens: new ServiceTokenRepo(deps.db),
+    serviceTokenLimiter: new RateLimiter(20, 15 * 60_000),
     ops: new OpsRepo(deps.db),
     opsLimiter: new RateLimiter(5, 15 * 60_000),
     opsDownloadLimiter: new RateLimiter(5, 3600_000),
@@ -188,5 +195,7 @@ export type AppEnv = {
   Variables: {
     user: User;
     sessionId: string;
+    /** Set when a service token made the request (auth/middleware.ts); there is no session then. */
+    serviceToken: string;
   };
 };

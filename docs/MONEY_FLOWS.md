@@ -8,7 +8,7 @@ Every transaction lands in exactly one flow, so nothing is counted twice or left
 | Velanhoito (debt) | loan payments, financing, interest, collection | part of Menot, own group in reports |
 | Säästöt (savings) | savings accounts, funds, shares, crypto, gold, pension savings | savings rate, cash flow |
 | Tulot (income) | salary, benefits, dividends, sales, refunds of costs | Tulot |
-| Luotonnostot (borrowing) | credit drawn to an account, loan payouts | cash flow and *Yli jäi*, never income |
+| Luotonnostot (borrowing) | credit drawn to an account, loan payouts | cash flow and *Tulos*, never income |
 | Siirto (transfer) | money between your own connected accounts | not counted |
 
 ## Definitions
@@ -18,10 +18,10 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 | Word | Means | In core |
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete | `isCompleteMonth` in `analysis/usual.ts` |
-| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. The month a credit card is connected in is skipped when the month before it paid card bills, never the months before it: their card bills held the card's purchases. A month's usual spending is the median of those months' totals, on the same days for a running month: *Menojen muutos* and the buffer report say this one figure | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver` in `analysis/usual.ts` |
+| *Tavallisesti* | The median of the last six complete months before the month in question, in whole cents. With fewer than three complete months there is no usual level and nothing is compared with it. The month a credit card is connected in is skipped when the month before it paid card bills, never the months before it: their card bills held the card's purchases. A month's usual spending is the median of those months' totals, on the same days for a running month: *Menojen muutos* and the buffer report say this one figure. A comparison by category or by day (the waterfall's bars, the pace chart's usual course and the spending goal's estimate of the month's end) is read only where the data covers it: when any of those months holds a card bill that is no transfer (a card never connected, or connected later and paid by bills before) or comes before the history of a linked card (its purchases are in no category there), it has no usual level, no arrows and no estimate, and one line says why. Month totals are not affected, a bill counts as spending | `usualCents`, `completeMonthsBefore`, `usualSpending`, `usualSpendingOver`, `itemisedMonthsBefore`, `cardsBreakUsual` in `analysis/usual.ts` |
 | *Säännölliset tulot* | The median earned income of the last six complete months before the month in question, in whole cents, and none under three. Earned income is every income row except money from people and refunds, which the income report shows apart. The buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit divide by this one figure, so their sentences name the same income | `isEarnedIncome` in `analysis/income.ts`, `usualIncome` in `analysis/usual.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
-| *Yli jäi* | Income + credit drawn − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on. See *Yli jäi and borrowed money* | `PeriodTotals.leftCents`, summed in `totalsOf` in `analysis/flows.ts` and nowhere else |
+| *Tulos* | Income + credit drawn − spending − saved: what stayed on the accounts. Negative when the accounts were drawn on. See *Tulos and borrowed money* | `PeriodTotals.leftCents`, summed in `totalsOf` in `analysis/flows.ts` and nowhere else |
 | *Katettu luotolla*, *Katettu säästöistä*, *Tileiltä tai kortilta* | How a period that took more than its income was paid for: with credit drawn in the period, with money taken out of savings, and the rest from the accounts or a connected card, which the totals cannot tell apart. `coverOf` also gives what the drawn money left (`creditLeftCents`, `savingsLeftCents`), so no view subtracts | `coverOf` in `analysis/flows.ts` |
 | *Kuussa*, *vuodessa* (a series) | What a subscription or bill costs: its typical charge times the charges it makes in a year, and a twelfth of that a month. A monthly series with a year of history counts its own charges of the last twelve months (11 for day care that is free in July), and a bill that varies (electricity) is what its last twelve charges came to. Fixed costs, new subscriptions, renewals and price rises read these figures, and so does Säästövinkit: its 120 € gate for a renewal is the series' own year, and its follow-up counts the series' own charges a year | `RecurringSeries.perMonth`, `monthlyCents`, `yearlyCents` in `recurring.ts` |
 | *Kiinteät menot* | An active subscription or bill, per month: its spending and its debt service (a loan instalment). The credit card bill is left out, since it pays everyday purchases, and so is a monthly saving | `isFixedCost`, `fixedSplit`, `fixedMonthlyCents` in `commitments.ts` |
@@ -39,39 +39,37 @@ names the sum and the largest payees, so a missing connection shows.
 Tapahtumat's *maksettu* and *saatu* leave own transfers out, and so do a merchant summary's sums and its category. The
 row count still includes them, and the page says the transfers are not in the sums.
 
-## Yli jäi and borrowed money
+## Tulos and borrowed money
 
-*Yli jäi* is what a period left on the accounts: income + credit drawn − spending − debt service − saved (ADR 0014).
+*Tulos* is what a period left on the accounts: income + credit drawn − spending − debt service − saved (ADR 0014).
 `totalsOf` holds the sum, and the first page and the cash flow report read `leftCents` from it. The figure is the same
 number the rows give with no flow in between: the sum of every row on an account that is not a loan, less the transfer
 rows (a pair cancels itself, so this takes away the legs with no other half in the period), less the money moved into
 savings accounts, which is *Säästöön*. A card account is in the sum, since a card purchase is spending on the day it is
 made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, the seeded households and random rows.
 
-Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Yli jäi* and in no income figure,
+Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Tulos* and in no income figure,
 savings rate or margin (`netCents`).
 
 When a period took more than its income, `coverOf` says how the gap was paid. Money has no label, so the order is a
 rule: the income pays first, then the credit drawn in the period (*Katettu luotolla*, at most the credit drawn), then
 money taken out of savings (*Katettu säästöistä*), then the accounts and the connected cards (*Tileiltä tai kortilta*,
-which is how far *Yli jäi* is below zero). The third cover never says that money on an account paid: an account may
+which is how far *Tulos* is below zero). The third cover never says that money on an account paid: an account may
 have grown while a card owed more, and `PeriodTotals` holds no balance of either, so the tile and the sentence ("Ero
 katettiin tileillä olleilla rahoilla tai luottokortilla.") name both. Credit goes before savings so that a month paid
-with both never shows less borrowing than there was. Drawn money that paid for nothing is in *Yli jäi*. The bridge (`SurplusBridge`, its parts in
-`components/month-parts.ts`) is one sum, and its strip, bar, figures and table are parts of it:
+with both never shows less borrowing than there was. Drawn money that paid for nothing is in *Tulos*. The bridge (`bridgeView` in core) is one sum, and its parts are parts of it:
 
-    income + credit drawn + savings drawn + from the accounts = spending + debt service + saved + credit paid back + Yli jäi above zero
+    income + credit drawn + savings drawn + from the accounts = spending + debt service + saved + credit paid back + Tulos above zero
 
-Its sentence names the covers with sums the figures show, and a credit line gives the credit drawn with the debt
+A sentence on the covers names them with sums the figures show, and a credit line gives the credit drawn with the debt
 service of the period under the tile's own word ("Luottoa nostettiin 20 000 €, velanhoitoon meni 1 200 €."). How much
-of the credit is in *Yli jäi* is said only when no debt was paid in the period: with a payment beside it, the split is
+of the credit is in *Tulos* is said only when no debt was paid in the period: with a payment beside it, the split is
 true by the order rule alone. Neither calls borrowed money income, and neither says more was spent than earned
 without saying how the difference was paid.
 
-The bar is drawn only when there is income and no part is below zero (`bridgeDraws`): then every part of the strip and
-the bar is zero or above and the two are one sum on one axis. A period with no income, with refunds above purchases or
-with income taken back is told by the table alone, every row signed and the last row *Yli jäi*, with the same
-sentences under it and nothing told as a share of the income.
+`bridgeView` marks a period as drawing (`draws`) only when there is income and no part is below zero: then every part is zero or
+above and the parts are one sum on one axis. A period with no income, with refunds above purchases or with income taken
+back has rows only, every one signed and the last *Tulos*, and nothing is told as a share of the income.
 
 ## Cases
 
@@ -600,6 +598,9 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   the share a dash where the income or the costs are too small to tell. It has no chart and no sentence.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
+  Its figure is *Tilien ja korttien saldo*: the accounts with the cards' balances in it, on the newest day of the range (the
+  end of the last whole month, or today), and the text names that date. Yhteenveto's *Tilien saldo, ilman korttia* is
+  `accountsCents`, the accounts without the cards, so the two names never stand for one figure.
 
 ## Themes
 

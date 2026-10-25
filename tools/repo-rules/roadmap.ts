@@ -4,8 +4,6 @@
  * The version is that of apps/server/package.json: the root package.json has none, and prepare.mjs bumps the three
  * package files together.
  */
-import { type Finding, expectNoFindings, readText } from "./lib.ts";
-import { describe, expect, it } from "vitest";
 
 const VERSION = /\b(\d+)\.(\d+)\.(\d+)\b/g;
 
@@ -33,13 +31,3 @@ export function shippedAsComing(text: string, released: string): { line: number;
   });
   return found;
 }
-
-describe("repo rules: roadmap", () => {
-  it("rule 34: docs/ROADMAP.md lists no released version as coming", () => {
-    const released = (JSON.parse(readText("apps/server/package.json")) as { version: string }).version;
-    const text = readText("docs/ROADMAP.md");
-    expect(text, "docs/ROADMAP.md has a Coming releases section").toMatch(/^## Coming releases/m);
-    const found: Finding[] = shippedAsComing(text, released).map((f) => ({ file: "docs/ROADMAP.md", ...f }));
-    expectNoFindings("roadmap", found, 'move the shipped release from "## Coming releases" to "## Done" in docs/ROADMAP.md');
-  });
-});

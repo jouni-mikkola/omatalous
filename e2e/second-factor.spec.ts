@@ -61,7 +61,7 @@ test("a member turns the second factor on, signs in with a code and once with a 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/#/settings");
     const card = page.locator(".card", { has: page.getByRole("heading", { name: "Kaksivaiheinen kirjautuminen", exact: true }) });
-    await expect(card.getByText("Ei käytössä", { exact: true })).toBeVisible();
+    await expect(card.getByText("Ei käytössä.", { exact: true })).toBeVisible();
 
     // turning on: the wrong password and the wrong code are refused with the server's sentences
     await card.getByRole("button", { name: "Ota käyttöön", exact: true }).click();
@@ -92,9 +92,9 @@ test("a member turns the second factor on, signs in with a code and once with a 
       await page.setViewportSize({ width: 1280, height: 900 });
     }
     await card.getByRole("button", { name: "Valmis" }).click();
-    await expect(card.getByText("Käytössä", { exact: true })).toBeVisible();
+    await expect(card.getByText("Käytössä alkaen", { exact: true })).toBeVisible();
     await expect(card.getByText("Palautuskoodeja jäljellä")).toBeVisible();
-    await expect(card.getByRole("row", { name: /Palautuskoodeja jäljellä/ })).toContainText("10");
+    await expect(card.locator("dl > div", { hasText: "Palautuskoodeja jäljellä" })).toContainText("10");
     if (SHOTS) {
       await card.screenshot({ path: join(SHOTS, "factor-on-1280.png") });
       await page.setViewportSize({ width: 390, height: 900 });

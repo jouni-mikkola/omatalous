@@ -22,13 +22,15 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
+Node: `.npmrc` sets `use-node-version=22.23.0`, so `pnpm <script>` and `pnpm exec` fetch that node once (the first run needs the network) and run on it, whatever the system has. Scripts such as `pnpm shots` read `.ts` files with plain node, which Ubuntu's `nodejs` package cannot (`process.features.typescript` is false). Run things through pnpm, and `tools/check.sh` started by hand goes through it once. CI (`setup-node`) and the image (`Dockerfile`) name the same version, and `tools/node-pin.test.ts` keeps the three together. pnpm does not switch when the system node already has the pinned version, so pin a version your system package does not ship.
+
 In the private repository a push runs no CI, because Actions minutes are billed there. `pnpm check`, `pnpm build` and
 `pnpm e2e` are the check: they run before a change lands and before a release is pushed, and the release then starts
 CI and the upgrade rehearsal itself. Otherwise CI runs there only by hand (`gh workflow run ci.yml --ref <branch>`): a
-pull request skips every job. The public repository runs it on every push and pull request. The table is in
+pull request skips every job. The public repository runs it on every push and pull request that touches more than documents. It is the light tier: lint, types and the tests of what the change reaches, with the pnpm store cached. The whole of `pnpm check`, the build, `pnpm e2e` and the image checks run locally, in the release gate and proof; none of them is deleted. The table is in
 [RELEASING.md](RELEASING.md#when-ci-runs).
 
-The Docker job of CI runs `tools/ci/smoke-image.sh IMAGE VERSION COMMIT` on every image it builds: the labels match, a
+The release machine runs `tools/ci/smoke-image.sh IMAGE VERSION COMMIT` on every image it builds, and the release run on GitHub runs it on both processors: the labels match, a
 new install answers `/api/health` within 120 seconds and prints its version, and a database of 0.5.0 migrates and
 keeps its users. By hand, on a machine with Docker: `docker build -t x .`, then `tools/ci/smoke-image.sh x unknown unknown`.
 
@@ -108,6 +110,24 @@ How a release is made: [RELEASING.md](RELEASING.md).
    Anything else becomes a plain 500.
 8. UI text in Finnish; code, comments and docs in English. Comments explain why.
 
+### A list of rows
+
+Use `components/table/Table.tsx`, never page-owned `<table>` markup or a horizontal scroll frame.
+Give it a Finnish `caption`, stable `rowKey` and `columns`. Mark the identifying column `rowHead` and the
+principal figure `main`; use `kind: "money"` with `cents` for amounts. Pass totals from the server through
+`total`; the component only formats them. Use `KeyValue` for one subject's facts and a sentence for no rows.
+
+- Add `sort` only to a complete list that is read by size, never a time series or a loaded subset.
+- Use `groups` for sections, `drill` for row details and `page` for a long ungrouped list.
+- Mark month columns `series`: they fold into a labelled list when the container cannot fit them. The shared
+  layout handles narrow cards as well as phones; do not add a page-specific mobile table.
+- A chart's Taulukko choice mounts its text form only when selected. Delete an unnecessary view, including its
+  styles, tests and texts; do not keep a hidden copy or a setting to restore it.
+
+`apps/web/test/table.test.ts` guards the single table implementation. `e2e/table-views.spec.ts` checks visibility,
+sideways scrolling and axe at 390 and 1440 px in both looks. Add a new view to that coverage and inspect screenshots
+at both widths. The decision is [ADR 0018](adr/0018-one-table-delete-redundant-views.md).
+
 ### The repo rules
 
 `tools/repo-rules` holds these and more as tests. `pnpm test tools/repo-rules` runs them, the header of
@@ -133,15 +153,18 @@ a change meets:
   name that only `tools/test` uses does not count: a function that only a test calls is dead.
 - Rule 27: `git check-ignore` holds for `.env.new`, `ops/env.prev` and `.env.bak.1`, so a copy of `.env` is never
   committed.
-- Rule 28: Finnish that reads as translated or machine written (`tools/repo-rules/finnish.ts`). It reads the files whose
-  strings reach the browser, the same folders `pnpm strings` lists. It refuses a calque (*pois lukien*), a word the
-  glossary rejects (*löydös*, *syötetty*, *keskiostos*), a past-tense te-form and the marks of machine-written prose: an
+- Rule 28: Finnish that reads as translated or machine written (`tools/repo-rules/finnish.ts`, its patterns in
+  `finnish-patterns.ts`). It reads the files whose strings reach the browser, the same folders `pnpm strings` lists.
+  It refuses a calque (*pois lukien*), a word the glossary rejects (*löydös*, *syötetty*, *keskiostos*), a past-tense te-form and the marks of machine-written prose: an
   em dash in a Finnish string, "ei ... vaan" as a contrast and an exclamation mark at the end of a sentence. A failure prints the file and line,
   the name of the pattern and one line on how to write it instead. Write the sentence again in plain Finnish, as a person
   would say it to a friend. Do not add the string to a list to make the rule pass: a pattern that catches a good
   sentence gets a near miss in `tools/repo-rules/finnish.test.ts` first.
+- Rule 35: the words the glossary of [UI_STYLE.md](UI_STYLE.md) removed (*Optimoi*, *Yli jäi*, *Tileillä* as the name of a
+  figure, *linkitä*) stay out of the texts `pnpm strings` lists, except between double quotes. A word is added in
+  `tools/repo-rules/glossary.ts` with a case in `glossary.test.ts`.
 
-Rules 12 and 28 together are the Finnish of the app: everything the browser shows is Finnish, in the words of the glossary
+Rules 12, 28 and 35 together are the Finnish of the app, with the glossary and style sheet in [UI_STYLE.md](UI_STYLE.md): everything the browser shows is Finnish, in the words of the glossary
 (*tapahtuma*, never *tilitapahtuma*). `pnpm strings` lists every such text with its file and line, so a copy pass reads the
 whole app in one list. A text you change or remove is searched in `tools/`, `apps/web/test` and `e2e` before the
 commit, and `pnpm test tools/ui-strings.test.ts` runs: that test pins some sentences of the app's pages, and a copy
@@ -319,14 +342,14 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
    other), except the self-tests of the developer and release tools (`tools/check/tooling.txt`) when nothing under
    `tools/`, `.github/` or `scripts/` changed. CI and the release gate run those too, and so does `CHECK_TOOLING=1`.
 3. Run `pnpm build` and `pnpm e2e` once, and only when the change touches the web app or a route. A task that works beside
-   others runs the specs of its own pages (`pnpm e2e <spec files>`); the landing runs every spec on the merged tree,
-   since a page that breaks shows in another page's spec.
+   others runs the specs of its own pages (`pnpm e2e <spec files>`); the release gate runs every spec on the merged
+   tree, since a page that breaks shows in another page's spec.
 4. Stage your files first (`git add -A`): the repo rules read the index and the new files that git does not ignore.
 
 ### Pictures of a page
 
 `pnpm shots <route>...` saves a full-page PNG of every route at every width (default 1280, 1000, 700 and 390 px) to
-`$SHOTS_DIR` (default `/tmp/claude-0/shots`). It builds first when the build is old, starts the app once, signs in once,
+`$SHOTS_DIR` (default `shots` in `$TMPDIR`, else `/tmp`). It builds first when the build is old, starts the app once, signs in once,
 and fails when a picture scrolls sideways or has a table wider than the screen. `pnpm shots --help` lists the options.
 Write no spec to take pictures: the options show what a spec would.
 
@@ -335,7 +358,7 @@ the pictures on the base commit (in a throwaway worktree) and on the working tre
 motion, so no animation is caught half way), and compares them with `pnpm shots:diff <before> <after>`. A picture fails
 when more than 0.2 % of its pixels changed (a pixel changes when a channel moves by more than a tenth of its range, so
 antialiasing passes), when its size changed or when it is missing. The diff pictures (changed pixels red) and both sets
-stay in `/tmp/claude-0/visual/`. A branch that is not meant to change a page's look runs it on the pages it touches,
+stay in `visual/` in `$TMPDIR` (else `/tmp`). A branch that is not meant to change a page's look runs it on the pages it touches,
 for example `tools/visual-check.sh origin/main -- reports --demo --widths 1280,390`.
 
 `pnpm docs:shots` remakes the pictures of the README and the docs in `docs/images/` (`yhteenveto`, `yhteenveto-yo` in the
@@ -402,7 +425,7 @@ list in the test. The test also holds `theme-color` and `color-scheme` in `apps/
 
 ### End-to-end tests
 
-`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default a third of the CPUs, from 3 to 8). Each is a copy of the
+`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default a third of the CPUs, from 3 to 8, and no more than the cores the run is leased). Each is a copy of the
 build in a temp directory, on a free port, with a data directory and a fake bank of its own (see below), and the
 Playwright specs in `e2e/` run with one worker for each server. The data directories are deleted at the end.
 `E2E_WORKERS=1` runs the specs one after the other. As root with `unshare` on the PATH the runner starts itself again in

@@ -69,7 +69,7 @@ export function Notices({
   busy,
   error,
 }: {
-  data: Pick<DashboardData, "dataNotice" | "alerts" | "insights">;
+  data: Pick<DashboardData, "dataNotice" | "connectNotice" | "alerts" | "insights">;
   range: { from: string; to: string };
   answered: ReadonlySet<string>;
   /** Whether the insights belong here: Säästövinkit tells them while it is switched on, and then the head can lead to it. */

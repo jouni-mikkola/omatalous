@@ -4,7 +4,7 @@
  */
 import { useState } from "react";
 import { api } from "../../api.ts";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
@@ -69,6 +69,11 @@ export const KIND_LABEL: Record<string, string> = {
   db_damaged: "Tietokanta vaurioitunut",
   db_restored: "Tietokanta palautettu varmuuskopiosta",
   data_reset: "Talouden tiedot tyhjennetty",
+  setup_completed: "Käyttöönotto merkitty valmiiksi",
+  service_token_made: "Palvelutunnus luotu",
+  service_token_removed: "Palvelutunnus poistettu",
+  service_token_used: "Palvelutunnusta käytetty",
+  service_token_refused: "Liian monta väärää palvelutunnusta",
 };
 
 const kindLabel = (kind: string) =>
@@ -150,12 +155,11 @@ export function Sessions({ onLoaded }: { onLoaded?: (failed: boolean) => void })
         </div>
       </div>
       {(error ?? sessions.error) && <div className="error">{error ?? sessions.error}</div>}
-      <DataTable
-        id="sessions"
+      <Table
         caption="Omat istunnot"
         rows={sessions.data?.sessions ?? []}
         rowKey={(s) => s.id}
-        phone="cards"
+        page={10}
         columns={[
           {
             key: "device",
@@ -173,7 +177,8 @@ export function Sessions({ onLoaded }: { onLoaded?: (failed: boolean) => void })
           { key: "seen", label: "Viimeksi käytetty", kind: "date", cell: (s) => dateTime(s.lastSeenAt) },
           {
             key: "end",
-            label: "",
+            label: "Toiminnot",
+            headHidden: true,
             kind: "count",
             cell: (s) => (
               <button className="btn btn-small" disabled={busy} aria-busy={(busy && doing === `end-${s.id}`) || undefined} onClick={() => void act(`end-${s.id}`, () => api(`/api/security/sessions/${s.id}`, { method: "DELETE" }), s.current)}>
@@ -211,24 +216,22 @@ export function SecurityLog({ onLoaded }: { onLoaded?: (failed: boolean) => void
         </label>
       </div>
       {events.error && <div className="error">{events.error}</div>}
-      <div className="table-wrap">
-        <DataTable
-          id="security-events"
-          caption="Turvallisuusloki"
-          rows={events.data?.events ?? []}
-          rowKey={(e) => String(e.id)}
-          phone="cards"
-          columns={[
-            { key: "at", label: "Aika", kind: "date", rowHead: true, cell: (e) => dateTime(e.at) },
-            { key: "kind", label: "Merkintä", kind: "text", cell: (e) => kindLabel(e.kind) },
-            { key: "user", label: "Käyttäjä", kind: "text", cell: (e) => e.username ?? "" },
-            { key: "device", label: "Laite", kind: "text", phone: "hide", cell: (e) => e.device ?? "" },
-            { key: "ip", label: "Osoite", kind: "text", phone: "hide", cell: (e) => <span className="small">{e.ip ?? ""}</span> },
-            { key: "detail", label: "Lisätieto", kind: "text", cell: (e) => <span className="small muted">{e.detail ?? ""}</span> },
-          ]}
-        />
-        {events.data && !events.data.events.length && <div className="empty">Ei merkintöjä.</div>}
-      </div>
+      <Table
+        caption="Turvallisuusloki"
+        rows={events.data?.events ?? []}
+        rowKey={(e) => String(e.id)}
+        page={25}
+        key={kind}
+        columns={[
+          { key: "at", label: "Aika", kind: "date", rowHead: true, cell: (e) => dateTime(e.at) },
+          { key: "kind", label: "Merkintä", kind: "text", cell: (e) => kindLabel(e.kind) },
+          { key: "user", label: "Käyttäjä", kind: "text", cell: (e) => e.username ?? "" },
+          { key: "device", label: "Laite", kind: "text", phone: "hide", cell: (e) => e.device ?? "" },
+          { key: "ip", label: "Osoite", kind: "text", phone: "hide", cell: (e) => <span className="small">{e.ip ?? ""}</span> },
+          { key: "detail", label: "Lisätieto", kind: "text", cell: (e) => <span className="small muted">{e.detail ?? ""}</span> },
+        ]}
+      />
+      {events.data && !events.data.events.length && <div className="empty">Ei merkintöjä.</div>}
     </div>
   );
 }

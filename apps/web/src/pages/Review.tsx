@@ -168,10 +168,11 @@ function ItemCard({ item, meta, heading, busy, waiting, problem, onAnswer, onSki
           <span className="review-name">{name}</span>
         </MarkCell>
       </div>
-      {/* the figure opens its rows: no link text, the focus ring and the pointer are the cue */}
+      {/* the figure opens its rows: the name is the figure as seen plus a hidden action (the name must hold the visible text) */}
       {!figure.text ? null : own.length > NEWEST_ROWS ? (
-        <button className="why-fig review-figure" type="button" aria-expanded={all} aria-label={`${all ? "Piilota tapahtumat" : "Näytä tapahtumat"}: ${name} ${figure.text}`} onClick={() => setAll(!all)}>
+        <button className="why-fig review-figure" type="button" aria-expanded={all} onClick={() => setAll(!all)}>
           {value}
+          <span className="sr-only">{`, ${all ? "piilota" : "näytä"} tapahtumat: ${name}`}</span>
         </button>
       ) : (
         <div className="review-figure">{value}</div>

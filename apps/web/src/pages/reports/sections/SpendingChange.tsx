@@ -1,5 +1,5 @@
 // Decision: is the change in spending a reason to act, and where
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { bucketLabel } from "@banking/core";
 import { useState } from "react";
 import { money, signedMoney } from "../../../format.ts";
@@ -20,15 +20,14 @@ const causes = (c: Pick<Category, "buckets"> | Pick<Merchant, "buckets">, bills 
 /** The bars of the change as a table: the panel's switch shows it in place of the bars. */
 function BridgeTable({ view }: { view: View }) {
   return (
-    <DataTable
-      id="muutos-sillat"
+    <Table
       caption="Mikä muuttui ja miksi"
       rows={view.bars.map((b, i) => ({ ...b, i }))}
       rowKey={(b) => String(b.i)}
       columns={[
         { key: "label", label: "Mikä muuttui", kind: "text", rowHead: true, cell: (b) => b.label },
         { key: "cause", label: "Syy", kind: "text", cell: (b) => <span className="muted">{b.cause ? `${b.cause}${b.season ? `, ${SEASON}` : ""}` : ""}</span> },
-        { key: "change", label: "Muutos", kind: "money", main: true, cell: (b) => signedMoney(b.cents), sortValue: (b) => b.cents },
+        { key: "change", label: "Muutos", kind: "money", main: true, cell: (b) => signedMoney(b.cents), sort: (b) => b.cents },
       ]}
     />
   );
@@ -65,16 +64,15 @@ function Merchants({ view, category }: { view: View; category: Category }) {
   const { from, to } = view.change.target;
   return (
     <div>
-      <DataTable
-          id="muutos-saajat"
+      <Table
           caption={`Saajat kategoriassa ${category.label}`}
           rows={category.merchants}
           rowKey={(m) => `${m.kind}-${m.label}`}
           columns={[
             { key: "payee", label: "Saaja", kind: "text", rowHead: true, cell: (m) => (m.kind === "merchant" ? <a href={`#/transactions?merchant=${encodeURIComponent(m.label)}&category=${category.category}&from=${from}&to=${to}`}>{m.label}</a> : m.label) },
-            { key: "visits", label: "Käyntejä", kind: "count", cell: (m) => (m.kind === "merchant" ? `${m.visitsNow} (${dec(m.visitsBase)})` : ""), sortValue: (m) => (m.kind === "merchant" ? m.visitsNow : null) },
-            { key: "ticket", label: "Ostoskerta", kind: "money", phone: "hide", cell: (m) => (m.ticketNowCents !== null ? `${money(m.ticketNowCents)}${m.ticketBaseCents !== null ? ` (${money(m.ticketBaseCents)})` : ""}` : ""), sortValue: (m) => m.ticketNowCents },
-            { key: "change", label: "Muutos", kind: "money", main: true, cell: (m) => signedMoney(m.changeCents), sortValue: (m) => m.changeCents },
+            { key: "visits", label: "Käyntejä", kind: "count", cell: (m) => (m.kind === "merchant" ? `${m.visitsNow} (${dec(m.visitsBase)})` : ""), sort: (m) => (m.kind === "merchant" ? m.visitsNow : null) },
+            { key: "ticket", label: "Ostoskerta", kind: "money", phone: "hide", cell: (m) => (m.ticketNowCents !== null ? `${money(m.ticketNowCents)}${m.ticketBaseCents !== null ? ` (${money(m.ticketBaseCents)})` : ""}` : ""), sort: (m) => m.ticketNowCents },
+            { key: "change", label: "Muutos", kind: "money", main: true, cell: (m) => signedMoney(m.changeCents), sort: (m) => m.changeCents },
             { key: "cause", label: "Syy", kind: "text", cell: (m) => <span className="muted">{causes(m)}</span> },
           ]}
       />
@@ -105,9 +103,8 @@ function SpendingChange({ ctx }: SectionProps) {
         {/* no category stands out: no bars, the table below totals the change */}
         {view.bars.length > 0 && <Bridge view={view} />}
       </QuestionChart>
-      <DataTable
+      <Table
         key={view.view}
-        id="muutos-kategoriat"
         caption="Menojen muutos kategorioittain"
         className="change-table"
         rows={change.categories}
@@ -122,7 +119,7 @@ function SpendingChange({ ctx }: SectionProps) {
             kind: "money",
             main: true,
             cell: (c) => signedMoney(c.changeCents),
-            sortValue: (c) => c.changeCents,
+            sort: (c) => c.changeCents,
             className: (c) => (c.changeCents > 0 ? "worse" : c.changeCents < 0 ? "better" : undefined),
           },
           {

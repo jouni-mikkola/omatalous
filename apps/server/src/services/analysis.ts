@@ -400,12 +400,12 @@ export async function rowsInView(s: Services, userId: string, scope: Scope): Pro
 
 /**
  * What a dashboard or report request needs next to the cached context: the balances of the accounts in view and the
- * user's own marks and expected bills, and the loans of the view (`loansInView`). Read for each request, never
+ * user's own marks, expected bills and spending goal, and the loans of the view (`loansInView`). Read for each request, never
  * cached. A balance and a credit limit are the viewer's part where the view counts the account at a part.
  */
 export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
   const repo = s.finance(userId);
-  const [marks, expectedBills, loans, roles] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles()]);
+  const [marks, expectedBills, loans, roles, spendingGoalCents] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles(), repo.spendingGoal()]);
   const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
   // The totals and the walks count in euros: an account in another currency tells its balance beside them, never in them.
   // A balance stored before the currency was kept is the account's currency's: one whose currency is unknown is a dash.
@@ -428,7 +428,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.part ? { part: a.part } : {}),
     ...(a.traced ? { traced: true as const } : {}),
   }));
-  return { balances, inputs: { marks, expectedBills, loans, payers: { memberId: userId, roles } } };
+  return { balances, inputs: { marks, expectedBills, loans, payers: { memberId: userId, roles }, spendingGoalCents } };
 }
 
 /**

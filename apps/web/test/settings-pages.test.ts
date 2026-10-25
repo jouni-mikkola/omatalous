@@ -19,7 +19,7 @@ const conn = (id: string, state: Connection["state"]): Connection => ({
 });
 
 const meta = (connections: Connection[]) =>
-  ({ today: "2026-10-12", user: { role: "member" }, bank: { configured: true, banks: [{ id: "nordea-fi", name: "Nordea", country: "FI" }], redirectMode: "own", source: "instance" }, connections, accounts: [] }) as unknown as Meta;
+  ({ today: "2026-10-12", user: { role: "member" }, bank: { configured: true, banks: [{ id: "nordea-fi", name: "Nordea", country: "FI" }], redirectMode: "own", source: "instance" }, connections, accounts: [], renewal: { due: [], round: null } }) as unknown as Meta;
 
 const head = (connections: Connection[], sync?: { busy: boolean; disabled: boolean }) =>
   renderToStaticMarkup(createElement(BankConnections, { meta: meta(connections), pickerOpen: false, onChange: () => {}, onMessage: () => {}, ...(sync ? { sync: { ...sync, start: () => {} } } : {}) }));

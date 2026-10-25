@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageOfPeriod, periodFor, periodRange, periodsOf, REPORT_PERIODS, shellPeriodsOf } from "../src/period.ts";
+import { pageOfPeriod, periodFor, periodRange, periodsOf, REPORT_PERIODS, shellPeriodsOf, windowNote } from "../src/period.ts";
 
 const TODAY = "2026-10-11";
 const labels = (page: string, today: string) => periodsOf(page, today).map((p) => p.label);
@@ -77,5 +77,28 @@ describe("periods belong to one page", () => {
     expect(periodRange("last-month", TODAY)).toEqual({ from: "2026-09-01", to: "2026-09-30" });
     // in January the button before it is December of the year before
     expect(periodRange("last-month", "2027-01-05")).toEqual({ from: "2026-12-01", to: "2026-12-31" });
+  });
+});
+
+describe("the line under the windows of whole months", () => {
+  it("says where 3, 6 and 12 kk stop and that the running month is left out", () => {
+    for (const id of ["3m", "6m", "12m"]) expect(windowNote(id, TODAY)).toBe("Syyskuun loppuun asti, lokakuu ei ole vielä mukana");
+  });
+
+  it("follows the day's month, over a year's turn too", () => {
+    expect(windowNote("12m", "2027-01-05")).toBe("Joulukuun loppuun asti, tammikuu ei ole vielä mukana");
+    expect(windowNote("3m", "2026-03-31")).toBe("Helmikuun loppuun asti, maaliskuu ei ole vielä mukana");
+  });
+
+  it("names the month the range really ends in", () => {
+    for (const id of ["3m", "6m", "12m"]) {
+      const { to } = periodRange(id, TODAY);
+      expect(to.slice(0, 7)).toBe("2026-09");
+      expect(windowNote(id, TODAY)).toMatch(/^Syyskuun /);
+    }
+  });
+
+  it("is none for the presets that run to today or to a year's end", () => {
+    for (const id of ["year", "last-year", "month", "last-month"]) expect(windowNote(id, TODAY)).toBeNull();
   });
 });

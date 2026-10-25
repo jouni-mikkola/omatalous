@@ -100,9 +100,9 @@ export function fakeBank(): { url: string; consentHost: string; appId: string; p
  * Asetukset > Pankkiyhteydet as the signed-in user of `page` does it: the fake bank's application is saved as their own,
  * the bank is picked, the consent page answers, and the page comes back linked. Only the host of the consent page does not
  * exist here; every other request goes where it would in production. `dollars` adds the account in dollars, `own` links the
- * household under ids and a joint account no other link has (fake-bank/household.mjs).
+ * household under ids and a joint account no other link has (fake-bank/household.mjs). `bank: "OP"` links the second bank, which brings one account.
  */
-export async function linkFakeBank(page: Page, options: { dollars?: boolean; own?: boolean } = {}): Promise<void> {
+export async function linkFakeBank(page: Page, options: { dollars?: boolean; own?: boolean; bank?: "Nordea" | "OP" } = {}): Promise<void> {
   const bank = fakeBank();
   const context = page.context();
   const saved = await context.request.put("/api/bank/credentials", { data: { appId: bank.appId, privateKeyPem: bank.privateKeyPem }, headers: FETCH });
@@ -118,7 +118,7 @@ export async function linkFakeBank(page: Page, options: { dollars?: boolean; own
   });
   await page.goto("/#/settings");
   await page.getByRole("button", { name: /^Yhdistä (toinen )?pankki$/ }).click();
-  await page.getByRole("button", { name: "Yhdistä Nordea" }).click();
+  await page.getByRole("button", { name: `Yhdistä ${options.bank ?? "Nordea"}` }).click();
   // The notice comes after the app's own round trips to the bank (token, accounts), so it takes longer than a page does to
   // draw on a busy machine: wait for the event, not for the usual few seconds.
   await expect(page.locator(".notice").filter({ hasText: "Pankki yhdistetty" })).toBeVisible({ timeout: 30_000 });

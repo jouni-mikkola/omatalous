@@ -49,11 +49,11 @@ export function Overview({
   // a month that has ended is not today: the blocks above the month still tell today, from the request for the running month
   const ended = range.to < meta.today;
   // no request while there are no accounts: the first one after demo data or a sync is a fresh fetch
-  const now = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...periodRange("month", meta.today), scope })}` : null);
-  const past = useApi<DashboardData>(hasData && ended ? `/api/dashboard${query({ ...range, scope })}` : null);
+  const now = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...periodRange("month", meta.today), scope })}` : null, true);
+  const past = useApi<DashboardData>(hasData && ended ? `/api/dashboard${query({ ...range, scope })}` : null, true);
   // a month that has ended is told by the sections of this page (Menojen muutos); the running one by the usual view of the same report beside its waterfall
   const monthReports = reportsOf("month");
-  const reports = useApi<ReportsData>(hasData && monthReports.length ? `/api/reports${query({ ...range, scope, reports: monthReports.join(",") })}` : null);
+  const reports = useApi<ReportsData>(hasData && monthReports.length ? `/api/reports${query({ ...range, scope, reports: monthReports.join(",") })}` : null, true);
   // the first paint waits for both answers; after it a switch of the month keeps the page and waits inside the block
   const shown = useRef(false);
 
@@ -116,7 +116,7 @@ export function Overview({
     <div className={`page-grid front${loading ? " loading" : ""}`}>
       <KeyFigures data={today} scope={scope} />
 
-      <Pace data={today} scope={scope} />
+      <Pace data={today} scope={scope} onGoalChanged={now.reload} />
 
       <Holdings holdings={today.holdings} meta={meta} scope={scope} />
 

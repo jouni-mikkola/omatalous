@@ -6,9 +6,12 @@
 tools/test/build-ca.test.sh
 tools/test/check.test.sh
 tools/test/commit.test.sh
+tools/test/cores.test.sh
 tools/test/docker-tidy.test.sh
 tools/test/drills-lib.test.sh
+tools/test/image-checks.test.sh
 tools/test/image-tags.test.sh
+tools/test/light-scope.test.sh
 tools/test/local-proof-legs.test.sh
 tools/test/local-proof-runs.test.sh
 tools/test/local-proof.test.sh

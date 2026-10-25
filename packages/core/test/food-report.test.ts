@@ -6,9 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { goldenHouseholds } from "../../../tools/findings/golden.ts";
 import { applyUse } from "../src/account-use.ts";
-import { cardBillsByMonth } from "../src/analysis/card-bills.ts";
 import { type AnalysisContext, createContext } from "../src/analysis/context.ts";
-import { foodReport } from "../src/analysis/food.ts";
+import { type FoodReport, foodReport } from "../src/analysis/food.ts";
 import { themesReport, themeWindow } from "../src/analysis/themes-report.ts";
 import { addMonths, dateIn, monthIndex, monthOf } from "../src/dates.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
@@ -43,8 +42,20 @@ const line = (first: string, count: number, total: number, merchant: string, cat
   return months(first, count).flatMap((m, i) => split(m, DAYS, i === count - 1 ? total - each * (count - 1) : each, merchant, category));
 };
 const world = (first: string, more: readonly Transaction[], today = TODAY) => createContext([...rent(first, today), ...more], [checking], today);
-const food = (first: string, more: readonly Transaction[], today = TODAY) => foodReport(world(first, more, today))!;
-const byId = (r: NonNullable<ReturnType<typeof foodReport>>, id: string) => r.lines.find((l) => l.id === id)!;
+/** The report as figures; a test that gets a gap fails here. */
+type FoodFigures = Exclude<FoodReport, { gap: unknown }>;
+type FoodGap = Extract<FoodReport, { gap: unknown }>["gap"];
+const figures = (r: ReturnType<typeof foodReport>): FoodFigures => {
+  if (!r || "gap" in r) throw new Error("expected food figures");
+  return r;
+};
+/** The report as the reason there are no figures. */
+const gapOf = (r: ReturnType<typeof foodReport>): FoodGap => {
+  if (!r || !("gap" in r)) throw new Error("expected a gap");
+  return r.gap;
+};
+const food = (first: string, more: readonly Transaction[], today = TODAY) => figures(foodReport(world(first, more, today)));
+const byId = (r: FoodFigures, id: string) => r.lines.find((l) => l.id === id)!;
 
 describe("the four lines", () => {
   it("add up to the theme to the cent: the worked example of twelve months", () => {
@@ -68,7 +79,6 @@ describe("the four lines", () => {
     expect(sum(r.lines.map((l) => l.monthlyCents))).toBe(r.monthlyCents);
     // a week of 365 days: 138,36 €, 62,15 €, 48,83 € and 7,90 €
     expect(r.lines.map((l) => l.weekCents)).toEqual([13_836, 6_215, 4_883, 790]);
-    expect(r.cardBills).toBeNull();
   });
 
   it("are the theme food of the themes report in both views of every household", () => {
@@ -82,7 +92,10 @@ describe("the four lines", () => {
         const at = `${h.name} ${view}`;
         const themes = themesReport(ctx);
         const theme = themes?.themes.find((t) => t.id === "food");
-        const r = foodReport(ctx);
+        const told = foodReport(ctx);
+        // card bills without their purchases are the reason, not figures
+        if (told && "gap" in told) continue;
+        const r = told;
         // no window or no food is no section
         expect(r === null, at).toBe(!theme);
         if (!r || !theme || !themes) continue;
@@ -122,7 +135,7 @@ describe("the section", () => {
 
   it("is the report of the themes window", () => {
     const ctx = world("2026-07", line("2026-07", 3, 30_000, SHOP, "groceries"));
-    expect(themeWindow(ctx)!.months.length).toBe(foodReport(ctx)!.window.months);
+    expect(themeWindow(ctx)!.months.length).toBe(figures(foodReport(ctx)).window.months);
   });
 });
 
@@ -144,7 +157,7 @@ describe("a purchase", () => {
     const ctx = world("2026-07", rows);
     // the money back is matched to a payment, and it is not the seventh purchase
     expect(ctx.returns.size).toBe(1);
-    const l = byId(foodReport(ctx)!, "groceries");
+    const l = byId(figures(foodReport(ctx)), "groceries");
     expect(l.cents).toBe(56_000);
     expect(l.monthCents).toEqual([0, 0, 56_000]);
     expect(l).toMatchObject({ purchases: 6, meanCents: 9_333 });
@@ -271,22 +284,33 @@ describe("the basket", () => {
 
 describe("the card bills", () => {
   const bill = (day: string, cents: number) => paid(day, cents, "Esimerkkipankki Oyj", "card_bill");
+  const report = (more: readonly Transaction[]) => foodReport(world("2026-07", [...line("2026-07", 3, 30_000, SHOP, "groceries"), ...more]));
 
-  it("are a row of their own when the window holds one, and none otherwise", () => {
-    const own = line("2026-07", 3, 30_000, SHOP, "groceries");
-    expect(food("2026-07", own).cardBills).toBeNull();
-    // a bill before the window is not in it
-    expect(food("2026-07", [...own, bill("2026-06-15", 20_000)]).cardBills).toBeNull();
-    const r = food("2026-07", [...own, bill("2026-08-15", 20_000), bill("2026-09-15", 10_000)]);
-    expect(r.cardBills).toEqual({ cents: 30_000, monthlyCents: 10_000 });
-    // the lines are the same with or without it
-    expect(r.cents).toBe(30_000);
+  it("leave figures when the window holds none, and a bill before the window is not in it", () => {
+    expect(figures(report([])).cents).toBe(30_000);
+    expect(figures(report([bill("2026-06-15", 20_000)])).cents).toBe(30_000);
   });
 
-  it("are summed by month, the rows the quality report counts", () => {
-    const ctx = world("2026-07", [bill("2026-07-20", 5_000), bill("2026-09-02", 7_000), bill("2026-09-21", 1_000), bill("2026-10-02", 9_000), got("2026-08-10", 2_000, "Esimerkkipankki Oyj", "card_bill")]);
-    const w = themeWindow(world("2026-07", line("2026-07", 3, 30_000, SHOP, "groceries")))!.months;
-    expect(cardBillsByMonth(ctx, w)).toEqual([5_000, 0, 8_000]);
-    expect(cardBillsByMonth(ctx, [])).toEqual([]);
+  it("make the report one reason with no lines when the window holds a bill whose purchases are not in the data", () => {
+    const r = report([bill("2026-08-15", 20_000), bill("2026-09-15", 10_000)])!;
+    expect(r).not.toHaveProperty("lines");
+    const gap = gapOf(r);
+    expect(gap.cents).toBe(30_000);
+    expect(gap.window).toEqual({ from: "2026-07-01", to: "2026-09-30" });
+    expect(gap.bills).toMatchObject([{ issuer: "Esimerkkipankki Oyj", cents: 30_000, reason: "not_connected" }]);
+    expect(gap.text.replace(/\u00a0/g, " ")).toBe("Ruoan menoja ei lasketa: ajalla 1.7.2026–30.9.2026 on korttilaskuja 300 €, mutta Esimerkkipankki Oyj ei ole yhdistetty.");
+  });
+
+  it("says since when a connected card has rows when the bill is of the time before: the window ends where the card begins", () => {
+    const card: Account = { id: "card-1", name: "Esimerkkipankki Visa", iban: null, currency: "EUR", type: "credit_card" };
+    const rows = [...rent("2026-05", TODAY), ...line("2026-05", 4, 40_000, SHOP, "groceries"), bill("2026-08-15", 20_000), paid("2026-09-10", 1_000, SHOP, "groceries", { accountId: "card-1" })];
+    const gap = gapOf(foodReport(createContext(rows, [checking, card], TODAY)));
+    expect(gap.window).toEqual({ from: "2026-05-01", to: "2026-08-31" });
+    expect(gap.bills).toMatchObject([{ reason: "before_history", since: "2026-09-10" }]);
+    expect(gap.text).toContain("kortin ostot alkavat vasta 10.9.2026");
+  });
+
+  it("are a reason even when the accounts show no food at all", () => {
+    expect(gapOf(foodReport(world("2026-07", [bill("2026-08-15", 20_000), ...line("2026-07", 3, 30_000, "Esimerkkipalvelu", "entertainment")])))).toMatchObject({ cents: 20_000 });
   });
 });

@@ -83,7 +83,7 @@ describe("the month Yhteenveto opens on", () => {
 });
 
 describe("the month's sentence for a reader who does not see the waterfall", () => {
-  it("has Tulot, Menot and what went to savings and credit from core, and they are the bars' and add up to Yli jäi", () => {
+  it("has Tulot, Menot and what went to savings and credit from core, and they are the bars' and add up to Tulos", () => {
     for (const month of ["2026-07", "2026-08", "2026-09"]) {
       const w = monthWaterfall(ctx, month, { from: `${month}-01`, to: `${month}-31` })!;
       const bar = (keep: (key: string) => boolean) => w.bars.filter((b) => keep(b.key)).reduce((s, b) => s + b.cents, 0);

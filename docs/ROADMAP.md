@@ -16,6 +16,8 @@ small and frequent; the order below can change, and nothing here is a promise of
    alerts through channels you run yourself.
 5. **Local.** Everything runs on your own machine. The only outside parties are the bank connection, the return
    page after the bank login, and services you turn on yourself. English will come beside Finnish.
+6. **Delete, do not hide.** A view nobody needs is removed with its code, styles, tests and texts. The app keeps no
+   hidden view, no "off by default" copy and no setting that brings one back.
 
 ## The bank connection (Enable Banking)
 - The app already makes its own keys, keeps the application id in Asetukset, lists banks live, runs the bank
@@ -39,12 +41,6 @@ is matched to the rows; a new household gets from install to its own year of fig
 you outside the browser when something needs you; the front page tells in ten seconds the money until payday, the
 pace of spending and one thing to do.
 
-### 0.70.0: more banks
-- Classification tested on households of OP and S-Pankki as well as Nordea.
-- Renewing every bank consent in one guided round.
-- A monthly spending goal on Yhteenveto.
-- An installable app that opens Yhteenveto without a network.
-
 ### Later
 - Asetukset in tabs, the joint account ledger in a view of its own.
 - Notices outside the browser, off by default: ntfy, a webhook or e-mail, for a consent about to end and for disk,
@@ -57,6 +53,7 @@ pace of spending and one thing to do.
   change against the consumer price index, the tax year) once the figures above hold.
 
 ## Done
+- 0.70.0: a monthly spending goal on Yhteenveto; an installable app that opens Yhteenveto without a network; every consent renewed in one round; a card's older rows back to five years; one table look everywhere; service tokens for scripts.
 - 0.69.0: Tarkistettavat asks every open question one at a time; Yhteenveto compares the month with the usual one; the source is public under AGPL-3.0.
 - 0.66.0: the front page and charts: money until payday, the pace of spending and one thing to do at the top of Yhteenveto.
 - 0.65.0: figures right: a row sent again is stored once, and one figure per concept on every page.

@@ -97,7 +97,7 @@ for (const p of PAGES) {
 
 test("Raportit > Menot: the total's basis shows its first row below the head, not under it, and a category column only when the rows differ", async ({ browser }) => {
   const { page, seen, close } = await open(browser, "/#/reports?period=12m&tab=menot", false);
-  const total = page.locator("tfoot tr.foot-row", { hasText: "Yhteensä" }).first();
+  const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
   await total.getByRole("button", { name: /Näytä tapahtumat/ }).click();
   const panel = page.getByRole("dialog");
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
@@ -111,9 +111,9 @@ test("Raportit > Menot: the total's basis shows its first row below the head, no
   await close();
 });
 
-test("Yhteenveto: Käytettävissä, Tileillä and the coming pay open their basis; the pay is an estimate and says so", async ({ browser }) => {
+test("Yhteenveto: Käytettävissä, Tilien saldo and the coming pay open their basis; the pay is an estimate and says so", async ({ browser }) => {
   const { page, seen, close } = await open(browser, "/#/overview", false);
-  for (const name of [/^Näytä tapahtumat: Käytettävissä /, /^Näytä tapahtumat: Tileillä /]) {
+  for (const name of [/^Näytä tapahtumat: Käytettävissä /, /^Näytä tapahtumat: Tilien saldo, ilman korttia /]) {
     await page.getByRole("button", { name }).click();
     const panel = page.getByRole("dialog");
     await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
@@ -134,7 +134,7 @@ test("Yhteenveto: Käytettävissä, Tileillä and the coming pay open their basi
 
 test("Raportit > Menot at 390 px: the total's basis fits the screen, each row's category under its name", async ({ browser }) => {
   const { page, seen, close } = await open(browser, "/#/reports?period=12m&tab=menot", true);
-  const total = page.locator("tfoot tr.foot-row", { hasText: "Yhteensä" }).first();
+  const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
   await total.getByRole("button", { name: /Näytä tapahtumat/ }).tap();
   const panel = page.getByRole("dialog");
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });

@@ -54,7 +54,7 @@ describe("AccountSources", () => {
     };
     const markup = html();
     expect(text(markup)).toContain("Tilille tullut ja lähtenyt raha kuukausittain Elokuu 2026");
-    expect([...markup.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "Ville", "Ei tiedossa"]);
+    expect([...markup.matchAll(/<th scope="col"[^>]*>(?!<span class="sr-only">)(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "Ville", "Ei tiedossa"]);
     expect([...markup.matchAll(/<th scope="row"[^>]*>(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Maksettu tilille", "Menot", "Siirretty tililtä", "Omat tilisiirrot", "Saldo kuun lopussa"]);
     expect(digits(cellsOf(markup, "Maksettu tilille"))).toEqual(["1150,00", "400,00", "–"]);
     expect(digits(cellsOf(markup, "Menot"))).toEqual(["1104,37", "–", "–"]);
@@ -86,7 +86,7 @@ describe("AccountSources", () => {
   it("keeps the rest column for every account, and gives three members three columns and the rest", () => {
     answer = { months: [month("2026-08", [col("u-aino"), col("u-ville"), col("u-cecilia"), col(null)])] };
     const markup = html();
-    expect([...markup.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "Ville", "Cecilia", "Ei tiedossa"]);
+    expect([...markup.matchAll(/<th scope="col"[^>]*>(?!<span class="sr-only">)(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "Ville", "Cecilia", "Ei tiedossa"]);
     expect(cellsOf(markup, "Menot")).toHaveLength(4);
     expect(markup).toContain("--src-cols:4");
   });
@@ -115,12 +115,12 @@ describe("AccountSources", () => {
     answer = { months: [month("2026-08", [col("u-aino", { paidInCents: 100000 }), { ...col(null, { paidInCents: 250000 }), holder: true } as Col, col(null)])] };
     const draw = (account: Account) => renderToStaticMarkup(createElement("table", null, createElement("tbody", null, createElement(AccountSources, { account, meta }))));
     const markup = draw(named);
-    expect([...markup.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "Muu tilinomistaja", "Ei tiedossa"]);
+    expect([...markup.matchAll(/<th scope="col"[^>]*>(?!<span class="sr-only">)(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "Muu tilinomistaja", "Ei tiedossa"]);
     expect(cellsOf(markup, "Maksettu tilille").map((c) => c.replace(/[^\d,–]/g, ""))).toEqual(["1000,00", "2500,00", "–"]);
     expect(markup).toContain("--src-cols:3");
     // the holder's name is the bank's own line, where the viewer may read it
     const bank = { id: "pool-a", use: { users: [{ userId: "u-aino", label: "Aino" }, { userId: null, label: "VIRTANEN MATTI" }] } } as unknown as Account;
-    expect([...draw(bank).matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "VIRTANEN MATTI", "Ei tiedossa"]);
+    expect([...draw(bank).matchAll(/<th scope="col"[^>]*>(?!<span class="sr-only">)(.*?)<\/th>/g)].map((m) => m[1])).toEqual(["Aino", "VIRTANEN MATTI", "Ei tiedossa"]);
   });
 
   it("gives a joint account a place and another account none", () => {

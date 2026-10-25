@@ -136,6 +136,11 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
   a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta uusin varmuuskopio* in the same place
   brings the newest copy back, and at every start the app checks its database and restores a damaged one from the
   newest intact copy.
+- Over https (a tunnel or your own domain) or at `localhost`, the browser offers to install Omatalous as an app: *Asenna*
+  in the address bar of Chrome and Edge, *Lisää Koti-valikkoon* on iPhone, *Asenna sovellus* on Android. The app then opens
+  Yhteenveto with the figures of the last visit when the server cannot be reached, and says when they were fetched. They
+  stay on the device for one user at a time and go at logout. Over plain http on the home network a browser offers
+  neither.
 - Lost the address? Run `./scripts/install.sh` again in the `omatalous` folder. It keeps the settings and data and
   prints the address.
 - To use the app away from home, a VPN is the safest. A Cloudflare Tunnel with a login in front can be set up in the

@@ -6,7 +6,7 @@ import { buildHousing, type Housing } from "../housing.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { type CategoryTotal, categoryTotals } from "./category-totals.ts";
-import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
+import { type ConnectNotice, connectNotice, dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, cashAhead } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
@@ -16,6 +16,7 @@ import { fixedSeriesAt } from "./fixed-share.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
+import { type SpendingGoal, spendingGoal } from "./spending-goal.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { buildQuestions, type Questions, withoutRowIds } from "./questions.ts";
 import { monthWaterfall, type Waterfall, withUsual } from "./waterfall.ts";
@@ -46,7 +47,7 @@ export interface DashboardData {
   previousTotals: PeriodTotals;
   /**
    * The whole calendar month before the month the range ends in (today's month when the range runs past today), every
-   * day of it: "Yli jäi viime kuussa". `previousTotals` of a running month is cut to today's day and tells only part of
+   * day of it: "Tulos viime kuussa". `previousTotals` of a running month is cut to today's day and tells only part of
    * it. Summed as `totals` is (`spendTotals`). null when that month has no rows.
    */
   previousMonthTotals: { month: string; totals: PeriodTotals } | null;
@@ -64,12 +65,16 @@ export interface DashboardData {
    * reaches today (the period can be longer than the month), else the month the range ends in.
    */
   pace: MonthPace;
+  /** The user's monthly spending goal against `pace`; null when none is set. */
+  goal: SpendingGoal | null;
   /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the three figures. null when the selected period does not include today. */
   ahead: AheadData | null;
   /** Cost traps and mistakes; the overview shows them before insights. */
   alerts: Alert[];
-  /** The first warning from the data quality report, so a user who never opens Reports still sees it. */
+  /** The first warning from the data quality report but the card bills, which `connectNotice` says, so a user who never opens Reports still sees it. */
   dataNotice: QualitySignal | null;
+  /** How much of the last twelve complete months a card or account that is not connected hides, whatever the range. null when every card and account is connected. */
+  connectNotice: ConnectNotice | null;
   insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
@@ -78,7 +83,7 @@ export interface DashboardData {
   /** How much of the last 365 days' money is classified, and the payees and loan payments that would mend it most. */
   questions: Questions;
   /**
-   * The month the range ends in (today's when the range runs past it), told as steps from income to Yli jäi, whatever
+   * The month the range ends in (today's when the range runs past it), told as steps from income to Tulos, whatever
    * the range's length. null when the range starts after today or the month has no rows.
    */
   waterfall: Waterfall | null;
@@ -155,6 +160,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const alerts = buildAlerts(ctx, range, inputs);
   const quality = dataQualityReport(ctx, range, balances);
   const settled = running ? settledTotals(ctx, range) : null;
+  const pace = monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to);
 
   return {
     range: { from: range.from, to: range.to, previousFrom },
@@ -170,10 +176,12 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     fixedMonthlyCents: fixedMonthlyCents(fixedSeriesAt(ctx, range.to), cancelledSubjects(inputs, range.to < ctx.today ? range.to : ctx.today)),
     categories,
     themes: themesReport(ctx),
-    pace: monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to),
+    pace,
+    goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
     ahead: running ? cashAhead(ctx, balances, inputs) : null,
     alerts,
-    dataNotice: quality.signals.find((x) => x.tone === "warning") ?? null,
+    dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
+    connectNotice: connectNotice(ctx),
     insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, proposals),
     housing: buildHousing(ctx, balances, inputs),

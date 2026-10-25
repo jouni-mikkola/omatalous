@@ -8,6 +8,7 @@ import { type FetchProblem, readFetchProblems } from "../connectors/fetch-proble
 import { readRefusedRows } from "../connectors/refused-rows.ts";
 import type { RefusedRows } from "../connectors/types.ts";
 import type { Connection, StoredAccount } from "../db/rows.ts";
+import { todayIn } from "../platform/config.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
@@ -22,8 +23,15 @@ import { EXTENSIONS } from "../extensions.ts";
  */
 export type ConnectionState = "active" | "lapsed" | "broken" | "removed";
 
-export function connectionState(conn: Pick<Connection, "status" | "validUntil">, today: string): ConnectionState {
-  const end = conn.validUntil?.slice(0, 10) ?? null;
+/** The day a consent ends (YYYY-MM-DD) in the instance time zone: the day the page shows for it, whatever hour the bank ends it. */
+export function consentEnd(validUntil: string | null, timezone: string): string | null {
+  if (!validUntil) return null;
+  const at = new Date(validUntil);
+  return Number.isNaN(at.getTime()) ? validUntil.slice(0, 10) : todayIn(timezone, at);
+}
+
+export function connectionState(conn: Pick<Connection, "status" | "validUntil">, today: string, timezone: string): ConnectionState {
+  const end = consentEnd(conn.validUntil, timezone);
   if (conn.status === "revoked") return "removed";
   // an expired status on its last day ended that day; an active one is still in use that day
   if (end !== null && (conn.status === "active" ? end < today : end <= today)) return "lapsed";
@@ -39,12 +47,12 @@ export function connectionState(conn: Pick<Connection, "status" | "validUntil">,
  * connecting again moves them only after they are linked in the Control Panel. They are named one by one instead of
  * the bank-wide "katkesi".
  */
-export function connectionView(conn: Connection, today: string, accounts: readonly Pick<StoredAccount, "connectionId">[], connections: readonly Connection[]) {
-  const end = conn.validUntil?.slice(0, 10) ?? null;
-  const state = connectionState(conn, today);
+export function connectionView(conn: Connection, today: string, timezone: string, accounts: readonly Pick<StoredAccount, "connectionId">[], connections: readonly Connection[]) {
+  const end = consentEnd(conn.validUntil, timezone);
+  const state = connectionState(conn, today, timezone);
   const replaced =
     state !== "active" &&
-    connections.some((o) => o.id !== conn.id && o.provider === conn.provider && o.institution === conn.institution && o.createdAt >= conn.createdAt && connectionState(o, today) === "active");
+    connections.some((o) => o.id !== conn.id && o.provider === conn.provider && o.institution === conn.institution && o.createdAt >= conn.createdAt && connectionState(o, today, timezone) === "active");
   return {
     ...conn,
     status: state === "lapsed" ? ("expired" as const) : conn.status,

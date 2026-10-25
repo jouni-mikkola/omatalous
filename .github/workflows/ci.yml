@@ -1,17 +1,37 @@
 name: CI
 
-# shell, js, e2e and docker run side by side. ci-ok is the one check that says whether all of them passed, so a job
-# added or renamed here changes nothing outside this file.
+# The light tier, and the only tier on GitHub. It runs what is fast and needs a clean runner least: the shell lint, the
+# types and the tests of what a change reaches (tools/check.sh --changed, the same scope a developer runs), with the pnpm
+# store cached. A run is a few minutes, and a change of documents alone starts none. A run started by hand is the same
+# tier, checked against main; there is no heavy mode on GitHub.
 #
-# The public repository runs CI on every push and pull request, which is free. The private one pays for its minutes, so
-# a push or pull request there skips every job, ci-ok included. It runs CI only by hand (workflow_dispatch). A release there starts
-# it only when it is asked for a clean runner: it runs the same checks and tools/ci/local-proof.sh (the image, the
-# smoke test and the upgrade rehearsal) on its own machine, and the public repository runs all of this file again for
-# free when the release is published. A change has passed the same checks locally before it lands.
-# The skipped check runs a push leaves answer nothing: tools/ci/wait.sh ignores them.
+# The heavy checks run on the maintainer's machine, and no workflow of GitHub starts them: the whole of `pnpm check`
+# (every test and shell suite, the self-tests of the tools), the build, the browser tests (`pnpm e2e`), the image and its
+# smoke tests, the compose file, two instances side by side (tools/ci/image-checks.sh), the upgrade rehearsals and the
+# drills. A release runs them on the commit it ships and leaves a stamp that names the commit; only a commit that the
+# stamps name is published, and the release run (release.yml) builds, smoke tests and signs without testing again. No
+# test is deleted: a test that left GitHub runs there.
+#
+# The public repository runs this file on every push and pull request that touches more than documents, which is free.
+# The private one pays for its minutes, so a push or pull request there skips every job, ci-ok included, and it
+# runs only by hand (workflow_dispatch). ci-ok is the one check that says whether all the jobs passed, so a job added
+# or renamed here changes nothing outside this file.
 on:
   push:
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - docs/**
+      - relay/**
+      - LICENSE
+      - .github/FUNDING.yml
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - docs/**
+      - relay/**
+      - LICENSE
+      - .github/FUNDING.yml
   workflow_dispatch:
 
 permissions:
@@ -25,23 +45,31 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  # the tools' self-tests follow the change here, as they do on a developer's machine (tools/check.sh)
+  CHECK_LIGHT: '1'
+
 jobs:
   shell:
-    # no Node: the checks that need no install run first and fastest
+    # no Node: the lint and the shell suites that name a changed script run first and fastest
     if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Scripts parse
-        run: tools/ci/shell-lint.sh
-      - name: Shell suites
-        # the maintenance helper scenarios run four at a time. The publish script is private-only, so the public
-        # snapshot has no test for it.
-        if: ${{ !cancelled() }}
-        run: bash tools/check.sh sh
+      - name: What this change reaches
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: tools/ci/light-scope.sh >>"$GITHUB_OUTPUT"
+      - name: Lint and shell suites
+        # the maintenance helper scenarios run four at a time
+        run: bash tools/check.sh ${{ steps.scope.outputs.args }} lint sh
       - name: Logs of the failed suites
         if: ${{ failure() }}
         run: |
@@ -55,129 +83,39 @@ jobs:
   js:
     if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
-          cache: pnpm
-      - id: install
-        run: pnpm install --frozen-lockfile
-      # a red step does not hide the ones after it: a type error still shows the failing tests
-      - name: Typecheck
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm typecheck
-      - name: Tests
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm test
-      - name: Build
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm build
-
-  e2e:
-    # the built app in a real browser: every page at desktop and phone width, no console or network errors
-    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
+          node-version: 22.23.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm e2e
-
-  docker:
-    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Build image
-        run: docker build -t banking-app:ci .
-      - name: Smoke test
-        # runs the image the way docker-compose.yml does: read-only root, no capabilities,
-        # named volumes for the database and the app secret
-        run: |
-          docker run -d --name app -p 127.0.0.1:8080:8080 --read-only --tmpfs /tmp:noexec,nosuid,nodev \
-            --cap-drop ALL --security-opt no-new-privileges:true \
-            -v ci-data:/data -v ci-secrets:/secrets -e APP_SECRET_FILE=/secrets/app_secret banking-app:ci
-          for i in $(seq 1 30); do curl -fsS localhost:8080/api/health && break; sleep 1; done
-          # the app created its own secret, readable by its owner only
-          docker exec app stat -c '%a %U' /secrets/app_secret | tee /dev/stderr | grep -x '600 node' >/dev/null
-          docker exec app stat -c '%a %U' /secrets | tee /dev/stderr | grep -x '700 node' >/dev/null
-          curl -fsS localhost:8080/api/auth/state | grep '"needsSetup":true'
-          CODE=$(docker exec app node --disable-warning=ExperimentalWarning dist/node.js setup-code | tail -1)
-          H=(-H 'Content-Type: application/json' -H 'X-Requested-With: fetch')
-          curl -fsS -c jar "${H[@]}" -d "{\"code\":\"$CODE\",\"username\":\"ci-admin\",\"displayName\":\"CI\",\"password\":\"ci-salasana-123456\"}" localhost:8080/api/auth/setup
-          curl -fsS -b jar localhost:8080/api/admin/instance | grep '"secret":{"available":true}'
-          # setup wizard: key generated in the container, only the certificate comes out
-          curl -fsS -b jar "${H[@]}" -X POST localhost:8080/api/admin/bank-app/key | grep '"hasCertificate":true'
-          curl -fsS -b jar localhost:8080/api/admin/bank-app/certificate -o ci.crt
-          openssl x509 -in ci.crt -noout -subject -enddate
-          if grep -q "PRIVATE KEY" ci.crt; then echo "private key leaked"; exit 1; fi
-          docker logs app
-      - name: Smoke test of the release workflow
-        # the script a release runs on both images before it tags and signs. This image was built without build
-        # arguments, so its labels say unknown.
-        run: tools/ci/smoke-image.sh banking-app:ci unknown unknown
-      - name: Compose file
-        # the port, address and name keys resolve, also for IPv6 and an empty Caddy address
-        run: |
-          docker compose config -q
-          INSTANCE_NAME=ci-x HOST_PORT=8085 BIND_ADDRESS=::1 docker compose config | grep -E 'container_name: ci-x|image: ci-x:latest|host_ip: ::1|published: "8085"'
-          COMPOSE_PROFILES=caddy CADDY_ADDRESS=127.0.0.2 docker compose config | grep 'host_ip: 127.0.0.2' >/dev/null
-          COMPOSE_PROFILES=caddy docker compose config | grep 'published: "443"' >/dev/null
-          COMPOSE_PROFILES=caddy CADDY_ADDRESS='[::1]' docker compose config | grep 'host_ip: ::1' >/dev/null
-      - name: Two instances side by side
-        # the compose file twice, as two projects on one host: own container, image, volumes and port.
-        # One cookie jar is logged in to both, which holds only while the cookie names differ.
-        run: |
-          H=(-H 'Content-Type: application/json' -H 'X-Requested-With: fetch')
-          up() { # name port
-            docker tag banking-app:ci "$1:latest"
-            INSTANCE_NAME=$1 COMPOSE_PROJECT_NAME=$1 HOST_PORT=$2 docker compose up -d --no-build banking
-            for i in $(seq 1 30); do docker exec "$1" wget -qO- http://127.0.0.1:8080/api/health && break; sleep 1; done
-            curl -fsS "localhost:$2/api/health"
-          }
-          up ci-a 8081
-          up ci-b 8082
-          docker volume ls -q | grep -x ci-a_banking-data
-          docker volume ls -q | grep -x ci-b_banking-data
-          for spec in "ci-a 8081" "ci-b 8082"; do
-            set -- $spec
-            CODE=$(docker exec "$1" node --disable-warning=ExperimentalWarning dist/node.js setup-code | tail -1)
-            curl -fsS -b jar -c jar "${H[@]}" -d "{\"code\":\"$CODE\",\"username\":\"ci-admin\",\"displayName\":\"CI\",\"password\":\"ci-salasana-123456\"}" "localhost:$2/api/auth/setup"
-          done
-          # the jar holds both cookies and each instance accepts its own
-          curl -fsS -b jar -c jar localhost:8081/api/admin/instance >/dev/null
-          curl -fsS -b jar -c jar localhost:8082/api/admin/instance >/dev/null
-          curl -fsS -b jar -c jar localhost:8081/api/admin/instance >/dev/null
-          INSTANCE_NAME=ci-a COMPOSE_PROJECT_NAME=ci-a HOST_PORT=8081 docker compose down -v
-          INSTANCE_NAME=ci-b COMPOSE_PROJECT_NAME=ci-b HOST_PORT=8082 docker compose down -v
+      - name: What this change reaches
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: tools/ci/light-scope.sh >>"$GITHUB_OUTPUT"
+      # types and tests side by side, each reporting on its own: a type error still shows the failing tests
+      - name: Types and tests
+        run: bash tools/check.sh ${{ steps.scope.outputs.args }} types tests
 
   ci-ok:
     # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (the private repo).
     if: ${{ always() && (github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch') }}
-    needs: [shell, js, e2e, docker]
+    needs: [shell, js]
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Every job passed
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          RESULTS: ${{ needs.shell.result }} ${{ needs.js.result }}
         run: |
-          echo "job results: $RESULTS"
+          echo "jobs: $RESULTS"
           for r in $RESULTS; do [[ $r == success ]] || exit 1; done

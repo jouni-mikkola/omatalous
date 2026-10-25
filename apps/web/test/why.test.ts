@@ -85,7 +85,7 @@ function doorsWithoutBasis(file: string, tree: ts.SourceFile): string[] {
 describe("the basis of a figure opens from the figure", () => {
   it("finds the link text it refuses and passes a heading that only starts with Miksi", () => {
     for (const t of ["Mistä luku tulee", "Mistä summa tulee?", "Miksi?", "Mihin luku perustuu", "Näin luku syntyy"]) expect(t).toMatch(LINK_TEXT);
-    for (const t of ["Miksi ostot puuttuvat", "Miksi muuttui?", "Näytä tapahtumat: Yli jäi", "Mistä tulot tulevat"]) expect(t).not.toMatch(LINK_TEXT);
+    for (const t of ["Miksi ostot puuttuvat", "Miksi muuttui?", "Näytä tapahtumat: Tulos", "Mistä tulot tulevat"]) expect(t).not.toMatch(LINK_TEXT);
   });
 
   const all = trees();

@@ -97,7 +97,7 @@ const BANKS = [{ id: "nordea-fi", name: "Nordea", country: "FI" }];
 const picker = (bank: { configured: boolean; inactive?: boolean }) =>
   renderToStaticMarkup(
     createElement(BankConnections, {
-      meta: { user: { role: "member" }, bank: { ...bank, banks: BANKS, redirectMode: "own" }, connections: [], accounts: [] } as unknown as Meta,
+      meta: { user: { role: "member" }, bank: { ...bank, banks: BANKS, redirectMode: "own" }, connections: [], accounts: [], renewal: { due: [], round: null } } as unknown as Meta,
       pickerOpen: true,
       onChange: () => {},
       onMessage: () => {},

@@ -37,17 +37,14 @@ describe("Laskut: Harvinaiset laskut on a phone", () => {
   };
   const html = renderToStaticMarkup(createElement(section.Component, { ctx: { data: { upcoming } } } as unknown as SectionProps));
 
-  it("holds the state a second time as a line under Saaja, and marks the headless fourth column", () => {
-    expect(html).toContain('<div class="sub paid-sub">Maksettu 5.10.</div>');
-    expect(html).toContain('<th scope="col" class="hide-phone">Maksettu</th>');
-    expect(html).toContain('<td class="hide-phone paid-col" data-label="Maksettu"><div>Maksettu 5.10.</div></td>');
+  it("says the state of a month in its own column, which a phone block shows as a labelled pair", () => {
+    expect(html).toContain('<th scope="col">Maksettu</th>');
+    expect(html).toContain('<td data-label="Maksettu"><div>Maksettu 5.10.</div></td>');
+    expect(html).not.toContain("paid-sub");
   });
 
-  it("draws the fourth column only above a phone and keeps a month on one line", () => {
-    const bills = css("bills.css");
-    expect(bills).toMatch(/@media \(max-width: 640px\) \{[^}]*\.rare-table \.paid-col \{ display: none; \}/);
-    expect(bills).toMatch(/\.rare-table \.paid-sub \{ display: none; \}/);
-    expect(bills).toMatch(/\.rare-table \.due-col \{ white-space: nowrap; \}/);
+  it("keeps a month on one line", () => {
+    expect(css("bills.css")).toMatch(/\.due-col \{ white-space: nowrap; \}/);
   });
 });
 

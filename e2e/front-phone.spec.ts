@@ -39,7 +39,7 @@ for (const width of [320, 360, 390]) {
     const page = await open(context, { settlement: "uneven" });
     const seen = watch(page);
     const rows = page.locator(".wf-row");
-    expect(await rows.count(), "income, four categories, the rest, transfers and Yli jäi").toBe(8);
+    expect(await rows.count(), "income, four categories, the rest, transfers and Tulos").toBe(8);
     // the figure is at the right edge of its row, the bar under the name; both are on the screen
     for (const row of await rows.all()) {
       for (const part of [row.locator(".wf-fig"), row.locator(".wf-track")]) {
@@ -66,11 +66,11 @@ for (const width of [320, 360, 390]) {
   });
 }
 
-test("390 px: the bar of Yli jäi opens its rows, an empty month says so in a sentence, an even pool says so", async ({ browser }) => {
+test("390 px: the bar of Tulos opens its rows, an empty month says so in a sentence, an even pool says so", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
   const page = await open(context, { settlement: "even" });
   await expect(page.locator(".wf-settle")).toContainText("Yhteiset menot ovat tasan.");
-  await page.getByRole("button", { name: "Näytä tapahtumat: Yli jäi" }).tap();
+  await page.getByRole("button", { name: "Näytä tapahtumat: Tulos" }).tap();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog").locator("table.why-rows tbody tr").first()).toBeVisible();
   await page.keyboard.press("Escape");

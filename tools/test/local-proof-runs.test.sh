@@ -30,9 +30,10 @@ check "root may start it" test $rc -eq 0 -a -n "$(stamp)"
 has "the work folder goes to user 1" "$(calls)" "chown -R 1:1 $TMP/work/local-proof."
 has "the image is built as user 1 in the group docker, with a home of its own" "$(calls)" "setpriv --reuid=1 --regid=1 --groups=999 env HOME=home -> docker"
 has "the smoke test too" "$(calls)" "setpriv --reuid=1 --regid=1 --groups=999 env HOME=home -> tools/ci/smoke-image.sh"
+has "the container checks too" "$(calls)" "setpriv --reuid=1 --regid=1 --groups=999 env HOME=home -> tools/ci/image-checks.sh"
 has "the signature too" "$(calls)" "setpriv --reuid=1 --regid=1 --groups=999 env HOME=home -> tools/ci/verify-release.sh"
-check "every leg, and the look whether each user can read its clone" test "$(called '^setpriv ')" -eq 16
-check "user 1: the image, the smoke test, the signature, the five rehearsals of lanes 1 to 3, the look at its clone" test "$(called '^setpriv --reuid=1 ')" -eq 9
+check "every leg, and the look whether each user can read its clone" test "$(called '^setpriv ')" -eq 17
+check "user 1: the image, the smoke test, the container checks, the signature, the five rehearsals of lanes 1 to 3, the look at its clone" test "$(called '^setpriv --reuid=1 ')" -eq 10
 check "user 2: lane 0 (three rehearsals), the drills' install, both drills parts, the look at its clone" test "$(called '^setpriv --reuid=2 --regid=2 --groups=999 env HOME=home ')" -eq 7
 check "every rehearsal has a home" test "$(called '^rehearsal .* home=home ')" -eq 8
 has "lane 0 and the drills have a folder of their own, owned by user 2" "$(calls)" "chown -R 2:2 $TMP/work/local-proof."

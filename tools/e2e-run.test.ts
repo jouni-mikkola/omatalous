@@ -101,6 +101,7 @@ let base = "";
 const PW_CLI = String.raw`import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 appendFileSync(process.env.FAKE_LOG, "playwright " + process.argv.slice(2).join(" ") + "\n");
 appendFileSync(process.env.FAKE_LOG + ".env", (process.env.E2E_BUILD ?? "") + "\n");
+appendFileSync(process.env.FAKE_LOG + ".servers", JSON.parse(process.env.E2E_SERVERS ?? "[]").length + "\n");
 const mode = process.env.FAKE_PW ?? "ok";
 const one = (status = "expected", results = [{ retry: 0, status: "passed" }]) => ({ status, results });
 const tests = [one(), one(), one()];
@@ -148,6 +149,8 @@ beforeAll(() => {
   for (const file of ["stamps.sh", "key.sh", "reads.txt"]) copyFileSync(join(root, "tools/check", file), join(world, "tools/check", file));
   mkdirSync(join(world, "e2e"));
   copyFileSync(join(root, "e2e/run.mjs"), join(world, "e2e/run.mjs"));
+  mkdirSync(join(world, "tools/lib"), { recursive: true });
+  copyFileSync(join(root, "tools/lib/cores.mjs"), join(world, "tools/lib/cores.mjs")); // run.mjs reads its share of the cores through it
   put("e2e/server.mjs", SERVER);
   put("package.json", '{"name":"world"}\n');
   put("pnpm-workspace.yaml", "packages: []\n");
@@ -181,7 +184,7 @@ function playwrightLine(args: string[]) {
 }
 
 /** One run of the stand-in world, as a worker's `pnpm e2e`: no lock, no network of its own, one worker. */
-function e2e(env: Record<string, string> = {}, args: string[] = []) {
+function e2e(env: Record<string, string | undefined> = {}, args: string[] = []) {
   const run: Record<string, string | undefined> = { ...process.env, CUT_LOCK_HELD: "1", E2E_NETNS: "0", E2E_WORKERS: "1", CHECK_STAMPS_DIR: stamps, FAKE_LOG: calls };
   for (const name of ["CI", "CHECK_FRESH", "SHOTS_DIR", "E2E_SHOTS", "FAKE_BANK_PORT", "CHECK_LOG", "FAKE_PW", "FAKE_PW_TOUCH", "FAKE_BUILD", "NODE_ENV", "PWDEBUG", "PW_TEST_CONNECT_WS_ENDPOINT", "E2E_BUILD"]) delete run[name];
   run.TMPDIR = tmp; // vitest sets NODE_ENV, which the runner refuses; the build folders of a run are counted in `tmp`
@@ -195,6 +198,19 @@ const stampFiles = () => (existsSync(join(stamps, "e2e")) ? readdirSync(join(sta
 const STAMP_LINE = /^key=[0-9a-f]{64} date=\S+ commit=\S+ worktree=\S+ seconds=\d+ passed=3 skipped=0\n$/;
 
 describe("pnpm e2e and its stamp", { timeout: 60_000 }, () => {
+  it("starts no more workers than the cores its lease holds, and E2E_WORKERS still decides", () => {
+    // a run inside a lease (CORES_HELD) takes the share it was handed: three servers for a share of 2 would be one too many
+    writeFileSync(`${calls}.servers`, "");
+    const free = { E2E_WORKERS: undefined, CORES_HELD: "1", CORES_SHARE: "2" };
+    expect(e2e(free, ["e2e/a.spec.ts"]).status).toBe(0);
+    const seen = readFileSync(`${calls}.servers`, "utf8").trim().split("\n").filter(Boolean).map(Number);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(Math.max(...seen)).toBe(2);
+    writeFileSync(`${calls}.servers`, "");
+    e2e({ ...free, E2E_WORKERS: "3" }, ["e2e/a.spec.ts"]);
+    expect(Math.max(...readFileSync(`${calls}.servers`, "utf8").trim().split("\n").filter(Boolean).map(Number))).toBe(3);
+  });
+
   it("builds, runs and stamps a whole run; the second run is a hit and starts nothing", () => {
     const first = e2e();
     expect(first.status).toBe(0);

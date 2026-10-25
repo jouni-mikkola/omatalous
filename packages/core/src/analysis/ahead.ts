@@ -170,7 +170,7 @@ export interface AheadData {
 
 /**
  * The month Yhteenveto opens on: the running one once its pay has come, else the last complete one, so the page does
- * not open on a month that holds the bills but not yet the pay ("Yli jäi" deep below zero before payday). The pay is the
+ * not open on a month that holds the bills but not yet the pay ("Tulos" deep below zero before payday). The pay is the
  * one the window waits for (`payday`): when it is due this month, or is behind its day this month, it has not come. A
  * household with no regular pay opens on the running month.
  */

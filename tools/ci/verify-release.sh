@@ -87,11 +87,11 @@ if [[ -n $token ]]; then
     | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: *\(sha256:[0-9a-f]\{64\}\).*/\1/p' | head -1) || digest=
 fi
 cache=${VERIFY_RELEASE_CACHE:-$(cd "$(git rev-parse --git-common-dir)" && pwd)/verify-release-cache}
-key=
+cache_key=
 if [[ -n $digest ]]; then
-  key=$({ echo "$digest $commit $SIGN_IDENTITY_REGEXP $SIGN_ISSUER ${SIGN_TRIGGERS[*]} ${COSIGN_IMAGE:-}"
+  cache_key=$({ echo "$digest $commit $SIGN_IDENTITY_REGEXP $SIGN_ISSUER ${SIGN_TRIGGERS[*]} ${COSIGN_IMAGE:-}"
     for c in "${checks[@]}"; do echo "$c $(sha256sum <"$work/$c.sh" | cut -c1-64)"; done; } | sha256sum | cut -c1-64)
-  if [[ -f $cache ]] && grep -qx "$key" "$cache"; then
+  if [[ -f $cache ]] && grep -qx "$cache_key" "$cache"; then
     echo "cached: $tag ($digest) was verified before with the same identity rule and the same checks (${#checks[@]} copies)."
     exit 0
   fi
@@ -123,7 +123,7 @@ for c in "${checks[@]}"; do
     failed=1
   fi
 done
-if ((!failed)) && [[ -n $key ]]; then
-  { [[ ! -f $cache ]] || tail -n 19 "$cache"; echo "$key"; } >"$work/cache.new" && cat "$work/cache.new" >"$cache"
+if ((!failed)) && [[ -n $cache_key ]]; then
+  { [[ ! -f $cache ]] || tail -n 19 "$cache"; echo "$cache_key"; } >"$work/cache.new" && cat "$work/cache.new" >"$cache"
 fi
 exit "$failed"

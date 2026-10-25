@@ -131,7 +131,7 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
 }
 
 /**
- * Käytettävissä, Tileillä and the pay the window waits for, from the same cached context and inputs as the dashboard, so the
+ * Käytettävissä, Tilien saldo and the pay the window waits for, from the same cached context and inputs as the dashboard, so the
  * basis is of the figure the page shows. A pay is a row of the view and is named as rows are; an account or a coming
  * payment is named by core.
  */

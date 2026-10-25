@@ -68,6 +68,10 @@ flowchart LR
   has a stricter policy of its own (`default-src 'none'`, no framing and a sandbox, so opened on its own it can load
   and run nothing) and is the one API answer a browser may keep, for a day. It is passed on as fetched, an SVG
   included, and the headers are what make a browser only draw it.
+- The app installs as a web app (`/manifest.webmanifest`, `/sw.js`; the policy above is unchanged: a worker and a
+  manifest from the app's own address need no new source). The service worker keeps the app's own files and never an
+  `/api/` answer, so its cache holds nothing of a household. It does not touch the session cookie either. The figures
+  kept for offline use are the page's own, listed under "Copies and how long they live".
 
 ## A copy on the internet
 
@@ -175,6 +179,10 @@ maintenance helper is current. The installer's script path does the same and sta
   `setup-code` in the app container. A fixed `SETUP_CODE` from `.env` does not expire and must have at least 16
   characters; a shorter one is not used and a generated code works instead.
 - New members get a temporary password that must be changed before anything else.
+- Service tokens (`Authorization: Bearer omt_…`, ADVANCED.md#service-tokens) give a script or an agent read access to one
+  user's data. They are made only on the command line, stored as SHA-256, end within 90 days, carry a member's rights
+  whatever the user's role, and reach only an allowlist of GET routes; anything else is 403. Use is logged once an hour
+  with the address, and 20 unknown tokens from an address in 15 minutes stop it.
 
 ## Who sees what
 
@@ -494,6 +502,7 @@ What remains:
 | `~/.local/share/omatalous/<name>/`: the launcher, `last-good/` (the helper and `scripts/lib`), `.note` and `launcher.log` | the helper user's home, mode 700 | until `--ops-helper-off` or `reset.sh`. Scripts and log lines, no data. |
 | `ops/access-request.json` | the data volume, mode 600 | from the request until the helper has reported, the change is withdrawn or it expires. Holds the tunnel token. |
 | Docker logs | the host | until the container is removed. They hold counts and short errors, no amounts. |
+| The figures of Yhteenveto kept for offline use (the last answers of `/api/meta`, `/api/review`, `/api/dashboard` and `/api/reports`, and who is signed in), in a cache of the browser named `omatalous-figures` | the member's device | for one user at a time. A logout, a lost session (the server says nobody is signed in) and another user's sign-in delete it. Every write and wipe of every tab runs under one Web Lock and writes only if the cache's stored owner is the user who asked, so an answer that reaches an old tab late, after a logout or another user's sign-in in another tab, is dropped. The same holds for a late answer to "who is signed in": it carries a number taken before the request (a counter in `localStorage`, no figures, that each change of owner and each wipe raises), and an answer older than the counter cannot make its user the owner again. A browser that is not https or `localhost` keeps nothing. Unencrypted: anyone who opens the installed app on that device sees them until the member logs out. |
 | Cookie, scope choice, exported CSV files | the member's device | the session lasts 30 days. Exported CSV files are unencrypted. |
 
 All of them except the secret, the reserve, the marker and the launcher folder hold transactions in plain text. Disk
@@ -567,6 +576,9 @@ an empty list. No response body contains a raw bank payload, a private key, the 
 - Root on the server can read everything, `app_secret` included. Keep the system updated, use SSH keys and
   keep ports closed.
 - A shared account is visible in full to the member it is shared with.
+- The installed app opens Yhteenveto without a session check when the server cannot be reached, so a lost phone that is not
+  locked shows the last figures until its member logs out. Revoking the session does not delete them from the device;
+  the lock screen and disk encryption of the device do.
 - Only a few password hashes run at once. Many addresses that keep sending wrong logins can keep them busy, and a login
   then answers "Palvelin on kiireinen" until the flood stops. Signed-in sessions are not affected. Before the first
   admin exists, the same flood can block the setup form for up to 15 minutes.

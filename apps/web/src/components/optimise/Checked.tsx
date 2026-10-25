@@ -5,10 +5,9 @@ import { Section } from "../Section.tsx";
 import { CheckSegments, checkCounts } from "./Lead.tsx";
 import { AreaMark } from "./marks.tsx";
 
-const WORD: Record<Exclude<Check["status"], "finding">, string> = {
+const WORD: Record<Exclude<Check["status"], "finding" | "no_data">, string> = {
   clear: "Ei huomautettavaa",
   needs_input: "Tietoja puuttuu",
-  no_data: "Tapahtumia liian lyhyeltä ajalta",
   no_rows: "Ei tapahtumia",
   no_subject: "Ei tarkistettavaa",
 };
@@ -52,7 +51,7 @@ export function Checked({ areas, young }: { areas: readonly AreaView[]; young: b
                     <span className="checked-label">{c.label}</span>
                     {c.cents !== undefined && <span className="checked-cents">{money(c.cents)} kuussa</span>}
                     {c.count && <span className="checked-count">{c.count.n} {c.count.noun}</span>}
-                    {g.id === "waiting" && <span className="checked-why">{c.status === "needs_input" && c.input ? <a href="#/review">Täydennä</a> : WORD[c.status]}</span>}
+                    {g.id === "waiting" && <span className="checked-why">{c.status === "needs_input" && c.input ? <a href="#/review">Täydennä</a> : c.status === "no_data" ? c.why?.text : WORD[c.status]}</span>}
                   </li>
                 ))}
               </ul>

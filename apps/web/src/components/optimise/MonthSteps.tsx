@@ -6,7 +6,7 @@
  */
 import { monthOf } from "@banking/core";
 import { date, money, monthLong } from "../../format.ts";
-import { DataTable } from "../table/DataTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { useWidth } from "../../hooks.ts";
 import { EventMarkers, LANE_H } from "../../charts/kit/Annotations.tsx";
 import { placeMarkers } from "../../charts/kit/annotate.ts";
@@ -72,12 +72,10 @@ export function MonthSteps({ sums, change, label }: StepSums & { label: string }
 export function MonthStepsTable({ sums, change, label }: StepSums & { label: string }) {
   const marked = changeAt({ sums, change });
   return (
-    <DataTable
-      id="month-steps"
+    <Table
       caption={`${label} kuukausittain`}
       rows={[...sums]}
       rowKey={(s) => s.month}
-      phone="cards"
       columns={[
         {
           key: "month",

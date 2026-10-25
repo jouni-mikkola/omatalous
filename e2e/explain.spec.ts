@@ -78,7 +78,7 @@ test("Raportit: a category and the total open their rows, each adding up to its 
   const page = await context.newPage();
   await ready(page, "/#/reports?period=12m&tab=menot");
   const body = page.locator("section", { has: page.getByRole("heading", { name: "Kategoriat" }) });
-  const first = body.locator("tbody tr:not(.group-row)").first();
+  const first = body.locator("tbody tr:not(.rt-group)").first();
   const figure = cents(await first.locator("td.num").first().innerText());
   await first.getByRole("button", { name: /Näytä tapahtumat/ }).click();
   const panel = page.getByRole("dialog");
@@ -125,7 +125,7 @@ test.describe("a joint account", () => {
     expect(wide.lines.some((l: { whole?: number; cents: number }) => l.whole !== undefined && l.whole !== l.cents), JSON.stringify(wide.lines.slice(0, 3))).toBe(true);
     expect(wide.check.diffCents).toBe(0);
     await ready(page, "/#/reports?period=12m&tab=menot");
-    const total = page.locator("tfoot tr.foot-row", { hasText: "Yhteensä" }).first();
+    const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
     const figure = cents(await total.locator("td.num").first().innerText());
     await total.getByRole("button", { name: /Näytä tapahtumat/ }).click();
     const panel = page.getByRole("dialog");
@@ -140,10 +140,11 @@ test.describe("a joint account", () => {
     const context = await browser.newContext({ storageState: members[0]!.state, viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     await ready(page, "/#/transactions");
-    const row = page.locator("table tbody tr").filter({ has: page.locator(".tx-amount button") }).first();
+    const row = page.locator("table.tx-table tbody tr:not(.rt-detail)").filter({ has: page.locator('.tx-part:text-matches("^koko summa")') }).first();
     await expect(row).toBeVisible();
-    const told = cents(await row.locator(".tx-amount button").innerText());
-    await row.locator(".tx-amount button").click();
+    const told = cents(await row.locator(".tx-amount").innerText());
+    await row.locator(".rt-drill").click();
+    await page.locator(".tx-detail-acts .why-door").click();
     const panel = page.getByRole("dialog");
     await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     expect(cents(await panel.locator("[data-why-total]").innerText())).toBe(told);

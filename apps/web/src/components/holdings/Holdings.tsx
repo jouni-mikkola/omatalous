@@ -12,9 +12,9 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cardName, daysBetween, SAME_DEBT_TWICE } from "@banking/core";
 import { query } from "../../api.ts";
-import { date, money, moneyIn } from "../../format.ts";
+import { date, localDay, money, moneyIn } from "../../format.ts";
 import { partText, typedByText } from "../../part.ts";
-import { LOANS_REPORT_ANCHOR } from "../../routes.ts";
+import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR } from "../../routes.ts";
 import type { DashboardData, Meta, ReconcileState, Scope } from "../../types.ts";
 import { AccountMark, cardBankOf } from "../BankLogo.tsx";
 import { Figure } from "../Figure.tsx";
@@ -34,7 +34,7 @@ const figure = (cents: number | null, foreign?: { currency: string; cents: numbe
 
 /** The line that dates a balance the bank gave more than a day ago; nothing for a fresh one. */
 function sinceLine(balanceAt: string | null, today: string): string | null {
-  return balanceAt && daysBetween(balanceAt, today) > 1 ? `Saldo päivältä ${date(balanceAt)}` : null;
+  return balanceAt && daysBetween(localDay(balanceAt), today) > 1 ? `Saldo päivältä ${date(balanceAt)}` : null;
 }
 
 /** A name that is a link, in the colour of the row until it is pointed at; `mask` tells apart two that share a name. */
@@ -249,6 +249,11 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
   const columns = `holding-groups holding-groups-${groups}`;
   // the debts of the block are more than the loans only when a card owes: then they have their own line at its foot
   const debts = loans.length > 0 && cardsOwe(cards);
+  // loans whose balance nobody gave (saved with none, or never saved): `netCents` holds no debt for them, so its name says so
+  const noBalance = loans.filter((l) => l.leftCents === null).length;
+  const unknown = noBalance + (unsavedLoans?.count ?? 0);
+  const known = loans.length - noBalance;
+  const netLabel = unknown === 0 ? (debtCents > 0 ? "Netto" : null) : known === 0 ? "Netto (ilman lainoja)" : `Netto (ilman ${unknown} lainaa)`;
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
   const unsaved = unsavedLoans ? `${unsavedLoans.count} ${unsavedLoans.count === 1 ? "laina" : "lainaa"} ilman saldoa, ${money(unsavedLoans.paymentCents)}/kk` : null;
 
@@ -261,7 +266,11 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
         {/* what the household has net, the accounts less the debts (core's netCents) */}
         {netCents !== null && (
           <div className="card-datum">
-            {debtCents > 0 && <span className="datum-label">Netto</span>}
+            {netLabel && (
+              <span className="datum-label">
+                {unknown === 0 ? netLabel : <a href={`#/settings#${SETTINGS_ANCHOR.loans}`} title="Lisää lainojen saldot">{netLabel}</a>}
+              </span>
+            )}
             <Figure text={money(netCents, false)} size="s" />
           </div>
         )}

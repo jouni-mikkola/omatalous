@@ -2,7 +2,7 @@
 import { query } from "../../../api.ts";
 import { date, signedMoney } from "../../../format.ts";
 import { Section } from "../../../components/Section.tsx";
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { addsUp, printedEuroCents } from "../../../marks.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/bills.css";
@@ -25,60 +25,55 @@ function PriceChanges({ ctx }: SectionProps) {
   const bracket = foot.length === 1 && foot[0]!.label === "Yhteensä" && addsUp(r.items.map((p) => printedPrice(p.yearlyEffectCents)), printedPrice(r.totalYearlyEffectCents));
   return (
     <Section id={section.id} title={section.title}>
-      <div className="table-wrap">
-        <DataTable
-          id="hinnat"
-          caption="Hinnanmuutokset, vuosivaikutus saajittain"
-          rows={r.items}
-          rowKey={(p) => `${p.merchant}-${p.date}`}
-          sums={bracket ? ["year"] : undefined}
-          total={foot.map((f) => ({
-            label: f.label,
-            cells: { year: signedMoney(f.cents) },
-          }))}
-          columns={[
-            {
-              key: "merchant",
-              label: "Saaja",
-              kind: "text",
-              rowHead: true,
-              sortValue: (p) => p.merchant,
-              cell: (p) => <a href={`#/transactions${query({ merchant: p.merchant })}`}>{p.merchant}</a>,
-            },
-            {
-              key: "date",
-              label: "Muuttunut",
-              kind: "date",
-              phone: "hide",
-              sortValue: (p) => p.date,
-              cell: (p) => date(p.date),
-            },
-            {
-              key: "from",
-              label: "Aiempi hinta",
-              kind: "money",
-              precision: "cents",
-              cents: (p) => p.fromCents,
-            },
-            {
-              key: "to",
-              label: "Uusi hinta",
-              kind: "money",
-              precision: "cents",
-              cents: (p) => p.toCents,
-            },
-            {
-              key: "year",
-              label: "Vuodessa",
-              kind: "money",
-              main: true,
-              className: (p) => (p.yearlyEffectCents > 0 ? "worse" : "better"),
-              sortValue: (p) => p.yearlyEffectCents,
-              cell: (p) => <strong>{signedMoney(p.yearlyEffectCents)}</strong>,
-            },
-          ]}
-        />
-      </div>
+      <Table
+        caption="Hinnanmuutokset, vuosivaikutus saajittain"
+        rows={r.items}
+        rowKey={(p) => `${p.merchant}-${p.date}`}
+        sums={bracket ? ["year"] : undefined}
+        total={foot.map((f) => ({
+          label: f.label,
+          cells: { year: signedMoney(f.cents) },
+        }))}
+        columns={[
+          {
+            key: "merchant",
+            label: "Saaja",
+            kind: "text",
+            rowHead: true,
+            cell: (p) => <a href={`#/transactions${query({ merchant: p.merchant })}`}>{p.merchant}</a>,
+          },
+          {
+            key: "date",
+            label: "Muuttunut",
+            kind: "date",
+            phone: "hide",
+            cell: (p) => date(p.date),
+          },
+          {
+            key: "from",
+            label: "Aiempi hinta",
+            kind: "money",
+            precision: "cents",
+            cents: (p) => p.fromCents,
+          },
+          {
+            key: "to",
+            label: "Uusi hinta",
+            kind: "money",
+            precision: "cents",
+            cents: (p) => p.toCents,
+          },
+          {
+            key: "year",
+            label: "Vuodessa",
+            kind: "money",
+            main: true,
+            className: (p) => (p.yearlyEffectCents > 0 ? "worse" : "better"),
+            sort: (p) => p.yearlyEffectCents,
+            cell: (p) => <strong>{signedMoney(p.yearlyEffectCents)}</strong>,
+          },
+        ]}
+      />
     </Section>
   );
 }

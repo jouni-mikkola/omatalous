@@ -159,6 +159,7 @@ const IMPORT_STORES: readonly ImportStore[] = [
     user: "user_id",
     idColumn: "id",
   },
+  { key: "spendingGoals", table: "spending_goal", cols: { user_id: id, monthly_cents: whole(100, 1e8), updated_at: at }, max: 1000, pk: ["user_id"], user: "user_id" },
   { key: "optimiseInputs", table: "optimise_inputs", cols: { user_id: id, key: text(100), value: text(2000, 0), as_of: day }, max: 1000, pk: ["user_id", "key"], user: "user_id" },
   {
     key: "optimiseStates",

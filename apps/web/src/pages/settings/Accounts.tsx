@@ -8,7 +8,7 @@ import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { AccountMark } from "../../components/BankLogo.tsx";
-import { type Column, DataTable } from "../../components/table/DataTable.tsx";
+import { type Column, Table } from "../../components/table/Table.tsx";
 import { useApi } from "../../hooks.ts";
 import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, moneyIn, parseEuros } from "../../format.ts";
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
@@ -144,13 +144,9 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
         <FetchProblem account={a} connection={meta.connections.find((c) => c.id === a.connectionId)} canFix={canFix} />
         {foreign?.[a.id] && <ForeignRows currencies={foreign[a.id]!} />}
         {a.reconcile && <Reconcile result={a.reconcile} />}
-        <div className="acc-type-phone">{typeOf(a)}</div>
-        <div className="acc-edit-phone">{editOf(a)}</div>
-        {showUse && <div className="acc-use-phone">{usersOf(a)}</div>}
       </>
     );
   };
-  // rendered twice: the last cell, and under the name on a phone where the cell would be cut off
   const editOf = (a: Account) =>
     editing !== a.id && (
       <button className="btn btn-small" type="button" onClick={() => setEditing(a.id)} aria-label={`Muokkaa tiliä ${a.name}`}>
@@ -158,19 +154,11 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
       </button>
     );
   const columns: Column<Account>[] = [
-    { key: "name", label: "Tili", kind: "text", cell: nameCell },
-    { key: "type", label: "Tyyppi", kind: "text", className: () => "acc-type", headClass: "acc-type", cell: typeOf },
-    ...(showUse ? [{ key: "use", label: "Käyttäjä", kind: "text" as const, className: () => "acc-use", headClass: "acc-use", cell: usersOf }] : []),
-    { key: "balance", label: "Saldo", kind: "money", cell: (a: Account) => (a.balanceCents === null ? "–" : moneyIn(a.balanceCents, a.currency)) },
-    {
-      key: "edit",
-      label: <span className="sr-only">Toiminnot</span>,
-      text: "Toiminnot",
-      kind: "text",
-      className: () => "num acc-edit",
-      headClass: "acc-edit",
-      cell: editOf,
-    },
+    { key: "name", label: "Tili", kind: "text", rowHead: true, cell: nameCell },
+    { key: "type", label: "Tyyppi", kind: "text", cell: typeOf },
+    ...(showUse ? [{ key: "use", label: "Käyttäjä", kind: "text" as const, cell: usersOf }] : []),
+    { key: "balance", label: "Saldo", kind: "money", main: true, cell: (a: Account) => (a.balanceCents === null ? "–" : moneyIn(a.balanceCents, a.currency)) },
+    { key: "edit", label: "Toiminnot", headHidden: true, kind: "text", className: () => "num", cell: editOf },
   ];
 
   return (
@@ -187,21 +175,17 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
         </div>
       )}
       {meta.accounts.length > 0 && (
-      <div className="table-wrap">
-        <DataTable<Account>
-          id="accounts"
+        <Table<Account>
           caption="Tilit"
           rows={meta.accounts}
           rowKey={(a) => a.id}
           columns={columns}
-          phone="none"
-          plain
           className="accounts-table"
           rowsAfter={(a) => (
             <>
               {showUse && a.use && (isJoint(a.use) || namesOther(a.use, meta.user.id)) && (
                 <tr key={`${a.id}-use`} className="edit-row">
-                  <td colSpan={5}>
+                  <td colSpan={columns.length}>
                     {/* the key changes with the use and the shares, so the row asks again and starts from what is saved */}
                     <UseParts
                       key={`${JSON.stringify(a.use)}${meta.shares
@@ -221,7 +205,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
               {hasSources(a) && <AccountSources account={a} meta={meta} />}
               {editing === a.id && (
                 <tr key={`${a.id}-edit`} className="edit-row">
-                  <td colSpan={5}>
+                  <td colSpan={columns.length}>
                     <AccountForm
                       account={a}
                       busy={busy !== null}
@@ -241,7 +225,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
             </>
           )}
         />
-      </div>
       )}
     </div>
   );

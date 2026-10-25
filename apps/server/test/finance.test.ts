@@ -62,7 +62,7 @@ describe("dashboard and reports on demo data", () => {
     const t = d.totals;
     const cash = await admin.call("GET", "/api/export/report.csv?report=cashflow&from=2026-09-01&to=2026-09-30");
     const [head, row] = cash.body.replace(/^﻿/, "").split(/\r?\n/);
-    expect(head).toMatch(/;Säästöaste %;Yli jäi €$/);
+    expect(head).toMatch(/;Säästöaste %;Tulos €$/);
     const cells = row!.split(";");
     expect(cells[0]).toBe("2026-09");
     expect(Number(cells[7])).toBe(Math.round((t.savedCents / t.incomeCents) * 100));
@@ -301,7 +301,7 @@ describe("bank connection status", () => {
     const consent = (id: string, validUntil: string) =>
       repo.upsertConnection({ id, provider: "enablebanking", institution: "Nordea", country: "FI", status: "active", validUntil, createdAt: "2026-04-01T00:00:00Z", lastSyncedAt: null });
     await consent("ended", "2026-10-08T00:00:00Z");
-    await consent("last-day", "2026-10-09T23:00:00Z");
+    await consent("last-day", "2026-10-09T20:00:00Z");
 
     const byId = new Map((await admin.call("GET", "/api/meta")).body.connections.map((c: { id: string }) => [c.id, c]));
     expect(byId.get("ended")).toMatchObject({ status: "expired", state: "lapsed", daysLeft: null });

@@ -48,31 +48,37 @@ hold() {
 }
 PLAY_SH
 stub "$R/tools/ci/smoke-image.sh" <<'LEG'
-#!/usr/bin/env bash
+#!/bin/bash
 . "$(dirname "$0")/play.sh"
 said "smoke $* cwd=$PWD"
 broken smoke
 LEG
+stub "$R/tools/ci/image-checks.sh" <<'LEG'
+#!/bin/bash
+. "$(dirname "$0")/play.sh"
+said "container $* cwd=$PWD"
+broken container
+LEG
 stub "$R/tools/ci/check-migrations.sh" <<'LEG'
-#!/usr/bin/env bash
+#!/bin/bash
 . "$(dirname "$0")/play.sh"
 said "check-migrations $1"
 LEG
 stub "$R/tools/ci/compose-compat.sh" <<'LEG'
-#!/usr/bin/env bash
+#!/bin/bash
 . "$(dirname "$0")/play.sh"
 said "compose-compat $1"
 broken "compat-$1"
 LEG
 stub "$R/tools/ci/verify-release.sh" <<'LEG'
-#!/usr/bin/env bash
+#!/bin/bash
 . "$(dirname "$0")/play.sh"
 said "signature cwd=$PWD"
 [[ ! -e $PROOF_PLAY/cached-signature ]] || echo "cached: v0.0.0 was verified before"
 broken signature
 LEG
 stub "$R/tools/ci/drills.sh" <<'LEG'
-#!/usr/bin/env bash
+#!/bin/bash
 . "$(dirname "$0")/play.sh"
 # the part of the drills this is: on the default install of lane 0, or on the drills' own
 part=default
@@ -88,7 +94,7 @@ broken "drills-$part"
 rm -rf "$UPGRADE_WORK"
 LEG
 stub "$R/tools/ci/upgrade-run.sh" <<'LEG'
-#!/usr/bin/env bash
+#!/bin/bash
 . "$(dirname "$0")/play.sh"
 ref=$1
 port=${UPGRADE_PORT:-8080}
@@ -175,7 +181,7 @@ printf '%s\n' b0 b7 >"$R/two.txt"
 commit "$R" "the lists"
 
 stub "$BIN/docker" <<'STUB'
-#!/usr/bin/env bash
+#!/bin/bash
 case ${1:-} in
   build) echo "docker $* cwd=$PWD" >>"$PROOF_CALLS" ;;
   image | rmi) echo "docker $*" >>"$PROOF_PLAY/images" ;; # after the drills: not among the calls of the legs
@@ -202,13 +208,13 @@ esac
 exit 0
 STUB
 stub "$BIN/id" <<'STUB'
-#!/usr/bin/env bash
+#!/bin/bash
 # the user the proof thinks it is: root with the file `root` in the play folder
 [[ ${1:-} == -u ]] || exit 1
 if [[ -e $PROOF_PLAY/root ]]; then echo 0; else echo 1000; fi
 STUB
 stub "$BIN/setpriv" <<'STUB'
-#!/usr/bin/env bash
+#!/bin/bash
 # says who it was asked to be and what to start, then starts it as the user of the test
 echo "setpriv $1 $2 $3 $4 ${5%%=*}=${5##*/} -> $6" >>"$PROOF_CALLS"
 [[ $6 != test || ! -e $PROOF_PLAY/cannot-read ]] || exit 1
@@ -217,17 +223,17 @@ shift 3
 exec "$@"
 STUB
 stub "$BIN/chown" <<'STUB'
-#!/usr/bin/env bash
+#!/bin/bash
 echo "chown $*" >>"$PROOF_CALLS"
 STUB
 stub "$BIN/nproc" <<'STUB'
-#!/usr/bin/env bash
+#!/bin/bash
 n=$(cat "$PROOF_PLAY/cpus" 2>/dev/null || echo 16)
 [[ $n != none ]] || exit 1 # a machine that cannot say
 echo "$n"
 STUB
 stub "$BIN/getent" <<'STUB'
-#!/usr/bin/env bash
+#!/bin/bash
 [[ ! -e $PROOF_PLAY/no-group ]] || exit 2
 echo "docker:x:999:"
 STUB

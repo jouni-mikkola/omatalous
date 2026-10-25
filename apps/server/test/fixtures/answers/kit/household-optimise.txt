@@ -131,7 +131,11 @@
      {
       "id": "electricity:price",
       "label": "Sähkön hinta",
-      "status": "no_data"
+      "status": "no_data",
+      "why": {
+       "cause": "other",
+       "text": "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten hintaa ei voi verrata."
+      }
      },
      {
       "id": "electricity:contract_end",

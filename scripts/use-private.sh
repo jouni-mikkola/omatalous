@@ -82,7 +82,10 @@ write_channel() { # write_channel CHANNEL FOLLOW SINCE
   printf 'CHANNEL=%s\nFOLLOW=%s\nSINCE=%s\n' "$1" "$2" "$3" >ops/channel.new
   chmod 600 ops/channel.new && mv -f ops/channel.new ops/channel
 }
-ssh_command() { printf "ssh -i '%s' -o IdentitiesOnly=yes -o BatchMode=yes -o UserKnownHostsFile='%s' -o StrictHostKeyChecking=yes -o ConnectTimeout=20" "$KEY" "$KNOWN"; }
+# -F /dev/null: the helper runs in a systemd user unit, whose user namespace shows root's files as owned by nobody, and
+# ssh then refuses /etc/ssh/ssh_config.d (systemd's ssh proxy file); this command sets all it needs itself
+ssh_command() { printf "ssh -F /dev/null -i '%s' -o IdentitiesOnly=yes -o BatchMode=yes -o UserKnownHostsFile='%s' -o StrictHostKeyChecking=yes -o ConnectTimeout=20" "$KEY" "$KNOWN"; }
+ours_ssh() { local c; c=$(git config --get core.sshCommand || true); [[ -n $c && ( $c == "$(ssh_command)" || $c == "$(ssh_command | sed "s| -F /dev/null||")" ) ]]; } # this script's command, the one from before -F too
 
 case $ACTION in
   repo)
@@ -137,6 +140,7 @@ case $ACTION in
       printf '%s\n' "$heads" | cut -f2 | grep -Fx "refs/heads/$follow" >/dev/null || die "The private repository has no branch $follow. Nothing was changed."
     fi
     ok "The deploy key reads $url"
+    ! ours_ssh || git config core.sshCommand "$(ssh_command)"
     # the fetch of lib/release.sh, so update.sh and the helper see the same refs
     prev=$(channel_get CHANNEL); prev_follow=$(channel_get FOLLOW); prev_since=$(channel_get SINCE)
     write_channel private "$follow" "$since"
@@ -152,7 +156,7 @@ case $ACTION in
   back)
     if ! on_private; then ok "This folder follows the public releases already. Nothing was changed."; exit 0; fi
     write_channel public '' "$(git rev-parse HEAD)"
-    [[ $(git config --get core.sshCommand || true) != "$(ssh_command)" ]] || git config --unset core.sshCommand
+    ! ours_ssh || git config --unset core.sshCommand
     git remote remove private >/dev/null 2>&1 || true
     git for-each-ref --format='%(refname)' refs/remotes/private/ | while IFS= read -r ref; do git update-ref -d "$ref"; done
     ok "Channel: public releases. The remote private is removed; the key stays in $KEYDIR."

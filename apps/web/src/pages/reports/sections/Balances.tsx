@@ -1,11 +1,10 @@
 // Decision: is the buffer growing and the debt shrinking
-import { ACCOUNTS_LESS_DEBT, SAME_DEBT_TWICE } from "@banking/core";
+import { ACCOUNTS_LESS_DEBT, addDays, SAME_DEBT_TWICE } from "@banking/core";
 import { BalanceLine } from "../../../charts/forms/BalanceLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { AccountMark } from "../../../components/BankLogo.tsx";
 import { DeltaChip, SparkCell } from "../../../components/table/Cells.tsx";
-import { type Column, DataTable } from "../../../components/table/DataTable.tsx";
-import { RichTable } from "../../../components/table/RichTable.tsx";
+import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../../../components/holdings/FigureRow.tsx";
 import { date, dayMonth, money, monthLong, plural, signedMoney } from "../../../format.ts";
 import { ownPart, partText } from "../../../part.ts";
@@ -24,12 +23,15 @@ function Balances({ ctx }: SectionProps) {
   const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
   const biggest = r.events.reduce<(typeof r.events)[number] | null>((b, e) => (b === null || e.cents < b.cents ? e : b), null);
   const days = r.daily.cents;
-  const now = days.findLast((v) => v !== null) ?? null;
+  const nowAt = days.findLastIndex((v) => v !== null);
+  const now = nowAt >= 0 ? days[nowAt]! : null;
+  // the report's window is whole months, so the newest known day is often the last month's end, not today
+  const nowDay = nowAt >= 0 ? addDays(r.daily.from, nowAt) : null;
   const answer = (
     <>
       {now !== null && (
         <>
-          Tileillä on nyt <strong>{money(now, false)}</strong>
+          Tilien ja korttien saldo oli {date(nowDay)} <strong>{money(now, false)}</strong>
           {r.change === null ? "." : <>, {money(Math.abs(r.change.cents), false)} {r.change.cents >= 0 ? "enemmän" : "vähemmän"} kuin {date(r.change.from)}.</>}
         </>
       )}
@@ -44,38 +46,29 @@ function Balances({ ctx }: SectionProps) {
   );
   const bankOf = (id: string) => r.holdings.accounts.find((h) => h.id === id)?.bank ?? r.holdings.cards.find((c) => c.id === id)?.bank ?? null;
   const accounts = (
-    <RichTable density="comfortable" cards className="ruled saldot-accounts">
-      <thead>
-        <tr>
-          <th>Tili</th>
-          <th className="rt-spark-cell">Kuukaudet</th>
-          <th className="num">Saldo</th>
-          <th className="num">Muutos</th>
-        </tr>
-      </thead>
-      <tbody>
-        {r.accounts.map((a) => {
-          const current = a.values.findLast((v) => v !== null) ?? null;
-          return (
-            <tr key={a.accountId}>
-              <td>
-                <span className="saldot-name">
-                  <AccountMark name={a.name} institution={bankOf(a.accountId)} banks={ctx.meta.bank?.banks ?? []} />
-                  {a.name}
-                </span>
-              </td>
-              <td className="rt-spark-cell">
-                <SparkCell values={a.values} label={`${a.name}: saldo kuukausittain`} />
-              </td>
-              <td className="num" data-rt="main">
-                {current === null ? "–" : money(current, false)}
-              </td>
-              <td className="num rt-change">{a.changeCents !== null && Math.abs(a.changeCents) >= 100 ? <DeltaChip delta={a.changeCents} text={signedMoney(a.changeCents)} meaning="gain" /> : null}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </RichTable>
+    <Table<(typeof r.accounts)[number]>
+      caption="Tilit ja niiden saldot"
+      className="saldot-accounts"
+      rows={r.accounts}
+      rowKey={(a) => a.accountId}
+      columns={[
+        {
+          key: "account",
+          label: "Tili",
+          kind: "text",
+          rowHead: true,
+          cell: (a) => (
+            <span className="saldot-name">
+              <AccountMark name={a.name} institution={bankOf(a.accountId)} banks={ctx.meta.bank?.banks ?? []} />
+              {a.name}
+            </span>
+          ),
+        },
+        { key: "months", label: "Kuukaudet", kind: "text", phone: "hide", cell: (a) => <SparkCell values={a.values} label={`${a.name}: saldo kuukausittain`} /> },
+        { key: "balance", label: "Saldo", kind: "money", main: true, cell: (a) => { const current = a.values.findLast((v) => v !== null) ?? null; return current === null ? "–" : money(current, false); } },
+        { key: "change", label: "Muutos", kind: "money", cell: (a) => (a.changeCents !== null && Math.abs(a.changeCents) >= 100 ? <DeltaChip delta={a.changeCents} text={signedMoney(a.changeCents)} meaning="gain" /> : null) },
+      ]}
+    />
   );
   const monthRows = r.months.map((m, i) => i);
   const tableColumns: Column<number>[] = [
@@ -83,13 +76,15 @@ function Balances({ ctx }: SectionProps) {
       key: "month",
       label: "Kuukausi",
       kind: "text",
+      rowHead: true,
       cell: (i) => (i === last && lastIsToday ? `${monthLong(r.months[i]!)} (tänään)` : monthLong(r.months[i]!)),
     },
     {
       key: "total",
       label: "Yhteensä, arvio",
       kind: "money",
-      cell: (i) => <strong>{r.total[i] === null ? "–" : money(r.total[i]!, false)}</strong>,
+      main: true,
+      cell: (i) => (r.total[i] === null ? "–" : money(r.total[i]!, false)),
     },
     ...r.accounts.map((a): Column<number> => {
       // the figures of an account at a part are that part: the own view only, Koko talous counts it whole
@@ -104,12 +99,13 @@ function Balances({ ctx }: SectionProps) {
         ),
         text: a.name,
         kind: "money",
+        series: true,
         cell: (i) => (a.values[i] === null ? "–" : money(a.values[i]!, false)),
       };
     }),
   ];
   const tableView = (
-    <DataTable id="balances-months" caption="Saldot kuukausittain" rows={monthRows} rowKey={(i) => r.months[i]!} columns={tableColumns} phone="scroll" />
+    <Table caption="Saldot kuukausittain" rows={monthRows} rowKey={(i) => r.months[i]!} columns={tableColumns} seriesLabel="Tilit" />
   );
   return (
     <ReportPanel
@@ -118,7 +114,7 @@ function Balances({ ctx }: SectionProps) {
       datum={
         now === null ? undefined : (
           <span className="saldot-datum">
-            {`Tileillä ${money(now, false)}`}
+            {`Tilien ja korttien saldo ${date(nowDay)} ${money(now, false)}`}
             {r.change !== null && Math.abs(r.change.cents) >= 100 && <DeltaChip delta={r.change.cents} text={signedMoney(r.change.cents)} meaning="gain" />}
           </span>
         )
@@ -128,7 +124,7 @@ function Balances({ ctx }: SectionProps) {
       {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
         <>
           <dl className="st-rows balance-rows">
-            <FigureRow label="Tilit yhteensä">{money(r.total[last]!)}</FigureRow>
+            <FigureRow label="Tilien ja korttien saldo">{money(r.total[last]!)}</FigureRow>
             <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
             <FigureRow label={ACCOUNTS_LESS_DEBT.label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
           </dl>
@@ -144,7 +140,7 @@ function Balances({ ctx }: SectionProps) {
         <BalanceLine r={r} />
       </QuestionChart>
       <hr className="qc-rule" />
-      <QuestionChart id="saldot-tilit" question="Millä tileillä rahat ovat?" answer={r.change ? `${plural(r.accounts.length, "tili", "tiliä")}. Tilien muutokset ${date(r.change.from)}–${date(r.change.to)} ovat yhteensä otsikon ${signedMoney(r.change.cents)}.` : plural(r.accounts.length, "tili", "tiliä")} table={accounts}>
+      <QuestionChart id="saldot-tilit" question="Millä tileillä rahat ovat?" answer={r.change ? `${plural(r.accounts.length, "tili", "tiliä")}. Tilien muutokset ${date(r.change.from)}–${date(r.change.to)} ovat yhteensä otsikon ${signedMoney(r.change.cents)}.` : plural(r.accounts.length, "tili", "tiliä")} >
         {accounts}
       </QuestionChart>
     </ReportPanel>

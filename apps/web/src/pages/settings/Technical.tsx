@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api, query } from "../../api.ts";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { Loading } from "../../components/Loading.tsx";
 import { dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
@@ -18,6 +18,7 @@ import { BankKey } from "./BankKey.tsx";
 import { syncHoursLabel } from "./InstanceForms.tsx";
 import { Maintenance } from "./Maintenance.tsx";
 import { SecurityLog, Sessions } from "./Security.tsx";
+import { ServiceTokens } from "./ServiceTokens.tsx";
 import { ServerSettings } from "./Server.tsx";
 import { useCardScroll, useLoadedCount, useRunner } from "./use-settings-page.ts";
 
@@ -33,12 +34,10 @@ const SHOW_AFTER_MS = 4000;
 export function RunsTable({ runs }: { runs: SyncRun[] }) {
   const hasMessage = runs.some((r) => !!r.message);
   return (
-    <DataTable
-      id="sync-runs"
+    <Table
       caption="Haku pankista"
       rows={runs}
       rowKey={(r) => String(r.id)}
-      phone="cards"
       columns={[
         { key: "started", label: "Aloitettu", kind: "date", rowHead: true, cell: (r) => <span className="run-when">{dateTime(r.startedAt)}</span> },
         { key: "trigger", label: "Tapa", kind: "text", cell: (r) => <span className="run-when">{r.trigger === "schedule" ? "ajastettu" : r.trigger === "connect" ? "uusi yhteys" : r.trigger === "open" || r.trigger === "open-bare" ? "avattaessa" : "käsin"}</span> },
@@ -111,11 +110,9 @@ export function Technical({ meta, params, anchor, onChange }: { meta: Meta; para
               </div>
             </div>
           </div>
-          <div className="table-wrap">
-            {runs.data && runs.data.runs.length > 0 && <RunsTable runs={runs.data.runs} />}
-            {runs.error && <div className="error">{runs.error}</div>}
-            {runs.data && !runs.data.runs.length && <div className="empty">Hakuja ei ole vielä tehty.</div>}
-          </div>
+          {runs.data && runs.data.runs.length > 0 && <RunsTable runs={runs.data.runs} />}
+          {runs.error && <div className="error">{runs.error}</div>}
+          {runs.data && !runs.data.runs.length && <div className="empty">Hakuja ei ole vielä tehty.</div>}
         </div>
 
         {qualityNotes}
@@ -149,6 +146,7 @@ export function Technical({ meta, params, anchor, onChange }: { meta: Meta; para
           <>
             <ServerSettings onChange={onChange} onLoaded={partLoaded} />
             <SecurityLog onLoaded={partLoaded} />
+            <ServiceTokens />
             <Maintenance />
           </>
         )}

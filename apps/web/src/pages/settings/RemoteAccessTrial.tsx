@@ -2,9 +2,9 @@
  * The new address on trial: the server takes it off by itself unless somebody opens it and signs in through Cloudflare
  * in time. Also what the page says when that has happened, and when the home address has stopped answering.
  */
-import { dateTime } from "../../format.ts";
+import { clockTime, dateTime } from "../../format.ts";
 import type { RemoteAccessState } from "./remote-access-api.ts";
-import { clockTime, trialOverdue, tunnelHost, tunnelUrl } from "./remote-access-model.ts";
+import { trialOverdue, tunnelHost, tunnelUrl } from "./remote-access-model.ts";
 
 function Link({ host }: { host: string }) {
   const url = tunnelUrl(host);

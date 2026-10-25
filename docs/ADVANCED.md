@@ -700,12 +700,44 @@ builds from source only when its checkout is newer than the latest release. `rel
 | Reset a password | `docker compose exec banking node dist/node.js user reset-password <username>` |
 | Take a second sign-in factor away (the phone and the recovery codes are lost; the user is signed out and told) | `docker compose exec banking node dist/node.js user remove-factor <username>` |
 | Sign everyone out | `docker compose exec banking node dist/node.js sessions revoke-all` |
+| Give a script or an agent read access (see below) | `docker compose exec banking node dist/node.js service-token create <username> --name <name> [--days 1-90]` |
+| List or remove service tokens | `docker compose exec banking node dist/node.js service-token list`, `service-token revoke <id>` or `revoke --all` |
 | Stop or start | `docker compose stop`, `docker compose up -d` |
 | Replace the app secret | `docker compose exec banking node dist/node.js secret rotate`, then `docker compose restart banking` |
 
 Replace the app secret only with `secret rotate`. It copies the database, seals every saved bank key again under the new
 secret and keeps the old one as `app_secret.prev-<time>` in the secrets volume. Delete that file after 14 days, when the
 copies made before the rotation are gone.
+
+### Service tokens
+
+A service token lets a script or a coding agent read one user's data without a password or a session. It is made on the
+command line, so only someone on the host can make one:
+
+```bash
+docker compose exec banking node dist/node.js service-token create <username> --name claude --days 14
+```
+
+The command prints the token once (`omt_` and 43 characters). The app keeps only its SHA-256. The program sends it as a
+header on each request:
+
+```bash
+curl -H "Authorization: Bearer omt_..." http://<address>/api/dashboard
+```
+
+What a token can do:
+
+- It reads as its user with a member's rights, also when the user is an admin.
+- It only reads, and only the routes of the data pages (`READABLE` in `apps/server/src/services/service-tokens.ts`).
+  Sign-in, sessions, the security log, the admin and maintenance routes, the bank's callback and the exports answer
+  403. A route added later stays shut until it is named there.
+- A request with a token is answered by the token alone. A session cookie beside it is not read.
+- It ends after 30 days unless `--days` says otherwise (at most 90), and goes with its user.
+- Its first use in each hour is a security event with the address. The user it reads as gets a notice when it is made.
+- 20 unknown tokens from one address in 15 minutes stop that address for the rest of the window.
+
+An admin sees the tokens under *Asetukset > Tekniset asetukset > Palvelutunnukset* and can remove them there. Give an
+agent a token of a user made for it when it should not read the household's real data.
 
 ## Settings in .env
 

@@ -6,6 +6,7 @@
 import { type AnalysisContext, type AnalysisTx, netSpend } from "../analysis/context.ts";
 import { accountCovers, monthSpan, sameAccounts } from "../analysis/coverage.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
+import { cardGapCause, missingCardPurchases } from "../analysis/card-bills.ts";
 import { balanceWalk, type BalanceWalk } from "../analysis/balance-walk.ts";
 import { formatEur } from "../analysis/format.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
@@ -17,7 +18,7 @@ import { priceChangeYearlyCents, type RecurringSeries } from "../recurring.ts";
 import { bufferReport } from "../reports/buffer.ts";
 import { mean, median } from "../stats.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
-import { AREA_IDS, type AreaId, type AreaInput, type Certainty, type CertaintyLevel, type EvidenceQuality, type Weakness, type WeaknessId } from "./types.ts";
+import { AREA_IDS, type AreaId, type AreaInput, type Certainty, type CertaintyLevel, type EvidenceQuality, type NoDataWhy, type Weakness, type WeaknessId } from "./types.ts";
 
 /** Rule 3: the insights' item gate over a year, 120 €. An area adds its own gate on top. */
 export const GATE_YEARLY_CENTS = 12 * ITEM_GATE_MONTHLY_CENTS;
@@ -222,6 +223,8 @@ export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], 
 
 /** Months on each side of a year-over-year comparison: six now, six a year earlier. */
 export const YEAR_OVER_YEAR_SIDE = 6;
+/** The full months `yearOverYear` needs: the year, and the six before it a year earlier. */
+export const YEAR_OVER_YEAR_NEED = 12 + YEAR_OVER_YEAR_SIDE;
 
 /** Overlap keys of eating out. Delivery and a café habit claim them too, so the headline counts that money once. */
 export const EATING_OUT_CLAIMS: readonly string[] = ["category:restaurants", "category:food_delivery"];
@@ -241,6 +244,25 @@ export function yearOverYear(a: AreaInput): { now: string[]; then: string[]; all
   const then = now.map((m) => addMonths(m, -12));
   if (!then.every((m, i) => isCompleteMonth(a.ctx, m) && sameAccounts(a.ctx, monthSpan(m), monthSpan(now[i]!)))) return null;
   return { now, then, all: [...then, ...a.months.slice(0, 12 - YEAR_OVER_YEAR_SIDE), ...now] };
+}
+
+/** An outside figure the check compares with is old or missing (`factOn`). */
+export const WHY_FACTS: NoDataWhy = { cause: "facts", text: "Vertailuluku on vanhentunut tai puuttuu." };
+/** A check that could not say and has no cause of the other kinds: it does not guess one. */
+export const WHY_OTHER: NoDataWhy = { cause: "other", text: "Tarkistus ei saanut kaikkia tarvitsemiaan tietoja." };
+
+/**
+ * Why a check on the year's spending could not say with `need` full months: card bills in the year whose purchases are
+ * not in the data come first, since no month of history mends them; then a history shorter than `need`, with both
+ * counts. A history long enough is no cause, so the check has no reason of this kind to name.
+ */
+export function whyHistory(a: AreaInput, need: number): NoDataWhy {
+  const cause = cardGapCause(missingCardPurchases(a.ctx, { from: `${addMonths(monthOf(a.end), -11)}-01`, to: a.end }));
+  if (cause) return { cause: "cards", text: `Korttilaskuja on, mutta ${cause}.` };
+  const months = completeMonthsBefore(a.ctx, monthOf(a.today), 1200).length;
+  if (months >= need) return WHY_OTHER;
+  const count = (n: number) => (n === 1 ? "1 valmis kuukausi" : `${n} valmista kuukautta`);
+  return { cause: "history", text: `Vertailuun tarvitaan ${count(need)}, mutta tapahtumahistoriassa ${months === 0 ? "ei ole yhtään" : `on vain ${count(months)}`}.` };
 }
 
 /** Over this the "interest" cannot be a deposit rate. */

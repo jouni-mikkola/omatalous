@@ -41,12 +41,27 @@ trap 'rm -rf "$TMPBASE"' EXIT
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 REG=ghcr.io/jouni-mikkola/omatalous
+# The Compose of this machine, which the stub hands `docker compose -f` (the policy check reads its real answer). The
+# plugin binary also runs on its own, so it is found wherever Docker keeps it: /usr/bin/docker is not the only place
+# (a user's ~/.docker, a static install). Compose v1 has no --format json, so only v2 or newer counts. Empty: none.
+real_compose() {
+  local c v
+  for c in /usr/libexec/docker/cli-plugins/docker-compose /usr/lib/docker/cli-plugins/docker-compose \
+    /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose \
+    "${DOCKER_CONFIG:-${HOME:-/nonexistent}/.docker}/cli-plugins/docker-compose" "$(command -v docker-compose 2>/dev/null)"; do
+    [[ -n $c && -x $c ]] || continue
+    v=$("$c" version --short 2>/dev/null) || continue
+    [[ ${v#v} =~ ^([2-9]|[1-9][0-9]+)\. ]] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+REAL_COMPOSE=$(real_compose) || REAL_COMPOSE=""
 
 # ── the stubs ───────────────────────────────────────────────────────────────
 write_stubs() {
   local b=$S/bin
   cat >"$b/docker" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 S=$OPS_STUB_DIR
 printf -v line '%s ' "$@"; line=${line//$'\n'/ }; printf 'docker %s\n' "${line:0:420}" >>"$S/calls.log"
 key() { printf '%s' "${1//[\/:@]/_}"; }
@@ -111,7 +126,7 @@ case ${1:-} in
     shift
     case ${1:-} in
       version) if [[ -f $S/race.sh ]]; then bash "$S/race.sh"; rm -f "$S/race.sh"; fi; echo 2.29.0; exit 0 ;;
-      -f) exec /usr/bin/docker compose "$@" ;;
+      -f) [[ -n $REAL_COMPOSE ]] || exit 1; exec "$REAL_COMPOSE" "$@" ;;
       config) printf '{\n  "name": "clone"\n}\n'; exit 0 ;;
       ps)
         case $* in
@@ -200,9 +215,9 @@ case ${1:-} in
 esac
 exit 0
 EOF
-  sed -i "s#^S=\$OPS_STUB_DIR#S=\$OPS_STUB_DIR; REG_IMG=$REG#" "$b/docker"
+  sed -i "s#^S=\$OPS_STUB_DIR#S=\$OPS_STUB_DIR; REG_IMG=$REG; REAL_COMPOSE=$(printf %q "$REAL_COMPOSE")#" "$b/docker"
   cat >"$b/cosign" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 printf 'cosign %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
 [[ -e $OPS_STUB_DIR/cosignfail ]] && exit 1
 [[ $* == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* && $* == *"release\\.yml@refs/(tags/v"* && $* == *"@sha256:"* ]] || exit 1
@@ -212,7 +227,7 @@ by=$(cat "$OPS_STUB_DIR/signed-by" 2>/dev/null || echo push)
 exit 0
 EOF
   cat >"$b/curl" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 S=$OPS_STUB_DIR; out=""; url=""
 while (($#)); do case $1 in -o) out=$2; shift ;; http*) url=$1 ;; esac; shift; done
 printf 'curl %s\n' "$url" >>"$S/calls.log"
@@ -222,18 +237,18 @@ code=$(cat "$S/release.status" 2>/dev/null || echo 200)
 printf '%s' "$code"
 EOF
   cat >"$b/df" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 if [[ -e $OPS_STUB_DIR/lowdisk ]]; then printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\nx 100000 90000 10240 90%% /\n'; else exec /bin/df "$@"; fi
 EOF
   # scheduling: a crontab kept in a file, and systemd only when a test asks for it
   cat >"$b/crontab" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 f=$OPS_STUB_DIR/crontab
 case ${1:-} in -l) [[ -s $f ]] && cat "$f"; exit 0 ;; -r) rm -f "$f"; exit 0 ;; -) cat >"$f"; exit 0 ;; esac
 exit 1
 EOF
   cat >"$b/systemctl" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 [[ -e $OPS_STUB_DIR/systemd ]] || exit 1
 printf 'systemctl %s\n' "$*" >>"$OPS_STUB_DIR/calls.log"
 exit 0
@@ -273,8 +288,8 @@ build_world() { # build_world DIR: the template
   git clone -q "file://$W/origin.git" "$W/seed" 2>/dev/null
   mkdir -p "$W/seed/apps/server/src" "$W/seed/scripts/lib"
   cp "$SRC"/scripts/*.sh "$W/seed/scripts/"; cp "$SRC"/scripts/lib/*.sh "$W/seed/scripts/lib/"; cp "$SRC/docker-compose.yml" "$W/seed/"
-  printf '#!/usr/bin/env bash\necho "backup.sh ran" >>"$OPS_STUB_DIR/calls.log"\nprintf "\\033[31mred\\033[0m\\nToken abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv end\\nAuthorization: Bearer xyz\\nTUNNEL_TOKEN=abc\\nkept line\\n"\n' >"$W/seed/scripts/backup.sh"
-  printf '#!/usr/bin/env bash\necho '"'"'{"at":"2026-01-01T00:00:00Z","items":[{"id":"x-1","level":"ok","title":"t","detail":"","hint":""}]}'"'"'\n' >"$W/seed/scripts/doctor.sh"
+  printf '#!/bin/bash\necho "backup.sh ran" >>"$OPS_STUB_DIR/calls.log"\nprintf "\\033[31mred\\033[0m\\nToken abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv end\\nAuthorization: Bearer xyz\\nTUNNEL_TOKEN=abc\\nkept line\\n"\n' >"$W/seed/scripts/backup.sh"
+  printf '#!/bin/bash\necho '"'"'{"at":"2026-01-01T00:00:00Z","items":[{"id":"x-1","level":"ok","title":"t","detail":"","hint":""}]}'"'"'\n' >"$W/seed/scripts/doctor.sh"
   chmod +x "$W"/seed/scripts/*.sh
   printf '/ops/\n/backups/\n.env\n' >"$W/seed/.gitignore"
   echo 'export const APP_VERSION = "0.1.0";' >"$W/seed/apps/server/src/version.ts"

@@ -2,7 +2,7 @@
 import { yearComparisonNote } from "@banking/core";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { SlopeChart, type SlopeItem } from "../../../charts/SlopeChart.tsx";
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { money, MONTHS_SHORT, signedMoney } from "../../../format.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -40,8 +40,7 @@ function YearOverYear({ ctx }: SectionProps) {
           )
         }
         table={
-          <DataTable
-            id="vuodet"
+          <Table
             caption="Menot kategorioittain, kaksi vuotta"
             rows={r.categories}
             rowKey={(c) => c.category}
@@ -49,7 +48,7 @@ function YearOverYear({ ctx }: SectionProps) {
               { key: "category", label: "Kategoria", kind: "text", rowHead: true, cell: (c) => ctx.label(c.category) },
               { key: "previous", label: String(r.year - 1), kind: "money", cents: (c) => c.previousCents },
               { key: "current", label: String(r.year), kind: "money", cents: (c) => c.currentCents },
-              { key: "change", label: "Muutos", kind: "money", cell: (c) => signedMoney(c.changeCents), sortValue: (c) => c.changeCents },
+              { key: "change", label: "Muutos", kind: "money", cell: (c) => signedMoney(c.changeCents) },
             ]}
           />
         }

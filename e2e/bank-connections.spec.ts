@@ -46,7 +46,7 @@ const account = (id: string, connectionId: string, extra: Record<string, unknown
   ...extra,
 });
 
-const notLinked = { kind: "not_linked", message: "tiliä ei ole linkitetty Enable Bankingissa." };
+const notLinked = { kind: "not_linked", message: "tiliä ei ole lisätty Enable Bankingissa." };
 const IBANS = { chk: "FI2112345600000785", sav: "FI4950009420028730" };
 
 /** A page of the signed-in administrator, with the consents and accounts `answer` gives for each read of /api/meta. Starting a bank is recorded, not made. */
@@ -146,13 +146,13 @@ test("a link that left accounts unread lists them by the bank's name and the las
   const add = card(page).getByRole("button", { name: "Yhdistä toinen pankki" });
   await expect(add).toBeVisible();
   await expect(card(page).getByRole("button", { name: "Yhdistä pankki" })).toHaveCount(0);
-  await expect(card(page).getByText("linkitetty Enable Bankingissa")).toHaveCount(0);
+  await expect(card(page).getByText("lisätty Enable Bankingissa")).toHaveCount(0);
 
   const list = card(page).locator(".unlinked");
   await expect(list).toBeVisible({ timeout: 25_000 });
-  await expect(list.getByText("2 tiliä ei ole linkitetty Enable Bankingissa.")).toBeVisible();
+  await expect(list.getByText("2 tiliä ei ole lisätty Enable Bankingissa.")).toBeVisible();
   await expect(list.getByRole("listitem")).toHaveText(["Käyttötili · •••• 0785", "Nordea Gold · •••• 1144"]);
-  await expect(list).toContainText("Linkitä ne Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
+  await expect(list).toContainText("Lisää ne Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
   await expect(list.getByRole("link", { name: "Avaa Control Panel" })).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
   // never the whole number in the list
   await expect(list).not.toContainText(IBANS.chk.slice(0, 8));
@@ -171,7 +171,7 @@ test("the list is one line for one account, and not there when every account is 
   const connections = [consent("n1", "Nordea", 180, "2027-04-06T00:00:00Z")];
   const one = await open(browser, () => ({ connections, accounts: [account("Käyttötili", "n1", { iban: IBANS.chk, problem: notLinked }), account("Säästötili", "n1", { iban: IBANS.sav })] }));
   await one.page.goto("/#/settings");
-  await expect(card(one.page).getByText("Yhtä tiliä ei ole linkitetty Enable Bankingissa.")).toBeVisible();
+  await expect(card(one.page).getByText("Yhtä tiliä ei ole lisätty Enable Bankingissa.")).toBeVisible();
   await expect(card(one.page).locator(".unlinked").getByRole("listitem")).toHaveText(["Käyttötili · •••• 0785"]);
   await expect(card(one.page).getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   expect(one.seen.problems).toEqual([]);

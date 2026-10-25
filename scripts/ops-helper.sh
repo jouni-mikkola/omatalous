@@ -498,7 +498,7 @@ reconcile() {
 # every 10th tick, and the first after boot, a snapshot; once a day the doctor and the housekeeping, once an hour the version check (lib/ops-hourly.sh)
 heartbeat() {
   local n boot old_boot stale=false fresh=false
-  n=$(cat "$OPS/tick" 2>/dev/null || echo 0); [[ $n =~ ^[0-9]+$ ]] || n=0
+  { n=$(<"$OPS/tick"); } 2>/dev/null || n=0; [[ $n =~ ^[0-9]+$ ]] || n=0
   n=$((n + 1)); printf '%s\n' "$n" >"$OPS/tick"
   # the helper's version is part of the mark: the first tick of a renewed helper sends its snapshot, with the fields it adds
   boot="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo none) $OPS_HELPER_VERSION"; old_boot=$(cat "$OPS/boot_id" 2>/dev/null || true)

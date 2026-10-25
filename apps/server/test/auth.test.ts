@@ -5,7 +5,7 @@ describe("first-run setup", () => {
   it("creates the first admin only with the setup code, and only once", async () => {
     const { client } = await setupApp();
     const other = client();
-    expect((await other.call("GET", "/api/auth/state")).body).toMatchObject({ needsSetup: false, user: null });
+    expect((await other.call("GET", "/api/auth/state")).body).toMatchObject({ needsSetup: false, user: null, timezone: "Europe/Helsinki" });
     const again = await other.call("POST", "/api/auth/setup", { code: SETUP_CODE, username: "hyokkaaja", displayName: "x", password: "pitka-salasana-123" });
     expect(again.status).toBe(400);
   });

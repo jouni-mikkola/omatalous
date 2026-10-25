@@ -34,7 +34,7 @@ if [[ ${1:-} == inspect && $* == *State.Status* ]]; then
   printf '%s|%s\n' "$st" "$(cat "$S/health" 2>/dev/null)"
   exit 0
 fi
-exec "${0%/*}/docker.world" "$@" # by its own place: the helper also calls docker with an empty environment
+. "${0%/*}/docker.world" # run in this shell (one fewer start per call), found by its own place: the helper also calls docker with an empty environment
 EOF
   # The real pgrep, narrowed to processes whose folder is inside this world: other suites run update.sh at the same time
   # as the same user, and the watchdog would wait for them.

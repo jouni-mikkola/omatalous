@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { dateTime } from "../../format.ts";
+import { clockTime, dateTime } from "../../format.ts";
 import { ENABLE_DOC, S } from "./ops-strings.ts";
 import type { HelperInfo } from "./types.ts";
 
@@ -25,8 +25,6 @@ export function Command({ text }: { text: string }) {
   );
 }
 
-const clock = (iso: string) => new Date(iso).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
-
 export function HelperStatus({ helper }: { helper: HelperInfo }) {
   if (helper.status === "off") {
     return (
@@ -50,7 +48,7 @@ export function HelperStatus({ helper }: { helper: HelperInfo }) {
   return (
     <>
       {helper.status === "ok" ? (
-        <div className="notice good" role="status">{S.helperOk(clock(seen))}</div>
+        <div className="notice good" role="status">{S.helperOk(clockTime(seen))}</div>
       ) : (
         <div className="notice warning" role="status">{S.helperSlow(dateTime(seen))}</div>
       )}

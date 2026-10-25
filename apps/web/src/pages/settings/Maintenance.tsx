@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { api, apiDownload, ApiError, saveFile } from "../../api.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
@@ -113,12 +113,10 @@ export function Maintenance() {
         {audit.length === 0 ? (
           <div className="empty">{S.noEvents}</div>
         ) : (
-          <DataTable
-            id="ops-events"
+          <Table
             caption={S.events}
             rows={audit}
             rowKey={(e) => String(e.id)}
-            phone="cards"
             columns={[
               { key: "at", label: "Aika", kind: "date", rowHead: true, cell: (e) => dateTime(e.at) },
               { key: "user", label: "Käyttäjä", kind: "text", cell: (e) => e.username ?? "" },

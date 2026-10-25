@@ -57,7 +57,7 @@ export function paceDay(pace: Pace, d: number): PaceDay {
  * it (an estimate: a lighter dashed band), and the pay days and the largest purchase as events on the day axis. Every
  * value is a field of `pace`; `payday` is the day of the coming pay when it falls in this month.
  */
-export function PaceChart({ pace, payday, names }: { pace: Pace; payday: number | null; names: { current: string; previous: string } }) {
+export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: number | null; payday: number | null; names: { current: string; previous: string } }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const width = measured || UNMEASURED;
   const [at, setAt] = useReadout();
@@ -65,7 +65,7 @@ export function PaceChart({ pace, payday, names }: { pace: Pace; payday: number 
   const days = pace.daysInMonth;
   const lastDay = pace.current.reduce<number>((n, v, i) => (v === null ? n : i + 1), 0);
   const narrow = width < NARROW;
-  const all = [...pace.current.filter((v): v is number => v !== null), ...(usual?.high ?? []), ...(usual?.low ?? []), ...(previous?.curve ?? []), ...(projection?.high ?? [])];
+  const all = [...pace.current.filter((v): v is number => v !== null), ...(usual?.high ?? []), ...(usual?.low ?? []), ...(previous?.curve ?? []), ...(projection?.high ?? []), ...(goal === null ? [] : [goal])];
   const left = axisRoom(linear(all, [0, 1]).ticks.map(moneyAxis));
   const f = frame(width, { top: 16, right: narrow ? 12 : 112, bottom: 24, left }, { minHeight: 220, tallest: 300, ratio: 0.26, extraBottom: LANE_H * 2 });
   const y = linear(all, [f.innerH, 0], { target: tickTarget(f.innerH) });
@@ -98,12 +98,13 @@ export function PaceChart({ pace, payday, names }: { pace: Pace; payday: number 
       ...(p.usual !== null ? [{ name: "Tavallisesti", value: money(p.usual) }] : []),
       ...(p.previous !== null ? [{ name: names.previous, value: money(p.previous) }] : []),
       ...(p.projection && i + 1 > lastDay ? [{ name: "Arvio", value: estimateRange(p.projection[0], p.projection[1]) }] : []),
+      ...(goal === null ? [] : [{ name: "Tavoite", value: money(goal) }]),
     ];
   };
 
   return (
     <div ref={ref} className="chart pace-chart">
-      <svg width={f.width} height={f.height} role="img" aria-label={`Kuukauden kertyvät menot${usual ? " tavalliseen kuuhun verrattuna" : ""}`}>
+      <svg width={f.width} height={f.height} role="img" aria-label={`Kuukauden kertyvät menot${usual ? " tavalliseen kuuhun verrattuna" : ""}${goal === null ? "" : " ja menotavoite"}`}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <ValueAxis ticks={ticks} y={y} width={f.innerW} height={f.innerH} label={moneyTick} />
           {Array.from({ length: days }, (_, i) => i + 1).map((d) => (
@@ -121,6 +122,14 @@ export function PaceChart({ pace, payday, names }: { pace: Pace; payday: number 
             {usual && <path className="pace-usual-band" d={areaPath(usual.low, usual.high, x, y)} />}
             {usual && <path className="pace-usual" d={linePath(usual.curve, x, y)} />}
             {previous && <path className="pace-prev" d={linePath(previous.curve.slice(0, days), x, y)} />}
+            {goal !== null && (
+              <>
+                <line className="pace-goal-line" x1={0} x2={f.innerW} y1={crisp(y(goal))} y2={crisp(y(goal))} />
+                <text className="pace-goal-label" x={4} y={y(goal) - 6}>
+                  Tavoite {money(goal, false)}
+                </text>
+              </>
+            )}
             {projection && <path className="pace-est" d={areaPath(projection.low, projection.high, px, y)} />}
             <path className="pace-now" d={linePath(pace.current, x, y)} />
             {now !== null && (
@@ -172,6 +181,12 @@ export function PaceChart({ pace, payday, names }: { pace: Pace; payday: number 
           <li>
             <span className="pace-key-prev" />
             {names.previous}
+          </li>
+        )}
+        {goal !== null && (
+          <li>
+            <span className="pace-key-goal" />
+            Menotavoite
           </li>
         )}
         {projection && (

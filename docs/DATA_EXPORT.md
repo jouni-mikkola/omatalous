@@ -276,6 +276,16 @@ Table `expected_bills`, one object per row.
 | `reference` | string or null |  |
 | `payee_iban` | string or null |  |
 
+### spendingGoals
+
+Table `spending_goal`, one object per row: the user's monthly spending goal, at most one row per user.
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `user_id` | string |  |
+| `monthly_cents` | integer | the goal for a month's spending, 100 to 100 000 000 |
+| `updated_at` | string |  |
+
 ### optimiseInputs
 
 Table `optimise_inputs`, one object per row.

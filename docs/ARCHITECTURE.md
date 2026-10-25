@@ -43,6 +43,15 @@ Isolation does not rely on every query being written correctly. Financial data i
 PSD2 limits: consent for at most 180 days, banks may limit automatic fetches to four a day per account,
 the bank decides how much history it gives (the first fetch asks for up to two years).
 
+### One table for lists of rows
+
+Every list of comparable rows uses `apps/web/src/components/table/Table.tsx` and `styles/table.css`.
+Pages supply cells and the server's totals; the component never adds money. It owns captions, scoped headers,
+opt-in sorting, groups, detail rows and pagination. When its container is narrow or its columns do not fit,
+each row becomes a block; series columns open as a labelled list beneath it. No table scrolls sideways.
+One subject's facts use `KeyValue` (`dl`); an empty list uses a sentence. A redundant view is deleted with its
+styles, tests and texts (see [ADR 0018](adr/0018-one-table-delete-redundant-views.md)).
+
 ## Structure
 
 ```mermaid
@@ -320,6 +329,7 @@ fetch from the same day. The other accounts go on.
 | `sync_runs` | fetch history per user |
 | `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
 | `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
+| `spending_goal` | the monthly spending goal of a user (Yhteenveto, Menot tässä kuussa): one amount in cents per user, bounded by `routes/spending-goal.ts`, read per request with the other inputs |
 | `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit, and the connected card or loan account it is the same debt as (`account_id`, migration 0016, null when the account goes). Own rows only, bounded by `routes/loans.ts` |
 | `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
 | `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |

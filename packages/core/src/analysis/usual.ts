@@ -1,14 +1,15 @@
 /**
  * "Tavallisesti" and "valmis kuukausi": the one yardstick every view uses to say what is usual and which months may
  * be compared. A running month, or one the history does not cover from the 1st, is never part of it, and fewer than
- * three months say nothing. The usual spending, the usual earned income and the gate a cause must pass are defined here
- * once (ADR 0004). The page's "Säännölliset tulot kuussa" is another figure: the income report's own median of twelve
+ * three months say nothing. A comparison by category or by day also says nothing while those months hold card bills the
+ * rows do not itemise or that precede a linked card's history (`itemisedMonthsBefore`). The usual spending, the usual earned income and the gate a cause must
+ * pass are defined here once (ADR 0004). The page's "Säännölliset tulot kuussa" is another figure: the income report's own median of twelve
  * months of regular income (`stability.medianCents`). See docs/MONEY_FLOWS.md.
  */
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { median } from "../stats.ts";
 import { type AnalysisContext, historyCovers } from "./context.ts";
-import { accountCovers, LEFT_OUT_SHARE } from "./coverage.ts";
+import { accountCovers, coverage, LEFT_OUT_SHARE } from "./coverage.ts";
 import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
 import type { IsoDate } from "../types.ts";
 import type { DayRange } from "./period.ts";
@@ -100,6 +101,33 @@ function joinedSmall(ctx: AnalysisContext, label: string, month: string, rows?: 
     if (joined.has(t.accountId)) theirs += spendOf(t);
   }
   return all > 0 && theirs < LEFT_OUT_SHARE * all;
+}
+
+/**
+ * Whether `month` holds a card's purchases in no category: a card bill that is no transfer (a card never connected, or
+ * connected later and paid by bills before), or a month before the history of a connected card with rows begins. The
+ * household total ignores a card connected later, so such a month is complete; its categories lack the card's purchases.
+ */
+function cardGapIn(ctx: AnalysisContext, month: string): boolean {
+  if (paidCardBills(ctx, month)) return true;
+  const { began } = coverage(ctx);
+  return ctx.accounts.some((a) => a.type === "credit_card" && Number.isFinite(began(a.id)) && !accountCovers(ctx, [a.id], `${month}-01`));
+}
+
+/**
+ * Whether the months "tavallisesti" would be read from (`completeMonthsBefore`, at least three) hold a gap of card
+ * purchases (`cardGapIn`): the month in hand holds the purchases of a linked card in their categories where those months
+ * hold nothing or a bill, so a comparison by category or by day says what the data does not hold. Month totals are
+ * comparable (a bill counts as spending), so `usualSpending` and the buffer read through it.
+ */
+export function cardsBreakUsual(ctx: AnalysisContext, month: string): boolean {
+  const months = completeMonthsBefore(ctx, month);
+  return months.length >= MIN_COMPARE_MONTHS && months.some((m) => cardGapIn(ctx, m));
+}
+
+/** The months a comparison by category or by day reads: `completeMonthsBefore`, none while `cardsBreakUsual`. */
+export function itemisedMonthsBefore(ctx: AnalysisContext, month: string): string[] {
+  return cardsBreakUsual(ctx, month) ? [] : completeMonthsBefore(ctx, month);
 }
 
 /**

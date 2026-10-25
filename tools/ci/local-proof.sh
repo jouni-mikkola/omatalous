@@ -15,6 +15,7 @@
 #
 #   image              docker build -t banking-app:ci .
 #   smoke              tools/ci/smoke-image.sh banking-app:ci unknown unknown
+#   container          tools/ci/image-checks.sh banking-app:ci: the compose-like container and first run, compose keys, two instances
 #   signature          tools/ci/verify-release.sh: the newest release verifies with the install scripts of this commit
 #                      and of every baseline
 #   upgrade from REF   check-migrations.sh, compose-compat.sh and upgrade-run.sh, once for each baseline
@@ -23,15 +24,15 @@
 #                      drills 1, 2, 5, 6, 9 and 10 on an install of their own (project "drills", port 8280), made by
 #                      upgrade-run.sh from the oldest baseline that can take a port and a name, up to its update
 #
-# Everything starts at once: the image and then the smoke test in a chain of their own, the signature, the rehearsals in
+# Everything starts at once: the image, the smoke test and the container checks in a chain of their own, the signature, the rehearsals in
 # their lanes, and the drills' install with its drills after it. They share nothing: a rehearsal makes its own images
-# (never banking-app:ci), the smoke test publishes no port, the signature only reads, and the drills' install has a name and
+# (never banking-app:ci), the smoke test publishes no port, the container checks take free ports and names of their own, the signature only reads, and the drills' install has a name and
 # a port that no lane has. What they would share is the watchdog, which counts every update.sh and install.sh of the same
 # user on the machine. So, with a proof started as root and more than one job, lane 0 and the drills' install run as
 # another user than the other lanes (PROOF_DRILL_USER, default 2), and drills 3 and 4 wait until the drills' install has
 # been made, the last update.sh of that user beside them (the other drills start none). In any other case the three parts
 # run one at a time when every other leg has ended: drills 3 and 4, then the making of the install, then its drills. With
-# one job the image and the smoke test run first and alone, and a red one ends the proof before any other leg starts.
+# one job the image, the smoke test and the container checks run first and alone, and a red one ends the proof before any other leg starts.
 #
 # Images that are kept: the image of a baseline is the same one in every proof, so a rehearsal keeps it under the name
 # proof-baseline:<the full hash of the baseline's commit> once its install has come up, and a later proof starts from it
@@ -68,7 +69,7 @@
 #
 # Which baselines: all of the list when the commit changes what an update runs through, compared with the last ref of
 # the list (the last release): a migration, scripts/, the compose file, the Dockerfile or tools/ci/, except the few files
-# of tools/ci that only the release workflow's own jobs run (NOT_RUN in the script) and the one that only the signature leg runs
+# of tools/ci that only the release workflow's own jobs run (NOT_RUN in the script) and the two that only one leg runs
 # (LEG_ONLY: a change of verify-release.sh alone gave 25 baselines in 0.63.0 where 0.62.0 had 5); a test keeps both lists honest.
 # Of those, baselines with the same update path run once, the newest of each: the same apps/server/migrations, scripts/,
 # docker-compose*.yml and Dockerfile (what an install of the baseline runs; their git hashes decide). The oldest, the newest,
@@ -112,9 +113,9 @@ DRILL_USER=${PROOF_DRILL_USER:-2}
 # what an update runs through: a change here since the last release is proved from every baseline, except in the
 # files NOT_RUN names, which no install and no leg of the proof runs (a name may be of a file that does not exist yet)
 NOT_RUN=(tools/ci/release-plan.sh tools/ci/candidate-index.sh)
-# files that only the signature leg runs: no install and no rehearsal reads them, and that leg checks every baseline of the list
-# whatever the rule picks, so a change of them alone is no reason for more rehearsals (a test keeps this list honest too)
-LEG_ONLY=(tools/ci/verify-release.sh)
+# files that only one leg runs (the signature leg, the container leg): no install and no rehearsal reads them, so a change
+# of them alone is no reason for more rehearsals (the signature leg checks every baseline anyway; a test keeps this list honest)
+LEG_ONLY=(tools/ci/verify-release.sh tools/ci/image-checks.sh)
 PATHS=(apps/server/migrations scripts 'docker-compose*.yml' Dockerfile tools/ci)
 USAGE="usage: local-proof.sh [--all] [--jobs N] [--part PART | --lane K/N | --farm] BASELINES, or --proved [--all] [--commit SHA] BASELINES"
 PART='' FARM=0 # --part or --lane: one part of the proof; --farm: the parts no record covers (tools/ci/proof-parts.sh)
@@ -122,7 +123,6 @@ PART='' FARM=0 # --part or --lane: one part of the proof; --farm: the parts no r
 . "$ROOT/tools/ci/proof-parts.sh" || exit 2
 # a rehearsal takes these from the lane it runs in and from nowhere else
 unset UPGRADE_PORT UPGRADE_PROJECT UPGRADE_WORK UPGRADE_KEEP_UP UPGRADE_UNTIL DRILLS_ONLY
-
 refuse() { printf 'Error: %s\n' "$*" >&2; exit 2; }
 
 [[ -z ${PROOF_JOBS:-} ]] || jobs_are PROOF_JOBS "$PROOF_JOBS"
@@ -187,7 +187,6 @@ if proved; then
   echo "local proof: $SHORT is proved already from ${PICK[*]} (the stamp is ${STAMP#"$ROOT"/}). Nothing ran."
   exit 0
 fi
-
 
 choose_parts
 
@@ -305,7 +304,7 @@ fi
 
 if [[ -f $VERDICTS ]]; then { tail -n 400 "$VERDICTS" >"$VERDICTS.new" && cat "$VERDICTS.new" >"$VERDICTS"; rm -f "$VERDICTS.new"; } 2>/dev/null; fi
 T0=$SECONDS
-LEGS=$((DO_IMAGE * 2 + DO_SIG + ${#RUN_REFS[@]} + DO_DRILLS * 3)) # the image, the smoke test, the signature, a rehearsal each, the drills' install and two drills parts
+LEGS=$((DO_IMAGE * 3 + DO_SIG + ${#RUN_REFS[@]} + DO_DRILLS * 3)) # the image, the smoke test, the container checks, the signature, a rehearsal each, the drills' install and two drills parts
 first_line
 
 # part SECONDS NOTE LABEL: one line of the list that closes the proof (see parts). Written by many processes at once, one
@@ -390,7 +389,7 @@ end_legs() {
   local f
   for f in "$RUNNING"/*; do [[ ! -e $f ]] || kill -TERM -- "-$(<"$f")" 2>/dev/null; done
 }
-# halt: the image or the smoke test failed. The legs that run are cut, and the drills will not run.
+# halt: the image, the smoke test or the container checks failed. The legs that run are cut, and the drills will not run.
 halt() { : >"$WORK/halt"; end_legs; }
 
 stop() {
@@ -438,7 +437,7 @@ report() {
     ((${#FROM_RECORDS[@]} == 0)) || echo "from the farm's records: ${FROM_RECORDS[*]}"
     printf '%s\n%s\n' "$SHA" "${PICK[*]}" >"$STAMP"
     keep_images
-    echo "local proof passed for $SHORT in $((SECONDS - T0)) s: the image, the smoke test, the signature, ${#PICK[@]} baselines and the drills. Logs: $LOGS"
+    echo "local proof passed for $SHORT in $((SECONDS - T0)) s: the image, the smoke test, the container checks, the signature, ${#PICK[@]} baselines and the drills. Logs: $LOGS"
     exit 0
   fi
   if ((${#failed[@]} == 0)); then
@@ -455,7 +454,8 @@ report() {
 
 image_and_smoke() {
   leg image "the image builds" docker build -t banking-app:ci . \
-    && leg smoke "smoke test of the image" tools/ci/smoke-image.sh banking-app:ci unknown unknown
+    && leg smoke "smoke test of the image" tools/ci/smoke-image.sh banking-app:ci unknown unknown \
+    && leg container "container checks of the image" tools/ci/image-checks.sh banking-app:ci
 }
 if ((DO_IMAGE == 0)); then :
 elif ((JOBS == 1)); then

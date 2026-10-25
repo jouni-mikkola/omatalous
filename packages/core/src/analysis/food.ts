@@ -13,15 +13,19 @@
  * - A week is the line's sum over the window's days (ISO days, so no summer-time hour), rounded for each line alone.
  * - A change is told over nine months or more, when the mean of the newest three is outside the lowest-to-highest
  *   of the six before them and the difference to their usual level is over `gateFor` of it.
- * - Card bills in the window are a row of their own: the line sums never read as all the food money.
+ * - Card bills in the window whose purchases the data does not hold (`missingCardPurchases`) leave no food figure
+ *   to tell: the report is then one reason (`FoodGap`) and no lines, since the lines sum only what the accounts
+ *   show and would read as all the food money.
  */
 import { behaviourOf, isPurchase } from "../behaviour/index.ts";
 import { dateIn, daysBetween, fromMonthIndex, monthEnd, weekdayOf } from "../dates.ts";
+import { formatEur, formatFiDate } from "./format.ts";
 import { THEMES, themeOf } from "../themes.ts";
-import { cardBillsByMonth } from "./card-bills.ts";
+import { cardGapCause, type MissingCardPurchases, missingCardPurchases } from "./card-bills.ts";
 import { type AnalysisContext, type AnalysisTx, netPurchase } from "./context.ts";
 import { sharedOut, themeWindow } from "./themes-report.ts";
 import { gateFor, usualCents } from "./usual.ts";
+import type { IsoDate } from "../types.ts";
 
 /** Purchases a line needs before its mean, its visits a month and its weekdays are told. */
 const MIN_PURCHASES = 6;
@@ -74,17 +78,37 @@ interface FoodLine {
   changeCents: number | null;
 }
 
-export interface FoodReport {
+/** Why the window holds no food figure: card bills whose purchases are not in the data. */
+interface FoodGap {
+  /** The window's days, first to last. */
+  window: { from: IsoDate; to: IsoDate };
+  /** The bills' sum in the window. */
+  cents: number;
+  /** The bills by issuer and reason, largest first (`missingCardPurchases`). */
+  bills: MissingCardPurchases[];
+  /** One Finnish sentence that names the reason; the page prints it as the section's only row. */
+  text: string;
+}
+
+/** The report as told: the lines of the window. */
+interface FoodFigures {
   /** The months the figures are of, as in `themesReport`: `first` to `last`, how many, and the days in them. */
   window: { first: string; last: string; months: number; days: number };
   lines: FoodLine[];
   /** The four lines together: the theme `food` of `themesReport`. */
   cents: number;
   monthlyCents: number;
-  /** Card bills of the window, which hold purchases in no line; null when there are none. */
-  cardBills: { cents: number; monthlyCents: number } | null;
   /** Ruokakauppa's purchases in the newest three months and in the three before them; null under six months. */
   basket: { now: Side; before: Side } | null;
+}
+
+/** Figures, or the reason there are none (`FoodGap`): a gap has `gap`, figures have `lines`. */
+export type FoodReport = FoodFigures | { gap: FoodGap };
+
+/** The sentence of a gap: what is missing and since when, in the words of the data quality signal. */
+function gapText(bills: readonly MissingCardPurchases[], from: IsoDate, to: IsoDate): string {
+  const cents = bills.reduce((s, b) => s + b.cents, 0);
+  return `Ruoan menoja ei lasketa: ajalla ${formatFiDate(from)}–${formatFiDate(to)} on korttilaskuja ${formatEur(cents, false)}, mutta ${cardGapCause(bills)}.`;
 }
 
 /** The change of a line: see the head of the file. */
@@ -102,12 +126,19 @@ function sideOf(rows: readonly AnalysisTx[]): Side {
   return { purchases: rows.length, meanCents: rows.length ? rounded(sum(rows.map(netPurchase)), rows.length) : null, perMonth: Math.round((rows.length * 10) / SIDE) / 10 };
 }
 
-/** The food of the last complete months; null without a window (see `themeWindow`) and without food in it. */
+/**
+ * The food of the last complete months; null without a window (see `themeWindow`) and without food in it. A window
+ * with card bills whose purchases are not in the data is a `FoodGap`, even without food on the accounts.
+ */
 export function foodReport(ctx: AnalysisContext): FoodReport | null {
   const w = themeWindow(ctx);
   if (!w) return null;
   const { months, rows, cars, large } = w;
   const n = months.length;
+  const from = dateIn(fromMonthIndex(months[0]!), 1);
+  const to = monthEnd(fromMonthIndex(months[n - 1]!));
+  const bills = missingCardPurchases(ctx, { from, to });
+  if (bills.length) return { gap: { window: { from, to }, cents: bills.reduce((s, b) => s + b.cents, 0), bills, text: gapText(bills, from, to) } };
   const food = THEMES.find((theme) => theme.id === "food")!;
   const counts = behaviourOf(ctx);
   /** Is the row a purchase of its line? */
@@ -126,7 +157,7 @@ export function foodReport(ctx: AnalysisContext): FoodReport | null {
   // as the themes report does: the cents a month are shared out among the lines that have a sum
   const listed = food.lines.map((_, i) => i).filter((i) => cents[i]);
   const shared = sharedOut(listed.map((i) => cents[i]!), n, monthly);
-  const days = daysBetween(dateIn(fromMonthIndex(months[0]!), 1), monthEnd(fromMonthIndex(months[n - 1]!))) + 1;
+  const days = daysBetween(from, to) + 1;
 
   const lines = food.lines.map((l, i): FoodLine => {
     const own = placed.filter((p) => p.line === l.id).map((p) => p.t);
@@ -161,7 +192,7 @@ export function foodReport(ctx: AnalysisContext): FoodReport | null {
     };
   });
 
-  let basket: FoodReport["basket"] = null;
+  let basket: FoodFigures["basket"] = null;
   if (n >= 2 * SIDE) {
     const shop = placed.filter((p) => p.line === "groceries" && bought(p.t, p.line)).map((p) => p.t);
     const now = sideOf(shop.filter((t) => months.slice(n - SIDE).includes(t.month)));
@@ -171,13 +202,11 @@ export function foodReport(ctx: AnalysisContext): FoodReport | null {
     basket = { now: told(now), before: told(before) };
   }
 
-  const bills = sum(cardBillsByMonth(ctx, months));
   return {
     window: { first: fromMonthIndex(months[0]!), last: fromMonthIndex(months[n - 1]!), months: n, days },
     lines,
     cents: total,
     monthlyCents: monthly,
-    cardBills: bills > 0 ? { cents: bills, monthlyCents: Math.round(bills / n) } : null,
     basket,
   };
 }

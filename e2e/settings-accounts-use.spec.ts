@@ -24,9 +24,9 @@ test("the question after a link, the parts of the joint account, the bank's answ
   // the card asks about the joint account only, with "Yhteinen tili" chosen as the holders give it
   const question = page.locator("#tilien-kayttajat");
   await expect(question).toBeVisible({ timeout: 30_000 });
-  await expect(question.getByRole("row")).toHaveCount(1);
-  await expect(question.getByRole("row")).toContainText("Yhteistili");
-  await expect(question.getByRole("row")).toContainText("MEIKALAINEN MATTI, KORHONEN ELISA");
+  await expect(question.getByRole("listitem")).toHaveCount(1);
+  await expect(question.getByRole("listitem")).toContainText("Yhteistili");
+  await expect(question.getByRole("listitem")).toContainText("MEIKALAINEN MATTI, KORHONEN ELISA");
   await expect(question.getByRole("combobox", { name: "Tilin Yhteistili käyttäjä" })).toHaveValue("joint");
   // a phone: the card is as wide as the page
   await page.setViewportSize({ width: 390, height: 844 });
@@ -113,7 +113,7 @@ test("the question after a link, the parts of the joint account, the bank's answ
   for (const width of [640, 700]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(use).toBeVisible();
-    const card = tilit.locator(".table-wrap");
+    const card = tilit.locator(".rt-wrap");
     expect(await card.evaluate((el) => el.scrollWidth - el.clientWidth), `Tilit at ${width} px scrolls sideways in its card`).toBeLessThanOrEqual(1);
     const edit = tilit.getByRole("button", { name: "Muokkaa tiliä Yhteistili" });
     await edit.scrollIntoViewIfNeeded(); // the window's bottom may cut it; the check is about the sides

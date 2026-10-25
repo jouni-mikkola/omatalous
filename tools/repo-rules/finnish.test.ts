@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PATTERNS, breaks } from "./finnish.ts";
+import { PATTERNS, breaks } from "./finnish-patterns.ts";
 
 const DASH = String.fromCharCode(0x2014);
 

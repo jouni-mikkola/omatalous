@@ -40,7 +40,7 @@ const nextDays = (a: Ahead) => flat(renderToStaticMarkup(createElement(NextDays,
 /** The same answer with a pay to wait for on Thu 15.10.: the window ends the day before it. */
 const beforePay = (a: Ahead, date = "2026-10-15"): Ahead => ({ ...a, reason: "payday", payday: { date, name: "Palkka", pay: steady(395_000) }, to: "2026-10-14", days: 3 });
 /** The head rows of the groups, each as its name and its sum ("≈" is read by its own test). */
-const groupHeads = (html: string) => [...html.matchAll(/<tr class="group-head"><th[^>]*>([^<]*)<\/th><td class="num">(.*?)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "").replace("≈", "")}`);
+const groupHeads = (html: string) => [...html.matchAll(/<tr class="rt-group[^"]*"><th[^>]*>([^<]*)<\/th><td[^>]*>(.*?)<\/td><\/tr>/g)].map((m) => `${m[1]}: ${m[2]!.replace(/<[^>]*>/g, "").replace("≈", "")}`);
 
 describe("Laskut: Erääntyvät maksut", () => {
   it("with no pay known lists the bills of the next 30 days in one group, the typed-in one marked, and no pay day", () => {
@@ -63,13 +63,13 @@ describe("Laskut: Erääntyvät maksut", () => {
     const heads = [...out.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]);
     expect(heads).toEqual(["Eräpäivä", "Saaja", "Summa"]);
     // the payee is text beside its mark, never a link
-    expect(out).toMatch(/<td class="due-col"[^>]*>12\.10\.<\/td><td[^>]*><span class="coming-payee"><span class="mk-plate[^"]*" aria-hidden="true">.*?<\/span><\/span>Sähkö<\/span><\/td><td class="num sum st-num coming-est"[^>]*>.*?89,00 €.*?<\/td>/);
+    expect(out).toMatch(/<td class="due-col"[^>]*>12\.10\.<\/td><th[^>]*><span class="coming-payee"><span class="mk-plate[^"]*" aria-hidden="true">.*?<\/span><\/span>Sähkö<\/span><\/th><td class="num sum coming-est"[^>]*>.*?89,00 €.*?<\/td>/);
     expect(out).not.toContain("<a href");
     // the category of a row is not said: the label of "utilities" is not in the markup
     expect(out).not.toContain("Sähkö ja vesi");
     expect(out).not.toContain('class="sub"');
     // near miss: the typed-in bill keeps its mark in the payee cell
-    expect(out).toMatch(/<\/span>Ajoneuvovero <span class="badge">lisätty käsin<\/span><\/span><\/td>/);
+    expect(out).toMatch(/<\/span>Ajoneuvovero <span class="badge">lisätty käsin<\/span><\/span><\/th>/);
   });
 
   it("its sum is the Erääntyvät maksut of Yhteenveto: one list, one total", () => {
@@ -183,7 +183,7 @@ describe("Laskut: the marks of Erääntyvät maksut", () => {
     // Sähkö is a bill whose sum varies; the typed-in bill's sum is the household's own
     expect(rowOf(out, "Sähkö")).toContain('<span class="fig-approx-sign">≈</span>89,00 €');
     expect(rowOf(out, "Ajoneuvovero")).not.toContain("≈");
-    expect(out).toMatch(/<tr class="group-head"><th[^>]*>Seuraavat 30 päivää<\/th><td class="num"><span class="fig-approx"><span class="fig-approx-sign">≈<\/span>/);
+    expect(out).toMatch(/<tr class="rt-group[^"]*"><th[^>]*>Seuraavat 30 päivää<\/th><td class="num"><span class="fig-approx"><span class="fig-approx-sign">≈<\/span>/);
     // near miss: a group of the typed-in bill alone is exact
     const typed = coming(ahead([row({ date: "2026-11-03", name: "Ajoneuvovero", category: null, cents: -31_250, source: "expected" })]));
     expect(typed).not.toContain("≈");
@@ -203,7 +203,7 @@ describe("Yhteenveto: Erääntyvät maksut", () => {
 
   it("says nothing is due while there is no bill to show, and still links to Laskut, where one is added", () => {
     const out = nextDays(ahead([row({})]));
-    expect(out).toContain(">Ei erääntyviä maksuja.</td>");
+    expect(out).toContain(">Ei erääntyviä maksuja.</p>");
     expect(out).toContain('<a href="#/bills">Lisää lasku</a>');
   });
 });

@@ -4,8 +4,6 @@
  * image is a change of its own: RUNNERS and the workflows change together, and the release workflow is rehearsed with
  * its `dry_run` input before the next release.
  */
-import { type Finding, expectNoFindings, readText, repoFiles } from "./lib.ts";
-import { describe, expect, it } from "vitest";
 
 /** The second one is the arm64 half of a release. It is free for public repositories, like the first. */
 export const RUNNERS = ["ubuntu-24.04", "ubuntu-24.04-arm"];
@@ -78,19 +76,3 @@ export function floatingRunners(text: string): { line: number; why: string }[] {
   });
   return found;
 }
-
-describe("repo rules: runners", () => {
-  it(`rule 23: every job of a workflow runs on ${RUNNERS.join(" or ")}, never on a -latest label`, () => {
-    const files = repoFiles().filter((f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f));
-    expect(files.length, "the scan found the workflows").toBeGreaterThan(0);
-    const found: Finding[] = [];
-    let jobs = 0;
-    for (const file of files) {
-      const text = readText(file);
-      jobs += text.split("\n").filter((l) => /^\s*runs-on\s*:/.test(l)).length;
-      for (const { line, why } of floatingRunners(text)) found.push({ file, line, why });
-    }
-    expect(jobs, "the scan found the runs-on lines").toBeGreaterThan(0);
-    expectNoFindings("runners", found, `write \`runs-on: ${RUNNERS[0]}\` on a line of its own, or a matrix key whose every value is ${RUNNERS.join(" or ")}. To move to a newer image, change RUNNERS in tools/repo-rules/runners.ts with the workflows and run the release workflow with dry_run before the next release.`);
-  });
-});

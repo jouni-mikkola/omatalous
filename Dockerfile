@@ -14,6 +14,9 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 COPY . .
+# .npmrc pins the node of the host scripts (use-node-version). The base here is the minor only (a patch newer than the pin),
+# and pnpm would fetch the pinned patch, which it cannot do on musl (ERR_PNPM_MUSL): the image builds with its own node.
+RUN rm -f .npmrc
 # a checkout made under umask 077 has owner-only files, and the app runs as node, not root
 # Tests run in CI, not on the machine that updates. RUN_TESTS=true runs them here too.
 ARG RUN_TESTS=false

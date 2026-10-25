@@ -96,6 +96,7 @@ async function keep(db: Db, userId: string, tag: string, other?: string) {
   await run("INSERT INTO contract_terms (user_id, series_key, answered_at, notice_days) VALUES (?, ?, ?, 30)", userId, `${tag}-TERMS`, AT);
   await run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('member', ?, ?, 'sales', ?, ?)", userId, `${tag}-PAYER`, userId, AT);
   await run("INSERT INTO expected_bills (id, user_id, name, amount_cents, due_date, cadence, created_at) VALUES (?, ?, ?, 100, '2026-11-01', 'once', ?)", `${tag}-bill`, userId, `${tag} lasku`, AT);
+  await run("INSERT INTO spending_goal (user_id, monthly_cents, updated_at) VALUES (?, 250000, ?)", userId, AT);
   await run("INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES (?, 'in', ?, ?, ?, ?)", `${tag}-ident`, `${tag}-ANSWER`, `u:${userId}`, userId, AT);
   await run("INSERT INTO account_balances (account_key, day, type, cents, fetched_at, source) VALUES (?, '2026-09-30', 'closingBooked', 5, ?, 'csv')", `${tag}-ident`, AT);
   await run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES (?, ?, 1, ?, ?)", `${tag}-ident`, userId, userId, AT);

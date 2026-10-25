@@ -1,23 +1,21 @@
 import { fold, isCardBill } from "@banking/core";
-import { Fragment, memo, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { dayHeading, money, plural } from "../format.ts";
 import { Why } from "../components/Why.tsx";
 import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
-import { SortHead } from "../components/table/Cells.tsx";
 import { barShare } from "../components/table/cells.ts";
-import { nextSort, type Sort, sortRows } from "../components/table/sort.ts";
-import { type Density, RichTable } from "../components/table/RichTable.tsx";
+import { type Column, Table } from "../components/table/Table.tsx";
 import { partAnchor } from "../part.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
-import { CategoryChip } from "./transactions/CategoryChip.tsx";
+import { CategoryChip, CategoryLabel } from "./transactions/CategoryChip.tsx";
 import { AccountMark, type AccountLook, PayeeMark } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
 
-// The rows of Tapahtumat: a table row for a wide screen, a card under a day header for a phone. Both carry the same
-// parts: the payee's mark, the account's plate and digits, the category chip, the amount with its bar, the drill.
-// The page, its filters and its saving are in Transactions.tsx.
+// The rows of Tapahtumat: the shared table with a group for each day. A row says who, which account, which category and
+// how much, and its one control is the chevron: it opens the row, which holds the way to the payee's rows, the category
+// picker and the payee's twelve months. The page, its filters and its saving are in Transactions.tsx.
 
-/** A phone gets day headers and card rows instead of the table. The width is the one transactions.css uses. */
+/** The width under which the page floats its answers above the list (the width of the table's block layout). */
 const PHONE = "(max-width: 600px)";
 const onPhoneChange = (notify: () => void) => {
   const m = window.matchMedia(PHONE);
@@ -83,35 +81,24 @@ export interface StatementProps {
   onStatement?: (t: ListedRow) => void;
 }
 
-/**
- * The quiet tags of a row: what the bank or the app says of it, in words, never by colour alone. "käsin" is the dot on
- * the category chip, so it is not here.
- */
-/** `only`: a phone card puts the status words on the name's line and the card bill's words on the second. */
-function Tags({ t, explained, onStatement, phone, only }: { t: ListedRow; phone?: boolean; only?: "status" | "bill" } & StatementProps) {
-  const company = !phone && t.industry ? [t.industry.companyName, t.industry.businessId, t.industry.label].filter(Boolean).join(", ") : null;
-  const status = only !== "bill";
-  const bill = only !== "status" && cardBill(t);
+/** The quiet tags of a row: what the bank or the app says of it, in words, never by colour alone. "käsin" is the dot on the category chip, so it is not here. */
+function Tags({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
+  const company = t.industry ? [t.industry.companyName, t.industry.businessId, t.industry.label].filter(Boolean).join(", ") : null;
   return (
     <>
-      {status && t.status === "pending" && <span className="tx-tag warn">varaus</span>}
-      {status && t.isTransfer && <span className="tx-tag">oma siirto</span>}
-      {status && t.categorySource === "match" && (
+      {t.status === "pending" && <span className="tx-tag warn">varaus</span>}
+      {t.isTransfer && <span className="tx-tag">oma siirto</span>}
+      {t.categorySource === "match" && (
         <span className="tx-tag" title="Palautus aiemmasta maksusta. Se pienentää menoja eikä ole tuloa.">
           palautus
         </span>
       )}
-      {status && company && (
+      {company && (
         <span className="tx-tag" title={company}>
           YTJ
         </span>
       )}
-      {bill && <span className="tx-tag">{explained ? `ostoja eritelty ${money(explained)}` : CARD_BILL_LABEL}</span>}
-      {bill && t.own && onStatement && (
-        <button className="tx-tag tx-tag-act" type="button" aria-label={`Erittele ostot: ${t.merchant}`} onClick={() => onStatement(t)}>
-          Erittele ostot
-        </button>
-      )}
+      {cardBill(t) && <span className="tx-tag">{explained ? `ostoja eritelty ${money(explained)}` : CARD_BILL_LABEL}</span>}
     </>
   );
 }
@@ -125,138 +112,61 @@ export interface RowProps extends StatementProps {
   note?: string;
   look?: AccountLook;
   account: string;
-  open?: boolean;
-  onToggle?: (id: string) => void;
 }
 
-/** The row's figure; a part that is not nothing opens what it is cut from. */
+/** The row's figure is plain text; its basis belongs to the opened detail. */
 function Amount({ t }: { t: ListedRow }) {
-  const cents = shownCents(t);
-  const text = signed(cents);
+  return <span className={`tx-amount${t.amountCents > 0 ? " in" : ""}`}>{signed(shownCents(t))}</span>;
+}
+
+/** The bank's amount under the viewer's part; the way to name the payer is in the detail. */
+function Part({ t }: { t: ListedRow }) {
+  const whole = wholeOfRow(t);
+  return <>{whole && <span className="tx-part">{whole}</span>}{ownerLink(t) && <span className="tx-part">jako kertomatta</span>}</>;
+}
+
+/** The payee's mark and name, the quiet tags and what the build's extensions mark; the bank's own text is the line under them. */
+function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
+  const text = bankText(t);
   return (
-    <span className={`tx-amount${t.amountCents > 0 ? " in" : ""}`}>
-      {wholeOfRow(t) && cents !== 0 ? (
-        <Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate.slice(0, 10), to: t.bookingDate.slice(0, 10) }} scope="own" row={t.id} account={t.accountId} text={text}>
+    <span className="tx-who">
+      <span className="tx-line">
+        <PayeeMark name={t.merchant} person={isPerson(t)} />
+        <span className="tx-name">{t.merchant}</span>
+        <Tags t={t} explained={explained} />
+        <ExtensionRowParts row={t} mark />
+      </span>
+      {text && (
+        <span className="sub tx-text" title={text}>
           {text}
-        </Why>
-      ) : (
-        text
+        </span>
       )}
     </span>
   );
 }
 
-/** A joint account's row: the bank's amount under the viewer's part, or the way to say who paid it. */
-function Part({ t }: { t: ListedRow }) {
-  const whole = wholeOfRow(t);
+/** What the opened row holds: the category picker, the way to the payee's rows, the card bill's statement, and the payee's months. */
+function Detail({ t, categories, pending, onCategory, onStatement, note, scope }: RowProps & { scope: Scope }) {
   const owner = ownerLink(t);
+  const text = signed(shownCents(t));
   return (
-    <>
-      {whole && <span className="tx-part">{whole}</span>}
-      {owner && (
-        <a className="tx-part" href={owner}>
-          Kenen?
+    <div className="tx-detail">
+      <div className="tx-detail-acts">
+        <CategoryChip categories={categories} value={t.category} pending={pending} merchant={t.merchant} note={note} manual={t.categorySource === "user"} onPick={t.own ? (c) => onCategory(t.id, c) : undefined} />
+        <a className="btn btn-small" href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>
+          Kaikki: {t.merchant}
         </a>
-      )}
-    </>
-  );
-}
-
-const Chevron = ({ open, merchant, onToggle, id }: { open?: boolean; merchant: string; onToggle?: (id: string) => void; id: string }) =>
-  onToggle ? (
-    <button type="button" className="tx-open" aria-expanded={!!open} aria-label={`${open ? "Sulje" : "Avaa"} ${merchant}: 12 kuukautta`} onClick={() => onToggle(id)}>
-      <svg viewBox="0 0 12 12" aria-hidden="true">
-        <path d="M3 4.5 6 7.5 9 4.5" />
-      </svg>
-    </button>
-  ) : null;
-
-const Payee = ({ t }: { t: ListedRow }) => (
-  <>
-    <PayeeMark name={t.merchant} person={isPerson(t)} />
-    <a className="tx-name" href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>
-      {t.merchant}
-    </a>
-  </>
-);
-
-const Chip = ({ t, categories, pending, note, onCategory }: Pick<RowProps, "t" | "categories" | "pending" | "note" | "onCategory">) => (
-  <CategoryChip categories={categories} value={t.category} pending={pending} merchant={t.merchant} note={note} manual={t.categorySource === "user"} onPick={t.own ? (c) => onCategory(t.id, c) : undefined} />
-);
-
-/**
- * A wide row on one line: the payee and its tags, then the bank's own text cut by the cell. The day is its group's row
- * above it; `max` is the day's largest listed amount, which the bar under the figure is drawn against. What the build's
- * extensions add stands under the line.
- */
-export const TxRow = memo(function TxRow({ t, categories, pending, onCategory, note, look, account, explained, onStatement, open, onToggle, max }: RowProps & { max?: number }) {
-  const text = bankText(t);
-  const share = !t.isTransfer && max ? barShare(Math.abs(shownCents(t)), max) : 0;
-  return (
-    <tr className={open ? "tx-opened" : undefined}>
-      <td className="tx-who">
-        <div className="tx-line">
-          <Payee t={t} />
-          {/* a tablet has no account column: the mark stands on the payee's line */}
-          <span className="tx-line-acct">
-            <AccountMark look={look} fallback={account} />
-          </span>
-          <Tags t={t} explained={explained} onStatement={onStatement} />
-          <ExtensionRowParts row={t} mark />
-          {text && (
-            <span className="tx-text" title={text}>
-              {text}
-            </span>
-          )}
-        </div>
-        <ExtensionRowParts row={t} />
-      </td>
-      <td className="tx-account">
-        <AccountMark look={look} fallback={account} />
-      </td>
-      <td className="tx-category">
-        <Chip t={t} categories={categories} pending={pending} note={note} onCategory={onCategory} />
-      </td>
-      <td className="num tx-sum">
-        <Amount t={t} />
-        {share > 0 && (
-          <span className={`tx-bar${t.amountCents > 0 ? " in" : ""}`} aria-hidden="true">
-            <span style={{ inlineSize: `${(share * 100).toFixed(1)}%` }} />
-          </span>
+        {cardBill(t) && t.own && onStatement && <button className="btn btn-small" type="button" aria-label={`Erittele ostot: ${t.merchant}`} onClick={() => onStatement(t)}>Erittele ostot</button>}
+        {owner && <a className="btn btn-small" href={owner}>Kenen?</a>}
+        {wholeOfRow(t) && shownCents(t) !== 0 && (
+          <span>Osuutesi: <Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate, to: t.bookingDate }} scope="own" row={t.id} account={t.accountId} text={text}>{text}</Why></span>
         )}
-        <Part t={t} />
-      </td>
-      <td className="tx-drillcell">
-        <Chevron open={open} merchant={t.merchant} onToggle={onToggle} id={t.id} />
-      </td>
-    </tr>
-  );
-});
-
-/** A phone row as a card of two lines: the mark, the payee and the amount, then the category chip, the account and the tags. */
-export const TxItem = memo(function TxItem({ t, categories, pending, onCategory, note, look, account, explained, onStatement, open, onToggle, scope }: RowProps & { scope?: Scope }) {
-  return (
-    <li className={`tx-item${open ? " tx-opened" : ""}`}>
-      <div className="tx-main">
-        <span className="tx-line">
-          <Payee t={t} />
-          <Tags t={t} phone only="status" />
-        </span>
-        <Amount t={t} />
-      </div>
-      <div className="tx-cat">
-        <Chip t={t} categories={categories} pending={pending} note={note} onCategory={onCategory} />
-        <AccountMark look={look} fallback={account} />
-        <Tags t={t} explained={explained} onStatement={onStatement} phone only="bill" />
-        <Part t={t} />
-        <ExtensionRowParts row={t} mark />
-        <Chevron open={open} merchant={t.merchant} onToggle={onToggle} id={t.id} />
       </div>
       <ExtensionRowParts row={t} />
-      {open && <MerchantDrill merchant={t.merchant} scope={scope ?? "own"} />}
-    </li>
+      <MerchantDrill merchant={t.merchant} scope={scope} />
+    </div>
   );
-});
+}
 
 /** A day's sums in its group row: what went out and what came in, own transfers left out; nothing for a day of transfers only. */
 export function DaySums({ sum }: { sum: DaySum | undefined }) {
@@ -272,101 +182,73 @@ export function DaySums({ sum }: { sum: DaySum | undefined }) {
 /** The day's largest listed amount, own transfers left out: the length the bars of its rows are drawn against. */
 const dayMax = (items: ListedRow[]): number => (items.length > 1 ? Math.max(0, ...items.filter((t) => !t.isTransfer).map((t) => Math.abs(shownCents(t)))) : 0);
 
-/** The phone list: a day header with the day's sums, then its rows as cards. */
-export function TxCards({ items, today, daySums, rowProps, scope }: { items: ListedRow[]; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope }) {
-  return (
-    <>
-      {byDay(items).map((d) => (
-        <div key={d.day} className="tx-day">
-          <div className="tx-day-head">
-            <h3>{dayHeading(d.day, today)}</h3>
-            <DaySums sum={daySums.get(d.day)} />
-          </div>
-          <ul>
-            {d.items.map((t) => (
-              <TxItem key={t.id} {...rowProps(t)} scope={scope} />
-            ))}
-          </ul>
-        </div>
-      ))}
-    </>
-  );
-}
-
-type SortKey = "payee" | "amount";
-/** A press sorts a column (the payee from A, the amount largest first), a second press turns it, a third gives back the bank's order. */
-const TEXT_KEYS: SortKey[] = ["payee"];
-
-/** What a column sorts by: the payee's name, or the size of the amount whichever way it went. */
-const sortValue = (key: SortKey) => (t: ListedRow) => (key === "payee" ? t.merchant : Math.abs(t.amountCents));
-
 /**
- * The wide table: a day is a group, its row says the day, how many rows it has in the filter and what they add up to
- * (the server's), and the bars of its amounts are drawn against its largest. The rows stay newest first as the server
- * sends them; a sorted column orders the rows inside each day, and the days stay in their order. An opened row shows
- * its payee's twelve months under it.
+ * The list: a day is a group, its row says the day, how many rows it has in the filter and what they add up to (the
+ * server's), and the bars of its amounts are drawn against its largest. The rows stay newest first as the server sends
+ * them. An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, today, density, daySums, rowProps, scope }: { items: ListedRow[]; today: string; density: Density; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope }) {
-  const [sort, setSort] = useState<Sort<SortKey>>(null);
-  const dirOf = (key: SortKey) => (sort?.key === key ? sort.dir : null);
-  return (
-    <RichTable density={density} className="tx-table" label="Tapahtumat">
-      <thead>
-        <tr>
-          <SortHead label="Saaja tai maksaja" dir={dirOf("payee")} onSort={() => setSort((s) => nextSort(s, "payee", TEXT_KEYS))} />
-          <th scope="col" className="tx-account">
-            Tili
-          </th>
-          <th scope="col" className="tx-category">
-            Kategoria
-          </th>
-          <SortHead label="Summa" numeric dir={dirOf("amount")} onSort={() => setSort((s) => nextSort(s, "amount", TEXT_KEYS))} />
-          <th scope="col" className="tx-drillcell">
-            <span className="sr-only">Avaa</span>
-          </th>
-        </tr>
-      </thead>
-      {byDay(items).map((d) => {
-        const sum = daySums.get(d.day);
-        const max = dayMax(d.items);
-        const rows = sort ? sortRows(d.items, sortValue(sort.key), sort.dir) : d.items;
+export function TxTable({ items, today, daySums, rowProps, scope, open, onOpen }: { items: ListedRow[]; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void }) {
+  const days = byDay(items);
+  const maxOf = new Map(days.flatMap((d) => d.items.map((t) => [t.id, dayMax(d.items)] as const)));
+  const columns: Column<ListedRow>[] = [
+    { key: "who", label: "Saaja tai maksaja", kind: "text", rowHead: true, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
+    { key: "account", label: "Tili", kind: "text", className: () => "tx-account", headClass: "tx-account", cell: (t) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> },
+    { key: "category", label: "Kategoria", kind: "text", className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
+    {
+      key: "amount",
+      label: "Summa",
+      kind: "money",
+      main: true,
+      cell: (t) => {
+        const share = !t.isTransfer && maxOf.get(t.id) ? barShare(Math.abs(shownCents(t)), maxOf.get(t.id)!) : 0;
         return (
-          <tbody key={d.day}>
-            <tr className="rt-group">
-              <th scope="rowgroup" colSpan={3}>
-                {dayHeading(d.day, today)}
-                <span className="rt-group-count">{plural(sum?.count ?? d.items.length, "tapahtuma", "tapahtumaa")}</span>
-              </th>
-              <td className="num" colSpan={2}>
-                <DaySums sum={sum} />
-              </td>
-            </tr>
-            {rows.map((t) => {
-              const p = rowProps(t);
-              return (
-                <Fragment key={t.id}>
-                  <TxRow {...p} max={max} />
-                  {p.open && (
-                    <tr className="tx-drill">
-                      <td colSpan={5}>
-                        <MerchantDrill merchant={t.merchant} scope={scope} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
+          <>
+            <Amount t={t} />
+            <Part t={t} />
+            {share > 0 && (
+              <span className={`tx-bar${t.amountCents > 0 ? " in" : ""}`} aria-hidden="true">
+                <span style={{ inlineSize: `${(share * 100).toFixed(1)}%` }} />
+              </span>
+            )}
+          </>
         );
+      },
+    },
+  ];
+  return (
+    <Table<ListedRow>
+      caption="Tapahtumat"
+      className="tx-table"
+      rows={items}
+      rowKey={(t) => t.id}
+      columns={columns}
+      groups={days.map((d) => {
+        const sum = daySums.get(d.day);
+        return {
+          key: d.day,
+          title: (
+            <>
+              {dayHeading(d.day, today)}
+              <span className="rt-group-count">{plural(sum?.count ?? d.items.length, "tapahtuma", "tapahtumaa")}</span>
+            </>
+          ),
+          figure: <DaySums sum={sum} />,
+          figureSpan: 2,
+          rows: d.items,
+        };
       })}
-    </RichTable>
+      open={open}
+      onOpen={onOpen}
+      drill={(t) => <Detail {...rowProps(t)} scope={scope} />}
+      drillLabel={(t) => `Avaa ${t.merchant}: 12 kuukautta`}
+    />
   );
 }
 
-/** The table before the first answer: its head and rows at the chosen density, grey bars where the payee and the figure will stand. */
-export function RowsSkeleton({ density }: { density: Density }) {
+/** The table before the first answer: a day's row and four rows, grey bars where the payee and the figure will stand. */
+export function RowsSkeleton() {
   return (
-    <div className={`tx-skel-rows tx-skel-${density}`} role="status" aria-live="polite">
+    <div className="tx-skel-rows" role="status" aria-live="polite">
       <span className="sr-only">Ladataan…</span>
       <span className="tx-skel-group" aria-hidden="true">
         <span className="sk-bar sk-label" />

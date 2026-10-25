@@ -35,6 +35,11 @@ interface ServerExtension {
   readonly feature: FeatureDef;
   /** Mounted at /api/<id> behind its flag. */
   routes(s: Services): Hono<AppEnv>;
+  /**
+   * True when every GET under /api/<id> writes nothing, so a service token may read them all (service-tokens.ts). Left
+   * out, its routes stay shut to tokens, like a shared route READABLE does not name.
+   */
+  readonly tokenReads?: boolean;
   /** A folder of NNNN_name.sql files numbered 9001 to 9899 (9900 on are the CI drills'), each additive with a compat floor. */
   readonly migrationsDir?: string;
   /** Its tables the household's export holds: how each is written and how an import reads it back. */
@@ -49,6 +54,13 @@ interface ServerExtension {
   demo?(s: Services, userId: string, today: string): Promise<void>;
   /** Removes its demo rows with the shared ones (DELETE /api/demo), whatever its flag says, so none stay behind. */
   removeDemo?(s: Services, userId: string): Promise<void>;
+  /**
+   * A command of the CLI under its id (`node dist/node.js <id> ...`, cli.ts): the arguments after the id in, the lines to
+   * print and the exit code out. The shared CLI prints them, so what the extension keeps out of its own logs stays out.
+   */
+  cli?(s: Services, args: string[]): Promise<{ code: number; lines: string[] }>;
+  /** Its commands as the usage line names them, e.g. "<id> parse | <id> diagnose". */
+  readonly cliUsage?: string;
   /** Called by the hourly tick while its flag is on. A failure is logged and ends nothing else. */
   hourly?(s: Services): Promise<void>;
   /**

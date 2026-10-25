@@ -49,7 +49,7 @@ export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, lo
   }
 }
 
-/** Yli jäi of one row: what it adds to income + borrowed − expenses − saved. The sum over rows is `PeriodTotals.leftCents`. */
+/** Tulos of one row: what it adds to income + borrowed − expenses − saved. The sum over rows is `PeriodTotals.leftCents`. */
 export const leftOf = (f: Flows): number => f.income + f.borrowed - f.consumption - f.debt - f.saved;
 
 export interface PeriodTotals {
@@ -63,7 +63,7 @@ export interface PeriodTotals {
   /** income − expenses: what was left over (part of it may sit in savings). */
   netCents: number;
   /**
-   * Yli jäi: income + borrowed − expenses − saved, what stayed on the accounts (ADR 0014). Negative when the accounts
+   * Tulos: income + borrowed − expenses − saved, what stayed on the accounts (ADR 0014). Negative when the accounts
    * were drawn on. Credit drawn is money in the account without being income, so it is in this sum and in no other.
    */
   leftCents: number;

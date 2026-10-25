@@ -8,7 +8,7 @@ import { date, money, plural } from "../format.ts";
 import { navigate } from "../hooks.ts";
 import { RULES_ANCHOR } from "../routes.ts";
 import type { Meta, Scope } from "../types.ts";
-import { type Column, DataTable } from "../components/table/DataTable.tsx";
+import { type Column, Table } from "../components/table/Table.tsx";
 import { Rules } from "./Rules.tsx";
 import "../styles/categories.css";
 
@@ -118,7 +118,9 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
       key: "merchant",
       label: "Kauppias",
       kind: "text",
+      rowHead: true,
       className: () => "m-name",
+      sort: (m) => m.merchant,
       cell: (m) => (
         <>
           {/* the rows open for the period the figures add up */}
@@ -170,17 +172,15 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
       key: "count",
       label: "Tapahtumia",
       kind: "count",
-      cell: (m) => (
-        <>
-          <span className="hide-phone">{m.count}</span>
-          <span className="phone-only">{plural(m.count, "tapahtuma", "tapahtumaa")}</span>
-        </>
-      ),
+      sort: (m) => m.count,
+      cell: (m) => m.count,
     },
     {
       key: "total",
       label: "Yhteensä",
       kind: "money",
+      main: true,
+      sort: (m) => m.totalCents || m.inCents,
       cell: (m) => (m.totalCents || !m.inCents ? money(m.totalCents) : `+${money(m.inCents)}`),
     },
     {
@@ -188,17 +188,10 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
       label: "Kuussa",
       kind: "money",
       /* money in has no monthly figure here: a salary payer shows a dash */
-      cell: (m) =>
-        m.monthlyCents ? (
-          <>
-            <span className="hide-phone">{money(m.monthlyCents, false)}</span>
-            <span className="phone-only">{money(m.monthlyCents, false)} kuussa</span>
-          </>
-        ) : (
-          <span className="hide-phone">–</span>
-        ),
+      sort: (m) => m.monthlyCents ?? null,
+      cell: (m) => (m.monthlyCents ? money(m.monthlyCents, false) : "–"),
     },
-    { key: "last", label: "Viimeksi", kind: "date", className: () => "m-last", cell: (m) => date(m.lastDate) },
+    { key: "last", label: "Viimeksi", kind: "date", className: () => "m-last", sort: (m) => m.lastDate, cell: (m) => date(m.lastDate) },
   ];
   const narrowed = !!(q || category || from || to || habit);
   return (
@@ -232,22 +225,19 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
             Muutettu {plural(changed, "tapahtuma", "tapahtumaa")}.
           </div>
         )}
-        <div className="table-wrap">
-          {/* the server sends the merchants largest money out first and an edit keeps the rows where they are: a ranking, so `ranked`.
-              A row that shows only money in (`unranked`) is not in that ranking and carries no number. */}
-          <DataTable
-            id="merchants"
-            caption="Kauppiaat"
-            rows={items ?? []}
-            rowKey={(m) => m.merchant}
-            className="merchant-table ranked"
-            phone="none"
-            rowClassName={(m) => (!m.totalCents && m.inCents ? "unranked" : undefined)}
-            columns={columns}
-          />
-          {items && !items.length && <div className="empty">{narrowed ? "Ei kauppiaita näillä rajauksilla." : "Ei vielä kauppiaita."}</div>}
-          {!items && !loadError && <div className="empty">Ladataan…</div>}
-        </div>
+        {/* the server sends the merchants largest money out first and an edit keeps the rows where they are: a ranking, so `ranked`.
+            A row that shows only money in (`unranked`) is not in that ranking and carries no number. */}
+        <Table
+          caption="Kauppiaat"
+          rows={items ?? []}
+          rowKey={(m) => m.merchant}
+          page={50}
+          className="merchant-table ranked"
+          rowClassName={(m) => (!m.totalCents && m.inCents ? "unranked" : undefined)}
+          columns={columns}
+        />
+        {items && !items.length && <div className="empty">{narrowed ? "Ei kauppiaita näillä rajauksilla." : "Ei vielä kauppiaita."}</div>}
+        {!items && !loadError && <div className="empty">Ladataan…</div>}
         {items && items.length >= LIMIT && <div className="small muted">Näytetään {LIMIT} suurinta. Rajaa hakua.</div>}
       </div>
       <Rules meta={meta} />

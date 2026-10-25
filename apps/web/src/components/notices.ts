@@ -2,6 +2,7 @@
 import { type Insight, insightDismissSubject, type MarkKind, OVERVIEW_INSIGHTS } from "@banking/core";
 import { query } from "../api.ts";
 import { SETTINGS_ANCHOR } from "../routes.ts";
+import { dayTime } from "../format.ts";
 import { partAnchor } from "../part.ts";
 import type { Account, DashboardData } from "../types.ts";
 
@@ -30,7 +31,7 @@ interface Answer {
 export interface Notice {
   /** What `answered` holds for the row: the alert's or the insight's own id, and the security notice's. */
   id: string;
-  kind: "security" | "quality" | "account" | "alert" | "insight";
+  kind: "security" | "quality" | "connect" | "account" | "alert" | "insight";
   title: string;
   detail: string;
   /** "Huomio", "Tiedoksi" or "Hyvä", read before the title. */
@@ -63,10 +64,10 @@ export const bannersOf = (notices: readonly SecurityNotice[]): SecurityNotice[] 
 /** Notices about copies, the disk and the host helper: their text sends the admin to Asetukset > Ylläpito (the server's db-health.ts). */
 const MAINTENANCE = new Set(["copy_missing", "copy_check_failed", "disk_low", "helper_silent"]);
 
-const dismiss = (title: string, send: Send): Answer => ({ label: "Kuittaa", name: `Kuittaa: ${title}`, send });
+/** Where a card or an account is connected: Pankkiyhteydet opens its bank list. */
+const CONNECT_HREF = "#/settings?add=1";
 
-/** "12.10. klo 15.30" in the viewer's own time. */
-const dayTime = (iso: string): string => new Date(iso).toLocaleString("fi-FI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+const dismiss = (title: string, send: Send): Answer => ({ label: "Kuittaa", name: `Kuittaa: ${title}`, send });
 
 /**
  * A notice of the server is one row that leads where the banner led, and Kuittaa reads them all, as the banner's button
@@ -142,7 +143,7 @@ function insightNotice(i: Insight): Notice {
 }
 
 /**
- * The rows in one order: the notices of the server (a new sign-in first), the data-quality warning, the notices of an
+ * The rows in one order: the notices of the server (a new sign-in first), the data-quality warning, the card or account to connect, the notices of an
  * account's split (those the member has not closed with a mark), the alerts in core's
  * order (six at most), the insights (three at most, and only while Säästövinkit is switched off: with it on, Muut havainnot
  * tells them; one that only tells good news is no row). What the household has answered is left out before the cut, so
@@ -150,7 +151,7 @@ function insightNotice(i: Insight): Notice {
  * counts them. No row is no list.
  */
 export function noticesOf(
-  data: Pick<DashboardData, "dataNotice" | "alerts" | "insights">,
+  data: Pick<DashboardData, "dataNotice" | "connectNotice" | "alerts" | "insights">,
   options: {
     range: { from: string; to: string };
     answered: ReadonlySet<string>;
@@ -167,10 +168,14 @@ export function noticesOf(
   const quality: Notice[] = data.dataNotice
     ? [{ id: data.dataNotice.id, kind: "quality", title: data.dataNotice.title, detail: data.dataNotice.detail, read: READ.warning, warning: true, href: `#/settings#${SETTINGS_ANCHOR.quality}`, answers: [] }]
     : [];
+  // no Kuittaa: the row goes when the card is connected
+  const connect: Notice[] = data.connectNotice
+    ? [{ id: "connect", kind: "connect", title: data.connectNotice.title, detail: data.connectNotice.detail, read: READ.warning, warning: true, href: CONNECT_HREF, link: "Yhdistä", answers: [] }]
+    : [];
   const alerts = data.alerts.filter((a) => !answered.has(a.id)).slice(0, MAX_ALERTS);
   const insights = options.insights ? data.insights.filter((i) => i.tone !== "good" && !answered.has(i.id)).slice(0, OVERVIEW_INSIGHTS) : [];
   const split = accountNotices(options.accounts ?? []).filter((n) => !answered.has(n.id) && !options.marked?.has(n.id));
-  const all = [...security.map(securityNotice), ...quality, ...split, ...alerts.map((a) => alertNotice(a, range)), ...insights.map(insightNotice)];
+  const all = [...security.map(securityNotice), ...quality, ...connect, ...split, ...alerts.map((a) => alertNotice(a, range)), ...insights.map(insightNotice)];
   return { rows: all.slice(0, MAX_ROWS), total: all.length };
 }
 

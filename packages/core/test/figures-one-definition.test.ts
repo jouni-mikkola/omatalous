@@ -89,7 +89,7 @@ describe("credit drawn is the net of the window and never below zero", () => {
     const ctx = ctxOf([...base, draw("2026-07-12", 80000), draw("2026-08-12", -50000), draw("2026-09-12", 20000)]);
     const rows = cashflowReport(ctx, { from: "2026-07-01", to: "2026-09-30" }).rows;
     expect(rows.map((r) => r.borrowedCents)).toEqual([80000, 0, 20000]);
-    // the row's money stays whole: the repayment is still in Yli jäi
+    // the row's money stays whole: the repayment is still in Tulos
     expect(rows[1]!.leftCents).toBe(300000 - 105000 - 30000 - 50000);
   });
 

@@ -4,7 +4,7 @@
 # Takes the base's pictures in a throwaway worktree (installed offline from the store, built by pnpm shots), the
 # working tree's in this clone, both with SHOTS_STILL=1, then runs tools/shots-diff.mjs. Exit 1 when a picture changed
 # over the threshold (default 0.2 % of its pixels), 2 when a step could not run. The pictures and the diff pictures stay
-# in /tmp/claude-0/visual/<base>-<time>/ and the last line names it.
+# in $TMPDIR/visual/<base>-<time>/ (/tmp/visual when TMPDIR is not set) and the last line names it.
 set -euo pipefail
 
 usage() { echo "usage: tools/visual-check.sh <base-ref> [--threshold share] -- <pnpm shots arguments>" >&2; exit 2; }
@@ -24,7 +24,7 @@ shift
 
 root=$(git rev-parse --show-toplevel)
 commit=$(git -C "$root" rev-parse --verify --quiet "$base^{commit}") || { echo "visual-check: no commit $base" >&2; exit 2; }
-work=/tmp/claude-0/visual/$(git -C "$root" rev-parse --short "$commit")-$(date +%s)
+work=${TMPDIR:-/tmp}/visual/$(git -C "$root" rev-parse --short "$commit")-$(date +%s)
 mkdir -p "$work"
 tree="$work/base"
 # shellcheck disable=SC2317 # run by the EXIT trap

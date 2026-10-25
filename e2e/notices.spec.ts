@@ -17,7 +17,7 @@ const alertOf = (n: number, detail = "Selitys") => ({ id: `extra:${n}`, kind: "s
 async function withWarning(page: Page, alerts?: object[]): Promise<void> {
   await page.route("**/api/dashboard**", async (route) => {
     const answer = await route.fetch();
-    await route.fulfill({ response: answer, json: { ...(await answer.json()), dataNotice: WARNING, ...(alerts ? { alerts } : {}) } });
+    await route.fulfill({ response: answer, json: { ...(await answer.json()), dataNotice: WARNING, connectNotice: null, ...(alerts ? { alerts } : {}) } });
   });
 }
 
@@ -189,7 +189,8 @@ test("a payment without a category is one line with Luokittele beside Kuittaa, a
     await expect(page).toHaveURL(/#\/transactions\?/);
     const filters = new URLSearchParams(page.url().split("?")[1]);
     expect(Object.fromEntries(filters)).toEqual({ merchant: paid.merchant, from: paid.bookingDate, to: paid.bookingDate });
-    // and there the payment gets its category: Auton osto can be picked for any row
+    // and there the payment gets its category from the opened row: Auton osto can be picked for any row
+    await page.getByRole("button", { name: `Avaa ${paid.merchant}: 12 kuukautta` }).first().click();
     await page.getByRole("button", { name: `Kategoria: ${paid.merchant}, nyt Ruokakauppa` }).first().click();
     await page.getByRole("dialog", { name: `Kategoria: ${paid.merchant}` }).getByRole("option", { name: "Auton osto" }).click();
     await expect(page.getByRole("status").filter({ hasText: /siirrettiin kategoriaan/ })).toBeVisible();

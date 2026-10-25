@@ -10,7 +10,7 @@ import { monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { Account } from "../../types.ts";
-import { annualise, findingId, GATE_YEARLY_CENTS, netCost, rowsById } from "../common.ts";
+import { annualise, findingId, WHY_FACTS, GATE_YEARLY_CENTS, netCost, rowsById } from "../common.ts";
 import { type Fact, factOn } from "../facts/index.ts";
 import type { Area, AreaInput, AreaSummary, CalcLine, Check, FindingDraft } from "../types.ts";
 import { isCardText, isNordeaAccount } from "../../wording.ts";
@@ -221,7 +221,7 @@ export const bank: Area = {
     const hasFee = a.ctx.recurring.some(isMonthlyFee);
     const hasLate = !!w && a.ctx.txs.some((t) => w.months.has(monthOf(t.bookingDate)) && isLateFee(t) && netCost(t) > 0);
     const checks: Check[] = [
-      { id: "bank:card_tier", label: "Kortin hintataso", status: !list ? "no_data" : hasFee ? "clear" : "no_subject" },
+      { id: "bank:card_tier", label: "Kortin hintataso", status: !list ? "no_data" : hasFee ? "clear" : "no_subject", ...(!list ? { why: WHY_FACTS } : {}) },
       { id: "bank:late_fees", label: "Myöhästymiskulut", status: hasLate ? "clear" : "no_subject" },
     ];
     const summary = feeSummary(a, w);

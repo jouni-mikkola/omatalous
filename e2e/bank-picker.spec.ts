@@ -163,7 +163,7 @@ test("a renewal starts the bank it finds by name, and opens the picker for a ban
 // and a square mark. The server's side of a logo is in apps/server/test/bank-logos.test.ts.
 const WIDE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48"><rect width="48" height="48" rx="10" fill="#0b4a8f"/><rect x="62" y="5" width="178" height="15" rx="4" fill="#0b4a8f"/><rect x="62" y="28" width="118" height="15" rx="4" fill="#0b4a8f"/></svg>';
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><circle cx="48" cy="48" r="48" fill="#a3261d"/><circle cx="48" cy="48" r="20" fill="#fff"/></svg>';
-/** Set by a run that wants pictures of the page: SHOTS_DIR=/tmp/claude-0/shots pnpm e2e e2e/app.spec.ts e2e/bank-picker.spec.ts */
+/** Set by a run that wants pictures of the page: SHOTS_DIR=$TMPDIR/shots pnpm e2e e2e/app.spec.ts e2e/bank-picker.spec.ts */
 const SHOTS = process.env.SHOTS_DIR;
 
 test("served logos: a wide wordmark and a square mark fit the plate at 1366 and 390 px, and the name stays where the picture fails", async ({ browser }) => {

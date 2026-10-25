@@ -1,7 +1,7 @@
 /*
  * The statement look of Yhteenveto: the classes every block of the page shares, so a block adds rows, not a style.
  * A block is one `.card.st-block`: a head, then parts across the card (`.st-part`) and groups in columns (`.st-cols`);
- * its lines are `.st-rows` and its tables `.st-table`. Two weights (400 and 600), figures right-aligned in tabular
+ * its lines are `.st-rows`. Two weights (400 and 600), figures right-aligned in tabular
  * numerals, hairlines between rows, no colour on a sum.
  */
 
@@ -24,24 +24,6 @@
 /* h3 of a group */
 .st-cap { margin: 0 0 4px; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text); }
 .st-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }
-
-/*
- * A table of a block. A head is the label of the figures under it, in 12 px; a row is as tall as `.st-row`; a column of
- * figures is `.st-num`. The cells have no padding at the table's edges, so the first and the last column stand on the
- * edges of the rows above and below the table.
- */
-.st-table { font-size: var(--fs-body); line-height: 18px; }
-.st-table :is(th, td) { padding: var(--cell-y) 0; border-bottom: 1px solid var(--grid); vertical-align: top; text-align: left; font-weight: 400; }
-.st-table :is(th, td) + :is(th, td) { padding-left: 16px; }
-/* an empty cell of the head keeps the head's rule */
-.st-table thead tr > :is(th, td) { padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--axis); font-weight: 600; vertical-align: bottom; font-size: var(--fs-label); line-height: 16px; color: var(--text-2); }
-.st-table tbody th { font-size: inherit; color: inherit; white-space: normal; }
-.st-table tbody tr:last-child > * { border-bottom: 0; }
-.st-table .st-num { text-align: right; }
-.st-table .st-strong { font-weight: 600; }
-.st-table .st-sub { display: block; }
-/* a name that is cut where the column ends; the whole name goes in `title` */
-.st-table .st-cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* a part of a block across the card, under a rule that runs to the card's edges */
 .st-part { margin: 0 calc(-1 * var(--pad)); padding: 16px var(--pad) 16px; border-top: 1px solid var(--border); }

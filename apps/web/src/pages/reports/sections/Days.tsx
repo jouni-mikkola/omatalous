@@ -1,5 +1,5 @@
 // Decision: which days and weekdays the money goes on, and whether a big day was a one-off
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { CalendarHeat } from "../../../charts/CalendarHeat.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { dayHeading, money } from "../../../format.ts";
@@ -38,8 +38,7 @@ const span = (days: number) => (days % 7 === 0 ? `${days / 7} viikon` : `${days}
 function DaysTable({ r, today }: { r: SectionProps["ctx"]["data"]["days"]; today: string }) {
   return (
     <>
-      <DataTable
-        id="paivat-viikonpaiva"
+      <Table
         caption="Menot viikonpäivittäin, keskimäärin"
         rows={WEEKDAYS.map((w, i) => ({ day: w, cents: r.weekdayAvgCents[i] ?? null }))}
         rowKey={(x) => x.day}
@@ -48,9 +47,9 @@ function DaysTable({ r, today }: { r: SectionProps["ctx"]["data"]["days"]; today
           { key: "avg", label: "Keskimäärin", kind: "money", main: true, cell: (x) => (x.cents === null ? "" : money(x.cents, false)) },
         ]}
       />
-      <DataTable
-        id="paivat-paivat"
+      <Table
         caption="Menot päivittäin"
+        page={31}
         rows={r.days.filter((d) => d.count > 0).reverse()}
         rowKey={(d) => d.date}
         columns={[

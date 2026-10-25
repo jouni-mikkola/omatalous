@@ -1,7 +1,7 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
 import type { LoansReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { approxText } from "../../components/Why.tsx";
 import { money, monthLong } from "../../format.ts";
 import { crisp } from "../draw.ts";
@@ -140,8 +140,7 @@ export function DebtPath({ path }: { path: Path }) {
 export function DebtPathTable({ path }: { path: Path }) {
   const rows = path.days.flatMap((_, i) => (i % 12 === 0 || i === path.days.length - 1 ? [i] : []));
   return (
-    <DataTable
-      id="velkapolku"
+    <Table
       caption="Velkapolku vuosi kerrallaan taulukkona"
       rows={rows}
       rowKey={(i) => path.days[i]!}
@@ -149,13 +148,12 @@ export function DebtPathTable({ path }: { path: Path }) {
         { key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (i) => monthLong(path.days[i]!.slice(0, 7)) },
         { key: "balance", label: "Velkaa", kind: "money", cents: (i) => path.balanceCents[i]! },
         { key: "interest", label: "Korkoa vielä", kind: "money", cents: (i) => path.interestCents[i]! },
-        { key: "tops", label: "Yhteensä", kind: "money", main: true, cell: (i) => <strong>{money(path.tops[i]!, false)}</strong>, sortValue: (i) => path.tops[i]! },
+        { key: "tops", label: "Yhteensä", kind: "money", main: true, cell: (i) => <strong>{money(path.tops[i]!, false)}</strong> },
         ...path.moves.map((m) => ({
           key: `move${m.shiftBp}`,
           label: moveName(m.shiftBp),
           kind: "money" as const,
           cell: (i: number) => approxText(money(m.tops[i]!, false), true),
-          sortValue: (i: number) => m.tops[i]!,
         })),
       ]}
     />

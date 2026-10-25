@@ -5,10 +5,14 @@
 import { builtinModules } from "node:module";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { type Finding, expectNoFindings, importsOf, lineIn, lineOf, literals, MIGHT_HOLD_SQL, parse, plainString, readText, repoFiles, SQL_START, sourceFiles, walk } from "./lib.ts";
+import { type Finding, expectNoFindings, importsOf, lineIn, lineOf, literals, MIGHT_HOLD_SQL, parse, plainString, readText, repoFiles, SQL_START, sourceFiles, specifiersOf, walk } from "./lib.ts";
 
 const SELF = "tools/repo-rules/code-rules.ts";
 const NODE_BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
+const isHostImport = (spec: string) => spec.startsWith("node:") || NODE_BUILTINS.has(spec);
+// Imports use the compiler's scanner; only possible host uses need a full tree. Unicode escapes may spell an
+// identifier, and comments may separate Math from random, so both stay candidates for the unchanged AST check.
+const mightUseHost = (text: string) => /\b(?:Date|process|performance|crypto|globalThis)\b|\\u/.test(text) || (text.includes("Math") && text.includes("random"));
 
 /** db/ and the db/ folder of the private modules (extensions.ts): the folders rule 2 lets hold SQL. */
 const IN_DB = /^apps\/server\/src\/(private\/)?db\//;
@@ -84,11 +88,12 @@ describe("repo rules: code", () => {
     const files = sourceFiles("packages/core/src/");
     expect(files.length, "the scan found core").toBeGreaterThan(25);
     for (const file of files) {
+      const importsHost = specifiersOf(file).some(isHostImport);
+      if (!importsHost && !mightUseHost(readText(file))) continue;
       const sf = parse(file);
       const add = (node: ts.Node, why: string) => found.push({ file, line: lineOf(sf, node), why });
-      for (const imp of importsOf(file)) {
-        const bare = imp.spec.replace(/^node:/, "");
-        if (imp.spec.startsWith("node:") || NODE_BUILTINS.has(bare)) add(imp.node, `imports ${imp.spec}: core must run in the browser too`);
+      if (importsHost) for (const imp of importsOf(file)) {
+        if (isHostImport(imp.spec)) add(imp.node, `imports ${imp.spec}: core must run in the browser too`);
       }
       // An identifier is a use of the global when it is not a name: not a property, not a declaration, not in a
       // type, and not a name the file declares itself (a local `process` function is its own thing).
@@ -126,6 +131,20 @@ describe("repo rules: code", () => {
       for (const id of uses) if (!declared.has(id.text)) add(id, `${id.text} ${HOST[id.text]}`);
     }
     expectNoFindings("core is pure", found, "packages/core/src is shared with the browser and tested without mocks, so it takes the time, randomness and settings as arguments. Move the call to apps/server and pass the value in.");
+  }, 90_000); // parses every source file of core: a loaded machine takes over the 20 seconds a test gets
+
+  it("rule 1's fast scan keeps every host name, builtin import and escaped spelling for the AST check", () => {
+    const hostUses = ["Date.now()", "new Date()", "Date()", "Math.random()", "Math /* reason */ . random()", "process.env", "performance.now()", "crypto.randomUUID()", "globalThis.Date", String.raw`pr\u006fcess.env`, String.raw`D\u0061te.now()`, String.raw`M\u{61}th.random()`];
+    const imports = [...NODE_BUILTINS].flatMap((name) => [
+      `import x from "${name}";`,
+      `export * from '${name}';`,
+      `const x = import("node:${name}");`,
+      `import x = require('${name}');`,
+    ]);
+    const escaped = [String.raw`import x from "\x66s"`, String.raw`import x from "\u0066s"`, 'import x from "f\\\ns";'];
+    for (const text of hostUses) expect(mightUseHost(text), text).toBe(true);
+    for (const text of [...imports, ...escaped]) expect(ts.preProcessFile(text, true, true).importedFiles.some((i) => isHostImport(i.fileName)), text).toBe(true);
+    for (const text of ["export const sum = (a: number, b: number) => a + b;", "Math.floor(2.5)", 'import type { DateRange } from "./types.ts";']) expect(mightUseHost(text), text).toBe(false);
   });
 
   it("rule 2: SQL only in apps/server/src/db/ (allowlist: services/health.ts, services/secret-rotation.ts)", () => {

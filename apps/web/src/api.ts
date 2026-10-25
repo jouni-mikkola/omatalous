@@ -1,4 +1,5 @@
 import { type Loan, notLoanMark, type PayerRole } from "@banking/core";
+import { figuresOwner, keepFigures, keptFigures, markCurrent, markKept } from "./offline.ts";
 
 export class ApiError extends Error {
   constructor(
@@ -19,8 +20,23 @@ export function setUnauthenticatedHandler(handler: () => void): void {
 /**
  * JSON API call. Always sends `X-Requested-With: fetch`, which the server
  * requires on state-changing requests (CSRF protection).
+ *
+ * A GET with `keep` leaves its answer on the device (offline.ts), and when the server cannot be reached (no connection,
+ * or a proxy's error page where the server's own JSON should be) it is answered from there, if it has been kept, and
+ * the page says since when the figures are (`useFiguresFrom`). The request for "who is signed in" is answered from
+ * there too. Any other request fails as before.
  */
-export async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
+export async function api<T>(path: string, init?: { method?: string; body?: unknown; keep?: boolean }): Promise<T> {
+  const read = (init?.method ?? "GET") === "GET";
+  const keep = read && (init?.keep || path === "/api/auth/state");
+  // the user the request is made for: an answer that comes after a logout or a change of user is not kept
+  const who = figuresOwner();
+  const unreachable = async (): Promise<T | null> => {
+    const kept = keep ? await keptFigures(path) : null;
+    if (!kept) return null;
+    markKept(path, kept.at);
+    return kept.data as T;
+  };
   let res: Response;
   try {
     res = await fetch(path, {
@@ -33,15 +49,25 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
       body: init?.body === undefined ? undefined : JSON.stringify(init.body),
     });
   } catch {
+    const kept = await unreachable();
+    if (kept) return kept;
     // the browser's own message ("Failed to fetch") is English and says nothing to the user
     throw new ApiError("Palvelimeen ei saada yhteyttä. Yritä uudelleen.", 0);
   }
   // a proxy error page or a cut response is not JSON
   const data = res.headers.get("content-type")?.includes("json") ? await res.json().catch(() => null) : null;
   if (!res.ok) {
+    if (data === null && res.status >= 500) {
+      const kept = await unreachable();
+      if (kept) return kept;
+    }
     const err = data as { error?: string; code?: string } | null;
     if (res.status === 401 && !path.startsWith("/api/auth/")) onUnauthenticated();
     throw new ApiError(err?.error ?? `${res.status} ${res.statusText}`, res.status, err?.code);
+  }
+  if (read) {
+    markCurrent(path);
+    if (init?.keep) keepFigures(path, data, who);
   }
   return data as T;
 }

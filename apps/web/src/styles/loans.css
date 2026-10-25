@@ -1,13 +1,6 @@
 /* Asetukset > Lainat: the saved loans, the box a picture or text of a loan goes into, and the form that confirms what was read. */
 
-/* the list: on a phone the lender, rate, payment and end date move under the name */
-.loans-table td .sub { max-width: none; white-space: normal; overflow: visible; }
-.loan-phone { display: none; }
 .loans-wait { visibility: hidden; }
-@media (max-width: 600px) {
-  .loans-table .loan-phone { display: block; }
-  .loans-table td, .loans-table th { padding-left: 4px; padding-right: 4px; }
-}
 
 /* the box: a dashed edge says "drop here", as file boxes do */
 .loan-box { display: flex; flex-direction: column; gap: 8px; border: 1px dashed var(--axis); border-radius: var(--radius-m); background: var(--surface); padding: 12px; }

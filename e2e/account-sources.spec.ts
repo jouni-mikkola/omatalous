@@ -1,9 +1,11 @@
 import { type Browser, expect, test } from "@playwright/test";
+import { createRequire } from "node:module";
 import { linkFakeBank, makeMember, overflow, removeMember, sayJointUse, waitForSync, watch } from "./helpers.ts";
 
 // Asetukset > Tilit under the joint account: "Tilille tullut ja lähtenyt raha kuukausittain", a column for each member and one for the rest
 // for every month with a booked row. Two members made here both link the fake bank (e2e/fake-bank/), so its joint account has
 // two users; the administrator's demo household is not touched and the members go at the end.
+const AXE = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 const NAMES = ["e2e-maksut-a", "e2e-maksut-b"] as const;
 const members: { state: string; id: string }[] = [];
 
@@ -29,8 +31,8 @@ test.afterAll(async ({ browser }) => {
   for (const member of members) await removeMember(browser, member.id);
 });
 
-async function open(browser: Browser, who: number, width: number) {
-  const context = await browser.newContext({ storageState: members[who]!.state, viewport: { width, height: 900 } });
+async function open(browser: Browser, who: number, width: number, bypassCSP = false) {
+  const context = await browser.newContext({ storageState: members[who]!.state, viewport: { width, height: 900 }, bypassCSP });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/settings");
@@ -45,7 +47,7 @@ test("the joint account has its months under its row: the newest one open, the o
   // only the joint account has the block
   await expect(heading).toHaveCount(1);
 
-  const section = tilit.locator("section.acc-src");
+  const section = tilit.locator(".acc-src");
   const months = section.locator(".acc-src-month");
   expect(await months.count()).toBeGreaterThan(2);
   await expect(section.locator("table")).toHaveCount(1);
@@ -54,8 +56,8 @@ test("the joint account has its months under its row: the newest one open, the o
 
   // a column for each member and the rest, and the four figures and the balance as rows
   const first = months.nth(0).locator("table");
-  await expect(first.locator("thead th")).toHaveCount(3);
-  await expect(first.locator("thead th").nth(2)).toHaveText("Ei tiedossa");
+  await expect(first.locator("thead th")).toHaveCount(4);
+  await expect(first.locator("thead th").nth(3)).toHaveText("Ei tiedossa");
   await expect(first.locator("tbody th")).toHaveText(["Maksettu tilille", "Menot", "Siirretty tililtä", "Omat tilisiirrot", "Saldo kuun lopussa"]);
 
   // a figure of the table links to the account's rows of the month; the balance does not
@@ -84,10 +86,32 @@ test("the member it is shared with by the other link sees the same months, and a
   await expect(heading).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   // a row is its name above its figures, each under the name of its member
-  const first = page.locator("section.acc-src .acc-src-month").nth(0).locator("table");
+  const first = page.locator(".acc-src .acc-src-month").nth(0).locator("table");
   await expect(first.locator("tbody tr").first().locator("td").first()).toHaveAttribute("data-label", /.+/);
   const widest = await first.evaluate((t) => t.getBoundingClientRect().width);
   expect(widest).toBeLessThanOrEqual(390);
   expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+// 0.69.1: every account with a joint use has this block under the same heading, so it must not be a landmark (a labelled section is a
+// region, and the second one repeats the first). The fixture gives a member one such account; the block is copied in the page to
+// stand for the second, which is what the old section failed on.
+test("the block is a group, not a landmark, so two accounts with it do not repeat a region", async ({ browser }) => {
+  const { context, page } = await open(browser, 0, 1280, true);
+  const block = page.locator("#tilit .acc-src");
+  await expect(block).toHaveCount(1);
+  await expect(block).toHaveAttribute("role", "group");
+  await page.evaluate(() => {
+    const row = document.querySelector("#tilit .acc-src")!.closest("tr")!;
+    row.after(row.cloneNode(true));
+  });
+  await expect(block).toHaveCount(2);
+  await page.addScriptTag({ path: AXE });
+  const found = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (c: Document, o: object) => Promise<{ violations: { id: string }[] }> } }).axe;
+    return (await axe.run(document, { runOnly: { type: "rule", values: ["landmark-unique"] }, resultTypes: ["violations"] })).violations.map((v) => v.id);
+  });
+  expect(found).toEqual([]);
   await context.close();
 });

@@ -6,8 +6,9 @@
 import { useEffect, useRef, useState } from "react";
 import { api, setUnauthenticatedHandler } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
-import { date } from "./format.ts";
+import { date, dateTime, setTimeZone } from "./format.ts";
 import { MetaContext, navigate, useApi, useHashRoute } from "./hooks.ts";
+import { figuresTicket, forgetFigures, holdFiguresFor, markAllCurrent, useFiguresFrom } from "./offline.ts";
 import { lineText } from "./open-sync.ts";
 import { extensionPages, REVIEW, SETTINGS, visibleNav } from "./nav.ts";
 import { EmptyStart } from "./components/EmptyStart.tsx";
@@ -23,34 +24,47 @@ import { Review } from "./pages/Review.tsx";
 import type { ReviewAnswer } from "./pages/review-items.ts";
 import { Settings } from "./pages/Settings.tsx";
 import { Transactions } from "./pages/Transactions.tsx";
-import { Wizard } from "./pages/Wizard.tsx";
+import { firstRunWizard } from "./pages/Wizard.tsx";
 import { viewsParts } from "./part.ts";
 import { useOpenSync } from "./use-open-sync.ts";
-import { periodFor, periodRange, shellPeriodsOf } from "./period.ts";
+import { periodFor, periodRange, shellPeriodsOf, windowNote } from "./period.ts";
 import { SETTINGS_ANCHOR } from "./routes.ts";
 import type { Meta, Scope, User } from "./types.ts";
 
-type AuthState = { needsSetup: boolean; user: User | null };
+type AuthState = { needsSetup: boolean; user: User | null; timezone?: string };
 
 export function App() {
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // whoever is signed in owns the figures kept for offline use (offline.ts): a different user or none empties them
+  const enter = (next: AuthState, ticket?: number) => {
+    // timestamps are read in the instance's zone; a sign-in or a sign-out answer does not repeat it, the page's first answer did
+    setTimeZone(next.timezone);
+    holdFiguresFor(next.user, ticket);
+    setAuth(next);
+  };
+
   useEffect(() => {
-    setUnauthenticatedHandler(() => setAuth((a) => (a ? { ...a, user: null } : a)));
+    setUnauthenticatedHandler(() => {
+      void forgetFigures();
+      setAuth((a) => (a ? { ...a, user: null } : a));
+    });
+    // the ticket is taken before the ask: an answer that comes after another tab changed who is signed in does not restore the old user's figures
+    const ticket = figuresTicket();
     api<AuthState>("/api/auth/state")
-      .then(setAuth)
+      .then((next) => enter(next, ticket))
       .catch((e: Error) => setError(e.message));
   }, []);
 
   if (error) return <div className="app"><div className="card error" style={{ marginTop: 24 }}>Palvelimeen ei saada yhteyttä: {error}</div></div>;
   if (!auth) return <div className="app"><Loading /></div>;
-  if (auth.needsSetup) return <Setup onDone={(user) => setAuth({ needsSetup: false, user })} />;
-  if (!auth.user) return <Login onDone={(user) => setAuth({ needsSetup: false, user })} />;
+  if (auth.needsSetup) return <Setup onDone={(user) => enter({ needsSetup: false, user })} />;
+  if (!auth.user) return <Login onDone={(user) => enter({ needsSetup: false, user })} />;
   if (auth.user.mustChangePassword) {
-    return <ChangePassword onDone={() => setAuth({ needsSetup: false, user: { ...auth.user!, mustChangePassword: false } })} />;
+    return <ChangePassword onDone={() => enter({ needsSetup: false, user: { ...auth.user!, mustChangePassword: false } })} />;
   }
-  return <Main user={auth.user} onSignedOut={() => setAuth({ needsSetup: false, user: null })} />;
+  return <Main user={auth.user} onSignedOut={() => enter({ needsSetup: false, user: null })} />;
 }
 
 /** Per user: household members often share one browser. null = never chosen. */
@@ -67,14 +81,14 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const route = useHashRoute(user.role);
   const params = route.params;
   // an unknown or old link opens the overview instead of an empty page
-  const meta = useApi<Meta>("/api/meta");
+  const meta = useApi<Meta>("/api/meta", true);
   // a module that is switched off has no nav entry, and its address opens the overview
   const extensions = extensionPages(meta.data?.features);
   const nav = [...visibleNav(meta.data?.features), ...extensions.map((e) => ({ id: e.id, label: e.page!.label }))];
   const pages = [...nav, REVIEW, SETTINGS];
   const page = pages.some((e) => e.id === route.page) ? route.page : "overview";
   // the open questions: their count in the header, read again on every page, since any page can answer one (a rule, a mark, a loan)
-  const review = useApi<ReviewAnswer>("/api/review");
+  const review = useApi<ReviewAnswer>("/api/review", true);
   const reloadReview = review.reload;
   const shownPage = useRef(page);
   useEffect(() => {
@@ -105,6 +119,13 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
     else showArrived();
   });
   const syncLine = lineText(openSync, new Date());
+  // the time of the figures when the server cannot be reached and the page shows what the device kept (offline.ts)
+  const figuresFrom = useFiguresFrom();
+  const fetchAgain = () => {
+    markAllCurrent();
+    showArrived();
+    reloadReview();
+  };
 
   // the tab title tells which page is open (history, screen readers, many tabs)
   useEffect(() => {
@@ -144,6 +165,18 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [reloadMeta]);
 
+  // the network is back, or the tab is: ask for the figures again, and the notice goes when the server answers
+  useEffect(() => {
+    if (!figuresFrom) return;
+    const again = () => document.visibilityState === "visible" && fetchAgain();
+    window.addEventListener("online", again);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      window.removeEventListener("online", again);
+      document.removeEventListener("visibilitychange", again);
+    };
+  }, [figuresFrom !== null]);
+
   const setScope = (next: Scope) => {
     setScopeState(next);
     try {
@@ -167,18 +200,8 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
 
   const m = meta.data;
   // first-run setup for the admin: address, schedule and the shared bank app
-  if (user.role === "admin" && !m.setupDone && !wizardClosed) {
-    return (
-      <Wizard
-        meta={m}
-        onDone={(next) => {
-          setWizardClosed(true);
-          meta.reload();
-          if (next === "connect") navigate("settings", { add: "1" });
-        }}
-      />
-    );
-  }
+  const wizard = firstRunWizard({ role: user.role, meta: m, closed: wizardClosed, close: () => setWizardClosed(true), reloadMeta: meta.reload, goToSettings: () => navigate("settings", { add: "1" }) });
+  if (wizard) return wizard;
   // Koko talous exists for whoever shares accounts with others, and for whoever has a part of a joint account
   const hasHousehold = m.sharedAccounts.length > 0 || viewsParts(m);
   const noData = m.accounts.length === 0 && !hasHousehold;
@@ -191,6 +214,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const period = periodFor(page, params.get("period"), m.opening);
   const range = periodRange(period, m.today);
   const presets = shellPeriodsOf(page, m.today);
+  const note = windowNote(period, m.today);
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
@@ -203,10 +227,14 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
 
   // only a confirmed logout ends the session: the cookie is HttpOnly, so a failed request would leave it alive
   const signOut = async () => {
+    // the figures kept on the device go first, whether or not the server can be asked: this is the person's way to take them off
+    await forgetFigures();
     try {
       await api("/api/auth/logout", { method: "POST" });
       onSignedOut();
     } catch (err) {
+      // still signed in, so the figures go on being kept from the next answer
+      holdFiguresFor(user);
       setSignOutError(`Uloskirjautuminen epäonnistui. ${(err as Error).message}`);
     }
   };
@@ -287,6 +315,14 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
         <div className="sync-line muted" aria-live="polite">
           {syncLine}
         </div>
+        {figuresFrom && (
+          <div className="notice warning" role="status">
+            Ei yhteyttä palvelimeen. Näkyvät luvut on haettu {dateTime(figuresFrom)}.{" "}
+            <button className="btn btn-small" type="button" onClick={fetchAgain}>
+              Hae uudelleen
+            </button>
+          </div>
+        )}
         {meta.error && <div className="notice warning">Ei yhteyttä palvelimeen. Tiedot voivat olla vanhoja.</div>}
         {signOutError && <div className="notice warning">{signOutError}</div>}
         <SecurityNotices />
@@ -326,7 +362,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
           <div className="filters" role="toolbar" aria-label="Aikaväli">
             <div className="segmented">
               {presets.map((p) => (
-                <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate(page, { period: p.id })}>
+                <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => navigate(page, { period: p.id }, true)}>
                   {p.label}
                 </button>
               ))}
@@ -334,6 +370,7 @@ function Main({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
             <span className="range-label">
               {date(range.from)} – {date(range.to)}
             </span>
+            {note && <span className="range-label">{note}</span>}
           </div>
         )}
 

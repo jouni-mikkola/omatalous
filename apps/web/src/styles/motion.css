@@ -18,10 +18,7 @@
 dialog.confirm { transition: opacity var(--t-open) var(--ease-out); }
 @starting-style { dialog.confirm[open] { opacity: 0; } }
 
-/* the rows of a category opened */
-.themes-line { animation: enter var(--t-state) var(--ease-out); }
-
 @media (prefers-reduced-motion: reduce) {
-  .stack > *, .page-grid > *, .fig, .themes-line { animation: none; }
+  .stack > *, .page-grid > *, .fig { animation: none; }
   dialog.confirm { transition: none; }
 }

@@ -1,7 +1,7 @@
 /**
  * The waterfall of Tulot ja menot: the month's money as one bar per item, each starting where the one before ended. Pure,
- * so a test reads the rows, the sentences and the table without a page. The server gives the bars as signed changes that
- * add up to Yli jäi, each with the running total it starts and ends at; nothing is summed again here.
+ * so a test reads the rows and the sentences without a page. The server gives the bars as signed changes that
+ * add up to Tulos, each with the running total it starts and ends at; nothing is summed again here.
  */
 import type { CategoryPart } from "@banking/core";
 import { money } from "../../format.ts";
@@ -9,6 +9,8 @@ import type { SettlementAnswer, WaterfallAnswer } from "../../types.ts";
 
 export const EMPTY_MONTH = "Tässä kuussa ei ole vielä tapahtumia.";
 export const EVEN = "Yhteiset menot ovat tasan.";
+/** The one line in place of a comparison with the usual month, when the months to compare lack the purchases of a linked card, as card bills or not at all (`cardGap`). */
+export const CARD_GAP = "Vertailua tavalliseen ei näytetä: aiemmilta kuukausilta puuttuvat korttien ostot.";
 
 /** How a bar is told apart without its colour: up is solid, down is hatched, the last is the whole. */
 export type BarKind = "up" | "down" | "left";
@@ -17,8 +19,6 @@ export interface WaterfallRow {
   key: string;
   label: string;
   cents: number;
-  /** The running total after the bar. */
-  total: number;
   kind: BarKind;
   /** The bar's start and length on the track, in percent of the track. */
   at: number;
@@ -27,7 +27,7 @@ export interface WaterfallRow {
   zero: number;
   /** "+1 200,00 €", "−300,00 €"; the last bar has no sign. */
   text: string;
-  /** What the bar is made of, as the server's parts give it, with the bar's sign; none for Yli jäi, which does not open. */
+  /** What the bar is made of, as the server's parts give it, with the bar's sign; none for Tulos, which does not open. */
   lines: DetailLine[];
   /** "Näytä kaikki tapahtumat": where the bar's rows are, for the bars that have a page of their own. */
   all: string | null;
@@ -107,8 +107,9 @@ export function waterfallRows(w: WaterfallAnswer, categories: ReadonlyMap<string
     const was = !before ? null : b.key === "income" ? before.incomeCents : b.key.startsWith("category:") ? (before.categories.get(b.key.slice("category:".length)) ?? 0) : null;
     steps.push({ key: b.key, label: labelOf(b, categories), cents: b.cents, from: b.fromCents, to: b.toCents, kind: b.cents > 0 ? "up" : "down", lines: linesOf(b, categories, hrefs), all, before: was === null ? null : `${before!.name}: ${money(was)}`, usual: b.usualCents ?? null, vs: b.vsUsualCents ?? null, split: b.split });
   }
-  steps.push({ key: "left", label: "Yli jäi", cents: w.leftCents, from: 0, to: w.leftCents, kind: "left", lines: [], all: null, before: null, usual: null, vs: null });
-  const edges = steps.flatMap((s) => [s.from, s.to]);
+  steps.push({ key: "left", label: "Tulos", cents: w.leftCents, from: 0, to: w.leftCents, kind: "left", lines: [], all: null, before: null, usual: null, vs: null });
+  // the usual bar's end is an edge too: a usual income above this month's so far would otherwise leave the track
+  const edges = steps.flatMap((s) => [s.from, s.to, ...(s.usual === null ? [] : [s.from + s.usual])]);
   const lo = Math.min(0, ...edges);
   const span = Math.max(0, ...edges) - lo || 1;
   const at = (cents: number) => ((cents - lo) / span) * 100;
@@ -116,7 +117,6 @@ export function waterfallRows(w: WaterfallAnswer, categories: ReadonlyMap<string
     key: s.key,
     label: s.label,
     cents: s.cents,
-    total: s.to,
     kind: s.kind,
     at: at(Math.min(s.from, s.to)),
     span: Math.max((Math.abs(s.to - s.from) / span) * 100, 0.8),
@@ -126,7 +126,7 @@ export function waterfallRows(w: WaterfallAnswer, categories: ReadonlyMap<string
     all: s.all,
     before: s.before,
     // the usual bar starts where this one does and runs its own length on the same scale
-    usualAt: s.usual === null ? null : at(s.from) + (s.usual / span) * 100,
+    usualAt: s.usual === null ? null : at(s.from + s.usual),
     vsUsual: s.vs === null ? null : s.key === "income" ? { delta: s.vs, meaning: "gain" } : { delta: -s.vs, meaning: "spend" },
     ...(s.split ? { split: s.split } : {}),
   }));
@@ -134,13 +134,13 @@ export function waterfallRows(w: WaterfallAnswer, categories: ReadonlyMap<string
 
 /**
  * The month's one sentence for a reader who does not see the bars: the figures of the table under it, then what went to
- * savings and credit, which the table's Menot leaves out, each as the answer has it. They add up to Yli jäi, as the bars do.
+ * savings and credit, which the table's Menot leaves out, each as the answer has it. They add up to Tulos, as the bars do.
  */
 export function summaryOf(w: WaterfallAnswer): string {
   // the figures are the server's: the sentence adds up nothing
   const [income, spent, moved] = [w.incomeCents, w.spentCents, -w.transfersCents];
   const first = `Tuloja ${money(income)}, menoja ${money(spent)}.`;
-  const last = w.leftCents < 0 ? `Rahaa meni ${money(-w.leftCents)} enemmän kuin tuli.` : `Yli jäi ${money(w.leftCents)}.`;
+  const last = w.leftCents < 0 ? `Rahaa meni ${money(-w.leftCents)} enemmän kuin tuli.` : `Tulos ${money(w.leftCents)}.`;
   if (moved === 0) return `${first} ${last}`;
   const middle = moved > 0 ? `Säästöihin ja luottoihin meni ${money(moved)}.` : `Säästöistä ja luotoista tuli ${money(-moved)}.`;
   return `${first} ${middle} ${last}`;

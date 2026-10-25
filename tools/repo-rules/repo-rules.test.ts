@@ -21,7 +21,7 @@
  *   rule 10  no English in the UI text                        text-rules.ts
  *   rule 11  every report and section has a Decision comment  parity.ts
  *   rule 12  Finnish style: no te-form, "!", banned words      text-rules.ts
- *   rule 13  seeded tests carry a 30 s timeout                timeouts.ts
+ *   rule 13  seeded tests carry a 30 s timeout                timeouts-rules.ts
  *   rule 14  request bodies go through strictObject or parse*  code-rules.ts
  *   rule 15  web does not parse mark subjects                 code-rules.ts
  *   rule 16  no core threshold as a literal in web text       text-rules.ts
@@ -30,30 +30,41 @@
  *   rule 19  historyCovers only in usual.ts and context.ts      code-rules.ts
  *   rule 21  keyword lists only in the dialect files          dialect.ts
  *   rule 22  text a copy pass removed stays out of the UI      text-rules.ts
- *   rule 23  every job names a fixed runner image             runners.ts
- *   rule 24  an export of core or the server has a reader     exports.ts
- *   rule 25  no shell file or workflow pipes into grep -q     shell.ts
- *   rule 26  a function defined in scripts/ is named twice    shell.ts
- *   rule 27  the lines that keep a secret out stay ignored    shell.ts
+ *   rule 23  every job names a fixed runner image             runners-rules.ts
+ *   rule 24  an export of core or the server has a reader     exports-rule.ts (detector: exports.ts)
+ *   rule 25  no shell file or workflow pipes into grep -q     shell-rules.ts
+ *   rule 26  a function defined in scripts/ is named twice    shell-rules.ts
+ *   rule 27  the lines that keep a secret out stay ignored    shell-rules.ts
  *   rule 28  the UI text keeps the fixes of a Finnish pass    finnish.ts
  *   rule 29  feature registries, identity, files, needs         modules.ts
  *   rule 30  only a registry imports a module                     modules.ts
  *   rule 31  a module folder and its files stay small             modules.ts
  *   rule 32  a module exports `module`; its fixture, three cases   modules.ts
  *   rule 33  no loop in `uses`; the type-import group has a ceiling modules.ts
- *   rule 34  docs/ROADMAP.md lists no released version as coming roadmap.ts
+ *   rule 34  docs/ROADMAP.md lists no released version as coming roadmap-rules.ts
+ *   rule 35  the UI text keeps the glossary: removed words stay out glossary-rule.ts (words: glossary.ts)
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */
+import { beforeAll } from "vitest";
+import { parse, sourceFiles } from "./lib.ts";
 import "./code-rules.ts";
 import "./dialect.ts";
 import "./text-rules.ts";
 import "./boundaries.ts";
 import "./parity.ts";
 import "./size.ts";
-import "./timeouts.ts";
-import "./runners.ts";
-import "./exports.ts";
-import "./shell.ts";
+import "./timeouts-rules.ts";
+import "./runners-rules.ts";
+import "./exports-rule.ts";
+import "./shell-rules.ts";
 import "./modules.ts";
-import "./roadmap.ts";
+import "./roadmap-rules.ts";
+import "./glossary-rule.ts";
+
+// The sources every rule walks are parsed once, here, and not inside whichever rule runs first: that rule would carry the
+// whole cost of the cold start in its own timeout (a full check on a busy machine took over 20 s for it). The hook has
+// the time the parse needs; a rule's timeout then measures that rule.
+beforeAll(() => {
+  for (const f of sourceFiles("packages/", "apps/", "tools/findings/")) parse(f);
+}, 300_000);

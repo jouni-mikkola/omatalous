@@ -1,9 +1,10 @@
 /* Tapahtumat > Kauppiaat: the merchant table. */
 
-.phone-only { display: none; }
-@media (max-width: 600px) { .phone-only { display: inline; } }
 .merchant-table td select, .merchant-table td .select-lite { max-width: 17rem; }
 .m-category { white-space: nowrap; }
+/* a block: the picker stands at the right of its name, the rule and its removal under it */
+.rt-wrap[data-block] .m-category { flex-wrap: wrap; white-space: normal; }
+.rt-wrap[data-block] .m-category select, .rt-wrap[data-block] .m-category .select-lite { max-width: 60%; }
 .m-category .badge { margin-left: 8px; }
 .m-category .btn { margin-left: 8px; }
 .m-name a { overflow-wrap: anywhere; }
@@ -21,23 +22,3 @@
 /* M15: the ordinal is drawn for the eye only. The alternative text is empty, so a reader says the name and not "1." before it
    (the first declaration is for a browser that does not know the slash); the order of the rows is the table's own. */
 .ranked tbody tr > :first-child::before { content: counter(rank) "."; content: counter(rank) "." / ""; }
-/* between the phone list and the full table the columns that fit are drawn, whole: Kuussa and Viimeksi wait for the width */
-@media (min-width: 601px) and (max-width: 960px) {
-  .merchant-table :is(th, td):nth-child(n+5) { display: none; }
-  .merchant-table td select, .merchant-table td .select-lite { max-width: 11rem; }
-}
-@media (max-width: 600px) {
-  .merchant-table thead { display: none; }
-  .merchant-table, .merchant-table tbody { display: block; }
-  .merchant-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
-  .merchant-table tr:last-child { border-bottom: none; }
-  .merchant-table td { display: block; padding: 0; border: none; }
-  .merchant-table .m-name { grid-column: 1; grid-row: 1 / span 2; font-weight: var(--w-strong); }
-  .merchant-table td.num[data-label="Yhteensä"] { grid-column: 2; grid-row: 1; }
-  .merchant-table td.num[data-label="Kuussa"] { grid-column: 2; grid-row: 2; text-align: right; color: var(--muted); font-size: var(--fs-label); }
-  .merchant-table .m-category { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; white-space: normal; }
-  .merchant-table .m-category select, .merchant-table .m-category .select-lite { flex: 1 1 100%; max-width: none; }
-  .merchant-table .m-category .badge, .merchant-table .m-category .btn { margin-left: 0; }
-  .merchant-table td.num[data-label="Tapahtumia"] { grid-column: 1; text-align: left; color: var(--muted); font-size: var(--fs-label); }
-  .merchant-table .m-last { grid-column: 2; color: var(--muted); font-size: var(--fs-label); text-align: right; }
-}

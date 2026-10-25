@@ -5,10 +5,9 @@
  * give the test the time instead of lowering the seeds.
  */
 import ts from "typescript";
-import { type Finding, expectNoFindings, isTestFile, lineOf, parse, readText, repoFiles, walk } from "./lib.ts";
-import { describe, expect, it } from "vitest";
+import { lineOf, walk } from "./lib.ts";
 
-const MIN_MS = 30_000;
+export const MIN_MS = 30_000;
 
 /** `it`, `test`, `it.skip`, `it.each(rows)` and the like: the call that registers a test. */
 function isTestCall(callee: ts.Expression): boolean {
@@ -65,15 +64,3 @@ export function untimedSeeded(sf: ts.SourceFile): { line: number; ms: number | u
   });
   return found;
 }
-
-describe("repo rules: seeded tests", () => {
-  it(`rule 13: a test that builds random households (directly or through a helper) sets a timeout of at least ${MIN_MS / 1000} s`, () => {
-    const files = repoFiles().filter((f) => /\.tsx?$/.test(f) && isTestFile(f) && !f.startsWith("tools/repo-rules/") && readText(f).includes("randomHistory("));
-    expect(files.length, "the scan found the seeded tests").toBeGreaterThan(3);
-    const found: Finding[] = [];
-    for (const file of files) {
-      for (const { line, ms } of untimedSeeded(parse(file))) found.push({ file, line, why: ms === undefined ? "builds random households and has no timeout" : `builds random households with a timeout of ${ms} ms` });
-    }
-    expectNoFindings("seeded tests", found, `pass ${MIN_MS.toLocaleString("en").replace(/,/g, "_")} as the last argument of the test: \`it("...", () => { ... }, 30_000)\`.`);
-  });
-});

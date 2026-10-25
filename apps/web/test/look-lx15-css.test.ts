@@ -14,10 +14,4 @@ describe("Säästövinkit and Asetukset: the lines left by the audits", () => {
     expect(css("settings.css")).toMatch(/\.use-line > span \{ max-width: 70ch; text-wrap: pretty; \}/);
     expect(src("Accounts.tsx")).not.toMatch(/accountNumber\(a\) \|\| "–"/);
   });
-  it("gives the members' columns measures from 1600 px only", () => {
-    const c = css("settings.css");
-    expect(src("Members.tsx")).toContain("members-table");
-    expect(c).toMatch(/min-width: 1600px\) \{\s*\.members-table \{ table-layout: fixed; \}/);
-    expect(c).not.toMatch(/^\.members-table/m);
-  });
 });

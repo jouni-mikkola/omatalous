@@ -92,7 +92,7 @@ const conn = (id: string, state: Connection["state"], daysLeft: number | null, e
 
 const TODAY = "2026-10-12";
 const meta = (connections: Connection[], configured = true, accounts: Partial<Account>[] = [], role = "member", source = "instance") =>
-  ({ today: TODAY, user: { role }, bank: { configured, banks: BANKS, redirectMode: "own", source }, connections, accounts }) as unknown as Meta;
+  ({ today: TODAY, user: { role }, bank: { configured, banks: BANKS, redirectMode: "own", source }, connections, accounts, renewal: { due: [], round: null } }) as unknown as Meta;
 const html = (connections: Connection[], configured?: boolean, accounts: Partial<Account>[] = [], connected?: number | null, role?: string, source?: string) =>
   renderToStaticMarkup(createElement(BankConnections, { meta: meta(connections, configured, accounts, role, source), pickerOpen: false, connected, onChange: () => {}, onMessage: () => {} }));
 const renews = (out: string) => out.split("Yhdistä uudelleen").length - 1;
@@ -118,10 +118,9 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     expect(out).toContain("vanhenee pian");
   });
 
-  it("gives the phone layout to the table, with a label on every cell that has a column head", () => {
+  it("gives a label to every cell that has a column head, for the block a phone makes of the row", () => {
     const out = html([conn("a", "active", 93)]);
-    expect(out.match(/<table class="[^"]*\bconn-table\b/g)).toHaveLength(1);
-    expect(out).toContain("rt-cards");
+    expect(out.match(/<table class="rt/g)).toHaveLength(1);
     expect(out).toContain('data-label="Tila"');
     expect(out).toContain('data-label="Haettu"');
   });
@@ -133,7 +132,7 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     expect(out).not.toContain("Poista listalta");
     expect(out).not.toContain("Aktia");
     expect(out).not.toContain("Holvi");
-    expect(out.match(/<table class="[^"]*\bconn-table\b/g)).toHaveLength(1);
+    expect(out.match(/<table class="rt/g)).toHaveLength(1);
     // the one that still owns its accounts shows its end and the way to renew
     expect(out).toContain("vanhentui 1.9.2026");
     expect(renews(out)).toBe(1);
@@ -177,7 +176,7 @@ const account = (id: string, connectionId: string, extra: Partial<Account> = {})
   problem: null,
   ...extra,
 });
-const notLinked = { kind: "not_linked", message: "tiliä ei ole linkitetty Enable Bankingissa." } as const;
+const notLinked = { kind: "not_linked", message: "tiliä ei ole lisätty Enable Bankingissa." } as const;
 
 describe("Pankkiyhteydet: accounts that are not linked in the Control Panel", () => {
   const cs = [conn("c", "active", 93)];
@@ -188,10 +187,10 @@ describe("Pankkiyhteydet: accounts that are not linked in the Control Panel", ()
 
   it("names one account by the bank's name and the last four digits, and the one step", () => {
     const out = html(cs, true, [account("Käyttötili", "c", { iban: "FI2112345600000785", problem: notLinked }), account("Nordea Gold", "c")], undefined, "admin");
-    expect(out).toContain("Yhtä tiliä ei ole linkitetty Enable Bankingissa.");
+    expect(out).toContain("Yhtä tiliä ei ole lisätty Enable Bankingissa.");
     expect(out).toContain("<li>Käyttötili · •••• 0785</li>");
     expect(out).not.toContain("Nordea Gold ·");
-    expect(out).toContain("Linkitä se Control Panelissa (API applications &gt; Omatalous &gt; Link accounts). Paina sen jälkeen Hae nyt.");
+    expect(out).toContain("Lisää se Control Panelissa (API applications &gt; Omatalous &gt; Link accounts). Paina sen jälkeen Hae nyt.");
     expect(out).toContain('href="https://enablebanking.com/cp/applications"');
   });
 
@@ -202,11 +201,11 @@ describe("Pankkiyhteydet: accounts that are not linked in the Control Panel", ()
       account("Säästötili", "c", { iban: "FI4950009420028730", problem: notLinked }),
     ];
     const out = html(cs, true, accounts);
-    expect(out).toContain("3 tiliä ei ole linkitetty Enable Bankingissa.");
+    expect(out).toContain("3 tiliä ei ole lisätty Enable Bankingissa.");
     expect(out.match(/<li>/g)).toHaveLength(3);
     expect(out).toContain("<li>Nordea Gold · •••• 1144</li>");
     expect(out).toContain("<li>Säästötili · •••• 8730</li>");
-    expect(out).toContain("Ylläpitäjä linkittää ne Control Panelissa (API applications &gt; Omatalous &gt; Link accounts). Paina sen jälkeen Hae nyt.");
+    expect(out).toContain("Ylläpitäjän pitää lisätä ne Control Panelissa (API applications &gt; Omatalous &gt; Link accounts). Paina sen jälkeen Hae nyt.");
     expect(out).not.toContain("Avaa Control Panel");
   });
 
@@ -269,5 +268,43 @@ describe("Pankkiyhteydet: the Tila words of an ended consent", () => {
     expect(connectionStateText(conn("a", "lapsed", null, { validUntil: "2026-10-01T00:00:00Z" }), "2026-10-16")).toMatch(/^vanhentui \d/);
     expect(connectionStateText(conn("a", "lapsed", null, { validUntil: "2027-04-14T00:00:00Z" }), "2026-10-16")).toBe("päättynyt");
     expect(connectionStateText(conn("b", "broken", null), "2026-10-16")).toBe("katkesi");
+  });
+});
+
+describe("Pankkiyhteydet: the round that renews every consent", () => {
+  const BOTH = [...BANKS, { id: "op-fi", name: "OP", country: "FI" }];
+  const withRenewal = (renewal: Meta["renewal"], accounts: Partial<Account>[] = []) =>
+    renderToStaticMarkup(
+      createElement(BankConnections, { meta: { ...meta([conn("a", "active", 5)], true, accounts), bank: { configured: true, banks: BOTH, redirectMode: "own", source: "instance" }, renewal } as Meta, pickerOpen: false, onChange: () => {}, onMessage: () => {} }),
+    );
+  const nordea = { connection: "a", bank: "nordea-fi" };
+  const op = { connection: "b", bank: "op-fi" };
+
+  it("is offered from two consents that are due, by name, and not from one", () => {
+    expect(withRenewal({ due: [nordea, op], round: null })).toContain("Yhteys päättyy tai on päättynyt: Nordea, OP.");
+    expect(withRenewal({ due: [nordea, op], round: null })).toContain("Uusi kaikki yhteydet");
+    expect(withRenewal({ due: [nordea], round: null })).not.toContain("Uusi kaikki yhteydet");
+  });
+
+  it("tells two consents of one bank apart by their accounts", () => {
+    const accounts = [{ id: "x", name: "Käyttötili", connectionId: "a" }, { id: "y", name: "Säästötili", connectionId: "c" }];
+    const out = withRenewal({ due: [nordea, { connection: "c", bank: "nordea-fi" }], round: null }, accounts);
+    expect(out).toContain("Nordea (Käyttötili), Nordea (Säästötili)");
+  });
+
+  it("lists each consent as renewed or left, with the next press naming the first left", () => {
+    const out = withRenewal({ due: [nordea, op], round: { consents: [{ ...nordea, done: true }, { ...op, done: false }], finished: false } });
+    expect(out).toContain("1 / 2 uusittu");
+    expect(out).toContain("uusittu</span>");
+    expect(out).toContain("odottaa</span>");
+    expect(out).toContain("Uusi OP");
+    expect(out).toContain("Lopeta kierros");
+  });
+
+  it("says so when every consent is done, and offers only to close it", () => {
+    const out = withRenewal({ due: [], round: { consents: [{ ...nordea, done: true }, { ...op, done: true }], finished: true } });
+    expect(out).toContain("Kaikki yhteydet on uusittu.");
+    expect(out).toContain("Sulje");
+    expect(out).not.toContain("Uusi OP");
   });
 });

@@ -37,14 +37,14 @@ describe("optimise on random households", () => {
   it("stays quiet on 50 plain histories", () => {
     const { loud } = judge((seed) => randomHistory(seed, 600));
     expect(loud).toEqual([]);
-  }, 30_000); // 50 households take 2 to 7 s alone and more when several checks run: a red must mean a bug
+  }, 120_000); // 50 households take 2 to 7 s alone and more when several checks run: a red must mean a bug
 
   it("stays quiet on 50 settled households of 30 months, and Tilanne has its figures", () => {
     const { loud, situation } = judge((seed) => randomHistory(seed, 1500, { months: 30, settled: true }));
     expect(loud).toEqual([]);
     // four facts, two runs, fifty households: the settled ones have pay, balances and a loan
     expect(situation).toBe(4 * 2 * 50);
-  }, 30_000); // 50 households take 2 to 7 s alone and more when several checks run: a red must mean a bug
+  }, 120_000); // 50 households take 2 to 7 s alone and more when several checks run: a red must mean a bug
 
   // OP, S-Pankki and Danske households (kit/households): one name per household in the failure
   for (const h of bankHouseholds()) {
@@ -52,6 +52,6 @@ describe("optimise on random households", () => {
       const ctx = createContext(enrich(h.txs, h.accounts, h.rules), h.accounts, h.today);
       const loudOnes = [{}, neutralValues()].flatMap((values) => allFindings(buildOptimise({ ctx, balances: h.balances, values })).map((f) => `${h.name} ${f.id}: ${plain(f.title)}`));
       expect(loudOnes).toEqual([]);
-    }, 30_000);
+    }, 120_000);
   }
 });

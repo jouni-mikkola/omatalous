@@ -10,6 +10,7 @@ import { accountSources } from "../services/account-sources.ts";
 import { explainFigure, isExplained, MAX_ACCOUNTS } from "../services/explain.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
 import { reconcileOf } from "../services/reconcile.ts";
+import { renewalOf } from "../services/consent-round.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { extensionRowFields } from "../extensions.ts";
@@ -74,6 +75,7 @@ export function financeRoutes(s: Services) {
       offeredBanks(s),
     ]);
     const today = s.today();
+    const views = connections.map((conn) => connectionView(conn, today, s.instance.current.timezone, accounts, connections));
     // the month Yhteenveto opens on, by the viewer's own pay: the running one once its pay has come
     const own = await s.analysis.get(s, user.id, "own");
     const opening = openingMonth(cashAhead(own.ctx, [], (await requestInputs(s, user.id, own.accounts)).inputs));
@@ -100,7 +102,8 @@ export function financeRoutes(s: Services) {
       sharedAccounts: await Promise.all(sharedAccounts.map(async ({ bank: _bank, ...account }) => ({ ...account, digits: accountDigits(account), ...uses.get(account.id), ...(await split(account, false)), reconcile: reconciled.get(account.id) ?? null }))),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
-      connections: connections.map((conn) => connectionView(conn, today, accounts, connections)),
+      connections: views,
+      renewal: await renewalOf(s, user.id, views, new Set(banks.map((b) => b.id))),
       lastSync: runs[0] ?? null,
       bank: {
         // the household's app counts once Enable Banking says it is active; a member's own key is not checked

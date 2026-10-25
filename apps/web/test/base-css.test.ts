@@ -54,7 +54,7 @@ describe("base.css", () => {
 describe("the shared parts and the page stylesheets that read both looks", () => {
   const sheet = (name: string) => readFileSync(new URL(`../src/styles/${name}.css`, import.meta.url), "utf8");
   const NAMES = [
-    "base", "shell", "charts", "settings", "wizard", "banks", "bank-picker", "optimise", "month", "ops", "remote-access",
+    "base", "shell", "charts", "settings", "wizard", "banks", "bank-picker", "optimise", "ops", "remote-access",
     "transactions",
   ];
 

@@ -1,5 +1,5 @@
 /**
- * What the front page's cockpit reads from GET /api/dashboard: the month waterfall (its bars add up to Yli jäi), the
+ * What the front page's cockpit reads from GET /api/dashboard: the month waterfall (its bars add up to Tulos), the
  * running month's settlement of the pools the viewer is weighted in, and the reconcile verdict of each account.
  * Made-up names and sums; the first user by id is "Aino".
  */
@@ -111,7 +111,7 @@ describe("the dashboard waterfall", () => {
 });
 
 describe("the dashboard on the demo household", () => {
-  it("has bars that add up to Yli jäi in every month, and the reconcile word of the Tilit page on each account", async () => {
+  it("has bars that add up to Tulos in every month, and the reconcile word of the Tilit page on each account", async () => {
     const app = await setupApp();
     expect((await app.admin.call("POST", "/api/demo")).status).toBe(200);
     const meta = (await app.admin.call("GET", "/api/meta")).body.accounts as { id: string; reconcile: { status: string } | null }[];

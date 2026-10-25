@@ -56,6 +56,16 @@ describe("rule 24 detection", () => {
     ).toEqual([`${CORE}a.ts  used`, `${CORE}a.ts  other`, `${CORE}a.ts  again`]);
   });
 
+  it("distinguishes a sole self-reader from another owner and ignores private readers of public exports", () => {
+    const texts = {
+      [`${CORE}a.ts`]: "export const shared = 1; shared;",
+      [`${CORE}b.ts`]: "export const shared = 2;",
+      [`${CORE}private/use.ts`]: "shared;",
+    };
+    expect(tree(texts)).toEqual([`${CORE}a.ts  shared`]);
+    expect(tree({ ...texts, [`${WEB}use.ts`]: "shared;" })).toEqual([]);
+  });
+
   it("looks only where the rule says: web exports are not checked, and a web file is a reader", () => {
     expect(tree({ [`${WEB}a.ts`]: "export function a() {}\n", [`${CORE}b.ts`]: "export function b() {}\n", [`${WEB}c.ts`]: "b();\n" })).toEqual([]);
     expect(tree({ "tools/other/a.ts": "export function a() {}\n", [`${CORE}b.ts`]: "export function b() {}\n", "tools/other/c.ts": "b();\n" })).toEqual([`${CORE}b.ts  b`]);

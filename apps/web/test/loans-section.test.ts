@@ -173,7 +173,7 @@ describe("Raportit: Lainat", () => {
     expect(own).toContain(`${tile("Tilit miinus velat", "-118 800 €")}<div class="loans-tile-sub">Asunnon ja sijoitusten arvo ei ole mukana.</div>`);
     // Saldot holds the three figures as rows and no sentence
     const saldot = html(balances, context(report([row()])));
-    expect(rowsOf(saldot)).toEqual(["Tilit yhteensä 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
+    expect(rowsOf(saldot)).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
     expect(saldot).not.toContain("Asunnon ja sijoitusten arvo");
     expect(saldot).not.toContain("tänään");
     expect(own).not.toContain("Nettovarallisuus");
@@ -182,7 +182,7 @@ describe("Raportit: Lainat", () => {
 
   it("the Saldot rows tell their three figures with cents, so they subtract", () => {
     const odd = { ...balanceData, total: [100_000, 300_055], accountsLessDebt: [null, 180_045], debt: { day, cents: 120_010, savedCents: 120_010 } };
-    expect(rowsOf(html(balances, context(report([row()]), "own", odd)))).toEqual(["Tilit yhteensä 3 000,55 €", "Tallennetut lainat 1 200,10 €", "Tilit miinus velat 1 800,45 €"]);
+    expect(rowsOf(html(balances, context(report([row()]), "own", odd)))).toEqual(["Tilien ja korttien saldo 3 000,55 €", "Tallennetut lainat 1 200,10 €", "Tilit miinus velat 1 800,45 €"]);
   });
 
   it("Saldot has no rows for a household that saved no loan, nor for a range that ends before today", () => {
@@ -193,7 +193,7 @@ describe("Raportit: Lainat", () => {
 
   it("the household view has no sentence about another member's saved loan", () => {
     expect(html(loans, context(report([row()]), "household"))).not.toContain("Toisen lisäämä");
-    expect(rowsOf(html(balances, context(report([row()]), "household")))).toEqual(["Tilit yhteensä 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
+    expect(rowsOf(html(balances, context(report([row()]), "household")))).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
   });
 
   it("with a linked loan the Saldot row says its figure holds the loans no account holds", () => {

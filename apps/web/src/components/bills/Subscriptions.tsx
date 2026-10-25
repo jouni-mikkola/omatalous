@@ -9,13 +9,12 @@
  * the total, until its charges stop.
  */
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { date, dayHeading, money, monthYear } from "../../format.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { BarCell, DeltaChip, MarkCell, SortHead } from "../table/Cells.tsx";
-import { DensitySwitch, DrillButton, RichTable, useDensity } from "../table/RichTable.tsx";
-import { sortBy, useSort } from "../table/sort.ts";
+import { BarCell, DeltaChip, MarkCell } from "../table/Cells.tsx";
+import { type Column, Table } from "../table/Table.tsx";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import { Why } from "../Why.tsx";
 import { MoveLine, priceMoved, StepLine } from "./PriceSteps.tsx";
@@ -30,9 +29,6 @@ export interface MarkControls {
   /** Takes a mark away under the subject it was stored with: an old mark on a merchant goes for every series of it. */
   clear: (mark: UserMark) => void;
 }
-
-type Key = "merchant" | "monthly" | "next";
-const COLUMNS = 4;
 
 export function Subscriptions({
   subs,
@@ -56,8 +52,6 @@ export function Subscriptions({
   range: { from: string; to: string };
   scope: Scope;
 }) {
-  const [density, setDensity] = useDensity("subscriptions");
-  const [sort, onSort] = useSort<Key>(["merchant"]);
   const [open, setOpen] = useState<string | null>(null);
   if (!subs.length && !stopped.length) return null;
   const all = [...subs, ...stopped];
@@ -65,57 +59,66 @@ export function Subscriptions({
   const max = Math.max(...all.map((s) => s.monthlyCents), 1);
   // a merchant with several subscriptions says each one's price in its name, so the household sees which one it answers
   const priced = (s: Series) => all.some((o) => o !== s && o.merchant === s.merchant);
-  const order = (rows: Series[]) => sortBy(rows, sort, (s, k) => (k === "merchant" ? s.merchant : k === "monthly" ? s.monthlyCents : (s.nextDate ?? "9999")));
-  const row = (s: Series, muted: boolean) => {
-    const isOpen = open === s.id;
-    const last = s.priceSteps?.at(-1);
-    const onCard = cards.has(parseSeriesId(s.id)?.accountId ?? "");
-    const name = priced(s) ? `${s.merchant} ${money(s.typicalAmountCents)}` : s.merchant;
-    return (
-      <Fragment key={s.id}>
-        <tr className={muted ? "sub-stopped" : undefined}>
-          <td className="sub-name">
-            <DrillButton open={isOpen} onToggle={() => setOpen(isOpen ? null : s.id)} label={`Hinnat ja lopetus: ${name}`} />
-            <MarkCell name={s.merchant} mark={<MerchantAvatar name={s.merchant} person={false} size={density === "compact" ? "s" : "m"} />}>
-              <span className="sub-merchant">{name}</span>
-              <span className="sub-category">{label(s.category)}</span>
-            </MarkCell>
-          </td>
-          <td className="num sub-monthly" data-rt="main">
-            {money(s.monthlyCents)}
-            <BarCell value={s.monthlyCents} max={max} />
-          </td>
-          <td className="num sub-price-cell">
+  const nameOf = (s: Series) => (priced(s) ? `${s.merchant} ${money(s.typicalAmountCents)}` : s.merchant);
+  const columns: Column<Series>[] = [
+    {
+      key: "merchant",
+      label: "Saaja",
+      kind: "text",
+      rowHead: true,
+      sort: (s) => s.merchant,
+      cell: (s) => (
+        <MarkCell name={s.merchant} mark={<MerchantAvatar name={s.merchant} person={false} size="m" />}>
+          <span className="sub-merchant">{nameOf(s)}</span>
+          <span className="sub-category">{label(s.category)}</span>
+        </MarkCell>
+      ),
+    },
+    {
+      key: "monthly",
+      label: "Kuussa",
+      kind: "money",
+      main: true,
+      sort: (s) => s.monthlyCents,
+      cell: (s) => money(s.monthlyCents),
+      bar: { value: (s) => s.monthlyCents, max },
+    },
+    {
+      key: "price",
+      label: "Hinta",
+      kind: "money",
+      cell: (s) => {
+        const last = s.priceSteps?.at(-1);
+        return (
+          <>
             <span className="sub-price">{money(s.typicalAmountCents)}</span>
             {last?.deltaCents !== undefined && (
               <span className="sub-chip" title={`${monthYear(last.date)} alkaen`}>
                 <DeltaChip delta={last.deltaCents} text={money(Math.abs(last.deltaCents))} meaning="spend" />
               </span>
             )}
-          </td>
-          <td data-label="Seuraava">
-            {s.nextDate ? dayHeading(s.nextDate, today) : "–"}
-            {onCard && <span className="mb-tag sub-card">Kortilla</span>}
-          </td>
-        </tr>
-        {isOpen && (
-          <tr className="rt-detail">
-            <td colSpan={COLUMNS}>
-              <Drill s={s} name={name} today={today} controls={controls} />
-            </td>
-          </tr>
-        )}
-      </Fragment>
-    );
-  };
+          </>
+        );
+      },
+    },
+    {
+      key: "next",
+      label: "Seuraava",
+      kind: "date",
+      sort: (s) => s.nextDate ?? "9999",
+      cell: (s) => (
+        <>
+          {s.nextDate ? dayHeading(s.nextDate, today) : "–"}
+          {cards.has(parseSeriesId(s.id)?.accountId ?? "") && <span className="mb-tag sub-card">Kortilla</span>}
+        </>
+      ),
+    },
+  ];
   return (
     <div className="card subs">
       <div className="card-head tb">
         <div className="card-name">
           <h2>Tilaukset</h2>
-        </div>
-        <div className="card-tool">
-          <DensitySwitch density={density} onChange={setDensity} />
         </div>
         <div className="card-datum">
           <Why figure="bills.subs" title="Tilaukset kuussa" range={range} scope={scope} text={`${money(total, false)}/kk`}>
@@ -123,36 +126,24 @@ export function Subscriptions({
           </Why>
         </div>
       </div>
-      <RichTable density={density} cards label="Tilaukset" className="sub-table">
-        <thead>
-          <tr>
-            <Head label="Saaja" k="merchant" sort={sort} onSort={onSort} />
-            <Head label="Kuussa" k="monthly" sort={sort} onSort={onSort} num />
-            <th className="num" scope="col">
-              Hinta
-            </th>
-            <Head label="Seuraava" k="next" sort={sort} onSort={onSort} />
-          </tr>
-        </thead>
-        {subs.length > 0 && <tbody>{order(subs).map((s) => row(s, false))}</tbody>}
-        {stopped.length > 0 && (
-          <tbody>
-            <tr className="group-row">
-              <td colSpan={COLUMNS}>
-                Merkitty lopetetuksi
-                <span className="rt-group-count">{stopped.length}</span>
-              </td>
-            </tr>
-            {order(stopped).map((s) => row(s, true))}
-          </tbody>
-        )}
-      </RichTable>
+      <Table<Series>
+        caption="Tilaukset"
+        className="sub-table"
+        rows={all}
+        rowKey={(s) => s.id}
+        columns={columns}
+        groups={[
+          ...(subs.length > 0 ? [{ key: "subs", rows: subs }] : []),
+          ...(stopped.length > 0 ? [{ key: "stopped", title: <>Merkitty lopetetuksi<span className="rt-group-count">{stopped.length}</span></>, rows: stopped }] : []),
+        ]}
+        rowClassName={(s) => (stopped.includes(s) ? "sub-stopped" : undefined)}
+        open={open}
+        onOpen={setOpen}
+        drill={(s) => <Drill s={s} name={nameOf(s)} today={today} controls={controls} />}
+        drillLabel={(s) => `Hinnat ja lopetus: ${nameOf(s)}`}
+      />
     </div>
   );
-}
-
-function Head({ label, k, sort, onSort, num }: { label: string; k: Key; sort: ReturnType<typeof useSort<Key>>[0]; onSort: (k: Key) => void; num?: boolean }) {
-  return <SortHead label={label} dir={sort?.key === k ? sort.dir : null} numeric={num} onSort={() => onSort(k)} />;
 }
 
 /** The row opened: every price it had, a year of it, its contract, and the one action. */

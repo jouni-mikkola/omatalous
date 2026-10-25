@@ -15,11 +15,15 @@
  *   node dist/node.js secret check <file>       (exit 0 when the secret in the file opens the stored bank keys, 4 when it does not, 1 when the file could not be tried; restore.sh reads the status before it replaces the app secret)
  *   docker compose exec banking node dist/node.js address set <url>        (the app's own address, install.sh runs it)
  *   docker compose exec -T banking node dist/node.js ops poll|report|state  (the host helper, see cli-ops.ts)
+ *   docker compose exec banking node dist/node.js service-token create|list|revoke   (read-only keys for scripts and agents, see cli-service-token.ts)
+ *   docker compose exec banking node dist/node.js <extension id> ...   (a command of an extension that has one, its cliUsage in extensions.ts)
  */
 import { readFileSync } from "node:fs";
 import { option } from "./cli-args.ts";
 import { runOpsCli } from "./cli-ops.ts";
+import { runServiceTokenCli } from "./cli-service-token.ts";
 import { isAppSecret } from "./entry/app-secret.ts";
+import { EXTENSIONS } from "./extensions.ts";
 import { UserError } from "./platform/errors.ts";
 import type { Services } from "./services/context.ts";
 import { parseBaseUrl } from "./platform/validate.ts";
@@ -43,7 +47,14 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     console.log(`${s.build.version} (${s.build.id})`);
     return 0;
   }
+  if (group === "service-token") return runServiceTokenCli(s, args.slice(1));
   if (group === "ops") return runOpsCli(s, args.slice(1), ctx.readStdin ?? (async () => ""));
+  const extension = EXTENSIONS.find((e) => e.id === group && e.cli);
+  if (extension) {
+    const { code, lines } = await extension.cli!(s, args.slice(1));
+    for (const line of lines) console.log(line);
+    return code;
+  }
   if (group === "setup-code") {
     const code = await issueSetupCode(s);
     if (!code) {
@@ -110,7 +121,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (group !== "user" || !command) {
-    console.log("Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user remove-factor <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | secret check <file> | address set <url> | ops poll|report|state");
+    console.log(`Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user remove-factor <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | secret check <file> | address set <url> | ops poll|report|state | service-token create|list|revoke${EXTENSIONS.flatMap((e) => (e.cliUsage ? [` | ${e.cliUsage}`] : [])).join("")}`);
     return 1;
   }
   if (command === "list") {

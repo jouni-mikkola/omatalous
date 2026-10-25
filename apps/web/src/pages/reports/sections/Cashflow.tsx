@@ -1,8 +1,8 @@
 // Decision: spend less or save more
-import { DataTable } from "../../../components/table/DataTable.tsx";
-import { coverOf, monthEnd, monthOf, monthRange } from "@banking/core";
+import { Table } from "../../../components/table/Table.tsx";
+import { coverOf, monthEnd, monthOf, monthRange, printedParts } from "@banking/core";
 import { query } from "../../../api.ts";
-import type { CashflowReport, YearToDate } from "@banking/core";
+import type { CashflowReport, PeriodTotals, YearToDate } from "@banking/core";
 import { CumulativeYears, CumulativeYearsTable } from "../../../charts/forms/CumulativeYears.tsx";
 import { IncomeUse, IncomeUseTable } from "../../../charts/forms/IncomeUse.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
@@ -41,9 +41,9 @@ function ytdAnswer(y: YearToDate, scope: SectionProps["ctx"]["scope"]) {
   const figure = money(y.current[last]!, false);
   const now = (
     <>
-      Yli jäi 1.1. alkaen{" "}
+      Tulos 1.1. alkaen{" "}
       <strong>
-        <Why figure="yli_jai.month" title="Yli jäi 1.1. alkaen" range={{ from: `${y.year}-01-01`, to: monthEnd(month) }} scope={scope} text={figure} estimate={last === y.partialMonth ? "approx" : undefined}>
+        <Why figure="yli_jai.month" title="Tulos 1.1. alkaen" range={{ from: `${y.year}-01-01`, to: monthEnd(month) }} scope={scope} text={figure} estimate={last === y.partialMonth ? "approx" : undefined}>
           {figure}
         </Why>
       </strong>
@@ -77,24 +77,52 @@ function rateAnswer(r: CashflowReport, flat: boolean) {
 /** The rate chart's table view. */
 function RateTable({ rows }: { rows: CashflowReport["rows"] }) {
   return (
-    <DataTable
-      id="saastoaste"
+    <Table
       caption="Säästöaste kuukausittain"
       rows={rows}
       rowKey={(x) => x.month}
       columns={[
         { key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (x) => monthLong(x.month) },
-        { key: "rate", label: "Säästöaste", kind: "share", main: true, cell: (x) => (x.complete && x.savingsRate !== null ? percent(x.savingsRate) : "–"), sortValue: (x) => (x.complete ? x.savingsRate : null) },
+        { key: "rate", label: "Säästöaste", kind: "share", main: true, cell: (x) => (x.complete && x.savingsRate !== null ? percent(x.savingsRate) : "–") },
       ]}
     />
   );
 }
 
-/** The answer under the income-use table: the period's flows, each a server total. */
-function useAnswer(t: NonNullable<CashflowReport["settled"]>) {
+type UseTotals = Pick<PeriodTotals, "incomeCents" | "borrowedCents" | "consumptionCents" | "debtCents" | "savedCents" | "leftCents">;
+
+/**
+ * The terms of the sentence under the income-use table, each as what it adds to Tulos (`leftOf`): income, credit
+ * drawn, minus consumption, minus debt service and minus saved. Together they are Tulos to the cent. `printed` is each
+ * in whole euros with its sign, rounded together so the euros a reader adds make the euros of Tulos (core
+ * `printedParts`).
+ */
+export function useTerms(t: UseTotals) {
+  const adds = [t.incomeCents, t.borrowedCents, -t.consumptionCents, -t.debtCents, -t.savedCents];
+  const printed = printedParts(adds, t.leftCents);
+  const [income, borrowed, consumption, debt, saved] = adds.map((cents, i) => ({ cents, printed: printed[i]! }));
+  return { income: income!, borrowed: borrowed!, consumption: consumption!, debt: debt!, saved: saved! };
+}
+
+/**
+ * The answer under the income-use table: one sentence for each term Tulos is made of, in the words of the term's
+ * direction. A term below zero is told as what came back (a refund larger than the purchases, savings drawn on, credit
+ * paid back), never as the same words with the sign dropped.
+ */
+export function useAnswer(t: UseTotals) {
+  const x = useTerms(t);
+  // each term as the euros it adds to Tulos: the words follow the sign, the figure is its size
+  const size = (term: { printed: number }) => money(Math.abs(term.printed), false);
+  const rest = [
+    ...(x.borrowed.cents === 0 ? [] : [x.borrowed.printed >= 0 ? `Luottoa nostettiin ${size(x.borrowed)}.` : `Luottoa maksettiin takaisin ${size(x.borrowed)}.`]),
+    x.consumption.printed <= 0 ? `Kulutukseen meni ${size(x.consumption)}.` : `Kulutuksesta palautui ${size(x.consumption)}.`,
+    x.debt.printed <= 0 ? `Velanhoitoon meni ${size(x.debt)}.` : `Velanhoidosta palautui ${size(x.debt)}.`,
+    x.saved.printed <= 0 ? `Säästöön meni ${size(x.saved)}.` : `Säästöistä otettiin ${size(x.saved)}.`,
+  ];
   return (
     <>
-      Tuloja tuli <strong>{money(t.incomeCents, false)}</strong>. Kulutukseen meni {money(t.consumptionCents, false)}, velanhoitoon {money(t.debtCents, false)} ja säästöön {money(t.savedCents, false)}. Yli jäi <strong>{money(t.leftCents, false)}</strong>.
+      {x.income.printed >= 0 ? "Tuloja tuli " : "Tuloja peruttiin "}
+      <strong>{size(x.income)}</strong>. {rest.join(" ")} Tulos <strong>{money(t.leftCents, false)}</strong>.
     </>
   );
 }
@@ -117,7 +145,7 @@ function Cashflow({ ctx }: SectionProps) {
     </QuestionChart>
   );
   return (
-    <ReportPanel id={section.id} title={section.title} datum={settled ? `Yli jäi ${money(settled.leftCents, false)}` : undefined} actions={<ExportLink href={ctx.exportHref("cashflow")} />}>
+    <ReportPanel id={section.id} title={section.title} datum={settled ? `Tulos ${money(settled.leftCents, false)}` : undefined} actions={<ExportLink href={ctx.exportHref("cashflow")} />}>
       <UnknownIncome share={r.unknownIncomeShare} range={ctx.range} />
       {/* a running range with no complete month has no settled figures: the totals stand in their place */}
       {!settled && (

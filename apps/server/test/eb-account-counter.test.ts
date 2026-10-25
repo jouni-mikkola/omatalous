@@ -81,8 +81,10 @@ describe("the unattended fetches of an account", () => {
   });
 
   it("counts a manual or connect fetch that carried no headers like an open without them, and never refuses it", async () => {
-    const { admin, s, adminId, chk, bank, note, balanceCalls } = await connected({ TRUST_PROXY: "true" });
-    const triggers = () => s.db.all<{ trigger: string }>("SELECT trigger FROM account_fetch WHERE account_key = ? ORDER BY id", [chk]);
+    const { admin, s, adminId, chk, card, bank, note, balanceCalls } = await connected({ TRUST_PROXY: "true" });
+    // a backfill of older days is noted apart (the ones without headers are counted, in their own test)
+    const triggers = () => s.db.all<{ trigger: string }>("SELECT trigger FROM account_fetch WHERE account_key = ? AND trigger NOT LIKE 'backfill%' ORDER BY id", [chk]);
+    for (const key of [chk, card]) await s.settings.set(`backfill:${key}`, new Date().toISOString()); // walked lately: this test counts the fetches alone
     // no headers can be given (no proxy header: the address is the word local): noted as bare
     await syncUser(s, adminId, "manual");
     await syncUser(s, adminId, "connect");

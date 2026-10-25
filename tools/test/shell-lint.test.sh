@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for tools/ci/shell-lint.sh: a script and the file it sources are linted in one shellcheck run, however many other
-# files there are and in whatever groups they fall (the files go to shellcheck in groups of six).
+# files there are and in whatever groups they fall (the files go to shellcheck in a few runs, every K-th file in one).
 #
 #   tools/test/shell-lint.test.sh
 set -u

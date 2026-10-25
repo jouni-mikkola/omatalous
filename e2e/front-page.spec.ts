@@ -41,7 +41,7 @@ async function saldot(page: Page): Promise<Record<string, number>> {
   // the balance chart's table view: the month ends of each account (the accounts table under it is the second)
   const months = section.locator("table").first();
   const heads = (await months.locator("thead th").allInnerTexts()).map(plain);
-  const today = (await months.locator("tbody tr", { hasText: "(tänään)" }).locator("td").allInnerTexts()).map(plain);
+  const today = (await months.locator("tbody tr", { hasText: "(tänään)" }).locator("th, td").allInnerTexts()).map(plain);
   expect(today.length, "Saldot has a row for today").toBe(heads.length);
   // the first two columns are the month and the total
   return Object.fromEntries(heads.slice(2).map((name, i) => [name, cents(today[i + 2]!) / 100]));
@@ -304,7 +304,7 @@ for (const width of [1280, 390]) {
   });
 }
 
-test("Tulot ja menot is the waterfall with two figures under Yli jäi, and no chart and no links: the pace opens the page", async ({ browser }) => {
+test("Tulot ja menot is the waterfall with two figures under Tulos, and no chart and no links: the pace opens the page", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await signedIn(context, "/#/overview?period=month");
   const seen = watch(page);
@@ -315,7 +315,7 @@ test("Tulot ja menot is the waterfall with two figures under Yli jäi, and no ch
   // no sentence: no line under a figure, no comparison in words, no strip of how the income was used
   await expect(block.locator(".st-sub, .st-note, .bridge")).toHaveCount(0);
   for (const gone of [/kuussa \d/, "Tulojen käyttö", "Ei vertailua"]) await expect(block.getByText(gone)).toHaveCount(0);
-  // under Yli jäi two rows of a label and one figure; the labels open the month before and Laskut
+  // under Tulos two rows of a label and one figure; the labels open the month before and Laskut
   const more = block.locator(".month-more .st-row");
   await expect(more).toHaveCount(2);
   await expect(more.nth(0).getByRole("link", { name: /^Säästöaste, [a-zäö]+kuu$/ })).toHaveAttribute("href", "#/overview?period=last-month");
@@ -323,7 +323,7 @@ test("Tulot ja menot is the waterfall with two figures under Yli jäi, and no ch
   await expect(more.nth(1).getByRole("link", { name: "Kiinteät menot kuussa", exact: true })).toHaveAttribute("href", "#/bills");
   const box = async (l: Locator) => (await l.boundingBox())!;
   const [left, waterfall] = [await box(block.locator(".wf-row.wf-left")), await box(block.locator(".month-more"))];
-  expect(waterfall.y, "the two figures stand under Yli jäi").toBeGreaterThanOrEqual(left.y + left.height - 1);
+  expect(waterfall.y, "the two figures stand under Tulos").toBeGreaterThanOrEqual(left.y + left.height - 1);
   // the pace is the panel at the top of the page (VC1); the merchants and the months are Tapahtumat's and Raportit's
   await expect(block.getByRole("heading", { name: "Menojen kertymä" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Menot tässä kuussa", exact: true })).toBeVisible();
@@ -383,7 +383,7 @@ test("the waterfall's sentence and its rows tell one month: the two first figure
   await context.close();
 });
 
-test("a row of the waterfall opens in place, one at a time, with its parts adding up; the month tabs close it; Yli jäi does not open", async ({ browser }) => {
+test("a row of the waterfall opens in place, one at a time, with its parts adding up; the month tabs close it; Tulos does not open", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await signedIn(context, "/#/overview?period=month");
   const seen = watch(page);

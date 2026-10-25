@@ -1,7 +1,7 @@
 // Decision: what is worth changing first
 import { query } from "../../../api.ts";
 import { money, plural, signedMoney } from "../../../format.ts";
-import { DataTable } from "../../../components/table/DataTable.tsx";
+import { Table } from "../../../components/table/Table.tsx";
 import { Section } from "../../../components/Section.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -14,8 +14,7 @@ function Insights({ ctx }: SectionProps) {
   return (
     <Section id={section.id} title={section.title}>
       {r.items.length ? (
-        <DataTable
-          id="havainnot"
+        <Table
           caption="Havainnot, vuosittainen vaikutus"
           rows={r.items}
           rowKey={(i) => i.id}

@@ -26,11 +26,6 @@ export function onTrial(s: RemoteAccessState): boolean {
   return s.access.on && !s.access.confirmed;
 }
 
-/** "2026-10-12T11:35:00Z" as the clock time the admin reads, "13.35". */
-export function clockTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("fi-FI", { hour: "numeric", minute: "2-digit" });
-}
-
 /** The time the trial ends is behind us and the server has not taken the address off yet (the helper is busy or off). */
 export function trialOverdue(revertAt: string | null, now: number): boolean {
   return revertAt !== null && Date.parse(revertAt) <= now;

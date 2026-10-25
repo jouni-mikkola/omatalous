@@ -2,7 +2,7 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { api } from "../../api.ts";
 import { copyText } from "../../clipboard.ts";
-import { type Column, DataTable } from "../../components/table/DataTable.tsx";
+import { KeyValue } from "../../components/table/KeyValue.tsx";
 import { date, dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { CopyValue } from "./CopyValue.tsx";
@@ -241,34 +241,14 @@ function TurnOn({
   );
 }
 
-/** A key/value list: no head row, the label is the row head. */
-const KV_COLUMNS: Column<[string, ReactNode]>[] = [
-  {
-    key: "label",
-    label: "Tieto",
-    kind: "text",
-    rowHead: true,
-    cell: (r) => r[0],
-  },
-  { key: "value", label: "Arvo", kind: "count", cell: (r) => r[1] },
-];
-
-const factRows = (f: {
-  enabled: boolean;
+export const factRows = (f: {
   since?: string | null;
   lastUsedAt?: string | null;
   recoveryLeft: number;
 }): [string, ReactNode][] => [
-  ["Tila", f.enabled ? "Käytössä" : "Ei käytössä"],
-  ...(f.enabled && f.since
-    ? [["Käytössä alkaen", date(f.since)] as [string, ReactNode]]
-    : []),
-  ...(f.enabled
-    ? ([
-        ["Viimeksi käytetty", f.lastUsedAt ? dateTime(f.lastUsedAt) : "–"],
-        ["Palautuskoodeja jäljellä", f.recoveryLeft],
-      ] as [string, ReactNode][])
-    : []),
+  ...(f.since ? [["Käytössä alkaen", date(f.since)] as [string, ReactNode]] : []),
+  ["Viimeksi käytetty", f.lastUsedAt ? dateTime(f.lastUsedAt) : "–"],
+  ["Palautuskoodeja jäljellä", f.recoveryLeft],
 ];
 
 export function SecondFactor() {
@@ -319,16 +299,9 @@ export function SecondFactor() {
         )}
       </div>
       {factor.error && <div className="error">{factor.error}</div>}
-      {f && !codes && (
-        <DataTable
-          id="second-factor"
-          caption="Kaksivaiheinen tunnistus"
-          headless
-          phone="scroll"
-          rows={factRows(f)}
-          rowKey={(r) => r[0]}
-          columns={KV_COLUMNS}
-        />
+      {f && !codes && !f.enabled && <p className="muted">Ei käytössä.</p>}
+      {f && !codes && f.enabled && (
+        <KeyValue items={factRows(f)} />
       )}
       {codes && <RecoveryCodes codes={codes} onDone={close} />}
       {!codes && mode === "on" && <TurnOn onDone={setCodes} onCancel={close} />}

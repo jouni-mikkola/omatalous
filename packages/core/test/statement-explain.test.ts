@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyUse, partOf } from "../src/account-use.ts";
 import { type AnalysisContext, createContext, loweredRows, spendRows } from "../src/analysis/context.ts";
-import { cardBillsByMonth } from "../src/analysis/card-bills.ts";
+import { missingCardPurchases } from "../src/analysis/card-bills.ts";
 import { periodProblem, type StatementBill } from "../src/analysis/statement-explain.ts";
 import { dayNumber, monthIndex } from "../src/dates.ts";
 import type { Account, AccountUse, Part, Transaction } from "../src/types.ts";
@@ -25,6 +25,8 @@ const statement = (rows: StatementBill["rows"], extra: Partial<StatementBill> = 
 const build = (txs: Transaction[], statements: StatementBill[], accounts: Account[] = [current, card]): AnalysisContext => createContext(txs, accounts, TODAY, undefined, [], [], statements);
 /** What the bill counts for once its rows are read. */
 const billSpend = (ctx: AnalysisContext, id = "bill") => loweredRows(ctx, ctx.txs).find((t) => t.id === id)!.spend;
+/** The card bills of March as the data quality signal sums them. */
+const billsIn = (ctx: AnalysisContext) => missingCardPurchases(ctx, { from: "2026-03-01", to: "2026-03-31" }).reduce((n, m) => n + m.cents, 0);
 const spendOf = (ctx: AnalysisContext, category?: string, month?: string) =>
   spendRows(ctx, ALL).filter((t) => (!category || t.category === category) && (!month || t.month === monthIndex(`${month}-01`))).reduce((n, t) => n + t.spend, 0);
 
@@ -39,7 +41,7 @@ describe("a card statement explains one bill", () => {
     expect(spendOf(ctx, "card_bill", "2026-03")).toBe(12850);
     expect(spendOf(ctx)).toBe(42000);
     // the bill's note reads what is left
-    expect(cardBillsByMonth(ctx, [monthIndex("2026-03-01")])).toEqual([12850]);
+    expect(billsIn(ctx)).toBe(12850);
   });
 
   it("spendRows total equals the no-rows total, and without rows the bill counts whole", () => {
@@ -48,7 +50,7 @@ describe("a card statement explains one bill", () => {
     expect(spendOf(none)).toBe(42000);
     expect(spendRows(none, ALL)).toEqual(none.txs);
     expect(spendOf(build([bill()], [statement(caseA())]))).toBe(spendOf(none));
-    expect(cardBillsByMonth(none, [monthIndex("2026-03-01")])).toEqual([42000]);
+    expect(billsIn(none)).toBe(42000);
   });
 
   it("E over S reads none, one cent under is read and leaves the cent unexplained", () => {

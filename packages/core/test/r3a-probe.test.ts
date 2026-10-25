@@ -177,12 +177,6 @@ describe("credit drawn: the net of a period, never below zero", () => {
 describe("labels the brief names in the web files (read as text)", () => {
   const web = (path: string) => readFileSync(new URL(`../../../apps/web/src/${path}`, import.meta.url), "utf8");
 
-  it("names the bridge's debt row Maksettu velanhoito", () => {
-    const parts = web("components/month-parts.ts");
-    expect(parts).toContain('"Maksettu velanhoito"');
-    expect(parts).not.toContain('label: "Velanhoito"');
-  });
-
   it("names the report's usual income Säännölliset tulot kuussa", () => {
     const income = web("pages/reports/sections/Income.tsx");
     expect(income).toContain("Säännölliset tulot kuussa");
@@ -192,4 +186,4 @@ describe("labels the brief names in the web files (read as text)", () => {
 
 // Covers: savingsRateOf over complete months (partial first month, running month, 12-month window, refund, pending row).
 // Covers: overview, cash flow rows (incl. a range that cuts a month) and Tilanne read the same rate; Tilanne's two window labels and debt share.
-// Covers: credit drawn as max(0, net) in cash flow rows, coverOf and the overview finding (refund of credit, two draws, 12 months); two web labels as text.
+// Covers: credit drawn as max(0, net) in cash flow rows, coverOf and the overview finding (refund of credit, two draws, 12 months); one web label as text.

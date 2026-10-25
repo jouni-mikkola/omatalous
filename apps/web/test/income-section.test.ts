@@ -61,7 +61,7 @@ describe("Raportit: Tulot", () => {
     const earned = (t: string, totalCents: number) => type({ type: t, label: t, totalCents, share: totalCents / 1_000_00 });
     const types = [earned("salary", 476_00), earned("pension", 378_00), earned("benefit", 146_00), type({ type: "gift", label: "gift", totalCents: 50_00, earned: false, group: "not_earned", share: null })];
     const out = html(report({ earnedCents: 1_000_00, types } as unknown as Partial<IncomeReport>));
-    const shares = [...out.matchAll(/<td class="num">(\d+\s%|)<\/td><\/tr>/g)].map((m) => m[1]!.replace(/\s/g, " "));
+    const shares = [...out.matchAll(/<span class="rt-barcell">.*?<span>(\d+\s%)<\/span><\/span><\/td>/g)].map((m) => m[1]!.replace(/\s/g, " "));
     // 47,6 / 37,8 / 14,6 print 48 + 38 + 15 = 101 when each is rounded on its own; the table is drawn twice (chart and table view share it) only when the switch says so
     // the Ansiotulot row is the 100 % its types share; Muut tulot and its types say they have no share
     expect(shares).toEqual(["100 %", "48 %", "38 %", "14 %"]);

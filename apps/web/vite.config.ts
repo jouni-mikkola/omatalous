@@ -1,7 +1,9 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { ocrFolder, ocrSources, thirdPartyLicences } from "./ocr-build.ts";
+import { shellFiles, shellWorkerSource } from "./shell-build.ts";
 
 /**
  * The files the picture reader of Asetukset > Lainat loads while it runs: the Tesseract worker, its WASM core (the one
@@ -38,11 +40,32 @@ function ocrFiles(): Plugin {
   };
 }
 
+/**
+ * `sw.js`, the service worker that keeps the app's own files so it opens offline (see sw.js). It is written after the
+ * build has copied everything, since it lists the files and hashes them. `pnpm dev` has none: the page registers it
+ * only in the build.
+ */
+function shellWorker(): Plugin {
+  let outDir = "";
+  return {
+    name: "shell-worker",
+    apply: "build",
+    enforce: "post",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      writeFileSync(join(outDir, "sw.js"), shellWorkerSource(readFileSync(new URL("./sw.js", import.meta.url), "utf8"), outDir, shellFiles(outDir, ocrFolder(ocrSources()))));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), ocrFiles()],
+  plugins: [react(), ocrFiles(), shellWorker()],
   server: {
-    port: 5173,
-    proxy: { "/api": "http://localhost:8080" },
+    // a second clone runs its dev servers beside the first with WEB_PORT and API_PORT
+    port: Number(process.env.WEB_PORT ?? 5173),
+    proxy: { "/api": `http://localhost:${process.env.API_PORT ?? 8080}` },
   },
   // the image ships minified bundles and no map back to the source; written out so a change cannot turn maps on quietly
   build: { sourcemap: false, minify: true },

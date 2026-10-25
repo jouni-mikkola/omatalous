@@ -1,5 +1,5 @@
 /**
- * Yli jäi is what stayed on the accounts (ADR 0014). `totalsOf` owns the sum, and these tests hold it against the rows
+ * Tulos is what stayed on the accounts (ADR 0014). `totalsOf` owns the sum, and these tests hold it against the rows
  * themselves: what the rows of a period did to the balances, with no flow in between. Borrowed money is in the sum and
  * is never income, and `coverOf` says how a period that took more than its income was paid for.
  */
@@ -41,7 +41,7 @@ function stayed(ctx: AnalysisContext, from: string, to: string): number {
 
 const HOUSEHOLDS = [demoHousehold(), ...[1, 2, 3, 4, 5].flatMap((seed) => [seededHousehold(seed, false), seededHousehold(seed, true)]), kitHousehold(null), kitHousehold(creditDrawn)];
 
-describe("totals: Yli jäi is what stayed on the accounts", () => {
+describe("totals: Tulos is what stayed on the accounts", () => {
   it.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s: every month, the whole history and the bridge say the change of the balances", (_, h) => {
     const ctx = contextOf(h);
     const from = ctx.dataFrom!;
@@ -59,7 +59,7 @@ describe("totals: Yli jäi is what stayed on the accounts", () => {
     expect(d.bridge.totals.leftCents, month).toBe(d.totals.leftCents);
   });
 
-  it("the kit household that drew a credit: the month of the car is covered with credit, and what stayed of the credit is in Yli jäi", () => {
+  it("the kit household that drew a credit: the month of the car is covered with credit, and what stayed of the credit is in Tulos", () => {
     const ctx = contextOf(kitHousehold(creditDrawn));
     const month = addMonths(monthOf(KIT_TODAY), -2);
     const range = { from: `${month}-01`, to: monthEnd(month) };

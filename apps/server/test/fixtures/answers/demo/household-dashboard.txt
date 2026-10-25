@@ -668,6 +668,7 @@
     336100
    ]
   },
+  "cardGap": false,
   "largest": {
    "day": 2,
    "name": "Neste",
@@ -675,6 +676,7 @@
   },
   "payDays": []
  },
+ "goal": null,
  "ahead": {
   "from": "2026-10-09",
   "to": "2026-10-22",
@@ -884,6 +886,11 @@
   }
  ],
  "dataNotice": null,
+ "connectNotice": {
+  "title": "Säästöön meni 1 800 € viimeisen 12 kuukauden aikana tilille, jota ei ole yhdistetty",
+  "detail": "Suurimmat saajat: Nordnet Bank Ab.",
+  "cents": 180000
+ },
  "insights": [
   {
    "id": "new:out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
@@ -1288,7 +1295,8 @@
   "leftCents": -217112,
   "incomeCents": 0,
   "spentCents": 202112,
-  "transfersCents": -15000
+  "transfersCents": -15000,
+  "cardGap": false
  },
  "settlement": []
 }

@@ -28,18 +28,19 @@ out=$(UPGRADE_PORT=9999 UPGRADE_PROJECT=mine UPGRADE_KEEP_UP=1 UPGRADE_WORK=/now
 git -C "$R" checkout -q -- tools/ci/upgrade-run.sh
 check "a proof whose legs pass exits 0" test $rc -eq 0
 has "the first line says how many baselines, why, and where the logs are" "$out" "local proof of $(short): 5 baselines (nothing an update runs through changed since b7), 3 at a time. Logs: $TMP/work/local-proof."
-for l in "the image builds" "smoke test of the image" "signature of the newest release" "upgrade from b0" "upgrade from b3" "upgrade from b5" "upgrade from b6" "upgrade from b7" "install for drills 1, 2, 5, 6, 9, 10" "drills 3, 4, 7, 8" "drills 1, 2, 5, 6, 9, 10"; do
+for l in "the image builds" "smoke test of the image" "container checks of the image" "signature of the newest release" "upgrade from b0" "upgrade from b3" "upgrade from b5" "upgrade from b6" "upgrade from b7" "install for drills 1, 2, 5, 6, 9, 10" "drills 3, 4, 7, 8" "drills 1, 2, 5, 6, 9, 10"; do
   has "one line for the leg: $l" "$out" "ok      $l ("
 done
 for b in b1 b2 b4; do lacks "$b is outside the short list" "$out" "upgrade from $b "; done
 has "the last line says what passed" "$out" "local proof passed for $(short) in"
-has "and counts the baselines" "$out" "the image, the smoke test, the signature, 5 baselines and the drills. Logs: $(logs)"
+has "and counts the baselines" "$out" "the image, the smoke test, the container checks, the signature, 5 baselines and the drills. Logs: $(logs)"
 check "the stamp names the commit and its baselines" test "$(stamp)" = "$(git -C "$R" rev-parse HEAD)"$'\n'"b0 b3 b5 b6 b7"
-check "every leg ran in the clone of the commit" test "$(called "cwd=$TMP/work/local-proof\..*/src\$")" -eq 11
+check "every leg ran in the clone of the commit" test "$(called "cwd=$TMP/work/local-proof\..*/src\$")" -eq 12
 lacks "no leg ran in the checkout" "$(calls)" "cwd=$R"
 lacks "what is not committed does not run" "$(calls)" "DIRTY"
 has "the image is built from the clone" "$(calls)" "docker build -t banking-app:ci . cwd=$TMP/work/local-proof."
 has "the smoke test gets the image" "$(calls)" "smoke banking-app:ci unknown unknown"
+has "so do the container checks" "$(calls)" "container banking-app:ci cwd=$TMP/work/local-proof."
 check "migrations and compose file are checked for each baseline" test "$(called '^check-migrations ')" -eq 5 -a "$(called '^compose-compat ')" -eq 5
 has "the first baseline runs on the defaults" "$(calls)" "rehearsal b0 port= project= keep= work=upgrade-b0 "
 has "the newest baseline runs on the defaults, and leaves its install up" "$(calls)" "rehearsal b7 port= project= keep=1 work=upgrade-b7 "
@@ -55,10 +56,10 @@ check "with no user for the drills they come after every other leg, one at a tim
 check "the drills' install is made after the helper's drills" test "$(grep -n '^drills work=upgrade-b7' "$CALLS" | cut -d: -f1)" -lt "$(grep -n '^drill-install ' "$CALLS" | cut -d: -f1)"
 check "no setpriv and no chown for a user that is not root" test "$(called '^setpriv\|^chown')" -eq 0
 check "only the logs stay in the work folder" test "$(ls "$TMP"/work/local-proof.*)" = logs
-check "a log for each leg" test "$(ls "$(logs)" | LC_ALL=C sort -u | tr '\n' ' ')" = "clone.log drills-default.log drills-install.log drills-own.log image.log signature.log smoke.log upgrade-b0.log upgrade-b3.log upgrade-b5.log upgrade-b6.log upgrade-b7.log "
+check "a log for each leg" test "$(ls "$(logs)" | LC_ALL=C sort -u | tr '\n' ' ')" = "clone.log container.log drills-default.log drills-install.log drills-own.log image.log signature.log smoke.log upgrade-b0.log upgrade-b3.log upgrade-b5.log upgrade-b6.log upgrade-b7.log "
 # the closing list: one line a leg with its seconds, the longest first, then the lanes and the drills
 has "the list opens" "$out" "where the time went, the longest first:"
-for l in "the image builds" "smoke test of the image" "signature of the newest release" "upgrade from b0 \(lane 0\)" "upgrade from b7 \(lane 0\)" "upgrade from b3 \(lane 1\)" "install for drills 1, 2, 5, 6, 9, 10" "drills 1, 2, 5, 6, 9, 10" "drills 3, 4, 7, 8"; do
+for l in "the image builds" "smoke test of the image" "container checks of the image" "signature of the newest release" "upgrade from b0 \(lane 0\)" "upgrade from b7 \(lane 0\)" "upgrade from b3 \(lane 1\)" "install for drills 1, 2, 5, 6, 9, 10" "drills 1, 2, 5, 6, 9, 10" "drills 3, 4, 7, 8"; do
   check "a line a part: $l" grep -qE "^ +[0-9]+ s  $l\$" <<<"$out"
 done
 check "a line for the drills' install and its drills as a whole" grep -qE "^ +[0-9]+ s  the drills' own install and its drills\$" <<<"$out"
@@ -218,7 +219,7 @@ check "a failed leg: exit 1" test $rc -eq 1
 has "the line of the failed leg names its log" "$out" "FAILED  upgrade from b6 ("
 has "the log is the one of that leg" "$out" " s): $(logs)/upgrade-b6.log"
 check "and the log holds what the leg said" grep -q "the b6 leg broke" "$(logs)/upgrade-b6.log"
-has "the end says how many failed and that nothing is stamped" "$out" "local proof FAILED for $(short): 2 of 14 legs. Nothing is stamped."
+has "the end says how many failed and that nothing is stamped" "$out" "local proof FAILED for $(short): 2 of 15 legs. Nothing is stamped."
 has "the end names each failed leg with its log" "$out" "  upgrade-b5: $(logs)/upgrade-b5.log"
 has "and shows the end of the log" "$out" "    the b6 leg broke"
 has "a baseline that fails a check before the rehearsal is a failed leg" "$out" "FAILED  upgrade from b5 ("
@@ -240,7 +241,7 @@ out=$(proof baselines.txt); rc=$?
 has "the first baseline failed: a failed leg of its own" "$out" "FAILED  upgrade from b0 ("
 has "and the drills, which stand on installs of their own, ran" "$out" "ok      drills 3, 4, 7, 8 ("
 check "one leg failed, and the exit is 1" test $rc -eq 1 -a "$(called '^drills ')" -eq 2
-has "one leg failed" "$out" "1 of 14 legs."
+has "one leg failed" "$out" "1 of 15 legs."
 
 reset
 touch "$PLAY/fail-b7"
@@ -249,7 +250,7 @@ has "the newest rehearsal failed: a failed leg" "$out" "FAILED  upgrade from b7 
 has "and the helper's drills, which stand on its install, are a failed leg that did not run" "$out" "FAILED  drills 3, 4, 7, 8: not run, the rehearsal from b7 that they stand on failed"
 check "and did not run" test "$(called '^drills work=upgrade-b7')" -eq 0
 has "the other drills ran on their own install" "$out" "ok      drills 1, 2, 5, 6, 9, 10 ("
-has "two legs failed" "$out" "2 of 14 legs."
+has "two legs failed" "$out" "2 of 15 legs."
 check "the log of the drills that did not run says why" grep -q "not run: the rehearsal from b7 that they stand on failed" "$(logs)/drills-default.log"
 
 reset
@@ -260,7 +261,7 @@ has "its drills are a failed leg that did not run" "$out" "FAILED  drills 1, 2, 
 check "and did not run" test "$(called '^drills work=own')" -eq 0
 has "the helper's drills ran on the default install" "$out" "ok      drills 3, 4, 7, 8 ("
 check "exit 1, two legs, no stamp" test $rc -eq 1 -a -z "$(stamp)"
-has "two legs failed" "$out" "2 of 14 legs."
+has "two legs failed" "$out" "2 of 15 legs."
 check "the log of the drills that did not run says why" grep -q "not run: the install they stand on failed" "$(logs)/drills-own.log"
 
 reset
@@ -298,7 +299,7 @@ reset
 touch "$PLAY/fail-image"
 out=$(proof --jobs 1 baselines.txt); rc=$?
 has "one job, an image that does not build" "$out" "FAILED  the image builds ("
-has "stops the proof" "$out" "1 of 14 legs. The other legs did not run. Nothing is stamped."
+has "stops the proof" "$out" "1 of 15 legs. The other legs did not run. Nothing is stamped."
 check "before any other leg" test $rc -eq 1 -a "$(called '^smoke\|^rehearsal\|^signature\|^drill')" -eq 0 -a -z "$(stamp)"
 reset
 touch "$PLAY/fail-smoke"
@@ -316,7 +317,7 @@ has "an image that fails beside the rehearsals" "$out" "FAILED  the image builds
 check "a rehearsal was inside when it failed, and got the stop" test "$(called '^stopped meeting')" -eq 1
 has "the cut rehearsal is a stopped leg" "$out" "stopped upgrade from "
 lacks "and not a failed one" "$out" "FAILED  upgrade from"
-has "the end says what was cut" "$out" "1 of 14 legs. The legs still running were stopped, and the drills did not run. Nothing is stamped."
+has "the end says what was cut" "$out" "1 of 15 legs. The legs still running were stopped, and the drills did not run. Nothing is stamped."
 check "the drills did not run, nor their installs, nothing is stamped, the exit is 1" test $rc -eq 1 -a "$(called '^drill')" -eq 0 -a -z "$(stamp)"
 check "the image build ended after a rehearsal began" test "$(grep -n '^rehearsal ' "$CALLS" | head -1 | cut -d: -f1)" -lt "$(grep -n '^image-end' "$CALLS" | cut -d: -f1)"
 check "no clone and no install is left" test ! -e "$(dirname "$(logs)")/src" -a -z "$(ls -d "$(dirname "$(logs)")"/upgrade-* 2>/dev/null)"
@@ -340,7 +341,7 @@ lacks "and no rehearsal is called failed" "$out" "FAILED  upgrade from"
 reset
 touch "$PLAY/kill-ppid-drills-own"
 out=$(proof baselines.txt); rc=$?
-check "drills whose shell was killed: the proof is red, with the count" test $rc -eq 1 -a "$(grep -c '^local proof FAILED for .*: 13 of 14 legs reported ok, the others ended without a result. Nothing is stamped.$' <<<"$out")" -eq 1
+check "drills whose shell was killed: the proof is red, with the count" test $rc -eq 1 -a "$(grep -c '^local proof FAILED for .*: 14 of 15 legs reported ok, the others ended without a result. Nothing is stamped.$' <<<"$out")" -eq 1
 check "and nothing is stamped" test -z "$(stamp)"
 lacks "no 'passed' line" "$out" "local proof passed"
 reset

@@ -3,6 +3,7 @@
  * line in the last 90 days covers it, and a usual level needs 8 covered weeks.
  */
 import { describe, expect, it } from "vitest";
+import { bestOfSync, calibrate, slowerNow } from "../../../tools/lib/timing.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { behaviourOf } from "../src/behaviour/index.ts";
 import { addDays, dateIn } from "../src/dates.ts";
@@ -76,16 +77,13 @@ describe("cost", () => {
       return paid(addDays("2023-10-01", Math.floor(i / 90)), 500 + (i % 3_000), merchant, category, i % 3 ? "acc-1" : "card-1");
     });
     const ctx = createContext(rows, [checking, card], TODAY);
-    // the best of five runs, each on a fresh copy of the context (the result is cached per context): the budget is for
-    // the counting, and a loaded machine slows a single run several times over
-    let best = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < 5; i++) {
-      const copy = { ...ctx };
-      const start = performance.now();
-      behaviourOf(copy);
-      best = Math.min(best, performance.now() - start);
-    }
-    expect(best).toBeLessThan(100);
+    // the CPU time of the best of five runs, each on a fresh copy of the context (the result is cached per context): the
+    // budget is for the counting. A loaded machine slows a single run several times over, and still makes the best one
+    // cost more, so the budget stretches as the calibration runs slower than idle (tools/lib/timing.ts)
+    let copy = { ...ctx };
+    const before = calibrate();
+    const { ms } = bestOfSync(5, () => behaviourOf(copy), () => void (copy = { ...ctx }));
+    expect(ms).toBeLessThan(100 * slowerNow(before));
     expect(behaviourOf(ctx).groceries.week.visits).toBeGreaterThan(0);
   }, 60_000);
 });

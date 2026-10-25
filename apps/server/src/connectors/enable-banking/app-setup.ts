@@ -34,7 +34,7 @@ export const PENDING = "instance_bank_app_pending";
 /** What the last test of the saved app learned about it (see CheckedApp). */
 export const CHECKED = "instance_bank_app_checked";
 /** Said when Enable Banking reports the application as not active yet; the wizard shows it as it is. */
-export const INACTIVE_MESSAGE = "Sovellus ei ole vielä aktiivinen. Linkitä tilit Enable Bankingissa: Activate by linking accounts.";
+export const INACTIVE_MESSAGE = "Sovellus ei ole vielä aktiivinen. Lisää tilit Enable Bankingissa (Activate by linking accounts).";
 /** Sealing context: a sealed instance key cannot be copied into a user's row, or the other way round. */
 export const AAD = "instance:enablebanking";
 

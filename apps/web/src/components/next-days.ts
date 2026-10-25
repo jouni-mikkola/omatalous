@@ -1,6 +1,6 @@
 // Decision: does the account cover what is due before the next pay
 import { daysBetween } from "@banking/core";
-import { date, dayHeading, dayMonth, money } from "../format.ts";
+import { date, dayHeading, dayMonth, localDay, money } from "../format.ts";
 import type { DashboardData } from "../types.ts";
 
 export type Ahead = NonNullable<DashboardData["ahead"]>;
@@ -57,7 +57,7 @@ interface Figure {
 export function figures(ahead: Ahead): Figure[] | null {
   const { balance, totals, from } = ahead;
   if (!balance) return null;
-  const old = balance.balanceAt && daysBetween(balance.balanceAt.slice(0, 10), from) > 1 ? `Saldo päivältä ${date(balance.balanceAt)}` : null;
+  const old = balance.balanceAt && daysBetween(localDay(balance.balanceAt), from) > 1 ? `Saldo päivältä ${date(balance.balanceAt)}` : null;
   return [
     { key: "balance", label: "Saldo", cents: balance.startCents, notes: [COUNTS[balance.counts](balance.accounts), old].filter((x): x is string => !!x) },
     { key: "due", label: "Erääntyvät maksut", cents: totals.dueCents, notes: [] },

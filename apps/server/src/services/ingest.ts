@@ -57,9 +57,10 @@ function closest<T extends Party>(candidates: readonly T[], party: Party): T | u
  * Pending transactions are replaced wholesale on every sync because banks
  * give them a new identity once they are booked. A booked row also replaces
  * the pending row it matches, one listed in the same answer or one stored,
- * and takes the user's category from it.
+ * and takes the user's category from it. A backfill of older days (`keepPending`) leaves the stored pending rows as
+ * they are: its answer holds none, and would otherwise be taken for a sync in which they were all booked.
  */
-export async function ingestTransactions(repo: FinanceRepo, accountId: string, raws: readonly RawTransaction[], source: string): Promise<IngestResult> {
+export async function ingestTransactions(repo: FinanceRepo, accountId: string, raws: readonly RawTransaction[], source: string, opts: { keepPending?: boolean } = {}): Promise<IngestResult> {
   const booked = raws.filter((r) => r.status === "booked");
   const pending = raws.filter((r) => r.status === "pending");
   const result: IngestResult = { fetched: raws.length, inserted: 0, updated: 0, skipped: 0, changed: 0 };
@@ -200,9 +201,9 @@ export async function ingestTransactions(repo: FinanceRepo, accountId: string, r
 
   // the pending rows of a sync replace the stored ones; when they are the same rows, nothing is replaced
   const bookedRows = rows.filter((r) => r.status === "booked");
-  const pendingRows = rows.filter((r) => r.status === "pending");
+  const pendingRows = opts.keepPending ? [] : rows.filter((r) => r.status === "pending");
   const storedPending = new Map(stored.map((p) => [p.id, p.signature]));
-  const pendingChanged = pendingRows.length !== storedPending.size || pendingRows.some((r) => storedPending.get(r.id) !== bankSignature(r));
+  const pendingChanged = !opts.keepPending && (pendingRows.length !== storedPending.size || pendingRows.some((r) => storedPending.get(r.id) !== bankSignature(r)));
   const writes = [...bookedRows, ...(pendingChanged ? pendingRows : [])];
   result.changed = writes.length + (pendingChanged ? storedPending.size : 0);
   if (!pendingChanged && !writes.length) return result;

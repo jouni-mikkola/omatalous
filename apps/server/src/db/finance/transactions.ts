@@ -146,6 +146,15 @@ export class TransactionsRepo {
     return r?.d ?? null;
   }
 
+  /** The earliest booked date from one source: where the bank's history of the account is known to begin, as far as it has been asked. */
+  async earliestBookingDate(accountId: string, source: string): Promise<string | null> {
+    const r = await this.ctx.db.first<{ d: string | null }>(
+      "SELECT MIN(booking_date) AS d FROM transactions WHERE user_id = ? AND account_id = ? AND status = 'booked' AND source = ?",
+      [this.ctx.userId, accountId, source],
+    );
+    return r?.d ?? null;
+  }
+
   /** The account's pending rows: a booked row replaces one, and a category the user set on it moves along. */
   async pendingRows(accountId: string): Promise<(StoredParty & { category: string; categorySource: string })[]> {
     const rows = await this.ctx.db.all<Row>(

@@ -15,7 +15,7 @@ import { completeMonthsBefore, isCompleteMonth } from "../../analysis/usual.ts";
 import { getCategory } from "../../categories.ts";
 import { addMonths, daysBetween } from "../../dates.ts";
 import { median } from "../../stats.ts";
-import { findingId, GATE_YEARLY_CENTS, netCost } from "../common.ts";
+import { findingId, GATE_YEARLY_CENTS, netCost, whyHistory } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
 
 const SOON_DAYS = 60;
@@ -171,7 +171,7 @@ export const seasons: Area = {
     // the insight's own history test: a month with a complete same month a year earlier
     const enough = seasonMonths(a.ctx, a.today).length > 0;
     const checks: Check[] = [
-      { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data" },
+      { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data", ...(enough ? {} : { why: whyHistory(a, 13) }) },
     ];
     if (!enough) return { findings: [], checks };
     const items = expensiveMonthItems({ ctx: a.ctx, end: a.today, gateMonthlyCents: gateMonthly(a.ctx, a.today) });

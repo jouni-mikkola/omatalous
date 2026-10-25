@@ -45,12 +45,14 @@ for (const width of [1280, 390]) {
       const response = await route.fetch();
       const json = await response.json();
       const b = json.board;
-      const coming = b.rows.find((r: { state: string }) => r.state === "coming");
+      // a bill still coming, else (the last days of the month have none left) a paid one
+      const coming = b.rows.find((r: { state: string }) => r.state === "coming") ?? b.rows.find((r: { state: string }) => r.state === "paid");
       if (coming) {
+        const was = `${coming.state}Cents`;
         coming.state = "missing";
         coming.date = b.from;
         b.rows = [coming, ...b.rows.filter((r: unknown) => r !== coming)];
-        b.totals.comingCents -= coming.cents;
+        b.totals[was] -= coming.cents;
         b.totals.missingCents += coming.cents;
       }
       await route.fulfill({ response, json });

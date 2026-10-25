@@ -106,6 +106,49 @@ export function unknownSpending(ctx: AnalysisContext, range: DateRange): { other
   return { otherCents, billCents, spendingCents, otherShare: spendingCents > 0 ? Math.min(1, otherCents / spendingCents) : 0, share: known.spendingCents > 0 ? Math.min(1, known.otherCents / known.spendingCents) : 0 };
 }
 
+/** Money sent to an own account or fund that is not connected, counted as saved: the sum, the largest payees and the category with most of it. */
+function savedToUnconnected(inRange: readonly AnalysisTx[]): { cents: number; largest: string[]; category: string } | null {
+  const sentAway = inRange.filter((t) => !t.isTransfer && t.flows.saved !== 0);
+  const cents = sentAway.reduce((s, t) => s + t.flows.saved, 0);
+  if (cents <= 0) return null;
+  const byPayee = new Map<string, number>();
+  const byCategory = new Map<string, number>();
+  for (const t of sentAway) {
+    byPayee.set(t.merchant, (byPayee.get(t.merchant) ?? 0) + t.flows.saved);
+    byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.flows.saved);
+  }
+  const largest = [...byPayee.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
+  return { cents, largest, category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0] };
+}
+
+export interface ConnectNotice {
+  title: string;
+  detail: string;
+  /** What is missing over the twelve complete months: the bills of cards that are not connected, else the savings sent to an account that is not. */
+  cents: number;
+}
+
+/**
+ * Decision: whether to connect a card or an account now. The one row of the first page for what only a connection
+ * mends: the card bills of an issuer none of whose cards is connected (`missingCardPurchases`, reason `not_connected`)
+ * and savings sent to an own account that is not connected (the `own_unconnected` signal's sum), over the twelve
+ * complete months of `knownSpending`. A bill before a connected card's rows begin or one that pairs with none is not
+ * said here: connecting changes neither. null when nothing is missing.
+ */
+export function connectNotice(ctx: AnalysisContext, to: IsoDate = ctx.today): ConnectNotice | null {
+  const window = completeYear(to < ctx.today ? to : ctx.today);
+  const cards = missingCardPurchases(ctx, window).filter((m) => m.reason === "not_connected");
+  const cardCents = cards.reduce((s, m) => s + m.cents, 0);
+  const saved = savedToUnconnected(inDays(ctx, toDayRange(window)));
+  const savedLine = saved ? `Säästöön meni ${formatEur(saved.cents, false)} tilille, jota ei ole yhdistetty.` : "";
+  if (cardCents > 0) {
+    const issuers = finnishList(cards.slice(0, 3).map((m) => m.issuer));
+    return { title: `Korttilaskuja ${formatEur(cardCents, false)} viimeiseltä 12 kuukaudelta, mutta kortin ostot puuttuvat`, detail: `Yhdistämättömät kortit: ${issuers}.${savedLine ? ` ${savedLine}` : ""}`, cents: cardCents };
+  }
+  if (saved) return { title: `Säästöön meni ${formatEur(saved.cents, false)} viimeisen 12 kuukauden aikana tilille, jota ei ole yhdistetty`, detail: saved.largest.length ? `Suurimmat saajat: ${finnishList(saved.largest)}.` : "", cents: saved.cents };
+  return null;
+}
+
 /** The measure in the page's words, its window named. */
 const knownTitle = (share: number): string => `${knownPercent(share)} % viimeisen 12 valmiin kuukauden menoista on tunnistettu`;
 
@@ -200,23 +243,15 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
   }
 
   // money sent to an own account or fund that is not connected is counted as saved: the savings rate takes it on trust
-  const sentAway = inRange.filter((t) => !t.isTransfer && t.flows.saved !== 0);
-  const saved = sentAway.reduce((s, t) => s + t.flows.saved, 0);
-  if (saved > 0) {
-    const byPayee = new Map<string, number>();
-    const byCategory = new Map<string, number>();
-    for (const t of sentAway) {
-      byPayee.set(t.merchant, (byPayee.get(t.merchant) ?? 0) + t.flows.saved);
-      byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.flows.saved);
-    }
-    const largest = [...byPayee.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
+  const saved = savedToUnconnected(inRange);
+  if (saved) {
     signals.push({
       id: "own_unconnected",
       tone: "info",
-      title: `Säästöön meni ${formatEur(saved, false)} tilille, jota ei ole yhdistetty`,
-      detail: `${largest.length ? `Suurimmat saajat: ${finnishList(largest)}. ` : ""}Yhdistä tili.`,
-      category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0],
-      cents: saved,
+      title: `Säästöön meni ${formatEur(saved.cents, false)} tilille, jota ei ole yhdistetty`,
+      detail: `${saved.largest.length ? `Suurimmat saajat: ${finnishList(saved.largest)}. ` : ""}Yhdistä tili.`,
+      category: saved.category,
+      cents: saved.cents,
     });
   }
 

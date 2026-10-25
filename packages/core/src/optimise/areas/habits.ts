@@ -14,8 +14,8 @@ import { capitalise, monthSpan } from "../../analysis/insights/shared.ts";
 import { clearlyAbove } from "../../analysis/signal.ts";
 import { addDays, monthOf } from "../../dates.ts";
 import { median } from "../../stats.ts";
-import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, levelWithoutOneOffs, MAX_ROWS, mean, yearOverYear } from "../common.ts";
-import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
+import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, levelWithoutOneOffs, MAX_ROWS, mean, whyHistory, YEAR_OVER_YEAR_NEED, yearOverYear } from "../common.ts";
+import type { Area, AreaInput, CalcLine, Check, FindingDraft, NoDataWhy } from "../types.ts";
 
 /** The alert's window: the habit is judged on the last 90 days of complete months. */
 const HABIT_DAYS = 90;
@@ -126,10 +126,10 @@ export const habits: Area = {
   label: "Pienet tavat",
   assess: (a) => {
     const win = yearOverYear(a);
-    const check = (status: Check["status"]): Check[] => [
-      { id: "habits:repeat", label: "Arkiostot", status },
+    const check = (status: Check["status"], why?: NoDataWhy): Check[] => [
+      { id: "habits:repeat", label: "Arkiostot", status, ...(why ? { why } : {}) },
     ];
-    if (!win) return { findings: [], checks: check("no_data") };
+    if (!win) return { findings: [], checks: check("no_data", whyHistory(a, YEAR_OVER_YEAR_NEED)) };
     const candidates = habitItems(a.ctx, { from: addDays(a.end, -(HABIT_DAYS - 1)), to: a.end }).map((h) => h.merchant).sort();
     const findings = candidates.map((m) => habitFinding(a, m, win)).filter((f): f is FindingDraft => f !== null);
     return { findings, checks: check("clear") };

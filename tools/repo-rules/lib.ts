@@ -18,7 +18,7 @@ export interface Finding {
   why: string;
 }
 
-const SKIP_DIRS = new Set([".git", "node_modules", "dist", "data", "coverage", "backups", "test-results", "playwright-report", ".claude/worktrees"]);
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", "data", "coverage", "backups", "test-results", "playwright-report"]);
 
 function walkTree(root: string, dir: string, out: string[]): void {
   for (const e of readdirSync(resolve(root, dir), { withFileTypes: true })) {

@@ -107,7 +107,7 @@ const LONG_CSV = [
 const OCTOBER = "from=2026-10-01&to=2026-10-31";
 
 describe("GET /api/explain: the figures that are not a sum of one range", () => {
-  it("Yli jäi is a sum of the month's rows that adds up to the dashboard's figure", async () => {
+  it("Tulos is a sum of the month's rows that adds up to the dashboard's figure", async () => {
     const { admin } = await imported();
     const dash = (await admin.call("GET", `/api/dashboard?${SEPTEMBER}`)).body;
     const r = await admin.call("GET", `/api/explain?figure=yli_jai.month&${SEPTEMBER}`);
@@ -162,7 +162,7 @@ describe("GET /api/explain: the figures that are not a sum of one range", () => 
 describe("GET /api/explain: each opener explains the number its page shows", () => {
   const YEAR = "from=2025-10-01&to=2026-10-09";
 
-  it("usual.income and Yli jäi are the figures of the dashboard and the reports", async () => {
+  it("usual.income and Tulos are the figures of the dashboard and the reports", async () => {
     const { admin } = await setupApp();
     expect((await admin.call("POST", "/api/demo")).status).toBe(200);
     const reports = (await admin.call("GET", `/api/reports?${YEAR}&reports=income,cashflow`)).body;

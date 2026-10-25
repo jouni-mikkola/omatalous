@@ -1,13 +1,14 @@
 import { createContext, type RefObject, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
 import type { Meta } from "./types.ts";
-import { hashOf, parseHash, type Route, redirectRoute } from "./routes.ts";
+import { hashOf, parseHash, type Route, redirectRoute, withParams } from "./routes.ts";
 
 /**
  * Fetches JSON and keeps the previous data while a new request is in flight,
- * so charts hold their frame (dimmed) instead of flashing empty.
+ * so charts hold their frame (dimmed) instead of flashing empty. `keep` is for what Yhteenveto and the shell read: the
+ * answer stays on the device for when the server cannot be reached (offline.ts).
  */
-export function useApi<T>(path: string | null): { data: T | null; error: string | null; loading: boolean; reload: () => void } {
+export function useApi<T>(path: string | null, keep = false): { data: T | null; error: string | null; loading: boolean; reload: () => void } {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ export function useApi<T>(path: string | null): { data: T | null; error: string 
     if (!path) return;
     let cancelled = false;
     setLoading(true);
-    api<T>(path)
+    api<T>(path, { keep })
       .then((d) => {
         if (cancelled) return;
         setData(d);
@@ -68,9 +69,14 @@ export function useHashRoute(role: "admin" | "member"): Route {
   return route;
 }
 
-export function navigate(page: string, params: Record<string, string | undefined> = {}): void {
-  const q = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => !!e[1])).toString();
-  window.location.hash = `#/${page}${q ? `?${q}` : ""}`;
+/**
+ * Goes to a page with `params` as its parameters. With `keep` the open address's other parameters stay (a period
+ * switch on Raportit keeps `tab`); an empty value removes its parameter. The anchor never stays.
+ */
+export function navigate(page: string, params: Record<string, string | undefined> = {}, keep = false): void {
+  const open = parseHash(window.location.hash);
+  const base = keep && open.page === page ? open.params : new URLSearchParams();
+  window.location.hash = hashOf({ page, params: withParams(base, params) });
 }
 
 /** What App fetched from /api/meta, once per load: Notices and Why read it here instead of asking again. Null until the answer is there. */

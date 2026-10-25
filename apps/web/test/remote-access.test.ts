@@ -10,7 +10,6 @@ import {
   canTurnOff,
   canTurnOn,
   cleanHostname,
-  clockTime,
   emailProblem,
   homeStoppedAnswering,
   isInstallerHost,
@@ -30,6 +29,7 @@ import {
   zoneList,
   zonesSentence,
 } from "../src/pages/settings/remote-access-model.ts";
+import { clockTime } from "../src/format.ts";
 import { RemoteAccessBody, type RemoteAccessPoll } from "../src/pages/settings/RemoteAccess.tsx";
 import { AfterOff, OffAsk, OnAsk, RemoveTokenAsk } from "../src/pages/settings/RemoteAccessAsk.tsx";
 
@@ -72,7 +72,6 @@ const ON: RemoteAccessState = {
 /** A new address on trial: on, and nobody has come in through it yet. */
 const REVERT_AT = "2026-10-12T11:35:00.000Z";
 const TRIAL: RemoteAccessState = { ...ON, access: { ...ON.access, confirmed: false, revertAt: REVERT_AT }, last: null };
-const clock = (iso: string) => new Date(iso).toLocaleTimeString("fi-FI", { hour: "numeric", minute: "2-digit" });
 const PENDING = { want: "tunnel", hostname: "talous.example.fi", requestId: "op_0123456789abcdef", status: "queued", requestedAt: "2026-10-12T08:00:00.000Z" } as const;
 
 const poll = (data: RemoteAccessState | null, extra: Partial<RemoteAccessPoll> = {}): RemoteAccessPoll => ({
@@ -144,8 +143,6 @@ describe("what the admin can do from the state", () => {
     expect(trialOverdue(REVERT_AT, Date.parse(REVERT_AT) - 1)).toBe(false);
     expect(trialOverdue(REVERT_AT, Date.parse(REVERT_AT))).toBe(true);
     expect(trialOverdue(null, 0)).toBe(false);
-    expect(clockTime(REVERT_AT)).toBe(clock(REVERT_AT));
-    expect(clockTime(REVERT_AT)).toMatch(/^\d{1,2}[.:]\d{2}$/);
   });
 
   it("offers removing the token while nothing waits, and says that the off needs it while Cloudflare has a side", () => {
@@ -323,7 +320,7 @@ describe("the blocks of each state", () => {
     const html = page(TRIAL);
     expect(html).toContain("Uusi osoite on kokeilussa.");
     expect(html).not.toContain("Etäkäyttö on käytössä.");
-    expect(html).toContain(`<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a> kerran ja kirjaudu sisään Cloudflaren kautta ennen kello ${clock(REVERT_AT)}.`);
+    expect(html).toContain(`<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a> kerran ja kirjaudu sisään Cloudflaren kautta ennen kello ${clockTime(REVERT_AT)}.`);
     expect(html).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
     // the address and the list stay on show, and so does the way back
     expect(html).toContain("<li>anna@example.fi</li>");
@@ -334,7 +331,7 @@ describe("the blocks of each state", () => {
     expect(unsettled).not.toContain("ennen kello");
     // the time has passed and the helper has not taken it off yet
     const late = page(TRIAL, {}, Date.parse(REVERT_AT) + 60_000);
-    expect(late).toContain(`Kokeiluaika päättyi kello ${clock(REVERT_AT)}.`);
+    expect(late).toContain(`Kokeiluaika päättyi kello ${clockTime(REVERT_AT)}.`);
     expect(late).not.toContain("ennen kello");
     expect(late).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
   });

@@ -27,12 +27,14 @@ async function signedIn(browser: Browser, width: number, height: number): Promis
 
 const WEEKDAY = ["su", "ma", "ti", "ke", "to", "pe", "la"];
 
-test("390 px: rows sit under day headers, newest first, the merchant, category and amount on two lines", async ({ browser }) => {
+const DATA_ROW = "table.tx-table tbody tr:not(.rt-group):not(.rt-detail)";
+
+test("390 px: rows sit under day groups, newest first, each a block of the merchant, category and amount", async ({ browser }) => {
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  const headers = page.locator(".tx-day h3");
+  const headers = page.locator("table.tx-table tr.rt-group th");
   await expect(headers.first()).toBeVisible();
   expect(await headers.count()).toBeGreaterThan(5);
   // the strip above the list: what the rows add up to, and nothing scrolls sideways
@@ -44,8 +46,8 @@ test("390 px: rows sit under day headers, newest first, the merchant, category a
   const year = new Date().getFullYear();
   const days: number[] = [];
   for (const text of (await headers.allTextContents()).slice(0, 12)) {
-    const m = /^(su|ma|ti|ke|to|pe|la) (\d{1,2})\.(\d{1,2})\.(\d{4})?$/.exec(text.trim());
-    expect(m, `"${text}" is a day header`).not.toBeNull();
+    const m = /^(su|ma|ti|ke|to|pe|la) (\d{1,2})\.(\d{1,2})\.(\d{4})?\s*\d+ tapahtuma/.exec(text.trim());
+    expect(m, `"${text}" is a day group`).not.toBeNull();
     const [, weekday, d, mo, y] = m!;
     const time = Date.UTC(Number(y ?? year), Number(mo) - 1, Number(d));
     expect(WEEKDAY[new Date(time).getUTCDay()], `the weekday of ${text}`).toBe(weekday);
@@ -53,25 +55,36 @@ test("390 px: rows sit under day headers, newest first, the merchant, category a
   }
   days.forEach((time, i) => i > 0 && expect(time, "newest day first").toBeLessThan(days[i - 1]!));
 
-  // no table; each row has a merchant, a category chip that opens the picker and an amount, and is two lines tall
-  await expect(page.locator("table.tx-table")).toHaveCount(0);
-  const rows = page.locator(".tx-item");
+  // one table at every width: at 390 px each row is a block with a merchant, a category and an amount
+  await expect(page.locator(".rt-wrap").first()).toHaveAttribute("data-block", "");
+  const rows = page.locator(DATA_ROW);
+  await expect(rows).toHaveCount(25);
+  expect(await page.getByRole("button").count(), "a phone has fewer than 80 buttons").toBeLessThan(80);
+  const targets = await rows.evaluateAll((rows) => rows.map((row) => Array.from(row.querySelectorAll("button, a[href], input, select, textarea, [tabindex='0']")).map((el) => {
+    const box = el.getBoundingClientRect();
+    return { width: box.width, height: box.height };
+  })));
+  for (const [i, controls] of targets.entries()) {
+    expect(controls, `row ${i}: only the shared open button`).toHaveLength(1);
+    expect(controls[0]!.width, `row ${i}: target width`).toBeGreaterThanOrEqual(32);
+    expect(controls[0]!.height, `row ${i}: target height`).toBeGreaterThanOrEqual(32);
+  }
   const first = rows.first();
-  await expect(first.locator(".tx-main a")).toBeVisible();
-  await expect(first.locator("button.tx-chip")).toBeVisible();
+  await expect(first.locator(".tx-name")).toBeVisible();
+  await expect(first.locator(".tx-category .tx-chip")).toBeVisible();
   await expect(first.locator(".tx-amount")).toContainText("€");
-  for (let i = 0; i < 20; i++) expect((await rows.nth(i).boundingBox())!.height, `row ${i} is two lines`).toBeLessThan(80);
+  for (let i = 0; i < 20; i++) expect((await rows.nth(i).boundingBox())!.height, `row ${i} is two or three lines`).toBeLessThan(120);
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
 
-test("390 px: every row's account mark stands whole beside its category chip, which gives up its letters first", async ({ browser }) => {
+test("390 px: every row's account mark stands whole, its text inside the screen and under nothing", async ({ browser }) => {
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  const rows = page.locator(".tx-item");
+  const rows = page.locator(DATA_ROW);
   await expect(rows.first()).toBeVisible();
   const n = Math.min(await rows.count(), 40);
   expect(n).toBeGreaterThan(10);
@@ -79,13 +92,10 @@ test("390 px: every row's account mark stands whole beside its category chip, wh
     const row = rows.nth(i);
     // the middle of the screen, clear of the sticky head and the tab bar
     await row.evaluate((e) => e.scrollIntoView({ block: "center" }));
-    const chip = (await row.locator(".tx-cat .tx-chip").boundingBox())!;
-    const mark = row.locator(".tx-cat .tx-acct");
-    const box = (await mark.boundingBox())!;
+    const mark = row.locator("td.tx-account .tx-acct");
     const short = (await mark.locator(".tx-acct-short").boundingBox())!;
-    expect(chip.x + chip.width, `row ${i}: the chip ends before the account mark`).toBeLessThanOrEqual(box.x + 0.5);
     expect(short.x + short.width, `row ${i}: the account's text is inside the screen`).toBeLessThanOrEqual(390);
-    // the topmost element at the middle of the account's text is the text itself, not the chip over it
+    // the topmost element at the middle of the account's text is the text itself, not something over it
     const top = await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest(".tx-acct")?.outerHTML ?? document.elementFromPoint(x!, y!)?.outerHTML.slice(0, 120), [short.x + short.width / 2, short.y + short.height / 2]);
     expect(top, `row ${i}: nothing covers the account's text`).toMatch(/^<span class="tx-acct"/);
   }
@@ -100,7 +110,7 @@ test("390 px: a filter chip opens its list as a sheet, narrows the list, names i
   await page.goto("/#/transactions");
   const search = page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" });
   await expect(search).toBeVisible();
-  await expect(page.locator(".tx-item").first()).toBeInViewport();
+  await expect(page.locator(DATA_ROW).first()).toBeInViewport();
   // the chips stand on one line that scrolls in its own box
   const chips = page.locator(".tx-fchips");
   expect(await chips.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
@@ -112,8 +122,8 @@ test("390 px: a filter chip opens its list as a sheet, narrows the list, names i
   await expect(page).toHaveURL(/#\/transactions\?category=groceries$/);
   await expect(sheet).toHaveCount(0);
   await expect(page.locator(".tx-fchip.set")).toContainText("Ruokakauppa");
-  await expect.poll(async () => (await page.locator(".tx-item button.tx-chip .tx-chip-label").allInnerTexts()).filter((t) => t.trim() !== "Ruokakauppa").length).toBe(0);
-  expect(await page.locator(".tx-item").count()).toBeGreaterThan(0);
+  await expect.poll(async () => (await page.locator(`${DATA_ROW} .tx-category .tx-chip-label`).allInnerTexts()).filter((t) => t.trim() !== "Ruokakauppa").length).toBe(0);
+  expect(await page.locator(DATA_ROW).count()).toBeGreaterThan(0);
 
   // Escape closes a sheet and gives the focus back to its chip
   await page.getByRole("button", { name: "Tili", exact: true }).click();
@@ -131,22 +141,24 @@ test("390 px: a filter chip opens its list as a sheet, narrows the list, names i
   await context.close();
 });
 
-test("390 px: a category changed in a row saves, shows its answer on the screen and is kept after a reload", async ({ browser }) => {
+test("390 px: a category changed in an opened row saves, shows its answer on the screen and is kept after a reload", async ({ browser }) => {
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  const rows = page.locator(".tx-item");
+  const rows = page.locator(DATA_ROW);
   await expect(rows.first()).toBeVisible();
 
   // a row down the list, categorised by rule and not a transfer, so "käsin" is new after the change
   const row = rows.filter({ hasNot: page.locator(".tx-chip-manual") }).filter({ hasNotText: /Omat siirrot|Luottokortin lasku|Luotonnostot/ }).nth(12);
   await row.scrollIntoViewIfNeeded();
-  const chip = row.locator("button.tx-chip");
-  const merchant = (await row.locator(".tx-main a").innerText()).trim();
-  const before = (await chip.locator(".tx-chip-label").innerText()).trim();
+  const merchant = (await row.locator(".tx-name").innerText()).trim();
+  const before = (await row.locator(".tx-category .tx-chip-label").innerText()).trim();
   const target = before === "Lemmikit" ? "Rahapelit" : "Lemmikit";
-  await chip.click();
+  // the row opens, and its category is changed there
+  await row.getByRole("button", { name: `Avaa ${merchant}: 12 kuukautta` }).click();
+  const named = (category: string) => page.getByRole("button", { name: `Kategoria: ${merchant}, nyt ${category}` });
+  await named(before).first().click();
   const picker = page.getByRole("dialog", { name: `Kategoria: ${merchant}` });
   await expect(picker).toContainText("Muutos koskee myös kauppiaan muita ja tulevia tapahtumia.");
   await picker.getByRole("option", { name: target }).click();
@@ -158,13 +170,13 @@ test("390 px: a category changed in a row saves, shows its answer on the screen 
   await notice.getByRole("button", { name: "Sulje" }).click();
   await expect(notice).toHaveCount(0);
 
-  const named = (category: string) => page.getByRole("button", { name: `Kategoria: ${merchant}, nyt ${category}` });
   await page.reload();
-  await expect(named(target).first()).toBeVisible();
-  // the row that was picked is marked "käsin" on its chip; the merchant's other rows follow its rule and are not
-  await expect(rows.filter({ has: named(target) }).locator(".tx-chip-manual").first()).toBeAttached();
+  const picked = rows.filter({ hasText: merchant }).filter({ has: page.locator(".tx-chip-manual") });
+  await expect(picked.first()).toBeAttached();
+  await expect(picked.first().locator(".tx-category .tx-chip-label")).toHaveText(target);
 
   // put the category back, so no later spec meets the change
+  await picked.first().getByRole("button", { name: `Avaa ${merchant}: 12 kuukautta` }).click();
   await named(target).first().click();
   await page.getByRole("dialog", { name: `Kategoria: ${merchant}` }).getByRole("option", { name: before, exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /siirrettiin kategoriaan/ })).toBeVisible();
@@ -177,8 +189,8 @@ test("1366 px: the page is the table under the filter chips, the download in the
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa", "Avaa"]);
-  await expect(page.locator("table.tx-table tbody tr").first()).toBeVisible();
+  await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa"]);
+  await expect(page.locator(DATA_ROW).first()).toBeVisible();
   // the day is the group row above its rows, with how many there are
   await expect(page.locator("table.tx-table tr.rt-group th").first()).toHaveText(/^(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\.(\d{4})? *\d+ tapahtuma/);
   await expect(page.locator(".tx-day")).toHaveCount(0);
@@ -193,7 +205,8 @@ test("1366 px: the page is the table under the filter chips, the download in the
 });
 
 // The table of Tapahtumat on a screen wider than a phone: the bank's text after the payee's name only when the name does
-// not say it, and the account's mark in a column of its own, or on the name's line where five columns do not fit.
+// not say it, and the account's mark whole in its cell. Where the columns do not fit the rows are blocks, so the heads
+// are checked only while it is a table.
 const LONG = "Kuukausimaksu kuvauksen kanssa, joka on aika pitkä ja jatkuu vielä pidemmälle kuin mikään sarake jaksaa näyttää, viite 1234 5678 9012";
 const ROWS = [
   // the bank's payee is the name in capitals and without its umlauts: nothing to add
@@ -207,7 +220,7 @@ const ROWS = [
 ];
 
 for (const width of [1366, 1000, 700, 601]) {
-  test(`${width} px: the bank's text only where it adds to the name, the account in a column or on the name's line, nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the bank's text only where it adds to the name, the account whole in its cell, nothing scrolls sideways`, async ({ browser }) => {
     const context = await signedIn(browser, width, 900);
     const page = await context.newPage();
     const seen = watch(page);
@@ -221,11 +234,12 @@ for (const width of [1366, 1000, 700, 601]) {
       await route.fulfill({ response, json });
     });
     await page.goto("/#/transactions");
-    const wide = width > 960;
-    const heads = page.locator("table.tx-table thead th:visible");
-    await expect(heads).toHaveText(wide ? ["Saaja tai maksaja", "Tili", "Kategoria", "Summa", "Avaa"] : ["Saaja tai maksaja", "Kategoria", "Summa", "Avaa"]);
-    const rowOf = (name: string) => page.locator("table.tx-table tbody tr").filter({ has: page.getByRole("link", { name, exact: true }) });
-    const textOf = (name: string) => rowOf(name).locator("td").nth(0).locator(".tx-text");
+    await expect(page.locator(DATA_ROW).first()).toBeVisible();
+    const block = (await page.locator(".rt-wrap").first().getAttribute("data-block")) !== null;
+    if (width >= 1000) expect(block, "a table where there is room").toBe(false);
+    if (!block) await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa"]);
+    const rowOf = (name: string) => page.locator(DATA_ROW).filter({ has: page.locator(".tx-name", { hasText: new RegExp(`^${name}$`) }) });
+    const textOf = (name: string) => rowOf(name).locator(".tx-text");
 
     await expect(textOf("Esimerkki Käpylä Oy")).toHaveCount(0);
     await expect(textOf("Esimerkki Tyhjä Oy")).toHaveCount(0);
@@ -244,9 +258,7 @@ for (const width of [1366, 1000, 700, 601]) {
     // the account is its mark and a short text that is never cut; its whole name is the title
     const names = (await (await page.request.get("/api/meta")).json()).accounts.map((a: { name: string }) => a.name);
     for (const name of ROWS.map((r) => r.merchant)) {
-      const row = rowOf(name);
-      const mark = wide ? row.locator("td.tx-account .tx-acct") : row.locator(".tx-line-acct .tx-acct");
-      await expect(wide ? row.locator(".tx-line-acct") : row.locator("td.tx-account")).toBeHidden();
+      const mark = rowOf(name).locator("td.tx-account .tx-acct");
       await expect(mark).toBeVisible();
       expect(names, `the account of ${name}`).toContain(await mark.getAttribute("title"));
       const short = mark.locator(".tx-acct-short");
@@ -254,7 +266,7 @@ for (const width of [1366, 1000, 700, 601]) {
     }
 
     expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
-    expect(await page.locator(".table-wrap").evaluate((el) => el.scrollWidth - el.clientWidth), "the table scrolls inside its card").toBeLessThanOrEqual(1);
+    expect(await page.locator(".rt-wrap").first().evaluate((el) => el.scrollWidth - el.clientWidth), "the table scrolls inside its card").toBeLessThanOrEqual(1);
     expect(seen.problems).toEqual([]);
     await context.close();
   });

@@ -67,8 +67,9 @@ export function FilterBar({ filters, categories, accounts, looks, today, set, cl
   const picked = categories.find((c) => c.id === filters.category);
   const category = picked?.label ?? (filters.category || null);
   const account = filters.accountId ? (looks.get(filters.accountId)?.name ?? filters.accountId) : null;
+  // the search box is the page's one search landmark (SearchBox); a second one around the chips repeated it
   return (
-    <div className="tx-filterbar" role="search">
+    <div className="tx-filterbar" role="group" aria-label="Suodattimet">
       <SearchBox value={filters.q} onSearch={(q) => set({ q })} label="Hae kauppiasta tai viestiä" />
       <div className="tx-fchips">
         <Chip name="Aikaväli" value={filters.from || filters.to ? periodLabel(period, today) : null} onClear={() => set({ from: "", to: "" })}>

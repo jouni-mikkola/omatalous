@@ -4,7 +4,7 @@
  */
 import { type AreaView, type FollowUp as FollowUpData, parseFindingId, type SwitchProposal } from "@banking/core";
 import { type ReactNode, useState } from "react";
-import { DataTable } from "../table/DataTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { TableToggle } from "../TableToggle.tsx";
 import { api, query } from "../../api.ts";
 import { LineChart } from "../../charts/LineChart.tsx";
@@ -79,12 +79,10 @@ function Line({ line }: { line: FollowUpData["line"] }) {
         <TableToggle table={table} onChange={setTable} />
       </div>
       {table ? (
-        <DataTable
-          id="follow-up"
+        <Table
           caption="Arvioitu ja vahvistettu kuukausittain"
           rows={line}
           rowKey={(p) => p.month}
-          phone="cards"
           columns={[
             { key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (p) => monthLong(p.month) },
             { key: "found", label: FOUND, kind: "money", main: true, cents: (p) => p.foundCents },

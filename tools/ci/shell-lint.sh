@@ -6,12 +6,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-# nullglob: the public snapshot has no tools/*.sh from the private repo and no .claude/, and an unexpanded glob
+# nullglob: the public snapshot has no tools/*.sh from the private repo, and an unexpanded glob
 # would fail shellcheck
 shopt -s nullglob
-files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/*/*.sh .claude/hooks/*.sh)
+files=(scripts/*.sh scripts/lib/*.sh tools/*.sh tools/*/*.sh)
 
-# The files go to xargs in groups of six, one group per child, as many children as CPUs. A red child makes xargs exit 123.
+# The syntax check takes the files to xargs in groups of six, as many children as CPUs. A red child makes xargs exit 123.
 lint() { printf '%s\n' "${files[@]}" | xargs -d '\n' -n 6 -P "$(nproc)" "$@"; }
 lint bash -c 'for f; do bash -n "$f" || exit 1; done' _
 
@@ -25,7 +25,26 @@ if command -v shellcheck >/dev/null 2>&1; then
   for f in "${files[@]}"; do
     [[ $f == scripts/lib/* || $f == *lib.sh || $sourced == *[/\"\ ]"${f##*/}"[\"\ \;]* ]] && libs+=("$f")
   done
-  LIBS="${libs[*]}" lint bash -c 'shellcheck -S warning "$@" $LIBS' _
+  # Every run re-reads the libraries (about a quarter of all the lines), so few runs cost far less CPU than many: half as many
+  # runs as CPUs, at least two, each with every K-th file so the big suites do not fall into one run. A red run fails the lint.
+  k=$(($(nproc) / 2))
+  ((k >= 2)) || k=2
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  pids=()
+  for ((i = 0; i < k; i++)); do
+    group=()
+    for ((j = i; j < ${#files[@]}; j += k)); do group+=("${files[j]}"); done
+    ((${#group[@]})) || continue
+    shellcheck -S warning "${group[@]}" "${libs[@]}" >"$tmp/$i" 2>&1 &
+    pids+=($!)
+  done
+  red=0
+  for i in "${!pids[@]}"; do
+    wait "${pids[i]}" || red=1
+    cat "$tmp/$i"
+  done
+  ((red == 0)) || exit 1
   echo "${#files[@]} files, bash -n and shellcheck $(shellcheck --version | sed -n 's/^version: //p')"
 elif [[ -n ${CI:-} ]]; then
   echo "shellcheck is missing and CI is set." >&2

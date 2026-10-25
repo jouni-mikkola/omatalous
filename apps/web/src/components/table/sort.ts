@@ -35,7 +35,7 @@ export function sortRows<T>(rows: readonly T[], value: (row: T) => number | stri
 }
 
 /** The rows in the order of `sort`, the server's order (the same array) without one. */
-export function sortBy<R, K extends string>(rows: R[], sort: Sort<K>, value: (row: R, key: K) => number | string | null): R[] {
+export function sortBy<R, K extends string>(rows: readonly R[], sort: Sort<K>, value: (row: R, key: K) => number | string | null): readonly R[] {
   return sort ? sortRows(rows, (r) => value(r, sort.key), sort.dir) : rows;
 }
 

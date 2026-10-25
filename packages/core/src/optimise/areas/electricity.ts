@@ -11,10 +11,10 @@ import { fold } from "../../merchant.ts";
 import { cadenceMonths } from "../../recurring.ts";
 import { median } from "../../stats.ts";
 import type { IsoDate } from "../../types.ts";
-import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS } from "../common.ts";
+import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS, WHY_FACTS, whyHistory } from "../common.ts";
 import { type Fact, factOn } from "../facts/index.ts";
 import { inputStatus, valueOf } from "../inputs.ts";
-import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
+import type { Area, AreaInput, CalcLine, Check, FindingDraft, NoDataWhy } from "../types.ts";
 import { electricityRoleOf } from "../../industry.ts";
 import { isElectricityCooperative, isElectricitySeller, isHeatWaterOrWaste, isNetworkCompany } from "../../wording.ts";
 
@@ -60,6 +60,11 @@ const perKwh = (tenths: number) => `${one.format(tenths / 10)}\u00a0c/kWh`;
 const kwhText = (kwh: number) => `${whole.format(kwh)}\u00a0kWh`;
 const tenthsOf = (f: Fact) => Math.round(f.value * 10);
 
+/** The year's bills are partly of the old home: they are not compared. */
+const MOVED: NoDataWhy = { cause: "other", text: "Muutto on tehty vuoden sisällä, joten vanhan kodin laskuja ei vertailla." };
+const ONE_BILL: NoDataWhy = { cause: "other", text: "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten hintaa ei voi verrata." };
+const TWO_ADDRESSES: NoDataWhy = { cause: "other", text: "Laskuissa on kaksi verkkoyhtiötä, joten annettu kulutus ei koske kaikkia." };
+const TOO_DEAR: NoDataWhy = { cause: "other", text: "Laskut ovat yli kaksinkertaiset vertailuhintaan nähden, joten niissä on luultavasti muutakin kuin sähköä." };
 const PRICE_LABEL = "Sähkön hinta";
 const CONTRACT_LABEL = "Sähkösopimuksen päättyminen";
 
@@ -106,25 +111,24 @@ function coversYear(ctx: AnalysisContext, side: readonly AnalysisTx[], industry:
   return months === 12;
 }
 
-function priceCheck(status: Check["status"], input?: string): Check {
-  return { id: "electricity:price", label: PRICE_LABEL, status, ...(input ? { input } : {}) };
+function priceCheck(status: Check["status"], input?: string, why?: NoDataWhy): Check {
+  return { id: "electricity:price", label: PRICE_LABEL, status, ...(input ? { input } : {}), ...(why ? { why } : {}) };
 }
 
 function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check } {
   const { ctx, today } = a;
-  if (a.months.length < 12) return { finding: null, check: priceCheck("no_data") };
+  if (a.months.length < 12) return { finding: null, check: priceCheck("no_data", undefined, whyHistory(a, 12)) };
   const from = `${a.months[0]}-01`;
   const moved = valueOf(a.values, "moved_on", today);
   // the bills of the old home are another household's use: the year starts after the move
-  if (moved && moved >= from) return { finding: null, check: priceCheck("no_data") };
+  if (moved && moved >= from) return { finding: null, check: priceCheck("no_data", undefined, MOVED) };
   const { bills, credits } = billsOf(ctx, a, a.months, from);
   if (!bills.length) return { finding: null, check: priceCheck("no_subject") };
   const sellers = bills.filter((b) => b.kind !== "network");
   const networks = bills.filter((b) => b.kind !== "seller");
-  if (!networks.length) return { finding: null, check: priceCheck("no_data") };
-  if (!sellers.length) return { finding: null, check: priceCheck("no_data") };
+  if (!networks.length || !sellers.length) return { finding: null, check: priceCheck("no_data", undefined, ONE_BILL) };
   // two network companies in one year are two addresses: the typed kWh is for one of them
-  if (new Set(networks.map((b) => b.t.merchant)).size > 1) return { finding: null, check: priceCheck("no_data") };
+  if (new Set(networks.map((b) => b.t.merchant)).size > 1) return { finding: null, check: priceCheck("no_data", undefined, TWO_ADDRESSES) };
   // a one-off (a connection fee, a final bill) leaves the level and the count. A payee with under three bills has no
   // usual bill of its own (a seller switched at the window's edge): its winter bill is no one-off against the network's
   const perPayee = new Map<string, number>();
@@ -133,13 +137,13 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   const struck = new Set(levelWithoutOneOffs(bills.map((b) => b.t), a.months).struck.filter((id) => (perPayee.get(merchantOf.get(id)!) ?? 0) >= 3));
   const counted = bills.filter((b) => !struck.has(b.t.id));
   for (const side of [counted.filter((b) => b.kind !== "network"), counted.filter((b) => b.kind !== "seller")]) {
-    if (!coversYear(ctx, side.map((b) => b.t), a.industry)) return { finding: null, check: priceCheck("no_data") };
+    if (!coversYear(ctx, side.map((b) => b.t), a.industry)) return { finding: null, check: priceCheck("no_data", undefined, whyHistory(a, 12)) };
   }
   const kwh = valueOf(a.values, "electricity_kwh", today);
   if (kwh === null) return { finding: null, check: priceCheck("needs_input", "electricity_kwh") };
   const at = BANDS.findIndex((b) => kwh <= b.max);
   const band = factOn(`electricity_price:${BANDS[at]!.id}`, today);
-  if (!band) return { finding: null, check: priceCheck("no_data") };
+  if (!band) return { finding: null, check: priceCheck("no_data", undefined, WHY_FACTS) };
   const dearer = at > 0 ? factOn(`electricity_price:${BANDS[at - 1]!.id}`, today) : null;
   const cheaper = at < BANDS.length - 1 ? factOn(`electricity_price:${BANDS[at + 1]!.id}`, today) : null;
 
@@ -150,7 +154,7 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   if (total <= 0) return { finding: null, check: priceCheck("clear") };
   const own = Math.round((total / kwh) * 10);
   const bandT = tenthsOf(band);
-  if (own > MAX_FACTOR * bandT) return { finding: null, check: priceCheck("no_data") };
+  if (own > MAX_FACTOR * bandT) return { finding: null, check: priceCheck("no_data", undefined, TOO_DEAR) };
   // the band's edges lie halfway to the neighbouring bands' means: the price this household could expect is between them
   const lowEdge = dearer ? Math.round(((band.value + dearer.value) / 2) * 10) : bandT;
   const highEdge = cheaper ? Math.round(((band.value + cheaper.value) / 2) * 10) : bandT;

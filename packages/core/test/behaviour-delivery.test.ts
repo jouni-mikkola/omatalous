@@ -78,7 +78,9 @@ describe("delivery orders", () => {
 
   it("Raportit > Ruoka counts a Wolt Market purchase in its delivery line, where its cents are", () => {
     const rows = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].flatMap((m, i) => [order(dateIn(m, 5), [2_300, 3_100, 2_700, 1_900, 3_500, 1_500][i]!), order(dateIn(m, 12), [4_100, 5_300, 3_300, 4_700, 2_900, 4_900][i]!, "Wolt Market Kallio")]);
-    const line = foodReport(contextOf(rows))!.lines.find((l) => l.id === "food_delivery")!;
+    const report = foodReport(contextOf(rows))!;
+    if ("gap" in report) throw new Error("expected food figures");
+    const line = report.lines.find((l) => l.id === "food_delivery")!;
     expect([line.purchases, line.meanCents]).toEqual([12, 3_350]);
   });
 });

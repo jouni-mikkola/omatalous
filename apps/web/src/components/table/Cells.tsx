@@ -2,13 +2,23 @@ import type { ReactNode } from "react";
 import { barShare, deltaTone, type Meaning, sparkGeometry } from "./cells.ts";
 import type { SortDir } from "./sort.ts";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
-import "../../styles/rich-table.css";
+import "../../styles/table.css";
 
 /** An inline bar anchored at the left of its cell; the figure itself stands in its own cell, the bar is hidden from readers. */
 export function BarCell({ value, max, color }: { value: number; max: number; color?: string }) {
   return (
     <span className="rt-bar-track" aria-hidden="true">
       <span style={{ width: `${(barShare(value, max) * 100).toFixed(1)}%`, ...(color ? { background: color } : {}) }} />
+    </span>
+  );
+}
+
+/** A figure with its bar before it: the bar is the row's own figure on the column's scale, the figure keeps the right edge. */
+export function BarFigure({ value, max, color, children }: { value: number; max: number; color?: string; children?: ReactNode }) {
+  return (
+    <span className="rt-barcell">
+      <BarCell value={value} max={max} color={color} />
+      {children !== undefined && children !== null && <span>{children}</span>}
     </span>
   );
 }

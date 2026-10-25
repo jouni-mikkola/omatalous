@@ -5,17 +5,15 @@
 .ahead-window { margin-bottom: 8px; }
 .ahead-missing { margin: 0; font-size: var(--fs-body); line-height: 18px; }
 
-/* the two tables: three columns at every width, a name is cut and a sum never wraps */
-.ahead-table { table-layout: fixed; }
+/* the two tables: the day and the sum keep a measure, so the names of both stand in one column */
 .nd-line + .rt-wrap, .rt-wrap + .rt-wrap { margin-top: 20px; }
+.ahead-table :is(th, td):first-child { width: 5rem; }
+.ahead-table :is(th, td):last-child { width: 7rem; }
 /* a row is lit with its dot on the line, and lights it */
 .ahead-table tbody tr.on td { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 .ahead-table caption { text-align: left; }
-.ahead-table .ahead-day { width: 4.5rem; }
-.ahead-table .ahead-sum { width: 7rem; }
-.ahead-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the line under a name says what the sum is, so on a narrow screen it wraps and is not cut */
-.ahead-table .st-sub { white-space: normal; }
+/* the line under a name says what the sum is, so it wraps and is not cut */
+.ahead-table .sub { white-space: normal; }
 
 /* the note over the line says the hollow dots and the days are estimates: it is the first thing of its group */
 .ahead-estimates, .ahead-pay-note { margin: 0 0 4px; }
@@ -49,6 +47,8 @@
 .nd-axis li { position: relative; min-height: 40px; padding-top: calc(var(--tick-l) + 4px); text-align: center; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .nd-axis li::before { content: ""; position: absolute; top: 0; left: 50%; width: 1px; height: var(--tick); margin-left: -0.5px; background: var(--axis); }
 .nd-axis li:has(span)::before { height: var(--tick-l); }
+/* a label wider than its day (a two-digit date on a phone) spills to the right, out of the last column and past the line: the last one is set from its right edge, so it spills to the left */
+.nd-axis li:last-child { display: flex; flex-direction: column; align-items: flex-end; }
 .nd-axis span { display: block; }
 .nd-axis .nd-pd { color: var(--good); }
 /* M8: a Saturday and a Sunday carry a band from the top of the dots to the foot of the steps (--nd-top and --nd-bottom come from the line) */

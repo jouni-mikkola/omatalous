@@ -20,8 +20,6 @@ backups/
 *.age
 *.gz
 /ops/
-# agent worktrees
-.claude/worktrees/
 test-results/
 playwright-report/
 *.tsbuildinfo

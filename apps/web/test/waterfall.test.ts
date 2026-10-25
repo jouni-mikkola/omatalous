@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Settlement, Waterfall } from "../src/components/overview/Waterfall.tsx";
-import { openKey, settlementSentences, summaryOf, toggledRow, waterfallRows } from "../src/components/overview/waterfall.ts";
+import { CARD_GAP, openKey, settlementSentences, summaryOf, toggledRow, waterfallRows } from "../src/components/overview/waterfall.ts";
 import type { WaterfallAnswer } from "../src/types.ts";
 import { type Account, buildDashboard, createContext, type Transaction } from "@banking/core";
 
@@ -43,15 +43,14 @@ const plain = (s: string) => s.replace(/\s/g, " ");
 
 describe("waterfallRows", () => {
   const rows = waterfallRows(month, names, hrefs);
-  it("runs the total through the bars and ends on Yli jäi", () => {
-    expect(rows.map((r) => [r.label, r.kind, r.total])).toEqual([
-      ["Tulot", "up", 300_000],
-      ["Ruoka", "down", 220_000],
-      ["Muut (3)", "down", 100_000],
-      ["Säästöt ja luotot", "up", 105_000],
-      ["Yli jäi", "left", 105_000],
+  it("keeps the bars in the server's order and ends on Tulos", () => {
+    expect(rows.map((r) => [r.label, r.kind])).toEqual([
+      ["Tulot", "up"],
+      ["Ruoka", "down"],
+      ["Muut (3)", "down"],
+      ["Säästöt ja luotot", "up"],
+      ["Tulos", "left"],
     ]);
-    expect(rows[rows.length - 2]!.total).toBe(month.leftCents);
   });
   it("gives every bar its sign in text, so colour is not the only cue", () => {
     expect(rows.map((r) => plain(r.text))).toEqual(["+3 000,00 €", "−800,00 €", "−1 200,00 €", "+50,00 €", "1 050,00 €"]);
@@ -67,9 +66,36 @@ describe("waterfallRows", () => {
     expect(over[2]!.at).toBeCloseTo(0);
     expect(over[2]!.span).toBeCloseTo((50_000 / 150_000) * 100);
   });
+  describe("the usual tick", () => {
+    const answer = (bars: Omit<Bar, "fromCents" | "toCents">[], leftCents: number): WaterfallAnswer => ({ month: "2026-10", bars: run(bars), leftCents, incomeCents: 0, spentCents: 0, transfersCents: 0 });
+    const usualAts = (w: WaterfallAnswer) => waterfallRows(w, names, hrefs).map((r) => r.usualAt);
+    it("keeps a usual income twice this month's inside the track, and the bar's own tick on the same scale", () => {
+      const w = answer([{ key: "income", cents: 100_000, usualCents: 200_000, parts: [] }, { key: "other", cents: -40_000, usualCents: -80_000, parts: [] }], 60_000);
+      const [income, other] = usualAts(w);
+      expect(income).toBeCloseTo(100);
+      // the usual spending starts at the income's end (100 000) and falls to 20 000 of a 200 000 track
+      expect(other).toBeCloseTo(10);
+      const rows = waterfallRows(w, names, hrefs);
+      expect(rows[0]!.at + rows[0]!.span).toBeCloseTo(50);
+    });
+    it("keeps a usual spending bigger than the whole month's money above zero", () => {
+      const w = answer([{ key: "income", cents: 100_000, usualCents: 100_000, parts: [] }, { key: "other", cents: -50_000, usualCents: -300_000, parts: [] }], 50_000);
+      for (const at of usualAts(w)) expect(at === null || (at >= 0 && at <= 100)).toBe(true);
+      expect(usualAts(w)[1]).toBeCloseTo(0);
+      expect(waterfallRows(w, names, hrefs)[0]!.zero).toBeCloseTo(200 / 3);
+    });
+    it("stays between 0 and 100 when the usual is far beyond or below the month, and is null without one", () => {
+      for (const usual of [-900_000, -1, 0, 1, 900_000, 5_000_000]) {
+        const w = answer([{ key: "income", cents: 10_000, usualCents: usual, parts: [] }, { key: "category:groceries", cents: -4_000, usualCents: usual, parts: [] }, { key: "transfers", cents: 500, usualCents: null, parts: [] }], 6_500);
+        const ats = usualAts(w);
+        for (const at of ats.slice(0, 2)) expect(at).toBeGreaterThanOrEqual(0), expect(at).toBeLessThanOrEqual(100.0000001);
+        expect(ats.slice(2)).toEqual([null, null]);
+      }
+    });
+  });
   it("leaves a bar of nothing out and names an unknown category by its id", () => {
     const r = waterfallRows({ month: "2026-10", bars: run([{ key: "income", cents: 1000, parts: [] }, { key: "transfers", cents: 0, parts: [] }, { key: "category:x", cents: -1000, parts: [] }]), leftCents: 0, incomeCents: 1000, spentCents: 1000, transfersCents: 0 }, names, hrefs);
-    expect(r.map((x) => x.label)).toEqual(["Tulot", "x", "Yli jäi"]);
+    expect(r.map((x) => x.label)).toEqual(["Tulot", "x", "Tulos"]);
   });
 });
 
@@ -77,15 +103,15 @@ describe("summaryOf", () => {
   // the figures are the answer's (core monthWaterfall): the sentence adds up nothing
   const of = (incomeCents: number, spentCents: number, transfersCents: number, leftCents: number) => ({ month: "2026-10", bars: [], leftCents, incomeCents, spentCents, transfersCents });
   it("tells income, spending and what stayed", () => {
-    expect(plain(summaryOf(of(300_000, 200_000, 0, 100_000)))).toBe("Tuloja 3 000,00 €, menoja 2 000,00 €. Yli jäi 1 000,00 €.");
+    expect(plain(summaryOf(of(300_000, 200_000, 0, 100_000)))).toBe("Tuloja 3 000,00 €, menoja 2 000,00 €. Tulos 1 000,00 €.");
   });
   it("names what went to savings and credit after the table's two figures, and leaves it out when nothing did", () => {
-    expect(plain(summaryOf(of(400_000, 350_000, -20_000, 30_000)))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Säästöihin ja luottoihin meni 200,00 €. Yli jäi 300,00 €.");
-    expect(plain(summaryOf(of(400_000, 350_000, 0, 50_000)))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Yli jäi 500,00 €.");
+    expect(plain(summaryOf(of(400_000, 350_000, -20_000, 30_000)))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Säästöihin ja luottoihin meni 200,00 €. Tulos 300,00 €.");
+    expect(plain(summaryOf(of(400_000, 350_000, 0, 50_000)))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Tulos 500,00 €.");
     // more credit drawn than saved: money came in, and the sentence says so instead of a negative sum
-    expect(plain(summaryOf(of(400_000, 350_000, 10_000, 60_000)))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Säästöistä ja luotoista tuli 100,00 €. Yli jäi 600,00 €.");
+    expect(plain(summaryOf(of(400_000, 350_000, 10_000, 60_000)))).toBe("Tuloja 4 000,00 €, menoja 3 500,00 €. Säästöistä ja luotoista tuli 100,00 €. Tulos 600,00 €.");
   });
-  it("says how much more went out than came in when Yli jäi is below zero, with and without savings", () => {
+  it("says how much more went out than came in when Tulos is below zero, with and without savings", () => {
     expect(plain(summaryOf(of(100_000, 130_000, 0, -30_000)))).toBe("Tuloja 1 000,00 €, menoja 1 300,00 €. Rahaa meni 300,00 € enemmän kuin tuli.");
     expect(plain(summaryOf(of(100_000, 130_000, -40_000, -70_000)))).toBe("Tuloja 1 000,00 €, menoja 1 300,00 €. Säästöihin ja luottoihin meni 400,00 €. Rahaa meni 700,00 € enemmän kuin tuli.");
   });
@@ -107,18 +133,18 @@ describe("settlementSentences", () => {
 
 describe("Waterfall", () => {
   const html = (w: WaterfallAnswer | null) => renderToStaticMarkup(createElement(Waterfall, { waterfall: w, categories: names, range: { from: "2026-10-01", to: "2026-10-12" }, scope: "own", hrefs, before: null, open: null, onToggle: () => {} }));
-  it("makes the bar of income, a category and Yli jäi a button that opens its rows, and draws the other bars only", () => {
+  it("makes the bar of income, a category and Tulos a button that opens its rows, and draws the other bars only", () => {
     const out = html(month);
-    expect(out.match(/aria-label="Näytä tapahtumat: ([^"]+)"/g)).toEqual(['aria-label="Näytä tapahtumat: Tulot"', 'aria-label="Näytä tapahtumat: Ruoka"', 'aria-label="Näytä tapahtumat: Yli jäi"']);
+    expect(out.match(/aria-label="Näytä tapahtumat: ([^"]+)"/g)).toEqual(['aria-label="Näytä tapahtumat: Tulot"', 'aria-label="Näytä tapahtumat: Ruoka"', 'aria-label="Näytä tapahtumat: Tulos"']);
     expect(out).not.toContain("Miksi?");
     expect(out.match(/<button[^>]*><span class="wf-bar">/g)).toHaveLength(3);
   });
-  it("holds a table of the same figures with the running total, hidden from the eye", () => {
-    const out = html(month);
-    expect(out).toContain(">Tulot ja menot taulukkona</caption>");
-    expect(out).toContain('<th scope="col">Erä</th><th scope="col" class="num">Summa</th><th scope="col" class="num">Kertymä</th>');
-    expect(out.match(/<tr><th scope="row" class="rt-rowhead">/g)).toHaveLength(5);
-    expect(out).toContain('class="sr-only">Tuloja');
+  it("says in one line why no bar has a usual when the months to compare hold card bills, and draws no chip or tick", () => {
+    const out = html({ ...month, cardGap: true });
+    expect(out).toContain(`<p class="wf-gate">${CARD_GAP}</p>`);
+    expect(out).not.toContain("wf-chip");
+    expect(out).not.toContain("wf-usual");
+    expect(html(month)).not.toContain("wf-gate");
   });
   it("tells an empty month in a sentence and draws no bar", () => {
     const out = html(null);
@@ -136,7 +162,7 @@ const allLink = (out: string) => /<p class="st-links"><a href="([^"]*)">Näytä 
 describe("Waterfall: a row opens in place", () => {
   const html = (open: string | null, w: WaterfallAnswer = month) => renderToStaticMarkup(createElement(Waterfall, { waterfall: w, categories: names, range: { from: "2026-10-01", to: "2026-10-31" }, scope: "own", hrefs, before: null, open, onToggle: () => {} }));
 
-  it("gives every row but Yli jäi a button with aria-expanded, closed at first and open for the one open row only", () => {
+  it("gives every row but Tulos a button with aria-expanded, closed at first and open for the one open row only", () => {
     const closed = html(null);
     expect(closed.match(/<button type="button" class="themes-toggle wf-toggle" aria-expanded="(true|false)"/g)).toHaveLength(4);
     expect(closed).not.toContain('aria-expanded="true"');
@@ -172,10 +198,10 @@ describe("Waterfall: a row opens in place", () => {
     expect(allLink(out)).toBeNull();
   });
 
-  it("does not open Yli jäi: a name and no button, and an open key of it draws nothing", () => {
+  it("does not open Tulos: a name and no button, and an open key of it draws nothing", () => {
     const out = html("left");
     expect(out).not.toContain("wf-detail");
-    expect(out).toContain('<span class="wf-label" title="Yli jäi">Yli jäi</span>');
+    expect(out).toContain('<span class="wf-label" title="Tulos">Tulos</span>');
     expect(out).not.toContain('aria-expanded="true"');
   });
 
@@ -185,7 +211,7 @@ describe("Waterfall: a row opens in place", () => {
     const rows = [row("2026-09-25", 300_000, "salary", "ESIMERKKI OY"), ...shops, ...tiny, row("2026-09-08", 500, "groceries", "ESIMERKKI KAUPPA 3"), row("2026-09-06", -50_000, "savings", "Oma säästö"), row("2026-09-14", 10_000, "credit_draw", "ESIMERKKI LUOTTO")];
     const w = buildDashboard(createContext(rows, [checking], "2026-10-12"), { from: "2026-09-01", to: "2026-09-30" }).waterfall!;
     const answered = waterfallRows(w, names, hrefs);
-    // every bar but Yli jäi has lines, and those lines add up to the bar
+    // every bar but Tulos has lines, and those lines add up to the bar
     expect(answered.filter((r) => r.lines.length).map((r) => r.key)).toEqual(w.bars.map((b) => b.key));
     expect(w.bars.map((b) => b.key)).toContain("other");
     expect(w.bars.map((b) => b.key)).toContain("transfers");

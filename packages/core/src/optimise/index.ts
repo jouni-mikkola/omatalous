@@ -34,6 +34,9 @@ import {
   shortHistoryWeakness,
   sortWeaknesses,
   WIDE_RANGE,
+  WHY_FACTS,
+  WHY_OTHER,
+  whyHistory,
   yearWindow,
 } from "./common.ts";
 import { factOn } from "./facts/index.ts";
@@ -102,6 +105,9 @@ export function areaInputOf(input: OptimiseInput): AreaInput {
 
 type Dropped = "history" | "facts" | "gate";
 
+/** The complete months the frame asks of a draft with a euro figure, and of one without. */
+const needOf = (draft: FindingDraft): number => (draft.euros !== null ? MIN_MONTHS_EUROS : MIN_MONTHS_ANY);
+
 /** Rules 2, 3, 4 and 7 on one draft: the finding as shown, or why it is not. */
 function settle(draft: FindingDraft, a: AreaInput): Finding | Dropped {
   const months = a.months.length;
@@ -160,6 +166,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     const result = area.assess(a);
     const shown: Finding[] = [];
     const dropped = new Map<string, Dropped>();
+    const need = new Map<string, number>();
     const snoozedKinds = new Set<string>();
     const seen = new Set<string>();
     for (const draft of result.findings) {
@@ -170,6 +177,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
       if (typeof settled === "string") {
         // the check then reads "clear" when only the gate stopped it, "no_data" when the data could not tell
         dropped.set(draft.kind, settled === "gate" ? (dropped.get(draft.kind) ?? "gate") : settled);
+        need.set(draft.kind, Math.max(need.get(draft.kind) ?? 0, needOf(draft)));
         continue;
       }
       findingRows.push(draft.rows);
@@ -185,13 +193,14 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     // a decided or snoozed finding was still found: its check says so
     const kinds = new Set([...shown.map((f) => f.kind), ...snoozedKinds]);
     const decided = new Set([...done, ...dismissed].filter((d) => d.finding?.area === area.id).map((d) => d.finding!.kind));
-    const checks: Check[] = result.checks.map((c) => {
+    const checks: Check[] = result.checks.map((c): Check => {
       const kind = c.id.slice(c.id.indexOf(":") + 1);
       if (kinds.has(kind) || decided.has(kind)) return { ...c, status: "finding" };
       const why = dropped.get(kind);
-      if ((why === "history" || why === "facts") && (c.status === "clear" || c.status === "finding")) return { ...c, status: "no_data" };
+      if (why === "history") return c.status === "clear" || c.status === "finding" ? { ...c, status: "no_data", why: whyHistory(a, need.get(kind)!) } : c;
+      if (why === "facts") return c.status === "clear" || c.status === "finding" ? { ...c, status: "no_data", why: WHY_FACTS } : c;
       return c.status === "finding" ? { ...c, status: "clear" } : c;
-    });
+    }).map((c) => (c.status === "no_data" && !c.why ? { ...c, why: WHY_OTHER } : c));
     shown.sort(byRank);
     active.push(...shown);
     views.push({

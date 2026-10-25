@@ -1,7 +1,8 @@
 /**
  * The Psu-* headers that make a fetch one made with the user present. Enable Banking's rule: send every header the
  * bank requires, or none. They are the member's own address and browser, so the rules here are privacy rules:
- * an address that is not a public one is never sent, a value is passed as data, and nothing here logs a value.
+ * an address that is not a public one is never sent, a value is passed as data, and nothing here logs a value. A member on
+ * the home network therefore gets none, and the fetch is an unattended call to the bank that sync.ts counts (docs/ENABLE_BANKING.md).
  */
 import { isIP } from "node:net";
 

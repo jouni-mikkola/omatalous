@@ -1,6 +1,6 @@
 /**
  * Asetukset > Tilit, under an account that has rows in another currency: per currency the count and the total in the
- * bank's own figure, and the newest rows. The euro pages leave these rows out, and no euro sign stands on them. The
+ * bank's own figure, and the newest rows behind a summary. The euro pages leave these rows out, and no euro sign stands on them. The
  * server adds them up (`foreignRowsView`); this only draws them.
  */
 import { formatForeignAmount } from "@banking/core";
@@ -33,15 +33,19 @@ export function ForeignRows({ currencies }: { currencies: readonly ForeignCurren
             <span className="num">{c.totalMinor === null || c.scale === null ? "–" : `${formatForeignAmount(c.totalMinor, c.scale, true)} ${c.currency}`}</span>
             <span>ei mukana euromäärissä</span>
           </div>
-          <ul className="acc-foreign-rows">
-            {c.rows.map((r, i) => (
-              <li key={i}>
-                <span>{dayText(r.day)}</span>
-                <span className="acc-foreign-text">{r.text ?? ""}</span>
-                <span className="num">{`${formatForeignAmount(r.amountMinor, r.scale, true)} ${c.currency}`}</span>
-              </li>
-            ))}
-          </ul>
+          {/* closed: up to 20 rows a currency under every account would bury the account list */}
+          <details className="acc-foreign-more">
+            <summary>{c.rows.length === 1 ? "Uusin tapahtuma" : `Uusimmat ${c.rows.length} tapahtumaa`}</summary>
+            <ul className="acc-foreign-rows">
+              {c.rows.map((r, i) => (
+                <li key={i}>
+                  <span>{dayText(r.day)}</span>
+                  <span className="acc-foreign-text">{r.text ?? ""}</span>
+                  <span className="num">{`${formatForeignAmount(r.amountMinor, r.scale, true)} ${c.currency}`}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
         </div>
       ))}
     </div>

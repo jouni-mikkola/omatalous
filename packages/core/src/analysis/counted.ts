@@ -17,7 +17,7 @@ export const incomeCentsOf = (t: Pick<AnalysisTx, "flows">): number => t.flows.i
 /** Cents a row adds to earned income: its income when `isEarnedIncome`, else 0. */
 export const earnedOf = (t: Parameters<typeof isEarnedIncome>[0]): number => (isEarnedIncome(t) ? t.flows.income : 0);
 
-/** Cents a row adds to Yli jäi (`leftOf` its flows). */
+/** Cents a row adds to Tulos (`leftOf` its flows). */
 export const leftCentsOf = (t: { flows: Flows }): number => leftOf(t.flows);
 
 /** The rows of `rows` that spending counts. */
@@ -29,7 +29,7 @@ const incomeCounted = <T extends Pick<AnalysisTx, "flows">>(rows: readonly T[]):
 /** The rows of `rows` that earned income counts. */
 const earnedCounted = <T extends Parameters<typeof isEarnedIncome>[0]>(rows: readonly T[]): T[] => rows.filter((t) => earnedOf(t) !== 0);
 
-/** The rows of `rows` that Yli jäi counts. */
+/** The rows of `rows` that Tulos counts. */
 const leftCounted = <T extends { flows: Flows }>(rows: readonly T[]): T[] => rows.filter((t) => leftOf(t.flows) !== 0);
 
 /** The sum of what `cents` says each of the counted rows adds. */
@@ -58,7 +58,7 @@ export function earnedSelect(ctx: AnalysisContext, r: DayRange): { rows: Analysi
 }
 
 /**
- * The one select of Yli jäi as the cash flow report has it (`totalsOf` the booked rows of the days): the rows whose flows
+ * The one select of Tulos as the cash flow report has it (`totalsOf` the booked rows of the days): the rows whose flows
  * add up to income + borrowed − expenses − saved, each bill whole. The first page's totals read the rows of `spendRows`
  * instead, which a card statement lowers.
  */

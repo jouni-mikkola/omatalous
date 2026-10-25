@@ -3,7 +3,6 @@
  * sits in a row under it for a joint account's split, its offer and questions and for a user who cannot see the account, and `LinkQuestion` asks about
  * the joint accounts a consent just brought. What each choice sends is account-use.ts; the server keeps the use (routes/finance.ts).
  */
-import { DataTable } from "../../components/table/DataTable.tsx";
 import { useState } from "react";
 import { api } from "../../api.ts";
 import { accountNumber, money } from "../../format.ts";
@@ -281,35 +280,17 @@ export function LinkQuestion({ meta, onChange, onSaved }: { meta: Meta; onChange
           <div className="card-sub">Valittuna ovat pankin tiedoista päätellyt käyttäjät.</div>
         </div>
       </div>
-      <DataTable
-        id="account-use"
-        caption="Tilien käyttäjät"
-        headless
-        rows={accounts}
-        rowKey={(a) => String(a.id)}
-        columns={[
-          {
-            key: "account",
-            label: "Tili",
-            kind: "text",
-            rowHead: true,
-            cell: (a) => (
-              <>
-                {a.name}
-                <div className="sub acc-line">{[accountNumber(a), a.holder].filter(Boolean).join(" · ")}</div>
-              </>
-            ),
-          },
-          {
-            key: "use",
-            label: "Käyttäjä",
-            kind: "text",
-            cell: (a) => (
-              <ChoiceSelect value={chosen[a.id] ?? choiceOf(a.use!)} account={a} meta={meta} onPick={(choice) => setChosen({ ...chosen, [a.id]: choice })} />
-            ),
-          },
-        ]}
-      />
+      <ul className="acc-pick">
+        {accounts.map((a) => (
+          <li key={a.id}>
+            <div className="acc-pick-name">
+              <strong>{a.name}</strong>
+              <div className="acc-pick-line">{[accountNumber(a), a.holder].filter(Boolean).join(" · ")}</div>
+            </div>
+            <ChoiceSelect value={chosen[a.id] ?? choiceOf(a.use!)} account={a} meta={meta} onPick={(choice) => setChosen({ ...chosen, [a.id]: choice })} />
+          </li>
+        ))}
+      </ul>
       <div className="form-row">
         <button className="btn btn-primary" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void save()}>
           {busy ? "Tallennetaan…" : "Tallenna"}

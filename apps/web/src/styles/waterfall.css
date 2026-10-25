@@ -1,11 +1,12 @@
 /* Tulot ja menot: the waterfall, one row for each item. Up is a solid bar, down a hatched one, so colour is not the only cue. */
 .wf-empty { margin: 0; }
+.wf-gate { margin: var(--sp-8) 0 0; color: var(--text-2); }
 .wf-rows { display: block; }
 .wf-row { display: grid; grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr) 7.5rem; align-items: center; column-gap: 16px; min-height: 44px; padding: 0; }
 .wf-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .wf-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wf-fig { font-weight: 600; }
-/* the name that opens the bar's parts is a button the height of the row's tap target; Yli jäi has a plain name */
+/* the name that opens the bar's parts is a button the height of the row's tap target; Tulos has a plain name */
 .wf-toggle { min-height: 44px; align-items: center; }
 .wf-toggle .wf-label { min-width: 0; }
 /* the open parts take the row's whole width under the bar, indented past the arrow */

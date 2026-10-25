@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DataTable } from "../table/DataTable.tsx";
+import { Table } from "../table/Table.tsx";
 import { dateTime } from "../../format.ts";
 import { formatSize, kindLabel, S } from "./ops-strings.ts";
 import type { Backup } from "./types.ts";
@@ -37,12 +37,10 @@ export function BackupList({ app, host, disabled, canDownload, onBackup, onDownl
       {rows.length === 0 ? (
         <div className="empty">{S.noBackups}</div>
       ) : (
-        <DataTable
-          id="backups"
+        <Table
           caption={S.backups}
           rows={shown}
           rowKey={(b) => `${b.where}-${b.name}`}
-          phone="cards"
           columns={[
             { key: "name", label: "Nimi", kind: "text", rowHead: true, cell: (b) => <span className="small">{b.name}</span> },
             { key: "at", label: "Aika", kind: "date", cell: (b) => dateTime(b.at) },

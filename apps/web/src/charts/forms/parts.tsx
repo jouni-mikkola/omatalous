@@ -35,9 +35,10 @@ export function ReportPanel({ id, title, datum, actions, children }: { id: strin
 
 /**
  * One chart under its question (ILME 4, rule 1): the title asks what the household asks and the line under it answers
- * with the figure. The panel's switch shows the same rows as a table, the chart's accessible form.
+ * with the figure. The panel's switch shows the same rows as a table, the chart's accessible form; a part that is a table
+ * already has no `table` and stays as it is.
  */
-export function QuestionChart({ id, question, answer, table, children, wide }: { id: string; question: string; answer: ReactNode; table: ReactNode; children: ReactNode; wide?: boolean }) {
+export function QuestionChart({ id, question, answer, table, children, wide }: { id: string; question: string; answer: ReactNode; table?: ReactNode; children: ReactNode; wide?: boolean }) {
   const showTable = useContext(TableView);
   return (
     <figure className={wide ? "qc qc-wide" : "qc"} aria-labelledby={`${id}-q`}>
@@ -49,10 +50,8 @@ export function QuestionChart({ id, question, answer, table, children, wide }: {
           <p className="qc-a">{answer}</p>
         </div>
       </figcaption>
-      {showTable ? (
-        <div className="table-wrap">
-          <ChartQuestion.Provider value={question}>{table}</ChartQuestion.Provider>
-        </div>
+      {showTable && table ? (
+        <ChartQuestion.Provider value={question}>{table}</ChartQuestion.Provider>
       ) : (
         children
       )}

@@ -66,7 +66,7 @@ t_key_made_once() {
   check "repo: the public key is printed" has "$(cat "$key.pub")"
   check "repo: and the next step is --check" has "use-private.sh --check"
   check "repo: the remote private is the repository" test "$(git -C "$CL" remote get-url private)" = "$PRIV"
-  check "repo: core.sshCommand names the key and the pinned host key" bash -c "[[ \$1 == *\"-i '$key'\"* && \$1 == *StrictHostKeyChecking=yes* && \$1 == *IdentitiesOnly=yes* ]]" x "$(git -C "$CL" config core.sshCommand)"
+  check "repo: core.sshCommand names the key and the pinned host key" bash -c "[[ \$1 == *\"-i '$key'\"* && \$1 == *StrictHostKeyChecking=yes* && \$1 == *IdentitiesOnly=yes* && \$1 == *'-F /dev/null'* ]]" x "$(git -C "$CL" config core.sshCommand)"
   check "repo: the known_hosts holds GitHub's key alone" test "$(cut -d' ' -f1,2 "$(dirname "$key")/known_hosts")" = "github.com ssh-ed25519"
   check "repo: no channel yet" test ! -e "$CL/ops/channel"
   check "repo: .env, origin and the tags untouched, and no docker call" test "$(fingerprint)" = "$before" -a "$(n_calls '^docker')" = 0

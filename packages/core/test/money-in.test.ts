@@ -20,7 +20,7 @@ import { toDayRange } from "../src/analysis/period.ts";
 import { earnedIncome } from "../src/analysis/usual.ts";
 import { addDays, addMonths, daysInMonth, monthOf } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
-import { pairedReturns, REFUND_WINDOW_DAYS } from "../src/returns.ts";
+import { REFUND_WINDOW_DAYS } from "../src/returns.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -352,16 +352,6 @@ describe("a payee paid thousands of times", () => {
     // money-in lowers what is left of each payment: each reading gets rows of its own
     return () => ctx.txs.map((t) => ({ ...t }));
   };
-  const best = (f: () => unknown) => {
-    let ms = Infinity;
-    for (let i = 0; i < 3; i++) {
-      const start = performance.now();
-      f();
-      ms = Math.min(ms, performance.now() - start);
-    }
-    return ms;
-  };
-
   it("gives the answer of the old reading of the whole list, the contract and the late refunds included", () => {
     const rows = history(true);
     const live = moneyIn(rows(), own, undefined, today);
@@ -370,14 +360,26 @@ describe("a payee paid thousands of times", () => {
     expect(live.get("l-back")?.length).toBeGreaterThan(1);
   }, 30_000);
 
-  it("reads a refund's window only, so 300 refunds of a payee paid 3000 times take a fraction of the old time", () => {
+  it("reads a refund's window with less than half the payment-day visits of the whole-list reader", () => {
     const rows = history(false);
-    const [a, b] = [rows(), rows()];
-    expect(moneyIn(rows(), own, undefined, today)).toEqual(moneyInReference(rows(), own, undefined, today));
-    // the pairs the categoriser made are read by both alike; the rest is what the window saves
-    const shared = best(() => pairedReturns(rows(), own, today));
-    const live = best(() => moneyIn(a, own, undefined, today)) - shared;
-    const old = best(() => moneyInReference(b, own, undefined, today)) - shared;
-    expect(live).toBeLessThan(old / 2);
+    const counted = (read: typeof moneyIn) => {
+      let visits = 0;
+      const input = rows().map((t) => t.amountCents >= 0 ? t : {
+        ...t,
+        get day() {
+          visits++;
+          return t.day;
+        },
+      });
+      return { result: read(input, own, undefined, today), visits };
+    };
+    // pairedReturns uses bookingDate, so counting payment-day reads isolates the window work without
+    // subtracting unrelated timings. The index's sort and binary search count too, even under machine load.
+    const live = counted(moneyIn);
+    const old = counted(moneyInReference);
+    expect(live.result).toEqual(old.result);
+    expect(live.visits).toBeGreaterThan(0);
+    expect(old.visits, "the reference reads all 3000 payments for each of the 300 refunds").toBeGreaterThanOrEqual(3000 * 300);
+    expect(live.visits).toBeLessThan(old.visits / 2);
   }, 30_000);
 });

@@ -22,7 +22,8 @@ export function authRoutes(s: Services) {
       if (code) console.log(`\n  Setup code for creating the first user: ${code}\n`);
     }
     const user = c.get("user") ?? null;
-    return c.json({ needsSetup: setup, user });
+    // the zone the browser reads timestamps in: the instance's, not the device's
+    return c.json({ needsSetup: setup, user, timezone: s.instance.current.timezone });
   });
 
   app.post("/setup", async (c) => {

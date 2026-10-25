@@ -77,16 +77,11 @@ export function CategoryMenu({ categories, value, onPick, note }: { categories: 
   );
 }
 
-/** A chip for a category; `onPick` makes it a button that opens the picker. `pending` is the choice being saved. */
-export const CategoryChip = memo(function CategoryChip({ categories, value, pending, merchant, note, manual, onPick }: { categories: Category[]; value: string; pending?: string | null; merchant: string; note?: string; manual?: boolean; onPick?: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
-  const shown = pending ?? value;
-  const c = categories.find((x) => x.id === shown);
-  const label = c?.label ?? shown;
-  const face = (
+/** The chip's face: the category's icon and name, and the quiet dot when the household set it. */
+function Face({ category, label, manual }: { category: Category | undefined; label: string; manual?: boolean }) {
+  return (
     <>
-      <CategoryIcon category={c} />
+      <CategoryIcon category={category} />
       <span className="tx-chip-label">{label}</span>
       {/* the household set it: a quiet dot, the word for readers and the pointer */}
       {manual && (
@@ -96,6 +91,26 @@ export const CategoryChip = memo(function CategoryChip({ categories, value, pend
       )}
     </>
   );
+}
+
+/** The category of a row told, not changed: the chip's face without the button (the row's open part has the picker). */
+export function CategoryLabel({ categories, value, manual }: { categories: Category[]; value: string; manual?: boolean }) {
+  const c = categories.find((x) => x.id === value);
+  return (
+    <span className="tx-chip" data-slot={slotOf(c)}>
+      <Face category={c} label={c?.label ?? value} manual={manual} />
+    </span>
+  );
+}
+
+/** A chip for a category; `onPick` makes it a button that opens the picker. `pending` is the choice being saved. */
+export const CategoryChip = memo(function CategoryChip({ categories, value, pending, merchant, note, manual, onPick }: { categories: Category[]; value: string; pending?: string | null; merchant: string; note?: string; manual?: boolean; onPick?: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const shown = pending ?? value;
+  const c = categories.find((x) => x.id === shown);
+  const label = c?.label ?? shown;
+  const face = <Face category={c} label={label} manual={manual} />;
   if (!onPick) {
     return (
       <span className="tx-chip" data-slot={slotOf(c)} title="Jaettu tili. Vain omistaja voi muuttaa kategorian.">

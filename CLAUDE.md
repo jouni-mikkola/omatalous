@@ -107,6 +107,10 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   address change, cleaning and watchdog take it; a new script that changes the install takes it too. The scripts run as
   the user who owns the folder (another user's run is not seen by the look at old holders).
 - State-changing API calls need `X-Requested-With: fetch` (CSRF); the web client sends it in `api.ts`.
+- A service token (`Authorization: Bearer omt_…`, `services/service-tokens.ts`) is made only by the CLI, stored as its
+  SHA-256, reads as its user with a member's role and reaches only the GET routes `READABLE` names and the GETs of an
+  extension that sets `tokenReads`. A new route is shut to tokens until it is added there, and only a route that writes
+  nothing may be.
 - `UserError` = safe 400 message, `UpstreamError` = 502 for a failing outside service; other errors become a generic 500.
 - Core stays pure (no `Date.now()`, env or I/O) so it runs on Node and in the browser (the web app imports it).
 
@@ -128,7 +132,8 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   CLI output in English. Everything the browser shows in Finnish, including the maintenance helper's report summaries
   and the `doctor.sh --json` items. UI paths are written `Asetukset > Palvelin`.
 
-- UI text Finnish; code, identifiers and comments English. Comments explain why.
+- The Finnish of the UI (glossary, tone, dates, sums, plurals): `docs/UI_STYLE.md`; rule 35 refuses the words it removed.
+- Code, identifiers and comments in English. Comments explain why.
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
   `apps/web/src/pages/reports/sections/` that names the reports it reads + invariant test in
   `packages/core/test/reports.test.ts`. Each report and section starts with a `Decision:` comment naming what the
@@ -145,9 +150,10 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - New connector: a folder in `apps/server/src/connectors/` listed in its `registry.ts` (recipe in
   `docs/DEVELOPMENT.md`). A `Connector` (`connectors/types.ts`) is an `id`, an optional `sync` and an optional
   `revokeAll`, and the id is stored and never renamed. The app reads no files: there is no import format.
-- Server tests use `apps/server/test/helpers.ts` (`setupApp()` gives a signed-in admin, `member()` more users); rows of
-  the old CSV kind come from `apps/server/test/csv-seed.ts` (through `ingestTransactions`, into an account without
-  pending rows).
+- Tables: every list of rows is `components/table/Table.tsx` (columns, groups, a total, a drill; `KeyValue` for the facts of
+  one subject). A page writes cells and never a `<table>`, a column sorts only in a complete list read by size, and under
+  600 px of room a row becomes a block, never a sideways scroll. A view nobody needs is deleted with its code, styles, tests
+  and texts, never hidden behind a switch or a fold. `e2e/table-views.spec.ts` checks every view at 390 and 1440 px.
 - Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
   fixed category colour order from the server, tokens in `styles/tokens.css`). The light look is the set on `:root`, the default
   with no attribute; `:root[data-look="night"]` holds the night set, reached only by the attribute (`pnpm shots --look
@@ -155,14 +161,5 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - `apps/web/test/contrast.test.ts` measures the `#rrggbb` tokens of each set of `styles/tokens.css` against the page
   and the surfaces of that set and holds the theme colour in `index.html` equal to the header band (`--ink`) of the set
   `<html>` selects (the light set). A token that fails is moved, never the test.
-- Repo rules (`tools/repo-rules`, listed in the header of `repo-rules.test.ts`; they read tracked files and untracked
-  files git does not ignore, so a new file meets them before `git add`): rule 6 also refuses an import from a `test` or
-  `fixtures` folder in `src`; rule 12 reads the sentences the server sends too (SQL skipped); rule 23 refuses a
-  `-latest` runner label; rule 24 an export of core or the server with no reader in another source file (a test is no
-  reader) unless it stands in `tools/repo-rules/unread-exports.txt`, a list that only shrinks (a line goes with its
-  export); rule 25 a pipe into `grep -q` in a shell file or a workflow (write `grep … >/dev/null`); rule 26 a function
-  defined under `scripts/` that nothing else under `scripts/` names; rule 27 needs `git check-ignore` to hold for
-  `.env.new`, `ops/env.prev` and `.env.bak.1`; rule 28 refuses, in the texts `pnpm strings` lists, the habits a copy pass
-  took out of the Finnish (a calque or a rejected word, an em dash, "ei X vaan Y" as a contrast, an exclamation mark
-  that ends a sentence; the list is `tools/repo-rules/finnish.ts`, and a pattern that catches a good sentence gets a
-  near miss in `finnish.test.ts` first).
+- Repo rules (`tools/repo-rules`, listed in the header of `repo-rules.test.ts`) read tracked files and untracked files
+  git does not ignore, so a new file meets them before `git add`. A failing rule names itself and the fix.

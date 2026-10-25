@@ -5,6 +5,7 @@
  */
 import { type FormEvent, type ReactNode, useMemo, useRef, useState } from "react";
 import { api } from "../../api.ts";
+import { setTimeZone } from "../../format.ts";
 import type { InstanceSettings, InstanceState } from "../../types.ts";
 import "../../styles/settings.css";
 
@@ -90,6 +91,7 @@ export function GeneralForm({
     try {
       const next = await api<InstanceState>("/api/admin/instance", { method: "PUT", body: form });
       setSaved(true);
+      setTimeZone(next.settings.timezone);
       onSaved(next);
     } catch (err) {
       const message = (err as Error).message;

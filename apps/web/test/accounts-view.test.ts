@@ -43,7 +43,7 @@ describe("fetchedText: the Haettu column of a connection in Pankkiyhteydet", () 
 
   it("says the account is not linked in the Control Panel, before any other reason", () => {
     const notLinked = { kind: "not_linked" as const, message: "x" };
-    expect(fetchedText(conn, [acc({ problem: { kind: "failed", message: "y" } }), acc({ problem: notLinked })])).toBe("Ei linkitetty Control Panelissa");
+    expect(fetchedText(conn, [acc({ problem: { kind: "failed", message: "y" } }), acc({ problem: notLinked })])).toBe("Ei lisätty Control Panelissa");
   });
 
   it("says a failed first fetch", () => {
@@ -77,7 +77,7 @@ const account = (extra: Partial<Account>): Account => ({
   ...extra,
 });
 const connection = (id: string): Connection => ({ id, institution: "Nordea", status: "active", state: "active", history: false, replaced: false, validUntil: "2027-03-01T00:00:00Z", createdAt: "2026-09-01T00:00:00Z", lastSyncedAt: null, daysLeft: 140, needsRenewal: false });
-const metaOf = (accounts: Account[], connections: Connection[]) => ({ user: { id: "u1", role: "member" }, members: [{ id: "u1", displayName: "Matti" }], shares: [], bank: { configured: true, banks: [], redirectMode: "own", source: "user" }, connections, accounts }) as unknown as Meta;
+const metaOf = (accounts: Account[], connections: Connection[]) => ({ user: { id: "u1", role: "member" }, members: [{ id: "u1", displayName: "Matti" }], shares: [], bank: { configured: true, banks: [], redirectMode: "own", source: "user" }, connections, accounts, renewal: { due: [], round: null } }) as unknown as Meta;
 /** What a reader sees: no tags, no React text separators, one kind of space. */
 const text = (markup: string) => markup.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
@@ -150,7 +150,6 @@ describe("Tilit: what tells accounts apart", () => {
   });
 
   it("every account has Muokkaa, a bank account too", () => {
-    // two keys per account: its last cell, and under its name on a phone (settings.css shows one of them)
-    expect(render([account({}), account({ id: "a2", provider: "csv", connectionId: null })]).split("Muokkaa").length - 1).toBe(4);
+    expect(render([account({}), account({ id: "a2", provider: "csv", connectionId: null })]).split("Muokkaa").length - 1).toBe(2);
   });
 });

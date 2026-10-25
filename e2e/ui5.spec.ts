@@ -51,7 +51,7 @@ for (const look of ["light", "night"]) {
   });
 }
 
-test("Yhteenveto's key figures stand at the left edge of their tiles, and the ring of Yli jäi has its reading beside it", async ({ browser }) => {
+test("Yhteenveto's key figures stand at the left edge of their tiles, and the ring of Tulos has its reading beside it", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);

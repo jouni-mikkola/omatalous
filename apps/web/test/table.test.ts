@@ -1,6 +1,6 @@
 /**
- * The table kit (components/table): the inline bar, the sparkline, the delta chip's tone, the avatar, the sort, the
- * groups and the row window over 500 rows, and the repo rules of the kit (no sum of its own, no table outside it).
+ * The table kit (components/table): the inline bar, the sparkline, the delta chip's tone, the avatar, the sort
+ * and the repo rules of the kit (no sum of its own, no table outside it).
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MerchantAvatar } from "../src/components/MerchantAvatar.tsx";
-import { barShare, deltaTone, groupRows, rowWindow, sparkGeometry, VIRTUAL_FROM } from "../src/components/table/cells.ts";
+import { barShare, deltaTone, sparkGeometry } from "../src/components/table/cells.ts";
 import { nextSort, sortBy, sortMessage, sortRows } from "../src/components/table/sort.ts";
 import { BarCell, DeltaChip, MarkCell, SortHead, SparkCell } from "../src/components/table/Cells.tsx";
 
@@ -163,43 +163,13 @@ describe("sorting", () => {
   });
 });
 
-describe("groups and the row window", () => {
-  it("groups in the order the groups first appear", () => {
-    const g = groupRows(["a1", "b1", "a2"], (s) => s[0]!);
-    expect(g).toEqual([
-      { key: "a", rows: ["a1", "a2"] },
-      { key: "b", rows: ["b1"] },
-    ]);
-  });
-
-  it("draws every row under 500 and a window over it with the scroll length kept", () => {
-    expect(rowWindow(VIRTUAL_FROM - 1, 32, 5000, 600)).toEqual({
-      start: 0,
-      end: VIRTUAL_FROM - 1,
-      padTop: 0,
-      padBottom: 0,
-    });
-    const w = rowWindow(2000, 32, 3200, 640);
-    expect(w.start).toBe(92);
-    expect(w.end).toBe(128);
-    expect(w.padTop + (w.end - w.start) * 32 + w.padBottom).toBe(2000 * 32);
-    expect(rowWindow(2000, 32, 1e9, 640).end).toBe(2000);
-  });
-});
-
-const HAND_MADE_FILES = [
-  "charts/forms/IncomeUse.tsx",
-  "pages/reports/sections/Categories.tsx",
-  "pages/reports/sections/CategoryShift.tsx",
-];
-
 describe("the kit's rules", () => {
   const src = join(__dirname, "../src");
   const files = (dir: string): string[] => readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? files(join(dir, f)) : [join(dir, f)]));
   const all = files(src).filter((f) => /\.tsx?$/.test(f));
 
-  it("adds nothing up: no sum over row values in DataTable, ChartTable and the sort", () => {
-    for (const f of all.filter((x) => /components\/table\/(DataTable|ChartTable|sort)\./.test(x))) {
+  it("adds nothing up: no sum over row values in Table, ChartTable and the sort", () => {
+    for (const f of all.filter((x) => /components\/table\/(Table|ChartTable|sort)\./.test(x))) {
       const text = readFileSync(f, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
@@ -207,14 +177,12 @@ describe("the kit's rules", () => {
     }
   });
 
-  // The allowlist only shrinks: a wave that moves a page onto DataTable takes its line out.
-  const HAND_MADE = new Set<string>(HAND_MADE_FILES);
-  it("has no hand-made table outside the kit and the allowlist, and the allowlist holds no file without one", () => {
+  // The one table is Table.tsx; the weekday and hour heat map is a Table too.
+  it("has no hand-made table outside the kit", () => {
     const withTable = all
-      .filter((f) => !f.includes("/components/table/") && !f.includes("/private/") && /<table[\s>]/.test(readFileSync(f, "utf8")))
+      .filter((f) => !f.includes("/components/table/") && /<table[\s>]/.test(readFileSync(f, "utf8")))
       .map((f) => relative(src, f))
       .sort();
-    expect(withTable.filter((f) => !HAND_MADE.has(f))).toEqual([]);
-    expect([...HAND_MADE].filter((f) => !withTable.includes(f)).sort()).toEqual([]);
+    expect(withTable).toEqual([]);
   });
 });

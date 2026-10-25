@@ -67,7 +67,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const low = r.lowest && indexOf(r.lowest.day) >= 0 ? r.lowest : null;
   const title = (i: number) => (i === last ? `${dayMonth(iso(i))} (viimeisin)` : dayMonth(iso(i)));
   const tipRows = (i: number) => [
-    { name: "Tilit yhteensä", value: days[i] === null ? "–" : money(days[i]!, false), key: <span className="line-key" style={{ background: "var(--series-1)" }} /> },
+    { name: "Tilien ja korttien saldo", value: days[i] === null ? "–" : money(days[i]!, false), key: <span className="line-key" style={{ background: "var(--series-1)" }} /> },
     ...(pays.some((d) => indexOf(d) === i) ? [{ name: "Palkkapäivä", value: "" }] : []),
     ...events.filter((e) => indexOf(e.day) === i).map((e) => ({ name: e.label, value: money(e.cents, false) })),
   ];

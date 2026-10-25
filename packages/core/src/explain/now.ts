@@ -1,5 +1,5 @@
 /**
- * The figures of today that no range of rows adds up: what the accounts hold (`holdings.accounts`, Tileillä), what the
+ * The figures of today that no range of rows adds up: what the accounts hold (`holdings.accounts`, Tilien saldo, ilman korttia), what the
  * checking accounts have free until the payday (`ahead.free`, Käytettävissä) and the pay the window waits for
  * (`ahead.pay`). Their lines are accounts, coming payments and past pays, read from the same run that gives the page its
  * figure (`aheadBasis`, `buildHoldings`). A line that is no row has an id of its own (`a:` an account, `due:` a coming

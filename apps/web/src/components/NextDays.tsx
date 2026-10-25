@@ -9,7 +9,7 @@ import { type Active, NextDaysLine } from "./NextDaysLine.tsx";
 import { billLine } from "./next-days-line.ts";
 import { PendingPayee } from "./PendingPayee.tsx";
 import type { Scope } from "../types.ts";
-import { type Column, DataTable } from "./table/DataTable.tsx";
+import { type Column, Table } from "./table/Table.tsx";
 import { Why } from "./Why.tsx";
 import { type Ahead, figures, incoming, payNote, payments, paymentsCaption, shortIsEstimate, warning, windowLine } from "./next-days.ts";
 
@@ -69,7 +69,7 @@ export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
         <div className="st-wide">
           {due.some((l) => l.estimate) && <p className="st-note ahead-estimates">Eräpäivät ja summat ovat arvioita.</p>}
           {line && <NextDaysLine line={line} active={active} onActive={setActive} />}
-          <Lines caption={paymentsCaption(ahead)} hidden head={["Eräpäivä", "Saaja"]} lines={due} kind="bill" active={active} onActive={setActive} />
+          {due.length > 0 ? <Lines caption={paymentsCaption(ahead)} hidden head={["Eräpäivä", "Saaja"]} lines={due} kind="bill" active={active} onActive={setActive} /> : <p className="st-note">Ei erääntyviä maksuja.</p>}
           {coming.length > 0 && <Lines caption="Saapuvat maksut" head={["Päivä", "Maksaja"]} lines={coming} kind="pay" active={active} onActive={setActive} door={scope ? { range: { from: ahead.from, to: ahead.payday?.date ?? ahead.to }, scope } : undefined} />}
           {varies && <p className="st-note ahead-pay-note">{varies}</p>}
           <p className="st-links">
@@ -97,7 +97,7 @@ interface LinesProps {
 
 /**
  * One of the two tables: the day, the name with the line under it, the sum. A caption the block's heading already says
- * is for a screen reader only. A table with no line says so in its one row. A row is lit when its dot is, and lights it.
+ * is for a screen reader only. A window with no payment says so in a sentence, not a table. A row is lit when its dot is, and lights it.
  */
 function Lines({ caption, hidden = false, head, lines, kind, active, onActive, door }: LinesProps) {
   const columns: Column<Line>[] = [
@@ -122,7 +122,7 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive, d
         return (
           <>
             {l.pending ? <PendingPayee>{payee}</PendingPayee> : payee}
-            {l.note && <div className="st-sub">{l.note}</div>}
+            {l.note && <div className="sub">{l.note}</div>}
           </>
         );
       },
@@ -131,7 +131,6 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive, d
       key: "sum",
       label: "Summa",
       kind: "money",
-      className: () => "st-num",
       cell: (l) =>
         door && l.payday ? (
           <Why figure="ahead.pay" title={`Palkka, ${l.name}`} range={door.range} scope={door.scope} text={l.payday} estimate="approx">
@@ -147,18 +146,14 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive, d
     },
   ];
   return (
-    <DataTable
-      id={`ahead-${kind}`}
+    <Table
       caption={caption}
       captionVisible={!hidden}
       captionClass="st-cap"
       rows={lines}
       rowKey={(l) => String(lines.indexOf(l))}
       columns={columns}
-      phone="none"
-      className="st-table ahead-table"
-      colgroup={["ahead-day", "", "ahead-sum"]}
-      empty="Ei erääntyviä maksuja."
+      className="ahead-table"
       rowClassName={(l) => (active?.kind === kind && active.row === lines.indexOf(l) ? "on" : undefined)}
       rowProps={(l) => {
         const row = lines.indexOf(l);

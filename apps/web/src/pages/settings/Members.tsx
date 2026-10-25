@@ -3,7 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { copyText } from "../../clipboard.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { date } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { InstanceState, User } from "../../types.ts";
@@ -39,6 +39,9 @@ export function SecretBox({ who, password, address }: { who: string; password: s
 
 const USERNAME = /^[A-Za-z0-9._-]{3,32}$/;
 const USERNAME_HINT = "3–32 merkkiä: kirjaimet, numerot, piste, alaviiva tai viiva";
+
+/** The day the member was added, in the instance's time zone: a member made late at night is not dated a day early. */
+export const addedOn = (u: Pick<User, "createdAt">): string => date(u.createdAt);
 
 export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => void; onLoaded?: () => void }) {
   const { data, error: loadError, reload } = useApi<{ users: User[] }>("/api/users");
@@ -145,13 +148,10 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
           <p>Varmuuskopioista tiedot poistuvat 14 päivässä, päivitystä edeltävästä kopiosta myöhemmin.</p>
         </ConfirmDialog>
       )}
-      <DataTable
-        id="members"
-        className="members-table"
+      <Table
         caption="Talouden jäsenet"
         rows={data?.users ?? []}
         rowKey={(u) => u.id}
-        phone="cards"
         columns={[
           {
             key: "name",
@@ -168,10 +168,11 @@ export function Members({ me, onChange, onLoaded }: { me: User; onChange: () => 
           },
           { key: "username", label: "Tunnus", kind: "text", cell: (u) => u.username },
           { key: "role", label: "Rooli", kind: "text", cell: (u) => (u.role === "admin" ? "ylläpitäjä" : "jäsen") },
-          { key: "added", label: "Lisätty", kind: "date", cell: (u) => date(u.createdAt) },
+          { key: "added", label: "Lisätty", kind: "date", cell: addedOn },
           {
             key: "actions",
-            label: "",
+            label: "Toiminnot",
+            headHidden: true,
             kind: "count",
             cell: (u) => (
               <>

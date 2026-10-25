@@ -1,5 +1,5 @@
 // Decision: is this year leaving more over than the last one did, by the same point of the year
-import { DataTable } from "../../components/table/DataTable.tsx";
+import { Table } from "../../components/table/Table.tsx";
 import { monthEnd, type YearToDate } from "@banking/core";
 import { approxText, Why } from "../../components/Why.tsx";
 import { useWidth } from "../../hooks.ts";
@@ -18,7 +18,7 @@ import { spreadLabels, Tip, ValueGrid } from "./parts.tsx";
 const MONTHS = 12;
 
 /**
- * Yli jäi added up from January, this year as the strong line and last year in grey, both labelled at their ends. The
+ * Tulos added up from January, this year as the strong line and last year in grey, both labelled at their ends. The
  * running month is dashed (its salary may not be in), and the server's like-for-like gap is drawn as a bracket at the
  * newest month both lines have. Every figure is a field of `cashflow.yearToDate`.
  */
@@ -59,7 +59,7 @@ export function CumulativeYears({ ytd }: { ytd: YearToDate }) {
   return (
     <div className="chart" ref={ref}>
       {width > 0 && (
-        <svg width={f.width} height={f.height} role="img" aria-label={`Yli jäi tammikuusta alkaen, ${year} ja ${year - 1}`}>
+        <svg width={f.width} height={f.height} role="img" aria-label={`Tulos tammikuusta alkaen, ${year} ja ${year - 1}`}>
           <g transform={`translate(${f.margin.left},${f.margin.top})`}>
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
             {ticks.map((t, i) =>
@@ -91,7 +91,7 @@ export function CumulativeYears({ ytd }: { ytd: YearToDate }) {
               </text>
             ))}
             {at !== null && <circle className="qc-dot" cx={x(at)} cy={y(current[at] ?? previous[at] ?? 0)} r={4} pointerEvents="none" />}
-            <ReadoutLayer xs={months.map((_, i) => x(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} label={`Yli jäi kuukausittain, ${year} ja ${year - 1}. Nuolinäppäimillä siirryt kuukaudesta toiseen.`} />
+            <ReadoutLayer xs={months.map((_, i) => x(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} label={`Tulos kuukausittain, ${year} ja ${year - 1}. Nuolinäppäimillä siirryt kuukaudesta toiseen.`} />
           </g>
         </svg>
       )}
@@ -108,9 +108,8 @@ export function CumulativeYears({ ytd }: { ytd: YearToDate }) {
 export function CumulativeYearsTable({ ytd, scope }: { ytd: YearToDate; scope: Scope }) {
   const { year, current, previous, partialMonth } = ytd;
   return (
-    <DataTable
-      id="yli-jai-vuodet"
-      caption="Yli jäi kuukauden loppuun, kaksi vuotta"
+    <Table
+      caption="Tulos kuukauden loppuun, kaksi vuotta"
       rows={current.flatMap((v, i) => (v === null && previous[i] === null ? [] : [{ i, v, w: previous[i] ?? null }]))}
       rowKey={(x) => `${year}-${x.i}`}
       columns={[
@@ -122,12 +121,12 @@ export function CumulativeYearsTable({ ytd, scope }: { ytd: YearToDate; scope: S
   );
 }
 
-/** One figure of the table as the door to its rows: Yli jäi from 1 January to the end of the month. */
+/** One figure of the table as the door to its rows: Tulos from 1 January to the end of the month. */
 function Door({ year, month, cents, scope, estimate }: { year: number; month: number; cents: number; scope: Scope; estimate: boolean }) {
   const label = `${year}-${String(month + 1).padStart(2, "0")}`;
   const text = money(cents, false);
   return (
-    <Why figure="yli_jai.month" title={`Yli jäi 1.1. alkaen ${monthGenitive(label)} loppuun`} range={{ from: `${year}-01-01`, to: monthEnd(label) }} scope={scope} text={text} estimate={estimate ? "approx" : undefined}>
+    <Why figure="yli_jai.month" title={`Tulos 1.1. alkaen ${monthGenitive(label)} loppuun`} range={{ from: `${year}-01-01`, to: monthEnd(label) }} scope={scope} text={text} estimate={estimate ? "approx" : undefined}>
       {text}
     </Why>
   );

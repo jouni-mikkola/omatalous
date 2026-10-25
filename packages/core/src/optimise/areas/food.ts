@@ -14,8 +14,8 @@ import { clearlyAbove } from "../../analysis/signal.ts";
 import { monthOf } from "../../dates.ts";
 import { UNKNOWN_MERCHANT } from "../../merchant.ts";
 import { median } from "../../stats.ts";
-import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS, mean, YEAR_OVER_YEAR_SIDE, yearOverYear } from "../common.ts";
-import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
+import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS, mean, whyHistory, YEAR_OVER_YEAR_NEED, YEAR_OVER_YEAR_SIDE, yearOverYear } from "../common.ts";
+import type { Area, AreaInput, CalcLine, Check, FindingDraft, NoDataWhy } from "../types.ts";
 
 const EATING_OUT: ReadonlySet<string> = new Set(["restaurants", "food_delivery"]);
 
@@ -176,11 +176,11 @@ export const food: Area = {
   label: "Ruoka",
   assess: (a) => {
     const win = yearOverYear(a);
-    const checks = (status: Check["status"]): Check[] => [
-      { id: "food:eating_out", label: "Ravintolat ja kotiinkuljetus", status },
-      { id: "food:delivery", label: "Ruoan kotiinkuljetus", status },
+    const checks = (status: Check["status"], why?: NoDataWhy): Check[] => [
+      { id: "food:eating_out", label: "Ravintolat ja kotiinkuljetus", status, ...(why ? { why } : {}) },
+      { id: "food:delivery", label: "Ruoan kotiinkuljetus", status, ...(why ? { why } : {}) },
     ];
-    if (!win) return { findings: [], checks: checks("no_data") };
+    if (!win) return { findings: [], checks: checks("no_data", whyHistory(a, YEAR_OVER_YEAR_NEED)) };
     const rows = eatingOutRows(a.ctx, win.all);
     const findings = [eatingOut(a, win, rows), ...delivery(win, rows)].filter((f): f is FindingDraft => f !== null);
     // no restaurant or delivery row at all: nothing was looked at

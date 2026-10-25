@@ -3,17 +3,8 @@
 .bills-head { font-size: var(--fs-body); font-weight: 600; margin: 16px 0 8px; }
 .bills-head .muted { font-weight: 400; font-size: var(--fs-label); margin-left: 8px; }
 
-/* the first column of a table of due dates is as wide as its text (a day has no space to break at, a month wraps on a phone); the payee takes the rest */
-.st-table .due-col { width: 1%; }
-/* the month stands on one line: width 1% alone would break it at its space */
-.rare-table .due-col { white-space: nowrap; }
-/* the state of a month ("Maksettu 5.10.") is a column above a phone and a second line under the payee on one; the headless column is not drawn there */
-.rare-table .paid-sub { display: none; }
-@media (max-width: 640px) {
-  .rare-table .paid-col { display: none; }
-  .rare-table .paid-sub { display: block; max-width: none; white-space: normal; overflow: visible; }
-  .rare-table :is(th, td) + :is(th, td) { padding-left: 8px; }
-}
+/* a day or a month stands on one line; the payee takes the rest */
+.due-col { white-space: nowrap; }
 
 /* the typed-in bills: name and amount, the rest below. No table, so a phone needs no side scroll. */
 .bill-list { list-style: none; margin: 0; padding: 0; max-width: 640px; }
@@ -33,48 +24,15 @@
 @media (min-width: 1040px) { .bill-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .bill-fields { grid-template-columns: minmax(0, 1fr); } }
 
-/* the marks on subscriptions and the tables on a phone */
-
-/* the date of the next charge stays on one line; the name column gives way instead */
+/* the date of the next charge stays on one line */
 .series-table td.next { white-space: nowrap; }
-
-/* a group inside a table. The subscriptions: asked about, the rest, marked as cancelled. The payments that fall due: to the pay day, after it */
-:is(.series-table, .coming-table) tr.group-head th { padding-top: 16px; color: var(--text-2); font-size: var(--fs-ui); font-weight: 600; white-space: normal; }
-:is(.series-table, .coming-table) tbody:first-of-type tr.group-head th { padding-top: 8px; }
-/* the group of payments has its sum at the right of its head row, in the column of the amounts and under the same line */
-.coming-table tr.group-head th { padding-left: 0; }
-.coming-table tr.group-head td { padding-top: 16px; font-weight: 600; vertical-align: bottom; }
-.coming-table tbody:first-of-type tr.group-head td { padding-top: 8px; }
 
 /* the one action in a subscription's drill; a mark replaces it with a badge and an undo */
 .sub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .sub-actions .badge { margin-left: 0; }
 
-/* at 390 px the name column wraps so that the date of the next charge fits inside the card */
-@media (max-width: 600px) {
-  .series-table td .sub { max-width: none; white-space: normal; overflow: visible; }
-  .series-table td.next, .series-table th:last-child { padding-left: 4px; }
-}
-
-/* the row "Yhteensä" at the foot of a table: 600, the axis above it in place of the hairline of the row above */
-tr.foot-row > * { padding-top: var(--cell-y); padding-bottom: var(--cell-y); border-top: 1px solid var(--axis); border-bottom: 0; color: var(--text); font-size: var(--fs-body); font-weight: 600; white-space: nowrap; }
-tr.foot-row + tr.foot-row > * { border-top: 0; }
-tr:has(+ tr.foot-row) > * { border-bottom: 0; }
-/* the head of the price table is allowed two lines on a phone */
-@media (max-width: 600px) { #hinnat th { white-space: normal; } }
-
-/* a day with its source shape stays on one line */
-.coming-table .due-col { white-space: nowrap; }
-
-/* a name wraps balanced, so its last word ("... Oy") does not stand alone; no width can grow */
-@media (min-width: 601px) { .series-table td:first-child { text-wrap: balance; } }
-
-/* a panel of six columns has no room for the cadence next to four figures */
-.span-6 { container-type: inline-size; }
-@container (max-width: 620px) { .series-table :is(th, td):nth-child(2) { display: none; } }
-
-/* a share track needs 100 px in its cell: on a phone the payee's name would be left under 150 */
-@media (max-width: 640px) { .series-table td.share { min-width: 0; background-image: none; } }
+/* a name wraps balanced, so its last word ("... Oy") does not stand alone */
+@media (min-width: 601px) { .series-table th:first-child { text-wrap: balance; } }
 
 /* a contract's start under its name opens its lines; it reads as the line of the category above it */
 .contract-toggle { display: block; margin: 0; padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-label); line-height: var(--lh-label); text-align: left; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
@@ -176,15 +134,12 @@ tr:has(+ tr.foot-row) > * { border-bottom: 0; }
 .ps-note { margin: var(--sp-12) 0 0; font-size: var(--fs-label); color: var(--muted); }
 
 /* ── Tilaukset in the table kit: the payee beside its mark, Kuussa with its bar, the price with its last move */
-.sub-table td.sub-name { display: flex; align-items: center; gap: var(--sp-4); }
 .sub-table .tc-name { display: grid; min-inline-size: 0; }
 .sub-merchant { font-weight: var(--w-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-category { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
-.rt-compact .sub-category { display: none; }
-.sub-monthly .tc-bar { margin-block-start: var(--sp-4); }
 .sub-chip { margin-inline-start: var(--sp-8); }
 .sub-card { margin-inline-start: var(--sp-8); }
-.sub-stopped td { color: var(--text-2); }
+.sub-stopped > * { color: var(--text-2); }
 .sub-drill { display: grid; gap: var(--sp-12); }
 .sub-steps { display: grid; gap: var(--sp-8); max-inline-size: 420px; }
 .sub-line { margin: 0; color: var(--text-2); }
@@ -192,17 +147,9 @@ tr:has(+ tr.foot-row) > * { border-bottom: 0; }
 .sub-facts dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
-/* a phone: the payee and Kuussa on the first line, the next charge and a price move under them; the charge itself is Kuussa's twin */
-@media (max-width: 600px) {
-  .sub-table .sub-monthly .tc-bar, .sub-table .sub-price { display: none; }
-  .sub-table td.sub-price-cell:not(:has(.sub-chip)) { display: none; }
-  .sub-table td.sub-price-cell .sub-chip { margin-inline-start: 0; }
-}
-
 /* ── Erääntyvät maksut: the payee beside its mark */
 .coming-payee { display: flex; align-items: center; gap: var(--sp-8); min-inline-size: 0; }
 .coming-payee > .mk-plate { flex: none; }
 /* a payment waiting to be booked cuts its long name before the word, as base.css does for a cell that holds it alone */
 .coming-payee > .payee-pending { flex: 1 1 auto; }
-.coming-table td:has(.payee-pending) { max-inline-size: 0; }
 .coming-est { color: var(--text-2); }

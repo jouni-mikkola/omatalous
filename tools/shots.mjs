@@ -4,11 +4,12 @@
  * Builds first when the build is older than the sources, starts the app on a free port with a temporary data directory
  * (e2e/server.mjs, as `pnpm e2e` does), creates the administrator, loads the demo household and links the fake bank when asked
  * (linkFakeBank of e2e/helpers.ts), makes a second member who links it too when asked (createMember of e2e/helpers.ts), saves one
- * full-page PNG per route and width to $SHOTS_DIR (default /tmp/claude-0/shots), fails when a picture scrolls sideways or has a
+ * full-page PNG per route and width to $SHOTS_DIR (default shots in $TMPDIR, else /tmp), fails when a picture scrolls sideways or has a
  * table wider than the screen, and stops the app. Needs a Playwright Chromium (PLAYWRIGHT_BROWSERS_PATH).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -44,7 +45,7 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --only "x"       a CSS selector or heading text, found on the page the steps end on: a second picture of that part (with what stands outside it, no sticky bar)
                    beside the whole page: <route>-<label>-<slug of x>-<width>.png; exit 1 when nothing matches. E.g. --only "Säännöt" or "#saannot"
   --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
-Pictures go to $SHOTS_DIR (default /tmp/claude-0/shots); $SHOTS_DISPLAY_NAME is the administrator's name on the page (default Shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
+Pictures go to $SHOTS_DIR (default shots in $TMPDIR, else /tmp); $SHOTS_DISPLAY_NAME is the administrator's name on the page (default Shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
 /** @typedef {((answer: any) => unknown) | { fail: { status: number, body: object } } | { hold: true }} AnswerSpec */
 
@@ -304,7 +305,7 @@ async function main() {
   const { startServer } = await import("../e2e/server.mjs");
   const { createMember, linkFakeBank, sayJointUse, setScope, waitForSync } = await import("../e2e/helpers.ts");
   const { chromium, expect } = await import("@playwright/test");
-  const out = process.env.SHOTS_DIR ?? "/tmp/claude-0/shots";
+  const out = process.env.SHOTS_DIR ?? join(tmpdir(), "shots");
   mkdirSync(out, { recursive: true });
   // SHOTS_STILL=1 (tools/visual-check.sh): no animation is caught half way, so two runs give the same pixels
   const still = process.env.SHOTS_STILL === "1" ? { reducedMotion: /** @type {const} */ ("reduce") } : {};

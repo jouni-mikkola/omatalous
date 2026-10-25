@@ -633,8 +633,8 @@ describe("release gate, public tree leg", () => {
 
 // ── the private repository bills its Actions minutes: every job of every workflow ends at once there ────────────────
 const PUBLIC_ONLY = "github.repository == 'jouni-mikkola/omatalous'";
-/** Workflows a lead's tool starts by hand in the private repository (release.sh --github, the branch cleanup). */
-const BY_HAND = ["ci.yml", "upgrade.yml", "branches.yml"];
+/** Workflows that may start by hand in the private repository: the light CI and the branch cleanup. */
+const BY_HAND = ["ci.yml", "branches.yml"];
 
 /** The jobs of a workflow text whose `if:` does not name the public repository, or that name it only as an alternative to something else. */
 function unguarded(file: string, text: string): string[] {
@@ -664,7 +664,7 @@ describe("workflows in the private repository", () => {
     const ci = readText(".github/workflows/ci.yml");
     const guard = `${PUBLIC_ONLY} || github.event_name == 'workflow_dispatch'`;
     expect(unguarded("ci.yml", ci.replace(guard, "github.event_name != 'push'"))).toEqual([expect.stringContaining("job shell has no guard")]);
-    expect(unguarded("pages.yml", ci)).not.toEqual([]); // the hand-start alternative is only for the three workflows a tool starts
+    expect(unguarded("pages.yml", ci)).not.toEqual([]); // the hand-start alternative is only for the two workflows that may start by hand
     expect(unguarded("ci.yml", ci.replace(guard, PUBLIC_ONLY))).toEqual([]); // near miss: the plain guard passes
   });
 });

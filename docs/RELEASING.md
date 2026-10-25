@@ -26,10 +26,10 @@ accept its signature. Retry a failed release with *Re-run failed jobs*, which ke
 public repository before 0.4.0 accept only a tag (`refs/tags/v…`), so a release from `main` needs one manual update
 there (CHANGELOG 0.5.1).
 
-The release and return page workflows run only in the public repository. The upgrade rehearsal runs only in the private
-one, because its baselines are private commits. CI runs in both. CI and the rehearsal each end in one summary job, `ci-ok`
-and `upgrade-ok`, so a check has one stable name while jobs and baselines change. A snapshot leaves out what only the private repository
-uses: its plans, process notes and maintainer tools, the release scripts, the upgrade and branch workflows, the upgrade
+The release and return page workflows run only in the public repository. The upgrade rehearsal runs only on the release
+machine (`tools/ci/local-proof.sh`), because its baselines are private commits and it needs Docker for minutes. The light CI
+runs in both repositories and ends in one summary job, `ci-ok`, so a check has one stable name while its jobs change. A snapshot leaves out what only the private repository
+uses: its plans, process notes and maintainer tools, the release scripts, the branch workflow, the upgrade
 baselines and the Dependabot settings. Dependency updates happen in the private repository. A commit merged in the
 public one is not refused: the next snapshot replaces the tree and silently undoes it, unless the commit was replayed in
 the private repository first ([CONTRIBUTING.md](../CONTRIBUTING.md)).
@@ -41,8 +41,8 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 
 On each processor the smoke test (`tools/ci/smoke-image.sh IMAGE VERSION COMMIT`) proves that the image's labels match
 the version and the commit, that a new install answers `/api/health` within 120 seconds and prints its version, and that
-a database of 0.5.0 is accepted by `migrate-check`, starts, keeps its users and ends with every migration applied. CI's
-Docker job runs the same script on every image it builds. By hand, on a machine with Docker: `docker build -t x .`, then
+a database of 0.5.0 is accepted by `migrate-check`, starts, keeps its users and ends with every migration applied. The
+release machine runs the same script on every image it builds (`tools/ci/local-proof.sh`). By hand, on a machine with Docker: `docker build -t x .`, then
 `tools/ci/smoke-image.sh x unknown unknown`.
 
 A red run leaves untagged image digests in `ghcr.io/jouni-mikkola/omatalous` and nothing an install can see: no tag on an
@@ -97,15 +97,26 @@ fix at once when it is bad. An install that runs 0.9.0 or later follows the rele
 
 The private repository pays for its Actions minutes (2,000 a month), so only a run started by hand (`workflow_dispatch`)
 does any work there: `ci.yml` skips every job, `ci-ok` included, on a push or a pull request in the private repository. The public repository runs CI on
-every push, which is free.
+every push and pull request that touches more than documents (`**.md`, `docs/`, `relay/`, `LICENSE`), which is free.
+
+CI on GitHub is the light tier: the shell lint, the types and the tests of what the change reaches (`tools/check.sh
+--changed BASE`, with `BASE` from `tools/ci/light-scope.sh`: the base branch of a pull request, the commit a push
+replaced, everything for a hand start or a new branch), the pnpm store cached, a newer push cancelling the older run
+(every push to `main` runs to the end), no matrix, a limit of ten minutes a job. The heavy checks are not in the file: the whole of `pnpm check` (all tests,
+all shell suites, the self-tests of the tools), `pnpm build`, `pnpm e2e`, and the Docker checks run on the release
+machine, in the gate and the proof of a release. A run started by hand (`gh workflow run ci.yml`) is the full CI on a
+clean runner as before: shell and js run everything and the build, and the jobs `e2e` and `docker` exist for that start
+only. No test is deleted, each one runs on the release machine. What a document-only change can
+break (a repo rule that reads Markdown, the version in CHANGELOG.md) is caught by `pnpm check` before it lands and by the
+release gate.
 
 | Workflow | Private repository | Public repository |
 |---|---|---|
-| `ci.yml` (about 9 billed minutes, and about one more for the image smoke test) | `workflow_dispatch` only; a pull request skips every job (a release starts it only when it is asked for a clean runner; it runs the same checks on its own machine) | every push and pull request, and by hand |
+| `ci.yml`, the light tier (lint, types and the tests of the change, under five minutes) | `workflow_dispatch` only, and then the same light tier against `main`; a pull request skips every job. No release step starts it | every push and pull request that touches more than documents, and by hand |
 
-A push to the private repository leaves a skipped `ci-ok` on its commit. `tools/ci/wait.sh` ignores skipped check runs,
-so only a run that did the work answers for a commit. The concurrency group of `ci.yml` names the event, so that skipped
-run never cancels a dispatched one.
+A push to the private repository leaves a skipped `ci-ok` on its commit. `tools/ci/wait.sh` (no release step uses it
+any more; it reads the check runs of a commit by hand) ignores skipped check runs, so only a run that did the work answers
+for a commit. The concurrency group of `ci.yml` names the event, so that skipped run never cancels a dispatched one.
 
 ## One-time GitHub setup (owner)
 

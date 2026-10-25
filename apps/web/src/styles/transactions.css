@@ -124,67 +124,63 @@ label.tx-menu-item { justify-content: flex-start; cursor: pointer; }
 .tx-menu-sub { display: block; margin-top: var(--sp-2); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 
 /*
- * The table. A row is one line: 44 px in Väljä (the 24 px disc and chip with the padding the row leaves them), 32 px in
- * Tiivis (the 20 px disc, the bank's text hidden); a day's row 28 and 24 px. The bar under a figure stands out of the
- * flow, so it adds no height. What the build's extensions add under a matched row is the only second line.
+ * The list is the shared table (table.css) with a group for each day. A row is who, which account, which category and how
+ * much; its one control is the chevron, which opens the category picker, the way to the payee's rows and the payee's
+ * twelve months. The bar under a figure stands out of the flow, so it adds no height. What the build's extensions add under
+ * a matched row is the only second line.
  */
-.tx-table { table-layout: fixed; width: 100%; }
-.tx-table th.tx-account, .tx-table td.tx-account { width: 8rem; }
-.tx-table th.tx-category, .tx-table td.tx-category { width: 14rem; }
-.tx-table th.num, .tx-table td.tx-sum { width: 9.5rem; }
-.tx-table .tx-drillcell { width: 40px; padding-left: 0; text-align: right; }
-.tx-table td { vertical-align: top; }
-.rt-comfortable.tx-table td { padding-block: calc((var(--row-h-roomy) - var(--avatar) - var(--tick)) / 2); }
-.rt-compact.tx-table td { padding-block: calc((var(--row-h) - var(--avatar-s) - var(--tick)) / 2); }
-.rt-comfortable.tx-table tr.rt-group > * { padding-block: calc((28px - var(--lh-label)) / 2); }
-.rt-compact.tx-table tr.rt-group > * { padding-block: calc((24px - var(--lh-label)) / 2); }
+.tx-table { table-layout: fixed; }
+.tx-table :is(th, td).tx-account { width: 9rem; }
+.tx-table :is(th, td).tx-category { width: 14rem; }
+.tx-table :is(th, td).num { width: 9.5rem; }
+/* the category chip is the tallest thing in a row (28 px), so the row is 44 px with 8 px above and under it */
+.tx-table tbody :is(th, td) { padding-block: 8px; }
+.tx-table tbody td { vertical-align: top; }
+.tx-table tbody th[scope="row"] { vertical-align: top; }
 .tx-table tr.rt-group > th { letter-spacing: var(--track-name); text-transform: uppercase; font-size: var(--fs-tick); }
 .tx-table tr.rt-group > th .rt-group-count { text-transform: none; letter-spacing: 0; font-size: var(--fs-label); }
-.tx-who { min-width: 0; }
-.tx-line { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; height: calc(var(--avatar) + var(--tick)); }
-.tx-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--text); text-decoration: none; }
-.tx-name:hover { text-decoration: underline; }
+.tx-table td.num { position: relative; }
+.tx-who { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; }
+.tx-line { display: flex; flex: 0 1 auto; align-items: center; gap: var(--sp-8); min-width: 0; min-height: 24px; }
+.tx-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the bank's own text after the name and its tags, muted, cut by the cell (its title holds all of it) */
-.tx-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.tx-line-acct { display: none; }
-.tx-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); white-space: nowrap; }
+.tx-text { flex: 1 1 0; min-width: 0; max-width: none; }
+.rt-wrap[data-block] .tx-who { flex-wrap: wrap; }
+.rt-wrap[data-block] .tx-text { flex: 1 0 100%; }
+/* the bank's text stays one line in a block too, cut with an ellipsis */
+.rt-wrap[data-block] .rt .tx-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rt-wrap[data-block] .tx-bar { display: none; }
+/* a block is two lines: the payee and the amount, then the account and the category side by side, none with its label */
+.rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; row-gap: var(--sp-4); }
+.rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { grid-column: 1 / 3; grid-row: 1; }
+.rt-wrap[data-block] .rt.tx-table td[data-rt="main"] { grid-column: 3; grid-row: 1; }
+.rt-wrap[data-block] .rt.tx-table td.tx-account, .rt-wrap[data-block] .rt.tx-table td.tx-category { display: block; grid-row: 2; padding: 0; }
+.rt-wrap[data-block] .rt.tx-table td.tx-account { grid-column: 1; }
+.rt-wrap[data-block] .rt.tx-table td.tx-category { grid-column: 2 / 4; }
+.rt-wrap[data-block] .rt.tx-table td.tx-account::before, .rt-wrap[data-block] .rt.tx-table td.tx-category::before { content: none; }
+.tx-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; white-space: nowrap; }
 .tx-tag.warn { background: var(--warn-bg); color: var(--text); }
-.tx-tag-act { border: 1px solid var(--control-edge); background: var(--control); color: var(--text); cursor: pointer; font: inherit; font-size: var(--fs-label); }
-.tx-tag-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tx-who .row-linked { margin: var(--sp-4) 0 0 calc(var(--avatar) + var(--tick) + var(--sp-8)); }
-/* the cells' marks are blocks of the line's height, so no text strut makes a row taller than its 24 px */
-.tx-table td .tx-acct, .tx-table td .tx-chip-wrap { display: flex; width: fit-content; height: calc(var(--avatar) + var(--tick)); align-items: center; }
-.tx-table td .tx-open { display: grid; margin-left: auto; }
 
-.rt-compact .tx-line .mk-plate { inline-size: calc(var(--avatar-s) + var(--tick)); block-size: calc(var(--avatar-s) + var(--tick)); }
-.rt-compact .tx-line .mk-disc { inline-size: var(--avatar-s); block-size: var(--avatar-s); }
-.rt-compact .tx-line { height: calc(var(--avatar-s) + var(--tick)); }
-.rt-compact .tx-text { display: none; }
-.rt-compact .tx-chip { height: var(--avatar-s); }
-.rt-compact.tx-table td .tx-acct, .rt-compact.tx-table td .tx-chip-wrap { height: calc(var(--avatar-s) + var(--tick)); }
+/* the cells' marks are blocks of the line's height, so no text strut makes a row taller than it must be */
+.tx-table td .tx-acct, .tx-table td .tx-chip-wrap, .tx-table td .tx-chip { display: flex; width: fit-content; max-width: 100%; align-items: center; }
+.tx-table td .tx-acct { min-height: 24px; }
 
-.tx-sum { position: relative; text-align: right; }
-.tx-amount { display: block; font-size: var(--fs-body); line-height: calc(var(--avatar) + var(--tick)); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-.rt-compact .tx-amount { line-height: calc(var(--avatar-s) + var(--tick)); }
+.tx-amount { display: block; font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .tx-amount.in { color: var(--good); }
 /* the bar against the day's largest, anchored right under the figure and out of the flow */
-.tx-bar { position: absolute; right: var(--sp-8); bottom: var(--sp-4); display: block; height: 3px; width: 6rem; max-width: calc(100% - var(--sp-16)); border-radius: var(--radius-pill); background: var(--grid); overflow: hidden; direction: rtl; }
-.rt-compact .tx-bar { bottom: var(--sp-2); height: 2px; }
+.tx-bar { position: absolute; right: 0; bottom: var(--sp-4); display: block; height: 3px; width: 6rem; max-width: 100%; border-radius: var(--radius-pill); background: var(--grid); overflow: hidden; direction: rtl; }
 .tx-bar > span { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 70%, var(--surface)); }
 .tx-bar.in > span { background: color-mix(in srgb, var(--good) 70%, var(--surface)); }
 .tx-part { display: block; margin-top: var(--sp-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); }
-.tx-sum:has(.tx-part) .tx-bar { display: none; }
+.tx-table td:has(.tx-part) .tx-bar { display: none; }
 
-.tx-open { all: unset; display: inline-grid; place-items: center; width: calc(var(--avatar) + var(--tick)); height: calc(var(--avatar) + var(--tick)); border-radius: var(--radius-s); color: var(--text-2); cursor: pointer; }
-.rt-compact .tx-open { height: calc(var(--avatar-s) + var(--tick)); }
-.tx-open:hover { background: var(--control-hover); color: var(--text); }
-.tx-open:focus-visible { outline: 2px solid var(--accent); }
-.tx-open svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state); }
-.tx-open[aria-expanded="true"] svg { transform: rotate(180deg); }
-.tx-opened > td { background: var(--row-hover); }
+/* the opened row: the category picker, the way to the payee's rows and the card bill's statement, then the payee's months */
+.tx-detail { padding: var(--sp-4) 0 0; }
+.tx-detail-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); padding: 0 var(--pad) var(--sp-8); }
+.tx-detail-acts .btn, .tx-detail-acts .why-door { min-height: var(--control-h); min-width: 32px; }
+.rt tr.rt-detail > td:has(.tx-detail) { padding: 0; box-shadow: inset 0 1px 0 var(--grid), inset 0 -1px 0 var(--grid); }
 
 /* the drill: the payee's twelve months on the well */
-.tx-table tr.tx-drill > td { padding: 0; background: var(--well); box-shadow: inset 0 1px 0 var(--grid), inset 0 -1px 0 var(--grid); }
 .tx-drill-body { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--sp-12) var(--sp-24); align-items: end; padding: var(--sp-16) var(--pad); }
 .tx-drill-wait { min-height: 112px; }
 .tx-drill-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-12) var(--sp-16); margin: 0; }
@@ -206,8 +202,6 @@ label.tx-menu-item { justify-content: flex-start; cursor: pointer; }
 .tx-skel-group { display: flex; align-items: center; block-size: 28px; padding: 0 var(--sp-8); background: var(--surface-2); }
 .tx-skel-group .sk-bar { background: var(--grid); }
 .tx-skel-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16); block-size: var(--row-h-roomy); padding: 0 var(--sp-8); border-bottom: 1px solid var(--grid); }
-.tx-skel-compact .tx-skel-group { block-size: 24px; }
-.tx-skel-compact .tx-skel-row { block-size: var(--row-h); }
 
 /* M14 the cut mark: the range of rows shown and the whole, at the left of the button that shows more */
 .cut-mark { margin-right: auto; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
@@ -226,14 +220,9 @@ label.tx-menu-item { justify-content: flex-start; cursor: pointer; }
 .date-filter { display: inline-flex; align-items: center; gap: var(--sp-8); color: var(--text-2); font-size: var(--fs-ui); }
 .filters:has(.date-filter) { align-items: flex-end; }
 
-/* tablets: the account's column gives way and its mark stands on the payee's line */
+/* tablets: the totals strip stands over the whole width */
 @media (min-width: 601px) and (max-width: 960px) {
-  .tx-table .tx-account { display: none; }
-  .tx-line-acct { display: inline-flex; flex: none; }
-  .tx-table th.tx-category, .tx-table td.tx-category { width: 11rem; }
   .tx-totals-figs, .tx-hist { grid-column: 1 / -1; }
-  /* the viewer's part of a joint row may wrap under its amount rather than widen the column */
-  .tx-table td .tx-part { white-space: normal; }
 }
 
 /* ── phones (the width TransactionRows.tsx asks matchMedia for) ───────────────────── */
@@ -256,32 +245,9 @@ label.tx-menu-item { justify-content: flex-start; cursor: pointer; }
 
   .tx-card { padding: var(--sp-12) var(--sp-16); }
   .tx-head { margin: calc(-1 * var(--sp-12)) calc(-1 * var(--sp-16)) var(--sp-4); }
-  .tx-day-head { display: flex; align-items: baseline; gap: var(--sp-8); margin: var(--sp-16) 0 0; padding: var(--sp-4) 0; border-bottom: 1px solid var(--axis); }
-  .tx-day:first-child .tx-day-head { margin-top: var(--sp-4); }
-  .tx-day h3 { flex: 1; margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); text-transform: uppercase; letter-spacing: var(--track-name); }
-  .tx-day-head .rt-sub { margin-left: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums; }
-  .tx-day ul { list-style: none; margin: 0; padding: 0; }
-  /* a card of two lines, 64 px: the chip on the second is a thumb's target */
-  .tx-item { padding: var(--sp-8) 0; border-bottom: 1px solid var(--grid); }
-  .tx-item:last-child { border-bottom: none; }
-  .tx-main { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); min-width: 0; }
-  .tx-main .tx-line { flex: 1 1 auto; }
-  .tx-main .tx-amount { flex: none; line-height: var(--lh-body); }
-  /* the chevron keeps the right end of the second line, so a tag that wraps never takes it to a line of its own */
-  .tx-item { position: relative; }
-  .tx-cat { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-4) var(--sp-8); min-width: 0; margin: var(--sp-4) 0 0 calc(var(--avatar) + var(--tick) + var(--sp-8)); padding-right: calc(var(--avatar) + var(--sp-8)); }
-  /* the chip gives up its letters before the account moves; only a card bill's words may take a third line */
-  /* a chip of a shared account's row is a span with no wrap, and a flex item keeps its text's width unless told it may go below it */
-  .tx-cat .tx-chip-wrap, .tx-cat > .tx-chip { flex: 0 1 auto; min-width: 0; }
-  .tx-cat > :not(.tx-chip-wrap, .tx-chip) { flex: none; }
-  .tx-cat:has(.tx-tag) { flex-wrap: wrap; }
-  .tx-cat .tx-chip { max-width: min(12rem, 100%); min-width: 0; overflow: hidden; }
-  .tx-cat .tx-open { position: absolute; right: 0; top: calc(var(--sp-8) + var(--avatar) + var(--tick) + var(--sp-4)); }
-  .tx-cat .tx-part { display: inline; margin: 0; }
-  .tx-item .row-linked { margin: var(--sp-8) 0 0 calc(var(--avatar) + var(--tick) + var(--sp-8)); }
   /* twelve month names do not fit side by side: every third and the peak keep theirs (MerchantDrill phoneMonthLabels) */
   .tx-drill-minor { visibility: hidden; }
-  .tx-item .tx-drill-body { margin: var(--sp-12) calc(-1 * var(--sp-16)) 0; padding: var(--sp-16); background: var(--well); grid-template-columns: 1fr; }
+  .tx-drill-body { padding: var(--sp-16); grid-template-columns: 1fr; }
 
   /* the answer to a category change: the row is far from the top of the card, so it floats above the list */
   .tx-feedback { position: fixed; left: var(--sp-12); right: var(--sp-12); bottom: calc(var(--tabbar-h) + var(--sp-12) + env(safe-area-inset-bottom)); z-index: var(--z-toast); }

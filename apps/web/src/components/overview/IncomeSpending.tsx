@@ -33,7 +33,7 @@ export function IncomeSpending({ data, scope, period, presets, anchors, categori
         </div>
         {data?.waterfall && (
           <div className="card-datum">
-            <span className="datum-label">Yli jäi</span>
+            <span className="datum-label">Tulos</span>
             <Figure text={money(data.waterfall.leftCents)} size="s" />
           </div>
         )}
@@ -42,7 +42,7 @@ export function IncomeSpending({ data, scope, period, presets, anchors, categori
             {presets.map((p) => (
               <button key={p.id} type="button" aria-pressed={period === p.id} onClick={() => {
                   setRow(null);
-                  navigate("overview", { period: p.id });
+                  navigate("overview", { period: p.id }, true);
                 }}>
                 {p.label}
               </button>
@@ -56,7 +56,7 @@ export function IncomeSpending({ data, scope, period, presets, anchors, categori
 }
 
 /**
- * The month: the waterfall with the savings rate and the fixed costs under Yli jäi and the joint pools' sentence; under
+ * The month: the waterfall with the savings rate and the fixed costs under Tulos and the joint pools' sentence; under
  * them the month's large purchases. The running month's pace is the panel at the top of the page (`Pace`).
  */
 function Month({ data, scope, anchors, categories, row, onRow }: { data: DashboardData; scope: Scope; anchors: ReportAnchors; categories: ReadonlyMap<string, string>; row: OpenRow; onRow: (month: string, key: string) => void }) {

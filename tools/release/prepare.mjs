@@ -33,8 +33,8 @@
  * `prepare.mjs --check-fragment FILE...` reads single files (paths from the repository root) with the same code and
  * prints the first sentence a bad one earns: the landing of a branch uses it.
  *
- * Imports Node built-ins only. Writing the contracts folder needs `pnpm install` (pnpm runs the contracts test) and
- * Node 22.18 or newer (fixture.mjs).
+ * Imports Node built-ins only. Writing the contracts folder needs `pnpm install` (pnpm runs the contracts test, and
+ * fixture.mjs bundles the migration runner with esbuild on a Node that does not strip types).
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";

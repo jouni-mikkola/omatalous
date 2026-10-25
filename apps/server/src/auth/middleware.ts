@@ -1,12 +1,20 @@
 import type { FeatureId } from "@banking/core";
-import { type Context, Hono, type MiddlewareHandler } from "hono";
+import { type Context, Hono, type MiddlewareHandler, type Next } from "hono";
+import { addressKey } from "../security/rate-limit.ts";
+import { recordEvent } from "../services/security.ts";
+import { resolveServiceToken, serviceMayRead } from "../services/service-tokens.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { resolveSession } from "./session.ts";
 import type { ExtensionFlags } from "../extensions.ts";
 
-/** Attaches the signed-in user (if any) to the request. Never blocks. */
+/**
+ * Attaches the signed-in user (if any) to the request. Never blocks, except a request that names a service token: that
+ * one is answered by the token alone (serviceRequest), and a cookie it also carries is not read.
+ */
 export function sessionMiddleware(s: Services): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
+    const auth = c.req.header("authorization");
+    if (auth !== undefined && /^bearer\s/i.test(auth)) return serviceRequest(c, s, auth.slice(7).trim(), next);
     const session = await resolveSession(c, s);
     if (session) {
       c.set("user", session.user);
@@ -14,6 +22,28 @@ export function sessionMiddleware(s: Services): MiddlewareHandler<AppEnv> {
     }
     await next();
   };
+}
+
+/**
+ * A request with a service token (services/service-tokens.ts): 401 for a token that does not open, 403 for anything
+ * but a read the token may make, 429 after 20 wrong tokens from one address in 15 minutes (checked before the lookup).
+ */
+async function serviceRequest(c: Context<AppEnv>, s: Services, token: string, next: Next): Promise<Response | void> {
+  const ip = clientIp(c, s);
+  const key = addressKey(ip);
+  const now = s.now().getTime();
+  if (s.serviceTokenLimiter.check(key, now) > 0) return c.json({ error: "Liian monta yritystä. Yritä myöhemmin uudelleen.", code: "rate_limited" }, 429);
+  const found = await resolveServiceToken(s, token, { ip, userAgent: c.req.header("user-agent") ?? null });
+  if (!found) {
+    if (s.serviceTokenLimiter.consume(key, now).wait === 0 && s.serviceTokenLimiter.check(key, now) > 0) {
+      await recordEvent(s, { kind: "service_token_refused", ip, userAgent: c.req.header("user-agent") ?? null, detail: "liian monta väärää palvelutunnusta" });
+    }
+    return c.json({ error: "Palvelutunnus ei kelpaa.", code: "unauthenticated" }, 401);
+  }
+  if (!serviceMayRead(c.req.method, c.req.path)) return c.json({ error: "Palvelutunnuksella voi vain lukea.", code: "forbidden" }, 403);
+  c.set("user", found.user);
+  c.set("serviceToken", found.tokenId);
+  await next();
 }
 
 /** 401 without a session; 403 until a temporary password has been changed. */

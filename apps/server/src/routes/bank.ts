@@ -9,6 +9,7 @@ import { openSync } from "../connectors/open-sync.ts";
 import type { UserHeaders } from "../connectors/types.ts";
 import { syncUser } from "../connectors/sync.ts";
 import { clientIp } from "../auth/middleware.ts";
+import { closeRound, startRound } from "../services/consent-round.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import type { AppEnv, Services } from "../services/context.ts";
@@ -111,6 +112,13 @@ export function bankRoutes(s: Services) {
     const r = await completeConnection(s, s.finance(user.id), code, state);
     inBackground(syncUser(s, user.id, "connect", headersOf(s, c)));
     return c.json(r);
+  });
+
+  // one guided round over the banks that are due: the server picks them, and each is started through /connections/start
+  app.post("/connections/round", async (c) => c.json(await startRound(s, c.get("user").id)));
+  app.delete("/connections/round", async (c) => {
+    await closeRound(s, c.get("user").id);
+    return c.json({ ok: true });
   });
 
   app.delete("/connections/:id", async (c) => {

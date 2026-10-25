@@ -36,6 +36,11 @@ export interface PullWindow {
   dateFrom: string;
   /** The connector may ask for the longest history it can get: no row of this source is stored yet, or the user just gave a new consent. */
   initial: boolean;
+  /**
+   * Last day to ask for, for a backfill of the days before the rows already held. Such a request is one plain window; a
+   * source may answer it from a later first day when the bank refuses the period (`asked` tells which).
+   */
+  dateTo?: string;
 }
 
 /**
@@ -96,6 +101,11 @@ export type RefusedRows = Partial<Record<RefusalReason, number>>;
 /** One sync run's access to a source. Created once per run, after the loop knows there is something to fetch. */
 export interface Puller {
   transactions(account: PullAccount, window: PullWindow): Promise<RawTransaction[]>;
+  /**
+   * The window the account's last `transactions` call was in fact answered for, which is shorter than the requested one
+   * when the bank refused the period. Left out by a source that never shortens it.
+   */
+  asked?(account: PullAccount): { dateFrom: string; longest: boolean } | undefined;
   /** The rows of the account's last `transactions` call that could not be read; left out by a source that refuses none. */
   refused?(account: PullAccount): RefusedRows;
   /**

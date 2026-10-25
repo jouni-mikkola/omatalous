@@ -5,7 +5,7 @@
  * and a caption that names the chart's question. Each chart passes its own rows; no figure is made here.
  */
 import { createContext, useContext } from "react";
-import { DataTable } from "./DataTable.tsx";
+import { Table } from "./Table.tsx";
 
 /** The question of the chart whose table is shown (QuestionChart sets it), so the caption names the chart. */
 export const ChartQuestion = createContext<string | null>(null);
@@ -18,14 +18,12 @@ export type ChartRow = {
 };
 
 export function ChartTable({
-  id,
   xLabel,
   series,
   rows,
   unit = "€",
   precision = "euros",
 }: {
-  id: string;
   xLabel: string;
   series: ChartSeries[];
   rows: ChartRow[];
@@ -34,8 +32,7 @@ export function ChartTable({
 }) {
   const question = useContext(ChartQuestion);
   return (
-    <DataTable
-      id={id}
+    <Table
       caption={question ? `${question} taulukkona` : `${xLabel}, taulukkona`}
       rows={rows}
       rowKey={(r) => r.key}

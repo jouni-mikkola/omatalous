@@ -57,7 +57,6 @@ describe("the page that did not come", () => {
 
   it("gives a calculation without a chart a measure, its heads flush, and the merchant's cells four to a row", () => {
     expect(css("optimise.css")).toMatch(/\.evidence-part:not\(:has\(\.chart\)\) \{ max-width: 36rem; \}/);
-    expect(css("optimise.css")).toMatch(/\.evidence-rows th \{ padding-left: 0; \}/);
     expect(css("transactions.css")).toMatch(/\.kv:has\(> :nth-child\(7\)\) \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \}/);
     expect(css("categories.css")).toMatch(/\.rule-form \{ display: grid; grid-template-columns: minmax\(0, 1fr\); \}/);
     expect(css("transactions.css")).toMatch(/\.filters \.badge \{ max-width: 100%; white-space: normal; overflow-wrap: anywhere;/);

@@ -36,7 +36,7 @@ export function KeyFigures({ data, scope }: { data: DashboardData; scope: Scope 
       {/* a month that is still running has its bills ahead of it, so what was left is told of every day of the month before */}
       {last && (
         <div className="kf">
-          <div className="kf-label">Yli jäi viime kuussa</div>
+          <div className="kf-label">Tulos viime kuussa</div>
           <Figure text={money(last.leftCents)} size="l" />
           {/* the ring is the rate's shape; its reading is the text beside it */}
           {last.savingsRate !== null && (
@@ -49,9 +49,9 @@ export function KeyFigures({ data, scope }: { data: DashboardData; scope: Scope 
       )}
       {holdings.accountsCents !== null && (
         <div className="kf">
-          <div className="kf-label">Tileillä</div>
+          <div className="kf-label">Tilien saldo, ilman korttia</div>
           {/* today's balances: the day the window starts, else the end of the page's range */}
-          <Why figure="holdings.accounts" title="Tileillä" range={{ from: ahead?.from ?? data.range.to, to: ahead?.from ?? data.range.to }} scope={scope} text={money(holdings.accountsCents)}>
+          <Why figure="holdings.accounts" title="Tilien saldo, ilman korttia" range={{ from: ahead?.from ?? data.range.to, to: ahead?.from ?? data.range.to }} scope={scope} text={money(holdings.accountsCents)}>
             <Figure text={money(holdings.accountsCents)} size="l" />
           </Why>
           {holdings.cardsCents !== null && <div className="kf-sub">Luottoa käytetty {money(holdings.cardsCents)}</div>}

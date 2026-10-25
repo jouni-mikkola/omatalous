@@ -186,9 +186,21 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
   };
 }
 
+/** One formatter per time zone: making one costs far more than using it, and an answer of the dashboard asks for many days. */
+const DAY_FORMATS = new Map<string, Intl.DateTimeFormat>();
+function dayFormat(timezone: string): Intl.DateTimeFormat {
+  let f = DAY_FORMATS.get(timezone);
+  if (!f) {
+    // an unknown zone throws here, as before, and is not kept
+    f = new Intl.DateTimeFormat("sv-SE", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" });
+    DAY_FORMATS.set(timezone, f);
+  }
+  return f;
+}
+
 /** Today's date (YYYY-MM-DD) in the given time zone. */
 export function todayIn(timezone: string, now = new Date()): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return dayFormat(timezone).format(now);
 }
 
 /**
